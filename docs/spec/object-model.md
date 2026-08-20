@@ -15,7 +15,7 @@ Value types represent pure data. They cannot be modified in place.
 Interface defines behavior only. It has no fields.
 
 ## Ref
-Ref<T> explicitly introduces shared mutable identity. It is visible in source code.
+Ref&lt;T&gt; explicitly introduces shared mutable identity. It is visible in source code.
 
 ## Inheritance
 Norm uses single class inheritance and multiple interface implementation.
