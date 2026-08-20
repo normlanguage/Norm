@@ -1,140 +1,494 @@
-# Norm Language Design Whitepaper
+# Norm Language Whitepaper
 
-## Overview
+## 1. Introduction
 
-Norm is designed as an application-oriented programming language. The goal is not to maximize language features, but to provide a stable engineering model where developers can understand code locally and predict its behavior.
+Norm is a statically typed application-oriented programming language designed for large-scale software development. The purpose of Norm is not to maximize language features, but to provide a predictable and readable programming model for building real applications.
 
-Norm combines the strengths of Java's ecosystem and readability, modern null safety, value-oriented data modeling, explicit metaprogramming, and native deployment goals.
+Norm targets backend services, enterprise applications, desktop software, command line tools and general application development.
 
-This document expands the original design notes into a long-term language specification direction.
+The core idea is:
 
-## Philosophy
+> Ordinary code should remain ordinary. The meaning of a program should be visible from the source code.
 
-### Explicit behavior
+Norm combines:
 
-Norm avoids hidden behavior. A programmer reading code should understand important runtime effects.
+- Java-like readability and ecosystem practicality
+- Strong static typing
+- Explicit null safety
+- Value semantics by default
+- Explicit shared references
+- Modern control-flow expressions
+- Reified generics
+- Annotation based metadata and reflection
+- Native executable deployment
+- Interpreter and compiler execution modes
+
+Norm is designed as a language, not as a collection of syntax features.
+
+---
+
+## 2. Why Norm Exists
+
+Modern application development has several conflicting trends.
+
+Java provides excellent engineering discipline, but carries historical design limitations:
+
+- everything being forced into classes
+- type erasure generics
+- confusing object equality
+- excessive framework magic
+- verbose property patterns
+
+JavaScript and TypeScript provide flexibility, but introduce different problems:
+
+- weak runtime type guarantees
+- increasingly complex type-level programming
+- implicit conversions
+- difficult large-system reasoning
+
+Rust provides excellent safety, but introduces concepts that are expensive for ordinary application developers:
+
+- ownership
+- borrowing
+- lifetimes
+- complex trait systems
+
+Kotlin improves many Java problems, but its language surface has expanded significantly.
+
+Norm chooses a different balance:
+
+- safer than JavaScript
+- simpler than Kotlin
+- easier for application developers than Rust
+- more predictable than dynamic languages
+
+---
+
+## 3. Design Principles
+
+### 3.1 Explicit over implicit
+
+Norm avoids hidden behavior.
+
+The following are deliberately avoided:
+
+- macros
+- operator overloading
+- implicit string conversion
+- hidden null creation
+- automatic Result propagation
+- arbitrary closure capture
+
+Powerful features exist, but they require visible syntax.
 
 Examples:
 
-- Shared mutable state requires Ref<T>.
-- Reflection requires explicit reflect declarations.
-- Business failures use Result<T,E>.
-- Unexpected failures use exceptions.
-- String formatting uses templates instead of overloaded operators.
+Shared state:
 
-### Application first
+```norm
+Ref<User> user = original.ref()
+```
 
-Norm is designed for:
+Reflection:
 
-- backend services
-- enterprise systems
-- desktop applications
-- CLI tools
-- business software
+```norm
+reflect void beforeFunction(...)
+```
 
-The language prioritizes maintainability, ecosystem integration, and predictable execution.
+These keywords communicate that special behavior exists.
 
-## Object Model
+---
 
-Norm separates three concepts:
+### 3.2 Application first
 
-### class
+Norm optimizes for software that people actually build:
 
-Class represents behavior-oriented objects.
+- Web services
+- APIs
+- Database applications
+- Business systems
+- Tools
 
-A class has:
+The language does not prioritize:
 
-- fields
-- methods
-- inheritance
-- interface implementation
+- kernel programming
+- extreme metaprogramming
+- hardware control
 
-Class assignment has value semantics by default.
+Therefore Norm chooses garbage collection and runtime support.
 
-### value
+The developer should focus on business logic rather than memory lifetime management.
 
-Value represents pure data.
+---
 
-Examples:
+# 4. Type System
 
-- Money
-- Date
-- Coordinates
-- DTO objects
+Norm uses nominal static typing.
 
-Values cannot be modified in place. A new value is created instead.
+A type relationship exists because it is explicitly declared.
 
-### Ref<T>
+Example:
 
-Ref explicitly introduces shared identity.
+```norm
+interface Serializer {
+    String serialize()
+}
 
-This is the only normal way to express shared mutable state.
+class UserSerializer implements Serializer {
+    String serialize() {
+        return "user"
+    }
+}
+```
 
-## Runtime Strategy
+A class does not automatically implement an interface just because it has the same methods.
 
-The first runtime implementation uses GraalVM and Truffle.
+This improves readability in large systems.
+
+---
+
+## 4.1 Null Safety
+
+Norm uses non-null by default.
+
+```norm
+String name = "Alice"
+```
+
+`name` can never become null.
+
+Nullable values require explicit syntax:
+
+```norm
+String? email = null
+```
+
+This prevents the most common application bug category: unexpected null values.
+
+Norm does not provide late initialization.
+
+Instead, the compiler performs definite assignment analysis.
+
+```norm
+class User {
+    String name
+
+    User(String name) {
+        this.name = name
+    }
+}
+```
+
+The compiler proves every construction path initializes `name`.
+
+---
+
+# 5. Object Model
+
+Norm has three main data models:
+
+- class
+- value
+- Ref<T>
+
+---
+
+## 5.1 class
+
+Class represents objects with behavior.
+
+```norm
+class User {
+    String name
+
+    String displayName() {
+        return name
+    }
+}
+```
+
+Unlike Java, class assignment uses value semantics.
+
+```norm
+User a = User(name = "Alice")
+User b = a
+```
+
+`b` becomes an independent value copy.
+
+The runtime may optimize this internally through copy-on-write.
+
+The semantic rule remains:
+
+> Assignment does not create hidden shared mutable state.
+
+---
+
+## 5.2 Ref<T>
+
+When sharing is required, it must be explicit.
+
+```norm
+Ref<User> user = original.ref()
+```
+
+Now both references access the same object.
+
+```norm
+user.name = "Bob"
+```
+
+changes the shared object.
+
+Ref is never nullable.
+
+Invalid:
+
+```norm
+Ref<User>?
+Ref<User?>
+```
+
+The state model stays simple.
+
+---
+
+## 5.3 value
+
+Value is designed for pure data.
+
+```norm
+value Money {
+    decimal amount
+    Currency currency
+}
+```
+
+Value provides:
+
+- value equality
+- hash support
+- immutable fields
+- copy semantics
+
+Money should behave like a mathematical value, not an identity object.
+
+---
+
+# 6. Functions
+
+Functions are first-class language structures.
+
+They do not need a class container.
+
+```norm
+String hello(String name) {
+    return "Hello ${name}"
+}
+```
+
+This avoids utility classes such as:
+
+```text
+StringUtils
+MathUtils
+FileUtils
+```
+
+A module organizes functions.
+
+A class models objects.
+
+---
+
+# 7. Control Flow Philosophy
+
+Norm treats important control structures as expressions.
+
+However, expressions must explicitly produce values.
+
+There is no implicit last-expression return.
+
+Values are produced using break.
+
+Example:
+
+```norm
+String status = if active {
+    break "running"
+} else {
+    break "stopped"
+}
+```
+
+This keeps value flow visible.
+
+---
+
+# 8. For Expression
+
+Norm uses for as the main iteration structure.
+
+```norm
+for User user : users {
+    print(user.name)
+}
+```
+
+A for expression must explicitly handle all result paths.
+
+```norm
+User admin = for User user : users {
+    if user.admin {
+        break user
+    }
+} else {
+    break defaultUser
+}
+```
+
+There is no hidden null result.
+
+The programmer decides what happens when nothing is found.
+
+---
+
+# 9. Runtime Architecture
+
+Norm is designed with multiple execution backends.
+
+The first implementation uses:
+
+```text
+Norm Source
+    ↓
+Parser
+    ↓
+Semantic Analysis
+    ↓
+Typed IR
+    ↓
+Truffle Backend
+    ↓
+GraalVM
+```
+
+This provides:
+
+- interpreter mode
+- JIT optimization
+- native packaging through Native Image
+
+Long term:
+
+```text
+Typed IR
+   ├── Truffle backend
+   └── Native backend
+```
+
+The language model is independent from the execution engine.
+
+---
+
+# 10. Ecosystem Strategy
+
+Norm does not rebuild the entire software ecosystem immediately.
+
+The first stage uses compatibility layers.
 
 Architecture:
 
-Norm Source
-
-→ Parser
-
-→ Semantic Analyzer
-
-→ Typed IR
-
-→ Truffle Backend
-
-→ GraalVM Runtime
-
-Later, a native backend can compile the same IR directly to machine code.
-
-## Ecosystem Strategy
-
-Norm does not recreate the entire software ecosystem initially.
-
-The first phase uses adapters:
-
+```text
 Norm API
-
-→ Compatibility Layer
-
-→ Java ecosystem
+   ↓
+Adapter Layer
+   ↓
+Existing Java Ecosystem
+```
 
 Examples:
 
-- JDBC for database drivers
-- java.time for time handling
-- Java HTTP libraries
-- existing JSON libraries
+Database:
 
-As Norm matures, components can gradually become native implementations.
+```text
+Norm SQL
+   ↓
+JDBC adapter
+   ↓
+PostgreSQL/MySQL drivers
+```
 
-## Web Development Vision
+JSON:
 
-Norm web applications should avoid excessive framework magic.
+```text
+Norm JSON
+   ↓
+Existing serializer implementation
+```
 
-A typical application should have:
+Over time these components can become native Norm implementations.
 
-- explicit routing
-- typed request and response objects
-- Result based business flow
-- annotation based registration
-- predictable dependency construction
+---
 
-The language should make common backend code simple without hiding execution.
+# 11. Development Roadmap
 
-## Future Direction
+## Stage 1: Language Prototype
 
-Long term goals:
+Implement:
 
-1. Complete compiler frontend
-2. Stable type system
-3. Standard library
-4. Web ecosystem
-5. Native compiler backend
-6. Debugger and tooling
-7. Package ecosystem
+- lexer
+- parser
+- AST
+- type checker
+- interpreter
 
-Norm should grow through stable foundations rather than continuous addition of syntax features.
+## Stage 2: Runtime
+
+Implement:
+
+- objects
+- value semantics
+- Ref
+- GC integration
+- reflection metadata
+
+## Stage 3: Application Platform
+
+Build:
+
+- HTTP
+- JSON
+- SQL
+- testing
+- logging
+
+## Stage 4: Native Backend
+
+Create:
+
+- optimized IR
+- native compiler
+- production deployment model
+
+---
+
+# Conclusion
+
+Norm is designed around one central idea:
+
+A programming language should make correct application design easy.
+
+It does not try to remove every abstraction. It tries to remove unnecessary uncertainty.
+
+A Norm developer should be able to answer:
+
+- Is this value nullable?
+- Is this object shared?
+- Can this function fail?
+- Where does this behavior come from?
+- What does this code actually execute?
+
+by reading the program itself.
+
+That is the meaning of Norm.
