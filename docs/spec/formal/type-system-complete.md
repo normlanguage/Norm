@@ -53,7 +53,7 @@ means a value copy at language level.
 Explicit sharing:
 
 ```
-Ref<User> b = a.ref()
+Ref&lt;User&gt; b = a.ref()
 ```
 
 creates shared identity.
@@ -67,9 +67,10 @@ Generics are reified.
 Example:
 
 ```
-List<String>.class
+List&lt;String&gt;.class
 ```
 
 contains the generic argument metadata.
 
 The runtime must preserve enough information for reflection and serialization.
+

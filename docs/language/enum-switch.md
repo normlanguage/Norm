@@ -3,7 +3,7 @@
 Norm enum 参考 Rust，可携带数据：
 
 ```norm
-enum Result<T, E> {
+enum Result&lt;T, E&gt; {
     Ok(T value)
     Err(E error)
 }
@@ -32,3 +32,4 @@ if person is Employee {
 }
 Employee employee = person as Employee
 ```
+

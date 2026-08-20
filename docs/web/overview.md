@@ -21,7 +21,7 @@ Example:
 
 ```norm
 @Get(path="/users/{id}")
-HttpResponse<User> getUser(long id) {
+HttpResponse&lt;User&gt; getUser(long id) {
 }
 ```
 
@@ -30,3 +30,4 @@ Annotations are explicit and implemented through reflect hooks.
 ## Dependency management
 
 Dependencies should be explicit through constructors and Ref where shared services are required.
+

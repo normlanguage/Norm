@@ -21,3 +21,4 @@ Ref&lt;T&gt; explicitly introduces shared mutable identity. It is visible in sou
 Norm uses single class inheritance and multiple interface implementation.
 
 Public methods are virtual by default. Private methods belong only to their declaring class.
+

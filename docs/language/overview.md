@@ -14,3 +14,4 @@ if age >= 18 {
 主要结构：`class`、`value`、`interface`、`enum`、`if`、`for`、`switch`、`break`、`continue`、`return`、`try/catch/finally`、`annotation`、`reflect`、`is`、`as`、`this`、`super`。
 
 Norm 没有 `static`；不依赖实例的行为写成顶层函数。
+

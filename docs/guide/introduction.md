@@ -9,8 +9,9 @@ Norm 的目标不是拥有最多特性，而是让业务代码多年后仍可直
 - 静态强类型，Nominal Typing。
 - 非空默认：`String` 非空，`String?` 才可为 null。
 - class 与普通容器默认递归值复制。
-- 共享 identity 通过 `Ref<T>` 显式出现。
+- 共享 identity 通过 `Ref&lt;T&gt;` 显式出现。
 - 顶层函数存在，不要求所有行为放入 class。
 - 无宏、无用户操作符重载、无任意闭包捕获。
-- `Result<T,E>` 表达业务失败；Exception 表达异常执行状态。
+- `Result&lt;T,E&gt;` 表达业务失败；Exception 表达异常执行状态。
 - 支持解释执行和原生部署。
+

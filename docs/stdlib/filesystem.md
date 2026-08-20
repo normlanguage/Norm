@@ -10,5 +10,6 @@ Principles:
 
 Example:
 ```norm
-Result<String, FileError> text = File.readText(path = path)
+Result&lt;String, FileError&gt; text = File.readText(path = path)
 ```
+

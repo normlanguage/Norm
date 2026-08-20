@@ -19,3 +19,4 @@ Lexer、Parser、AST、name resolution、Nominal type system、null safety、ove
 ## 5. 独立 Native Backend
 
 只有当语言本身证明价值后再投入 LLVM/Cranelift 或其他 backend。Frontend 与 Typed IR 从第一天保持独立。
+

@@ -11,5 +11,6 @@ Configuration should be typed.
 
 Example:
 ```norm
-DatabaseConfig config = Config.load<DatabaseConfig>()
+DatabaseConfig config = Config.load&lt;DatabaseConfig&gt;()
 ```
+

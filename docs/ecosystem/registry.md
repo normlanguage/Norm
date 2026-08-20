@@ -12,3 +12,4 @@ Manifest contains:
 - version
 - dependencies
 - target platforms
+

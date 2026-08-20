@@ -12,3 +12,4 @@ Core concepts:
 - Authentication
 
 The framework avoids hidden lifecycle behavior.
+

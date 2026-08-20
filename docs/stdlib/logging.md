@@ -12,3 +12,4 @@ Example:
 ```norm
 Logger.info(message = "User created", userId = id)
 ```
+

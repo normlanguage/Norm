@@ -23,7 +23,7 @@ The standard library follows the language philosophy: predictable, explicit and 
 Collections are value containers by default.
 
 ```norm
-List<User> users = List<User>(
+List&lt;User&gt; users = List&lt;User&gt;(
     values = []
 )
 ```
@@ -43,3 +43,4 @@ Database driver
 ```
 
 Future implementations may replace adapters with native drivers.
+

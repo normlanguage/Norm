@@ -10,3 +10,4 @@ Supported patterns:
 - constants
 
 Patterns are intentionally limited to keep readability.
+

@@ -23,3 +23,4 @@ int small = int(total)
 ```
 
 `decimal` 不与 `float/double` 隐式混合。Norm 没有统一 `Object` 根类型。
+

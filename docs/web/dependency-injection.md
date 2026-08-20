@@ -15,3 +15,4 @@ UserService service = UserService(
 Annotations may provide registration metadata, but construction rules remain visible.
 
 The goal is predictable application architecture.
+

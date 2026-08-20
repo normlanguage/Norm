@@ -29,7 +29,7 @@ User b = a
 共享必须：
 
 ```norm
-Ref<User> b = a.ref()
+Ref&lt;User&gt; b = a.ref()
 ```
 
 ## Norm 与 Kotlin
@@ -105,3 +105,4 @@ Norm 的发展分阶段：
 - 企业级应用平台
 
 Norm 希望成为一种长期稳定的应用开发语言。
+

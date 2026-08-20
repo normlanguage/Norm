@@ -86,7 +86,7 @@ Examples:
 Shared state:
 
 ```norm
-Ref<User> user = original.ref()
+Ref&lt;User&gt; user = original.ref()
 ```
 
 Reflection:
@@ -189,7 +189,7 @@ Norm has three main data models:
 
 - class
 - value
-- Ref<T>
+- Ref&lt;T&gt;
 
 ---
 
@@ -224,12 +224,12 @@ The semantic rule remains:
 
 ---
 
-## 5.2 Ref<T>
+## 5.2 Ref&lt;T&gt;
 
 When sharing is required, it must be explicit.
 
 ```norm
-Ref<User> user = original.ref()
+Ref&lt;User&gt; user = original.ref()
 ```
 
 Now both references access the same object.
@@ -245,8 +245,8 @@ Ref is never nullable.
 Invalid:
 
 ```norm
-Ref<User>?
-Ref<User?>
+Ref&lt;User&gt;?
+Ref&lt;User?&gt;
 ```
 
 The state model stays simple.
@@ -492,3 +492,4 @@ A Norm developer should be able to answer:
 by reading the program itself.
 
 That is the meaning of Norm.
+

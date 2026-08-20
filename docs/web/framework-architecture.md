@@ -30,3 +30,4 @@ Reflect hooks perform explicit registration.
 The first implementation can use adapters over existing ecosystems such as JDBC.
 
 The API remains Norm-native.
+

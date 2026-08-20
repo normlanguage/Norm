@@ -56,7 +56,7 @@ A class with the same method shape is not automatically compatible.
 Generics preserve runtime metadata.
 
 ```norm
-List<String>.class
+List&lt;String&gt;.class
 ```
 
 contains:
@@ -85,7 +85,8 @@ The runtime may optimize using copy-on-write.
 Shared identity requires explicit reference creation.
 
 ```norm
-Ref<User> shared = user.ref()
+Ref&lt;User&gt; shared = user.ref()
 ```
 
 The compiler can distinguish local values from shared mutable state.
+

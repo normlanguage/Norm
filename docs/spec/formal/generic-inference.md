@@ -7,7 +7,7 @@ Norm uses explicit nominal generics with compiler assisted inference. The goal i
 Example:
 
 ```norm
-List<User> users = repository.findAll()
+List&lt;User&gt; users = repository.findAll()
 ```
 
 The compiler infers the generic return type from the declared function signature.
@@ -25,7 +25,7 @@ The compiler resolves generic parameters in this order:
 Example:
 
 ```norm
-T first<T>(List<T> values)
+T first&lt;T&gt;(List&lt;T&gt; values)
 ```
 
 Calling:
@@ -39,3 +39,4 @@ allows the compiler to infer T as String.
 ## Restrictions
 
 Norm does not perform arbitrary type computation. Generic inference must remain predictable.
+

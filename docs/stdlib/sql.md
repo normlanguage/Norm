@@ -15,3 +15,4 @@ Adapter
 Database driver
 
 Initial adapters may use JDBC compatibility.
+

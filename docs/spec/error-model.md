@@ -4,10 +4,11 @@ Error categories:
 
 Expected business result:
 
-Result<T,E>
+Result&lt;T,E&gt;
 
 Unexpected execution failure:
 
 Exception
 
 The two models are intentionally separate.
+

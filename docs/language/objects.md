@@ -10,7 +10,7 @@ class User {
 }
 
 User b = a
-Ref<User> shared = a.ref()
+Ref&lt;User&gt; shared = a.ref()
 ```
 
 实现可以使用 COW、结构共享、逃逸分析与 copy elision，但语言语义仍是独立值。
@@ -45,3 +45,4 @@ class User {
 ## 继承
 
 `Person p = Employee(...)` 保留完整 Employee 动态类型，不发生 object slicing。父构造必须显式 `super(...)`。
+

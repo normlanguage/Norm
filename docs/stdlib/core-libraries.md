@@ -49,7 +49,7 @@ Uses runtime metadata:
 
 ```
 Json.encode(value)
-Json.decode<User>(json)
+Json.decode&lt;User&gt;(json)
 ```
 
 ## HTTP
@@ -68,3 +68,4 @@ Row
 ```
 
 First implementation can use JDBC adapters.
+

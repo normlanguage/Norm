@@ -27,3 +27,4 @@ Database transactions belong to infrastructure layers.
 Business failures should remain Result values.
 
 Unexpected system failures use exceptions.
+

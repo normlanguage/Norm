@@ -15,7 +15,7 @@ Norm has several fundamental type categories:
 - Algebraic types: declared with `enum`
 - Function types
 - Nullable types: T?
-- Reference types: Ref<T>
+- Reference types: Ref&lt;T&gt;
 
 ## Nullable Rules
 
@@ -33,7 +33,7 @@ The compiler performs flow analysis to prove nullable safety.
 Generics preserve runtime information.
 
 ```norm
-List<String>.class
+List&lt;String&gt;.class
 ```
 
 The runtime can inspect the generic argument.
@@ -49,8 +49,9 @@ Unlike Java erasure, Norm keeps:
 Variance is explicit and follows Java-style use-site variance.
 
 ```norm
-List<? extends User>
-List<? super Employee>
+List&lt;? extends User&gt;
+List&lt;? super Employee&gt;
 ```
 
 The compiler rejects unsafe substitutions.
+

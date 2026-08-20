@@ -51,7 +51,8 @@ Structural compatibility is not enough.
 Generics preserve runtime metadata.
 
 ```norm
-List<String>.class
+List&lt;String&gt;.class
 ```
 
 can expose its type argument information.
+

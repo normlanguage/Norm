@@ -5,8 +5,8 @@
 Collections are value containers by default.
 
 ```
-List<User> a = users
-List<User> b = a
+List&lt;User&gt; a = users
+List&lt;User&gt; b = a
 ```
 
 has value semantics.
@@ -18,7 +18,7 @@ The runtime may use copy-on-write internally.
 Example:
 
 ```norm
-List<String> names = List<String>(
+List&lt;String&gt; names = List&lt;String&gt;(
     values = ["Alice", "Bob"]
 )
 ```
@@ -28,7 +28,7 @@ List<String> names = List<String>(
 Maps are typed:
 
 ```norm
-Map<String, User> users
+Map&lt;String, User&gt; users
 ```
 
 Raw containers are forbidden.
@@ -36,3 +36,4 @@ Raw containers are forbidden.
 ## Set
 
 Set provides unique values based on equality semantics.
+

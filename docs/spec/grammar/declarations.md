@@ -80,3 +80,4 @@ annotation Entity {
 ```
 
 Annotations may expose reflection behavior explicitly through reflect methods.
+

@@ -41,3 +41,4 @@ User admin = for User user : users {
 ```
 
 语言不会为缺失路径隐式补 null。
+

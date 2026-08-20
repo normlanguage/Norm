@@ -1,4 +1,4 @@
-﻿# Norm random Design
+# Norm random Design
 
 ## Overview
 
@@ -27,3 +27,4 @@ Future implementation must provide:
 ## Notes
 
 This section will be expanded during compiler and runtime implementation.
+
