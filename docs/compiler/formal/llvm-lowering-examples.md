@@ -1,1 +1,0 @@
-# Norm LLVM Lowering Examples`n`n## Overview`nFormal examples for lowering Norm IR into LLVM concepts.`n`n## Value types`nPrimitive values map directly to backend scalar types.`n`n## Objects`nObjects use runtime metadata and managed references.`n
