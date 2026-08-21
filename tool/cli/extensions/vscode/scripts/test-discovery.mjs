@@ -1,45 +1,55 @@
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const require = createRequire(import.meta.url);
 const { cliInvocation, resolveCliCommand } = require('../out/cli-command.cjs');
-const repository = resolve(process.cwd(), '..', '..', '..', '..');
-const extension = resolve(repository, 'tool', 'cli', 'extensions', 'vscode');
-const developmentExtension = resolve(extension, 'test-fixtures', 'unbundled-extension');
-const expected = resolve(
-  repository,
-  'tool',
-  'cli',
-  'app',
-  'build',
-  'install',
-  'norm',
-  'bin',
-  process.platform === 'win32' ? 'norm.bat' : 'norm',
-);
-
-assert.equal(resolveCliCommand('', repository, developmentExtension), expected);
-assert.equal(resolveCliCommand(expected, repository, developmentExtension), expected);
-assert.equal(
-  resolveCliCommand('definitely-missing-norm-cli', repository, developmentExtension),
-  undefined,
-);
-const invocation = cliInvocation(expected, ['run', 'source file.norm']);
-if (process.platform === 'win32') {
-  assert.equal(invocation.command, process.env.ComSpec ?? 'cmd.exe');
-  assert.deepEqual(invocation.args, ['/d', '/c', 'call', expected, 'run', 'source file.norm']);
-} else {
-  assert.equal(invocation.command, expected);
-  assert.deepEqual(invocation.args, ['run', 'source file.norm']);
-}
-
-const packagedExtension = mkdtempSync(join(tmpdir(), 'norm-vscode-'));
+const fixture = mkdtempSync(join(tmpdir(), 'norm-vscode-'));
 try {
+  const repository = join(fixture, 'repository');
+  const developmentExtension = join(
+    repository,
+    'tool',
+    'cli',
+    'extensions',
+    'vscode',
+    'test-fixtures',
+    'unbundled-extension',
+  );
+  const expected = join(
+    repository,
+    'tool',
+    'cli',
+    'app',
+    'build',
+    'install',
+    'norm',
+    'bin',
+    process.platform === 'win32' ? 'norm.bat' : 'norm',
+  );
+  mkdirSync(dirname(expected), { recursive: true });
+  writeFileSync(expected, '');
+  chmodSync(expected, 0o755);
+  assert.equal(resolveCliCommand('', repository, developmentExtension), expected);
+  assert.equal(resolveCliCommand(expected, repository, developmentExtension), expected);
+  assert.equal(
+    resolveCliCommand('definitely-missing-norm-cli', repository, developmentExtension),
+    undefined,
+  );
+  const invocation = cliInvocation(expected, ['run', 'source file.norm']);
+  if (process.platform === 'win32') {
+    assert.equal(invocation.command, process.env.ComSpec ?? 'cmd.exe');
+    assert.deepEqual(invocation.args, ['/d', '/c', 'call', expected, 'run', 'source file.norm']);
+  } else {
+    assert.equal(invocation.command, expected);
+    assert.deepEqual(invocation.args, ['run', 'source file.norm']);
+  }
+
+  const packagedExtension = join(fixture, 'packaged-extension');
   const bin = join(packagedExtension, 'bin');
-  mkdirSync(bin);
+  mkdirSync(bin, { recursive: true });
   const bundled = join(bin, process.platform === 'win32' ? 'norm.exe' : 'norm');
   writeFileSync(bundled, '');
   chmodSync(bundled, 0o755);
@@ -50,6 +60,6 @@ try {
   if (previous === undefined) delete process.env.NORM_CLI;
   else process.env.NORM_CLI = previous;
 } finally {
-  rmSync(packagedExtension, { recursive: true, force: true });
+  rmSync(fixture, { recursive: true, force: true });
 }
 console.log('Norm CLI discovery tests succeeded.');
