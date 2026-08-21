@@ -1,16 +1,63 @@
 import { defineConfig } from 'vitepress'
+import { zhTheme } from './locales/zh'
+import { enTheme } from './locales/en'
+
 export default defineConfig({
-  lang:'zh-CN', title:'Norm', description:'一门面向应用层软件的静态强类型编程语言', base:'/norm/', cleanUrls:true, lastUpdated:true,
-  themeConfig:{
-    siteTitle:'Norm',
-    nav:[{text:'哲学',link:'/guide/philosophy'},{text:'语言',link:'/language/overview'},{text:'运行时',link:'/runtime/architecture'},{text:'生态',link:'/ecosystem/strategy'},{text:'路线图',link:'/design/roadmap'}],
-    sidebar:[
-      {text:'开始',items:[{text:'Norm 是什么',link:'/guide/introduction'},{text:'语言哲学',link:'/guide/philosophy'}]},
-      {text:'语言手册',items:[{text:'语法总览',link:'/language/overview'},{text:'类型与 Null',link:'/language/types'},{text:'Class / Value / Ref',link:'/language/objects'},{text:'函数',link:'/language/functions'},{text:'控制流',link:'/language/control-flow'},{text:'Enum / Switch',link:'/language/enum-switch'},{text:'泛型',link:'/language/generics'},{text:'错误处理',link:'/language/errors'},{text:'Annotation / Reflect',link:'/language/reflect'}]},
-      {text:'实现',items:[{text:'总体架构',link:'/runtime/architecture'},{text:'GraalVM / Truffle',link:'/runtime/graalvm-truffle'}]},
-      {text:'生态',items:[{text:'生态策略',link:'/ecosystem/strategy'},{text:'Web 示例',link:'/examples/web'}]},
-      {text:'未来',items:[{text:'技术方案',link:'/design/technical-plan'},{text:'路线图',link:'/design/roadmap'}]}
-    ],
-    socialLinks:[{icon:'github',link:'https://github.com/w0fv1/norm'}], search:{provider:'local'}, footer:{message:'Norm is currently a language pre-design.',copyright:'Norm Project'}
-  }
+  title: 'Norm',
+  base: '/norm/',
+  cleanUrls: true,
+  lastUpdated: true,
+  markdown: { languageAlias: { norm: 'java' } },
+  head: [['meta', { name: 'theme-color', content: '#3178c6' }]],
+  locales: {
+    root: {
+      label: '简体中文',
+      lang: 'zh-CN',
+      title: 'Norm',
+      description: '默认值语义、显式共享与显式值流的静态类型语言',
+      themeConfig: zhTheme,
+    },
+    en: {
+      label: 'English',
+      lang: 'en-US',
+      link: '/en/',
+      title: 'Norm',
+      description: 'A statically typed language with value semantics, explicit sharing, and visible value flow',
+      themeConfig: enTheme,
+    },
+  },
+  themeConfig: {
+    siteTitle: 'Norm',
+    socialLinks: [{ icon: 'github', link: 'https://github.com/w0fv1/norm' }],
+    search: {
+      provider: 'local',
+      options: {
+        locales: {
+          root: {
+            translations: {
+              button: { buttonText: '搜索', buttonAriaLabel: '搜索文档' },
+              modal: {
+                displayDetails: '显示详细列表',
+                resetButtonTitle: '重置搜索',
+                backButtonTitle: '关闭搜索',
+                noResultsText: '没有找到相关结果',
+                footer: {
+                  selectText: '选择',
+                  selectKeyAriaLabel: '回车',
+                  navigateText: '导航',
+                  navigateUpKeyAriaLabel: '向上',
+                  navigateDownKeyAriaLabel: '向下',
+                  closeText: '关闭',
+                  closeKeyAriaLabel: 'Esc',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    // Not every deep reference page is translated yet. Until it is, the
+    // locale menu lands on the target homepage instead of producing a 404.
+    i18nRouting: false,
+  },
 })

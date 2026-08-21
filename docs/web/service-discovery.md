@@ -1,30 +1,26 @@
-# Norm service-discovery Design
+# 服务发现
 
-## Overview
+服务发现把逻辑服务名解析为一组可连接 endpoint。DNS、静态配置和注册中心通过同一接口适配，但保留各自一致性限制。
 
-This document defines the design direction of Norm for service-discovery.
+```norm
+interface ServiceResolver {
+    Result<List<ServiceEndpoint>, DiscoveryError> resolve(ServiceName name)
+}
+```
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+endpoint 包含地址、端口、协议、可选区域与权重。解析结果为空与解析失败是不同状态。
 
-## Design Goals
+## 缓存和更新
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+resolver 根据 TTL 缓存结果，并可以提供 watch stream。更新必须以完整快照或带版本 diff 交付，客户端不能混合两个版本的部分列表。
 
-## Technical Direction
+## 选择
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+负载均衡器接收健康 endpoint 列表和请求上下文，选择策略可以是 round-robin、least-loaded 或 locality-aware。重试应换 endpoint，但仍受总 deadline 和幂等限制。
 
-Future implementation must provide:
+## 故障
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+注册中心不可用时是否使用未过期缓存、陈旧缓存或直接失败必须配置。服务发现本身不执行业务健康检查；它组合来自注册源和连接结果的信号。
 
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+解析与选择决策应通过低基数指标和 trace 属性可见。
 

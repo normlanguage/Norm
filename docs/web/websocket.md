@@ -1,30 +1,28 @@
-# Norm websocket Design
+# WebSocket
 
-## Overview
+WebSocket handler 在 HTTP upgrade 成功后获得双向连接。认证在 upgrade 前完成，连接上下文保存稳定 Principal 和 trace 信息。
 
-This document defines the design direction of Norm for websocket.
+```norm
+WebSocketHandler chat = WebSocketHandler(
+    onOpen = openChat,
+    onMessage = receiveChat,
+    onClose = closeChat
+)
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+router.webSocket(path = "/chat", handler = chat)
+```
 
-## Design Goals
+## 消息
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+API 区分 TextMessage、BinaryMessage、Ping、Pong 和 Close。分片帧由协议层重组，但总消息大小有上限。文本必须是有效 UTF-8。
 
-## Technical Direction
+## 背压
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+send 返回可等待结果；发送队列有容量限制。消费者过慢时策略选择等待、丢弃非关键消息或关闭连接，不能无限增长内存。
 
-Future implementation must provide:
+## 生命周期
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+应用关闭时先停止接受 upgrade，再发送正常关闭帧并等待有限时间。网络中断可能没有 close handshake，业务在线状态必须依赖租约或超时。
 
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+多实例广播需要外部 pub/sub。进程内连接对象不能放进普通分布式 session，也不能跨节点共享。
 

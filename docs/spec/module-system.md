@@ -1,4 +1,30 @@
-# Norm Module system design
+# 模块系统
 
-This document defines the design direction and specification for Norm.
+模块是 Norm 的编译与命名空间单位。源码文件属于一个模块，模块可以包含顶层类型和函数；class 不承担静态函数容器的角色。
+
+```norm
+module geometry
+
+public value Point {
+    int x
+    int y
+}
+
+public int area(int width, int height) {
+    return width * height
+}
+```
+
+## 名称与文件
+
+模块名由点分隔的标识符组成。一个目录可以包含同一模块的多个源码文件，声明顺序不影响名称解析。文件名不自动创建命名空间。
+
+## 边界
+
+- public 声明可以被其他模块导入；private 顶层声明只在当前源码文件可见。
+- 模块初始化不能依赖隐式执行顺序；当前草案不提供顶层可变初始化代码。
+- 模块之间不能形成初始化环。纯类型依赖的环是否允许，将由编译器设计阶段确定。
+- 包管理器中的 package 可以发布一个或多个模块，但 package 名不等于模块名。
+
+模块语法仍属于草案。首个编译器实现必须在稳定前确定文件到模块的映射、重复声明诊断和二进制模块标识。
 

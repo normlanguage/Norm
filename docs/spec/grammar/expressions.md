@@ -1,40 +1,40 @@
-# Norm Expression Specification
+# 表达式语法
 
-## Expression Philosophy
+## 基本形式
 
-Norm treats important control structures as expressions, but requires explicit value production.
-
-There is no implicit final-expression return.
-
-## Literals
-
-Supported literals include:
-
-- number
-- string
-- boolean
-- null
-- collection values
-
-## Function Call
-
-```norm
-User user = User(
-    name = "Alice"
-)
+```text
+Expression := Literal
+            | Identifier
+            | MemberAccess
+            | Call
+            | Index
+            | UnaryExpression
+            | BinaryExpression
+            | IfExpression
+            | ForExpression
+            | SwitchExpression
 ```
 
-Calls use named arguments by default.
-
-## Assignment
-
-Assignment changes the variable binding.
+## 成员、调用与索引
 
 ```norm
-name = "Bob"
+Point point = Point(x = 2, y = 4)
+int x = point.x
+String first = names[0]
 ```
 
-## If Expression
+调用默认使用命名参数。接收者、实参和索引按源码顺序求值一次。安全导航、隐式 await 和动态成员查找不属于当前语法。
+
+## 运算
+
+```norm
+int total = base + quantity * price
+bool accepted = ready && total > 0
+```
+
+运算符固定且不能重载。逻辑运算只接受 bool 并短路。赋值单独作为语句，不产生可用于更大表达式的值。
+
+## If 表达式
 
 ```norm
 String state = if active {
@@ -44,21 +44,23 @@ String state = if active {
 }
 ```
 
-All paths must produce a value.
-
-## Switch Expression
+## For 表达式
 
 ```norm
-String result = switch value {
-    case Active {
-        break "active"
-    }
+int found = for int number : numbers {
+    if number > 0 { break number }
+} else {
+    break 0
 }
 ```
 
-Exhaustiveness is checked where possible.
+## Switch 表达式
 
-## No User Operator Overloading
+```norm
+String text = switch token {
+    case Name(String value) { break value }
+    case End { break "end" }
+}
+```
 
-Operators keep fixed language semantics.
-
+所有可能正常完成的路径必须提供兼容值。Norm 不使用块的最后一个表达式作为结果，也不会隐式插入 null。

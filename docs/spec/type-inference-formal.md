@@ -1,15 +1,32 @@
-# Norm Type Inference Formal Rules
+# 类型推断形式规则
 
-This document defines inference rules for generic deduction, overload selection, nullable flow analysis and expression typing.
+类型推断是一个受限约束求解过程。它只补充调用位置能够唯一确定的信息，不替代公开声明的参数和返回类型。
 
-## Goals
+## 约束来源
 
-Norm inference must be predictable. The compiler never guesses through unsafe conversions.
+对于泛型调用 `f<A...>(arguments)`，编译器建立类型变量并收集：
 
-## Principles
+- 实参到形参的可赋值约束；
+- 赋值目标或 return context 提供的期望类型；
+- 类型参数声明的 extends 上界；
+- nullable 和 use-site variance 产生的上下界。
 
-- Explicit types have priority.
-- No implicit nullable conversion.
-- No dynamic fallback.
-- Ambiguous inference is a compile error.
+## 求解
 
+1. 先解析非泛型名称与候选重载；
+2. 为每个候选独立收集约束；
+3. 合并相等约束并计算满足边界的最具体类型；
+4. 验证全部实参转换均为安全转换；
+5. 只保留得到完整解的候选；
+6. 若最佳候选不唯一，报告歧义。
+
+```norm
+T identity<T>(T value) { return value }
+String name = identity(value = "Norm")
+```
+
+这里得到约束 `T = String`。
+
+## 拒绝条件
+
+编译器不使用隐式数值收窄、任意联合类型、函数体分析或运行时值来完成推断。`null` 没有独立的具体类型；缺少期望 nullable 类型时无法推断。失败诊断应列出未解决类型变量和冲突约束。

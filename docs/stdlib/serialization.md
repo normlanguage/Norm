@@ -1,30 +1,31 @@
-# Norm serialization Design
+# Serialization
 
-## Overview
+序列化把类型化值转换为外部数据格式。公开格式是长期契约，不能简单等同于当前字段布局。
 
-This document defines the design direction of Norm for serialization.
+```norm
+interface Codec<T> {
+    Result<Bytes, EncodeError> encode(T value)
+    Result<T, DecodeError> decode(Bytes input)
+}
+```
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+## Schema
 
-## Design Goals
+JSON、二进制或消息格式分别提供 Codec 实现。应用可以通过显式 builder 或代码生成定义字段名称、版本、缺失默认值和未知字段策略。
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+```norm
+JsonCodec<Point> pointCodec = JsonCodec<Point>.builder()
+    .field(name = "x", read = Point.x)
+    .field(name = "y", read = Point.y)
+    .construct(factory = Point)
+    .build()
+```
 
-## Technical Direction
+反射可以减少样板，但必须生成可检查 schema；不能让重命名 private 字段静默改变线上格式。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 安全
 
-Future implementation must provide:
+decoder 对深度、集合长度、字符串和总字节数设置上限。输入不会指定任意运行时 class；多态解码只接受注册的 enum 或类型表。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
-
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+Ref identity 默认不序列化。对象图需要共享或循环时必须使用专门协议，避免普通 JSON codec 隐藏 identity 语义。
 

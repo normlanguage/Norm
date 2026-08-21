@@ -1,30 +1,34 @@
-# Norm graphql Design
+# GraphQL 使用指南
 
-## Overview
+GraphQL 服务由 schema、resolver、context 和执行限制组成。详细原则见[GraphQL 设计](/web/graphql-design)。
 
-This document defines the design direction of Norm for graphql.
+## 建立 Schema
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+```norm
+GraphSchema schema = GraphSchema.builder()
+    .object(type = orderType)
+    .query(name = "order", resolver = resolveOrder)
+    .build()
+```
 
-## Design Goals
+schema 在应用启动时验证。重复字段、无法解析的类型引用和 nullable 不匹配会阻止启动。
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+## Resolver
 
-## Technical Direction
+```norm
+Result<Order, GraphError> resolveOrder(
+    OrderArguments arguments,
+    GraphContext context
+) {
+    return context.orders.find(id = arguments.id)
+}
+```
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+context 显式提供认证主体、deadline、DataLoader 和应用服务。resolver 不读取全局 request。
 
-Future implementation must provide:
+## 错误和性能
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+业务错误返回稳定 code 和允许公开的字段；异常由执行器记录并转换为通用内部错误。每个请求应用深度、复杂度、字段数和超时限制，列表字段需要分页上限。
 
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+生产 schema 变更通过导出的 SDL 做兼容性检查，deprecated 字段保留迁移说明和删除日期。
 

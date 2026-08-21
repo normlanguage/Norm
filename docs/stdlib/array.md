@@ -1,30 +1,31 @@
-# Norm array Design
+# `Array<T>`
 
-## Overview
+Array 是固定长度、可按索引更新的同类型值容器。长度在构造后不变；需要增删元素时使用 List。
 
-This document defines the design direction of Norm for array.
+```norm
+Array<int> scores = Array<int>(values = [80, 92, 75])
+scores[1] = 95
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+int count = scores.length
+int first = scores[0]
+```
 
-## Design Goals
+## 构造
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+```norm
+Array<String> names = Array<String>(
+    length = 3,
+    initialize = String(int index) {
+        return "item-${index}"
+    }
+)
+```
 
-## Technical Direction
+非空元素类型不能创建未初始化槽位。初始化函数对每个索引执行一次，失败时整个构造失败且不会暴露半初始化 Array。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 语义
 
-Future implementation must provide:
+Array 赋值与传参遵循值语义。切片返回独立 Array 或明确的只读 view 类型，不能用同一个 API 隐藏共享。索引范围是 `0 <= index < length`，越界抛出 `IndexError`。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
-
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+Array 实现迭代协议。结构长度不变，但遍历期间修改元素是否允许由具体迭代器类型明确规定。
 

@@ -1,30 +1,27 @@
-# Norm math Design
+# Math
 
-## Overview
+Math 模块提供固定语义的数值函数。它是顶层函数集合，不需要 `Math` 工具 class 或 static 方法。
 
-This document defines the design direction of Norm for math.
+```norm
+import std.math.sqrt
+import std.math.clamp
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+double distance = sqrt(value = x * x + y * y)
+int opacity = clamp(value = input, minimum = 0, maximum = 100)
+```
 
-## Design Goals
+## 函数组
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+- 基础：`abs`、`min`、`max`、`clamp`、`sign`；
+- 舍入：`floor`、`ceiling`、`truncate`、`round`；
+- 幂与对数：`sqrt`、`pow`、`exp`、`log`；
+- 三角：`sin`、`cos`、`tan` 及反函数。
 
-## Technical Direction
+三角函数以弧度为单位。角度转换通过 `degreesToRadians` 等明确函数完成。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 特殊值
 
-Future implementation must provide:
+float/double 遵循已选定的 IEEE 754 子集，NaN、Infinity 和有符号零的比较必须在数值规范中固定。整数溢出策略不能由优化级别改变。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
-
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+Decimal 使用自己的舍入 API，不自动调用二进制浮点 Math。需要统计、矩阵或任意精度算法时使用独立库，避免让核心模块无限增长。
 

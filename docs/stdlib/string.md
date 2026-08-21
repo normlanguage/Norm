@@ -1,13 +1,31 @@
-# Norm String Library
+# String
 
-String is a core immutable value type.
+String 是不可变 Unicode 文本值。构造后内容不变，切片和替换返回新 String；实现可以共享底层存储但不能泄露可变视图。
 
-Features:
+```norm
+String language = "Norm"
+String message = "Hello, ${language}"
+```
 
-- Unicode support
-- interpolation
-- formatting
-- parsing
-- searching
-- conversion
+## 长度与索引
+
+文本存在字节、Unicode code point 和 grapheme cluster 等不同单位。API 使用 `byteLength`、`codePointCount()` 和 `graphemes()` 明确区分，不承诺 `text[index]` 等于用户看到的第 index 个字符。
+
+## 搜索与切分
+
+`contains`、`startsWith`、`find` 和 `split` 默认按精确 code point 比较。大小写无关、locale 规则和 Unicode normalization 必须通过显式选项请求。
+
+## 编码
+
+```norm
+Bytes bytes = text.encode(encoding = TextEncoding.Utf8)
+Result<String, DecodeError> decoded = String.decode(
+    bytes = bytes,
+    encoding = TextEncoding.Utf8
+)
+```
+
+无效字节默认返回错误；替换无效序列需要显式选择 loss-tolerant 模式。
+
+解析数字、UUID 和时间由目标类型的 parse API 完成，String 不提供隐式跨类型转换。
 

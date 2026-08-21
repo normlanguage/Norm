@@ -1,30 +1,29 @@
-# Norm set Design
+# `Set<T>`
 
-## Overview
+Set 保存不重复的值，唯一性由 T 的 equality 与 hash 共同决定。
 
-This document defines the design direction of Norm for set.
+```norm
+Set<String> permissions = Set<String>()
+permissions.add(value = "orders.read")
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+bool allowed = permissions.contains(value = "orders.read")
+```
 
-## Design Goals
+`add` 返回是否实际插入新元素，`remove` 返回是否找到并移除元素。重复 add 不改变集合。
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+## 集合运算
 
-## Technical Direction
+```norm
+Set<String> all = left.union(other = right)
+Set<String> common = left.intersection(other = right)
+Set<String> onlyLeft = left.difference(other = right)
+```
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+这些操作返回新 Set，不修改输入。可变原地版本如果提供，名称必须明确区分。
 
-Future implementation must provide:
+## 顺序与复制
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+通用 Set 不保证迭代顺序。需要稳定输出时先排序或使用 OrderedSet。插入 class 值时保存独立副本，之后修改原变量不会改变集合成员身份。
 
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+Set 赋值遵循值语义，共享修改需显式使用 Ref。
 

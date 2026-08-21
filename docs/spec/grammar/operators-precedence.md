@@ -1,4 +1,30 @@
-# Norm Design Document
+# 运算符优先级
 
-This document defines the design direction, semantics, implementation considerations, and future evolution plan of this component in the Norm language project.
+Norm 的运算符具有固定语义，不能由用户重载。下表从高到低列出当前优先级草案。
+
+| 级别 | 运算符 | 结合性 |
+| --- | --- | --- |
+| 1 | `()`、`[]`、`.` | 左 |
+| 2 | 一元 `!`、`-`、`+` | 右 |
+| 3 | `*`、`/`、`%` | 左 |
+| 4 | `+`、`-` | 左 |
+| 5 | `<`、`<=`、`>`、`>=`、`is`、`as` | 不可链式 |
+| 6 | `==`、`!=` | 不可链式 |
+| 7 | `&&` | 左，短路 |
+| 8 | `||` | 左，短路 |
+| 9 | `=` | 右 |
+
+```norm
+bool accepted = ready && count > 0
+int total = base + quantity * price
+```
+
+比较运算不能连续书写：
+
+```norm
+0 < value < 10 // 编译错误
+0 < value && value < 10 // 合法
+```
+
+`&&` 和 `||` 从左到右求值并短路。赋值不是普通值表达式，不能写在条件中。存在歧义或读者需要反推优先级时，应使用括号。
 

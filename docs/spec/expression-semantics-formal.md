@@ -1,22 +1,20 @@
-# Norm Language Specification: Expression Semantics
+# 表达式语义规范
 
-## Expression Model
+表达式是具有静态类型并在运行时产生值的计算。语句只产生完成效果；控制结构只有出现在值位置并满足路径规则时才成为表达式。
 
-Norm expressions are typed computations. Every expression has:
+## 基本判断
 
-- a static type
-- a runtime evaluation behavior
-- possible control flow effects
+`Γ ⊢ e : T` 表示表达式 e 在静态环境 Γ 中类型为 T。表达式求值记为 `⟨e, Σ⟩ ⇓ ⟨v, Σ'⟩`，其中 v 必须满足 T。
 
-The compiler resolves expression types before execution.
+## 求值顺序
 
-## Value Producing Control Flow
+- 操作数与实参按源码从左到右求值；
+- `&&` 与 `||` 短路；
+- if 只求值选中的分支；
+- switch 被匹配值只求值一次；
+- assignment 在右侧成功求值后才更新目标。
 
-`if`, `for`, and `switch` may be used as expressions.
-
-A value-producing control expression must explicitly produce a value through `break`.
-
-Example:
+## 控制表达式
 
 ```norm
 String result = if enabled {
@@ -26,19 +24,16 @@ String result = if enabled {
 }
 ```
 
-The compiler rejects paths without a value.
+表达式上下文要求每条可正常到达结构末尾的路径产生 `break value`。Return 和 Throw 属于不正常完成，不需要额外值。编译器计算所有 Value 完成结果的共同静态类型；不存在唯一类型时拒绝程序。
 
-## No Implicit Null
+## 无隐式 Null
 
-Norm never inserts null as a missing expression result.
+缺失 else、未匹配 case 或耗尽 for 不会自动得到 null。程序必须补全分支、在 for 后写 else，或显式选择 Option enum。
 
-Nullable values must be explicitly produced.
+## 调用和构造
 
-```norm
-String? value = if condition {
-    break "hello"
-} else {
-    break null
-}
-```
+构造调用与普通函数调用都先解析命名参数。class/value 按值传递，Ref 保留共享 identity。默认参数在被调用函数声明环境中求值，当前草案要求其为编译期常量。
 
+## 错误
+
+静态错误包括：使用 void 值、路径缺少结果、条件非 bool、调用歧义和不安全赋值。运行时异常不改变表达式的静态类型，而以 Throw 完成结果传播。

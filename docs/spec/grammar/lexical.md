@@ -1,26 +1,38 @@
-# Norm Grammar Reference
+# 词法规则
 
-## Lexical Rules
+Norm 源文件使用 UTF-8。编译器必须拒绝无法解码的字节序列，并在诊断中报告字节位置和源码位置。
 
-Norm uses UTF-8 source files.
-Identifiers are case sensitive.
+## 空白与换行
 
-## Keywords
+空格、制表符和换行分隔 token。换行通常不结束表达式；语法结构和运算符决定表达式是否完整。行尾分号可以省略，首版规范不鼓励同一行写多条语句。
 
-class, value, interface, enum, for, if, else, switch, return, break, continue, try, catch, finally, throw, annotation, reflect, public, private
-
-## Expression Model
-
-Expressions produce values.
-Control expressions use explicit break values.
-
-## Declaration Model
-
-Type names appear before identifiers.
-
-Example:
+## 注释
 
 ```norm
-String name = "Norm"
+// 单行注释
+
+/*
+ * 块注释
+ */
 ```
 
+块注释是否允许嵌套必须由 lexer 测试固定；当前草案选择允许嵌套，便于临时注释包含已有块注释的源码。
+
+## 标识符
+
+标识符以 Unicode 字母或下划线开始，后续可包含 Unicode 字母、十进制数字或下划线。关键字不能作为标识符。规范化形式使用 NFC，两个规范化后相同的名称视为重复声明。
+
+```norm
+String displayName
+int retry_count
+```
+
+public API 建议使用 ASCII 标识符以提高工具与生态兼容性。编译器应警告容易混淆的跨脚本字符。
+
+## 数字与字符串 token
+
+数字 token 包含整数、小数点、指数和数字分隔下划线；具体类型由字面量与期望类型决定。String 使用双引号和反斜杠转义，`${` 开始插值表达式。
+
+## 源码位置
+
+token 保存文件、UTF-8 字节范围和行列范围。诊断不得因 Unicode code point 与字节偏移混淆而指向错误字符。

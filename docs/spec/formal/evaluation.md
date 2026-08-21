@@ -1,23 +1,34 @@
-# Norm Formal Semantics: Core Evaluation Model
+# 核心求值规则
 
-Norm uses deterministic evaluation. Expressions produce values; statements perform actions.
+Norm 使用确定性的从左到右求值。编译器优化不得改变异常、函数调用、Ref 修改或外部 I/O 的可观察顺序。
 
-Control expressions (`if`, `for`, `switch`) produce values only through explicit `break value`.
+## 调用
 
-Every expression has:
-- static type
-- runtime representation
-- evaluation order
+对于 `f(a = e1, b = e2)`：
 
-Norm never inserts null automatically. Nullable results must explicitly return null.
+1. 解析唯一目标函数；
+2. 按源码出现顺序求值实参；
+3. 按参数名建立新局部环境；
+4. 对普通 class/value 实参建立独立值语义；
+5. Ref 实参复制共享引用；
+6. 执行函数体直到 Return、Throw 或 void 正常完成。
 
-Example:
+## If
 
-```norm
-User? user = if exists {
-    break loadedUser
-} else {
-    break null
-}
-```
+先求值 bool 条件，只执行一个分支。作为表达式时，被执行分支必须以 Value 或不正常完成结果结束，编译器不为缺失 else 插入 null。
 
+## For
+
+迭代表达式只求值一次并取得迭代器。每次迭代创建新的循环变量绑定。continue 请求下一元素，无值 break 正常结束语句循环，break value 结束表达式循环。耗尽时执行可选 else。
+
+## Switch
+
+被匹配表达式只求值一次。case 按源码顺序检查，首个匹配 case 执行。enum 表达式 switch 在静态阶段已保证穷尽。
+
+## 异常与 Finally
+
+Throw 沿调用栈寻找首个兼容 catch。离开 try 时执行 finally；finally 正常完成后恢复原完成结果，finally 自己 Return 或 Throw 时替代原结果。
+
+## 赋值
+
+先确定目标位置，再求值右侧。普通值写入独立副本语义，Ref 写入共享引用。失败的右侧求值不修改目标。

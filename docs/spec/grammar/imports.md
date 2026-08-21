@@ -1,30 +1,23 @@
-# Norm imports Design
+# Import 语法
 
-## Overview
+```text
+Import := "import" QualifiedName ("as" Identifier)?
+```
 
-This document defines the design direction of Norm for imports.
+import 位于 module 声明之后、其他声明之前，并且只导入 public 名称。
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+```norm
+module drawing
 
-## Design Goals
+import geometry.Point
+import geometry.render as renderPoint
+```
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+## 名称解析
 
-## Technical Direction
+无别名时，最后一个名称段成为文件内短名称。局部声明优先于导入名称，但产生遮蔽时编译器应给出警告。两个 import 产生相同短名称是错误，除非至少一个使用别名。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+导入不具有传递性：模块 A 导入 B，不会让 A 的使用者自动看到 B。导入也不运行初始化代码。
 
-Future implementation must provide:
-
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
-
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+当前核心语法没有 wildcard import。标准预导入仅包含基本类型和极少量核心函数，并由语言版本固定。完整模块边界见[导入系统](/spec/import-system)。
 

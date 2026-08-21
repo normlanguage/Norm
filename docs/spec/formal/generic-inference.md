@@ -1,42 +1,44 @@
-# Norm Generic Inference Algorithm
+# 泛型推断算法
 
-## Overview
+泛型推断在调用位置为类型参数求解唯一实参。算法不执行任意类型级计算，也不从函数实现体猜测 public API。
 
-Norm uses explicit nominal generics with compiler assisted inference. The goal is to reduce verbosity without introducing hidden type-level programming.
+## 输入
 
-Example:
+- 已解析的候选函数签名；
+- 每个实参的静态类型和对应参数名；
+- 调用位置的可选期望类型；
+- 类型参数的 declared bounds；
+- 当前语言版本的转换和型变规则。
 
-```norm
-List&lt;User&gt; users = repository.findAll()
-```
+## 约束生成
 
-The compiler infers the generic return type from the declared function signature.
+给定参数类型 `P<T>` 与实参类型 A：
 
-## Inference Rules
-
-The compiler resolves generic parameters in this order:
-
-1. Explicit type arguments
-2. Function parameter constraints
-3. Return type context
-4. Interface constraints
-5. Bounds declared by extends
-
-Example:
+- 精确不变位置产生等式约束；
+- `? extends T` 产生 A 的上界约束；
+- `? super T` 产生 A 的下界约束；
+- nullable 构造分别约束容器与内部类型；
+- 返回期望类型从结果类型向类型参数反向产生约束。
 
 ```norm
-T first&lt;T&gt;(List&lt;T&gt; values)
-```
-
-Calling:
-
-```norm
+T first<T>(List<T> values) { return values[0] }
+List<String> names = List<String>(values = ["Ada"])
 String name = first(values = names)
 ```
 
-allows the compiler to infer T as String.
+实参产生 `T = String`，返回期望类型再次验证同一约束。
 
-## Restrictions
+## 求解顺序
 
-Norm does not perform arbitrary type computation. Generic inference must remain predictable.
+1. 合并类型相等集合；
+2. 传播名义继承和泛型实参约束；
+3. 为每个变量选择满足全部下界的最小可用类型；
+4. 验证选择结果满足所有 extends 上界；
+5. 重新检查完整替换后的调用是否可赋值；
+6. 对每个 overload 候选重复并选择唯一最佳结果。
 
+## 失败
+
+无解、多个不相干最小解、缺失类型信息或最佳 overload 不唯一都要求显式类型实参。诊断应显示候选、已知约束和冲突位置。
+
+`null`、空集合和未绑定匿名函数通常需要期望类型；编译器不会默认选择 Object，因为 Norm 没有统一 Object 根类型。
