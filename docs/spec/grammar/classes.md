@@ -1,30 +1,39 @@
-# Norm classes Design
+# Class 声明
 
-## Overview
+class 表示可以包含可变状态与行为、但赋值后默认独立的值。
 
-This document defines the design direction of Norm for classes.
+```norm
+class Counter {
+    int value
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+    Counter(int initial) {
+        value = initial
+    }
 
-## Design Goals
+    void increment() {
+        value = value + 1
+    }
+}
+```
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+## 成员
 
-## Technical Direction
+class 可以声明字段、构造器、方法和访问器。非空字段必须在字段初始化式或每条构造路径中完成初始化。构造器名与 class 相同，不写返回类型。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 继承
 
-Future implementation must provide:
+class 最多直接继承一个 class，并可实现多个 interface。父构造调用必须在子构造器中显式写出。public 方法参与动态分派，private 方法不参与覆盖。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+```norm
+class TimedCounter extends Counter implements Printable {
+    Instant updatedAt
 
-## Notes
+    TimedCounter(int initial, Instant now) {
+        super(initial = initial)
+        updatedAt = now
+    }
+}
+```
 
-This section will be expanded during compiler and runtime implementation.
+class 赋值保持动态类型但不共享 identity。只有 `.ref()` 产生 `Ref<ClassName>`。
 

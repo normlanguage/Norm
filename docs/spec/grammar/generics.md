@@ -1,30 +1,31 @@
-# Norm generics Design
+# 泛型语法
 
-## Overview
+类型参数写在类型名或函数名之后。每个参数是当前声明中的类型名称。
 
-This document defines the design direction of Norm for generics.
+```norm
+class Box<T> {
+    T value
+}
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+T first<T>(List<T> values) {
+    return values[0]
+}
+```
 
-## Design Goals
+## 约束
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+```norm
+T maximum<T extends Comparable<T>>(T left, T right) {
+    if left.compareTo(other = right) >= 0 { return left }
+    return right
+}
+```
 
-## Technical Direction
+多个约束的具体连接语法尚未定稿；规范示例目前每个参数只展示一个 extends 上界。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 使用
 
-Future implementation must provide:
+类型位置必须写全部实参，raw type 非法。函数调用可以在约束得到唯一解时省略显式类型实参，否则写 `function<Type>(...)`。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
-
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+实际类型参数在运行时保留，`List<String>.class` 与 `List<int>.class` 不相同。型变不写在声明上，而由 `? extends T` 与 `? super T` 在使用位置表达。
 

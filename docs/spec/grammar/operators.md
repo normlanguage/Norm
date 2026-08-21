@@ -1,18 +1,25 @@
-# Norm Operators
+# 运算符
 
-Norm keeps operators intentionally limited.
+Norm 的运算符集合有限且不能由用户重载。相同符号在所有类型上保持同一类语义。
 
-## Equality
+## 算术
 
-`==` calls semantic equality.
+`+`、`-`、`*`、`/`、`%` 适用于规范明确支持的数值类型。一元 `+` 与 `-` 不执行隐式类型转换。整数除法、除零和溢出行为由数值规范固定，不能随优化级别改变。
 
-## No Operator Overloading
+String 不使用 `+` 与任意对象隐式拼接；字符串模板负责格式化。
 
-User types cannot redefine operators.
+## 比较
 
-Operators exist for predictable built-in operations only.
+`==` 和 `!=` 比较值语义。`<`、`<=`、`>`、`>=` 只适用于具有语言内建顺序的数值，其他类型通过 Comparable 方法显式比较。
 
-## Arithmetic
+Ref 的 identity 比较与内部值比较需要不同的标准库函数，不能让 `==` 同时承担两种含义。
 
-Numeric operators follow explicit numeric conversion rules.
+## 逻辑
 
+`!`、`&&`、`||` 只接受 bool。`&&` 和 `||` 从左到右求值并短路，不把数字、String 或 nullable 值转换为 bool。
+
+## 类型操作
+
+`is` 检查运行时名义类型并可触发控制流收窄；`as` 执行显式转换，失败行为由类型系统规则定义。
+
+完整优先级见[运算符优先级](/spec/grammar/operators-precedence)。

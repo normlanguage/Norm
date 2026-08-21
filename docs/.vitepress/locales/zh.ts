@@ -1,0 +1,144 @@
+import type { DefaultTheme } from 'vitepress'
+
+const handbook = [
+  { text: '手册介绍', link: '/language/overview' },
+  { text: '基础语法', link: '/language/basics' },
+  { text: '类型与 Null', link: '/language/types' },
+  { text: 'Class、Value 与 Ref', link: '/language/objects' },
+  { text: '函数', link: '/language/functions' },
+  { text: '控制流', link: '/language/control-flow' },
+  { text: '接口', link: '/language/interfaces' },
+  { text: 'Enum 与 Switch', link: '/language/enum-switch' },
+  { text: '泛型', link: '/language/generics' },
+  { text: '错误处理', link: '/language/errors' },
+  { text: 'Annotation 与 Reflect', link: '/language/reflect' },
+]
+
+const specification = [
+  { text: '语言规范', link: '/spec/language-spec' },
+  { text: '类型系统', link: '/spec/type-system' },
+  { text: '类型推断', link: '/spec/type-inference' },
+  { text: '对象模型', link: '/spec/object-model' },
+  { text: '内存语义', link: '/spec/memory-semantics' },
+  { text: '泛型型变', link: '/spec/generic-variance' },
+  { text: '错误模型', link: '/spec/error-model' },
+  { text: 'Enum 设计', link: '/spec/enum-design' },
+  { text: 'Annotation 规范', link: '/spec/annotations' },
+  { text: '模块系统', link: '/spec/module-system' },
+  { text: '导入系统', link: '/spec/import-system' },
+  { text: '编译器设计', link: '/spec/compiler-design' },
+]
+
+const grammar = [
+  { text: '语法索引', link: '/spec/grammar/overview' },
+  { text: '词法结构', link: '/spec/grammar/lexical' },
+  { text: '关键字', link: '/spec/grammar/keywords' },
+  { text: '字面量', link: '/spec/grammar/literals' },
+  { text: '声明', link: '/spec/grammar/declarations' },
+  { text: '类型', link: '/spec/grammar/types' },
+  { text: '表达式', link: '/spec/grammar/expressions' },
+  { text: '语句', link: '/spec/grammar/statements' },
+  { text: '函数', link: '/spec/grammar/functions' },
+  { text: '类', link: '/spec/grammar/classes' },
+  { text: '接口', link: '/spec/grammar/interfaces' },
+  { text: '泛型', link: '/spec/grammar/generics' },
+  { text: '循环', link: '/spec/grammar/loops' },
+  { text: 'Switch', link: '/spec/grammar/switch' },
+  { text: '模式', link: '/spec/grammar/patterns' },
+  { text: '操作符优先级', link: '/spec/grammar/operators-precedence' },
+]
+
+const stdlib = [
+  { text: '标准库概览', link: '/stdlib/overview' },
+  { text: '核心库', link: '/stdlib/core-libraries' },
+  { text: 'String', link: '/stdlib/string' },
+  { text: 'Array', link: '/stdlib/array' },
+  { text: 'Collections', link: '/stdlib/collections' },
+  { text: 'Map', link: '/stdlib/map' },
+  { text: 'Set', link: '/stdlib/set' },
+  { text: 'Math', link: '/stdlib/math' },
+  { text: 'Decimal', link: '/stdlib/decimal-api' },
+  { text: 'Time', link: '/stdlib/time' },
+  { text: 'Regex', link: '/stdlib/regex' },
+  { text: 'Filesystem', link: '/stdlib/filesystem' },
+  { text: 'HTTP', link: '/stdlib/http' },
+  { text: 'SQL', link: '/stdlib/sql' },
+  { text: 'Serialization', link: '/stdlib/serialization' },
+  { text: 'Testing', link: '/stdlib/testing-api' },
+  { text: 'Logging', link: '/stdlib/logging' },
+  { text: 'Process', link: '/stdlib/process' },
+  { text: 'Command Line', link: '/stdlib/command-line' },
+]
+
+const web = [
+  { text: 'Web 平台概览', link: '/web/overview' },
+  { text: '框架架构', link: '/web/framework-architecture' },
+  { text: '应用参考', link: '/web/application-reference' },
+  { text: '请求与响应', link: '/web/request-response' },
+  { text: '路由', link: '/web/routing-design' },
+  { text: 'Controller', link: '/web/controller-design' },
+  { text: 'Middleware', link: '/web/middleware-design' },
+  { text: '依赖注入', link: '/web/dependency-injection' },
+  { text: '配置', link: '/web/configuration' },
+  { text: '安全', link: '/web/security' },
+  { text: '认证', link: '/web/authentication-design' },
+  { text: 'REST', link: '/web/rest-design' },
+  { text: 'GraphQL', link: '/web/graphql' },
+  { text: 'OpenAPI', link: '/web/openapi' },
+  { text: 'WebSocket', link: '/web/websocket' },
+  { text: '数据库迁移', link: '/web/database-migration' },
+  { text: '后台任务', link: '/web/background-jobs' },
+  { text: '可观测性', link: '/web/observability' },
+  { text: '部署', link: '/web/deployment' },
+]
+
+export const zhTheme: DefaultTheme.Config = {
+  nav: [
+    { text: '文档', link: '/docs/' },
+    { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
+    { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
+    { text: '标准库', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
+    { text: '社区', link: '/community' },
+  ],
+  sidebar: {
+    '/guide/': [
+      { text: '开始', items: [
+        { text: 'Norm 是什么', link: '/guide/introduction' },
+        { text: '语言哲学', link: '/guide/philosophy' },
+        { text: '设计原则', link: '/guide/design-principles' },
+        { text: '设计白皮书', link: '/guide/design-whitepaper' },
+        { text: '语言比较与未来', link: '/guide/comparison-and-future' },
+      ]},
+      { text: '下一步', items: handbook },
+    ],
+    '/language/': [
+      { text: '语言手册', items: handbook },
+      { text: '深入阅读', items: [
+        { text: '正式语言规范', link: '/spec/language-spec' },
+        { text: '与其他语言比较', link: '/comparison/languages' },
+      ]},
+    ],
+    '/spec/': [
+      { text: '语言规范', items: specification },
+      { text: '语法参考', collapsed: true, items: grammar },
+      { text: '形式化规范', collapsed: true, items: [
+        { text: '语义', link: '/spec/formal/semantics' },
+        { text: '求值', link: '/spec/formal/evaluation' },
+        { text: '完整类型系统', link: '/spec/formal/type-system-complete' },
+        { text: '泛型推断', link: '/spec/formal/generic-inference' },
+        { text: '完整泛型规范', link: '/spec/formal/generics-complete' },
+      ]},
+    ],
+    '/stdlib/': [{ text: '标准库', items: stdlib }],
+    '/web/': [{ text: 'Web 应用开发', items: web }],
+  },
+  outline: { level: [2, 3], label: '本页内容' },
+  docFooter: { prev: '上一页', next: '下一页' },
+  lastUpdated: { text: '最后更新于' },
+  returnToTopLabel: '返回顶部',
+  sidebarMenuLabel: '目录',
+  darkModeSwitchLabel: '外观',
+  langMenuLabel: '切换语言',
+  footer: { message: 'Norm 当前处于语言规范预设计阶段。', copyright: 'Norm Project' },
+}
+

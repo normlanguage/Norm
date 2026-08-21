@@ -1,92 +1,45 @@
-# Norm Type System Formal Specification
+# 类型系统形式化
 
-## Overview
+本页给出静态判断使用的核心关系。符号用于描述规则，不要求编译器采用相同内部数据结构。
 
-Norm type system is designed around four goals:
+## 环境
 
-1. Static verification before execution.
-2. Predictable runtime behavior.
-3. Strong support for application development.
-4. Complete runtime type information.
+- `Γ`：局部名称、字段、函数和类型参数环境；
+- `Δ`：名义类型声明、继承与 interface 实现关系；
+- `N`：控制流 null-state；
+- `A`：确定赋值集合。
 
-Norm rejects implicit dynamic conversion. Every value has a known type.
+表达式类型判断写为 `Δ; Γ; N; A ⊢ e : T`。
 
-## Type Categories
+## 子类型
 
-Norm contains:
+子类型关系 `<:` 是以下规则的最小传递闭包：
 
-- Primitive types
-- Value types
-- Class types
-- Interface types
-- Enum types
-- Function types
-- Generic types
+1. 自反：`T <: T`；
+2. 声明继承：class extends 和 interface extends；
+3. 实现：class/value implements interface；
+4. Nullable 提升：`T <: T?`；
+5. 安全数值提升；
+6. 泛型通配符产生的局部捕获关系。
 
-## Nullability
+普通 `G<S>` 与 `G<T>` 在 `S != T` 时互不构成子类型。`Ref<T>` 始终不变。
 
-Every reference-like type is non-null by default.
+## Null-state
 
-```norm
-String name = "Alice"
-String? nickname = null
-```
+N 为 nullable 局部绑定维护 `Unknown | Null | NonNull`。条件 `x != null` 在 true 分支把 x 更新为 NonNull，`x == null` 在对应分支更新为 Null。对可能写入 x 的调用或共享别名操作会使状态回到 Unknown。
 
-The compiler performs definite assignment analysis. A non-null value must be initialized on every construction path.
+## 控制表达式合并
 
-## Nominal Typing
+若分支结果为 `T1...Tn`，表达式类型是满足每个 `Ti <: T` 的唯一最具体 T。不存在唯一 T 时拒绝；编译器不合成匿名 union。
 
-Norm uses nominal typing.
+## 函数
 
-A type relationship exists only when explicitly declared.
+调用要求每个实参类型可赋给对应形参。函数值兼容要求参数逆变、返回协变，但命名调用的 public 参数名也必须兼容。重载选择在泛型替换后得到唯一最佳候选。
 
-```norm
-interface Serializable {
-    String serialize()
-}
+## 确定赋值
 
-class User implements Serializable {
-}
-```
+A 记录已初始化绑定。读取 x 要求 `x ∈ A`。if 后取两分支 A 的交集；循环体可能执行零次，因此普通循环后的 A 不加入只在循环体赋值的变量。
 
-A class with the same method shape is not automatically compatible.
+## Soundness 目标
 
-## Generic Types
-
-Generics preserve runtime metadata.
-
-```norm
-List&lt;String&gt;.class
-```
-
-contains:
-
-```
-raw type: List
-type argument: String
-```
-
-This enables reflection, serialization and dependency injection.
-
-## Value Semantics
-
-Assignment follows language semantics, not physical implementation.
-
-```norm
-User b = a
-```
-
-means an independent value copy.
-
-The runtime may optimize using copy-on-write.
-
-## References
-
-Shared identity requires explicit reference creation.
-
-```norm
-Ref&lt;User&gt; shared = user.ref()
-```
-
-The compiler can distinguish local values from shared mutable state.
-
+通过类型检查的程序不应因缺失成员、不安全 nullable 解引用或泛型实参错配而进入未定义行为。Exception、显式 cast 失败和资源错误仍是规范允许的运行时结果。

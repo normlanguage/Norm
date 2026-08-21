@@ -1,57 +1,39 @@
-# Norm Formal Type System
+# 类型系统深入规则
 
-## Overview
+本页说明类型组合处容易产生歧义的边界：nullable、泛型、函数和动态类型。
 
-Norm uses a nominal, statically checked type system designed for application software. The type system prioritizes predictable behavior over maximum expressiveness.
+## Nullable 组合
 
-## Type Categories
+nullable 标记作用于完整类型：`List<String>?` 与 `List<String?>` 不同。重复 nullable `T??` 不形成新类型，应规范化为 `T?` 或直接诊断冗余。
 
-Norm has several fundamental type categories:
+Ref 不允许 `Ref<T>?` 和 `Ref<T?>`。可能不存在的共享对象使用 enum 包装 Ref。
 
-- Primitive types: int, long, float, double, decimal, boolean, String
-- Value types: declared with `value`
-- Object types: declared with `class`
-- Contract types: declared with `interface`
-- Algebraic types: declared with `enum`
-- Function types
-- Nullable types: T?
-- Reference types: Ref&lt;T&gt;
+## 捕获转换
 
-## Nullable Rules
+读取 `List<? extends Shape>` 时，编译器为通配符建立新捕获类型 α，满足 `α <: Shape`。读取结果可以作为 Shape，写入除不存在值外不安全。
 
-A non-null type can never contain null.
+对 `List<? super Circle>` 建立 `Circle <: β`。可以写入 Circle，但读取只得到未知 β，必须通过适当接口或显式模式处理。
 
-```norm
-String name = "Norm"
-String? nickname = null
-```
+## Reified 泛型
 
-The compiler performs flow analysis to prove nullable safety.
+`List<String>` 与 `List<int>` 的运行时描述不同。运行时类型检查、反射和序列化可读取实际参数；实现不能以擦除后附加不可靠外部 token 代替。
 
-## Generic Rules
-
-Generics preserve runtime information.
+## 函数类型
 
 ```norm
-List&lt;String&gt;.class
+String formatter(Point value)
 ```
 
-The runtime can inspect the generic argument.
+函数类型由返回类型和参数类型序列决定，参数名用于命名调用兼容性。匿名函数没有任意 lexical capture；绑定方法引用显式携带接收者。
 
-Unlike Java erasure, Norm keeps:
+## 动态分派与复制
 
-- generic declaration metadata
-- actual type arguments
-- reflection information
+父类型或 interface 变量保存完整动态类型。复制 class 值后，两个副本分别保留相同动态类型，但不共享可变字段。调用 public virtual 行为按动态类型分派。
 
-## Variance
+## Cast
 
-Variance is explicit and follows Java-style use-site variance.
+`is` 只检查声明关系和 reified 泛型信息。`as` 是显式可能失败的操作；安全 cast 是否使用 Result/Option 形式由最终语法提案确定，在定稿前规范示例不假设 `as?`。
 
-```norm
-List&lt;? extends User&gt;
-List&lt;? super Employee&gt;
-```
+## Bottom 与 Never
 
-The compiler rejects unsafe substitutions.
-
+Throw 和不返回函数在控制流上不正常完成。实现可以内部使用 bottom/Never 类型进行合并，但是否暴露为可声明 public 类型仍未定稿。

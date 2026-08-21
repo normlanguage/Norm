@@ -1,30 +1,31 @@
-# Norm literals Design
+# 字面量
 
-## Overview
+## 数字
 
-This document defines the design direction of Norm for literals.
+```norm
+int count = 42
+long population = 8_100_000_000
+double ratio = 0.125
+decimal price = decimal("19.95")
+```
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+下划线只能位于数字之间，用于分组且不影响值。整数默认推断为能容纳该值的标准整数类型，赋值目标可以提供更具体类型。Decimal 目前使用显式构造，避免把十进制和二进制浮点语义混淆。
 
-## Design Goals
+## 字符串
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+```norm
+String name = "Norm"
+String line = "first\nsecond"
+String message = "hello, ${name}"
+```
 
-## Technical Direction
+字符串使用双引号，支持标准转义与 `${expression}` 插值。插值要求值具有明确格式化能力，不对任意对象隐式调用调试表示。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 布尔与 Null
 
-Future implementation must provide:
+`true` 和 `false` 的类型是 bool。`null` 只能出现在已有 nullable 期望类型的位置，不能单独推断为任意类型。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+## 集合
 
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+`[1, 2, 3]` 是集合构造中的元素字面量，其最终类型由构造参数或赋值目标确定。空 `[]` 没有足够信息时要求显式类型。
 

@@ -86,7 +86,7 @@ Examples:
 Shared state:
 
 ```norm
-Ref&lt;User&gt; user = original.ref()
+Ref&lt;Counter&gt; shared = counter.ref()
 ```
 
 Reflection:
@@ -130,13 +130,15 @@ A type relationship exists because it is explicitly declared.
 Example:
 
 ```norm
-interface Serializer {
-    String serialize()
+interface Formattable {
+    String format()
 }
 
-class UserSerializer implements Serializer {
-    String serialize() {
-        return "user"
+class HexNumber implements Formattable {
+    int value
+
+    String format() {
+        return "0x${value}"
     }
 }
 ```
@@ -160,7 +162,7 @@ String name = "Alice"
 Nullable values require explicit syntax:
 
 ```norm
-String? email = null
+String? label = null
 ```
 
 This prevents the most common application bug category: unexpected null values.
@@ -170,11 +172,13 @@ Norm does not provide late initialization.
 Instead, the compiler performs definite assignment analysis.
 
 ```norm
-class User {
-    String name
+class Interval {
+    int start
+    int end
 
-    User(String name) {
-        this.name = name
+    Interval(int start, int end) {
+        this.start = start
+        this.end = end
     }
 }
 ```
@@ -198,11 +202,11 @@ Norm has three main data models:
 Class represents objects with behavior.
 
 ```norm
-class User {
-    String name
+class Counter {
+    int value
 
-    String displayName() {
-        return name
+    void increment() {
+        value = value + 1
     }
 }
 ```
@@ -210,11 +214,11 @@ class User {
 Unlike Java, class assignment uses value semantics.
 
 ```norm
-User a = User(name = "Alice")
-User b = a
+Counter first = Counter(value = 0)
+Counter second = first
 ```
 
-`b` becomes an independent value copy.
+`second` becomes an independent value copy.
 
 The runtime may optimize this internally through copy-on-write.
 
@@ -229,13 +233,13 @@ The semantic rule remains:
 When sharing is required, it must be explicit.
 
 ```norm
-Ref&lt;User&gt; user = original.ref()
+Ref&lt;Counter&gt; shared = first.ref()
 ```
 
 Now both references access the same object.
 
 ```norm
-user.name = "Bob"
+shared.increment()
 ```
 
 changes the shared object.
@@ -245,8 +249,8 @@ Ref is never nullable.
 Invalid:
 
 ```norm
-Ref&lt;User&gt;?
-Ref&lt;User?&gt;
+Ref&lt;Counter&gt;?
+Ref&lt;Counter?&gt;
 ```
 
 The state model stays simple.
@@ -258,9 +262,9 @@ The state model stays simple.
 Value is designed for pure data.
 
 ```norm
-value Money {
-    decimal amount
-    Currency currency
+value Point {
+    int x
+    int y
 }
 ```
 
@@ -271,7 +275,7 @@ Value provides:
 - immutable fields
 - copy semantics
 
-Money should behave like a mathematical value, not an identity object.
+Point should behave like a mathematical value, not an identity object.
 
 ---
 
@@ -330,20 +334,20 @@ This keeps value flow visible.
 Norm uses for as the main iteration structure.
 
 ```norm
-for User user : users {
-    print(user.name)
+for int number : numbers {
+    print("${number}")
 }
 ```
 
 A for expression must explicitly handle all result paths.
 
 ```norm
-User admin = for User user : users {
-    if user.admin {
-        break user
+int firstEven = for int number : numbers {
+    if number % 2 == 0 {
+        break number
     }
 } else {
-    break defaultUser
+    break 0
 }
 ```
 

@@ -1,17 +1,82 @@
 # Norm 是什么
 
-Norm 是一门面向 Web、企业应用、CLI、桌面与数据处理的静态强类型语言。语法骨架接近 Java，但重新设计 null、安全共享、值语义、泛型运行时信息、控制流表达式与元编程。
+Norm 是一门静态强类型、面向应用开发的编程语言。它采用熟悉的类型前置与大括号语法，但重新定义了 null、赋值、共享状态、控制流表达式和运行时泛型信息。
 
-Norm 的目标不是拥有最多特性，而是让业务代码多年后仍可直接理解。
+这篇介绍只回答三个问题：Norm 解决什么问题、它选择了什么语义、接下来该读什么。
 
-## 核心原则
+## 一个最小例子
 
-- 静态强类型，Nominal Typing。
-- 非空默认：`String` 非空，`String?` 才可为 null。
-- class 与普通容器默认递归值复制。
-- 共享 identity 通过 `Ref&lt;T&gt;` 显式出现。
-- 顶层函数存在，不要求所有行为放入 class。
-- 无宏、无用户操作符重载、无任意闭包捕获。
-- `Result&lt;T,E&gt;` 表达业务失败；Exception 表达异常执行状态。
-- 支持解释执行和原生部署。
+```norm
+int absolute(int value) {
+    if value < 0 {
+        return -value
+    }
+    return value
+}
+
+void main() {
+    int distance = absolute(value = -12)
+    print("distance = ${distance}")
+}
+```
+
+从这个例子可以看到 Norm 的基本外形：
+
+- 类型写在名称前面；
+- 函数可以声明在顶层；
+- 多参数调用保留参数名；
+- 条件不写括号，代码块使用大括号；
+- 返回值必须显式 `return`。
+
+## Norm 关心的问题
+
+大型应用代码的主要成本通常不是写下第一版，而是长期理解和修改。Norm 希望重要语义在调用点与声明处直接可见：
+
+- `T?` 表示一个值可能为 null；
+- `Ref<T>` 表示多个位置共享同一 identity；
+- `Result<T, E>` 表示函数具有可预期的失败结果；
+- `reflect` 表示代码进入反射或拦截边界；
+- `break value` 表示控制流结构正在产生一个值。
+
+## 核心选择
+
+### 静态名义类型
+
+类型关系必须通过 `implements` 或 `extends` 明确声明。具有相同方法的两个类型不会因此自动兼容。
+
+### 非空默认
+
+```norm
+String title = "Norm"
+String? subtitle = null
+```
+
+普通类型不接受 null，也没有绕过初始化检查的 `lateinit`。
+
+### 值语义默认
+
+```norm
+Counter first = Counter(value = 0)
+Counter second = first
+second.increment()
+```
+
+`first` 与 `second` 在语义上彼此独立。只有显式的 `Ref<Counter>` 才引入共享。
+
+### 低魔法
+
+Norm 不提供宏、用户操作符重载、隐式字符串转换或任意闭包捕获。元编程能力存在，但必须通过 annotation 与 `reflect` 明确进入。
+
+## Norm 不是什么
+
+Norm 不优先服务内核、驱动或硬实时程序，也不追求类型级计算和极端元编程。它计划使用垃圾回收和运行时支持，让开发者把注意力放在程序结构与业务逻辑上。
+
+Norm 当前处于规范预设计阶段。文档描述的是目标语言语义，并不代表已有可用编译器。
+
+## 接下来读什么
+
+- 想开始学习语法：阅读[语言手册](/language/overview)；
+- 想理解设计取舍：阅读[语言哲学](/guide/philosophy)；
+- 想查找精确规则：进入[语言规范](/spec/language-spec)；
+- 想了解实现进度：查看[项目路线图](/design/roadmap)。
 

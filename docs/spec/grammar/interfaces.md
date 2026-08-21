@@ -1,30 +1,27 @@
-# Norm interfaces Design
+# Interface 声明
 
-## Overview
+interface 定义名义行为契约，不保存实例字段。
 
-This document defines the design direction of Norm for interfaces.
+```norm
+interface Formatter<T> {
+    String format(T value)
+}
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+class PointFormatter implements Formatter<Point> {
+    String format(Point value) {
+        return "(${value.x}, ${value.y})"
+    }
+}
+```
 
-## Design Goals
+## 规则
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+- 类型只有显式写 `implements` 才满足 interface；同名方法不会结构化匹配。
+- interface 可以扩展多个 interface，但继承图不能成环。
+- 实现方法的参数类型、返回类型和可见性必须满足契约。
+- interface 不决定值语义：class 通过 interface 变量传递仍默认复制，只有 Ref 引入共享。
 
-## Technical Direction
+interface 方法当前只声明签名，不提供默认实现。这样可以避免多个父接口默认方法的选择规则；未来若加入，必须通过独立语言提案定义冲突解析。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
-
-Future implementation must provide:
-
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
-
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+运行时类型检查 `value is InterfaceName` 使用声明关系，不检查成员形状。
 

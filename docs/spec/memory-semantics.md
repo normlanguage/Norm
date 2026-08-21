@@ -1,4 +1,32 @@
-# Norm Memory semantics design
+# 内存语义
 
-This document defines the design direction and specification for Norm.
+Norm 规定可观察的值与共享行为，但不把对象布局、垃圾回收器或引用计数写死在语言语义中。
+
+## 默认复制
+
+基本类型、value、class 及其容器在赋值和按值传参时表现为独立值。
+
+```norm
+Counter first = Counter(value = 0)
+Counter second = first
+second.value = 1
+// first.value 仍为 0
+```
+
+实现可以采用深复制、写时复制、持久化结构或逃逸分析消除复制，只要程序无法观察到隐藏共享。
+
+## 显式共享
+
+只有 `Ref<class>` 引入共享 identity。复制 Ref 保留同一共享单元，比较 Ref identity 与比较其内部值是不同操作。具体比较 API 尚未定稿。
+
+## 生命周期
+
+- 程序员不手动释放普通值或 Ref。
+- 运行时必须保证仍可达的 Ref 指向有效对象。
+- 终结器不属于语言核心；外部资源应通过显式作用域清理 API 管理。
+- 内存不足、栈溢出等运行时失败不要求能够被普通业务代码可靠恢复。
+
+## 并发边界
+
+值复制天然隔离后续修改；`Ref<T>` 跨执行单元共享时需要同步。内存可见性、原子操作和线程 API 将在并发规范中定义，在此之前不得假设普通 Ref 读写具有原子性。
 

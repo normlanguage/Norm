@@ -1,76 +1,46 @@
-# Norm Type System Formal Specification
+# 完整静态检查流程
 
-## 1. Type Model
+本页把名称解析、类型检查、流分析和泛型求解连接成一个可实现的编译管线。
 
-Norm uses a nominal static type system. A type is identified by its declaration, not by structural compatibility.
+## 第一阶段：声明收集
 
-The major categories are:
+编译器读取 module 与 import，收集顶层类型和函数签名，建立名义类型图。此阶段检测重复名称、继承环、不可见类型泄露和错误 arity，不需要函数体顺序。
 
-- Primitive types
-- Value types
-- Class types
-- Interface types
-- Enum types
-- Function types
-- Nullable types
-- Generic types
+## 第二阶段：类型图验证
 
-A compiler must resolve every expression to a known type before code generation.
+1. 解析 extends 与 implements；
+2. 验证 class 单继承和 interface 多继承；
+3. 检查覆盖签名、可见性和返回兼容；
+4. 展开泛型 bounds 并拒绝非法循环；
+5. 为 enum 固定 variant 集合；
+6. 为 runtime 类型建立 reified 描述。
 
-## 2. Null Safety
+## 第三阶段：函数体
 
-Nullable is an explicit type constructor.
+函数体按 lexical scope 解析局部名称。每个表达式得到静态类型，每条语句更新确定赋值集合和 null-state。return、break、continue 与 throw 必须到达合法目标。
 
-```
-String name = "Norm"
-String? nickname = null
-```
+## 调用解析
 
-`String` and `String?` are different types.
+按名称和参数名选出候选，执行泛型推断，应用仅允许的安全转换，然后选择唯一最佳 overload。只靠返回类型区分的 overload 无法声明。
 
-The compiler maintains a null-state during semantic analysis. A variable can be narrowed after checks:
+## 控制流
 
-```
-if user.email != null {
-    print(user.email)
-}
-```
+if 的分支分别分析并在汇合点取确定赋值交集。nullable 状态根据条件收窄。for 体按可能执行零次处理。switch enum 检查穷尽与不可达 case。
 
-The compiler may prove that the value is non-null inside the branch.
+控制表达式收集每条 `break value` 的类型并求唯一共同类型。缺失正常路径值是错误，不插入 null。
 
-## 3. Value and Reference Semantics
+## 值模型检查
 
-Norm separates value copying from shared identity.
+- value 字段构造后不可写；
+- class 普通赋值使用独立值语义；
+- `.ref()` 只接受 class；
+- Ref 的泛型参数不变且不可 nullable；
+- 逃逸分析和复制消除只能在不改变这些结果时执行。
 
-Normal assignment:
+## 诊断要求
 
-```
-User b = a
-```
+错误包含主源码位置、相关声明位置、实际/期望类型和一条可操作说明。泛型错误展示替换后的候选签名；流错误说明哪条路径缺少赋值或结果。
 
-means a value copy at language level.
+## 运行时保证
 
-Explicit sharing:
-
-```
-Ref&lt;User&gt; b = a.ref()
-```
-
-creates shared identity.
-
-The optimizer may use copy-on-write internally, but observable behavior must follow value semantics.
-
-## 4. Generic Types
-
-Generics are reified.
-
-Example:
-
-```
-List&lt;String&gt;.class
-```
-
-contains the generic argument metadata.
-
-The runtime must preserve enough information for reflection and serialization.
-
+通过静态检查的程序保留完整动态类型和泛型参数。运行时仍可能产生显式 cast 失败、Exception、I/O 错误和资源耗尽，但不应发生未检查成员访问或隐式 null 解引用。

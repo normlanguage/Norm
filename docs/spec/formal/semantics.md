@@ -1,22 +1,36 @@
-# Norm Formal Language Semantics
+# 形式语义总览
 
-This document defines the formal semantic model of Norm programs, including declaration binding, expression evaluation, value production, and runtime behavior.
+本章定义 Norm 程序从源码声明到运行结果的抽象模型。它用于约束编译器、解释器和优化器，不规定某一种内部实现。
 
-## Goals
+## 程序状态
 
-Norm semantics prioritize predictability. Every language feature should have a clear static meaning and a clear runtime representation.
+抽象状态包含：
 
-## Evaluation Model
+- 环境 `Γ`：名称到静态类型与声明的映射；
+- 存储 `Σ`：局部绑定、class 值和显式 Ref 共享单元；
+- 控制状态 `K`：当前代码块、调用栈和异常处理器；
+- 运行时类型表 `R`：名义声明与 reified 泛型参数。
 
-Expressions are typed before execution. The compiler verifies:
+## 静态判断
 
-- type correctness
-- null safety
-- initialization
-- overload selection
-- generic constraints
+`Γ ⊢ e : T` 表示在环境 Γ 中表达式 e 具有类型 T。可赋值关系记为 `S <: T`，只由名义继承、interface 实现、安全数值提升、nullable 和泛型型变规则产生。
 
-## Control Expressions
+## 求值
 
-`if`, `for`, and `switch` may produce values. A value-producing control expression requires every reachable path to produce a compatible value using `break value`.
+`⟨e, Σ⟩ ⇓ ⟨v, Σ'⟩` 表示表达式 e 在状态 Σ 中求值得到值 v 和新状态 Σ'。子表达式按源码从左到右求值。
 
+## 完成结果
+
+代码块可以产生：
+
+- `Normal(Σ)`：正常完成；
+- `Value(v, Σ)`：`break value` 产生控制表达式结果；
+- `Return(v, Σ)`：函数返回；
+- `Throw(x, Σ)`：抛出异常；
+- `Break(Σ)` 或 `Continue(Σ)`：循环转移。
+
+类型检查保证这些完成结果只到达允许接收它们的语法结构。
+
+## 等价实现
+
+两个实现若对所有规范可观察行为产生相同结果，则视为语义等价。内存地址、复制次数和未暴露对象布局不是普通程序可观察行为；Ref identity、异常、I/O 顺序和反射类型信息是可观察行为。

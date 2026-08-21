@@ -1,30 +1,28 @@
-# Norm routing-design Design
+# 路由设计
 
-## Overview
+路由表通过普通代码构造，启动时完成冲突检查。框架不扫描 annotation，也不根据函数名推断 URL。
 
-This document defines the design direction of Norm for routing-design.
+```norm
+Router router = Router()
+router.get(path = "/users/{id}", handler = users.get)
+router.post(path = "/users", handler = users.create)
+```
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+## 匹配
 
-## Design Goals
+请求先按规范化 path 分段，再匹配静态段、类型化参数段和 wildcard。优先级固定为静态段高于参数段、高于 wildcard，不依赖注册顺序解决含糊路由。
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+```norm
+router.get(path = "/files/{path...}", handler = files.get)
+```
 
-## Technical Direction
+重复的 method + path、无法区分的参数路由和非末尾 wildcard 在启动时失败。
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+## 参数
 
-Future implementation must provide:
+路径参数首先是 String，handler 使用显式 parser 转成领域类型。解析失败产生 400，而资源不存在产生 404。query 的重复键、空值和缺失必须由类型化访问器区分。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+## 组合
 
-## Notes
-
-This section will be expanded during compiler and runtime implementation.
+子路由可以挂载 prefix 和 middleware，但组合结果仍是一张可枚举路由表，可用于 OpenAPI 生成、冲突检测和测试。
 

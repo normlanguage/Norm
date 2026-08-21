@@ -1,43 +1,54 @@
-# Norm Generic System Formal Design
+# 泛型系统形式化
 
-## Overview
+Norm 泛型在编译期提供静态复用，在运行时保留实际类型参数。它不是独立的类型级编程语言。
 
-Norm 泛型设计目标是在保持静态强类型的同时，提供运行时完整类型信息。
-
-与 Java type erasure 不同：
+## 声明
 
 ```norm
-List&lt;String&gt;.class
-```
-必须保留 String 参数信息。
-
-## Generic Declaration
-
-```norm
-class Box&lt;T&gt; {
+class Box<T> {
     T value
+}
+
+T maximum<T extends Comparable<T>>(T left, T right) {
+    if left.compareTo(other = right) >= 0 { return left }
+    return right
 }
 ```
 
-T 是类型变量，在编译阶段参与检查，在运行时通过 metadata 保留。
+类型变量在声明体和成员签名内可见。使用该变量的操作必须对所有满足 bound 的实际类型成立。
 
-## Variance
+## 实例化
 
-Norm 支持 Java 风格 use-site variance：
+`G<A1...An>` 要求实参数量与声明一致，每个 Ai 满足对应 bound。raw `G` 非法。不同实际参数默认产生不相容的不变类型。
+
+## 使用位置型变
 
 ```norm
-List&lt;? extends Person&gt;
-List&lt;? super Employee&gt;
+List<? extends Shape> source
+List<? super Circle> target
 ```
 
-默认泛型是不变的。
+extends 位置安全读取上界、禁止具体写入；super 位置安全写入下界、读取为未知捕获类型。Ref 不应用型变。
 
-## Runtime
+## 类型推断
 
-每个 GenericType 保存：
+函数调用从实参、期望返回类型和 declared bounds 产生约束。求解必须唯一且只使用安全转换；失败时显式写类型实参。
 
-- raw type
-- arguments
-- constraints
-- variance information
+## 运行时表示
 
+每个参数化类型描述至少包含：
+
+- 泛型声明 identity；
+- 有序实际类型参数；
+- nullable 信息；
+- 需要反射的 bound 与成员替换结果。
+
+因此 `List<String>.class` 与 `List<int>.class` 不相等，运行时 `is`、反射和 Codec 可以读取 String/int 参数，无需额外 Class token。
+
+## 二进制与缓存
+
+实现可以共享泛型机器码、单态化或采用混合策略，但 runtime type descriptor 必须完整。编译缓存键包含泛型声明版本和实际参数，不能因代码共享错误复用不兼容布局。
+
+## 限制
+
+首版不提供高阶类型、类型函数、条件类型、隐式 typeclass 搜索或用户定义 variance declaration。新增能力必须证明不会隐藏值语义、nullable 或运行时类型信息。

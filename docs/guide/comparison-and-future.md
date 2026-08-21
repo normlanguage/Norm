@@ -14,14 +14,14 @@ Norm 保留 Java 的工程化优点：
 
 Java:
 ```java
-User b = a;
+Counter second = first;
 ```
 
 通常表示引用复制。
 
 Norm:
 ```norm
-User b = a
+Counter second = first
 ```
 
 默认表示值复制。
@@ -29,7 +29,7 @@ User b = a
 共享必须：
 
 ```norm
-Ref&lt;User&gt; b = a.ref()
+Ref&lt;Counter&gt; shared = first.ref()
 ```
 
 ## Norm 与 Kotlin

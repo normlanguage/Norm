@@ -1,30 +1,24 @@
-# Norm keywords Design
+# 关键字
 
-## Overview
+关键字在所有源码上下文中保留，不能作为普通标识符使用。
 
-This document defines the design direction of Norm for keywords.
+## 声明
 
-Norm focuses on explicit semantics, static typing, predictable runtime behavior, and application development efficiency.
+`module`、`import`、`as`、`class`、`value`、`interface`、`enum`、`annotation`、`extends`、`implements`、`public`、`private`
 
-## Design Goals
+## 控制流
 
-- Keep language rules simple and consistent.
-- Preserve compile-time information as much as possible.
-- Avoid hidden behavior.
-- Support interpreter, JIT and native compilation paths.
+`if`、`else`、`for`、`switch`、`case`、`break`、`continue`、`return`、`try`、`catch`、`finally`、`throw`
 
-## Technical Direction
+## 值与类型操作
 
-This component is designed to integrate with Norm's compiler pipeline, runtime model, standard library and ecosystem.
+`true`、`false`、`null`、`this`、`super`、`is`、`as`、`reflect`
 
-Future implementation must provide:
+基本类型名如 `int`、`bool` 和 `void` 由语言预声明，也不能重新定义。
 
-- specification compliance
-- compiler validation
-- runtime support
-- documentation examples
+## 兼容性
 
-## Notes
+新增关键字可能破坏旧源码，因此稳定版本应尽量使用上下文关键字，或通过新的语言版本启用。当前规范不提供反引号转义关键字作为标识符的语法。
 
-This section will be expanded during compiler and runtime implementation.
+大小写敏感：`class` 是关键字，`Class` 可以是类型名。关键字只能使用 ASCII 字符，避免视觉相似字符影响审查。
 
