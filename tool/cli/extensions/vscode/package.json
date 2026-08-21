@@ -1,0 +1,156 @@
+{
+  "name": "norm-language-support",
+  "displayName": "Norm Language Support",
+  "description": "All-in-one editing, navigation, refactoring, and execution support for Norm",
+  "version": "0.1.0",
+  "publisher": "normlang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/w0fv1/norm.git"
+  },
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onLanguage:norm"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "norm",
+        "aliases": ["Norm", "norm"],
+        "extensions": [".norm"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "norm",
+        "scopeName": "source.norm",
+        "path": "./syntaxes/norm.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "norm.restartLanguageServer",
+        "title": "Norm: Restart Language Server"
+      },
+      {
+        "command": "norm.runCurrentFile",
+        "title": "Norm: Run Current File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "norm.openSettings",
+        "title": "Norm: Open Settings",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "norm.runCurrentFile",
+          "when": "resourceLangId == norm",
+          "group": "navigation@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "norm.runCurrentFile",
+        "key": "ctrl+f5",
+        "mac": "cmd+f5",
+        "when": "editorLangId == norm"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "norm",
+        "required": ["file"],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "URI of the Norm source file"
+          }
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Norm",
+      "properties": {
+        "norm.cli.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Path to the Norm CLI executable used by both Run and the language server. Leave empty to discover it from the workspace or PATH."
+        },
+        "norm.run.workingDirectory": {
+          "type": "string",
+          "enum": ["workspace", "file"],
+          "enumDescriptions": [
+            "Use the source file's workspace folder.",
+            "Use the source file's containing directory."
+          ],
+          "default": "workspace",
+          "scope": "resource",
+          "description": "Working directory used when running the current Norm file."
+        },
+        "norm.run.clearTerminal": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Clear the dedicated Norm task terminal before each run."
+        },
+        "norm.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "scope": "window",
+          "description": "Trace communication between VS Code and the Norm language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "npm run check && esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=out/extension.js --sourcemap && npm run compile:tests",
+    "compile:tests": "esbuild src/test/extension.test.ts --bundle --platform=node --external:vscode --outfile=out/test/extension.test.js",
+    "watch": "tsc -w -p ./",
+    "check": "tsc --noEmit -p ./",
+    "test:discovery": "esbuild src/cli-command.ts --bundle --platform=node --format=cjs --outfile=out/cli-command.cjs && node scripts/test-discovery.mjs",
+    "test:release": "node scripts/test-release-package.mjs",
+    "verify:vsix": "node scripts/verify-vsix.mjs",
+    "test:extension": "node scripts/build-server.mjs && npm run compile && vscode-test",
+    "test:extension:native": "npm run compile && vscode-test",
+    "smoke:lsp": "node scripts/smoke-lsp.mjs",
+    "smoke:run": "node scripts/build-server.mjs && node scripts/smoke-run.mjs",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "vscode-languageclient": "10.1.0"
+  },
+  "overrides": {
+    "diff": "8.0.3",
+    "serialize-javascript": "7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/mocha": "10.0.10",
+    "@types/vscode": "1.100.0",
+    "@vscode/test-cli": "0.0.15",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.2",
+    "mocha": "11.8.0",
+    "yauzl": "3.4.0",
+    "typescript": "7.0.2"
+  }
+}

@@ -3,10 +3,10 @@
 文件系统模块提供 Path、File、Directory 和流操作。Path 是纯值，打开的文件和目录迭代器是必须关闭的外部资源。
 
 ```norm
-Path path = Path("data").resolve(child = "settings.json")
+Path path = Path("data").resolve(child: "settings.json")
 Result<String, FileError> text = File.readText(
-    path = path,
-    encoding = TextEncoding.Utf8
+    path: path,
+    encoding: TextEncoding.Utf8
 )
 ```
 

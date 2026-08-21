@@ -1,0 +1,12 @@
+void main() {
+  Deque values = Deque()
+  values.addLast(2)
+  values.addFirst(1)
+  values.addLast(3)
+  print(values.removeFirst())
+  print(values.removeLast())
+  Pair pair = Pair(first: "left", second: 9)
+  print(pair.first)
+  Range indices = Range(start: 0, end: 4)
+  print(indices.length)
+}

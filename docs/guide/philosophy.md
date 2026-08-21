@@ -9,14 +9,14 @@ Norm 为几类高影响语义保留了醒目的语法：
 | 写法 | 读者能立即知道 |
 | --- | --- |
 | `T?` | 这里可能没有值 |
-| `Ref<T>` | 这里存在共享 identity |
+| `name: value` | 参数含义在调用点可见 |
 | `Result<T, E>` | 这是函数契约内的可预期失败 |
 | `reflect` | 这里跨入反射或拦截边界 |
 | `break value` | 控制流结构正在产生值 |
 
 显式不等于冗长。它意味着代码在最需要信息的位置保留信息。
 
-## 默认不共享
+## Identity 不伪装成 Value
 
 ```norm
 class Counter {
@@ -27,31 +27,31 @@ class Counter {
     }
 }
 
-Counter first = Counter(value = 0)
+Counter first = Counter(value: 0)
 Counter second = first
 second.increment()
 ```
 
-`first.value` 仍然是 `0`。普通赋值不会意外连接两个可变对象。
+`first.value` 是 `1`。class 具有身份，普通赋值不会隐式克隆对象。
 
-共享必须写出来：
+需要新身份时写出来：
 
 ```norm
-Ref<Counter> shared = first.ref()
-shared.increment()
+Counter copied = first.copy()
+copied.increment()
 ```
 
 这条规则减少的是“修改为什么从另一个地方发生”的不确定性。
 
 ## 安全不应要求类型体操
 
-Norm 采用静态类型、非空默认、确定赋值、Result 和值语义，但不把所有复杂性转移给类型系统使用者。
+Norm 采用静态类型、非空默认、确定赋值、Result，以及明确的 value/identity 语义，但不把所有复杂性转移给类型系统使用者。
 
 它不采用完整所有权与借用系统，也不鼓励通过复杂泛型表达业务流程。应用开发需要可靠边界，也需要普通开发者能够快速阅读代码。
 
 ## 普通行为使用普通结构
 
-独立行为写成顶层函数；数据写成 value；带行为的状态写成 class；共享状态使用 Ref。语言不要求把每个概念包装进 class，也不让 annotation 自动生成隐藏行为。
+独立行为写成顶层函数；数据写成 value；具有身份和行为的状态写成 class。语言不要求把每个概念包装进 class，也不让 annotation 自动生成隐藏行为。
 
 ```norm
 double midpoint(double left, double right) {

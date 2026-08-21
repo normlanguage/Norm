@@ -3,7 +3,7 @@
 Environment 提供进程环境变量、工作目录和平台信息。读取环境是外部输入，缺失与空字符串必须区分。
 
 ```norm
-Option<String> mode = Environment.get(name = "APP_MODE")
+Option<String> mode = Environment.get(name: "APP_MODE")
 Path current = Environment.currentDirectory()
 Platform platform = Environment.platform()
 ```

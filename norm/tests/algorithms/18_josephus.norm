@@ -1,0 +1,10 @@
+int josephus(int people, int step) {
+  int survivor = 0
+  for size : range(start: 2, end: people + 1) { survivor = (survivor + step) % size }
+  return survivor
+}
+
+void main() {
+  print(josephus(people: 7, step: 3))
+  print(josephus(people: 1, step: 9))
+}

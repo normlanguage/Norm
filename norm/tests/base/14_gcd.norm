@@ -1,0 +1,5 @@
+int gcd(int left, int right) {
+  if right == 0 { return left }
+  return gcd(left: right, right: left % right)
+}
+void main() { print(gcd(left: 54, right: 24)) }

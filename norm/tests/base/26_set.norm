@@ -1,0 +1,8 @@
+void main() {
+  Set values = Set()
+  values.add(5)
+  values.add(5)
+  values.add(8)
+  print(values.contains(8))
+  print(values.length)
+}

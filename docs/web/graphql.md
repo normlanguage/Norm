@@ -6,8 +6,8 @@ GraphQL 服务由 schema、resolver、context 和执行限制组成。详细原�
 
 ```norm
 GraphSchema schema = GraphSchema.builder()
-    .object(type = orderType)
-    .query(name = "order", resolver = resolveOrder)
+    .object(type: orderType)
+    .query(name: "order", resolver: resolveOrder)
     .build()
 ```
 
@@ -20,7 +20,7 @@ Result<Order, GraphError> resolveOrder(
     OrderArguments arguments,
     GraphContext context
 ) {
-    return context.orders.find(id = arguments.id)
+    return context.orders.find(id: arguments.id)
 }
 ```
 

@@ -1,6 +1,6 @@
 # Norm 语言手册
 
-这本手册面向第一次系统学习 Norm 的读者。它解释日常编程需要的语言功能，并通过短小、可独立理解的例子展示语义。
+这本手册描述 Norm 1.0，面向第一次系统学习 Norm 的读者。它解释日常编程需要的语言功能，并通过短小、可独立理解的例子展示语义。
 
 手册不是完整规范。遇到边界情况、编译器约束或形式化定义时，请查阅[语言规范](/spec/language-spec)。标准库 API 和 Web 平台也有各自独立的文档。
 
@@ -10,7 +10,7 @@
 
 1. [基础语法](/language/basics)介绍程序结构、表达式和命名习惯。
 2. [类型与 Null](/language/types)解释静态类型、转换和非空默认。
-3. [Class、Value 与 Ref](/language/objects)介绍 Norm 最重要的值与共享模型。
+3. [Class、Value 与 Identity](/language/objects)介绍 Norm 最重要的数据模型。
 4. [函数](/language/functions)和[控制流](/language/control-flow)覆盖日常行为组织。
 5. [接口](/language/interfaces)、[Enum 与 Switch](/language/enum-switch)和[泛型](/language/generics)用于构建可复用抽象。
 6. [错误处理](/language/errors)说明 `Result<T, E>` 与 Exception 的边界。
@@ -47,19 +47,19 @@ String? subtitle = null
 
 `String` 不能保存 null。只有带 `?` 的 `String?` 明确表示“可能没有值”。
 
-### 赋值默认产生独立值
+### 赋值遵循数据类别
 
 ```norm
 class Counter {
     int value
 }
 
-Counter first = Counter(value = 1)
+Counter first = Counter(value: 1)
 Counter second = first
 second.value = 2
 ```
 
-修改 `second` 不会改变 `first`。需要共享同一个可变对象时，必须显式使用 `Ref<Counter>`。
+修改 `second` 也会通过 `first` 被观察到，因为 class 变量保留对象 identity。需要新对象时使用 `first.copy()`；value 与容器仍产生逻辑独立值。
 
 ### 控制流产生值时必须写明
 

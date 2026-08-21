@@ -1,0 +1,249 @@
+package dev.w0fv1.norm.frontend;
+
+import dev.w0fv1.norm.diagnostic.DiagnosticCode;
+import dev.w0fv1.norm.syntax.LanguageSyntax;
+import dev.w0fv1.norm.syntax.Token;
+import dev.w0fv1.norm.syntax.TokenKind;
+import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.value.SourceSpan;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+final class Lexer {
+  private static final DiagnosticCode UNEXPECTED_CHARACTER = new DiagnosticCode("NORM-LEXER-0001");
+  private static final DiagnosticCode UNTERMINATED_STRING = new DiagnosticCode("NORM-LEXER-0002");
+  private static final DiagnosticCode INVALID_ESCAPE = new DiagnosticCode("NORM-LEXER-0003");
+  private static final DiagnosticCode UNTERMINATED_COMMENT = new DiagnosticCode("NORM-LEXER-0004");
+  private static final DiagnosticCode UNSUPPORTED_INTERPOLATION =
+      new DiagnosticCode("NORM-LEXER-0005");
+
+  private final SourceFile source;
+  private final DiagnosticBag diagnostics;
+  private final List<Token> tokens = new ArrayList<>();
+  private int offset;
+
+  Lexer(SourceFile source, DiagnosticBag diagnostics) {
+    this.source = Objects.requireNonNull(source, "source");
+    this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
+  }
+
+  List<Token> lex() {
+    while (!isAtEnd()) {
+      scanToken();
+    }
+    tokens.add(Token.simple(TokenKind.END_OF_FILE, "", SourceSpan.at(source, offset)));
+    return List.copyOf(tokens);
+  }
+
+  private void scanToken() {
+    int start = offset;
+    int character = advanceCodePoint();
+    switch (character) {
+      case '(' -> addSimple(TokenKind.LEFT_PAREN, start);
+      case ')' -> addSimple(TokenKind.RIGHT_PAREN, start);
+      case '{' -> addSimple(TokenKind.LEFT_BRACE, start);
+      case '}' -> addSimple(TokenKind.RIGHT_BRACE, start);
+      case '[' -> addSimple(TokenKind.LEFT_BRACKET, start);
+      case ']' -> addSimple(TokenKind.RIGHT_BRACKET, start);
+      case ',' -> addSimple(TokenKind.COMMA, start);
+      case ';' -> addSimple(TokenKind.SEMICOLON, start);
+      case ':' -> addSimple(TokenKind.COLON, start);
+      case '.' -> addSimple(TokenKind.DOT, start);
+      case '+' -> addSimple(TokenKind.PLUS, start);
+      case '-' -> addSimple(TokenKind.MINUS, start);
+      case '*' -> addSimple(TokenKind.STAR, start);
+      case '%' -> addSimple(TokenKind.PERCENT, start);
+      case '!' -> addSimple(match('=') ? TokenKind.BANG_EQUAL : TokenKind.BANG, start);
+      case '=' -> addSimple(match('=') ? TokenKind.EQUAL_EQUAL : TokenKind.EQUAL, start);
+      case '<' -> addSimple(match('=') ? TokenKind.LESS_EQUAL : TokenKind.LESS, start);
+      case '>' -> addSimple(match('=') ? TokenKind.GREATER_EQUAL : TokenKind.GREATER, start);
+      case '&' -> scanDoubleOperator('&', TokenKind.AND_AND, start);
+      case '|' -> scanDoubleOperator('|', TokenKind.OR_OR, start);
+      case '"' -> scanString(start);
+      case '/' -> scanSlash(start);
+      default -> {
+        if (Character.isWhitespace(character)) {
+          return;
+        }
+        if (isIdentifierStart(character)) {
+          scanIdentifier(start);
+          return;
+        }
+        if (Character.isDigit(character)) {
+          scanInteger(start);
+          return;
+        }
+        reportUnexpected(character, start);
+      }
+    }
+  }
+
+  private void scanIdentifier(int start) {
+    while (!isAtEnd()) {
+      int character = source.text().codePointAt(offset);
+      if (!Character.isUnicodeIdentifierPart(character)) {
+        break;
+      }
+      offset += Character.charCount(character);
+    }
+    String lexeme = source.text().substring(start, offset);
+    tokens.add(
+        Token.simple(
+            LanguageSyntax.tokenKind(lexeme), lexeme, new SourceSpan(source, start, offset)));
+  }
+
+  private void scanInteger(int start) {
+    while (!isAtEnd()) {
+      int character = source.text().codePointAt(offset);
+      if (!Character.isDigit(character) && character != '_') {
+        break;
+      }
+      offset += Character.charCount(character);
+    }
+    String lexeme = source.text().substring(start, offset);
+    tokens.add(
+        new Token(
+            TokenKind.INTEGER,
+            lexeme,
+            lexeme.replace("_", ""),
+            new SourceSpan(source, start, offset)));
+  }
+
+  private void scanString(int start) {
+    StringBuilder value = new StringBuilder();
+    while (!isAtEnd()) {
+      int characterStart = offset;
+      int character = advanceCodePoint();
+      if (character == '"') {
+        tokens.add(
+            new Token(
+                TokenKind.STRING,
+                source.text().substring(start, offset),
+                value.toString(),
+                new SourceSpan(source, start, offset)));
+        return;
+      }
+      if (character == '\n' || character == '\r') {
+        diagnostics.error(
+            UNTERMINATED_STRING,
+            "string literal is not terminated before the end of the line",
+            new SourceSpan(source, start, characterStart));
+        return;
+      }
+      if (character != '\\') {
+        if (character == '$' && startsWith("{")) {
+          diagnostics.error(
+              UNSUPPORTED_INTERPOLATION,
+              "string interpolation is not supported by Norm V0.1",
+              new SourceSpan(source, characterStart, Math.min(offset + 1, source.length())));
+        }
+        value.appendCodePoint(character);
+        continue;
+      }
+      if (isAtEnd()) {
+        break;
+      }
+      int escapeStart = offset - 1;
+      int escaped = advanceCodePoint();
+      switch (escaped) {
+        case 'n' -> value.append('\n');
+        case 'r' -> value.append('\r');
+        case 't' -> value.append('\t');
+        case '"' -> value.append('"');
+        case '\\' -> value.append('\\');
+        default ->
+            diagnostics.error(
+                INVALID_ESCAPE,
+                "unsupported string escape '\\" + new String(Character.toChars(escaped)) + "'",
+                new SourceSpan(source, escapeStart, offset));
+      }
+    }
+    diagnostics.error(
+        UNTERMINATED_STRING,
+        "string literal is not terminated before the end of the file",
+        new SourceSpan(source, start, offset));
+  }
+
+  private void scanSlash(int start) {
+    if (match('/')) {
+      while (!isAtEnd()) {
+        int character = source.text().codePointAt(offset);
+        if (character == '\n' || character == '\r') {
+          break;
+        }
+        offset += Character.charCount(character);
+      }
+      return;
+    }
+    if (!match('*')) {
+      addSimple(TokenKind.SLASH, start);
+      return;
+    }
+
+    int depth = 1;
+    while (!isAtEnd() && depth > 0) {
+      if (startsWith("/*")) {
+        offset += 2;
+        depth++;
+      } else if (startsWith("*/")) {
+        offset += 2;
+        depth--;
+      } else {
+        advanceCodePoint();
+      }
+    }
+    if (depth != 0) {
+      diagnostics.error(
+          UNTERMINATED_COMMENT,
+          "block comment is not terminated",
+          new SourceSpan(source, start, offset));
+    }
+  }
+
+  private void scanDoubleOperator(char expected, TokenKind kind, int start) {
+    if (match(expected)) {
+      addSimple(kind, start);
+    } else {
+      reportUnexpected(expected, start);
+    }
+  }
+
+  private void reportUnexpected(int character, int start) {
+    diagnostics.error(
+        UNEXPECTED_CHARACTER,
+        "unexpected character '" + new String(Character.toChars(character)) + "'",
+        new SourceSpan(source, start, offset));
+  }
+
+  private boolean match(char expected) {
+    if (isAtEnd() || source.text().charAt(offset) != expected) {
+      return false;
+    }
+    offset++;
+    return true;
+  }
+
+  private boolean startsWith(String value) {
+    return source.text().startsWith(value, offset);
+  }
+
+  private void addSimple(TokenKind kind, int start) {
+    SourceSpan span = new SourceSpan(source, start, offset);
+    tokens.add(Token.simple(kind, span.text(), span));
+  }
+
+  private int advanceCodePoint() {
+    int character = source.text().codePointAt(offset);
+    offset += Character.charCount(character);
+    return character;
+  }
+
+  private boolean isAtEnd() {
+    return offset >= source.length();
+  }
+
+  private static boolean isIdentifierStart(int character) {
+    return character == '_' || Character.isUnicodeIdentifierStart(character);
+  }
+}

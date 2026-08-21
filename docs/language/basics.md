@@ -46,10 +46,10 @@ int area(int width, int height) {
     return width * height
 }
 
-int result = area(width = 12, height = 8)
+int result = area(width: 12, height: 8)
 ```
 
-返回类型写在函数名之前，参数也使用类型前置。多个参数默认使用命名调用，让调用点保留参数含义。
+返回类型写在函数名之前，参数也使用类型前置。多个参数使用命名调用，让调用点保留参数含义。
 
 ## 条件
 
@@ -81,7 +81,7 @@ value Point {
     int y
 }
 
-Point origin = Point(x = 0, y = 0)
+Point origin = Point(x: 0, y: 0)
 ```
 
 这里的 `Point` 是一个纯数据值。关于 `value`、`class` 与共享引用的区别，请阅读[对象和值](/language/objects)。
@@ -102,7 +102,7 @@ int clamp(int value, int minimum, int maximum) {
 }
 
 void main() {
-    int opacity = clamp(value = 140, minimum = 0, maximum = 100)
+    int opacity = clamp(value: 140, minimum: 0, maximum: 100)
     print("opacity = ${opacity}")
 }
 ```

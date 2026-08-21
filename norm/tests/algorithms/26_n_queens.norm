@@ -1,0 +1,30 @@
+bool safe(List columns, int row, int column) {
+  for previous : range(start: 0, end: row) {
+    if columns[previous] == column { return false }
+    if abs(columns[previous] - column) == row - previous { return false }
+  }
+  return true
+}
+
+int search(List columns, int row, int size) {
+  if row == size { return 1 }
+  int solutions = 0
+  for column : range(start: 0, end: size) {
+    if safe(columns, row, column) {
+      columns[row] = column
+      solutions = solutions + search(columns, row: row + 1, size)
+    }
+  }
+  return solutions
+}
+
+int nQueens(int size) {
+  List columns = List()
+  for row : range(start: 0, end: size) { columns.add(-1) }
+  return search(columns, row: 0, size)
+}
+
+void main() {
+  print(nQueens(4))
+  print(nQueens(5))
+}

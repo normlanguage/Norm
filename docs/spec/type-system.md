@@ -9,7 +9,7 @@ Norm 使用静态、名义、非空默认的类型系统。编译器在执行前
 - 参数化类型：`List<T>`、`Map<K, V>` 等；
 - nullable 类型：`T?`；
 - 函数类型：`R function(P...)`；
-- 显式共享类型：`Ref<Class>`；
+- 位置引用类型：`ref<Value>`；
 - 元类型：`Class<T>` 或规范最终确定的类型描述形式。
 
 Norm 没有统一 Object 根类型。通用行为通过 interface 与泛型约束表达。
@@ -33,15 +33,15 @@ if input != null {
 }
 ```
 
-收窄只在变量没有被可能改变的别名或调用写入时保持。Ref 不允许 nullable 外层或 nullable 内容。
+收窄只在变量没有被可能改变的别名或调用写入时保持。`ref<T>` 的可空性尚未定稿。
 
 ## 可赋值关系
 
 S 可赋给 T 的主要情况：S 与 T 相同；S 是 T 的声明子类型；安全数值提升；S 是 T? 的非空部分；泛型 use-site variance 允许。收窄、nullable 去除和不同泛型实参之间默认都需要显式处理。
 
-## 值与 Ref
+## Value 与 Identity
 
-class、value 和集合按值赋值；Ref 复制 identity。interface 变量不会改变底层值的复制语义。实现可以优化复制，只要修改隔离可观察结果不变。
+基本类型、enum 和内建容器按 value 规则赋值；class 赋值保留对象身份。完整规则见 [Value 与 Identity 语义](/spec/value-identity-semantics)。`ref<T>` 只引用 value 的存储位置，不接受 class。
 
 ## 泛型
 

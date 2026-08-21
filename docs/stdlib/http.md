@@ -5,10 +5,10 @@ HTTP 模块提供协议基础类型和客户端/服务器 adapter。路由、Con
 ## 客户端
 
 ```norm
-HttpRequest request = HttpRequest.get(uri = Uri("https://example.com/status"))
+HttpRequest request = HttpRequest.get(uri: Uri("https://example.com/status"))
 Result<HttpResponse, HttpError> response = client.send(
-    request = request,
-    timeout = Duration.seconds(value = 5)
+    request: request,
+    timeout: Duration.seconds(value: 5)
 )
 ```
 

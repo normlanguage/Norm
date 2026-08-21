@@ -18,10 +18,10 @@ String message = "Hello, ${language}"
 ## 编码
 
 ```norm
-Bytes bytes = text.encode(encoding = TextEncoding.Utf8)
+Bytes bytes = text.encode(encoding: TextEncoding.Utf8)
 Result<String, DecodeError> decoded = String.decode(
-    bytes = bytes,
-    encoding = TextEncoding.Utf8
+    bytes: bytes,
+    encoding: TextEncoding.Utf8
 )
 ```
 

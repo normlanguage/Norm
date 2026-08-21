@@ -1,0 +1,8 @@
+class Box { int value void set(int next) { value = next } }
+void main() {
+  Box first = Box(value: 4)
+  Box second = first
+  second.set(9)
+  print(first.value)
+  print(second.value)
+}

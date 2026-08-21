@@ -1,0 +1,17 @@
+class Box {
+  int value
+
+  void set(int next) {
+    value = next
+  }
+}
+
+void main() {
+  Box original = Box(value: 4)
+  Box copied = original.copy()
+  copied.set(9)
+  print(original.value)
+  print(copied.value)
+  print(original == copied)
+  print(original != copied)
+}

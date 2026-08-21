@@ -8,9 +8,9 @@ annotation Deprecated {
     String? replacement = null
 }
 
-@Deprecated(message = "use parse", replacement = "parse")
+@Deprecated(message: "use parse", replacement: "parse")
 int parseLegacy(String text) {
-    return parse(text = text)
+    return parse(text: text)
 }
 ```
 

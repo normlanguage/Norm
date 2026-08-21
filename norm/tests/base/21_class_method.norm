@@ -1,0 +1,10 @@
+class Counter {
+  int value
+  void add(int amount) { value = value + amount }
+  int current() { return value }
+}
+void main() {
+  Counter counter = Counter(value: 3)
+  counter.add(5)
+  print(counter.current())
+}

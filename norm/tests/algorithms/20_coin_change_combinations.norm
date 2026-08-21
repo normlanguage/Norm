@@ -1,0 +1,16 @@
+int coinCombinations(Array coins, int amount) {
+  List ways = List()
+  for value : range(start: 0, end: amount + 1) { ways.add(0) }
+  ways[0] = 1
+  for int coin : coins {
+    for value : range(start: coin, end: amount + 1) {
+      ways[value] = ways[value] + ways[value - coin]
+    }
+  }
+  return ways[amount]
+}
+
+void main() {
+  print(coinCombinations(coins: [1, 2, 5], amount: 5))
+  print(coinCombinations(coins: [2], amount: 0))
+}

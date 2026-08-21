@@ -8,7 +8,7 @@ String 是不可变 Unicode 文本值，提供搜索、切分、替换、大小�
 
 ```norm
 String message = "point = (${point.x}, ${point.y})"
-Bytes encoded = message.encode(encoding = TextEncoding.Utf8)
+Bytes encoded = message.encode(encoding: TextEncoding.Utf8)
 ```
 
 ## 数值与时间

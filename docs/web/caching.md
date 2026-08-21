@@ -4,20 +4,20 @@
 
 ```norm
 Cache<OrderId, Order> orders = cacheFactory.create(
-    name = "orders",
-    ttl = Duration.minutes(value = 5),
-    codec = orderCodec
+    name: "orders",
+    ttl: Duration.minutes(value: 5),
+    codec: orderCodec
 )
 
-Option<Order> cached = orders.get(key = id)
+Option<Order> cached = orders.get(key: id)
 ```
 
 ## Cache-aside
 
 ```norm
 Order order = orders.getOrLoad(
-    key = id,
-    loader = loadOrder
+    key: id,
+    loader: loadOrder
 )
 ```
 

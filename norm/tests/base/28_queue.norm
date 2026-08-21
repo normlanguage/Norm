@@ -1,0 +1,7 @@
+void main() {
+  Queue values = Queue()
+  values.add(1)
+  values.add(2)
+  print(values.remove())
+  print(values.peek())
+}

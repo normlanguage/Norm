@@ -4,12 +4,12 @@ WebSocket handler 在 HTTP upgrade 成功后获得双向连接。认证在 upgra
 
 ```norm
 WebSocketHandler chat = WebSocketHandler(
-    onOpen = openChat,
-    onMessage = receiveChat,
-    onClose = closeChat
+    onOpen: openChat,
+    onMessage: receiveChat,
+    onClose: closeChat
 )
 
-router.webSocket(path = "/chat", handler = chat)
+router.webSocket(path: "/chat", handler: chat)
 ```
 
 ## 消息

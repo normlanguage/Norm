@@ -13,12 +13,12 @@ annotation Label {
 Annotation 是有明确字段的元数据类型。它可以标记 class、value、函数或字段，具体允许目标由 annotation 规范定义。
 
 ```norm
-@Label(text = "two-dimensional coordinate")
+@Label(text: "two-dimensional coordinate")
 value Point {
-    @Label(text = "horizontal position")
+    @Label(text: "horizontal position")
     int x
 
-    @Label(text = "vertical position")
+    @Label(text: "vertical position")
     int y
 }
 ```

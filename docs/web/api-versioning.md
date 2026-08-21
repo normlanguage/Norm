@@ -17,8 +17,8 @@ Header 版本适合需要内容协商的内部 API，但必须进入缓存键和
 
 ```norm
 router.get(
-    path = "/v1/orders/{id}",
-    handler = ordersV1.get
+    path: "/v1/orders/{id}",
+    handler: ordersV1.get
 )
 ```
 

@@ -1,22 +1,8 @@
 # Project Status
 
-Norm is currently a language specification draft. The repository defines syntax, semantics, runtime boundaries, and implementation direction; it does not yet contain a usable compiler.
+The handbook, specification, and standard library describe the future Norm 1.0 language. Delivered compiler behavior is tracked separately by release.
 
-## Specified direction
-
-- Static nominal typing and non-null types by default.
-- Value semantics for classes and containers.
-- Explicit shared identity through `Ref<T>`.
-- Value-producing `if`, `for`, and `switch` expressions using `break value`.
-- Reified generic type arguments.
-- Garbage-collected execution with a backend-independent typed IR.
-
-## Not available yet
-
-- A production compiler or interpreter.
-- A stable standard library.
-- Package installation and publishing.
-- A supported web application runtime.
-
-The documentation describes intended language behavior. Details may change as the formal specification and compiler prototype develop.
+- [Norm 0.1 release record](/en/versions/0.1)
+- [Implementation strategy](/en/design/implementation-strategy)
+- [Compiler bootstrap plan](/en/design/bootstrap-plan)
 

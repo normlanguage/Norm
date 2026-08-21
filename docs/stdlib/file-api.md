@@ -6,7 +6,7 @@
 
 ```norm
 Path root = Path("data")
-Path file = root.resolve(child = "users.json")
+Path file = root.resolve(child: "users.json")
 Path normalized = file.normalize()
 ```
 
@@ -16,14 +16,14 @@ Path 只表示平台路径，不保证目标存在。拼接不会把未经验证
 
 ```norm
 Result<String, FileError> text = File.readText(
-    path = file,
-    encoding = TextEncoding.Utf8
+    path: file,
+    encoding: TextEncoding.Utf8
 )
 
 Result<void, FileError> saved = File.writeText(
-    path = file,
-    text = content,
-    mode = WriteMode.Replace
+    path: file,
+    text: content,
+    mode: WriteMode.Replace
 )
 ```
 

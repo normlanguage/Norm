@@ -1,0 +1,5 @@
+void main() {
+  int sum = 0
+  for value : range(start: 1, end: 6) { sum = sum + value }
+  print(sum)
+}

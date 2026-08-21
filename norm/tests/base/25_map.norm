@@ -1,0 +1,6 @@
+void main() {
+  Map scores = Map()
+  scores.put(key: "Ada", value: 2)
+  print(scores["Ada"])
+  print(scores.containsKey("Ada"))
+}

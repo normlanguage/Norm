@@ -1,0 +1,7 @@
+void main() {
+  Stack values = Stack()
+  values.push(2)
+  values.push(3)
+  print(values.peek())
+  print(values.pop())
+}

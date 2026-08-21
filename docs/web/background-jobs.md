@@ -11,8 +11,8 @@ value SendReceipt {
 }
 
 TaskHandler<SendReceipt> handler = TaskHandler<SendReceipt>(
-    name = "send-receipt",
-    run = sendReceipt
+    name: "send-receipt",
+    run: sendReceipt
 )
 ```
 

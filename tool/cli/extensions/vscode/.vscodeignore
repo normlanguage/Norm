@@ -1,0 +1,14 @@
+.gitignore
+src/**
+scripts/**
+test-fixtures/**
+.vscode-test/**
+.vscode-test.mjs
+out/test/**
+out/cli-command.cjs
+out/server-command.cjs
+tsconfig.json
+**/*.map
+node_modules/@types/**
+node_modules/typescript/**
+node_modules/@vscode/**

@@ -6,9 +6,9 @@
 
 ```norm
 Result<Order, RemoteError> order = client.getOrder(
-    id = id,
-    deadline = context.deadline,
-    cancellation = context.cancellation
+    id: id,
+    deadline: context.deadline,
+    cancellation: context.cancellation
 )
 ```
 

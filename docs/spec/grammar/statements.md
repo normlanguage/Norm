@@ -16,7 +16,7 @@ count = count + 1
 函数或方法调用可以作为语句使用：
 
 ```norm
-logger.info(event = "started")
+logger.info(event: "started")
 ```
 
 丢弃具有重要 Result 返回值的调用应产生警告，除非调用点显式使用标准库 discard 函数说明意图。

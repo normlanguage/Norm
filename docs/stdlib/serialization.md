@@ -15,9 +15,9 @@ JSON、二进制或消息格式分别提供 Codec 实现。应用可以通过显
 
 ```norm
 JsonCodec<Point> pointCodec = JsonCodec<Point>.builder()
-    .field(name = "x", read = Point.x)
-    .field(name = "y", read = Point.y)
-    .construct(factory = Point)
+    .field(name: "x", read: Point.x)
+    .field(name: "y", read: Point.y)
+    .construct(factory: Point)
     .build()
 ```
 
@@ -27,5 +27,5 @@ JsonCodec<Point> pointCodec = JsonCodec<Point>.builder()
 
 decoder 对深度、集合长度、字符串和总字节数设置上限。输入不会指定任意运行时 class；多态解码只接受注册的 enum 或类型表。
 
-Ref identity 默认不序列化。对象图需要共享或循环时必须使用专门协议，避免普通 JSON codec 隐藏 identity 语义。
+class identity 和 ref 位置 identity 默认不序列化。对象图需要保留共享或循环时必须使用专门协议，避免普通 JSON codec 隐藏 identity 语义。
 

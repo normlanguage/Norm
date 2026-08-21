@@ -20,12 +20,12 @@ body 使用显式 `Codec<T>` 编解码。类型名、schema 版本和 content ty
 
 ```norm
 Result<PublishReceipt, QueueError> receipt = producer.publish(
-    message = message
+    message: message
 )
 
 consumer.subscribe(
-    topic = "orders.created",
-    handler = handleOrderCreated
+    topic: "orders.created",
+    handler: handleOrderCreated
 )
 ```
 

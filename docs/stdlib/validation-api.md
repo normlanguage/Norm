@@ -21,8 +21,8 @@ Result<EmailAddress, List<ValidationError>> validateEmail(String input) {
 ```norm
 Validator<String> username = Validators.string()
     .trimmed()
-    .length(minimum = 3, maximum = 32)
-    .matches(pattern = usernamePattern)
+    .length(minimum: 3, maximum: 32)
+    .matches(pattern: usernamePattern)
 ```
 
 转换和验证是两个步骤：解析失败使用 `InvalidFormat`，解析成功但违反领域规则使用具体 code。默认收集全部独立错误；需要遇错即停时必须显式选择。

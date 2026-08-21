@@ -4,9 +4,9 @@
 
 ```norm
 logger.info(
-    event = "iteration.completed",
-    message = "iteration completed",
-    fields = ["count" = count]
+    event: "iteration.completed",
+    message: "iteration completed",
+    fields: ["count" = count]
 )
 ```
 

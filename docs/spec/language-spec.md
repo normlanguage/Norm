@@ -1,6 +1,6 @@
 # Norm 语言规范
 
-本文是 Norm 核心语言规则的入口。手册解释如何使用语言，本规范定义编译器必须接受、拒绝和执行什么。
+本文是 Norm 1.0 核心语言规则的入口。手册解释如何使用语言，本规范定义编译器必须接受、拒绝和执行什么。
 
 > Norm 当前处于规范草案阶段。标为“待定”的内容不能被实现或文档当作稳定承诺。
 
@@ -8,7 +8,7 @@
 
 Norm 是静态、名义、非空默认的语言，核心差异集中在三条具体规则：
 
-1. class 赋值默认产生独立值，共享 identity 只能通过 `Ref<T>` 引入；
+1. class 保留对象 identity，内建容器保持 value 语义，显式 `copy()` 创建新的顶层对象；
 2. if、for、switch 作为表达式时使用 `break value` 显式产生结果；
 3. 泛型参数在运行时保留，不使用类型擦除。
 
@@ -24,7 +24,7 @@ module geometry
 import std.math.sqrt
 
 double length(Point point) {
-    return sqrt(value = point.x * point.x + point.y * point.y)
+    return sqrt(value: point.x * point.x + point.y * point.y)
 }
 ```
 
@@ -51,20 +51,9 @@ Norm 没有统一 Object 根类型。泛型约束和 interface 表达通用行�
 
 ## 值模型
 
-```norm
-Counter first = Counter(value = 0)
-Counter second = first
-second.value = 1
-// first.value 仍为 0
-```
+class 可变且具有身份；赋值、传参和返回共享同一对象。基本类型、enum 和内建容器是 value。`class.copy()` 创建新的顶层对象，value 使用结构相等，class 使用身份相等。完整定义见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
 
-class 可变但赋值默认独立；value 构造后不可变；interface 只描述行为。`.ref()` 从 class 值建立共享单元：
-
-```norm
-Ref<Counter> shared = first.ref()
-```
-
-Ref 不可 nullable、不可协变，并且只包装 class。
+`ref<T>` 引用 value 的存储位置，不是 class 共享入口。
 
 ## 控制流
 
@@ -94,12 +83,13 @@ List<String>.class != List<int>.class
 
 ## 求值
 
-子表达式和实参按源码从左到右求值。逻辑运算短路。优化器可以消除复制或共享内部存储，但不能改变异常、Ref 修改、I/O 顺序、动态类型或反射结果。
+子表达式和实参按源码从左到右求值；命名参数只改变形参绑定，不改变求值顺序。逻辑运算短路。优化器可以消除 value 复制或共享内部存储，但不能改变对象身份、I/O 顺序或动态类型。
 
 ## 规范导航
 
 - [语法总览](/spec/grammar/overview)
 - [类型系统](/spec/type-system)
+- [Value 与 Identity 语义](/spec/value-identity-semantics)
 - [对象模型](/spec/object-model)
 - [内存语义](/spec/memory-semantics)
 - [表达式语义](/spec/expression-semantics-formal)

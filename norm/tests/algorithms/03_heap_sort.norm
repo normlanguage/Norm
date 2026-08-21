@@ -1,0 +1,36 @@
+Array siftDown(Array values, int size, int root) {
+  int current = root
+  for step : range(start: 0, end: size) {
+    int largest = current
+    int left = current * 2 + 1
+    int right = left + 1
+    if left < size && values[left] > values[largest] { largest = left }
+    if right < size && values[right] > values[largest] { largest = right }
+    if largest == current { break }
+    int temporary = values[current]
+    values[current] = values[largest]
+    values[largest] = temporary
+    current = largest
+  }
+  return values
+}
+
+Array heapSort(Array values) {
+  int size = values.length
+  for step : range(start: 0, end: size / 2) {
+    int root = size / 2 - 1 - step
+    values = siftDown(values, size, root)
+  }
+  for step : range(start: 0, end: size - 1) {
+    int end = size - 1 - step
+    int temporary = values[0]
+    values[0] = values[end]
+    values[end] = temporary
+    values = siftDown(values, size: end, root: 0)
+  }
+  return values
+}
+
+void main() {
+  for int value : heapSort([4, 1, 8, 2, 5]) { print(value) }
+}

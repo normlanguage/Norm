@@ -4,12 +4,12 @@
 
 ```norm
 Command command = Command(
-    program = "normc",
-    arguments = ["check", "src"]
+    program: "normc",
+    arguments: ["check", "src"]
 )
 
 Result<ProcessOutput, ProcessError> result = command.run(
-    timeout = Duration.seconds(value = 30)
+    timeout: Duration.seconds(value: 30)
 )
 ```
 

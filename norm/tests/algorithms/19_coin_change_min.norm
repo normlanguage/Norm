@@ -1,0 +1,17 @@
+int minimumCoins(Array coins, int amount) {
+  List best = List()
+  for value : range(start: 0, end: amount + 1) { best.add(amount + 1) }
+  best[0] = 0
+  for value : range(start: 1, end: amount + 1) {
+    for int coin : coins {
+      if coin <= value { best[value] = min(left: best[value], right: best[value - coin] + 1) }
+    }
+  }
+  if best[amount] > amount { return -1 }
+  return best[amount]
+}
+
+void main() {
+  print(minimumCoins(coins: [1, 2, 5], amount: 11))
+  print(minimumCoins(coins: [2], amount: 3))
+}

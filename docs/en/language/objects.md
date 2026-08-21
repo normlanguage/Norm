@@ -1,8 +1,8 @@
-# Value Semantics and Ref
+# Class, Value, and Identity
 
-Norm treats identity and sharing as part of the visible type model. `class`, `value`, and `Ref<T>` answer different questions.
+Class instances have identity. Primitives, enums, and built-in containers are values. See [Value and Identity Semantics](/en/spec/value-identity-semantics) for the normative rules.
 
-## Class values are independent by default
+## Classes preserve identity
 
 ```norm
 class Counter {
@@ -13,46 +13,20 @@ class Counter {
     }
 }
 
-Counter first = Counter(value = 0)
+Counter first = Counter(value: 0)
 Counter second = first
 second.increment()
+print(first.value)
 ```
 
-After this code, `first.value` is `0` and `second.value` is `1`. Assignment has value semantics even though `Counter` is mutable and has behavior.
+The program prints `1`: both variables refer to the same Counter. Parameters and return values follow the same rule.
 
-An implementation may use copy-on-write, structural sharing, or copy elision. Those optimizations cannot change observable behavior.
+Call `copy()` when a new top-level identity is required. Value fields become independent, while class fields still refer to the same nested objects.
 
-## Value declares immutable data
+## Containers are values
 
-```norm
-value Point {
-    int x
-    int y
-}
-```
+Copying a built-in container creates an independent structure. Class elements within that structure retain their identity. Values compare structurally; classes compare by identity.
 
-A value has no identity and its fields cannot be mutated in place. The variable itself may be assigned a different complete value.
+## `ref<T>` identifies value storage
 
-## Ref introduces shared identity
-
-```norm
-Counter counter = Counter(value = 0)
-Ref<Counter> shared = counter.ref()
-shared.increment()
-```
-
-`Ref<Counter>` tells the reader that aliases can observe changes to the same object. Sharing cannot be introduced by ordinary assignment.
-
-`Ref<T>` is never nullable. Both `Ref<Counter>?` and `Ref<Counter?>` are invalid; absence should be modeled explicitly instead of mixing nullability with identity.
-
-## Choosing a model
-
-| Requirement | Type form |
-| --- | --- |
-| Immutable data with no identity | `value` |
-| Mutable behavior with independent assignment | `class` |
-| Shared mutable identity | `Ref<class>` |
-| A behavior contract | `interface` |
-
-Next: [Control-flow expressions](/en/language/control-flow).
-
+`ref<T>` refers to a value storage location. It is not the mechanism for sharing class instances. Copying a ref preserves the location identity; its expression forms are defined by the grammar specification.

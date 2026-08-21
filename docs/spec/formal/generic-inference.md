@@ -22,8 +22,8 @@
 
 ```norm
 T first<T>(List<T> values) { return values[0] }
-List<String> names = List<String>(values = ["Ada"])
-String name = first(values = names)
+List<String> names = List<String>(values: ["Ada"])
+String name = first(values: names)
 ```
 
 实参产生 `T = String`，返回期望类型再次验证同一约束。

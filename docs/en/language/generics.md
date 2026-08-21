@@ -9,8 +9,8 @@ class Box<T> {
     T value
 }
 
-Box<int> count = Box<int>(value = 3)
-Box<String> label = Box<String>(value = "ready")
+Box<int> count = Box<int>(value: 3)
+Box<String> label = Box<String>(value: "ready")
 ```
 
 Raw types are forbidden: `Box` without a type argument is invalid.

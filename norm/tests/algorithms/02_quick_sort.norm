@@ -1,0 +1,25 @@
+Array quickSort(Array values, int low, int high) {
+  if low >= high { return values }
+  int pivot = values[high]
+  int boundary = low
+  for index : range(start: low, end: high) {
+    if values[index] <= pivot {
+      int temporary = values[boundary]
+      values[boundary] = values[index]
+      values[index] = temporary
+      boundary = boundary + 1
+    }
+  }
+  int temporary = values[boundary]
+  values[boundary] = values[high]
+  values[high] = temporary
+  values = quickSort(values, low, high: boundary - 1)
+  values = quickSort(values, low: boundary + 1, high)
+  return values
+}
+
+void main() {
+  Array values = [-2, 8, 3, 0, 3, 1]
+  values = quickSort(values, low: 0, high: values.length - 1)
+  for int value : values { print(value) }
+}

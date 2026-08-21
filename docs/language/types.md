@@ -105,5 +105,5 @@ class Coordinate implements Printable {
 
 `Coordinate` 是 `Printable`，因为声明中明确写出了 `implements Printable`，而不是因为它碰巧拥有同名方法。
 
-下一章：[Class、Value 与 Ref](/language/objects)。
+下一章：[Class、Value 与 Identity](/language/objects)。
 

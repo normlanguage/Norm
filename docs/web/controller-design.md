@@ -8,10 +8,10 @@ class OrderController {
 
     HttpResponse get(HttpRequest request) {
         Result<OrderId, InputError> id = OrderId.parse(
-            text = request.path.string(name = "id")
+            text: request.path.string(name: "id")
         )
 
-        return responses.fromResult(result = orders.find(id = id))
+        return responses.fromResult(result: orders.find(id: id))
     }
 }
 ```
@@ -20,7 +20,7 @@ class OrderController {
 
 Controller 可以处理解析、认证上下文、内容协商和错误映射。定价、库存、权限资源规则等业务逻辑属于 service 或领域函数。
 
-依赖通过构造器显式传入。共享连接池等资源以 Ref 或具有明确共享语义的库类型出现，不使用全局 service locator。
+依赖通过构造器显式传入。连接池等共享资源使用具有明确生命周期的 class，不使用全局 service locator。
 
 ## 返回值
 

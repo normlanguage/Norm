@@ -1,0 +1,62 @@
+class Interval {
+  int start
+  int end
+}
+
+List sortIntervals(List intervals) {
+  for index : range(start: 1, end: intervals.length) {
+    Interval key = intervals[index]
+    int position = index
+    for step : range(start: 0, end: index) {
+      if position > 0 {
+        Interval previous = intervals[position - 1]
+        if previous.start > key.start {
+          intervals[position] = previous
+          position = position - 1
+        } else {
+          break
+        }
+      } else {
+        break
+      }
+    }
+    intervals[position] = key
+  }
+  return intervals
+}
+
+List mergeIntervals(List intervals) {
+  intervals = sortIntervals(intervals)
+  List merged = List()
+  for Interval current : intervals {
+    if merged.isEmpty() {
+      merged.add(current)
+    } else {
+      Interval previous = merged[merged.length - 1]
+      if current.start <= previous.end {
+        merged.removeAt(merged.length - 1)
+        merged.add(
+          Interval(
+            start: previous.start,
+            end: max(left: previous.end, right: current.end)
+          )
+        )
+      } else {
+        merged.add(current)
+      }
+    }
+  }
+  return merged
+}
+
+void main() {
+  List intervals = List()
+  intervals.add(Interval(start: 8, end: 10))
+  intervals.add(Interval(start: 1, end: 3))
+  intervals.add(Interval(start: 15, end: 18))
+  intervals.add(Interval(start: 2, end: 6))
+  for Interval interval : mergeIntervals(intervals) {
+    print(interval.start)
+    print(interval.end)
+  }
+}

@@ -1,0 +1,30 @@
+int select(Array values, int low, int high, int wanted) {
+  if low == high { return values[low] }
+  int pivot = values[high]
+  int boundary = low
+  for index : range(start: low, end: high) {
+    if values[index] <= pivot {
+      int temporary = values[boundary]
+      values[boundary] = values[index]
+      values[index] = temporary
+      boundary = boundary + 1
+    }
+  }
+  int temporary = values[boundary]
+  values[boundary] = values[high]
+  values[high] = temporary
+  if wanted == boundary { return values[boundary] }
+  if wanted < boundary { return select(values, low, high: boundary - 1, wanted) }
+  return select(values, low: boundary + 1, high, wanted)
+}
+
+int kthSmallest(Array values, int k) {
+  return select(values, low: 0, high: values.length - 1, wanted: k - 1)
+}
+
+void main() {
+  Array values = [9, 1, 7, 3, 5]
+  print(kthSmallest(values, k: 3))
+  print(kthSmallest(values, k: 1))
+  print(kthSmallest(values, k: 5))
+}

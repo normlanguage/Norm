@@ -1,0 +1,7 @@
+enum Color { Red, Green, Blue }
+Color favorite() { return Color.Green }
+void main() {
+  Color color = favorite()
+  print(color)
+  print(color == Color.Green)
+}

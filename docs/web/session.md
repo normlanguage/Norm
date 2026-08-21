@@ -4,12 +4,12 @@ session 使用客户端 cookie 中的随机 id 关联服务端状态。默认设
 
 ```norm
 SessionConfig config = SessionConfig(
-    cookieName = "session",
-    idleTimeout = Duration.minutes(value = 30),
-    absoluteTimeout = Duration.hours(value = 12),
-    secure = true,
-    httpOnly = true,
-    sameSite = SameSite.Lax
+    cookieName: "session",
+    idleTimeout: Duration.minutes(value: 30),
+    absoluteTimeout: Duration.hours(value: 12),
+    secure: true,
+    httpOnly: true,
+    sameSite: SameSite.Lax
 )
 ```
 

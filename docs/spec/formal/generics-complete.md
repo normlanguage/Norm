@@ -10,7 +10,7 @@ class Box<T> {
 }
 
 T maximum<T extends Comparable<T>>(T left, T right) {
-    if left.compareTo(other = right) >= 0 { return left }
+    if left.compareTo(other: right) >= 0 { return left }
     return right
 }
 ```
@@ -28,7 +28,7 @@ List<? extends Shape> source
 List<? super Circle> target
 ```
 
-extends 位置安全读取上界、禁止具体写入；super 位置安全写入下界、读取为未知捕获类型。Ref 不应用型变。
+extends 位置安全读取上界、禁止具体写入；super 位置安全写入下界、读取为未知捕获类型。`ref<T>` 不应用型变。
 
 ## 类型推断
 
@@ -51,4 +51,4 @@ extends 位置安全读取上界、禁止具体写入；super 位置安全写入
 
 ## 限制
 
-首版不提供高阶类型、类型函数、条件类型、隐式 typeclass 搜索或用户定义 variance declaration。新增能力必须证明不会隐藏值语义、nullable 或运行时类型信息。
+1.0 不提供高阶类型、类型函数、条件类型、隐式 typeclass 搜索或用户定义 variance declaration。新增能力必须证明不会隐藏值语义、nullable 或运行时类型信息。

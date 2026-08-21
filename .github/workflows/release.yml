@@ -1,0 +1,227 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Validate release tag
+        id: version
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Invalid release tag: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Load release targets
+        id: targets
+        shell: bash
+        run: |
+          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.binary | type == "string") and (.executable | type == "string")) and (([.[].target] | length) == ([.[].target] | unique | length))' tool/cli/release-targets.json > /dev/null
+          echo "matrix=$(jq -c '{include: .}' tool/cli/release-targets.json)" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Set up GraalVM
+        uses: ./.github/actions/setup-graalvm-community
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tool/cli/extensions/vscode/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci --prefix tool/cli/extensions/vscode
+
+      - name: Verify release record
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          release_line="${VERSION%.*}"
+          test -f "docs/versions/$release_line.md"
+          test -f "docs/en/versions/$release_line.md"
+
+      - name: Verify toolchain
+        run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Verify extension
+        working-directory: tool/cli/extensions/vscode
+        run: |
+          npm run check
+          npm run test:discovery
+          npm run test:release
+
+  build:
+    needs: [prepare, verify]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Set up GraalVM
+        uses: ./.github/actions/setup-graalvm-community
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tool/cli/extensions/vscode/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci --prefix tool/cli/extensions/vscode
+
+      - name: Build native CLI
+        shell: bash
+        run: ./gradlew :cli:nativeCompile "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Verify native CLI
+        run: node tool/cli/scripts/verify-cli.mjs ${{ matrix.binary }} ${{ needs.prepare.outputs.version }}
+
+      - name: Verify native language server
+        working-directory: tool/cli/extensions/vscode
+        env:
+          NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
+        run: npm run smoke:lsp
+
+      - name: Package platform extension
+        run: >-
+          node tool/cli/extensions/vscode/scripts/release-package.mjs
+          ${{ needs.prepare.outputs.version }}
+          ${{ matrix.target }}
+          ${{ matrix.binary }}
+          release/norm-language-support-v${{ needs.prepare.outputs.version }}-${{ matrix.target }}.vsix
+
+      - name: Verify platform extension package
+        working-directory: tool/cli/extensions/vscode
+        run: >-
+          npm run verify:vsix --
+          ${{ needs.prepare.outputs.version }}
+          ${{ matrix.target }}
+          ${{ github.workspace }}/${{ matrix.binary }}
+          ${{ github.workspace }}/release/norm-language-support-v${{ needs.prepare.outputs.version }}-${{ matrix.target }}.vsix
+
+      - name: Verify extension in VS Code
+        if: runner.os != 'Linux'
+        working-directory: tool/cli/extensions/vscode
+        run: npm run test:extension:native
+
+      - name: Verify extension in VS Code on Linux
+        if: runner.os == 'Linux'
+        working-directory: tool/cli/extensions/vscode
+        run: xvfb-run -a npm run test:extension:native
+
+      - name: Package Windows CLI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          $archive = 'release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.zip'
+          Compress-Archive -LiteralPath '${{ matrix.binary }}' -DestinationPath $archive
+          $destination = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString('N'))
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          $actual = & (Join-Path $destination 'norm.exe') --version
+          if ($actual -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Archived CLI version mismatch: $actual" }
+
+      - name: Package Unix CLI
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p release
+          archive="release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz"
+          tar -C "$(dirname '${{ matrix.binary }}')" -czf "$archive" norm
+          destination="$(mktemp -d)"
+          tar -C "$destination" -xzf "$archive"
+          [[ "$($destination/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: norm-${{ matrix.platform }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Download release assets
+        uses: actions/download-artifact@v5
+        with:
+          path: release
+          pattern: norm-*
+          merge-multiple: true
+
+      - name: Create checksums
+        working-directory: release
+        run: sha256sum norm-* > SHA256SUMS
+
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: release/*
+
+      - name: Publish release atomically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null || echo missing)"
+          if [[ "$state" == "false" ]]; then
+            echo "Release $GITHUB_REF_NAME is already published" >&2
+            exit 1
+          fi
+          if [[ "$state" == "missing" ]]; then
+            release_line="${VERSION%.*}"
+            notes="Version record: https://w0fv1.github.io/norm/en/versions/$release_line
+
+          The Windows and macOS binaries are not code-signed yet, so the operating system may display an origin warning. Verify downloads against SHA256SUMS and the attached build provenance."
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Norm $VERSION" --generate-notes --notes "$notes"
+          fi
+          gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false

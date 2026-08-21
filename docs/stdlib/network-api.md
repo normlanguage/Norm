@@ -6,12 +6,12 @@
 
 ```norm
 Result<List<IpAddress>, NetworkError> addresses = Dns.resolve(
-    host = "example.com"
+    host: "example.com"
 )
 
 SocketAddress endpoint = SocketAddress(
-    address = IpAddress.parse(text = "127.0.0.1"),
-    port = 8080
+    address: IpAddress.parse(text: "127.0.0.1"),
+    port: 8080
 )
 ```
 
@@ -21,8 +21,8 @@ SocketAddress endpoint = SocketAddress(
 
 ```norm
 Result<TcpConnection, NetworkError> opened = Tcp.connect(
-    address = endpoint,
-    timeout = Duration.seconds(value = 5)
+    address: endpoint,
+    timeout: Duration.seconds(value: 5)
 )
 ```
 

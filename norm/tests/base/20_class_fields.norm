@@ -1,0 +1,5 @@
+class Point { int x int y }
+void main() {
+  Point point = Point(x: 2, y: 3)
+  print(point.x + point.y)
+}

@@ -6,8 +6,8 @@
 
 ```norm
 Config config = Config.empty()
-    .withSource(source = EnvSource(prefix = "NORM_"))
-    .withSource(source = FileSource(path = Path("app.toml")))
+    .withSource(source: EnvSource(prefix: "NORM_"))
+    .withSource(source: FileSource(path: Path("app.toml")))
 ```
 
 后加入的来源覆盖先前来源。来源顺序必须在调用点可见；进程环境、文件与命令行不会被隐式合并。
@@ -15,18 +15,18 @@ Config config = Config.empty()
 ## 类型化读取
 
 ```norm
-Result<String, ConfigError> host = config.string(key = "server.host")
-Result<int, ConfigError> port = config.int(key = "server.port")
-Result<bool, ConfigError> debug = config.bool(key = "server.debug")
+Result<String, ConfigError> host = config.string(key: "server.host")
+Result<int, ConfigError> port = config.int(key: "server.port")
+Result<bool, ConfigError> debug = config.bool(key: "server.debug")
 ```
 
 缺失键、格式错误和越界值分别使用 `MissingKey`、`InvalidValue` 与 `OutOfRange` 表达。默认值由调用者显式提供：
 
 ```norm
-int port = switch config.int(key = "server.port") {
+int port = switch config.int(key: "server.port") {
     case Ok(int value) { break value }
     case Err(MissingKey) { break 8080 }
-    case Err(ConfigError error) { throw InvalidConfiguration(error = error) }
+    case Err(ConfigError error) { throw InvalidConfiguration(error: error) }
 }
 ```
 

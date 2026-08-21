@@ -4,14 +4,14 @@
 
 ```norm
 Counter requests = metrics.counter(
-    name = "http.server.requests",
-    unit = "request",
-    labels = ["method", "route", "status_class"]
+    name: "http.server.requests",
+    unit: "request",
+    labels: ["method", "route", "status_class"]
 )
 
 requests.add(
-    value = 1,
-    labels = ["GET", "/orders/{id}", "2xx"]
+    value: 1,
+    labels: ["GET", "/orders/{id}", "2xx"]
 )
 ```
 

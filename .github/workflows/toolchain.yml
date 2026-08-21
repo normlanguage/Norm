@@ -1,0 +1,89 @@
+name: Toolchain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/toolchain.yml'
+      - 'tool/**'
+      - 'norm/**'
+      - 'docs/examples/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
+  pull_request:
+    paths:
+      - '.github/workflows/toolchain.yml'
+      - 'tool/**'
+      - 'norm/**'
+      - 'docs/examples/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toolchain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: OpenJDK 25
+            distribution: temurin
+            java-version: 25.0.3
+            native: false
+          - runtime: GraalVM 25.1.3
+            distribution: graalvm-community
+            java-version: 25.0.3
+            native: true
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v6
+
+      - name: Set up ${{ matrix.runtime }}
+        if: ${{ !matrix.native }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ matrix.distribution }}
+          java-version: ${{ matrix.java-version }}
+
+      - name: Set up ${{ matrix.runtime }}
+        if: matrix.native
+        uses: ./.github/actions/setup-graalvm-community
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run quality checks
+        run: ./gradlew qualityCheck --no-daemon
+
+      - name: Verify CLI entry point
+        run: |
+          ./gradlew :cli:run --args="--version" --no-daemon
+          ./gradlew :cli:run --args="run docs/examples/hello.norm" --no-daemon
+
+      - name: Build native CLI
+        if: matrix.native
+        run: ./gradlew :cli:nativeCompile --no-daemon
+
+      - name: Verify native CLI and language server
+        if: matrix.native
+        env:
+          NORM_CLI: ${{ github.workspace }}/tool/cli/app/build/native/nativeCompile/norm
+        run: |
+          node tool/cli/scripts/verify-cli.mjs "$NORM_CLI" 0.1.0-SNAPSHOT
+          npm run --prefix tool/cli/extensions/vscode smoke:lsp

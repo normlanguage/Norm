@@ -1,0 +1,20 @@
+List nextGreater(Array values) {
+  List result = List()
+  for int value : values { result.add(-1) }
+  Stack indices = Stack()
+  for index : range(start: 0, end: values.length) {
+    for step : range(start: 0, end: values.length) {
+      if indices.isEmpty() { break }
+      int previous = indices.peek()
+      if values[previous] >= values[index] { break }
+      indices.pop()
+      result[previous] = values[index]
+    }
+    indices.push(index)
+  }
+  return result
+}
+
+void main() {
+  for int value : nextGreater([2, 1, 2, 4, 3]) { print(value) }
+}

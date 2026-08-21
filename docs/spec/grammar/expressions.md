@@ -18,12 +18,12 @@ Expression := Literal
 ## 成员、调用与索引
 
 ```norm
-Point point = Point(x = 2, y = 4)
+Point point = Point(x: 2, y: 4)
 int x = point.x
 String first = names[0]
 ```
 
-调用默认使用命名参数。接收者、实参和索引按源码顺序求值一次。安全导航、隐式 await 和动态成员查找不属于当前语法。
+多参数调用使用 `name: value`。单参数可以省略名称；多参数中的裸标识符与对应参数同名时也可以省略标签。其他位置实参非法，具名实参可以按照任意顺序书写。接收者、实参和索引按源码顺序求值一次。安全导航、隐式 await 和动态成员查找不属于当前语法。
 
 ## 运算
 

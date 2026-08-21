@@ -29,7 +29,7 @@ value Point {
 }
 ```
 
-class 可以包含可变字段和行为，但赋值默认复制；value 构造后不可变。二者字段都必须满足确定赋值。
+class 可以包含可变字段和行为，并且赋值保留对象 identity；value 构造后不可变并按 value 规则赋值。二者字段都必须满足确定赋值。
 
 ## Interface
 
@@ -45,7 +45,7 @@ interface 只声明行为，满足关系必须显式写 implements。
 
 ```norm
 enum State {
-    Active
+    Active,
     Disabled(String reason)
 }
 ```

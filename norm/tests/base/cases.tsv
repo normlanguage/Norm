@@ -1,0 +1,30 @@
+01_hello.norm	Hello, Norm!\n
+02_arithmetic.norm	14\n
+03_boolean.norm	true\n
+04_assignment.norm	9\n
+05_if_else.norm	large\n
+06_else_if.norm	zero\n
+07_range_sum.norm	15\n
+08_break.norm	3\n
+09_continue.norm	9\n
+10_function.norm	49\n
+11_named_arguments.norm	7\n
+12_factorial.norm	720\n
+13_fibonacci.norm	55\n
+14_gcd.norm	6\n
+15_array_index.norm	20\n
+16_array_mutation.norm	8\n
+17_array_max.norm	9\n
+18_linear_search.norm	3\n
+19_bubble_sort.norm	1\n3\n5\n8\n
+20_class_fields.norm	5\n
+21_class_method.norm	8\n
+22_class_identity.norm	9\n9\n
+23_enum.norm	Color.Green\ntrue\n
+24_list.norm	2\n8\n
+25_map.norm	2\ntrue\n
+26_set.norm	true\n2\n
+27_stack.norm	3\n3\n
+28_queue.norm	1\n2\n
+29_deque_pair_range.norm	1\n3\nleft\n4\n
+30_string_builder.norm	Norm 01\n

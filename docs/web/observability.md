@@ -6,9 +6,9 @@
 
 ```norm
 ObservationContext context = ObservationContext(
-    trace = request.traceContext,
-    service = serviceInfo,
-    attributes = baseAttributes
+    trace: request.traceContext,
+    service: serviceInfo,
+    attributes: baseAttributes
 )
 ```
 

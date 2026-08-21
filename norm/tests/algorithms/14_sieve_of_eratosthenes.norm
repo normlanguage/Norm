@@ -1,0 +1,29 @@
+Pair primeSummary(int limit) {
+  List prime = List()
+  for value : range(start: 0, end: limit + 1) { prime.add(true) }
+  prime[0] = false
+  prime[1] = false
+  for candidate : range(start: 2, end: limit + 1) {
+    if candidate * candidate > limit { break }
+    if prime[candidate] {
+      for factor : range(start: candidate, end: limit / candidate + 1) {
+        prime[candidate * factor] = false
+      }
+    }
+  }
+  int count = 0
+  int last = -1
+  for value : range(start: 2, end: limit + 1) {
+    if prime[value] {
+      count = count + 1
+      last = value
+    }
+  }
+  return Pair(first: count, second: last)
+}
+
+void main() {
+  Pair result = primeSummary(30)
+  print(result.first)
+  print(result.second)
+}

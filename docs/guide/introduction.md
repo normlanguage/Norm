@@ -15,7 +15,7 @@ int absolute(int value) {
 }
 
 void main() {
-    int distance = absolute(value = -12)
+    int distance = absolute(value: -12)
     print("distance = ${distance}")
 }
 ```
@@ -33,7 +33,7 @@ void main() {
 大型应用代码的主要成本通常不是写下第一版，而是长期理解和修改。Norm 希望重要语义在调用点与声明处直接可见：
 
 - `T?` 表示一个值可能为 null；
-- `Ref<T>` 表示多个位置共享同一 identity；
+- `ref<T>` 表示多个位置访问同一 value 存储位置；
 - `Result<T, E>` 表示函数具有可预期的失败结果；
 - `reflect` 表示代码进入反射或拦截边界；
 - `break value` 表示控制流结构正在产生一个值。
@@ -53,15 +53,15 @@ String? subtitle = null
 
 普通类型不接受 null，也没有绕过初始化检查的 `lateinit`。
 
-### 值语义默认
+### Value 与 Identity 分开
 
 ```norm
-Counter first = Counter(value = 0)
+Counter first = Counter(value: 0)
 Counter second = first
 second.increment()
 ```
 
-`first` 与 `second` 在语义上彼此独立。只有显式的 `Ref<Counter>` 才引入共享。
+`first` 与 `second` 指向同一个 Counter。class 保留对象 identity；需要新对象时使用 `first.copy()`。基本类型、enum、value 和容器按 value 规则赋值。
 
 ### 低魔法
 

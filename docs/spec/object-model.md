@@ -1,37 +1,29 @@
 # 对象模型规范
 
-Norm 区分 class、value、interface、enum 和 `Ref<T>`。这些类型共同使用名义类型检查，但拥有不同的可变性与 identity 规则。
+Norm 的复合数据分为没有身份的 value、具有身份的 class、行为契约 interface 和封闭数据类型 enum。赋值、复制与相等的完整规则见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
 
 ## Class
 
-class 可以拥有字段、构造器、方法和单一 class 父类型。class 值内部可变，但赋值、按值传参和返回时语义上产生独立值。
+class 可以拥有字段、构造器和方法，并且可以继承一个 class、实现多个 interface。实例可变且具有稳定身份；赋值、传参和返回共享同一实例。`copy()` 创建新的顶层身份，并逐字段执行普通赋值。
 
-```norm
-Counter second = first
-second.value = 1
-// first.value 不变
-```
+把子 class 赋给父类型或 interface 变量时保留动态类型，不发生 object slicing。可覆盖方法按动态类型分派。
 
 ## Value
 
-value 是构造后不可变的纯数据。相等和 hash 递归使用全部字段。value 可以实现 interface，但不能参与 class 继承。
+value 表示没有 identity 的数据。字段在构造完成后不可原地修改；赋值、传参和返回产生逻辑独立值。相等与 hash 递归使用全部字段。value 可以实现 interface，但不参与 class 继承。
 
 ## Interface
 
-interface 只定义行为契约，不保存字段。满足关系必须通过 implements 或 extends 声明，不进行结构类型匹配。
+interface 只声明行为契约，不保存实例字段。类型必须显式声明 `implements` 或 `extends`，成员形状相同不会自动建立关系。通过 interface 使用一个值不会改变其原有 value 或 identity 类别。
 
 ## Enum
 
-enum 是封闭 variant 集合。每个 variant 可携带不同数据，switch 可以基于完整集合进行穷尽检查。
+enum 是封闭的代数数据类型。variant 可以不携带数据，也可以拥有不同字段；switch 可以基于完整 variant 集合执行穷尽检查。enum 属于 value。
 
-## Ref
+## `ref<T>`
 
-`Ref<Class>` 建立共享 identity。复制 Ref 继续指向同一共享单元。Ref 不可 nullable，也不能直接包装 value 或 nullable 类型。
-
-## 动态类型
-
-把子 class 值赋给父类型或 interface 变量时保留动态类型，不发生 object slicing。方法调用按动态类型分派，但值复制规则不变。
+`ref<T>` 为 value 存储位置提供 identity。复制 ref 保留同一位置；它不接受 class，因为 class 已经具有对象身份。
 
 ## 表示自由
 
-规范不固定字段布局、对象头、GC 或引用计数。运行时可以使用写时复制、结构共享和逃逸分析，只要 equality、修改隔离、Ref identity 和反射结果符合规范。
+规范不固定字段布局、对象头、垃圾回收方式或 value 的复制策略。运行时只需保持可观察的身份、结构相等、动态分派和修改行为。

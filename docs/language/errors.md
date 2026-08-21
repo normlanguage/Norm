@@ -8,7 +8,7 @@ Norm 区分两类失败：程序预期并准备处理的结果，以及打断正
 
 ```norm
 enum ParseError {
-    Empty
+    Empty,
     InvalidCharacter(int position)
 }
 

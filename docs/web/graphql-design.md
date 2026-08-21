@@ -4,7 +4,7 @@ GraphQL 模块以显式 schema 和 resolver 注册为核心，不通过扫描业
 
 ```norm
 GraphSchema schema = GraphSchema.builder()
-    .query(name = "order", resolver = orderResolver)
+    .query(name: "order", resolver: orderResolver)
     .build()
 ```
 

@@ -13,8 +13,8 @@ class Box<T> {
 使用泛型类型时必须提供类型参数：
 
 ```norm
-Box<int> count = Box<int>(value = 3)
-Box<String> label = Box<String>(value = "ready")
+Box<int> count = Box<int>(value: 3)
+Box<String> label = Box<String>(value: "ready")
 ```
 
 Norm 禁止 raw type，因此不能只写 `Box`。
