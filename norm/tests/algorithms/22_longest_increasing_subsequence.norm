@@ -1,0 +1,19 @@
+int longestIncreasingSubsequence(Array values) {
+  List lengths = List()
+  for int value : values { lengths.add(1) }
+  int best = 1
+  for right : range(start: 0, end: values.length) {
+    for left : range(start: 0, end: right) {
+      if values[left] < values[right] {
+        lengths[right] = max(left: lengths[right], right: lengths[left] + 1)
+      }
+    }
+    best = max(left: best, right: lengths[right])
+  }
+  return best
+}
+
+void main() {
+  print(longestIncreasingSubsequence([10, 9, 2, 5, 3, 7, 101, 18]))
+  print(longestIncreasingSubsequence([5, 4, 3, 2, 1]))
+}

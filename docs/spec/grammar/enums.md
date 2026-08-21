@@ -4,8 +4,8 @@ enum 声明一个封闭 variant 集合。variant 可以为空，也可以携带�
 
 ```norm
 enum ParseResult {
-    Success(int value)
-    Empty
+    Success(int value),
+    Empty,
     Invalid(String reason, int position)
 }
 ```
@@ -14,8 +14,8 @@ variant 参数采用类型前置，构造时使用命名实参：
 
 ```norm
 ParseResult result = Invalid(
-    reason = "unexpected character",
-    position = 3
+    reason: "unexpected character",
+    position: 3
 )
 ```
 
@@ -28,7 +28,7 @@ ParseResult result = Invalid(
 
 ```norm
 enum Option<T> {
-    Some(T value)
+    Some(T value),
     None
 }
 ```

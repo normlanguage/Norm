@@ -34,13 +34,23 @@ int clamp(int value, int minimum, int maximum) {
 }
 ```
 
-具有多个参数的函数默认使用命名调用：
+具有多个参数的函数使用命名调用：
 
 ```norm
-int opacity = clamp(value = 140, minimum = 0, maximum = 100)
+int opacity = clamp(value: 140, minimum: 0, maximum: 100)
 ```
 
 参数名是公开调用约定的一部分。命名调用可以避免连续出现多个同类型实参时产生含义歧义。
+
+单参数调用可以省略参数名。多参数调用中，裸标识符与对应参数同名时可以缩写：
+
+```norm
+int difference = subtract(left, right)
+```
+
+其他多参数实参必须写出名称，具名实参不能与位置实参混用。
+
+实参表达式始终按源码从左到右求值。标签只选择形参槽位，因此 `combine(right: first(), left: second())` 先调用 `first()`，再调用 `second()`。
 
 ## 顶层函数
 
@@ -75,8 +85,8 @@ class Accumulator {
 方法调用使用点号：
 
 ```norm
-Accumulator sum = Accumulator(total = 0)
-sum.add(amount = 4)
+Accumulator sum = Accumulator(total: 0)
+sum.add(4)
 ```
 
 ## 函数类型
@@ -88,7 +98,7 @@ int apply(int operation(int value), int input) {
     return operation(input)
 }
 
-int doubled = apply(operation = square, input = 2)
+int doubled = apply(operation: square, input: 2)
 ```
 
 参数位置上的 `operation` 是局部名称；`int operation(int value)` 描述它能接收一个 `int` 并返回一个 `int`。
@@ -99,17 +109,17 @@ int doubled = apply(operation = square, input = 2)
 
 ```norm
 int incremented = apply(
-    operation = int(int value) {
+    operation: int(int value) {
         return value + 1
     },
-    input = 4
+    input: 4
 )
 ```
 
 匿名函数不能任意捕获外层局部变量，因此不会形成隐藏 closure 环境。需要上下文时，把它作为显式参数传入，或者使用绑定方法引用。
 
 ```norm
-apply(operation = transformer.apply, input = 4)
+apply(operation: transformer.apply, input: 4)
 ```
 
 ## 重载与覆盖

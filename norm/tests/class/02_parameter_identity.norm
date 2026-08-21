@@ -1,0 +1,19 @@
+class Counter {
+  int value
+
+  void add(int amount) {
+    value = value + amount
+  }
+}
+
+Counter advance(Counter counter, int amount) {
+  counter.add(amount)
+  return counter
+}
+
+void main() {
+  Counter original = Counter(value: 1)
+  Counter returned = advance(counter: original, amount: 4)
+  print(original.value)
+  print(original == returned)
+}

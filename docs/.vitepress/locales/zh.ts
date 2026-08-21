@@ -4,7 +4,7 @@ const handbook = [
   { text: '手册介绍', link: '/language/overview' },
   { text: '基础语法', link: '/language/basics' },
   { text: '类型与 Null', link: '/language/types' },
-  { text: 'Class、Value 与 Ref', link: '/language/objects' },
+  { text: 'Class、Value 与 Identity', link: '/language/objects' },
   { text: '函数', link: '/language/functions' },
   { text: '控制流', link: '/language/control-flow' },
   { text: '接口', link: '/language/interfaces' },
@@ -18,6 +18,7 @@ const specification = [
   { text: '语言规范', link: '/spec/language-spec' },
   { text: '类型系统', link: '/spec/type-system' },
   { text: '类型推断', link: '/spec/type-inference' },
+  { text: 'Value 与 Identity', link: '/spec/value-identity-semantics' },
   { text: '对象模型', link: '/spec/object-model' },
   { text: '内存语义', link: '/spec/memory-semantics' },
   { text: '泛型型变', link: '/spec/generic-variance' },
@@ -98,12 +99,14 @@ export const zhTheme: DefaultTheme.Config = {
     { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
     { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
     { text: '标准库', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
+    { text: '版本说明', link: '/versions/0.1', activeMatch: '^/versions/' },
     { text: '社区', link: '/community' },
   ],
   sidebar: {
     '/guide/': [
       { text: '开始', items: [
         { text: 'Norm 是什么', link: '/guide/introduction' },
+        { text: 'VS Code 支持', link: '/guide/vscode' },
         { text: '语言哲学', link: '/guide/philosophy' },
         { text: '设计原则', link: '/guide/design-principles' },
         { text: '设计白皮书', link: '/guide/design-whitepaper' },
@@ -131,6 +134,26 @@ export const zhTheme: DefaultTheme.Config = {
     ],
     '/stdlib/': [{ text: '标准库', items: stdlib }],
     '/web/': [{ text: 'Web 应用开发', items: web }],
+    '/versions/': [{ text: '版本记录', items: [
+      { text: 'Norm 0.1', link: '/versions/0.1' },
+    ]}],
+    '/design/': [
+      { text: '实现与规划', items: [
+        { text: '0.1 版本记录', link: '/versions/0.1' },
+        { text: '实现策略决议', link: '/design/implementation-strategy' },
+        { text: '工具链开发规范', link: '/design/toolchain-development' },
+        { text: '编译器引导计划', link: '/design/bootstrap-plan' },
+        { text: '技术方案', link: '/design/technical-plan' },
+        { text: '项目路线图', link: '/design/roadmap' },
+      ]},
+      { text: '项目约束', collapsed: true, items: [
+        { text: '性能目标', link: '/design/performance-goals' },
+        { text: '兼容性', link: '/design/compatibility' },
+        { text: '语言演进', link: '/design/language-evolution' },
+        { text: '发布流程', link: '/design/release-process' },
+        { text: '治理', link: '/design/governance' },
+      ]},
+    ],
   },
   outline: { level: [2, 3], label: '本页内容' },
   docFooter: { prev: '上一页', next: '下一页' },

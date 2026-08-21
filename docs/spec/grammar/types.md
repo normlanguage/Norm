@@ -28,7 +28,7 @@ List<String>? optionalList
 List<String?> listWithOptionalItems
 ```
 
-这两个类型不同：前者允许列表本身为空，后者允许列表元素为空。`Ref<T>` 不允许添加 nullable 标记。
+这两个类型不同：前者允许列表本身为空，后者允许列表元素为空。`ref<T>` 与 nullable 的组合由引用类型规范定义。
 
 ## 泛型参数
 

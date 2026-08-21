@@ -1,0 +1,24 @@
+int minimumLength(Array values, int target) {
+  int left = 0
+  int sum = 0
+  int best = values.length + 1
+  for right : range(start: 0, end: values.length) {
+    sum = sum + values[right]
+    for step : range(start: 0, end: right + 1) {
+      if sum >= target {
+        best = min(left: best, right: right - left + 1)
+        sum = sum - values[left]
+        left = left + 1
+      } else {
+        break
+      }
+    }
+  }
+  if best > values.length { return 0 }
+  return best
+}
+
+void main() {
+  print(minimumLength(values: [2, 3, 1, 2, 4, 3], target: 7))
+  print(minimumLength(values: [1, 1, 1], target: 8))
+}

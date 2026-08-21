@@ -22,7 +22,7 @@ value Range {
     int end
 }
 
-Range visible = Range(start = 0, end = 80)
+Range visible = Range(start: 0, end: 80)
 ```
 
 `Range` 没有 identity，也不需要共享。它只是一个值。
@@ -33,7 +33,7 @@ class Cursor {
 }
 ```
 
-`Cursor` 可以包含行为和可变状态，但赋值后仍默认独立。只有程序确实需要多个位置控制同一 cursor 时才使用 `Ref<Cursor>`。
+`Cursor` 可以包含行为和可变状态，并且具有对象 identity。赋值会保留同一 cursor；需要新对象时显式调用 `copy()`。
 
 ## 3. 抽象服务于复用，不服务于炫技
 
@@ -74,5 +74,5 @@ Norm 文档把不同层次分开：
 
 运行时可以用写时复制、结构共享、逃逸分析和复制消除实现值语义。只要程序无法观察到与规范不同的结果，优化方式就是实现细节。
 
-这也解释了为什么语言规范与首个 GraalVM/Truffle 后端保持独立：后端可以更换，程序含义不能随之改变。
+这也解释了为什么语言规范与官方 GraalVM/Truffle 后端保持独立：规范定义程序含义，后端只负责实现它。官方项目不因此维护第二套后端，第三方实现也不能改变语言语义。
 

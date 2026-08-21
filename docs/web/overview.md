@@ -18,22 +18,22 @@ Norm Web 是建立在语言和标准库之上的应用平台，不是 Norm 语�
 
 ```norm
 HttpResponse getUser(HttpRequest request) {
-    UserId id = UserId.parse(text = request.path.string(name = "id"))
-    return userResponses.fromResult(result = users.find(id = id))
+    UserId id = UserId.parse(text: request.path.string(name: "id"))
+    return userResponses.fromResult(result: users.find(id: id))
 }
 
-router.get(path = "/users/{id}", handler = getUser)
+router.get(path: "/users/{id}", handler: getUser)
 ```
 
 method、path 和 handler 在一处注册。启动过程可以检查冲突并导出路由表，不需要扫描 class 或依赖运行时 annotation 才知道应用入口。
 
 ## 依赖与共享
 
-应用在 main 中构造依赖，通过构造器传给 Controller 或 handler。数据库连接池等共享资源必须使用本身具有明确共享契约的库类型，或以 `Ref<T>` 暴露共享；普通 class 赋值仍遵循语言的值语义。
+应用在 main 中构造依赖，通过构造器传给 Controller 或 handler。数据库连接池等共享资源使用 class identity；传递 class 会保留同一对象，只有显式 `copy()` 才创建新身份。
 
 ```norm
 OrderController orders = OrderController(
-    service = OrderService(repository = repository)
+    service: OrderService(repository: repository)
 )
 ```
 

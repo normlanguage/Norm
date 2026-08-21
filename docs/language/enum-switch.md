@@ -1,14 +1,12 @@
 # Enum 与 Switch
 
-Norm 的 enum 可以只表示一组固定情况，也可以让每个 variant 携带不同数据。`switch` 负责解构和穷尽检查。
-
 ## 简单 Enum
 
 ```norm
 enum Direction {
-    North
-    East
-    South
+    North,
+    East,
+    South,
     West
 }
 ```
@@ -16,16 +14,18 @@ enum Direction {
 每个 variant 都是 `Direction` 的一个可能值。
 
 ```norm
-Direction direction = North
+Direction direction = Direction.North
 ```
+
+枚举值可以赋值、传参、返回，并使用 `==` 和 `!=` 比较。
 
 ## 携带数据的 Variant
 
 ```norm
 enum Token {
-    Number(double value)
-    Name(String text)
-    Plus
+    Number(double value),
+    Name(String text),
+    Plus,
     End
 }
 ```
@@ -65,7 +65,7 @@ String describe(Token token) {
 
 ```norm
 enum Result<T, E> {
-    Ok(T value)
+    Ok(T value),
     Err(E error)
 }
 ```

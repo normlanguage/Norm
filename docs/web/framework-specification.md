@@ -6,12 +6,12 @@
 
 ```norm
 HttpApplication application = HttpApplication(
-    router = buildRouter(services = services),
-    middleware = buildMiddleware(services = services),
-    limits = HttpLimits.defaults()
+    router: buildRouter(services: services),
+    middleware: buildMiddleware(services: services),
+    limits: HttpLimits.defaults()
 )
 
-application.serve(address = SocketAddress.any(port = 8080))
+application.serve(address: SocketAddress.any(port: 8080))
 ```
 
 所有组件从 main 或明确工厂构造。启动时完成配置验证、路由冲突检查和资源连接；失败时不进入部分可用状态。
@@ -34,8 +34,8 @@ Authenticator 建立 Principal，Authorizer 根据 principal、action 和 resour
 
 ```norm
 Result<Order, OrderError> saved = database.transaction(
-    action = Result<Order, OrderError>(Connection connection) {
-        return orders.save(connection = connection, order = order)
+    action: Result<Order, OrderError>(Connection connection) {
+        return orders.save(connection: connection, order: order)
     }
 )
 ```

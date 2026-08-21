@@ -52,6 +52,20 @@ for int number : numbers {
 
 Norm 不提供 C 风格 `for` 或 `while`。数值范围不是特殊语法，而是实现迭代协议的普通值。
 
+当元素类型静态唯一时可以省略循环变量类型。`Range` 推断为 `int`，泛型集合从元素类型参数推断：
+
+```norm
+for index : range(start: 0, end: 10) {
+    print(index)
+}
+
+for name : names {
+    print(name)
+}
+```
+
+上例中若 `names` 是 `List<String>`，`name` 的类型就是 `String`。无法得到唯一静态元素类型时必须显式书写循环变量类型。
+
 ## Break 与 Continue
 
 在循环语句中，`continue` 跳到下一次迭代，普通 `break` 结束循环。

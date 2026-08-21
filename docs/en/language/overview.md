@@ -10,23 +10,23 @@ int square(int value) {
 }
 
 void main() {
-    int result = square(value = 4)
+    int result = square(4)
     print("result = ${result}")
 }
 ```
 
-Norm uses type-first declarations, braces, optional semicolons, and named arguments for multi-parameter calls. Functions can be declared at module level; there is no `static` keyword.
+Norm uses type-first declarations, braces, optional semicolons, and named arguments for multi-parameter calls. Labels use `name: value`; a single argument may omit its label, and a matching identifier is shorthand for the corresponding label. Functions can be declared at module level; there is no `static` keyword.
 
 ## The three defining features
 
-### Value semantics and explicit sharing
+### Value and identity semantics
 
 ```norm
 Counter second = first
-Ref<Counter> shared = first.ref()
+Counter copied = first.copy()
 ```
 
-The first declaration creates an independent value. The second explicitly introduces shared identity.
+The first declaration preserves object identity. The second creates a new top-level object identity.
 
 ### Explicit values from control flow
 
@@ -50,7 +50,7 @@ Parameterized types retain their actual generic arguments at runtime.
 
 ## Reading order
 
-1. [Value semantics and Ref](/en/language/objects)
+1. [Value and identity](/en/language/objects)
 2. [Control-flow expressions](/en/language/control-flow)
 3. [Reified generics](/en/language/generics)
 

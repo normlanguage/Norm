@@ -16,9 +16,9 @@ annotation Deprecated {
 ## 使用
 
 ```norm
-@Deprecated(message = "use parse", replacement = "parse")
+@Deprecated(message: "use parse", replacement: "parse")
 int parseLegacy(String text) {
-    return parse(text = text)
+    return parse(text: text)
 }
 ```
 

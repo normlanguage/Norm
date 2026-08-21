@@ -1,0 +1,18 @@
+class Bezout {
+  int gcd
+  int x
+  int y
+}
+
+Bezout extendedGcd(int a, int b) {
+  if b == 0 { return Bezout(gcd: a, x: 1, y: 0) }
+  Bezout next = extendedGcd(a: b, b: a % b)
+  return Bezout(gcd: next.gcd, x: next.y, y: next.x - (a / b) * next.y)
+}
+
+void main() {
+  Bezout result = extendedGcd(a: 30, b: 18)
+  print(result.gcd)
+  print(result.x)
+  print(result.y)
+}

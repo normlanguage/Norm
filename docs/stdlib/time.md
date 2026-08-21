@@ -13,7 +13,7 @@
 
 ```norm
 Instant now = clock.now()
-ZonedDateTime local = now.inZone(zone = TimeZone("Asia/Singapore"))
+ZonedDateTime local = now.inZone(zone: TimeZone("Asia/Singapore"))
 ```
 
 Clock 是显式依赖，业务代码不直接读取隐藏全局时钟，测试可以注入 FixedClock。

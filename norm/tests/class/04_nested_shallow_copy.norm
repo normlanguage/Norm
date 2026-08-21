@@ -1,0 +1,22 @@
+class Box {
+  int value
+
+  void set(int next) {
+    value = next
+  }
+}
+
+class Holder {
+  Box box
+  int version
+}
+
+void main() {
+  Holder original = Holder(box: Box(value: 3), version: 1)
+  Holder copied = original.copy()
+  copied.box.set(8)
+  copied.version = 2
+  print(original.box.value)
+  print(original.version)
+  print(copied.version)
+}

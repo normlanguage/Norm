@@ -19,7 +19,7 @@ arguments 不包含运行时自身消费的内部参数。工作目录和环境�
 ## 信号与关闭
 
 ```norm
-Process.onShutdown(handler = gracefulShutdown)
+Process.onShutdown(handler: gracefulShutdown)
 ```
 
 关闭 handler 按注册逆序运行并受总超时限制。handler 应停止接收新工作、完成有限清理并返回，不能假设所有信号都可被捕获。

@@ -5,8 +5,8 @@ Crypto 模块封装经过审查的密码学原语。标准库不鼓励自定义�
 ## Hash 与 HMAC
 
 ```norm
-Digest digest = Hash.sha256(data = bytes)
-Mac mac = Hmac.sha256(key = key, data = bytes)
+Digest digest = Hash.sha256(data: bytes)
+Mac mac = Hmac.sha256(key: key, data: bytes)
 ```
 
 hash 用于完整性与内容寻址，不用于存储密码。验证 MAC 使用恒定时间比较。

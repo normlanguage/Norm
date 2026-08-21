@@ -1,0 +1,6 @@
+int arrayMax(Array values) {
+  int best = values[0]
+  for int value : values { if value > best { best = value } }
+  return best
+}
+void main() { print(arrayMax([4, 9, 2, 7])) }

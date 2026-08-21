@@ -22,7 +22,7 @@
 
 ```norm
 T identity<T>(T value) { return value }
-String name = identity(value = "Norm")
+String name = identity(value: "Norm")
 ```
 
 这里得到约束 `T = String`。

@@ -83,10 +83,10 @@ Powerful features exist, but they require visible syntax.
 
 Examples:
 
-Shared state:
+New object identity:
 
 ```norm
-Ref&lt;Counter&gt; shared = counter.ref()
+Counter copied = counter.copy()
 ```
 
 Reflection:
@@ -189,11 +189,10 @@ The compiler proves every construction path initializes `name`.
 
 # 5. Object Model
 
-Norm has three main data models:
+Norm has two implemented data models:
 
 - class
 - value
-- Ref&lt;T&gt;
 
 ---
 
@@ -211,49 +210,26 @@ class Counter {
 }
 ```
 
-Unlike Java, class assignment uses value semantics.
+Like Java references, class assignment preserves object identity.
 
 ```norm
-Counter first = Counter(value = 0)
+Counter first = Counter(value: 0)
 Counter second = first
 ```
 
-`second` becomes an independent value copy.
+`second` refers to the same object as `first`.
 
-The runtime may optimize this internally through copy-on-write.
+Use `first.copy()` to create a new top-level object identity.
 
 The semantic rule remains:
 
-> Assignment does not create hidden shared mutable state.
+> Assignment copies the value held by the variable; for class types that value is an object reference.
 
 ---
 
-## 5.2 Ref&lt;T&gt;
+## 5.2 ref&lt;T&gt;
 
-When sharing is required, it must be explicit.
-
-```norm
-Ref&lt;Counter&gt; shared = first.ref()
-```
-
-Now both references access the same object.
-
-```norm
-shared.increment()
-```
-
-changes the shared object.
-
-Ref is never nullable.
-
-Invalid:
-
-```norm
-Ref&lt;Counter&gt;?
-Ref&lt;Counter?&gt;
-```
-
-The state model stays simple.
+`ref&lt;T&gt;` gives identity to a value storage location. It is not required for class sharing and does not accept class types. Its expression syntax is fixed by the language grammar.
 
 ---
 
@@ -453,7 +429,7 @@ Implement:
 
 - objects
 - value semantics
-- Ref
+- ref&lt;T&gt;
 - GC integration
 - reflection metadata
 
@@ -467,13 +443,15 @@ Build:
 - testing
 - logging
 
-## Stage 4: Native Backend
+## Stage 4: Native Distribution
 
-Create:
+Deliver:
 
-- optimized IR
-- native compiler
-- production deployment model
+- optimized Truffle execution
+- a standalone `norm` CLI built with GraalVM Native Image
+- a production deployment and compatibility model
+
+Native Image packages the Java toolchain and its GraalVM integration; it is not a second Norm execution backend. The official project does not plan an LLVM, Cranelift, custom machine-code, or Zig backend.
 
 ---
 

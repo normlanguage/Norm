@@ -10,7 +10,7 @@
 String format(int value) { return "${value}" }
 String format(decimal value) { return "${value}" }
 
-String text = format(value = 3)
+String text = format(value: 3)
 ```
 
 只改变返回类型不能形成重载，因为调用点可能不提供足够信息。
@@ -27,8 +27,8 @@ int transform(int operation(int value), int input) {
 
 ```norm
 int doubled = transform(
-    operation = int(int value) { return value * 2 },
-    input = 4
+    operation: int(int value) { return value * 2 },
+    input: 4
 )
 ```
 

@@ -20,6 +20,16 @@ Every reachable path must use `break value` with a compatible type. Norm never i
 
 Norm uses a foreach-shaped `for`. There is no C-style `for` or `while` syntax.
 
+The binding type may be omitted when the iterable has one statically known element type:
+
+```norm
+for index : range(start: 0, end: 10) {
+    print(index)
+}
+```
+
+`Range` infers `int`. Generic iterables infer their binding from the element type, such as `String` for `List<String>`. An explicit binding type is required only when no unique static element type is available.
+
 ```norm
 int firstEven = for int number : numbers {
     if number % 2 == 0 {

@@ -10,9 +10,9 @@ Session、token 和 OAuth adapter 都实现 Authenticator。无凭据、无效�
 
 ```norm
 Authorization decision = authorizer.check(
-    principal = request.principal,
-    action = OrderAction.Read,
-    resource = order
+    principal: request.principal,
+    action: OrderAction.Read,
+    resource: order
 )
 ```
 

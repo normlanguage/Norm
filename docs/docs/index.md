@@ -39,7 +39,7 @@ aside: false
 - [手册介绍](/language/overview)
 - [基础语法](/language/basics)
 - [类型与 Null](/language/types)
-- [Class、Value 与 Ref](/language/objects)
+- [Class、Value 与 Identity](/language/objects)
 - [函数](/language/functions)
 - [控制流](/language/control-flow)
 - [接口](/language/interfaces)
@@ -114,6 +114,10 @@ aside: false
 
 了解工具链、包生态和迁移策略。
 
+- [0.1 版本记录](/versions/0.1)
+- [实现策略决议](/design/implementation-strategy)
+- [工具链开发规范](/design/toolchain-development)
+- [编译器引导计划](/design/bootstrap-plan)
 - [生态策略](/ecosystem/strategy)
 - [包管理器](/ecosystem/package-manager)
 - [包注册表](/ecosystem/registry)
@@ -142,4 +146,4 @@ aside: false
 
 ## 推荐阅读路径
 
-第一次接触 Norm，建议依次阅读：[Norm 是什么](/guide/introduction) → [手册介绍](/language/overview) → [基础语法](/language/basics) → [类型与 Null](/language/types) → [Class、Value 与 Ref](/language/objects) → [函数](/language/functions) → [控制流](/language/control-flow)。需要处理边界情况时，再进入正式规范。
+第一次接触 Norm，建议依次阅读：[Norm 是什么](/guide/introduction) → [手册介绍](/language/overview) → [基础语法](/language/basics) → [类型与 Null](/language/types) → [Class、Value 与 Identity](/language/objects) → [函数](/language/functions) → [控制流](/language/control-flow)。需要处理边界情况时，再进入正式规范。

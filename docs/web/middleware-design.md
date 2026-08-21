@@ -8,8 +8,8 @@ interface Middleware {
 }
 
 HttpApplication app = HttpApplication(
-    router = router,
-    middleware = [requestId, tracing, authentication, errors]
+    router: router,
+    middleware: [requestId, tracing, authentication, errors]
 )
 ```
 

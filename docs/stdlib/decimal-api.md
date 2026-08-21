@@ -13,7 +13,7 @@ decimal total = price * quantity
 字符串构造保留输入的十进制值。无效文本返回解析错误的 API 形式为：
 
 ```norm
-Result<decimal, DecimalError> parsed = Decimal.parse(text = input)
+Result<decimal, DecimalError> parsed = Decimal.parse(text: input)
 ```
 
 ## 舍入
@@ -22,8 +22,8 @@ Result<decimal, DecimalError> parsed = Decimal.parse(text = input)
 
 ```norm
 decimal charged = total.round(
-    scale = 2,
-    mode = RoundingMode.HalfEven
+    scale: 2,
+    mode: RoundingMode.HalfEven
 )
 ```
 

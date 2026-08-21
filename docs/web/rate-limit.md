@@ -4,14 +4,14 @@
 
 ```norm
 RateLimitPolicy policy = TokenBucket(
-    capacity = 100,
-    refill = 10,
-    interval = Duration.seconds(value = 1)
+    capacity: 100,
+    refill: 10,
+    interval: Duration.seconds(value: 1)
 )
 
 RateLimitResult result = limiter.acquire(
-    key = principal.id,
-    permits = 1
+    key: principal.id,
+    permits: 1
 )
 ```
 

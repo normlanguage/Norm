@@ -4,13 +4,13 @@
 
 ```norm
 void parsesPositiveInteger(TestContext test) {
-    Result<int, ParseError> result = parseInteger(text = "42")
-    test.equal(actual = result, expected = Ok(42))
+    Result<int, ParseError> result = parseInteger(text: "42")
+    test.equal(actual: result, expected: Ok(42))
 }
 
 TestSuite suite() {
-    return TestSuite(name = "integer parser")
-        .test(name = "positive integer", body = parsesPositiveInteger)
+    return TestSuite(name: "integer parser")
+        .test(name: "positive integer", body: parsesPositiveInteger)
 }
 ```
 

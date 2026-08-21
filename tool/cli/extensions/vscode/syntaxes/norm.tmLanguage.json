@@ -1,0 +1,75 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Norm",
+  "scopeName": "source.norm",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#declarations" },
+    { "include": "#types" },
+    { "include": "#keywords" },
+    { "include": "#constants" },
+    { "include": "#functions" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.norm", "begin": "//", "end": "$" },
+        { "name": "comment.block.norm", "begin": "/\\*", "end": "\\*/", "patterns": [{ "include": "#comments" }] }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.norm",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.norm", "match": "\\\\[nrt\"\\\\]" }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.integer.norm",
+      "match": "\\b[0-9](?:_?[0-9])*\\b"
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "match": "\\b(class|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.norm" },
+            "2": { "name": "entity.name.type.norm" }
+          }
+        }
+      ]
+    },
+    "types": {
+      "name": "support.type.norm",
+      "match": "\\b(?:int|bool|String|void|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder)\\b"
+    },
+    "keywords": {
+      "name": "keyword.control.norm",
+      "match": "\\b(?:class|enum|if|else|for|return|break|continue)\\b"
+    },
+    "constants": {
+      "name": "constant.language.boolean.norm",
+      "match": "\\b(?:true|false)\\b"
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.norm",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+        },
+        {
+          "name": "variable.other.member.norm",
+          "match": "(?<=\\.)[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "operators": {
+      "name": "keyword.operator.norm",
+      "match": "==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!]"
+    }
+  }
+}

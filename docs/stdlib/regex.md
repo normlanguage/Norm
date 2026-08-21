@@ -4,17 +4,17 @@ Regex 是编译后的正则表达式值。构造可能失败，因此动态 patt
 
 ```norm
 Result<Regex, RegexError> compiled = Regex.compile(
-    pattern = "^[a-z][a-z0-9_]{2,31}$",
-    options = RegexOptions(caseInsensitive = false)
+    pattern: "^[a-z][a-z0-9_]{2,31}$",
+    options: RegexOptions(caseInsensitive: false)
 )
 ```
 
 ## 匹配
 
 ```norm
-Option<Match> match = regex.find(input = text)
-bool valid = regex.matchesEntire(input = text)
-List<String> parts = regex.split(input = text, limit = 10)
+Option<Match> match = regex.find(input: text)
+bool valid = regex.matchesEntire(input: text)
+List<String> parts = regex.split(input: text, limit: 10)
 ```
 
 Match 保存整个匹配范围和命名/编号 group。未参与匹配的可选 group 返回 `Option<String>`，不使用空字符串冒充缺失。

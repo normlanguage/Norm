@@ -3,9 +3,9 @@
 HttpRequest 是一次入站请求的只读视图，包含 method、URI、header、body stream、远端地址和 request context。
 
 ```norm
-String id = request.path.string(name = "id")
-Option<String> filter = request.query.first(name = "filter")
-Result<CreateOrder, DecodeError> body = request.json(codec = createOrderCodec)
+String id = request.path.string(name: "id")
+Option<String> filter = request.query.first(name: "filter")
+Result<CreateOrder, DecodeError> body = request.json(codec: createOrderCodec)
 ```
 
 body 默认是单次读取流。便利 decoder 可以缓冲小 body，但必须受最大字节数限制。query 与 header 都可能重复，API 不用单一 String 静默丢值。
@@ -14,9 +14,9 @@ body 默认是单次读取流。便利 decoder 可以缓冲小 body，但必须�
 
 ```norm
 HttpResponse response = HttpResponse.json(
-    status = HttpStatus.Ok,
-    value = order,
-    codec = orderCodec
+    status: HttpStatus.Ok,
+    value: order,
+    codec: orderCodec
 )
 ```
 

@@ -16,7 +16,7 @@ T first<T>(List<T> values) {
 
 ```norm
 T maximum<T extends Comparable<T>>(T left, T right) {
-    if left.compareTo(other = right) >= 0 { return left }
+    if left.compareTo(other: right) >= 0 { return left }
     return right
 }
 ```

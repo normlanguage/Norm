@@ -1,6 +1,6 @@
 # 标准库概览
 
-标准库为 Norm 程序提供跨平台的基础值类型、集合、I/O 和应用能力。当前内容是 API 设计草案；尚不存在可用于生产的完整实现。
+标准库为 Norm 程序提供跨平台的基础值类型、集合、I/O 和应用能力。本节定义 1.0 标准库的模块职责与公共 API。
 
 ## 模块分层
 
@@ -25,13 +25,13 @@
 ## 集合示例
 
 ```norm
-List<int> first = List<int>(values = [1, 2, 3])
+List<int> first = List<int>(values: [1, 2, 3])
 List<int> second = first
-second.add(value = 4)
+second.add(value: 4)
 // first 仍为 [1, 2, 3]
 ```
 
-运行时可以使用写时复制优化，但可观察行为保持独立。确实需要共享同一集合时使用 `Ref<List<int>>`。
+运行时可以使用写时复制优化，但可观察行为保持独立。确实需要共享同一集合存储位置时使用 `ref<List<int>>`。
 
 ## 实现策略
 

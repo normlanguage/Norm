@@ -1,0 +1,18 @@
+Pair twoSum(Array values, int target) {
+  Map seen = Map()
+  for index : range(start: 0, end: values.length) {
+    int needed = target - values[index]
+    if seen.containsKey(needed) { return Pair(first: seen.get(needed), second: index) }
+    seen.put(key: values[index], value: index)
+  }
+  return Pair(first: -1, second: -1)
+}
+
+void main() {
+  Pair found = twoSum(values: [2, 7, 11, 15], target: 9)
+  print(found.first)
+  print(found.second)
+  Pair missing = twoSum(values: [1, 2, 3], target: 20)
+  print(missing.first)
+  print(missing.second)
+}

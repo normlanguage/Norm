@@ -4,9 +4,9 @@ SQL 模块定义连接池、参数化查询、Row 解码和事务边界。具体
 
 ```norm
 Result<Option<Order>, SqlError> order = database.queryOne(
-    sql = "select id, total from orders where id = :id",
-    parameters = ["id" = id],
-    decode = orderRowDecoder
+    sql: "select id, total from orders where id = :id",
+    parameters: ["id" = id],
+    decode: orderRowDecoder
 )
 ```
 
@@ -22,7 +22,7 @@ RowDecoder 显式把列名和数据库类型转换为领域值。缺失列、NUL
 
 ```norm
 Result<Order, OrderError> result = database.transaction(
-    action = saveOrder
+    action: saveOrder
 )
 ```
 

@@ -1,26 +1,26 @@
 # 路线图
 
-## 0.1 Specification
-固化哲学、语法、语义和设计测试。
+路线图以 Norm 1.0 为目标，并遵循[实现策略决议](/design/implementation-strategy)：核心工具链使用 Java，执行后端使用 GraalVM/Truffle，CLI 使用 Native Image 发行，Zig 不进入核心实现。
 
-## 0.2 Frontend
-完成 lexer/parser、AST、type checker、null safety、generic checker 与 overload resolution。
+已交付版本不在路线图中重复描述，统一查看 [版本记录](/versions/0.1)。
 
-## 0.3 Executable Norm
-实现 Truffle backend、基础 runtime、REPL、`norm run`。
+## 语言前端
 
-## 0.4 Application Foundations
-实现标准库骨架、Java compatibility、JSON、HTTP、SQL、测试和包管理器。
+固化词法、Parser、名称解析、名义类型系统、nullable、确定赋值、命名参数和控制流表达式。语法树、SemanticModel、诊断和语言服务共享同一套声明与类型信息。
 
-## 0.5 Web Preview
-路由 annotation、HTTP server、JSON serialization、数据库 adapter 和完整 Web 示例。
+## 对象与类型
 
-## 0.6 Native Preview
-Native Image standalone binaries 和 benchmark suite。
+完成 class identity、value、interface、继承、enum variant、模式匹配、`ref<T>` 和 reified 泛型，并建立 conformance tests。
 
-## 1.0 Candidate
-稳定类型系统、runtime ABI、标准库 API、工具链和 Web 开发体验，而不是继续堆语言特性。
+## Typed IR 与执行
 
-## 长期
-独立 native backend、Norm-native drivers、LSP/IDE、package registry、profiler/debugger。
+建立唯一 Typed IR，把调用绑定、value/identity 类别、控制流边和泛型实参传给 Truffle 后端。Native Image CLI 与 JVM 执行必须保持行为一致。
+
+## 模块与标准库
+
+完成 module、import、包解析和 1.0 标准库核心 API，覆盖集合、Result/Option、I/O、时间、并发和 Java interop。
+
+## 工具与发布
+
+完成增量 LSP、formatter、调试与 profiling 接口、包管理器、Registry、兼容策略和发布流程。1.0 候选版冻结语言规范、诊断 code、标准库核心 API 与工具链协议。
 

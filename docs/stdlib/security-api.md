@@ -5,7 +5,7 @@
 ## `Secret<T>`
 
 ```norm
-Secret<Bytes> key = Secret<Bytes>(value = randomBytes)
+Secret<Bytes> key = Secret<Bytes>(value: randomBytes)
 ```
 
 `Secret<T>` 的默认格式化结果始终是遮蔽文本，不能被字符串模板意外输出。显式读取秘密需要受限回调或解封操作，生命周期结束后实现应尽力清除可控内存。
@@ -14,11 +14,11 @@ Secret<Bytes> key = Secret<Bytes>(value = randomBytes)
 
 ```norm
 bool equal = Security.constantTimeEquals(
-    left = expectedMac,
-    right = receivedMac
+    left: expectedMac,
+    right: receivedMac
 )
 
-Bytes nonce = SecureRandom.bytes(count = 32)
+Bytes nonce = SecureRandom.bytes(count: 32)
 ```
 
 安全 token、salt、nonce 和 key 必须使用 `SecureRandom`。普通伪随机 API只用于模拟、采样和测试。
@@ -29,8 +29,8 @@ Bytes nonce = SecureRandom.bytes(count = 32)
 
 ```norm
 PasswordHash hash = Password.hash(
-    password = password,
-    policy = PasswordPolicy.recommended()
+    password: password,
+    policy: PasswordPolicy.recommended()
 )
 ```
 

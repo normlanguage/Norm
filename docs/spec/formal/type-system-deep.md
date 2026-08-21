@@ -6,7 +6,7 @@
 
 nullable 标记作用于完整类型：`List<String>?` 与 `List<String?>` 不同。重复 nullable `T??` 不形成新类型，应规范化为 `T?` 或直接诊断冗余。
 
-Ref 不允许 `Ref<T>?` 和 `Ref<T?>`。可能不存在的共享对象使用 enum 包装 Ref。
+`ref<T>` 的 nullable 组合必须由引用与 nullable 规范共同确定，不能由实现自行推断。
 
 ## 捕获转换
 

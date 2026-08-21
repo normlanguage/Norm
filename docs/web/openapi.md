@@ -4,12 +4,12 @@ OpenAPI 文档由显式路由描述与 Codec schema 生成，不从运行中 con
 
 ```norm
 router.get(
-    path = "/orders/{id}",
-    handler = orders.get,
-    operation = Operation<OrderResponse>(
-        id = "getOrder",
-        summary = "Get an order",
-        response = orderResponseCodec.schema()
+    path: "/orders/{id}",
+    handler: orders.get,
+    operation: Operation<OrderResponse>(
+        id: "getOrder",
+        summary: "Get an order",
+        response: orderResponseCodec.schema()
     )
 )
 ```

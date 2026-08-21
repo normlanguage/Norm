@@ -6,8 +6,8 @@ Math 模块提供固定语义的数值函数。它是顶层函数集合，不需
 import std.math.sqrt
 import std.math.clamp
 
-double distance = sqrt(value = x * x + y * y)
-int opacity = clamp(value = input, minimum = 0, maximum = 100)
+double distance = sqrt(value: x * x + y * y)
+int opacity = clamp(value: input, minimum: 0, maximum: 100)
 ```
 
 ## 函数组

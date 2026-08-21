@@ -24,12 +24,12 @@ Norm:
 Counter second = first
 ```
 
-默认表示值复制。
+同样保留对象身份。
 
-共享必须：
+需要新对象时显式复制：
 
 ```norm
-Ref&lt;Counter&gt; shared = first.ref()
+Counter copied = first.copy()
 ```
 
 ## Norm 与 Kotlin

@@ -1,0 +1,44 @@
+Array reverse(Array values, int start) {
+  int swaps = (values.length - start) / 2
+  for offset : range(start: 0, end: swaps) {
+    int left = start + offset
+    int right = values.length - 1 - offset
+    int temporary = values[left]
+    values[left] = values[right]
+    values[right] = temporary
+  }
+  return values
+}
+
+Array nextPermutation(Array values) {
+  int pivot = -1
+  for step : range(start: 0, end: values.length - 1) {
+    int index = values.length - 2 - step
+    if values[index] < values[index + 1] {
+      pivot = index
+      break
+    }
+  }
+  if pivot < 0 { return reverse(values, start: 0) }
+  int successor = values.length - 1
+  for step : range(start: 0, end: values.length) {
+    int index = values.length - 1 - step
+    if values[index] > values[pivot] {
+      successor = index
+      break
+    }
+  }
+  int temporary = values[pivot]
+  values[pivot] = values[successor]
+  values[successor] = temporary
+  return reverse(values, start: pivot + 1)
+}
+
+void printArray(Array values) {
+  for int value : values { print(value) }
+}
+
+void main() {
+  printArray(nextPermutation([1, 2, 3]))
+  printArray(nextPermutation([3, 2, 1]))
+}

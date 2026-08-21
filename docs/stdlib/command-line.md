@@ -3,11 +3,11 @@
 命令行库把原始参数解析为明确的 option、flag、position argument 和 subcommand，不通过 annotation 从 class 字段推导接口。
 
 ```norm
-CommandSpec serve = CommandSpec(name = "serve")
-    .option(name = "port", parser = Parsers.int(), required = true)
-    .flag(name = "verbose", shortName = "v")
+CommandSpec serve = CommandSpec(name: "serve")
+    .option(name: "port", parser: Parsers.int(), required: true)
+    .flag(name: "verbose", shortName: "v")
 
-ParseResult arguments = serve.parse(values = Process.arguments())
+ParseResult arguments = serve.parse(values: Process.arguments())
 ```
 
 ## 解析规则

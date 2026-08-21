@@ -8,7 +8,7 @@ Example:
 
 ```norm
 UserService service = UserService(
-    repository = repository.ref()
+    repository: repository
 )
 ```
 

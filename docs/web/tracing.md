@@ -4,15 +4,15 @@ Trace 描述一次操作跨进程和异步边界的因果关系。平台采用�
 
 ```norm
 Span span = tracer.startSpan(
-    name = "orders.load",
-    parent = context.trace,
-    kind = SpanKind.Internal
+    name: "orders.load",
+    parent: context.trace,
+    kind: SpanKind.Internal
 )
 
 try {
-    loadOrder(id = id)
+    loadOrder(id: id)
 } catch Exception error {
-    span.record(error = error)
+    span.record(error: error)
     throw error
 } finally {
     span.end()

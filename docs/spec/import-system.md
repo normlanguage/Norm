@@ -8,7 +8,7 @@ module drawing
 import geometry.Point
 import geometry.area
 
-Point origin = Point(x = 0, y = 0)
+Point origin = Point(x: 0, y: 0)
 ```
 
 ## 规则
@@ -22,7 +22,7 @@ Point origin = Point(x = 0, y = 0)
 ```norm
 import geometry.Point as GeometryPoint
 
-GeometryPoint point = GeometryPoint(x = 2, y = 3)
+GeometryPoint point = GeometryPoint(x: 2, y: 3)
 ```
 
 通配符导入暂不进入核心语法，以免新增公开声明后静默改变现有文件的名称解析。标准库预导入集合必须很小并由语言版本固定。

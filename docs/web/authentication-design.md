@@ -24,9 +24,9 @@ interface Authenticator {
 
 ```norm
 TokenAuthenticator auth = TokenAuthenticator(
-    issuer = expectedIssuer,
-    audience = "orders-api",
-    keys = keyProvider
+    issuer: expectedIssuer,
+    audience: "orders-api",
+    keys: keyProvider
 )
 ```
 

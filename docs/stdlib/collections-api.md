@@ -5,12 +5,12 @@
 ## `List<T>`
 
 ```norm
-List<String> names = List<String>(values = ["Ada", "Lin"])
+List<String> names = List<String>(values: ["Ada", "Lin"])
 int size = names.size
 String first = names[0]
 
-names.add(value = "Grace")
-names.removeAt(index = 1)
+names.add(value: "Grace")
+names.removeAt(index: 1)
 ```
 
 核心操作包括 `size`、`isEmpty()`、`get(index)`、`set(index, value)`、`add(value)`、`insert(index, value)`、`removeAt(index)` 和 `clear()`。越界索引属于程序错误并抛出 `IndexError`。
@@ -19,10 +19,10 @@ names.removeAt(index = 1)
 
 ```norm
 Map<String, int> counts = Map<String, int>()
-counts.put(key = "ready", value = 3)
+counts.put(key: "ready", value: 3)
 
-Option<int> count = counts.get(key = "ready")
-bool present = counts.containsKey(key = "ready")
+Option<int> count = counts.get(key: "ready")
+bool present = counts.containsKey(key: "ready")
 ```
 
 `get` 返回 `Option<V>`，不会用 null 表示缺失。键必须提供稳定的相等与哈希语义。遍历顺序不是通用 Map 契约的一部分；需要稳定顺序时使用专门类型。
@@ -31,13 +31,13 @@ bool present = counts.containsKey(key = "ready")
 
 ```norm
 Set<String> tags = Set<String>()
-bool inserted = tags.add(value = "stable")
-bool contains = tags.contains(value = "stable")
+bool inserted = tags.add(value: "stable")
+bool contains = tags.contains(value: "stable")
 ```
 
-Set 根据值相等判断唯一性。修改已作为键或元素参与哈希的可变 class 值是非法用法；API 应在插入时保存独立值。
+Set 根据元素的数据类别判断唯一性：value 使用结构 equality 与 hash，class 使用稳定的 identity equality 与 hash。插入时执行普通赋值语义。
 
 ## 迭代与共享
 
-集合实现统一迭代协议，可直接用于 `for T item : values`。结构修改会使已有迭代器失效。确实需要多处共享修改同一个集合时，使用 `Ref<List<T>>` 一类显式共享类型。
+集合实现统一迭代协议，可直接用于 `for item : values` 并推断 `T`。结构修改会使已有迭代器失效。确实需要多处共享同一个 value 存储位置时，使用 `ref<List<T>>`。
 

@@ -6,7 +6,7 @@ Norm 区分正常契约内的失败值与打断正常求值的 Exception。
 
 ```norm
 enum Result<T, E> {
-    Ok(T value)
+    Ok(T value),
     Err(E error)
 }
 ```
@@ -14,7 +14,7 @@ enum Result<T, E> {
 解析失败、资源不存在、远程拒绝等调用者预计会处理的结果使用 Result。它是普通 enum，通过 switch 显式处理。语言不提供隐藏的自动传播运算符。
 
 ```norm
-String message = switch parse(text = input) {
+String message = switch parse(text: input) {
     case Ok(int value) { break "${value}" }
     case Err(ParseError error) { break error.message }
 }

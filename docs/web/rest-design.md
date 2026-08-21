@@ -4,13 +4,13 @@ REST 模块把 HTTP 方法、路径、Header 和 body 映射为显式函数契�
 
 ```norm
 router.get(
-    path = "/orders/{id}",
-    handler = getOrder
+    path: "/orders/{id}",
+    handler: getOrder
 )
 
 HttpResponse getOrder(HttpRequest request) {
-    OrderId id = OrderId.parse(text = request.path.string(name = "id"))
-    return orders.find(id = id)
+    OrderId id = OrderId.parse(text: request.path.string(name: "id"))
+    return orders.find(id: id)
 }
 ```
 

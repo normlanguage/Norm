@@ -6,7 +6,7 @@ Norm 的公开声明保持类型前置和显式。类型推断主要服务于泛
 
 ```norm
 List<String> names = emptyList()
-String first = identity(value = "Norm")
+String first = identity(value: "Norm")
 ```
 
 编译器可以根据实参、赋值目标和泛型约束推断函数的类型参数。字段、参数和返回类型不能省略。

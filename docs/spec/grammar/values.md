@@ -8,7 +8,7 @@ value Point {
     int y
 }
 
-Point origin = Point(x = 0, y = 0)
+Point origin = Point(x: 0, y: 0)
 ```
 
 ## 静态规则
@@ -21,12 +21,12 @@ Point origin = Point(x = 0, y = 0)
 
 ```norm
 origin.x = 1 // 编译错误：value 字段不可修改
-origin = Point(x = 1, y = 0) // 合法：变量绑定到一个新值
+origin = Point(x: 1, y: 0) // 合法：变量绑定到一个新值
 ```
 
 复制 `value` 时，语言保证结果彼此独立。编译器可以使用结构共享，只要程序无法观察到共享 identity。
 
 ## 与 Class 的边界
 
-需要方法但不需要 identity 时仍可使用 `value`；需要内部可变状态时使用 `class`；需要多个位置共同修改同一实例时使用 `Ref<class>`。`value.ref()` 不存在，因为为纯值引入 identity 会破坏其相等和复制规则。
+需要方法但不需要 identity 时仍可使用 `value`；需要对象身份和内部可变状态时使用 `class`。`ref<T>` 用于 value 存储位置，不用于 class 共享。
 

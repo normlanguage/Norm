@@ -1,0 +1,16 @@
+int modularPower(int base, int exponent, int modulus) {
+  int result = 1
+  base = base % modulus
+  for step : range(start: 0, end: 64) {
+    if exponent == 0 { break }
+    if exponent % 2 == 1 { result = result * base % modulus }
+    base = base * base % modulus
+    exponent = exponent / 2
+  }
+  return result
+}
+
+void main() {
+  print(modularPower(base: 2, exponent: 10, modulus: 1000))
+  print(modularPower(base: 7, exponent: 0, modulus: 13))
+}

@@ -16,7 +16,7 @@ shapes = circles // 编译错误：List<T> 不变
 ```norm
 List<? extends Shape> source = circles
 Shape first = source[0]
-source.add(value = Circle()) // 编译错误
+source.add(value: Circle()) // 编译错误
 ```
 
 ## 消费者：super
@@ -25,14 +25,14 @@ source.add(value = Circle()) // 编译错误
 
 ```norm
 List<? super Circle> target = shapes
-target.add(value = Circle())
+target.add(value: Circle())
 ```
 
 ## 约束
 
 - 通配符只出现在类型实参位置，不能作为声明名称使用。
 - 同一通配符不能同时写 `extends` 与 `super`。
-- `Ref<T>` 不提供型变：共享可变状态必须保持不变，否则会破坏写入安全。
+- `ref<T>` 不提供型变：可写存储位置必须保持不变，否则会破坏写入安全。
 - nullable 是独立类型构造，不会由型变规则自动添加或移除。
 
 API 设计可遵循“生产者 extends，消费者 super”，但当一个参数既读又写时应接受精确的 `T`。

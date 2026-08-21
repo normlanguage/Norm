@@ -1,0 +1,16 @@
+Array sort(Array values) {
+  for end : range(start: 0, end: values.length) {
+    for index : range(start: 0, end: values.length - 1 - end) {
+      if values[index] > values[index + 1] {
+        int temporary = values[index]
+        values[index] = values[index + 1]
+        values[index + 1] = temporary
+      }
+    }
+  }
+  return values
+}
+void main() {
+  Array values = sort([5, 1, 8, 3])
+  for int value : values { print(value) }
+}

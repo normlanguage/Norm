@@ -4,14 +4,14 @@
 
 ```norm
 Schedule cleanup = Schedule.cron(
-    expression = "0 3 * * *",
-    timeZone = TimeZone("Asia/Singapore")
+    expression: "0 3 * * *",
+    timeZone: TimeZone("Asia/Singapore")
 )
 
 scheduler.register(
-    name = "cleanup-expired-sessions",
-    schedule = cleanup,
-    task = cleanupExpiredSessions
+    name: "cleanup-expired-sessions",
+    schedule: cleanup,
+    task: cleanupExpiredSessions
 )
 ```
 

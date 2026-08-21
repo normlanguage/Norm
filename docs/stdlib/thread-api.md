@@ -6,8 +6,8 @@
 
 ```norm
 Thread worker = Thread.start(
-    name = "index-worker",
-    body = void() {
+    name: "index-worker",
+    body: void() {
         buildIndex()
     }
 )
@@ -19,15 +19,20 @@ worker.join()
 
 ## 共享状态
 
-普通 class 和集合按值传入工作函数，后续修改彼此隔离。共享修改必须以 `Ref<T>` 出现在类型中，并由锁或原子类型保护。
+class 跨线程传递时保留对象 identity，但普通字段读写不因此获得线程安全。共享修改必须由锁、原子值或其他同步类型保护；value 容器仍按 value 规则传递。
 
 ```norm
-Ref<Counter> counter = Counter(value = 0).ref()
-Mutex lock = Mutex()
+class Counter {
+    AtomicInt value
 
-lock.withLock(action = void() {
-    counter.value = counter.value + 1
-})
+    void increment() {
+        value.increment()
+    }
+}
+
+Counter counter = Counter(value: AtomicInt(0))
+Thread worker = Thread.start(body: counter.increment)
+worker.join()
 ```
 
 `Mutex` 不可复制，锁的持有范围必须由作用域 API 表达。等待、join 和锁获取都应提供超时或取消版本。

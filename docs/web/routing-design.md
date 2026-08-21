@@ -4,8 +4,8 @@
 
 ```norm
 Router router = Router()
-router.get(path = "/users/{id}", handler = users.get)
-router.post(path = "/users", handler = users.create)
+router.get(path: "/users/{id}", handler: users.get)
+router.post(path: "/users", handler: users.create)
 ```
 
 ## 匹配
@@ -13,7 +13,7 @@ router.post(path = "/users", handler = users.create)
 请求先按规范化 path 分段，再匹配静态段、类型化参数段和 wildcard。优先级固定为静态段高于参数段、高于 wildcard，不依赖注册顺序解决含糊路由。
 
 ```norm
-router.get(path = "/files/{path...}", handler = files.get)
+router.get(path: "/files/{path...}", handler: files.get)
 ```
 
 重复的 method + path、无法区分的参数路由和非末尾 wildcard 在启动时失败。

@@ -11,10 +11,20 @@ for String name : names {
 ## 语法形状
 
 ```text
-For := "for" Type Identifier ":" Expression Block ("else" Block)?
+For := "for" Type? Identifier ":" Expression Block ("else" Block)?
 ```
 
 迭代表达式只求值一次。循环变量在每次迭代开始时绑定，在循环体外不可见。
+
+当迭代值具有唯一、静态可知的元素类型时可以省略循环变量类型：
+
+```norm
+for index : range(start: 0, end: 10) {
+    print(index)
+}
+```
+
+`Range` 的元素类型是 `int`；`List<T>`、`Array<T>`、`Set<T>` 等迭代值从类型参数得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
 
 ## 控制转移
 

@@ -4,15 +4,15 @@ Norm enum 是封闭的代数数据类型。每个 variant 可以不携带数据�
 
 ```norm
 enum Token {
-    Number(double value)
-    Name(String text)
+    Number(double value),
+    Name(String text),
     End
 }
 ```
 
 ## 构造与类型
 
-`Number(value = 1.5)` 的静态类型是 `Token`，不是公开的子类。variant 构造器只初始化其声明的数据，不能继承或被单独实现。
+`Number(value: 1.5)` 的静态类型是 `Token`，不是公开的子类。variant 构造器只初始化其声明的数据，不能继承或被单独实现。
 
 ## 匹配
 
