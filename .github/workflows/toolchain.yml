@@ -63,11 +63,7 @@ jobs:
 
       - name: Set up ${{ matrix.runtime }}
         if: matrix.native
-        uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: ${{ matrix.java-version }}
-          distribution: ${{ matrix.distribution }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        uses: ./.github/actions/setup-graalvm-community
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
