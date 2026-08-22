@@ -5,11 +5,13 @@ suite('Norm VS Code extension', () => {
   suiteSetup(async () => {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     assert.ok(root, 'test workspace was not opened');
-    const cli = vscode.Uri.joinPath(
-      root,
-      'tool/cli/app/build/install/norm/bin',
-      process.platform === 'win32' ? 'norm.bat' : 'norm',
-    ).fsPath;
+    const cli =
+      process.env.NORM_CLI ??
+      vscode.Uri.joinPath(
+        root,
+        'tool/cli/app/build/install/norm/bin',
+        process.platform === 'win32' ? 'norm.bat' : 'norm',
+      ).fsPath;
     await vscode.workspace
       .getConfiguration('norm')
       .update('cli.path', cli, vscode.ConfigurationTarget.Global);

@@ -131,11 +131,15 @@ jobs:
       - name: Verify extension in VS Code
         if: runner.os != 'Linux'
         working-directory: tool/cli/extensions/vscode
+        env:
+          NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: npm run test:extension:native
 
       - name: Verify extension in VS Code on Linux
         if: runner.os == 'Linux'
         working-directory: tool/cli/extensions/vscode
+        env:
+          NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: xvfb-run -a npm run test:extension:native
 
       - name: Package Windows CLI
