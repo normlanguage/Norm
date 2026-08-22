@@ -1,5 +1,7 @@
 # Norm
 
+<p align="center"><img src="docs/public/brand/norm.svg" alt="Norm Logo" width="144"></p>
+
 Norm is a specification and compiler-bootstrap repository for a statically typed, application-oriented programming language.
 
 Norm prioritizes explicit behavior, predictable semantics, strong typing, value semantics by default, and practical application development.

@@ -10,7 +10,7 @@ const targetsPath = resolve(
   '..',
   'release-targets.json',
 );
-const releaseTargets = JSON.parse(readFileSync(targetsPath, 'utf8'));
+export const releaseTargets = JSON.parse(readFileSync(targetsPath, 'utf8'));
 if (
   !Array.isArray(releaseTargets) ||
   releaseTargets.length === 0 ||
@@ -57,20 +57,22 @@ export function verifyCliVersion(binary, version) {
   }
 }
 
-export function stageCli(binary, target, extensionRoot) {
+export function stageCliBundle(binaries, extensionRoot) {
   const bin = join(extensionRoot, 'bin');
   rmSync(bin, { recursive: true, force: true });
-  mkdirSync(bin, { recursive: true });
-  const destination = join(bin, targetExecutable(target));
-  copyFileSync(binary, destination);
-  chmodSync(destination, 0o755);
-  return destination;
+  return releaseTargets.map(({ target, executable }) => {
+    const source = join(resolve(binaries), `native-${target}`, executable);
+    const destination = join(bin, target, executable);
+    mkdirSync(dirname(destination), { recursive: true });
+    copyFileSync(source, destination);
+    chmodSync(destination, 0o755);
+    return destination;
+  });
 }
 
-function packageExtension(version, target, binary, output) {
-  verifyCliVersion(binary, version);
+function packageExtension(version, binaries, output) {
   const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  stageCli(binary, target, extensionRoot);
+  stageCliBundle(binaries, extensionRoot);
   const destination = resolve(output);
   mkdirSync(dirname(destination), { recursive: true });
   const vsce = join(
@@ -83,8 +85,6 @@ function packageExtension(version, target, binary, output) {
     'package',
     releaseVersion(version),
     '--no-update-package-json',
-    '--target',
-    target,
     '--no-dependencies',
     '--out',
     destination,
@@ -100,8 +100,8 @@ function packageExtension(version, target, binary, output) {
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
-  if (process.argv.length !== 6) {
-    throw new Error('Usage: release-package.mjs <version> <target> <binary> <output>');
+  if (process.argv.length !== 5) {
+    throw new Error('Usage: release-package.mjs <version> <binaries> <output>');
   }
   packageExtension(...process.argv.slice(2));
 }

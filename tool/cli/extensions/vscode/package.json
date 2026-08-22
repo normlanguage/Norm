@@ -2,6 +2,7 @@
   "name": "norm-language-support",
   "displayName": "Norm Language Support",
   "description": "All-in-one editing, navigation, refactoring, and execution support for Norm",
+  "icon": "images/norm-256.png",
   "version": "0.1.0",
   "publisher": "normlang",
   "repository": {
@@ -28,7 +29,11 @@
         "id": "norm",
         "aliases": ["Norm", "norm"],
         "extensions": [".norm"],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/norm-file.png",
+          "dark": "./images/norm-file.png"
+        }
       }
     ],
     "grammars": [

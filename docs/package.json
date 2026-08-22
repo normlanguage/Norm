@@ -2,6 +2,16 @@
   "name": "norm-docs",
   "private": true,
   "type": "module",
-  "scripts": {"docs:dev":"vitepress dev","docs:build":"vitepress build","docs:preview":"vitepress preview"},
-  "devDependencies": {"vitepress":"^1.6.4"}
+  "scripts": {
+    "brand:check": "node scripts/check-brand-assets.mjs",
+    "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "docs:dev": "vitepress dev",
+    "docs:build": "npm run brand:check && vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "png-to-ico": "3.0.2",
+    "sharp": "0.35.3",
+    "vitepress": "^1.6.4"
+  }
 }

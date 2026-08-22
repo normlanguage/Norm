@@ -14,7 +14,7 @@ Norm 的 VS Code 扩展位于 `tool/cli/extensions/vscode`。它负责编辑器�
 
 ## 安装发布版本
 
-从同一 GitHub Release 下载与操作系统匹配的 VSIX，在 VS Code 中执行 **Extensions: Install from VSIX...**。发布版扩展已包含同版本 `norm` 可执行文件，不要求预装 Java、GraalVM 或单独配置 CLI。
+从 GitHub Release 下载唯一的 `norm-language-support-vMAJOR.MINOR.PATCH.vsix`，在 VS Code 中执行 **Extensions: Install from VSIX...**。发布版扩展已包含所有受支持平台的同版本 `norm` 可执行文件，会自动选择当前平台，不要求预装 Java、GraalVM 或单独配置 CLI。
 
 如果需要让终端直接执行 `norm run example.norm`，再下载同一 Release 中对应平台的 CLI 压缩包，解压并将可执行文件所在目录加入 `PATH`。
 

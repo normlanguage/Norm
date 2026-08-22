@@ -40,6 +40,40 @@ graalvmNative {
     }
 }
 
+val windowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+val windowsResourceSource = layout.projectDirectory.file("src/main/windows/norm.rc")
+val windowsResourceCompiler = layout.projectDirectory.file("src/main/windows/compile-resources.ps1")
+val windowsIcon = rootProject.layout.projectDirectory.file("docs/public/brand/norm.ico")
+val windowsResourceDirectory = layout.buildDirectory.dir("generated/windows-resources")
+val windowsResource = windowsResourceDirectory.map { it.file("norm.res") }
+val compileWindowsResources = tasks.register<Exec>("compileWindowsResources") {
+    inputs.files(windowsResourceCompiler, windowsResourceSource, windowsIcon)
+    outputs.file(windowsResource)
+    workingDir(rootProject.layout.projectDirectory)
+    enabled = windowsHost
+    commandLine(
+        "powershell.exe",
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        windowsResourceCompiler.asFile.absolutePath,
+        "-Source",
+        windowsResourceSource.asFile.absolutePath,
+        "-Output",
+        windowsResource.get().asFile.absolutePath,
+    )
+}
+
+if (windowsHost) {
+    graalvmNative.binaries.named("main") {
+        buildArgs.add("-H:NativeLinkerOption=${windowsResource.get().asFile.absolutePath}")
+    }
+    tasks.named("nativeCompile") {
+        dependsOn(compileWindowsResources)
+    }
+}
+
 val normVersion = project.version.toString()
 val generatedVersionResources = layout.buildDirectory.dir("generated/version-resources")
 val generateVersionProperties = tasks.register<WriteProperties>("generateVersionProperties") {

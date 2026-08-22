@@ -48,7 +48,8 @@ try {
   }
 
   const packagedExtension = join(fixture, 'packaged-extension');
-  const bin = join(packagedExtension, 'bin');
+  const target = `${process.platform}-${process.arch}`;
+  const bin = join(packagedExtension, 'bin', target);
   mkdirSync(bin, { recursive: true });
   const bundled = join(bin, process.platform === 'win32' ? 'norm.exe' : 'norm');
   writeFileSync(bundled, '');

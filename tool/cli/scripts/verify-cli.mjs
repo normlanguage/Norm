@@ -10,6 +10,33 @@ const repository = resolve(import.meta.dirname, '..', '..', '..');
 const cli = resolve(process.argv[2]);
 const version = process.argv[3];
 verify(['--version'], `norm ${version}\n`);
+if (process.platform === 'win32' && cli.toLowerCase().endsWith('.exe')) {
+  const script = `
+Add-Type -AssemblyName System.Drawing
+$icon = [System.Drawing.Icon]::ExtractAssociatedIcon($env:NORM_ICON_TARGET)
+if ($null -eq $icon) { throw 'No executable icon found' }
+$bitmap = $icon.ToBitmap()
+$brandPixels = 0
+for ($x = 0; $x -lt $bitmap.Width; $x++) {
+  for ($y = 0; $y -lt $bitmap.Height; $y++) {
+    $pixel = $bitmap.GetPixel($x, $y)
+    if ([Math]::Abs($pixel.R - 49) -le 2 -and [Math]::Abs($pixel.G - 120) -le 2 -and [Math]::Abs($pixel.B - 198) -le 2) { $brandPixels++ }
+  }
+}
+$bitmap.Dispose()
+$icon.Dispose()
+if ($brandPixels -lt 400) { throw "Executable icon does not contain the Norm brand mark: $brandPixels matching pixels" }
+`;
+  const result = spawnSync(
+    'powershell.exe',
+    ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
+    { encoding: 'utf8', env: { ...process.env, NORM_ICON_TARGET: cli } },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`Windows executable icon verification failed: ${result.stderr}`);
+  }
+}
 verify(['run', resolve(repository, 'docs', 'examples', 'hello.norm')], 'Hello from Norm\n');
 
 let count = 0;
