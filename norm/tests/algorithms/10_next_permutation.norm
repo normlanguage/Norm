@@ -1,8 +1,8 @@
-Array reverse(Array values, int start) {
-  int swaps = (values.length - start) / 2
+Array<int> reverse(Array<int> values, int start) {
+  int swaps = (values.size() - start) / 2
   for offset : range(start: 0, end: swaps) {
     int left = start + offset
-    int right = values.length - 1 - offset
+    int right = values.size() - 1 - offset
     int temporary = values[left]
     values[left] = values[right]
     values[right] = temporary
@@ -10,19 +10,19 @@ Array reverse(Array values, int start) {
   return values
 }
 
-Array nextPermutation(Array values) {
+Array<int> nextPermutation(Array<int> values) {
   int pivot = -1
-  for step : range(start: 0, end: values.length - 1) {
-    int index = values.length - 2 - step
+  for step : range(start: 0, end: values.size() - 1) {
+    int index = values.size() - 2 - step
     if values[index] < values[index + 1] {
       pivot = index
       break
     }
   }
   if pivot < 0 { return reverse(values, start: 0) }
-  int successor = values.length - 1
-  for step : range(start: 0, end: values.length) {
-    int index = values.length - 1 - step
+  int successor = values.size() - 1
+  for step : range(start: 0, end: values.size()) {
+    int index = values.size() - 1 - step
     if values[index] > values[pivot] {
       successor = index
       break
@@ -34,11 +34,20 @@ Array nextPermutation(Array values) {
   return reverse(values, start: pivot + 1)
 }
 
-void printArray(Array values) {
+void printArray(Array<int> values) {
   for int value : values { print(value) }
 }
 
 void main() {
   printArray(nextPermutation([1, 2, 3]))
   printArray(nextPermutation([3, 2, 1]))
+}
+
+private void expectedOutput() {
+  print("1")
+  print("3")
+  print("2")
+  print("1")
+  print("2")
+  print("3")
 }

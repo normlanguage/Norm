@@ -8,3 +8,7 @@ void main() {
   counter.add(5)
   print(counter.current())
 }
+
+private void expectedOutput() {
+  print("8")
+}

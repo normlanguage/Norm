@@ -6,3 +6,8 @@ void main() {
   print(first.value)
   print(second.value)
 }
+
+private void expectedOutput() {
+  print("9")
+  print("9")
+}

@@ -1,0 +1,5 @@
+Module(
+  name: "sample",
+  version: 1,
+  exports: ["util.Identity"]
+)

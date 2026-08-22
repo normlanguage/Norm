@@ -15,7 +15,7 @@ void main() {
 }
 ```
 
-Norm uses type-first declarations, braces, optional semicolons, and named arguments for multi-parameter calls. Labels use `name: value`; a single argument may omit its label, and a matching identifier is shorthand for the corresponding label. Functions can be declared at module level; there is no `static` keyword.
+Norm uses type-first declarations, braces, optional semicolons, and named arguments for multi-parameter calls. Labels use `name: value`; a single argument may omit its label, and a matching identifier is shorthand for the corresponding label. Functions can be declared at package level; there is no `static` keyword.
 
 ## The three defining features
 
@@ -55,4 +55,3 @@ Parameterized types retain their actual generic arguments at runtime.
 3. [Reified generics](/en/language/generics)
 
 The complete Chinese handbook also covers basic syntax, nullability, functions, interfaces, enums, errors, and reflection.
-

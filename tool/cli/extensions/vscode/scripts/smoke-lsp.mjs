@@ -73,8 +73,37 @@ function readMessages() {
         return finish(new Error(`Initialize response lacks Norm capabilities: ${JSON.stringify(message)}`));
       }
       send({ jsonrpc: '2.0', method: 'initialized', params: {} });
-      send({ jsonrpc: '2.0', id: 2, method: 'shutdown', params: null });
+      send({
+        jsonrpc: '2.0',
+        method: 'textDocument/didOpen',
+        params: {
+          textDocument: {
+            uri: 'file:///module.norm',
+            languageId: 'norm',
+            version: 1,
+            text: 'Module(name: "sample", version: 1, exports: [])',
+          },
+        },
+      });
+    } else if (
+      message.method === 'textDocument/publishDiagnostics' &&
+      message.params?.uri === 'file:///module.norm'
+    ) {
+      if (message.params.diagnostics?.length) {
+        return finish(new Error(`Module descriptor diagnostics failed: ${JSON.stringify(message)}`));
+      }
+      send({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'norm/standardLibrarySource',
+        params: 'stdlib:/std/math/integer.norm',
+      });
     } else if (message.id === 2) {
+      if (typeof message.result !== 'string' || !message.result.includes('public int clamp')) {
+        return finish(new Error(`Standard-library source request failed: ${JSON.stringify(message)}`));
+      }
+      send({ jsonrpc: '2.0', id: 3, method: 'shutdown', params: null });
+    } else if (message.id === 3) {
       protocolComplete = true;
       send({ jsonrpc: '2.0', method: 'exit', params: null });
       child.stdin.end();

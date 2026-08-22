@@ -1,0 +1,15 @@
+T identity<T>(T value) {
+  return value
+}
+
+void main() {
+  print(identity(value: 9223372036854775807))
+  print(identity(value: ""))
+  print(identity(value: false))
+}
+
+private void expectedOutput() {
+  print("9223372036854775807")
+  print("")
+  print("false")
+}

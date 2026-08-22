@@ -9,14 +9,50 @@ public final class Syntax {
   private Syntax() {}
 
   public record Program(
-      List<EnumDecl> enums, List<ClassDecl> classes, List<FunctionDecl> functions, SourceSpan span)
+      String packageName,
+      List<ImportDecl> imports,
+      List<EnumDecl> enums,
+      List<ClassDecl> classes,
+      List<FunctionDecl> functions,
+      SourceSpan span)
       implements AstNode {
     public Program {
+      Objects.requireNonNull(packageName, "packageName");
+      imports = List.copyOf(imports);
       enums = List.copyOf(enums);
       classes = List.copyOf(classes);
       functions = List.copyOf(functions);
       Objects.requireNonNull(span, "span");
     }
+  }
+
+  public record ImportDecl(
+      String qualifiedName,
+      SourceSpan nameSpan,
+      Optional<String> alias,
+      Optional<SourceSpan> aliasSpan,
+      SourceSpan span)
+      implements AstNode {
+    public ImportDecl {
+      Objects.requireNonNull(qualifiedName, "qualifiedName");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      alias = Objects.requireNonNull(alias, "alias");
+      aliasSpan = Objects.requireNonNull(aliasSpan, "aliasSpan");
+      if (alias.isPresent() != aliasSpan.isPresent()) {
+        throw new IllegalArgumentException("alias and alias span must be present together");
+      }
+      Objects.requireNonNull(span, "span");
+    }
+
+    public String localName() {
+      int separator = qualifiedName.lastIndexOf('.');
+      return alias.orElse(separator < 0 ? qualifiedName : qualifiedName.substring(separator + 1));
+    }
+  }
+
+  public enum Visibility {
+    PUBLIC,
+    PRIVATE
   }
 
   public record EnumMember(String name, SourceSpan nameSpan) {
@@ -27,7 +63,11 @@ public final class Syntax {
   }
 
   public record EnumDecl(
-      String name, SourceSpan nameSpan, List<EnumMember> members, SourceSpan span)
+      Visibility visibility,
+      String name,
+      SourceSpan nameSpan,
+      List<EnumMember> members,
+      SourceSpan span)
       implements AstNode {
     public EnumDecl {
       Objects.requireNonNull(name, "name");
@@ -37,14 +77,29 @@ public final class Syntax {
     }
   }
 
-  public record TypeRef(String name, TypeRef elementType, SourceSpan span) implements AstNode {
+  public record TypeRef(String name, List<TypeRef> arguments, SourceSpan span) implements AstNode {
     public TypeRef {
       Objects.requireNonNull(name, "name");
+      arguments = List.copyOf(arguments);
       Objects.requireNonNull(span, "span");
     }
 
     public String displayName() {
-      return elementType == null ? name : name + "<" + elementType.displayName() + ">";
+      return arguments.isEmpty()
+          ? name
+          : name
+              + "<"
+              + arguments.stream()
+                  .map(TypeRef::displayName)
+                  .collect(java.util.stream.Collectors.joining(", "))
+              + ">";
+    }
+  }
+
+  public record TypeParameter(String name, SourceSpan nameSpan) {
+    public TypeParameter {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
     }
   }
 
@@ -58,9 +113,11 @@ public final class Syntax {
     }
   }
 
-  public record FieldDecl(TypeRef type, String name, SourceSpan nameSpan, SourceSpan span)
+  public record FieldDecl(
+      Visibility visibility, TypeRef type, String name, SourceSpan nameSpan, SourceSpan span)
       implements AstNode {
     public FieldDecl {
+      Objects.requireNonNull(visibility, "visibility");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -69,9 +126,11 @@ public final class Syntax {
   }
 
   public record FunctionDecl(
+      Visibility visibility,
       TypeRef returnType,
       String name,
       SourceSpan nameSpan,
+      List<TypeParameter> typeParameters,
       List<Parameter> parameters,
       List<Statement> body,
       SourceSpan span)
@@ -80,6 +139,7 @@ public final class Syntax {
       Objects.requireNonNull(returnType, "returnType");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      typeParameters = List.copyOf(typeParameters);
       parameters = List.copyOf(parameters);
       body = List.copyOf(body);
       Objects.requireNonNull(span, "span");
@@ -87,8 +147,10 @@ public final class Syntax {
   }
 
   public record ClassDecl(
+      Visibility visibility,
       String name,
       SourceSpan nameSpan,
+      List<TypeParameter> typeParameters,
       List<FieldDecl> fields,
       List<FunctionDecl> methods,
       SourceSpan span)
@@ -96,6 +158,7 @@ public final class Syntax {
     public ClassDecl {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      typeParameters = List.copyOf(typeParameters);
       fields = List.copyOf(fields);
       methods = List.copyOf(methods);
       Objects.requireNonNull(span, "span");
@@ -225,10 +288,16 @@ public final class Syntax {
     }
   }
 
-  public record Name(String value, SourceSpan span) implements Expression {
+  public record Name(String value, List<TypeRef> typeArguments, SourceSpan span)
+      implements Expression {
     public Name {
       Objects.requireNonNull(value, "value");
+      typeArguments = List.copyOf(typeArguments);
       Objects.requireNonNull(span, "span");
+    }
+
+    public Name(String value, SourceSpan span) {
+      this(value, List.of(), span);
     }
   }
 

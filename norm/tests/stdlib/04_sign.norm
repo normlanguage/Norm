@@ -1,0 +1,14 @@
+import std.math.sign
+import std.testing.equal
+
+void main() {
+  print(equal(actual: sign(-20), expected: -1))
+  print(equal(actual: sign(0), expected: 0))
+  print(equal(actual: sign(20), expected: 1))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+}

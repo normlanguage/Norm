@@ -1,0 +1,48 @@
+void main() {
+  int maximum = 9223372036854775807
+  int minimum = -9223372036854775807
+  Array<int> array = []
+  List<String> list = List<String>()
+  Map<String, int> map = Map<String, int>()
+  Set<int> set = Set<int>()
+  Range emptyRange = range(start: 4, end: 4)
+  StringBuilder builder = StringBuilder()
+  print(maximum)
+  print(minimum)
+  print("".byteSize())
+  print("".codePointSize())
+  print("".graphemeSize())
+  print(array.size())
+  print(list.size())
+  print(map.size())
+  print(set.size())
+  print(emptyRange.size())
+  print(builder.size())
+  map.put(key: "edge", value: 9)
+  for Pair<String, int> entry : map {
+    print(entry.first)
+    print(entry.second)
+  }
+  Stack<int> stack = Stack<int>()
+  stack.push(3)
+  stack.push(7)
+  for int value : stack { print(value) }
+}
+
+private void expectedOutput() {
+  print("9223372036854775807")
+  print("-9223372036854775807")
+  print("0")
+  print("0")
+  print("0")
+  print("0")
+  print("0")
+  print("0")
+  print("0")
+  print("0")
+  print("0")
+  print("edge")
+  print("9")
+  print("7")
+  print("3")
+}

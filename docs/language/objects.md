@@ -40,7 +40,7 @@ List second = first
 second.add(2)
 ```
 
-`first.length` 是 `1`，`second.length` 是 `2`。容器结构被复制；如果元素是 class，元素的对象身份仍然共享。
+`first.size()` 是 `1`，`second.size()` 是 `2`。容器结构被复制；如果元素是 class，元素的对象身份仍然共享。
 
 value 使用结构相等，class 使用身份相等：
 

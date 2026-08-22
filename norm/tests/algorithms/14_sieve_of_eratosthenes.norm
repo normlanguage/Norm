@@ -1,5 +1,5 @@
-Pair primeSummary(int limit) {
-  List prime = List()
+Pair<int, int> primeSummary(int limit) {
+  List<bool> prime = List<bool>()
   for value : range(start: 0, end: limit + 1) { prime.add(true) }
   prime[0] = false
   prime[1] = false
@@ -19,11 +19,16 @@ Pair primeSummary(int limit) {
       last = value
     }
   }
-  return Pair(first: count, second: last)
+  return Pair<int, int>(first: count, second: last)
 }
 
 void main() {
-  Pair result = primeSummary(30)
+  Pair<int, int> result = primeSummary(30)
   print(result.first)
   print(result.second)
+}
+
+private void expectedOutput() {
+  print("10")
+  print("29")
 }

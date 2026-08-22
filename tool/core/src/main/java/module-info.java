@@ -7,6 +7,8 @@ module dev.w0fv1.norm.core {
       dev.w0fv1.norm.truffle.LanguageProvider;
 
   exports dev.w0fv1.norm.diagnostic;
+  exports dev.w0fv1.norm.builtin;
+  exports dev.w0fv1.norm.bound;
   exports dev.w0fv1.norm.frontend;
   exports dev.w0fv1.norm.language;
   exports dev.w0fv1.norm.syntax;

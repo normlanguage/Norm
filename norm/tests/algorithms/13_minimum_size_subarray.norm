@@ -1,8 +1,10 @@
-int minimumLength(Array values, int target) {
+import std.math.min
+
+int minimumLength(Array<int> values, int target) {
   int left = 0
   int sum = 0
-  int best = values.length + 1
-  for right : range(start: 0, end: values.length) {
+  int best = values.size() + 1
+  for right : range(start: 0, end: values.size()) {
     sum = sum + values[right]
     for step : range(start: 0, end: right + 1) {
       if sum >= target {
@@ -14,11 +16,16 @@ int minimumLength(Array values, int target) {
       }
     }
   }
-  if best > values.length { return 0 }
+  if best > values.size() { return 0 }
   return best
 }
 
 void main() {
   print(minimumLength(values: [2, 3, 1, 2, 4, 3], target: 7))
   print(minimumLength(values: [1, 1, 1], target: 8))
+}
+
+private void expectedOutput() {
+  print("2")
+  print("0")
 }

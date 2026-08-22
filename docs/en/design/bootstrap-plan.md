@@ -10,13 +10,13 @@ The Gradle build owns core and CLI modules, pinned Java and Truffle dependencies
 
 The lexer and parser produce a source-mapped AST. Name resolution, nominal typing, generic constraints, nullable flow analysis, definite assignment, and call binding produce a shared SemanticModel.
 
-## Typed IR
+## Bound IR
 
-Typed IR fixes expression types, value and identity categories, call targets, control-flow edges, and reified generic information. It is the only frontend-to-backend boundary.
+Bound IR fixes expression types, value and identity categories, call targets, control-flow edges, and reified generic information. It is the only frontend-to-backend boundary.
 
 ## Truffle backend
 
-Lowering consumes Typed IR and creates call targets, frame slots, control-flow nodes, and interop boundaries. Native Image packages the same CLI and runtime rather than introducing another backend.
+Lowering consumes Bound IR and creates call targets, frame slots, control-flow nodes, and interop boundaries. Native Image packages the same CLI and runtime rather than introducing another backend.
 
 ## Acceptance
 

@@ -1,5 +1,0 @@
-01_method_named_arguments.norm	4\n6\n
-02_parameter_identity.norm	5\ntrue\n
-03_copy_identity.norm	4\n9\nfalse\ntrue\n
-04_nested_shallow_copy.norm	8\n1\n2\n
-05_container_class_elements.norm	1\n2\n7\ntrue\n

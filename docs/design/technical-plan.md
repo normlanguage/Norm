@@ -4,7 +4,7 @@ Norm 官方实现统一使用 Java，执行后端统一使用 Truffle/GraalVM，
 
 ## 1. Java Frontend
 
-core 中的编译器负责 Lexer、Parser、AST、名称解析、名义类型系统、null safety、overload resolution、泛型/型变、确定赋值与 switch 穷尽检查，并输出 Typed IR。
+core 中的编译器负责 Lexer、Parser、AST、名称解析、名义类型系统、null safety、overload resolution、泛型/型变、确定赋值与 switch 穷尽检查，并输出 Bound IR。
 
 Parser 使用手写递归下降和 Pratt 表达式解析。所有 token、AST、IR 和诊断共享 SourceSpan，不通过跨语言 ABI 传输编译器内部对象。
 
@@ -27,4 +27,3 @@ CLI 在开发阶段以 JVM 应用运行，正式发行通过 Native Image 生成
 使用 Gradle 多项目构建并锁定 Java toolchain、GraalVM 和 Truffle 版本。Zig 不进入 core、CLI 或标准库平台 adapter。
 
 具体实施顺序见[编译器引导计划](/design/bootstrap-plan)。
-

@@ -1,5 +1,5 @@
-bool subsetSum(Array values, int target) {
-  List possible = List()
+bool subsetSum(Array<int> values, int target) {
+  List<bool> possible = List<bool>()
   for sum : range(start: 0, end: target + 1) { possible.add(false) }
   possible[0] = true
   for int value : values {
@@ -14,4 +14,9 @@ bool subsetSum(Array values, int target) {
 void main() {
   print(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 9))
   print(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 30))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("false")
 }

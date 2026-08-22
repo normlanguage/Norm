@@ -26,7 +26,7 @@ int parseLegacy(String text) {
 
 ## 目标与保留
 
-Annotation 声明需要指定允许目标：module、type、field、constructor、function、parameter 或 local。保留级别分为 source、binary 与 runtime。runtime 元数据才可以通过 reflect 查询。
+Annotation 声明需要指定允许目标：package、type、field、constructor、function、parameter 或 local。保留级别分为 source、binary 与 runtime。runtime 元数据才可以通过 reflect 查询。
 
 ## 限制
 

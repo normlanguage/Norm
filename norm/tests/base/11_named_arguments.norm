@@ -1,2 +1,6 @@
 int subtract(int left, int right) { return left - right }
 void main() { print(subtract(right: 3, left: 10)) }
+
+private void expectedOutput() {
+  print("7")
+}

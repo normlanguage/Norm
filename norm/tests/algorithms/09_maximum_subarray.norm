@@ -4,13 +4,13 @@ class Subarray {
   int end
 }
 
-Subarray maximumSubarray(Array values) {
+Subarray maximumSubarray(Array<int> values) {
   int bestSum = values[0]
   int currentSum = values[0]
   int bestStart = 0
   int bestEnd = 0
   int currentStart = 0
-  for index : range(start: 1, end: values.length) {
+  for index : range(start: 1, end: values.size()) {
     if currentSum + values[index] < values[index] {
       currentSum = values[index]
       currentStart = index
@@ -31,4 +31,10 @@ void main() {
   print(result.sum)
   print(result.start)
   print(result.end)
+}
+
+private void expectedOutput() {
+  print("6")
+  print("3")
+  print("6")
 }

@@ -1,19 +1,19 @@
-int lowerBound(Array values, int target) {
+int lowerBound(Array<int> values, int target) {
   int low = 0
-  int high = values.length
-  for step : range(start: 0, end: values.length + 1) {
+  int high = values.size()
+  for step : range(start: 0, end: values.size() + 1) {
     if low >= high { break }
     int middle = low + (high - low) / 2
     if values[middle] < target { low = middle + 1 } else { high = middle }
   }
-  if low < values.length && values[low] == target { return low }
+  if low < values.size() && values[low] == target { return low }
   return -1
 }
 
-int upperBound(Array values, int target) {
+int upperBound(Array<int> values, int target) {
   int low = 0
-  int high = values.length
-  for step : range(start: 0, end: values.length + 1) {
+  int high = values.size()
+  for step : range(start: 0, end: values.size() + 1) {
     if low >= high { break }
     int middle = low + (high - low) / 2
     if values[middle] <= target { low = middle + 1 } else { high = middle }
@@ -23,8 +23,14 @@ int upperBound(Array values, int target) {
 }
 
 void main() {
-  Array values = [1, 2, 2, 2, 5, 8]
+  Array<int> values = [1, 2, 2, 2, 5, 8]
   print(lowerBound(values, target: 2))
   print(upperBound(values, target: 2))
   print(lowerBound(values, target: 7))
+}
+
+private void expectedOutput() {
+  print("1")
+  print("3")
+  print("-1")
 }

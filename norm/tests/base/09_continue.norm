@@ -6,3 +6,7 @@ void main() {
   }
   print(sum)
 }
+
+private void expectedOutput() {
+  print("9")
+}

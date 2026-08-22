@@ -1,6 +1,6 @@
-Array sort(Array values) {
-  for end : range(start: 0, end: values.length) {
-    for index : range(start: 0, end: values.length - 1 - end) {
+Array<int> sort(Array<int> values) {
+  for end : range(start: 0, end: values.size()) {
+    for index : range(start: 0, end: values.size() - 1 - end) {
       if values[index] > values[index + 1] {
         int temporary = values[index]
         values[index] = values[index + 1]
@@ -11,6 +11,13 @@ Array sort(Array values) {
   return values
 }
 void main() {
-  Array values = sort([5, 1, 8, 3])
+  Array<int> values = sort([5, 1, 8, 3])
   for int value : values { print(value) }
+}
+
+private void expectedOutput() {
+  print("1")
+  print("3")
+  print("5")
+  print("8")
 }

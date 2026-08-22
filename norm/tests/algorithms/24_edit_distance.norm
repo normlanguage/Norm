@@ -1,15 +1,17 @@
-List initialRow(int size) {
-  List row = List()
+import std.math.min
+
+List<int> initialRow(int size) {
+  List<int> row = List<int>()
   for value : range(start: 0, end: size + 1) { row.add(value) }
   return row
 }
 
-int editDistance(Array source, Array target) {
-  List previous = initialRow(target.length)
-  for i : range(start: 1, end: source.length + 1) {
-    List current = List()
+int editDistance(Array<int> source, Array<int> target) {
+  List<int> previous = initialRow(target.size())
+  for i : range(start: 1, end: source.size() + 1) {
+    List<int> current = List<int>()
     current.add(i)
-    for j : range(start: 1, end: target.length + 1) {
+    for j : range(start: 1, end: target.size() + 1) {
       if source[i - 1] == target[j - 1] {
         current.add(previous[j - 1])
       } else {
@@ -18,10 +20,15 @@ int editDistance(Array source, Array target) {
     }
     previous = current
   }
-  return previous[target.length]
+  return previous[target.size()]
 }
 
 void main() {
   print(editDistance(source: [1, 2, 3, 4, 5, 6], target: [1, 3, 4, 7, 8, 6]))
   print(editDistance(source: [1, 2, 3], target: [1, 2, 3]))
+}
+
+private void expectedOutput() {
+  print("3")
+  print("0")
 }

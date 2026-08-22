@@ -6,7 +6,10 @@
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#numbers" },
+    { "include": "#modifiers" },
     { "include": "#declarations" },
+    { "include": "#generics" },
+    { "include": "#typeParameters" },
     { "include": "#types" },
     { "include": "#keywords" },
     { "include": "#constants" },
@@ -45,11 +48,42 @@
     },
     "types": {
       "name": "support.type.norm",
-      "match": "\\b(?:int|bool|String|void|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder)\\b"
+      "match": "\\b(?:int|bool|String|void|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Module)\\b"
+    },
+    "typeParameters": {
+      "name": "entity.name.type.parameter.norm",
+      "match": "\\b[A-Z]\\b"
+    },
+    "generics": {
+      "patterns": [
+        {
+          "begin": "(?<=[A-Za-z0-9_>])<(?=\\s*(?:[A-Z_]|int\\b|bool\\b|String\\b|Array\\b|List\\b|Map\\b|Set\\b|Stack\\b|Queue\\b|Deque\\b|Pair\\b))",
+          "end": ">",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.typeparameters.begin.norm" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.typeparameters.end.norm" }
+          },
+          "patterns": [
+            { "include": "#generics" },
+            { "include": "#types" },
+            {
+              "name": "entity.name.type.parameter.norm",
+              "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+            },
+            { "name": "punctuation.separator.comma.norm", "match": "," }
+          ]
+        }
+      ]
+    },
+    "modifiers": {
+      "name": "storage.modifier.norm",
+      "match": "\\b(?:public|private)\\b"
     },
     "keywords": {
       "name": "keyword.control.norm",
-      "match": "\\b(?:class|enum|if|else|for|return|break|continue)\\b"
+      "match": "\\b(?:package|import|as|class|enum|if|else|for|return|break|continue)\\b"
     },
     "constants": {
       "name": "constant.language.boolean.norm",
@@ -57,6 +91,10 @@
     },
     "functions": {
       "patterns": [
+        {
+          "name": "entity.name.function.norm",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*<[A-Za-z_][A-Za-z0-9_]*(?:\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*>\\s*\\()"
+        },
         {
           "name": "entity.name.function.norm",
           "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"

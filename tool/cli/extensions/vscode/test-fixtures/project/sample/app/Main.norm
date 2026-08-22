@@ -1,0 +1,10 @@
+package sample.app
+
+import sample.util.Box
+import sample.util.identity
+
+void main() {
+  Box<List<int>> box = Box<List<int>>(value: List<int>())
+  box.value.add(9)
+  print(identity(value: box.value[0]))
+}

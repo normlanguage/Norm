@@ -2,14 +2,22 @@ package dev.w0fv1.norm.cli.component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
+import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
+import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
+import org.eclipse.lsp4j.FileChangeType;
+import org.eclipse.lsp4j.FileEvent;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.Position;
@@ -22,8 +30,11 @@ import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class LanguageServerTest {
+  @TempDir Path temporaryDirectory;
+
   @Test
   void publishesCompilerDiagnosticsForOpenDocuments() {
     LanguageServer server = new LanguageServer();
@@ -47,7 +58,7 @@ final class LanguageServerTest {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
     String uri = "file:///completion.norm";
-    String text = "void main() { List values = List() values. }";
+    String text = "void main() { List<int> values = List<int>() values. }";
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
@@ -60,6 +71,66 @@ final class LanguageServerTest {
     assertTrue(items.stream().anyMatch(item -> item.getLabel().equals("add")));
     assertTrue(items.stream().anyMatch(item -> item.getLabel().equals("removeAt")));
     assertTrue(items.stream().noneMatch(item -> item.getLabel().equals("push")));
+  }
+
+  @Test
+  void servesReadOnlyStandardLibrarySources() throws Exception {
+    LanguageServer server = new LanguageServer();
+
+    String source = server.standardLibrarySource("stdlib:/std/math/integer.norm").get();
+
+    assertTrue(source.contains("public int clamp"));
+  }
+
+  @Test
+  void analyzesStandardLibraryVirtualDocumentsWithoutMakingThemEditable() throws Exception {
+    LanguageServer server = new LanguageServer();
+    RecordingClient client = new RecordingClient();
+    server.connect(client);
+    String uri = "stdlib:/std/math/integer.norm";
+    String source = server.standardLibrarySource(uri).get();
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, source)));
+    Position position = new Position(7, "public int ".length());
+
+    var hover =
+        server
+            .getTextDocumentService()
+            .hover(new org.eclipse.lsp4j.HoverParams(new TextDocumentIdentifier(uri), position))
+            .get();
+    var rename =
+        server
+            .getTextDocumentService()
+            .rename(new RenameParams(new TextDocumentIdentifier(uri), position, "maximum"))
+            .get();
+
+    assertTrue(client.diagnostics.getDiagnostics().isEmpty());
+    assertNotNull(hover);
+    assertTrue(hover.getContents().getRight().getValue().contains("int max"));
+    assertNull(rename);
+  }
+
+  @Test
+  void navigatesToStandardLibrarySources() throws Exception {
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    String uri = "untitled:stdlib-navigation";
+    String text = "import std.math.max void main() { print(max(left: 1, right: 2)) }";
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+
+    var definition =
+        server
+            .getTextDocumentService()
+            .definition(
+                new DefinitionParams(
+                    new TextDocumentIdentifier(uri), new Position(0, text.lastIndexOf("max"))))
+            .get()
+            .getLeft();
+
+    assertEquals("stdlib", java.net.URI.create(definition.getFirst().getUri()).getScheme());
   }
 
   @Test
@@ -78,6 +149,47 @@ final class LanguageServerTest {
     assertNotNull(client.diagnostics);
     assertEquals(
         "NORM-NAME-0003", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
+  }
+
+  @Test
+  void analyzesModuleDescriptors() {
+    LanguageServer server = new LanguageServer();
+    RecordingClient client = new RecordingClient();
+    server.connect(client);
+
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(
+                    "file:///module.norm",
+                    "norm",
+                    1,
+                    "Module(name: \"sample\", version: 1, exports: [])")));
+
+    assertNotNull(client.diagnostics);
+    assertTrue(client.diagnostics.getDiagnostics().isEmpty());
+  }
+
+  @Test
+  void publishesModuleDescriptorDiagnostics() {
+    LanguageServer server = new LanguageServer();
+    RecordingClient client = new RecordingClient();
+    server.connect(client);
+
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(
+                    "file:///module.norm",
+                    "norm",
+                    1,
+                    "Module(name: \"sample\", version: 0, exports: [])")));
+
+    assertNotNull(client.diagnostics);
+    assertEquals(
+        "NORM-MODULE-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
   }
 
   @Test
@@ -110,6 +222,246 @@ final class LanguageServerTest {
     assertEquals(2, references.size());
     assertEquals(2, rename.getChanges().get(uri).size());
   }
+
+  @Test
+  void navigatesAndRenamesAcrossProjectFiles() throws Exception {
+    Path root = temporaryDirectory.resolve("project");
+    Path library = root.resolve("sample/util/Identity.norm");
+    Path entry = root.resolve("sample/app/Main.norm");
+    Files.createDirectories(library.getParent());
+    Files.createDirectories(entry.getParent());
+    Files.writeString(
+        root.resolve("module.norm"),
+        "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+    Files.writeString(
+        library,
+        "package sample.util\n\n"
+            + "public class Box<T> {\n  T value\n}\n\n"
+            + "private T preserve<T>(T value) {\n  return value\n}\n\n"
+            + "public T identity<T>(T value) {\n  return preserve(value)\n}\n");
+    String text =
+        "package sample.app\n\n"
+            + "import sample.util.Box\n"
+            + "import sample.util.identity\n\n"
+            + "void main() {\n"
+            + "  Box<List<int>> box = Box<List<int>>(value: List<int>())\n"
+            + "  box.value.add(9)\n"
+            + "  print(identity(value: box.value[0]))\n"
+            + "}\n";
+    Files.writeString(entry, text);
+    String uri = entry.toUri().toString();
+    if (File.separatorChar == '\\') {
+      String path = entry.toUri().getPath();
+      uri = "file:///" + Character.toLowerCase(path.charAt(1)) + "%3A" + path.substring(3);
+    }
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem("untitled:project-peer", "norm", 1, "void main() {}")));
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+    Position position = new Position(8, 8);
+    TextDocumentIdentifier document = new TextDocumentIdentifier(uri);
+
+    var definition =
+        server
+            .getTextDocumentService()
+            .definition(new DefinitionParams(document, position))
+            .get()
+            .getLeft();
+    var rename =
+        server
+            .getTextDocumentService()
+            .rename(new RenameParams(document, position, "preserveValue"))
+            .get();
+
+    String libraryUri = definition.getFirst().getUri();
+    String entryUri = uri;
+    assertEquals(library, Path.of(java.net.URI.create(libraryUri)));
+    assertEquals(2, rename.getChanges().get(uri).size());
+    assertEquals(1, rename.getChanges().get(libraryUri).size());
+
+    String libraryText = Files.readString(library);
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(libraryUri, "norm", 1, libraryText)));
+    Position declaration = new Position(10, "public T ".length());
+    var declarationReferences =
+        server
+            .getTextDocumentService()
+            .references(
+                new ReferenceParams(
+                    new TextDocumentIdentifier(libraryUri),
+                    declaration,
+                    new ReferenceContext(true)))
+            .get();
+    var declarationRename =
+        server
+            .getTextDocumentService()
+            .rename(
+                new RenameParams(
+                    new TextDocumentIdentifier(libraryUri), declaration, "mapIdentity"))
+            .get();
+
+    assertTrue(
+        declarationReferences.stream().anyMatch(location -> location.getUri().equals(entryUri)));
+    assertEquals(2, declarationRename.getChanges().get(uri).size());
+  }
+
+  @Test
+  void closingAnUnsavedDependencyRestoresTheDiskProject() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
+    String changedLibrary = fixture.libraryText().replace("identity<T>", "other<T>");
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.libraryUri(), "norm", 1, changedLibrary)));
+
+    assertTrue(definition(server, fixture).isEmpty());
+
+    server
+        .getTextDocumentService()
+        .didClose(new DidCloseTextDocumentParams(new TextDocumentIdentifier(fixture.libraryUri())));
+
+    assertEquals(1, definition(server, fixture).size());
+  }
+
+  @Test
+  void refreshesOpenProjectsWhenAnUnopenedDependencyChangesOnDisk() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
+    assertEquals(1, definition(server, fixture).size());
+
+    Files.writeString(fixture.library(), fixture.libraryText().replace("identity<T>", "other<T>"));
+    server
+        .getWorkspaceService()
+        .didChangeWatchedFiles(
+            new DidChangeWatchedFilesParams(
+                List.of(new FileEvent(fixture.libraryUri(), FileChangeType.Changed))));
+
+    assertTrue(definition(server, fixture).isEmpty());
+  }
+
+  @Test
+  void reportsProjectLoadingFailuresInsteadOfFallingBackSilently() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    Files.writeString(
+        fixture.root().resolve("module.norm"),
+        "Module(name: \"sample\", version: 0, exports: [\"util.Identity\"])");
+    LanguageServer server = new LanguageServer();
+    RecordingClient client = new RecordingClient();
+    server.connect(client);
+
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
+
+    assertEquals(
+        "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
+  }
+
+  @Test
+  void renamesImportAliasesWithoutChangingTheirTargetDeclaration() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    String entryText = fixture.entryText().replace("identity\n", "identity as localIdentity\n");
+    entryText = entryText.replace("identity(1)", "localIdentity(1)");
+    Files.writeString(fixture.entry(), entryText);
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, entryText)));
+    Position use = new Position(5, 8);
+
+    var definition =
+        server
+            .getTextDocumentService()
+            .definition(new DefinitionParams(new TextDocumentIdentifier(fixture.entryUri()), use))
+            .get()
+            .getLeft();
+    var rename =
+        server
+            .getTextDocumentService()
+            .rename(
+                new RenameParams(
+                    new TextDocumentIdentifier(fixture.entryUri()), use, "mappedIdentity"))
+            .get();
+
+    assertEquals(fixture.library(), Path.of(java.net.URI.create(definition.getFirst().getUri())));
+    assertEquals(2, rename.getChanges().get(fixture.entryUri()).size());
+    assertTrue(!rename.getChanges().containsKey(fixture.libraryUri()));
+  }
+
+  private ProjectFixture projectFixture() throws Exception {
+    Path root = temporaryDirectory.resolve("session-" + System.nanoTime());
+    Path library = root.resolve("sample/util/Identity.norm");
+    Path entry = root.resolve("sample/app/Main.norm");
+    Files.createDirectories(library.getParent());
+    Files.createDirectories(entry.getParent());
+    Files.writeString(
+        root.resolve("module.norm"),
+        "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+    String libraryText =
+        "package sample.util\n\n" + "public T identity<T>(T value) {\n  return value\n}\n";
+    String entryText =
+        "package sample.app\n\n"
+            + "import sample.util.identity\n\n"
+            + "void main() {\n  print(identity(1))\n}\n";
+    Files.writeString(library, libraryText);
+    Files.writeString(entry, entryText);
+    return new ProjectFixture(
+        root,
+        library,
+        entry,
+        library.toUri().toString(),
+        entry.toUri().toString(),
+        libraryText,
+        entryText);
+  }
+
+  private static List<? extends org.eclipse.lsp4j.Location> definition(
+      LanguageServer server, ProjectFixture fixture) throws Exception {
+    return server
+        .getTextDocumentService()
+        .definition(
+            new DefinitionParams(
+                new TextDocumentIdentifier(fixture.entryUri()), new Position(5, 8)))
+        .get()
+        .getLeft();
+  }
+
+  private record ProjectFixture(
+      Path root,
+      Path library,
+      Path entry,
+      String libraryUri,
+      String entryUri,
+      String libraryText,
+      String entryText) {}
 
   private static final class RecordingClient implements LanguageClient {
     private PublishDiagnosticsParams diagnostics;

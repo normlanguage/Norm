@@ -32,7 +32,7 @@ final class SemanticModelTest {
   @Test
   void resolvesClassAndBuiltinMembersFromOneSymbolTable() {
     String text =
-        "class Point { int x } void main() { Point point = Point(1) print(point.x) List values = List() values.add(1) }";
+        "class Point { int x } void main() { Point point = Point(1) print(point.x) List<int> values = List<int>() values.add(1) }";
     SemanticModel model = analyze(text);
     Symbol field = model.symbolAt(text.indexOf("point.x") + "point.".length()).orElseThrow();
     Symbol method = model.symbolAt(text.indexOf("values.add") + "values.".length()).orElseThrow();
@@ -77,7 +77,7 @@ final class SemanticModelTest {
   @Test
   void recordsValueAndIdentityCategories() {
     String text =
-        "class Box { int value } void main() { Box box = Box(value: 1) List values = List() }";
+        "class Box { int value } void main() { Box box = Box(value: 1) List<int> values = List<int>() }";
     SemanticModel model = analyze(text);
 
     assertEquals(

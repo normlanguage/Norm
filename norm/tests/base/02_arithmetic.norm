@@ -1,3 +1,7 @@
 void main() {
   print(2 + 3 * 4)
 }
+
+private void expectedOutput() {
+  print("14")
+}

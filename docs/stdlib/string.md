@@ -9,7 +9,7 @@ String message = "Hello, ${language}"
 
 ## 长度与索引
 
-文本存在字节、Unicode code point 和 grapheme cluster 等不同单位。API 使用 `byteLength`、`codePointCount()` 和 `graphemes()` 明确区分，不承诺 `text[index]` 等于用户看到的第 index 个字符。
+文本存在字节、Unicode code point 和 grapheme cluster 等不同单位。API 使用 `byteSize()`、`codePointSize()` 和 `graphemeSize()` 明确区分，不提供含糊的 `size()` 或 `length`，也不承诺 `text[index]` 等于用户看到的第 index 个字符。
 
 ## 搜索与切分
 
@@ -29,3 +29,14 @@ Result<String, DecodeError> decoded = String.decode(
 
 解析数字、UUID 和时间由目标类型的 parse API 完成，String 不提供隐式跨类型转换。
 
+## 0.2 文本构造函数
+
+`std.text` 已提供 `repeat` 和 `join`，实现在 `std/text/builders.norm`：
+
+```norm
+import std.text.join
+import std.text.repeat
+
+String line = repeat(value: "-", count: 8)
+String text = join(values: names, separator: ", ")
+```

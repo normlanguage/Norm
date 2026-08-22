@@ -14,3 +14,8 @@ void main() {
   print(point.x)
   print(point.y)
 }
+
+private void expectedOutput() {
+  print("4")
+  print("6")
+}

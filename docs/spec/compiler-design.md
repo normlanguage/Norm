@@ -13,9 +13,9 @@ Parser → AST
  ↓
 类型检查与 SemanticModel
  ↓
-Typed IR
+Binder → BoundProgram
  ↓
-Lowerer → Truffle AST
+ExecutionBackend → Lowerer → Truffle AST
  ↓
 GraalVM/Truffle 执行
 ```
@@ -24,7 +24,7 @@ GraalVM/Truffle 执行
 
 Lexer 负责 UTF-8、注释、标识符和字面量。Parser 只建立语法结构并恢复可报告错误，不在解析阶段猜测类型。
 
-名称解析建立 module、import、作用域、overload set 和名义类型图。解析结果为每个名称引用绑定唯一声明或给出歧义诊断。
+名称解析建立 package、import、作用域、overload set 和名义类型图。编译器先收集源码根中的全部声明签名，再分析函数体，因此跨文件解析不依赖文件顺序。解析结果为每个名称引用绑定唯一声明或给出歧义诊断。
 
 ## 语义分析
 
@@ -36,15 +36,25 @@ Lexer 负责 UTF-8、注释、标识符和字面量。Parser 只建立语法结�
 - control expression 路径和值类型合并；
 - value/class identity 合法性验证。
 
-## Typed IR 与 Lowering
+## 语义快照
 
-`SemanticModel` 保存名称绑定、表达式类型和已经解析的实参到形参映射。Typed IR 固化调用目标、value/identity 类别、控制流边和泛型实参，使后端不需要重新推断前端语义。
+一次项目分析产生一个不可变 `CompilationSnapshot`。快照持有唯一的项目 `SemanticModel`，并为每个文档投影 `DocumentSemanticModel`、`SpanIndex` 与 `ReferenceIndex`。诊断、补全、悬停、定义、引用和重命名只读取同一快照；文档修订变化时整体替换快照，不混用不同修订的语义结果。
 
-实参 IR 保持源码顺序，同时记录目标形参槽位。Lowerer 不重新匹配命名参数；Truffle 调用节点按源码顺序求值后，再把结果写入对应形参槽位。
+未变化源码的词法和语法结果由 `CompilationEnvironment` 按文档 identity 与内容缓存。标准库预解析结果由同一环境复用，项目分析仍以一次完整声明收集和函数体检查为一致性边界。
+
+## Bound IR 与 Lowering
+
+`SemanticModel` 保存名称绑定、`SemanticType`、内置能力和已经解析的实参到形参映射。`Binder` 只接受通过分析的语法与语义模型，并一次性生成不可变 `BoundProgram`。Bound IR 固化声明 identity、字段 ordinal、调用目标、源码求值顺序、形参槽位、intrinsic、value transfer 和运行时泛型实参。
+
+`TypedProgram` 只封装 `BoundProgram`。Lowerer 只消费 Bound IR，不读取 Syntax AST 或 `SemanticModel`，也不重新执行名称解析、类型推断、成员查找或命名参数匹配。Truffle 调用节点按源码顺序求值后，再把结果写入已绑定的形参槽位。
+
+内置类型、成员签名、可迭代和索引能力由唯一 `BuiltinCatalog` 定义。前端把能力绑定为 `IntrinsicId`，后端仅按该 identity 分派，不维护第二套字符串名称表。
 
 ## GraalVM 后端
 
-core 使用 Java 实现编译器、Language、执行节点、Interop 与 instrumentation。执行阶段只消费 Typed IR，不重新解释源码语义。
+core 使用 Java 实现编译器、Language、执行节点、Interop 与 instrumentation。`ProgramRunner` 和 Polyglot Source 共用 `Compiler → BoundProgram → TruffleExecutionBackend` 执行链。输入、输出、参数和取消信号通过显式 `ExecutionContext` 传递。
+
+guest 运行错误由 `NormGuestException` 在 Truffle 节点处携带稳定的 `RuntimeErrorCode` 和源码位置，跨公开执行边界后转换为 `NormExecutionException`。公开错误保留源码 URI、行列和 guest 调用栈，不暴露 Java 容器或算术异常。
 
 GraalVM/Truffle 是唯一官方执行后端。项目不并行维护 LLVM、Cranelift、自研机器码或 Zig 后端。Native Image 用于把 CLI 和所需运行时打包成独立原生程序，不构成第二套语言后端。
 
@@ -60,4 +70,4 @@ GraalVM/Truffle 是唯一官方执行后端。项目不并行维护 LLVM、Crane
 
 ## 增量构建
 
-模块接口摘要包含 public 签名、类型关系、enum variant 和必要 metadata。只有摘要变化才使下游重新类型检查；private 实现变化只重新编译当前模块。
+0.2 的增量边界是不可变项目快照与解析缓存。模块接口摘要和基于依赖图的下游失效属于后续版本，交付前不得以混用旧语义快照代替。

@@ -11,15 +11,17 @@ export const enTheme: DefaultTheme.Config = {
   nav: [
     { text: 'Docs', link: '/en/docs/' },
     { text: 'Handbook', link: '/en/language/overview', activeMatch: '^/en/language/' },
-    { text: 'Releases', link: '/en/versions/0.1', activeMatch: '^/en/versions/' },
+    { text: 'Releases', link: '/en/versions/0.2', activeMatch: '^/en/versions/' },
     { text: 'Project Status', link: '/en/status' },
   ],
   sidebar: {
     '/en/language/': [{ text: 'Core Language', items: handbook }],
     '/en/versions/': [{ text: 'Releases', items: [
+      { text: 'Norm 0.2', link: '/en/versions/0.2' },
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
     ]}],
     '/en/design/': [{ text: 'Implementation', items: [
+      { text: 'Norm 0.2', link: '/en/versions/0.2' },
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
       { text: 'Implementation Strategy', link: '/en/design/implementation-strategy' },
       { text: 'Toolchain Development Standard', link: '/en/design/toolchain-development' },

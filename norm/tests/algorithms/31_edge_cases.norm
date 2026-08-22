@@ -1,0 +1,45 @@
+int binarySearch(Array<int> values, int target) {
+  for index : range(start: 0, end: values.size()) {
+    if values[index] == target { return index }
+  }
+  return -1
+}
+
+int gcd(int left, int right) {
+  for step : range(start: 0, end: 64) {
+    if right == 0 { return left }
+    int remainder = left % right
+    left = right
+    right = remainder
+  }
+  return left
+}
+
+int fibonacci(int count) {
+  int previous = 0
+  int current = 1
+  for step : range(start: 0, end: count) {
+    int next = previous + current
+    previous = current
+    current = next
+  }
+  return previous
+}
+
+void main() {
+  print(binarySearch(values: [], target: 1))
+  print(binarySearch(values: [7], target: 7))
+  print(gcd(left: 0, right: 0))
+  print(gcd(left: 9223372036854775807, right: 1))
+  print(fibonacci(0))
+  print(fibonacci(1))
+}
+
+private void expectedOutput() {
+  print("-1")
+  print("0")
+  print("0")
+  print("1")
+  print("0")
+  print("1")
+}

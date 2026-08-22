@@ -19,23 +19,26 @@ Compiler, runtime, and Truffle code remain in one `core` Gradle module so syntax
 ```text
 dev.w0fv1.norm.frontend     Compiler, Lexer, Parser, and Analyzer
 dev.w0fv1.norm.syntax       tokens and the Syntax AST
+dev.w0fv1.norm.semantic     types, symbols, and document semantic indexes
+dev.w0fv1.norm.builtin      builtin declarations and intrinsic identities
+dev.w0fv1.norm.bound        immutable Bound IR consumed by the backend
 dev.w0fv1.norm.diagnostic   diagnostic values and rendering
-dev.w0fv1.norm.execution    public execution entry point
+dev.w0fv1.norm.language     language services over semantic snapshots
+dev.w0fv1.norm.execution    public execution API, context, and structured errors
 dev.w0fv1.norm.truffle      lowering, executable nodes, and runtime representation
 dev.w0fv1.norm.value        immutable cross-phase data
-dev.w0fv1.norm.utils        stateless shared utilities
 ```
 
-The primary dependency direction is:
+The required stage dependency constraints are:
 
 ```text
-frontend  → syntax, diagnostic, value
-execution → truffle, value
-truffle   → frontend, syntax, value
-diagnostic → value
+frontend ⇏ truffle
+bound ⇏ frontend, truffle
+Lowerer → bound
+CLI → core public API
 ```
 
-The frontend must not depend on Truffle. Syntax and value packages must not depend on compiler behavior. The CLI uses exported core APIs and does not access internal Truffle nodes.
+`⇏` denotes a forbidden dependency. The lowerer must not depend on the Syntax AST or `SemanticModel`, and the CLI must not access internal Truffle nodes. New packages follow domain ownership; they must not duplicate types or semantic tables to evade these constraints.
 
 ## CLI packages
 
@@ -66,13 +69,19 @@ SourceFile
   → Parser
   → Syntax.Program
   → Analyzer
-  → TypedProgram
+  → SemanticModel
+  → Binder
+  → BoundProgram
+  → ExecutionBackend
   → Lowerer
   → Truffle executable AST
-  → ProgramRunner
 ```
 
-The parser builds syntax only. The analyzer checks names, types, and control flow. The lowerer converts the checked program into executable nodes. Runtime code must not resolve declarations by name or interpret the Syntax AST.
+The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics into Bound IR. The lowerer only converts Bound IR into executable nodes. Runtime code must not resolve declarations by name or interpret the Syntax AST.
+
+One project analysis creates an immutable `CompilationSnapshot`. Diagnostics and language features use per-document projections of the same `SemanticModel`, `SpanIndex`, and `ReferenceIndex`. Unchanged parse results and the standard-library prelude are cached by `CompilationEnvironment`; a new document revision replaces the snapshot atomically.
+
+`ProgramRunner` and Polyglot Source execution share the `Compiler → BoundProgram → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, and cancellation explicitly. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
 
 Each function owns a `FunctionRootNode` and `CallTarget`. Static function and method calls use `DirectCallNode`; locals use indexed `VirtualFrame` slots; loops use `LoopNode`; return, break, and continue use `ControlFlowException`. Executable nodes retain `SourceSection` information.
 

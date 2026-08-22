@@ -12,6 +12,7 @@ public record Symbol(
     SemanticType type,
     Optional<SourceLocation> declaration,
     Optional<SymbolId> owner,
+    List<String> typeParameters,
     List<ParameterInfo> parameters,
     String documentation) {
   public Symbol {
@@ -21,6 +22,7 @@ public record Symbol(
     Objects.requireNonNull(type, "type");
     declaration = Objects.requireNonNull(declaration, "declaration");
     owner = Objects.requireNonNull(owner, "owner");
+    typeParameters = List.copyOf(typeParameters);
     parameters = List.copyOf(parameters);
     documentation = Objects.requireNonNull(documentation, "documentation");
   }

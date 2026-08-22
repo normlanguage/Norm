@@ -3,3 +3,7 @@ int fibonacci(int value) {
   return fibonacci(value - 1) + fibonacci(value - 2)
 }
 void main() { print(fibonacci(10)) }
+
+private void expectedOutput() {
+  print("55")
+}

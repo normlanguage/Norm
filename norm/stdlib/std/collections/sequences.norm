@@ -1,0 +1,31 @@
+package std.collections
+
+public bool listContains<T>(List<T> values, T target) {
+  for T value : values {
+    if value == target { return true }
+  }
+  return false
+}
+
+public int listCount<T>(List<T> values, T target) {
+  int count = 0
+  for T value : values {
+    if value == target { count = count + 1 }
+  }
+  return count
+}
+
+public List<T> reversed<T>(List<T> values) {
+  List<T> result = List<T>()
+  for offset : range(start: 0, end: values.size()) {
+    int index = values.size() - offset - 1
+    result.add(values[index])
+  }
+  return result
+}
+
+public List<T> toList<T>(Array<T> values) {
+  List<T> result = List<T>()
+  for T value : values { result.add(value) }
+  return result
+}

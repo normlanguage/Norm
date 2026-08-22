@@ -87,5 +87,5 @@ jobs:
         env:
           NORM_CLI: ${{ github.workspace }}/tool/cli/app/build/native/nativeCompile/norm
         run: |
-          node tool/cli/scripts/verify-cli.mjs "$NORM_CLI" 0.1.0-SNAPSHOT
+          node tool/cli/scripts/verify-cli.mjs "$NORM_CLI" 0.2.0-SNAPSHOT
           npm run --prefix tool/cli/extensions/vscode smoke:lsp

@@ -35,6 +35,7 @@ A short, sequential introduction to Norm's core semantics.
 
 Understand what exists today and where the language is heading.
 
+- [Norm 0.2 release record](/en/versions/0.2)
 - [Norm 0.1 release record](/en/versions/0.1)
 - [Project status](/en/status)
 - [Implementation strategy](/en/design/implementation-strategy)
@@ -46,4 +47,3 @@ Understand what exists today and where the language is heading.
 </section>
 
 </div>
-

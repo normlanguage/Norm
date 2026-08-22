@@ -5,3 +5,7 @@ void main() {
   }
   print(found)
 }
+
+private void expectedOutput() {
+  print("3")
+}

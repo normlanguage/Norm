@@ -1,15 +1,53 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
-import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.DirectCallNode;
-import java.io.PrintWriter;
+import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.execution.RuntimeErrorCode;
+import dev.w0fv1.norm.semantic.SemanticType;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 final class ExpressionNodes {
   private ExpressionNodes() {}
+
+  static final class Intrinsic extends ExpressionNode {
+    private final IntrinsicId intrinsic;
+    private final int[] parameterIndices;
+    private final ExecutionContext context;
+    @Child private ExpressionNode receiver;
+    @Children private final ExpressionNode[] arguments;
+    @Child private ExpressionNode type;
+
+    Intrinsic(
+        IntrinsicId intrinsic,
+        ExpressionNode receiver,
+        ExpressionNode[] arguments,
+        int[] parameterIndices,
+        ExpressionNode type,
+        ExecutionContext context) {
+      this.intrinsic = intrinsic;
+      this.receiver = receiver;
+      this.arguments = arguments;
+      this.parameterIndices = parameterIndices;
+      this.type = type;
+      this.context = context;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      return IntrinsicDispatcher.execute(
+          intrinsic,
+          receiver == null ? null : receiver.execute(frame),
+          evaluateArguments(arguments, parameterIndices, frame),
+          type == null ? null : (SemanticType) type.execute(frame),
+          context,
+          this);
+    }
+  }
 
   static final class Literal extends ExpressionNode {
     private final Object value;
@@ -26,9 +64,11 @@ final class ExpressionNodes {
 
   static final class ArrayLiteral extends ExpressionNode {
     @Children private final ExpressionNode[] elements;
+    @Child private ExpressionNode type;
 
-    ArrayLiteral(ExpressionNode[] elements) {
+    ArrayLiteral(ExpressionNode[] elements, ExpressionNode type) {
       this.elements = elements;
+      this.type = type;
     }
 
     @Override
@@ -37,7 +77,29 @@ final class ExpressionNodes {
       for (ExpressionNode element : elements) {
         values.add(RuntimeValues.copy(element.execute(frame)));
       }
-      return new RuntimeValues.ArrayValue(values);
+      return new RuntimeValues.ArrayValue((SemanticType) type.execute(frame), values);
+    }
+  }
+
+  static final class TypeDescriptor extends ExpressionNode {
+    private final SemanticType template;
+    private final String[] identities;
+    private final FrameBinding[] bindings;
+
+    TypeDescriptor(SemanticType template, String[] identities, FrameBinding[] bindings) {
+      this.template = template;
+      this.identities = identities;
+      this.bindings = bindings;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      if (bindings.length == 0) return template;
+      LinkedHashMap<String, SemanticType> substitutions = new LinkedHashMap<>();
+      for (int index = 0; index < bindings.length; index++) {
+        substitutions.put(identities[index], (SemanticType) bindings[index].read(frame));
+      }
+      return template.substitute(substitutions);
     }
   }
 
@@ -145,7 +207,12 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) / (Long) right.execute(frame);
+      long dividend = (Long) left.execute(frame);
+      long divisor = (Long) right.execute(frame);
+      if (divisor == 0) {
+        throw new NormGuestException(RuntimeErrorCode.DIVISION_BY_ZERO, "division by zero", this);
+      }
+      return dividend / divisor;
     }
   }
 
@@ -156,7 +223,12 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) % (Long) right.execute(frame);
+      long dividend = (Long) left.execute(frame);
+      long divisor = (Long) right.execute(frame);
+      if (divisor == 0) {
+        throw new NormGuestException(RuntimeErrorCode.DIVISION_BY_ZERO, "division by zero", this);
+      }
+      return dividend % divisor;
     }
   }
 
@@ -251,17 +323,29 @@ final class ExpressionNodes {
   static final class FunctionCall extends ExpressionNode {
     @Child private DirectCallNode call;
     @Children private final ExpressionNode[] arguments;
+    @Children private final ExpressionNode[] typeArguments;
     private final int[] parameterIndices;
 
-    FunctionCall(CallTarget target, ExpressionNode[] arguments, int[] parameterIndices) {
+    FunctionCall(
+        CallTarget target,
+        ExpressionNode[] arguments,
+        int[] parameterIndices,
+        ExpressionNode[] typeArguments) {
       call = DirectCallNode.create(target);
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
+      this.typeArguments = typeArguments;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
-      return call.call(evaluateArguments(arguments, parameterIndices, frame));
+      Object[] values = evaluateArguments(arguments, parameterIndices, frame);
+      Object[] complete = new Object[values.length + typeArguments.length];
+      System.arraycopy(values, 0, complete, 0, values.length);
+      for (int index = 0; index < typeArguments.length; index++) {
+        complete[values.length + index] = typeArguments[index].execute(frame);
+      }
+      return call.call(complete);
     }
   }
 
@@ -289,133 +373,31 @@ final class ExpressionNodes {
       Object[] values = new Object[bound.length + 1];
       values[0] = receiverValue;
       System.arraycopy(bound, 0, values, 1, bound.length);
+      if (receiverValue instanceof RuntimeValues.ObjectValue object
+          && !object.type.arguments().isEmpty()) {
+        Object[] complete = new Object[values.length + object.type.arguments().size()];
+        System.arraycopy(values, 0, complete, 0, values.length);
+        for (int index = 0; index < object.type.arguments().size(); index++) {
+          complete[values.length + index] = object.type.arguments().get(index);
+        }
+        return call.call(complete);
+      }
       return call.call(values);
     }
   }
 
-  static final class Print extends ExpressionNode {
-    @Child private ExpressionNode value;
-    private final PrintWriter output;
-
-    Print(ExpressionNode value, PrintWriter output) {
-      this.value = value;
-      this.output = output;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      print(RuntimeValues.stringify(value.execute(frame)));
-      return null;
-    }
-
-    @TruffleBoundary
-    private void print(String value) {
-      output.println(value);
-    }
-  }
-
-  static final class Range extends ExpressionNode {
-    @Children private final ExpressionNode[] arguments;
-    private final int[] parameterIndices;
-
-    Range(ExpressionNode[] arguments, int[] parameterIndices) {
-      this.arguments = arguments;
-      this.parameterIndices = parameterIndices;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      Object[] values = evaluateArguments(arguments, parameterIndices, frame);
-      return new RuntimeValues.RangeValue((Long) values[0], (Long) values[1]);
-    }
-  }
-
-  static final class Minimum extends BoundBinary {
-    Minimum(ExpressionNode[] arguments, int[] parameterIndices) {
-      super(arguments, parameterIndices);
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      Object[] values = values(frame);
-      return Math.min((Long) values[0], (Long) values[1]);
-    }
-  }
-
-  static final class Maximum extends BoundBinary {
-    Maximum(ExpressionNode[] arguments, int[] parameterIndices) {
-      super(arguments, parameterIndices);
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      Object[] values = values(frame);
-      return Math.max((Long) values[0], (Long) values[1]);
-    }
-  }
-
-  static final class Absolute extends Unary {
-    Absolute(ExpressionNode operand) {
-      super(operand);
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      return Math.abs((Long) operand.execute(frame));
-    }
-  }
-
-  enum NewKind {
-    ARRAY,
-    LIST,
-    MAP,
-    SET,
-    STACK,
-    QUEUE,
-    DEQUE,
-    BUILDER
-  }
-
-  static final class NewValue extends ExpressionNode {
-    private final NewKind kind;
-
-    NewValue(NewKind kind) {
-      this.kind = kind;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      return switch (kind) {
-        case ARRAY -> new RuntimeValues.ArrayValue(new ArrayList<>());
-        case LIST -> new RuntimeValues.ListValue();
-        case MAP -> new RuntimeValues.MapValue();
-        case SET -> new RuntimeValues.SetValue();
-        case STACK -> new RuntimeValues.StackValue();
-        case QUEUE -> new RuntimeValues.QueueValue();
-        case DEQUE -> new RuntimeValues.DequeValue();
-        case BUILDER -> new RuntimeValues.BuilderValue();
-      };
-    }
-  }
-
-  static final class Pair extends BoundBinary {
-    Pair(ExpressionNode[] arguments, int[] parameterIndices) {
-      super(arguments, parameterIndices);
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      Object[] values = values(frame);
-      return new RuntimeValues.PairValue(values[0], values[1]);
-    }
-  }
-
   static final class Construct extends ExpressionNode {
-    private final RuntimeValues.ClassInfo type;
+    private final RuntimeValues.ClassInfo classInfo;
+    @Child private ExpressionNode type;
     @Children private final ExpressionNode[] fields;
     private final int[] fieldIndices;
 
-    Construct(RuntimeValues.ClassInfo type, ExpressionNode[] fields, int[] fieldIndices) {
+    Construct(
+        RuntimeValues.ClassInfo classInfo,
+        ExpressionNode type,
+        ExpressionNode[] fields,
+        int[] fieldIndices) {
+      this.classInfo = classInfo;
       this.type = type;
       this.fields = fields;
       this.fieldIndices = fieldIndices;
@@ -423,7 +405,8 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      RuntimeValues.ObjectValue object = new RuntimeValues.ObjectValue(type);
+      RuntimeValues.ObjectValue object =
+          new RuntimeValues.ObjectValue(classInfo, (SemanticType) type.execute(frame));
       Object[] values = evaluateArguments(fields, fieldIndices, frame);
       System.arraycopy(values, 0, object.fields, 0, values.length);
       return object;
@@ -459,211 +442,16 @@ final class ExpressionNodes {
   static final class ReadField extends ExpressionNode {
     @Child private ExpressionNode receiver;
     private final int field;
-    private final boolean copy;
 
-    ReadField(ExpressionNode receiver, int field, boolean copy) {
+    ReadField(ExpressionNode receiver, int field) {
       this.receiver = receiver;
       this.field = field;
-      this.copy = copy;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
       Object value = ((RuntimeValues.ObjectValue) receiver.execute(frame)).fields[field];
-      return copy ? RuntimeValues.copy(value) : value;
-    }
-  }
-
-  static final class ReadPair extends ExpressionNode {
-    @Child private ExpressionNode receiver;
-    private final boolean first;
-
-    ReadPair(ExpressionNode receiver, boolean first) {
-      this.receiver = receiver;
-      this.first = first;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      RuntimeValues.PairValue pair = (RuntimeValues.PairValue) receiver.execute(frame);
-      return RuntimeValues.copy(first ? pair.first : pair.second);
-    }
-  }
-
-  static final class Length extends ExpressionNode {
-    @Child private ExpressionNode receiver;
-
-    Length(ExpressionNode receiver) {
-      this.receiver = receiver;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      return RuntimeValues.length(receiver.execute(frame));
-    }
-  }
-
-  static final class Index extends ExpressionNode {
-    @Child private ExpressionNode receiver;
-    @Child private ExpressionNode index;
-
-    Index(ExpressionNode receiver, ExpressionNode index) {
-      this.receiver = receiver;
-      this.index = index;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      Object target = receiver.execute(frame);
-      Object key = index.execute(frame);
-      Object value =
-          switch (target) {
-            case RuntimeValues.ArrayValue array -> array.values.get(Math.toIntExact((Long) key));
-            case RuntimeValues.ListValue list -> list.values.get(Math.toIntExact((Long) key));
-            case RuntimeValues.MapValue map -> RuntimeValues.mapGet(map, key);
-            default -> throw new IllegalStateException("value is not indexable");
-          };
-      return RuntimeValues.copy(value);
-    }
-  }
-
-  enum MethodKind {
-    LIST_ADD,
-    LIST_GET,
-    LIST_REMOVE_AT,
-    MAP_PUT,
-    MAP_GET,
-    MAP_CONTAINS_KEY,
-    MAP_REMOVE,
-    SET_ADD,
-    SET_CONTAINS,
-    SET_REMOVE,
-    STACK_PUSH,
-    STACK_POP,
-    STACK_PEEK,
-    QUEUE_ADD,
-    QUEUE_REMOVE,
-    QUEUE_PEEK,
-    DEQUE_ADD_FIRST,
-    DEQUE_ADD_LAST,
-    DEQUE_REMOVE_FIRST,
-    DEQUE_REMOVE_LAST,
-    DEQUE_PEEK_FIRST,
-    DEQUE_PEEK_LAST,
-    BUILDER_APPEND,
-    BUILDER_TO_STRING,
-    IS_EMPTY
-  }
-
-  static final class BuiltinMethod extends ExpressionNode {
-    @Child private ExpressionNode receiver;
-    @Children private final ExpressionNode[] arguments;
-    private final MethodKind kind;
-    private final int[] parameterIndices;
-
-    BuiltinMethod(
-        MethodKind kind,
-        ExpressionNode receiver,
-        ExpressionNode[] arguments,
-        int[] parameterIndices) {
-      this.kind = kind;
-      this.receiver = receiver;
-      this.arguments = arguments;
-      this.parameterIndices = parameterIndices;
-    }
-
-    @Override
-    Object execute(VirtualFrame frame) {
-      Object target = receiver.execute(frame);
-      Object[] values = evaluateArguments(arguments, parameterIndices, frame);
-      Object first = values.length == 0 ? null : values[0];
-      Object second = values.length < 2 ? null : values[1];
-      return switch (kind) {
-        case LIST_ADD -> {
-          ((RuntimeValues.ListValue) target).values.add(RuntimeValues.copy(first));
-          yield null;
-        }
-        case LIST_GET ->
-            RuntimeValues.copy(
-                ((RuntimeValues.ListValue) target).values.get(Math.toIntExact((Long) first)));
-        case LIST_REMOVE_AT ->
-            RuntimeValues.copy(
-                ((RuntimeValues.ListValue) target).values.remove(Math.toIntExact((Long) first)));
-        case MAP_PUT -> {
-          RuntimeValues.mapPut((RuntimeValues.MapValue) target, first, second);
-          yield null;
-        }
-        case MAP_GET ->
-            RuntimeValues.copy(RuntimeValues.mapGet((RuntimeValues.MapValue) target, first));
-        case MAP_CONTAINS_KEY -> RuntimeValues.mapContains((RuntimeValues.MapValue) target, first);
-        case MAP_REMOVE -> RuntimeValues.mapRemove((RuntimeValues.MapValue) target, first);
-        case SET_ADD -> RuntimeValues.setAdd((RuntimeValues.SetValue) target, first);
-        case SET_CONTAINS -> RuntimeValues.setContains((RuntimeValues.SetValue) target, first);
-        case SET_REMOVE -> RuntimeValues.setRemove((RuntimeValues.SetValue) target, first);
-        case STACK_PUSH -> {
-          ((RuntimeValues.StackValue) target).values.push(RuntimeValues.copy(first));
-          yield null;
-        }
-        case STACK_POP -> RuntimeValues.copy(((RuntimeValues.StackValue) target).values.pop());
-        case STACK_PEEK -> RuntimeValues.copy(((RuntimeValues.StackValue) target).values.peek());
-        case QUEUE_ADD -> {
-          ((RuntimeValues.QueueValue) target).values.addLast(RuntimeValues.copy(first));
-          yield null;
-        }
-        case QUEUE_REMOVE ->
-            RuntimeValues.copy(((RuntimeValues.QueueValue) target).values.removeFirst());
-        case QUEUE_PEEK ->
-            RuntimeValues.copy(((RuntimeValues.QueueValue) target).values.peekFirst());
-        case DEQUE_ADD_FIRST -> {
-          ((RuntimeValues.DequeValue) target).values.addFirst(RuntimeValues.copy(first));
-          yield null;
-        }
-        case DEQUE_ADD_LAST -> {
-          ((RuntimeValues.DequeValue) target).values.addLast(RuntimeValues.copy(first));
-          yield null;
-        }
-        case DEQUE_REMOVE_FIRST ->
-            RuntimeValues.copy(((RuntimeValues.DequeValue) target).values.removeFirst());
-        case DEQUE_REMOVE_LAST ->
-            RuntimeValues.copy(((RuntimeValues.DequeValue) target).values.removeLast());
-        case DEQUE_PEEK_FIRST ->
-            RuntimeValues.copy(((RuntimeValues.DequeValue) target).values.peekFirst());
-        case DEQUE_PEEK_LAST ->
-            RuntimeValues.copy(((RuntimeValues.DequeValue) target).values.peekLast());
-        case BUILDER_APPEND -> {
-          RuntimeValues.BuilderValue builder = (RuntimeValues.BuilderValue) target;
-          builder.value.append(RuntimeValues.stringify(first));
-          yield builder;
-        }
-        case BUILDER_TO_STRING -> ((RuntimeValues.BuilderValue) target).value.toString();
-        case IS_EMPTY -> isEmpty(target);
-      };
-    }
-
-    private static boolean isEmpty(Object value) {
-      return switch (value) {
-        case RuntimeValues.ListValue list -> list.values.isEmpty();
-        case RuntimeValues.MapValue map -> map.values.isEmpty();
-        case RuntimeValues.SetValue set -> set.values.isEmpty();
-        case RuntimeValues.StackValue stack -> stack.values.isEmpty();
-        case RuntimeValues.QueueValue queue -> queue.values.isEmpty();
-        case RuntimeValues.DequeValue deque -> deque.values.isEmpty();
-        default -> throw new IllegalStateException("value has no isEmpty operation");
-      };
-    }
-  }
-
-  abstract static class BoundBinary extends ExpressionNode {
-    @Children private final ExpressionNode[] arguments;
-    private final int[] parameterIndices;
-
-    BoundBinary(ExpressionNode[] arguments, int[] parameterIndices) {
-      this.arguments = arguments;
-      this.parameterIndices = parameterIndices;
-    }
-
-    final Object[] values(VirtualFrame frame) {
-      return evaluateArguments(arguments, parameterIndices, frame);
+      return value;
     }
   }
 

@@ -1,30 +1,34 @@
 # 模块系统
 
-模块是 Norm 的编译与命名空间单位。源码文件属于一个模块，模块可以包含顶层类型和函数；class 不承担静态函数容器的角色。
+模块是一个源码根及其跨 package 公开边界。源码根目录中的 `module.norm` 包含一个编译期 `Module` 对象：
 
 ```norm
-module geometry
-
-public value Point {
-    int x
-    int y
-}
-
-public int area(int width, int height) {
-    return width * height
-}
+Module(
+  name: "std",
+  version: 1,
+  exports: [
+    "collections.sequences",
+    "math.integer"
+  ]
+)
 ```
 
-## 名称与文件
+`name` 是点分隔的模块名，也是模块内 package 的共同前缀。`version` 是正整数模块描述格式版本。`exports` 是不重复的相对源码名。
 
-模块名由点分隔的标识符组成。一个目录可以包含同一模块的多个源码文件，声明顺序不影响名称解析。文件名不自动创建命名空间。
+## 源文件映射
 
-## 边界
+编译器把模块名和导出名连接后，将点替换为目录分隔符并添加 `.norm`。模块 `std` 的 `collections.sequences` 映射为：
 
-- public 声明可以被其他模块导入；private 顶层声明只在当前源码文件可见。
-- 模块初始化不能依赖隐式执行顺序；当前草案不提供顶层可变初始化代码。
-- 模块之间不能形成初始化环。纯类型依赖的环是否允许，将由编译器设计阶段确定。
-- 包管理器中的 package 可以发布一个或多个模块，但 package 名不等于模块名。
+```text
+std/collections/sequences.norm
+```
 
-模块语法仍属于草案。首个编译器实现必须在稳定前确定文件到模块的映射、重复声明诊断和二进制模块标识。
+该文件必须声明 `package std.collections`。文件名不参与 package 名，但用于确定导出的具体源码文件。
 
+## 可见范围
+
+同 package 的源码文件自动加载并可以直接引用彼此的 `public` 声明。跨 package import 只能访问 `exports` 指定文件中的 `public` 声明；`private` 始终限制在声明文件内。
+
+没有 `module.norm` 时，带 package 的入口只加载入口 package 目录中的源码。无 package 文件保持单文件脚本语义。
+
+`module.norm` 不在程序运行时执行。CLI、编译器、标准库加载器和语言服务使用同一个模块描述模型。

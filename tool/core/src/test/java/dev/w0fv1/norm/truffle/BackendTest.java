@@ -2,6 +2,8 @@ package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.execution.ProgramRunner;
 import dev.w0fv1.norm.frontend.Compiler;
@@ -13,6 +15,8 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.PolyglotException;
+import org.graalvm.polyglot.Source;
 import org.junit.jupiter.api.Test;
 
 final class BackendTest {
@@ -44,5 +48,31 @@ final class BackendTest {
 
     assertEquals(
         "Hello from Polyglot" + System.lineSeparator(), output.toString(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void exposesGuestLocationAndGuestCallStackThroughPolyglot() throws Exception {
+    var uri = java.net.URI.create("file:///polyglot-runtime-error.norm");
+    Source source =
+        Source.newBuilder(
+                "norm",
+                "int fail() { return 1 / 0 }\nvoid main() { print(fail()) }",
+                "polyglot-runtime-error.norm")
+            .uri(uri)
+            .build();
+
+    try (Context context = Context.newBuilder("norm").build()) {
+      PolyglotException exception =
+          assertThrows(PolyglotException.class, () -> context.eval(source));
+      assertTrue(exception.isGuestException());
+      assertEquals(uri, exception.getSourceLocation().getSource().getURI());
+      assertEquals(1, exception.getSourceLocation().getStartLine());
+      assertTrue(
+          java.util.stream.StreamSupport.stream(
+                      exception.getPolyglotStackTrace().spliterator(), false)
+                  .filter(org.graalvm.polyglot.PolyglotException.StackFrame::isGuestFrame)
+                  .count()
+              >= 2);
+    }
   }
 }

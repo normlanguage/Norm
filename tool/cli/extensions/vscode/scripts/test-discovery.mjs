@@ -55,11 +55,11 @@ try {
   writeFileSync(bundled, '');
   chmodSync(bundled, 0o755);
   assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
-  const previous = process.env.NORM_CLI;
-  process.env.NORM_CLI = bundled;
-  assert.equal(resolveCliCommand('', repository, developmentExtension), bundled);
-  if (previous === undefined) delete process.env.NORM_CLI;
-  else process.env.NORM_CLI = previous;
+  const external = join(fixture, process.platform === 'win32' ? 'external.exe' : 'external');
+  writeFileSync(external, '');
+  chmodSync(external, 0o755);
+  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
+  assert.equal(resolveCliCommand(external, undefined, packagedExtension), external);
 } finally {
   rmSync(fixture, { recursive: true, force: true });
 }

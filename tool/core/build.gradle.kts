@@ -7,7 +7,12 @@ dependencies {
     annotationProcessor(libs.truffle.dsl.processor)
 }
 
+val standardLibraryDirectory = rootProject.file("norm/stdlib")
+
 sourceSets {
+    main {
+        resources.srcDir(standardLibraryDirectory)
+    }
     test {
         resources.srcDir(rootProject.file("norm/tests"))
     }

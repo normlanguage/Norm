@@ -13,7 +13,15 @@
       "type": "dev.w0fv1.norm.cli.component.DocumentService"
     },
     {
-      "type": "dev.w0fv1.norm.cli.component.LanguageServer"
+      "type": "dev.w0fv1.norm.cli.component.LanguageServer",
+      "methods": [
+        {
+          "name": "standardLibrarySource",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
     },
     {
       "type": "dev.w0fv1.norm.cli.component.WorkspaceService"
@@ -790,6 +798,36 @@
       ]
     },
     {
+      "type": "org.eclipse.lsp4j.DidChangeTextDocumentParams",
+      "unsafeAllocated": true,
+      "fields": [
+        {
+          "name": "contentChanges"
+        },
+        {
+          "name": "textDocument"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.DidChangeWatchedFilesParams",
+      "unsafeAllocated": true,
+      "fields": [
+        {
+          "name": "changes"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.DidCloseTextDocumentParams",
+      "unsafeAllocated": true,
+      "fields": [
+        {
+          "name": "textDocument"
+        }
+      ]
+    },
+    {
       "type": "org.eclipse.lsp4j.DidOpenTextDocumentParams",
       "fields": [
         {
@@ -800,6 +838,18 @@
         {
           "name": "<init>",
           "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.DidSaveTextDocumentParams",
+      "unsafeAllocated": true,
+      "fields": [
+        {
+          "name": "text"
+        },
+        {
+          "name": "textDocument"
         }
       ]
     },
@@ -889,6 +939,18 @@
     },
     {
       "type": "org.eclipse.lsp4j.ExecuteCommandOptions"
+    },
+    {
+      "type": "org.eclipse.lsp4j.FileEvent",
+      "unsafeAllocated": true,
+      "fields": [
+        {
+          "name": "type"
+        },
+        {
+          "name": "uri"
+        }
+      ]
     },
     {
       "type": "org.eclipse.lsp4j.FileOperationFilter"
@@ -2057,6 +2119,21 @@
       ]
     },
     {
+      "type": "org.eclipse.lsp4j.TextDocumentContentChangeEvent",
+      "unsafeAllocated": true,
+      "fields": [
+        {
+          "name": "range"
+        },
+        {
+          "name": "rangeLength"
+        },
+        {
+          "name": "text"
+        }
+      ]
+    },
+    {
       "type": "org.eclipse.lsp4j.TextDocumentContentCapabilities",
       "methods": [
         {
@@ -2670,6 +2747,14 @@
     }
   ],
   "resources": [
+    {
+      "module": "dev.w0fv1.norm.core",
+      "glob": "module.norm"
+    },
+    {
+      "module": "dev.w0fv1.norm.core",
+      "glob": "std/**"
+    },
     {
       "glob": "META-INF/services/com.oracle.truffle.api.impl.TruffleLocator"
     },

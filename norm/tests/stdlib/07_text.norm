@@ -1,0 +1,18 @@
+import std.testing.equal
+import std.text.join
+import std.text.repeat
+
+void main() {
+  print(equal(actual: repeat(value: "ab", count: 3), expected: "ababab"))
+  List<String> values = List<String>()
+  values.add("Norm")
+  values.add("0.2")
+  print(equal(actual: join(values: values, separator: " "), expected: "Norm 0.2"))
+  print(equal(actual: join(values: List<String>(), separator: ","), expected: ""))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+}

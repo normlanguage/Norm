@@ -1,0 +1,15 @@
+import std.math.max
+import std.math.min
+import std.testing.equal
+
+void main() {
+  print(equal(actual: min(left: 3, right: 8), expected: 3))
+  print(equal(actual: max(left: 3, right: 8), expected: 8))
+  print(equal(actual: min(left: 5, right: 5), expected: 5))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+}

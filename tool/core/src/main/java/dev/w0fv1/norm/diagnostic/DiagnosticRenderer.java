@@ -16,7 +16,7 @@ public final class DiagnosticRenderer {
 
     StringBuilder rendered = new StringBuilder();
     rendered
-        .append(span.source().path())
+        .append(span.source().displayName())
         .append(':')
         .append(start.line())
         .append(':')
@@ -38,7 +38,7 @@ public final class DiagnosticRenderer {
       rendered
           .append(System.lineSeparator())
           .append("related: ")
-          .append(information.span().source().path())
+          .append(information.span().source().displayName())
           .append(':')
           .append(relatedStart.line())
           .append(':')

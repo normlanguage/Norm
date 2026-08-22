@@ -1,0 +1,17 @@
+package std.testing
+
+public bool equal<T>(T actual, T expected) {
+  return actual == expected
+}
+
+public bool notEqual<T>(T actual, T expected) {
+  return actual != expected
+}
+
+public bool isTrue(bool actual) {
+  return actual
+}
+
+public bool isFalse(bool actual) {
+  return !actual
+}

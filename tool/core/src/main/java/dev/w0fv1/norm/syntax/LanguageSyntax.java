@@ -8,7 +8,22 @@ import java.util.Set;
 public final class LanguageSyntax {
   private static final Map<String, TokenKind> RESERVED_WORDS = createReservedWords();
   private static final List<String> COMPLETION_KEYWORDS =
-      List.of("class", "enum", "if", "else", "for", "return", "break", "continue", "true", "false");
+      List.of(
+          "class",
+          "enum",
+          "package",
+          "import",
+          "as",
+          "public",
+          "private",
+          "if",
+          "else",
+          "for",
+          "return",
+          "break",
+          "continue",
+          "true",
+          "false");
 
   private LanguageSyntax() {}
 
@@ -40,6 +55,11 @@ public final class LanguageSyntax {
     Map<String, TokenKind> words = new LinkedHashMap<>();
     words.put("class", TokenKind.CLASS);
     words.put("enum", TokenKind.ENUM);
+    words.put("package", TokenKind.PACKAGE);
+    words.put("import", TokenKind.IMPORT);
+    words.put("as", TokenKind.AS);
+    words.put("public", TokenKind.PUBLIC);
+    words.put("private", TokenKind.PRIVATE);
     words.put("if", TokenKind.IF);
     words.put("else", TokenKind.ELSE);
     words.put("for", TokenKind.FOR);

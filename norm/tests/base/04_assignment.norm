@@ -3,3 +3,7 @@ void main() {
   value = value + 5
   print(value)
 }
+
+private void expectedOutput() {
+  print("9")
+}

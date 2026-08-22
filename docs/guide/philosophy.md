@@ -61,11 +61,16 @@ double midpoint(double left, double right) {
 
 这里不需要工具类、扩展机制或代码生成。
 
+## Norm 项目使用 Norm 配置
+
+Norm 能表达的项目配置、模块描述、构建规则和测试定义都使用 Norm 本身。工具读取类型化的 `.norm` 对象与声明，共享语言的语法、类型检查、编辑器支持和演进规则。
+
+项目不为同一职责并列引入 JSON、JSONC、JavaScript、TypeScript、YAML、TOML 或 INI 配置。只有必须与外部系统交换的数据才使用对方要求的格式，并在边界处转换为 Norm 类型。
+
 ## 平台不是语言规范
 
-Norm 初期计划使用 GraalVM/Truffle，但前端、类型系统、反射模型和 Typed IR 不依赖 JVM 类型模型。
+Norm 官方实现使用 GraalVM/Truffle，但前端、类型系统、反射模型和 Bound IR 不依赖 JVM 类型模型。
 
 同样，Web、数据库和序列化是语言之上的应用平台。它们可以使用语言能力，却不能反过来定义基础语义。
 
 下一步：[设计原则](/guide/design-principles)。
-

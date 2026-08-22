@@ -14,13 +14,13 @@ Lexer 和手写 Parser 生成带完整 SourceSpan 的 AST。错误恢复必须�
 
 名称解析、名义类型、泛型约束、nullable 流分析、确定赋值和调用绑定写入 SemanticModel。实参到形参的映射只解析一次，并保留源码求值顺序。
 
-## Typed IR
+## Bound IR
 
-Typed IR 固化表达式类型、value/identity 类别、调用目标、控制流边和 reified 泛型信息。它是前端到后端的唯一边界，不建立第二套解释器语义。
+Bound IR 固化表达式类型、value/identity 类别、调用目标、控制流边和 reified 泛型信息。它是前端到后端的唯一边界，不建立第二套解释器语义。
 
 ## Truffle 后端
 
-Lowerer 只消费 Typed IR，生成函数 CallTarget、frame slot、控制流节点和互操作边界。Native Image 打包同一 CLI 与运行时，不构成第二套后端。
+Lowerer 只消费 Bound IR，生成函数 CallTarget、frame slot、控制流节点和互操作边界。Native Image 打包同一 CLI 与运行时，不构成第二套后端。
 
 ## 验收
 

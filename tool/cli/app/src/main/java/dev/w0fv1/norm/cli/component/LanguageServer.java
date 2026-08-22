@@ -9,6 +9,7 @@ import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.RenameOptions;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.TextDocumentService;
@@ -16,7 +17,7 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 final class LanguageServer
     implements org.eclipse.lsp4j.services.LanguageServer, LanguageClientAware {
   private final DocumentService documents = new DocumentService();
-  private final WorkspaceService workspace = new WorkspaceService();
+  private final WorkspaceService workspace = new WorkspaceService(documents);
   private final IntConsumer exitHandler;
   private volatile int exitCode = 1;
 
@@ -49,6 +50,11 @@ final class LanguageServer
   public CompletableFuture<Object> shutdown() {
     exitCode = 0;
     return CompletableFuture.completedFuture(null);
+  }
+
+  @JsonRequest("norm/standardLibrarySource")
+  public CompletableFuture<String> standardLibrarySource(String uri) {
+    return CompletableFuture.completedFuture(documents.standardLibrarySource(uri));
   }
 
   @Override

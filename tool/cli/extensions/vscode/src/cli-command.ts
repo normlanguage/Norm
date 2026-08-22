@@ -22,14 +22,7 @@ export function resolveCliCommand(
 
   const executable = process.platform === 'win32' ? 'norm.bat' : 'norm';
   const bundledExecutable = process.platform === 'win32' ? 'norm.exe' : 'norm';
-  const environment = (process.env.NORM_CLI ?? '').trim();
-  const environmentCandidate = environment
-    ? isAbsolute(environment) || environment.includes(sep)
-      ? resolve(environment)
-      : executableOnPath(environment)
-    : undefined;
   const candidates = [
-    environmentCandidate,
     join(extensionPath, 'bin', `${process.platform}-${process.arch}`, bundledExecutable),
     workspacePath &&
       join(workspacePath, 'tool', 'cli', 'app', 'build', 'install', 'norm', 'bin', executable),

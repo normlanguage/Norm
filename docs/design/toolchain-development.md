@@ -19,23 +19,26 @@ norm/tests/            可执行的 Norm 验收程序
 ```text
 dev.w0fv1.norm.frontend     Compiler、Lexer、Parser、Analyzer
 dev.w0fv1.norm.syntax       Token 与 Syntax AST
+dev.w0fv1.norm.semantic     类型、符号与文档语义索引
+dev.w0fv1.norm.builtin      内置声明与 intrinsic identity
+dev.w0fv1.norm.bound        后端唯一消费的不可变 Bound IR
 dev.w0fv1.norm.diagnostic   诊断值与渲染
-dev.w0fv1.norm.execution    对外执行入口
+dev.w0fv1.norm.language     基于语义快照的语言服务
+dev.w0fv1.norm.execution    对外执行入口、上下文与结构化错误
 dev.w0fv1.norm.truffle      Lowerer、可执行节点与运行时表示
 dev.w0fv1.norm.value        跨阶段不可变数据
-dev.w0fv1.norm.utils        无状态公共工具
 ```
 
-允许的主要依赖方向为：
+必须保持的阶段依赖约束为：
 
 ```text
-frontend  → syntax, diagnostic, value
-execution → truffle, value
-truffle   → frontend, syntax, value
-diagnostic → value
+frontend ⇏ truffle
+bound ⇏ frontend, truffle
+Lowerer → bound
+CLI → core public API
 ```
 
-`frontend` 不依赖 Truffle。`syntax` 和 `value` 不依赖编译器行为。CLI 只调用 core 导出的 API，不访问内部 Truffle 节点。
+`⇏` 表示禁止依赖。Lowerer 不依赖 Syntax AST 或 `SemanticModel`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。
 
 ## CLI package
 
@@ -66,13 +69,15 @@ SourceFile
   → Parser
   → Syntax.Program
   → Analyzer
-  → TypedProgram
+  → SemanticModel
+  → Binder
+  → BoundProgram
+  → ExecutionBackend
   → Lowerer
   → Truffle executable AST
-  → ProgramRunner
 ```
 
-Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查。Lowerer 将已经检查的程序转换成可执行表示，运行时不得重新按名称解析声明或解释 Syntax AST。
+Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查。Binder 将已验证语义冻结为 Bound IR。Lowerer 只把 Bound IR 转换成可执行表示，运行时不得重新按名称解析声明或解释 Syntax AST。完整阶段边界见[编译器架构](/spec/compiler-design)。
 
 每个函数对应独立的 `FunctionRootNode` 和 `CallTarget`。静态函数与方法调用使用 `DirectCallNode`，局部变量使用 `VirtualFrame` 的索引 slot，循环使用 `LoopNode`，return、break 和 continue 使用 `ControlFlowException`。Truffle 节点携带 `SourceSection`。
 

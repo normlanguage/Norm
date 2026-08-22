@@ -11,48 +11,48 @@ int precedence(Kind kind) {
   return 0
 }
 
-Pair applyTop(Stack values, Stack operators) {
+Pair<Stack<int>, Stack<Token>> applyTop(Stack<int> values, Stack<Token> operators) {
   int right = values.pop()
   int left = values.pop()
   Token operator = operators.pop()
   if operator.kind == Kind.Add { values.push(left + right) }
   if operator.kind == Kind.Subtract { values.push(left - right) }
   if operator.kind == Kind.Multiply { values.push(left * right) }
-  return Pair(first: values, second: operators)
+  return Pair<Stack<int>, Stack<Token>>(first: values, second: operators)
 }
 
-int evaluate(List tokens) {
-  Stack values = Stack()
-  Stack operators = Stack()
+int evaluate(List<Token> tokens) {
+  Stack<int> values = Stack<int>()
+  Stack<Token> operators = Stack<Token>()
   for Token token : tokens {
     if token.kind == Kind.Number {
       values.push(token.value)
     } else if token.kind == Kind.Left {
       operators.push(token)
     } else if token.kind == Kind.Right {
-      for step : range(start: 0, end: tokens.length) {
+      for step : range(start: 0, end: tokens.size()) {
         Token top = operators.peek()
         if top.kind == Kind.Left { break }
-        Pair state = applyTop(values, operators)
+        Pair<Stack<int>, Stack<Token>> state = applyTop(values, operators)
         values = state.first
         operators = state.second
       }
       operators.pop()
     } else {
-      for step : range(start: 0, end: tokens.length) {
+      for step : range(start: 0, end: tokens.size()) {
         if operators.isEmpty() { break }
         Token top = operators.peek()
         if top.kind == Kind.Left || precedence(top.kind) < precedence(token.kind) { break }
-        Pair state = applyTop(values, operators)
+        Pair<Stack<int>, Stack<Token>> state = applyTop(values, operators)
         values = state.first
         operators = state.second
       }
       operators.push(token)
     }
   }
-  for step : range(start: 0, end: tokens.length) {
+  for step : range(start: 0, end: tokens.size()) {
     if operators.isEmpty() { break }
-    Pair state = applyTop(values, operators)
+    Pair<Stack<int>, Stack<Token>> state = applyTop(values, operators)
     values = state.first
     operators = state.second
   }
@@ -60,7 +60,7 @@ int evaluate(List tokens) {
 }
 
 void main() {
-  List first = List()
+  List<Token> first = List<Token>()
   first.add(Token(kind: Kind.Number, value: 3))
   first.add(Token(kind: Kind.Add, value: 0))
   first.add(Token(kind: Kind.Number, value: 2))
@@ -68,7 +68,7 @@ void main() {
   first.add(Token(kind: Kind.Number, value: 7))
   print(evaluate(first))
 
-  List second = List()
+  List<Token> second = List<Token>()
   second.add(Token(kind: Kind.Left, value: 0))
   second.add(Token(kind: Kind.Number, value: 8))
   second.add(Token(kind: Kind.Subtract, value: 0))
@@ -77,4 +77,9 @@ void main() {
   second.add(Token(kind: Kind.Multiply, value: 0))
   second.add(Token(kind: Kind.Number, value: 4))
   print(evaluate(second))
+}
+
+private void expectedOutput() {
+  print("17")
+  print("20")
 }

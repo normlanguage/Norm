@@ -1,0 +1,44 @@
+import std.collections.listContains
+import std.collections.listCount
+import std.collections.reversed
+import std.collections.toList
+import std.math.abs
+import std.math.clamp
+import std.math.max
+import std.math.min
+import std.testing.equal
+import std.text.join
+import std.text.repeat
+
+void main() {
+  List<int> empty = List<int>()
+  List<String> single = List<String>()
+  single.add("")
+  print(equal(actual: min(left: -9223372036854775807, right: 9223372036854775807), expected: -9223372036854775807))
+  print(equal(actual: max(left: -9223372036854775807, right: 9223372036854775807), expected: 9223372036854775807))
+  print(equal(actual: abs(-9223372036854775807), expected: 9223372036854775807))
+  print(equal(actual: clamp(value: 9, minimum: 4, maximum: 4), expected: 4))
+  print(equal(actual: listContains(values: empty, target: 1), expected: false))
+  print(equal(actual: listCount(values: empty, target: 1), expected: 0))
+  print(equal(actual: reversed(values: empty).size(), expected: 0))
+  print(equal(actual: toList<int>([]).size(), expected: 0))
+  print(equal(actual: repeat(value: "Norm", count: 0), expected: ""))
+  print(equal(actual: repeat(value: "", count: 3), expected: ""))
+  print(equal(actual: join(values: single, separator: "anything"), expected: ""))
+  print(equal(actual: join(values: toList<String>(["a", "b"]), separator: ""), expected: "ab"))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+}

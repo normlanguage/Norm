@@ -1,14 +1,14 @@
-int shortestPath(Array graph, int source, int target) {
-  List distance = List()
-  for vertex : range(start: 0, end: graph.length) { distance.add(-1) }
-  Queue pending = Queue()
+int shortestPath(Array<Array<int>> graph, int source, int target) {
+  List<int> distance = List<int>()
+  for vertex : range(start: 0, end: graph.size()) { distance.add(-1) }
+  Queue<int> pending = Queue<int>()
   distance[source] = 0
   pending.add(source)
-  for step : range(start: 0, end: graph.length) {
+  for step : range(start: 0, end: graph.size()) {
     if pending.isEmpty() { break }
     int vertex = pending.remove()
-    Array edges = graph[vertex]
-    for next : range(start: 0, end: graph.length) {
+    Array<int> edges = graph[vertex]
+    for next : range(start: 0, end: graph.size()) {
       if edges[next] == 1 && distance[next] == -1 {
         distance[next] = distance[vertex] + 1
         pending.add(next)
@@ -19,7 +19,7 @@ int shortestPath(Array graph, int source, int target) {
 }
 
 void main() {
-  Array graph = [
+  Array<Array<int>> graph = [
     [0, 1, 0, 0, 0],
     [1, 0, 1, 0, 0],
     [0, 1, 0, 1, 0],
@@ -28,4 +28,9 @@ void main() {
   ]
   print(shortestPath(graph, source: 0, target: 3))
   print(shortestPath(graph, source: 0, target: 4))
+}
+
+private void expectedOutput() {
+  print("3")
+  print("-1")
 }

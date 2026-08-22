@@ -5,3 +5,8 @@ void main() {
   print(color)
   print(color == Color.Green)
 }
+
+private void expectedOutput() {
+  print("Color.Green")
+  print("true")
+}

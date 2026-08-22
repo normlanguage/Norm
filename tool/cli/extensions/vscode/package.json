@@ -3,7 +3,7 @@
   "displayName": "Norm Language Support",
   "description": "All-in-one editing, navigation, refactoring, and execution support for Norm",
   "icon": "images/norm-256.png",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "normlang",
   "repository": {
     "type": "git",
@@ -63,7 +63,7 @@
       "editor/title": [
         {
           "command": "norm.runCurrentFile",
-          "when": "resourceLangId == norm",
+          "when": "resourceLangId == norm && resourceFilename != module.norm",
           "group": "navigation@1"
         }
       ]
@@ -73,7 +73,7 @@
         "command": "norm.runCurrentFile",
         "key": "ctrl+f5",
         "mac": "cmd+f5",
-        "when": "editorLangId == norm"
+        "when": "editorLangId == norm && resourceFilename != module.norm"
       }
     ],
     "taskDefinitions": [

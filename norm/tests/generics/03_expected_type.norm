@@ -1,0 +1,17 @@
+class Box<T> {}
+
+Box<T> emptyBox<T>() {
+  return Box<T>()
+}
+
+void main() {
+  Box<String> box = emptyBox()
+  Array<Box<String>> values = []
+  print(values.size())
+  print(box == box)
+}
+
+private void expectedOutput() {
+  print("0")
+  print("true")
+}

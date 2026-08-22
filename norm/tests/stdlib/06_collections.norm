@@ -1,0 +1,24 @@
+import std.collections.listContains
+import std.collections.listCount
+import std.collections.reversed
+import std.collections.toList
+import std.testing.equal
+
+void main() {
+  List<int> values = List<int>()
+  values.add(2)
+  values.add(5)
+  values.add(2)
+  print(equal(actual: listContains(values: values, target: 5), expected: true))
+  print(equal(actual: listCount(values: values, target: 2), expected: 2))
+  List<int> backwards = reversed(values)
+  print(equal(actual: backwards, expected: toList([2, 5, 2])))
+  print(equal(actual: toList([4, 7]), expected: toList([4, 7])))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+}

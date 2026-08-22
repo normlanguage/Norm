@@ -1,4 +1,4 @@
-int select(Array values, int low, int high, int wanted) {
+int select(Array<int> values, int low, int high, int wanted) {
   if low == high { return values[low] }
   int pivot = values[high]
   int boundary = low
@@ -18,13 +18,19 @@ int select(Array values, int low, int high, int wanted) {
   return select(values, low: boundary + 1, high, wanted)
 }
 
-int kthSmallest(Array values, int k) {
-  return select(values, low: 0, high: values.length - 1, wanted: k - 1)
+int kthSmallest(Array<int> values, int k) {
+  return select(values, low: 0, high: values.size() - 1, wanted: k - 1)
 }
 
 void main() {
-  Array values = [9, 1, 7, 3, 5]
+  Array<int> values = [9, 1, 7, 3, 5]
   print(kthSmallest(values, k: 3))
   print(kthSmallest(values, k: 1))
   print(kthSmallest(values, k: 5))
+}
+
+private void expectedOutput() {
+  print("5")
+  print("1")
+  print("9")
 }

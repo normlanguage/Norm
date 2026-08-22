@@ -3,3 +3,7 @@ int gcd(int left, int right) {
   return gcd(left: right, right: left % right)
 }
 void main() { print(gcd(left: 54, right: 24)) }
+
+private void expectedOutput() {
+  print("6")
+}

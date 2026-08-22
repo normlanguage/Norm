@@ -11,6 +11,10 @@ export class NormRunner {
       void vscode.window.showErrorMessage('Open a Norm file before running it.');
       return undefined;
     }
+    if (basename(document.uri.path) === 'module.norm') {
+      void vscode.window.showErrorMessage('module.norm is a compile-time module descriptor.');
+      return undefined;
+    }
     if (!(await document.save())) return undefined;
     if (document.uri.scheme !== 'file') {
       void vscode.window.showErrorMessage('Save the Norm file to disk before running it.');

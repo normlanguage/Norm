@@ -1,0 +1,13 @@
+package sample.util
+
+public class Box<T> {
+  T value
+}
+
+private T preserve<T>(T value) {
+  return value
+}
+
+public T identity<T>(T value) {
+  return preserve(value)
+}

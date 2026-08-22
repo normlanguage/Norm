@@ -17,3 +17,8 @@ void main() {
   print(original.value)
   print(original == returned)
 }
+
+private void expectedOutput() {
+  print("5")
+  print("true")
+}

@@ -275,7 +275,7 @@ MathUtils
 FileUtils
 ```
 
-A module organizes functions.
+A package organizes functions and types across source files.
 
 A class models objects.
 
@@ -335,7 +335,7 @@ The programmer decides what happens when nothing is found.
 
 # 9. Runtime Architecture
 
-Norm is designed with multiple execution backends.
+Norm has one official execution backend.
 
 The first implementation uses:
 
@@ -346,7 +346,7 @@ Parser
     ↓
 Semantic Analysis
     ↓
-Typed IR
+Bound IR
     ↓
 Truffle Backend
     ↓
@@ -359,15 +359,7 @@ This provides:
 - JIT optimization
 - native packaging through Native Image
 
-Long term:
-
-```text
-Typed IR
-   ├── Truffle backend
-   └── Native backend
-```
-
-The language model is independent from the execution engine.
+Native Image packages the same Truffle implementation as a native CLI; it is not a second language backend. The language model and Bound IR remain independent from JVM type semantics.
 
 ---
 
@@ -474,4 +466,3 @@ A Norm developer should be able to answer:
 by reading the program itself.
 
 That is the meaning of Norm.
-

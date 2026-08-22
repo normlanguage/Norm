@@ -5,6 +5,9 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.LoopNode;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.RepeatingNode;
+import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.util.Iterator;
 
 final class StatementNodes {
@@ -105,22 +108,34 @@ final class StatementNodes {
     private final FrameBinding iteratorBinding;
     @Child private ExpressionNode iterable;
     @Child private LoopNode loop;
+    private final IntrinsicId iteratorIntrinsic;
+    private final ExecutionContext context;
 
     For(
         FrameBinding iteratorBinding,
         FrameBinding variableBinding,
         ExpressionNode iterable,
-        StatementNode body) {
+        StatementNode body,
+        IntrinsicId iteratorIntrinsic,
+        ExecutionContext context) {
       this.iteratorBinding = iteratorBinding;
       this.iterable = iterable;
+      this.iteratorIntrinsic = iteratorIntrinsic;
+      this.context = context;
       loop =
           Truffle.getRuntime()
-              .createLoopNode(new Repeating(iteratorBinding, variableBinding, body));
+              .createLoopNode(new Repeating(iteratorBinding, variableBinding, body, context));
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      iteratorBinding.write(frame, RuntimeValues.iterator(iterable.execute(frame)));
+      if (context.cancellation().getAsBoolean()) {
+        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
+      }
+      iteratorBinding.write(
+          frame,
+          IntrinsicDispatcher.execute(
+              iteratorIntrinsic, iterable.execute(frame), new Object[0], null, context, this));
       loop.execute(frame);
       frame.clear(iteratorBinding.slot());
     }
@@ -130,16 +145,25 @@ final class StatementNodes {
     private final FrameBinding iteratorBinding;
     private final FrameBinding variableBinding;
     @Child private StatementNode body;
+    private final ExecutionContext context;
 
-    Repeating(FrameBinding iteratorBinding, FrameBinding variableBinding, StatementNode body) {
+    Repeating(
+        FrameBinding iteratorBinding,
+        FrameBinding variableBinding,
+        StatementNode body,
+        ExecutionContext context) {
       this.iteratorBinding = iteratorBinding;
       this.variableBinding = variableBinding;
       this.body = body;
+      this.context = context;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public boolean executeRepeating(VirtualFrame frame) {
+      if (context.cancellation().getAsBoolean()) {
+        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", body);
+      }
       Iterator<Object> iterator = (Iterator<Object>) iteratorBinding.read(frame);
       if (!iterator.hasNext()) return false;
       variableBinding.write(frame, RuntimeValues.copy(iterator.next()));
@@ -172,49 +196,31 @@ final class StatementNodes {
     }
   }
 
-  static final class WritePair extends StatementNode {
+  static final class IntrinsicWrite extends StatementNode {
+    private final IntrinsicId intrinsic;
+    private final ExecutionContext context;
     @Child private ExpressionNode receiver;
-    @Child private ExpressionNode value;
-    private final boolean first;
+    @Children private final ExpressionNode[] arguments;
 
-    WritePair(ExpressionNode receiver, boolean first, ExpressionNode value) {
+    IntrinsicWrite(
+        IntrinsicId intrinsic,
+        ExpressionNode receiver,
+        ExecutionContext context,
+        ExpressionNode... arguments) {
+      this.intrinsic = intrinsic;
       this.receiver = receiver;
-      this.first = first;
-      this.value = value;
-    }
-
-    @Override
-    void executeVoid(VirtualFrame frame) {
-      RuntimeValues.PairValue pair = (RuntimeValues.PairValue) receiver.execute(frame);
-      Object assigned = RuntimeValues.copy(value.execute(frame));
-      if (first) pair.first = assigned;
-      else pair.second = assigned;
-    }
-  }
-
-  static final class WriteIndex extends StatementNode {
-    @Child private ExpressionNode receiver;
-    @Child private ExpressionNode index;
-    @Child private ExpressionNode value;
-
-    WriteIndex(ExpressionNode receiver, ExpressionNode index, ExpressionNode value) {
-      this.receiver = receiver;
-      this.index = index;
-      this.value = value;
+      this.context = context;
+      this.arguments = arguments;
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
       Object target = receiver.execute(frame);
-      Object key = index.execute(frame);
-      Object assigned = RuntimeValues.copy(value.execute(frame));
-      switch (target) {
-        case RuntimeValues.ArrayValue array ->
-            array.values.set(Math.toIntExact((Long) key), assigned);
-        case RuntimeValues.ListValue list -> list.values.set(Math.toIntExact((Long) key), assigned);
-        case RuntimeValues.MapValue map -> RuntimeValues.mapPut(map, key, assigned);
-        default -> throw new IllegalStateException("value is not index assignable");
+      Object[] values = new Object[arguments.length];
+      for (int index = 0; index < arguments.length; index++) {
+        values[index] = arguments[index].execute(frame);
       }
+      IntrinsicDispatcher.execute(intrinsic, target, values, null, context, this);
     }
   }
 }

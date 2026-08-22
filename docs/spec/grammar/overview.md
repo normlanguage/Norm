@@ -16,10 +16,16 @@ A | B        二选一
 ## 源文件
 
 ```text
-SourceFile := ModuleDeclaration Import* Declaration*
+SourceFile := PackageDeclaration? Import* Declaration*
+
+ModuleFile := ModuleExpression ";"?
+ModuleExpression := "Module" "(" ModuleField ("," ModuleField)* ")"
+ModuleField := "name" ":" StringLiteral
+             | "version" ":" IntegerLiteral
+             | "exports" ":" "[" (StringLiteral ("," StringLiteral)*)? "]"
 ```
 
-module 位于首个非注释位置，import 位于其他声明之前。顶层允许类型、函数和编译期常量，不允许任意执行语句。
+package 位于首个非注释位置，import 位于其他声明之前。没有 package 的文件是单文件脚本。普通源文件顶层允许类型、函数和编译期常量，不允许任意执行语句。源码根的 `module.norm` 是模块描述文件，只包含一个 `Module` 对象表达式。
 
 ## 声明
 
@@ -45,4 +51,5 @@ Norm 使用类型前置：`String name`、`int parse(String text)`。generic 参
 - [类型](/spec/grammar/types)
 - [表达式](/spec/grammar/expressions)
 - [语句](/spec/grammar/statements)
+- [模块描述](/spec/grammar/modules)
 - [运算符优先级](/spec/grammar/operators-precedence)

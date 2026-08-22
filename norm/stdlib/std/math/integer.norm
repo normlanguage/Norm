@@ -1,0 +1,28 @@
+package std.math
+
+public int min(int left, int right) {
+  if left < right { return left }
+  return right
+}
+
+public int max(int left, int right) {
+  if left > right { return left }
+  return right
+}
+
+public int abs(int value) {
+  if value < 0 { return -value }
+  return value
+}
+
+public int clamp(int value, int minimum, int maximum) {
+  if value < minimum { return minimum }
+  if value > maximum { return maximum }
+  return value
+}
+
+public int sign(int value) {
+  if value < 0 { return -1 }
+  if value > 0 { return 1 }
+  return 0
+}

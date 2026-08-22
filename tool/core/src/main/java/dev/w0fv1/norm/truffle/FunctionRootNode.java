@@ -36,7 +36,7 @@ final class FunctionRootNode extends RootNode {
     }
     try {
       body.executeVoid(frame);
-      return name.equals("main") ? 0L : null;
+      return 0L;
     } catch (ControlFlow.Return returned) {
       return RuntimeValues.copy(returned.value);
     }

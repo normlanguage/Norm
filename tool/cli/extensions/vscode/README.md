@@ -22,7 +22,7 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
    <repository>\tool\cli\app\build\install\norm\bin\norm.bat
    ```
 
-   For another layout, set `norm.cli.path` explicitly. CLI resolution uses the configured path, `NORM_CLI`, the bundled release CLI, repository development builds, then `PATH`.
+   For another layout, set `norm.cli.path` explicitly. CLI resolution uses the configured path, the bundled release CLI, repository development builds, then `PATH`.
 
 3. Install dependencies and compile the extension:
 

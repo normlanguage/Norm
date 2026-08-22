@@ -58,7 +58,8 @@ aside: false
 - [类型系统](/spec/type-system)
 - [对象模型](/spec/object-model)
 - [内存语义](/spec/memory-semantics)
-- [模块与导入](/spec/module-system)
+- [Package 与导入](/spec/package-system)
+- [模块系统](/spec/module-system)
 - [编译器设计](/spec/compiler-design)
 
 </section>
@@ -114,6 +115,7 @@ aside: false
 
 了解工具链、包生态和迁移策略。
 
+- [0.2 版本记录](/versions/0.2)
 - [0.1 版本记录](/versions/0.1)
 - [实现策略决议](/design/implementation-strategy)
 - [工具链开发规范](/design/toolchain-development)

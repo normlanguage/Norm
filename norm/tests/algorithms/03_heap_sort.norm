@@ -1,4 +1,4 @@
-Array siftDown(Array values, int size, int root) {
+Array<int> siftDown(Array<int> values, int size, int root) {
   int current = root
   for step : range(start: 0, end: size) {
     int largest = current
@@ -15,8 +15,8 @@ Array siftDown(Array values, int size, int root) {
   return values
 }
 
-Array heapSort(Array values) {
-  int size = values.length
+Array<int> heapSort(Array<int> values) {
+  int size = values.size()
   for step : range(start: 0, end: size / 2) {
     int root = size / 2 - 1 - step
     values = siftDown(values, size, root)
@@ -33,4 +33,12 @@ Array heapSort(Array values) {
 
 void main() {
   for int value : heapSort([4, 1, 8, 2, 5]) { print(value) }
+}
+
+private void expectedOutput() {
+  print("1")
+  print("2")
+  print("4")
+  print("5")
+  print("8")
 }

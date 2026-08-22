@@ -1,0 +1,29 @@
+class Box {
+  int value
+}
+
+class Holder {
+  Box box
+}
+
+void main() {
+  Box original = Box(value: 9223372036854775807)
+  Box alias = original
+  Box copied = original.copy()
+  Holder holder = Holder(box: original)
+  Holder holderCopy = holder.copy()
+  List<Box> empty = List<Box>()
+  print(alias == original)
+  print(copied == original)
+  print(holderCopy == holder)
+  print(holderCopy.box == holder.box)
+  print(empty.size())
+}
+
+private void expectedOutput() {
+  print("true")
+  print("false")
+  print("false")
+  print("true")
+  print("0")
+}

@@ -32,3 +32,8 @@ void main() {
   print(fibonacci(10))
   print(fibonacci(20))
 }
+
+private void expectedOutput() {
+  print("55")
+  print("6765")
+}

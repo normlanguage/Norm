@@ -31,27 +31,86 @@ final class Parser {
   }
 
   Syntax.Program parse() {
+    String packageName = "";
+    List<Syntax.ImportDecl> imports = new ArrayList<>();
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.ClassDecl> classes = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
+    if (match(TokenKind.PACKAGE)) {
+      packageName = parseQualifiedName("expected package name");
+      match(TokenKind.SEMICOLON);
+    }
+    while (match(TokenKind.IMPORT)) {
+      Token start = previous();
+      QualifiedName qualifiedName = parseQualifiedNameWithSpan("expected import name");
+      Optional<String> alias = Optional.empty();
+      Optional<SourceSpan> aliasSpan = Optional.empty();
+      if (match(TokenKind.AS)) {
+        Token aliasToken = consume(TokenKind.IDENTIFIER, "expected import alias");
+        alias = Optional.of(aliasToken.lexeme());
+        aliasSpan = Optional.of(aliasToken.span());
+      }
+      SourceSpan span = start.span().cover(previous().span());
+      match(TokenKind.SEMICOLON);
+      imports.add(
+          new Syntax.ImportDecl(
+              qualifiedName.value(), qualifiedName.lastSegmentSpan(), alias, aliasSpan, span));
+    }
     while (!isAtEnd()) {
       try {
+        Syntax.Visibility visibility = parseVisibility();
         if (match(TokenKind.ENUM)) {
-          enums.add(parseEnum(previous()));
+          enums.add(parseEnum(previous(), visibility));
         } else if (match(TokenKind.CLASS)) {
-          classes.add(parseClass(previous()));
+          classes.add(parseClass(previous(), visibility));
         } else {
-          functions.add(parseFunction());
+          functions.add(parseFunction(visibility));
         }
       } catch (ParseError ignored) {
         synchronizeTopLevel();
       }
     }
     return new Syntax.Program(
-        enums, classes, functions, new SourceSpan(source, 0, source.length()));
+        packageName,
+        imports,
+        enums,
+        classes,
+        functions,
+        new SourceSpan(source, 0, source.length()));
   }
 
-  private Syntax.EnumDecl parseEnum(Token enumKeyword) {
+  Optional<Syntax.Expression> parseExpressionDocument() {
+    try {
+      Syntax.Expression expression = parseExpression();
+      match(TokenKind.SEMICOLON);
+      consume(TokenKind.END_OF_FILE, "unexpected content after expression");
+      return Optional.of(expression);
+    } catch (ParseError ignored) {
+      return Optional.empty();
+    }
+  }
+
+  private Syntax.Visibility parseVisibility() {
+    if (match(TokenKind.PRIVATE)) return Syntax.Visibility.PRIVATE;
+    match(TokenKind.PUBLIC);
+    return Syntax.Visibility.PUBLIC;
+  }
+
+  private String parseQualifiedName(String message) {
+    return parseQualifiedNameWithSpan(message).value();
+  }
+
+  private QualifiedName parseQualifiedNameWithSpan(String message) {
+    Token segment = consume(TokenKind.IDENTIFIER, message);
+    StringBuilder result = new StringBuilder(segment.lexeme());
+    while (match(TokenKind.DOT)) {
+      segment = consume(TokenKind.IDENTIFIER, message);
+      result.append('.').append(segment.lexeme());
+    }
+    return new QualifiedName(result.toString(), segment.span());
+  }
+
+  private Syntax.EnumDecl parseEnum(Token enumKeyword, Syntax.Visibility visibility) {
     Token name = consume(TokenKind.IDENTIFIER, "expected enum name");
     consume(TokenKind.LEFT_BRACE, "expected '{' before enum body");
     List<Syntax.EnumMember> members = new ArrayList<>();
@@ -64,23 +123,26 @@ final class Parser {
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after enum body");
     match(TokenKind.SEMICOLON);
     return new Syntax.EnumDecl(
-        name.lexeme(), name.span(), members, enumKeyword.span().cover(closing.span()));
+        visibility, name.lexeme(), name.span(), members, enumKeyword.span().cover(closing.span()));
   }
 
-  private Syntax.ClassDecl parseClass(Token classKeyword) {
+  private Syntax.ClassDecl parseClass(Token classKeyword, Syntax.Visibility visibility) {
     Token name = consume(TokenKind.IDENTIFIER, "expected class name");
+    List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_BRACE, "expected '{' before class body");
     List<Syntax.FieldDecl> fields = new ArrayList<>();
     List<Syntax.FunctionDecl> methods = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      Syntax.Visibility memberVisibility = parseVisibility();
       Syntax.TypeRef type = parseType();
       Token memberName = consume(TokenKind.IDENTIFIER, "expected field or method name");
-      if (check(TokenKind.LEFT_PAREN)) {
-        methods.add(parseFunctionRest(type, memberName));
+      if (check(TokenKind.LEFT_PAREN) || check(TokenKind.LESS)) {
+        methods.add(parseFunctionRest(type, memberName, memberVisibility));
       } else {
         match(TokenKind.SEMICOLON);
         fields.add(
             new Syntax.FieldDecl(
+                memberVisibility,
                 type,
                 memberName.lexeme(),
                 memberName.span(),
@@ -89,16 +151,24 @@ final class Parser {
     }
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after class body");
     return new Syntax.ClassDecl(
-        name.lexeme(), name.span(), fields, methods, classKeyword.span().cover(closing.span()));
+        visibility,
+        name.lexeme(),
+        name.span(),
+        typeParameters,
+        fields,
+        methods,
+        classKeyword.span().cover(closing.span()));
   }
 
-  private Syntax.FunctionDecl parseFunction() {
+  private Syntax.FunctionDecl parseFunction(Syntax.Visibility visibility) {
     Syntax.TypeRef returnType = parseType();
     Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-    return parseFunctionRest(returnType, name);
+    return parseFunctionRest(returnType, name, visibility);
   }
 
-  private Syntax.FunctionDecl parseFunctionRest(Syntax.TypeRef returnType, Token name) {
+  private Syntax.FunctionDecl parseFunctionRest(
+      Syntax.TypeRef returnType, Token name, Syntax.Visibility visibility) {
+    List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_PAREN, "expected '(' after function name");
     List<Syntax.Parameter> parameters = new ArrayList<>();
     if (!check(TokenKind.RIGHT_PAREN)) {
@@ -116,29 +186,54 @@ final class Parser {
     consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
     Block block = parseBlock();
     return new Syntax.FunctionDecl(
+        visibility,
         returnType,
         name.lexeme(),
         name.span(),
+        typeParameters,
         parameters,
         block.statements(),
         returnType.span().cover(block.span()));
   }
 
   private Syntax.TypeRef parseType() {
-    if (match(TokenKind.ARRAY_TYPE)) {
-      Token array = previous();
-      return new Syntax.TypeRef("Array", null, array.span());
-    }
     if (match(
         TokenKind.INT_TYPE,
         TokenKind.BOOL_TYPE,
         TokenKind.STRING_TYPE,
+        TokenKind.ARRAY_TYPE,
         TokenKind.VOID,
         TokenKind.IDENTIFIER)) {
       Token type = previous();
-      return new Syntax.TypeRef(type.lexeme(), null, type.span());
+      List<Syntax.TypeRef> arguments = parseTypeArguments();
+      SourceSpan span =
+          arguments.isEmpty()
+              ? type.span()
+              : type.span().cover(arguments.getLast().span()).cover(previous().span());
+      return new Syntax.TypeRef(type.lexeme(), arguments, span);
     }
     throw error(peek(), "expected type name");
+  }
+
+  private List<Syntax.TypeParameter> parseTypeParameters() {
+    if (!match(TokenKind.LESS)) return List.of();
+    List<Syntax.TypeParameter> parameters = new ArrayList<>();
+    do {
+      Token name = consume(TokenKind.IDENTIFIER, "expected type parameter name");
+      parameters.add(new Syntax.TypeParameter(name.lexeme(), name.span()));
+    } while (match(TokenKind.COMMA));
+    consume(TokenKind.GREATER, "expected '>' after type parameters");
+    return List.copyOf(parameters);
+  }
+
+  private List<Syntax.TypeRef> parseTypeArguments() {
+    if (!match(TokenKind.LESS)) return List.of();
+    List<Syntax.TypeRef> arguments = new ArrayList<>();
+    do {
+      arguments.add(parseType());
+    } while (match(TokenKind.COMMA));
+    consume(TokenKind.GREATER, "expected '>' after type arguments");
+    return List.copyOf(arguments);
   }
 
   private Block parseBlock() {
@@ -406,7 +501,11 @@ final class Parser {
     }
     if (match(TokenKind.IDENTIFIER, TokenKind.ARRAY_TYPE)) {
       Token token = previous();
-      return new Syntax.Name(token.lexeme(), token.span());
+      List<Syntax.TypeRef> typeArguments =
+          check(TokenKind.LESS) && looksLikeTypeApplication() ? parseTypeArguments() : List.of();
+      SourceSpan span =
+          typeArguments.isEmpty() ? token.span() : token.span().cover(previous().span());
+      return new Syntax.Name(token.lexeme(), typeArguments, span);
     }
     if (match(TokenKind.LEFT_PAREN)) {
       Syntax.Expression expression = parseExpression();
@@ -434,7 +533,33 @@ final class Parser {
         || check(TokenKind.ARRAY_TYPE)) {
       return true;
     }
-    return check(TokenKind.IDENTIFIER) && checkNext(TokenKind.IDENTIFIER);
+    if (!check(TokenKind.IDENTIFIER)) return false;
+    int next = tokenAfterType(current);
+    return next >= 0 && next < tokens.size() && tokens.get(next).kind() == TokenKind.IDENTIFIER;
+  }
+
+  private boolean looksLikeTypeApplication() {
+    int next = tokenAfterType(current - 1);
+    return next >= 0 && next < tokens.size() && tokens.get(next).kind() == TokenKind.LEFT_PAREN;
+  }
+
+  private int tokenAfterType(int start) {
+    if (start < 0 || start >= tokens.size() || !isTypeToken(tokens.get(start).kind())) return -1;
+    int index = start + 1;
+    if (index >= tokens.size() || tokens.get(index).kind() != TokenKind.LESS) return index;
+    int depth = 0;
+    for (; index < tokens.size(); index++) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.LESS) {
+        depth++;
+      } else if (kind == TokenKind.GREATER) {
+        depth--;
+        if (depth == 0) return index + 1;
+      } else if (kind != TokenKind.COMMA && !isTypeToken(kind)) {
+        return -1;
+      }
+    }
+    return -1;
   }
 
   private Token consume(TokenKind kind, String message) {
@@ -521,6 +646,8 @@ final class Parser {
       statements = List.copyOf(statements);
     }
   }
+
+  private record QualifiedName(String value, SourceSpan lastSegmentSpan) {}
 
   @SuppressWarnings("serial")
   private static final class ParseError extends RuntimeException {

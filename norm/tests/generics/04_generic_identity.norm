@@ -1,0 +1,25 @@
+class Cell<T> {
+  T value
+
+  void set(T next) {
+    value = next
+  }
+}
+
+void main() {
+  Cell<int> original = Cell<int>(value: -9223372036854775807)
+  Cell<int> alias = original
+  Cell<int> copied = original.copy()
+  alias.set(9223372036854775807)
+  print(original.value)
+  print(alias == original)
+  print(copied.value)
+  print(copied == original)
+}
+
+private void expectedOutput() {
+  print("9223372036854775807")
+  print("true")
+  print("-9223372036854775807")
+  print("false")
+}

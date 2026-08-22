@@ -1,0 +1,18 @@
+import std.testing.equal
+import std.testing.isFalse
+import std.testing.isTrue
+import std.testing.notEqual
+
+void main() {
+  print(equal(actual: "Norm", expected: "Norm"))
+  print(notEqual(actual: 2, expected: 3))
+  print(isTrue(true))
+  print(isFalse(false))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+  print("true")
+}

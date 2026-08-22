@@ -25,8 +25,9 @@ const specification = [
   { text: '错误模型', link: '/spec/error-model' },
   { text: 'Enum 设计', link: '/spec/enum-design' },
   { text: 'Annotation 规范', link: '/spec/annotations' },
-  { text: '模块系统', link: '/spec/module-system' },
+  { text: 'Package 系统', link: '/spec/package-system' },
   { text: '导入系统', link: '/spec/import-system' },
+  { text: '模块系统', link: '/spec/module-system' },
   { text: '编译器设计', link: '/spec/compiler-design' },
 ]
 
@@ -43,6 +44,7 @@ const grammar = [
   { text: '类', link: '/spec/grammar/classes' },
   { text: '接口', link: '/spec/grammar/interfaces' },
   { text: '泛型', link: '/spec/grammar/generics' },
+  { text: '模块描述', link: '/spec/grammar/modules' },
   { text: '循环', link: '/spec/grammar/loops' },
   { text: 'Switch', link: '/spec/grammar/switch' },
   { text: '模式', link: '/spec/grammar/patterns' },
@@ -99,7 +101,7 @@ export const zhTheme: DefaultTheme.Config = {
     { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
     { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
     { text: '标准库', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
-    { text: '版本说明', link: '/versions/0.1', activeMatch: '^/versions/' },
+    { text: '版本说明', link: '/versions/0.2', activeMatch: '^/versions/' },
     { text: '社区', link: '/community' },
   ],
   sidebar: {
@@ -135,10 +137,12 @@ export const zhTheme: DefaultTheme.Config = {
     '/stdlib/': [{ text: '标准库', items: stdlib }],
     '/web/': [{ text: 'Web 应用开发', items: web }],
     '/versions/': [{ text: '版本记录', items: [
+      { text: 'Norm 0.2', link: '/versions/0.2' },
       { text: 'Norm 0.1', link: '/versions/0.1' },
     ]}],
     '/design/': [
       { text: '实现与规划', items: [
+        { text: '0.2 版本记录', link: '/versions/0.2' },
         { text: '0.1 版本记录', link: '/versions/0.1' },
         { text: '实现策略决议', link: '/design/implementation-strategy' },
         { text: '工具链开发规范', link: '/design/toolchain-development' },

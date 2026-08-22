@@ -1,0 +1,14 @@
+import std.math.abs
+import std.testing.equal
+
+void main() {
+  print(equal(actual: abs(-7), expected: 7))
+  print(equal(actual: abs(0), expected: 0))
+  print(equal(actual: abs(9), expected: 9))
+}
+
+private void expectedOutput() {
+  print("true")
+  print("true")
+  print("true")
+}

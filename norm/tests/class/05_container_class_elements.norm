@@ -8,18 +8,25 @@ class Box {
 
 void main() {
   Box box = Box(value: 1)
-  List first = List()
+  List<Box> first = List<Box>()
   first.add(box)
 
-  List second = first
+  List<Box> second = first
   second.add(Box(value: 2))
 
   Box fromSecond = second[0]
   fromSecond.set(7)
   Box fromFirst = first[0]
 
-  print(first.length)
-  print(second.length)
+  print(first.size())
+  print(second.size())
   print(fromFirst.value)
   print(fromFirst == fromSecond)
+}
+
+private void expectedOutput() {
+  print("1")
+  print("2")
+  print("7")
+  print("true")
 }

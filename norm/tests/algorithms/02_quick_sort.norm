@@ -1,4 +1,4 @@
-Array quickSort(Array values, int low, int high) {
+Array<int> quickSort(Array<int> values, int low, int high) {
   if low >= high { return values }
   int pivot = values[high]
   int boundary = low
@@ -19,7 +19,16 @@ Array quickSort(Array values, int low, int high) {
 }
 
 void main() {
-  Array values = [-2, 8, 3, 0, 3, 1]
-  values = quickSort(values, low: 0, high: values.length - 1)
+  Array<int> values = [-2, 8, 3, 0, 3, 1]
+  values = quickSort(values, low: 0, high: values.size() - 1)
   for int value : values { print(value) }
+}
+
+private void expectedOutput() {
+  print("-2")
+  print("0")
+  print("1")
+  print("3")
+  print("3")
+  print("8")
 }

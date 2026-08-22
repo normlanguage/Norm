@@ -1,7 +1,11 @@
-int find(Array values, int target) {
-  for index : range(start: 0, end: values.length) {
+int find(Array<int> values, int target) {
+  for index : range(start: 0, end: values.size()) {
     if values[index] == target { return index }
   }
   return -1
 }
 void main() { print(find(values: [5, 8, 13, 21], target: 21)) }
+
+private void expectedOutput() {
+  print("3")
+}

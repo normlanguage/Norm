@@ -1,0 +1,10 @@
+Module(
+  name: "std",
+  version: 1,
+  exports: [
+    "collections.sequences",
+    "math.integer",
+    "testing.predicates",
+    "text.builders"
+  ]
+)

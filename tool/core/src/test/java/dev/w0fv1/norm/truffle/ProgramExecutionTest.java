@@ -1,19 +1,18 @@
 package dev.w0fv1.norm.truffle;
 
+import static dev.w0fv1.norm.testing.NormTestKit.suite;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.execution.ProgramRunner;
+import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import dev.w0fv1.norm.frontend.Compiler;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -49,10 +48,10 @@ final class ProgramExecutionTest {
   void copiesValueContainersButSharesTheirClassElements() throws Exception {
     assertOutput(
         "class Box { int value void set(int next) { value = next } } "
-            + "void main() { List first = List() Box box = Box(value: 1) first.add(box) "
-            + "List second = first second.add(Box(value: 2)) Box secondBox = second[0] secondBox.set(7) "
-            + "Box firstBox = first[0] print(first.length) print(second.length) print(firstBox.value) "
-            + "List same = List() same.add(box) print(first == same) }",
+            + "void main() { List<Box> first = List<Box>() Box box = Box(value: 1) first.add(box) "
+            + "List<Box> second = first second.add(Box(value: 2)) Box secondBox = second[0] secondBox.set(7) "
+            + "Box firstBox = first[0] print(first.size()) print(second.size()) print(firstBox.value) "
+            + "List<Box> same = List<Box>() same.add(box) print(first == same) }",
         String.join(System.lineSeparator(), "1", "2", "7", "true", ""));
   }
 
@@ -60,62 +59,98 @@ final class ProgramExecutionTest {
   void comparesValueContainersStructurally() throws Exception {
     assertOutput(
         "void main() { "
-            + "List left = List() left.add(1) List right = List() right.add(1) print(left == right) "
-            + "Pair first = Pair(first: left, second: 2) Pair second = Pair(first: right, second: 2) print(first == second) "
-            + "Map values = Map() values.put(key: [1, 2], value: 7) print(values.get([1, 2])) "
-            + "Set unique = Set() unique.add([3, 4]) print(unique.contains([3, 4])) }",
+            + "List<int> left = List<int>() left.add(1) List<int> right = List<int>() right.add(1) print(left == right) "
+            + "Pair<List<int>, int> first = Pair<List<int>, int>(first: left, second: 2) Pair<List<int>, int> second = Pair<List<int>, int>(first: right, second: 2) print(first == second) "
+            + "Map<Array<int>, int> values = Map<Array<int>, int>() values.put(key: [1, 2], value: 7) print(values[[1, 2]]) "
+            + "Set<Array<int>> unique = Set<Array<int>>() unique.add([3, 4]) print(unique.contains([3, 4])) }",
         String.join(System.lineSeparator(), "true", "true", "7", "true", ""));
   }
 
   @Test
   void bindsNamedArgumentsForBuiltins() throws Exception {
     assertOutput(
-        "void main() { print(min(right: 8, left: 3)) print(max(right: 8, left: 3)) }",
+        "import std.math.min import std.math.max "
+            + "void main() { print(min(right: 8, left: 3)) print(max(right: 8, left: 3)) }",
         String.join(System.lineSeparator(), "3", "8", ""));
   }
 
-  @TestFactory
-  Stream<DynamicTest> runsThirtyBasicLanguagePrograms() throws Exception {
-    return suite("base", "basic language suite", 30);
+  @Test
+  void executesGenericCollectionsWithSize() throws Exception {
+    assertOutput(
+        "void main() { List<int> values = List<int>() values.add(3) values.add(8) "
+            + "print(values.size()) print(values[1]) }",
+        String.join(System.lineSeparator(), "2", "8", ""));
+  }
+
+  @Test
+  void executesGenericFunctions() throws Exception {
+    assertOutput(
+        "T identity<T>(T value) { return value } "
+            + "void main() { print(identity(value: 9)) print(identity(value: \"Norm\")) }",
+        String.join(System.lineSeparator(), "9", "Norm", ""));
+  }
+
+  @Test
+  void mutatesValueFieldsThroughAClassMemberPath() throws Exception {
+    assertOutput(
+        "class Box<T> { T value } "
+            + "void main() { Box<List<int>> box = Box<List<int>>(value: List<int>()) "
+            + "box.value.add(9) print(box.value[0]) }",
+        "9" + System.lineSeparator());
+  }
+
+  @Test
+  void executesCoreTextAndMathOperations() throws Exception {
+    assertOutput(
+        "import std.math.clamp import std.math.sign "
+            + "void main() { print(\"A😀\".byteSize()) print(\"A😀\".codePointSize()) "
+            + "print(\"👨‍👩‍👧‍👦\".graphemeSize()) print(clamp(value: 12, minimum: 0, maximum: 9)) "
+            + "print(sign(-4)) }",
+        String.join(System.lineSeparator(), "5", "2", "1", "9", "-1", ""));
+  }
+
+  @Test
+  void iteratesMapsAndStacksWithTheirDeclaredElementTypes() throws Exception {
+    assertOutput(
+        "void main() { Map<String, int> values = Map<String, int>() "
+            + "values.put(key: \"first\", value: 1) values.put(key: \"second\", value: 2) "
+            + "for Pair<String, int> entry : values { print(entry.first) print(entry.second) } "
+            + "Stack<int> stack = Stack<int>() stack.push(3) stack.push(7) "
+            + "for int value : stack { print(value) } }",
+        String.join(System.lineSeparator(), "first", "1", "second", "2", "7", "3", ""));
+  }
+
+  @Test
+  void rejectsMissingMapKeysAtRuntime() {
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class,
+            () ->
+                assertOutput(
+                    "void main() { Map<String, int> values = Map<String, int>() print(values[\"missing\"]) }",
+                    ""));
+    assertTrue(exception.getMessage().contains("map key does not exist"));
+    assertEquals(RuntimeErrorCode.MISSING_MAP_KEY, exception.code());
   }
 
   @TestFactory
-  Stream<DynamicTest> runsThirtySingleFileAlgorithms() throws Exception {
-    return suite("algorithms", "algorithm suite", 30);
+  Stream<DynamicTest> runsBasicLanguagePrograms() throws Exception {
+    return suite("base");
   }
 
   @TestFactory
-  Stream<DynamicTest> runsFiveClassPrograms() throws Exception {
-    return suite("class", "class suite", 5);
+  Stream<DynamicTest> runsSingleFileAlgorithms() throws Exception {
+    return suite("algorithms");
   }
 
-  private static Stream<DynamicTest> suite(String resource, String name, int expectedSize)
-      throws Exception {
-    Path directory = resourceDirectory(resource);
-    List<String> cases = Files.readAllLines(directory.resolve("cases.tsv"), StandardCharsets.UTF_8);
-    assertEquals(expectedSize, cases.size(), name + " has an unexpected number of programs");
-    return cases.stream()
-        .map(
-            line -> {
-              String[] fields = line.split("\\t", 2);
-              return DynamicTest.dynamicTest(
-                  fields[0],
-                  () ->
-                      run(
-                          directory.resolve(fields[0]),
-                          fields[1].replace("\\n", System.lineSeparator())));
-            });
+  @TestFactory
+  Stream<DynamicTest> runsClassPrograms() throws Exception {
+    return suite("class");
   }
 
-  private static void run(Path path, String expected) throws Exception {
-    String text = Files.readString(path, StandardCharsets.UTF_8);
-    var compilation = new Compiler().compile(SourceFile.of(path, text));
-    assertTrue(
-        compilation.isSuccess(),
-        () -> "diagnostics for " + path + ": " + compilation.diagnostics());
-    StringWriter output = new StringWriter();
-    new ProgramRunner().run(compilation.program().orElseThrow(), new PrintWriter(output));
-    assertEquals(expected, output.toString());
+  @TestFactory
+  Stream<DynamicTest> runsGenericPrograms() throws Exception {
+    return suite("generics");
   }
 
   private static void assertOutput(String text, String expected) throws Exception {
@@ -124,12 +159,5 @@ final class ProgramExecutionTest {
     StringWriter output = new StringWriter();
     new ProgramRunner().run(compilation.program().orElseThrow(), new PrintWriter(output));
     assertEquals(expected, output.toString());
-  }
-
-  private static Path resourceDirectory(String resource) throws URISyntaxException {
-    var url =
-        Objects.requireNonNull(
-            ProgramExecutionTest.class.getResource("/" + resource + "/cases.tsv"), resource);
-    return Path.of(url.toURI()).getParent();
   }
 }

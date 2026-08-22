@@ -12,15 +12,14 @@
 
 完成 class identity、value、interface、继承、enum variant、模式匹配、`ref<T>` 和 reified 泛型，并建立 conformance tests。
 
-## Typed IR 与执行
+## Bound IR 与执行
 
-建立唯一 Typed IR，把调用绑定、value/identity 类别、控制流边和泛型实参传给 Truffle 后端。Native Image CLI 与 JVM 执行必须保持行为一致。
+扩展唯一 Bound IR，把调用绑定、value/identity 类别、控制流边和泛型实参传给 Truffle 后端。Native Image CLI 与 JVM 执行必须保持行为一致。
 
 ## 模块与标准库
 
-完成 module、import、包解析和 1.0 标准库核心 API，覆盖集合、Result/Option、I/O、时间、并发和 Java interop。
+完成 package、import、项目清单和 1.0 标准库核心 API，覆盖集合、Result/Option、I/O、时间、并发和 Java interop。
 
 ## 工具与发布
 
 完成增量 LSP、formatter、调试与 profiling 接口、包管理器、Registry、兼容策略和发布流程。1.0 候选版冻结语言规范、诊断 code、标准库核心 API 与工具链协议。
-

@@ -1,5 +1,7 @@
-int minimumCoins(Array coins, int amount) {
-  List best = List()
+import std.math.min
+
+int minimumCoins(Array<int> coins, int amount) {
+  List<int> best = List<int>()
   for value : range(start: 0, end: amount + 1) { best.add(amount + 1) }
   best[0] = 0
   for value : range(start: 1, end: amount + 1) {
@@ -14,4 +16,9 @@ int minimumCoins(Array coins, int amount) {
 void main() {
   print(minimumCoins(coins: [1, 2, 5], amount: 11))
   print(minimumCoins(coins: [2], amount: 3))
+}
+
+private void expectedOutput() {
+  print("3")
+  print("-1")
 }

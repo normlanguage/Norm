@@ -135,7 +135,7 @@ final class Lexer {
         if (character == '$' && startsWith("{")) {
           diagnostics.error(
               UNSUPPORTED_INTERPOLATION,
-              "string interpolation is not supported by Norm V0.1",
+              "string interpolation is not supported",
               new SourceSpan(source, characterStart, Math.min(offset + 1, source.length())));
         }
         value.appendCodePoint(character);

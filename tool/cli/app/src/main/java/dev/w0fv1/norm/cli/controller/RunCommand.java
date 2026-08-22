@@ -2,9 +2,10 @@ package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
+import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.execution.ProgramRunner;
 import dev.w0fv1.norm.frontend.Compiler;
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.frontend.ProjectLoader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.InvalidPathException;
@@ -30,9 +31,9 @@ final class RunCommand implements Command {
       return ExitCode.USAGE_ERROR;
     }
 
-    SourceFile source;
+    dev.w0fv1.norm.value.CompilationRequest request;
     try {
-      source = SourceFile.read(Path.of(arguments.getFirst()));
+      request = new ProjectLoader().load(Path.of(arguments.getFirst()));
     } catch (InvalidPathException exception) {
       err.printf("error[NORM-CLI-0004]: invalid source path '%s'%n", arguments.getFirst());
       return ExitCode.INPUT_ERROR;
@@ -43,7 +44,7 @@ final class RunCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
 
-    var result = new Compiler().compile(source);
+    var result = new Compiler().compile(request);
     if (!result.isSuccess()) {
       for (var diagnostic : result.diagnostics()) {
         err.println(DiagnosticRenderer.render(diagnostic));
@@ -51,7 +52,13 @@ final class RunCommand implements Command {
       return ExitCode.COMPILATION_ERROR;
     }
 
-    new ProgramRunner().run(result.program().orElseThrow(), out);
-    return ExitCode.SUCCESS;
+    try {
+      new ProgramRunner().run(result.program().orElseThrow(), out);
+      return ExitCode.SUCCESS;
+    } catch (NormExecutionException exception) {
+      err.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
+      err.printf(" --> %s:%d:%d%n", exception.uri(), exception.line(), exception.column());
+      return ExitCode.RUNTIME_ERROR;
+    }
   }
 }

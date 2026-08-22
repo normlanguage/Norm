@@ -3,6 +3,11 @@ package dev.w0fv1.norm.syntax;
 public enum TokenKind {
   CLASS,
   ENUM,
+  PACKAGE,
+  IMPORT,
+  AS,
+  PUBLIC,
+  PRIVATE,
   IF,
   ELSE,
   FOR,

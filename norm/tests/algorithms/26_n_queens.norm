@@ -1,4 +1,6 @@
-bool safe(List columns, int row, int column) {
+import std.math.abs
+
+bool safe(List<int> columns, int row, int column) {
   for previous : range(start: 0, end: row) {
     if columns[previous] == column { return false }
     if abs(columns[previous] - column) == row - previous { return false }
@@ -6,7 +8,7 @@ bool safe(List columns, int row, int column) {
   return true
 }
 
-int search(List columns, int row, int size) {
+int search(List<int> columns, int row, int size) {
   if row == size { return 1 }
   int solutions = 0
   for column : range(start: 0, end: size) {
@@ -19,7 +21,7 @@ int search(List columns, int row, int size) {
 }
 
 int nQueens(int size) {
-  List columns = List()
+  List<int> columns = List<int>()
   for row : range(start: 0, end: size) { columns.add(-1) }
   return search(columns, row: 0, size)
 }
@@ -27,4 +29,9 @@ int nQueens(int size) {
 void main() {
   print(nQueens(4))
   print(nQueens(5))
+}
+
+private void expectedOutput() {
+  print("2")
+  print("10")
 }

@@ -26,11 +26,22 @@ second.add(4)
 
 ## 缺失与越界
 
-Map 查找和可能找不到的集合操作返回 Option。List 与 Array 索引越界产生 `IndexError`，不使用 null 同时表达“没有元素”和“元素为空”。
+0.2 的 `map[key]` 要求键存在。返回 `Option<V>` 的安全查找与泛型数据 enum 一起交付。List 与 Array 索引同样要求下标有效。
 
 ## 迭代
 
-集合通过 `Iterable<T>` 暴露静态元素类型，因此 `for element : values` 可以推断循环变量。通用 Map 和 Set 不承诺遍历顺序；需要稳定顺序时使用专门集合或显式排序。
+Array、List、Set、Stack、Queue、Deque 与 Range 通过 `Iterable<T>` 暴露静态元素类型，因此 `for element : values` 可以推断循环变量。Map 迭代产生 `Pair<K, V>`。Stack 从栈顶到栈底迭代；通用 Map 和 Set 不承诺遍历顺序。
+
+Array、List、Map、Set、Stack、Queue、Deque 与 Range 统一使用 `size()` 返回元素数量，不提供 `length` 属性。
+
+## 0.2 序列函数
+
+`std.collections` 已提供 `listContains`、`listCount`、`reversed` 与 `toList`。它们由 `std/collections/sequences.norm` 导出，使用时导入具体函数：
+
+```norm
+import std.collections.reversed
+
+List<int> result = reversed(values: values)
+```
 
 详细签名见 [Collections API](/stdlib/collections-api)。
-

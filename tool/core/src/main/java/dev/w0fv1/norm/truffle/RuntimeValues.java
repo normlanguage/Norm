@@ -1,5 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
+import dev.w0fv1.norm.semantic.SemanticType;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -9,26 +11,29 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 final class RuntimeValues {
+  private static final Pattern GRAPHEME = Pattern.compile("\\X");
+
   private RuntimeValues() {}
 
   static Object copy(Object value) {
     return switch (value) {
-      case ArrayValue array -> new ArrayValue(copyList(array.values));
-      case ListValue list -> new ListValue(copyList(list.values));
+      case ArrayValue array -> new ArrayValue(array.type, copyList(array.values));
+      case ListValue list -> new ListValue(list.type, copyList(list.values));
       case MapValue map -> {
-        MapValue result = new MapValue();
+        MapValue result = new MapValue(map.type);
         map.values.forEach((key, item) -> result.values.put(copy(key), copy(item)));
         yield result;
       }
       case SetValue set -> {
-        SetValue result = new SetValue();
+        SetValue result = new SetValue(set.type);
         set.values.forEach(item -> result.values.add(copy(item)));
         yield result;
       }
       case StackValue stack -> {
-        StackValue result = new StackValue();
+        StackValue result = new StackValue(stack.type);
         List<Object> items = new ArrayList<>(stack.values);
         for (int index = items.size() - 1; index >= 0; index--) {
           result.values.push(copy(items.get(index)));
@@ -36,16 +41,16 @@ final class RuntimeValues {
         yield result;
       }
       case QueueValue queue -> {
-        QueueValue result = new QueueValue();
+        QueueValue result = new QueueValue(queue.type);
         queue.values.forEach(item -> result.values.addLast(copy(item)));
         yield result;
       }
       case DequeValue deque -> {
-        DequeValue result = new DequeValue();
+        DequeValue result = new DequeValue(deque.type);
         deque.values.forEach(item -> result.values.addLast(copy(item)));
         yield result;
       }
-      case PairValue pair -> new PairValue(copy(pair.first), copy(pair.second));
+      case PairValue pair -> new PairValue(pair.type, copy(pair.first), copy(pair.second));
       case BuilderValue builder -> new BuilderValue(builder.value.toString());
       case ObjectValue object -> object;
       case null, default -> value;
@@ -53,7 +58,7 @@ final class RuntimeValues {
   }
 
   static ObjectValue copyObject(ObjectValue object) {
-    ObjectValue result = new ObjectValue(object.type);
+    ObjectValue result = new ObjectValue(object.classInfo, object.type);
     for (int index = 0; index < object.fields.length; index++) {
       result.fields[index] = copy(object.fields[index]);
     }
@@ -92,7 +97,8 @@ final class RuntimeValues {
 
   static Object mapGet(MapValue map, Object key) {
     Object existing = findEqual(map.values.keySet(), key);
-    return existing == null ? null : map.values.get(existing);
+    if (existing == null) throw new IllegalStateException("map key lookup invariant violated");
+    return map.values.get(existing);
   }
 
   static boolean mapContains(MapValue map, Object key) {
@@ -118,19 +124,7 @@ final class RuntimeValues {
     return existing != null && set.values.remove(existing);
   }
 
-  static Iterator<Object> iterator(Object value) {
-    return switch (value) {
-      case ArrayValue array -> array.values.iterator();
-      case ListValue list -> list.values.iterator();
-      case SetValue set -> set.values.iterator();
-      case QueueValue queue -> queue.values.iterator();
-      case DequeValue deque -> deque.values.iterator();
-      case RangeValue range -> range.iterator();
-      default -> throw new IllegalStateException("value is not iterable");
-    };
-  }
-
-  static long length(Object value) {
+  static long size(Object value) {
     return switch (value) {
       case String string -> string.length();
       case ArrayValue array -> array.values.size();
@@ -142,8 +136,20 @@ final class RuntimeValues {
       case DequeValue deque -> deque.values.size();
       case RangeValue range -> Math.max(0, range.end - range.start);
       case BuilderValue builder -> builder.value.length();
-      default -> throw new IllegalStateException("value has no length");
+      default -> throw new IllegalStateException("value has no size");
     };
+  }
+
+  static long byteSize(String value) {
+    return value.getBytes(StandardCharsets.UTF_8).length;
+  }
+
+  static long codePointSize(String value) {
+    return value.codePointCount(0, value.length());
+  }
+
+  static long graphemeSize(String value) {
+    return GRAPHEME.matcher(value).results().count();
   }
 
   static String stringify(Object value) {
@@ -189,43 +195,72 @@ final class RuntimeValues {
   }
 
   static final class ArrayValue {
+    final SemanticType type;
     final List<Object> values;
 
-    ArrayValue(List<Object> values) {
+    ArrayValue(SemanticType type, List<Object> values) {
+      this.type = type;
       this.values = values;
     }
   }
 
   static final class ListValue {
+    final SemanticType type;
     final List<Object> values;
 
-    ListValue() {
-      this(new ArrayList<>());
+    ListValue(SemanticType type) {
+      this(type, new ArrayList<>());
     }
 
-    ListValue(List<Object> values) {
+    ListValue(SemanticType type, List<Object> values) {
+      this.type = type;
       this.values = values;
     }
   }
 
   static final class MapValue {
+    final SemanticType type;
     final Map<Object, Object> values = new LinkedHashMap<>();
+
+    MapValue(SemanticType type) {
+      this.type = type;
+    }
   }
 
   static final class SetValue {
+    final SemanticType type;
     final java.util.Set<Object> values = new LinkedHashSet<>();
+
+    SetValue(SemanticType type) {
+      this.type = type;
+    }
   }
 
   static final class StackValue {
+    final SemanticType type;
     final Deque<Object> values = new ArrayDeque<>();
+
+    StackValue(SemanticType type) {
+      this.type = type;
+    }
   }
 
   static final class QueueValue {
+    final SemanticType type;
     final Deque<Object> values = new ArrayDeque<>();
+
+    QueueValue(SemanticType type) {
+      this.type = type;
+    }
   }
 
   static final class DequeValue {
+    final SemanticType type;
     final Deque<Object> values = new ArrayDeque<>();
+
+    DequeValue(SemanticType type) {
+      this.type = type;
+    }
   }
 
   static final class BuilderValue {
@@ -246,10 +281,12 @@ final class RuntimeValues {
   }
 
   static final class PairValue {
+    final SemanticType type;
     Object first;
     Object second;
 
-    PairValue(Object first, Object second) {
+    PairValue(SemanticType type, Object first, Object second) {
+      this.type = type;
       this.first = first;
       this.second = second;
     }
@@ -288,19 +325,17 @@ final class RuntimeValues {
     }
   }
 
-  record ClassInfo(String name, Map<String, Integer> fieldIndices, int fieldCount) {
-    ClassInfo {
-      fieldIndices = Map.copyOf(fieldIndices);
-    }
-  }
+  record ClassInfo(String name, int fieldCount) {}
 
   static final class ObjectValue {
-    final ClassInfo type;
+    final ClassInfo classInfo;
+    final SemanticType type;
     final Object[] fields;
 
-    ObjectValue(ClassInfo type) {
+    ObjectValue(ClassInfo classInfo, SemanticType type) {
+      this.classInfo = classInfo;
       this.type = type;
-      fields = new Object[type.fieldCount()];
+      fields = new Object[classInfo.fieldCount()];
     }
   }
 }

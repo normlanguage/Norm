@@ -16,10 +16,10 @@ Norm 是静态、名义、非空默认的语言，核心差异集中在三条具
 
 ## 源文件与模块
 
-源码使用 UTF-8，一个文件声明一个 module，随后是 import 和顶层声明。顶层允许类型和函数，不需要 static 工具 class。
+源码使用 UTF-8。项目文件先声明 package，随后是 import 和顶层声明；没有 package 的文件作为单文件脚本运行。顶层允许类型和函数，不需要 static 工具 class。
 
 ```norm
-module geometry
+package geometry
 
 import std.math.sqrt
 

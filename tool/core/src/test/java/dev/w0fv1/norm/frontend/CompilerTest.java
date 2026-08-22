@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.syntax.Syntax;
+import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
@@ -12,17 +12,73 @@ import org.junit.jupiter.api.Test;
 
 final class CompilerTest {
   @Test
+  void rejectsNonVoidFunctionsThatCanFallThrough() {
+    CompilationResult result =
+        compile("int choose(bool condition) { if condition { return 1 } } void main() {}");
+
+    assertFalse(result.isSuccess());
+    assertTrue(
+        result.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.message().contains("must return int")));
+  }
+
+  @Test
+  void enforcesPrivateClassMemberAccess() {
+    CompilationResult internal =
+        compile(
+            "class Secret { private int value private int reveal() { return value } "
+                + "int expose() { return this.reveal() } } "
+                + "void main() { Secret secret = Secret(value: 7) print(secret.expose()) }");
+    CompilationResult field =
+        compile(
+            "class Secret { private int value } "
+                + "void main() { Secret secret = Secret(value: 7) print(secret.value) }");
+    CompilationResult method =
+        compile(
+            "class Secret { private int reveal() { return 7 } } "
+                + "void main() { Secret secret = Secret() print(secret.reveal()) }");
+
+    assertTrue(internal.isSuccess(), () -> internal.diagnostics().toString());
+    assertFalse(field.isSuccess());
+    assertFalse(method.isSuccess());
+  }
+
+  @Test
+  void analyzesAModuleDescriptorAsACompileTimeObject() {
+    AnalysisResult result =
+        new Compiler()
+            .analyze(
+                SourceFile.of(
+                    Path.of("module.norm"),
+                    "Module(name: \"sample\", version: 1, exports: [\"math.integer\"])"));
+
+    assertFalse(result.hasErrors(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void reportsInvalidModuleDescriptors() {
+    AnalysisResult result =
+        new Compiler()
+            .analyze(
+                SourceFile.of(
+                    Path.of("module.norm"), "Module(name: \"sample\", version: 0, exports: [])"));
+
+    assertTrue(result.hasErrors());
+    assertEquals("NORM-MODULE-0001", result.diagnostics().getFirst().code().value());
+  }
+
+  @Test
   void producesCheckedSyntaxForHelloWorld() {
     CompilationResult result = compile("void main() { print(\"Hello from Norm\") }");
 
     assertTrue(result.isSuccess());
     assertTrue(result.diagnostics().isEmpty());
-    var statements = result.program().orElseThrow().entryPoint().body();
+    var statements =
+        result.program().orElseThrow().boundProgram().entryCallable().body().statements();
     assertEquals(1, statements.size());
-    Syntax.ExpressionStatement statement = (Syntax.ExpressionStatement) statements.getFirst();
-    Syntax.Call print = (Syntax.Call) statement.expression();
-    Syntax.StringLiteralExpr value =
-        (Syntax.StringLiteralExpr) print.arguments().getFirst().value();
+    var statement = (dev.w0fv1.norm.bound.BoundStatement.ExpressionStatement) statements.getFirst();
+    var print = (dev.w0fv1.norm.bound.BoundIntrinsic) statement.expression();
+    var value = (dev.w0fv1.norm.bound.BoundExpression.Literal) print.arguments().getFirst().value();
     assertEquals("Hello from Norm", value.value());
   }
 
@@ -71,10 +127,13 @@ final class CompilerTest {
 
   @Test
   void rejectsMethodsFromADifferentContainer() {
-    CompilationResult result = compile("void main() { Array values = [1] values.push(2) }");
+    CompilationResult result = compile("void main() { Array<int> values = [1] values.push(2) }");
 
     assertFalse(result.isSuccess());
-    assertEquals("NORM-NAME-0003", result.diagnostics().getFirst().code().value());
+    assertTrue(
+        result.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-NAME-0003")),
+        () -> result.diagnostics().toString());
   }
 
   @Test
@@ -162,14 +221,12 @@ final class CompilerTest {
   }
 
   @Test
-  void requiresAnExplicitLoopTypeForUngenericContainers() {
+  void infersLoopTypeFromGenericContainers() {
     CompilationResult result =
-        compile("void main() { List values = List() for value : values { print(value) } }");
+        compile(
+            "void main() { List<int> values = List<int>() for value : values { print(value) } }");
 
-    assertFalse(result.isSuccess());
-    assertTrue(
-        result.diagnostics().stream()
-            .anyMatch(diagnostic -> diagnostic.message().contains("cannot infer loop variable")));
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
 
   @Test

@@ -13,7 +13,7 @@ enum ParseError {
 }
 
 Result<int, ParseError> parseInteger(String text) {
-    if text.length == 0 {
+    if text.codePointSize() == 0 {
         return Err(Empty)
     }
 
@@ -75,4 +75,3 @@ Norm 保留 `try`、`catch`、`finally` 和 `throw`。异常适合无法在当�
 - 资源清理使用明确的 `finally` 或标准库资源抽象。
 
 下一章：[Annotation 与 Reflect](/language/reflect)。
-

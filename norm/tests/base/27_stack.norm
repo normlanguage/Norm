@@ -1,7 +1,12 @@
 void main() {
-  Stack values = Stack()
+  Stack<int> values = Stack<int>()
   values.push(2)
   values.push(3)
   print(values.peek())
   print(values.pop())
+}
+
+private void expectedOutput() {
+  print("3")
+  print("3")
 }

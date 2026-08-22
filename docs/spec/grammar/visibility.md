@@ -30,5 +30,5 @@ public Token scan() // 编译错误：公开签名暴露私有类型
 
 public 实例方法可被子类覆盖；private 方法不参与动态分派，也不能被覆盖。子类声明同名 private 方法时，它是一个新成员。
 
-更细粒度的模块可见性仍处于设计阶段。在规则确定前，规范和示例不使用 `internal`、`friend` 或 package-private 等未定义关键字。
+Norm 不提供 `internal`、`friend`、package-private 或其他隐式可见性。
 
