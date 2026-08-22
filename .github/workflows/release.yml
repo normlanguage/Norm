@@ -121,6 +121,13 @@ jobs:
           NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: npm run smoke:lsp
 
+      - name: Stage native CLI for extension testing and packaging
+        shell: bash
+        run: |
+          mkdir -p "tool/cli/extensions/vscode/bin/${{ matrix.target }}"
+          cp "${{ matrix.binary }}" "tool/cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
+          chmod +x "tool/cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
+
       - name: Verify extension in VS Code
         if: runner.os != 'Linux'
         working-directory: tool/cli/extensions/vscode
@@ -154,13 +161,6 @@ jobs:
           tar -C "$destination" -xzf "$archive"
           [[ "$($destination/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
 
-      - name: Stage native CLI for the universal extension
-        shell: bash
-        run: |
-          mkdir -p "native/${{ matrix.target }}"
-          cp "${{ matrix.binary }}" "native/${{ matrix.target }}/${{ matrix.executable }}"
-          chmod +x "native/${{ matrix.target }}/${{ matrix.executable }}"
-
       - name: Upload standalone CLI
         uses: actions/upload-artifact@v4
         with:
@@ -172,7 +172,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.target }}
-          path: native/${{ matrix.target }}/${{ matrix.executable }}
+          path: tool/cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}
           if-no-files-found: error
 
   package-extension:
