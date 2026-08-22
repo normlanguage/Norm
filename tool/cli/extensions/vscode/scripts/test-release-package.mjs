@@ -3,8 +3,9 @@ import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
+  releaseTargets,
   releaseVersion,
-  stageCli,
+  stageCliBundle,
   targetExecutable,
   verifyCliVersion,
 } from './release-package.mjs';
@@ -42,11 +43,27 @@ try {
   verifyCliVersion(binary, '0.1.0');
   assert.throws(() => verifyCliVersion(binary, '0.1.1'));
 
+  const binaries = join(root, 'binaries');
+  for (const { target } of releaseTargets) {
+    const directory = join(binaries, `native-${target}`);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, targetExecutable(target)), target);
+  }
   const extension = join(root, 'extension');
   mkdirSync(extension);
-  const staged = stageCli(binary, 'win32-x64', extension);
-  assert.equal(staged, join(extension, 'bin', 'norm.exe'));
-  assert.equal(readFileSync(staged, 'utf8'), readFileSync(binary, 'utf8'));
+  const staged = stageCliBundle(binaries, extension);
+  assert.deepEqual(
+    staged,
+    releaseTargets.map(({ target, executable }) =>
+      join(extension, 'bin', target, executable),
+    ),
+  );
+  for (const { target } of releaseTargets) {
+    assert.equal(
+      readFileSync(join(extension, 'bin', target, targetExecutable(target)), 'utf8'),
+      target,
+    );
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

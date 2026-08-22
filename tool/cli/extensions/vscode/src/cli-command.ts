@@ -30,7 +30,7 @@ export function resolveCliCommand(
     : undefined;
   const candidates = [
     environmentCandidate,
-    join(extensionPath, 'bin', bundledExecutable),
+    join(extensionPath, 'bin', `${process.platform}-${process.arch}`, bundledExecutable),
     workspacePath &&
       join(workspacePath, 'tool', 'cli', 'app', 'build', 'install', 'norm', 'bin', executable),
     resolve(extensionPath, '..', '..', 'app', 'build', 'install', 'norm', 'bin', executable),

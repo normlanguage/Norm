@@ -4,25 +4,27 @@ Norm releases are triggered by semantic Git tags. The SemVer value in the tag is
 
 ## Assets
 
-Every release ships a standalone CLI and a platform extension containing the same CLI version:
+Every release ships standalone CLIs for each platform and one universal VS Code extension containing every supported CLI:
 
-| Platform | CLI | VS Code extension |
-| --- | --- | --- |
-| Windows x64 | `norm.exe` in ZIP | `win32-x64` VSIX |
-| Linux x64 | `norm` in TAR.GZ | `linux-x64` VSIX |
-| macOS Apple Silicon | `norm` in TAR.GZ | `darwin-arm64` VSIX |
+| Platform | CLI |
+| --- | --- |
+| Windows x64 | `norm.exe` in ZIP |
+| Linux x64 | `norm` in TAR.GZ |
+| macOS Apple Silicon | `norm` in TAR.GZ |
+
+`norm-language-support-vMAJOR.MINOR.PATCH.vsix` is the only extension asset. It selects its bundled CLI from the host operating system and architecture. Norm does not publish platform-specific VSIX packages.
 
 GraalVM 25 no longer provides new macOS Intel builds, so Norm does not establish a release line tied to the retired macOS x64 toolchain. A new platform must first pass the same acceptance suite in continuous integration.
 
 ## Release gates
 
-A release must pass the Java toolchain tests, VS Code static checks, native CLI version verification, Hello World, all 65 single-file acceptance programs, and a native LSP handshake. VSIX packaging checks the embedded CLI version again, preventing extension and language-server version drift.
+A release must pass the Java toolchain tests, VS Code static checks, native CLI version verification, Hello World, all 65 single-file acceptance programs, and a native LSP handshake. The universal VSIX must contain every CLI in the target manifest and verifies each one byte-for-byte against its accepted platform binary.
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 
 ## Automation
 
-The [release-target manifest](https://github.com/w0fv1/norm/blob/main/tool/cli/release-targets.json) is the sole machine definition for platforms, runners, CLI paths, and VSIX targets; the packager and [Release workflow](https://github.com/w0fv1/norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI detects Native Image regressions early. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
+The [release-target manifest](https://github.com/w0fv1/norm/blob/main/tool/cli/release-targets.json) is the sole machine definition for platforms, runners, CLI paths, and extension directories; the packager and [Release workflow](https://github.com/w0fv1/norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI detects Native Image regressions early. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
 
 Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 

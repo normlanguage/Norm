@@ -121,23 +121,6 @@ jobs:
           NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: npm run smoke:lsp
 
-      - name: Package platform extension
-        run: >-
-          node tool/cli/extensions/vscode/scripts/release-package.mjs
-          ${{ needs.prepare.outputs.version }}
-          ${{ matrix.target }}
-          ${{ matrix.binary }}
-          release/norm-language-support-v${{ needs.prepare.outputs.version }}-${{ matrix.target }}.vsix
-
-      - name: Verify platform extension package
-        working-directory: tool/cli/extensions/vscode
-        run: >-
-          npm run verify:vsix --
-          ${{ needs.prepare.outputs.version }}
-          ${{ matrix.target }}
-          ${{ github.workspace }}/${{ matrix.binary }}
-          ${{ github.workspace }}/release/norm-language-support-v${{ needs.prepare.outputs.version }}-${{ matrix.target }}.vsix
-
       - name: Verify extension in VS Code
         if: runner.os != 'Linux'
         working-directory: tool/cli/extensions/vscode
@@ -171,15 +154,75 @@ jobs:
           tar -C "$destination" -xzf "$archive"
           [[ "$($destination/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
 
-      - name: Upload release assets
+      - name: Stage native CLI for the universal extension
+        shell: bash
+        run: |
+          mkdir -p "native/${{ matrix.target }}"
+          cp "${{ matrix.binary }}" "native/${{ matrix.target }}/${{ matrix.executable }}"
+          chmod +x "native/${{ matrix.target }}/${{ matrix.executable }}"
+
+      - name: Upload standalone CLI
         uses: actions/upload-artifact@v4
         with:
-          name: norm-${{ matrix.platform }}
+          name: release-${{ matrix.platform }}
           path: release/*
           if-no-files-found: error
 
-  publish:
+      - name: Upload native CLI for the universal extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.target }}
+          path: native/${{ matrix.target }}/${{ matrix.executable }}
+          if-no-files-found: error
+
+  package-extension:
     needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tool/cli/extensions/vscode/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci --prefix tool/cli/extensions/vscode
+
+      - name: Download native CLIs
+        uses: actions/download-artifact@v5
+        with:
+          path: binaries
+          pattern: native-*
+
+      - name: Package universal extension
+        run: |
+          find binaries -type f -exec chmod +x {} +
+          node tool/cli/extensions/vscode/scripts/release-package.mjs \
+            ${{ needs.prepare.outputs.version }} \
+            binaries \
+            release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+
+      - name: Verify universal extension package
+        working-directory: tool/cli/extensions/vscode
+        run: >-
+          npm run verify:vsix --
+          ${{ needs.prepare.outputs.version }}
+          ${{ github.workspace }}/binaries
+          ${{ github.workspace }}/release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+
+      - name: Upload universal extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-universal
+          path: release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, package-extension]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -193,7 +236,14 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: release
-          pattern: norm-*
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Download universal extension
+        uses: actions/download-artifact@v5
+        with:
+          path: release
+          name: extension-universal
           merge-multiple: true
 
       - name: Create checksums
