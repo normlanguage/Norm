@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/toolchain.yml'
+      - '.github/workflows/release.yml'
       - 'tool/**'
       - 'norm/**'
       - 'docs/examples/**'
@@ -16,6 +17,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/toolchain.yml'
+      - '.github/workflows/release.yml'
       - 'tool/**'
       - 'norm/**'
       - 'docs/examples/**'
