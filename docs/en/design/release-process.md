@@ -18,7 +18,7 @@ GraalVM 25 no longer provides new macOS Intel builds, so Norm does not establish
 
 ## Release gates
 
-A release must pass the Java toolchain tests, VS Code static checks, native CLI version verification, Hello World, all 65 single-file acceptance programs, and a native LSP handshake. The universal VSIX must contain every CLI in the target manifest and verifies each one byte-for-byte against its accepted platform binary.
+A release must pass the Java toolchain tests, VS Code static checks, native CLI version verification, Hello World, every executable acceptance program under `norm/tests`, and a native LSP handshake. The universal VSIX must contain every CLI in the target manifest and verifies each one byte-for-byte against its accepted platform binary.
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 
@@ -30,4 +30,4 @@ Public releases should progressively adopt Windows Authenticode signing and Appl
 
 ## Release notes
 
-Release notes record only delivered language behavior, tooling changes, migration requirements, and known limitations. A release requires Chinese and English version records at the `major.minor` path derived from its tag. See the [Norm 0.1 release record](/en/versions/0.1) for the current implementation boundary; future language specifications are not current compiler commitments.
+Release notes record only delivered language behavior, tooling changes, migration requirements, and known limitations. A release requires Chinese and English version records at the `major.minor` path derived from its tag. See the [Norm 0.2 release record](/en/versions/0.2) for the current implementation boundary; future language specifications are not current compiler commitments.

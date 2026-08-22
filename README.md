@@ -8,7 +8,7 @@ Norm prioritizes explicit behavior, predictable semantics, strong typing, value 
 
 ## Status
 
-**V0.1 basic-computation slice.** The Java frontend and Truffle execution path now support single-file programs with expressions, control flow, recursive functions, classes, enums, arrays, and the V0.1 non-generic data structures. Sixty-five executable language programs define the acceptance boundary. Interfaces, inheritance, reflection, user-defined generics, and `switch` remain outside V0.1.
+**V0.2 generic multi-file release.** The Java frontend and Truffle execution path support generic classes and functions, packages, explicit imports, `module.norm` project boundaries, cross-file language services, parameterized collections, and a standard library written in Norm. The [0.2 release record](https://w0fv1.github.io/norm/en/versions/0.2) defines the delivered language boundary.
 
 ## Build
 
@@ -45,4 +45,4 @@ docs/                         language handbook and examples
 
 Norm's official toolchain is implemented in Java. GraalVM/Truffle is the sole official execution backend, and GraalVM Native Image produces the standalone `norm` CLI. Zig is not part of the compiler, runtime, backend, CLI, or core standard-library adapters.
 
-The frontend and typed IR remain independent from Truffle APIs so static tooling can run without starting the execution backend. This separation is a module boundary, not a plan for a second official backend. See the [implementation strategy](https://w0fv1.github.io/norm/design/implementation-strategy) and [compiler bootstrap plan](https://w0fv1.github.io/norm/design/bootstrap-plan).
+The frontend and Bound IR remain independent from Truffle APIs so static tooling can run without starting the execution backend. See the [implementation strategy](https://w0fv1.github.io/norm/design/implementation-strategy) and [compiler bootstrap plan](https://w0fv1.github.io/norm/design/bootstrap-plan).
