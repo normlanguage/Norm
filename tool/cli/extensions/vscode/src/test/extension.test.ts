@@ -12,9 +12,22 @@ suite('Norm VS Code extension', () => {
         'tool/cli/app/build/install/norm/bin',
         process.platform === 'win32' ? 'norm.bat' : 'norm',
       ).fsPath;
+    const configuration = vscode.workspace.getConfiguration('norm');
+    if (configuration.get<string>('cli.path') !== cli) {
+      const changed = new Promise<void>((resolve) => {
+        const subscription = vscode.workspace.onDidChangeConfiguration((event) => {
+          if (event.affectsConfiguration('norm.cli.path')) {
+            subscription.dispose();
+            resolve();
+          }
+        });
+      });
+      await configuration.update('cli.path', cli, vscode.ConfigurationTarget.Global);
+      await changed;
+    }
     await vscode.workspace
-      .getConfiguration('norm')
-      .update('cli.path', cli, vscode.ConfigurationTarget.Global);
+      .getConfiguration('editor')
+      .update('wordBasedSuggestions', 'off', vscode.ConfigurationTarget.Workspace);
     const extension = vscode.extensions.getExtension('normlang.norm-language-support');
     assert.ok(extension, 'development extension was not loaded');
     await extension.activate();
@@ -267,6 +280,23 @@ suite('Norm VS Code extension', () => {
     assert.equal(definitions[0].range.start.character, document.positionAt(declarationOffset).character);
     assert.ok(references.length >= 2);
     assert.ok(rename.get(document.uri).length >= 2);
+  });
+
+  test('serializes language server restarts', async () => {
+    await Promise.all([
+      vscode.commands.executeCommand('norm.restartLanguageServer'),
+      vscode.commands.executeCommand('norm.restartLanguageServer'),
+    ]);
+    const document = await openFixture('29_deque_pair_range.norm');
+    const offset = document.getText().indexOf('Range indices') + 2;
+    await eventually(async () => {
+      const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider',
+        document.uri,
+        document.positionAt(offset),
+      );
+      return hovers?.length ? true : undefined;
+    });
   });
 
   test('runs the current Norm file as a VS Code task', async () => {

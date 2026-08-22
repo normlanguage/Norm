@@ -30,7 +30,15 @@ final class LspCommand implements Command {
       err.println("error[NORM-CLI-0006]: language server was interrupted");
       return ExitCode.INTERNAL_ERROR;
     } catch (RuntimeException exception) {
-      err.println("error[NORM-CLI-0006]: language server failed: " + exception.getMessage());
+      Throwable cause = exception;
+      while (cause.getCause() != null) {
+        cause = cause.getCause();
+      }
+      err.println(
+          "error[NORM-CLI-0006]: language server failed: "
+              + cause.getClass().getName()
+              + ": "
+              + cause.getMessage());
       return ExitCode.INTERNAL_ERROR;
     }
   }

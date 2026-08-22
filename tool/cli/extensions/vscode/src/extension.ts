@@ -9,6 +9,7 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient | undefined;
+let lifecycle = Promise.resolve();
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const runner = new NormRunner(context.extensionPath);
@@ -20,8 +21,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       },
     }),
     vscode.commands.registerCommand('norm.restartLanguageServer', async () => {
-      await stopClient();
-      await startClient(context);
+      await restartClient(context);
     }),
     vscode.commands.registerCommand('norm.runCurrentFile', () => runner.runCurrentFile()),
     vscode.commands.registerCommand('norm.openSettings', () =>
@@ -32,8 +32,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     ),
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (event.affectsConfiguration('norm.cli.path')) {
-        await stopClient();
-        await startClient(context);
+        await restartClient(context);
       } else if (event.affectsConfiguration('norm.trace.server')) {
         client?.setTrace(
           trace(vscode.workspace.getConfiguration('norm').get<string>('trace.server', 'off')),
@@ -41,11 +40,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
   );
-  await startClient(context);
+  await restartClient(context);
 }
 
 export async function deactivate(): Promise<void> {
-  await stopClient();
+  lifecycle = lifecycle.catch(() => undefined).then(stopClient);
+  await lifecycle;
+}
+
+function restartClient(context: vscode.ExtensionContext): Promise<void> {
+  lifecycle = lifecycle
+    .catch(() => undefined)
+    .then(async () => {
+      await stopClient();
+      await startClient(context);
+    });
+  return lifecycle;
 }
 
 async function startClient(context: vscode.ExtensionContext): Promise<void> {

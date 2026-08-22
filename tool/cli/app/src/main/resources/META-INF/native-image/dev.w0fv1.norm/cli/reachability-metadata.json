@@ -799,7 +799,6 @@
     },
     {
       "type": "org.eclipse.lsp4j.DidChangeTextDocumentParams",
-      "unsafeAllocated": true,
       "fields": [
         {
           "name": "contentChanges"
@@ -807,23 +806,39 @@
         {
           "name": "textDocument"
         }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
       ]
     },
     {
       "type": "org.eclipse.lsp4j.DidChangeWatchedFilesParams",
-      "unsafeAllocated": true,
       "fields": [
         {
           "name": "changes"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
         }
       ]
     },
     {
       "type": "org.eclipse.lsp4j.DidCloseTextDocumentParams",
-      "unsafeAllocated": true,
       "fields": [
         {
           "name": "textDocument"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
         }
       ]
     },
@@ -843,13 +858,18 @@
     },
     {
       "type": "org.eclipse.lsp4j.DidSaveTextDocumentParams",
-      "unsafeAllocated": true,
       "fields": [
         {
           "name": "text"
         },
         {
           "name": "textDocument"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
         }
       ]
     },
@@ -942,13 +962,18 @@
     },
     {
       "type": "org.eclipse.lsp4j.FileEvent",
-      "unsafeAllocated": true,
       "fields": [
         {
           "name": "type"
         },
         {
           "name": "uri"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
         }
       ]
     },
@@ -2120,7 +2145,6 @@
     },
     {
       "type": "org.eclipse.lsp4j.TextDocumentContentChangeEvent",
-      "unsafeAllocated": true,
       "fields": [
         {
           "name": "range"
@@ -2130,6 +2154,12 @@
         },
         {
           "name": "text"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
         }
       ]
     },
@@ -2678,9 +2708,27 @@
           ]
         },
         {
+          "name": "didChange",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.DidChangeTextDocumentParams"
+          ]
+        },
+        {
+          "name": "didClose",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.DidCloseTextDocumentParams"
+          ]
+        },
+        {
           "name": "didOpen",
           "parameterTypes": [
             "org.eclipse.lsp4j.DidOpenTextDocumentParams"
+          ]
+        },
+        {
+          "name": "didSave",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.DidSaveTextDocumentParams"
           ]
         },
         {
@@ -2710,7 +2758,21 @@
       ]
     },
     {
-      "type": "org.eclipse.lsp4j.services.WorkspaceService"
+      "type": "org.eclipse.lsp4j.services.WorkspaceService",
+      "methods": [
+        {
+          "name": "didChangeConfiguration",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.DidChangeConfigurationParams"
+          ]
+        },
+        {
+          "name": "didChangeWatchedFiles",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.DidChangeWatchedFilesParams"
+          ]
+        }
+      ]
     },
     {
       "type": "org.graalvm.polyglot.io.IOHelper",
