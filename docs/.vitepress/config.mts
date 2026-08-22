@@ -8,7 +8,17 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   markdown: { languageAlias: { norm: 'java' } },
-  head: [['meta', { name: 'theme-color', content: '#3178c6' }]],
+  head: [
+    ['meta', { name: 'theme-color', content: '#3178c6' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/norm/brand/norm.svg' }],
+    ['link', { rel: 'alternate icon', href: '/norm/brand/norm.ico' }],
+    ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: '/norm/brand/norm-180.png' }],
+    ['link', { rel: 'manifest', href: '/norm/site.webmanifest' }],
+    ['meta', { property: 'og:site_name', content: 'Norm' }],
+    ['meta', { property: 'og:image', content: 'https://w0fv1.github.io/norm/brand/norm-512.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
+    ['meta', { name: 'twitter:image', content: 'https://w0fv1.github.io/norm/brand/norm-512.png' }],
+  ],
   locales: {
     root: {
       label: '简体中文',
@@ -27,6 +37,7 @@ export default defineConfig({
     },
   },
   themeConfig: {
+    logo: '/brand/norm.svg',
     siteTitle: 'Norm',
     socialLinks: [{ icon: 'github', link: 'https://github.com/w0fv1/norm' }],
     search: {

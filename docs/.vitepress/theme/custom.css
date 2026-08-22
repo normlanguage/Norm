@@ -53,18 +53,10 @@ body { letter-spacing: -0.006em; }
   border-bottom: 0 !important;
 }
 .VPNavBarTitle .title { font-size: 21px; font-weight: 800; }
-.VPNavBarTitle .title::before {
-  content: "N";
-  display: grid;
+.VPNavBarTitle .logo {
   width: 30px;
   height: 30px;
   margin-right: 10px;
-  place-items: center;
-  background: #fff;
-  color: var(--norm-blue);
-  font-size: 20px;
-  font-weight: 900;
-  line-height: 1;
 }
 .VPNavBarSearch .DocSearch-Button,
 .VPNavBarSearch .search-bar { background: rgba(255,255,255,.14) !important; color: #fff !important; }
@@ -142,6 +134,11 @@ body { letter-spacing: -0.006em; }
   text-transform: uppercase;
 }
 .norm-hero__eyebrow { color: rgba(255,255,255,.74); }
+.norm-hero__logo {
+  width: clamp(88px, 12vw, 128px);
+  height: auto;
+  margin: 0 auto 34px;
+}
 .norm-hero h1 {
   max-width: 920px;
   margin: 0 auto !important;

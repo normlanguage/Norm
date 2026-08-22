@@ -7,6 +7,7 @@ pageClass: norm-home
 
 <section class="norm-hero">
   <div class="norm-hero__inner">
+    <img class="norm-hero__logo" src="/brand/norm.svg" alt="Norm Logo">
     <p class="norm-hero__eyebrow">静态类型编程语言</p>
     <h1>清晰的调用、可推断的循环、明确的对象身份。</h1>
     <p class="norm-hero__lead">Norm 让 class 保留对象身份，让 value 保持结构语义，以参数标签表达调用含义，并通过静态类型推断减少重复标注。</p>
@@ -75,4 +76,3 @@ pageClass: norm-home
   <p>用一条连续的阅读路径理解 Norm 的类型、值、函数和控制流。</p>
   <div><a class="norm-button norm-button--blue" href="./language/overview">开始阅读手册</a><a class="norm-button norm-button--outline" href="https://github.com/w0fv1/norm">在 GitHub 上查看</a></div>
 </section>
-

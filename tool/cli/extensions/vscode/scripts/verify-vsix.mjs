@@ -17,6 +17,8 @@ const vsix = resolve(process.argv[5]);
 const entries = await readEntries(vsix, [
   'extension/package.json',
   'extension.vsixmanifest',
+  'extension/images/norm-256.png',
+  'extension/images/norm-file.png',
   `extension/bin/${executable}`,
 ]);
 const extensionPackage = JSON.parse(entries.get('extension/package.json').content.toString('utf8'));
@@ -24,6 +26,13 @@ if (extensionPackage.version !== version) {
   throw new Error(
     `VSIX package version mismatch: expected ${version}, received ${extensionPackage.version}`,
   );
+}
+if (
+  extensionPackage.icon !== 'images/norm-256.png' ||
+  extensionPackage.contributes.languages[0].icon.light !== './images/norm-file.png' ||
+  extensionPackage.contributes.languages[0].icon.dark !== './images/norm-file.png'
+) {
+  throw new Error('VSIX package does not declare the Norm extension and language icons');
 }
 const manifest = entries.get('extension.vsixmanifest').content.toString('utf8');
 if (!manifest.includes(`Version="${version}"`) || !manifest.includes(`TargetPlatform="${target}"`)) {
