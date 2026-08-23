@@ -1,0 +1,24 @@
+Array<Integer> recoverTree(Array<Integer> inorder) {
+  Integer first = -1
+  Integer second = -1
+  for index : range(start: 0, end: inorder.size() - 1) {
+    if inorder[index] > inorder[index + 1] {
+      if first == -1 { first = index }
+      second = index + 1
+    }
+  }
+  if first != -1 {
+    Integer temporary = inorder[first]
+    inorder[first] = inorder[second]
+    inorder[second] = temporary
+  }
+  return inorder
+}
+
+Void main() {
+  for Integer value : recoverTree([1,3,2,4]) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("4")
+}

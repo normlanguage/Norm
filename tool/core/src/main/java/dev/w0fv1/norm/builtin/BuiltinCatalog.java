@@ -176,6 +176,7 @@ public final class BuiltinCatalog {
     Map<String, TypeDefinition> types = new LinkedHashMap<>();
     Map<String, GlobalDefinition> globals = new LinkedHashMap<>();
     SemanticType integerType = SemanticType.INTEGER;
+    SemanticType codePointType = SemanticType.CODE_POINT;
     SemanticType booleanType = SemanticType.BOOLEAN;
     SemanticType stringType = SemanticType.STRING;
     SemanticType rangeType = declared("Range");
@@ -189,8 +190,31 @@ public final class BuiltinCatalog {
     SemanticType dequeT = parameter("Deque", "T");
     SemanticType pairA = parameter("Pair", "A");
     SemanticType pairB = parameter("Pair", "B");
+    SemanticType codePointsType =
+        SemanticType.declared(
+            "std.core.Array", "Array", List.of(codePointType), ValueCategory.VALUE);
+    SemanticType graphemesType =
+        SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
 
     addType(types, type(integerType.name(), RuntimeShape.INT));
+    addType(
+        types,
+        type(codePointType.name(), RuntimeShape.CODE_POINT)
+            .members(
+                method(
+                    "CodePoint", "scalarValue", integerType, IntrinsicId.CODE_POINT_SCALAR_VALUE),
+                method(
+                    "CodePoint",
+                    "isDecimalDigit",
+                    booleanType,
+                    IntrinsicId.CODE_POINT_IS_DECIMAL_DIGIT),
+                method("CodePoint", "isLetter", booleanType, IntrinsicId.CODE_POINT_IS_LETTER),
+                method(
+                    "CodePoint", "isWhitespace", booleanType, IntrinsicId.CODE_POINT_IS_WHITESPACE),
+                method(
+                    "CodePoint", "isUppercase", booleanType, IntrinsicId.CODE_POINT_IS_UPPERCASE),
+                method(
+                    "CodePoint", "isLowercase", booleanType, IntrinsicId.CODE_POINT_IS_LOWERCASE)));
     addType(types, type(booleanType.name(), RuntimeShape.BOOL));
     addType(types, type(SemanticType.VOID.name(), RuntimeShape.VOID));
     addType(
@@ -199,7 +223,97 @@ public final class BuiltinCatalog {
             .members(
                 method("String", "byteSize", integerType, IntrinsicId.STRING_BYTE_SIZE),
                 method("String", "codePointSize", integerType, IntrinsicId.STRING_CODE_POINT_SIZE),
-                method("String", "graphemeSize", integerType, IntrinsicId.STRING_GRAPHEME_SIZE)));
+                method("String", "graphemeSize", integerType, IntrinsicId.STRING_GRAPHEME_SIZE),
+                method("String", "codePoints", codePointsType, IntrinsicId.STRING_CODE_POINTS),
+                method("String", "graphemes", graphemesType, IntrinsicId.STRING_GRAPHEMES),
+                method(
+                    "String",
+                    "sliceCodePoints",
+                    stringType,
+                    IntrinsicId.STRING_SLICE_CODE_POINTS,
+                    parameterInfo("start", integerType),
+                    parameterInfo("end", integerType)),
+                method(
+                    "String",
+                    "split",
+                    graphemesType,
+                    IntrinsicId.STRING_SPLIT,
+                    parameterInfo("separator", stringType)),
+                method("String", "isEmpty", booleanType, IntrinsicId.STRING_IS_EMPTY),
+                method(
+                    "String",
+                    "contains",
+                    booleanType,
+                    IntrinsicId.STRING_CONTAINS,
+                    parameterInfo("value", stringType)),
+                method(
+                    "String",
+                    "startsWith",
+                    booleanType,
+                    IntrinsicId.STRING_STARTS_WITH,
+                    parameterInfo("prefix", stringType)),
+                method(
+                    "String",
+                    "endsWith",
+                    booleanType,
+                    IntrinsicId.STRING_ENDS_WITH,
+                    parameterInfo("suffix", stringType)),
+                method(
+                    "String",
+                    "sliceGraphemes",
+                    stringType,
+                    IntrinsicId.STRING_SLICE_GRAPHEMES,
+                    parameterInfo("start", integerType),
+                    parameterInfo("end", integerType)),
+                method(
+                    "String",
+                    "replace",
+                    stringType,
+                    IntrinsicId.STRING_REPLACE,
+                    parameterInfo("target", stringType),
+                    parameterInfo("replacement", stringType)),
+                method(
+                    "String",
+                    "replaceFirst",
+                    stringType,
+                    IntrinsicId.STRING_REPLACE_FIRST,
+                    parameterInfo("target", stringType),
+                    parameterInfo("replacement", stringType)),
+                method("String", "trim", stringType, IntrinsicId.STRING_TRIM),
+                method("String", "trimStart", stringType, IntrinsicId.STRING_TRIM_START),
+                method("String", "trimEnd", stringType, IntrinsicId.STRING_TRIM_END),
+                method("String", "toLowercase", stringType, IntrinsicId.STRING_TO_LOWERCASE),
+                method("String", "toUppercase", stringType, IntrinsicId.STRING_TO_UPPERCASE),
+                method(
+                    "String",
+                    "equalsIgnoreCaseAscii",
+                    booleanType,
+                    IntrinsicId.STRING_EQUALS_IGNORE_CASE_ASCII,
+                    parameterInfo("other", stringType)),
+                method(
+                    "String",
+                    "compareCodePoints",
+                    integerType,
+                    IntrinsicId.STRING_COMPARE_CODE_POINTS,
+                    parameterInfo("right", stringType)),
+                method("String", "normalizeNfc", stringType, IntrinsicId.STRING_NORMALIZE_NFC),
+                method("String", "normalizeNfd", stringType, IntrinsicId.STRING_NORMALIZE_NFD),
+                method("String", "normalizeNfkc", stringType, IntrinsicId.STRING_NORMALIZE_NFKC),
+                method("String", "normalizeNfkd", stringType, IntrinsicId.STRING_NORMALIZE_NFKD),
+                method(
+                    "String", "isNormalizedNfc", booleanType, IntrinsicId.STRING_IS_NORMALIZED_NFC),
+                method(
+                    "String", "isNormalizedNfd", booleanType, IntrinsicId.STRING_IS_NORMALIZED_NFD),
+                method(
+                    "String",
+                    "isNormalizedNfkc",
+                    booleanType,
+                    IntrinsicId.STRING_IS_NORMALIZED_NFKC),
+                method(
+                    "String",
+                    "isNormalizedNfkd",
+                    booleanType,
+                    IntrinsicId.STRING_IS_NORMALIZED_NFKD)));
     addType(
         types,
         type("Array", RuntimeShape.ARRAY, "T")

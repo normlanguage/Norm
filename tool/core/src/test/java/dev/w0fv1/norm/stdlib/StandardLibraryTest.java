@@ -44,6 +44,24 @@ final class StandardLibraryTest {
         "true");
   }
 
+  @Test
+  void rebuildsStringsFromCodePoints() {
+    assertOutput(
+        "import std.text.fromCodePoints Void main() { "
+            + "printLine(fromCodePoints(values: ['N', 'o', 'r', 'm', '😀'])) }",
+        "Norm😀");
+  }
+
+  @Test
+  void normalizesUnicodeTextThroughTheStandardLibrary() {
+    assertOutput(
+        "import std.text.Normalization import std.text.isNormalized import std.text.normalize "
+            + "Void main() { String value = normalize(value: \"é\", form: Normalization.Nfc) "
+            + "printLine(value.codePointSize()) printLine(isNormalized(value: value, form: Normalization.Nfc)) }",
+        "1",
+        "true");
+  }
+
   @TestFactory
   Stream<DynamicTest> runsStandardLibraryPrograms() throws Exception {
     return suite("stdlib");

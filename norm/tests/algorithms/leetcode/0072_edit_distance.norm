@@ -5,7 +5,9 @@ Integer min3(Integer first, Integer second, Integer third) {
   return result
 }
 
-Integer minDistance(Array<Integer> left, Array<Integer> right) {
+Integer minDistance(String leftValue, String rightValue) {
+  Array<CodePoint> left = leftValue.codePoints()
+  Array<CodePoint> right = rightValue.codePoints()
   List<Integer> previous = List<Integer>()
   for column : range(start: 0, end: right.size() + 1) { previous.add(column) }
   for row : range(start: 1, end: left.size() + 1) {
@@ -22,6 +24,6 @@ Integer minDistance(Array<Integer> left, Array<Integer> right) {
 }
 
 Void main() {
-  printLine(minDistance(left: [1,2,3,4,5], right: [1,6,4]))
+  printLine(minDistance(leftValue: "horse", rightValue: "ros"))
   expectedOutputLine("3")
 }

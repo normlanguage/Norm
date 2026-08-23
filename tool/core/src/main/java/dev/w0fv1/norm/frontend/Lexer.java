@@ -17,6 +17,7 @@ final class Lexer {
   private static final DiagnosticCode UNTERMINATED_COMMENT = new DiagnosticCode("NORM-LEXER-0004");
   private static final DiagnosticCode UNSUPPORTED_INTERPOLATION =
       new DiagnosticCode("NORM-LEXER-0005");
+  private static final DiagnosticCode INVALID_CODE_POINT = new DiagnosticCode("NORM-LEXER-0006");
 
   private final SourceFile source;
   private final DiagnosticBag diagnostics;
@@ -61,6 +62,7 @@ final class Lexer {
       case '&' -> scanDoubleOperator('&', TokenKind.AND_AND, start);
       case '|' -> scanDoubleOperator('|', TokenKind.OR_OR, start);
       case '"' -> scanString(start);
+      case '\'' -> scanCodePoint(start);
       case '/' -> scanSlash(start);
       default -> {
         if (Character.isWhitespace(character)) {
@@ -162,6 +164,76 @@ final class Lexer {
     diagnostics.error(
         UNTERMINATED_STRING,
         "string literal is not terminated before the end of the file",
+        new SourceSpan(source, start, offset));
+  }
+
+  private void scanCodePoint(int start) {
+    List<Integer> values = new ArrayList<>();
+    boolean valid = true;
+    while (!isAtEnd()) {
+      int characterStart = offset;
+      int character = advanceCodePoint();
+      if (character == '\'') {
+        if (!valid) {
+          return;
+        }
+        if (values.size() != 1) {
+          diagnostics.error(
+              INVALID_CODE_POINT,
+              "code point literal must contain exactly one Unicode code point",
+              new SourceSpan(source, start, offset));
+          return;
+        }
+        tokens.add(
+            new Token(
+                TokenKind.CODE_POINT,
+                source.text().substring(start, offset),
+                Integer.toString(values.getFirst()),
+                new SourceSpan(source, start, offset)));
+        return;
+      }
+      if (character == '\n' || character == '\r') {
+        diagnostics.error(
+            INVALID_CODE_POINT,
+            "code point literal is not terminated before the end of the line",
+            new SourceSpan(source, start, characterStart));
+        return;
+      }
+      if (character != '\\') {
+        if (character >= Character.MIN_SURROGATE && character <= Character.MAX_SURROGATE) {
+          diagnostics.error(
+              INVALID_CODE_POINT,
+              "code point literal must contain a Unicode scalar value",
+              new SourceSpan(source, characterStart, offset));
+          valid = false;
+          continue;
+        }
+        values.add(character);
+        continue;
+      }
+      if (isAtEnd()) {
+        break;
+      }
+      int escapeStart = offset - 1;
+      int escaped = advanceCodePoint();
+      switch (escaped) {
+        case 'n' -> values.add((int) '\n');
+        case 'r' -> values.add((int) '\r');
+        case 't' -> values.add((int) '\t');
+        case '\'' -> values.add((int) '\'');
+        case '\\' -> values.add((int) '\\');
+        default -> {
+          diagnostics.error(
+              INVALID_ESCAPE,
+              "unsupported code point escape '\\" + new String(Character.toChars(escaped)) + "'",
+              new SourceSpan(source, escapeStart, offset));
+          valid = false;
+        }
+      }
+    }
+    diagnostics.error(
+        INVALID_CODE_POINT,
+        "code point literal is not terminated before the end of the file",
         new SourceSpan(source, start, offset));
   }
 

@@ -1,0 +1,19 @@
+Integer subsetsWithDup(Array<Integer> values) {
+  Set<List<Integer>> result = Set<List<Integer>>()
+  result.add(List<Integer>())
+  for Integer value : values {
+    List<List<Integer>> additions = List<List<Integer>>()
+    for List<Integer> subset : result {
+      List<Integer> next = subset
+      next.add(value)
+      additions.add(next)
+    }
+    for List<Integer> subset : additions { result.add(subset) }
+  }
+  return result.size()
+}
+
+Void main() {
+  printLine(subsetsWithDup([1,2,2]))
+  expectedOutputLine("6")
+}

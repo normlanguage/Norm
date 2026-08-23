@@ -132,6 +132,49 @@ public final class IntrinsicDispatcher {
       case STRING_BYTE_SIZE -> RuntimeValues.byteSize((String) receiver);
       case STRING_CODE_POINT_SIZE -> RuntimeValues.codePointSize((String) receiver);
       case STRING_GRAPHEME_SIZE -> RuntimeValues.graphemeSize((String) receiver);
+      case STRING_CODE_POINTS -> RuntimeValues.codePoints((String) receiver);
+      case STRING_GRAPHEMES -> RuntimeValues.graphemes((String) receiver);
+      case STRING_SLICE_CODE_POINTS ->
+          RuntimeValues.sliceCodePoints((String) receiver, (Long) first, (Long) second, location);
+      case STRING_SPLIT -> RuntimeValues.split((String) receiver, (String) first, location);
+      case STRING_IS_EMPTY -> ((String) receiver).isEmpty();
+      case STRING_CONTAINS -> ((String) receiver).contains((String) first);
+      case STRING_STARTS_WITH -> ((String) receiver).startsWith((String) first);
+      case STRING_ENDS_WITH -> ((String) receiver).endsWith((String) first);
+      case STRING_SLICE_GRAPHEMES ->
+          RuntimeValues.sliceGraphemes((String) receiver, (Long) first, (Long) second, location);
+      case STRING_REPLACE ->
+          RuntimeValues.replace((String) receiver, (String) first, (String) second, location);
+      case STRING_REPLACE_FIRST ->
+          RuntimeValues.replaceFirst((String) receiver, (String) first, (String) second, location);
+      case STRING_TRIM -> RuntimeValues.trim((String) receiver);
+      case STRING_TRIM_START -> RuntimeValues.trimStart((String) receiver);
+      case STRING_TRIM_END -> RuntimeValues.trimEnd((String) receiver);
+      case STRING_TO_LOWERCASE -> RuntimeValues.toLowercase((String) receiver);
+      case STRING_TO_UPPERCASE -> RuntimeValues.toUppercase((String) receiver);
+      case STRING_EQUALS_IGNORE_CASE_ASCII ->
+          RuntimeValues.equalsIgnoreCaseAscii((String) receiver, (String) first);
+      case STRING_COMPARE_CODE_POINTS ->
+          RuntimeValues.compareCodePoints((String) receiver, (String) first);
+      case STRING_NORMALIZE_NFC -> RuntimeValues.normalizeNfc((String) receiver);
+      case STRING_NORMALIZE_NFD -> RuntimeValues.normalizeNfd((String) receiver);
+      case STRING_NORMALIZE_NFKC -> RuntimeValues.normalizeNfkc((String) receiver);
+      case STRING_NORMALIZE_NFKD -> RuntimeValues.normalizeNfkd((String) receiver);
+      case STRING_IS_NORMALIZED_NFC -> RuntimeValues.isNormalizedNfc((String) receiver);
+      case STRING_IS_NORMALIZED_NFD -> RuntimeValues.isNormalizedNfd((String) receiver);
+      case STRING_IS_NORMALIZED_NFKC -> RuntimeValues.isNormalizedNfkc((String) receiver);
+      case STRING_IS_NORMALIZED_NFKD -> RuntimeValues.isNormalizedNfkd((String) receiver);
+      case CODE_POINT_SCALAR_VALUE -> (long) ((RuntimeValues.CodePointValue) receiver).value();
+      case CODE_POINT_IS_DECIMAL_DIGIT ->
+          Character.isDigit(((RuntimeValues.CodePointValue) receiver).value());
+      case CODE_POINT_IS_LETTER ->
+          Character.isLetter(((RuntimeValues.CodePointValue) receiver).value());
+      case CODE_POINT_IS_WHITESPACE ->
+          RuntimeValues.isWhitespace(((RuntimeValues.CodePointValue) receiver).value());
+      case CODE_POINT_IS_UPPERCASE ->
+          Character.isUpperCase(((RuntimeValues.CodePointValue) receiver).value());
+      case CODE_POINT_IS_LOWERCASE ->
+          Character.isLowerCase(((RuntimeValues.CodePointValue) receiver).value());
       case PAIR_FIRST_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first);
       case PAIR_SECOND_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second);
       case PAIR_FIRST_WRITE -> {

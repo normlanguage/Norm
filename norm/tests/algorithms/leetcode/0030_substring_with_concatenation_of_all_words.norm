@@ -1,14 +1,15 @@
-Boolean matchesWords(Array<Integer> text, Integer start, List<Array<Integer>> words) {
-  Integer width = words[0].size()
+Boolean matchesWords(Array<CodePoint> text, Integer start, List<String> words) {
+  Integer width = words[0].codePointSize()
   List<Boolean> used = List<Boolean>()
   for index : range(start: 0, end: words.size()) { used.add(false) }
   for position : range(start: 0, end: words.size()) {
     Boolean found = false
     for word : range(start: 0, end: words.size()) {
       if !used[word] {
+        Array<CodePoint> candidate = words[word].codePoints()
         Boolean same = true
         for offset : range(start: 0, end: width) {
-          if text[start + position * width + offset] != words[word][offset] {
+          if text[start + position * width + offset] != candidate[offset] {
             same = false
             break
           }
@@ -25,9 +26,10 @@ Boolean matchesWords(Array<Integer> text, Integer start, List<Array<Integer>> wo
   return true
 }
 
-List<Integer> findSubstring(Array<Integer> text, List<Array<Integer>> words) {
+List<Integer> findSubstring(String value, List<String> words) {
+  Array<CodePoint> text = value.codePoints()
   List<Integer> result = List<Integer>()
-  Integer length = words.size() * words[0].size()
+  Integer length = words.size() * words[0].codePointSize()
   for start : range(start: 0, end: text.size() - length + 1) {
     if matchesWords(text, start, words) { result.add(start) }
   }
@@ -35,10 +37,10 @@ List<Integer> findSubstring(Array<Integer> text, List<Array<Integer>> words) {
 }
 
 Void main() {
-  List<Array<Integer>> words = List<Array<Integer>>()
-  words.add([1, 2])
-  words.add([3, 4])
-  for Integer index : findSubstring(text: [9, 1, 2, 3, 4, 1, 2], words) { printLine(index) }
-  expectedOutputLine("1")
-  expectedOutputLine("3")
+  List<String> words = List<String>()
+  words.add("foo")
+  words.add("bar")
+  for Integer index : findSubstring(value: "barfoothefoobarman", words) { printLine(index) }
+  expectedOutputLine("0")
+  expectedOutputLine("9")
 }

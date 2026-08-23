@@ -1,19 +1,21 @@
-List<List<Integer>> letterCombinations(Array<Integer> digits) {
-  List<List<Integer>> combinations = List<List<Integer>>()
-  combinations.add(List<Integer>())
-  for Integer digit : digits {
-    List<List<Integer>> next = List<List<Integer>>()
-    Integer count = 3
-    if digit == 7 || digit == 9 { count = 4 }
-    Integer start = (digit - 2) * 3
-    if digit == 8 || digit == 9 { start = start + 1 }
-    for List<Integer> prefix : combinations {
-      for offset : range(start: 0, end: count) {
-        List<Integer> built = List<Integer>()
-        for Integer value : prefix { built.add(value) }
-        built.add(start + offset)
-        next.add(built)
-      }
+String append(String prefix, CodePoint value) {
+  StringBuilder result = StringBuilder()
+  result.append(prefix)
+  result.append(value)
+  return result.toString()
+}
+
+List<String> letterCombinations(String digitsValue) {
+  Array<CodePoint> digits = digitsValue.codePoints()
+  Array<String> letters = ["","","abc","def","ghi","jkl","mno","pqrs","tuv","wxyz"]
+  List<String> combinations = List<String>()
+  combinations.add("")
+  for CodePoint digit : digits {
+    String choices = letters[digit.scalarValue() - '0'.scalarValue()]
+    Array<CodePoint> points = choices.codePoints()
+    List<String> next = List<String>()
+    for String prefix : combinations {
+      for CodePoint point : points { next.add(append(prefix: prefix, value: point)) }
     }
     combinations = next
   }
@@ -21,10 +23,9 @@ List<List<Integer>> letterCombinations(Array<Integer> digits) {
 }
 
 Void main() {
-  List<List<Integer>> answer = letterCombinations([2, 3])
+  List<String> answer = letterCombinations("23")
   printLine(answer.size())
-  for Integer value : answer[0] { printLine(value) }
+  printLine(answer[0])
   expectedOutputLine("9")
-  expectedOutputLine("0")
-  expectedOutputLine("3")
+  expectedOutputLine("ad")
 }

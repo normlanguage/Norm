@@ -54,6 +54,20 @@ final class RuntimeErrorTest {
             failure(
                 "Deque<Integer> values = Deque<Integer>() printLine(values.peekLast())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
+            failure(
+                "printLine(\"Norm\".sliceCodePoints(start: 0, end: 5))",
+                RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
+            failure(
+                "printLine(\"😀\".sliceGraphemes(start: 1, end: 0))",
+                RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
+            failure(
+                "printLine(\"Norm\".split(separator: \"\"))", RuntimeErrorCode.INVALID_ARGUMENT),
+            failure(
+                "printLine(\"Norm\".replace(target: \"\", replacement: \"x\"))",
+                RuntimeErrorCode.INVALID_ARGUMENT),
+            failure(
+                "printLine(\"Norm\".replaceFirst(target: \"\", replacement: \"x\"))",
+                RuntimeErrorCode.INVALID_ARGUMENT),
             failure("printLine(1 / 0)", RuntimeErrorCode.DIVISION_BY_ZERO),
             failure("printLine(1 % 0)", RuntimeErrorCode.DIVISION_BY_ZERO))
         .map(

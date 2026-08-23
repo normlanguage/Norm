@@ -1,16 +1,18 @@
-Boolean isMatch(Array<Integer> text, Array<Integer> pattern) {
+Boolean isMatch(String textValue, String patternValue) {
+  Array<CodePoint> text = textValue.codePoints()
+  Array<CodePoint> pattern = patternValue.codePoints()
   List<Boolean> dp = List<Boolean>()
   for index : range(start: 0, end: text.size() + 1) { dp.add(false) }
   dp[0] = true
-  for Integer token : pattern {
+  for CodePoint token : pattern {
     List<Boolean> next = List<Boolean>()
     for index : range(start: 0, end: text.size() + 1) { next.add(false) }
-    if token == -2 { next[0] = dp[0] }
+    if token == '*' { next[0] = dp[0] }
     for index : range(start: 1, end: text.size() + 1) {
-      if token == -2 {
+      if token == '*' {
         next[index] = dp[index] || next[index - 1]
       } else {
-        next[index] = dp[index - 1] && (token == -1 || token == text[index - 1])
+        next[index] = dp[index - 1] && (token == '?' || token == text[index - 1])
       }
     }
     dp = next
@@ -19,6 +21,6 @@ Boolean isMatch(Array<Integer> text, Array<Integer> pattern) {
 }
 
 Void main() {
-  printLine(isMatch(text: [1, 2, 3, 4, 5], pattern: [-2, 2, -1, 4, -2]))
+  printLine(isMatch(textValue: "adceb", patternValue: "*a*b"))
   expectedOutputLine("true")
 }

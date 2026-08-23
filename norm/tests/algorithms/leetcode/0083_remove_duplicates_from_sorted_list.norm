@@ -1,0 +1,14 @@
+List<Integer> deleteDuplicates(Array<Integer> values) {
+  List<Integer> result = List<Integer>()
+  for Integer value : values {
+    if result.isEmpty() || result[result.size() - 1] != value { result.add(value) }
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : deleteDuplicates([1,1,2,3,3]) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+}

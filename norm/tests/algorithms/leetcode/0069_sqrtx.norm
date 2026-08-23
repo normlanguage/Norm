@@ -1,4 +1,5 @@
 Integer mySqrt(Integer value) {
+  if value < 2 { return value }
   Integer left = 0
   Integer right = value
   for step : range(start: 0, end: 64) {
@@ -16,5 +17,7 @@ Integer mySqrt(Integer value) {
 
 Void main() {
   printLine(mySqrt(8))
+  printLine(mySqrt(0))
   expectedOutputLine("2")
+  expectedOutputLine("0")
 }

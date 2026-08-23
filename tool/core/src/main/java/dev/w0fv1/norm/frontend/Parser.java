@@ -490,6 +490,10 @@ final class Parser {
         throw error(token, "integer literal is outside the supported range");
       }
     }
+    if (match(TokenKind.CODE_POINT)) {
+      Token token = previous();
+      return new Syntax.CodePointLiteral(Integer.parseInt(token.value()), token.span());
+    }
     if (match(TokenKind.TRUE, TokenKind.FALSE)) {
       Token token = previous();
       return new Syntax.BooleanLiteral(token.kind() == TokenKind.TRUE, token.span());

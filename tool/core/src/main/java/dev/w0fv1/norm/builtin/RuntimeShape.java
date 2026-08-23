@@ -2,6 +2,7 @@ package dev.w0fv1.norm.builtin;
 
 public enum RuntimeShape {
   INT,
+  CODE_POINT,
   BOOL,
   STRING,
   VOID,

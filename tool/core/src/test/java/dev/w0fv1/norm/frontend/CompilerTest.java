@@ -101,6 +101,13 @@ final class CompilerTest {
   }
 
   @Test
+  void givesCodePointLiteralsTheirOwnType() {
+    CompilationResult result = compile("Void main() { CodePoint letter = '😀' printLine(letter) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void reportsAMissingEntryPoint() {
     CompilationResult result = compile("Void helper() {}");
 

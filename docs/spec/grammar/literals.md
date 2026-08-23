@@ -19,6 +19,14 @@ String line = "first\nsecond"
 String message = "hello, ${name}"
 ```
 
+单引号表示一个 `CodePoint`。内容必须解码为恰好一个 Unicode code point：
+
+```norm
+CodePoint letter = 'a'
+CodePoint emoji = '😀'
+CodePoint newline = '\n'
+```
+
 字符串使用双引号，支持标准转义与 `${expression}` 插值。插值要求值具有明确格式化能力，不对任意对象隐式调用调试表示。
 
 ## 布尔与 Null

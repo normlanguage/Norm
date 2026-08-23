@@ -111,6 +111,62 @@ final class ProgramExecutionTest {
   }
 
   @Test
+  void exposesExplicitUnicodeStringViews() throws Exception {
+    assertOutput(
+        "Void main() { "
+            + "Array<CodePoint> points = \"A😀\".codePoints() "
+            + "Array<String> graphemes = \"é😀\".graphemes() "
+            + "printLine(points.size()) printLine(points[0]) printLine(points[1]) "
+            + "printLine(graphemes.size()) printLine(graphemes[0]) "
+            + "printLine(\"A😀B\".sliceCodePoints(start: 1, end: 2)) "
+            + "printLine('9'.scalarValue()) printLine(\"/a/b/\".split(separator: \"/\").size()) }",
+        String.join(System.lineSeparator(), "2", "A", "😀", "2", "é", "😀", "57", "4", ""));
+  }
+
+  @Test
+  void executesUnicodeStringOperations() throws Exception {
+    assertOutput(
+        "Void main() { "
+            + "printLine(\"\".isEmpty()) printLine(\"Norm😀\".contains(value: \"rm😀\")) "
+            + "printLine(\"Norm\".startsWith(prefix: \"No\")) printLine(\"Norm\".endsWith(suffix: \"rm\")) "
+            + "printLine(\"a😀b\".sliceGraphemes(start: 1, end: 2)) "
+            + "printLine(\"one two one\".replace(target: \"one\", replacement: \"1\")) "
+            + "printLine(\"one two one\".replaceFirst(target: \"one\", replacement: \"1\")) "
+            + "printLine(\"  Norm  \".trim()) printLine(\"  Norm  \".trimStart()) "
+            + "printLine(\"  Norm  \".trimEnd()) printLine(\"NORM\".toLowercase()) "
+            + "printLine(\"norm\".toUppercase()) printLine(\"straße\".toUppercase()) "
+            + "printLine(\"Content-Type\".equalsIgnoreCaseAscii(other: \"content-type\")) "
+            + "printLine(\"a😀\".compareCodePoints(right: \"a😁\")) "
+            + "printLine('9'.isDecimalDigit()) printLine('字'.isLetter()) "
+            + "printLine(' '.isWhitespace()) printLine('A'.isUppercase()) printLine('a'.isLowercase()) "
+            + "printLine(\" Norm \".trim()) }",
+        String.join(
+            System.lineSeparator(),
+            "true",
+            "true",
+            "true",
+            "true",
+            "😀",
+            "1 two 1",
+            "1 two one",
+            "Norm",
+            "Norm  ",
+            "  Norm",
+            "norm",
+            "NORM",
+            "STRASSE",
+            "true",
+            "-1",
+            "true",
+            "true",
+            "true",
+            "true",
+            "true",
+            "Norm",
+            ""));
+  }
+
+  @Test
   void iteratesMapsAndStacksWithTheirDeclaredElementTypes() throws Exception {
     assertOutput(
         "Void main() { Map<String, Integer> values = Map<String, Integer>() "

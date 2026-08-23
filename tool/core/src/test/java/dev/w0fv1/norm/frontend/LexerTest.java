@@ -56,6 +56,44 @@ final class LexerTest {
   }
 
   @Test
+  void lexesUnicodeCodePointLiterals() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(SourceFile.of(Path.of("code-points.norm"), "'a' '😀' '\\n'"), diagnostics).lex();
+
+    assertFalse(diagnostics.hasErrors());
+    assertEquals(
+        List.of(TokenKind.CODE_POINT, TokenKind.CODE_POINT, TokenKind.CODE_POINT),
+        tokens.stream()
+            .filter(token -> token.kind() != TokenKind.END_OF_FILE)
+            .map(Token::kind)
+            .toList());
+    assertEquals("97", tokens.getFirst().value());
+    assertEquals("128512", tokens.get(1).value());
+    assertEquals("10", tokens.get(2).value());
+  }
+
+  @Test
+  void rejectsEmptyAndMultipleCodePointLiterals() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    new Lexer(SourceFile.of(Path.of("bad-code-points.norm"), "'' 'ab'"), diagnostics).lex();
+
+    assertTrue(diagnostics.hasErrors());
+    assertEquals(2, diagnostics.size());
+  }
+
+  @Test
+  void rejectsSurrogateCodePointLiterals() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    String source = "'" + Character.MIN_SURROGATE + "'";
+
+    new Lexer(SourceFile.of(Path.of("surrogate.norm"), source), diagnostics).lex();
+
+    assertTrue(diagnostics.hasErrors());
+    assertEquals(1, diagnostics.size());
+  }
+
+  @Test
   void supportsNestedBlockComments() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =

@@ -1,0 +1,19 @@
+List<Integer> partition(Array<Integer> values, Integer pivot) {
+  List<Integer> lower = List<Integer>()
+  List<Integer> upper = List<Integer>()
+  for Integer value : values {
+    if value < pivot { lower.add(value) } else { upper.add(value) }
+  }
+  for Integer value : upper { lower.add(value) }
+  return lower
+}
+
+Void main() {
+  for Integer value : partition(values: [1,4,3,2,5,2], pivot: 3) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("2")
+  expectedOutputLine("4")
+  expectedOutputLine("3")
+  expectedOutputLine("5")
+}

@@ -79,6 +79,7 @@ jobs:
         working-directory: tool/cli/extensions/vscode
         run: |
           npm run check
+          npm run test:language
           npm run test:discovery
           npm run test:release
 

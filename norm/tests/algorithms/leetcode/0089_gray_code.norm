@@ -1,0 +1,27 @@
+List<Integer> grayCode(Integer bits) {
+  List<Integer> result = List<Integer>()
+  Integer size = 1
+  for bit : range(start: 0, end: bits) { size = size * 2 }
+  for value : range(start: 0, end: size) {
+    Integer left = value
+    Integer right = value / 2
+    Integer place = 1
+    Integer encoded = 0
+    for bit : range(start: 0, end: bits + 1) {
+      if left % 2 != right % 2 { encoded = encoded + place }
+      left = left / 2
+      right = right / 2
+      place = place * 2
+    }
+    result.add(encoded)
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : grayCode(2) { printLine(value) }
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+  expectedOutputLine("2")
+}

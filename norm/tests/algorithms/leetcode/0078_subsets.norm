@@ -1,0 +1,18 @@
+List<List<Integer>> subsets(Array<Integer> values) {
+  List<List<Integer>> result = List<List<Integer>>()
+  result.add(List<Integer>())
+  for Integer value : values {
+    Integer existing = result.size()
+    for index : range(start: 0, end: existing) {
+      List<Integer> next = result[index]
+      next.add(value)
+      result.add(next)
+    }
+  }
+  return result
+}
+
+Void main() {
+  printLine(subsets([1,2,3]).size())
+  expectedOutputLine("8")
+}

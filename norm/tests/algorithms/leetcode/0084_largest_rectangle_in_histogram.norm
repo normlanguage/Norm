@@ -1,0 +1,22 @@
+Integer largestRectangleArea(Array<Integer> heights) {
+  Stack<Integer> indices = Stack<Integer>()
+  Integer best = 0
+  for index : range(start: 0, end: heights.size() + 1) {
+    Integer current = 0
+    if index < heights.size() { current = heights[index] }
+    for step : range(start: 0, end: heights.size()) {
+      if indices.isEmpty() || heights[indices.peek()] <= current { break }
+      Integer height = heights[indices.pop()]
+      Integer width = index
+      if !indices.isEmpty() { width = index - indices.peek() - 1 }
+      if height * width > best { best = height * width }
+    }
+    if index < heights.size() { indices.push(index) }
+  }
+  return best
+}
+
+Void main() {
+  printLine(largestRectangleArea([2,1,5,6,2,3]))
+  expectedOutputLine("10")
+}

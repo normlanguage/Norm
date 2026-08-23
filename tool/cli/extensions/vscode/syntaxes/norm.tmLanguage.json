@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
+    { "include": "#codePoints" },
     { "include": "#numbers" },
     { "include": "#modifiers" },
     { "include": "#declarations" },
@@ -31,6 +32,14 @@
         { "name": "constant.character.escape.norm", "match": "\\\\[nrt\"\\\\]" }
       ]
     },
+    "codePoints": {
+      "name": "constant.character.norm",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        { "name": "constant.character.escape.norm", "match": "\\\\[nrt'\\\\]" }
+      ]
+    },
     "numbers": {
       "name": "constant.numeric.integer.norm",
       "match": "\\b[0-9](?:_?[0-9])*\\b"
@@ -48,7 +57,7 @@
     },
     "types": {
       "name": "support.type.norm",
-      "match": "\\b(?:int|bool|String|void|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Module)\\b"
+      "match": "\\b(?:Integer|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Module)\\b"
     },
     "typeParameters": {
       "name": "entity.name.type.parameter.norm",
@@ -57,7 +66,7 @@
     "generics": {
       "patterns": [
         {
-          "begin": "(?<=[A-Za-z0-9_>])<(?=\\s*(?:[A-Z_]|int\\b|bool\\b|String\\b|Array\\b|List\\b|Map\\b|Set\\b|Stack\\b|Queue\\b|Deque\\b|Pair\\b))",
+          "begin": "(?<=[A-Za-z0-9_>])<(?=\\s*(?:[A-Z_]|Integer\\b|Boolean\\b|String\\b|Void\\b|CodePoint\\b|Array\\b|List\\b|Map\\b|Set\\b|Stack\\b|Queue\\b|Deque\\b|Pair\\b))",
           "end": ">",
           "beginCaptures": {
             "0": { "name": "punctuation.definition.typeparameters.begin.norm" }

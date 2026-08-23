@@ -301,6 +301,8 @@ final class Binder {
     return switch (expression) {
       case Syntax.IntegerLiteral integer ->
           new BoundExpression.Literal(integer.value(), type, integer.span());
+      case Syntax.CodePointLiteral codePoint ->
+          new BoundExpression.Literal(codePoint.value(), type, codePoint.span());
       case Syntax.BooleanLiteral bool ->
           new BoundExpression.Literal(bool.value(), type, bool.span());
       case Syntax.StringLiteralExpr string ->

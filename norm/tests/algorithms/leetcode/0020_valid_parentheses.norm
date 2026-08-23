@@ -1,18 +1,20 @@
-Boolean isValid(Array<Integer> text) {
-  Stack<Integer> openings = Stack<Integer>()
-  for Integer token : text {
-    if token > 0 {
+Boolean isValid(String value) {
+  Stack<CodePoint> openings = Stack<CodePoint>()
+  for CodePoint token : value.codePoints() {
+    if token == '(' || token == '[' || token == '{' {
       openings.push(token)
     } else {
-      if openings.isEmpty() || openings.pop() != -token { return false }
+      if openings.isEmpty() { return false }
+      CodePoint opening = openings.pop()
+      if token == ')' && opening != '(' || token == ']' && opening != '[' || token == '}' && opening != '{' { return false }
     }
   }
   return openings.isEmpty()
 }
 
 Void main() {
-  printLine(isValid([1, 2, -2, -1]))
-  printLine(isValid([1, 2, -1, -2]))
+  printLine(isValid("([])"))
+  printLine(isValid("([)]"))
   expectedOutputLine("true")
   expectedOutputLine("false")
 }

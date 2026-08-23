@@ -1,34 +1,34 @@
-Boolean matches(Array<Integer> text, Array<Integer> pattern) {
+Boolean matches(String textValue, String patternValue) {
+  Array<CodePoint> text = textValue.codePoints()
+  Array<CodePoint> pattern = patternValue.codePoints()
   List<Boolean> previous = List<Boolean>()
-  List<Boolean> seed = List<Boolean>()
-  for index : range(start: 0, end: text.size() + 1) { seed.add(false) }
-  seed[0] = true
-  List<Boolean> first = seed
+  List<Boolean> current = List<Boolean>()
+  for index : range(start: 0, end: text.size() + 1) { current.add(false) }
+  current[0] = true
   for patternIndex : range(start: 0, end: pattern.size()) {
-    if pattern[patternIndex] == -2 && patternIndex > 0 { first[0] = previous[0] }
-    List<Boolean> current = List<Boolean>()
-    for textIndex : range(start: 0, end: text.size() + 1) { current.add(false) }
-    if pattern[patternIndex] == -2 && patternIndex > 0 {
-      current[0] = previous[0]
+    List<Boolean> next = List<Boolean>()
+    for textIndex : range(start: 0, end: text.size() + 1) { next.add(false) }
+    if pattern[patternIndex] == '*' && patternIndex > 0 {
+      next[0] = previous[0]
       for textIndex : range(start: 1, end: text.size() + 1) {
-        Boolean same = pattern[patternIndex - 1] == -1 || pattern[patternIndex - 1] == text[textIndex - 1]
-        current[textIndex] = previous[textIndex] || (same && current[textIndex - 1])
+        Boolean same = pattern[patternIndex - 1] == '.' || pattern[patternIndex - 1] == text[textIndex - 1]
+        next[textIndex] = previous[textIndex] || (same && next[textIndex - 1])
       }
     } else {
       for textIndex : range(start: 1, end: text.size() + 1) {
-        Boolean same = pattern[patternIndex] == -1 || pattern[patternIndex] == text[textIndex - 1]
-        current[textIndex] = same && first[textIndex - 1]
+        Boolean same = pattern[patternIndex] == '.' || pattern[patternIndex] == text[textIndex - 1]
+        next[textIndex] = same && current[textIndex - 1]
       }
     }
-    previous = first
-    first = current
+    previous = current
+    current = next
   }
-  return first[text.size()]
+  return current[text.size()]
 }
 
 Void main() {
-  printLine(matches(text: [1, 1], pattern: [1, -2]))
-  printLine(matches(text: [1, 2], pattern: [-1, -2]))
+  printLine(matches(textValue: "aa", patternValue: "a*"))
+  printLine(matches(textValue: "ab", patternValue: ".*"))
   expectedOutputLine("true")
   expectedOutputLine("true")
 }

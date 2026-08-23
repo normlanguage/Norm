@@ -1,5 +1,6 @@
-Integer lengthOfLongestSubstring(Array<Integer> text) {
-  Set<Integer> window = Set<Integer>()
+Integer lengthOfLongestSubstring(String value) {
+  Array<CodePoint> text = value.codePoints()
+  Set<CodePoint> window = Set<CodePoint>()
   Integer left = 0
   Integer best = 0
   for right : range(start: 0, end: text.size()) {
@@ -16,8 +17,8 @@ Integer lengthOfLongestSubstring(Array<Integer> text) {
 }
 
 Void main() {
-  printLine(lengthOfLongestSubstring([1, 2, 3, 1, 2, 3, 2, 2]))
-  printLine(lengthOfLongestSubstring([1, 1, 1]))
+  printLine(lengthOfLongestSubstring("abcabcbb"))
+  printLine(lengthOfLongestSubstring("bbbbb"))
   expectedOutputLine("3")
   expectedOutputLine("1")
 }

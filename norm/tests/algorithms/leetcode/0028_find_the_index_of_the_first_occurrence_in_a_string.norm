@@ -1,4 +1,6 @@
-Integer strStr(Array<Integer> text, Array<Integer> pattern) {
+Integer strStr(String textValue, String patternValue) {
+  Array<CodePoint> text = textValue.codePoints()
+  Array<CodePoint> pattern = patternValue.codePoints()
   if pattern.size() == 0 { return 0 }
   for start : range(start: 0, end: text.size() - pattern.size() + 1) {
     Boolean equal = true
@@ -14,8 +16,8 @@ Integer strStr(Array<Integer> text, Array<Integer> pattern) {
 }
 
 Void main() {
-  printLine(strStr(text: [1, 2, 3, 1, 2], pattern: [1, 2]))
-  printLine(strStr(text: [1, 2, 3], pattern: [2, 2]))
+  printLine(strStr(textValue: "sadbutsad", patternValue: "sad"))
+  printLine(strStr(textValue: "leetcode", patternValue: "leeto"))
   expectedOutputLine("0")
   expectedOutputLine("-1")
 }

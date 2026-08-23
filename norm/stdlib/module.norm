@@ -5,6 +5,7 @@ Module(
     "collections.sequences",
     "math.integer",
     "testing.predicates",
-    "text.builders"
+    "text.builders",
+    "text.normalization"
   ]
 )

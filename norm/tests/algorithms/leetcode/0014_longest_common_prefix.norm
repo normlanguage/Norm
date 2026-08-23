@@ -1,23 +1,27 @@
-Integer longestCommonPrefix(List<Array<Integer>> words) {
-  if words.isEmpty() { return 0 }
-  Integer length = words[0].size()
-  for wordIndex : range(start: 1, end: words.size()) {
-    if words[wordIndex].size() < length { length = words[wordIndex].size() }
-    for index : range(start: 0, end: length) {
-      if words[wordIndex][index] != words[0][index] {
-        length = index
-        break
-      }
-    }
+Integer prefixLength(Array<CodePoint> left, Array<CodePoint> right, Integer limit) {
+  Integer length = limit
+  if right.size() < length { length = right.size() }
+  for index : range(start: 0, end: length) {
+    if left[index] != right[index] { return index }
   }
   return length
 }
 
+String longestCommonPrefix(List<String> words) {
+  if words.isEmpty() { return "" }
+  Array<CodePoint> first = words[0].codePoints()
+  Integer length = first.size()
+  for index : range(start: 1, end: words.size()) {
+    length = prefixLength(left: first, right: words[index].codePoints(), limit: length)
+  }
+  return words[0].sliceCodePoints(start: 0, end: length)
+}
+
 Void main() {
-  List<Array<Integer>> words = List<Array<Integer>>()
-  words.add([1, 2, 3, 4])
-  words.add([1, 2, 5])
-  words.add([1, 2, 3])
+  List<String> words = List<String>()
+  words.add("flower")
+  words.add("flow")
+  words.add("flight")
   printLine(longestCommonPrefix(words))
-  expectedOutputLine("2")
+  expectedOutputLine("fl")
 }

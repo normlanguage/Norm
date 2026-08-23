@@ -1,0 +1,32 @@
+List<List<Integer>> trees(Integer start, Integer end) {
+  List<List<Integer>> result = List<List<Integer>>()
+  if start > end {
+    List<Integer> empty = List<Integer>()
+    empty.add(0)
+    result.add(empty)
+    return result
+  }
+  for root : range(start: start, end: end + 1) {
+    List<List<Integer>> leftTrees = trees(start, end: root - 1)
+    List<List<Integer>> rightTrees = trees(start: root + 1, end)
+    for List<Integer> left : leftTrees {
+      for List<Integer> right : rightTrees {
+        List<Integer> encoded = List<Integer>()
+        encoded.add(root)
+        for Integer value : left { encoded.add(value) }
+        for Integer value : right { encoded.add(value) }
+        result.add(encoded)
+      }
+    }
+  }
+  return result
+}
+
+List<List<Integer>> generateTrees(Integer size) {
+  return trees(start: 1, end: size)
+}
+
+Void main() {
+  printLine(generateTrees(3).size())
+  expectedOutputLine("5")
+}

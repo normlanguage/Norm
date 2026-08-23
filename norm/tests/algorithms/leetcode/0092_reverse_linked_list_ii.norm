@@ -1,0 +1,19 @@
+Array<Integer> reverseBetween(Array<Integer> values, Integer left, Integer right) {
+  Integer start = left - 1
+  Integer end = right - 1
+  for offset : range(start: 0, end: (right - left + 1) / 2) {
+    Integer temporary = values[start + offset]
+    values[start + offset] = values[end - offset]
+    values[end - offset] = temporary
+  }
+  return values
+}
+
+Void main() {
+  for Integer value : reverseBetween(values: [1,2,3,4,5], left: 2, right: 4) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("4")
+  expectedOutputLine("3")
+  expectedOutputLine("2")
+  expectedOutputLine("5")
+}

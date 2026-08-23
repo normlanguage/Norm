@@ -18,6 +18,7 @@ public enum TokenKind {
   FALSE,
   IDENTIFIER,
   INTEGER,
+  CODE_POINT,
   STRING,
   LEFT_PAREN,
   RIGHT_PAREN,

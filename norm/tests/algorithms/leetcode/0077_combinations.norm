@@ -1,0 +1,26 @@
+class CombinationResults {
+  List<List<Integer>> values
+}
+
+Void choose(Integer size, Integer count, Integer next, List<Integer> current, CombinationResults result) {
+  if current.size() == count {
+    result.values.add(current)
+    return
+  }
+  for value : range(start: next, end: size + 1) {
+    List<Integer> added = current
+    added.add(value)
+    choose(size, count, next: value + 1, current: added, result)
+  }
+}
+
+List<List<Integer>> combine(Integer size, Integer count) {
+  CombinationResults result = CombinationResults(values: List<List<Integer>>())
+  choose(size, count, next: 1, current: List<Integer>(), result)
+  return result.values
+}
+
+Void main() {
+  printLine(combine(size: 4, count: 2).size())
+  expectedOutputLine("6")
+}

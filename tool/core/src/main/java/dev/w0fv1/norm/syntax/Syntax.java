@@ -252,6 +252,7 @@ public final class Syntax {
 
   public sealed interface Expression extends AstNode
       permits IntegerLiteral,
+          CodePointLiteral,
           BooleanLiteral,
           StringLiteralExpr,
           ArrayLiteral,
@@ -264,6 +265,12 @@ public final class Syntax {
 
   public record IntegerLiteral(long value, SourceSpan span) implements Expression {
     public IntegerLiteral {
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record CodePointLiteral(int value, SourceSpan span) implements Expression {
+    public CodePointLiteral {
       Objects.requireNonNull(span, "span");
     }
   }

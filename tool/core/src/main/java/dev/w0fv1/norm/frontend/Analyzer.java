@@ -664,6 +664,7 @@ final class Analyzer {
     SemanticType type =
         switch (expression) {
           case Syntax.IntegerLiteral ignored -> SemanticType.INTEGER;
+          case Syntax.CodePointLiteral ignored -> SemanticType.CODE_POINT;
           case Syntax.BooleanLiteral ignored -> SemanticType.BOOLEAN;
           case Syntax.StringLiteralExpr ignored -> SemanticType.STRING;
           case Syntax.ArrayLiteral array -> analyzeArray(array, expected);

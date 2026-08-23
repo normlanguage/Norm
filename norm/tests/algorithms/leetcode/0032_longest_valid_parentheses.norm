@@ -1,9 +1,10 @@
-Integer longestValidParentheses(Array<Integer> text) {
+Integer longestValidParentheses(String value) {
+  Array<CodePoint> text = value.codePoints()
   Stack<Integer> positions = Stack<Integer>()
   positions.push(-1)
   Integer best = 0
   for index : range(start: 0, end: text.size()) {
-    if text[index] == 1 {
+    if text[index] == '(' {
       positions.push(index)
     } else {
       positions.pop()
@@ -19,6 +20,6 @@ Integer longestValidParentheses(Array<Integer> text) {
 }
 
 Void main() {
-  printLine(longestValidParentheses([1, -1, 1, 1, -1, -1]))
+  printLine(longestValidParentheses("()(())"))
   expectedOutputLine("6")
 }

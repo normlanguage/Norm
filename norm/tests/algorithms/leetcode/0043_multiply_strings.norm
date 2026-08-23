@@ -1,10 +1,16 @@
-List<Integer> multiply(Array<Integer> left, Array<Integer> right) {
+Integer digit(CodePoint value) {
+  return value.scalarValue() - '0'.scalarValue()
+}
+
+String multiply(String leftValue, String rightValue) {
+  Array<CodePoint> left = leftValue.codePoints()
+  Array<CodePoint> right = rightValue.codePoints()
   List<Integer> digits = List<Integer>()
   for index : range(start: 0, end: left.size() + right.size()) { digits.add(0) }
   for i : range(start: 0, end: left.size()) {
     for j : range(start: 0, end: right.size()) {
       Integer position = i + j
-      Integer sum = digits[position] + left[left.size() - 1 - i] * right[right.size() - 1 - j]
+      Integer sum = digits[position] + digit(left[left.size() - 1 - i]) * digit(right[right.size() - 1 - j])
       digits[position] = sum % 10
       digits[position + 1] = digits[position + 1] + sum / 10
     }
@@ -13,16 +19,12 @@ List<Integer> multiply(Array<Integer> left, Array<Integer> right) {
     if digits.size() <= 1 || digits[digits.size() - 1] != 0 { break }
     digits.removeAt(digits.size() - 1)
   }
-  List<Integer> result = List<Integer>()
-  for index : range(start: 0, end: digits.size()) { result.add(digits[digits.size() - 1 - index]) }
-  return result
+  StringBuilder result = StringBuilder()
+  for offset : range(start: 0, end: digits.size()) { result.append(digits[digits.size() - 1 - offset]) }
+  return result.toString()
 }
 
 Void main() {
-  for Integer digit : multiply(left: [1, 2, 3], right: [4, 5, 6]) { printLine(digit) }
-  expectedOutputLine("5")
-  expectedOutputLine("6")
-  expectedOutputLine("0")
-  expectedOutputLine("8")
-  expectedOutputLine("8")
+  printLine(multiply(leftValue: "123", rightValue: "456"))
+  expectedOutputLine("56088")
 }

@@ -1,0 +1,25 @@
+Boolean isInterleave(String leftValue, String rightValue, String targetValue) {
+  Array<CodePoint> left = leftValue.codePoints()
+  Array<CodePoint> right = rightValue.codePoints()
+  Array<CodePoint> target = targetValue.codePoints()
+  if left.size() + right.size() != target.size() { return false }
+  List<Boolean> dp = List<Boolean>()
+  for column : range(start: 0, end: right.size() + 1) { dp.add(false) }
+  dp[0] = true
+  for row : range(start: 0, end: left.size() + 1) {
+    for column : range(start: 0, end: right.size() + 1) {
+      if row == 0 && column == 0 {
+      } else {
+        Boolean fromLeft = row > 0 && dp[column] && left[row - 1] == target[row + column - 1]
+        Boolean fromRight = column > 0 && dp[column - 1] && right[column - 1] == target[row + column - 1]
+        dp[column] = fromLeft || fromRight
+      }
+    }
+  }
+  return dp[right.size()]
+}
+
+Void main() {
+  printLine(isInterleave(leftValue: "aabcc", rightValue: "dbbca", targetValue: "aadbbcbcac"))
+  expectedOutputLine("true")
+}

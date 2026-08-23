@@ -1,0 +1,36 @@
+Integer histogram(Array<Integer> heights) {
+  Integer best = 0
+  for left : range(start: 0, end: heights.size()) {
+    Integer low = heights[left]
+    for right : range(start: left, end: heights.size()) {
+      if heights[right] < low { low = heights[right] }
+      Integer area = low * (right - left + 1)
+      if area > best { best = area }
+    }
+  }
+  return best
+}
+
+Integer maximalRectangle(List<Array<Integer>> matrix) {
+  Array<Integer> heights = matrix[0]
+  for column : range(start: 0, end: heights.size()) { heights[column] = 0 }
+  Integer best = 0
+  for row : range(start: 0, end: matrix.size()) {
+    for column : range(start: 0, end: heights.size()) {
+      if matrix[row][column] == 0 { heights[column] = 0 } else { heights[column] = heights[column] + 1 }
+    }
+    Integer area = histogram(heights)
+    if area > best { best = area }
+  }
+  return best
+}
+
+Void main() {
+  List<Array<Integer>> matrix = List<Array<Integer>>()
+  matrix.add([1,0,1,0,0])
+  matrix.add([1,0,1,1,1])
+  matrix.add([1,1,1,1,1])
+  matrix.add([1,0,0,1,0])
+  printLine(maximalRectangle(matrix))
+  expectedOutputLine("6")
+}

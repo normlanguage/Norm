@@ -1,32 +1,33 @@
 class Parentheses {
-  List<List<Integer>> values
+  List<String> values
 }
 
-Void buildParentheses(Parentheses result, List<Integer> current, Integer open, Integer close, Integer pairs) {
-  if current.size() == pairs * 2 {
+String addToken(String value, String token) {
+  StringBuilder result = StringBuilder()
+  result.append(value)
+  result.append(token)
+  return result.toString()
+}
+
+Void buildParentheses(Parentheses result, String current, Integer open, Integer close, Integer pairs) {
+  if current.codePointSize() == pairs * 2 {
     result.values.add(current)
     return
   }
-  if open < pairs {
-    List<Integer> next = current
-    next.add(1)
-    buildParentheses(result, current: next, open: open + 1, close, pairs)
-  }
-  if close < open {
-    List<Integer> next = current
-    next.add(-1)
-    buildParentheses(result, current: next, open, close: close + 1, pairs)
-  }
+  if open < pairs { buildParentheses(result, current: addToken(value: current, token: "("), open: open + 1, close, pairs) }
+  if close < open { buildParentheses(result, current: addToken(value: current, token: ")"), open, close: close + 1, pairs) }
 }
 
-List<List<Integer>> generateParenthesis(Integer pairs) {
-  Parentheses result = Parentheses(values: List<List<Integer>>())
-  buildParentheses(result, current: List<Integer>(), open: 0, close: 0, pairs)
+List<String> generateParenthesis(Integer pairs) {
+  Parentheses result = Parentheses(values: List<String>())
+  buildParentheses(result, current: "", open: 0, close: 0, pairs)
   return result.values
 }
 
 Void main() {
-  List<List<Integer>> answer = generateParenthesis(3)
+  List<String> answer = generateParenthesis(3)
   printLine(answer.size())
+  printLine(answer[0])
   expectedOutputLine("5")
+  expectedOutputLine("((()))")
 }

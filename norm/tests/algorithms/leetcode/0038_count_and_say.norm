@@ -1,29 +1,26 @@
-List<Integer> countAndSay(Integer n) {
-  List<Integer> current = List<Integer>()
-  current.add(1)
+String countAndSay(Integer n) {
+  String current = "1"
   for turn : range(start: 1, end: n) {
-    List<Integer> next = List<Integer>()
+    Array<CodePoint> points = current.codePoints()
+    StringBuilder next = StringBuilder()
     Integer index = 0
-    for step : range(start: 0, end: current.size()) {
-      if index >= current.size() { break }
+    for step : range(start: 0, end: points.size()) {
+      if index >= points.size() { break }
       Integer end = index + 1
-      for scan : range(start: index + 1, end: current.size()) {
-        if current[scan] != current[index] { break }
+      for scan : range(start: index + 1, end: points.size()) {
+        if points[scan] != points[index] { break }
         end = scan + 1
       }
-      next.add(end - index)
-      next.add(current[index])
+      next.append(end - index)
+      next.append(points[index])
       index = end
     }
-    current = next
+    current = next.toString()
   }
   return current
 }
 
 Void main() {
-  for Integer value : countAndSay(4) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("1")
-  expectedOutputLine("1")
+  printLine(countAndSay(4))
+  expectedOutputLine("1211")
 }

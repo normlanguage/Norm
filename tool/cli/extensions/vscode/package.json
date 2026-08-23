@@ -140,6 +140,7 @@
     "compile:tests": "esbuild src/test/extension.test.ts --bundle --platform=node --external:vscode --outfile=out/test/extension.test.js",
     "watch": "tsc -w -p ./",
     "check": "tsc --noEmit -p ./",
+    "test:language": "node scripts/test-language-configuration.mjs",
     "test:discovery": "esbuild src/cli-command.ts --bundle --platform=node --format=cjs --outfile=out/cli-command.cjs && node scripts/test-discovery.mjs",
     "test:release": "node scripts/test-release-package.mjs",
     "verify:vsix": "node scripts/verify-vsix.mjs",

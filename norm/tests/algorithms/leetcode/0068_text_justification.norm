@@ -1,40 +1,41 @@
-List<List<Integer>> fullJustify(List<Array<Integer>> words, Integer width) {
-  List<List<Integer>> lines = List<List<Integer>>()
+List<String> fullJustify(List<String> words, Integer width) {
+  List<String> lines = List<String>()
   Integer start = 0
   for step : range(start: 0, end: words.size()) {
     if start >= words.size() { break }
     Integer end = start
     Integer letters = 0
     for scan : range(start: start, end: words.size()) {
-      if letters + words[scan].size() + scan - start > width { break }
-      letters = letters + words[scan].size()
+      if letters + words[scan].codePointSize() + scan - start > width { break }
+      letters = letters + words[scan].codePointSize()
       end = scan + 1
     }
     Integer gaps = end - start - 1
-    List<Integer> line = List<Integer>()
+    StringBuilder line = StringBuilder()
     for word : range(start: start, end: end) {
-      for Integer token : words[word] { line.add(token) }
+      line.append(words[word])
       if word + 1 < end {
         Integer spaces = 1
         if end < words.size() && gaps > 0 {
           spaces = (width - letters) / gaps
           if word - start < (width - letters) % gaps { spaces = spaces + 1 }
         }
-        for space : range(start: 0, end: spaces) { line.add(0) }
+        for space : range(start: 0, end: spaces) { line.append(" ") }
       }
     }
-    for space : range(start: line.size(), end: width) { line.add(0) }
-    lines.add(line)
+    for space : range(start: line.size(), end: width) { line.append(" ") }
+    lines.add(line.toString())
     start = end
   }
   return lines
 }
 
 Void main() {
-  List<Array<Integer>> words = List<Array<Integer>>()
-  words.add([1,1])
-  words.add([2,2])
-  words.add([3,3])
-  printLine(fullJustify(words, width: 5).size())
-  expectedOutputLine("2")
+  List<String> words = List<String>()
+  words.add("This")
+  words.add("is")
+  words.add("text")
+  for String line : fullJustify(words, width: 8) { printLine(line) }
+  expectedOutputLine("This  is")
+  expectedOutputLine("text    ")
 }

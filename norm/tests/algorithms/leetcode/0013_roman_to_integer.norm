@@ -1,27 +1,24 @@
-Integer romanValue(Integer symbol) {
-  if symbol == 1 { return 1 }
-  if symbol == 5 { return 5 }
-  if symbol == 10 { return 10 }
-  if symbol == 50 { return 50 }
-  if symbol == 100 { return 100 }
-  if symbol == 500 { return 500 }
+Integer romanValue(CodePoint symbol) {
+  if symbol == 'I' { return 1 }
+  if symbol == 'V' { return 5 }
+  if symbol == 'X' { return 10 }
+  if symbol == 'L' { return 50 }
+  if symbol == 'C' { return 100 }
+  if symbol == 'D' { return 500 }
   return 1000
 }
 
-Integer romanToInt(Array<Integer> symbols) {
+Integer romanToInt(String value) {
+  Array<CodePoint> symbols = value.codePoints()
   Integer result = 0
   for index : range(start: 0, end: symbols.size()) {
-    Integer value = romanValue(symbols[index])
-    if index + 1 < symbols.size() && value < romanValue(symbols[index + 1]) {
-      result = result - value
-    } else {
-      result = result + value
-    }
+    Integer current = romanValue(symbols[index])
+    if index + 1 < symbols.size() && current < romanValue(symbols[index + 1]) { result = result - current } else { result = result + current }
   }
   return result
 }
 
 Void main() {
-  printLine(romanToInt([1000, 100, 1000, 10, 100, 1, 5]))
+  printLine(romanToInt("MCMXCIV"))
   expectedOutputLine("1994")
 }

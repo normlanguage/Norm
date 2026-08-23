@@ -1,0 +1,25 @@
+List<Integer> mergeSortedArray(Array<Integer> left, Integer leftSize, Array<Integer> right) {
+  List<Integer> result = List<Integer>()
+  Integer i = 0
+  Integer j = 0
+  for step : range(start: 0, end: leftSize + right.size()) {
+    if i < leftSize && (j >= right.size() || left[i] <= right[j]) {
+      result.add(left[i])
+      i = i + 1
+    } else {
+      result.add(right[j])
+      j = j + 1
+    }
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : mergeSortedArray(left: [1,2,3,0,0,0], leftSize: 3, right: [2,5,6]) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("5")
+  expectedOutputLine("6")
+}

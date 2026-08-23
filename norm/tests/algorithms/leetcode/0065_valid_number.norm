@@ -1,20 +1,22 @@
-Boolean validNumber(Array<Integer> tokens) {
+Boolean validNumber(String value) {
+  Array<CodePoint> tokens = value.codePoints()
   Boolean digit = false
   Boolean exponent = false
   Boolean decimal = false
   for index : range(start: 0, end: tokens.size()) {
-    Integer token = tokens[index]
-    if token >= 0 && token <= 9 {
+    CodePoint token = tokens[index]
+    Integer scalar = token.scalarValue()
+    if scalar >= '0'.scalarValue() && scalar <= '9'.scalarValue() {
       digit = true
-    } else if token == -4 {
+    } else if token == '.' {
       if decimal || exponent { return false }
       decimal = true
-    } else if token == -5 {
+    } else if token == 'e' || token == 'E' {
       if exponent || !digit { return false }
       exponent = true
       digit = false
-    } else if token == -1 || token == -2 {
-      if index > 0 && tokens[index - 1] != -5 { return false }
+    } else if token == '-' || token == '+' {
+      if index > 0 && tokens[index - 1] != 'e' && tokens[index - 1] != 'E' { return false }
     } else {
       return false
     }
@@ -23,8 +25,8 @@ Boolean validNumber(Array<Integer> tokens) {
 }
 
 Void main() {
-  printLine(validNumber([2,-5,1,0]))
-  printLine(validNumber([9,9,-5,2,-4,5]))
+  printLine(validNumber("2e10"))
+  printLine(validNumber("99e2.5"))
   expectedOutputLine("true")
   expectedOutputLine("false")
 }

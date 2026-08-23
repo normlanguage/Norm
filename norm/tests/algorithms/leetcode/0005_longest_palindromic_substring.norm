@@ -1,4 +1,4 @@
-Pair<Integer, Integer> expand(Array<Integer> text, Integer left, Integer right) {
+Pair<Integer, Integer> expand(Array<CodePoint> text, Integer left, Integer right) {
   for step : range(start: 0, end: text.size()) {
     if left < 0 || right >= text.size() || text[left] != text[right] { break }
     left = left - 1
@@ -7,7 +7,8 @@ Pair<Integer, Integer> expand(Array<Integer> text, Integer left, Integer right) 
   return Pair<Integer, Integer>(first: left + 1, second: right)
 }
 
-Pair<Integer, Integer> longestPalindrome(Array<Integer> text) {
+String longestPalindrome(String value) {
+  Array<CodePoint> text = value.codePoints()
   Pair<Integer, Integer> best = Pair<Integer, Integer>(first: 0, second: 0)
   for center : range(start: 0, end: text.size()) {
     Pair<Integer, Integer> odd = expand(text, left: center, right: center)
@@ -15,13 +16,10 @@ Pair<Integer, Integer> longestPalindrome(Array<Integer> text) {
     if odd.second - odd.first > best.second - best.first { best = odd }
     if even.second - even.first > best.second - best.first { best = even }
   }
-  return best
+  return value.sliceCodePoints(start: best.first, end: best.second)
 }
 
 Void main() {
-  Pair<Integer, Integer> answer = longestPalindrome([2, 1, 2, 1, 4])
-  printLine(answer.first)
-  printLine(answer.second)
-  expectedOutputLine("0")
-  expectedOutputLine("3")
+  printLine(longestPalindrome("babad"))
+  expectedOutputLine("bab")
 }

@@ -1,0 +1,36 @@
+String minWindow(String value, String requiredValue) {
+  Array<CodePoint> text = value.codePoints()
+  Array<CodePoint> required = requiredValue.codePoints()
+  Map<CodePoint, Integer> need = Map<CodePoint, Integer>()
+  for CodePoint token : required {
+    if need.containsKey(token) { need.put(key: token, value: need[token] + 1) } else { need.put(key: token, value: 1) }
+  }
+  Map<CodePoint, Integer> have = Map<CodePoint, Integer>()
+  Integer formed = 0
+  Integer left = 0
+  Pair<Integer, Integer> best = Pair<Integer, Integer>(first: 0, second: text.size() + 1)
+  for right : range(start: 0, end: text.size()) {
+    CodePoint token = text[right]
+    if need.containsKey(token) {
+      if have.containsKey(token) { have.put(key: token, value: have[token] + 1) } else { have.put(key: token, value: 1) }
+      if have[token] <= need[token] { formed = formed + 1 }
+    }
+    for step : range(start: 0, end: text.size()) {
+      if formed < required.size() { break }
+      if right - left + 1 < best.second - best.first { best = Pair<Integer, Integer>(first: left, second: right + 1) }
+      CodePoint removed = text[left]
+      if need.containsKey(removed) {
+        have.put(key: removed, value: have[removed] - 1)
+        if have[removed] < need[removed] { formed = formed - 1 }
+      }
+      left = left + 1
+    }
+  }
+  if best.second > text.size() { return "" }
+  return value.sliceCodePoints(start: best.first, end: best.second)
+}
+
+Void main() {
+  printLine(minWindow(value: "ADOBECODEBANC", requiredValue: "ABC"))
+  expectedOutputLine("BANC")
+}

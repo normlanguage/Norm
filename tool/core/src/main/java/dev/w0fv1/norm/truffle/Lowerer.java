@@ -188,7 +188,11 @@ final class Lowerer {
   private ExpressionNode lowerExpression(BoundExpression expression, FunctionPlan plan) {
     ExpressionNode lowered =
         switch (expression) {
-          case BoundExpression.Literal literal -> new ExpressionNodes.Literal(literal.value());
+          case BoundExpression.Literal literal ->
+              new ExpressionNodes.Literal(
+                  literal.type().equals(SemanticType.CODE_POINT)
+                      ? new RuntimeValues.CodePointValue(((Number) literal.value()).intValue())
+                      : literal.value());
           case BoundExpression.ArrayLiteral array ->
               new ExpressionNodes.ArrayLiteral(
                   array.elements().stream()

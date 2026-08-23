@@ -13,6 +13,7 @@ Norm 是静态强类型语言。编译器在程序运行前确定每个表达式
 | 十进制 | `Decimal` | 需要十进制语义的计算 |
 | 逻辑 | `Boolean` | `true` 或 `false` |
 | 文本 | `String` | 字符串值 |
+| Unicode 标量 | `CodePoint` | 单个 Unicode code point |
 
 Norm 没有统一的 `Object` 根类型。一个值能参与哪些操作，由它的具体类型或显式实现的接口决定。
 
@@ -106,4 +107,3 @@ class Coordinate implements Printable {
 `Coordinate` 是 `Printable`，因为声明中明确写出了 `implements Printable`，而不是因为它碰巧拥有同名方法。
 
 下一章：[Class、Value 与 Identity](/language/objects)。
-

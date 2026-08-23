@@ -12,6 +12,9 @@ public record SemanticType(
   public static final SemanticType INTEGER =
       new SemanticType(
           Kind.DECLARED, "std.core.Integer", "Integer", List.of(), ValueCategory.VALUE);
+  public static final SemanticType CODE_POINT =
+      new SemanticType(
+          Kind.DECLARED, "std.core.CodePoint", "CodePoint", List.of(), ValueCategory.VALUE);
   public static final SemanticType BOOLEAN =
       new SemanticType(
           Kind.DECLARED, "std.core.Boolean", "Boolean", List.of(), ValueCategory.VALUE);

@@ -1,20 +1,24 @@
-Integer myAtoi(Array<Integer> input) {
+Integer myAtoi(String inputValue) {
+  Array<CodePoint> input = inputValue.codePoints()
   Integer index = 0
   for step : range(start: 0, end: input.size()) {
-    if index >= input.size() || input[index] != -3 { break }
+    if index >= input.size() || input[index] != ' ' { break }
     index = index + 1
   }
   Integer sign = 1
-  if index < input.size() && input[index] == -1 {
+  if index < input.size() && input[index] == '-' {
     sign = -1
     index = index + 1
-  } else if index < input.size() && input[index] == -2 {
+  } else if index < input.size() && input[index] == '+' {
     index = index + 1
   }
   Integer value = 0
+  Integer zero = '0'.scalarValue()
   for step : range(start: 0, end: input.size()) {
-    if index >= input.size() || input[index] < 0 || input[index] > 9 { break }
-    Integer digit = input[index]
+    if index >= input.size() { break }
+    Integer scalar = input[index].scalarValue()
+    if scalar < zero || scalar > '9'.scalarValue() { break }
+    Integer digit = scalar - zero
     if value > 214748364 || (value == 214748364 && digit > 7) {
       if sign == 1 { return 2147483647 }
       return -2147483648
@@ -26,8 +30,8 @@ Integer myAtoi(Array<Integer> input) {
 }
 
 Void main() {
-  printLine(myAtoi([-3, -3, -1, 4, 2]))
-  printLine(myAtoi([4, 1, 9, 3, 0, 0, 0, 0, 0, 0]))
+  printLine(myAtoi("  -42"))
+  printLine(myAtoi("4193000000"))
   expectedOutputLine("-42")
   expectedOutputLine("2147483647")
 }

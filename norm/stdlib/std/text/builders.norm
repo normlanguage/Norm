@@ -14,3 +14,9 @@ public String join(List<String> values, String separator) {
   }
   return result.toString()
 }
+
+public String fromCodePoints(Array<CodePoint> values) {
+  StringBuilder result = StringBuilder()
+  for CodePoint value : values { result.append(value) }
+  return result.toString()
+}

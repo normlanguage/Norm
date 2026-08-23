@@ -1,9 +1,9 @@
-Array<Integer> signature(Array<Integer> word) {
-  Array<Integer> sorted = word
+Array<CodePoint> signature(String word) {
+  Array<CodePoint> sorted = word.codePoints()
   for pass : range(start: 0, end: sorted.size()) {
     for index : range(start: 0, end: sorted.size() - 1) {
-      if sorted[index] > sorted[index + 1] {
-        Integer temporary = sorted[index]
+      if sorted[index].scalarValue() > sorted[index + 1].scalarValue() {
+        CodePoint temporary = sorted[index]
         sorted[index] = sorted[index + 1]
         sorted[index + 1] = temporary
       }
@@ -12,19 +12,20 @@ Array<Integer> signature(Array<Integer> word) {
   return sorted
 }
 
-Integer groupAnagrams(List<Array<Integer>> words) {
-  Set<Array<Integer>> groups = Set<Array<Integer>>()
-  for Array<Integer> word : words { groups.add(signature(word)) }
+Integer groupAnagrams(List<String> words) {
+  Set<Array<CodePoint>> groups = Set<Array<CodePoint>>()
+  for String word : words { groups.add(signature(word)) }
   return groups.size()
 }
 
 Void main() {
-  List<Array<Integer>> words = List<Array<Integer>>()
-  words.add([1, 2, 3])
-  words.add([3, 2, 1])
-  words.add([4, 5])
-  words.add([5, 4])
-  words.add([9])
+  List<String> words = List<String>()
+  words.add("eat")
+  words.add("tea")
+  words.add("tan")
+  words.add("ate")
+  words.add("nat")
+  words.add("bat")
   printLine(groupAnagrams(words))
   expectedOutputLine("3")
 }

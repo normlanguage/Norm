@@ -1,0 +1,49 @@
+class Addresses {
+  List<String> values
+}
+
+Integer segmentValue(Array<CodePoint> digits, Integer start, Integer end) {
+  Integer value = 0
+  for index : range(start: start, end: end) { value = value * 10 + digits[index].scalarValue() - '0'.scalarValue() }
+  return value
+}
+
+String address(List<Integer> parts) {
+  StringBuilder result = StringBuilder()
+  for index : range(start: 0, end: parts.size()) {
+    if index > 0 { result.append(".") }
+    result.append(parts[index])
+  }
+  return result.toString()
+}
+
+Void restore(Array<CodePoint> digits, Integer index, List<Integer> parts, Addresses result) {
+  if parts.size() == 4 {
+    if index == digits.size() { result.values.add(address(parts)) }
+    return
+  }
+  for length : range(start: 1, end: 4) {
+    if index + length <= digits.size() {
+      Integer value = segmentValue(digits, start: index, end: index + length)
+      if value <= 255 && (length == 1 || digits[index] != '0') {
+        List<Integer> next = parts
+        next.add(value)
+        restore(digits, index: index + length, parts: next, result)
+      }
+    }
+  }
+}
+
+List<String> restoreIpAddresses(String value) {
+  Addresses result = Addresses(values: List<String>())
+  restore(digits: value.codePoints(), index: 0, parts: List<Integer>(), result)
+  return result.values
+}
+
+Void main() {
+  List<String> result = restoreIpAddresses("25525511135")
+  printLine(result.size())
+  printLine(result[0])
+  expectedOutputLine("2")
+  expectedOutputLine("255.255.11.135")
+}
