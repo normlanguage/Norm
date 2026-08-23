@@ -301,10 +301,13 @@ suite('Norm VS Code extension', () => {
         );
         return value?.items.some((item) => labelOf(item) === 'label') ? value : undefined;
       });
-      const labels = completions.items.map(labelOf);
       const label = completions.items.find((item) => labelOf(item) === 'label');
+      const count = completions.items.find((item) => labelOf(item) === 'count');
       assert.ok(label);
-      assert.ok(labels.indexOf('label') < labels.indexOf('count'));
+      assert.ok(count);
+      assert.ok(label.sortText);
+      assert.ok(count.sortText);
+      assert.ok(label.sortText < count.sortText);
       assert.equal(label.preselect, true);
 
       const signature = await eventually(async () =>
@@ -326,11 +329,11 @@ suite('Norm VS Code extension', () => {
     const document = await openProjectFixture('sample/app/Main.norm');
     const original = document.getText();
     const edited = original
-      .replace('import sample.util.identity\n', '')
+      .replace(/import sample\.util\.identity\r?\n/, '')
       .replace('identity(value: box.value[0])', 'iden');
     await replaceDocument(document, edited);
     try {
-      const start = edited.indexOf('iden');
+      const start = edited.lastIndexOf('iden');
       const position = document.positionAt(start + 'iden'.length);
       const completions = await eventually(async () => {
         const value = await vscode.commands.executeCommand<vscode.CompletionList>(
@@ -349,7 +352,7 @@ suite('Norm VS Code extension', () => {
       assert.equal(identity.additionalTextEdits?.length, 1);
       assert.equal(
         identity.additionalTextEdits?.[0].newText,
-        '\nimport sample.util.identity',
+        `${document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'}import sample.util.identity`,
       );
     } finally {
       await replaceDocument(document, original);

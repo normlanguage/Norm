@@ -73,6 +73,17 @@ public final class SourceFile {
     return lineStarts.length;
   }
 
+  public String lineSeparator() {
+    for (int index = 0; index < text.length(); index++) {
+      char character = text.charAt(index);
+      if (character == '\r') {
+        return index + 1 < text.length() && text.charAt(index + 1) == '\n' ? "\r\n" : "\r";
+      }
+      if (character == '\n') return "\n";
+    }
+    return "\n";
+  }
+
   public SourcePosition positionAt(int offset) {
     requireOffset(offset);
     int lineIndex = Arrays.binarySearch(lineStarts, offset);

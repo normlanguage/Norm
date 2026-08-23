@@ -6,9 +6,10 @@ import dev.w0fv1.norm.value.SourceLocation;
 
 final class ImportEditBuilder {
   CompletionTextEdit create(DocumentSemanticModel document, String qualifiedName) {
+    String newline = document.source().lineSeparator();
     if (!document.syntax().imports().isEmpty()) {
       int offset = document.syntax().imports().getLast().span().endOffset();
-      return edit(document, offset, "\nimport " + qualifiedName);
+      return edit(document, offset, newline + "import " + qualifiedName);
     }
     if (!document.syntax().packageName().isEmpty()) {
       var tokens = document.tokens();
@@ -21,9 +22,9 @@ final class ImportEditBuilder {
               .map(index -> tokens.get(index).span().endOffset())
               .reduce((first, second) -> second)
               .orElse(tokens.getFirst().span().endOffset());
-      return edit(document, offset, "\n\nimport " + qualifiedName);
+      return edit(document, offset, newline + newline + "import " + qualifiedName);
     }
-    return edit(document, 0, "import " + qualifiedName + "\n\n");
+    return edit(document, 0, "import " + qualifiedName + newline + newline);
   }
 
   private static CompletionTextEdit edit(DocumentSemanticModel document, int offset, String text) {

@@ -473,7 +473,7 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
-            "package sample.app\n\nvoid main() { twi }\n");
+            "package sample.app\r\n\r\nvoid main() { twi }\r\n");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/math/Numbers.norm"),
@@ -490,7 +490,8 @@ final class LanguageServiceTest {
 
     assertEquals("twice(${1:value})", twice.insertText());
     assertEquals(1, twice.additionalTextEdits().size());
-    assertEquals("\n\nimport sample.math.twice", twice.additionalTextEdits().getFirst().newText());
+    assertEquals(
+        "\r\n\r\nimport sample.math.twice", twice.additionalTextEdits().getFirst().newText());
   }
 
   @Test
