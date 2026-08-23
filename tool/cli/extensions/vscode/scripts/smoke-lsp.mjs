@@ -100,10 +100,10 @@ function readMessages() {
         params: 'stdlib:/std/math/integer.norm',
       });
     } else if (message.id === 2) {
-      if (typeof message.result !== 'string' || !message.result.includes('public int clamp')) {
+      if (typeof message.result !== 'string' || !message.result.includes('public Integer clamp')) {
         return finish(new Error(`Standard-library source request failed: ${JSON.stringify(message)}`));
       }
-      const text = 'void consume(String value, int count) {} void main() { consume(';
+      const text = 'Void consume(String value, Integer count) {} Void main() { consume(';
       send({
         jsonrpc: '2.0',
         method: 'textDocument/didOpen',
@@ -129,7 +129,7 @@ function readMessages() {
     } else if (message.id === 3) {
       if (
         message.result?.activeParameter !== 0 ||
-        message.result?.signatures?.[0]?.label !== 'void consume(String value, int count)'
+        message.result?.signatures?.[0]?.label !== 'Void consume(String value, Integer count)'
       ) {
         return finish(new Error(`Signature-help request failed: ${JSON.stringify(message)}`));
       }
