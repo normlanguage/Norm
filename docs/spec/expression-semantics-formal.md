@@ -28,7 +28,7 @@ String result = if enabled {
 
 ## 无隐式 Null
 
-缺失 else、未匹配 case 或耗尽 for 不会自动得到 null。程序必须补全分支、在 for 后写 else，或显式选择 Option enum。
+缺失 else、未匹配 case 或耗尽 for 不会自动得到 null。程序必须补全分支、在 for 后写 else，或显式返回 nullable 类型。
 
 ## 调用和构造
 

@@ -1,7 +1,6 @@
 List<Integer> mergeKLists(List<Array<Integer>> lists) {
   List<Integer> result = List<Integer>()
-  List<Integer> positions = List<Integer>()
-  for Array<Integer> values : lists { positions.add(0) }
+  List<Integer> positions = List.filled(size: lists.size(), value: 0)
   for step : range(start: 0, end: 1000) {
     Integer chosen = -1
     Integer value = 0

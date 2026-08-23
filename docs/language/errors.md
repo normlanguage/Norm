@@ -58,7 +58,7 @@ Norm 保留 `try`、`catch`、`finally` 和 `throw`。异常适合无法在当�
 | 情况 | 建议模型 |
 | --- | --- |
 | 输入格式可能不正确 | `Result<T, ParseError>` |
-| 查找可能没有结果 | 显式 `Option<T>` 一类 enum |
+| 查找可能没有结果 | nullable `T?` |
 | 算法存在多个正常结果 | enum |
 | I/O 在执行中意外中断 | Exception |
 | 违反内部不变量 | Exception |

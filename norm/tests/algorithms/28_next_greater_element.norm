@@ -1,10 +1,8 @@
 List<Integer> nextGreater(Array<Integer> values) {
-  List<Integer> result = List<Integer>()
-  for Integer value : values { result.add(-1) }
+  List<Integer> result = List.filled(size: values.size(), value: -1)
   Stack<Integer> indices = Stack<Integer>()
   for index : range(start: 0, end: values.size()) {
-    for step : range(start: 0, end: values.size()) {
-      if indices.isEmpty() { break }
+    for !indices.isEmpty() {
       Integer previous = indices.peek()
       if values[previous] >= values[index] { break }
       indices.pop()

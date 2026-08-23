@@ -1,0 +1,6 @@
+Void main() {
+  for value : range(start: 8, end: 0, step: -3) { printLine(value) }
+  expectedOutputLine("8")
+  expectedOutputLine("5")
+  expectedOutputLine("2")
+}

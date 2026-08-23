@@ -1,7 +1,6 @@
 List<Integer> plusOne(Array<Integer> digits) {
   Integer carry = 1
-  for offset : range(start: 0, end: digits.size()) {
-    Integer index = digits.size() - 1 - offset
+  for index : range(start: digits.size() - 1, end: -1, step: -1) {
     Integer value = digits[index] + carry
     digits[index] = value % 10
     carry = value / 10

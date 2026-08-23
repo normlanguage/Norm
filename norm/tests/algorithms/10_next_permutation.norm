@@ -12,8 +12,7 @@ Array<Integer> reverse(Array<Integer> values, Integer start) {
 
 Array<Integer> nextPermutation(Array<Integer> values) {
   Integer pivot = -1
-  for step : range(start: 0, end: values.size() - 1) {
-    Integer index = values.size() - 2 - step
+  for index : range(start: values.size() - 2, end: -1, step: -1) {
     if values[index] < values[index + 1] {
       pivot = index
       break
@@ -21,8 +20,7 @@ Array<Integer> nextPermutation(Array<Integer> values) {
   }
   if pivot < 0 { return reverse(values, start: 0) }
   Integer successor = values.size() - 1
-  for step : range(start: 0, end: values.size()) {
-    Integer index = values.size() - 1 - step
+  for index : range(start: values.size() - 1, end: pivot, step: -1) {
     if values[index] > values[pivot] {
       successor = index
       break

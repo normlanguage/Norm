@@ -30,6 +30,8 @@ List<String?> listWithOptionalItems
 
 这两个类型不同：前者允许列表本身为空，后者允许列表元素为空。`ref<T>` 与 nullable 的组合由引用类型规范定义。
 
+`T?` 在类型替换后规范化。如果 T 已经是 nullable 类型，结果仍为一层 nullable。Void 不能声明为 nullable。
+
 ## 泛型参数
 
 使用泛型类型必须写出全部参数；Norm 没有 raw type。
@@ -48,4 +50,3 @@ Integer operation(Integer value)
 ```
 
 函数类型包含返回类型和参数列表。参数名用于局部可读性，不参与类型相等；返回类型和每个参数类型参与兼容性判断。
-

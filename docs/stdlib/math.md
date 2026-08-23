@@ -2,7 +2,7 @@
 
 Math 模块提供固定语义的数值函数。它是顶层函数集合，不需要 `Math` 工具 class 或 static 方法。
 
-0.2 已交付整数 `abs`、`min`、`max`、`clamp` 与 `sign`，实现在 `norm/stdlib/std/math`。下面其余函数属于 1.0 API 设计，尚未进入 0.2。
+当前实现已交付整数 `abs`、`min`、`max`、`clamp` 与 `sign`，实现在 `norm/stdlib/std/math`。下面其余函数属于 1.0 API 设计。
 
 `clamp` 要求 `minimum <= maximum`。
 

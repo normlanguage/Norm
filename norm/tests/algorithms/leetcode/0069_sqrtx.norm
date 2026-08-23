@@ -2,8 +2,7 @@ Integer mySqrt(Integer value) {
   if value < 2 { return value }
   Integer left = 0
   Integer right = value
-  for step : range(start: 0, end: 64) {
-    if left > right { break }
+  for left <= right {
     Integer middle = left + (right - left) / 2
     if middle <= value / middle {
       if middle + 1 > value / (middle + 1) { return middle }

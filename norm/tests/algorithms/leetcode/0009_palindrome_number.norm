@@ -1,8 +1,7 @@
 Boolean isPalindrome(Integer value) {
   if value < 0 || (value % 10 == 0 && value != 0) { return false }
   Integer reversed = 0
-  for step : range(start: 0, end: 20) {
-    if value <= reversed { break }
+  for value > reversed {
     reversed = reversed * 10 + value % 10
     value = value / 10
   }

@@ -13,6 +13,7 @@ public sealed interface BoundStatement extends BoundNode
         BoundStatement.IntrinsicAssignment,
         BoundStatement.ExpressionStatement,
         BoundStatement.IfStatement,
+        BoundStatement.ConditionalForStatement,
         BoundStatement.ForStatement,
         BoundStatement.ReturnStatement,
         BoundStatement.BreakStatement,
@@ -121,6 +122,15 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(body, "body");
       Objects.requireNonNull(iterationIntrinsic, "iterationIntrinsic");
       Objects.requireNonNull(transfer, "transfer");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record ConditionalForStatement(BoundExpression condition, BoundBlock body, SourceSpan span)
+      implements BoundStatement {
+    public ConditionalForStatement {
+      Objects.requireNonNull(condition, "condition");
+      Objects.requireNonNull(body, "body");
       Objects.requireNonNull(span, "span");
     }
   }

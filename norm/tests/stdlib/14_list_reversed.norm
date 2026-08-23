@@ -1,0 +1,14 @@
+Void main() {
+  List<Integer> source = List<Integer>()
+  source.add(1)
+  source.add(2)
+  source.add(3)
+  List<Integer> result = source.reversed()
+  result[0] = 9
+  printLine(source[0])
+  for value : result { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("9")
+  expectedOutputLine("2")
+  expectedOutputLine("1")
+}

@@ -1,0 +1,7 @@
+Void main() {
+  Range values = range(start: 0, end: 9223372036854775807, step: 9223372036854775807)
+  printLine(values.size())
+  for value : values { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("0")
+}

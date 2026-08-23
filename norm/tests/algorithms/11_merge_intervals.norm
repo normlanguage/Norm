@@ -34,9 +34,9 @@ List<Interval> mergeIntervals(List<Interval> intervals) {
     if merged.isEmpty() {
       merged.add(current)
     } else {
-      Interval previous = merged[merged.size() - 1]
+      Interval previous = merged.last()
       if current.start <= previous.end {
-        merged.removeAt(merged.size() - 1)
+        merged.removeLast()
         merged.add(
           Interval(
             start: previous.start,

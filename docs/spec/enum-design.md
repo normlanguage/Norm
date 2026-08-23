@@ -32,5 +32,4 @@ String describe(Token token) {
 
 在同一兼容性级别内新增 public enum variant 是源码破坏性变更：已有穷尽 switch 会需要新增分支。库作者若需要开放扩展集合，应使用 interface，而不是预留 `Unknown` variant 掩盖模型变化。
 
-`Result<T, E>`、`Option<T>` 等库类型使用普通 enum 定义，不获得隐藏控制流或特殊运行时表示。
-
+`Result<T, E>` 等库类型使用普通 enum 定义，不获得隐藏控制流或特殊运行时表示。

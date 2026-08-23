@@ -14,5 +14,6 @@ public enum BoundBinaryOperator {
   EQUAL,
   NOT_EQUAL,
   AND,
-  OR
+  OR,
+  COALESCE
 }

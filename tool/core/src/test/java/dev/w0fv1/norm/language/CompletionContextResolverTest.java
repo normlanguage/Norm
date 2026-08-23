@@ -22,6 +22,9 @@ final class CompletionContextResolverTest {
     assertContext(
         "Void main() { List<Integer> values = List<Integer>() values.|add(1) }",
         CompletionContext.Member.class);
+    assertContext(
+        "Void main() { String? value = null value?.|codePointSize() }",
+        CompletionContext.Member.class);
     assertContext("Void main() { printLine(\"text |\") }", CompletionContext.None.class);
     assertContext("Void main() { // comment |\n printLine(1) }", CompletionContext.None.class);
   }

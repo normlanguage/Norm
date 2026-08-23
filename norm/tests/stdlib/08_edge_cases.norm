@@ -1,6 +1,5 @@
 import std.collections.listContains
 import std.collections.listCount
-import std.collections.reversed
 import std.collections.toList
 import std.math.abs
 import std.math.clamp
@@ -20,7 +19,7 @@ Void main() {
   printLine(equal(actual: clamp(value: 9, minimum: 4, maximum: 4), expected: 4))
   printLine(equal(actual: listContains(values: empty, target: 1), expected: false))
   printLine(equal(actual: listCount(values: empty, target: 1), expected: 0))
-  printLine(equal(actual: reversed(values: empty).size(), expected: 0))
+  printLine(equal(actual: empty.reversed().size(), expected: 0))
   printLine(equal(actual: toList<Integer>([]).size(), expected: 0))
   printLine(equal(actual: repeat(value: "Norm", count: 0), expected: ""))
   printLine(equal(actual: repeat(value: "", count: 3), expected: ""))

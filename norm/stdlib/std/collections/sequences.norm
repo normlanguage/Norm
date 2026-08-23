@@ -15,17 +15,92 @@ public Integer listCount<T>(List<T> values, T target) {
   return count
 }
 
-public List<T> reversed<T>(List<T> values) {
+public List<T> toList<T>(Array<T> values) {
   List<T> result = List<T>()
-  for offset : range(start: 0, end: values.size()) {
-    Integer index = values.size() - offset - 1
-    result.add(values[index])
+  for T value : values { result.add(value) }
+  return result
+}
+
+public List<Integer> sort(List<Integer> values) {
+  List<Integer> result = values
+  for end : range(start: 1, end: result.size()) {
+    Integer index = end
+    for index > 0 && result[index - 1] > result[index] {
+      Integer temporary = result[index]
+      result[index] = result[index - 1]
+      result[index - 1] = temporary
+      index = index - 1
+    }
   }
   return result
 }
 
-public List<T> toList<T>(Array<T> values) {
-  List<T> result = List<T>()
-  for T value : values { result.add(value) }
+public Array<Integer> sort(Array<Integer> values) {
+  Array<Integer> result = values
+  for end : range(start: 1, end: result.size()) {
+    Integer index = end
+    for index > 0 && result[index - 1] > result[index] {
+      Integer temporary = result[index]
+      result[index] = result[index - 1]
+      result[index - 1] = temporary
+      index = index - 1
+    }
+  }
+  return result
+}
+
+public List<CodePoint> sort(List<CodePoint> values) {
+  List<CodePoint> result = values
+  for end : range(start: 1, end: result.size()) {
+    Integer index = end
+    for index > 0 && result[index - 1].scalarValue() > result[index].scalarValue() {
+      CodePoint temporary = result[index]
+      result[index] = result[index - 1]
+      result[index - 1] = temporary
+      index = index - 1
+    }
+  }
+  return result
+}
+
+public Array<CodePoint> sort(Array<CodePoint> values) {
+  Array<CodePoint> result = values
+  for end : range(start: 1, end: result.size()) {
+    Integer index = end
+    for index > 0 && result[index - 1].scalarValue() > result[index].scalarValue() {
+      CodePoint temporary = result[index]
+      result[index] = result[index - 1]
+      result[index - 1] = temporary
+      index = index - 1
+    }
+  }
+  return result
+}
+
+public List<String> sort(List<String> values) {
+  List<String> result = values
+  for end : range(start: 1, end: result.size()) {
+    Integer index = end
+    for index > 0 && result[index - 1].compareCodePoints(result[index]) > 0 {
+      String temporary = result[index]
+      result[index] = result[index - 1]
+      result[index - 1] = temporary
+      index = index - 1
+    }
+  }
+  return result
+}
+
+public Array<String> sort(Array<String> values) {
+  Array<String> result = values
+  for end : range(start: 1, end: result.size()) {
+    Integer index = end
+    for index > 0 && result[index - 1].compareCodePoints(result[index]) > 0 {
+      String temporary = result[index]
+      result[index] = result[index - 1]
+      result[index - 1] = temporary
+      index = index - 1
+    }
+  }
   return result
 }

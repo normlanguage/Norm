@@ -4,8 +4,7 @@ Integer trap(Array<Integer> height) {
   Integer leftMaximum = 0
   Integer rightMaximum = 0
   Integer water = 0
-  for step : range(start: 0, end: height.size()) {
-    if left >= right { break }
+  for left < right {
     if height[left] <= height[right] {
       if height[left] >= leftMaximum { leftMaximum = height[left] } else { water = water + leftMaximum - height[left] }
       left = left + 1

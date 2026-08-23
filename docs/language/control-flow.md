@@ -42,7 +42,7 @@ Norm 不会为缺失分支隐式补上 null。
 
 ## For 循环
 
-`for` 使用 foreach 形状遍历序列：
+遍历式 `for` 依次绑定序列元素：
 
 ```norm
 for Integer number : numbers {
@@ -50,7 +50,15 @@ for Integer number : numbers {
 }
 ```
 
-Norm 不提供 C 风格 `for` 或 `while`。数值范围不是特殊语法，而是实现迭代协议的普通值。
+条件式 `for` 在每轮开始前重新计算 Boolean 条件：
+
+```norm
+for values.size() > 1 && values.last() == 0 {
+    values.removeLast()
+}
+```
+
+条件初始为 false 时循环执行零次。`continue` 重新进入条件检查，`break` 结束循环。数值范围不是特殊语法，而是实现迭代协议的普通值。
 
 当元素类型静态唯一时可以省略循环变量类型。`Range` 推断为 `Integer`，泛型集合从元素类型参数推断：
 
@@ -98,7 +106,7 @@ Integer firstEven = for Integer number : numbers {
 }
 ```
 
-这段代码没有隐藏的 nullable 结果：调用者明确决定找不到偶数时得到 `0`。如果 `0` 不是合适的语义，应返回一个 enum，例如 `Option<Integer>`。
+调用者为正常耗尽路径明确选择结果。需要表达缺失时可以返回 nullable 类型。
 
 ## Switch
 
@@ -116,4 +124,3 @@ String name = switch direction {
 封闭 enum 的分支必须穷尽。详细模式规则见[Enum 与 Switch](/language/enum-switch)。
 
 下一章：[接口](/language/interfaces)。
-

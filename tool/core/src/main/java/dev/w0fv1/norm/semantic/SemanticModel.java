@@ -216,8 +216,15 @@ public final class SemanticModel implements SemanticIndex {
         .map(
             symbol ->
                 symbol.id().value().startsWith("builtin/")
-                    ? BuiltinCatalog.standard().member(type, symbol.name()).orElse(symbol)
+                    ? BuiltinCatalog.standard().member(type, symbol.id()).orElse(symbol)
                     : symbol)
+        .toList();
+  }
+
+  public List<Symbol> typeMembers(String typeName) {
+    return BuiltinCatalog.standard().type(typeName).stream()
+        .flatMap(type -> type.typeMembers().stream())
+        .map(dev.w0fv1.norm.builtin.BuiltinCatalog.MemberDefinition::symbol)
         .toList();
   }
 
@@ -236,8 +243,39 @@ public final class SemanticModel implements SemanticIndex {
                         symbol ->
                             symbol.declaration().isEmpty()
                                 || symbol.declaration().orElseThrow().startOffset() <= offset)
-                    .forEach(symbol -> visible.put(symbol.name(), symbol)));
+                    .forEach(
+                        symbol -> {
+                          if (callable(symbol)) {
+                            boolean shadowed =
+                                visible.values().stream()
+                                    .anyMatch(
+                                        candidate ->
+                                            candidate.name().equals(symbol.name())
+                                                && !callable(candidate));
+                            if (!shadowed) visible.put(visibleKey(symbol), symbol);
+                          } else {
+                            visible
+                                .entrySet()
+                                .removeIf(entry -> entry.getValue().name().equals(symbol.name()));
+                            visible.put(symbol.name(), symbol);
+                          }
+                        }));
     return List.copyOf(visible.values());
+  }
+
+  private static boolean callable(Symbol symbol) {
+    return symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.TYPE_METHOD;
+  }
+
+  private static String visibleKey(Symbol symbol) {
+    if (!callable(symbol)) return symbol.name();
+    return symbol.name()
+        + "\u0000"
+        + symbol.parameters().stream()
+            .map(parameter -> parameter.type().displayName())
+            .collect(java.util.stream.Collectors.joining(","));
   }
 
   public List<SourceSpan> references(SymbolId id) {

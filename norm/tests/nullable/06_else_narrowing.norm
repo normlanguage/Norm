@@ -1,0 +1,14 @@
+Void show(String? value) {
+  if value == null {
+    printLine("none")
+  } else {
+    printLine(value)
+  }
+}
+
+Void main() {
+  show(value: null)
+  show(value: "ready")
+  expectedOutputLine("none")
+  expectedOutputLine("ready")
+}

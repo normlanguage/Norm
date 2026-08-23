@@ -3,8 +3,7 @@ String intToRoman(Integer value) {
   Array<String> symbols = ["M","CM","D","CD","C","XC","L","XL","X","IX","V","IV","I"]
   StringBuilder result = StringBuilder()
   for index : range(start: 0, end: values.size()) {
-    for step : range(start: 0, end: 4) {
-      if value < values[index] { break }
+    for value >= values[index] {
       result.append(symbols[index])
       value = value - values[index]
     }

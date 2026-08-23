@@ -13,8 +13,7 @@ Integer divide(Integer dividend, Integer divisor) {
   for bit : range(start: 0, end: 31) {
     Integer shifted = divisor
     Integer power = 1
-    for step : range(start: 0, end: 30 - bit) {
-      if shifted > dividend / 2 { break }
+    for shifted <= dividend / 2 {
       shifted = shifted + shifted
       power = power + power
     }

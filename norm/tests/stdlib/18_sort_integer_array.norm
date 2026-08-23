@@ -1,0 +1,13 @@
+import std.collections.sort
+
+Void main() {
+  Array<Integer> source = [3, 1, 2, 1]
+  Array<Integer> result = sort(values: source)
+  for value : result { printLine(value) }
+  printLine(source[0])
+  expectedOutputLine("1")
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("3")
+}

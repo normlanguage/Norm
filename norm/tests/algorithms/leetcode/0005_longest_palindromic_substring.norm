@@ -1,6 +1,5 @@
 Pair<Integer, Integer> expand(Array<CodePoint> text, Integer left, Integer right) {
-  for step : range(start: 0, end: text.size()) {
-    if left < 0 || right >= text.size() || text[left] != text[right] { break }
+  for left >= 0 && right < text.size() && text[left] == text[right] {
     left = left - 1
     right = right + 1
   }

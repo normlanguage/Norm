@@ -220,6 +220,9 @@ final class Binder {
               bindBlock(conditional.thenBody(), conditional.span()),
               bindBlock(conditional.elseBody(), conditional.span()),
               conditional.span());
+      case Syntax.ConditionalForStatement loop ->
+          new BoundStatement.ConditionalForStatement(
+              bindExpression(loop.condition()), bindBlock(loop.body(), loop.span()), loop.span());
       case Syntax.ForStatement loop -> {
         Symbol variable = symbol(loop.variableNameSpan());
         yield new BoundStatement.ForStatement(
@@ -305,6 +308,7 @@ final class Binder {
           new BoundExpression.Literal(codePoint.value(), type, codePoint.span());
       case Syntax.BooleanLiteral bool ->
           new BoundExpression.Literal(bool.value(), type, bool.span());
+      case Syntax.NullLiteral literal -> new BoundExpression.NullLiteral(type, literal.span());
       case Syntax.StringLiteralExpr string ->
           new BoundExpression.Literal(string.value(), type, string.span());
       case Syntax.ArrayLiteral array ->
@@ -358,7 +362,13 @@ final class Binder {
   private BoundExpression bindCall(Syntax.Call call, SemanticType type) {
     List<BoundArgument> arguments = bindArguments(call);
     if (call.callee() instanceof Syntax.Name name) {
-      Symbol target = semantics.resolvedSymbolOf(name.span()).orElseThrow();
+      Symbol target =
+          semantics
+              .resolvedSymbolOf(name.span())
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "bound call target is absent for '" + name.value() + "'"));
       if (isBuiltin(target)) {
         return new BoundIntrinsic(
             builtins.intrinsic(target.id()).orElseThrow(),
@@ -387,24 +397,29 @@ final class Binder {
     }
     Syntax.Member member = (Syntax.Member) call.callee();
     Symbol target = symbol(member.nameSpan());
-    BoundExpression receiver = bindExpression(member.receiver());
+    BoundExpression receiver =
+        target.kind() == SymbolKind.TYPE_METHOD ? null : bindExpression(member.receiver());
     if (isBuiltin(target)) {
       return new BoundIntrinsic(
           builtins.intrinsic(target.id()).orElseThrow(),
-          Optional.of(receiver),
+          Optional.ofNullable(receiver),
           arguments,
-          Optional.empty(),
+          target.kind() == SymbolKind.TYPE_METHOD
+              ? Optional.of(runtimeType(type))
+              : Optional.empty(),
+          member.nullSafe(),
           type,
           call.span());
     }
     if (target.name().equals("copy") && !callables.containsKey(target.id().value())) {
-      return new BoundExpression.CopyObject(receiver, type, call.span());
+      return new BoundExpression.CopyObject(receiver, member.nullSafe(), type, call.span());
     }
     return new BoundCall(
         BoundCallableId.of(target.id()),
         Optional.of(receiver),
         arguments,
         List.of(),
+        member.nullSafe(),
         type,
         call.span());
   }
@@ -428,12 +443,13 @@ final class Binder {
           Optional.of(receiver),
           List.of(),
           Optional.empty(),
+          member.nullSafe(),
           type,
           member.span());
     }
     BoundField field = field(target);
     return new BoundExpression.FieldRead(
-        receiver, field.id(), field.ordinal(), type, member.span());
+        receiver, field.id(), field.ordinal(), member.nullSafe(), type, member.span());
   }
 
   private List<BoundArgument> bindArguments(Syntax.Call call) {
@@ -490,6 +506,7 @@ final class Binder {
       case BANG_EQUAL -> BoundBinaryOperator.NOT_EQUAL;
       case AND_AND -> BoundBinaryOperator.AND;
       case OR_OR -> BoundBinaryOperator.OR;
+      case QUESTION_QUESTION -> BoundBinaryOperator.COALESCE;
       default -> throw new IllegalStateException("unsupported checked binary operator " + operator);
     };
   }

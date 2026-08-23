@@ -7,6 +7,7 @@ import java.util.Objects;
 
 public sealed interface BoundExpression extends BoundNode
     permits BoundExpression.Literal,
+        BoundExpression.NullLiteral,
         BoundExpression.ArrayLiteral,
         BoundExpression.LocalRead,
         BoundExpression.FieldRead,
@@ -23,6 +24,13 @@ public sealed interface BoundExpression extends BoundNode
   record Literal(Object value, SemanticType type, SourceSpan span) implements BoundExpression {
     public Literal {
       Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record NullLiteral(SemanticType type, SourceSpan span) implements BoundExpression {
+    public NullLiteral {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
     }
@@ -52,7 +60,12 @@ public sealed interface BoundExpression extends BoundNode
   }
 
   record FieldRead(
-      BoundExpression receiver, BoundFieldId field, int ordinal, SemanticType type, SourceSpan span)
+      BoundExpression receiver,
+      BoundFieldId field,
+      int ordinal,
+      boolean nullSafe,
+      SemanticType type,
+      SourceSpan span)
       implements BoundExpression {
     public FieldRead {
       Objects.requireNonNull(receiver, "receiver");
@@ -60,6 +73,15 @@ public sealed interface BoundExpression extends BoundNode
       if (ordinal < 0) throw new IllegalArgumentException("field ordinal must be non-negative");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
+    }
+
+    public FieldRead(
+        BoundExpression receiver,
+        BoundFieldId field,
+        int ordinal,
+        SemanticType type,
+        SourceSpan span) {
+      this(receiver, field, ordinal, false, type, span);
     }
   }
 
@@ -126,12 +148,16 @@ public sealed interface BoundExpression extends BoundNode
     }
   }
 
-  record CopyObject(BoundExpression receiver, SemanticType type, SourceSpan span)
+  record CopyObject(BoundExpression receiver, boolean nullSafe, SemanticType type, SourceSpan span)
       implements BoundExpression {
     public CopyObject {
       Objects.requireNonNull(receiver, "receiver");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
+    }
+
+    public CopyObject(BoundExpression receiver, SemanticType type, SourceSpan span) {
+      this(receiver, false, type, span);
     }
   }
 }

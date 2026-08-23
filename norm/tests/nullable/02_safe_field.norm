@@ -1,0 +1,10 @@
+class User { String name }
+
+Void main() {
+  User? missing = null
+  User? present = User(name: "Ada")
+  printLine(missing?.name ?? "guest")
+  printLine(present?.name ?? "guest")
+  expectedOutputLine("guest")
+  expectedOutputLine("Ada")
+}

@@ -77,22 +77,29 @@ public final class Syntax {
     }
   }
 
-  public record TypeRef(String name, List<TypeRef> arguments, SourceSpan span) implements AstNode {
+  public record TypeRef(String name, List<TypeRef> arguments, boolean nullable, SourceSpan span)
+      implements AstNode {
     public TypeRef {
       Objects.requireNonNull(name, "name");
       arguments = List.copyOf(arguments);
       Objects.requireNonNull(span, "span");
     }
 
+    public TypeRef(String name, List<TypeRef> arguments, SourceSpan span) {
+      this(name, arguments, false, span);
+    }
+
     public String displayName() {
-      return arguments.isEmpty()
-          ? name
-          : name
-              + "<"
-              + arguments.stream()
-                  .map(TypeRef::displayName)
-                  .collect(java.util.stream.Collectors.joining(", "))
-              + ">";
+      String base =
+          arguments.isEmpty()
+              ? name
+              : name
+                  + "<"
+                  + arguments.stream()
+                      .map(TypeRef::displayName)
+                      .collect(java.util.stream.Collectors.joining(", "))
+                  + ">";
+      return nullable ? base + "?" : base;
     }
   }
 
@@ -170,6 +177,7 @@ public final class Syntax {
           Assignment,
           ExpressionStatement,
           IfStatement,
+          ConditionalForStatement,
           ForStatement,
           ReturnStatement,
           BreakStatement,
@@ -232,6 +240,15 @@ public final class Syntax {
     }
   }
 
+  public record ConditionalForStatement(Expression condition, List<Statement> body, SourceSpan span)
+      implements Statement {
+    public ConditionalForStatement {
+      Objects.requireNonNull(condition, "condition");
+      body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
   public record ReturnStatement(Expression value, SourceSpan span) implements Statement {
     public ReturnStatement {
       Objects.requireNonNull(span, "span");
@@ -254,6 +271,7 @@ public final class Syntax {
       permits IntegerLiteral,
           CodePointLiteral,
           BooleanLiteral,
+          NullLiteral,
           StringLiteralExpr,
           ArrayLiteral,
           Name,
@@ -277,6 +295,12 @@ public final class Syntax {
 
   public record BooleanLiteral(boolean value, SourceSpan span) implements Expression {
     public BooleanLiteral {
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record NullLiteral(SourceSpan span) implements Expression {
+    public NullLiteral {
       Objects.requireNonNull(span, "span");
     }
   }
@@ -352,13 +376,18 @@ public final class Syntax {
     }
   }
 
-  public record Member(Expression receiver, String name, SourceSpan nameSpan, SourceSpan span)
+  public record Member(
+      Expression receiver, String name, SourceSpan nameSpan, boolean nullSafe, SourceSpan span)
       implements Expression {
     public Member {
       Objects.requireNonNull(receiver, "receiver");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       Objects.requireNonNull(span, "span");
+    }
+
+    public Member(Expression receiver, String name, SourceSpan nameSpan, SourceSpan span) {
+      this(receiver, name, nameSpan, false, span);
     }
   }
 

@@ -20,9 +20,9 @@ String message = switch parse(text: input) {
 }
 ```
 
-## Option
+## 普通缺失
 
-查找缺失且不需要错误细节时使用 Option。Option 与 nullable 不混用为多层哨兵；API 应选择一种能准确表达契约的形式。
+查找缺失且不需要错误细节时使用 nullable 返回类型。需要区分多种失败原因时使用 Result。
 
 ## Exception
 

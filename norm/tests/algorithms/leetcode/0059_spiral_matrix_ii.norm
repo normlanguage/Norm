@@ -1,8 +1,7 @@
 List<List<Integer>> generateMatrix(Integer size) {
   List<List<Integer>> matrix = List<List<Integer>>()
   for row : range(start: 0, end: size) {
-    List<Integer> values = List<Integer>()
-    for column : range(start: 0, end: size) { values.add(0) }
+    List<Integer> values = List.filled(size: size, value: 0)
     matrix.add(values)
   }
   Integer value = 1
@@ -10,8 +9,7 @@ List<List<Integer>> generateMatrix(Integer size) {
   Integer bottom = size - 1
   Integer left = 0
   Integer right = size - 1
-  for layer : range(start: 0, end: size) {
-    if top > bottom { break }
+  for top <= bottom {
     List<Integer> topRow = matrix[top]
     for column : range(start: left, end: right + 1) {
       topRow[column] = value

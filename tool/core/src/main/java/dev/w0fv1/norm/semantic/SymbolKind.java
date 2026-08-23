@@ -5,6 +5,7 @@ public enum SymbolKind {
   TYPE_PARAMETER,
   FUNCTION,
   METHOD,
+  TYPE_METHOD,
   FIELD,
   PARAMETER,
   LOCAL_VARIABLE,

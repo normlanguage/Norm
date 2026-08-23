@@ -1,0 +1,14 @@
+class Address { String city }
+class User { Address? address }
+
+Void main() {
+  User? missing = null
+  User? noAddress = User(address: null)
+  User? present = User(address: Address(city: "Paris"))
+  printLine(missing?.address?.city ?? "none")
+  printLine(noAddress?.address?.city ?? "none")
+  printLine(present?.address?.city ?? "none")
+  expectedOutputLine("none")
+  expectedOutputLine("none")
+  expectedOutputLine("Paris")
+}

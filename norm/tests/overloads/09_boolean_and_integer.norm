@@ -1,0 +1,12 @@
+String render(Boolean value) {
+  if value { return "true" }
+  return "false"
+}
+String render(Integer value) { return "integer" }
+
+Void main() {
+  printLine(render(value: true))
+  printLine(render(value: 1))
+  expectedOutputLine("true")
+  expectedOutputLine("integer")
+}

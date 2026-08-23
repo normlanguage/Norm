@@ -1,0 +1,9 @@
+Integer total(Integer value) { return value }
+Integer total(Integer left, Integer right) { return left + right }
+
+Void main() {
+  printLine(total(value: 3))
+  printLine(total(left: 3, right: 4))
+  expectedOutputLine("3")
+  expectedOutputLine("7")
+}

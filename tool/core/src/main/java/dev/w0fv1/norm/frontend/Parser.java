@@ -204,7 +204,9 @@ final class Parser {
           arguments.isEmpty()
               ? type.span()
               : type.span().cover(arguments.getLast().span()).cover(previous().span());
-      return new Syntax.TypeRef(type.lexeme(), arguments, span);
+      boolean nullable = match(TokenKind.QUESTION);
+      if (nullable) span = span.cover(previous().span());
+      return new Syntax.TypeRef(type.lexeme(), arguments, nullable, span);
     }
     throw error(peek(), "expected type name");
   }
@@ -318,7 +320,20 @@ final class Parser {
         condition, thenBlock.statements(), elseBody, keyword.span().cover(end));
   }
 
-  private Syntax.ForStatement parseFor(Token keyword) {
+  private Syntax.Statement parseFor(Token keyword) {
+    boolean inferredIteration = check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON);
+    int afterType = tokenAfterType(current);
+    boolean explicitIteration =
+        afterType >= 0
+            && afterType + 1 < tokens.size()
+            && tokens.get(afterType).kind() == TokenKind.IDENTIFIER
+            && tokens.get(afterType + 1).kind() == TokenKind.COLON;
+    if (!inferredIteration && !explicitIteration) {
+      Syntax.Expression condition = parseExpression();
+      Block body = parseBlock();
+      return new Syntax.ConditionalForStatement(
+          condition, body.statements(), keyword.span().cover(body.span()));
+    }
     Optional<Syntax.TypeRef> type;
     Token name;
     if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON)) {
@@ -351,7 +366,18 @@ final class Parser {
   }
 
   private Syntax.Expression parseExpression() {
-    return parseOr();
+    return parseCoalescing();
+  }
+
+  private Syntax.Expression parseCoalescing() {
+    Syntax.Expression expression = parseOr();
+    if (match(TokenKind.QUESTION_QUESTION)) {
+      Token operator = previous();
+      Syntax.Expression right = parseCoalescing();
+      return new Syntax.Binary(
+          expression, operator.kind(), right, expression.span().cover(right.span()));
+    }
+    return expression;
   }
 
   private Syntax.Expression parseOr() {
@@ -458,7 +484,8 @@ final class Parser {
         Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after arguments");
         expression =
             new Syntax.Call(expression, arguments, expression.span().cover(closing.span()));
-      } else if (match(TokenKind.DOT)) {
+      } else if (match(TokenKind.DOT, TokenKind.QUESTION_DOT)) {
+        boolean nullSafe = previous().kind() == TokenKind.QUESTION_DOT;
         Token name;
         if (check(TokenKind.IDENTIFIER)) {
           name = advance();
@@ -470,7 +497,11 @@ final class Parser {
         }
         expression =
             new Syntax.Member(
-                expression, name.lexeme(), name.span(), expression.span().cover(name.span()));
+                expression,
+                name.lexeme(),
+                name.span(),
+                nullSafe,
+                expression.span().cover(name.span()));
       } else if (match(TokenKind.LEFT_BRACKET)) {
         Syntax.Expression index = parseExpression();
         Token closing = consume(TokenKind.RIGHT_BRACKET, "expected ']' after index");
@@ -489,6 +520,9 @@ final class Parser {
       } catch (NumberFormatException exception) {
         throw error(token, "integer literal is outside the supported range");
       }
+    }
+    if (match(TokenKind.NULL)) {
+      return new Syntax.NullLiteral(previous().span());
     }
     if (match(TokenKind.CODE_POINT)) {
       Token token = previous();
@@ -543,7 +577,9 @@ final class Parser {
   private int tokenAfterType(int start) {
     if (start < 0 || start >= tokens.size() || !isTypeToken(tokens.get(start).kind())) return -1;
     int index = start + 1;
-    if (index >= tokens.size() || tokens.get(index).kind() != TokenKind.LESS) return index;
+    if (index >= tokens.size() || tokens.get(index).kind() != TokenKind.LESS) {
+      return skipNullable(index);
+    }
     int depth = 0;
     for (; index < tokens.size(); index++) {
       TokenKind kind = tokens.get(index).kind();
@@ -551,12 +587,18 @@ final class Parser {
         depth++;
       } else if (kind == TokenKind.GREATER) {
         depth--;
-        if (depth == 0) return index + 1;
-      } else if (kind != TokenKind.COMMA && !isTypeToken(kind)) {
+        if (depth == 0) return skipNullable(index + 1);
+      } else if (kind != TokenKind.COMMA && kind != TokenKind.QUESTION && !isTypeToken(kind)) {
         return -1;
       }
     }
     return -1;
+  }
+
+  private int skipNullable(int index) {
+    return index < tokens.size() && tokens.get(index).kind() == TokenKind.QUESTION
+        ? index + 1
+        : index;
   }
 
   private Token consume(TokenKind kind, String message) {

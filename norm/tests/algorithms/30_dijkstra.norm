@@ -2,12 +2,8 @@ import std.math.min
 
 List<Integer> dijkstra(Array<Array<Integer>> graph, Integer source) {
   Integer infinity = 999999
-  List<Integer> distance = List<Integer>()
-  List<Boolean> visited = List<Boolean>()
-  for vertex : range(start: 0, end: graph.size()) {
-    distance.add(infinity)
-    visited.add(false)
-  }
+  List<Integer> distance = List.filled(size: graph.size(), value: infinity)
+  List<Boolean> visited = List.filled(size: graph.size(), value: false)
   distance[source] = 0
   for step : range(start: 0, end: graph.size()) {
     Integer chosen = -1

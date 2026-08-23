@@ -1,0 +1,40 @@
+# Types and Null
+
+Norm is statically typed and non-null by default. `T?` explicitly adds null to a type.
+
+```norm
+String name = "Norm"
+String? nickname = null
+```
+
+Nullable values must be handled before direct member access:
+
+```norm
+if nickname != null {
+  printLine(nickname.codePointSize())
+}
+```
+
+Early return and Boolean short-circuiting also participate in flow-sensitive narrowing. Reassigning a local updates its flow state. Mutable fields are read into a local before narrowing so the checked value and the used value are the same read.
+
+## Safe access and fallback
+
+```norm
+Integer? citySize = user.address?.city?.codePointSize()
+String displayName = user.nickname ?? user.name
+```
+
+Safe access evaluates its receiver once and skips the member call and arguments when the receiver is null. Null coalescing evaluates its right side only when the left side is null.
+
+## Generic composition
+
+```norm
+List<String>? optionalNames = null
+List<String?> names = ["Norm", null]
+```
+
+Nullability applies to the complete adjacent type. Generic substitution normalizes repeated nullability, so substituting `String?` for `T` in `T?` still produces `String?`.
+
+`null` requires a nullable expected type. It cannot independently infer an arbitrary type.
+
+Next: [Value and identity](/en/language/objects).

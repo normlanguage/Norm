@@ -51,6 +51,12 @@ final class Lexer {
       case ';' -> addSimple(TokenKind.SEMICOLON, start);
       case ':' -> addSimple(TokenKind.COLON, start);
       case '.' -> addSimple(TokenKind.DOT, start);
+      case '?' ->
+          addSimple(
+              match('.')
+                  ? TokenKind.QUESTION_DOT
+                  : match('?') ? TokenKind.QUESTION_QUESTION : TokenKind.QUESTION,
+              start);
       case '+' -> addSimple(TokenKind.PLUS, start);
       case '-' -> addSimple(TokenKind.MINUS, start);
       case '*' -> addSimple(TokenKind.STAR, start);

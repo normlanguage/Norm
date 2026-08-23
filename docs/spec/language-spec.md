@@ -79,7 +79,7 @@ List<String>.class != List<Integer>.class
 
 ## 错误
 
-可预期失败使用 Result 或 Option；异常使用 throw/try/catch/finally。Result 是普通 enum，语言不提供自动传播。资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
+普通缺失使用 nullable，可预期且需要错误原因的失败使用 Result；异常使用 throw/try/catch/finally。Result 是普通 enum，语言不提供自动传播。资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
 
 ## 求值
 

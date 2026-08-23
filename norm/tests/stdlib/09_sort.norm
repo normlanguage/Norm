@@ -1,0 +1,31 @@
+import std.collections.sort
+
+Void main() {
+  List<Integer> numbers = List<Integer>()
+  numbers.add(3)
+  numbers.add(1)
+  numbers.add(2)
+  List<Integer> orderedNumbers = sort(values: numbers)
+  for value : orderedNumbers { printLine(value) }
+  printLine(numbers[0])
+
+  Array<CodePoint> points = sort(values: ['😀', 'A', 'é'])
+  for value : points { printLine(value) }
+
+  List<String> words = List<String>()
+  words.add("é")
+  words.add("A")
+  words.add("😀")
+  for value : sort(values: words) { printLine(value) }
+
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("3")
+  expectedOutputLine("A")
+  expectedOutputLine("é")
+  expectedOutputLine("😀")
+  expectedOutputLine("A")
+  expectedOutputLine("é")
+  expectedOutputLine("😀")
+}

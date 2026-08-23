@@ -1,3 +1,5 @@
+import std.collections.sort
+
 List<Array<Integer>> fourSum(Array<Integer> values, Integer target) {
   List<Array<Integer>> result = List<Array<Integer>>()
   Set<Array<Integer>> unique = Set<Array<Integer>>()
@@ -6,16 +8,7 @@ List<Array<Integer>> fourSum(Array<Integer> values, Integer target) {
       for c : range(start: b + 1, end: values.size()) {
         for d : range(start: c + 1, end: values.size()) {
           if values[a] + values[b] + values[c] + values[d] == target {
-            Array<Integer> item = [values[a], values[b], values[c], values[d]]
-            for pass : range(start: 0, end: 4) {
-              for index : range(start: 0, end: 3) {
-                if item[index] > item[index + 1] {
-                  Integer temporary = item[index]
-                  item[index] = item[index + 1]
-                  item[index + 1] = temporary
-                }
-              }
-            }
+            Array<Integer> item = sort([values[a], values[b], values[c], values[d]])
             if unique.add(item) { result.add(item) }
           }
         }

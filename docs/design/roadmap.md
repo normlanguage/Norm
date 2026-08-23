@@ -18,7 +18,7 @@
 
 ## 模块与标准库
 
-完成 package、import、项目清单和 1.0 标准库核心 API，覆盖集合、Result/Option、I/O、时间、并发和 Java interop。
+完成 package、import、项目清单和 1.0 标准库核心 API，覆盖集合、Result、I/O、时间、并发和 Java interop。
 
 ## 工具与发布
 

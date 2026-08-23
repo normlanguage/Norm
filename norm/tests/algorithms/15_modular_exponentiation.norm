@@ -1,8 +1,7 @@
 Integer modularPower(Integer base, Integer exponent, Integer modulus) {
   Integer result = 1
   base = base % modulus
-  for step : range(start: 0, end: 64) {
-    if exponent == 0 { break }
+  for exponent != 0 {
     if exponent % 2 == 1 { result = result * base % modulus }
     base = base * base % modulus
     exponent = exponent / 2

@@ -141,6 +141,53 @@ final class StatementNodes {
     }
   }
 
+  static final class ConditionalFor extends StatementNode {
+    @Child private LoopNode loop;
+    private final ExecutionContext context;
+
+    ConditionalFor(ExpressionNode condition, StatementNode body, ExecutionContext context) {
+      this.context = context;
+      loop =
+          Truffle.getRuntime().createLoopNode(new ConditionalRepeating(condition, body, context));
+    }
+
+    @Override
+    void executeVoid(VirtualFrame frame) {
+      if (context.cancellation().getAsBoolean()) {
+        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
+      }
+      loop.execute(frame);
+    }
+  }
+
+  private static final class ConditionalRepeating extends Node implements RepeatingNode {
+    @Child private ExpressionNode condition;
+    @Child private StatementNode body;
+    private final ExecutionContext context;
+
+    ConditionalRepeating(ExpressionNode condition, StatementNode body, ExecutionContext context) {
+      this.condition = condition;
+      this.body = body;
+      this.context = context;
+    }
+
+    @Override
+    public boolean executeRepeating(VirtualFrame frame) {
+      if (context.cancellation().getAsBoolean()) {
+        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", body);
+      }
+      if (!(Boolean) condition.execute(frame)) return false;
+      try {
+        body.executeVoid(frame);
+      } catch (ControlFlow.Continue ignored) {
+        return true;
+      } catch (ControlFlow.Break ignored) {
+        return false;
+      }
+      return true;
+    }
+  }
+
   private static final class Repeating extends Node implements RepeatingNode {
     private final FrameBinding iteratorBinding;
     private final FrameBinding variableBinding;

@@ -1,0 +1,11 @@
+String? find(Boolean present) {
+  if present { return "Norm" }
+  return null
+}
+
+Void main() {
+  printLine(find(present: true) ?? "missing")
+  printLine(find(present: false) ?? "missing")
+  expectedOutputLine("Norm")
+  expectedOutputLine("missing")
+}

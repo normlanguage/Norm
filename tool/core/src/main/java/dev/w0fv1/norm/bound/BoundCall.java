@@ -11,6 +11,7 @@ public record BoundCall(
     Optional<BoundExpression> receiver,
     List<BoundArgument> arguments,
     List<BoundRuntimeType> reifiedArguments,
+    boolean nullSafe,
     SemanticType type,
     SourceSpan span)
     implements BoundExpression {
@@ -21,5 +22,15 @@ public record BoundCall(
     reifiedArguments = List.copyOf(reifiedArguments);
     Objects.requireNonNull(type, "type");
     Objects.requireNonNull(span, "span");
+  }
+
+  public BoundCall(
+      BoundCallableId target,
+      Optional<BoundExpression> receiver,
+      List<BoundArgument> arguments,
+      List<BoundRuntimeType> reifiedArguments,
+      SemanticType type,
+      SourceSpan span) {
+    this(target, receiver, arguments, reifiedArguments, false, type, span);
   }
 }

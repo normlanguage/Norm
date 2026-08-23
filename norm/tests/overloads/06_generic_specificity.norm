@@ -1,0 +1,9 @@
+T echo<T>(T value) { return value }
+Integer echo(Integer value) { return value + 10 }
+
+Void main() {
+  printLine(echo(value: 2))
+  printLine(echo(value: "generic"))
+  expectedOutputLine("12")
+  expectedOutputLine("generic")
+}

@@ -1,15 +1,9 @@
 import std.math.max
 
-List<Integer> zeros(Integer size) {
-  List<Integer> values = List<Integer>()
-  for index : range(start: 0, end: size) { values.add(0) }
-  return values
-}
-
 Integer longestCommonSubsequence(Array<Integer> left, Array<Integer> right) {
-  List<Integer> previous = zeros(right.size() + 1)
+  List<Integer> previous = List.filled(size: right.size() + 1, value: 0)
   for i : range(start: 1, end: left.size() + 1) {
-    List<Integer> current = zeros(right.size() + 1)
+    List<Integer> current = List.filled(size: right.size() + 1, value: 0)
     for j : range(start: 1, end: right.size() + 1) {
       if left[i - 1] == right[j - 1] {
         current[j] = previous[j - 1] + 1

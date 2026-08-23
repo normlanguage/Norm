@@ -1,6 +1,12 @@
-# Reified Generics
+# Generics
 
-Norm generics preserve actual type arguments at runtime. Generic syntax supports safe reuse without becoming a separate type-level programming language.
+Generics let one type or function work with multiple types while preserving static type information.
+
+## Current boundary
+
+The current implementation supports generic classes, top-level generic functions, parameterized core collections, nested nullable type arguments, inference from arguments and expected return types, and runtime type arguments. Generic types are invariant and raw types are invalid.
+
+Bounds, interface constraints, use-site variance, generic data enums, generic methods, and reflection APIs are later strict extensions.
 
 ## Generic types
 
@@ -10,42 +16,26 @@ class Box<T> {
 }
 
 Box<Integer> count = Box<Integer>(value: 3)
-Box<String> label = Box<String>(value: "ready")
+Box<String?> label = Box<String?>(value: null)
 ```
 
 Raw types are forbidden: `Box` without a type argument is invalid.
 
-## Constraints
+## Generic functions
 
 ```norm
-T maximum<T extends Comparable<T>>(T left, T right) {
-    if left.compareTo(right) >= 0 {
-        return left
-    }
-    return right
+T identity<T>(T value) {
+    return value
 }
+
+Integer count = identity(3)
+String? label = identity(null)
 ```
 
-The constraint requires `T` to explicitly implement `Comparable<T>` under Norm's nominal type system.
+The expected `String?` return type supplies the type information that `null` cannot provide by itself.
 
-## Runtime type information
+## Invariance
 
-```norm
-List<String>.class
-List<Integer>.class
-List<String>.class.T == String.class
-```
-
-`List<String>` and `List<Integer>` have distinct runtime type descriptions. Reflection and generic libraries do not need a separate `Class<T>` token to recover information the source already contains.
-
-## Use-site variance
-
-```norm
-List<? extends Shape> shapes
-List<? super Circle> destinations
-```
-
-Norm uses explicit Java-style use-site variance and does not permit arbitrary compile-time type computation.
+Different type arguments produce different invariant types. `List<String>` is not assignable to `List<String?>`; nullable elements must be declared at the collection boundary.
 
 Return to the [handbook introduction](/en/language/overview).
-

@@ -23,6 +23,7 @@ The **handbook** is meant to be read in order. Individual feature pages explain 
 A short, sequential introduction to Norm's core semantics.
 
 - [Handbook introduction](/en/language/overview)
+- [Types and null](/en/language/types)
 - [Value and identity](/en/language/objects)
 - [Control-flow expressions](/en/language/control-flow)
 - [Reified generics](/en/language/generics)
@@ -35,6 +36,7 @@ A short, sequential introduction to Norm's core semantics.
 
 Understand what exists today and where the language is heading.
 
+- [Norm 0.3 release record](/en/versions/0.3)
 - [Norm 0.2 release record](/en/versions/0.2)
 - [Norm 0.1 release record](/en/versions/0.1)
 - [Project status](/en/status)

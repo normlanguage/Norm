@@ -1,0 +1,11 @@
+Void main() {
+  List<List<String?>?> values = List<List<String?>?>()
+  values.add(null)
+  List<String?> inner = List<String?>()
+  inner.add("nested")
+  values.add(inner)
+  printLine(values[0]?.size() ?? 0)
+  printLine(values[1]?.last() ?? "missing")
+  expectedOutputLine("0")
+  expectedOutputLine("nested")
+}

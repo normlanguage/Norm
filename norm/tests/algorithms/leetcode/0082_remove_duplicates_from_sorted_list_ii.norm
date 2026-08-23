@@ -1,8 +1,7 @@
 List<Integer> deleteDuplicatesAll(Array<Integer> values) {
   List<Integer> result = List<Integer>()
   Integer index = 0
-  for step : range(start: 0, end: values.size()) {
-    if index >= values.size() { break }
+  for index < values.size() {
     Integer end = index + 1
     for scan : range(start: index + 1, end: values.size()) {
       if values[scan] != values[index] { break }

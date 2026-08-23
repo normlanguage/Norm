@@ -1,0 +1,12 @@
+class Formatter {
+  String format(Integer value) { return "integer" }
+  String format(String value) { return value }
+}
+
+Void main() {
+  Formatter formatter = Formatter()
+  printLine(formatter.format(value: 7))
+  printLine(formatter.format(value: "text"))
+  expectedOutputLine("integer")
+  expectedOutputLine("text")
+}

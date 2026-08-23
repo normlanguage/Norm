@@ -1,0 +1,10 @@
+Void main() {
+  Map<String, Integer> values = Map<String, Integer>()
+  values.put(key: "answer", value: 42)
+  Integer? answer = values.get(key: "answer")
+  Integer? missing = values.get(key: "missing")
+  printLine(answer ?? -1)
+  printLine(missing ?? -1)
+  expectedOutputLine("42")
+  expectedOutputLine("-1")
+}

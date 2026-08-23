@@ -4,8 +4,7 @@ Integer lengthOfLongestSubstring(String value) {
   Integer left = 0
   Integer best = 0
   for right : range(start: 0, end: text.size()) {
-    for step : range(start: 0, end: text.size()) {
-      if !window.contains(text[right]) { break }
+    for window.contains(text[right]) {
       window.remove(text[left])
       left = left + 1
     }

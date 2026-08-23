@@ -26,7 +26,7 @@ second.add(4)
 
 ## 缺失与越界
 
-0.2 的 `map[key]` 要求键存在。返回 `Option<V>` 的安全查找与泛型数据 enum 一起交付。List 与 Array 索引同样要求下标有效。
+`map[key]` 要求键存在，`map.get(key:)` 在缺失时返回 null。List 与 Array 索引要求下标有效。需要区分缺失键和已保存的 nullable 值时使用 `containsKey(key:)`。
 
 ## 迭代
 
@@ -34,14 +34,22 @@ Array、List、Set、Stack、Queue、Deque 与 Range 通过 `Iterable<T>` 暴露
 
 Array、List、Map、Set、Stack、Queue、Deque 与 Range 统一使用 `size()` 返回元素数量，不提供 `length` 属性。
 
-## 0.2 序列函数
-
-`std.collections` 已提供 `listContains`、`listCount`、`reversed` 与 `toList`。它们由 `std/collections/sequences.norm` 导出，使用时导入具体函数：
+## 序列成员
 
 ```norm
-import std.collections.reversed
+Integer last = values.last()
+List<Integer> result = values.reversed()
+List<Integer> zeros = List.filled(size: 8, value: 0)
+```
 
-List<Integer> result = reversed(values: values)
+`Array<T>` 和 `List<T>` 的 `reversed()` 返回独立副本；`List<T>.removeLast()` 删除并返回尾元素。`Array.filled` 与 `List.filled` 是通过类型名称调用的泛型类型级成员。
+
+`std.collections` 提供自然顺序 `sort`，使用时导入具体函数：
+
+```norm
+import std.collections.sort
+
+List<Integer> ordered = sort(values: values)
 ```
 
 详细签名见 [Collections API](/stdlib/collections-api)。

@@ -7,8 +7,10 @@ Integer longestConsecutive(Array<Integer> values) {
   for Integer value : values {
     if !numbers.contains(value - 1) {
       Integer length = 1
-      for offset : range(start: 1, end: values.size() + 1) {
-        if numbers.contains(value + offset) { length = length + 1 } else { break }
+      Integer offset = 1
+      for numbers.contains(value + offset) {
+        length = length + 1
+        offset = offset + 1
       }
       best = max(left: best, right: length)
     }

@@ -1,8 +1,8 @@
 Integer lengthOfLastWord(String value) {
   Array<CodePoint> text = value.codePoints()
   Integer length = 0
-  for offset : range(start: 0, end: text.size()) {
-    CodePoint point = text[text.size() - 1 - offset]
+  for index : range(start: text.size() - 1, end: -1, step: -1) {
+    CodePoint point = text[index]
     if point == ' ' {
       if length > 0 { break }
     } else {

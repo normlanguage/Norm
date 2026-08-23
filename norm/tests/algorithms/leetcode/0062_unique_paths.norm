@@ -1,6 +1,5 @@
 Integer uniquePaths(Integer rows, Integer columns) {
-  List<Integer> paths = List<Integer>()
-  for column : range(start: 0, end: columns) { paths.add(1) }
+  List<Integer> paths = List.filled(size: columns, value: 1)
   for row : range(start: 1, end: rows) {
     for column : range(start: 1, end: columns) { paths[column] = paths[column] + paths[column - 1] }
   }

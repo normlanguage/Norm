@@ -4,8 +4,7 @@ String countAndSay(Integer n) {
     Array<CodePoint> points = current.codePoints()
     StringBuilder next = StringBuilder()
     Integer index = 0
-    for step : range(start: 0, end: points.size()) {
-      if index >= points.size() { break }
+    for index < points.size() {
       Integer end = index + 1
       for scan : range(start: index + 1, end: points.size()) {
         if points[scan] != points[index] { break }

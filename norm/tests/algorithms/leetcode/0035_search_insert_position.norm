@@ -1,8 +1,7 @@
 Integer searchInsert(Array<Integer> values, Integer target) {
   Integer left = 0
   Integer right = values.size()
-  for step : range(start: 0, end: values.size() + 1) {
-    if left >= right { break }
+  for left < right {
     Integer middle = left + (right - left) / 2
     if values[middle] < target { left = middle + 1 } else { right = middle }
   }

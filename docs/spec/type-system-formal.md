@@ -26,7 +26,7 @@
 
 ## Null-state
 
-N 为 nullable 局部绑定维护 `Unknown | Null | NonNull`。条件 `x != null` 在 true 分支把 x 更新为 NonNull，`x == null` 在对应分支更新为 Null。对可能写入 x 的调用或共享别名操作会使状态回到 Unknown。
+N 为 nullable 局部绑定维护 `MaybeNull | Null | NonNull`。条件 `x != null` 在 true 分支把 x 更新为 NonNull，`x == null` 在对应分支更新为 Null。对局部绑定的重新赋值按新值更新状态；可变字段不进入局部 smart cast 状态，读取后应先保存到局部变量再收窄。
 
 ## 控制表达式合并
 

@@ -88,6 +88,42 @@ suite('Norm VS Code extension', () => {
     );
   });
 
+  test('completes nullable receivers and type-level collection members', async () => {
+    const nullable = await vscode.workspace.openTextDocument({
+      language: 'norm',
+      content: 'class Box { String value } Void main() { Box? box = null box?. }',
+    });
+    await vscode.window.showTextDocument(nullable);
+    const nullablePosition = nullable.positionAt(nullable.getText().indexOf('box?.') + 5);
+    const nullableCompletions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider',
+        nullable.uri,
+        nullablePosition,
+        '.',
+      );
+      return value?.items.some((item) => labelOf(item) === 'value') ? value : undefined;
+    });
+    assert.ok(nullableCompletions.items.some((item) => labelOf(item) === 'value'));
+
+    const typeLevel = await vscode.workspace.openTextDocument({
+      language: 'norm',
+      content: 'Void main() { List<Integer> values = List.filled(size: 2, value: 0) }',
+    });
+    await vscode.window.showTextDocument(typeLevel);
+    const typePosition = typeLevel.positionAt(typeLevel.getText().lastIndexOf('List.filled') + 5);
+    const typeCompletions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider',
+        typeLevel.uri,
+        typePosition,
+        '.',
+      );
+      return value?.items.some((item) => labelOf(item) === 'filled') ? value : undefined;
+    });
+    assert.ok(typeCompletions.items.some((item) => labelOf(item) === 'filled'));
+  });
+
   test('returns hover documentation for core types', async () => {
     const document = await openFixture('29_deque_pair_range.norm');
     const offset = document.getText().indexOf('Range indices') + 2;

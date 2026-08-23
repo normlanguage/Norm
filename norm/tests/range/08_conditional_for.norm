@@ -1,0 +1,6 @@
+Void main() {
+  Integer value = 1
+  for value < 20 { value = value * 2 }
+  printLine(value)
+  expectedOutputLine("32")
+}

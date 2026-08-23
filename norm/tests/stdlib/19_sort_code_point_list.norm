@@ -1,0 +1,12 @@
+import std.collections.sort
+
+Void main() {
+  List<CodePoint> source = List<CodePoint>()
+  source.add('😀')
+  source.add('é')
+  source.add('A')
+  for value : sort(values: source) { printLine(value) }
+  expectedOutputLine("A")
+  expectedOutputLine("é")
+  expectedOutputLine("😀")
+}

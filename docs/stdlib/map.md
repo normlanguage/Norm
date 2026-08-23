@@ -13,13 +13,15 @@ if counts.containsKey("open") {
 
 ## 缺失值
 
-0.2 只提供要求键存在的 `map[key]`。可能缺失的查询不能返回 null；安全 `get` 将在携带数据的 `Option<V>` 交付时加入。需要缺失时计算默认值，可以先显式判断：
+`map[key]` 要求键存在。`get(key:)` 在键不存在时返回 nullable value；需要区分缺失键和已保存的 nullable 值时使用 `containsKey(key:)`：
 
 ```norm
 Integer value = 0
 if counts.containsKey("closed") {
     value = counts["closed"]
 }
+
+Integer? optionalValue = counts.get(key: "closed")
 ```
 
 ## 键规则

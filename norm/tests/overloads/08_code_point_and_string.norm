@@ -1,0 +1,9 @@
+String kind(CodePoint value) { return "codePoint" }
+String kind(String value) { return "string" }
+
+Void main() {
+  printLine(kind(value: 'A'))
+  printLine(kind(value: "A"))
+  expectedOutputLine("codePoint")
+  expectedOutputLine("string")
+}

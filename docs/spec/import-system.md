@@ -28,4 +28,4 @@ GeometryPoint point = GeometryPoint(x: 2, y: 3)
 
 通配符导入暂不进入核心语法，以免新增公开声明后静默改变现有文件的名称解析。标准库预导入集合必须很小并由语言版本固定。
 
-模块描述和 import 各司其职：`module.norm` 决定哪些源文件可以跨 package 使用，import 决定当前文件引入其中哪个声明。依赖解析尚未进入 0.2，版本选择不写进 import。
+模块描述和 import 各司其职：`module.norm` 决定哪些源文件可以跨 package 使用，import 决定当前文件引入其中哪个声明。版本选择不写进 import。

@@ -1,6 +1,5 @@
 Integer uniquePathsWithObstacles(List<Array<Integer>> grid) {
-  List<Integer> paths = List<Integer>()
-  for column : range(start: 0, end: grid[0].size()) { paths.add(0) }
+  List<Integer> paths = List.filled(size: grid[0].size(), value: 0)
   paths[0] = 1
   for row : range(start: 0, end: grid.size()) {
     for column : range(start: 0, end: grid[0].size()) {
@@ -11,7 +10,7 @@ Integer uniquePathsWithObstacles(List<Array<Integer>> grid) {
       }
     }
   }
-  return paths[paths.size() - 1]
+  return paths.last()
 }
 
 Void main() {

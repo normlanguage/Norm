@@ -1,12 +1,10 @@
 Boolean isMatch(String textValue, String patternValue) {
   Array<CodePoint> text = textValue.codePoints()
   Array<CodePoint> pattern = patternValue.codePoints()
-  List<Boolean> dp = List<Boolean>()
-  for index : range(start: 0, end: text.size() + 1) { dp.add(false) }
+  List<Boolean> dp = List.filled(size: text.size() + 1, value: false)
   dp[0] = true
   for CodePoint token : pattern {
-    List<Boolean> next = List<Boolean>()
-    for index : range(start: 0, end: text.size() + 1) { next.add(false) }
+    List<Boolean> next = List.filled(size: text.size() + 1, value: false)
     if token == '*' { next[0] = dp[0] }
     for index : range(start: 1, end: text.size() + 1) {
       if token == '*' {

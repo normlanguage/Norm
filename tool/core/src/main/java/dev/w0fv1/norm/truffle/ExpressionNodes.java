@@ -18,6 +18,7 @@ final class ExpressionNodes {
     private final IntrinsicId intrinsic;
     private final int[] parameterIndices;
     private final ExecutionContext context;
+    private final boolean nullSafe;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     @Child private ExpressionNode type;
@@ -28,20 +29,26 @@ final class ExpressionNodes {
         ExpressionNode[] arguments,
         int[] parameterIndices,
         ExpressionNode type,
+        boolean nullSafe,
         ExecutionContext context) {
       this.intrinsic = intrinsic;
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
       this.type = type;
+      this.nullSafe = nullSafe;
       this.context = context;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
+      Object receiverValue = receiver == null ? null : receiver.execute(frame);
+      if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) {
+        return RuntimeValues.NullValue.INSTANCE;
+      }
       return IntrinsicDispatcher.execute(
           intrinsic,
-          receiver == null ? null : receiver.execute(frame),
+          receiverValue,
           evaluateArguments(arguments, parameterIndices, frame),
           type == null ? null : (SemanticType) type.execute(frame),
           context,
@@ -59,6 +66,13 @@ final class ExpressionNodes {
     @Override
     Object execute(VirtualFrame frame) {
       return value;
+    }
+  }
+
+  static final class NullLiteral extends ExpressionNode {
+    @Override
+    Object execute(VirtualFrame frame) {
+      return RuntimeValues.NullValue.INSTANCE;
     }
   }
 
@@ -320,6 +334,18 @@ final class ExpressionNodes {
     }
   }
 
+  static final class Coalesce extends Binary {
+    Coalesce(ExpressionNode left, ExpressionNode right) {
+      super(left, right);
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      Object value = left.execute(frame);
+      return value == RuntimeValues.NullValue.INSTANCE ? right.execute(frame) : value;
+    }
+  }
+
   static final class FunctionCall extends ExpressionNode {
     @Child private DirectCallNode call;
     @Children private final ExpressionNode[] arguments;
@@ -354,21 +380,27 @@ final class ExpressionNodes {
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     private final int[] parameterIndices;
+    private final boolean nullSafe;
 
     MethodCall(
         CallTarget target,
         ExpressionNode receiver,
         ExpressionNode[] arguments,
-        int[] parameterIndices) {
+        int[] parameterIndices,
+        boolean nullSafe) {
       call = DirectCallNode.create(target);
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
+      this.nullSafe = nullSafe;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
       Object receiverValue = receiver.execute(frame);
+      if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) {
+        return RuntimeValues.NullValue.INSTANCE;
+      }
       Object[] bound = evaluateArguments(arguments, parameterIndices, frame);
       Object[] values = new Object[bound.length + 1];
       values[0] = receiverValue;
@@ -415,14 +447,18 @@ final class ExpressionNodes {
 
   static final class CopyObject extends ExpressionNode {
     @Child private ExpressionNode receiver;
+    private final boolean nullSafe;
 
-    CopyObject(ExpressionNode receiver) {
+    CopyObject(ExpressionNode receiver, boolean nullSafe) {
       this.receiver = receiver;
+      this.nullSafe = nullSafe;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
-      return RuntimeValues.copyObject((RuntimeValues.ObjectValue) receiver.execute(frame));
+      Object value = receiver.execute(frame);
+      if (nullSafe && value == RuntimeValues.NullValue.INSTANCE) return value;
+      return RuntimeValues.copyObject((RuntimeValues.ObjectValue) value);
     }
   }
 
@@ -442,16 +478,19 @@ final class ExpressionNodes {
   static final class ReadField extends ExpressionNode {
     @Child private ExpressionNode receiver;
     private final int field;
+    private final boolean nullSafe;
 
-    ReadField(ExpressionNode receiver, int field) {
+    ReadField(ExpressionNode receiver, int field, boolean nullSafe) {
       this.receiver = receiver;
       this.field = field;
+      this.nullSafe = nullSafe;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
-      Object value = ((RuntimeValues.ObjectValue) receiver.execute(frame)).fields[field];
-      return value;
+      Object receiverValue = receiver.execute(frame);
+      if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) return receiverValue;
+      return ((RuntimeValues.ObjectValue) receiverValue).fields[field];
     }
   }
 

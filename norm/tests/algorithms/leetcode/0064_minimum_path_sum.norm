@@ -1,6 +1,5 @@
 Integer minPathSum(List<Array<Integer>> grid) {
-  List<Integer> cost = List<Integer>()
-  for column : range(start: 0, end: grid[0].size()) { cost.add(999999) }
+  List<Integer> cost = List.filled(size: grid[0].size(), value: 999999)
   cost[0] = 0
   for row : range(start: 0, end: grid.size()) {
     for column : range(start: 0, end: grid[0].size()) {
@@ -9,7 +8,7 @@ Integer minPathSum(List<Array<Integer>> grid) {
       cost[column] = previous + grid[row][column]
     }
   }
-  return cost[cost.size() - 1]
+  return cost.last()
 }
 
 Void main() {

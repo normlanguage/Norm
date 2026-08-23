@@ -101,7 +101,7 @@ export const zhTheme: DefaultTheme.Config = {
     { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
     { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
     { text: '标准库', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
-    { text: '版本说明', link: '/versions/0.2', activeMatch: '^/versions/' },
+    { text: '版本说明', link: '/versions/0.3', activeMatch: '^/versions/' },
     { text: '社区', link: '/community' },
   ],
   sidebar: {
@@ -137,11 +137,13 @@ export const zhTheme: DefaultTheme.Config = {
     '/stdlib/': [{ text: '标准库', items: stdlib }],
     '/web/': [{ text: 'Web 应用开发', items: web }],
     '/versions/': [{ text: '版本记录', items: [
+      { text: 'Norm 0.3', link: '/versions/0.3' },
       { text: 'Norm 0.2', link: '/versions/0.2' },
       { text: 'Norm 0.1', link: '/versions/0.1' },
     ]}],
     '/design/': [
       { text: '实现与规划', items: [
+        { text: '0.3 版本记录', link: '/versions/0.3' },
         { text: '0.2 版本记录', link: '/versions/0.2' },
         { text: '0.1 版本记录', link: '/versions/0.1' },
         { text: '实现策略决议', link: '/design/implementation-strategy' },

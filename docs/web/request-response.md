@@ -4,7 +4,7 @@ HttpRequest 是一次入站请求的只读视图，包含 method、URI、header�
 
 ```norm
 String id = request.path.string(name: "id")
-Option<String> filter = request.query.first(name: "filter")
+String? filter = request.query.first(name: "filter")
 Result<CreateOrder, DecodeError> body = request.json(codec: createOrderCodec)
 ```
 
@@ -27,4 +27,3 @@ Response 在发送 header 后进入 committed 状态，之后不能修改状态�
 header 名大小写不敏感，值保持原始字节语义。Set-Cookie 使用类型化 builder，SameSite、Secure、HttpOnly、Path 和过期时间都显式配置。
 
 框架自动处理 Content-Length 与分块传输的互斥，但内容类型和字符编码由 response 构造器明确指定。
-

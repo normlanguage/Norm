@@ -65,8 +65,18 @@ final class CallSiteResolver {
   private static Optional<Symbol> callable(
       SemanticModel model, List<Token> tokens, int nameIndex, int offset) {
     Token name = tokens.get(nameIndex);
-    if (nameIndex >= 2 && tokens.get(nameIndex - 1).kind() == TokenKind.DOT) {
+    Optional<Symbol> bound = model.resolvedSymbolOf(name.span()).filter(CallSiteResolver::callable);
+    if (bound.isPresent()) return bound;
+    if (nameIndex >= 2
+        && (tokens.get(nameIndex - 1).kind() == TokenKind.DOT
+            || tokens.get(nameIndex - 1).kind() == TokenKind.QUESTION_DOT)) {
       int receiverOffset = Math.max(0, tokens.get(nameIndex - 1).span().startOffset() - 1);
+      Optional<Symbol> receiver = model.symbolAt(receiverOffset);
+      if (receiver.isPresent() && receiver.orElseThrow().kind() == SymbolKind.TYPE) {
+        return model.typeMembers(receiver.orElseThrow().name()).stream()
+            .filter(symbol -> symbol.name().equals(name.lexeme()))
+            .findFirst();
+      }
       return model.typeAt(receiverOffset).stream()
           .flatMap(type -> model.members(type).stream())
           .filter(symbol -> symbol.name().equals(name.lexeme()))
@@ -93,6 +103,7 @@ final class CallSiteResolver {
   private static boolean callable(Symbol symbol) {
     return symbol.kind() == SymbolKind.FUNCTION
         || symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.TYPE_METHOD
         || symbol.kind() == SymbolKind.TYPE;
   }
 

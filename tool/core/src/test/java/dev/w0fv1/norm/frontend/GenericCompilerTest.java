@@ -41,6 +41,19 @@ final class GenericCompilerTest {
   }
 
   @Test
+  void preservesNullableGenericArgumentsAndExpectedTypes() {
+    CompilationResult result =
+        compile(
+            "T identity<T>(T value) { return value } "
+                + "T? nullable<T>(T value) { return null } "
+                + "Void main() { String? first = identity(value: null) "
+                + "String? second = nullable(value: \"Norm\") "
+                + "List<String?> values = List<String?>() values.add(first) values.add(second) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void rejectsRawGenericTypes() {
     CompilationResult result = compile("Void main() { List values = List<Integer>() }");
 

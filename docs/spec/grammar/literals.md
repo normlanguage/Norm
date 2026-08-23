@@ -31,7 +31,7 @@ CodePoint newline = '\n'
 
 ## 布尔与 Null
 
-`true` 和 `false` 的类型是 Boolean。`null` 只能出现在已有 nullable 期望类型的位置，不能单独推断为任意类型。
+`true` 和 `false` 的类型是 Boolean。`null` 只能出现在已有 nullable 期望类型的位置，不能单独推断为任意类型。运行时使用 guest null value 表示该值，不把宿主语言 null 暴露为 Norm 值。
 
 ## 集合
 

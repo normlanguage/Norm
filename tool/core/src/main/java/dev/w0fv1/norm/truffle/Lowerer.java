@@ -100,6 +100,7 @@ final class Lowerer {
           plan.allocate(loop.variable(), loop.variableName(), loop.variableType());
           scanBlock(loop.body(), plan);
         }
+        case BoundStatement.ConditionalForStatement loop -> scanBlock(loop.body(), plan);
         case BoundStatement.IfStatement conditional -> {
           scanBlock(conditional.thenBlock(), plan);
           scanBlock(conditional.elseBlock(), plan);
@@ -176,6 +177,9 @@ final class Lowerer {
                   lowerBlock(loop.body(), plan),
                   loop.iterationIntrinsic(),
                   context);
+          case BoundStatement.ConditionalForStatement loop ->
+              new StatementNodes.ConditionalFor(
+                  lowerExpression(loop.condition(), plan), lowerBlock(loop.body(), plan), context);
           case BoundStatement.ReturnStatement returned ->
               new StatementNodes.Return(
                   returned.value().map(value -> lowerExpression(value, plan)).orElse(null));
@@ -193,6 +197,7 @@ final class Lowerer {
                   literal.type().equals(SemanticType.CODE_POINT)
                       ? new RuntimeValues.CodePointValue(((Number) literal.value()).intValue())
                       : literal.value());
+          case BoundExpression.NullLiteral ignored -> new ExpressionNodes.NullLiteral();
           case BoundExpression.ArrayLiteral array ->
               new ExpressionNodes.ArrayLiteral(
                   array.elements().stream()
@@ -203,7 +208,7 @@ final class Lowerer {
               new ExpressionNodes.ReadLocal(plan.binding(local.local()));
           case BoundExpression.FieldRead field ->
               new ExpressionNodes.ReadField(
-                  lowerExpression(field.receiver(), plan), field.ordinal());
+                  lowerExpression(field.receiver(), plan), field.ordinal(), field.nullSafe());
           case BoundExpression.EnumMember member ->
               new ExpressionNodes.EnumMember(member.enumName(), member.memberName());
           case BoundExpression.Unary unary ->
@@ -218,9 +223,11 @@ final class Lowerer {
                   new ExpressionNode[] {lowerExpression(index.index(), plan)},
                   new int[] {0},
                   null,
+                  false,
                   context);
           case BoundExpression.CopyObject copied ->
-              new ExpressionNodes.CopyObject(lowerExpression(copied.receiver(), plan));
+              new ExpressionNodes.CopyObject(
+                  lowerExpression(copied.receiver(), plan), copied.nullSafe());
           case BoundCall call -> lowerCall(call, plan);
           case BoundConstruct construct ->
               new ExpressionNodes.Construct(
@@ -235,6 +242,7 @@ final class Lowerer {
                   lowerArguments(intrinsic.arguments(), plan),
                   parameterIndices(intrinsic.arguments()),
                   intrinsic.runtimeType().map(value -> lowerRuntimeType(value, plan)).orElse(null),
+                  intrinsic.nullSafe(),
                   context);
         };
     return lowered.at(section(expression.span()));
@@ -258,6 +266,7 @@ final class Lowerer {
       case NOT_EQUAL -> new ExpressionNodes.NotEqual(left, right);
       case AND -> new ExpressionNodes.And(left, right);
       case OR -> new ExpressionNodes.Or(left, right);
+      case COALESCE -> new ExpressionNodes.Coalesce(left, right);
     };
   }
 
@@ -270,7 +279,8 @@ final class Lowerer {
           target.target,
           lowerExpression(call.receiver().orElseThrow(), plan),
           lowerArguments(call.arguments(), plan),
-          parameterIndices(call.arguments()));
+          parameterIndices(call.arguments()),
+          call.nullSafe());
     }
     return new ExpressionNodes.FunctionCall(
         target.target,
@@ -315,7 +325,7 @@ final class Lowerer {
   }
 
   private static FrameSlotKind slotKind(SemanticType type) {
-    if (type.equals(SemanticType.DYNAMIC)) return FrameSlotKind.Object;
+    if (type.equals(SemanticType.DYNAMIC) || type.isNullable()) return FrameSlotKind.Object;
     return switch (type.identity()) {
       case "std.core.Integer" -> FrameSlotKind.Long;
       case "std.core.Boolean" -> FrameSlotKind.Boolean;

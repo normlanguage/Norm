@@ -1,0 +1,11 @@
+class Box { Integer value }
+
+Void main() {
+  Box? first = Box(value: 1)
+  Box? second = first
+  if second != null { second.value = 9 }
+  printLine(first?.value ?? 0)
+  printLine(first == second)
+  expectedOutputLine("9")
+  expectedOutputLine("true")
+}

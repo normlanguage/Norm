@@ -32,7 +32,7 @@ String formatter(Point value)
 
 ## Cast
 
-`is` 只检查声明关系和 reified 泛型信息。`as` 是显式可能失败的操作；安全 cast 是否使用 Result/Option 形式由最终语法提案确定，在定稿前规范示例不假设 `as?`。
+`is` 只检查声明关系和 reified 泛型信息。`as` 是显式可能失败的操作；安全 cast 的公开形式由最终语法提案确定，在定稿前规范示例不假设 `as?`。
 
 ## Bottom 与 Never
 

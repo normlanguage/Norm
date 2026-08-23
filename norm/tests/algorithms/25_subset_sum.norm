@@ -1,6 +1,5 @@
 Boolean subsetSum(Array<Integer> values, Integer target) {
-  List<Boolean> possible = List<Boolean>()
-  for sum : range(start: 0, end: target + 1) { possible.add(false) }
+  List<Boolean> possible = List.filled(size: target + 1, value: false)
   possible[0] = true
   for Integer value : values {
     for step : range(start: 0, end: target - value + 1) {

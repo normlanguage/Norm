@@ -1,0 +1,11 @@
+Integer size(String? value) {
+  if value == null { return 0 }
+  return value.codePointSize()
+}
+
+Void main() {
+  printLine(size(value: null))
+  printLine(size(value: "Norm"))
+  expectedOutputLine("0")
+  expectedOutputLine("4")
+}

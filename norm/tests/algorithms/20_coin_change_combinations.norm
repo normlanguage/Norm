@@ -1,6 +1,5 @@
 Integer coinCombinations(Array<Integer> coins, Integer amount) {
-  List<Integer> ways = List<Integer>()
-  for value : range(start: 0, end: amount + 1) { ways.add(0) }
+  List<Integer> ways = List.filled(size: amount + 1, value: 0)
   ways[0] = 1
   for Integer coin : coins {
     for value : range(start: coin, end: amount + 1) {

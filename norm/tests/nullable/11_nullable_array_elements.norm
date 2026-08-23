@@ -1,0 +1,9 @@
+Void main() {
+  Array<String?> values = ["first", null, "last"]
+  printLine(values[0] ?? "missing")
+  printLine(values[1] ?? "missing")
+  printLine(values[2] ?? "missing")
+  expectedOutputLine("first")
+  expectedOutputLine("missing")
+  expectedOutputLine("last")
+}

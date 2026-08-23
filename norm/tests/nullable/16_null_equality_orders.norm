@@ -1,0 +1,11 @@
+Void main() {
+  String? value = null
+  printLine(value == null)
+  printLine(null == value)
+  printLine(value != null)
+  printLine(null != value)
+  expectedOutputLine("true")
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+  expectedOutputLine("false")
+}

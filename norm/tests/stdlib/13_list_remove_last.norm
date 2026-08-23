@@ -1,0 +1,9 @@
+Void main() {
+  List<Integer> values = List.filled(size: 3, value: 5)
+  printLine(values.removeLast())
+  printLine(values.size())
+  printLine(values.last())
+  expectedOutputLine("5")
+  expectedOutputLine("2")
+  expectedOutputLine("5")
+}

@@ -8,7 +8,7 @@ Norm prioritizes explicit behavior, predictable semantics, strong typing, value 
 
 ## Status
 
-**V0.2 generic multi-file release.** The Java frontend and Truffle execution path support generic classes and functions, packages, explicit imports, `module.norm` project boundaries, cross-file language services, parameterized collections, and a standard library written in Norm. The [0.2 release record](https://w0fv1.github.io/norm/en/versions/0.2) defines the delivered language boundary.
+**V0.3 nullable-safety and algorithm-foundation release.** Norm supports explicit nullable types, flow narrowing, safe access and coalescing, overloads, conditional loops, stepped ranges, expanded collection and text primitives, cross-file language services, and a standard library written in Norm. The [0.3 release record](https://w0fv1.github.io/norm/en/versions/0.3) defines the delivered language boundary.
 
 ## Build
 

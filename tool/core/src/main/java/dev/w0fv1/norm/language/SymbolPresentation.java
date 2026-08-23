@@ -11,7 +11,9 @@ final class SymbolPresentation {
         symbol.typeParameters().isEmpty()
             ? ""
             : "<" + String.join(", ", symbol.typeParameters()) + ">";
-    if (symbol.kind() == SymbolKind.FUNCTION || symbol.kind() == SymbolKind.METHOD) {
+    if (symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.TYPE_METHOD) {
       String parameters =
           symbol.parameters().stream()
               .map(parameter -> parameter.type().displayName() + " " + parameter.name())

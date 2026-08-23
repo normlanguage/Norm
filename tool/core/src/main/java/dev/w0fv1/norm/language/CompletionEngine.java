@@ -8,9 +8,12 @@ import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.semantic.TypeRelations;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 final class CompletionEngine {
   private final CompletionContextResolver contexts = new CompletionContextResolver();
@@ -43,7 +46,7 @@ final class CompletionEngine {
             || context instanceof CompletionContext.TypeArgument
             || context instanceof CompletionContext.TopLevel);
     completionKeywords(context)
-        .forEach(completion -> result.add(new RankedCompletion(completion, Optional.empty())));
+        .forEach(completion -> result.add(new RankedCompletion(completion, Optional.empty(), 0)));
     List<Symbol> visibleSymbols = model.visibleSymbols(offset);
     Set<String> visibleNames =
         visibleSymbols.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
@@ -91,18 +94,32 @@ final class CompletionEngine {
                   "",
                   "Void main() {\n  ${1}\n}",
                   true),
-              Optional.empty()));
+              Optional.empty(),
+              0));
     }
-    List<Completion> completions =
+    List<RankedCompletion> ranked =
         result.stream()
             .sorted(
                 Comparator.<RankedCompletion>comparingInt(
                         candidate -> relevance(expectedType, candidate))
-                    .thenComparing(candidate -> candidate.completion().label()))
-            .map(RankedCompletion::completion)
+                    .thenComparing(candidate -> candidate.completion().label())
+                    .thenComparingInt(RankedCompletion::arity))
             .toList();
+    Map<String, Completion> unique = new LinkedHashMap<>();
+    ranked.forEach(
+        candidate ->
+            unique.putIfAbsent(
+                candidate.completion().kind()
+                    + "\u0000"
+                    + candidate.completion().label()
+                    + "\u0000"
+                    + candidate.completion().additionalTextEdits(),
+                candidate.completion()));
     return withTextEdits(
-        completions, document, identifierStart(document.source().text(), offset), offset);
+        List.copyOf(unique.values()),
+        document,
+        identifierStart(document.source().text(), offset),
+        offset);
   }
 
   private static List<Completion> importCompletions(SemanticModel model) {
@@ -156,11 +173,12 @@ final class CompletionEngine {
           keyword("break"),
           keyword("continue"),
           keyword("true"),
-          keyword("false"));
+          keyword("false"),
+          keyword("null"));
     }
     if (context instanceof CompletionContext.Expression
         || context instanceof CompletionContext.ArgumentLabel) {
-      return List.of(keyword("true"), keyword("false"));
+      return List.of(keyword("true"), keyword("false"), keyword("null"));
     }
     return List.of();
   }
@@ -175,25 +193,44 @@ final class CompletionEngine {
 
   private static List<Completion> memberCompletions(
       SemanticModel model, String text, int dotOffset) {
-    int start = dotOffset;
+    int receiverEnd =
+        dotOffset > 0 && text.charAt(dotOffset - 1) == '?' ? dotOffset - 1 : dotOffset;
+    int start = receiverEnd;
     while (start > 0 && Character.isUnicodeIdentifierPart(text.charAt(start - 1))) start--;
     int identifierStart = start;
-    int receiverOffset = Math.max(0, dotOffset - 1);
+    int receiverOffset = Math.max(0, receiverEnd - 1);
+    Optional<Symbol> receiverSymbol =
+        identifierStart == receiverEnd ? Optional.empty() : model.symbolAt(identifierStart);
+    String receiverName = text.substring(identifierStart, receiverEnd);
+    boolean typeReceiver =
+        receiverSymbol.isPresent() && receiverSymbol.orElseThrow().kind() == SymbolKind.TYPE;
+    List<Symbol> typeMembers = model.typeMembers(receiverName);
+    if (typeReceiver && !typeMembers.isEmpty()) {
+      return symbolCompletions(typeMembers.stream());
+    }
     Optional<SemanticType> receiverType =
         model
             .typeAt(receiverOffset)
             .or(
                 () -> {
-                  if (identifierStart == dotOffset) return Optional.empty();
+                  if (identifierStart == receiverEnd) return Optional.empty();
                   return model
                       .typeAt(identifierStart)
                       .or(() -> model.symbolAt(identifierStart).map(Symbol::type));
                 });
-    return receiverType.stream()
-        .flatMap(type -> model.members(type).stream())
-        .map(CompletionEngine::completion)
-        .sorted(Comparator.comparing(Completion::label))
-        .toList();
+    return symbolCompletions(receiverType.stream().flatMap(type -> model.members(type).stream()));
+  }
+
+  private static List<Completion> symbolCompletions(Stream<Symbol> symbols) {
+    Map<String, Completion> unique = new LinkedHashMap<>();
+    symbols
+        .sorted(
+            Comparator.comparing(Symbol::name)
+                .thenComparingInt(symbol -> symbol.parameters().size()))
+        .forEach(
+            symbol ->
+                unique.putIfAbsent(symbol.kind() + "\u0000" + symbol.name(), completion(symbol)));
+    return List.copyOf(unique.values());
   }
 
   private static Completion completion(Symbol symbol) {
@@ -206,7 +243,7 @@ final class CompletionEngine {
         switch (symbol.kind()) {
           case TYPE, TYPE_PARAMETER -> CompletionKind.TYPE;
           case FUNCTION -> CompletionKind.FUNCTION;
-          case METHOD -> CompletionKind.METHOD;
+          case METHOD, TYPE_METHOD -> CompletionKind.METHOD;
           case FIELD -> CompletionKind.FIELD;
           case PROPERTY -> CompletionKind.PROPERTY;
           case ENUM_MEMBER -> CompletionKind.ENUM_MEMBER;
@@ -214,7 +251,9 @@ final class CompletionEngine {
         };
     boolean snippet = !symbol.parameters().isEmpty();
     String insertText = symbol.name();
-    if (symbol.kind() == SymbolKind.METHOD || symbol.kind() == SymbolKind.FUNCTION) {
+    if (symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.TYPE_METHOD
+        || symbol.kind() == SymbolKind.FUNCTION) {
       String arguments =
           java.util.stream.IntStream.range(0, symbol.parameters().size())
               .mapToObj(
@@ -285,7 +324,9 @@ final class CompletionEngine {
       candidate = symbols.specialize(symbol, expected.orElseThrow().arguments());
     }
     return new RankedCompletion(
-        completion(candidate, additionalTextEdits, constructor), Optional.of(candidate.type()));
+        completion(candidate, additionalTextEdits, constructor),
+        Optional.of(candidate.type()),
+        candidate.parameters().size());
   }
 
   private RankedCompletion rankedImport(
@@ -305,7 +346,8 @@ final class CompletionEngine {
             completion.insertText(),
             completion.snippet(),
             completion.additionalTextEdits()),
-        ranked.type());
+        ranked.type(),
+        ranked.arity());
   }
 
   private static int relevance(Optional<SemanticType> expected, RankedCompletion candidate) {
@@ -328,5 +370,5 @@ final class CompletionEngine {
     return typeRank * 10 + kindRank;
   }
 
-  private record RankedCompletion(Completion completion, Optional<SemanticType> type) {}
+  private record RankedCompletion(Completion completion, Optional<SemanticType> type, int arity) {}
 }

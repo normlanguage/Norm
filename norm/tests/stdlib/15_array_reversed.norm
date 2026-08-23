@@ -1,0 +1,11 @@
+Void main() {
+  Array<String> source = ["A", "B", "C"]
+  Array<String> result = source.reversed()
+  result[0] = "Z"
+  printLine(source[0])
+  for value : result { printLine(value) }
+  expectedOutputLine("A")
+  expectedOutputLine("Z")
+  expectedOutputLine("B")
+  expectedOutputLine("A")
+}

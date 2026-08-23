@@ -1,0 +1,9 @@
+String label(String value) { return "present:" + value }
+String label(String? value) { return value ?? "missing" }
+
+Void main() {
+  printLine(label(value: "x"))
+  printLine(label(value: null))
+  expectedOutputLine("present:x")
+  expectedOutputLine("missing")
+}

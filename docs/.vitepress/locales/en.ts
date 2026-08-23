@@ -2,6 +2,7 @@ import type { DefaultTheme } from 'vitepress'
 
 const handbook = [
   { text: 'Handbook Introduction', link: '/en/language/overview' },
+  { text: 'Types and Null', link: '/en/language/types' },
   { text: 'Value and Identity', link: '/en/language/objects' },
   { text: 'Control-Flow Expressions', link: '/en/language/control-flow' },
   { text: 'Reified Generics', link: '/en/language/generics' },
@@ -11,16 +12,18 @@ export const enTheme: DefaultTheme.Config = {
   nav: [
     { text: 'Docs', link: '/en/docs/' },
     { text: 'Handbook', link: '/en/language/overview', activeMatch: '^/en/language/' },
-    { text: 'Releases', link: '/en/versions/0.2', activeMatch: '^/en/versions/' },
+    { text: 'Releases', link: '/en/versions/0.3', activeMatch: '^/en/versions/' },
     { text: 'Project Status', link: '/en/status' },
   ],
   sidebar: {
     '/en/language/': [{ text: 'Core Language', items: handbook }],
     '/en/versions/': [{ text: 'Releases', items: [
+      { text: 'Norm 0.3', link: '/en/versions/0.3' },
       { text: 'Norm 0.2', link: '/en/versions/0.2' },
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
     ]}],
     '/en/design/': [{ text: 'Implementation', items: [
+      { text: 'Norm 0.3', link: '/en/versions/0.3' },
       { text: 'Norm 0.2', link: '/en/versions/0.2' },
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
       { text: 'Implementation Strategy', link: '/en/design/implementation-strategy' },

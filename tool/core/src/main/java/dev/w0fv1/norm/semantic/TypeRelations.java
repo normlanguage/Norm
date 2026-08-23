@@ -4,8 +4,10 @@ public final class TypeRelations {
   private TypeRelations() {}
 
   public static boolean isAssignable(SemanticType expected, SemanticType actual) {
-    return expected.equals(SemanticType.DYNAMIC)
-        || actual.equals(SemanticType.DYNAMIC)
-        || expected.equals(actual);
+    if (expected.equals(SemanticType.DYNAMIC) || actual.equals(SemanticType.DYNAMIC)) return true;
+    if (actual.equals(SemanticType.NULL)) return expected.isNullable();
+    if (expected.equals(SemanticType.NULL)) return actual.equals(SemanticType.NULL);
+    if (!expected.nonNullable().equals(actual.nonNullable())) return false;
+    return expected.isNullable() || !actual.isNullable();
   }
 }

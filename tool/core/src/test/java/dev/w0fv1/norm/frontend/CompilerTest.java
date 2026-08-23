@@ -108,6 +108,120 @@ final class CompilerTest {
   }
 
   @Test
+  void acceptsNullableDeclarationsReturnsAndNestedTypeArguments() {
+    CompilationResult result =
+        compile(
+            "String? missing() { return null } "
+                + "Void main() { String? text = missing() List<String?> values = List<String?>() "
+                + "values.add(text) values.add(null) "
+                + "List<String>? optionalValues = null printLine(values.size()) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void rejectsNullAndNullableValuesAtNonNullTargets() {
+    CompilationResult literal = compile("Void main() { String text = null }");
+    CompilationResult value =
+        compile("Void main() { String? optional = null String text = optional }");
+
+    assertFalse(literal.isSuccess());
+    assertFalse(value.isSuccess());
+    assertTrue(
+        literal.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().startsWith("NORM-NULL-")));
+    assertTrue(
+        value.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().startsWith("NORM-NULL-")));
+  }
+
+  @Test
+  void rejectsNullableVoidAndUntypedNull() {
+    CompilationResult nullableVoid = compile("Void? invalid() { return null } Void main() {}");
+    CompilationResult untyped = compile("Void main() { null }");
+
+    assertFalse(nullableVoid.isSuccess());
+    assertFalse(untyped.isSuccess());
+  }
+
+  @Test
+  void narrowsNullableLocalsAcrossConditionsAndEarlyReturn() {
+    CompilationResult result =
+        compile(
+            "Void show(String? text) { "
+                + "if text != null && text.codePointSize() > 0 { printLine(text) } "
+                + "if text == null { return } printLine(text.codePointSize()) } "
+                + "Void main() { show(text: null) show(text: \"Norm\") }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void narrowsTheRightSideOfNullGuardingDisjunctions() {
+    CompilationResult result =
+        compile(
+            "Boolean empty(String? text) { return text == null || text.codePointSize() == 0 } "
+                + "Void main() { printLine(empty(text: null)) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void rejectsNullableDereferenceAndInvalidatesNarrowingAfterAssignment() {
+    CompilationResult direct =
+        compile("Void main() { String? text = null printLine(text.codePointSize()) }");
+    CompilationResult reassigned =
+        compile(
+            "Void show(String? text) { if text != null { text = null printLine(text.codePointSize()) } } "
+                + "Void main() {}");
+
+    assertFalse(direct.isSuccess());
+    assertFalse(reassigned.isSuccess());
+    assertTrue(
+        direct.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().startsWith("NORM-NULL-")));
+    assertTrue(
+        reassigned.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().startsWith("NORM-NULL-")));
+  }
+
+  @Test
+  void acceptsSafeAccessAndNullCoalescingWithPreciseResultTypes() {
+    CompilationResult result =
+        compile(
+            "class User { String name } "
+                + "Void main() { User? user = null String name = user?.name ?? \"guest\" "
+                + "Integer size = user?.name?.codePointSize() ?? 0 printLine(name) printLine(size) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void keepsBranchFlowSoundAcrossMutationAndFieldReads() {
+    CompilationResult nestedMutation =
+        compile(
+            "Void show(String? text, Boolean clear) { if text != null { "
+                + "if clear { text = null } printLine(text.codePointSize()) } } Void main() {}");
+    CompilationResult mutableField =
+        compile(
+            "class Holder { String? text Void show() { "
+                + "if text != null { printLine(text.codePointSize()) } } } Void main() {}");
+
+    assertFalse(nestedMutation.isSuccess());
+    assertFalse(mutableField.isSuccess());
+  }
+
+  @Test
+  void supportsBothNullComparisonOrdersAndElseNarrowing() {
+    CompilationResult result =
+        compile(
+            "Void show(String? text) { if null == text { printLine(\"missing\") } "
+                + "else { printLine(text.codePointSize()) } } Void main() { show(text: null) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void reportsAMissingEntryPoint() {
     CompilationResult result = compile("Void helper() {}");
 
@@ -207,6 +321,48 @@ final class CompilerTest {
   }
 
   @Test
+  void resolvesFunctionAndMethodOverloadsByArityAndType() {
+    CompilationResult result =
+        compile(
+            "Integer choose(Integer value) { return value } "
+                + "String choose(String value) { return value } "
+                + "class Picker { Integer choose(Integer value) { return value } "
+                + "String choose(String value) { return value } } "
+                + "Void main() { Integer number = choose(value: 7) String text = choose(value: \"N\") "
+                + "Picker picker = Picker() printLine(picker.choose(value: number)) "
+                + "printLine(picker.choose(value: text)) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void typesMapGetAsNullable() {
+    CompilationResult result =
+        compile(
+            "Void main() { Map<String, Integer> values = Map<String, Integer>() "
+                + "Integer? missing = values.get(key: \"missing\") "
+                + "Integer fallback = values.get(key: \"missing\") ?? 0 } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void rejectsDuplicateAndAmbiguousOverloads() {
+    CompilationResult duplicate =
+        compile(
+            "Integer choose(Integer value) { return value } "
+                + "Integer choose(Integer other) { return other } Void main() {}");
+    CompilationResult ambiguous =
+        compile(
+            "Integer choose(Integer? value) { return 1 } "
+                + "Integer choose(String? value) { return 2 } "
+                + "Void main() { printLine(choose(value: null)) }");
+
+    assertFalse(duplicate.isSuccess());
+    assertFalse(ambiguous.isSuccess());
+  }
+
+  @Test
   void rejectsIdentifierShorthandWhenTheParameterNameDiffers() {
     CompilationResult result =
         compile(
@@ -242,6 +398,50 @@ final class CompilerTest {
             "Void main() { Integer total = 0 "
                 + "for value : range(start: 0, end: 4) { total = total + value } "
                 + "printLine(total) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void acceptsConditionalForAndRequiresABooleanCondition() {
+    CompilationResult accepted =
+        compile(
+            "Void main() { Integer value = 0 for value < 3 { value = value + 1 } printLine(value) }");
+    CompilationResult rejected = compile("Void main() { for 1 {} }");
+
+    assertTrue(accepted.isSuccess(), () -> accepted.diagnostics().toString());
+    assertFalse(rejected.isSuccess());
+  }
+
+  @Test
+  void acceptsTwoAndThreeArgumentRangeOverloads() {
+    CompilationResult result =
+        compile(
+            "Void main() { for value : range(start: 0, end: 3) { printLine(value) } "
+                + "for value : range(start: 5, end: 0, step: -2) { printLine(value) } }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void resolvesGenericTypeMembersAndSequenceMembers() {
+    CompilationResult result =
+        compile(
+            "Void main() { List<Integer> values = List.filled(size: 3, value: 7) "
+                + "Integer last = values.last() Integer removed = values.removeLast() "
+                + "List<Integer> backwards = values.reversed() "
+                + "Array<Boolean> flags = Array.filled(size: 2, value: false) "
+                + "Array<Boolean> reversed = flags.reversed() printLine(last) printLine(removed) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void exposesAsciiDigitOperationsOnCodePoints() {
+    CompilationResult result =
+        compile(
+            "Void main() { Boolean digit = '7'.isAsciiDigit() "
+                + "Integer value = '7'.asciiDigitValue() printLine(digit) printLine(value) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }

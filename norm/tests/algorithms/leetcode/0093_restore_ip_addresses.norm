@@ -4,7 +4,7 @@ class Addresses {
 
 Integer segmentValue(Array<CodePoint> digits, Integer start, Integer end) {
   Integer value = 0
-  for index : range(start: start, end: end) { value = value * 10 + digits[index].scalarValue() - '0'.scalarValue() }
+  for index : range(start: start, end: end) { value = value * 10 + digits[index].asciiDigitValue() }
   return value
 }
 

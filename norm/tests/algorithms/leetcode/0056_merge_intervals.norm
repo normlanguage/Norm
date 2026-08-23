@@ -10,10 +10,10 @@ List<Array<Integer>> merge(List<Array<Integer>> intervals) {
   }
   List<Array<Integer>> result = List<Array<Integer>>()
   for Array<Integer> interval : intervals {
-    if result.isEmpty() || result[result.size() - 1][1] < interval[0] {
+    if result.isEmpty() || result.last()[1] < interval[0] {
       result.add(interval)
     } else {
-      Array<Integer> previous = result.removeAt(result.size() - 1)
+      Array<Integer> previous = result.removeLast()
       if interval[1] > previous[1] { previous[1] = interval[1] }
       result.add(previous)
     }

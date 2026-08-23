@@ -1,0 +1,12 @@
+Void main() {
+  Integer value = 0
+  for value < 8 {
+    value = value + 1
+    if value % 2 == 0 { continue }
+    if value > 5 { break }
+    printLine(value)
+  }
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+  expectedOutputLine("5")
+}

@@ -12,7 +12,7 @@ import dev.w0fv1.norm.value.SourceFile;
     id = LanguageMetadata.ID,
     name = "Norm",
     implementationName = "Norm",
-    version = "0.2",
+    version = "0.3",
     defaultMimeType = LanguageMetadata.MIME_TYPE,
     characterMimeTypes = LanguageMetadata.MIME_TYPE)
 public final class Language extends TruffleLanguage<LanguageContext> {

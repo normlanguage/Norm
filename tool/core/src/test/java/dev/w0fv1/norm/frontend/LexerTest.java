@@ -74,6 +74,37 @@ final class LexerTest {
   }
 
   @Test
+  void lexesNullableTypesAndOperators() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(
+                SourceFile.of(
+                    Path.of("nullable.norm"),
+                    "String? value = null value?.codePointSize() value ?? \"\""),
+                diagnostics)
+            .lex();
+
+    assertFalse(diagnostics.hasErrors());
+    assertEquals(
+        List.of(
+            TokenKind.IDENTIFIER,
+            TokenKind.QUESTION,
+            TokenKind.IDENTIFIER,
+            TokenKind.EQUAL,
+            TokenKind.NULL,
+            TokenKind.IDENTIFIER,
+            TokenKind.QUESTION_DOT,
+            TokenKind.IDENTIFIER,
+            TokenKind.LEFT_PAREN,
+            TokenKind.RIGHT_PAREN,
+            TokenKind.IDENTIFIER,
+            TokenKind.QUESTION_QUESTION,
+            TokenKind.STRING,
+            TokenKind.END_OF_FILE),
+        tokens.stream().map(Token::kind).toList());
+  }
+
+  @Test
   void rejectsEmptyAndMultipleCodePointLiterals() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     new Lexer(SourceFile.of(Path.of("bad-code-points.norm"), "'' 'ab'"), diagnostics).lex();

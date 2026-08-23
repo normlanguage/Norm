@@ -115,6 +115,7 @@ aside: false
 
 了解工具链、包生态和迁移策略。
 
+- [0.3 版本记录](/versions/0.3)
 - [0.2 版本记录](/versions/0.2)
 - [0.1 版本记录](/versions/0.1)
 - [实现策略决议](/design/implementation-strategy)

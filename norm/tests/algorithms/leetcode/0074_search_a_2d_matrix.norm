@@ -2,8 +2,7 @@ Boolean searchMatrix(List<Array<Integer>> matrix, Integer target) {
   Integer columns = matrix[0].size()
   Integer left = 0
   Integer right = matrix.size() * columns - 1
-  for step : range(start: 0, end: right + 2) {
-    if left > right { break }
+  for left <= right {
     Integer middle = left + (right - left) / 2
     Integer value = matrix[middle / columns][middle % columns]
     if value == target { return true }

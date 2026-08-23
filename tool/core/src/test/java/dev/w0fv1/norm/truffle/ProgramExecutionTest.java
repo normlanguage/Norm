@@ -190,6 +190,139 @@ final class ProgramExecutionTest {
     assertEquals(RuntimeErrorCode.MISSING_MAP_KEY, exception.code());
   }
 
+  @Test
+  void returnsNullableValuesFromMapGet() throws Exception {
+    assertOutput(
+        "Void main() { Map<String, Integer> values = Map<String, Integer>() "
+            + "values.put(key: \"answer\", value: 42) "
+            + "printLine(values.get(key: \"answer\") ?? -1) "
+            + "printLine(values.get(key: \"missing\") ?? -1) "
+            + "Map<String, String?> nullable = Map<String, String?>() "
+            + "nullable.put(key: \"saved\", value: null) "
+            + "printLine(nullable.containsKey(key: \"saved\")) "
+            + "printLine(nullable.get(key: \"saved\") == null) }",
+        String.join(System.lineSeparator(), "42", "-1", "true", "true", ""));
+  }
+
+  @Test
+  void executesNullFlowSafeAccessAndCoalescingWithShortCircuiting() throws Exception {
+    assertOutput(
+        "class User { String name } "
+            + "String fallback() { printLine(\"fallback\") return \"guest\" } "
+            + "Void main() { User? missing = null User? present = User(name: \"Norm\") "
+            + "printLine(missing?.name ?? fallback()) "
+            + "printLine(present?.name ?? fallback()) "
+            + "if present != null { printLine(present.name) } }",
+        String.join(System.lineSeparator(), "fallback", "guest", "Norm", "Norm", ""));
+  }
+
+  @Test
+  void evaluatesSafeReceiversOnceAndSkipsArgumentsWhenNull() throws Exception {
+    assertOutput(
+        "class Receiver { String use(String value) { return value } } "
+            + "Receiver? receiver(Integer call) { printLine(call) return null } "
+            + "String argument() { printLine(\"argument\") return \"value\" } "
+            + "Void main() { printLine(receiver(call: 1)?.use(value: argument()) ?? \"missing\") }",
+        String.join(System.lineSeparator(), "1", "missing", ""));
+  }
+
+  @Test
+  void executesConditionalForWithBreakAndContinue() throws Exception {
+    assertOutput(
+        "Void main() { Integer value = 0 for value < 6 { value = value + 1 "
+            + "if value == 2 { continue } if value == 5 { break } printLine(value) } }",
+        String.join(System.lineSeparator(), "1", "3", "4", ""));
+  }
+
+  @Test
+  void executesResolvedFunctionAndMethodOverloads() throws Exception {
+    assertOutput(
+        "Integer choose(Integer value) { return value + 1 } "
+            + "String choose(String value) { return value + \"!\" } "
+            + "class Picker { Integer choose(Integer value) { return value * 2 } "
+            + "String choose(String value) { return value + value } } "
+            + "Void main() { Picker picker = Picker() printLine(choose(value: 3)) "
+            + "printLine(choose(value: \"N\")) printLine(picker.choose(value: 4)) "
+            + "printLine(picker.choose(value: \"A\")) }",
+        String.join(System.lineSeparator(), "4", "N!", "8", "AA", ""));
+  }
+
+  @Test
+  void iteratesSteppedRangesInBothDirectionsWithoutOverflow() throws Exception {
+    assertOutput(
+        "Void main() { Range ascending = range(start: 0, end: 7, step: 2) "
+            + "printLine(ascending.size()) for value : ascending { printLine(value) } "
+            + "Range descending = range(start: 5, end: -2, step: -3) "
+            + "printLine(descending.size()) for value : descending { printLine(value) } "
+            + "for value : range(start: 9223372036854775806, end: 9223372036854775807, step: 2) "
+            + "{ printLine(value) } }",
+        String.join(
+            System.lineSeparator(),
+            "4",
+            "0",
+            "2",
+            "4",
+            "6",
+            "3",
+            "5",
+            "2",
+            "-1",
+            "9223372036854775806",
+            ""));
+  }
+
+  @Test
+  void rejectsZeroRangeStepAtRuntime() {
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class,
+            () -> assertOutput("Void main() { range(start: 0, end: 4, step: 0) }", ""));
+
+    assertEquals(RuntimeErrorCode.INVALID_ARGUMENT, exception.code());
+  }
+
+  @Test
+  void executesFilledLastRemoveLastAndReversedSequenceOperations() throws Exception {
+    assertOutput(
+        "Void main() { List<Integer> values = List.filled(size: 3, value: 7) values[0] = 1 "
+            + "printLine(values.last()) printLine(values.removeLast()) printLine(values.size()) "
+            + "List<Integer> reversed = values.reversed() for value : reversed { printLine(value) } "
+            + "Array<Boolean> flags = Array.filled(size: 2, value: false) flags[1] = true "
+            + "for flag : flags.reversed() { printLine(flag) } }",
+        String.join(System.lineSeparator(), "7", "7", "2", "7", "1", "true", "false", ""));
+  }
+
+  @Test
+  void executesAsciiDigitOperationsAndRejectsNonDigits() throws Exception {
+    assertOutput(
+        "Void main() { printLine('7'.isAsciiDigit()) printLine('７'.isAsciiDigit()) "
+            + "printLine('7'.asciiDigitValue()) }",
+        String.join(System.lineSeparator(), "true", "false", "7", ""));
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class,
+            () -> assertOutput("Void main() { 'x'.asciiDigitValue() }", ""));
+    assertEquals(RuntimeErrorCode.INVALID_ARGUMENT, exception.code());
+  }
+
+  @Test
+  void rejectsInvalidFilledSizesAndEmptySequenceTailOperations() {
+    NormExecutionException negative =
+        assertThrows(
+            NormExecutionException.class,
+            () ->
+                assertOutput(
+                    "Void main() { List<Integer> values = List.filled(size: -1, value: 0) }", ""));
+    NormExecutionException empty =
+        assertThrows(
+            NormExecutionException.class,
+            () ->
+                assertOutput(
+                    "Void main() { List<Integer> values = List<Integer>() values.last() }", ""));
+    assertEquals(RuntimeErrorCode.INVALID_ARGUMENT, negative.code());
+    assertEquals(RuntimeErrorCode.EMPTY_COLLECTION, empty.code());
+  }
+
   @TestFactory
   Stream<DynamicTest> runsBasicLanguagePrograms() throws Exception {
     return suite("base");
@@ -213,6 +346,21 @@ final class ProgramExecutionTest {
   @TestFactory
   Stream<DynamicTest> runsGenericPrograms() throws Exception {
     return suite("generics");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsNullablePrograms() throws Exception {
+    return suite("nullable");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsOverloadPrograms() throws Exception {
+    return suite("overloads");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsRangePrograms() throws Exception {
+    return suite("range");
   }
 
   @TestFactory

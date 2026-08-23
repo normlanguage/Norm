@@ -4,8 +4,7 @@ List<Integer> spiralOrder(List<Array<Integer>> matrix) {
   Integer bottom = matrix.size() - 1
   Integer left = 0
   Integer right = matrix[0].size() - 1
-  for layer : range(start: 0, end: matrix.size() + matrix[0].size()) {
-    if top > bottom || left > right { break }
+  for top <= bottom && left <= right {
     for column : range(start: left, end: right + 1) { result.add(matrix[top][column]) }
     top = top + 1
     for row : range(start: top, end: bottom + 1) { result.add(matrix[row][right]) }

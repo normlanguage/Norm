@@ -1,7 +1,6 @@
 Boolean matchesWords(Array<CodePoint> text, Integer start, List<String> words) {
   Integer width = words[0].codePointSize()
-  List<Boolean> used = List<Boolean>()
-  for index : range(start: 0, end: words.size()) { used.add(false) }
+  List<Boolean> used = List.filled(size: words.size(), value: false)
   for position : range(start: 0, end: words.size()) {
     Boolean found = false
     for word : range(start: 0, end: words.size()) {

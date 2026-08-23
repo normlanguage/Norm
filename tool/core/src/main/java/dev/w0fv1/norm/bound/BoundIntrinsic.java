@@ -12,6 +12,7 @@ public record BoundIntrinsic(
     Optional<BoundExpression> receiver,
     List<BoundArgument> arguments,
     Optional<BoundRuntimeType> runtimeType,
+    boolean nullSafe,
     SemanticType type,
     SourceSpan span)
     implements BoundExpression {
@@ -22,5 +23,15 @@ public record BoundIntrinsic(
     runtimeType = Objects.requireNonNull(runtimeType, "runtimeType");
     Objects.requireNonNull(type, "type");
     Objects.requireNonNull(span, "span");
+  }
+
+  public BoundIntrinsic(
+      IntrinsicId intrinsic,
+      Optional<BoundExpression> receiver,
+      List<BoundArgument> arguments,
+      Optional<BoundRuntimeType> runtimeType,
+      SemanticType type,
+      SourceSpan span) {
+    this(intrinsic, receiver, arguments, runtimeType, false, type, span);
   }
 }

@@ -29,6 +29,45 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesSafeAccessAndTypeLevelMembers() {
+    String safeText =
+        "Void main() { String? value = null Integer size = value?.codePointSize() ?? 0 }";
+    var safeAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:safe-completion"), safeText));
+    int safeOffset = safeText.indexOf("?.codePointSize") + 2;
+
+    List<String> safeLabels =
+        service.complete(safeAnalysis, safeOffset).stream().map(Completion::label).toList();
+
+    String typeText = "Void main() { List<Integer> values = List.filled(size: 2, value: 0) }";
+    var typeAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:type-member"), typeText));
+    int typeOffset = typeText.indexOf("List.filled") + "List.".length();
+    List<String> typeLabels =
+        service.complete(typeAnalysis, typeOffset).stream().map(Completion::label).toList();
+
+    assertTrue(safeLabels.contains("codePointSize"));
+    assertTrue(typeLabels.contains("filled"));
+    assertFalse(typeLabels.contains("add"));
+  }
+
+  @Test
+  void includesNullInExpressionCompletionAndNullableTypesInHover() {
+    String text = "Void main() { String? value = null String? result = value }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:nullable-tools"), text));
+
+    assertTrue(
+        service.complete(analysis, text.indexOf("null")).stream()
+            .anyMatch(completion -> completion.label().equals("null")));
+    assertTrue(
+        service
+            .hover(analysis, text.lastIndexOf("value"))
+            .orElseThrow()
+            .markdown()
+            .contains("String?"));
+  }
+
+  @Test
   void completesAndReplacesAPartiallyTypedMemberName() {
     String text = "Void main() { List<Integer> values = List<Integer>() values.rem }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:member-prefix"), text));
@@ -394,6 +433,20 @@ final class LanguageServiceTest {
 
     assertEquals("Void consume(String value, Integer count)", help.signatures().getFirst().label());
     assertEquals(0, help.activeParameter());
+  }
+
+  @Test
+  void providesAllVisibleOverloadSignatures() {
+    String text =
+        "Integer choose(Integer value) { return value } "
+            + "String choose(String value) { return value } Void main() { choose(";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:overloads"), text));
+
+    SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
+    List<String> signatures = help.signatures().stream().map(SignatureInformation::label).toList();
+
+    assertTrue(signatures.contains("Integer choose(Integer value)"));
+    assertTrue(signatures.contains("String choose(String value)"));
   }
 
   @Test

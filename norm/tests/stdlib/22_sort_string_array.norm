@@ -1,0 +1,10 @@
+import std.collections.sort
+
+Void main() {
+  Array<String> values = sort(values: ["β", "a", "aa", "A"])
+  for value : values { printLine(value) }
+  expectedOutputLine("A")
+  expectedOutputLine("a")
+  expectedOutputLine("aa")
+  expectedOutputLine("β")
+}

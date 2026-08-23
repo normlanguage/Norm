@@ -1,0 +1,13 @@
+class Sink {
+  Void write() { printLine("called") }
+}
+
+Void main() {
+  Sink? missing = null
+  Sink? present = Sink()
+  missing?.write()
+  present?.write()
+  printLine("done")
+  expectedOutputLine("called")
+  expectedOutputLine("done")
+}

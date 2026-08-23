@@ -1,11 +1,9 @@
 Integer shortestPath(Array<Array<Integer>> graph, Integer source, Integer target) {
-  List<Integer> distance = List<Integer>()
-  for vertex : range(start: 0, end: graph.size()) { distance.add(-1) }
+  List<Integer> distance = List.filled(size: graph.size(), value: -1)
   Queue<Integer> pending = Queue<Integer>()
   distance[source] = 0
   pending.add(source)
-  for step : range(start: 0, end: graph.size()) {
-    if pending.isEmpty() { break }
+  for !pending.isEmpty() {
     Integer vertex = pending.remove()
     Array<Integer> edges = graph[vertex]
     for next : range(start: 0, end: graph.size()) {

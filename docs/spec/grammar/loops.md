@@ -1,6 +1,6 @@
 # 循环语法
 
-Norm 只提供 foreach 形状的 `for`。没有 C 风格计数循环，也没有 `while`；范围和无限序列由实现迭代协议的普通值提供。
+Norm 使用 `for` 表达遍历循环和条件循环。范围由实现迭代协议的普通值提供。
 
 ```norm
 for String name : names {
@@ -11,7 +11,9 @@ for String name : names {
 ## 语法形状
 
 ```text
-For := "for" Type? Identifier ":" Expression Block ("else" Block)?
+For := ForEach | ConditionalFor
+ForEach := "for" Type? Identifier ":" Expression Block ("else" Block)?
+ConditionalFor := "for" Expression Block
 ```
 
 迭代表达式只求值一次。循环变量在每次迭代开始时绑定，在循环体外不可见。
@@ -25,6 +27,16 @@ for index : range(start: 0, end: 10) {
 ```
 
 `Range` 的元素类型是 `Integer`；`List<T>`、`Array<T>`、`Set<T>` 等迭代值从类型参数得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
+
+## 条件循环
+
+```norm
+for digits.size() > 1 && digits.last() == 0 {
+    digits.removeLast()
+}
+```
+
+条件必须是 Boolean，并在每轮循环开始前重新求值。条件初始为 false 时循环执行零次；`continue` 转移到下一次条件检查。执行后端在每轮检查取消状态。
 
 ## 控制转移
 
@@ -51,4 +63,3 @@ Integer match = for Integer number : numbers {
 ```
 
 表达式循环不能使用无值 `break`。所有可达完成路径必须产生兼容类型的值，编译器不会隐式补 `null`。
-

@@ -18,6 +18,12 @@ ref 指向值的比较必须显式读取该值，不能把位置 identity 与内
 
 `!`、`&&`、`||` 只接受 Boolean。`&&` 和 `||` 从左到右求值并短路，不把数字、String 或 nullable 值转换为 Boolean。
 
+## Nullable
+
+`receiver?.member` 只在 receiver 非 null 时读取成员或执行方法调用。receiver 只求值一次，方法参数在 null 分支不求值。结果类型是成员结果的 nullable 形式；返回 Void 的 safe call 仍为 Void。
+
+`nullable ?? fallback` 在左侧非 null 时返回左侧值，否则求值并返回 fallback。两侧从左到右求值，fallback 类型必须与左侧的非空部分兼容。
+
 ## 类型操作
 
 `is` 检查运行时名义类型并可触发控制流收窄；`as` 执行显式转换，失败行为由类型系统规则定义。

@@ -11,7 +11,7 @@ List<String> letterCombinations(String digitsValue) {
   List<String> combinations = List<String>()
   combinations.add("")
   for CodePoint digit : digits {
-    String choices = letters[digit.scalarValue() - '0'.scalarValue()]
+    String choices = letters[digit.asciiDigitValue()]
     Array<CodePoint> points = choices.codePoints()
     List<String> next = List<String>()
     for String prefix : combinations {

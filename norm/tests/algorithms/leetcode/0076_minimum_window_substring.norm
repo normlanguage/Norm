@@ -15,8 +15,7 @@ String minWindow(String value, String requiredValue) {
       if have.containsKey(token) { have.put(key: token, value: have[token] + 1) } else { have.put(key: token, value: 1) }
       if have[token] <= need[token] { formed = formed + 1 }
     }
-    for step : range(start: 0, end: text.size()) {
-      if formed < required.size() { break }
+    for formed >= required.size() {
       if right - left + 1 < best.second - best.first { best = Pair<Integer, Integer>(first: left, second: right + 1) }
       CodePoint removed = text[left]
       if need.containsKey(removed) {

@@ -1,0 +1,10 @@
+Integer sizeOf(Array<Integer> values) { return values.size() }
+Integer sizeOf(List<Integer> values) { return values.size() + 10 }
+
+Void main() {
+  List<Integer> values = List.filled(size: 2, value: 0)
+  printLine(sizeOf(values: [1, 2, 3]))
+  printLine(sizeOf(values: values))
+  expectedOutputLine("3")
+  expectedOutputLine("12")
+}

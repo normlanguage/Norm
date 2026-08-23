@@ -1,0 +1,14 @@
+import std.collections.sort
+
+Void main() {
+  List<String> source = List<String>()
+  source.add("😀")
+  source.add("AA")
+  source.add("A")
+  source.add("é")
+  for value : sort(values: source) { printLine(value) }
+  expectedOutputLine("A")
+  expectedOutputLine("AA")
+  expectedOutputLine("é")
+  expectedOutputLine("😀")
+}

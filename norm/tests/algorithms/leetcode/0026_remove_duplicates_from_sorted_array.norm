@@ -1,7 +1,7 @@
 List<Integer> removeDuplicates(Array<Integer> values) {
   List<Integer> unique = List<Integer>()
   for Integer value : values {
-    if unique.isEmpty() || unique[unique.size() - 1] != value { unique.add(value) }
+    if unique.isEmpty() || unique.last() != value { unique.add(value) }
   }
   return unique
 }

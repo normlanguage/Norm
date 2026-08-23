@@ -6,7 +6,7 @@ Integer numDecodings(String value) {
   for index : range(start: 1, end: points.size()) {
     Integer next = 0
     if points[index] != '0' { next = current }
-    Integer pair = (points[index - 1].scalarValue() - '0'.scalarValue()) * 10 + points[index].scalarValue() - '0'.scalarValue()
+    Integer pair = points[index - 1].asciiDigitValue() * 10 + points[index].asciiDigitValue()
     if pair >= 10 && pair <= 26 { next = next + previous }
     previous = current
     current = next

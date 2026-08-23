@@ -1,15 +1,7 @@
+import std.collections.sort
+
 Array<CodePoint> signature(String word) {
-  Array<CodePoint> sorted = word.codePoints()
-  for pass : range(start: 0, end: sorted.size()) {
-    for index : range(start: 0, end: sorted.size() - 1) {
-      if sorted[index].scalarValue() > sorted[index + 1].scalarValue() {
-        CodePoint temporary = sorted[index]
-        sorted[index] = sorted[index + 1]
-        sorted[index + 1] = temporary
-      }
-    }
-  }
-  return sorted
+  return sort(word.codePoints())
 }
 
 Integer groupAnagrams(List<String> words) {

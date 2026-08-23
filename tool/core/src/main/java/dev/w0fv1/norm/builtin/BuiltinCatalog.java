@@ -22,18 +22,21 @@ public final class BuiltinCatalog {
 
   private final Map<String, TypeDefinition> types;
   private final Map<SymbolId, TypeDefinition> typesBySymbol;
-  private final Map<String, GlobalDefinition> globals;
+  private final Map<String, List<GlobalDefinition>> globals;
   private final Map<SymbolId, Symbol> symbols;
   private final Map<SymbolId, IntrinsicId> intrinsics;
   private final Map<SymbolId, IntrinsicId> writeIntrinsics;
   private final Map<SymbolId, List<SymbolId>> members;
 
-  private BuiltinCatalog(Map<String, TypeDefinition> types, Map<String, GlobalDefinition> globals) {
+  private BuiltinCatalog(
+      Map<String, TypeDefinition> types, Map<String, List<GlobalDefinition>> globals) {
     this.types = Map.copyOf(types);
     Map<SymbolId, TypeDefinition> indexedTypes = new LinkedHashMap<>();
     types.values().forEach(type -> indexedTypes.put(type.symbol().id(), type));
     typesBySymbol = Map.copyOf(indexedTypes);
-    this.globals = Map.copyOf(globals);
+    Map<String, List<GlobalDefinition>> copiedGlobals = new LinkedHashMap<>();
+    globals.forEach((name, values) -> copiedGlobals.put(name, List.copyOf(values)));
+    this.globals = Map.copyOf(copiedGlobals);
     Map<SymbolId, Symbol> allSymbols = new LinkedHashMap<>();
     Map<SymbolId, IntrinsicId> allIntrinsics = new LinkedHashMap<>();
     Map<SymbolId, IntrinsicId> allWriteIntrinsics = new LinkedHashMap<>();
@@ -51,11 +54,17 @@ public final class BuiltinCatalog {
             .ifPresent(value -> allWriteIntrinsics.put(member.symbol().id(), value));
         memberIds.add(member.symbol().id());
       }
+      for (MemberDefinition member : type.typeMembers()) {
+        putUnique(allSymbols, member.symbol());
+        allIntrinsics.put(member.symbol().id(), member.intrinsic());
+      }
       allMembers.put(type.symbol().id(), List.copyOf(memberIds));
     }
-    for (GlobalDefinition global : globals.values()) {
-      putUnique(allSymbols, global.symbol());
-      allIntrinsics.put(global.symbol().id(), global.intrinsic());
+    for (List<GlobalDefinition> overloads : globals.values()) {
+      for (GlobalDefinition global : overloads) {
+        putUnique(allSymbols, global.symbol());
+        allIntrinsics.put(global.symbol().id(), global.intrinsic());
+      }
     }
     symbols = Map.copyOf(allSymbols);
     intrinsics = Map.copyOf(allIntrinsics);
@@ -87,7 +96,14 @@ public final class BuiltinCatalog {
   }
 
   public Optional<GlobalDefinition> global(String name) {
-    return Optional.ofNullable(globals.get(name));
+    List<GlobalDefinition> overloads = globals.get(name);
+    return overloads == null || overloads.isEmpty()
+        ? Optional.empty()
+        : Optional.of(overloads.getFirst());
+  }
+
+  public List<GlobalDefinition> globals(String name) {
+    return globals.getOrDefault(name, List.of());
   }
 
   public Optional<MemberDefinition> member(String owner, String name) {
@@ -98,10 +114,44 @@ public final class BuiltinCatalog {
         .findFirst();
   }
 
+  public List<MemberDefinition> members(String owner, String name) {
+    TypeDefinition type = types.get(owner);
+    if (type == null) return List.of();
+    return type.members().stream().filter(member -> member.symbol().name().equals(name)).toList();
+  }
+
   public Optional<Symbol> member(SemanticType owner, String name) {
     return member(owner.name(), name)
         .map(MemberDefinition::symbol)
         .map(symbol -> substitute(symbol, substitutions(types.get(owner.name()), owner)));
+  }
+
+  public List<Symbol> members(SemanticType owner, String name) {
+    Map<String, SemanticType> substitutions = substitutions(types.get(owner.name()), owner);
+    return members(owner.name(), name).stream()
+        .map(MemberDefinition::symbol)
+        .map(symbol -> substitute(symbol, substitutions))
+        .toList();
+  }
+
+  public Optional<Symbol> member(SemanticType owner, SymbolId id) {
+    TypeDefinition type = types.get(owner.name());
+    if (type == null) return Optional.empty();
+    Map<String, SemanticType> substitutions = substitutions(type, owner);
+    return type.members().stream()
+        .map(MemberDefinition::symbol)
+        .filter(symbol -> symbol.id().equals(id))
+        .findFirst()
+        .map(symbol -> substitute(symbol, substitutions));
+  }
+
+  public List<Symbol> typeMembers(String owner, String name) {
+    TypeDefinition type = types.get(owner);
+    if (type == null) return List.of();
+    return type.typeMembers().stream()
+        .filter(member -> member.symbol().name().equals(name))
+        .map(MemberDefinition::symbol)
+        .toList();
   }
 
   public Optional<IntrinsicId> intrinsic(SymbolId symbol) {
@@ -126,6 +176,7 @@ public final class BuiltinCatalog {
           .map(MemberDefinition::writeIntrinsic)
           .flatMap(Optional::stream)
           .forEach(result::add);
+      type.typeMembers().stream().map(MemberDefinition::intrinsic).forEach(result::add);
     }
     return Set.copyOf(result);
   }
@@ -174,7 +225,7 @@ public final class BuiltinCatalog {
 
   private static BuiltinCatalog create() {
     Map<String, TypeDefinition> types = new LinkedHashMap<>();
-    Map<String, GlobalDefinition> globals = new LinkedHashMap<>();
+    Map<String, List<GlobalDefinition>> globals = new LinkedHashMap<>();
     SemanticType integerType = SemanticType.INTEGER;
     SemanticType codePointType = SemanticType.CODE_POINT;
     SemanticType booleanType = SemanticType.BOOLEAN;
@@ -214,7 +265,17 @@ public final class BuiltinCatalog {
                 method(
                     "CodePoint", "isUppercase", booleanType, IntrinsicId.CODE_POINT_IS_UPPERCASE),
                 method(
-                    "CodePoint", "isLowercase", booleanType, IntrinsicId.CODE_POINT_IS_LOWERCASE)));
+                    "CodePoint", "isLowercase", booleanType, IntrinsicId.CODE_POINT_IS_LOWERCASE),
+                method(
+                    "CodePoint",
+                    "isAsciiDigit",
+                    booleanType,
+                    IntrinsicId.CODE_POINT_IS_ASCII_DIGIT),
+                method(
+                    "CodePoint",
+                    "asciiDigitValue",
+                    integerType,
+                    IntrinsicId.CODE_POINT_ASCII_DIGIT_VALUE)));
     addType(types, type(booleanType.name(), RuntimeShape.BOOL));
     addType(types, type(SemanticType.VOID.name(), RuntimeShape.VOID));
     addType(
@@ -325,7 +386,31 @@ public final class BuiltinCatalog {
                 parameter("Array", "T"),
                 IntrinsicId.ARRAY_INDEX_READ,
                 IntrinsicId.ARRAY_INDEX_WRITE)
-            .members(method("Array", "size", integerType, IntrinsicId.SIZE)));
+            .members(
+                method("Array", "size", integerType, IntrinsicId.SIZE),
+                method("Array", "last", parameter("Array", "T"), IntrinsicId.ARRAY_LAST),
+                method(
+                    "Array",
+                    "reversed",
+                    SemanticType.declared(
+                        "std.core.Array",
+                        "Array",
+                        List.of(parameter("Array", "T")),
+                        ValueCategory.VALUE),
+                    IntrinsicId.ARRAY_REVERSED))
+            .typeMembers(
+                typeMethod(
+                    "Array",
+                    "filled",
+                    SemanticType.declared(
+                        "std.core.Array",
+                        "Array",
+                        List.of(parameter("Array", "T")),
+                        ValueCategory.VALUE),
+                    IntrinsicId.ARRAY_FILLED,
+                    List.of("T"),
+                    parameterInfo("size", integerType),
+                    parameterInfo("value", parameter("Array", "T")))));
     addType(
         types,
         type("List", RuntimeShape.LIST, "T")
@@ -356,8 +441,26 @@ public final class BuiltinCatalog {
                     listT,
                     IntrinsicId.LIST_REMOVE_AT,
                     parameterInfo("index", integerType)),
+                method("List", "last", listT, IntrinsicId.LIST_LAST),
+                method("List", "removeLast", listT, IntrinsicId.LIST_REMOVE_LAST),
+                method(
+                    "List",
+                    "reversed",
+                    SemanticType.declared(
+                        "std.core.List", "List", List.of(listT), ValueCategory.VALUE),
+                    IntrinsicId.LIST_REVERSED),
                 method("List", "size", integerType, IntrinsicId.SIZE),
-                method("List", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
+                method("List", "isEmpty", booleanType, IntrinsicId.IS_EMPTY))
+            .typeMembers(
+                typeMethod(
+                    "List",
+                    "filled",
+                    SemanticType.declared(
+                        "std.core.List", "List", List.of(listT), ValueCategory.VALUE),
+                    IntrinsicId.LIST_FILLED,
+                    List.of("T"),
+                    parameterInfo("size", integerType),
+                    parameterInfo("value", listT))));
     addType(
         types,
         type("Map", RuntimeShape.MAP, "K", "V")
@@ -380,6 +483,8 @@ public final class BuiltinCatalog {
                     IntrinsicId.MAP_PUT,
                     parameterInfo("key", mapK),
                     parameterInfo("value", mapV)),
+                method(
+                    "Map", "get", mapV.nullable(), IntrinsicId.MAP_GET, parameterInfo("key", mapK)),
                 method(
                     "Map",
                     "containsKey",
@@ -537,6 +642,15 @@ public final class BuiltinCatalog {
             IntrinsicId.RANGE_CONSTRUCT,
             parameterInfo("start", integerType),
             parameterInfo("end", integerType)));
+    addGlobal(
+        globals,
+        global(
+            "range",
+            rangeType,
+            IntrinsicId.RANGE_CONSTRUCT,
+            parameterInfo("start", integerType),
+            parameterInfo("end", integerType),
+            parameterInfo("step", integerType)));
     return new BuiltinCatalog(types, globals);
   }
 
@@ -554,6 +668,28 @@ public final class BuiltinCatalog {
         member(owner, name, SymbolKind.METHOD, result, parameters), intrinsic, Optional.empty());
   }
 
+  private static MemberDefinition typeMethod(
+      String owner,
+      String name,
+      SemanticType result,
+      IntrinsicId intrinsic,
+      List<String> typeParameters,
+      ParameterInfo... parameters) {
+    Symbol base = member(owner, name, SymbolKind.TYPE_METHOD, result, parameters);
+    Symbol symbol =
+        new Symbol(
+            base.id(),
+            base.name(),
+            base.kind(),
+            base.type(),
+            base.declaration(),
+            base.owner(),
+            typeParameters,
+            base.parameters(),
+            base.documentation());
+    return new MemberDefinition(symbol, intrinsic, Optional.empty());
+  }
+
   private static MemberDefinition field(
       String owner, String name, SemanticType result, IntrinsicId read, IntrinsicId write) {
     return new MemberDefinition(
@@ -567,7 +703,7 @@ public final class BuiltinCatalog {
       SemanticType result,
       ParameterInfo... parameters) {
     return new Symbol(
-        SymbolId.builtin("member/" + owner + "/" + name),
+        SymbolId.builtin("member/" + owner + "/" + name + "/" + signature(parameters)),
         name,
         kind,
         result,
@@ -582,7 +718,7 @@ public final class BuiltinCatalog {
       String name, SemanticType result, IntrinsicId intrinsic, ParameterInfo... parameters) {
     Symbol symbol =
         new Symbol(
-            SymbolId.builtin("function/" + name),
+            SymbolId.builtin("function/" + name + "/" + signature(parameters)),
             name,
             SymbolKind.FUNCTION,
             result,
@@ -601,10 +737,21 @@ public final class BuiltinCatalog {
     }
   }
 
-  private static void addGlobal(Map<String, GlobalDefinition> values, GlobalDefinition value) {
-    if (values.putIfAbsent(value.symbol().name(), value) != null) {
+  private static void addGlobal(
+      Map<String, List<GlobalDefinition>> values, GlobalDefinition value) {
+    List<GlobalDefinition> overloads =
+        values.computeIfAbsent(value.symbol().name(), ignored -> new ArrayList<>());
+    if (overloads.stream()
+        .anyMatch(candidate -> candidate.symbol().id().equals(value.symbol().id()))) {
       throw new IllegalStateException("duplicate builtin global " + value.symbol().name());
     }
+    overloads.add(value);
+  }
+
+  private static String signature(ParameterInfo... parameters) {
+    return java.util.Arrays.stream(parameters)
+        .map(parameter -> parameter.type().displayName())
+        .collect(java.util.stream.Collectors.joining(",", "(", ")"));
   }
 
   private static void putUnique(Map<SymbolId, Symbol> values, Symbol value) {
@@ -682,13 +829,15 @@ public final class BuiltinCatalog {
       Optional<ConstructorCapability> constructor,
       Optional<IterableCapability> iterable,
       Optional<IndexCapability> index,
-      List<MemberDefinition> members) {
+      List<MemberDefinition> members,
+      List<MemberDefinition> typeMembers) {
     public TypeDefinition {
       typeParameters = List.copyOf(typeParameters);
       constructor = Objects.requireNonNull(constructor);
       iterable = Objects.requireNonNull(iterable);
       index = Objects.requireNonNull(index);
       members = List.copyOf(members);
+      typeMembers = List.copyOf(typeMembers);
     }
 
     public int arity() {
@@ -741,6 +890,7 @@ public final class BuiltinCatalog {
     private IterableCapability iterable;
     private IndexCapability index;
     private List<MemberDefinition> members = List.of();
+    private List<MemberDefinition> typeMembers = List.of();
 
     private TypeBuilder(String name, RuntimeShape shape, List<String> parameters) {
       this.name = name;
@@ -773,6 +923,11 @@ public final class BuiltinCatalog {
       return this;
     }
 
+    private TypeBuilder typeMembers(MemberDefinition... values) {
+      typeMembers = List.of(values);
+      return this;
+    }
+
     private TypeDefinition build() {
       Symbol symbol =
           new Symbol(
@@ -792,7 +947,8 @@ public final class BuiltinCatalog {
           Optional.ofNullable(constructor),
           Optional.ofNullable(iterable),
           Optional.ofNullable(index),
-          members);
+          members,
+          typeMembers);
     }
   }
 }

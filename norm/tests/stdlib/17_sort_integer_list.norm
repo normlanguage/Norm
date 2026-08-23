@@ -1,0 +1,17 @@
+import std.collections.sort
+
+Void main() {
+  List<Integer> source = List<Integer>()
+  source.add(4)
+  source.add(-1)
+  source.add(4)
+  source.add(0)
+  List<Integer> result = sort(values: source)
+  for value : result { printLine(value) }
+  printLine(source[0])
+  expectedOutputLine("-1")
+  expectedOutputLine("0")
+  expectedOutputLine("4")
+  expectedOutputLine("4")
+  expectedOutputLine("4")
+}

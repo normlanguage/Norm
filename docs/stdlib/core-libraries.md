@@ -17,7 +17,7 @@ Math 提供固定语义的基础函数；Decimal 单独管理十进制 scale 与
 
 ## 集合
 
-Array、List、Map 和 Set 全部携带泛型参数。缺失查找结果使用 Option，索引越界使用明确错误。集合赋值的可观察结果彼此独立。
+Array、List、Map 和 Set 全部携带泛型参数。缺失查找结果使用 nullable，索引越界使用明确错误。集合赋值的可观察结果彼此独立。
 
 ## I/O
 

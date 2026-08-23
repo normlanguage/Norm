@@ -95,8 +95,8 @@
       "match": "\\b(?:package|import|as|class|enum|if|else|for|return|break|continue)\\b"
     },
     "constants": {
-      "name": "constant.language.boolean.norm",
-      "match": "\\b(?:true|false)\\b"
+      "name": "constant.language.norm",
+      "match": "\\b(?:true|false|null)\\b"
     },
     "functions": {
       "patterns": [
@@ -116,7 +116,7 @@
     },
     "operators": {
       "name": "keyword.operator.norm",
-      "match": "==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!]"
+      "match": "\\?\\.|\\?\\?|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?]"
     }
   }
 }

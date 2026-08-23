@@ -1,7 +1,7 @@
 List<Integer> prefixSums(Array<Integer> values) {
   List<Integer> prefix = List<Integer>()
   prefix.add(0)
-  for Integer value : values { prefix.add(prefix[prefix.size() - 1] + value) }
+  for Integer value : values { prefix.add(prefix.last() + value) }
   return prefix
 }
 

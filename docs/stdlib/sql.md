@@ -3,7 +3,7 @@
 SQL 模块定义连接池、参数化查询、Row 解码和事务边界。具体协议由数据库 driver 实现。
 
 ```norm
-Result<Option<Order>, SqlError> order = database.queryOne(
+Result<Order?, SqlError> order = database.queryOne(
     sql: "select id, total from orders where id = :id",
     parameters: ["id" = id],
     decode: orderRowDecoder
@@ -29,4 +29,3 @@ Result<Order, OrderError> result = database.transaction(
 commit、rollback 和重试规则由 transaction API 定义。业务 Result 失败是否回滚必须在 adapter 函数中明确，不由 annotation 隐式决定。连接只在回调作用域有效，不能泄漏到事务外。
 
 首版可以使用 JDBC adapter；未来原生 driver 必须保持相同 public 契约，并文档化隔离级别、取消和错误映射差异。
-

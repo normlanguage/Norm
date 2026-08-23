@@ -9,7 +9,7 @@ Cache<OrderId, Order> orders = cacheFactory.create(
     codec: orderCodec
 )
 
-Option<Order> cached = orders.get(key: id)
+Order? cached = orders.get(key: id)
 ```
 
 ## Cache-aside
@@ -28,4 +28,3 @@ Order order = orders.getOrLoad(
 写数据库后删除或更新缓存的顺序必须与一致性目标匹配。跨进程 invalidation 可能延迟，业务不能假设强一致。key 应包含 schema 或语义版本，部署新格式时避免误读旧值。
 
 容量、逐出、命中率、loader 延迟和错误必须可观测。缓存值按值返回，不能让调用者修改进程内共享缓存对象。
-

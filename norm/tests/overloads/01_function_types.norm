@@ -1,0 +1,9 @@
+Integer choose(Integer value) { return value + 1 }
+String choose(String value) { return value + "!" }
+
+Void main() {
+  printLine(choose(value: 4))
+  printLine(choose(value: "Norm"))
+  expectedOutputLine("5")
+  expectedOutputLine("Norm!")
+}

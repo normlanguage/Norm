@@ -3,8 +3,7 @@ Boolean isInterleave(String leftValue, String rightValue, String targetValue) {
   Array<CodePoint> right = rightValue.codePoints()
   Array<CodePoint> target = targetValue.codePoints()
   if left.size() + right.size() != target.size() { return false }
-  List<Boolean> dp = List<Boolean>()
-  for column : range(start: 0, end: right.size() + 1) { dp.add(false) }
+  List<Boolean> dp = List.filled(size: right.size() + 1, value: false)
   dp[0] = true
   for row : range(start: 0, end: left.size() + 1) {
     for column : range(start: 0, end: right.size() + 1) {

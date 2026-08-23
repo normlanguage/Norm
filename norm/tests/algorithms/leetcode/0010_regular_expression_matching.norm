@@ -2,12 +2,10 @@ Boolean matches(String textValue, String patternValue) {
   Array<CodePoint> text = textValue.codePoints()
   Array<CodePoint> pattern = patternValue.codePoints()
   List<Boolean> previous = List<Boolean>()
-  List<Boolean> current = List<Boolean>()
-  for index : range(start: 0, end: text.size() + 1) { current.add(false) }
+  List<Boolean> current = List.filled(size: text.size() + 1, value: false)
   current[0] = true
   for patternIndex : range(start: 0, end: pattern.size()) {
-    List<Boolean> next = List<Boolean>()
-    for textIndex : range(start: 0, end: text.size() + 1) { next.add(false) }
+    List<Boolean> next = List.filled(size: text.size() + 1, value: false)
     if pattern[patternIndex] == '*' && patternIndex > 0 {
       next[0] = previous[0]
       for textIndex : range(start: 1, end: text.size() + 1) {

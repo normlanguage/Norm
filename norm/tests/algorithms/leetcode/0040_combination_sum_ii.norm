@@ -1,3 +1,5 @@
+import std.collections.sort
+
 class UniqueCombinations {
   Set<List<Integer>> seen
 }
@@ -17,15 +19,7 @@ Void collect(Array<Integer> candidates, Integer target, Integer start, List<Inte
 }
 
 Integer combinationSum2(Array<Integer> candidates, Integer target) {
-  for pass : range(start: 0, end: candidates.size()) {
-    for index : range(start: 0, end: candidates.size() - 1) {
-      if candidates[index] > candidates[index + 1] {
-        Integer temporary = candidates[index]
-        candidates[index] = candidates[index + 1]
-        candidates[index + 1] = temporary
-      }
-    }
-  }
+  candidates = sort(candidates)
   UniqueCombinations result = UniqueCombinations(seen: Set<List<Integer>>())
   collect(candidates, target, start: 0, current: List<Integer>(), result)
   return result.seen.size()

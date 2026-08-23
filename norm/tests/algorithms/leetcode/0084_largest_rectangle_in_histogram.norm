@@ -4,8 +4,7 @@ Integer largestRectangleArea(Array<Integer> heights) {
   for index : range(start: 0, end: heights.size() + 1) {
     Integer current = 0
     if index < heights.size() { current = heights[index] }
-    for step : range(start: 0, end: heights.size()) {
-      if indices.isEmpty() || heights[indices.peek()] <= current { break }
+    for !indices.isEmpty() && heights[indices.peek()] > current {
       Integer height = heights[indices.pop()]
       Integer width = index
       if !indices.isEmpty() { width = index - indices.peek() - 1 }

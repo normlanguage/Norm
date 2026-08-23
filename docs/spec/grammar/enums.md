@@ -27,11 +27,10 @@ ParseResult result = Invalid(
 - generic enum 在 enum 名之后声明类型参数。
 
 ```norm
-enum Option<T> {
-    Some(T value),
-    None
+enum Result<T, E> {
+    Success(T value),
+    Error(E error)
 }
 ```
 
 variant 数据只能通过 switch pattern 解构。穷尽性和 `break value` 规则见[Switch](/spec/grammar/switch)。
-

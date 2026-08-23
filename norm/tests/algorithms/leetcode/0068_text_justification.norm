@@ -1,8 +1,7 @@
 List<String> fullJustify(List<String> words, Integer width) {
   List<String> lines = List<String>()
   Integer start = 0
-  for step : range(start: 0, end: words.size()) {
-    if start >= words.size() { break }
+  for start < words.size() {
     Integer end = start
     Integer letters = 0
     for scan : range(start: start, end: words.size()) {

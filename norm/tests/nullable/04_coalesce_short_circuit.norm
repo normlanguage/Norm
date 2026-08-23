@@ -1,0 +1,14 @@
+String fallback() {
+  printLine("fallback")
+  return "default"
+}
+
+Void main() {
+  String? present = "value"
+  String? missing = null
+  printLine(present ?? fallback())
+  printLine(missing ?? fallback())
+  expectedOutputLine("value")
+  expectedOutputLine("fallback")
+  expectedOutputLine("default")
+}

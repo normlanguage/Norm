@@ -4,7 +4,7 @@ String simplifyPath(String path) {
   for String component : components {
     if component.isEmpty() || component == "." {
     } else if component == ".." {
-      if !stack.isEmpty() { stack.removeAt(stack.size() - 1) }
+      if !stack.isEmpty() { stack.removeLast() }
     } else {
       stack.add(component)
     }

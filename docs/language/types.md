@@ -38,6 +38,28 @@ String text = input
 
 第二行是不安全的，因此编译失败。程序必须先通过控制流证明 `input` 非空，或者显式处理 `null` 分支。具体收窄规则仍以[类型系统规范](/spec/type-system)为准。
 
+```norm
+if input != null {
+    printLine(input.codePointSize())
+}
+```
+
+`?.` 在接收者为 null 时停止成员调用链，`??` 只在左侧为 null 时求值右侧：
+
+```norm
+Integer? citySize = user.address?.city?.codePointSize()
+String displayName = user.nickname ?? user.name
+```
+
+nullable 标记作用于完整类型。集合本身与集合元素的 nullability 分别表达：
+
+```norm
+List<String>? optionalNames = null
+List<String?> names = ["Norm", null]
+```
+
+`null` 需要明确的 nullable 期望类型；缺少赋值目标、参数或返回类型时不能单独推断。
+
 ## 确定赋值
 
 非空字段必须在每条构造路径上完成初始化。

@@ -1,8 +1,7 @@
 Integer myAtoi(String inputValue) {
   Array<CodePoint> input = inputValue.codePoints()
   Integer index = 0
-  for step : range(start: 0, end: input.size()) {
-    if index >= input.size() || input[index] != ' ' { break }
+  for index < input.size() && input[index] == ' ' {
     index = index + 1
   }
   Integer sign = 1
@@ -13,12 +12,8 @@ Integer myAtoi(String inputValue) {
     index = index + 1
   }
   Integer value = 0
-  Integer zero = '0'.scalarValue()
-  for step : range(start: 0, end: input.size()) {
-    if index >= input.size() { break }
-    Integer scalar = input[index].scalarValue()
-    if scalar < zero || scalar > '9'.scalarValue() { break }
-    Integer digit = scalar - zero
+  for index < input.size() && input[index].isAsciiDigit() {
+    Integer digit = input[index].asciiDigitValue()
     if value > 214748364 || (value == 214748364 && digit > 7) {
       if sign == 1 { return 2147483647 }
       return -2147483648

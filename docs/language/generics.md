@@ -2,11 +2,11 @@
 
 泛型让一个类型或函数在保留静态类型信息的前提下处理多种类型。Norm 把泛型用于安全复用，而不是类型级编程。
 
-## 0.2 边界
+## 当前边界
 
-0.2 交付无 bounds 的泛型 class、顶层泛型函数、参数化核心集合、嵌套类型实参、精确调用推断和运行时类型参数保留。泛型默认不变且禁止 raw type。
+当前实现支持无 bounds 的泛型 class、顶层泛型函数、参数化核心集合、嵌套 nullable 类型实参、基于实参和期望返回类型的调用推断，以及运行时类型参数保留。泛型默认不变且禁止 raw type。
 
-`extends` bounds、interface 约束、通配符型变、泛型数据 enum 与反射 API 属于后续严格扩展，不改变 0.2 已有泛型的类型 identity 和可赋值规则。
+`extends` bounds、interface 约束、通配符型变、泛型数据 enum 与反射 API 属于后续严格扩展，不改变已有泛型的类型 identity 和可赋值规则。
 
 ## 泛型类型
 
@@ -20,7 +20,7 @@ class Box<T> {
 
 ```norm
 Box<Integer> count = Box<Integer>(value: 3)
-Box<String> label = Box<String>(value: "ready")
+Box<String?> label = Box<String?>(value: null)
 ```
 
 Norm 禁止 raw type，因此不能只写 `Box`。
@@ -28,48 +28,19 @@ Norm 禁止 raw type，因此不能只写 `Box`。
 ## 泛型函数
 
 ```norm
-T first<T>(List<T> values) {
-    return values[0]
+T identity<T>(T value) {
+    return value
 }
+
+Integer count = identity(3)
+String? label = identity(null)
 ```
 
-函数体只能使用对所有可能 `T` 都成立的操作。需要额外行为时，添加类型约束。
+`null` 本身不能决定 `T`，上例由赋值目标 `String?` 提供期望类型。函数体只能使用对所有可能 `T` 都成立的操作。
 
-## 类型约束
+## 不变性
 
-```norm
-T maximum<T extends Comparable<T>>(T left, T right) {
-    if left.compareTo(right) >= 0 {
-        return left
-    }
-    return right
-}
-```
-
-`extends Comparable<T>` 要求类型参数显式满足这个接口关系。
-
-## 型变
-
-Norm 使用 Java 风格的通配符表达只读生产者和写入消费者：
-
-```norm
-List<? extends Shape> shapes
-List<? super Circle> destinations
-```
-
-`? extends Shape` 表示某个未知的 `Shape` 子类型；`? super Circle` 表示某个能够接收 `Circle` 的父类型。具体赋值和调用规则见[泛型型变规范](/spec/generic-variance)。
-
-## 运行时泛型信息
-
-Norm 不擦除实际类型参数。
-
-```norm
-List<String>.class
-List<Integer>.class
-List<String>.class.T == String.class
-```
-
-因此 `List<String>` 与 `List<Integer>` 在运行时具有不同且可查询的类型描述。反射和通用库不需要通过外部 token 重新传递已经存在的类型信息。
+不同类型实参形成不同的不变类型。`List<String>` 不能赋给 `List<String?>`；允许 null 元素时必须在集合类型中明确声明。
 
 ## 泛型的边界
 

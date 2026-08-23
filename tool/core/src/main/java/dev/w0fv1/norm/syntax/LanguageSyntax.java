@@ -23,7 +23,8 @@ public final class LanguageSyntax {
           "break",
           "continue",
           "true",
-          "false");
+          "false",
+          "null");
 
   private LanguageSyntax() {}
 
@@ -68,6 +69,7 @@ public final class LanguageSyntax {
     words.put("continue", TokenKind.CONTINUE);
     words.put("true", TokenKind.TRUE);
     words.put("false", TokenKind.FALSE);
+    words.put("null", TokenKind.NULL);
     return Map.copyOf(words);
   }
 }

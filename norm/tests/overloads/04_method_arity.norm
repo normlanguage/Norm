@@ -1,0 +1,12 @@
+class Counter {
+  Integer add(Integer value) { return value }
+  Integer add(Integer left, Integer right) { return left + right }
+}
+
+Void main() {
+  Counter counter = Counter()
+  printLine(counter.add(value: 2))
+  printLine(counter.add(left: 2, right: 5))
+  expectedOutputLine("2")
+  expectedOutputLine("7")
+}

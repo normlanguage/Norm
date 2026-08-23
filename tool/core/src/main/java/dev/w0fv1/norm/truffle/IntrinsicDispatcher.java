@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,6 +32,7 @@ public final class IntrinsicDispatcher {
       Node location) {
     Object first = arguments.length == 0 ? null : arguments[0];
     Object second = arguments.length < 2 ? null : arguments[1];
+    Object third = arguments.length < 3 ? null : arguments[2];
     return switch (intrinsic) {
       case PRINT_LINE -> {
         context.output().println(RuntimeValues.stringify(first));
@@ -40,7 +42,14 @@ public final class IntrinsicDispatcher {
         context.expectedOutput().println(RuntimeValues.stringify(first));
         yield null;
       }
-      case RANGE_CONSTRUCT -> new RuntimeValues.RangeValue((Long) first, (Long) second);
+      case RANGE_CONSTRUCT -> {
+        long step = third == null ? 1 : (Long) third;
+        if (step == 0) {
+          throw new NormGuestException(
+              RuntimeErrorCode.INVALID_ARGUMENT, "range step must not be zero", location);
+        }
+        yield new RuntimeValues.RangeValue((Long) first, (Long) second, step);
+      }
       case ARRAY_CONSTRUCT -> new RuntimeValues.ArrayValue(type, new ArrayList<>());
       case LIST_CONSTRUCT -> new RuntimeValues.ListValue(type);
       case MAP_CONSTRUCT -> new RuntimeValues.MapValue(type);
@@ -50,7 +59,14 @@ public final class IntrinsicDispatcher {
       case DEQUE_CONSTRUCT -> new RuntimeValues.DequeValue(type);
       case PAIR_CONSTRUCT -> new RuntimeValues.PairValue(type, first, second);
       case STRING_BUILDER_CONSTRUCT -> new RuntimeValues.BuilderValue();
-      case SIZE -> RuntimeValues.size(receiver);
+      case SIZE -> {
+        try {
+          yield RuntimeValues.size(receiver);
+        } catch (ArithmeticException exception) {
+          throw new NormGuestException(
+              RuntimeErrorCode.INVALID_ARGUMENT, "range size exceeds Integer", location);
+        }
+      }
       case IS_EMPTY -> isEmpty(receiver);
       case LIST_ADD -> {
         ((RuntimeValues.ListValue) receiver).values.add(RuntimeValues.copy(first));
@@ -66,10 +82,32 @@ public final class IntrinsicDispatcher {
               ((RuntimeValues.ListValue) receiver)
                   .values.remove(
                       index(first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+      case ARRAY_FILLED ->
+          new RuntimeValues.ArrayValue(type, filledValues(first, second, location));
+      case ARRAY_LAST ->
+          RuntimeValues.copy(last(((RuntimeValues.ArrayValue) receiver).values, "Array", location));
+      case ARRAY_REVERSED -> {
+        RuntimeValues.ArrayValue result = (RuntimeValues.ArrayValue) RuntimeValues.copy(receiver);
+        Collections.reverse(result.values);
+        yield result;
+      }
+      case LIST_FILLED -> new RuntimeValues.ListValue(type, filledValues(first, second, location));
+      case LIST_LAST ->
+          RuntimeValues.copy(last(((RuntimeValues.ListValue) receiver).values, "List", location));
+      case LIST_REMOVE_LAST ->
+          RuntimeValues.copy(
+              removeLast(((RuntimeValues.ListValue) receiver).values, "List", location));
+      case LIST_REVERSED -> {
+        RuntimeValues.ListValue result = (RuntimeValues.ListValue) RuntimeValues.copy(receiver);
+        Collections.reverse(result.values);
+        yield result;
+      }
       case MAP_PUT -> {
         RuntimeValues.mapPut((RuntimeValues.MapValue) receiver, first, second);
         yield null;
       }
+      case MAP_GET ->
+          RuntimeValues.copy(RuntimeValues.mapGetOrNull((RuntimeValues.MapValue) receiver, first));
       case MAP_CONTAINS_KEY -> RuntimeValues.mapContains((RuntimeValues.MapValue) receiver, first);
       case MAP_REMOVE -> RuntimeValues.mapRemove((RuntimeValues.MapValue) receiver, first);
       case SET_ADD -> RuntimeValues.setAdd((RuntimeValues.SetValue) receiver, first);
@@ -175,6 +213,18 @@ public final class IntrinsicDispatcher {
           Character.isUpperCase(((RuntimeValues.CodePointValue) receiver).value());
       case CODE_POINT_IS_LOWERCASE ->
           Character.isLowerCase(((RuntimeValues.CodePointValue) receiver).value());
+      case CODE_POINT_IS_ASCII_DIGIT -> {
+        int value = ((RuntimeValues.CodePointValue) receiver).value();
+        yield value >= '0' && value <= '9';
+      }
+      case CODE_POINT_ASCII_DIGIT_VALUE -> {
+        int value = ((RuntimeValues.CodePointValue) receiver).value();
+        if (value < '0' || value > '9') {
+          throw new NormGuestException(
+              RuntimeErrorCode.INVALID_ARGUMENT, "code point is not an ASCII digit", location);
+        }
+        yield (long) (value - '0');
+      }
       case PAIR_FIRST_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first);
       case PAIR_SECOND_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second);
       case PAIR_FIRST_WRITE -> {
@@ -235,6 +285,25 @@ public final class IntrinsicDispatcher {
           location);
     }
     return Math.toIntExact(index);
+  }
+
+  private static List<Object> filledValues(Object sizeValue, Object value, Node location) {
+    long size = (Long) sizeValue;
+    if (size < 0 || size > Integer.MAX_VALUE) {
+      throw new NormGuestException(
+          RuntimeErrorCode.INVALID_ARGUMENT, "collection size is outside 0..2147483647", location);
+    }
+    List<Object> result = new ArrayList<>((int) size);
+    for (int index = 0; index < size; index++) result.add(RuntimeValues.copy(value));
+    return result;
+  }
+
+  private static Object last(List<Object> values, String collection, Node location) {
+    return requireElement(values.isEmpty() ? null : values.getLast(), collection, location);
+  }
+
+  private static Object removeLast(List<Object> values, String collection, Node location) {
+    return requireElement(values.isEmpty() ? null : values.removeLast(), collection, location);
   }
 
   private static Object mapGet(RuntimeValues.MapValue map, Object key, Node location) {

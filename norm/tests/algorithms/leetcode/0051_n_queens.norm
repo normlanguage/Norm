@@ -26,8 +26,7 @@ Void place(List<Integer> columns, Integer row, Integer size, Boards result) {
 }
 
 List<List<Integer>> solveNQueens(Integer size) {
-  List<Integer> columns = List<Integer>()
-  for row : range(start: 0, end: size) { columns.add(-1) }
+  List<Integer> columns = List.filled(size: size, value: -1)
   Boards result = Boards(values: List<List<Integer>>())
   place(columns, row: 0, size, result)
   return result.values

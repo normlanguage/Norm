@@ -21,8 +21,7 @@ Integer countQueens(List<Integer> columns, Integer row, Integer size) {
 }
 
 Integer totalNQueens(Integer size) {
-  List<Integer> columns = List<Integer>()
-  for row : range(start: 0, end: size) { columns.add(-1) }
+  List<Integer> columns = List.filled(size: size, value: -1)
   return countQueens(columns, row: 0, size)
 }
 

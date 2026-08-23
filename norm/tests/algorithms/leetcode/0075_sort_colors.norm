@@ -2,8 +2,7 @@ Array<Integer> sortColors(Array<Integer> values) {
   Integer low = 0
   Integer current = 0
   Integer high = values.size() - 1
-  for step : range(start: 0, end: values.size() * 2) {
-    if current > high { break }
+  for current <= high {
     if values[current] == 0 {
       Integer temporary = values[low]
       values[low] = values[current]

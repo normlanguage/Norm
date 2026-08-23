@@ -4,7 +4,7 @@
 
 ## 类型
 
-public 签名必须完整写出参数与返回类型。集合没有 raw type，缺失使用 Option，可预期失败使用 Result。String、Path、Uuid、Instant 等概念使用不同名义类型。
+public 签名必须完整写出参数与返回类型。集合没有 raw type，普通缺失使用 nullable，可预期且需要错误原因的失败使用 Result。String、Path、Uuid、Instant 等概念使用不同名义类型。
 
 ## 值与共享
 
@@ -13,7 +13,7 @@ class 参数保留对象 identity，集合等 value 参数产生逻辑独立值�
 ## 错误
 
 - Result：解析失败、文件不存在、连接拒绝等调用者可能处理的结果；
-- Option：查找不存在且不需要错误细节；
+- nullable：查找不存在且不需要错误细节；
 - Exception：不变量破坏或无法作为正常契约继续的执行失败。
 
 API 不用 null、负数或空字符串作为多义错误哨兵。
@@ -29,4 +29,3 @@ API 不用 null、负数或空字符串作为多义错误哨兵。
 ## 兼容性
 
 参数名属于命名调用契约。新增 overload 不能造成旧调用歧义；enum 新 variant、错误 code 和序列化 schema 都按 public API 管理。
-

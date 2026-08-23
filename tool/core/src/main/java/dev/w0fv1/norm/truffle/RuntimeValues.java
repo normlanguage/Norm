@@ -4,6 +4,7 @@ import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.ValueCategory;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayDeque;
@@ -89,7 +90,9 @@ final class RuntimeValues {
               && equal(value.second, ((PairValue) right).second);
       case BuilderValue value -> value.value.toString().contentEquals(((BuilderValue) right).value);
       case RangeValue value ->
-          value.start == ((RangeValue) right).start && value.end == ((RangeValue) right).end;
+          value.start == ((RangeValue) right).start
+              && value.end == ((RangeValue) right).end
+              && value.step == ((RangeValue) right).step;
       case ObjectValue ignored -> false;
       default -> Objects.equals(left, right);
     };
@@ -104,6 +107,11 @@ final class RuntimeValues {
     Object existing = findEqual(map.values.keySet(), key);
     if (existing == null) throw new IllegalStateException("map key lookup invariant violated");
     return map.values.get(existing);
+  }
+
+  static Object mapGetOrNull(MapValue map, Object key) {
+    Object existing = findEqual(map.values.keySet(), key);
+    return existing == null ? NullValue.INSTANCE : map.values.get(existing);
   }
 
   static boolean mapContains(MapValue map, Object key) {
@@ -139,7 +147,7 @@ final class RuntimeValues {
       case StackValue stack -> stack.values.size();
       case QueueValue queue -> queue.values.size();
       case DequeValue deque -> deque.values.size();
-      case RangeValue range -> Math.max(0, range.end - range.start);
+      case RangeValue range -> range.size();
       case BuilderValue builder -> builder.value.length();
       default -> throw new IllegalStateException("value has no size");
     };
@@ -353,6 +361,15 @@ final class RuntimeValues {
     return value == null ? "Void" : value.toString();
   }
 
+  enum NullValue {
+    INSTANCE;
+
+    @Override
+    public String toString() {
+      return "null";
+    }
+  }
+
   record CodePointValue(int value) {
     CodePointValue {
       if (!Character.isValidCodePoint(value)
@@ -513,24 +530,47 @@ final class RuntimeValues {
   static final class RangeValue {
     final long start;
     final long end;
+    final long step;
 
     RangeValue(long start, long end) {
+      this(start, end, 1);
+    }
+
+    RangeValue(long start, long end, long step) {
       this.start = start;
       this.end = end;
+      this.step = step;
+    }
+
+    long size() {
+      BigInteger distance =
+          step > 0
+              ? BigInteger.valueOf(end).subtract(BigInteger.valueOf(start))
+              : BigInteger.valueOf(start).subtract(BigInteger.valueOf(end));
+      if (distance.signum() <= 0) return 0;
+      BigInteger stride = BigInteger.valueOf(step).abs();
+      return distance.subtract(BigInteger.ONE).divide(stride).add(BigInteger.ONE).longValueExact();
     }
 
     Iterator<Object> iterator() {
       return new Iterator<>() {
         private long current = start;
+        private boolean exhausted;
 
         @Override
         public boolean hasNext() {
-          return current < end;
+          return !exhausted && (step > 0 ? current < end : current > end);
         }
 
         @Override
         public Object next() {
-          return current++;
+          long value = current;
+          try {
+            current = Math.addExact(current, step);
+          } catch (ArithmeticException exception) {
+            exhausted = true;
+          }
+          return value;
         }
       };
     }

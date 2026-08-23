@@ -1,0 +1,9 @@
+Void main() {
+  List<Integer> values = List.filled(size: 4, value: 3)
+  values[1] = 9
+  for value : values { printLine(value) }
+  expectedOutputLine("3")
+  expectedOutputLine("9")
+  expectedOutputLine("3")
+  expectedOutputLine("3")
+}

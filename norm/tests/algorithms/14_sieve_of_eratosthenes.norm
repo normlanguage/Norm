@@ -1,15 +1,15 @@
 Pair<Integer, Integer> primeSummary(Integer limit) {
-  List<Boolean> prime = List<Boolean>()
-  for value : range(start: 0, end: limit + 1) { prime.add(true) }
+  List<Boolean> prime = List.filled(size: limit + 1, value: true)
   prime[0] = false
   prime[1] = false
-  for candidate : range(start: 2, end: limit + 1) {
-    if candidate * candidate > limit { break }
+  Integer candidate = 2
+  for candidate * candidate <= limit {
     if prime[candidate] {
       for factor : range(start: candidate, end: limit / candidate + 1) {
         prime[candidate * factor] = false
       }
     }
+    candidate = candidate + 1
   }
   Integer count = 0
   Integer last = -1

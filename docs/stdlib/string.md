@@ -18,9 +18,10 @@ CodePoint letter = 'N'
 CodePoint emoji = '😀'
 Integer scalar = emoji.scalarValue()
 Boolean digit = emoji.isDecimalDigit()
+Boolean asciiDigit = letter.isAsciiDigit()
 ```
 
-`CodePoint` 提供 `isDecimalDigit()`、`isLetter()`、`isWhitespace()`、`isUppercase()` 和 `isLowercase()`。大小写映射属于 String，因为一个 code point 的映射结果可能包含多个 code point。
+`CodePoint` 提供 `isDecimalDigit()`、`isAsciiDigit()`、`asciiDigitValue()`、`isLetter()`、`isWhitespace()`、`isUppercase()` 和 `isLowercase()`。`isAsciiDigit()` 只接受 `0` 到 `9`，`asciiDigitValue()` 返回对应整数并在其他输入上产生 `INVALID_ARGUMENT`。大小写映射属于 String，因为一个 code point 的映射结果可能包含多个 code point。
 
 需要随机访问文本时，先显式选择单位：
 
@@ -84,13 +85,13 @@ Boolean canonical = isNormalized(value: normalized, form: Normalization.Nfc)
 
 无 locale 参数的大小写转换使用稳定的 Unicode locale-independent 规则。`Normalization` 提供 `Nfc`、`Nfd`、`Nfkc` 和 `Nfkd`。
 
-## 后续基础类型
+## 查找与解析
 
-`find` 在标准库拥有 `Option<Integer>` 后提供，文本编解码在拥有 `Bytes` 和 `Result` 后提供。API 不使用 `-1` 或异常替代这些类型。
+普通缺失位置使用 nullable Integer 表达。文本编解码和需要携带错误原因的解析使用后续的 Bytes 与 Result API。
 
 解析数字、UUID 和时间由目标类型的 parse API 完成，String 不提供隐式跨类型转换。
 
-## 0.2 文本构造函数
+## 文本构造函数
 
 `std.text` 已提供 `repeat`、`join` 和 `fromCodePoints`，实现在 `std/text/builders.norm`：
 

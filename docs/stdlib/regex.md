@@ -12,12 +12,12 @@ Result<Regex, RegexError> compiled = Regex.compile(
 ## 匹配
 
 ```norm
-Option<Match> match = regex.find(input: text)
+Match? match = regex.find(input: text)
 Boolean valid = regex.matchesEntire(input: text)
 List<String> parts = regex.split(input: text, limit: 10)
 ```
 
-Match 保存整个匹配范围和命名/编号 group。未参与匹配的可选 group 返回 `Option<String>`，不使用空字符串冒充缺失。
+Match 保存整个匹配范围和命名/编号 group。未参与匹配的可选 group 返回 `String?`，不使用空字符串冒充缺失。
 
 ## 安全与 Unicode
 
@@ -26,4 +26,3 @@ Match 保存整个匹配范围和命名/编号 group。未参与匹配的可选 
 替换 API 区分字面 replacement 与模板 replacement，避免 `$1` 一类文本被意外解释。需要程序计算替换值时使用显式函数回调。
 
 Regex pattern 不作为语言字面量，避免为核心 lexer 增加另一套转义规则。
-

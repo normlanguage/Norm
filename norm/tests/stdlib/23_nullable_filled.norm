@@ -1,0 +1,8 @@
+Void main() {
+  List<String?> values = List.filled(size: 2, value: null)
+  values[1] = "ready"
+  printLine(values[0] ?? "missing")
+  printLine(values[1] ?? "missing")
+  expectedOutputLine("missing")
+  expectedOutputLine("ready")
+}

@@ -18,7 +18,7 @@ Every reachable path must use `break value` with a compatible type. Norm never i
 
 ## For expressions
 
-Norm uses a foreach-shaped `for`. There is no C-style `for` or `while` syntax.
+An iterable `for` binds each element in sequence.
 
 The binding type may be omitted when the iterable has one statically known element type:
 
@@ -29,6 +29,16 @@ for index : range(start: 0, end: 10) {
 ```
 
 `Range` infers `Integer`. Generic iterables infer their binding from the element type, such as `String` for `List<String>`. An explicit binding type is required only when no unique static element type is available.
+
+A conditional `for` re-evaluates a Boolean condition before each iteration:
+
+```norm
+for values.size() > 1 && values.last() == 0 {
+    values.removeLast()
+}
+```
+
+`continue` returns to the condition check and `break` exits the loop.
 
 ```norm
 Integer firstEven = for Integer number : numbers {
@@ -60,4 +70,3 @@ Closed enums are exhaustively checked. Variants may carry data and bind it in a 
 Norm deliberately avoids implicit final-expression results. `break value` gives `if`, `for`, and `switch` one consistent value-production rule and keeps exit points visible.
 
 Next: [Reified generics](/en/language/generics).
-

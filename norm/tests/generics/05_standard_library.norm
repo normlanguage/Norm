@@ -1,10 +1,9 @@
-import std.collections.reversed
 import std.collections.toList
 
 Void main() {
   List<String> empty = toList<String>([])
   List<String> values = toList<String>(["first", "last"])
-  List<String> result = reversed<String>(values)
+  List<String> result = values.reversed()
   printLine(empty.size())
   printLine(result[0])
   printLine(result[1])

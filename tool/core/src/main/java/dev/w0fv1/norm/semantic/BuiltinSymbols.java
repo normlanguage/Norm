@@ -24,12 +24,24 @@ public final class BuiltinSymbols {
     return catalog.global(name).map(BuiltinCatalog.GlobalDefinition::symbol);
   }
 
+  public List<Symbol> globals(String name) {
+    return catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList();
+  }
+
   public Optional<Symbol> type(String name) {
     return catalog.type(name).map(BuiltinCatalog.TypeDefinition::symbol);
   }
 
   public Optional<Symbol> member(SemanticType owner, String name) {
     return catalog.member(owner, name);
+  }
+
+  public List<Symbol> members(SemanticType owner, String name) {
+    return catalog.members(owner, name);
+  }
+
+  public List<Symbol> typeMembers(String owner, String name) {
+    return catalog.typeMembers(owner, name);
   }
 
   public boolean isType(String name) {

@@ -1,0 +1,10 @@
+Void main() {
+  Integer total = 0
+  for left : range(start: 0, end: 5, step: 2) {
+    for right : range(start: 3, end: 0, step: -1) {
+      total = total + left + right
+    }
+  }
+  printLine(total)
+  expectedOutputLine("36")
+}

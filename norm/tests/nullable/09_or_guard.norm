@@ -1,0 +1,12 @@
+Boolean empty(String? value) {
+  return value == null || value.codePointSize() == 0
+}
+
+Void main() {
+  printLine(empty(value: null))
+  printLine(empty(value: ""))
+  printLine(empty(value: "x"))
+  expectedOutputLine("true")
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+}

@@ -2,6 +2,7 @@
 
 The handbook, specification, and standard library describe the future Norm 1.0 language. Delivered compiler behavior is tracked separately by release.
 
+- [Norm 0.3 release record](/en/versions/0.3)
 - [Norm 0.2 release record](/en/versions/0.2)
 - [Norm 0.1 release record](/en/versions/0.1)
 - [Implementation strategy](/en/design/implementation-strategy)

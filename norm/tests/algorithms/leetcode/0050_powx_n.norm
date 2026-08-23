@@ -3,8 +3,7 @@ Pair<Integer, Integer> power(Integer base, Integer exponent) {
   if magnitude < 0 { magnitude = -magnitude }
   Integer result = 1
   Integer factor = base
-  for step : range(start: 0, end: 64) {
-    if magnitude == 0 { break }
+  for magnitude != 0 {
     if magnitude % 2 == 1 { result = result * factor }
     factor = factor * factor
     magnitude = magnitude / 2

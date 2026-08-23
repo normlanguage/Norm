@@ -1,8 +1,7 @@
 Integer lowerBound(Array<Integer> values, Integer target) {
   Integer low = 0
   Integer high = values.size()
-  for step : range(start: 0, end: values.size() + 1) {
-    if low >= high { break }
+  for low < high {
     Integer middle = low + (high - low) / 2
     if values[middle] < target { low = middle + 1 } else { high = middle }
   }
@@ -13,8 +12,7 @@ Integer lowerBound(Array<Integer> values, Integer target) {
 Integer upperBound(Array<Integer> values, Integer target) {
   Integer low = 0
   Integer high = values.size()
-  for step : range(start: 0, end: values.size() + 1) {
-    if low >= high { break }
+  for low < high {
     Integer middle = low + (high - low) / 2
     if values[middle] <= target { low = middle + 1 } else { high = middle }
   }

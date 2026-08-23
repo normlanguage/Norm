@@ -1,8 +1,7 @@
 import std.math.max
 
 Integer knapsack(Array<Integer> weights, Array<Integer> values, Integer capacity) {
-  List<Integer> best = List<Integer>()
-  for value : range(start: 0, end: capacity + 1) { best.add(0) }
+  List<Integer> best = List.filled(size: capacity + 1, value: 0)
   for item : range(start: 0, end: weights.size()) {
     for step : range(start: 0, end: capacity - weights[item] + 1) {
       Integer current = capacity - step

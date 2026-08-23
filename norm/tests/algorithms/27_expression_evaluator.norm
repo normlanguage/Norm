@@ -30,17 +30,14 @@ Integer evaluate(List<Token> tokens) {
     } else if token.kind == Kind.Left {
       operators.push(token)
     } else if token.kind == Kind.Right {
-      for step : range(start: 0, end: tokens.size()) {
-        Token top = operators.peek()
-        if top.kind == Kind.Left { break }
+      for !operators.isEmpty() && operators.peek().kind != Kind.Left {
         Pair<Stack<Integer>, Stack<Token>> state = applyTop(values, operators)
         values = state.first
         operators = state.second
       }
       operators.pop()
     } else {
-      for step : range(start: 0, end: tokens.size()) {
-        if operators.isEmpty() { break }
+      for !operators.isEmpty() {
         Token top = operators.peek()
         if top.kind == Kind.Left || precedence(top.kind) < precedence(token.kind) { break }
         Pair<Stack<Integer>, Stack<Token>> state = applyTop(values, operators)
@@ -50,8 +47,7 @@ Integer evaluate(List<Token> tokens) {
       operators.push(token)
     }
   }
-  for step : range(start: 0, end: tokens.size()) {
-    if operators.isEmpty() { break }
+  for !operators.isEmpty() {
     Pair<Stack<Integer>, Stack<Token>> state = applyTop(values, operators)
     values = state.first
     operators = state.second
