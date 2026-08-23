@@ -7,8 +7,10 @@ Norm 的 VS Code 扩展位于 `tool/cli/extensions/vscode`。它负责编辑器�
 - `.norm` 文件识别，以及泛型、package/import、`public`、`private` 等 0.2 语法的 TextMate 高亮；
 - 括号、引号、行注释和块注释编辑行为；
 - 直接显示 Norm 编译器诊断及源码范围；
-- 关键字、内置函数、代码片段和项目声明补全；
-- 根据参数化类型补全对应的容器成员；
+- 根据语法位置和期望类型排序关键字、局部值、函数、类型与代码模板；
+- 在未闭合的返回语句、变量初始化和调用参数中继续提供补全与参数提示；
+- 根据参数化类型补全对应的容器成员，并显示替换后的泛型签名；
+- 补全 module 导出的跨 package 声明时自动加入 import；
 - enum 成员补全；
 - 泛型声明签名、类型参数、核心类型、标准库和用户声明的悬停说明；
 - 泛型类型参数的补全、跳转定义、引用和重命名；
@@ -50,6 +52,6 @@ macOS 或 Linux 使用同目录下的 `norm`。
 
 ## 实现边界
 
-扩展通过微软的 `vscode-languageclient` 启动 `norm lsp`，Java 端使用 Eclipse LSP4J 处理 LSP/JSON-RPC。语法高亮不依赖语言服务器，因此 CLI 未配置时仍可使用；诊断、补全和悬停则需要 CLI。
+扩展通过微软的 `vscode-languageclient` 启动 `norm lsp`，Java 端使用 Eclipse LSP4J 处理 LSP/JSON-RPC。补全、参数提示及其排序由编译器语义快照统一计算，扩展不维护第二套语言规则。语法高亮不依赖语言服务器，因此 CLI 未配置时仍可使用；其他语言能力需要 CLI。
 
 当前扩展的语言能力边界见 [Norm 0.2 版本记录](/versions/0.2)。格式化和调试器由后续工具版本交付。

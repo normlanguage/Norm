@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.semantic.ArgumentBinding;
 import dev.w0fv1.norm.semantic.BuiltinSymbols;
+import dev.w0fv1.norm.semantic.ImportableSymbol;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedIndex;
 import dev.w0fv1.norm.semantic.ResolvedIteration;
@@ -12,6 +13,7 @@ import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.semantic.TypeRelations;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -144,7 +146,8 @@ final class Analyzer {
             members,
             aliasTargets,
             semanticScopes,
-            snapshot);
+            snapshot,
+            importableSymbols());
     Optional<dev.w0fv1.norm.bound.BoundProgram> boundProgram =
         snapshot.stream()
                 .anyMatch(
@@ -243,6 +246,18 @@ final class Analyzer {
             addMember(type.id(), symbol.id());
           }
         }
+        type =
+            new Symbol(
+                type.id(),
+                type.name(),
+                type.kind(),
+                type.type(),
+                type.declaration(),
+                type.owner(),
+                type.typeParameters(),
+                fieldParameters(classDecl.fields(), Map.of(), classTypeParameters(classDecl)),
+                type.documentation());
+        symbols.put(type.id(), type);
         SymbolId copyId = SymbolId.source(classDecl.nameSpan().source().id(), nextSymbolId++);
         Symbol copy =
             new Symbol(
@@ -401,6 +416,38 @@ final class Analyzer {
       currentProgram = previous;
       semanticScopes.add(new SemanticScope(program.span(), 0, List.copyOf(visible.values())));
     }
+  }
+
+  private List<ImportableSymbol> importableSymbols() {
+    List<ImportableSymbol> result = new ArrayList<>();
+    for (Syntax.Program program : programs) {
+      if (!exportedSources.contains(program.span().source().id())) continue;
+      program.enums().stream()
+          .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
+          .map(
+              declaration ->
+                  new ImportableSymbol(
+                      symbols.get(declarationSymbols.get(declaration)),
+                      qualifiedName(program.packageName(), declaration.name())))
+          .forEach(result::add);
+      program.classes().stream()
+          .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
+          .map(
+              declaration ->
+                  new ImportableSymbol(
+                      symbols.get(declarationSymbols.get(declaration)),
+                      qualifiedName(program.packageName(), declaration.name())))
+          .forEach(result::add);
+      program.functions().stream()
+          .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
+          .map(
+              declaration ->
+                  new ImportableSymbol(
+                      symbols.get(declarationSymbols.get(declaration)),
+                      qualifiedName(program.packageName(), declaration.name())))
+          .forEach(result::add);
+    }
+    return List.copyOf(result);
   }
 
   private void validateFields(Syntax.ClassDecl classDecl) {
@@ -1046,9 +1093,7 @@ final class Analyzer {
   }
 
   private void requireAssignable(SemanticType expected, SemanticType actual, SourceSpan span) {
-    if (!expected.equals(SemanticType.DYNAMIC)
-        && !actual.equals(SemanticType.DYNAMIC)
-        && !expected.equals(actual)) {
+    if (!TypeRelations.isAssignable(expected, actual)) {
       diagnostics.error(
           TYPE_MISMATCH,
           "expected " + expected.displayName() + " but found " + actual.displayName(),

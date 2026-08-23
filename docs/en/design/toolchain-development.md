@@ -52,6 +52,8 @@ dev.w0fv1.norm.cli.utils        stateless text utilities
 
 Only `Main` may terminate the JVM. Controllers return exit codes, and components do not parse command-line arguments.
 
+Editor features use `core`'s `LanguageService` and immutable semantic snapshots as their sole semantic implementation. Completion ranking, expected types, generic substitution, call parameters, and import candidates are computed in `dev.w0fv1.norm.language`; the Language Server only maps LSP types, and editor extensions only manage lifecycle and editor integration.
+
 ## Naming and visibility
 
 - The package already supplies the language context, so types do not repeat a `Norm` prefix. Use domain names such as `Compiler`, `Analyzer`, `Lowerer`, and `ProgramRunner`.

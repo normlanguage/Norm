@@ -15,10 +15,20 @@ public final class CompletionContextResolver {
     }
     if (insideExcludedText(text, offset)) return new CompletionContext.None();
     int lineStart = text.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
-    if (text.substring(lineStart, offset).stripLeading().startsWith("import ")) {
-      return new CompletionContext.Import();
+    String line = text.substring(lineStart, offset);
+    int firstContent = 0;
+    while (firstContent < line.length() && Character.isWhitespace(line.charAt(firstContent))) {
+      firstContent++;
     }
-    int previousOffset = previousNonWhitespace(text, offset);
+    if (line.startsWith("import ", firstContent)) {
+      return new CompletionContext.Import(lineStart + firstContent + "import ".length());
+    }
+    int identifierStart = offset;
+    while (identifierStart > 0
+        && Character.isUnicodeIdentifierPart(text.charAt(identifierStart - 1))) {
+      identifierStart--;
+    }
+    int previousOffset = previousNonWhitespace(text, identifierStart);
     if (previousOffset >= 0 && text.charAt(previousOffset) == '.') {
       return new CompletionContext.Member(previousOffset);
     }

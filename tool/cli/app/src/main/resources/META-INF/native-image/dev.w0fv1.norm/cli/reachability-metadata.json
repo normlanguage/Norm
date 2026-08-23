@@ -1893,6 +1893,31 @@
       ]
     },
     {
+      "type": "org.eclipse.lsp4j.ParameterInformation",
+      "fields": [
+        {
+          "name": "documentation"
+        },
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.SignatureHelp",
+      "fields": [
+        {
+          "name": "activeParameter"
+        },
+        {
+          "name": "activeSignature"
+        },
+        {
+          "name": "signatures"
+        }
+      ]
+    },
+    {
       "type": "org.eclipse.lsp4j.SignatureHelpCapabilities",
       "fields": [
         {
@@ -1910,7 +1935,77 @@
       ]
     },
     {
-      "type": "org.eclipse.lsp4j.SignatureHelpOptions"
+      "type": "org.eclipse.lsp4j.SignatureHelpOptions",
+      "fields": [
+        {
+          "name": "retriggerCharacters"
+        },
+        {
+          "name": "triggerCharacters"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.SignatureHelpParams",
+      "fields": [
+        {
+          "name": "context"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.SignatureHelpContext",
+      "fields": [
+        {
+          "name": "activeSignatureHelp"
+        },
+        {
+          "name": "isRetrigger"
+        },
+        {
+          "name": "triggerCharacter"
+        },
+        {
+          "name": "triggerKind"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.SignatureInformation",
+      "fields": [
+        {
+          "name": "activeParameter"
+        },
+        {
+          "name": "documentation"
+        },
+        {
+          "name": "label"
+        },
+        {
+          "name": "parameters"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.SignatureHelpTriggerKind",
+      "fields": [
+        {
+          "name": "value"
+        }
+      ]
     },
     {
       "type": "org.eclipse.lsp4j.SignatureInformationCapabilities",
@@ -2753,6 +2848,12 @@
           "name": "rename",
           "parameterTypes": [
             "org.eclipse.lsp4j.RenameParams"
+          ]
+        },
+        {
+          "name": "signatureHelp",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.SignatureHelpParams"
           ]
         }
       ]

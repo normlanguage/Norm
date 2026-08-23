@@ -246,7 +246,12 @@ final class Parser {
         synchronizeStatement();
       }
     }
-    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after block");
+    Token closing = peek();
+    if (isAtEnd()) {
+      diagnostics.error(EXPECTED_TOKEN, "expected '}' after block", closing.span());
+    } else {
+      closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after block");
+    }
     return new Block(statements, opening.span().cover(closing.span()));
   }
 

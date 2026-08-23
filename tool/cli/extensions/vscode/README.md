@@ -2,7 +2,7 @@
 
 <p align="center"><img src="images/norm-256.png" alt="Norm Logo" width="128"></p>
 
-This extension provides syntax highlighting, compiler diagnostics, completion, hover, definition navigation, references, rename, and execution through `norm run`.
+This extension provides syntax highlighting, compiler diagnostics, type-aware completion, signature help, automatic imports, hover, definition navigation, references, rename, and execution through `norm run`.
 
 Platform-specific release packages contain the matching standalone Norm CLI. No Java installation or separate server configuration is required.
 

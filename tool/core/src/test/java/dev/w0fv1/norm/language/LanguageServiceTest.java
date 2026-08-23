@@ -29,6 +29,48 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesAndReplacesAPartiallyTypedMemberName() {
+    String text = "void main() { List<int> values = List<int>() values.rem }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:member-prefix"), text));
+    int offset = text.indexOf(".rem") + ".rem".length();
+
+    Completion completion =
+        service.complete(analysis, offset).stream()
+            .filter(candidate -> candidate.label().equals("removeAt"))
+            .findFirst()
+            .orElseThrow();
+
+    var edit = completion.textEdit().orElseThrow();
+    assertEquals("rem", text.substring(edit.location().startOffset(), edit.location().endOffset()));
+    assertEquals("removeAt(${1:index})", edit.newText());
+  }
+
+  @Test
+  void providesStructuredStatementAndDeclarationTemplates() {
+    String statementText = "void main() {  }";
+    var statementAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:statement-template"), statementText));
+    Completion ifCompletion =
+        service.complete(statementAnalysis, statementText.indexOf('}')).stream()
+            .filter(candidate -> candidate.label().equals("if"))
+            .findFirst()
+            .orElseThrow();
+
+    var topLevelAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:declaration-template"), ""));
+    Completion classCompletion =
+        service.complete(topLevelAnalysis, 0).stream()
+            .filter(candidate -> candidate.label().equals("class"))
+            .findFirst()
+            .orElseThrow();
+
+    assertTrue(ifCompletion.snippet());
+    assertEquals("if ${1:condition} {\n  ${2}\n}", ifCompletion.insertText());
+    assertTrue(classCompletion.snippet());
+    assertEquals("class ${1:Name} {\n  ${2}\n}", classCompletion.insertText());
+  }
+
+  @Test
   void completesUserMembersAndEnumMembers() {
     String text =
         "enum Color { Red, Green } class Point { int x void move(int amount) {} } "
@@ -255,6 +297,315 @@ final class LanguageServiceTest {
             .orElseThrow();
 
     assertEquals("range(start: ${1:start}, end: ${2:end})", range.insertText());
+  }
+
+  @Test
+  void ranksVariableInitializerCandidatesByExpectedType() {
+    String text = "void main() { String label = \"ready\" int count = 1 String result = label }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:initializer"), text));
+
+    List<String> labels =
+        service.complete(analysis, text.lastIndexOf("label")).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void ranksReturnCandidatesByTheCallableReturnType() {
+    String text =
+        "String choose() { String label = \"ready\" int count = 1 return label } "
+            + "void main() { print(choose()) }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:return"), text));
+
+    List<String> labels =
+        service.complete(analysis, text.indexOf("return label") + "return ".length()).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void ranksArgumentCandidatesByTheActiveParameterType() {
+    String text =
+        "void consume(String value) {} void main() { "
+            + "String label = \"ready\" int count = 1 consume(label) }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:argument"), text));
+
+    List<String> labels =
+        service.complete(analysis, text.lastIndexOf("label")).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void completesExpectedValuesInAnIncompleteReturnStatement() {
+    String text = "String choose() { String label = \"ready\" int count = 1 return  }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:incomplete-return"), text));
+    int offset = text.indexOf("return") + "return ".length();
+
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+
+    assertTrue(labels.containsAll(List.of("label", "count")));
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void completesExpectedValuesInAnIncompleteVariableInitializer() {
+    String text = "void main() { String label = \"ready\" int count = 1 String result =  }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:incomplete-value"), text));
+    int offset = text.indexOf("=  }") + 2;
+
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+
+    assertTrue(labels.containsAll(List.of("label", "count")));
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void completesExpectedValuesInAnIncompleteCallArgument() {
+    String text =
+        "void consume(String value) {} void main() { "
+            + "String label = \"ready\" int count = 1 consume( }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:incomplete-call"), text));
+    int offset = text.lastIndexOf('(') + 1;
+
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+
+    assertTrue(labels.containsAll(List.of("label", "count")));
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void providesSignatureHelpForAnIncompleteCall() {
+    String text = "void consume(String value, int count) {} void main() { consume(";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:signature"), text));
+
+    SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
+
+    assertEquals("void consume(String value, int count)", help.signatures().getFirst().label());
+    assertEquals(0, help.activeParameter());
+  }
+
+  @Test
+  void providesSignatureHelpForAZeroParameterCall() {
+    String text = "void ping() {} void main() { ping(";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:empty-signature"), text));
+
+    SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
+
+    assertEquals("void ping()", help.signatures().getFirst().label());
+    assertTrue(help.signatures().getFirst().parameters().isEmpty());
+    assertEquals(0, help.activeParameter());
+  }
+
+  @Test
+  void tracksTheActiveNamedParameter() {
+    String text =
+        "void consume(String value, int count) {} void main() { "
+            + "consume(count: 1, value: \"ready\") }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:named-signature"), text));
+    int offset = text.indexOf("\"ready\"");
+
+    SignatureHelp help = service.signatureHelp(analysis, offset).orElseThrow();
+
+    assertEquals(0, help.activeParameter());
+    assertEquals("String value", help.signatures().getFirst().parameters().getFirst().label());
+  }
+
+  @Test
+  void substitutesExplicitGenericArgumentsInCompletionAndSignatureHelp() {
+    String text =
+        "void accept<T>(T value) {} void main() { "
+            + "int number = 1 String label = \"ready\" accept<int>( }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:generic-call-site"), text));
+    int offset = text.lastIndexOf('(') + 1;
+
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+    SignatureHelp help = service.signatureHelp(analysis, offset).orElseThrow();
+
+    assertTrue(labels.indexOf("number") < labels.indexOf("label"));
+    assertEquals("void accept<int>(int value)", help.signatures().getFirst().label());
+  }
+
+  @Test
+  void completesAndDescribesGenericConstructorsFromClassFields() {
+    String text =
+        "class Box<T> { T value } void main() { "
+            + "int number = 1 String label = \"ready\" Box<int> box = Box<int>( }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:constructor-site"), text));
+    int argumentOffset = text.lastIndexOf('(') + 1;
+
+    List<String> labels =
+        service.complete(analysis, argumentOffset).stream().map(Completion::label).toList();
+    SignatureHelp help = service.signatureHelp(analysis, argumentOffset).orElseThrow();
+
+    assertTrue(labels.indexOf("number") < labels.indexOf("label"));
+    assertEquals("Box<int>(int value)", help.signatures().getFirst().label());
+  }
+
+  @Test
+  void insertsAConstructorSnippetMatchingTheExpectedGenericType() {
+    String text = "class Box<T> { T value } void main() { Box<int> box = B }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:constructor"), text));
+
+    Completion box =
+        service.complete(analysis, text.lastIndexOf('B') + 1).stream()
+            .filter(completion -> completion.label().equals("Box"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("Box<int>(value: ${1:value})", box.insertText());
+  }
+
+  @Test
+  void completesExportedProjectSymbolsWithAnImportEdit() {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app\n\nvoid main() { twi }\n");
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/math/Numbers.norm"),
+            "package sample.math\n\npublic int twice(int value) { return value * 2 }\n");
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
+
+    Completion twice =
+        service.complete(snapshot.entryDocument(), entry.text().indexOf("twi") + 3).stream()
+            .filter(completion -> completion.label().equals("twice"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("twice(${1:value})", twice.insertText());
+    assertEquals(1, twice.additionalTextEdits().size());
+    assertEquals("\n\nimport sample.math.twice", twice.additionalTextEdits().getFirst().newText());
+  }
+
+  @Test
+  void completesSymbolsInTheSelectedProjectDocument() {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app\n\nvoid main() {}\n");
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/math/Numbers.norm"),
+            "package sample.math\n\npublic int twice(int value) { int local = value return local }\n");
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
+    int offset = library.text().lastIndexOf("local");
+
+    List<String> labels =
+        service.complete(snapshot.document(library.id()).orElseThrow(), offset).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.contains("local"));
+  }
+
+  @Test
+  void excludesPrivateAndUnexportedSymbolsFromImportCompletion() {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app\n\nvoid main() { }\n");
+    SourceFile exported =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/api/Public.norm"),
+            "package sample.api public int visible() { return 1 } "
+                + "private int hidden() { return 2 }");
+    SourceFile internal =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/internal/Internal.norm"),
+            "package sample.internal public int internal() { return 3 }");
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(
+                entry.id(), List.of(entry, exported, internal), Set.of(exported.id())));
+
+    List<String> labels =
+        service.complete(snapshot.entryDocument(), entry.text().indexOf('}')).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.contains("visible"));
+    assertFalse(labels.contains("hidden"));
+    assertFalse(labels.contains("internal"));
+  }
+
+  @Test
+  void preservesAmbiguousAutoImportCandidatesWithTheirQualifiedNames() {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app\n\nvoid main() { twi }\n");
+    SourceFile first =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/first/Numbers.norm"),
+            "package sample.first public int twice(int value) { return value * 2 }");
+    SourceFile second =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/second/Numbers.norm"),
+            "package sample.second public int twice(int value) { return value + value }");
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(
+                entry.id(), List.of(entry, first, second), Set.of(first.id(), second.id())));
+
+    List<Completion> candidates =
+        service.complete(snapshot.entryDocument(), entry.text().indexOf("twi") + 3).stream()
+            .filter(completion -> completion.label().equals("twice"))
+            .toList();
+
+    assertEquals(2, candidates.size());
+    assertTrue(
+        candidates.stream().anyMatch(value -> value.detail().contains("sample.first.twice")));
+    assertTrue(
+        candidates.stream().anyMatch(value -> value.detail().contains("sample.second.twice")));
+  }
+
+  @Test
+  void completesQualifiedNamesInsideImportDeclarations() {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app\n\nimport sample.ma\n\nvoid main() {}\n");
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/math/Numbers.norm"),
+            "package sample.math public int twice(int value) { return value * 2 }");
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
+    int offset = entry.text().indexOf("sample.ma") + "sample.ma".length();
+
+    Completion completion =
+        service.complete(snapshot.entryDocument(), offset).stream()
+            .filter(candidate -> candidate.label().equals("sample.math.twice"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("sample.math.twice", completion.insertText());
+    assertEquals(
+        "sample.ma",
+        entry
+            .text()
+            .substring(
+                completion.textEdit().orElseThrow().location().startOffset(),
+                completion.textEdit().orElseThrow().location().endOffset()));
   }
 
   @Test

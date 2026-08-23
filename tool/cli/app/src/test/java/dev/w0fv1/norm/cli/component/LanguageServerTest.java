@@ -26,6 +26,7 @@ import org.eclipse.lsp4j.ReferenceContext;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
+import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -71,6 +72,62 @@ final class LanguageServerTest {
     assertTrue(items.stream().anyMatch(item -> item.getLabel().equals("add")));
     assertTrue(items.stream().anyMatch(item -> item.getLabel().equals("removeAt")));
     assertTrue(items.stream().noneMatch(item -> item.getLabel().equals("push")));
+  }
+
+  @Test
+  void servesSignatureHelpForIncompleteCalls() throws Exception {
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    String uri = "file:///signature.norm";
+    String text = "void consume(String value, int count) {} void main() { consume(";
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+
+    var help =
+        server
+            .getTextDocumentService()
+            .signatureHelp(
+                new SignatureHelpParams(
+                    new TextDocumentIdentifier(uri), new Position(0, text.length())))
+            .get();
+
+    assertEquals(
+        "void consume(String value, int count)", help.getSignatures().getFirst().getLabel());
+    assertEquals(0, help.getActiveParameter());
+    assertEquals(
+        List.of("(", ","),
+        server
+            .initialize(new org.eclipse.lsp4j.InitializeParams())
+            .get()
+            .getCapabilities()
+            .getSignatureHelpProvider()
+            .getTriggerCharacters());
+  }
+
+  @Test
+  void preservesSemanticCompletionRankingInTheProtocol() throws Exception {
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    String uri = "file:///ranked-completion.norm";
+    String text = "void main() { String label = \"ready\" int count = 1 String result = label }";
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+    int offset = text.lastIndexOf("label");
+    CompletionParams params = new CompletionParams();
+    params.setTextDocument(new TextDocumentIdentifier(uri));
+    params.setPosition(new Position(0, offset));
+
+    List<CompletionItem> items = server.getTextDocumentService().completion(params).get().getLeft();
+    CompletionItem label =
+        items.stream().filter(item -> item.getLabel().equals("label")).findFirst().orElseThrow();
+    CompletionItem count =
+        items.stream().filter(item -> item.getLabel().equals("count")).findFirst().orElseThrow();
+
+    assertTrue(label.getSortText().compareTo(count.getSortText()) < 0);
+    assertTrue(label.getPreselect());
+    assertEquals("label", label.getFilterText());
   }
 
   @Test
@@ -380,6 +437,66 @@ final class LanguageServerTest {
 
     assertEquals(
         "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
+  }
+
+  @Test
+  void completesExportedSymbolsWithImportEdits() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    String text = "package sample.app\n\nvoid main() { iden }\n";
+    Files.writeString(fixture.entry(), text);
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, text)));
+    CompletionParams params = new CompletionParams();
+    params.setTextDocument(new TextDocumentIdentifier(fixture.entryUri()));
+    params.setPosition(new Position(2, "void main() { iden".length()));
+
+    CompletionItem identity =
+        server.getTextDocumentService().completion(params).get().getLeft().stream()
+            .filter(item -> item.getLabel().equals("identity"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals(1, identity.getAdditionalTextEdits().size());
+    assertEquals(
+        "\n\nimport sample.util.identity",
+        identity.getAdditionalTextEdits().getFirst().getNewText());
+    var primaryEdit = identity.getTextEdit().getLeft();
+    assertEquals("identity(${1:value})", primaryEdit.getNewText());
+    assertEquals(new Position(2, "void main() { ".length()), primaryEdit.getRange().getStart());
+    assertEquals(new Position(2, "void main() { iden".length()), primaryEdit.getRange().getEnd());
+  }
+
+  @Test
+  void completesExpectedValuesInIncompleteProjectCalls() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    String body =
+        "void consume(String value, int count) {} void main() { "
+            + "String label = \"ready\" int count = 1 consume(";
+    String text = "package sample.app\n\n" + body;
+    Files.writeString(fixture.entry(), text);
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, text)));
+    CompletionParams params = new CompletionParams();
+    params.setTextDocument(new TextDocumentIdentifier(fixture.entryUri()));
+    params.setPosition(new Position(2, body.length()));
+
+    List<String> labels =
+        server.getTextDocumentService().completion(params).get().getLeft().stream()
+            .map(CompletionItem::getLabel)
+            .toList();
+
+    assertTrue(labels.containsAll(List.of("label", "count")), labels.toString());
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
   }
 
   @Test

@@ -52,6 +52,8 @@ dev.w0fv1.norm.cli.utils        无状态文本工具
 
 只有 `Main` 可以终止 JVM。Controller 通过返回退出码报告结果，component 不读取命令行参数。
 
+编辑器能力以 `core` 的 `LanguageService` 和不可变语义快照为唯一语义实现。补全排序、期望类型、泛型替换、调用参数和导入候选均在 `dev.w0fv1.norm.language` 中计算；Language Server 只负责 LSP 类型转换，编辑器扩展只负责生命周期和编辑器接入。
+
 ## 命名与可见性
 
 - `dev.w0fv1.norm` 已经提供语言上下文，类型名不增加 `Norm` 前缀；使用 `Compiler`、`Analyzer`、`Lowerer`、`ProgramRunner` 等领域名称。

@@ -103,6 +103,40 @@ suite('Norm VS Code extension', () => {
     assert.ok(rendered.includes('end-exclusive integer range'));
   });
 
+  test('enables automatic suggestions for Norm code', () => {
+    const extension = vscode.extensions.getExtension('normlang.norm-language-support');
+    assert.ok(extension);
+    const defaults = extension.packageJSON.contributes.configurationDefaults['[norm]'];
+    assert.deepEqual(defaults['editor.quickSuggestions'], {
+      comments: 'off',
+      strings: 'off',
+      other: 'on',
+    });
+    assert.equal(defaults['editor.suggestOnTriggerCharacters'], true);
+  });
+
+  test('completes a partially typed statement in unsaved code', async () => {
+    const source = 'void main() {\n  pr\n}';
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
+    await vscode.window.showTextDocument(document);
+    const start = source.indexOf('pr');
+    const position = document.positionAt(start + 2);
+    const completions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider',
+        document.uri,
+        position,
+      );
+      return value?.items.some((item) => labelOf(item) === 'print') ? value : undefined;
+    });
+    const print = completions.items.find((item) => labelOf(item) === 'print');
+    assert.ok(print);
+    assert.equal(completionText(print.insertText), 'print(${1:value})');
+    assert.ok(print.range instanceof vscode.Range);
+    assert.equal(print.range.start.isEqual(document.positionAt(start)), true);
+    assert.equal(print.range.end.isEqual(position), true);
+  });
+
   test('resolves imported standard-library functions', async () => {
     const document = await openAlgorithmFixture('08_longest_consecutive.norm');
     const offset = document.getText().lastIndexOf('max');
@@ -248,6 +282,78 @@ suite('Norm VS Code extension', () => {
       new vscode.Position(4, 0),
     );
     assert.ok(!completions.items.some((item) => labelOf(item) === 'preserve'));
+  });
+
+  test('ranks expected values and serves signature help for incomplete code', async () => {
+    const document = await openProjectFixture('sample/app/Main.norm');
+    const original = document.getText();
+    const text =
+      'package sample.app\n\nvoid consume(String value, int count) {} void main() { ' +
+      'String label = "ready" int count = 1 consume(';
+    await replaceDocument(document, text);
+    try {
+      const position = document.positionAt(text.length);
+      const completions = await eventually(async () => {
+        const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+          'vscode.executeCompletionItemProvider',
+          document.uri,
+          position,
+        );
+        return value?.items.some((item) => labelOf(item) === 'label') ? value : undefined;
+      });
+      const labels = completions.items.map(labelOf);
+      const label = completions.items.find((item) => labelOf(item) === 'label');
+      assert.ok(label);
+      assert.ok(labels.indexOf('label') < labels.indexOf('count'));
+      assert.equal(label.preselect, true);
+
+      const signature = await eventually(async () =>
+        await vscode.commands.executeCommand<vscode.SignatureHelp>(
+          'vscode.executeSignatureHelpProvider',
+          document.uri,
+          position,
+          '(',
+        ),
+      );
+      assert.equal(signature.signatures[0].label, 'void consume(String value, int count)');
+      assert.equal(signature.activeParameter, 0);
+    } finally {
+      await replaceDocument(document, original);
+    }
+  });
+
+  test('offers exported declarations with precise auto-import edits', async () => {
+    const document = await openProjectFixture('sample/app/Main.norm');
+    const original = document.getText();
+    const edited = original
+      .replace('import sample.util.identity\n', '')
+      .replace('identity(value: box.value[0])', 'iden');
+    await replaceDocument(document, edited);
+    try {
+      const start = edited.indexOf('iden');
+      const position = document.positionAt(start + 'iden'.length);
+      const completions = await eventually(async () => {
+        const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+          'vscode.executeCompletionItemProvider',
+          document.uri,
+          position,
+        );
+        return value?.items.some((item) => labelOf(item) === 'identity') ? value : undefined;
+      });
+      const identity = completions.items.find((item) => labelOf(item) === 'identity');
+      assert.ok(identity);
+      assert.equal(completionText(identity.insertText), 'identity(${1:value})');
+      assert.ok(identity.range instanceof vscode.Range);
+      assert.equal(identity.range.start.isEqual(document.positionAt(start)), true);
+      assert.equal(identity.range.end.isEqual(position), true);
+      assert.equal(identity.additionalTextEdits?.length, 1);
+      assert.equal(
+        identity.additionalTextEdits?.[0].newText,
+        '\nimport sample.util.identity',
+      );
+    } finally {
+      await replaceDocument(document, original);
+    }
   });
 
   test('provides definition, references, and semantic rename edits', async () => {
@@ -408,6 +514,10 @@ function labelOf(item: vscode.CompletionItem): string {
 
 function hoverText(content: vscode.MarkedString | vscode.MarkdownString): string {
   return typeof content === 'string' ? content : content.value;
+}
+
+function completionText(text: string | vscode.SnippetString | undefined): string | undefined {
+  return text instanceof vscode.SnippetString ? text.value : text;
 }
 
 async function eventually<T>(operation: () => T | undefined | Promise<T | undefined>): Promise<T> {

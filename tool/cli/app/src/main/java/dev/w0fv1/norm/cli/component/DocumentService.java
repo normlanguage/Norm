@@ -43,6 +43,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
+import org.eclipse.lsp4j.SignatureHelpParams;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
@@ -110,16 +111,26 @@ final class DocumentService implements TextDocumentService {
     DocumentState state = state(params.getTextDocument().getUri());
     if (state == null) return CompletableFuture.completedFuture(Either.forLeft(List.of()));
     int offset = offset(state.source(), params.getPosition());
+    List<Completion> completions =
+        language.complete(state.snapshot().document(state.source().id()).orElseThrow(), offset);
     List<CompletionItem> items =
-        language
-            .complete(
-                state.snapshot().document(state.source().id()).orElseThrow(),
-                state.analysis(),
-                offset)
-            .stream()
-            .map(DocumentService::completion)
+        java.util.stream.IntStream.range(0, completions.size())
+            .mapToObj(index -> completion(completions.get(index), index, state.source()))
             .toList();
     return CompletableFuture.completedFuture(Either.forLeft(items));
+  }
+
+  @Override
+  public CompletableFuture<org.eclipse.lsp4j.SignatureHelp> signatureHelp(
+      SignatureHelpParams params) {
+    DocumentState state = state(params.getTextDocument().getUri());
+    if (state == null) return CompletableFuture.completedFuture(null);
+    int offset = offset(state.source(), params.getPosition());
+    return CompletableFuture.completedFuture(
+        language
+            .signatureHelp(state.snapshot().document(state.source().id()).orElseThrow(), offset)
+            .map(DocumentService::signatureHelp)
+            .orElse(null));
   }
 
   @Override
@@ -404,14 +415,60 @@ final class DocumentService implements TextDocumentService {
     return converted;
   }
 
-  private static CompletionItem completion(Completion completion) {
+  private static CompletionItem completion(Completion completion, int index, SourceFile source) {
     CompletionItem item = new CompletionItem(completion.label());
     item.setKind(kind(completion.kind()));
     item.setDetail(completion.detail());
     item.setInsertText(completion.insertText());
+    item.setFilterText(completion.label());
+    item.setSortText("%08d".formatted(index));
+    item.setPreselect(index == 0);
+    completion
+        .textEdit()
+        .ifPresent(
+            edit ->
+                item.setTextEdit(
+                    Either.forLeft(
+                        new TextEdit(
+                            range(
+                                source.positionAt(edit.location().startOffset()),
+                                source.positionAt(edit.location().endOffset())),
+                            edit.newText()))));
+    if (!completion.additionalTextEdits().isEmpty()) {
+      item.setAdditionalTextEdits(
+          completion.additionalTextEdits().stream()
+              .map(
+                  edit ->
+                      new TextEdit(
+                          range(
+                              source.positionAt(edit.location().startOffset()),
+                              source.positionAt(edit.location().endOffset())),
+                          edit.newText()))
+              .toList());
+    }
     if (!completion.documentation().isBlank()) item.setDocumentation(completion.documentation());
     if (completion.snippet()) item.setInsertTextFormat(InsertTextFormat.Snippet);
     return item;
+  }
+
+  private static org.eclipse.lsp4j.SignatureHelp signatureHelp(
+      dev.w0fv1.norm.language.SignatureHelp help) {
+    return new org.eclipse.lsp4j.SignatureHelp(
+        help.signatures().stream()
+            .map(
+                signature ->
+                    new org.eclipse.lsp4j.SignatureInformation(
+                        signature.label(),
+                        signature.documentation(),
+                        signature.parameters().stream()
+                            .map(
+                                parameter ->
+                                    new org.eclipse.lsp4j.ParameterInformation(
+                                        parameter.label(), parameter.documentation()))
+                            .toList()))
+            .toList(),
+        help.activeSignature(),
+        help.activeParameter());
   }
 
   private static CompletionItemKind kind(CompletionKind kind) {

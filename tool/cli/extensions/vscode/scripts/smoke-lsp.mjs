@@ -66,6 +66,7 @@ function readMessages() {
       const capabilities = message.result?.capabilities;
       if (
         !capabilities?.completionProvider ||
+        !capabilities?.signatureHelpProvider ||
         !capabilities.definitionProvider ||
         !capabilities.referencesProvider ||
         !capabilities.renameProvider?.prepareProvider
@@ -102,8 +103,38 @@ function readMessages() {
       if (typeof message.result !== 'string' || !message.result.includes('public int clamp')) {
         return finish(new Error(`Standard-library source request failed: ${JSON.stringify(message)}`));
       }
-      send({ jsonrpc: '2.0', id: 3, method: 'shutdown', params: null });
+      const text = 'void consume(String value, int count) {} void main() { consume(';
+      send({
+        jsonrpc: '2.0',
+        method: 'textDocument/didOpen',
+        params: {
+          textDocument: {
+            uri: 'file:///signature.norm',
+            languageId: 'norm',
+            version: 1,
+            text,
+          },
+        },
+      });
+      send({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'textDocument/signatureHelp',
+        params: {
+          textDocument: { uri: 'file:///signature.norm' },
+          position: { line: 0, character: text.length },
+          context: { triggerKind: 2, triggerCharacter: '(', isRetrigger: false },
+        },
+      });
     } else if (message.id === 3) {
+      if (
+        message.result?.activeParameter !== 0 ||
+        message.result?.signatures?.[0]?.label !== 'void consume(String value, int count)'
+      ) {
+        return finish(new Error(`Signature-help request failed: ${JSON.stringify(message)}`));
+      }
+      send({ jsonrpc: '2.0', id: 4, method: 'shutdown', params: null });
+    } else if (message.id === 4) {
       protocolComplete = true;
       send({ jsonrpc: '2.0', method: 'exit', params: null });
       child.stdin.end();

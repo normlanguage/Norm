@@ -28,6 +28,7 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SymbolId, SymbolId> aliasTargets;
   private final List<SemanticScope> scopes;
   private final List<Diagnostic> diagnostics;
+  private final List<ImportableSymbol> importableSymbols;
   private final List<Token> tokens;
   private final SpanIndex<SymbolId> bindingIndex;
   private final SpanIndex<SemanticType> typeIndex;
@@ -46,7 +47,8 @@ public final class SemanticModel implements SemanticIndex {
       Map<SymbolId, List<SymbolId>> members,
       Map<SymbolId, SymbolId> aliasTargets,
       List<SemanticScope> scopes,
-      List<Diagnostic> diagnostics) {
+      List<Diagnostic> diagnostics,
+      List<ImportableSymbol> importableSymbols) {
     this.source = Objects.requireNonNull(source, "source");
     this.syntax = Objects.requireNonNull(syntax, "syntax");
     this.symbols = Map.copyOf(symbols);
@@ -65,6 +67,7 @@ public final class SemanticModel implements SemanticIndex {
     this.aliasTargets = Map.copyOf(aliasTargets);
     this.scopes = List.copyOf(scopes);
     this.diagnostics = List.copyOf(diagnostics);
+    this.importableSymbols = List.copyOf(importableSymbols);
     this.tokens = List.of();
     this.bindingIndex = SpanIndex.from(this.bindings);
     this.typeIndex = SpanIndex.from(this.expressionTypes);
@@ -86,6 +89,7 @@ public final class SemanticModel implements SemanticIndex {
     this.aliasTargets = project.aliasTargets;
     this.scopes = project.scopes;
     this.diagnostics = project.diagnostics;
+    this.importableSymbols = project.importableSymbols;
     this.tokens = List.copyOf(tokens);
     this.bindingIndex = project.bindingIndex;
     this.typeIndex = project.typeIndex;
@@ -129,6 +133,10 @@ public final class SemanticModel implements SemanticIndex {
     return List.copyOf(symbols.values());
   }
 
+  public List<ImportableSymbol> importableSymbols() {
+    return importableSymbols;
+  }
+
   public Optional<Symbol> symbolAt(int offset) {
     return symbolAt(source.id(), offset);
   }
@@ -163,6 +171,20 @@ public final class SemanticModel implements SemanticIndex {
 
   public Optional<SemanticType> typeOf(SourceSpan span) {
     return Optional.ofNullable(expressionTypes.get(span));
+  }
+
+  public Optional<SemanticType> typeOf(Syntax.TypeRef reference) {
+    Optional<Symbol> symbol = resolvedSymbolOf(reference.span());
+    if (symbol.isEmpty()) return Optional.empty();
+    SemanticType base = symbol.orElseThrow().type();
+    if (base.kind() == SemanticType.Kind.TYPE_PARAMETER || reference.arguments().isEmpty()) {
+      return Optional.of(base);
+    }
+    List<SemanticType> arguments =
+        reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
+    if (arguments.size() != reference.arguments().size()) return Optional.empty();
+    return Optional.of(
+        SemanticType.declared(base.identity(), base.name(), arguments, base.category()));
   }
 
   public Optional<ArgumentBinding> argumentsOf(SourceSpan callSpan) {
@@ -242,10 +264,12 @@ public final class SemanticModel implements SemanticIndex {
         .anyMatch(symbol -> symbol.name().equals(newName));
   }
 
-  private static boolean contains(SourceSpan span, int offset) {
+  private boolean contains(SourceSpan span, int offset) {
     return span.isEmpty()
         ? offset == span.startOffset()
-        : span.startOffset() <= offset && offset < span.endOffset();
+        : span.startOffset() <= offset
+            && (offset < span.endOffset()
+                || offset == source.length() && span.endOffset() == source.length());
   }
 
   private SymbolId resolveAlias(SymbolId id) {
