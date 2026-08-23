@@ -292,7 +292,7 @@ suite('Norm VS Code extension', () => {
       'String label = "ready" int count = 1 consume(';
     await replaceDocument(document, text);
     try {
-      const position = document.positionAt(text.length);
+      const position = document.positionAt(document.getText().length);
       const completions = await eventually(async () => {
         const value = await vscode.commands.executeCommand<vscode.CompletionList>(
           'vscode.executeCompletionItemProvider',
