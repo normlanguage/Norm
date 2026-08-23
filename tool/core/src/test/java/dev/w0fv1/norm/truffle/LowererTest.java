@@ -20,9 +20,9 @@ final class LowererTest {
     var source =
         SourceFile.of(
             Path.of("lowering.norm"),
-            "int add(int left, int right) { return left + right } "
-                + "void main() { int total = 0 for value : range(start: 0, end: 3) { "
-                + "total = add(left: total, right: value) } print(total) }");
+            "Integer add(Integer left, Integer right) { return left + right } "
+                + "Void main() { Integer total = 0 for value : range(start: 0, end: 3) { "
+                + "total = add(left: total, right: value) } printLine(total) }");
     var checked = new Compiler().compile(source).program().orElseThrow();
 
     ExecutableProgram executable =
@@ -41,7 +41,7 @@ final class LowererTest {
         SourceFile.of(
             Path.of("runtime-generics.norm"),
             "class Box<T> {} Box<T> create<T>() { return Box<T>() } "
-                + "Box<int> probe() { return create<int>() } void main() {}");
+                + "Box<Integer> probe() { return create<Integer>() } Void main() {}");
     var checked = new Compiler().compile(source).program().orElseThrow();
     var probe =
         checked.boundProgram().callables().stream()
@@ -55,6 +55,6 @@ final class LowererTest {
     RuntimeValues.ObjectValue result =
         assertInstanceOf(RuntimeValues.ObjectValue.class, executable.entryPoint().call());
 
-    org.junit.jupiter.api.Assertions.assertEquals("Box<int>", result.type.displayName());
+    org.junit.jupiter.api.Assertions.assertEquals("Box<Integer>", result.type.displayName());
   }
 }

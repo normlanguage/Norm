@@ -1,11 +1,11 @@
-List<int> nextGreater(Array<int> values) {
-  List<int> result = List<int>()
-  for int value : values { result.add(-1) }
-  Stack<int> indices = Stack<int>()
+List<Integer> nextGreater(Array<Integer> values) {
+  List<Integer> result = List<Integer>()
+  for Integer value : values { result.add(-1) }
+  Stack<Integer> indices = Stack<Integer>()
   for index : range(start: 0, end: values.size()) {
     for step : range(start: 0, end: values.size()) {
       if indices.isEmpty() { break }
-      int previous = indices.peek()
+      Integer previous = indices.peek()
       if values[previous] >= values[index] { break }
       indices.pop()
       result[previous] = values[index]
@@ -15,14 +15,11 @@ List<int> nextGreater(Array<int> values) {
   return result
 }
 
-void main() {
-  for int value : nextGreater([2, 1, 2, 4, 3]) { print(value) }
-}
-
-private void expectedOutput() {
-  print("4")
-  print("2")
-  print("4")
-  print("-1")
-  print("-1")
+Void main() {
+  for Integer value : nextGreater([2, 1, 2, 4, 3]) { printLine(value) }
+  expectedOutputLine("4")
+  expectedOutputLine("2")
+  expectedOutputLine("4")
+  expectedOutputLine("-1")
+  expectedOutputLine("-1")
 }

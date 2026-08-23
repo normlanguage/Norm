@@ -2,17 +2,14 @@ class Box<T> {
   T value
 }
 
-void main() {
-  List<Pair<int, String>> values = List<Pair<int, String>>()
-  values.add(Pair<int, String>(first: 7, second: "seven"))
-  Box<List<Pair<int, String>>> box = Box<List<Pair<int, String>>>(value: values)
-  print(box.value.size())
-  print(box.value[0].first)
-  print(box.value[0].second)
-}
-
-private void expectedOutput() {
-  print("1")
-  print("7")
-  print("seven")
+Void main() {
+  List<Pair<Integer, String>> values = List<Pair<Integer, String>>()
+  values.add(Pair<Integer, String>(first: 7, second: "seven"))
+  Box<List<Pair<Integer, String>>> box = Box<List<Pair<Integer, String>>>(value: values)
+  printLine(box.value.size())
+  printLine(box.value[0].first)
+  printLine(box.value[0].second)
+  expectedOutputLine("1")
+  expectedOutputLine("7")
+  expectedOutputLine("seven")
 }

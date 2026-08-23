@@ -1,16 +1,16 @@
-Array<int> quickSort(Array<int> values, int low, int high) {
+Array<Integer> quickSort(Array<Integer> values, Integer low, Integer high) {
   if low >= high { return values }
-  int pivot = values[high]
-  int boundary = low
+  Integer pivot = values[high]
+  Integer boundary = low
   for index : range(start: low, end: high) {
     if values[index] <= pivot {
-      int temporary = values[boundary]
+      Integer temporary = values[boundary]
       values[boundary] = values[index]
       values[index] = temporary
       boundary = boundary + 1
     }
   }
-  int temporary = values[boundary]
+  Integer temporary = values[boundary]
   values[boundary] = values[high]
   values[high] = temporary
   values = quickSort(values, low, high: boundary - 1)
@@ -18,17 +18,14 @@ Array<int> quickSort(Array<int> values, int low, int high) {
   return values
 }
 
-void main() {
-  Array<int> values = [-2, 8, 3, 0, 3, 1]
+Void main() {
+  Array<Integer> values = [-2, 8, 3, 0, 3, 1]
   values = quickSort(values, low: 0, high: values.size() - 1)
-  for int value : values { print(value) }
-}
-
-private void expectedOutput() {
-  print("-2")
-  print("0")
-  print("1")
-  print("3")
-  print("3")
-  print("8")
+  for Integer value : values { printLine(value) }
+  expectedOutputLine("-2")
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+  expectedOutputLine("3")
+  expectedOutputLine("8")
 }

@@ -1,13 +1,10 @@
-void main() {
-  Set<int> values = Set<int>()
+Void main() {
+  Set<Integer> values = Set<Integer>()
   values.add(5)
   values.add(5)
   values.add(8)
-  print(values.contains(8))
-  print(values.size())
-}
-
-private void expectedOutput() {
-  print("true")
-  print("2")
+  printLine(values.contains(8))
+  printLine(values.size())
+  expectedOutputLine("true")
+  expectedOutputLine("2")
 }

@@ -1,0 +1,27 @@
+List<Integer> convert(Array<Integer> text, Integer rows) {
+  if rows == 1 || rows >= text.size() {
+    List<Integer> same = List<Integer>()
+    for Integer value : text { same.add(value) }
+    return same
+  }
+  List<Integer> result = List<Integer>()
+  Integer cycle = 2 * rows - 2
+  for row : range(start: 0, end: rows) {
+    for index : range(start: 0, end: text.size()) {
+      Integer position = index % cycle
+      if position == row || position == cycle - row { result.add(text[index]) }
+    }
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : convert(text: [1, 2, 3, 4, 5, 6, 7], rows: 3) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("5")
+  expectedOutputLine("2")
+  expectedOutputLine("4")
+  expectedOutputLine("6")
+  expectedOutputLine("3")
+  expectedOutputLine("7")
+}

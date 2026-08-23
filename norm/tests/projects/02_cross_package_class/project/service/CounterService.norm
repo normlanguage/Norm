@@ -1,0 +1,8 @@
+package project.service
+
+import project.model.Counter
+
+public Counter advance(Counter counter, Integer amount) {
+  counter.add(amount)
+  return counter
+}

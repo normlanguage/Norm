@@ -23,7 +23,7 @@ Direction direction = Direction.North
 
 ```norm
 enum Token {
-    Number(double value),
+    Number(Double value),
     Name(String text),
     Plus,
     End
@@ -37,7 +37,7 @@ enum Token {
 ```norm
 String describe(Token token) {
     return switch token {
-        case Number(double value) {
+        case Number(Double value) {
             break "number ${value}"
         }
         case Name(String text) {
@@ -53,7 +53,7 @@ String describe(Token token) {
 }
 ```
 
-`case Number(double value)` 同时检查 variant 并把内部数据绑定到 `value`。
+`case Number(Double value)` 同时检查 variant 并把内部数据绑定到 `value`。
 
 ## 穷尽性
 
@@ -78,7 +78,7 @@ enum Result<T, E> {
 
 ```norm
 if shape is Circle {
-    print("circle")
+    printLine("circle")
 }
 ```
 

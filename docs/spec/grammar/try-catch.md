@@ -6,7 +6,7 @@
 try {
     loadConfiguration()
 } catch IOException error {
-    print(error.message)
+    printLine(error.message)
 } finally {
     closeResources()
 }
@@ -20,9 +20,9 @@ catch 按源码顺序匹配异常的动态类型。更具体的类型必须写�
 try {
     readFile()
 } catch FileNotFound error {
-    print("missing: ${error.path}")
+    printLine("missing: ${error.path}")
 } catch IOException error {
-    print(error.message)
+    printLine(error.message)
 }
 ```
 

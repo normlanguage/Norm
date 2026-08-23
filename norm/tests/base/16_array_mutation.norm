@@ -1,9 +1,6 @@
-void main() {
-  Array<int> values = [2, 4, 6]
+Void main() {
+  Array<Integer> values = [2, 4, 6]
   values[1] = 8
-  print(values[1])
-}
-
-private void expectedOutput() {
-  print("8")
+  printLine(values[1])
+  expectedOutputLine("8")
 }

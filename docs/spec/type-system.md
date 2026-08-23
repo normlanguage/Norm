@@ -4,7 +4,7 @@ Norm 使用静态、名义、非空默认的类型系统。编译器在执行前
 
 ## 类型类别
 
-- 基本类型：bool、整数、浮点、decimal、String；
+- 基本类型：Boolean、整数、浮点、Decimal、String；
 - 用户类型：class、value、interface、enum、annotation；
 - 参数化类型：`List<T>`、`Map<K, V>` 等；
 - nullable 类型：`T?`；
@@ -29,7 +29,7 @@ class Circle extends Shape implements Drawable
 ```norm
 String? input = readInput()
 if input != null {
-    print(input)
+    printLine(input)
 }
 ```
 

@@ -1,0 +1,18 @@
+Boolean isValid(Array<Integer> text) {
+  Stack<Integer> openings = Stack<Integer>()
+  for Integer token : text {
+    if token > 0 {
+      openings.push(token)
+    } else {
+      if openings.isEmpty() || openings.pop() != -token { return false }
+    }
+  }
+  return openings.isEmpty()
+}
+
+Void main() {
+  printLine(isValid([1, 2, -2, -1]))
+  printLine(isValid([1, 2, -1, -2]))
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+}

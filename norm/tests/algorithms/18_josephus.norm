@@ -1,15 +1,12 @@
-int josephus(int people, int step) {
-  int survivor = 0
+Integer josephus(Integer people, Integer step) {
+  Integer survivor = 0
   for size : range(start: 2, end: people + 1) { survivor = (survivor + step) % size }
   return survivor
 }
 
-void main() {
-  print(josephus(people: 7, step: 3))
-  print(josephus(people: 1, step: 9))
-}
-
-private void expectedOutput() {
-  print("3")
-  print("0")
+Void main() {
+  printLine(josephus(people: 7, step: 3))
+  printLine(josephus(people: 1, step: 9))
+  expectedOutputLine("3")
+  expectedOutputLine("0")
 }

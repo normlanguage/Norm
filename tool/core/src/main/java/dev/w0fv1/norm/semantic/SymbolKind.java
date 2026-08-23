@@ -8,6 +8,7 @@ public enum SymbolKind {
   FIELD,
   PARAMETER,
   LOCAL_VARIABLE,
+  SELF,
   ENUM_MEMBER,
   PROPERTY
 }

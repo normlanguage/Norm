@@ -7,15 +7,15 @@
 变量声明由类型、名称和初始值组成。
 
 ```norm
-int width = 12
-int height = 8
+Integer width = 12
+Integer height = 8
 String label = "rectangle"
 ```
 
 类型总是出现在名称之前。非空局部变量必须在声明时初始化。
 
 ```norm
-int count
+Integer count
 ```
 
 上面的声明不完整，编译器会拒绝它。Norm 不提供稍后绕过检查的 `late` 或 `lateinit`。
@@ -25,15 +25,15 @@ int count
 表达式计算一个值：
 
 ```norm
-int area = width * height
-bool large = area >= 100
+Integer area = width * height
+Boolean large = area >= 100
 ```
 
 语句执行一个动作，例如赋值、调用或返回：
 
 ```norm
 area = area + 10
-print("area = ${area}")
+printLine("area = ${area}")
 return area
 ```
 
@@ -42,11 +42,11 @@ Norm 不要求行尾分号。多条语句放在大括号组成的代码块中。
 ## 函数声明与调用
 
 ```norm
-int area(int width, int height) {
+Integer area(Integer width, Integer height) {
     return width * height
 }
 
-int result = area(width: 12, height: 8)
+Integer result = area(width: 12, height: 8)
 ```
 
 返回类型写在函数名之前，参数也使用类型前置。多个参数使用命名调用，让调用点保留参数含义。
@@ -55,13 +55,13 @@ int result = area(width: 12, height: 8)
 
 ```norm
 if result > 100 {
-    print("large")
+    printLine("large")
 } else {
-    print("small")
+    printLine("small")
 }
 ```
 
-条件不需要括号，但代码块不能省略。条件表达式必须是 `bool`，不会把数字或字符串隐式当作布尔值。
+条件不需要括号，但代码块不能省略。条件表达式必须是 `Boolean`，不会把数字或字符串隐式当作布尔值。
 
 ## 字符串模板
 
@@ -77,8 +77,8 @@ String message = "${width} × ${height} = ${result}"
 
 ```norm
 value Point {
-    int x
-    int y
+    Integer x
+    Integer y
 }
 
 Point origin = Point(x: 0, y: 0)
@@ -89,7 +89,7 @@ Point origin = Point(x: 0, y: 0)
 ## 一个完整例子
 
 ```norm
-int clamp(int value, int minimum, int maximum) {
+Integer clamp(Integer value, Integer minimum, Integer maximum) {
     if value < minimum {
         return minimum
     }
@@ -101,9 +101,9 @@ int clamp(int value, int minimum, int maximum) {
     return value
 }
 
-void main() {
-    int opacity = clamp(value: 140, minimum: 0, maximum: 100)
-    print("opacity = ${opacity}")
+Void main() {
+    Integer opacity = clamp(value: 140, minimum: 0, maximum: 100)
+    printLine("opacity = ${opacity}")
 }
 ```
 

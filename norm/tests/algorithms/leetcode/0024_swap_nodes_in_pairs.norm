@@ -1,0 +1,18 @@
+Array<Integer> swapPairs(Array<Integer> values) {
+  for index : range(start: 0, end: values.size() / 2) {
+    Integer left = index * 2
+    Integer temporary = values[left]
+    values[left] = values[left + 1]
+    values[left + 1] = temporary
+  }
+  return values
+}
+
+Void main() {
+  for Integer value : swapPairs([1, 2, 3, 4, 5]) { printLine(value) }
+  expectedOutputLine("2")
+  expectedOutputLine("1")
+  expectedOutputLine("4")
+  expectedOutputLine("3")
+  expectedOutputLine("5")
+}

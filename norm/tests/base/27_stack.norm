@@ -1,12 +1,9 @@
-void main() {
-  Stack<int> values = Stack<int>()
+Void main() {
+  Stack<Integer> values = Stack<Integer>()
   values.push(2)
   values.push(3)
-  print(values.peek())
-  print(values.pop())
-}
-
-private void expectedOutput() {
-  print("3")
-  print("3")
+  printLine(values.peek())
+  printLine(values.pop())
+  expectedOutputLine("3")
+  expectedOutputLine("3")
 }

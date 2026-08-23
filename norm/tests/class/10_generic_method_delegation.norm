@@ -1,0 +1,21 @@
+class Box<T> {
+  T value
+
+  private T current() {
+    return value
+  }
+
+  T replace(T next) {
+    T previous = this.current()
+    value = next
+    return previous
+  }
+}
+
+Void main() {
+  Box<String> box = Box<String>(value: "first")
+  printLine(box.replace("second"))
+  printLine(box.value)
+  expectedOutputLine("first")
+  expectedOutputLine("second")
+}

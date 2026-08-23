@@ -1,0 +1,21 @@
+List<Integer> intToRoman(Integer value) {
+  Array<Integer> values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+  Array<Integer> symbols = [13, 23, 5, 4, 3, 32, 12, 42, 10, 21, 22, 31, 1]
+  List<Integer> result = List<Integer>()
+  for index : range(start: 0, end: values.size()) {
+    for step : range(start: 0, end: 4) {
+      if value < values[index] { break }
+      result.add(symbols[index])
+      value = value - values[index]
+    }
+  }
+  return result
+}
+
+Void main() {
+  for Integer symbol : intToRoman(1994) { printLine(symbol) }
+  expectedOutputLine("13")
+  expectedOutputLine("23")
+  expectedOutputLine("32")
+  expectedOutputLine("31")
+}

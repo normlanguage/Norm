@@ -38,7 +38,7 @@ Declaration := ClassDeclaration
              | FunctionDeclaration
 ```
 
-Norm 使用类型前置：`String name`、`int parse(String text)`。generic 参数写在声明名后，nullable 标记写在完整类型后。
+Norm 使用类型前置：`String name`、`Integer parse(String text)`。generic 参数写在声明名后，nullable 标记写在完整类型后。
 
 ## 表达式与语句
 

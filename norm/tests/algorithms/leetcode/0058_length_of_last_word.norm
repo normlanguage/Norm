@@ -1,0 +1,17 @@
+Integer lengthOfLastWord(Array<Integer> text) {
+  Integer length = 0
+  for offset : range(start: 0, end: text.size()) {
+    Integer value = text[text.size() - 1 - offset]
+    if value == 0 {
+      if length > 0 { break }
+    } else {
+      length = length + 1
+    }
+  }
+  return length
+}
+
+Void main() {
+  printLine(lengthOfLastWord([1,2,3,0,4,5,6,7]))
+  expectedOutputLine("4")
+}

@@ -1,14 +1,11 @@
 import std.math.clamp
 import std.testing.equal
 
-void main() {
-  print(equal(actual: clamp(value: -2, minimum: 0, maximum: 10), expected: 0))
-  print(equal(actual: clamp(value: 4, minimum: 0, maximum: 10), expected: 4))
-  print(equal(actual: clamp(value: 12, minimum: 0, maximum: 10), expected: 10))
-}
-
-private void expectedOutput() {
-  print("true")
-  print("true")
-  print("true")
+Void main() {
+  printLine(equal(actual: clamp(value: -2, minimum: 0, maximum: 10), expected: 0))
+  printLine(equal(actual: clamp(value: 4, minimum: 0, maximum: 10), expected: 4))
+  printLine(equal(actual: clamp(value: 12, minimum: 0, maximum: 10), expected: 10))
+  expectedOutputLine("true")
+  expectedOutputLine("true")
+  expectedOutputLine("true")
 }

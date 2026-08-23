@@ -3,11 +3,11 @@
 Map 把唯一键映射到值，键和值类型都必须完整声明。
 
 ```norm
-Map<String, int> counts = Map<String, int>()
+Map<String, Integer> counts = Map<String, Integer>()
 counts.put(key: "open", value: 3)
 
 if counts.containsKey("open") {
-    int count = counts["open"]
+    Integer count = counts["open"]
 }
 ```
 
@@ -16,7 +16,7 @@ if counts.containsKey("open") {
 0.2 只提供要求键存在的 `map[key]`。可能缺失的查询不能返回 null；安全 `get` 将在携带数据的 `Option<V>` 交付时加入。需要缺失时计算默认值，可以先显式判断：
 
 ```norm
-int value = 0
+Integer value = 0
 if counts.containsKey("closed") {
     value = counts["closed"]
 }

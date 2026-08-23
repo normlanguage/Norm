@@ -1,13 +1,13 @@
-Array<int> siftDown(Array<int> values, int size, int root) {
-  int current = root
+Array<Integer> siftDown(Array<Integer> values, Integer size, Integer root) {
+  Integer current = root
   for step : range(start: 0, end: size) {
-    int largest = current
-    int left = current * 2 + 1
-    int right = left + 1
+    Integer largest = current
+    Integer left = current * 2 + 1
+    Integer right = left + 1
     if left < size && values[left] > values[largest] { largest = left }
     if right < size && values[right] > values[largest] { largest = right }
     if largest == current { break }
-    int temporary = values[current]
+    Integer temporary = values[current]
     values[current] = values[largest]
     values[largest] = temporary
     current = largest
@@ -15,15 +15,15 @@ Array<int> siftDown(Array<int> values, int size, int root) {
   return values
 }
 
-Array<int> heapSort(Array<int> values) {
-  int size = values.size()
+Array<Integer> heapSort(Array<Integer> values) {
+  Integer size = values.size()
   for step : range(start: 0, end: size / 2) {
-    int root = size / 2 - 1 - step
+    Integer root = size / 2 - 1 - step
     values = siftDown(values, size, root)
   }
   for step : range(start: 0, end: size - 1) {
-    int end = size - 1 - step
-    int temporary = values[0]
+    Integer end = size - 1 - step
+    Integer temporary = values[0]
     values[0] = values[end]
     values[end] = temporary
     values = siftDown(values, size: end, root: 0)
@@ -31,14 +31,11 @@ Array<int> heapSort(Array<int> values) {
   return values
 }
 
-void main() {
-  for int value : heapSort([4, 1, 8, 2, 5]) { print(value) }
-}
-
-private void expectedOutput() {
-  print("1")
-  print("2")
-  print("4")
-  print("5")
-  print("8")
+Void main() {
+  for Integer value : heapSort([4, 1, 8, 2, 5]) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("4")
+  expectedOutputLine("5")
+  expectedOutputLine("8")
 }

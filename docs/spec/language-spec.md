@@ -23,7 +23,7 @@ package geometry
 
 import std.math.sqrt
 
-double length(Point point) {
+Double length(Point point) {
     return sqrt(value: point.x * point.x + point.y * point.y)
 }
 ```
@@ -34,9 +34,9 @@ double length(Point point) {
 
 ```norm
 String name = "Ada"
-int age = 36
+Integer age = 36
 
-int square(int value) {
+Integer square(Integer value) {
     return value * value
 }
 ```
@@ -74,7 +74,7 @@ String sign = if number < 0 {
 泛型默认不变，使用时必须写全类型实参。`? extends T` 和 `? super T` 表达使用位置型变。运行时保留完整参数化类型：
 
 ```norm
-List<String>.class != List<int>.class
+List<String>.class != List<Integer>.class
 ```
 
 ## 错误

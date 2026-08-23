@@ -5,16 +5,16 @@
 ## 声明函数
 
 ```norm
-int square(int value) {
+Integer square(Integer value) {
     return value * value
 }
 ```
 
-声明顺序是：返回类型、函数名、参数列表、函数体。没有返回值的函数使用 `void`。
+声明顺序是：返回类型、函数名、参数列表、函数体。没有返回值的函数使用 `Void`。
 
 ```norm
-void printLine(String text) {
-    print(text)
+Void printLine(String text) {
+    printLine(text)
 }
 ```
 
@@ -23,7 +23,7 @@ Norm 不使用隐式的最后表达式返回值。返回函数结果必须写 `r
 ## 参数与命名调用
 
 ```norm
-int clamp(int value, int minimum, int maximum) {
+Integer clamp(Integer value, Integer minimum, Integer maximum) {
     if value < minimum {
         return minimum
     }
@@ -37,7 +37,7 @@ int clamp(int value, int minimum, int maximum) {
 具有多个参数的函数使用命名调用：
 
 ```norm
-int opacity = clamp(value: 140, minimum: 0, maximum: 100)
+Integer opacity = clamp(value: 140, minimum: 0, maximum: 100)
 ```
 
 参数名是公开调用约定的一部分。命名调用可以避免连续出现多个同类型实参时产生含义歧义。
@@ -45,7 +45,7 @@ int opacity = clamp(value: 140, minimum: 0, maximum: 100)
 单参数调用可以省略参数名。多参数调用中，裸标识符与对应参数同名时可以缩写：
 
 ```norm
-int difference = subtract(left, right)
+Integer difference = subtract(left, right)
 ```
 
 其他多参数实参必须写出名称，具名实参不能与位置实参混用。
@@ -57,7 +57,7 @@ int difference = subtract(left, right)
 不依赖实例状态的行为直接放在模块顶层：
 
 ```norm
-double average(double left, double right) {
+Double average(Double left, Double right) {
     return (left + right) / 2.0
 }
 ```
@@ -70,13 +70,13 @@ Norm 没有 `static`，因此不需要创建 `MathUtils` 一类只充当函数�
 
 ```norm
 class Accumulator {
-    int total
+    Integer total
 
-    void add(int amount) {
+    Void add(Integer amount) {
         total = total + amount
     }
 
-    int current() {
+    Integer current() {
         return total
     }
 }
@@ -94,22 +94,22 @@ sum.add(4)
 函数可以作为值传递。函数类型保留返回类型、函数名位置和参数类型：
 
 ```norm
-int apply(int operation(int value), int input) {
+Integer apply(Integer operation(Integer value), Integer input) {
     return operation(input)
 }
 
-int doubled = apply(operation: square, input: 2)
+Integer doubled = apply(operation: square, input: 2)
 ```
 
-参数位置上的 `operation` 是局部名称；`int operation(int value)` 描述它能接收一个 `int` 并返回一个 `int`。
+参数位置上的 `operation` 是局部名称；`Integer operation(Integer value)` 描述它能接收一个 `Integer` 并返回一个 `Integer`。
 
 ## 匿名函数
 
 匿名函数与普通函数具有相同形状，只是省略名称：
 
 ```norm
-int incremented = apply(
-    operation: int(int value) {
+Integer incremented = apply(
+    operation: Integer(Integer value) {
         return value + 1
     },
     input: 4

@@ -15,7 +15,7 @@ enum Result<T, E> {
 
 ```norm
 String message = switch parse(text: input) {
-    case Ok(int value) { break "${value}" }
+    case Ok(Integer value) { break "${value}" }
     case Err(ParseError error) { break error.message }
 }
 ```

@@ -1,0 +1,38 @@
+List<Integer> mergeKLists(List<Array<Integer>> lists) {
+  List<Integer> result = List<Integer>()
+  List<Integer> positions = List<Integer>()
+  for Array<Integer> values : lists { positions.add(0) }
+  for step : range(start: 0, end: 1000) {
+    Integer chosen = -1
+    Integer value = 0
+    for index : range(start: 0, end: lists.size()) {
+      if positions[index] < lists[index].size() {
+        Integer candidate = lists[index][positions[index]]
+        if chosen == -1 || candidate < value {
+          chosen = index
+          value = candidate
+        }
+      }
+    }
+    if chosen == -1 { break }
+    result.add(value)
+    positions[chosen] = positions[chosen] + 1
+  }
+  return result
+}
+
+Void main() {
+  List<Array<Integer>> lists = List<Array<Integer>>()
+  lists.add([1, 4, 5])
+  lists.add([1, 3, 4])
+  lists.add([2, 6])
+  for Integer value : mergeKLists(lists) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("4")
+  expectedOutputLine("4")
+  expectedOutputLine("5")
+  expectedOutputLine("6")
+}

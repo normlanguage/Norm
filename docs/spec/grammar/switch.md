@@ -4,7 +4,7 @@
 
 ```norm
 String text = switch token {
-    case Number(double value) { break "number ${value}" }
+    case Number(Double value) { break "number ${value}" }
     case Name(String value) { break value }
     case End { break "end" }
 }

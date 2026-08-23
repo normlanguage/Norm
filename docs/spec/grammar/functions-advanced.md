@@ -7,8 +7,8 @@
 候选函数按名称、可见性、参数名和参数类型筛选。调用必须得到唯一最佳候选；编译器不会通过猜测数值收窄或 nullable 转换消除歧义。
 
 ```norm
-String format(int value) { return "${value}" }
-String format(decimal value) { return "${value}" }
+String format(Integer value) { return "${value}" }
+String format(Decimal value) { return "${value}" }
 
 String text = format(value: 3)
 ```
@@ -18,7 +18,7 @@ String text = format(value: 3)
 ## 函数值
 
 ```norm
-int transform(int operation(int value), int input) {
+Integer transform(Integer operation(Integer value), Integer input) {
     return operation(input)
 }
 ```
@@ -26,8 +26,8 @@ int transform(int operation(int value), int input) {
 函数值不携带隐藏接收者。实例方法引用 `counter.incrementBy` 会显式绑定该接收者；普通匿名函数不能任意捕获外层局部变量。
 
 ```norm
-int doubled = transform(
-    operation: int(int value) { return value * 2 },
+Integer doubled = transform(
+    operation: Integer(Integer value) { return value * 2 },
     input: 4
 )
 ```

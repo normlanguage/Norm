@@ -1,0 +1,23 @@
+Integer longestCommonPrefix(List<Array<Integer>> words) {
+  if words.isEmpty() { return 0 }
+  Integer length = words[0].size()
+  for wordIndex : range(start: 1, end: words.size()) {
+    if words[wordIndex].size() < length { length = words[wordIndex].size() }
+    for index : range(start: 0, end: length) {
+      if words[wordIndex][index] != words[0][index] {
+        length = index
+        break
+      }
+    }
+  }
+  return length
+}
+
+Void main() {
+  List<Array<Integer>> words = List<Array<Integer>>()
+  words.add([1, 2, 3, 4])
+  words.add([1, 2, 5])
+  words.add([1, 2, 3])
+  printLine(longestCommonPrefix(words))
+  expectedOutputLine("2")
+}

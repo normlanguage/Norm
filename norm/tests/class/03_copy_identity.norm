@@ -1,24 +1,21 @@
 class Box {
-  int value
+  Integer value
 
-  void set(int next) {
+  Void set(Integer next) {
     value = next
   }
 }
 
-void main() {
+Void main() {
   Box original = Box(value: 4)
   Box copied = original.copy()
   copied.set(9)
-  print(original.value)
-  print(copied.value)
-  print(original == copied)
-  print(original != copied)
-}
-
-private void expectedOutput() {
-  print("4")
-  print("9")
-  print("false")
-  print("true")
+  printLine(original.value)
+  printLine(copied.value)
+  printLine(original == copied)
+  printLine(original != copied)
+  expectedOutputLine("4")
+  expectedOutputLine("9")
+  expectedOutputLine("false")
+  expectedOutputLine("true")
 }

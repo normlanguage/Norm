@@ -17,7 +17,7 @@ final class LanguageServiceTest {
 
   @Test
   void completesMembersFromTheResolvedReceiverSymbol() {
-    String text = "void main() { List<int> values = List<int>() values.add(1) }";
+    String text = "Void main() { List<Integer> values = List<Integer>() values.add(1) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:completion"), text));
     int offset = text.indexOf("values.add") + "values.".length();
 
@@ -30,7 +30,7 @@ final class LanguageServiceTest {
 
   @Test
   void completesAndReplacesAPartiallyTypedMemberName() {
-    String text = "void main() { List<int> values = List<int>() values.rem }";
+    String text = "Void main() { List<Integer> values = List<Integer>() values.rem }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:member-prefix"), text));
     int offset = text.indexOf(".rem") + ".rem".length();
 
@@ -47,7 +47,7 @@ final class LanguageServiceTest {
 
   @Test
   void providesStructuredStatementAndDeclarationTemplates() {
-    String statementText = "void main() {  }";
+    String statementText = "Void main() {  }";
     var statementAnalysis =
         service.analyze(SourceFile.of(DocumentId.of("untitled:statement-template"), statementText));
     Completion ifCompletion =
@@ -73,8 +73,8 @@ final class LanguageServiceTest {
   @Test
   void completesUserMembersAndEnumMembers() {
     String text =
-        "enum Color { Red, Green } class Point { int x void move(int amount) {} } "
-            + "void main() { Point point = Point(1) print(point.x) print(Color.Green) }";
+        "enum Color { Red, Green } class Point { Integer x Void move(Integer amount) {} } "
+            + "Void main() { Point point = Point(1) printLine(point.x) printLine(Color.Green) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:user"), text));
 
     List<String> point =
@@ -93,8 +93,8 @@ final class LanguageServiceTest {
   @Test
   void completesMembersThroughSubstitutedGenericFields() {
     String text =
-        "class Box<T> { T value } void main() { "
-            + "Box<List<int>> box = Box<List<int>>(value: List<int>()) box.value.add(1) }";
+        "class Box<T> { T value } Void main() { "
+            + "Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) box.value.add(1) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:generic-members"), text));
     int offset = text.indexOf("box.value.add") + "box.value.".length();
 
@@ -106,7 +106,7 @@ final class LanguageServiceTest {
 
   @Test
   void completesOnlyMembersOfTheCanonicalQueueType() {
-    String text = "void main() { Queue<int> values = Queue<int>() values. }";
+    String text = "Void main() { Queue<Integer> values = Queue<Integer>() values. }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:queue-members"), text));
     var completions = service.complete(analysis, text.indexOf("values.") + "values.".length());
 
@@ -116,7 +116,7 @@ final class LanguageServiceTest {
 
   @Test
   void hoversBuiltinTypesFromTheSharedCatalog() {
-    String text = "void main() { Range values = Range(start: 0, end: 2) }";
+    String text = "Void main() { Range values = Range(start: 0, end: 2) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:hover"), text));
 
     String markdown = service.hover(analysis, text.indexOf("Range")).orElseThrow().markdown();
@@ -129,11 +129,11 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/app/Main.norm"),
-            "package app import math.twice void main() { print(twice(3)) }");
+            "package app import math.twice Void main() { printLine(twice(3)) }");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/math/Numbers.norm"),
-            "package math int twice(int value) { return value * 2 }");
+            "package math Integer twice(Integer value) { return value * 2 }");
     var analysis =
         service.analyze(
             new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
@@ -148,7 +148,7 @@ final class LanguageServiceTest {
   void displaysGenericSignaturesAndNavigatesTypeParameters() {
     String text =
         "class Box<T> { T value } T identity<T>(T value) { return value } "
-            + "void main() { Box<int> box = Box<int>(value: identity(value: 7)) }";
+            + "Void main() { Box<Integer> box = Box<Integer>(value: identity(value: 7)) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:generics"), text));
     int classTypeParameter = text.indexOf("<T>") + 1;
     int fieldTypeParameter = text.indexOf("T value");
@@ -178,7 +178,7 @@ final class LanguageServiceTest {
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
             "package sample.app import sample.util.identity "
-                + "void main() { print(identity(value: 3)) }");
+                + "Void main() { printLine(identity(value: 3)) }");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/util/Identity.norm"),
@@ -205,7 +205,7 @@ final class LanguageServiceTest {
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
             "package sample.app import sample.util.identity as localIdentity "
-                + "void main() { print(localIdentity(value: 3)) }");
+                + "Void main() { printLine(localIdentity(value: 3)) }");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/util/Identity.norm"),
@@ -233,7 +233,7 @@ final class LanguageServiceTest {
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
             "package sample.app import sample.util.Box as Cell "
-                + "void main() { Cell<int> value = Cell<int>() }");
+                + "Void main() { Cell<Integer> value = Cell<Integer>() }");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/util/Box.norm"),
@@ -255,11 +255,11 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/util/Peer.norm"),
-            "package sample.util void main() { hidden() }");
+            "package sample.util Void main() { hidden() }");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/util/Identity.norm"),
-            "package sample.util private void hidden() {}");
+            "package sample.util private Void hidden() {}");
     var analysis = service.analyze(new CompilationRequest(entry.id(), List.of(entry, library)));
 
     assertTrue(analysis.hasErrors());
@@ -269,7 +269,7 @@ final class LanguageServiceTest {
   @Test
   void navigatesToReadOnlyStandardLibraryDeclarations() {
     String text =
-        "import std.math.clamp void main() { print(clamp(value: 4, minimum: 0, maximum: 2)) }";
+        "import std.math.clamp Void main() { printLine(clamp(value: 4, minimum: 0, maximum: 2)) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:stdlib"), text));
     int use = text.lastIndexOf("clamp");
 
@@ -280,14 +280,14 @@ final class LanguageServiceTest {
         service
             .standardLibrarySource(definition.document())
             .orElseThrow()
-            .contains("public int clamp"));
+            .contains("public Integer clamp"));
     assertTrue(service.prepareRename(analysis, use).isEmpty());
     assertTrue(service.rename(analysis, use, "bound").isEmpty());
   }
 
   @Test
   void insertsLabelsForFunctionsWithMultipleParameters() {
-    String text = "void main() { }";
+    String text = "Void main() { }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:call"), text));
 
     Completion range =
@@ -301,7 +301,8 @@ final class LanguageServiceTest {
 
   @Test
   void ranksVariableInitializerCandidatesByExpectedType() {
-    String text = "void main() { String label = \"ready\" int count = 1 String result = label }";
+    String text =
+        "Void main() { String label = \"ready\" Integer count = 1 String result = label }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:initializer"), text));
 
     List<String> labels =
@@ -315,8 +316,8 @@ final class LanguageServiceTest {
   @Test
   void ranksReturnCandidatesByTheCallableReturnType() {
     String text =
-        "String choose() { String label = \"ready\" int count = 1 return label } "
-            + "void main() { print(choose()) }";
+        "String choose() { String label = \"ready\" Integer count = 1 return label } "
+            + "Void main() { printLine(choose()) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:return"), text));
 
     List<String> labels =
@@ -330,8 +331,8 @@ final class LanguageServiceTest {
   @Test
   void ranksArgumentCandidatesByTheActiveParameterType() {
     String text =
-        "void consume(String value) {} void main() { "
-            + "String label = \"ready\" int count = 1 consume(label) }";
+        "Void consume(String value) {} Void main() { "
+            + "String label = \"ready\" Integer count = 1 consume(label) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:argument"), text));
 
     List<String> labels =
@@ -344,7 +345,7 @@ final class LanguageServiceTest {
 
   @Test
   void completesExpectedValuesInAnIncompleteReturnStatement() {
-    String text = "String choose() { String label = \"ready\" int count = 1 return  }";
+    String text = "String choose() { String label = \"ready\" Integer count = 1 return  }";
     var analysis =
         service.analyze(SourceFile.of(DocumentId.of("untitled:incomplete-return"), text));
     int offset = text.indexOf("return") + "return ".length();
@@ -358,7 +359,7 @@ final class LanguageServiceTest {
 
   @Test
   void completesExpectedValuesInAnIncompleteVariableInitializer() {
-    String text = "void main() { String label = \"ready\" int count = 1 String result =  }";
+    String text = "Void main() { String label = \"ready\" Integer count = 1 String result =  }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:incomplete-value"), text));
     int offset = text.indexOf("=  }") + 2;
 
@@ -372,8 +373,8 @@ final class LanguageServiceTest {
   @Test
   void completesExpectedValuesInAnIncompleteCallArgument() {
     String text =
-        "void consume(String value) {} void main() { "
-            + "String label = \"ready\" int count = 1 consume( }";
+        "Void consume(String value) {} Void main() { "
+            + "String label = \"ready\" Integer count = 1 consume( }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:incomplete-call"), text));
     int offset = text.lastIndexOf('(') + 1;
 
@@ -386,23 +387,23 @@ final class LanguageServiceTest {
 
   @Test
   void providesSignatureHelpForAnIncompleteCall() {
-    String text = "void consume(String value, int count) {} void main() { consume(";
+    String text = "Void consume(String value, Integer count) {} Void main() { consume(";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:signature"), text));
 
     SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
 
-    assertEquals("void consume(String value, int count)", help.signatures().getFirst().label());
+    assertEquals("Void consume(String value, Integer count)", help.signatures().getFirst().label());
     assertEquals(0, help.activeParameter());
   }
 
   @Test
   void providesSignatureHelpForAZeroParameterCall() {
-    String text = "void ping() {} void main() { ping(";
+    String text = "Void ping() {} Void main() { ping(";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:empty-signature"), text));
 
     SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
 
-    assertEquals("void ping()", help.signatures().getFirst().label());
+    assertEquals("Void ping()", help.signatures().getFirst().label());
     assertTrue(help.signatures().getFirst().parameters().isEmpty());
     assertEquals(0, help.activeParameter());
   }
@@ -410,7 +411,7 @@ final class LanguageServiceTest {
   @Test
   void tracksTheActiveNamedParameter() {
     String text =
-        "void consume(String value, int count) {} void main() { "
+        "Void consume(String value, Integer count) {} Void main() { "
             + "consume(count: 1, value: \"ready\") }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:named-signature"), text));
     int offset = text.indexOf("\"ready\"");
@@ -424,8 +425,8 @@ final class LanguageServiceTest {
   @Test
   void substitutesExplicitGenericArgumentsInCompletionAndSignatureHelp() {
     String text =
-        "void accept<T>(T value) {} void main() { "
-            + "int number = 1 String label = \"ready\" accept<int>( }";
+        "Void accept<T>(T value) {} Void main() { "
+            + "Integer number = 1 String label = \"ready\" accept<Integer>( }";
     var analysis =
         service.analyze(SourceFile.of(DocumentId.of("untitled:generic-call-site"), text));
     int offset = text.lastIndexOf('(') + 1;
@@ -435,14 +436,14 @@ final class LanguageServiceTest {
     SignatureHelp help = service.signatureHelp(analysis, offset).orElseThrow();
 
     assertTrue(labels.indexOf("number") < labels.indexOf("label"));
-    assertEquals("void accept<int>(int value)", help.signatures().getFirst().label());
+    assertEquals("Void accept<Integer>(Integer value)", help.signatures().getFirst().label());
   }
 
   @Test
   void completesAndDescribesGenericConstructorsFromClassFields() {
     String text =
-        "class Box<T> { T value } void main() { "
-            + "int number = 1 String label = \"ready\" Box<int> box = Box<int>( }";
+        "class Box<T> { T value } Void main() { "
+            + "Integer number = 1 String label = \"ready\" Box<Integer> box = Box<Integer>( }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:constructor-site"), text));
     int argumentOffset = text.lastIndexOf('(') + 1;
 
@@ -451,12 +452,12 @@ final class LanguageServiceTest {
     SignatureHelp help = service.signatureHelp(analysis, argumentOffset).orElseThrow();
 
     assertTrue(labels.indexOf("number") < labels.indexOf("label"));
-    assertEquals("Box<int>(int value)", help.signatures().getFirst().label());
+    assertEquals("Box<Integer>(Integer value)", help.signatures().getFirst().label());
   }
 
   @Test
   void insertsAConstructorSnippetMatchingTheExpectedGenericType() {
-    String text = "class Box<T> { T value } void main() { Box<int> box = B }";
+    String text = "class Box<T> { T value } Void main() { Box<Integer> box = B }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:constructor"), text));
 
     Completion box =
@@ -465,7 +466,7 @@ final class LanguageServiceTest {
             .findFirst()
             .orElseThrow();
 
-    assertEquals("Box<int>(value: ${1:value})", box.insertText());
+    assertEquals("Box<Integer>(value: ${1:value})", box.insertText());
   }
 
   @Test
@@ -473,11 +474,11 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
-            "package sample.app\r\n\r\nvoid main() { twi }\r\n");
+            "package sample.app\r\n\r\nVoid main() { twi }\r\n");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/math/Numbers.norm"),
-            "package sample.math\n\npublic int twice(int value) { return value * 2 }\n");
+            "package sample.math\n\npublic Integer twice(Integer value) { return value * 2 }\n");
     var snapshot =
         service.snapshot(
             new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
@@ -499,11 +500,11 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
-            "package sample.app\n\nvoid main() {}\n");
+            "package sample.app\n\nVoid main() {}\n");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/math/Numbers.norm"),
-            "package sample.math\n\npublic int twice(int value) { int local = value return local }\n");
+            "package sample.math\n\npublic Integer twice(Integer value) { Integer local = value return local }\n");
     var snapshot =
         service.snapshot(
             new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
@@ -522,16 +523,16 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
-            "package sample.app\n\nvoid main() { }\n");
+            "package sample.app\n\nVoid main() { }\n");
     SourceFile exported =
         SourceFile.of(
             DocumentId.of("file:///src/sample/api/Public.norm"),
-            "package sample.api public int visible() { return 1 } "
-                + "private int hidden() { return 2 }");
+            "package sample.api public Integer visible() { return 1 } "
+                + "private Integer hidden() { return 2 }");
     SourceFile internal =
         SourceFile.of(
             DocumentId.of("file:///src/sample/internal/Internal.norm"),
-            "package sample.internal public int internal() { return 3 }");
+            "package sample.internal public Integer internal() { return 3 }");
     var snapshot =
         service.snapshot(
             new CompilationRequest(
@@ -552,15 +553,15 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
-            "package sample.app\n\nvoid main() { twi }\n");
+            "package sample.app\n\nVoid main() { twi }\n");
     SourceFile first =
         SourceFile.of(
             DocumentId.of("file:///src/sample/first/Numbers.norm"),
-            "package sample.first public int twice(int value) { return value * 2 }");
+            "package sample.first public Integer twice(Integer value) { return value * 2 }");
     SourceFile second =
         SourceFile.of(
             DocumentId.of("file:///src/sample/second/Numbers.norm"),
-            "package sample.second public int twice(int value) { return value + value }");
+            "package sample.second public Integer twice(Integer value) { return value + value }");
     var snapshot =
         service.snapshot(
             new CompilationRequest(
@@ -583,11 +584,11 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
-            "package sample.app\n\nimport sample.ma\n\nvoid main() {}\n");
+            "package sample.app\n\nimport sample.ma\n\nVoid main() {}\n");
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/math/Numbers.norm"),
-            "package sample.math public int twice(int value) { return value * 2 }");
+            "package sample.math public Integer twice(Integer value) { return value * 2 }");
     var snapshot =
         service.snapshot(
             new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
@@ -612,8 +613,8 @@ final class LanguageServiceTest {
   @Test
   void findsDefinitionsAndExactReferencesBySymbolIdentity() {
     String text =
-        "void first() { int value = 1 print(value) } "
-            + "void second() { int value = 2 print(value) } void main() {}";
+        "Void first() { Integer value = 1 printLine(value) } "
+            + "Void second() { Integer value = 2 printLine(value) } Void main() {}";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:navigation"), text));
     int firstUse = text.indexOf("value)");
     int secondDeclaration = text.indexOf("value = 2");
@@ -631,7 +632,7 @@ final class LanguageServiceTest {
 
   @Test
   void preparesAndBuildsSemanticRenameEdits() {
-    String text = "void main() { int value = 1 print(value) }";
+    String text = "Void main() { Integer value = 1 printLine(value) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:rename"), text));
     int use = text.indexOf("value)");
 
@@ -646,20 +647,20 @@ final class LanguageServiceTest {
 
   @Test
   void rejectsBuiltinAndInvalidRenames() {
-    String text = "void main() { print(1) }";
+    String text = "Void main() { printLine(1) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:rename-invalid"), text));
-    int print = text.indexOf("print");
+    int printLine = text.indexOf("printLine");
 
-    assertTrue(service.prepareRename(analysis, print).isEmpty());
-    assertTrue(service.rename(analysis, print, "write").isEmpty());
-    assertThrows(IllegalArgumentException.class, () -> service.rename(analysis, print, "for"));
+    assertTrue(service.prepareRename(analysis, printLine).isEmpty());
+    assertTrue(service.rename(analysis, printLine, "write").isEmpty());
+    assertThrows(IllegalArgumentException.class, () -> service.rename(analysis, printLine, "for"));
     assertThrows(
-        IllegalArgumentException.class, () -> service.rename(analysis, print, "not-valid"));
+        IllegalArgumentException.class, () -> service.rename(analysis, printLine, "not-valid"));
   }
 
   @Test
   void rejectsRenameCollisionsInTheDeclarationScope() {
-    String text = "void main() { int left = 1 int right = 2 print(left) }";
+    String text = "Void main() { Integer left = 1 Integer right = 2 printLine(left) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:rename-conflict"), text));
 
     assertThrows(

@@ -1,16 +1,16 @@
-int select(Array<int> values, int low, int high, int wanted) {
+Integer select(Array<Integer> values, Integer low, Integer high, Integer wanted) {
   if low == high { return values[low] }
-  int pivot = values[high]
-  int boundary = low
+  Integer pivot = values[high]
+  Integer boundary = low
   for index : range(start: low, end: high) {
     if values[index] <= pivot {
-      int temporary = values[boundary]
+      Integer temporary = values[boundary]
       values[boundary] = values[index]
       values[index] = temporary
       boundary = boundary + 1
     }
   }
-  int temporary = values[boundary]
+  Integer temporary = values[boundary]
   values[boundary] = values[high]
   values[high] = temporary
   if wanted == boundary { return values[boundary] }
@@ -18,19 +18,16 @@ int select(Array<int> values, int low, int high, int wanted) {
   return select(values, low: boundary + 1, high, wanted)
 }
 
-int kthSmallest(Array<int> values, int k) {
+Integer kthSmallest(Array<Integer> values, Integer k) {
   return select(values, low: 0, high: values.size() - 1, wanted: k - 1)
 }
 
-void main() {
-  Array<int> values = [9, 1, 7, 3, 5]
-  print(kthSmallest(values, k: 3))
-  print(kthSmallest(values, k: 1))
-  print(kthSmallest(values, k: 5))
-}
-
-private void expectedOutput() {
-  print("5")
-  print("1")
-  print("9")
+Void main() {
+  Array<Integer> values = [9, 1, 7, 3, 5]
+  printLine(kthSmallest(values, k: 3))
+  printLine(kthSmallest(values, k: 1))
+  printLine(kthSmallest(values, k: 5))
+  expectedOutputLine("5")
+  expectedOutputLine("1")
+  expectedOutputLine("9")
 }

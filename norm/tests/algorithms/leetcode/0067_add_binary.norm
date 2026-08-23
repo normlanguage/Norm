@@ -1,0 +1,26 @@
+List<Integer> addBinary(Array<Integer> left, Array<Integer> right) {
+  List<Integer> reversed = List<Integer>()
+  Integer carry = 0
+  Integer size = left.size()
+  if right.size() > size { size = right.size() }
+  for offset : range(start: 0, end: size) {
+    Integer sum = carry
+    if offset < left.size() { sum = sum + left[left.size() - 1 - offset] }
+    if offset < right.size() { sum = sum + right[right.size() - 1 - offset] }
+    reversed.add(sum % 2)
+    carry = sum / 2
+  }
+  if carry > 0 { reversed.add(carry) }
+  List<Integer> result = List<Integer>()
+  for offset : range(start: 0, end: reversed.size()) { result.add(reversed[reversed.size() - 1 - offset]) }
+  return result
+}
+
+Void main() {
+  for Integer digit : addBinary(left: [1,0,1,0], right: [1,0,1,1]) { printLine(digit) }
+  expectedOutputLine("1")
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+}

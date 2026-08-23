@@ -1,0 +1,34 @@
+Integer divide(Integer dividend, Integer divisor) {
+  if dividend == -2147483648 && divisor == -1 { return 2147483647 }
+  Integer sign = 1
+  if dividend < 0 {
+    sign = -sign
+    dividend = -dividend
+  }
+  if divisor < 0 {
+    sign = -sign
+    divisor = -divisor
+  }
+  Integer quotient = 0
+  for bit : range(start: 0, end: 31) {
+    Integer shifted = divisor
+    Integer power = 1
+    for step : range(start: 0, end: 30 - bit) {
+      if shifted > dividend / 2 { break }
+      shifted = shifted + shifted
+      power = power + power
+    }
+    if shifted <= dividend {
+      dividend = dividend - shifted
+      quotient = quotient + power
+    }
+  }
+  return quotient * sign
+}
+
+Void main() {
+  printLine(divide(dividend: 10, divisor: 3))
+  printLine(divide(dividend: 7, divisor: -3))
+  expectedOutputLine("3")
+  expectedOutputLine("-2")
+}

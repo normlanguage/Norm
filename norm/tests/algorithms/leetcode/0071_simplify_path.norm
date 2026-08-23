@@ -1,0 +1,18 @@
+List<Integer> simplifyPath(Array<Integer> components) {
+  List<Integer> result = List<Integer>()
+  for Integer component : components {
+    if component == 0 {
+    } else if component == -1 {
+      if !result.isEmpty() { result.removeAt(result.size() - 1) }
+    } else {
+      result.add(component)
+    }
+  }
+  return result
+}
+
+Void main() {
+  for Integer component : simplifyPath([1,2,-1,3,0]) { printLine(component) }
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+}

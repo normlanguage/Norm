@@ -6,7 +6,7 @@
 
 ```norm
 List<String> names = List<String>(values: ["Ada", "Lin"])
-int size = names.size()
+Integer size = names.size()
 String first = names[0]
 
 names.add(value: "Grace")
@@ -18,13 +18,13 @@ names.removeAt(index: 1)
 ## `Map<K, V>`
 
 ```norm
-Map<String, int> counts = Map<String, int>()
+Map<String, Integer> counts = Map<String, Integer>()
 counts.put(key: "ready", value: 3)
 
 if counts.containsKey(key: "ready") {
-    int count = counts["ready"]
+    Integer count = counts["ready"]
 }
-bool present = counts.containsKey(key: "ready")
+Boolean present = counts.containsKey(key: "ready")
 ```
 
 0.2 的索引操作要求键存在，不使用 null 表示缺失。返回 `Option<V>` 的安全 `get` 与携带数据的泛型 enum 一起交付。键必须提供稳定的相等与哈希语义。遍历顺序不是通用 Map 契约的一部分；需要稳定顺序时使用专门类型。
@@ -33,8 +33,8 @@ bool present = counts.containsKey(key: "ready")
 
 ```norm
 Set<String> tags = Set<String>()
-bool inserted = tags.add(value: "stable")
-bool contains = tags.contains(value: "stable")
+Boolean inserted = tags.add(value: "stable")
+Boolean contains = tags.contains(value: "stable")
 ```
 
 Set 根据元素的数据类别判断唯一性：value 使用结构 equality 与 hash，class 使用稳定的 identity equality 与 hash。插入时执行普通赋值语义。

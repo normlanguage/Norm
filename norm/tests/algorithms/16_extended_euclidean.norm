@@ -1,24 +1,21 @@
 class Bezout {
-  int gcd
-  int x
-  int y
+  Integer gcd
+  Integer x
+  Integer y
 }
 
-Bezout extendedGcd(int a, int b) {
+Bezout extendedGcd(Integer a, Integer b) {
   if b == 0 { return Bezout(gcd: a, x: 1, y: 0) }
   Bezout next = extendedGcd(a: b, b: a % b)
   return Bezout(gcd: next.gcd, x: next.y, y: next.x - (a / b) * next.y)
 }
 
-void main() {
+Void main() {
   Bezout result = extendedGcd(a: 30, b: 18)
-  print(result.gcd)
-  print(result.x)
-  print(result.y)
-}
-
-private void expectedOutput() {
-  print("6")
-  print("-1")
-  print("2")
+  printLine(result.gcd)
+  printLine(result.x)
+  printLine(result.y)
+  expectedOutputLine("6")
+  expectedOutputLine("-1")
+  expectedOutputLine("2")
 }

@@ -40,9 +40,6 @@ final class Analyzer {
   private static final DiagnosticCode INVALID_CALL = new DiagnosticCode("NORM-TYPE-0002");
   private static final DiagnosticCode INVALID_CONTROL = new DiagnosticCode("NORM-FLOW-0001");
 
-  private static final SemanticType INT = new SemanticType("int");
-  private static final SemanticType BOOL = new SemanticType("bool");
-  private static final SemanticType STRING = new SemanticType("String");
   private final Syntax.Program syntax;
   private final List<Syntax.Program> programs;
   private final Syntax.Program entryProgram;
@@ -109,13 +106,13 @@ final class Analyzer {
             .findFirst()
             .orElse(null);
     if (main == null && requireEntryPoint) {
-      diagnostics.error(MISSING_MAIN, "program must declare 'void main()'", syntax.span());
+      diagnostics.error(MISSING_MAIN, "program must declare 'Void main()'", syntax.span());
     } else if (main != null
         && (!resolveDeclarationType(main.returnType(), main, functionTypeParameters(main))
                 .equals(SemanticType.VOID)
             || !main.typeParameters().isEmpty()
             || !main.parameters().isEmpty())) {
-      diagnostics.error(TYPE_MISMATCH, "entry function must be 'void main()'", main.span());
+      diagnostics.error(TYPE_MISMATCH, "entry function must be 'Void main()'", main.span());
     }
 
     for (Syntax.Program program : programs) {
@@ -511,7 +508,7 @@ final class Analyzer {
           declarationSymbols.get(parameter));
     }
     if (owner != null) {
-      declareSynthetic("this", classSelfType(owner), owner.nameSpan());
+      declareSelf(classSelfType(owner), owner.nameSpan());
       for (Syntax.FieldDecl field : owner.fields()) {
         declareExisting(
             field.name(),
@@ -585,7 +582,10 @@ final class Analyzer {
       }
       case Syntax.ExpressionStatement expression -> typeOf(expression.expression(), null);
       case Syntax.IfStatement ifStatement -> {
-        requireType(BOOL, typeOf(ifStatement.condition(), BOOL), ifStatement.condition().span());
+        requireType(
+            SemanticType.BOOLEAN,
+            typeOf(ifStatement.condition(), SemanticType.BOOLEAN),
+            ifStatement.condition().span());
         analyzeNested(ifStatement.thenBody());
         analyzeNested(ifStatement.elseBody());
       }
@@ -663,9 +663,9 @@ final class Analyzer {
   private SemanticType typeOf(Syntax.Expression expression, SemanticType expected) {
     SemanticType type =
         switch (expression) {
-          case Syntax.IntegerLiteral ignored -> INT;
-          case Syntax.BooleanLiteral ignored -> BOOL;
-          case Syntax.StringLiteralExpr ignored -> STRING;
+          case Syntax.IntegerLiteral ignored -> SemanticType.INTEGER;
+          case Syntax.BooleanLiteral ignored -> SemanticType.BOOLEAN;
+          case Syntax.StringLiteralExpr ignored -> SemanticType.STRING;
           case Syntax.ArrayLiteral array -> analyzeArray(array, expected);
           case Syntax.Name name -> lookup(name.value(), name.span());
           case Syntax.Unary unary -> analyzeUnary(unary);
@@ -710,7 +710,8 @@ final class Analyzer {
 
   private SemanticType analyzeUnary(Syntax.Unary unary) {
     SemanticType operand = typeOf(unary.operand(), null);
-    SemanticType required = unary.operator() == TokenKind.BANG ? BOOL : INT;
+    SemanticType required =
+        unary.operator() == TokenKind.BANG ? SemanticType.BOOLEAN : SemanticType.INTEGER;
     requireType(required, operand, unary.span());
     return required;
   }
@@ -720,27 +721,27 @@ final class Analyzer {
     SemanticType right = typeOf(binary.right(), left);
     return switch (binary.operator()) {
       case PLUS -> {
-        if (left.equals(STRING) && right.equals(STRING)) {
-          yield STRING;
+        if (left.equals(SemanticType.STRING) && right.equals(SemanticType.STRING)) {
+          yield SemanticType.STRING;
         }
-        requireBoth(INT, left, right, binary.span());
-        yield INT;
+        requireBoth(SemanticType.INTEGER, left, right, binary.span());
+        yield SemanticType.INTEGER;
       }
       case MINUS, STAR, SLASH, PERCENT -> {
-        requireBoth(INT, left, right, binary.span());
-        yield INT;
+        requireBoth(SemanticType.INTEGER, left, right, binary.span());
+        yield SemanticType.INTEGER;
       }
       case LESS, LESS_EQUAL, GREATER, GREATER_EQUAL -> {
-        requireBoth(INT, left, right, binary.span());
-        yield BOOL;
+        requireBoth(SemanticType.INTEGER, left, right, binary.span());
+        yield SemanticType.BOOLEAN;
       }
       case AND_AND, OR_OR -> {
-        requireBoth(BOOL, left, right, binary.span());
-        yield BOOL;
+        requireBoth(SemanticType.BOOLEAN, left, right, binary.span());
+        yield SemanticType.BOOLEAN;
       }
       case EQUAL_EQUAL, BANG_EQUAL -> {
         requireAssignable(left, right, binary.span());
-        yield BOOL;
+        yield SemanticType.BOOLEAN;
       }
       default -> SemanticType.DYNAMIC;
     };
@@ -1061,9 +1062,12 @@ final class Analyzer {
     }
     int arity = declaredTypeArity(type.name());
     if (activeTypeParameters.containsKey(type.name())) arity = 0;
-    if ((!allowVoid && type.name().equals("void"))
-        || (arity < 0 && !activeTypeParameters.containsKey(type.name()))) {
-      diagnostics.error(UNKNOWN_NAME, "unknown or invalid type '" + name + "'", type.span());
+    if (arity < 0 && !activeTypeParameters.containsKey(type.name())) {
+      diagnostics.error(UNKNOWN_NAME, "unknown type '" + name + "'", type.span());
+      return;
+    }
+    if (!allowVoid && type.name().equals("Void")) {
+      diagnostics.error(TYPE_MISMATCH, "type 'Void' is not valid here", type.span());
       return;
     }
     if (arity != type.arguments().size()) {
@@ -1110,13 +1114,13 @@ final class Analyzer {
     }
   }
 
-  private void declareSynthetic(String name, SemanticType type, SourceSpan span) {
+  private void declareSelf(SemanticType type, SourceSpan span) {
     SymbolId id = SymbolId.source(span.source().id(), nextSymbolId++);
     Symbol symbol =
         new Symbol(
             id,
-            name,
-            SymbolKind.LOCAL_VARIABLE,
+            "this",
+            SymbolKind.SELF,
             type,
             Optional.empty(),
             Optional.ofNullable(currentCallable),
@@ -1124,7 +1128,7 @@ final class Analyzer {
             List.of(),
             "");
     symbols.put(id, symbol);
-    declareExisting(name, type, span, symbol.id());
+    declareExisting("this", type, span, symbol.id());
   }
 
   private SemanticType lookup(String name, SourceSpan span) {
@@ -1348,7 +1352,7 @@ final class Analyzer {
   private SemanticType resolveType(Syntax.TypeRef type, Map<String, SemanticType> typeParameters) {
     SemanticType parameter = typeParameters.get(type.name());
     if (parameter != null) return parameter;
-    if (type.name().equals("void")) return SemanticType.VOID;
+    if (type.name().equals("Void")) return SemanticType.VOID;
     List<SemanticType> arguments =
         type.arguments().stream().map(argument -> resolveType(argument, typeParameters)).toList();
     if (builtins.isType(type.name())) return builtins.instantiate(type.name(), arguments);

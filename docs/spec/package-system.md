@@ -6,11 +6,11 @@ package 是 Norm 源码的命名空间。一个源码根目录可以包含多个
 package geometry
 
 public class Point {
-    int x
-    int y
+    Integer x
+    Integer y
 }
 
-public int area(int width, int height) {
+public Integer area(Integer width, Integer height) {
     return width * height
 }
 ```

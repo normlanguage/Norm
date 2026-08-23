@@ -21,11 +21,11 @@ final class CompilationSnapshotTest {
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///project/library.norm"),
-            "package app int twice(int value) { return value + value }");
+            "package app Integer twice(Integer value) { return value + value }");
     SourceFile main =
         SourceFile.of(
             DocumentId.of("file:///project/main.norm"),
-            "package app void main() { print(twice(2)) }");
+            "package app Void main() { printLine(twice(2)) }");
     CompilationRequest request =
         new CompilationRequest(main.id(), List.of(library, main), Set.of());
 

@@ -19,7 +19,7 @@ Expression := Literal
 
 ```norm
 Point point = Point(x: 2, y: 4)
-int x = point.x
+Integer x = point.x
 String first = names[0]
 ```
 
@@ -28,11 +28,11 @@ String first = names[0]
 ## 运算
 
 ```norm
-int total = base + quantity * price
-bool accepted = ready && total > 0
+Integer total = base + quantity * price
+Boolean accepted = ready && total > 0
 ```
 
-运算符固定且不能重载。逻辑运算只接受 bool 并短路。赋值单独作为语句，不产生可用于更大表达式的值。
+运算符固定且不能重载。逻辑运算只接受 Boolean 并短路。赋值单独作为语句，不产生可用于更大表达式的值。
 
 ## If 表达式
 
@@ -47,7 +47,7 @@ String state = if active {
 ## For 表达式
 
 ```norm
-int found = for int number : numbers {
+Integer found = for Integer number : numbers {
     if number > 0 { break number }
 } else {
     break 0

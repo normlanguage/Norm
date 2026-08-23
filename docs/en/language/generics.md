@@ -9,7 +9,7 @@ class Box<T> {
     T value
 }
 
-Box<int> count = Box<int>(value: 3)
+Box<Integer> count = Box<Integer>(value: 3)
 Box<String> label = Box<String>(value: "ready")
 ```
 
@@ -32,11 +32,11 @@ The constraint requires `T` to explicitly implement `Comparable<T>` under Norm's
 
 ```norm
 List<String>.class
-List<int>.class
+List<Integer>.class
 List<String>.class.T == String.class
 ```
 
-`List<String>` and `List<int>` have distinct runtime type descriptions. Reflection and generic libraries do not need a separate `Class<T>` token to recover information the source already contains.
+`List<String>` and `List<Integer>` have distinct runtime type descriptions. Reflection and generic libraries do not need a separate `Class<T>` token to recover information the source already contains.
 
 ## Use-site variance
 

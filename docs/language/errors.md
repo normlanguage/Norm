@@ -9,10 +9,10 @@ Norm 区分两类失败：程序预期并准备处理的结果，以及打断正
 ```norm
 enum ParseError {
     Empty,
-    InvalidCharacter(int position)
+    InvalidCharacter(Integer position)
 }
 
-Result<int, ParseError> parseInteger(String text) {
+Result<Integer, ParseError> parseInteger(String text) {
     if text.codePointSize() == 0 {
         return Err(Empty)
     }
@@ -25,13 +25,13 @@ Result<int, ParseError> parseInteger(String text) {
 
 ```norm
 String message = switch parseInteger("42") {
-    case Ok(int value) {
+    case Ok(Integer value) {
         break "value = ${value}"
     }
     case Err(Empty) {
         break "input is empty"
     }
-    case Err(InvalidCharacter(int position)) {
+    case Err(InvalidCharacter(Integer position)) {
         break "invalid character at ${position}"
     }
 }
@@ -45,7 +45,7 @@ String message = switch parseInteger("42") {
 try {
     readConfiguration()
 } catch IOException error {
-    print("cannot read configuration: ${error.message}")
+    printLine("cannot read configuration: ${error.message}")
 } finally {
     closeResources()
 }

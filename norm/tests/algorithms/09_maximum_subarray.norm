@@ -1,15 +1,15 @@
 class Subarray {
-  int sum
-  int start
-  int end
+  Integer sum
+  Integer start
+  Integer end
 }
 
-Subarray maximumSubarray(Array<int> values) {
-  int bestSum = values[0]
-  int currentSum = values[0]
-  int bestStart = 0
-  int bestEnd = 0
-  int currentStart = 0
+Subarray maximumSubarray(Array<Integer> values) {
+  Integer bestSum = values[0]
+  Integer currentSum = values[0]
+  Integer bestStart = 0
+  Integer bestEnd = 0
+  Integer currentStart = 0
   for index : range(start: 1, end: values.size()) {
     if currentSum + values[index] < values[index] {
       currentSum = values[index]
@@ -26,15 +26,12 @@ Subarray maximumSubarray(Array<int> values) {
   return Subarray(sum: bestSum, start: bestStart, end: bestEnd)
 }
 
-void main() {
+Void main() {
   Subarray result = maximumSubarray([-2, 1, -3, 4, -1, 2, 1, -5, 4])
-  print(result.sum)
-  print(result.start)
-  print(result.end)
-}
-
-private void expectedOutput() {
-  print("6")
-  print("3")
-  print("6")
+  printLine(result.sum)
+  printLine(result.start)
+  printLine(result.end)
+  expectedOutputLine("6")
+  expectedOutputLine("3")
+  expectedOutputLine("6")
 }

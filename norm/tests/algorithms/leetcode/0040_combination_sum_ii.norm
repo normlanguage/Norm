@@ -1,0 +1,37 @@
+class UniqueCombinations {
+  Set<List<Integer>> seen
+}
+
+Void collect(Array<Integer> candidates, Integer target, Integer start, List<Integer> current, UniqueCombinations result) {
+  if target == 0 {
+    result.seen.add(current)
+    return
+  }
+  for index : range(start: start, end: candidates.size()) {
+    if candidates[index] <= target {
+      List<Integer> next = current
+      next.add(candidates[index])
+      collect(candidates, target: target - candidates[index], start: index + 1, current: next, result)
+    }
+  }
+}
+
+Integer combinationSum2(Array<Integer> candidates, Integer target) {
+  for pass : range(start: 0, end: candidates.size()) {
+    for index : range(start: 0, end: candidates.size() - 1) {
+      if candidates[index] > candidates[index + 1] {
+        Integer temporary = candidates[index]
+        candidates[index] = candidates[index + 1]
+        candidates[index + 1] = temporary
+      }
+    }
+  }
+  UniqueCombinations result = UniqueCombinations(seen: Set<List<Integer>>())
+  collect(candidates, target, start: 0, current: List<Integer>(), result)
+  return result.seen.size()
+}
+
+Void main() {
+  printLine(combinationSum2(candidates: [10, 1, 2, 7, 6, 1, 5], target: 8))
+  expectedOutputLine("4")
+}

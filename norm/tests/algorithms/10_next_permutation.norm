@@ -1,53 +1,50 @@
-Array<int> reverse(Array<int> values, int start) {
-  int swaps = (values.size() - start) / 2
+Array<Integer> reverse(Array<Integer> values, Integer start) {
+  Integer swaps = (values.size() - start) / 2
   for offset : range(start: 0, end: swaps) {
-    int left = start + offset
-    int right = values.size() - 1 - offset
-    int temporary = values[left]
+    Integer left = start + offset
+    Integer right = values.size() - 1 - offset
+    Integer temporary = values[left]
     values[left] = values[right]
     values[right] = temporary
   }
   return values
 }
 
-Array<int> nextPermutation(Array<int> values) {
-  int pivot = -1
+Array<Integer> nextPermutation(Array<Integer> values) {
+  Integer pivot = -1
   for step : range(start: 0, end: values.size() - 1) {
-    int index = values.size() - 2 - step
+    Integer index = values.size() - 2 - step
     if values[index] < values[index + 1] {
       pivot = index
       break
     }
   }
   if pivot < 0 { return reverse(values, start: 0) }
-  int successor = values.size() - 1
+  Integer successor = values.size() - 1
   for step : range(start: 0, end: values.size()) {
-    int index = values.size() - 1 - step
+    Integer index = values.size() - 1 - step
     if values[index] > values[pivot] {
       successor = index
       break
     }
   }
-  int temporary = values[pivot]
+  Integer temporary = values[pivot]
   values[pivot] = values[successor]
   values[successor] = temporary
   return reverse(values, start: pivot + 1)
 }
 
-void printArray(Array<int> values) {
-  for int value : values { print(value) }
+Void printArray(Array<Integer> values) {
+  for Integer value : values { printLine(value) }
 }
 
-void main() {
+Void main() {
   printArray(nextPermutation([1, 2, 3]))
   printArray(nextPermutation([3, 2, 1]))
-}
-
-private void expectedOutput() {
-  print("1")
-  print("3")
-  print("2")
-  print("1")
-  print("2")
-  print("3")
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+  expectedOutputLine("2")
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
 }

@@ -6,13 +6,13 @@ Norm 使用 `if`、`for` 和 `switch` 组织分支与循环。这些结构既可
 
 ```norm
 if score >= 60 {
-    print("pass")
+    printLine("pass")
 } else {
-    print("fail")
+    printLine("fail")
 }
 ```
 
-条件不写括号，代码块必须保留。条件必须是 `bool`。
+条件不写括号，代码块必须保留。条件必须是 `Boolean`。
 
 ## If 表达式
 
@@ -45,22 +45,22 @@ Norm 不会为缺失分支隐式补上 null。
 `for` 使用 foreach 形状遍历序列：
 
 ```norm
-for int number : numbers {
-    print("${number}")
+for Integer number : numbers {
+    printLine("${number}")
 }
 ```
 
 Norm 不提供 C 风格 `for` 或 `while`。数值范围不是特殊语法，而是实现迭代协议的普通值。
 
-当元素类型静态唯一时可以省略循环变量类型。`Range` 推断为 `int`，泛型集合从元素类型参数推断：
+当元素类型静态唯一时可以省略循环变量类型。`Range` 推断为 `Integer`，泛型集合从元素类型参数推断：
 
 ```norm
 for index : range(start: 0, end: 10) {
-    print(index)
+    printLine(index)
 }
 
 for name : names {
-    print(name)
+    printLine(name)
 }
 ```
 
@@ -71,7 +71,7 @@ for name : names {
 在循环语句中，`continue` 跳到下一次迭代，普通 `break` 结束循环。
 
 ```norm
-for int number : numbers {
+for Integer number : numbers {
     if number < 0 {
         continue
     }
@@ -80,7 +80,7 @@ for int number : numbers {
         break
     }
 
-    print("${number}")
+    printLine("${number}")
 }
 ```
 
@@ -89,7 +89,7 @@ for int number : numbers {
 `for` 可以查找并产生一个值。`else` 处理正常耗尽且没有执行 `break value` 的路径。
 
 ```norm
-int firstEven = for int number : numbers {
+Integer firstEven = for Integer number : numbers {
     if number % 2 == 0 {
         break number
     }
@@ -98,7 +98,7 @@ int firstEven = for int number : numbers {
 }
 ```
 
-这段代码没有隐藏的 nullable 结果：调用者明确决定找不到偶数时得到 `0`。如果 `0` 不是合适的语义，应返回一个 enum，例如 `Option<int>`。
+这段代码没有隐藏的 nullable 结果：调用者明确决定找不到偶数时得到 `0`。如果 `0` 不是合适的语义，应返回一个 enum，例如 `Option<Integer>`。
 
 ## Switch
 

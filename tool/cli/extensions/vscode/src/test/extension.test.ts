@@ -75,7 +75,7 @@ suite('Norm VS Code extension', () => {
   test('publishes diagnostics for unsaved Norm documents', async () => {
     const document = await vscode.workspace.openTextDocument({
       language: 'norm',
-      content: 'void main() { missing(1) }',
+      content: 'Void main() { missing(1) }',
     });
     await vscode.window.showTextDocument(document);
 
@@ -103,6 +103,19 @@ suite('Norm VS Code extension', () => {
     assert.ok(rendered.includes('end-exclusive integer range'));
   });
 
+  test('isolates standalone documents opened from the same directory', async () => {
+    const first = await openFixture('01_hello.norm');
+    const second = await openFixture('19_bubble_sort.norm');
+    await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider',
+      second.uri,
+      new vscode.Position(0, 0),
+    );
+
+    assert.deepEqual(vscode.languages.getDiagnostics(first.uri), []);
+    assert.deepEqual(vscode.languages.getDiagnostics(second.uri), []);
+  });
+
   test('enables automatic suggestions for Norm code', () => {
     const extension = vscode.extensions.getExtension('normlang.norm-language-support');
     assert.ok(extension);
@@ -116,7 +129,7 @@ suite('Norm VS Code extension', () => {
   });
 
   test('completes a partially typed statement in unsaved code', async () => {
-    const source = 'void main() {\n  pr\n}';
+    const source = 'Void main() {\n  pr\n}';
     const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
     await vscode.window.showTextDocument(document);
     const start = source.indexOf('pr');
@@ -127,14 +140,14 @@ suite('Norm VS Code extension', () => {
         document.uri,
         position,
       );
-      return value?.items.some((item) => labelOf(item) === 'print') ? value : undefined;
+      return value?.items.some((item) => labelOf(item) === 'printLine') ? value : undefined;
     });
-    const print = completions.items.find((item) => labelOf(item) === 'print');
-    assert.ok(print);
-    assert.equal(completionText(print.insertText), 'print(${1:value})');
-    assert.ok(print.range instanceof vscode.Range);
-    assert.equal(print.range.start.isEqual(document.positionAt(start)), true);
-    assert.equal(print.range.end.isEqual(position), true);
+    const printLine = completions.items.find((item) => labelOf(item) === 'printLine');
+    assert.ok(printLine);
+    assert.equal(completionText(printLine.insertText), 'printLine(${1:value})');
+    assert.ok(printLine.range instanceof vscode.Range);
+    assert.equal(printLine.range.start.isEqual(document.positionAt(start)), true);
+    assert.equal(printLine.range.end.isEqual(position), true);
   });
 
   test('resolves imported standard-library functions', async () => {
@@ -149,7 +162,7 @@ suite('Norm VS Code extension', () => {
       return value?.length ? value : undefined;
     });
     const rendered = hovers.flatMap((hover) => hover.contents).map(hoverText).join('\n');
-    assert.ok(rendered.includes('int max(int left, int right)'));
+    assert.ok(rendered.includes('Integer max(Integer left, Integer right)'));
 
     const definitions = await vscode.commands.executeCommand<vscode.Location[]>(
       'vscode.executeDefinitionProvider',
@@ -158,7 +171,7 @@ suite('Norm VS Code extension', () => {
     );
     assert.equal(definitions[0].uri.scheme, 'stdlib');
     const source = await vscode.workspace.openTextDocument(definitions[0].uri);
-    assert.ok(source.getText().includes('public int max'));
+    assert.ok(source.getText().includes('public Integer max'));
   });
 
   test('supports generics and cross-file project navigation', async () => {
@@ -288,8 +301,8 @@ suite('Norm VS Code extension', () => {
     const document = await openProjectFixture('sample/app/Main.norm');
     const original = document.getText();
     const text =
-      'package sample.app\n\nvoid consume(String value, int count) {} void main() { ' +
-      'String label = "ready" int count = 1 consume(';
+      'package sample.app\n\nVoid consume(String value, Integer count) {} Void main() { ' +
+      'String label = "ready" Integer count = 1 consume(';
     await replaceDocument(document, text);
     try {
       const position = document.positionAt(document.getText().length);
@@ -318,7 +331,7 @@ suite('Norm VS Code extension', () => {
           '(',
         ),
       );
-      assert.equal(signature.signatures[0].label, 'void consume(String value, int count)');
+      assert.equal(signature.signatures[0].label, 'Void consume(String value, Integer count)');
       assert.equal(signature.activeParameter, 0);
     } finally {
       await replaceDocument(document, original);

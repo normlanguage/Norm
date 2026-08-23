@@ -1,0 +1,33 @@
+Array<Integer> sortColors(Array<Integer> values) {
+  Integer low = 0
+  Integer current = 0
+  Integer high = values.size() - 1
+  for step : range(start: 0, end: values.size() * 2) {
+    if current > high { break }
+    if values[current] == 0 {
+      Integer temporary = values[low]
+      values[low] = values[current]
+      values[current] = temporary
+      low = low + 1
+      current = current + 1
+    } else if values[current] == 2 {
+      Integer temporary = values[high]
+      values[high] = values[current]
+      values[current] = temporary
+      high = high - 1
+    } else {
+      current = current + 1
+    }
+  }
+  return values
+}
+
+Void main() {
+  for Integer value : sortColors([2,0,2,1,1,0]) { printLine(value) }
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("2")
+}

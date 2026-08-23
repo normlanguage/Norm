@@ -20,9 +20,9 @@ Norm 为几类高影响语义保留了醒目的语法：
 
 ```norm
 class Counter {
-    int value
+    Integer value
 
-    void increment() {
+    Void increment() {
         value = value + 1
     }
 }
@@ -54,7 +54,7 @@ Norm 采用静态类型、非空默认、确定赋值、Result，以及明确的
 独立行为写成顶层函数；数据写成 value；具有身份和行为的状态写成 class。语言不要求把每个概念包装进 class，也不让 annotation 自动生成隐藏行为。
 
 ```norm
-double midpoint(double left, double right) {
+Double midpoint(Double left, Double right) {
     return (left + right) / 2.0
 }
 ```

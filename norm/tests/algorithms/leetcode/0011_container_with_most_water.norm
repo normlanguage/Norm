@@ -1,0 +1,19 @@
+Integer maxArea(Array<Integer> height) {
+  Integer left = 0
+  Integer right = height.size() - 1
+  Integer best = 0
+  for step : range(start: 0, end: height.size()) {
+    if left >= right { break }
+    Integer low = height[left]
+    if height[right] < low { low = height[right] }
+    Integer area = low * (right - left)
+    if area > best { best = area }
+    if height[left] < height[right] { left = left + 1 } else { right = right - 1 }
+  }
+  return best
+}
+
+Void main() {
+  printLine(maxArea([1, 8, 6, 2, 5, 4, 8, 3, 7]))
+  expectedOutputLine("49")
+}

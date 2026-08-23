@@ -1,0 +1,30 @@
+Array<Integer> signature(Array<Integer> word) {
+  Array<Integer> sorted = word
+  for pass : range(start: 0, end: sorted.size()) {
+    for index : range(start: 0, end: sorted.size() - 1) {
+      if sorted[index] > sorted[index + 1] {
+        Integer temporary = sorted[index]
+        sorted[index] = sorted[index + 1]
+        sorted[index + 1] = temporary
+      }
+    }
+  }
+  return sorted
+}
+
+Integer groupAnagrams(List<Array<Integer>> words) {
+  Set<Array<Integer>> groups = Set<Array<Integer>>()
+  for Array<Integer> word : words { groups.add(signature(word)) }
+  return groups.size()
+}
+
+Void main() {
+  List<Array<Integer>> words = List<Array<Integer>>()
+  words.add([1, 2, 3])
+  words.add([3, 2, 1])
+  words.add([4, 5])
+  words.add([5, 4])
+  words.add([9])
+  printLine(groupAnagrams(words))
+  expectedOutputLine("3")
+}

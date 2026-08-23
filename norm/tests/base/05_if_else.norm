@@ -1,8 +1,5 @@
-void main() {
-  int value = 12
-  if value > 10 { print("large") } else { print("small") }
-}
-
-private void expectedOutput() {
-  print("large")
+Void main() {
+  Integer value = 12
+  if value > 10 { printLine("large") } else { printLine("small") }
+  expectedOutputLine("large")
 }

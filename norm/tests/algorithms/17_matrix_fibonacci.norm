@@ -1,8 +1,8 @@
 class Matrix {
-  int a
-  int b
-  int c
-  int d
+  Integer a
+  Integer b
+  Integer c
+  Integer d
 }
 
 Matrix multiply(Matrix left, Matrix right) {
@@ -14,11 +14,11 @@ Matrix multiply(Matrix left, Matrix right) {
   )
 }
 
-int fibonacci(int n) {
+Integer fibonacci(Integer n) {
   if n == 0 { return 0 }
   Matrix result = Matrix(a: 1, b: 0, c: 0, d: 1)
   Matrix base = Matrix(a: 1, b: 1, c: 1, d: 0)
-  int exponent = n
+  Integer exponent = n
   for step : range(start: 0, end: 64) {
     if exponent == 0 { break }
     if exponent % 2 == 1 { result = multiply(left: result, right: base) }
@@ -28,12 +28,9 @@ int fibonacci(int n) {
   return result.b
 }
 
-void main() {
-  print(fibonacci(10))
-  print(fibonacci(20))
-}
-
-private void expectedOutput() {
-  print("55")
-  print("6765")
+Void main() {
+  printLine(fibonacci(10))
+  printLine(fibonacci(20))
+  expectedOutputLine("55")
+  expectedOutputLine("6765")
 }

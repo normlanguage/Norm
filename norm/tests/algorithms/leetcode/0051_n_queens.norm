@@ -1,0 +1,39 @@
+import std.math.abs
+
+Boolean safe(List<Integer> columns, Integer row, Integer column) {
+  for previous : range(start: 0, end: row) {
+    if columns[previous] == column || abs(columns[previous] - column) == row - previous { return false }
+  }
+  return true
+}
+
+class Boards {
+  List<List<Integer>> values
+}
+
+Void place(List<Integer> columns, Integer row, Integer size, Boards result) {
+  if row == size {
+    result.values.add(columns)
+    return
+  }
+  for column : range(start: 0, end: size) {
+    if safe(columns, row, column) {
+      List<Integer> next = columns
+      next[row] = column
+      place(columns: next, row: row + 1, size, result)
+    }
+  }
+}
+
+List<List<Integer>> solveNQueens(Integer size) {
+  List<Integer> columns = List<Integer>()
+  for row : range(start: 0, end: size) { columns.add(-1) }
+  Boards result = Boards(values: List<List<Integer>>())
+  place(columns, row: 0, size, result)
+  return result.values
+}
+
+Void main() {
+  printLine(solveNQueens(4).size())
+  expectedOutputLine("2")
+}

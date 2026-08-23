@@ -1,0 +1,15 @@
+Integer firstMissingPositive(Array<Integer> values) {
+  Set<Integer> present = Set<Integer>()
+  for Integer value : values {
+    if value > 0 { present.add(value) }
+  }
+  for candidate : range(start: 1, end: values.size() + 2) {
+    if !present.contains(candidate) { return candidate }
+  }
+  return values.size() + 1
+}
+
+Void main() {
+  printLine(firstMissingPositive([3, 4, -1, 1]))
+  expectedOutputLine("2")
+}

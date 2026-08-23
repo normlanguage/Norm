@@ -1,0 +1,40 @@
+List<Array<Integer>> merge(List<Array<Integer>> intervals) {
+  for pass : range(start: 0, end: intervals.size()) {
+    for index : range(start: 0, end: intervals.size() - 1) {
+      if intervals[index][0] > intervals[index + 1][0] {
+        Array<Integer> temporary = intervals[index]
+        intervals[index] = intervals[index + 1]
+        intervals[index + 1] = temporary
+      }
+    }
+  }
+  List<Array<Integer>> result = List<Array<Integer>>()
+  for Array<Integer> interval : intervals {
+    if result.isEmpty() || result[result.size() - 1][1] < interval[0] {
+      result.add(interval)
+    } else {
+      Array<Integer> previous = result.removeAt(result.size() - 1)
+      if interval[1] > previous[1] { previous[1] = interval[1] }
+      result.add(previous)
+    }
+  }
+  return result
+}
+
+Void main() {
+  List<Array<Integer>> intervals = List<Array<Integer>>()
+  intervals.add([1,3])
+  intervals.add([2,6])
+  intervals.add([8,10])
+  intervals.add([15,18])
+  for Array<Integer> interval : merge(intervals) {
+    printLine(interval[0])
+    printLine(interval[1])
+  }
+  expectedOutputLine("1")
+  expectedOutputLine("6")
+  expectedOutputLine("8")
+  expectedOutputLine("10")
+  expectedOutputLine("15")
+  expectedOutputLine("18")
+}

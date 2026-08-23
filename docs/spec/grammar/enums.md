@@ -4,9 +4,9 @@ enum 声明一个封闭 variant 集合。variant 可以为空，也可以携带�
 
 ```norm
 enum ParseResult {
-    Success(int value),
+    Success(Integer value),
     Empty,
-    Invalid(String reason, int position)
+    Invalid(String reason, Integer position)
 }
 ```
 

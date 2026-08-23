@@ -1,11 +1,8 @@
-void main() {
-  Map<String, int> scores = Map<String, int>()
+Void main() {
+  Map<String, Integer> scores = Map<String, Integer>()
   scores.put(key: "Ada", value: 2)
-  print(scores["Ada"])
-  print(scores.containsKey("Ada"))
-}
-
-private void expectedOutput() {
-  print("2")
-  print("true")
+  printLine(scores["Ada"])
+  printLine(scores.containsKey("Ada"))
+  expectedOutputLine("2")
+  expectedOutputLine("true")
 }

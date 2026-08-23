@@ -1,14 +1,11 @@
 class Counter {
-  int value
-  void add(int amount) { value = value + amount }
-  int current() { return value }
+  Integer value
+  Void add(Integer amount) { value = value + amount }
+  Integer current() { return value }
 }
-void main() {
+Void main() {
   Counter counter = Counter(value: 3)
   counter.add(5)
-  print(counter.current())
-}
-
-private void expectedOutput() {
-  print("8")
+  printLine(counter.current())
+  expectedOutputLine("8")
 }

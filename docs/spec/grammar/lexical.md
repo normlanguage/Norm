@@ -24,7 +24,7 @@ Norm 源文件使用 UTF-8。编译器必须拒绝无法解码的字节序列，
 
 ```norm
 String displayName
-int retry_count
+Integer retry_count
 ```
 
 public API 建议使用 ASCII 标识符以提高工具与生态兼容性。编译器应警告容易混淆的跨脚本字符。

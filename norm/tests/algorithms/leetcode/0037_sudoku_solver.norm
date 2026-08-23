@@ -1,0 +1,35 @@
+class Sudoku {
+  List<Integer> cells
+}
+
+Boolean place(Sudoku board, Integer cell) {
+  if cell == 81 { return true }
+  Integer row = cell / 9
+  Integer column = cell % 9
+  if board.cells[cell] != 0 { return place(board, cell: cell + 1) }
+  for value : range(start: 1, end: 10) {
+    Boolean valid = true
+    for index : range(start: 0, end: 9) {
+      if board.cells[row * 9 + index] == value || board.cells[index * 9 + column] == value || board.cells[((row / 3) * 3 + index / 3) * 9 + (column / 3) * 3 + index % 3] == value {
+        valid = false
+        break
+      }
+    }
+    if valid {
+      board.cells[cell] = value
+      if place(board, cell: cell + 1) { return true }
+      board.cells[cell] = 0
+    }
+  }
+  return false
+}
+
+Void main() {
+  List<Integer> cells = List<Integer>()
+  for Integer value : [5,3,0,0,7,0,0,0,0,6,0,0,1,9,5,0,0,0,0,9,8,0,0,0,0,6,0,8,0,0,0,6,0,0,0,3,4,0,0,8,0,3,0,0,1,7,0,0,0,2,0,0,0,6,0,6,0,0,0,0,2,8,0,0,0,0,4,1,9,0,0,5,0,0,0,0,8,0,0,7,9] { cells.add(value) }
+  Sudoku board = Sudoku(cells)
+  printLine(place(board, cell: 0))
+  printLine(board.cells[2])
+  expectedOutputLine("true")
+  expectedOutputLine("4")
+}

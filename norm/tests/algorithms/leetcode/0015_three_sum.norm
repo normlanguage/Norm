@@ -1,0 +1,36 @@
+List<Array<Integer>> threeSum(Array<Integer> values) {
+  List<Array<Integer>> result = List<Array<Integer>>()
+  Set<Array<Integer>> unique = Set<Array<Integer>>()
+  for first : range(start: 0, end: values.size()) {
+    for second : range(start: first + 1, end: values.size()) {
+      for third : range(start: second + 1, end: values.size()) {
+        if values[first] + values[second] + values[third] == 0 {
+          Array<Integer> triple = [values[first], values[second], values[third]]
+          for pass : range(start: 0, end: 3) {
+            for index : range(start: 0, end: 2) {
+              if triple[index] > triple[index + 1] {
+                Integer temporary = triple[index]
+                triple[index] = triple[index + 1]
+                triple[index + 1] = temporary
+              }
+            }
+          }
+          if unique.add(triple) { result.add(triple) }
+        }
+      }
+    }
+  }
+  return result
+}
+
+Void main() {
+  for Array<Integer> triple : threeSum([-1, 0, 1, 2, -1, -4]) {
+    for Integer value : triple { printLine(value) }
+  }
+  expectedOutputLine("-1")
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+  expectedOutputLine("-1")
+  expectedOutputLine("-1")
+  expectedOutputLine("2")
+}

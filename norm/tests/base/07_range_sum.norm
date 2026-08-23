@@ -1,9 +1,6 @@
-void main() {
-  int sum = 0
+Void main() {
+  Integer sum = 0
   for value : range(start: 1, end: 6) { sum = sum + value }
-  print(sum)
-}
-
-private void expectedOutput() {
-  print("15")
+  printLine(sum)
+  expectedOutputLine("15")
 }

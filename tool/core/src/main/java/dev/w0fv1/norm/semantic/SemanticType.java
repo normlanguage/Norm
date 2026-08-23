@@ -9,18 +9,26 @@ public record SemanticType(
     Kind kind, String identity, String name, List<SemanticType> arguments, ValueCategory category) {
   public static final SemanticType DYNAMIC =
       new SemanticType(Kind.ERROR, "<error>", "value", List.of(), ValueCategory.DYNAMIC);
+  public static final SemanticType INTEGER =
+      new SemanticType(
+          Kind.DECLARED, "std.core.Integer", "Integer", List.of(), ValueCategory.VALUE);
+  public static final SemanticType BOOLEAN =
+      new SemanticType(
+          Kind.DECLARED, "std.core.Boolean", "Boolean", List.of(), ValueCategory.VALUE);
+  public static final SemanticType STRING =
+      new SemanticType(Kind.DECLARED, "std.core.String", "String", List.of(), ValueCategory.VALUE);
   public static final SemanticType VOID =
-      new SemanticType(Kind.VOID, "std.core.void", "void", List.of(), ValueCategory.VOID);
+      new SemanticType(Kind.VOID, "std.core.Void", "Void", List.of(), ValueCategory.VOID);
 
   public SemanticType(String name) {
     this(
-        name.equals("value") ? Kind.ERROR : name.equals("void") ? Kind.VOID : Kind.DECLARED,
+        name.equals("value") ? Kind.ERROR : name.equals("Void") ? Kind.VOID : Kind.DECLARED,
         name.equals("value") ? "<error>" : "std.core." + name,
         name,
         List.of(),
         switch (name) {
           case "value" -> ValueCategory.DYNAMIC;
-          case "void" -> ValueCategory.VOID;
+          case "Void" -> ValueCategory.VOID;
           default -> ValueCategory.VALUE;
         });
   }

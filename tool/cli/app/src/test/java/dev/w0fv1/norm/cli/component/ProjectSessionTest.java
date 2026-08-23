@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.cli.component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import dev.w0fv1.norm.frontend.CompilationEnvironment;
@@ -11,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,9 +29,10 @@ final class ProjectSessionTest {
         directory.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
     Files.writeString(
-        app, "package sample.app import sample.util.identity void main() { print(identity(1)) }");
+        app,
+        "package sample.app import sample.util.identity Void main() { printLine(identity(1)) }");
     Files.writeString(
-        library, "package sample.util public int identity(int value) { return value }");
+        library, "package sample.util public Integer identity(Integer value) { return value }");
     SourceFile appSource = SourceFile.read(app);
     SourceFile librarySource = SourceFile.read(library);
     Map<Path, SourceFile> open = new LinkedHashMap<>();
@@ -50,5 +53,52 @@ final class ProjectSessionTest {
     session.analysis(appSource);
     session.analysis(librarySource);
     assertEquals(1, analyses.get());
+  }
+
+  @Test
+  void excludesOpenDocumentsFromOtherModules(@TempDir Path directory) throws Exception {
+    Path firstRoot = directory.resolve("first");
+    Path secondRoot = directory.resolve("second");
+    Path first = firstRoot.resolve("sample/Main.norm");
+    Path second = secondRoot.resolve("sample/Main.norm");
+    Files.createDirectories(first.getParent());
+    Files.createDirectories(second.getParent());
+    Files.writeString(
+        firstRoot.resolve("module.norm"), "Module(name: \"sample\", version: 1, exports: [])");
+    Files.writeString(
+        secondRoot.resolve("module.norm"), "Module(name: \"sample\", version: 1, exports: [])");
+    Files.writeString(first, "package sample Void main() {}");
+    Files.writeString(second, "package sample Void main() {}");
+    SourceFile firstSource = SourceFile.read(first);
+    SourceFile secondSource = SourceFile.read(second);
+    Map<Path, SourceFile> open = new LinkedHashMap<>();
+    open.put(ProjectSession.normalize(first), firstSource);
+    open.put(ProjectSession.normalize(second), secondSource);
+
+    ProjectSession session = ProjectSession.load(new LanguageService(), firstSource, open, 1);
+
+    assertFalse(session.inputs().contains(ProjectSession.normalize(second)));
+  }
+
+  @Test
+  void treatsPackagedSourceWithoutManifestAsStandalone(@TempDir Path directory) throws Exception {
+    Path packageDirectory = directory.resolve("sample");
+    Path first = packageDirectory.resolve("First.norm");
+    Path second = packageDirectory.resolve("Second.norm");
+    Files.createDirectories(packageDirectory);
+    Files.writeString(first, "package sample Void main() {}");
+    Files.writeString(second, "package sample Void main() {}");
+    SourceFile firstSource = SourceFile.read(first);
+    SourceFile secondSource = SourceFile.read(second);
+    Map<Path, SourceFile> open = new LinkedHashMap<>();
+    open.put(ProjectSession.normalize(first), firstSource);
+    open.put(ProjectSession.normalize(second), secondSource);
+
+    ProjectSession session = ProjectSession.load(new LanguageService(), firstSource, open, 1);
+
+    assertEquals(Set.of(ProjectSession.normalize(first)), session.inputs());
+    assertFalse(
+        session.analysis(firstSource).diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.message().contains("already declared")));
   }
 }

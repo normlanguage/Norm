@@ -93,7 +93,7 @@ Each function owns a `FunctionRootNode` and `CallTarget`. Static function and me
 
 - Add or migrate a failing test before changing implementation.
 - Test packages mirror production packages; testing does not justify wider visibility.
-- Syntax and execution changes cover diagnostics and the single-file programs under `norm/tests`.
+- Syntax and execution changes cover diagnostics and the single-file and module programs under `norm/tests`.
 - Run affected module tests during development and formatting checks before submission. Full release verification is reserved for releases.
 - Backend changes cover both the registered Polyglot language and execution of a real `.norm` file through the CLI.
 

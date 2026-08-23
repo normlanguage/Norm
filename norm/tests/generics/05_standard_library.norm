@@ -1,17 +1,14 @@
 import std.collections.reversed
 import std.collections.toList
 
-void main() {
+Void main() {
   List<String> empty = toList<String>([])
   List<String> values = toList<String>(["first", "last"])
   List<String> result = reversed<String>(values)
-  print(empty.size())
-  print(result[0])
-  print(result[1])
-}
-
-private void expectedOutput() {
-  print("0")
-  print("last")
-  print("first")
+  printLine(empty.size())
+  printLine(result[0])
+  printLine(result[1])
+  expectedOutputLine("0")
+  expectedOutputLine("last")
+  expectedOutputLine("first")
 }

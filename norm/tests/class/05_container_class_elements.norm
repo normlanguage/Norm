@@ -1,12 +1,12 @@
 class Box {
-  int value
+  Integer value
 
-  void set(int next) {
+  Void set(Integer next) {
     value = next
   }
 }
 
-void main() {
+Void main() {
   Box box = Box(value: 1)
   List<Box> first = List<Box>()
   first.add(box)
@@ -18,15 +18,12 @@ void main() {
   fromSecond.set(7)
   Box fromFirst = first[0]
 
-  print(first.size())
-  print(second.size())
-  print(fromFirst.value)
-  print(fromFirst == fromSecond)
-}
-
-private void expectedOutput() {
-  print("1")
-  print("2")
-  print("7")
-  print("true")
+  printLine(first.size())
+  printLine(second.size())
+  printLine(fromFirst.value)
+  printLine(fromFirst == fromSecond)
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("7")
+  expectedOutputLine("true")
 }

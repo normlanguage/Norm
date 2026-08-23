@@ -1,0 +1,15 @@
+Boolean canJump(Array<Integer> values) {
+  Integer reachable = 0
+  for index : range(start: 0, end: values.size()) {
+    if index > reachable { return false }
+    if index + values[index] > reachable { reachable = index + values[index] }
+  }
+  return true
+}
+
+Void main() {
+  printLine(canJump([2,3,1,1,4]))
+  printLine(canJump([3,2,1,0,4]))
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+}

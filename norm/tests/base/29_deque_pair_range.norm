@@ -1,19 +1,16 @@
-void main() {
-  Deque<int> values = Deque<int>()
+Void main() {
+  Deque<Integer> values = Deque<Integer>()
   values.addLast(2)
   values.addFirst(1)
   values.addLast(3)
-  print(values.removeFirst())
-  print(values.removeLast())
-  Pair<String, int> pair = Pair<String, int>(first: "left", second: 9)
-  print(pair.first)
+  printLine(values.removeFirst())
+  printLine(values.removeLast())
+  Pair<String, Integer> pair = Pair<String, Integer>(first: "left", second: 9)
+  printLine(pair.first)
   Range indices = Range(start: 0, end: 4)
-  print(indices.size())
-}
-
-private void expectedOutput() {
-  print("1")
-  print("3")
-  print("left")
-  print("4")
+  printLine(indices.size())
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+  expectedOutputLine("left")
+  expectedOutputLine("4")
 }

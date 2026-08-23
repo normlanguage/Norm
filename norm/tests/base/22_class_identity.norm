@@ -1,13 +1,10 @@
-class Box { int value void set(int next) { value = next } }
-void main() {
+class Box { Integer value Void set(Integer next) { value = next } }
+Void main() {
   Box first = Box(value: 4)
   Box second = first
   second.set(9)
-  print(first.value)
-  print(second.value)
-}
-
-private void expectedOutput() {
-  print("9")
-  print("9")
+  printLine(first.value)
+  printLine(second.value)
+  expectedOutputLine("9")
+  expectedOutputLine("9")
 }

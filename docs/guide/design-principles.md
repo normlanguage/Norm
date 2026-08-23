@@ -18,8 +18,8 @@ Norm 选择非空默认和非共享默认，因为它们让局部修改更容易
 
 ```norm
 value Range {
-    int start
-    int end
+    Integer start
+    Integer end
 }
 
 Range visible = Range(start: 0, end: 80)
@@ -29,7 +29,7 @@ Range visible = Range(start: 0, end: 80)
 
 ```norm
 class Cursor {
-    int position
+    Integer position
 }
 ```
 
@@ -41,7 +41,7 @@ class Cursor {
 
 ```norm
 interface Comparable<T> {
-    int compareTo(T other)
+    Integer compareTo(T other)
 }
 ```
 

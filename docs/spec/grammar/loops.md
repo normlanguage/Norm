@@ -4,7 +4,7 @@ Norm 只提供 foreach 形状的 `for`。没有 C 风格计数循环，也没有
 
 ```norm
 for String name : names {
-    print(name)
+    printLine(name)
 }
 ```
 
@@ -20,21 +20,21 @@ For := "for" Type? Identifier ":" Expression Block ("else" Block)?
 
 ```norm
 for index : range(start: 0, end: 10) {
-    print(index)
+    printLine(index)
 }
 ```
 
-`Range` 的元素类型是 `int`；`List<T>`、`Array<T>`、`Set<T>` 等迭代值从类型参数得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
+`Range` 的元素类型是 `Integer`；`List<T>`、`Array<T>`、`Set<T>` 等迭代值从类型参数得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
 
 ## 控制转移
 
 `continue` 结束当前迭代；不带值的 `break` 结束作为语句使用的循环。
 
 ```norm
-for int number : numbers {
+for Integer number : numbers {
     if number < 0 { continue }
     if number == 0 { break }
-    print("${number}")
+    printLine("${number}")
 }
 ```
 
@@ -43,7 +43,7 @@ for int number : numbers {
 循环出现在值位置时，成功路径使用 `break value`，正常耗尽路径由 `else` 产生值：
 
 ```norm
-int match = for int number : numbers {
+Integer match = for Integer number : numbers {
     if number % 2 == 0 { break number }
 } else {
     break -1

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 final class DiagnosticRendererTest {
   @Test
   void rendersAStableSourceExcerpt() {
-    SourceFile source = SourceFile.of(Path.of("sample.norm"), "int answer = nope\n");
+    SourceFile source = SourceFile.of(Path.of("sample.norm"), "Integer answer = nope\n");
     Diagnostic diagnostic =
         Diagnostic.error(
                 new DiagnosticCode("NORM-NAME-0001"),
@@ -22,7 +22,7 @@ final class DiagnosticRendererTest {
     assertEquals(
         "sample.norm:1:14: error[NORM-NAME-0001]: cannot find name 'nope'"
             + newline
-            + "int answer = nope"
+            + "Integer answer = nope"
             + newline
             + "             ^^^^"
             + newline

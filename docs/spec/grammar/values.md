@@ -4,8 +4,8 @@
 
 ```norm
 value Point {
-    int x
-    int y
+    Integer x
+    Integer y
 }
 
 Point origin = Point(x: 0, y: 0)

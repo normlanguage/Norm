@@ -1,3 +1,3 @@
-void main() {
+Void main() {
   missing(1)
 }

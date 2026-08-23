@@ -1,0 +1,26 @@
+List<Integer> getPermutation(Integer size, Integer order) {
+  List<Integer> available = List<Integer>()
+  for value : range(start: 1, end: size + 1) { available.add(value) }
+  Integer factorial = 1
+  for value : range(start: 2, end: size) { factorial = factorial * value }
+  Integer rank = order - 1
+  List<Integer> result = List<Integer>()
+  for remaining : range(start: 0, end: size) {
+    Integer index = 0
+    if factorial > 0 { index = rank / factorial }
+    result.add(available.removeAt(index))
+    if factorial > 0 {
+      rank = rank % factorial
+      Integer divisor = size - 1 - remaining
+      if divisor > 0 { factorial = factorial / divisor }
+    }
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : getPermutation(size: 3, order: 3) { printLine(value) }
+  expectedOutputLine("2")
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+}

@@ -1,0 +1,24 @@
+Integer uniquePathsWithObstacles(List<Array<Integer>> grid) {
+  List<Integer> paths = List<Integer>()
+  for column : range(start: 0, end: grid[0].size()) { paths.add(0) }
+  paths[0] = 1
+  for row : range(start: 0, end: grid.size()) {
+    for column : range(start: 0, end: grid[0].size()) {
+      if grid[row][column] == 1 {
+        paths[column] = 0
+      } else if column > 0 {
+        paths[column] = paths[column] + paths[column - 1]
+      }
+    }
+  }
+  return paths[paths.size() - 1]
+}
+
+Void main() {
+  List<Array<Integer>> grid = List<Array<Integer>>()
+  grid.add([0,0,0])
+  grid.add([0,1,0])
+  grid.add([0,0,0])
+  printLine(uniquePathsWithObstacles(grid))
+  expectedOutputLine("2")
+}

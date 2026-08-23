@@ -1,7 +1,7 @@
-List<int> merge(List<int> left, List<int> right) {
-  List<int> result = List<int>()
-  int i = 0
-  int j = 0
+List<Integer> merge(List<Integer> left, List<Integer> right) {
+  List<Integer> result = List<Integer>()
+  Integer i = 0
+  Integer j = 0
   for step : range(start: 0, end: left.size() + right.size()) {
     if i >= left.size() {
       result.add(right[j])
@@ -20,28 +20,25 @@ List<int> merge(List<int> left, List<int> right) {
   return result
 }
 
-List<int> mergeSort(List<int> values) {
+List<Integer> mergeSort(List<Integer> values) {
   if values.size() <= 1 { return values }
-  int middle = values.size() / 2
-  List<int> left = List<int>()
-  List<int> right = List<int>()
+  Integer middle = values.size() / 2
+  List<Integer> left = List<Integer>()
+  List<Integer> right = List<Integer>()
   for index : range(start: 0, end: values.size()) {
     if index < middle { left.add(values[index]) } else { right.add(values[index]) }
   }
   return merge(left: mergeSort(left), right: mergeSort(right))
 }
 
-void main() {
-  List<int> values = List<int>()
-  for int value : [7, 2, 9, 1, 5, 3] { values.add(value) }
-  for int value : mergeSort(values) { print(value) }
-}
-
-private void expectedOutput() {
-  print("1")
-  print("2")
-  print("3")
-  print("5")
-  print("7")
-  print("9")
+Void main() {
+  List<Integer> values = List<Integer>()
+  for Integer value : [7, 2, 9, 1, 5, 3] { values.add(value) }
+  for Integer value : mergeSort(values) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("5")
+  expectedOutputLine("7")
+  expectedOutputLine("9")
 }

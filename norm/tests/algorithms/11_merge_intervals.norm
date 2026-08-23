@@ -1,14 +1,14 @@
 import std.math.max
 
 class Interval {
-  int start
-  int end
+  Integer start
+  Integer end
 }
 
 List<Interval> sortIntervals(List<Interval> intervals) {
   for index : range(start: 1, end: intervals.size()) {
     Interval key = intervals[index]
-    int position = index
+    Integer position = index
     for step : range(start: 0, end: index) {
       if position > 0 {
         Interval previous = intervals[position - 1]
@@ -51,23 +51,20 @@ List<Interval> mergeIntervals(List<Interval> intervals) {
   return merged
 }
 
-void main() {
+Void main() {
   List<Interval> intervals = List<Interval>()
   intervals.add(Interval(start: 8, end: 10))
   intervals.add(Interval(start: 1, end: 3))
   intervals.add(Interval(start: 15, end: 18))
   intervals.add(Interval(start: 2, end: 6))
   for Interval interval : mergeIntervals(intervals) {
-    print(interval.start)
-    print(interval.end)
+    printLine(interval.start)
+    printLine(interval.end)
   }
-}
-
-private void expectedOutput() {
-  print("1")
-  print("6")
-  print("8")
-  print("10")
-  print("15")
-  print("18")
+  expectedOutputLine("1")
+  expectedOutputLine("6")
+  expectedOutputLine("8")
+  expectedOutputLine("10")
+  expectedOutputLine("15")
+  expectedOutputLine("18")
 }

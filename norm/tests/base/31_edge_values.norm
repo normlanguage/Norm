@@ -1,48 +1,45 @@
-void main() {
-  int maximum = 9223372036854775807
-  int minimum = -9223372036854775807
-  Array<int> array = []
+Void main() {
+  Integer maximum = 9223372036854775807
+  Integer minimum = -9223372036854775807
+  Array<Integer> array = []
   List<String> list = List<String>()
-  Map<String, int> map = Map<String, int>()
-  Set<int> set = Set<int>()
+  Map<String, Integer> map = Map<String, Integer>()
+  Set<Integer> set = Set<Integer>()
   Range emptyRange = range(start: 4, end: 4)
   StringBuilder builder = StringBuilder()
-  print(maximum)
-  print(minimum)
-  print("".byteSize())
-  print("".codePointSize())
-  print("".graphemeSize())
-  print(array.size())
-  print(list.size())
-  print(map.size())
-  print(set.size())
-  print(emptyRange.size())
-  print(builder.size())
+  printLine(maximum)
+  printLine(minimum)
+  printLine("".byteSize())
+  printLine("".codePointSize())
+  printLine("".graphemeSize())
+  printLine(array.size())
+  printLine(list.size())
+  printLine(map.size())
+  printLine(set.size())
+  printLine(emptyRange.size())
+  printLine(builder.size())
   map.put(key: "edge", value: 9)
-  for Pair<String, int> entry : map {
-    print(entry.first)
-    print(entry.second)
+  for Pair<String, Integer> entry : map {
+    printLine(entry.first)
+    printLine(entry.second)
   }
-  Stack<int> stack = Stack<int>()
+  Stack<Integer> stack = Stack<Integer>()
   stack.push(3)
   stack.push(7)
-  for int value : stack { print(value) }
-}
-
-private void expectedOutput() {
-  print("9223372036854775807")
-  print("-9223372036854775807")
-  print("0")
-  print("0")
-  print("0")
-  print("0")
-  print("0")
-  print("0")
-  print("0")
-  print("0")
-  print("0")
-  print("edge")
-  print("9")
-  print("7")
-  print("3")
+  for Integer value : stack { printLine(value) }
+  expectedOutputLine("9223372036854775807")
+  expectedOutputLine("-9223372036854775807")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+  expectedOutputLine("edge")
+  expectedOutputLine("9")
+  expectedOutputLine("7")
+  expectedOutputLine("3")
 }

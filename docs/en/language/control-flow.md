@@ -24,14 +24,14 @@ The binding type may be omitted when the iterable has one statically known eleme
 
 ```norm
 for index : range(start: 0, end: 10) {
-    print(index)
+    printLine(index)
 }
 ```
 
-`Range` infers `int`. Generic iterables infer their binding from the element type, such as `String` for `List<String>`. An explicit binding type is required only when no unique static element type is available.
+`Range` infers `Integer`. Generic iterables infer their binding from the element type, such as `String` for `List<String>`. An explicit binding type is required only when no unique static element type is available.
 
 ```norm
-int firstEven = for int number : numbers {
+Integer firstEven = for Integer number : numbers {
     if number % 2 == 0 {
         break number
     }

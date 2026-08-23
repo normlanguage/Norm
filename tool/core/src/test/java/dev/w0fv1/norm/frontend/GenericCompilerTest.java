@@ -14,8 +14,8 @@ final class GenericCompilerTest {
     CompilationResult result =
         compile(
             "class Box<T> { T value } "
-                + "void main() { Box<List<int>> box = Box<List<int>>(value: List<int>()) "
-                + "box.value.add(7) print(box.value[0]) }");
+                + "Void main() { Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) "
+                + "box.value.add(7) printLine(box.value[0]) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -25,7 +25,7 @@ final class GenericCompilerTest {
     CompilationResult result =
         compile(
             "T identity<T>(T value) { return value } "
-                + "void main() { String value = identity(value: \"Norm\") print(value) }");
+                + "Void main() { String value = identity(value: \"Norm\") printLine(value) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -35,14 +35,14 @@ final class GenericCompilerTest {
     CompilationResult result =
         compile(
             "class Box<T> {} Box<T> empty<T>() { return Box<T>() } "
-                + "void main() { Box<String> value = empty() }");
+                + "Void main() { Box<String> value = empty() }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
 
   @Test
   void rejectsRawGenericTypes() {
-    CompilationResult result = compile("void main() { List values = List<int>() }");
+    CompilationResult result = compile("Void main() { List values = List<Integer>() }");
 
     assertFalse(result.isSuccess());
     assertTrue(
@@ -53,7 +53,7 @@ final class GenericCompilerTest {
   @Test
   void rejectsMismatchedInvariantTypeArguments() {
     CompilationResult result =
-        compile("void main() { List<int> values = List<String>() print(values.size()) }");
+        compile("Void main() { List<Integer> values = List<String>() printLine(values.size()) }");
 
     assertFalse(result.isSuccess());
   }
@@ -61,14 +61,14 @@ final class GenericCompilerTest {
   @Test
   void infersEmptyArrayLiteralsFromTheExpectedType() {
     CompilationResult result =
-        compile("void main() { Array<String> values = [] print(values.size()) }");
+        compile("Void main() { Array<String> values = [] printLine(values.size()) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
 
   @Test
   void rejectsTooManyTypeArguments() {
-    CompilationResult result = compile("void main() { List<int, String> values = [] }");
+    CompilationResult result = compile("Void main() { List<Integer, String> values = [] }");
 
     assertFalse(result.isSuccess());
   }
@@ -77,8 +77,8 @@ final class GenericCompilerTest {
   void rejectsConflictingGenericInference() {
     CompilationResult result =
         compile(
-            "bool same<T>(T left, T right) { return left == right } "
-                + "void main() { print(same(left: 1, right: \"1\")) }");
+            "Boolean same<T>(T left, T right) { return left == right } "
+                + "Void main() { printLine(same(left: 1, right: \"1\")) }");
 
     assertFalse(result.isSuccess());
   }
@@ -88,7 +88,7 @@ final class GenericCompilerTest {
     CompilationResult result =
         compile(
             "T identity<T>(T value) { return value } "
-                + "void main() { print(identity<String>(value: 1)) }");
+                + "Void main() { printLine(identity<String>(value: 1)) }");
 
     assertFalse(result.isSuccess());
   }
@@ -96,42 +96,40 @@ final class GenericCompilerTest {
   @Test
   void rejectsNestedInvariantTypeMismatches() {
     CompilationResult result =
-        compile("void main() { List<List<int>> values = List<List<String>>() }");
+        compile("Void main() { List<List<Integer>> values = List<List<String>>() }");
 
     assertFalse(result.isSuccess());
   }
 
   @Test
   void rejectsUndeclaredTypeParameters() {
-    CompilationResult result = compile("T identity(T value) { return value } void main() {}");
+    CompilationResult result = compile("T identity(T value) { return value } Void main() {}");
 
     assertFalse(result.isSuccess());
   }
 
   @Test
   void rejectsUnknownExplicitTypeArguments() {
-    CompilationResult constructor = compile("class Marker<T> {} void main() { Marker<Missing>() }");
+    CompilationResult constructor = compile("class Marker<T> {} Void main() { Marker<Missing>() }");
     CompilationResult function =
         compile(
-            "T create<T>(T value) { return value } " + "void main() { create<Missing>(value: 1) }");
+            "T create<T>(T value) { return value } " + "Void main() { create<Missing>(value: 1) }");
 
     assertFalse(constructor.isSuccess());
     assertFalse(function.isSuccess());
     assertTrue(
         constructor.diagnostics().stream()
-            .anyMatch(
-                diagnostic -> diagnostic.message().contains("unknown or invalid type 'Missing'")),
+            .anyMatch(diagnostic -> diagnostic.message().contains("unknown type 'Missing'")),
         () -> constructor.diagnostics().toString());
     assertTrue(
         function.diagnostics().stream()
-            .anyMatch(
-                diagnostic -> diagnostic.message().contains("unknown or invalid type 'Missing'")),
+            .anyMatch(diagnostic -> diagnostic.message().contains("unknown type 'Missing'")),
         () -> function.diagnostics().toString());
   }
 
   @Test
   void rejectsTypeArgumentsOnNonGenericBuiltins() {
-    CompilationResult result = compile("void main() { print<int>(1) }");
+    CompilationResult result = compile("Void main() { printLine<Integer>(1) }");
 
     assertFalse(result.isSuccess());
     assertTrue(
@@ -142,7 +140,7 @@ final class GenericCompilerTest {
   @Test
   void rejectsGenericMethodsInTheVersionZeroTwoSubset() {
     CompilationResult result =
-        compile("class Values { T identity<T>(T value) { return value } } void main() {}");
+        compile("class Values { T identity<T>(T value) { return value } } Void main() {}");
 
     assertFalse(result.isSuccess());
     assertTrue(

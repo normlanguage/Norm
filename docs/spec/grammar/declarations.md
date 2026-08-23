@@ -19,13 +19,13 @@ Declaration := Visibility? (
 
 ```norm
 class Counter {
-    int value
-    void increment() { value = value + 1 }
+    Integer value
+    Void increment() { value = value + 1 }
 }
 
 value Point {
-    int x
-    int y
+    Integer x
+    Integer y
 }
 ```
 

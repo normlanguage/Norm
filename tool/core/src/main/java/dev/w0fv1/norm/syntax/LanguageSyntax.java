@@ -68,11 +68,6 @@ public final class LanguageSyntax {
     words.put("continue", TokenKind.CONTINUE);
     words.put("true", TokenKind.TRUE);
     words.put("false", TokenKind.FALSE);
-    words.put("int", TokenKind.INT_TYPE);
-    words.put("bool", TokenKind.BOOL_TYPE);
-    words.put("String", TokenKind.STRING_TYPE);
-    words.put("Array", TokenKind.ARRAY_TYPE);
-    words.put("void", TokenKind.VOID);
     return Map.copyOf(words);
   }
 }

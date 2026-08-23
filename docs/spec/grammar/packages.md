@@ -10,7 +10,7 @@ package 声明是项目源码文件的第一个非注释声明，名称使用点
 package geometry.shapes
 
 public class Circle {
-    int radius
+    Integer radius
 }
 ```
 

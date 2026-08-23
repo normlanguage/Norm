@@ -287,6 +287,7 @@ final class DocumentService implements TextDocumentService {
     for (Map.Entry<String, DocumentState> entry : List.copyOf(documents.entrySet())) {
       DocumentState state = entry.getValue();
       if (entry.getKey().equals(uri) || !root.equals(state.projectRoot())) continue;
+      if (!session.inputs().contains(ProjectSession.normalize(state.source().path()))) continue;
       AnalysisResult refreshed = session.analysis(state.source());
       DocumentState refreshedState =
           new DocumentState(
@@ -328,30 +329,39 @@ final class DocumentService implements TextDocumentService {
             .filter(state -> root.equals(state.projectRoot()))
             .filter(state -> !state.source().path().getFileName().toString().equals("module.norm"))
             .toList();
-    if (states.isEmpty()) return;
-    ProjectSession session =
-        ProjectSession.load(
-            language, states.getFirst().source(), openSources(), revisions.incrementAndGet());
-    for (DocumentState state : states) {
-      AnalysisResult analysis = session.analysis(state.source());
-      DocumentState installed =
-          documents.computeIfPresent(
-              state.clientUri(),
-              (ignored, current) -> {
-                if (current.revision() > session.revision()) return current;
-                return new DocumentState(
-                    current.version(),
-                    current.clientUri(),
-                    current.source(),
-                    analysis,
-                    root,
-                    session.inputs(),
-                    session.revision(),
-                    session.snapshot());
-              });
-      if (installed != null && installed.revision() == session.revision()) {
-        publish(state.clientUri(), analysis);
+    List<DocumentState> remaining = new java.util.ArrayList<>(states);
+    while (!remaining.isEmpty()) {
+      ProjectSession session =
+          ProjectSession.load(
+              language, remaining.getFirst().source(), openSources(), revisions.incrementAndGet());
+      List<DocumentState> members =
+          remaining.stream()
+              .filter(
+                  state ->
+                      session.inputs().contains(ProjectSession.normalize(state.source().path())))
+              .toList();
+      for (DocumentState state : members) {
+        AnalysisResult analysis = session.analysis(state.source());
+        DocumentState installed =
+            documents.computeIfPresent(
+                state.clientUri(),
+                (ignored, current) -> {
+                  if (current.revision() > session.revision()) return current;
+                  return new DocumentState(
+                      current.version(),
+                      current.clientUri(),
+                      current.source(),
+                      analysis,
+                      session.root(),
+                      session.inputs(),
+                      session.revision(),
+                      session.snapshot());
+                });
+        if (installed != null && installed.revision() == session.revision()) {
+          publish(state.clientUri(), analysis);
+        }
       }
+      remaining.removeAll(members);
     }
   }
 

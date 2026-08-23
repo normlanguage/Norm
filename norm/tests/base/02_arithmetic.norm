@@ -1,7 +1,4 @@
-void main() {
-  print(2 + 3 * 4)
-}
-
-private void expectedOutput() {
-  print("14")
+Void main() {
+  printLine(2 + 3 * 4)
+  expectedOutputLine("14")
 }

@@ -12,31 +12,48 @@ import org.junit.jupiter.api.Test;
 
 final class CompilerTest {
   @Test
+  void requiresCompletePascalCaseBuiltinTypeNames() {
+    CompilationResult complete =
+        compile(
+            "Integer identity(Integer value) { return value } "
+                + "Void main() { Boolean matches = identity(1) == 1 printLine(matches) }");
+    CompilationResult abbreviated =
+        compile("int identity(int value) { return value } void main() { printLine(identity(1)) }");
+
+    assertTrue(complete.isSuccess(), () -> complete.diagnostics().toString());
+    assertFalse(abbreviated.isSuccess());
+    assertTrue(
+        abbreviated.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.message().contains("unknown type 'int'")),
+        () -> abbreviated.diagnostics().toString());
+  }
+
+  @Test
   void rejectsNonVoidFunctionsThatCanFallThrough() {
     CompilationResult result =
-        compile("int choose(bool condition) { if condition { return 1 } } void main() {}");
+        compile("Integer choose(Boolean condition) { if condition { return 1 } } Void main() {}");
 
     assertFalse(result.isSuccess());
     assertTrue(
         result.diagnostics().stream()
-            .anyMatch(diagnostic -> diagnostic.message().contains("must return int")));
+            .anyMatch(diagnostic -> diagnostic.message().contains("must return Integer")));
   }
 
   @Test
   void enforcesPrivateClassMemberAccess() {
     CompilationResult internal =
         compile(
-            "class Secret { private int value private int reveal() { return value } "
-                + "int expose() { return this.reveal() } } "
-                + "void main() { Secret secret = Secret(value: 7) print(secret.expose()) }");
+            "class Secret { private Integer value private Integer reveal() { return value } "
+                + "Integer expose() { return this.reveal() } } "
+                + "Void main() { Secret secret = Secret(value: 7) printLine(secret.expose()) }");
     CompilationResult field =
         compile(
-            "class Secret { private int value } "
-                + "void main() { Secret secret = Secret(value: 7) print(secret.value) }");
+            "class Secret { private Integer value } "
+                + "Void main() { Secret secret = Secret(value: 7) printLine(secret.value) }");
     CompilationResult method =
         compile(
-            "class Secret { private int reveal() { return 7 } } "
-                + "void main() { Secret secret = Secret() print(secret.reveal()) }");
+            "class Secret { private Integer reveal() { return 7 } } "
+                + "Void main() { Secret secret = Secret() printLine(secret.reveal()) }");
 
     assertTrue(internal.isSuccess(), () -> internal.diagnostics().toString());
     assertFalse(field.isSuccess());
@@ -69,7 +86,7 @@ final class CompilerTest {
 
   @Test
   void producesCheckedSyntaxForHelloWorld() {
-    CompilationResult result = compile("void main() { print(\"Hello from Norm\") }");
+    CompilationResult result = compile("Void main() { printLine(\"Hello from Norm\") }");
 
     assertTrue(result.isSuccess());
     assertTrue(result.diagnostics().isEmpty());
@@ -77,14 +94,15 @@ final class CompilerTest {
         result.program().orElseThrow().boundProgram().entryCallable().body().statements();
     assertEquals(1, statements.size());
     var statement = (dev.w0fv1.norm.bound.BoundStatement.ExpressionStatement) statements.getFirst();
-    var print = (dev.w0fv1.norm.bound.BoundIntrinsic) statement.expression();
-    var value = (dev.w0fv1.norm.bound.BoundExpression.Literal) print.arguments().getFirst().value();
+    var printLine = (dev.w0fv1.norm.bound.BoundIntrinsic) statement.expression();
+    var value =
+        (dev.w0fv1.norm.bound.BoundExpression.Literal) printLine.arguments().getFirst().value();
     assertEquals("Hello from Norm", value.value());
   }
 
   @Test
   void reportsAMissingEntryPoint() {
-    CompilationResult result = compile("void helper() {}");
+    CompilationResult result = compile("Void helper() {}");
 
     assertFalse(result.isSuccess());
     assertEquals("NORM-NAME-0002", result.diagnostics().getFirst().code().value());
@@ -92,7 +110,7 @@ final class CompilerTest {
 
   @Test
   void rejectsUnknownFunctionsBeforeExecution() {
-    CompilationResult result = compile("void main() { unknown(\"value\") }");
+    CompilationResult result = compile("Void main() { unknown(\"value\") }");
 
     assertFalse(result.isSuccess());
     assertEquals("NORM-NAME-0003", result.diagnostics().getFirst().code().value());
@@ -100,7 +118,7 @@ final class CompilerTest {
 
   @Test
   void rejectsAnInvalidPrintSignature() {
-    CompilationResult result = compile("void main() { print() }");
+    CompilationResult result = compile("Void main() { printLine() }");
 
     assertFalse(result.isSuccess());
     assertEquals("NORM-TYPE-0002", result.diagnostics().getFirst().code().value());
@@ -112,14 +130,14 @@ final class CompilerTest {
         compile(
             "enum Color { Red, Green, Blue } "
                 + "Color favorite() { return Color.Green } "
-                + "void main() { Color color = favorite() print(color == Color.Green) }");
+                + "Void main() { Color color = favorite() printLine(color == Color.Green) }");
 
     assertTrue(result.isSuccess());
   }
 
   @Test
   void rejectsUnknownEnumMembers() {
-    CompilationResult result = compile("enum Color { Red } void main() { print(Color.Blue) }");
+    CompilationResult result = compile("enum Color { Red } Void main() { printLine(Color.Blue) }");
 
     assertFalse(result.isSuccess());
     assertEquals("NORM-NAME-0003", result.diagnostics().getFirst().code().value());
@@ -127,7 +145,8 @@ final class CompilerTest {
 
   @Test
   void rejectsMethodsFromADifferentContainer() {
-    CompilationResult result = compile("void main() { Array<int> values = [1] values.push(2) }");
+    CompilationResult result =
+        compile("Void main() { Array<Integer> values = [1] values.push(2) }");
 
     assertFalse(result.isSuccess());
     assertTrue(
@@ -140,8 +159,8 @@ final class CompilerTest {
   void acceptsColonNamedArgumentsInAnyOrder() {
     CompilationResult result =
         compile(
-            "int subtract(int left, int right) { return left - right } "
-                + "void main() { print(subtract(right: 3, left: 10)) }");
+            "Integer subtract(Integer left, Integer right) { return left - right } "
+                + "Void main() { printLine(subtract(right: 3, left: 10)) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -150,8 +169,8 @@ final class CompilerTest {
   void rejectsEqualsAsAnArgumentLabel() {
     CompilationResult result =
         compile(
-            "int subtract(int left, int right) { return left - right } "
-                + "void main() { print(subtract(right = 3, left = 10)) }");
+            "Integer subtract(Integer left, Integer right) { return left - right } "
+                + "Void main() { printLine(subtract(right = 3, left = 10)) }");
 
     assertFalse(result.isSuccess());
     assertEquals("NORM-PARSER-0001", result.diagnostics().getFirst().code().value());
@@ -161,8 +180,8 @@ final class CompilerTest {
   void acceptsMatchingIdentifierShorthandForMultipleParameters() {
     CompilationResult result =
         compile(
-            "int subtract(int left, int right) { return left - right } "
-                + "void main() { int left = 10 int right = 3 print(subtract(left, right)) }");
+            "Integer subtract(Integer left, Integer right) { return left - right } "
+                + "Void main() { Integer left = 10 Integer right = 3 printLine(subtract(left, right)) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -171,8 +190,8 @@ final class CompilerTest {
   void rejectsUnlabelledExpressionsForMultipleParameters() {
     CompilationResult result =
         compile(
-            "int subtract(int left, int right) { return left - right } "
-                + "void main() { print(subtract(10, 3)) }");
+            "Integer subtract(Integer left, Integer right) { return left - right } "
+                + "Void main() { printLine(subtract(10, 3)) }");
 
     assertFalse(result.isSuccess());
     assertTrue(
@@ -184,8 +203,8 @@ final class CompilerTest {
   void rejectsIdentifierShorthandWhenTheParameterNameDiffers() {
     CompilationResult result =
         compile(
-            "int subtract(int left, int right) { return left - right } "
-                + "void main() { int first = 10 int second = 3 print(subtract(first, second)) }");
+            "Integer subtract(Integer left, Integer right) { return left - right } "
+                + "Void main() { Integer first = 10 Integer second = 3 printLine(subtract(first, second)) }");
 
     assertFalse(result.isSuccess());
     assertTrue(
@@ -197,8 +216,8 @@ final class CompilerTest {
   void rejectsUnknownDuplicateAndMissingArgumentLabels() {
     CompilationResult result =
         compile(
-            "int subtract(int left, int right) { return left - right } "
-                + "void main() { print(subtract(left: 10, left: 3)) }");
+            "Integer subtract(Integer left, Integer right) { return left - right } "
+                + "Void main() { printLine(subtract(left: 10, left: 3)) }");
 
     assertFalse(result.isSuccess());
     assertTrue(
@@ -213,9 +232,9 @@ final class CompilerTest {
   void infersRangeLoopBindingAsInt() {
     CompilationResult result =
         compile(
-            "void main() { int total = 0 "
+            "Void main() { Integer total = 0 "
                 + "for value : range(start: 0, end: 4) { total = total + value } "
-                + "print(total) }");
+                + "printLine(total) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -224,7 +243,7 @@ final class CompilerTest {
   void infersLoopTypeFromGenericContainers() {
     CompilationResult result =
         compile(
-            "void main() { List<int> values = List<int>() for value : values { print(value) } }");
+            "Void main() { List<Integer> values = List<Integer>() for value : values { printLine(value) } }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -232,7 +251,7 @@ final class CompilerTest {
   @Test
   void reservesCopyForClassIdentityCopying() {
     CompilationResult result =
-        compile("class Box { int value int copy() { return value } } void main() {}");
+        compile("class Box { Integer value Integer copy() { return value } } Void main() {}");
 
     assertFalse(result.isSuccess());
     assertTrue(

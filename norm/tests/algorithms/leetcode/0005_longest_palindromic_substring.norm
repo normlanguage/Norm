@@ -1,0 +1,27 @@
+Pair<Integer, Integer> expand(Array<Integer> text, Integer left, Integer right) {
+  for step : range(start: 0, end: text.size()) {
+    if left < 0 || right >= text.size() || text[left] != text[right] { break }
+    left = left - 1
+    right = right + 1
+  }
+  return Pair<Integer, Integer>(first: left + 1, second: right)
+}
+
+Pair<Integer, Integer> longestPalindrome(Array<Integer> text) {
+  Pair<Integer, Integer> best = Pair<Integer, Integer>(first: 0, second: 0)
+  for center : range(start: 0, end: text.size()) {
+    Pair<Integer, Integer> odd = expand(text, left: center, right: center)
+    Pair<Integer, Integer> even = expand(text, left: center, right: center + 1)
+    if odd.second - odd.first > best.second - best.first { best = odd }
+    if even.second - even.first > best.second - best.first { best = even }
+  }
+  return best
+}
+
+Void main() {
+  Pair<Integer, Integer> answer = longestPalindrome([2, 1, 2, 1, 4])
+  printLine(answer.first)
+  printLine(answer.second)
+  expectedOutputLine("0")
+  expectedOutputLine("3")
+}

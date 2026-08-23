@@ -89,7 +89,7 @@ final class CompletionEngine {
                   CompletionKind.SNIPPET,
                   "Norm entry point",
                   "",
-                  "void main() {\n  ${1}\n}",
+                  "Void main() {\n  ${1}\n}",
                   true),
               Optional.empty()));
     }
@@ -210,7 +210,7 @@ final class CompletionEngine {
           case FIELD -> CompletionKind.FIELD;
           case PROPERTY -> CompletionKind.PROPERTY;
           case ENUM_MEMBER -> CompletionKind.ENUM_MEMBER;
-          case PARAMETER, LOCAL_VARIABLE -> CompletionKind.VARIABLE;
+          case PARAMETER, LOCAL_VARIABLE, SELF -> CompletionKind.VARIABLE;
         };
     boolean snippet = !symbol.parameters().isEmpty();
     String insertText = symbol.name();

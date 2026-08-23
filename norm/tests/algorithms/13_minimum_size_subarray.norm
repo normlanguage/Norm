@@ -1,9 +1,9 @@
 import std.math.min
 
-int minimumLength(Array<int> values, int target) {
-  int left = 0
-  int sum = 0
-  int best = values.size() + 1
+Integer minimumLength(Array<Integer> values, Integer target) {
+  Integer left = 0
+  Integer sum = 0
+  Integer best = values.size() + 1
   for right : range(start: 0, end: values.size()) {
     sum = sum + values[right]
     for step : range(start: 0, end: right + 1) {
@@ -20,12 +20,9 @@ int minimumLength(Array<int> values, int target) {
   return best
 }
 
-void main() {
-  print(minimumLength(values: [2, 3, 1, 2, 4, 3], target: 7))
-  print(minimumLength(values: [1, 1, 1], target: 8))
-}
-
-private void expectedOutput() {
-  print("2")
-  print("0")
+Void main() {
+  printLine(minimumLength(values: [2, 3, 1, 2, 4, 3], target: 7))
+  printLine(minimumLength(values: [1, 1, 1], target: 8))
+  expectedOutputLine("2")
+  expectedOutputLine("0")
 }

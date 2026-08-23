@@ -32,8 +32,12 @@ public final class IntrinsicDispatcher {
     Object first = arguments.length == 0 ? null : arguments[0];
     Object second = arguments.length < 2 ? null : arguments[1];
     return switch (intrinsic) {
-      case PRINT -> {
+      case PRINT_LINE -> {
         context.output().println(RuntimeValues.stringify(first));
+        yield null;
+      }
+      case EXPECTED_OUTPUT_LINE -> {
+        context.expectedOutput().println(RuntimeValues.stringify(first));
         yield null;
       }
       case RANGE_CONSTRUCT -> new RuntimeValues.RangeValue((Long) first, (Long) second);

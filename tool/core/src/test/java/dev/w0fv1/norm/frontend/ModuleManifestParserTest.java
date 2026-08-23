@@ -74,6 +74,6 @@ final class ModuleManifestParserTest {
                 manifest,
                 "math.integer",
                 SourceFile.of(
-                    Path.of("std/math/integer.norm"), "package std.text void value() {}")));
+                    Path.of("std/math/integer.norm"), "package std.text Void value() {}")));
   }
 }

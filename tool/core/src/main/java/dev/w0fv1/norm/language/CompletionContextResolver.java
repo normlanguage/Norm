@@ -36,9 +36,7 @@ public final class CompletionContextResolver {
         document.tokens().stream().filter(token -> token.span().startOffset() < offset).toList();
     if (insideTypeArguments(tokens)) return new CompletionContext.TypeArgument();
     TokenKind previous = tokens.isEmpty() ? null : tokens.getLast().kind();
-    if (previous == TokenKind.CLASS
-        || previous == TokenKind.COLON
-        || previous == TokenKind.ARRAY_TYPE) {
+    if (previous == TokenKind.CLASS || previous == TokenKind.COLON) {
       return new CompletionContext.Type();
     }
     if (insideArguments(tokens)

@@ -1,0 +1,40 @@
+List<List<Integer>> fullJustify(List<Array<Integer>> words, Integer width) {
+  List<List<Integer>> lines = List<List<Integer>>()
+  Integer start = 0
+  for step : range(start: 0, end: words.size()) {
+    if start >= words.size() { break }
+    Integer end = start
+    Integer letters = 0
+    for scan : range(start: start, end: words.size()) {
+      if letters + words[scan].size() + scan - start > width { break }
+      letters = letters + words[scan].size()
+      end = scan + 1
+    }
+    Integer gaps = end - start - 1
+    List<Integer> line = List<Integer>()
+    for word : range(start: start, end: end) {
+      for Integer token : words[word] { line.add(token) }
+      if word + 1 < end {
+        Integer spaces = 1
+        if end < words.size() && gaps > 0 {
+          spaces = (width - letters) / gaps
+          if word - start < (width - letters) % gaps { spaces = spaces + 1 }
+        }
+        for space : range(start: 0, end: spaces) { line.add(0) }
+      }
+    }
+    for space : range(start: line.size(), end: width) { line.add(0) }
+    lines.add(line)
+    start = end
+  }
+  return lines
+}
+
+Void main() {
+  List<Array<Integer>> words = List<Array<Integer>>()
+  words.add([1,1])
+  words.add([2,2])
+  words.add([3,3])
+  printLine(fullJustify(words, width: 5).size())
+  expectedOutputLine("2")
+}

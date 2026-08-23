@@ -8,10 +8,10 @@ Norm 是静态强类型语言。编译器在程序运行前确定每个表达式
 
 | 类别 | 类型 | 用途 |
 | --- | --- | --- |
-| 整数 | `byte`、`short`、`int`、`long` | 不同范围的整数 |
-| 浮点数 | `float`、`double` | 二进制浮点计算 |
-| 十进制 | `decimal` | 需要十进制语义的计算 |
-| 逻辑 | `bool` | `true` 或 `false` |
+| 整数 | `Byte`、`Short`、`Integer`、`Long` | 不同范围的整数 |
+| 浮点数 | `Float`、`Double` | 二进制浮点计算 |
+| 十进制 | `Decimal` | 需要十进制语义的计算 |
+| 逻辑 | `Boolean` | `true` 或 `false` |
 | 文本 | `String` | 字符串值 |
 
 Norm 没有统一的 `Object` 根类型。一个值能参与哪些操作，由它的具体类型或显式实现的接口决定。
@@ -43,10 +43,10 @@ String text = input
 
 ```norm
 class Interval {
-    int start
-    int end
+    Integer start
+    Integer end
 
-    Interval(int start, int end) {
+    Interval(Integer start, Integer end) {
         this.start = start
         this.end = end
     }
@@ -60,26 +60,26 @@ Norm 不提供延迟初始化关键字。编译器通过确定赋值分析保证
 较小范围的整数可以安全提升到较大范围：
 
 ```norm
-int count = 12
-long total = count
+Integer count = 12
+Long total = count
 ```
 
 可能丢失信息的收窄转换必须显式写出目标类型：
 
 ```norm
-long total = 12
-int count = int(total)
+Long total = 12
+Integer count = Integer(total)
 ```
 
 显式转换表示程序员接受转换语义；它不意味着运行时一定忽略越界。越界行为由正式数值规范定义。
 
 ## Decimal 与浮点类型
 
-`decimal` 不与 `float` 或 `double` 隐式混合：
+`Decimal` 不与 `Float` 或 `Double` 隐式混合：
 
 ```norm
-decimal exact = decimal("0.1")
-double approximate = 0.1
+Decimal exact = Decimal("0.1")
+Double approximate = 0.1
 ```
 
 如果计算需要跨数值模型，必须先明确转换其中一方。这避免一个表达式在没有提示的情况下改变精度规则。
@@ -90,14 +90,14 @@ Norm 使用名义类型系统。两个类型即使具有相同字段，也不会
 
 ```norm
 interface Printable {
-    String print()
+    String printLine()
 }
 
 class Coordinate implements Printable {
-    int x
-    int y
+    Integer x
+    Integer y
 
-    String print() {
+    String printLine() {
         return "(${x}, ${y})"
     }
 }

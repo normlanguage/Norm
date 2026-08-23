@@ -1,0 +1,23 @@
+Integer lengthOfLongestSubstring(Array<Integer> text) {
+  Set<Integer> window = Set<Integer>()
+  Integer left = 0
+  Integer best = 0
+  for right : range(start: 0, end: text.size()) {
+    for step : range(start: 0, end: text.size()) {
+      if !window.contains(text[right]) { break }
+      window.remove(text[left])
+      left = left + 1
+    }
+    window.add(text[right])
+    Integer length = right - left + 1
+    if length > best { best = length }
+  }
+  return best
+}
+
+Void main() {
+  printLine(lengthOfLongestSubstring([1, 2, 3, 1, 2, 3, 2, 2]))
+  printLine(lengthOfLongestSubstring([1, 1, 1]))
+  expectedOutputLine("3")
+  expectedOutputLine("1")
+}

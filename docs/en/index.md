@@ -16,7 +16,7 @@ pageClass: norm-home
     </div>
     <div class="norm-code-window" aria-label="Norm object identity example">
       <div class="norm-code-window__bar"><span></span><span></span><span></span><b>counter.norm</b></div>
-      <pre><code v-pre>class Counter {&#10;    int value&#10;}&#10;&#10;Counter first = Counter(value: 0)&#10;Counter second = first&#10;second.value = 1&#10;&#10;print(first.value) // 1&#10;Counter copied = first.copy()</code></pre>
+      <pre><code v-pre>class Counter {&#10;    Integer value&#10;}&#10;&#10;Counter first = Counter(value: 0)&#10;Counter second = first&#10;second.value = 1&#10;&#10;printLine(first.value) // 1&#10;Counter copied = first.copy()</code></pre>
     </div>
   </div>
 </section>
@@ -52,7 +52,7 @@ pageClass: norm-home
   <h2>Special behavior gets dedicated syntax.</h2>
   <div class="norm-showcase-grid">
     <article><div><span>Control-flow expressions</span><h3>See exactly where a result comes from.</h3><p>No implicit final expression and no automatic null for a missing branch.</p><a href="./language/control-flow">Read about control flow →</a></div><pre><code v-pre>String sign = if number &lt; 0 {&#10;    break "negative"&#10;} else {&#10;    break "non-negative"&#10;}</code></pre></article>
-    <article><div><span>Reified generics</span><h3>Generic arguments survive at runtime.</h3><p>Reflection and generic libraries can inspect the full parameterized type.</p><a href="./language/generics">Read about generics →</a></div><pre><code v-pre>List&lt;String&gt;.class&#10;List&lt;int&gt;.class&#10;&#10;List&lt;String&gt;.class.T&#10;    == String.class</code></pre></article>
+    <article><div><span>Reified generics</span><h3>Generic arguments survive at runtime.</h3><p>Reflection and generic libraries can inspect the full parameterized type.</p><a href="./language/generics">Read about generics →</a></div><pre><code v-pre>List&lt;String&gt;.class&#10;List&lt;Integer&gt;.class&#10;&#10;List&lt;String&gt;.class.T&#10;    == String.class</code></pre></article>
   </div>
 </section>
 

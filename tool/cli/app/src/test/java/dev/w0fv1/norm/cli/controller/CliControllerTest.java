@@ -60,7 +60,7 @@ final class CliControllerTest {
   @Test
   void runsAHelloWorldSourceFile() throws IOException {
     Path source = temporaryDirectory.resolve("hello.norm");
-    Files.writeString(source, "void main() { print(\"Hello from Norm\") }");
+    Files.writeString(source, "Void main() { printLine(\"Hello from Norm\") }");
 
     Result result = run("run", source.toString());
 
@@ -75,10 +75,10 @@ final class CliControllerTest {
     Path math = Files.createDirectories(temporaryDirectory.resolve("src/sample/math"));
     Path entry = app.resolve("Main.norm");
     Files.writeString(
-        entry, "package sample.app import sample.math.twice void main() { print(twice(7)) }");
+        entry, "package sample.app import sample.math.twice Void main() { printLine(twice(7)) }");
     Files.writeString(
         math.resolve("Numbers.norm"),
-        "package sample.math public int twice(int value) { return value * 2 }");
+        "package sample.math public Integer twice(Integer value) { return value * 2 }");
     Files.writeString(
         temporaryDirectory.resolve("src/module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
@@ -95,8 +95,8 @@ final class CliControllerTest {
     Path source = temporaryDirectory.resolve("math.norm");
     Files.writeString(
         source,
-        "import std.math.clamp void main() { "
-            + "print(clamp(value: 12, minimum: 0, maximum: 9)) }");
+        "import std.math.clamp Void main() { "
+            + "printLine(clamp(value: 12, minimum: 0, maximum: 9)) }");
 
     Result result = run("run", source.toString());
 
@@ -108,7 +108,7 @@ final class CliControllerTest {
   @Test
   void rendersCompilerDiagnosticsForInvalidPrograms() throws IOException {
     Path source = temporaryDirectory.resolve("invalid.norm");
-    Files.writeString(source, "void main() { missing(\"value\") }");
+    Files.writeString(source, "Void main() { missing(\"value\") }");
 
     Result result = run("run", source.toString());
 
@@ -121,7 +121,7 @@ final class CliControllerTest {
   @Test
   void rendersGuestRuntimeErrors() throws IOException {
     Path source = temporaryDirectory.resolve("runtime-error.norm");
-    Files.writeString(source, "void main() {\n  print(1 / 0)\n}");
+    Files.writeString(source, "Void main() {\n  printLine(1 / 0)\n}");
 
     Result result = run("run", source.toString());
 

@@ -1,7 +1,8 @@
 package dev.w0fv1.norm.builtin;
 
 public enum IntrinsicId {
-  PRINT,
+  PRINT_LINE,
+  EXPECTED_OUTPUT_LINE,
   RANGE_CONSTRUCT,
   ARRAY_CONSTRUCT,
   LIST_CONSTRUCT,

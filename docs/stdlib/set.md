@@ -6,7 +6,7 @@ Set 保存不重复的值，唯一性由 T 的 equality 与 hash 共同决定。
 Set<String> permissions = Set<String>()
 permissions.add("orders.read")
 
-bool allowed = permissions.contains("orders.read")
+Boolean allowed = permissions.contains("orders.read")
 ```
 
 `add` 返回是否实际插入新元素，`remove` 返回是否找到并移除元素。value 元素按结构去重；class 元素按对象 identity 去重。

@@ -1,19 +1,19 @@
-Pair<List<int>, int> sortAndCount(List<int> values) {
-  if values.size() <= 1 { return Pair<List<int>, int>(first: values, second: 0) }
-  int middle = values.size() / 2
-  List<int> leftInput = List<int>()
-  List<int> rightInput = List<int>()
+Pair<List<Integer>, Integer> sortAndCount(List<Integer> values) {
+  if values.size() <= 1 { return Pair<List<Integer>, Integer>(first: values, second: 0) }
+  Integer middle = values.size() / 2
+  List<Integer> leftInput = List<Integer>()
+  List<Integer> rightInput = List<Integer>()
   for index : range(start: 0, end: values.size()) {
     if index < middle { leftInput.add(values[index]) } else { rightInput.add(values[index]) }
   }
-  Pair<List<int>, int> leftResult = sortAndCount(leftInput)
-  Pair<List<int>, int> rightResult = sortAndCount(rightInput)
-  List<int> left = leftResult.first
-  List<int> right = rightResult.first
-  int count = leftResult.second + rightResult.second
-  List<int> merged = List<int>()
-  int i = 0
-  int j = 0
+  Pair<List<Integer>, Integer> leftResult = sortAndCount(leftInput)
+  Pair<List<Integer>, Integer> rightResult = sortAndCount(rightInput)
+  List<Integer> left = leftResult.first
+  List<Integer> right = rightResult.first
+  Integer count = leftResult.second + rightResult.second
+  List<Integer> merged = List<Integer>()
+  Integer i = 0
+  Integer j = 0
   for step : range(start: 0, end: left.size() + right.size()) {
     if i >= left.size() {
       merged.add(right[j])
@@ -27,22 +27,19 @@ Pair<List<int>, int> sortAndCount(List<int> values) {
       j = j + 1
     }
   }
-  return Pair<List<int>, int>(first: merged, second: count)
+  return Pair<List<Integer>, Integer>(first: merged, second: count)
 }
 
-int inversions(Array<int> input) {
-  List<int> values = List<int>()
-  for int value : input { values.add(value) }
-  Pair<List<int>, int> result = sortAndCount(values)
+Integer inversions(Array<Integer> input) {
+  List<Integer> values = List<Integer>()
+  for Integer value : input { values.add(value) }
+  Pair<List<Integer>, Integer> result = sortAndCount(values)
   return result.second
 }
 
-void main() {
-  print(inversions([2, 4, 1, 3, 5]))
-  print(inversions([1, 2, 3, 4]))
-}
-
-private void expectedOutput() {
-  print("3")
-  print("0")
+Void main() {
+  printLine(inversions([2, 4, 1, 3, 5]))
+  printLine(inversions([1, 2, 3, 4]))
+  expectedOutputLine("3")
+  expectedOutputLine("0")
 }

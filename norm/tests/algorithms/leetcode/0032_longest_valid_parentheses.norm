@@ -1,0 +1,24 @@
+Integer longestValidParentheses(Array<Integer> text) {
+  Stack<Integer> positions = Stack<Integer>()
+  positions.push(-1)
+  Integer best = 0
+  for index : range(start: 0, end: text.size()) {
+    if text[index] == 1 {
+      positions.push(index)
+    } else {
+      positions.pop()
+      if positions.isEmpty() {
+        positions.push(index)
+      } else {
+        Integer length = index - positions.peek()
+        if length > best { best = length }
+      }
+    }
+  }
+  return best
+}
+
+Void main() {
+  printLine(longestValidParentheses([1, -1, 1, 1, -1, -1]))
+  expectedOutputLine("6")
+}

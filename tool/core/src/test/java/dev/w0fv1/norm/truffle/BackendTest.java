@@ -30,7 +30,8 @@ final class BackendTest {
     var compilation =
         new Compiler()
             .compile(
-                SourceFile.of(Path.of("hello.norm"), "void main() { print(\"Hello from Norm\") }"));
+                SourceFile.of(
+                    Path.of("hello.norm"), "Void main() { printLine(\"Hello from Norm\") }"));
     var output = new StringWriter();
 
     new ProgramRunner().run(compilation.program().orElseThrow(), new PrintWriter(output));
@@ -43,7 +44,7 @@ final class BackendTest {
     var output = new ByteArrayOutputStream();
 
     try (Context context = Context.newBuilder("norm").out(output).build()) {
-      context.eval("norm", "void main() { print(\"Hello from Polyglot\") }");
+      context.eval("norm", "Void main() { printLine(\"Hello from Polyglot\") }");
     }
 
     assertEquals(
@@ -56,7 +57,7 @@ final class BackendTest {
     Source source =
         Source.newBuilder(
                 "norm",
-                "int fail() { return 1 / 0 }\nvoid main() { print(fail()) }",
+                "Integer fail() { return 1 / 0 }\nVoid main() { printLine(fail()) }",
                 "polyglot-runtime-error.norm")
             .uri(uri)
             .build();

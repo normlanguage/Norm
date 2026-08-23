@@ -3,11 +3,11 @@
 Array 是固定长度、可按索引更新的同类型 value 容器。长度在构造后不变；需要增删元素时使用 List。
 
 ```norm
-Array<int> scores = Array<int>(values: [80, 92, 75])
+Array<Integer> scores = Array<Integer>(values: [80, 92, 75])
 scores[1] = 95
 
-int count = scores.size()
-int first = scores[0]
+Integer count = scores.size()
+Integer first = scores[0]
 ```
 
 ## 构造
@@ -15,7 +15,7 @@ int first = scores[0]
 ```norm
 Array<String> names = Array<String>(
     size: 3,
-    initialize: String(int index) {
+    initialize: String(Integer index) {
         return "item-${index}"
     }
 )

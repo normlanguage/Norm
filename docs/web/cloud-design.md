@@ -9,7 +9,7 @@
 ```norm
 interface ObjectStore {
     Result<Bytes, StorageError> get(String bucket, String key)
-    Result<void, StorageError> put(String bucket, String key, Bytes value)
+    Result<Void, StorageError> put(String bucket, String key, Bytes value)
 }
 ```
 

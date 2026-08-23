@@ -1,8 +1,5 @@
-void main() {
-  int value = 0
-  if value < 0 { print("negative") } else if value == 0 { print("zero") } else { print("positive") }
-}
-
-private void expectedOutput() {
-  print("zero")
+Void main() {
+  Integer value = 0
+  if value < 0 { printLine("negative") } else if value == 0 { printLine("zero") } else { printLine("positive") }
+  expectedOutputLine("zero")
 }

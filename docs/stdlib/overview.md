@@ -25,13 +25,13 @@
 ## 集合示例
 
 ```norm
-List<int> first = List<int>(values: [1, 2, 3])
-List<int> second = first
+List<Integer> first = List<Integer>(values: [1, 2, 3])
+List<Integer> second = first
 second.add(value: 4)
 // first 仍为 [1, 2, 3]
 ```
 
-运行时可以使用写时复制优化，但可观察行为保持独立。确实需要共享同一集合存储位置时使用 `ref<List<int>>`。
+运行时可以使用写时复制优化，但可观察行为保持独立。确实需要共享同一集合存储位置时使用 `ref<List<Integer>>`。
 
 ## 实现策略
 

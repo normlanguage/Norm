@@ -1,0 +1,63 @@
+List<List<Integer>> generateMatrix(Integer size) {
+  List<List<Integer>> matrix = List<List<Integer>>()
+  for row : range(start: 0, end: size) {
+    List<Integer> values = List<Integer>()
+    for column : range(start: 0, end: size) { values.add(0) }
+    matrix.add(values)
+  }
+  Integer value = 1
+  Integer top = 0
+  Integer bottom = size - 1
+  Integer left = 0
+  Integer right = size - 1
+  for layer : range(start: 0, end: size) {
+    if top > bottom { break }
+    List<Integer> topRow = matrix[top]
+    for column : range(start: left, end: right + 1) {
+      topRow[column] = value
+      value = value + 1
+    }
+    matrix[top] = topRow
+    top = top + 1
+    for row : range(start: top, end: bottom + 1) {
+      List<Integer> current = matrix[row]
+      current[right] = value
+      matrix[row] = current
+      value = value + 1
+    }
+    right = right - 1
+    if top <= bottom {
+      List<Integer> bottomRow = matrix[bottom]
+      for offset : range(start: 0, end: right - left + 1) {
+        bottomRow[right - offset] = value
+        value = value + 1
+      }
+      matrix[bottom] = bottomRow
+      bottom = bottom - 1
+    }
+    if left <= right {
+      for offset : range(start: 0, end: bottom - top + 1) {
+        Integer row = bottom - offset
+        List<Integer> current = matrix[row]
+        current[left] = value
+        matrix[row] = current
+        value = value + 1
+      }
+      left = left + 1
+    }
+  }
+  return matrix
+}
+
+Void main() {
+  for List<Integer> row : generateMatrix(3) { for Integer value : row { printLine(value) } }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("8")
+  expectedOutputLine("9")
+  expectedOutputLine("4")
+  expectedOutputLine("7")
+  expectedOutputLine("6")
+  expectedOutputLine("5")
+}

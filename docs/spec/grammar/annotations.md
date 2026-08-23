@@ -9,7 +9,7 @@ annotation Deprecated {
 }
 
 @Deprecated(message: "use parse", replacement: "parse")
-int parseLegacy(String text) {
+Integer parseLegacy(String text) {
     return parse(text: text)
 }
 ```

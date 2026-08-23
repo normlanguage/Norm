@@ -1,0 +1,22 @@
+Integer minPathSum(List<Array<Integer>> grid) {
+  List<Integer> cost = List<Integer>()
+  for column : range(start: 0, end: grid[0].size()) { cost.add(999999) }
+  cost[0] = 0
+  for row : range(start: 0, end: grid.size()) {
+    for column : range(start: 0, end: grid[0].size()) {
+      Integer previous = cost[column]
+      if column > 0 && cost[column - 1] < previous { previous = cost[column - 1] }
+      cost[column] = previous + grid[row][column]
+    }
+  }
+  return cost[cost.size() - 1]
+}
+
+Void main() {
+  List<Array<Integer>> grid = List<Array<Integer>>()
+  grid.add([1,3,1])
+  grid.add([1,5,1])
+  grid.add([4,2,1])
+  printLine(minPathSum(grid))
+  expectedOutputLine("7")
+}

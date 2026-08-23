@@ -1,12 +1,9 @@
-void main() {
-  List<int> values = List<int>()
+Void main() {
+  List<Integer> values = List<Integer>()
   values.add(3)
   values.add(8)
-  print(values.size())
-  print(values.get(1))
-}
-
-private void expectedOutput() {
-  print("2")
-  print("8")
+  printLine(values.size())
+  printLine(values.get(1))
+  expectedOutputLine("2")
+  expectedOutputLine("8")
 }

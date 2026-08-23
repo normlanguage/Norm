@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionParams;
@@ -47,7 +49,7 @@ final class LanguageServerTest {
         .didOpen(
             new DidOpenTextDocumentParams(
                 new TextDocumentItem(
-                    "file:///invalid.norm", "norm", 1, "void main() { missing(1) }")));
+                    "file:///invalid.norm", "norm", 1, "Void main() { missing(1) }")));
 
     assertNotNull(client.diagnostics);
     assertEquals(
@@ -55,11 +57,42 @@ final class LanguageServerTest {
   }
 
   @Test
+  void keepsStandaloneOpenDocumentsInSeparateCompilationSessions() throws Exception {
+    Path first = temporaryDirectory.resolve("First.norm");
+    Path second = temporaryDirectory.resolve("Second.norm");
+    String source = "Void main() {}";
+    Files.writeString(first, source);
+    Files.writeString(second, source);
+    String firstUri = first.toUri().toString();
+    String secondUri = second.toUri().toString();
+    LanguageServer server = new LanguageServer();
+    RecordingClient client = new RecordingClient();
+    server.connect(client);
+
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(firstUri, "norm", 1, source)));
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(secondUri, "norm", 1, source)));
+    server
+        .getWorkspaceService()
+        .didChangeWatchedFiles(
+            new DidChangeWatchedFilesParams(
+                List.of(
+                    new FileEvent(firstUri, FileChangeType.Changed),
+                    new FileEvent(secondUri, FileChangeType.Changed))));
+
+    assertTrue(client.diagnosticsByUri.get(firstUri).getDiagnostics().isEmpty());
+    assertTrue(client.diagnosticsByUri.get(secondUri).getDiagnostics().isEmpty());
+  }
+
+  @Test
   void completesMembersForTheDeclaredContainerType() throws Exception {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
     String uri = "file:///completion.norm";
-    String text = "void main() { List<int> values = List<int>() values. }";
+    String text = "Void main() { List<Integer> values = List<Integer>() values. }";
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
@@ -79,7 +112,7 @@ final class LanguageServerTest {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
     String uri = "file:///signature.norm";
-    String text = "void consume(String value, int count) {} void main() { consume(";
+    String text = "Void consume(String value, Integer count) {} Void main() { consume(";
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
@@ -93,7 +126,7 @@ final class LanguageServerTest {
             .get();
 
     assertEquals(
-        "void consume(String value, int count)", help.getSignatures().getFirst().getLabel());
+        "Void consume(String value, Integer count)", help.getSignatures().getFirst().getLabel());
     assertEquals(0, help.getActiveParameter());
     assertEquals(
         List.of("(", ","),
@@ -110,7 +143,8 @@ final class LanguageServerTest {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
     String uri = "file:///ranked-completion.norm";
-    String text = "void main() { String label = \"ready\" int count = 1 String result = label }";
+    String text =
+        "Void main() { String label = \"ready\" Integer count = 1 String result = label }";
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
@@ -136,7 +170,7 @@ final class LanguageServerTest {
 
     String source = server.standardLibrarySource("stdlib:/std/math/integer.norm").get();
 
-    assertTrue(source.contains("public int clamp"));
+    assertTrue(source.contains("public Integer clamp"));
   }
 
   @Test
@@ -149,7 +183,7 @@ final class LanguageServerTest {
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, source)));
-    Position position = new Position(7, "public int ".length());
+    Position position = new Position(7, "public Integer ".length());
 
     var hover =
         server
@@ -164,7 +198,7 @@ final class LanguageServerTest {
 
     assertTrue(client.diagnostics.getDiagnostics().isEmpty());
     assertNotNull(hover);
-    assertTrue(hover.getContents().getRight().getValue().contains("int max"));
+    assertTrue(hover.getContents().getRight().getValue().contains("Integer max"));
     assertNull(rename);
   }
 
@@ -173,7 +207,7 @@ final class LanguageServerTest {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
     String uri = "untitled:stdlib-navigation";
-    String text = "import std.math.max void main() { print(max(left: 1, right: 2)) }";
+    String text = "import std.math.max Void main() { printLine(max(left: 1, right: 2)) }";
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
@@ -201,7 +235,7 @@ final class LanguageServerTest {
         .didOpen(
             new DidOpenTextDocumentParams(
                 new TextDocumentItem(
-                    "untitled:Untitled-1", "norm", 1, "void main() { missing(1) }")));
+                    "untitled:Untitled-1", "norm", 1, "Void main() { missing(1) }")));
 
     assertNotNull(client.diagnostics);
     assertEquals(
@@ -254,7 +288,7 @@ final class LanguageServerTest {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
     String uri = "file:///navigation.norm";
-    String text = "void main() { int value = 1 print(value) }";
+    String text = "Void main() { Integer value = 1 printLine(value) }";
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
@@ -300,10 +334,10 @@ final class LanguageServerTest {
         "package sample.app\n\n"
             + "import sample.util.Box\n"
             + "import sample.util.identity\n\n"
-            + "void main() {\n"
-            + "  Box<List<int>> box = Box<List<int>>(value: List<int>())\n"
+            + "Void main() {\n"
+            + "  Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>())\n"
             + "  box.value.add(9)\n"
-            + "  print(identity(value: box.value[0]))\n"
+            + "  printLine(identity(value: box.value[0]))\n"
             + "}\n";
     Files.writeString(entry, text);
     String uri = entry.toUri().toString();
@@ -317,11 +351,11 @@ final class LanguageServerTest {
         .getTextDocumentService()
         .didOpen(
             new DidOpenTextDocumentParams(
-                new TextDocumentItem("untitled:project-peer", "norm", 1, "void main() {}")));
+                new TextDocumentItem("untitled:project-peer", "norm", 1, "Void main() {}")));
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
-    Position position = new Position(8, 8);
+    Position position = positionOfLast(text, "identity");
     TextDocumentIdentifier document = new TextDocumentIdentifier(uri);
 
     var definition =
@@ -442,7 +476,7 @@ final class LanguageServerTest {
   @Test
   void completesExportedSymbolsWithImportEdits() throws Exception {
     ProjectFixture fixture = projectFixture();
-    String text = "package sample.app\n\nvoid main() { iden }\n";
+    String text = "package sample.app\n\nVoid main() { iden }\n";
     Files.writeString(fixture.entry(), text);
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
@@ -453,7 +487,7 @@ final class LanguageServerTest {
                 new TextDocumentItem(fixture.entryUri(), "norm", 1, text)));
     CompletionParams params = new CompletionParams();
     params.setTextDocument(new TextDocumentIdentifier(fixture.entryUri()));
-    params.setPosition(new Position(2, "void main() { iden".length()));
+    params.setPosition(new Position(2, "Void main() { iden".length()));
 
     CompletionItem identity =
         server.getTextDocumentService().completion(params).get().getLeft().stream()
@@ -467,16 +501,16 @@ final class LanguageServerTest {
         identity.getAdditionalTextEdits().getFirst().getNewText());
     var primaryEdit = identity.getTextEdit().getLeft();
     assertEquals("identity(${1:value})", primaryEdit.getNewText());
-    assertEquals(new Position(2, "void main() { ".length()), primaryEdit.getRange().getStart());
-    assertEquals(new Position(2, "void main() { iden".length()), primaryEdit.getRange().getEnd());
+    assertEquals(new Position(2, "Void main() { ".length()), primaryEdit.getRange().getStart());
+    assertEquals(new Position(2, "Void main() { iden".length()), primaryEdit.getRange().getEnd());
   }
 
   @Test
   void completesExpectedValuesInIncompleteProjectCalls() throws Exception {
     ProjectFixture fixture = projectFixture();
     String body =
-        "void consume(String value, int count) {} void main() { "
-            + "String label = \"ready\" int count = 1 consume(";
+        "Void consume(String value, Integer count) {} Void main() { "
+            + "String label = \"ready\" Integer count = 1 consume(";
     String text = "package sample.app\n\n" + body;
     Files.writeString(fixture.entry(), text);
     LanguageServer server = new LanguageServer();
@@ -512,7 +546,7 @@ final class LanguageServerTest {
         .didOpen(
             new DidOpenTextDocumentParams(
                 new TextDocumentItem(fixture.entryUri(), "norm", 1, entryText)));
-    Position use = new Position(5, 8);
+    Position use = positionOfLast(entryText, "localIdentity");
 
     var definition =
         server
@@ -547,7 +581,7 @@ final class LanguageServerTest {
     String entryText =
         "package sample.app\n\n"
             + "import sample.util.identity\n\n"
-            + "void main() {\n  print(identity(1))\n}\n";
+            + "Void main() {\n  printLine(identity(1))\n}\n";
     Files.writeString(library, libraryText);
     Files.writeString(entry, entryText);
     return new ProjectFixture(
@@ -566,9 +600,26 @@ final class LanguageServerTest {
         .getTextDocumentService()
         .definition(
             new DefinitionParams(
-                new TextDocumentIdentifier(fixture.entryUri()), new Position(5, 8)))
+                new TextDocumentIdentifier(fixture.entryUri()),
+                positionOfLast(fixture.entryText(), "identity")))
         .get()
         .getLeft();
+  }
+
+  private static Position positionOfLast(String source, String symbol) {
+    int offset = source.lastIndexOf(symbol);
+    if (offset < 0) {
+      throw new IllegalArgumentException("symbol is absent from source: " + symbol);
+    }
+    int line = 0;
+    int lineStart = 0;
+    for (int index = 0; index < offset; index++) {
+      if (source.charAt(index) == '\n') {
+        line++;
+        lineStart = index + 1;
+      }
+    }
+    return new Position(line, offset - lineStart);
   }
 
   private record ProjectFixture(
@@ -582,6 +633,7 @@ final class LanguageServerTest {
 
   private static final class RecordingClient implements LanguageClient {
     private PublishDiagnosticsParams diagnostics;
+    private final Map<String, PublishDiagnosticsParams> diagnosticsByUri = new LinkedHashMap<>();
 
     @Override
     public void telemetryEvent(Object object) {}
@@ -589,6 +641,7 @@ final class LanguageServerTest {
     @Override
     public void publishDiagnostics(PublishDiagnosticsParams diagnostics) {
       this.diagnostics = diagnostics;
+      diagnosticsByUri.put(diagnostics.getUri(), diagnostics);
     }
 
     @Override

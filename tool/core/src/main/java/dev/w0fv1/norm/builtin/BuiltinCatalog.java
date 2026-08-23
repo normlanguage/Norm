@@ -175,9 +175,9 @@ public final class BuiltinCatalog {
   private static BuiltinCatalog create() {
     Map<String, TypeDefinition> types = new LinkedHashMap<>();
     Map<String, GlobalDefinition> globals = new LinkedHashMap<>();
-    SemanticType intType = declared("int");
-    SemanticType boolType = declared("bool");
-    SemanticType stringType = declared("String");
+    SemanticType integerType = SemanticType.INTEGER;
+    SemanticType booleanType = SemanticType.BOOLEAN;
+    SemanticType stringType = SemanticType.STRING;
     SemanticType rangeType = declared("Range");
     SemanticType builderType = declared("StringBuilder");
     SemanticType listT = parameter("List", "T");
@@ -190,16 +190,16 @@ public final class BuiltinCatalog {
     SemanticType pairA = parameter("Pair", "A");
     SemanticType pairB = parameter("Pair", "B");
 
-    addType(types, type("int", RuntimeShape.INT));
-    addType(types, type("bool", RuntimeShape.BOOL));
-    addType(types, type("void", RuntimeShape.VOID));
+    addType(types, type(integerType.name(), RuntimeShape.INT));
+    addType(types, type(booleanType.name(), RuntimeShape.BOOL));
+    addType(types, type(SemanticType.VOID.name(), RuntimeShape.VOID));
     addType(
         types,
-        type("String", RuntimeShape.STRING)
+        type(stringType.name(), RuntimeShape.STRING)
             .members(
-                method("String", "byteSize", intType, IntrinsicId.STRING_BYTE_SIZE),
-                method("String", "codePointSize", intType, IntrinsicId.STRING_CODE_POINT_SIZE),
-                method("String", "graphemeSize", intType, IntrinsicId.STRING_GRAPHEME_SIZE)));
+                method("String", "byteSize", integerType, IntrinsicId.STRING_BYTE_SIZE),
+                method("String", "codePointSize", integerType, IntrinsicId.STRING_CODE_POINT_SIZE),
+                method("String", "graphemeSize", integerType, IntrinsicId.STRING_GRAPHEME_SIZE)));
     addType(
         types,
         type("Array", RuntimeShape.ARRAY, "T")
@@ -207,11 +207,11 @@ public final class BuiltinCatalog {
             .iterable(parameter("Array", "T"), IntrinsicId.ARRAY_ITERATOR)
             .index(
                 IndexKind.INTEGER,
-                intType,
+                integerType,
                 parameter("Array", "T"),
                 IntrinsicId.ARRAY_INDEX_READ,
                 IntrinsicId.ARRAY_INDEX_WRITE)
-            .members(method("Array", "size", intType, IntrinsicId.SIZE)));
+            .members(method("Array", "size", integerType, IntrinsicId.SIZE)));
     addType(
         types,
         type("List", RuntimeShape.LIST, "T")
@@ -219,7 +219,7 @@ public final class BuiltinCatalog {
             .iterable(listT, IntrinsicId.LIST_ITERATOR)
             .index(
                 IndexKind.INTEGER,
-                intType,
+                integerType,
                 listT,
                 IntrinsicId.LIST_INDEX_READ,
                 IntrinsicId.LIST_INDEX_WRITE)
@@ -230,15 +230,20 @@ public final class BuiltinCatalog {
                     SemanticType.VOID,
                     IntrinsicId.LIST_ADD,
                     parameterInfo("value", listT)),
-                method("List", "get", listT, IntrinsicId.LIST_GET, parameterInfo("index", intType)),
+                method(
+                    "List",
+                    "get",
+                    listT,
+                    IntrinsicId.LIST_GET,
+                    parameterInfo("index", integerType)),
                 method(
                     "List",
                     "removeAt",
                     listT,
                     IntrinsicId.LIST_REMOVE_AT,
-                    parameterInfo("index", intType)),
-                method("List", "size", intType, IntrinsicId.SIZE),
-                method("List", "isEmpty", boolType, IntrinsicId.IS_EMPTY)));
+                    parameterInfo("index", integerType)),
+                method("List", "size", integerType, IntrinsicId.SIZE),
+                method("List", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
     addType(
         types,
         type("Map", RuntimeShape.MAP, "K", "V")
@@ -264,34 +269,39 @@ public final class BuiltinCatalog {
                 method(
                     "Map",
                     "containsKey",
-                    boolType,
+                    booleanType,
                     IntrinsicId.MAP_CONTAINS_KEY,
                     parameterInfo("key", mapK)),
                 method(
-                    "Map", "remove", boolType, IntrinsicId.MAP_REMOVE, parameterInfo("key", mapK)),
-                method("Map", "size", intType, IntrinsicId.SIZE),
-                method("Map", "isEmpty", boolType, IntrinsicId.IS_EMPTY)));
+                    "Map",
+                    "remove",
+                    booleanType,
+                    IntrinsicId.MAP_REMOVE,
+                    parameterInfo("key", mapK)),
+                method("Map", "size", integerType, IntrinsicId.SIZE),
+                method("Map", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
     addType(
         types,
         type("Set", RuntimeShape.SET, "T")
             .constructor(IntrinsicId.SET_CONSTRUCT)
             .iterable(setT, IntrinsicId.SET_ITERATOR)
             .members(
-                method("Set", "add", boolType, IntrinsicId.SET_ADD, parameterInfo("value", setT)),
+                method(
+                    "Set", "add", booleanType, IntrinsicId.SET_ADD, parameterInfo("value", setT)),
                 method(
                     "Set",
                     "contains",
-                    boolType,
+                    booleanType,
                     IntrinsicId.SET_CONTAINS,
                     parameterInfo("value", setT)),
                 method(
                     "Set",
                     "remove",
-                    boolType,
+                    booleanType,
                     IntrinsicId.SET_REMOVE,
                     parameterInfo("value", setT)),
-                method("Set", "size", intType, IntrinsicId.SIZE),
-                method("Set", "isEmpty", boolType, IntrinsicId.IS_EMPTY)));
+                method("Set", "size", integerType, IntrinsicId.SIZE),
+                method("Set", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
     addType(
         types,
         type("Stack", RuntimeShape.STACK, "T")
@@ -306,8 +316,8 @@ public final class BuiltinCatalog {
                     parameterInfo("value", stackT)),
                 method("Stack", "pop", stackT, IntrinsicId.STACK_POP),
                 method("Stack", "peek", stackT, IntrinsicId.STACK_PEEK),
-                method("Stack", "size", intType, IntrinsicId.SIZE),
-                method("Stack", "isEmpty", boolType, IntrinsicId.IS_EMPTY)));
+                method("Stack", "size", integerType, IntrinsicId.SIZE),
+                method("Stack", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
     addType(
         types,
         type("Queue", RuntimeShape.QUEUE, "T")
@@ -322,8 +332,8 @@ public final class BuiltinCatalog {
                     parameterInfo("value", queueT)),
                 method("Queue", "remove", queueT, IntrinsicId.QUEUE_REMOVE),
                 method("Queue", "peek", queueT, IntrinsicId.QUEUE_PEEK),
-                method("Queue", "size", intType, IntrinsicId.SIZE),
-                method("Queue", "isEmpty", boolType, IntrinsicId.IS_EMPTY)));
+                method("Queue", "size", integerType, IntrinsicId.SIZE),
+                method("Queue", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
     addType(
         types,
         type("Deque", RuntimeShape.DEQUE, "T")
@@ -346,8 +356,8 @@ public final class BuiltinCatalog {
                 method("Deque", "removeLast", dequeT, IntrinsicId.DEQUE_REMOVE_LAST),
                 method("Deque", "peekFirst", dequeT, IntrinsicId.DEQUE_PEEK_FIRST),
                 method("Deque", "peekLast", dequeT, IntrinsicId.DEQUE_PEEK_LAST),
-                method("Deque", "size", intType, IntrinsicId.SIZE),
-                method("Deque", "isEmpty", boolType, IntrinsicId.IS_EMPTY)));
+                method("Deque", "size", integerType, IntrinsicId.SIZE),
+                method("Deque", "isEmpty", booleanType, IntrinsicId.IS_EMPTY)));
     addType(
         types,
         type("Pair", RuntimeShape.PAIR, "A", "B")
@@ -373,10 +383,10 @@ public final class BuiltinCatalog {
         type("Range", RuntimeShape.RANGE)
             .constructor(
                 IntrinsicId.RANGE_CONSTRUCT,
-                parameterInfo("start", intType),
-                parameterInfo("end", intType))
-            .iterable(intType, IntrinsicId.RANGE_ITERATOR)
-            .members(method("Range", "size", intType, IntrinsicId.SIZE)));
+                parameterInfo("start", integerType),
+                parameterInfo("end", integerType))
+            .iterable(integerType, IntrinsicId.RANGE_ITERATOR)
+            .members(method("Range", "size", integerType, IntrinsicId.SIZE)));
     addType(
         types,
         type("StringBuilder", RuntimeShape.STRING_BUILDER)
@@ -389,14 +399,21 @@ public final class BuiltinCatalog {
                     IntrinsicId.BUILDER_APPEND,
                     parameterInfo("value", SemanticType.DYNAMIC)),
                 method("StringBuilder", "toString", stringType, IntrinsicId.BUILDER_TO_STRING),
-                method("StringBuilder", "size", intType, IntrinsicId.SIZE)));
+                method("StringBuilder", "size", integerType, IntrinsicId.SIZE)));
 
     addGlobal(
         globals,
         global(
-            "print",
+            "printLine",
             SemanticType.VOID,
-            IntrinsicId.PRINT,
+            IntrinsicId.PRINT_LINE,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "expectedOutputLine",
+            SemanticType.VOID,
+            IntrinsicId.EXPECTED_OUTPUT_LINE,
             parameterInfo("value", SemanticType.DYNAMIC)));
     addGlobal(
         globals,
@@ -404,8 +421,8 @@ public final class BuiltinCatalog {
             "range",
             rangeType,
             IntrinsicId.RANGE_CONSTRUCT,
-            parameterInfo("start", intType),
-            parameterInfo("end", intType)));
+            parameterInfo("start", integerType),
+            parameterInfo("end", integerType)));
     return new BuiltinCatalog(types, globals);
   }
 
@@ -538,7 +555,8 @@ public final class BuiltinCatalog {
       case "Range" -> "end-exclusive integer range.";
       case "StringBuilder" -> "Mutable builder for efficient string concatenation.";
       case "range" -> "Creates an end-exclusive integer range.";
-      case "print" -> "Writes one value followed by a newline.";
+      case "printLine" -> "Writes one value followed by a newline.";
+      case "expectedOutputLine" -> "Declares one expected output line for a test program.";
       default -> "Norm built-in.";
     };
   }

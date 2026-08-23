@@ -92,7 +92,7 @@ Counter copied = counter.copy()
 Reflection:
 
 ```norm
-reflect void beforeFunction(...)
+reflect Void beforeFunction(...)
 ```
 
 These keywords communicate that special behavior exists.
@@ -135,7 +135,7 @@ interface Formattable {
 }
 
 class HexNumber implements Formattable {
-    int value
+    Integer value
 
     String format() {
         return "0x${value}"
@@ -173,10 +173,10 @@ Instead, the compiler performs definite assignment analysis.
 
 ```norm
 class Interval {
-    int start
-    int end
+    Integer start
+    Integer end
 
-    Interval(int start, int end) {
+    Interval(Integer start, Integer end) {
         this.start = start
         this.end = end
     }
@@ -202,9 +202,9 @@ Class represents objects with behavior.
 
 ```norm
 class Counter {
-    int value
+    Integer value
 
-    void increment() {
+    Void increment() {
         value = value + 1
     }
 }
@@ -239,8 +239,8 @@ Value is designed for pure data.
 
 ```norm
 value Point {
-    int x
-    int y
+    Integer x
+    Integer y
 }
 ```
 
@@ -310,15 +310,15 @@ This keeps value flow visible.
 Norm uses for as the main iteration structure.
 
 ```norm
-for int number : numbers {
-    print("${number}")
+for Integer number : numbers {
+    printLine("${number}")
 }
 ```
 
 A for expression must explicitly handle all result paths.
 
 ```norm
-int firstEven = for int number : numbers {
+Integer firstEven = for Integer number : numbers {
     if number % 2 == 0 {
         break number
     }

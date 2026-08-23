@@ -19,11 +19,12 @@ final class ProjectCompilerTest {
   void resolvesExplicitImportsAcrossPackages() {
     SourceFile entry =
         source(
-            "src/app/Main.norm", "package app import math.twice void main() { print(twice(4)) }");
+            "src/app/Main.norm",
+            "package app import math.twice Void main() { printLine(twice(4)) }");
     SourceFile library =
         source(
             "src/math/Numbers.norm",
-            "package math public int twice(int value) { return value * 2 }");
+            "package math public Integer twice(Integer value) { return value * 2 }");
 
     CompilationResult result =
         new Compiler()
@@ -38,12 +39,12 @@ final class ProjectCompilerTest {
     SourceFile entry =
         source(
             "src/check/Main.norm",
-            "package check void main() { print(even(8)) } "
-                + "bool odd(int value) { if value == 0 { return false } return even(value - 1) }");
+            "package check Void main() { printLine(even(8)) } "
+                + "Boolean odd(Integer value) { if value == 0 { return false } return even(value - 1) }");
     SourceFile second =
         source(
             "src/check/Even.norm",
-            "package check bool even(int value) { if value == 0 { return true } return odd(value - 1) }");
+            "package check Boolean even(Integer value) { if value == 0 { return true } return odd(value - 1) }");
 
     CompilationResult result =
         new Compiler().compile(new CompilationRequest(entry.id(), List.of(second, entry)));
@@ -55,11 +56,12 @@ final class ProjectCompilerTest {
   void executesImportedFunctionsFromTheirOwnSourceFile() {
     SourceFile entry =
         source(
-            "src/app/Main.norm", "package app import math.twice void main() { print(twice(6)) }");
+            "src/app/Main.norm",
+            "package app import math.twice Void main() { printLine(twice(6)) }");
     SourceFile library =
         source(
             "src/math/Numbers.norm",
-            "package math public int twice(int value) { return value * 2 }");
+            "package math public Integer twice(Integer value) { return value * 2 }");
     CompilationResult result =
         new Compiler()
             .compile(
@@ -76,9 +78,11 @@ final class ProjectCompilerTest {
     SourceFile entry =
         source(
             "src/app/Main.norm",
-            "package app import math.twice as double void main() { print(double(5)) }");
+            "package app import math.twice as double Void main() { printLine(double(5)) }");
     SourceFile library =
-        source("src/math/Numbers.norm", "package math int twice(int value) { return value * 2 }");
+        source(
+            "src/math/Numbers.norm",
+            "package math Integer twice(Integer value) { return value * 2 }");
     CompilationResult result =
         new Compiler()
             .compile(
@@ -95,7 +99,7 @@ final class ProjectCompilerTest {
     SourceFile entry =
         source(
             "src/app/Main.norm",
-            "package app import util.identity void main() { String value = identity(\"ok\") print(value) }");
+            "package app import util.identity Void main() { String value = identity(\"ok\") printLine(value) }");
     SourceFile library =
         source("src/util/Identity.norm", "package util T identity<T>(T value) { return value }");
     CompilationResult result =
@@ -112,9 +116,10 @@ final class ProjectCompilerTest {
         source(
             "src/app/Main.norm",
             "package app import first.value as left import second.value as right "
-                + "void main() { print(left()) print(right()) }");
-    SourceFile first = source("src/first/Value.norm", "package first int value() { return 1 }");
-    SourceFile second = source("src/second/Value.norm", "package second int value() { return 2 }");
+                + "Void main() { printLine(left()) printLine(right()) }");
+    SourceFile first = source("src/first/Value.norm", "package first Integer value() { return 1 }");
+    SourceFile second =
+        source("src/second/Value.norm", "package second Integer value() { return 2 }");
     CompilationResult result =
         new Compiler()
             .compile(
@@ -130,9 +135,9 @@ final class ProjectCompilerTest {
   @Test
   void rejectsPrivateImports() {
     SourceFile entry =
-        source("src/app/Main.norm", "package app import secrets.hidden void main() { hidden() }");
+        source("src/app/Main.norm", "package app import secrets.hidden Void main() { hidden() }");
     SourceFile library =
-        source("src/secrets/Secret.norm", "package secrets private void hidden() {}");
+        source("src/secrets/Secret.norm", "package secrets private Void hidden() {}");
 
     CompilationResult result =
         new Compiler()
@@ -146,11 +151,12 @@ final class ProjectCompilerTest {
   void rejectsImportsFromFilesNotExportedByTheModule() {
     SourceFile entry =
         source(
-            "src/app/Main.norm", "package app import math.twice void main() { print(twice(4)) }");
+            "src/app/Main.norm",
+            "package app import math.twice Void main() { printLine(twice(4)) }");
     SourceFile library =
         source(
             "src/math/Numbers.norm",
-            "package math public int twice(int value) { return value * 2 }");
+            "package math public Integer twice(Integer value) { return value * 2 }");
 
     CompilationResult result =
         new Compiler().compile(new CompilationRequest(entry.id(), List.of(entry, library)));
@@ -164,7 +170,7 @@ final class ProjectCompilerTest {
         source(
             "src/app/Main.norm",
             "package app import model.Box as RenamedBox import model.create "
-                + "void main() { RenamedBox<int> box = create(value: 7) print(box.value) }");
+                + "Void main() { RenamedBox<Integer> box = create(value: 7) printLine(box.value) }");
     SourceFile library =
         source(
             "src/model/Box.norm",
@@ -182,7 +188,7 @@ final class ProjectCompilerTest {
   @Test
   void keepsPrivateDeclarationsFileLocalWithinOnePackage() {
     SourceFile entry =
-        source("src/items/Main.norm", "package items void main() { Hidden value = Hidden() }");
+        source("src/items/Main.norm", "package items Void main() { Hidden value = Hidden() }");
     SourceFile library = source("src/items/Hidden.norm", "package items private class Hidden {}");
 
     CompilationResult result =
@@ -197,7 +203,7 @@ final class ProjectCompilerTest {
         source(
             "src/model/Api.norm",
             "package model private class Hidden {} public Hidden reveal() { return Hidden() } "
-                + "void main() {}");
+                + "Void main() {}");
 
     CompilationResult result = new Compiler().compile(source);
 

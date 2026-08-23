@@ -1,9 +1,6 @@
-void main() {
-  int value = 4
+Void main() {
+  Integer value = 4
   value = value + 5
-  print(value)
-}
-
-private void expectedOutput() {
-  print("9")
+  printLine(value)
+  expectedOutputLine("9")
 }

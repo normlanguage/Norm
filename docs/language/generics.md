@@ -19,7 +19,7 @@ class Box<T> {
 使用泛型类型时必须提供类型参数：
 
 ```norm
-Box<int> count = Box<int>(value: 3)
+Box<Integer> count = Box<Integer>(value: 3)
 Box<String> label = Box<String>(value: "ready")
 ```
 
@@ -65,11 +65,11 @@ Norm 不擦除实际类型参数。
 
 ```norm
 List<String>.class
-List<int>.class
+List<Integer>.class
 List<String>.class.T == String.class
 ```
 
-因此 `List<String>` 与 `List<int>` 在运行时具有不同且可查询的类型描述。反射和通用库不需要通过外部 token 重新传递已经存在的类型信息。
+因此 `List<String>` 与 `List<Integer>` 在运行时具有不同且可查询的类型描述。反射和通用库不需要通过外部 token 重新传递已经存在的类型信息。
 
 ## 泛型的边界
 

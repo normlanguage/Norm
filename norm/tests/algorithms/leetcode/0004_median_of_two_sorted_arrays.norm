@@ -1,0 +1,33 @@
+Pair<Integer, Integer> medianOfTwoSortedArrays(Array<Integer> left, Array<Integer> right) {
+  Integer total = left.size() + right.size()
+  Integer target = total / 2
+  Integer i = 0
+  Integer j = 0
+  Integer previous = 0
+  Integer current = 0
+  for position : range(start: 0, end: target + 1) {
+    previous = current
+    if i < left.size() && (j >= right.size() || left[i] <= right[j]) {
+      current = left[i]
+      i = i + 1
+    } else {
+      current = right[j]
+      j = j + 1
+    }
+  }
+  if total % 2 == 1 { return Pair<Integer, Integer>(first: current, second: 1) }
+  return Pair<Integer, Integer>(first: previous + current, second: 2)
+}
+
+Void main() {
+  Pair<Integer, Integer> first = medianOfTwoSortedArrays(left: [1, 3], right: [2])
+  Pair<Integer, Integer> second = medianOfTwoSortedArrays(left: [1, 2], right: [3, 4])
+  printLine(first.first)
+  printLine(first.second)
+  printLine(second.first)
+  printLine(second.second)
+  expectedOutputLine("2")
+  expectedOutputLine("1")
+  expectedOutputLine("5")
+  expectedOutputLine("2")
+}

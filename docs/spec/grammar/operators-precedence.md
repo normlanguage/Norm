@@ -15,8 +15,8 @@ Norm 的运算符具有固定语义，不能由用户重载。下表从高到低
 | 9 | `=` | 右 |
 
 ```norm
-bool accepted = ready && count > 0
-int total = base + quantity * price
+Boolean accepted = ready && count > 0
+Integer total = base + quantity * price
 ```
 
 比较运算不能连续书写：

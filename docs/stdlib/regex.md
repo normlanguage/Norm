@@ -13,7 +13,7 @@ Result<Regex, RegexError> compiled = Regex.compile(
 
 ```norm
 Option<Match> match = regex.find(input: text)
-bool valid = regex.matchesEntire(input: text)
+Boolean valid = regex.matchesEntire(input: text)
 List<String> parts = regex.split(input: text, limit: 10)
 ```
 

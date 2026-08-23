@@ -16,15 +16,15 @@ Config config = Config.empty()
 
 ```norm
 Result<String, ConfigError> host = config.string(key: "server.host")
-Result<int, ConfigError> port = config.int(key: "server.port")
-Result<bool, ConfigError> debug = config.bool(key: "server.debug")
+Result<Integer, ConfigError> port = config.integer(key: "server.port")
+Result<Boolean, ConfigError> debug = config.boolean(key: "server.debug")
 ```
 
 缺失键、格式错误和越界值分别使用 `MissingKey`、`InvalidValue` 与 `OutOfRange` 表达。默认值由调用者显式提供：
 
 ```norm
-int port = switch config.int(key: "server.port") {
-    case Ok(int value) { break value }
+Integer port = switch config.integer(key: "server.port") {
+    case Ok(Integer value) { break value }
     case Err(MissingKey) { break 8080 }
     case Err(ConfigError error) { throw InvalidConfiguration(error: error) }
 }
@@ -33,4 +33,3 @@ int port = switch config.int(key: "server.port") {
 ## 解码结构
 
 结构化解码通过显式 `ConfigDecoder<T>` 完成。运行时反射可以辅助实现 decoder，但库不能仅凭字段名称改变公开配置契约。敏感值在日志和错误消息中必须被遮蔽。
-

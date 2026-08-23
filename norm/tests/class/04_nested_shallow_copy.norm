@@ -1,28 +1,25 @@
 class Box {
-  int value
+  Integer value
 
-  void set(int next) {
+  Void set(Integer next) {
     value = next
   }
 }
 
 class Holder {
   Box box
-  int version
+  Integer version
 }
 
-void main() {
+Void main() {
   Holder original = Holder(box: Box(value: 3), version: 1)
   Holder copied = original.copy()
   copied.box.set(8)
   copied.version = 2
-  print(original.box.value)
-  print(original.version)
-  print(copied.version)
-}
-
-private void expectedOutput() {
-  print("8")
-  print("1")
-  print("2")
+  printLine(original.box.value)
+  printLine(original.version)
+  printLine(copied.version)
+  expectedOutputLine("8")
+  expectedOutputLine("1")
+  expectedOutputLine("2")
 }

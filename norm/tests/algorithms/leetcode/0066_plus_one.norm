@@ -1,0 +1,20 @@
+List<Integer> plusOne(Array<Integer> digits) {
+  Integer carry = 1
+  for offset : range(start: 0, end: digits.size()) {
+    Integer index = digits.size() - 1 - offset
+    Integer value = digits[index] + carry
+    digits[index] = value % 10
+    carry = value / 10
+  }
+  List<Integer> result = List<Integer>()
+  if carry > 0 { result.add(carry) }
+  for Integer digit : digits { result.add(digit) }
+  return result
+}
+
+Void main() {
+  for Integer digit : plusOne([9,9]) { printLine(digit) }
+  expectedOutputLine("1")
+  expectedOutputLine("0")
+  expectedOutputLine("0")
+}

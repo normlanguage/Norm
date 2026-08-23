@@ -95,11 +95,7 @@ final class TypeReferenceResolver {
   }
 
   private static boolean typeToken(TokenKind kind) {
-    return kind == TokenKind.IDENTIFIER
-        || kind == TokenKind.INT_TYPE
-        || kind == TokenKind.BOOL_TYPE
-        || kind == TokenKind.STRING_TYPE
-        || kind == TokenKind.ARRAY_TYPE;
+    return kind == TokenKind.IDENTIFIER;
   }
 
   private static final class Cursor {

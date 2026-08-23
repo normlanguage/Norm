@@ -20,7 +20,7 @@ Result<String, FileError> text = File.readText(
     encoding: TextEncoding.Utf8
 )
 
-Result<void, FileError> saved = File.writeText(
+Result<Void, FileError> saved = File.writeText(
     path: file,
     text: content,
     mode: WriteMode.Replace

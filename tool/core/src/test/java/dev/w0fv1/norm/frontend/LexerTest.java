@@ -13,18 +13,34 @@ import org.junit.jupiter.api.Test;
 
 final class LexerTest {
   @Test
+  void lexesTypeNamesAsIdentifiers() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(
+                SourceFile.of(Path.of("types.norm"), "Integer Boolean String Void Array List"),
+                diagnostics)
+            .lex();
+
+    assertFalse(diagnostics.hasErrors());
+    assertTrue(
+        tokens.stream()
+            .filter(token -> token.kind() != TokenKind.END_OF_FILE)
+            .allMatch(token -> token.kind() == TokenKind.IDENTIFIER));
+  }
+
+  @Test
   void lexesTheHelloWorldSurface() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =
         new Lexer(
-                SourceFile.of(Path.of("hello.norm"), "void main() { print(\"Hello\\nNorm\") }"),
+                SourceFile.of(Path.of("hello.norm"), "Void main() { printLine(\"Hello\\nNorm\") }"),
                 diagnostics)
             .lex();
 
     assertFalse(diagnostics.hasErrors());
     assertEquals(
         List.of(
-            TokenKind.VOID,
+            TokenKind.IDENTIFIER,
             TokenKind.IDENTIFIER,
             TokenKind.LEFT_PAREN,
             TokenKind.RIGHT_PAREN,
@@ -44,12 +60,12 @@ final class LexerTest {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =
         new Lexer(
-                SourceFile.of(Path.of("comments.norm"), "/* outer /* inner */ done */ void"),
+                SourceFile.of(Path.of("comments.norm"), "/* outer /* inner */ done */ Void"),
                 diagnostics)
             .lex();
 
     assertFalse(diagnostics.hasErrors());
-    assertEquals(TokenKind.VOID, tokens.getFirst().kind());
+    assertEquals(TokenKind.IDENTIFIER, tokens.getFirst().kind());
   }
 
   @Test

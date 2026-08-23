@@ -1,0 +1,27 @@
+Integer romanValue(Integer symbol) {
+  if symbol == 1 { return 1 }
+  if symbol == 5 { return 5 }
+  if symbol == 10 { return 10 }
+  if symbol == 50 { return 50 }
+  if symbol == 100 { return 100 }
+  if symbol == 500 { return 500 }
+  return 1000
+}
+
+Integer romanToInt(Array<Integer> symbols) {
+  Integer result = 0
+  for index : range(start: 0, end: symbols.size()) {
+    Integer value = romanValue(symbols[index])
+    if index + 1 < symbols.size() && value < romanValue(symbols[index + 1]) {
+      result = result - value
+    } else {
+      result = result + value
+    }
+  }
+  return result
+}
+
+Void main() {
+  printLine(romanToInt([1000, 100, 1000, 10, 100, 1, 5]))
+  expectedOutputLine("1994")
+}

@@ -27,5 +27,5 @@ T maximum<T extends Comparable<T>>(T left, T right) {
 
 类型位置必须写全部实参，raw type 非法。函数调用可以在约束得到唯一解时省略显式类型实参，否则写 `function<Type>(...)`。
 
-实际类型参数在运行时保留，`List<String>.class` 与 `List<int>.class` 不相同。型变不写在声明上，而由 `? extends T` 与 `? super T` 在使用位置表达。
+实际类型参数在运行时保留，`List<String>.class` 与 `List<Integer>.class` 不相同。型变不写在声明上，而由 `? extends T` 与 `? super T` 在使用位置表达。
 

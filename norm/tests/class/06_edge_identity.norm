@@ -1,29 +1,26 @@
 class Box {
-  int value
+  Integer value
 }
 
 class Holder {
   Box box
 }
 
-void main() {
+Void main() {
   Box original = Box(value: 9223372036854775807)
   Box alias = original
   Box copied = original.copy()
   Holder holder = Holder(box: original)
   Holder holderCopy = holder.copy()
   List<Box> empty = List<Box>()
-  print(alias == original)
-  print(copied == original)
-  print(holderCopy == holder)
-  print(holderCopy.box == holder.box)
-  print(empty.size())
-}
-
-private void expectedOutput() {
-  print("true")
-  print("false")
-  print("false")
-  print("true")
-  print("0")
+  printLine(alias == original)
+  printLine(copied == original)
+  printLine(holderCopy == holder)
+  printLine(holderCopy.box == holder.box)
+  printLine(empty.size())
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+  expectedOutputLine("false")
+  expectedOutputLine("true")
+  expectedOutputLine("0")
 }

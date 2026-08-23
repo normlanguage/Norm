@@ -1,0 +1,30 @@
+class UniquePermutations {
+  Set<List<Integer>> values
+}
+
+Void uniqueFrom(Array<Integer> values, List<Integer> current, Set<Integer> used, UniquePermutations result) {
+  if current.size() == values.size() {
+    result.values.add(current)
+    return
+  }
+  for index : range(start: 0, end: values.size()) {
+    if !used.contains(index) {
+      List<Integer> next = current
+      next.add(values[index])
+      Set<Integer> nextUsed = used
+      nextUsed.add(index)
+      uniqueFrom(values, current: next, used: nextUsed, result)
+    }
+  }
+}
+
+Integer permuteUnique(Array<Integer> values) {
+  UniquePermutations result = UniquePermutations(values: Set<List<Integer>>())
+  uniqueFrom(values, current: List<Integer>(), used: Set<Integer>(), result)
+  return result.values.size()
+}
+
+Void main() {
+  printLine(permuteUnique([1, 1, 2]))
+  expectedOutputLine("3")
+}

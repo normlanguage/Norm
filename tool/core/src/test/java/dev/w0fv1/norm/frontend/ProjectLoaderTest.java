@@ -22,12 +22,13 @@ final class ProjectLoaderTest {
     Path math = Files.createDirectories(root.resolve("sample/math"));
     Path entry = app.resolve("Main.norm");
     Files.writeString(
-        entry, "package sample.app import sample.math.twice void main() { print(twice(4)) }");
+        entry, "package sample.app import sample.math.twice Void main() { printLine(twice(4)) }");
     Files.writeString(
         math.resolve("Numbers.norm"),
-        "package sample.math public int twice(int value) { return helper(value) * 2 }");
+        "package sample.math public Integer twice(Integer value) { return helper(value) * 2 }");
     Files.writeString(
-        math.resolve("Helper.norm"), "package sample.math int helper(int value) { return value }");
+        math.resolve("Helper.norm"),
+        "package sample.math Integer helper(Integer value) { return value }");
     Files.writeString(
         root.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
@@ -45,10 +46,10 @@ final class ProjectLoaderTest {
     Path app = Files.createDirectories(root.resolve("app"));
     Path math = Files.createDirectories(root.resolve("math"));
     Path entry = app.resolve("Main.norm");
-    Files.writeString(entry, "package app import math.twice void main() { print(twice(4)) }");
+    Files.writeString(entry, "package app import math.twice Void main() { printLine(twice(4)) }");
     Files.writeString(
         math.resolve("Numbers.norm"),
-        "package math public int twice(int value) { return value * 2 }");
+        "package math public Integer twice(Integer value) { return value * 2 }");
 
     CompilationRequest request = new ProjectLoader().load(entry);
 
@@ -61,7 +62,7 @@ final class ProjectLoaderTest {
     Path root = Files.createDirectories(temporaryDirectory.resolve("src"));
     Path app = Files.createDirectories(root.resolve("sample/app"));
     Path entry = app.resolve("Main.norm");
-    Files.writeString(entry, "package sample.app void main() {}");
+    Files.writeString(entry, "package sample.app Void main() {}");
     Files.writeString(
         root.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.Missing\"])");
@@ -75,9 +76,9 @@ final class ProjectLoaderTest {
     Path app = Files.createDirectories(root.resolve("sample/app"));
     Path math = Files.createDirectories(root.resolve("sample/math"));
     Path entry = app.resolve("Main.norm");
-    Files.writeString(entry, "package sample.app void main() {}");
+    Files.writeString(entry, "package sample.app Void main() {}");
     Files.writeString(
-        math.resolve("Numbers.norm"), "package sample.text public int value() { return 1 }");
+        math.resolve("Numbers.norm"), "package sample.text public Integer value() { return 1 }");
     Files.writeString(
         root.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
@@ -91,8 +92,8 @@ final class ProjectLoaderTest {
     Path app = Files.createDirectories(root.resolve("sample/app"));
     Path math = Files.createDirectories(root.resolve("sample/math"));
     Path entry = app.resolve("Main.norm");
-    Files.writeString(entry, "package sample.app void main() {}");
-    Files.writeString(math.resolve("Numbers.norm"), "public int value() { return 1 }");
+    Files.writeString(entry, "package sample.app Void main() {}");
+    Files.writeString(math.resolve("Numbers.norm"), "public Integer value() { return 1 }");
     Files.writeString(
         root.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
@@ -107,13 +108,13 @@ final class ProjectLoaderTest {
     Path math = Files.createDirectories(root.resolve("sample/math"));
     Path entry = app.resolve("Main.norm");
     Files.writeString(
-        entry, "package sample.app import sample.math.helper void main() { print(helper(4)) }");
+        entry, "package sample.app import sample.math.helper Void main() { printLine(helper(4)) }");
     Files.writeString(
         math.resolve("Numbers.norm"),
-        "package sample.math public int twice(int value) { return helper(value) * 2 }");
+        "package sample.math public Integer twice(Integer value) { return helper(value) * 2 }");
     Files.writeString(
         math.resolve("Helper.norm"),
-        "package sample.math public int helper(int value) { return value }");
+        "package sample.math public Integer helper(Integer value) { return value }");
     Files.writeString(
         root.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
@@ -128,8 +129,8 @@ final class ProjectLoaderTest {
     Path root = Files.createDirectories(temporaryDirectory.resolve("src"));
     Path app = Files.createDirectories(root.resolve("sample/app"));
     Path entry = app.resolve("Main.norm");
-    Files.writeString(entry, "package sample.app void main() {}");
-    Files.writeString(app.resolve("Script.norm"), "void helper() {}");
+    Files.writeString(entry, "package sample.app Void main() {}");
+    Files.writeString(app.resolve("Script.norm"), "Void helper() {}");
 
     assertThrows(IOException.class, () -> new ProjectLoader().load(entry));
   }
@@ -141,9 +142,9 @@ final class ProjectLoaderTest {
     Path math = Files.createDirectories(root.resolve("sample/math"));
     Path entry = app.resolve("Main.norm");
     Files.writeString(
-        entry, "package sample.app import sample.math.answer void main() { print(answer()) }");
+        entry, "package sample.app import sample.math.answer Void main() { printLine(answer()) }");
     Files.writeString(
-        math.resolve("module.norm"), "package sample.math public int answer() { return 42 }");
+        math.resolve("module.norm"), "package sample.math public Integer answer() { return 42 }");
     Files.writeString(
         root.resolve("module.norm"),
         "Module(name: \"sample\", version: 1, exports: [\"math.module\"])");

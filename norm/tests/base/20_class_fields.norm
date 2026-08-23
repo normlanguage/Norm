@@ -1,9 +1,6 @@
-class Point { int x int y }
-void main() {
+class Point { Integer x Integer y }
+Void main() {
   Point point = Point(x: 2, y: 3)
-  print(point.x + point.y)
-}
-
-private void expectedOutput() {
-  print("5")
+  printLine(point.x + point.y)
+  expectedOutputLine("5")
 }

@@ -63,9 +63,9 @@ final class BoundIrArchitectureTest {
     var source =
         SourceFile.of(
             Path.of("bound.norm"),
-            "class Box { int value void set(int next) { value = next } } "
-                + "int choose(int first, int second) { return first } "
-                + "void main() { Box box = Box(value: 1) box.set(next: choose(second: 2, first: 3)) }");
+            "class Box { Integer value Void set(Integer next) { value = next } } "
+                + "Integer choose(Integer first, Integer second) { return first } "
+                + "Void main() { Box box = Box(value: 1) box.set(next: choose(second: 2, first: 3)) }");
 
     var program = new Compiler().compile(source).program().orElseThrow().boundProgram();
     var box =

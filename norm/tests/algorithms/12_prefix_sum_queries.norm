@@ -1,23 +1,20 @@
-List<int> prefixSums(Array<int> values) {
-  List<int> prefix = List<int>()
+List<Integer> prefixSums(Array<Integer> values) {
+  List<Integer> prefix = List<Integer>()
   prefix.add(0)
-  for int value : values { prefix.add(prefix[prefix.size() - 1] + value) }
+  for Integer value : values { prefix.add(prefix[prefix.size() - 1] + value) }
   return prefix
 }
 
-int rangeSum(List<int> prefix, int start, int end) {
+Integer rangeSum(List<Integer> prefix, Integer start, Integer end) {
   return prefix[end + 1] - prefix[start]
 }
 
-void main() {
-  List<int> prefix = prefixSums([3, 1, 4, 1, 5, 9])
-  print(rangeSum(prefix, start: 0, end: 4))
-  print(rangeSum(prefix, start: 3, end: 5))
-  print(rangeSum(prefix, start: 1, end: 3))
-}
-
-private void expectedOutput() {
-  print("14")
-  print("15")
-  print("6")
+Void main() {
+  List<Integer> prefix = prefixSums([3, 1, 4, 1, 5, 9])
+  printLine(rangeSum(prefix, start: 0, end: 4))
+  printLine(rangeSum(prefix, start: 3, end: 5))
+  printLine(rangeSum(prefix, start: 1, end: 3))
+  expectedOutputLine("14")
+  expectedOutputLine("15")
+  expectedOutputLine("6")
 }

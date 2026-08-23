@@ -1,0 +1,35 @@
+Array<Integer> nextPermutation(Array<Integer> values) {
+  Integer pivot = values.size() - 2
+  for step : range(start: 0, end: values.size()) {
+    if pivot < 0 || values[pivot] < values[pivot + 1] { break }
+    pivot = pivot - 1
+  }
+  if pivot >= 0 {
+    Integer successor = values.size() - 1
+    for step : range(start: 0, end: values.size()) {
+      if values[successor] > values[pivot] { break }
+      successor = successor - 1
+    }
+    Integer temporary = values[pivot]
+    values[pivot] = values[successor]
+    values[successor] = temporary
+  }
+  Integer left = pivot + 1
+  Integer right = values.size() - 1
+  for step : range(start: 0, end: values.size() / 2 + 1) {
+    if left >= right { break }
+    Integer temporary = values[left]
+    values[left] = values[right]
+    values[right] = temporary
+    left = left + 1
+    right = right - 1
+  }
+  return values
+}
+
+Void main() {
+  for Integer value : nextPermutation([1, 2, 3]) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+  expectedOutputLine("2")
+}

@@ -5,13 +5,13 @@ This handbook introduces the syntax that most clearly distinguishes Norm from ot
 ## A first program
 
 ```norm
-int square(int value) {
+Integer square(Integer value) {
     return value * value
 }
 
-void main() {
-    int result = square(4)
-    print("result = ${result}")
+Void main() {
+    Integer result = square(4)
+    printLine("result = ${result}")
 }
 ```
 

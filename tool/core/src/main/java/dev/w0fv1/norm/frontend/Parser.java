@@ -197,13 +197,7 @@ final class Parser {
   }
 
   private Syntax.TypeRef parseType() {
-    if (match(
-        TokenKind.INT_TYPE,
-        TokenKind.BOOL_TYPE,
-        TokenKind.STRING_TYPE,
-        TokenKind.ARRAY_TYPE,
-        TokenKind.VOID,
-        TokenKind.IDENTIFIER)) {
+    if (match(TokenKind.IDENTIFIER)) {
       Token type = previous();
       List<Syntax.TypeRef> arguments = parseTypeArguments();
       SourceSpan span =
@@ -504,7 +498,7 @@ final class Parser {
       Token token = previous();
       return new Syntax.StringLiteralExpr(token.value(), token.span());
     }
-    if (match(TokenKind.IDENTIFIER, TokenKind.ARRAY_TYPE)) {
+    if (match(TokenKind.IDENTIFIER)) {
       Token token = previous();
       List<Syntax.TypeRef> typeArguments =
           check(TokenKind.LESS) && looksLikeTypeApplication() ? parseTypeArguments() : List.of();
@@ -532,12 +526,6 @@ final class Parser {
   }
 
   private boolean looksLikeVariableDeclaration() {
-    if (check(TokenKind.INT_TYPE)
-        || check(TokenKind.BOOL_TYPE)
-        || check(TokenKind.STRING_TYPE)
-        || check(TokenKind.ARRAY_TYPE)) {
-      return true;
-    }
     if (!check(TokenKind.IDENTIFIER)) return false;
     int next = tokenAfterType(current);
     return next >= 0 && next < tokens.size() && tokens.get(next).kind() == TokenKind.IDENTIFIER;
@@ -638,12 +626,7 @@ final class Parser {
   }
 
   private static boolean isTypeToken(TokenKind kind) {
-    return kind == TokenKind.INT_TYPE
-        || kind == TokenKind.BOOL_TYPE
-        || kind == TokenKind.STRING_TYPE
-        || kind == TokenKind.ARRAY_TYPE
-        || kind == TokenKind.VOID
-        || kind == TokenKind.IDENTIFIER;
+    return kind == TokenKind.IDENTIFIER;
   }
 
   private record Block(List<Syntax.Statement> statements, SourceSpan span) {

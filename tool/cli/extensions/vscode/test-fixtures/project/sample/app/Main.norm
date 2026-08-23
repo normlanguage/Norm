@@ -3,8 +3,8 @@ package sample.app
 import sample.util.Box
 import sample.util.identity
 
-void main() {
-  Box<List<int>> box = Box<List<int>>(value: List<int>())
+Void main() {
+  Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>())
   box.value.add(9)
-  print(identity(value: box.value[0]))
+  printLine(identity(value: box.value[0]))
 }

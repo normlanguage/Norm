@@ -4,7 +4,7 @@
 
 ```norm
 CommandSpec serve = CommandSpec(name: "serve")
-    .option(name: "port", parser: Parsers.int(), required: true)
+    .option(name: "port", parser: Parsers.integer(), required: true)
     .flag(name: "verbose", shortName: "v")
 
 ParseResult arguments = serve.parse(values: Process.arguments())
@@ -23,4 +23,3 @@ ParseResult arguments = serve.parse(values: Process.arguments())
 ## 敏感参数
 
 密码和 token 不建议通过命令行传递，因为它们可能出现在进程列表和 shell history。Secret option 在帮助和诊断中必须遮蔽，但环境或标准输入仍是更合适的来源。
-

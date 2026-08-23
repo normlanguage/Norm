@@ -1,0 +1,32 @@
+import std.math.abs
+
+Boolean available(List<Integer> columns, Integer row, Integer column) {
+  for previous : range(start: 0, end: row) {
+    if columns[previous] == column || abs(columns[previous] - column) == row - previous { return false }
+  }
+  return true
+}
+
+Integer countQueens(List<Integer> columns, Integer row, Integer size) {
+  if row == size { return 1 }
+  Integer count = 0
+  for column : range(start: 0, end: size) {
+    if available(columns, row, column) {
+      List<Integer> next = columns
+      next[row] = column
+      count = count + countQueens(columns: next, row: row + 1, size)
+    }
+  }
+  return count
+}
+
+Integer totalNQueens(Integer size) {
+  List<Integer> columns = List<Integer>()
+  for row : range(start: 0, end: size) { columns.add(-1) }
+  return countQueens(columns, row: 0, size)
+}
+
+Void main() {
+  printLine(totalNQueens(4))
+  expectedOutputLine("2")
+}

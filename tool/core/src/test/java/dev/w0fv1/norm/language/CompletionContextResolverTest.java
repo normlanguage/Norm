@@ -14,15 +14,16 @@ final class CompletionContextResolverTest {
   @Test
   void distinguishesMemberTypeArgumentImportAndExcludedText() {
     assertContext(
-        "package app\nimport std.math.|integer as math\nvoid main() {}",
+        "package app\nimport std.math.|integer as math\nVoid main() {}",
         CompletionContext.Import.class);
     assertContext(
-        "void main() { List<i|nt> values = List<int>() }", CompletionContext.TypeArgument.class);
+        "Void main() { List<i|nt> values = List<Integer>() }",
+        CompletionContext.TypeArgument.class);
     assertContext(
-        "void main() { List<int> values = List<int>() values.|add(1) }",
+        "Void main() { List<Integer> values = List<Integer>() values.|add(1) }",
         CompletionContext.Member.class);
-    assertContext("void main() { print(\"text |\") }", CompletionContext.None.class);
-    assertContext("void main() { // comment |\n print(1) }", CompletionContext.None.class);
+    assertContext("Void main() { printLine(\"text |\") }", CompletionContext.None.class);
+    assertContext("Void main() { // comment |\n printLine(1) }", CompletionContext.None.class);
   }
 
   private void assertContext(String marked, Class<? extends CompletionContext> expected) {

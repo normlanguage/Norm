@@ -6,7 +6,7 @@
 
 ```norm
 interface Measurable {
-    double measure()
+    Double measure()
 }
 ```
 
@@ -14,9 +14,9 @@ interface Measurable {
 
 ```norm
 class Circle implements Measurable {
-    double radius
+    Double radius
 
-    double measure() {
+    Double measure() {
         return 3.14159 * radius * radius
     }
 }
@@ -25,7 +25,7 @@ class Circle implements Measurable {
 ## 通过接口使用值
 
 ```norm
-double total(Measurable first, Measurable second) {
+Double total(Measurable first, Measurable second) {
     return first.measure() + second.measure()
 }
 ```
@@ -38,7 +38,7 @@ double total(Measurable first, Measurable second) {
 
 ```norm
 class Timer {
-    double measure() {
+    Double measure() {
         return 0.0
     }
 }

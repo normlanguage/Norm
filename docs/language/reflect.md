@@ -16,10 +16,10 @@ Annotation 是有明确字段的元数据类型。它可以标记 class、value�
 @Label(text: "two-dimensional coordinate")
 value Point {
     @Label(text: "horizontal position")
-    int x
+    Integer x
 
     @Label(text: "vertical position")
-    int y
+    Integer y
 }
 ```
 
@@ -41,11 +41,11 @@ Class type = Point.class
 
 ```norm
 annotation Measure {
-    reflect void beforeFunction(Measure annotation, Function function) {
+    reflect Void beforeFunction(Measure annotation, Function function) {
         timer.start()
     }
 
-    reflect void afterFunction(Measure annotation, Function function) {
+    reflect Void afterFunction(Measure annotation, Function function) {
         timer.stop()
     }
 }

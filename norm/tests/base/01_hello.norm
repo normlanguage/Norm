@@ -1,7 +1,4 @@
-void main() {
-  print("Hello, Norm!")
-}
-
-private void expectedOutput() {
-  print("Hello, Norm!")
+Void main() {
+  printLine("Hello, Norm!")
+  expectedOutputLine("Hello, Norm!")
 }

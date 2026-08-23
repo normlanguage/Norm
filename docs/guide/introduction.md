@@ -7,16 +7,16 @@ Norm 是一门静态强类型、面向应用开发的编程语言。它采用熟
 ## 一个最小例子
 
 ```norm
-int absolute(int value) {
+Integer absolute(Integer value) {
     if value < 0 {
         return -value
     }
     return value
 }
 
-void main() {
-    int distance = absolute(value: -12)
-    print("distance = ${distance}")
+Void main() {
+    Integer distance = absolute(value: -12)
+    printLine("distance = ${distance}")
 }
 ```
 

@@ -1,0 +1,32 @@
+class Parentheses {
+  List<List<Integer>> values
+}
+
+Void buildParentheses(Parentheses result, List<Integer> current, Integer open, Integer close, Integer pairs) {
+  if current.size() == pairs * 2 {
+    result.values.add(current)
+    return
+  }
+  if open < pairs {
+    List<Integer> next = current
+    next.add(1)
+    buildParentheses(result, current: next, open: open + 1, close, pairs)
+  }
+  if close < open {
+    List<Integer> next = current
+    next.add(-1)
+    buildParentheses(result, current: next, open, close: close + 1, pairs)
+  }
+}
+
+List<List<Integer>> generateParenthesis(Integer pairs) {
+  Parentheses result = Parentheses(values: List<List<Integer>>())
+  buildParentheses(result, current: List<Integer>(), open: 0, close: 0, pairs)
+  return result.values
+}
+
+Void main() {
+  List<List<Integer>> answer = generateParenthesis(3)
+  printLine(answer.size())
+  expectedOutputLine("5")
+}

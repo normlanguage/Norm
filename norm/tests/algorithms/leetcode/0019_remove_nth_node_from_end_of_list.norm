@@ -1,0 +1,16 @@
+List<Integer> removeNthFromEnd(Array<Integer> values, Integer n) {
+  List<Integer> result = List<Integer>()
+  Integer removed = values.size() - n
+  for index : range(start: 0, end: values.size()) {
+    if index != removed { result.add(values[index]) }
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : removeNthFromEnd(values: [1, 2, 3, 4, 5], n: 2) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("5")
+}

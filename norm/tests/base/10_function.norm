@@ -1,6 +1,4 @@
-int square(int value) { return value * value }
-void main() { print(square(7)) }
-
-private void expectedOutput() {
-  print("49")
+Integer square(Integer value) { return value * value }
+Void main() { printLine(square(7))
+  expectedOutputLine("49")
 }

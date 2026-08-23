@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
+import static dev.w0fv1.norm.testing.NormTestKit.projectSuite;
 import static dev.w0fv1.norm.testing.NormTestKit.suite;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,47 +23,47 @@ final class ProgramExecutionTest {
   @Test
   void preservesSourceOrderWhenBindingNamedArguments() throws Exception {
     assertOutput(
-        "class Counter { int value int next() { value = value + 1 return value } } "
-            + "int combine(int left, int right) { return left * 10 + right } "
-            + "void main() { Counter counter = Counter(value: 0) "
-            + "print(combine(right: counter.next(), left: counter.next())) }",
+        "class Counter { Integer value Integer next() { value = value + 1 return value } } "
+            + "Integer combine(Integer left, Integer right) { return left * 10 + right } "
+            + "Void main() { Counter counter = Counter(value: 0) "
+            + "printLine(combine(right: counter.next(), left: counter.next())) }",
         "21" + System.lineSeparator());
   }
 
   @Test
   void givesClassesIdentityAndCopyCreatesANewIdentity() throws Exception {
     assertOutput(
-        "class Box { int value void set(int next) { value = next } } "
+        "class Box { Integer value Void set(Integer next) { value = next } } "
             + "class Holder { Box box } "
-            + "void main() { "
+            + "Void main() { "
             + "Box first = Box(value: 4) Box shared = first shared.set(9) "
-            + "print(first.value) print(first == shared) "
+            + "printLine(first.value) printLine(first == shared) "
             + "Box copied = first.copy() copied.set(12) "
-            + "print(first.value) print(copied.value) print(first == copied) "
+            + "printLine(first.value) printLine(copied.value) printLine(first == copied) "
             + "Holder holder = Holder(box: first) Holder holderCopy = holder.copy() "
-            + "holderCopy.box.set(15) print(holder.box.value) }",
+            + "holderCopy.box.set(15) printLine(holder.box.value) }",
         String.join(System.lineSeparator(), "9", "true", "9", "12", "false", "15", ""));
   }
 
   @Test
   void copiesValueContainersButSharesTheirClassElements() throws Exception {
     assertOutput(
-        "class Box { int value void set(int next) { value = next } } "
-            + "void main() { List<Box> first = List<Box>() Box box = Box(value: 1) first.add(box) "
+        "class Box { Integer value Void set(Integer next) { value = next } } "
+            + "Void main() { List<Box> first = List<Box>() Box box = Box(value: 1) first.add(box) "
             + "List<Box> second = first second.add(Box(value: 2)) Box secondBox = second[0] secondBox.set(7) "
-            + "Box firstBox = first[0] print(first.size()) print(second.size()) print(firstBox.value) "
-            + "List<Box> same = List<Box>() same.add(box) print(first == same) }",
+            + "Box firstBox = first[0] printLine(first.size()) printLine(second.size()) printLine(firstBox.value) "
+            + "List<Box> same = List<Box>() same.add(box) printLine(first == same) }",
         String.join(System.lineSeparator(), "1", "2", "7", "true", ""));
   }
 
   @Test
   void comparesValueContainersStructurally() throws Exception {
     assertOutput(
-        "void main() { "
-            + "List<int> left = List<int>() left.add(1) List<int> right = List<int>() right.add(1) print(left == right) "
-            + "Pair<List<int>, int> first = Pair<List<int>, int>(first: left, second: 2) Pair<List<int>, int> second = Pair<List<int>, int>(first: right, second: 2) print(first == second) "
-            + "Map<Array<int>, int> values = Map<Array<int>, int>() values.put(key: [1, 2], value: 7) print(values[[1, 2]]) "
-            + "Set<Array<int>> unique = Set<Array<int>>() unique.add([3, 4]) print(unique.contains([3, 4])) }",
+        "Void main() { "
+            + "List<Integer> left = List<Integer>() left.add(1) List<Integer> right = List<Integer>() right.add(1) printLine(left == right) "
+            + "Pair<List<Integer>, Integer> first = Pair<List<Integer>, Integer>(first: left, second: 2) Pair<List<Integer>, Integer> second = Pair<List<Integer>, Integer>(first: right, second: 2) printLine(first == second) "
+            + "Map<Array<Integer>, Integer> values = Map<Array<Integer>, Integer>() values.put(key: [1, 2], value: 7) printLine(values[[1, 2]]) "
+            + "Set<Array<Integer>> unique = Set<Array<Integer>>() unique.add([3, 4]) printLine(unique.contains([3, 4])) }",
         String.join(System.lineSeparator(), "true", "true", "7", "true", ""));
   }
 
@@ -70,15 +71,15 @@ final class ProgramExecutionTest {
   void bindsNamedArgumentsForBuiltins() throws Exception {
     assertOutput(
         "import std.math.min import std.math.max "
-            + "void main() { print(min(right: 8, left: 3)) print(max(right: 8, left: 3)) }",
+            + "Void main() { printLine(min(right: 8, left: 3)) printLine(max(right: 8, left: 3)) }",
         String.join(System.lineSeparator(), "3", "8", ""));
   }
 
   @Test
   void executesGenericCollectionsWithSize() throws Exception {
     assertOutput(
-        "void main() { List<int> values = List<int>() values.add(3) values.add(8) "
-            + "print(values.size()) print(values[1]) }",
+        "Void main() { List<Integer> values = List<Integer>() values.add(3) values.add(8) "
+            + "printLine(values.size()) printLine(values[1]) }",
         String.join(System.lineSeparator(), "2", "8", ""));
   }
 
@@ -86,7 +87,7 @@ final class ProgramExecutionTest {
   void executesGenericFunctions() throws Exception {
     assertOutput(
         "T identity<T>(T value) { return value } "
-            + "void main() { print(identity(value: 9)) print(identity(value: \"Norm\")) }",
+            + "Void main() { printLine(identity(value: 9)) printLine(identity(value: \"Norm\")) }",
         String.join(System.lineSeparator(), "9", "Norm", ""));
   }
 
@@ -94,8 +95,8 @@ final class ProgramExecutionTest {
   void mutatesValueFieldsThroughAClassMemberPath() throws Exception {
     assertOutput(
         "class Box<T> { T value } "
-            + "void main() { Box<List<int>> box = Box<List<int>>(value: List<int>()) "
-            + "box.value.add(9) print(box.value[0]) }",
+            + "Void main() { Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) "
+            + "box.value.add(9) printLine(box.value[0]) }",
         "9" + System.lineSeparator());
   }
 
@@ -103,20 +104,20 @@ final class ProgramExecutionTest {
   void executesCoreTextAndMathOperations() throws Exception {
     assertOutput(
         "import std.math.clamp import std.math.sign "
-            + "void main() { print(\"A😀\".byteSize()) print(\"A😀\".codePointSize()) "
-            + "print(\"👨‍👩‍👧‍👦\".graphemeSize()) print(clamp(value: 12, minimum: 0, maximum: 9)) "
-            + "print(sign(-4)) }",
+            + "Void main() { printLine(\"A😀\".byteSize()) printLine(\"A😀\".codePointSize()) "
+            + "printLine(\"👨‍👩‍👧‍👦\".graphemeSize()) printLine(clamp(value: 12, minimum: 0, maximum: 9)) "
+            + "printLine(sign(-4)) }",
         String.join(System.lineSeparator(), "5", "2", "1", "9", "-1", ""));
   }
 
   @Test
   void iteratesMapsAndStacksWithTheirDeclaredElementTypes() throws Exception {
     assertOutput(
-        "void main() { Map<String, int> values = Map<String, int>() "
+        "Void main() { Map<String, Integer> values = Map<String, Integer>() "
             + "values.put(key: \"first\", value: 1) values.put(key: \"second\", value: 2) "
-            + "for Pair<String, int> entry : values { print(entry.first) print(entry.second) } "
-            + "Stack<int> stack = Stack<int>() stack.push(3) stack.push(7) "
-            + "for int value : stack { print(value) } }",
+            + "for Pair<String, Integer> entry : values { printLine(entry.first) printLine(entry.second) } "
+            + "Stack<Integer> stack = Stack<Integer>() stack.push(3) stack.push(7) "
+            + "for Integer value : stack { printLine(value) } }",
         String.join(System.lineSeparator(), "first", "1", "second", "2", "7", "3", ""));
   }
 
@@ -127,7 +128,7 @@ final class ProgramExecutionTest {
             NormExecutionException.class,
             () ->
                 assertOutput(
-                    "void main() { Map<String, int> values = Map<String, int>() print(values[\"missing\"]) }",
+                    "Void main() { Map<String, Integer> values = Map<String, Integer>() printLine(values[\"missing\"]) }",
                     ""));
     assertTrue(exception.getMessage().contains("map key does not exist"));
     assertEquals(RuntimeErrorCode.MISSING_MAP_KEY, exception.code());
@@ -144,6 +145,11 @@ final class ProgramExecutionTest {
   }
 
   @TestFactory
+  Stream<DynamicTest> runsLeetCodeAlgorithms() throws Exception {
+    return suite("algorithms/leetcode");
+  }
+
+  @TestFactory
   Stream<DynamicTest> runsClassPrograms() throws Exception {
     return suite("class");
   }
@@ -151,6 +157,11 @@ final class ProgramExecutionTest {
   @TestFactory
   Stream<DynamicTest> runsGenericPrograms() throws Exception {
     return suite("generics");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsMultiFilePrograms() throws Exception {
+    return projectSuite("projects");
   }
 
   private static void assertOutput(String text, String expected) throws Exception {

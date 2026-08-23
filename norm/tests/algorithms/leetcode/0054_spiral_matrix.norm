@@ -1,0 +1,40 @@
+List<Integer> spiralOrder(List<Array<Integer>> matrix) {
+  List<Integer> result = List<Integer>()
+  Integer top = 0
+  Integer bottom = matrix.size() - 1
+  Integer left = 0
+  Integer right = matrix[0].size() - 1
+  for layer : range(start: 0, end: matrix.size() + matrix[0].size()) {
+    if top > bottom || left > right { break }
+    for column : range(start: left, end: right + 1) { result.add(matrix[top][column]) }
+    top = top + 1
+    for row : range(start: top, end: bottom + 1) { result.add(matrix[row][right]) }
+    right = right - 1
+    if top <= bottom {
+      for offset : range(start: 0, end: right - left + 1) { result.add(matrix[bottom][right - offset]) }
+      bottom = bottom - 1
+    }
+    if left <= right {
+      for offset : range(start: 0, end: bottom - top + 1) { result.add(matrix[bottom - offset][left]) }
+      left = left + 1
+    }
+  }
+  return result
+}
+
+Void main() {
+  List<Array<Integer>> matrix = List<Array<Integer>>()
+  matrix.add([1,2,3])
+  matrix.add([4,5,6])
+  matrix.add([7,8,9])
+  for Integer value : spiralOrder(matrix) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+  expectedOutputLine("6")
+  expectedOutputLine("9")
+  expectedOutputLine("8")
+  expectedOutputLine("7")
+  expectedOutputLine("4")
+  expectedOutputLine("5")
+}

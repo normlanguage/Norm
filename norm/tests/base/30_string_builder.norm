@@ -1,13 +1,10 @@
-void main() {
+Void main() {
   StringBuilder builder = StringBuilder()
   builder.append("Norm")
   builder.append(" ")
   builder.append("01")
-  print(builder.toString())
-  print(builder.size())
-}
-
-private void expectedOutput() {
-  print("Norm 01")
-  print("7")
+  printLine(builder.toString())
+  printLine(builder.size())
+  expectedOutputLine("Norm 01")
+  expectedOutputLine("7")
 }

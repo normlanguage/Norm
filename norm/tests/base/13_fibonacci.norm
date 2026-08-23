@@ -1,9 +1,7 @@
-int fibonacci(int value) {
+Integer fibonacci(Integer value) {
   if value <= 1 { return value }
   return fibonacci(value - 1) + fibonacci(value - 2)
 }
-void main() { print(fibonacci(10)) }
-
-private void expectedOutput() {
-  print("55")
+Void main() { printLine(fibonacci(10))
+  expectedOutputLine("55")
 }

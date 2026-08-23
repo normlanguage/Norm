@@ -16,7 +16,7 @@ nullable 标记作用于完整类型：`List<String>?` 与 `List<String?>` 不�
 
 ## Reified 泛型
 
-`List<String>` 与 `List<int>` 的运行时描述不同。运行时类型检查、反射和序列化可读取实际参数；实现不能以擦除后附加不可靠外部 token 代替。
+`List<String>` 与 `List<Integer>` 的运行时描述不同。运行时类型检查、反射和序列化可读取实际参数；实现不能以擦除后附加不可靠外部 token 代替。
 
 ## 函数类型
 

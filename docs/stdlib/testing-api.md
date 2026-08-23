@@ -1,14 +1,14 @@
 # Testing API
 
-0.2 先提供 `std.testing.equal`、`notEqual`、`isTrue` 与 `isFalse` 四个返回 bool 的判定函数，用于标准库和验收程序。它们不伪装成断言，也不负责测试发现。以下 suite、上下文和失败报告是后续版本 API 设计。
+0.2 先提供 `std.testing.equal`、`notEqual`、`isTrue` 与 `isFalse` 四个返回 Boolean 的判定函数，用于标准库和验收程序。它们不伪装成断言，也不负责测试发现。以下 suite、上下文和失败报告是后续版本 API 设计。
 
-0.2 仓库的可执行规格是自包含 Norm 程序：测试目录自动发现 `.norm` 文件，每个文件由 `main()` 产生实际输出，由私有 `expectedOutput()` 产生期望输出。测试工具编译并运行两者后比较完整结果，不使用外部用例清单。
+0.2 仓库的可执行规格由 Norm 程序直接声明。`printLine(value)` 产生实际输出，`expectedOutputLine(value)` 在同一次 `main()` 执行中登记对应的期望行。单文件案例按测试目录发现；多文件案例由 `module.norm` 确定模块边界，并要求模块中只有一个 `main()` 入口。测试协议的实现入口是 [`NormTestKit`](https://github.com/w0fv1/norm/blob/main/tool/core/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java)。
 
 测试库使用普通顶层函数和显式 suite 注册，不要求测试类或反射 annotation。
 
 ```norm
-void parsesPositiveInteger(TestContext test) {
-    Result<int, ParseError> result = parseInteger(text: "42")
+Void parsesPositiveInteger(TestContext test) {
+    Result<Integer, ParseError> result = parseInteger(text: "42")
     test.equal(actual: result, expected: Ok(42))
 }
 

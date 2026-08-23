@@ -1,0 +1,19 @@
+Boolean isPalindrome(Integer value) {
+  if value < 0 || (value % 10 == 0 && value != 0) { return false }
+  Integer reversed = 0
+  for step : range(start: 0, end: 20) {
+    if value <= reversed { break }
+    reversed = reversed * 10 + value % 10
+    value = value / 10
+  }
+  return value == reversed || value == reversed / 10
+}
+
+Void main() {
+  printLine(isPalindrome(121))
+  printLine(isPalindrome(-121))
+  printLine(isPalindrome(10))
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+  expectedOutputLine("false")
+}

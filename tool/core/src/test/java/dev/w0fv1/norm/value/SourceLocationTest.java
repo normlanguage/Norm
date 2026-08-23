@@ -9,7 +9,7 @@ final class SourceLocationTest {
   @Test
   void preservesNonFileDocumentIdentity() {
     DocumentId id = DocumentId.of("untitled:Untitled-1");
-    SourceFile source = SourceFile.of(id, "void main() {}");
+    SourceFile source = SourceFile.of(id, "Void main() {}");
     SourceSpan span = new SourceSpan(source, 5, 9);
 
     assertEquals(new SourceLocation(id, 5, 9), span.location());

@@ -1,0 +1,30 @@
+Boolean validNumber(Array<Integer> tokens) {
+  Boolean digit = false
+  Boolean exponent = false
+  Boolean decimal = false
+  for index : range(start: 0, end: tokens.size()) {
+    Integer token = tokens[index]
+    if token >= 0 && token <= 9 {
+      digit = true
+    } else if token == -4 {
+      if decimal || exponent { return false }
+      decimal = true
+    } else if token == -5 {
+      if exponent || !digit { return false }
+      exponent = true
+      digit = false
+    } else if token == -1 || token == -2 {
+      if index > 0 && tokens[index - 1] != -5 { return false }
+    } else {
+      return false
+    }
+  }
+  return digit
+}
+
+Void main() {
+  printLine(validNumber([2,-5,1,0]))
+  printLine(validNumber([9,9,-5,2,-4,5]))
+  expectedOutputLine("true")
+  expectedOutputLine("false")
+}

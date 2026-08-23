@@ -1,8 +1,8 @@
-int coinCombinations(Array<int> coins, int amount) {
-  List<int> ways = List<int>()
+Integer coinCombinations(Array<Integer> coins, Integer amount) {
+  List<Integer> ways = List<Integer>()
   for value : range(start: 0, end: amount + 1) { ways.add(0) }
   ways[0] = 1
-  for int coin : coins {
+  for Integer coin : coins {
     for value : range(start: coin, end: amount + 1) {
       ways[value] = ways[value] + ways[value - coin]
     }
@@ -10,12 +10,9 @@ int coinCombinations(Array<int> coins, int amount) {
   return ways[amount]
 }
 
-void main() {
-  print(coinCombinations(coins: [1, 2, 5], amount: 5))
-  print(coinCombinations(coins: [2], amount: 0))
-}
-
-private void expectedOutput() {
-  print("4")
-  print("1")
+Void main() {
+  printLine(coinCombinations(coins: [1, 2, 5], amount: 5))
+  printLine(coinCombinations(coins: [2], amount: 0))
+  expectedOutputLine("4")
+  expectedOutputLine("1")
 }

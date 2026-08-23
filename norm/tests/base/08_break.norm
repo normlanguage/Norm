@@ -1,11 +1,8 @@
-void main() {
-  int found = -1
+Void main() {
+  Integer found = -1
   for value : range(start: 0, end: 10) {
     if value == 3 { found = value break }
   }
-  print(found)
-}
-
-private void expectedOutput() {
-  print("3")
+  printLine(found)
+  expectedOutputLine("3")
 }

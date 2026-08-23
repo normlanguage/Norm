@@ -44,4 +44,11 @@ final class BuiltinCatalogTest {
     assertEquals(
         IntrinsicId.PAIR_FIRST_READ, catalog.member("Pair", "first").orElseThrow().intrinsic());
   }
+
+  @Test
+  void exposesLineOrientedOutputAndExplicitTestExpectations() {
+    assertTrue(catalog.global("printLine").isPresent());
+    assertTrue(catalog.global("expectedOutputLine").isPresent());
+    assertTrue(catalog.global("print").isEmpty());
+  }
 }

@@ -1,0 +1,15 @@
+Integer climbStairs(Integer steps) {
+  Integer previous = 0
+  Integer current = 1
+  for step : range(start: 0, end: steps) {
+    Integer next = previous + current
+    previous = current
+    current = next
+  }
+  return current
+}
+
+Void main() {
+  printLine(climbStairs(5))
+  expectedOutputLine("8")
+}

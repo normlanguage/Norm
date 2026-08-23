@@ -1,0 +1,24 @@
+Boolean isMatch(Array<Integer> text, Array<Integer> pattern) {
+  List<Boolean> dp = List<Boolean>()
+  for index : range(start: 0, end: text.size() + 1) { dp.add(false) }
+  dp[0] = true
+  for Integer token : pattern {
+    List<Boolean> next = List<Boolean>()
+    for index : range(start: 0, end: text.size() + 1) { next.add(false) }
+    if token == -2 { next[0] = dp[0] }
+    for index : range(start: 1, end: text.size() + 1) {
+      if token == -2 {
+        next[index] = dp[index] || next[index - 1]
+      } else {
+        next[index] = dp[index - 1] && (token == -1 || token == text[index - 1])
+      }
+    }
+    dp = next
+  }
+  return dp[text.size()]
+}
+
+Void main() {
+  printLine(isMatch(text: [1, 2, 3, 4, 5], pattern: [-2, 2, -1, 4, -2]))
+  expectedOutputLine("true")
+}

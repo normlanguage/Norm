@@ -1,0 +1,18 @@
+List<Integer> rotateRight(Array<Integer> values, Integer steps) {
+  List<Integer> result = List<Integer>()
+  if values.size() == 0 { return result }
+  Integer shift = steps % values.size()
+  for index : range(start: 0, end: values.size()) {
+    result.add(values[(values.size() - shift + index) % values.size()])
+  }
+  return result
+}
+
+Void main() {
+  for Integer value : rotateRight(values: [1,2,3,4,5], steps: 2) { printLine(value) }
+  expectedOutputLine("4")
+  expectedOutputLine("5")
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("3")
+}

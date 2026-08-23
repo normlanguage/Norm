@@ -1,21 +1,18 @@
 import std.math.max
 
-int knapsack(Array<int> weights, Array<int> values, int capacity) {
-  List<int> best = List<int>()
+Integer knapsack(Array<Integer> weights, Array<Integer> values, Integer capacity) {
+  List<Integer> best = List<Integer>()
   for value : range(start: 0, end: capacity + 1) { best.add(0) }
   for item : range(start: 0, end: weights.size()) {
     for step : range(start: 0, end: capacity - weights[item] + 1) {
-      int current = capacity - step
+      Integer current = capacity - step
       best[current] = max(left: best[current], right: best[current - weights[item]] + values[item])
     }
   }
   return best[capacity]
 }
 
-void main() {
-  print(knapsack(weights: [2, 3, 4], values: [4, 5, 7], capacity: 5))
-}
-
-private void expectedOutput() {
-  print("9")
+Void main() {
+  printLine(knapsack(weights: [2, 3, 4], values: [4, 5, 7], capacity: 5))
+  expectedOutputLine("9")
 }

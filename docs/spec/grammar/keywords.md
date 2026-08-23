@@ -14,7 +14,7 @@
 
 `true`、`false`、`null`、`this`、`super`、`is`、`as`、`reflect`
 
-基本类型名如 `int`、`bool` 和 `void` 由语言预声明，也不能重新定义。
+基本类型名如 `Integer`、`Boolean` 和 `Void` 由语言预声明，也不能重新定义。
 
 ## 兼容性
 

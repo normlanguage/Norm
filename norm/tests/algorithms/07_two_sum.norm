@@ -1,25 +1,22 @@
-Pair<int, int> twoSum(Array<int> values, int target) {
-  Map<int, int> seen = Map<int, int>()
+Pair<Integer, Integer> twoSum(Array<Integer> values, Integer target) {
+  Map<Integer, Integer> seen = Map<Integer, Integer>()
   for index : range(start: 0, end: values.size()) {
-    int needed = target - values[index]
-    if seen.containsKey(needed) { return Pair<int, int>(first: seen[needed], second: index) }
+    Integer needed = target - values[index]
+    if seen.containsKey(needed) { return Pair<Integer, Integer>(first: seen[needed], second: index) }
     seen.put(key: values[index], value: index)
   }
-  return Pair<int, int>(first: -1, second: -1)
+  return Pair<Integer, Integer>(first: -1, second: -1)
 }
 
-void main() {
-  Pair<int, int> found = twoSum(values: [2, 7, 11, 15], target: 9)
-  print(found.first)
-  print(found.second)
-  Pair<int, int> missing = twoSum(values: [1, 2, 3], target: 20)
-  print(missing.first)
-  print(missing.second)
-}
-
-private void expectedOutput() {
-  print("0")
-  print("1")
-  print("-1")
-  print("-1")
+Void main() {
+  Pair<Integer, Integer> found = twoSum(values: [2, 7, 11, 15], target: 9)
+  printLine(found.first)
+  printLine(found.second)
+  Pair<Integer, Integer> missing = twoSum(values: [1, 2, 3], target: 20)
+  printLine(missing.first)
+  printLine(missing.second)
+  expectedOutputLine("0")
+  expectedOutputLine("1")
+  expectedOutputLine("-1")
+  expectedOutputLine("-1")
 }

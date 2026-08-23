@@ -5,7 +5,7 @@
 ## 变量与赋值
 
 ```norm
-int count = 0
+Integer count = 0
 count = count + 1
 ```
 
@@ -23,7 +23,7 @@ logger.info(event: "started")
 
 ## Return
 
-`return` 结束当前函数。void 函数使用 `return` 或正常到达末尾，其他函数使用 `return expression`。return 不会从匿名嵌套函数返回到外层函数。
+`return` 结束当前函数。Void 函数使用 `return` 或正常到达末尾，其他函数使用 `return expression`。return 不会从匿名嵌套函数返回到外层函数。
 
 ## Break 与 Continue
 

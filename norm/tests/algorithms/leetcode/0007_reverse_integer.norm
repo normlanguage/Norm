@@ -1,0 +1,25 @@
+Integer reverseInteger(Integer value) {
+  Integer sign = 1
+  if value < 0 {
+    sign = -1
+    value = -value
+  }
+  Integer result = 0
+  for step : range(start: 0, end: 20) {
+    if value == 0 { break }
+    Integer digit = value % 10
+    if result > 214748364 || (result == 214748364 && digit > 7) { return 0 }
+    result = result * 10 + digit
+    value = value / 10
+  }
+  return result * sign
+}
+
+Void main() {
+  printLine(reverseInteger(123))
+  printLine(reverseInteger(-120))
+  printLine(reverseInteger(1534236469))
+  expectedOutputLine("321")
+  expectedOutputLine("-21")
+  expectedOutputLine("0")
+}

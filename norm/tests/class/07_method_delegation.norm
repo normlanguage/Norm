@@ -1,0 +1,17 @@
+class Calculator {
+  Integer value
+
+  private Integer doubled() {
+    return value * 2
+  }
+
+  Integer adjusted(Integer delta) {
+    return this.doubled() + delta
+  }
+}
+
+Void main() {
+  Calculator calculator = Calculator(value: 6)
+  printLine(calculator.adjusted(5))
+  expectedOutputLine("17")
+}

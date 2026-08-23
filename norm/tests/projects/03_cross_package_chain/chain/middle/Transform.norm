@@ -1,0 +1,7 @@
+package chain.middle
+
+import chain.base.increment
+
+public Integer transform(Integer value) {
+  return increment(value) * 2 - 1
+}

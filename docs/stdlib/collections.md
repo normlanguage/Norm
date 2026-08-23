@@ -3,8 +3,8 @@
 Norm 集合是类型化 value 容器。全部泛型实参都必须写出，raw type 非法。
 
 ```norm
-List<int> first = List<int>(values: [1, 2, 3])
-List<int> second = first
+List<Integer> first = List<Integer>(values: [1, 2, 3])
+List<Integer> second = first
 second.add(4)
 ```
 
@@ -41,7 +41,7 @@ Array、List、Map、Set、Stack、Queue、Deque 与 Range 统一使用 `size()`
 ```norm
 import std.collections.reversed
 
-List<int> result = reversed(values: values)
+List<Integer> result = reversed(values: values)
 ```
 
 详细签名见 [Collections API](/stdlib/collections-api)。

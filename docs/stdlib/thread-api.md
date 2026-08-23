@@ -7,7 +7,7 @@
 ```norm
 Thread worker = Thread.start(
     name: "index-worker",
-    body: void() {
+    body: Void() {
         buildIndex()
     }
 )
@@ -25,7 +25,7 @@ class 跨线程传递时保留对象 identity，但普通字段读写不因此�
 class Counter {
     AtomicInt value
 
-    void increment() {
+    Void increment() {
         value.increment()
     }
 }

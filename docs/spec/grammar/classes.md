@@ -4,13 +4,13 @@ class 表示具有稳定身份、可以包含可变状态与行为的对象。
 
 ```norm
 class Counter {
-    int value
+    Integer value
 
-    Counter(int initial) {
+    Counter(Integer initial) {
         value = initial
     }
 
-    void increment() {
+    Void increment() {
         value = value + 1
     }
 }
@@ -28,7 +28,7 @@ class 最多直接继承一个 class，并可实现多个 interface。父构造�
 class TimedCounter extends Counter implements Printable {
     Instant updatedAt
 
-    TimedCounter(int initial, Instant now) {
+    TimedCounter(Integer initial, Instant now) {
         super(initial: initial)
         updatedAt = now
     }

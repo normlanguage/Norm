@@ -18,10 +18,10 @@ final class ModuleLoaderTest {
         "module.norm", "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
     resources.put(
         "sample/math/Numbers.norm",
-        "package sample.math public int twice(int value) { return helper(value) * 2 }");
+        "package sample.math public Integer twice(Integer value) { return helper(value) * 2 }");
     resources.put(
         "sample/math/Helper.norm",
-        "package sample.math public int helper(int value) { return value }");
+        "package sample.math public Integer helper(Integer value) { return value }");
 
     ModuleLoader.LoadedModule loaded = new ModuleLoader().load(new MemoryResolver(resources));
 

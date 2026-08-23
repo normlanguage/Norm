@@ -1,0 +1,44 @@
+Boolean matchesWords(Array<Integer> text, Integer start, List<Array<Integer>> words) {
+  Integer width = words[0].size()
+  List<Boolean> used = List<Boolean>()
+  for index : range(start: 0, end: words.size()) { used.add(false) }
+  for position : range(start: 0, end: words.size()) {
+    Boolean found = false
+    for word : range(start: 0, end: words.size()) {
+      if !used[word] {
+        Boolean same = true
+        for offset : range(start: 0, end: width) {
+          if text[start + position * width + offset] != words[word][offset] {
+            same = false
+            break
+          }
+        }
+        if same {
+          used[word] = true
+          found = true
+          break
+        }
+      }
+    }
+    if !found { return false }
+  }
+  return true
+}
+
+List<Integer> findSubstring(Array<Integer> text, List<Array<Integer>> words) {
+  List<Integer> result = List<Integer>()
+  Integer length = words.size() * words[0].size()
+  for start : range(start: 0, end: text.size() - length + 1) {
+    if matchesWords(text, start, words) { result.add(start) }
+  }
+  return result
+}
+
+Void main() {
+  List<Array<Integer>> words = List<Array<Integer>>()
+  words.add([1, 2])
+  words.add([3, 4])
+  for Integer index : findSubstring(text: [9, 1, 2, 3, 4, 1, 2], words) { printLine(index) }
+  expectedOutputLine("1")
+  expectedOutputLine("3")
+}

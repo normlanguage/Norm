@@ -21,7 +21,7 @@ String state = if ready {
 当结构作为表达式使用时，每条可能正常完成的路径都必须执行 `break value`。不同路径的结果必须能合并为唯一静态类型。
 
 ```norm
-int value = if condition {
+Integer value = if condition {
     break 1
 } else {
     throw InvalidState()

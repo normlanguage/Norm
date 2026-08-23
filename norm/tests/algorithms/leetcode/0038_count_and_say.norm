@@ -1,0 +1,29 @@
+List<Integer> countAndSay(Integer n) {
+  List<Integer> current = List<Integer>()
+  current.add(1)
+  for turn : range(start: 1, end: n) {
+    List<Integer> next = List<Integer>()
+    Integer index = 0
+    for step : range(start: 0, end: current.size()) {
+      if index >= current.size() { break }
+      Integer end = index + 1
+      for scan : range(start: index + 1, end: current.size()) {
+        if current[scan] != current[index] { break }
+        end = scan + 1
+      }
+      next.add(end - index)
+      next.add(current[index])
+      index = end
+    }
+    current = next
+  }
+  return current
+}
+
+Void main() {
+  for Integer value : countAndSay(4) { printLine(value) }
+  expectedOutputLine("1")
+  expectedOutputLine("2")
+  expectedOutputLine("1")
+  expectedOutputLine("1")
+}

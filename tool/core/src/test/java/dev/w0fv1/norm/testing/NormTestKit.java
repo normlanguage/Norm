@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.execution.ProgramRunner;
 import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.ModuleManifestParser;
 import dev.w0fv1.norm.frontend.ProjectLoader;
 import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.SourceFile;
@@ -13,6 +14,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -66,6 +68,45 @@ public final class NormTestKit {
                     path.getFileName().toString(), () -> assertSelfContainedTest(path)));
   }
 
+  public static Stream<DynamicTest> projectSuite(String resource) throws Exception {
+    Path directory = resourceDirectory(resource);
+    List<Path> manifests;
+    try (Stream<Path> files = Files.walk(directory)) {
+      manifests =
+          files
+              .filter(Files::isRegularFile)
+              .filter(path -> path.getFileName().toString().equals("module.norm"))
+              .sorted()
+              .toList();
+    }
+    List<DynamicTest> tests = new ArrayList<>();
+    for (Path manifest : manifests) {
+      new ModuleManifestParser().parse(SourceFile.read(manifest));
+      List<Path> sources;
+      try (Stream<Path> files = Files.walk(manifest.getParent())) {
+        sources =
+            files
+                .filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().endsWith(".norm"))
+                .filter(path -> !path.getFileName().toString().equals("module.norm"))
+                .toList();
+      }
+      List<Path> entries = new ArrayList<>();
+      for (Path source : sources) {
+        if (new Compiler().analyze(SourceFile.read(source)).entryPoint().isPresent()) {
+          entries.add(source);
+        }
+      }
+      assertEquals(1, entries.size(), manifest + " must contain one entry point");
+      Path entry = entries.getFirst();
+      tests.add(
+          DynamicTest.dynamicTest(
+              directory.relativize(manifest.getParent()).toString(),
+              () -> assertSelfContainedTest(entry)));
+    }
+    return tests.stream();
+  }
+
   private static Path resourceDirectory(String resource) throws Exception {
     var url = Objects.requireNonNull(NormTestKit.class.getResource("/" + resource));
     return Path.of(url.toURI());
@@ -74,23 +115,14 @@ public final class NormTestKit {
   static void assertSelfContainedTest(Path path) throws Exception {
     CompilationResult compilation = new Compiler().compile(new ProjectLoader().load(path));
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
-    TypedProgram main = compilation.program().orElseThrow();
-    var expectedOutput =
-        main.boundProgram().callables().stream()
-            .filter(function -> function.name().equals("expectedOutput"))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError(path + " must define expectedOutput()"));
-    assertTrue(
-        expectedOutput.parameters().isEmpty(), path + " expectedOutput() must have no parameters");
-    assertEquals(
-        "void", expectedOutput.returnType().name(), path + " expectedOutput() must return void");
-    assertEquals(
-        dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
-        expectedOutput.visibility(),
-        path + " expectedOutput() must be private");
-    assertEquals(
-        run(new TypedProgram(main.boundProgram().withEntryPoint(expectedOutput.id()))),
-        run(main),
-        () -> "unexpected output from " + path);
+    StringWriter actual = new StringWriter();
+    StringWriter expected = new StringWriter();
+    new ProgramRunner()
+        .run(
+            compilation.program().orElseThrow(),
+            dev.w0fv1.norm.execution.ExecutionContext.testing(
+                new PrintWriter(actual), new PrintWriter(expected)));
+    assertTrue(!expected.toString().isEmpty(), path + " must declare expected output lines");
+    assertEquals(expected.toString(), actual.toString(), () -> "unexpected output from " + path);
   }
 }

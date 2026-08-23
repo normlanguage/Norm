@@ -43,7 +43,7 @@ extends 位置安全读取上界、禁止具体写入；super 位置安全写入
 - nullable 信息；
 - 需要反射的 bound 与成员替换结果。
 
-因此 `List<String>.class` 与 `List<int>.class` 不相等，运行时 `is`、反射和 Codec 可以读取 String/int 参数，无需额外 Class token。
+因此 `List<String>.class` 与 `List<Integer>.class` 不相等，运行时 `is`、反射和 Codec 可以读取 String/Integer 参数，无需额外 Class token。
 
 ## 二进制与缓存
 

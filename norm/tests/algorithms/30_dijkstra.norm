@@ -1,17 +1,17 @@
 import std.math.min
 
-List<int> dijkstra(Array<Array<int>> graph, int source) {
-  int infinity = 999999
-  List<int> distance = List<int>()
-  List<bool> visited = List<bool>()
+List<Integer> dijkstra(Array<Array<Integer>> graph, Integer source) {
+  Integer infinity = 999999
+  List<Integer> distance = List<Integer>()
+  List<Boolean> visited = List<Boolean>()
   for vertex : range(start: 0, end: graph.size()) {
     distance.add(infinity)
     visited.add(false)
   }
   distance[source] = 0
   for step : range(start: 0, end: graph.size()) {
-    int chosen = -1
-    int smallest = infinity
+    Integer chosen = -1
+    Integer smallest = infinity
     for vertex : range(start: 0, end: graph.size()) {
       if !visited[vertex] && distance[vertex] < smallest {
         chosen = vertex
@@ -20,7 +20,7 @@ List<int> dijkstra(Array<Array<int>> graph, int source) {
     }
     if chosen == -1 { break }
     visited[chosen] = true
-    Array<int> edges = graph[chosen]
+    Array<Integer> edges = graph[chosen]
     for next : range(start: 0, end: graph.size()) {
       if edges[next] > 0 && !visited[next] {
         distance[next] = min(left: distance[next], right: distance[chosen] + edges[next])
@@ -30,21 +30,18 @@ List<int> dijkstra(Array<Array<int>> graph, int source) {
   return distance
 }
 
-void main() {
-  Array<Array<int>> graph = [
+Void main() {
+  Array<Array<Integer>> graph = [
     [0, 10, 3, 0, 0],
     [0, 0, 0, 2, 0],
     [0, 4, 0, 8, 2],
     [0, 0, 0, 0, 0],
     [0, 0, 0, 9, 0]
   ]
-  for int distance : dijkstra(graph, source: 0) { print(distance) }
-}
-
-private void expectedOutput() {
-  print("0")
-  print("7")
-  print("3")
-  print("9")
-  print("5")
+  for Integer distance : dijkstra(graph, source: 0) { printLine(distance) }
+  expectedOutputLine("0")
+  expectedOutputLine("7")
+  expectedOutputLine("3")
+  expectedOutputLine("9")
+  expectedOutputLine("5")
 }

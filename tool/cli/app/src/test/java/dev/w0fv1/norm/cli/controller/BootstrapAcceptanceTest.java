@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 final class BootstrapAcceptanceTest {
   @Test
   void allM0ModulesAreUsableTogether() {
-    SourceFile source = SourceFile.of(Path.of("hello.norm"), "void main() {}\n");
+    SourceFile source = SourceFile.of(Path.of("hello.norm"), "Void main() {}\n");
     var output = new StringWriter();
 
     int exitCode =
@@ -38,7 +38,7 @@ final class BootstrapAcceptanceTest {
   @Test
   void compilesAndExecutesHelloWorldAcrossTheModuleBoundary() {
     SourceFile source =
-        SourceFile.of(Path.of("hello.norm"), "void main() { print(\"Hello from Norm\") }\n");
+        SourceFile.of(Path.of("hello.norm"), "Void main() { printLine(\"Hello from Norm\") }\n");
     var compilation = new Compiler().compile(source);
     var output = new StringWriter();
 

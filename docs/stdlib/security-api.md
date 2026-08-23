@@ -13,7 +13,7 @@ Secret<Bytes> key = Secret<Bytes>(value: randomBytes)
 ## 比较与随机数
 
 ```norm
-bool equal = Security.constantTimeEquals(
+Boolean equal = Security.constantTimeEquals(
     left: expectedMac,
     right: receivedMac
 )

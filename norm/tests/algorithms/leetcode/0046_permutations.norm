@@ -1,0 +1,30 @@
+class Permutations {
+  List<List<Integer>> values
+}
+
+Void permuteFrom(Array<Integer> values, List<Integer> current, Set<Integer> used, Permutations result) {
+  if current.size() == values.size() {
+    result.values.add(current)
+    return
+  }
+  for index : range(start: 0, end: values.size()) {
+    if !used.contains(index) {
+      List<Integer> next = current
+      next.add(values[index])
+      Set<Integer> nextUsed = used
+      nextUsed.add(index)
+      permuteFrom(values, current: next, used: nextUsed, result)
+    }
+  }
+}
+
+List<List<Integer>> permute(Array<Integer> values) {
+  Permutations result = Permutations(values: List<List<Integer>>())
+  permuteFrom(values, current: List<Integer>(), used: Set<Integer>(), result)
+  return result.values
+}
+
+Void main() {
+  printLine(permute([1, 2, 3]).size())
+  expectedOutputLine("6")
+}

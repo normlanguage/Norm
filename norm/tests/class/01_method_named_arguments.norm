@@ -1,21 +1,18 @@
 class Point {
-  int x
-  int y
+  Integer x
+  Integer y
 
-  void move(int dx, int dy) {
+  Void move(Integer dx, Integer dy) {
     x = x + dx
     y = y + dy
   }
 }
 
-void main() {
+Void main() {
   Point point = Point(x: 1, y: 2)
   point.move(dy: 4, dx: 3)
-  print(point.x)
-  print(point.y)
-}
-
-private void expectedOutput() {
-  print("4")
-  print("6")
+  printLine(point.x)
+  printLine(point.y)
+  expectedOutputLine("4")
+  expectedOutputLine("6")
 }

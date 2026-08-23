@@ -1,9 +1,7 @@
-int factorial(int value) {
+Integer factorial(Integer value) {
   if value <= 1 { return 1 }
   return value * factorial(value - 1)
 }
-void main() { print(factorial(6)) }
-
-private void expectedOutput() {
-  print("720")
+Void main() { printLine(factorial(6))
+  expectedOutputLine("720")
 }

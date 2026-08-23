@@ -1,22 +1,19 @@
-bool subsetSum(Array<int> values, int target) {
-  List<bool> possible = List<bool>()
+Boolean subsetSum(Array<Integer> values, Integer target) {
+  List<Boolean> possible = List<Boolean>()
   for sum : range(start: 0, end: target + 1) { possible.add(false) }
   possible[0] = true
-  for int value : values {
+  for Integer value : values {
     for step : range(start: 0, end: target - value + 1) {
-      int sum = target - step
+      Integer sum = target - step
       if possible[sum - value] { possible[sum] = true }
     }
   }
   return possible[target]
 }
 
-void main() {
-  print(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 9))
-  print(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 30))
-}
-
-private void expectedOutput() {
-  print("true")
-  print("false")
+Void main() {
+  printLine(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 9))
+  printLine(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 30))
+  expectedOutputLine("true")
+  expectedOutputLine("false")
 }

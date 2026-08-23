@@ -1,0 +1,10 @@
+package mutual
+
+Void main() {
+  printLine(even(0))
+  printLine(odd(7))
+  printLine(even(10))
+  expectedOutputLine("true")
+  expectedOutputLine("true")
+  expectedOutputLine("true")
+}

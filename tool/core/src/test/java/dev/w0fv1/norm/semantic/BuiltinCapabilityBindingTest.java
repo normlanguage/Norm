@@ -18,11 +18,11 @@ final class BuiltinCapabilityBindingTest {
                 SourceFile.of(
                     Path.of("capabilities.norm"),
                     """
-                    void inspect(Map<String, int> values, List<int> items) {
-                      for Pair<String, int> entry : values {
-                        print(entry.first)
+                    Void inspect(Map<String, Integer> values, List<Integer> items) {
+                      for Pair<String, Integer> entry : values {
+                        printLine(entry.first)
                       }
-                      print(items[0])
+                      printLine(items[0])
                       items[0] = 2
                     }
                     """));
@@ -44,8 +44,8 @@ final class BuiltinCapabilityBindingTest {
                 .filter(Syntax.ExpressionStatement.class::isInstance)
                 .findFirst()
                 .orElseThrow();
-    Syntax.Call print = (Syntax.Call) readStatement.expression();
-    Syntax.Index read = (Syntax.Index) print.arguments().getFirst().value();
+    Syntax.Call printLine = (Syntax.Call) readStatement.expression();
+    Syntax.Index read = (Syntax.Index) printLine.arguments().getFirst().value();
     Syntax.Assignment write =
         (Syntax.Assignment)
             function.body().stream()

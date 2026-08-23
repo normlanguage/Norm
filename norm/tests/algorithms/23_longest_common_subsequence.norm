@@ -1,15 +1,15 @@
 import std.math.max
 
-List<int> zeros(int size) {
-  List<int> values = List<int>()
+List<Integer> zeros(Integer size) {
+  List<Integer> values = List<Integer>()
   for index : range(start: 0, end: size) { values.add(0) }
   return values
 }
 
-int longestCommonSubsequence(Array<int> left, Array<int> right) {
-  List<int> previous = zeros(right.size() + 1)
+Integer longestCommonSubsequence(Array<Integer> left, Array<Integer> right) {
+  List<Integer> previous = zeros(right.size() + 1)
   for i : range(start: 1, end: left.size() + 1) {
-    List<int> current = zeros(right.size() + 1)
+    List<Integer> current = zeros(right.size() + 1)
     for j : range(start: 1, end: right.size() + 1) {
       if left[i - 1] == right[j - 1] {
         current[j] = previous[j - 1] + 1
@@ -22,12 +22,9 @@ int longestCommonSubsequence(Array<int> left, Array<int> right) {
   return previous[right.size()]
 }
 
-void main() {
-  print(longestCommonSubsequence(left: [1, 2, 3, 4, 1], right: [3, 4, 1, 2, 1, 3]))
-  print(longestCommonSubsequence(left: [1, 2], right: [3, 4]))
-}
-
-private void expectedOutput() {
-  print("3")
-  print("0")
+Void main() {
+  printLine(longestCommonSubsequence(left: [1, 2, 3, 4, 1], right: [3, 4, 1, 2, 1, 3]))
+  printLine(longestCommonSubsequence(left: [1, 2], right: [3, 4]))
+  expectedOutputLine("3")
+  expectedOutputLine("0")
 }

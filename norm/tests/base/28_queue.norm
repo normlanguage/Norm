@@ -1,12 +1,9 @@
-void main() {
-  Queue<int> values = Queue<int>()
+Void main() {
+  Queue<Integer> values = Queue<Integer>()
   values.add(1)
   values.add(2)
-  print(values.remove())
-  print(values.peek())
-}
-
-private void expectedOutput() {
-  print("1")
-  print("2")
+  printLine(values.remove())
+  printLine(values.peek())
+  expectedOutputLine("1")
+  expectedOutputLine("2")
 }

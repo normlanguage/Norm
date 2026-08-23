@@ -6,9 +6,9 @@ Norm 的 class 实例具有身份；基本类型、enum 和内建容器是 value
 
 ```norm
 class Counter {
-    int value
+    Integer value
 
-    void increment() {
+    Void increment() {
         value = value + 1
     }
 }
@@ -16,7 +16,7 @@ class Counter {
 Counter first = Counter(value: 0)
 Counter second = first
 second.increment()
-print(first.value)
+printLine(first.value)
 ```
 
 程序输出 `1`。`first` 与 `second` 指向同一个 Counter，函数参数和返回值也遵循相同规则。
@@ -45,8 +45,8 @@ second.add(2)
 value 使用结构相等，class 使用身份相等：
 
 ```norm
-print(first == second)
-print(counter == counter.copy())
+printLine(first == second)
+printLine(counter == counter.copy())
 ```
 
 ## `ref<T>`：Value 存储位置

@@ -15,9 +15,9 @@ final class StandardLibraryTest {
   void executesImportedIntegerMathImplementedByTheStandardLibrary() {
     assertOutput(
         "import std.math.abs import std.math.clamp import std.math.max import std.math.min "
-            + "import std.math.sign void main() { "
-            + "print(min(left: 8, right: 3)) print(max(left: 8, right: 3)) "
-            + "print(abs(-9)) print(clamp(value: 14, minimum: 2, maximum: 11)) print(sign(0)) }",
+            + "import std.math.sign Void main() { "
+            + "printLine(min(left: 8, right: 3)) printLine(max(left: 8, right: 3)) "
+            + "printLine(abs(-9)) printLine(clamp(value: 14, minimum: 2, maximum: 11)) printLine(sign(0)) }",
         "3",
         "8",
         "9",
@@ -27,7 +27,7 @@ final class StandardLibraryTest {
 
   @Test
   void requiresExplicitImportsForStandardLibraryFunctions() {
-    assertFalse(compile("void main() { print(min(left: 1, right: 2)) }").isSuccess());
+    assertFalse(compile("Void main() { printLine(min(left: 1, right: 2)) }").isSuccess());
   }
 
   @Test
@@ -35,9 +35,9 @@ final class StandardLibraryTest {
     assertOutput(
         "import std.testing.equal import std.testing.notEqual "
             + "import std.testing.isTrue import std.testing.isFalse "
-            + "void main() { print(equal(actual: 4, expected: 4)) "
-            + "print(notEqual(actual: \"a\", expected: \"b\")) "
-            + "print(isTrue(true)) print(isFalse(false)) }",
+            + "Void main() { printLine(equal(actual: 4, expected: 4)) "
+            + "printLine(notEqual(actual: \"a\", expected: \"b\")) "
+            + "printLine(isTrue(true)) printLine(isFalse(false)) }",
         "true",
         "true",
         "true",

@@ -13,9 +13,9 @@ final class SemanticModelTest {
   @Test
   void bindsReferencesToExactDeclarationsAcrossScopes() {
     String text =
-        "void first() { int value = 1 print(value) } "
-            + "void second() { int value = 2 print(value) } "
-            + "void main() {}";
+        "Void first() { Integer value = 1 printLine(value) } "
+            + "Void second() { Integer value = 2 printLine(value) } "
+            + "Void main() {}";
     SemanticModel model = analyze(text);
     int firstUse = text.indexOf("value)");
     int secondUse = text.indexOf("value)", firstUse + 1);
@@ -32,7 +32,7 @@ final class SemanticModelTest {
   @Test
   void resolvesClassAndBuiltinMembersFromOneSymbolTable() {
     String text =
-        "class Point { int x } void main() { Point point = Point(1) print(point.x) List<int> values = List<int>() values.add(1) }";
+        "class Point { Integer x } Void main() { Point point = Point(1) printLine(point.x) List<Integer> values = List<Integer>() values.add(1) }";
     SemanticModel model = analyze(text);
     Symbol field = model.symbolAt(text.indexOf("point.x") + "point.".length()).orElseThrow();
     Symbol method = model.symbolAt(text.indexOf("values.add") + "values.".length()).orElseThrow();
@@ -49,7 +49,7 @@ final class SemanticModelTest {
 
   @Test
   void keepsSemanticModelWhenAnalysisReportsErrors() {
-    String text = "class Point { int x } void main() { missing(1) }";
+    String text = "class Point { Integer x } Void main() { missing(1) }";
     var analysis = new Compiler().analyze(SourceFile.of(DocumentId.of("untitled:broken"), text));
 
     assertTrue(analysis.hasErrors());
@@ -60,7 +60,7 @@ final class SemanticModelTest {
   @Test
   void exposesOnlySymbolsVisibleAtTheRequestedOffset() {
     String text =
-        "void main() { int outer = 1 if true { int inner = 2 print(inner) } print(outer) }";
+        "Void main() { Integer outer = 1 if true { Integer inner = 2 printLine(inner) } printLine(outer) }";
     SemanticModel model = analyze(text);
     int innerUse = text.indexOf("inner)");
     int outerUse = text.lastIndexOf("outer)");
@@ -77,7 +77,7 @@ final class SemanticModelTest {
   @Test
   void recordsValueAndIdentityCategories() {
     String text =
-        "class Box { int value } void main() { Box box = Box(value: 1) List<int> values = List<int>() }";
+        "class Box { Integer value } Void main() { Box box = Box(value: 1) List<Integer> values = List<Integer>() }";
     SemanticModel model = analyze(text);
 
     assertEquals(

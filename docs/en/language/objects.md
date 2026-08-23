@@ -6,9 +6,9 @@ Class instances have identity. Primitives, enums, and built-in containers are va
 
 ```norm
 class Counter {
-    int value
+    Integer value
 
-    void increment() {
+    Void increment() {
         value = value + 1
     }
 }
@@ -16,7 +16,7 @@ class Counter {
 Counter first = Counter(value: 0)
 Counter second = first
 second.increment()
-print(first.value)
+printLine(first.value)
 ```
 
 The program prints `1`: both variables refer to the same Counter. Parameters and return values follow the same rule.

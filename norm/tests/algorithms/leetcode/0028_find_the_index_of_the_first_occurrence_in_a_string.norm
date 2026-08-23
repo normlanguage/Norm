@@ -1,0 +1,21 @@
+Integer strStr(Array<Integer> text, Array<Integer> pattern) {
+  if pattern.size() == 0 { return 0 }
+  for start : range(start: 0, end: text.size() - pattern.size() + 1) {
+    Boolean equal = true
+    for offset : range(start: 0, end: pattern.size()) {
+      if text[start + offset] != pattern[offset] {
+        equal = false
+        break
+      }
+    }
+    if equal { return start }
+  }
+  return -1
+}
+
+Void main() {
+  printLine(strStr(text: [1, 2, 3, 1, 2], pattern: [1, 2]))
+  printLine(strStr(text: [1, 2, 3], pattern: [2, 2]))
+  expectedOutputLine("0")
+  expectedOutputLine("-1")
+}

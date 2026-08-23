@@ -17,7 +17,7 @@ pageClass: norm-home
     </div>
     <div class="norm-code-window" aria-label="Norm 对象身份示例">
       <div class="norm-code-window__bar"><span></span><span></span><span></span><b>counter.norm</b></div>
-      <pre><code v-pre>class Counter {&#10;    int value&#10;}&#10;&#10;Counter first = Counter(value: 0)&#10;Counter second = first&#10;second.value = 1&#10;&#10;print(first.value) // 1&#10;Counter copied = first.copy()</code></pre>
+      <pre><code v-pre>class Counter {&#10;    Integer value&#10;}&#10;&#10;Counter first = Counter(value: 0)&#10;Counter second = first&#10;second.value = 1&#10;&#10;printLine(first.value) // 1&#10;Counter copied = first.copy()</code></pre>
     </div>
   </div>
 </section>
@@ -58,7 +58,7 @@ pageClass: norm-home
     </article>
     <article>
       <div><span>Reified Generics</span><h3>泛型参数不会在运行时消失。</h3><p>类型检查、反射和通用库可以取得完整的参数化类型。</p><a href="./language/generics">阅读泛型 →</a></div>
-      <pre><code v-pre>List&lt;String&gt;.class&#10;List&lt;int&gt;.class&#10;&#10;List&lt;String&gt;.class.T&#10;    == String.class</code></pre>
+      <pre><code v-pre>List&lt;String&gt;.class&#10;List&lt;Integer&gt;.class&#10;&#10;List&lt;String&gt;.class.T&#10;    == String.class</code></pre>
     </article>
   </div>
 </section>

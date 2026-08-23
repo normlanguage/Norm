@@ -153,7 +153,7 @@ final class RuntimeValues {
   }
 
   static String stringify(Object value) {
-    return value == null ? "void" : value.toString();
+    return value == null ? "Void" : value.toString();
   }
 
   private static List<Object> copyList(List<Object> values) {

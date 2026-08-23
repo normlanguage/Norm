@@ -313,8 +313,8 @@ final class Lowerer {
   private static FrameSlotKind slotKind(SemanticType type) {
     if (type.equals(SemanticType.DYNAMIC)) return FrameSlotKind.Object;
     return switch (type.identity()) {
-      case "std.core.int" -> FrameSlotKind.Long;
-      case "std.core.bool" -> FrameSlotKind.Boolean;
+      case "std.core.Integer" -> FrameSlotKind.Long;
+      case "std.core.Boolean" -> FrameSlotKind.Boolean;
       default -> FrameSlotKind.Object;
     };
   }

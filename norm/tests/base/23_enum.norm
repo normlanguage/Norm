@@ -1,12 +1,9 @@
 enum Color { Red, Green, Blue }
 Color favorite() { return Color.Green }
-void main() {
+Void main() {
   Color color = favorite()
-  print(color)
-  print(color == Color.Green)
-}
-
-private void expectedOutput() {
-  print("Color.Green")
-  print("true")
+  printLine(color)
+  printLine(color == Color.Green)
+  expectedOutputLine("Color.Green")
+  expectedOutputLine("true")
 }

@@ -9,7 +9,7 @@ Math 模块提供固定语义的数值函数。它是顶层函数集合，不需
 ```norm
 import std.math.clamp
 
-int opacity = clamp(value: input, minimum: 0, maximum: 100)
+Integer opacity = clamp(value: input, minimum: 0, maximum: 100)
 ```
 
 ## 函数组
@@ -23,6 +23,6 @@ int opacity = clamp(value: input, minimum: 0, maximum: 100)
 
 ## 特殊值
 
-float/double 遵循已选定的 IEEE 754 子集，NaN、Infinity 和有符号零的比较必须在数值规范中固定。整数溢出策略不能由优化级别改变。
+Float/Double 遵循已选定的 IEEE 754 子集，NaN、Infinity 和有符号零的比较必须在数值规范中固定。整数溢出策略不能由优化级别改变。
 
 Decimal 使用自己的舍入 API，不自动调用二进制浮点 Math。需要统计、矩阵或任意精度算法时使用独立库，避免让核心模块无限增长。

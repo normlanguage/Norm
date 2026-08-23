@@ -1,6 +1,6 @@
 import std.math.abs
 
-bool safe(List<int> columns, int row, int column) {
+Boolean safe(List<Integer> columns, Integer row, Integer column) {
   for previous : range(start: 0, end: row) {
     if columns[previous] == column { return false }
     if abs(columns[previous] - column) == row - previous { return false }
@@ -8,9 +8,9 @@ bool safe(List<int> columns, int row, int column) {
   return true
 }
 
-int search(List<int> columns, int row, int size) {
+Integer search(List<Integer> columns, Integer row, Integer size) {
   if row == size { return 1 }
-  int solutions = 0
+  Integer solutions = 0
   for column : range(start: 0, end: size) {
     if safe(columns, row, column) {
       columns[row] = column
@@ -20,18 +20,15 @@ int search(List<int> columns, int row, int size) {
   return solutions
 }
 
-int nQueens(int size) {
-  List<int> columns = List<int>()
+Integer nQueens(Integer size) {
+  List<Integer> columns = List<Integer>()
   for row : range(start: 0, end: size) { columns.add(-1) }
   return search(columns, row: 0, size)
 }
 
-void main() {
-  print(nQueens(4))
-  print(nQueens(5))
-}
-
-private void expectedOutput() {
-  print("2")
-  print("10")
+Void main() {
+  printLine(nQueens(4))
+  printLine(nQueens(5))
+  expectedOutputLine("2")
+  expectedOutputLine("10")
 }

@@ -1,0 +1,28 @@
+List<List<Integer>> rotate(List<List<Integer>> matrix) {
+  Integer size = matrix.size()
+  List<List<Integer>> result = List<List<Integer>>()
+  for row : range(start: 0, end: size) {
+    List<Integer> next = List<Integer>()
+    for column : range(start: 0, end: size) { next.add(matrix[size - 1 - column][row]) }
+    result.add(next)
+  }
+  return result
+}
+
+Void main() {
+  List<List<Integer>> matrix = List<List<Integer>>()
+  List<Integer> first = List<Integer>()
+  first.add(1)
+  first.add(2)
+  List<Integer> second = List<Integer>()
+  second.add(3)
+  second.add(4)
+  matrix.add(first)
+  matrix.add(second)
+  List<List<Integer>> answer = rotate(matrix)
+  for List<Integer> row : answer { for Integer value : row { printLine(value) } }
+  expectedOutputLine("3")
+  expectedOutputLine("1")
+  expectedOutputLine("4")
+  expectedOutputLine("2")
+}

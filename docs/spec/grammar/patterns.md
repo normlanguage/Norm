@@ -5,8 +5,8 @@
 ## Variant 模式
 
 ```norm
-case Number(double value) {
-    print("${value}")
+case Number(Double value) {
+    printLine("${value}")
 }
 ```
 
@@ -16,7 +16,7 @@ variant 名必须属于被匹配 enum。参数数量、顺序和类型必须与 
 
 ```norm
 case Circle circle {
-    print("radius = ${circle.radius}")
+    printLine("radius = ${circle.radius}")
 }
 ```
 
@@ -25,8 +25,8 @@ case Circle circle {
 ## 常量与兜底
 
 ```norm
-case 0 { print("zero") }
-case else { print("other") }
+case 0 { printLine("zero") }
+case else { printLine("other") }
 ```
 
 常量必须能在编译期求值，并与被匹配表达式类型兼容。`case else` 不绑定值且必须最后出现。

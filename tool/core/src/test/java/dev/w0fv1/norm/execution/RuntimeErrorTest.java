@@ -19,43 +19,43 @@ final class RuntimeErrorTest {
   @TestFactory
   Stream<DynamicTest> reportsGuestRuntimeErrors() {
     return Stream.of(
-            failure("print([1][-1])", RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
-            failure("print([1][1])", RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
+            failure("printLine([1][-1])", RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
+            failure("printLine([1][1])", RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure(
-                "List<int> values = List<int>() print(values[-1])",
+                "List<Integer> values = List<Integer>() printLine(values[-1])",
                 RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure(
-                "List<int> values = List<int>() print(values[0])",
+                "List<Integer> values = List<Integer>() printLine(values[0])",
                 RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure(
-                "Map<String, int> values = Map<String, int>() print(values[\"missing\"])",
+                "Map<String, Integer> values = Map<String, Integer>() printLine(values[\"missing\"])",
                 RuntimeErrorCode.MISSING_MAP_KEY),
             failure(
-                "Stack<int> values = Stack<int>() print(values.pop())",
+                "Stack<Integer> values = Stack<Integer>() printLine(values.pop())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Stack<int> values = Stack<int>() print(values.peek())",
+                "Stack<Integer> values = Stack<Integer>() printLine(values.peek())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Queue<int> values = Queue<int>() print(values.remove())",
+                "Queue<Integer> values = Queue<Integer>() printLine(values.remove())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Queue<int> values = Queue<int>() print(values.peek())",
+                "Queue<Integer> values = Queue<Integer>() printLine(values.peek())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<int> values = Deque<int>() print(values.removeFirst())",
+                "Deque<Integer> values = Deque<Integer>() printLine(values.removeFirst())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<int> values = Deque<int>() print(values.removeLast())",
+                "Deque<Integer> values = Deque<Integer>() printLine(values.removeLast())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<int> values = Deque<int>() print(values.peekFirst())",
+                "Deque<Integer> values = Deque<Integer>() printLine(values.peekFirst())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<int> values = Deque<int>() print(values.peekLast())",
+                "Deque<Integer> values = Deque<Integer>() printLine(values.peekLast())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
-            failure("print(1 / 0)", RuntimeErrorCode.DIVISION_BY_ZERO),
-            failure("print(1 % 0)", RuntimeErrorCode.DIVISION_BY_ZERO))
+            failure("printLine(1 / 0)", RuntimeErrorCode.DIVISION_BY_ZERO),
+            failure("printLine(1 % 0)", RuntimeErrorCode.DIVISION_BY_ZERO))
         .map(
             testCase ->
                 DynamicTest.dynamicTest(
@@ -84,7 +84,8 @@ final class RuntimeErrorTest {
         new Compiler()
             .compile(
                 SourceFile.of(
-                    path, "void main() { for value : range(start: 0, end: 10) { print(value) } }"));
+                    path,
+                    "Void main() { for value : range(start: 0, end: 10) { printLine(value) } }"));
     ExecutionContext context =
         new ExecutionContext(
             java.io.Reader.nullReader(),
@@ -107,7 +108,7 @@ final class RuntimeErrorTest {
 
   private static void assertFailure(String body, RuntimeErrorCode code) {
     Path path = Path.of("runtime-error.norm").toAbsolutePath();
-    String source = "void main() {\n  " + body + "\n}";
+    String source = "Void main() {\n  " + body + "\n}";
     var compilation = new Compiler().compile(SourceFile.of(path, source));
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
 

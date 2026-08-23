@@ -1,3 +1,3 @@
-void main() {
-    print("Hello from Norm")
+Void main() {
+    printLine("Hello from Norm")
 }

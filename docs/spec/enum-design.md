@@ -4,7 +4,7 @@ Norm enum 是封闭的代数数据类型。每个 variant 可以不携带数据�
 
 ```norm
 enum Token {
-    Number(double value),
+    Number(Double value),
     Name(String text),
     End
 }
@@ -19,7 +19,7 @@ enum Token {
 ```norm
 String describe(Token token) {
     return switch token {
-        case Number(double value) { break "number ${value}" }
+        case Number(Double value) { break "number ${value}" }
         case Name(String text) { break text }
         case End { break "end" }
     }

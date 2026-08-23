@@ -344,6 +344,7 @@ final class Binder {
 
   private BoundExpression bindName(Syntax.Name name, SemanticType type) {
     Symbol symbol = symbol(name.span());
+    if (symbol.kind() == SymbolKind.SELF) return thisRead(name.span());
     if (symbol.kind() == SymbolKind.FIELD) {
       BoundField field = field(symbol);
       return new BoundExpression.FieldRead(

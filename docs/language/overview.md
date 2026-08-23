@@ -20,19 +20,19 @@
 ## 第一个程序
 
 ```norm
-void main() {
+Void main() {
     String language = "Norm"
-    print("Hello, ${language}")
+    printLine("Hello, ${language}")
 }
 ```
 
 Norm 使用类型前置声明和大括号。行尾分号可以省略，控制流条件不写括号。
 
 ```norm
-int temperature = 18
+Integer temperature = 18
 
 if temperature < 20 {
-    print("cool")
+    printLine("cool")
 }
 ```
 
@@ -51,7 +51,7 @@ String? subtitle = null
 
 ```norm
 class Counter {
-    int value
+    Integer value
 }
 
 Counter first = Counter(value: 1)
@@ -76,7 +76,7 @@ Norm 不使用“最后一个表达式就是结果”的规则。`break value` �
 ### 顶层函数不需要 class
 
 ```norm
-int square(int value) {
+Integer square(Integer value) {
     return value * value
 }
 ```

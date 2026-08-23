@@ -3,10 +3,10 @@
 ## 数字
 
 ```norm
-int count = 42
-long population = 8_100_000_000
-double ratio = 0.125
-decimal price = decimal("19.95")
+Integer count = 42
+Long population = 8_100_000_000
+Double ratio = 0.125
+Decimal price = Decimal("19.95")
 ```
 
 下划线只能位于数字之间，用于分组且不影响值。整数默认推断为能容纳该值的标准整数类型，赋值目标可以提供更具体类型。Decimal 目前使用显式构造，避免把十进制和二进制浮点语义混淆。
@@ -23,7 +23,7 @@ String message = "hello, ${name}"
 
 ## 布尔与 Null
 
-`true` 和 `false` 的类型是 bool。`null` 只能出现在已有 nullable 期望类型的位置，不能单独推断为任意类型。
+`true` 和 `false` 的类型是 Boolean。`null` 只能出现在已有 nullable 期望类型的位置，不能单独推断为任意类型。
 
 ## 集合
 
