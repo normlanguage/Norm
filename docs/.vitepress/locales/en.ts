@@ -12,17 +12,20 @@ export const enTheme: DefaultTheme.Config = {
   nav: [
     { text: 'Docs', link: '/en/docs/' },
     { text: 'Handbook', link: '/en/language/overview', activeMatch: '^/en/language/' },
-    { text: 'Releases', link: '/en/versions/0.3', activeMatch: '^/en/versions/' },
+    { text: 'Releases', link: '/en/versions/', activeMatch: '^/en/versions/' },
     { text: 'Project Status', link: '/en/status' },
   ],
   sidebar: {
     '/en/language/': [{ text: 'Core Language', items: handbook }],
     '/en/versions/': [{ text: 'Releases', items: [
+      { text: 'Version index', link: '/en/versions/' },
+      { text: 'Norm 0.4', link: '/en/versions/0.4' },
       { text: 'Norm 0.3', link: '/en/versions/0.3' },
       { text: 'Norm 0.2', link: '/en/versions/0.2' },
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
     ]}],
     '/en/design/': [{ text: 'Implementation', items: [
+      { text: 'Norm 0.4', link: '/en/versions/0.4' },
       { text: 'Norm 0.3', link: '/en/versions/0.3' },
       { text: 'Norm 0.2', link: '/en/versions/0.2' },
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
@@ -39,6 +42,6 @@ export const enTheme: DefaultTheme.Config = {
   sidebarMenuLabel: 'Menu',
   darkModeSwitchLabel: 'Appearance',
   langMenuLabel: 'Change language',
-  footer: { message: 'Norm is currently a language specification draft.', copyright: 'Norm Project' },
+  footer: { message: 'Norm 0.4 development line', copyright: 'Norm Project' },
 }
 

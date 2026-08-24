@@ -101,7 +101,7 @@ export const zhTheme: DefaultTheme.Config = {
     { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
     { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
     { text: '标准库', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
-    { text: '版本说明', link: '/versions/0.3', activeMatch: '^/versions/' },
+    { text: '版本说明', link: '/versions/', activeMatch: '^/versions/' },
     { text: '社区', link: '/community' },
   ],
   sidebar: {
@@ -137,12 +137,15 @@ export const zhTheme: DefaultTheme.Config = {
     '/stdlib/': [{ text: '标准库', items: stdlib }],
     '/web/': [{ text: 'Web 应用开发', items: web }],
     '/versions/': [{ text: '版本记录', items: [
+      { text: '版本索引', link: '/versions/' },
+      { text: 'Norm 0.4', link: '/versions/0.4' },
       { text: 'Norm 0.3', link: '/versions/0.3' },
       { text: 'Norm 0.2', link: '/versions/0.2' },
       { text: 'Norm 0.1', link: '/versions/0.1' },
     ]}],
     '/design/': [
       { text: '实现与规划', items: [
+        { text: '0.4 实现契约', link: '/versions/0.4' },
         { text: '0.3 版本记录', link: '/versions/0.3' },
         { text: '0.2 版本记录', link: '/versions/0.2' },
         { text: '0.1 版本记录', link: '/versions/0.1' },
@@ -168,6 +171,6 @@ export const zhTheme: DefaultTheme.Config = {
   sidebarMenuLabel: '目录',
   darkModeSwitchLabel: '外观',
   langMenuLabel: '切换语言',
-  footer: { message: 'Norm 当前处于语言规范预设计阶段。', copyright: 'Norm Project' },
+  footer: { message: 'Norm 0.4 开发线', copyright: 'Norm Project' },
 }
 

@@ -69,7 +69,7 @@ Norm 能表达的项目配置、模块描述、构建规则和测试定义都使
 
 ## 平台不是语言规范
 
-Norm 官方实现使用 GraalVM/Truffle，但前端、类型系统、反射模型和 Bound IR 不依赖 JVM 类型模型。
+Norm 官方实现使用 GraalVM/Truffle，但前端、类型系统、反射模型和 canonical Core IR 不依赖 JVM 类型模型。
 
 同样，Web、数据库和序列化是语言之上的应用平台。它们可以使用语言能力，却不能反过来定义基础语义。
 

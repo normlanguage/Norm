@@ -51,6 +51,7 @@ final class CompletionEngine {
     Set<String> visibleNames =
         visibleSymbols.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
     visibleSymbols.stream()
+        .flatMap(symbol -> model.callableAlternatives(symbol).stream())
         .filter(
             symbol ->
                 !(context instanceof CompletionContext.Type

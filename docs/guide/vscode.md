@@ -55,4 +55,4 @@ macOS 或 Linux 使用同目录下的 `norm`。
 
 扩展通过微软的 `vscode-languageclient` 启动 `norm lsp`，Java 端使用 Eclipse LSP4J 处理 LSP/JSON-RPC。补全、参数提示及其排序由编译器语义快照统一计算，扩展不维护第二套语言规则。语法高亮不依赖语言服务器，因此 CLI 未配置时仍可使用；其他语言能力需要 CLI。
 
-当前扩展的语言能力边界见 [Norm 0.3 版本记录](/versions/0.3)。格式化和调试器由后续工具版本交付。
+当前扩展的语言能力边界见[版本索引](/versions/)。格式化和调试器由后续工具版本交付。

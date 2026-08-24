@@ -3,6 +3,7 @@ package dev.w0fv1.norm.cli.component;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.frontend.CompilationEnvironment;
 import dev.w0fv1.norm.frontend.Compiler;
@@ -100,5 +101,63 @@ final class ProjectSessionTest {
     assertFalse(
         session.analysis(firstSource).diagnostics().stream()
             .anyMatch(diagnostic -> diagnostic.message().contains("already declared")));
+  }
+
+  @Test
+  void includesPackageSourceNamedModuleNormInTheProjectSnapshot(@TempDir Path directory)
+      throws Exception {
+    Path entry = directory.resolve("sample/app/Main.norm");
+    Path packageSource = directory.resolve("sample/internal/module.norm");
+    Files.createDirectories(entry.getParent());
+    Files.createDirectories(packageSource.getParent());
+    Files.writeString(
+        directory.resolve("module.norm"), "Module(name: \"sample\", version: 1, exports: [])");
+    Files.writeString(entry, "package sample.app Void main() {}");
+    Files.writeString(packageSource, "package sample.internal public Integer value() { return 1 }");
+    SourceFile entrySource = SourceFile.read(entry);
+    SourceFile packageSourceFile = SourceFile.read(packageSource);
+
+    ProjectSession session =
+        ProjectSession.load(
+            new LanguageService(),
+            entrySource,
+            Map.of(ProjectSession.normalize(entry), entrySource),
+            1);
+
+    assertTrue(session.inputs().contains(ProjectSession.normalize(packageSource)));
+    assertTrue(session.snapshot().document(packageSourceFile.id()).isPresent());
+  }
+
+  @Test
+  void loadsUnsavedModuleDirectlyFromOpenSources(@TempDir Path directory) throws Exception {
+    Path entry = directory.resolve("sample/app/Main.norm");
+    Path library = directory.resolve("sample/util/Identity.norm");
+    Path manifest = directory.resolve("module.norm");
+    Files.createDirectories(entry.getParent());
+    Files.createDirectories(library.getParent());
+    SourceFile entrySource =
+        SourceFile.of(
+            entry, "package sample.app import sample.util.identity Void main() { identity(1) }");
+    SourceFile librarySource =
+        SourceFile.of(
+            library, "package sample.util public Integer identity(Integer value) { return value }");
+    SourceFile manifestSource =
+        SourceFile.of(
+            manifest, "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+    Map<Path, SourceFile> open = new LinkedHashMap<>();
+    open.put(ProjectSession.normalize(entry), entrySource);
+    open.put(ProjectSession.normalize(library), librarySource);
+    open.put(ProjectSession.normalize(manifest), manifestSource);
+
+    ProjectSession session = ProjectSession.load(new LanguageService(), entrySource, open, 1);
+
+    assertEquals(
+        Set.of(
+            ProjectSession.normalize(entry),
+            ProjectSession.normalize(library),
+            ProjectSession.normalize(manifest)),
+        session.inputs());
+    assertTrue(session.snapshot().document(librarySource.id()).isPresent());
+    assertTrue(session.analysis(entrySource).diagnostics().isEmpty());
   }
 }

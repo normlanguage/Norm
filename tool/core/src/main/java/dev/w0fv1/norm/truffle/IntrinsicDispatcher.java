@@ -2,9 +2,13 @@ package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.core.BuiltinTypeId;
+import dev.w0fv1.norm.core.CoreNullability;
+import dev.w0fv1.norm.core.CoreType;
+import dev.w0fv1.norm.core.CoreTypeConstructor;
+import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
-import dev.w0fv1.norm.semantic.SemanticType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -27,7 +31,7 @@ public final class IntrinsicDispatcher {
       IntrinsicId intrinsic,
       Object receiver,
       Object[] arguments,
-      SemanticType type,
+      CoreType type,
       ExecutionContext context,
       Node location) {
     Object first = arguments.length == 0 ? null : arguments[0];
@@ -336,12 +340,15 @@ public final class IntrinsicDispatcher {
 
   private static Iterator<Object> mapIterator(RuntimeValues.MapValue map) {
     Iterator<Map.Entry<Object, Object>> entries = map.values.entrySet().iterator();
-    SemanticType pairType =
-        SemanticType.declared(
-            "std.core.Pair",
-            "Pair",
-            map.type.arguments(),
-            dev.w0fv1.norm.semantic.ValueCategory.VALUE);
+    if (!(map.type instanceof CoreType.Declared mapType)) {
+      throw new IllegalStateException("map runtime type is not declared");
+    }
+    CoreType pairType =
+        new CoreType.Declared(
+            new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Pair")),
+            mapType.arguments(),
+            CoreValueCategory.VALUE,
+            CoreNullability.NON_NULL);
     return new Iterator<>() {
       @Override
       public boolean hasNext() {

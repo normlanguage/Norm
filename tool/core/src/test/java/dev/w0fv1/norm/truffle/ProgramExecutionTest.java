@@ -92,6 +92,35 @@ final class ProgramExecutionTest {
   }
 
   @Test
+  void executesGenericMethodsWithInferredAndExplicitArguments() throws Exception {
+    assertOutput(
+        "class Values { T identity<T>(T value) { return value } } "
+            + "Void main() { Values values = Values() "
+            + "printLine(values.identity<Integer>(value: 9)) "
+            + "printLine(values.identity(value: \"Norm\")) }",
+        String.join(System.lineSeparator(), "9", "Norm", ""));
+  }
+
+  @Test
+  void ordersOwnerAndMethodReifiedArguments() throws Exception {
+    assertOutput(
+        "class Values<T> { T owner Pair<T, U> pair<U>(U value) { "
+            + "return Pair<T, U>(first: owner, second: value) } } "
+            + "Void main() { Values<String> values = Values<String>(owner: \"Norm\") "
+            + "Pair<String, Integer> pair = values.pair(value: 9) "
+            + "printLine(pair.first) printLine(pair.second) }",
+        String.join(System.lineSeparator(), "Norm", "9", ""));
+  }
+
+  @Test
+  void executesExplicitGenericBuiltinTypeMethods() throws Exception {
+    assertOutput(
+        "Void main() { List<Integer> values = "
+            + "List.filled<Integer>(size: 2, value: 7) printLine(values[1]) }",
+        "7" + System.lineSeparator());
+  }
+
+  @Test
   void mutatesValueFieldsThroughAClassMemberPath() throws Exception {
     assertOutput(
         "class Box<T> { T value } "

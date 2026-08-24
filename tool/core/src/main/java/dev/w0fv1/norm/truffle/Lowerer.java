@@ -5,22 +5,23 @@ import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.FrameSlotKind;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
-import dev.w0fv1.norm.bound.BoundArgument;
-import dev.w0fv1.norm.bound.BoundBlock;
-import dev.w0fv1.norm.bound.BoundCall;
-import dev.w0fv1.norm.bound.BoundCallable;
-import dev.w0fv1.norm.bound.BoundCallableId;
-import dev.w0fv1.norm.bound.BoundClass;
-import dev.w0fv1.norm.bound.BoundClassId;
-import dev.w0fv1.norm.bound.BoundConstruct;
-import dev.w0fv1.norm.bound.BoundExpression;
-import dev.w0fv1.norm.bound.BoundIntrinsic;
-import dev.w0fv1.norm.bound.BoundLocalId;
-import dev.w0fv1.norm.bound.BoundProgram;
-import dev.w0fv1.norm.bound.BoundRuntimeType;
-import dev.w0fv1.norm.bound.BoundStatement;
-import dev.w0fv1.norm.execution.ExecutionContext;
-import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.core.CoreArgument;
+import dev.w0fv1.norm.core.CoreBlock;
+import dev.w0fv1.norm.core.CoreCompilation;
+import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionLink;
+import dev.w0fv1.norm.core.CoreDefinitionOccurrence;
+import dev.w0fv1.norm.core.CoreExpression;
+import dev.w0fv1.norm.core.CoreLocal;
+import dev.w0fv1.norm.core.CoreProgram;
+import dev.w0fv1.norm.core.CoreRuntimeType;
+import dev.w0fv1.norm.core.CoreStatement;
+import dev.w0fv1.norm.core.CoreType;
+import dev.w0fv1.norm.core.CoreTypeConstructor;
+import dev.w0fv1.norm.core.CoreTypes;
+import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.core.DefinitionOccurrenceId;
+import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.LanguageMetadata;
 import dev.w0fv1.norm.value.SourceSpan;
@@ -33,81 +34,53 @@ import java.util.Objects;
 
 final class Lowerer {
   private final Language language;
-  private final ExecutionContext context;
-  private final Map<BoundClassId, RuntimeValues.ClassInfo> classInfo = new HashMap<>();
-  private final Map<BoundCallableId, FunctionPlan> callables = new LinkedHashMap<>();
+  private final Map<DefinitionOccurrenceId, RuntimeValues.ClassInfo> classInfo = new HashMap<>();
+  private final Map<DefinitionOccurrenceId, FunctionPlan> callables = new LinkedHashMap<>();
   private final Map<DocumentId, Source> sources = new HashMap<>();
+  private CoreCompilation compilation;
+  private CoreProgram program;
 
-  Lowerer(Language language, ExecutionContext context) {
+  Lowerer(Language language) {
     this.language = language;
-    this.context = Objects.requireNonNull(context, "context");
   }
 
-  ExecutableProgram lower(BoundProgram checkedProgram) {
-    BoundProgram program = Objects.requireNonNull(checkedProgram, "checkedProgram");
-    indexClasses(program);
-    program.callables().forEach(callable -> callables.put(callable.id(), plan(callable)));
+  ExecutableProgram lower(CoreCompilation checkedCompilation) {
+    compilation = Objects.requireNonNull(checkedCompilation, "checkedCompilation");
+    program = compilation.program();
+    indexDefinitions();
     createCallTargets();
     lowerBodies();
-    return new ExecutableProgram(callables.get(program.entryPoint().orElseThrow()).target);
+    DefinitionOccurrenceId entry = compilation.entryPoint();
+    FunctionPlan entryPlan = callables.get(entry);
+    if (entryPlan == null) throw new IllegalStateException("entry callable is absent");
+    return new ExecutableProgram(entryPlan.target);
   }
 
-  private void indexClasses(BoundProgram program) {
-    for (BoundClass declaration : program.classes()) {
-      classInfo.put(
-          declaration.id(),
-          new RuntimeValues.ClassInfo(declaration.name(), declaration.fields().size()));
-    }
-  }
-
-  private FunctionPlan plan(BoundCallable declaration) {
-    FunctionPlan plan = new FunctionPlan(declaration);
-    declaration
-        .thisLocal()
-        .ifPresent(
-            local -> {
-              plan.thisBinding = plan.allocate(local, "this", SemanticType.DYNAMIC);
-              plan.arguments.add(plan.thisBinding);
-            });
-    declaration
-        .parameters()
-        .forEach(
-            parameter -> {
-              FrameBinding binding =
-                  plan.allocate(parameter.id(), parameter.name(), parameter.type());
-              plan.arguments.add(binding);
-            });
-    declaration
-        .reifiedParameters()
-        .forEach(
-            parameter -> {
-              FrameBinding binding =
-                  plan.allocate(parameter.source(), "$type", SemanticType.DYNAMIC);
-              plan.arguments.add(binding);
-            });
-    scanBlock(declaration.body(), plan);
-    plan.descriptor = plan.frame.build();
-    return plan;
-  }
-
-  private void scanBlock(BoundBlock block, FunctionPlan plan) {
-    for (BoundStatement statement : block.statements()) {
-      switch (statement) {
-        case BoundStatement.LocalDeclaration local ->
-            plan.allocate(local.local(), local.name(), local.type());
-        case BoundStatement.ForStatement loop -> {
-          plan.allocate(loop.iterator(), "$iterator", SemanticType.DYNAMIC);
-          plan.allocate(loop.variable(), loop.variableName(), loop.variableType());
-          scanBlock(loop.body(), plan);
-        }
-        case BoundStatement.ConditionalForStatement loop -> scanBlock(loop.body(), plan);
-        case BoundStatement.IfStatement conditional -> {
-          scanBlock(conditional.thenBlock(), plan);
-          scanBlock(conditional.elseBlock(), plan);
-        }
-        default -> {}
+  private void indexDefinitions() {
+    for (CoreDefinitionOccurrence occurrence : compilation.authoring().occurrences()) {
+      CoreDefinition definition =
+          program.definition(occurrence.id().representative()).orElseThrow();
+      switch (definition) {
+        case CoreDefinition.Class declaration ->
+            classInfo.put(
+                occurrence.id(),
+                new RuntimeValues.ClassInfo(
+                    compilation.displayName(occurrence.id()), declaration.fields().size()));
+        case CoreDefinition.Callable declaration ->
+            callables.put(occurrence.id(), plan(occurrence.id(), declaration));
+        case CoreDefinition.Enum ignored -> {}
       }
     }
+  }
+
+  private FunctionPlan plan(DefinitionOccurrenceId id, CoreDefinition.Callable declaration) {
+    FunctionPlan plan = new FunctionPlan(id, declaration);
+    for (CoreLocal local : declaration.locals()) plan.allocate(local);
+    if (declaration.hasReceiver()) plan.arguments.add(plan.binding(0));
+    declaration.parameterLocals().forEach(local -> plan.arguments.add(plan.binding(local)));
+    declaration.reifiedTypeLocals().forEach(local -> plan.arguments.add(plan.binding(local)));
+    plan.descriptor = plan.frame.build();
+    return plan;
   }
 
   private void createCallTargets() {
@@ -115,10 +88,10 @@ final class Lowerer {
       plan.root =
           new FunctionRootNode(
               language,
-              plan.declaration.name(),
+              compilation.displayName(plan.id),
               plan.descriptor,
               plan.arguments.toArray(FrameBinding[]::new),
-              section(plan.declaration.span()));
+              section(plan.id, 0));
       plan.target = plan.root.getCallTarget();
     }
   }
@@ -129,126 +102,140 @@ final class Lowerer {
         .forEach(plan -> plan.root.initialize(lowerBlock(plan.declaration.body(), plan)));
   }
 
-  private StatementNode lowerBlock(BoundBlock block, FunctionPlan plan) {
+  private StatementNode lowerBlock(CoreBlock block, FunctionPlan plan) {
     StatementNode[] statements =
         block.statements().stream()
             .map(statement -> lowerStatement(statement, plan))
             .toArray(StatementNode[]::new);
-    return new StatementNodes.Block(statements).at(section(block.span()));
+    return new StatementNodes.Block(statements).at(section(plan.id, block.nodeIndex()));
   }
 
-  private StatementNode lowerStatement(BoundStatement statement, FunctionPlan plan) {
+  private StatementNode lowerStatement(CoreStatement statement, FunctionPlan plan) {
     StatementNode lowered =
         switch (statement) {
-          case BoundStatement.LocalDeclaration local ->
+          case CoreStatement.LocalDeclaration local ->
               new StatementNodes.WriteLocal(
-                  plan.binding(local.local()), lowerExpression(local.initializer(), plan));
-          case BoundStatement.LocalAssignment assignment ->
+                  plan.binding(local.localIndex()), lowerExpression(local.initializer(), plan));
+          case CoreStatement.LocalAssignment assignment ->
               new StatementNodes.WriteLocal(
-                  plan.binding(assignment.local()), lowerExpression(assignment.value(), plan));
-          case BoundStatement.FieldAssignment assignment ->
+                  plan.binding(assignment.localIndex()), lowerExpression(assignment.value(), plan));
+          case CoreStatement.FieldAssignment assignment ->
               new StatementNodes.WriteField(
                   lowerExpression(assignment.receiver(), plan),
-                  assignment.ordinal(),
+                  assignment.field().ordinal(),
                   lowerExpression(assignment.value(), plan));
-          case BoundStatement.IntrinsicAssignment assignment -> {
+          case CoreStatement.IntrinsicAssignment assignment -> {
             List<ExpressionNode> arguments = new ArrayList<>();
             assignment.index().ifPresent(value -> arguments.add(lowerExpression(value, plan)));
             arguments.add(lowerExpression(assignment.value(), plan));
             yield new StatementNodes.IntrinsicWrite(
                 assignment.intrinsic(),
                 lowerExpression(assignment.receiver(), plan),
-                context,
                 arguments.toArray(ExpressionNode[]::new));
           }
-          case BoundStatement.ExpressionStatement expression ->
+          case CoreStatement.ExpressionStatement expression ->
               new StatementNodes.ExpressionStatement(
                   lowerExpression(expression.expression(), plan));
-          case BoundStatement.IfStatement conditional ->
+          case CoreStatement.IfStatement conditional ->
               new StatementNodes.If(
                   lowerExpression(conditional.condition(), plan),
                   lowerBlock(conditional.thenBlock(), plan),
                   lowerBlock(conditional.elseBlock(), plan));
-          case BoundStatement.ForStatement loop ->
+          case CoreStatement.ForStatement loop ->
               new StatementNodes.For(
-                  plan.binding(loop.iterator()),
-                  plan.binding(loop.variable()),
+                  plan.binding(loop.iteratorLocal()),
+                  plan.binding(loop.variableLocal()),
                   lowerExpression(loop.iterable(), plan),
                   lowerBlock(loop.body(), plan),
-                  loop.iterationIntrinsic(),
-                  context);
-          case BoundStatement.ConditionalForStatement loop ->
+                  loop.iterationIntrinsic());
+          case CoreStatement.ConditionalForStatement loop ->
               new StatementNodes.ConditionalFor(
-                  lowerExpression(loop.condition(), plan), lowerBlock(loop.body(), plan), context);
-          case BoundStatement.ReturnStatement returned ->
+                  lowerExpression(loop.condition(), plan), lowerBlock(loop.body(), plan));
+          case CoreStatement.ReturnStatement returned ->
               new StatementNodes.Return(
                   returned.value().map(value -> lowerExpression(value, plan)).orElse(null));
-          case BoundStatement.BreakStatement ignored -> new StatementNodes.Break();
-          case BoundStatement.ContinueStatement ignored -> new StatementNodes.Continue();
+          case CoreStatement.BreakStatement ignored -> new StatementNodes.Break();
+          case CoreStatement.ContinueStatement ignored -> new StatementNodes.Continue();
         };
-    return lowered.at(section(statement.span()));
+    return lowered.at(section(plan.id, statement.nodeIndex()));
   }
 
-  private ExpressionNode lowerExpression(BoundExpression expression, FunctionPlan plan) {
+  private ExpressionNode lowerExpression(CoreExpression expression, FunctionPlan plan) {
     ExpressionNode lowered =
         switch (expression) {
-          case BoundExpression.Literal literal ->
+          case CoreExpression.Literal literal ->
               new ExpressionNodes.Literal(
-                  literal.type().equals(SemanticType.CODE_POINT)
+                  literal.type().equals(CoreType.CODE_POINT)
                       ? new RuntimeValues.CodePointValue(((Number) literal.value()).intValue())
                       : literal.value());
-          case BoundExpression.NullLiteral ignored -> new ExpressionNodes.NullLiteral();
-          case BoundExpression.ArrayLiteral array ->
+          case CoreExpression.NullLiteral ignored -> new ExpressionNodes.NullLiteral();
+          case CoreExpression.ArrayLiteral array ->
               new ExpressionNodes.ArrayLiteral(
                   array.elements().stream()
                       .map(value -> lowerExpression(value, plan))
                       .toArray(ExpressionNode[]::new),
                   lowerRuntimeType(array.runtimeType(), plan));
-          case BoundExpression.LocalRead local ->
-              new ExpressionNodes.ReadLocal(plan.binding(local.local()));
-          case BoundExpression.FieldRead field ->
+          case CoreExpression.LocalRead local ->
+              new ExpressionNodes.ReadLocal(plan.binding(local.localIndex()));
+          case CoreExpression.FieldRead field ->
               new ExpressionNodes.ReadField(
-                  lowerExpression(field.receiver(), plan), field.ordinal(), field.nullSafe());
-          case BoundExpression.EnumMember member ->
-              new ExpressionNodes.EnumMember(member.enumName(), member.memberName());
-          case BoundExpression.Unary unary ->
-              unary.operator() == dev.w0fv1.norm.bound.BoundUnaryOperator.NOT
+                  lowerExpression(field.receiver(), plan),
+                  field.field().ordinal(),
+                  field.nullSafe());
+          case CoreExpression.EnumMember member -> lowerEnumMember(member, plan);
+          case CoreExpression.Unary unary ->
+              unary.operator() == dev.w0fv1.norm.core.CoreUnaryOperator.NOT
                   ? new ExpressionNodes.Not(lowerExpression(unary.operand(), plan))
                   : new ExpressionNodes.Negate(lowerExpression(unary.operand(), plan));
-          case BoundExpression.Binary binary -> lowerBinary(binary, plan);
-          case BoundExpression.Index index ->
+          case CoreExpression.Binary binary -> lowerBinary(binary, plan);
+          case CoreExpression.Index index ->
               new ExpressionNodes.Intrinsic(
                   index.readIntrinsic(),
                   lowerExpression(index.receiver(), plan),
                   new ExpressionNode[] {lowerExpression(index.index(), plan)},
                   new int[] {0},
                   null,
-                  false,
-                  context);
-          case BoundExpression.CopyObject copied ->
+                  false);
+          case CoreExpression.CopyObject copied ->
               new ExpressionNodes.CopyObject(
                   lowerExpression(copied.receiver(), plan), copied.nullSafe());
-          case BoundCall call -> lowerCall(call, plan);
-          case BoundConstruct construct ->
-              new ExpressionNodes.Construct(
-                  classInfo.get(construct.target()),
-                  lowerRuntimeType(construct.runtimeType(), plan),
-                  lowerArguments(construct.arguments(), plan),
-                  parameterIndices(construct.arguments()));
-          case BoundIntrinsic intrinsic ->
+          case CoreExpression.Call call -> lowerCall(call, plan);
+          case CoreExpression.Construct construct -> lowerConstruct(construct, plan);
+          case CoreExpression.Intrinsic intrinsic ->
               new ExpressionNodes.Intrinsic(
                   intrinsic.intrinsic(),
                   intrinsic.receiver().map(value -> lowerExpression(value, plan)).orElse(null),
                   lowerArguments(intrinsic.arguments(), plan),
                   parameterIndices(intrinsic.arguments()),
                   intrinsic.runtimeType().map(value -> lowerRuntimeType(value, plan)).orElse(null),
-                  intrinsic.nullSafe(),
-                  context);
+                  intrinsic.nullSafe());
         };
-    return lowered.at(section(expression.span()));
+    return lowered.at(section(plan.id, expression.nodeIndex()));
   }
 
-  private ExpressionNode lowerBinary(BoundExpression.Binary binary, FunctionPlan plan) {
+  private ExpressionNode lowerEnumMember(CoreExpression.EnumMember member, FunctionPlan plan) {
+    DefinitionOccurrenceId target = resolve(plan, member.nodeIndex(), member.target());
+    CoreDefinition.Enum declaration =
+        (CoreDefinition.Enum) program.definition(target.representative()).orElseThrow();
+    return new ExpressionNodes.EnumMember(
+        target.representative(),
+        member.memberOrdinal(),
+        compilation.displayName(target),
+        declaration.members().get(member.memberOrdinal()));
+  }
+
+  private ExpressionNode lowerConstruct(CoreExpression.Construct construct, FunctionPlan plan) {
+    DefinitionOccurrenceId target = resolve(plan, construct.nodeIndex(), construct.target());
+    RuntimeValues.ClassInfo info = classInfo.get(target);
+    if (info == null) throw new IllegalStateException("core class target is absent: " + target);
+    return new ExpressionNodes.Construct(
+        info,
+        lowerRuntimeType(construct.runtimeType(), plan),
+        lowerArguments(construct.arguments(), plan),
+        parameterIndices(construct.arguments()));
+  }
+
+  private ExpressionNode lowerBinary(CoreExpression.Binary binary, FunctionPlan plan) {
     ExpressionNode left = lowerExpression(binary.left(), plan);
     ExpressionNode right = lowerExpression(binary.right(), plan);
     return switch (binary.operator()) {
@@ -270,16 +257,19 @@ final class Lowerer {
     };
   }
 
-  private ExpressionNode lowerCall(BoundCall call, FunctionPlan plan) {
-    FunctionPlan target = callables.get(call.target());
-    if (target == null)
-      throw new IllegalStateException("bound call target is absent: " + call.target());
+  private ExpressionNode lowerCall(CoreExpression.Call call, FunctionPlan plan) {
+    DefinitionOccurrenceId targetId = resolve(plan, call.nodeIndex(), call.target());
+    FunctionPlan target = callables.get(targetId);
+    if (target == null) throw new IllegalStateException("core call target is absent: " + targetId);
     if (call.receiver().isPresent()) {
       return new ExpressionNodes.MethodCall(
           target.target,
           lowerExpression(call.receiver().orElseThrow(), plan),
           lowerArguments(call.arguments(), plan),
           parameterIndices(call.arguments()),
+          call.reifiedArguments().stream()
+              .map(value -> lowerRuntimeType(value, plan))
+              .toArray(ExpressionNode[]::new),
           call.nullSafe());
     }
     return new ExpressionNodes.FunctionCall(
@@ -291,25 +281,47 @@ final class Lowerer {
             .toArray(ExpressionNode[]::new));
   }
 
-  private ExpressionNode[] lowerArguments(List<BoundArgument> arguments, FunctionPlan plan) {
+  private DefinitionOccurrenceId resolve(
+      FunctionPlan plan, int nodeIndex, CoreDefinitionLink link) {
+    if (!(link instanceof DefinitionReference reference)) {
+      throw new IllegalStateException("pending definition reached the backend");
+    }
+    DefinitionOccurrenceId target = compilation.authoring().target(plan.id, nodeIndex);
+    DefinitionId resolved = program.resolve(plan.id.representative(), reference);
+    if (!compilation
+        .authoring()
+        .occurrence(target)
+        .orElseThrow()
+        .representedDefinitions()
+        .contains(resolved)) {
+      throw new IllegalStateException("authoring target does not represent the core reference");
+    }
+    return target;
+  }
+
+  private ExpressionNode[] lowerArguments(List<CoreArgument> arguments, FunctionPlan plan) {
     return arguments.stream()
         .map(argument -> lowerExpression(argument.value(), plan))
         .toArray(ExpressionNode[]::new);
   }
 
-  private static int[] parameterIndices(List<BoundArgument> arguments) {
-    return arguments.stream().mapToInt(BoundArgument::parameterIndex).toArray();
+  private static int[] parameterIndices(List<CoreArgument> arguments) {
+    return arguments.stream().mapToInt(CoreArgument::parameterIndex).toArray();
   }
 
-  private ExpressionNode lowerRuntimeType(BoundRuntimeType type, FunctionPlan plan) {
+  private ExpressionNode lowerRuntimeType(CoreRuntimeType type, FunctionPlan plan) {
     return new ExpressionNodes.TypeDescriptor(
-        type.type(),
-        type.reifiedArguments().stream()
-            .map(dev.w0fv1.norm.bound.BoundReifiedArgument::typeParameterIdentity)
-            .toArray(String[]::new),
-        type.reifiedArguments().stream()
-            .map(argument -> plan.binding(argument.source()))
+        CoreTypes.absolute(type.template(), plan.id.representative(), program),
+        type.captures().stream()
+            .mapToInt(dev.w0fv1.norm.core.CoreTypeCapture::typeParameterIndex)
+            .toArray(),
+        type.captures().stream()
+            .map(capture -> plan.binding(capture.localIndex()))
             .toArray(FrameBinding[]::new));
+  }
+
+  private SourceSection section(DefinitionOccurrenceId occurrence, int nodeIndex) {
+    return compilation.authoring().span(occurrence, nodeIndex).map(this::section).orElse(null);
   }
 
   private SourceSection section(SourceSpan span) {
@@ -324,41 +336,45 @@ final class Lowerer {
     return source.createSection(span.startOffset(), span.length());
   }
 
-  private static FrameSlotKind slotKind(SemanticType type) {
-    if (type.equals(SemanticType.DYNAMIC) || type.isNullable()) return FrameSlotKind.Object;
-    return switch (type.identity()) {
-      case "std.core.Integer" -> FrameSlotKind.Long;
-      case "std.core.Boolean" -> FrameSlotKind.Boolean;
-      default -> FrameSlotKind.Object;
-    };
+  private static FrameSlotKind slotKind(CoreType type) {
+    if (type.equals(CoreType.DYNAMIC) || type.isNullable()) return FrameSlotKind.Object;
+    if (type instanceof CoreType.Declared declared) {
+      if (!(declared.constructor() instanceof CoreTypeConstructor.Builtin builtin)) {
+        return FrameSlotKind.Object;
+      }
+      return switch (builtin.id().value()) {
+        case "std.core.Integer" -> FrameSlotKind.Long;
+        case "std.core.Boolean" -> FrameSlotKind.Boolean;
+        default -> FrameSlotKind.Object;
+      };
+    }
+    return FrameSlotKind.Object;
   }
 
   private static final class FunctionPlan {
-    final BoundCallable declaration;
-    final FrameDescriptor.Builder frame = FrameDescriptor.newBuilder();
-    final List<FrameBinding> arguments = new ArrayList<>();
-    final Map<BoundLocalId, FrameBinding> bindings = new LinkedHashMap<>();
-    FrameBinding thisBinding;
-    FrameDescriptor descriptor;
-    FunctionRootNode root;
-    RootCallTarget target;
+    private final DefinitionOccurrenceId id;
+    private final CoreDefinition.Callable declaration;
+    private final FrameDescriptor.Builder frame = FrameDescriptor.newBuilder();
+    private final List<FrameBinding> arguments = new ArrayList<>();
+    private final Map<Integer, FrameBinding> bindings = new LinkedHashMap<>();
+    private FrameDescriptor descriptor;
+    private FunctionRootNode root;
+    private RootCallTarget target;
 
-    FunctionPlan(BoundCallable declaration) {
+    private FunctionPlan(DefinitionOccurrenceId id, CoreDefinition.Callable declaration) {
+      this.id = id;
       this.declaration = declaration;
     }
 
-    FrameBinding allocate(BoundLocalId id, String name, SemanticType type) {
-      FrameBinding existing = bindings.get(id);
-      if (existing != null) return existing;
-      FrameSlotKind kind = slotKind(type);
-      FrameBinding binding = new FrameBinding(frame.addSlot(kind, name, null), kind);
-      bindings.put(id, binding);
-      return binding;
+    private void allocate(CoreLocal local) {
+      FrameSlotKind kind = slotKind(local.type());
+      bindings.put(
+          local.index(), new FrameBinding(frame.addSlot(kind, "$" + local.index(), null), kind));
     }
 
-    FrameBinding binding(BoundLocalId id) {
-      FrameBinding binding = bindings.get(id);
-      if (binding == null) throw new IllegalStateException("bound local is absent: " + id);
+    private FrameBinding binding(int local) {
+      FrameBinding binding = bindings.get(local);
+      if (binding == null) throw new IllegalStateException("core local is absent: " + local);
       return binding;
     }
   }

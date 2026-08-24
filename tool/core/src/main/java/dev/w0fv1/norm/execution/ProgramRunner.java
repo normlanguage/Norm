@@ -25,6 +25,6 @@ public final class ProgramRunner {
 
   public void run(TypedProgram program, ExecutionContext context) {
     Objects.requireNonNull(program, "program");
-    backend.execute(program.boundProgram(), Objects.requireNonNull(context, "context"));
+    backend.execute(program.coreCompilation(), Objects.requireNonNull(context, "context"));
   }
 }

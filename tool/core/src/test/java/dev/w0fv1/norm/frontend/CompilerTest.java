@@ -85,18 +85,35 @@ final class CompilerTest {
   }
 
   @Test
+  void analyzesAPackageSourceNamedModuleNormAsSourceCode() {
+    CompilationResult result =
+        new Compiler()
+            .compile(
+                SourceFile.of(
+                    Path.of("sample/internal/module.norm"),
+                    "package sample.internal Void main() {}"));
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void producesCheckedSyntaxForHelloWorld() {
     CompilationResult result = compile("Void main() { printLine(\"Hello from Norm\") }");
 
     assertTrue(result.isSuccess());
     assertTrue(result.diagnostics().isEmpty());
-    var statements =
-        result.program().orElseThrow().boundProgram().entryCallable().body().statements();
+    var program = result.program().orElseThrow().coreCompilation().program();
+    var entry =
+        (dev.w0fv1.norm.core.CoreDefinition.Callable)
+            program
+                .definition(result.program().orElseThrow().coreCompilation().entryDefinition())
+                .orElseThrow();
+    var statements = entry.body().statements();
     assertEquals(1, statements.size());
-    var statement = (dev.w0fv1.norm.bound.BoundStatement.ExpressionStatement) statements.getFirst();
-    var printLine = (dev.w0fv1.norm.bound.BoundIntrinsic) statement.expression();
+    var statement = (dev.w0fv1.norm.core.CoreStatement.ExpressionStatement) statements.getFirst();
+    var printLine = (dev.w0fv1.norm.core.CoreExpression.Intrinsic) statement.expression();
     var value =
-        (dev.w0fv1.norm.bound.BoundExpression.Literal) printLine.arguments().getFirst().value();
+        (dev.w0fv1.norm.core.CoreExpression.Literal) printLine.arguments().getFirst().value();
     assertEquals("Hello from Norm", value.value());
   }
 

@@ -23,7 +23,6 @@ public sealed interface BoundStatement extends BoundNode
       String name,
       SemanticType type,
       BoundExpression initializer,
-      BoundValueTransfer transfer,
       SourceSpan span)
       implements BoundStatement {
     public LocalDeclaration {
@@ -31,18 +30,15 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(initializer, "initializer");
-      Objects.requireNonNull(transfer, "transfer");
       Objects.requireNonNull(span, "span");
     }
   }
 
-  record LocalAssignment(
-      BoundLocalId local, BoundExpression value, BoundValueTransfer transfer, SourceSpan span)
+  record LocalAssignment(BoundLocalId local, BoundExpression value, SourceSpan span)
       implements BoundStatement {
     public LocalAssignment {
       Objects.requireNonNull(local, "local");
       Objects.requireNonNull(value, "value");
-      Objects.requireNonNull(transfer, "transfer");
       Objects.requireNonNull(span, "span");
     }
   }
@@ -52,7 +48,6 @@ public sealed interface BoundStatement extends BoundNode
       BoundFieldId field,
       int ordinal,
       BoundExpression value,
-      BoundValueTransfer transfer,
       SourceSpan span)
       implements BoundStatement {
     public FieldAssignment {
@@ -60,7 +55,6 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(field, "field");
       if (ordinal < 0) throw new IllegalArgumentException("field ordinal must be non-negative");
       Objects.requireNonNull(value, "value");
-      Objects.requireNonNull(transfer, "transfer");
       Objects.requireNonNull(span, "span");
     }
   }
@@ -70,7 +64,6 @@ public sealed interface BoundStatement extends BoundNode
       BoundExpression receiver,
       Optional<BoundExpression> index,
       BoundExpression value,
-      BoundValueTransfer transfer,
       SourceSpan span)
       implements BoundStatement {
     public IntrinsicAssignment {
@@ -78,7 +71,6 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(receiver, "receiver");
       index = Objects.requireNonNull(index, "index");
       Objects.requireNonNull(value, "value");
-      Objects.requireNonNull(transfer, "transfer");
       Objects.requireNonNull(span, "span");
     }
   }
@@ -110,7 +102,6 @@ public sealed interface BoundStatement extends BoundNode
       BoundExpression iterable,
       BoundBlock body,
       IntrinsicId iterationIntrinsic,
-      BoundValueTransfer transfer,
       SourceSpan span)
       implements BoundStatement {
     public ForStatement {
@@ -121,7 +112,6 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(iterable, "iterable");
       Objects.requireNonNull(body, "body");
       Objects.requireNonNull(iterationIntrinsic, "iterationIntrinsic");
-      Objects.requireNonNull(transfer, "transfer");
       Objects.requireNonNull(span, "span");
     }
   }
@@ -135,12 +125,10 @@ public sealed interface BoundStatement extends BoundNode
     }
   }
 
-  record ReturnStatement(
-      Optional<BoundExpression> value, BoundValueTransfer transfer, SourceSpan span)
+  record ReturnStatement(Optional<BoundExpression> value, SourceSpan span)
       implements BoundStatement {
     public ReturnStatement {
       value = Objects.requireNonNull(value, "value");
-      Objects.requireNonNull(transfer, "transfer");
       Objects.requireNonNull(span, "span");
     }
   }

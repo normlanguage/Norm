@@ -21,7 +21,7 @@ final class ReferenceIndexTest {
     bindings.put(new SourceSpan(first, 5, 8), symbol);
     bindings.put(new SourceSpan(first, 0, 4), symbol);
 
-    ReferenceIndex index = ReferenceIndex.from(bindings, Map.of());
+    ReferenceIndex index = ReferenceIndex.from(bindings);
 
     assertEquals(
         List.of(

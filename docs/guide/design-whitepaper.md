@@ -346,7 +346,7 @@ Parser
     ↓
 Semantic Analysis
     ↓
-Bound IR
+Canonical Core IR
     ↓
 Truffle Backend
     ↓
@@ -359,7 +359,7 @@ This provides:
 - JIT optimization
 - native packaging through Native Image
 
-Native Image packages the same Truffle implementation as a native CLI; it is not a second language backend. The language model and Bound IR remain independent from JVM type semantics.
+Native Image packages the same Truffle implementation as a native CLI. The language model and canonical Core IR remain independent from JVM type semantics.
 
 ---
 

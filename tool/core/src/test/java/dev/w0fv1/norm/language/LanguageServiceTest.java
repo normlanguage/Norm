@@ -144,6 +144,33 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesMembersThroughImportedSubstitutedGenericFieldsInIncompleteCode() {
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/util/Box.norm"),
+            "package sample.util public class Box<T> { T value }");
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app import sample.util.Box Void main() { "
+                + "Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) box.value. }");
+    var document =
+        service
+            .snapshot(
+                new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())))
+            .entryDocument();
+
+    List<String> labels =
+        service
+            .complete(document, entry.text().indexOf("box.value.") + "box.value.".length())
+            .stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.containsAll(List.of("add", "size", "removeAt")), labels.toString());
+  }
+
+  @Test
   void completesOnlyMembersOfTheCanonicalQueueType() {
     String text = "Void main() { Queue<Integer> values = Queue<Integer>() values. }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:queue-members"), text));
@@ -490,6 +517,131 @@ final class LanguageServiceTest {
 
     assertTrue(labels.indexOf("number") < labels.indexOf("label"));
     assertEquals("Void accept<Integer>(Integer value)", help.signatures().getFirst().label());
+  }
+
+  @Test
+  void specializesOwnerAndMethodTypeArgumentsForIncompleteMethodCalls() {
+    String text =
+        "class Box<T> { Void set(T value) {} U convert<U>(T source, U fallback) { "
+            + "return fallback } } Void main() { Box<String> box = Box<String>() "
+            + "box.set( box.convert<Integer>(";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:source-method-signature"), text));
+
+    SignatureHelp set =
+        service
+            .signatureHelp(analysis, text.indexOf("box.set(") + "box.set(".length())
+            .orElseThrow();
+    SignatureHelp convert = service.signatureHelp(analysis, text.length()).orElseThrow();
+
+    assertEquals("Void set(String value)", set.signatures().getFirst().label());
+    assertEquals(
+        "Integer convert<Integer>(String source, Integer fallback)",
+        convert.signatures().getFirst().label());
+  }
+
+  @Test
+  void usesResolvedCallInstantiationForCompleteGenericMethodCalls() {
+    String text =
+        "class Box<T> { Void set(T next) {} U convert<U>(U fallback) { return fallback } } "
+            + "Void main() { Box<String> box = Box<String>() String label = \"Norm\" "
+            + "box.set(label) Integer result = box.convert(fallback: 7) }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:resolved-call-signature"), text));
+
+    SignatureHelp set =
+        service.signatureHelp(analysis, text.indexOf("label) Integer")).orElseThrow();
+    SignatureHelp convert = service.signatureHelp(analysis, text.indexOf("7) }")).orElseThrow();
+
+    assertEquals("Void set(String next)", set.signatures().getFirst().label());
+    assertEquals(
+        "Integer convert<Integer>(Integer fallback)", convert.signatures().getFirst().label());
+  }
+
+  @Test
+  void providesEveryApplicableImportedAliasOverload() {
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/util/Choose.norm"),
+            "package util public String choose(String value) { return value } "
+                + "public T choose<T>(T value) { return value }");
+    SourceFile plain =
+        SourceFile.of(
+            DocumentId.of("file:///src/app/Plain.norm"),
+            "package app import util.choose as select Void main() { select(");
+    SourceFile explicit =
+        SourceFile.of(
+            DocumentId.of("file:///src/app/Explicit.norm"),
+            "package app import util.choose as select Void main() { select<Integer>(");
+
+    SignatureHelp plainHelp =
+        service
+            .signatureHelp(
+                service
+                    .snapshot(
+                        new CompilationRequest(
+                            plain.id(), List.of(plain, library), Set.of(library.id())))
+                    .entryDocument(),
+                plain.text().length())
+            .orElseThrow();
+    SignatureHelp explicitHelp =
+        service
+            .signatureHelp(
+                service
+                    .snapshot(
+                        new CompilationRequest(
+                            explicit.id(), List.of(explicit, library), Set.of(library.id())))
+                    .entryDocument(),
+                explicit.text().length())
+            .orElseThrow();
+
+    assertEquals(
+        Set.of("String select(String value)", "T select<T>(T value)"),
+        plainHelp.signatures().stream()
+            .map(SignatureInformation::label)
+            .collect(java.util.stream.Collectors.toSet()));
+    assertEquals(1, explicitHelp.signatures().size());
+    assertEquals(
+        "Integer select<Integer>(Integer value)", explicitHelp.signatures().getFirst().label());
+  }
+
+  @Test
+  void resolvesSourceMembersByCanonicalTypeIdentity() {
+    SourceFile firstLibrary =
+        SourceFile.of(
+            DocumentId.of("file:///src/first/Box.norm"),
+            "package first public class Box<T> { public Void fromFirst(T value) {} }");
+    SourceFile secondLibrary =
+        SourceFile.of(
+            DocumentId.of("file:///src/second/Box.norm"),
+            "package second public class Box { public Void fromSecond() {} }");
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/app/Main.norm"),
+            "package app import first.Box as First import second.Box as Second "
+                + "Void main() { First<String> value = First<String>() value. }");
+    var document =
+        service
+            .snapshot(
+                new CompilationRequest(
+                    entry.id(),
+                    List.of(entry, firstLibrary, secondLibrary),
+                    Set.of(firstLibrary.id(), secondLibrary.id())))
+            .entryDocument();
+
+    List<String> labels =
+        service.complete(document, entry.text().lastIndexOf('.') + 1).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.contains("fromFirst"));
+    assertFalse(labels.contains("fromSecond"));
+    Completion member =
+        service.complete(document, entry.text().lastIndexOf('.') + 1).stream()
+            .filter(completion -> completion.label().equals("fromFirst"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals("Void fromFirst(String value)", member.detail());
   }
 
   @Test

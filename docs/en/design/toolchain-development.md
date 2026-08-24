@@ -21,7 +21,9 @@ dev.w0fv1.norm.frontend     Compiler, Lexer, Parser, and Analyzer
 dev.w0fv1.norm.syntax       tokens and the Syntax AST
 dev.w0fv1.norm.semantic     types, symbols, and document semantic indexes
 dev.w0fv1.norm.builtin      builtin declarations and intrinsic identities
-dev.w0fv1.norm.bound        immutable Bound IR consumed by the backend
+dev.w0fv1.norm.bound        frontend-internal resolved representation
+dev.w0fv1.norm.core         content-addressed Core IR and dependency indexes
+dev.w0fv1.norm.core.store   canonical definition storage
 dev.w0fv1.norm.diagnostic   diagnostic values and rendering
 dev.w0fv1.norm.language     language services over semantic snapshots
 dev.w0fv1.norm.execution    public execution API, context, and structured errors
@@ -33,12 +35,12 @@ The required stage dependency constraints are:
 
 ```text
 frontend ⇏ truffle
-bound ⇏ frontend, truffle
-Lowerer → bound
+core ⇏ frontend, truffle
+Lowerer → core
 CLI → core public API
 ```
 
-`⇏` denotes a forbidden dependency. The lowerer must not depend on the Syntax AST or `SemanticModel`, and the CLI must not access internal Truffle nodes. New packages follow domain ownership; they must not duplicate types or semantic tables to evade these constraints.
+`⇏` denotes a forbidden dependency. `bound` is confined to the frontend conversion into Core. The lowerer consumes Core and has no dependency on the Syntax AST, `SemanticModel`, or `bound`. The CLI does not access internal Truffle nodes. New packages follow domain ownership and share existing semantic tables.
 
 ## CLI packages
 
@@ -73,19 +75,21 @@ SourceFile
   → Analyzer
   → SemanticModel
   → Binder
-  → BoundProgram
-  → ExecutionBackend
+  → CoreBuilder
+  → CoreCanonicalizer
+  → DefinitionStore
+  → CoreCompilation
   → Lowerer
   → Truffle executable AST
 ```
 
-The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics into Bound IR. The lowerer only converts Bound IR into executable nodes. Runtime code must not resolve declarations by name or interpret the Syntax AST.
+The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics, CoreBuilder separates canonical definitions from authoring occurrence metadata, and CoreCanonicalizer assigns content identities to recursive groups and their fixed dependencies. The lowerer converts only `CoreCompilation` into executable nodes. See the [compiler architecture](/spec/compiler-design) for the identity boundaries.
 
 One project analysis creates an immutable `CompilationSnapshot`. Diagnostics and language features use per-document projections of the same `SemanticModel`, `SpanIndex`, and `ReferenceIndex`. Unchanged parse results and the standard-library prelude are cached by `CompilationEnvironment`; a new document revision replaces the snapshot atomically.
 
-`ProgramRunner` and Polyglot Source execution share the `Compiler → BoundProgram → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, and cancellation explicitly. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
+`ProgramRunner` and Polyglot Source execution share the `Compiler → CoreCompilation → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, and cancellation as a hidden root argument, allowing artifacts to be reused across independent executions. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
 
-Each function owns a `FunctionRootNode` and `CallTarget`. Static function and method calls use `DirectCallNode`; locals use indexed `VirtualFrame` slots; loops use `LoopNode`; return, break, and continue use `ControlFlowException`. Executable nodes retain `SourceSection` information.
+Each function owns a `FunctionRootNode` and `CallTarget`. Static function and method calls use `DirectCallNode`; locals use indexed `VirtualFrame` slots; loops use `LoopNode`; return, break, and continue use `ControlFlowException`. Executable nodes receive their exact occurrence origin and `SourceSection` from `CoreAuthoringMap`.
 
 `@TruffleBoundary` is restricted to host I/O and similar slow paths. It must not surround guest-language computation. Value-copy behavior has one runtime implementation; a future copy-on-write representation must preserve observable language semantics.
 

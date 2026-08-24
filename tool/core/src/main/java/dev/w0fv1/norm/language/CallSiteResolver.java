@@ -1,14 +1,17 @@
 package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
+import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
 import java.util.ArrayDeque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 final class CallSiteResolver {
   private final TypeReferenceResolver typeReferences = new TypeReferenceResolver();
@@ -24,15 +27,49 @@ final class CallSiteResolver {
     if (opening < 0) return Optional.empty();
     int nameIndex = callableName(tokens, opening);
     if (nameIndex < 0) return Optional.empty();
-    Optional<Symbol> callable = callable(document.semanticModel(), tokens, nameIndex, offset);
-    if (callable.isEmpty()) return Optional.empty();
-    Symbol symbol =
-        symbols.specialize(
-            callable.orElseThrow(),
-            typeReferences
-                .arguments(document, tokens, nameIndex + 1, opening, offset)
-                .orElse(List.of()));
-    return Optional.of(new CallSite(symbol, activeParameter(tokens, opening, symbol)));
+    SemanticModel model = document.semanticModel();
+    CandidateSet resolved = callables(model, tokens, nameIndex, offset);
+    if (resolved.candidates().isEmpty()) return Optional.empty();
+    Optional<List<dev.w0fv1.norm.semantic.SemanticType>> parsedArguments =
+        typeReferences.arguments(document, tokens, nameIndex + 1, opening, offset);
+    boolean explicitArguments = nameIndex + 1 < opening;
+    if (explicitArguments && parsedArguments.isEmpty()) return Optional.empty();
+    List<dev.w0fv1.norm.semantic.SemanticType> arguments = parsedArguments.orElse(List.of());
+    List<Symbol> candidates = resolved.candidates();
+    if (explicitArguments) {
+      candidates =
+          candidates.stream()
+              .filter(candidate -> candidate.typeParameters().size() == arguments.size())
+              .toList();
+    }
+    candidates =
+        candidates.stream().map(candidate -> symbols.specialize(candidate, arguments)).toList();
+    Set<String> labels = argumentLabels(tokens, opening);
+    if (!labels.isEmpty()) {
+      List<Symbol> labeled =
+          candidates.stream()
+              .filter(
+                  candidate ->
+                      candidate.parameters().stream()
+                          .map(dev.w0fv1.norm.semantic.ParameterInfo::name)
+                          .collect(java.util.stream.Collectors.toSet())
+                          .containsAll(labels))
+              .toList();
+      if (!labeled.isEmpty()) candidates = labeled;
+    }
+    if (candidates.isEmpty()) return Optional.empty();
+    int activeSignature = 0;
+    if (resolved.preferred().isPresent()) {
+      for (int index = 0; index < candidates.size(); index++) {
+        if (candidates.get(index).id().equals(resolved.preferred().orElseThrow().id())) {
+          activeSignature = index;
+          break;
+        }
+      }
+    }
+    Symbol active = candidates.get(activeSignature);
+    return Optional.of(
+        new CallSite(candidates, activeSignature, activeParameter(tokens, opening, active)));
   }
 
   private static int activeOpeningParenthesis(List<Token> tokens) {
@@ -62,42 +99,119 @@ final class CallSiteResolver {
     return index >= 0 && tokens.get(index).kind() == TokenKind.IDENTIFIER ? index : -1;
   }
 
-  private static Optional<Symbol> callable(
+  private static CandidateSet callables(
       SemanticModel model, List<Token> tokens, int nameIndex, int offset) {
     Token name = tokens.get(nameIndex);
+    Optional<ResolvedCall> exactCall = model.callAtCallee(name.span());
+    if (exactCall.isPresent()) {
+      ResolvedCall call = exactCall.orElseThrow();
+      Optional<Symbol> target = model.symbol(call.target());
+      if (target.isPresent()) {
+        Symbol declaration = target.orElseThrow();
+        String presentedName =
+            model.symbolOf(name.span()).map(Symbol::name).orElse(declaration.name());
+        List<String> typeArguments =
+            declaration.kind() == SymbolKind.TYPE
+                ? call.resultType().arguments().stream()
+                    .map(dev.w0fv1.norm.semantic.SemanticType::displayName)
+                    .toList()
+                : call.callableTypeArguments().stream()
+                    .map(dev.w0fv1.norm.semantic.SemanticType::displayName)
+                    .toList();
+        Symbol instantiated =
+            new Symbol(
+                declaration.id(),
+                presentedName,
+                declaration.kind(),
+                call.resultType(),
+                declaration.declaration(),
+                declaration.owner(),
+                typeArguments,
+                call.parameters(),
+                declaration.documentation());
+        return new CandidateSet(List.of(instantiated), Optional.of(instantiated));
+      }
+    }
     Optional<Symbol> bound = model.resolvedSymbolOf(name.span()).filter(CallSiteResolver::callable);
-    if (bound.isPresent()) return bound;
+    if (bound.isPresent()) {
+      return new CandidateSet(model.callableAlternatives(bound.orElseThrow()), bound);
+    }
     if (nameIndex >= 2
         && (tokens.get(nameIndex - 1).kind() == TokenKind.DOT
             || tokens.get(nameIndex - 1).kind() == TokenKind.QUESTION_DOT)) {
-      int receiverOffset = Math.max(0, tokens.get(nameIndex - 1).span().startOffset() - 1);
-      Optional<Symbol> receiver = model.symbolAt(receiverOffset);
+      Token receiverToken = tokens.get(nameIndex - 2);
+      int receiverOffset = receiverToken.span().startOffset();
+      Optional<Symbol> receiver =
+          model
+              .symbolAt(receiverOffset)
+              .or(
+                  () ->
+                      model.visibleSymbols(offset).stream()
+                          .filter(symbol -> symbol.name().equals(receiverToken.lexeme()))
+                          .findFirst());
       if (receiver.isPresent() && receiver.orElseThrow().kind() == SymbolKind.TYPE) {
-        return model.typeMembers(receiver.orElseThrow().name()).stream()
-            .filter(symbol -> symbol.name().equals(name.lexeme()))
-            .findFirst();
+        return new CandidateSet(
+            model.typeMembers(receiver.orElseThrow().name()).stream()
+                .filter(symbol -> symbol.name().equals(name.lexeme()))
+                .toList(),
+            Optional.empty());
       }
-      return model.typeAt(receiverOffset).stream()
-          .flatMap(type -> model.members(type).stream())
-          .filter(symbol -> symbol.name().equals(name.lexeme()))
-          .findFirst();
+      Optional<dev.w0fv1.norm.semantic.SemanticType> receiverType =
+          model
+              .typeOf(receiverToken.span())
+              .or(() -> model.typeAt(receiverOffset))
+              .or(() -> receiver.map(Symbol::type));
+      return new CandidateSet(
+          receiverType.stream()
+              .flatMap(type -> model.members(type).stream())
+              .filter(symbol -> symbol.name().equals(name.lexeme()))
+              .toList(),
+          Optional.empty());
     }
-    Optional<Symbol> visible =
+    List<Symbol> visible =
         model.visibleSymbols(offset).stream()
             .filter(symbol -> symbol.name().equals(name.lexeme()))
-            .map(model::resolveAlias)
+            .flatMap(symbol -> model.callableAlternatives(symbol).stream())
             .filter(CallSiteResolver::callable)
-            .findFirst();
-    if (visible.isPresent()) return visible;
-    return model.symbols().stream()
-        .filter(symbol -> symbol.name().equals(name.lexeme()))
-        .filter(symbol -> symbol.owner().isEmpty())
-        .filter(
-            symbol ->
-                symbol.declaration().isEmpty()
-                    || symbol.declaration().orElseThrow().document().equals(model.source().id()))
-        .filter(CallSiteResolver::callable)
-        .findFirst();
+            .toList();
+    if (!visible.isEmpty()) return new CandidateSet(unique(visible), Optional.empty());
+    return new CandidateSet(
+        model.symbols().stream()
+            .filter(symbol -> symbol.name().equals(name.lexeme()))
+            .filter(symbol -> symbol.owner().isEmpty())
+            .filter(
+                symbol ->
+                    symbol.declaration().isEmpty()
+                        || symbol
+                            .declaration()
+                            .orElseThrow()
+                            .document()
+                            .equals(model.source().id()))
+            .filter(CallSiteResolver::callable)
+            .toList(),
+        Optional.empty());
+  }
+
+  private static List<Symbol> unique(List<Symbol> symbols) {
+    LinkedHashMap<dev.w0fv1.norm.semantic.SymbolId, Symbol> result = new LinkedHashMap<>();
+    symbols.forEach(symbol -> result.putIfAbsent(symbol.id(), symbol));
+    return List.copyOf(result.values());
+  }
+
+  private static Set<String> argumentLabels(List<Token> tokens, int opening) {
+    Set<String> labels = new java.util.LinkedHashSet<>();
+    int depth = 0;
+    for (int index = opening + 1; index + 1 < tokens.size(); index++) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.LEFT_PAREN || kind == TokenKind.LEFT_BRACKET) depth++;
+      if ((kind == TokenKind.RIGHT_PAREN || kind == TokenKind.RIGHT_BRACKET) && depth > 0) depth--;
+      if (depth == 0
+          && kind == TokenKind.IDENTIFIER
+          && tokens.get(index + 1).kind() == TokenKind.COLON) {
+        labels.add(tokens.get(index).lexeme());
+      }
+    }
+    return Set.copyOf(labels);
   }
 
   private static boolean callable(Symbol symbol) {
@@ -130,5 +244,11 @@ final class CallSiteResolver {
       }
     }
     return Math.min(ordinal, callable.parameters().size() - 1);
+  }
+
+  private record CandidateSet(List<Symbol> candidates, Optional<Symbol> preferred) {
+    private CandidateSet {
+      candidates = List.copyOf(candidates);
+    }
   }
 }

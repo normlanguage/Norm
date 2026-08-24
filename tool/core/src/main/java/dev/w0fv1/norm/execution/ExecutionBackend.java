@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.execution;
 
-import dev.w0fv1.norm.bound.BoundProgram;
+import dev.w0fv1.norm.core.CoreCompilation;
 
 public interface ExecutionBackend {
-  void execute(BoundProgram program, ExecutionContext context);
+  void execute(CoreCompilation compilation, ExecutionContext context);
 }

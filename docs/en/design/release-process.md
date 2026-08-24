@@ -30,4 +30,4 @@ Public releases should progressively adopt Windows Authenticode signing and Appl
 
 ## Release notes
 
-Release notes record only delivered language behavior, tooling changes, migration requirements, and known limitations. A release requires Chinese and English version records at the `major.minor` path derived from its tag. See the [Norm 0.3 release record](/en/versions/0.3) for the current implementation boundary; future language specifications are not current compiler commitments.
+Release notes record only delivered language behavior, tooling changes, migration requirements, and known limitations. A release requires Chinese and English version records at the `major.minor` path derived from its tag. The latest implementation contract in the [version index](/en/versions/) defines the current boundary; future language specifications are not current compiler commitments.

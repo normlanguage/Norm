@@ -1,5 +1,6 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const defaultCli = resolve(
   process.cwd(),
@@ -18,6 +19,11 @@ let buffer = Buffer.alloc(0);
 let stderr = '';
 let settled = false;
 let protocolComplete = false;
+let signatureRequested = false;
+const fixtureRoot = resolve(process.cwd(), 'test-fixtures', 'lsp-smoke');
+const moduleUri = pathToFileURL(resolve(fixtureRoot, 'module.norm')).href;
+const signatureUri = pathToFileURL(resolve(fixtureRoot, 'signature.norm')).href;
+const signatureText = 'Void consume(String value, Integer count) {} Void main() { consume(';
 const timeout = setTimeout(() => finish(new Error(`LSP initialize timed out. stderr: ${stderr}`)), 10_000);
 
 child.stderr.setEncoding('utf8');
@@ -25,6 +31,7 @@ child.stderr.on('data', (chunk) => {
   stderr += chunk;
 });
 child.on('error', finish);
+child.stdin.on('error', finish);
 child.on('exit', (code) => {
   if (settled) return;
   if (protocolComplete && code === 0) {
@@ -79,7 +86,7 @@ function readMessages() {
         method: 'textDocument/didOpen',
         params: {
           textDocument: {
-            uri: 'file:///module.norm',
+            uri: moduleUri,
             languageId: 'norm',
             version: 1,
             text: 'Module(name: "sample", version: 1, exports: [])',
@@ -88,7 +95,7 @@ function readMessages() {
       });
     } else if (
       message.method === 'textDocument/publishDiagnostics' &&
-      message.params?.uri === 'file:///module.norm'
+      message.params?.uri === moduleUri
     ) {
       if (message.params.diagnostics?.length) {
         return finish(new Error(`Module descriptor diagnostics failed: ${JSON.stringify(message)}`));
@@ -103,26 +110,31 @@ function readMessages() {
       if (typeof message.result !== 'string' || !message.result.includes('public Integer clamp')) {
         return finish(new Error(`Standard-library source request failed: ${JSON.stringify(message)}`));
       }
-      const text = 'Void consume(String value, Integer count) {} Void main() { consume(';
       send({
         jsonrpc: '2.0',
         method: 'textDocument/didOpen',
         params: {
           textDocument: {
-            uri: 'file:///signature.norm',
+            uri: signatureUri,
             languageId: 'norm',
             version: 1,
-            text,
+            text: signatureText,
           },
         },
       });
+    } else if (
+      message.method === 'textDocument/publishDiagnostics' &&
+      message.params?.uri === signatureUri &&
+      !signatureRequested
+    ) {
+      signatureRequested = true;
       send({
         jsonrpc: '2.0',
         id: 3,
         method: 'textDocument/signatureHelp',
         params: {
-          textDocument: { uri: 'file:///signature.norm' },
-          position: { line: 0, character: text.length },
+          textDocument: { uri: signatureUri },
+          position: { line: 0, character: signatureText.length },
           context: { triggerKind: 2, triggerCharacter: '(', isRetrigger: false },
         },
       });
@@ -147,10 +159,22 @@ function finish(error) {
   settled = true;
   clearTimeout(timeout);
   if (error) {
-    child.kill();
+    terminate();
     console.error(error.message);
     process.exitCode = 1;
   } else {
     console.log('Norm LSP stdio handshake succeeded.');
   }
+}
+
+function terminate() {
+  if (child.exitCode !== null || child.pid === undefined) return;
+  if (process.platform === 'win32') {
+    spawnSync('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    return;
+  }
+  child.kill('SIGTERM');
 }

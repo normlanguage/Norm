@@ -50,13 +50,13 @@ final class ModuleManifestParserTest {
   }
 
   @Test
-  void rejectsUnsupportedManifestVersions() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            parser.parse(
-                SourceFile.of(
-                    Path.of("module.norm"), "Module(name: \"std\", version: 2, exports: [])")));
+  void acceptsPositiveModuleVersions() {
+    ModuleManifest manifest =
+        parser.parse(
+            SourceFile.of(
+                Path.of("module.norm"), "Module(name: \"std\", version: 2, exports: [])"));
+
+    assertEquals(2, manifest.version());
   }
 
   @Test

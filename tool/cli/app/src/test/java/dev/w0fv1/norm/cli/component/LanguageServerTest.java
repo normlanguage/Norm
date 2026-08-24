@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionParams;
 import org.eclipse.lsp4j.DefinitionParams;
+import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -29,8 +30,10 @@ import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.SignatureHelpParams;
+import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -284,6 +287,88 @@ final class LanguageServerTest {
   }
 
   @Test
+  void assemblesAnUnsavedModuleFromOpenDocuments() throws Exception {
+    Path root = temporaryDirectory.resolve("unsaved-project");
+    Path entry = root.resolve("sample/app/Main.norm");
+    Path library = root.resolve("sample/util/Identity.norm");
+    Path manifest = root.resolve("module.norm");
+    Files.createDirectories(entry.getParent());
+    Files.createDirectories(library.getParent());
+    String entryText = "package sample.app import sample.util.identity Void main() { identity(1) }";
+    String libraryText =
+        "package sample.util public Integer identity(Integer value) { return value }";
+    String manifestText = "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])";
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(entry.toUri().toString(), "norm", 1, entryText)));
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(library.toUri().toString(), "norm", 1, libraryText)));
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(manifest.toUri().toString(), "norm", 1, manifestText)));
+
+    List<? extends org.eclipse.lsp4j.Location> definitions =
+        server
+            .getTextDocumentService()
+            .definition(
+                new DefinitionParams(
+                    new TextDocumentIdentifier(entry.toUri().toString()),
+                    positionOfLast(entryText, "identity")))
+            .get()
+            .getLeft();
+
+    assertEquals(1, definitions.size());
+    assertEquals(library, Path.of(java.net.URI.create(definitions.getFirst().getUri())));
+  }
+
+  @Test
+  void treatsPackageSourceNamedModuleNormAsAProjectDocument() throws Exception {
+    Path root = temporaryDirectory.resolve("package-module-source");
+    Path source = root.resolve("sample/internal/module.norm");
+    Path library = root.resolve("sample/util/Identity.norm");
+    Files.createDirectories(source.getParent());
+    Files.createDirectories(library.getParent());
+    Files.writeString(
+        root.resolve("module.norm"),
+        "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+    Files.writeString(
+        library, "package sample.util public Integer identity(Integer value) { return value }");
+    String sourceText =
+        "package sample.internal import sample.util.identity Integer value() { return identity(1) }";
+    Files.writeString(source, sourceText);
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(source.toUri().toString(), "norm", 1, sourceText)));
+    List<? extends org.eclipse.lsp4j.Location> definitions =
+        server
+            .getTextDocumentService()
+            .definition(
+                new DefinitionParams(
+                    new TextDocumentIdentifier(source.toUri().toString()),
+                    positionOfLast(sourceText, "identity")))
+            .get()
+            .getLeft();
+
+    assertEquals(1, definitions.size());
+    assertEquals(library, Path.of(java.net.URI.create(definitions.getFirst().getUri())));
+  }
+
+  @Test
   void exposesDefinitionReferencesAndRenameFromSemanticBindings() throws Exception {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
@@ -531,6 +616,47 @@ final class LanguageServerTest {
 
     assertTrue(labels.containsAll(List.of("label", "count")), labels.toString());
     assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void completesImportedGenericFieldMembersAfterAnIncompleteEdit() throws Exception {
+    Path root = temporaryDirectory.resolve("generic-member-" + System.nanoTime());
+    Path library = root.resolve("sample/util/Box.norm");
+    Path entry = root.resolve("sample/app/Main.norm");
+    Files.createDirectories(library.getParent());
+    Files.createDirectories(entry.getParent());
+    Files.writeString(
+        root.resolve("module.norm"),
+        "Module(name: \"sample\", version: 1, exports: [\"util.Box\"])");
+    Files.writeString(library, "package sample.util public class Box<T> { T value }");
+    String complete =
+        "package sample.app import sample.util.Box Void main() { "
+            + "Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) box.value.add(9) }";
+    String incomplete = complete.replace("add(9)", "");
+    Files.writeString(entry, complete);
+    String uri = entry.toUri().toString();
+    int offset = incomplete.indexOf("box.value.") + "box.value.".length();
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, complete)));
+    server
+        .getTextDocumentService()
+        .didChange(
+            new DidChangeTextDocumentParams(
+                new VersionedTextDocumentIdentifier(uri, 2),
+                List.of(new TextDocumentContentChangeEvent(incomplete))));
+    CompletionParams params = new CompletionParams();
+    params.setTextDocument(new TextDocumentIdentifier(uri));
+    params.setPosition(new Position(0, offset));
+
+    List<String> labels =
+        server.getTextDocumentService().completion(params).get().getLeft().stream()
+            .map(CompletionItem::getLabel)
+            .toList();
+
+    assertTrue(labels.containsAll(List.of("add", "size", "removeAt")), labels.toString());
   }
 
   @Test

@@ -40,6 +40,78 @@ final class BackendTest {
   }
 
   @Test
+  void reusesContextIndependentArtifactsAcrossExecutions() {
+    var program =
+        new Compiler()
+            .compile(SourceFile.of(Path.of("cached.norm"), "Void main() { printLine(\"cached\") }"))
+            .program()
+            .orElseThrow();
+    TruffleExecutionBackend backend = new TruffleExecutionBackend();
+    ProgramRunner runner = new ProgramRunner(backend);
+    StringWriter first = new StringWriter();
+    StringWriter second = new StringWriter();
+
+    runner.run(program, new PrintWriter(first));
+    runner.run(program, new PrintWriter(second));
+
+    assertEquals("cached" + System.lineSeparator(), first.toString());
+    assertEquals(first.toString(), second.toString());
+    assertEquals(1, backend.cachedArtifacts());
+  }
+
+  @Test
+  void sharesOneArtifactAcrossConcurrentExecutionContexts() {
+    var program =
+        new Compiler()
+            .compile(
+                SourceFile.of(
+                    Path.of("concurrent.norm"), "Void main() { printLine(\"concurrent\") }"))
+            .program()
+            .orElseThrow();
+    TruffleExecutionBackend backend = new TruffleExecutionBackend();
+    ProgramRunner runner = new ProgramRunner(backend);
+
+    try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+      var executions =
+          java.util.stream.IntStream.range(0, 32)
+              .mapToObj(
+                  ignored ->
+                      java.util.concurrent.CompletableFuture.supplyAsync(
+                          () -> {
+                            StringWriter output = new StringWriter();
+                            runner.run(program, new PrintWriter(output));
+                            return output.toString();
+                          },
+                          executor))
+              .toList();
+      String expected = "concurrent" + System.lineSeparator();
+      executions.forEach(execution -> assertEquals(expected, execution.join()));
+    }
+
+    assertEquals(1, backend.cachedArtifacts());
+  }
+
+  @Test
+  void boundsTheArtifactCacheForLongRunningSessions() {
+    TruffleExecutionBackend backend = new TruffleExecutionBackend(2);
+    ProgramRunner runner = new ProgramRunner(backend);
+
+    for (int value = 0; value < 3; value++) {
+      var program =
+          new Compiler()
+              .compile(
+                  SourceFile.of(
+                      Path.of("bounded-" + value + ".norm"),
+                      "Void main() { printLine(" + value + ") }"))
+              .program()
+              .orElseThrow();
+      runner.run(program, new PrintWriter(new StringWriter()));
+    }
+
+    assertTrue(backend.cachedArtifacts() <= 2);
+  }
+
+  @Test
   void executesSourceThroughTheRegisteredPolyglotLanguage() {
     var output = new ByteArrayOutputStream();
 
@@ -49,6 +121,26 @@ final class BackendTest {
 
     assertEquals(
         "Hello from Polyglot" + System.lineSeparator(), output.toString(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void usesTheActivePolyglotContextWhenAnEngineReusesCompiledSource() {
+    Source source = Source.create("norm", "Void main() { printLine(\"shared engine\") }");
+    ByteArrayOutputStream firstOutput = new ByteArrayOutputStream();
+    ByteArrayOutputStream secondOutput = new ByteArrayOutputStream();
+
+    try (org.graalvm.polyglot.Engine engine = org.graalvm.polyglot.Engine.create()) {
+      try (Context context = Context.newBuilder("norm").engine(engine).out(firstOutput).build()) {
+        context.eval(source);
+      }
+      try (Context context = Context.newBuilder("norm").engine(engine).out(secondOutput).build()) {
+        context.eval(source);
+      }
+    }
+
+    String expected = "shared engine" + System.lineSeparator();
+    assertEquals(expected, firstOutput.toString(StandardCharsets.UTF_8));
+    assertEquals(expected, secondOutput.toString(StandardCharsets.UTF_8));
   }
 
   @Test

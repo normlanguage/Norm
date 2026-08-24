@@ -1,10 +1,13 @@
 package dev.w0fv1.norm.truffle;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.oracle.truffle.api.TruffleStackTrace;
 import com.oracle.truffle.api.TruffleStackTraceElement;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
-import dev.w0fv1.norm.bound.BoundProgram;
+import dev.w0fv1.norm.core.ArtifactId;
+import dev.w0fv1.norm.core.CoreCompilation;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.GuestStackFrame;
@@ -15,12 +18,26 @@ import java.util.List;
 import java.util.Objects;
 
 public final class TruffleExecutionBackend implements ExecutionBackend {
+  private static final int DEFAULT_MAXIMUM_ARTIFACTS = 256;
+  private final Cache<ArtifactId, ExecutableProgram> artifacts;
+
+  public TruffleExecutionBackend() {
+    this(DEFAULT_MAXIMUM_ARTIFACTS);
+  }
+
+  TruffleExecutionBackend(int maximumArtifacts) {
+    if (maximumArtifacts < 1) {
+      throw new IllegalArgumentException("maximum artifacts must be positive");
+    }
+    artifacts = Caffeine.newBuilder().maximumSize(maximumArtifacts).build();
+  }
+
   @Override
-  public void execute(BoundProgram program, ExecutionContext context) {
-    Objects.requireNonNull(program, "program");
+  public void execute(CoreCompilation compilation, ExecutionContext context) {
+    Objects.requireNonNull(compilation, "compilation");
     Objects.requireNonNull(context, "context");
     try {
-      compile(null, program, context).entryPoint().call();
+      compile(null, compilation).entryPoint().call(context);
     } catch (NormGuestException exception) {
       throw translate(exception);
     } finally {
@@ -28,8 +45,16 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     }
   }
 
-  ExecutableProgram compile(Language language, BoundProgram program, ExecutionContext context) {
-    return new Lowerer(language, context).lower(program);
+  ExecutableProgram compile(Language language, CoreCompilation compilation) {
+    String backendAbi =
+        language == null ? "norm-truffle-standalone-v1" : "norm-truffle-language-v1";
+    ArtifactId artifact = ArtifactId.forCompilation(compilation, backendAbi);
+    return artifacts.get(artifact, ignored -> new Lowerer(language).lower(compilation));
+  }
+
+  int cachedArtifacts() {
+    artifacts.cleanUp();
+    return Math.toIntExact(artifacts.estimatedSize());
   }
 
   private static NormExecutionException translate(NormGuestException exception) {

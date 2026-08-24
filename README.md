@@ -8,7 +8,7 @@ Norm prioritizes explicit behavior, predictable semantics, strong typing, value 
 
 ## Status
 
-**V0.3 nullable-safety and algorithm-foundation release.** Norm supports explicit nullable types, flow narrowing, safe access and coalescing, overloads, conditional loops, stepped ranges, expanded collection and text primitives, cross-file language services, and a standard library written in Norm. The [0.3 release record](https://w0fv1.github.io/norm/en/versions/0.3) defines the delivered language boundary.
+**V0.4 development line.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [0.4 implementation contract](https://w0fv1.github.io/norm/en/versions/0.4) defines this boundary.
 
 ## Build
 
@@ -45,4 +45,4 @@ docs/                         language handbook and examples
 
 Norm's official toolchain is implemented in Java. GraalVM/Truffle is the sole official execution backend, and GraalVM Native Image produces the standalone `norm` CLI. Zig is not part of the compiler, runtime, backend, CLI, or core standard-library adapters.
 
-The frontend and Bound IR remain independent from Truffle APIs so static tooling can run without starting the execution backend. See the [implementation strategy](https://w0fv1.github.io/norm/design/implementation-strategy) and [compiler bootstrap plan](https://w0fv1.github.io/norm/design/bootstrap-plan).
+The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://w0fv1.github.io/norm/spec/compiler-design) and [implementation strategy](https://w0fv1.github.io/norm/design/implementation-strategy).

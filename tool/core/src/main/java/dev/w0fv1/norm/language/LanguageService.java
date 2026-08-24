@@ -67,9 +67,9 @@ public final class LanguageService {
 
   public Optional<HoverInfo> hover(AnalysisResult analysis, int offset) {
     SemanticModel model = analysis.semanticModel();
-    Optional<Symbol> symbol = model.symbolAt(offset);
+    Optional<Symbol> symbol = model.resolvedSymbolAt(offset);
     if (symbol.isPresent()) {
-      Symbol value = model.resolveAlias(symbol.orElseThrow());
+      Symbol value = symbol.orElseThrow();
       String signature = SymbolPresentation.signature(value);
       String markdown =
           value.documentation().isBlank()
@@ -85,7 +85,7 @@ public final class LanguageService {
 
   public Optional<SourceLocation> definition(AnalysisResult analysis, int offset) {
     SemanticModel model = analysis.semanticModel();
-    return model.symbolAt(offset).map(model::resolveAlias).flatMap(Symbol::declaration);
+    return model.resolvedSymbolAt(offset).flatMap(Symbol::declaration);
   }
 
   public List<SourceLocation> references(
@@ -95,7 +95,11 @@ public final class LanguageService {
     if (selected.isEmpty()) return List.of();
     Symbol symbol = selected.orElseThrow();
     Optional<SourceLocation> declaration = symbol.declaration();
-    return model.references(symbol.id()).stream()
+    List<dev.w0fv1.norm.value.SourceSpan> references =
+        model.isAlias(symbol.id())
+            ? model.authoringReferences(symbol.id())
+            : model.references(symbol.id());
+    return references.stream()
         .map(span -> span.location())
         .filter(location -> includeDeclaration || !declaration.equals(Optional.of(location)))
         .toList();
@@ -122,7 +126,7 @@ public final class LanguageService {
           "name '" + newName + "' is already declared in this scope");
     }
     List<SourceLocation> locations =
-        model.references(selected.orElseThrow().id()).stream()
+        model.authoringReferences(selected.orElseThrow().id()).stream()
             .map(span -> span.location())
             .toList();
     return Optional.of(new RenameEdit(newName, locations));

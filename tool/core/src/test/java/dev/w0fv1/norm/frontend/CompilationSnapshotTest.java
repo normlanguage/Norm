@@ -4,10 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.core.DefinitionGroupId;
+import dev.w0fv1.norm.core.store.DefinitionStore;
+import dev.w0fv1.norm.core.store.PutResult;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
+import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -38,5 +43,31 @@ final class CompilationSnapshotTest {
     assertSame(first.semanticModel(), first.document(main.id()).orElseThrow().projectModel());
     assertEquals(afterFirst, parses.get());
     assertEquals(first.documentIds(), second.documentIds());
+  }
+
+  @Test
+  void keepsAuthoringSnapshotsIndependentFromCoreMaterialization() {
+    AtomicInteger storeAccesses = new AtomicInteger();
+    DefinitionStore store =
+        new DefinitionStore() {
+          @Override
+          public PutResult put(byte[] canonicalGroup) throws IOException {
+            storeAccesses.incrementAndGet();
+            throw new IOException("unexpected write");
+          }
+
+          @Override
+          public Optional<byte[]> get(DefinitionGroupId id) throws IOException {
+            storeAccesses.incrementAndGet();
+            throw new IOException("unexpected read");
+          }
+        };
+    Compiler compiler = new Compiler(CompilationEnvironment.create(() -> {}, () -> {}, store));
+    SourceFile source = SourceFile.of(DocumentId.of("untitled:authoring"), "Void main() {}");
+
+    CompilationSnapshot snapshot = compiler.snapshot(CompilationRequest.single(source));
+
+    assertTrue(snapshot.document(source.id()).isPresent());
+    assertEquals(0, storeAccesses.get());
   }
 }

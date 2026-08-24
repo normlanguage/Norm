@@ -46,6 +46,8 @@ final class TypeReferenceResolver {
     }
     int typeEnd = nameIndex;
     int typeStart = typeEnd - 1;
+    if (tokens.get(typeStart).kind() == TokenKind.QUESTION) typeStart--;
+    if (typeStart < 0) return Optional.empty();
     if (tokens.get(typeStart).kind() == TokenKind.GREATER) {
       int depth = 0;
       while (typeStart >= 0) {
@@ -76,6 +78,7 @@ final class TypeReferenceResolver {
       } while (cursor.match(TokenKind.COMMA));
       if (!cursor.match(TokenKind.GREATER)) return Optional.empty();
     }
+    boolean nullable = cursor.match(TokenKind.QUESTION);
     Optional<Symbol> symbol =
         document.semanticModel().visibleSymbols(offset).stream()
             .filter(
@@ -87,11 +90,11 @@ final class TypeReferenceResolver {
             .findFirst();
     if (symbol.isEmpty()) return Optional.empty();
     SemanticType base = symbol.orElseThrow().type();
-    if (base.kind() == SemanticType.Kind.TYPE_PARAMETER || arguments.isEmpty()) {
-      return Optional.of(base);
-    }
-    return Optional.of(
-        SemanticType.declared(base.identity(), base.name(), arguments, base.category()));
+    SemanticType resolved =
+        base.kind() == SemanticType.Kind.TYPE_PARAMETER || arguments.isEmpty()
+            ? base
+            : SemanticType.declared(base.identity(), base.name(), arguments, base.category());
+    return Optional.of(nullable ? resolved.nullable() : resolved);
   }
 
   private static boolean typeToken(TokenKind kind) {

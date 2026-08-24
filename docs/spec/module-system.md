@@ -13,7 +13,7 @@ Module(
 )
 ```
 
-`name` 是点分隔的模块名，也是模块内 package 的共同前缀。`version` 是正整数模块描述格式版本。`exports` 是不重复的相对源码名。
+`name` 是点分隔的模块名，也是模块内 package 的共同前缀。`version` 是正整数模块版本，并参与公开名义类型的稳定身份。`exports` 是不重复的相对源码名。
 
 ## 源文件映射
 
@@ -25,10 +25,16 @@ std/collections/sequences.norm
 
 该文件必须声明 `package std.collections`。文件名不参与 package 名，但用于确定导出的具体源码文件。
 
+## Source set
+
+存在清单时，source set 包含模块根下的全部 `.norm` 源码，根 `module.norm` 除外；嵌套模块及其源码属于独立 source set。每个源码的相对目录必须与其 package 一一对应，并位于模块名的 package 前缀下。带 package 声明的 `module.norm` 是普通源码文件。
+
+Language Server 先合并未保存的文件内容，再定位清单、嵌套模块和 package 边界，因此编辑器与 CLI 使用同一套项目规则。
+
 ## 可见范围
 
 同 package 的源码文件自动加载并可以直接引用彼此的 `public` 声明。跨 package import 只能访问 `exports` 指定文件中的 `public` 声明；`private` 始终限制在声明文件内。
 
-没有 `module.norm` 时，带 package 的入口只加载入口 package 目录中的源码。无 package 文件保持单文件脚本语义。
+不存在清单时，入口始终作为独立单文件编译单元；package 声明只提供该文件内的命名空间，不会隐式加载相邻文件。
 
-`module.norm` 不在程序运行时执行。CLI、编译器、标准库加载器和语言服务使用同一个模块描述模型。
+清单不在程序运行时执行。CLI、编译器、标准库加载器、测试工具和语言服务使用同一个 `ProjectSourceSet` 与模块描述模型。

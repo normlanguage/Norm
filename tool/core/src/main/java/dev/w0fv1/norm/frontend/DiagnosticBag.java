@@ -40,6 +40,25 @@ final class DiagnosticBag implements Iterable<Diagnostic> {
     return List.copyOf(diagnostics);
   }
 
+  int mark() {
+    return diagnostics.size();
+  }
+
+  boolean hasErrorsSince(int mark) {
+    if (mark < 0 || mark > diagnostics.size()) {
+      throw new IllegalArgumentException("diagnostic mark is outside the bag");
+    }
+    return diagnostics.subList(mark, diagnostics.size()).stream()
+        .anyMatch(diagnostic -> diagnostic.severity() == DiagnosticSeverity.ERROR);
+  }
+
+  void rollback(int mark) {
+    if (mark < 0 || mark > diagnostics.size()) {
+      throw new IllegalArgumentException("diagnostic mark is outside the bag");
+    }
+    diagnostics.subList(mark, diagnostics.size()).clear();
+  }
+
   @Override
   public Iterator<Diagnostic> iterator() {
     return snapshot().iterator();

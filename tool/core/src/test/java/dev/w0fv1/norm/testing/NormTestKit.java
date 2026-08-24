@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.execution.ProgramRunner;
 import dev.w0fv1.norm.frontend.Compiler;
-import dev.w0fv1.norm.frontend.ModuleManifestParser;
 import dev.w0fv1.norm.frontend.ProjectLoader;
+import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.TypedProgram;
@@ -32,7 +32,7 @@ public final class NormTestKit {
   }
 
   public static String run(Path path) throws Exception {
-    return run(new Compiler().compile(new ProjectLoader().load(path)));
+    return run(new Compiler().compile(new ProjectLoader().load(path).compilationRequest()));
   }
 
   private static String run(CompilationResult compilation) {
@@ -70,35 +70,44 @@ public final class NormTestKit {
 
   public static Stream<DynamicTest> projectSuite(String resource) throws Exception {
     Path directory = resourceDirectory(resource);
-    List<Path> manifests;
+    List<Path> candidates;
     try (Stream<Path> files = Files.walk(directory)) {
-      manifests =
+      candidates =
           files
               .filter(Files::isRegularFile)
               .filter(path -> path.getFileName().toString().equals("module.norm"))
               .sorted()
               .toList();
     }
+    List<Path> manifests = new ArrayList<>();
+    for (Path candidate : candidates) {
+      if (ProjectLoader.isManifest(SourceFile.read(candidate))) manifests.add(candidate);
+    }
     List<DynamicTest> tests = new ArrayList<>();
     for (Path manifest : manifests) {
-      new ModuleManifestParser().parse(SourceFile.read(manifest));
-      List<Path> sources;
+      List<Path> sourceCandidates;
       try (Stream<Path> files = Files.walk(manifest.getParent())) {
-        sources =
+        sourceCandidates =
             files
                 .filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().endsWith(".norm"))
-                .filter(path -> !path.getFileName().toString().equals("module.norm"))
+                .filter(path -> !path.equals(manifest))
+                .sorted()
                 .toList();
       }
-      List<Path> entries = new ArrayList<>();
-      for (Path source : sources) {
-        if (new Compiler().analyze(SourceFile.read(source)).entryPoint().isPresent()) {
-          entries.add(source);
-        }
+      List<Path> entryPoints = new ArrayList<>();
+      for (Path source : sourceCandidates) {
+        var sourceSet = new ProjectLoader().load(source);
+        if (!sourceSet
+            .manifestPath()
+            .equals(java.util.Optional.of(manifest.toAbsolutePath().normalize()))) continue;
+        CompilationRequest request = sourceSet.compilationRequest();
+        var snapshot = new Compiler().snapshot(request);
+        assertTrue(!snapshot.analysis().hasErrors(), () -> snapshot.diagnostics().toString());
+        if (snapshot.analysis().entryPoint().isPresent()) entryPoints.add(source);
       }
-      assertEquals(1, entries.size(), manifest + " must contain one entry point");
-      Path entry = entries.getFirst();
+      assertEquals(1, entryPoints.size(), manifest + " must contain exactly one entry point");
+      Path entry = entryPoints.getFirst();
       tests.add(
           DynamicTest.dynamicTest(
               directory.relativize(manifest.getParent()).toString(),
@@ -113,7 +122,8 @@ public final class NormTestKit {
   }
 
   static void assertSelfContainedTest(Path path) throws Exception {
-    CompilationResult compilation = new Compiler().compile(new ProjectLoader().load(path));
+    CompilationResult compilation =
+        new Compiler().compile(new ProjectLoader().load(path).compilationRequest());
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     StringWriter actual = new StringWriter();
     StringWriter expected = new StringWriter();

@@ -6,8 +6,8 @@ This decision applies to the official Norm compiler, runtime, execution backend,
 
 ## Decision
 
-1. **Java implements the entire core toolchain.** The lexer, parser, AST, name resolution, type checker, typed IR, formatter, shared LSP components, package tooling, and CLI use Java.
-2. **Truffle/GraalVM is the sole official execution backend.** The typed IR does not target LLVM, Cranelift, or a custom machine-code backend.
+1. **Java implements the entire core toolchain.** The lexer, parser, AST, name resolution, type checker, content-addressed Core IR, formatter, shared LSP components, package tooling, and CLI use Java.
+2. **Truffle/GraalVM is the sole official execution backend.** Lowering accepts canonical Core and produces the Truffle execution representation.
 3. **Native Image produces the standalone CLI.** Releases provide a native `norm` executable; the JVM form remains available for development and debugging.
 4. **Zig is not part of the core implementation.** Core, the CLI, and standard-library platform adapters contain no Zig code or Zig/Java FFI boundary.
 

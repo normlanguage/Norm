@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public final class SemanticModel implements SemanticIndex {
   private final SourceFile source;
@@ -20,19 +21,24 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SymbolId, Symbol> symbols;
   private final Map<SourceSpan, SymbolId> bindings;
   private final Map<SourceSpan, SemanticType> expressionTypes;
-  private final Map<SourceSpan, ArgumentBinding> argumentBindings;
-  private final Map<SourceSpan, List<SemanticType>> callTypeArguments;
+  private final Map<SourceSpan, ResolvedCall> resolvedCalls;
+  private final Map<SourceSpan, ResolvedCall> resolvedCallsByCallee;
+  private final Map<SourceSpan, SymbolId> resolvedCallees;
   private final Map<SourceSpan, ResolvedIteration> iterations;
   private final Map<SourceSpan, ResolvedIndex> indexes;
   private final Map<SymbolId, List<SymbolId>> members;
-  private final Map<SymbolId, SymbolId> aliasTargets;
+  private final Map<SymbolId, List<SymbolId>> aliasTargets;
+  private final Map<SymbolId, List<SymbolId>> callableGroups;
+  private final Map<String, SymbolId> typeSymbols;
   private final List<SemanticScope> scopes;
   private final List<Diagnostic> diagnostics;
   private final List<ImportableSymbol> importableSymbols;
   private final List<Token> tokens;
   private final SpanIndex<SymbolId> bindingIndex;
+  private final SpanIndex<SymbolId> resolvedCalleeIndex;
   private final SpanIndex<SemanticType> typeIndex;
-  private final ReferenceIndex referenceIndex;
+  private final ReferenceIndex authoringReferences;
+  private final ReferenceIndex semanticReferences;
 
   public SemanticModel(
       SourceFile source,
@@ -40,12 +46,13 @@ public final class SemanticModel implements SemanticIndex {
       Map<SymbolId, Symbol> symbols,
       Map<SourceSpan, SymbolId> bindings,
       Map<SourceSpan, SemanticType> expressionTypes,
-      Map<SourceSpan, ArgumentBinding> argumentBindings,
-      Map<SourceSpan, List<SemanticType>> callTypeArguments,
+      Map<SourceSpan, ResolvedCall> resolvedCalls,
       Map<SourceSpan, ResolvedIteration> iterations,
       Map<SourceSpan, ResolvedIndex> indexes,
       Map<SymbolId, List<SymbolId>> members,
-      Map<SymbolId, SymbolId> aliasTargets,
+      Map<SymbolId, List<SymbolId>> aliasTargets,
+      Map<SymbolId, List<SymbolId>> callableGroups,
+      Map<String, SymbolId> typeSymbols,
       List<SemanticScope> scopes,
       List<Diagnostic> diagnostics,
       List<ImportableSymbol> importableSymbols) {
@@ -54,24 +61,35 @@ public final class SemanticModel implements SemanticIndex {
     this.symbols = Map.copyOf(symbols);
     this.bindings = Map.copyOf(bindings);
     this.expressionTypes = Map.copyOf(expressionTypes);
-    this.argumentBindings = Map.copyOf(argumentBindings);
-    Map<SourceSpan, List<SemanticType>> copiedCallTypeArguments = new LinkedHashMap<>();
-    callTypeArguments.forEach(
-        (span, arguments) -> copiedCallTypeArguments.put(span, List.copyOf(arguments)));
-    this.callTypeArguments = Map.copyOf(copiedCallTypeArguments);
+    this.resolvedCalls = Map.copyOf(resolvedCalls);
+    Map<SourceSpan, ResolvedCall> callsByCallee = new LinkedHashMap<>();
+    this.resolvedCalls.values().forEach(call -> callsByCallee.put(call.calleeSpan(), call));
+    this.resolvedCallsByCallee = Map.copyOf(callsByCallee);
     this.iterations = Map.copyOf(iterations);
     this.indexes = Map.copyOf(indexes);
     Map<SymbolId, List<SymbolId>> copiedMembers = new LinkedHashMap<>();
     members.forEach((owner, values) -> copiedMembers.put(owner, List.copyOf(values)));
     this.members = Map.copyOf(copiedMembers);
-    this.aliasTargets = Map.copyOf(aliasTargets);
+    Map<SymbolId, List<SymbolId>> copiedAliases = new LinkedHashMap<>();
+    aliasTargets.forEach((alias, targets) -> copiedAliases.put(alias, List.copyOf(targets)));
+    this.aliasTargets = Map.copyOf(copiedAliases);
+    Map<SymbolId, List<SymbolId>> copiedGroups = new LinkedHashMap<>();
+    callableGroups.forEach((symbol, group) -> copiedGroups.put(symbol, List.copyOf(group)));
+    this.callableGroups = Map.copyOf(copiedGroups);
+    this.typeSymbols = Map.copyOf(typeSymbols);
     this.scopes = List.copyOf(scopes);
     this.diagnostics = List.copyOf(diagnostics);
     this.importableSymbols = List.copyOf(importableSymbols);
     this.tokens = List.of();
     this.bindingIndex = SpanIndex.from(this.bindings);
+    Map<SourceSpan, SymbolId> callTargets = new LinkedHashMap<>();
+    this.resolvedCalls.values().forEach(call -> callTargets.put(call.calleeSpan(), call.target()));
+    this.resolvedCallees = Map.copyOf(callTargets);
+    this.resolvedCalleeIndex = SpanIndex.from(this.resolvedCallees);
     this.typeIndex = SpanIndex.from(this.expressionTypes);
-    this.referenceIndex = ReferenceIndex.from(this.bindings, this.aliasTargets);
+    this.authoringReferences = ReferenceIndex.from(this.bindings);
+    this.semanticReferences =
+        ReferenceIndex.semantic(this.bindings, this.aliasTargets, this.resolvedCalls);
   }
 
   private SemanticModel(
@@ -81,19 +99,24 @@ public final class SemanticModel implements SemanticIndex {
     this.symbols = project.symbols;
     this.bindings = project.bindings;
     this.expressionTypes = project.expressionTypes;
-    this.argumentBindings = project.argumentBindings;
-    this.callTypeArguments = project.callTypeArguments;
+    this.resolvedCalls = project.resolvedCalls;
+    this.resolvedCallsByCallee = project.resolvedCallsByCallee;
+    this.resolvedCallees = project.resolvedCallees;
     this.iterations = project.iterations;
     this.indexes = project.indexes;
     this.members = project.members;
     this.aliasTargets = project.aliasTargets;
+    this.callableGroups = project.callableGroups;
+    this.typeSymbols = project.typeSymbols;
     this.scopes = project.scopes;
     this.diagnostics = project.diagnostics;
     this.importableSymbols = project.importableSymbols;
     this.tokens = List.copyOf(tokens);
     this.bindingIndex = project.bindingIndex;
+    this.resolvedCalleeIndex = project.resolvedCalleeIndex;
     this.typeIndex = project.typeIndex;
-    this.referenceIndex = project.referenceIndex;
+    this.authoringReferences = project.authoringReferences;
+    this.semanticReferences = project.semanticReferences;
   }
 
   public SemanticModel documentView(SourceFile source, Syntax.Program syntax) {
@@ -154,7 +177,20 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public Optional<Symbol> resolvedSymbolOf(SourceSpan span) {
-    return Optional.ofNullable(bindings.get(span)).map(this::resolveAlias).map(symbols::get);
+    SymbolId target = resolvedCallees.get(span);
+    return Optional.ofNullable(target != null ? target : bindings.get(span))
+        .map(this::resolveAlias)
+        .map(symbols::get);
+  }
+
+  public Optional<Symbol> resolvedSymbolAt(int offset) {
+    return resolvedSymbolAt(source.id(), offset);
+  }
+
+  public Optional<Symbol> resolvedSymbolAt(DocumentId document, int offset) {
+    Optional<Symbol> callTarget =
+        resolvedCalleeIndex.at(document, offset).map(SpanIndex.Entry::value).map(symbols::get);
+    return callTarget.isPresent() ? callTarget : symbolAt(document, offset).map(this::resolveAlias);
   }
 
   public Symbol resolveAlias(Symbol symbol) {
@@ -177,22 +213,23 @@ public final class SemanticModel implements SemanticIndex {
     Optional<Symbol> symbol = resolvedSymbolOf(reference.span());
     if (symbol.isEmpty()) return Optional.empty();
     SemanticType base = symbol.orElseThrow().type();
-    if (base.kind() == SemanticType.Kind.TYPE_PARAMETER || reference.arguments().isEmpty()) {
-      return Optional.of(base);
+    SemanticType resolved = base;
+    if (base.kind() != SemanticType.Kind.TYPE_PARAMETER && !reference.arguments().isEmpty()) {
+      List<SemanticType> arguments =
+          reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
+      if (arguments.size() != reference.arguments().size()) return Optional.empty();
+      resolved = SemanticType.declared(base.identity(), base.name(), arguments, base.category());
     }
-    List<SemanticType> arguments =
-        reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
-    if (arguments.size() != reference.arguments().size()) return Optional.empty();
-    return Optional.of(
-        SemanticType.declared(base.identity(), base.name(), arguments, base.category()));
+    return Optional.of(reference.nullable() ? resolved.nullable() : resolved);
   }
 
-  public Optional<ArgumentBinding> argumentsOf(SourceSpan callSpan) {
-    return Optional.ofNullable(argumentBindings.get(callSpan));
+  @Override
+  public Optional<ResolvedCall> callOf(SourceSpan callSpan) {
+    return Optional.ofNullable(resolvedCalls.get(callSpan));
   }
 
-  public List<SemanticType> typeArgumentsOf(SourceSpan callSpan) {
-    return callTypeArguments.getOrDefault(callSpan, List.of());
+  public Optional<ResolvedCall> callAtCallee(SourceSpan calleeSpan) {
+    return Optional.ofNullable(resolvedCallsByCallee.get(calleeSpan));
   }
 
   public Optional<ResolvedIteration> iterationOf(SourceSpan iterableSpan) {
@@ -205,10 +242,7 @@ public final class SemanticModel implements SemanticIndex {
 
   public List<Symbol> members(SemanticType type) {
     Optional<Symbol> owner =
-        symbols.values().stream()
-            .filter(symbol -> symbol.kind() == SymbolKind.TYPE)
-            .filter(symbol -> symbol.name().equals(type.name()))
-            .findFirst();
+        Optional.ofNullable(typeSymbols.get(type.identity())).map(symbols::get);
     if (owner.isEmpty()) return List.of();
     return members.getOrDefault(owner.orElseThrow().id(), List.of()).stream()
         .map(symbols::get)
@@ -217,7 +251,20 @@ public final class SemanticModel implements SemanticIndex {
             symbol ->
                 symbol.id().value().startsWith("builtin/")
                     ? BuiltinCatalog.standard().member(type, symbol.id()).orElse(symbol)
-                    : symbol)
+                    : specializeMember(owner.orElseThrow(), type, symbol))
+        .toList();
+  }
+
+  public List<Symbol> callableAlternatives(Symbol symbol) {
+    List<SymbolId> targets = aliasTargets.get(symbol.id());
+    boolean alias = targets != null;
+    if (targets == null) targets = callableGroups.get(symbol.id());
+    if (targets == null) return List.of(symbol);
+    String presentedName = symbol.name();
+    return targets.stream()
+        .map(symbols::get)
+        .filter(Objects::nonNull)
+        .map(target -> alias ? withName(target, presentedName) : target)
         .toList();
   }
 
@@ -279,7 +326,15 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public List<SourceSpan> references(SymbolId id) {
-    return referenceIndex.references(id);
+    return semanticReferences.references(id);
+  }
+
+  public List<SourceSpan> authoringReferences(SymbolId id) {
+    return authoringReferences.references(id);
+  }
+
+  public boolean isAlias(SymbolId id) {
+    return aliasTargets.containsKey(Objects.requireNonNull(id, "id"));
   }
 
   public boolean hasRenameConflict(SymbolId id, String newName) {
@@ -312,7 +367,55 @@ public final class SemanticModel implements SemanticIndex {
 
   private SymbolId resolveAlias(SymbolId id) {
     SymbolId current = id;
-    while (aliasTargets.containsKey(current)) current = aliasTargets.get(current);
+    Set<SymbolId> visited = new java.util.HashSet<>();
+    while (visited.add(current)) {
+      List<SymbolId> targets = aliasTargets.get(current);
+      if (targets == null || targets.size() != 1) return current;
+      current = targets.getFirst();
+    }
     return current;
+  }
+
+  private Symbol specializeMember(Symbol owner, SemanticType receiver, Symbol member) {
+    if (owner.typeParameters().size() != receiver.arguments().size()) return member;
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+    for (int index = 0; index < owner.typeParameters().size(); index++) {
+      String parameterName = owner.typeParameters().get(index);
+      SemanticType argument = receiver.arguments().get(index);
+      symbols.values().stream()
+          .filter(symbol -> symbol.kind() == SymbolKind.TYPE_PARAMETER)
+          .filter(symbol -> symbol.owner().equals(Optional.of(owner.id())))
+          .filter(symbol -> symbol.name().equals(parameterName))
+          .findFirst()
+          .ifPresent(parameter -> substitutions.put(parameter.type().identity(), argument));
+    }
+    if (substitutions.isEmpty()) return member;
+    return new Symbol(
+        member.id(),
+        member.name(),
+        member.kind(),
+        member.type().substitute(substitutions),
+        member.declaration(),
+        member.owner(),
+        member.typeParameters(),
+        member.parameters().stream()
+            .map(
+                parameter ->
+                    new ParameterInfo(parameter.name(), parameter.type().substitute(substitutions)))
+            .toList(),
+        member.documentation());
+  }
+
+  private static Symbol withName(Symbol symbol, String name) {
+    return new Symbol(
+        symbol.id(),
+        name,
+        symbol.kind(),
+        symbol.type(),
+        symbol.declaration(),
+        symbol.owner(),
+        symbol.typeParameters(),
+        symbol.parameters(),
+        symbol.documentation());
   }
 }

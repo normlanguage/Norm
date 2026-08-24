@@ -38,4 +38,13 @@ final class SourceFileTest {
     assertThrows(IllegalArgumentException.class, () -> source.lineText(0));
     assertThrows(IllegalArgumentException.class, () -> source.lineText(2));
   }
+
+  @Test
+  void derivesFileDisplayNamesFromTheCanonicalDocumentPath() {
+    SourceFile relative = SourceFile.of(Path.of("canonical.norm"), "Void main() {}");
+    SourceFile reconstructed = SourceFile.of(relative.id(), relative.text());
+
+    assertEquals(relative.path(), reconstructed.path());
+    assertEquals(relative.displayName(), reconstructed.displayName());
+  }
 }

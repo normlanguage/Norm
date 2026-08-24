@@ -95,6 +95,49 @@ final class ProjectCompilerTest {
   }
 
   @Test
+  void executesTheResolvedOverloadThroughAnImportedAlias() {
+    SourceFile entry =
+        source(
+            "src/app/Main.norm",
+            "package app import util.choose as select "
+                + "Void main() { printLine(select<Integer>(value: 7)) }");
+    SourceFile library =
+        source(
+            "src/util/Choose.norm",
+            "package util public String choose(String value) { return \"plain\" } "
+                + "public T choose<T>(T value) { return value }");
+    CompilationRequest request =
+        new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id()));
+    Compiler compiler = new Compiler();
+    var analysis = compiler.analyze(request);
+    var model = analysis.semanticModel();
+    var generic =
+        model.symbols().stream()
+            .filter(symbol -> symbol.name().equals("choose"))
+            .filter(symbol -> symbol.typeParameters().equals(List.of("T")))
+            .findFirst()
+            .orElseThrow();
+    int callOffset = entry.text().indexOf("select<Integer>");
+    var alias = model.symbolAt(entry.id(), callOffset).orElseThrow();
+
+    assertTrue(
+        model.references(generic.id()).stream()
+            .anyMatch(
+                span -> span.source().id().equals(entry.id()) && span.startOffset() == callOffset));
+    assertTrue(model.isAlias(alias.id()));
+    assertTrue(
+        model.authoringReferences(alias.id()).stream()
+            .anyMatch(span -> span.startOffset() == callOffset));
+
+    CompilationResult result = compiler.compile(request);
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    StringWriter output = new StringWriter();
+    new ProgramRunner().run(result.program().orElseThrow(), new PrintWriter(output));
+    assertTrue(output.toString().equals("7" + System.lineSeparator()));
+  }
+
+  @Test
   void infersImportedGenericFunctions() {
     SourceFile entry =
         source(

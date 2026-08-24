@@ -181,6 +181,102 @@ public final class BuiltinCatalog {
     return Set.copyOf(result);
   }
 
+  public List<IntrinsicCandidate> intrinsicCandidates(IntrinsicId intrinsic) {
+    Objects.requireNonNull(intrinsic, "intrinsic");
+    List<IntrinsicCandidate> result = new ArrayList<>();
+    globals.values().stream()
+        .flatMap(List::stream)
+        .filter(candidate -> candidate.intrinsic() == intrinsic)
+        .map(
+            candidate ->
+                new IntrinsicCandidate(
+                    Optional.empty(),
+                    candidate.symbol().parameters(),
+                    candidate.symbol().type(),
+                    false))
+        .forEach(result::add);
+    for (TypeDefinition type : types.values()) {
+      SemanticType owner = ownerType(type);
+      type.constructor()
+          .filter(candidate -> candidate.intrinsic() == intrinsic)
+          .map(
+              candidate ->
+                  new IntrinsicCandidate(Optional.empty(), candidate.parameters(), owner, true))
+          .ifPresent(result::add);
+      type.members().stream()
+          .filter(candidate -> candidate.intrinsic() == intrinsic)
+          .map(
+              candidate ->
+                  new IntrinsicCandidate(
+                      Optional.of(owner),
+                      candidate.symbol().parameters(),
+                      candidate.symbol().type(),
+                      false))
+          .forEach(result::add);
+      type.typeMembers().stream()
+          .filter(candidate -> candidate.intrinsic() == intrinsic)
+          .map(
+              candidate ->
+                  new IntrinsicCandidate(
+                      Optional.empty(),
+                      candidate.symbol().parameters(),
+                      candidate.symbol().type(),
+                      true))
+          .forEach(result::add);
+    }
+    return List.copyOf(result);
+  }
+
+  public List<IndexCandidate> indexCandidates(IntrinsicId intrinsic) {
+    Objects.requireNonNull(intrinsic, "intrinsic");
+    return types.values().stream()
+        .filter(type -> type.index().isPresent())
+        .filter(type -> type.index().orElseThrow().readIntrinsic() == intrinsic)
+        .map(
+            type -> {
+              IndexCapability index = type.index().orElseThrow();
+              return new IndexCandidate(
+                  ownerType(type),
+                  index.keyType(),
+                  index.resultType(),
+                  index.readIntrinsic(),
+                  index.writeIntrinsic());
+            })
+        .toList();
+  }
+
+  public List<WriteCandidate> writeCandidates(IntrinsicId intrinsic) {
+    Objects.requireNonNull(intrinsic, "intrinsic");
+    List<WriteCandidate> result = new ArrayList<>();
+    for (TypeDefinition type : types.values()) {
+      SemanticType owner = ownerType(type);
+      type.members().stream()
+          .filter(candidate -> candidate.writeIntrinsic().orElse(null) == intrinsic)
+          .map(candidate -> new WriteCandidate(owner, Optional.empty(), candidate.symbol().type()))
+          .forEach(result::add);
+      type.index()
+          .filter(candidate -> candidate.writeIntrinsic().orElse(null) == intrinsic)
+          .map(
+              candidate ->
+                  new WriteCandidate(
+                      owner, Optional.of(candidate.keyType()), candidate.resultType()))
+          .ifPresent(result::add);
+    }
+    return List.copyOf(result);
+  }
+
+  public List<IterationCandidate> iterationCandidates(IntrinsicId intrinsic) {
+    Objects.requireNonNull(intrinsic, "intrinsic");
+    return types.values().stream()
+        .filter(type -> type.iterable().isPresent())
+        .filter(type -> type.iterable().orElseThrow().intrinsic() == intrinsic)
+        .map(
+            type ->
+                new IterationCandidate(
+                    ownerType(type), type.iterable().orElseThrow().elementType()))
+        .toList();
+  }
+
   public SemanticType instantiate(String name, List<SemanticType> arguments) {
     TypeDefinition type = Objects.requireNonNull(types.get(name), "unknown builtin type " + name);
     return SemanticType.declared(
@@ -768,6 +864,18 @@ public final class BuiltinCatalog {
     return SemanticType.parameter("std.core." + owner + "/" + name, name);
   }
 
+  private static SemanticType ownerType(TypeDefinition definition) {
+    List<SemanticType> arguments =
+        definition.typeParameters().stream()
+            .map(name -> parameter(definition.symbol().name(), name))
+            .toList();
+    return SemanticType.declared(
+        definition.symbol().type().identity(),
+        definition.symbol().name(),
+        arguments,
+        definition.symbol().type().category());
+  }
+
   private static ParameterInfo parameterInfo(String name, SemanticType type) {
     return new ParameterInfo(name, type);
   }
@@ -881,6 +989,49 @@ public final class BuiltinCatalog {
       SemanticType resultType,
       IntrinsicId readIntrinsic,
       Optional<IntrinsicId> writeIntrinsic) {}
+
+  public record IntrinsicCandidate(
+      Optional<SemanticType> receiver,
+      List<ParameterInfo> parameters,
+      SemanticType result,
+      boolean runtimeType) {
+    public IntrinsicCandidate {
+      receiver = Objects.requireNonNull(receiver, "receiver");
+      parameters = List.copyOf(parameters);
+      Objects.requireNonNull(result, "result");
+    }
+  }
+
+  public record IndexCandidate(
+      SemanticType receiver,
+      SemanticType index,
+      SemanticType result,
+      IntrinsicId readIntrinsic,
+      Optional<IntrinsicId> writeIntrinsic) {
+    public IndexCandidate {
+      Objects.requireNonNull(receiver, "receiver");
+      Objects.requireNonNull(index, "index");
+      Objects.requireNonNull(result, "result");
+      Objects.requireNonNull(readIntrinsic, "readIntrinsic");
+      writeIntrinsic = Objects.requireNonNull(writeIntrinsic, "writeIntrinsic");
+    }
+  }
+
+  public record WriteCandidate(
+      SemanticType receiver, Optional<SemanticType> index, SemanticType value) {
+    public WriteCandidate {
+      Objects.requireNonNull(receiver, "receiver");
+      index = Objects.requireNonNull(index, "index");
+      Objects.requireNonNull(value, "value");
+    }
+  }
+
+  public record IterationCandidate(SemanticType receiver, SemanticType element) {
+    public IterationCandidate {
+      Objects.requireNonNull(receiver, "receiver");
+      Objects.requireNonNull(element, "element");
+    }
+  }
 
   private static final class TypeBuilder {
     private final String name;

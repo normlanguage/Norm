@@ -6,7 +6,6 @@ import com.oracle.truffle.api.nodes.LoopNode;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.RepeatingNode;
 import dev.w0fv1.norm.builtin.IntrinsicId;
-import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.util.Iterator;
 
@@ -109,33 +108,35 @@ final class StatementNodes {
     @Child private ExpressionNode iterable;
     @Child private LoopNode loop;
     private final IntrinsicId iteratorIntrinsic;
-    private final ExecutionContext context;
 
     For(
         FrameBinding iteratorBinding,
         FrameBinding variableBinding,
         ExpressionNode iterable,
         StatementNode body,
-        IntrinsicId iteratorIntrinsic,
-        ExecutionContext context) {
+        IntrinsicId iteratorIntrinsic) {
       this.iteratorBinding = iteratorBinding;
       this.iterable = iterable;
       this.iteratorIntrinsic = iteratorIntrinsic;
-      this.context = context;
       loop =
           Truffle.getRuntime()
-              .createLoopNode(new Repeating(iteratorBinding, variableBinding, body, context));
+              .createLoopNode(new Repeating(iteratorBinding, variableBinding, body));
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      if (context.cancellation().getAsBoolean()) {
+      if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
         throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
       }
       iteratorBinding.write(
           frame,
           IntrinsicDispatcher.execute(
-              iteratorIntrinsic, iterable.execute(frame), new Object[0], null, context, this));
+              iteratorIntrinsic,
+              iterable.execute(frame),
+              new Object[0],
+              null,
+              ExecutionContextAccess.get(frame),
+              this));
       loop.execute(frame);
       frame.clear(iteratorBinding.slot());
     }
@@ -143,17 +144,14 @@ final class StatementNodes {
 
   static final class ConditionalFor extends StatementNode {
     @Child private LoopNode loop;
-    private final ExecutionContext context;
 
-    ConditionalFor(ExpressionNode condition, StatementNode body, ExecutionContext context) {
-      this.context = context;
-      loop =
-          Truffle.getRuntime().createLoopNode(new ConditionalRepeating(condition, body, context));
+    ConditionalFor(ExpressionNode condition, StatementNode body) {
+      loop = Truffle.getRuntime().createLoopNode(new ConditionalRepeating(condition, body));
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      if (context.cancellation().getAsBoolean()) {
+      if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
         throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
       }
       loop.execute(frame);
@@ -163,17 +161,15 @@ final class StatementNodes {
   private static final class ConditionalRepeating extends Node implements RepeatingNode {
     @Child private ExpressionNode condition;
     @Child private StatementNode body;
-    private final ExecutionContext context;
 
-    ConditionalRepeating(ExpressionNode condition, StatementNode body, ExecutionContext context) {
+    ConditionalRepeating(ExpressionNode condition, StatementNode body) {
       this.condition = condition;
       this.body = body;
-      this.context = context;
     }
 
     @Override
     public boolean executeRepeating(VirtualFrame frame) {
-      if (context.cancellation().getAsBoolean()) {
+      if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
         throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", body);
       }
       if (!(Boolean) condition.execute(frame)) return false;
@@ -192,23 +188,17 @@ final class StatementNodes {
     private final FrameBinding iteratorBinding;
     private final FrameBinding variableBinding;
     @Child private StatementNode body;
-    private final ExecutionContext context;
 
-    Repeating(
-        FrameBinding iteratorBinding,
-        FrameBinding variableBinding,
-        StatementNode body,
-        ExecutionContext context) {
+    Repeating(FrameBinding iteratorBinding, FrameBinding variableBinding, StatementNode body) {
       this.iteratorBinding = iteratorBinding;
       this.variableBinding = variableBinding;
       this.body = body;
-      this.context = context;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public boolean executeRepeating(VirtualFrame frame) {
-      if (context.cancellation().getAsBoolean()) {
+      if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
         throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", body);
       }
       Iterator<Object> iterator = (Iterator<Object>) iteratorBinding.read(frame);
@@ -245,18 +235,12 @@ final class StatementNodes {
 
   static final class IntrinsicWrite extends StatementNode {
     private final IntrinsicId intrinsic;
-    private final ExecutionContext context;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
 
-    IntrinsicWrite(
-        IntrinsicId intrinsic,
-        ExpressionNode receiver,
-        ExecutionContext context,
-        ExpressionNode... arguments) {
+    IntrinsicWrite(IntrinsicId intrinsic, ExpressionNode receiver, ExpressionNode... arguments) {
       this.intrinsic = intrinsic;
       this.receiver = receiver;
-      this.context = context;
       this.arguments = arguments;
     }
 
@@ -267,7 +251,8 @@ final class StatementNodes {
       for (int index = 0; index < arguments.length; index++) {
         values[index] = arguments[index].execute(frame);
       }
-      IntrinsicDispatcher.execute(intrinsic, target, values, null, context, this);
+      IntrinsicDispatcher.execute(
+          intrinsic, target, values, null, ExecutionContextAccess.get(frame), this);
     }
   }
 }

@@ -8,7 +8,9 @@ import java.util.Objects;
 public record BoundClass(
     BoundClassId id,
     String name,
+    BoundVisibility visibility,
     SemanticType type,
+    List<SemanticType> typeParameters,
     List<BoundField> fields,
     List<BoundCallableId> methods,
     SourceSpan span)
@@ -16,7 +18,9 @@ public record BoundClass(
   public BoundClass {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(name, "name");
+    Objects.requireNonNull(visibility, "visibility");
     Objects.requireNonNull(type, "type");
+    typeParameters = List.copyOf(typeParameters);
     fields = List.copyOf(fields);
     methods = List.copyOf(methods);
     Objects.requireNonNull(span, "span");

@@ -3,7 +3,6 @@ package dev.w0fv1.norm.language;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
-import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -103,27 +102,18 @@ final class ExpectedTypeResolver {
       if (!contains(argument.value().span(), offset)) continue;
       Optional<SemanticType> nested = inExpression(model, argument.value(), offset);
       if (nested.isPresent()) return nested;
-      Optional<Symbol> callable = callable(model, call.callee());
-      if (callable.isEmpty()) return Optional.empty();
+      Optional<dev.w0fv1.norm.semantic.ResolvedCall> resolved = model.callOf(call.span());
+      if (resolved.isEmpty()) return Optional.empty();
       int parameterIndex =
-          model
-              .argumentsOf(call.span())
-              .filter(binding -> currentArgument < binding.parameterIndices().size())
-              .map(binding -> binding.parameterIndices().get(currentArgument))
-              .orElse(currentArgument);
-      List<dev.w0fv1.norm.semantic.ParameterInfo> parameters = callable.orElseThrow().parameters();
+          currentArgument < resolved.orElseThrow().arguments().parameterIndices().size()
+              ? resolved.orElseThrow().arguments().parameterIndices().get(currentArgument)
+              : currentArgument;
+      List<dev.w0fv1.norm.semantic.ParameterInfo> parameters = resolved.orElseThrow().parameters();
       return parameterIndex < parameters.size()
           ? Optional.of(parameters.get(parameterIndex).type())
           : Optional.empty();
     }
     return Optional.empty();
-  }
-
-  private static Optional<Symbol> callable(SemanticModel model, Syntax.Expression expression) {
-    if (expression instanceof Syntax.Member member) {
-      return model.symbolAt(member.nameSpan().startOffset()).map(model::resolveAlias);
-    }
-    return model.symbolAt(expression.span().startOffset()).map(model::resolveAlias);
   }
 
   private static TokenKind previousToken(List<Token> tokens, int offset) {

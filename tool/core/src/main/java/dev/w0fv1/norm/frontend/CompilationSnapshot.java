@@ -27,9 +27,7 @@ public final class CompilationSnapshot {
             .orElseThrow();
     SemanticModel projectModel =
         analyzed.semanticModel().documentView(entry.source(), entry.syntax(), entry.tokens());
-    this.analysis =
-        new AnalysisResult(
-            projectModel, analyzed.entryPoint(), analyzed.boundProgram(), analyzed.diagnostics());
+    this.analysis = new AnalysisResult(projectModel, analyzed.entryPoint(), analyzed.diagnostics());
     Map<DocumentId, DocumentSemanticModel> views = new LinkedHashMap<>();
     parsedDocuments.forEach(
         parsed ->
@@ -70,11 +68,7 @@ public final class CompilationSnapshot {
 
   public AnalysisResult analysis(DocumentId document) {
     DocumentSemanticModel model = document(document).orElseThrow();
-    return new AnalysisResult(
-        model.semanticModel(),
-        analysis.entryPoint(),
-        analysis.boundProgram(),
-        analysis.diagnostics());
+    return new AnalysisResult(model.semanticModel(), analysis.entryPoint(), analysis.diagnostics());
   }
 
   public AnalysisResult analysis() {

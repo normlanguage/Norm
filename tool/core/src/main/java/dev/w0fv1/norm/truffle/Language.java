@@ -2,6 +2,7 @@ package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.TruffleLanguage;
+import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.frontend.Compiler;
 import dev.w0fv1.norm.value.DocumentId;
@@ -12,12 +13,13 @@ import dev.w0fv1.norm.value.SourceFile;
     id = LanguageMetadata.ID,
     name = "Norm",
     implementationName = "Norm",
-    version = "0.3",
+    version = "0.4",
     defaultMimeType = LanguageMetadata.MIME_TYPE,
     characterMimeTypes = LanguageMetadata.MIME_TYPE)
 public final class Language extends TruffleLanguage<LanguageContext> {
   private static final ContextReference<LanguageContext> CONTEXT =
       ContextReference.create(Language.class);
+  private final TruffleExecutionBackend backend = new TruffleExecutionBackend();
 
   public Language() {}
 
@@ -41,9 +43,12 @@ public final class Language extends TruffleLanguage<LanguageContext> {
               .orElse("Norm compilation failed");
       throw new IllegalArgumentException(message);
     }
-    return new TruffleExecutionBackend()
-        .compile(
-            this, compilation.program().orElseThrow().boundProgram(), CONTEXT.get(null).execution())
-        .entryPoint();
+    ExecutableProgram executable =
+        backend.compile(this, compilation.program().orElseThrow().coreCompilation());
+    return new ExecutionRootNode(this, executable.entryPoint()).getCallTarget();
+  }
+
+  static LanguageContext context(Node node) {
+    return CONTEXT.get(node);
   }
 }

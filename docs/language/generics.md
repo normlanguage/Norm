@@ -4,7 +4,7 @@
 
 ## 当前边界
 
-当前实现支持无 bounds 的泛型 class、顶层泛型函数、参数化核心集合、嵌套 nullable 类型实参、基于实参和期望返回类型的调用推断，以及运行时类型参数保留。泛型默认不变且禁止 raw type。
+当前实现支持无 bounds 的泛型 class、泛型函数与实例方法、参数化核心集合、嵌套 nullable 类型实参、基于实参和期望返回类型的调用推断，以及运行时类型参数保留。泛型默认不变且禁止 raw type。
 
 `extends` bounds、interface 约束、通配符型变、泛型数据 enum 与反射 API 属于后续严格扩展，不改变已有泛型的类型 identity 和可赋值规则。
 
@@ -37,6 +37,18 @@ String? label = identity(null)
 ```
 
 `null` 本身不能决定 `T`，上例由赋值目标 `String?` 提供期望类型。函数体只能使用对所有可能 `T` 都成立的操作。
+
+实例方法使用同一套推断与显式类型实参语法。泛型 class 的类型参数排在方法类型参数之前进入运行时类型环境：
+
+```norm
+class Values<T> {
+    Pair<T, U> pair<U>(T first, U second) {
+        return Pair<T, U>(first: first, second: second)
+    }
+}
+
+Pair<String, Integer> value = Values<String>().pair<Integer>(first: "Norm", second: 4)
+```
 
 ## 不变性
 

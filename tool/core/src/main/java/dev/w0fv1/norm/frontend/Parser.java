@@ -31,15 +31,11 @@ final class Parser {
   }
 
   Syntax.Program parse() {
-    String packageName = "";
+    String packageName = parsePackageDeclaration().orElse("");
     List<Syntax.ImportDecl> imports = new ArrayList<>();
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.ClassDecl> classes = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
-    if (match(TokenKind.PACKAGE)) {
-      packageName = parseQualifiedName("expected package name");
-      match(TokenKind.SEMICOLON);
-    }
     while (match(TokenKind.IMPORT)) {
       Token start = previous();
       QualifiedName qualifiedName = parseQualifiedNameWithSpan("expected import name");
@@ -77,6 +73,17 @@ final class Parser {
         classes,
         functions,
         new SourceSpan(source, 0, source.length()));
+  }
+
+  Optional<String> parsePackageDeclaration() {
+    if (!match(TokenKind.PACKAGE)) return Optional.empty();
+    try {
+      String packageName = parseQualifiedName("expected package name");
+      match(TokenKind.SEMICOLON);
+      return Optional.of(packageName);
+    } catch (ParseError ignored) {
+      return Optional.empty();
+    }
   }
 
   Optional<Syntax.Expression> parseExpressionDocument() {
@@ -495,13 +502,15 @@ final class Parser {
               Token.simple(
                   TokenKind.IDENTIFIER, "", SourceSpan.at(source, peek().span().startOffset()));
         }
+        List<Syntax.TypeRef> typeArguments =
+            check(TokenKind.LESS) && looksLikeTypeApplication() ? parseTypeArguments() : List.of();
+        SourceSpan memberSpan =
+            typeArguments.isEmpty()
+                ? expression.span().cover(name.span())
+                : expression.span().cover(previous().span());
         expression =
             new Syntax.Member(
-                expression,
-                name.lexeme(),
-                name.span(),
-                nullSafe,
-                expression.span().cover(name.span()));
+                expression, name.lexeme(), name.span(), typeArguments, nullSafe, memberSpan);
       } else if (match(TokenKind.LEFT_BRACKET)) {
         Syntax.Expression index = parseExpression();
         Token closing = consume(TokenKind.RIGHT_BRACKET, "expected ']' after index");

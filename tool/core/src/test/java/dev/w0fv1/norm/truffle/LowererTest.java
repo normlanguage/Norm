@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -25,9 +26,7 @@ final class LowererTest {
                 + "total = add(left: total, right: value) } printLine(total) }");
     var checked = new Compiler().compile(source).program().orElseThrow();
 
-    ExecutableProgram executable =
-        new Lowerer(null, ExecutionContext.of(new PrintWriter(new StringWriter())))
-            .lower(checked.boundProgram());
+    ExecutableProgram executable = new Lowerer(null).lower(checked.coreCompilation());
     var root = executable.entryPoint().getRootNode();
 
     assertInstanceOf(FunctionRootNode.class, root);
@@ -43,18 +42,18 @@ final class LowererTest {
             "class Box<T> {} Box<T> create<T>() { return Box<T>() } "
                 + "Box<Integer> probe() { return create<Integer>() } Void main() {}");
     var checked = new Compiler().compile(source).program().orElseThrow();
-    var probe =
-        checked.boundProgram().callables().stream()
-            .filter(function -> function.name().equals("probe"))
-            .findFirst()
-            .orElseThrow();
+    var probe = checked.coreCompilation().namespace().occurrence("", "probe").orElseThrow();
 
     ExecutableProgram executable =
-        new Lowerer(null, ExecutionContext.of(new PrintWriter(new StringWriter())))
-            .lower(checked.boundProgram().withEntryPoint(probe.id()));
+        new Lowerer(null).lower(checked.coreCompilation().withEntryPoint(probe));
     RuntimeValues.ObjectValue result =
-        assertInstanceOf(RuntimeValues.ObjectValue.class, executable.entryPoint().call());
+        assertInstanceOf(
+            RuntimeValues.ObjectValue.class,
+            executable.entryPoint().call(ExecutionContext.of(new PrintWriter(new StringWriter()))));
 
-    org.junit.jupiter.api.Assertions.assertEquals("Box<Integer>", result.type.displayName());
+    dev.w0fv1.norm.core.CoreType.Declared type =
+        assertInstanceOf(dev.w0fv1.norm.core.CoreType.Declared.class, result.type);
+    assertInstanceOf(dev.w0fv1.norm.core.CoreTypeConstructor.User.class, type.constructor());
+    assertEquals(java.util.List.of(dev.w0fv1.norm.core.CoreType.INTEGER), type.arguments());
   }
 }

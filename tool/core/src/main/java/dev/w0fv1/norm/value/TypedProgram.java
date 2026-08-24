@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.value;
 
-import dev.w0fv1.norm.bound.BoundProgram;
+import dev.w0fv1.norm.core.CoreCompilation;
 import java.util.Objects;
 
-public record TypedProgram(BoundProgram boundProgram) {
+public record TypedProgram(CoreCompilation coreCompilation) {
   public TypedProgram {
-    Objects.requireNonNull(boundProgram, "boundProgram");
+    Objects.requireNonNull(coreCompilation, "coreCompilation");
   }
 }

@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.semantic;
 
 import dev.w0fv1.norm.value.SourceSpan;
-import java.util.List;
 import java.util.Optional;
 
 public interface SemanticIndex {
@@ -11,9 +10,7 @@ public interface SemanticIndex {
 
   Optional<SemanticType> typeOf(SourceSpan span);
 
-  Optional<ArgumentBinding> argumentsOf(SourceSpan callSpan);
-
-  List<SemanticType> typeArgumentsOf(SourceSpan callSpan);
+  Optional<ResolvedCall> callOf(SourceSpan callSpan);
 
   Optional<ResolvedIteration> iterationOf(SourceSpan iterableSpan);
 

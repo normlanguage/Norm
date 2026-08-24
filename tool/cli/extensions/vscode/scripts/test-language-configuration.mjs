@@ -11,8 +11,8 @@ const operatorPattern = new RegExp(grammar.repository.operators.match);
 for (const type of ['Integer', 'Boolean', 'String', 'Void', 'CodePoint', 'Array<CodePoint>']) {
   assert.match(type, typePattern);
 }
-for (const legacyType of ['int', 'bool', 'void']) {
-  assert.doesNotMatch(legacyType, typePattern);
+for (const invalidType of ['int', 'bool', 'void']) {
+  assert.doesNotMatch(invalidType, typePattern);
 }
 assert.match('Array<CodePoint>', genericPattern);
 assert.doesNotMatch('Array<int>', genericPattern);

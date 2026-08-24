@@ -2,7 +2,9 @@ package dev.w0fv1.norm.stdlib;
 
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.frontend.ModuleSourceResolver;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,11 +38,22 @@ public final class StandardLibrary {
     return MODULE.exportedSources();
   }
 
+  public static CompilationScope scope() {
+    return MODULE.scope();
+  }
+
   private static LoadedModule load() {
     Module module = StandardLibrary.class.getModule();
     try (ResourceResolver resolver = new ResourceResolver(module)) {
       ModuleLoader.LoadedModule loaded = new ModuleLoader().load(resolver);
-      return new LoadedModule(loaded.sources(), loaded.exportedSources());
+      java.util.Map<DocumentId, String> sourcePaths = new java.util.LinkedHashMap<>();
+      loaded.sources().forEach(source -> sourcePaths.put(source.id(), source.id().uri().getPath()));
+      return new LoadedModule(
+          loaded.sources(),
+          loaded.exportedSources(),
+          new CompilationScope(
+              new ModuleCoordinate(loaded.manifest().name(), loaded.manifest().version()),
+              sourcePaths));
     } catch (IOException exception) {
       throw new IllegalStateException("cannot load standard library", exception);
     }
@@ -128,5 +141,6 @@ public final class StandardLibrary {
     return stream;
   }
 
-  private record LoadedModule(List<SourceFile> sources, Set<DocumentId> exportedSources) {}
+  private record LoadedModule(
+      List<SourceFile> sources, Set<DocumentId> exportedSources, CompilationScope scope) {}
 }

@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.util.List;
 import java.util.Objects;
@@ -8,6 +9,7 @@ public record ModuleManifest(SourceFile source, String name, int version, List<S
   public ModuleManifest {
     Objects.requireNonNull(source, "source");
     Objects.requireNonNull(name, "name");
+    new ModuleCoordinate(name, version);
     exports = List.copyOf(exports);
   }
 

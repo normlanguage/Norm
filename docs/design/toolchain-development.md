@@ -21,7 +21,9 @@ dev.w0fv1.norm.frontend     Compiler、Lexer、Parser、Analyzer
 dev.w0fv1.norm.syntax       Token 与 Syntax AST
 dev.w0fv1.norm.semantic     类型、符号与文档语义索引
 dev.w0fv1.norm.builtin      内置声明与 intrinsic identity
-dev.w0fv1.norm.bound        后端唯一消费的不可变 Bound IR
+dev.w0fv1.norm.bound        前端内部 resolved representation
+dev.w0fv1.norm.core         content-addressed Core IR 与依赖索引
+dev.w0fv1.norm.core.store   canonical definition 内容存储
 dev.w0fv1.norm.diagnostic   诊断值与渲染
 dev.w0fv1.norm.language     基于语义快照的语言服务
 dev.w0fv1.norm.execution    对外执行入口、上下文与结构化错误
@@ -33,12 +35,12 @@ dev.w0fv1.norm.value        跨阶段不可变数据
 
 ```text
 frontend ⇏ truffle
-bound ⇏ frontend, truffle
-Lowerer → bound
+core ⇏ frontend, truffle
+Lowerer → core
 CLI → core public API
 ```
 
-`⇏` 表示禁止依赖。Lowerer 不依赖 Syntax AST 或 `SemanticModel`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。
+`⇏` 表示禁止依赖。`bound` 只在前端内部完成已解析语义到 Core 的转换。Lowerer 只消费 Core，不依赖 Syntax AST、`SemanticModel` 或 `bound`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。
 
 ## CLI package
 
@@ -73,15 +75,19 @@ SourceFile
   → Analyzer
   → SemanticModel
   → Binder
-  → BoundProgram
-  → ExecutionBackend
+  → CoreBuilder
+  → CoreCanonicalizer
+  → DefinitionStore
+  → CoreCompilation
   → Lowerer
   → Truffle executable AST
 ```
 
-Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查。Binder 将已验证语义冻结为 Bound IR。Lowerer 只把 Bound IR 转换成可执行表示，运行时不得重新按名称解析声明或解释 Syntax AST。完整阶段边界见[编译器架构](/spec/compiler-design)。
+Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查。Binder 冻结已验证语义，CoreBuilder 分离 canonical definition 与 authoring occurrence metadata，CoreCanonicalizer 计算递归组和固定依赖的内容身份。Lowerer 只把 `CoreCompilation` 转换成可执行表示。完整身份与阶段边界见[编译器架构](/spec/compiler-design)。
 
-每个函数对应独立的 `FunctionRootNode` 和 `CallTarget`。静态函数与方法调用使用 `DirectCallNode`，局部变量使用 `VirtualFrame` 的索引 slot，循环使用 `LoopNode`，return、break 和 continue 使用 `ControlFlowException`。Truffle 节点携带 `SourceSection`。
+一个项目分析产生不可变 `CompilationSnapshot`。诊断和语言能力使用同一 `SemanticModel`、`SpanIndex` 与 `ReferenceIndex` 的文档视图；`CompilationEnvironment` 复用未变化的解析结果和标准库 prelude，新文档修订以原子方式替换快照。
+
+`ProgramRunner` 与 Polyglot Source 执行共享 `Compiler → CoreCompilation → TruffleExecutionBackend` 链路。每个函数对应独立的 `FunctionRootNode` 和 `CallTarget`。静态函数与方法调用使用 `DirectCallNode`，局部变量使用 `VirtualFrame` 的索引 slot，循环使用 `LoopNode`，return、break 和 continue 使用 `ControlFlowException`。执行上下文通过隐藏根参数传递，源码位置由 `CoreAuthoringMap` 中的精确 occurrence origin 附加到 Truffle 节点。
 
 `@TruffleBoundary` 只允许出现在宿主 I/O 等慢路径，不能包围 guest-language 计算。值复制语义集中在运行时表示中；如改为 copy-on-write，不得改变语言可观察行为。
 

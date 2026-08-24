@@ -55,7 +55,6 @@ public final class ModuleManifestParser {
           }
           version = (int) value.value();
           if (version < 1) throw invalid(source, "module version must be positive");
-          if (version != 1) throw invalid(source, "unsupported module version " + version);
         }
         case "exports" -> exports = parseExports(source, argument.value());
         default -> throw invalid(source, "unknown Module field '" + field + "'");

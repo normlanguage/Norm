@@ -2,6 +2,8 @@ package dev.w0fv1.norm.cli.component;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
+import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.ProjectLoader;
 import dev.w0fv1.norm.language.Completion;
 import dev.w0fv1.norm.language.CompletionKind;
 import dev.w0fv1.norm.language.LanguageService;
@@ -53,7 +55,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
 final class DocumentService implements TextDocumentService {
-  private final LanguageService language = new LanguageService();
+  private final LanguageService language = new LanguageService(new Compiler());
   private final Map<String, DocumentState> documents = new ConcurrentHashMap<>();
   private final java.util.concurrent.atomic.AtomicLong revisions =
       new java.util.concurrent.atomic.AtomicLong();
@@ -246,10 +248,8 @@ final class DocumentService implements TextDocumentService {
       publish(uri, analysis);
       return;
     }
-    Path root = ProjectSession.rootOf(source.path());
-    boolean manifest = source.path().getFileName().toString().equals("module.norm");
-    boolean detached = !java.nio.file.Files.exists(source.path()) && !hasManifest(root);
-    if (manifest || detached) {
+    if (ProjectLoader.isManifest(source)) {
+      Path root = ProjectSession.normalize(source.path()).getParent();
       CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(source));
       AnalysisResult analysis = snapshot.analysis();
       DocumentState candidate =
@@ -259,12 +259,12 @@ final class DocumentService implements TextDocumentService {
               source,
               analysis,
               root,
-              manifest ? Set.of(ProjectSession.normalize(source.path())) : Set.of(),
+              Set.of(ProjectSession.normalize(source.path())),
               revisions.incrementAndGet(),
               snapshot);
       if (!install(uri, candidate)) return;
       publish(uri, analysis);
-      if (manifest && java.nio.file.Files.isRegularFile(source.path())) refresh(root);
+      refresh(root);
       return;
     }
     Map<Path, SourceFile> openSources = openSources();
@@ -278,7 +278,7 @@ final class DocumentService implements TextDocumentService {
             uri,
             source,
             analysis,
-            root,
+            session.root(),
             session.inputs(),
             session.revision(),
             session.snapshot());
@@ -286,7 +286,7 @@ final class DocumentService implements TextDocumentService {
     publish(uri, analysis);
     for (Map.Entry<String, DocumentState> entry : List.copyOf(documents.entrySet())) {
       DocumentState state = entry.getValue();
-      if (entry.getKey().equals(uri) || !root.equals(state.projectRoot())) continue;
+      if (entry.getKey().equals(uri) || !session.root().equals(state.projectRoot())) continue;
       if (!session.inputs().contains(ProjectSession.normalize(state.source().path()))) continue;
       AnalysisResult refreshed = session.analysis(state.source());
       DocumentState refreshedState =
@@ -295,7 +295,7 @@ final class DocumentService implements TextDocumentService {
               state.clientUri(),
               state.source(),
               refreshed,
-              root,
+              session.root(),
               session.inputs(),
               session.revision(),
               session.snapshot());
@@ -326,8 +326,12 @@ final class DocumentService implements TextDocumentService {
   private void refresh(Path root) {
     List<DocumentState> states =
         documents.values().stream()
-            .filter(state -> root.equals(state.projectRoot()))
-            .filter(state -> !state.source().path().getFileName().toString().equals("module.norm"))
+            .filter(state -> "file".equals(state.source().id().uri().getScheme()))
+            .filter(
+                state ->
+                    root.equals(state.projectRoot())
+                        || ProjectSession.normalize(state.source().path()).startsWith(root))
+            .filter(state -> !ProjectLoader.isManifest(state.source()))
             .toList();
     List<DocumentState> remaining = new java.util.ArrayList<>(states);
     while (!remaining.isEmpty()) {
@@ -369,7 +373,6 @@ final class DocumentService implements TextDocumentService {
     Map<Path, SourceFile> result = new java.util.LinkedHashMap<>();
     documents.values().stream()
         .filter(state -> "file".equals(state.source().id().uri().getScheme()))
-        .filter(state -> !state.source().path().getFileName().toString().equals("module.norm"))
         .forEach(
             state -> result.put(ProjectSession.normalize(state.source().path()), state.source()));
     return result;
@@ -392,10 +395,6 @@ final class DocumentService implements TextDocumentService {
         .findFirst()
         .map(DocumentState::sourcePaths)
         .orElse(Set.of());
-  }
-
-  private static boolean hasManifest(Path root) {
-    return root != null && java.nio.file.Files.isRegularFile(root.resolve("module.norm"));
   }
 
   private void publish(String uri, AnalysisResult analysis) {

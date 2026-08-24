@@ -5,6 +5,7 @@ import dev.w0fv1.norm.semantic.ArgumentBinding;
 import dev.w0fv1.norm.semantic.BuiltinSymbols;
 import dev.w0fv1.norm.semantic.ImportableSymbol;
 import dev.w0fv1.norm.semantic.ParameterInfo;
+import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.ResolvedIndex;
 import dev.w0fv1.norm.semantic.ResolvedIteration;
 import dev.w0fv1.norm.semantic.SemanticModel;
@@ -58,16 +59,16 @@ final class Analyzer {
   private final Map<SymbolId, Symbol> symbols = new LinkedHashMap<>();
   private final Map<SourceSpan, SymbolId> bindings = new LinkedHashMap<>();
   private final Map<SourceSpan, SemanticType> semanticTypes = new LinkedHashMap<>();
-  private final Map<SourceSpan, ArgumentBinding> argumentBindings = new LinkedHashMap<>();
-  private final Map<SourceSpan, List<SemanticType>> callTypeArguments = new LinkedHashMap<>();
+  private final Map<SourceSpan, ResolvedCall> resolvedCalls = new LinkedHashMap<>();
   private final Map<SourceSpan, ResolvedIteration> iterations = new LinkedHashMap<>();
   private final Map<SourceSpan, ResolvedIndex> indexes = new LinkedHashMap<>();
   private final Map<SymbolId, List<SymbolId>> members = new LinkedHashMap<>();
+  private final Map<String, SymbolId> typeSymbols = new LinkedHashMap<>();
   private final Map<Object, SymbolId> declarationSymbols = new IdentityHashMap<>();
   private final Map<Object, Syntax.Program> declarationPrograms = new IdentityHashMap<>();
   private final Map<String, SymbolId> copyMethods = new HashMap<>();
   private final Map<Syntax.ImportDecl, SymbolId> importAliases = new IdentityHashMap<>();
-  private final Map<SymbolId, SymbolId> aliasTargets = new LinkedHashMap<>();
+  private final Map<SymbolId, List<SymbolId>> aliasTargets = new LinkedHashMap<>();
   private final Deque<ScopeFrame> scopes = new ArrayDeque<>();
   private final Map<SymbolId, SemanticType> flowTypes = new HashMap<>();
   private final List<SemanticScope> semanticScopes = new ArrayList<>();
@@ -98,10 +99,13 @@ final class Analyzer {
     this.requireEntryPoint = requireEntryPoint;
     this.exportedSources = Set.copyOf(exportedSources);
     symbols.putAll(builtins.symbols());
+    symbols.values().stream()
+        .filter(symbol -> symbol.kind() == SymbolKind.TYPE)
+        .forEach(symbol -> typeSymbols.put(symbol.type().identity(), symbol.id()));
     builtins.members().forEach((owner, values) -> members.put(owner, new ArrayList<>(values)));
   }
 
-  AnalysisResult analyze() {
+  FrontendAnalysis analyze(boolean resolveProgram) {
     indexDeclarationPrograms();
     collectDeclarations();
     validateImports();
@@ -143,23 +147,27 @@ final class Analyzer {
             symbols,
             bindings,
             semanticTypes,
-            argumentBindings,
-            callTypeArguments,
+            resolvedCalls,
             iterations,
             indexes,
             members,
             aliasTargets,
+            callableGroups(),
+            typeSymbols,
             semanticScopes,
             snapshot,
             importableSymbols());
     Optional<dev.w0fv1.norm.bound.BoundProgram> boundProgram =
-        snapshot.stream()
-                .anyMatch(
-                    diagnostic ->
-                        diagnostic.severity() == dev.w0fv1.norm.diagnostic.DiagnosticSeverity.ERROR)
+        !resolveProgram
+                || snapshot.stream()
+                    .anyMatch(
+                        diagnostic ->
+                            diagnostic.severity()
+                                == dev.w0fv1.norm.diagnostic.DiagnosticSeverity.ERROR)
             ? Optional.empty()
             : Optional.of(new Binder(programs, semanticModel).bind(main));
-    return new AnalysisResult(semanticModel, Optional.ofNullable(main), boundProgram, snapshot);
+    return new FrontendAnalysis(
+        new AnalysisResult(semanticModel, Optional.ofNullable(main), snapshot), boundProgram);
   }
 
   private void collectDeclarations() {
@@ -175,19 +183,6 @@ final class Analyzer {
               "type '" + enumDecl.name() + "' is already declared",
               enumDecl.span());
         }
-        Set<String> members = new HashSet<>();
-        for (Syntax.EnumMember member : enumDecl.members()) {
-          if (!members.add(member.name())) {
-            diagnostics.error(
-                DUPLICATE_NAME,
-                "enum member '" + member.name() + "' is already declared",
-                member.nameSpan());
-          }
-        }
-        if (enumDecl.members().isEmpty()) {
-          diagnostics.error(
-              TYPE_MISMATCH, "enum must declare at least one member", enumDecl.span());
-        }
         Symbol type =
             register(
                 enumDecl,
@@ -198,20 +193,11 @@ final class Analyzer {
                 null,
                 List.of(),
                 List.of());
-        for (Syntax.EnumMember member : enumDecl.members()) {
-          Symbol value =
-              register(
-                  member,
-                  member.name(),
-                  SymbolKind.ENUM_MEMBER,
-                  sourceType(enumDecl.name(), List.of()),
-                  member.nameSpan(),
-                  type.id(),
-                  List.of(),
-                  List.of());
-          addMember(type.id(), value.id());
-        }
+        typeSymbols.putIfAbsent(type.type().identity(), type.id());
       }
+    }
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
       for (Syntax.ClassDecl classDecl : program.classes()) {
         if (classes.putIfAbsent(
                     declarationKey(program, classDecl.name(), classDecl.visibility()), classDecl)
@@ -233,8 +219,44 @@ final class Analyzer {
                 null,
                 classDecl.typeParameters().stream().map(Syntax.TypeParameter::name).toList(),
                 List.of());
+        typeSymbols.putIfAbsent(type.type().identity(), type.id());
         registerTypeParameters(
             classDecl.typeParameters(), type.id(), classTypeParameters(classDecl));
+      }
+    }
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
+      for (Syntax.EnumDecl enumDecl : program.enums()) {
+        Set<String> members = new HashSet<>();
+        for (Syntax.EnumMember member : enumDecl.members()) {
+          if (!members.add(member.name())) {
+            diagnostics.error(
+                DUPLICATE_NAME,
+                "enum member '" + member.name() + "' is already declared",
+                member.nameSpan());
+          }
+        }
+        if (enumDecl.members().isEmpty()) {
+          diagnostics.error(
+              TYPE_MISMATCH, "enum must declare at least one member", enumDecl.span());
+        }
+        Symbol type = symbols.get(declarationSymbols.get(enumDecl));
+        for (Syntax.EnumMember member : enumDecl.members()) {
+          Symbol value =
+              register(
+                  member,
+                  member.name(),
+                  SymbolKind.ENUM_MEMBER,
+                  sourceType(enumDecl.name(), List.of()),
+                  member.nameSpan(),
+                  type.id(),
+                  List.of(),
+                  List.of());
+          addMember(type.id(), value.id());
+        }
+      }
+      for (Syntax.ClassDecl classDecl : program.classes()) {
+        Symbol type = symbols.get(declarationSymbols.get(classDecl));
         for (Syntax.FieldDecl field : classDecl.fields()) {
           Symbol symbol =
               register(
@@ -276,13 +298,9 @@ final class Analyzer {
                 "Creates a new top-level object identity.");
         symbols.put(copyId, copy);
         addMember(type.id(), copyId);
-        copyMethods.put(classDecl.name(), copyId);
+        copyMethods.put(type.type().identity(), copyId);
         for (Syntax.FunctionDecl method : classDecl.methods()) {
           validateTypeParameterNames(method.typeParameters());
-          if (!method.typeParameters().isEmpty()) {
-            diagnostics.error(
-                TYPE_MISMATCH, "generic methods are not supported", method.nameSpan());
-          }
           Symbol symbol =
               register(
                   method,
@@ -301,6 +319,9 @@ final class Analyzer {
           }
         }
       }
+    }
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
       for (Syntax.FunctionDecl function : program.functions()) {
         validateTypeParameterNames(function.typeParameters());
         String key = declarationKey(program, function.name(), function.visibility());
@@ -376,7 +397,14 @@ final class Analyzer {
                   target.typeParameters(),
                   target.parameters());
           importAliases.put(imported, alias.id());
-          aliasTargets.put(alias.id(), target.id());
+          List<SymbolId> targets =
+              importedFunctions == null || importedFunctions.isEmpty()
+                  ? List.of(target.id())
+                  : importedFunctions.stream()
+                      .filter(candidate -> canImport(program, candidate))
+                      .map(declarationSymbols::get)
+                      .toList();
+          aliasTargets.put(alias.id(), targets);
         }
       }
     }
@@ -731,6 +759,42 @@ final class Analyzer {
     return type;
   }
 
+  private TypeProbe probeType(Syntax.Expression expression, SemanticType expected) {
+    AnalysisCheckpoint checkpoint = checkpoint();
+    SemanticType type = typeOf(expression, expected);
+    boolean hasErrors = diagnostics.hasErrorsSince(checkpoint.diagnosticMark());
+    restore(checkpoint);
+    return new TypeProbe(type, hasErrors);
+  }
+
+  private AnalysisCheckpoint checkpoint() {
+    return new AnalysisCheckpoint(
+        Map.copyOf(bindings),
+        Map.copyOf(semanticTypes),
+        Map.copyOf(resolvedCalls),
+        Map.copyOf(iterations),
+        Map.copyOf(indexes),
+        Map.copyOf(flowTypes),
+        semanticScopes.size(),
+        diagnostics.mark());
+  }
+
+  private void restore(AnalysisCheckpoint checkpoint) {
+    restore(bindings, checkpoint.bindings());
+    restore(semanticTypes, checkpoint.semanticTypes());
+    restore(resolvedCalls, checkpoint.resolvedCalls());
+    restore(iterations, checkpoint.iterations());
+    restore(indexes, checkpoint.indexes());
+    restore(flowTypes, checkpoint.flowTypes());
+    semanticScopes.subList(checkpoint.semanticScopeCount(), semanticScopes.size()).clear();
+    diagnostics.rollback(checkpoint.diagnosticMark());
+  }
+
+  private static <K, V> void restore(Map<K, V> target, Map<K, V> snapshot) {
+    target.clear();
+    target.putAll(snapshot);
+  }
+
   private SemanticType analyzeNull(Syntax.NullLiteral literal, SemanticType expected) {
     if (expected == null || expected.equals(SemanticType.DYNAMIC)) {
       diagnostics.error(UNTYPED_NULL, "null requires an expected nullable type", literal.span());
@@ -757,9 +821,11 @@ final class Analyzer {
     SemanticType elementType = expectedElement;
     for (Syntax.Expression element : array.elements()) {
       SemanticType current = typeOf(element, expectedElement);
-      if (elementType == null) {
+      if (elementType == null && !containsDynamic(current)) {
         elementType = current;
-      } else if (!TypeRelations.isAssignable(elementType, current)) {
+      } else if (elementType != null
+          && !containsDynamic(current)
+          && !TypeRelations.isAssignable(elementType, current)) {
         diagnostics.error(
             TYPE_MISMATCH,
             "array elements must have one invariant type; found "
@@ -878,43 +944,61 @@ final class Analyzer {
       bindings.put(name.span(), symbol.id());
       validateTypeArgumentCount(callee, 0, name.typeArguments(), name.span());
       name.typeArguments().forEach(argument -> resolveCheckedType(argument, activeTypeParameters));
-      validateArguments(call, symbol.parameters());
-      return symbol.type();
+      return recordCall(
+          call,
+          name.span(),
+          ResolvedCall.Kind.INTRINSIC,
+          symbol.id(),
+          symbol.parameters(),
+          List.of(),
+          symbol.type());
     }
     SemanticType constructedType = appliedType(callee, name.typeArguments(), name.span());
     Optional<List<ParameterInfo>> constructor = builtins.constructorParameters(constructedType);
     if (constructor.isPresent()) {
-      validateArguments(call, constructor.orElseThrow());
-      return constructedType;
+      Symbol target = builtins.type(callee).orElseThrow();
+      return recordCall(
+          call,
+          name.span(),
+          ResolvedCall.Kind.INTRINSIC,
+          target.id(),
+          constructor.orElseThrow(),
+          List.of(),
+          constructedType);
     }
     Syntax.ClassDecl classDecl = resolveClass(callee);
     if (classDecl != null) {
       bindDeclarationUse(name.span(), callee, classDecl);
       Map<String, SemanticType> substitutions = classSubstitutions(classDecl, constructedType);
-      validateArguments(call, fieldParameters(classDecl, substitutions));
-      return constructedType;
+      return recordCall(
+          call,
+          name.span(),
+          ResolvedCall.Kind.CONSTRUCT,
+          declarationSymbols.get(classDecl),
+          fieldParameters(classDecl, substitutions),
+          List.of(),
+          constructedType);
     }
-    List<Syntax.FunctionDecl> functionCandidates =
-        resolveFunctions(callee).stream()
-            .filter(
-                candidate ->
-                    name.typeArguments().isEmpty()
-                        || candidate.typeParameters().size() == name.typeArguments().size())
-            .toList();
-    Syntax.FunctionDecl function =
-        selectSourceOverload(functionCandidates, call, Map.of(), name.span());
-    if (function != null) {
-      bindDeclarationUse(name.span(), callee, function);
-      Map<String, SemanticType> substitutions = inferTypeArguments(function, name, call, expected);
-      Map<String, SemanticType> declarations = functionTypeParameters(function);
-      callTypeArguments.put(
-          call.span(),
-          function.typeParameters().stream()
-              .map(parameter -> substitutions.get(declarations.get(parameter.name()).identity()))
-              .toList());
-      validateArguments(call, parametersOf(function, substitutions));
-      return resolveDeclarationType(function.returnType(), function, declarations)
-          .substitute(substitutions);
+    List<Syntax.FunctionDecl> functionCandidates = resolveFunctions(callee);
+    SourceCallResolution resolution =
+        resolveSourceCall(
+            functionCandidates,
+            name.typeArguments(),
+            call,
+            expected,
+            Map.of(),
+            name.span(),
+            "function");
+    if (resolution != null) {
+      bindDeclarationUse(name.span(), callee, resolution.declaration());
+      return recordCall(
+          call,
+          name.span(),
+          ResolvedCall.Kind.CALLABLE,
+          declarationSymbols.get(resolution.declaration()),
+          resolution.parameters(),
+          resolution.reifiedArguments(),
+          resolution.result());
     }
     if (!functionCandidates.isEmpty()) return SemanticType.DYNAMIC;
     diagnostics.error(UNKNOWN_NAME, "cannot find function or type '" + callee + "'", name.span());
@@ -934,7 +1018,8 @@ final class Analyzer {
         if (symbol == null) return SemanticType.DYNAMIC;
         bindings.put(member.nameSpan(), symbol.id());
         Map<String, SemanticType> substitutions =
-            inferBuiltinTypeArguments(symbol, call, expected, member.nameSpan());
+            inferBuiltinTypeArguments(
+                symbol, member.typeArguments(), call, expected, member.span());
         List<ParameterInfo> parameters =
             symbol.parameters().stream()
                 .map(
@@ -942,8 +1027,20 @@ final class Analyzer {
                         new ParameterInfo(
                             parameter.name(), parameter.type().substitute(substitutions)))
                 .toList();
-        validateArguments(call, parameters);
-        return symbol.type().substitute(substitutions);
+        SemanticType result = symbol.type().substitute(substitutions);
+        List<SemanticType> reifiedArguments =
+            symbol.typeParameters().stream()
+                .map(name -> findTypeParameter(symbol, name))
+                .map(parameter -> substitutions.get(parameter.identity()))
+                .toList();
+        return recordCall(
+            call,
+            member.nameSpan(),
+            ResolvedCall.Kind.INTRINSIC,
+            symbol.id(),
+            parameters,
+            reifiedArguments,
+            result);
       }
     }
     SemanticType nullableReceiver = typeOf(member.receiver(), null);
@@ -967,8 +1064,18 @@ final class Analyzer {
       Symbol symbol = selectBuiltinOverload(builtinMethods, call, member.nameSpan());
       if (symbol == null) return SemanticType.DYNAMIC;
       bindings.put(member.nameSpan(), symbol.id());
-      validateArguments(call, symbol.parameters());
-      return safeAccessResult(member, nullableReceiver, symbol.type());
+      validateTypeArgumentCount(member.name(), 0, member.typeArguments(), member.span());
+      member
+          .typeArguments()
+          .forEach(argument -> resolveCheckedType(argument, activeTypeParameters));
+      return recordCall(
+          call,
+          member.nameSpan(),
+          ResolvedCall.Kind.INTRINSIC,
+          symbol.id(),
+          symbol.parameters(),
+          List.of(),
+          safeAccessResult(member, nullableReceiver, symbol.type()));
     }
     if (builtins.isType(receiver.name())) {
       diagnostics.error(
@@ -981,39 +1088,67 @@ final class Analyzer {
     Syntax.ClassDecl classDecl = resolveClass(receiver);
     if (classDecl != null) {
       if (member.name().equals("copy")) {
-        bindings.put(member.nameSpan(), copyMethods.get(receiver.name()));
-        validateArguments(call, List.of());
-        return safeAccessResult(member, nullableReceiver, receiver);
+        bindings.put(member.nameSpan(), copyMethods.get(receiver.identity()));
+        validateTypeArgumentCount(member.name(), 0, member.typeArguments(), member.span());
+        member
+            .typeArguments()
+            .forEach(argument -> resolveCheckedType(argument, activeTypeParameters));
+        return recordCall(
+            call,
+            member.nameSpan(),
+            ResolvedCall.Kind.COPY,
+            copyMethods.get(receiver.identity()),
+            List.of(),
+            List.of(),
+            safeAccessResult(member, nullableReceiver, receiver));
       }
       Map<String, SemanticType> substitutions = classSubstitutions(classDecl, receiver);
       List<Syntax.FunctionDecl> methods =
           classDecl.methods().stream()
               .filter(candidate -> candidate.name().equals(member.name()))
               .toList();
-      Syntax.FunctionDecl method =
-          selectSourceOverload(methods, call, substitutions, member.nameSpan());
-      if (method == null) {
+      List<Syntax.FunctionDecl> accessibleMethods =
+          methods.stream()
+              .filter(
+                  candidate ->
+                      candidate.visibility() != Syntax.Visibility.PRIVATE
+                          || currentClass == classDecl)
+              .toList();
+      SourceCallResolution resolution =
+          resolveSourceCall(
+              accessibleMethods,
+              member.typeArguments(),
+              call,
+              callableExpected(member, nullableReceiver, expected),
+              substitutions,
+              member.nameSpan(),
+              "method");
+      if (resolution == null) {
         if (methods.isEmpty()) {
           diagnostics.error(
               UNKNOWN_NAME,
               "class '" + receiver.displayName() + "' has no method '" + member.name() + "'",
               member.span());
           analyzeArguments(call.arguments());
+        } else if (accessibleMethods.isEmpty()) {
+          diagnostics.error(
+              UNKNOWN_NAME,
+              "method '" + member.name() + "' is private in class '" + classDecl.name() + "'",
+              member.nameSpan());
+          analyzeArguments(call.arguments());
         }
         return SemanticType.DYNAMIC;
       }
-      if (method.visibility() == Syntax.Visibility.PRIVATE && currentClass != classDecl) {
-        diagnostics.error(
-            UNKNOWN_NAME,
-            "method '" + member.name() + "' is private in class '" + classDecl.name() + "'",
-            member.nameSpan());
-      }
+      Syntax.FunctionDecl method = resolution.declaration();
       bindings.put(member.nameSpan(), declarationSymbols.get(method));
-      validateArguments(call, parametersOf(method, substitutions));
-      SemanticType result =
-          resolveDeclarationType(method.returnType(), method, classTypeParameters(classDecl))
-              .substitute(substitutions);
-      return safeAccessResult(member, nullableReceiver, result);
+      return recordCall(
+          call,
+          member.nameSpan(),
+          ResolvedCall.Kind.CALLABLE,
+          declarationSymbols.get(method),
+          resolution.parameters(),
+          resolution.reifiedArguments(),
+          safeAccessResult(member, nullableReceiver, resolution.result()));
     }
     diagnostics.error(
         TYPE_MISMATCH, "type '" + receiver.displayName() + "' has no methods", member.span());
@@ -1115,6 +1250,17 @@ final class Analyzer {
     return result.nullable();
   }
 
+  private static SemanticType callableExpected(
+      Syntax.Member member, SemanticType receiverType, SemanticType expected) {
+    if (expected != null
+        && member.nullSafe()
+        && receiverType.mayContainNull()
+        && expected.isNullable()) {
+      return expected.nonNullable();
+    }
+    return expected;
+  }
+
   private SemanticType analyzeIndex(Syntax.Index index) {
     SemanticType receiverType = typeOf(index.receiver(), null);
     SemanticType indexType = typeOf(index.index(), null);
@@ -1154,22 +1300,310 @@ final class Analyzer {
     };
   }
 
-  private Syntax.FunctionDecl selectSourceOverload(
-      List<Syntax.FunctionDecl> candidates,
+  private SourceCallResolution resolveSourceCall(
+      List<Syntax.FunctionDecl> declarations,
+      List<Syntax.TypeRef> explicitTypeArguments,
       Syntax.Call call,
-      Map<String, SemanticType> substitutions,
-      SourceSpan span) {
-    OverloadResolver.Candidate selected =
-        overloads.select(
-            candidates.stream()
-                .map(
-                    candidate ->
-                        new OverloadResolver.Candidate(
-                            candidate, parametersOf(candidate, substitutions)))
-                .toList(),
-            call,
+      SemanticType expected,
+      Map<String, SemanticType> ownerSubstitutions,
+      SourceSpan span,
+      String callableKind) {
+    if (declarations.isEmpty()) return null;
+    List<SemanticType> explicitTypes =
+        explicitTypeArguments.stream()
+            .map(argument -> resolveCheckedType(argument, activeTypeParameters))
+            .toList();
+    List<Syntax.FunctionDecl> arityMatches =
+        explicitTypeArguments.isEmpty()
+            ? declarations
+            : declarations.stream()
+                .filter(
+                    declaration ->
+                        declaration.typeParameters().size() == explicitTypeArguments.size())
+                .toList();
+    if (arityMatches.isEmpty()) {
+      if (declarations.size() == 1) {
+        validateTypeArgumentCount(
+            declarations.getFirst().name(),
+            declarations.getFirst().typeParameters().size(),
+            explicitTypeArguments,
             span);
-    return selected == null ? null : (Syntax.FunctionDecl) selected.target();
+      } else {
+        diagnostics.error(
+            INVALID_CALL,
+            "no overload of "
+                + callableKind
+                + " '"
+                + declarations.getFirst().name()
+                + "' accepts "
+                + explicitTypeArguments.size()
+                + " type argument(s)",
+            span);
+      }
+      analyzeArguments(call.arguments());
+      return null;
+    }
+
+    List<SourceCallCandidate> structural = new ArrayList<>();
+    for (Syntax.FunctionDecl declaration : arityMatches) {
+      List<ParameterInfo> unresolved = parametersOf(declaration, ownerSubstitutions);
+      List<Integer> indices = overloads.argumentIndices(call, unresolved, false);
+      if (indices != null) {
+        structural.add(
+            sourceCallCandidate(
+                declaration,
+                explicitTypes,
+                !explicitTypeArguments.isEmpty(),
+                call,
+                indices,
+                expected,
+                ownerSubstitutions));
+      }
+    }
+    if (structural.isEmpty()) {
+      if (arityMatches.size() == 1) {
+        overloads.argumentIndices(
+            call, parametersOf(arityMatches.getFirst(), ownerSubstitutions), true);
+      } else {
+        diagnostics.error(
+            INVALID_CALL,
+            "no overload accepts the supplied argument labels and count",
+            call.span());
+      }
+      return null;
+    }
+
+    List<SourceCallCandidate> applicable =
+        structural.stream().filter(SourceCallCandidate::applicable).toList();
+    int bestScore =
+        applicable.stream().mapToInt(SourceCallCandidate::score).min().orElse(Integer.MAX_VALUE);
+    List<SourceCallCandidate> best =
+        applicable.stream().filter(candidate -> candidate.score() == bestScore).toList();
+    if (best.size() == 1) return best.getFirst().resolution();
+    if (best.size() > 1) {
+      diagnostics.error(INVALID_CALL, "call is ambiguous between multiple overloads", span);
+      return null;
+    }
+    if (structural.size() == 1) {
+      SourceCallCandidate candidate = structural.getFirst();
+      reportInferenceFailures(candidate, span);
+      validateArguments(call, candidate.parameters());
+    } else {
+      diagnostics.error(INVALID_CALL, "no overload accepts the supplied argument types", span);
+    }
+    return null;
+  }
+
+  private SourceCallCandidate sourceCallCandidate(
+      Syntax.FunctionDecl declaration,
+      List<SemanticType> explicitTypes,
+      boolean hasExplicitTypes,
+      Syntax.Call call,
+      List<Integer> argumentIndices,
+      SemanticType expected,
+      Map<String, SemanticType> ownerSubstitutions) {
+    Map<String, SemanticType> callableParameters = functionTypeParameters(declaration);
+    Set<String> callableParameterIds =
+        callableParameters.values().stream()
+            .map(SemanticType::identity)
+            .collect(java.util.stream.Collectors.toSet());
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>(ownerSubstitutions);
+    Map<String, List<SemanticType>> constraints = new LinkedHashMap<>();
+    Map<String, SemanticType> declarations = typeParameters(declaration, ownerOf(declaration));
+    if (hasExplicitTypes) {
+      for (int index = 0; index < declaration.typeParameters().size(); index++) {
+        SemanticType parameter =
+            callableParameters.get(declaration.typeParameters().get(index).name());
+        substitutions.put(parameter.identity(), explicitTypes.get(index));
+      }
+    } else {
+      if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
+        SemanticType pattern =
+            resolveDeclarationType(declaration.returnType(), declaration, declarations)
+                .substitute(ownerSubstitutions);
+        collectInferenceConstraints(pattern, expected, callableParameterIds, constraints);
+        seedInferredSubstitutions(callableParameters, constraints, substitutions);
+      }
+      for (int index = 0; index < call.arguments().size(); index++) {
+        Syntax.Parameter parameter = declaration.parameters().get(argumentIndices.get(index));
+        SemanticType pattern =
+            resolveDeclarationType(parameter.type(), declaration, declarations)
+                .substitute(substitutions);
+        SemanticType probeExpected =
+            containsTypeParameter(pattern, callableParameterIds) ? null : pattern;
+        TypeProbe probe = probeType(call.arguments().get(index).value(), probeExpected);
+        collectInferenceConstraints(pattern, probe.type(), callableParameterIds, constraints);
+      }
+    }
+
+    List<String> missing = new ArrayList<>();
+    List<InferenceConflict> conflicts = new ArrayList<>();
+    for (Syntax.TypeParameter parameterSyntax : declaration.typeParameters()) {
+      SemanticType parameter = callableParameters.get(parameterSyntax.name());
+      List<SemanticType> inferred = constraints.getOrDefault(parameter.identity(), List.of());
+      if (!hasExplicitTypes && inferred.isEmpty()) {
+        missing.add(parameterSyntax.name());
+        substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
+      } else if (!hasExplicitTypes) {
+        InferenceMerge merge = mergeInference(inferred);
+        substitutions.put(parameter.identity(), merge.type());
+        merge
+            .conflict()
+            .ifPresent(
+                conflict ->
+                    conflicts.add(
+                        new InferenceConflict(
+                            parameterSyntax.name(), conflict.first(), conflict.second())));
+      }
+    }
+    List<ParameterInfo> parameters = parametersOf(declaration, substitutions);
+    SemanticType result =
+        resolveDeclarationType(declaration.returnType(), declaration, declarations)
+            .substitute(substitutions);
+    boolean assignable = true;
+    int score = 0;
+    List<ParameterInfo> patterns = parametersOf(declaration, ownerSubstitutions);
+    for (int index = 0; index < call.arguments().size(); index++) {
+      int parameterIndex = argumentIndices.get(index);
+      SemanticType parameter = parameters.get(parameterIndex).type();
+      Syntax.Expression argument = call.arguments().get(index).value();
+      TypeProbe probe = probeType(argument, parameter);
+      SemanticType actual =
+          argument instanceof Syntax.NullLiteral ? SemanticType.NULL : probe.type();
+      if (probe.hasErrors() || !isPotentiallyAssignable(parameter, actual)) assignable = false;
+      score +=
+          callCompatibilityScore(
+              patterns.get(parameterIndex).type(), parameter, actual, callableParameterIds);
+    }
+    List<SemanticType> reifiedArguments =
+        declaration.typeParameters().stream()
+            .map(
+                parameter -> substitutions.get(callableParameters.get(parameter.name()).identity()))
+            .toList();
+    SourceCallResolution resolution =
+        new SourceCallResolution(declaration, parameters, reifiedArguments, result);
+    return new SourceCallCandidate(
+        resolution, List.copyOf(missing), List.copyOf(conflicts), assignable, score);
+  }
+
+  private static void seedInferredSubstitutions(
+      Map<String, SemanticType> callableParameters,
+      Map<String, List<SemanticType>> constraints,
+      Map<String, SemanticType> substitutions) {
+    for (SemanticType parameter : callableParameters.values()) {
+      List<SemanticType> inferred = constraints.getOrDefault(parameter.identity(), List.of());
+      if (!inferred.isEmpty()) {
+        substitutions.put(parameter.identity(), mergeInference(inferred).type());
+      }
+    }
+  }
+
+  private static InferenceMerge mergeInference(List<SemanticType> inferred) {
+    SemanticType merged = inferred.getFirst();
+    for (int index = 1; index < inferred.size(); index++) {
+      SemanticType candidate = inferred.get(index);
+      if (candidate.equals(merged)) continue;
+      if (candidate.nonNullable().equals(merged.nonNullable())) {
+        merged = merged.nonNullable().nullable();
+      } else {
+        return new InferenceMerge(merged, Optional.of(new InferenceCollision(merged, candidate)));
+      }
+    }
+    return new InferenceMerge(merged, Optional.empty());
+  }
+
+  private static void collectInferenceConstraints(
+      SemanticType pattern,
+      SemanticType actual,
+      Set<String> callableParameterIds,
+      Map<String, List<SemanticType>> constraints) {
+    if (actual.equals(SemanticType.NULL) || actual.equals(SemanticType.DYNAMIC)) return;
+    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER
+        && callableParameterIds.contains(pattern.identity())) {
+      if (actual.kind() == SemanticType.Kind.TYPE_PARAMETER
+          && actual.identity().equals(pattern.identity())) {
+        return;
+      }
+      SemanticType inferred = pattern.isNullable() ? actual.nonNullable() : actual;
+      constraints.computeIfAbsent(pattern.identity(), ignored -> new ArrayList<>()).add(inferred);
+      return;
+    }
+    if (!pattern.nonNullable().identity().equals(actual.nonNullable().identity())
+        || pattern.arguments().size() != actual.arguments().size()) {
+      return;
+    }
+    for (int index = 0; index < pattern.arguments().size(); index++) {
+      collectInferenceConstraints(
+          pattern.arguments().get(index),
+          actual.arguments().get(index),
+          callableParameterIds,
+          constraints);
+    }
+  }
+
+  private static boolean isPotentiallyAssignable(SemanticType expected, SemanticType actual) {
+    if (expected.equals(SemanticType.DYNAMIC) || actual.equals(SemanticType.DYNAMIC)) return true;
+    if (actual.equals(SemanticType.NULL)) return expected.mayContainNull();
+    if (expected.equals(SemanticType.NULL)) return false;
+    if (actual.isNullable() && !expected.isNullable()) return false;
+    if (!expected.nonNullable().identity().equals(actual.nonNullable().identity())
+        || expected.arguments().size() != actual.arguments().size()) {
+      return false;
+    }
+    for (int index = 0; index < expected.arguments().size(); index++) {
+      if (!isPotentiallyAssignable(
+          expected.arguments().get(index), actual.arguments().get(index))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static int callCompatibilityScore(
+      SemanticType pattern,
+      SemanticType parameter,
+      SemanticType actual,
+      Set<String> callableParameterIds) {
+    int score;
+    if (actual.equals(SemanticType.NULL)) {
+      score = containsTypeParameter(pattern, callableParameterIds) ? 4 : 2;
+    } else if (containsDynamic(actual)) {
+      score = 4;
+    } else {
+      score = parameter.equals(actual) ? 0 : 1;
+      if (containsTypeParameter(pattern, callableParameterIds)) score += 3;
+    }
+    return score;
+  }
+
+  private static boolean containsDynamic(SemanticType type) {
+    if (type.equals(SemanticType.DYNAMIC)) return true;
+    return type.arguments().stream().anyMatch(Analyzer::containsDynamic);
+  }
+
+  private static boolean containsTypeParameter(SemanticType type, Set<String> identities) {
+    if (type.kind() == SemanticType.Kind.TYPE_PARAMETER && identities.contains(type.identity())) {
+      return true;
+    }
+    return type.arguments().stream()
+        .anyMatch(argument -> containsTypeParameter(argument, identities));
+  }
+
+  private void reportInferenceFailures(SourceCallCandidate candidate, SourceSpan span) {
+    for (String name : candidate.missingTypeArguments()) {
+      diagnostics.error(INVALID_CALL, "cannot infer type argument '" + name + "'", span);
+    }
+    for (InferenceConflict conflict : candidate.conflicts()) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "type parameter '"
+              + conflict.name()
+              + "' inferred as both "
+              + conflict.first().displayName()
+              + " and "
+              + conflict.second().displayName(),
+          span);
+    }
   }
 
   private Symbol selectBuiltinOverload(List<Symbol> candidates, Syntax.Call call, SourceSpan span) {
@@ -1183,7 +1617,7 @@ final class Analyzer {
     return selected == null ? null : (Symbol) selected.target();
   }
 
-  private void validateArguments(Syntax.Call call, List<ParameterInfo> parameters) {
+  private ArgumentBinding validateArguments(Syntax.Call call, List<ParameterInfo> parameters) {
     List<Integer> parameterIndices = overloads.argumentIndices(call, parameters, true);
     for (int index = 0; index < call.arguments().size(); index++) {
       Syntax.CallArgument argument = call.arguments().get(index);
@@ -1196,7 +1630,27 @@ final class Analyzer {
         typeOf(argument.value(), null);
       }
     }
-    argumentBindings.put(call.span(), new ArgumentBinding(parameterIndices));
+    return new ArgumentBinding(parameterIndices);
+  }
+
+  private SemanticType recordCall(
+      Syntax.Call call,
+      SourceSpan calleeSpan,
+      ResolvedCall.Kind kind,
+      SymbolId target,
+      List<ParameterInfo> parameters,
+      List<SemanticType> reifiedArguments,
+      SemanticType result) {
+    ArgumentBinding arguments = validateArguments(call, parameters);
+    if (arguments.parameterIndices().stream()
+        .anyMatch(index -> index < 0 || index >= parameters.size())) {
+      return result;
+    }
+    resolvedCalls.put(
+        call.span(),
+        new ResolvedCall(
+            kind, target, calleeSpan, arguments, parameters, reifiedArguments, result));
+    return result;
   }
 
   private void analyzeArguments(List<Syntax.CallArgument> arguments) {
@@ -1719,7 +2173,7 @@ final class Analyzer {
     String identity = qualifiedName(owner == null ? "" : owner.packageName(), declaredName);
     if (classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
         || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE) {
-      identity += "@" + owner.span().source().id();
+      identity = fileLocalIdentity(identity, owner);
     }
     ValueCategory category = classDecl != null ? ValueCategory.IDENTITY : ValueCategory.VALUE;
     return SemanticType.declared(identity, declaredName, arguments, category);
@@ -1802,86 +2256,45 @@ final class Analyzer {
     return result;
   }
 
-  private Map<String, SemanticType> inferTypeArguments(
-      Syntax.FunctionDecl function, Syntax.Name name, Syntax.Call call, SemanticType expected) {
-    Map<String, SemanticType> declarations = functionTypeParameters(function);
+  private Map<String, SemanticType> inferBuiltinTypeArguments(
+      Symbol symbol,
+      List<Syntax.TypeRef> explicitArguments,
+      Syntax.Call call,
+      SemanticType expected,
+      SourceSpan span) {
     Map<String, SemanticType> substitutions = new LinkedHashMap<>();
-    if (!name.typeArguments().isEmpty()) {
-      if (name.typeArguments().size() != function.typeParameters().size()) {
-        diagnostics.error(
-            INVALID_CALL,
-            "function '"
-                + function.name()
-                + "' requires "
-                + function.typeParameters().size()
-                + " type argument(s), found "
-                + name.typeArguments().size(),
-            name.span());
-      }
+    if (!explicitArguments.isEmpty()) {
+      validateTypeArgumentCount(
+          symbol.name(), symbol.typeParameters().size(), explicitArguments, span);
       for (int index = 0;
-          index < Math.min(name.typeArguments().size(), function.typeParameters().size());
+          index < Math.min(explicitArguments.size(), symbol.typeParameters().size());
           index++) {
-        SemanticType parameter = declarations.get(function.typeParameters().get(index).name());
-        substitutions.put(
-            parameter.identity(),
-            resolveCheckedType(name.typeArguments().get(index), activeTypeParameters));
+        SemanticType parameter = findTypeParameter(symbol, symbol.typeParameters().get(index));
+        if (parameter != null) {
+          substitutions.put(
+              parameter.identity(),
+              resolveCheckedType(explicitArguments.get(index), activeTypeParameters));
+        }
+      }
+      for (int index = symbol.typeParameters().size(); index < explicitArguments.size(); index++) {
+        resolveCheckedType(explicitArguments.get(index), activeTypeParameters);
       }
     } else {
-      for (int index = 0; index < call.arguments().size(); index++) {
-        Syntax.CallArgument argument = call.arguments().get(index);
-        int parameterIndex = index;
-        if (argument.label().isPresent()) {
-          String label = argument.label().orElseThrow().name();
-          parameterIndex = -1;
-          for (int candidate = 0; candidate < function.parameters().size(); candidate++) {
-            if (function.parameters().get(candidate).name().equals(label)) {
-              parameterIndex = candidate;
-              break;
-            }
-          }
-        }
-        if (parameterIndex >= 0 && parameterIndex < function.parameters().size()) {
+      List<Integer> indices = overloads.argumentIndices(call, symbol.parameters(), false);
+      if (indices != null) {
+        for (int index = 0; index < call.arguments().size(); index++) {
+          Syntax.CallArgument argument = call.arguments().get(index);
           if (argument.value() instanceof Syntax.NullLiteral) continue;
-          SemanticType pattern =
-              resolveType(function.parameters().get(parameterIndex).type(), declarations);
-          infer(pattern, typeOf(argument.value(), null), substitutions, argument.span());
+          infer(
+              symbol.parameters().get(indices.get(index)).type(),
+              typeOf(argument.value(), null),
+              substitutions,
+              argument.span());
         }
       }
       if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
-        infer(
-            resolveType(function.returnType(), declarations), expected, substitutions, name.span());
+        infer(symbol.type(), expected, substitutions, span);
       }
-    }
-    for (Syntax.TypeParameter parameterSyntax : function.typeParameters()) {
-      SemanticType parameter = declarations.get(parameterSyntax.name());
-      if (!substitutions.containsKey(parameter.identity())) {
-        diagnostics.error(
-            INVALID_CALL,
-            "cannot infer type argument '" + parameterSyntax.name() + "'",
-            name.span());
-        substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
-      }
-    }
-    return substitutions;
-  }
-
-  private Map<String, SemanticType> inferBuiltinTypeArguments(
-      Symbol symbol, Syntax.Call call, SemanticType expected, SourceSpan span) {
-    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
-    List<Integer> indices = overloads.argumentIndices(call, symbol.parameters(), false);
-    if (indices != null) {
-      for (int index = 0; index < call.arguments().size(); index++) {
-        Syntax.CallArgument argument = call.arguments().get(index);
-        if (argument.value() instanceof Syntax.NullLiteral) continue;
-        infer(
-            symbol.parameters().get(indices.get(index)).type(),
-            typeOf(argument.value(), null),
-            substitutions,
-            argument.span());
-      }
-    }
-    if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
-      infer(symbol.type(), expected, substitutions, span);
     }
     for (String name : symbol.typeParameters()) {
       SemanticType parameter = findTypeParameter(symbol, name);
@@ -1980,15 +2393,15 @@ final class Analyzer {
 
   private List<Syntax.FunctionDecl> resolveFunctions(String name) {
     if (currentProgram == null) return List.of();
+    List<Syntax.FunctionDecl> visible = new ArrayList<>();
     List<Syntax.FunctionDecl> localPrivate =
         functions.get(
-            qualifiedName(currentProgram.packageName(), name)
-                + "@"
-                + currentProgram.span().source().id());
-    if (localPrivate != null) return List.copyOf(localPrivate);
+            fileLocalIdentity(qualifiedName(currentProgram.packageName(), name), currentProgram));
+    if (localPrivate != null) visible.addAll(localPrivate);
     List<Syntax.FunctionDecl> samePackage =
         functions.get(qualifiedName(currentProgram.packageName(), name));
-    if (samePackage != null) return List.copyOf(samePackage);
+    if (samePackage != null) visible.addAll(samePackage);
+    if (!visible.isEmpty()) return List.copyOf(visible);
     for (Syntax.ImportDecl imported : currentProgram.imports()) {
       if (!imported.localName().equals(name)) continue;
       List<Syntax.FunctionDecl> candidates = functions.get(imported.qualifiedName());
@@ -1996,6 +2409,15 @@ final class Analyzer {
       return candidates.stream().filter(candidate -> canImport(currentProgram, candidate)).toList();
     }
     return List.of();
+  }
+
+  private Map<SymbolId, List<SymbolId>> callableGroups() {
+    Map<SymbolId, List<SymbolId>> result = new LinkedHashMap<>();
+    for (List<Syntax.FunctionDecl> declarations : functions.values()) {
+      List<SymbolId> group = declarations.stream().map(declarationSymbols::get).toList();
+      group.forEach(id -> result.put(id, group));
+    }
+    return Map.copyOf(result);
   }
 
   private Syntax.ClassDecl resolveClass(String name) {
@@ -2020,7 +2442,7 @@ final class Analyzer {
       Syntax.Program owner = declarationPrograms.get(candidate);
       String identity = qualifiedName(owner.packageName(), candidate.name());
       if (candidate.visibility() == Syntax.Visibility.PRIVATE) {
-        identity += "@" + owner.span().source().id();
+        identity = fileLocalIdentity(identity, owner);
       }
       if (identity.equals(type.identity())) return candidate;
     }
@@ -2046,9 +2468,7 @@ final class Analyzer {
     if (currentProgram == null) return null;
     T localPrivate =
         declarations.get(
-            qualifiedName(currentProgram.packageName(), name)
-                + "@"
-                + currentProgram.span().source().id());
+            fileLocalIdentity(qualifiedName(currentProgram.packageName(), name), currentProgram));
     if (localPrivate != null) return localPrivate;
     T samePackage = declarations.get(qualifiedName(currentProgram.packageName(), name));
     if (samePackage != null) return samePackage;
@@ -2072,8 +2492,12 @@ final class Analyzer {
       Syntax.Program program, String name, Syntax.Visibility visibility) {
     String qualified = qualifiedName(program.packageName(), name);
     return visibility == Syntax.Visibility.PRIVATE
-        ? qualified + "@" + program.span().source().id()
+        ? fileLocalIdentity(qualified, program)
         : qualified;
+  }
+
+  private static String fileLocalIdentity(String qualified, Syntax.Program program) {
+    return qualified + "@" + program.span().source().id().uri();
   }
 
   private static String callableSignature(Syntax.FunctionDecl function) {
@@ -2103,6 +2527,55 @@ final class Analyzer {
   private static String qualifiedName(String packageName, String name) {
     return packageName.isEmpty() ? name : packageName + "." + name;
   }
+
+  private record SourceCallResolution(
+      Syntax.FunctionDecl declaration,
+      List<ParameterInfo> parameters,
+      List<SemanticType> reifiedArguments,
+      SemanticType result) {
+    private SourceCallResolution {
+      parameters = List.copyOf(parameters);
+      reifiedArguments = List.copyOf(reifiedArguments);
+    }
+  }
+
+  private record SourceCallCandidate(
+      SourceCallResolution resolution,
+      List<String> missingTypeArguments,
+      List<InferenceConflict> conflicts,
+      boolean assignable,
+      int score) {
+    private SourceCallCandidate {
+      missingTypeArguments = List.copyOf(missingTypeArguments);
+      conflicts = List.copyOf(conflicts);
+    }
+
+    private boolean applicable() {
+      return missingTypeArguments.isEmpty() && conflicts.isEmpty() && assignable;
+    }
+
+    private List<ParameterInfo> parameters() {
+      return resolution.parameters();
+    }
+  }
+
+  private record InferenceConflict(String name, SemanticType first, SemanticType second) {}
+
+  private record InferenceCollision(SemanticType first, SemanticType second) {}
+
+  private record InferenceMerge(SemanticType type, Optional<InferenceCollision> conflict) {}
+
+  private record TypeProbe(SemanticType type, boolean hasErrors) {}
+
+  private record AnalysisCheckpoint(
+      Map<SourceSpan, SymbolId> bindings,
+      Map<SourceSpan, SemanticType> semanticTypes,
+      Map<SourceSpan, ResolvedCall> resolvedCalls,
+      Map<SourceSpan, ResolvedIteration> iterations,
+      Map<SourceSpan, ResolvedIndex> indexes,
+      Map<SymbolId, SemanticType> flowTypes,
+      int semanticScopeCount,
+      int diagnosticMark) {}
 
   private record ScopedSymbol(SemanticType declaredType, SymbolId id) {}
 

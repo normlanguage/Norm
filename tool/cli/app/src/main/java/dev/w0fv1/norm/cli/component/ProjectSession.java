@@ -4,19 +4,15 @@ import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.ProjectLoader;
+import dev.w0fv1.norm.frontend.ProjectSourceSet;
 import dev.w0fv1.norm.language.LanguageService;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,67 +44,15 @@ final class ProjectSession {
       SourceFile entry,
       Map<Path, SourceFile> openSources,
       long revision) {
-    Path root = rootOf(entry.path());
-    Path manifest = root.resolve("module.norm");
-    if (!Files.isRegularFile(manifest)) {
-      Path input = normalize(entry.path());
-      CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(entry));
-      return new ProjectSession(root, revision, snapshot, Set.of(input), Optional.empty());
-    }
     try {
-      List<Path> entries;
-      try (var paths = Files.walk(root)) {
-        entries =
-            paths
-                .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().endsWith(".norm"))
-                .filter(path -> !path.getFileName().toString().equals("module.norm"))
-                .map(ProjectSession::normalize)
-                .sorted(Comparator.comparing(Path::toString))
-                .toList();
-      }
-      Map<Path, SourceFile> sources = new LinkedHashMap<>();
-      Set<Path> exported = new LinkedHashSet<>();
-      ProjectLoader loader = new ProjectLoader();
-      for (Path candidate : entries) {
-        CompilationRequest request = loader.load(candidate);
-        Map<DocumentId, Path> pathsById = new LinkedHashMap<>();
-        for (SourceFile source : request.sources()) {
-          Path path = normalize(source.path());
-          pathsById.put(source.id(), path);
-          sources.putIfAbsent(path, source);
-        }
-        for (DocumentId exportedSource : request.exportedSources()) {
-          Path path = pathsById.get(exportedSource);
-          if (path != null) exported.add(path);
-        }
-      }
-      openSources.forEach(
-          (path, source) -> {
-            Path normalized = normalize(path);
-            if (sources.containsKey(normalized) || rootOf(normalized).equals(root)) {
-              sources.put(normalized, source);
-            }
-          });
-      Set<Path> inputs = new LinkedHashSet<>(sources.keySet());
-      inputs.add(normalize(manifest));
-      List<SourceFile> projectSources =
-          sources.entrySet().stream()
-              .sorted(Map.Entry.comparingByKey(Comparator.comparing(Path::toString)))
-              .map(Map.Entry::getValue)
-              .toList();
-      Set<DocumentId> exportedDocuments =
-          projectSources.stream()
-              .filter(source -> exported.contains(normalize(source.path())))
-              .map(SourceFile::id)
-              .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-      CompilationSnapshot snapshot =
-          language.snapshot(new CompilationRequest(entry.id(), projectSources, exportedDocuments));
-      return new ProjectSession(root, revision, snapshot, inputs, Optional.empty());
+      ProjectSourceSet sourceSet = new ProjectLoader().load(entry, openSources.values());
+      CompilationSnapshot snapshot = language.snapshot(sourceSet.compilationRequest());
+      return new ProjectSession(
+          sourceSet.root(), revision, snapshot, sourceSet.inputPaths(), Optional.empty());
     } catch (IOException | IllegalArgumentException exception) {
       CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(entry));
       return new ProjectSession(
-          root,
+          ProjectLoader.projectRoot(entry, openSources.values()),
           revision,
           snapshot,
           Set.of(normalize(entry.path())),
@@ -126,8 +70,7 @@ final class ProjectSession {
               PROJECT_LOAD,
               loadFailure.orElseThrow(),
               new SourceSpan(primary, 0, Math.min(1, primary.length()))));
-      return new AnalysisResult(
-          selected.semanticModel(), selected.entryPoint(), selected.boundProgram(), diagnostics);
+      return new AnalysisResult(selected.semanticModel(), selected.entryPoint(), diagnostics);
     }
     return selected;
   }
@@ -146,16 +89,6 @@ final class ProjectSession {
 
   Set<Path> inputs() {
     return inputs;
-  }
-
-  static Path rootOf(Path source) {
-    Path current = normalize(source).getParent();
-    Path fallback = current;
-    while (current != null) {
-      if (Files.isRegularFile(current.resolve("module.norm"))) return current;
-      current = current.getParent();
-    }
-    return fallback;
   }
 
   static Path normalize(Path path) {

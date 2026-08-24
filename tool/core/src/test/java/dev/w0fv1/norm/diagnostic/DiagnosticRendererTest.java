@@ -20,7 +20,8 @@ final class DiagnosticRendererTest {
 
     String newline = System.lineSeparator();
     assertEquals(
-        "sample.norm:1:14: error[NORM-NAME-0001]: cannot find name 'nope'"
+        source.displayName()
+            + ":1:14: error[NORM-NAME-0001]: cannot find name 'nope'"
             + newline
             + "Integer answer = nope"
             + newline

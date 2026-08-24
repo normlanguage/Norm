@@ -32,7 +32,7 @@ final class FunctionRootNode extends RootNode {
   public Object execute(VirtualFrame frame) {
     Object[] arguments = frame.getArguments();
     for (int index = 0; index < parameters.length; index++) {
-      parameters[index].write(frame, arguments[index]);
+      parameters[index].write(frame, arguments[index + 1]);
     }
     try {
       body.executeVoid(frame);

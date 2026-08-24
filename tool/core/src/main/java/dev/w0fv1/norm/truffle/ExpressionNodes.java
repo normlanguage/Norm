@@ -4,11 +4,11 @@ import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.DirectCallNode;
 import dev.w0fv1.norm.builtin.IntrinsicId;
-import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.core.CoreType;
+import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
-import dev.w0fv1.norm.semantic.SemanticType;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 
 final class ExpressionNodes {
@@ -17,7 +17,6 @@ final class ExpressionNodes {
   static final class Intrinsic extends ExpressionNode {
     private final IntrinsicId intrinsic;
     private final int[] parameterIndices;
-    private final ExecutionContext context;
     private final boolean nullSafe;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
@@ -29,15 +28,13 @@ final class ExpressionNodes {
         ExpressionNode[] arguments,
         int[] parameterIndices,
         ExpressionNode type,
-        boolean nullSafe,
-        ExecutionContext context) {
+        boolean nullSafe) {
       this.intrinsic = intrinsic;
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
       this.type = type;
       this.nullSafe = nullSafe;
-      this.context = context;
     }
 
     @Override
@@ -50,8 +47,8 @@ final class ExpressionNodes {
           intrinsic,
           receiverValue,
           evaluateArguments(arguments, parameterIndices, frame),
-          type == null ? null : (SemanticType) type.execute(frame),
-          context,
+          type == null ? null : (CoreType) type.execute(frame),
+          ExecutionContextAccess.get(frame),
           this);
     }
   }
@@ -91,29 +88,29 @@ final class ExpressionNodes {
       for (ExpressionNode element : elements) {
         values.add(RuntimeValues.copy(element.execute(frame)));
       }
-      return new RuntimeValues.ArrayValue((SemanticType) type.execute(frame), values);
+      return new RuntimeValues.ArrayValue((CoreType) type.execute(frame), values);
     }
   }
 
   static final class TypeDescriptor extends ExpressionNode {
-    private final SemanticType template;
-    private final String[] identities;
+    private final CoreType template;
+    private final int[] parameterIndices;
     private final FrameBinding[] bindings;
 
-    TypeDescriptor(SemanticType template, String[] identities, FrameBinding[] bindings) {
+    TypeDescriptor(CoreType template, int[] parameterIndices, FrameBinding[] bindings) {
       this.template = template;
-      this.identities = identities;
+      this.parameterIndices = parameterIndices;
       this.bindings = bindings;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
       if (bindings.length == 0) return template;
-      LinkedHashMap<String, SemanticType> substitutions = new LinkedHashMap<>();
+      HashMap<Integer, CoreType> substitutions = new HashMap<>();
       for (int index = 0; index < bindings.length; index++) {
-        substitutions.put(identities[index], (SemanticType) bindings[index].read(frame));
+        substitutions.put(parameterIndices[index], (CoreType) bindings[index].read(frame));
       }
-      return template.substitute(substitutions);
+      return template.substitute(substitutions::get);
     }
   }
 
@@ -366,10 +363,11 @@ final class ExpressionNodes {
     @Override
     Object execute(VirtualFrame frame) {
       Object[] values = evaluateArguments(arguments, parameterIndices, frame);
-      Object[] complete = new Object[values.length + typeArguments.length];
-      System.arraycopy(values, 0, complete, 0, values.length);
+      Object[] complete = new Object[values.length + typeArguments.length + 1];
+      complete[0] = ExecutionContextAccess.get(frame);
+      System.arraycopy(values, 0, complete, 1, values.length);
       for (int index = 0; index < typeArguments.length; index++) {
-        complete[values.length + index] = typeArguments[index].execute(frame);
+        complete[values.length + index + 1] = typeArguments[index].execute(frame);
       }
       return call.call(complete);
     }
@@ -379,6 +377,7 @@ final class ExpressionNodes {
     @Child private DirectCallNode call;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
+    @Children private final ExpressionNode[] typeArguments;
     private final int[] parameterIndices;
     private final boolean nullSafe;
 
@@ -387,11 +386,13 @@ final class ExpressionNodes {
         ExpressionNode receiver,
         ExpressionNode[] arguments,
         int[] parameterIndices,
+        ExpressionNode[] typeArguments,
         boolean nullSafe) {
       call = DirectCallNode.create(target);
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
+      this.typeArguments = typeArguments;
       this.nullSafe = nullSafe;
     }
 
@@ -402,17 +403,25 @@ final class ExpressionNodes {
         return RuntimeValues.NullValue.INSTANCE;
       }
       Object[] bound = evaluateArguments(arguments, parameterIndices, frame);
-      Object[] values = new Object[bound.length + 1];
-      values[0] = receiverValue;
-      System.arraycopy(bound, 0, values, 1, bound.length);
+      int ownerTypeArgumentCount =
+          receiverValue instanceof RuntimeValues.ObjectValue object
+                  && object.type instanceof CoreType.Declared declared
+              ? declared.arguments().size()
+              : 0;
+      Object[] values =
+          new Object[bound.length + ownerTypeArgumentCount + typeArguments.length + 2];
+      values[0] = ExecutionContextAccess.get(frame);
+      values[1] = receiverValue;
+      System.arraycopy(bound, 0, values, 2, bound.length);
       if (receiverValue instanceof RuntimeValues.ObjectValue object
-          && !object.type.arguments().isEmpty()) {
-        Object[] complete = new Object[values.length + object.type.arguments().size()];
-        System.arraycopy(values, 0, complete, 0, values.length);
-        for (int index = 0; index < object.type.arguments().size(); index++) {
-          complete[values.length + index] = object.type.arguments().get(index);
+          && object.type instanceof CoreType.Declared declared) {
+        for (int index = 0; index < declared.arguments().size(); index++) {
+          values[bound.length + index + 2] = declared.arguments().get(index);
         }
-        return call.call(complete);
+      }
+      for (int index = 0; index < typeArguments.length; index++) {
+        values[bound.length + ownerTypeArgumentCount + index + 2] =
+            typeArguments[index].execute(frame);
       }
       return call.call(values);
     }
@@ -438,7 +447,7 @@ final class ExpressionNodes {
     @Override
     Object execute(VirtualFrame frame) {
       RuntimeValues.ObjectValue object =
-          new RuntimeValues.ObjectValue(classInfo, (SemanticType) type.execute(frame));
+          new RuntimeValues.ObjectValue(classInfo, (CoreType) type.execute(frame));
       Object[] values = evaluateArguments(fields, fieldIndices, frame);
       System.arraycopy(values, 0, object.fields, 0, values.length);
       return object;
@@ -465,8 +474,8 @@ final class ExpressionNodes {
   static final class EnumMember extends ExpressionNode {
     private final RuntimeValues.EnumValue value;
 
-    EnumMember(String enumName, String member) {
-      value = new RuntimeValues.EnumValue(enumName, member);
+    EnumMember(DefinitionId definition, int memberOrdinal, String enumName, String member) {
+      value = new RuntimeValues.EnumValue(definition, memberOrdinal, enumName, member);
     }
 
     @Override

@@ -9,8 +9,8 @@
 
 Norm 官方实现遵循以下四条规则：
 
-1. **Java 编写全部核心工具链。** Lexer、Parser、AST、名称解析、类型检查、Bound IR、格式化器、LSP 共享组件、包工具核心逻辑和 CLI 均以 Java 实现。
-2. **Truffle/GraalVM 是唯一官方执行后端。** Norm 程序通过 Truffle language implementation 在 GraalVM 上执行。Bound IR 不直接面向 LLVM、Cranelift 或自研机器码后端。
+1. **Java 编写全部核心工具链。** Lexer、Parser、AST、名称解析、类型检查、content-addressed Core IR、格式化器、LSP 共享组件、包工具核心逻辑和 CLI 均以 Java 实现。
+2. **Truffle/GraalVM 是唯一官方执行后端。** Norm 程序通过 Truffle language implementation 在 GraalVM 上执行，Lowerer 只接受 canonical Core。
 3. **Native Image 生成独立 CLI。** 官方发行物提供平台原生的 `norm` 可执行文件；用户不需要手动运行 JAR。JVM 形态保留给开发、测试和调试。
 4. **Zig 不进入核心实现。** core、CLI 和标准库平台 adapter 不包含 Zig 代码，也不建立 Zig/Java FFI 边界。
 

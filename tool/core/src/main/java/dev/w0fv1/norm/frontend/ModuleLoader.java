@@ -1,6 +1,5 @@
 package dev.w0fv1.norm.frontend;
 
-import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
@@ -68,13 +67,11 @@ public final class ModuleLoader {
 
   private static void requirePackage(SourceFile source, String expectedPackage) throws IOException {
     DiagnosticBag diagnostics = new DiagnosticBag();
-    Syntax.Program program =
-        new Parser(source, new Lexer(source, diagnostics).lex(), diagnostics).parse();
-    if (diagnostics.hasErrors()) {
-      throw new IOException(
-          "invalid " + source.displayName() + ": " + diagnostics.snapshot().getFirst().message());
-    }
-    if (!program.packageName().equals(expectedPackage)) {
+    String packageName =
+        new Parser(source, new Lexer(source, diagnostics).lex(), diagnostics)
+            .parsePackageDeclaration()
+            .orElse("");
+    if (!packageName.equals(expectedPackage)) {
       throw new IOException(
           "source '" + source.displayName() + "' must declare package '" + expectedPackage + "'");
     }

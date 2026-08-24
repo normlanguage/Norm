@@ -1,19 +1,27 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.bound.BoundProgram;
+import dev.w0fv1.norm.core.CoreCompilation;
+import dev.w0fv1.norm.core.CoreCompilationDelta;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
+import dev.w0fv1.norm.value.CompilationUnitId;
+import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.TypedProgram;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 public final class Compiler {
   private final CompilationEnvironment environment;
+  private final Map<CompilationUnitId, CoreCompilation> compilations = new HashMap<>();
 
   public Compiler() {
     this(CompilationEnvironment.standard());
@@ -27,15 +35,23 @@ public final class Compiler {
     return compile(CompilationRequest.single(source));
   }
 
-  public CompilationResult compile(CompilationRequest request) {
+  public synchronized CompilationResult compile(CompilationRequest request) {
     java.util.Objects.requireNonNull(request, "request");
-    AnalysisResult analysis = snapshot(request, true, Set.of()).analysis();
-    if (analysis.hasErrors() || analysis.boundProgram().isEmpty()) {
+    PreparedCompilation prepared = prepare(request, true, true);
+    AnalysisResult analysis = prepared.snapshot().analysis();
+    if (analysis.hasErrors() || prepared.resolvedProgram().isEmpty()) {
       return new CompilationResult(Optional.empty(), analysis.diagnostics());
     }
-    return new CompilationResult(
-        Optional.of(new TypedProgram(analysis.boundProgram().orElseThrow())),
-        analysis.diagnostics());
+    CoreCompilation core =
+        track(
+            request,
+            new CoreBuilder(
+                    prepared.resolvedProgram().orElseThrow(),
+                    prepared.exportedSources(),
+                    prepared.sourceCoordinates(),
+                    environment.definitionStore())
+                .build());
+    return new CompilationResult(Optional.of(new TypedProgram(core)), analysis.diagnostics());
   }
 
   public AnalysisResult analyze(CompilationRequest request) {
@@ -44,19 +60,15 @@ public final class Compiler {
 
   public CompilationSnapshot snapshot(SourceFile source) {
     java.util.Objects.requireNonNull(source, "source");
-    Set<dev.w0fv1.norm.value.DocumentId> manifests =
-        ModuleManifest.isManifest(source) ? Set.of(source.id()) : Set.of();
-    return snapshot(CompilationRequest.single(source), false, manifests);
+    return prepare(CompilationRequest.single(source), false, false).snapshot();
   }
 
   public CompilationSnapshot snapshot(CompilationRequest request) {
-    return snapshot(request, false, Set.of());
+    return prepare(request, false, false).snapshot();
   }
 
-  private CompilationSnapshot snapshot(
-      CompilationRequest request,
-      boolean requireEntryPoint,
-      Set<dev.w0fv1.norm.value.DocumentId> manifests) {
+  private PreparedCompilation prepare(
+      CompilationRequest request, boolean requireEntryPoint, boolean resolveProgram) {
     java.util.Objects.requireNonNull(request, "request");
     DiagnosticBag diagnostics = new DiagnosticBag();
     java.util.LinkedHashMap<dev.w0fv1.norm.value.DocumentId, ParsedDocument> parsedByDocument =
@@ -66,10 +78,8 @@ public final class Compiler {
         .documents()
         .forEach(parsed -> parsedByDocument.put(parsed.source().id(), parsed));
     for (SourceFile source : request.sources()) {
-      boolean manifest =
-          manifests.contains(source.id())
-              || ModuleManifest.isManifest(source) && !declaresPackage(source);
-      parsedByDocument.put(source.id(), environment.parse(source, manifest));
+      parsedByDocument.put(
+          source.id(), environment.parse(source, ProjectLoader.isManifest(source)));
     }
     List<ParsedDocument> parsedDocuments = List.copyOf(parsedByDocument.values());
     parsedDocuments.forEach(parsed -> parsed.diagnostics().forEach(diagnostics::report));
@@ -81,27 +91,52 @@ public final class Compiler {
     Set<dev.w0fv1.norm.value.DocumentId> exportedSources =
         new LinkedHashSet<>(environment.standardLibrary().exportedSources());
     exportedSources.addAll(request.exportedSources());
+    Map<dev.w0fv1.norm.value.DocumentId, ModuleSourceCoordinate> sourceCoordinates =
+        new java.util.LinkedHashMap<>(environment.standardLibrary().scope().coordinates());
+    sourceCoordinates.putAll(request.scope().coordinates());
     for (ParsedDocument parsed : parsedDocuments) {
       if (parsed.source().id().equals(request.entryDocument())) entryProgram = parsed.syntax();
     }
     environment.analysisStarted();
-    AnalysisResult analysis =
+    FrontendAnalysis analyzed =
         new Analyzer(
                 programs,
                 java.util.Objects.requireNonNull(entryProgram),
                 diagnostics,
                 requireEntryPoint,
                 exportedSources)
-            .analyze();
-    return new CompilationSnapshot(request.entryDocument(), parsedDocuments, analysis);
+            .analyze(resolveProgram);
+    CompilationSnapshot snapshot =
+        new CompilationSnapshot(request.entryDocument(), parsedDocuments, analyzed.analysis());
+    return new PreparedCompilation(
+        snapshot, analyzed.resolvedProgram(), exportedSources, sourceCoordinates);
   }
 
   public AnalysisResult analyze(SourceFile source) {
     return snapshot(source).analysis();
   }
 
-  private static boolean declaresPackage(SourceFile source) {
-    var tokens = new Lexer(source, new DiagnosticBag()).lex();
-    return !tokens.isEmpty() && tokens.getFirst().kind() == dev.w0fv1.norm.syntax.TokenKind.PACKAGE;
+  private CoreCompilation track(CompilationRequest request, CoreCompilation compilation) {
+    CoreCompilation previous = compilations.get(request.unit());
+    CoreCompilation tracked =
+        previous == null
+            ? compilation
+            : compilation.withDelta(
+                CoreCompilationDelta.between(previous.program(), compilation.program()));
+    compilations.put(request.unit(), tracked);
+    return tracked;
+  }
+
+  private record PreparedCompilation(
+      CompilationSnapshot snapshot,
+      Optional<BoundProgram> resolvedProgram,
+      Set<dev.w0fv1.norm.value.DocumentId> exportedSources,
+      Map<dev.w0fv1.norm.value.DocumentId, ModuleSourceCoordinate> sourceCoordinates) {
+    private PreparedCompilation {
+      java.util.Objects.requireNonNull(snapshot, "snapshot");
+      resolvedProgram = java.util.Objects.requireNonNull(resolvedProgram, "resolvedProgram");
+      exportedSources = Set.copyOf(exportedSources);
+      sourceCoordinates = Map.copyOf(sourceCoordinates);
+    }
   }
 }

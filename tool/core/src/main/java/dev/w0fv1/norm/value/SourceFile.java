@@ -23,7 +23,7 @@ public final class SourceFile {
 
   public static SourceFile of(Path path, String text) {
     Objects.requireNonNull(path, "path");
-    Path normalized = path.normalize();
+    Path normalized = path.toAbsolutePath().normalize();
     return new SourceFile(new DocumentId(normalized.toUri()), normalized, text);
   }
 
@@ -39,7 +39,7 @@ public final class SourceFile {
 
   public static SourceFile read(Path path) throws IOException {
     Objects.requireNonNull(path, "path");
-    Path normalized = path.normalize();
+    Path normalized = path.toAbsolutePath().normalize();
     return new SourceFile(
         new DocumentId(normalized.toUri()),
         normalized,

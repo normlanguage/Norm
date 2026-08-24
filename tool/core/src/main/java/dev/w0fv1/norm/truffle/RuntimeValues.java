@@ -1,9 +1,13 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.nodes.Node;
+import dev.w0fv1.norm.core.BuiltinTypeId;
+import dev.w0fv1.norm.core.CoreNullability;
+import dev.w0fv1.norm.core.CoreType;
+import dev.w0fv1.norm.core.CoreTypeConstructor;
+import dev.w0fv1.norm.core.CoreValueCategory;
+import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
-import dev.w0fv1.norm.semantic.SemanticType;
-import dev.w0fv1.norm.semantic.ValueCategory;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
@@ -166,18 +170,14 @@ final class RuntimeValues {
   }
 
   static ArrayValue codePoints(String value) {
-    SemanticType type =
-        SemanticType.declared(
-            "std.core.Array", "Array", List.of(SemanticType.CODE_POINT), ValueCategory.VALUE);
+    CoreType type = arrayType(CoreType.CODE_POINT);
     List<Object> values =
         value.codePoints().mapToObj(CodePointValue::new).map(item -> (Object) item).toList();
     return new ArrayValue(type, new ArrayList<>(values));
   }
 
   static ArrayValue graphemes(String value) {
-    SemanticType type =
-        SemanticType.declared(
-            "std.core.Array", "Array", List.of(SemanticType.STRING), ValueCategory.VALUE);
+    CoreType type = arrayType(CoreType.STRING);
     List<Object> values =
         GRAPHEME.matcher(value).results().map(result -> (Object) result.group()).toList();
     return new ArrayValue(type, new ArrayList<>(values));
@@ -201,9 +201,7 @@ final class RuntimeValues {
       throw new NormGuestException(
           RuntimeErrorCode.INVALID_ARGUMENT, "string separator must not be empty", location);
     }
-    SemanticType type =
-        SemanticType.declared(
-            "std.core.Array", "Array", List.of(SemanticType.STRING), ValueCategory.VALUE);
+    CoreType type = arrayType(CoreType.STRING);
     List<Object> parts = new ArrayList<>();
     int start = 0;
     int index;
@@ -422,71 +420,79 @@ final class RuntimeValues {
     return null;
   }
 
+  private static CoreType arrayType(CoreType element) {
+    return new CoreType.Declared(
+        new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Array")),
+        List.of(element),
+        CoreValueCategory.VALUE,
+        CoreNullability.NON_NULL);
+  }
+
   static final class ArrayValue {
-    final SemanticType type;
+    final CoreType type;
     final List<Object> values;
 
-    ArrayValue(SemanticType type, List<Object> values) {
+    ArrayValue(CoreType type, List<Object> values) {
       this.type = type;
       this.values = values;
     }
   }
 
   static final class ListValue {
-    final SemanticType type;
+    final CoreType type;
     final List<Object> values;
 
-    ListValue(SemanticType type) {
+    ListValue(CoreType type) {
       this(type, new ArrayList<>());
     }
 
-    ListValue(SemanticType type, List<Object> values) {
+    ListValue(CoreType type, List<Object> values) {
       this.type = type;
       this.values = values;
     }
   }
 
   static final class MapValue {
-    final SemanticType type;
+    final CoreType type;
     final Map<Object, Object> values = new LinkedHashMap<>();
 
-    MapValue(SemanticType type) {
+    MapValue(CoreType type) {
       this.type = type;
     }
   }
 
   static final class SetValue {
-    final SemanticType type;
+    final CoreType type;
     final java.util.Set<Object> values = new LinkedHashSet<>();
 
-    SetValue(SemanticType type) {
+    SetValue(CoreType type) {
       this.type = type;
     }
   }
 
   static final class StackValue {
-    final SemanticType type;
+    final CoreType type;
     final Deque<Object> values = new ArrayDeque<>();
 
-    StackValue(SemanticType type) {
+    StackValue(CoreType type) {
       this.type = type;
     }
   }
 
   static final class QueueValue {
-    final SemanticType type;
+    final CoreType type;
     final Deque<Object> values = new ArrayDeque<>();
 
-    QueueValue(SemanticType type) {
+    QueueValue(CoreType type) {
       this.type = type;
     }
   }
 
   static final class DequeValue {
-    final SemanticType type;
+    final CoreType type;
     final Deque<Object> values = new ArrayDeque<>();
 
-    DequeValue(SemanticType type) {
+    DequeValue(CoreType type) {
       this.type = type;
     }
   }
@@ -509,18 +515,46 @@ final class RuntimeValues {
   }
 
   static final class PairValue {
-    final SemanticType type;
+    final CoreType type;
     Object first;
     Object second;
 
-    PairValue(SemanticType type, Object first, Object second) {
+    PairValue(CoreType type, Object first, Object second) {
       this.type = type;
       this.first = first;
       this.second = second;
     }
   }
 
-  record EnumValue(String enumName, String member) {
+  static final class EnumValue {
+    private final DefinitionId definition;
+    private final int memberOrdinal;
+    private final String enumName;
+    private final String member;
+
+    EnumValue(DefinitionId definition, int memberOrdinal, String enumName, String member) {
+      this.definition = Objects.requireNonNull(definition, "definition");
+      if (memberOrdinal < 0) {
+        throw new IllegalArgumentException("enum member ordinal must not be negative");
+      }
+      this.memberOrdinal = memberOrdinal;
+      this.enumName = Objects.requireNonNull(enumName, "enumName");
+      this.member = Objects.requireNonNull(member, "member");
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return this == other
+          || other instanceof EnumValue value
+              && memberOrdinal == value.memberOrdinal
+              && definition.equals(value.definition);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * definition.hashCode() + memberOrdinal;
+    }
+
     @Override
     public String toString() {
       return enumName + "." + member;
@@ -580,10 +614,10 @@ final class RuntimeValues {
 
   static final class ObjectValue {
     final ClassInfo classInfo;
-    final SemanticType type;
+    final CoreType type;
     final Object[] fields;
 
-    ObjectValue(ClassInfo classInfo, SemanticType type) {
+    ObjectValue(ClassInfo classInfo, CoreType type) {
       this.classInfo = classInfo;
       this.type = type;
       fields = new Object[classInfo.fieldCount()];

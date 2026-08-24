@@ -1,13 +1,13 @@
 ---
 title: Norm 社区
-description: 参与 Norm 的语言设计与文档建设
+description: 参与 Norm 的语言、工具链与文档建设
 sidebar: false
 aside: false
 ---
 
 # 参与 Norm
 
-Norm 当前处于语言规范预设计阶段。此时最有价值的贡献，是帮助发现语义矛盾、补全边界条件，并让文档更容易理解。
+Norm 当前沿 0.4 开发线演进。语言、编译器、标准库和编辑器工具的实际边界见[版本索引](/versions/)。
 
 <div class="community-grid">
   <a href="https://github.com/w0fv1/norm">
@@ -29,7 +29,7 @@ Norm 当前处于语言规范预设计阶段。此时最有价值的贡献，是
 
 ## 如何参与
 
-- 从[语言手册](/language/overview)开始，检查示例是否能清楚表达规则。
+- 从[语言手册](/language/overview)开始，检查示例与实现是否表达同一规则。
 - 阅读[正式规范](/spec/language-spec)，关注不同章节之间是否存在冲突。
 - 对照[路线图](/design/roadmap)和[技术计划](/design/technical-plan)，选择适合参与的方向。
 - 提交问题时尽量附带最小代码示例、预期行为与理由。

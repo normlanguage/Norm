@@ -88,6 +88,23 @@ final class SemanticModelTest {
         model.symbolAt(text.indexOf("values =")).orElseThrow().type().category());
   }
 
+  @Test
+  void preservesNullabilityInSemanticTypeReferences() {
+    SemanticModel model =
+        analyze(
+            "T? identity<T>(T? value) { return value } "
+                + "Void accept(List<String?>? values) {} Void main() {}");
+    var identity = model.syntax().functions().getFirst();
+    var accept = model.syntax().functions().get(1);
+
+    assertEquals("T?", model.typeOf(identity.returnType()).orElseThrow().displayName());
+    assertEquals(
+        "T?", model.typeOf(identity.parameters().getFirst().type()).orElseThrow().displayName());
+    assertEquals(
+        "List<String?>?",
+        model.typeOf(accept.parameters().getFirst().type()).orElseThrow().displayName());
+  }
+
   private static SemanticModel analyze(String text) {
     return new Compiler()
         .analyze(SourceFile.of(DocumentId.of("untitled:test"), text))

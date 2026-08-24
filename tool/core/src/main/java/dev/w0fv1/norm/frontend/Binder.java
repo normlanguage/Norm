@@ -25,8 +25,8 @@ import dev.w0fv1.norm.bound.BoundRuntimeType;
 import dev.w0fv1.norm.bound.BoundSource;
 import dev.w0fv1.norm.bound.BoundStatement;
 import dev.w0fv1.norm.bound.BoundUnaryOperator;
-import dev.w0fv1.norm.bound.BoundValueTransfer;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
+import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
@@ -88,6 +88,9 @@ final class Binder {
             new BoundEnum(
                 BoundEnumId.of(symbol.id()),
                 declaration.name(),
+                declaration.visibility() == Syntax.Visibility.PUBLIC
+                    ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
+                    : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                 symbol.type(),
                 bindEnumMembers(declaration),
                 declaration.span());
@@ -101,7 +104,13 @@ final class Binder {
           Symbol fieldSymbol = symbol(field.nameSpan());
           BoundField bound =
               new BoundField(
-                  BoundFieldId.of(fieldSymbol.id()), field.name(), fieldSymbol.type(), ordinal);
+                  BoundFieldId.of(fieldSymbol.id()),
+                  field.name(),
+                  field.visibility() == Syntax.Visibility.PUBLIC
+                      ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
+                      : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
+                  fieldSymbol.type(),
+                  ordinal);
           fields.put(bound.id().value(), bound);
           boundFields.add(bound);
         }
@@ -109,7 +118,13 @@ final class Binder {
             new BoundClass(
                 BoundClassId.of(symbol.id()),
                 declaration.name(),
+                declaration.visibility() == Syntax.Visibility.PUBLIC
+                    ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
+                    : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                 symbol.type(),
+                declaration.typeParameters().stream()
+                    .map(parameter -> symbol(parameter.nameSpan()).type())
+                    .toList(),
                 boundFields,
                 declaration.methods().stream().map(this::callableId).toList(),
                 declaration.span());
@@ -207,7 +222,6 @@ final class Binder {
             variable.name(),
             symbol.type(),
             bindExpression(variable.initializer()),
-            BoundValueTransfer.COPY,
             variable.span());
       }
       case Syntax.Assignment assignment -> bindAssignment(assignment);
@@ -233,14 +247,11 @@ final class Binder {
             bindExpression(loop.iterable()),
             bindBlock(loop.body(), loop.span()),
             semantics.iterationOf(loop.iterable().span()).orElseThrow().intrinsic(),
-            BoundValueTransfer.COPY,
             loop.span());
       }
       case Syntax.ReturnStatement returned ->
           new BoundStatement.ReturnStatement(
-              Optional.ofNullable(returned.value()).map(this::bindExpression),
-              BoundValueTransfer.COPY,
-              returned.span());
+              Optional.ofNullable(returned.value()).map(this::bindExpression), returned.span());
       case Syntax.BreakStatement broken -> new BoundStatement.BreakStatement(broken.span());
       case Syntax.ContinueStatement continued ->
           new BoundStatement.ContinueStatement(continued.span());
@@ -255,15 +266,10 @@ final class Binder {
         if (target.kind() == SymbolKind.FIELD) {
           BoundField field = field(target);
           yield new BoundStatement.FieldAssignment(
-              thisRead(name.span()),
-              field.id(),
-              field.ordinal(),
-              value,
-              BoundValueTransfer.COPY,
-              assignment.span());
+              thisRead(name.span()), field.id(), field.ordinal(), value, assignment.span());
         }
         yield new BoundStatement.LocalAssignment(
-            BoundLocalId.of(target.id()), value, BoundValueTransfer.COPY, assignment.span());
+            BoundLocalId.of(target.id()), value, assignment.span());
       }
       case Syntax.Member member -> {
         Symbol target = symbol(member.nameSpan());
@@ -273,7 +279,6 @@ final class Binder {
               bindExpression(member.receiver()),
               Optional.empty(),
               value,
-              BoundValueTransfer.COPY,
               assignment.span());
         }
         BoundField field = field(target);
@@ -282,7 +287,6 @@ final class Binder {
             field.id(),
             field.ordinal(),
             value,
-            BoundValueTransfer.COPY,
             assignment.span());
       }
       case Syntax.Index index -> {
@@ -292,7 +296,6 @@ final class Binder {
             bindExpression(index.receiver()),
             Optional.of(bindExpression(index.index())),
             value,
-            BoundValueTransfer.COPY,
             assignment.span());
       }
       default -> throw new IllegalStateException("invalid checked assignment target");
@@ -360,68 +363,54 @@ final class Binder {
   }
 
   private BoundExpression bindCall(Syntax.Call call, SemanticType type) {
-    List<BoundArgument> arguments = bindArguments(call);
-    if (call.callee() instanceof Syntax.Name name) {
-      Symbol target =
-          semantics
-              .resolvedSymbolOf(name.span())
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          "bound call target is absent for '" + name.value() + "'"));
-      if (isBuiltin(target)) {
-        return new BoundIntrinsic(
-            builtins.intrinsic(target.id()).orElseThrow(),
-            Optional.empty(),
-            arguments,
-            builtins
-                    .type(target.id())
-                    .flatMap(BuiltinCatalog.TypeDefinition::constructor)
-                    .isPresent()
-                ? Optional.of(runtimeType(type))
-                : Optional.empty(),
-            type,
-            call.span());
-      }
-      if (target.kind() == SymbolKind.TYPE) {
-        return new BoundConstruct(
-            new BoundClassId(target.id().value()), runtimeType(type), arguments, type, call.span());
-      }
-      return new BoundCall(
-          BoundCallableId.of(target.id()),
-          Optional.empty(),
-          arguments,
-          semantics.typeArgumentsOf(call.span()).stream().map(this::runtimeType).toList(),
-          type,
-          call.span());
+    ResolvedCall resolution = semantics.callOf(call.span()).orElseThrow();
+    if (!resolution.resultType().equals(type)) {
+      throw new IllegalStateException("resolved call result differs from expression type");
     }
-    Syntax.Member member = (Syntax.Member) call.callee();
-    Symbol target = symbol(member.nameSpan());
+    Symbol target = semantics.symbol(resolution.target()).orElseThrow();
+    List<BoundArgument> arguments = bindArguments(call, resolution);
+    Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
     BoundExpression receiver =
-        target.kind() == SymbolKind.TYPE_METHOD ? null : bindExpression(member.receiver());
-    if (isBuiltin(target)) {
-      return new BoundIntrinsic(
-          builtins.intrinsic(target.id()).orElseThrow(),
-          Optional.ofNullable(receiver),
-          arguments,
-          target.kind() == SymbolKind.TYPE_METHOD
-              ? Optional.of(runtimeType(type))
-              : Optional.empty(),
-          member.nullSafe(),
-          type,
-          call.span());
-    }
-    if (target.name().equals("copy") && !callables.containsKey(target.id().value())) {
-      return new BoundExpression.CopyObject(receiver, member.nullSafe(), type, call.span());
-    }
-    return new BoundCall(
-        BoundCallableId.of(target.id()),
-        Optional.of(receiver),
-        arguments,
-        List.of(),
-        member.nullSafe(),
-        type,
-        call.span());
+        member == null || target.kind() == SymbolKind.TYPE_METHOD
+            ? null
+            : bindExpression(member.receiver());
+    boolean nullSafe = member != null && member.nullSafe();
+    return switch (resolution.kind()) {
+      case INTRINSIC ->
+          new BoundIntrinsic(
+              builtins.intrinsic(target.id()).orElseThrow(),
+              Optional.ofNullable(receiver),
+              arguments,
+              target.kind() == SymbolKind.TYPE_METHOD
+                      || builtins
+                          .type(target.id())
+                          .flatMap(BuiltinCatalog.TypeDefinition::constructor)
+                          .isPresent()
+                  ? Optional.of(runtimeType(type))
+                  : Optional.empty(),
+              nullSafe,
+              type,
+              call.span());
+      case CONSTRUCT ->
+          new BoundConstruct(
+              new BoundClassId(target.id().value()),
+              runtimeType(type),
+              arguments,
+              type,
+              call.span());
+      case COPY ->
+          new BoundExpression.CopyObject(
+              java.util.Objects.requireNonNull(receiver), nullSafe, type, call.span());
+      case CALLABLE ->
+          new BoundCall(
+              BoundCallableId.of(target.id()),
+              Optional.ofNullable(receiver),
+              arguments,
+              resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
+              nullSafe,
+              type,
+              call.span());
+    };
   }
 
   private BoundExpression bindMember(Syntax.Member member, SemanticType type) {
@@ -452,15 +441,13 @@ final class Binder {
         receiver, field.id(), field.ordinal(), member.nullSafe(), type, member.span());
   }
 
-  private List<BoundArgument> bindArguments(Syntax.Call call) {
-    List<Integer> indices = semantics.argumentsOf(call.span()).orElseThrow().parameterIndices();
+  private List<BoundArgument> bindArguments(Syntax.Call call, ResolvedCall resolution) {
+    List<Integer> indices = resolution.arguments().parameterIndices();
     List<BoundArgument> result = new ArrayList<>();
     for (int index = 0; index < call.arguments().size(); index++) {
       result.add(
           new BoundArgument(
-              bindExpression(call.arguments().get(index).value()),
-              indices.get(index),
-              BoundValueTransfer.COPY));
+              bindExpression(call.arguments().get(index).value()), indices.get(index)));
     }
     return result;
   }

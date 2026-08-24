@@ -377,17 +377,23 @@ public final class Syntax {
   }
 
   public record Member(
-      Expression receiver, String name, SourceSpan nameSpan, boolean nullSafe, SourceSpan span)
+      Expression receiver,
+      String name,
+      SourceSpan nameSpan,
+      List<TypeRef> typeArguments,
+      boolean nullSafe,
+      SourceSpan span)
       implements Expression {
     public Member {
       Objects.requireNonNull(receiver, "receiver");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      typeArguments = List.copyOf(typeArguments);
       Objects.requireNonNull(span, "span");
     }
 
     public Member(Expression receiver, String name, SourceSpan nameSpan, SourceSpan span) {
-      this(receiver, name, nameSpan, false, span);
+      this(receiver, name, nameSpan, List.of(), false, span);
     }
   }
 

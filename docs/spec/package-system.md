@@ -19,7 +19,7 @@ public Integer area(Integer width, Integer height) {
 
 package 名由点分隔的标识符组成，并与源码根目录下的相对目录一致。`package geometry.shapes` 的源码位于 `<source-root>/geometry/shapes/`。
 
-文件名不创建命名空间，也不限制文件中的 public 声明数量。项目可以按主要类型命名文件，但这只是组织约定。没有 package 声明的文件属于单文件脚本，不参与跨文件名称解析。
+文件名不创建命名空间，也不限制文件中的 public 声明数量。项目可以按主要类型命名文件，但这只是组织约定。跨文件名称解析只发生在 `module.norm` 建立的 source set 内；不存在清单时，无论入口是否声明 package，都按独立单文件处理。
 
 ## 可见性
 
@@ -32,4 +32,4 @@ package 名由点分隔的标识符组成，并与源码根目录下的相对目
 
 编译器先收集项目中已加载源码的全部声明签名，再解析 import 和函数体，因此不同文件可以互相引用，也可以形成函数递归或纯声明依赖环。源码不包含顶层可变初始化，名称解析不依赖文件顺序。
 
-package 负责源码名称空间，`module.norm` 负责模块边界。没有模块描述时只加载入口所在 package；存在模块描述时，跨 package 可见范围由 `exports` 精确决定。参见[模块系统](/spec/module-system)。
+package 负责源码名称空间，`module.norm` 负责 source set 与模块边界。模块内同 package 文件可以直接引用彼此；跨 package 可见范围由 `exports` 精确决定。参见[模块系统](/spec/module-system)。

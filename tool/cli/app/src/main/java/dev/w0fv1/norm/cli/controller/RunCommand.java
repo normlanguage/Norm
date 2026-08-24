@@ -4,6 +4,8 @@ import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.execution.ProgramRunner;
+import dev.w0fv1.norm.frontend.CompilationEnvironment;
+import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.frontend.Compiler;
 import dev.w0fv1.norm.frontend.ProjectLoader;
 import java.io.IOException;
@@ -33,7 +35,7 @@ final class RunCommand implements Command {
 
     dev.w0fv1.norm.value.CompilationRequest request;
     try {
-      request = new ProjectLoader().load(Path.of(arguments.getFirst()));
+      request = new ProjectLoader().load(Path.of(arguments.getFirst())).compilationRequest();
     } catch (InvalidPathException exception) {
       err.printf("error[NORM-CLI-0004]: invalid source path '%s'%n", arguments.getFirst());
       return ExitCode.INPUT_ERROR;
@@ -44,7 +46,14 @@ final class RunCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
 
-    var result = new Compiler().compile(request);
+    dev.w0fv1.norm.value.CompilationResult result;
+    try {
+      result = new Compiler(CompilationEnvironment.persistent()).compile(request);
+    } catch (IOException | CompilationInfrastructureException exception) {
+      err.printf(
+          "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
+      return ExitCode.INTERNAL_ERROR;
+    }
     if (!result.isSuccess()) {
       for (var diagnostic : result.diagnostics()) {
         err.println(DiagnosticRenderer.render(diagnostic));
