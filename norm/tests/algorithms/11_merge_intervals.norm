@@ -1,4 +1,6 @@
+import std.io.printLines
 import std.math.max
+import std.testing.expectedOutputLines
 
 class Interval {
   Integer start
@@ -29,7 +31,7 @@ List<Interval> sortIntervals(List<Interval> intervals) {
 
 List<Interval> mergeIntervals(List<Interval> intervals) {
   intervals = sortIntervals(intervals)
-  List<Interval> merged = List<Interval>()
+  List<Interval> merged = List<>()
   for Interval current : intervals {
     if merged.isEmpty() {
       merged.add(current)
@@ -52,19 +54,23 @@ List<Interval> mergeIntervals(List<Interval> intervals) {
 }
 
 Void main() {
-  List<Interval> intervals = List<Interval>()
+  List<Interval> intervals = List<>()
   intervals.add(Interval(start: 8, end: 10))
   intervals.add(Interval(start: 1, end: 3))
   intervals.add(Interval(start: 15, end: 18))
   intervals.add(Interval(start: 2, end: 6))
   for Interval interval : mergeIntervals(intervals) {
-    printLine(interval.start)
-    printLine(interval.end)
+    printLines([
+      interval.start,
+      interval.end
+    ])
   }
-  expectedOutputLine("1")
-  expectedOutputLine("6")
-  expectedOutputLine("8")
-  expectedOutputLine("10")
-  expectedOutputLine("15")
-  expectedOutputLine("18")
+  expectedOutputLines([
+    "1",
+    "6",
+    "8",
+    "10",
+    "15",
+    "18"
+  ])
 }

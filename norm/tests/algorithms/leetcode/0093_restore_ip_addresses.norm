@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Addresses {
   List<String> values
 }
@@ -35,15 +38,19 @@ Void restore(Array<CodePoint> digits, Integer index, List<Integer> parts, Addres
 }
 
 List<String> restoreIpAddresses(String value) {
-  Addresses result = Addresses(values: List<String>())
-  restore(digits: value.codePoints(), index: 0, parts: List<Integer>(), result)
+  Addresses result = Addresses(values: List<>())
+  restore(digits: value.codePoints(), index: 0, parts: List<>(), result)
   return result.values
 }
 
 Void main() {
   List<String> result = restoreIpAddresses("25525511135")
-  printLine(result.size())
-  printLine(result[0])
-  expectedOutputLine("2")
-  expectedOutputLine("255.255.11.135")
+  printLines([
+    result.size(),
+    result[0]
+  ])
+  expectedOutputLines([
+    "2",
+    "255.255.11.135"
+  ])
 }

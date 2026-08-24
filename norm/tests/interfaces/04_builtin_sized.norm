@@ -1,0 +1,13 @@
+import std.core.Sized
+
+Integer readSize<T extends Sized>(T value) {
+  return value.size()
+}
+
+Void main() {
+  List<Integer> values = List<>()
+  values.add(3)
+  values.add(7)
+  printLine(readSize(value: values))
+  expectedOutputLine("2")
+}

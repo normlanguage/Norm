@@ -21,15 +21,6 @@ T maximum<T extends Comparable<T>>(T left, T right) {
 
 `G<A1...An>` 要求实参数量与声明一致，每个 Ai 满足对应 bound。raw `G` 非法。不同实际参数默认产生不相容的不变类型。
 
-## 使用位置型变
-
-```norm
-List<? extends Shape> source
-List<? super Circle> target
-```
-
-extends 位置安全读取上界、禁止具体写入；super 位置安全写入下界、读取为未知捕获类型。`ref<T>` 不应用型变。
-
 ## 类型推断
 
 函数调用从实参、期望返回类型和 declared bounds 产生约束。求解必须唯一且只使用安全转换；失败时显式写类型实参。
@@ -41,9 +32,9 @@ extends 位置安全读取上界、禁止具体写入；super 位置安全写入
 - 泛型声明 identity；
 - 有序实际类型参数；
 - nullable 信息；
-- 需要反射的 bound 与成员替换结果。
+- bound 与成员替换结果。
 
-因此 `List<String>.class` 与 `List<Integer>.class` 不相等，运行时 `is`、反射和 Codec 可以读取 String/Integer 参数，无需额外 Class token。
+这些信息直接进入 Core IR 与运行时类型环境，无需额外 Class token。
 
 ## 二进制与缓存
 
@@ -51,4 +42,4 @@ extends 位置安全读取上界、禁止具体写入；super 位置安全写入
 
 ## 限制
 
-1.0 不提供高阶类型、类型函数、条件类型、隐式 typeclass 搜索或用户定义 variance declaration。新增能力必须证明不会隐藏值语义、nullable 或运行时类型信息。
+当前不提供高阶类型、类型函数、条件类型、使用位置通配符或隐式 typeclass 搜索。

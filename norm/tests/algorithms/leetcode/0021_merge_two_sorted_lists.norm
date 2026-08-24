@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> mergeTwoLists(Array<Integer> left, Array<Integer> right) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   Integer i = 0
   Integer j = 0
   for step : range(start: 0, end: left.size() + right.size()) {
@@ -16,10 +18,12 @@ List<Integer> mergeTwoLists(Array<Integer> left, Array<Integer> right) {
 
 Void main() {
   for Integer value : mergeTwoLists(left: [1, 2, 4], right: [1, 3, 4]) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("4")
-  expectedOutputLine("4")
+  expectedOutputLines([
+    "1",
+    "1",
+    "2",
+    "3",
+    "4",
+    "4"
+  ])
 }

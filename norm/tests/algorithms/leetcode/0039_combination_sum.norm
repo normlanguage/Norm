@@ -17,8 +17,8 @@ Void searchCombination(Array<Integer> candidates, Integer target, Integer start,
 }
 
 List<List<Integer>> combinationSum(Array<Integer> candidates, Integer target) {
-  Combinations result = Combinations(values: List<List<Integer>>())
-  searchCombination(candidates, target, start: 0, current: List<Integer>(), result)
+  Combinations result = Combinations(values: List<>())
+  searchCombination(candidates, target, start: 0, current: List<>(), result)
   return result.values
 }
 

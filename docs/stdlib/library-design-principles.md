@@ -6,6 +6,8 @@
 
 public 签名必须完整写出参数与返回类型。集合没有 raw type，普通缺失使用 nullable，可预期且需要错误原因的失败使用 Result。String、Path、Uuid、Instant 等概念使用不同名义类型。
 
+通用协议统一使用 `std.core` 的 interface，并由类型显式声明 `implements`。库不引入平行的 trait、typeclass 或结构化匹配机制，也不通过 Comparable、Equatable 等接口改变语言操作符语义。
+
 ## 值与共享
 
 class 参数保留对象 identity，集合等 value 参数产生逻辑独立值。需要共享 value 存储位置时使用 `ref<T>`；连接池等资源使用具有明确生命周期的 class。函数不能在契约未说明时把传入对象长期保存。

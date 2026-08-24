@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.bound;
 
+import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
@@ -8,12 +9,14 @@ import java.util.Objects;
 public sealed interface BoundExpression extends BoundNode
     permits BoundExpression.Literal,
         BoundExpression.NullLiteral,
-        BoundExpression.ArrayLiteral,
+        BoundExpression.CollectionLiteral,
         BoundExpression.LocalRead,
         BoundExpression.FieldRead,
-        BoundExpression.EnumMember,
+        BoundExpression.EnumConstruct,
+        BoundExpression.InterfaceCall,
         BoundExpression.Unary,
         BoundExpression.Binary,
+        BoundExpression.Switch,
         BoundExpression.Index,
         BoundExpression.CopyObject,
         BoundCall,
@@ -36,14 +39,16 @@ public sealed interface BoundExpression extends BoundNode
     }
   }
 
-  record ArrayLiteral(
+  record CollectionLiteral(
       List<BoundExpression> elements,
+      IntrinsicId materializer,
       BoundRuntimeType runtimeType,
       SemanticType type,
       SourceSpan span)
       implements BoundExpression {
-    public ArrayLiteral {
+    public CollectionLiteral {
       elements = List.copyOf(elements);
+      Objects.requireNonNull(materializer, "materializer");
       Objects.requireNonNull(runtimeType, "runtimeType");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
@@ -85,19 +90,44 @@ public sealed interface BoundExpression extends BoundNode
     }
   }
 
-  record EnumMember(
+  record EnumConstruct(
       BoundEnumId enumId,
-      BoundEnumMemberId memberId,
+      BoundEnumVariantId variantId,
       String enumName,
-      String memberName,
+      String variantName,
+      List<BoundArgument> arguments,
+      BoundRuntimeType runtimeType,
       SemanticType type,
       SourceSpan span)
       implements BoundExpression {
-    public EnumMember {
+    public EnumConstruct {
       Objects.requireNonNull(enumId, "enumId");
-      Objects.requireNonNull(memberId, "memberId");
+      Objects.requireNonNull(variantId, "variantId");
       Objects.requireNonNull(enumName, "enumName");
-      Objects.requireNonNull(memberName, "memberName");
+      Objects.requireNonNull(variantName, "variantName");
+      arguments = List.copyOf(arguments);
+      Objects.requireNonNull(runtimeType, "runtimeType");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record InterfaceCall(
+      BoundInterfaceMethodId requirement,
+      SemanticType receiverInterfaceType,
+      BoundExpression receiver,
+      List<BoundArgument> arguments,
+      List<BoundRuntimeType> reifiedArguments,
+      boolean nullSafe,
+      SemanticType type,
+      SourceSpan span)
+      implements BoundExpression {
+    public InterfaceCall {
+      Objects.requireNonNull(requirement, "requirement");
+      Objects.requireNonNull(receiverInterfaceType, "receiverInterfaceType");
+      Objects.requireNonNull(receiver, "receiver");
+      arguments = List.copyOf(arguments);
+      reifiedArguments = List.copyOf(reifiedArguments);
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
     }
@@ -125,6 +155,17 @@ public sealed interface BoundExpression extends BoundNode
       Objects.requireNonNull(left, "left");
       Objects.requireNonNull(operator, "operator");
       Objects.requireNonNull(right, "right");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record Switch(
+      BoundExpression value, List<BoundSwitchCase> cases, SemanticType type, SourceSpan span)
+      implements BoundExpression {
+    public Switch {
+      Objects.requireNonNull(value, "value");
+      cases = List.copyOf(cases);
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(span, "span");
     }

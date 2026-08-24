@@ -1,9 +1,16 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 String kind(CodePoint value) { return "codePoint" }
 String kind(String value) { return "string" }
 
 Void main() {
-  printLine(kind(value: 'A'))
-  printLine(kind(value: "A"))
-  expectedOutputLine("codePoint")
-  expectedOutputLine("string")
+  printLines([
+    kind(value: 'A'),
+    kind(value: "A")
+  ])
+  expectedOutputLines([
+    "codePoint",
+    "string"
+  ])
 }

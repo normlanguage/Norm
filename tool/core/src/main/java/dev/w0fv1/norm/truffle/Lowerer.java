@@ -5,20 +5,28 @@ import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.FrameSlotKind;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
+import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreArgument;
 import dev.w0fv1.norm.core.CoreBlock;
 import dev.w0fv1.norm.core.CoreCompilation;
+import dev.w0fv1.norm.core.CoreConformance;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreDefinitionOccurrence;
+import dev.w0fv1.norm.core.CoreDefinitionRecord;
+import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreExpression;
+import dev.w0fv1.norm.core.CoreIteration;
 import dev.w0fv1.norm.core.CoreLocal;
+import dev.w0fv1.norm.core.CorePattern;
 import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.CoreRuntimeType;
 import dev.w0fv1.norm.core.CoreStatement;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
+import dev.w0fv1.norm.core.CoreWitness;
+import dev.w0fv1.norm.core.CoreWitnessTarget;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
@@ -35,7 +43,10 @@ import java.util.Objects;
 final class Lowerer {
   private final Language language;
   private final Map<DefinitionOccurrenceId, RuntimeValues.ClassInfo> classInfo = new HashMap<>();
+  private final Map<DefinitionOccurrenceId, CoreDefinition.Class> classes = new LinkedHashMap<>();
   private final Map<DefinitionOccurrenceId, FunctionPlan> callables = new LinkedHashMap<>();
+  private final Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>>
+      builtinDispatch = new HashMap<>();
   private final Map<DocumentId, Source> sources = new HashMap<>();
   private CoreCompilation compilation;
   private CoreProgram program;
@@ -49,6 +60,7 @@ final class Lowerer {
     program = compilation.program();
     indexDefinitions();
     createCallTargets();
+    indexDispatch();
     lowerBodies();
     DefinitionOccurrenceId entry = compilation.entryPoint();
     FunctionPlan entryPlan = callables.get(entry);
@@ -61,14 +73,13 @@ final class Lowerer {
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
       switch (definition) {
-        case CoreDefinition.Class declaration ->
-            classInfo.put(
-                occurrence.id(),
-                new RuntimeValues.ClassInfo(
-                    compilation.displayName(occurrence.id()), declaration.fields().size()));
+        case CoreDefinition.Class declaration -> classes.put(occurrence.id(), declaration);
         case CoreDefinition.Callable declaration ->
             callables.put(occurrence.id(), plan(occurrence.id(), declaration));
         case CoreDefinition.Enum ignored -> {}
+        case CoreDefinition.Interface ignored -> {}
+        case CoreDefinition.InterfaceMethod ignored -> {}
+        case CoreDefinition.BuiltinConformance ignored -> {}
       }
     }
   }
@@ -94,6 +105,67 @@ final class Lowerer {
               section(plan.id, 0));
       plan.target = plan.root.getCallTarget();
     }
+  }
+
+  private void indexDispatch() {
+    Map<DefinitionId, FunctionPlan> callableByDefinition = new HashMap<>();
+    callables
+        .values()
+        .forEach(plan -> callableByDefinition.putIfAbsent(plan.id.representative(), plan));
+    for (Map.Entry<DefinitionOccurrenceId, CoreDefinition.Class> entry : classes.entrySet()) {
+      DefinitionOccurrenceId occurrence = entry.getKey();
+      Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new HashMap<>();
+      for (CoreConformance conformance : entry.getValue().conformances()) {
+        for (CoreWitness witness : conformance.witnesses()) {
+          DefinitionId requirement = resolve(occurrence.representative(), witness.requirement());
+          RuntimeValues.DispatchTarget target =
+              lowerWitnessTarget(
+                  occurrence.representative(), witness.implementation(), callableByDefinition);
+          if (dispatch.putIfAbsent(requirement, target) != null) {
+            throw new IllegalStateException("verified class dispatch is duplicated");
+          }
+        }
+      }
+      classInfo.put(
+          occurrence,
+          new RuntimeValues.ClassInfo(
+              occurrence.representative(),
+              compilation.displayName(occurrence),
+              entry.getValue().fields().size(),
+              dispatch));
+    }
+    for (CoreDefinitionRecord record : program.definitions()) {
+      if (!(record.definition() instanceof CoreDefinition.BuiltinConformance conformance)) continue;
+      CoreType concrete =
+          CoreTypes.absolute(conformance.concreteBuiltinType(), record.id(), program);
+      CoreType.Declared declared = (CoreType.Declared) concrete;
+      BuiltinTypeId builtin = ((CoreTypeConstructor.Builtin) declared.constructor()).id();
+      Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch =
+          builtinDispatch.computeIfAbsent(builtin, ignored -> new HashMap<>());
+      for (CoreWitness witness : conformance.witnesses()) {
+        DefinitionId requirement = resolve(record.id(), witness.requirement());
+        RuntimeValues.DispatchTarget target =
+            lowerWitnessTarget(record.id(), witness.implementation(), callableByDefinition);
+        if (dispatch.putIfAbsent(requirement, target) != null) {
+          throw new IllegalStateException("verified builtin dispatch is duplicated");
+        }
+      }
+    }
+  }
+
+  private RuntimeValues.DispatchTarget lowerWitnessTarget(
+      DefinitionId owner,
+      CoreWitnessTarget target,
+      Map<DefinitionId, FunctionPlan> callableByDefinition) {
+    return switch (target) {
+      case CoreWitnessTarget.Callable callable -> {
+        FunctionPlan plan = callableByDefinition.get(resolve(owner, callable.definition()));
+        if (plan == null) throw new IllegalStateException("witness callable target is absent");
+        yield new RuntimeValues.DispatchTarget.Callable(plan.target);
+      }
+      case CoreWitnessTarget.Intrinsic intrinsic ->
+          new RuntimeValues.DispatchTarget.Intrinsic(intrinsic.intrinsic());
+    };
   }
 
   private void lowerBodies() {
@@ -141,19 +213,45 @@ final class Lowerer {
                   lowerExpression(conditional.condition(), plan),
                   lowerBlock(conditional.thenBlock(), plan),
                   lowerBlock(conditional.elseBlock(), plan));
-          case CoreStatement.ForStatement loop ->
-              new StatementNodes.For(
-                  plan.binding(loop.iteratorLocal()),
-                  plan.binding(loop.variableLocal()),
-                  lowerExpression(loop.iterable(), plan),
-                  lowerBlock(loop.body(), plan),
-                  loop.iterationIntrinsic());
+          case CoreStatement.ForStatement loop -> {
+            StatementNodes.IteratorFactoryNode factory;
+            StatementNodes.IteratorCursorNode cursor;
+            switch (loop.iteration()) {
+              case CoreIteration.Builtin builtin -> {
+                factory = new StatementNodes.BuiltinIteratorFactory(builtin.intrinsic());
+                cursor = new StatementNodes.BuiltinIteratorCursor();
+              }
+              case CoreIteration.Interface protocol -> {
+                factory =
+                    new StatementNodes.InterfaceIteratorFactory(
+                        resolve(plan.id.representative(), protocol.iteratorRequirement()),
+                        builtinDispatch);
+                cursor =
+                    new StatementNodes.InterfaceIteratorCursor(
+                        resolve(plan.id.representative(), protocol.hasNextRequirement()),
+                        resolve(plan.id.representative(), protocol.nextRequirement()),
+                        builtinDispatch);
+              }
+            }
+            yield new StatementNodes.For(
+                plan.binding(loop.iteratorLocal()),
+                plan.binding(loop.variableLocal()),
+                loop.indexLocal().isPresent()
+                    ? java.util.Optional.of(plan.binding(loop.indexLocal().orElseThrow()))
+                    : java.util.Optional.empty(),
+                lowerExpression(loop.iterable(), plan),
+                lowerBlock(loop.body(), plan),
+                factory,
+                cursor);
+          }
           case CoreStatement.ConditionalForStatement loop ->
               new StatementNodes.ConditionalFor(
                   lowerExpression(loop.condition(), plan), lowerBlock(loop.body(), plan));
           case CoreStatement.ReturnStatement returned ->
               new StatementNodes.Return(
                   returned.value().map(value -> lowerExpression(value, plan)).orElse(null));
+          case CoreStatement.YieldStatement yielded ->
+              new StatementNodes.Yield(lowerExpression(yielded.value(), plan));
           case CoreStatement.BreakStatement ignored -> new StatementNodes.Break();
           case CoreStatement.ContinueStatement ignored -> new StatementNodes.Continue();
         };
@@ -169,12 +267,13 @@ final class Lowerer {
                       ? new RuntimeValues.CodePointValue(((Number) literal.value()).intValue())
                       : literal.value());
           case CoreExpression.NullLiteral ignored -> new ExpressionNodes.NullLiteral();
-          case CoreExpression.ArrayLiteral array ->
-              new ExpressionNodes.ArrayLiteral(
-                  array.elements().stream()
+          case CoreExpression.CollectionLiteral collection ->
+              new ExpressionNodes.CollectionLiteral(
+                  collection.materializer(),
+                  collection.elements().stream()
                       .map(value -> lowerExpression(value, plan))
                       .toArray(ExpressionNode[]::new),
-                  lowerRuntimeType(array.runtimeType(), plan));
+                  lowerRuntimeType(collection.runtimeType(), plan));
           case CoreExpression.LocalRead local ->
               new ExpressionNodes.ReadLocal(plan.binding(local.localIndex()));
           case CoreExpression.FieldRead field ->
@@ -182,12 +281,13 @@ final class Lowerer {
                   lowerExpression(field.receiver(), plan),
                   field.field().ordinal(),
                   field.nullSafe());
-          case CoreExpression.EnumMember member -> lowerEnumMember(member, plan);
+          case CoreExpression.EnumConstruct construct -> lowerEnumConstruct(construct, plan);
           case CoreExpression.Unary unary ->
               unary.operator() == dev.w0fv1.norm.core.CoreUnaryOperator.NOT
                   ? new ExpressionNodes.Not(lowerExpression(unary.operand(), plan))
                   : new ExpressionNodes.Negate(lowerExpression(unary.operand(), plan));
           case CoreExpression.Binary binary -> lowerBinary(binary, plan);
+          case CoreExpression.Switch switched -> lowerSwitch(switched, plan);
           case CoreExpression.Index index ->
               new ExpressionNodes.Intrinsic(
                   index.readIntrinsic(),
@@ -200,6 +300,7 @@ final class Lowerer {
               new ExpressionNodes.CopyObject(
                   lowerExpression(copied.receiver(), plan), copied.nullSafe());
           case CoreExpression.Call call -> lowerCall(call, plan);
+          case CoreExpression.InterfaceCall call -> lowerInterfaceCall(call, plan);
           case CoreExpression.Construct construct -> lowerConstruct(construct, plan);
           case CoreExpression.Intrinsic intrinsic ->
               new ExpressionNodes.Intrinsic(
@@ -213,15 +314,95 @@ final class Lowerer {
     return lowered.at(section(plan.id, expression.nodeIndex()));
   }
 
-  private ExpressionNode lowerEnumMember(CoreExpression.EnumMember member, FunctionPlan plan) {
-    DefinitionOccurrenceId target = resolve(plan, member.nodeIndex(), member.target());
-    CoreDefinition.Enum declaration =
-        (CoreDefinition.Enum) program.definition(target.representative()).orElseThrow();
-    return new ExpressionNodes.EnumMember(
+  private ExpressionNode lowerSwitch(CoreExpression.Switch switched, FunctionPlan plan) {
+    return new ExpressionNodes.Switch(
+        lowerExpression(switched.value(), plan),
+        switched.cases().stream()
+            .map(value -> lowerPattern(value.pattern(), switched.value().type(), plan))
+            .toArray(PatternNode[]::new),
+        switched.cases().stream()
+            .map(value -> lowerBlock(value.body(), plan))
+            .toArray(StatementNode[]::new));
+  }
+
+  private PatternNode lowerPattern(CorePattern pattern, CoreType expected, FunctionPlan plan) {
+    return switch (pattern) {
+      case CorePattern.Variant variant -> {
+        List<CoreType> payloadTypes = variantPayloadTypes(expected, variant.variantKey(), plan);
+        PatternNode[] arguments = new PatternNode[variant.arguments().size()];
+        for (int index = 0; index < arguments.length; index++) {
+          arguments[index] =
+              lowerPattern(variant.arguments().get(index), payloadTypes.get(index), plan);
+        }
+        yield new PatternNodes.Variant(variant.variantKey(), arguments);
+      }
+      case CorePattern.Binding binding ->
+          new PatternNodes.Binding(plan.binding(binding.localIndex()));
+      case CorePattern.Wildcard ignored -> new PatternNodes.Wildcard();
+      case CorePattern.Literal literal -> {
+        CoreType actual =
+            CoreTypes.absolute(nonNullable(expected), plan.id.representative(), program);
+        Object value =
+            actual.equals(CoreType.CODE_POINT)
+                ? new RuntimeValues.CodePointValue(((Number) literal.value()).intValue())
+                : literal.value();
+        yield new PatternNodes.Literal(value);
+      }
+      case CorePattern.Null ignored -> new PatternNodes.Null();
+    };
+  }
+
+  private List<CoreType> variantPayloadTypes(
+      CoreType expected, String variantKey, FunctionPlan plan) {
+    CoreType absolute =
+        CoreTypes.absolute(nonNullable(expected), plan.id.representative(), program);
+    if (!(absolute instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+        || !(user.definition() instanceof DefinitionReference reference)) {
+      throw new IllegalStateException("verified variant pattern type is not an enum");
+    }
+    DefinitionId definition = program.resolve(plan.id.representative(), reference);
+    CoreDefinition target = program.definition(definition).orElseThrow();
+    if (!(target instanceof CoreDefinition.Enum enumDeclaration)) {
+      throw new IllegalStateException("verified variant pattern type is not an enum");
+    }
+    CoreEnumVariant variant =
+        enumDeclaration.variants().stream()
+            .filter(value -> value.key().equals(variantKey))
+            .findFirst()
+            .orElseThrow();
+    return variant.fields().stream()
+        .map(
+            field ->
+                CoreTypes.absolute(field.type(), definition, program)
+                    .substitute(declared.arguments()::get))
+        .toList();
+  }
+
+  private static CoreType nonNullable(CoreType type) {
+    return switch (type) {
+      case CoreType.Declared declared ->
+          new CoreType.Declared(
+              declared.constructor(),
+              declared.arguments(),
+              declared.category(),
+              dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+      case CoreType.Parameter parameter ->
+          new CoreType.Parameter(parameter.index(), dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+      case CoreType.Special special -> special;
+    };
+  }
+
+  private ExpressionNode lowerEnumConstruct(
+      CoreExpression.EnumConstruct construct, FunctionPlan plan) {
+    DefinitionOccurrenceId target = resolve(plan, construct.nodeIndex(), construct.target());
+    return new ExpressionNodes.EnumConstruct(
         target.representative(),
-        member.memberOrdinal(),
         compilation.displayName(target),
-        declaration.members().get(member.memberOrdinal()));
+        construct.variantKey(),
+        lowerRuntimeType(construct.runtimeType(), plan),
+        lowerArguments(construct.arguments(), plan),
+        parameterIndices(construct.arguments()));
   }
 
   private ExpressionNode lowerConstruct(CoreExpression.Construct construct, FunctionPlan plan) {
@@ -281,6 +462,20 @@ final class Lowerer {
             .toArray(ExpressionNode[]::new));
   }
 
+  private ExpressionNode lowerInterfaceCall(CoreExpression.InterfaceCall call, FunctionPlan plan) {
+    DefinitionOccurrenceId requirement = resolve(plan, call.nodeIndex(), call.requirement());
+    return new ExpressionNodes.InterfaceCall(
+        requirement.representative(),
+        lowerExpression(call.receiver(), plan),
+        lowerArguments(call.arguments(), plan),
+        parameterIndices(call.arguments()),
+        call.reifiedArguments().stream()
+            .map(value -> lowerRuntimeType(value, plan))
+            .toArray(ExpressionNode[]::new),
+        call.nullSafe(),
+        builtinDispatch);
+  }
+
   private DefinitionOccurrenceId resolve(
       FunctionPlan plan, int nodeIndex, CoreDefinitionLink link) {
     if (!(link instanceof DefinitionReference reference)) {
@@ -297,6 +492,13 @@ final class Lowerer {
       throw new IllegalStateException("authoring target does not represent the core reference");
     }
     return target;
+  }
+
+  private DefinitionId resolve(DefinitionId owner, CoreDefinitionLink link) {
+    if (!(link instanceof DefinitionReference reference)) {
+      throw new IllegalStateException("pending definition reached the backend");
+    }
+    return program.resolve(owner, reference);
   }
 
   private ExpressionNode[] lowerArguments(List<CoreArgument> arguments, FunctionPlan plan) {
@@ -343,7 +545,10 @@ final class Lowerer {
         return FrameSlotKind.Object;
       }
       return switch (builtin.id().value()) {
-        case "std.core.Integer" -> FrameSlotKind.Long;
+        case "std.core.Integer" -> FrameSlotKind.Int;
+        case "std.core.Long" -> FrameSlotKind.Long;
+        case "std.core.Float" -> FrameSlotKind.Float;
+        case "std.core.Double" -> FrameSlotKind.Double;
         case "std.core.Boolean" -> FrameSlotKind.Boolean;
         default -> FrameSlotKind.Object;
       };

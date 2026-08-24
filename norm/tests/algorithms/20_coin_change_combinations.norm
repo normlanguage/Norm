@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer coinCombinations(Array<Integer> coins, Integer amount) {
   List<Integer> ways = List.filled(size: amount + 1, value: 0)
   ways[0] = 1
@@ -10,8 +13,12 @@ Integer coinCombinations(Array<Integer> coins, Integer amount) {
 }
 
 Void main() {
-  printLine(coinCombinations(coins: [1, 2, 5], amount: 5))
-  printLine(coinCombinations(coins: [2], amount: 0))
-  expectedOutputLine("4")
-  expectedOutputLine("1")
+  printLines([
+    coinCombinations(coins: [1, 2, 5], amount: 5),
+    coinCombinations(coins: [2], amount: 0)
+  ])
+  expectedOutputLines([
+    "4",
+    "1"
+  ])
 }

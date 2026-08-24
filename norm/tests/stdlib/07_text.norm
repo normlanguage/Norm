@@ -1,15 +1,21 @@
+import std.io.printLines
 import std.testing.equal
+import std.testing.expectedOutputLines
 import std.text.join
 import std.text.repeat
 
 Void main() {
   printLine(equal(actual: repeat(value: "ab", count: 3), expected: "ababab"))
-  List<String> values = List<String>()
+  List<String> values = List<>()
   values.add("Norm")
   values.add("0.2")
-  printLine(equal(actual: join(values: values, separator: " "), expected: "Norm 0.2"))
-  printLine(equal(actual: join(values: List<String>(), separator: ","), expected: ""))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  printLines([
+    equal(actual: join(values: values, separator: " "), expected: "Norm 0.2"),
+    equal(actual: join(values: List<>(), separator: ","), expected: "")
+  ])
+  expectedOutputLines([
+    "true",
+    "true",
+    "true"
+  ])
 }

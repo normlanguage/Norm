@@ -1,8 +1,8 @@
 Integer subsetsWithDup(Array<Integer> values) {
-  Set<List<Integer>> result = Set<List<Integer>>()
-  result.add(List<Integer>())
+  Set<List<Integer>> result = Set<>()
+  result.add(List<>())
   for Integer value : values {
-    List<List<Integer>> additions = List<List<Integer>>()
+    List<List<Integer>> additions = List<>()
     for List<Integer> subset : result {
       List<Integer> next = subset
       next.add(value)

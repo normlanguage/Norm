@@ -1,0 +1,30 @@
+package std.core
+
+public interface Iterator<T> {
+  Boolean hasNext()
+  T next()
+}
+
+public interface Iterable<T> {
+  Iterator<T> iterator()
+}
+
+public interface Sized {
+  Integer size()
+}
+
+public interface Comparable<T> {
+  Integer compareTo(T other)
+}
+
+public interface Equatable<T> {
+  Boolean equals(T other)
+}
+
+public interface Hashable {
+  Integer hash()
+}
+
+public interface Stringable {
+  String toString()
+}

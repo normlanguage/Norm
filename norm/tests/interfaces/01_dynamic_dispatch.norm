@@ -1,0 +1,37 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+interface Named {
+  String name()
+}
+
+class User implements Named {
+  String value
+
+  public String name() {
+    return value
+  }
+}
+
+class Service implements Named {
+  String value
+
+  public String name() {
+    return "service:" + value
+  }
+}
+
+String read(Named value) {
+  return value.name()
+}
+
+Void main() {
+  printLines([
+    read(value: User(value: "Norm")),
+    read(value: Service(value: "compiler"))
+  ])
+  expectedOutputLines([
+    "Norm",
+    "service:compiler"
+  ])
+}

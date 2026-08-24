@@ -42,11 +42,11 @@ Norm 不会为缺失分支隐式补上 null。
 
 ## For 循环
 
-遍历式 `for` 依次绑定序列元素：
+遍历式 `for` 通过 `std.core.Iterable<T>` 依次绑定元素：
 
 ```norm
 for Integer number : numbers {
-    printLine("${number}")
+    printLine(number)
 }
 ```
 
@@ -58,7 +58,7 @@ for values.size() > 1 && values.last() == 0 {
 }
 ```
 
-条件初始为 false 时循环执行零次。`continue` 重新进入条件检查，`break` 结束循环。数值范围不是特殊语法，而是实现迭代协议的普通值。
+条件初始为 false 时循环执行零次。`continue` 重新进入条件检查，`break` 结束循环。数值范围不是特殊语法，而是显式实现 `Iterable<Integer>` 的普通值。
 
 当元素类型静态唯一时可以省略循环变量类型。`Range` 推断为 `Integer`，泛型集合从元素类型参数推断：
 
@@ -88,7 +88,7 @@ for Integer number : numbers {
         break
     }
 
-    printLine("${number}")
+    printLine(number)
 }
 ```
 
@@ -121,6 +121,6 @@ String name = switch direction {
 }
 ```
 
-封闭 enum 的分支必须穷尽。详细模式规则见[Enum 与 Switch](/language/enum-switch)。
+每个 switch 都必须穷尽。被匹配表达式只求值一次，首个匹配 case 独占执行且没有 fallthrough；表达式 case 的正常完成路径必须执行 `break value`。详细模式规则见[Enum 与 Switch](/language/enum-switch)。
 
 下一章：[接口](/language/interfaces)。

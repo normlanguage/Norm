@@ -84,6 +84,7 @@ final class TypeReferenceResolver {
             .filter(
                 candidate ->
                     candidate.kind() == SymbolKind.TYPE
+                        || candidate.kind() == SymbolKind.INTERFACE
                         || candidate.kind() == SymbolKind.TYPE_PARAMETER)
             .filter(candidate -> candidate.name().equals(name.lexeme()))
             .map(document.semanticModel()::resolveAlias)

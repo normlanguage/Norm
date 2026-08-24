@@ -4,9 +4,7 @@ Generics let one type or function work with multiple types while preserving stat
 
 ## Current boundary
 
-The current implementation supports generic classes, generic functions and instance methods, parameterized core collections, nested nullable type arguments, inference from arguments and expected return types, and runtime type arguments. Generic types are invariant and raw types are invalid.
-
-Bounds, interface constraints, use-site variance, generic data enums, and reflection APIs are later strict extensions.
+The current implementation supports generic classes, data enums, functions and instance methods, interface bounds, parameterized core collections, nested nullable type arguments, inference from arguments and expected return types, and runtime type arguments. Generic types are invariant and raw types are invalid. Use-site variance and reflection APIs remain later extensions.
 
 ## Generic types
 
@@ -15,8 +13,8 @@ class Box<T> {
     T value
 }
 
-Box<Integer> count = Box<Integer>(value: 3)
-Box<String?> label = Box<String?>(value: null)
+Box<Integer> count = Box<>(value: 3)
+Box<String?> label = Box<>(value: null)
 ```
 
 Raw types are forbidden: `Box` without a type argument is invalid.
@@ -39,7 +37,7 @@ Instance methods use the same inference and explicit type-argument syntax. A gen
 ```norm
 class Values<T> {
     Pair<T, U> pair<U>(T first, U second) {
-        return Pair<T, U>(first: first, second: second)
+        return Pair<>(first: first, second: second)
     }
 }
 
@@ -49,5 +47,16 @@ Pair<String, Integer> value = Values<String>().pair<Integer>(first: "Norm", seco
 ## Invariance
 
 Different type arguments produce different invariant types. `List<String>` is not assignable to `List<String?>`; nullable elements must be declared at the collection boundary.
+
+## Interface bounds
+
+```norm
+T larger<T extends Comparable<T>>(T left, T right) {
+    if left.compareTo(other: right) >= 0 { return left }
+    return right
+}
+```
+
+A bound names an interface. A type satisfies it only through an explicit `implements` or interface `extends` relationship; matching member names are not sufficient.
 
 Return to the [handbook introduction](/en/language/overview).

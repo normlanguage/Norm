@@ -12,6 +12,7 @@ public final class Syntax {
       String packageName,
       List<ImportDecl> imports,
       List<EnumDecl> enums,
+      List<InterfaceDecl> interfaces,
       List<ClassDecl> classes,
       List<FunctionDecl> functions,
       SourceSpan span)
@@ -20,6 +21,7 @@ public final class Syntax {
       Objects.requireNonNull(packageName, "packageName");
       imports = List.copyOf(imports);
       enums = List.copyOf(enums);
+      interfaces = List.copyOf(interfaces);
       classes = List.copyOf(classes);
       functions = List.copyOf(functions);
       Objects.requireNonNull(span, "span");
@@ -55,10 +57,14 @@ public final class Syntax {
     PRIVATE
   }
 
-  public record EnumMember(String name, SourceSpan nameSpan) {
-    public EnumMember {
+  public record EnumVariant(
+      String name, SourceSpan nameSpan, List<Parameter> parameters, SourceSpan span)
+      implements AstNode {
+    public EnumVariant {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      parameters = List.copyOf(parameters);
+      Objects.requireNonNull(span, "span");
     }
   }
 
@@ -66,13 +72,15 @@ public final class Syntax {
       Visibility visibility,
       String name,
       SourceSpan nameSpan,
-      List<EnumMember> members,
+      List<TypeParameter> typeParameters,
+      List<EnumVariant> variants,
       SourceSpan span)
       implements AstNode {
     public EnumDecl {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
-      members = List.copyOf(members);
+      typeParameters = List.copyOf(typeParameters);
+      variants = List.copyOf(variants);
       Objects.requireNonNull(span, "span");
     }
   }
@@ -103,10 +111,49 @@ public final class Syntax {
     }
   }
 
-  public record TypeParameter(String name, SourceSpan nameSpan) {
+  public record TypeParameter(String name, SourceSpan nameSpan, Optional<TypeRef> upperBound) {
     public TypeParameter {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      upperBound = Objects.requireNonNull(upperBound, "upperBound");
+    }
+  }
+
+  public record InterfaceMethodDecl(
+      TypeRef returnType,
+      String name,
+      SourceSpan nameSpan,
+      List<TypeParameter> typeParameters,
+      List<Parameter> parameters,
+      SourceSpan span)
+      implements AstNode {
+    public InterfaceMethodDecl {
+      Objects.requireNonNull(returnType, "returnType");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      typeParameters = List.copyOf(typeParameters);
+      parameters = List.copyOf(parameters);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record InterfaceDecl(
+      Visibility visibility,
+      String name,
+      SourceSpan nameSpan,
+      List<TypeParameter> typeParameters,
+      List<TypeRef> extendedInterfaces,
+      List<InterfaceMethodDecl> methods,
+      SourceSpan span)
+      implements AstNode {
+    public InterfaceDecl {
+      Objects.requireNonNull(visibility, "visibility");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      typeParameters = List.copyOf(typeParameters);
+      extendedInterfaces = List.copyOf(extendedInterfaces);
+      methods = List.copyOf(methods);
+      Objects.requireNonNull(span, "span");
     }
   }
 
@@ -158,6 +205,7 @@ public final class Syntax {
       String name,
       SourceSpan nameSpan,
       List<TypeParameter> typeParameters,
+      List<TypeRef> implementedInterfaces,
       List<FieldDecl> fields,
       List<FunctionDecl> methods,
       SourceSpan span)
@@ -166,6 +214,7 @@ public final class Syntax {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);
+      implementedInterfaces = List.copyOf(implementedInterfaces);
       fields = List.copyOf(fields);
       methods = List.copyOf(methods);
       Objects.requireNonNull(span, "span");
@@ -184,7 +233,11 @@ public final class Syntax {
           ContinueStatement {}
 
   public record VariableDecl(
-      TypeRef type, String name, SourceSpan nameSpan, Expression initializer, SourceSpan span)
+      Optional<TypeRef> type,
+      String name,
+      SourceSpan nameSpan,
+      Expression initializer,
+      SourceSpan span)
       implements Statement {
     public VariableDecl {
       Objects.requireNonNull(type, "type");
@@ -226,6 +279,7 @@ public final class Syntax {
       Optional<TypeRef> variableType,
       String variableName,
       SourceSpan variableNameSpan,
+      Optional<ForIndex> index,
       Expression iterable,
       List<Statement> body,
       SourceSpan span)
@@ -234,9 +288,17 @@ public final class Syntax {
       Objects.requireNonNull(variableType, "variableType");
       Objects.requireNonNull(variableName, "variableName");
       Objects.requireNonNull(variableNameSpan, "variableNameSpan");
+      index = Objects.requireNonNull(index, "index");
       Objects.requireNonNull(iterable, "iterable");
       body = List.copyOf(body);
       Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record ForIndex(String name, SourceSpan nameSpan) {
+    public ForIndex {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
     }
   }
 
@@ -255,7 +317,7 @@ public final class Syntax {
     }
   }
 
-  public record BreakStatement(SourceSpan span) implements Statement {
+  public record BreakStatement(Expression value, SourceSpan span) implements Statement {
     public BreakStatement {
       Objects.requireNonNull(span, "span");
     }
@@ -269,6 +331,7 @@ public final class Syntax {
 
   public sealed interface Expression extends AstNode
       permits IntegerLiteral,
+          DecimalLiteral,
           CodePointLiteral,
           BooleanLiteral,
           NullLiteral,
@@ -279,10 +342,114 @@ public final class Syntax {
           Binary,
           Call,
           Member,
-          Index {}
+          Index,
+          SwitchExpression {}
 
-  public record IntegerLiteral(long value, SourceSpan span) implements Expression {
+  public sealed interface Pattern extends AstNode
+      permits VariantPattern,
+          BindingPattern,
+          WildcardPattern,
+          IntegerPattern,
+          DecimalPattern,
+          CodePointPattern,
+          BooleanPattern,
+          StringPattern,
+          NullPattern {}
+
+  public record VariantPattern(
+      String name, SourceSpan nameSpan, List<Pattern> arguments, SourceSpan span)
+      implements Pattern {
+    public VariantPattern {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      arguments = List.copyOf(arguments);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record BindingPattern(TypeRef type, String name, SourceSpan nameSpan, SourceSpan span)
+      implements Pattern {
+    public BindingPattern {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record WildcardPattern(SourceSpan span) implements Pattern {
+    public WildcardPattern {
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record IntegerPattern(java.math.BigInteger value, SourceSpan span) implements Pattern {
+    public IntegerPattern {
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record DecimalPattern(java.math.BigDecimal value, SourceSpan span) implements Pattern {
+    public DecimalPattern {
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record CodePointPattern(int value, SourceSpan span) implements Pattern {
+    public CodePointPattern {
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record BooleanPattern(boolean value, SourceSpan span) implements Pattern {
+    public BooleanPattern {
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record StringPattern(String value, SourceSpan span) implements Pattern {
+    public StringPattern {
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record NullPattern(SourceSpan span) implements Pattern {
+    public NullPattern {
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record SwitchCase(Pattern pattern, List<Statement> body, SourceSpan span)
+      implements AstNode {
+    public SwitchCase {
+      Objects.requireNonNull(pattern, "pattern");
+      body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record SwitchExpression(Expression value, List<SwitchCase> cases, SourceSpan span)
+      implements Expression {
+    public SwitchExpression {
+      Objects.requireNonNull(value, "value");
+      cases = List.copyOf(cases);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record IntegerLiteral(java.math.BigInteger value, SourceSpan span) implements Expression {
     public IntegerLiteral {
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record DecimalLiteral(java.math.BigDecimal value, SourceSpan span) implements Expression {
+    public DecimalLiteral {
+      Objects.requireNonNull(value, "value");
       Objects.requireNonNull(span, "span");
     }
   }
@@ -319,16 +486,19 @@ public final class Syntax {
     }
   }
 
-  public record Name(String value, List<TypeRef> typeArguments, SourceSpan span)
+  public record Name(String value, List<TypeRef> typeArguments, boolean diamond, SourceSpan span)
       implements Expression {
     public Name {
       Objects.requireNonNull(value, "value");
       typeArguments = List.copyOf(typeArguments);
+      if (diamond && !typeArguments.isEmpty()) {
+        throw new IllegalArgumentException("diamond cannot contain type arguments");
+      }
       Objects.requireNonNull(span, "span");
     }
 
     public Name(String value, SourceSpan span) {
-      this(value, List.of(), span);
+      this(value, List.of(), false, span);
     }
   }
 

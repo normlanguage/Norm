@@ -18,6 +18,21 @@ import org.junit.jupiter.api.Test;
 
 final class CoreCompilationIdentityTest {
   @Test
+  void includesIndexedLoopBindingInDefinitionIdentity() {
+    CoreCompilation plain =
+        compile("plain-loop.norm", "Void main() { for value : [1] { printLine(value) } }");
+    CoreCompilation indexed =
+        compile("indexed-loop.norm", "Void main() { for value,index : [1] { printLine(value) } }");
+    CoreCompilation renamed =
+        compile(
+            "renamed-indexed-loop.norm",
+            "Void main() { for item,position : [1] { printLine(item) } }");
+
+    assertNotEquals(plain.entryDefinition(), indexed.entryDefinition());
+    assertEquals(indexed.entryDefinition(), renamed.entryDefinition());
+  }
+
+  @Test
   void ignoresFileFunctionParameterAndLocalNames() {
     CoreCompilation first =
         compile(

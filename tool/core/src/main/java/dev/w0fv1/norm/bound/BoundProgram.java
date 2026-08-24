@@ -7,12 +7,16 @@ import java.util.Optional;
 public record BoundProgram(
     List<BoundSource> sources,
     List<BoundEnum> enums,
+    List<BoundInterface> interfaces,
+    List<BoundBuiltinConformance> builtinConformances,
     List<BoundClass> classes,
     List<BoundCallable> callables,
     Optional<BoundCallableId> entryPoint) {
   public BoundProgram {
     sources = List.copyOf(sources);
     enums = List.copyOf(enums);
+    interfaces = List.copyOf(interfaces);
+    builtinConformances = List.copyOf(builtinConformances);
     classes = List.copyOf(classes);
     callables = List.copyOf(callables);
     entryPoint = Objects.requireNonNull(entryPoint, "entryPoint");
@@ -26,6 +30,7 @@ public record BoundProgram(
   }
 
   public BoundProgram withEntryPoint(BoundCallableId entry) {
-    return new BoundProgram(sources, enums, classes, callables, Optional.of(entry));
+    return new BoundProgram(
+        sources, enums, interfaces, builtinConformances, classes, callables, Optional.of(entry));
   }
 }

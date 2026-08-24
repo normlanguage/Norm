@@ -1,12 +1,19 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 T identity<T>(T value) {
   return value
 }
 
 Void main() {
-  printLine(identity(value: 9223372036854775807))
-  printLine(identity(value: ""))
-  printLine(identity(value: false))
-  expectedOutputLine("9223372036854775807")
-  expectedOutputLine("")
-  expectedOutputLine("false")
+  printLines([
+    identity(value: 9223372036854775807),
+    identity(value: ""),
+    identity(value: false)
+  ])
+  expectedOutputLines([
+    "9223372036854775807",
+    "",
+    "false"
+  ])
 }

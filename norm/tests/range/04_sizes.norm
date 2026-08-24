@@ -1,8 +1,15 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  printLine(range(start: 0, end: 10, step: 3).size())
-  printLine(range(start: 10, end: 0, step: -4).size())
-  printLine(range(start: 3, end: 3).size())
-  expectedOutputLine("4")
-  expectedOutputLine("3")
-  expectedOutputLine("0")
+  printLines([
+    range(start: 0, end: 10, step: 3).size(),
+    range(start: 10, end: 0, step: -4).size(),
+    range(start: 3, end: 3).size()
+  ])
+  expectedOutputLines([
+    "4",
+    "3",
+    "0"
+  ])
 }

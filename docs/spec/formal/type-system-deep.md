@@ -6,17 +6,9 @@
 
 nullable 标记作用于完整类型：`List<String>?` 与 `List<String?>` 不同。重复 nullable `T??` 不形成新类型，应规范化为 `T?` 或直接诊断冗余。
 
-`ref<T>` 的 nullable 组合必须由引用与 nullable 规范共同确定，不能由实现自行推断。
-
-## 捕获转换
-
-读取 `List<? extends Shape>` 时，编译器为通配符建立新捕获类型 α，满足 `α <: Shape`。读取结果可以作为 Shape，写入除不存在值外不安全。
-
-对 `List<? super Circle>` 建立 `Circle <: β`。可以写入 Circle，但读取只得到未知 β，必须通过适当接口或显式模式处理。
-
 ## Reified 泛型
 
-`List<String>` 与 `List<Integer>` 的运行时描述不同。运行时类型检查、反射和序列化可读取实际参数；实现不能以擦除后附加不可靠外部 token 代替。
+`List<String>` 与 `List<Integer>` 在 Core IR 和运行时类型环境中保留不同的实参，不依赖擦除后的外部 token。
 
 ## 函数类型
 

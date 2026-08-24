@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> recoverTree(Array<Integer> inorder) {
   Integer first = -1
   Integer second = -1
@@ -17,8 +19,10 @@ Array<Integer> recoverTree(Array<Integer> inorder) {
 
 Void main() {
   for Integer value : recoverTree([1,3,2,4]) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("4")
+  expectedOutputLines([
+    "1",
+    "2",
+    "3",
+    "4"
+  ])
 }

@@ -1,0 +1,9 @@
+package project.model
+
+public class User implements Named {
+  String value
+
+  public String name() {
+    return value
+  }
+}

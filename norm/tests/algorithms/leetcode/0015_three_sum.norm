@@ -1,8 +1,9 @@
 import std.collections.sort
+import std.testing.expectedOutputLines
 
 List<Array<Integer>> threeSum(Array<Integer> values) {
-  List<Array<Integer>> result = List<Array<Integer>>()
-  Set<Array<Integer>> unique = Set<Array<Integer>>()
+  List<Array<Integer>> result = List<>()
+  Set<Array<Integer>> unique = Set<>()
   for first : range(start: 0, end: values.size()) {
     for second : range(start: first + 1, end: values.size()) {
       for third : range(start: second + 1, end: values.size()) {
@@ -20,10 +21,12 @@ Void main() {
   for Array<Integer> triple : threeSum([-1, 0, 1, 2, -1, -4]) {
     for Integer value : triple { printLine(value) }
   }
-  expectedOutputLine("-1")
-  expectedOutputLine("0")
-  expectedOutputLine("1")
-  expectedOutputLine("-1")
-  expectedOutputLine("-1")
-  expectedOutputLine("2")
+  expectedOutputLines([
+    "-1",
+    "0",
+    "1",
+    "-1",
+    "-1",
+    "2"
+  ])
 }

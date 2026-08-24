@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.SourceFile;
@@ -129,7 +131,7 @@ final class CompilerTest {
     CompilationResult result =
         compile(
             "String? missing() { return null } "
-                + "Void main() { String? text = missing() List<String?> values = List<String?>() "
+                + "Void main() { String? text = missing() List<String?> values = List<>() "
                 + "values.add(text) values.add(null) "
                 + "List<String>? optionalValues = null printLine(values.size()) } ");
 
@@ -274,7 +276,7 @@ final class CompilerTest {
   }
 
   @Test
-  void rejectsUnknownEnumMembers() {
+  void rejectsUnknownEnumVariants() {
     CompilationResult result = compile("enum Color { Red } Void main() { printLine(Color.Blue) }");
 
     assertFalse(result.isSuccess());
@@ -356,7 +358,7 @@ final class CompilerTest {
   void typesMapGetAsNullable() {
     CompilationResult result =
         compile(
-            "Void main() { Map<String, Integer> values = Map<String, Integer>() "
+            "Void main() { Map<String, Integer> values = Map<>() "
                 + "Integer? missing = values.get(key: \"missing\") "
                 + "Integer fallback = values.get(key: \"missing\") ?? 0 } ");
 
@@ -420,6 +422,27 @@ final class CompilerTest {
   }
 
   @Test
+  void bindsAnOptionalIntegerIndexAfterTheLoopValue() {
+    AnalysisResult analysis =
+        new Compiler()
+            .analyze(
+                SourceFile.of(
+                    Path.of("indexed-loop.norm"),
+                    "Void main() { for value,index : [10, 20] { printLine(index) } }"));
+    Syntax.ForStatement loop =
+        (Syntax.ForStatement)
+            analysis.semanticModel().syntax().functions().getFirst().body().getFirst();
+    Syntax.ForIndex index = loop.index().orElseThrow();
+
+    assertTrue(analysis.diagnostics().isEmpty(), () -> analysis.diagnostics().toString());
+    assertEquals("value", loop.variableName());
+    assertEquals("index", index.name());
+    assertEquals(
+        SemanticType.INTEGER,
+        analysis.semanticModel().symbolOf(index.nameSpan()).orElseThrow().type());
+  }
+
+  @Test
   void acceptsConditionalForAndRequiresABooleanCondition() {
     CompilationResult accepted =
         compile(
@@ -467,7 +490,7 @@ final class CompilerTest {
   void infersLoopTypeFromGenericContainers() {
     CompilationResult result =
         compile(
-            "Void main() { List<Integer> values = List<Integer>() for value : values { printLine(value) } }");
+            "Void main() { List<Integer> values = List<>() for value : values { printLine(value) } }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }

@@ -10,7 +10,8 @@ public record BoundEnum(
     String name,
     BoundVisibility visibility,
     SemanticType type,
-    List<BoundEnumMember> members,
+    List<BoundTypeParameter> typeParameters,
+    List<BoundEnumVariant> variants,
     SourceSpan span)
     implements BoundNode {
   public BoundEnum {
@@ -18,7 +19,8 @@ public record BoundEnum(
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(visibility, "visibility");
     Objects.requireNonNull(type, "type");
-    members = List.copyOf(members);
+    typeParameters = List.copyOf(typeParameters);
+    variants = List.copyOf(variants);
     Objects.requireNonNull(span, "span");
   }
 }

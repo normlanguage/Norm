@@ -10,7 +10,7 @@
 
 ## 对象与类型
 
-完成 class identity、value、interface、继承、enum variant、模式匹配、`ref<T>` 和 reified 泛型，并建立 conformance tests。
+完成 class 继承、value、`ref<T>` 和其余 1.0 对象模型，并建立 conformance tests。
 
 ## Core IR 与执行
 
@@ -18,7 +18,7 @@
 
 ## 模块与标准库
 
-完成 package、import、项目清单和 1.0 标准库核心 API，覆盖集合、Result、I/O、时间、并发和 Java interop。
+完成 1.0 标准库其余核心 API，覆盖集合、I/O、时间、并发和 Java interop。
 
 ## 工具与发布
 

@@ -47,11 +47,19 @@ final class CoreRuntimeTypeTest {
   }
 
   private static CoreDefinitionGroup group(CoreRuntimeType runtimeType) {
-    CoreExpression.ArrayLiteral literal =
-        new CoreExpression.ArrayLiteral(2, List.of(), runtimeType, runtimeType.template());
+    CoreExpression.CollectionLiteral literal =
+        new CoreExpression.CollectionLiteral(
+            2,
+            List.of(),
+            dev.w0fv1.norm.builtin.IntrinsicId.ARRAY_CONSTRUCT,
+            runtimeType,
+            runtimeType.template());
     CoreDefinition.Callable callable =
         new CoreDefinition.Callable(
             java.util.Optional.empty(),
+            List.of(
+                new CoreTypeParameter(0, java.util.Optional.empty()),
+                new CoreTypeParameter(1, java.util.Optional.empty())),
             List.of(),
             List.of(),
             List.of(0, 1),

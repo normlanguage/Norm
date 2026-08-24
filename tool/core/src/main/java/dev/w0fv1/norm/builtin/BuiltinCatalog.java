@@ -6,6 +6,8 @@ import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.semantic.TypeConstraintSolver;
+import dev.w0fv1.norm.semantic.TypeParameterInfo;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -21,6 +23,7 @@ public final class BuiltinCatalog {
   private static final BuiltinCatalog STANDARD = create();
 
   private final Map<String, TypeDefinition> types;
+  private final Map<String, TypeDefinition> hiddenTypes;
   private final Map<SymbolId, TypeDefinition> typesBySymbol;
   private final Map<String, List<GlobalDefinition>> globals;
   private final Map<SymbolId, Symbol> symbols;
@@ -31,12 +34,24 @@ public final class BuiltinCatalog {
   private BuiltinCatalog(
       Map<String, TypeDefinition> types, Map<String, List<GlobalDefinition>> globals) {
     this.types = Map.copyOf(types);
+    this.hiddenTypes =
+        Map.of(
+            "NativeIterator",
+            type("NativeIterator", RuntimeShape.NATIVE_ITERATOR, "T")
+                .category(ValueCategory.IDENTITY)
+                .build());
     Map<SymbolId, TypeDefinition> indexedTypes = new LinkedHashMap<>();
     types.values().forEach(type -> indexedTypes.put(type.symbol().id(), type));
     typesBySymbol = Map.copyOf(indexedTypes);
     Map<String, List<GlobalDefinition>> copiedGlobals = new LinkedHashMap<>();
     globals.forEach((name, values) -> copiedGlobals.put(name, List.copyOf(values)));
     this.globals = Map.copyOf(copiedGlobals);
+    long defaultCollectionLiterals =
+        types.values().stream().filter(TypeDefinition::defaultCollectionLiteral).count();
+    if (defaultCollectionLiterals != 1) {
+      throw new IllegalStateException(
+          "builtin catalog requires one default collection literal type");
+    }
     Map<SymbolId, Symbol> allSymbols = new LinkedHashMap<>();
     Map<SymbolId, IntrinsicId> allIntrinsics = new LinkedHashMap<>();
     Map<SymbolId, IntrinsicId> allWriteIntrinsics = new LinkedHashMap<>();
@@ -70,8 +85,15 @@ public final class BuiltinCatalog {
     intrinsics = Map.copyOf(allIntrinsics);
     writeIntrinsics = Map.copyOf(allWriteIntrinsics);
     members = Map.copyOf(allMembers);
-    if (!declaredIntrinsics().equals(Set.copyOf(EnumSet.allOf(IntrinsicId.class)))) {
-      throw new IllegalStateException("builtin catalog does not declare every intrinsic");
+    Set<IntrinsicId> expectedIntrinsics = Set.copyOf(EnumSet.allOf(IntrinsicId.class));
+    Set<IntrinsicId> declaredIntrinsics = declaredIntrinsics();
+    if (!declaredIntrinsics.equals(expectedIntrinsics)) {
+      Set<IntrinsicId> missing = EnumSet.copyOf(expectedIntrinsics);
+      missing.removeAll(declaredIntrinsics);
+      Set<IntrinsicId> unexpected = EnumSet.copyOf(declaredIntrinsics);
+      unexpected.removeAll(expectedIntrinsics);
+      throw new IllegalStateException(
+          "builtin intrinsic catalog mismatch; missing=" + missing + ", unexpected=" + unexpected);
     }
   }
 
@@ -88,7 +110,8 @@ public final class BuiltinCatalog {
   }
 
   public Optional<TypeDefinition> type(String name) {
-    return Optional.ofNullable(types.get(name));
+    TypeDefinition definition = types.get(name);
+    return Optional.ofNullable(definition != null ? definition : hiddenTypes.get(name));
   }
 
   public Optional<TypeDefinition> type(SymbolId symbol) {
@@ -178,6 +201,10 @@ public final class BuiltinCatalog {
           .forEach(result::add);
       type.typeMembers().stream().map(MemberDefinition::intrinsic).forEach(result::add);
     }
+    protocolConformances().stream()
+        .flatMap(conformance -> conformance.witnesses().values().stream())
+        .map(ProtocolWitness::intrinsic)
+        .forEach(result::add);
     return Set.copyOf(result);
   }
 
@@ -224,6 +251,19 @@ public final class BuiltinCatalog {
                       true))
           .forEach(result::add);
     }
+    protocolConformances().stream()
+        .flatMap(
+            conformance ->
+                conformance.witnesses().values().stream()
+                    .filter(witness -> witness.intrinsic() == intrinsic)
+                    .map(
+                        witness ->
+                            new IntrinsicCandidate(
+                                Optional.of(conformance.concreteType()),
+                                witness.parameters(),
+                                witness.result(),
+                                false)))
+        .forEach(result::add);
     return List.copyOf(result);
   }
 
@@ -293,6 +333,125 @@ public final class BuiltinCatalog {
             capability.intrinsic()));
   }
 
+  public List<SemanticType> protocolConformances(SemanticType type) {
+    List<SemanticType> result = new ArrayList<>();
+    resolveIterable(type)
+        .ifPresent(
+            iterable ->
+                result.add(
+                    SemanticType.declared(
+                        "std.core.Iterable",
+                        "Iterable",
+                        List.of(iterable.elementType()),
+                        ValueCategory.POLYMORPHIC)));
+    member(type, "size")
+        .filter(value -> value.type().equals(SemanticType.INTEGER))
+        .ifPresent(
+            ignored ->
+                result.add(
+                    SemanticType.declared(
+                        "std.core.Sized", "Sized", List.of(), ValueCategory.POLYMORPHIC)));
+    member(type, "toString")
+        .filter(value -> value.type().equals(SemanticType.STRING))
+        .ifPresent(
+            ignored ->
+                result.add(
+                    SemanticType.declared(
+                        "std.core.Stringable",
+                        "Stringable",
+                        List.of(),
+                        ValueCategory.POLYMORPHIC)));
+    return List.copyOf(result);
+  }
+
+  public List<ProtocolConformance> protocolConformances() {
+    List<ProtocolConformance> result = new ArrayList<>();
+    for (TypeDefinition definition : types.values()) {
+      SemanticType concrete = ownerType(definition);
+      definition
+          .iterable()
+          .ifPresent(
+              iterable ->
+                  result.add(
+                      new ProtocolConformance(
+                          definition.typeParameters().stream()
+                              .map(name -> parameter(definition.symbol().name(), name))
+                              .toList(),
+                          concrete,
+                          SemanticType.declared(
+                              "std.core.Iterable",
+                              "Iterable",
+                              List.of(iterable.elementType()),
+                              ValueCategory.POLYMORPHIC),
+                          Map.of(
+                              "iterator",
+                              new ProtocolWitness(
+                                  List.of(),
+                                  SemanticType.declared(
+                                      "std.core.Iterator",
+                                      "Iterator",
+                                      List.of(iterable.elementType()),
+                                      ValueCategory.POLYMORPHIC),
+                                  iterable.intrinsic())))));
+      definition.members().stream()
+          .filter(member -> member.symbol().name().equals("size"))
+          .filter(member -> member.symbol().type().equals(SemanticType.INTEGER))
+          .findFirst()
+          .ifPresent(
+              size ->
+                  result.add(
+                      new ProtocolConformance(
+                          definition.typeParameters().stream()
+                              .map(name -> parameter(definition.symbol().name(), name))
+                              .toList(),
+                          concrete,
+                          SemanticType.declared(
+                              "std.core.Sized", "Sized", List.of(), ValueCategory.POLYMORPHIC),
+                          Map.of(
+                              "size",
+                              new ProtocolWitness(
+                                  List.of(), SemanticType.INTEGER, size.intrinsic())))));
+      definition.members().stream()
+          .filter(member -> member.symbol().name().equals("toString"))
+          .filter(member -> member.symbol().type().equals(SemanticType.STRING))
+          .findFirst()
+          .ifPresent(
+              toString ->
+                  result.add(
+                      new ProtocolConformance(
+                          definition.typeParameters().stream()
+                              .map(name -> parameter(definition.symbol().name(), name))
+                              .toList(),
+                          concrete,
+                          SemanticType.declared(
+                              "std.core.Stringable",
+                              "Stringable",
+                              List.of(),
+                              ValueCategory.POLYMORPHIC),
+                          Map.of(
+                              "toString",
+                              new ProtocolWitness(
+                                  List.of(), SemanticType.STRING, toString.intrinsic())))));
+    }
+    TypeDefinition nativeIterator = hiddenTypes.get("NativeIterator");
+    SemanticType iteratorElement = nativeIterator.symbol().typeParameters().getFirst().type();
+    result.add(
+        new ProtocolConformance(
+            List.of(iteratorElement),
+            ownerType(nativeIterator),
+            SemanticType.declared(
+                "std.core.Iterator",
+                "Iterator",
+                List.of(iteratorElement),
+                ValueCategory.POLYMORPHIC),
+            Map.of(
+                "hasNext",
+                new ProtocolWitness(List.of(), SemanticType.BOOLEAN, IntrinsicId.ITERATOR_HAS_NEXT),
+                "next",
+                new ProtocolWitness(List.of(), iteratorElement, IntrinsicId.ITERATOR_NEXT))));
+    return List.copyOf(result);
+  }
+
   public Optional<ResolvedIndex> resolveIndex(SemanticType type) {
     TypeDefinition definition = types.get(type.name());
     if (definition == null || definition.index().isEmpty()) return Optional.empty();
@@ -319,6 +478,39 @@ public final class BuiltinCatalog {
             .toList());
   }
 
+  public Optional<IntrinsicId> collectionLiteral(SemanticType type) {
+    TypeDefinition definition = types.get(type.name());
+    return definition == null ? Optional.empty() : definition.collectionLiteral();
+  }
+
+  public Optional<ResolvedCollectionLiteral> resolveCollectionLiteral(SemanticType expected) {
+    TypeDefinition direct = types.get(expected.name());
+    if (direct != null && direct.collectionLiteral().isPresent()) {
+      return Optional.of(
+          new ResolvedCollectionLiteral(expected, direct.collectionLiteral().orElseThrow()));
+    }
+    TypeDefinition fallback =
+        types.values().stream()
+            .filter(TypeDefinition::defaultCollectionLiteral)
+            .findFirst()
+            .orElseThrow();
+    List<SemanticType> variables =
+        fallback.symbol().typeParameters().stream().map(TypeParameterInfo::type).toList();
+    SemanticType prototype = instantiate(fallback.symbol().name(), variables);
+    for (SemanticType conformance : protocolConformances(prototype)) {
+      if (!conformance.nonNullable().identity().equals(expected.nonNullable().identity())) continue;
+      TypeConstraintSolver solver = new TypeConstraintSolver(variables);
+      solver.constrain(conformance, expected);
+      TypeConstraintSolver.Solution solution = solver.solve();
+      if (!solution.missing().isEmpty() || !solution.conflicts().isEmpty()) continue;
+      return Optional.of(
+          new ResolvedCollectionLiteral(
+              prototype.substitute(solution.substitutions()),
+              fallback.collectionLiteral().orElseThrow()));
+    }
+    return Optional.empty();
+  }
+
   private static BuiltinCatalog create() {
     Map<String, TypeDefinition> types = new LinkedHashMap<>();
     Map<String, List<GlobalDefinition>> globals = new LinkedHashMap<>();
@@ -343,7 +535,13 @@ public final class BuiltinCatalog {
     SemanticType graphemesType =
         SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
 
-    addType(types, type(integerType.name(), RuntimeShape.INT));
+    addType(types, type(integerType.name(), RuntimeShape.INTEGER));
+    addType(types, type(SemanticType.LONG.name(), RuntimeShape.LONG));
+    addType(types, type(SemanticType.FLOAT.name(), RuntimeShape.FLOAT));
+    addType(types, type(SemanticType.DOUBLE.name(), RuntimeShape.DOUBLE));
+    addType(
+        types,
+        type(SemanticType.NUMBER.name(), RuntimeShape.NUMBER).category(ValueCategory.POLYMORPHIC));
     addType(
         types,
         type(codePointType.name(), RuntimeShape.CODE_POINT)
@@ -475,6 +673,8 @@ public final class BuiltinCatalog {
         types,
         type("Array", RuntimeShape.ARRAY, "T")
             .constructor(IntrinsicId.ARRAY_CONSTRUCT)
+            .collectionLiteral(IntrinsicId.ARRAY_CONSTRUCT)
+            .defaultCollectionLiteral()
             .iterable(parameter("Array", "T"), IntrinsicId.ARRAY_ITERATOR)
             .index(
                 IndexKind.INTEGER,
@@ -511,6 +711,7 @@ public final class BuiltinCatalog {
         types,
         type("List", RuntimeShape.LIST, "T")
             .constructor(IntrinsicId.LIST_CONSTRUCT)
+            .collectionLiteral(IntrinsicId.LIST_CONSTRUCT)
             .iterable(listT, IntrinsicId.LIST_ITERATOR)
             .index(
                 IndexKind.INTEGER,
@@ -780,7 +981,9 @@ public final class BuiltinCatalog {
             base.type(),
             base.declaration(),
             base.owner(),
-            typeParameters,
+            typeParameters.stream()
+                .map(value -> new TypeParameterInfo(value, parameter(owner, value)))
+                .toList(),
             base.parameters(),
             base.documentation());
     return new MemberDefinition(symbol, intrinsic, Optional.empty());
@@ -827,6 +1030,19 @@ public final class BuiltinCatalog {
   }
 
   private static void addType(Map<String, TypeDefinition> values, TypeBuilder builder) {
+    if (Set.of(
+            RuntimeShape.INTEGER,
+            RuntimeShape.LONG,
+            RuntimeShape.FLOAT,
+            RuntimeShape.DOUBLE,
+            RuntimeShape.NUMBER,
+            RuntimeShape.CODE_POINT,
+            RuntimeShape.BOOL,
+            RuntimeShape.STRING,
+            RuntimeShape.RANGE)
+        .contains(builder.shape)) {
+      builder.stringable();
+    }
     TypeDefinition definition = builder.build();
     if (values.putIfAbsent(definition.symbol().name(), definition) != null) {
       throw new IllegalStateException("duplicate builtin type " + definition.symbol().name());
@@ -935,6 +1151,8 @@ public final class BuiltinCatalog {
       List<String> typeParameters,
       RuntimeShape runtimeShape,
       Optional<ConstructorCapability> constructor,
+      Optional<IntrinsicId> collectionLiteral,
+      boolean defaultCollectionLiteral,
       Optional<IterableCapability> iterable,
       Optional<IndexCapability> index,
       List<MemberDefinition> members,
@@ -942,6 +1160,11 @@ public final class BuiltinCatalog {
     public TypeDefinition {
       typeParameters = List.copyOf(typeParameters);
       constructor = Objects.requireNonNull(constructor);
+      collectionLiteral = Objects.requireNonNull(collectionLiteral);
+      if (defaultCollectionLiteral && collectionLiteral.isEmpty()) {
+        throw new IllegalArgumentException(
+            "default collection literal type requires a materializer");
+      }
       iterable = Objects.requireNonNull(iterable);
       index = Objects.requireNonNull(index);
       members = List.copyOf(members);
@@ -982,6 +1205,30 @@ public final class BuiltinCatalog {
   }
 
   public record ResolvedIterable(SemanticType elementType, IntrinsicId intrinsic) {}
+
+  public record ResolvedCollectionLiteral(SemanticType type, IntrinsicId intrinsic) {}
+
+  public record ProtocolConformance(
+      List<SemanticType> typeParameters,
+      SemanticType concreteType,
+      SemanticType interfaceType,
+      Map<String, ProtocolWitness> witnesses) {
+    public ProtocolConformance {
+      typeParameters = List.copyOf(typeParameters);
+      Objects.requireNonNull(concreteType, "concreteType");
+      Objects.requireNonNull(interfaceType, "interfaceType");
+      witnesses = Map.copyOf(witnesses);
+    }
+  }
+
+  public record ProtocolWitness(
+      List<ParameterInfo> parameters, SemanticType result, IntrinsicId intrinsic) {
+    public ProtocolWitness {
+      parameters = List.copyOf(parameters);
+      Objects.requireNonNull(result, "result");
+      Objects.requireNonNull(intrinsic, "intrinsic");
+    }
+  }
 
   public record ResolvedIndex(
       IndexKind kind,
@@ -1038,10 +1285,13 @@ public final class BuiltinCatalog {
     private final RuntimeShape shape;
     private final List<String> parameters;
     private ConstructorCapability constructor;
+    private IntrinsicId collectionLiteral;
+    private boolean defaultCollectionLiteral;
     private IterableCapability iterable;
     private IndexCapability index;
     private List<MemberDefinition> members = List.of();
     private List<MemberDefinition> typeMembers = List.of();
+    private ValueCategory category;
 
     private TypeBuilder(String name, RuntimeShape shape, List<String> parameters) {
       this.name = name;
@@ -1051,6 +1301,21 @@ public final class BuiltinCatalog {
 
     private TypeBuilder constructor(IntrinsicId intrinsic, ParameterInfo... parameters) {
       constructor = new ConstructorCapability(List.of(parameters), intrinsic);
+      return this;
+    }
+
+    private TypeBuilder collectionLiteral(IntrinsicId intrinsic) {
+      collectionLiteral = Objects.requireNonNull(intrinsic, "intrinsic");
+      return this;
+    }
+
+    private TypeBuilder defaultCollectionLiteral() {
+      defaultCollectionLiteral = true;
+      return this;
+    }
+
+    private TypeBuilder category(ValueCategory value) {
+      category = Objects.requireNonNull(value, "value");
       return this;
     }
 
@@ -1074,6 +1339,15 @@ public final class BuiltinCatalog {
       return this;
     }
 
+    private TypeBuilder stringable() {
+      if (members.stream().noneMatch(member -> member.symbol().name().equals("toString"))) {
+        List<MemberDefinition> updated = new ArrayList<>(members);
+        updated.add(method(name, "toString", SemanticType.STRING, IntrinsicId.TO_STRING));
+        members = List.copyOf(updated);
+      }
+      return this;
+    }
+
     private TypeBuilder typeMembers(MemberDefinition... values) {
       typeMembers = List.of(values);
       return this;
@@ -1085,10 +1359,14 @@ public final class BuiltinCatalog {
               SymbolId.builtin("type/" + name),
               name,
               SymbolKind.TYPE,
-              declared(name),
+              category == null
+                  ? declared(name)
+                  : SemanticType.declared("std.core." + name, name, List.of(), category),
               Optional.empty(),
               Optional.empty(),
-              parameters,
+              parameters.stream()
+                  .map(value -> new TypeParameterInfo(value, parameter(name, value)))
+                  .toList(),
               List.of(),
               documentation(name));
       return new TypeDefinition(
@@ -1096,6 +1374,8 @@ public final class BuiltinCatalog {
           parameters,
           shape,
           Optional.ofNullable(constructor),
+          Optional.ofNullable(collectionLiteral),
+          defaultCollectionLiteral,
           Optional.ofNullable(iterable),
           Optional.ofNullable(index),
           members,

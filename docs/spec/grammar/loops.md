@@ -1,6 +1,6 @@
 # 循环语法
 
-Norm 使用 `for` 表达遍历循环和条件循环。范围由实现迭代协议的普通值提供。
+Norm 使用 `for` 表达遍历循环和条件循环。遍历式 `for` 只接受显式实现标准库 `Iterable<T>` interface 的值，并通过其 `Iterator<T>` 迭代。
 
 ```norm
 for String name : names {
@@ -12,11 +12,22 @@ for String name : names {
 
 ```text
 For := ForEach | ConditionalFor
-ForEach := "for" Type? Identifier ":" Expression Block ("else" Block)?
+ForEach := "for" Type? Identifier ("," Identifier)? ":" Expression Block ("else" Block)?
 ConditionalFor := "for" Expression Block
 ```
 
 迭代表达式只求值一次。循环变量在每次迭代开始时绑定，在循环体外不可见。
+
+第二个名称是从零开始的 Integer 索引，值名称始终在前：
+
+```norm
+for value,index : values {
+    printLine(index)
+    printLine(value)
+}
+```
+
+`continue` 进入下一项时索引随迭代递增，`break` 立即结束循环。
 
 当迭代值具有唯一、静态可知的元素类型时可以省略循环变量类型：
 
@@ -26,7 +37,7 @@ for index : range(start: 0, end: 10) {
 }
 ```
 
-`Range` 的元素类型是 `Integer`；`List<T>`、`Array<T>`、`Set<T>` 等迭代值从类型参数得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
+`Range` 实现 `Iterable<Integer>`；`List<T>`、`Array<T>`、`Set<T>` 等从 `Iterable<T>` 的类型实参得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
 
 ## 条件循环
 
@@ -46,7 +57,7 @@ for digits.size() > 1 && digits.last() == 0 {
 for Integer number : numbers {
     if number < 0 { continue }
     if number == 0 { break }
-    printLine("${number}")
+    printLine(number)
 }
 ```
 

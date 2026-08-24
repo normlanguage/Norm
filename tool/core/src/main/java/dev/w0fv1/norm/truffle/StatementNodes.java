@@ -6,8 +6,10 @@ import com.oracle.truffle.api.nodes.LoopNode;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.RepeatingNode;
 import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.core.BuiltinTypeId;
+import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
-import java.util.Iterator;
+import java.util.Map;
 
 final class StatementNodes {
   private StatementNodes() {}
@@ -96,6 +98,19 @@ final class StatementNodes {
     }
   }
 
+  static final class Yield extends StatementNode {
+    @Child private ExpressionNode value;
+
+    Yield(ExpressionNode value) {
+      this.value = value;
+    }
+
+    @Override
+    void executeVoid(VirtualFrame frame) {
+      throw new ControlFlow.Yield(RuntimeValues.copy(value.execute(frame)));
+    }
+  }
+
   static final class Continue extends StatementNode {
     @Override
     void executeVoid(VirtualFrame frame) {
@@ -105,22 +120,28 @@ final class StatementNodes {
 
   static final class For extends StatementNode {
     private final FrameBinding iteratorBinding;
+    private final java.util.Optional<FrameBinding> indexBinding;
     @Child private ExpressionNode iterable;
+    @Child private IteratorFactoryNode iteratorFactory;
     @Child private LoopNode loop;
-    private final IntrinsicId iteratorIntrinsic;
 
     For(
         FrameBinding iteratorBinding,
         FrameBinding variableBinding,
+        java.util.Optional<FrameBinding> indexBinding,
         ExpressionNode iterable,
         StatementNode body,
-        IntrinsicId iteratorIntrinsic) {
+        IteratorFactoryNode iteratorFactory,
+        IteratorCursorNode iteratorCursor) {
       this.iteratorBinding = iteratorBinding;
+      this.indexBinding = java.util.Objects.requireNonNull(indexBinding, "indexBinding");
       this.iterable = iterable;
-      this.iteratorIntrinsic = iteratorIntrinsic;
+      this.iteratorFactory = iteratorFactory;
       loop =
           Truffle.getRuntime()
-              .createLoopNode(new Repeating(iteratorBinding, variableBinding, body));
+              .createLoopNode(
+                  new Repeating(
+                      iteratorBinding, variableBinding, indexBinding, body, iteratorCursor));
     }
 
     @Override
@@ -129,16 +150,100 @@ final class StatementNodes {
         throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
       }
       iteratorBinding.write(
-          frame,
+          frame, new IterationState(iteratorFactory.create(frame, iterable.execute(frame), this)));
+      try {
+        loop.execute(frame);
+      } finally {
+        frame.clear(iteratorBinding.slot());
+        indexBinding.ifPresent(binding -> frame.clear(binding.slot()));
+      }
+    }
+  }
+
+  abstract static class IteratorFactoryNode extends Node {
+    abstract Object create(VirtualFrame frame, Object iterable, Node location);
+  }
+
+  static final class BuiltinIteratorFactory extends IteratorFactoryNode {
+    private final IntrinsicId intrinsic;
+
+    BuiltinIteratorFactory(IntrinsicId intrinsic) {
+      this.intrinsic = intrinsic;
+    }
+
+    @Override
+    Object create(VirtualFrame frame, Object iterable, Node location) {
+      return IntrinsicDispatcher.execute(
+          intrinsic, iterable, new Object[0], null, ExecutionContextAccess.get(frame), location);
+    }
+  }
+
+  static final class InterfaceIteratorFactory extends IteratorFactoryNode {
+    @Child private InterfaceDispatchNode dispatch;
+
+    InterfaceIteratorFactory(
+        DefinitionId requirement,
+        Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>> builtinDispatch) {
+      dispatch = new InterfaceDispatchNode(requirement, builtinDispatch);
+    }
+
+    @Override
+    Object create(VirtualFrame frame, Object iterable, Node location) {
+      return dispatch.execute(frame, iterable, new Object[0], new Object[0], location);
+    }
+  }
+
+  abstract static class IteratorCursorNode extends Node {
+    abstract boolean hasNext(VirtualFrame frame, Object iterator, Node location);
+
+    abstract Object next(VirtualFrame frame, Object iterator, Node location);
+  }
+
+  static final class BuiltinIteratorCursor extends IteratorCursorNode {
+    @Override
+    boolean hasNext(VirtualFrame frame, Object iterator, Node location) {
+      return (Boolean)
           IntrinsicDispatcher.execute(
-              iteratorIntrinsic,
-              iterable.execute(frame),
+              IntrinsicId.ITERATOR_HAS_NEXT,
+              iterator,
               new Object[0],
               null,
               ExecutionContextAccess.get(frame),
-              this));
-      loop.execute(frame);
-      frame.clear(iteratorBinding.slot());
+              location);
+    }
+
+    @Override
+    Object next(VirtualFrame frame, Object iterator, Node location) {
+      return IntrinsicDispatcher.execute(
+          IntrinsicId.ITERATOR_NEXT,
+          iterator,
+          new Object[0],
+          null,
+          ExecutionContextAccess.get(frame),
+          location);
+    }
+  }
+
+  static final class InterfaceIteratorCursor extends IteratorCursorNode {
+    @Child private InterfaceDispatchNode hasNext;
+    @Child private InterfaceDispatchNode next;
+
+    InterfaceIteratorCursor(
+        DefinitionId hasNextRequirement,
+        DefinitionId nextRequirement,
+        Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>> builtinDispatch) {
+      hasNext = new InterfaceDispatchNode(hasNextRequirement, builtinDispatch);
+      next = new InterfaceDispatchNode(nextRequirement, builtinDispatch);
+    }
+
+    @Override
+    boolean hasNext(VirtualFrame frame, Object iterator, Node location) {
+      return (Boolean) hasNext.execute(frame, iterator, new Object[0], new Object[0], location);
+    }
+
+    @Override
+    Object next(VirtualFrame frame, Object iterator, Node location) {
+      return next.execute(frame, iterator, new Object[0], new Object[0], location);
     }
   }
 
@@ -187,23 +292,34 @@ final class StatementNodes {
   private static final class Repeating extends Node implements RepeatingNode {
     private final FrameBinding iteratorBinding;
     private final FrameBinding variableBinding;
+    private final java.util.Optional<FrameBinding> indexBinding;
     @Child private StatementNode body;
+    @Child private IteratorCursorNode iteratorCursor;
 
-    Repeating(FrameBinding iteratorBinding, FrameBinding variableBinding, StatementNode body) {
+    Repeating(
+        FrameBinding iteratorBinding,
+        FrameBinding variableBinding,
+        java.util.Optional<FrameBinding> indexBinding,
+        StatementNode body,
+        IteratorCursorNode iteratorCursor) {
       this.iteratorBinding = iteratorBinding;
       this.variableBinding = variableBinding;
+      this.indexBinding = java.util.Objects.requireNonNull(indexBinding, "indexBinding");
       this.body = body;
+      this.iteratorCursor = iteratorCursor;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean executeRepeating(VirtualFrame frame) {
       if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
         throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", body);
       }
-      Iterator<Object> iterator = (Iterator<Object>) iteratorBinding.read(frame);
-      if (!iterator.hasNext()) return false;
-      variableBinding.write(frame, RuntimeValues.copy(iterator.next()));
+      IterationState state = (IterationState) iteratorBinding.read(frame);
+      if (!iteratorCursor.hasNext(frame, state.iterator, this)) return false;
+      variableBinding.write(
+          frame, RuntimeValues.copy(iteratorCursor.next(frame, state.iterator, this)));
+      indexBinding.ifPresent(binding -> binding.write(frame, state.index));
+      state.index++;
       try {
         body.executeVoid(frame);
       } catch (ControlFlow.Continue ignored) {
@@ -212,6 +328,15 @@ final class StatementNodes {
         return false;
       }
       return true;
+    }
+  }
+
+  private static final class IterationState {
+    private final Object iterator;
+    private int index;
+
+    private IterationState(Object iterator) {
+      this.iterator = iterator;
     }
   }
 

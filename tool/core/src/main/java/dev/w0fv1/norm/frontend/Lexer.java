@@ -18,6 +18,7 @@ final class Lexer {
   private static final DiagnosticCode UNSUPPORTED_INTERPOLATION =
       new DiagnosticCode("NORM-LEXER-0005");
   private static final DiagnosticCode INVALID_CODE_POINT = new DiagnosticCode("NORM-LEXER-0006");
+  private static final DiagnosticCode INVALID_NUMBER = new DiagnosticCode("NORM-LEXER-0007");
 
   private final SourceFile source;
   private final DiagnosticBag diagnostics;
@@ -79,7 +80,7 @@ final class Lexer {
           return;
         }
         if (Character.isDigit(character)) {
-          scanInteger(start);
+          scanNumber(start);
           return;
         }
         reportUnexpected(character, start);
@@ -101,7 +102,7 @@ final class Lexer {
             LanguageSyntax.tokenKind(lexeme), lexeme, new SourceSpan(source, start, offset)));
   }
 
-  private void scanInteger(int start) {
+  private void scanNumber(int start) {
     while (!isAtEnd()) {
       int character = source.text().codePointAt(offset);
       if (!Character.isDigit(character) && character != '_') {
@@ -109,13 +110,53 @@ final class Lexer {
       }
       offset += Character.charCount(character);
     }
+    TokenKind kind = TokenKind.INTEGER;
+    if (!isAtEnd()
+        && source.text().charAt(offset) == '.'
+        && offset + 1 < source.length()
+        && Character.isDigit(source.text().charAt(offset + 1))) {
+      kind = TokenKind.DECIMAL;
+      offset++;
+      while (!isAtEnd()) {
+        int character = source.text().codePointAt(offset);
+        if (!Character.isDigit(character) && character != '_') break;
+        offset += Character.charCount(character);
+      }
+    }
+    if (!isAtEnd()
+        && (source.text().charAt(offset) == 'e' || source.text().charAt(offset) == 'E')) {
+      int exponent = offset;
+      int cursor = exponent + 1;
+      if (cursor < source.length()
+          && (source.text().charAt(cursor) == '+' || source.text().charAt(cursor) == '-')) {
+        cursor++;
+      }
+      if (cursor < source.length() && Character.isDigit(source.text().charAt(cursor))) {
+        kind = TokenKind.DECIMAL;
+        offset = cursor + 1;
+        while (!isAtEnd()) {
+          int character = source.text().codePointAt(offset);
+          if (!Character.isDigit(character) && character != '_') break;
+          offset += Character.charCount(character);
+        }
+      }
+    }
     String lexeme = source.text().substring(start, offset);
+    for (int index = 0; index < lexeme.length(); index++) {
+      if (lexeme.charAt(index) == '_'
+          && (index == 0
+              || index + 1 == lexeme.length()
+              || !Character.isDigit(lexeme.charAt(index - 1))
+              || !Character.isDigit(lexeme.charAt(index + 1)))) {
+        diagnostics.error(
+            INVALID_NUMBER,
+            "numeric separators must occur between digits",
+            new SourceSpan(source, start, offset));
+        break;
+      }
+    }
     tokens.add(
-        new Token(
-            TokenKind.INTEGER,
-            lexeme,
-            lexeme.replace("_", ""),
-            new SourceSpan(source, start, offset)));
+        new Token(kind, lexeme, lexeme.replace("_", ""), new SourceSpan(source, start, offset)));
   }
 
   private void scanString(int start) {

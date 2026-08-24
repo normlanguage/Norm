@@ -14,14 +14,48 @@ final class CoreTree {
     switch (definition) {
       case CoreDefinition.Callable callable -> {
         callable.receiverType().ifPresent(type -> collect(type, result));
+        callable.typeParameters().forEach(parameter -> collect(parameter, result));
         callable.parameterTypes().forEach(type -> collect(type, result));
         collect(callable.returnType(), result);
         callable.locals().forEach(local -> collect(local.type(), result));
         collectLinks(callable.body(), result);
       }
-      case CoreDefinition.Class classDefinition ->
-          classDefinition.fields().forEach(field -> collect(field.type(), result));
-      case CoreDefinition.Enum ignored -> {}
+      case CoreDefinition.Class classDefinition -> {
+        classDefinition.typeParameters().forEach(parameter -> collect(parameter, result));
+        classDefinition.fields().forEach(field -> collect(field.type(), result));
+        classDefinition.conformances().forEach(conformance -> collect(conformance, result));
+      }
+      case CoreDefinition.Enum enumDefinition -> {
+        enumDefinition.typeParameters().forEach(parameter -> collect(parameter, result));
+        enumDefinition
+            .variants()
+            .forEach(variant -> variant.fields().forEach(field -> collect(field.type(), result)));
+      }
+      case CoreDefinition.Interface declaration -> {
+        declaration.typeParameters().forEach(parameter -> collect(parameter, result));
+        declaration.directParents().forEach(type -> collect(type, result));
+        result.addAll(declaration.declaredMethods());
+      }
+      case CoreDefinition.InterfaceMethod method -> {
+        collect(method.receiverInterfaceType(), result);
+        method.typeParameters().forEach(parameter -> collect(parameter, result));
+        method.parameterTypes().forEach(type -> collect(type, result));
+        collect(method.returnType(), result);
+      }
+      case CoreDefinition.BuiltinConformance conformance -> {
+        conformance.typeParameters().forEach(parameter -> collect(parameter, result));
+        collect(conformance.concreteBuiltinType(), result);
+        collect(conformance.interfaceType(), result);
+        conformance
+            .witnesses()
+            .forEach(
+                witness -> {
+                  result.add(witness.requirement());
+                  if (witness.implementation() instanceof CoreWitnessTarget.Callable callable) {
+                    result.add(callable.definition());
+                  }
+                });
+      }
     }
     return List.copyOf(result);
   }
@@ -54,6 +88,7 @@ final class CoreTree {
       case CoreDefinition.Callable callable ->
           new CoreDefinition.Callable(
               callable.receiverType().map(type -> resolve(type, resolver)),
+              resolveTypeParameters(callable.typeParameters(), resolver),
               callable.parameterTypes().stream().map(type -> resolve(type, resolver)).toList(),
               callable.parameterLocals(),
               callable.reifiedTypeLocals(),
@@ -68,11 +103,59 @@ final class CoreTree {
       case CoreDefinition.Class classDefinition ->
           new CoreDefinition.Class(
               classDefinition.nominalType(),
-              classDefinition.typeParameterCount(),
+              resolveTypeParameters(classDefinition.typeParameters(), resolver),
               classDefinition.fields().stream()
                   .map(field -> new CoreField(field.ordinal(), resolve(field.type(), resolver)))
+                  .toList(),
+              classDefinition.conformances().stream()
+                  .map(value -> resolve(value, resolver))
                   .toList());
-      case CoreDefinition.Enum enumDefinition -> enumDefinition;
+      case CoreDefinition.Enum enumDefinition ->
+          new CoreDefinition.Enum(
+              enumDefinition.nominalType(),
+              resolveTypeParameters(enumDefinition.typeParameters(), resolver),
+              enumDefinition.variants().stream()
+                  .map(
+                      variant ->
+                          new CoreEnumVariant(
+                              variant.key(),
+                              variant.fields().stream()
+                                  .map(
+                                      field ->
+                                          new CoreField(
+                                              field.ordinal(), resolve(field.type(), resolver)))
+                                  .toList()))
+                  .toList());
+      case CoreDefinition.Interface declaration ->
+          new CoreDefinition.Interface(
+              declaration.nominalType(),
+              resolveTypeParameters(declaration.typeParameters(), resolver),
+              declaration.directParents().stream().map(type -> resolve(type, resolver)).toList(),
+              declaration.declaredMethods().stream().map(link -> resolve(link, resolver)).toList());
+      case CoreDefinition.InterfaceMethod method ->
+          new CoreDefinition.InterfaceMethod(
+              method.name(),
+              resolve(method.receiverInterfaceType(), resolver),
+              resolveTypeParameters(method.typeParameters(), resolver),
+              method.parameterTypes().stream().map(type -> resolve(type, resolver)).toList(),
+              resolve(method.returnType(), resolver));
+      case CoreDefinition.BuiltinConformance conformance ->
+          new CoreDefinition.BuiltinConformance(
+              resolveTypeParameters(conformance.typeParameters(), resolver),
+              resolve(conformance.concreteBuiltinType(), resolver),
+              resolve(conformance.interfaceType(), resolver),
+              conformance.witnesses().stream()
+                  .map(
+                      witness ->
+                          new CoreWitness(
+                              resolve(witness.requirement(), resolver),
+                              switch (witness.implementation()) {
+                                case CoreWitnessTarget.Callable callable ->
+                                    new CoreWitnessTarget.Callable(
+                                        resolve(callable.definition(), resolver));
+                                case CoreWitnessTarget.Intrinsic intrinsic -> intrinsic;
+                              }))
+                  .toList());
     };
   }
 
@@ -126,12 +209,15 @@ final class CoreTree {
               loop.nodeIndex(),
               loop.iteratorLocal(),
               loop.variableLocal(),
+              loop.indexLocal(),
               resolve(loop.iterable(), resolver),
               resolve(loop.body(), resolver),
-              loop.iterationIntrinsic());
+              resolve(loop.iteration(), resolver));
       case CoreStatement.ReturnStatement returned ->
           new CoreStatement.ReturnStatement(
               returned.nodeIndex(), returned.value().map(value -> resolve(value, resolver)));
+      case CoreStatement.YieldStatement yielded ->
+          new CoreStatement.YieldStatement(yielded.nodeIndex(), resolve(yielded.value(), resolver));
       case CoreStatement.BreakStatement broken -> broken;
       case CoreStatement.ContinueStatement continued -> continued;
     };
@@ -146,12 +232,13 @@ final class CoreTree {
               literal.nodeIndex(), literal.value(), resolve(literal.type(), resolver));
       case CoreExpression.NullLiteral literal ->
           new CoreExpression.NullLiteral(literal.nodeIndex(), resolve(literal.type(), resolver));
-      case CoreExpression.ArrayLiteral array ->
-          new CoreExpression.ArrayLiteral(
-              array.nodeIndex(),
-              array.elements().stream().map(value -> resolve(value, resolver)).toList(),
-              resolve(array.runtimeType(), resolver),
-              resolve(array.type(), resolver));
+      case CoreExpression.CollectionLiteral collection ->
+          new CoreExpression.CollectionLiteral(
+              collection.nodeIndex(),
+              collection.elements().stream().map(value -> resolve(value, resolver)).toList(),
+              collection.materializer(),
+              resolve(collection.runtimeType(), resolver),
+              resolve(collection.type(), resolver));
       case CoreExpression.LocalRead local ->
           new CoreExpression.LocalRead(
               local.nodeIndex(), local.localIndex(), resolve(local.type(), resolver));
@@ -162,12 +249,14 @@ final class CoreTree {
               resolve(field.field(), resolver),
               field.nullSafe(),
               resolve(field.type(), resolver));
-      case CoreExpression.EnumMember member ->
-          new CoreExpression.EnumMember(
-              member.nodeIndex(),
-              resolve(member.target(), resolver),
-              member.memberOrdinal(),
-              resolve(member.type(), resolver));
+      case CoreExpression.EnumConstruct construct ->
+          new CoreExpression.EnumConstruct(
+              construct.nodeIndex(),
+              resolve(construct.target(), resolver),
+              construct.variantKey(),
+              resolve(construct.runtimeType(), resolver),
+              resolveArguments(construct.arguments(), resolver),
+              resolve(construct.type(), resolver));
       case CoreExpression.Unary unary ->
           new CoreExpression.Unary(
               unary.nodeIndex(),
@@ -181,6 +270,18 @@ final class CoreTree {
               binary.operator(),
               resolve(binary.right(), resolver),
               resolve(binary.type(), resolver));
+      case CoreExpression.Switch switched ->
+          new CoreExpression.Switch(
+              switched.nodeIndex(),
+              resolve(switched.value(), resolver),
+              switched.cases().stream()
+                  .map(
+                      switchCase ->
+                          new CoreSwitchCase(
+                              resolve(switchCase.pattern(), resolver),
+                              resolve(switchCase.body(), resolver)))
+                  .toList(),
+              resolve(switched.type(), resolver));
       case CoreExpression.Index index ->
           new CoreExpression.Index(
               index.nodeIndex(),
@@ -204,6 +305,15 @@ final class CoreTree {
               call.reifiedArguments().stream().map(type -> resolve(type, resolver)).toList(),
               call.nullSafe(),
               resolve(call.type(), resolver));
+      case CoreExpression.InterfaceCall call ->
+          new CoreExpression.InterfaceCall(
+              call.nodeIndex(),
+              resolve(call.requirement(), resolver),
+              resolve(call.receiver(), resolver),
+              resolveArguments(call.arguments(), resolver),
+              call.reifiedArguments().stream().map(type -> resolve(type, resolver)).toList(),
+              call.nullSafe(),
+              resolve(call.type(), resolver));
       case CoreExpression.Construct construct ->
           new CoreExpression.Construct(
               construct.nodeIndex(),
@@ -220,6 +330,34 @@ final class CoreTree {
               intrinsic.runtimeType().map(type -> resolve(type, resolver)),
               intrinsic.nullSafe(),
               resolve(intrinsic.type(), resolver));
+    };
+  }
+
+  private static CoreIteration resolve(
+      CoreIteration iteration, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return switch (iteration) {
+      case CoreIteration.Builtin builtin -> builtin;
+      case CoreIteration.Interface protocol ->
+          new CoreIteration.Interface(
+              resolve(protocol.iteratorRequirement(), resolver),
+              resolve(protocol.hasNextRequirement(), resolver),
+              resolve(protocol.nextRequirement(), resolver));
+    };
+  }
+
+  private static CorePattern resolve(
+      CorePattern pattern, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return switch (pattern) {
+      case CorePattern.Variant variant ->
+          new CorePattern.Variant(
+              variant.variantKey(),
+              variant.arguments().stream().map(value -> resolve(value, resolver)).toList());
+      case CorePattern.Binding binding ->
+          new CorePattern.Binding(binding.localIndex(), resolve(binding.type(), resolver));
+      case CorePattern.Wildcard wildcard -> wildcard;
+      case CorePattern.Literal literal ->
+          new CorePattern.Literal(literal.value(), resolve(literal.type(), resolver));
+      case CorePattern.Null nil -> nil;
     };
   }
 
@@ -242,6 +380,36 @@ final class CoreTree {
       CoreFieldReference field,
       Function<PendingDefinitionReference, DefinitionReference> resolver) {
     return new CoreFieldReference(resolve(field.owner(), resolver), field.ordinal());
+  }
+
+  private static CoreConformance resolve(
+      CoreConformance conformance,
+      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return new CoreConformance(
+        resolve(conformance.interfaceType(), resolver),
+        conformance.witnesses().stream()
+            .map(
+                witness ->
+                    new CoreWitness(
+                        resolve(witness.requirement(), resolver),
+                        switch (witness.implementation()) {
+                          case CoreWitnessTarget.Callable callable ->
+                              new CoreWitnessTarget.Callable(
+                                  resolve(callable.definition(), resolver));
+                          case CoreWitnessTarget.Intrinsic intrinsic -> intrinsic;
+                        }))
+            .toList());
+  }
+
+  private static List<CoreTypeParameter> resolveTypeParameters(
+      List<CoreTypeParameter> parameters,
+      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return parameters.stream()
+        .map(
+            parameter ->
+                new CoreTypeParameter(
+                    parameter.index(), parameter.upperBound().map(type -> resolve(type, resolver))))
+        .toList();
   }
 
   private static CoreType resolve(
@@ -304,10 +472,12 @@ final class CoreTree {
       }
       case CoreStatement.ForStatement loop -> {
         collectTypes(loop.iterable(), result);
+        collect(loop.iteration(), result);
         collectTypes(loop.body(), result);
       }
       case CoreStatement.ReturnStatement returned ->
           returned.value().ifPresent(value -> collectTypes(value, result));
+      case CoreStatement.YieldStatement yielded -> collectTypes(yielded.value(), result);
       case CoreStatement.BreakStatement ignored -> {}
       case CoreStatement.ContinueStatement ignored -> {}
     }
@@ -318,20 +488,28 @@ final class CoreTree {
     switch (expression) {
       case CoreExpression.Literal ignored -> {}
       case CoreExpression.NullLiteral ignored -> {}
-      case CoreExpression.ArrayLiteral array -> {
-        collect(array.runtimeType(), result);
-        array.elements().forEach(value -> collectTypes(value, result));
+      case CoreExpression.CollectionLiteral collection -> {
+        collect(collection.runtimeType(), result);
+        collection.elements().forEach(value -> collectTypes(value, result));
       }
       case CoreExpression.LocalRead ignored -> {}
       case CoreExpression.FieldRead field -> {
         result.add(field.field().owner());
         collectTypes(field.receiver(), result);
       }
-      case CoreExpression.EnumMember ignored -> {}
+      case CoreExpression.EnumConstruct construct -> {
+        collect(construct.runtimeType(), result);
+        construct.arguments().forEach(argument -> collectTypes(argument.value(), result));
+      }
       case CoreExpression.Unary unary -> collectTypes(unary.operand(), result);
       case CoreExpression.Binary binary -> {
         collectTypes(binary.left(), result);
         collectTypes(binary.right(), result);
+      }
+      case CoreExpression.Switch switched -> {
+        collectTypes(switched.value(), result);
+        switched.cases().forEach(value -> collectTypes(value.pattern(), result));
+        switched.cases().forEach(value -> collectTypes(value.body(), result));
       }
       case CoreExpression.Index index -> {
         collectTypes(index.receiver(), result);
@@ -340,6 +518,11 @@ final class CoreTree {
       case CoreExpression.CopyObject copied -> collectTypes(copied.receiver(), result);
       case CoreExpression.Call call -> {
         call.receiver().ifPresent(value -> collectTypes(value, result));
+        call.arguments().forEach(argument -> collectTypes(argument.value(), result));
+        call.reifiedArguments().forEach(type -> collect(type, result));
+      }
+      case CoreExpression.InterfaceCall call -> {
+        collectTypes(call.receiver(), result);
         call.arguments().forEach(argument -> collectTypes(argument.value(), result));
         call.reifiedArguments().forEach(type -> collect(type, result));
       }
@@ -352,6 +535,17 @@ final class CoreTree {
         intrinsic.arguments().forEach(argument -> collectTypes(argument.value(), result));
         intrinsic.runtimeType().ifPresent(type -> collect(type, result));
       }
+    }
+  }
+
+  private static void collectTypes(CorePattern pattern, List<CoreDefinitionLink> result) {
+    switch (pattern) {
+      case CorePattern.Variant variant ->
+          variant.arguments().forEach(value -> collectTypes(value, result));
+      case CorePattern.Binding binding -> collect(binding.type(), result);
+      case CorePattern.Wildcard ignored -> {}
+      case CorePattern.Literal literal -> collect(literal.type(), result);
+      case CorePattern.Null ignored -> {}
     }
   }
 
@@ -388,6 +582,7 @@ final class CoreTree {
       }
       case CoreStatement.ReturnStatement returned ->
           returned.value().ifPresent(value -> collect(value, result));
+      case CoreStatement.YieldStatement yielded -> collect(yielded.value(), result);
       case CoreStatement.BreakStatement ignored -> {}
       case CoreStatement.ContinueStatement ignored -> {}
     }
@@ -397,15 +592,22 @@ final class CoreTree {
     switch (expression) {
       case CoreExpression.Literal ignored -> {}
       case CoreExpression.NullLiteral ignored -> {}
-      case CoreExpression.ArrayLiteral array ->
-          array.elements().forEach(value -> collect(value, result));
+      case CoreExpression.CollectionLiteral collection ->
+          collection.elements().forEach(value -> collect(value, result));
       case CoreExpression.LocalRead ignored -> {}
       case CoreExpression.FieldRead field -> collect(field.receiver(), result);
-      case CoreExpression.EnumMember member -> put(result, member.nodeIndex(), member.target());
+      case CoreExpression.EnumConstruct construct -> {
+        put(result, construct.nodeIndex(), construct.target());
+        construct.arguments().forEach(argument -> collect(argument.value(), result));
+      }
       case CoreExpression.Unary unary -> collect(unary.operand(), result);
       case CoreExpression.Binary binary -> {
         collect(binary.left(), result);
         collect(binary.right(), result);
+      }
+      case CoreExpression.Switch switched -> {
+        collect(switched.value(), result);
+        switched.cases().forEach(value -> collect(value.body(), result));
       }
       case CoreExpression.Index index -> {
         collect(index.receiver(), result);
@@ -415,6 +617,11 @@ final class CoreTree {
       case CoreExpression.Call call -> {
         put(result, call.nodeIndex(), call.target());
         call.receiver().ifPresent(value -> collect(value, result));
+        call.arguments().forEach(argument -> collect(argument.value(), result));
+      }
+      case CoreExpression.InterfaceCall call -> {
+        put(result, call.nodeIndex(), call.requirement());
+        collect(call.receiver(), result);
         call.arguments().forEach(argument -> collect(argument.value(), result));
       }
       case CoreExpression.Construct construct -> {
@@ -433,5 +640,30 @@ final class CoreTree {
     if (references.putIfAbsent(nodeIndex, target) != null) {
       throw new IllegalArgumentException("core reference node index is duplicated");
     }
+  }
+
+  private static void collect(CoreConformance conformance, List<CoreDefinitionLink> result) {
+    collect(conformance.interfaceType(), result);
+    conformance
+        .witnesses()
+        .forEach(
+            witness -> {
+              result.add(witness.requirement());
+              if (witness.implementation() instanceof CoreWitnessTarget.Callable callable) {
+                result.add(callable.definition());
+              }
+            });
+  }
+
+  private static void collect(CoreIteration iteration, List<CoreDefinitionLink> result) {
+    if (iteration instanceof CoreIteration.Interface protocol) {
+      result.add(protocol.iteratorRequirement());
+      result.add(protocol.hasNextRequirement());
+      result.add(protocol.nextRequirement());
+    }
+  }
+
+  private static void collect(CoreTypeParameter parameter, List<CoreDefinitionLink> result) {
+    parameter.upperBound().ifPresent(type -> collect(type, result));
   }
 }

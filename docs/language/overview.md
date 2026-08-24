@@ -22,7 +22,7 @@
 ```norm
 Void main() {
     String language = "Norm"
-    printLine("Hello, ${language}")
+    printLine("Hello, " + language)
 }
 ```
 
@@ -88,4 +88,3 @@ Norm 没有 `static`。不依赖对象状态的行为直接写成顶层函数。
 这本手册只解释语言本身：类型、值、函数、控制流和抽象机制。HTTP、数据库、依赖注入、序列化等内容属于[应用平台文档](/web/overview)，不会作为基础语法的前置知识。
 
 下一章：[基础语法](/language/basics)。
-

@@ -10,9 +10,10 @@ public record BoundClass(
     String name,
     BoundVisibility visibility,
     SemanticType type,
-    List<SemanticType> typeParameters,
+    List<BoundTypeParameter> typeParameters,
     List<BoundField> fields,
     List<BoundCallableId> methods,
+    List<BoundConformance> conformances,
     SourceSpan span)
     implements BoundNode {
   public BoundClass {
@@ -23,6 +24,7 @@ public record BoundClass(
     typeParameters = List.copyOf(typeParameters);
     fields = List.copyOf(fields);
     methods = List.copyOf(methods);
+    conformances = List.copyOf(conformances);
     Objects.requireNonNull(span, "span");
   }
 }

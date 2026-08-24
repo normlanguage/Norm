@@ -1,16 +1,23 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  Deque<Integer> values = Deque<Integer>()
+  Deque<Integer> values = Deque<>()
   values.addLast(2)
   values.addFirst(1)
   values.addLast(3)
-  printLine(values.removeFirst())
-  printLine(values.removeLast())
-  Pair<String, Integer> pair = Pair<String, Integer>(first: "left", second: 9)
+  printLines([
+    values.removeFirst(),
+    values.removeLast()
+  ])
+  Pair<String, Integer> pair = Pair<>(first: "left", second: 9)
   printLine(pair.first)
   Range indices = Range(start: 0, end: 4)
   printLine(indices.size())
-  expectedOutputLine("1")
-  expectedOutputLine("3")
-  expectedOutputLine("left")
-  expectedOutputLine("4")
+  expectedOutputLines([
+    "1",
+    "3",
+    "left",
+    "4"
+  ])
 }

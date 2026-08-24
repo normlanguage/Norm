@@ -8,14 +8,23 @@ Norm 是静态强类型语言。编译器在程序运行前确定每个表达式
 
 | 类别 | 类型 | 用途 |
 | --- | --- | --- |
-| 整数 | `Byte`、`Short`、`Integer`、`Long` | 不同范围的整数 |
+| 数字父类型 | `Number` | 数值上界与异构数值存储 |
+| 整数 | `Integer`、`Long` | 32 位与 64 位有符号整数 |
 | 浮点数 | `Float`、`Double` | 二进制浮点计算 |
-| 十进制 | `Decimal` | 需要十进制语义的计算 |
 | 逻辑 | `Boolean` | `true` 或 `false` |
 | 文本 | `String` | 字符串值 |
 | Unicode 标量 | `CodePoint` | 单个 Unicode code point |
 
+Number 是抽象公共父类型，值始终保留 Integer、Long、Float 或 Double 的具体运行时类型。Number 不可实例化，也不是把整数和浮点数压入同一种 64 位表示。泛型容器保持不变，但目标类型可以直接构造异构数值序列：
+
+```norm
+Number count = 10
+List<Number> values = [1, 2.5, 3]
+```
+
 Norm 没有统一的 `Object` 根类型。一个值能参与哪些操作，由它的具体类型或显式实现的接口决定。
+
+标准接口 `Stringable` 声明 `String toString()`。基础标量类型实现该接口；需要参与通用文本输出的用户类型应显式 `implements Stringable`。
 
 ## 非空默认
 
@@ -68,44 +77,16 @@ List<String?> names = ["Norm", null]
 class Interval {
     Integer start
     Integer end
-
-    Interval(Integer start, Integer end) {
-        this.start = start
-        this.end = end
-    }
 }
+
+Interval value = Interval(start: 0, end: 10)
 ```
 
-Norm 不提供延迟初始化关键字。编译器通过确定赋值分析保证对象构造完成后处于有效状态。
+class 实例化必须为所有字段提供构造参数。Norm 不提供延迟初始化关键字。
 
-## 数值提升
+## 数字字面量与运算
 
-较小范围的整数可以安全提升到较大范围：
-
-```norm
-Integer count = 12
-Long total = count
-```
-
-可能丢失信息的收窄转换必须显式写出目标类型：
-
-```norm
-Long total = 12
-Integer count = Integer(total)
-```
-
-显式转换表示程序员接受转换语义；它不意味着运行时一定忽略越界。越界行为由正式数值规范定义。
-
-## Decimal 与浮点类型
-
-`Decimal` 不与 `Float` 或 `Double` 隐式混合：
-
-```norm
-Decimal exact = Decimal("0.1")
-Double approximate = 0.1
-```
-
-如果计算需要跨数值模型，必须先明确转换其中一方。这避免一个表达式在没有提示的情况下改变精度规则。
+数字字面量优先服从具体 expected type；无上下文时按范围选择 Integer、Long 或 Double。Number 只作为父类型，不直接决定字面量表示。算术与大小比较要求操作数具有相同的具体数值叶类型，跨叶转换必须显式表达。
 
 ## Nominal Typing
 
@@ -121,7 +102,7 @@ class Coordinate implements Printable {
     Integer y
 
     String printLine() {
-        return "(${x}, ${y})"
+        return "coordinate"
     }
 }
 ```

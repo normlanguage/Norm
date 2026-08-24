@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer? integerIdentity(Integer? value) {
   return value
 }
@@ -9,8 +12,12 @@ Boolean? booleanIdentity(Boolean? value) {
 Void main() {
   Integer? integer = integerIdentity(null)
   Boolean? boolean = booleanIdentity(null)
-  printLine(integer ?? 7)
-  printLine(boolean ?? true)
-  expectedOutputLine("7")
-  expectedOutputLine("true")
+  printLines([
+    integer ?? 7,
+    boolean ?? true
+  ])
+  expectedOutputLines([
+    "7",
+    "true"
+  ])
 }

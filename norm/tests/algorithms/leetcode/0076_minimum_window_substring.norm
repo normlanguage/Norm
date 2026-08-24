@@ -1,14 +1,14 @@
 String minWindow(String value, String requiredValue) {
   Array<CodePoint> text = value.codePoints()
   Array<CodePoint> required = requiredValue.codePoints()
-  Map<CodePoint, Integer> need = Map<CodePoint, Integer>()
+  Map<CodePoint, Integer> need = Map<>()
   for CodePoint token : required {
     if need.containsKey(token) { need.put(key: token, value: need[token] + 1) } else { need.put(key: token, value: 1) }
   }
-  Map<CodePoint, Integer> have = Map<CodePoint, Integer>()
+  Map<CodePoint, Integer> have = Map<>()
   Integer formed = 0
   Integer left = 0
-  Pair<Integer, Integer> best = Pair<Integer, Integer>(first: 0, second: text.size() + 1)
+  Pair<Integer, Integer> best = Pair<>(first: 0, second: text.size() + 1)
   for right : range(start: 0, end: text.size()) {
     CodePoint token = text[right]
     if need.containsKey(token) {
@@ -16,7 +16,7 @@ String minWindow(String value, String requiredValue) {
       if have[token] <= need[token] { formed = formed + 1 }
     }
     for formed >= required.size() {
-      if right - left + 1 < best.second - best.first { best = Pair<Integer, Integer>(first: left, second: right + 1) }
+      if right - left + 1 < best.second - best.first { best = Pair<>(first: left, second: right + 1) }
       CodePoint removed = text[left]
       if need.containsKey(removed) {
         have.put(key: removed, value: have[removed] - 1)

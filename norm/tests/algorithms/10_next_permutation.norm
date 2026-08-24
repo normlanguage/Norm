@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> reverse(Array<Integer> values, Integer start) {
   Integer swaps = (values.size() - start) / 2
   for offset : range(start: 0, end: swaps) {
@@ -39,10 +41,12 @@ Void printArray(Array<Integer> values) {
 Void main() {
   printArray(nextPermutation([1, 2, 3]))
   printArray(nextPermutation([3, 2, 1]))
-  expectedOutputLine("1")
-  expectedOutputLine("3")
-  expectedOutputLine("2")
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
+  expectedOutputLines([
+    "1",
+    "3",
+    "2",
+    "1",
+    "2",
+    "3"
+  ])
 }

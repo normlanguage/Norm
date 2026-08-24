@@ -16,8 +16,21 @@ final class LanguageServiceTest {
   private final LanguageService service = new LanguageService();
 
   @Test
+  void exposesIndexedLoopLocalsToHoverAndCompletion() {
+    String text = "Void main() { for value,index : [10, 20] { printLine(index) ind } }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:indexed-loop"), text));
+
+    assertEquals(
+        "`Integer index`",
+        service.hover(analysis, text.indexOf("index)")).orElseThrow().markdown());
+    assertTrue(
+        service.complete(analysis, text.lastIndexOf("ind") + 3).stream()
+            .anyMatch(completion -> completion.label().equals("index")));
+  }
+
+  @Test
   void completesMembersFromTheResolvedReceiverSymbol() {
-    String text = "Void main() { List<Integer> values = List<Integer>() values.add(1) }";
+    String text = "Void main() { List<Integer> values = List<>() values.add(1) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:completion"), text));
     int offset = text.indexOf("values.add") + "values.".length();
 
@@ -69,7 +82,7 @@ final class LanguageServiceTest {
 
   @Test
   void completesAndReplacesAPartiallyTypedMemberName() {
-    String text = "Void main() { List<Integer> values = List<Integer>() values.rem }";
+    String text = "Void main() { List<Integer> values = List<>() values.rem }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:member-prefix"), text));
     int offset = text.indexOf(".rem") + ".rem".length();
 
@@ -110,7 +123,161 @@ final class LanguageServiceTest {
   }
 
   @Test
-  void completesUserMembersAndEnumMembers() {
+  void completesSwitchExpressionsAndCaseBranches() {
+    String statementText = "Void main() {  }";
+    var statementAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:switch-template"), statementText));
+    Completion switched =
+        service.complete(statementAnalysis, statementText.indexOf('}')).stream()
+            .filter(candidate -> candidate.label().equals("switch"))
+            .findFirst()
+            .orElseThrow();
+
+    String caseText =
+        "enum Color { Red, Green } Void main() { Color value = Color.Red switch value {  } }";
+    var caseAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:case-completion"), caseText));
+    int caseOffset = caseText.indexOf("switch value {  }") + "switch value { ".length();
+
+    assertTrue(switched.snippet());
+    assertTrue(switched.insertText().startsWith("switch ${1:value}"));
+    assertTrue(
+        service.complete(caseAnalysis, caseOffset).stream()
+            .anyMatch(completion -> completion.label().equals("case")));
+  }
+
+  @Test
+  void completesInterfaceDeclarationsAndConformanceTypes() {
+    String topLevel = "";
+    var topLevelAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:interface-template"), topLevel));
+    Completion declaration =
+        service.complete(topLevelAnalysis, 0).stream()
+            .filter(candidate -> candidate.label().equals("interface"))
+            .findFirst()
+            .orElseThrow();
+
+    String conformance = "interface Named { String name() } class User implements Named {}";
+    var conformanceAnalysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:interface-type"), conformance));
+    int offset = conformance.indexOf("Named {}", conformance.indexOf("implements"));
+
+    assertEquals("interface ${1:Name} {\n  ${2}\n}", declaration.insertText());
+    assertTrue(
+        service.complete(conformanceAnalysis, offset).stream()
+            .anyMatch(
+                completion ->
+                    completion.label().equals("Named")
+                        && completion.kind() == CompletionKind.INTERFACE));
+
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/model/Named.norm"),
+            "package model public interface Named { String name() }");
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/app/User.norm"), "package app class User implements Nam {}");
+    var document =
+        service
+            .snapshot(
+                new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())))
+            .entryDocument();
+    Completion imported =
+        service.complete(document, entry.text().indexOf("Nam") + 3).stream()
+            .filter(candidate -> candidate.label().equals("Named"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals(CompletionKind.INTERFACE, imported.kind());
+    assertEquals(1, imported.additionalTextEdits().size());
+  }
+
+  @Test
+  void completesInheritedInterfaceMembersAndBoundedTypeParameters() {
+    String text =
+        "interface Comparable<T> { Integer compareTo(T right) } "
+            + "interface Named { String name() } "
+            + "interface Ordered<T> extends Comparable<T>, Named {} "
+            + "T choose<T extends Ordered<T>>(T left, T right) { left.compareTo(right: right) "
+            + "return left } Void main() {}";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:interface-members"), text));
+
+    List<Completion> members =
+        service.complete(analysis, text.indexOf("left.compareTo") + "left.".length());
+    SignatureHelp help =
+        service
+            .signatureHelp(analysis, text.indexOf("left.compareTo(") + "left.compareTo(".length())
+            .orElseThrow();
+
+    assertTrue(members.stream().anyMatch(value -> value.label().equals("compareTo")));
+    assertTrue(members.stream().anyMatch(value -> value.label().equals("name")));
+    assertEquals("Integer compareTo(T right)", help.signatures().getFirst().label());
+    assertTrue(
+        service
+            .hover(analysis, text.indexOf("choose"))
+            .orElseThrow()
+            .markdown()
+            .contains("T choose<T extends Ordered<T>>(T left, T right)"));
+    assertEquals(
+        "`T extends Ordered<T>`",
+        service.hover(analysis, text.indexOf("T left")).orElseThrow().markdown());
+  }
+
+  @Test
+  void linksInterfaceRequirementsAndImplementationsAcrossFiles() {
+    SourceFile requirement =
+        SourceFile.of(
+            DocumentId.of("file:///src/model/Named.norm"),
+            "package model public interface Named { String name() }");
+    SourceFile implementation =
+        SourceFile.of(
+            DocumentId.of("file:///src/model/User.norm"),
+            "package model public class User implements Named { "
+                + "public String name() { return \"Norm\" } }");
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/app/Main.norm"),
+            "package app import model.User Void main() { User user = User() printLine(user.name()) }");
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(
+                entry.id(),
+                List.of(entry, requirement, implementation),
+                Set.of(requirement.id(), implementation.id())));
+    var requirementAnalysis = snapshot.analysis(requirement.id());
+    var implementationAnalysis = snapshot.analysis(implementation.id());
+    var entryAnalysis = snapshot.analysis(entry.id());
+    int requirementName = requirement.text().indexOf("name()");
+    int implementationName = implementation.text().indexOf("name()");
+
+    assertEquals(
+        requirement.id(),
+        service.definition(implementationAnalysis, implementationName).orElseThrow().document());
+    assertEquals(
+        implementation.id(),
+        service
+            .definition(entryAnalysis, entry.text().lastIndexOf("name"))
+            .orElseThrow()
+            .document());
+    assertTrue(
+        service.references(requirementAnalysis, requirementName, false).stream()
+            .anyMatch(
+                location ->
+                    location.document().equals(implementation.id())
+                        && location.startOffset() == implementationName));
+    RenameEdit rename =
+        service.rename(requirementAnalysis, requirementName, "displayName").orElseThrow();
+    assertTrue(
+        rename.locations().stream().anyMatch(value -> value.document().equals(requirement.id())));
+    assertTrue(
+        rename.locations().stream()
+            .anyMatch(value -> value.document().equals(implementation.id())));
+    assertTrue(rename.locations().stream().anyMatch(value -> value.document().equals(entry.id())));
+  }
+
+  @Test
+  void completesUserMembersAndEnumVariants() {
     String text =
         "enum Color { Red, Green } class Point { Integer x Void move(Integer amount) {} } "
             + "Void main() { Point point = Point(1) printLine(point.x) printLine(Color.Green) }";
@@ -130,10 +297,35 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesAppliedGenericEnumVariantsWithPayloadSnippets() {
+    String text =
+        "enum Result<T, E> { Ok(T value), Err(E error) } Void main() { "
+            + "Result<Integer, String> result = Result<Integer, String>. }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:adt-completion"), text));
+    int offset = text.indexOf("Result<Integer, String>. }") + "Result<Integer, String>.".length();
+
+    Completion ok =
+        service.complete(analysis, offset).stream()
+            .filter(candidate -> candidate.label().equals("Ok"))
+            .findFirst()
+            .orElseThrow();
+    Completion err =
+        service.complete(analysis, offset).stream()
+            .filter(candidate -> candidate.label().equals("Err"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("Ok(value: ${1:value})", ok.insertText());
+    assertEquals("Result<Integer, String> Ok(Integer value)", ok.detail());
+    assertEquals("Err(error: ${1:error})", err.insertText());
+    assertEquals("Result<Integer, String> Err(String error)", err.detail());
+  }
+
+  @Test
   void completesMembersThroughSubstitutedGenericFields() {
     String text =
         "class Box<T> { T value } Void main() { "
-            + "Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) box.value.add(1) }";
+            + "Box<List<Integer>> box = Box<>(value: List<>()) box.value.add(1) }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:generic-members"), text));
     int offset = text.indexOf("box.value.add") + "box.value.".length();
 
@@ -153,7 +345,7 @@ final class LanguageServiceTest {
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
             "package sample.app import sample.util.Box Void main() { "
-                + "Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) box.value. }");
+                + "Box<List<Integer>> box = Box<>(value: List<>()) box.value. }");
     var document =
         service
             .snapshot(
@@ -172,12 +364,24 @@ final class LanguageServiceTest {
 
   @Test
   void completesOnlyMembersOfTheCanonicalQueueType() {
-    String text = "Void main() { Queue<Integer> values = Queue<Integer>() values. }";
+    String text = "Void main() { Queue<Integer> values = Queue<>() values. }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:queue-members"), text));
     var completions = service.complete(analysis, text.indexOf("values.") + "values.".length());
 
     assertTrue(completions.stream().anyMatch(completion -> completion.label().equals("remove")));
     assertFalse(completions.stream().anyMatch(completion -> completion.label().equals("pop")));
+  }
+
+  @Test
+  void exposesInferredLocalTypesToHoverAndCompletion() {
+    String text = "Void main() { var values = List<Integer>() values. }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:inferred-local"), text));
+    int use = text.indexOf("values.");
+
+    assertEquals("`List<Integer> values`", service.hover(analysis, use).orElseThrow().markdown());
+    assertTrue(
+        service.complete(analysis, use + "values.".length()).stream()
+            .anyMatch(completion -> completion.label().equals("add")));
   }
 
   @Test
@@ -460,6 +664,35 @@ final class LanguageServiceTest {
 
     assertEquals("Void consume(String value, Integer count)", help.signatures().getFirst().label());
     assertEquals(0, help.activeParameter());
+  }
+
+  @Test
+  void providesSignatureHelpForAppliedGenericEnumVariantConstructors() {
+    String text =
+        "enum Result<T, E> { Ok(T value), Err(E error) } Void main() { "
+            + "Result<Integer, String>.Ok(";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:adt-signature"), text));
+
+    SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
+
+    assertEquals("Result<Integer, String> Ok(Integer value)", help.signatures().getFirst().label());
+    assertEquals("Integer value", help.signatures().getFirst().parameters().getFirst().label());
+  }
+
+  @Test
+  void carriesExpectedTypesIntoSwitchBreakValues() {
+    String text =
+        "enum Result<T, E> { Ok(T value), Err(E error) } "
+            + "String describe(Result<Integer, String> result) { "
+            + "String label = \"ready\" Integer count = 1 return switch result { "
+            + "case Ok(Integer value) { break  } case Err(String error) { break error } } }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:switch-expected"), text));
+    int offset = text.indexOf("break  }") + "break ".length();
+
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
   }
 
   @Test

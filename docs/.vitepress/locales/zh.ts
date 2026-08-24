@@ -21,7 +21,7 @@ const specification = [
   { text: 'Value 与 Identity', link: '/spec/value-identity-semantics' },
   { text: '对象模型', link: '/spec/object-model' },
   { text: '内存语义', link: '/spec/memory-semantics' },
-  { text: '泛型型变', link: '/spec/generic-variance' },
+  { text: '泛型不变性', link: '/spec/generic-variance' },
   { text: '错误模型', link: '/spec/error-model' },
   { text: 'Enum 设计', link: '/spec/enum-design' },
   { text: 'Annotation 规范', link: '/spec/annotations' },
@@ -54,6 +54,7 @@ const grammar = [
 const stdlib = [
   { text: '标准库概览', link: '/stdlib/overview' },
   { text: '核心库', link: '/stdlib/core-libraries' },
+  { text: '输出', link: '/stdlib/output-api' },
   { text: 'String', link: '/stdlib/string' },
   { text: 'Array', link: '/stdlib/array' },
   { text: 'Collections', link: '/stdlib/collections' },
@@ -67,7 +68,7 @@ const stdlib = [
   { text: 'HTTP', link: '/stdlib/http' },
   { text: 'SQL', link: '/stdlib/sql' },
   { text: 'Serialization', link: '/stdlib/serialization' },
-  { text: 'Testing', link: '/stdlib/testing-api' },
+  { text: '测试', link: '/stdlib/testing-api' },
   { text: 'Logging', link: '/stdlib/logging' },
   { text: 'Process', link: '/stdlib/process' },
   { text: 'Command Line', link: '/stdlib/command-line' },
@@ -138,6 +139,7 @@ export const zhTheme: DefaultTheme.Config = {
     '/web/': [{ text: 'Web 应用开发', items: web }],
     '/versions/': [{ text: '版本记录', items: [
       { text: '版本索引', link: '/versions/' },
+      { text: 'Norm 0.5', link: '/versions/0.5' },
       { text: 'Norm 0.4', link: '/versions/0.4' },
       { text: 'Norm 0.3', link: '/versions/0.3' },
       { text: 'Norm 0.2', link: '/versions/0.2' },
@@ -145,6 +147,7 @@ export const zhTheme: DefaultTheme.Config = {
     ]}],
     '/design/': [
       { text: '实现与规划', items: [
+        { text: '0.5 实现契约', link: '/versions/0.5' },
         { text: '0.4 实现契约', link: '/versions/0.4' },
         { text: '0.3 版本记录', link: '/versions/0.3' },
         { text: '0.2 版本记录', link: '/versions/0.2' },

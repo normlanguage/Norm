@@ -19,8 +19,10 @@ public record CoreBinding(
     Objects.requireNonNull(visibility, "visibility");
     Objects.requireNonNull(shape, "shape");
     Objects.requireNonNull(occurrence, "occurrence");
-    if (!(shape instanceof CoreBindingShape.Callable) && ownerName.isPresent()) {
-      throw new IllegalArgumentException("only callable bindings may have an owner");
+    if (!(shape instanceof CoreBindingShape.Callable
+            || shape instanceof CoreBindingShape.InterfaceMethod)
+        && ownerName.isPresent()) {
+      throw new IllegalArgumentException("only method bindings may have an owner");
     }
   }
 
@@ -30,6 +32,8 @@ public record CoreBinding(
           ownerName.isPresent() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
       case CoreBindingShape.Class ignored -> CoreBindingKind.CLASS;
       case CoreBindingShape.Enum ignored -> CoreBindingKind.ENUM;
+      case CoreBindingShape.Interface ignored -> CoreBindingKind.INTERFACE;
+      case CoreBindingShape.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;
     };
   }
 

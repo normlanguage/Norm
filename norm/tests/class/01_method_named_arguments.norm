@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Point {
   Integer x
   Integer y
@@ -11,8 +14,12 @@ class Point {
 Void main() {
   Point point = Point(x: 1, y: 2)
   point.move(dy: 4, dx: 3)
-  printLine(point.x)
-  printLine(point.y)
-  expectedOutputLine("4")
-  expectedOutputLine("6")
+  printLines([
+    point.x,
+    point.y
+  ])
+  expectedOutputLines([
+    "4",
+    "6"
+  ])
 }

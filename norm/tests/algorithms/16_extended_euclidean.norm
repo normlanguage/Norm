@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Bezout {
   Integer gcd
   Integer x
@@ -12,10 +15,14 @@ Bezout extendedGcd(Integer a, Integer b) {
 
 Void main() {
   Bezout result = extendedGcd(a: 30, b: 18)
-  printLine(result.gcd)
-  printLine(result.x)
-  printLine(result.y)
-  expectedOutputLine("6")
-  expectedOutputLine("-1")
-  expectedOutputLine("2")
+  printLines([
+    result.gcd,
+    result.x,
+    result.y
+  ])
+  expectedOutputLines([
+    "6",
+    "-1",
+    "2"
+  ])
 }

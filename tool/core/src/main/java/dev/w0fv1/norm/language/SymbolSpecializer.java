@@ -5,30 +5,18 @@ import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 final class SymbolSpecializer {
   Symbol specialize(Symbol symbol, List<SemanticType> arguments) {
     if (arguments.isEmpty() || arguments.size() != symbol.typeParameters().size()) return symbol;
     Map<String, SemanticType> substitutions = new java.util.LinkedHashMap<>();
     for (int index = 0; index < symbol.typeParameters().size(); index++) {
-      String name = symbol.typeParameters().get(index);
-      Optional<String> identity = typeParameterIdentity(symbol.type(), name);
-      if (identity.isEmpty()) {
-        identity =
-            symbol.parameters().stream()
-                .map(ParameterInfo::type)
-                .map(type -> typeParameterIdentity(type, name))
-                .flatMap(Optional::stream)
-                .findFirst();
-      }
-      if (identity.isPresent()) {
-        substitutions.put(identity.orElseThrow(), arguments.get(index));
-      }
+      substitutions.put(symbol.typeParameters().get(index).type().identity(), arguments.get(index));
     }
     if (substitutions.size() != arguments.size()) return symbol;
     SemanticType type = symbol.type().substitute(substitutions);
-    if (symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.TYPE) {
+    if (symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.TYPE
+        || symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.INTERFACE) {
       type =
           SemanticType.declared(
               symbol.type().identity(), symbol.type().name(), arguments, symbol.type().category());
@@ -40,22 +28,23 @@ final class SymbolSpecializer {
         type,
         symbol.declaration(),
         symbol.owner(),
-        arguments.stream().map(SemanticType::displayName).toList(),
+        java.util.stream.IntStream.range(0, arguments.size())
+            .mapToObj(
+                index ->
+                    new dev.w0fv1.norm.semantic.TypeParameterInfo(
+                        symbol.typeParameters().get(index).name(),
+                        arguments.get(index),
+                        symbol
+                            .typeParameters()
+                            .get(index)
+                            .upperBound()
+                            .map(value -> value.substitute(substitutions))))
+            .toList(),
         symbol.parameters().stream()
             .map(
                 parameter ->
                     new ParameterInfo(parameter.name(), parameter.type().substitute(substitutions)))
             .toList(),
         symbol.documentation());
-  }
-
-  private static Optional<String> typeParameterIdentity(SemanticType type, String name) {
-    if (type.kind() == SemanticType.Kind.TYPE_PARAMETER && type.name().equals(name)) {
-      return Optional.of(type.identity());
-    }
-    return type.arguments().stream()
-        .map(argument -> typeParameterIdentity(argument, name))
-        .flatMap(Optional::stream)
-        .findFirst();
   }
 }

@@ -3,7 +3,7 @@
 Set 保存不重复的值，唯一性由 T 的 equality 与 hash 共同决定。
 
 ```norm
-Set<String> permissions = Set<String>()
+Set<String> permissions = Set<>()
 permissions.add("orders.read")
 
 Boolean allowed = permissions.contains("orders.read")
@@ -24,4 +24,3 @@ Set<String> onlyLeft = left.difference(right)
 ## 顺序与复制
 
 通用 Set 不保证遍历顺序。Set 自身是 value；复制后集合结构独立，其中的 class 元素仍保留对象身份。
-

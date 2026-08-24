@@ -14,13 +14,16 @@ final class OverloadResolver {
   private final DiagnosticBag diagnostics;
   private final DiagnosticCode invalidCall;
   private final BiFunction<Syntax.Expression, SemanticType, SemanticType> expressionTypes;
+  private final TypeRelations.DeclarationGraph typeRelations;
 
   OverloadResolver(
       DiagnosticBag diagnostics,
       DiagnosticCode invalidCall,
+      TypeRelations.DeclarationGraph typeRelations,
       BiFunction<Syntax.Expression, SemanticType, SemanticType> expressionTypes) {
     this.diagnostics = diagnostics;
     this.invalidCall = invalidCall;
+    this.typeRelations = typeRelations;
     this.expressionTypes = expressionTypes;
   }
 
@@ -124,7 +127,7 @@ final class OverloadResolver {
       } else if (parameter.kind() == SemanticType.Kind.TYPE_PARAMETER) {
         score += 3;
       } else if (!parameter.equals(actual)) {
-        if (!TypeRelations.isAssignable(parameter, actual)) return -1;
+        if (!typeRelations.isAssignable(parameter, actual)) return -1;
         score++;
       }
     }

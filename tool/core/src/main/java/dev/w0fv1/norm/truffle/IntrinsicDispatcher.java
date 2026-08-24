@@ -46,13 +46,14 @@ public final class IntrinsicDispatcher {
         context.expectedOutput().println(RuntimeValues.stringify(first));
         yield null;
       }
+      case TO_STRING -> RuntimeValues.stringify(receiver);
       case RANGE_CONSTRUCT -> {
-        long step = third == null ? 1 : (Long) third;
+        int step = third == null ? 1 : (Integer) third;
         if (step == 0) {
           throw new NormGuestException(
               RuntimeErrorCode.INVALID_ARGUMENT, "range step must not be zero", location);
         }
-        yield new RuntimeValues.RangeValue((Long) first, (Long) second, step);
+        yield new RuntimeValues.RangeValue((Integer) first, (Integer) second, step);
       }
       case ARRAY_CONSTRUCT -> new RuntimeValues.ArrayValue(type, new ArrayList<>());
       case LIST_CONSTRUCT -> new RuntimeValues.ListValue(type);
@@ -177,14 +178,16 @@ public final class IntrinsicDispatcher {
       case STRING_CODE_POINTS -> RuntimeValues.codePoints((String) receiver);
       case STRING_GRAPHEMES -> RuntimeValues.graphemes((String) receiver);
       case STRING_SLICE_CODE_POINTS ->
-          RuntimeValues.sliceCodePoints((String) receiver, (Long) first, (Long) second, location);
+          RuntimeValues.sliceCodePoints(
+              (String) receiver, (Integer) first, (Integer) second, location);
       case STRING_SPLIT -> RuntimeValues.split((String) receiver, (String) first, location);
       case STRING_IS_EMPTY -> ((String) receiver).isEmpty();
       case STRING_CONTAINS -> ((String) receiver).contains((String) first);
       case STRING_STARTS_WITH -> ((String) receiver).startsWith((String) first);
       case STRING_ENDS_WITH -> ((String) receiver).endsWith((String) first);
       case STRING_SLICE_GRAPHEMES ->
-          RuntimeValues.sliceGraphemes((String) receiver, (Long) first, (Long) second, location);
+          RuntimeValues.sliceGraphemes(
+              (String) receiver, (Integer) first, (Integer) second, location);
       case STRING_REPLACE ->
           RuntimeValues.replace((String) receiver, (String) first, (String) second, location);
       case STRING_REPLACE_FIRST ->
@@ -206,7 +209,7 @@ public final class IntrinsicDispatcher {
       case STRING_IS_NORMALIZED_NFD -> RuntimeValues.isNormalizedNfd((String) receiver);
       case STRING_IS_NORMALIZED_NFKC -> RuntimeValues.isNormalizedNfkc((String) receiver);
       case STRING_IS_NORMALIZED_NFKD -> RuntimeValues.isNormalizedNfkd((String) receiver);
-      case CODE_POINT_SCALAR_VALUE -> (long) ((RuntimeValues.CodePointValue) receiver).value();
+      case CODE_POINT_SCALAR_VALUE -> ((RuntimeValues.CodePointValue) receiver).value();
       case CODE_POINT_IS_DECIMAL_DIGIT ->
           Character.isDigit(((RuntimeValues.CodePointValue) receiver).value());
       case CODE_POINT_IS_LETTER ->
@@ -227,7 +230,7 @@ public final class IntrinsicDispatcher {
           throw new NormGuestException(
               RuntimeErrorCode.INVALID_ARGUMENT, "code point is not an ASCII digit", location);
         }
-        yield (long) (value - '0');
+        yield value - '0';
       }
       case PAIR_FIRST_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first);
       case PAIR_SECOND_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second);
@@ -269,35 +272,82 @@ public final class IntrinsicDispatcher {
         RuntimeValues.mapPut((RuntimeValues.MapValue) receiver, first, second);
         yield null;
       }
-      case ARRAY_ITERATOR -> ((RuntimeValues.ArrayValue) receiver).values.iterator();
-      case LIST_ITERATOR -> ((RuntimeValues.ListValue) receiver).values.iterator();
-      case MAP_ITERATOR -> mapIterator((RuntimeValues.MapValue) receiver);
-      case SET_ITERATOR -> ((RuntimeValues.SetValue) receiver).values.iterator();
-      case STACK_ITERATOR -> ((RuntimeValues.StackValue) receiver).values.iterator();
-      case QUEUE_ITERATOR -> ((RuntimeValues.QueueValue) receiver).values.iterator();
-      case DEQUE_ITERATOR -> ((RuntimeValues.DequeValue) receiver).values.iterator();
-      case RANGE_ITERATOR -> ((RuntimeValues.RangeValue) receiver).iterator();
+      case ARRAY_ITERATOR ->
+          nativeIterator(
+              ((RuntimeValues.ArrayValue) receiver).type,
+              ((RuntimeValues.ArrayValue) receiver).values.iterator());
+      case LIST_ITERATOR ->
+          nativeIterator(
+              ((RuntimeValues.ListValue) receiver).type,
+              ((RuntimeValues.ListValue) receiver).values.iterator());
+      case MAP_ITERATOR ->
+          new RuntimeValues.NativeIteratorValue(
+              mapElementType(((RuntimeValues.MapValue) receiver).type),
+              mapIterator((RuntimeValues.MapValue) receiver));
+      case SET_ITERATOR ->
+          nativeIterator(
+              ((RuntimeValues.SetValue) receiver).type,
+              ((RuntimeValues.SetValue) receiver).values.iterator());
+      case STACK_ITERATOR ->
+          nativeIterator(
+              ((RuntimeValues.StackValue) receiver).type,
+              ((RuntimeValues.StackValue) receiver).values.iterator());
+      case QUEUE_ITERATOR ->
+          nativeIterator(
+              ((RuntimeValues.QueueValue) receiver).type,
+              ((RuntimeValues.QueueValue) receiver).values.iterator());
+      case DEQUE_ITERATOR ->
+          nativeIterator(
+              ((RuntimeValues.DequeValue) receiver).type,
+              ((RuntimeValues.DequeValue) receiver).values.iterator());
+      case RANGE_ITERATOR ->
+          new RuntimeValues.NativeIteratorValue(
+              CoreType.INTEGER, ((RuntimeValues.RangeValue) receiver).iterator());
+      case ITERATOR_HAS_NEXT -> ((RuntimeValues.NativeIteratorValue) receiver).iterator.hasNext();
+      case ITERATOR_NEXT -> {
+        Iterator<Object> iterator = ((RuntimeValues.NativeIteratorValue) receiver).iterator;
+        if (!iterator.hasNext()) {
+          throw new NormGuestException(
+              RuntimeErrorCode.EMPTY_COLLECTION, "iterator is exhausted", location);
+        }
+        yield RuntimeValues.copy(iterator.next());
+      }
     };
   }
 
+  private static RuntimeValues.NativeIteratorValue nativeIterator(
+      CoreType collectionType, Iterator<Object> iterator) {
+    CoreType.Declared declared = (CoreType.Declared) collectionType;
+    return new RuntimeValues.NativeIteratorValue(declared.arguments().getFirst(), iterator);
+  }
+
+  private static CoreType mapElementType(CoreType mapType) {
+    CoreType.Declared map = (CoreType.Declared) mapType;
+    return new CoreType.Declared(
+        new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Pair")),
+        map.arguments(),
+        CoreValueCategory.VALUE,
+        CoreNullability.NON_NULL);
+  }
+
   private static int index(Object value, int size, Node location) {
-    long index = (Long) value;
+    int index = (Integer) value;
     if (index < 0 || index >= size) {
       throw new NormGuestException(
           RuntimeErrorCode.INDEX_OUT_OF_BOUNDS,
           "index " + index + " is outside collection size " + size,
           location);
     }
-    return Math.toIntExact(index);
+    return index;
   }
 
   private static List<Object> filledValues(Object sizeValue, Object value, Node location) {
-    long size = (Long) sizeValue;
-    if (size < 0 || size > Integer.MAX_VALUE) {
+    int size = (Integer) sizeValue;
+    if (size < 0) {
       throw new NormGuestException(
           RuntimeErrorCode.INVALID_ARGUMENT, "collection size is outside 0..2147483647", location);
     }
-    List<Object> result = new ArrayList<>((int) size);
+    List<Object> result = new ArrayList<>(size);
     for (int index = 0; index < size; index++) result.add(RuntimeValues.copy(value));
     return result;
   }

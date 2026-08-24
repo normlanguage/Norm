@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Parity {
   Boolean even(Integer value) {
     if value == 0 { return true }
@@ -12,10 +15,14 @@ class Parity {
 
 Void main() {
   Parity parity = Parity()
-  printLine(parity.even(0))
-  printLine(parity.even(7))
-  printLine(parity.even(10))
-  expectedOutputLine("true")
-  expectedOutputLine("false")
-  expectedOutputLine("true")
+  printLines([
+    parity.even(0),
+    parity.even(7),
+    parity.even(10)
+  ])
+  expectedOutputLines([
+    "true",
+    "false",
+    "true"
+  ])
 }

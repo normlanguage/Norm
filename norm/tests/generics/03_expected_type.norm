@@ -1,14 +1,21 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box<T> {}
 
 Box<T> emptyBox<T>() {
-  return Box<T>()
+  return Box<>()
 }
 
 Void main() {
   Box<String> box = emptyBox()
   Array<Box<String>> values = []
-  printLine(values.size())
-  printLine(box == box)
-  expectedOutputLine("0")
-  expectedOutputLine("true")
+  printLines([
+    values.size(),
+    box == box
+  ])
+  expectedOutputLines([
+    "0",
+    "true"
+  ])
 }

@@ -1,10 +1,17 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  List<String> words = List<String>()
+  List<String> words = List<>()
   words.add("first")
   words.add("last")
   Array<Integer> numbers = [1, 4, 9]
-  printLine(words.last())
-  printLine(numbers.last())
-  expectedOutputLine("last")
-  expectedOutputLine("9")
+  printLines([
+    words.last(),
+    numbers.last()
+  ])
+  expectedOutputLines([
+    "last",
+    "9"
+  ])
 }

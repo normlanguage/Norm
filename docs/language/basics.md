@@ -33,7 +33,7 @@ Boolean large = area >= 100
 
 ```norm
 area = area + 10
-printLine("area = ${area}")
+printLine(area)
 return area
 ```
 
@@ -63,13 +63,13 @@ if result > 100 {
 
 条件不需要括号，但代码块不能省略。条件表达式必须是 `Boolean`，不会把数字或字符串隐式当作布尔值。
 
-## 字符串模板
+## 字符串组合
 
 ```norm
-String message = "${width} × ${height} = ${result}"
+String greeting = "Hello, " + label
 ```
 
-字符串模板是把值写入字符串的标准方式。Norm 不对任意值执行隐式字符串转换，也不使用字符串 `+` 拼接不同类型。
+`+` 可以拼接 String。输出任意可打印值时直接使用 `printLine(value)` 或 `printLines(values)`。
 
 ## 创建对象
 
@@ -103,11 +103,10 @@ Integer clamp(Integer value, Integer minimum, Integer maximum) {
 
 Void main() {
     Integer opacity = clamp(value: 140, minimum: 0, maximum: 100)
-    printLine("opacity = ${opacity}")
+    printLine(opacity)
 }
 ```
 
 这个例子只依赖变量、函数、比较和条件。后面的章节会分别展开这些规则。
 
 下一章：[类型与 Null](/language/types)。
-

@@ -55,8 +55,8 @@ variant 参数是其携带数据的完整声明。enum 封闭且可由 switch �
 ## 函数
 
 ```norm
-String format(Point point) {
-    return "(${point.x}, ${point.y})"
+Integer coordinateSum(Point point) {
+    return point.x + point.y
 }
 ```
 

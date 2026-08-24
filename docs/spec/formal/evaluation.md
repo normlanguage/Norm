@@ -22,7 +22,7 @@ Norm 使用确定性的从左到右求值。编译器优化不得改变异常、
 
 ## Switch
 
-被匹配表达式只求值一次。case 按源码顺序检查，首个匹配 case 执行。enum 表达式 switch 在静态阶段已保证穷尽。
+被匹配表达式只求值一次。case 按源码顺序检查，首个匹配 case 独占执行且不 fallthrough。每个 switch 在静态阶段已保证穷尽；表达式 case 的正常完成路径必须以 `break value` 产生结果。
 
 ## 异常与 Finally
 

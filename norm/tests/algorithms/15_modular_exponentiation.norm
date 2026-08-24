@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer modularPower(Integer base, Integer exponent, Integer modulus) {
   Integer result = 1
   base = base % modulus
@@ -10,8 +13,12 @@ Integer modularPower(Integer base, Integer exponent, Integer modulus) {
 }
 
 Void main() {
-  printLine(modularPower(base: 2, exponent: 10, modulus: 1000))
-  printLine(modularPower(base: 7, exponent: 0, modulus: 13))
-  expectedOutputLine("24")
-  expectedOutputLine("1")
+  printLines([
+    modularPower(base: 2, exponent: 10, modulus: 1000),
+    modularPower(base: 7, exponent: 0, modulus: 13)
+  ])
+  expectedOutputLines([
+    "24",
+    "1"
+  ])
 }

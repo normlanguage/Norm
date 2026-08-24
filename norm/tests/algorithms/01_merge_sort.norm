@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> merge(List<Integer> left, List<Integer> right) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   Integer i = 0
   Integer j = 0
   for step : range(start: 0, end: left.size() + right.size()) {
@@ -23,8 +25,8 @@ List<Integer> merge(List<Integer> left, List<Integer> right) {
 List<Integer> mergeSort(List<Integer> values) {
   if values.size() <= 1 { return values }
   Integer middle = values.size() / 2
-  List<Integer> left = List<Integer>()
-  List<Integer> right = List<Integer>()
+  List<Integer> left = List<>()
+  List<Integer> right = List<>()
   for index : range(start: 0, end: values.size()) {
     if index < middle { left.add(values[index]) } else { right.add(values[index]) }
   }
@@ -32,13 +34,15 @@ List<Integer> mergeSort(List<Integer> values) {
 }
 
 Void main() {
-  List<Integer> values = List<Integer>()
+  List<Integer> values = List<>()
   for Integer value : [7, 2, 9, 1, 5, 3] { values.add(value) }
   for Integer value : mergeSort(values) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("5")
-  expectedOutputLine("7")
-  expectedOutputLine("9")
+  expectedOutputLines([
+    "1",
+    "2",
+    "3",
+    "5",
+    "7",
+    "9"
+  ])
 }

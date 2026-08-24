@@ -14,6 +14,133 @@ import java.util.List;
 final class ExpressionNodes {
   private ExpressionNodes() {}
 
+  private static Number negate(Number value) {
+    return switch (value) {
+      case Integer integer -> -integer;
+      case Long integer -> -integer;
+      case Float decimal -> -decimal;
+      case Double decimal -> -decimal;
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static Number add(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer + right.intValue();
+      case Long integer -> integer + right.longValue();
+      case Float decimal -> decimal + right.floatValue();
+      case Double decimal -> decimal + right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static Number subtract(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer - right.intValue();
+      case Long integer -> integer - right.longValue();
+      case Float decimal -> decimal - right.floatValue();
+      case Double decimal -> decimal - right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static Number multiply(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer * right.intValue();
+      case Long integer -> integer * right.longValue();
+      case Float decimal -> decimal * right.floatValue();
+      case Double decimal -> decimal * right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static Number divide(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer / right.intValue();
+      case Long integer -> integer / right.longValue();
+      case Float decimal -> decimal / right.floatValue();
+      case Double decimal -> decimal / right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static Number remainder(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer % right.intValue();
+      case Long integer -> integer % right.longValue();
+      case Float decimal -> decimal % right.floatValue();
+      case Double decimal -> decimal % right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static boolean less(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer < right.intValue();
+      case Long integer -> integer < right.longValue();
+      case Float decimal -> decimal < right.floatValue();
+      case Double decimal -> decimal < right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static boolean lessEqual(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer <= right.intValue();
+      case Long integer -> integer <= right.longValue();
+      case Float decimal -> decimal <= right.floatValue();
+      case Double decimal -> decimal <= right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static boolean greater(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer > right.intValue();
+      case Long integer -> integer > right.longValue();
+      case Float decimal -> decimal > right.floatValue();
+      case Double decimal -> decimal > right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  private static boolean greaterEqual(Number left, Number right) {
+    return switch (left) {
+      case Integer integer -> integer >= right.intValue();
+      case Long integer -> integer >= right.longValue();
+      case Float decimal -> decimal >= right.floatValue();
+      case Double decimal -> decimal >= right.doubleValue();
+      default -> throw new IllegalStateException("unsupported numeric value");
+    };
+  }
+
+  static final class Switch extends ExpressionNode {
+    @Child private ExpressionNode value;
+    @Children private final PatternNode[] patterns;
+    @Children private final StatementNode[] bodies;
+
+    Switch(ExpressionNode value, PatternNode[] patterns, StatementNode[] bodies) {
+      this.value = value;
+      this.patterns = patterns;
+      this.bodies = bodies;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      Object matchedValue = value.execute(frame);
+      for (int index = 0; index < patterns.length; index++) {
+        if (!patterns[index].matches(matchedValue, frame)) continue;
+        try {
+          bodies[index].executeVoid(frame);
+          return null;
+        } catch (ControlFlow.Yield yielded) {
+          return yielded.value;
+        }
+      }
+      throw new IllegalStateException("verified switch has no matching case");
+    }
+  }
+
   static final class Intrinsic extends ExpressionNode {
     private final IntrinsicId intrinsic;
     private final int[] parameterIndices;
@@ -73,11 +200,13 @@ final class ExpressionNodes {
     }
   }
 
-  static final class ArrayLiteral extends ExpressionNode {
+  static final class CollectionLiteral extends ExpressionNode {
+    private final IntrinsicId materializer;
     @Children private final ExpressionNode[] elements;
     @Child private ExpressionNode type;
 
-    ArrayLiteral(ExpressionNode[] elements, ExpressionNode type) {
+    CollectionLiteral(IntrinsicId materializer, ExpressionNode[] elements, ExpressionNode type) {
+      this.materializer = materializer;
       this.elements = elements;
       this.type = type;
     }
@@ -88,7 +217,12 @@ final class ExpressionNodes {
       for (ExpressionNode element : elements) {
         values.add(RuntimeValues.copy(element.execute(frame)));
       }
-      return new RuntimeValues.ArrayValue((CoreType) type.execute(frame), values);
+      CoreType runtimeType = (CoreType) type.execute(frame);
+      return switch (materializer) {
+        case ARRAY_CONSTRUCT -> new RuntimeValues.ArrayValue(runtimeType, values);
+        case LIST_CONSTRUCT -> new RuntimeValues.ListValue(runtimeType, values);
+        default -> throw new IllegalStateException("unsupported collection literal materializer");
+      };
     }
   }
 
@@ -142,7 +276,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return -(Long) operand.execute(frame);
+      return negate((Number) operand.execute(frame));
     }
   }
 
@@ -174,7 +308,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) + (Long) right.execute(frame);
+      return add((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -196,7 +330,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) - (Long) right.execute(frame);
+      return subtract((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -207,7 +341,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) * (Long) right.execute(frame);
+      return multiply((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -218,12 +352,13 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      long dividend = (Long) left.execute(frame);
-      long divisor = (Long) right.execute(frame);
-      if (divisor == 0) {
+      Number dividend = (Number) left.execute(frame);
+      Number divisor = (Number) right.execute(frame);
+      if ((divisor instanceof Integer && divisor.intValue() == 0)
+          || (divisor instanceof Long && divisor.longValue() == 0)) {
         throw new NormGuestException(RuntimeErrorCode.DIVISION_BY_ZERO, "division by zero", this);
       }
-      return dividend / divisor;
+      return divide(dividend, divisor);
     }
   }
 
@@ -234,12 +369,13 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      long dividend = (Long) left.execute(frame);
-      long divisor = (Long) right.execute(frame);
-      if (divisor == 0) {
+      Number dividend = (Number) left.execute(frame);
+      Number divisor = (Number) right.execute(frame);
+      if ((divisor instanceof Integer && divisor.intValue() == 0)
+          || (divisor instanceof Long && divisor.longValue() == 0)) {
         throw new NormGuestException(RuntimeErrorCode.DIVISION_BY_ZERO, "division by zero", this);
       }
-      return dividend % divisor;
+      return remainder(dividend, divisor);
     }
   }
 
@@ -250,7 +386,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) < (Long) right.execute(frame);
+      return less((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -261,7 +397,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) <= (Long) right.execute(frame);
+      return lessEqual((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -272,7 +408,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) > (Long) right.execute(frame);
+      return greater((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -283,7 +419,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return (Long) left.execute(frame) >= (Long) right.execute(frame);
+      return greaterEqual((Number) left.execute(frame), (Number) right.execute(frame));
     }
   }
 
@@ -427,6 +563,48 @@ final class ExpressionNodes {
     }
   }
 
+  static final class InterfaceCall extends ExpressionNode {
+    private final int[] parameterIndices;
+    private final boolean nullSafe;
+    @Child private InterfaceDispatchNode dispatch;
+    @Child private ExpressionNode receiver;
+    @Children private final ExpressionNode[] arguments;
+    @Children private final ExpressionNode[] typeArguments;
+
+    InterfaceCall(
+        DefinitionId requirement,
+        ExpressionNode receiver,
+        ExpressionNode[] arguments,
+        int[] parameterIndices,
+        ExpressionNode[] typeArguments,
+        boolean nullSafe,
+        java.util.Map<
+                dev.w0fv1.norm.core.BuiltinTypeId,
+                java.util.Map<DefinitionId, RuntimeValues.DispatchTarget>>
+            builtinDispatch) {
+      dispatch = new InterfaceDispatchNode(requirement, builtinDispatch);
+      this.receiver = receiver;
+      this.arguments = arguments;
+      this.parameterIndices = parameterIndices;
+      this.typeArguments = typeArguments;
+      this.nullSafe = nullSafe;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      Object receiverValue = receiver.execute(frame);
+      if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) {
+        return RuntimeValues.NullValue.INSTANCE;
+      }
+      Object[] bound = evaluateArguments(arguments, parameterIndices, frame);
+      Object[] reified = new Object[typeArguments.length];
+      for (int index = 0; index < typeArguments.length; index++) {
+        reified[index] = typeArguments[index].execute(frame);
+      }
+      return dispatch.execute(frame, receiverValue, bound, reified, this);
+    }
+  }
+
   static final class Construct extends ExpressionNode {
     private final RuntimeValues.ClassInfo classInfo;
     @Child private ExpressionNode type;
@@ -471,16 +649,37 @@ final class ExpressionNodes {
     }
   }
 
-  static final class EnumMember extends ExpressionNode {
-    private final RuntimeValues.EnumValue value;
+  static final class EnumConstruct extends ExpressionNode {
+    private final DefinitionId definition;
+    private final String enumName;
+    private final String variantKey;
+    @Child private ExpressionNode type;
+    @Children private final ExpressionNode[] fields;
+    private final int[] fieldIndices;
 
-    EnumMember(DefinitionId definition, int memberOrdinal, String enumName, String member) {
-      value = new RuntimeValues.EnumValue(definition, memberOrdinal, enumName, member);
+    EnumConstruct(
+        DefinitionId definition,
+        String enumName,
+        String variantKey,
+        ExpressionNode type,
+        ExpressionNode[] fields,
+        int[] fieldIndices) {
+      this.definition = definition;
+      this.enumName = enumName;
+      this.variantKey = variantKey;
+      this.type = type;
+      this.fields = fields;
+      this.fieldIndices = fieldIndices;
     }
 
     @Override
     Object execute(VirtualFrame frame) {
-      return value;
+      return new RuntimeValues.EnumValue(
+          definition,
+          (CoreType) type.execute(frame),
+          enumName,
+          variantKey,
+          java.util.Arrays.asList(evaluateArguments(fields, fieldIndices, frame)));
     }
   }
 

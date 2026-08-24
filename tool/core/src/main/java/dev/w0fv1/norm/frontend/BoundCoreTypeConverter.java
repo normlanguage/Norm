@@ -1,7 +1,11 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundClass;
+import dev.w0fv1.norm.bound.BoundEnum;
+import dev.w0fv1.norm.bound.BoundInterface;
+import dev.w0fv1.norm.bound.BoundInterfaceMethod;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
@@ -27,7 +31,37 @@ final class BoundCoreTypeConverter {
       BoundClass declaration, Map<String, Integer> nominalTypes) {
     Map<String, Integer> parameters = new LinkedHashMap<>();
     for (int index = 0; index < declaration.typeParameters().size(); index++) {
-      parameters.put(declaration.typeParameters().get(index).identity(), index);
+      parameters.put(declaration.typeParameters().get(index).type().identity(), index);
+    }
+    return new BoundCoreTypeConverter(parameters, nominalTypes);
+  }
+
+  static BoundCoreTypeConverter forEnum(BoundEnum declaration, Map<String, Integer> nominalTypes) {
+    Map<String, Integer> parameters = new LinkedHashMap<>();
+    for (int index = 0; index < declaration.typeParameters().size(); index++) {
+      parameters.put(declaration.typeParameters().get(index).type().identity(), index);
+    }
+    return new BoundCoreTypeConverter(parameters, nominalTypes);
+  }
+
+  static BoundCoreTypeConverter forInterface(
+      BoundInterface declaration, Map<String, Integer> nominalTypes) {
+    Map<String, Integer> parameters = new LinkedHashMap<>();
+    for (int index = 0; index < declaration.typeParameters().size(); index++) {
+      parameters.put(declaration.typeParameters().get(index).type().identity(), index);
+    }
+    return new BoundCoreTypeConverter(parameters, nominalTypes);
+  }
+
+  static BoundCoreTypeConverter forInterfaceMethod(
+      BoundInterface owner, BoundInterfaceMethod declaration, Map<String, Integer> nominalTypes) {
+    Map<String, Integer> parameters = new LinkedHashMap<>();
+    int index = 0;
+    for (var parameter : owner.typeParameters()) {
+      parameters.put(parameter.type().identity(), index++);
+    }
+    for (var parameter : declaration.typeParameters()) {
+      parameters.put(parameter.type().identity(), index++);
     }
     return new BoundCoreTypeConverter(parameters, nominalTypes);
   }
@@ -37,6 +71,15 @@ final class BoundCoreTypeConverter {
     Map<String, Integer> parameters = new LinkedHashMap<>();
     for (int index = 0; index < declaration.reifiedParameters().size(); index++) {
       parameters.put(declaration.reifiedParameters().get(index).typeParameterIdentity(), index);
+    }
+    return new BoundCoreTypeConverter(parameters, nominalTypes);
+  }
+
+  static BoundCoreTypeConverter forBuiltinConformance(
+      BoundBuiltinConformance declaration, Map<String, Integer> nominalTypes) {
+    Map<String, Integer> parameters = new LinkedHashMap<>();
+    for (int index = 0; index < declaration.typeParameters().size(); index++) {
+      parameters.put(declaration.typeParameters().get(index).type().identity(), index);
     }
     return new BoundCoreTypeConverter(parameters, nominalTypes);
   }
@@ -79,6 +122,7 @@ final class BoundCoreTypeConverter {
     return switch (category) {
       case VALUE -> CoreValueCategory.VALUE;
       case IDENTITY -> CoreValueCategory.IDENTITY;
+      case POLYMORPHIC -> CoreValueCategory.POLYMORPHIC;
       case DYNAMIC -> CoreValueCategory.DYNAMIC;
       case VOID -> CoreValueCategory.VOID;
     };

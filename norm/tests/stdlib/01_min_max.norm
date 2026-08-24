@@ -1,12 +1,18 @@
+import std.io.printLines
 import std.math.max
 import std.math.min
 import std.testing.equal
+import std.testing.expectedOutputLines
 
 Void main() {
-  printLine(equal(actual: min(left: 3, right: 8), expected: 3))
-  printLine(equal(actual: max(left: 3, right: 8), expected: 8))
-  printLine(equal(actual: min(left: 5, right: 5), expected: 5))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  printLines([
+    equal(actual: min(left: 3, right: 8), expected: 3),
+    equal(actual: max(left: 3, right: 8), expected: 8),
+    equal(actual: min(left: 5, right: 5), expected: 5)
+  ])
+  expectedOutputLines([
+    "true",
+    "true",
+    "true"
+  ])
 }

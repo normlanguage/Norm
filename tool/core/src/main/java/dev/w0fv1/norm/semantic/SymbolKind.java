@@ -2,14 +2,16 @@ package dev.w0fv1.norm.semantic;
 
 public enum SymbolKind {
   TYPE,
+  INTERFACE,
   TYPE_PARAMETER,
   FUNCTION,
   METHOD,
+  INTERFACE_METHOD,
   TYPE_METHOD,
   FIELD,
   PARAMETER,
   LOCAL_VARIABLE,
   SELF,
-  ENUM_MEMBER,
+  ENUM_VARIANT,
   PROPERTY
 }

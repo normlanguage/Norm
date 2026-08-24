@@ -7,9 +7,15 @@ import java.util.Optional;
 import java.util.Set;
 
 public sealed interface CoreDefinition
-    permits CoreDefinition.Callable, CoreDefinition.Class, CoreDefinition.Enum {
+    permits CoreDefinition.Callable,
+        CoreDefinition.Class,
+        CoreDefinition.Enum,
+        CoreDefinition.Interface,
+        CoreDefinition.InterfaceMethod,
+        CoreDefinition.BuiltinConformance {
   record Callable(
       Optional<CoreType> receiverType,
+      List<CoreTypeParameter> typeParameters,
       List<CoreType> parameterTypes,
       List<Integer> parameterLocals,
       List<Integer> reifiedTypeLocals,
@@ -19,6 +25,9 @@ public sealed interface CoreDefinition
       implements CoreDefinition {
     public Callable {
       receiverType = Objects.requireNonNull(receiverType, "receiverType");
+      int receiverTypeParameterCount =
+          receiverType.map(CoreDefinition::receiverParameterCount).orElse(0);
+      typeParameters = requireTypeParameters(typeParameters, receiverTypeParameterCount);
       parameterTypes = List.copyOf(parameterTypes);
       parameterLocals = List.copyOf(parameterLocals);
       reifiedTypeLocals = List.copyOf(reifiedTypeLocals);
@@ -50,10 +59,9 @@ public sealed interface CoreDefinition
       if (receiverLocals > 1) {
         throw new IllegalArgumentException("callables cannot declare multiple receiver locals");
       }
-      int receiverTypeParameterCount = receiverTypeParameterCount(receiverType);
-      if (receiverTypeParameterCount > reifiedTypeLocals.size()) {
+      if (receiverTypeParameterCount + typeParameters.size() != reifiedTypeLocals.size()) {
         throw new IllegalArgumentException(
-            "receiver type parameters exceed callable reified parameters");
+            "callable type parameters do not match reified parameters");
       }
       if (receiverType.isPresent()
           && !locals.getFirst().type().equals(receiverType.orElseThrow())) {
@@ -94,7 +102,7 @@ public sealed interface CoreDefinition
     }
 
     public int receiverTypeParameterCount() {
-      return receiverTypeParameterCount(receiverType);
+      return receiverType.map(CoreDefinition::receiverParameterCount).orElse(0);
     }
 
     private static void requireLocal(int index, int size) {
@@ -108,33 +116,19 @@ public sealed interface CoreDefinition
         throw new IllegalArgumentException(name + " bindings must be unique");
       }
     }
-
-    private static int receiverTypeParameterCount(Optional<CoreType> receiverType) {
-      if (receiverType.isEmpty()) return 0;
-      if (!(receiverType.orElseThrow() instanceof CoreType.Declared declared)
-          || !(declared.constructor() instanceof CoreTypeConstructor.User)) {
-        throw new IllegalArgumentException("method receiver must be a user-declared type");
-      }
-      for (int index = 0; index < declared.arguments().size(); index++) {
-        if (!(declared.arguments().get(index) instanceof CoreType.Parameter parameter)
-            || parameter.index() != index
-            || parameter.nullability() != CoreNullability.NON_NULL) {
-          throw new IllegalArgumentException(
-              "receiver type arguments must map directly to leading type parameters");
-        }
-      }
-      return declared.arguments().size();
-    }
   }
 
-  record Class(CoreNominalTypeKey nominalType, int typeParameterCount, List<CoreField> fields)
+  record Class(
+      CoreNominalTypeKey nominalType,
+      List<CoreTypeParameter> typeParameters,
+      List<CoreField> fields,
+      List<CoreConformance> conformances)
       implements CoreDefinition {
     public Class {
       Objects.requireNonNull(nominalType, "nominalType");
-      if (typeParameterCount < 0) {
-        throw new IllegalArgumentException("type parameter count must not be negative");
-      }
+      typeParameters = requireTypeParameters(typeParameters, 0);
       fields = List.copyOf(fields);
+      conformances = List.copyOf(conformances);
       for (int index = 0; index < fields.size(); index++) {
         if (fields.get(index).ordinal() != index) {
           throw new IllegalArgumentException("core fields must be dense and ordered");
@@ -143,13 +137,90 @@ public sealed interface CoreDefinition
     }
   }
 
-  record Enum(CoreNominalTypeKey nominalType, List<String> members) implements CoreDefinition {
+  record Interface(
+      CoreNominalTypeKey nominalType,
+      List<CoreTypeParameter> typeParameters,
+      List<CoreType> directParents,
+      List<CoreDefinitionLink> declaredMethods)
+      implements CoreDefinition {
+    public Interface {
+      Objects.requireNonNull(nominalType, "nominalType");
+      typeParameters = requireTypeParameters(typeParameters, 0);
+      directParents = List.copyOf(directParents);
+      declaredMethods = List.copyOf(declaredMethods);
+    }
+  }
+
+  record InterfaceMethod(
+      String name,
+      CoreType receiverInterfaceType,
+      List<CoreTypeParameter> typeParameters,
+      List<CoreType> parameterTypes,
+      CoreType returnType)
+      implements CoreDefinition {
+    public InterfaceMethod {
+      Objects.requireNonNull(name, "name");
+      if (name.isBlank())
+        throw new IllegalArgumentException("interface method name must not be blank");
+      Objects.requireNonNull(receiverInterfaceType, "receiverInterfaceType");
+      int receiverParameters = receiverParameterCount(receiverInterfaceType);
+      typeParameters = requireTypeParameters(typeParameters, receiverParameters);
+      parameterTypes = List.copyOf(parameterTypes);
+      Objects.requireNonNull(returnType, "returnType");
+    }
+  }
+
+  record BuiltinConformance(
+      List<CoreTypeParameter> typeParameters,
+      CoreType concreteBuiltinType,
+      CoreType interfaceType,
+      List<CoreWitness> witnesses)
+      implements CoreDefinition {
+    public BuiltinConformance {
+      typeParameters = requireTypeParameters(typeParameters, 0);
+      Objects.requireNonNull(concreteBuiltinType, "concreteBuiltinType");
+      Objects.requireNonNull(interfaceType, "interfaceType");
+      witnesses = List.copyOf(witnesses);
+    }
+  }
+
+  record Enum(
+      CoreNominalTypeKey nominalType,
+      List<CoreTypeParameter> typeParameters,
+      List<CoreEnumVariant> variants)
+      implements CoreDefinition {
     public Enum {
       Objects.requireNonNull(nominalType, "nominalType");
-      members = List.copyOf(members);
-      if (members.stream().anyMatch(String::isBlank)) {
-        throw new IllegalArgumentException("enum member names must not be blank");
+      typeParameters = requireTypeParameters(typeParameters, 0);
+      variants =
+          variants.stream().sorted(java.util.Comparator.comparing(CoreEnumVariant::key)).toList();
+    }
+  }
+
+  private static List<CoreTypeParameter> requireTypeParameters(
+      List<CoreTypeParameter> parameters, int firstIndex) {
+    List<CoreTypeParameter> result = List.copyOf(parameters);
+    for (int offset = 0; offset < result.size(); offset++) {
+      if (result.get(offset).index() != firstIndex + offset) {
+        throw new IllegalArgumentException("core type parameters must be dense and ordered");
       }
     }
+    return result;
+  }
+
+  private static int receiverParameterCount(CoreType receiverType) {
+    if (!(receiverType instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User)) {
+      throw new IllegalArgumentException("method receiver must be a user-declared type");
+    }
+    for (int index = 0; index < declared.arguments().size(); index++) {
+      if (!(declared.arguments().get(index) instanceof CoreType.Parameter parameter)
+          || parameter.index() != index
+          || parameter.nullability() != CoreNullability.NON_NULL) {
+        throw new IllegalArgumentException(
+            "receiver type arguments must map directly to leading type parameters");
+      }
+    }
+    return declared.arguments().size();
   }
 }

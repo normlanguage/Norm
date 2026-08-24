@@ -19,8 +19,8 @@ Void permuteFrom(Array<Integer> values, List<Integer> current, Set<Integer> used
 }
 
 List<List<Integer>> permute(Array<Integer> values) {
-  Permutations result = Permutations(values: List<List<Integer>>())
-  permuteFrom(values, current: List<Integer>(), used: Set<Integer>(), result)
+  Permutations result = Permutations(values: List<>())
+  permuteFrom(values, current: List<>(), used: Set<>(), result)
   return result.values
 }
 

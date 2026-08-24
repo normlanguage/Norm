@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Void show(String? value) {
   if value == null {
     printLine("none")
@@ -9,6 +11,8 @@ Void show(String? value) {
 Void main() {
   show(value: null)
   show(value: "ready")
-  expectedOutputLine("none")
-  expectedOutputLine("ready")
+  expectedOutputLines([
+    "none",
+    "ready"
+  ])
 }

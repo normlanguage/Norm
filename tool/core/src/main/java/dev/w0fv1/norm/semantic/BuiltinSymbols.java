@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.semantic;
 
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
+import dev.w0fv1.norm.builtin.IntrinsicId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,11 +61,24 @@ public final class BuiltinSymbols {
     return catalog.resolveIterable(type);
   }
 
+  public List<SemanticType> protocolConformances(SemanticType type) {
+    return catalog.protocolConformances(type);
+  }
+
   public Optional<BuiltinCatalog.ResolvedIndex> resolveIndex(SemanticType type) {
     return catalog.resolveIndex(type);
   }
 
   public Optional<List<ParameterInfo>> constructorParameters(SemanticType type) {
     return catalog.constructorParameters(type);
+  }
+
+  public Optional<IntrinsicId> collectionLiteral(SemanticType type) {
+    return catalog.collectionLiteral(type);
+  }
+
+  public Optional<BuiltinCatalog.ResolvedCollectionLiteral> resolveCollectionLiteral(
+      SemanticType expected) {
+    return catalog.resolveCollectionLiteral(expected);
   }
 }

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Pair<Integer, Integer> primeSummary(Integer limit) {
   List<Boolean> prime = List.filled(size: limit + 1, value: true)
   prime[0] = false
@@ -19,13 +22,17 @@ Pair<Integer, Integer> primeSummary(Integer limit) {
       last = value
     }
   }
-  return Pair<Integer, Integer>(first: count, second: last)
+  return Pair<>(first: count, second: last)
 }
 
 Void main() {
   Pair<Integer, Integer> result = primeSummary(30)
-  printLine(result.first)
-  printLine(result.second)
-  expectedOutputLine("10")
-  expectedOutputLine("29")
+  printLines([
+    result.first,
+    result.second
+  ])
+  expectedOutputLines([
+    "10",
+    "29"
+  ])
 }

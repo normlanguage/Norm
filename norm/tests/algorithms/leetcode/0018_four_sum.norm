@@ -1,8 +1,8 @@
 import std.collections.sort
 
 List<Array<Integer>> fourSum(Array<Integer> values, Integer target) {
-  List<Array<Integer>> result = List<Array<Integer>>()
-  Set<Array<Integer>> unique = Set<Array<Integer>>()
+  List<Array<Integer>> result = List<>()
+  Set<Array<Integer>> unique = Set<>()
   for a : range(start: 0, end: values.size()) {
     for b : range(start: a + 1, end: values.size()) {
       for c : range(start: b + 1, end: values.size()) {

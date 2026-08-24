@@ -1,7 +1,11 @@
+import std.testing.expectedOutputLines
+
 Void main() {
-  Range values = range(start: 0, end: 9223372036854775807, step: 9223372036854775807)
+  Range values = range(start: 0, end: 2147483647, step: 2147483647)
   printLine(values.size())
   for value : values { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("0")
+  expectedOutputLines([
+    "1",
+    "0"
+  ])
 }

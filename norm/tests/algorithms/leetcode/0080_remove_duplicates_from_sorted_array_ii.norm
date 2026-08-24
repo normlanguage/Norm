@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> removeDuplicatesTwice(Array<Integer> values) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   for Integer value : values {
     if result.size() < 2 || result[result.size() - 2] != value { result.add(value) }
   }
@@ -8,11 +10,13 @@ List<Integer> removeDuplicatesTwice(Array<Integer> values) {
 
 Void main() {
   for Integer value : removeDuplicatesTwice([0,0,1,1,1,1,2,3,3]) { printLine(value) }
-  expectedOutputLine("0")
-  expectedOutputLine("0")
-  expectedOutputLine("1")
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("3")
+  expectedOutputLines([
+    "0",
+    "0",
+    "1",
+    "1",
+    "2",
+    "3",
+    "3"
+  ])
 }

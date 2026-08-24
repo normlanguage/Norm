@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box {
   Integer value
 
@@ -10,12 +13,16 @@ Void main() {
   Box original = Box(value: 4)
   Box copied = original.copy()
   copied.set(9)
-  printLine(original.value)
-  printLine(copied.value)
-  printLine(original == copied)
-  printLine(original != copied)
-  expectedOutputLine("4")
-  expectedOutputLine("9")
-  expectedOutputLine("false")
-  expectedOutputLine("true")
+  printLines([
+    original.value,
+    copied.value,
+    original == copied,
+    original != copied
+  ])
+  expectedOutputLines([
+    "4",
+    "9",
+    "false",
+    "true"
+  ])
 }

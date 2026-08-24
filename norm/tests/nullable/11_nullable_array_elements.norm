@@ -1,9 +1,16 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
   Array<String?> values = ["first", null, "last"]
-  printLine(values[0] ?? "missing")
-  printLine(values[1] ?? "missing")
-  printLine(values[2] ?? "missing")
-  expectedOutputLine("first")
-  expectedOutputLine("missing")
-  expectedOutputLine("last")
+  printLines([
+    values[0] ?? "missing",
+    values[1] ?? "missing",
+    values[2] ?? "missing"
+  ])
+  expectedOutputLines([
+    "first",
+    "missing",
+    "last"
+  ])
 }

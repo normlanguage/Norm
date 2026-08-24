@@ -13,6 +13,7 @@ public record BoundCallable(
     Optional<BoundClassId> owner,
     Optional<BoundLocalId> thisLocal,
     List<BoundParameter> parameters,
+    List<BoundTypeParameter> typeParameters,
     List<BoundReifiedArgument> reifiedParameters,
     SemanticType returnType,
     BoundBlock body,
@@ -28,6 +29,7 @@ public record BoundCallable(
       throw new IllegalArgumentException("method owner and this local must be present together");
     }
     parameters = List.copyOf(parameters);
+    typeParameters = List.copyOf(typeParameters);
     reifiedParameters = List.copyOf(reifiedParameters);
     Objects.requireNonNull(returnType, "returnType");
     Objects.requireNonNull(body, "body");

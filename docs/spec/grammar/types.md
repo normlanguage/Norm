@@ -5,7 +5,7 @@ Norm 使用名义类型系统和类型前置声明。类型写在变量、字段
 ```norm
 Integer count = 3
 String title = "Grammar"
-List<String> names = List<String>()
+List<String> names = List<>()
 ```
 
 ## 类型形式
@@ -41,7 +41,7 @@ Map<String, Integer> counts
 Map counts // 编译错误
 ```
 
-通配符只出现在类型实参位置：`? extends T` 表示只读生产者，`? super T` 表示可写消费者。完整规则见[泛型型变](/spec/generic-variance)。
+参数化类型不变，当前类型语法不包含使用位置通配符。完整边界见[泛型不变性](/spec/generic-variance)。
 
 ## 函数类型
 

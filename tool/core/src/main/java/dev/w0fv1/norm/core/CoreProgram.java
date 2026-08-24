@@ -72,6 +72,18 @@ public final class CoreProgram {
     return definitions(CoreDefinition.Enum.class);
   }
 
+  public List<CoreDefinition.Interface> interfaces() {
+    return definitions(CoreDefinition.Interface.class);
+  }
+
+  public List<CoreDefinition.InterfaceMethod> interfaceMethods() {
+    return definitions(CoreDefinition.InterfaceMethod.class);
+  }
+
+  public List<CoreDefinition.BuiltinConformance> builtinConformances() {
+    return definitions(CoreDefinition.BuiltinConformance.class);
+  }
+
   public DefinitionId resolve(DefinitionId owner, DefinitionReference reference) {
     Objects.requireNonNull(owner, "owner");
     return switch (Objects.requireNonNull(reference, "reference")) {

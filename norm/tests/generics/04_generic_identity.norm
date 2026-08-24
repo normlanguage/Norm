@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Cell<T> {
   T value
 
@@ -7,16 +10,20 @@ class Cell<T> {
 }
 
 Void main() {
-  Cell<Integer> original = Cell<Integer>(value: -9223372036854775807)
-  Cell<Integer> alias = original
-  Cell<Integer> copied = original.copy()
+  Cell<Long> original = Cell<>(value: -9223372036854775807)
+  Cell<Long> alias = original
+  Cell<Long> copied = original.copy()
   alias.set(9223372036854775807)
-  printLine(original.value)
-  printLine(alias == original)
-  printLine(copied.value)
-  printLine(copied == original)
-  expectedOutputLine("9223372036854775807")
-  expectedOutputLine("true")
-  expectedOutputLine("-9223372036854775807")
-  expectedOutputLine("false")
+  printLines([
+    original.value,
+    alias == original,
+    copied.value,
+    copied == original
+  ])
+  expectedOutputLines([
+    "9223372036854775807",
+    "true",
+    "-9223372036854775807",
+    "false"
+  ])
 }

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box {
   Integer value
 
@@ -16,10 +19,14 @@ Void main() {
   Holder copied = original.copy()
   copied.box.set(8)
   copied.version = 2
-  printLine(original.box.value)
-  printLine(original.version)
-  printLine(copied.version)
-  expectedOutputLine("8")
-  expectedOutputLine("1")
-  expectedOutputLine("2")
+  printLines([
+    original.box.value,
+    original.version,
+    copied.version
+  ])
+  expectedOutputLines([
+    "8",
+    "1",
+    "2"
+  ])
 }

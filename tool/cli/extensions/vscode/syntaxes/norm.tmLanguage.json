@@ -41,13 +41,13 @@
       ]
     },
     "numbers": {
-      "name": "constant.numeric.integer.norm",
-      "match": "\\b[0-9](?:_?[0-9])*\\b"
+      "name": "constant.numeric.norm",
+      "match": "\\b[0-9](?:_?[0-9])*(?:\\.[0-9](?:_?[0-9])*)?(?:[eE][+-]?[0-9](?:_?[0-9])*)?\\b"
     },
     "declarations": {
       "patterns": [
         {
-          "match": "\\b(class|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "\\b(class|enum|interface)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": { "name": "storage.type.norm" },
             "2": { "name": "entity.name.type.norm" }
@@ -57,7 +57,7 @@
     },
     "types": {
       "name": "support.type.norm",
-      "match": "\\b(?:Integer|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Module)\\b"
+      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Module)\\b"
     },
     "typeParameters": {
       "name": "entity.name.type.parameter.norm",
@@ -66,7 +66,7 @@
     "generics": {
       "patterns": [
         {
-          "begin": "(?<=[A-Za-z0-9_>])<(?=\\s*(?:[A-Z_]|Integer\\b|Boolean\\b|String\\b|Void\\b|CodePoint\\b|Array\\b|List\\b|Map\\b|Set\\b|Stack\\b|Queue\\b|Deque\\b|Pair\\b))",
+          "begin": "(?<=[A-Za-z0-9_>])<(?=\\s*(?:>|[A-Z_]))",
           "end": ">",
           "beginCaptures": {
             "0": { "name": "punctuation.definition.typeparameters.begin.norm" }
@@ -92,7 +92,7 @@
     },
     "keywords": {
       "name": "keyword.control.norm",
-      "match": "\\b(?:package|import|as|class|enum|if|else|for|return|break|continue)\\b"
+      "match": "\\b(?:package|import|as|class|enum|interface|implements|extends|if|else|switch|case|for|return|break|continue|var)\\b"
     },
     "constants": {
       "name": "constant.language.norm",

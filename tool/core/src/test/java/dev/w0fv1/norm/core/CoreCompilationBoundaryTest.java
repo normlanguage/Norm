@@ -19,7 +19,11 @@ final class CoreCompilationBoundaryTest {
     assertRejected(
         compilation,
         "value",
-        binding -> copy(binding, binding.ownerName(), new CoreBindingShape.Class(0, List.of())));
+        binding ->
+            copy(
+                binding,
+                binding.ownerName(),
+                new CoreBindingShape.Class(List.of(), List.of(), List.of())));
   }
 
   @Test
@@ -37,7 +41,9 @@ final class CoreCompilationBoundaryTest {
                 value,
                 value.ownerName(),
                 new CoreBindingShape.Callable(
-                    shape.typeParameterCount() + 1, shape.parameters(), shape.returnType())));
+                    List.of(new CoreTypeParameter(0, Optional.empty())),
+                    shape.parameters(),
+                    shape.returnType())));
     assertRejected(
         compilation,
         "identity",
@@ -46,7 +52,7 @@ final class CoreCompilationBoundaryTest {
                 value,
                 value.ownerName(),
                 new CoreBindingShape.Callable(
-                    shape.typeParameterCount(), List.of(), shape.returnType())));
+                    shape.typeParameters(), List.of(), shape.returnType())));
     assertRejected(
         compilation,
         "identity",
@@ -55,7 +61,7 @@ final class CoreCompilationBoundaryTest {
                 value,
                 value.ownerName(),
                 new CoreBindingShape.Callable(
-                    shape.typeParameterCount(), shape.parameters(), CoreType.STRING)));
+                    shape.typeParameters(), shape.parameters(), CoreType.STRING)));
   }
 
   @Test
@@ -71,15 +77,10 @@ final class CoreCompilationBoundaryTest {
             copy(
                 value,
                 value.ownerName(),
-                new CoreBindingShape.Class(shape.typeParameterCount() + 1, shape.fields())));
-    assertRejected(
-        compilation,
-        "Box",
-        value ->
-            copy(
-                value,
-                value.ownerName(),
-                new CoreBindingShape.Class(shape.typeParameterCount(), List.of())));
+                new CoreBindingShape.Class(
+                    List.of(new CoreTypeParameter(0, Optional.empty())),
+                    shape.fields(),
+                    shape.conformances())));
     assertRejected(
         compilation,
         "Box",
@@ -88,12 +89,22 @@ final class CoreCompilationBoundaryTest {
                 value,
                 value.ownerName(),
                 new CoreBindingShape.Class(
-                    shape.typeParameterCount(),
+                    shape.typeParameters(), List.of(), shape.conformances())));
+    assertRejected(
+        compilation,
+        "Box",
+        value ->
+            copy(
+                value,
+                value.ownerName(),
+                new CoreBindingShape.Class(
+                    shape.typeParameters(),
                     List.of(
                         new CoreBindingShape.Field(
                             shape.fields().getFirst().name(),
                             shape.fields().getFirst().visibility(),
-                            CoreType.STRING)))));
+                            CoreType.STRING)),
+                    shape.conformances())));
   }
 
   @Test
@@ -107,7 +118,11 @@ final class CoreCompilationBoundaryTest {
             copy(
                 binding,
                 binding.ownerName(),
-                new CoreBindingShape.Enum(List.of("Ready", "Stopped"))));
+                new CoreBindingShape.Enum(
+                    List.of(),
+                    List.of(
+                        new CoreBindingShape.Variant("Ready", List.of()),
+                        new CoreBindingShape.Variant("Stopped", List.of())))));
   }
 
   @Test

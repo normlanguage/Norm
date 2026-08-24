@@ -1,9 +1,16 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  Queue<Integer> values = Queue<Integer>()
+  Queue<Integer> values = Queue<>()
   values.add(1)
   values.add(2)
-  printLine(values.remove())
-  printLine(values.peek())
-  expectedOutputLine("1")
-  expectedOutputLine("2")
+  printLines([
+    values.remove(),
+    values.peek()
+  ])
+  expectedOutputLines([
+    "1",
+    "2"
+  ])
 }

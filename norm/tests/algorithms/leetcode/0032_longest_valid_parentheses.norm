@@ -1,6 +1,6 @@
 Integer longestValidParentheses(String value) {
   Array<CodePoint> text = value.codePoints()
-  Stack<Integer> positions = Stack<Integer>()
+  Stack<Integer> positions = Stack<>()
   positions.push(-1)
   Integer best = 0
   for index : range(start: 0, end: text.size()) {

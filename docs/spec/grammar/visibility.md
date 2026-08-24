@@ -4,9 +4,9 @@ Norm 当前只定义 `public` 与 `private` 两级可见性。没有默认包可
 
 ```norm
 public class Account {
-    private Decimal balance
+    private Double balance
 
-    public Decimal currentBalance() {
+    public Double currentBalance() {
         return balance
     }
 }

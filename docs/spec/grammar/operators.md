@@ -10,7 +10,7 @@ String 不使用 `+` 与任意对象隐式拼接；字符串模板负责格式�
 
 ## 比较
 
-`==` 和 `!=` 根据数据类别比较：value 使用结构相等，class 使用对象 identity，ref 使用存储位置 identity。`<`、`<=`、`>`、`>=` 只适用于具有语言内建顺序的数值，其他类型通过 Comparable 方法显式比较。
+`==` 和 `!=` 根据数据类别比较：value 使用结构相等，class 使用对象 identity，ref 使用存储位置 identity。`<`、`<=`、`>`、`>=` 只适用于具有语言内建顺序的数值，其他类型通过 Comparable 方法显式比较。Equatable、Comparable 和其他标准库 protocol 不重载或改变操作符语义。
 
 ref 指向值的比较必须显式读取该值，不能把位置 identity 与内容相等混为一谈。
 

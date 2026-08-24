@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 List<Integer> plusOne(Array<Integer> digits) {
   Integer carry = 1
   for index : range(start: digits.size() - 1, end: -1, step: -1) {
@@ -5,7 +7,7 @@ List<Integer> plusOne(Array<Integer> digits) {
     digits[index] = value % 10
     carry = value / 10
   }
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   if carry > 0 { result.add(carry) }
   for Integer digit : digits { result.add(digit) }
   return result
@@ -13,7 +15,9 @@ List<Integer> plusOne(Array<Integer> digits) {
 
 Void main() {
   for Integer digit : plusOne([9,9]) { printLine(digit) }
-  expectedOutputLine("1")
-  expectedOutputLine("0")
-  expectedOutputLine("0")
+  expectedOutputLines([
+    "1",
+    "0",
+    "0"
+  ])
 }

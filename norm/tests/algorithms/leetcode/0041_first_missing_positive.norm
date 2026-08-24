@@ -1,5 +1,5 @@
 Integer firstMissingPositive(Array<Integer> values) {
-  Set<Integer> present = Set<Integer>()
+  Set<Integer> present = Set<>()
   for Integer value : values {
     if value > 0 { present.add(value) }
   }

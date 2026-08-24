@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean isPalindrome(Integer value) {
   if value < 0 || (value % 10 == 0 && value != 0) { return false }
   Integer reversed = 0
@@ -9,10 +12,14 @@ Boolean isPalindrome(Integer value) {
 }
 
 Void main() {
-  printLine(isPalindrome(121))
-  printLine(isPalindrome(-121))
-  printLine(isPalindrome(10))
-  expectedOutputLine("true")
-  expectedOutputLine("false")
-  expectedOutputLine("false")
+  printLines([
+    isPalindrome(121),
+    isPalindrome(-121),
+    isPalindrome(10)
+  ])
+  expectedOutputLines([
+    "true",
+    "false",
+    "false"
+  ])
 }

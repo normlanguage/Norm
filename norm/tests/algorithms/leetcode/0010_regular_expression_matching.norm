@@ -1,7 +1,10 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean matches(String textValue, String patternValue) {
   Array<CodePoint> text = textValue.codePoints()
   Array<CodePoint> pattern = patternValue.codePoints()
-  List<Boolean> previous = List<Boolean>()
+  List<Boolean> previous = List<>()
   List<Boolean> current = List.filled(size: text.size() + 1, value: false)
   current[0] = true
   for patternIndex : range(start: 0, end: pattern.size()) {
@@ -25,8 +28,12 @@ Boolean matches(String textValue, String patternValue) {
 }
 
 Void main() {
-  printLine(matches(textValue: "aa", patternValue: "a*"))
-  printLine(matches(textValue: "ab", patternValue: ".*"))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  printLines([
+    matches(textValue: "aa", patternValue: "a*"),
+    matches(textValue: "ab", patternValue: ".*")
+  ])
+  expectedOutputLines([
+    "true",
+    "true"
+  ])
 }

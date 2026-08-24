@@ -1,7 +1,8 @@
 import std.collections.sort
+import std.testing.expectedOutputLines
 
 Void main() {
-  List<Integer> numbers = List<Integer>()
+  List<Integer> numbers = List<>()
   numbers.add(3)
   numbers.add(1)
   numbers.add(2)
@@ -12,20 +13,22 @@ Void main() {
   Array<CodePoint> points = sort(values: ['😀', 'A', 'é'])
   for value : points { printLine(value) }
 
-  List<String> words = List<String>()
+  List<String> words = List<>()
   words.add("é")
   words.add("A")
   words.add("😀")
   for value : sort(values: words) { printLine(value) }
 
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("3")
-  expectedOutputLine("A")
-  expectedOutputLine("é")
-  expectedOutputLine("😀")
-  expectedOutputLine("A")
-  expectedOutputLine("é")
-  expectedOutputLine("😀")
+  expectedOutputLines([
+    "1",
+    "2",
+    "3",
+    "3",
+    "A",
+    "é",
+    "😀",
+    "A",
+    "é",
+    "😀"
+  ])
 }

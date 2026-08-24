@@ -1,6 +1,8 @@
+import std.testing.expectedOutputLines
+
 List<Integer> partition(Array<Integer> values, Integer pivot) {
-  List<Integer> lower = List<Integer>()
-  List<Integer> upper = List<Integer>()
+  List<Integer> lower = List<>()
+  List<Integer> upper = List<>()
   for Integer value : values {
     if value < pivot { lower.add(value) } else { upper.add(value) }
   }
@@ -10,10 +12,12 @@ List<Integer> partition(Array<Integer> values, Integer pivot) {
 
 Void main() {
   for Integer value : partition(values: [1,4,3,2,5,2], pivot: 3) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("2")
-  expectedOutputLine("4")
-  expectedOutputLine("3")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "1",
+    "2",
+    "2",
+    "4",
+    "3",
+    "5"
+  ])
 }

@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> sortColors(Array<Integer> values) {
   Integer low = 0
   Integer current = 0
@@ -23,10 +25,12 @@ Array<Integer> sortColors(Array<Integer> values) {
 
 Void main() {
   for Integer value : sortColors([2,0,2,1,1,0]) { printLine(value) }
-  expectedOutputLine("0")
-  expectedOutputLine("0")
-  expectedOutputLine("1")
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("2")
+  expectedOutputLines([
+    "0",
+    "0",
+    "1",
+    "1",
+    "2",
+    "2"
+  ])
 }

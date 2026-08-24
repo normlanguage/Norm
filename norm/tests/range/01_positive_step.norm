@@ -1,6 +1,10 @@
+import std.testing.expectedOutputLines
+
 Void main() {
   for value : range(start: 1, end: 8, step: 3) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("4")
-  expectedOutputLine("7")
+  expectedOutputLines([
+    "1",
+    "4",
+    "7"
+  ])
 }

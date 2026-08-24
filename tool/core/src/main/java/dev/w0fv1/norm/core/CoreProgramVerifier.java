@@ -1,9 +1,12 @@
 package dev.w0fv1.norm.core;
 
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
+import dev.w0fv1.norm.semantic.PatternCoverage;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.ValueCategory;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,6 +17,7 @@ import java.util.Set;
 final class CoreProgramVerifier {
   private final CoreProgram program;
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
+  private final Deque<Control> controls = new ArrayDeque<>();
 
   private CoreProgramVerifier(CoreProgram program) {
     this.program = Objects.requireNonNull(program, "program");
@@ -25,16 +29,52 @@ final class CoreProgramVerifier {
 
   private void verify() {
     for (CoreDefinitionRecord record : program.definitions()) {
+      if (record.definition() instanceof CoreDefinition.Interface declaration) {
+        verifyInterface(record.id(), declaration);
+      }
+    }
+    for (CoreDefinitionRecord record : program.definitions()) {
       switch (record.definition()) {
         case CoreDefinition.Callable callable -> verifyCallable(record.id(), callable);
         case CoreDefinition.Class declaration -> verifyClass(record.id(), declaration);
-        case CoreDefinition.Enum declaration -> verifyEnum(declaration);
+        case CoreDefinition.Enum declaration -> verifyEnum(record.id(), declaration);
+        case CoreDefinition.Interface ignored -> {}
+        case CoreDefinition.InterfaceMethod method -> verifyInterfaceMethod(record.id(), method);
+        case CoreDefinition.BuiltinConformance conformance ->
+            verifyBuiltinConformance(record.id(), conformance);
+      }
+    }
+    verifyBuiltinDispatchUniqueness();
+  }
+
+  private void verifyBuiltinDispatchUniqueness() {
+    Map<BuiltinTypeId, Set<DefinitionId>> indexed = new LinkedHashMap<>();
+    Map<BuiltinTypeId, Map<DefinitionId, CoreType.Declared>> interfaces = new LinkedHashMap<>();
+    for (CoreDefinitionRecord record : program.definitions()) {
+      if (!(record.definition() instanceof CoreDefinition.BuiltinConformance conformance)) continue;
+      CoreType.Declared concrete =
+          (CoreType.Declared) absolute(record.id(), conformance.concreteBuiltinType());
+      BuiltinTypeId builtin = ((CoreTypeConstructor.Builtin) concrete.constructor()).id();
+      InterfaceInstance instance = interfaceInstance(record.id(), conformance.interfaceType());
+      CoreType.Declared previous =
+          interfaces
+              .computeIfAbsent(builtin, ignored -> new LinkedHashMap<>())
+              .putIfAbsent(instance.definition(), instance.type());
+      if (previous != null && !previous.equals(instance.type())) {
+        throw new IllegalArgumentException("builtin interface instantiations conflict");
+      }
+      Set<DefinitionId> requirements = indexed.computeIfAbsent(builtin, ignored -> new HashSet<>());
+      for (CoreWitness witness : conformance.witnesses()) {
+        if (!requirements.add(resolve(record.id(), witness.requirement()))) {
+          throw new IllegalArgumentException("builtin interface dispatch must be unique");
+        }
       }
     }
   }
 
   private void verifyCallable(DefinitionId id, CoreDefinition.Callable callable) {
     int parameterCount = callable.reifiedTypeLocals().size();
+    verifyTypeParameters(id, callable.typeParameters(), parameterCount);
     callable.receiverType().ifPresent(type -> verifyValueType(id, type, parameterCount));
     callable.parameterTypes().forEach(type -> verifyValueType(id, type, parameterCount));
     verifyReturnType(id, callable.returnType(), parameterCount);
@@ -45,13 +85,408 @@ final class CoreProgramVerifier {
   private void verifyClass(DefinitionId id, CoreDefinition.Class declaration) {
     declaration
         .fields()
-        .forEach(field -> verifyValueType(id, field.type(), declaration.typeParameterCount()));
+        .forEach(field -> verifyValueType(id, field.type(), declaration.typeParameters().size()));
+    verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
+    Set<DefinitionId> interfaces = new HashSet<>();
+    Map<DefinitionId, CoreType.Declared> inheritedInterfaces = new LinkedHashMap<>();
+    for (CoreConformance conformance : declaration.conformances()) {
+      verifyValueType(id, conformance.interfaceType(), declaration.typeParameters().size());
+      InterfaceInstance instance = interfaceInstance(id, conformance.interfaceType());
+      if (!interfaces.add(instance.definition())) {
+        throw new IllegalArgumentException("class conformances must be unique");
+      }
+      collectInterfaceInstances(instance, inheritedInterfaces);
+      verifyConformance(id, declaration, instance, conformance);
+    }
   }
 
-  private static void verifyEnum(CoreDefinition.Enum declaration) {
-    if (new HashSet<>(declaration.members()).size() != declaration.members().size()) {
-      throw new IllegalArgumentException("enum members must be unique");
+  private void verifyInterface(DefinitionId id, CoreDefinition.Interface declaration) {
+    verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
+    Set<DefinitionId> parents = new HashSet<>();
+    Map<DefinitionId, CoreType.Declared> inherited = new LinkedHashMap<>();
+    for (CoreType parent : declaration.directParents()) {
+      verifyValueType(id, parent, declaration.typeParameters().size());
+      InterfaceInstance instance = interfaceInstance(id, parent);
+      if (!parents.add(instance.definition())) {
+        throw new IllegalArgumentException("direct interface parents must be unique");
+      }
+      collectInterfaceInstances(instance, inherited);
+      requireAcyclicInterface(id, instance.definition(), new HashSet<>());
     }
+    Set<DefinitionId> methods = new HashSet<>();
+    for (CoreDefinitionLink link : declaration.declaredMethods()) {
+      DefinitionId methodId = resolve(id, link);
+      if (!methods.add(methodId)) {
+        throw new IllegalArgumentException("declared interface methods must be unique");
+      }
+      CoreDefinition target = program.definition(methodId).orElseThrow();
+      if (!(target instanceof CoreDefinition.InterfaceMethod method)
+          || !isReceiverOf(
+              methodId, method.receiverInterfaceType(), id, declaration.typeParameters().size())) {
+        throw new IllegalArgumentException("declared interface method has the wrong receiver ABI");
+      }
+    }
+  }
+
+  private void collectInterfaceInstances(
+      InterfaceInstance instance, Map<DefinitionId, CoreType.Declared> result) {
+    CoreType.Declared previous = result.putIfAbsent(instance.definition(), instance.type());
+    if (previous != null) {
+      if (!previous.equals(instance.type())) {
+        throw new IllegalArgumentException("interface inheritance has conflicting instantiations");
+      }
+      return;
+    }
+    for (CoreType parent : instance.declaration().directParents()) {
+      CoreType instantiated =
+          absolute(instance.definition(), parent).substitute(instance.type().arguments()::get);
+      collectInterfaceInstances(interfaceInstance(instance.definition(), instantiated), result);
+    }
+  }
+
+  private void verifyInterfaceMethod(DefinitionId id, CoreDefinition.InterfaceMethod method) {
+    InterfaceInstance receiver = interfaceInstance(id, method.receiverInterfaceType());
+    int receiverParameterCount = receiver.declaration().typeParameters().size();
+    int parameterCount = receiverParameterCount + method.typeParameters().size();
+    if (!isReceiverOf(
+        id, method.receiverInterfaceType(), receiver.definition(), receiverParameterCount)) {
+      throw new IllegalArgumentException(
+          "interface method receiver must expose its type parameters");
+    }
+    verifyTypeParameters(id, method.typeParameters(), parameterCount);
+    method.parameterTypes().forEach(type -> verifyValueType(id, type, parameterCount));
+    verifyReturnType(id, method.returnType(), parameterCount);
+  }
+
+  private void verifyConformance(
+      DefinitionId classId,
+      CoreDefinition.Class declaration,
+      InterfaceInstance instance,
+      CoreConformance conformance) {
+    Map<DefinitionId, CoreDefinition.InterfaceMethod> requirements =
+        inheritedRequirements(instance.definition());
+    Map<DefinitionId, CoreWitnessTarget> witnesses = new LinkedHashMap<>();
+    for (CoreWitness witness : conformance.witnesses()) {
+      DefinitionId requirementId = resolve(classId, witness.requirement());
+      if (witnesses.putIfAbsent(requirementId, witness.implementation()) != null) {
+        throw new IllegalArgumentException("conformance witnesses must be unique");
+      }
+    }
+    if (!witnesses.keySet().equals(requirements.keySet())) {
+      throw new IllegalArgumentException("conformance witnesses must be complete");
+    }
+    for (Map.Entry<DefinitionId, CoreDefinition.InterfaceMethod> entry : requirements.entrySet()) {
+      DefinitionId requirementId = entry.getKey();
+      CoreDefinition.InterfaceMethod requirement = entry.getValue();
+      CoreWitnessTarget witness = witnesses.get(requirementId);
+      if (!(witness instanceof CoreWitnessTarget.Callable callableWitness)) {
+        throw new IllegalArgumentException("source class witnesses must target callables");
+      }
+      DefinitionId implementationId = resolve(classId, callableWitness.definition());
+      CoreDefinition implementationDefinition = program.definition(implementationId).orElseThrow();
+      if (!(implementationDefinition instanceof CoreDefinition.Callable implementation)
+          || implementation.receiverType().isEmpty()
+          || implementation.reifiedTypeLocals().size()
+              != declaration.typeParameters().size() + requirement.typeParameters().size()
+          || !isReceiverOf(
+              implementationId,
+              implementation.receiverType().orElseThrow(),
+              classId,
+              declaration.typeParameters().size())) {
+        throw new IllegalArgumentException(
+            "conformance witness implementation is not a class method");
+      }
+      InterfaceInstance requirementOwner =
+          interfaceInstance(requirementId, requirement.receiverInterfaceType());
+      List<CoreType> substitutions =
+          interfaceSubstitutions(instance, requirementOwner.definition());
+      if (substitutions != null) {
+        substitutions = new ArrayList<>(substitutions);
+        for (int index = 0; index < requirement.typeParameters().size(); index++) {
+          substitutions.add(
+              new CoreType.Parameter(
+                  declaration.typeParameters().size() + index, CoreNullability.NON_NULL));
+        }
+      }
+      if (substitutions == null
+          || implementation.parameterTypes().size() != requirement.parameterTypes().size()) {
+        throw new IllegalArgumentException(
+            "conformance witness ABI does not match its requirement");
+      }
+      for (int parameter = 0; parameter < requirement.parameterTypes().size(); parameter++) {
+        CoreType expected =
+            absolute(requirementId, requirement.parameterTypes().get(parameter))
+                .substitute(substitutions::get);
+        requireSameType(
+            expected,
+            absolute(implementationId, implementation.parameterTypes().get(parameter)),
+            "conformance witness parameter");
+      }
+      CoreType expectedReturn =
+          absolute(requirementId, requirement.returnType()).substitute(substitutions::get);
+      requireSameType(
+          expectedReturn,
+          absolute(implementationId, implementation.returnType()),
+          "conformance witness return");
+      for (int index = 0; index < requirement.typeParameters().size(); index++) {
+        CoreTypeParameter requiredParameter = requirement.typeParameters().get(index);
+        CoreTypeParameter implementationParameter = implementation.typeParameters().get(index);
+        if (requiredParameter.upperBound().isPresent()
+            != implementationParameter.upperBound().isPresent()) {
+          throw new IllegalArgumentException("conformance witness generic bound does not match");
+        }
+        if (requiredParameter.upperBound().isPresent()) {
+          CoreType expectedBound =
+              absolute(requirementId, requiredParameter.upperBound().orElseThrow())
+                  .substitute(substitutions::get);
+          requireSameType(
+              expectedBound,
+              absolute(implementationId, implementationParameter.upperBound().orElseThrow()),
+              "conformance witness generic bound");
+        }
+      }
+    }
+  }
+
+  private void verifyBuiltinConformance(
+      DefinitionId owner, CoreDefinition.BuiltinConformance conformance) {
+    int parameterCount = conformance.typeParameters().size();
+    verifyTypeParameters(owner, conformance.typeParameters(), parameterCount);
+    verifyValueType(owner, conformance.concreteBuiltinType(), parameterCount);
+    CoreType concrete = absolute(owner, conformance.concreteBuiltinType());
+    if (!(concrete instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.Builtin)) {
+      throw new IllegalArgumentException("builtin conformance requires a builtin concrete type");
+    }
+    verifyValueType(owner, conformance.interfaceType(), parameterCount);
+    InterfaceInstance instance = interfaceInstance(owner, conformance.interfaceType());
+    Map<DefinitionId, CoreDefinition.InterfaceMethod> requirements =
+        inheritedRequirements(instance.definition());
+    Map<DefinitionId, CoreWitnessTarget> witnesses = new LinkedHashMap<>();
+    for (CoreWitness witness : conformance.witnesses()) {
+      DefinitionId requirement = resolve(owner, witness.requirement());
+      if (witnesses.putIfAbsent(requirement, witness.implementation()) != null) {
+        throw new IllegalArgumentException("builtin conformance witnesses must be unique");
+      }
+    }
+    if (!witnesses.keySet().equals(requirements.keySet())) {
+      throw new IllegalArgumentException("builtin conformance witnesses must be complete");
+    }
+    for (Map.Entry<DefinitionId, CoreDefinition.InterfaceMethod> entry : requirements.entrySet()) {
+      CoreWitnessTarget witness = witnesses.get(entry.getKey());
+      if (!(witness instanceof CoreWitnessTarget.Intrinsic intrinsic)
+          || !matchesIntrinsicWitness(
+              owner, concrete, instance, entry.getKey(), entry.getValue(), intrinsic.intrinsic())) {
+        throw new IllegalArgumentException(
+            "builtin conformance witness ABI does not match: "
+                + concrete
+                + " -> "
+                + conformance.interfaceType()
+                + " via "
+                + witness);
+      }
+    }
+  }
+
+  private boolean matchesIntrinsicWitness(
+      DefinitionId owner,
+      CoreType concrete,
+      InterfaceInstance instance,
+      DefinitionId requirementId,
+      CoreDefinition.InterfaceMethod requirement,
+      dev.w0fv1.norm.builtin.IntrinsicId intrinsic) {
+    if (!requirement.typeParameters().isEmpty()) return false;
+    InterfaceInstance requirementOwner =
+        interfaceInstance(requirementId, requirement.receiverInterfaceType());
+    List<CoreType> interfaceArguments =
+        interfaceSubstitutions(instance, requirementOwner.definition());
+    if (interfaceArguments == null) return false;
+    for (BuiltinCatalog.IntrinsicCandidate candidate : builtins.intrinsicCandidates(intrinsic)) {
+      if (candidate.receiver().isEmpty()
+          || candidate.runtimeType()
+          || candidate.parameters().size() != requirement.parameterTypes().size()) {
+        continue;
+      }
+      Map<String, CoreType> substitutions = new LinkedHashMap<>();
+      if (!bindPattern(concrete, candidate.receiver().orElseThrow(), substitutions)) continue;
+      boolean parametersMatch = true;
+      for (int index = 0; index < candidate.parameters().size(); index++) {
+        CoreType expected =
+            absolute(requirementId, requirement.parameterTypes().get(index))
+                .substitute(interfaceArguments::get);
+        if (!matchesSemanticType(
+            expected, candidate.parameters().get(index).type(), substitutions)) {
+          parametersMatch = false;
+          break;
+        }
+      }
+      CoreType expectedReturn =
+          absolute(requirementId, requirement.returnType()).substitute(interfaceArguments::get);
+      if (parametersMatch
+          && matchesSemanticType(expectedReturn, candidate.result(), substitutions)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean matchesSemanticType(
+      CoreType expected, SemanticType pattern, Map<String, CoreType> substitutions) {
+    return switch (pattern.kind()) {
+      case TYPE_PARAMETER -> {
+        CoreType substituted = substitutions.get(pattern.identity());
+        yield substituted != null
+            && expected.equals(pattern.isNullable() ? substituted.asNullable() : substituted);
+      }
+      case VOID -> expected.equals(CoreType.VOID);
+      case NULL -> expected.equals(CoreType.NULL);
+      case ERROR -> true;
+      case DECLARED -> {
+        if (!(expected instanceof CoreType.Declared declared)
+            || declared.arguments().size() != pattern.arguments().size()
+            || declared.category() != category(pattern.category())
+            || declared.isNullable() != pattern.isNullable()
+            || !matchesSemanticConstructor(declared.constructor(), pattern.identity())) {
+          yield false;
+        }
+        boolean matches = true;
+        for (int index = 0; index < pattern.arguments().size(); index++) {
+          if (!matchesSemanticType(
+              declared.arguments().get(index), pattern.arguments().get(index), substitutions)) {
+            matches = false;
+            break;
+          }
+        }
+        yield matches;
+      }
+    };
+  }
+
+  private boolean matchesSemanticConstructor(
+      CoreTypeConstructor constructor, String semanticIdentity) {
+    return switch (constructor) {
+      case CoreTypeConstructor.Builtin builtin -> builtin.id().value().equals(semanticIdentity);
+      case CoreTypeConstructor.User user -> {
+        DefinitionId id = resolveExternal(user.definition());
+        CoreDefinition definition = program.definition(id).orElseThrow();
+        CoreNominalTypeKey nominal =
+            switch (definition) {
+              case CoreDefinition.Class declaration -> declaration.nominalType();
+              case CoreDefinition.Enum declaration -> declaration.nominalType();
+              case CoreDefinition.Interface declaration -> declaration.nominalType();
+              default -> null;
+            };
+        yield nominal != null
+            && nominal.module().name().equals("std")
+            && (nominal.packageName() + "." + nominal.name()).equals(semanticIdentity);
+      }
+    };
+  }
+
+  private Map<DefinitionId, CoreDefinition.InterfaceMethod> inheritedRequirements(
+      DefinitionId interfaceId) {
+    Map<DefinitionId, CoreDefinition.InterfaceMethod> result = new LinkedHashMap<>();
+    collectRequirements(interfaceId, result, new HashSet<>());
+    return Map.copyOf(result);
+  }
+
+  private void collectRequirements(
+      DefinitionId interfaceId,
+      Map<DefinitionId, CoreDefinition.InterfaceMethod> result,
+      Set<DefinitionId> visited) {
+    if (!visited.add(interfaceId)) return;
+    CoreDefinition.Interface declaration =
+        (CoreDefinition.Interface) program.definition(interfaceId).orElseThrow();
+    for (CoreType parent : declaration.directParents()) {
+      collectRequirements(interfaceInstance(interfaceId, parent).definition(), result, visited);
+    }
+    for (CoreDefinitionLink link : declaration.declaredMethods()) {
+      DefinitionId methodId = resolve(interfaceId, link);
+      result.put(
+          methodId, (CoreDefinition.InterfaceMethod) program.definition(methodId).orElseThrow());
+    }
+  }
+
+  private void requireAcyclicInterface(
+      DefinitionId root, DefinitionId current, Set<DefinitionId> visited) {
+    if (current.equals(root)) {
+      throw new IllegalArgumentException("interface inheritance must be acyclic");
+    }
+    if (!visited.add(current)) return;
+    CoreDefinition.Interface declaration =
+        (CoreDefinition.Interface) program.definition(current).orElseThrow();
+    for (CoreType parent : declaration.directParents()) {
+      requireAcyclicInterface(root, interfaceInstance(current, parent).definition(), visited);
+    }
+  }
+
+  private boolean isReceiverOf(
+      DefinitionId owner, CoreType type, DefinitionId nominal, int parameterCount) {
+    CoreType actual = absolute(owner, type);
+    if (actual.isNullable()
+        || !(actual instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+        || !resolveExternal(user.definition()).equals(nominal)
+        || declared.arguments().size() != parameterCount) {
+      return false;
+    }
+    for (int index = 0; index < parameterCount; index++) {
+      if (!(declared.arguments().get(index) instanceof CoreType.Parameter parameter)
+          || parameter.index() != index
+          || parameter.nullability() != CoreNullability.NON_NULL) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private InterfaceInstance interfaceInstance(DefinitionId owner, CoreType type) {
+    CoreType actual = nonNullable(absolute(owner, type));
+    if (!(actual instanceof CoreType.Declared declared)
+        || declared.category() != CoreValueCategory.POLYMORPHIC
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException("core type is not an interface");
+    }
+    DefinitionId definition = resolveExternal(user.definition());
+    CoreDefinition target = program.definition(definition).orElseThrow();
+    if (!(target instanceof CoreDefinition.Interface declaration)
+        || declared.arguments().size() != declaration.typeParameters().size()) {
+      throw new IllegalArgumentException("core interface type does not match its nominal ABI");
+    }
+    return new InterfaceInstance(definition, declaration, declared);
+  }
+
+  private List<CoreType> interfaceSubstitutions(InterfaceInstance instance, DefinitionId target) {
+    if (instance.definition().equals(target)) return instance.type().arguments();
+    for (CoreType parent : instance.declaration().directParents()) {
+      CoreType instantiated =
+          absolute(instance.definition(), parent).substitute(instance.type().arguments()::get);
+      List<CoreType> result =
+          interfaceSubstitutions(interfaceInstance(instance.definition(), instantiated), target);
+      if (result != null) return result;
+    }
+    return null;
+  }
+
+  private record InterfaceInstance(
+      DefinitionId definition, CoreDefinition.Interface declaration, CoreType.Declared type) {}
+
+  private void verifyEnum(DefinitionId id, CoreDefinition.Enum declaration) {
+    verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
+    if (declaration.variants().stream().map(CoreEnumVariant::key).distinct().count()
+        != declaration.variants().size()) {
+      throw new IllegalArgumentException("enum variants must be unique");
+    }
+    declaration
+        .variants()
+        .forEach(
+            variant ->
+                variant
+                    .fields()
+                    .forEach(
+                        field ->
+                            verifyValueType(
+                                id, field.type(), declaration.typeParameters().size())));
   }
 
   private void verifyBlock(DefinitionId owner, CoreDefinition.Callable callable, CoreBlock block) {
@@ -103,16 +538,32 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, loop.condition());
           requireSameType(
               owner, CoreType.BOOLEAN, owner, loop.condition().type(), "loop condition");
+          controls.addFirst(Control.loop());
           verifyBlock(owner, callable, loop.body());
+          controls.removeFirst();
         }
         case CoreStatement.ForStatement loop -> {
           if (local(callable, loop.iteratorLocal()).kind() != CoreLocal.Kind.ITERATOR
               || local(callable, loop.variableLocal()).kind() != CoreLocal.Kind.VARIABLE) {
             throw new IllegalArgumentException("for loop local ABI is invalid");
           }
+          loop.indexLocal()
+              .ifPresent(
+                  index -> {
+                    if (index == loop.iteratorLocal() || index == loop.variableLocal()) {
+                      throw new IllegalArgumentException("for loop index local ABI is invalid");
+                    }
+                    CoreLocal local = local(callable, index);
+                    if (local.kind() != CoreLocal.Kind.VARIABLE
+                        || !absolute(owner, local.type()).equals(CoreType.INTEGER)) {
+                      throw new IllegalArgumentException("for loop index local ABI is invalid");
+                    }
+                  });
           verifyExpression(owner, callable, loop.iterable());
           verifyIteration(owner, callable, loop);
+          controls.addFirst(Control.loop());
           verifyBlock(owner, callable, loop.body());
+          controls.removeFirst();
         }
         case CoreStatement.ReturnStatement returned -> {
           if (returned.value().isEmpty()) {
@@ -123,8 +574,28 @@ final class CoreProgramVerifier {
             requireAssignable(owner, callable.returnType(), owner, value.type(), "return");
           }
         }
-        case CoreStatement.BreakStatement ignored -> {}
-        case CoreStatement.ContinueStatement ignored -> {}
+        case CoreStatement.YieldStatement yielded -> {
+          if (controls.isEmpty() || controls.getFirst().kind() != ControlKind.SWITCH) {
+            throw new IllegalArgumentException("yield is only valid inside switch");
+          }
+          verifyExpression(owner, callable, yielded.value());
+          requireAssignable(
+              owner,
+              controls.getFirst().yieldType(),
+              owner,
+              yielded.value().type(),
+              "switch yield");
+        }
+        case CoreStatement.BreakStatement ignored -> {
+          if (controls.isEmpty() || controls.getFirst().kind() != ControlKind.LOOP) {
+            throw new IllegalArgumentException("break is only valid inside loop");
+          }
+        }
+        case CoreStatement.ContinueStatement ignored -> {
+          if (controls.stream().noneMatch(value -> value.kind() == ControlKind.LOOP)) {
+            throw new IllegalArgumentException("continue is only valid inside loop");
+          }
+        }
       }
     }
   }
@@ -132,7 +603,9 @@ final class CoreProgramVerifier {
   private void verifyExpression(
       DefinitionId owner, CoreDefinition.Callable callable, CoreExpression expression) {
     if (expression instanceof CoreExpression.Call
-        || expression instanceof CoreExpression.Intrinsic) {
+        || expression instanceof CoreExpression.InterfaceCall
+        || expression instanceof CoreExpression.Intrinsic
+        || expression.type().equals(CoreType.VOID)) {
       verifyReturnType(owner, expression.type(), callable.reifiedTypeLocals().size());
     } else {
       verifyValueType(owner, expression.type(), callable.reifiedTypeLocals().size());
@@ -144,17 +617,30 @@ final class CoreProgramVerifier {
           throw new IllegalArgumentException("null literal requires a nullable core type");
         }
       }
-      case CoreExpression.ArrayLiteral array -> {
-        verifyRuntimeType(owner, callable, array.runtimeType());
+      case CoreExpression.CollectionLiteral collection -> {
+        verifyRuntimeType(owner, callable, collection.runtimeType());
         requireSameType(
-            owner, array.runtimeType().template(), owner, array.type(), "array runtime type");
-        array.elements().forEach(value -> verifyExpression(owner, callable, value));
-        CoreType elementType = declaredArgument(owner, array.type(), "std.core.Array", 0);
-        array
+            owner,
+            collection.runtimeType().template(),
+            owner,
+            collection.type(),
+            "collection runtime type");
+        if (!matchesCollectionLiteral(owner, collection)) {
+          throw new IllegalArgumentException("collection literal does not match its builtin ABI");
+        }
+        collection.elements().forEach(value -> verifyExpression(owner, callable, value));
+        CoreType absoluteType = absolute(owner, collection.type());
+        if (!(absoluteType instanceof CoreType.Declared declared)
+            || declared.arguments().size() != 1) {
+          throw new IllegalArgumentException("collection literal requires one element type");
+        }
+        CoreType elementType = declared.arguments().getFirst();
+        collection
             .elements()
             .forEach(
                 value ->
-                    requireAssignable(owner, elementType, owner, value.type(), "array element"));
+                    requireAssignable(
+                        owner, elementType, owner, value.type(), "collection element"));
       }
       case CoreExpression.LocalRead read -> {
         CoreLocal local = local(callable, read.localIndex());
@@ -171,7 +657,8 @@ final class CoreProgramVerifier {
             read.type(),
             "field read");
       }
-      case CoreExpression.EnumMember member -> verifyEnumMember(owner, member);
+      case CoreExpression.EnumConstruct construct ->
+          verifyEnumConstruct(owner, callable, construct);
       case CoreExpression.Unary unary -> {
         verifyExpression(owner, callable, unary.operand());
         verifyUnary(owner, unary);
@@ -181,6 +668,7 @@ final class CoreProgramVerifier {
         verifyExpression(owner, callable, binary.right());
         verifyBinary(owner, binary);
       }
+      case CoreExpression.Switch switched -> verifySwitch(owner, callable, switched);
       case CoreExpression.Index index -> {
         verifyExpression(owner, callable, index.receiver());
         verifyExpression(owner, callable, index.index());
@@ -202,6 +690,7 @@ final class CoreProgramVerifier {
             "copy result");
       }
       case CoreExpression.Call call -> verifyCall(owner, callable, call);
+      case CoreExpression.InterfaceCall call -> verifyInterfaceCall(owner, callable, call);
       case CoreExpression.Construct construct -> verifyConstruct(owner, callable, construct);
       case CoreExpression.Intrinsic intrinsic -> {
         intrinsic.receiver().ifPresent(value -> verifyExpression(owner, callable, value));
@@ -217,8 +706,13 @@ final class CoreProgramVerifier {
   private void verifyLiteral(DefinitionId owner, CoreExpression.Literal literal) {
     CoreType expected =
         switch (literal.value()) {
-          case Long ignored -> CoreType.INTEGER;
-          case Integer ignored -> CoreType.CODE_POINT;
+          case Integer ignored ->
+              absolute(owner, literal.type()).equals(CoreType.CODE_POINT)
+                  ? CoreType.CODE_POINT
+                  : CoreType.INTEGER;
+          case Long ignored -> CoreType.LONG;
+          case Float ignored -> CoreType.FLOAT;
+          case Double ignored -> CoreType.DOUBLE;
           case Boolean ignored -> CoreType.BOOLEAN;
           case String ignored -> CoreType.STRING;
           default -> throw new IllegalArgumentException("unsupported core literal value");
@@ -227,8 +721,11 @@ final class CoreProgramVerifier {
   }
 
   private void verifyUnary(DefinitionId owner, CoreExpression.Unary unary) {
-    CoreType expected =
-        unary.operator() == CoreUnaryOperator.NOT ? CoreType.BOOLEAN : CoreType.INTEGER;
+    CoreType expected = absolute(owner, unary.operand().type());
+    if (unary.operator() == CoreUnaryOperator.NOT) expected = CoreType.BOOLEAN;
+    else if (!isNumericLeaf(expected)) {
+      throw new IllegalArgumentException("numeric unary operand requires a concrete leaf type");
+    }
     requireSameType(owner, expected, owner, unary.operand().type(), "unary operand");
     requireSameType(owner, expected, owner, unary.type(), "unary result");
   }
@@ -239,9 +736,11 @@ final class CoreProgramVerifier {
     CoreType result = absolute(owner, binary.type());
     switch (binary.operator()) {
       case ADD, SUBTRACT, MULTIPLY, DIVIDE, REMAINDER -> {
-        requireSameType(CoreType.INTEGER, left, "binary left operand");
-        requireSameType(CoreType.INTEGER, right, "binary right operand");
-        requireSameType(CoreType.INTEGER, result, "binary result");
+        if (!isNumericLeaf(left)) {
+          throw new IllegalArgumentException("binary left operand requires a numeric leaf type");
+        }
+        requireSameType(left, right, "binary right operand");
+        requireSameType(left, result, "binary result");
       }
       case STRING_CONCAT -> {
         requireSameType(CoreType.STRING, left, "binary left operand");
@@ -249,8 +748,11 @@ final class CoreProgramVerifier {
         requireSameType(CoreType.STRING, result, "binary result");
       }
       case LESS, LESS_EQUAL, GREATER, GREATER_EQUAL -> {
-        requireSameType(CoreType.INTEGER, left, "comparison left operand");
-        requireSameType(CoreType.INTEGER, right, "comparison right operand");
+        if (!isNumericLeaf(left)) {
+          throw new IllegalArgumentException(
+              "comparison left operand requires a numeric leaf type");
+        }
+        requireSameType(left, right, "comparison right operand");
         requireSameType(CoreType.BOOLEAN, result, "comparison result");
       }
       case AND, OR -> {
@@ -282,6 +784,22 @@ final class CoreProgramVerifier {
             .anyMatch(candidate -> matchesIndex(owner, index, candidate));
     if (!valid)
       throw new IllegalArgumentException("index expression does not match its builtin ABI");
+  }
+
+  private boolean matchesCollectionLiteral(
+      DefinitionId owner, CoreExpression.CollectionLiteral collection) {
+    CoreType actual = absolute(owner, collection.type());
+    for (BuiltinCatalog.IntrinsicCandidate candidate :
+        builtins.intrinsicCandidates(collection.materializer())) {
+      if (candidate.receiver().isPresent()
+          || !candidate.parameters().isEmpty()
+          || !candidate.runtimeType()) {
+        continue;
+      }
+      Map<String, CoreType> substitutions = new LinkedHashMap<>();
+      if (bindPattern(actual, candidate.result(), substitutions)) return true;
+    }
+    return false;
   }
 
   private boolean matchesIndex(
@@ -388,18 +906,75 @@ final class CoreProgramVerifier {
       DefinitionId owner, CoreDefinition.Callable callable, CoreStatement.ForStatement loop) {
     requireNonNullableReceiver(owner, loop.iterable().type(), "iteration");
     CoreType variable = absolute(owner, local(callable, loop.variableLocal()).type());
-    boolean valid =
-        builtins.iterationCandidates(loop.iterationIntrinsic()).stream()
-            .anyMatch(
-                candidate -> {
-                  Map<String, CoreType> substitutions = new LinkedHashMap<>();
-                  return bindPattern(
-                          nonNullable(absolute(owner, loop.iterable().type())),
-                          candidate.receiver(),
-                          substitutions)
-                      && instantiate(candidate.element(), substitutions).equals(variable);
-                });
-    if (!valid) throw new IllegalArgumentException("iteration does not match its builtin ABI");
+    switch (loop.iteration()) {
+      case CoreIteration.Builtin builtin -> {
+        boolean valid =
+            builtins.iterationCandidates(builtin.intrinsic()).stream()
+                .anyMatch(
+                    candidate -> {
+                      Map<String, CoreType> substitutions = new LinkedHashMap<>();
+                      return bindPattern(
+                              nonNullable(absolute(owner, loop.iterable().type())),
+                              candidate.receiver(),
+                              substitutions)
+                          && instantiate(candidate.element(), substitutions).equals(variable);
+                    });
+        if (!valid) {
+          throw new IllegalArgumentException("iteration does not match its builtin ABI");
+        }
+      }
+      case CoreIteration.Interface protocol -> {
+        CoreType iterator =
+            verifyIterationRequirement(
+                owner, callable, loop.iterable().type(), protocol.iteratorRequirement());
+        CoreType hasNext =
+            verifyIterationRequirement(owner, callable, iterator, protocol.hasNextRequirement());
+        CoreType next =
+            verifyIterationRequirement(owner, callable, iterator, protocol.nextRequirement());
+        requireSameType(CoreType.BOOLEAN, hasNext, "iteration hasNext result");
+        requireSameType(variable, next, "iteration next result");
+      }
+    }
+  }
+
+  private CoreType verifyIterationRequirement(
+      DefinitionId owner,
+      CoreDefinition.Callable callable,
+      CoreType receiverType,
+      CoreDefinitionLink requirementLink) {
+    DefinitionId requirementId = resolve(owner, requirementLink);
+    CoreDefinition target = program.definition(requirementId).orElseThrow();
+    if (!(target instanceof CoreDefinition.InterfaceMethod requirement)
+        || !requirement.typeParameters().isEmpty()
+        || !requirement.parameterTypes().isEmpty()) {
+      throw new IllegalArgumentException("iteration requirement has the wrong callable ABI");
+    }
+    InterfaceInstance required =
+        interfaceInstance(requirementId, requirement.receiverInterfaceType());
+    CoreType actualReceiver = nonNullable(absolute(owner, receiverType));
+    CoreType realized = realizedInterface(actualReceiver, required.definition());
+    if (realized == null && actualReceiver instanceof CoreType.Parameter parameter) {
+      CoreTypeParameter declaration =
+          callable.typeParameters().stream()
+              .filter(candidate -> candidate.index() == parameter.index())
+              .findFirst()
+              .orElse(null);
+      if (declaration != null && declaration.upperBound().isPresent()) {
+        realized =
+            realizedInterface(
+                nonNullable(absolute(owner, declaration.upperBound().orElseThrow())),
+                required.definition());
+      }
+    }
+    if (realized == null) {
+      throw new IllegalArgumentException("iteration requirement has the wrong receiver ABI");
+    }
+    InterfaceInstance receiver = interfaceInstance(owner, realized);
+    List<CoreType> substitutions = interfaceSubstitutions(receiver, required.definition());
+    if (substitutions == null) {
+      throw new IllegalArgumentException("iteration requirement has the wrong receiver ABI");
+    }
+    return absolute(requirementId, requirement.returnType()).substitute(substitutions::get);
   }
 
   private boolean bindPattern(
@@ -455,6 +1030,7 @@ final class CoreProgramVerifier {
     return switch (category) {
       case VALUE -> CoreValueCategory.VALUE;
       case IDENTITY -> CoreValueCategory.IDENTITY;
+      case POLYMORPHIC -> CoreValueCategory.POLYMORPHIC;
       case DYNAMIC -> CoreValueCategory.DYNAMIC;
       case VOID -> CoreValueCategory.VOID;
     };
@@ -514,6 +1090,7 @@ final class CoreProgramVerifier {
     if (substitutions.size() != target.reifiedTypeLocals().size()) {
       throw new IllegalArgumentException("call reified arguments do not match the target ABI");
     }
+    verifyTypeArgumentBounds(targetId, target.typeParameters(), substitutions);
     verifyDenseArguments(call.arguments(), target.parameterTypes().size());
     for (CoreArgument argument : call.arguments()) {
       CoreType expected =
@@ -525,6 +1102,66 @@ final class CoreProgramVerifier {
     CoreType receiverType = call.receiver().map(CoreExpression::type).orElse(CoreType.DYNAMIC);
     result = safeResult(result, call.nullSafe(), receiverType);
     requireSameType(result, absolute(owner, call.type()), "call result");
+  }
+
+  private void verifyInterfaceCall(
+      DefinitionId owner, CoreDefinition.Callable caller, CoreExpression.InterfaceCall call) {
+    DefinitionId requirementId = resolve(owner, call.requirement());
+    CoreDefinition target = program.definition(requirementId).orElseThrow();
+    if (!(target instanceof CoreDefinition.InterfaceMethod requirement)) {
+      throw new IllegalArgumentException("interface call target is not an interface method");
+    }
+    verifyExpression(owner, caller, call.receiver());
+    call.arguments().forEach(argument -> verifyExpression(owner, caller, argument.value()));
+    call.reifiedArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
+    verifyReceiverSafety(owner, call.receiver().type(), call.nullSafe(), "interface call");
+    CoreType actualReceiver = nonNullable(absolute(owner, call.receiver().type()));
+    InterfaceInstance required =
+        interfaceInstance(requirementId, requirement.receiverInterfaceType());
+    CoreType realized = realizedInterface(actualReceiver, required.definition());
+    if (realized == null && actualReceiver instanceof CoreType.Parameter parameter) {
+      CoreTypeParameter declaration =
+          caller.typeParameters().stream()
+              .filter(candidate -> candidate.index() == parameter.index())
+              .findFirst()
+              .orElse(null);
+      if (declaration != null && declaration.upperBound().isPresent()) {
+        CoreType upperBound = absolute(owner, declaration.upperBound().orElseThrow());
+        realized = realizedInterface(nonNullable(upperBound), required.definition());
+      }
+    }
+    if (realized == null) {
+      throw new IllegalArgumentException(
+          "interface call receiver does not satisfy the requirement");
+    }
+    InterfaceInstance instance = interfaceInstance(owner, realized);
+    List<CoreType> substitutions = interfaceSubstitutions(instance, required.definition());
+    if (substitutions == null) {
+      throw new IllegalArgumentException(
+          "interface call receiver does not satisfy the requirement");
+    }
+    substitutions = new ArrayList<>(substitutions);
+    call.reifiedArguments().stream()
+        .map(CoreRuntimeType::template)
+        .map(type -> absolute(owner, type))
+        .forEach(substitutions::add);
+    if (call.reifiedArguments().size() != requirement.typeParameters().size()) {
+      throw new IllegalArgumentException(
+          "interface call type arguments do not match the requirement ABI");
+    }
+    verifyTypeArgumentBounds(requirementId, requirement.typeParameters(), substitutions);
+    verifyDenseArguments(call.arguments(), requirement.parameterTypes().size());
+    for (CoreArgument argument : call.arguments()) {
+      CoreType expected =
+          absolute(requirementId, requirement.parameterTypes().get(argument.parameterIndex()))
+              .substitute(substitutions::get);
+      requireAssignable(
+          expected, absolute(owner, argument.value().type()), "interface call argument");
+    }
+    CoreType result =
+        absolute(requirementId, requirement.returnType()).substitute(substitutions::get);
+    result = safeResult(result, call.nullSafe(), call.receiver().type());
+    requireSameType(result, absolute(owner, call.type()), "interface call result");
   }
 
   private void verifyConstruct(
@@ -544,7 +1181,7 @@ final class CoreProgramVerifier {
     if (!(nonNullable(constructedType) instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.User user)
         || !resolveExternal(user.definition()).equals(targetId)
-        || declared.arguments().size() != target.typeParameterCount()) {
+        || declared.arguments().size() != target.typeParameters().size()) {
       throw new IllegalArgumentException("constructed type does not match the class ABI");
     }
     verifyDenseArguments(construct.arguments(), target.fields().size());
@@ -556,19 +1193,246 @@ final class CoreProgramVerifier {
     }
   }
 
-  private void verifyEnumMember(DefinitionId owner, CoreExpression.EnumMember member) {
-    DefinitionId targetId = resolve(owner, member.target());
+  private void verifyEnumConstruct(
+      DefinitionId owner, CoreDefinition.Callable caller, CoreExpression.EnumConstruct construct) {
+    DefinitionId targetId = resolve(owner, construct.target());
     CoreDefinition targetDefinition = program.definition(targetId).orElseThrow();
-    if (!(targetDefinition instanceof CoreDefinition.Enum target)
-        || member.memberOrdinal() >= target.members().size()) {
-      throw new IllegalArgumentException("enum member target or ordinal is invalid");
+    if (!(targetDefinition instanceof CoreDefinition.Enum target)) {
+      throw new IllegalArgumentException("enum construct target is not an enum");
     }
-    CoreType type = absolute(owner, member.type());
-    if (!(nonNullable(type) instanceof CoreType.Declared declared)
+    CoreEnumVariant variant =
+        target.variants().stream()
+            .filter(candidate -> candidate.key().equals(construct.variantKey()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("enum construct variant is absent"));
+    verifyRuntimeType(owner, caller, construct.runtimeType());
+    construct.arguments().forEach(argument -> verifyExpression(owner, caller, argument.value()));
+    CoreType type = absolute(owner, construct.type());
+    requireSameType(
+        type, absolute(owner, construct.runtimeType().template()), "enum construct runtime type");
+    if (type.isNullable()
+        || !(type instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.User user)
         || !resolveExternal(user.definition()).equals(targetId)
-        || !declared.arguments().isEmpty()) {
-      throw new IllegalArgumentException("enum member type does not match its target");
+        || declared.arguments().size() != target.typeParameters().size()) {
+      throw new IllegalArgumentException("enum construct type does not match its target");
+    }
+    verifyDenseArguments(construct.arguments(), variant.fields().size());
+    for (CoreArgument argument : construct.arguments()) {
+      CoreType expected =
+          absolute(targetId, variant.fields().get(argument.parameterIndex()).type())
+              .substitute(declared.arguments()::get);
+      requireAssignable(
+          expected, absolute(owner, argument.value().type()), "enum construct argument");
+    }
+  }
+
+  private void verifySwitch(
+      DefinitionId owner, CoreDefinition.Callable callable, CoreExpression.Switch switched) {
+    verifyExpression(owner, callable, switched.value());
+    CoreType valueType = absolute(owner, switched.value().type());
+    PatternCoverage<CoreType> coverage = new PatternCoverage<>(new CorePatternDomain(owner));
+    List<PatternCoverage.Pattern> previous = new ArrayList<>();
+    for (CoreSwitchCase switchCase : switched.cases()) {
+      PatternCoverage.Pattern pattern =
+          verifyPattern(owner, callable, switchCase.pattern(), valueType);
+      if (!coverage.isUseful(previous, pattern, valueType)) {
+        throw new IllegalArgumentException("core switch case is unreachable");
+      }
+      previous.add(pattern);
+      controls.addFirst(Control.switched(switched.type()));
+      verifyBlock(owner, callable, switchCase.body());
+      controls.removeFirst();
+      if (!switched.type().equals(CoreType.VOID) && !definitelyYields(switchCase.body())) {
+        throw new IllegalArgumentException("core switch expression case does not yield");
+      }
+    }
+    if (!coverage.isExhaustive(previous, valueType)) {
+      throw new IllegalArgumentException("core switch is not exhaustive");
+    }
+  }
+
+  private PatternCoverage.Pattern verifyPattern(
+      DefinitionId owner,
+      CoreDefinition.Callable callable,
+      CorePattern pattern,
+      CoreType expected) {
+    if (expected.isNullable() && !(pattern instanceof CorePattern.Null)) {
+      if (pattern instanceof CorePattern.Wildcard) return PatternCoverage.Pattern.any();
+      return PatternCoverage.Pattern.constructor(
+          "$value", List.of(verifyNonNullPattern(owner, callable, pattern, nonNullable(expected))));
+    }
+    if (pattern instanceof CorePattern.Null) {
+      if (!expected.isNullable()) {
+        throw new IllegalArgumentException("core null pattern requires nullable type");
+      }
+      return PatternCoverage.Pattern.constructor("$null", List.of());
+    }
+    return verifyNonNullPattern(owner, callable, pattern, nonNullable(expected));
+  }
+
+  private PatternCoverage.Pattern verifyNonNullPattern(
+      DefinitionId owner,
+      CoreDefinition.Callable callable,
+      CorePattern pattern,
+      CoreType expected) {
+    return switch (pattern) {
+      case CorePattern.Wildcard ignored -> PatternCoverage.Pattern.any();
+      case CorePattern.Binding binding -> {
+        CoreLocal local = local(callable, binding.localIndex());
+        if (local.kind() != CoreLocal.Kind.VARIABLE) {
+          throw new IllegalArgumentException("core pattern binding requires variable local");
+        }
+        verifyValueType(owner, binding.type(), callable.reifiedTypeLocals().size());
+        requireSameType(owner, binding.type(), owner, local.type(), "pattern binding local");
+        requireSameType(expected, absolute(owner, binding.type()), "pattern binding type");
+        yield PatternCoverage.Pattern.any();
+      }
+      case CorePattern.Variant variant -> {
+        EnumInstance instance = enumInstance(expected);
+        CoreEnumVariant declaration =
+            instance.declaration().variants().stream()
+                .filter(candidate -> candidate.key().equals(variant.variantKey()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("core pattern variant is absent"));
+        if (variant.arguments().size() != declaration.fields().size()) {
+          throw new IllegalArgumentException("core pattern variant has wrong payload arity");
+        }
+        List<PatternCoverage.Pattern> arguments = new ArrayList<>();
+        for (int index = 0; index < variant.arguments().size(); index++) {
+          CoreType payloadType =
+              absolute(instance.definition(), declaration.fields().get(index).type())
+                  .substitute(instance.type().arguments()::get);
+          arguments.add(
+              verifyPattern(owner, callable, variant.arguments().get(index), payloadType));
+        }
+        yield PatternCoverage.Pattern.constructor("variant:" + variant.variantKey(), arguments);
+      }
+      case CorePattern.Literal literal -> {
+        CoreType literalType =
+            switch (literal.value()) {
+              case Integer ignored ->
+                  literal.type().equals(CoreType.CODE_POINT)
+                      ? CoreType.CODE_POINT
+                      : CoreType.INTEGER;
+              case Long ignored -> CoreType.LONG;
+              case Float ignored -> CoreType.FLOAT;
+              case Double ignored -> CoreType.DOUBLE;
+              case Boolean ignored -> CoreType.BOOLEAN;
+              case String ignored -> CoreType.STRING;
+              default -> throw new IllegalArgumentException("unsupported core pattern literal");
+            };
+        requireSameType(literal.type(), literalType, "pattern literal representation");
+        requireSameType(expected, literal.type(), "pattern literal");
+        yield PatternCoverage.Pattern.constructor(literalKey(expected, literal.value()), List.of());
+      }
+      case CorePattern.Null ignored ->
+          throw new IllegalArgumentException("core null pattern requires nullable type");
+    };
+  }
+
+  private EnumInstance enumInstance(CoreType type) {
+    if (!(nonNullable(type) instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException("core variant pattern requires enum type");
+    }
+    DefinitionId definition = resolveExternal(user.definition());
+    CoreDefinition target = program.definition(definition).orElseThrow();
+    if (!(target instanceof CoreDefinition.Enum enumDeclaration)
+        || declared.arguments().size() != enumDeclaration.typeParameters().size()) {
+      throw new IllegalArgumentException("core variant pattern requires enum type");
+    }
+    return new EnumInstance(definition, enumDeclaration, declared);
+  }
+
+  private static String literalKey(CoreType expected, Object value) {
+    if (isNumericLeaf(expected)) {
+      return "numeric:" + expected + ":" + value;
+    }
+    if (expected.equals(CoreType.CODE_POINT)) return "codepoint:" + value;
+    if (expected.equals(CoreType.BOOLEAN)) return "boolean:" + value;
+    return "string:" + value;
+  }
+
+  private static boolean definitelyYields(CoreBlock block) {
+    for (CoreStatement statement : block.statements()) {
+      if (statement instanceof CoreStatement.ReturnStatement
+          || statement instanceof CoreStatement.YieldStatement) {
+        return true;
+      }
+      if (statement instanceof CoreStatement.IfStatement conditional
+          && definitelyYields(conditional.thenBlock())
+          && definitelyYields(conditional.elseBlock())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private final class CorePatternDomain implements PatternCoverage.Domain<CoreType> {
+    private final DefinitionId owner;
+
+    private CorePatternDomain(DefinitionId owner) {
+      this.owner = owner;
+    }
+
+    @Override
+    public List<PatternCoverage.Constructor<CoreType>> constructors(CoreType type) {
+      if (type.isNullable()) {
+        return List.of(
+            new PatternCoverage.Constructor<>("$null", List.of()),
+            new PatternCoverage.Constructor<>("$value", List.of(nonNullable(type))));
+      }
+      if (type.equals(CoreType.BOOLEAN)) {
+        return List.of(
+            new PatternCoverage.Constructor<>("boolean:false", List.of()),
+            new PatternCoverage.Constructor<>("boolean:true", List.of()));
+      }
+      CoreType absoluteType = absolute(owner, type);
+      if (!(absoluteType instanceof CoreType.Declared declared)
+          || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+        return List.of();
+      }
+      DefinitionId definition = resolveExternal(user.definition());
+      CoreDefinition target = program.definition(definition).orElseThrow();
+      if (!(target instanceof CoreDefinition.Enum enumDeclaration)) return List.of();
+      return enumDeclaration.variants().stream()
+          .map(
+              variant ->
+                  new PatternCoverage.Constructor<>(
+                      "variant:" + variant.key(),
+                      variant.fields().stream()
+                          .map(
+                              field ->
+                                  absolute(definition, field.type())
+                                      .substitute(declared.arguments()::get))
+                          .toList()))
+          .toList();
+    }
+
+    @Override
+    public PatternCoverage.Constructor<CoreType> openConstructor(CoreType type, String key) {
+      return constructors(type).isEmpty()
+          ? new PatternCoverage.Constructor<>(key, List.of())
+          : null;
+    }
+  }
+
+  private record EnumInstance(
+      DefinitionId definition, CoreDefinition.Enum declaration, CoreType.Declared type) {}
+
+  private enum ControlKind {
+    LOOP,
+    SWITCH
+  }
+
+  private record Control(ControlKind kind, CoreType yieldType) {
+    static Control loop() {
+      return new Control(ControlKind.LOOP, CoreType.VOID);
+    }
+
+    static Control switched(CoreType type) {
+      return new Control(ControlKind.SWITCH, type);
     }
   }
 
@@ -584,7 +1448,7 @@ final class CoreProgramVerifier {
     if (!(receiver instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.User user)
         || !resolveExternal(user.definition()).equals(targetId)
-        || declared.arguments().size() != target.typeParameterCount()) {
+        || declared.arguments().size() != target.typeParameters().size()) {
       throw new IllegalArgumentException("field receiver does not match its owner");
     }
     return absolute(targetId, target.fields().get(reference.ordinal()).type())
@@ -623,6 +1487,30 @@ final class CoreProgramVerifier {
 
   private void verifyRuntimeTypeTemplate(DefinitionId owner, CoreType type, int parameterCount) {
     verifyInhabitedType(owner, type, parameterCount, "runtime type template");
+  }
+
+  private void verifyTypeParameters(
+      DefinitionId owner, List<CoreTypeParameter> parameters, int parameterCount) {
+    for (CoreTypeParameter parameter : parameters) {
+      parameter
+          .upperBound()
+          .ifPresent(
+              bound -> {
+                verifyValueType(owner, bound, parameterCount);
+                interfaceInstance(owner, bound);
+              });
+    }
+  }
+
+  private void verifyTypeArgumentBounds(
+      DefinitionId owner, List<CoreTypeParameter> parameters, List<CoreType> substitutions) {
+    for (CoreTypeParameter parameter : parameters) {
+      if (parameter.upperBound().isEmpty()) continue;
+      CoreType expected =
+          absolute(owner, parameter.upperBound().orElseThrow()).substitute(substitutions::get);
+      CoreType actual = substitutions.get(parameter.index());
+      requireAssignable(expected, actual, "type argument bound");
+    }
   }
 
   private void verifyLocalType(DefinitionId owner, CoreLocal local, int parameterCount) {
@@ -673,9 +1561,13 @@ final class CoreProgramVerifier {
       throw new IllegalArgumentException("builtin core type has the wrong arity");
     }
     CoreValueCategory expected =
-        definition.symbol().type().category() == ValueCategory.IDENTITY
-            ? CoreValueCategory.IDENTITY
-            : CoreValueCategory.VALUE;
+        switch (definition.symbol().type().category()) {
+          case IDENTITY -> CoreValueCategory.IDENTITY;
+          case VALUE -> CoreValueCategory.VALUE;
+          case POLYMORPHIC -> CoreValueCategory.POLYMORPHIC;
+          case VOID, DYNAMIC ->
+              throw new IllegalArgumentException("builtin core type cannot be inhabited");
+        };
     if (declared.category() != expected) {
       throw new IllegalArgumentException("builtin core type has the wrong value category");
     }
@@ -688,11 +1580,14 @@ final class CoreProgramVerifier {
     int arity;
     CoreValueCategory category;
     if (target instanceof CoreDefinition.Class declaration) {
-      arity = declaration.typeParameterCount();
+      arity = declaration.typeParameters().size();
       category = CoreValueCategory.IDENTITY;
-    } else if (target instanceof CoreDefinition.Enum) {
-      arity = 0;
+    } else if (target instanceof CoreDefinition.Enum declaration) {
+      arity = declaration.typeParameters().size();
       category = CoreValueCategory.VALUE;
+    } else if (target instanceof CoreDefinition.Interface declaration) {
+      arity = declaration.typeParameters().size();
+      category = CoreValueCategory.POLYMORPHIC;
     } else {
       throw new IllegalArgumentException("declared core type target is not nominal");
     }
@@ -709,6 +1604,14 @@ final class CoreProgramVerifier {
               + ", actualCategory="
               + declared.category());
     }
+    List<CoreTypeParameter> parameters =
+        switch (target) {
+          case CoreDefinition.Class declaration -> declaration.typeParameters();
+          case CoreDefinition.Enum declaration -> declaration.typeParameters();
+          case CoreDefinition.Interface declaration -> declaration.typeParameters();
+          default -> throw new IllegalStateException("nominal definition kind changed");
+        };
+    verifyTypeArgumentBounds(targetId, parameters, declared.arguments());
   }
 
   private CoreType declaredArgument(
@@ -784,7 +1687,7 @@ final class CoreProgramVerifier {
     requireAssignable(absolute(expectedOwner, expected), absolute(actualOwner, actual), subject);
   }
 
-  private static void requireAssignable(CoreType expected, CoreType actual, String subject) {
+  private void requireAssignable(CoreType expected, CoreType actual, String subject) {
     if (!isAssignable(expected, actual)) {
       throw new IllegalArgumentException(subject + " type does not match its ABI");
     }
@@ -805,12 +1708,110 @@ final class CoreProgramVerifier {
     }
   }
 
-  private static boolean isAssignable(CoreType expected, CoreType actual) {
+  private boolean isAssignable(CoreType expected, CoreType actual) {
     if (expected.equals(CoreType.DYNAMIC) || actual.equals(CoreType.DYNAMIC)) return true;
     if (actual.equals(CoreType.NULL)) return expected.isNullable();
     if (expected.equals(CoreType.NULL)) return actual.equals(CoreType.NULL);
-    if (!nonNullable(expected).equals(nonNullable(actual))) return false;
-    return expected.isNullable() || !actual.isNullable();
+    CoreType expectedValue = nonNullable(expected);
+    CoreType actualValue = nonNullable(actual);
+    boolean compatible =
+        expectedValue.equals(actualValue)
+            || expectedValue.equals(CoreType.NUMBER) && isNumericLeaf(actualValue);
+    if (!compatible
+        && expectedValue instanceof CoreType.Declared expectedDeclared
+        && expectedDeclared.category() == CoreValueCategory.POLYMORPHIC
+        && expectedDeclared.constructor() instanceof CoreTypeConstructor.User expectedUser) {
+      DefinitionId expectedInterface = resolveExternal(expectedUser.definition());
+      CoreType realized = realizedInterface(actualValue, expectedInterface);
+      compatible = expectedValue.equals(realized);
+    }
+    return compatible && (expected.isNullable() || !actual.isNullable());
+  }
+
+  private static boolean isNumericLeaf(CoreType type) {
+    CoreType value = nonNullable(type);
+    return value.equals(CoreType.INTEGER)
+        || value.equals(CoreType.LONG)
+        || value.equals(CoreType.FLOAT)
+        || value.equals(CoreType.DOUBLE);
+  }
+
+  private CoreType realizedInterface(CoreType actual, DefinitionId target) {
+    if (actual instanceof CoreType.Declared builtinActual
+        && builtinActual.constructor() instanceof CoreTypeConstructor.Builtin) {
+      for (CoreDefinitionRecord record : program.definitions()) {
+        if (!(record.definition() instanceof CoreDefinition.BuiltinConformance conformance))
+          continue;
+        Map<Integer, CoreType> substitutions = new LinkedHashMap<>();
+        if (!matchCoreTemplate(
+            absolute(record.id(), conformance.concreteBuiltinType()),
+            builtinActual,
+            substitutions)) {
+          continue;
+        }
+        CoreType interfaceType =
+            absolute(record.id(), conformance.interfaceType()).substitute(substitutions::get);
+        InterfaceInstance instance = interfaceInstance(record.id(), interfaceType);
+        List<CoreType> arguments = interfaceSubstitutions(instance, target);
+        if (arguments != null) return interfaceType(target, arguments);
+      }
+      return null;
+    }
+    if (!(actual instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      return null;
+    }
+    DefinitionId actualId = resolveExternal(user.definition());
+    CoreDefinition definition = program.definition(actualId).orElseThrow();
+    if (definition instanceof CoreDefinition.Interface interfaceDefinition) {
+      List<CoreType> arguments =
+          interfaceSubstitutions(
+              new InterfaceInstance(actualId, interfaceDefinition, declared), target);
+      if (arguments == null) return null;
+      return interfaceType(target, arguments);
+    }
+    if (!(definition instanceof CoreDefinition.Class classDefinition)) return null;
+    for (CoreConformance conformance : classDefinition.conformances()) {
+      CoreType instantiated =
+          absolute(actualId, conformance.interfaceType()).substitute(declared.arguments()::get);
+      InterfaceInstance instance = interfaceInstance(actualId, instantiated);
+      List<CoreType> arguments = interfaceSubstitutions(instance, target);
+      if (arguments != null) return interfaceType(target, arguments);
+    }
+    return null;
+  }
+
+  private static boolean matchCoreTemplate(
+      CoreType pattern, CoreType actual, Map<Integer, CoreType> substitutions) {
+    if (pattern instanceof CoreType.Parameter parameter) {
+      CoreType value =
+          parameter.nullability() == CoreNullability.NULLABLE ? nonNullable(actual) : actual;
+      CoreType previous = substitutions.putIfAbsent(parameter.index(), value);
+      return previous == null || previous.equals(value);
+    }
+    if (!(pattern instanceof CoreType.Declared expected)
+        || !(actual instanceof CoreType.Declared found)
+        || !expected.constructor().equals(found.constructor())
+        || expected.category() != found.category()
+        || expected.nullability() != found.nullability()
+        || expected.arguments().size() != found.arguments().size()) {
+      return pattern.equals(actual);
+    }
+    for (int index = 0; index < expected.arguments().size(); index++) {
+      if (!matchCoreTemplate(
+          expected.arguments().get(index), found.arguments().get(index), substitutions)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static CoreType interfaceType(DefinitionId definition, List<CoreType> arguments) {
+    return new CoreType.Declared(
+        new CoreTypeConstructor.User(new DefinitionReference.External(definition)),
+        arguments,
+        CoreValueCategory.POLYMORPHIC,
+        CoreNullability.NON_NULL);
   }
 
   private static CoreType safeResult(CoreType result, boolean nullSafe, CoreType receiver) {

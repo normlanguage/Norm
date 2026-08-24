@@ -88,12 +88,17 @@ public record CoreCompilation(
               callable.hasReceiver() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
           case CoreDefinition.Class ignored -> CoreBindingKind.CLASS;
           case CoreDefinition.Enum ignored -> CoreBindingKind.ENUM;
+          case CoreDefinition.Interface ignored -> CoreBindingKind.INTERFACE;
+          case CoreDefinition.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;
+          case CoreDefinition.BuiltinConformance ignored ->
+              throw new IllegalArgumentException(
+                  "builtin conformances cannot be namespace bindings");
         };
     if (binding.kind() != expectedKind) throw bindingMismatch(binding);
     switch (definition) {
       case CoreDefinition.Callable callable -> {
         CoreBindingShape.Callable shape = (CoreBindingShape.Callable) binding.shape();
-        if (shape.typeParameterCount() != callable.reifiedTypeLocals().size()
+        if (!sameTypeParameters(program, id, shape.typeParameters(), callable.typeParameters())
             || shape.parameters().size() != callable.parameterTypes().size()
             || !sameType(program, id, shape.returnType(), callable.returnType())) {
           throw bindingMismatch(binding);
@@ -127,8 +132,9 @@ public record CoreCompilation(
       }
       case CoreDefinition.Class declaration -> {
         CoreBindingShape.Class shape = (CoreBindingShape.Class) binding.shape();
-        if (shape.typeParameterCount() != declaration.typeParameterCount()
-            || shape.fields().size() != declaration.fields().size()) {
+        if (!sameTypeParameters(program, id, shape.typeParameters(), declaration.typeParameters())
+            || shape.fields().size() != declaration.fields().size()
+            || shape.conformances().size() != declaration.conformances().size()) {
           throw bindingMismatch(binding);
         }
         for (int field = 0; field < shape.fields().size(); field++) {
@@ -140,11 +146,68 @@ public record CoreCompilation(
             throw bindingMismatch(binding);
           }
         }
+        for (CoreType conformance : shape.conformances()) {
+          boolean present =
+              declaration.conformances().stream()
+                  .anyMatch(value -> sameType(program, id, conformance, value.interfaceType()));
+          if (!present) throw bindingMismatch(binding);
+        }
       }
       case CoreDefinition.Enum declaration -> {
         CoreBindingShape.Enum shape = (CoreBindingShape.Enum) binding.shape();
-        if (!shape.members().equals(declaration.members())) throw bindingMismatch(binding);
+        if (!sameTypeParameters(program, id, shape.typeParameters(), declaration.typeParameters())
+            || shape.variants().size() != declaration.variants().size()) {
+          throw bindingMismatch(binding);
+        }
+        for (int variantIndex = 0; variantIndex < shape.variants().size(); variantIndex++) {
+          CoreBindingShape.Variant variant = shape.variants().get(variantIndex);
+          CoreEnumVariant definitionVariant = declaration.variants().get(variantIndex);
+          if (!variant.name().equals(definitionVariant.key())
+              || variant.fields().size() != definitionVariant.fields().size()) {
+            throw bindingMismatch(binding);
+          }
+          for (int fieldIndex = 0; fieldIndex < variant.fields().size(); fieldIndex++) {
+            if (!sameType(
+                program,
+                id,
+                variant.fields().get(fieldIndex).type(),
+                definitionVariant.fields().get(fieldIndex).type())) {
+              throw bindingMismatch(binding);
+            }
+          }
+        }
       }
+      case CoreDefinition.Interface declaration -> {
+        CoreBindingShape.Interface shape = (CoreBindingShape.Interface) binding.shape();
+        if (!sameTypeParameters(program, id, shape.typeParameters(), declaration.typeParameters())
+            || shape.directParents().size() != declaration.directParents().size()) {
+          throw bindingMismatch(binding);
+        }
+        for (CoreType parent : shape.directParents()) {
+          boolean present =
+              declaration.directParents().stream()
+                  .anyMatch(value -> sameType(program, id, parent, value));
+          if (!present) throw bindingMismatch(binding);
+        }
+      }
+      case CoreDefinition.InterfaceMethod method -> {
+        CoreBindingShape.InterfaceMethod shape = (CoreBindingShape.InterfaceMethod) binding.shape();
+        if (!sameTypeParameters(program, id, shape.typeParameters(), method.typeParameters())
+            || shape.parameters().size() != method.parameterTypes().size()
+            || !sameType(program, id, shape.returnType(), method.returnType())) {
+          throw bindingMismatch(binding);
+        }
+        for (int parameter = 0; parameter < shape.parameters().size(); parameter++) {
+          if (!sameType(
+              program,
+              id,
+              shape.parameters().get(parameter).type(),
+              method.parameterTypes().get(parameter))) {
+            throw bindingMismatch(binding);
+          }
+        }
+      }
+      case CoreDefinition.BuiltinConformance ignored -> throw bindingMismatch(binding);
     }
   }
 
@@ -152,6 +215,31 @@ public record CoreCompilation(
       CoreProgram program, DefinitionId owner, CoreType left, CoreType right) {
     return CoreTypes.absolute(left, owner, program)
         .equals(CoreTypes.absolute(right, owner, program));
+  }
+
+  private static boolean sameTypeParameters(
+      CoreProgram program,
+      DefinitionId owner,
+      java.util.List<CoreTypeParameter> left,
+      java.util.List<CoreTypeParameter> right) {
+    if (left.size() != right.size()) return false;
+    for (int index = 0; index < left.size(); index++) {
+      CoreTypeParameter leftParameter = left.get(index);
+      CoreTypeParameter rightParameter = right.get(index);
+      if (leftParameter.index() != rightParameter.index()
+          || leftParameter.upperBound().isPresent() != rightParameter.upperBound().isPresent()) {
+        return false;
+      }
+      if (leftParameter.upperBound().isPresent()
+          && !sameType(
+              program,
+              owner,
+              leftParameter.upperBound().orElseThrow(),
+              rightParameter.upperBound().orElseThrow())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static IllegalArgumentException bindingMismatch(CoreBinding binding) {

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Counter {
   Integer add(Integer value) { return value }
   Integer add(Integer left, Integer right) { return left + right }
@@ -5,8 +8,12 @@ class Counter {
 
 Void main() {
   Counter counter = Counter()
-  printLine(counter.add(value: 2))
-  printLine(counter.add(left: 2, right: 5))
-  expectedOutputLine("2")
-  expectedOutputLine("7")
+  printLines([
+    counter.add(value: 2),
+    counter.add(left: 2, right: 5)
+  ])
+  expectedOutputLines([
+    "2",
+    "7"
+  ])
 }

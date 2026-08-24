@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> deleteDuplicates(Array<Integer> values) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   for Integer value : values {
     if result.isEmpty() || result.last() != value { result.add(value) }
   }
@@ -8,7 +10,9 @@ List<Integer> deleteDuplicates(Array<Integer> values) {
 
 Void main() {
   for Integer value : deleteDuplicates([1,1,2,3,3]) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
+  expectedOutputLines([
+    "1",
+    "2",
+    "3"
+  ])
 }

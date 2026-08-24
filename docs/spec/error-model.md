@@ -4,18 +4,11 @@ Norm 区分正常契约内的失败值与打断正常求值的 Exception。
 
 ## Result
 
-```norm
-enum Result<T, E> {
-    Ok(T value),
-    Err(E error)
-}
-```
-
-解析失败、资源不存在、远程拒绝等调用者预计会处理的结果使用 Result。它是普通 enum，通过 switch 显式处理。语言不提供隐藏的自动传播运算符。
+解析失败、资源不存在、远程拒绝等调用者预计会处理的结果使用 `std.core.Result<T, E>`。它是[标准库定义的普通泛型 enum](/stdlib/overview)，通过 switch 显式处理。语言不提供隐藏的自动传播运算符。
 
 ```norm
 String message = switch parse(text: input) {
-    case Ok(Integer value) { break "${value}" }
+    case Ok(Integer value) { break "parsed" }
     case Err(ParseError error) { break error.message }
 }
 ```

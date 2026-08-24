@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.semantic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.frontend.Compiler;
@@ -53,9 +54,11 @@ final class BuiltinCapabilityBindingTest {
                 .findFirst()
                 .orElseThrow();
 
-    assertEquals(
-        IntrinsicId.MAP_ITERATOR,
-        model.iterationOf(loop.iterable().span()).orElseThrow().intrinsic());
+    ResolvedIteration.Strategy.Builtin iteration =
+        assertInstanceOf(
+            ResolvedIteration.Strategy.Builtin.class,
+            model.iterationOf(loop.iterable().span()).orElseThrow().strategy());
+    assertEquals(IntrinsicId.MAP_ITERATOR, iteration.intrinsic());
     assertEquals(
         IntrinsicId.LIST_INDEX_READ, model.indexOf(read.span()).orElseThrow().readIntrinsic());
     assertEquals(

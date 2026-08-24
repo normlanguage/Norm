@@ -1,5 +1,8 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean isValid(String value) {
-  Stack<CodePoint> openings = Stack<CodePoint>()
+  Stack<CodePoint> openings = Stack<>()
   for CodePoint token : value.codePoints() {
     if token == '(' || token == '[' || token == '{' {
       openings.push(token)
@@ -13,8 +16,12 @@ Boolean isValid(String value) {
 }
 
 Void main() {
-  printLine(isValid("([])"))
-  printLine(isValid("([)]"))
-  expectedOutputLine("true")
-  expectedOutputLine("false")
+  printLines([
+    isValid("([])"),
+    isValid("([)]")
+  ])
+  expectedOutputLines([
+    "true",
+    "false"
+  ])
 }

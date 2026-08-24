@@ -2,8 +2,13 @@ Module(
   name: "std",
   version: 1,
   exports: [
+    "core.protocols",
+    "core.result",
+    "core.unit",
     "collections.sequences",
+    "io.output",
     "math.integer",
+    "testing.output",
     "testing.predicates",
     "text.builders",
     "text.normalization"

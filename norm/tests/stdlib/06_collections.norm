@@ -1,20 +1,28 @@
+import std.io.printLines
 import std.collections.listContains
 import std.collections.listCount
-import std.collections.toList
 import std.testing.equal
+import std.testing.expectedOutputLines
 
 Void main() {
-  List<Integer> values = List<Integer>()
+  List<Integer> values = List<>()
   values.add(2)
   values.add(5)
   values.add(2)
-  printLine(equal(actual: listContains(values: values, target: 5), expected: true))
-  printLine(equal(actual: listCount(values: values, target: 2), expected: 2))
+  printLines([
+    equal(actual: listContains(values: values, target: 5), expected: true),
+    equal(actual: listCount(values: values, target: 2), expected: 2)
+  ])
   List<Integer> backwards = values.reversed()
-  printLine(equal(actual: backwards, expected: toList([2, 5, 2])))
-  printLine(equal(actual: toList([4, 7]), expected: toList([4, 7])))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  List<Integer> expectedBackwards = [2, 5, 2]
+  printLine(equal(actual: backwards, expected: expectedBackwards))
+  List<Integer> left = [4, 7]
+  List<Integer> right = [4, 7]
+  printLine(equal(actual: left, expected: right))
+  expectedOutputLines([
+    "true",
+    "true",
+    "true",
+    "true"
+  ])
 }

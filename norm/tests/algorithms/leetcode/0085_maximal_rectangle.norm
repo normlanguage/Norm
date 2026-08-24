@@ -26,7 +26,7 @@ Integer maximalRectangle(List<Array<Integer>> matrix) {
 }
 
 Void main() {
-  List<Array<Integer>> matrix = List<Array<Integer>>()
+  List<Array<Integer>> matrix = List<>()
   matrix.add([1,0,1,0,0])
   matrix.add([1,0,1,1,1])
   matrix.add([1,1,1,1,1])

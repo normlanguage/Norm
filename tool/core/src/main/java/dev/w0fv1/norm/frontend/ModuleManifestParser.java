@@ -27,6 +27,7 @@ public final class ModuleManifestParser {
     if (!(expression.orElseThrow() instanceof Syntax.Call call)
         || !(call.callee() instanceof Syntax.Name constructor)
         || !constructor.value().equals("Module")
+        || constructor.diamond()
         || !constructor.typeArguments().isEmpty()) {
       throw invalid(source, "must contain one Module expression");
     }
@@ -50,10 +51,11 @@ public final class ModuleManifestParser {
         }
         case "version" -> {
           if (!(argument.value() instanceof Syntax.IntegerLiteral value)
-              || value.value() > Integer.MAX_VALUE) {
+              || value.value().signum() < 0
+              || value.value().bitLength() > 31) {
             throw invalid(source, "module version is outside the supported integer range");
           }
-          version = (int) value.value();
+          version = value.value().intValueExact();
           if (version < 1) throw invalid(source, "module version must be positive");
         }
         case "exports" -> exports = parseExports(source, argument.value());

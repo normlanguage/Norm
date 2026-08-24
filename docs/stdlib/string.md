@@ -4,7 +4,7 @@ String 是不可变 Unicode 文本值。构造后内容不变，切片和替换�
 
 ```norm
 String language = "Norm"
-String message = "Hello, ${language}"
+String message = "Hello, " + language
 ```
 
 ## 长度与索引

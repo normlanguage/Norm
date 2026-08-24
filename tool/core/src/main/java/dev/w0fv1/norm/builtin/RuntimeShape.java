@@ -1,7 +1,11 @@
 package dev.w0fv1.norm.builtin;
 
 public enum RuntimeShape {
-  INT,
+  INTEGER,
+  LONG,
+  FLOAT,
+  DOUBLE,
+  NUMBER,
   CODE_POINT,
   BOOL,
   STRING,
@@ -15,5 +19,6 @@ public enum RuntimeShape {
   DEQUE,
   PAIR,
   RANGE,
-  STRING_BUILDER
+  STRING_BUILDER,
+  NATIVE_ITERATOR
 }

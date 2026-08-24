@@ -12,7 +12,7 @@ public record Symbol(
     SemanticType type,
     Optional<SourceLocation> declaration,
     Optional<SymbolId> owner,
-    List<String> typeParameters,
+    List<TypeParameterInfo> typeParameters,
     List<ParameterInfo> parameters,
     String documentation) {
   public Symbol {

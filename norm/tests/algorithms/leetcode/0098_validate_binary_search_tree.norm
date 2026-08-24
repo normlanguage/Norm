@@ -6,7 +6,7 @@ Boolean validate(Array<Integer> values, Array<Integer> left, Array<Integer> righ
 }
 
 Boolean isValidBST(Array<Integer> values, Array<Integer> left, Array<Integer> right) {
-  return validate(values, left, right, node: 0, minimum: -9223372036854775807, maximum: 9223372036854775807)
+  return validate(values, left, right, node: 0, minimum: -2147483648, maximum: 2147483647)
 }
 
 Void main() {

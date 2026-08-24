@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer divide(Integer dividend, Integer divisor) {
   if dividend == -2147483648 && divisor == -1 { return 2147483647 }
   Integer sign = 1
@@ -26,8 +29,12 @@ Integer divide(Integer dividend, Integer divisor) {
 }
 
 Void main() {
-  printLine(divide(dividend: 10, divisor: 3))
-  printLine(divide(dividend: 7, divisor: -3))
-  expectedOutputLine("3")
-  expectedOutputLine("-2")
+  printLines([
+    divide(dividend: 10, divisor: 3),
+    divide(dividend: 7, divisor: -3)
+  ])
+  expectedOutputLines([
+    "3",
+    "-2"
+  ])
 }

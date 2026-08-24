@@ -1,15 +1,21 @@
+import std.io.printLines
 import std.testing.equal
+import std.testing.expectedOutputLines
 import std.testing.isFalse
 import std.testing.isTrue
 import std.testing.notEqual
 
 Void main() {
-  printLine(equal(actual: "Norm", expected: "Norm"))
-  printLine(notEqual(actual: 2, expected: 3))
-  printLine(isTrue(true))
-  printLine(isFalse(false))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  printLines([
+    equal(actual: "Norm", expected: "Norm"),
+    notEqual(actual: 2, expected: 3),
+    isTrue(true),
+    isFalse(false)
+  ])
+  expectedOutputLines([
+    "true",
+    "true",
+    "true",
+    "true"
+  ])
 }

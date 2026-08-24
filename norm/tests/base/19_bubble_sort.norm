@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> sort(Array<Integer> values) {
   for end : range(start: 0, end: values.size()) {
     for index : range(start: 0, end: values.size() - 1 - end) {
@@ -13,8 +15,10 @@ Array<Integer> sort(Array<Integer> values) {
 Void main() {
   Array<Integer> values = sort([5, 1, 8, 3])
   for Integer value : values { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("3")
-  expectedOutputLine("5")
-  expectedOutputLine("8")
+  expectedOutputLines([
+    "1",
+    "3",
+    "5",
+    "8"
+  ])
 }

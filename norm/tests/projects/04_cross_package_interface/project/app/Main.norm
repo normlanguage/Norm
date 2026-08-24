@@ -1,0 +1,10 @@
+package project.app
+
+import project.model.User
+import project.service.readName
+
+Void main() {
+  User user = User(value: "Norm")
+  printLine(readName(value: user))
+  expectedOutputLine("Norm")
+}

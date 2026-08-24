@@ -1,9 +1,12 @@
 import std.collections.sort
+import std.testing.expectedOutputLines
 
 Void main() {
   Array<CodePoint> values = sort(values: ['z', '中', 'A'])
   for value : values { printLine(value) }
-  expectedOutputLine("A")
-  expectedOutputLine("z")
-  expectedOutputLine("中")
+  expectedOutputLines([
+    "A",
+    "z",
+    "中"
+  ])
 }

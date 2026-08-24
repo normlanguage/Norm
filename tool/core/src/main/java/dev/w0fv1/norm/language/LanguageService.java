@@ -6,6 +6,8 @@ import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
+import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.semantic.TypeParameterInfo;
 import dev.w0fv1.norm.stdlib.StandardLibrary;
 import dev.w0fv1.norm.syntax.LanguageSyntax;
 import dev.w0fv1.norm.value.AnalysisResult;
@@ -20,6 +22,7 @@ public final class LanguageService {
   private final Compiler compiler;
   private final CompletionEngine completions = new CompletionEngine();
   private final SignatureHelpResolver signatures = new SignatureHelpResolver();
+  private final ContractRelations contracts = new ContractRelations();
 
   public LanguageService() {
     this(new Compiler());
@@ -70,6 +73,20 @@ public final class LanguageService {
     Optional<Symbol> symbol = model.resolvedSymbolAt(offset);
     if (symbol.isPresent()) {
       Symbol value = symbol.orElseThrow();
+      if (value.kind() == SymbolKind.TYPE_PARAMETER && value.owner().isPresent()) {
+        Optional<TypeParameterInfo> parameter =
+            model.symbol(value.owner().orElseThrow()).stream()
+                .flatMap(owner -> owner.typeParameters().stream())
+                .filter(candidate -> candidate.type().identity().equals(value.type().identity()))
+                .findFirst();
+        if (parameter.isPresent()) {
+          TypeParameterInfo info = parameter.orElseThrow();
+          String signature =
+              info.name()
+                  + info.upperBound().map(bound -> " extends " + bound.displayName()).orElse("");
+          return Optional.of(new HoverInfo("`" + signature + "`", value.declaration()));
+        }
+      }
       String signature = SymbolPresentation.signature(value);
       String markdown =
           value.documentation().isBlank()
@@ -85,7 +102,24 @@ public final class LanguageService {
 
   public Optional<SourceLocation> definition(AnalysisResult analysis, int offset) {
     SemanticModel model = analysis.semanticModel();
-    return model.resolvedSymbolAt(offset).flatMap(Symbol::declaration);
+    Optional<Symbol> selected = model.resolvedSymbolAt(offset);
+    if (selected.isEmpty()) return Optional.empty();
+    Symbol symbol = selected.orElseThrow();
+    boolean declaration =
+        symbol
+            .declaration()
+            .filter(location -> location.document().equals(model.source().id()))
+            .filter(location -> location.startOffset() <= offset && offset < location.endOffset())
+            .isPresent();
+    if (declaration) {
+      Optional<SourceLocation> requirement =
+          contracts.requirements(model, symbol).stream()
+              .map(Symbol::declaration)
+              .flatMap(Optional::stream)
+              .findFirst();
+      if (requirement.isPresent()) return requirement;
+    }
+    return symbol.declaration();
   }
 
   public List<SourceLocation> references(
@@ -95,10 +129,16 @@ public final class LanguageService {
     if (selected.isEmpty()) return List.of();
     Symbol symbol = selected.orElseThrow();
     Optional<SourceLocation> declaration = symbol.declaration();
-    List<dev.w0fv1.norm.value.SourceSpan> references =
-        model.isAlias(symbol.id())
-            ? model.authoringReferences(symbol.id())
-            : model.references(symbol.id());
+    List<dev.w0fv1.norm.value.SourceSpan> references;
+    if (model.isAlias(symbol.id())) {
+      references = model.authoringReferences(symbol.id());
+    } else {
+      references =
+          contracts.related(model, symbol).stream()
+              .flatMap(related -> model.references(related.id()).stream())
+              .distinct()
+              .toList();
+    }
     return references.stream()
         .map(span -> span.location())
         .filter(location -> includeDeclaration || !declaration.equals(Optional.of(location)))
@@ -108,7 +148,12 @@ public final class LanguageService {
   public Optional<RenameTarget> prepareRename(AnalysisResult analysis, int offset) {
     SemanticModel model = analysis.semanticModel();
     Optional<Symbol> symbol = model.symbolAt(offset);
-    if (symbol.isEmpty() || !isEditable(symbol.orElseThrow())) return Optional.empty();
+    if (symbol.isEmpty()) return Optional.empty();
+    List<Symbol> related =
+        model.isAlias(symbol.orElseThrow().id())
+            ? List.of(symbol.orElseThrow())
+            : contracts.related(model, symbol.orElseThrow());
+    if (related.stream().anyMatch(candidate -> !isEditable(candidate))) return Optional.empty();
     return model
         .referenceAt(offset)
         .map(reference -> new RenameTarget(reference.location(), symbol.orElseThrow().name()));
@@ -120,13 +165,20 @@ public final class LanguageService {
     }
     SemanticModel model = analysis.semanticModel();
     Optional<Symbol> selected = model.symbolAt(offset);
-    if (selected.isEmpty() || !isEditable(selected.orElseThrow())) return Optional.empty();
-    if (model.hasRenameConflict(selected.orElseThrow().id(), newName)) {
+    if (selected.isEmpty()) return Optional.empty();
+    List<Symbol> related =
+        model.isAlias(selected.orElseThrow().id())
+            ? List.of(selected.orElseThrow())
+            : contracts.related(model, selected.orElseThrow());
+    if (related.stream().anyMatch(candidate -> !isEditable(candidate))) return Optional.empty();
+    if (related.stream().anyMatch(symbol -> model.hasRenameConflict(symbol.id(), newName))) {
       throw new IllegalArgumentException(
           "name '" + newName + "' is already declared in this scope");
     }
     List<SourceLocation> locations =
-        model.authoringReferences(selected.orElseThrow().id()).stream()
+        related.stream()
+            .flatMap(symbol -> model.authoringReferences(symbol.id()).stream())
+            .distinct()
             .map(span -> span.location())
             .toList();
     return Optional.of(new RenameEdit(newName, locations));

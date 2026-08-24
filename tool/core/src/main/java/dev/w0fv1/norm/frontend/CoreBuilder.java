@@ -67,8 +67,8 @@ final class CoreBuilder {
     for (int declaration = 0; declaration < converted.declarations().size(); declaration++) {
       BoundCoreConverter.Declaration value = converted.declarations().get(declaration);
       DefinitionOccurrenceId occurrence = allocation.occurrenceIds().get(declaration);
-      bindings.add(
-          value.bind(
+      value
+          .bind(
               occurrence,
               exportedSources,
               pending -> {
@@ -77,7 +77,8 @@ final class CoreBuilder {
                   throw new IllegalStateException("namespace type reference is unresolved");
                 }
                 return new dev.w0fv1.norm.core.DefinitionReference.External(definition);
-              }));
+              })
+          .ifPresent(bindings::add);
     }
     return new CoreCompilation(
         coreProgram,

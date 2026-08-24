@@ -11,6 +11,9 @@ public final class LanguageSyntax {
       List.of(
           "class",
           "enum",
+          "interface",
+          "implements",
+          "extends",
           "package",
           "import",
           "as",
@@ -18,13 +21,16 @@ public final class LanguageSyntax {
           "private",
           "if",
           "else",
+          "switch",
+          "case",
           "for",
           "return",
           "break",
           "continue",
           "true",
           "false",
-          "null");
+          "null",
+          "var");
 
   private LanguageSyntax() {}
 
@@ -56,6 +62,9 @@ public final class LanguageSyntax {
     Map<String, TokenKind> words = new LinkedHashMap<>();
     words.put("class", TokenKind.CLASS);
     words.put("enum", TokenKind.ENUM);
+    words.put("interface", TokenKind.INTERFACE);
+    words.put("implements", TokenKind.IMPLEMENTS);
+    words.put("extends", TokenKind.EXTENDS);
     words.put("package", TokenKind.PACKAGE);
     words.put("import", TokenKind.IMPORT);
     words.put("as", TokenKind.AS);
@@ -63,6 +72,8 @@ public final class LanguageSyntax {
     words.put("private", TokenKind.PRIVATE);
     words.put("if", TokenKind.IF);
     words.put("else", TokenKind.ELSE);
+    words.put("switch", TokenKind.SWITCH);
+    words.put("case", TokenKind.CASE);
     words.put("for", TokenKind.FOR);
     words.put("return", TokenKind.RETURN);
     words.put("break", TokenKind.BREAK);
@@ -70,6 +81,7 @@ public final class LanguageSyntax {
     words.put("true", TokenKind.TRUE);
     words.put("false", TokenKind.FALSE);
     words.put("null", TokenKind.NULL);
+    words.put("var", TokenKind.VAR);
     return Map.copyOf(words);
   }
 }

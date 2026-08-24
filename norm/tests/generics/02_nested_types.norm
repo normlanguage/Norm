@@ -1,15 +1,22 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box<T> {
   T value
 }
 
 Void main() {
-  List<Pair<Integer, String>> values = List<Pair<Integer, String>>()
-  values.add(Pair<Integer, String>(first: 7, second: "seven"))
-  Box<List<Pair<Integer, String>>> box = Box<List<Pair<Integer, String>>>(value: values)
-  printLine(box.value.size())
-  printLine(box.value[0].first)
-  printLine(box.value[0].second)
-  expectedOutputLine("1")
-  expectedOutputLine("7")
-  expectedOutputLine("seven")
+  List<Pair<Integer, String>> values = List<>()
+  values.add(Pair<>(first: 7, second: "seven"))
+  Box<List<Pair<Integer, String>>> box = Box<>(value: values)
+  printLines([
+    box.value.size(),
+    box.value[0].first,
+    box.value[0].second
+  ])
+  expectedOutputLines([
+    "1",
+    "7",
+    "seven"
+  ])
 }

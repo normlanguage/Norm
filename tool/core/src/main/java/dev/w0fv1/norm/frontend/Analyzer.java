@@ -4,7 +4,9 @@ import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.semantic.ArgumentBinding;
 import dev.w0fv1.norm.semantic.BuiltinSymbols;
 import dev.w0fv1.norm.semantic.ImportableSymbol;
+import dev.w0fv1.norm.semantic.NumericTypes;
 import dev.w0fv1.norm.semantic.ParameterInfo;
+import dev.w0fv1.norm.semantic.PatternCoverage;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.ResolvedIndex;
 import dev.w0fv1.norm.semantic.ResolvedIteration;
@@ -14,6 +16,8 @@ import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.semantic.TypeConstraintSolver;
+import dev.w0fv1.norm.semantic.TypeParameterInfo;
 import dev.w0fv1.norm.semantic.TypeRelations;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
@@ -44,17 +48,23 @@ final class Analyzer {
   private static final DiagnosticCode UNTYPED_NULL = new DiagnosticCode("NORM-NULL-0002");
   private static final DiagnosticCode INVALID_NULLABLE_TYPE = new DiagnosticCode("NORM-NULL-0003");
   private static final DiagnosticCode UNSAFE_NULLABLE_ACCESS = new DiagnosticCode("NORM-NULL-0004");
+  private static final SemanticType STRINGABLE =
+      SemanticType.declared(
+          "std.core.Stringable", "Stringable", List.of(), ValueCategory.POLYMORPHIC);
 
   private final Syntax.Program syntax;
   private final List<Syntax.Program> programs;
   private final Syntax.Program entryProgram;
   private final DiagnosticBag diagnostics;
   private final OverloadResolver overloads;
+  private final TypeRelations.DeclarationGraph typeRelations;
   private final boolean requireEntryPoint;
   private final Set<DocumentId> exportedSources;
   private final Map<String, List<Syntax.FunctionDecl>> functions = new HashMap<>();
   private final Map<String, Syntax.ClassDecl> classes = new HashMap<>();
   private final Map<String, Syntax.EnumDecl> enums = new HashMap<>();
+  private final Map<String, Syntax.InterfaceDecl> interfaces = new HashMap<>();
+  private final Map<String, SemanticType> typeParameterBounds = new HashMap<>();
   private final BuiltinSymbols builtins = new BuiltinSymbols();
   private final Map<SymbolId, Symbol> symbols = new LinkedHashMap<>();
   private final Map<SourceSpan, SymbolId> bindings = new LinkedHashMap<>();
@@ -69,6 +79,7 @@ final class Analyzer {
   private final Map<String, SymbolId> copyMethods = new HashMap<>();
   private final Map<Syntax.ImportDecl, SymbolId> importAliases = new IdentityHashMap<>();
   private final Map<SymbolId, List<SymbolId>> aliasTargets = new LinkedHashMap<>();
+  private final Map<SymbolId, Map<SymbolId, SymbolId>> witnesses = new LinkedHashMap<>();
   private final Deque<ScopeFrame> scopes = new ArrayDeque<>();
   private final Map<SymbolId, SemanticType> flowTypes = new HashMap<>();
   private final List<SemanticScope> semanticScopes = new ArrayList<>();
@@ -79,7 +90,7 @@ final class Analyzer {
   private Map<String, SymbolId> activeTypeParameterSymbols = Map.of();
   private Syntax.Program currentProgram;
   private Syntax.ClassDecl currentClass;
-  private int loopDepth;
+  private final Deque<ControlContext> controls = new ArrayDeque<>();
 
   Analyzer(Syntax.Program syntax, DiagnosticBag diagnostics) {
     this(List.of(syntax), syntax, diagnostics, false, Set.of());
@@ -95,7 +106,8 @@ final class Analyzer {
     this.entryProgram = entryProgram;
     this.syntax = merge(programs, entryProgram);
     this.diagnostics = diagnostics;
-    this.overloads = new OverloadResolver(diagnostics, INVALID_CALL, this::typeOf);
+    this.typeRelations = new TypeRelations.DeclarationGraph(this::isNominallyAssignable);
+    this.overloads = new OverloadResolver(diagnostics, INVALID_CALL, typeRelations, this::typeOf);
     this.requireEntryPoint = requireEntryPoint;
     this.exportedSources = Set.copyOf(exportedSources);
     symbols.putAll(builtins.symbols());
@@ -128,6 +140,14 @@ final class Analyzer {
 
     for (Syntax.Program program : programs) {
       currentProgram = program;
+      for (Syntax.EnumDecl enumDecl : program.enums()) {
+        validateTypeParameterNames(enumDecl.typeParameters());
+        validateEnum(enumDecl);
+      }
+      for (Syntax.InterfaceDecl interfaceDecl : program.interfaces()) {
+        validateTypeParameterNames(interfaceDecl.typeParameters());
+        validateInterface(interfaceDecl);
+      }
       for (Syntax.FunctionDecl function : program.functions()) {
         analyzeFunction(function, null);
       }
@@ -139,6 +159,7 @@ final class Analyzer {
         }
       }
     }
+    validateInterfaceGraphAndConformances();
     List<dev.w0fv1.norm.diagnostic.Diagnostic> snapshot = diagnostics.snapshot();
     SemanticModel semanticModel =
         new SemanticModel(
@@ -153,7 +174,9 @@ final class Analyzer {
             members,
             aliasTargets,
             callableGroups(),
+            witnesses,
             typeSymbols,
+            interfaceParentTypes(),
             semanticScopes,
             snapshot,
             importableSymbols());
@@ -173,10 +196,40 @@ final class Analyzer {
   private void collectDeclarations() {
     for (Syntax.Program program : programs) {
       currentProgram = program;
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        if (interfaces.putIfAbsent(
+                    declarationKey(program, declaration.name(), declaration.visibility()),
+                    declaration)
+                != null
+            || builtins.isType(declaration.name())) {
+          diagnostics.error(
+              DUPLICATE_NAME,
+              "type '" + declaration.name() + "' is already declared",
+              declaration.span());
+        }
+        Symbol type =
+            register(
+                declaration,
+                declaration.name(),
+                SymbolKind.INTERFACE,
+                sourceType(declaration.name(), List.of()),
+                declaration.nameSpan(),
+                null,
+                symbolTypeParameters(
+                    declaration.typeParameters(), interfaceTypeParameters(declaration)),
+                List.of());
+        typeSymbols.putIfAbsent(type.type().identity(), type.id());
+        registerTypeParameters(
+            declaration.typeParameters(), type.id(), interfaceTypeParameters(declaration));
+      }
+    }
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
       for (Syntax.EnumDecl enumDecl : program.enums()) {
         if (enums.putIfAbsent(
                     declarationKey(program, enumDecl.name(), enumDecl.visibility()), enumDecl)
                 != null
+            || resolveInterface(enumDecl.name()) != null
             || builtins.isType(enumDecl.name())) {
           diagnostics.error(
               DUPLICATE_NAME,
@@ -191,9 +244,10 @@ final class Analyzer {
                 sourceType(enumDecl.name(), List.of()),
                 enumDecl.nameSpan(),
                 null,
-                List.of(),
+                symbolTypeParameters(enumDecl.typeParameters(), enumTypeParameters(enumDecl)),
                 List.of());
         typeSymbols.putIfAbsent(type.type().identity(), type.id());
+        registerTypeParameters(enumDecl.typeParameters(), type.id(), enumTypeParameters(enumDecl));
       }
     }
     for (Syntax.Program program : programs) {
@@ -203,6 +257,7 @@ final class Analyzer {
                     declarationKey(program, classDecl.name(), classDecl.visibility()), classDecl)
                 != null
             || resolveEnum(classDecl.name()) != null
+            || resolveInterface(classDecl.name()) != null
             || builtins.isType(classDecl.name())) {
           diagnostics.error(
               DUPLICATE_NAME,
@@ -217,7 +272,7 @@ final class Analyzer {
                 sourceType(classDecl.name(), List.of()),
                 classDecl.nameSpan(),
                 null,
-                classDecl.typeParameters().stream().map(Syntax.TypeParameter::name).toList(),
+                symbolTypeParameters(classDecl.typeParameters(), classTypeParameters(classDecl)),
                 List.of());
         typeSymbols.putIfAbsent(type.type().identity(), type.id());
         registerTypeParameters(
@@ -226,32 +281,64 @@ final class Analyzer {
     }
     for (Syntax.Program program : programs) {
       currentProgram = program;
-      for (Syntax.EnumDecl enumDecl : program.enums()) {
-        Set<String> members = new HashSet<>();
-        for (Syntax.EnumMember member : enumDecl.members()) {
-          if (!members.add(member.name())) {
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        Symbol type = symbols.get(declarationSymbols.get(declaration));
+        Set<String> signatures = new HashSet<>();
+        for (Syntax.InterfaceMethodDecl method : declaration.methods()) {
+          String signature = interfaceMethodSignature(method);
+          if (!signatures.add(signature)) {
             diagnostics.error(
                 DUPLICATE_NAME,
-                "enum member '" + member.name() + "' is already declared",
-                member.nameSpan());
+                "interface method '" + method.name() + "' is already declared",
+                method.span());
+          }
+          Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
+          parameters =
+              withTypeParameters(
+                  parameters,
+                  method.typeParameters(),
+                  declarationPrograms.get(declaration),
+                  "interface-method/" + method.name());
+          Symbol symbol =
+              register(
+                  method,
+                  method.name(),
+                  SymbolKind.INTERFACE_METHOD,
+                  resolveDeclarationType(method.returnType(), method, parameters),
+                  method.nameSpan(),
+                  type.id(),
+                  symbolTypeParameters(method.typeParameters(), parameters),
+                  parameters(method.parameters(), Map.of(), parameters));
+          registerTypeParameters(method.typeParameters(), symbol.id(), parameters);
+          addMember(type.id(), symbol.id());
+        }
+      }
+      for (Syntax.EnumDecl enumDecl : program.enums()) {
+        Set<String> variants = new HashSet<>();
+        for (Syntax.EnumVariant variant : enumDecl.variants()) {
+          if (!variants.add(variant.name())) {
+            diagnostics.error(
+                DUPLICATE_NAME,
+                "enum variant '" + variant.name() + "' is already declared",
+                variant.nameSpan());
           }
         }
-        if (enumDecl.members().isEmpty()) {
+        if (enumDecl.variants().isEmpty()) {
           diagnostics.error(
-              TYPE_MISMATCH, "enum must declare at least one member", enumDecl.span());
+              TYPE_MISMATCH, "enum must declare at least one variant", enumDecl.span());
         }
         Symbol type = symbols.get(declarationSymbols.get(enumDecl));
-        for (Syntax.EnumMember member : enumDecl.members()) {
+        for (Syntax.EnumVariant variant : enumDecl.variants()) {
           Symbol value =
               register(
-                  member,
-                  member.name(),
-                  SymbolKind.ENUM_MEMBER,
-                  sourceType(enumDecl.name(), List.of()),
-                  member.nameSpan(),
+                  variant,
+                  variant.name(),
+                  SymbolKind.ENUM_VARIANT,
+                  enumSelfType(enumDecl),
+                  variant.nameSpan(),
                   type.id(),
-                  List.of(),
-                  List.of());
+                  symbolTypeParameters(enumDecl.typeParameters(), enumTypeParameters(enumDecl)),
+                  parameters(variant.parameters(), Map.of(), enumTypeParameters(enumDecl)));
           addMember(type.id(), value.id());
         }
       }
@@ -310,7 +397,7 @@ final class Analyzer {
                       method.returnType(), method, typeParameters(method, classDecl)),
                   method.nameSpan(),
                   type.id(),
-                  method.typeParameters().stream().map(Syntax.TypeParameter::name).toList(),
+                  symbolTypeParameters(method.typeParameters(), functionTypeParameters(method)),
                   parametersOf(method, Map.of()));
           registerTypeParameters(
               method.typeParameters(), symbol.id(), functionTypeParameters(method));
@@ -345,7 +432,7 @@ final class Analyzer {
                     function.returnType(), function, functionTypeParameters(function)),
                 function.nameSpan(),
                 null,
-                function.typeParameters().stream().map(Syntax.TypeParameter::name).toList(),
+                symbolTypeParameters(function.typeParameters(), functionTypeParameters(function)),
                 parametersOf(function, Map.of()));
         registerTypeParameters(
             function.typeParameters(), symbol.id(), functionTypeParameters(function));
@@ -357,6 +444,7 @@ final class Analyzer {
     for (Syntax.Program program : programs) {
       Set<String> localNames = new HashSet<>();
       program.enums().forEach(declaration -> localNames.add(declaration.name()));
+      program.interfaces().forEach(declaration -> localNames.add(declaration.name()));
       program.classes().forEach(declaration -> localNames.add(declaration.name()));
       program.functions().forEach(declaration -> localNames.add(declaration.name()));
       Set<String> importedNames = new HashSet<>();
@@ -374,6 +462,7 @@ final class Analyzer {
                 : importedFunctions.getFirst();
         if (declaration == null) declaration = classes.get(imported.qualifiedName());
         if (declaration == null) declaration = enums.get(imported.qualifiedName());
+        if (declaration == null) declaration = interfaces.get(imported.qualifiedName());
         if (declaration == null || !canImport(program, declaration)) {
           diagnostics.error(
               UNKNOWN_NAME,
@@ -426,6 +515,12 @@ final class Analyzer {
             visible.put(id, id);
           }
         }
+        for (Syntax.InterfaceDecl declaration : candidate.interfaces()) {
+          if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
+            SymbolId id = declarationSymbols.get(declaration);
+            visible.put(id, id);
+          }
+        }
         for (Syntax.ClassDecl declaration : candidate.classes()) {
           if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
             SymbolId id = declarationSymbols.get(declaration);
@@ -445,6 +540,7 @@ final class Analyzer {
         Object declaration = resolveFunction(imported.localName());
         if (declaration == null) declaration = resolveClass(imported.localName());
         if (declaration == null) declaration = resolveEnum(imported.localName());
+        if (declaration == null) declaration = resolveInterface(imported.localName());
         if (declaration != null) {
           SymbolId id =
               imported.alias().isPresent()
@@ -463,6 +559,14 @@ final class Analyzer {
     for (Syntax.Program program : programs) {
       if (!exportedSources.contains(program.span().source().id())) continue;
       program.enums().stream()
+          .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
+          .map(
+              declaration ->
+                  new ImportableSymbol(
+                      symbols.get(declarationSymbols.get(declaration)),
+                      qualifiedName(program.packageName(), declaration.name())))
+          .forEach(result::add);
+      program.interfaces().stream()
           .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
           .map(
               declaration ->
@@ -493,6 +597,7 @@ final class Analyzer {
   private void validateFields(Syntax.ClassDecl classDecl) {
     activeTypeParameters = classTypeParameters(classDecl);
     activeTypeParameterSymbols = typeParameterSymbols(classDecl.typeParameters());
+    registerBounds(classDecl.typeParameters(), activeTypeParameters);
     Set<String> names = new HashSet<>();
     for (Syntax.FieldDecl field : classDecl.fields()) {
       validateType(field.type(), false);
@@ -520,9 +625,307 @@ final class Analyzer {
     activeTypeParameterSymbols = Map.of();
   }
 
+  private void validateEnum(Syntax.EnumDecl enumDecl) {
+    activeTypeParameters = enumTypeParameters(enumDecl);
+    activeTypeParameterSymbols = typeParameterSymbols(enumDecl.typeParameters());
+    registerBounds(enumDecl.typeParameters(), activeTypeParameters);
+    for (Syntax.EnumVariant variant : enumDecl.variants()) {
+      Set<String> names = new HashSet<>();
+      for (Syntax.Parameter parameter : variant.parameters()) {
+        validateType(parameter.type(), false);
+        if (!names.add(parameter.name())) {
+          diagnostics.error(
+              DUPLICATE_NAME,
+              "enum data '" + parameter.name() + "' is already declared",
+              parameter.nameSpan());
+        }
+      }
+    }
+    activeTypeParameters = Map.of();
+    activeTypeParameterSymbols = Map.of();
+  }
+
+  private void validateInterface(Syntax.InterfaceDecl declaration) {
+    activeTypeParameters = interfaceTypeParameters(declaration);
+    activeTypeParameterSymbols = typeParameterSymbols(declaration.typeParameters());
+    registerBounds(declaration.typeParameters(), activeTypeParameters);
+    for (Syntax.TypeRef parent : declaration.extendedInterfaces()) {
+      validateType(parent, false);
+      if (resolveInterface(resolveType(parent, activeTypeParameters)) == null) {
+        diagnostics.error(TYPE_MISMATCH, "interface may extend interfaces only", parent.span());
+      }
+    }
+    for (Syntax.InterfaceMethodDecl method : declaration.methods()) {
+      validateTypeParameterNames(method.typeParameters());
+      Map<String, SemanticType> methodTypes =
+          withTypeParameters(
+              activeTypeParameters,
+              method.typeParameters(),
+              declarationPrograms.get(declaration),
+              "interface-method/" + method.name());
+      Map<String, SymbolId> methodSymbols = new LinkedHashMap<>(activeTypeParameterSymbols);
+      method
+          .typeParameters()
+          .forEach(
+              parameter -> methodSymbols.put(parameter.name(), declarationSymbols.get(parameter)));
+      activeTypeParameters = methodTypes;
+      activeTypeParameterSymbols = Map.copyOf(methodSymbols);
+      registerBounds(method.typeParameters(), methodTypes);
+      validateType(method.returnType(), true);
+      method.parameters().forEach(parameter -> validateType(parameter.type(), false));
+      activeTypeParameters = interfaceTypeParameters(declaration);
+      activeTypeParameterSymbols = typeParameterSymbols(declaration.typeParameters());
+    }
+    activeTypeParameters = Map.of();
+    activeTypeParameterSymbols = Map.of();
+  }
+
+  private void registerBounds(
+      List<Syntax.TypeParameter> parameters, Map<String, SemanticType> declaredTypes) {
+    for (Syntax.TypeParameter parameter : parameters) {
+      if (parameter.upperBound().isEmpty()) continue;
+      Syntax.TypeRef boundSyntax = parameter.upperBound().orElseThrow();
+      validateType(boundSyntax, false);
+      SemanticType bound = resolveType(boundSyntax, declaredTypes);
+      if (bound.isNullable() || resolveInterface(bound) == null) {
+        diagnostics.error(
+            TYPE_MISMATCH, "type parameter bound must be an interface", boundSyntax.span());
+      }
+      typeParameterBounds.put(declaredTypes.get(parameter.name()).identity(), bound);
+    }
+  }
+
+  private void validateInterfaceGraphAndConformances() {
+    Set<Syntax.InterfaceDecl> visiting =
+        java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    Set<Syntax.InterfaceDecl> visited =
+        java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Syntax.InterfaceDecl declaration : interfaces.values()) {
+      validateInterfaceCycle(declaration, visiting, visited);
+    }
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
+      for (Syntax.ClassDecl declaration : program.classes()) {
+        validateClassConformance(declaration);
+      }
+    }
+  }
+
+  private void validateInterfaceCycle(
+      Syntax.InterfaceDecl declaration,
+      Set<Syntax.InterfaceDecl> visiting,
+      Set<Syntax.InterfaceDecl> visited) {
+    if (visited.contains(declaration)) return;
+    if (!visiting.add(declaration)) {
+      diagnostics.error(
+          TYPE_MISMATCH, "interface inheritance contains a cycle", declaration.nameSpan());
+      return;
+    }
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarationPrograms.get(declaration);
+    Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
+    for (Syntax.TypeRef parentRef : declaration.extendedInterfaces()) {
+      Syntax.InterfaceDecl parent = resolveInterface(resolveType(parentRef, parameters));
+      if (parent != null) validateInterfaceCycle(parent, visiting, visited);
+    }
+    currentProgram = previous;
+    visiting.remove(declaration);
+    visited.add(declaration);
+  }
+
+  private void validateClassConformance(Syntax.ClassDecl declaration) {
+    activeTypeParameters = classTypeParameters(declaration);
+    activeTypeParameterSymbols = typeParameterSymbols(declaration.typeParameters());
+    registerBounds(declaration.typeParameters(), activeTypeParameters);
+    Map<String, SemanticType> conformances = new LinkedHashMap<>();
+    for (Syntax.TypeRef interfaceRef : declaration.implementedInterfaces()) {
+      validateType(interfaceRef, false);
+      SemanticType interfaceType = resolveType(interfaceRef, activeTypeParameters);
+      Syntax.InterfaceDecl interfaceDecl = resolveInterface(interfaceType);
+      if (interfaceDecl == null) {
+        diagnostics.error(
+            TYPE_MISMATCH, "class may implement interfaces only", interfaceRef.span());
+        continue;
+      }
+      collectConformances(interfaceDecl, interfaceType, conformances, interfaceRef.span());
+    }
+    Map<String, InterfaceRequirement> requirements = new LinkedHashMap<>();
+    for (SemanticType conformance : conformances.values()) {
+      Syntax.InterfaceDecl interfaceDecl = resolveInterface(conformance);
+      if (interfaceDecl == null) continue;
+      for (InterfaceRequirement requirement : directRequirements(interfaceDecl, conformance)) {
+        InterfaceRequirement existing = requirements.putIfAbsent(requirement.key(), requirement);
+        if (existing != null && !existing.signature().equals(requirement.signature())) {
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "inherited interface requirements conflict for method '"
+                  + requirement.method().name()
+                  + "'",
+              declaration.nameSpan());
+        }
+      }
+    }
+    for (InterfaceRequirement requirement : requirements.values()) {
+      List<Syntax.FunctionDecl> candidates =
+          declaration.methods().stream()
+              .filter(method -> method.name().equals(requirement.method().name()))
+              .filter(method -> method.visibility() == Syntax.Visibility.PUBLIC)
+              .toList();
+      Syntax.FunctionDecl matched =
+          candidates.stream()
+              .filter(method -> witnessMatches(method, requirement))
+              .findFirst()
+              .orElse(null);
+      if (matched == null) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "class '"
+                + declaration.name()
+                + "' must provide public interface method '"
+                + requirement.method().name()
+                + "'",
+            declaration.nameSpan());
+      } else {
+        witnesses
+            .computeIfAbsent(declarationSymbols.get(declaration), ignored -> new LinkedHashMap<>())
+            .put(declarationSymbols.get(requirement.method()), declarationSymbols.get(matched));
+      }
+    }
+    activeTypeParameters = Map.of();
+    activeTypeParameterSymbols = Map.of();
+  }
+
+  private void collectConformances(
+      Syntax.InterfaceDecl declaration,
+      SemanticType instance,
+      Map<String, SemanticType> result,
+      SourceSpan span) {
+    SemanticType existing = result.putIfAbsent(instance.identity(), instance);
+    if (existing != null) {
+      if (!existing.equals(instance)) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "interface '" + declaration.name() + "' is inherited with conflicting type arguments",
+            span);
+      }
+      return;
+    }
+    Map<String, SemanticType> substitutions = interfaceSubstitutions(declaration, instance);
+    Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarationPrograms.get(declaration);
+    for (Syntax.TypeRef parentRef : declaration.extendedInterfaces()) {
+      SemanticType parent = resolveType(parentRef, parameters).substitute(substitutions);
+      Syntax.InterfaceDecl parentDecl = resolveInterface(parent);
+      if (parentDecl != null) collectConformances(parentDecl, parent, result, span);
+    }
+    currentProgram = previous;
+  }
+
+  private List<InterfaceRequirement> directRequirements(
+      Syntax.InterfaceDecl declaration, SemanticType instance) {
+    Map<String, SemanticType> substitutions = interfaceSubstitutions(declaration, instance);
+    Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
+    return declaration.methods().stream()
+        .map(
+            method -> {
+              Map<String, SemanticType> methodTypes =
+                  withTypeParameters(
+                      parameters,
+                      method.typeParameters(),
+                      declarationPrograms.get(declaration),
+                      "interface-method/" + method.name());
+              List<ParameterInfo> methodParameters =
+                  parameters(method.parameters(), substitutions, methodTypes);
+              SemanticType result =
+                  resolveDeclarationType(method.returnType(), method, methodTypes)
+                      .substitute(substitutions);
+              String signature =
+                  methodParameters.stream()
+                          .map(value -> value.name() + ":" + value.type().identity())
+                          .collect(java.util.stream.Collectors.joining(","))
+                      + "->"
+                      + result.identity();
+              return new InterfaceRequirement(
+                  declaration,
+                  instance,
+                  method,
+                  methodParameters,
+                  result,
+                  declarationSymbols.get(method).value(),
+                  signature);
+            })
+        .toList();
+  }
+
+  private boolean witnessMatches(Syntax.FunctionDecl witness, InterfaceRequirement requirement) {
+    if (witness.typeParameters().size() != requirement.method().typeParameters().size()
+        || witness.parameters().size() != requirement.parameters().size()) return false;
+    Map<String, SemanticType> witnessTypes = typeParameters(witness, ownerOf(witness));
+    Map<String, String> requiredParameters = new LinkedHashMap<>();
+    Symbol requiredSymbol = symbols.get(declarationSymbols.get(requirement.method()));
+    for (int index = 0; index < requiredSymbol.typeParameters().size(); index++) {
+      requiredParameters.put(
+          requiredSymbol.typeParameters().get(index).type().identity(), "$" + index);
+    }
+    Map<String, String> witnessParameters = new LinkedHashMap<>();
+    Symbol witnessSymbol = symbols.get(declarationSymbols.get(witness));
+    for (int index = 0; index < witnessSymbol.typeParameters().size(); index++) {
+      witnessParameters.put(
+          witnessSymbol.typeParameters().get(index).type().identity(), "$" + index);
+      Optional<SemanticType> requiredBound =
+          requiredSymbol.typeParameters().get(index).upperBound();
+      Optional<SemanticType> witnessBound = witnessSymbol.typeParameters().get(index).upperBound();
+      if (requiredBound.isPresent() != witnessBound.isPresent()
+          || requiredBound.isPresent()
+              && !canonicalType(requiredBound.orElseThrow(), requiredParameters)
+                  .equals(canonicalType(witnessBound.orElseThrow(), witnessParameters))) {
+        return false;
+      }
+    }
+    for (int index = 0; index < witness.parameters().size(); index++) {
+      Syntax.Parameter parameter = witness.parameters().get(index);
+      ParameterInfo required = requirement.parameters().get(index);
+      if (!parameter.name().equals(required.name())
+          || !canonicalType(
+                  resolveDeclarationType(parameter.type(), witness, witnessTypes),
+                  witnessParameters)
+              .equals(canonicalType(required.type(), requiredParameters))) return false;
+    }
+    return canonicalType(
+            resolveDeclarationType(witness.returnType(), witness, witnessTypes), witnessParameters)
+        .equals(canonicalType(requirement.result(), requiredParameters));
+  }
+
+  private static String canonicalType(SemanticType type, Map<String, String> typeParameters) {
+    String identity = typeParameters.getOrDefault(type.identity(), type.identity());
+    String arguments =
+        type.arguments().isEmpty()
+            ? ""
+            : type.arguments().stream()
+                .map(argument -> canonicalType(argument, typeParameters))
+                .collect(java.util.stream.Collectors.joining(",", "<", ">"));
+    return identity + arguments + (type.isNullable() ? "?" : "");
+  }
+
+  private Map<String, SemanticType> interfaceSubstitutions(
+      Syntax.InterfaceDecl declaration, SemanticType instance) {
+    Map<String, SemanticType> declarations = interfaceTypeParameters(declaration);
+    Map<String, SemanticType> result = new LinkedHashMap<>();
+    for (int index = 0;
+        index < Math.min(declaration.typeParameters().size(), instance.arguments().size());
+        index++) {
+      SemanticType parameter = declarations.get(declaration.typeParameters().get(index).name());
+      result.put(parameter.identity(), instance.arguments().get(index));
+    }
+    return Map.copyOf(result);
+  }
+
   private void analyzeFunction(Syntax.FunctionDecl function, Syntax.ClassDecl owner) {
     activeTypeParameters = typeParameters(function, owner);
     activeTypeParameterSymbols = typeParameterSymbols(function, owner);
+    if (owner != null) registerBounds(owner.typeParameters(), activeTypeParameters);
+    registerBounds(function.typeParameters(), activeTypeParameters);
     validateType(function.returnType(), true);
     expectedReturnType = resolveType(function.returnType(), activeTypeParameters);
     currentClass = owner;
@@ -602,11 +1005,24 @@ final class Analyzer {
   private void analyzeStatement(Syntax.Statement statement) {
     switch (statement) {
       case Syntax.VariableDecl variable -> {
-        validateType(variable.type(), false);
-        SemanticType requested = resolveType(variable.type(), activeTypeParameters);
+        SemanticType requested =
+            variable
+                .type()
+                .map(
+                    type -> {
+                      validateType(type, false);
+                      return resolveType(type, activeTypeParameters);
+                    })
+                .orElse(null);
         SemanticType actual = typeOf(variable.initializer(), requested);
-        requireAssignable(requested, actual, variable.initializer().span());
-        SemanticType declaredType = requested;
+        if (requested != null) requireAssignable(requested, actual, variable.initializer().span());
+        if (requested == null && containsDynamic(actual)) {
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "cannot infer variable type from initializer",
+              variable.initializer().span());
+        }
+        SemanticType declaredType = requested == null ? actual : requested;
         Symbol symbol =
             register(
                 variable,
@@ -658,23 +1074,32 @@ final class Analyzer {
         Map<SymbolId, SemanticType> incoming = new HashMap<>(flowTypes);
         pushScope(loop.span());
         applyNarrowings(narrowingsFor(loop.condition(), true));
-        loopDepth++;
+        controls.addFirst(ControlContext.loop());
         analyzeStatements(loop.body());
-        loopDepth--;
+        controls.removeFirst();
         popScope();
         Map<SymbolId, SemanticType> bodyFlow = new HashMap<>(flowTypes);
         replaceFlow(mergeFlows(incoming, incoming, bodyFlow));
       }
       case Syntax.ForStatement forStatement -> {
         SemanticType iterableType = typeOf(forStatement.iterable(), null);
-        Optional<dev.w0fv1.norm.builtin.BuiltinCatalog.ResolvedIterable> iterable =
+        Optional<dev.w0fv1.norm.builtin.BuiltinCatalog.ResolvedIterable> builtinIterable =
             builtins.resolveIterable(iterableType);
-        iterable.ifPresent(
+        Optional<ResolvedIteration> interfaceIteration = resolveInterfaceIteration(iterableType);
+        builtinIterable.ifPresent(
             capability ->
                 iterations.put(
                     forStatement.iterable().span(),
-                    new ResolvedIteration(capability.elementType(), capability.intrinsic())));
-        if (iterable.isEmpty()) {
+                    new ResolvedIteration(
+                        capability.elementType(),
+                        new ResolvedIteration.Strategy.Builtin(capability.intrinsic()))));
+        interfaceIteration.ifPresent(
+            resolution -> iterations.put(forStatement.iterable().span(), resolution));
+        Optional<SemanticType> elementType =
+            builtinIterable
+                .map(dev.w0fv1.norm.builtin.BuiltinCatalog.ResolvedIterable::elementType)
+                .or(() -> interfaceIteration.map(ResolvedIteration::elementType));
+        if (elementType.isEmpty()) {
           diagnostics.error(
               TYPE_MISMATCH, "for requires an iterable value", forStatement.iterable().span());
         }
@@ -683,15 +1108,10 @@ final class Analyzer {
           Syntax.TypeRef explicitType = forStatement.variableType().orElseThrow();
           validateType(explicitType, false);
           variableType = resolveType(explicitType, activeTypeParameters);
-          iterable
-              .map(dev.w0fv1.norm.builtin.BuiltinCatalog.ResolvedIterable::elementType)
-              .ifPresent(
-                  elementType ->
-                      requireAssignable(
-                          variableType, elementType, forStatement.variableNameSpan()));
+          elementType.ifPresent(
+              itemType ->
+                  requireAssignable(variableType, itemType, forStatement.variableNameSpan()));
         } else {
-          Optional<SemanticType> elementType =
-              iterable.map(dev.w0fv1.norm.builtin.BuiltinCatalog.ResolvedIterable::elementType);
           if (elementType.isEmpty()) {
             diagnostics.error(
                 TYPE_MISMATCH,
@@ -718,9 +1138,26 @@ final class Analyzer {
             variableType,
             forStatement.variableNameSpan(),
             symbol.id());
-        loopDepth++;
+        forStatement
+            .index()
+            .ifPresent(
+                index -> {
+                  Symbol indexSymbol =
+                      register(
+                          index,
+                          index.name(),
+                          SymbolKind.LOCAL_VARIABLE,
+                          SemanticType.INTEGER,
+                          index.nameSpan(),
+                          currentCallable,
+                          List.of(),
+                          List.of());
+                  declareExisting(
+                      index.name(), SemanticType.INTEGER, index.nameSpan(), indexSymbol.id());
+                });
+        controls.addFirst(ControlContext.loop());
         analyzeStatements(forStatement.body());
-        loopDepth--;
+        controls.removeFirst();
         popScope();
       }
       case Syntax.ReturnStatement returnStatement -> {
@@ -730,33 +1167,236 @@ final class Analyzer {
                 : typeOf(returnStatement.value(), expectedReturnType);
         requireAssignable(expectedReturnType, actual, returnStatement.span());
       }
-      case Syntax.BreakStatement breakStatement -> validateLoopControl(breakStatement.span());
-      case Syntax.ContinueStatement continueStatement ->
-          validateLoopControl(continueStatement.span());
+      case Syntax.BreakStatement breakStatement -> analyzeBreak(breakStatement);
+      case Syntax.ContinueStatement continueStatement -> validateContinue(continueStatement.span());
     }
   }
 
   private SemanticType typeOf(Syntax.Expression expression, SemanticType expected) {
     SemanticType type =
         switch (expression) {
-          case Syntax.IntegerLiteral ignored -> SemanticType.INTEGER;
+          case Syntax.IntegerLiteral integer ->
+              numericIntegerType(integer.value(), expected, integer.span());
+          case Syntax.DecimalLiteral decimal ->
+              numericDecimalType(decimal.value(), expected, decimal.span());
           case Syntax.CodePointLiteral ignored -> SemanticType.CODE_POINT;
           case Syntax.BooleanLiteral ignored -> SemanticType.BOOLEAN;
           case Syntax.NullLiteral literal -> analyzeNull(literal, expected);
           case Syntax.StringLiteralExpr ignored -> SemanticType.STRING;
           case Syntax.ArrayLiteral array -> analyzeArray(array, expected);
           case Syntax.Name name -> lookup(name.value(), name.span());
-          case Syntax.Unary unary -> analyzeUnary(unary);
+          case Syntax.Unary unary -> analyzeUnary(unary, expected);
           case Syntax.Binary binary -> analyzeBinary(binary, expected);
           case Syntax.Call call -> analyzeCall(call, expected);
           case Syntax.Member member -> memberType(member);
           case Syntax.Index index -> analyzeIndex(index);
+          case Syntax.SwitchExpression switchExpression ->
+              analyzeSwitch(switchExpression, expected);
         };
     if (expected != null && type.equals(SemanticType.DYNAMIC)) {
       type = expected;
     }
     semanticTypes.put(expression.span(), type);
     return type;
+  }
+
+  private SemanticType analyzeSwitch(
+      Syntax.SwitchExpression switchExpression, SemanticType expected) {
+    SemanticType valueType = typeOf(switchExpression.value(), null);
+    List<PatternCoverage.Pattern> previous = new ArrayList<>();
+    PatternCoverage<SemanticType> coverage = new PatternCoverage<>(new SemanticPatternDomain());
+    ControlContext context = ControlContext.switchExpression(expected);
+    for (Syntax.SwitchCase switchCase : switchExpression.cases()) {
+      pushScope(switchCase.span());
+      PatternCoverage.Pattern pattern = analyzePattern(switchCase.pattern(), valueType);
+      if (!coverage.isUseful(previous, pattern, valueType)) {
+        diagnostics.error(
+            INVALID_CONTROL, "switch case is unreachable", switchCase.pattern().span());
+      }
+      previous.add(pattern);
+      controls.addFirst(context);
+      analyzeStatements(switchCase.body());
+      controls.removeFirst();
+      popScope();
+    }
+    if (!coverage.isExhaustive(previous, valueType)) {
+      diagnostics.error(INVALID_CONTROL, "switch is not exhaustive", switchExpression.span());
+    }
+    SemanticType result = context.resultType();
+    if (result == null) return SemanticType.VOID;
+    for (Syntax.SwitchCase switchCase : switchExpression.cases()) {
+      if (!definitelyYields(switchCase.body())) {
+        diagnostics.error(
+            INVALID_CONTROL, "switch expression case must produce a value", switchCase.span());
+      }
+    }
+    return result;
+  }
+
+  private PatternCoverage.Pattern analyzePattern(Syntax.Pattern pattern, SemanticType expected) {
+    if (expected.isNullable() && !(pattern instanceof Syntax.NullPattern)) {
+      if (pattern instanceof Syntax.WildcardPattern) return PatternCoverage.Pattern.any();
+      return PatternCoverage.Pattern.constructor(
+          "$value", List.of(analyzeNonNullPattern(pattern, expected.nonNullable())));
+    }
+    if (pattern instanceof Syntax.NullPattern) {
+      if (!expected.isNullable()) {
+        diagnostics.error(TYPE_MISMATCH, "null pattern requires a nullable value", pattern.span());
+      }
+      return PatternCoverage.Pattern.constructor("$null", List.of());
+    }
+    return analyzeNonNullPattern(pattern, expected.nonNullable());
+  }
+
+  private PatternCoverage.Pattern analyzeNonNullPattern(
+      Syntax.Pattern pattern, SemanticType expected) {
+    return switch (pattern) {
+      case Syntax.WildcardPattern ignored -> PatternCoverage.Pattern.any();
+      case Syntax.BindingPattern binding -> {
+        validateType(binding.type(), false);
+        SemanticType type = resolveType(binding.type(), activeTypeParameters);
+        if (!type.equals(expected)) {
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "pattern type " + type.displayName() + " does not match " + expected.displayName(),
+              binding.type().span());
+        }
+        Symbol symbol =
+            register(
+                binding,
+                binding.name(),
+                SymbolKind.LOCAL_VARIABLE,
+                type,
+                binding.nameSpan(),
+                currentCallable,
+                List.of(),
+                List.of());
+        declareExisting(binding.name(), type, binding.nameSpan(), symbol.id());
+        yield PatternCoverage.Pattern.any();
+      }
+      case Syntax.VariantPattern variant -> analyzeVariantPattern(variant, expected);
+      case Syntax.IntegerPattern integer -> {
+        SemanticType literalType = numericIntegerType(integer.value(), expected, integer.span());
+        requireType(expected, literalType, integer.span());
+        semanticTypes.put(integer.span(), literalType);
+        yield PatternCoverage.Pattern.constructor(
+            "numeric:"
+                + literalType.identity()
+                + ":"
+                + (literalType.equals(SemanticType.DYNAMIC)
+                    ? integer.value()
+                    : NumericTypes.materialize(integer.value(), literalType)),
+            List.of());
+      }
+      case Syntax.DecimalPattern decimal -> {
+        SemanticType literalType = numericDecimalType(decimal.value(), expected, decimal.span());
+        requireType(expected, literalType, decimal.span());
+        semanticTypes.put(decimal.span(), literalType);
+        yield PatternCoverage.Pattern.constructor(
+            "numeric:"
+                + literalType.identity()
+                + ":"
+                + (literalType.equals(SemanticType.DYNAMIC)
+                    ? decimal.value()
+                    : NumericTypes.materialize(decimal.value(), literalType)),
+            List.of());
+      }
+      case Syntax.CodePointPattern codePoint -> {
+        requireType(SemanticType.CODE_POINT, expected, codePoint.span());
+        yield PatternCoverage.Pattern.constructor("codepoint:" + codePoint.value(), List.of());
+      }
+      case Syntax.BooleanPattern bool -> {
+        requireType(SemanticType.BOOLEAN, expected, bool.span());
+        yield PatternCoverage.Pattern.constructor("boolean:" + bool.value(), List.of());
+      }
+      case Syntax.StringPattern string -> {
+        requireType(SemanticType.STRING, expected, string.span());
+        yield PatternCoverage.Pattern.constructor("string:" + string.value(), List.of());
+      }
+      case Syntax.NullPattern ignored -> {
+        diagnostics.error(TYPE_MISMATCH, "null pattern requires a nullable value", pattern.span());
+        yield PatternCoverage.Pattern.constructor("$null", List.of());
+      }
+    };
+  }
+
+  private PatternCoverage.Pattern analyzeVariantPattern(
+      Syntax.VariantPattern pattern, SemanticType expected) {
+    Syntax.EnumDecl enumDecl = resolveEnum(expected);
+    if (enumDecl == null) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "variant pattern requires an enum value, found " + expected.displayName(),
+          pattern.span());
+      return PatternCoverage.Pattern.constructor("variant:" + pattern.name(), List.of());
+    }
+    Syntax.EnumVariant variant =
+        enumDecl.variants().stream()
+            .filter(candidate -> candidate.name().equals(pattern.name()))
+            .findFirst()
+            .orElse(null);
+    if (variant == null) {
+      diagnostics.error(
+          UNKNOWN_NAME,
+          "enum '" + enumDecl.name() + "' has no variant '" + pattern.name() + "'",
+          pattern.nameSpan());
+      return PatternCoverage.Pattern.constructor("variant:" + pattern.name(), List.of());
+    }
+    bindings.put(pattern.nameSpan(), declarationSymbols.get(variant));
+    Map<String, SemanticType> substitutions = enumSubstitutions(enumDecl, expected);
+    List<SemanticType> payloadTypes =
+        variant.parameters().stream()
+            .map(
+                parameter ->
+                    resolveDeclarationType(
+                            parameter.type(), parameter, enumTypeParameters(enumDecl))
+                        .substitute(substitutions))
+            .toList();
+    if (pattern.arguments().size() != payloadTypes.size()) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "variant pattern '"
+              + pattern.name()
+              + "' requires "
+              + payloadTypes.size()
+              + " argument(s), found "
+              + pattern.arguments().size(),
+          pattern.span());
+    }
+    List<PatternCoverage.Pattern> arguments = new ArrayList<>();
+    for (int index = 0;
+        index < Math.min(pattern.arguments().size(), payloadTypes.size());
+        index++) {
+      arguments.add(analyzePattern(pattern.arguments().get(index), payloadTypes.get(index)));
+    }
+    return PatternCoverage.Pattern.constructor("variant:" + variant.name(), arguments);
+  }
+
+  private void analyzeBreak(Syntax.BreakStatement statement) {
+    if (controls.isEmpty()) {
+      diagnostics.error(
+          INVALID_CONTROL, "break is only valid inside for or switch", statement.span());
+      if (statement.value() != null) typeOf(statement.value(), null);
+      return;
+    }
+    ControlContext context = controls.getFirst();
+    if (context.kind() != ControlKind.SWITCH) {
+      if (statement.value() != null) {
+        diagnostics.error(INVALID_CONTROL, "loop break cannot produce a value", statement.span());
+        typeOf(statement.value(), null);
+      }
+      return;
+    }
+    if (statement.value() == null) {
+      diagnostics.error(INVALID_CONTROL, "switch break must produce a value", statement.span());
+      return;
+    }
+    SemanticType actual = typeOf(statement.value(), context.resultType());
+    if (context.resultType() == null || context.resultType().equals(SemanticType.DYNAMIC)) {
+      context.setResultType(actual);
+    } else {
+      requireAssignable(context.resultType(), actual, statement.value().span());
+    }
   }
 
   private TypeProbe probeType(Syntax.Expression expression, SemanticType expected) {
@@ -811,11 +1451,12 @@ final class Analyzer {
   }
 
   private SemanticType analyzeArray(Syntax.ArrayLiteral array, SemanticType expected) {
-    SemanticType expectedArray = expected;
+    SemanticType expectedArray =
+        expected == null
+            ? null
+            : builtins.resolveCollectionLiteral(expected).map(value -> value.type()).orElse(null);
     SemanticType expectedElement =
-        expectedArray != null
-                && expectedArray.name().equals("Array")
-                && expectedArray.arguments().size() == 1
+        expectedArray != null && expectedArray.arguments().size() == 1
             ? expectedArray.arguments().getFirst()
             : null;
     SemanticType elementType = expectedElement;
@@ -823,28 +1464,56 @@ final class Analyzer {
       SemanticType current = typeOf(element, expectedElement);
       if (elementType == null && !containsDynamic(current)) {
         elementType = current;
-      } else if (elementType != null
-          && !containsDynamic(current)
-          && !TypeRelations.isAssignable(elementType, current)) {
-        diagnostics.error(
-            TYPE_MISMATCH,
-            "array elements must have one invariant type; found "
-                + elementType.displayName()
-                + " and "
-                + current.displayName(),
-            element.span());
+      } else if (elementType != null && !containsDynamic(current)) {
+        if (expectedElement != null) {
+          if (!isAssignable(elementType, current)) {
+            diagnostics.error(
+                TYPE_MISMATCH,
+                "array elements must have one invariant type; found "
+                    + elementType.displayName()
+                    + " and "
+                    + current.displayName(),
+                element.span());
+          }
+        } else {
+          SemanticType common = commonType(elementType, current).orElse(null);
+          if (common == null) {
+            diagnostics.error(
+                TYPE_MISMATCH,
+                "array elements must have one invariant type; found "
+                    + elementType.displayName()
+                    + " and "
+                    + current.displayName(),
+                element.span());
+          } else {
+            elementType = common;
+          }
+        }
       }
     }
-    return builtins.instantiate(
-        "Array", List.of(elementType == null ? SemanticType.DYNAMIC : elementType));
+    SemanticType inferredElement = elementType == null ? SemanticType.DYNAMIC : elementType;
+    return expectedArray == null
+        ? builtins.instantiate("Array", List.of(inferredElement))
+        : expectedArray;
   }
 
-  private SemanticType analyzeUnary(Syntax.Unary unary) {
-    SemanticType operand = typeOf(unary.operand(), null);
+  private SemanticType analyzeUnary(Syntax.Unary unary, SemanticType expected) {
     SemanticType required =
-        unary.operator() == TokenKind.BANG ? SemanticType.BOOLEAN : SemanticType.INTEGER;
-    requireType(required, operand, unary.span());
-    return required;
+        unary.operator() == TokenKind.BANG
+            ? SemanticType.BOOLEAN
+            : NumericTypes.isLeaf(expected == null ? SemanticType.DYNAMIC : expected)
+                ? expected.nonNullable()
+                : null;
+    SemanticType operand = typeOf(unary.operand(), required);
+    if (unary.operator() == TokenKind.BANG) {
+      requireType(SemanticType.BOOLEAN, operand, unary.span());
+      return SemanticType.BOOLEAN;
+    }
+    if (!NumericTypes.isLeaf(operand)) {
+      diagnostics.error(TYPE_MISMATCH, "numeric negation requires a numeric leaf", unary.span());
+      return SemanticType.DYNAMIC;
+    }
+    return operand;
   }
 
   private SemanticType analyzeBinary(Syntax.Binary binary, SemanticType expected) {
@@ -867,7 +1536,9 @@ final class Analyzer {
       right = typeOf(binary.right(), null);
       left = typeOf(binary.left(), right);
     } else {
-      left = typeOf(binary.left(), null);
+      SemanticType numericExpected =
+          expected != null && NumericTypes.isLeaf(expected) ? expected.nonNullable() : null;
+      left = typeOf(binary.left(), numericExpected);
       right = null;
     }
     if (right == null) {
@@ -894,15 +1565,13 @@ final class Analyzer {
         if (left.equals(SemanticType.STRING) && right.equals(SemanticType.STRING)) {
           yield SemanticType.STRING;
         }
-        requireBoth(SemanticType.INTEGER, left, right, binary.span());
-        yield SemanticType.INTEGER;
+        yield requireNumericLeaves(left, right, binary.span()) ? left : SemanticType.DYNAMIC;
       }
       case MINUS, STAR, SLASH, PERCENT -> {
-        requireBoth(SemanticType.INTEGER, left, right, binary.span());
-        yield SemanticType.INTEGER;
+        yield requireNumericLeaves(left, right, binary.span()) ? left : SemanticType.DYNAMIC;
       }
       case LESS, LESS_EQUAL, GREATER, GREATER_EQUAL -> {
-        requireBoth(SemanticType.INTEGER, left, right, binary.span());
+        requireNumericLeaves(left, right, binary.span());
         yield SemanticType.BOOLEAN;
       }
       case AND_AND, OR_OR -> {
@@ -910,7 +1579,7 @@ final class Analyzer {
         yield SemanticType.BOOLEAN;
       }
       case EQUAL_EQUAL, BANG_EQUAL -> {
-        if (!TypeRelations.isAssignable(left, right) && !TypeRelations.isAssignable(right, left)) {
+        if (!isAssignable(left, right) && !isAssignable(right, left)) {
           diagnostics.error(
               TYPE_MISMATCH,
               "cannot compare " + left.displayName() + " with " + right.displayName(),
@@ -920,6 +1589,38 @@ final class Analyzer {
       }
       default -> SemanticType.DYNAMIC;
     };
+  }
+
+  private SemanticType numericIntegerType(
+      java.math.BigInteger value, SemanticType expected, SourceSpan span) {
+    try {
+      return NumericTypes.integerLiteralType(value, expected);
+    } catch (ArithmeticException | IllegalArgumentException exception) {
+      diagnostics.error(TYPE_MISMATCH, exception.getMessage(), span);
+      return SemanticType.DYNAMIC;
+    }
+  }
+
+  private SemanticType numericDecimalType(
+      java.math.BigDecimal value, SemanticType expected, SourceSpan span) {
+    try {
+      return NumericTypes.decimalLiteralType(value, expected);
+    } catch (ArithmeticException | IllegalArgumentException exception) {
+      diagnostics.error(TYPE_MISMATCH, exception.getMessage(), span);
+      return SemanticType.DYNAMIC;
+    }
+  }
+
+  private boolean requireNumericLeaves(SemanticType left, SemanticType right, SourceSpan span) {
+    if (NumericTypes.isLeaf(left) && left.equals(right)) return true;
+    diagnostics.error(
+        TYPE_MISMATCH,
+        "numeric operands require the same concrete leaf type; found "
+            + left.displayName()
+            + " and "
+            + right.displayName(),
+        span);
+    return false;
   }
 
   private SemanticType analyzeCall(Syntax.Call call, SemanticType expected) {
@@ -939,6 +1640,10 @@ final class Analyzer {
     builtins.type(callee).ifPresent(symbol -> bindings.put(name.span(), symbol.id()));
     List<Symbol> builtinFunctions = builtins.globals(callee);
     if (!builtinFunctions.isEmpty()) {
+      if (name.diamond()) {
+        diagnostics.error(
+            INVALID_CALL, "diamond is only valid for generic constructors", name.span());
+      }
       Symbol symbol = selectBuiltinOverload(builtinFunctions, call, name.span());
       if (symbol == null) return SemanticType.DYNAMIC;
       bindings.put(name.span(), symbol.id());
@@ -953,7 +1658,7 @@ final class Analyzer {
           List.of(),
           symbol.type());
     }
-    SemanticType constructedType = appliedType(callee, name.typeArguments(), name.span());
+    SemanticType constructedType = constructedType(name, call, expected);
     Optional<List<ParameterInfo>> constructor = builtins.constructorParameters(constructedType);
     if (constructor.isPresent()) {
       Symbol target = builtins.type(callee).orElseThrow();
@@ -980,6 +1685,10 @@ final class Analyzer {
           constructedType);
     }
     List<Syntax.FunctionDecl> functionCandidates = resolveFunctions(callee);
+    if (!functionCandidates.isEmpty() && name.diamond()) {
+      diagnostics.error(
+          INVALID_CALL, "diamond is only valid for generic constructors", name.span());
+    }
     SourceCallResolution resolution =
         resolveSourceCall(
             functionCandidates,
@@ -1008,6 +1717,51 @@ final class Analyzer {
 
   private SemanticType analyzeMethodCall(
       Syntax.Member member, Syntax.Call call, SemanticType expected) {
+    if (member.receiver() instanceof Syntax.Name enumName) {
+      Syntax.EnumDecl enumDecl = resolveEnum(enumName.value());
+      if (enumDecl != null) {
+        Syntax.EnumVariant variant =
+            enumDecl.variants().stream()
+                .filter(candidate -> candidate.name().equals(member.name()))
+                .findFirst()
+                .orElse(null);
+        if (variant == null) {
+          diagnostics.error(
+              UNKNOWN_NAME,
+              "enum '" + enumDecl.name() + "' has no variant '" + member.name() + "'",
+              member.nameSpan());
+          analyzeArguments(call.arguments());
+          return SemanticType.DYNAMIC;
+        }
+        Symbol variantSymbol = symbols.get(declarationSymbols.get(variant));
+        bindings.put(enumName.span(), declarationSymbols.get(enumDecl));
+        bindings.put(member.nameSpan(), variantSymbol.id());
+        Map<String, SemanticType> substitutions =
+            inferBuiltinTypeArguments(
+                variantSymbol, enumName.typeArguments(), call, expected, member.span());
+        List<ParameterInfo> parameters =
+            variantSymbol.parameters().stream()
+                .map(
+                    parameter ->
+                        new ParameterInfo(
+                            parameter.name(), parameter.type().substitute(substitutions)))
+                .toList();
+        SemanticType result = variantSymbol.type().substitute(substitutions);
+        List<SemanticType> reifiedArguments =
+            variantSymbol.typeParameters().stream()
+                .map(TypeParameterInfo::type)
+                .map(parameter -> substitutions.get(parameter.identity()))
+                .toList();
+        return recordCall(
+            call,
+            member.nameSpan(),
+            ResolvedCall.Kind.ENUM_CONSTRUCT,
+            variantSymbol.id(),
+            parameters,
+            reifiedArguments,
+            result);
+      }
+    }
     if (member.receiver() instanceof Syntax.Name typeName) {
       List<Symbol> typeMethods = builtins.typeMembers(typeName.value(), member.name());
       if (!typeMethods.isEmpty()) {
@@ -1030,7 +1784,7 @@ final class Analyzer {
         SemanticType result = symbol.type().substitute(substitutions);
         List<SemanticType> reifiedArguments =
             symbol.typeParameters().stream()
-                .map(name -> findTypeParameter(symbol, name))
+                .map(TypeParameterInfo::type)
                 .map(parameter -> substitutions.get(parameter.identity()))
                 .toList();
         return recordCall(
@@ -1150,10 +1904,142 @@ final class Analyzer {
           resolution.reifiedArguments(),
           safeAccessResult(member, nullableReceiver, resolution.result()));
     }
+    List<InterfaceRequirement> interfaceMethods =
+        interfaceRequirements(receiver).stream()
+            .filter(requirement -> requirement.method().name().equals(member.name()))
+            .toList();
+    OverloadResolver.Candidate selectedInterfaceMethod =
+        overloads.select(
+            interfaceMethods.stream()
+                .map(
+                    requirement ->
+                        new OverloadResolver.Candidate(requirement, requirement.parameters()))
+                .toList(),
+            call,
+            member.nameSpan());
+    InterfaceRequirement interfaceMethod =
+        selectedInterfaceMethod == null
+            ? null
+            : (InterfaceRequirement) selectedInterfaceMethod.target();
+    if (!interfaceMethods.isEmpty() && interfaceMethod == null) return SemanticType.DYNAMIC;
+    if (interfaceMethod != null) {
+      Symbol target = symbols.get(declarationSymbols.get(interfaceMethod.method()));
+      InterfaceCallResolution interfaceResolution =
+          resolveInterfaceCall(interfaceMethod, target, member, call, expected);
+      bindings.put(member.nameSpan(), target.id());
+      return recordCall(
+          call,
+          member.nameSpan(),
+          ResolvedCall.Kind.INTERFACE_CALL,
+          target.id(),
+          interfaceResolution.parameters(),
+          interfaceResolution.reifiedArguments(),
+          safeAccessResult(member, nullableReceiver, interfaceResolution.result()));
+    }
     diagnostics.error(
         TYPE_MISMATCH, "type '" + receiver.displayName() + "' has no methods", member.span());
     analyzeArguments(call.arguments());
     return SemanticType.DYNAMIC;
+  }
+
+  private InterfaceCallResolution resolveInterfaceCall(
+      InterfaceRequirement requirement,
+      Symbol method,
+      Syntax.Member member,
+      Syntax.Call call,
+      SemanticType expected) {
+    Map<String, SemanticType> substitutions =
+        new LinkedHashMap<>(interfaceSubstitutions(requirement.owner(), requirement.receiver()));
+    List<TypeConstraintSolver.Conflict> inferenceConflicts = List.of();
+    List<SemanticType> explicit =
+        member.typeArguments().stream()
+            .map(argument -> resolveCheckedType(argument, activeTypeParameters))
+            .toList();
+    if (!explicit.isEmpty()) {
+      validateTypeArgumentCount(
+          member.name(), method.typeParameters().size(), member.typeArguments(), member.span());
+      for (int index = 0;
+          index < Math.min(explicit.size(), method.typeParameters().size());
+          index++) {
+        substitutions.put(
+            method.typeParameters().get(index).type().identity(), explicit.get(index));
+      }
+    } else {
+      TypeConstraintSolver solver =
+          new TypeConstraintSolver(
+              method.typeParameters().stream().map(TypeParameterInfo::type).toList());
+      Set<String> variables = solverVariables(method.typeParameters());
+      if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
+        constrainInference(solver, requirement.result().substitute(substitutions), expected);
+      }
+      Map<String, SemanticType> contextualSubstitutions = new LinkedHashMap<>(substitutions);
+      contextualSubstitutions.putAll(solver.solve().substitutions());
+      List<Integer> indices = overloads.argumentIndices(call, requirement.parameters(), false);
+      if (indices != null) {
+        for (int index = 0; index < call.arguments().size(); index++) {
+          Syntax.Expression argument = call.arguments().get(index).value();
+          SemanticType inferencePattern =
+              requirement.parameters().get(indices.get(index)).type().substitute(substitutions);
+          SemanticType pattern = inferencePattern.substitute(contextualSubstitutions);
+          SemanticType argumentExpected =
+              containsTypeParameter(pattern, variables) ? null : pattern;
+          constrainInference(solver, inferencePattern, typeOf(argument, argumentExpected));
+        }
+      }
+      TypeConstraintSolver.Solution inferred = solver.solve();
+      substitutions.putAll(inferred.substitutions());
+      inferenceConflicts = inferred.conflicts();
+    }
+    List<SemanticType> reified = new ArrayList<>();
+    for (TypeParameterInfo parameter : method.typeParameters()) {
+      SemanticType argument = substitutions.get(parameter.type().identity());
+      if (argument == null) {
+        diagnostics.error(
+            INVALID_CALL, "cannot infer type argument '" + parameter.name() + "'", member.span());
+        argument = SemanticType.DYNAMIC;
+        substitutions.put(parameter.type().identity(), argument);
+      }
+      SemanticType bound =
+          parameter.upperBound().map(value -> value.substitute(substitutions)).orElse(null);
+      if (bound != null && !isAssignable(bound, argument)) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "type argument '"
+                + argument.displayName()
+                + "' does not satisfy bound '"
+                + bound.displayName()
+                + "' for '"
+                + parameter.name()
+                + "'",
+            member.span());
+      }
+      reified.add(argument);
+    }
+    Map<String, String> parameterNames =
+        method.typeParameters().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    parameter -> parameter.type().identity(),
+                    TypeParameterInfo::name,
+                    (left, right) -> left,
+                    LinkedHashMap::new));
+    for (TypeConstraintSolver.Conflict conflict : inferenceConflicts) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "type parameter '"
+              + parameterNames.get(conflict.variable())
+              + "' inferred as both "
+              + conflict.first().displayName()
+              + " and "
+              + conflict.second().displayName(),
+          member.span());
+    }
+    List<ParameterInfo> parameters =
+        requirement.parameters().stream()
+            .map(value -> new ParameterInfo(value.name(), value.type().substitute(substitutions)))
+            .toList();
+    return new InterfaceCallResolution(
+        parameters, requirement.result().substitute(substitutions), reified);
   }
 
   private SemanticType memberType(Syntax.Member member) {
@@ -1161,18 +2047,29 @@ final class Analyzer {
       Syntax.EnumDecl enumDecl = resolveEnum(enumName.value());
       if (enumDecl != null) {
         bindings.put(enumName.span(), declarationSymbols.get(enumDecl));
-        enumDecl.members().stream()
+        enumDecl.variants().stream()
             .filter(value -> value.name().equals(member.name()))
             .findFirst()
             .map(declarationSymbols::get)
             .ifPresent(id -> bindings.put(member.nameSpan(), id));
-        if (enumDecl.members().stream().noneMatch(value -> value.name().equals(member.name()))) {
+        if (enumDecl.variants().stream().noneMatch(value -> value.name().equals(member.name()))) {
           diagnostics.error(
               UNKNOWN_NAME,
               "enum '" + enumDecl.name() + "' has no member '" + member.name() + "'",
               member.span());
         }
-        return sourceType(enumDecl.name(), List.of());
+        Syntax.EnumVariant variant =
+            enumDecl.variants().stream()
+                .filter(value -> value.name().equals(member.name()))
+                .findFirst()
+                .orElse(null);
+        if (variant != null && !variant.parameters().isEmpty()) {
+          diagnostics.error(
+              INVALID_CALL,
+              "enum variant '" + member.name() + "' requires construction arguments",
+              member.span());
+        }
+        return appliedType(enumDecl.name(), enumName.typeArguments(), enumName.span());
       }
     }
     SemanticType nullableReceiverType = typeOf(member.receiver(), null);
@@ -1224,7 +2121,113 @@ final class Analyzer {
     return SemanticType.DYNAMIC;
   }
 
+  private List<InterfaceRequirement> interfaceRequirements(SemanticType receiver) {
+    SemanticType interfaceType = receiver;
+    if (receiver.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      interfaceType = typeParameterBounds.get(receiver.identity());
+    }
+    if (interfaceType == null) return List.of();
+    Syntax.InterfaceDecl root = resolveInterface(interfaceType);
+    if (root == null) return List.of();
+    Map<String, SemanticType> conformances = new LinkedHashMap<>();
+    collectConformances(root, interfaceType, conformances, currentProgram.span());
+    Map<String, InterfaceRequirement> result = new LinkedHashMap<>();
+    for (SemanticType conformance : conformances.values()) {
+      Syntax.InterfaceDecl declaration = resolveInterface(conformance);
+      if (declaration == null) continue;
+      directRequirements(declaration, conformance)
+          .forEach(requirement -> result.putIfAbsent(requirement.key(), requirement));
+    }
+    return List.copyOf(result.values());
+  }
+
+  private Optional<ResolvedIteration> resolveInterfaceIteration(SemanticType iterableType) {
+    if (builtins.resolveIterable(iterableType).isPresent()) return Optional.empty();
+    SemanticType iterableInterface = conformanceTo(iterableType, "std.core.Iterable").orElse(null);
+    if (iterableInterface == null || iterableInterface.arguments().size() != 1) {
+      return Optional.empty();
+    }
+    InterfaceRequirement iterator =
+        interfaceRequirements(iterableInterface).stream()
+            .filter(requirement -> requirement.method().name().equals("iterator"))
+            .filter(requirement -> requirement.parameters().isEmpty())
+            .findFirst()
+            .orElse(null);
+    if (iterator == null) return Optional.empty();
+    SemanticType iteratorInterface = iterator.result();
+    InterfaceRequirement hasNext =
+        interfaceRequirements(iteratorInterface).stream()
+            .filter(requirement -> requirement.method().name().equals("hasNext"))
+            .filter(requirement -> requirement.parameters().isEmpty())
+            .findFirst()
+            .orElse(null);
+    InterfaceRequirement next =
+        interfaceRequirements(iteratorInterface).stream()
+            .filter(requirement -> requirement.method().name().equals("next"))
+            .filter(requirement -> requirement.parameters().isEmpty())
+            .findFirst()
+            .orElse(null);
+    if (hasNext == null || next == null || !hasNext.result().equals(SemanticType.BOOLEAN)) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new ResolvedIteration(
+            iterableInterface.arguments().getFirst(),
+            new ResolvedIteration.Strategy.Interface(
+                iterableInterface,
+                declarationSymbols.get(iterator.method()),
+                iteratorInterface,
+                declarationSymbols.get(hasNext.method()),
+                declarationSymbols.get(next.method()))));
+  }
+
+  private Optional<SemanticType> conformanceTo(SemanticType concrete, String interfaceIdentity) {
+    if (concrete.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      SemanticType bound = typeParameterBounds.get(concrete.identity());
+      if (bound == null) return Optional.empty();
+      return conformanceTo(bound, interfaceIdentity);
+    }
+    Syntax.InterfaceDecl directInterface = interfaceByIdentity(concrete.identity());
+    if (directInterface != null) {
+      Map<String, SemanticType> conformances = new LinkedHashMap<>();
+      collectConformances(directInterface, concrete, conformances, currentProgram.span());
+      return Optional.ofNullable(conformances.get(interfaceIdentity));
+    }
+    Syntax.ClassDecl declaration = resolveClass(concrete);
+    if (declaration == null) return Optional.empty();
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarationPrograms.get(declaration);
+    Map<String, SemanticType> parameters = classTypeParameters(declaration);
+    Map<String, SemanticType> substitutions = classSubstitutions(declaration, concrete);
+    Map<String, SemanticType> conformances = new LinkedHashMap<>();
+    for (Syntax.TypeRef interfaceRef : declaration.implementedInterfaces()) {
+      SemanticType conformance = resolveType(interfaceRef, parameters).substitute(substitutions);
+      Syntax.InterfaceDecl contract = resolveInterface(conformance);
+      if (contract != null) {
+        collectConformances(contract, conformance, conformances, interfaceRef.span());
+      }
+    }
+    currentProgram = previous;
+    return Optional.ofNullable(conformances.get(interfaceIdentity));
+  }
+
+  private Syntax.InterfaceDecl interfaceByIdentity(String identity) {
+    for (Syntax.InterfaceDecl declaration : interfaces.values()) {
+      Syntax.Program owner = declarationPrograms.get(declaration);
+      String candidate = qualifiedName(owner.packageName(), declaration.name());
+      if (declaration.visibility() == Syntax.Visibility.PRIVATE) {
+        candidate = fileLocalIdentity(candidate, owner);
+      }
+      if (candidate.equals(identity)) return declaration;
+    }
+    return null;
+  }
+
   private SemanticType accessibleReceiverType(Syntax.Member member, SemanticType receiverType) {
+    if (receiverType.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      SemanticType bound = typeParameterBounds.get(receiverType.identity());
+      if (bound != null && !bound.mayContainNull()) return receiverType;
+    }
     if (!receiverType.mayContainNull()) return receiverType;
     if (!member.nullSafe()) {
       diagnostics.error(
@@ -1408,7 +2411,7 @@ final class Analyzer {
             .map(SemanticType::identity)
             .collect(java.util.stream.Collectors.toSet());
     Map<String, SemanticType> substitutions = new LinkedHashMap<>(ownerSubstitutions);
-    Map<String, List<SemanticType>> constraints = new LinkedHashMap<>();
+    TypeConstraintSolver solver = new TypeConstraintSolver(callableParameters.values());
     Map<String, SemanticType> declarations = typeParameters(declaration, ownerOf(declaration));
     if (hasExplicitTypes) {
       for (int index = 0; index < declaration.typeParameters().size(); index++) {
@@ -1421,8 +2424,8 @@ final class Analyzer {
         SemanticType pattern =
             resolveDeclarationType(declaration.returnType(), declaration, declarations)
                 .substitute(ownerSubstitutions);
-        collectInferenceConstraints(pattern, expected, callableParameterIds, constraints);
-        seedInferredSubstitutions(callableParameters, constraints, substitutions);
+        constrainInference(solver, pattern, expected);
+        substitutions.putAll(solver.solve().substitutions());
       }
       for (int index = 0; index < call.arguments().size(); index++) {
         Syntax.Parameter parameter = declaration.parameters().get(argumentIndices.get(index));
@@ -1432,36 +2435,63 @@ final class Analyzer {
         SemanticType probeExpected =
             containsTypeParameter(pattern, callableParameterIds) ? null : pattern;
         TypeProbe probe = probeType(call.arguments().get(index).value(), probeExpected);
-        collectInferenceConstraints(pattern, probe.type(), callableParameterIds, constraints);
+        constrainInference(solver, pattern, probe.type());
       }
     }
 
     List<String> missing = new ArrayList<>();
     List<InferenceConflict> conflicts = new ArrayList<>();
+    TypeConstraintSolver.Solution inferredTypes = solver.solve();
     for (Syntax.TypeParameter parameterSyntax : declaration.typeParameters()) {
       SemanticType parameter = callableParameters.get(parameterSyntax.name());
-      List<SemanticType> inferred = constraints.getOrDefault(parameter.identity(), List.of());
-      if (!hasExplicitTypes && inferred.isEmpty()) {
+      SemanticType inferred = inferredTypes.substitutions().get(parameter.identity());
+      if (!hasExplicitTypes && inferred == null) {
         missing.add(parameterSyntax.name());
         substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
       } else if (!hasExplicitTypes) {
-        InferenceMerge merge = mergeInference(inferred);
-        substitutions.put(parameter.identity(), merge.type());
-        merge
-            .conflict()
-            .ifPresent(
-                conflict ->
-                    conflicts.add(
-                        new InferenceConflict(
-                            parameterSyntax.name(), conflict.first(), conflict.second())));
+        substitutions.put(parameter.identity(), inferred);
       }
     }
+    Map<String, String> parameterNames =
+        callableParameters.entrySet().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    entry -> entry.getValue().identity(),
+                    Map.Entry::getKey,
+                    (left, right) -> left));
+    inferredTypes
+        .conflicts()
+        .forEach(
+            conflict ->
+                conflicts.add(
+                    new InferenceConflict(
+                        parameterNames.get(conflict.variable()),
+                        conflict.first(),
+                        conflict.second())));
     List<ParameterInfo> parameters = parametersOf(declaration, substitutions);
     SemanticType result =
         resolveDeclarationType(declaration.returnType(), declaration, declarations)
             .substitute(substitutions);
     boolean assignable = true;
+    List<BoundViolation> boundViolations = new ArrayList<>();
+    for (Syntax.TypeParameter parameterSyntax : declaration.typeParameters()) {
+      if (parameterSyntax.upperBound().isEmpty()) continue;
+      SemanticType parameter = callableParameters.get(parameterSyntax.name());
+      SemanticType actual = substitutions.get(parameter.identity());
+      SemanticType bound =
+          resolveDeclarationType(
+                  parameterSyntax.upperBound().orElseThrow(), declaration, declarations)
+              .substitute(substitutions);
+      if (actual != null && !isAssignable(bound, actual)) {
+        assignable = false;
+        boundViolations.add(new BoundViolation(parameterSyntax.name(), bound, actual));
+      }
+    }
     int score = 0;
+    if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
+      if (!isPotentiallyAssignable(expected, result)) assignable = false;
+      else if (!expected.equals(result)) score++;
+    }
     List<ParameterInfo> patterns = parametersOf(declaration, ownerSubstitutions);
     for (int index = 0; index < call.arguments().size(); index++) {
       int parameterIndex = argumentIndices.get(index);
@@ -1474,6 +2504,10 @@ final class Analyzer {
       score +=
           callCompatibilityScore(
               patterns.get(parameterIndex).type(), parameter, actual, callableParameterIds);
+      TypeProbe intrinsicProbe = probeType(argument, null);
+      if (!intrinsicProbe.hasErrors() && !parameter.equals(intrinsicProbe.type())) {
+        score += isPotentiallyAssignable(parameter, intrinsicProbe.type()) ? 1 : 2;
+      }
     }
     List<SemanticType> reifiedArguments =
         declaration.typeParameters().stream()
@@ -1483,72 +2517,71 @@ final class Analyzer {
     SourceCallResolution resolution =
         new SourceCallResolution(declaration, parameters, reifiedArguments, result);
     return new SourceCallCandidate(
-        resolution, List.copyOf(missing), List.copyOf(conflicts), assignable, score);
+        resolution,
+        List.copyOf(missing),
+        List.copyOf(conflicts),
+        List.copyOf(boundViolations),
+        assignable,
+        score);
   }
 
-  private static void seedInferredSubstitutions(
-      Map<String, SemanticType> callableParameters,
-      Map<String, List<SemanticType>> constraints,
-      Map<String, SemanticType> substitutions) {
-    for (SemanticType parameter : callableParameters.values()) {
-      List<SemanticType> inferred = constraints.getOrDefault(parameter.identity(), List.of());
-      if (!inferred.isEmpty()) {
-        substitutions.put(parameter.identity(), mergeInference(inferred).type());
-      }
-    }
-  }
-
-  private static InferenceMerge mergeInference(List<SemanticType> inferred) {
-    SemanticType merged = inferred.getFirst();
-    for (int index = 1; index < inferred.size(); index++) {
-      SemanticType candidate = inferred.get(index);
-      if (candidate.equals(merged)) continue;
-      if (candidate.nonNullable().equals(merged.nonNullable())) {
-        merged = merged.nonNullable().nullable();
-      } else {
-        return new InferenceMerge(merged, Optional.of(new InferenceCollision(merged, candidate)));
-      }
-    }
-    return new InferenceMerge(merged, Optional.empty());
-  }
-
-  private static void collectInferenceConstraints(
-      SemanticType pattern,
-      SemanticType actual,
-      Set<String> callableParameterIds,
-      Map<String, List<SemanticType>> constraints) {
-    if (actual.equals(SemanticType.NULL) || actual.equals(SemanticType.DYNAMIC)) return;
-    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER
-        && callableParameterIds.contains(pattern.identity())) {
-      if (actual.kind() == SemanticType.Kind.TYPE_PARAMETER
-          && actual.identity().equals(pattern.identity())) {
-        return;
-      }
-      SemanticType inferred = pattern.isNullable() ? actual.nonNullable() : actual;
-      constraints.computeIfAbsent(pattern.identity(), ignored -> new ArrayList<>()).add(inferred);
+  private void constrainInference(
+      TypeConstraintSolver solver, SemanticType pattern, SemanticType actual) {
+    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      solver.constrain(pattern, actual);
       return;
     }
-    if (!pattern.nonNullable().identity().equals(actual.nonNullable().identity())
-        || pattern.arguments().size() != actual.arguments().size()) {
+    SemanticType alignedActual = inferenceView(pattern, actual);
+    if (!pattern.nonNullable().identity().equals(alignedActual.nonNullable().identity())) {
+      SemanticType alignedPattern = inferenceView(actual, pattern);
+      if (alignedPattern.nonNullable().identity().equals(actual.nonNullable().identity())) {
+        solver.constrain(alignedPattern, actual);
+      }
       return;
     }
-    for (int index = 0; index < pattern.arguments().size(); index++) {
-      collectInferenceConstraints(
-          pattern.arguments().get(index),
-          actual.arguments().get(index),
-          callableParameterIds,
-          constraints);
-    }
+    solver.constrain(pattern, alignedActual);
   }
 
-  private static boolean isPotentiallyAssignable(SemanticType expected, SemanticType actual) {
+  private SemanticType inferenceView(SemanticType pattern, SemanticType actual) {
+    if (pattern.nonNullable().identity().equals(actual.nonNullable().identity())) return actual;
+    for (SemanticType view : nominalViews(actual.nonNullable())) {
+      if (pattern.nonNullable().identity().equals(view.nonNullable().identity())) {
+        return actual.isNullable() ? view.nullable() : view;
+      }
+    }
+    return actual;
+  }
+
+  private List<SemanticType> nominalViews(SemanticType actual) {
+    List<SemanticType> result = new ArrayList<>(builtins.protocolConformances(actual));
+    Syntax.ClassDecl concrete = resolveClass(actual);
+    if (concrete == null) return List.copyOf(result);
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarationPrograms.get(concrete);
+    Map<String, SemanticType> substitutions = classSubstitutions(concrete, actual);
+    Map<String, SemanticType> classParameters = classTypeParameters(concrete);
+    Map<String, SemanticType> conformances = new LinkedHashMap<>();
+    for (Syntax.TypeRef interfaceRef : concrete.implementedInterfaces()) {
+      SemanticType conformance =
+          resolveType(interfaceRef, classParameters).substitute(substitutions);
+      Syntax.InterfaceDecl declaration = resolveInterface(conformance);
+      if (declaration != null) {
+        collectConformances(declaration, conformance, conformances, interfaceRef.span());
+      }
+    }
+    currentProgram = previous;
+    result.addAll(conformances.values());
+    return List.copyOf(result);
+  }
+
+  private boolean isPotentiallyAssignable(SemanticType expected, SemanticType actual) {
     if (expected.equals(SemanticType.DYNAMIC) || actual.equals(SemanticType.DYNAMIC)) return true;
     if (actual.equals(SemanticType.NULL)) return expected.mayContainNull();
     if (expected.equals(SemanticType.NULL)) return false;
     if (actual.isNullable() && !expected.isNullable()) return false;
     if (!expected.nonNullable().identity().equals(actual.nonNullable().identity())
         || expected.arguments().size() != actual.arguments().size()) {
-      return false;
+      return isAssignable(expected, actual);
     }
     for (int index = 0; index < expected.arguments().size(); index++) {
       if (!isPotentiallyAssignable(
@@ -1602,6 +2635,18 @@ final class Analyzer {
               + conflict.first().displayName()
               + " and "
               + conflict.second().displayName(),
+          span);
+    }
+    for (BoundViolation violation : candidate.boundViolations()) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "type argument '"
+              + violation.actual().displayName()
+              + "' does not satisfy bound '"
+              + violation.bound().displayName()
+              + "' for '"
+              + violation.name()
+              + "'",
           span);
     }
   }
@@ -1700,6 +2745,61 @@ final class Analyzer {
     for (Syntax.TypeRef argument : type.arguments()) {
       validateType(argument, false);
     }
+    validateDeclaredTypeBounds(type);
+  }
+
+  private void validateDeclaredTypeBounds(Syntax.TypeRef reference) {
+    List<Syntax.TypeParameter> parameters;
+    Map<String, SemanticType> declared;
+    Object declaration;
+    Syntax.InterfaceDecl interfaceDecl = resolveInterface(reference.name());
+    Syntax.ClassDecl classDecl = resolveClass(reference.name());
+    Syntax.EnumDecl enumDecl = resolveEnum(reference.name());
+    if (interfaceDecl != null) {
+      parameters = interfaceDecl.typeParameters();
+      declared = interfaceTypeParameters(interfaceDecl);
+      declaration = interfaceDecl;
+    } else if (classDecl != null) {
+      parameters = classDecl.typeParameters();
+      declared = classTypeParameters(classDecl);
+      declaration = classDecl;
+    } else if (enumDecl != null) {
+      parameters = enumDecl.typeParameters();
+      declared = enumTypeParameters(enumDecl);
+      declaration = enumDecl;
+    } else {
+      return;
+    }
+    if (parameters.size() != reference.arguments().size()) return;
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+    List<SemanticType> actualArguments =
+        reference.arguments().stream()
+            .map(argument -> resolveType(argument, activeTypeParameters))
+            .toList();
+    for (int index = 0; index < parameters.size(); index++) {
+      substitutions.put(
+          declared.get(parameters.get(index).name()).identity(), actualArguments.get(index));
+    }
+    for (int index = 0; index < parameters.size(); index++) {
+      Syntax.TypeParameter parameter = parameters.get(index);
+      if (parameter.upperBound().isEmpty()) continue;
+      SemanticType bound =
+          resolveDeclarationType(parameter.upperBound().orElseThrow(), declaration, declared)
+              .substitute(substitutions);
+      SemanticType actual = actualArguments.get(index);
+      if (!isAssignable(bound, actual)) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "type argument '"
+                + actual.displayName()
+                + "' does not satisfy bound '"
+                + bound.displayName()
+                + "' for '"
+                + parameter.name()
+                + "'",
+            reference.arguments().get(index).span());
+      }
+    }
   }
 
   private void requireBoth(
@@ -1713,7 +2813,7 @@ final class Analyzer {
   }
 
   private void requireAssignable(SemanticType expected, SemanticType actual, SourceSpan span) {
-    if (!TypeRelations.isAssignable(expected, actual)) {
+    if (!isAssignable(expected, actual)) {
       DiagnosticCode code =
           actual.mayContainNull() && !expected.mayContainNull()
               ? NULLABILITY_MISMATCH
@@ -1721,6 +2821,61 @@ final class Analyzer {
       diagnostics.error(
           code, "expected " + expected.displayName() + " but found " + actual.displayName(), span);
     }
+  }
+
+  private boolean isAssignable(SemanticType expected, SemanticType actual) {
+    return typeRelations.isAssignable(expected, actual);
+  }
+
+  private Optional<SemanticType> commonType(SemanticType left, SemanticType right) {
+    Optional<SemanticType> direct = TypeRelations.commonType(left, right);
+    if (direct.isPresent()) return direct;
+    SemanticType leftValue = left.nonNullable();
+    SemanticType rightValue = right.nonNullable();
+    if (!isAssignable(STRINGABLE, leftValue) || !isAssignable(STRINGABLE, rightValue)) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        left.isNullable() || right.isNullable() ? STRINGABLE.nullable() : STRINGABLE);
+  }
+
+  private boolean isNominallyAssignable(SemanticType expected, SemanticType actual) {
+    if (actual.isNullable() && !expected.isNullable()) return false;
+    if (expected.isNullable() && !actual.isNullable()) {
+      return isAssignable(expected.nonNullable(), actual);
+    }
+    SemanticType bound =
+        actual.kind() == SemanticType.Kind.TYPE_PARAMETER
+            ? typeParameterBounds.get(actual.identity())
+            : null;
+    if (bound != null && isAssignable(expected, bound)) return true;
+    Syntax.InterfaceDecl required = resolveInterface(expected.nonNullable());
+    for (SemanticType conformance : builtins.protocolConformances(actual.nonNullable())) {
+      if (expected.nonNullable().equals(conformance)) return true;
+      Syntax.InterfaceDecl declaration = resolveInterface(conformance);
+      if (declaration != null) {
+        Map<String, SemanticType> inherited = new LinkedHashMap<>();
+        collectConformances(declaration, conformance, inherited, currentProgram.span());
+        if (expected.nonNullable().equals(inherited.get(expected.identity()))) return true;
+      }
+    }
+    Syntax.ClassDecl concrete = resolveClass(actual.nonNullable());
+    if (required == null || concrete == null) return false;
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarationPrograms.get(concrete);
+    Map<String, SemanticType> substitutions = classSubstitutions(concrete, actual.nonNullable());
+    Map<String, SemanticType> classParameters = classTypeParameters(concrete);
+    Map<String, SemanticType> conformances = new LinkedHashMap<>();
+    for (Syntax.TypeRef interfaceRef : concrete.implementedInterfaces()) {
+      SemanticType conformance =
+          resolveType(interfaceRef, classParameters).substitute(substitutions);
+      Syntax.InterfaceDecl declaration = resolveInterface(conformance);
+      if (declaration != null) {
+        collectConformances(declaration, conformance, conformances, interfaceRef.span());
+      }
+    }
+    currentProgram = previous;
+    return expected.nonNullable().equals(conformances.get(expected.identity()));
   }
 
   private void declareExisting(String name, SemanticType type, SourceSpan span, SymbolId id) {
@@ -1877,9 +3032,9 @@ final class Analyzer {
     flowTypes.putAll(values);
   }
 
-  private void validateLoopControl(SourceSpan span) {
-    if (loopDepth == 0) {
-      diagnostics.error(INVALID_CONTROL, "break/continue is only valid inside for", span);
+  private void validateContinue(SourceSpan span) {
+    if (controls.stream().noneMatch(context -> context.kind() == ControlKind.LOOP)) {
+      diagnostics.error(INVALID_CONTROL, "continue is only valid inside for", span);
     }
   }
 
@@ -1905,7 +3060,7 @@ final class Analyzer {
       SemanticType type,
       SourceSpan nameSpan,
       SymbolId owner,
-      List<String> typeParameters,
+      List<TypeParameterInfo> typeParameters,
       List<ParameterInfo> parameters) {
     SymbolId id = SymbolId.source(nameSpan.source().id(), nextSymbolId++);
     Symbol symbol =
@@ -1923,6 +3078,19 @@ final class Analyzer {
     declarationSymbols.put(declaration, id);
     bindings.put(nameSpan, id);
     return symbol;
+  }
+
+  private List<TypeParameterInfo> symbolTypeParameters(
+      List<Syntax.TypeParameter> parameters, Map<String, SemanticType> semanticTypes) {
+    return parameters.stream()
+        .map(
+            parameter -> {
+              SemanticType type = semanticTypes.get(parameter.name());
+              Optional<SemanticType> bound =
+                  parameter.upperBound().map(value -> resolveType(value, semanticTypes));
+              return new TypeParameterInfo(parameter.name(), type, bound);
+            })
+        .toList();
   }
 
   private void registerTypeParameters(
@@ -1974,6 +3142,9 @@ final class Analyzer {
   }
 
   private Optional<Symbol> typeSymbol(String name) {
+    Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
+    if (interfaceDecl != null)
+      return Optional.ofNullable(symbols.get(declarationSymbols.get(interfaceDecl)));
     Syntax.ClassDecl classDecl = resolveClass(name);
     if (classDecl != null)
       return Optional.ofNullable(symbols.get(declarationSymbols.get(classDecl)));
@@ -2078,6 +3249,102 @@ final class Analyzer {
     return sourceType(name, resolved);
   }
 
+  private SemanticType constructedType(Syntax.Name name, Syntax.Call call, SemanticType expected) {
+    if (!name.diamond()) return appliedType(name.value(), name.typeArguments(), name.span());
+    String typeName = name.value();
+    Symbol builtin = builtins.type(typeName).orElse(null);
+    Syntax.ClassDecl source = resolveClass(typeName);
+    List<TypeParameterInfo> parameters;
+    SemanticType prototype;
+    List<ParameterInfo> constructorParameters;
+    if (builtin != null) {
+      parameters = builtin.typeParameters();
+      prototype =
+          builtins.instantiate(typeName, parameters.stream().map(TypeParameterInfo::type).toList());
+      constructorParameters = builtins.constructorParameters(prototype).orElse(List.of());
+    } else if (source != null) {
+      Map<String, SemanticType> declared = classTypeParameters(source);
+      parameters =
+          source.typeParameters().stream()
+              .map(
+                  parameter ->
+                      new TypeParameterInfo(parameter.name(), declared.get(parameter.name())))
+              .toList();
+      prototype =
+          sourceType(source.name(), parameters.stream().map(TypeParameterInfo::type).toList());
+      constructorParameters = fieldParameters(source, Map.of());
+    } else {
+      diagnostics.error(UNKNOWN_NAME, "cannot find type '" + typeName + "'", name.span());
+      return SemanticType.DYNAMIC;
+    }
+    if (parameters.isEmpty()) {
+      diagnostics.error(INVALID_CALL, "diamond requires a generic type constructor", name.span());
+      return prototype;
+    }
+    TypeConstraintSolver solver =
+        new TypeConstraintSolver(parameters.stream().map(TypeParameterInfo::type).toList());
+    if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
+      constrainInference(solver, prototype, expected);
+    }
+    Map<String, SemanticType> contextualSubstitutions = solver.solve().substitutions();
+    List<Integer> indices = overloads.argumentIndices(call, constructorParameters, false);
+    if (indices != null) {
+      for (int index = 0; index < call.arguments().size(); index++) {
+        Syntax.Expression argument = call.arguments().get(index).value();
+        SemanticType inferencePattern = constructorParameters.get(indices.get(index)).type();
+        SemanticType pattern = inferencePattern.substitute(contextualSubstitutions);
+        TypeProbe probe =
+            probeType(
+                argument,
+                containsTypeParameter(pattern, solverVariables(parameters)) ? null : pattern);
+        constrainInference(solver, inferencePattern, probe.type());
+      }
+    }
+    TypeConstraintSolver.Solution solution = solver.solve();
+    Map<String, String> parameterNames =
+        parameters.stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    parameter -> parameter.type().identity(),
+                    TypeParameterInfo::name,
+                    (left, right) -> left,
+                    LinkedHashMap::new));
+    for (String missing : solution.missing()) {
+      diagnostics.error(
+          INVALID_CALL,
+          "cannot infer type argument '" + parameterNames.get(missing) + "'",
+          name.span());
+    }
+    for (TypeConstraintSolver.Conflict conflict : solution.conflicts()) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "type parameter '"
+              + parameterNames.get(conflict.variable())
+              + "' inferred as both "
+              + conflict.first().displayName()
+              + " and "
+              + conflict.second().displayName(),
+          name.span());
+    }
+    List<SemanticType> arguments =
+        parameters.stream()
+            .map(
+                parameter ->
+                    solution
+                        .substitutions()
+                        .getOrDefault(parameter.type().identity(), SemanticType.DYNAMIC))
+            .toList();
+    return builtin != null
+        ? builtins.instantiate(typeName, arguments)
+        : sourceType(typeName, arguments);
+  }
+
+  private static Set<String> solverVariables(List<TypeParameterInfo> parameters) {
+    return parameters.stream()
+        .map(parameter -> parameter.type().identity())
+        .collect(java.util.stream.Collectors.toSet());
+  }
+
   private SemanticType resolveType(Syntax.TypeRef type, Map<String, SemanticType> typeParameters) {
     SemanticType parameter = typeParameters.get(type.name());
     if (parameter != null) return type.nullable() ? parameter.nullable() : parameter;
@@ -2114,8 +3381,10 @@ final class Analyzer {
     if (activeTypeParameters.containsKey(type.name())) return;
     Syntax.ClassDecl classDecl = resolveClass(type.name());
     Syntax.EnumDecl enumDecl = resolveEnum(type.name());
+    Syntax.InterfaceDecl interfaceDecl = resolveInterface(type.name());
     boolean privateType =
-        classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
+        interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
+            || classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
             || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE;
     if (privateType) {
       diagnostics.error(
@@ -2162,29 +3431,40 @@ final class Analyzer {
   }
 
   private SemanticType sourceType(String name, List<SemanticType> arguments) {
+    Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
     Syntax.ClassDecl classDecl = resolveClass(name);
     if (classDecl == null) classDecl = resolveImportedClassByDeclaredName(name);
     Syntax.EnumDecl enumDecl = resolveEnum(name);
-    Object declaration = classDecl != null ? classDecl : enumDecl;
+    Object declaration =
+        interfaceDecl != null ? interfaceDecl : classDecl != null ? classDecl : enumDecl;
     Syntax.Program owner =
         declaration == null ? currentProgram : declarationPrograms.get(declaration);
     String declaredName =
-        classDecl != null ? classDecl.name() : enumDecl != null ? enumDecl.name() : name;
+        interfaceDecl != null
+            ? interfaceDecl.name()
+            : classDecl != null ? classDecl.name() : enumDecl != null ? enumDecl.name() : name;
     String identity = qualifiedName(owner == null ? "" : owner.packageName(), declaredName);
-    if (classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
+    if (interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
+        || classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
         || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE) {
       identity = fileLocalIdentity(identity, owner);
     }
-    ValueCategory category = classDecl != null ? ValueCategory.IDENTITY : ValueCategory.VALUE;
+    ValueCategory category =
+        interfaceDecl != null
+            ? ValueCategory.POLYMORPHIC
+            : classDecl != null ? ValueCategory.IDENTITY : ValueCategory.VALUE;
     return SemanticType.declared(identity, declaredName, arguments, category);
   }
 
   private int declaredTypeArity(String name) {
     int builtinArity = builtins.typeArity(name);
     if (builtinArity >= 0) return builtinArity;
+    Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
+    if (interfaceDecl != null) return interfaceDecl.typeParameters().size();
     Syntax.ClassDecl classDecl = resolveClass(name);
     if (classDecl != null) return classDecl.typeParameters().size();
-    return resolveEnum(name) != null ? 0 : -1;
+    Syntax.EnumDecl enumDecl = resolveEnum(name);
+    return enumDecl == null ? -1 : enumDecl.typeParameters().size();
   }
 
   private Map<String, SemanticType> typeParameters(
@@ -2202,11 +3482,53 @@ final class Analyzer {
         classDecl.typeParameters());
   }
 
+  private Map<String, SemanticType> interfaceTypeParameters(Syntax.InterfaceDecl declaration) {
+    return declarationTypeParameters(
+        declarationPrograms.getOrDefault(declaration, currentProgram),
+        "interface/" + declaration.name(),
+        declaration.typeParameters());
+  }
+
+  private SemanticType interfaceSelfType(Syntax.InterfaceDecl declaration) {
+    Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
+    return sourceType(
+        declaration.name(),
+        declaration.typeParameters().stream()
+            .map(parameter -> parameters.get(parameter.name()))
+            .toList());
+  }
+
+  private Map<String, SemanticType> withTypeParameters(
+      Map<String, SemanticType> base,
+      List<Syntax.TypeParameter> parameters,
+      Syntax.Program program,
+      String owner) {
+    Map<String, SemanticType> result = new LinkedHashMap<>(base);
+    result.putAll(declarationTypeParameters(program, owner, parameters));
+    return Map.copyOf(result);
+  }
+
   private SemanticType classSelfType(Syntax.ClassDecl classDecl) {
     Map<String, SemanticType> parameters = classTypeParameters(classDecl);
     return sourceType(
         classDecl.name(),
         classDecl.typeParameters().stream()
+            .map(parameter -> parameters.get(parameter.name()))
+            .toList());
+  }
+
+  private Map<String, SemanticType> enumTypeParameters(Syntax.EnumDecl enumDecl) {
+    return declarationTypeParameters(
+        declarationPrograms.getOrDefault(enumDecl, currentProgram),
+        "enum/" + enumDecl.name(),
+        enumDecl.typeParameters());
+  }
+
+  private SemanticType enumSelfType(Syntax.EnumDecl enumDecl) {
+    Map<String, SemanticType> parameters = enumTypeParameters(enumDecl);
+    return sourceType(
+        enumDecl.name(),
+        enumDecl.typeParameters().stream()
             .map(parameter -> parameters.get(parameter.name()))
             .toList());
   }
@@ -2256,6 +3578,19 @@ final class Analyzer {
     return result;
   }
 
+  private Map<String, SemanticType> enumSubstitutions(
+      Syntax.EnumDecl enumDecl, SemanticType instance) {
+    Map<String, SemanticType> declarations = enumTypeParameters(enumDecl);
+    Map<String, SemanticType> result = new LinkedHashMap<>();
+    for (int index = 0;
+        index < Math.min(enumDecl.typeParameters().size(), instance.arguments().size());
+        index++) {
+      SemanticType parameter = declarations.get(enumDecl.typeParameters().get(index).name());
+      result.put(parameter.identity(), instance.arguments().get(index));
+    }
+    return result;
+  }
+
   private Map<String, SemanticType> inferBuiltinTypeArguments(
       Symbol symbol,
       List<Syntax.TypeRef> explicitArguments,
@@ -2269,7 +3604,7 @@ final class Analyzer {
       for (int index = 0;
           index < Math.min(explicitArguments.size(), symbol.typeParameters().size());
           index++) {
-        SemanticType parameter = findTypeParameter(symbol, symbol.typeParameters().get(index));
+        SemanticType parameter = symbol.typeParameters().get(index).type();
         if (parameter != null) {
           substitutions.put(
               parameter.identity(),
@@ -2280,40 +3615,56 @@ final class Analyzer {
         resolveCheckedType(explicitArguments.get(index), activeTypeParameters);
       }
     } else {
+      TypeConstraintSolver solver =
+          new TypeConstraintSolver(
+              symbol.typeParameters().stream().map(TypeParameterInfo::type).toList());
+      Set<String> variables = solverVariables(symbol.typeParameters());
+      if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
+        constrainInference(solver, symbol.type(), expected);
+      }
+      Map<String, SemanticType> contextualSubstitutions = solver.solve().substitutions();
       List<Integer> indices = overloads.argumentIndices(call, symbol.parameters(), false);
       if (indices != null) {
         for (int index = 0; index < call.arguments().size(); index++) {
           Syntax.CallArgument argument = call.arguments().get(index);
-          if (argument.value() instanceof Syntax.NullLiteral) continue;
-          infer(
-              symbol.parameters().get(indices.get(index)).type(),
-              typeOf(argument.value(), null),
-              substitutions,
-              argument.span());
+          SemanticType inferencePattern = symbol.parameters().get(indices.get(index)).type();
+          SemanticType pattern = inferencePattern.substitute(contextualSubstitutions);
+          SemanticType argumentExpected =
+              containsTypeParameter(pattern, variables) ? null : pattern;
+          constrainInference(solver, inferencePattern, typeOf(argument.value(), argumentExpected));
         }
       }
-      if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
-        infer(symbol.type(), expected, substitutions, span);
+      TypeConstraintSolver.Solution solution = solver.solve();
+      substitutions.putAll(solution.substitutions());
+      Map<String, String> parameterNames =
+          symbol.typeParameters().stream()
+              .collect(
+                  java.util.stream.Collectors.toMap(
+                      parameter -> parameter.type().identity(),
+                      TypeParameterInfo::name,
+                      (left, right) -> left,
+                      LinkedHashMap::new));
+      for (TypeConstraintSolver.Conflict conflict : solution.conflicts()) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "type parameter '"
+                + parameterNames.get(conflict.variable())
+                + "' inferred as both "
+                + conflict.first().displayName()
+                + " and "
+                + conflict.second().displayName(),
+            span);
       }
     }
-    for (String name : symbol.typeParameters()) {
-      SemanticType parameter = findTypeParameter(symbol, name);
+    for (TypeParameterInfo parameterInfo : symbol.typeParameters()) {
+      String name = parameterInfo.name();
+      SemanticType parameter = parameterInfo.type();
       if (parameter != null && !substitutions.containsKey(parameter.identity())) {
         diagnostics.error(INVALID_CALL, "cannot infer type argument '" + name + "'", span);
         substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
       }
     }
     return substitutions;
-  }
-
-  private static SemanticType findTypeParameter(Symbol symbol, String name) {
-    SemanticType result = findTypeParameter(symbol.type(), name);
-    if (result != null) return result;
-    for (ParameterInfo parameter : symbol.parameters()) {
-      result = findTypeParameter(parameter.type(), name);
-      if (result != null) return result;
-    }
-    return null;
   }
 
   private static SemanticType findTypeParameter(SemanticType type, String name) {
@@ -2325,40 +3676,14 @@ final class Analyzer {
     return null;
   }
 
-  private void infer(
-      SemanticType pattern,
-      SemanticType actual,
-      Map<String, SemanticType> substitutions,
-      SourceSpan span) {
-    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
-      SemanticType inferred = pattern.isNullable() ? actual.nonNullable() : actual;
-      SemanticType previous = substitutions.putIfAbsent(pattern.identity(), inferred);
-      if (previous != null && !previous.equals(inferred)) {
-        diagnostics.error(
-            TYPE_MISMATCH,
-            "type parameter '"
-                + pattern.name()
-                + "' inferred as both "
-                + previous.displayName()
-                + " and "
-                + inferred.displayName(),
-            span);
-      }
-      return;
-    }
-    if (!pattern.identity().equals(actual.identity())
-        || pattern.arguments().size() != actual.arguments().size()) return;
-    for (int index = 0; index < pattern.arguments().size(); index++) {
-      infer(pattern.arguments().get(index), actual.arguments().get(index), substitutions, span);
-    }
-  }
-
   private static Syntax.Program merge(List<Syntax.Program> programs, Syntax.Program entryProgram) {
     List<Syntax.EnumDecl> enums = new ArrayList<>();
+    List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
     List<Syntax.ClassDecl> classes = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     for (Syntax.Program program : programs) {
       enums.addAll(program.enums());
+      interfaces.addAll(program.interfaces());
       classes.addAll(program.classes());
       functions.addAll(program.functions());
     }
@@ -2366,13 +3691,110 @@ final class Analyzer {
         entryProgram.packageName(),
         entryProgram.imports(),
         enums,
+        interfaces,
         classes,
         functions,
         entryProgram.span());
   }
 
+  private static boolean definitelyYields(List<Syntax.Statement> statements) {
+    for (Syntax.Statement statement : statements) {
+      if (statement instanceof Syntax.ReturnStatement
+          || statement instanceof Syntax.BreakStatement broken && broken.value() != null) {
+        return true;
+      }
+      if (statement instanceof Syntax.IfStatement conditional
+          && definitelyYields(conditional.thenBody())
+          && definitelyYields(conditional.elseBody())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private final class SemanticPatternDomain implements PatternCoverage.Domain<SemanticType> {
+    @Override
+    public List<PatternCoverage.Constructor<SemanticType>> constructors(SemanticType type) {
+      if (type.isNullable()) {
+        return List.of(
+            new PatternCoverage.Constructor<>("$null", List.of()),
+            new PatternCoverage.Constructor<>("$value", List.of(type.nonNullable())));
+      }
+      if (type.equals(SemanticType.BOOLEAN)) {
+        return List.of(
+            new PatternCoverage.Constructor<>("boolean:false", List.of()),
+            new PatternCoverage.Constructor<>("boolean:true", List.of()));
+      }
+      Syntax.EnumDecl declaration = resolveEnum(type);
+      if (declaration == null) return List.of();
+      Map<String, SemanticType> substitutions = enumSubstitutions(declaration, type);
+      Map<String, SemanticType> parameters = enumTypeParameters(declaration);
+      return declaration.variants().stream()
+          .map(
+              variant ->
+                  new PatternCoverage.Constructor<>(
+                      "variant:" + variant.name(),
+                      variant.parameters().stream()
+                          .map(
+                              field ->
+                                  resolveDeclarationType(field.type(), field, parameters)
+                                      .substitute(substitutions))
+                          .toList()))
+          .toList();
+    }
+
+    @Override
+    public PatternCoverage.Constructor<SemanticType> openConstructor(
+        SemanticType type, String key) {
+      return constructors(type).isEmpty()
+          ? new PatternCoverage.Constructor<>(key, List.of())
+          : null;
+    }
+  }
+
+  private enum ControlKind {
+    LOOP,
+    SWITCH
+  }
+
+  private static final class ControlContext {
+    private final ControlKind kind;
+    private SemanticType resultType;
+
+    private ControlContext(ControlKind kind, SemanticType resultType) {
+      this.kind = kind;
+      this.resultType = resultType;
+    }
+
+    static ControlContext loop() {
+      return new ControlContext(ControlKind.LOOP, null);
+    }
+
+    static ControlContext switchExpression(SemanticType resultType) {
+      return new ControlContext(ControlKind.SWITCH, resultType);
+    }
+
+    ControlKind kind() {
+      return kind;
+    }
+
+    SemanticType resultType() {
+      return resultType;
+    }
+
+    void setResultType(SemanticType resultType) {
+      this.resultType = resultType;
+    }
+  }
+
   private void indexDeclarationPrograms() {
     for (Syntax.Program program : programs) {
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        declarationPrograms.put(declaration, program);
+        for (Syntax.InterfaceMethodDecl method : declaration.methods()) {
+          declarationPrograms.put(method, program);
+        }
+      }
       for (Syntax.EnumDecl declaration : program.enums())
         declarationPrograms.put(declaration, program);
       for (Syntax.ClassDecl declaration : program.classes()) {
@@ -2420,6 +3842,23 @@ final class Analyzer {
     return Map.copyOf(result);
   }
 
+  private Map<String, List<SemanticType>> interfaceParentTypes() {
+    Map<String, List<SemanticType>> result = new LinkedHashMap<>();
+    Syntax.Program previous = currentProgram;
+    for (Syntax.InterfaceDecl declaration : interfaces.values()) {
+      currentProgram = declarationPrograms.get(declaration);
+      Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
+      String identity = symbols.get(declarationSymbols.get(declaration)).type().identity();
+      result.put(
+          identity,
+          declaration.extendedInterfaces().stream()
+              .map(parent -> resolveType(parent, parameters))
+              .toList());
+    }
+    currentProgram = previous;
+    return Map.copyOf(result);
+  }
+
   private Syntax.ClassDecl resolveClass(String name) {
     return resolveDeclaration(name, classes);
   }
@@ -2462,6 +3901,34 @@ final class Analyzer {
 
   private Syntax.EnumDecl resolveEnum(String name) {
     return resolveDeclaration(name, enums);
+  }
+
+  private Syntax.InterfaceDecl resolveInterface(String name) {
+    return resolveDeclaration(name, interfaces);
+  }
+
+  private Syntax.InterfaceDecl resolveInterface(SemanticType type) {
+    for (Syntax.InterfaceDecl candidate : interfaces.values()) {
+      Syntax.Program owner = declarationPrograms.get(candidate);
+      String identity = qualifiedName(owner.packageName(), candidate.name());
+      if (candidate.visibility() == Syntax.Visibility.PRIVATE) {
+        identity = fileLocalIdentity(identity, owner);
+      }
+      if (identity.equals(type.identity())) return candidate;
+    }
+    return null;
+  }
+
+  private Syntax.EnumDecl resolveEnum(SemanticType type) {
+    for (Syntax.EnumDecl candidate : enums.values()) {
+      Syntax.Program owner = declarationPrograms.get(candidate);
+      String identity = qualifiedName(owner.packageName(), candidate.name());
+      if (candidate.visibility() == Syntax.Visibility.PRIVATE) {
+        identity = fileLocalIdentity(identity, owner);
+      }
+      if (identity.equals(type.identity())) return candidate;
+    }
+    return null;
   }
 
   private <T> T resolveDeclaration(String name, Map<String, T> declarations) {
@@ -2513,6 +3980,19 @@ final class Analyzer {
         + ")";
   }
 
+  private static String interfaceMethodSignature(Syntax.InterfaceMethodDecl method) {
+    Map<String, String> typeParameters = new HashMap<>();
+    for (int index = 0; index < method.typeParameters().size(); index++) {
+      typeParameters.put(method.typeParameters().get(index).name(), "$" + index);
+    }
+    return method.name()
+        + "("
+        + method.parameters().stream()
+            .map(parameter -> normalizedType(parameter.type(), typeParameters))
+            .collect(java.util.stream.Collectors.joining(","))
+        + ")";
+  }
+
   private static String normalizedType(Syntax.TypeRef type, Map<String, String> typeParameters) {
     String name = typeParameters.getOrDefault(type.name(), type.name());
     String arguments =
@@ -2539,19 +4019,45 @@ final class Analyzer {
     }
   }
 
+  private record InterfaceRequirement(
+      Syntax.InterfaceDecl owner,
+      SemanticType receiver,
+      Syntax.InterfaceMethodDecl method,
+      List<ParameterInfo> parameters,
+      SemanticType result,
+      String key,
+      String signature) {
+    private InterfaceRequirement {
+      parameters = List.copyOf(parameters);
+    }
+  }
+
+  private record InterfaceCallResolution(
+      List<ParameterInfo> parameters, SemanticType result, List<SemanticType> reifiedArguments) {
+    private InterfaceCallResolution {
+      parameters = List.copyOf(parameters);
+      reifiedArguments = List.copyOf(reifiedArguments);
+    }
+  }
+
   private record SourceCallCandidate(
       SourceCallResolution resolution,
       List<String> missingTypeArguments,
       List<InferenceConflict> conflicts,
+      List<BoundViolation> boundViolations,
       boolean assignable,
       int score) {
     private SourceCallCandidate {
       missingTypeArguments = List.copyOf(missingTypeArguments);
       conflicts = List.copyOf(conflicts);
+      boundViolations = List.copyOf(boundViolations);
     }
 
     private boolean applicable() {
-      return missingTypeArguments.isEmpty() && conflicts.isEmpty() && assignable;
+      return missingTypeArguments.isEmpty()
+          && conflicts.isEmpty()
+          && boundViolations.isEmpty()
+          && assignable;
     }
 
     private List<ParameterInfo> parameters() {
@@ -2561,9 +4067,7 @@ final class Analyzer {
 
   private record InferenceConflict(String name, SemanticType first, SemanticType second) {}
 
-  private record InferenceCollision(SemanticType first, SemanticType second) {}
-
-  private record InferenceMerge(SemanticType type, Optional<InferenceCollision> conflict) {}
+  private record BoundViolation(String name, SemanticType bound, SemanticType actual) {}
 
   private record TypeProbe(SemanticType type, boolean hasErrors) {}
 

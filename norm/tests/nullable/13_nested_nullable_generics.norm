@@ -1,11 +1,18 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  List<List<String?>?> values = List<List<String?>?>()
+  List<List<String?>?> values = List<>()
   values.add(null)
-  List<String?> inner = List<String?>()
+  List<String?> inner = List<>()
   inner.add("nested")
   values.add(inner)
-  printLine(values[0]?.size() ?? 0)
-  printLine(values[1]?.last() ?? "missing")
-  expectedOutputLine("0")
-  expectedOutputLine("nested")
+  printLines([
+    values[0]?.size() ?? 0,
+    values[1]?.last() ?? "missing"
+  ])
+  expectedOutputLines([
+    "0",
+    "nested"
+  ])
 }

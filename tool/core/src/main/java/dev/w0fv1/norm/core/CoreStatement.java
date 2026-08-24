@@ -3,6 +3,7 @@ package dev.w0fv1.norm.core;
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 public sealed interface CoreStatement extends CoreNode
     permits CoreStatement.LocalDeclaration,
@@ -14,6 +15,7 @@ public sealed interface CoreStatement extends CoreNode
         CoreStatement.ConditionalForStatement,
         CoreStatement.ForStatement,
         CoreStatement.ReturnStatement,
+        CoreStatement.YieldStatement,
         CoreStatement.BreakStatement,
         CoreStatement.ContinueStatement {
   record LocalDeclaration(int nodeIndex, int localIndex, CoreExpression initializer)
@@ -92,17 +94,20 @@ public sealed interface CoreStatement extends CoreNode
       int nodeIndex,
       int iteratorLocal,
       int variableLocal,
+      OptionalInt indexLocal,
       CoreExpression iterable,
       CoreBlock body,
-      IntrinsicId iterationIntrinsic)
+      CoreIteration iteration)
       implements CoreStatement {
     public ForStatement {
       requireNode(nodeIndex);
       requireLocal(iteratorLocal);
       requireLocal(variableLocal);
+      indexLocal = Objects.requireNonNull(indexLocal, "indexLocal");
+      indexLocal.ifPresent(CoreStatement::requireLocal);
       Objects.requireNonNull(iterable, "iterable");
       Objects.requireNonNull(body, "body");
-      Objects.requireNonNull(iterationIntrinsic, "iterationIntrinsic");
+      Objects.requireNonNull(iteration, "iteration");
     }
   }
 
@@ -110,6 +115,13 @@ public sealed interface CoreStatement extends CoreNode
     public ReturnStatement {
       requireNode(nodeIndex);
       value = Objects.requireNonNull(value, "value");
+    }
+  }
+
+  record YieldStatement(int nodeIndex, CoreExpression value) implements CoreStatement {
+    public YieldStatement {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(value, "value");
     }
   }
 

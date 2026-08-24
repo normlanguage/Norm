@@ -3,28 +3,40 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.bound.BoundArgument;
 import dev.w0fv1.norm.bound.BoundBinaryOperator;
 import dev.w0fv1.norm.bound.BoundBlock;
+import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCall;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundCallableId;
 import dev.w0fv1.norm.bound.BoundClass;
 import dev.w0fv1.norm.bound.BoundClassId;
+import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundEnum;
+import dev.w0fv1.norm.bound.BoundEnumField;
 import dev.w0fv1.norm.bound.BoundEnumId;
-import dev.w0fv1.norm.bound.BoundEnumMember;
-import dev.w0fv1.norm.bound.BoundEnumMemberId;
+import dev.w0fv1.norm.bound.BoundEnumVariant;
+import dev.w0fv1.norm.bound.BoundEnumVariantId;
 import dev.w0fv1.norm.bound.BoundExpression;
 import dev.w0fv1.norm.bound.BoundField;
 import dev.w0fv1.norm.bound.BoundFieldId;
+import dev.w0fv1.norm.bound.BoundInterface;
+import dev.w0fv1.norm.bound.BoundInterfaceId;
+import dev.w0fv1.norm.bound.BoundInterfaceMethod;
+import dev.w0fv1.norm.bound.BoundInterfaceMethodId;
 import dev.w0fv1.norm.bound.BoundIntrinsic;
+import dev.w0fv1.norm.bound.BoundIteration;
 import dev.w0fv1.norm.bound.BoundLocalId;
 import dev.w0fv1.norm.bound.BoundParameter;
+import dev.w0fv1.norm.bound.BoundPattern;
 import dev.w0fv1.norm.bound.BoundProgram;
 import dev.w0fv1.norm.bound.BoundReifiedArgument;
 import dev.w0fv1.norm.bound.BoundRuntimeType;
 import dev.w0fv1.norm.bound.BoundSource;
 import dev.w0fv1.norm.bound.BoundStatement;
+import dev.w0fv1.norm.bound.BoundSwitchCase;
+import dev.w0fv1.norm.bound.BoundTypeParameter;
 import dev.w0fv1.norm.bound.BoundUnaryOperator;
+import dev.w0fv1.norm.bound.BoundWitness;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
@@ -46,6 +58,7 @@ final class Binder {
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
   private final Map<String, BoundClass> classes = new LinkedHashMap<>();
   private final Map<String, BoundEnum> enums = new LinkedHashMap<>();
+  private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
   private final Map<String, BoundField> fields = new LinkedHashMap<>();
   private Map<String, BoundLocalId> reifiedLocals = Map.of();
@@ -69,12 +82,15 @@ final class Binder {
                         program.span().source(),
                         program.packageName(),
                         program.enums().stream().map(this::enumId).toList(),
+                        program.interfaces().stream().map(this::interfaceId).toList(),
                         program.classes().stream().map(this::classId).toList(),
                         sourceCallables(program)))
             .toList();
     return new BoundProgram(
         sources,
         List.copyOf(enums.values()),
+        List.copyOf(interfaces.values()),
+        bindBuiltinConformances(),
         List.copyOf(classes.values()),
         List.copyOf(callables.values()),
         Optional.ofNullable(entryPoint).map(this::callableId));
@@ -82,6 +98,22 @@ final class Binder {
 
   private void bindTypes() {
     for (Syntax.Program program : programs) {
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        Symbol symbol = symbol(declaration.nameSpan());
+        BoundInterface value =
+            new BoundInterface(
+                BoundInterfaceId.of(symbol.id()),
+                declaration.name(),
+                visibility(declaration.visibility()),
+                symbol.type(),
+                bindTypeParameters(declaration.typeParameters()),
+                declaration.extendedInterfaces().stream()
+                    .map(type -> semantics.typeOf(type).orElseThrow())
+                    .toList(),
+                declaration.methods().stream().map(this::bindInterfaceMethod).toList(),
+                declaration.span());
+        interfaces.put(value.id().value(), value);
+      }
       for (Syntax.EnumDecl declaration : program.enums()) {
         Symbol symbol = symbol(declaration.nameSpan());
         BoundEnum value =
@@ -92,7 +124,8 @@ final class Binder {
                     ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
                     : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                 symbol.type(),
-                bindEnumMembers(declaration),
+                bindTypeParameters(declaration.typeParameters()),
+                bindEnumVariants(declaration),
                 declaration.span());
         enums.put(value.id().value(), value);
       }
@@ -122,11 +155,10 @@ final class Binder {
                     ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
                     : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                 symbol.type(),
-                declaration.typeParameters().stream()
-                    .map(parameter -> symbol(parameter.nameSpan()).type())
-                    .toList(),
+                bindTypeParameters(declaration.typeParameters()),
                 boundFields,
                 declaration.methods().stream().map(this::callableId).toList(),
+                bindConformances(declaration),
                 declaration.span());
         classes.put(value.id().value(), value);
       }
@@ -182,6 +214,7 @@ final class Binder {
             Optional.ofNullable(ownerId),
             Optional.ofNullable(thisLocal),
             parameters,
+            bindCallableTypeParameters(declaration, owner),
             reified,
             callable.type(),
             bindBlock(declaration.body(), declaration.span()),
@@ -244,15 +277,19 @@ final class Binder {
             BoundLocalId.of(variable.id()),
             loop.variableName(),
             variable.type(),
+            loop.index().map(index -> BoundLocalId.of(symbol(index.nameSpan()).id())),
             bindExpression(loop.iterable()),
             bindBlock(loop.body(), loop.span()),
-            semantics.iterationOf(loop.iterable().span()).orElseThrow().intrinsic(),
+            bindIteration(semantics.iterationOf(loop.iterable().span()).orElseThrow()),
             loop.span());
       }
       case Syntax.ReturnStatement returned ->
           new BoundStatement.ReturnStatement(
               Optional.ofNullable(returned.value()).map(this::bindExpression), returned.span());
-      case Syntax.BreakStatement broken -> new BoundStatement.BreakStatement(broken.span());
+      case Syntax.BreakStatement broken ->
+          broken.value() == null
+              ? new BoundStatement.BreakStatement(broken.span())
+              : new BoundStatement.YieldStatement(bindExpression(broken.value()), broken.span());
       case Syntax.ContinueStatement continued ->
           new BoundStatement.ContinueStatement(continued.span());
     };
@@ -306,7 +343,15 @@ final class Binder {
     SemanticType type = semantics.typeOf(expression.span()).orElseThrow();
     return switch (expression) {
       case Syntax.IntegerLiteral integer ->
-          new BoundExpression.Literal(integer.value(), type, integer.span());
+          new BoundExpression.Literal(
+              dev.w0fv1.norm.semantic.NumericTypes.materialize(integer.value(), type),
+              type,
+              integer.span());
+      case Syntax.DecimalLiteral decimal ->
+          new BoundExpression.Literal(
+              dev.w0fv1.norm.semantic.NumericTypes.materialize(decimal.value(), type),
+              type,
+              decimal.span());
       case Syntax.CodePointLiteral codePoint ->
           new BoundExpression.Literal(codePoint.value(), type, codePoint.span());
       case Syntax.BooleanLiteral bool ->
@@ -315,8 +360,9 @@ final class Binder {
       case Syntax.StringLiteralExpr string ->
           new BoundExpression.Literal(string.value(), type, string.span());
       case Syntax.ArrayLiteral array ->
-          new BoundExpression.ArrayLiteral(
+          new BoundExpression.CollectionLiteral(
               array.elements().stream().map(this::bindExpression).toList(),
+              builtins.collectionLiteral(type).orElseThrow(),
               runtimeType(type),
               type,
               array.span());
@@ -348,6 +394,12 @@ final class Binder {
             type,
             index.span());
       }
+      case Syntax.SwitchExpression switched ->
+          new BoundExpression.Switch(
+              bindExpression(switched.value()),
+              switched.cases().stream().map(this::bindSwitchCase).toList(),
+              type,
+              switched.span());
     };
   }
 
@@ -362,6 +414,52 @@ final class Binder {
     return new BoundExpression.LocalRead(BoundLocalId.of(symbol.id()), type, name.span());
   }
 
+  private BoundSwitchCase bindSwitchCase(Syntax.SwitchCase switchCase) {
+    return new BoundSwitchCase(
+        bindPattern(switchCase.pattern()),
+        bindBlock(switchCase.body(), switchCase.span()),
+        switchCase.span());
+  }
+
+  private BoundPattern bindPattern(Syntax.Pattern pattern) {
+    return switch (pattern) {
+      case Syntax.VariantPattern variant -> {
+        Symbol symbol = symbol(variant.nameSpan());
+        Symbol owner = semantics.symbol(symbol.owner().orElseThrow()).orElseThrow();
+        yield new BoundPattern.Variant(
+            BoundEnumId.of(owner.id()),
+            variant.name(),
+            variant.arguments().stream().map(this::bindPattern).toList(),
+            variant.span());
+      }
+      case Syntax.BindingPattern binding -> {
+        Symbol symbol = symbol(binding.nameSpan());
+        yield new BoundPattern.Binding(BoundLocalId.of(symbol.id()), symbol.type(), binding.span());
+      }
+      case Syntax.WildcardPattern wildcard -> new BoundPattern.Wildcard(wildcard.span());
+      case Syntax.IntegerPattern integer ->
+          new BoundPattern.Literal(
+              dev.w0fv1.norm.semantic.NumericTypes.materialize(
+                  integer.value(), semantics.typeOf(integer.span()).orElseThrow()),
+              semantics.typeOf(integer.span()).orElseThrow(),
+              integer.span());
+      case Syntax.DecimalPattern decimal ->
+          new BoundPattern.Literal(
+              dev.w0fv1.norm.semantic.NumericTypes.materialize(
+                  decimal.value(), semantics.typeOf(decimal.span()).orElseThrow()),
+              semantics.typeOf(decimal.span()).orElseThrow(),
+              decimal.span());
+      case Syntax.CodePointPattern codePoint ->
+          new BoundPattern.Literal(codePoint.value(), SemanticType.CODE_POINT, codePoint.span());
+      case Syntax.BooleanPattern bool ->
+          new BoundPattern.Literal(bool.value(), SemanticType.BOOLEAN, bool.span());
+      case Syntax.StringPattern string ->
+          new BoundPattern.Literal(string.value(), SemanticType.STRING, string.span());
+      case Syntax.NullPattern nil ->
+          new BoundPattern.Null(semantics.typeOf(nil.span()).orElse(SemanticType.NULL), nil.span());
+    };
+  }
+
   private BoundExpression bindCall(Syntax.Call call, SemanticType type) {
     ResolvedCall resolution = semantics.callOf(call.span()).orElseThrow();
     if (!resolution.resultType().equals(type)) {
@@ -371,7 +469,9 @@ final class Binder {
     List<BoundArgument> arguments = bindArguments(call, resolution);
     Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
     BoundExpression receiver =
-        member == null || target.kind() == SymbolKind.TYPE_METHOD
+        member == null
+                || target.kind() == SymbolKind.TYPE_METHOD
+                || target.kind() == SymbolKind.ENUM_VARIANT
             ? null
             : bindExpression(member.receiver());
     boolean nullSafe = member != null && member.nullSafe();
@@ -398,6 +498,28 @@ final class Binder {
               arguments,
               type,
               call.span());
+      case ENUM_CONSTRUCT -> {
+        BoundEnumVariant variant =
+            enums.values().stream()
+                .flatMap(value -> value.variants().stream())
+                .filter(value -> value.id().value().equals(target.id().value()))
+                .findFirst()
+                .orElseThrow();
+        BoundEnum owner =
+            enums.values().stream()
+                .filter(value -> value.variants().contains(variant))
+                .findFirst()
+                .orElseThrow();
+        yield new BoundExpression.EnumConstruct(
+            owner.id(),
+            variant.id(),
+            owner.name(),
+            variant.name(),
+            arguments,
+            runtimeType(type),
+            type,
+            call.span());
+      }
       case COPY ->
           new BoundExpression.CopyObject(
               java.util.Objects.requireNonNull(receiver), nullSafe, type, call.span());
@@ -410,18 +532,65 @@ final class Binder {
               nullSafe,
               type,
               call.span());
+      case INTERFACE_CALL ->
+          new BoundExpression.InterfaceCall(
+              BoundInterfaceMethodId.of(target.id()),
+              receiverInterfaceType(java.util.Objects.requireNonNull(receiver).type()),
+              receiver,
+              arguments,
+              resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
+              nullSafe,
+              type,
+              call.span());
     };
+  }
+
+  private SemanticType receiverInterfaceType(SemanticType receiver) {
+    if (receiver.kind() != SemanticType.Kind.TYPE_PARAMETER) return receiver.nonNullable();
+    for (Syntax.Program program : programs) {
+      for (Syntax.TypeParameter parameter : allTypeParameters(program)) {
+        Symbol symbol = symbol(parameter.nameSpan());
+        if (symbol.type().identity().equals(receiver.identity())
+            && parameter.upperBound().isPresent()) {
+          return semantics.typeOf(parameter.upperBound().orElseThrow()).orElseThrow();
+        }
+      }
+    }
+    throw new IllegalStateException("interface call receiver has no interface bound");
+  }
+
+  private static List<Syntax.TypeParameter> allTypeParameters(Syntax.Program program) {
+    List<Syntax.TypeParameter> result = new ArrayList<>();
+    program.enums().forEach(value -> result.addAll(value.typeParameters()));
+    program
+        .interfaces()
+        .forEach(
+            value -> {
+              result.addAll(value.typeParameters());
+              value.methods().forEach(method -> result.addAll(method.typeParameters()));
+            });
+    program
+        .classes()
+        .forEach(
+            value -> {
+              result.addAll(value.typeParameters());
+              value.methods().forEach(method -> result.addAll(method.typeParameters()));
+            });
+    program.functions().forEach(value -> result.addAll(value.typeParameters()));
+    return List.copyOf(result);
   }
 
   private BoundExpression bindMember(Syntax.Member member, SemanticType type) {
     Symbol target = symbol(member.nameSpan());
-    if (target.kind() == SymbolKind.ENUM_MEMBER) {
+    if (target.kind() == SymbolKind.ENUM_VARIANT) {
       Symbol owner = semantics.symbol(target.owner().orElseThrow()).orElseThrow();
-      return new BoundExpression.EnumMember(
+      return new BoundExpression.EnumConstruct(
           BoundEnumId.of(owner.id()),
-          BoundEnumMemberId.of(target.id()),
+          BoundEnumVariantId.of(target.id()),
           owner.name(),
           target.name(),
+          List.of(),
+          runtimeType(type),
           type,
           member.span());
     }
@@ -456,6 +625,148 @@ final class Binder {
     List<BoundReifiedArgument> captures = new ArrayList<>();
     collectCaptures(type, captures);
     return new BoundRuntimeType(type, captures);
+  }
+
+  private static BoundIteration bindIteration(dev.w0fv1.norm.semantic.ResolvedIteration iteration) {
+    return switch (iteration.strategy()) {
+      case dev.w0fv1.norm.semantic.ResolvedIteration.Strategy.Builtin builtin ->
+          new BoundIteration.Builtin(builtin.intrinsic());
+      case dev.w0fv1.norm.semantic.ResolvedIteration.Strategy.Interface protocol ->
+          new BoundIteration.Interface(
+              protocol.iterableInterfaceType(),
+              BoundInterfaceMethodId.of(protocol.iteratorRequirement()),
+              protocol.iteratorInterfaceType(),
+              BoundInterfaceMethodId.of(protocol.hasNextRequirement()),
+              BoundInterfaceMethodId.of(protocol.nextRequirement()));
+    };
+  }
+
+  private List<BoundTypeParameter> bindCallableTypeParameters(
+      Syntax.FunctionDecl declaration, Syntax.ClassDecl owner) {
+    List<BoundTypeParameter> result = new ArrayList<>();
+    if (owner != null) result.addAll(bindTypeParameters(owner.typeParameters()));
+    result.addAll(bindTypeParameters(declaration.typeParameters()));
+    return List.copyOf(result);
+  }
+
+  private List<BoundTypeParameter> bindTypeParameters(List<Syntax.TypeParameter> parameters) {
+    return parameters.stream()
+        .map(
+            parameter ->
+                new BoundTypeParameter(
+                    symbol(parameter.nameSpan()).type(),
+                    parameter.upperBound().map(type -> semantics.typeOf(type).orElseThrow())))
+        .toList();
+  }
+
+  private BoundInterfaceMethod bindInterfaceMethod(Syntax.InterfaceMethodDecl declaration) {
+    Symbol method = symbol(declaration.nameSpan());
+    return new BoundInterfaceMethod(
+        BoundInterfaceMethodId.of(method.id()),
+        declaration.name(),
+        bindTypeParameters(declaration.typeParameters()),
+        java.util.stream.IntStream.range(0, method.parameters().size())
+            .mapToObj(
+                index -> {
+                  var parameter = method.parameters().get(index);
+                  return new BoundParameter(
+                      new BoundLocalId(method.id().value() + "/parameter/" + index),
+                      parameter.name(),
+                      parameter.type(),
+                      index);
+                })
+            .toList(),
+        method.type(),
+        declaration.span());
+  }
+
+  private List<BoundConformance> bindConformances(Syntax.ClassDecl declaration) {
+    return declaration.implementedInterfaces().stream()
+        .map(
+            type -> {
+              SemanticType interfaceType = semantics.typeOf(type).orElseThrow();
+              List<BoundWitness> witnesses = new ArrayList<>();
+              collectWitnesses(declaration, interfaceType, witnesses, new java.util.HashSet<>());
+              return new BoundConformance(interfaceType, witnesses);
+            })
+        .toList();
+  }
+
+  private List<BoundBuiltinConformance> bindBuiltinConformances() {
+    List<BoundBuiltinConformance> result = new ArrayList<>();
+    for (BuiltinCatalog.ProtocolConformance conformance : builtins.protocolConformances()) {
+      Syntax.InterfaceDecl contract = interfaceDeclaration(conformance.interfaceType());
+      if (contract == null) continue;
+      List<BoundWitness> witnesses = new ArrayList<>();
+      for (var entry : conformance.witnesses().entrySet()) {
+        Syntax.InterfaceMethodDecl requirement =
+            contract.methods().stream()
+                .filter(method -> method.name().equals(entry.getKey()))
+                .findFirst()
+                .orElseThrow();
+        witnesses.add(
+            new BoundWitness(
+                BoundInterfaceMethodId.of(symbol(requirement.nameSpan()).id()),
+                new BoundWitness.Target.Intrinsic(entry.getValue().intrinsic())));
+      }
+      result.add(
+          new BoundBuiltinConformance(
+              conformance.typeParameters().stream()
+                  .map(type -> new BoundTypeParameter(type, Optional.empty()))
+                  .toList(),
+              conformance.concreteType(),
+              conformance.interfaceType(),
+              witnesses,
+              contract.span()));
+    }
+    return List.copyOf(result);
+  }
+
+  private void collectWitnesses(
+      Syntax.ClassDecl declaration,
+      SemanticType interfaceType,
+      List<BoundWitness> witnesses,
+      java.util.Set<String> visited) {
+    if (!visited.add(interfaceType.identity())) return;
+    Syntax.InterfaceDecl contract = interfaceDeclaration(interfaceType);
+    if (contract == null) return;
+    for (Syntax.InterfaceMethodDecl requirement : contract.methods()) {
+      Symbol classSymbol = symbol(declaration.nameSpan());
+      Symbol requirementSymbol = symbol(requirement.nameSpan());
+      var implementationId =
+          semantics
+              .witness(classSymbol.id(), requirementSymbol.id())
+              .orElseThrow(
+                  () -> new IllegalStateException("validated interface witness is absent"));
+      BoundWitness witness =
+          new BoundWitness(
+              BoundInterfaceMethodId.of(requirementSymbol.id()),
+              new BoundWitness.Target.Callable(BoundCallableId.of(implementationId)));
+      if (witnesses.stream()
+          .noneMatch(existing -> existing.requirement().equals(witness.requirement()))) {
+        witnesses.add(witness);
+      }
+    }
+    for (Syntax.TypeRef parent : contract.extendedInterfaces()) {
+      SemanticType parentType = semantics.typeOf(parent).orElseThrow();
+      collectWitnesses(declaration, parentType, witnesses, visited);
+    }
+  }
+
+  private Syntax.InterfaceDecl interfaceDeclaration(SemanticType type) {
+    for (Syntax.Program program : programs) {
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        Symbol symbol = symbol(declaration.nameSpan());
+        if (symbol.type().identity().equals(type.identity())) return declaration;
+      }
+    }
+    return null;
+  }
+
+  private static dev.w0fv1.norm.bound.BoundVisibility visibility(Syntax.Visibility visibility) {
+    return visibility == Syntax.Visibility.PUBLIC
+        ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
+        : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE;
   }
 
   private void collectCaptures(SemanticType type, List<BoundReifiedArgument> captures) {
@@ -522,17 +833,31 @@ final class Binder {
     return BoundClassId.of(symbol(declaration.nameSpan()).id());
   }
 
+  private BoundInterfaceId interfaceId(Syntax.InterfaceDecl declaration) {
+    return BoundInterfaceId.of(symbol(declaration.nameSpan()).id());
+  }
+
   private BoundEnumId enumId(Syntax.EnumDecl declaration) {
     return BoundEnumId.of(symbol(declaration.nameSpan()).id());
   }
 
-  private List<BoundEnumMember> bindEnumMembers(Syntax.EnumDecl declaration) {
-    List<BoundEnumMember> result = new ArrayList<>();
-    for (int ordinal = 0; ordinal < declaration.members().size(); ordinal++) {
-      Syntax.EnumMember member = declaration.members().get(ordinal);
+  private List<BoundEnumVariant> bindEnumVariants(Syntax.EnumDecl declaration) {
+    List<BoundEnumVariant> result = new ArrayList<>();
+    for (Syntax.EnumVariant variant : declaration.variants()) {
       result.add(
-          new BoundEnumMember(
-              BoundEnumMemberId.of(symbol(member.nameSpan()).id()), member.name(), ordinal));
+          new BoundEnumVariant(
+              BoundEnumVariantId.of(symbol(variant.nameSpan()).id()),
+              variant.name(),
+              java.util.stream.IntStream.range(0, variant.parameters().size())
+                  .mapToObj(
+                      index -> {
+                        Syntax.Parameter parameter = variant.parameters().get(index);
+                        return new BoundEnumField(
+                            parameter.name(),
+                            semantics.typeOf(parameter.type()).orElseThrow(),
+                            index);
+                      })
+                  .toList()));
     }
     return List.copyOf(result);
   }

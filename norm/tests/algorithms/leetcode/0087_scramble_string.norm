@@ -1,5 +1,5 @@
 Boolean sameCounts(Array<CodePoint> left, Array<CodePoint> right, Integer first, Integer second, Integer length) {
-  Map<CodePoint, Integer> counts = Map<CodePoint, Integer>()
+  Map<CodePoint, Integer> counts = Map<>()
   for offset : range(start: 0, end: length) {
     CodePoint a = left[first + offset]
     CodePoint b = right[second + offset]

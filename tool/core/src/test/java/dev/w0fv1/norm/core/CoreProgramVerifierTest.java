@@ -19,6 +19,7 @@ final class CoreProgramVerifierTest {
           group(
               new CoreDefinition.Callable(
                   Optional.empty(),
+                  List.of(),
                   List.of(special),
                   List.of(0),
                   List.of(),
@@ -29,6 +30,7 @@ final class CoreProgramVerifierTest {
           group(
               new CoreDefinition.Callable(
                   Optional.empty(),
+                  List.of(),
                   List.of(),
                   List.of(),
                   List.of(),
@@ -48,6 +50,7 @@ final class CoreProgramVerifierTest {
         group(
             new CoreDefinition.Callable(
                 Optional.empty(),
+                List.of(new CoreTypeParameter(0, Optional.empty())),
                 List.of(),
                 List.of(),
                 List.of(0),
@@ -90,6 +93,7 @@ final class CoreProgramVerifierTest {
         group(
             new CoreDefinition.Callable(
                 Optional.empty(),
+                List.of(),
                 List.of(CoreType.INTEGER),
                 List.of(0),
                 List.of(),
@@ -121,6 +125,7 @@ final class CoreProgramVerifierTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(),
                 CoreType.VOID,
                 List.of(new CoreLocal(0, receiver, CoreLocal.Kind.RECEIVER)),
                 new CoreBlock(0, List.of())));
@@ -148,12 +153,18 @@ final class CoreProgramVerifierTest {
             List.of(element),
             CoreValueCategory.VALUE,
             CoreNullability.NON_NULL);
-    CoreExpression.ArrayLiteral literal =
-        new CoreExpression.ArrayLiteral(2, List.of(), new CoreRuntimeType(array, List.of()), array);
+    CoreExpression.CollectionLiteral literal =
+        new CoreExpression.CollectionLiteral(
+            2,
+            List.of(),
+            dev.w0fv1.norm.builtin.IntrinsicId.ARRAY_CONSTRUCT,
+            new CoreRuntimeType(array, List.of()),
+            array);
     CoreDefinitionGroup group =
         group(
             new CoreDefinition.Callable(
                 Optional.empty(),
+                List.of(new CoreTypeParameter(0, Optional.empty())),
                 List.of(),
                 List.of(),
                 List.of(0),
@@ -200,21 +211,106 @@ final class CoreProgramVerifierTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(),
                 CoreType.VOID,
                 List.of(new CoreLocal(0, box, CoreLocal.Kind.VARIABLE)),
                 new CoreBlock(0, List.of(new CoreStatement.ExpressionStatement(1, read)))));
     CoreDefinitionGroup enumGroup =
-        group(new CoreDefinition.Enum(nominal("Choice"), List.of("ONLY")));
-    CoreType choice = userType(enumGroup.definitionId(0), List.of());
-    CoreExpression.EnumMember member =
-        new CoreExpression.EnumMember(
-            2, new DefinitionReference.External(enumGroup.definitionId(0)), 1, choice);
-    CoreDefinitionGroup enumCaller = group(function(member));
+        group(
+            new CoreDefinition.Enum(
+                nominal("Choice"), List.of(), List.of(new CoreEnumVariant("Only", List.of()))));
+    CoreType choice = enumType(enumGroup.definitionId(0), List.of());
+    CoreExpression.EnumConstruct construct =
+        new CoreExpression.EnumConstruct(
+            2,
+            new DefinitionReference.External(enumGroup.definitionId(0)),
+            "Missing",
+            new CoreRuntimeType(choice, List.of()),
+            List.of(),
+            choice);
+    CoreDefinitionGroup enumCaller = group(function(construct));
 
     assertThrows(
         IllegalArgumentException.class, () -> new CoreProgram(List.of(owner, fieldCaller)));
     assertThrows(
         IllegalArgumentException.class, () -> new CoreProgram(List.of(enumGroup, enumCaller)));
+  }
+
+  @Test
+  void verifiesGenericEnumPayloadConstruction() {
+    CoreType element = new CoreType.Parameter(0, CoreNullability.NON_NULL);
+    CoreDefinitionGroup result =
+        group(
+            new CoreDefinition.Enum(
+                nominal("Result"),
+                typeParameters(1),
+                List.of(
+                    new CoreEnumVariant("Error", List.of(new CoreField(0, CoreType.STRING))),
+                    new CoreEnumVariant("Ok", List.of(new CoreField(0, element))))));
+    CoreType resultOfInteger = enumType(result.definitionId(0), List.of(CoreType.INTEGER));
+    CoreExpression.EnumConstruct construct =
+        new CoreExpression.EnumConstruct(
+            2,
+            new DefinitionReference.External(result.definitionId(0)),
+            "Ok",
+            new CoreRuntimeType(resultOfInteger, List.of()),
+            List.of(new CoreArgument(new CoreExpression.Literal(3, 42, CoreType.INTEGER), 0)),
+            resultOfInteger);
+
+    assertDoesNotThrow(() -> new CoreProgram(List.of(result, group(function(construct)))));
+  }
+
+  @Test
+  void rejectsEnumConstructsWithMismatchedRuntimeTypesAndPayloads() {
+    CoreType element = new CoreType.Parameter(0, CoreNullability.NON_NULL);
+    CoreDefinitionGroup result =
+        group(
+            new CoreDefinition.Enum(
+                nominal("Result"),
+                typeParameters(1),
+                List.of(new CoreEnumVariant("Ok", List.of(new CoreField(0, element))))));
+    CoreType resultOfInteger = enumType(result.definitionId(0), List.of(CoreType.INTEGER));
+    CoreType resultOfString = enumType(result.definitionId(0), List.of(CoreType.STRING));
+    CoreExpression.EnumConstruct wrongRuntime =
+        new CoreExpression.EnumConstruct(
+            2,
+            new DefinitionReference.External(result.definitionId(0)),
+            "Ok",
+            new CoreRuntimeType(resultOfString, List.of()),
+            List.of(new CoreArgument(new CoreExpression.Literal(3, 42, CoreType.INTEGER), 0)),
+            resultOfInteger);
+    CoreExpression.EnumConstruct wrongPayload =
+        new CoreExpression.EnumConstruct(
+            2,
+            new DefinitionReference.External(result.definitionId(0)),
+            "Ok",
+            new CoreRuntimeType(resultOfInteger, List.of()),
+            List.of(new CoreArgument(new CoreExpression.Literal(3, "wrong", CoreType.STRING), 0)),
+            resultOfInteger);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(result, group(function(wrongRuntime)))));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(result, group(function(wrongPayload)))));
+  }
+
+  @Test
+  void rejectsEnumPayloadTypesOutsideTheirGenericAbi() {
+    CoreDefinitionGroup invalid =
+        group(
+            new CoreDefinition.Enum(
+                nominal("Box"),
+                typeParameters(1),
+                List.of(
+                    new CoreEnumVariant(
+                        "Box",
+                        List.of(
+                            new CoreField(
+                                0, new CoreType.Parameter(1, CoreNullability.NON_NULL)))))));
+
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(invalid)));
   }
 
   @Test
@@ -263,7 +359,7 @@ final class CoreProgramVerifierTest {
 
   @Test
   void rejectsUnaryAndBinaryExpressionsWithInvalidAbis() {
-    CoreExpression integer = new CoreExpression.Literal(3, 1L, CoreType.INTEGER);
+    CoreExpression integer = new CoreExpression.Literal(3, 1, CoreType.INTEGER);
     CoreExpression wrongUnary =
         new CoreExpression.Unary(2, CoreUnaryOperator.NOT, integer, CoreType.BOOLEAN);
     CoreExpression wrongBinary =
@@ -322,10 +418,16 @@ final class CoreProgramVerifierTest {
             IntrinsicId.LIST_INDEX_WRITE,
             receiver,
             Optional.of(new CoreExpression.Literal(3, "zero", CoreType.STRING)),
-            new CoreExpression.Literal(4, 1L, CoreType.INTEGER));
+            new CoreExpression.Literal(4, 1, CoreType.INTEGER));
     CoreStatement.ForStatement iteration =
         new CoreStatement.ForStatement(
-            1, 1, 2, receiver, new CoreBlock(5, List.of()), IntrinsicId.ARRAY_ITERATOR);
+            1,
+            1,
+            2,
+            java.util.OptionalInt.empty(),
+            receiver,
+            new CoreBlock(5, List.of()),
+            new CoreIteration.Builtin(IntrinsicId.ARRAY_ITERATOR));
     List<CoreLocal> locals =
         List.of(
             new CoreLocal(0, list, CoreLocal.Kind.VARIABLE),
@@ -340,9 +442,35 @@ final class CoreProgramVerifierTest {
         () -> new CoreProgram(List.of(group(functionWithStatements(locals, List.of(iteration))))));
   }
 
+  @Test
+  void requiresAnIndexedLoopLocalToBeAnIntegerVariable() {
+    CoreType list = builtinType("List", List.of(CoreType.INTEGER));
+    CoreExpression receiver = new CoreExpression.LocalRead(2, 0, list);
+    CoreStatement.ForStatement iteration =
+        new CoreStatement.ForStatement(
+            1,
+            1,
+            2,
+            java.util.OptionalInt.of(3),
+            receiver,
+            new CoreBlock(5, List.of()),
+            new CoreIteration.Builtin(IntrinsicId.LIST_ITERATOR));
+    List<CoreLocal> locals =
+        List.of(
+            new CoreLocal(0, list, CoreLocal.Kind.VARIABLE),
+            new CoreLocal(1, CoreType.DYNAMIC, CoreLocal.Kind.ITERATOR),
+            new CoreLocal(2, CoreType.INTEGER, CoreLocal.Kind.VARIABLE),
+            new CoreLocal(3, CoreType.STRING, CoreLocal.Kind.VARIABLE));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(group(functionWithStatements(locals, List.of(iteration))))));
+  }
+
   private static CoreDefinition.Callable function(CoreExpression expression) {
     return new CoreDefinition.Callable(
         Optional.empty(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),
@@ -354,6 +482,7 @@ final class CoreProgramVerifierTest {
   private static CoreDefinition.Callable emptyFunction(CoreType returnType) {
     return new CoreDefinition.Callable(
         Optional.empty(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),
@@ -369,6 +498,7 @@ final class CoreProgramVerifierTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
         CoreType.VOID,
         List.of(new CoreLocal(0, localType, CoreLocal.Kind.VARIABLE)),
         new CoreBlock(0, List.of(new CoreStatement.ExpressionStatement(1, expression))));
@@ -378,6 +508,7 @@ final class CoreProgramVerifierTest {
       List<CoreLocal> locals, List<CoreStatement> statements) {
     return new CoreDefinition.Callable(
         Optional.empty(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),
@@ -391,6 +522,7 @@ final class CoreProgramVerifierTest {
         group(
             new CoreDefinition.Callable(
                 Optional.empty(),
+                List.of(new CoreTypeParameter(0, Optional.empty())),
                 List.of(),
                 List.of(),
                 List.of(0),
@@ -423,7 +555,14 @@ final class CoreProgramVerifierTest {
 
   private static CoreDefinition.Class classDefinition(
       String name, int typeParameters, List<CoreField> fields) {
-    return new CoreDefinition.Class(nominal(name), typeParameters, fields);
+    return new CoreDefinition.Class(
+        nominal(name), typeParameters(typeParameters), fields, List.of());
+  }
+
+  private static List<CoreTypeParameter> typeParameters(int count) {
+    return java.util.stream.IntStream.range(0, count)
+        .mapToObj(index -> new CoreTypeParameter(index, Optional.empty()))
+        .toList();
   }
 
   private static CoreNominalTypeKey nominal(String name) {
@@ -440,6 +579,14 @@ final class CoreProgramVerifierTest {
         new CoreTypeConstructor.User(new DefinitionReference.External(definition)),
         arguments,
         CoreValueCategory.IDENTITY,
+        CoreNullability.NON_NULL);
+  }
+
+  private static CoreType enumType(DefinitionId definition, List<CoreType> arguments) {
+    return new CoreType.Declared(
+        new CoreTypeConstructor.User(new DefinitionReference.External(definition)),
+        arguments,
+        CoreValueCategory.VALUE,
         CoreNullability.NON_NULL);
   }
 

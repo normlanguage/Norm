@@ -1,8 +1,8 @@
 Boolean isValidSudoku(List<Array<Integer>> board) {
   for row : range(start: 0, end: 9) {
-    Set<Integer> rows = Set<Integer>()
-    Set<Integer> columns = Set<Integer>()
-    Set<Integer> boxes = Set<Integer>()
+    Set<Integer> rows = Set<>()
+    Set<Integer> columns = Set<>()
+    Set<Integer> boxes = Set<>()
     for index : range(start: 0, end: 9) {
       Integer rowValue = board[row][index]
       Integer columnValue = board[index][row]
@@ -16,7 +16,7 @@ Boolean isValidSudoku(List<Array<Integer>> board) {
 }
 
 Void main() {
-  List<Array<Integer>> board = List<Array<Integer>>()
+  List<Array<Integer>> board = List<>()
   board.add([5,3,0,0,7,0,0,0,0])
   board.add([6,0,0,1,9,5,0,0,0])
   board.add([0,9,8,0,0,0,0,6,0])

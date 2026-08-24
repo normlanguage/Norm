@@ -24,37 +24,37 @@ final class RuntimeErrorTest {
             failure("printLine([1][-1])", RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure("printLine([1][1])", RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure(
-                "List<Integer> values = List<Integer>() printLine(values[-1])",
+                "List<Integer> values = List<>() printLine(values[-1])",
                 RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure(
-                "List<Integer> values = List<Integer>() printLine(values[0])",
+                "List<Integer> values = List<>() printLine(values[0])",
                 RuntimeErrorCode.INDEX_OUT_OF_BOUNDS),
             failure(
-                "Map<String, Integer> values = Map<String, Integer>() printLine(values[\"missing\"])",
+                "Map<String, Integer> values = Map<>() printLine(values[\"missing\"])",
                 RuntimeErrorCode.MISSING_MAP_KEY),
             failure(
-                "Stack<Integer> values = Stack<Integer>() printLine(values.pop())",
+                "Stack<Integer> values = Stack<>() printLine(values.pop())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Stack<Integer> values = Stack<Integer>() printLine(values.peek())",
+                "Stack<Integer> values = Stack<>() printLine(values.peek())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Queue<Integer> values = Queue<Integer>() printLine(values.remove())",
+                "Queue<Integer> values = Queue<>() printLine(values.remove())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Queue<Integer> values = Queue<Integer>() printLine(values.peek())",
+                "Queue<Integer> values = Queue<>() printLine(values.peek())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<Integer> values = Deque<Integer>() printLine(values.removeFirst())",
+                "Deque<Integer> values = Deque<>() printLine(values.removeFirst())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<Integer> values = Deque<Integer>() printLine(values.removeLast())",
+                "Deque<Integer> values = Deque<>() printLine(values.removeLast())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<Integer> values = Deque<Integer>() printLine(values.peekFirst())",
+                "Deque<Integer> values = Deque<>() printLine(values.peekFirst())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
-                "Deque<Integer> values = Deque<Integer>() printLine(values.peekLast())",
+                "Deque<Integer> values = Deque<>() printLine(values.peekLast())",
                 RuntimeErrorCode.EMPTY_COLLECTION),
             failure(
                 "printLine(\"Norm\".sliceCodePoints(start: 0, end: 5))",

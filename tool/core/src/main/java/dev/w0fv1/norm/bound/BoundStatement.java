@@ -16,6 +16,7 @@ public sealed interface BoundStatement extends BoundNode
         BoundStatement.ConditionalForStatement,
         BoundStatement.ForStatement,
         BoundStatement.ReturnStatement,
+        BoundStatement.YieldStatement,
         BoundStatement.BreakStatement,
         BoundStatement.ContinueStatement {
   record LocalDeclaration(
@@ -99,9 +100,10 @@ public sealed interface BoundStatement extends BoundNode
       BoundLocalId variable,
       String variableName,
       SemanticType variableType,
+      Optional<BoundLocalId> index,
       BoundExpression iterable,
       BoundBlock body,
-      IntrinsicId iterationIntrinsic,
+      BoundIteration iteration,
       SourceSpan span)
       implements BoundStatement {
     public ForStatement {
@@ -109,9 +111,10 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(variable, "variable");
       Objects.requireNonNull(variableName, "variableName");
       Objects.requireNonNull(variableType, "variableType");
+      index = Objects.requireNonNull(index, "index");
       Objects.requireNonNull(iterable, "iterable");
       Objects.requireNonNull(body, "body");
-      Objects.requireNonNull(iterationIntrinsic, "iterationIntrinsic");
+      Objects.requireNonNull(iteration, "iteration");
       Objects.requireNonNull(span, "span");
     }
   }
@@ -129,6 +132,13 @@ public sealed interface BoundStatement extends BoundNode
       implements BoundStatement {
     public ReturnStatement {
       value = Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record YieldStatement(BoundExpression value, SourceSpan span) implements BoundStatement {
+    public YieldStatement {
+      Objects.requireNonNull(value, "value");
       Objects.requireNonNull(span, "span");
     }
   }

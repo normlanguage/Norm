@@ -1,4 +1,6 @@
+import std.io.printLines
 import std.math.abs
+import std.testing.expectedOutputLines
 
 Boolean safe(List<Integer> columns, Integer row, Integer column) {
   for previous : range(start: 0, end: row) {
@@ -26,8 +28,12 @@ Integer nQueens(Integer size) {
 }
 
 Void main() {
-  printLine(nQueens(4))
-  printLine(nQueens(5))
-  expectedOutputLine("2")
-  expectedOutputLine("10")
+  printLines([
+    nQueens(4),
+    nQueens(5)
+  ])
+  expectedOutputLines([
+    "2",
+    "10"
+  ])
 }

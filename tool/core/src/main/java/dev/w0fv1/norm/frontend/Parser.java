@@ -34,6 +34,7 @@ final class Parser {
     String packageName = parsePackageDeclaration().orElse("");
     List<Syntax.ImportDecl> imports = new ArrayList<>();
     List<Syntax.EnumDecl> enums = new ArrayList<>();
+    List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
     List<Syntax.ClassDecl> classes = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     while (match(TokenKind.IMPORT)) {
@@ -57,6 +58,8 @@ final class Parser {
         Syntax.Visibility visibility = parseVisibility();
         if (match(TokenKind.ENUM)) {
           enums.add(parseEnum(previous(), visibility));
+        } else if (match(TokenKind.INTERFACE)) {
+          interfaces.add(parseInterface(previous(), visibility));
         } else if (match(TokenKind.CLASS)) {
           classes.add(parseClass(previous(), visibility));
         } else {
@@ -70,6 +73,7 @@ final class Parser {
         packageName,
         imports,
         enums,
+        interfaces,
         classes,
         functions,
         new SourceSpan(source, 0, source.length()));
@@ -119,23 +123,39 @@ final class Parser {
 
   private Syntax.EnumDecl parseEnum(Token enumKeyword, Syntax.Visibility visibility) {
     Token name = consume(TokenKind.IDENTIFIER, "expected enum name");
+    List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_BRACE, "expected '{' before enum body");
-    List<Syntax.EnumMember> members = new ArrayList<>();
+    List<Syntax.EnumVariant> variants = new ArrayList<>();
     if (!check(TokenKind.RIGHT_BRACE)) {
       do {
-        Token member = consume(TokenKind.IDENTIFIER, "expected enum member");
-        members.add(new Syntax.EnumMember(member.lexeme(), member.span()));
+        Token variant = consume(TokenKind.IDENTIFIER, "expected enum variant");
+        List<Syntax.Parameter> parameters = List.of();
+        SourceSpan variantSpan = variant.span();
+        if (match(TokenKind.LEFT_PAREN)) {
+          parameters = parseParameterList();
+          Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after enum data");
+          variantSpan = variant.span().cover(closing.span());
+        }
+        variants.add(
+            new Syntax.EnumVariant(variant.lexeme(), variant.span(), parameters, variantSpan));
       } while (match(TokenKind.COMMA) && !check(TokenKind.RIGHT_BRACE));
     }
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after enum body");
     match(TokenKind.SEMICOLON);
     return new Syntax.EnumDecl(
-        visibility, name.lexeme(), name.span(), members, enumKeyword.span().cover(closing.span()));
+        visibility,
+        name.lexeme(),
+        name.span(),
+        typeParameters,
+        variants,
+        enumKeyword.span().cover(closing.span()));
   }
 
   private Syntax.ClassDecl parseClass(Token classKeyword, Syntax.Visibility visibility) {
     Token name = consume(TokenKind.IDENTIFIER, "expected class name");
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
+    List<Syntax.TypeRef> implementedInterfaces =
+        match(TokenKind.IMPLEMENTS) ? parseTypeList() : List.of();
     consume(TokenKind.LEFT_BRACE, "expected '{' before class body");
     List<Syntax.FieldDecl> fields = new ArrayList<>();
     List<Syntax.FunctionDecl> methods = new ArrayList<>();
@@ -162,9 +182,69 @@ final class Parser {
         name.lexeme(),
         name.span(),
         typeParameters,
+        implementedInterfaces,
         fields,
         methods,
         classKeyword.span().cover(closing.span()));
+  }
+
+  private Syntax.InterfaceDecl parseInterface(
+      Token interfaceKeyword, Syntax.Visibility visibility) {
+    Token name = consume(TokenKind.IDENTIFIER, "expected interface name");
+    List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
+    List<Syntax.TypeRef> extendedInterfaces =
+        match(TokenKind.EXTENDS) ? parseTypeList() : List.of();
+    consume(TokenKind.LEFT_BRACE, "expected '{' before interface body");
+    List<Syntax.InterfaceMethodDecl> methods = new ArrayList<>();
+    while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      if (match(TokenKind.PUBLIC, TokenKind.PRIVATE)) {
+        diagnostics.error(
+            EXPECTED_TOKEN, "interface method visibility is implicit", previous().span());
+      }
+      Syntax.TypeRef returnType = parseType();
+      Token methodName = consume(TokenKind.IDENTIFIER, "expected interface method name");
+      List<Syntax.TypeParameter> methodTypeParameters = parseTypeParameters();
+      if (!match(TokenKind.LEFT_PAREN)) {
+        diagnostics.error(EXPECTED_TOKEN, "interfaces may declare methods only", methodName.span());
+        match(TokenKind.SEMICOLON);
+        continue;
+      }
+      List<Syntax.Parameter> parameters = parseParameterList();
+      Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
+      SourceSpan span = returnType.span().cover(closing.span());
+      if (check(TokenKind.LEFT_BRACE)) {
+        Block body = parseBlock();
+        diagnostics.error(EXPECTED_TOKEN, "interface methods cannot declare a body", body.span());
+        span = returnType.span().cover(body.span());
+      } else {
+        match(TokenKind.SEMICOLON);
+      }
+      methods.add(
+          new Syntax.InterfaceMethodDecl(
+              returnType,
+              methodName.lexeme(),
+              methodName.span(),
+              methodTypeParameters,
+              parameters,
+              span));
+    }
+    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after interface body");
+    return new Syntax.InterfaceDecl(
+        visibility,
+        name.lexeme(),
+        name.span(),
+        typeParameters,
+        extendedInterfaces,
+        methods,
+        interfaceKeyword.span().cover(closing.span()));
+  }
+
+  private List<Syntax.TypeRef> parseTypeList() {
+    List<Syntax.TypeRef> types = new ArrayList<>();
+    do {
+      types.add(parseType());
+    } while (match(TokenKind.COMMA));
+    return List.copyOf(types);
   }
 
   private Syntax.FunctionDecl parseFunction(Syntax.Visibility visibility) {
@@ -177,6 +257,21 @@ final class Parser {
       Syntax.TypeRef returnType, Token name, Syntax.Visibility visibility) {
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_PAREN, "expected '(' after function name");
+    List<Syntax.Parameter> parameters = parseParameterList();
+    consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
+    Block block = parseBlock();
+    return new Syntax.FunctionDecl(
+        visibility,
+        returnType,
+        name.lexeme(),
+        name.span(),
+        typeParameters,
+        parameters,
+        block.statements(),
+        returnType.span().cover(block.span()));
+  }
+
+  private List<Syntax.Parameter> parseParameterList() {
     List<Syntax.Parameter> parameters = new ArrayList<>();
     if (!check(TokenKind.RIGHT_PAREN)) {
       do {
@@ -190,17 +285,7 @@ final class Parser {
                 type.span().cover(parameterName.span())));
       } while (match(TokenKind.COMMA));
     }
-    consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
-    Block block = parseBlock();
-    return new Syntax.FunctionDecl(
-        visibility,
-        returnType,
-        name.lexeme(),
-        name.span(),
-        typeParameters,
-        parameters,
-        block.statements(),
-        returnType.span().cover(block.span()));
+    return List.copyOf(parameters);
   }
 
   private Syntax.TypeRef parseType() {
@@ -223,7 +308,9 @@ final class Parser {
     List<Syntax.TypeParameter> parameters = new ArrayList<>();
     do {
       Token name = consume(TokenKind.IDENTIFIER, "expected type parameter name");
-      parameters.add(new Syntax.TypeParameter(name.lexeme(), name.span()));
+      Optional<Syntax.TypeRef> upperBound = Optional.empty();
+      if (match(TokenKind.EXTENDS)) upperBound = Optional.of(parseType());
+      parameters.add(new Syntax.TypeParameter(name.lexeme(), name.span(), upperBound));
     } while (match(TokenKind.COMMA));
     consume(TokenKind.GREATER, "expected '>' after type parameters");
     return List.copyOf(parameters);
@@ -270,8 +357,13 @@ final class Parser {
     }
     if (match(TokenKind.BREAK)) {
       Token keyword = previous();
+      Syntax.Expression value = null;
+      if (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.SEMICOLON)) {
+        value = parseExpression();
+      }
       match(TokenKind.SEMICOLON);
-      return new Syntax.BreakStatement(keyword.span());
+      return new Syntax.BreakStatement(
+          value, value == null ? keyword.span() : keyword.span().cover(value.span()));
     }
     if (match(TokenKind.CONTINUE)) {
       Token keyword = previous();
@@ -298,13 +390,15 @@ final class Parser {
   }
 
   private Syntax.Statement parseVariableDeclaration() {
-    Syntax.TypeRef type = parseType();
+    Token start = peek();
+    Optional<Syntax.TypeRef> type =
+        match(TokenKind.VAR) ? Optional.empty() : Optional.of(parseType());
     Token name = consume(TokenKind.IDENTIFIER, "expected variable name");
     consume(TokenKind.EQUAL, "variables must have an initializer");
     Syntax.Expression initializer = parseExpression();
     match(TokenKind.SEMICOLON);
     return new Syntax.VariableDecl(
-        type, name.lexeme(), name.span(), initializer, type.span().cover(initializer.span()));
+        type, name.lexeme(), name.span(), initializer, start.span().cover(initializer.span()));
   }
 
   private Syntax.IfStatement parseIf(Token keyword) {
@@ -328,13 +422,23 @@ final class Parser {
   }
 
   private Syntax.Statement parseFor(Token keyword) {
-    boolean inferredIteration = check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON);
+    boolean inferredIteration =
+        check(TokenKind.IDENTIFIER)
+            && (checkNext(TokenKind.COLON)
+                || current + 3 < tokens.size()
+                    && tokens.get(current + 1).kind() == TokenKind.COMMA
+                    && tokens.get(current + 2).kind() == TokenKind.IDENTIFIER
+                    && tokens.get(current + 3).kind() == TokenKind.COLON);
     int afterType = tokenAfterType(current);
     boolean explicitIteration =
         afterType >= 0
             && afterType + 1 < tokens.size()
             && tokens.get(afterType).kind() == TokenKind.IDENTIFIER
-            && tokens.get(afterType + 1).kind() == TokenKind.COLON;
+            && (tokens.get(afterType + 1).kind() == TokenKind.COLON
+                || afterType + 3 < tokens.size()
+                    && tokens.get(afterType + 1).kind() == TokenKind.COMMA
+                    && tokens.get(afterType + 2).kind() == TokenKind.IDENTIFIER
+                    && tokens.get(afterType + 3).kind() == TokenKind.COLON);
     if (!inferredIteration && !explicitIteration) {
       Syntax.Expression condition = parseExpression();
       Block body = parseBlock();
@@ -343,12 +447,17 @@ final class Parser {
     }
     Optional<Syntax.TypeRef> type;
     Token name;
-    if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON)) {
+    if (inferredIteration) {
       type = Optional.empty();
       name = advance();
     } else {
       type = Optional.of(parseType());
       name = consume(TokenKind.IDENTIFIER, "expected loop variable name");
+    }
+    Optional<Syntax.ForIndex> index = Optional.empty();
+    if (match(TokenKind.COMMA)) {
+      Token indexName = consume(TokenKind.IDENTIFIER, "expected loop index name");
+      index = Optional.of(new Syntax.ForIndex(indexName.lexeme(), indexName.span()));
     }
     consume(TokenKind.COLON, "expected ':' after loop variable");
     Syntax.Expression iterable = parseExpression();
@@ -357,6 +466,7 @@ final class Parser {
         type,
         name.lexeme(),
         name.span(),
+        index,
         iterable,
         body.statements(),
         keyword.span().cover(body.span()));
@@ -464,6 +574,14 @@ final class Parser {
     if (match(TokenKind.BANG, TokenKind.MINUS)) {
       Token operator = previous();
       Syntax.Expression operand = parseUnary();
+      if (operator.kind() == TokenKind.MINUS && operand instanceof Syntax.IntegerLiteral integer) {
+        return new Syntax.IntegerLiteral(
+            integer.value().negate(), operator.span().cover(integer.span()));
+      }
+      if (operator.kind() == TokenKind.MINUS && operand instanceof Syntax.DecimalLiteral decimal) {
+        return new Syntax.DecimalLiteral(
+            decimal.value().negate(), operator.span().cover(decimal.span()));
+      }
       return new Syntax.Unary(operator.kind(), operand, operator.span().cover(operand.span()));
     }
     return parsePostfix();
@@ -522,13 +640,16 @@ final class Parser {
   }
 
   private Syntax.Expression parsePrimary() {
+    if (match(TokenKind.SWITCH)) {
+      return parseSwitch(previous());
+    }
     if (match(TokenKind.INTEGER)) {
       Token token = previous();
-      try {
-        return new Syntax.IntegerLiteral(Long.parseLong(token.value()), token.span());
-      } catch (NumberFormatException exception) {
-        throw error(token, "integer literal is outside the supported range");
-      }
+      return new Syntax.IntegerLiteral(integerValue(token), token.span());
+    }
+    if (match(TokenKind.DECIMAL)) {
+      Token token = previous();
+      return new Syntax.DecimalLiteral(decimalValue(token), token.span());
     }
     if (match(TokenKind.NULL)) {
       return new Syntax.NullLiteral(previous().span());
@@ -547,11 +668,18 @@ final class Parser {
     }
     if (match(TokenKind.IDENTIFIER)) {
       Token token = previous();
+      boolean diamond = check(TokenKind.LESS) && checkNext(TokenKind.GREATER);
       List<Syntax.TypeRef> typeArguments =
-          check(TokenKind.LESS) && looksLikeTypeApplication() ? parseTypeArguments() : List.of();
+          diamond
+              ? parseDiamond()
+              : check(TokenKind.LESS) && looksLikeTypeApplication()
+                  ? parseTypeArguments()
+                  : List.of();
       SourceSpan span =
-          typeArguments.isEmpty() ? token.span() : token.span().cover(previous().span());
-      return new Syntax.Name(token.lexeme(), typeArguments, span);
+          typeArguments.isEmpty() && !diamond
+              ? token.span()
+              : token.span().cover(previous().span());
+      return new Syntax.Name(token.lexeme(), typeArguments, diamond, span);
     }
     if (match(TokenKind.LEFT_PAREN)) {
       Syntax.Expression expression = parseExpression();
@@ -573,14 +701,102 @@ final class Parser {
   }
 
   private boolean looksLikeVariableDeclaration() {
+    if (check(TokenKind.VAR)) return true;
     if (!check(TokenKind.IDENTIFIER)) return false;
     int next = tokenAfterType(current);
     return next >= 0 && next < tokens.size() && tokens.get(next).kind() == TokenKind.IDENTIFIER;
   }
 
+  private List<Syntax.TypeRef> parseDiamond() {
+    consume(TokenKind.LESS, "expected '<'");
+    consume(TokenKind.GREATER, "expected '>' after diamond");
+    return List.of();
+  }
+
   private boolean looksLikeTypeApplication() {
     int next = tokenAfterType(current - 1);
-    return next >= 0 && next < tokens.size() && tokens.get(next).kind() == TokenKind.LEFT_PAREN;
+    return next >= 0
+        && next < tokens.size()
+        && (tokens.get(next).kind() == TokenKind.LEFT_PAREN
+            || tokens.get(next).kind() == TokenKind.DOT);
+  }
+
+  private Syntax.SwitchExpression parseSwitch(Token keyword) {
+    Syntax.Expression value = parseExpression();
+    consume(TokenKind.LEFT_BRACE, "expected '{' before switch cases");
+    List<Syntax.SwitchCase> cases = new ArrayList<>();
+    while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      Token caseKeyword = consume(TokenKind.CASE, "expected 'case' in switch");
+      Syntax.Pattern pattern = parsePattern();
+      Block body = parseBlock();
+      cases.add(
+          new Syntax.SwitchCase(pattern, body.statements(), caseKeyword.span().cover(body.span())));
+    }
+    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after switch");
+    return new Syntax.SwitchExpression(value, cases, keyword.span().cover(closing.span()));
+  }
+
+  private Syntax.Pattern parsePattern() {
+    if (match(TokenKind.NULL)) return new Syntax.NullPattern(previous().span());
+    boolean negative = match(TokenKind.MINUS);
+    Token sign = negative ? previous() : null;
+    if (match(TokenKind.INTEGER)) {
+      Token token = previous();
+      java.math.BigInteger value = integerValue(token);
+      return new Syntax.IntegerPattern(
+          negative ? value.negate() : value,
+          negative ? sign.span().cover(token.span()) : token.span());
+    }
+    if (match(TokenKind.DECIMAL)) {
+      Token token = previous();
+      java.math.BigDecimal value = decimalValue(token);
+      return new Syntax.DecimalPattern(
+          negative ? value.negate() : value,
+          negative ? sign.span().cover(token.span()) : token.span());
+    }
+    if (negative) {
+      throw error(peek(), "expected numeric literal after '-'");
+    }
+    if (match(TokenKind.CODE_POINT)) {
+      Token token = previous();
+      return new Syntax.CodePointPattern(Integer.parseInt(token.value()), token.span());
+    }
+    if (match(TokenKind.TRUE, TokenKind.FALSE)) {
+      Token token = previous();
+      return new Syntax.BooleanPattern(token.kind() == TokenKind.TRUE, token.span());
+    }
+    if (match(TokenKind.STRING)) {
+      Token token = previous();
+      return new Syntax.StringPattern(token.value(), token.span());
+    }
+    if (check(TokenKind.IDENTIFIER)
+        && peek().lexeme().equals("_")
+        && !checkNext(TokenKind.LEFT_PAREN)) {
+      return new Syntax.WildcardPattern(advance().span());
+    }
+    if (!check(TokenKind.IDENTIFIER)) throw error(peek(), "expected pattern");
+    int afterType = tokenAfterType(current);
+    if (afterType >= 0
+        && afterType < tokens.size()
+        && tokens.get(afterType).kind() == TokenKind.IDENTIFIER) {
+      Syntax.TypeRef type = parseType();
+      Token name = consume(TokenKind.IDENTIFIER, "expected pattern binding name");
+      return new Syntax.BindingPattern(
+          type, name.lexeme(), name.span(), type.span().cover(name.span()));
+    }
+    Token name = advance();
+    List<Syntax.Pattern> arguments = new ArrayList<>();
+    SourceSpan span = name.span();
+    if (match(TokenKind.LEFT_PAREN)) {
+      if (!check(TokenKind.RIGHT_PAREN)) {
+        do {
+          arguments.add(parsePattern());
+        } while (match(TokenKind.COMMA));
+      }
+      Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after variant pattern");
+      span = name.span().cover(closing.span());
+    }
+    return new Syntax.VariantPattern(name.lexeme(), name.span(), arguments, span);
   }
 
   private int tokenAfterType(int start) {
@@ -623,6 +839,22 @@ final class Parser {
         message,
         token.span());
     return new ParseError();
+  }
+
+  private java.math.BigInteger integerValue(Token token) {
+    try {
+      return new java.math.BigInteger(token.value());
+    } catch (NumberFormatException exception) {
+      throw error(token, "invalid integer literal");
+    }
+  }
+
+  private java.math.BigDecimal decimalValue(Token token) {
+    try {
+      return new java.math.BigDecimal(token.value());
+    } catch (NumberFormatException exception) {
+      throw error(token, "invalid decimal literal");
+    }
   }
 
   private void synchronizeTopLevel() {

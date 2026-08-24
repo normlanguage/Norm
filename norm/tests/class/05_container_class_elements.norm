@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box {
   Integer value
 
@@ -8,7 +11,7 @@ class Box {
 
 Void main() {
   Box box = Box(value: 1)
-  List<Box> first = List<Box>()
+  List<Box> first = List<>()
   first.add(box)
 
   List<Box> second = first
@@ -18,12 +21,16 @@ Void main() {
   fromSecond.set(7)
   Box fromFirst = first[0]
 
-  printLine(first.size())
-  printLine(second.size())
-  printLine(fromFirst.value)
-  printLine(fromFirst == fromSecond)
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("7")
-  expectedOutputLine("true")
+  printLines([
+    first.size(),
+    second.size(),
+    fromFirst.value,
+    fromFirst == fromSecond
+  ])
+  expectedOutputLines([
+    "1",
+    "2",
+    "7",
+    "true"
+  ])
 }

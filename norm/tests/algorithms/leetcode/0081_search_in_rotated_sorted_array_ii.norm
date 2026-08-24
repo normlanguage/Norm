@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean searchWithDuplicates(Array<Integer> values, Integer target) {
   Integer left = 0
   Integer right = values.size() - 1
@@ -17,8 +20,12 @@ Boolean searchWithDuplicates(Array<Integer> values, Integer target) {
 }
 
 Void main() {
-  printLine(searchWithDuplicates(values: [2,5,6,0,0,1,2], target: 0))
-  printLine(searchWithDuplicates(values: [2,5,6,0,0,1,2], target: 3))
-  expectedOutputLine("true")
-  expectedOutputLine("false")
+  printLines([
+    searchWithDuplicates(values: [2,5,6,0,0,1,2], target: 0),
+    searchWithDuplicates(values: [2,5,6,0,0,1,2], target: 3)
+  ])
+  expectedOutputLines([
+    "true",
+    "false"
+  ])
 }

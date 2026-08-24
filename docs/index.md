@@ -17,7 +17,7 @@ pageClass: norm-home
     </div>
     <div class="norm-code-window" aria-label="Norm 对象身份示例">
       <div class="norm-code-window__bar"><span></span><span></span><span></span><b>counter.norm</b></div>
-      <pre><code v-pre>class Counter {&#10;    Integer value&#10;}&#10;&#10;Counter first = Counter(value: 0)&#10;Counter second = first&#10;second.value = 1&#10;&#10;printLine(first.value) // 1&#10;Counter copied = first.copy()</code></pre>
+      <pre><code v-pre>class Counter {&#10;    Integer value&#10;}&#10;&#10;Counter first = Counter(value: 0)&#10;Counter second = first&#10;second.value = 1&#10;&#10;printLine(first.value)&#10;Counter copied = first.copy()</code></pre>
     </div>
   </div>
 </section>
@@ -29,7 +29,7 @@ pageClass: norm-home
   <div class="norm-feature-grid">
     <article><span class="norm-feature-number">01</span><h3>Value 与 Identity</h3><p>class 赋值保留对象身份；容器复制结构；<code>copy()</code> 显式创建新对象。</p></article>
     <article><span class="norm-feature-number">02</span><h3><code>break value</code></h3><p><code>if</code>、<code>for</code> 和 <code>switch</code> 可以产值，但每条路径必须明确写出结果。</p></article>
-    <article><span class="norm-feature-number">03</span><h3>运行时泛型</h3><p><code>List&lt;String&gt;.class</code> 保留实际类型参数，不依赖类型擦除或额外 type token。</p></article>
+    <article><span class="norm-feature-number">03</span><h3>运行时泛型</h3><p>实际类型参数进入 Core IR 和运行时类型环境，不依赖类型擦除或额外 type token。</p></article>
   </div>
 </section>
 
@@ -42,8 +42,8 @@ pageClass: norm-home
       <a class="norm-text-link" href="./language/objects">了解 Class、Value 与 Identity →</a>
     </div>
     <div class="norm-compare">
-      <div><small>共享对象身份</small><pre><code v-pre>Counter second = first&#10;second.value = 1&#10;&#10;// first.value == 1</code></pre></div>
-      <div><small>创建新身份</small><pre><code v-pre>Counter copied = first.copy()&#10;copied.value = 2&#10;&#10;// first.value == 1</code></pre></div>
+      <div><small>共享对象身份</small><pre><code v-pre>Counter second = first&#10;second.value = 1&#10;printLine(first.value)</code></pre></div>
+      <div><small>创建新身份</small><pre><code v-pre>Counter copied = first.copy()&#10;copied.value = 2&#10;printLine(first.value)</code></pre></div>
     </div>
   </div>
 </section>
@@ -57,8 +57,8 @@ pageClass: norm-home
       <pre><code v-pre>String sign = if number &lt; 0 {&#10;    break "negative"&#10;} else {&#10;    break "non-negative"&#10;}</code></pre>
     </article>
     <article>
-      <div><span>Reified Generics</span><h3>泛型参数不会在运行时消失。</h3><p>类型检查、反射和通用库可以取得完整的参数化类型。</p><a href="./language/generics">阅读泛型 →</a></div>
-      <pre><code v-pre>List&lt;String&gt;.class&#10;List&lt;Integer&gt;.class&#10;&#10;List&lt;String&gt;.class.T&#10;    == String.class</code></pre>
+      <div><span>Reified Generics</span><h3>泛型参数不会在运行时消失。</h3><p>编译器把完整实参写入 Core IR 和运行时类型环境。</p><a href="./language/generics">阅读泛型 →</a></div>
+      <pre><code v-pre>List&lt;String&gt; names = List&lt;&gt;()&#10;List&lt;Integer&gt; counts = List&lt;&gt;()</code></pre>
     </article>
   </div>
 </section>

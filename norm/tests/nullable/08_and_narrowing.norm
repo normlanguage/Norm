@@ -1,10 +1,17 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean longEnough(String? value) {
   return value != null && value.codePointSize() >= 3
 }
 
 Void main() {
-  printLine(longEnough(value: null))
-  printLine(longEnough(value: "abc"))
-  expectedOutputLine("false")
-  expectedOutputLine("true")
+  printLines([
+    longEnough(value: null),
+    longEnough(value: "abc")
+  ])
+  expectedOutputLines([
+    "false",
+    "true"
+  ])
 }

@@ -6,17 +6,15 @@
 Integer count = 42
 Long population = 8_100_000_000
 Double ratio = 0.125
-Decimal price = Decimal("19.95")
 ```
 
-下划线只能位于数字之间，用于分组且不影响值。整数默认推断为能容纳该值的标准整数类型，赋值目标可以提供更具体类型。Decimal 目前使用显式构造，避免把十进制和二进制浮点语义混淆。
+下划线只能位于数字之间，用于分组且不影响值。无上下文时，整数在 Integer 范围内使用 Integer，否则使用 Long；小数字面量默认使用 Double。具体数值目标类型优先：`Long value = 7`、`Float ratio = 0.125` 直接按目标类型物化。解析器保留精确十进制文本，类型求解完成前不进行浮点舍入。
 
 ## 字符串
 
 ```norm
 String name = "Norm"
 String line = "first\nsecond"
-String message = "hello, ${name}"
 ```
 
 单引号表示一个 `CodePoint`。内容必须解码为恰好一个 Unicode code point：
@@ -27,7 +25,7 @@ CodePoint emoji = '😀'
 CodePoint newline = '\n'
 ```
 
-字符串使用双引号，支持标准转义与 `${expression}` 插值。插值要求值具有明确格式化能力，不对任意对象隐式调用调试表示。
+字符串使用双引号并支持标准转义。
 
 ## 布尔与 Null
 
@@ -35,5 +33,13 @@ CodePoint newline = '\n'
 
 ## 集合
 
-`[1, 2, 3]` 是集合构造中的元素字面量，其最终类型由构造参数或赋值目标确定。空 `[]` 没有足够信息时要求显式类型。
+`[1, 2, 3]` 是序列字面量。expected type 为 `Array<T>` 或 `List<T>` 时直接构造对应容器；为 `Iterable<T>` 时把元素约束投影到默认的 `Array<T>`；无容器上下文时也默认为 `Array<T>`。它不会先构造 Array 再转换成 List。多个具体数字叶类型的最小公共类型是 `Number`。
+
+```norm
+Array<Integer> array = [1, 2, 3]
+List<Integer> list = [1, 2, 3]
+List<Number> numbers = [1, 2.5, 3]
+```
+
+空 `[]` 没有元素约束时必须由赋值、参数或返回位置提供完整类型。
 

@@ -28,7 +28,7 @@ final class CallSiteResolver {
     int nameIndex = callableName(tokens, opening);
     if (nameIndex < 0) return Optional.empty();
     SemanticModel model = document.semanticModel();
-    CandidateSet resolved = callables(model, tokens, nameIndex, offset);
+    CandidateSet resolved = callables(document, model, tokens, nameIndex, offset);
     if (resolved.candidates().isEmpty()) return Optional.empty();
     Optional<List<dev.w0fv1.norm.semantic.SemanticType>> parsedArguments =
         typeReferences.arguments(document, tokens, nameIndex + 1, opening, offset);
@@ -99,8 +99,12 @@ final class CallSiteResolver {
     return index >= 0 && tokens.get(index).kind() == TokenKind.IDENTIFIER ? index : -1;
   }
 
-  private static CandidateSet callables(
-      SemanticModel model, List<Token> tokens, int nameIndex, int offset) {
+  private CandidateSet callables(
+      DocumentSemanticModel document,
+      SemanticModel model,
+      List<Token> tokens,
+      int nameIndex,
+      int offset) {
     Token name = tokens.get(nameIndex);
     Optional<ResolvedCall> exactCall = model.callAtCallee(name.span());
     if (exactCall.isPresent()) {
@@ -110,14 +114,20 @@ final class CallSiteResolver {
         Symbol declaration = target.orElseThrow();
         String presentedName =
             model.symbolOf(name.span()).map(Symbol::name).orElse(declaration.name());
-        List<String> typeArguments =
-            declaration.kind() == SymbolKind.TYPE
-                ? call.resultType().arguments().stream()
-                    .map(dev.w0fv1.norm.semantic.SemanticType::displayName)
-                    .toList()
-                : call.callableTypeArguments().stream()
-                    .map(dev.w0fv1.norm.semantic.SemanticType::displayName)
-                    .toList();
+        List<dev.w0fv1.norm.semantic.SemanticType> typeArguments =
+            declaration.kind() == SymbolKind.TYPE || declaration.kind() == SymbolKind.INTERFACE
+                ? call.resultType().arguments()
+                : call.callableTypeArguments();
+        List<dev.w0fv1.norm.semantic.TypeParameterInfo> instantiatedTypeParameters =
+            java.util.stream.IntStream.range(0, typeArguments.size())
+                .mapToObj(
+                    index ->
+                        new dev.w0fv1.norm.semantic.TypeParameterInfo(
+                            index < declaration.typeParameters().size()
+                                ? declaration.typeParameters().get(index).name()
+                                : typeArguments.get(index).displayName(),
+                            typeArguments.get(index)))
+                .toList();
         Symbol instantiated =
             new Symbol(
                 declaration.id(),
@@ -126,7 +136,7 @@ final class CallSiteResolver {
                 call.resultType(),
                 declaration.declaration(),
                 declaration.owner(),
-                typeArguments,
+                instantiatedTypeParameters,
                 call.parameters(),
                 declaration.documentation());
         return new CandidateSet(List.of(instantiated), Optional.of(instantiated));
@@ -139,7 +149,9 @@ final class CallSiteResolver {
     if (nameIndex >= 2
         && (tokens.get(nameIndex - 1).kind() == TokenKind.DOT
             || tokens.get(nameIndex - 1).kind() == TokenKind.QUESTION_DOT)) {
-      Token receiverToken = tokens.get(nameIndex - 2);
+      int receiverNameIndex = receiverName(tokens, nameIndex - 1);
+      if (receiverNameIndex < 0) return new CandidateSet(List.of(), Optional.empty());
+      Token receiverToken = tokens.get(receiverNameIndex);
       int receiverOffset = receiverToken.span().startOffset();
       Optional<Symbol> receiver =
           model
@@ -150,8 +162,28 @@ final class CallSiteResolver {
                           .filter(symbol -> symbol.name().equals(receiverToken.lexeme()))
                           .findFirst());
       if (receiver.isPresent() && receiver.orElseThrow().kind() == SymbolKind.TYPE) {
+        Symbol type = model.resolveAlias(receiver.orElseThrow());
+        Optional<List<dev.w0fv1.norm.semantic.SemanticType>> arguments =
+            typeReferences.arguments(
+                document, tokens, receiverNameIndex + 1, nameIndex - 1, offset);
+        dev.w0fv1.norm.semantic.SemanticType receiverType = type.type();
+        if (arguments.isPresent() && !arguments.orElseThrow().isEmpty()) {
+          receiverType =
+              dev.w0fv1.norm.semantic.SemanticType.declared(
+                  type.type().identity(),
+                  type.type().name(),
+                  arguments.orElseThrow(),
+                  type.type().category());
+        }
+        List<Symbol> sourceMembers =
+            model.members(receiverType).stream()
+                .filter(symbol -> symbol.name().equals(name.lexeme()))
+                .toList();
+        if (!sourceMembers.isEmpty()) {
+          return new CandidateSet(sourceMembers, Optional.empty());
+        }
         return new CandidateSet(
-            model.typeMembers(receiver.orElseThrow().name()).stream()
+            model.typeMembers(type.name()).stream()
                 .filter(symbol -> symbol.name().equals(name.lexeme()))
                 .toList(),
             Optional.empty());
@@ -192,6 +224,21 @@ final class CallSiteResolver {
         Optional.empty());
   }
 
+  private static int receiverName(List<Token> tokens, int dot) {
+    int index = dot - 1;
+    if (index >= 0 && tokens.get(index).kind() == TokenKind.GREATER) {
+      int depth = 0;
+      while (index >= 0) {
+        TokenKind kind = tokens.get(index).kind();
+        if (kind == TokenKind.GREATER) depth++;
+        if (kind == TokenKind.LESS && --depth == 0) return index - 1;
+        index--;
+      }
+      return -1;
+    }
+    return index;
+  }
+
   private static List<Symbol> unique(List<Symbol> symbols) {
     LinkedHashMap<dev.w0fv1.norm.semantic.SymbolId, Symbol> result = new LinkedHashMap<>();
     symbols.forEach(symbol -> result.putIfAbsent(symbol.id(), symbol));
@@ -217,8 +264,11 @@ final class CallSiteResolver {
   private static boolean callable(Symbol symbol) {
     return symbol.kind() == SymbolKind.FUNCTION
         || symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.INTERFACE_METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD
-        || symbol.kind() == SymbolKind.TYPE;
+        || symbol.kind() == SymbolKind.TYPE
+        || symbol.kind() == SymbolKind.INTERFACE
+        || symbol.kind() == SymbolKind.ENUM_VARIANT;
   }
 
   private static int activeParameter(List<Token> tokens, int opening, Symbol callable) {

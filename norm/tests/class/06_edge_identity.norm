@@ -1,5 +1,8 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box {
-  Integer value
+  Long value
 }
 
 class Holder {
@@ -12,15 +15,19 @@ Void main() {
   Box copied = original.copy()
   Holder holder = Holder(box: original)
   Holder holderCopy = holder.copy()
-  List<Box> empty = List<Box>()
-  printLine(alias == original)
-  printLine(copied == original)
-  printLine(holderCopy == holder)
-  printLine(holderCopy.box == holder.box)
-  printLine(empty.size())
-  expectedOutputLine("true")
-  expectedOutputLine("false")
-  expectedOutputLine("false")
-  expectedOutputLine("true")
-  expectedOutputLine("0")
+  List<Box> empty = List<>()
+  printLines([
+    alias == original,
+    copied == original,
+    holderCopy == holder,
+    holderCopy.box == holder.box,
+    empty.size()
+  ])
+  expectedOutputLines([
+    "true",
+    "false",
+    "false",
+    "true",
+    "0"
+  ])
 }

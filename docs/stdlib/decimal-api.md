@@ -1,5 +1,7 @@
 # Decimal API
 
+本页定义后续版本的库设计，当前标准库尚未提供 `Decimal`。
+
 `Decimal` 用于十进制精度重要的计算。它不与 `Float` 或 `Double` 隐式混合，也不默认采用二进制浮点舍入规则。
 
 ## 构造
@@ -34,4 +36,3 @@ Decimal charged = total.round(
 数值比较忽略表示 scale，因此 `Decimal("1.0") == Decimal("1.00")`。转换为整数必须选择截断或舍入，并检查范围；转换到 Double 是显式且可能损失精度的操作。
 
 货币不是 Decimal 的别名。币种、舍入政策和最小单位应由独立的 `Money` 值类型表达。
-

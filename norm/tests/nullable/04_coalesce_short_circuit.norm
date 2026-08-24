@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 String fallback() {
   printLine("fallback")
   return "default"
@@ -8,7 +10,9 @@ Void main() {
   String? missing = null
   printLine(present ?? fallback())
   printLine(missing ?? fallback())
-  expectedOutputLine("value")
-  expectedOutputLine("fallback")
-  expectedOutputLine("default")
+  expectedOutputLines([
+    "value",
+    "fallback",
+    "default"
+  ])
 }

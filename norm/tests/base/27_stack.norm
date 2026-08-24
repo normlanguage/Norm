@@ -1,9 +1,16 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  Stack<Integer> values = Stack<Integer>()
+  Stack<Integer> values = Stack<>()
   values.push(2)
   values.push(3)
-  printLine(values.peek())
-  printLine(values.pop())
-  expectedOutputLine("3")
-  expectedOutputLine("3")
+  printLines([
+    values.peek(),
+    values.pop()
+  ])
+  expectedOutputLines([
+    "3",
+    "3"
+  ])
 }

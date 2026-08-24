@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 Void main() {
-  List<Integer> source = List<Integer>()
+  List<Integer> source = List<>()
   source.add(1)
   source.add(2)
   source.add(3)
@@ -7,8 +9,10 @@ Void main() {
   result[0] = 9
   printLine(source[0])
   for value : result { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("9")
-  expectedOutputLine("2")
-  expectedOutputLine("1")
+  expectedOutputLines([
+    "1",
+    "9",
+    "2",
+    "1"
+  ])
 }

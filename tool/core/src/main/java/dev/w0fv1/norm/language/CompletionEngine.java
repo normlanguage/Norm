@@ -52,15 +52,11 @@ final class CompletionEngine {
         visibleSymbols.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
     visibleSymbols.stream()
         .flatMap(symbol -> model.callableAlternatives(symbol).stream())
-        .filter(
-            symbol ->
-                !(context instanceof CompletionContext.Type
-                        || context instanceof CompletionContext.TypeArgument)
-                    || symbol.kind() == SymbolKind.TYPE
-                    || symbol.kind() == SymbolKind.TYPE_PARAMETER)
+        .filter(symbol -> isCandidateForContext(context, symbol))
         .map(symbol -> ranked(symbol, expectedType, List.of(), constructors))
         .forEach(result::add);
     model.importableSymbols().stream()
+        .filter(candidate -> isCandidateForContext(context, candidate.symbol()))
         .filter(candidate -> !visibleNames.contains(candidate.symbol().name()))
         .filter(
             candidate ->
@@ -161,6 +157,7 @@ final class CompletionEngine {
       return List.of(
           snippet("class", "Norm class", "class ${1:Name} {\n  ${2}\n}"),
           snippet("enum", "Norm enum", "enum ${1:Name} {\n  ${2:Value}\n}"),
+          snippet("interface", "Norm interface", "interface ${1:Name} {\n  ${2}\n}"),
           keyword("package"),
           keyword("import"),
           keyword("public"),
@@ -169,6 +166,11 @@ final class CompletionEngine {
     if (context instanceof CompletionContext.Statement) {
       return List.of(
           snippet("if", "Norm conditional", "if ${1:condition} {\n  ${2}\n}"),
+          snippet(
+              "switch",
+              "Norm switch expression",
+              "switch ${1:value} {\n  case ${2:_} {\n    ${3}\n  }\n}"),
+          keyword("case"),
           snippet("for", "Norm loop", "for ${1:item}: ${2:values} {\n  ${3}\n}"),
           keyword("return"),
           keyword("break"),
@@ -179,13 +181,33 @@ final class CompletionEngine {
     }
     if (context instanceof CompletionContext.Expression
         || context instanceof CompletionContext.ArgumentLabel) {
-      return List.of(keyword("true"), keyword("false"), keyword("null"));
+      return List.of(
+          snippet(
+              "switch",
+              "Norm switch expression",
+              "switch ${1:value} {\n  case ${2:_} {\n    break ${3:value}\n  }\n}"),
+          keyword("true"),
+          keyword("false"),
+          keyword("null"));
     }
     return List.of();
   }
 
   private static Completion keyword(String label) {
     return new Completion(label, CompletionKind.KEYWORD, "Norm keyword", "", label, false);
+  }
+
+  private static boolean isCandidateForContext(CompletionContext context, Symbol symbol) {
+    if (context instanceof CompletionContext.InterfaceType) {
+      return symbol.kind() == SymbolKind.INTERFACE;
+    }
+    if (context instanceof CompletionContext.Type
+        || context instanceof CompletionContext.TypeArgument) {
+      return symbol.kind() == SymbolKind.TYPE
+          || symbol.kind() == SymbolKind.INTERFACE
+          || symbol.kind() == SymbolKind.TYPE_PARAMETER;
+    }
+    return true;
   }
 
   private static Completion snippet(String label, String detail, String insertText) {
@@ -243,16 +265,29 @@ final class CompletionEngine {
     CompletionKind kind =
         switch (symbol.kind()) {
           case TYPE, TYPE_PARAMETER -> CompletionKind.TYPE;
+          case INTERFACE -> CompletionKind.INTERFACE;
           case FUNCTION -> CompletionKind.FUNCTION;
-          case METHOD, TYPE_METHOD -> CompletionKind.METHOD;
+          case METHOD, INTERFACE_METHOD, TYPE_METHOD -> CompletionKind.METHOD;
           case FIELD -> CompletionKind.FIELD;
           case PROPERTY -> CompletionKind.PROPERTY;
-          case ENUM_MEMBER -> CompletionKind.ENUM_MEMBER;
+          case ENUM_VARIANT -> CompletionKind.ENUM_VARIANT;
           case PARAMETER, LOCAL_VARIABLE, SELF -> CompletionKind.VARIABLE;
         };
     boolean snippet = !symbol.parameters().isEmpty();
     String insertText = symbol.name();
-    if (symbol.kind() == SymbolKind.METHOD
+    if (symbol.kind() == SymbolKind.ENUM_VARIANT && !symbol.parameters().isEmpty()) {
+      String arguments =
+          java.util.stream.IntStream.range(0, symbol.parameters().size())
+              .mapToObj(
+                  index -> {
+                    String name = symbol.parameters().get(index).name();
+                    return name + ": ${" + (index + 1) + ":" + name + "}";
+                  })
+              .collect(java.util.stream.Collectors.joining(", "));
+      insertText += "(" + arguments + ")";
+      snippet = true;
+    } else if (symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.INTERFACE_METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD
         || symbol.kind() == SymbolKind.FUNCTION) {
       String arguments =
@@ -285,7 +320,11 @@ final class CompletionEngine {
                   + java.util.stream.IntStream.range(0, symbol.typeParameters().size())
                       .mapToObj(
                           index ->
-                              "${" + (index + 1) + ":" + symbol.typeParameters().get(index) + "}")
+                              "${"
+                                  + (index + 1)
+                                  + ":"
+                                  + symbol.typeParameters().get(index).name()
+                                  + "}")
                       .collect(java.util.stream.Collectors.joining(", "))
                   + ">";
           firstParameter += symbol.typeParameters().size();
@@ -362,9 +401,9 @@ final class CompletionEngine {
     int kindRank =
         switch (candidate.completion().kind()) {
           case VARIABLE -> 0;
-          case FIELD, PROPERTY, ENUM_MEMBER -> 1;
+          case FIELD, PROPERTY, ENUM_VARIANT -> 1;
           case METHOD, FUNCTION -> 2;
-          case TYPE -> 3;
+          case TYPE, INTERFACE -> 3;
           case KEYWORD -> 4;
           case SNIPPET -> 5;
         };

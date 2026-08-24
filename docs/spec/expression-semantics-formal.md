@@ -11,7 +11,7 @@
 - 操作数与实参按源码从左到右求值；
 - `&&` 与 `||` 短路；
 - if 只求值选中的分支；
-- switch 被匹配值只求值一次；
+- switch 被匹配值只求值一次，case 不 fallthrough；
 - assignment 在右侧成功求值后才更新目标。
 
 ## 控制表达式
@@ -24,11 +24,11 @@ String result = if enabled {
 }
 ```
 
-表达式上下文要求每条可正常到达结构末尾的路径产生 `break value`。Return 和 Throw 属于不正常完成，不需要额外值。编译器计算所有 Value 完成结果的共同静态类型；不存在唯一类型时拒绝程序。
+表达式上下文要求每条可正常完成的路径产生 `break value`。Return 和 Throw 属于不正常完成，不需要额外值。每个 switch 还必须在静态阶段证明模式穷尽。编译器计算所有 Value 完成结果的共同静态类型；不存在唯一类型时拒绝程序。
 
 ## 无隐式 Null
 
-缺失 else、未匹配 case 或耗尽 for 不会自动得到 null。程序必须补全分支、在 for 后写 else，或显式返回 nullable 类型。
+缺失 else 或耗尽 for 不会自动得到 null。switch 的未匹配路径由穷尽检查在编译期排除；其他控制表达式必须补全路径或显式返回 nullable 类型。
 
 ## 调用和构造
 

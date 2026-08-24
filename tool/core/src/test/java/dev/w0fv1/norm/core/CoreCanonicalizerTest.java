@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,71 @@ final class CoreCanonicalizerTest {
         first.definitionIds().get(firstOrder.indexOf(2)));
   }
 
+  @Test
+  void resolvesRecursiveEnumPayloadTypes() {
+    CoreType recursive =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new PendingDefinitionReference(0)),
+            List.of(new CoreType.Parameter(0, CoreNullability.NON_NULL)),
+            CoreValueCategory.VALUE,
+            CoreNullability.NON_NULL);
+    CoreDefinition.Enum declaration =
+        new CoreDefinition.Enum(
+            new CoreNominalTypeKey(
+                new dev.w0fv1.norm.value.ModuleCoordinate("sample", 1),
+                "sample",
+                "Chain",
+                CoreVisibility.PUBLIC,
+                Optional.empty()),
+            List.of(new CoreTypeParameter(0, Optional.empty())),
+            List.of(
+                new CoreEnumVariant("Empty", List.of()),
+                new CoreEnumVariant(
+                    "Next",
+                    List.of(
+                        new CoreField(0, new CoreType.Parameter(0, CoreNullability.NON_NULL)),
+                        new CoreField(1, recursive)))));
+
+    CoreCanonicalizer.Result result = new CoreCanonicalizer().canonicalize(List.of(declaration));
+    CoreDefinition.Enum resolved =
+        (CoreDefinition.Enum) result.groups().getFirst().definitions().getFirst();
+    CoreType.Declared next = (CoreType.Declared) resolved.variants().get(1).fields().get(1).type();
+
+    assertEquals(
+        new DefinitionReference.RecursiveMember(0),
+        ((CoreTypeConstructor.User) next.constructor()).definition());
+  }
+
+  @Test
+  void numericLeafAndRepresentationParticipateInCanonicalIdentity() {
+    DefinitionId integer = numericLiteral(1, CoreType.INTEGER);
+    DefinitionId longValue = numericLiteral(1L, CoreType.LONG);
+    DefinitionId floatValue = numericLiteral(1.0f, CoreType.FLOAT);
+    DefinitionId doubleValue = numericLiteral(1.0d, CoreType.DOUBLE);
+
+    assertNotEquals(integer, longValue);
+    assertNotEquals(longValue, floatValue);
+    assertNotEquals(floatValue, doubleValue);
+  }
+
+  private static DefinitionId numericLiteral(Number value, CoreType type) {
+    CoreDefinition.Callable callable =
+        new CoreDefinition.Callable(
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            type,
+            List.of(),
+            new CoreBlock(
+                0,
+                List.of(
+                    new CoreStatement.ReturnStatement(
+                        1, Optional.of(new CoreExpression.Literal(2, value, type))))));
+    return CoreDefinitionGroup.create(List.of(callable)).definitionId(0);
+  }
+
   private static CoreCanonicalizer.Result canonicalize(
       List<List<Integer>> graph, List<Integer> declarationOrder) {
     int[] declarationByVertex = new int[graph.size()];
@@ -68,6 +134,7 @@ final class CoreCanonicalizerTest {
       definitions.add(
           new CoreDefinition.Callable(
               Optional.empty(),
+              List.of(),
               List.of(),
               List.of(),
               List.of(),

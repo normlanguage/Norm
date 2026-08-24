@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Boolean matchesWords(Array<CodePoint> text, Integer start, List<String> words) {
   Integer width = words[0].codePointSize()
   List<Boolean> used = List.filled(size: words.size(), value: false)
@@ -27,7 +29,7 @@ Boolean matchesWords(Array<CodePoint> text, Integer start, List<String> words) {
 
 List<Integer> findSubstring(String value, List<String> words) {
   Array<CodePoint> text = value.codePoints()
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   Integer length = words.size() * words[0].codePointSize()
   for start : range(start: 0, end: text.size() - length + 1) {
     if matchesWords(text, start, words) { result.add(start) }
@@ -36,10 +38,12 @@ List<Integer> findSubstring(String value, List<String> words) {
 }
 
 Void main() {
-  List<String> words = List<String>()
+  List<String> words = List<>()
   words.add("foo")
   words.add("bar")
   for Integer index : findSubstring(value: "barfoothefoobarman", words) { printLine(index) }
-  expectedOutputLine("0")
-  expectedOutputLine("9")
+  expectedOutputLines([
+    "0",
+    "9"
+  ])
 }

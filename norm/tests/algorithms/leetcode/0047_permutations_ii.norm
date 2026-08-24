@@ -19,8 +19,8 @@ Void uniqueFrom(Array<Integer> values, List<Integer> current, Set<Integer> used,
 }
 
 Integer permuteUnique(Array<Integer> values) {
-  UniquePermutations result = UniquePermutations(values: Set<List<Integer>>())
-  uniqueFrom(values, current: List<Integer>(), used: Set<Integer>(), result)
+  UniquePermutations result = UniquePermutations(values: Set<>())
+  uniqueFrom(values, current: List<>(), used: Set<>(), result)
   return result.values.size()
 }
 

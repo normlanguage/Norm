@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Formatter {
   String format(Integer value) { return "integer" }
   String format(String value) { return value }
@@ -5,8 +8,12 @@ class Formatter {
 
 Void main() {
   Formatter formatter = Formatter()
-  printLine(formatter.format(value: 7))
-  printLine(formatter.format(value: "text"))
-  expectedOutputLine("integer")
-  expectedOutputLine("text")
+  printLines([
+    formatter.format(value: 7),
+    formatter.format(value: "text")
+  ])
+  expectedOutputLines([
+    "integer",
+    "text"
+  ])
 }

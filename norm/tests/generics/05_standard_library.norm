@@ -1,13 +1,18 @@
-import std.collections.toList
+import std.io.printLines
+import std.testing.expectedOutputLines
 
 Void main() {
-  List<String> empty = toList<String>([])
-  List<String> values = toList<String>(["first", "last"])
+  List<String> empty = []
+  List<String> values = ["first", "last"]
   List<String> result = values.reversed()
-  printLine(empty.size())
-  printLine(result[0])
-  printLine(result[1])
-  expectedOutputLine("0")
-  expectedOutputLine("last")
-  expectedOutputLine("first")
+  printLines([
+    empty.size(),
+    result[0],
+    result[1]
+  ])
+  expectedOutputLines([
+    "0",
+    "last",
+    "first"
+  ])
 }

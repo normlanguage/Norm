@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 String render(Boolean value) {
   if value { return "true" }
   return "false"
@@ -5,8 +8,12 @@ String render(Boolean value) {
 String render(Integer value) { return "integer" }
 
 Void main() {
-  printLine(render(value: true))
-  printLine(render(value: 1))
-  expectedOutputLine("true")
-  expectedOutputLine("integer")
+  printLines([
+    render(value: true),
+    render(value: 1)
+  ])
+  expectedOutputLines([
+    "true",
+    "integer"
+  ])
 }

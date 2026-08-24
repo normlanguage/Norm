@@ -16,7 +16,7 @@ public Integer listCount<T>(List<T> values, T target) {
 }
 
 public List<T> toList<T>(Array<T> values) {
-  List<T> result = List<T>()
+  List<T> result = List<>()
   for T value : values { result.add(value) }
   return result
 }

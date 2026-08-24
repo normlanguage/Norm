@@ -1,14 +1,21 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  printLine('0'.isAsciiDigit())
-  printLine('9'.isAsciiDigit())
-  printLine('A'.isAsciiDigit())
-  printLine('９'.isAsciiDigit())
-  printLine('0'.asciiDigitValue())
-  printLine('9'.asciiDigitValue())
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("false")
-  expectedOutputLine("false")
-  expectedOutputLine("0")
-  expectedOutputLine("9")
+  printLines([
+    '0'.isAsciiDigit(),
+    '9'.isAsciiDigit(),
+    'A'.isAsciiDigit(),
+    '９'.isAsciiDigit(),
+    '0'.asciiDigitValue(),
+    '9'.asciiDigitValue()
+  ])
+  expectedOutputLines([
+    "true",
+    "true",
+    "false",
+    "false",
+    "0",
+    "9"
+  ])
 }

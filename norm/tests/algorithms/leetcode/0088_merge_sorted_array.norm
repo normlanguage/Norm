@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> mergeSortedArray(Array<Integer> left, Integer leftSize, Array<Integer> right) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   Integer i = 0
   Integer j = 0
   for step : range(start: 0, end: leftSize + right.size()) {
@@ -16,10 +18,12 @@ List<Integer> mergeSortedArray(Array<Integer> left, Integer leftSize, Array<Inte
 
 Void main() {
   for Integer value : mergeSortedArray(left: [1,2,3,0,0,0], leftSize: 3, right: [2,5,6]) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("5")
-  expectedOutputLine("6")
+  expectedOutputLines([
+    "1",
+    "2",
+    "2",
+    "3",
+    "5",
+    "6"
+  ])
 }

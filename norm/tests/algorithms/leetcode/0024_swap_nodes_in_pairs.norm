@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> swapPairs(Array<Integer> values) {
   for index : range(start: 0, end: values.size() / 2) {
     Integer left = index * 2
@@ -10,9 +12,11 @@ Array<Integer> swapPairs(Array<Integer> values) {
 
 Void main() {
   for Integer value : swapPairs([1, 2, 3, 4, 5]) { printLine(value) }
-  expectedOutputLine("2")
-  expectedOutputLine("1")
-  expectedOutputLine("4")
-  expectedOutputLine("3")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "2",
+    "1",
+    "4",
+    "3",
+    "5"
+  ])
 }

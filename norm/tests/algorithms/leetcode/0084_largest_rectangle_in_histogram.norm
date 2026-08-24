@@ -1,5 +1,5 @@
 Integer largestRectangleArea(Array<Integer> heights) {
-  Stack<Integer> indices = Stack<Integer>()
+  Stack<Integer> indices = Stack<>()
   Integer best = 0
   for index : range(start: 0, end: heights.size() + 1) {
     Integer current = 0

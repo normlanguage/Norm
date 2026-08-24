@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer sum(Integer value) {
   if value == 0 { return 0 }
   return value + sum(value: value - 1)
@@ -9,8 +12,12 @@ Integer sum(Array<Integer> values) {
 }
 
 Void main() {
-  printLine(sum(value: 4))
-  printLine(sum(values: [2, 3, 4]))
-  expectedOutputLine("10")
-  expectedOutputLine("9")
+  printLines([
+    sum(value: 4),
+    sum(values: [2, 3, 4])
+  ])
+  expectedOutputLines([
+    "10",
+    "9"
+  ])
 }

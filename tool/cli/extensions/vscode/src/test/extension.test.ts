@@ -50,7 +50,7 @@ suite('Norm VS Code extension', () => {
     );
   });
 
-  test('completes user class fields, methods, and enum members', async () => {
+  test('completes user class fields, methods, and enum variants', async () => {
     await assertMembers('20_class_fields.norm', 'point.x', ['x', 'y'], ['add']);
     await assertMembers('21_class_method.norm', 'counter.add', ['add', 'current'], ['push']);
     await assertMembers('23_enum.norm', 'Color.Green', ['Red', 'Green', 'Blue'], ['length']);
@@ -122,6 +122,72 @@ suite('Norm VS Code extension', () => {
       return value?.items.some((item) => labelOf(item) === 'filled') ? value : undefined;
     });
     assert.ok(typeCompletions.items.some((item) => labelOf(item) === 'filled'));
+  });
+
+  test('completes applied generic enum variant constructors', async () => {
+    const source =
+      'enum Result<T, E> { Ok(T value), Err(E error) } ' +
+      'Void main() { Result<Integer, String> value = Result<Integer, String>. }';
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
+    await vscode.window.showTextDocument(document);
+    const position = document.positionAt(source.lastIndexOf('.') + 1);
+
+    const completions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider',
+        document.uri,
+        position,
+        '.',
+      );
+      return value?.items.some((item) => labelOf(item) === 'Ok') ? value : undefined;
+    });
+    const ok = completions.items.find((item) => labelOf(item) === 'Ok');
+
+    assert.ok(ok);
+    assert.equal(completionText(ok.insertText), 'Ok(value: ${1:value})');
+    assert.ok(String(ok.detail).includes('Result<Integer, String> Ok(Integer value)'));
+  });
+
+  test('supports interface bounds and requirement navigation', async () => {
+    const source =
+      'interface Named { String name() } ' +
+      'class User implements Named { public String name() { return "Norm" } } ' +
+      'String display<T extends Named>(T value) { return value.name() } Void main() {}';
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
+    await vscode.window.showTextDocument(document);
+    const memberPosition = document.positionAt(source.indexOf('value.name') + 'value.'.length);
+    const completions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider',
+        document.uri,
+        memberPosition,
+        '.',
+      );
+      return value?.items.some((item) => labelOf(item) === 'name') ? value : undefined;
+    });
+    const implementationOffset = source.indexOf('name()', source.indexOf('class User'));
+    const definitions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.Location[]>(
+        'vscode.executeDefinitionProvider',
+        document.uri,
+        document.positionAt(implementationOffset),
+      );
+      return value?.length ? value : undefined;
+    });
+    const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+      'vscode.executeHoverProvider',
+      document.uri,
+      document.positionAt(source.indexOf('T value')),
+    );
+
+    assert.ok(completions.items.some((item) => labelOf(item) === 'name'));
+    assert.equal(
+      definitions[0].range.start.isEqual(document.positionAt(source.indexOf('name()'))),
+      true,
+    );
+    assert.ok(
+      hovers.flatMap((hover) => hover.contents).map(hoverText).join('\n').includes('T extends Named'),
+    );
   });
 
   test('returns hover documentation for core types', async () => {

@@ -86,11 +86,12 @@ aside: false
 应用程序使用的基础类型与 API。
 
 - [标准库概览](/stdlib/overview)
+- [输出 API](/stdlib/output-api)
 - [字符串与集合](/stdlib/string)
 - [时间与数值](/stdlib/time)
 - [文件与进程](/stdlib/filesystem)
 - [HTTP 与 SQL](/stdlib/http)
-- [测试与日志](/stdlib/testing-api)
+- [测试 API](/stdlib/testing-api)
 
 </section>
 

@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> twoSum(Array<Integer> values, Integer target) {
-  Map<Integer, Integer> seen = Map<Integer, Integer>()
+  Map<Integer, Integer> seen = Map<>()
   for index : range(start: 0, end: values.size()) {
     Integer need = target - values[index]
     if seen.containsKey(need) { return [seen[need], index] }
@@ -10,6 +12,8 @@ Array<Integer> twoSum(Array<Integer> values, Integer target) {
 
 Void main() {
   for Integer value : twoSum(values: [2, 7, 11, 15], target: 9) { printLine(value) }
-  expectedOutputLine("0")
-  expectedOutputLine("1")
+  expectedOutputLines([
+    "0",
+    "1"
+  ])
 }

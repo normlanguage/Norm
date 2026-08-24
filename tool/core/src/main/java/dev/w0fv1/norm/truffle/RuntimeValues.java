@@ -1,6 +1,8 @@
 package dev.w0fv1.norm.truffle;
 
+import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.nodes.Node;
+import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
@@ -61,7 +63,15 @@ final class RuntimeValues {
         yield result;
       }
       case PairValue pair -> new PairValue(pair.type, copy(pair.first), copy(pair.second));
+      case EnumValue enumValue ->
+          new EnumValue(
+              enumValue.definition,
+              enumValue.type,
+              enumValue.enumName,
+              enumValue.variantKey,
+              copyList(enumValue.payload));
       case BuilderValue builder -> new BuilderValue(builder.value.toString());
+      case NativeIteratorValue iterator -> iterator;
       case ObjectValue object -> object;
       case null, default -> value;
     };
@@ -79,6 +89,10 @@ final class RuntimeValues {
     if (left == right) return true;
     if (left == null || right == null || left.getClass() != right.getClass()) return false;
     return switch (left) {
+      case Integer value -> value.intValue() == (Integer) right;
+      case Long value -> value.longValue() == (Long) right;
+      case Float value -> value.floatValue() == (Float) right;
+      case Double value -> value.doubleValue() == (Double) right;
       case ArrayValue value -> equalLists(value.values, ((ArrayValue) right).values);
       case ListValue value -> equalLists(value.values, ((ListValue) right).values);
       case MapValue value -> equalMaps(value, (MapValue) right);
@@ -92,6 +106,7 @@ final class RuntimeValues {
       case PairValue value ->
           equal(value.first, ((PairValue) right).first)
               && equal(value.second, ((PairValue) right).second);
+      case EnumValue value -> value.sameValue((EnumValue) right);
       case BuilderValue value -> value.value.toString().contentEquals(((BuilderValue) right).value);
       case RangeValue value ->
           value.start == ((RangeValue) right).start
@@ -141,7 +156,7 @@ final class RuntimeValues {
     return existing != null && set.values.remove(existing);
   }
 
-  static long size(Object value) {
+  static int size(Object value) {
     return switch (value) {
       case String string -> string.length();
       case ArrayValue array -> array.values.size();
@@ -157,16 +172,16 @@ final class RuntimeValues {
     };
   }
 
-  static long byteSize(String value) {
+  static int byteSize(String value) {
     return value.getBytes(StandardCharsets.UTF_8).length;
   }
 
-  static long codePointSize(String value) {
+  static int codePointSize(String value) {
     return value.codePointCount(0, value.length());
   }
 
-  static long graphemeSize(String value) {
-    return GRAPHEME.matcher(value).results().count();
+  static int graphemeSize(String value) {
+    return Math.toIntExact(GRAPHEME.matcher(value).results().count());
   }
 
   static ArrayValue codePoints(String value) {
@@ -183,7 +198,7 @@ final class RuntimeValues {
     return new ArrayValue(type, new ArrayList<>(values));
   }
 
-  static String sliceCodePoints(String value, long start, long end, Node location) {
+  static String sliceCodePoints(String value, int start, int end, Node location) {
     int size = value.codePointCount(0, value.length());
     int from = checkedCodePointIndex(start, size, location);
     int to = checkedCodePointIndex(end, size, location);
@@ -213,7 +228,7 @@ final class RuntimeValues {
     return new ArrayValue(type, parts);
   }
 
-  static String sliceGraphemes(String value, long start, long end, Node location) {
+  static String sliceGraphemes(String value, int start, int end, Node location) {
     List<java.util.regex.MatchResult> matches = GRAPHEME.matcher(value).results().toList();
     int from = checkedTextIndex(start, matches.size(), "grapheme", location);
     int to = checkedTextIndex(end, matches.size(), "grapheme", location);
@@ -284,7 +299,7 @@ final class RuntimeValues {
     return true;
   }
 
-  static long compareCodePoints(String left, String right) {
+  static int compareCodePoints(String left, String right) {
     var leftIterator = left.codePoints().iterator();
     var rightIterator = right.codePoints().iterator();
     while (leftIterator.hasNext() && rightIterator.hasNext()) {
@@ -341,22 +356,62 @@ final class RuntimeValues {
     }
   }
 
-  private static int checkedCodePointIndex(long index, int size, Node location) {
+  private static int checkedCodePointIndex(int index, int size, Node location) {
     return checkedTextIndex(index, size, "code point", location);
   }
 
-  private static int checkedTextIndex(long index, int size, String unit, Node location) {
+  private static int checkedTextIndex(int index, int size, String unit, Node location) {
     if (index < 0 || index > size) {
       throw new NormGuestException(
           RuntimeErrorCode.INDEX_OUT_OF_BOUNDS,
           unit + " index " + index + " is outside 0.." + size,
           location);
     }
-    return (int) index;
+    return index;
   }
 
   static String stringify(Object value) {
     return value == null ? "Void" : value.toString();
+  }
+
+  static BuiltinTypeId builtinType(Object value) {
+    CoreType type =
+        switch (value) {
+          case Integer ignored -> CoreType.INTEGER;
+          case Long ignored -> CoreType.LONG;
+          case Float ignored -> CoreType.FLOAT;
+          case Double ignored -> CoreType.DOUBLE;
+          case Boolean ignored -> CoreType.BOOLEAN;
+          case String ignored -> CoreType.STRING;
+          case CodePointValue ignored -> CoreType.CODE_POINT;
+          case ArrayValue item -> item.type;
+          case ListValue item -> item.type;
+          case MapValue item -> item.type;
+          case SetValue item -> item.type;
+          case StackValue item -> item.type;
+          case QueueValue item -> item.type;
+          case DequeValue item -> item.type;
+          case PairValue item -> item.type;
+          case RangeValue ignored ->
+              new CoreType.Declared(
+                  new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Range")),
+                  List.of(),
+                  CoreValueCategory.VALUE,
+                  CoreNullability.NON_NULL);
+          case BuilderValue ignored ->
+              new CoreType.Declared(
+                  new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.StringBuilder")),
+                  List.of(),
+                  CoreValueCategory.IDENTITY,
+                  CoreNullability.NON_NULL);
+          case NativeIteratorValue item -> item.type;
+          default -> throw new IllegalStateException("interface receiver has no builtin type");
+        };
+    if (!(type instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.Builtin builtin)) {
+      throw new IllegalStateException("interface receiver has no builtin type");
+    }
+    return builtin.id();
   }
 
   enum NullValue {
@@ -526,69 +581,121 @@ final class RuntimeValues {
     }
   }
 
+  static final class NativeIteratorValue {
+    final CoreType type;
+    final Iterator<Object> iterator;
+
+    NativeIteratorValue(CoreType elementType, Iterator<Object> iterator) {
+      type =
+          new CoreType.Declared(
+              new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.NativeIterator")),
+              List.of(elementType),
+              CoreValueCategory.IDENTITY,
+              CoreNullability.NON_NULL);
+      this.iterator = Objects.requireNonNull(iterator, "iterator");
+    }
+  }
+
   static final class EnumValue {
     private final DefinitionId definition;
-    private final int memberOrdinal;
+    private final CoreType type;
     private final String enumName;
-    private final String member;
+    private final String variantKey;
+    private final List<Object> payload;
 
-    EnumValue(DefinitionId definition, int memberOrdinal, String enumName, String member) {
+    EnumValue(
+        DefinitionId definition,
+        CoreType type,
+        String enumName,
+        String variantKey,
+        List<Object> payload) {
       this.definition = Objects.requireNonNull(definition, "definition");
-      if (memberOrdinal < 0) {
-        throw new IllegalArgumentException("enum member ordinal must not be negative");
-      }
-      this.memberOrdinal = memberOrdinal;
+      this.type = Objects.requireNonNull(type, "type");
       this.enumName = Objects.requireNonNull(enumName, "enumName");
-      this.member = Objects.requireNonNull(member, "member");
+      this.variantKey = Objects.requireNonNull(variantKey, "variantKey");
+      if (variantKey.isBlank()) throw new IllegalArgumentException("variant key must not be blank");
+      this.payload = List.copyOf(copyList(payload));
+    }
+
+    DefinitionId definition() {
+      return definition;
+    }
+
+    CoreType type() {
+      return type;
+    }
+
+    String variantKey() {
+      return variantKey;
+    }
+
+    Object field(int index) {
+      return copy(payload.get(index));
+    }
+
+    int fieldCount() {
+      return payload.size();
+    }
+
+    private boolean sameValue(EnumValue other) {
+      return definition.equals(other.definition)
+          && type.equals(other.type)
+          && variantKey.equals(other.variantKey)
+          && equalLists(payload, other.payload);
     }
 
     @Override
     public boolean equals(Object other) {
-      return this == other
-          || other instanceof EnumValue value
-              && memberOrdinal == value.memberOrdinal
-              && definition.equals(value.definition);
+      return this == other || other instanceof EnumValue value && sameValue(value);
     }
 
     @Override
     public int hashCode() {
-      return 31 * definition.hashCode() + memberOrdinal;
+      return Objects.hash(definition, type, variantKey);
     }
 
     @Override
     public String toString() {
-      return enumName + "." + member;
+      if (payload.isEmpty()) return enumName + "." + variantKey;
+      return enumName
+          + "."
+          + variantKey
+          + "("
+          + payload.stream()
+              .map(RuntimeValues::stringify)
+              .collect(java.util.stream.Collectors.joining(", "))
+          + ")";
     }
   }
 
   static final class RangeValue {
-    final long start;
-    final long end;
-    final long step;
+    final int start;
+    final int end;
+    final int step;
 
-    RangeValue(long start, long end) {
+    RangeValue(int start, int end) {
       this(start, end, 1);
     }
 
-    RangeValue(long start, long end, long step) {
+    RangeValue(int start, int end, int step) {
       this.start = start;
       this.end = end;
       this.step = step;
     }
 
-    long size() {
+    int size() {
       BigInteger distance =
           step > 0
               ? BigInteger.valueOf(end).subtract(BigInteger.valueOf(start))
               : BigInteger.valueOf(start).subtract(BigInteger.valueOf(end));
       if (distance.signum() <= 0) return 0;
       BigInteger stride = BigInteger.valueOf(step).abs();
-      return distance.subtract(BigInteger.ONE).divide(stride).add(BigInteger.ONE).longValueExact();
+      return distance.subtract(BigInteger.ONE).divide(stride).add(BigInteger.ONE).intValueExact();
     }
 
     Iterator<Object> iterator() {
       return new Iterator<>() {
-        private long current = start;
+        private int current = start;
         private boolean exhausted;
 
         @Override
@@ -598,7 +705,7 @@ final class RuntimeValues {
 
         @Override
         public Object next() {
-          long value = current;
+          int value = current;
           try {
             current = Math.addExact(current, step);
           } catch (ArithmeticException exception) {
@@ -610,7 +717,21 @@ final class RuntimeValues {
     }
   }
 
-  record ClassInfo(String name, int fieldCount) {}
+  sealed interface DispatchTarget permits DispatchTarget.Callable, DispatchTarget.Intrinsic {
+    record Callable(CallTarget target) implements DispatchTarget {}
+
+    record Intrinsic(IntrinsicId intrinsic) implements DispatchTarget {}
+  }
+
+  record ClassInfo(
+      DefinitionId definition,
+      String name,
+      int fieldCount,
+      Map<DefinitionId, DispatchTarget> dispatch) {
+    ClassInfo {
+      dispatch = Map.copyOf(dispatch);
+    }
+  }
 
   static final class ObjectValue {
     final ClassInfo classInfo;

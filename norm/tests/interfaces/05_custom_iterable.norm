@@ -1,0 +1,38 @@
+import std.core.Iterable
+import std.core.Iterator
+import std.testing.expectedOutputLines
+
+class CountingIterator implements Iterator<Integer> {
+  Integer current
+  Integer end
+
+  public Boolean hasNext() {
+    return current < end
+  }
+
+  public Integer next() {
+    Integer value = current
+    current = current + 1
+    return value
+  }
+}
+
+class Values implements Iterable<Integer> {
+  Integer end
+
+  public Iterator<Integer> iterator() {
+    return CountingIterator(current: 0, end: end)
+  }
+}
+
+Void main() {
+  for Integer value : Values(end: 4) {
+    printLine(value)
+  }
+  expectedOutputLines([
+    "0",
+    "1",
+    "2",
+    "3"
+  ])
+}

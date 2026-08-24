@@ -1,6 +1,6 @@
 # 接口
 
-接口描述一组行为，不保存实例字段。Norm 使用名义类型关系：class 必须显式声明实现某个接口。
+接口描述一组行为，不保存实例字段。它是 Norm 唯一的名义行为抽象机制；标准库所称 protocol 只是普通接口。类型必须显式声明实现关系。
 
 ## 声明接口
 
@@ -16,7 +16,7 @@ interface Measurable {
 class Circle implements Measurable {
     Double radius
 
-    Double measure() {
+    public Double measure() {
         return 3.14159 * radius * radius
     }
 }
@@ -38,13 +38,17 @@ Double total(Measurable first, Measurable second) {
 
 ```norm
 class Timer {
-    Double measure() {
+    public Double measure() {
         return 0.0
     }
 }
 ```
 
 因此 `Timer` 不会自动成为 `Measurable`。这条规则让大型代码库中的类型关系可以通过声明直接查找。
+
+## 多继承与动态分派
+
+接口可以通过 `extends` 继承多个接口，但继承图不能成环。初版接口方法没有默认实现；通过接口调用方法时，运行时按具体名义类型选择其显式实现。
 
 ## 接口与共享无关
 
@@ -65,5 +69,6 @@ T larger<T extends Comparable<T>>(T left, T right) {
 
 这里的约束表示 `T` 必须显式实现 `Comparable<T>`。更多内容见[泛型](/language/generics)。
 
-下一章：[Enum 与 Switch](/language/enum-switch)。
+`Iterable<T>`、`Iterator<T>`、`Sized`、`Comparable<T>`、`Equatable<T>` 与 `Hashable` 都是 `std.core` 中的普通接口。遍历式 `for` 使用 Iterable；这些接口不会重载语言操作符。
 
+下一章：[Enum 与 Switch](/language/enum-switch)。

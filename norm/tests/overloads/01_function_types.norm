@@ -1,9 +1,16 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer choose(Integer value) { return value + 1 }
 String choose(String value) { return value + "!" }
 
 Void main() {
-  printLine(choose(value: 4))
-  printLine(choose(value: "Norm"))
-  expectedOutputLine("5")
-  expectedOutputLine("Norm!")
+  printLines([
+    choose(value: 4),
+    choose(value: "Norm")
+  ])
+  expectedOutputLines([
+    "5",
+    "Norm!"
+  ])
 }

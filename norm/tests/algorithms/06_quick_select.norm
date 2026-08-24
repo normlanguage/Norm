@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer select(Array<Integer> values, Integer low, Integer high, Integer wanted) {
   if low == high { return values[low] }
   Integer pivot = values[high]
@@ -24,10 +27,14 @@ Integer kthSmallest(Array<Integer> values, Integer k) {
 
 Void main() {
   Array<Integer> values = [9, 1, 7, 3, 5]
-  printLine(kthSmallest(values, k: 3))
-  printLine(kthSmallest(values, k: 1))
-  printLine(kthSmallest(values, k: 5))
-  expectedOutputLine("5")
-  expectedOutputLine("1")
-  expectedOutputLine("9")
+  printLines([
+    kthSmallest(values, k: 3),
+    kthSmallest(values, k: 1),
+    kthSmallest(values, k: 5)
+  ])
+  expectedOutputLines([
+    "5",
+    "1",
+    "9"
+  ])
 }

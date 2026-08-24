@@ -14,7 +14,7 @@ final class GenericCompilerTest {
     CompilationResult result =
         compile(
             "class Box<T> { T value } "
-                + "Void main() { Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) "
+                + "Void main() { Box<List<Integer>> box = Box<>(value: List<>()) "
                 + "box.value.add(7) printLine(box.value[0]) }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
@@ -34,7 +34,7 @@ final class GenericCompilerTest {
   void infersGenericFunctionArgumentsFromTheExpectedType() {
     CompilationResult result =
         compile(
-            "class Box<T> {} Box<T> empty<T>() { return Box<T>() } "
+            "class Box<T> {} Box<T> empty<T>() { return Box<>() } "
                 + "Void main() { Box<String> value = empty() }");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
@@ -48,7 +48,7 @@ final class GenericCompilerTest {
                 + "T? nullable<T>(T value) { return null } "
                 + "Void main() { String? first = identity(value: null) "
                 + "String? second = nullable(value: \"Norm\") "
-                + "List<String?> values = List<String?>() values.add(first) values.add(second) } ");
+                + "List<String?> values = List<>() values.add(first) values.add(second) } ");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
@@ -167,7 +167,7 @@ final class GenericCompilerTest {
     CompilationResult result =
         compile(
             "class Values<T> { T owner Pair<T, U> pair<U>(U value) { "
-                + "return Pair<T, U>(first: owner, second: value) } } "
+                + "return Pair<>(first: owner, second: value) } } "
                 + "Void main() { Values<String> values = Values<String>(owner: \"Norm\") "
                 + "Pair<String, Integer> pair = values.pair(value: 7) }");
 

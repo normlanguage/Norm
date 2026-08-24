@@ -41,7 +41,7 @@ Integer square(Integer value) {
 }
 ```
 
-核心声明包括 class、value、interface、enum、annotation 和 function。public/private 控制可见性；更细模块可见性仍待定。
+核心声明包括 class、value、interface、enum、annotation 和 function。interface 是唯一的名义行为抽象；标准库 protocol 只是普通 interface。public/private 控制可见性；更细模块可见性仍待定。
 
 ## 类型系统
 
@@ -67,19 +67,15 @@ String sign = if number < 0 {
 }
 ```
 
-不会把最后表达式自动作为结果，也不会为缺失分支插入 null。for 采用 foreach 形状；首版没有 C 风格 for 和 while。
+不会把最后表达式自动作为结果，也不会为缺失分支插入 null。每个 switch 都必须穷尽，被匹配表达式只求值一次且 case 不 fallthrough。遍历式 for 通过标准库 Iterable interface 工作；首版没有 C 风格 for 和 while。
 
 ## 泛型
 
-泛型默认不变，使用时必须写全类型实参。`? extends T` 和 `? super T` 表达使用位置型变。运行时保留完整参数化类型：
-
-```norm
-List<String>.class != List<Integer>.class
-```
+泛型保持不变，类型位置必须写全实参。表达式中的菱形构造器可以由期望类型和构造参数求解实参；求解结果进入 Core IR 和运行时类型环境。
 
 ## 错误
 
-普通缺失使用 nullable，可预期且需要错误原因的失败使用 Result；异常使用 throw/try/catch/finally。Result 是普通 enum，语言不提供自动传播。资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
+普通缺失使用 nullable，可预期且需要错误原因的失败使用 `std.core.Result<T, E>`；没有业务值的成功结果使用 `std.core.Unit`。Result 是普通泛型 enum，语言不提供自动传播。异常使用 throw/try/catch/finally；资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
 
 ## 求值
 

@@ -30,6 +30,15 @@ for index : range(start: 0, end: 10) {
 
 `Range` infers `Integer`. Generic iterables infer their binding from the element type, such as `String` for `List<String>`. An explicit binding type is required only when no unique static element type is available.
 
+A second binding receives a zero-based `Integer` index. The value binding always comes first:
+
+```norm
+for value,index : values {
+    printLine(index)
+    printLine(value)
+}
+```
+
 A conditional `for` re-evaluates a Boolean condition before each iteration:
 
 ```norm

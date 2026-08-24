@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> spiralOrder(List<Array<Integer>> matrix) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   Integer top = 0
   Integer bottom = matrix.size() - 1
   Integer left = 0
@@ -22,18 +24,20 @@ List<Integer> spiralOrder(List<Array<Integer>> matrix) {
 }
 
 Void main() {
-  List<Array<Integer>> matrix = List<Array<Integer>>()
+  List<Array<Integer>> matrix = List<>()
   matrix.add([1,2,3])
   matrix.add([4,5,6])
   matrix.add([7,8,9])
   for Integer value : spiralOrder(matrix) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("6")
-  expectedOutputLine("9")
-  expectedOutputLine("8")
-  expectedOutputLine("7")
-  expectedOutputLine("4")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "1",
+    "2",
+    "3",
+    "6",
+    "9",
+    "8",
+    "7",
+    "4",
+    "5"
+  ])
 }

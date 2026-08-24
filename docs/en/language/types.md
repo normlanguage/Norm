@@ -2,6 +2,13 @@
 
 Norm is statically typed and non-null by default. `T?` explicitly adds null to a type.
 
+`Integer` and `Long` are signed 32-bit and 64-bit integers. `Float` and `Double` are binary floating-point leaves. Abstract `Number` stores any of those leaves while preserving its concrete runtime representation. Numeric literals use a concrete expected leaf when available; otherwise integers default to `Integer` or `Long` by range and decimal literals default to `Double`.
+
+```norm
+Number count = 10
+List<Number> values = [1, 2.5, 3]
+```
+
 ```norm
 String name = "Norm"
 String? nickname = null

@@ -20,8 +20,8 @@ Void collect(Array<Integer> candidates, Integer target, Integer start, List<Inte
 
 Integer combinationSum2(Array<Integer> candidates, Integer target) {
   candidates = sort(candidates)
-  UniqueCombinations result = UniqueCombinations(seen: Set<List<Integer>>())
-  collect(candidates, target, start: 0, current: List<Integer>(), result)
+  UniqueCombinations result = UniqueCombinations(seen: Set<>())
+  collect(candidates, target, start: 0, current: List<>(), result)
   return result.seen.size()
 }
 

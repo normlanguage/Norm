@@ -1,0 +1,37 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+class Cell<T> {
+  T value
+}
+
+Void main() {
+  List<Pair<Integer, String>> pairs = List<>()
+  pairs.add(Pair<>(first: 7, second: "seven"))
+
+  List<Number> numbers = [1, 2.5, 2147483648]
+  printLines(numbers)
+
+  var cell = Cell<Integer>(value: 9)
+  printLine(cell.value)
+
+  for value,index : [4, 5] {
+    printLines([
+      value,
+      index
+    ])
+  }
+
+  printLine(pairs[0].second)
+  expectedOutputLines([
+    "1",
+    "2.5",
+    "2147483648",
+    "9",
+    "4",
+    "0",
+    "5",
+    "1",
+    "seven"
+  ])
+}

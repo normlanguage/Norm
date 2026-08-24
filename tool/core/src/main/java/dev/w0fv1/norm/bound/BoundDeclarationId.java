@@ -4,7 +4,9 @@ public sealed interface BoundDeclarationId
     permits BoundCallableId,
         BoundClassId,
         BoundEnumId,
-        BoundEnumMemberId,
+        BoundEnumVariantId,
+        BoundInterfaceId,
+        BoundInterfaceMethodId,
         BoundFieldId,
         BoundLocalId {
   String value();

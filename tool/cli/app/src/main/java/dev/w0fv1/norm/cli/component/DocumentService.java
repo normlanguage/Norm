@@ -484,11 +484,12 @@ final class DocumentService implements TextDocumentService {
     return switch (kind) {
       case KEYWORD -> CompletionItemKind.Keyword;
       case TYPE -> CompletionItemKind.Class;
+      case INTERFACE -> CompletionItemKind.Interface;
       case FUNCTION -> CompletionItemKind.Function;
       case METHOD -> CompletionItemKind.Method;
       case FIELD -> CompletionItemKind.Field;
       case PROPERTY -> CompletionItemKind.Property;
-      case ENUM_MEMBER -> CompletionItemKind.EnumMember;
+      case ENUM_VARIANT -> CompletionItemKind.EnumMember;
       case VARIABLE -> CompletionItemKind.Variable;
       case SNIPPET -> CompletionItemKind.Snippet;
     };

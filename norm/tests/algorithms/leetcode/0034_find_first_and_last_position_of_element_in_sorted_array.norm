@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Integer boundary(Array<Integer> values, Integer target, Boolean upper) {
   Integer left = 0
   Integer right = values.size()
@@ -16,6 +18,8 @@ Array<Integer> searchRange(Array<Integer> values, Integer target) {
 
 Void main() {
   for Integer value : searchRange(values: [5, 7, 7, 8, 8, 10], target: 8) { printLine(value) }
-  expectedOutputLine("3")
-  expectedOutputLine("4")
+  expectedOutputLines([
+    "3",
+    "4"
+  ])
 }

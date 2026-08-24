@@ -6,12 +6,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class CoreNamespace {
-  private static final String DOMAIN = "norm:core:interface:v1\0";
+  private static final String DOMAIN = "norm:core:namespace:v1\0";
 
-  private final InterfaceId id;
+  private final CoreNamespaceId id;
   private final List<CoreBinding> bindings;
 
-  private CoreNamespace(InterfaceId id, List<CoreBinding> bindings) {
+  private CoreNamespace(CoreNamespaceId id, List<CoreBinding> bindings) {
     this.id = id;
     this.bindings = bindings;
   }
@@ -28,13 +28,13 @@ public final class CoreNamespace {
                       : left.occurrence().compareTo(right.occurrence());
                 })
             .toList();
-    byte[] canonical = encodeInterface(sorted);
+    byte[] canonical = encodeNamespace(sorted);
     return new CoreNamespace(
-        new InterfaceId(ContentHasher.hash(DOMAIN, CoreIdentityVersion.CURRENT, canonical)),
+        new CoreNamespaceId(ContentHasher.hash(DOMAIN, CoreIdentityVersion.CURRENT, canonical)),
         sorted);
   }
 
-  public InterfaceId id() {
+  public CoreNamespaceId id() {
     return id;
   }
 
@@ -60,8 +60,8 @@ public final class CoreNamespace {
     return matches.size() == 1 ? Optional.of(matches.getFirst()) : Optional.empty();
   }
 
-  private static byte[] encodeInterface(List<CoreBinding> bindings) {
-    CanonicalWriter writer = new CanonicalWriter().writeTag("interface").writeInt(bindings.size());
+  private static byte[] encodeNamespace(List<CoreBinding> bindings) {
+    CanonicalWriter writer = new CanonicalWriter().writeTag("namespace").writeInt(bindings.size());
     bindings.forEach(binding -> writeBinding(writer, binding));
     return writer.toByteArray();
   }
@@ -82,7 +82,8 @@ public final class CoreNamespace {
         .writeBoolean(binding.exported());
     switch (binding.shape()) {
       case CoreBindingShape.Callable callable -> {
-        writer.writeInt(callable.typeParameterCount()).writeInt(callable.parameters().size());
+        writeTypeParameters(writer, callable.typeParameters());
+        writer.writeInt(callable.parameters().size());
         callable
             .parameters()
             .forEach(
@@ -93,7 +94,8 @@ public final class CoreNamespace {
         CoreCodec.writeType(writer, callable.returnType());
       }
       case CoreBindingShape.Class declared -> {
-        writer.writeInt(declared.typeParameterCount()).writeInt(declared.fields().size());
+        writeTypeParameters(writer, declared.typeParameters());
+        writer.writeInt(declared.fields().size());
         declared
             .fields()
             .forEach(
@@ -101,11 +103,67 @@ public final class CoreNamespace {
                   writer.writeString(field.name()).writeTag(field.visibility().name());
                   CoreCodec.writeType(writer, field.type());
                 });
+        writer.writeInt(declared.conformances().size());
+        declared.conformances().stream()
+            .sorted(
+                (left, right) ->
+                    java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
+            .forEach(conformance -> CoreCodec.writeType(writer, conformance));
       }
       case CoreBindingShape.Enum declared -> {
-        writer.writeInt(declared.members().size());
-        declared.members().forEach(writer::writeString);
+        writeTypeParameters(writer, declared.typeParameters());
+        writer.writeInt(declared.variants().size());
+        declared
+            .variants()
+            .forEach(
+                variant -> {
+                  writer.writeString(variant.name()).writeInt(variant.fields().size());
+                  variant
+                      .fields()
+                      .forEach(
+                          field -> {
+                            writer.writeString(field.label());
+                            CoreCodec.writeType(writer, field.type());
+                          });
+                });
+      }
+      case CoreBindingShape.Interface declared -> {
+        writeTypeParameters(writer, declared.typeParameters());
+        writer.writeInt(declared.directParents().size());
+        declared.directParents().stream()
+            .sorted(
+                (left, right) ->
+                    java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
+            .forEach(parent -> CoreCodec.writeType(writer, parent));
+      }
+      case CoreBindingShape.InterfaceMethod method -> {
+        writeTypeParameters(writer, method.typeParameters());
+        writer.writeInt(method.parameters().size());
+        method
+            .parameters()
+            .forEach(
+                parameter -> {
+                  writer.writeString(parameter.label());
+                  CoreCodec.writeType(writer, parameter.type());
+                });
+        CoreCodec.writeType(writer, method.returnType());
       }
     }
+  }
+
+  private static void writeTypeParameters(
+      CanonicalWriter writer, List<CoreTypeParameter> parameters) {
+    writer.writeInt(parameters.size());
+    parameters.forEach(
+        parameter -> {
+          writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
+          parameter.upperBound().ifPresent(bound -> CoreCodec.writeType(writer, bound));
+        });
+  }
+
+  private static byte[] typeBytes(CoreType type) {
+    CanonicalWriter writer = new CanonicalWriter();
+    CoreCodec.writeType(writer, type);
+    return writer.toByteArray();
   }
 }

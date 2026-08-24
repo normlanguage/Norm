@@ -1,8 +1,15 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Void main() {
-  Map<String, Integer> scores = Map<String, Integer>()
+  Map<String, Integer> scores = Map<>()
   scores.put(key: "Ada", value: 2)
-  printLine(scores["Ada"])
-  printLine(scores.containsKey("Ada"))
-  expectedOutputLine("2")
-  expectedOutputLine("true")
+  printLines([
+    scores["Ada"],
+    scores.containsKey("Ada")
+  ])
+  expectedOutputLines([
+    "2",
+    "true"
+  ])
 }

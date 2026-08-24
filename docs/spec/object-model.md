@@ -14,11 +14,11 @@ value 表示没有 identity 的数据。字段在构造完成后不可原地修�
 
 ## Interface
 
-interface 只声明行为契约，不保存实例字段。类型必须显式声明 `implements` 或 `extends`，成员形状相同不会自动建立关系。通过 interface 使用一个值不会改变其原有 value 或 identity 类别。
+interface 是唯一的名义行为抽象，只声明契约且不保存实例字段。实现与继承关系必须显式声明，interface 可以多继承，成员形状相同不会自动建立关系。interface 方法没有默认实现；通过 interface 调用时按具体名义类型动态分派，且不改变值原有的 value 或 identity 类别。
 
 ## Enum
 
-enum 是封闭的代数数据类型。variant 可以不携带数据，也可以拥有不同字段；switch 可以基于完整 variant 集合执行穷尽检查。enum 属于 value。
+enum 是封闭的代数数据类型。variant 可以不携带数据，也可以拥有不同字段；泛型 enum 沿用普通泛型构造与推断规则。所有 switch 都执行穷尽检查，variant 数据可由递归模式解构。enum 属于 value。
 
 ## `ref<T>`
 

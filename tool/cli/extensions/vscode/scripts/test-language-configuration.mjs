@@ -5,21 +5,47 @@ const grammar = JSON.parse(readFileSync('syntaxes/norm.tmLanguage.json', 'utf8')
 const configuration = JSON.parse(readFileSync('language-configuration.json', 'utf8'));
 const typePattern = new RegExp(grammar.repository.types.match);
 const genericPattern = new RegExp(grammar.repository.generics.patterns[0].begin);
+const numericPattern = new RegExp(grammar.repository.numbers.match);
 const constantPattern = new RegExp(grammar.repository.constants.match);
 const operatorPattern = new RegExp(grammar.repository.operators.match);
+const keywordPattern = new RegExp(grammar.repository.keywords.match);
+const declarationPattern = new RegExp(grammar.repository.declarations.patterns[0].match);
 
-for (const type of ['Integer', 'Boolean', 'String', 'Void', 'CodePoint', 'Array<CodePoint>']) {
+for (const type of [
+  'Integer',
+  'Long',
+  'Float',
+  'Double',
+  'Number',
+  'Boolean',
+  'String',
+  'Void',
+  'CodePoint',
+  'Stringable',
+  'Array<CodePoint>',
+]) {
   assert.match(type, typePattern);
 }
 for (const invalidType of ['int', 'bool', 'void']) {
   assert.doesNotMatch(invalidType, typePattern);
 }
 assert.match('Array<CodePoint>', genericPattern);
+assert.match('List<>', genericPattern);
 assert.doesNotMatch('Array<int>', genericPattern);
+for (const number of ['7', '2_147_483_648', '3.14', '1.25e-3']) {
+  assert.match(number, numericPattern);
+}
 assert.match('null', constantPattern);
 assert.match('?.', operatorPattern);
 assert.match('??', operatorPattern);
 assert.match('?', operatorPattern);
+assert.match('switch', keywordPattern);
+assert.match('case', keywordPattern);
+assert.match('interface', keywordPattern);
+assert.match('var', keywordPattern);
+assert.match('implements', keywordPattern);
+assert.match('extends', keywordPattern);
+assert.match('interface Named', declarationPattern);
 
 assert.equal(grammar.repository.codePoints.name, 'constant.character.norm');
 assert.equal(grammar.repository.codePoints.begin, "'");

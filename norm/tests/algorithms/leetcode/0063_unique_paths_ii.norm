@@ -14,7 +14,7 @@ Integer uniquePathsWithObstacles(List<Array<Integer>> grid) {
 }
 
 Void main() {
-  List<Array<Integer>> grid = List<Array<Integer>>()
+  List<Array<Integer>> grid = List<>()
   grid.add([0,0,0])
   grid.add([0,1,0])
   grid.add([0,0,0])

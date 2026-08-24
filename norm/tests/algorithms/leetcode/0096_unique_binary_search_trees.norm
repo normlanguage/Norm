@@ -1,5 +1,5 @@
 Integer numTrees(Integer size) {
-  List<Integer> counts = List<Integer>()
+  List<Integer> counts = List<>()
   counts.add(1)
   for nodes : range(start: 1, end: size + 1) {
     Integer total = 0

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean validNumber(String value) {
   Array<CodePoint> tokens = value.codePoints()
   Boolean digit = false
@@ -25,8 +28,12 @@ Boolean validNumber(String value) {
 }
 
 Void main() {
-  printLine(validNumber("2e10"))
-  printLine(validNumber("99e2.5"))
-  expectedOutputLine("true")
-  expectedOutputLine("false")
+  printLines([
+    validNumber("2e10"),
+    validNumber("99e2.5")
+  ])
+  expectedOutputLines([
+    "true",
+    "false"
+  ])
 }

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer josephus(Integer people, Integer step) {
   Integer survivor = 0
   for size : range(start: 2, end: people + 1) { survivor = (survivor + step) % size }
@@ -5,8 +8,12 @@ Integer josephus(Integer people, Integer step) {
 }
 
 Void main() {
-  printLine(josephus(people: 7, step: 3))
-  printLine(josephus(people: 1, step: 9))
-  expectedOutputLine("3")
-  expectedOutputLine("0")
+  printLines([
+    josephus(people: 7, step: 3),
+    josephus(people: 1, step: 9)
+  ])
+  expectedOutputLines([
+    "3",
+    "0"
+  ])
 }

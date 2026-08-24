@@ -19,9 +19,9 @@ ProjectSourceSet
 
 `ProjectLoader` 一次建立不可变 `ProjectSourceSet`。存在 `module.norm` 时加载当前模块的源码集合、排除嵌套模块，并由清单确定导出边界；不存在清单时只加载入口文件。项目拓扑只读取清单、路径和 package 头，正文语法诊断不会使编辑中的模块退化为单文件。CLI、Language Server 和测试工具从同一个 source set 派生 `CompilationRequest`。模块名、版本和模块相对源码路径由 `CompilationScope` 统一携带。
 
-Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类型头，再解析成员与 callable，在完整项目声明图上完成名称解析、类型检查、泛型推断、nullable 流分析、确定赋值和调用绑定，并产生不可变 `SemanticModel`。每个调用只保存一份 `ResolvedCall`，其中包含精确目标、实例化形参、类型实参、实参映射与结果类型；Binder、签名帮助、导航和引用索引共同读取它。编辑器诊断、补全、悬停、导航、引用和重命名始终读取同一修订的语义快照；authoring snapshot 到此结束，执行编译才物化 Core。
+Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类型头，再解析成员与 callable，在完整项目声明图上完成名称解析、类型检查、泛型推断、interface 关系与见证验证、switch 穷尽检查、nullable 流分析、确定赋值和调用绑定，并产生不可变 `SemanticModel`。普通调用由 `ResolvedCall` 保存精确目标、实例化形参、类型实参、实参映射与结果类型；interface requirement 与实现关系同样只在语义模型中保存一份。Binder、签名帮助、导航和引用索引共同读取这份结果。编辑器诊断、补全、悬停、导航、引用和重命名始终读取同一修订的语义快照；authoring snapshot 到此结束，执行编译才物化 Core。
 
-`Binder` 将已验证语义冻结为内部 resolved representation。全局调用目标、字段 owner 与 ordinal、实参到形参映射、源码求值顺序、运行时泛型实参和 value/identity 复制语义在这里固定；后续阶段直接使用确定目标。
+`Binder` 将已验证语义冻结为内部 resolved representation。全局调用目标、interface requirement 与 witness、字段 owner 与 ordinal、实参到形参映射、源码求值顺序、运行时泛型实参和 value/identity 复制语义在这里固定；后续阶段直接使用确定目标。
 
 ## 身份边界
 
@@ -29,22 +29,22 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 | --- | --- | --- |
 | `DocumentId` / `SymbolId` | authoring | 文档修订、诊断和编辑器操作 |
 | `DefinitionId` | semantic Core | 不可变定义及其固定依赖 |
-| `InterfaceId` | namespace | 名字、可见性、导出和公开签名 |
+| `CoreNamespaceId` | namespace | 名字、可见性、导出和公开签名 |
 | `ArtifactId` | backend | Core 程序、调试来源和后端 ABI 对应的可执行产物 |
 
 `DefinitionId` 只来自版本化 canonical encoding。可调用定义的名字、参数名、局部变量名、源码位置、空白和注释位于 semantic Core 之外；局部绑定与类型参数使用定义内的稠密索引。
 
-内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class 的泛型 arity 和字段类型、enum 的成员顺序与可观察文本属于语义内容。
+内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class 的泛型参数、字段类型和 interface conformances，interface 的泛型参数、父接口与 requirements，以及 enum variant 的稳定键与 payload 类型都属于语义内容。
 
 `CoreNamespace` 保存 authoring 名字、签名、可见性、导出状态与精确 occurrence。`CoreAuthoringMap` 为每个 canonical definition 保存按来源稳定编号的 `DefinitionOccurrenceId`、`CoreDefinitionOrigin` 和引用 occurrence 路由。Lowerer 按调用所在 occurrence 选择对应来源，因此共享同一 `DefinitionId` 的多个源码定义仍保留各自的名字、位置和调用栈。
 
 ## Canonical Core
 
-`CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。调用、构造、enum 成员、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历 callable 签名、局部类型、运行时类型、class 字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
+`CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。callable、class、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
-`CoreCodec` 是 canonical bytes 的唯一编码入口。编码固定 schema version、域分隔、节点 tag、字节序、集合顺序和字符串编码；Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
+`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V2` 与 `LanguageSemanticsVersion.V2`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
 
-`CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 arity、callable receiver 与 reified ABI、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
+`CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 bound、callable receiver 与 reified ABI、interface 继承和完整 witness、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建协议与操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
 
 标准库源码经过同一条 Core 管线，并使用 `module.norm` 提供的模块坐标。`DefinitionStore` 按完整内容哈希保存 canonical group，内存实现用于隔离编译会话，文件实现用于 CLI 的跨进程内容复用。存储写入返回强类型的 stored、reused 或 not-admitted 结果；超出策略上限的对象不会落盘。文件读取验证 identity，并区分内容缺失与内容损坏；写入在固定锁分片内重检，持久化临时内容后原子发布并复验。根目录持久化存储策略并由维护锁保护，清理以文件系统重扫结果为事实来源。内容缓存按组数和字节数保持有界；authoring snapshot 不访问内容存储。
 
@@ -56,9 +56,9 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 ## Truffle 后端
 
-`TypedProgram` 和 `ExecutionBackend` 只暴露 `CoreCompilation`。Lowerer 只消费已解析 Core，生成函数 `CallTarget`、frame slot、控制流节点和固定目标的 `DirectCallNode`。
+`TypedProgram` 和 `ExecutionBackend` 只暴露 `CoreCompilation`。Lowerer 只消费已解析 Core，生成函数 `CallTarget`、frame slot、控制流节点、固定目标调用和按 interface requirement `DefinitionId` 索引的见证分发表。class 与内建类型共用同一 interface dispatch 节点；遍历式 `for` 通过 `Iterable<T>` 和 `Iterator<T>` requirements 工作，内建集合返回内部 `NativeIterator<T>` 运行时值。
 
-`ExecutionContext` 作为隐藏根参数沿固定调用边传递，可执行节点不捕获单次运行状态。`TruffleExecutionBackend` 以 `ArtifactId` 在有界缓存中保存上下文无关的可执行程序；artifact identity 覆盖 Core groups、入口 occurrence、namespace/interface、binding occurrence、源码 URI 与内容、origin span、引用 occurrence 路由和后端 ABI。Polyglot 入口在执行时取得当前 language context，因此同一 artifact 可以安全服务多个执行上下文。
+`ExecutionContext` 作为隐藏根参数沿固定调用边传递，可执行节点不捕获单次运行状态。`TruffleExecutionBackend` 以 `ArtifactId` 在有界缓存中保存上下文无关的可执行程序；artifact identity 覆盖 Core groups、入口 occurrence、namespace、binding occurrence、源码 URI 与内容、origin span、引用 occurrence 路由和后端 ABI。Polyglot 入口在执行时取得当前 language context，因此同一 artifact 可以安全服务多个执行上下文。
 
 guest 运行错误在 Truffle 节点处携带稳定错误码和 `SourceSection`，跨公开边界后转换为结构化 `NormExecutionException`。Native Image 打包同一 Core 与 Truffle 执行链。
 

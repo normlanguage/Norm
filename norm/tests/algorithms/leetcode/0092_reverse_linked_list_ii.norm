@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> reverseBetween(Array<Integer> values, Integer left, Integer right) {
   Integer start = left - 1
   Integer end = right - 1
@@ -11,9 +13,11 @@ Array<Integer> reverseBetween(Array<Integer> values, Integer left, Integer right
 
 Void main() {
   for Integer value : reverseBetween(values: [1,2,3,4,5], left: 2, right: 4) { printLine(value) }
-  expectedOutputLine("1")
-  expectedOutputLine("4")
-  expectedOutputLine("3")
-  expectedOutputLine("2")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "1",
+    "4",
+    "3",
+    "2",
+    "5"
+  ])
 }

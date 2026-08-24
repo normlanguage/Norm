@@ -20,7 +20,7 @@ catch 按源码顺序匹配异常的动态类型。更具体的类型必须写�
 try {
     readFile()
 } catch FileNotFound error {
-    printLine("missing: ${error.path}")
+    printLine(error.path)
 } catch IOException error {
     printLine(error.message)
 }

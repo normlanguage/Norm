@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Parentheses {
   List<String> values
 }
@@ -19,15 +22,19 @@ Void buildParentheses(Parentheses result, String current, Integer open, Integer 
 }
 
 List<String> generateParenthesis(Integer pairs) {
-  Parentheses result = Parentheses(values: List<String>())
+  Parentheses result = Parentheses(values: List<>())
   buildParentheses(result, current: "", open: 0, close: 0, pairs)
   return result.values
 }
 
 Void main() {
   List<String> answer = generateParenthesis(3)
-  printLine(answer.size())
-  printLine(answer[0])
-  expectedOutputLine("5")
-  expectedOutputLine("((()))")
+  printLines([
+    answer.size(),
+    answer[0]
+  ])
+  expectedOutputLines([
+    "5",
+    "((()))"
+  ])
 }

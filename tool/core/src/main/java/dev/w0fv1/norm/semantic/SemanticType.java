@@ -17,6 +17,15 @@ public record SemanticType(
   public static final SemanticType INTEGER =
       new SemanticType(
           Kind.DECLARED, "std.core.Integer", "Integer", List.of(), ValueCategory.VALUE);
+  public static final SemanticType LONG =
+      new SemanticType(Kind.DECLARED, "std.core.Long", "Long", List.of(), ValueCategory.VALUE);
+  public static final SemanticType FLOAT =
+      new SemanticType(Kind.DECLARED, "std.core.Float", "Float", List.of(), ValueCategory.VALUE);
+  public static final SemanticType DOUBLE =
+      new SemanticType(Kind.DECLARED, "std.core.Double", "Double", List.of(), ValueCategory.VALUE);
+  public static final SemanticType NUMBER =
+      new SemanticType(
+          Kind.DECLARED, "std.core.Number", "Number", List.of(), ValueCategory.POLYMORPHIC);
   public static final SemanticType CODE_POINT =
       new SemanticType(
           Kind.DECLARED, "std.core.CodePoint", "CodePoint", List.of(), ValueCategory.VALUE);
@@ -84,7 +93,12 @@ public record SemanticType(
 
   public static SemanticType parameter(String identity, String name) {
     return new SemanticType(
-        Kind.TYPE_PARAMETER, identity, name, List.of(), ValueCategory.VALUE, Nullability.NON_NULL);
+        Kind.TYPE_PARAMETER,
+        identity,
+        name,
+        List.of(),
+        ValueCategory.POLYMORPHIC,
+        Nullability.NON_NULL);
   }
 
   public String displayName() {

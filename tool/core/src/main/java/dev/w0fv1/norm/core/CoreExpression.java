@@ -8,15 +8,17 @@ import java.util.Optional;
 public sealed interface CoreExpression extends CoreNode
     permits CoreExpression.Literal,
         CoreExpression.NullLiteral,
-        CoreExpression.ArrayLiteral,
+        CoreExpression.CollectionLiteral,
         CoreExpression.LocalRead,
         CoreExpression.FieldRead,
-        CoreExpression.EnumMember,
+        CoreExpression.EnumConstruct,
         CoreExpression.Unary,
         CoreExpression.Binary,
+        CoreExpression.Switch,
         CoreExpression.Index,
         CoreExpression.CopyObject,
         CoreExpression.Call,
+        CoreExpression.InterfaceCall,
         CoreExpression.Construct,
         CoreExpression.Intrinsic {
   CoreType type();
@@ -28,6 +30,8 @@ public sealed interface CoreExpression extends CoreNode
       Objects.requireNonNull(type, "type");
       if (!(value instanceof Long
           || value instanceof Integer
+          || value instanceof Float
+          || value instanceof Double
           || value instanceof Boolean
           || value instanceof String)) {
         throw new IllegalArgumentException("unsupported core literal value");
@@ -42,12 +46,17 @@ public sealed interface CoreExpression extends CoreNode
     }
   }
 
-  record ArrayLiteral(
-      int nodeIndex, List<CoreExpression> elements, CoreRuntimeType runtimeType, CoreType type)
+  record CollectionLiteral(
+      int nodeIndex,
+      List<CoreExpression> elements,
+      IntrinsicId materializer,
+      CoreRuntimeType runtimeType,
+      CoreType type)
       implements CoreExpression {
-    public ArrayLiteral {
+    public CollectionLiteral {
       requireNode(nodeIndex);
       elements = List.copyOf(elements);
+      Objects.requireNonNull(materializer, "materializer");
       Objects.requireNonNull(runtimeType, "runtimeType");
       Objects.requireNonNull(type, "type");
     }
@@ -76,14 +85,21 @@ public sealed interface CoreExpression extends CoreNode
     }
   }
 
-  record EnumMember(int nodeIndex, CoreDefinitionLink target, int memberOrdinal, CoreType type)
+  record EnumConstruct(
+      int nodeIndex,
+      CoreDefinitionLink target,
+      String variantKey,
+      CoreRuntimeType runtimeType,
+      List<CoreArgument> arguments,
+      CoreType type)
       implements CoreExpression {
-    public EnumMember {
+    public EnumConstruct {
       requireNode(nodeIndex);
       Objects.requireNonNull(target, "target");
-      if (memberOrdinal < 0) {
-        throw new IllegalArgumentException("enum member ordinal must not be negative");
-      }
+      Objects.requireNonNull(variantKey, "variantKey");
+      if (variantKey.isBlank()) throw new IllegalArgumentException("variant key must not be blank");
+      Objects.requireNonNull(runtimeType, "runtimeType");
+      arguments = List.copyOf(arguments);
       Objects.requireNonNull(type, "type");
     }
   }
@@ -110,6 +126,17 @@ public sealed interface CoreExpression extends CoreNode
       Objects.requireNonNull(left, "left");
       Objects.requireNonNull(operator, "operator");
       Objects.requireNonNull(right, "right");
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record Switch(int nodeIndex, CoreExpression value, List<CoreSwitchCase> cases, CoreType type)
+      implements CoreExpression {
+    public Switch {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(value, "value");
+      cases = List.copyOf(cases);
+      if (cases.isEmpty()) throw new IllegalArgumentException("switch must declare a case");
       Objects.requireNonNull(type, "type");
     }
   }
@@ -154,6 +181,25 @@ public sealed interface CoreExpression extends CoreNode
       requireNode(nodeIndex);
       Objects.requireNonNull(target, "target");
       receiver = Objects.requireNonNull(receiver, "receiver");
+      arguments = List.copyOf(arguments);
+      reifiedArguments = List.copyOf(reifiedArguments);
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record InterfaceCall(
+      int nodeIndex,
+      CoreDefinitionLink requirement,
+      CoreExpression receiver,
+      List<CoreArgument> arguments,
+      List<CoreRuntimeType> reifiedArguments,
+      boolean nullSafe,
+      CoreType type)
+      implements CoreExpression {
+    public InterfaceCall {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(requirement, "requirement");
+      Objects.requireNonNull(receiver, "receiver");
       arguments = List.copyOf(arguments);
       reifiedArguments = List.copyOf(reifiedArguments);
       Objects.requireNonNull(type, "type");

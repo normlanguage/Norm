@@ -11,6 +11,30 @@ public sealed interface CoreType permits CoreType.Declared, CoreType.Parameter, 
           List.of(),
           CoreValueCategory.VALUE,
           CoreNullability.NON_NULL);
+  CoreType LONG =
+      new Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Long")),
+          List.of(),
+          CoreValueCategory.VALUE,
+          CoreNullability.NON_NULL);
+  CoreType FLOAT =
+      new Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Float")),
+          List.of(),
+          CoreValueCategory.VALUE,
+          CoreNullability.NON_NULL);
+  CoreType DOUBLE =
+      new Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Double")),
+          List.of(),
+          CoreValueCategory.VALUE,
+          CoreNullability.NON_NULL);
+  CoreType NUMBER =
+      new Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Number")),
+          List.of(),
+          CoreValueCategory.POLYMORPHIC,
+          CoreNullability.NON_NULL);
   CoreType CODE_POINT =
       new Declared(
           new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.CodePoint")),

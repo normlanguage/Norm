@@ -1,7 +1,9 @@
+import std.io.printLines
 import std.math.min
+import std.testing.expectedOutputLines
 
 Integer minimumCoins(Array<Integer> coins, Integer amount) {
-  List<Integer> best = List<Integer>()
+  List<Integer> best = List<>()
   for value : range(start: 0, end: amount + 1) { best.add(amount + 1) }
   best[0] = 0
   for value : range(start: 1, end: amount + 1) {
@@ -14,8 +16,12 @@ Integer minimumCoins(Array<Integer> coins, Integer amount) {
 }
 
 Void main() {
-  printLine(minimumCoins(coins: [1, 2, 5], amount: 11))
-  printLine(minimumCoins(coins: [2], amount: 3))
-  expectedOutputLine("3")
-  expectedOutputLine("-1")
+  printLines([
+    minimumCoins(coins: [1, 2, 5], amount: 11),
+    minimumCoins(coins: [2], amount: 3)
+  ])
+  expectedOutputLines([
+    "3",
+    "-1"
+  ])
 }

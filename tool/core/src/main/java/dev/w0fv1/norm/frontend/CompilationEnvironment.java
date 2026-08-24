@@ -108,6 +108,7 @@ public final class CompilationEnvironment {
               List.of(),
               List.of(),
               List.of(),
+              List.of(),
               new SourceSpan(source, 0, source.length()));
       return new ParsedDocument(source, List.of(), syntax, diagnostics.snapshot());
     }

@@ -1,7 +1,7 @@
 String addBinary(String leftValue, String rightValue) {
   Array<CodePoint> left = leftValue.codePoints()
   Array<CodePoint> right = rightValue.codePoints()
-  List<Integer> reversed = List<Integer>()
+  List<Integer> reversed = List<>()
   Integer carry = 0
   Integer size = left.size()
   if right.size() > size { size = right.size() }

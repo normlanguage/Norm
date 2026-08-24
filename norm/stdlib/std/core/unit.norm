@@ -1,0 +1,5 @@
+package std.core
+
+public enum Unit {
+  Value
+}

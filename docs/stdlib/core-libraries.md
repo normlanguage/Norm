@@ -7,13 +7,13 @@
 String 是不可变 Unicode 文本值，提供搜索、切分、替换、大小写和显式编码转换。文本使用 `byteSize()`、`codePointSize()` 与 `graphemeSize()` 区分单位，不提供含糊的 `size()` 或 `length`。
 
 ```norm
-String message = "point = (${point.x}, ${point.y})"
+String message = "Hello, " + name
 Bytes encoded = message.encode(encoding: TextEncoding.Utf8)
 ```
 
 ## 数值与时间
 
-Math 提供固定语义的基础函数；Decimal 单独管理十进制 scale 与 rounding。Time 区分 Instant、LocalDate、LocalTime、Duration、TimeZone 和带时区时间，避免把本地时间误当成全球时间点。
+Math 提供固定语义的基础函数。计划中的 Decimal 将单独管理十进制 scale 与 rounding；时间库将区分 Instant、LocalDate、LocalTime、Duration、TimeZone 和带时区时间，避免把本地时间误当成全球时间点。
 
 ## 集合
 

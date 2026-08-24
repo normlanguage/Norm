@@ -20,7 +20,7 @@ Result<String, FileError> text = File.readText(
     encoding: TextEncoding.Utf8
 )
 
-Result<Void, FileError> saved = File.writeText(
+Result<Unit, FileError> saved = File.writeText(
     path: file,
     text: content,
     mode: WriteMode.Replace
@@ -34,4 +34,3 @@ Result<Void, FileError> saved = File.writeText(
 大文件使用 `FileReader`、`FileWriter` 或字节流。打开成功后，调用者必须通过作用域资源 API或 `try/finally` 关闭资源。重复 close 应安全但不应掩盖第一次关闭错误。
 
 原子替换、同步落盘和符号链接跟随策略必须是显式选项；默认值不能让安全敏感行为依赖操作系统差异。
-

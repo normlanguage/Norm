@@ -60,6 +60,18 @@ try {
   chmodSync(external, 0o755);
   assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
   assert.equal(resolveCliCommand(external, undefined, packagedExtension), external);
+
+  rmSync(bin, { recursive: true, force: true });
+  const bundledJvm = join(
+    packagedExtension,
+    'server',
+    'bin',
+    process.platform === 'win32' ? 'norm.bat' : 'norm',
+  );
+  mkdirSync(dirname(bundledJvm), { recursive: true });
+  writeFileSync(bundledJvm, '');
+  chmodSync(bundledJvm, 0o755);
+  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundledJvm);
 } finally {
   rmSync(fixture, { recursive: true, force: true });
 }

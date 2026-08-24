@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Matrix {
   Integer a
   Integer b
@@ -28,8 +31,12 @@ Integer fibonacci(Integer n) {
 }
 
 Void main() {
-  printLine(fibonacci(10))
-  printLine(fibonacci(20))
-  expectedOutputLine("55")
-  expectedOutputLine("6765")
+  printLines([
+    fibonacci(10),
+    fibonacci(20)
+  ])
+  expectedOutputLines([
+    "55",
+    "6765"
+  ])
 }

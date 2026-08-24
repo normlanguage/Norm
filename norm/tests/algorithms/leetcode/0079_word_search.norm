@@ -16,14 +16,14 @@ Boolean exist(List<String> board, String value) {
   Array<CodePoint> word = value.codePoints()
   for row : range(start: 0, end: board.size()) {
     for column : range(start: 0, end: board[0].codePointSize()) {
-      if findWord(board, word, row, column, index: 0, used: Set<Integer>()) { return true }
+      if findWord(board, word, row, column, index: 0, used: Set<>()) { return true }
     }
   }
   return false
 }
 
 Void main() {
-  List<String> board = List<String>()
+  List<String> board = List<>()
   board.add("ABCE")
   board.add("SFCS")
   board.add("ADEE")

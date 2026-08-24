@@ -14,7 +14,7 @@ enum ParseError {
 
 Result<Integer, ParseError> parseInteger(String text) {
     if text.codePointSize() == 0 {
-        return Err(Empty)
+        return Result.Err(error: ParseError.Empty)
     }
 
     // 解析过程
@@ -26,18 +26,18 @@ Result<Integer, ParseError> parseInteger(String text) {
 ```norm
 String message = switch parseInteger("42") {
     case Ok(Integer value) {
-        break "value = ${value}"
+        break "valid integer"
     }
     case Err(Empty) {
         break "input is empty"
     }
     case Err(InvalidCharacter(Integer position)) {
-        break "invalid character at ${position}"
+        break "invalid character"
     }
 }
 ```
 
-`Result<T, E>` 是普通泛型 enum。Norm 不提供类似 `?` 的自动传播语法，因为传播会引入一条不明显的函数退出路径。
+`Result<T, E>` 是 `std.core` 中的普通泛型 enum。没有业务值的成功结果使用 `Result<Unit, E>`；Unit 是标准库普通值，不替代无返回值函数的 Void。Norm 不提供类似 `?` 的自动传播语法，因为传播会引入一条不明显的函数退出路径。
 
 ## 异常用于非正常执行状态
 
@@ -45,7 +45,7 @@ String message = switch parseInteger("42") {
 try {
     readConfiguration()
 } catch IOException error {
-    printLine("cannot read configuration: ${error.message}")
+    printLine(error.message)
 } finally {
     closeResources()
 }

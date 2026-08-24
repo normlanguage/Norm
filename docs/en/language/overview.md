@@ -11,7 +11,7 @@ Integer square(Integer value) {
 
 Void main() {
     Integer result = square(4)
-    printLine("result = ${result}")
+    printLine(result)
 }
 ```
 
@@ -40,13 +40,13 @@ String sign = if number < 0 {
 
 Norm does not use the final expression of a block as its implicit result. `break value` identifies where the result is produced.
 
-### Generic arguments at runtime
+### Contextual generic inference
 
 ```norm
-List<String>.class.T == String.class
+List<String> names = List<>()
 ```
 
-Parameterized types retain their actual generic arguments at runtime.
+Expected types and expression types jointly determine omitted generic arguments.
 
 ## Reading order
 

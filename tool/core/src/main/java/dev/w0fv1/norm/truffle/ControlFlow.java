@@ -19,6 +19,15 @@ final class ControlFlow {
     static final Break INSTANCE = new Break();
   }
 
+  static final class Yield extends ControlFlowException {
+    private static final long serialVersionUID = 1L;
+    final transient Object value;
+
+    Yield(Object value) {
+      this.value = value;
+    }
+  }
+
   static final class Continue extends ControlFlowException {
     private static final long serialVersionUID = 1L;
     static final Continue INSTANCE = new Continue();

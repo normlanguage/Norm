@@ -1,6 +1,6 @@
 String simplifyPath(String path) {
   Array<String> components = path.split(separator: "/")
-  List<String> stack = List<String>()
+  List<String> stack = List<>()
   for String component : components {
     if component.isEmpty() || component == "." {
     } else if component == ".." {

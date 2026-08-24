@@ -1,4 +1,5 @@
 import std.math.min
+import std.testing.expectedOutputLines
 
 List<Integer> dijkstra(Array<Array<Integer>> graph, Integer source) {
   Integer infinity = 999999
@@ -35,9 +36,11 @@ Void main() {
     [0, 0, 0, 9, 0]
   ]
   for Integer distance : dijkstra(graph, source: 0) { printLine(distance) }
-  expectedOutputLine("0")
-  expectedOutputLine("7")
-  expectedOutputLine("3")
-  expectedOutputLine("9")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "0",
+    "7",
+    "3",
+    "9",
+    "5"
+  ])
 }

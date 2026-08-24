@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Box<T> {
   T value
 
@@ -13,9 +16,13 @@ class Box<T> {
 }
 
 Void main() {
-  Box<String> box = Box<String>(value: "first")
-  printLine(box.replace("second"))
-  printLine(box.value)
-  expectedOutputLine("first")
-  expectedOutputLine("second")
+  Box<String> box = Box<>(value: "first")
+  printLines([
+    box.replace("second"),
+    box.value
+  ])
+  expectedOutputLines([
+    "first",
+    "second"
+  ])
 }

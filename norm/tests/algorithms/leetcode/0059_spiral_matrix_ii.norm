@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<List<Integer>> generateMatrix(Integer size) {
-  List<List<Integer>> matrix = List<List<Integer>>()
+  List<List<Integer>> matrix = List<>()
   for row : range(start: 0, end: size) {
     List<Integer> values = List.filled(size: size, value: 0)
     matrix.add(values)
@@ -49,13 +51,15 @@ List<List<Integer>> generateMatrix(Integer size) {
 
 Void main() {
   for List<Integer> row : generateMatrix(3) { for Integer value : row { printLine(value) } }
-  expectedOutputLine("1")
-  expectedOutputLine("2")
-  expectedOutputLine("3")
-  expectedOutputLine("8")
-  expectedOutputLine("9")
-  expectedOutputLine("4")
-  expectedOutputLine("7")
-  expectedOutputLine("6")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "1",
+    "2",
+    "3",
+    "8",
+    "9",
+    "4",
+    "7",
+    "6",
+    "5"
+  ])
 }

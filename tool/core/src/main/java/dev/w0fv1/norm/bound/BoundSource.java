@@ -8,12 +8,14 @@ public record BoundSource(
     SourceFile source,
     String packageName,
     List<BoundEnumId> enums,
+    List<BoundInterfaceId> interfaces,
     List<BoundClassId> classes,
     List<BoundCallableId> callables) {
   public BoundSource {
     Objects.requireNonNull(source, "source");
     Objects.requireNonNull(packageName, "packageName");
     enums = List.copyOf(enums);
+    interfaces = List.copyOf(interfaces);
     classes = List.copyOf(classes);
     callables = List.copyOf(callables);
   }

@@ -12,21 +12,21 @@ enum Token {
 
 ## 构造与类型
 
-`Number(value: 1.5)` 的静态类型是 `Token`，不是公开的子类。variant 构造器只初始化其声明的数据，不能继承或被单独实现。
+`Token.Number(value: 1.5)` 的静态类型是 `Token`，不是公开的子类。variant 构造器只初始化其声明的数据，不能继承或被单独实现。泛型 enum 的显式构造在类型名上写全实参，例如 `Result<Integer, Error>.Ok(value: 1)`；省略实参时使用普通调用推断规则。
 
 ## 匹配
 
 ```norm
 String describe(Token token) {
     return switch token {
-        case Number(Double value) { break "number ${value}" }
+        case Number(Double value) { break "number" }
         case Name(String text) { break text }
         case End { break "end" }
     }
 }
 ```
 
-编译器知道 enum 的完整 variant 集合，因此表达式 switch 可以执行穷尽检查。模式绑定具有静态类型，作用域仅限 case 块。
+编译器递归分析模式覆盖范围，因此每个 switch 都必须穷尽。模式绑定具有静态类型，作用域仅限 case 块。
 
 ## 演进规则
 

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer myAtoi(String inputValue) {
   Array<CodePoint> input = inputValue.codePoints()
   Integer index = 0
@@ -25,8 +28,12 @@ Integer myAtoi(String inputValue) {
 }
 
 Void main() {
-  printLine(myAtoi("  -42"))
-  printLine(myAtoi("4193000000"))
-  expectedOutputLine("-42")
-  expectedOutputLine("2147483647")
+  printLines([
+    myAtoi("  -42"),
+    myAtoi("4193000000")
+  ])
+  expectedOutputLines([
+    "-42",
+    "2147483647"
+  ])
 }

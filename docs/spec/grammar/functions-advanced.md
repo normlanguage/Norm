@@ -7,8 +7,8 @@
 候选函数按名称与可见性收集，并依次按参数数量、参数标签、参数类型和泛型推断结果筛选。调用必须得到唯一目标；找不到匹配或保留多个候选时产生诊断。返回类型不参与重载 identity，也不用于打破歧义。
 
 ```norm
-String format(Integer value) { return "${value}" }
-String format(Decimal value) { return "${value}" }
+String format(Integer value) { return "integer" }
+String format(String value) { return value }
 
 String text = format(value: 3)
 ```

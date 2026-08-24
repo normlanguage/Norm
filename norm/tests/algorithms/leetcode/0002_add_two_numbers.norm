@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<Integer> addTwoNumbers(Array<Integer> left, Array<Integer> right) {
-  List<Integer> result = List<Integer>()
+  List<Integer> result = List<>()
   Integer carry = 0
   Integer size = left.size()
   if right.size() > size { size = right.size() }
@@ -16,7 +18,9 @@ List<Integer> addTwoNumbers(Array<Integer> left, Array<Integer> right) {
 
 Void main() {
   for Integer value : addTwoNumbers(left: [2, 4, 3], right: [5, 6, 4]) { printLine(value) }
-  expectedOutputLine("7")
-  expectedOutputLine("0")
-  expectedOutputLine("8")
+  expectedOutputLines([
+    "7",
+    "0",
+    "8"
+  ])
 }

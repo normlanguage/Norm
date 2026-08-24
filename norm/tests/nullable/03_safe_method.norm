@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Word {
   String value
   Integer size() { return value.codePointSize() }
@@ -6,8 +9,12 @@ class Word {
 Void main() {
   Word? missing = null
   Word? present = Word(value: "你好")
-  printLine(missing?.size() ?? 0)
-  printLine(present?.size() ?? 0)
-  expectedOutputLine("0")
-  expectedOutputLine("2")
+  printLines([
+    missing?.size() ?? 0,
+    present?.size() ?? 0
+  ])
+  expectedOutputLines([
+    "0",
+    "2"
+  ])
 }

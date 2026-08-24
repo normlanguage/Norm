@@ -1,6 +1,9 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer lengthOfLongestSubstring(String value) {
   Array<CodePoint> text = value.codePoints()
-  Set<CodePoint> window = Set<CodePoint>()
+  Set<CodePoint> window = Set<>()
   Integer left = 0
   Integer best = 0
   for right : range(start: 0, end: text.size()) {
@@ -16,8 +19,12 @@ Integer lengthOfLongestSubstring(String value) {
 }
 
 Void main() {
-  printLine(lengthOfLongestSubstring("abcabcbb"))
-  printLine(lengthOfLongestSubstring("bbbbb"))
-  expectedOutputLine("3")
-  expectedOutputLine("1")
+  printLines([
+    lengthOfLongestSubstring("abcabcbb"),
+    lengthOfLongestSubstring("bbbbb")
+  ])
+  expectedOutputLines([
+    "3",
+    "1"
+  ])
 }

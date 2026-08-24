@@ -7,7 +7,9 @@ import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundExpression;
 import dev.w0fv1.norm.bound.BoundIntrinsic;
+import dev.w0fv1.norm.bound.BoundIteration;
 import dev.w0fv1.norm.bound.BoundLocalId;
+import dev.w0fv1.norm.bound.BoundPattern;
 import dev.w0fv1.norm.bound.BoundRuntimeType;
 import dev.w0fv1.norm.bound.BoundStatement;
 import dev.w0fv1.norm.core.CoreArgument;
@@ -15,9 +17,12 @@ import dev.w0fv1.norm.core.CoreBinaryOperator;
 import dev.w0fv1.norm.core.CoreBlock;
 import dev.w0fv1.norm.core.CoreExpression;
 import dev.w0fv1.norm.core.CoreFieldReference;
+import dev.w0fv1.norm.core.CoreIteration;
 import dev.w0fv1.norm.core.CoreLocal;
+import dev.w0fv1.norm.core.CorePattern;
 import dev.w0fv1.norm.core.CoreRuntimeType;
 import dev.w0fv1.norm.core.CoreStatement;
+import dev.w0fv1.norm.core.CoreSwitchCase;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeCapture;
 import dev.w0fv1.norm.core.CoreUnaryOperator;
@@ -35,7 +40,6 @@ final class BoundCoreBodyConverter {
   private final BoundCoreTypeConverter types;
   private final Optional<CoreType> receiverType;
   private final ToIntFunction<String> declarationIndex;
-  private final ToIntFunction<String> enumMemberOrdinal;
   private final ToIntFunction<String> fieldOwnerIndex;
   private final LocalTable locals = new LocalTable();
   private final NodeTable nodes = new NodeTable();
@@ -45,12 +49,10 @@ final class BoundCoreBodyConverter {
       BoundCoreTypeConverter types,
       Optional<CoreType> receiverType,
       ToIntFunction<String> declarationIndex,
-      ToIntFunction<String> enumMemberOrdinal,
       ToIntFunction<String> fieldOwnerIndex) {
     this.types = Objects.requireNonNull(types, "types");
     this.receiverType = Objects.requireNonNull(receiverType, "receiverType");
     this.declarationIndex = Objects.requireNonNull(declarationIndex, "declarationIndex");
-    this.enumMemberOrdinal = Objects.requireNonNull(enumMemberOrdinal, "enumMemberOrdinal");
     this.fieldOwnerIndex = Objects.requireNonNull(fieldOwnerIndex, "fieldOwnerIndex");
   }
 
@@ -78,20 +80,98 @@ final class BoundCoreBodyConverter {
   private void scanLocals(BoundBlock block) {
     for (BoundStatement statement : block.statements()) {
       switch (statement) {
-        case BoundStatement.LocalDeclaration local ->
-            locals.add(local.local(), types.convert(local.type()), CoreLocal.Kind.VARIABLE);
+        case BoundStatement.LocalDeclaration local -> {
+          locals.add(local.local(), types.convert(local.type()), CoreLocal.Kind.VARIABLE);
+          scanExpression(local.initializer());
+        }
+        case BoundStatement.LocalAssignment assignment -> scanExpression(assignment.value());
+        case BoundStatement.FieldAssignment assignment -> {
+          scanExpression(assignment.receiver());
+          scanExpression(assignment.value());
+        }
+        case BoundStatement.IntrinsicAssignment assignment -> {
+          scanExpression(assignment.receiver());
+          assignment.index().ifPresent(this::scanExpression);
+          scanExpression(assignment.value());
+        }
         case BoundStatement.IfStatement conditional -> {
+          scanExpression(conditional.condition());
           scanLocals(conditional.thenBlock());
           scanLocals(conditional.elseBlock());
         }
-        case BoundStatement.ConditionalForStatement loop -> scanLocals(loop.body());
+        case BoundStatement.ConditionalForStatement loop -> {
+          scanExpression(loop.condition());
+          scanLocals(loop.body());
+        }
         case BoundStatement.ForStatement loop -> {
           locals.add(loop.iterator(), CoreType.DYNAMIC, CoreLocal.Kind.ITERATOR);
           locals.add(loop.variable(), types.convert(loop.variableType()), CoreLocal.Kind.VARIABLE);
+          loop.index()
+              .ifPresent(index -> locals.add(index, CoreType.INTEGER, CoreLocal.Kind.VARIABLE));
+          scanExpression(loop.iterable());
           scanLocals(loop.body());
         }
-        default -> {}
+        case BoundStatement.ExpressionStatement expression ->
+            scanExpression(expression.expression());
+        case BoundStatement.ReturnStatement returned ->
+            returned.value().ifPresent(this::scanExpression);
+        case BoundStatement.YieldStatement yielded -> scanExpression(yielded.value());
+        case BoundStatement.BreakStatement ignored -> {}
+        case BoundStatement.ContinueStatement ignored -> {}
       }
+    }
+  }
+
+  private void scanExpression(BoundExpression expression) {
+    switch (expression) {
+      case BoundExpression.Literal ignored -> {}
+      case BoundExpression.NullLiteral ignored -> {}
+      case BoundExpression.CollectionLiteral collection ->
+          collection.elements().forEach(this::scanExpression);
+      case BoundExpression.LocalRead ignored -> {}
+      case BoundExpression.FieldRead field -> scanExpression(field.receiver());
+      case BoundExpression.EnumConstruct construct ->
+          construct.arguments().forEach(argument -> scanExpression(argument.value()));
+      case BoundExpression.Unary unary -> scanExpression(unary.operand());
+      case BoundExpression.Binary binary -> {
+        scanExpression(binary.left());
+        scanExpression(binary.right());
+      }
+      case BoundExpression.Switch switched -> {
+        scanExpression(switched.value());
+        switched.cases().forEach(value -> scanPattern(value.pattern()));
+        switched.cases().forEach(value -> scanLocals(value.body()));
+      }
+      case BoundExpression.Index index -> {
+        scanExpression(index.receiver());
+        scanExpression(index.index());
+      }
+      case BoundExpression.CopyObject copied -> scanExpression(copied.receiver());
+      case BoundExpression.InterfaceCall call -> {
+        scanExpression(call.receiver());
+        call.arguments().forEach(argument -> scanExpression(argument.value()));
+      }
+      case BoundCall call -> {
+        call.receiver().ifPresent(this::scanExpression);
+        call.arguments().forEach(argument -> scanExpression(argument.value()));
+      }
+      case BoundConstruct construct ->
+          construct.arguments().forEach(argument -> scanExpression(argument.value()));
+      case BoundIntrinsic intrinsic -> {
+        intrinsic.receiver().ifPresent(this::scanExpression);
+        intrinsic.arguments().forEach(argument -> scanExpression(argument.value()));
+      }
+    }
+  }
+
+  private void scanPattern(BoundPattern pattern) {
+    switch (pattern) {
+      case BoundPattern.Binding binding ->
+          locals.add(binding.local(), types.convert(binding.type()), CoreLocal.Kind.VARIABLE);
+      case BoundPattern.Variant variant -> variant.arguments().forEach(this::scanPattern);
+      case BoundPattern.Wildcard ignored -> {}
+      case BoundPattern.Literal ignored -> {}
+      case BoundPattern.Null ignored -> {}
     }
   }
 
@@ -138,11 +218,16 @@ final class BoundCoreBodyConverter {
               node,
               locals.index(loop.iterator()),
               locals.index(loop.variable()),
+              loop.index().isPresent()
+                  ? java.util.OptionalInt.of(locals.index(loop.index().orElseThrow()))
+                  : java.util.OptionalInt.empty(),
               convert(loop.iterable()),
               convert(loop.body()),
-              loop.iterationIntrinsic());
+              convert(loop.iteration()));
       case BoundStatement.ReturnStatement returned ->
           new CoreStatement.ReturnStatement(node, returned.value().map(this::convert));
+      case BoundStatement.YieldStatement yielded ->
+          new CoreStatement.YieldStatement(node, convert(yielded.value()));
       case BoundStatement.BreakStatement ignored -> new CoreStatement.BreakStatement(node);
       case BoundStatement.ContinueStatement ignored -> new CoreStatement.ContinueStatement(node);
     };
@@ -155,12 +240,13 @@ final class BoundCoreBodyConverter {
           new CoreExpression.Literal(node, literal.value(), types.convert(literal.type()));
       case BoundExpression.NullLiteral literal ->
           new CoreExpression.NullLiteral(node, types.convert(literal.type()));
-      case BoundExpression.ArrayLiteral array ->
-          new CoreExpression.ArrayLiteral(
+      case BoundExpression.CollectionLiteral collection ->
+          new CoreExpression.CollectionLiteral(
               node,
-              array.elements().stream().map(this::convert).toList(),
-              runtimeType(array.runtimeType()),
-              types.convert(array.type()));
+              collection.elements().stream().map(this::convert).toList(),
+              collection.materializer(),
+              runtimeType(collection.runtimeType()),
+              types.convert(collection.type()));
       case BoundExpression.LocalRead local ->
           new CoreExpression.LocalRead(
               node, locals.index(local.local()), types.convert(local.type()));
@@ -171,12 +257,14 @@ final class BoundCoreBodyConverter {
               field(field.field().value(), field.ordinal()),
               field.nullSafe(),
               types.convert(field.type()));
-      case BoundExpression.EnumMember member ->
-          new CoreExpression.EnumMember(
+      case BoundExpression.EnumConstruct construct ->
+          new CoreExpression.EnumConstruct(
               node,
-              reference(node, member.enumId().value()),
-              enumMemberOrdinal.applyAsInt(member.memberId().value()),
-              types.convert(member.type()));
+              reference(node, construct.enumId().value()),
+              construct.variantName(),
+              runtimeType(construct.runtimeType()),
+              arguments(construct.arguments()),
+              types.convert(construct.type()));
       case BoundExpression.Unary unary ->
           new CoreExpression.Unary(
               node,
@@ -190,6 +278,17 @@ final class BoundCoreBodyConverter {
               CoreBinaryOperator.valueOf(binary.operator().name()),
               convert(binary.right()),
               types.convert(binary.type()));
+      case BoundExpression.Switch switched ->
+          new CoreExpression.Switch(
+              node,
+              convert(switched.value()),
+              switched.cases().stream()
+                  .map(
+                      switchCase ->
+                          new CoreSwitchCase(
+                              convert(switchCase.pattern()), convert(switchCase.body())))
+                  .toList(),
+              types.convert(switched.type()));
       case BoundExpression.Index index ->
           new CoreExpression.Index(
               node,
@@ -201,6 +300,15 @@ final class BoundCoreBodyConverter {
       case BoundExpression.CopyObject copied ->
           new CoreExpression.CopyObject(
               node, convert(copied.receiver()), copied.nullSafe(), types.convert(copied.type()));
+      case BoundExpression.InterfaceCall call ->
+          new CoreExpression.InterfaceCall(
+              node,
+              reference(node, call.requirement().value()),
+              convert(call.receiver()),
+              arguments(call.arguments()),
+              call.reifiedArguments().stream().map(this::runtimeType).toList(),
+              call.nullSafe(),
+              types.convert(call.type()));
       case BoundCall call ->
           new CoreExpression.Call(
               node,
@@ -226,6 +334,34 @@ final class BoundCoreBodyConverter {
               intrinsic.runtimeType().map(this::runtimeType),
               intrinsic.nullSafe(),
               types.convert(intrinsic.type()));
+    };
+  }
+
+  private CoreIteration convert(BoundIteration iteration) {
+    return switch (iteration) {
+      case BoundIteration.Builtin builtin -> new CoreIteration.Builtin(builtin.intrinsic());
+      case BoundIteration.Interface protocol ->
+          new CoreIteration.Interface(
+              new PendingDefinitionReference(
+                  declarationIndex.applyAsInt(protocol.iteratorRequirement().value())),
+              new PendingDefinitionReference(
+                  declarationIndex.applyAsInt(protocol.hasNextRequirement().value())),
+              new PendingDefinitionReference(
+                  declarationIndex.applyAsInt(protocol.nextRequirement().value())));
+    };
+  }
+
+  private CorePattern convert(BoundPattern pattern) {
+    return switch (pattern) {
+      case BoundPattern.Variant variant ->
+          new CorePattern.Variant(
+              variant.variantKey(), variant.arguments().stream().map(this::convert).toList());
+      case BoundPattern.Binding binding ->
+          new CorePattern.Binding(locals.index(binding.local()), types.convert(binding.type()));
+      case BoundPattern.Wildcard ignored -> CorePattern.Wildcard.INSTANCE;
+      case BoundPattern.Literal literal ->
+          new CorePattern.Literal(literal.value(), types.convert(literal.type()));
+      case BoundPattern.Null ignored -> CorePattern.Null.INSTANCE;
     };
   }
 

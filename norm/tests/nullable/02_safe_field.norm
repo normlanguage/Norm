@@ -1,10 +1,17 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class User { String name }
 
 Void main() {
   User? missing = null
   User? present = User(name: "Ada")
-  printLine(missing?.name ?? "guest")
-  printLine(present?.name ?? "guest")
-  expectedOutputLine("guest")
-  expectedOutputLine("Ada")
+  printLines([
+    missing?.name ?? "guest",
+    present?.name ?? "guest"
+  ])
+  expectedOutputLines([
+    "guest",
+    "Ada"
+  ])
 }

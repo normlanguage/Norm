@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer strStr(String textValue, String patternValue) {
   Array<CodePoint> text = textValue.codePoints()
   Array<CodePoint> pattern = patternValue.codePoints()
@@ -16,8 +19,12 @@ Integer strStr(String textValue, String patternValue) {
 }
 
 Void main() {
-  printLine(strStr(textValue: "sadbutsad", patternValue: "sad"))
-  printLine(strStr(textValue: "leetcode", patternValue: "leeto"))
-  expectedOutputLine("0")
-  expectedOutputLine("-1")
+  printLines([
+    strStr(textValue: "sadbutsad", patternValue: "sad"),
+    strStr(textValue: "leetcode", patternValue: "leeto")
+  ])
+  expectedOutputLines([
+    "0",
+    "-1"
+  ])
 }

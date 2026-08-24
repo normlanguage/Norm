@@ -18,7 +18,7 @@ String longestCommonPrefix(List<String> words) {
 }
 
 Void main() {
-  List<String> words = List<String>()
+  List<String> words = List<>()
   words.add("flower")
   words.add("flow")
   words.add("flight")

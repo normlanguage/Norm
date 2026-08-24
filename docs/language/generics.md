@@ -4,9 +4,7 @@
 
 ## 当前边界
 
-当前实现支持无 bounds 的泛型 class、泛型函数与实例方法、参数化核心集合、嵌套 nullable 类型实参、基于实参和期望返回类型的调用推断，以及运行时类型参数保留。泛型默认不变且禁止 raw type。
-
-`extends` bounds、interface 约束、通配符型变、泛型数据 enum 与反射 API 属于后续严格扩展，不改变已有泛型的类型 identity 和可赋值规则。
+当前实现支持泛型 class、数据 enum、函数与实例方法，支持 interface bound、参数化核心集合、嵌套 nullable 类型实参、基于实参和期望返回类型的调用推断，以及运行时类型参数保留。泛型默认不变且禁止 raw type。通配符型变与反射 API 属于后续扩展。
 
 ## 泛型类型
 
@@ -19,11 +17,20 @@ class Box<T> {
 使用泛型类型时必须提供类型参数：
 
 ```norm
-Box<Integer> count = Box<Integer>(value: 3)
-Box<String?> label = Box<String?>(value: null)
+Box<Integer> count = Box<>(value: 3)
+Box<String?> label = Box<>(value: null)
 ```
 
 Norm 禁止 raw type，因此不能只写 `Box`。
+
+构造表达式的 `<>` 表示由 expected type 和构造参数共同推断实参：
+
+```norm
+Stack<Integer> indices = Stack<>()
+var inferred = Stack<Integer>()
+```
+
+diamond 只出现在构造表达式中，不能写在声明类型上。`var` 仅用于带初始化器的局部变量；`null`、空序列和无约束 diamond 不能单独决定其类型。
 
 ## 泛型函数
 
@@ -43,7 +50,7 @@ String? label = identity(null)
 ```norm
 class Values<T> {
     Pair<T, U> pair<U>(T first, U second) {
-        return Pair<T, U>(first: first, second: second)
+        return Pair<>(first: first, second: second)
     }
 }
 
@@ -53,6 +60,17 @@ Pair<String, Integer> value = Values<String>().pair<Integer>(first: "Norm", seco
 ## 不变性
 
 不同类型实参形成不同的不变类型。`List<String>` 不能赋给 `List<String?>`；允许 null 元素时必须在集合类型中明确声明。
+
+## Interface Bounds
+
+```norm
+T larger<T extends Comparable<T>>(T left, T right) {
+    if left.compareTo(other: right) >= 0 { return left }
+    return right
+}
+```
+
+bound 只引用 interface。实际类型必须通过 `implements` 或 interface `extends` 的显式名义关系满足约束；同名成员不会结构化匹配。
 
 ## 泛型的边界
 

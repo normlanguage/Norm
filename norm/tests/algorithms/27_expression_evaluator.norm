@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 enum Kind { Number, Add, Subtract, Multiply, Left, Right }
 
 class Token {
@@ -18,12 +20,12 @@ Pair<Stack<Integer>, Stack<Token>> applyTop(Stack<Integer> values, Stack<Token> 
   if operator.kind == Kind.Add { values.push(left + right) }
   if operator.kind == Kind.Subtract { values.push(left - right) }
   if operator.kind == Kind.Multiply { values.push(left * right) }
-  return Pair<Stack<Integer>, Stack<Token>>(first: values, second: operators)
+  return Pair<>(first: values, second: operators)
 }
 
 Integer evaluate(List<Token> tokens) {
-  Stack<Integer> values = Stack<Integer>()
-  Stack<Token> operators = Stack<Token>()
+  Stack<Integer> values = Stack<>()
+  Stack<Token> operators = Stack<>()
   for Token token : tokens {
     if token.kind == Kind.Number {
       values.push(token.value)
@@ -56,7 +58,7 @@ Integer evaluate(List<Token> tokens) {
 }
 
 Void main() {
-  List<Token> first = List<Token>()
+  List<Token> first = List<>()
   first.add(Token(kind: Kind.Number, value: 3))
   first.add(Token(kind: Kind.Add, value: 0))
   first.add(Token(kind: Kind.Number, value: 2))
@@ -64,7 +66,7 @@ Void main() {
   first.add(Token(kind: Kind.Number, value: 7))
   printLine(evaluate(first))
 
-  List<Token> second = List<Token>()
+  List<Token> second = List<>()
   second.add(Token(kind: Kind.Left, value: 0))
   second.add(Token(kind: Kind.Number, value: 8))
   second.add(Token(kind: Kind.Subtract, value: 0))
@@ -73,6 +75,8 @@ Void main() {
   second.add(Token(kind: Kind.Multiply, value: 0))
   second.add(Token(kind: Kind.Number, value: 4))
   printLine(evaluate(second))
-  expectedOutputLine("17")
-  expectedOutputLine("20")
+  expectedOutputLines([
+    "17",
+    "20"
+  ])
 }

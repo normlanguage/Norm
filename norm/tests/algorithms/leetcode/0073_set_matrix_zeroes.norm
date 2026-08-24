@@ -1,6 +1,9 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 List<List<Integer>> setZeroes(List<List<Integer>> matrix) {
-  Set<Integer> rows = Set<Integer>()
-  Set<Integer> columns = Set<Integer>()
+  Set<Integer> rows = Set<>()
+  Set<Integer> columns = Set<>()
   for row : range(start: 0, end: matrix.size()) {
     for column : range(start: 0, end: matrix[0].size()) {
       if matrix[row][column] == 0 {
@@ -20,19 +23,23 @@ List<List<Integer>> setZeroes(List<List<Integer>> matrix) {
 }
 
 Void main() {
-  List<List<Integer>> matrix = List<List<Integer>>()
-  List<Integer> first = List<Integer>()
+  List<List<Integer>> matrix = List<>()
+  List<Integer> first = List<>()
   for Integer value : [1,1,1] { first.add(value) }
-  List<Integer> second = List<Integer>()
+  List<Integer> second = List<>()
   for Integer value : [1,0,1] { second.add(value) }
-  List<Integer> third = List<Integer>()
+  List<Integer> third = List<>()
   for Integer value : [1,1,1] { third.add(value) }
   matrix.add(first)
   matrix.add(second)
   matrix.add(third)
   List<List<Integer>> result = setZeroes(matrix)
-  printLine(result[0][1])
-  printLine(result[1][0])
-  expectedOutputLine("0")
-  expectedOutputLine("0")
+  printLines([
+    result[0][1],
+    result[1][0]
+  ])
+  expectedOutputLines([
+    "0",
+    "0"
+  ])
 }

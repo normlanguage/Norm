@@ -1,0 +1,37 @@
+import std.io.printLines
+import std.core.Comparable
+import std.core.Sized
+import std.testing.expectedOutputLines
+
+class Score implements Comparable<Score>, Sized {
+  Integer value
+
+  public Integer compareTo(Score other) {
+    return value - other.value
+  }
+
+  public Integer size() {
+    return 1
+  }
+}
+
+T maximum<T extends Comparable<T>>(T left, T right) {
+  if left.compareTo(other: right) >= 0 {
+    return left
+  }
+  return right
+}
+
+Void main() {
+  Score lower = Score(value: 3)
+  Score higher = Score(value: 8)
+  Score result = maximum(left: lower, right: higher)
+  printLines([
+    result.value,
+    result.size()
+  ])
+  expectedOutputLines([
+    "8",
+    "1"
+  ])
+}

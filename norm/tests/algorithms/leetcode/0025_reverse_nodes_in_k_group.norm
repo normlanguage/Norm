@@ -1,3 +1,5 @@
+import std.testing.expectedOutputLines
+
 Array<Integer> reverseKGroup(Array<Integer> values, Integer groupSize) {
   for group : range(start: 0, end: values.size() / groupSize) {
     Integer start = group * groupSize
@@ -13,9 +15,11 @@ Array<Integer> reverseKGroup(Array<Integer> values, Integer groupSize) {
 
 Void main() {
   for Integer value : reverseKGroup(values: [1, 2, 3, 4, 5], groupSize: 2) { printLine(value) }
-  expectedOutputLine("2")
-  expectedOutputLine("1")
-  expectedOutputLine("4")
-  expectedOutputLine("3")
-  expectedOutputLine("5")
+  expectedOutputLines([
+    "2",
+    "1",
+    "4",
+    "3",
+    "5"
+  ])
 }

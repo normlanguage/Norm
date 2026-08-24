@@ -4,32 +4,57 @@ import java.util.List;
 import java.util.Objects;
 
 public sealed interface CoreBindingShape {
-  record Callable(int typeParameterCount, List<Parameter> parameters, CoreType returnType)
+  record Callable(
+      List<CoreTypeParameter> typeParameters, List<Parameter> parameters, CoreType returnType)
       implements CoreBindingShape {
     public Callable {
-      if (typeParameterCount < 0) {
-        throw new IllegalArgumentException("type parameter count must not be negative");
-      }
+      typeParameters = requireDenseTypeParameters(typeParameters);
       parameters = List.copyOf(parameters);
       Objects.requireNonNull(returnType, "returnType");
     }
   }
 
-  record Class(int typeParameterCount, List<Field> fields) implements CoreBindingShape {
+  record Class(
+      List<CoreTypeParameter> typeParameters, List<Field> fields, List<CoreType> conformances)
+      implements CoreBindingShape {
     public Class {
-      if (typeParameterCount < 0) {
-        throw new IllegalArgumentException("type parameter count must not be negative");
-      }
+      typeParameters = requireTypeParameters(typeParameters, 0);
       fields = List.copyOf(fields);
+      conformances = List.copyOf(conformances);
     }
   }
 
-  record Enum(List<String> members) implements CoreBindingShape {
+  record Enum(List<CoreTypeParameter> typeParameters, List<Variant> variants)
+      implements CoreBindingShape {
     public Enum {
-      members = List.copyOf(members);
-      if (members.stream().anyMatch(String::isBlank)) {
-        throw new IllegalArgumentException("enum member name must not be blank");
-      }
+      typeParameters = requireTypeParameters(typeParameters, 0);
+      variants = variants.stream().sorted(java.util.Comparator.comparing(Variant::name)).toList();
+    }
+  }
+
+  record Interface(List<CoreTypeParameter> typeParameters, List<CoreType> directParents)
+      implements CoreBindingShape {
+    public Interface {
+      typeParameters = requireTypeParameters(typeParameters, 0);
+      directParents = List.copyOf(directParents);
+    }
+  }
+
+  record InterfaceMethod(
+      List<CoreTypeParameter> typeParameters, List<Parameter> parameters, CoreType returnType)
+      implements CoreBindingShape {
+    public InterfaceMethod {
+      typeParameters = requireDenseTypeParameters(typeParameters);
+      parameters = List.copyOf(parameters);
+      Objects.requireNonNull(returnType, "returnType");
+    }
+  }
+
+  record Variant(String name, List<Parameter> fields) {
+    public Variant {
+      Objects.requireNonNull(name, "name");
+      if (name.isBlank()) throw new IllegalArgumentException("variant name must not be blank");
+      fields = List.copyOf(fields);
     }
   }
 
@@ -48,5 +73,23 @@ public sealed interface CoreBindingShape {
       Objects.requireNonNull(visibility, "visibility");
       Objects.requireNonNull(type, "type");
     }
+  }
+
+  private static List<CoreTypeParameter> requireTypeParameters(
+      List<CoreTypeParameter> parameters, int firstIndex) {
+    List<CoreTypeParameter> result = List.copyOf(parameters);
+    for (int offset = 0; offset < result.size(); offset++) {
+      if (result.get(offset).index() != firstIndex + offset) {
+        throw new IllegalArgumentException("core type parameters must be dense and ordered");
+      }
+    }
+    return result;
+  }
+
+  private static List<CoreTypeParameter> requireDenseTypeParameters(
+      List<CoreTypeParameter> parameters) {
+    List<CoreTypeParameter> result = List.copyOf(parameters);
+    if (result.isEmpty()) return result;
+    return requireTypeParameters(result, result.getFirst().index());
   }
 }

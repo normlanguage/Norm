@@ -3,7 +3,7 @@
 Norm 集合是类型化 value 容器。全部泛型实参都必须写出，raw type 非法。
 
 ```norm
-List<Integer> first = List<Integer>(values: [1, 2, 3])
+List<Integer> first = [1, 2, 3]
 List<Integer> second = first
 second.add(4)
 ```
@@ -30,7 +30,7 @@ second.add(4)
 
 ## 迭代
 
-Array、List、Set、Stack、Queue、Deque 与 Range 通过 `Iterable<T>` 暴露静态元素类型，因此 `for element : values` 可以推断循环变量。Map 迭代产生 `Pair<K, V>`。Stack 从栈顶到栈底迭代；通用 Map 和 Set 不承诺遍历顺序。
+Array、List、Set、Stack、Queue、Deque 与 Range 显式实现 `Iterable<T>`，因此 `for element : values` 可以从该 interface 的类型实参推断循环变量。Map 实现 `Iterable<Pair<K, V>>`。Stack 从栈顶到栈底迭代；通用 Map 和 Set 不承诺遍历顺序。
 
 Array、List、Map、Set、Stack、Queue、Deque 与 Range 统一使用 `size()` 返回元素数量，不提供 `length` 属性。
 

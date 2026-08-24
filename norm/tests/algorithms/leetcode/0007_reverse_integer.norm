@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer reverseInteger(Integer value) {
   Integer sign = 1
   if value < 0 {
@@ -15,10 +18,14 @@ Integer reverseInteger(Integer value) {
 }
 
 Void main() {
-  printLine(reverseInteger(123))
-  printLine(reverseInteger(-120))
-  printLine(reverseInteger(1534236469))
-  expectedOutputLine("321")
-  expectedOutputLine("-21")
-  expectedOutputLine("0")
+  printLines([
+    reverseInteger(123),
+    reverseInteger(-120),
+    reverseInteger(1534236469)
+  ])
+  expectedOutputLines([
+    "321",
+    "-21",
+    "0"
+  ])
 }

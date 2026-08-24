@@ -15,8 +15,8 @@ Void choose(Integer size, Integer count, Integer next, List<Integer> current, Co
 }
 
 List<List<Integer>> combine(Integer size, Integer count) {
-  CombinationResults result = CombinationResults(values: List<List<Integer>>())
-  choose(size, count, next: 1, current: List<Integer>(), result)
+  CombinationResults result = CombinationResults(values: List<>())
+  choose(size, count, next: 1, current: List<>(), result)
   return result.values
 }
 

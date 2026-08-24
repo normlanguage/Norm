@@ -3,12 +3,12 @@ Pair<Integer, Integer> expand(Array<CodePoint> text, Integer left, Integer right
     left = left - 1
     right = right + 1
   }
-  return Pair<Integer, Integer>(first: left + 1, second: right)
+  return Pair<>(first: left + 1, second: right)
 }
 
 String longestPalindrome(String value) {
   Array<CodePoint> text = value.codePoints()
-  Pair<Integer, Integer> best = Pair<Integer, Integer>(first: 0, second: 0)
+  Pair<Integer, Integer> best = Pair<>(first: 0, second: 0)
   for center : range(start: 0, end: text.size()) {
     Pair<Integer, Integer> odd = expand(text, left: center, right: center)
     Pair<Integer, Integer> even = expand(text, left: center, right: center + 1)

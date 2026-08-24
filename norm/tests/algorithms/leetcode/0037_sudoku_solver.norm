@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Sudoku {
   List<Integer> cells
 }
@@ -25,11 +28,15 @@ Boolean place(Sudoku board, Integer cell) {
 }
 
 Void main() {
-  List<Integer> cells = List<Integer>()
+  List<Integer> cells = List<>()
   for Integer value : [5,3,0,0,7,0,0,0,0,6,0,0,1,9,5,0,0,0,0,9,8,0,0,0,0,6,0,8,0,0,0,6,0,0,0,3,4,0,0,8,0,3,0,0,1,7,0,0,0,2,0,0,0,6,0,6,0,0,0,0,2,8,0,0,0,0,4,1,9,0,0,5,0,0,0,0,8,0,0,7,9] { cells.add(value) }
   Sudoku board = Sudoku(cells)
-  printLine(place(board, cell: 0))
-  printLine(board.cells[2])
-  expectedOutputLine("true")
-  expectedOutputLine("4")
+  printLines([
+    place(board, cell: 0),
+    board.cells[2]
+  ])
+  expectedOutputLines([
+    "true",
+    "4"
+  ])
 }

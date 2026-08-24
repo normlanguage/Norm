@@ -6,11 +6,11 @@
 
 | 层级 | 模块 | 责任 |
 | --- | --- | --- |
-| 核心 | core、text、collections、math、time | 不依赖外部系统的值与算法 |
-| 系统 | io、filesystem、process、network、thread | 操作系统资源与并发边界 |
+| 核心 | std.core、std.text、std.collections、std.math、std.time | 不依赖外部系统的值、接口与算法 |
+| 系统 | std.io、filesystem、process、network、thread | 操作系统资源与并发边界 |
 | 数据 | serialization、json、sql、configuration | 外部数据和持久化 |
 | 安全 | crypto、security、random | 密码学与敏感值 |
-| 工程 | logging、testing、command-line | 开发、诊断和应用入口 |
+| 工程 | logging、std.testing、command-line | 开发、诊断和应用入口 |
 | 协议 | http | HTTP 客户端与服务器基础类型 |
 
 ## 共同规则
@@ -22,14 +22,32 @@
 - 时间、编码、舍入、超时和安全策略不能依赖环境默认值；
 - adapter 差异不能被不真实的统一接口掩盖。
 
+## std.core
+
+`Result<T, E>` 与 `Unit` 是 `std.core` 中的普通 enum，不具有语言特例。`Unit.Value` 用于 `Result<Unit, E>` 等需要实际值的位置，不替代无返回值函数的 `Void`。公开声明以标准库的 `core.result` 与 `core.unit` 源文件为准。
+
+标准库 protocol 是 `core.protocols` 定义的普通 interface：
+
+| Interface | 契约 |
+| --- | --- |
+| `Iterable<T>` | 提供产生 `Iterator<T>` 的遍历入口 |
+| `Iterator<T>` | 按顺序提供元素并明确表示耗尽 |
+| `Sized` | 显式查询有限元素数量 |
+| `Comparable<T>` | 显式比较两个值的顺序 |
+| `Equatable<T>` | 显式比较领域等价性 |
+| `Hashable` | 为哈希容器提供稳定 hash |
+
+类型必须显式声明 `implements` 才满足这些接口。遍历式 `for` 只通过 `Iterable<T>` 工作；语言操作符使用自身固定语义，不由 Comparable、Equatable 或其他 protocol 重载。
+
 ## 集合示例
 
 ```norm
-List<Integer> first = List<Integer>(values: [1, 2, 3])
+List<Integer> first = [1, 2, 3]
 List<Integer> second = first
 second.add(value: 4)
-// first 仍为 [1, 2, 3]
 ```
+
+此时 `first` 仍为 `[1, 2, 3]`。
 
 运行时可以使用写时复制优化，但可观察行为保持独立。确实需要共享同一集合存储位置时使用 `ref<List<Integer>>`。
 

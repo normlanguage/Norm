@@ -1,5 +1,7 @@
+import std.testing.expectedOutputLines
+
 List<String> fullJustify(List<String> words, Integer width) {
-  List<String> lines = List<String>()
+  List<String> lines = List<>()
   Integer start = 0
   for start < words.size() {
     Integer end = start
@@ -30,11 +32,13 @@ List<String> fullJustify(List<String> words, Integer width) {
 }
 
 Void main() {
-  List<String> words = List<String>()
+  List<String> words = List<>()
   words.add("This")
   words.add("is")
   words.add("text")
   for String line : fullJustify(words, width: 8) { printLine(line) }
-  expectedOutputLine("This  is")
-  expectedOutputLine("text    ")
+  expectedOutputLines([
+    "This  is",
+    "text    "
+  ])
 }

@@ -1,11 +1,17 @@
+import std.io.printLines
 import std.math.sign
 import std.testing.equal
+import std.testing.expectedOutputLines
 
 Void main() {
-  printLine(equal(actual: sign(-20), expected: -1))
-  printLine(equal(actual: sign(0), expected: 0))
-  printLine(equal(actual: sign(20), expected: 1))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  printLines([
+    equal(actual: sign(-20), expected: -1),
+    equal(actual: sign(0), expected: 0),
+    equal(actual: sign(20), expected: 1)
+  ])
+  expectedOutputLines([
+    "true",
+    "true",
+    "true"
+  ])
 }

@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 String append(String prefix, CodePoint value) {
   StringBuilder result = StringBuilder()
   result.append(prefix)
@@ -8,12 +11,12 @@ String append(String prefix, CodePoint value) {
 List<String> letterCombinations(String digitsValue) {
   Array<CodePoint> digits = digitsValue.codePoints()
   Array<String> letters = ["","","abc","def","ghi","jkl","mno","pqrs","tuv","wxyz"]
-  List<String> combinations = List<String>()
+  List<String> combinations = List<>()
   combinations.add("")
   for CodePoint digit : digits {
     String choices = letters[digit.asciiDigitValue()]
     Array<CodePoint> points = choices.codePoints()
-    List<String> next = List<String>()
+    List<String> next = List<>()
     for String prefix : combinations {
       for CodePoint point : points { next.add(append(prefix: prefix, value: point)) }
     }
@@ -24,8 +27,12 @@ List<String> letterCombinations(String digitsValue) {
 
 Void main() {
   List<String> answer = letterCombinations("23")
-  printLine(answer.size())
-  printLine(answer[0])
-  expectedOutputLine("9")
-  expectedOutputLine("ad")
+  printLines([
+    answer.size(),
+    answer[0]
+  ])
+  expectedOutputLines([
+    "9",
+    "ad"
+  ])
 }

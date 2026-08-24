@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Boolean subsetSum(Array<Integer> values, Integer target) {
   List<Boolean> possible = List.filled(size: target + 1, value: false)
   possible[0] = true
@@ -11,8 +14,12 @@ Boolean subsetSum(Array<Integer> values, Integer target) {
 }
 
 Void main() {
-  printLine(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 9))
-  printLine(subsetSum(values: [3, 34, 4, 12, 5, 2], target: 30))
-  expectedOutputLine("true")
-  expectedOutputLine("false")
+  printLines([
+    subsetSum(values: [3, 34, 4, 12, 5, 2], target: 9),
+    subsetSum(values: [3, 34, 4, 12, 5, 2], target: 30)
+  ])
+  expectedOutputLines([
+    "true",
+    "false"
+  ])
 }

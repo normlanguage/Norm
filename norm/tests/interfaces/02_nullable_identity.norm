@@ -1,0 +1,43 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+interface Mutable {
+  Void set(Integer next)
+  Integer get()
+}
+
+class Box implements Mutable {
+  Integer value
+
+  public Void set(Integer next) {
+    value = next
+  }
+
+  public Integer get() {
+    return value
+  }
+}
+
+Integer read(Mutable? value) {
+  return value?.get() ?? -1
+}
+
+Void update(Mutable value) {
+  value.set(next: 9)
+}
+
+Void main() {
+  Box box = Box(value: 1)
+  Mutable? absent = null
+  update(value: box)
+  printLines([
+    read(value: absent),
+    read(value: box),
+    box.value
+  ])
+  expectedOutputLines([
+    "-1",
+    "9",
+    "9"
+  ])
+}

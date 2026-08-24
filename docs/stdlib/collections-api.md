@@ -5,7 +5,7 @@
 ## `List<T>`
 
 ```norm
-List<String> names = List<String>(values: ["Ada", "Lin"])
+List<String> names = ["Ada", "Lin"]
 Integer size = names.size()
 String first = names[0]
 
@@ -37,7 +37,7 @@ Array 长度固定，因此提供 `last()`、`reversed()` 和类型级 `filled()
 ## `Map<K, V>`
 
 ```norm
-Map<String, Integer> counts = Map<String, Integer>()
+Map<String, Integer> counts = Map<>()
 counts.put(key: "ready", value: 3)
 
 if counts.containsKey(key: "ready") {
@@ -52,7 +52,7 @@ Integer? missing = counts.get(key: "missing")
 ## `Set<T>`
 
 ```norm
-Set<String> tags = Set<String>()
+Set<String> tags = Set<>()
 Boolean inserted = tags.add(value: "stable")
 Boolean contains = tags.contains(value: "stable")
 ```
@@ -83,4 +83,4 @@ Range 始终左闭右开。正 step 在 current 小于 end 时继续，负 step 
 
 ## 迭代与共享
 
-集合实现统一迭代协议，可直接用于 `for item : values` 并推断 `T`。结构修改会使已有迭代器失效。确实需要多处共享同一个 value 存储位置时，使用 `ref<List<T>>`。
+集合显式实现 `Iterable<T>`，可直接用于 `for item : values` 并推断 `T`。结构修改会使已有 Iterator 失效。确实需要多处共享同一个 value 存储位置时，使用 `ref<List<T>>`。

@@ -34,8 +34,11 @@ public final class CompletionContextResolver {
     }
     List<Token> tokens =
         document.tokens().stream().filter(token -> token.span().startOffset() < offset).toList();
-    if (insideTypeArguments(tokens)) return new CompletionContext.TypeArgument();
     TokenKind previous = tokens.isEmpty() ? null : tokens.getLast().kind();
+    if (expectsInterfaceType(tokens)) {
+      return new CompletionContext.InterfaceType();
+    }
+    if (insideTypeArguments(tokens)) return new CompletionContext.TypeArgument();
     if (previous == TokenKind.CLASS || previous == TokenKind.COLON) {
       return new CompletionContext.Type();
     }
@@ -57,6 +60,39 @@ public final class CompletionContextResolver {
 
   private static boolean insideArguments(List<Token> tokens) {
     return balance(tokens, TokenKind.LEFT_PAREN, TokenKind.RIGHT_PAREN) > 0;
+  }
+
+  private static boolean expectsInterfaceType(List<Token> tokens) {
+    int closedTypeArguments = 0;
+    boolean comma = false;
+    boolean insideTypeParameters = insideTypeArguments(tokens);
+    for (int index = tokens.size() - 1; index >= 0; index--) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.GREATER) {
+        closedTypeArguments++;
+        continue;
+      }
+      if (kind == TokenKind.LESS) {
+        if (closedTypeArguments == 0) return false;
+        closedTypeArguments--;
+        continue;
+      }
+      if (closedTypeArguments > 0) continue;
+      if (kind == TokenKind.COMMA) {
+        comma = true;
+        continue;
+      }
+      if (kind == TokenKind.IMPLEMENTS) return true;
+      if (kind == TokenKind.EXTENDS) return !insideTypeParameters || !comma;
+      if (kind == TokenKind.LEFT_BRACE
+          || kind == TokenKind.RIGHT_BRACE
+          || kind == TokenKind.SEMICOLON
+          || kind == TokenKind.EQUAL
+          || kind == TokenKind.LEFT_PAREN) {
+        return false;
+      }
+    }
+    return false;
   }
 
   private static int balance(List<Token> tokens, TokenKind open, TokenKind close) {

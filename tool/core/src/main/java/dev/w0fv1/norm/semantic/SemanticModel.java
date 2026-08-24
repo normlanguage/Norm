@@ -29,7 +29,9 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SymbolId, List<SymbolId>> members;
   private final Map<SymbolId, List<SymbolId>> aliasTargets;
   private final Map<SymbolId, List<SymbolId>> callableGroups;
+  private final Map<SymbolId, Map<SymbolId, SymbolId>> witnesses;
   private final Map<String, SymbolId> typeSymbols;
+  private final Map<String, List<SemanticType>> interfaceParents;
   private final List<SemanticScope> scopes;
   private final List<Diagnostic> diagnostics;
   private final List<ImportableSymbol> importableSymbols;
@@ -52,7 +54,9 @@ public final class SemanticModel implements SemanticIndex {
       Map<SymbolId, List<SymbolId>> members,
       Map<SymbolId, List<SymbolId>> aliasTargets,
       Map<SymbolId, List<SymbolId>> callableGroups,
+      Map<SymbolId, Map<SymbolId, SymbolId>> witnesses,
       Map<String, SymbolId> typeSymbols,
+      Map<String, List<SemanticType>> interfaceParents,
       List<SemanticScope> scopes,
       List<Diagnostic> diagnostics,
       List<ImportableSymbol> importableSymbols) {
@@ -76,7 +80,14 @@ public final class SemanticModel implements SemanticIndex {
     Map<SymbolId, List<SymbolId>> copiedGroups = new LinkedHashMap<>();
     callableGroups.forEach((symbol, group) -> copiedGroups.put(symbol, List.copyOf(group)));
     this.callableGroups = Map.copyOf(copiedGroups);
+    Map<SymbolId, Map<SymbolId, SymbolId>> copiedWitnesses = new LinkedHashMap<>();
+    witnesses.forEach((owner, values) -> copiedWitnesses.put(owner, Map.copyOf(values)));
+    this.witnesses = Map.copyOf(copiedWitnesses);
     this.typeSymbols = Map.copyOf(typeSymbols);
+    Map<String, List<SemanticType>> copiedParents = new LinkedHashMap<>();
+    interfaceParents.forEach(
+        (identity, values) -> copiedParents.put(identity, List.copyOf(values)));
+    this.interfaceParents = Map.copyOf(copiedParents);
     this.scopes = List.copyOf(scopes);
     this.diagnostics = List.copyOf(diagnostics);
     this.importableSymbols = List.copyOf(importableSymbols);
@@ -107,7 +118,9 @@ public final class SemanticModel implements SemanticIndex {
     this.members = project.members;
     this.aliasTargets = project.aliasTargets;
     this.callableGroups = project.callableGroups;
+    this.witnesses = project.witnesses;
     this.typeSymbols = project.typeSymbols;
+    this.interfaceParents = project.interfaceParents;
     this.scopes = project.scopes;
     this.diagnostics = project.diagnostics;
     this.importableSymbols = project.importableSymbols;
@@ -232,6 +245,10 @@ public final class SemanticModel implements SemanticIndex {
     return Optional.ofNullable(resolvedCallsByCallee.get(calleeSpan));
   }
 
+  public Optional<SymbolId> witness(SymbolId classType, SymbolId requirement) {
+    return Optional.ofNullable(witnesses.getOrDefault(classType, Map.of()).get(requirement));
+  }
+
   public Optional<ResolvedIteration> iterationOf(SourceSpan iterableSpan) {
     return Optional.ofNullable(iterations.get(iterableSpan));
   }
@@ -241,10 +258,31 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public List<Symbol> members(SemanticType type) {
+    return members(type, new java.util.HashSet<>());
+  }
+
+  private List<Symbol> members(SemanticType type, Set<String> visiting) {
+    if (type.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      Optional<SemanticType> upperBound =
+          symbols.values().stream()
+              .filter(
+                  symbol ->
+                      symbol.typeParameters().stream()
+                          .anyMatch(
+                              parameter -> parameter.type().identity().equals(type.identity())))
+              .flatMap(symbol -> symbol.typeParameters().stream())
+              .filter(parameter -> parameter.type().identity().equals(type.identity()))
+              .map(TypeParameterInfo::upperBound)
+              .flatMap(Optional::stream)
+              .findFirst();
+      if (upperBound.isPresent()) return members(upperBound.orElseThrow(), visiting);
+    }
+    if (!visiting.add(type.identity())) return List.of();
     Optional<Symbol> owner =
         Optional.ofNullable(typeSymbols.get(type.identity())).map(symbols::get);
     if (owner.isEmpty()) return List.of();
-    return members.getOrDefault(owner.orElseThrow().id(), List.of()).stream()
+    List<Symbol> result = new java.util.ArrayList<>();
+    members.getOrDefault(owner.orElseThrow().id(), List.of()).stream()
         .map(symbols::get)
         .filter(Objects::nonNull)
         .map(
@@ -252,7 +290,23 @@ public final class SemanticModel implements SemanticIndex {
                 symbol.id().value().startsWith("builtin/")
                     ? BuiltinCatalog.standard().member(type, symbol.id()).orElse(symbol)
                     : specializeMember(owner.orElseThrow(), type, symbol))
-        .toList();
+        .forEach(result::add);
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+    if (owner.orElseThrow().typeParameters().size() == type.arguments().size()) {
+      for (int index = 0; index < type.arguments().size(); index++) {
+        substitutions.put(
+            owner.orElseThrow().typeParameters().get(index).type().identity(),
+            type.arguments().get(index));
+      }
+    }
+    for (SemanticType parent : interfaceParents.getOrDefault(type.identity(), List.of())) {
+      for (Symbol inherited : members(parent.substitute(substitutions), visiting)) {
+        if (result.stream().noneMatch(existing -> existing.id().equals(inherited.id()))) {
+          result.add(inherited);
+        }
+      }
+    }
+    return List.copyOf(result);
   }
 
   public List<Symbol> callableAlternatives(Symbol symbol) {
@@ -313,6 +367,7 @@ public final class SemanticModel implements SemanticIndex {
   private static boolean callable(Symbol symbol) {
     return symbol.kind() == SymbolKind.FUNCTION
         || symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.INTERFACE_METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD;
   }
 
@@ -380,14 +435,9 @@ public final class SemanticModel implements SemanticIndex {
     if (owner.typeParameters().size() != receiver.arguments().size()) return member;
     Map<String, SemanticType> substitutions = new LinkedHashMap<>();
     for (int index = 0; index < owner.typeParameters().size(); index++) {
-      String parameterName = owner.typeParameters().get(index);
+      TypeParameterInfo parameterInfo = owner.typeParameters().get(index);
       SemanticType argument = receiver.arguments().get(index);
-      symbols.values().stream()
-          .filter(symbol -> symbol.kind() == SymbolKind.TYPE_PARAMETER)
-          .filter(symbol -> symbol.owner().equals(Optional.of(owner.id())))
-          .filter(symbol -> symbol.name().equals(parameterName))
-          .findFirst()
-          .ifPresent(parameter -> substitutions.put(parameter.type().identity(), argument));
+      substitutions.put(parameterInfo.type().identity(), argument);
     }
     if (substitutions.isEmpty()) return member;
     return new Symbol(

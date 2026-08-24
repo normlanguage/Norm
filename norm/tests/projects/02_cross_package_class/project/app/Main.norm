@@ -1,13 +1,20 @@
 package project.app
 
+import std.io.printLines
+
 import project.model.Counter
 import project.service.advance
+import std.testing.expectedOutputLines
 
 Void main() {
   Counter counter = Counter(value: 2)
   Counter result = advance(counter: counter, amount: 5)
-  printLine(counter.value)
-  printLine(result == counter)
-  expectedOutputLine("7")
-  expectedOutputLine("true")
+  printLines([
+    counter.value,
+    result == counter
+  ])
+  expectedOutputLines([
+    "7",
+    "true"
+  ])
 }

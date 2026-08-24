@@ -1,10 +1,18 @@
 package mutual
 
+import std.io.printLines
+
+import std.testing.expectedOutputLines
+
 Void main() {
-  printLine(even(0))
-  printLine(odd(7))
-  printLine(even(10))
-  expectedOutputLine("true")
-  expectedOutputLine("true")
-  expectedOutputLine("true")
+  printLines([
+    even(0),
+    odd(7),
+    even(10)
+  ])
+  expectedOutputLines([
+    "true",
+    "true",
+    "true"
+  ])
 }

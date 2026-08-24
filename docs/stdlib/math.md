@@ -25,4 +25,4 @@ Integer opacity = clamp(value: input, minimum: 0, maximum: 100)
 
 Float/Double 遵循已选定的 IEEE 754 子集，NaN、Infinity 和有符号零的比较必须在数值规范中固定。整数溢出策略不能由优化级别改变。
 
-Decimal 使用自己的舍入 API，不自动调用二进制浮点 Math。需要统计、矩阵或任意精度算法时使用独立库，避免让核心模块无限增长。
+计划中的 Decimal 使用自己的舍入 API，不自动调用二进制浮点 Math。需要统计、矩阵或任意精度算法时使用独立库，避免让核心模块无限增长。

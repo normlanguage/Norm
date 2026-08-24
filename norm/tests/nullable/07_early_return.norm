@@ -1,11 +1,18 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 Integer size(String? value) {
   if value == null { return 0 }
   return value.codePointSize()
 }
 
 Void main() {
-  printLine(size(value: null))
-  printLine(size(value: "Norm"))
-  expectedOutputLine("0")
-  expectedOutputLine("4")
+  printLines([
+    size(value: null),
+    size(value: "Norm")
+  ])
+  expectedOutputLines([
+    "0",
+    "4"
+  ])
 }

@@ -3,7 +3,7 @@
 Map 把唯一键映射到值，键和值类型都必须完整声明。
 
 ```norm
-Map<String, Integer> counts = Map<String, Integer>()
+Map<String, Integer> counts = Map<>()
 counts.put(key: "open", value: 3)
 
 if counts.containsKey("open") {

@@ -21,6 +21,67 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void materializesSequenceLiteralsAsTheirExpectedCollectionType() throws Exception {
+    assertOutput(
+        "Void main() { Array<Integer> array = [1, 2] List<Integer> list = [3, 4] "
+            + "list.add(5) printLine(array.size()) printLine(list.size()) printLine(list[2]) }",
+        String.join(System.lineSeparator(), "2", "3", "5", ""));
+  }
+
+  @Test
+  void preservesConcreteLeavesInNumberCollectionLiterals() throws Exception {
+    assertOutput(
+        "Void main() { List<Number> values = [1, 2.5, 2147483648] "
+            + "for value,index : values { printLine(index) printLine(value) } "
+            + "var inferred = [1, 2.5, 2147483648] "
+            + "printLine(inferred.size()) printLine(inferred[1]) }",
+        String.join(
+            System.lineSeparator(), "0", "1", "1", "2.5", "2", "2147483648", "3", "2.5", ""));
+  }
+
+  @Test
+  void infersPrintableElementTypesThroughIterableConformance() throws Exception {
+    assertOutput(
+        "import std.io.printLines Void main() { printLines([4, 2, 4, -1, -1]) }",
+        String.join(System.lineSeparator(), "4", "2", "4", "-1", "-1", ""));
+  }
+
+  @Test
+  void printsHeterogeneousStringableValues() throws Exception {
+    assertOutput(
+        "import std.io.printLines Void main() { printLines([7, true, \"Norm\"]) }",
+        String.join(System.lineSeparator(), "7", "true", "Norm", ""));
+  }
+
+  @Test
+  void printsExplicitUserStringableImplementations() throws Exception {
+    assertOutput(
+        "import std.io.printLines import std.core.Stringable "
+            + "class Label implements Stringable { String text "
+            + "String toString() { return text } } "
+            + "Void main() { printLines([Label(text: \"Norm\"), Label(text: \"Compiler\")]) }",
+        String.join(System.lineSeparator(), "Norm", "Compiler", ""));
+  }
+
+  @Test
+  void executesNestedDiamondConstructors() throws Exception {
+    assertOutput(
+        "Void main() { List<Pair<Integer, String>> values = List<>() "
+            + "values.add(Pair<>(first: 7, second: \"seven\")) "
+            + "printLine(values[0].first) printLine(values[0].second) }",
+        String.join(System.lineSeparator(), "7", "seven", ""));
+  }
+
+  @Test
+  void executesIndexedLoopsAcrossContinueAndBreak() throws Exception {
+    assertOutput(
+        "Void main() { for value,index : [10, 20, 30, 40] { "
+            + "if index == 1 { continue } printLine(index) "
+            + "if index == 2 { break } printLine(value) } }",
+        String.join(System.lineSeparator(), "0", "10", "2", ""));
+  }
+
+  @Test
   void preservesSourceOrderWhenBindingNamedArguments() throws Exception {
     assertOutput(
         "class Counter { Integer value Integer next() { value = value + 1 return value } } "
@@ -49,10 +110,10 @@ final class ProgramExecutionTest {
   void copiesValueContainersButSharesTheirClassElements() throws Exception {
     assertOutput(
         "class Box { Integer value Void set(Integer next) { value = next } } "
-            + "Void main() { List<Box> first = List<Box>() Box box = Box(value: 1) first.add(box) "
+            + "Void main() { List<Box> first = List<>() Box box = Box(value: 1) first.add(box) "
             + "List<Box> second = first second.add(Box(value: 2)) Box secondBox = second[0] secondBox.set(7) "
             + "Box firstBox = first[0] printLine(first.size()) printLine(second.size()) printLine(firstBox.value) "
-            + "List<Box> same = List<Box>() same.add(box) printLine(first == same) }",
+            + "List<Box> same = List<>() same.add(box) printLine(first == same) }",
         String.join(System.lineSeparator(), "1", "2", "7", "true", ""));
   }
 
@@ -60,10 +121,10 @@ final class ProgramExecutionTest {
   void comparesValueContainersStructurally() throws Exception {
     assertOutput(
         "Void main() { "
-            + "List<Integer> left = List<Integer>() left.add(1) List<Integer> right = List<Integer>() right.add(1) printLine(left == right) "
-            + "Pair<List<Integer>, Integer> first = Pair<List<Integer>, Integer>(first: left, second: 2) Pair<List<Integer>, Integer> second = Pair<List<Integer>, Integer>(first: right, second: 2) printLine(first == second) "
-            + "Map<Array<Integer>, Integer> values = Map<Array<Integer>, Integer>() values.put(key: [1, 2], value: 7) printLine(values[[1, 2]]) "
-            + "Set<Array<Integer>> unique = Set<Array<Integer>>() unique.add([3, 4]) printLine(unique.contains([3, 4])) }",
+            + "List<Integer> left = List<>() left.add(1) List<Integer> right = List<>() right.add(1) printLine(left == right) "
+            + "Pair<List<Integer>, Integer> first = Pair<>(first: left, second: 2) Pair<List<Integer>, Integer> second = Pair<>(first: right, second: 2) printLine(first == second) "
+            + "Map<Array<Integer>, Integer> values = Map<>() values.put(key: [1, 2], value: 7) printLine(values[[1, 2]]) "
+            + "Set<Array<Integer>> unique = Set<>() unique.add([3, 4]) printLine(unique.contains([3, 4])) }",
         String.join(System.lineSeparator(), "true", "true", "7", "true", ""));
   }
 
@@ -78,7 +139,7 @@ final class ProgramExecutionTest {
   @Test
   void executesGenericCollectionsWithSize() throws Exception {
     assertOutput(
-        "Void main() { List<Integer> values = List<Integer>() values.add(3) values.add(8) "
+        "Void main() { List<Integer> values = List<>() values.add(3) values.add(8) "
             + "printLine(values.size()) printLine(values[1]) }",
         String.join(System.lineSeparator(), "2", "8", ""));
   }
@@ -89,6 +150,141 @@ final class ProgramExecutionTest {
         "T identity<T>(T value) { return value } "
             + "Void main() { printLine(identity(value: 9)) printLine(identity(value: \"Norm\")) }",
         String.join(System.lineSeparator(), "9", "Norm", ""));
+  }
+
+  @Test
+  void constructsGenericDataEnumsAsStructuralValues() throws Exception {
+    assertOutput(
+        "enum Result<T, E> { Ok(T value), Err(E error) } "
+            + "Void main() { "
+            + "Result<Integer, String> first = Result<Integer, String>.Ok(value: 7) "
+            + "Result<Integer, String> same = Result.Ok(value: 7) "
+            + "Result<Integer, String> different = Result.Err(error: \"invalid\") "
+            + "printLine(first) printLine(first == same) printLine(first == different) }",
+        String.join(System.lineSeparator(), "Result.Ok(7)", "true", "false", ""));
+  }
+
+  @Test
+  void executesRecursivePatternsAndEvaluatesTheScrutineeOnce() throws Exception {
+    assertOutput(
+        "enum Tree<T> { Leaf(T value), Branch(Tree<T> left, Tree<T> right) } "
+            + "class Counter { Integer value Tree<Integer> next() { value = value + 1 "
+            + "return Tree.Branch(left: Tree.Leaf(value: 2), right: Tree.Leaf(value: 3)) } } "
+            + "Integer sum(Tree<Integer> tree) { return switch tree { "
+            + "case Leaf(Integer value) { break value } "
+            + "case Branch(Leaf(Integer left), Tree<Integer> right) { break left + sum(tree: right) } "
+            + "case Branch(Tree<Integer> left, Tree<Integer> right) { break sum(tree: left) + sum(tree: right) } } } "
+            + "Void main() { Counter counter = Counter(value: 0) "
+            + "Integer total = switch counter.next() { "
+            + "case Leaf(Integer value) { break value } "
+            + "case Branch(Tree<Integer> left, Tree<Integer> right) { break sum(tree: left) + sum(tree: right) } } "
+            + "printLine(total) printLine(counter.value) }",
+        String.join(System.lineSeparator(), "5", "1", ""));
+  }
+
+  @Test
+  void executesLiteralNullTypedAndWildcardPatterns() throws Exception {
+    assertOutput(
+        "String describe(Integer? value) { return switch value { "
+            + "case null { break \"missing\" } case 0 { break \"zero\" } "
+            + "case Integer number { break \"number\" } } } "
+            + "String classify(String value) { return switch value { "
+            + "case \"Norm\" { break \"language\" } case _ { break \"other\" } } } "
+            + "Void main() { printLine(describe(value: null)) printLine(describe(value: 0)) "
+            + "printLine(describe(value: 7)) printLine(classify(value: \"Norm\")) "
+            + "printLine(classify(value: \"Java\")) }",
+        String.join(System.lineSeparator(), "missing", "zero", "number", "language", "other", ""));
+  }
+
+  @Test
+  void executesStatementSwitchWithoutFallthrough() throws Exception {
+    assertOutput(
+        "enum Choice { First, Second } Void main() { Choice choice = Choice.Second "
+            + "switch choice { case First { printLine(\"first\") } "
+            + "case Second { printLine(\"second\") } } printLine(\"done\") }",
+        String.join(System.lineSeparator(), "second", "done", ""));
+  }
+
+  @Test
+  void dispatchesInterfaceCallsByConcreteNominalType() throws Exception {
+    assertOutput(
+        "interface Named { String name() } "
+            + "class User implements Named { String value public String name() { return value } } "
+            + "class Service implements Named { String value public String name() { return \"service:\" + value } } "
+            + "String read(Named value) { return value.name() } "
+            + "Void main() { printLine(read(value: User(value: \"Norm\"))) "
+            + "printLine(read(value: Service(value: \"compiler\"))) }",
+        String.join(System.lineSeparator(), "Norm", "service:compiler", ""));
+  }
+
+  @Test
+  void safelyDispatchesNullableInterfaceCalls() throws Exception {
+    assertOutput(
+        "interface Named { String name() } "
+            + "class User implements Named { String value public String name() { return value } } "
+            + "String read(Named? value) { return value?.name() ?? \"missing\" } "
+            + "Void main() { Named? absent = null Named? present = User(value: \"Norm\") "
+            + "printLine(read(value: absent)) printLine(read(value: present)) }",
+        String.join(System.lineSeparator(), "missing", "Norm", ""));
+  }
+
+  @Test
+  void preservesClassIdentityAcrossInterfaceAndBoundedCalls() throws Exception {
+    assertOutput(
+        "interface Mutable { Void set(Integer next) Integer get() } "
+            + "class Box implements Mutable { Integer value "
+            + "public Void set(Integer next) { value = next } public Integer get() { return value } } "
+            + "Void update(Mutable value) { value.set(next: 9) } "
+            + "T same<T extends Mutable>(T value) { value.set(next: 12) return value } "
+            + "Void main() { Box box = Box(value: 1) update(value: box) "
+            + "printLine(box.get()) Box result = same(value: box) "
+            + "printLine(box.get()) printLine(result == box) }",
+        String.join(System.lineSeparator(), "9", "12", "true", ""));
+  }
+
+  @Test
+  void dispatchesBuiltinProtocolWitnesses() throws Exception {
+    assertOutput(
+        "import std.core.Sized "
+            + "Integer readSize<T extends Sized>(T value) { return value.size() } "
+            + "Void main() { List<Integer> values = List<>() values.add(3) values.add(7) "
+            + "printLine(readSize(value: values)) }",
+        "2" + System.lineSeparator());
+  }
+
+  @Test
+  void dispatchesGenericInterfaceMethodsWithReifiedArguments() throws Exception {
+    assertOutput(
+        "interface Identity { T same<T>(T value) } "
+            + "class IdentityService implements Identity { "
+            + "public T same<T>(T value) { return value } } "
+            + "String apply(Identity service) { return service.same<String>(value: \"Norm\") } "
+            + "Void main() { printLine(apply(service: IdentityService())) }",
+        "Norm" + System.lineSeparator());
+  }
+
+  @Test
+  void iteratesUserDefinedIterableImplementations() throws Exception {
+    assertOutput(
+        "import std.core.Iterable import std.core.Iterator "
+            + "class CountingIterator implements Iterator<Integer> { Integer current Integer end "
+            + "public Boolean hasNext() { return current < end } "
+            + "public Integer next() { Integer value = current current = current + 1 return value } } "
+            + "class Values implements Iterable<Integer> { Integer end "
+            + "public Iterator<Integer> iterator() { return CountingIterator(current: 0, end: end) } } "
+            + "Void main() { for Integer value : Values(end: 4) { printLine(value) } }",
+        String.join(System.lineSeparator(), "0", "1", "2", "3", ""));
+  }
+
+  @Test
+  void iteratesBuiltinCollectionsThroughTheIterableInterface() throws Exception {
+    assertOutput(
+        "import std.core.Iterable "
+            + "Void write(Iterable<Integer> values) { "
+            + "for Integer value : values { printLine(value) } } "
+            + "Void main() { List<Integer> values = List<>() "
+            + "values.add(4) values.add(9) write(values: values) }",
+        String.join(System.lineSeparator(), "4", "9", ""));
   }
 
   @Test
@@ -105,7 +301,7 @@ final class ProgramExecutionTest {
   void ordersOwnerAndMethodReifiedArguments() throws Exception {
     assertOutput(
         "class Values<T> { T owner Pair<T, U> pair<U>(U value) { "
-            + "return Pair<T, U>(first: owner, second: value) } } "
+            + "return Pair<>(first: owner, second: value) } } "
             + "Void main() { Values<String> values = Values<String>(owner: \"Norm\") "
             + "Pair<String, Integer> pair = values.pair(value: 9) "
             + "printLine(pair.first) printLine(pair.second) }",
@@ -124,7 +320,7 @@ final class ProgramExecutionTest {
   void mutatesValueFieldsThroughAClassMemberPath() throws Exception {
     assertOutput(
         "class Box<T> { T value } "
-            + "Void main() { Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) "
+            + "Void main() { Box<List<Integer>> box = Box<>(value: List<>()) "
             + "box.value.add(9) printLine(box.value[0]) }",
         "9" + System.lineSeparator());
   }
@@ -198,10 +394,10 @@ final class ProgramExecutionTest {
   @Test
   void iteratesMapsAndStacksWithTheirDeclaredElementTypes() throws Exception {
     assertOutput(
-        "Void main() { Map<String, Integer> values = Map<String, Integer>() "
+        "Void main() { Map<String, Integer> values = Map<>() "
             + "values.put(key: \"first\", value: 1) values.put(key: \"second\", value: 2) "
             + "for Pair<String, Integer> entry : values { printLine(entry.first) printLine(entry.second) } "
-            + "Stack<Integer> stack = Stack<Integer>() stack.push(3) stack.push(7) "
+            + "Stack<Integer> stack = Stack<>() stack.push(3) stack.push(7) "
             + "for Integer value : stack { printLine(value) } }",
         String.join(System.lineSeparator(), "first", "1", "second", "2", "7", "3", ""));
   }
@@ -213,7 +409,7 @@ final class ProgramExecutionTest {
             NormExecutionException.class,
             () ->
                 assertOutput(
-                    "Void main() { Map<String, Integer> values = Map<String, Integer>() printLine(values[\"missing\"]) }",
+                    "Void main() { Map<String, Integer> values = Map<>() printLine(values[\"missing\"]) }",
                     ""));
     assertTrue(exception.getMessage().contains("map key does not exist"));
     assertEquals(RuntimeErrorCode.MISSING_MAP_KEY, exception.code());
@@ -222,11 +418,11 @@ final class ProgramExecutionTest {
   @Test
   void returnsNullableValuesFromMapGet() throws Exception {
     assertOutput(
-        "Void main() { Map<String, Integer> values = Map<String, Integer>() "
+        "Void main() { Map<String, Integer> values = Map<>() "
             + "values.put(key: \"answer\", value: 42) "
             + "printLine(values.get(key: \"answer\") ?? -1) "
             + "printLine(values.get(key: \"missing\") ?? -1) "
-            + "Map<String, String?> nullable = Map<String, String?>() "
+            + "Map<String, String?> nullable = Map<>() "
             + "nullable.put(key: \"saved\", value: null) "
             + "printLine(nullable.containsKey(key: \"saved\")) "
             + "printLine(nullable.get(key: \"saved\") == null) }",
@@ -283,7 +479,7 @@ final class ProgramExecutionTest {
             + "printLine(ascending.size()) for value : ascending { printLine(value) } "
             + "Range descending = range(start: 5, end: -2, step: -3) "
             + "printLine(descending.size()) for value : descending { printLine(value) } "
-            + "for value : range(start: 9223372036854775806, end: 9223372036854775807, step: 2) "
+            + "for value : range(start: 2147483646, end: 2147483647, step: 2) "
             + "{ printLine(value) } }",
         String.join(
             System.lineSeparator(),
@@ -296,7 +492,7 @@ final class ProgramExecutionTest {
             "5",
             "2",
             "-1",
-            "9223372036854775806",
+            "2147483646",
             ""));
   }
 
@@ -346,8 +542,7 @@ final class ProgramExecutionTest {
         assertThrows(
             NormExecutionException.class,
             () ->
-                assertOutput(
-                    "Void main() { List<Integer> values = List<Integer>() values.last() }", ""));
+                assertOutput("Void main() { List<Integer> values = List<>() values.last() }", ""));
     assertEquals(RuntimeErrorCode.INVALID_ARGUMENT, negative.code());
     assertEquals(RuntimeErrorCode.EMPTY_COLLECTION, empty.code());
   }
@@ -385,6 +580,11 @@ final class ProgramExecutionTest {
   @TestFactory
   Stream<DynamicTest> runsOverloadPrograms() throws Exception {
     return suite("overloads");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsInterfacePrograms() throws Exception {
+    return suite("interfaces");
   }
 
   @TestFactory

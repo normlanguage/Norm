@@ -1,3 +1,6 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
 class Counter {
   Integer value
 
@@ -14,8 +17,12 @@ Counter advance(Counter counter, Integer amount) {
 Void main() {
   Counter original = Counter(value: 1)
   Counter returned = advance(counter: original, amount: 4)
-  printLine(original.value)
-  printLine(original == returned)
-  expectedOutputLine("5")
-  expectedOutputLine("true")
+  printLines([
+    original.value,
+    original == returned
+  ])
+  expectedOutputLines([
+    "5",
+    "true"
+  ])
 }
