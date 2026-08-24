@@ -1,16 +1,15 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-String label(String value) { return "present:" + value }
-String label(String? value) { return value ?? "missing" }
+String label(String value) {
+  return "present:" + value
+}
 
-Void main() {
-  printLines([
-    label(value: "x"),
-    label(value: null)
-  ])
-  expectedOutputLines([
-    "present:x",
-    "missing"
-  ])
+String label(String? value) {
+  return value ?? "missing"
+}
+
+main() {
+  printLines([label(value: "x"), label(value: null)])
+  expectedOutputLines(["present:x", "missing"])
 }

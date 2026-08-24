@@ -19,6 +19,8 @@ public sealed interface BoundExpression extends BoundNode
         BoundExpression.Switch,
         BoundExpression.Index,
         BoundExpression.CopyObject,
+        BoundClosure,
+        BoundInvoke,
         BoundCall,
         BoundConstruct,
         BoundIntrinsic {

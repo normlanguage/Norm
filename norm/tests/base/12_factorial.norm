@@ -1,7 +1,11 @@
 Integer factorial(Integer value) {
-  if value <= 1 { return 1 }
+  if value <= 1 {
+    return 1
+  }
   return value * factorial(value - 1)
 }
-Void main() { printLine(factorial(6))
+
+main() {
+  printLine(factorial(6))
   expectedOutputLine("720")
 }

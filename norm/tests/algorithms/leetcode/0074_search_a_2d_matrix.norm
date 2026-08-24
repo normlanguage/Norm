@@ -5,17 +5,23 @@ Boolean searchMatrix(List<Array<Integer>> matrix, Integer target) {
   for left <= right {
     Integer middle = left + (right - left) / 2
     Integer value = matrix[middle / columns][middle % columns]
-    if value == target { return true }
-    if value < target { left = middle + 1 } else { right = middle - 1 }
+    if value == target {
+      return true
+    }
+    if value < target {
+      left = middle + 1
+    } else {
+      right = middle - 1
+    }
   }
   return false
 }
 
-Void main() {
+main() {
   List<Array<Integer>> matrix = List<>()
-  matrix.add([1,3,5,7])
-  matrix.add([10,11,16,20])
-  matrix.add([23,30,34,60])
+  matrix.add([1, 3, 5, 7])
+  matrix.add([10, 11, 16, 20])
+  matrix.add([23, 30, 34, 60])
   printLine(searchMatrix(matrix, target: 3))
   expectedOutputLine("true")
 }

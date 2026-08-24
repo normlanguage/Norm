@@ -4,7 +4,13 @@ class UniqueCombinations {
   Set<List<Integer>> seen
 }
 
-Void collect(Array<Integer> candidates, Integer target, Integer start, List<Integer> current, UniqueCombinations result) {
+Void collect(
+  Array<Integer> candidates,
+  Integer target,
+  Integer start,
+  List<Integer> current,
+  UniqueCombinations result
+) {
   if target == 0 {
     result.seen.add(current)
     return
@@ -13,7 +19,13 @@ Void collect(Array<Integer> candidates, Integer target, Integer start, List<Inte
     if candidates[index] <= target {
       List<Integer> next = current
       next.add(candidates[index])
-      collect(candidates, target: target - candidates[index], start: index + 1, current: next, result)
+      collect(
+        candidates,
+        target: target - candidates[index],
+        start: index + 1,
+        current: next,
+        result
+      )
     }
   }
 }
@@ -25,7 +37,7 @@ Integer combinationSum2(Array<Integer> candidates, Integer target) {
   return result.seen.size()
 }
 
-Void main() {
+main() {
   printLine(combinationSum2(candidates: [10, 1, 2, 7, 6, 1, 5], target: 8))
   expectedOutputLine("4")
 }

@@ -3,31 +3,27 @@ import std.testing.expectedOutputLines
 
 Pair<Integer, Integer> power(Integer base, Integer exponent) {
   Integer magnitude = exponent
-  if magnitude < 0 { magnitude = -magnitude }
+  if magnitude < 0 {
+    magnitude = -magnitude
+  }
   Integer result = 1
   Integer factor = base
   for magnitude != 0 {
-    if magnitude % 2 == 1 { result = result * factor }
+    if magnitude % 2 == 1 {
+      result = result * factor
+    }
     factor = factor * factor
     magnitude = magnitude / 2
   }
-  if exponent < 0 { return Pair<>(first: 1, second: result) }
+  if exponent < 0 {
+    return Pair<>(first: 1, second: result)
+  }
   return Pair<>(first: result, second: 1)
 }
 
-Void main() {
+main() {
   Pair<Integer, Integer> positive = power(base: 2, exponent: 10)
   Pair<Integer, Integer> negative = power(base: 2, exponent: -2)
-  printLines([
-    positive.first,
-    positive.second,
-    negative.first,
-    negative.second
-  ])
-  expectedOutputLines([
-    "1024",
-    "1",
-    "1",
-    "4"
-  ])
+  printLines([positive.first, positive.second, negative.first, negative.second])
+  expectedOutputLines(["1024", "1", "1", "4"])
 }

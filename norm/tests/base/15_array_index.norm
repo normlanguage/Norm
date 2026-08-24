@@ -1,4 +1,4 @@
-Void main() {
+main() {
   Array<Integer> values = [10, 20, 30]
   printLine(values[1])
   expectedOutputLine("20")

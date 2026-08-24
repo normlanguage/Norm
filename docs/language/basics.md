@@ -49,7 +49,7 @@ Integer area(Integer width, Integer height) {
 Integer result = area(width: 12, height: 8)
 ```
 
-返回类型写在函数名之前，参数也使用类型前置。多个参数使用命名调用，让调用点保留参数含义。
+有结果的顶层函数把返回类型写在函数名之前；省略时固定为 `Void`。参数使用类型前置。多个参数使用命名调用，让调用点保留参数含义。
 
 ## 条件
 
@@ -101,7 +101,7 @@ Integer clamp(Integer value, Integer minimum, Integer maximum) {
     return value
 }
 
-Void main() {
+main() {
     Integer opacity = clamp(value: 140, minimum: 0, maximum: 100)
     printLine(opacity)
 }

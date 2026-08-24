@@ -1,0 +1,27 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+announce() {
+  printLines(["ready"])
+}
+
+class Counter {
+  Integer value
+
+  add(Integer amount) {
+    value = value + amount
+  }
+
+  Void inspect() {
+    printLines([value])
+  }
+}
+
+main() {
+  Counter counter = Counter(value: 1)
+  Counter result = counter.add(2).add(3)
+  announce()
+  result.inspect()
+  printLines([result == counter])
+  expectedOutputLines(["ready", "6", "true"])
+}

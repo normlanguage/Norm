@@ -8,7 +8,7 @@ Norm 的 class 实例具有身份；基本类型、enum 和内建容器是 value
 class Counter {
     Integer value
 
-    Void increment() {
+    increment() {
         value = value + 1
     }
 }
@@ -19,7 +19,7 @@ second.increment()
 printLine(first.value)
 ```
 
-程序输出 `1`。`first` 与 `second` 指向同一个 Counter，函数参数和返回值也遵循相同规则。
+程序输出 `1`。`first` 与 `second` 指向同一个 Counter，函数参数和返回值也遵循相同规则。省略返回类型的 class 方法返回同一接收者，因此可以继续链式调用。
 
 需要新身份时显式调用 `copy()`：
 

@@ -10,7 +10,7 @@ String append(String prefix, CodePoint value) {
 
 List<String> letterCombinations(String digitsValue) {
   Array<CodePoint> digits = digitsValue.codePoints()
-  Array<String> letters = ["","","abc","def","ghi","jkl","mno","pqrs","tuv","wxyz"]
+  Array<String> letters = ["", "", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"]
   List<String> combinations = List<>()
   combinations.add("")
   for CodePoint digit : digits {
@@ -18,21 +18,17 @@ List<String> letterCombinations(String digitsValue) {
     Array<CodePoint> points = choices.codePoints()
     List<String> next = List<>()
     for String prefix : combinations {
-      for CodePoint point : points { next.add(append(prefix: prefix, value: point)) }
+      for CodePoint point : points {
+        next.add(append(prefix: prefix, value: point))
+      }
     }
     combinations = next
   }
   return combinations
 }
 
-Void main() {
+main() {
   List<String> answer = letterCombinations("23")
-  printLines([
-    answer.size(),
-    answer[0]
-  ])
-  expectedOutputLines([
-    "9",
-    "ad"
-  ])
+  printLines([answer.size(), answer[0]])
+  expectedOutputLines(["9", "ad"])
 }

@@ -5,13 +5,7 @@ Boolean longEnough(String? value) {
   return value != null && value.codePointSize() >= 3
 }
 
-Void main() {
-  printLines([
-    longEnough(value: null),
-    longEnough(value: "abc")
-  ])
-  expectedOutputLines([
-    "false",
-    "true"
-  ])
+main() {
+  printLines([longEnough(value: null), longEnough(value: "abc")])
+  expectedOutputLines(["false", "true"])
 }

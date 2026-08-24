@@ -1,13 +1,14 @@
 import std.testing.expectedOutputLines
 
 enum Color { Red, Green, Blue }
-Color favorite() { return Color.Green }
-Void main() {
+
+Color favorite() {
+  return Color.Green
+}
+
+main() {
   Color color = favorite()
   printLine(color)
   printLine(color == Color.Green)
-  expectedOutputLines([
-    "Color.Green",
-    "true"
-  ])
+  expectedOutputLines(["Color.Green", "true"])
 }

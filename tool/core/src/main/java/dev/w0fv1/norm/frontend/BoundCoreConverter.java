@@ -300,15 +300,26 @@ final class BoundCoreConverter {
         BoundCoreTypeConverter.forCallable(declaration, nominalTypeIndices);
     Optional<BoundClass> owner = declaration.owner().map(value -> classDeclaration(value.value()));
     Optional<CoreType> receiverType =
-        owner.map(
-            value ->
-                types.convert(
-                    SemanticType.declared(
-                        value.type().identity(),
-                        value.name(),
-                        value.typeParameters().stream().map(BoundTypeParameter::type).toList(),
-                        value.type().category())));
-    int ownerTypeParameterCount = owner.map(value -> value.typeParameters().size()).orElse(0);
+        declaration
+            .receiverType()
+            .map(types::convert)
+            .or(
+                () ->
+                    owner.map(
+                        value ->
+                            types.convert(
+                                SemanticType.declared(
+                                    value.type().identity(),
+                                    value.name(),
+                                    value.typeParameters().stream()
+                                        .map(BoundTypeParameter::type)
+                                        .toList(),
+                                    value.type().category()))));
+    int ownerTypeParameterCount =
+        owner
+            .map(value -> value.typeParameters().size())
+            .orElseGet(
+                () -> declaration.receiverType().map(value -> value.arguments().size()).orElse(0));
     List<BoundTypeParameter> callableTypeParameters =
         declaration
             .typeParameters()
@@ -321,6 +332,8 @@ final class BoundCoreConverter {
         new CoreDefinition.Callable(
             receiverType,
             coreTypeParameters(callableTypeParameters, types),
+            declaration.captures().stream().map(capture -> types.convert(capture.type())).toList(),
+            declaration.captures().stream().map(capture -> body.localIndex(capture.id())).toList(),
             declaration.parameters().stream()
                 .map(parameter -> types.convert(parameter.type()))
                 .toList(),
@@ -338,23 +351,28 @@ final class BoundCoreConverter {
         definition,
         origin(declaration.name(), declaration.span(), body.nodeSpans()),
         body.referenceTargets(),
-        new BindingSeed(
-            source,
-            ownerName,
-            declaration.name(),
-            visibility(declaration.visibility()),
-            new CoreBindingShape.Callable(
-                coreTypeParameters(callableTypeParameters, types),
-                declaration.parameters().stream()
-                    .map(
-                        parameter ->
-                            new CoreBindingShape.Parameter(
-                                parameter.name(), types.convert(parameter.type())))
-                    .toList(),
-                types.convert(declaration.returnType())),
-            owner
-                .map(value -> value.visibility() == dev.w0fv1.norm.bound.BoundVisibility.PUBLIC)
-                .orElse(true)));
+        declaration.name().equals("$lambda") || declaration.receiverType().isPresent()
+            ? Optional.empty()
+            : Optional.of(
+                new BindingSeed(
+                    source,
+                    ownerName,
+                    declaration.name(),
+                    visibility(declaration.visibility()),
+                    new CoreBindingShape.Callable(
+                        coreTypeParameters(callableTypeParameters, types),
+                        declaration.parameters().stream()
+                            .map(
+                                parameter ->
+                                    new CoreBindingShape.Parameter(
+                                        parameter.name(), types.convert(parameter.type())))
+                            .toList(),
+                        types.convert(declaration.returnType())),
+                    owner
+                        .map(
+                            value ->
+                                value.visibility() == dev.w0fv1.norm.bound.BoundVisibility.PUBLIC)
+                        .orElse(true))));
   }
 
   private int declarationIndex(String declaration) {

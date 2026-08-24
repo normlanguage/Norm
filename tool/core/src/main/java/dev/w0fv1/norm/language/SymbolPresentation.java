@@ -2,9 +2,31 @@ package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import java.util.List;
 
 final class SymbolPresentation {
   private SymbolPresentation() {}
+
+  static Symbol callable(Symbol symbol) {
+    if (!symbol.type().isFunction()) return symbol;
+    List<dev.w0fv1.norm.semantic.ParameterInfo> parameters =
+        java.util.stream.IntStream.range(0, symbol.type().functionParameterTypes().size())
+            .mapToObj(
+                index ->
+                    new dev.w0fv1.norm.semantic.ParameterInfo(
+                        "argument" + index, symbol.type().functionParameterTypes().get(index)))
+            .toList();
+    return new Symbol(
+        symbol.id(),
+        symbol.name(),
+        SymbolKind.FUNCTION,
+        symbol.type().functionReturnType(),
+        symbol.declaration(),
+        symbol.owner(),
+        List.of(),
+        parameters,
+        symbol.documentation());
+  }
 
   static String signature(Symbol symbol) {
     String typeParameters =

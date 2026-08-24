@@ -4,7 +4,9 @@ import std.testing.expectedOutputLines
 List<Integer> prefixSums(Array<Integer> values) {
   List<Integer> prefix = List<>()
   prefix.add(0)
-  for Integer value : values { prefix.add(prefix.last() + value) }
+  for Integer value : values {
+    prefix.add(prefix.last() + value)
+  }
   return prefix
 }
 
@@ -12,16 +14,14 @@ Integer rangeSum(List<Integer> prefix, Integer start, Integer end) {
   return prefix[end + 1] - prefix[start]
 }
 
-Void main() {
+main() {
   List<Integer> prefix = prefixSums([3, 1, 4, 1, 5, 9])
-  printLines([
-    rangeSum(prefix, start: 0, end: 4),
-    rangeSum(prefix, start: 3, end: 5),
-    rangeSum(prefix, start: 1, end: 3)
-  ])
-  expectedOutputLines([
-    "14",
-    "15",
-    "6"
-  ])
+  printLines(
+    [
+      rangeSum(prefix, start: 0, end: 4),
+      rangeSum(prefix, start: 3, end: 5),
+      rangeSum(prefix, start: 1, end: 3)
+    ]
+  )
+  expectedOutputLines(["14", "15", "6"])
 }

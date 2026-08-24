@@ -9,6 +9,7 @@ import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundCallableId;
 import dev.w0fv1.norm.bound.BoundClass;
 import dev.w0fv1.norm.bound.BoundClassId;
+import dev.w0fv1.norm.bound.BoundClosure;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundEnum;
@@ -24,6 +25,7 @@ import dev.w0fv1.norm.bound.BoundInterfaceId;
 import dev.w0fv1.norm.bound.BoundInterfaceMethod;
 import dev.w0fv1.norm.bound.BoundInterfaceMethodId;
 import dev.w0fv1.norm.bound.BoundIntrinsic;
+import dev.w0fv1.norm.bound.BoundInvoke;
 import dev.w0fv1.norm.bound.BoundIteration;
 import dev.w0fv1.norm.bound.BoundLocalId;
 import dev.w0fv1.norm.bound.BoundParameter;
@@ -62,8 +64,13 @@ final class Binder {
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
   private final Map<String, BoundField> fields = new LinkedHashMap<>();
   private Map<String, BoundLocalId> reifiedLocals = Map.of();
+  private List<BoundTypeParameter> activeTypeParameters = List.of();
   private BoundLocalId thisLocal;
   private SemanticType thisType;
+  private Map<BoundLocalId, SemanticType> lambdaCaptures;
+  private java.util.Set<BoundLocalId> lambdaLocals = java.util.Set.of();
+  private BoundCallableId currentCallableId;
+  private boolean implicitSelfReturn;
   private int syntheticId;
 
   Binder(List<Syntax.Program> programs, SemanticModel semantics) {
@@ -171,13 +178,80 @@ final class Binder {
       for (Syntax.ClassDecl owner : program.classes()) {
         for (Syntax.FunctionDecl method : owner.methods()) bindCallable(method, owner);
       }
+      for (Syntax.InterfaceDecl owner : program.interfaces()) {
+        for (Syntax.InterfaceMethodDecl method : owner.methods()) {
+          if (method.body().isPresent()) bindDefaultMethod(method, owner);
+        }
+      }
     }
+  }
+
+  private void bindDefaultMethod(
+      Syntax.InterfaceMethodDecl declaration, Syntax.InterfaceDecl owner) {
+    Symbol requirement = symbol(declaration.nameSpan());
+    BoundCallableId id = new BoundCallableId(requirement.id().value() + "/default");
+    BoundCallableId previousCallableId = currentCallableId;
+    List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
+    currentCallableId = id;
+    thisLocal = new BoundLocalId(id.value() + "/this");
+    Symbol ownerSymbol = symbol(owner.nameSpan());
+    thisType =
+        SemanticType.declared(
+            ownerSymbol.type().identity(),
+            owner.name(),
+            owner.typeParameters().stream()
+                .map(parameter -> symbol(parameter.nameSpan()).type())
+                .toList(),
+            ownerSymbol.type().category());
+    Map<String, BoundLocalId> activeReified = new LinkedHashMap<>();
+    List<BoundReifiedArgument> reified = new ArrayList<>();
+    addReified(owner.typeParameters(), id, activeReified, reified);
+    addReified(declaration.typeParameters(), id, activeReified, reified);
+    reifiedLocals = Map.copyOf(activeReified);
+    List<BoundParameter> parameters = new ArrayList<>();
+    for (int ordinal = 0; ordinal < declaration.parameters().size(); ordinal++) {
+      Syntax.Parameter parameter = declaration.parameters().get(ordinal);
+      Symbol symbol = symbol(parameter.nameSpan());
+      parameters.add(
+          new BoundParameter(
+              BoundLocalId.of(symbol.id()), parameter.name(), symbol.type(), ordinal));
+    }
+    List<BoundTypeParameter> typeParameters = new ArrayList<>();
+    typeParameters.addAll(bindTypeParameters(owner.typeParameters()));
+    typeParameters.addAll(bindTypeParameters(declaration.typeParameters()));
+    activeTypeParameters = List.copyOf(typeParameters);
+    callables.put(
+        id.value(),
+        new BoundCallable(
+            id,
+            declaration.name(),
+            dev.w0fv1.norm.bound.BoundVisibility.PUBLIC,
+            Optional.empty(),
+            Optional.of(thisType),
+            Optional.of(thisLocal),
+            List.of(),
+            parameters,
+            typeParameters,
+            reified,
+            requirement.type(),
+            bindBlock(declaration.body().orElseThrow(), declaration.span()),
+            declaration.span()));
+    reifiedLocals = Map.of();
+    thisLocal = null;
+    thisType = null;
+    activeTypeParameters = previousTypeParameters;
+    currentCallableId = previousCallableId;
   }
 
   private void bindCallable(Syntax.FunctionDecl declaration, Syntax.ClassDecl owner) {
     Symbol callable = symbol(declaration.nameSpan());
     BoundCallableId id = BoundCallableId.of(callable.id());
+    BoundCallableId previousCallableId = currentCallableId;
+    List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
+    currentCallableId = id;
     BoundClassId ownerId = owner == null ? null : classId(owner);
+    boolean previousImplicitSelfReturn = implicitSelfReturn;
+    implicitSelfReturn = owner != null && declaration.returnType().isEmpty();
     thisLocal = owner == null ? null : new BoundLocalId(id.value() + "/this");
     thisType =
         owner == null
@@ -196,6 +270,7 @@ final class Binder {
     }
     addReified(declaration.typeParameters(), id, activeReified, reified);
     reifiedLocals = Map.copyOf(activeReified);
+    activeTypeParameters = bindCallableTypeParameters(declaration, owner);
     List<BoundParameter> parameters = new ArrayList<>();
     for (int ordinal = 0; ordinal < declaration.parameters().size(); ordinal++) {
       Syntax.Parameter parameter = declaration.parameters().get(ordinal);
@@ -203,6 +278,14 @@ final class Binder {
       parameters.add(
           new BoundParameter(
               BoundLocalId.of(symbol.id()), parameter.name(), symbol.type(), ordinal));
+    }
+    BoundBlock body = bindBlock(declaration.body(), declaration.span());
+    if (implicitSelfReturn) {
+      List<BoundStatement> statements = new ArrayList<>(body.statements());
+      statements.add(
+          new BoundStatement.ReturnStatement(
+              Optional.of(thisRead(declaration.span())), declaration.span()));
+      body = new BoundBlock(statements, body.span());
     }
     BoundCallable bound =
         new BoundCallable(
@@ -214,15 +297,18 @@ final class Binder {
             Optional.ofNullable(ownerId),
             Optional.ofNullable(thisLocal),
             parameters,
-            bindCallableTypeParameters(declaration, owner),
+            activeTypeParameters,
             reified,
             callable.type(),
-            bindBlock(declaration.body(), declaration.span()),
+            body,
             declaration.span());
     callables.put(id.value(), bound);
     reifiedLocals = Map.of();
     thisLocal = null;
     thisType = null;
+    activeTypeParameters = previousTypeParameters;
+    currentCallableId = previousCallableId;
+    implicitSelfReturn = previousImplicitSelfReturn;
   }
 
   private void addReified(
@@ -250,11 +336,13 @@ final class Binder {
     return switch (statement) {
       case Syntax.VariableDecl variable -> {
         Symbol symbol = symbol(variable.nameSpan());
+        BoundExpression initializer = bindExpression(variable.initializer());
+        if (lambdaCaptures != null) lambdaLocals.add(BoundLocalId.of(symbol.id()));
         yield new BoundStatement.LocalDeclaration(
             BoundLocalId.of(symbol.id()),
             variable.name(),
             symbol.type(),
-            bindExpression(variable.initializer()),
+            initializer,
             variable.span());
       }
       case Syntax.Assignment assignment -> bindAssignment(assignment);
@@ -272,20 +360,29 @@ final class Binder {
               bindExpression(loop.condition()), bindBlock(loop.body(), loop.span()), loop.span());
       case Syntax.ForStatement loop -> {
         Symbol variable = symbol(loop.variableNameSpan());
+        BoundExpression iterable = bindExpression(loop.iterable());
+        if (lambdaCaptures != null) {
+          lambdaLocals.add(BoundLocalId.of(variable.id()));
+          loop.index()
+              .ifPresent(index -> lambdaLocals.add(BoundLocalId.of(symbol(index.nameSpan()).id())));
+        }
         yield new BoundStatement.ForStatement(
             new BoundLocalId(variable.id().value() + "/iterator/" + syntheticId++),
             BoundLocalId.of(variable.id()),
             loop.variableName(),
             variable.type(),
             loop.index().map(index -> BoundLocalId.of(symbol(index.nameSpan()).id())),
-            bindExpression(loop.iterable()),
+            iterable,
             bindBlock(loop.body(), loop.span()),
             bindIteration(semantics.iterationOf(loop.iterable().span()).orElseThrow()),
             loop.span());
       }
       case Syntax.ReturnStatement returned ->
           new BoundStatement.ReturnStatement(
-              Optional.ofNullable(returned.value()).map(this::bindExpression), returned.span());
+              implicitSelfReturn && returned.value() == null
+                  ? Optional.of(thisRead(returned.span()))
+                  : Optional.ofNullable(returned.value()).map(this::bindExpression),
+              returned.span());
       case Syntax.BreakStatement broken ->
           broken.value() == null
               ? new BoundStatement.BreakStatement(broken.span())
@@ -384,6 +481,8 @@ final class Binder {
               binary.span());
       case Syntax.Call call -> bindCall(call, type);
       case Syntax.Member member -> bindMember(member, type);
+      case Syntax.Lambda lambda -> bindLambda(lambda, type);
+      case Syntax.MethodReference reference -> bindMethodReference(reference, type);
       case Syntax.Index index -> {
         var resolved = semantics.indexOf(index.span()).orElseThrow();
         yield new BoundExpression.Index(
@@ -405,13 +504,26 @@ final class Binder {
 
   private BoundExpression bindName(Syntax.Name name, SemanticType type) {
     Symbol symbol = symbol(name.span());
+    if (symbol.kind() == SymbolKind.FUNCTION || symbol.kind() == SymbolKind.METHOD) {
+      return new BoundClosure(
+          BoundCallableId.of(symbol.id()),
+          Optional.empty(),
+          List.of(),
+          semantics.functionReferenceTypeArguments(name.span()).stream()
+              .map(this::runtimeType)
+              .toList(),
+          type,
+          name.span());
+    }
     if (symbol.kind() == SymbolKind.SELF) return thisRead(name.span());
     if (symbol.kind() == SymbolKind.FIELD) {
       BoundField field = field(symbol);
       return new BoundExpression.FieldRead(
           thisRead(name.span()), field.id(), field.ordinal(), type, name.span());
     }
-    return new BoundExpression.LocalRead(BoundLocalId.of(symbol.id()), type, name.span());
+    BoundLocalId local = BoundLocalId.of(symbol.id());
+    recordCapture(local, type);
+    return new BoundExpression.LocalRead(local, type, name.span());
   }
 
   private BoundSwitchCase bindSwitchCase(Syntax.SwitchCase switchCase) {
@@ -434,6 +546,7 @@ final class Binder {
       }
       case Syntax.BindingPattern binding -> {
         Symbol symbol = symbol(binding.nameSpan());
+        if (lambdaCaptures != null) lambdaLocals.add(BoundLocalId.of(symbol.id()));
         yield new BoundPattern.Binding(BoundLocalId.of(symbol.id()), symbol.type(), binding.span());
       }
       case Syntax.WildcardPattern wildcard -> new BoundPattern.Wildcard(wildcard.span());
@@ -465,8 +578,11 @@ final class Binder {
     if (!resolution.resultType().equals(type)) {
       throw new IllegalStateException("resolved call result differs from expression type");
     }
-    Symbol target = semantics.symbol(resolution.target()).orElseThrow();
     List<BoundArgument> arguments = bindArguments(call, resolution);
+    if (resolution.kind() == ResolvedCall.Kind.INVOKE) {
+      return new BoundInvoke(bindExpression(call.callee()), arguments, type, call.span());
+    }
+    Symbol target = semantics.symbol(resolution.target()).orElseThrow();
     Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
     BoundExpression receiver =
         member == null
@@ -532,6 +648,7 @@ final class Binder {
               nullSafe,
               type,
               call.span());
+      case INVOKE -> throw new IllegalStateException("function invocation was bound eagerly");
       case INTERFACE_CALL ->
           new BoundExpression.InterfaceCall(
               BoundInterfaceMethodId.of(target.id()),
@@ -709,6 +826,24 @@ final class Binder {
                 BoundInterfaceMethodId.of(symbol(requirement.nameSpan()).id()),
                 new BoundWitness.Target.Intrinsic(entry.getValue().intrinsic())));
       }
+      for (Syntax.InterfaceMethodDecl requirement : contract.methods()) {
+        if (requirement.body().isEmpty()
+            || witnesses.stream()
+                .anyMatch(
+                    value ->
+                        value
+                            .requirement()
+                            .equals(
+                                BoundInterfaceMethodId.of(symbol(requirement.nameSpan()).id())))) {
+          continue;
+        }
+        witnesses.add(
+            new BoundWitness(
+                BoundInterfaceMethodId.of(symbol(requirement.nameSpan()).id()),
+                new BoundWitness.Target.Callable(
+                    new BoundCallableId(
+                        symbol(requirement.nameSpan()).id().value() + "/default"))));
+      }
       result.add(
           new BoundBuiltinConformance(
               conformance.typeParameters().stream()
@@ -781,8 +916,125 @@ final class Binder {
     type.arguments().forEach(argument -> collectCaptures(argument, captures));
   }
 
+  private BoundExpression bindLambda(Syntax.Lambda lambda, SemanticType type) {
+    BoundCallableId lambdaId =
+        new BoundCallableId(currentCallableId.value() + "/lambda@" + lambda.span().startOffset());
+    Map<BoundLocalId, SemanticType> previousCaptures = lambdaCaptures;
+    java.util.Set<BoundLocalId> previousLocals = lambdaLocals;
+    BoundCallableId previousCallable = currentCallableId;
+    boolean previousImplicitSelfReturn = implicitSelfReturn;
+    Map<String, BoundLocalId> previousReifiedLocals = reifiedLocals;
+    List<BoundRuntimeType> closureReifiedArguments =
+        activeTypeParameters.stream().map(BoundTypeParameter::type).map(this::runtimeType).toList();
+    Map<String, BoundLocalId> lambdaReifiedLocals = new LinkedHashMap<>();
+    List<BoundReifiedArgument> lambdaReifiedParameters = new ArrayList<>();
+    for (BoundTypeParameter parameter : activeTypeParameters) {
+      BoundLocalId local =
+          new BoundLocalId(lambdaId.value() + "/type/" + parameter.type().identity());
+      lambdaReifiedLocals.put(parameter.type().identity(), local);
+      lambdaReifiedParameters.add(new BoundReifiedArgument(parameter.type().identity(), local));
+    }
+    Map<BoundLocalId, SemanticType> captures = new LinkedHashMap<>();
+    java.util.Set<BoundLocalId> locals = new java.util.LinkedHashSet<>();
+    List<BoundParameter> parameters = new ArrayList<>();
+    for (int ordinal = 0; ordinal < lambda.parameters().size(); ordinal++) {
+      Syntax.LambdaParameter parameter = lambda.parameters().get(ordinal);
+      Symbol symbol = symbol(parameter.nameSpan());
+      BoundLocalId id = BoundLocalId.of(symbol.id());
+      locals.add(id);
+      parameters.add(new BoundParameter(id, parameter.name(), symbol.type(), ordinal));
+    }
+    lambdaCaptures = captures;
+    lambdaLocals = locals;
+    reifiedLocals = Map.copyOf(lambdaReifiedLocals);
+    currentCallableId = lambdaId;
+    implicitSelfReturn = false;
+    BoundBlock body = bindLambdaBlock(lambda);
+    List<BoundParameter> captureParameters = new ArrayList<>();
+    int ordinal = 0;
+    for (Map.Entry<BoundLocalId, SemanticType> capture : captures.entrySet()) {
+      captureParameters.add(
+          new BoundParameter(capture.getKey(), "$capture" + ordinal, capture.getValue(), ordinal));
+      ordinal++;
+    }
+    callables.put(
+        lambdaId.value(),
+        new BoundCallable(
+            lambdaId,
+            "$lambda",
+            dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            captureParameters,
+            parameters,
+            activeTypeParameters,
+            lambdaReifiedParameters,
+            type.functionReturnType(),
+            body,
+            lambda.span()));
+    lambdaCaptures = previousCaptures;
+    lambdaLocals = previousLocals;
+    reifiedLocals = previousReifiedLocals;
+    currentCallableId = previousCallable;
+    implicitSelfReturn = previousImplicitSelfReturn;
+    List<BoundExpression> capturedValues =
+        captures.entrySet().stream()
+            .map(
+                capture -> {
+                  recordCapture(capture.getKey(), capture.getValue());
+                  return (BoundExpression)
+                      new BoundExpression.LocalRead(
+                          capture.getKey(), capture.getValue(), lambda.span());
+                })
+            .toList();
+    return new BoundClosure(
+        lambdaId, Optional.empty(), capturedValues, closureReifiedArguments, type, lambda.span());
+  }
+
+  private BoundBlock bindLambdaBlock(Syntax.Lambda lambda) {
+    List<BoundStatement> statements = new ArrayList<>();
+    for (int index = 0; index < lambda.body().size(); index++) {
+      Syntax.Statement statement = lambda.body().get(index);
+      if (index == lambda.body().size() - 1
+          && statement instanceof Syntax.ExpressionStatement expression
+          && !semantics
+              .typeOf(lambda.span())
+              .orElseThrow()
+              .functionReturnType()
+              .equals(SemanticType.VOID)) {
+        statements.add(
+            new BoundStatement.ReturnStatement(
+                Optional.of(bindExpression(expression.expression())), expression.span()));
+      } else {
+        statements.add(bindStatement(statement));
+      }
+    }
+    return new BoundBlock(statements, lambda.span());
+  }
+
+  private BoundExpression bindMethodReference(Syntax.MethodReference reference, SemanticType type) {
+    Symbol target = symbol(reference.nameSpan());
+    return new BoundClosure(
+        BoundCallableId.of(target.id()),
+        Optional.of(bindExpression(reference.receiver())),
+        List.of(),
+        semantics.functionReferenceTypeArguments(reference.span()).stream()
+            .map(this::runtimeType)
+            .toList(),
+        type,
+        reference.span());
+  }
+
+  private void recordCapture(BoundLocalId local, SemanticType type) {
+    if (lambdaCaptures != null && !lambdaLocals.contains(local)) {
+      lambdaCaptures.putIfAbsent(local, type);
+    }
+  }
+
   private BoundExpression thisRead(SourceSpan span) {
     if (thisLocal == null) throw new IllegalStateException("implicit field access outside method");
+    recordCapture(thisLocal, thisType);
     return new BoundExpression.LocalRead(thisLocal, thisType, span);
   }
 
@@ -863,11 +1115,9 @@ final class Binder {
   }
 
   private List<BoundCallableId> sourceCallables(Syntax.Program program) {
-    List<BoundCallableId> result = new ArrayList<>();
-    program.functions().forEach(value -> result.add(callableId(value)));
-    program
-        .classes()
-        .forEach(owner -> owner.methods().forEach(value -> result.add(callableId(value))));
-    return List.copyOf(result);
+    return callables.values().stream()
+        .filter(value -> value.span().source().id().equals(program.span().source().id()))
+        .map(BoundCallable::id)
+        .toList();
   }
 }

@@ -1,7 +1,10 @@
-Void main() {
+main() {
   Integer found = -1
   for value : range(start: 0, end: 10) {
-    if value == 3 { found = value break }
+    if value == 3 {
+      found = value
+      break
+    }
   }
   printLine(found)
   expectedOutputLine("3")

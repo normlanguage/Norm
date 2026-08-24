@@ -1,12 +1,10 @@
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Array<Boolean> values = Array.filled(size: 3, value: false)
   values[2] = true
-  for value : values { printLine(value) }
-  expectedOutputLines([
-    "false",
-    "false",
-    "true"
-  ])
+  for value : values {
+    printLine(value)
+  }
+  expectedOutputLines(["false", "false", "true"])
 }

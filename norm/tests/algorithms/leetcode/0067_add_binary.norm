@@ -4,21 +4,31 @@ String addBinary(String leftValue, String rightValue) {
   List<Integer> reversed = List<>()
   Integer carry = 0
   Integer size = left.size()
-  if right.size() > size { size = right.size() }
+  if right.size() > size {
+    size = right.size()
+  }
   for offset : range(start: 0, end: size) {
     Integer sum = carry
-    if offset < left.size() { sum = sum + left[left.size() - 1 - offset].asciiDigitValue() }
-    if offset < right.size() { sum = sum + right[right.size() - 1 - offset].asciiDigitValue() }
+    if offset < left.size() {
+      sum = sum + left[left.size() - 1 - offset].asciiDigitValue()
+    }
+    if offset < right.size() {
+      sum = sum + right[right.size() - 1 - offset].asciiDigitValue()
+    }
     reversed.add(sum % 2)
     carry = sum / 2
   }
-  if carry > 0 { reversed.add(carry) }
+  if carry > 0 {
+    reversed.add(carry)
+  }
   StringBuilder result = StringBuilder()
-  for Integer digit : reversed.reversed() { result.append(digit) }
+  for Integer digit : reversed.reversed() {
+    result.append(digit)
+  }
   return result.toString()
 }
 
-Void main() {
+main() {
   printLine(addBinary(leftValue: "1010", rightValue: "1011"))
   expectedOutputLine("10101")
 }

@@ -11,6 +11,7 @@ public record CoreLocal(int index, CoreType type, Kind kind) {
 
   public enum Kind {
     RECEIVER,
+    CAPTURE,
     PARAMETER,
     REIFIED_TYPE,
     VARIABLE,

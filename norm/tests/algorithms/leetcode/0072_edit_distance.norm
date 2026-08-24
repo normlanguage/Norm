@@ -1,7 +1,11 @@
 Integer min3(Integer first, Integer second, Integer third) {
   Integer result = first
-  if second < result { result = second }
-  if third < result { result = third }
+  if second < result {
+    result = second
+  }
+  if third < result {
+    result = third
+  }
   return result
 }
 
@@ -9,21 +13,27 @@ Integer minDistance(String leftValue, String rightValue) {
   Array<CodePoint> left = leftValue.codePoints()
   Array<CodePoint> right = rightValue.codePoints()
   List<Integer> previous = List<>()
-  for column : range(start: 0, end: right.size() + 1) { previous.add(column) }
+  for column : range(start: 0, end: right.size() + 1) {
+    previous.add(column)
+  }
   for row : range(start: 1, end: left.size() + 1) {
     List<Integer> current = List<>()
     current.add(row)
     for column : range(start: 1, end: right.size() + 1) {
       Integer substitution = previous[column - 1]
-      if left[row - 1] != right[column - 1] { substitution = substitution + 1 }
-      current.add(min3(first: previous[column] + 1, second: current[column - 1] + 1, third: substitution))
+      if left[row - 1] != right[column - 1] {
+        substitution = substitution + 1
+      }
+      current.add(
+        min3(first: previous[column] + 1, second: current[column - 1] + 1, third: substitution)
+      )
     }
     previous = current
   }
   return previous[right.size()]
 }
 
-Void main() {
+main() {
   printLine(minDistance(leftValue: "horse", rightValue: "ros"))
   expectedOutputLine("3")
 }

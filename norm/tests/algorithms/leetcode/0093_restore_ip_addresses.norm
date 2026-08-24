@@ -7,14 +7,18 @@ class Addresses {
 
 Integer segmentValue(Array<CodePoint> digits, Integer start, Integer end) {
   Integer value = 0
-  for index : range(start: start, end: end) { value = value * 10 + digits[index].asciiDigitValue() }
+  for index : range(start: start, end: end) {
+    value = value * 10 + digits[index].asciiDigitValue()
+  }
   return value
 }
 
 String address(List<Integer> parts) {
   StringBuilder result = StringBuilder()
   for index : range(start: 0, end: parts.size()) {
-    if index > 0 { result.append(".") }
+    if index > 0 {
+      result.append(".")
+    }
     result.append(parts[index])
   }
   return result.toString()
@@ -22,7 +26,9 @@ String address(List<Integer> parts) {
 
 Void restore(Array<CodePoint> digits, Integer index, List<Integer> parts, Addresses result) {
   if parts.size() == 4 {
-    if index == digits.size() { result.values.add(address(parts)) }
+    if index == digits.size() {
+      result.values.add(address(parts))
+    }
     return
   }
   for length : range(start: 1, end: 4) {
@@ -43,14 +49,8 @@ List<String> restoreIpAddresses(String value) {
   return result.values
 }
 
-Void main() {
+main() {
   List<String> result = restoreIpAddresses("25525511135")
-  printLines([
-    result.size(),
-    result[0]
-  ])
-  expectedOutputLines([
-    "2",
-    "255.255.11.135"
-  ])
+  printLines([result.size(), result[0]])
+  expectedOutputLines(["2", "255.255.11.135"])
 }

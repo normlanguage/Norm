@@ -1,8 +1,10 @@
 Void show(String? value) {
-  if value != null { printLine(value.codePointSize()) }
+  if value != null {
+    printLine(value.codePointSize())
+  }
 }
 
-Void main() {
+main() {
   show(value: null)
   show(value: "😀A")
   expectedOutputLine("2")

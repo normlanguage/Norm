@@ -19,6 +19,7 @@ export const enTheme: DefaultTheme.Config = {
     '/en/language/': [{ text: 'Core Language', items: handbook }],
     '/en/versions/': [{ text: 'Releases', items: [
       { text: 'Version index', link: '/en/versions/' },
+      { text: 'Norm 0.6', link: '/en/versions/0.6' },
       { text: 'Norm 0.5', link: '/en/versions/0.5' },
       { text: 'Norm 0.4', link: '/en/versions/0.4' },
       { text: 'Norm 0.3', link: '/en/versions/0.3' },
@@ -26,6 +27,7 @@ export const enTheme: DefaultTheme.Config = {
       { text: 'Norm 0.1', link: '/en/versions/0.1' },
     ]}],
     '/en/design/': [{ text: 'Implementation', items: [
+      { text: 'Norm 0.6', link: '/en/versions/0.6' },
       { text: 'Norm 0.5', link: '/en/versions/0.5' },
       { text: 'Norm 0.4', link: '/en/versions/0.4' },
       { text: 'Norm 0.3', link: '/en/versions/0.3' },
@@ -44,6 +46,6 @@ export const enTheme: DefaultTheme.Config = {
   sidebarMenuLabel: 'Menu',
   darkModeSwitchLabel: 'Appearance',
   langMenuLabel: 'Change language',
-  footer: { message: 'Norm 0.4 development line', copyright: 'Norm Project' },
+  footer: { message: 'Norm 0.6 development line', copyright: 'Norm Project' },
 }
 

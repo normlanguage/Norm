@@ -1,16 +1,10 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   List<String?> values = List<>()
   values.add(null)
   values.add("value")
-  printLines([
-    values[0] == null,
-    values[1] ?? "missing"
-  ])
-  expectedOutputLines([
-    "true",
-    "value"
-  ])
+  printLines([values[0] == null, values[1] ?? "missing"])
+  expectedOutputLines(["true", "value"])
 }

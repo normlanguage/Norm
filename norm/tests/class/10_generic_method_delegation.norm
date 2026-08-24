@@ -15,14 +15,8 @@ class Box<T> {
   }
 }
 
-Void main() {
+main() {
   Box<String> box = Box<>(value: "first")
-  printLines([
-    box.replace("second"),
-    box.value
-  ])
-  expectedOutputLines([
-    "first",
-    "second"
-  ])
+  printLines([box.replace("second"), box.value])
+  expectedOutputLines(["first", "second"])
 }

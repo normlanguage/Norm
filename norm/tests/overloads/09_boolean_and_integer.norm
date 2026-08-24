@@ -2,18 +2,17 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 String render(Boolean value) {
-  if value { return "true" }
+  if value {
+    return "true"
+  }
   return "false"
 }
-String render(Integer value) { return "integer" }
 
-Void main() {
-  printLines([
-    render(value: true),
-    render(value: 1)
-  ])
-  expectedOutputLines([
-    "true",
-    "integer"
-  ])
+String render(Integer value) {
+  return "integer"
+}
+
+main() {
+  printLines([render(value: true), render(value: 1)])
+  expectedOutputLines(["true", "integer"])
 }

@@ -7,7 +7,9 @@ List<String> fullJustify(List<String> words, Integer width) {
     Integer end = start
     Integer letters = 0
     for scan : range(start: start, end: words.size()) {
-      if letters + words[scan].codePointSize() + scan - start > width { break }
+      if letters + words[scan].codePointSize() + scan - start > width {
+        break
+      }
       letters = letters + words[scan].codePointSize()
       end = scan + 1
     }
@@ -19,26 +21,31 @@ List<String> fullJustify(List<String> words, Integer width) {
         Integer spaces = 1
         if end < words.size() && gaps > 0 {
           spaces = (width - letters) / gaps
-          if word - start < (width - letters) % gaps { spaces = spaces + 1 }
+          if word - start < (width - letters) % gaps {
+            spaces = spaces + 1
+          }
         }
-        for space : range(start: 0, end: spaces) { line.append(" ") }
+        for space : range(start: 0, end: spaces) {
+          line.append(" ")
+        }
       }
     }
-    for space : range(start: line.size(), end: width) { line.append(" ") }
+    for space : range(start: line.size(), end: width) {
+      line.append(" ")
+    }
     lines.add(line.toString())
     start = end
   }
   return lines
 }
 
-Void main() {
+main() {
   List<String> words = List<>()
   words.add("This")
   words.add("is")
   words.add("text")
-  for String line : fullJustify(words, width: 8) { printLine(line) }
-  expectedOutputLines([
-    "This  is",
-    "text    "
-  ])
+  for String line : fullJustify(words, width: 8) {
+    printLine(line)
+  }
+  expectedOutputLines(["This  is", "text    "])
 }

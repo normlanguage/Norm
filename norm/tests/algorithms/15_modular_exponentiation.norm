@@ -5,20 +5,21 @@ Integer modularPower(Integer base, Integer exponent, Integer modulus) {
   Integer result = 1
   base = base % modulus
   for exponent != 0 {
-    if exponent % 2 == 1 { result = result * base % modulus }
+    if exponent % 2 == 1 {
+      result = result * base % modulus
+    }
     base = base * base % modulus
     exponent = exponent / 2
   }
   return result
 }
 
-Void main() {
-  printLines([
-    modularPower(base: 2, exponent: 10, modulus: 1000),
-    modularPower(base: 7, exponent: 0, modulus: 13)
-  ])
-  expectedOutputLines([
-    "24",
-    "1"
-  ])
+main() {
+  printLines(
+    [
+      modularPower(base: 2, exponent: 10, modulus: 1000),
+      modularPower(base: 7, exponent: 0, modulus: 13)
+    ]
+  )
+  expectedOutputLines(["24", "1"])
 }

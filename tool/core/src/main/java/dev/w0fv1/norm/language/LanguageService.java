@@ -2,6 +2,7 @@ package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.SourceFormatter;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
@@ -20,6 +21,7 @@ import java.util.Optional;
 
 public final class LanguageService {
   private final Compiler compiler;
+  private final SourceFormatter formatter = new SourceFormatter();
   private final CompletionEngine completions = new CompletionEngine();
   private final SignatureHelpResolver signatures = new SignatureHelpResolver();
   private final ContractRelations contracts = new ContractRelations();
@@ -46,6 +48,10 @@ public final class LanguageService {
 
   public Optional<String> standardLibrarySource(DocumentId document) {
     return StandardLibrary.source(document).map(SourceFile::text);
+  }
+
+  public Optional<String> format(SourceFile source) {
+    return formatter.format(source);
   }
 
   public List<Completion> complete(AnalysisResult analysis, int offset) {

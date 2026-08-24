@@ -1,16 +1,10 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   List<Integer> values = List<>()
   values.add(3)
   values.add(8)
-  printLines([
-    values.size(),
-    values.get(1)
-  ])
-  expectedOutputLines([
-    "2",
-    "8"
-  ])
+  printLines([values.size(), values.get(1)])
+  expectedOutputLines(["2", "8"])
 }

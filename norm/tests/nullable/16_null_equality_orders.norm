@@ -1,18 +1,8 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   String? value = null
-  printLines([
-    value == null,
-    null == value,
-    value != null,
-    null != value
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "false",
-    "false"
-  ])
+  printLines([value == null, null == value, value != null, null != value])
+  expectedOutputLines(["true", "true", "false", "false"])
 }

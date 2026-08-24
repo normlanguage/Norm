@@ -13,18 +13,14 @@ Integer lengthOfLongestSubstring(String value) {
     }
     window.add(text[right])
     Integer length = right - left + 1
-    if length > best { best = length }
+    if length > best {
+      best = length
+    }
   }
   return best
 }
 
-Void main() {
-  printLines([
-    lengthOfLongestSubstring("abcabcbb"),
-    lengthOfLongestSubstring("bbbbb")
-  ])
-  expectedOutputLines([
-    "3",
-    "1"
-  ])
+main() {
+  printLines([lengthOfLongestSubstring("abcabcbb"), lengthOfLongestSubstring("bbbbb")])
+  expectedOutputLines(["3", "1"])
 }

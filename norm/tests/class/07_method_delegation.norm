@@ -10,7 +10,7 @@ class Calculator {
   }
 }
 
-Void main() {
+main() {
   Calculator calculator = Calculator(value: 6)
   printLine(calculator.adjusted(5))
   expectedOutputLine("17")

@@ -2,7 +2,9 @@ import std.math.abs
 
 Boolean safe(List<Integer> columns, Integer row, Integer column) {
   for previous : range(start: 0, end: row) {
-    if columns[previous] == column || abs(columns[previous] - column) == row - previous { return false }
+    if columns[previous] == column || abs(columns[previous] - column) == row - previous {
+      return false
+    }
   }
   return true
 }
@@ -32,7 +34,7 @@ List<List<Integer>> solveNQueens(Integer size) {
   return result.values
 }
 
-Void main() {
+main() {
   printLine(solveNQueens(4).size())
   expectedOutputLine("2")
 }

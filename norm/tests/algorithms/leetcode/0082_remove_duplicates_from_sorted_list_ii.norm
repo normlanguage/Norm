@@ -6,20 +6,22 @@ List<Integer> deleteDuplicatesAll(Array<Integer> values) {
   for index < values.size() {
     Integer end = index + 1
     for scan : range(start: index + 1, end: values.size()) {
-      if values[scan] != values[index] { break }
+      if values[scan] != values[index] {
+        break
+      }
       end = scan + 1
     }
-    if end == index + 1 { result.add(values[index]) }
+    if end == index + 1 {
+      result.add(values[index])
+    }
     index = end
   }
   return result
 }
 
-Void main() {
-  for Integer value : deleteDuplicatesAll([1,2,3,3,4,4,5]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "5"
-  ])
+main() {
+  for Integer value : deleteDuplicatesAll([1, 2, 3, 3, 4, 4, 5]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "5"])
 }

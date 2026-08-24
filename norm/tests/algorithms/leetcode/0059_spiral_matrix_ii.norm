@@ -49,17 +49,11 @@ List<List<Integer>> generateMatrix(Integer size) {
   return matrix
 }
 
-Void main() {
-  for List<Integer> row : generateMatrix(3) { for Integer value : row { printLine(value) } }
-  expectedOutputLines([
-    "1",
-    "2",
-    "3",
-    "8",
-    "9",
-    "4",
-    "7",
-    "6",
-    "5"
-  ])
+main() {
+  for List<Integer> row : generateMatrix(3) {
+    for Integer value : row {
+      printLine(value)
+    }
+  }
+  expectedOutputLines(["1", "2", "3", "8", "9", "4", "7", "6", "5"])
 }

@@ -3,16 +3,10 @@ import std.core.Result
 import std.core.Unit
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Result<Integer, String> first = Result.Ok(value: 7)
   Result<Integer, String> second = Result<Integer, String>.Ok(value: 7)
   Result<Unit, String> completed = Result.Ok(value: Unit.Value)
-  printLines([
-    first == second,
-    completed == Result<Unit, String>.Ok(value: Unit.Value)
-  ])
-  expectedOutputLines([
-    "true",
-    "true"
-  ])
+  printLines([first == second, completed == Result<Unit, String>.Ok(value: Unit.Value)])
+  expectedOutputLines(["true", "true"])
 }

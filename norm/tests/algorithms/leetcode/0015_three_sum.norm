@@ -9,7 +9,9 @@ List<Array<Integer>> threeSum(Array<Integer> values) {
       for third : range(start: second + 1, end: values.size()) {
         if values[first] + values[second] + values[third] == 0 {
           Array<Integer> triple = sort([values[first], values[second], values[third]])
-          if unique.add(triple) { result.add(triple) }
+          if unique.add(triple) {
+            result.add(triple)
+          }
         }
       }
     }
@@ -17,16 +19,11 @@ List<Array<Integer>> threeSum(Array<Integer> values) {
   return result
 }
 
-Void main() {
+main() {
   for Array<Integer> triple : threeSum([-1, 0, 1, 2, -1, -4]) {
-    for Integer value : triple { printLine(value) }
+    for Integer value : triple {
+      printLine(value)
+    }
   }
-  expectedOutputLines([
-    "-1",
-    "0",
-    "1",
-    "-1",
-    "-1",
-    "2"
-  ])
+  expectedOutputLines(["-1", "0", "1", "-1", "-1", "2"])
 }

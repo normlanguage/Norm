@@ -1,15 +1,12 @@
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Array<String> source = ["A", "B", "C"]
   Array<String> result = source.reversed()
   result[0] = "Z"
   printLine(source[0])
-  for value : result { printLine(value) }
-  expectedOutputLines([
-    "A",
-    "Z",
-    "B",
-    "A"
-  ])
+  for value : result {
+    printLine(value)
+  }
+  expectedOutputLines(["A", "Z", "B", "A"])
 }

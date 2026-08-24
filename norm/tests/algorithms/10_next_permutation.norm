@@ -20,7 +20,9 @@ Array<Integer> nextPermutation(Array<Integer> values) {
       break
     }
   }
-  if pivot < 0 { return reverse(values, start: 0) }
+  if pivot < 0 {
+    return reverse(values, start: 0)
+  }
   Integer successor = values.size() - 1
   for index : range(start: values.size() - 1, end: pivot, step: -1) {
     if values[index] > values[pivot] {
@@ -35,18 +37,13 @@ Array<Integer> nextPermutation(Array<Integer> values) {
 }
 
 Void printArray(Array<Integer> values) {
-  for Integer value : values { printLine(value) }
+  for Integer value : values {
+    printLine(value)
+  }
 }
 
-Void main() {
+main() {
   printArray(nextPermutation([1, 2, 3]))
   printArray(nextPermutation([3, 2, 1]))
-  expectedOutputLines([
-    "1",
-    "3",
-    "2",
-    "1",
-    "2",
-    "3"
-  ])
+  expectedOutputLines(["1", "3", "2", "1", "2", "3"])
 }

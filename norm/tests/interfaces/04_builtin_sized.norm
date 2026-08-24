@@ -4,7 +4,7 @@ Integer readSize<T extends Sized>(T value) {
   return value.size()
 }
 
-Void main() {
+main() {
   List<Integer> values = List<>()
   values.add(3)
   values.add(7)

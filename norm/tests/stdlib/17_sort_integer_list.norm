@@ -1,20 +1,16 @@
 import std.collections.sort
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   List<Integer> source = List<>()
   source.add(4)
   source.add(-1)
   source.add(4)
   source.add(0)
   List<Integer> result = sort(values: source)
-  for value : result { printLine(value) }
+  for value : result {
+    printLine(value)
+  }
   printLine(source[0])
-  expectedOutputLines([
-    "-1",
-    "0",
-    "4",
-    "4",
-    "4"
-  ])
+  expectedOutputLines(["-1", "0", "4", "4", "4"])
 }

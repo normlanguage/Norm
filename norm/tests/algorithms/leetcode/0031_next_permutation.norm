@@ -26,11 +26,9 @@ Array<Integer> nextPermutation(Array<Integer> values) {
   return values
 }
 
-Void main() {
-  for Integer value : nextPermutation([1, 2, 3]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "3",
-    "2"
-  ])
+main() {
+  for Integer value : nextPermutation([1, 2, 3]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "3", "2"])
 }

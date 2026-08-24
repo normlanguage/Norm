@@ -4,19 +4,17 @@ import std.testing.expectedOutputLines
 Boolean canJump(Array<Integer> values) {
   Integer reachable = 0
   for index : range(start: 0, end: values.size()) {
-    if index > reachable { return false }
-    if index + values[index] > reachable { reachable = index + values[index] }
+    if index > reachable {
+      return false
+    }
+    if index + values[index] > reachable {
+      reachable = index + values[index]
+    }
   }
   return true
 }
 
-Void main() {
-  printLines([
-    canJump([2,3,1,1,4]),
-    canJump([3,2,1,0,4])
-  ])
-  expectedOutputLines([
-    "true",
-    "false"
-  ])
+main() {
+  printLines([canJump([2, 3, 1, 1, 4]), canJump([3, 2, 1, 0, 4])])
+  expectedOutputLines(["true", "false"])
 }

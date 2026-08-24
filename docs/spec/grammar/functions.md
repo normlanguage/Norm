@@ -1,13 +1,13 @@
 # 函数声明语法
 
 ```text
-Function := Visibility? ReturnType Identifier TypeParameters?
+Function := Visibility? ReturnType? Identifier TypeParameters?
             "(" Parameters? ")" Block
 Parameter := Type Identifier ("=" ConstantExpression)?
 ```
 
 ```norm
-public Integer clamp(Integer value, Integer minimum, Integer maximum) {
+Integer clamp(Integer value, Integer minimum, Integer maximum) {
     if value < minimum { return minimum }
     if value > maximum { return maximum }
     return value
@@ -26,7 +26,8 @@ Integer result = clamp(value: 120, minimum: 0, maximum: 100)
 
 ## 返回
 
-`Void` 函数可以正常到达末尾；其他返回类型的每条正常完成路径必须执行 `return value`。Norm 不使用最后表达式隐式返回。
+顶层函数省略返回类型时，声明类型固定为 `Void`。class 方法省略返回类型时，声明类型固定为完整的 owner 类型；正常到达末尾和裸 `return` 产生 `this`，`return value` 非法。显式 `Void` 始终表示无结果。
+
+除此之外，非 `Void` 具名函数的每条正常完成路径必须执行 `return value`。interface 方法必须显式声明返回类型。Lambda 的末尾表达式规则见[高级函数规则](/spec/grammar/functions-advanced)。
 
 函数可以声明在模块顶层或类型内部。顶层函数不需要 class 容器，也不存在 `static` 修饰符。重载和函数值见[高级函数规则](/spec/grammar/functions-advanced)。
-

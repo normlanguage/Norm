@@ -1,0 +1,20 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+Integer apply(Integer transform(Integer value), Integer input) {
+  return transform(input)
+}
+
+main() {
+  Function<Integer(Integer)> contextual = (value) {
+    value * 2
+  }
+  var inferred = (Integer value) {
+    value + 3
+  }
+  var explicit = Integer (Integer value) {
+    value * 4
+  }
+  printLines([contextual(5), inferred(5), explicit(5), apply(transform: contextual, input: 6)])
+  expectedOutputLines(["10", "8", "20", "12"])
+}

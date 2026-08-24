@@ -13,13 +13,9 @@ Array<Integer> reverseKGroup(Array<Integer> values, Integer groupSize) {
   return values
 }
 
-Void main() {
-  for Integer value : reverseKGroup(values: [1, 2, 3, 4, 5], groupSize: 2) { printLine(value) }
-  expectedOutputLines([
-    "2",
-    "1",
-    "4",
-    "3",
-    "5"
-  ])
+main() {
+  for Integer value : reverseKGroup(values: [1, 2, 3, 4, 5], groupSize: 2) {
+    printLine(value)
+  }
+  expectedOutputLines(["2", "1", "4", "3", "5"])
 }

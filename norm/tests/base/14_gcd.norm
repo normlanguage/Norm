@@ -1,7 +1,11 @@
 Integer gcd(Integer left, Integer right) {
-  if right == 0 { return left }
+  if right == 0 {
+    return left
+  }
   return gcd(left: right, right: left % right)
 }
-Void main() { printLine(gcd(left: 54, right: 24))
+
+main() {
+  printLine(gcd(left: 54, right: 24))
   expectedOutputLine("6")
 }

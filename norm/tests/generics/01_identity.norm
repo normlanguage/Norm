@@ -5,15 +5,7 @@ T identity<T>(T value) {
   return value
 }
 
-Void main() {
-  printLines([
-    identity(value: 9223372036854775807),
-    identity(value: ""),
-    identity(value: false)
-  ])
-  expectedOutputLines([
-    "9223372036854775807",
-    "",
-    "false"
-  ])
+main() {
+  printLines([identity(value: 9223372036854775807), identity(value: ""), identity(value: false)])
+  expectedOutputLines(["9223372036854775807", "", "false"])
 }

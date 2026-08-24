@@ -60,7 +60,7 @@ Integer coordinateSum(Point point) {
 }
 ```
 
-返回类型、参数类型和 public 参数名都是签名的一部分。只改变返回类型不能构成 overload。
+解析省略规则后得到的返回类型、参数类型和 public 参数名都是签名的一部分。只改变返回类型不能构成 overload。
 
 ## Annotation
 

@@ -1,6 +1,17 @@
-Boolean validate(Array<Integer> values, Array<Integer> left, Array<Integer> right, Integer node, Integer minimum, Integer maximum) {
-  if node == -1 { return true }
-  if values[node] <= minimum || values[node] >= maximum { return false }
+Boolean validate(
+  Array<Integer> values,
+  Array<Integer> left,
+  Array<Integer> right,
+  Integer node,
+  Integer minimum,
+  Integer maximum
+) {
+  if node == -1 {
+    return true
+  }
+  if values[node] <= minimum || values[node] >= maximum {
+    return false
+  }
   return validate(values, left, right, node: left[node], minimum, maximum: values[node]) &&
     validate(values, left, right, node: right[node], minimum: values[node], maximum)
 }
@@ -9,7 +20,7 @@ Boolean isValidBST(Array<Integer> values, Array<Integer> left, Array<Integer> ri
   return validate(values, left, right, node: 0, minimum: -2147483648, maximum: 2147483647)
 }
 
-Void main() {
-  printLine(isValidBST(values: [2,1,3], left: [1,-1,-1], right: [2,-1,-1]))
+main() {
+  printLine(isValidBST(values: [2, 1, 3], left: [1, -1, -1], right: [2, -1, -1]))
   expectedOutputLine("true")
 }

@@ -1,5 +1,3 @@
 package std.core
 
-public enum Unit {
-  Value
-}
+enum Unit { Value }

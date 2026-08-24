@@ -5,7 +5,9 @@ Array<Integer> recoverTree(Array<Integer> inorder) {
   Integer second = -1
   for index : range(start: 0, end: inorder.size() - 1) {
     if inorder[index] > inorder[index + 1] {
-      if first == -1 { first = index }
+      if first == -1 {
+        first = index
+      }
       second = index + 1
     }
   }
@@ -17,12 +19,9 @@ Array<Integer> recoverTree(Array<Integer> inorder) {
   return inorder
 }
 
-Void main() {
-  for Integer value : recoverTree([1,3,2,4]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "3",
-    "4"
-  ])
+main() {
+  for Integer value : recoverTree([1, 3, 2, 4]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "3", "4"])
 }

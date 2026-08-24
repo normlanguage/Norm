@@ -2,7 +2,7 @@ package std.testing
 
 import std.core.Iterable
 
-public Void expectedOutputLines(Iterable<String> lines) {
+Void expectedOutputLines(Iterable<String> lines) {
   for String line : lines {
     expectedOutputLine(line)
   }

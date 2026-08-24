@@ -2,12 +2,18 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 Pair<List<Integer>, Integer> sortAndCount(List<Integer> values) {
-  if values.size() <= 1 { return Pair<>(first: values, second: 0) }
+  if values.size() <= 1 {
+    return Pair<>(first: values, second: 0)
+  }
   Integer middle = values.size() / 2
   List<Integer> leftInput = List<>()
   List<Integer> rightInput = List<>()
   for index : range(start: 0, end: values.size()) {
-    if index < middle { leftInput.add(values[index]) } else { rightInput.add(values[index]) }
+    if index < middle {
+      leftInput.add(values[index])
+    } else {
+      rightInput.add(values[index])
+    }
   }
   Pair<List<Integer>, Integer> leftResult = sortAndCount(leftInput)
   Pair<List<Integer>, Integer> rightResult = sortAndCount(rightInput)
@@ -35,18 +41,14 @@ Pair<List<Integer>, Integer> sortAndCount(List<Integer> values) {
 
 Integer inversions(Array<Integer> input) {
   List<Integer> values = List<>()
-  for Integer value : input { values.add(value) }
+  for Integer value : input {
+    values.add(value)
+  }
   Pair<List<Integer>, Integer> result = sortAndCount(values)
   return result.second
 }
 
-Void main() {
-  printLines([
-    inversions([2, 4, 1, 3, 5]),
-    inversions([1, 2, 3, 4])
-  ])
-  expectedOutputLines([
-    "3",
-    "0"
-  ])
+main() {
+  printLines([inversions([2, 4, 1, 3, 5]), inversions([1, 2, 3, 4])])
+  expectedOutputLines(["3", "0"])
 }

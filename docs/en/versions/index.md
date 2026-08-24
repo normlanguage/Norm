@@ -1,7 +1,8 @@
 # Version index
 
-Norm 0.5 is the current release.
+Norm 0.6 is the current release.
 
+- [Norm 0.6 implementation contract](/en/versions/0.6)
 - [Norm 0.5 implementation contract](/en/versions/0.5)
 - [Norm 0.4 implementation contract](/en/versions/0.4)
 - [Norm 0.3 release record](/en/versions/0.3)

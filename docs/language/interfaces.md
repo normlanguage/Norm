@@ -10,13 +10,13 @@ interface Measurable {
 }
 ```
 
-接口方法只描述调用约定。实现类型提供具体行为：
+接口方法可以只描述调用约定，也可以提供默认实现。实现类型可以直接使用默认实现或提供自己的实现：
 
 ```norm
 class Circle implements Measurable {
     Double radius
 
-    public Double measure() {
+    Double measure() {
         return 3.14159 * radius * radius
     }
 }
@@ -38,7 +38,7 @@ Double total(Measurable first, Measurable second) {
 
 ```norm
 class Timer {
-    public Double measure() {
+    Double measure() {
         return 0.0
     }
 }
@@ -48,7 +48,7 @@ class Timer {
 
 ## 多继承与动态分派
 
-接口可以通过 `extends` 继承多个接口，但继承图不能成环。初版接口方法没有默认实现；通过接口调用方法时，运行时按具体名义类型选择其显式实现。
+接口可以通过 `extends` 继承多个接口，但继承图不能成环。通过接口调用方法时，运行时优先选择具体名义类型的实现，否则调用唯一适用的默认实现。
 
 ## 接口与共享无关
 

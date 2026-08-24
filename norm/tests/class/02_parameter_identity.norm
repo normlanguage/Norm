@@ -14,15 +14,9 @@ Counter advance(Counter counter, Integer amount) {
   return counter
 }
 
-Void main() {
+main() {
   Counter original = Counter(value: 1)
   Counter returned = advance(counter: original, amount: 4)
-  printLines([
-    original.value,
-    original == returned
-  ])
-  expectedOutputLines([
-    "5",
-    "true"
-  ])
+  printLines([original.value, original == returned])
+  expectedOutputLines(["5", "true"])
 }

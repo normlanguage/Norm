@@ -5,13 +5,15 @@ List<List<Integer>> rotate(List<List<Integer>> matrix) {
   List<List<Integer>> result = List<>()
   for row : range(start: 0, end: size) {
     List<Integer> next = List<>()
-    for column : range(start: 0, end: size) { next.add(matrix[size - 1 - column][row]) }
+    for column : range(start: 0, end: size) {
+      next.add(matrix[size - 1 - column][row])
+    }
     result.add(next)
   }
   return result
 }
 
-Void main() {
+main() {
   List<List<Integer>> matrix = List<>()
   List<Integer> first = List<>()
   first.add(1)
@@ -22,11 +24,10 @@ Void main() {
   matrix.add(first)
   matrix.add(second)
   List<List<Integer>> answer = rotate(matrix)
-  for List<Integer> row : answer { for Integer value : row { printLine(value) } }
-  expectedOutputLines([
-    "3",
-    "1",
-    "4",
-    "2"
-  ])
+  for List<Integer> row : answer {
+    for Integer value : row {
+      printLine(value)
+    }
+  }
+  expectedOutputLines(["3", "1", "4", "2"])
 }

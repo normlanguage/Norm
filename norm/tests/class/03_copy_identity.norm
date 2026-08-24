@@ -9,20 +9,10 @@ class Box {
   }
 }
 
-Void main() {
+main() {
   Box original = Box(value: 4)
   Box copied = original.copy()
   copied.set(9)
-  printLines([
-    original.value,
-    copied.value,
-    original == copied,
-    original != copied
-  ])
-  expectedOutputLines([
-    "4",
-    "9",
-    "false",
-    "true"
-  ])
+  printLines([original.value, copied.value, original == copied, original != copied])
+  expectedOutputLines(["4", "9", "false", "true"])
 }

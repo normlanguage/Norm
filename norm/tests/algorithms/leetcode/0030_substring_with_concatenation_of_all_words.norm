@@ -22,7 +22,9 @@ Boolean matchesWords(Array<CodePoint> text, Integer start, List<String> words) {
         }
       }
     }
-    if !found { return false }
+    if !found {
+      return false
+    }
   }
   return true
 }
@@ -32,18 +34,19 @@ List<Integer> findSubstring(String value, List<String> words) {
   List<Integer> result = List<>()
   Integer length = words.size() * words[0].codePointSize()
   for start : range(start: 0, end: text.size() - length + 1) {
-    if matchesWords(text, start, words) { result.add(start) }
+    if matchesWords(text, start, words) {
+      result.add(start)
+    }
   }
   return result
 }
 
-Void main() {
+main() {
   List<String> words = List<>()
   words.add("foo")
   words.add("bar")
-  for Integer index : findSubstring(value: "barfoothefoobarman", words) { printLine(index) }
-  expectedOutputLines([
-    "0",
-    "9"
-  ])
+  for Integer index : findSubstring(value: "barfoothefoobarman", words) {
+    printLine(index)
+  }
+  expectedOutputLines(["0", "9"])
 }

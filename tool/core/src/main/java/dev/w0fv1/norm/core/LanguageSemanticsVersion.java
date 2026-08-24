@@ -2,7 +2,8 @@ package dev.w0fv1.norm.core;
 
 public enum LanguageSemanticsVersion {
   V1(1),
-  V2(2);
+  V2(2),
+  V3(3);
 
   private final int code;
 

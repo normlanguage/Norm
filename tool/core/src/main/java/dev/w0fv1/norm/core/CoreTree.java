@@ -89,6 +89,8 @@ final class CoreTree {
           new CoreDefinition.Callable(
               callable.receiverType().map(type -> resolve(type, resolver)),
               resolveTypeParameters(callable.typeParameters(), resolver),
+              callable.captureTypes().stream().map(type -> resolve(type, resolver)).toList(),
+              callable.captureLocals(),
               callable.parameterTypes().stream().map(type -> resolve(type, resolver)).toList(),
               callable.parameterLocals(),
               callable.reifiedTypeLocals(),
@@ -296,6 +298,20 @@ final class CoreTree {
               resolve(copied.receiver(), resolver),
               copied.nullSafe(),
               resolve(copied.type(), resolver));
+      case CoreExpression.Closure closure ->
+          new CoreExpression.Closure(
+              closure.nodeIndex(),
+              resolve(closure.target(), resolver),
+              closure.receiver().map(value -> resolve(value, resolver)),
+              closure.captures().stream().map(value -> resolve(value, resolver)).toList(),
+              closure.reifiedArguments().stream().map(type -> resolve(type, resolver)).toList(),
+              resolve(closure.type(), resolver));
+      case CoreExpression.Invoke invoke ->
+          new CoreExpression.Invoke(
+              invoke.nodeIndex(),
+              resolve(invoke.callee(), resolver),
+              resolveArguments(invoke.arguments(), resolver),
+              resolve(invoke.type(), resolver));
       case CoreExpression.Call call ->
           new CoreExpression.Call(
               call.nodeIndex(),
@@ -516,6 +532,15 @@ final class CoreTree {
         collectTypes(index.index(), result);
       }
       case CoreExpression.CopyObject copied -> collectTypes(copied.receiver(), result);
+      case CoreExpression.Closure closure -> {
+        closure.receiver().ifPresent(value -> collectTypes(value, result));
+        closure.captures().forEach(value -> collectTypes(value, result));
+        closure.reifiedArguments().forEach(type -> collect(type, result));
+      }
+      case CoreExpression.Invoke invoke -> {
+        collectTypes(invoke.callee(), result);
+        invoke.arguments().forEach(argument -> collectTypes(argument.value(), result));
+      }
       case CoreExpression.Call call -> {
         call.receiver().ifPresent(value -> collectTypes(value, result));
         call.arguments().forEach(argument -> collectTypes(argument.value(), result));
@@ -614,6 +639,15 @@ final class CoreTree {
         collect(index.index(), result);
       }
       case CoreExpression.CopyObject copied -> collect(copied.receiver(), result);
+      case CoreExpression.Closure closure -> {
+        put(result, closure.nodeIndex(), closure.target());
+        closure.receiver().ifPresent(value -> collect(value, result));
+        closure.captures().forEach(value -> collect(value, result));
+      }
+      case CoreExpression.Invoke invoke -> {
+        collect(invoke.callee(), result);
+        invoke.arguments().forEach(argument -> collect(argument.value(), result));
+      }
       case CoreExpression.Call call -> {
         put(result, call.nodeIndex(), call.target());
         call.receiver().ifPresent(value -> collect(value, result));

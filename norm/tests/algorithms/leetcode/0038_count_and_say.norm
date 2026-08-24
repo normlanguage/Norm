@@ -7,7 +7,9 @@ String countAndSay(Integer n) {
     for index < points.size() {
       Integer end = index + 1
       for scan : range(start: index + 1, end: points.size()) {
-        if points[scan] != points[index] { break }
+        if points[scan] != points[index] {
+          break
+        }
         end = scan + 1
       }
       next.append(end - index)
@@ -19,7 +21,7 @@ String countAndSay(Integer n) {
   return current
 }
 
-Void main() {
+main() {
   printLine(countAndSay(4))
   expectedOutputLine("1211")
 }

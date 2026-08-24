@@ -20,7 +20,7 @@
 ## 第一个程序
 
 ```norm
-Void main() {
+main() {
     String language = "Norm"
     printLine("Hello, " + language)
 }

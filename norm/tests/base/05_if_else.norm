@@ -1,5 +1,9 @@
-Void main() {
+main() {
   Integer value = 12
-  if value > 10 { printLine("large") } else { printLine("small") }
+  if value > 10 {
+    printLine("large")
+  } else {
+    printLine("small")
+  }
   expectedOutputLine("large")
 }

@@ -1,5 +1,11 @@
-Void main() {
+main() {
   Integer value = 0
-  if value < 0 { printLine("negative") } else if value == 0 { printLine("zero") } else { printLine("positive") }
+  if value < 0 {
+    printLine("negative")
+  } else if value == 0 {
+    printLine("zero")
+  } else {
+    printLine("positive")
+  }
   expectedOutputLine("zero")
 }

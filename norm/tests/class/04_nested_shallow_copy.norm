@@ -11,22 +11,15 @@ class Box {
 
 class Holder {
   Box box
+
   Integer version
 }
 
-Void main() {
+main() {
   Holder original = Holder(box: Box(value: 3), version: 1)
   Holder copied = original.copy()
   copied.box.set(8)
   copied.version = 2
-  printLines([
-    original.box.value,
-    original.version,
-    copied.version
-  ])
-  expectedOutputLines([
-    "8",
-    "1",
-    "2"
-  ])
+  printLines([original.box.value, original.version, copied.version])
+  expectedOutputLines(["8", "1", "2"])
 }

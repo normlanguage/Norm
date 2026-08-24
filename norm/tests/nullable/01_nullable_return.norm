@@ -2,17 +2,13 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 String? find(Boolean present) {
-  if present { return "Norm" }
+  if present {
+    return "Norm"
+  }
   return null
 }
 
-Void main() {
-  printLines([
-    find(present: true) ?? "missing",
-    find(present: false) ?? "missing"
-  ])
-  expectedOutputLines([
-    "Norm",
-    "missing"
-  ])
+main() {
+  printLines([find(present: true) ?? "missing", find(present: false) ?? "missing"])
+  expectedOutputLines(["Norm", "missing"])
 }

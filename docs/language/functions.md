@@ -10,15 +10,15 @@ Integer square(Integer value) {
 }
 ```
 
-声明顺序是：返回类型、函数名、参数列表、函数体。没有返回值的函数使用 `Void`。
+声明顺序是：可选返回类型、函数名、参数列表、函数体。顶层函数省略返回类型时，其返回类型固定为 `Void`；这不是根据函数体进行的推断。
 
 ```norm
-Void printLine(String text) {
+log(String text) {
     printLine(text)
 }
 ```
 
-Norm 不使用隐式的最后表达式返回值。返回函数结果必须写 `return`。
+具名函数不使用隐式的最后表达式返回值。返回函数结果必须写 `return`。
 
 ## 参数与命名调用
 
@@ -72,7 +72,7 @@ Norm 没有 `static`，因此不需要创建 `MathUtils` 一类只充当函数�
 class Accumulator {
     Integer total
 
-    Void add(Integer amount) {
+    add(Integer amount) {
         total = total + amount
     }
 
@@ -86,14 +86,18 @@ class Accumulator {
 
 ```norm
 Accumulator sum = Accumulator(total: 0)
-sum.add(4)
+sum.add(4).add(6)
 ```
+
+class 方法省略返回类型时是 fluent 方法：它的静态返回类型是包含泛型实参的自身类型，正常到达末尾或执行裸 `return` 都返回 `this`。需要真正无返回值的方法时显式写 `Void`；需要返回其他对象时显式写返回类型。
 
 ## 函数类型
 
-函数可以作为值传递。函数类型保留返回类型、函数名位置和参数类型：
+函数可以作为值传递。完整函数类型写作 `Function<返回类型(参数类型...)>`：
 
 ```norm
+Function<Integer(Integer)> operation = square
+
 Integer apply(Integer operation(Integer value), Integer input) {
     return operation(input)
 }
@@ -101,25 +105,29 @@ Integer apply(Integer operation(Integer value), Integer input) {
 Integer doubled = apply(operation: square, input: 2)
 ```
 
-参数位置上的 `operation` 是局部名称；`Integer operation(Integer value)` 描述它能接收一个 `Integer` 并返回一个 `Integer`。
+参数位置上的 callable 声明是 `Function<Integer(Integer)> operation` 的简写。`Function` 不允许省略签名实参。
 
 ## 匿名函数
 
-匿名函数与普通函数具有相同形状，只是省略名称：
+Lambda 可以由上下文推导参数和返回类型，也可以显式声明参数类型：
 
 ```norm
 Integer incremented = apply(
-    operation: Integer(Integer value) {
-        return value + 1
-    },
+    operation: (value) { value + 1 },
     input: 4
 )
+
+var doubled = (Integer value) { value * 2 }
 ```
 
-匿名函数不能任意捕获外层局部变量，因此不会形成隐藏 closure 环境。需要上下文时，把它作为显式参数传入，或者使用绑定方法引用。
+Lambda 的末尾表达式可以直接作为结果；包含其他控制流时使用 `return`。Lambda 可以捕获外层局部、参数和 `this`，被捕获的局部与参数必须满足 effectively-final。
+
+函数引用与绑定方法引用使用下面的形式：
 
 ```norm
-apply(operation: transformer.apply, input: 4)
+Function<Integer(Integer)> first = square
+Function<Integer(Integer)> second = counter::add
+Integer add(Integer amount) = counter::add
 ```
 
 ## 重载与覆盖
@@ -129,4 +137,3 @@ apply(operation: transformer.apply, input: 4)
 public 实例方法默认可以被子类覆盖；private 方法不参与覆盖。Norm 不增加 `final`、`open`、`virtual` 或 `override` 关键字。
 
 下一章：[控制流](/language/control-flow)。
-

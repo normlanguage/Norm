@@ -9,25 +9,21 @@ class Holder {
   Box box
 }
 
-Void main() {
+main() {
   Box original = Box(value: 9223372036854775807)
   Box alias = original
   Box copied = original.copy()
   Holder holder = Holder(box: original)
   Holder holderCopy = holder.copy()
   List<Box> empty = List<>()
-  printLines([
-    alias == original,
-    copied == original,
-    holderCopy == holder,
-    holderCopy.box == holder.box,
-    empty.size()
-  ])
-  expectedOutputLines([
-    "true",
-    "false",
-    "false",
-    "true",
-    "0"
-  ])
+  printLines(
+    [
+      alias == original,
+      copied == original,
+      holderCopy == holder,
+      holderCopy.box == holder.box,
+      empty.size()
+    ]
+  )
+  expectedOutputLines(["true", "false", "false", "true", "0"])
 }

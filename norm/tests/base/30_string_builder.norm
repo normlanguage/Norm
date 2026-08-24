@@ -1,17 +1,11 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   StringBuilder builder = StringBuilder()
   builder.append("Norm")
   builder.append(" ")
   builder.append("01")
-  printLines([
-    builder.toString(),
-    builder.size()
-  ])
-  expectedOutputLines([
-    "Norm 01",
-    "7"
-  ])
+  printLines([builder.toString(), builder.size()])
+  expectedOutputLines(["Norm 01", "7"])
 }

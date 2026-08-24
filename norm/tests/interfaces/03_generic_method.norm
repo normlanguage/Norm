@@ -3,7 +3,7 @@ interface Identity {
 }
 
 class IdentityService implements Identity {
-  public T same<T>(T value) {
+  T same<T>(T value) {
     return value
   }
 }
@@ -12,7 +12,7 @@ String apply(Identity service) {
   return service.same<String>(value: "Norm")
 }
 
-Void main() {
+main() {
   printLine(apply(service: IdentityService()))
   expectedOutputLine("Norm")
 }

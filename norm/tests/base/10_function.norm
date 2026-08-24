@@ -1,4 +1,8 @@
-Integer square(Integer value) { return value * value }
-Void main() { printLine(square(7))
+Integer square(Integer value) {
+  return value * value
+}
+
+main() {
+  printLine(square(7))
   expectedOutputLine("49")
 }

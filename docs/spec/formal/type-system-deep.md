@@ -13,10 +13,10 @@ nullable 标记作用于完整类型：`List<String>?` 与 `List<String?>` 不�
 ## 函数类型
 
 ```norm
-String formatter(Point value)
+Function<String(Point)> formatter
 ```
 
-函数类型由返回类型和参数类型序列决定，参数名用于命名调用兼容性。匿名函数没有任意 lexical capture；绑定方法引用显式携带接收者。
+函数类型由返回类型和参数类型序列决定，不包含参数名。Lambda 使用期望类型与自身约束双向推导，可以捕获 effectively-final 的外层局部、参数和 `this`；绑定方法引用显式携带接收者。
 
 ## 动态分派与复制
 

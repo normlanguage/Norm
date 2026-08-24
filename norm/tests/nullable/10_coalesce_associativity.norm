@@ -1,4 +1,4 @@
-Void main() {
+main() {
   String? first = null
   String? second = null
   String? third = "third"

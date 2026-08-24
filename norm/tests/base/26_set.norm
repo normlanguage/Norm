@@ -1,17 +1,11 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Set<Integer> values = Set<>()
   values.add(5)
   values.add(5)
   values.add(8)
-  printLines([
-    values.contains(8),
-    values.size()
-  ])
-  expectedOutputLines([
-    "true",
-    "2"
-  ])
+  printLines([values.contains(8), values.size()])
+  expectedOutputLines(["true", "2"])
 }

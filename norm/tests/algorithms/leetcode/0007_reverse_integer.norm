@@ -10,22 +10,16 @@ Integer reverseInteger(Integer value) {
   Integer result = 0
   for value != 0 {
     Integer digit = value % 10
-    if result > 214748364 || (result == 214748364 && digit > 7) { return 0 }
+    if result > 214748364 || result == 214748364 && digit > 7 {
+      return 0
+    }
     result = result * 10 + digit
     value = value / 10
   }
   return result * sign
 }
 
-Void main() {
-  printLines([
-    reverseInteger(123),
-    reverseInteger(-120),
-    reverseInteger(1534236469)
-  ])
-  expectedOutputLines([
-    "321",
-    "-21",
-    "0"
-  ])
+main() {
+  printLines([reverseInteger(123), reverseInteger(-120), reverseInteger(1534236469)])
+  expectedOutputLines(["321", "-21", "0"])
 }

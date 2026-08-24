@@ -1,17 +1,16 @@
 import std.testing.expectedOutputLines
 
 class Sink {
-  Void write() { printLine("called") }
+  Void write() {
+    printLine("called")
+  }
 }
 
-Void main() {
+main() {
   Sink? missing = null
   Sink? present = Sink()
   missing?.write()
   present?.write()
   printLine("done")
-  expectedOutputLines([
-    "called",
-    "done"
-  ])
+  expectedOutputLines(["called", "done"])
 }

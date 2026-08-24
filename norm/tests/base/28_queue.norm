@@ -1,16 +1,10 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Queue<Integer> values = Queue<>()
   values.add(1)
   values.add(2)
-  printLines([
-    values.remove(),
-    values.peek()
-  ])
-  expectedOutputLines([
-    "1",
-    "2"
-  ])
+  printLines([values.remove(), values.peek()])
+  expectedOutputLines(["1", "2"])
 }

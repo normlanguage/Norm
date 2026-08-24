@@ -4,6 +4,7 @@ import std.testing.expectedOutputLines
 
 class Interval {
   Integer start
+
   Integer end
 }
 
@@ -40,10 +41,7 @@ List<Interval> mergeIntervals(List<Interval> intervals) {
       if current.start <= previous.end {
         merged.removeLast()
         merged.add(
-          Interval(
-            start: previous.start,
-            end: max(left: previous.end, right: current.end)
-          )
+          Interval(start: previous.start, end: max(left: previous.end, right: current.end))
         )
       } else {
         merged.add(current)
@@ -53,24 +51,14 @@ List<Interval> mergeIntervals(List<Interval> intervals) {
   return merged
 }
 
-Void main() {
+main() {
   List<Interval> intervals = List<>()
   intervals.add(Interval(start: 8, end: 10))
   intervals.add(Interval(start: 1, end: 3))
   intervals.add(Interval(start: 15, end: 18))
   intervals.add(Interval(start: 2, end: 6))
   for Interval interval : mergeIntervals(intervals) {
-    printLines([
-      interval.start,
-      interval.end
-    ])
+    printLines([interval.start, interval.end])
   }
-  expectedOutputLines([
-    "1",
-    "6",
-    "8",
-    "10",
-    "15",
-    "18"
-  ])
+  expectedOutputLines(["1", "6", "8", "10", "15", "18"])
 }

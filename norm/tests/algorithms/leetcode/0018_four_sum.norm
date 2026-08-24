@@ -9,7 +9,9 @@ List<Array<Integer>> fourSum(Array<Integer> values, Integer target) {
         for d : range(start: c + 1, end: values.size()) {
           if values[a] + values[b] + values[c] + values[d] == target {
             Array<Integer> item = sort([values[a], values[b], values[c], values[d]])
-            if unique.add(item) { result.add(item) }
+            if unique.add(item) {
+              result.add(item)
+            }
           }
         }
       }
@@ -18,7 +20,7 @@ List<Array<Integer>> fourSum(Array<Integer> values, Integer target) {
   return result
 }
 
-Void main() {
+main() {
   List<Array<Integer>> answer = fourSum(values: [1, 0, -1, 0, -2, 2], target: 0)
   printLine(answer.size())
   expectedOutputLine("3")

@@ -7,21 +7,20 @@ Boolean isValid(String value) {
     if token == '(' || token == '[' || token == '{' {
       openings.push(token)
     } else {
-      if openings.isEmpty() { return false }
+      if openings.isEmpty() {
+        return false
+      }
       CodePoint opening = openings.pop()
-      if token == ')' && opening != '(' || token == ']' && opening != '[' || token == '}' && opening != '{' { return false }
+      if token == ')' && opening != '(' || token == ']' && opening != '[' ||
+        token == '}' && opening != '{' {
+        return false
+      }
     }
   }
   return openings.isEmpty()
 }
 
-Void main() {
-  printLines([
-    isValid("([])"),
-    isValid("([)]")
-  ])
-  expectedOutputLines([
-    "true",
-    "false"
-  ])
+main() {
+  printLines([isValid("([])"), isValid("([)]")])
+  expectedOutputLines(["true", "false"])
 }

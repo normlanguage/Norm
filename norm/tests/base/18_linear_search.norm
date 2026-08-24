@@ -1,9 +1,13 @@
 Integer find(Array<Integer> values, Integer target) {
   for index : range(start: 0, end: values.size()) {
-    if values[index] == target { return index }
+    if values[index] == target {
+      return index
+    }
   }
   return -1
 }
-Void main() { printLine(find(values: [5, 8, 13, 21], target: 21))
+
+main() {
+  printLine(find(values: [5, 8, 13, 21], target: 21))
   expectedOutputLine("3")
 }

@@ -3,7 +3,7 @@
   "displayName": "Norm Language Support",
   "description": "All-in-one editing, navigation, refactoring, and execution support for Norm",
   "icon": "images/norm-256.png",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "normlang",
   "repository": {
     "type": "git",
@@ -26,8 +26,9 @@
   "contributes": {
     "configurationDefaults": {
       "[norm]": {
+        "editor.defaultFormatter": "normlang.norm-language-support",
+        "editor.formatOnSave": true,
         "editor.quickSuggestions": {
-          "comments": "off",
           "strings": "off",
           "other": "on"
         },

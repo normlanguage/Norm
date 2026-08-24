@@ -1,6 +1,6 @@
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   List<Integer> source = List<>()
   source.add(1)
   source.add(2)
@@ -8,11 +8,8 @@ Void main() {
   List<Integer> result = source.reversed()
   result[0] = 9
   printLine(source[0])
-  for value : result { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "9",
-    "2",
-    "1"
-  ])
+  for value : result {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "9", "2", "1"])
 }

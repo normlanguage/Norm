@@ -33,6 +33,7 @@ public record ResolvedCall(
     ENUM_CONSTRUCT,
     INTERFACE_CALL,
     INTRINSIC,
+    INVOKE,
     COPY
   }
 }

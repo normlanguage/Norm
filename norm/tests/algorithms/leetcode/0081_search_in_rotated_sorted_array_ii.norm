@@ -6,26 +6,33 @@ Boolean searchWithDuplicates(Array<Integer> values, Integer target) {
   Integer right = values.size() - 1
   for left <= right {
     Integer middle = left + (right - left) / 2
-    if values[middle] == target { return true }
+    if values[middle] == target {
+      return true
+    }
     if values[left] == values[middle] && values[middle] == values[right] {
       left = left + 1
       right = right - 1
     } else if values[left] <= values[middle] {
-      if values[left] <= target && target < values[middle] { right = middle - 1 } else { left = middle + 1 }
+      if values[left] <= target && target < values[middle] {
+        right = middle - 1
+      } else {
+        left = middle + 1
+      }
+    } else if values[middle] < target && target <= values[right] {
+      left = middle + 1
     } else {
-      if values[middle] < target && target <= values[right] { left = middle + 1 } else { right = middle - 1 }
+      right = middle - 1
     }
   }
   return false
 }
 
-Void main() {
-  printLines([
-    searchWithDuplicates(values: [2,5,6,0,0,1,2], target: 0),
-    searchWithDuplicates(values: [2,5,6,0,0,1,2], target: 3)
-  ])
-  expectedOutputLines([
-    "true",
-    "false"
-  ])
+main() {
+  printLines(
+    [
+      searchWithDuplicates(values: [2, 5, 6, 0, 0, 1, 2], target: 0),
+      searchWithDuplicates(values: [2, 5, 6, 0, 0, 1, 2], target: 3)
+    ]
+  )
+  expectedOutputLines(["true", "false"])
 }

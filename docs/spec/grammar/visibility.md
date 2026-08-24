@@ -3,10 +3,10 @@
 Norm 当前只定义 `public` 与 `private` 两级可见性。没有默认包可见性，也不使用 `protected` 建立继承专用 API。
 
 ```norm
-public class Account {
+class Account {
     private Double balance
 
-    public Double currentBalance() {
+    Double currentBalance() {
         return balance
     }
 }
@@ -23,8 +23,10 @@ public class Account {
 
 ```norm
 private value Token { String text }
-public Token scan() // 编译错误：公开签名暴露私有类型
+Token scan()
 ```
+
+`scan` 的公开签名暴露了私有类型，因此编译失败。
 
 ## 覆盖
 

@@ -3,26 +3,22 @@ import std.testing.expectedOutputLines
 
 class Parity {
   Boolean even(Integer value) {
-    if value == 0 { return true }
+    if value == 0 {
+      return true
+    }
     return this.odd(value - 1)
   }
 
   private Boolean odd(Integer value) {
-    if value == 0 { return false }
+    if value == 0 {
+      return false
+    }
     return this.even(value - 1)
   }
 }
 
-Void main() {
+main() {
   Parity parity = Parity()
-  printLines([
-    parity.even(0),
-    parity.even(7),
-    parity.even(10)
-  ])
-  expectedOutputLines([
-    "true",
-    "false",
-    "true"
-  ])
+  printLines([parity.even(0), parity.even(7), parity.even(10)])
+  expectedOutputLines(["true", "false", "true"])
 }

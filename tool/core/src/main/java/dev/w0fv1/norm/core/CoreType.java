@@ -4,7 +4,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.IntFunction;
 
-public sealed interface CoreType permits CoreType.Declared, CoreType.Parameter, CoreType.Special {
+public sealed interface CoreType
+    permits CoreType.Declared, CoreType.Function, CoreType.Parameter, CoreType.Special {
   CoreType INTEGER =
       new Declared(
           new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Integer")),
@@ -60,6 +61,7 @@ public sealed interface CoreType permits CoreType.Declared, CoreType.Parameter, 
   default boolean isNullable() {
     return switch (this) {
       case Declared declared -> declared.nullability() == CoreNullability.NULLABLE;
+      case Function function -> function.nullability() == CoreNullability.NULLABLE;
       case Parameter parameter -> parameter.nullability() == CoreNullability.NULLABLE;
       case Special ignored -> false;
     };
@@ -76,6 +78,13 @@ public sealed interface CoreType permits CoreType.Declared, CoreType.Parameter, 
                   .toList(),
               declared.category(),
               declared.nullability());
+      case Function function ->
+          new Function(
+              function.returnType().substitute(substitutions),
+              function.parameterTypes().stream()
+                  .map(parameter -> parameter.substitute(substitutions))
+                  .toList(),
+              function.nullability());
       case Parameter parameter -> {
         CoreType replacement =
             Objects.requireNonNull(
@@ -98,6 +107,11 @@ public sealed interface CoreType permits CoreType.Declared, CoreType.Parameter, 
                   declared.arguments(),
                   declared.category(),
                   CoreNullability.NULLABLE);
+      case Function function ->
+          function.nullability() == CoreNullability.NULLABLE
+              ? function
+              : new Function(
+                  function.returnType(), function.parameterTypes(), CoreNullability.NULLABLE);
       case Parameter parameter ->
           parameter.nullability() == CoreNullability.NULLABLE
               ? parameter
@@ -120,6 +134,15 @@ public sealed interface CoreType permits CoreType.Declared, CoreType.Parameter, 
       if (category == CoreValueCategory.DYNAMIC || category == CoreValueCategory.VOID) {
         throw new IllegalArgumentException("declared core types require a concrete value category");
       }
+    }
+  }
+
+  record Function(CoreType returnType, List<CoreType> parameterTypes, CoreNullability nullability)
+      implements CoreType {
+    public Function {
+      Objects.requireNonNull(returnType, "returnType");
+      parameterTypes = List.copyOf(parameterTypes);
+      Objects.requireNonNull(nullability, "nullability");
     }
   }
 

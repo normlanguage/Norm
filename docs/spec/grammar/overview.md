@@ -25,7 +25,7 @@ ModuleField := "name" ":" StringLiteral
              | "exports" ":" "[" (StringLiteral ("," StringLiteral)*)? "]"
 ```
 
-package 位于首个非注释位置，import 位于其他声明之前。没有 package 的文件是单文件脚本。普通源文件顶层允许类型、函数和编译期常量，不允许任意执行语句。源码根的 `module.norm` 是模块描述文件，只包含一个 `Module` 对象表达式。
+package 位于文件开头，import 位于其他声明之前。没有 package 的文件是单文件脚本。普通源文件顶层允许类型、函数和编译期常量，不允许任意执行语句。源码根的 `module.norm` 是模块描述文件，只包含一个 `Module` 对象表达式。
 
 ## 声明
 

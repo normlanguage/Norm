@@ -2,7 +2,12 @@ class Permutations {
   List<List<Integer>> values
 }
 
-Void permuteFrom(Array<Integer> values, List<Integer> current, Set<Integer> used, Permutations result) {
+Void permuteFrom(
+  Array<Integer> values,
+  List<Integer> current,
+  Set<Integer> used,
+  Permutations result
+) {
   if current.size() == values.size() {
     result.values.add(current)
     return
@@ -24,7 +29,7 @@ List<List<Integer>> permute(Array<Integer> values) {
   return result.values
 }
 
-Void main() {
+main() {
   printLine(permute([1, 2, 3]).size())
   expectedOutputLine("6")
 }

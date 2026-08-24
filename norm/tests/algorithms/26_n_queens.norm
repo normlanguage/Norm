@@ -4,14 +4,20 @@ import std.testing.expectedOutputLines
 
 Boolean safe(List<Integer> columns, Integer row, Integer column) {
   for previous : range(start: 0, end: row) {
-    if columns[previous] == column { return false }
-    if abs(columns[previous] - column) == row - previous { return false }
+    if columns[previous] == column {
+      return false
+    }
+    if abs(columns[previous] - column) == row - previous {
+      return false
+    }
   }
   return true
 }
 
 Integer search(List<Integer> columns, Integer row, Integer size) {
-  if row == size { return 1 }
+  if row == size {
+    return 1
+  }
   Integer solutions = 0
   for column : range(start: 0, end: size) {
     if safe(columns, row, column) {
@@ -27,13 +33,7 @@ Integer nQueens(Integer size) {
   return search(columns, row: 0, size)
 }
 
-Void main() {
-  printLines([
-    nQueens(4),
-    nQueens(5)
-  ])
-  expectedOutputLines([
-    "2",
-    "10"
-  ])
+main() {
+  printLines([nQueens(4), nQueens(5)])
+  expectedOutputLines(["2", "10"])
 }

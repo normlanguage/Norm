@@ -3,18 +3,15 @@ import std.testing.expectedOutputLines
 
 class Word {
   String value
-  Integer size() { return value.codePointSize() }
+
+  Integer size() {
+    return value.codePointSize()
+  }
 }
 
-Void main() {
+main() {
   Word? missing = null
   Word? present = Word(value: "你好")
-  printLines([
-    missing?.size() ?? 0,
-    present?.size() ?? 0
-  ])
-  expectedOutputLines([
-    "0",
-    "2"
-  ])
+  printLines([missing?.size() ?? 0, present?.size() ?? 0])
+  expectedOutputLines(["0", "2"])
 }

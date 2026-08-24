@@ -2,7 +2,13 @@ class Combinations {
   List<List<Integer>> values
 }
 
-Void searchCombination(Array<Integer> candidates, Integer target, Integer start, List<Integer> current, Combinations result) {
+Void searchCombination(
+  Array<Integer> candidates,
+  Integer target,
+  Integer start,
+  List<Integer> current,
+  Combinations result
+) {
   if target == 0 {
     result.values.add(current)
     return
@@ -11,7 +17,13 @@ Void searchCombination(Array<Integer> candidates, Integer target, Integer start,
     if candidates[index] <= target {
       List<Integer> next = current
       next.add(candidates[index])
-      searchCombination(candidates, target: target - candidates[index], start: index, current: next, result)
+      searchCombination(
+        candidates,
+        target: target - candidates[index],
+        start: index,
+        current: next,
+        result
+      )
     }
   }
 }
@@ -22,7 +34,7 @@ List<List<Integer>> combinationSum(Array<Integer> candidates, Integer target) {
   return result.values
 }
 
-Void main() {
+main() {
   List<List<Integer>> answer = combinationSum(candidates: [2, 3, 6, 7], target: 7)
   printLine(answer.size())
   expectedOutputLine("2")

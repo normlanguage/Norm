@@ -2,17 +2,13 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 Integer size(String? value) {
-  if value == null { return 0 }
+  if value == null {
+    return 0
+  }
   return value.codePointSize()
 }
 
-Void main() {
-  printLines([
-    size(value: null),
-    size(value: "Norm")
-  ])
-  expectedOutputLines([
-    "0",
-    "4"
-  ])
+main() {
+  printLines([size(value: null), size(value: "Norm")])
+  expectedOutputLines(["0", "4"])
 }

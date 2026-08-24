@@ -1,18 +1,16 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-class Box { Integer value }
+class Box {
+  Integer value
+}
 
-Void main() {
+main() {
   Box? first = Box(value: 1)
   Box? second = first
-  if second != null { second.value = 9 }
-  printLines([
-    first?.value ?? 0,
-    first == second
-  ])
-  expectedOutputLines([
-    "9",
-    "true"
-  ])
+  if second != null {
+    second.value = 9
+  }
+  printLines([first?.value ?? 0, first == second])
+  expectedOutputLines(["9", "true"])
 }

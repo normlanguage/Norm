@@ -15,7 +15,7 @@ class Counter {
   }
 }
 
-Void main() {
+main() {
   Counter counter = Counter(value: 1)
   counter.addTwice(4)
   printLine(counter.current())

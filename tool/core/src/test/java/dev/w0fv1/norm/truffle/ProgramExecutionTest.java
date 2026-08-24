@@ -588,6 +588,11 @@ final class ProgramExecutionTest {
   }
 
   @TestFactory
+  Stream<DynamicTest> runsFunctionPrograms() throws Exception {
+    return suite("functions");
+  }
+
+  @TestFactory
   Stream<DynamicTest> runsRangePrograms() throws Exception {
     return suite("range");
   }

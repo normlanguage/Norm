@@ -3,14 +3,18 @@ import std.testing.expectedOutputLines
 
 Integer binarySearch(Array<Integer> values, Integer target) {
   for index : range(start: 0, end: values.size()) {
-    if values[index] == target { return index }
+    if values[index] == target {
+      return index
+    }
   }
   return -1
 }
 
 Integer gcd(Integer left, Integer right) {
   for step : range(start: 0, end: 64) {
-    if right == 0 { return left }
+    if right == 0 {
+      return left
+    }
     Integer remainder = left % right
     left = right
     right = remainder
@@ -29,21 +33,16 @@ Integer fibonacci(Integer count) {
   return previous
 }
 
-Void main() {
-  printLines([
-    binarySearch(values: [], target: 1),
-    binarySearch(values: [7], target: 7),
-    gcd(left: 0, right: 0),
-    gcd(left: 2147483647, right: 1),
-    fibonacci(0),
-    fibonacci(1)
-  ])
-  expectedOutputLines([
-    "-1",
-    "0",
-    "0",
-    "1",
-    "0",
-    "1"
-  ])
+main() {
+  printLines(
+    [
+      binarySearch(values: [], target: 1),
+      binarySearch(values: [7], target: 7),
+      gcd(left: 0, right: 0),
+      gcd(left: 2147483647, right: 1),
+      fibonacci(0),
+      fibonacci(1)
+    ]
+  )
+  expectedOutputLines(["-1", "0", "0", "1", "0", "1"])
 }

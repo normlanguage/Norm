@@ -1,17 +1,13 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-class User { String name }
+class User {
+  String name
+}
 
-Void main() {
+main() {
   User? missing = null
   User? present = User(name: "Ada")
-  printLines([
-    missing?.name ?? "guest",
-    present?.name ?? "guest"
-  ])
-  expectedOutputLines([
-    "guest",
-    "Ada"
-  ])
+  printLines([missing?.name ?? "guest", present?.name ?? "guest"])
+  expectedOutputLines(["guest", "Ada"])
 }

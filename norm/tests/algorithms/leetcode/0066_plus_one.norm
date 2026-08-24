@@ -8,16 +8,18 @@ List<Integer> plusOne(Array<Integer> digits) {
     carry = value / 10
   }
   List<Integer> result = List<>()
-  if carry > 0 { result.add(carry) }
-  for Integer digit : digits { result.add(digit) }
+  if carry > 0 {
+    result.add(carry)
+  }
+  for Integer digit : digits {
+    result.add(digit)
+  }
   return result
 }
 
-Void main() {
-  for Integer digit : plusOne([9,9]) { printLine(digit) }
-  expectedOutputLines([
-    "1",
-    "0",
-    "0"
-  ])
+main() {
+  for Integer digit : plusOne([9, 9]) {
+    printLine(digit)
+  }
+  expectedOutputLines(["1", "0", "0"])
 }

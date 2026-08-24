@@ -16,6 +16,14 @@ final class LanguageServiceTest {
   private final LanguageService service = new LanguageService();
 
   @Test
+  void formatsValidAuthoringSource() {
+    SourceFile source =
+        SourceFile.of(DocumentId.of("untitled:format"), "public main(){printLine(1)}");
+
+    assertEquals("main() {\n  printLine(1)\n}\n", service.format(source).orElseThrow());
+  }
+
+  @Test
   void exposesIndexedLoopLocalsToHoverAndCompletion() {
     String text = "Void main() { for value,index : [10, 20] { printLine(index) ind } }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:indexed-loop"), text));
@@ -550,7 +558,7 @@ final class LanguageServiceTest {
         service
             .standardLibrarySource(definition.document())
             .orElseThrow()
-            .contains("public Integer clamp"));
+            .contains("Integer clamp"));
     assertTrue(service.prepareRename(analysis, use).isEmpty());
     assertTrue(service.rename(analysis, use, "bound").isEmpty());
   }
@@ -567,6 +575,67 @@ final class LanguageServiceTest {
             .orElseThrow();
 
     assertEquals("range(start: ${1:start}, end: ${2:end})", range.insertText());
+  }
+
+  @Test
+  void completesBoundMethodReferencesWithoutCallParentheses() {
+    String text =
+        "class Counter { public Integer add(Integer amount) { return amount } } "
+            + "Void main() { Counter counter = Counter() Function<Integer(Integer)> add = counter:: }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:method-reference"), text));
+    int offset = text.indexOf("counter::") + "counter::".length();
+
+    Completion completion =
+        service.complete(analysis, offset).stream()
+            .filter(value -> value.label().equals("add"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("add", completion.insertText());
+    assertFalse(completion.snippet());
+  }
+
+  @Test
+  void providesSignatureHelpForFunctionValues() {
+    String text =
+        "Void main() { Function<Integer(Integer)> transform = (value) { value * 2 } transform( }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:function-value"), text));
+
+    SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
+
+    assertEquals("Integer transform(Integer argument0)", help.signatures().getFirst().label());
+  }
+
+  @Test
+  void completesFunctionValuesAsInvocations() {
+    String text =
+        "Void main() { Function<Integer(Integer)> transform = (value) { value * 2 } trans }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:function-completion"), text));
+    int offset = text.lastIndexOf("trans") + "trans".length();
+
+    Completion completion =
+        service.complete(analysis, offset).stream()
+            .filter(value -> value.label().equals("transform"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals(CompletionKind.FUNCTION, completion.kind());
+    assertEquals("transform(${1:argument0})", completion.insertText());
+  }
+
+  @Test
+  void ranksLambdaResultCandidatesByTheExpectedReturnType() {
+    String text =
+        "Void main() { String label = \"ready\" Integer count = 1 "
+            + "Function<String(Integer)> choose = (value) { label } }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:lambda-result"), text));
+    int offset = text.lastIndexOf("label");
+
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
   }
 
   @Test
@@ -711,7 +780,7 @@ final class LanguageServiceTest {
 
   @Test
   void providesSignatureHelpForAZeroParameterCall() {
-    String text = "Void ping() {} Void main() { ping(";
+    String text = "ping() {} main() { ping(";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:empty-signature"), text));
 
     SignatureHelp help = service.signatureHelp(analysis, text.length()).orElseThrow();
@@ -719,6 +788,24 @@ final class LanguageServiceTest {
     assertEquals("Void ping()", help.signatures().getFirst().label());
     assertTrue(help.signatures().getFirst().parameters().isEmpty());
     assertEquals(0, help.activeParameter());
+  }
+
+  @Test
+  void exposesTheSpecializedReceiverTypeOfFluentMethods() {
+    String text =
+        "class Box<T> { T value set(T next) { value = next } } "
+            + "main() { Box<String> box = Box<String>(value: \"first\") box.set(\"next\"). }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:fluent-completion"), text));
+    int call = text.indexOf("box.set(") + "box.set(".length();
+    int member = text.lastIndexOf('.') + 1;
+
+    SignatureHelp help = service.signatureHelp(analysis, call).orElseThrow();
+    List<String> completions =
+        service.complete(analysis, member).stream().map(Completion::label).toList();
+
+    assertEquals("Box<String> set(String next)", help.signatures().getFirst().label());
+    assertTrue(completions.containsAll(List.of("set", "value")));
   }
 
   @Test

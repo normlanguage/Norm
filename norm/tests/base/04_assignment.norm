@@ -1,4 +1,4 @@
-Void main() {
+main() {
   Integer value = 4
   value = value + 5
   printLine(value)

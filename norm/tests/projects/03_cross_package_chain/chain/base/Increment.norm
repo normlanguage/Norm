@@ -1,5 +1,5 @@
 package chain.base
 
-public Integer increment(Integer value) {
+Integer increment(Integer value) {
   return value + 1
 }

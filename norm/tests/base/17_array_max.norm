@@ -1,8 +1,14 @@
 Integer arrayMax(Array<Integer> values) {
   Integer best = values[0]
-  for Integer value : values { if value > best { best = value } }
+  for Integer value : values {
+    if value > best {
+      best = value
+    }
+  }
   return best
 }
-Void main() { printLine(arrayMax([4, 9, 2, 7]))
+
+main() {
+  printLine(arrayMax([4, 9, 2, 7]))
   expectedOutputLine("9")
 }

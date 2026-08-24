@@ -3,6 +3,7 @@ package dev.w0fv1.norm.truffle;
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.DirectCallNode;
+import com.oracle.truffle.api.nodes.IndirectCallNode;
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.DefinitionId;
@@ -506,6 +507,85 @@ final class ExpressionNodes {
         complete[values.length + index + 1] = typeArguments[index].execute(frame);
       }
       return call.call(complete);
+    }
+  }
+
+  static final class Closure extends ExpressionNode {
+    private final CallTarget target;
+    @Child private ExpressionNode receiver;
+    @Children private final ExpressionNode[] captures;
+    @Children private final ExpressionNode[] reifiedArguments;
+
+    Closure(
+        CallTarget target,
+        ExpressionNode receiver,
+        ExpressionNode[] captures,
+        ExpressionNode[] reifiedArguments) {
+      this.target = target;
+      this.receiver = receiver;
+      this.captures = captures;
+      this.reifiedArguments = reifiedArguments;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      Object[] values = new Object[captures.length];
+      for (int index = 0; index < captures.length; index++) {
+        values[index] = RuntimeValues.copy(captures[index].execute(frame));
+      }
+      Object[] reified = new Object[reifiedArguments.length];
+      for (int index = 0; index < reifiedArguments.length; index++) {
+        reified[index] = reifiedArguments[index].execute(frame);
+      }
+      return new RuntimeValues.Closure(
+          target, receiver == null ? null : receiver.execute(frame), values, reified);
+    }
+  }
+
+  static final class Invoke extends ExpressionNode {
+    @Child private IndirectCallNode call = IndirectCallNode.create();
+    @Child private ExpressionNode callee;
+    @Children private final ExpressionNode[] arguments;
+    private final int[] parameterIndices;
+
+    Invoke(ExpressionNode callee, ExpressionNode[] arguments, int[] parameterIndices) {
+      this.callee = callee;
+      this.arguments = arguments;
+      this.parameterIndices = parameterIndices;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      RuntimeValues.Closure closure = (RuntimeValues.Closure) callee.execute(frame);
+      Object[] values = evaluateArguments(arguments, parameterIndices, frame);
+      int receiverCount = closure.receiver() == null ? 0 : 1;
+      int ownerTypeArgumentCount =
+          closure.receiver() instanceof RuntimeValues.ObjectValue object
+                  && object.type instanceof CoreType.Declared declared
+              ? declared.arguments().size()
+              : 0;
+      Object[] complete =
+          new Object
+              [1
+                  + receiverCount
+                  + closure.captures().length
+                  + values.length
+                  + ownerTypeArgumentCount
+                  + closure.reifiedArguments().length];
+      complete[0] = ExecutionContextAccess.get(frame);
+      int offset = 1;
+      if (receiverCount == 1) complete[offset++] = closure.receiver();
+      System.arraycopy(closure.captures(), 0, complete, offset, closure.captures().length);
+      offset += closure.captures().length;
+      System.arraycopy(values, 0, complete, offset, values.length);
+      offset += values.length;
+      if (closure.receiver() instanceof RuntimeValues.ObjectValue object
+          && object.type instanceof CoreType.Declared declared) {
+        for (CoreType argument : declared.arguments()) complete[offset++] = argument;
+      }
+      System.arraycopy(
+          closure.reifiedArguments(), 0, complete, offset, closure.reifiedArguments().length);
+      return call.call(closure.target(), complete);
     }
   }
 

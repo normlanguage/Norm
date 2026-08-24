@@ -9,15 +9,9 @@ Boolean? booleanIdentity(Boolean? value) {
   return value
 }
 
-Void main() {
+main() {
   Integer? integer = integerIdentity(null)
   Boolean? boolean = booleanIdentity(null)
-  printLines([
-    integer ?? 7,
-    boolean ?? true
-  ])
-  expectedOutputLines([
-    "7",
-    "true"
-  ])
+  printLines([integer ?? 7, boolean ?? true])
+  expectedOutputLines(["7", "true"])
 }

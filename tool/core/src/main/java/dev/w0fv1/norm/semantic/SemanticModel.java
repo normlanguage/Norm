@@ -22,6 +22,7 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SourceSpan, SymbolId> bindings;
   private final Map<SourceSpan, SemanticType> expressionTypes;
   private final Map<SourceSpan, ResolvedCall> resolvedCalls;
+  private final Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments;
   private final Map<SourceSpan, ResolvedCall> resolvedCallsByCallee;
   private final Map<SourceSpan, SymbolId> resolvedCallees;
   private final Map<SourceSpan, ResolvedIteration> iterations;
@@ -49,6 +50,7 @@ public final class SemanticModel implements SemanticIndex {
       Map<SourceSpan, SymbolId> bindings,
       Map<SourceSpan, SemanticType> expressionTypes,
       Map<SourceSpan, ResolvedCall> resolvedCalls,
+      Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments,
       Map<SourceSpan, ResolvedIteration> iterations,
       Map<SourceSpan, ResolvedIndex> indexes,
       Map<SymbolId, List<SymbolId>> members,
@@ -66,6 +68,10 @@ public final class SemanticModel implements SemanticIndex {
     this.bindings = Map.copyOf(bindings);
     this.expressionTypes = Map.copyOf(expressionTypes);
     this.resolvedCalls = Map.copyOf(resolvedCalls);
+    Map<SourceSpan, List<SemanticType>> copiedFunctionReferenceArguments = new LinkedHashMap<>();
+    functionReferenceTypeArguments.forEach(
+        (span, arguments) -> copiedFunctionReferenceArguments.put(span, List.copyOf(arguments)));
+    this.functionReferenceTypeArguments = Map.copyOf(copiedFunctionReferenceArguments);
     Map<SourceSpan, ResolvedCall> callsByCallee = new LinkedHashMap<>();
     this.resolvedCalls.values().forEach(call -> callsByCallee.put(call.calleeSpan(), call));
     this.resolvedCallsByCallee = Map.copyOf(callsByCallee);
@@ -111,6 +117,7 @@ public final class SemanticModel implements SemanticIndex {
     this.bindings = project.bindings;
     this.expressionTypes = project.expressionTypes;
     this.resolvedCalls = project.resolvedCalls;
+    this.functionReferenceTypeArguments = project.functionReferenceTypeArguments;
     this.resolvedCallsByCallee = project.resolvedCallsByCallee;
     this.resolvedCallees = project.resolvedCallees;
     this.iterations = project.iterations;
@@ -223,6 +230,14 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public Optional<SemanticType> typeOf(Syntax.TypeRef reference) {
+    if (reference.name().equals("Function") && !reference.arguments().isEmpty()) {
+      List<SemanticType> signature =
+          reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
+      if (signature.size() != reference.arguments().size()) return Optional.empty();
+      SemanticType function =
+          SemanticType.function(signature.getFirst(), signature.subList(1, signature.size()));
+      return Optional.of(reference.nullable() ? function.nullable() : function);
+    }
     Optional<Symbol> symbol = resolvedSymbolOf(reference.span());
     if (symbol.isEmpty()) return Optional.empty();
     SemanticType base = symbol.orElseThrow().type();
@@ -243,6 +258,10 @@ public final class SemanticModel implements SemanticIndex {
 
   public Optional<ResolvedCall> callAtCallee(SourceSpan calleeSpan) {
     return Optional.ofNullable(resolvedCallsByCallee.get(calleeSpan));
+  }
+
+  public List<SemanticType> functionReferenceTypeArguments(SourceSpan span) {
+    return functionReferenceTypeArguments.getOrDefault(span, List.of());
   }
 
   public Optional<SymbolId> witness(SymbolId classType, SymbolId requirement) {

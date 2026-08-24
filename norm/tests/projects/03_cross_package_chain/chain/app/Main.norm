@@ -2,7 +2,7 @@ package chain.app
 
 import chain.middle.transform
 
-Void main() {
+main() {
   printLine(transform(4))
   expectedOutputLine("9")
 }

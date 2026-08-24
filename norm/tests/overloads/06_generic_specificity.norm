@@ -1,16 +1,15 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-T echo<T>(T value) { return value }
-Integer echo(Integer value) { return value + 10 }
+T echo<T>(T value) {
+  return value
+}
 
-Void main() {
-  printLines([
-    echo(value: 2),
-    echo(value: "generic")
-  ])
-  expectedOutputLines([
-    "12",
-    "generic"
-  ])
+Integer echo(Integer value) {
+  return value + 10
+}
+
+main() {
+  printLines([echo(value: 2), echo(value: "generic")])
+  expectedOutputLines(["12", "generic"])
 }

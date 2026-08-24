@@ -1,10 +1,11 @@
 import std.testing.expectedOutputLines
 
-Void main() {
-  for value : range(start: 2, end: 3) { printLine(value) }
-  for value : range(start: -2, end: -3, step: -1) { printLine(value) }
-  expectedOutputLines([
-    "2",
-    "-2"
-  ])
+main() {
+  for value : range(start: 2, end: 3) {
+    printLine(value)
+  }
+  for value : range(start: -2, end: -3, step: -1) {
+    printLine(value)
+  }
+  expectedOutputLines(["2", "-2"])
 }

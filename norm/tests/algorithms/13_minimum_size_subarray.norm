@@ -18,17 +18,18 @@ Integer minimumLength(Array<Integer> values, Integer target) {
       }
     }
   }
-  if best > values.size() { return 0 }
+  if best > values.size() {
+    return 0
+  }
   return best
 }
 
-Void main() {
-  printLines([
-    minimumLength(values: [2, 3, 1, 2, 4, 3], target: 7),
-    minimumLength(values: [1, 1, 1], target: 8)
-  ])
-  expectedOutputLines([
-    "2",
-    "0"
-  ])
+main() {
+  printLines(
+    [
+      minimumLength(values: [2, 3, 1, 2, 4, 3], target: 7),
+      minimumLength(values: [1, 1, 1], target: 8)
+    ]
+  )
+  expectedOutputLines(["2", "0"])
 }

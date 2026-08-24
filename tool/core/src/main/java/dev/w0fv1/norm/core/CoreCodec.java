@@ -36,6 +36,8 @@ final class CoreCodec {
         writer.writeTag("callable").writeBoolean(callable.receiverType().isPresent());
         callable.receiverType().ifPresent(type -> writeType(writer, type, referenceResolver));
         writeTypeParameters(writer, callable.typeParameters(), referenceResolver);
+        writeTypes(writer, callable.captureTypes(), referenceResolver);
+        writeIntegers(writer, callable.captureLocals());
         writeTypes(writer, callable.parameterTypes(), referenceResolver);
         writeIntegers(writer, callable.parameterLocals());
         writeIntegers(writer, callable.reifiedTypeLocals());
@@ -300,6 +302,24 @@ final class CoreCodec {
         writer.writeBoolean(copied.nullSafe());
         writeType(writer, copied.type(), referenceResolver);
       }
+      case CoreExpression.Closure closure -> {
+        writer.writeTag("closure");
+        writeReference(writer, referenceResolver.apply(closure.target()));
+        writeOptionalExpression(writer, closure.receiver(), referenceResolver);
+        writer.writeInt(closure.captures().size());
+        closure.captures().forEach(value -> writeExpression(writer, value, referenceResolver));
+        writer.writeInt(closure.reifiedArguments().size());
+        closure
+            .reifiedArguments()
+            .forEach(type -> writeRuntimeType(writer, type, referenceResolver));
+        writeType(writer, closure.type(), referenceResolver);
+      }
+      case CoreExpression.Invoke invoke -> {
+        writer.writeTag("invoke");
+        writeExpression(writer, invoke.callee(), referenceResolver);
+        writeArguments(writer, invoke.arguments(), referenceResolver);
+        writeType(writer, invoke.type(), referenceResolver);
+      }
       case CoreExpression.Call call -> {
         writer.writeTag("call");
         writeReference(writer, referenceResolver.apply(call.target()));
@@ -484,6 +504,11 @@ final class CoreCodec {
         }
         writer.writeTag(declared.category().name()).writeTag(declared.nullability().name());
         writeTypes(writer, declared.arguments(), referenceResolver);
+      }
+      case CoreType.Function function -> {
+        writer.writeTag("function-type").writeTag(function.nullability().name());
+        writeType(writer, function.returnType(), referenceResolver);
+        writeTypes(writer, function.parameterTypes(), referenceResolver);
       }
       case CoreType.Parameter parameter ->
           writer

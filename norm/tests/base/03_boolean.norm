@@ -1,4 +1,4 @@
-Void main() {
+main() {
   Boolean result = 3 < 5 && !(2 == 3)
   printLine(result)
   expectedOutputLine("true")

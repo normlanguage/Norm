@@ -76,6 +76,7 @@ final class CoreProgramVerifier {
     int parameterCount = callable.reifiedTypeLocals().size();
     verifyTypeParameters(id, callable.typeParameters(), parameterCount);
     callable.receiverType().ifPresent(type -> verifyValueType(id, type, parameterCount));
+    callable.captureTypes().forEach(type -> verifyValueType(id, type, parameterCount));
     callable.parameterTypes().forEach(type -> verifyValueType(id, type, parameterCount));
     verifyReturnType(id, callable.returnType(), parameterCount);
     callable.locals().forEach(local -> verifyLocalType(id, local, parameterCount));
@@ -184,17 +185,31 @@ final class CoreProgramVerifier {
       }
       DefinitionId implementationId = resolve(classId, callableWitness.definition());
       CoreDefinition implementationDefinition = program.definition(implementationId).orElseThrow();
+      boolean classReceiver =
+          implementationDefinition instanceof CoreDefinition.Callable candidate
+              && candidate.receiverType().isPresent()
+              && isReceiverOf(
+                  implementationId,
+                  candidate.receiverType().orElseThrow(),
+                  classId,
+                  declaration.typeParameters().size());
+      boolean defaultReceiver =
+          implementationDefinition instanceof CoreDefinition.Callable candidate
+              && candidate.receiverType().isPresent()
+              && absolute(implementationId, candidate.receiverType().orElseThrow())
+                  .equals(absolute(requirementId, requirement.receiverInterfaceType()));
+      int expectedReified =
+          classReceiver
+              ? declaration.typeParameters().size() + requirement.typeParameters().size()
+              : implementationDefinition instanceof CoreDefinition.Callable candidate
+                  ? candidate.receiverTypeParameterCount() + candidate.typeParameters().size()
+                  : -1;
       if (!(implementationDefinition instanceof CoreDefinition.Callable implementation)
           || implementation.receiverType().isEmpty()
-          || implementation.reifiedTypeLocals().size()
-              != declaration.typeParameters().size() + requirement.typeParameters().size()
-          || !isReceiverOf(
-              implementationId,
-              implementation.receiverType().orElseThrow(),
-              classId,
-              declaration.typeParameters().size())) {
+          || implementation.reifiedTypeLocals().size() != expectedReified
+          || (!classReceiver && !defaultReceiver)) {
         throw new IllegalArgumentException(
-            "conformance witness implementation is not a class method");
+            "conformance witness implementation has an incompatible receiver");
       }
       InterfaceInstance requirementOwner =
           interfaceInstance(requirementId, requirement.receiverInterfaceType());
@@ -208,7 +223,27 @@ final class CoreProgramVerifier {
                   declaration.typeParameters().size() + index, CoreNullability.NON_NULL));
         }
       }
+      List<CoreType> implementationSubstitutions = new ArrayList<>();
+      if (classReceiver) {
+        for (int index = 0; index < declaration.typeParameters().size(); index++) {
+          implementationSubstitutions.add(new CoreType.Parameter(index, CoreNullability.NON_NULL));
+        }
+      } else {
+        InterfaceInstance implementationOwner =
+            interfaceInstance(implementationId, implementation.receiverType().orElseThrow());
+        List<CoreType> receiverSubstitutions =
+            interfaceSubstitutions(instance, implementationOwner.definition());
+        if (receiverSubstitutions != null) {
+          implementationSubstitutions.addAll(receiverSubstitutions);
+        }
+      }
+      for (int index = 0; index < requirement.typeParameters().size(); index++) {
+        implementationSubstitutions.add(
+            new CoreType.Parameter(
+                declaration.typeParameters().size() + index, CoreNullability.NON_NULL));
+      }
       if (substitutions == null
+          || implementationSubstitutions.size() != implementation.reifiedTypeLocals().size()
           || implementation.parameterTypes().size() != requirement.parameterTypes().size()) {
         throw new IllegalArgumentException(
             "conformance witness ABI does not match its requirement");
@@ -219,14 +254,16 @@ final class CoreProgramVerifier {
                 .substitute(substitutions::get);
         requireSameType(
             expected,
-            absolute(implementationId, implementation.parameterTypes().get(parameter)),
+            absolute(implementationId, implementation.parameterTypes().get(parameter))
+                .substitute(implementationSubstitutions::get),
             "conformance witness parameter");
       }
       CoreType expectedReturn =
           absolute(requirementId, requirement.returnType()).substitute(substitutions::get);
       requireSameType(
           expectedReturn,
-          absolute(implementationId, implementation.returnType()),
+          absolute(implementationId, implementation.returnType())
+              .substitute(implementationSubstitutions::get),
           "conformance witness return");
       for (int index = 0; index < requirement.typeParameters().size(); index++) {
         CoreTypeParameter requiredParameter = requirement.typeParameters().get(index);
@@ -274,9 +311,21 @@ final class CoreProgramVerifier {
     }
     for (Map.Entry<DefinitionId, CoreDefinition.InterfaceMethod> entry : requirements.entrySet()) {
       CoreWitnessTarget witness = witnesses.get(entry.getKey());
-      if (!(witness instanceof CoreWitnessTarget.Intrinsic intrinsic)
-          || !matchesIntrinsicWitness(
-              owner, concrete, instance, entry.getKey(), entry.getValue(), intrinsic.intrinsic())) {
+      boolean valid =
+          switch (witness) {
+            case CoreWitnessTarget.Intrinsic intrinsic ->
+                matchesIntrinsicWitness(
+                    owner,
+                    concrete,
+                    instance,
+                    entry.getKey(),
+                    entry.getValue(),
+                    intrinsic.intrinsic());
+            case CoreWitnessTarget.Callable callable ->
+                matchesDefaultWitness(
+                    owner, conformance, instance, entry.getKey(), entry.getValue(), callable);
+          };
+      if (!valid) {
         throw new IllegalArgumentException(
             "builtin conformance witness ABI does not match: "
                 + concrete
@@ -286,6 +335,40 @@ final class CoreProgramVerifier {
                 + witness);
       }
     }
+  }
+
+  private boolean matchesDefaultWitness(
+      DefinitionId owner,
+      CoreDefinition.BuiltinConformance conformance,
+      InterfaceInstance instance,
+      DefinitionId requirementId,
+      CoreDefinition.InterfaceMethod requirement,
+      CoreWitnessTarget.Callable witness) {
+    DefinitionId implementationId = resolve(owner, witness.definition());
+    CoreDefinition definition = program.definition(implementationId).orElse(null);
+    if (!(definition instanceof CoreDefinition.Callable implementation)
+        || implementation.receiverType().isEmpty()
+        || implementation.reifiedTypeLocals().size()
+            != ((CoreType.Declared) absolute(requirementId, requirement.receiverInterfaceType()))
+                    .arguments()
+                    .size()
+                + requirement.typeParameters().size()
+        || !absolute(implementationId, implementation.receiverType().orElseThrow())
+            .equals(absolute(requirementId, requirement.receiverInterfaceType()))) {
+      return false;
+    }
+    if (implementation.parameterTypes().size() != requirement.parameterTypes().size()) {
+      return false;
+    }
+    for (int index = 0; index < requirement.parameterTypes().size(); index++) {
+      CoreType expected = absolute(requirementId, requirement.parameterTypes().get(index));
+      if (!expected.equals(
+          absolute(implementationId, implementation.parameterTypes().get(index)))) {
+        return false;
+      }
+    }
+    CoreType expectedReturn = absolute(requirementId, requirement.returnType());
+    return expectedReturn.equals(absolute(implementationId, implementation.returnType()));
   }
 
   private boolean matchesIntrinsicWitness(
@@ -689,6 +772,8 @@ final class CoreProgramVerifier {
             copied.type(),
             "copy result");
       }
+      case CoreExpression.Closure closure -> verifyClosure(owner, callable, closure);
+      case CoreExpression.Invoke invoke -> verifyInvoke(owner, callable, invoke);
       case CoreExpression.Call call -> verifyCall(owner, callable, call);
       case CoreExpression.InterfaceCall call -> verifyInterfaceCall(owner, callable, call);
       case CoreExpression.Construct construct -> verifyConstruct(owner, callable, construct);
@@ -1102,6 +1187,73 @@ final class CoreProgramVerifier {
     CoreType receiverType = call.receiver().map(CoreExpression::type).orElse(CoreType.DYNAMIC);
     result = safeResult(result, call.nullSafe(), receiverType);
     requireSameType(result, absolute(owner, call.type()), "call result");
+  }
+
+  private void verifyClosure(
+      DefinitionId owner, CoreDefinition.Callable caller, CoreExpression.Closure closure) {
+    DefinitionId targetId = resolve(owner, closure.target());
+    CoreDefinition definition = program.definition(targetId).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable target)) {
+      throw new IllegalArgumentException("closure target is not callable");
+    }
+    closure.receiver().ifPresent(value -> verifyExpression(owner, caller, value));
+    closure.captures().forEach(value -> verifyExpression(owner, caller, value));
+    closure.reifiedArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
+    if (target.hasReceiver() != closure.receiver().isPresent()) {
+      throw new IllegalArgumentException("closure receiver does not match the target ABI");
+    }
+    if (target.captureTypes().size() != closure.captures().size()) {
+      throw new IllegalArgumentException("closure captures do not match the target ABI");
+    }
+    List<CoreType> substitutions = new ArrayList<>();
+    if (target.hasReceiver()) {
+      CoreType receiver = nonNullable(absolute(owner, closure.receiver().orElseThrow().type()));
+      if (!(receiver instanceof CoreType.Declared declared)) {
+        throw new IllegalArgumentException("bound method receiver is not declared");
+      }
+      substitutions.addAll(declared.arguments());
+    }
+    closure.reifiedArguments().stream()
+        .map(CoreRuntimeType::template)
+        .map(type -> absolute(owner, type))
+        .forEach(substitutions::add);
+    if (substitutions.size() != target.reifiedTypeLocals().size()) {
+      throw new IllegalArgumentException("closure reified arguments do not match the target ABI");
+    }
+    verifyTypeArgumentBounds(targetId, target.typeParameters(), substitutions);
+    for (int index = 0; index < closure.captures().size(); index++) {
+      CoreType expected = absolute(targetId, target.captureTypes().get(index));
+      if (!substitutions.isEmpty()) expected = expected.substitute(substitutions::get);
+      requireAssignable(
+          expected, absolute(owner, closure.captures().get(index).type()), "closure capture");
+    }
+    List<CoreType> parameters =
+        target.parameterTypes().stream()
+            .map(value -> absolute(targetId, value))
+            .map(value -> substitutions.isEmpty() ? value : value.substitute(substitutions::get))
+            .toList();
+    CoreType result = absolute(targetId, target.returnType());
+    if (!substitutions.isEmpty()) result = result.substitute(substitutions::get);
+    CoreType expected = new CoreType.Function(result, parameters, CoreNullability.NON_NULL);
+    requireSameType(expected, absolute(owner, closure.type()), "closure type");
+  }
+
+  private void verifyInvoke(
+      DefinitionId owner, CoreDefinition.Callable caller, CoreExpression.Invoke invoke) {
+    verifyExpression(owner, caller, invoke.callee());
+    invoke.arguments().forEach(argument -> verifyExpression(owner, caller, argument.value()));
+    CoreType callee = nonNullable(absolute(owner, invoke.callee().type()));
+    if (!(callee instanceof CoreType.Function function)) {
+      throw new IllegalArgumentException("invoked expression is not a function");
+    }
+    verifyDenseArguments(invoke.arguments(), function.parameterTypes().size());
+    for (CoreArgument argument : invoke.arguments()) {
+      requireAssignable(
+          function.parameterTypes().get(argument.parameterIndex()),
+          absolute(owner, argument.value().type()),
+          "function argument");
+    }
+    requireSameType(function.returnType(), absolute(owner, invoke.type()), "function result");
   }
 
   private void verifyInterfaceCall(
@@ -1540,6 +1692,12 @@ final class CoreProgramVerifier {
           case CoreTypeConstructor.User user -> verifyUserType(owner, user, declared);
         }
       }
+      case CoreType.Function function -> {
+        verifyReturnType(owner, function.returnType(), parameterCount);
+        function
+            .parameterTypes()
+            .forEach(parameter -> verifyValueType(owner, parameter, parameterCount));
+      }
       case CoreType.Special ignored ->
           throw new IllegalArgumentException(subject + " requires an inhabitable type");
     }
@@ -1631,6 +1789,10 @@ final class CoreProgramVerifier {
       case CoreType.Parameter parameter -> result.add(parameter.index());
       case CoreType.Declared declared ->
           declared.arguments().forEach(argument -> collectTypeParameters(argument, result));
+      case CoreType.Function function -> {
+        collectTypeParameters(function.returnType(), result);
+        function.parameterTypes().forEach(argument -> collectTypeParameters(argument, result));
+      }
       case CoreType.Special ignored -> {}
     }
   }
@@ -1832,6 +1994,11 @@ final class CoreProgramVerifier {
                   declared.arguments(),
                   declared.category(),
                   CoreNullability.NON_NULL);
+      case CoreType.Function function ->
+          function.nullability() == CoreNullability.NON_NULL
+              ? function
+              : new CoreType.Function(
+                  function.returnType(), function.parameterTypes(), CoreNullability.NON_NULL);
       case CoreType.Parameter parameter ->
           parameter.nullability() == CoreNullability.NON_NULL
               ? parameter

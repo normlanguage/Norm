@@ -3,15 +3,13 @@ import std.math.abs
 import std.testing.equal
 import std.testing.expectedOutputLines
 
-Void main() {
-  printLines([
-    equal(actual: abs(-7), expected: 7),
-    equal(actual: abs(0), expected: 0),
-    equal(actual: abs(9), expected: 9)
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "true"
-  ])
+main() {
+  printLines(
+    [
+      equal(actual: abs(-7), expected: 7),
+      equal(actual: abs(0), expected: 0),
+      equal(actual: abs(9), expected: 9)
+    ]
+  )
+  expectedOutputLines(["true", "true", "true"])
 }

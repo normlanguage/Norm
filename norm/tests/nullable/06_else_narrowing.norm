@@ -8,11 +8,8 @@ Void show(String? value) {
   }
 }
 
-Void main() {
+main() {
   show(value: null)
   show(value: "ready")
-  expectedOutputLines([
-    "none",
-    "ready"
-  ])
+  expectedOutputLines(["none", "ready"])
 }

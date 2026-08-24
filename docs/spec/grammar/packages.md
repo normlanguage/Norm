@@ -4,12 +4,12 @@
 PackageDeclaration := "package" Identifier ("." Identifier)*
 ```
 
-package 声明是项目源码文件的第一个非注释声明，名称使用点分隔，不以分号结尾。
+package 声明是项目源码文件的第一个声明，名称使用点分隔，不以分号结尾。
 
 ```norm
 package geometry.shapes
 
-public class Circle {
+class Circle {
     Integer radius
 }
 ```

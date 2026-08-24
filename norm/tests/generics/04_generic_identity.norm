@@ -9,21 +9,11 @@ class Cell<T> {
   }
 }
 
-Void main() {
+main() {
   Cell<Long> original = Cell<>(value: -9223372036854775807)
   Cell<Long> alias = original
   Cell<Long> copied = original.copy()
   alias.set(9223372036854775807)
-  printLines([
-    original.value,
-    alias == original,
-    copied.value,
-    copied == original
-  ])
-  expectedOutputLines([
-    "9223372036854775807",
-    "true",
-    "-9223372036854775807",
-    "false"
-  ])
+  printLines([original.value, alias == original, copied.value, copied == original])
+  expectedOutputLines(["9223372036854775807", "true", "-9223372036854775807", "false"])
 }

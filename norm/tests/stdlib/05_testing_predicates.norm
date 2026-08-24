@@ -5,17 +5,14 @@ import std.testing.isFalse
 import std.testing.isTrue
 import std.testing.notEqual
 
-Void main() {
-  printLines([
-    equal(actual: "Norm", expected: "Norm"),
-    notEqual(actual: 2, expected: 3),
-    isTrue(true),
-    isFalse(false)
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "true",
-    "true"
-  ])
+main() {
+  printLines(
+    [
+      equal(actual: "Norm", expected: "Norm"),
+      notEqual(actual: 2, expected: 3),
+      isTrue(true),
+      isFalse(false)
+    ]
+  )
+  expectedOutputLines(["true", "true", "true", "true"])
 }

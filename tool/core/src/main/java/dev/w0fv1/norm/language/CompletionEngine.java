@@ -89,7 +89,7 @@ final class CompletionEngine {
                   CompletionKind.SNIPPET,
                   "Norm entry point",
                   "",
-                  "Void main() {\n  ${1}\n}",
+                  "main() {\n  ${1}\n}",
                   true),
               Optional.empty(),
               0));
@@ -216,44 +216,84 @@ final class CompletionEngine {
 
   private static List<Completion> memberCompletions(
       SemanticModel model, String text, int dotOffset) {
+    boolean methodReference = text.charAt(dotOffset) == ':';
     int receiverEnd =
-        dotOffset > 0 && text.charAt(dotOffset - 1) == '?' ? dotOffset - 1 : dotOffset;
+        !methodReference && dotOffset > 0 && text.charAt(dotOffset - 1) == '?'
+            ? dotOffset - 1
+            : dotOffset;
     int start = receiverEnd;
     while (start > 0 && Character.isUnicodeIdentifierPart(text.charAt(start - 1))) start--;
     int identifierStart = start;
     int receiverOffset = Math.max(0, receiverEnd - 1);
-    Optional<Symbol> receiverSymbol =
-        identifierStart == receiverEnd ? Optional.empty() : model.symbolAt(identifierStart);
     String receiverName = text.substring(identifierStart, receiverEnd);
+    Optional<Symbol> receiverSymbol =
+        identifierStart == receiverEnd
+            ? Optional.empty()
+            : model
+                .symbolAt(identifierStart)
+                .or(
+                    () ->
+                        model.visibleSymbols(dotOffset).stream()
+                            .filter(symbol -> symbol.name().equals(receiverName))
+                            .findFirst());
     boolean typeReceiver =
         receiverSymbol.isPresent() && receiverSymbol.orElseThrow().kind() == SymbolKind.TYPE;
     List<Symbol> typeMembers = model.typeMembers(receiverName);
     if (typeReceiver && !typeMembers.isEmpty()) {
-      return symbolCompletions(typeMembers.stream());
+      return symbolCompletions(typeMembers.stream(), methodReference);
     }
     Optional<SemanticType> receiverType =
-        model
-            .typeAt(receiverOffset)
-            .or(
-                () -> {
-                  if (identifierStart == receiverEnd) return Optional.empty();
-                  return model
-                      .typeAt(identifierStart)
-                      .or(() -> model.symbolAt(identifierStart).map(Symbol::type));
-                });
-    return symbolCompletions(receiverType.stream().flatMap(type -> model.members(type).stream()));
+        identifierStart > 0 && text.charAt(identifierStart - 1) == '.'
+            ? model.typeAt(receiverOffset).or(() -> receiverSymbol.map(Symbol::type))
+            : receiverSymbol
+                .map(Symbol::type)
+                .or(() -> model.typeAt(receiverOffset))
+                .or(
+                    () -> {
+                      if (identifierStart == receiverEnd) return Optional.empty();
+                      return model
+                          .typeAt(identifierStart)
+                          .or(() -> model.symbolAt(identifierStart).map(Symbol::type));
+                    });
+    return symbolCompletions(
+        receiverType.stream().flatMap(type -> model.members(type).stream()), methodReference);
   }
 
   private static List<Completion> symbolCompletions(Stream<Symbol> symbols) {
+    return symbolCompletions(symbols, false);
+  }
+
+  private static List<Completion> symbolCompletions(
+      Stream<Symbol> symbols, boolean methodReference) {
     Map<String, Completion> unique = new LinkedHashMap<>();
     symbols
+        .filter(symbol -> !methodReference || callable(symbol))
         .sorted(
             Comparator.comparing(Symbol::name)
                 .thenComparingInt(symbol -> symbol.parameters().size()))
         .forEach(
             symbol ->
-                unique.putIfAbsent(symbol.kind() + "\u0000" + symbol.name(), completion(symbol)));
+                unique.putIfAbsent(
+                    symbol.kind() + "\u0000" + symbol.name(),
+                    methodReference ? referenceCompletion(symbol) : completion(symbol)));
     return List.copyOf(unique.values());
+  }
+
+  private static boolean callable(Symbol symbol) {
+    return symbol.kind() == SymbolKind.METHOD
+        || symbol.kind() == SymbolKind.INTERFACE_METHOD
+        || symbol.kind() == SymbolKind.TYPE_METHOD;
+  }
+
+  private static Completion referenceCompletion(Symbol symbol) {
+    Completion completion = completion(symbol);
+    return new Completion(
+        completion.label(),
+        completion.kind(),
+        completion.detail(),
+        completion.documentation(),
+        symbol.name(),
+        false);
   }
 
   private static Completion completion(Symbol symbol) {
@@ -262,6 +302,22 @@ final class CompletionEngine {
 
   private static Completion completion(
       Symbol symbol, List<CompletionTextEdit> additionalTextEdits, boolean constructor) {
+    if (symbol.type().isFunction()) {
+      Symbol callable = SymbolPresentation.callable(symbol);
+      String arguments =
+          java.util.stream.IntStream.range(0, callable.parameters().size())
+              .mapToObj(
+                  index -> "${" + (index + 1) + ":" + callable.parameters().get(index).name() + "}")
+              .collect(java.util.stream.Collectors.joining(", "));
+      return new Completion(
+          symbol.name(),
+          CompletionKind.FUNCTION,
+          SymbolPresentation.signature(callable),
+          symbol.documentation(),
+          symbol.name() + "(" + arguments + ")",
+          true,
+          additionalTextEdits);
+    }
     CompletionKind kind =
         switch (symbol.kind()) {
           case TYPE, TYPE_PARAMETER -> CompletionKind.TYPE;

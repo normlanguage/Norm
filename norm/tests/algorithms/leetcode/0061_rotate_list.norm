@@ -2,7 +2,9 @@ import std.testing.expectedOutputLines
 
 List<Integer> rotateRight(Array<Integer> values, Integer steps) {
   List<Integer> result = List<>()
-  if values.size() == 0 { return result }
+  if values.size() == 0 {
+    return result
+  }
   Integer shift = steps % values.size()
   for index : range(start: 0, end: values.size()) {
     result.add(values[(values.size() - shift + index) % values.size()])
@@ -10,13 +12,9 @@ List<Integer> rotateRight(Array<Integer> values, Integer steps) {
   return result
 }
 
-Void main() {
-  for Integer value : rotateRight(values: [1,2,3,4,5], steps: 2) { printLine(value) }
-  expectedOutputLines([
-    "4",
-    "5",
-    "1",
-    "2",
-    "3"
-  ])
+main() {
+  for Integer value : rotateRight(values: [1, 2, 3, 4, 5], steps: 2) {
+    printLine(value)
+  }
+  expectedOutputLines(["4", "5", "1", "2", "3"])
 }

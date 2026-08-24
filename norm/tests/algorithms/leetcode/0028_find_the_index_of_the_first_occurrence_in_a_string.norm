@@ -4,7 +4,9 @@ import std.testing.expectedOutputLines
 Integer strStr(String textValue, String patternValue) {
   Array<CodePoint> text = textValue.codePoints()
   Array<CodePoint> pattern = patternValue.codePoints()
-  if pattern.size() == 0 { return 0 }
+  if pattern.size() == 0 {
+    return 0
+  }
   for start : range(start: 0, end: text.size() - pattern.size() + 1) {
     Boolean equal = true
     for offset : range(start: 0, end: pattern.size()) {
@@ -13,18 +15,19 @@ Integer strStr(String textValue, String patternValue) {
         break
       }
     }
-    if equal { return start }
+    if equal {
+      return start
+    }
   }
   return -1
 }
 
-Void main() {
-  printLines([
-    strStr(textValue: "sadbutsad", patternValue: "sad"),
-    strStr(textValue: "leetcode", patternValue: "leeto")
-  ])
-  expectedOutputLines([
-    "0",
-    "-1"
-  ])
+main() {
+  printLines(
+    [
+      strStr(textValue: "sadbutsad", patternValue: "sad"),
+      strStr(textValue: "leetcode", patternValue: "leeto")
+    ]
+  )
+  expectedOutputLines(["0", "-1"])
 }

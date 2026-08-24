@@ -12,13 +12,9 @@ Integer coinCombinations(Array<Integer> coins, Integer amount) {
   return ways[amount]
 }
 
-Void main() {
-  printLines([
-    coinCombinations(coins: [1, 2, 5], amount: 5),
-    coinCombinations(coins: [2], amount: 0)
-  ])
-  expectedOutputLines([
-    "4",
-    "1"
-  ])
+main() {
+  printLines(
+    [coinCombinations(coins: [1, 2, 5], amount: 5), coinCombinations(coins: [2], amount: 0)]
+  )
+  expectedOutputLines(["4", "1"])
 }

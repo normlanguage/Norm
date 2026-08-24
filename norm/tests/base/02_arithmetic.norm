@@ -1,4 +1,4 @@
-Void main() {
+main() {
   printLine(2 + 3 * 4)
   expectedOutputLine("14")
 }

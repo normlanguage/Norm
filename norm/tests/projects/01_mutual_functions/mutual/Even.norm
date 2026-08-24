@@ -1,6 +1,8 @@
 package mutual
 
 Boolean even(Integer value) {
-  if value == 0 { return true }
+  if value == 0 {
+    return true
+  }
   return odd(value - 1)
 }

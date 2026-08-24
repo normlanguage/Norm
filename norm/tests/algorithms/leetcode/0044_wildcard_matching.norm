@@ -5,7 +5,9 @@ Boolean isMatch(String textValue, String patternValue) {
   dp[0] = true
   for CodePoint token : pattern {
     List<Boolean> next = List.filled(size: text.size() + 1, value: false)
-    if token == '*' { next[0] = dp[0] }
+    if token == '*' {
+      next[0] = dp[0]
+    }
     for index : range(start: 1, end: text.size() + 1) {
       if token == '*' {
         next[index] = dp[index] || next[index - 1]
@@ -18,7 +20,7 @@ Boolean isMatch(String textValue, String patternValue) {
   return dp[text.size()]
 }
 
-Void main() {
+main() {
   printLine(isMatch(textValue: "adceb", patternValue: "*a*b"))
   expectedOutputLine("true")
 }

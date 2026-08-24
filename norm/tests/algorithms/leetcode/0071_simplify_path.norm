@@ -2,9 +2,10 @@ String simplifyPath(String path) {
   Array<String> components = path.split(separator: "/")
   List<String> stack = List<>()
   for String component : components {
-    if component.isEmpty() || component == "." {
-    } else if component == ".." {
-      if !stack.isEmpty() { stack.removeLast() }
+    if component.isEmpty() || component == "." {} else if component == ".." {
+      if !stack.isEmpty() {
+        stack.removeLast()
+      }
     } else {
       stack.add(component)
     }
@@ -14,11 +15,13 @@ String simplifyPath(String path) {
     result.append("/")
     result.append(component)
   }
-  if stack.isEmpty() { return "/" }
+  if stack.isEmpty() {
+    return "/"
+  }
   return result.toString()
 }
 
-Void main() {
+main() {
   printLine(simplifyPath("/home/user/../docs/"))
   expectedOutputLine("/home/docs")
 }

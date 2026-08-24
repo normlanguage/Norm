@@ -1,17 +1,29 @@
 package std.text
 
-public enum Normalization { Nfc, Nfd, Nfkc, Nfkd }
+enum Normalization { Nfc, Nfd, Nfkc, Nfkd }
 
-public String normalize(String value, Normalization form) {
-  if form == Normalization.Nfc { return value.normalizeNfc() }
-  if form == Normalization.Nfd { return value.normalizeNfd() }
-  if form == Normalization.Nfkc { return value.normalizeNfkc() }
+String normalize(String value, Normalization form) {
+  if form == Normalization.Nfc {
+    return value.normalizeNfc()
+  }
+  if form == Normalization.Nfd {
+    return value.normalizeNfd()
+  }
+  if form == Normalization.Nfkc {
+    return value.normalizeNfkc()
+  }
   return value.normalizeNfkd()
 }
 
-public Boolean isNormalized(String value, Normalization form) {
-  if form == Normalization.Nfc { return value.isNormalizedNfc() }
-  if form == Normalization.Nfd { return value.isNormalizedNfd() }
-  if form == Normalization.Nfkc { return value.isNormalizedNfkc() }
+Boolean isNormalized(String value, Normalization form) {
+  if form == Normalization.Nfc {
+    return value.isNormalizedNfc()
+  }
+  if form == Normalization.Nfd {
+    return value.isNormalizedNfd()
+  }
+  if form == Normalization.Nfkc {
+    return value.isNormalizedNfkc()
+  }
   return value.isNormalizedNfkd()
 }

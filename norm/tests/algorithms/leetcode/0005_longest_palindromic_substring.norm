@@ -12,13 +12,17 @@ String longestPalindrome(String value) {
   for center : range(start: 0, end: text.size()) {
     Pair<Integer, Integer> odd = expand(text, left: center, right: center)
     Pair<Integer, Integer> even = expand(text, left: center, right: center + 1)
-    if odd.second - odd.first > best.second - best.first { best = odd }
-    if even.second - even.first > best.second - best.first { best = even }
+    if odd.second - odd.first > best.second - best.first {
+      best = odd
+    }
+    if even.second - even.first > best.second - best.first {
+      best = even
+    }
   }
   return value.sliceCodePoints(start: best.first, end: best.second)
 }
 
-Void main() {
+main() {
   printLine(longestPalindrome("babad"))
   expectedOutputLine("bab")
 }

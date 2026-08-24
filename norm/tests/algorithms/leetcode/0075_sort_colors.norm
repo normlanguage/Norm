@@ -23,14 +23,9 @@ Array<Integer> sortColors(Array<Integer> values) {
   return values
 }
 
-Void main() {
-  for Integer value : sortColors([2,0,2,1,1,0]) { printLine(value) }
-  expectedOutputLines([
-    "0",
-    "0",
-    "1",
-    "1",
-    "2",
-    "2"
-  ])
+main() {
+  for Integer value : sortColors([2, 0, 2, 1, 1, 0]) {
+    printLine(value)
+  }
+  expectedOutputLines(["0", "0", "1", "1", "2", "2"])
 }

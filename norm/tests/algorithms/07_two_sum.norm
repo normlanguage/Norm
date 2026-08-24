@@ -5,27 +5,18 @@ Pair<Integer, Integer> twoSum(Array<Integer> values, Integer target) {
   Map<Integer, Integer> seen = Map<>()
   for index : range(start: 0, end: values.size()) {
     Integer needed = target - values[index]
-    if seen.containsKey(needed) { return Pair<>(first: seen[needed], second: index) }
+    if seen.containsKey(needed) {
+      return Pair<>(first: seen[needed], second: index)
+    }
     seen.put(key: values[index], value: index)
   }
   return Pair<>(first: -1, second: -1)
 }
 
-Void main() {
+main() {
   Pair<Integer, Integer> found = twoSum(values: [2, 7, 11, 15], target: 9)
-  printLines([
-    found.first,
-    found.second
-  ])
+  printLines([found.first, found.second])
   Pair<Integer, Integer> missing = twoSum(values: [1, 2, 3], target: 20)
-  printLines([
-    missing.first,
-    missing.second
-  ])
-  expectedOutputLines([
-    "0",
-    "1",
-    "-1",
-    "-1"
-  ])
+  printLines([missing.first, missing.second])
+  expectedOutputLines(["0", "1", "-1", "-1"])
 }

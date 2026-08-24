@@ -1,6 +1,8 @@
-T identity<T>(T value) { return value }
+T identity<T>(T value) {
+  return value
+}
 
-Void main() {
+main() {
   String? value = identity(value: null)
   printLine(value ?? "inferred")
   expectedOutputLine("inferred")

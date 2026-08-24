@@ -109,6 +109,24 @@ final class CallSiteResolver {
     Optional<ResolvedCall> exactCall = model.callAtCallee(name.span());
     if (exactCall.isPresent()) {
       ResolvedCall call = exactCall.orElseThrow();
+      if (call.kind() == ResolvedCall.Kind.INVOKE) {
+        Optional<Symbol> functionValue = model.symbolOf(name.span());
+        if (functionValue.isPresent()) {
+          Symbol source = functionValue.orElseThrow();
+          Symbol callable =
+              new Symbol(
+                  source.id(),
+                  source.name(),
+                  SymbolKind.FUNCTION,
+                  call.resultType(),
+                  source.declaration(),
+                  source.owner(),
+                  List.of(),
+                  call.parameters(),
+                  source.documentation());
+          return new CandidateSet(List.of(callable), Optional.of(callable));
+        }
+      }
       Optional<Symbol> target = model.symbol(call.target());
       if (target.isPresent()) {
         Symbol declaration = target.orElseThrow();
@@ -144,7 +162,12 @@ final class CallSiteResolver {
     }
     Optional<Symbol> bound = model.resolvedSymbolOf(name.span()).filter(CallSiteResolver::callable);
     if (bound.isPresent()) {
-      return new CandidateSet(model.callableAlternatives(bound.orElseThrow()), bound);
+      List<Symbol> candidates =
+          model.callableAlternatives(bound.orElseThrow()).stream()
+              .map(SymbolPresentation::callable)
+              .toList();
+      return new CandidateSet(
+          candidates, Optional.of(SymbolPresentation.callable(bound.orElseThrow())));
     }
     if (nameIndex >= 2
         && (tokens.get(nameIndex - 1).kind() == TokenKind.DOT
@@ -205,6 +228,7 @@ final class CallSiteResolver {
             .filter(symbol -> symbol.name().equals(name.lexeme()))
             .flatMap(symbol -> model.callableAlternatives(symbol).stream())
             .filter(CallSiteResolver::callable)
+            .map(SymbolPresentation::callable)
             .toList();
     if (!visible.isEmpty()) return new CandidateSet(unique(visible), Optional.empty());
     return new CandidateSet(
@@ -220,6 +244,7 @@ final class CallSiteResolver {
                             .document()
                             .equals(model.source().id()))
             .filter(CallSiteResolver::callable)
+            .map(SymbolPresentation::callable)
             .toList(),
         Optional.empty());
   }
@@ -268,7 +293,8 @@ final class CallSiteResolver {
         || symbol.kind() == SymbolKind.TYPE_METHOD
         || symbol.kind() == SymbolKind.TYPE
         || symbol.kind() == SymbolKind.INTERFACE
-        || symbol.kind() == SymbolKind.ENUM_VARIANT;
+        || symbol.kind() == SymbolKind.ENUM_VARIANT
+        || symbol.type().isFunction();
   }
 
   private static int activeParameter(List<Token> tokens, int opening, Symbol callable) {

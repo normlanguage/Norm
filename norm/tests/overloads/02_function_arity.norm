@@ -1,16 +1,15 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Integer total(Integer value) { return value }
-Integer total(Integer left, Integer right) { return left + right }
+Integer total(Integer value) {
+  return value
+}
 
-Void main() {
-  printLines([
-    total(value: 3),
-    total(left: 3, right: 4)
-  ])
-  expectedOutputLines([
-    "3",
-    "7"
-  ])
+Integer total(Integer left, Integer right) {
+  return left + right
+}
+
+main() {
+  printLines([total(value: 3), total(left: 3, right: 4)])
+  expectedOutputLines(["3", "7"])
 }

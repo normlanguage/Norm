@@ -14,7 +14,6 @@ final class Lexer {
   private static final DiagnosticCode UNEXPECTED_CHARACTER = new DiagnosticCode("NORM-LEXER-0001");
   private static final DiagnosticCode UNTERMINATED_STRING = new DiagnosticCode("NORM-LEXER-0002");
   private static final DiagnosticCode INVALID_ESCAPE = new DiagnosticCode("NORM-LEXER-0003");
-  private static final DiagnosticCode UNTERMINATED_COMMENT = new DiagnosticCode("NORM-LEXER-0004");
   private static final DiagnosticCode UNSUPPORTED_INTERPOLATION =
       new DiagnosticCode("NORM-LEXER-0005");
   private static final DiagnosticCode INVALID_CODE_POINT = new DiagnosticCode("NORM-LEXER-0006");
@@ -50,7 +49,10 @@ final class Lexer {
       case ']' -> addSimple(TokenKind.RIGHT_BRACKET, start);
       case ',' -> addSimple(TokenKind.COMMA, start);
       case ';' -> addSimple(TokenKind.SEMICOLON, start);
-      case ':' -> addSimple(TokenKind.COLON, start);
+      case ':' -> {
+        if (match(':')) addSimple(TokenKind.COLON_COLON, start);
+        else addSimple(TokenKind.COLON, start);
+      }
       case '.' -> addSimple(TokenKind.DOT, start);
       case '?' ->
           addSimple(
@@ -70,7 +72,7 @@ final class Lexer {
       case '|' -> scanDoubleOperator('|', TokenKind.OR_OR, start);
       case '"' -> scanString(start);
       case '\'' -> scanCodePoint(start);
-      case '/' -> scanSlash(start);
+      case '/' -> addSimple(TokenKind.SLASH, start);
       default -> {
         if (Character.isWhitespace(character)) {
           return;
@@ -282,42 +284,6 @@ final class Lexer {
         INVALID_CODE_POINT,
         "code point literal is not terminated before the end of the file",
         new SourceSpan(source, start, offset));
-  }
-
-  private void scanSlash(int start) {
-    if (match('/')) {
-      while (!isAtEnd()) {
-        int character = source.text().codePointAt(offset);
-        if (character == '\n' || character == '\r') {
-          break;
-        }
-        offset += Character.charCount(character);
-      }
-      return;
-    }
-    if (!match('*')) {
-      addSimple(TokenKind.SLASH, start);
-      return;
-    }
-
-    int depth = 1;
-    while (!isAtEnd() && depth > 0) {
-      if (startsWith("/*")) {
-        offset += 2;
-        depth++;
-      } else if (startsWith("*/")) {
-        offset += 2;
-        depth--;
-      } else {
-        advanceCodePoint();
-      }
-    }
-    if (depth != 0) {
-      diagnostics.error(
-          UNTERMINATED_COMMENT,
-          "block comment is not terminated",
-          new SourceSpan(source, start, offset));
-    }
   }
 
   private void scanDoubleOperator(char expected, TokenKind kind, int start) {

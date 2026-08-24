@@ -1,27 +1,33 @@
 package std.collections
 
-public Boolean listContains<T>(List<T> values, T target) {
+Boolean listContains<T>(List<T> values, T target) {
   for T value : values {
-    if value == target { return true }
+    if value == target {
+      return true
+    }
   }
   return false
 }
 
-public Integer listCount<T>(List<T> values, T target) {
+Integer listCount<T>(List<T> values, T target) {
   Integer count = 0
   for T value : values {
-    if value == target { count = count + 1 }
+    if value == target {
+      count = count + 1
+    }
   }
   return count
 }
 
-public List<T> toList<T>(Array<T> values) {
+List<T> toList<T>(Array<T> values) {
   List<T> result = List<>()
-  for T value : values { result.add(value) }
+  for T value : values {
+    result.add(value)
+  }
   return result
 }
 
-public List<Integer> sort(List<Integer> values) {
+List<Integer> sort(List<Integer> values) {
   List<Integer> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -35,7 +41,7 @@ public List<Integer> sort(List<Integer> values) {
   return result
 }
 
-public Array<Integer> sort(Array<Integer> values) {
+Array<Integer> sort(Array<Integer> values) {
   Array<Integer> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -49,7 +55,7 @@ public Array<Integer> sort(Array<Integer> values) {
   return result
 }
 
-public List<CodePoint> sort(List<CodePoint> values) {
+List<CodePoint> sort(List<CodePoint> values) {
   List<CodePoint> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -63,7 +69,7 @@ public List<CodePoint> sort(List<CodePoint> values) {
   return result
 }
 
-public Array<CodePoint> sort(Array<CodePoint> values) {
+Array<CodePoint> sort(Array<CodePoint> values) {
   Array<CodePoint> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -77,7 +83,7 @@ public Array<CodePoint> sort(Array<CodePoint> values) {
   return result
 }
 
-public List<String> sort(List<String> values) {
+List<String> sort(List<String> values) {
   List<String> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -91,7 +97,7 @@ public List<String> sort(List<String> values) {
   return result
 }
 
-public Array<String> sort(Array<String> values) {
+Array<String> sort(Array<String> values) {
   Array<String> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end

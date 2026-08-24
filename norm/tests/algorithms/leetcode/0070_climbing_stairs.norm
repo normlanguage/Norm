@@ -9,7 +9,7 @@ Integer climbStairs(Integer steps) {
   return current
 }
 
-Void main() {
+main() {
   printLine(climbStairs(5))
   expectedOutputLine("8")
 }

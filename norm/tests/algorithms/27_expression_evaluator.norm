@@ -4,12 +4,17 @@ enum Kind { Number, Add, Subtract, Multiply, Left, Right }
 
 class Token {
   Kind kind
+
   Integer value
 }
 
 Integer precedence(Kind kind) {
-  if kind == Kind.Multiply { return 2 }
-  if kind == Kind.Add || kind == Kind.Subtract { return 1 }
+  if kind == Kind.Multiply {
+    return 2
+  }
+  if kind == Kind.Add || kind == Kind.Subtract {
+    return 1
+  }
   return 0
 }
 
@@ -17,9 +22,15 @@ Pair<Stack<Integer>, Stack<Token>> applyTop(Stack<Integer> values, Stack<Token> 
   Integer right = values.pop()
   Integer left = values.pop()
   Token operator = operators.pop()
-  if operator.kind == Kind.Add { values.push(left + right) }
-  if operator.kind == Kind.Subtract { values.push(left - right) }
-  if operator.kind == Kind.Multiply { values.push(left * right) }
+  if operator.kind == Kind.Add {
+    values.push(left + right)
+  }
+  if operator.kind == Kind.Subtract {
+    values.push(left - right)
+  }
+  if operator.kind == Kind.Multiply {
+    values.push(left * right)
+  }
   return Pair<>(first: values, second: operators)
 }
 
@@ -41,7 +52,9 @@ Integer evaluate(List<Token> tokens) {
     } else {
       for !operators.isEmpty() {
         Token top = operators.peek()
-        if top.kind == Kind.Left || precedence(top.kind) < precedence(token.kind) { break }
+        if top.kind == Kind.Left || precedence(top.kind) < precedence(token.kind) {
+          break
+        }
         Pair<Stack<Integer>, Stack<Token>> state = applyTop(values, operators)
         values = state.first
         operators = state.second
@@ -57,7 +70,7 @@ Integer evaluate(List<Token> tokens) {
   return values.pop()
 }
 
-Void main() {
+main() {
   List<Token> first = List<>()
   first.add(Token(kind: Kind.Number, value: 3))
   first.add(Token(kind: Kind.Add, value: 0))
@@ -65,7 +78,6 @@ Void main() {
   first.add(Token(kind: Kind.Multiply, value: 0))
   first.add(Token(kind: Kind.Number, value: 7))
   printLine(evaluate(first))
-
   List<Token> second = List<>()
   second.add(Token(kind: Kind.Left, value: 0))
   second.add(Token(kind: Kind.Number, value: 8))
@@ -75,8 +87,5 @@ Void main() {
   second.add(Token(kind: Kind.Multiply, value: 0))
   second.add(Token(kind: Kind.Number, value: 4))
   printLine(evaluate(second))
-  expectedOutputLines([
-    "17",
-    "20"
-  ])
+  expectedOutputLines(["17", "20"])
 }

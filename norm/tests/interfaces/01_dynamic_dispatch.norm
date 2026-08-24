@@ -8,7 +8,7 @@ interface Named {
 class User implements Named {
   String value
 
-  public String name() {
+  String name() {
     return value
   }
 }
@@ -16,7 +16,7 @@ class User implements Named {
 class Service implements Named {
   String value
 
-  public String name() {
+  String name() {
     return "service:" + value
   }
 }
@@ -25,13 +25,7 @@ String read(Named value) {
   return value.name()
 }
 
-Void main() {
-  printLines([
-    read(value: User(value: "Norm")),
-    read(value: Service(value: "compiler"))
-  ])
-  expectedOutputLines([
-    "Norm",
-    "service:compiler"
-  ])
+main() {
+  printLines([read(value: User(value: "Norm")), read(value: Service(value: "compiler"))])
+  expectedOutputLines(["Norm", "service:compiler"])
 }

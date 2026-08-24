@@ -3,13 +3,15 @@ Integer numTrees(Integer size) {
   counts.add(1)
   for nodes : range(start: 1, end: size + 1) {
     Integer total = 0
-    for root : range(start: 1, end: nodes + 1) { total = total + counts[root - 1] * counts[nodes - root] }
+    for root : range(start: 1, end: nodes + 1) {
+      total = total + counts[root - 1] * counts[nodes - root]
+    }
     counts.add(total)
   }
   return counts[size]
 }
 
-Void main() {
+main() {
   printLine(numTrees(3))
   expectedOutputLine("5")
 }

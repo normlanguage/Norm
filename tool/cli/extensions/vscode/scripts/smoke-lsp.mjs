@@ -76,7 +76,8 @@ function readMessages() {
         !capabilities?.signatureHelpProvider ||
         !capabilities.definitionProvider ||
         !capabilities.referencesProvider ||
-        !capabilities.renameProvider?.prepareProvider
+        !capabilities.renameProvider?.prepareProvider ||
+        !capabilities.documentFormattingProvider
       ) {
         return finish(new Error(`Initialize response lacks Norm capabilities: ${JSON.stringify(message)}`));
       }
@@ -107,7 +108,7 @@ function readMessages() {
         params: 'stdlib:/std/math/integer.norm',
       });
     } else if (message.id === 2) {
-      if (typeof message.result !== 'string' || !message.result.includes('public Integer clamp')) {
+      if (typeof message.result !== 'string' || !message.result.includes('Integer clamp')) {
         return finish(new Error(`Standard-library source request failed: ${JSON.stringify(message)}`));
       }
       send({
@@ -145,8 +146,24 @@ function readMessages() {
       ) {
         return finish(new Error(`Signature-help request failed: ${JSON.stringify(message)}`));
       }
-      send({ jsonrpc: '2.0', id: 4, method: 'shutdown', params: null });
+      send({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'textDocument/formatting',
+        params: {
+          textDocument: { uri: moduleUri },
+          options: { tabSize: 2, insertSpaces: true },
+        },
+      });
     } else if (message.id === 4) {
+      if (
+        message.result?.[0]?.newText !==
+        'Module(\n  name: "sample",\n  version: 1,\n  exports: []\n)\n'
+      ) {
+        return finish(new Error(`Formatting request failed: ${JSON.stringify(message)}`));
+      }
+      send({ jsonrpc: '2.0', id: 5, method: 'shutdown', params: null });
+    } else if (message.id === 5) {
       protocolComplete = true;
       send({ jsonrpc: '2.0', method: 'exit', params: null });
       child.stdin.end();

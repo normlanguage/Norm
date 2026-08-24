@@ -89,11 +89,16 @@ final class BoundCoreTypeConverter {
       case TYPE_PARAMETER ->
           new CoreType.Parameter(parameterIndex(type.identity()), nullability(type.nullability()));
       case DECLARED ->
-          new CoreType.Declared(
-              constructor(type),
-              type.arguments().stream().map(this::convert).toList(),
-              category(type.category()),
-              nullability(type.nullability()));
+          type.isFunction()
+              ? new CoreType.Function(
+                  convert(type.functionReturnType()),
+                  type.functionParameterTypes().stream().map(this::convert).toList(),
+                  nullability(type.nullability()))
+              : new CoreType.Declared(
+                  constructor(type),
+                  type.arguments().stream().map(this::convert).toList(),
+                  category(type.category()),
+                  nullability(type.nullability()));
       case VOID -> CoreType.VOID;
       case NULL -> CoreType.NULL;
       case ERROR -> CoreType.DYNAMIC;

@@ -4,7 +4,9 @@ import std.testing.expectedOutputLines
 
 Integer longestIncreasingSubsequence(Array<Integer> values) {
   List<Integer> lengths = List<>()
-  for Integer value : values { lengths.add(1) }
+  for Integer value : values {
+    lengths.add(1)
+  }
   Integer best = 1
   for right : range(start: 0, end: values.size()) {
     for left : range(start: 0, end: right) {
@@ -17,13 +19,12 @@ Integer longestIncreasingSubsequence(Array<Integer> values) {
   return best
 }
 
-Void main() {
-  printLines([
-    longestIncreasingSubsequence([10, 9, 2, 5, 3, 7, 101, 18]),
-    longestIncreasingSubsequence([5, 4, 3, 2, 1])
-  ])
-  expectedOutputLines([
-    "4",
-    "1"
-  ])
+main() {
+  printLines(
+    [
+      longestIncreasingSubsequence([10, 9, 2, 5, 3, 7, 101, 18]),
+      longestIncreasingSubsequence([5, 4, 3, 2, 1])
+    ]
+  )
+  expectedOutputLines(["4", "1"])
 }

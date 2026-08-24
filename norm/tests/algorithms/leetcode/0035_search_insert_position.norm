@@ -6,18 +6,18 @@ Integer searchInsert(Array<Integer> values, Integer target) {
   Integer right = values.size()
   for left < right {
     Integer middle = left + (right - left) / 2
-    if values[middle] < target { left = middle + 1 } else { right = middle }
+    if values[middle] < target {
+      left = middle + 1
+    } else {
+      right = middle
+    }
   }
   return left
 }
 
-Void main() {
-  printLines([
-    searchInsert(values: [1, 3, 5, 6], target: 5),
-    searchInsert(values: [1, 3, 5, 6], target: 2)
-  ])
-  expectedOutputLines([
-    "2",
-    "1"
-  ])
+main() {
+  printLines(
+    [searchInsert(values: [1, 3, 5, 6], target: 5), searchInsert(values: [1, 3, 5, 6], target: 2)]
+  )
+  expectedOutputLines(["2", "1"])
 }

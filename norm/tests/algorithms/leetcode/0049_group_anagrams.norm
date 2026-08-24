@@ -6,11 +6,13 @@ Array<CodePoint> signature(String word) {
 
 Integer groupAnagrams(List<String> words) {
   Set<Array<CodePoint>> groups = Set<>()
-  for String word : words { groups.add(signature(word)) }
+  for String word : words {
+    groups.add(signature(word))
+  }
   return groups.size()
 }
 
-Void main() {
+main() {
   List<String> words = List<>()
   words.add("eat")
   words.add("tea")

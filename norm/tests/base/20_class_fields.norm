@@ -1,5 +1,10 @@
-class Point { Integer x Integer y }
-Void main() {
+class Point {
+  Integer x
+
+  Integer y
+}
+
+main() {
   Point point = Point(x: 2, y: 3)
   printLine(point.x + point.y)
   expectedOutputLine("5")

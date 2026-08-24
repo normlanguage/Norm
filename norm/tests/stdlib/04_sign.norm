@@ -3,15 +3,13 @@ import std.math.sign
 import std.testing.equal
 import std.testing.expectedOutputLines
 
-Void main() {
-  printLines([
-    equal(actual: sign(-20), expected: -1),
-    equal(actual: sign(0), expected: 0),
-    equal(actual: sign(20), expected: 1)
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "true"
-  ])
+main() {
+  printLines(
+    [
+      equal(actual: sign(-20), expected: -1),
+      equal(actual: sign(0), expected: 0),
+      equal(actual: sign(20), expected: 1)
+    ]
+  )
+  expectedOutputLines(["true", "true", "true"])
 }

@@ -101,7 +101,36 @@ public record SemanticType(
         Nullability.NON_NULL);
   }
 
+  public static SemanticType function(SemanticType returnType, List<SemanticType> parameterTypes) {
+    List<SemanticType> signature = new java.util.ArrayList<>();
+    signature.add(Objects.requireNonNull(returnType, "returnType"));
+    signature.addAll(parameterTypes);
+    return declared("std.core.Function", "Function", signature, ValueCategory.IDENTITY);
+  }
+
+  public boolean isFunction() {
+    return kind == Kind.DECLARED && identity.equals("std.core.Function") && !arguments.isEmpty();
+  }
+
+  public SemanticType functionReturnType() {
+    if (!isFunction()) throw new IllegalStateException("type is not a function");
+    return arguments.getFirst();
+  }
+
+  public List<SemanticType> functionParameterTypes() {
+    if (!isFunction()) throw new IllegalStateException("type is not a function");
+    return arguments.subList(1, arguments.size());
+  }
+
   public String displayName() {
+    if (isFunction()) {
+      String parameters =
+          functionParameterTypes().stream()
+              .map(SemanticType::displayName)
+              .collect(Collectors.joining(", "));
+      String base = "Function<" + functionReturnType().displayName() + "(" + parameters + ")>";
+      return nullability == Nullability.NULLABLE ? base + "?" : base;
+    }
     String base =
         arguments.isEmpty()
             ? name

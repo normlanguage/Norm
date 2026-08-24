@@ -86,13 +86,13 @@ final class InterfaceCompilerTest {
   }
 
   @Test
-  void rejectsFieldsAndMethodBodiesInInterfaces() {
+  void rejectsFieldsAndAcceptsDefaultMethodsInInterfaces() {
     CompilationResult field = compile("interface Invalid { Integer value } Void main() {} ");
     CompilationResult body =
         compile("interface Invalid { Integer value() { return 1 } } Void main() {} ");
 
     assertFalse(field.isSuccess());
-    assertFalse(body.isSuccess());
+    assertTrue(body.isSuccess(), () -> body.diagnostics().toString());
   }
 
   private static CompilationResult compile(String text) {

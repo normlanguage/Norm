@@ -1,0 +1,24 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+Function<Integer(Integer)> multiplier(Integer factor) {
+  return (Integer value) {
+    value * factor
+  }
+}
+
+Function<List<T>(T)> singleton<T>() {
+  return (T value) {
+    List<T> result = List<>()
+    result.add(value)
+    return result
+  }
+}
+
+main() {
+  Function<Integer(Integer)> triple = multiplier(3)
+  Function<List<String>(String)> wrap = singleton<String>()
+  List<String> text = wrap("captured")
+  printLines([triple(7), text[0]])
+  expectedOutputLines(["21", "captured"])
+}

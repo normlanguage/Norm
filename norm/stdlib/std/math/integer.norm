@@ -1,28 +1,42 @@
 package std.math
 
-public Integer min(Integer left, Integer right) {
-  if left < right { return left }
+Integer min(Integer left, Integer right) {
+  if left < right {
+    return left
+  }
   return right
 }
 
-public Integer max(Integer left, Integer right) {
-  if left > right { return left }
+Integer max(Integer left, Integer right) {
+  if left > right {
+    return left
+  }
   return right
 }
 
-public Integer abs(Integer value) {
-  if value < 0 { return -value }
+Integer abs(Integer value) {
+  if value < 0 {
+    return -value
+  }
   return value
 }
 
-public Integer clamp(Integer value, Integer minimum, Integer maximum) {
-  if value < minimum { return minimum }
-  if value > maximum { return maximum }
+Integer clamp(Integer value, Integer minimum, Integer maximum) {
+  if value < minimum {
+    return minimum
+  }
+  if value > maximum {
+    return maximum
+  }
   return value
 }
 
-public Integer sign(Integer value) {
-  if value < 0 { return -1 }
-  if value > 0 { return 1 }
+Integer sign(Integer value) {
+  if value < 0 {
+    return -1
+  }
+  if value > 0 {
+    return 1
+  }
   return 0
 }

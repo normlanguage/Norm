@@ -161,10 +161,15 @@ final class Parser {
     List<Syntax.FunctionDecl> methods = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
       Syntax.Visibility memberVisibility = parseVisibility();
+      if (looksLikeOmittedReturnFunction()) {
+        Token memberName = consume(TokenKind.IDENTIFIER, "expected method name");
+        methods.add(parseFunctionRest(Optional.empty(), memberName, memberVisibility));
+        continue;
+      }
       Syntax.TypeRef type = parseType();
       Token memberName = consume(TokenKind.IDENTIFIER, "expected field or method name");
       if (check(TokenKind.LEFT_PAREN) || check(TokenKind.LESS)) {
-        methods.add(parseFunctionRest(type, memberName, memberVisibility));
+        methods.add(parseFunctionRest(Optional.of(type), memberName, memberVisibility));
       } else {
         match(TokenKind.SEMICOLON);
         fields.add(
@@ -212,9 +217,10 @@ final class Parser {
       List<Syntax.Parameter> parameters = parseParameterList();
       Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
       SourceSpan span = returnType.span().cover(closing.span());
+      Optional<List<Syntax.Statement>> defaultBody = Optional.empty();
       if (check(TokenKind.LEFT_BRACE)) {
         Block body = parseBlock();
-        diagnostics.error(EXPECTED_TOKEN, "interface methods cannot declare a body", body.span());
+        defaultBody = Optional.of(body.statements());
         span = returnType.span().cover(body.span());
       } else {
         match(TokenKind.SEMICOLON);
@@ -226,6 +232,7 @@ final class Parser {
               methodName.span(),
               methodTypeParameters,
               parameters,
+              defaultBody,
               span));
     }
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after interface body");
@@ -248,13 +255,17 @@ final class Parser {
   }
 
   private Syntax.FunctionDecl parseFunction(Syntax.Visibility visibility) {
+    if (looksLikeOmittedReturnFunction()) {
+      Token name = consume(TokenKind.IDENTIFIER, "expected function name");
+      return parseFunctionRest(Optional.empty(), name, visibility);
+    }
     Syntax.TypeRef returnType = parseType();
     Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-    return parseFunctionRest(returnType, name, visibility);
+    return parseFunctionRest(Optional.of(returnType), name, visibility);
   }
 
   private Syntax.FunctionDecl parseFunctionRest(
-      Syntax.TypeRef returnType, Token name, Syntax.Visibility visibility) {
+      Optional<Syntax.TypeRef> returnType, Token name, Syntax.Visibility visibility) {
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_PAREN, "expected '(' after function name");
     List<Syntax.Parameter> parameters = parseParameterList();
@@ -268,7 +279,22 @@ final class Parser {
         typeParameters,
         parameters,
         block.statements(),
-        returnType.span().cover(block.span()));
+        returnType.map(Syntax.TypeRef::span).orElse(name.span()).cover(block.span()));
+  }
+
+  private boolean looksLikeOmittedReturnFunction() {
+    if (!check(TokenKind.IDENTIFIER) || current + 1 >= tokens.size()) return false;
+    if (tokens.get(current + 1).kind() == TokenKind.LEFT_PAREN) return true;
+    if (tokens.get(current + 1).kind() != TokenKind.LESS) return false;
+    int depth = 0;
+    for (int index = current + 1; index < tokens.size(); index++) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.LESS) depth++;
+      if (kind == TokenKind.GREATER && --depth == 0) {
+        return index + 1 < tokens.size() && tokens.get(index + 1).kind() == TokenKind.LEFT_PAREN;
+      }
+    }
+    return false;
   }
 
   private List<Syntax.Parameter> parseParameterList() {
@@ -277,11 +303,24 @@ final class Parser {
       do {
         Syntax.TypeRef type = parseType();
         Token parameterName = consume(TokenKind.IDENTIFIER, "expected parameter name");
+        Optional<List<Syntax.Parameter>> callableParameters = Optional.empty();
+        if (match(TokenKind.LEFT_PAREN)) {
+          List<Syntax.Parameter> signature = parseParameterList();
+          Token closing =
+              consume(TokenKind.RIGHT_PAREN, "expected ')' after function parameter signature");
+          List<Syntax.TypeRef> arguments = new ArrayList<>();
+          arguments.add(type);
+          signature.forEach(parameter -> arguments.add(parameter.type()));
+          type =
+              new Syntax.TypeRef("Function", arguments, false, type.span().cover(closing.span()));
+          callableParameters = Optional.of(signature);
+        }
         parameters.add(
             new Syntax.Parameter(
                 type,
                 parameterName.lexeme(),
                 parameterName.span(),
+                callableParameters,
                 type.span().cover(parameterName.span())));
       } while (match(TokenKind.COMMA));
     }
@@ -291,7 +330,10 @@ final class Parser {
   private Syntax.TypeRef parseType() {
     if (match(TokenKind.IDENTIFIER)) {
       Token type = previous();
-      List<Syntax.TypeRef> arguments = parseTypeArguments();
+      List<Syntax.TypeRef> arguments =
+          type.lexeme().equals("Function") && check(TokenKind.LESS)
+              ? parseFunctionTypeArguments()
+              : parseTypeArguments();
       SourceSpan span =
           arguments.isEmpty()
               ? type.span()
@@ -301,6 +343,21 @@ final class Parser {
       return new Syntax.TypeRef(type.lexeme(), arguments, nullable, span);
     }
     throw error(peek(), "expected type name");
+  }
+
+  private List<Syntax.TypeRef> parseFunctionTypeArguments() {
+    consume(TokenKind.LESS, "expected '<' after Function");
+    List<Syntax.TypeRef> arguments = new ArrayList<>();
+    arguments.add(parseType());
+    consume(TokenKind.LEFT_PAREN, "expected '(' after function return type");
+    if (!check(TokenKind.RIGHT_PAREN)) {
+      do {
+        arguments.add(parseType());
+      } while (match(TokenKind.COMMA));
+    }
+    consume(TokenKind.RIGHT_PAREN, "expected ')' after function parameter types");
+    consume(TokenKind.GREATER, "expected '>' after function type");
+    return List.copyOf(arguments);
   }
 
   private List<Syntax.TypeParameter> parseTypeParameters() {
@@ -370,6 +427,9 @@ final class Parser {
       match(TokenKind.SEMICOLON);
       return new Syntax.ContinueStatement(keyword.span());
     }
+    if (looksLikeCallableBinding()) {
+      return parseCallableBinding();
+    }
     if (looksLikeVariableDeclaration()) {
       return parseVariableDeclaration();
     }
@@ -399,6 +459,50 @@ final class Parser {
     match(TokenKind.SEMICOLON);
     return new Syntax.VariableDecl(
         type, name.lexeme(), name.span(), initializer, start.span().cover(initializer.span()));
+  }
+
+  private boolean looksLikeCallableBinding() {
+    if (!check(TokenKind.IDENTIFIER)) return false;
+    int nameIndex = tokenAfterType(current);
+    if (nameIndex < 0
+        || nameIndex + 1 >= tokens.size()
+        || tokens.get(nameIndex).kind() != TokenKind.IDENTIFIER
+        || tokens.get(nameIndex + 1).kind() != TokenKind.LEFT_PAREN) {
+      return false;
+    }
+    int depth = 0;
+    for (int index = nameIndex + 1; index < tokens.size(); index++) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.LEFT_PAREN) depth++;
+      if (kind == TokenKind.RIGHT_PAREN && --depth == 0) {
+        return index + 1 < tokens.size() && tokens.get(index + 1).kind() == TokenKind.EQUAL;
+      }
+    }
+    return false;
+  }
+
+  private Syntax.Statement parseCallableBinding() {
+    Token start = peek();
+    Syntax.TypeRef returnType = parseType();
+    Token name = consume(TokenKind.IDENTIFIER, "expected callable binding name");
+    consume(TokenKind.LEFT_PAREN, "expected '('");
+    List<Syntax.Parameter> parameters = parseParameterList();
+    Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after callable signature");
+    consume(TokenKind.EQUAL, "callable binding requires a function value");
+    Syntax.Expression initializer = parseExpression();
+    match(TokenKind.SEMICOLON);
+    List<Syntax.TypeRef> signature = new ArrayList<>();
+    signature.add(returnType);
+    parameters.forEach(parameter -> signature.add(parameter.type()));
+    Syntax.TypeRef functionType =
+        new Syntax.TypeRef("Function", signature, false, returnType.span().cover(closing.span()));
+    return new Syntax.VariableDecl(
+        Optional.of(functionType),
+        name.lexeme(),
+        name.span(),
+        Optional.of(parameters),
+        initializer,
+        start.span().cover(initializer.span()));
   }
 
   private Syntax.IfStatement parseIf(Token keyword) {
@@ -609,6 +713,11 @@ final class Parser {
         Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after arguments");
         expression =
             new Syntax.Call(expression, arguments, expression.span().cover(closing.span()));
+      } else if (match(TokenKind.COLON_COLON)) {
+        Token name = consume(TokenKind.IDENTIFIER, "expected method name after '::'");
+        expression =
+            new Syntax.MethodReference(
+                expression, name.lexeme(), name.span(), expression.span().cover(name.span()));
       } else if (match(TokenKind.DOT, TokenKind.QUESTION_DOT)) {
         boolean nullSafe = previous().kind() == TokenKind.QUESTION_DOT;
         Token name;
@@ -640,6 +749,13 @@ final class Parser {
   }
 
   private Syntax.Expression parsePrimary() {
+    if (looksLikeSelfTypedLambda()) {
+      Syntax.TypeRef returnType = parseType();
+      return parseLambda(Optional.of(returnType));
+    }
+    if (check(TokenKind.LEFT_PAREN) && looksLikeLambda()) {
+      return parseLambda(Optional.empty());
+    }
     if (match(TokenKind.SWITCH)) {
       return parseSwitch(previous());
     }
@@ -698,6 +814,84 @@ final class Parser {
       return new Syntax.ArrayLiteral(elements, opening.span().cover(closing.span()));
     }
     throw error(peek(), "expected expression");
+  }
+
+  private boolean looksLikeLambda() {
+    int depth = 0;
+    for (int index = current; index < tokens.size(); index++) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.LEFT_PAREN) depth++;
+      if (kind == TokenKind.RIGHT_PAREN && --depth == 0) {
+        return index + 1 < tokens.size()
+            && tokens.get(index + 1).kind() == TokenKind.LEFT_BRACE
+            && looksLikeLambdaParameters(current + 1, index);
+      }
+      if (kind == TokenKind.END_OF_FILE) return false;
+    }
+    return false;
+  }
+
+  private boolean looksLikeLambdaParameters(int start, int end) {
+    int index = start;
+    if (index == end) return true;
+    while (index < end) {
+      if (tokens.get(index).kind() != TokenKind.IDENTIFIER) return false;
+      int afterName = index + 1;
+      if (afterName < end && tokens.get(afterName).kind() != TokenKind.COMMA) {
+        int name = tokenAfterType(index);
+        if (name < 0 || name >= end || tokens.get(name).kind() != TokenKind.IDENTIFIER) {
+          return false;
+        }
+        afterName = name + 1;
+      }
+      if (afterName == end) return true;
+      if (tokens.get(afterName).kind() != TokenKind.COMMA) return false;
+      index = afterName + 1;
+    }
+    return false;
+  }
+
+  private boolean looksLikeSelfTypedLambda() {
+    if (!check(TokenKind.IDENTIFIER)
+        || peek().lexeme().isEmpty()
+        || !Character.isUpperCase(peek().lexeme().codePointAt(0))
+        || !checkNext(TokenKind.LEFT_PAREN)) {
+      return false;
+    }
+    int depth = 0;
+    for (int index = current + 1; index < tokens.size(); index++) {
+      TokenKind kind = tokens.get(index).kind();
+      if (kind == TokenKind.LEFT_PAREN) depth++;
+      if (kind == TokenKind.RIGHT_PAREN && --depth == 0) {
+        return index + 1 < tokens.size()
+            && tokens.get(index + 1).kind() == TokenKind.LEFT_BRACE
+            && looksLikeLambdaParameters(current + 2, index);
+      }
+    }
+    return false;
+  }
+
+  private Syntax.Expression parseLambda(Optional<Syntax.TypeRef> returnType) {
+    Token opening = consume(TokenKind.LEFT_PAREN, "expected '('");
+    List<Syntax.LambdaParameter> parameters = new ArrayList<>();
+    if (!check(TokenKind.RIGHT_PAREN)) {
+      do {
+        Optional<Syntax.TypeRef> type = Optional.empty();
+        Token name;
+        if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.IDENTIFIER)) {
+          type = Optional.of(parseType());
+          name = consume(TokenKind.IDENTIFIER, "expected lambda parameter name");
+        } else {
+          name = consume(TokenKind.IDENTIFIER, "expected lambda parameter name");
+        }
+        SourceSpan span = type.map(value -> value.span().cover(name.span())).orElse(name.span());
+        parameters.add(new Syntax.LambdaParameter(type, name.lexeme(), name.span(), span));
+      } while (match(TokenKind.COMMA));
+    }
+    consume(TokenKind.RIGHT_PAREN, "expected ')' after lambda parameters");
+    Block block = parseBlock();
+    return new Syntax.Lambda(
+        returnType, parameters, block.statements(), opening.span().cover(block.span()));
   }
 
   private boolean looksLikeVariableDeclaration() {
@@ -806,6 +1000,7 @@ final class Parser {
       return skipNullable(index);
     }
     int depth = 0;
+    int parentheses = 0;
     for (; index < tokens.size(); index++) {
       TokenKind kind = tokens.get(index).kind();
       if (kind == TokenKind.LESS) {
@@ -813,6 +1008,10 @@ final class Parser {
       } else if (kind == TokenKind.GREATER) {
         depth--;
         if (depth == 0) return skipNullable(index + 1);
+      } else if (kind == TokenKind.LEFT_PAREN) {
+        parentheses++;
+      } else if (kind == TokenKind.RIGHT_PAREN && parentheses > 0) {
+        parentheses--;
       } else if (kind != TokenKind.COMMA && kind != TokenKind.QUESTION && !isTypeToken(kind)) {
         return -1;
       }

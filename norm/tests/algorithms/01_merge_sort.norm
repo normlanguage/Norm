@@ -23,26 +23,29 @@ List<Integer> merge(List<Integer> left, List<Integer> right) {
 }
 
 List<Integer> mergeSort(List<Integer> values) {
-  if values.size() <= 1 { return values }
+  if values.size() <= 1 {
+    return values
+  }
   Integer middle = values.size() / 2
   List<Integer> left = List<>()
   List<Integer> right = List<>()
   for index : range(start: 0, end: values.size()) {
-    if index < middle { left.add(values[index]) } else { right.add(values[index]) }
+    if index < middle {
+      left.add(values[index])
+    } else {
+      right.add(values[index])
+    }
   }
   return merge(left: mergeSort(left), right: mergeSort(right))
 }
 
-Void main() {
+main() {
   List<Integer> values = List<>()
-  for Integer value : [7, 2, 9, 1, 5, 3] { values.add(value) }
-  for Integer value : mergeSort(values) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "3",
-    "5",
-    "7",
-    "9"
-  ])
+  for Integer value : [7, 2, 9, 1, 5, 3] {
+    values.add(value)
+  }
+  for Integer value : mergeSort(values) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "3", "5", "7", "9"])
 }

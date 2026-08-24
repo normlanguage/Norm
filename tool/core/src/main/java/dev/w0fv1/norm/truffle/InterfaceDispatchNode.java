@@ -1,12 +1,12 @@
 package dev.w0fv1.norm.truffle;
 
-import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.DefinitionId;
+import java.util.List;
 import java.util.Map;
 
 final class InterfaceDispatchNode extends Node {
@@ -37,27 +37,32 @@ final class InterfaceDispatchNode extends Node {
           ExecutionContextAccess.get(frame),
           location);
     }
-    RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiver;
-    int ownerTypeArgumentCount =
-        object.type instanceof CoreType.Declared declared ? declared.arguments().size() : 0;
+    RuntimeValues.DispatchTarget.Callable callableTarget =
+        (RuntimeValues.DispatchTarget.Callable) target;
+    CoreType receiverType = RuntimeValues.runtimeType(receiver);
+    List<CoreType> concreteReceiverArguments =
+        receiverType instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+    List<CoreType> ownerTypeArguments =
+        callableTarget.specializedReceiverTypeArguments()
+            ? callableTarget.receiverTypeArguments().stream()
+                .map(type -> type.substitute(concreteReceiverArguments::get))
+                .toList()
+            : concreteReceiverArguments;
     Object[] values =
-        new Object[arguments.length + ownerTypeArgumentCount + methodTypeArguments.length + 2];
+        new Object[arguments.length + ownerTypeArguments.size() + methodTypeArguments.length + 2];
     values[0] = ExecutionContextAccess.get(frame);
     values[1] = receiver;
     System.arraycopy(arguments, 0, values, 2, arguments.length);
-    if (object.type instanceof CoreType.Declared declared) {
-      for (int index = 0; index < declared.arguments().size(); index++) {
-        values[arguments.length + index + 2] = declared.arguments().get(index);
-      }
+    for (int index = 0; index < ownerTypeArguments.size(); index++) {
+      values[arguments.length + index + 2] = ownerTypeArguments.get(index);
     }
     System.arraycopy(
         methodTypeArguments,
         0,
         values,
-        arguments.length + ownerTypeArgumentCount + 2,
+        arguments.length + ownerTypeArguments.size() + 2,
         methodTypeArguments.length);
-    CallTarget callable = ((RuntimeValues.DispatchTarget.Callable) target).target();
-    return call.call(callable, values);
+    return call.call(callableTarget.target(), values);
   }
 
   private RuntimeValues.DispatchTarget target(Object receiver) {

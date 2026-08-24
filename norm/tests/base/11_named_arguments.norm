@@ -1,4 +1,8 @@
-Integer subtract(Integer left, Integer right) { return left - right }
-Void main() { printLine(subtract(right: 3, left: 10))
+Integer subtract(Integer left, Integer right) {
+  return left - right
+}
+
+main() {
+  printLine(subtract(right: 3, left: 10))
   expectedOutputLine("7")
 }

@@ -1,17 +1,18 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-class Box { Integer value Void set(Integer next) { value = next } }
-Void main() {
+class Box {
+  Integer value
+
+  Void set(Integer next) {
+    value = next
+  }
+}
+
+main() {
   Box first = Box(value: 4)
   Box second = first
   second.set(9)
-  printLines([
-    first.value,
-    second.value
-  ])
-  expectedOutputLines([
-    "9",
-    "9"
-  ])
+  printLines([first.value, second.value])
+  expectedOutputLines(["9", "9"])
 }

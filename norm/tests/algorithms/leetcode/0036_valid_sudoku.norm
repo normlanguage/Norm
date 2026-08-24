@@ -6,26 +6,32 @@ Boolean isValidSudoku(List<Array<Integer>> board) {
     for index : range(start: 0, end: 9) {
       Integer rowValue = board[row][index]
       Integer columnValue = board[index][row]
-      Integer boxValue = board[(row / 3) * 3 + index / 3][(row % 3) * 3 + index % 3]
-      if rowValue != 0 && !rows.add(rowValue) { return false }
-      if columnValue != 0 && !columns.add(columnValue) { return false }
-      if boxValue != 0 && !boxes.add(boxValue) { return false }
+      Integer boxValue = board[row / 3 * 3 + index / 3][row % 3 * 3 + index % 3]
+      if rowValue != 0 && !rows.add(rowValue) {
+        return false
+      }
+      if columnValue != 0 && !columns.add(columnValue) {
+        return false
+      }
+      if boxValue != 0 && !boxes.add(boxValue) {
+        return false
+      }
     }
   }
   return true
 }
 
-Void main() {
+main() {
   List<Array<Integer>> board = List<>()
-  board.add([5,3,0,0,7,0,0,0,0])
-  board.add([6,0,0,1,9,5,0,0,0])
-  board.add([0,9,8,0,0,0,0,6,0])
-  board.add([8,0,0,0,6,0,0,0,3])
-  board.add([4,0,0,8,0,3,0,0,1])
-  board.add([7,0,0,0,2,0,0,0,6])
-  board.add([0,6,0,0,0,0,2,8,0])
-  board.add([0,0,0,4,1,9,0,0,5])
-  board.add([0,0,0,0,8,0,0,7,9])
+  board.add([5, 3, 0, 0, 7, 0, 0, 0, 0])
+  board.add([6, 0, 0, 1, 9, 5, 0, 0, 0])
+  board.add([0, 9, 8, 0, 0, 0, 0, 6, 0])
+  board.add([8, 0, 0, 0, 6, 0, 0, 0, 3])
+  board.add([4, 0, 0, 8, 0, 3, 0, 0, 1])
+  board.add([7, 0, 0, 0, 2, 0, 0, 0, 6])
+  board.add([0, 6, 0, 0, 0, 0, 2, 8, 0])
+  board.add([0, 0, 0, 4, 1, 9, 0, 0, 5])
+  board.add([0, 0, 0, 0, 8, 0, 0, 7, 9])
   printLine(isValidSudoku(board))
   expectedOutputLine("true")
 }

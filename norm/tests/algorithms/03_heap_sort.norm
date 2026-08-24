@@ -6,9 +6,15 @@ Array<Integer> siftDown(Array<Integer> values, Integer size, Integer root) {
     Integer largest = current
     Integer left = current * 2 + 1
     Integer right = left + 1
-    if left < size && values[left] > values[largest] { largest = left }
-    if right < size && values[right] > values[largest] { largest = right }
-    if largest == current { break }
+    if left < size && values[left] > values[largest] {
+      largest = left
+    }
+    if right < size && values[right] > values[largest] {
+      largest = right
+    }
+    if largest == current {
+      break
+    }
     Integer temporary = values[current]
     values[current] = values[largest]
     values[largest] = temporary
@@ -33,13 +39,9 @@ Array<Integer> heapSort(Array<Integer> values) {
   return values
 }
 
-Void main() {
-  for Integer value : heapSort([4, 1, 8, 2, 5]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "4",
-    "5",
-    "8"
-  ])
+main() {
+  for Integer value : heapSort([4, 1, 8, 2, 5]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "4", "5", "8"])
 }

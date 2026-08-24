@@ -2,22 +2,21 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 Integer sum(Integer value) {
-  if value == 0 { return 0 }
+  if value == 0 {
+    return 0
+  }
   return value + sum(value: value - 1)
 }
+
 Integer sum(Array<Integer> values) {
   Integer result = 0
-  for value : values { result = result + value }
+  for value : values {
+    result = result + value
+  }
   return result
 }
 
-Void main() {
-  printLines([
-    sum(value: 4),
-    sum(values: [2, 3, 4])
-  ])
-  expectedOutputLines([
-    "10",
-    "9"
-  ])
+main() {
+  printLines([sum(value: 4), sum(values: [2, 3, 4])])
+  expectedOutputLines(["10", "9"])
 }

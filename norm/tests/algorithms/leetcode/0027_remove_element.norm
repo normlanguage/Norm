@@ -3,15 +3,16 @@ import std.testing.expectedOutputLines
 List<Integer> removeElement(Array<Integer> values, Integer removed) {
   List<Integer> result = List<>()
   for Integer value : values {
-    if value != removed { result.add(value) }
+    if value != removed {
+      result.add(value)
+    }
   }
   return result
 }
 
-Void main() {
-  for Integer value : removeElement(values: [3, 2, 2, 3], removed: 3) { printLine(value) }
-  expectedOutputLines([
-    "2",
-    "2"
-  ])
+main() {
+  for Integer value : removeElement(values: [3, 2, 2, 3], removed: 3) {
+    printLine(value)
+  }
+  expectedOutputLines(["2", "2"])
 }

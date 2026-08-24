@@ -4,7 +4,9 @@ Integer lengthOfLastWord(String value) {
   for index : range(start: text.size() - 1, end: -1, step: -1) {
     CodePoint point = text[index]
     if point == ' ' {
-      if length > 0 { break }
+      if length > 0 {
+        break
+      }
     } else {
       length = length + 1
     }
@@ -12,7 +14,7 @@ Integer lengthOfLastWord(String value) {
   return length
 }
 
-Void main() {
+main() {
   printLine(lengthOfLastWord("Hello World"))
   expectedOutputLine("5")
 }

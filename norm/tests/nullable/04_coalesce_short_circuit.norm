@@ -5,14 +5,10 @@ String fallback() {
   return "default"
 }
 
-Void main() {
+main() {
   String? present = "value"
   String? missing = null
   printLine(present ?? fallback())
   printLine(missing ?? fallback())
-  expectedOutputLines([
-    "value",
-    "fallback",
-    "default"
-  ])
+  expectedOutputLines(["value", "fallback", "default"])
 }

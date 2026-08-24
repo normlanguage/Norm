@@ -1,0 +1,12 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+main() {
+  List<Integer> values = [1, 2, 3, 4]
+  Integer factor = 3
+  List<Integer> mapped = values.map((value) {
+      value * factor
+    })
+  printLines(mapped)
+  expectedOutputLines(["3", "6", "9", "12"])
+}

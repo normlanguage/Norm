@@ -12,14 +12,20 @@ Boolean validNumber(String value) {
     if scalar >= '0'.scalarValue() && scalar <= '9'.scalarValue() {
       digit = true
     } else if token == '.' {
-      if decimal || exponent { return false }
+      if decimal || exponent {
+        return false
+      }
       decimal = true
     } else if token == 'e' || token == 'E' {
-      if exponent || !digit { return false }
+      if exponent || !digit {
+        return false
+      }
       exponent = true
       digit = false
     } else if token == '-' || token == '+' {
-      if index > 0 && tokens[index - 1] != 'e' && tokens[index - 1] != 'E' { return false }
+      if index > 0 && tokens[index - 1] != 'e' && tokens[index - 1] != 'E' {
+        return false
+      }
     } else {
       return false
     }
@@ -27,13 +33,7 @@ Boolean validNumber(String value) {
   return digit
 }
 
-Void main() {
-  printLines([
-    validNumber("2e10"),
-    validNumber("99e2.5")
-  ])
-  expectedOutputLines([
-    "true",
-    "false"
-  ])
+main() {
+  printLines([validNumber("2e10"), validNumber("99e2.5")])
+  expectedOutputLines(["true", "false"])
 }

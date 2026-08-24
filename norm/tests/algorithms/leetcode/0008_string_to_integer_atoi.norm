@@ -17,8 +17,10 @@ Integer myAtoi(String inputValue) {
   Integer value = 0
   for index < input.size() && input[index].isAsciiDigit() {
     Integer digit = input[index].asciiDigitValue()
-    if value > 214748364 || (value == 214748364 && digit > 7) {
-      if sign == 1 { return 2147483647 }
+    if value > 214748364 || value == 214748364 && digit > 7 {
+      if sign == 1 {
+        return 2147483647
+      }
       return -2147483648
     }
     value = value * 10 + digit
@@ -27,13 +29,7 @@ Integer myAtoi(String inputValue) {
   return value * sign
 }
 
-Void main() {
-  printLines([
-    myAtoi("  -42"),
-    myAtoi("4193000000")
-  ])
-  expectedOutputLines([
-    "-42",
-    "2147483647"
-  ])
+main() {
+  printLines([myAtoi("  -42"), myAtoi("4193000000")])
+  expectedOutputLines(["-42", "2147483647"])
 }

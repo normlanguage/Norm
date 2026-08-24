@@ -2,13 +2,17 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 Integer mySqrt(Integer value) {
-  if value < 2 { return value }
+  if value < 2 {
+    return value
+  }
   Integer left = 0
   Integer right = value
   for left <= right {
     Integer middle = left + (right - left) / 2
     if middle <= value / middle {
-      if middle + 1 > value / (middle + 1) { return middle }
+      if middle + 1 > value / (middle + 1) {
+        return middle
+      }
       left = middle + 1
     } else {
       right = middle - 1
@@ -17,13 +21,7 @@ Integer mySqrt(Integer value) {
   return 0
 }
 
-Void main() {
-  printLines([
-    mySqrt(8),
-    mySqrt(0)
-  ])
-  expectedOutputLines([
-    "2",
-    "0"
-  ])
+main() {
+  printLines([mySqrt(8), mySqrt(0)])
+  expectedOutputLines(["2", "0"])
 }

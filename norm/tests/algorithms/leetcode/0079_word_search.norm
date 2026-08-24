@@ -1,9 +1,22 @@
-Boolean findWord(List<String> board, Array<CodePoint> word, Integer row, Integer column, Integer index, Set<Integer> used) {
-  if index == word.size() { return true }
-  if row < 0 || row >= board.size() || column < 0 || column >= board[0].codePointSize() { return false }
+Boolean findWord(
+  List<String> board,
+  Array<CodePoint> word,
+  Integer row,
+  Integer column,
+  Integer index,
+  Set<Integer> used
+) {
+  if index == word.size() {
+    return true
+  }
+  if row < 0 || row >= board.size() || column < 0 || column >= board[0].codePointSize() {
+    return false
+  }
   Integer position = row * board[0].codePointSize() + column
   Array<CodePoint> line = board[row].codePoints()
-  if used.contains(position) || line[column] != word[index] { return false }
+  if used.contains(position) || line[column] != word[index] {
+    return false
+  }
   Set<Integer> next = used
   next.add(position)
   return findWord(board, word, row: row + 1, column, index: index + 1, used: next) ||
@@ -16,13 +29,15 @@ Boolean exist(List<String> board, String value) {
   Array<CodePoint> word = value.codePoints()
   for row : range(start: 0, end: board.size()) {
     for column : range(start: 0, end: board[0].codePointSize()) {
-      if findWord(board, word, row, column, index: 0, used: Set<>()) { return true }
+      if findWord(board, word, row, column, index: 0, used: Set<>()) {
+        return true
+      }
     }
   }
   return false
 }
 
-Void main() {
+main() {
   List<String> board = List<>()
   board.add("ABCE")
   board.add("SFCS")

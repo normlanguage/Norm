@@ -45,6 +45,7 @@ final class LanguageServer
     capabilities.setDefinitionProvider(true);
     capabilities.setReferencesProvider(true);
     capabilities.setRenameProvider(new RenameOptions(true));
+    capabilities.setDocumentFormattingProvider(true);
     return CompletableFuture.completedFuture(new InitializeResult(capabilities));
   }
 

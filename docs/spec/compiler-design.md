@@ -21,7 +21,7 @@ ProjectSourceSet
 
 Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类型头，再解析成员与 callable，在完整项目声明图上完成名称解析、类型检查、泛型推断、interface 关系与见证验证、switch 穷尽检查、nullable 流分析、确定赋值和调用绑定，并产生不可变 `SemanticModel`。普通调用由 `ResolvedCall` 保存精确目标、实例化形参、类型实参、实参映射与结果类型；interface requirement 与实现关系同样只在语义模型中保存一份。Binder、签名帮助、导航和引用索引共同读取这份结果。编辑器诊断、补全、悬停、导航、引用和重命名始终读取同一修订的语义快照；authoring snapshot 到此结束，执行编译才物化 Core。
 
-`Binder` 将已验证语义冻结为内部 resolved representation。全局调用目标、interface requirement 与 witness、字段 owner 与 ordinal、实参到形参映射、源码求值顺序、运行时泛型实参和 value/identity 复制语义在这里固定；后续阶段直接使用确定目标。
+`Binder` 将已验证语义冻结为内部 resolved representation。全局调用目标、interface requirement 与 witness、字段 owner 与 ordinal、实参到形参映射、源码求值顺序、闭包目标与捕获、运行时泛型实参和 value/identity 复制语义在这里固定；后续阶段直接使用确定目标。
 
 ## 身份边界
 
@@ -32,7 +32,7 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 | `CoreNamespaceId` | namespace | 名字、可见性、导出和公开签名 |
 | `ArtifactId` | backend | Core 程序、调试来源和后端 ABI 对应的可执行产物 |
 
-`DefinitionId` 只来自版本化 canonical encoding。可调用定义的名字、参数名、局部变量名、源码位置、空白和注释位于 semantic Core 之外；局部绑定与类型参数使用定义内的稠密索引。
+`DefinitionId` 只来自版本化 canonical encoding。可调用定义的名字、参数名、局部变量名、源码位置和空白位于 semantic Core 之外；局部绑定与类型参数使用定义内的稠密索引。
 
 内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class 的泛型参数、字段类型和 interface conformances，interface 的泛型参数、父接口与 requirements，以及 enum variant 的稳定键与 payload 类型都属于语义内容。
 
@@ -42,7 +42,7 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 `CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。callable、class、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
-`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V2` 与 `LanguageSemanticsVersion.V2`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
+`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V3` 与 `LanguageSemanticsVersion.V3`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
 
 `CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 bound、callable receiver 与 reified ABI、interface 继承和完整 witness、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建协议与操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
 

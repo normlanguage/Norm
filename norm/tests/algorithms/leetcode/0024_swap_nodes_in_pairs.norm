@@ -10,13 +10,9 @@ Array<Integer> swapPairs(Array<Integer> values) {
   return values
 }
 
-Void main() {
-  for Integer value : swapPairs([1, 2, 3, 4, 5]) { printLine(value) }
-  expectedOutputLines([
-    "2",
-    "1",
-    "4",
-    "3",
-    "5"
-  ])
+main() {
+  for Integer value : swapPairs([1, 2, 3, 4, 5]) {
+    printLine(value)
+  }
+  expectedOutputLines(["2", "1", "4", "3", "5"])
 }

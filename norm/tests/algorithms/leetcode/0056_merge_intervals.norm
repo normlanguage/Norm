@@ -17,31 +17,23 @@ List<Array<Integer>> merge(List<Array<Integer>> intervals) {
       result.add(interval)
     } else {
       Array<Integer> previous = result.removeLast()
-      if interval[1] > previous[1] { previous[1] = interval[1] }
+      if interval[1] > previous[1] {
+        previous[1] = interval[1]
+      }
       result.add(previous)
     }
   }
   return result
 }
 
-Void main() {
+main() {
   List<Array<Integer>> intervals = List<>()
-  intervals.add([1,3])
-  intervals.add([2,6])
-  intervals.add([8,10])
-  intervals.add([15,18])
+  intervals.add([1, 3])
+  intervals.add([2, 6])
+  intervals.add([8, 10])
+  intervals.add([15, 18])
   for Array<Integer> interval : merge(intervals) {
-    printLines([
-      interval[0],
-      interval[1]
-    ])
+    printLines([interval[0], interval[1]])
   }
-  expectedOutputLines([
-    "1",
-    "6",
-    "8",
-    "10",
-    "15",
-    "18"
-  ])
+  expectedOutputLines(["1", "6", "8", "10", "15", "18"])
 }

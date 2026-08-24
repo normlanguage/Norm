@@ -2,7 +2,13 @@ class CombinationResults {
   List<List<Integer>> values
 }
 
-Void choose(Integer size, Integer count, Integer next, List<Integer> current, CombinationResults result) {
+Void choose(
+  Integer size,
+  Integer count,
+  Integer next,
+  List<Integer> current,
+  CombinationResults result
+) {
   if current.size() == count {
     result.values.add(current)
     return
@@ -20,7 +26,7 @@ List<List<Integer>> combine(Integer size, Integer count) {
   return result.values
 }
 
-Void main() {
+main() {
   printLine(combine(size: 4, count: 2).size())
   expectedOutputLine("6")
 }

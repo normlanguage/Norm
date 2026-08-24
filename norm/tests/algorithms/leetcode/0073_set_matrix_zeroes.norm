@@ -15,31 +15,33 @@ List<List<Integer>> setZeroes(List<List<Integer>> matrix) {
   for row : range(start: 0, end: matrix.size()) {
     List<Integer> current = matrix[row]
     for column : range(start: 0, end: current.size()) {
-      if rows.contains(row) || columns.contains(column) { current[column] = 0 }
+      if rows.contains(row) || columns.contains(column) {
+        current[column] = 0
+      }
     }
     matrix[row] = current
   }
   return matrix
 }
 
-Void main() {
+main() {
   List<List<Integer>> matrix = List<>()
   List<Integer> first = List<>()
-  for Integer value : [1,1,1] { first.add(value) }
+  for Integer value : [1, 1, 1] {
+    first.add(value)
+  }
   List<Integer> second = List<>()
-  for Integer value : [1,0,1] { second.add(value) }
+  for Integer value : [1, 0, 1] {
+    second.add(value)
+  }
   List<Integer> third = List<>()
-  for Integer value : [1,1,1] { third.add(value) }
+  for Integer value : [1, 1, 1] {
+    third.add(value)
+  }
   matrix.add(first)
   matrix.add(second)
   matrix.add(third)
   List<List<Integer>> result = setZeroes(matrix)
-  printLines([
-    result[0][1],
-    result[1][0]
-  ])
-  expectedOutputLines([
-    "0",
-    "0"
-  ])
+  printLines([result[0][1], result[1][0]])
+  expectedOutputLines(["0", "0"])
 }

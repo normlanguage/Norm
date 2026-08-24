@@ -1,0 +1,26 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+class Box<T> {
+  T value
+
+  set(T next) {
+    value = next
+  }
+
+  ignore<U>(U ignored) {}
+
+  keep(Boolean unchanged, T next) {
+    if unchanged {
+      return
+    }
+    value = next
+  }
+}
+
+main() {
+  Box<String> box = Box<>(value: "first")
+  Box<String> result = box.set("second").ignore(7).keep(unchanged: true, next: "third")
+  printLines([result.value, result == box])
+  expectedOutputLines(["second", "true"])
+}

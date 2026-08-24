@@ -25,14 +25,8 @@ Pair<Integer, Integer> primeSummary(Integer limit) {
   return Pair<>(first: count, second: last)
 }
 
-Void main() {
+main() {
   Pair<Integer, Integer> result = primeSummary(30)
-  printLines([
-    result.first,
-    result.second
-  ])
-  expectedOutputLines([
-    "10",
-    "29"
-  ])
+  printLines([result.first, result.second])
+  expectedOutputLines(["10", "29"])
 }

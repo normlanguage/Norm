@@ -10,37 +10,28 @@ import std.testing.expectedOutputLines
 import std.text.join
 import std.text.repeat
 
-Void main() {
+main() {
   List<Integer> empty = List<>()
   List<String> single = List<>()
   List<Integer> converted = []
   single.add("")
-  printLines([
-    equal(actual: min(left: -2147483647, right: 2147483647), expected: -2147483647),
-    equal(actual: max(left: -2147483647, right: 2147483647), expected: 2147483647),
-    equal(actual: abs(-2147483647), expected: 2147483647),
-    equal(actual: clamp(value: 9, minimum: 4, maximum: 4), expected: 4),
-    equal(actual: listContains(values: empty, target: 1), expected: false),
-    equal(actual: listCount(values: empty, target: 1), expected: 0),
-    equal(actual: empty.reversed().size(), expected: 0),
-    equal(actual: converted.size(), expected: 0),
-    equal(actual: repeat(value: "Norm", count: 0), expected: ""),
-    equal(actual: repeat(value: "", count: 3), expected: ""),
-    equal(actual: join(values: single, separator: "anything"), expected: ""),
-    equal(actual: join(values: ["a", "b"], separator: ""), expected: "ab")
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true",
-    "true"
-  ])
+  printLines(
+    [
+      equal(actual: min(left: -2147483647, right: 2147483647), expected: -2147483647),
+      equal(actual: max(left: -2147483647, right: 2147483647), expected: 2147483647),
+      equal(actual: abs(-2147483647), expected: 2147483647),
+      equal(actual: clamp(value: 9, minimum: 4, maximum: 4), expected: 4),
+      equal(actual: listContains(values: empty, target: 1), expected: false),
+      equal(actual: listCount(values: empty, target: 1), expected: 0),
+      equal(actual: empty.reversed().size(), expected: 0),
+      equal(actual: converted.size(), expected: 0),
+      equal(actual: repeat(value: "Norm", count: 0), expected: ""),
+      equal(actual: repeat(value: "", count: 3), expected: ""),
+      equal(actual: join(values: single, separator: "anything"), expected: ""),
+      equal(actual: join(values: ["a", "b"], separator: ""), expected: "ab")
+    ]
+  )
+  expectedOutputLines(
+    ["true", "true", "true", "true", "true", "true", "true", "true", "true", "true", "true", "true"]
+  )
 }

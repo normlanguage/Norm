@@ -1,22 +1,28 @@
 package std.text
 
-public String repeat(String value, Integer count) {
+String repeat(String value, Integer count) {
   StringBuilder result = StringBuilder()
-  for index : range(start: 0, end: count) { result.append(value) }
+  for index : range(start: 0, end: count) {
+    result.append(value)
+  }
   return result.toString()
 }
 
-public String join(List<String> values, String separator) {
+String join(List<String> values, String separator) {
   StringBuilder result = StringBuilder()
   for index : range(start: 0, end: values.size()) {
-    if index > 0 { result.append(separator) }
+    if index > 0 {
+      result.append(separator)
+    }
     result.append(values[index])
   }
   return result.toString()
 }
 
-public String fromCodePoints(Array<CodePoint> values) {
+String fromCodePoints(Array<CodePoint> values) {
   StringBuilder result = StringBuilder()
-  for CodePoint value : values { result.append(value) }
+  for CodePoint value : values {
+    result.append(value)
+  }
   return result.toString()
 }

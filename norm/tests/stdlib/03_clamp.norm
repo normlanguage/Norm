@@ -3,15 +3,13 @@ import std.math.clamp
 import std.testing.equal
 import std.testing.expectedOutputLines
 
-Void main() {
-  printLines([
-    equal(actual: clamp(value: -2, minimum: 0, maximum: 10), expected: 0),
-    equal(actual: clamp(value: 4, minimum: 0, maximum: 10), expected: 4),
-    equal(actual: clamp(value: 12, minimum: 0, maximum: 10), expected: 10)
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "true"
-  ])
+main() {
+  printLines(
+    [
+      equal(actual: clamp(value: -2, minimum: 0, maximum: 10), expected: 0),
+      equal(actual: clamp(value: 4, minimum: 0, maximum: 10), expected: 4),
+      equal(actual: clamp(value: 12, minimum: 0, maximum: 10), expected: 10)
+    ]
+  )
+  expectedOutputLines(["true", "true", "true"])
 }

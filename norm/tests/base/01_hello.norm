@@ -1,4 +1,4 @@
-Void main() {
+main() {
   printLine("Hello, Norm!")
   expectedOutputLine("Hello, Norm!")
 }

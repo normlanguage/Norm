@@ -5,15 +5,7 @@ Boolean empty(String? value) {
   return value == null || value.codePointSize() == 0
 }
 
-Void main() {
-  printLines([
-    empty(value: null),
-    empty(value: ""),
-    empty(value: "x")
-  ])
-  expectedOutputLines([
-    "true",
-    "true",
-    "false"
-  ])
+main() {
+  printLines([empty(value: null), empty(value: ""), empty(value: "x")])
+  expectedOutputLines(["true", "true", "false"])
 }

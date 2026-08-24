@@ -1,17 +1,16 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Integer sizeOf(Array<Integer> values) { return values.size() }
-Integer sizeOf(List<Integer> values) { return values.size() + 10 }
+Integer sizeOf(Array<Integer> values) {
+  return values.size()
+}
 
-Void main() {
+Integer sizeOf(List<Integer> values) {
+  return values.size() + 10
+}
+
+main() {
   List<Integer> values = List.filled(size: 2, value: 0)
-  printLines([
-    sizeOf(values: [1, 2, 3]),
-    sizeOf(values: values)
-  ])
-  expectedOutputLines([
-    "3",
-    "12"
-  ])
+  printLines([sizeOf(values: [1, 2, 3]), sizeOf(values: values)])
+  expectedOutputLines(["3", "12"])
 }

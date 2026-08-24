@@ -1,18 +1,22 @@
 String convert(String value, Integer rows) {
   Array<CodePoint> text = value.codePoints()
-  if rows == 1 || rows >= text.size() { return value }
+  if rows == 1 || rows >= text.size() {
+    return value
+  }
   StringBuilder result = StringBuilder()
   Integer cycle = 2 * rows - 2
   for row : range(start: 0, end: rows) {
     for index : range(start: 0, end: text.size()) {
       Integer position = index % cycle
-      if position == row || position == cycle - row { result.append(text[index]) }
+      if position == row || position == cycle - row {
+        result.append(text[index])
+      }
     }
   }
   return result.toString()
 }
 
-Void main() {
+main() {
   printLine(convert(value: "PAYPALISHIRING", rows: 3))
   expectedOutputLine("PAHNAPLSIIGYIR")
 }

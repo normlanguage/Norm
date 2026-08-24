@@ -13,8 +13,12 @@ List<List<Integer>> trees(Integer start, Integer end) {
       for List<Integer> right : rightTrees {
         List<Integer> encoded = List<>()
         encoded.add(root)
-        for Integer value : left { encoded.add(value) }
-        for Integer value : right { encoded.add(value) }
+        for Integer value : left {
+          encoded.add(value)
+        }
+        for Integer value : right {
+          encoded.add(value)
+        }
         result.add(encoded)
       }
     }
@@ -26,7 +30,7 @@ List<List<Integer>> generateTrees(Integer size) {
   return trees(start: 1, end: size)
 }
 
-Void main() {
+main() {
   printLine(generateTrees(3).size())
   expectedOutputLine("5")
 }

@@ -139,6 +139,7 @@ export const zhTheme: DefaultTheme.Config = {
     '/web/': [{ text: 'Web 应用开发', items: web }],
     '/versions/': [{ text: '版本记录', items: [
       { text: '版本索引', link: '/versions/' },
+      { text: 'Norm 0.6', link: '/versions/0.6' },
       { text: 'Norm 0.5', link: '/versions/0.5' },
       { text: 'Norm 0.4', link: '/versions/0.4' },
       { text: 'Norm 0.3', link: '/versions/0.3' },
@@ -147,6 +148,7 @@ export const zhTheme: DefaultTheme.Config = {
     ]}],
     '/design/': [
       { text: '实现与规划', items: [
+        { text: '0.6 实现契约', link: '/versions/0.6' },
         { text: '0.5 实现契约', link: '/versions/0.5' },
         { text: '0.4 实现契约', link: '/versions/0.4' },
         { text: '0.3 版本记录', link: '/versions/0.3' },
@@ -174,6 +176,6 @@ export const zhTheme: DefaultTheme.Config = {
   sidebarMenuLabel: '目录',
   darkModeSwitchLabel: '外观',
   langMenuLabel: '切换语言',
-  footer: { message: 'Norm 0.4 开发线', copyright: 'Norm Project' },
+  footer: { message: 'Norm 0.6 开发线', copyright: 'Norm Project' },
 }
 

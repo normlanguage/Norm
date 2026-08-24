@@ -1,11 +1,53 @@
-Boolean sameTree(Array<Integer> firstValues, Array<Integer> firstLeft, Array<Integer> firstRight, Integer first, Array<Integer> secondValues, Array<Integer> secondLeft, Array<Integer> secondRight, Integer second) {
-  if first == -1 || second == -1 { return first == second }
-  if firstValues[first] != secondValues[second] { return false }
-  return sameTree(firstValues, firstLeft, firstRight, first: firstLeft[first], secondValues, secondLeft, secondRight, second: secondLeft[second]) &&
-    sameTree(firstValues, firstLeft, firstRight, first: firstRight[first], secondValues, secondLeft, secondRight, second: secondRight[second])
+Boolean sameTree(
+  Array<Integer> firstValues,
+  Array<Integer> firstLeft,
+  Array<Integer> firstRight,
+  Integer first,
+  Array<Integer> secondValues,
+  Array<Integer> secondLeft,
+  Array<Integer> secondRight,
+  Integer second
+) {
+  if first == -1 || second == -1 {
+    return first == second
+  }
+  if firstValues[first] != secondValues[second] {
+    return false
+  }
+  return sameTree(
+    firstValues,
+    firstLeft,
+    firstRight,
+    first: firstLeft[first],
+    secondValues,
+    secondLeft,
+    secondRight,
+    second: secondLeft[second]
+  ) &&
+    sameTree(
+      firstValues,
+      firstLeft,
+      firstRight,
+      first: firstRight[first],
+      secondValues,
+      secondLeft,
+      secondRight,
+      second: secondRight[second]
+    )
 }
 
-Void main() {
-  printLine(sameTree(firstValues: [1,2,3], firstLeft: [1,-1,-1], firstRight: [2,-1,-1], first: 0, secondValues: [1,2,3], secondLeft: [1,-1,-1], secondRight: [2,-1,-1], second: 0))
+main() {
+  printLine(
+    sameTree(
+      firstValues: [1, 2, 3],
+      firstLeft: [1, -1, -1],
+      firstRight: [2, -1, -1],
+      first: 0,
+      secondValues: [1, 2, 3],
+      secondLeft: [1, -1, -1],
+      secondRight: [2, -1, -1],
+      second: 0
+    )
+  )
   expectedOutputLine("true")
 }

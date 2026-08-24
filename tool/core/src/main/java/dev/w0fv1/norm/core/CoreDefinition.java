@@ -16,6 +16,8 @@ public sealed interface CoreDefinition
   record Callable(
       Optional<CoreType> receiverType,
       List<CoreTypeParameter> typeParameters,
+      List<CoreType> captureTypes,
+      List<Integer> captureLocals,
       List<CoreType> parameterTypes,
       List<Integer> parameterLocals,
       List<Integer> reifiedTypeLocals,
@@ -28,6 +30,8 @@ public sealed interface CoreDefinition
       int receiverTypeParameterCount =
           receiverType.map(CoreDefinition::receiverParameterCount).orElse(0);
       typeParameters = requireTypeParameters(typeParameters, receiverTypeParameterCount);
+      captureTypes = List.copyOf(captureTypes);
+      captureLocals = List.copyOf(captureLocals);
       parameterTypes = List.copyOf(parameterTypes);
       parameterLocals = List.copyOf(parameterLocals);
       reifiedTypeLocals = List.copyOf(reifiedTypeLocals);
@@ -38,6 +42,9 @@ public sealed interface CoreDefinition
         throw new IllegalArgumentException(
             "parameter types and local bindings must have equal size");
       }
+      if (captureTypes.size() != captureLocals.size()) {
+        throw new IllegalArgumentException("capture types and local bindings must have equal size");
+      }
       for (int index = 0; index < locals.size(); index++) {
         if (locals.get(index).index() != index) {
           throw new IllegalArgumentException("core locals must be dense and ordered");
@@ -45,6 +52,7 @@ public sealed interface CoreDefinition
       }
       int localCount = locals.size();
       parameterLocals.forEach(index -> requireLocal(index, localCount));
+      captureLocals.forEach(index -> requireLocal(index, localCount));
       reifiedTypeLocals.forEach(index -> requireLocal(index, localCount));
       if (receiverType.isPresent()
           && (locals.isEmpty() || locals.getFirst().kind() != CoreLocal.Kind.RECEIVER)) {
@@ -68,8 +76,12 @@ public sealed interface CoreDefinition
         throw new IllegalArgumentException("receiver local does not match the receiver ABI type");
       }
       requireDistinct(parameterLocals, "parameter local");
+      requireDistinct(captureLocals, "capture local");
       requireDistinct(reifiedTypeLocals, "reified type local");
       Set<Integer> occupied = new HashSet<>(parameterLocals);
+      if (captureLocals.stream().anyMatch(index -> !occupied.add(index))) {
+        throw new IllegalArgumentException("capture and parameter local bindings overlap");
+      }
       if (reifiedTypeLocals.stream().anyMatch(index -> !occupied.add(index))) {
         throw new IllegalArgumentException("parameter and reified local bindings overlap");
       }
@@ -78,6 +90,13 @@ public sealed interface CoreDefinition
         if (local.kind() != CoreLocal.Kind.PARAMETER
             || !local.type().equals(parameterTypes.get(index))) {
           throw new IllegalArgumentException("parameter local does not match its ABI type");
+        }
+      }
+      for (int index = 0; index < captureLocals.size(); index++) {
+        CoreLocal local = locals.get(captureLocals.get(index));
+        if (local.kind() != CoreLocal.Kind.CAPTURE
+            || !local.type().equals(captureTypes.get(index))) {
+          throw new IllegalArgumentException("capture local does not match its ABI type");
         }
       }
       for (int index : reifiedTypeLocals) {
@@ -90,11 +109,36 @@ public sealed interface CoreDefinition
         if (local.kind() == CoreLocal.Kind.PARAMETER && !parameterLocals.contains(local.index())) {
           throw new IllegalArgumentException("parameter local is absent from the callable ABI");
         }
+        if (local.kind() == CoreLocal.Kind.CAPTURE && !captureLocals.contains(local.index())) {
+          throw new IllegalArgumentException("capture local is absent from the callable ABI");
+        }
         if (local.kind() == CoreLocal.Kind.REIFIED_TYPE
             && !reifiedTypeLocals.contains(local.index())) {
           throw new IllegalArgumentException("reified local is absent from the callable ABI");
         }
       }
+    }
+
+    public Callable(
+        Optional<CoreType> receiverType,
+        List<CoreTypeParameter> typeParameters,
+        List<CoreType> parameterTypes,
+        List<Integer> parameterLocals,
+        List<Integer> reifiedTypeLocals,
+        CoreType returnType,
+        List<CoreLocal> locals,
+        CoreBlock body) {
+      this(
+          receiverType,
+          typeParameters,
+          List.of(),
+          List.of(),
+          parameterTypes,
+          parameterLocals,
+          reifiedTypeLocals,
+          returnType,
+          locals,
+          body);
     }
 
     public boolean hasReceiver() {

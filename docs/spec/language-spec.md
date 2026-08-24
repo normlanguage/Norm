@@ -43,6 +43,8 @@ Integer square(Integer value) {
 
 核心声明包括 class、value、interface、enum、annotation 和 function。interface 是唯一的名义行为抽象；标准库 protocol 只是普通 interface。public/private 控制可见性；更细模块可见性仍待定。
 
+顶层函数省略返回类型时是 `Void`。class 方法省略返回类型时返回同一接收者，真实签名使用完整 owner 类型。显式 `Void` 不产生结果。
+
 ## 类型系统
 
 类型关系由 extends 和 implements 明确声明，不根据成员形状自动匹配。普通 `T` 不包含 null，`T?` 才包含。编译器执行确定赋值和控制流 null 收窄。
@@ -67,7 +69,7 @@ String sign = if number < 0 {
 }
 ```
 
-不会把最后表达式自动作为结果，也不会为缺失分支插入 null。每个 switch 都必须穷尽，被匹配表达式只求值一次且 case 不 fallthrough。遍历式 for 通过标准库 Iterable interface 工作；首版没有 C 风格 for 和 while。
+控制流表达式不会把最后表达式自动作为结果，也不会为缺失分支插入 null。每个 switch 都必须穷尽，被匹配表达式只求值一次且 case 不 fallthrough。Lambda 的末尾表达式规则见[高级函数规则](/spec/grammar/functions-advanced)。遍历式 for 通过标准库 Iterable interface 工作；首版没有 C 风格 for 和 while。
 
 ## 泛型
 

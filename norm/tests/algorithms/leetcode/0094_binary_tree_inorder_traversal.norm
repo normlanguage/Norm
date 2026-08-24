@@ -4,8 +4,16 @@ class Traversal {
   List<Integer> values
 }
 
-Void traverse(Array<Integer> values, Array<Integer> left, Array<Integer> right, Integer node, Traversal result) {
-  if node == -1 { return }
+Void traverse(
+  Array<Integer> values,
+  Array<Integer> left,
+  Array<Integer> right,
+  Integer node,
+  Traversal result
+) {
+  if node == -1 {
+    return
+  }
   traverse(values, left, right, node: left[node], result: result)
   result.values.add(values[node])
   traverse(values, left, right, node: right[node], result: result)
@@ -18,11 +26,9 @@ List<Integer> inorderTraversal(Array<Integer> values, Array<Integer> left, Array
   return traversal.values
 }
 
-Void main() {
-  for Integer value : inorderTraversal(values: [1,2,3], left: [1,-1,-1], right: [2,-1,-1]) { printLine(value) }
-  expectedOutputLines([
-    "2",
-    "1",
-    "3"
-  ])
+main() {
+  for Integer value : inorderTraversal(values: [1, 2, 3], left: [1, -1, -1], right: [2, -1, -1]) {
+    printLine(value)
+  }
+  expectedOutputLines(["2", "1", "3"])
 }

@@ -4,7 +4,9 @@ import std.testing.expectedOutputLines
 
 List<Integer> initialRow(Integer size) {
   List<Integer> row = List<>()
-  for value : range(start: 0, end: size + 1) { row.add(value) }
+  for value : range(start: 0, end: size + 1) {
+    row.add(value)
+  }
   return row
 }
 
@@ -17,7 +19,9 @@ Integer editDistance(Array<Integer> source, Array<Integer> target) {
       if source[i - 1] == target[j - 1] {
         current.add(previous[j - 1])
       } else {
-        current.add(1 + min(left: previous[j - 1], right: min(left: previous[j], right: current[j - 1])))
+        current.add(
+          1 + min(left: previous[j - 1], right: min(left: previous[j], right: current[j - 1]))
+        )
       }
     }
     previous = current
@@ -25,13 +29,12 @@ Integer editDistance(Array<Integer> source, Array<Integer> target) {
   return previous[target.size()]
 }
 
-Void main() {
-  printLines([
-    editDistance(source: [1, 2, 3, 4, 5, 6], target: [1, 3, 4, 7, 8, 6]),
-    editDistance(source: [1, 2, 3], target: [1, 2, 3])
-  ])
-  expectedOutputLines([
-    "3",
-    "0"
-  ])
+main() {
+  printLines(
+    [
+      editDistance(source: [1, 2, 3, 4, 5, 6], target: [1, 3, 4, 7, 8, 6]),
+      editDistance(source: [1, 2, 3], target: [1, 2, 3])
+    ]
+  )
+  expectedOutputLines(["3", "0"])
 }

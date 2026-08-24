@@ -12,14 +12,16 @@ Integer longestValidParentheses(String value) {
         positions.push(index)
       } else {
         Integer length = index - positions.peek()
-        if length > best { best = length }
+        if length > best {
+          best = length
+        }
       }
     }
   }
   return best
 }
 
-Void main() {
+main() {
   printLine(longestValidParentheses("()(())"))
   expectedOutputLine("6")
 }

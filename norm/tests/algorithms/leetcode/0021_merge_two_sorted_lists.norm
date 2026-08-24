@@ -16,14 +16,9 @@ List<Integer> mergeTwoLists(Array<Integer> left, Array<Integer> right) {
   return result
 }
 
-Void main() {
-  for Integer value : mergeTwoLists(left: [1, 2, 4], right: [1, 3, 4]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "1",
-    "2",
-    "3",
-    "4",
-    "4"
-  ])
+main() {
+  for Integer value : mergeTwoLists(left: [1, 2, 4], right: [1, 3, 4]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "1", "2", "3", "4", "4"])
 }

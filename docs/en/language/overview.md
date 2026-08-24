@@ -9,7 +9,7 @@ Integer square(Integer value) {
     return value * value
 }
 
-Void main() {
+main() {
     Integer result = square(4)
     printLine(result)
 }

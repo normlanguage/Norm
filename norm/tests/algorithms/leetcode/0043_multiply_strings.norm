@@ -5,7 +5,8 @@ String multiply(String leftValue, String rightValue) {
   for i : range(start: 0, end: left.size()) {
     for j : range(start: 0, end: right.size()) {
       Integer position = i + j
-      Integer sum = digits[position] + left[left.size() - 1 - i].asciiDigitValue() * right[right.size() - 1 - j].asciiDigitValue()
+      Integer sum = digits[position] +
+        left[left.size() - 1 - i].asciiDigitValue() * right[right.size() - 1 - j].asciiDigitValue()
       digits[position] = sum % 10
       digits[position + 1] = digits[position + 1] + sum / 10
     }
@@ -14,11 +15,13 @@ String multiply(String leftValue, String rightValue) {
     digits.removeLast()
   }
   StringBuilder result = StringBuilder()
-  for index : range(start: digits.size() - 1, end: -1, step: -1) { result.append(digits[index]) }
+  for index : range(start: digits.size() - 1, end: -1, step: -1) {
+    result.append(digits[index])
+  }
   return result.toString()
 }
 
-Void main() {
+main() {
   printLine(multiply(leftValue: "123", rightValue: "456"))
   expectedOutputLine("56088")
 }

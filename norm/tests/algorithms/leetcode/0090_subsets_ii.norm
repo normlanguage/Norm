@@ -8,12 +8,14 @@ Integer subsetsWithDup(Array<Integer> values) {
       next.add(value)
       additions.add(next)
     }
-    for List<Integer> subset : additions { result.add(subset) }
+    for List<Integer> subset : additions {
+      result.add(subset)
+    }
   }
   return result.size()
 }
 
-Void main() {
-  printLine(subsetsWithDup([1,2,2]))
+main() {
+  printLine(subsetsWithDup([1, 2, 2]))
   expectedOutputLine("6")
 }

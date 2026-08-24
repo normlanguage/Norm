@@ -12,13 +12,35 @@ String addToken(String value, String token) {
   return result.toString()
 }
 
-Void buildParentheses(Parentheses result, String current, Integer open, Integer close, Integer pairs) {
+Void buildParentheses(
+  Parentheses result,
+  String current,
+  Integer open,
+  Integer close,
+  Integer pairs
+) {
   if current.codePointSize() == pairs * 2 {
     result.values.add(current)
     return
   }
-  if open < pairs { buildParentheses(result, current: addToken(value: current, token: "("), open: open + 1, close, pairs) }
-  if close < open { buildParentheses(result, current: addToken(value: current, token: ")"), open, close: close + 1, pairs) }
+  if open < pairs {
+    buildParentheses(
+      result,
+      current: addToken(value: current, token: "("),
+      open: open + 1,
+      close,
+      pairs
+    )
+  }
+  if close < open {
+    buildParentheses(
+      result,
+      current: addToken(value: current, token: ")"),
+      open,
+      close: close + 1,
+      pairs
+    )
+  }
 }
 
 List<String> generateParenthesis(Integer pairs) {
@@ -27,14 +49,8 @@ List<String> generateParenthesis(Integer pairs) {
   return result.values
 }
 
-Void main() {
+main() {
   List<String> answer = generateParenthesis(3)
-  printLines([
-    answer.size(),
-    answer[0]
-  ])
-  expectedOutputLines([
-    "5",
-    "((()))"
-  ])
+  printLines([answer.size(), answer[0]])
+  expectedOutputLines(["5", "((()))"])
 }

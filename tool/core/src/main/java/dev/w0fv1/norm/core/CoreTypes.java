@@ -23,6 +23,11 @@ public final class CoreTypes {
               declared.arguments().stream().map(argument -> mapLinks(argument, mapper)).toList(),
               declared.category(),
               declared.nullability());
+      case CoreType.Function function ->
+          new CoreType.Function(
+              mapLinks(function.returnType(), mapper),
+              function.parameterTypes().stream().map(value -> mapLinks(value, mapper)).toList(),
+              function.nullability());
       case CoreType.Parameter parameter -> parameter;
       case CoreType.Special special -> special;
     };
@@ -53,6 +58,9 @@ public final class CoreTypes {
         result.add(user.definition());
       }
       declared.arguments().forEach(argument -> collect(argument, result));
+    } else if (type instanceof CoreType.Function function) {
+      collect(function.returnType(), result);
+      function.parameterTypes().forEach(argument -> collect(argument, result));
     }
   }
 }

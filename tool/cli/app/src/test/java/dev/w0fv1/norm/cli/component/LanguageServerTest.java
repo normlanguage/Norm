@@ -19,8 +19,10 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.FileChangeType;
 import org.eclipse.lsp4j.FileEvent;
+import org.eclipse.lsp4j.FormattingOptions;
 import org.eclipse.lsp4j.MessageActionItem;
 import org.eclipse.lsp4j.MessageParams;
 import org.eclipse.lsp4j.Position;
@@ -40,6 +42,33 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class LanguageServerTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void advertisesAndServesWholeDocumentFormatting() throws Exception {
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    String uri = "untitled:formatting";
+    String text = "public main(){printLine(1)}";
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+    DocumentFormattingParams params = new DocumentFormattingParams();
+    params.setTextDocument(new TextDocumentIdentifier(uri));
+    params.setOptions(new FormattingOptions(2, true));
+
+    var edits = server.getTextDocumentService().formatting(params).get();
+
+    assertNotNull(
+        server
+            .initialize(new org.eclipse.lsp4j.InitializeParams())
+            .get()
+            .getCapabilities()
+            .getDocumentFormattingProvider());
+    assertEquals(1, edits.size());
+    assertEquals("main() {\n  printLine(1)\n}\n", edits.getFirst().getNewText());
+    assertEquals(new Position(0, 0), edits.getFirst().getRange().getStart());
+    assertEquals(new Position(0, text.length()), edits.getFirst().getRange().getEnd());
+  }
 
   @Test
   void publishesCompilerDiagnosticsForOpenDocuments() {
@@ -173,7 +202,7 @@ final class LanguageServerTest {
 
     String source = server.standardLibrarySource("stdlib:/std/math/integer.norm").get();
 
-    assertTrue(source.contains("public Integer clamp"));
+    assertTrue(source.contains("Integer clamp"));
   }
 
   @Test
@@ -186,7 +215,13 @@ final class LanguageServerTest {
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, source)));
-    Position position = new Position(7, "public Integer ".length());
+    List<String> lines = source.lines().toList();
+    int line =
+        java.util.stream.IntStream.range(0, lines.size())
+            .filter(index -> lines.get(index).contains("Integer max("))
+            .findFirst()
+            .orElseThrow();
+    Position position = new Position(line, lines.get(line).indexOf("max"));
 
     var hover =
         server

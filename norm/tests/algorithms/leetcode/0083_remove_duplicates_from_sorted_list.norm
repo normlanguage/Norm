@@ -3,16 +3,16 @@ import std.testing.expectedOutputLines
 List<Integer> deleteDuplicates(Array<Integer> values) {
   List<Integer> result = List<>()
   for Integer value : values {
-    if result.isEmpty() || result.last() != value { result.add(value) }
+    if result.isEmpty() || result.last() != value {
+      result.add(value)
+    }
   }
   return result
 }
 
-Void main() {
-  for Integer value : deleteDuplicates([1,1,2,3,3]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "3"
-  ])
+main() {
+  for Integer value : deleteDuplicates([1, 1, 2, 3, 3]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "3"])
 }

@@ -1,15 +1,13 @@
 import std.collections.sort
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   List<CodePoint> source = List<>()
   source.add('😀')
   source.add('é')
   source.add('A')
-  for value : sort(values: source) { printLine(value) }
-  expectedOutputLines([
-    "A",
-    "é",
-    "😀"
-  ])
+  for value : sort(values: source) {
+    printLine(value)
+  }
+  expectedOutputLines(["A", "é", "😀"])
 }

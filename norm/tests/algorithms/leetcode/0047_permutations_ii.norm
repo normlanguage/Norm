@@ -2,7 +2,12 @@ class UniquePermutations {
   Set<List<Integer>> values
 }
 
-Void uniqueFrom(Array<Integer> values, List<Integer> current, Set<Integer> used, UniquePermutations result) {
+Void uniqueFrom(
+  Array<Integer> values,
+  List<Integer> current,
+  Set<Integer> used,
+  UniquePermutations result
+) {
   if current.size() == values.size() {
     result.values.add(current)
     return
@@ -24,7 +29,7 @@ Integer permuteUnique(Array<Integer> values) {
   return result.values.size()
 }
 
-Void main() {
+main() {
   printLine(permuteUnique([1, 1, 2]))
   expectedOutputLine("3")
 }

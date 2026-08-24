@@ -5,18 +5,10 @@ class Box<T> {
   T value
 }
 
-Void main() {
+main() {
   List<Pair<Integer, String>> values = List<>()
   values.add(Pair<>(first: 7, second: "seven"))
   Box<List<Pair<Integer, String>>> box = Box<>(value: values)
-  printLines([
-    box.value.size(),
-    box.value[0].first,
-    box.value[0].second
-  ])
-  expectedOutputLines([
-    "1",
-    "7",
-    "seven"
-  ])
+  printLines([box.value.size(), box.value[0].first, box.value[0].second])
+  expectedOutputLines(["1", "7", "seven"])
 }

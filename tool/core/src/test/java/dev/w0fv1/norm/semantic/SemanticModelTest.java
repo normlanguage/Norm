@@ -97,7 +97,8 @@ final class SemanticModelTest {
     var identity = model.syntax().functions().getFirst();
     var accept = model.syntax().functions().get(1);
 
-    assertEquals("T?", model.typeOf(identity.returnType()).orElseThrow().displayName());
+    assertEquals(
+        "T?", model.typeOf(identity.returnType().orElseThrow()).orElseThrow().displayName());
     assertEquals(
         "T?", model.typeOf(identity.parameters().getFirst().type()).orElseThrow().displayName());
     assertEquals(

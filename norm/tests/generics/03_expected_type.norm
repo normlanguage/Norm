@@ -7,15 +7,9 @@ Box<T> emptyBox<T>() {
   return Box<>()
 }
 
-Void main() {
+main() {
   Box<String> box = emptyBox()
   Array<Box<String>> values = []
-  printLines([
-    values.size(),
-    box == box
-  ])
-  expectedOutputLines([
-    "0",
-    "true"
-  ])
+  printLines([values.size(), box == box])
+  expectedOutputLines(["0", "true"])
 }

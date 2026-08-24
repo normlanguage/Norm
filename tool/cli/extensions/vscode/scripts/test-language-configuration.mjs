@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const grammar = JSON.parse(readFileSync('syntaxes/norm.tmLanguage.json', 'utf8'));
 const configuration = JSON.parse(readFileSync('language-configuration.json', 'utf8'));
+const extension = JSON.parse(readFileSync('package.json', 'utf8'));
 const typePattern = new RegExp(grammar.repository.types.match);
 const genericPattern = new RegExp(grammar.repository.generics.patterns[0].begin);
 const numericPattern = new RegExp(grammar.repository.numbers.match);
@@ -55,5 +56,12 @@ assert.ok(
   configuration.autoClosingPairs.some((pair) => pair.open === "'" && pair.close === "'"),
 );
 assert.ok(configuration.surroundingPairs.some(([open, close]) => open === "'" && close === "'"));
+assert.equal(grammar.repository.comments, undefined);
+assert.equal(configuration.comments, undefined);
+assert.equal(
+  extension.contributes.configurationDefaults['[norm]']['editor.defaultFormatter'],
+  'normlang.norm-language-support',
+);
+assert.equal(extension.contributes.configurationDefaults['[norm]']['editor.formatOnSave'], true);
 
 console.log('Norm language configuration tests succeeded.');

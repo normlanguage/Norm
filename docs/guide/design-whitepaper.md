@@ -77,7 +77,7 @@ The following are deliberately avoided:
 - implicit string conversion
 - hidden null creation
 - automatic Result propagation
-- arbitrary closure capture
+- mutable closure capture
 
 Powerful features exist, but they require visible syntax.
 

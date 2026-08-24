@@ -9,7 +9,7 @@ List<String> names = emptyList()
 String first = identity(value: "Norm")
 ```
 
-编译器可以根据实参、赋值目标和泛型约束推断函数的类型参数。字段、参数和返回类型不能省略。
+编译器可以根据实参、赋值目标和泛型约束推断函数的类型参数。字段和参数类型不能省略。函数省略返回类型时使用声明位置决定的固定语义，不根据函数体推断：顶层为 `Void`，class 方法为 owner 类型。
 
 ## 约束求解
 
@@ -34,4 +34,3 @@ List<String> names = emptyList<String>()
 - 不跨模块猜测未声明的结构类型关系。
 
 形式化约束与算法见[泛型推断](/spec/formal/generic-inference)。
-

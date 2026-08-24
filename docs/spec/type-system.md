@@ -8,7 +8,7 @@ Norm 使用静态、名义、非空默认的类型系统。编译器在执行前
 - 用户类型：class、interface、数据 enum；
 - 参数化类型：`List<T>`、`Map<K, V>` 等；
 - nullable 类型：`T?`；
-- 函数类型：`R function(P...)`；
+- 函数类型：`Function<R(P...)>`；
 
 Norm 没有统一 Object 根类型。通用行为通过 interface 与泛型约束表达。
 

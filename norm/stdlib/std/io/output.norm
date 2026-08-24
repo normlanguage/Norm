@@ -3,7 +3,7 @@ package std.io
 import std.core.Iterable
 import std.core.Stringable
 
-public Void printLines<T extends Stringable>(Iterable<T> values) {
+Void printLines<T extends Stringable>(Iterable<T> values) {
   for T value : values {
     printLine(value.toString())
   }

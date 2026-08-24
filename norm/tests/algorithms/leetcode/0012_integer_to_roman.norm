@@ -1,6 +1,6 @@
 String intToRoman(Integer value) {
-  Array<Integer> values = [1000,900,500,400,100,90,50,40,10,9,5,4,1]
-  Array<String> symbols = ["M","CM","D","CD","C","XC","L","XL","X","IX","V","IV","I"]
+  Array<Integer> values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+  Array<String> symbols = ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
   StringBuilder result = StringBuilder()
   for index : range(start: 0, end: values.size()) {
     for value >= values[index] {
@@ -11,7 +11,7 @@ String intToRoman(Integer value) {
   return result.toString()
 }
 
-Void main() {
+main() {
   printLine(intToRoman(1994))
   expectedOutputLine("MCMXCIV")
 }

@@ -3,8 +3,11 @@ import std.testing.expectedOutputLines
 
 class Matrix {
   Integer a
+
   Integer b
+
   Integer c
+
   Integer d
 }
 
@@ -18,25 +21,23 @@ Matrix multiply(Matrix left, Matrix right) {
 }
 
 Integer fibonacci(Integer n) {
-  if n == 0 { return 0 }
+  if n == 0 {
+    return 0
+  }
   Matrix result = Matrix(a: 1, b: 0, c: 0, d: 1)
   Matrix base = Matrix(a: 1, b: 1, c: 1, d: 0)
   Integer exponent = n
   for exponent != 0 {
-    if exponent % 2 == 1 { result = multiply(left: result, right: base) }
+    if exponent % 2 == 1 {
+      result = multiply(left: result, right: base)
+    }
     base = multiply(left: base, right: base)
     exponent = exponent / 2
   }
   return result.b
 }
 
-Void main() {
-  printLines([
-    fibonacci(10),
-    fibonacci(20)
-  ])
-  expectedOutputLines([
-    "55",
-    "6765"
-  ])
+main() {
+  printLines([fibonacci(10), fibonacci(20)])
+  expectedOutputLines(["55", "6765"])
 }

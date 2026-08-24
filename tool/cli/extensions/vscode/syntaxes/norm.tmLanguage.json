@@ -3,7 +3,6 @@
   "name": "Norm",
   "scopeName": "source.norm",
   "patterns": [
-    { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#codePoints" },
     { "include": "#numbers" },
@@ -18,12 +17,6 @@
     { "include": "#operators" }
   ],
   "repository": {
-    "comments": {
-      "patterns": [
-        { "name": "comment.line.double-slash.norm", "begin": "//", "end": "$" },
-        { "name": "comment.block.norm", "begin": "/\\*", "end": "\\*/", "patterns": [{ "include": "#comments" }] }
-      ]
-    },
     "strings": {
       "name": "string.quoted.double.norm",
       "begin": "\"",
@@ -57,7 +50,7 @@
     },
     "types": {
       "name": "support.type.norm",
-      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Module)\\b"
+      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Function|Module)\\b"
     },
     "typeParameters": {
       "name": "entity.name.type.parameter.norm",
@@ -116,7 +109,7 @@
     },
     "operators": {
       "name": "keyword.operator.norm",
-      "match": "\\?\\.|\\?\\?|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?]"
+      "match": "::|\\?\\.|\\?\\?|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?]"
     }
   }
 }

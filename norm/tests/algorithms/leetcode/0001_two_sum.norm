@@ -4,16 +4,17 @@ Array<Integer> twoSum(Array<Integer> values, Integer target) {
   Map<Integer, Integer> seen = Map<>()
   for index : range(start: 0, end: values.size()) {
     Integer need = target - values[index]
-    if seen.containsKey(need) { return [seen[need], index] }
+    if seen.containsKey(need) {
+      return [seen[need], index]
+    }
     seen.put(key: values[index], value: index)
   }
   return []
 }
 
-Void main() {
-  for Integer value : twoSum(values: [2, 7, 11, 15], target: 9) { printLine(value) }
-  expectedOutputLines([
-    "0",
-    "1"
-  ])
+main() {
+  for Integer value : twoSum(values: [2, 7, 11, 15], target: 9) {
+    printLine(value)
+  }
+  expectedOutputLines(["0", "1"])
 }

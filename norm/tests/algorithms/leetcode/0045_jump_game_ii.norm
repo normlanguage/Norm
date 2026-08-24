@@ -3,7 +3,9 @@ Integer jump(Array<Integer> values) {
   Integer end = 0
   Integer farthest = 0
   for index : range(start: 0, end: values.size() - 1) {
-    if index + values[index] > farthest { farthest = index + values[index] }
+    if index + values[index] > farthest {
+      farthest = index + values[index]
+    }
     if index == end {
       jumps = jumps + 1
       end = farthest
@@ -12,7 +14,7 @@ Integer jump(Array<Integer> values) {
   return jumps
 }
 
-Void main() {
+main() {
   printLine(jump([2, 3, 1, 1, 4]))
   expectedOutputLine("2")
 }

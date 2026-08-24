@@ -1,13 +1,10 @@
 import std.collections.sort
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Array<String> values = sort(values: ["β", "a", "aa", "A"])
-  for value : values { printLine(value) }
-  expectedOutputLines([
-    "A",
-    "a",
-    "aa",
-    "β"
-  ])
+  for value : values {
+    printLine(value)
+  }
+  expectedOutputLines(["A", "a", "aa", "β"])
 }

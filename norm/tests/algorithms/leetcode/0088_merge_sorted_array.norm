@@ -16,14 +16,9 @@ List<Integer> mergeSortedArray(Array<Integer> left, Integer leftSize, Array<Inte
   return result
 }
 
-Void main() {
-  for Integer value : mergeSortedArray(left: [1,2,3,0,0,0], leftSize: 3, right: [2,5,6]) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "2",
-    "3",
-    "5",
-    "6"
-  ])
+main() {
+  for Integer value : mergeSortedArray(left: [1, 2, 3, 0, 0, 0], leftSize: 3, right: [2, 5, 6]) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "2", "3", "5", "6"])
 }

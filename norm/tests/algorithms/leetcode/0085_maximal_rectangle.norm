@@ -3,9 +3,13 @@ Integer histogram(Array<Integer> heights) {
   for left : range(start: 0, end: heights.size()) {
     Integer low = heights[left]
     for right : range(start: left, end: heights.size()) {
-      if heights[right] < low { low = heights[right] }
+      if heights[right] < low {
+        low = heights[right]
+      }
       Integer area = low * (right - left + 1)
-      if area > best { best = area }
+      if area > best {
+        best = area
+      }
     }
   }
   return best
@@ -13,24 +17,32 @@ Integer histogram(Array<Integer> heights) {
 
 Integer maximalRectangle(List<Array<Integer>> matrix) {
   Array<Integer> heights = matrix[0]
-  for column : range(start: 0, end: heights.size()) { heights[column] = 0 }
+  for column : range(start: 0, end: heights.size()) {
+    heights[column] = 0
+  }
   Integer best = 0
   for row : range(start: 0, end: matrix.size()) {
     for column : range(start: 0, end: heights.size()) {
-      if matrix[row][column] == 0 { heights[column] = 0 } else { heights[column] = heights[column] + 1 }
+      if matrix[row][column] == 0 {
+        heights[column] = 0
+      } else {
+        heights[column] = heights[column] + 1
+      }
     }
     Integer area = histogram(heights)
-    if area > best { best = area }
+    if area > best {
+      best = area
+    }
   }
   return best
 }
 
-Void main() {
+main() {
   List<Array<Integer>> matrix = List<>()
-  matrix.add([1,0,1,0,0])
-  matrix.add([1,0,1,1,1])
-  matrix.add([1,1,1,1,1])
-  matrix.add([1,0,0,1,0])
+  matrix.add([1, 0, 1, 0, 0])
+  matrix.add([1, 0, 1, 1, 1])
+  matrix.add([1, 1, 1, 1, 1])
+  matrix.add([1, 0, 0, 1, 0])
   printLine(maximalRectangle(matrix))
   expectedOutputLine("6")
 }

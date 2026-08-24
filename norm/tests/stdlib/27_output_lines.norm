@@ -5,13 +5,14 @@ import std.testing.expectedOutputLines
 
 class CountingIterator implements Iterator<Integer> {
   Integer current
+
   Integer end
 
-  public Boolean hasNext() {
+  Boolean hasNext() {
     return current < end
   }
 
-  public Integer next() {
+  Integer next() {
     Integer value = current
     current = current + 1
     return value
@@ -21,12 +22,12 @@ class CountingIterator implements Iterator<Integer> {
 class Values implements Iterable<Integer> {
   Integer end
 
-  public Iterator<Integer> iterator() {
+  Iterator<Integer> iterator() {
     return CountingIterator(current: 0, end: end)
   }
 }
 
-Void main() {
+main() {
   printLines(["built-in", "iterable"])
   printLines(Values(end: 2))
   expectedOutputLines(["built-in", "iterable", "0", "1"])

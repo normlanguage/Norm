@@ -32,6 +32,11 @@ public final class CompletionContextResolver {
     if (previousOffset >= 0 && text.charAt(previousOffset) == '.') {
       return new CompletionContext.Member(previousOffset);
     }
+    if (previousOffset > 0
+        && text.charAt(previousOffset) == ':'
+        && text.charAt(previousOffset - 1) == ':') {
+      return new CompletionContext.Member(previousOffset - 1);
+    }
     List<Token> tokens =
         document.tokens().stream().filter(token -> token.span().startOffset() < offset).toList();
     TokenKind previous = tokens.isEmpty() ? null : tokens.getLast().kind();

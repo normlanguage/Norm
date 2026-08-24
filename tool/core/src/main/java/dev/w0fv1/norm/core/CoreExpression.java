@@ -17,6 +17,8 @@ public sealed interface CoreExpression extends CoreNode
         CoreExpression.Switch,
         CoreExpression.Index,
         CoreExpression.CopyObject,
+        CoreExpression.Closure,
+        CoreExpression.Invoke,
         CoreExpression.Call,
         CoreExpression.InterfaceCall,
         CoreExpression.Construct,
@@ -164,6 +166,34 @@ public sealed interface CoreExpression extends CoreNode
     public CopyObject {
       requireNode(nodeIndex);
       Objects.requireNonNull(receiver, "receiver");
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record Closure(
+      int nodeIndex,
+      CoreDefinitionLink target,
+      Optional<CoreExpression> receiver,
+      List<CoreExpression> captures,
+      List<CoreRuntimeType> reifiedArguments,
+      CoreType type)
+      implements CoreExpression {
+    public Closure {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(target, "target");
+      receiver = Objects.requireNonNull(receiver, "receiver");
+      captures = List.copyOf(captures);
+      reifiedArguments = List.copyOf(reifiedArguments);
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record Invoke(int nodeIndex, CoreExpression callee, List<CoreArgument> arguments, CoreType type)
+      implements CoreExpression {
+    public Invoke {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(callee, "callee");
+      arguments = List.copyOf(arguments);
       Objects.requireNonNull(type, "type");
     }
   }

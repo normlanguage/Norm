@@ -15,7 +15,9 @@ List<Integer> dijkstra(Array<Array<Integer>> graph, Integer source) {
         smallest = distance[vertex]
       }
     }
-    if chosen == -1 { break }
+    if chosen == -1 {
+      break
+    }
     visited[chosen] = true
     Array<Integer> edges = graph[chosen]
     for next : range(start: 0, end: graph.size()) {
@@ -27,7 +29,7 @@ List<Integer> dijkstra(Array<Array<Integer>> graph, Integer source) {
   return distance
 }
 
-Void main() {
+main() {
   Array<Array<Integer>> graph = [
     [0, 10, 3, 0, 0],
     [0, 0, 0, 2, 0],
@@ -35,12 +37,8 @@ Void main() {
     [0, 0, 0, 0, 0],
     [0, 0, 0, 9, 0]
   ]
-  for Integer distance : dijkstra(graph, source: 0) { printLine(distance) }
-  expectedOutputLines([
-    "0",
-    "7",
-    "3",
-    "9",
-    "5"
-  ])
+  for Integer distance : dijkstra(graph, source: 0) {
+    printLine(distance)
+  }
+  expectedOutputLines(["0", "7", "3", "9", "5"])
 }

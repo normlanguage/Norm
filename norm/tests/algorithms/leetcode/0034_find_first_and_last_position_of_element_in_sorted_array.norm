@@ -5,21 +5,26 @@ Integer boundary(Array<Integer> values, Integer target, Boolean upper) {
   Integer right = values.size()
   for left < right {
     Integer middle = left + (right - left) / 2
-    if values[middle] < target || (upper && values[middle] == target) { left = middle + 1 } else { right = middle }
+    if values[middle] < target || upper && values[middle] == target {
+      left = middle + 1
+    } else {
+      right = middle
+    }
   }
   return left
 }
 
 Array<Integer> searchRange(Array<Integer> values, Integer target) {
   Integer first = boundary(values, target, upper: false)
-  if first == values.size() || values[first] != target { return [-1, -1] }
+  if first == values.size() || values[first] != target {
+    return [-1, -1]
+  }
   return [first, boundary(values, target, upper: true) - 1]
 }
 
-Void main() {
-  for Integer value : searchRange(values: [5, 7, 7, 8, 8, 10], target: 8) { printLine(value) }
-  expectedOutputLines([
-    "3",
-    "4"
-  ])
+main() {
+  for Integer value : searchRange(values: [5, 7, 7, 8, 8, 10], target: 8) {
+    printLine(value)
+  }
+  expectedOutputLines(["3", "4"])
 }

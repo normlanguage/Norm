@@ -12,7 +12,7 @@ List<List<Integer>> subsets(Array<Integer> values) {
   return result
 }
 
-Void main() {
-  printLine(subsets([1,2,3]).size())
+main() {
+  printLine(subsets([1, 2, 3]).size())
   expectedOutputLine("8")
 }

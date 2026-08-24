@@ -6,14 +6,16 @@ Integer threeSumClosest(Array<Integer> values, Integer target) {
     for second : range(start: first + 1, end: values.size()) {
       for third : range(start: second + 1, end: values.size()) {
         Integer sum = values[first] + values[second] + values[third]
-        if abs(sum - target) < abs(best - target) { best = sum }
+        if abs(sum - target) < abs(best - target) {
+          best = sum
+        }
       }
     }
   }
   return best
 }
 
-Void main() {
+main() {
   printLine(threeSumClosest(values: [-1, 2, 1, -4], target: 1))
   expectedOutputLine("2")
 }

@@ -88,6 +88,7 @@ final class Lowerer {
     FunctionPlan plan = new FunctionPlan(id, declaration);
     for (CoreLocal local : declaration.locals()) plan.allocate(local);
     if (declaration.hasReceiver()) plan.arguments.add(plan.binding(0));
+    declaration.captureLocals().forEach(local -> plan.arguments.add(plan.binding(local)));
     declaration.parameterLocals().forEach(local -> plan.arguments.add(plan.binding(local)));
     declaration.reifiedTypeLocals().forEach(local -> plan.arguments.add(plan.binding(local)));
     plan.descriptor = plan.frame.build();
@@ -121,6 +122,15 @@ final class Lowerer {
           RuntimeValues.DispatchTarget target =
               lowerWitnessTarget(
                   occurrence.representative(), witness.implementation(), callableByDefinition);
+          if (target instanceof RuntimeValues.DispatchTarget.Callable callable
+              && isDefaultWitness(occurrence.representative(), witness.implementation())) {
+            CoreType interfaceType =
+                CoreTypes.absolute(
+                    conformance.interfaceType(), occurrence.representative(), program);
+            target =
+                new RuntimeValues.DispatchTarget.Callable(
+                    callable.target(), ((CoreType.Declared) interfaceType).arguments());
+          }
           if (dispatch.putIfAbsent(requirement, target) != null) {
             throw new IllegalStateException("verified class dispatch is duplicated");
           }
@@ -146,6 +156,13 @@ final class Lowerer {
         DefinitionId requirement = resolve(record.id(), witness.requirement());
         RuntimeValues.DispatchTarget target =
             lowerWitnessTarget(record.id(), witness.implementation(), callableByDefinition);
+        if (target instanceof RuntimeValues.DispatchTarget.Callable callable) {
+          CoreType interfaceType =
+              CoreTypes.absolute(conformance.interfaceType(), record.id(), program);
+          target =
+              new RuntimeValues.DispatchTarget.Callable(
+                  callable.target(), ((CoreType.Declared) interfaceType).arguments());
+        }
         if (dispatch.putIfAbsent(requirement, target) != null) {
           throw new IllegalStateException("verified builtin dispatch is duplicated");
         }
@@ -166,6 +183,22 @@ final class Lowerer {
       case CoreWitnessTarget.Intrinsic intrinsic ->
           new RuntimeValues.DispatchTarget.Intrinsic(intrinsic.intrinsic());
     };
+  }
+
+  private boolean isDefaultWitness(DefinitionId owner, CoreWitnessTarget target) {
+    if (!(target instanceof CoreWitnessTarget.Callable callable)) return false;
+    DefinitionId implementationId = resolve(owner, callable.definition());
+    CoreDefinition implementation = program.definition(implementationId).orElseThrow();
+    if (!(implementation instanceof CoreDefinition.Callable method)
+        || method.receiverType().isEmpty()) {
+      return false;
+    }
+    CoreType receiver =
+        CoreTypes.absolute(method.receiverType().orElseThrow(), implementationId, program);
+    return receiver instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.User user
+        && user.definition() instanceof dev.w0fv1.norm.core.DefinitionReference.External external
+        && !external.definition().equals(owner);
   }
 
   private void lowerBodies() {
@@ -299,6 +332,12 @@ final class Lowerer {
           case CoreExpression.CopyObject copied ->
               new ExpressionNodes.CopyObject(
                   lowerExpression(copied.receiver(), plan), copied.nullSafe());
+          case CoreExpression.Closure closure -> lowerClosure(closure, plan);
+          case CoreExpression.Invoke invoke ->
+              new ExpressionNodes.Invoke(
+                  lowerExpression(invoke.callee(), plan),
+                  lowerArguments(invoke.arguments(), plan),
+                  parameterIndices(invoke.arguments()));
           case CoreExpression.Call call -> lowerCall(call, plan);
           case CoreExpression.InterfaceCall call -> lowerInterfaceCall(call, plan);
           case CoreExpression.Construct construct -> lowerConstruct(construct, plan);
@@ -387,6 +426,11 @@ final class Lowerer {
               declared.arguments(),
               declared.category(),
               dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+      case CoreType.Function function ->
+          new CoreType.Function(
+              function.returnType(),
+              function.parameterTypes(),
+              dev.w0fv1.norm.core.CoreNullability.NON_NULL);
       case CoreType.Parameter parameter ->
           new CoreType.Parameter(parameter.index(), dev.w0fv1.norm.core.CoreNullability.NON_NULL);
       case CoreType.Special special -> special;
@@ -458,6 +502,22 @@ final class Lowerer {
         lowerArguments(call.arguments(), plan),
         parameterIndices(call.arguments()),
         call.reifiedArguments().stream()
+            .map(value -> lowerRuntimeType(value, plan))
+            .toArray(ExpressionNode[]::new));
+  }
+
+  private ExpressionNode lowerClosure(CoreExpression.Closure closure, FunctionPlan plan) {
+    DefinitionOccurrenceId targetId = resolve(plan, closure.nodeIndex(), closure.target());
+    FunctionPlan target = callables.get(targetId);
+    if (target == null)
+      throw new IllegalStateException("core closure target is absent: " + targetId);
+    return new ExpressionNodes.Closure(
+        target.target,
+        closure.receiver().map(value -> lowerExpression(value, plan)).orElse(null),
+        closure.captures().stream()
+            .map(value -> lowerExpression(value, plan))
+            .toArray(ExpressionNode[]::new),
+        closure.reifiedArguments().stream()
             .map(value -> lowerRuntimeType(value, plan))
             .toArray(ExpressionNode[]::new));
   }

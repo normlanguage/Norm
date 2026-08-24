@@ -223,11 +223,34 @@ suite('Norm VS Code extension', () => {
     assert.ok(extension);
     const defaults = extension.packageJSON.contributes.configurationDefaults['[norm]'];
     assert.deepEqual(defaults['editor.quickSuggestions'], {
-      comments: 'off',
       strings: 'off',
       other: 'on',
     });
     assert.equal(defaults['editor.suggestOnTriggerCharacters'], true);
+    assert.equal(defaults['editor.defaultFormatter'], 'normlang.norm-language-support');
+    assert.equal(defaults['editor.formatOnSave'], true);
+  });
+
+  test('formats Norm documents through the language server', async () => {
+    const document = await vscode.workspace.openTextDocument({
+      language: 'norm',
+      content: 'public main(){printLine(1)}',
+    });
+    await vscode.window.showTextDocument(document);
+
+    const edits = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+        'vscode.executeFormatDocumentProvider',
+        document.uri,
+        { tabSize: 2, insertSpaces: true },
+      );
+      return value?.length ? value : undefined;
+    });
+    const workspaceEdit = new vscode.WorkspaceEdit();
+    workspaceEdit.set(document.uri, edits);
+
+    assert.ok(await vscode.workspace.applyEdit(workspaceEdit));
+    assert.equal(document.getText().replaceAll('\r\n', '\n'), 'main() {\n  printLine(1)\n}\n');
   });
 
   test('completes a partially typed statement in unsaved code', async () => {
@@ -273,7 +296,7 @@ suite('Norm VS Code extension', () => {
     );
     assert.equal(definitions[0].uri.scheme, 'stdlib');
     const source = await vscode.workspace.openTextDocument(definitions[0].uri);
-    assert.ok(source.getText().includes('public Integer max'));
+    assert.ok(source.getText().includes('Integer max'));
   });
 
   test('supports generics and cross-file project navigation', async () => {
@@ -337,7 +360,7 @@ suite('Norm VS Code extension', () => {
       assert.ok(await vscode.workspace.applyEdit(rename));
       assert.ok(document.getText().includes('import sample.util.preserveValue'));
       assert.ok(document.getText().includes('preserveValue(value:'));
-      assert.ok(library.getText().includes('public T preserveValue<T>'));
+      assert.ok(library.getText().includes('T preserveValue<T>'));
       await eventually(async () => {
         const updated = document.getText();
         const renamedOffset = updated.lastIndexOf('preserveValue');

@@ -1,9 +1,9 @@
 package project.model
 
-public class User implements Named {
+class User implements Named {
   String value
 
-  public String name() {
+  String name() {
     return value
   }
 }

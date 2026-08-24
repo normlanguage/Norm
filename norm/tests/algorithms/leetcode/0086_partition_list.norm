@@ -4,20 +4,21 @@ List<Integer> partition(Array<Integer> values, Integer pivot) {
   List<Integer> lower = List<>()
   List<Integer> upper = List<>()
   for Integer value : values {
-    if value < pivot { lower.add(value) } else { upper.add(value) }
+    if value < pivot {
+      lower.add(value)
+    } else {
+      upper.add(value)
+    }
   }
-  for Integer value : upper { lower.add(value) }
+  for Integer value : upper {
+    lower.add(value)
+  }
   return lower
 }
 
-Void main() {
-  for Integer value : partition(values: [1,4,3,2,5,2], pivot: 3) { printLine(value) }
-  expectedOutputLines([
-    "1",
-    "2",
-    "2",
-    "4",
-    "3",
-    "5"
-  ])
+main() {
+  for Integer value : partition(values: [1, 4, 3, 2, 5, 2], pivot: 3) {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "2", "2", "4", "3", "5"])
 }

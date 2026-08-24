@@ -2,13 +2,17 @@ import std.math.abs
 
 Boolean available(List<Integer> columns, Integer row, Integer column) {
   for previous : range(start: 0, end: row) {
-    if columns[previous] == column || abs(columns[previous] - column) == row - previous { return false }
+    if columns[previous] == column || abs(columns[previous] - column) == row - previous {
+      return false
+    }
   }
   return true
 }
 
 Integer countQueens(List<Integer> columns, Integer row, Integer size) {
-  if row == size { return 1 }
+  if row == size {
+    return 1
+  }
   Integer count = 0
   for column : range(start: 0, end: size) {
     if available(columns, row, column) {
@@ -25,7 +29,7 @@ Integer totalNQueens(Integer size) {
   return countQueens(columns, row: 0, size)
 }
 
-Void main() {
+main() {
   printLine(totalNQueens(4))
   expectedOutputLine("2")
 }

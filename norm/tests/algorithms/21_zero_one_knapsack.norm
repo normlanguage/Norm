@@ -11,7 +11,7 @@ Integer knapsack(Array<Integer> weights, Array<Integer> values, Integer capacity
   return best[capacity]
 }
 
-Void main() {
+main() {
   printLine(knapsack(weights: [2, 3, 4], values: [4, 5, 7], capacity: 5))
   expectedOutputLine("9")
 }

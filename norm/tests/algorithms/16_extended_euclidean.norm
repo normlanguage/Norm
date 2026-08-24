@@ -3,26 +3,22 @@ import std.testing.expectedOutputLines
 
 class Bezout {
   Integer gcd
+
   Integer x
+
   Integer y
 }
 
 Bezout extendedGcd(Integer a, Integer b) {
-  if b == 0 { return Bezout(gcd: a, x: 1, y: 0) }
+  if b == 0 {
+    return Bezout(gcd: a, x: 1, y: 0)
+  }
   Bezout next = extendedGcd(a: b, b: a % b)
-  return Bezout(gcd: next.gcd, x: next.y, y: next.x - (a / b) * next.y)
+  return Bezout(gcd: next.gcd, x: next.y, y: next.x - a / b * next.y)
 }
 
-Void main() {
+main() {
   Bezout result = extendedGcd(a: 30, b: 18)
-  printLines([
-    result.gcd,
-    result.x,
-    result.y
-  ])
-  expectedOutputLines([
-    "6",
-    "-1",
-    "2"
-  ])
+  printLines([result.gcd, result.x, result.y])
+  expectedOutputLines(["6", "-1", "2"])
 }

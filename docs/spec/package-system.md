@@ -5,12 +5,12 @@ package 是 Norm 源码的命名空间。一个源码根目录可以包含多个
 ```norm
 package geometry
 
-public class Point {
+class Point {
     Integer x
     Integer y
 }
 
-public Integer area(Integer width, Integer height) {
+Integer area(Integer width, Integer height) {
     return width * height
 }
 ```

@@ -4,15 +4,23 @@ Integer maxArea(Array<Integer> height) {
   Integer best = 0
   for left < right {
     Integer low = height[left]
-    if height[right] < low { low = height[right] }
+    if height[right] < low {
+      low = height[right]
+    }
     Integer area = low * (right - left)
-    if area > best { best = area }
-    if height[left] < height[right] { left = left + 1 } else { right = right - 1 }
+    if area > best {
+      best = area
+    }
+    if height[left] < height[right] {
+      left = left + 1
+    } else {
+      right = right - 1
+    }
   }
   return best
 }
 
-Void main() {
+main() {
   printLine(maxArea([1, 8, 6, 2, 5, 4, 8, 3, 7]))
   expectedOutputLine("49")
 }

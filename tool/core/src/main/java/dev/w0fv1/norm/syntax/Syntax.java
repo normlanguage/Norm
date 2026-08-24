@@ -98,6 +98,15 @@ public final class Syntax {
     }
 
     public String displayName() {
+      if (name.equals("Function") && !arguments.isEmpty()) {
+        String parameters =
+            arguments.stream()
+                .skip(1)
+                .map(TypeRef::displayName)
+                .collect(java.util.stream.Collectors.joining(", "));
+        String base = "Function<" + arguments.getFirst().displayName() + "(" + parameters + ")>";
+        return nullable ? base + "?" : base;
+      }
       String base =
           arguments.isEmpty()
               ? name
@@ -125,6 +134,7 @@ public final class Syntax {
       SourceSpan nameSpan,
       List<TypeParameter> typeParameters,
       List<Parameter> parameters,
+      Optional<List<Statement>> body,
       SourceSpan span)
       implements AstNode {
     public InterfaceMethodDecl {
@@ -133,7 +143,18 @@ public final class Syntax {
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);
       parameters = List.copyOf(parameters);
+      body = Objects.requireNonNull(body, "body").map(List::copyOf);
       Objects.requireNonNull(span, "span");
+    }
+
+    public InterfaceMethodDecl(
+        TypeRef returnType,
+        String name,
+        SourceSpan nameSpan,
+        List<TypeParameter> typeParameters,
+        List<Parameter> parameters,
+        SourceSpan span) {
+      this(returnType, name, nameSpan, typeParameters, parameters, Optional.empty(), span);
     }
   }
 
@@ -157,13 +178,24 @@ public final class Syntax {
     }
   }
 
-  public record Parameter(TypeRef type, String name, SourceSpan nameSpan, SourceSpan span)
+  public record Parameter(
+      TypeRef type,
+      String name,
+      SourceSpan nameSpan,
+      Optional<List<Parameter>> callableParameters,
+      SourceSpan span)
       implements AstNode {
     public Parameter {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      callableParameters =
+          Objects.requireNonNull(callableParameters, "callableParameters").map(List::copyOf);
       Objects.requireNonNull(span, "span");
+    }
+
+    public Parameter(TypeRef type, String name, SourceSpan nameSpan, SourceSpan span) {
+      this(type, name, nameSpan, Optional.empty(), span);
     }
   }
 
@@ -181,7 +213,7 @@ public final class Syntax {
 
   public record FunctionDecl(
       Visibility visibility,
-      TypeRef returnType,
+      Optional<TypeRef> returnType,
       String name,
       SourceSpan nameSpan,
       List<TypeParameter> typeParameters,
@@ -190,7 +222,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public FunctionDecl {
-      Objects.requireNonNull(returnType, "returnType");
+      returnType = Objects.requireNonNull(returnType, "returnType");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);
@@ -236,6 +268,7 @@ public final class Syntax {
       Optional<TypeRef> type,
       String name,
       SourceSpan nameSpan,
+      Optional<List<Parameter>> callableParameters,
       Expression initializer,
       SourceSpan span)
       implements Statement {
@@ -243,8 +276,19 @@ public final class Syntax {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      callableParameters =
+          Objects.requireNonNull(callableParameters, "callableParameters").map(List::copyOf);
       Objects.requireNonNull(initializer, "initializer");
       Objects.requireNonNull(span, "span");
+    }
+
+    public VariableDecl(
+        Optional<TypeRef> type,
+        String name,
+        SourceSpan nameSpan,
+        Expression initializer,
+        SourceSpan span) {
+      this(type, name, nameSpan, Optional.empty(), initializer, span);
     }
   }
 
@@ -342,8 +386,46 @@ public final class Syntax {
           Binary,
           Call,
           Member,
+          Lambda,
+          MethodReference,
           Index,
           SwitchExpression {}
+
+  public record LambdaParameter(
+      Optional<TypeRef> type, String name, SourceSpan nameSpan, SourceSpan span)
+      implements AstNode {
+    public LambdaParameter {
+      type = Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record Lambda(
+      Optional<TypeRef> returnType,
+      List<LambdaParameter> parameters,
+      List<Statement> body,
+      SourceSpan span)
+      implements Expression {
+    public Lambda {
+      returnType = Objects.requireNonNull(returnType, "returnType");
+      parameters = List.copyOf(parameters);
+      body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record MethodReference(
+      Expression receiver, String name, SourceSpan nameSpan, SourceSpan span)
+      implements Expression {
+    public MethodReference {
+      Objects.requireNonNull(receiver, "receiver");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      Objects.requireNonNull(span, "span");
+    }
+  }
 
   public sealed interface Pattern extends AstNode
       permits VariantPattern,

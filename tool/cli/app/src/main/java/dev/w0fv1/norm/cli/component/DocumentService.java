@@ -32,6 +32,7 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.DocumentFormattingParams;
 import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.InsertTextFormat;
@@ -222,6 +223,25 @@ final class DocumentService implements TextDocumentService {
     } catch (IllegalArgumentException exception) {
       return CompletableFuture.failedFuture(exception);
     }
+  }
+
+  @Override
+  public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
+    DocumentState state = state(params.getTextDocument().getUri());
+    if (state == null) return CompletableFuture.completedFuture(List.of());
+    return CompletableFuture.completedFuture(
+        language
+            .format(state.source())
+            .filter(formatted -> !formatted.equals(state.source().text()))
+            .map(
+                formatted ->
+                    List.of(
+                        new TextEdit(
+                            range(
+                                state.source().positionAt(0),
+                                state.source().positionAt(state.source().length())),
+                            formatted)))
+            .orElse(List.of()));
   }
 
   private void update(String uri, int version, String text) {

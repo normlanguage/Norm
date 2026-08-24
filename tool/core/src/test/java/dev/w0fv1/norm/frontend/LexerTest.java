@@ -125,16 +125,22 @@ final class LexerTest {
   }
 
   @Test
-  void supportsNestedBlockComments() {
+  void treatsCommentMarkersAsOperators() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =
-        new Lexer(
-                SourceFile.of(Path.of("comments.norm"), "/* outer /* inner */ done */ Void"),
-                diagnostics)
-            .lex();
+        new Lexer(SourceFile.of(Path.of("operators.norm"), "// /* */"), diagnostics).lex();
 
     assertFalse(diagnostics.hasErrors());
-    assertEquals(TokenKind.IDENTIFIER, tokens.getFirst().kind());
+    assertEquals(
+        List.of(
+            TokenKind.SLASH,
+            TokenKind.SLASH,
+            TokenKind.SLASH,
+            TokenKind.STAR,
+            TokenKind.STAR,
+            TokenKind.SLASH,
+            TokenKind.END_OF_FILE),
+        tokens.stream().map(Token::kind).toList());
   }
 
   @Test

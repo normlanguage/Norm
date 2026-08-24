@@ -4,9 +4,11 @@ import dev.w0fv1.norm.bound.BoundArgument;
 import dev.w0fv1.norm.bound.BoundBlock;
 import dev.w0fv1.norm.bound.BoundCall;
 import dev.w0fv1.norm.bound.BoundCallable;
+import dev.w0fv1.norm.bound.BoundClosure;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundExpression;
 import dev.w0fv1.norm.bound.BoundIntrinsic;
+import dev.w0fv1.norm.bound.BoundInvoke;
 import dev.w0fv1.norm.bound.BoundIteration;
 import dev.w0fv1.norm.bound.BoundLocalId;
 import dev.w0fv1.norm.bound.BoundPattern;
@@ -60,6 +62,11 @@ final class BoundCoreBodyConverter {
     declaration
         .thisLocal()
         .ifPresent(value -> locals.add(value, receiverType.orElseThrow(), CoreLocal.Kind.RECEIVER));
+    declaration
+        .captures()
+        .forEach(
+            capture ->
+                locals.add(capture.id(), types.convert(capture.type()), CoreLocal.Kind.CAPTURE));
     declaration
         .parameters()
         .forEach(
@@ -147,6 +154,14 @@ final class BoundCoreBodyConverter {
         scanExpression(index.index());
       }
       case BoundExpression.CopyObject copied -> scanExpression(copied.receiver());
+      case BoundClosure closure -> {
+        closure.receiver().ifPresent(this::scanExpression);
+        closure.captures().forEach(this::scanExpression);
+      }
+      case BoundInvoke invoke -> {
+        scanExpression(invoke.callee());
+        invoke.arguments().forEach(argument -> scanExpression(argument.value()));
+      }
       case BoundExpression.InterfaceCall call -> {
         scanExpression(call.receiver());
         call.arguments().forEach(argument -> scanExpression(argument.value()));
@@ -300,6 +315,20 @@ final class BoundCoreBodyConverter {
       case BoundExpression.CopyObject copied ->
           new CoreExpression.CopyObject(
               node, convert(copied.receiver()), copied.nullSafe(), types.convert(copied.type()));
+      case BoundClosure closure ->
+          new CoreExpression.Closure(
+              node,
+              reference(node, closure.target().value()),
+              closure.receiver().map(this::convert),
+              closure.captures().stream().map(this::convert).toList(),
+              closure.reifiedArguments().stream().map(this::runtimeType).toList(),
+              types.convert(closure.type()));
+      case BoundInvoke invoke ->
+          new CoreExpression.Invoke(
+              node,
+              convert(invoke.callee()),
+              arguments(invoke.arguments()),
+              types.convert(invoke.type()));
       case BoundExpression.InterfaceCall call ->
           new CoreExpression.InterfaceCall(
               node,

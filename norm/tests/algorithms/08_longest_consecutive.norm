@@ -4,7 +4,9 @@ import std.testing.expectedOutputLines
 
 Integer longestConsecutive(Array<Integer> values) {
   Set<Integer> numbers = Set<>()
-  for Integer value : values { numbers.add(value) }
+  for Integer value : values {
+    numbers.add(value)
+  }
   Integer best = 0
   for Integer value : values {
     if !numbers.contains(value - 1) {
@@ -20,13 +22,7 @@ Integer longestConsecutive(Array<Integer> values) {
   return best
 }
 
-Void main() {
-  printLines([
-    longestConsecutive([100, 4, 200, 1, 3, 2]),
-    longestConsecutive([9, 9, 9])
-  ])
-  expectedOutputLines([
-    "4",
-    "1"
-  ])
+main() {
+  printLines([longestConsecutive([100, 4, 200, 1, 3, 2]), longestConsecutive([9, 9, 9])])
+  expectedOutputLines(["4", "1"])
 }

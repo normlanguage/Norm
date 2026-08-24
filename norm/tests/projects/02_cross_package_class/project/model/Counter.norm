@@ -1,9 +1,9 @@
 package project.model
 
-public class Counter {
+class Counter {
   Integer value
 
-  Void add(Integer amount) {
+  add(Integer amount) {
     value = value + amount
   }
 }

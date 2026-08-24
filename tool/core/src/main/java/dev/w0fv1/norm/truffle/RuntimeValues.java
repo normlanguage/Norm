@@ -30,6 +30,14 @@ final class RuntimeValues {
 
   private RuntimeValues() {}
 
+  record Closure(CallTarget target, Object receiver, Object[] captures, Object[] reifiedArguments) {
+    Closure {
+      Objects.requireNonNull(target, "target");
+      captures = captures.clone();
+      reifiedArguments = reifiedArguments.clone();
+    }
+  }
+
   static Object copy(Object value) {
     return switch (value) {
       case ArrayValue array -> new ArrayValue(array.type, copyList(array.values));
@@ -374,39 +382,43 @@ final class RuntimeValues {
     return value == null ? "Void" : value.toString();
   }
 
+  static CoreType runtimeType(Object value) {
+    return switch (value) {
+      case Integer ignored -> CoreType.INTEGER;
+      case Long ignored -> CoreType.LONG;
+      case Float ignored -> CoreType.FLOAT;
+      case Double ignored -> CoreType.DOUBLE;
+      case Boolean ignored -> CoreType.BOOLEAN;
+      case String ignored -> CoreType.STRING;
+      case CodePointValue ignored -> CoreType.CODE_POINT;
+      case ArrayValue item -> item.type;
+      case ListValue item -> item.type;
+      case MapValue item -> item.type;
+      case SetValue item -> item.type;
+      case StackValue item -> item.type;
+      case QueueValue item -> item.type;
+      case DequeValue item -> item.type;
+      case PairValue item -> item.type;
+      case RangeValue ignored ->
+          new CoreType.Declared(
+              new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Range")),
+              List.of(),
+              CoreValueCategory.VALUE,
+              CoreNullability.NON_NULL);
+      case BuilderValue ignored ->
+          new CoreType.Declared(
+              new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.StringBuilder")),
+              List.of(),
+              CoreValueCategory.IDENTITY,
+              CoreNullability.NON_NULL);
+      case NativeIteratorValue item -> item.type;
+      case ObjectValue item -> item.type;
+      default -> throw new IllegalStateException("interface receiver has no builtin type");
+    };
+  }
+
   static BuiltinTypeId builtinType(Object value) {
-    CoreType type =
-        switch (value) {
-          case Integer ignored -> CoreType.INTEGER;
-          case Long ignored -> CoreType.LONG;
-          case Float ignored -> CoreType.FLOAT;
-          case Double ignored -> CoreType.DOUBLE;
-          case Boolean ignored -> CoreType.BOOLEAN;
-          case String ignored -> CoreType.STRING;
-          case CodePointValue ignored -> CoreType.CODE_POINT;
-          case ArrayValue item -> item.type;
-          case ListValue item -> item.type;
-          case MapValue item -> item.type;
-          case SetValue item -> item.type;
-          case StackValue item -> item.type;
-          case QueueValue item -> item.type;
-          case DequeValue item -> item.type;
-          case PairValue item -> item.type;
-          case RangeValue ignored ->
-              new CoreType.Declared(
-                  new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Range")),
-                  List.of(),
-                  CoreValueCategory.VALUE,
-                  CoreNullability.NON_NULL);
-          case BuilderValue ignored ->
-              new CoreType.Declared(
-                  new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.StringBuilder")),
-                  List.of(),
-                  CoreValueCategory.IDENTITY,
-                  CoreNullability.NON_NULL);
-          case NativeIteratorValue item -> item.type;
-          default -> throw new IllegalStateException("interface receiver has no builtin type");
-        };
+    CoreType type = runtimeType(value);
     if (!(type instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.Builtin builtin)) {
       throw new IllegalStateException("interface receiver has no builtin type");
@@ -718,7 +730,24 @@ final class RuntimeValues {
   }
 
   sealed interface DispatchTarget permits DispatchTarget.Callable, DispatchTarget.Intrinsic {
-    record Callable(CallTarget target) implements DispatchTarget {}
+    record Callable(
+        CallTarget target,
+        List<CoreType> receiverTypeArguments,
+        boolean specializedReceiverTypeArguments)
+        implements DispatchTarget {
+      public Callable {
+        Objects.requireNonNull(target, "target");
+        receiverTypeArguments = List.copyOf(receiverTypeArguments);
+      }
+
+      Callable(CallTarget target) {
+        this(target, List.of(), false);
+      }
+
+      Callable(CallTarget target, List<CoreType> receiverTypeArguments) {
+        this(target, receiverTypeArguments, true);
+      }
+    }
 
     record Intrinsic(IntrinsicId intrinsic) implements DispatchTarget {}
   }

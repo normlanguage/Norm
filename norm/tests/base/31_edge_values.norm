@@ -1,7 +1,7 @@
 import std.io.printLines
 import std.testing.expectedOutputLines
 
-Void main() {
+main() {
   Long maximum = 9223372036854775807
   Long minimum = -9223372036854775807
   Array<Integer> array = []
@@ -10,45 +10,48 @@ Void main() {
   Set<Integer> set = Set<>()
   Range emptyRange = range(start: 4, end: 4)
   StringBuilder builder = StringBuilder()
-  printLines([
-    maximum,
-    minimum,
-    "".byteSize(),
-    "".codePointSize(),
-    "".graphemeSize(),
-    array.size(),
-    list.size(),
-    map.size(),
-    set.size(),
-    emptyRange.size(),
-    builder.size()
-  ])
+  printLines(
+    [
+      maximum,
+      minimum,
+      "".byteSize(),
+      "".codePointSize(),
+      "".graphemeSize(),
+      array.size(),
+      list.size(),
+      map.size(),
+      set.size(),
+      emptyRange.size(),
+      builder.size()
+    ]
+  )
   map.put(key: "edge", value: 9)
   for Pair<String, Integer> entry : map {
-    printLines([
-      entry.first,
-      entry.second
-    ])
+    printLines([entry.first, entry.second])
   }
   Stack<Integer> stack = Stack<>()
   stack.push(3)
   stack.push(7)
-  for Integer value : stack { printLine(value) }
-  expectedOutputLines([
-    "9223372036854775807",
-    "-9223372036854775807",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "edge",
-    "9",
-    "7",
-    "3"
-  ])
+  for Integer value : stack {
+    printLine(value)
+  }
+  expectedOutputLines(
+    [
+      "9223372036854775807",
+      "-9223372036854775807",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "edge",
+      "9",
+      "7",
+      "3"
+    ]
+  )
 }

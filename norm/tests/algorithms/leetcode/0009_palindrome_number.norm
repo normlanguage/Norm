@@ -2,7 +2,9 @@ import std.io.printLines
 import std.testing.expectedOutputLines
 
 Boolean isPalindrome(Integer value) {
-  if value < 0 || (value % 10 == 0 && value != 0) { return false }
+  if value < 0 || value % 10 == 0 && value != 0 {
+    return false
+  }
   Integer reversed = 0
   for value > reversed {
     reversed = reversed * 10 + value % 10
@@ -11,15 +13,7 @@ Boolean isPalindrome(Integer value) {
   return value == reversed || value == reversed / 10
 }
 
-Void main() {
-  printLines([
-    isPalindrome(121),
-    isPalindrome(-121),
-    isPalindrome(10)
-  ])
-  expectedOutputLines([
-    "true",
-    "false",
-    "false"
-  ])
+main() {
+  printLines([isPalindrome(121), isPalindrome(-121), isPalindrome(10)])
+  expectedOutputLines(["true", "false", "false"])
 }

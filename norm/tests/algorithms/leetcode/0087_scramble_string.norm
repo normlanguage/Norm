@@ -1,16 +1,40 @@
-Boolean sameCounts(Array<CodePoint> left, Array<CodePoint> right, Integer first, Integer second, Integer length) {
+Boolean sameCounts(
+  Array<CodePoint> left,
+  Array<CodePoint> right,
+  Integer first,
+  Integer second,
+  Integer length
+) {
   Map<CodePoint, Integer> counts = Map<>()
   for offset : range(start: 0, end: length) {
     CodePoint a = left[first + offset]
     CodePoint b = right[second + offset]
-    if counts.containsKey(a) { counts.put(key: a, value: counts[a] + 1) } else { counts.put(key: a, value: 1) }
-    if counts.containsKey(b) { counts.put(key: b, value: counts[b] - 1) } else { counts.put(key: b, value: -1) }
+    if counts.containsKey(a) {
+      counts.put(key: a, value: counts[a] + 1)
+    } else {
+      counts.put(key: a, value: 1)
+    }
+    if counts.containsKey(b) {
+      counts.put(key: b, value: counts[b] - 1)
+    } else {
+      counts.put(key: b, value: -1)
+    }
   }
-  for Pair<CodePoint, Integer> entry : counts { if entry.second != 0 { return false } }
+  for Pair<CodePoint, Integer> entry : counts {
+    if entry.second != 0 {
+      return false
+    }
+  }
   return true
 }
 
-Boolean scramble(Array<CodePoint> left, Array<CodePoint> right, Integer first, Integer second, Integer length) {
+Boolean scramble(
+  Array<CodePoint> left,
+  Array<CodePoint> right,
+  Integer first,
+  Integer second,
+  Integer length
+) {
   Boolean identical = true
   for offset : range(start: 0, end: length) {
     if left[first + offset] != right[second + offset] {
@@ -18,11 +42,39 @@ Boolean scramble(Array<CodePoint> left, Array<CodePoint> right, Integer first, I
       break
     }
   }
-  if identical { return true }
-  if !sameCounts(left, right, first, second, length) { return false }
+  if identical {
+    return true
+  }
+  if !sameCounts(left, right, first, second, length) {
+    return false
+  }
   for split : range(start: 1, end: length) {
-    if scramble(left: left, right: right, first: first, second: second, length: split) && scramble(left: left, right: right, first: first + split, second: second + split, length: length - split) { return true }
-    if scramble(left: left, right: right, first: first, second: second + length - split, length: split) && scramble(left: left, right: right, first: first + split, second: second, length: length - split) { return true }
+    if scramble(left: left, right: right, first: first, second: second, length: split) &&
+      scramble(
+        left: left,
+        right: right,
+        first: first + split,
+        second: second + split,
+        length: length - split
+      ) {
+      return true
+    }
+    if scramble(
+      left: left,
+      right: right,
+      first: first,
+      second: second + length - split,
+      length: split
+    ) &&
+      scramble(
+        left: left,
+        right: right,
+        first: first + split,
+        second: second,
+        length: length - split
+      ) {
+      return true
+    }
   }
   return false
 }
@@ -30,10 +82,11 @@ Boolean scramble(Array<CodePoint> left, Array<CodePoint> right, Integer first, I
 Boolean isScramble(String leftValue, String rightValue) {
   Array<CodePoint> left = leftValue.codePoints()
   Array<CodePoint> right = rightValue.codePoints()
-  return left.size() == right.size() && scramble(left: left, right: right, first: 0, second: 0, length: left.size())
+  return left.size() == right.size() &&
+    scramble(left: left, right: right, first: 0, second: 0, length: left.size())
 }
 
-Void main() {
+main() {
   printLine(isScramble(leftValue: "great", rightValue: "rgeat"))
   expectedOutputLine("true")
 }

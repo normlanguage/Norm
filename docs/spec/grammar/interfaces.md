@@ -8,7 +8,7 @@ interface Formatter<T> {
 }
 
 class PointFormatter implements Formatter<Point> {
-    public String format(Point value) {
+    String format(Point value) {
         return "point"
     }
 }
@@ -26,6 +26,6 @@ interface Ordered<T> extends Comparable<T>, Equatable<T> {
 }
 ```
 
-初版 interface 方法只声明签名，不提供默认实现。通过 interface 调用方法时，运行时按值的具体名义类型选择其显式实现。
+interface 方法可以声明签名或提供方法体。具体类型未覆盖方法时使用唯一适用的默认实现；冲突的继承默认实现必须由具体类型显式消解。
 
 运行时类型检查 `value is InterfaceName` 使用声明关系，不检查成员形状。

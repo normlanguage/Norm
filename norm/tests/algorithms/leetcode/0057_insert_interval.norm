@@ -14,28 +14,26 @@ List<Array<Integer>> insert(List<Array<Integer>> intervals, Array<Integer> added
       }
       result.add(interval)
     } else {
-      if interval[0] < added[0] { added[0] = interval[0] }
-      if interval[1] > added[1] { added[1] = interval[1] }
+      if interval[0] < added[0] {
+        added[0] = interval[0]
+      }
+      if interval[1] > added[1] {
+        added[1] = interval[1]
+      }
     }
   }
-  if !placed { result.add(added) }
+  if !placed {
+    result.add(added)
+  }
   return result
 }
 
-Void main() {
+main() {
   List<Array<Integer>> intervals = List<>()
-  intervals.add([1,3])
-  intervals.add([6,9])
-  for Array<Integer> interval : insert(intervals, added: [2,5]) {
-    printLines([
-      interval[0],
-      interval[1]
-    ])
+  intervals.add([1, 3])
+  intervals.add([6, 9])
+  for Array<Integer> interval : insert(intervals, added: [2, 5]) {
+    printLines([interval[0], interval[1]])
   }
-  expectedOutputLines([
-    "1",
-    "5",
-    "6",
-    "9"
-  ])
+  expectedOutputLines(["1", "5", "6", "9"])
 }

@@ -23,12 +23,12 @@ final class ExpectedTypeResolver {
           inStatements(
               model,
               function.body(),
-              model.typeOf(function.returnType()),
+              model.symbolOf(function.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type),
               offset,
               previous == TokenKind.BREAK);
       if (expected.isPresent()) return expected;
       if (previous == TokenKind.RETURN) {
-        return model.typeOf(function.returnType());
+        return model.symbolOf(function.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type);
       }
     }
     for (Syntax.ClassDecl declaration : document.syntax().classes()) {
@@ -38,13 +38,28 @@ final class ExpectedTypeResolver {
             inStatements(
                 model,
                 method.body(),
-                model.typeOf(method.returnType()),
+                model.symbolOf(method.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type),
                 offset,
                 previous == TokenKind.BREAK);
         if (expected.isPresent()) return expected;
         if (previous == TokenKind.RETURN) {
-          return model.typeOf(method.returnType());
+          return model.symbolOf(method.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type);
         }
+      }
+    }
+    for (Syntax.InterfaceDecl declaration : document.syntax().interfaces()) {
+      for (Syntax.InterfaceMethodDecl method : declaration.methods()) {
+        if (method.body().isEmpty() || !contains(method.span(), offset)) continue;
+        Optional<SemanticType> returnType = model.typeOf(method.returnType());
+        Optional<SemanticType> expected =
+            inStatements(
+                model,
+                method.body().orElseThrow(),
+                returnType,
+                offset,
+                previous == TokenKind.BREAK);
+        if (expected.isPresent()) return expected;
+        if (previous == TokenKind.RETURN) return returnType;
       }
     }
     Optional<CallSite> call = callSites.resolve(document, offset);
@@ -163,6 +178,27 @@ final class ExpectedTypeResolver {
       }
       return Optional.empty();
     }
+    if (expression instanceof Syntax.Lambda lambda) {
+      Optional<SemanticType> lambdaType =
+          model
+              .typeOf(lambda.span())
+              .filter(SemanticType::isFunction)
+              .or(() -> expectedType.filter(SemanticType::isFunction));
+      Optional<SemanticType> lambdaReturn = lambdaType.map(SemanticType::functionReturnType);
+      for (int index = 0; index < lambda.body().size(); index++) {
+        Syntax.Statement statement = lambda.body().get(index);
+        if (!contains(statement.span(), offset)) continue;
+        if (index == lambda.body().size() - 1
+            && statement instanceof Syntax.ExpressionStatement result) {
+          return inExpression(
+                  model, result.expression(), lambdaReturn, lambdaReturn, offset, incompleteBreak)
+              .or(() -> lambdaReturn);
+        }
+        return inStatement(
+            model, statement, lambdaReturn, Optional.empty(), offset, incompleteBreak);
+      }
+      return Optional.empty();
+    }
     if (expression instanceof Syntax.Call call) {
       for (int argumentIndex = 0; argumentIndex < call.arguments().size(); argumentIndex++) {
         int currentArgument = argumentIndex;
@@ -204,6 +240,10 @@ final class ExpectedTypeResolver {
     if (expression instanceof Syntax.Member member) {
       return inExpression(
           model, member.receiver(), returnType, Optional.empty(), offset, incompleteBreak);
+    }
+    if (expression instanceof Syntax.MethodReference reference) {
+      return inExpression(
+          model, reference.receiver(), returnType, Optional.empty(), offset, incompleteBreak);
     }
     if (expression instanceof Syntax.Index index) {
       Optional<SemanticType> nested =

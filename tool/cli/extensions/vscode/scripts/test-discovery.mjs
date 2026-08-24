@@ -32,6 +32,15 @@ try {
   mkdirSync(dirname(expected), { recursive: true });
   writeFileSync(expected, '');
   chmodSync(expected, 0o755);
+  const staleServer = join(
+    developmentExtension,
+    'server',
+    'bin',
+    process.platform === 'win32' ? 'norm.bat' : 'norm',
+  );
+  mkdirSync(dirname(staleServer), { recursive: true });
+  writeFileSync(staleServer, '');
+  chmodSync(staleServer, 0o755);
   assert.equal(resolveCliCommand('', repository, developmentExtension), expected);
   assert.equal(resolveCliCommand(expected, repository, developmentExtension), expected);
   assert.equal(
