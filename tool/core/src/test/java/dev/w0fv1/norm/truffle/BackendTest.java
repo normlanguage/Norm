@@ -2,6 +2,8 @@ package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -108,7 +110,35 @@ final class BackendTest {
       runner.run(program, new PrintWriter(new StringWriter()));
     }
 
-    assertTrue(backend.cachedArtifacts() <= 2);
+    assertEquals(2, backend.cachedArtifacts());
+  }
+
+  @Test
+  void evictsTheLeastRecentlyUsedArtifact() {
+    TruffleExecutionBackend backend = new TruffleExecutionBackend(2);
+    var first =
+        new Compiler()
+            .compile(SourceFile.of(Path.of("first.norm"), "Void main() { printLine(1) }"))
+            .program()
+            .orElseThrow();
+    var second =
+        new Compiler()
+            .compile(SourceFile.of(Path.of("second.norm"), "Void main() { printLine(2) }"))
+            .program()
+            .orElseThrow();
+    var third =
+        new Compiler()
+            .compile(SourceFile.of(Path.of("third.norm"), "Void main() { printLine(3) }"))
+            .program()
+            .orElseThrow();
+
+    ExecutableProgram firstArtifact = backend.compile(null, first.coreCompilation());
+    ExecutableProgram secondArtifact = backend.compile(null, second.coreCompilation());
+    assertSame(firstArtifact, backend.compile(null, first.coreCompilation()));
+    backend.compile(null, third.coreCompilation());
+
+    assertSame(firstArtifact, backend.compile(null, first.coreCompilation()));
+    assertNotSame(secondArtifact, backend.compile(null, second.coreCompilation()));
   }
 
   @Test

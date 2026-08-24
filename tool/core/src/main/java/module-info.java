@@ -1,6 +1,5 @@
 @SuppressWarnings("module")
 module dev.w0fv1.norm.core {
-  requires com.github.benmanes.caffeine;
   requires org.graalvm.polyglot;
   requires org.graalvm.truffle;
 

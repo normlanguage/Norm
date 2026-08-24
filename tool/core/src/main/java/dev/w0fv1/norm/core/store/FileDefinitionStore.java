@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 
@@ -29,6 +31,7 @@ public final class FileDefinitionStore implements DefinitionStore {
   private static final long DEFAULT_MAXIMUM_BYTES = 512L * 1024 * 1024;
   private static final int LOCK_STRIPE_COUNT = 256;
   private static final int MAINTENANCE_LOCK_STRIPE_COUNT = 64;
+  private static final int ATOMIC_MOVE_ATTEMPTS = 100;
   private static final Pattern HASH = Pattern.compile("[0-9a-f]{64}");
   private static final ReentrantLock[] PROCESS_LOCKS = new ReentrantLock[LOCK_STRIPE_COUNT];
   private static final ReentrantLock[] MAINTENANCE_PROCESS_LOCKS =
@@ -102,11 +105,7 @@ public final class FileDefinitionStore implements DefinitionStore {
                           }
                           channel.force(true);
                         }
-                        Files.move(
-                            temporary,
-                            target,
-                            StandardCopyOption.ATOMIC_MOVE,
-                            StandardCopyOption.REPLACE_EXISTING);
+                        moveAtomically(temporary, target, true);
                       } finally {
                         Files.deleteIfExists(temporary);
                       }
@@ -241,7 +240,7 @@ public final class FileDefinitionStore implements DefinitionStore {
         }
         channel.force(true);
       }
-      Files.move(temporary, policyPath, StandardCopyOption.ATOMIC_MOVE);
+      moveAtomically(temporary, policyPath, false);
     } finally {
       Files.deleteIfExists(temporary);
     }
@@ -309,6 +308,27 @@ public final class FileDefinitionStore implements DefinitionStore {
     }
     retainAccessHints(livePaths);
     return new StoreSnapshot(entries, bytes);
+  }
+
+  private static void moveAtomically(Path source, Path target, boolean replaceExisting)
+      throws IOException {
+    AccessDeniedException lastFailure = null;
+    for (int attempt = 0; attempt < ATOMIC_MOVE_ATTEMPTS; attempt++) {
+      try {
+        if (replaceExisting) {
+          Files.move(
+              source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } else {
+          Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+        }
+        return;
+      } catch (AccessDeniedException exception) {
+        lastFailure = exception;
+        if (Thread.currentThread().isInterrupted()) throw exception;
+        LockSupport.parkNanos(1_000_000);
+      }
+    }
+    throw Objects.requireNonNull(lastFailure);
   }
 
   private synchronized void recordAccess(Path path) {

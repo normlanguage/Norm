@@ -1,7 +1,5 @@
 package dev.w0fv1.norm.truffle;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.oracle.truffle.api.TruffleStackTrace;
 import com.oracle.truffle.api.TruffleStackTraceElement;
 import com.oracle.truffle.api.nodes.Node;
@@ -14,12 +12,15 @@ import dev.w0fv1.norm.execution.GuestStackFrame;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public final class TruffleExecutionBackend implements ExecutionBackend {
   private static final int DEFAULT_MAXIMUM_ARTIFACTS = 256;
-  private final Cache<ArtifactId, ExecutableProgram> artifacts;
+  private final int maximumArtifacts;
+  private final Map<ArtifactId, ExecutableProgram> artifacts;
 
   public TruffleExecutionBackend() {
     this(DEFAULT_MAXIMUM_ARTIFACTS);
@@ -29,7 +30,8 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     if (maximumArtifacts < 1) {
       throw new IllegalArgumentException("maximum artifacts must be positive");
     }
-    artifacts = Caffeine.newBuilder().maximumSize(maximumArtifacts).build();
+    this.maximumArtifacts = maximumArtifacts;
+    artifacts = new LinkedHashMap<>(16, 0.75f, true);
   }
 
   @Override
@@ -45,16 +47,22 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     }
   }
 
-  ExecutableProgram compile(Language language, CoreCompilation compilation) {
+  synchronized ExecutableProgram compile(Language language, CoreCompilation compilation) {
     String backendAbi =
         language == null ? "norm-truffle-standalone-v1" : "norm-truffle-language-v1";
     ArtifactId artifact = ArtifactId.forCompilation(compilation, backendAbi);
-    return artifacts.get(artifact, ignored -> new Lowerer(language).lower(compilation));
+    ExecutableProgram executable = artifacts.get(artifact);
+    if (executable != null) return executable;
+    executable = new Lowerer(language).lower(compilation);
+    artifacts.put(artifact, executable);
+    if (artifacts.size() > maximumArtifacts) {
+      artifacts.remove(artifacts.keySet().iterator().next());
+    }
+    return executable;
   }
 
-  int cachedArtifacts() {
-    artifacts.cleanUp();
-    return Math.toIntExact(artifacts.estimatedSize());
+  synchronized int cachedArtifacts() {
+    return artifacts.size();
   }
 
   private static NormExecutionException translate(NormGuestException exception) {
