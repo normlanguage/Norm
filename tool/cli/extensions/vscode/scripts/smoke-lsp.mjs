@@ -160,7 +160,9 @@ function readMessages() {
         message.result?.[0]?.newText !==
         'Module(\n  name: "sample",\n  version: 1,\n  exports: []\n)\n'
       ) {
-        return finish(new Error(`Formatting request failed: ${JSON.stringify(message)}`));
+        return finish(
+          new Error(`Formatting request failed: ${JSON.stringify(message)} stderr: ${stderr}`),
+        );
       }
       send({ jsonrpc: '2.0', id: 5, method: 'shutdown', params: null });
     } else if (message.id === 5) {

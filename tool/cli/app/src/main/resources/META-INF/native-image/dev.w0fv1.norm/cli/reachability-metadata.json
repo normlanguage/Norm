@@ -2856,6 +2856,12 @@
           ]
         },
         {
+          "name": "formatting",
+          "parameterTypes": [
+            "org.eclipse.lsp4j.DocumentFormattingParams"
+          ]
+        },
+        {
           "name": "hover",
           "parameterTypes": [
             "org.eclipse.lsp4j.HoverParams"
