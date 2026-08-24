@@ -880,6 +880,26 @@
       "type": "org.eclipse.lsp4j.DocumentFormattingOptions"
     },
     {
+      "type": "org.eclipse.lsp4j.DocumentFormattingParams",
+      "fields": [
+        {
+          "name": "options"
+        },
+        {
+          "name": "textDocument"
+        },
+        {
+          "name": "workDoneToken"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.eclipse.lsp4j.DocumentHighlightCapabilities",
       "methods": [
         {
@@ -1900,6 +1920,15 @@
         },
         {
           "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.lsp4j.FormattingOptions",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
         }
       ]
     },
