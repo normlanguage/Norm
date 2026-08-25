@@ -8,6 +8,7 @@ tool/cli/extensions/**/out/
 tool/cli/extensions/**/.vscode-test/
 tool/cli/extensions/**/*.vsix
 tool/cli/extensions/**/bin/
+tool/cli/extensions/vscode/server/
 coverage/
 .nyc_output/
 *.tsbuildinfo
