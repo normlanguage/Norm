@@ -10,10 +10,13 @@ import {
 
 let client: LanguageClient | undefined;
 let lifecycle = Promise.resolve();
+let outputChannel: vscode.LogOutputChannel | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const runner = new NormRunner(context.extensionPath);
+  outputChannel = vscode.window.createOutputChannel('Norm Language Server', { log: true });
   context.subscriptions.push(
+    outputChannel,
     vscode.workspace.registerTextDocumentContentProvider('stdlib', {
       provideTextDocumentContent: (uri) => {
         if (!client) throw new Error('Norm language server is not running.');
@@ -80,6 +83,7 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
     options,
   };
   const clientOptions: LanguageClientOptions = {
+    outputChannel,
     documentSelector: [
       { scheme: 'file', language: 'norm' },
       { scheme: 'untitled', language: 'norm' },
@@ -96,7 +100,6 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
     serverOptions,
     clientOptions,
   );
-  context.subscriptions.push(client);
   client.setTrace(trace(configuration.get<string>('trace.server', 'off')));
   try {
     await client.start();
