@@ -20,16 +20,16 @@ public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
     return new ArtifactId(ContentHash.parse(text));
   }
 
-  public static ArtifactId forCompilation(CoreCompilation compilation, String backendAbi) {
-    Objects.requireNonNull(compilation, "compilation");
+  public static ArtifactId forArtifact(CoreArtifact artifact, String backendAbi) {
+    Objects.requireNonNull(artifact, "artifact");
     Objects.requireNonNull(backendAbi, "backendAbi");
     CanonicalWriter writer = new CanonicalWriter().writeTag("artifact").writeString(backendAbi);
-    writer.writeInt(compilation.program().groups().size());
-    compilation.program().groups().forEach(group -> writer.writeBytes(group.id().hash().bytes()));
-    writeOccurrence(writer, compilation.entryPoint());
-    writer.writeBytes(compilation.namespace().id().hash().bytes());
+    writer.writeInt(artifact.program().groups().size());
+    artifact.program().groups().forEach(group -> writer.writeBytes(group.id().hash().bytes()));
+    writeOccurrence(writer, artifact.entryPoint());
+    writer.writeBytes(artifact.namespace().id().hash().bytes());
     var bindings =
-        compilation.namespace().bindings().stream()
+        artifact.namespace().bindings().stream()
             .map(
                 binding ->
                     new ArtifactBinding(
@@ -49,7 +49,7 @@ public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
           writer.writeBytes(binding.canonicalBinding());
           writeOccurrence(writer, binding.occurrence());
         });
-    Map<String, SourceFile> documents = documents(compilation);
+    Map<String, SourceFile> documents = documents(artifact);
     Map<String, Integer> documentIndexes = new HashMap<>();
     writer.writeInt(documents.size());
     int documentIndex = 0;
@@ -60,8 +60,8 @@ public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
           .writeString(entry.getKey())
           .writeBytes(ContentHasher.hash(SOURCE_DOMAIN, CoreIdentityVersion.CURRENT, text).bytes());
     }
-    writer.writeInt(compilation.authoring().occurrences().size());
-    compilation
+    writer.writeInt(artifact.authoring().occurrences().size());
+    artifact
         .authoring()
         .occurrences()
         .forEach(
@@ -121,9 +121,9 @@ public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
     return writer.writeInt(index);
   }
 
-  private static Map<String, SourceFile> documents(CoreCompilation compilation) {
+  private static Map<String, SourceFile> documents(CoreArtifact artifact) {
     Map<String, SourceFile> documents = new TreeMap<>();
-    compilation.authoring().occurrences().stream()
+    artifact.authoring().occurrences().stream()
         .map(CoreDefinitionOccurrence::origin)
         .forEach(
             origin -> {

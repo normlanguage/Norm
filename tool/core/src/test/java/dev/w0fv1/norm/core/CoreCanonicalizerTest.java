@@ -2,6 +2,8 @@ package dev.w0fv1.norm.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +41,18 @@ final class CoreCanonicalizerTest {
     assertEquals(
         first.definitionIds().get(firstOrder.indexOf(0)),
         first.definitionIds().get(firstOrder.indexOf(2)));
+  }
+
+  @Test
+  void boundsCanonicalSearchForSymmetricComponents() {
+    List<List<Integer>> graph = List.of(List.of(1, 2), List.of(0, 2), List.of(0, 3), List.of(0, 1));
+
+    assertThrows(
+        CoreCanonicalizationBudgetExceededException.class,
+        () ->
+            canonicalize(
+                graph, List.of(0, 1, 2, 3), new CoreCanonicalizationControl(() -> false, 1)));
+    assertTrue(canonicalize(graph, List.of(0, 1, 2, 3)).metrics().searchBranches() > 1);
   }
 
   @Test
@@ -108,6 +122,13 @@ final class CoreCanonicalizerTest {
 
   private static CoreCanonicalizer.Result canonicalize(
       List<List<Integer>> graph, List<Integer> declarationOrder) {
+    return canonicalize(graph, declarationOrder, CoreCanonicalizationControl.standard());
+  }
+
+  private static CoreCanonicalizer.Result canonicalize(
+      List<List<Integer>> graph,
+      List<Integer> declarationOrder,
+      CoreCanonicalizationControl control) {
     int[] declarationByVertex = new int[graph.size()];
     for (int declaration = 0; declaration < declarationOrder.size(); declaration++) {
       declarationByVertex[declarationOrder.get(declaration)] = declaration;
@@ -142,6 +163,6 @@ final class CoreCanonicalizerTest {
               List.of(),
               new CoreBlock(0, calls)));
     }
-    return new CoreCanonicalizer().canonicalize(definitions);
+    return new CoreCanonicalizer().canonicalize(definitions, control);
   }
 }

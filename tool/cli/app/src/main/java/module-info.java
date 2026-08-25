@@ -1,6 +1,8 @@
 @SuppressWarnings("module")
 module dev.w0fv1.norm.cli {
   requires dev.w0fv1.norm.core;
+  requires dev.w0fv1.norm.execution;
+  requires dev.w0fv1.norm.truffle;
   requires org.eclipse.lsp4j;
   requires org.eclipse.lsp4j.jsonrpc;
   requires com.google.gson;

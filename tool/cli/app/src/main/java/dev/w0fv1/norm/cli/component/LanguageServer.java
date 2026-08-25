@@ -52,6 +52,7 @@ final class LanguageServer
   @Override
   public CompletableFuture<Object> shutdown() {
     exitCode = 0;
+    documents.close();
     return CompletableFuture.completedFuture(null);
   }
 

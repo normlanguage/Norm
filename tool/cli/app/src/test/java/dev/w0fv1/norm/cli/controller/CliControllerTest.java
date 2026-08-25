@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.cli.component.VersionProvider;
 import dev.w0fv1.norm.cli.value.ExitCode;
+import dev.w0fv1.norm.value.BuildMetadata;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -22,9 +22,8 @@ final class CliControllerTest {
     Result result = run("--version");
 
     assertEquals(ExitCode.SUCCESS, result.exitCode());
-    assertFalse(VersionProvider.current().contains("${"));
-    assertEquals(
-        "norm " + VersionProvider.current() + System.lineSeparator(), result.standardOut());
+    assertFalse(BuildMetadata.VERSION.contains("${"));
+    assertEquals("norm " + BuildMetadata.VERSION + System.lineSeparator(), result.standardOut());
     assertEquals("", result.standardError());
   }
 

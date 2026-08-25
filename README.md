@@ -8,7 +8,7 @@ Norm prioritizes explicit behavior, predictable semantics, strong typing, value 
 
 ## Status
 
-**V0.4 development line.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [0.4 implementation contract](https://w0fv1.github.io/norm/en/versions/0.4) defines this boundary.
+**Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [current implementation contract](https://w0fv1.github.io/norm/en/versions/0.7) defines this boundary.
 
 ## Build
 
@@ -33,7 +33,9 @@ After GitHub Pages deployment, the documentation is available at:
 ## Repository layout
 
 ```text
-tool/core/                    Java compiler and execution core
+tool/core/                    Compiler frontend and canonical Core IR
+tool/execution-api/           Backend-neutral execution contract
+tool/truffle-backend/         Truffle backend and runtime composition
 tool/cli/app/                 command-line application and language server
 tool/cli/extensions/          editor extensions
 norm/stdlib/                  standard library written in Norm

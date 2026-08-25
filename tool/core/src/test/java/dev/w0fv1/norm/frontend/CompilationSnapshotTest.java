@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.DefinitionGroupId;
 import dev.w0fv1.norm.core.store.DefinitionStore;
-import dev.w0fv1.norm.core.store.PutResult;
+import dev.w0fv1.norm.core.store.PutBatchResult;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
@@ -21,8 +21,13 @@ final class CompilationSnapshotTest {
   @Test
   void parsesUnchangedDocumentsOnceAndProjectsOneAnalysisIntoEveryDocument() {
     AtomicInteger parses = new AtomicInteger();
-    CompilationEnvironment environment = CompilationEnvironment.create(parses::incrementAndGet);
-    Compiler compiler = new Compiler(environment);
+    CompilerSession compiler =
+        new CompilerSession(
+            LanguageProfile.current(),
+            new dev.w0fv1.norm.core.store.InMemoryDefinitionStore(),
+            CompilerSessionCapacity.standard(),
+            parses::incrementAndGet,
+            () -> {});
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///project/library.norm"),
@@ -51,7 +56,7 @@ final class CompilationSnapshotTest {
     DefinitionStore store =
         new DefinitionStore() {
           @Override
-          public PutResult put(byte[] canonicalGroup) throws IOException {
+          public PutBatchResult putAll(List<byte[]> canonicalGroups) throws IOException {
             storeAccesses.incrementAndGet();
             throw new IOException("unexpected write");
           }
@@ -62,7 +67,13 @@ final class CompilationSnapshotTest {
             throw new IOException("unexpected read");
           }
         };
-    Compiler compiler = new Compiler(CompilationEnvironment.create(() -> {}, () -> {}, store));
+    CompilerSession compiler =
+        new CompilerSession(
+            LanguageProfile.current(),
+            store,
+            CompilerSessionCapacity.standard(),
+            () -> {},
+            () -> {});
     SourceFile source = SourceFile.of(DocumentId.of("untitled:authoring"), "Void main() {}");
 
     CompilationSnapshot snapshot = compiler.snapshot(CompilationRequest.single(source));

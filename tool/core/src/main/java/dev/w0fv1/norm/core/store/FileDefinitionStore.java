@@ -64,65 +64,79 @@ public final class FileDefinitionStore implements DefinitionStore {
   }
 
   @Override
-  public PutResult put(byte[] canonicalGroup) throws IOException {
-    Objects.requireNonNull(canonicalGroup, "canonicalGroup");
-    byte[] ownedGroup = canonicalGroup.clone();
-    DefinitionGroupId id = DefinitionHasher.hashGroup(ownedGroup);
-    if (ownedGroup.length > policy.maximumBytes()) {
-      return new PutResult(id, PutResult.Status.NOT_ADMITTED);
+  public PutBatchResult putAll(List<byte[]> canonicalGroups) throws IOException {
+    Objects.requireNonNull(canonicalGroups, "canonicalGroups");
+    List<PendingGroup> pendingGroups = new ArrayList<>(canonicalGroups.size());
+    for (byte[] canonicalGroup : canonicalGroups) {
+      Objects.requireNonNull(canonicalGroup, "canonicalGroup");
+      byte[] ownedGroup = canonicalGroup.clone();
+      DefinitionGroupId id = DefinitionHasher.hashGroup(ownedGroup);
+      pendingGroups.add(new PendingGroup(id, ownedGroup, path(id)));
     }
-    Path target = path(id);
+    if (pendingGroups.isEmpty()) return new PutBatchResult(List.of());
     return withMaintenanceLock(
         () -> {
-          Files.createDirectories(target.getParent());
-          PutResult result =
-              withShardLock(
-                  id,
-                  () -> {
-                    PutResult.Status status;
-                    Optional<byte[]> existing;
-                    try {
-                      existing = read(target, id);
-                    } catch (CorruptDefinitionException exception) {
-                      existing = Optional.empty();
-                    }
-                    if (existing.isPresent()) {
-                      requireSameContent(id, ownedGroup, existing.orElseThrow());
-                      status = PutResult.Status.REUSED;
-                    } else {
-                      Path temporary =
-                          Files.createTempFile(
-                              target.getParent(), "." + target.getFileName() + "-", ".tmp");
+          List<PutResult> results = new ArrayList<>(pendingGroups.size());
+          Path protectedPath = null;
+          for (PendingGroup pending : pendingGroups) {
+            if (pending.content().length > policy.maximumBytes()) {
+              results.add(new PutResult(pending.id(), PutResult.Status.NOT_ADMITTED));
+              continue;
+            }
+            Files.createDirectories(pending.path().getParent());
+            results.add(
+                withShardLock(
+                    pending.id(),
+                    () -> {
+                      PutResult.Status status;
+                      Optional<byte[]> existing;
                       try {
-                        try (FileChannel channel =
-                            FileChannel.open(
-                                temporary,
-                                StandardOpenOption.WRITE,
-                                StandardOpenOption.TRUNCATE_EXISTING)) {
-                          ByteBuffer content = ByteBuffer.wrap(ownedGroup);
-                          while (content.hasRemaining()) {
-                            channel.write(content);
-                          }
-                          channel.force(true);
-                        }
-                        moveAtomically(temporary, target, true);
-                      } finally {
-                        Files.deleteIfExists(temporary);
+                        existing = read(pending.path(), pending.id());
+                      } catch (CorruptDefinitionException exception) {
+                        existing = Optional.empty();
                       }
-                      status = PutResult.Status.STORED;
-                    }
-                    requireSameContent(
-                        id,
-                        ownedGroup,
-                        read(target, id)
-                            .orElseThrow(
-                                () ->
-                                    new IOException("definition disappeared during write: " + id)));
-                    recordAccess(target);
-                    return new PutResult(id, status);
-                  });
-          enforceCapacity(target);
-          return result;
+                      if (existing.isPresent()) {
+                        requireSameContent(pending.id(), pending.content(), existing.orElseThrow());
+                        status = PutResult.Status.REUSED;
+                      } else {
+                        Path temporary =
+                            Files.createTempFile(
+                                pending.path().getParent(),
+                                "." + pending.path().getFileName() + "-",
+                                ".tmp");
+                        try {
+                          try (FileChannel channel =
+                              FileChannel.open(
+                                  temporary,
+                                  StandardOpenOption.WRITE,
+                                  StandardOpenOption.TRUNCATE_EXISTING)) {
+                            ByteBuffer content = ByteBuffer.wrap(pending.content());
+                            while (content.hasRemaining()) {
+                              channel.write(content);
+                            }
+                            channel.force(true);
+                          }
+                          moveAtomically(temporary, pending.path(), true);
+                        } finally {
+                          Files.deleteIfExists(temporary);
+                        }
+                        status = PutResult.Status.STORED;
+                      }
+                      requireSameContent(
+                          pending.id(),
+                          pending.content(),
+                          read(pending.path(), pending.id())
+                              .orElseThrow(
+                                  () ->
+                                      new IOException(
+                                          "definition disappeared during write: " + pending.id())));
+                      recordAccess(pending.path());
+                      return new PutResult(pending.id(), status);
+                    }));
+            protectedPath = pending.path();
+          }
+          if (protectedPath != null) enforceCapacity(protectedPath);
+          return new PutBatchResult(results);
         });
   }
 
@@ -247,41 +261,37 @@ public final class FileDefinitionStore implements DefinitionStore {
   }
 
   private void enforceCapacity(Path protectedPath) throws IOException {
-    while (true) {
-      StoreSnapshot snapshot = scan();
-      if (snapshot.entries().size() <= policy.maximumGroups()
-          && snapshot.bytes() <= policy.maximumBytes()) {
-        return;
-      }
-      var oldest = new ArrayList<>(snapshot.entries());
-      oldest.sort(
-          Comparator.comparing((CacheEntry entry) -> entry.path().equals(protectedPath))
-              .thenComparingLong(CacheEntry::lastAccessed)
-              .thenComparing(entry -> entry.path().toString()));
-      int remainingGroups = snapshot.entries().size();
-      long remainingBytes = snapshot.bytes();
-      boolean attempted = false;
-      for (CacheEntry entry : oldest) {
-        if (remainingGroups <= policy.maximumGroups() && remainingBytes <= policy.maximumBytes())
-          break;
-        if (entry.path().equals(protectedPath)) continue;
-        withShardLock(
-            entry.id(),
-            () -> {
-              if (Files.isRegularFile(entry.path())) Files.delete(entry.path());
-              else if (Files.exists(entry.path())) {
-                throw new IOException("definition path is not a regular file: " + entry.path());
-              }
-              forgetAccess(entry.path());
-              return null;
-            });
-        attempted = true;
-        remainingGroups--;
-        remainingBytes -= entry.size();
-      }
-      if (!attempted) {
-        throw new IOException("definition store capacity cannot retain the admitted group");
-      }
+    StoreSnapshot snapshot = scan();
+    if (snapshot.entries().size() <= policy.maximumGroups()
+        && snapshot.bytes() <= policy.maximumBytes()) {
+      return;
+    }
+    var oldest = new ArrayList<>(snapshot.entries());
+    oldest.sort(
+        Comparator.comparing((CacheEntry entry) -> entry.path().equals(protectedPath))
+            .thenComparingLong(CacheEntry::lastAccessed)
+            .thenComparing(entry -> entry.path().toString()));
+    int remainingGroups = snapshot.entries().size();
+    long remainingBytes = snapshot.bytes();
+    for (CacheEntry entry : oldest) {
+      if (remainingGroups <= policy.maximumGroups() && remainingBytes <= policy.maximumBytes())
+        break;
+      if (entry.path().equals(protectedPath)) continue;
+      withShardLock(
+          entry.id(),
+          () -> {
+            if (Files.isRegularFile(entry.path())) Files.delete(entry.path());
+            else if (Files.exists(entry.path())) {
+              throw new IOException("definition path is not a regular file: " + entry.path());
+            }
+            forgetAccess(entry.path());
+            return null;
+          });
+      remainingGroups--;
+      remainingBytes -= entry.size();
+    }
+    if (remainingGroups > policy.maximumGroups() || remainingBytes > policy.maximumBytes()) {
+      throw new IOException("definition store capacity cannot retain the admitted group");
     }
   }
 
@@ -389,4 +399,6 @@ public final class FileDefinitionStore implements DefinitionStore {
   private record StoreSnapshot(List<CacheEntry> entries, long bytes) {}
 
   private record CacheEntry(DefinitionGroupId id, Path path, long size, long lastAccessed) {}
+
+  private record PendingGroup(DefinitionGroupId id, byte[] content, Path path) {}
 }

@@ -25,17 +25,21 @@ final class AnalyzerTypeArchitectureTest {
             "analyzeIndex",
             "assignmentTargetType");
 
-    for (Method method : Analyzer.class.getDeclaredMethods()) {
-      if (typedMethods.contains(method.getName())) {
-        assertEquals(SemanticType.class, method.getReturnType(), method::toString);
+    for (Class<?> layer = Analyzer.class; layer != Object.class; layer = layer.getSuperclass()) {
+      for (Method method : layer.getDeclaredMethods()) {
+        if (typedMethods.contains(method.getName())) {
+          assertEquals(SemanticType.class, method.getReturnType(), method::toString);
+        }
+        assertFalse(method.getName().equals("semanticType"), method::toString);
       }
-      assertFalse(method.getName().equals("semanticType"), method::toString);
     }
 
-    Field expectedReturnType = Analyzer.class.getDeclaredField("expectedReturnType");
+    Field expectedReturnType = AnalyzerState.class.getDeclaredField("expectedReturnType");
     assertEquals(SemanticType.class, expectedReturnType.getType());
-    assertFalse(
-        java.util.Arrays.stream(Analyzer.class.getDeclaredClasses())
-            .anyMatch(type -> type.getSimpleName().equals("DisplayTypeParser")));
+    for (Class<?> layer = Analyzer.class; layer != Object.class; layer = layer.getSuperclass()) {
+      assertFalse(
+          java.util.Arrays.stream(layer.getDeclaredClasses())
+              .anyMatch(type -> type.getSimpleName().equals("DisplayTypeParser")));
+    }
   }
 }

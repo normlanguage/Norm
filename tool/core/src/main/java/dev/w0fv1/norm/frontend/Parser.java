@@ -19,12 +19,18 @@ final class Parser {
   private final SourceFile source;
   private final List<Token> tokens;
   private final DiagnosticBag diagnostics;
+  private final CompilationGuard guard;
   private int current;
 
   Parser(SourceFile source, List<Token> tokens, DiagnosticBag diagnostics) {
+    this(source, tokens, diagnostics, CompilationGuard.unlimited());
+  }
+
+  Parser(SourceFile source, List<Token> tokens, DiagnosticBag diagnostics, CompilationGuard guard) {
     this.source = Objects.requireNonNull(source, "source");
     this.tokens = List.copyOf(tokens);
     this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
+    this.guard = Objects.requireNonNull(guard, "guard");
     if (tokens.isEmpty() || tokens.getLast().kind() != TokenKind.END_OF_FILE) {
       throw new IllegalArgumentException("token stream must end with END_OF_FILE");
     }
@@ -1093,6 +1099,7 @@ final class Parser {
   }
 
   private Token advance() {
+    guard.checkpoint();
     if (!isAtEnd()) {
       current++;
     }

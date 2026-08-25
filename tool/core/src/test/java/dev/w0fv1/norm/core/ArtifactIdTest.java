@@ -3,7 +3,7 @@ package dev.w0fv1.norm.core;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 final class ArtifactIdTest {
   @Test
   void includesTheNamespaceDefinitionMapping() {
-    CoreCompilation original =
-        new Compiler()
+    CoreArtifact original =
+        new CompilerSession()
             .compile(
                 SourceFile.of(
                     Path.of("artifact.norm"),
@@ -23,7 +23,8 @@ final class ArtifactIdTest {
                         + "Void main() { printLine(first()) }"))
             .program()
             .orElseThrow()
-            .coreCompilation();
+            .compilation()
+            .artifact();
     DefinitionId first = original.namespace().definition("", "first").orElseThrow();
     DefinitionId second = original.namespace().definition("", "second").orElseThrow();
     List<CoreBinding> swappedBindings =
@@ -44,18 +45,12 @@ final class ArtifactIdTest {
                         binding.exported()))
             .toList();
     CoreNamespace swappedNamespace = CoreNamespace.create(swappedBindings);
-    CoreCompilation swapped =
-        new CoreCompilation(
-            original.program(),
-            swappedNamespace,
-            original.authoring(),
-            original.buildReport(),
-            original.dependencies(),
-            original.delta());
+    CoreArtifact swapped =
+        new CoreArtifact(original.program(), swappedNamespace, original.authoring());
 
     assertEquals(original.namespace().id(), swappedNamespace.id());
     assertNotEquals(
-        ArtifactId.forCompilation(original, "test"), ArtifactId.forCompilation(swapped, "test"));
+        ArtifactId.forArtifact(original, "test"), ArtifactId.forArtifact(swapped, "test"));
   }
 
   @Test
@@ -64,12 +59,13 @@ final class ArtifactIdTest {
     SourceFile second = SourceFile.of(Path.of("route/z.norm"), "Integer beta() { return 1 / 0 }");
     SourceFile entry =
         SourceFile.of(Path.of("route/main.norm"), "Void main() { printLine(alpha()) }");
-    CoreCompilation original =
-        new Compiler()
+    CoreArtifact original =
+        new CompilerSession()
             .compile(new CompilationRequest(entry.id(), List.of(first, second, entry)))
             .program()
             .orElseThrow()
-            .coreCompilation();
+            .compilation()
+            .artifact();
     DefinitionOccurrenceId alpha = original.namespace().occurrence("", "alpha").orElseThrow();
     DefinitionOccurrenceId beta = original.namespace().occurrence("", "beta").orElseThrow();
     assertEquals(alpha.representative(), beta.representative());
@@ -94,16 +90,13 @@ final class ArtifactIdTest {
                       references);
                 })
             .toList();
-    CoreCompilation rerouted =
-        new CoreCompilation(
+    CoreArtifact rerouted =
+        new CoreArtifact(
             original.program(),
             original.namespace(),
-            new CoreAuthoringMap(reroutedOccurrences, original.entryPoint()),
-            original.buildReport(),
-            original.dependencies(),
-            original.delta());
+            new CoreAuthoringMap(reroutedOccurrences, original.entryPoint()));
 
     assertNotEquals(
-        ArtifactId.forCompilation(original, "test"), ArtifactId.forCompilation(rerouted, "test"));
+        ArtifactId.forArtifact(original, "test"), ArtifactId.forArtifact(rerouted, "test"));
   }
 }

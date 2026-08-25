@@ -6,6 +6,7 @@ import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.value.SourceLocation;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -152,6 +153,103 @@ public final class SemanticModel implements SemanticIndex {
     return new SemanticModel(source, syntax, tokens, this);
   }
 
+  public SemanticContribution contribution(SourceSpan previousRoot, SourceFile currentSource) {
+    Objects.requireNonNull(previousRoot, "previousRoot");
+    Objects.requireNonNull(currentSource, "currentSource");
+    if (!previousRoot.source().id().equals(currentSource.id())) {
+      throw new IllegalArgumentException("semantic contribution must remain in one document");
+    }
+    Map<SourceSpan, SymbolId> selectedBindings = rebase(bindings, previousRoot, currentSource);
+    Map<SourceSpan, SemanticType> selectedTypes =
+        rebase(expressionTypes, previousRoot, currentSource);
+    Map<SourceSpan, ResolvedCall> selectedCalls = new LinkedHashMap<>();
+    resolvedCalls.forEach(
+        (span, call) -> {
+          if (!inside(span, previousRoot)) return;
+          SourceSpan rebasedSpan = rebase(span, currentSource);
+          SourceSpan rebasedCallee = rebase(call.calleeSpan(), currentSource);
+          selectedCalls.put(
+              rebasedSpan,
+              new ResolvedCall(
+                  call.kind(),
+                  call.target(),
+                  rebasedCallee,
+                  call.arguments(),
+                  call.parameters(),
+                  call.callableTypeArguments(),
+                  call.resultType()));
+        });
+    Map<SourceSpan, List<SemanticType>> selectedFunctionArguments =
+        rebase(functionReferenceTypeArguments, previousRoot, currentSource);
+    Map<SourceSpan, ResolvedIteration> selectedIterations =
+        rebase(iterations, previousRoot, currentSource);
+    Map<SourceSpan, ResolvedIndex> selectedIndexes = rebase(indexes, previousRoot, currentSource);
+    Set<SymbolId> selectedIds = new java.util.LinkedHashSet<>(selectedBindings.values());
+    selectedCalls.values().forEach(call -> selectedIds.add(call.target()));
+    Map<SymbolId, Symbol> selectedSymbols = new LinkedHashMap<>();
+    selectedIds.forEach(
+        id -> {
+          Symbol symbol = symbols.get(id);
+          if (symbol != null) selectedSymbols.put(id, symbol);
+        });
+    List<SemanticScope> selectedScopes =
+        scopes.stream()
+            .filter(scope -> inside(scope.span(), previousRoot))
+            .map(
+                scope ->
+                    new SemanticScope(
+                        rebase(scope.span(), currentSource), scope.depth(), scope.symbols()))
+            .toList();
+    return new SemanticContribution(
+        selectedSymbols,
+        selectedBindings,
+        selectedTypes,
+        selectedCalls,
+        selectedFunctionArguments,
+        selectedIterations,
+        selectedIndexes,
+        selectedScopes);
+  }
+
+  public Set<SourceLocation> declarationDependencies(SourceSpan root) {
+    Objects.requireNonNull(root, "root");
+    Set<SymbolId> targets = new java.util.LinkedHashSet<>();
+    bindings.forEach(
+        (span, symbol) -> {
+          if (inside(span, root)) targets.add(resolveAlias(symbol));
+        });
+    resolvedCalls.forEach(
+        (span, call) -> {
+          if (inside(span, root)) targets.add(call.target());
+        });
+    return targets.stream()
+        .map(symbols::get)
+        .filter(Objects::nonNull)
+        .map(Symbol::declaration)
+        .flatMap(Optional::stream)
+        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+  }
+
+  private static <T> Map<SourceSpan, T> rebase(
+      Map<SourceSpan, T> values, SourceSpan root, SourceFile currentSource) {
+    Map<SourceSpan, T> selected = new LinkedHashMap<>();
+    values.forEach(
+        (span, value) -> {
+          if (inside(span, root)) selected.put(rebase(span, currentSource), value);
+        });
+    return Map.copyOf(selected);
+  }
+
+  private static boolean inside(SourceSpan span, SourceSpan root) {
+    return span.source().id().equals(root.source().id())
+        && span.startOffset() >= root.startOffset()
+        && span.endOffset() <= root.endOffset();
+  }
+
+  private static SourceSpan rebase(SourceSpan span, SourceFile source) {
+    return new SourceSpan(source, span.startOffset(), span.endOffset());
+  }
+
   public List<Token> tokens() {
     return tokens;
   }
@@ -174,6 +272,21 @@ public final class SemanticModel implements SemanticIndex {
 
   public List<Symbol> symbols() {
     return List.copyOf(symbols.values());
+  }
+
+  public int nextSourceSymbolOrdinal() {
+    int maximum = -1;
+    for (SymbolId id : symbols.keySet()) {
+      if (!id.value().startsWith("source/")) continue;
+      int separator = id.value().lastIndexOf('#');
+      if (separator < 0) continue;
+      try {
+        maximum = Math.max(maximum, Integer.parseInt(id.value().substring(separator + 1)));
+      } catch (NumberFormatException ignored) {
+        throw new IllegalStateException("source symbol id has an invalid ordinal");
+      }
+    }
+    return maximum + 1;
   }
 
   public List<ImportableSymbol> importableSymbols() {

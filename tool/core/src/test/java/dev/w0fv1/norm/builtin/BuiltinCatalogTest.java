@@ -17,7 +17,6 @@ final class BuiltinCatalogTest {
 
     Set<IntrinsicId> declared = catalog.declaredIntrinsics();
     assertEquals(Set.copyOf(java.util.EnumSet.allOf(IntrinsicId.class)), declared);
-    assertEquals(declared, dev.w0fv1.norm.truffle.IntrinsicDispatcher.supportedIntrinsics());
   }
 
   @Test

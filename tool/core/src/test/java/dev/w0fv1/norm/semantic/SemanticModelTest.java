@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,8 @@ final class SemanticModelTest {
   @Test
   void keepsSemanticModelWhenAnalysisReportsErrors() {
     String text = "class Point { Integer x } Void main() { missing(1) }";
-    var analysis = new Compiler().analyze(SourceFile.of(DocumentId.of("untitled:broken"), text));
+    var analysis =
+        new CompilerSession().analyze(SourceFile.of(DocumentId.of("untitled:broken"), text));
 
     assertTrue(analysis.hasErrors());
     assertEquals(
@@ -107,7 +108,7 @@ final class SemanticModelTest {
   }
 
   private static SemanticModel analyze(String text) {
-    return new Compiler()
+    return new CompilerSession()
         .analyze(SourceFile.of(DocumentId.of("untitled:test"), text))
         .semanticModel();
   }

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import dev.w0fv1.norm.builtin.IntrinsicId;
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
@@ -14,7 +14,7 @@ final class BuiltinCapabilityBindingTest {
   @Test
   void recordsResolvedIterationAndIndexOperations() {
     var result =
-        new Compiler()
+        new CompilerSession()
             .analyze(
                 SourceFile.of(
                     Path.of("capabilities.norm"),

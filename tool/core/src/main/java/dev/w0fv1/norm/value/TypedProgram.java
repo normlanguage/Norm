@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.value;
 
-import dev.w0fv1.norm.core.CoreCompilation;
+import dev.w0fv1.norm.core.CompilationOutput;
 import java.util.Objects;
 
-public record TypedProgram(CoreCompilation coreCompilation) {
+public record TypedProgram(CompilationOutput compilation) {
   public TypedProgram {
-    Objects.requireNonNull(coreCompilation, "coreCompilation");
+    Objects.requireNonNull(compilation, "compilation");
   }
 }

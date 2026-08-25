@@ -42,7 +42,7 @@ final class ProjectLoaderTest {
     assertEquals(3, request.sources().size());
     assertEquals(1, request.exportedSources().size());
     assertEquals(root.resolve("module.norm").toUri(), request.unit().uri());
-    assertTrue(new Compiler().compile(request).isSuccess());
+    assertTrue(new CompilerSession().compile(request).isSuccess());
   }
 
   @Test
@@ -59,7 +59,7 @@ final class ProjectLoaderTest {
     CompilationRequest request = new ProjectLoader().load(entry).compilationRequest();
 
     assertEquals(1, request.sources().size());
-    assertFalse(new Compiler().compile(request).isSuccess());
+    assertFalse(new CompilerSession().compile(request).isSuccess());
   }
 
   @Test
@@ -126,7 +126,7 @@ final class ProjectLoaderTest {
 
     CompilationRequest request = new ProjectLoader().load(entry).compilationRequest();
 
-    assertFalse(new Compiler().compile(request).isSuccess());
+    assertFalse(new CompilerSession().compile(request).isSuccess());
   }
 
   @Test
@@ -192,7 +192,7 @@ final class ProjectLoaderTest {
             .findFirst()
             .orElseThrow());
     assertEquals(Set.of(openLibrary.id()), request.exportedSources());
-    assertTrue(new Compiler().compile(request).isSuccess());
+    assertTrue(new CompilerSession().compile(request).isSuccess());
   }
 
   @Test
@@ -266,7 +266,7 @@ final class ProjectLoaderTest {
         request.entrySource());
     assertEquals(1, request.exportedSources().size());
     assertEquals(manifest.toAbsolutePath().normalize().toUri(), request.unit().uri());
-    assertTrue(new Compiler().compile(request).isSuccess());
+    assertTrue(new CompilerSession().compile(request).isSuccess());
     assertThrows(UnsupportedOperationException.class, () -> sourceSet.sources().clear());
   }
 
@@ -288,7 +288,7 @@ final class ProjectLoaderTest {
     ProjectSourceSet packageEntry = new ProjectLoader().load(math.resolve("module.norm"));
 
     assertEquals(2, request.sources().size());
-    assertTrue(new Compiler().compile(request).isSuccess());
+    assertTrue(new CompilerSession().compile(request).isSuccess());
     assertEquals(root.toAbsolutePath().normalize(), packageEntry.root());
     assertEquals(request.unit(), packageEntry.compilationRequest().unit());
     assertEquals(

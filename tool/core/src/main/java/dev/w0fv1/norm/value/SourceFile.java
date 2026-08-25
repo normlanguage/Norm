@@ -65,6 +65,20 @@ public final class SourceFile {
     return text;
   }
 
+  @Override
+  public boolean equals(Object other) {
+    return this == other
+        || other instanceof SourceFile source
+            && id.equals(source.id)
+            && Objects.equals(path, source.path)
+            && text.equals(source.text);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, path, text);
+  }
+
   public int length() {
     return text.length();
   }

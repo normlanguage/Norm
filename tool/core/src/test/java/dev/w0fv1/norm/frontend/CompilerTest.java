@@ -65,7 +65,7 @@ final class CompilerTest {
   @Test
   void analyzesAModuleDescriptorAsACompileTimeObject() {
     AnalysisResult result =
-        new Compiler()
+        new CompilerSession()
             .analyze(
                 SourceFile.of(
                     Path.of("module.norm"),
@@ -77,7 +77,7 @@ final class CompilerTest {
   @Test
   void reportsInvalidModuleDescriptors() {
     AnalysisResult result =
-        new Compiler()
+        new CompilerSession()
             .analyze(
                 SourceFile.of(
                     Path.of("module.norm"), "Module(name: \"sample\", version: 0, exports: [])"));
@@ -89,7 +89,7 @@ final class CompilerTest {
   @Test
   void analyzesAPackageSourceNamedModuleNormAsSourceCode() {
     CompilationResult result =
-        new Compiler()
+        new CompilerSession()
             .compile(
                 SourceFile.of(
                     Path.of("sample/internal/module.norm"),
@@ -104,11 +104,12 @@ final class CompilerTest {
 
     assertTrue(result.isSuccess());
     assertTrue(result.diagnostics().isEmpty());
-    var program = result.program().orElseThrow().coreCompilation().program();
+    var program = result.program().orElseThrow().compilation().artifact().program();
     var entry =
         (dev.w0fv1.norm.core.CoreDefinition.Callable)
             program
-                .definition(result.program().orElseThrow().coreCompilation().entryDefinition())
+                .definition(
+                    result.program().orElseThrow().compilation().artifact().entryDefinition())
                 .orElseThrow();
     var statements = entry.body().statements();
     assertEquals(1, statements.size());
@@ -424,7 +425,7 @@ final class CompilerTest {
   @Test
   void bindsAnOptionalIntegerIndexAfterTheLoopValue() {
     AnalysisResult analysis =
-        new Compiler()
+        new CompilerSession()
             .analyze(
                 SourceFile.of(
                     Path.of("indexed-loop.norm"),
@@ -507,6 +508,6 @@ final class CompilerTest {
   }
 
   private static CompilationResult compile(String text) {
-    return new Compiler().compile(SourceFile.of(Path.of("test.norm"), text));
+    return new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
   }
 }

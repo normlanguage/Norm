@@ -98,6 +98,6 @@ final class FunctionCompilerTest {
   }
 
   private dev.w0fv1.norm.value.CompilationResult compile(String text) {
-    return new Compiler().compile(SourceFile.of(Path.of("functions.norm"), text));
+    return new CompilerSession().compile(SourceFile.of(Path.of("functions.norm"), text));
   }
 }

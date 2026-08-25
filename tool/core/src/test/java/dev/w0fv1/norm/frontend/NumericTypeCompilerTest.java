@@ -68,6 +68,6 @@ final class NumericTypeCompilerTest {
   }
 
   private static CompilationResult compile(String text) {
-    return new Compiler().compile(SourceFile.of(Path.of("numeric.norm"), text));
+    return new CompilerSession().compile(SourceFile.of(Path.of("numeric.norm"), text));
   }
 }

@@ -32,8 +32,9 @@ final class FileDefinitionStoreTest {
     DefinitionStore store = new FileDefinitionStore(root);
     byte[] canonicalGroup = "canonical-group".getBytes(StandardCharsets.UTF_8);
 
-    PutResult first = store.put(canonicalGroup);
-    PutResult second = store.put(canonicalGroup);
+    PutBatchResult batch = store.putAll(List.of(canonicalGroup, canonicalGroup));
+    PutResult first = batch.results().get(0);
+    PutResult second = batch.results().get(1);
     String hash = first.id().toString();
     Path storedGroup = root.resolve(hash.substring(0, 2)).resolve(hash.substring(2));
 
@@ -52,7 +53,7 @@ final class FileDefinitionStoreTest {
     Path root = temporaryDirectory.resolve("definitions");
     DefinitionStore store = new FileDefinitionStore(root);
     byte[] canonicalGroup = {1, 2, 3};
-    DefinitionGroupId id = store.put(canonicalGroup).id();
+    DefinitionGroupId id = put(store, canonicalGroup).id();
     Path storedGroup = storedPath(root, id);
     Files.setLastModifiedTime(storedGroup, FileTime.fromMillis(1));
 
@@ -70,7 +71,7 @@ final class FileDefinitionStoreTest {
     DefinitionStore reader = new FileDefinitionStore(root);
     DefinitionStore writer = new FileDefinitionStore(root);
     byte[] canonicalGroup = {1, 2, 3};
-    DefinitionGroupId id = writer.put(canonicalGroup).id();
+    DefinitionGroupId id = put(writer, canonicalGroup).id();
     String hash = id.toString();
     Path storedGroup = root.resolve(hash.substring(0, 2)).resolve(hash.substring(2));
     byte[] corruptContent = {4, 5, 6};
@@ -83,7 +84,7 @@ final class FileDefinitionStoreTest {
     assertEquals(DefinitionHasher.hashGroup(corruptContent), corruption.actual());
     assertArrayEquals(corruptContent, Files.readAllBytes(storedGroup));
     assertEquals(corruptedAt, Files.getLastModifiedTime(storedGroup));
-    assertEquals(id, writer.put(canonicalGroup).id());
+    assertEquals(id, put(writer, canonicalGroup).id());
     assertArrayEquals(canonicalGroup, reader.get(id).orElseThrow());
     assertFalse(reader.get(new DefinitionGroupId(ContentHash.of(new byte[32]))).isPresent());
   }
@@ -94,7 +95,7 @@ final class FileDefinitionStoreTest {
     FileDefinitionStore firstStore = new FileDefinitionStore(root);
     FileDefinitionStore secondStore = new FileDefinitionStore(root);
     byte[] canonicalGroup = new byte[4 * 1024 * 1024];
-    DefinitionGroupId id = firstStore.put(canonicalGroup).id();
+    DefinitionGroupId id = put(firstStore, canonicalGroup).id();
     Path storedGroup = storedPath(root, id);
     Files.write(storedGroup, new byte[] {9, 8, 7});
     CountDownLatch ready = new CountDownLatch(2);
@@ -106,14 +107,14 @@ final class FileDefinitionStoreTest {
               () -> {
                 ready.countDown();
                 start.await();
-                return firstStore.put(canonicalGroup);
+                return put(firstStore, canonicalGroup);
               });
       Future<PutResult> second =
           executor.submit(
               () -> {
                 ready.countDown();
                 start.await();
-                return secondStore.put(canonicalGroup);
+                return put(secondStore, canonicalGroup);
               });
       ready.await();
       start.countDown();
@@ -162,7 +163,7 @@ final class FileDefinitionStoreTest {
                 () -> {
                   ready.countDown();
                   start.await();
-                  return new FileDefinitionStore(root).put(canonicalGroup);
+                  return put(new FileDefinitionStore(root), canonicalGroup);
                 }));
       }
       ready.await();
@@ -198,8 +199,8 @@ final class FileDefinitionStoreTest {
     hotGroup[0] = 1;
     byte[] retainedGroup = {2};
     FileDefinitionStore seed = new FileDefinitionStore(root, 2, 64L * 1024 * 1024);
-    DefinitionGroupId hotId = seed.put(hotGroup).id();
-    DefinitionGroupId retainedId = seed.put(retainedGroup).id();
+    DefinitionGroupId hotId = put(seed, hotGroup).id();
+    DefinitionGroupId retainedId = put(seed, retainedGroup).id();
     Path hotPath = storedPath(root, hotId);
     Files.setLastModifiedTime(hotPath, FileTime.fromMillis(1));
     Files.setLastModifiedTime(storedPath(root, retainedId), FileTime.fromMillis(2));
@@ -223,14 +224,14 @@ final class FileDefinitionStoreTest {
               () -> {
                 ready.countDown();
                 start.await();
-                return writer.put(hotGroup);
+                return put(writer, hotGroup);
               });
       Future<PutResult> pruningPut =
           executor.submit(
               () -> {
                 ready.countDown();
                 start.await();
-                return pruner.put(publishedTrigger);
+                return put(pruner, publishedTrigger);
               });
       ready.await();
       start.countDown();
@@ -241,7 +242,7 @@ final class FileDefinitionStoreTest {
 
     var remaining = writer.get(hotId);
     if (remaining.isPresent()) assertArrayEquals(hotGroup, remaining.orElseThrow());
-    assertEquals(hotId, writer.put(hotGroup).id());
+    assertEquals(hotId, put(writer, hotGroup).id());
     assertArrayEquals(hotGroup, writer.get(hotId).orElseThrow());
   }
 
@@ -254,7 +255,9 @@ final class FileDefinitionStoreTest {
     assertThrows(FileAlreadyExistsException.class, () -> new FileDefinitionStore(file));
 
     DefinitionStore store = new FileDefinitionStore(temporaryDirectory.resolve("definitions"));
-    assertThrows(NullPointerException.class, () -> store.put(null));
+    assertThrows(NullPointerException.class, () -> store.putAll(null));
+    assertThrows(
+        NullPointerException.class, () -> store.putAll(java.util.Arrays.asList((byte[]) null)));
     assertThrows(NullPointerException.class, () -> store.get(null));
   }
 
@@ -262,13 +265,13 @@ final class FileDefinitionStoreTest {
   void evictsTheLeastRecentlyUsedGroupsAtTheConfiguredCapacity() throws Exception {
     Path root = temporaryDirectory.resolve("bounded-definitions");
     FileDefinitionStore store = new FileDefinitionStore(root, 2, 1024);
-    DefinitionGroupId first = store.put(new byte[] {1}).id();
-    DefinitionGroupId second = store.put(new byte[] {2}).id();
+    DefinitionGroupId first = put(store, new byte[] {1}).id();
+    DefinitionGroupId second = put(store, new byte[] {2}).id();
     Files.setLastModifiedTime(storedPath(root, first), FileTime.fromMillis(1));
     Files.setLastModifiedTime(storedPath(root, second), FileTime.fromMillis(2));
     store = new FileDefinitionStore(root, 2, 1024);
     store.get(first).orElseThrow();
-    DefinitionGroupId third = store.put(new byte[] {3}).id();
+    DefinitionGroupId third = put(store, new byte[] {3}).id();
 
     assertFalse(store.get(second).isPresent());
     assertArrayEquals(new byte[] {1}, store.get(first).orElseThrow());
@@ -276,13 +279,34 @@ final class FileDefinitionStoreTest {
   }
 
   @Test
+  void enforcesCapacityAfterPublishingTheWholeBatch() throws Exception {
+    Path root = temporaryDirectory.resolve("batch-bounded-definitions");
+    FileDefinitionStore store = new FileDefinitionStore(root, 2, 1024);
+    byte[] first = {1};
+    byte[] second = {2};
+    byte[] third = {3};
+
+    PutBatchResult batch = store.putAll(List.of(first, second, third));
+
+    assertEquals(
+        List.of(PutResult.Status.STORED, PutResult.Status.STORED, PutResult.Status.STORED),
+        batch.results().stream().map(PutResult::status).toList());
+    int retained = 0;
+    for (PutResult result : batch.results()) {
+      if (store.get(result.id()).isPresent()) retained++;
+    }
+    assertEquals(2, retained);
+    assertArrayEquals(third, store.get(batch.results().get(2).id()).orElseThrow());
+  }
+
+  @Test
   void evictsGroupsWhenTheByteCapacityIsExceeded() throws Exception {
     Path root = temporaryDirectory.resolve("byte-bounded-definitions");
     FileDefinitionStore store = new FileDefinitionStore(root, 10, 3);
-    DefinitionGroupId first = store.put(new byte[] {1, 2}).id();
+    DefinitionGroupId first = put(store, new byte[] {1, 2}).id();
     Files.setLastModifiedTime(storedPath(root, first), FileTime.fromMillis(1));
     store = new FileDefinitionStore(root, 10, 3);
-    DefinitionGroupId second = store.put(new byte[] {3, 4}).id();
+    DefinitionGroupId second = put(store, new byte[] {3, 4}).id();
 
     assertFalse(store.get(first).isPresent());
     assertArrayEquals(new byte[] {3, 4}, store.get(second).orElseThrow());
@@ -304,14 +328,14 @@ final class FileDefinitionStoreTest {
               () -> {
                 ready.countDown();
                 start.await();
-                return firstStore.put(new byte[] {1});
+                return put(firstStore, new byte[] {1});
               });
       Future<PutResult> secondPut =
           executor.submit(
               () -> {
                 ready.countDown();
                 start.await();
-                return secondStore.put(new byte[] {2});
+                return put(secondStore, new byte[] {2});
               });
       ready.await();
       start.countDown();
@@ -334,8 +358,8 @@ final class FileDefinitionStoreTest {
     FileDefinitionStore firstStore = new FileDefinitionStore(root, 10, 3);
     FileDefinitionStore secondStore = new FileDefinitionStore(root, 10, 3);
 
-    PutResult first = firstStore.put(new byte[] {1, 2});
-    PutResult second = secondStore.put(new byte[] {3, 4});
+    PutResult first = put(firstStore, new byte[] {1, 2});
+    PutResult second = put(secondStore, new byte[] {3, 4});
 
     assertTrue(secondStore.get(first.id()).isEmpty());
     assertArrayEquals(new byte[] {3, 4}, secondStore.get(second.id()).orElseThrow());
@@ -349,7 +373,7 @@ final class FileDefinitionStoreTest {
     Files.createDirectories(unrelated.getParent());
     Files.write(unrelated, new byte[] {9});
 
-    PutResult stored = store.put(new byte[] {1});
+    PutResult stored = put(store, new byte[] {1});
 
     assertTrue(Files.isRegularFile(unrelated));
     assertArrayEquals(new byte[] {1}, store.get(stored.id()).orElseThrow());
@@ -360,7 +384,7 @@ final class FileDefinitionStoreTest {
     Path root = temporaryDirectory.resolve("oversized-definitions");
     FileDefinitionStore store = new FileDefinitionStore(root, 10, 3);
 
-    PutResult result = store.put(new byte[] {1, 2, 3, 4});
+    PutResult result = put(store, new byte[] {1, 2, 3, 4});
 
     assertEquals(DefinitionHasher.hashGroup(new byte[] {1, 2, 3, 4}), result.id());
     assertEquals(PutResult.Status.NOT_ADMITTED, result.status());
@@ -392,5 +416,9 @@ final class FileDefinitionStoreTest {
   private static Path storedPath(Path root, DefinitionGroupId id) {
     String hash = id.toString();
     return root.resolve(hash.substring(0, 2)).resolve(hash.substring(2));
+  }
+
+  private static PutResult put(DefinitionStore store, byte[] canonicalGroup) throws Exception {
+    return store.putAll(List.of(canonicalGroup)).results().get(0);
   }
 }

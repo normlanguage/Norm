@@ -8,30 +8,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public final class StandardLibraryPrelude {
-  private static volatile StandardLibraryPrelude shared;
+final class StandardLibraryPrelude {
   private final Map<DocumentId, ParsedDocument> documents;
   private final Set<DocumentId> exportedSources;
 
-  StandardLibraryPrelude(CompilationEnvironment environment) {
+  StandardLibraryPrelude() {
     Map<DocumentId, ParsedDocument> parsed = new LinkedHashMap<>();
     StandardLibrary.sources()
-        .forEach(source -> parsed.put(source.id(), environment.parse(source, false)));
+        .forEach(source -> parsed.put(source.id(), SourceParser.parse(source, false)));
     documents = Map.copyOf(parsed);
     exportedSources = Set.copyOf(StandardLibrary.exportedSources());
-  }
-
-  static StandardLibraryPrelude shared(CompilationEnvironment environment) {
-    StandardLibraryPrelude current = shared;
-    if (current != null) return current;
-    synchronized (StandardLibraryPrelude.class) {
-      current = shared;
-      if (current == null) {
-        current = new StandardLibraryPrelude(environment);
-        shared = current;
-      }
-      return current;
-    }
   }
 
   List<ParsedDocument> documents() {

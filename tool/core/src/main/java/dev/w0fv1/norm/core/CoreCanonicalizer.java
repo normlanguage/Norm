@@ -16,18 +16,25 @@ public final class CoreCanonicalizer {
   public CoreCanonicalizer() {}
 
   public Result canonicalize(List<CoreDefinition> pendingDefinitions) {
+    return canonicalize(pendingDefinitions, CoreCanonicalizationControl.standard());
+  }
+
+  public Result canonicalize(
+      List<CoreDefinition> pendingDefinitions, CoreCanonicalizationControl control) {
+    CoreCanonicalizationControl.State state = Objects.requireNonNull(control, "control").begin();
     List<CoreDefinition> definitions = List.copyOf(pendingDefinitions);
     validatePendingLinks(definitions);
-    List<List<Integer>> components = stronglyConnectedComponents(definitions);
+    List<List<Integer>> components = stronglyConnectedComponents(definitions, state);
     Map<Integer, DefinitionId> definitionIds = new LinkedHashMap<>();
     Map<Integer, Set<DefinitionId>> definitionOrbits = new LinkedHashMap<>();
     Map<DefinitionGroupId, CoreDefinitionGroup> groups = new LinkedHashMap<>();
     Set<List<Integer>> remaining = new LinkedHashSet<>(components);
     while (!remaining.isEmpty()) {
+      state.checkpoint();
       boolean progressed = false;
       for (List<Integer> component : List.copyOf(remaining)) {
         if (!dependenciesResolved(component, definitions, definitionIds)) continue;
-        CanonicalGroup canonical = canonicalizeGroup(component, definitions, definitionIds);
+        CanonicalGroup canonical = canonicalizeGroup(component, definitions, definitionIds, state);
         groups.putIfAbsent(canonical.group().id(), canonical.group());
         canonical
             .memberOrbits()
@@ -47,15 +54,20 @@ public final class CoreCanonicalizer {
       if (!progressed)
         throw new IllegalStateException("definition dependency graph is inconsistent");
     }
+    int maximumComponentSize = components.stream().mapToInt(List::size).max().orElse(0);
     return new Result(
-        List.copyOf(groups.values()), Map.copyOf(definitionIds), Map.copyOf(definitionOrbits));
+        List.copyOf(groups.values()),
+        Map.copyOf(definitionIds),
+        Map.copyOf(definitionOrbits),
+        state.metrics(components.size(), maximumComponentSize));
   }
 
   private static CanonicalGroup canonicalizeGroup(
       List<Integer> component,
       List<CoreDefinition> definitions,
-      Map<Integer, DefinitionId> definitionIds) {
-    CanonicalLabeling labeling = canonicalLabeling(component, definitions, definitionIds);
+      Map<Integer, DefinitionId> definitionIds,
+      CoreCanonicalizationControl.State state) {
+    CanonicalLabeling labeling = canonicalLabeling(component, definitions, definitionIds, state);
     List<Integer> order = labeling.order();
     return new CanonicalGroup(
         CoreDefinitionGroup.create(resolve(order, definitions, definitionIds)),
@@ -90,7 +102,8 @@ public final class CoreCanonicalizer {
   private static CanonicalLabeling canonicalLabeling(
       List<Integer> component,
       List<CoreDefinition> definitions,
-      Map<Integer, DefinitionId> definitionIds) {
+      Map<Integer, DefinitionId> definitionIds,
+      CoreCanonicalizationControl.State state) {
     Set<Integer> members = Set.copyOf(component);
     Map<Integer, byte[]> labels = new HashMap<>();
     for (int declaration : component) {
@@ -100,15 +113,25 @@ public final class CoreCanonicalizer {
               definitions.get(declaration),
               link -> shapeReference(link, members, definitionIds, Map.of())));
     }
-    Map<Integer, Integer> partition = refine(component, definitions, definitionIds, colors(labels));
-    return search(component, definitions, definitionIds, partition);
+    Map<Integer, Integer> partition =
+        refine(component, definitions, definitionIds, colors(labels), state);
+    return search(component, definitions, definitionIds, partition, state, new HashMap<>());
   }
 
   private static CanonicalLabeling search(
       List<Integer> component,
       List<CoreDefinition> definitions,
       Map<Integer, DefinitionId> definitionIds,
-      Map<Integer, Integer> partition) {
+      Map<Integer, Integer> partition,
+      CoreCanonicalizationControl.State state,
+      Map<List<Integer>, CanonicalLabeling> memoized) {
+    state.checkpoint();
+    List<Integer> stateKey = component.stream().map(partition::get).toList();
+    CanonicalLabeling memoizedResult = memoized.get(stateKey);
+    if (memoizedResult != null) {
+      state.memoizedSearch();
+      return memoizedResult;
+    }
     List<Integer> cell = selectedCell(component, partition);
     if (cell.isEmpty()) {
       List<Integer> order =
@@ -118,11 +141,17 @@ public final class CoreCanonicalizer {
       Map<Integer, Set<Integer>> memberOrbits = new HashMap<>();
       memberIndices.forEach(
           (declaration, memberIndex) -> memberOrbits.put(declaration, Set.of(memberIndex)));
-      return new CanonicalLabeling(
-          order, CoreCodec.encodeGroup(resolve(order, definitions, definitionIds)), memberOrbits);
+      CanonicalLabeling result =
+          new CanonicalLabeling(
+              order,
+              CoreCodec.encodeGroup(resolve(order, definitions, definitionIds)),
+              memberOrbits);
+      memoized.put(stateKey, result);
+      return result;
     }
     CanonicalLabeling best = null;
     for (int candidate : cell) {
+      state.searchBranch();
       Map<Integer, byte[]> individualized = new HashMap<>();
       for (int declaration : component) {
         individualized.put(
@@ -134,8 +163,9 @@ public final class CoreCanonicalizer {
                 .toByteArray());
       }
       Map<Integer, Integer> refined =
-          refine(component, definitions, definitionIds, colors(individualized));
-      CanonicalLabeling current = search(component, definitions, definitionIds, refined);
+          refine(component, definitions, definitionIds, colors(individualized), state);
+      CanonicalLabeling current =
+          search(component, definitions, definitionIds, refined, state, memoized);
       if (best == null
           || Arrays.compareUnsigned(current.canonicalBytes(), best.canonicalBytes()) < 0) {
         best = current;
@@ -143,17 +173,21 @@ public final class CoreCanonicalizer {
         best = best.mergeMemberOrbits(current);
       }
     }
-    return Objects.requireNonNull(best, "canonical labeling");
+    CanonicalLabeling result = Objects.requireNonNull(best, "canonical labeling");
+    memoized.put(stateKey, result);
+    return result;
   }
 
   private static Map<Integer, Integer> refine(
       List<Integer> component,
       List<CoreDefinition> definitions,
       Map<Integer, DefinitionId> definitionIds,
-      Map<Integer, Integer> initial) {
+      Map<Integer, Integer> initial,
+      CoreCanonicalizationControl.State state) {
     Set<Integer> members = Set.copyOf(component);
     Map<Integer, Integer> partition = initial;
     while (true) {
+      state.refinementRound();
       Map<Integer, Integer> currentPartition = partition;
       Map<Integer, byte[]> labels = new HashMap<>();
       for (int declaration : component) {
@@ -272,8 +306,9 @@ public final class CoreCanonicalizer {
     }
   }
 
-  private static List<List<Integer>> stronglyConnectedComponents(List<CoreDefinition> definitions) {
-    Tarjan tarjan = new Tarjan(definitions);
+  private static List<List<Integer>> stronglyConnectedComponents(
+      List<CoreDefinition> definitions, CoreCanonicalizationControl.State state) {
+    Tarjan tarjan = new Tarjan(definitions, state);
     for (int declaration = 0; declaration < definitions.size(); declaration++) {
       if (!tarjan.indices.containsKey(declaration)) tarjan.visit(declaration);
     }
@@ -283,7 +318,8 @@ public final class CoreCanonicalizer {
   public record Result(
       List<CoreDefinitionGroup> groups,
       Map<Integer, DefinitionId> definitionIds,
-      Map<Integer, Set<DefinitionId>> definitionOrbits) {
+      Map<Integer, Set<DefinitionId>> definitionOrbits,
+      CoreCanonicalizationMetrics metrics) {
     public Result {
       groups = List.copyOf(groups);
       definitionIds = Map.copyOf(definitionIds);
@@ -291,6 +327,7 @@ public final class CoreCanonicalizer {
       definitionOrbits.forEach(
           (declaration, orbit) -> stableOrbits.put(declaration, Set.copyOf(orbit)));
       definitionOrbits = Map.copyOf(stableOrbits);
+      Objects.requireNonNull(metrics, "metrics");
     }
   }
 
@@ -334,6 +371,7 @@ public final class CoreCanonicalizer {
 
   private static final class Tarjan {
     private final List<CoreDefinition> definitions;
+    private final CoreCanonicalizationControl.State state;
     private final Map<Integer, Integer> indices = new HashMap<>();
     private final Map<Integer, Integer> lowLinks = new HashMap<>();
     private final ArrayDeque<Integer> stack = new ArrayDeque<>();
@@ -341,11 +379,13 @@ public final class CoreCanonicalizer {
     private final List<List<Integer>> components = new ArrayList<>();
     private int nextIndex;
 
-    private Tarjan(List<CoreDefinition> definitions) {
+    private Tarjan(List<CoreDefinition> definitions, CoreCanonicalizationControl.State state) {
       this.definitions = definitions;
+      this.state = state;
     }
 
     private void visit(int declaration) {
+      state.checkpoint();
       indices.put(declaration, nextIndex);
       lowLinks.put(declaration, nextIndex);
       nextIndex++;

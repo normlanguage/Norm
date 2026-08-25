@@ -91,6 +91,6 @@ final class AlgebraicDataTypeCompilerTest {
   }
 
   private static CompilationResult compile(String text) {
-    return new Compiler().compile(SourceFile.of(Path.of("test.norm"), text));
+    return new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
   }
 }

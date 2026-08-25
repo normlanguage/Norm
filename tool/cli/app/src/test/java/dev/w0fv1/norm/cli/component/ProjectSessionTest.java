@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.frontend.CompilationEnvironment;
-import dev.w0fv1.norm.frontend.Compiler;
 import dev.w0fv1.norm.language.LanguageService;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Files;
@@ -14,7 +12,6 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,21 +36,16 @@ final class ProjectSessionTest {
     Map<Path, SourceFile> open = new LinkedHashMap<>();
     open.put(ProjectSession.normalize(app), appSource);
     open.put(ProjectSession.normalize(library), librarySource);
-    AtomicInteger analyses = new AtomicInteger();
-    LanguageService language =
-        new LanguageService(
-            new Compiler(CompilationEnvironment.create(() -> {}, analyses::incrementAndGet)));
+    LanguageService language = new LanguageService();
 
     ProjectSession session = ProjectSession.load(language, appSource, open, 41);
 
-    assertEquals(1, analyses.get());
     assertEquals(41, session.revision());
     assertSame(
         session.snapshot().semanticModel(),
         session.snapshot().document(librarySource.id()).orElseThrow().projectModel());
     session.analysis(appSource);
     session.analysis(librarySource);
-    assertEquals(1, analyses.get());
   }
 
   @Test

@@ -8,6 +8,8 @@ description = "Norm command-line interface"
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":execution-api"))
+    implementation(project(":truffle-backend"))
     implementation(libs.lsp4j)
     implementation(libs.gson)
 }
@@ -72,28 +74,6 @@ if (windowsHost) {
     tasks.named("nativeCompile") {
         dependsOn(compileWindowsResources)
     }
-}
-
-val normVersion = project.version.toString()
-val generatedVersionResources = layout.buildDirectory.dir("generated/version-resources")
-val generateVersionProperties = tasks.register<WriteProperties>("generateVersionProperties") {
-    destinationFile =
-        generatedVersionResources.map { directory ->
-            directory.file("dev/w0fv1/norm/cli/component/version.properties")
-        }
-    property("version", normVersion)
-}
-
-sourceSets {
-    main {
-        resources {
-            srcDir(generatedVersionResources)
-        }
-    }
-}
-
-tasks.processResources {
-    dependsOn(generateVersionProperties)
 }
 
 tasks.named<JavaExec>("run") {

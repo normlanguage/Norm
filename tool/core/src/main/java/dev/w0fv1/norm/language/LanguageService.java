@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.SourceFormatter;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
@@ -19,18 +19,18 @@ import dev.w0fv1.norm.value.SourceLocation;
 import java.util.List;
 import java.util.Optional;
 
-public final class LanguageService {
-  private final Compiler compiler;
+public final class LanguageService implements AutoCloseable {
+  private final CompilerSession compiler;
   private final SourceFormatter formatter = new SourceFormatter();
   private final CompletionEngine completions = new CompletionEngine();
   private final SignatureHelpResolver signatures = new SignatureHelpResolver();
   private final ContractRelations contracts = new ContractRelations();
 
   public LanguageService() {
-    this(new Compiler());
+    this(new CompilerSession());
   }
 
-  public LanguageService(Compiler compiler) {
+  public LanguageService(CompilerSession compiler) {
     this.compiler = java.util.Objects.requireNonNull(compiler, "compiler");
   }
 
@@ -44,6 +44,11 @@ public final class LanguageService {
 
   public CompilationSnapshot snapshot(CompilationRequest request) {
     return compiler.snapshot(request);
+  }
+
+  @Override
+  public void close() {
+    compiler.close();
   }
 
   public Optional<String> standardLibrarySource(DocumentId document) {

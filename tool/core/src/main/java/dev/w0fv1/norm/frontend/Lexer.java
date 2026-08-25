@@ -21,16 +21,23 @@ final class Lexer {
 
   private final SourceFile source;
   private final DiagnosticBag diagnostics;
+  private final CompilationGuard guard;
   private final List<Token> tokens = new ArrayList<>();
   private int offset;
 
   Lexer(SourceFile source, DiagnosticBag diagnostics) {
+    this(source, diagnostics, CompilationGuard.unlimited());
+  }
+
+  Lexer(SourceFile source, DiagnosticBag diagnostics, CompilationGuard guard) {
     this.source = Objects.requireNonNull(source, "source");
     this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
+    this.guard = Objects.requireNonNull(guard, "guard");
   }
 
   List<Token> lex() {
     while (!isAtEnd()) {
+      guard.checkpoint();
       scanToken();
     }
     tokens.add(Token.simple(TokenKind.END_OF_FILE, "", SourceSpan.at(source, offset)));

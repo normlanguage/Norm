@@ -3,7 +3,9 @@ package dev.w0fv1.norm.core.store;
 import dev.w0fv1.norm.core.DefinitionGroupId;
 import dev.w0fv1.norm.core.DefinitionHasher;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,19 +17,25 @@ public final class InMemoryDefinitionStore implements DefinitionStore {
   private final ConcurrentMap<DefinitionGroupId, byte[]> groups = new ConcurrentHashMap<>();
 
   @Override
-  public PutResult put(byte[] canonicalGroup) throws IOException {
-    Objects.requireNonNull(canonicalGroup, "canonicalGroup");
-    byte[] ownedGroup = canonicalGroup.clone();
-    DefinitionGroupId id = DefinitionHasher.hashGroup(ownedGroup);
-    byte[] existing = groups.putIfAbsent(id, ownedGroup);
-    if (existing != null) {
-      verify(id, existing);
-      if (!Arrays.equals(existing, ownedGroup)) {
-        throw new IOException("distinct definition groups have the same content hash: " + id);
+  public PutBatchResult putAll(List<byte[]> canonicalGroups) throws IOException {
+    Objects.requireNonNull(canonicalGroups, "canonicalGroups");
+    List<PutResult> results = new ArrayList<>(canonicalGroups.size());
+    for (byte[] canonicalGroup : canonicalGroups) {
+      Objects.requireNonNull(canonicalGroup, "canonicalGroup");
+      byte[] ownedGroup = canonicalGroup.clone();
+      DefinitionGroupId id = DefinitionHasher.hashGroup(ownedGroup);
+      byte[] existing = groups.putIfAbsent(id, ownedGroup);
+      if (existing != null) {
+        verify(id, existing);
+        if (!Arrays.equals(existing, ownedGroup)) {
+          throw new IOException("distinct definition groups have the same content hash: " + id);
+        }
+        results.add(new PutResult(id, PutResult.Status.REUSED));
+      } else {
+        results.add(new PutResult(id, PutResult.Status.STORED));
       }
-      return new PutResult(id, PutResult.Status.REUSED);
     }
-    return new PutResult(id, PutResult.Status.STORED);
+    return new PutBatchResult(results);
   }
 
   @Override

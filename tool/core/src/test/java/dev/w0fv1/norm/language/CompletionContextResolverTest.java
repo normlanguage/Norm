@@ -2,13 +2,13 @@ package dev.w0fv1.norm.language;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import org.junit.jupiter.api.Test;
 
 final class CompletionContextResolverTest {
-  private final Compiler compiler = new Compiler();
+  private final CompilerSession compiler = new CompilerSession();
   private final CompletionContextResolver resolver = new CompletionContextResolver();
 
   @Test

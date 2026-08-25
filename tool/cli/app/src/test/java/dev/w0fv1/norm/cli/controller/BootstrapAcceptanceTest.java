@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.cli.value.ExitCode;
-import dev.w0fv1.norm.execution.ProgramRunner;
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.utils.BackendInfo;
 import dev.w0fv1.norm.value.LanguageMetadata;
 import dev.w0fv1.norm.value.SourceFile;
@@ -39,10 +39,10 @@ final class BootstrapAcceptanceTest {
   void compilesAndExecutesHelloWorldAcrossTheModuleBoundary() {
     SourceFile source =
         SourceFile.of(Path.of("hello.norm"), "Void main() { printLine(\"Hello from Norm\") }\n");
-    var compilation = new Compiler().compile(source);
+    var compilation = new CompilerSession().compile(source);
     var output = new StringWriter();
 
-    new ProgramRunner().run(compilation.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
 
     assertEquals("Hello from Norm" + System.lineSeparator(), output.toString());
   }

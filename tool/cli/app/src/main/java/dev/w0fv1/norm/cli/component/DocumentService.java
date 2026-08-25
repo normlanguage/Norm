@@ -2,7 +2,7 @@ package dev.w0fv1.norm.cli.component;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
-import dev.w0fv1.norm.frontend.Compiler;
+import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.ProjectLoader;
 import dev.w0fv1.norm.language.Completion;
 import dev.w0fv1.norm.language.CompletionKind;
@@ -55,8 +55,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
-final class DocumentService implements TextDocumentService {
-  private final LanguageService language = new LanguageService(new Compiler());
+final class DocumentService implements TextDocumentService, AutoCloseable {
+  private final LanguageService language = new LanguageService(new CompilerSession());
   private final Map<String, DocumentState> documents = new ConcurrentHashMap<>();
   private final java.util.concurrent.atomic.AtomicLong revisions =
       new java.util.concurrent.atomic.AtomicLong();
@@ -64,6 +64,12 @@ final class DocumentService implements TextDocumentService {
 
   void connect(LanguageClient client) {
     this.client = client;
+  }
+
+  @Override
+  public void close() {
+    documents.clear();
+    language.close();
   }
 
   String standardLibrarySource(String uri) {
