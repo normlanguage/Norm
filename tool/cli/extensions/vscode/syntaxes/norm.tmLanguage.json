@@ -85,7 +85,7 @@
     },
     "keywords": {
       "name": "keyword.control.norm",
-      "match": "\\b(?:package|import|as|class|enum|interface|implements|extends|if|else|switch|case|for|return|break|continue|var)\\b"
+      "match": "\\b(?:package|import|as|class|enum|interface|implements|extends|if|else|switch|case|for|return|break|continue|super|ref|var)\\b"
     },
     "constants": {
       "name": "constant.language.norm",
@@ -109,7 +109,7 @@
     },
     "operators": {
       "name": "keyword.operator.norm",
-      "match": "::|\\?\\.|\\?\\?|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?]"
+      "match": "::|\\?\\.|\\?\\?|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?&]"
     }
   }
 }

@@ -4,6 +4,7 @@ import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.semantic.PatternCoverage;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.ValueCategory;
+import dev.w0fv1.norm.value.LexicalLifetime;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -19,6 +20,7 @@ final class CoreProgramVerifier {
   private final CoreProgram program;
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
   private final Deque<Control> controls = new ArrayDeque<>();
+  private CoreReferenceFlow referenceFlow;
 
   private CoreProgramVerifier(CoreProgram program) {
     this.program = Objects.requireNonNull(program, "program");
@@ -76,12 +78,15 @@ final class CoreProgramVerifier {
   private void verifyCallable(DefinitionId id, CoreDefinition.Callable callable) {
     int parameterCount = callable.reifiedTypeLocals().size();
     verifyTypeParameters(id, callable.typeParameters(), parameterCount);
-    callable.receiverType().ifPresent(type -> verifyValueType(id, type, parameterCount));
-    callable.captureTypes().forEach(type -> verifyValueType(id, type, parameterCount));
-    callable.parameterTypes().forEach(type -> verifyValueType(id, type, parameterCount));
+    callable.receiverType().ifPresent(type -> verifyStoredType(id, type, parameterCount));
+    callable.captureTypes().forEach(type -> verifyStoredType(id, type, parameterCount));
+    callable.parameterTypes().forEach(type -> verifyParameterType(id, type, parameterCount));
     verifyReturnType(id, callable.returnType(), parameterCount);
     callable.locals().forEach(local -> verifyLocalType(id, local, parameterCount));
-    verifyBlock(id, callable, callable.body());
+    if (!controls.isEmpty()) throw new IllegalStateException("core control stack is not empty");
+    referenceFlow = new CoreReferenceFlow();
+    verifyBlock(id, callable, callable.body(), callable.parameterLocals(), true);
+    referenceFlow = null;
   }
 
   private void verifyAggregate(DefinitionId id, CoreDefinition.Aggregate declaration) {
@@ -109,7 +114,7 @@ final class CoreProgramVerifier {
     }
     declaration
         .fields()
-        .forEach(field -> verifyValueType(id, field.type(), declaration.typeParameters().size()));
+        .forEach(field -> verifyStoredType(id, field.type(), declaration.typeParameters().size()));
     verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
     DefinitionId constructorId = resolve(id, declaration.constructor());
     CoreDefinition constructor = program.definition(constructorId).orElseThrow();
@@ -407,7 +412,7 @@ final class CoreProgramVerifier {
           "interface method receiver must expose its type parameters");
     }
     verifyTypeParameters(id, method.typeParameters(), parameterCount);
-    method.parameterTypes().forEach(type -> verifyValueType(id, type, parameterCount));
+    method.parameterTypes().forEach(type -> verifyParameterType(id, type, parameterCount));
     verifyReturnType(id, method.returnType(), parameterCount);
   }
 
@@ -676,6 +681,9 @@ final class CoreProgramVerifier {
       case VOID -> expected.equals(CoreType.VOID);
       case NULL -> expected.equals(CoreType.NULL);
       case ERROR -> true;
+      case REFERENCE ->
+          expected instanceof CoreType.Reference reference
+              && matchesSemanticType(reference.target(), pattern.referenceTarget(), substitutions);
       case DECLARED -> {
         if (!(expected instanceof CoreType.Declared declared)
             || declared.arguments().size() != pattern.arguments().size()
@@ -835,11 +843,30 @@ final class CoreProgramVerifier {
                     .fields()
                     .forEach(
                         field ->
-                            verifyValueType(
+                            verifyStoredType(
                                 id, field.type(), declaration.typeParameters().size())));
   }
 
   private void verifyBlock(DefinitionId owner, CoreDefinition.Callable callable, CoreBlock block) {
+    verifyBlock(owner, callable, block, List.of(), false);
+  }
+
+  private void verifyBlock(
+      DefinitionId owner,
+      CoreDefinition.Callable callable,
+      CoreBlock block,
+      List<Integer> implicitLocals,
+      boolean externalReferences) {
+    referenceFlow.push();
+    for (int localIndex : implicitLocals) {
+      CoreLocal local = local(callable, localIndex);
+      referenceFlow.declare(localIndex);
+      if (local.type() instanceof CoreType.Reference) {
+        referenceFlow.update(
+            localIndex,
+            externalReferences ? LexicalLifetime.longLived() : LexicalLifetime.unusable());
+      }
+    }
     for (CoreStatement statement : block.statements()) {
       switch (statement) {
         case CoreStatement.LocalDeclaration local -> {
@@ -850,6 +877,10 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, local.initializer());
           requireAssignable(
               owner, target.type(), owner, local.initializer().type(), "local initializer");
+          referenceFlow.declare(local.localIndex());
+          if (target.type() instanceof CoreType.Reference) {
+            updateReferenceLifetime(local.localIndex(), local.initializer());
+          }
         }
         case CoreStatement.LocalAssignment assignment -> {
           CoreLocal target = local(callable, assignment.localIndex());
@@ -860,6 +891,9 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, assignment.value());
           requireAssignable(
               owner, target.type(), owner, assignment.value().type(), "local assignment");
+          if (target.type() instanceof CoreType.Reference) {
+            updateReferenceLifetime(assignment.localIndex(), assignment.value());
+          }
         }
         case CoreStatement.FieldAssignment assignment -> {
           verifyExpression(owner, callable, assignment.receiver());
@@ -875,22 +909,37 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, assignment.value());
           verifyIntrinsicAssignment(owner, assignment);
         }
+        case CoreStatement.ReferenceAssignment assignment -> {
+          verifyExpression(owner, callable, assignment.reference());
+          verifyExpression(owner, callable, assignment.value());
+          CoreType target = referenceTarget(owner, assignment.reference().type(), "assignment");
+          requireAssignable(
+              owner, target, owner, assignment.value().type(), "reference assignment");
+        }
         case CoreStatement.ExpressionStatement expression ->
             verifyExpression(owner, callable, expression.expression());
         case CoreStatement.IfStatement conditional -> {
           verifyExpression(owner, callable, conditional.condition());
           requireSameType(
               owner, CoreType.BOOLEAN, owner, conditional.condition().type(), "if condition");
+          CoreReferenceFlow.State incoming = referenceFlow.snapshot();
           verifyBlock(owner, callable, conditional.thenBlock());
+          CoreReferenceFlow.State thenFlow = referenceFlow.snapshot();
+          referenceFlow.replace(incoming);
           verifyBlock(owner, callable, conditional.elseBlock());
+          CoreReferenceFlow.State elseFlow = referenceFlow.snapshot();
+          referenceFlow.replace(CoreReferenceFlow.merge(incoming, thenFlow, elseFlow));
         }
         case CoreStatement.ConditionalForStatement loop -> {
           verifyExpression(owner, callable, loop.condition());
           requireSameType(
               owner, CoreType.BOOLEAN, owner, loop.condition().type(), "loop condition");
           controls.addFirst(Control.loop());
+          CoreReferenceFlow.State incoming = referenceFlow.snapshot();
           verifyBlock(owner, callable, loop.body());
           controls.removeFirst();
+          referenceFlow.replace(
+              CoreReferenceFlow.merge(incoming, incoming, referenceFlow.snapshot()));
         }
         case CoreStatement.ForStatement loop -> {
           if (local(callable, loop.iteratorLocal()).kind() != CoreLocal.Kind.ITERATOR
@@ -912,8 +961,14 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, loop.iterable());
           verifyIteration(owner, callable, loop);
           controls.addFirst(Control.loop());
-          verifyBlock(owner, callable, loop.body());
+          CoreReferenceFlow.State incoming = referenceFlow.snapshot();
+          List<Integer> loopLocals = new ArrayList<>();
+          loopLocals.add(loop.variableLocal());
+          loop.indexLocal().ifPresent(loopLocals::add);
+          verifyBlock(owner, callable, loop.body(), loopLocals, false);
           controls.removeFirst();
+          referenceFlow.replace(
+              CoreReferenceFlow.merge(incoming, incoming, referenceFlow.snapshot()));
         }
         case CoreStatement.ReturnStatement returned -> {
           if (returned.value().isEmpty()) {
@@ -935,6 +990,9 @@ final class CoreProgramVerifier {
               owner,
               yielded.value().type(),
               "switch yield");
+          if (yielded.value().type() instanceof CoreType.Reference) {
+            controls.getFirst().mergeReferenceLifetime(referenceLifetime(yielded.value()));
+          }
         }
         case CoreStatement.BreakStatement ignored -> {
           if (controls.isEmpty() || controls.getFirst().kind() != ControlKind.LOOP) {
@@ -948,6 +1006,30 @@ final class CoreProgramVerifier {
         }
       }
     }
+    referenceFlow.pop();
+  }
+
+  private void updateReferenceLifetime(int destination, CoreExpression value) {
+    LexicalLifetime source = referenceLifetime(value);
+    if (!source.outlives(referenceFlow.storageLifetime(destination))) {
+      throw new IllegalArgumentException(
+          "core reference cannot outlive the addressed storage location");
+    }
+    referenceFlow.update(destination, source);
+  }
+
+  private LexicalLifetime referenceLifetime(CoreExpression expression) {
+    return switch (expression) {
+      case CoreExpression.AddressLocal address ->
+          referenceFlow.storageLifetime(address.localIndex());
+      case CoreExpression.AddressField ignored -> LexicalLifetime.longLived();
+      case CoreExpression.LocalRead read -> referenceFlow.referenceLifetime(read.localIndex());
+      case CoreExpression.Switch switched -> {
+        LexicalLifetime lifetime = referenceFlow.expressionLifetime(switched);
+        yield lifetime == null ? LexicalLifetime.unusable() : lifetime;
+      }
+      default -> LexicalLifetime.unusable();
+    };
   }
 
   private void verifyExpression(
@@ -995,6 +1077,9 @@ final class CoreProgramVerifier {
       case CoreExpression.LocalRead read -> {
         CoreLocal local = local(callable, read.localIndex());
         requireAssignable(owner, local.type(), owner, read.type(), "local read");
+        if (local.type() instanceof CoreType.Reference) {
+          referenceFlow.referenceLifetime(read.localIndex());
+        }
       }
       case CoreExpression.FieldRead read -> {
         verifyExpression(owner, callable, read.receiver());
@@ -1006,6 +1091,33 @@ final class CoreProgramVerifier {
             owner,
             read.type(),
             "field read");
+      }
+      case CoreExpression.AddressLocal address -> {
+        CoreLocal local = local(callable, address.localIndex());
+        if (local.kind() != CoreLocal.Kind.VARIABLE && local.kind() != CoreLocal.Kind.PARAMETER) {
+          throw new IllegalArgumentException("address target is not mutable local storage");
+        }
+        CoreType target = referenceTarget(owner, address.type(), "local address");
+        requireSameType(owner, local.type(), owner, target, "local address");
+        referenceFlow.storageLifetime(address.localIndex());
+      }
+      case CoreExpression.AddressField address -> {
+        verifyExpression(owner, callable, address.receiver());
+        requireNonNullableReceiver(owner, address.receiver().type(), "field address");
+        CoreType receiver = nonNullable(absolute(owner, address.receiver().type()));
+        if (!(receiver instanceof CoreType.Declared declared)
+            || declared.category() != CoreValueCategory.IDENTITY) {
+          throw new IllegalArgumentException("field address requires an identity receiver");
+        }
+        CoreType fieldType =
+            instantiatedFieldType(owner, address.receiver().type(), address.field());
+        CoreType target = referenceTarget(owner, address.type(), "field address");
+        requireSameType(owner, fieldType, owner, target, "field address");
+      }
+      case CoreExpression.Dereference dereference -> {
+        verifyExpression(owner, callable, dereference.reference());
+        CoreType target = referenceTarget(owner, dereference.reference().type(), "dereference");
+        requireSameType(owner, target, owner, dereference.type(), "dereference");
       }
       case CoreExpression.EnumConstruct construct ->
           verifyEnumConstruct(owner, callable, construct);
@@ -1070,6 +1182,14 @@ final class CoreProgramVerifier {
           default -> throw new IllegalArgumentException("unsupported core literal value");
         };
     requireSameType(owner, expected, owner, literal.type(), "literal");
+  }
+
+  private CoreType referenceTarget(DefinitionId owner, CoreType type, String subject) {
+    CoreType absolute = absolute(owner, type);
+    if (!(absolute instanceof CoreType.Reference reference)) {
+      throw new IllegalArgumentException(subject + " requires a reference type");
+    }
+    return reference.target();
   }
 
   private void verifyUnary(DefinitionId owner, CoreExpression.Unary unary) {
@@ -1372,6 +1492,8 @@ final class CoreProgramVerifier {
                   .toList(),
               category(pattern.category()),
               pattern.isNullable() ? CoreNullability.NULLABLE : CoreNullability.NON_NULL);
+      case REFERENCE ->
+          new CoreType.Reference(instantiate(pattern.referenceTarget(), substitutions));
       case VOID -> CoreType.VOID;
       case NULL -> CoreType.NULL;
       case ERROR -> CoreType.DYNAMIC;
@@ -1703,22 +1825,59 @@ final class CoreProgramVerifier {
     CoreType valueType = absolute(owner, switched.value().type());
     PatternCoverage<CoreType> coverage = new PatternCoverage<>(new CorePatternDomain(owner));
     List<PatternCoverage.Pattern> previous = new ArrayList<>();
+    Control switchControl = Control.switched(switched.type());
+    CoreReferenceFlow.State incoming = referenceFlow.snapshot();
+    List<CoreReferenceFlow.State> caseFlows = new ArrayList<>();
     for (CoreSwitchCase switchCase : switched.cases()) {
+      referenceFlow.replace(incoming);
       PatternCoverage.Pattern pattern =
           verifyPattern(owner, callable, switchCase.pattern(), valueType);
       if (!coverage.isUseful(previous, pattern, valueType)) {
         throw new IllegalArgumentException("core switch case is unreachable");
       }
       previous.add(pattern);
-      controls.addFirst(Control.switched(switched.type()));
-      verifyBlock(owner, callable, switchCase.body());
+      controls.addFirst(switchControl);
+      verifyBlock(owner, callable, switchCase.body(), patternLocals(switchCase.pattern()), false);
       controls.removeFirst();
+      caseFlows.add(referenceFlow.snapshot());
       if (!switched.type().equals(CoreType.VOID) && !definitelyYields(switchCase.body())) {
         throw new IllegalArgumentException("core switch expression case does not yield");
       }
     }
     if (!coverage.isExhaustive(previous, valueType)) {
       throw new IllegalArgumentException("core switch is not exhaustive");
+    }
+    if (!caseFlows.isEmpty()) {
+      CoreReferenceFlow.State merged = caseFlows.getFirst();
+      for (int index = 1; index < caseFlows.size(); index++) {
+        merged = CoreReferenceFlow.merge(incoming, merged, caseFlows.get(index));
+      }
+      referenceFlow.replace(merged);
+    }
+    if (switched.type() instanceof CoreType.Reference) {
+      LexicalLifetime lifetime = switchControl.referenceLifetime();
+      if (lifetime == null || !lifetime.outlives(referenceFlow.currentLifetime())) {
+        throw new IllegalArgumentException(
+            "core reference cannot outlive the addressed storage location");
+      }
+      referenceFlow.recordExpressionLifetime(switched, lifetime);
+    }
+  }
+
+  private static List<Integer> patternLocals(CorePattern pattern) {
+    List<Integer> result = new ArrayList<>();
+    collectPatternLocals(pattern, result);
+    return List.copyOf(result);
+  }
+
+  private static void collectPatternLocals(CorePattern pattern, List<Integer> result) {
+    switch (pattern) {
+      case CorePattern.Binding binding -> result.add(binding.localIndex());
+      case CorePattern.Variant variant ->
+          variant.arguments().forEach(argument -> collectPatternLocals(argument, result));
+      case CorePattern.Wildcard ignored -> {}
+      case CorePattern.Literal ignored -> {}
+      case CorePattern.Null ignored -> {}
     }
   }
 
@@ -1896,13 +2055,39 @@ final class CoreProgramVerifier {
     SWITCH
   }
 
-  private record Control(ControlKind kind, CoreType yieldType) {
+  private static final class Control {
+    private final ControlKind kind;
+    private final CoreType yieldType;
+    private LexicalLifetime referenceLifetime;
+
+    private Control(ControlKind kind, CoreType yieldType) {
+      this.kind = kind;
+      this.yieldType = yieldType;
+    }
+
     static Control loop() {
       return new Control(ControlKind.LOOP, CoreType.VOID);
     }
 
     static Control switched(CoreType type) {
       return new Control(ControlKind.SWITCH, type);
+    }
+
+    ControlKind kind() {
+      return kind;
+    }
+
+    CoreType yieldType() {
+      return yieldType;
+    }
+
+    LexicalLifetime referenceLifetime() {
+      return referenceLifetime;
+    }
+
+    void mergeReferenceLifetime(LexicalLifetime lifetime) {
+      referenceLifetime =
+          referenceLifetime == null ? lifetime : referenceLifetime.narrowest(lifetime);
     }
   }
 
@@ -1953,10 +2138,30 @@ final class CoreProgramVerifier {
 
   private void verifyReturnType(DefinitionId owner, CoreType type, int parameterCount) {
     if (type.equals(CoreType.VOID)) return;
+    if (containsReference(type)) {
+      throw new IllegalArgumentException("core return ABI cannot contain a reference type");
+    }
     verifyInhabitedType(owner, type, parameterCount, "core return ABI");
   }
 
+  private void verifyParameterType(DefinitionId owner, CoreType type, int parameterCount) {
+    if (containsReference(type) && !(type instanceof CoreType.Reference)) {
+      throw new IllegalArgumentException("core parameter ABI cannot contain a nested reference");
+    }
+    verifyValueType(owner, type, parameterCount);
+  }
+
+  private void verifyStoredType(DefinitionId owner, CoreType type, int parameterCount) {
+    if (containsReference(type)) {
+      throw new IllegalArgumentException("stored core types cannot contain references");
+    }
+    verifyValueType(owner, type, parameterCount);
+  }
+
   private void verifyRuntimeTypeTemplate(DefinitionId owner, CoreType type, int parameterCount) {
+    if (containsReference(type)) {
+      throw new IllegalArgumentException("runtime type templates cannot contain references");
+    }
     verifyInhabitedType(owner, type, parameterCount, "runtime type template");
   }
 
@@ -1991,6 +2196,9 @@ final class CoreProgramVerifier {
       }
       return;
     }
+    if (containsReference(local.type()) && !(local.type() instanceof CoreType.Reference)) {
+      throw new IllegalArgumentException("core local ABI cannot contain a nested reference");
+    }
     verifyValueType(owner, local.type(), parameterCount);
   }
 
@@ -2003,6 +2211,9 @@ final class CoreProgramVerifier {
         }
       }
       case CoreType.Declared declared -> {
+        if (declared.arguments().stream().anyMatch(CoreProgramVerifier::containsReference)) {
+          throw new IllegalArgumentException("declared core types cannot contain references");
+        }
         declared
             .arguments()
             .forEach(argument -> verifyInhabitedType(owner, argument, parameterCount, subject));
@@ -2012,10 +2223,23 @@ final class CoreProgramVerifier {
         }
       }
       case CoreType.Function function -> {
+        if (containsReference(function.returnType())
+            || function.parameterTypes().stream()
+                .anyMatch(CoreProgramVerifier::containsReference)) {
+          throw new IllegalArgumentException("function core types cannot contain references");
+        }
         verifyReturnType(owner, function.returnType(), parameterCount);
         function
             .parameterTypes()
             .forEach(parameter -> verifyValueType(owner, parameter, parameterCount));
+      }
+      case CoreType.Reference reference -> {
+        verifyValueType(owner, reference.target(), parameterCount);
+        CoreType target = absolute(owner, reference.target());
+        if (!(target instanceof CoreType.Declared declared)
+            || declared.category() != CoreValueCategory.VALUE) {
+          throw new IllegalArgumentException("reference target must be a value type");
+        }
       }
       case CoreType.Special ignored ->
           throw new IllegalArgumentException(subject + " requires an inhabitable type");
@@ -2112,8 +2336,23 @@ final class CoreProgramVerifier {
         collectTypeParameters(function.returnType(), result);
         function.parameterTypes().forEach(argument -> collectTypeParameters(argument, result));
       }
+      case CoreType.Reference reference -> collectTypeParameters(reference.target(), result);
       case CoreType.Special ignored -> {}
     }
+  }
+
+  private static boolean containsReference(CoreType type) {
+    return switch (type) {
+      case CoreType.Reference ignored -> true;
+      case CoreType.Declared declared ->
+          declared.arguments().stream().anyMatch(CoreProgramVerifier::containsReference);
+      case CoreType.Function function ->
+          containsReference(function.returnType())
+              || function.parameterTypes().stream()
+                  .anyMatch(CoreProgramVerifier::containsReference);
+      case CoreType.Parameter ignored -> false;
+      case CoreType.Special ignored -> false;
+    };
   }
 
   private static void verifyDenseArguments(List<CoreArgument> arguments, int parameterCount) {
@@ -2352,6 +2591,7 @@ final class CoreProgramVerifier {
           parameter.nullability() == CoreNullability.NON_NULL
               ? parameter
               : new CoreType.Parameter(parameter.index(), CoreNullability.NON_NULL);
+      case CoreType.Reference reference -> reference;
       case CoreType.Special special -> special;
     };
   }

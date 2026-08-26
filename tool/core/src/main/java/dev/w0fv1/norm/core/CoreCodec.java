@@ -203,6 +203,11 @@ final class CoreCodec {
         writeOptionalExpression(writer, assignment.index(), referenceResolver);
         writeExpression(writer, assignment.value(), referenceResolver);
       }
+      case CoreStatement.ReferenceAssignment assignment -> {
+        writer.writeTag("reference-assignment");
+        writeExpression(writer, assignment.reference(), referenceResolver);
+        writeExpression(writer, assignment.value(), referenceResolver);
+      }
       case CoreStatement.ExpressionStatement expression -> {
         writer.writeTag("expression-statement");
         writeExpression(writer, expression.expression(), referenceResolver);
@@ -281,6 +286,21 @@ final class CoreCodec {
         writeField(writer, field.field(), referenceResolver);
         writer.writeBoolean(field.nullSafe());
         writeType(writer, field.type(), referenceResolver);
+      }
+      case CoreExpression.AddressLocal address -> {
+        writer.writeTag("address-local").writeInt(address.localIndex());
+        writeType(writer, address.type(), referenceResolver);
+      }
+      case CoreExpression.AddressField address -> {
+        writer.writeTag("address-field");
+        writeExpression(writer, address.receiver(), referenceResolver);
+        writeField(writer, address.field(), referenceResolver);
+        writeType(writer, address.type(), referenceResolver);
+      }
+      case CoreExpression.Dereference dereference -> {
+        writer.writeTag("dereference");
+        writeExpression(writer, dereference.reference(), referenceResolver);
+        writeType(writer, dereference.type(), referenceResolver);
       }
       case CoreExpression.EnumConstruct construct -> {
         writer.writeTag("enum-construct");
@@ -545,6 +565,10 @@ final class CoreCodec {
               .writeTag("type-parameter")
               .writeInt(parameter.index())
               .writeTag(parameter.nullability().name());
+      case CoreType.Reference reference -> {
+        writer.writeTag("reference-type");
+        writeType(writer, reference.target(), referenceResolver);
+      }
       case CoreType.Special special ->
           writer.writeTag("special-type").writeTag(special.kind().name());
     }

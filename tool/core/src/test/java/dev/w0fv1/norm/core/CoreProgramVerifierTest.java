@@ -87,6 +87,132 @@ final class CoreProgramVerifierTest {
   }
 
   @Test
+  void rejectsReferencesInRuntimeTypeTemplatesAtEveryDepth() {
+    CoreType reference = new CoreType.Reference(CoreType.INTEGER);
+
+    assertThrows(IllegalArgumentException.class, () -> programWithReifiedArgument(reference));
+    assertThrows(
+        IllegalArgumentException.class, () -> programWithReifiedArgument(arrayType(reference)));
+  }
+
+  @Test
+  void rejectsAddressesOfValueAggregateFields() {
+    CoreDefinitionGroup owner =
+        aggregateGroup(
+            "Point", CoreValueCategory.VALUE, List.of(new CoreField(0, CoreType.INTEGER)));
+    CoreType point = userType(aggregateId(owner), List.of(), CoreValueCategory.VALUE);
+    CoreExpression address =
+        new CoreExpression.AddressField(
+            2,
+            new CoreExpression.LocalRead(3, 0, point),
+            new CoreFieldReference(new DefinitionReference.External(aggregateId(owner)), 0),
+            new CoreType.Reference(CoreType.INTEGER));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(owner, group(functionWithLocal(address, point)))));
+  }
+
+  @Test
+  void rejectsLocalReferenceAssignmentsAcrossLexicalRegions() {
+    CoreType reference = new CoreType.Reference(CoreType.INTEGER);
+    CoreDefinition.Callable callable =
+        functionWithStatements(
+            List.of(
+                new CoreLocal(0, CoreType.INTEGER, CoreLocal.Kind.VARIABLE),
+                new CoreLocal(1, reference, CoreLocal.Kind.VARIABLE),
+                new CoreLocal(2, CoreType.INTEGER, CoreLocal.Kind.VARIABLE)),
+            List.of(
+                new CoreStatement.LocalDeclaration(
+                    1, 0, new CoreExpression.Literal(2, 0, CoreType.INTEGER)),
+                new CoreStatement.LocalDeclaration(
+                    3, 1, new CoreExpression.AddressLocal(4, 0, reference)),
+                new CoreStatement.IfStatement(
+                    5,
+                    new CoreExpression.Literal(6, true, CoreType.BOOLEAN),
+                    new CoreBlock(
+                        7,
+                        List.of(
+                            new CoreStatement.LocalDeclaration(
+                                8, 2, new CoreExpression.Literal(9, 1, CoreType.INTEGER)),
+                            new CoreStatement.LocalAssignment(
+                                10, 1, new CoreExpression.AddressLocal(11, 2, reference)))),
+                    new CoreBlock(12, List.of()))));
+
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(group(callable))));
+  }
+
+  @Test
+  void rejectsExpiredReferencesProducedBySwitchExpressions() {
+    CoreType reference = new CoreType.Reference(CoreType.INTEGER);
+    CoreExpression switched =
+        new CoreExpression.Switch(
+            3,
+            new CoreExpression.Literal(4, true, CoreType.BOOLEAN),
+            List.of(
+                new CoreSwitchCase(
+                    new CorePattern.Literal(true, CoreType.BOOLEAN),
+                    new CoreBlock(
+                        5,
+                        List.of(
+                            new CoreStatement.LocalDeclaration(
+                                6, 1, new CoreExpression.Literal(7, 1, CoreType.INTEGER)),
+                            new CoreStatement.YieldStatement(
+                                8, new CoreExpression.AddressLocal(9, 1, reference))))),
+                new CoreSwitchCase(
+                    new CorePattern.Literal(false, CoreType.BOOLEAN),
+                    new CoreBlock(
+                        10,
+                        List.of(
+                            new CoreStatement.YieldStatement(
+                                11, new CoreExpression.AddressLocal(12, 0, reference)))))),
+            reference);
+    CoreDefinition.Callable callable =
+        functionWithStatements(
+            List.of(
+                new CoreLocal(0, CoreType.INTEGER, CoreLocal.Kind.VARIABLE),
+                new CoreLocal(1, CoreType.INTEGER, CoreLocal.Kind.VARIABLE)),
+            List.of(
+                new CoreStatement.LocalDeclaration(
+                    1, 0, new CoreExpression.Literal(2, 0, CoreType.INTEGER)),
+                new CoreStatement.ExpressionStatement(
+                    13, new CoreExpression.Dereference(14, switched, CoreType.INTEGER))));
+
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(group(callable))));
+  }
+
+  @Test
+  void revalidatesReusedReferenceReadsInTheirCurrentRegion() {
+    CoreType reference = new CoreType.Reference(CoreType.INTEGER);
+    CoreExpression.LocalRead reused = new CoreExpression.LocalRead(9, 1, reference);
+    CoreDefinition.Callable callable =
+        functionWithStatements(
+            List.of(
+                new CoreLocal(0, CoreType.INTEGER, CoreLocal.Kind.VARIABLE),
+                new CoreLocal(1, reference, CoreLocal.Kind.VARIABLE),
+                new CoreLocal(2, CoreType.INTEGER, CoreLocal.Kind.VARIABLE)),
+            List.of(
+                new CoreStatement.LocalDeclaration(
+                    1, 0, new CoreExpression.Literal(2, 0, CoreType.INTEGER)),
+                new CoreStatement.IfStatement(
+                    3,
+                    new CoreExpression.Literal(4, true, CoreType.BOOLEAN),
+                    new CoreBlock(
+                        5,
+                        List.of(
+                            new CoreStatement.LocalDeclaration(
+                                6, 2, new CoreExpression.Literal(7, 1, CoreType.INTEGER)),
+                            new CoreStatement.LocalDeclaration(
+                                8, 1, new CoreExpression.AddressLocal(10, 2, reference)),
+                            new CoreStatement.ExpressionStatement(11, reused))),
+                    new CoreBlock(12, List.of())),
+                new CoreStatement.ExpressionStatement(
+                    13, new CoreExpression.Dereference(14, reused, CoreType.INTEGER))));
+
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(group(callable))));
+  }
+
+  @Test
   void rejectsCallsWhoseArgumentsDoNotMatchTheTargetAbi() {
     CoreDefinitionGroup target =
         group(
@@ -573,6 +699,16 @@ final class CoreProgramVerifierTest {
 
   private static CoreDefinitionGroup aggregateGroup(
       String name, int typeParameters, List<CoreField> fields) {
+    return aggregateGroup(name, CoreValueCategory.IDENTITY, typeParameters, fields);
+  }
+
+  private static CoreDefinitionGroup aggregateGroup(
+      String name, CoreValueCategory category, List<CoreField> fields) {
+    return aggregateGroup(name, category, 0, fields);
+  }
+
+  private static CoreDefinitionGroup aggregateGroup(
+      String name, CoreValueCategory category, int typeParameters, List<CoreField> fields) {
     List<CoreTypeParameter> parameters = typeParameters(typeParameters);
     CoreType receiver =
         new CoreType.Declared(
@@ -581,7 +717,7 @@ final class CoreProgramVerifierTest {
                 .mapToObj(index -> new CoreType.Parameter(index, CoreNullability.NON_NULL))
                 .map(CoreType.class::cast)
                 .toList(),
-            CoreValueCategory.IDENTITY,
+            category,
             CoreNullability.NON_NULL);
     List<Integer> parameterLocals =
         java.util.stream.IntStream.range(0, fields.size()).map(index -> index + 1).boxed().toList();
@@ -602,7 +738,7 @@ final class CoreProgramVerifierTest {
     CoreDefinition.Aggregate aggregate =
         new CoreDefinition.Aggregate(
             nominal(name),
-            CoreValueCategory.IDENTITY,
+            category,
             parameters,
             Optional.empty(),
             fields.size(),
@@ -667,10 +803,15 @@ final class CoreProgramVerifierTest {
   }
 
   private static CoreType userType(DefinitionId definition, List<CoreType> arguments) {
+    return userType(definition, arguments, CoreValueCategory.IDENTITY);
+  }
+
+  private static CoreType userType(
+      DefinitionId definition, List<CoreType> arguments, CoreValueCategory category) {
     return new CoreType.Declared(
         new CoreTypeConstructor.User(new DefinitionReference.External(definition)),
         arguments,
-        CoreValueCategory.IDENTITY,
+        category,
         CoreNullability.NON_NULL);
   }
 

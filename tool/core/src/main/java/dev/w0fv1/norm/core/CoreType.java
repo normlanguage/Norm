@@ -5,7 +5,11 @@ import java.util.Objects;
 import java.util.function.IntFunction;
 
 public sealed interface CoreType
-    permits CoreType.Declared, CoreType.Function, CoreType.Parameter, CoreType.Special {
+    permits CoreType.Declared,
+        CoreType.Function,
+        CoreType.Parameter,
+        CoreType.Reference,
+        CoreType.Special {
   CoreType INTEGER =
       new Declared(
           new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Integer")),
@@ -63,6 +67,7 @@ public sealed interface CoreType
       case Declared declared -> declared.nullability() == CoreNullability.NULLABLE;
       case Function function -> function.nullability() == CoreNullability.NULLABLE;
       case Parameter parameter -> parameter.nullability() == CoreNullability.NULLABLE;
+      case Reference ignored -> false;
       case Special ignored -> false;
     };
   }
@@ -93,6 +98,7 @@ public sealed interface CoreType
             ? replacement.asNullable()
             : replacement;
       }
+      case Reference reference -> new Reference(reference.target().substitute(substitutions));
       case Special special -> special;
     };
   }
@@ -116,6 +122,8 @@ public sealed interface CoreType
           parameter.nullability() == CoreNullability.NULLABLE
               ? parameter
               : new Parameter(parameter.index(), CoreNullability.NULLABLE);
+      case Reference ignored ->
+          throw new IllegalStateException("reference types cannot be nullable");
       case Special special -> special;
     };
   }
@@ -151,6 +159,16 @@ public sealed interface CoreType
       if (index < 0)
         throw new IllegalArgumentException("type parameter index must not be negative");
       Objects.requireNonNull(nullability, "nullability");
+    }
+  }
+
+  record Reference(CoreType target) implements CoreType {
+    public Reference {
+      Objects.requireNonNull(target, "target");
+      if (target instanceof Reference || target.isNullable()) {
+        throw new IllegalArgumentException(
+            "reference target must be non-reference and non-nullable");
+      }
     }
   }
 

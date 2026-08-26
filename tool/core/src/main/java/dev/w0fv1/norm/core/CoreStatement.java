@@ -10,6 +10,7 @@ public sealed interface CoreStatement extends CoreNode
         CoreStatement.LocalAssignment,
         CoreStatement.FieldAssignment,
         CoreStatement.IntrinsicAssignment,
+        CoreStatement.ReferenceAssignment,
         CoreStatement.ExpressionStatement,
         CoreStatement.IfStatement,
         CoreStatement.ConditionalForStatement,
@@ -59,6 +60,15 @@ public sealed interface CoreStatement extends CoreNode
       Objects.requireNonNull(intrinsic, "intrinsic");
       Objects.requireNonNull(receiver, "receiver");
       index = Objects.requireNonNull(index, "index");
+      Objects.requireNonNull(value, "value");
+    }
+  }
+
+  record ReferenceAssignment(int nodeIndex, CoreExpression reference, CoreExpression value)
+      implements CoreStatement {
+    public ReferenceAssignment {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(reference, "reference");
       Objects.requireNonNull(value, "value");
     }
   }

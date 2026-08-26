@@ -553,6 +553,7 @@ public final class SourceFormatter {
       case PLUS -> "+";
       case MINUS -> "-";
       case STAR -> "*";
+      case AMPERSAND -> "&";
       case SLASH -> "/";
       case PERCENT -> "%";
       case BANG -> "!";

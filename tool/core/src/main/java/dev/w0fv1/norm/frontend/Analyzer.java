@@ -16,6 +16,7 @@ import dev.w0fv1.norm.syntax.TokenKind;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.LexicalLifetime;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -839,7 +840,7 @@ final class Analyzer extends AnalyzerExpressions {
       activeTypeParameterSymbols = Map.copyOf(methodSymbols);
       registerBounds(method.typeParameters(), methodTypes);
       validateType(method.returnType(), true);
-      method.parameters().forEach(parameter -> validateType(parameter.type(), false));
+      method.parameters().forEach(parameter -> validateReferenceCapableType(parameter.type()));
       if (method.body().isPresent())
         analyzeInterfaceDefault(declaration, method, methodTypes, methodSymbols);
       activeTypeParameters = interfaceTypeParameters(declaration);
@@ -1258,7 +1259,7 @@ final class Analyzer extends AnalyzerExpressions {
       }
     }
     for (Syntax.Parameter parameter : function.parameters()) {
-      validateType(parameter.type(), false);
+      validateReferenceCapableType(parameter.type());
       Symbol symbol =
           register(
               parameter,
@@ -1330,7 +1331,7 @@ final class Analyzer extends AnalyzerExpressions {
     }
     pushScope(constructor.span());
     for (Syntax.Parameter parameter : constructor.parameters()) {
-      validateType(parameter.type(), false);
+      validateReferenceCapableType(parameter.type());
       Symbol symbol =
           register(
               parameter,
@@ -1733,7 +1734,7 @@ final class Analyzer extends AnalyzerExpressions {
                 .type()
                 .map(
                     type -> {
-                      validateType(type, false);
+                      validateReferenceCapableType(type);
                       return resolveType(type, activeTypeParameters);
                     })
                 .orElse(null);
@@ -1757,6 +1758,12 @@ final class Analyzer extends AnalyzerExpressions {
                 List.of(),
                 List.of());
         declareExisting(variable.name(), declaredType, variable.nameSpan(), symbol.id());
+        if (declaredType.isReference()) {
+          FlowScopes.ScopedSymbol scoped = findScoped(variable.name());
+          if (scoped != null && scoped.id().equals(symbol.id())) {
+            updateReferenceLifetime(scoped, variable.initializer());
+          }
+        }
         if (!lambdaLocals.isEmpty()) lambdaLocals.getFirst().add(symbol.id());
       }
       case Syntax.Assignment assignment -> {
@@ -1773,6 +1780,9 @@ final class Analyzer extends AnalyzerExpressions {
         requireAssignable(target, value, assignment.value().span());
         if (assignment.target() instanceof Syntax.Name name) {
           FlowScopes.ScopedSymbol scoped = findScoped(name.value());
+          if (scoped != null && target.isReference() && value.isReference()) {
+            updateReferenceLifetime(scoped, assignment.value());
+          }
           if (scoped != null
               && (scopedSymbol(scoped).kind() == SymbolKind.LOCAL_VARIABLE
                   || scopedSymbol(scoped).kind() == SymbolKind.PARAMETER)) {
@@ -1794,11 +1804,11 @@ final class Analyzer extends AnalyzerExpressions {
             SemanticType.BOOLEAN,
             typeOf(ifStatement.condition(), SemanticType.BOOLEAN),
             ifStatement.condition().span());
-        Map<SymbolId, SemanticType> incoming = flowScopes.snapshot();
-        Map<SymbolId, SemanticType> thenFlow =
+        FlowScopes.FlowState incoming = flowScopes.snapshot();
+        FlowScopes.FlowState thenFlow =
             analyzeBranch(
                 ifStatement.thenBody(), narrowingsFor(ifStatement.condition(), true), incoming);
-        Map<SymbolId, SemanticType> elseFlow =
+        FlowScopes.FlowState elseFlow =
             analyzeBranch(
                 ifStatement.elseBody(), narrowingsFor(ifStatement.condition(), false), incoming);
         boolean thenReturns = definitelyReturns(ifStatement.thenBody());
@@ -1818,14 +1828,14 @@ final class Analyzer extends AnalyzerExpressions {
             SemanticType.BOOLEAN,
             typeOf(loop.condition(), SemanticType.BOOLEAN),
             loop.condition().span());
-        Map<SymbolId, SemanticType> incoming = flowScopes.snapshot();
+        FlowScopes.FlowState incoming = flowScopes.snapshot();
         pushScope(loop.span());
         applyNarrowings(narrowingsFor(loop.condition(), true));
         controls.addFirst(ControlContext.loop());
         analyzeStatements(loop.body());
         controls.removeFirst();
         popScope();
-        Map<SymbolId, SemanticType> bodyFlow = flowScopes.snapshot();
+        FlowScopes.FlowState bodyFlow = flowScopes.snapshot();
         replaceFlow(mergeFlows(incoming, incoming, bodyFlow));
       }
       case Syntax.ForStatement forStatement -> {
@@ -1929,5 +1939,18 @@ final class Analyzer extends AnalyzerExpressions {
       case Syntax.BreakStatement breakStatement -> analyzeBreak(breakStatement);
       case Syntax.ContinueStatement continueStatement -> validateContinue(continueStatement.span());
     }
+  }
+
+  private void updateReferenceLifetime(
+      FlowScopes.ScopedSymbol destination, Syntax.Expression value) {
+    LexicalLifetime sourceLifetime = referenceLifetime(value);
+    LexicalLifetime destinationLifetime = flowScopes.storageLifetime(destination);
+    if (!sourceLifetime.outlives(destinationLifetime)) {
+      diagnostics.error(
+          INVALID_CONTROL, "reference cannot outlive the addressed storage location", value.span());
+      flowScopes.updateReferenceLifetime(destination, LexicalLifetime.unusable());
+      return;
+    }
+    flowScopes.updateReferenceLifetime(destination, sourceLifetime);
   }
 }

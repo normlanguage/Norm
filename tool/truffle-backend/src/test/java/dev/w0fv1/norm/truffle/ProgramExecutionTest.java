@@ -15,6 +15,33 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void readsWritesAndComparesReferenceLocations() throws Exception {
+    assertOutput(
+        "Void replace(ref<Integer> target, Integer value) { *target = value } "
+            + "class Box { Integer value } "
+            + "Void main() { Integer local = 1 ref<Integer> first = &local "
+            + "ref<Integer> same = &local printLine(first == same) "
+            + "replace(target: first, value: 7) printLine(local) "
+            + "Box box = Box(value: 3) ref<Integer> field = &box.value "
+            + "printLine(field == &box.value) replace(target: field, value: 9) "
+            + "printLine(box.value) printLine(first == field) }",
+        String.join(System.lineSeparator(), "true", "7", "true", "9", "false", ""));
+  }
+
+  @Test
+  void dispatchesReferenceParametersThroughInterfaces() throws Exception {
+    assertOutput(
+        "interface Mutator { Void replace(ref<Integer> target, Integer value) } "
+            + "class Replacer implements Mutator { public Void replace(ref<Integer> target, "
+            + "Integer value) { *target = value } } "
+            + "Void apply(Mutator mutator, ref<Integer> target) { "
+            + "mutator.replace(target: target, value: 8) } "
+            + "Void main() { Integer value = 1 Replacer replacer = Replacer() "
+            + "apply(mutator: replacer, target: &value) printLine(value) }",
+        "8" + System.lineSeparator());
+  }
+
+  @Test
   void materializesSequenceLiteralsAsTheirExpectedCollectionType() throws Exception {
     assertOutput(
         "Void main() { Array<Integer> array = [1, 2] List<Integer> list = [3, 4] "

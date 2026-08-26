@@ -13,6 +13,7 @@ import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionHasher;
 import dev.w0fv1.norm.core.DefinitionId;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class RuntimeValuesTest {
@@ -88,6 +89,29 @@ final class RuntimeValuesTest {
     assertEquals(
         builderType,
         RuntimeValues.runtimeType(new RuntimeValues.BuilderValue(builderType, "Norm")));
+  }
+
+  @Test
+  void preservesReferenceLocationIdentityAcrossCopiesEqualityAndHashing() {
+    DefinitionId definition = new DefinitionId(DefinitionHasher.hashGroup(new byte[] {3}), 0);
+    CoreType type = declaredType("Box", CoreValueCategory.IDENTITY);
+    RuntimeValues.AggregateInfo info =
+        new RuntimeValues.AggregateInfo(definition, "Box", 2, Map.of());
+    RuntimeValues.ObjectValue receiver = new RuntimeValues.ObjectValue(info, type);
+    RuntimeValues.ObjectValue otherReceiver = new RuntimeValues.ObjectValue(info, type);
+    RuntimeValues.FieldReference first = new RuntimeValues.FieldReference(receiver, 0);
+    RuntimeValues.FieldReference same = new RuntimeValues.FieldReference(receiver, 0);
+    RuntimeValues.FieldReference otherField = new RuntimeValues.FieldReference(receiver, 1);
+    RuntimeValues.FieldReference otherObject = new RuntimeValues.FieldReference(otherReceiver, 0);
+
+    first.write(7);
+
+    assertEquals(7, same.read());
+    assertEquals(first, RuntimeValues.copy(first));
+    assertTrue(RuntimeValues.equal(first, same));
+    assertEquals(RuntimeValues.hash(first), RuntimeValues.hash(same));
+    assertFalse(RuntimeValues.equal(first, otherField));
+    assertFalse(RuntimeValues.equal(first, otherObject));
   }
 
   private static CoreType resultType(CoreType argument) {

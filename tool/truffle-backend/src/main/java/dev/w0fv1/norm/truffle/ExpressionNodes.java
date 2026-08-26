@@ -262,6 +262,48 @@ final class ExpressionNodes {
     }
   }
 
+  static final class AddressLocal extends ExpressionNode {
+    private final FrameBinding binding;
+
+    AddressLocal(FrameBinding binding) {
+      this.binding = binding;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      return new RuntimeValues.LocalReference(frame.materialize(), binding);
+    }
+  }
+
+  static final class AddressField extends ExpressionNode {
+    @Child private ExpressionNode receiver;
+    private final int field;
+
+    AddressField(ExpressionNode receiver, int field) {
+      this.receiver = receiver;
+      this.field = field;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      return new RuntimeValues.FieldReference(
+          (RuntimeValues.ObjectValue) receiver.execute(frame), field);
+    }
+  }
+
+  static final class Dereference extends ExpressionNode {
+    @Child private ExpressionNode reference;
+
+    Dereference(ExpressionNode reference) {
+      this.reference = reference;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      return RuntimeValues.copy(((RuntimeValues.ReferenceValue) reference.execute(frame)).read());
+    }
+  }
+
   abstract static class Unary extends ExpressionNode {
     @Child protected ExpressionNode operand;
 

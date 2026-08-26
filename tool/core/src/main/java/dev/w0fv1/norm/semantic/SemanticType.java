@@ -79,9 +79,15 @@ public record SemanticType(
     if (kind == Kind.TYPE_PARAMETER && !arguments.isEmpty()) {
       throw new IllegalArgumentException("type parameters cannot have arguments");
     }
+    if (kind == Kind.REFERENCE && arguments.size() != 1) {
+      throw new IllegalArgumentException("reference types require exactly one target type");
+    }
     if ((kind == Kind.VOID || kind == Kind.NULL || kind == Kind.ERROR)
         && nullability == Nullability.NULLABLE) {
       throw new IllegalArgumentException(kind + " cannot be nullable");
+    }
+    if (kind == Kind.REFERENCE && nullability == Nullability.NULLABLE) {
+      throw new IllegalArgumentException("reference types cannot be nullable");
     }
   }
 
@@ -106,6 +112,25 @@ public record SemanticType(
     signature.add(Objects.requireNonNull(returnType, "returnType"));
     signature.addAll(parameterTypes);
     return declared("std.core.Function", "Function", signature, ValueCategory.IDENTITY);
+  }
+
+  public static SemanticType reference(SemanticType target) {
+    Objects.requireNonNull(target, "target");
+    return new SemanticType(
+        Kind.REFERENCE, "std.core.ref", "ref", List.of(target), ValueCategory.IDENTITY);
+  }
+
+  public boolean isReference() {
+    return kind == Kind.REFERENCE;
+  }
+
+  public boolean containsReference() {
+    return isReference() || arguments.stream().anyMatch(SemanticType::containsReference);
+  }
+
+  public SemanticType referenceTarget() {
+    if (!isReference()) throw new IllegalStateException("type is not a reference");
+    return arguments.getFirst();
   }
 
   public boolean isFunction() {
@@ -165,6 +190,9 @@ public record SemanticType(
   }
 
   public SemanticType nullable() {
+    if (kind == Kind.REFERENCE) {
+      throw new IllegalStateException("reference types cannot be nullable");
+    }
     if (isNullable() || kind == Kind.ERROR) return this;
     return new SemanticType(kind, identity, name, arguments, category, Nullability.NULLABLE);
   }
@@ -176,6 +204,7 @@ public record SemanticType(
 
   public enum Kind {
     DECLARED,
+    REFERENCE,
     TYPE_PARAMETER,
     NULL,
     VOID,

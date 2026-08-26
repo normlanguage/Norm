@@ -2,6 +2,7 @@ package dev.w0fv1.norm.semantic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -42,5 +43,11 @@ final class NullableTypeTest {
     assertEquals(
         SemanticType.STRING.nullable(),
         parameter.nullable().substitute(Map.of("test/T", SemanticType.STRING.nullable())));
+  }
+
+  @Test
+  void rejectsNullableReferenceTypes() {
+    assertThrows(
+        IllegalStateException.class, () -> SemanticType.reference(SemanticType.INTEGER).nullable());
   }
 }

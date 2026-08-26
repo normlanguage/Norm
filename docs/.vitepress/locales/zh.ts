@@ -50,6 +50,7 @@ const grammar = [
   { text: 'Switch', link: '/spec/grammar/switch' },
   { text: '模式', link: '/spec/grammar/patterns' },
   { text: '操作符优先级', link: '/spec/grammar/operators-precedence' },
+  { text: 'ref 引用', link: '/spec/grammar/references' },
 ]
 
 const stdlib = [

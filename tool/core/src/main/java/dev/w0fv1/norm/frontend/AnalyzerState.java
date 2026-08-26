@@ -16,6 +16,7 @@ import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.LexicalLifetime;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -66,6 +67,7 @@ abstract class AnalyzerState {
   final Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments = new LinkedHashMap<>();
   final Map<SourceSpan, ResolvedIteration> iterations = new LinkedHashMap<>();
   final Map<SourceSpan, ResolvedIndex> indexes = new LinkedHashMap<>();
+  final Map<SourceSpan, LexicalLifetime> referenceLifetimes = new LinkedHashMap<>();
   final Map<SymbolId, List<SymbolId>> members = new LinkedHashMap<>();
   final Map<String, SymbolId> typeSymbols = new LinkedHashMap<>();
   final Map<Object, SymbolId> declarationSymbols = new IdentityHashMap<>();
@@ -155,6 +157,7 @@ abstract class AnalyzerState {
   static final class ControlContext {
     private final ControlKind kind;
     private SemanticType resultType;
+    private LexicalLifetime referenceLifetime;
 
     private ControlContext(ControlKind kind, SemanticType resultType) {
       this.kind = kind;
@@ -179,6 +182,15 @@ abstract class AnalyzerState {
 
     void setResultType(SemanticType resultType) {
       this.resultType = resultType;
+    }
+
+    LexicalLifetime referenceLifetime() {
+      return referenceLifetime;
+    }
+
+    void mergeReferenceLifetime(LexicalLifetime lifetime) {
+      referenceLifetime =
+          referenceLifetime == null ? lifetime : referenceLifetime.narrowest(lifetime);
     }
   }
 
@@ -259,7 +271,8 @@ abstract class AnalyzerState {
       Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments,
       Map<SourceSpan, ResolvedIteration> iterations,
       Map<SourceSpan, ResolvedIndex> indexes,
-      Map<SymbolId, SemanticType> flowTypes,
+      Map<SourceSpan, LexicalLifetime> referenceLifetimes,
+      FlowScopes.FlowState flowState,
       int semanticScopeCount,
       int diagnosticMark) {}
 }

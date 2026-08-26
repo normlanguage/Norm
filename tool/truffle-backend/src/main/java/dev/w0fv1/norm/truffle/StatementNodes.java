@@ -358,6 +358,22 @@ final class StatementNodes {
     }
   }
 
+  static final class WriteReference extends StatementNode {
+    @Child private ExpressionNode reference;
+    @Child private ExpressionNode value;
+
+    WriteReference(ExpressionNode reference, ExpressionNode value) {
+      this.reference = reference;
+      this.value = value;
+    }
+
+    @Override
+    void executeVoid(VirtualFrame frame) {
+      RuntimeValues.ReferenceValue target = (RuntimeValues.ReferenceValue) reference.execute(frame);
+      target.write(RuntimeValues.copy(value.execute(frame)));
+    }
+  }
+
   static final class IntrinsicWrite extends StatementNode {
     private final IntrinsicId intrinsic;
     @Child private ExpressionNode receiver;

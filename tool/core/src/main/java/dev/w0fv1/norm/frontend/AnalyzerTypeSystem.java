@@ -17,6 +17,7 @@ import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.LexicalLifetime;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -306,6 +307,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   void constrainInference(TypeConstraintSolver solver, SemanticType pattern, SemanticType actual) {
+    if (actual.isReference()) return;
     if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
       solver.constrain(pattern, actual);
       return;
@@ -484,6 +486,40 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   void validateType(Syntax.TypeRef type, boolean allowVoid) {
+    validateType(type, allowVoid, false);
+  }
+
+  void validateReferenceCapableType(Syntax.TypeRef type) {
+    validateType(type, false, true);
+  }
+
+  private void validateType(
+      Syntax.TypeRef type, boolean allowVoid, boolean allowTopLevelReference) {
+    if (type.name().equals("ref")) {
+      if (!allowTopLevelReference) {
+        diagnostics.error(
+            TYPE_MISMATCH, "ref is only valid as a local or callable parameter type", type.span());
+      }
+      if (type.arguments().size() != 1) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "type 'ref' requires 1 type argument, found " + type.arguments().size(),
+            type.span());
+        type.arguments().forEach(argument -> validateType(argument, false, false));
+        return;
+      }
+      if (type.nullable()) {
+        diagnostics.error(INVALID_NULLABLE_TYPE, "ref cannot be nullable", type.span());
+      }
+      Syntax.TypeRef targetSyntax = type.arguments().getFirst();
+      validateType(targetSyntax, false, false);
+      SemanticType target = resolveType(targetSyntax, activeTypeParameters);
+      if (target.isReference() || target.isNullable() || target.category() != ValueCategory.VALUE) {
+        diagnostics.error(
+            TYPE_MISMATCH, "ref target must be a non-reference value type", targetSyntax.span());
+      }
+      return;
+    }
     String name = type.displayName();
     SymbolId typeParameter = activeTypeParameterSymbols.get(type.name());
     if (typeParameter != null) {
@@ -527,7 +563,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
           type.span());
     }
     for (int index = 0; index < type.arguments().size(); index++) {
-      validateType(type.arguments().get(index), type.name().equals("Function") && index == 0);
+      Syntax.TypeRef argument = type.arguments().get(index);
+      validateType(argument, type.name().equals("Function") && index == 0, false);
     }
     validateDeclaredTypeBounds(type);
   }
@@ -696,6 +733,16 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   void declareExisting(String name, SemanticType type, SourceSpan span, SymbolId id) {
     if (!flowScopes.declare(name, type, id)) {
       diagnostics.error(DUPLICATE_NAME, "name '" + name + "' is already declared", span);
+      return;
+    }
+    if (type.isReference()) {
+      FlowScopes.ScopedSymbol scoped = flowScopes.find(name);
+      Symbol symbol = symbols.get(id);
+      flowScopes.updateReferenceLifetime(
+          scoped,
+          symbol != null && symbol.kind() == SymbolKind.PARAMETER
+              ? LexicalLifetime.longLived()
+              : LexicalLifetime.unusable());
     }
   }
 
@@ -799,10 +846,10 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     }
   }
 
-  Map<SymbolId, SemanticType> analyzeBranch(
+  FlowScopes.FlowState analyzeBranch(
       List<Syntax.Statement> statements,
       Map<String, SemanticType> narrowings,
-      Map<SymbolId, SemanticType> incoming) {
+      FlowScopes.FlowState incoming) {
     replaceFlow(incoming);
     pushScope(scopeSpan(statements));
     applyNarrowings(narrowings);
@@ -811,14 +858,13 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     return flowScopes.snapshot();
   }
 
-  Map<SymbolId, SemanticType> mergeFlows(
-      Map<SymbolId, SemanticType> incoming,
-      Map<SymbolId, SemanticType> left,
-      Map<SymbolId, SemanticType> right) {
+  FlowScopes.FlowState mergeFlows(
+      FlowScopes.FlowState incoming, FlowScopes.FlowState left, FlowScopes.FlowState right) {
     Map<SymbolId, SemanticType> result = new HashMap<>();
-    for (Map.Entry<SymbolId, SemanticType> entry : incoming.entrySet()) {
-      SemanticType leftType = left.getOrDefault(entry.getKey(), entry.getValue());
-      SemanticType rightType = right.getOrDefault(entry.getKey(), entry.getValue());
+    Map<SymbolId, LexicalLifetime> referenceLifetimes = new HashMap<>();
+    for (Map.Entry<SymbolId, SemanticType> entry : incoming.types().entrySet()) {
+      SemanticType leftType = left.types().getOrDefault(entry.getKey(), entry.getValue());
+      SemanticType rightType = right.types().getOrDefault(entry.getKey(), entry.getValue());
       SemanticType merged = entry.getValue();
       if (leftType.equals(rightType)) {
         merged = leftType;
@@ -826,11 +872,19 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         merged = leftType.nonNullable().nullable();
       }
       result.put(entry.getKey(), merged);
+      LexicalLifetime incomingLifetime = incoming.referenceLifetimes().get(entry.getKey());
+      if (incomingLifetime != null) {
+        LexicalLifetime leftLifetime =
+            left.referenceLifetimes().getOrDefault(entry.getKey(), incomingLifetime);
+        LexicalLifetime rightLifetime =
+            right.referenceLifetimes().getOrDefault(entry.getKey(), incomingLifetime);
+        referenceLifetimes.put(entry.getKey(), leftLifetime.narrowest(rightLifetime));
+      }
     }
-    return result;
+    return new FlowScopes.FlowState(result, referenceLifetimes);
   }
 
-  void replaceFlow(Map<SymbolId, SemanticType> values) {
+  void replaceFlow(FlowScopes.FlowState values) {
     flowScopes.replace(values);
   }
 
@@ -1153,13 +1207,28 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   SemanticType resolveType(Syntax.TypeRef type, Map<String, SemanticType> typeParameters) {
+    if (type.name().equals("ref")) {
+      if (type.arguments().size() != 1) return SemanticType.DYNAMIC;
+      SemanticType target = resolveType(type.arguments().getFirst(), typeParameters);
+      return target.containsReference()
+              || target.isNullable()
+              || target.category() != ValueCategory.VALUE
+          ? SemanticType.DYNAMIC
+          : SemanticType.reference(target);
+    }
     SemanticType parameter = typeParameters.get(type.name());
-    if (parameter != null) return type.nullable() ? parameter.nullable() : parameter;
+    if (parameter != null) {
+      if (parameter.containsReference()) return SemanticType.DYNAMIC;
+      return type.nullable() ? parameter.nullable() : parameter;
+    }
     if (type.name().equals("Void")) {
       return type.nullable() ? SemanticType.DYNAMIC : SemanticType.VOID;
     }
     List<SemanticType> arguments =
         type.arguments().stream().map(argument -> resolveType(argument, typeParameters)).toList();
+    if (arguments.stream().anyMatch(SemanticType::containsReference)) {
+      return SemanticType.DYNAMIC;
+    }
     if (type.name().equals("Function") && !arguments.isEmpty()) {
       SemanticType function =
           SemanticType.function(arguments.getFirst(), arguments.subList(1, arguments.size()));
@@ -1174,7 +1243,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   SemanticType resolveCheckedType(Syntax.TypeRef type, Map<String, SemanticType> typeParameters) {
     validateType(type, false);
-    return resolveType(type, typeParameters);
+    SemanticType resolved = resolveType(type, typeParameters);
+    return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
   }
 
   SemanticType resolveDeclarationType(

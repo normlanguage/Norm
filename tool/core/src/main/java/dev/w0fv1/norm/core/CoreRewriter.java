@@ -129,6 +129,11 @@ final class CoreRewriter {
               resolve(assignment.receiver(), resolver),
               assignment.index().map(value -> resolve(value, resolver)),
               resolve(assignment.value(), resolver));
+      case CoreStatement.ReferenceAssignment assignment ->
+          new CoreStatement.ReferenceAssignment(
+              assignment.nodeIndex(),
+              resolve(assignment.reference(), resolver),
+              resolve(assignment.value(), resolver));
       case CoreStatement.ExpressionStatement expression ->
           new CoreStatement.ExpressionStatement(
               expression.nodeIndex(), resolve(expression.expression(), resolver));
@@ -188,6 +193,20 @@ final class CoreRewriter {
               resolve(field.field(), resolver),
               field.nullSafe(),
               resolve(field.type(), resolver));
+      case CoreExpression.AddressLocal address ->
+          new CoreExpression.AddressLocal(
+              address.nodeIndex(), address.localIndex(), resolve(address.type(), resolver));
+      case CoreExpression.AddressField address ->
+          new CoreExpression.AddressField(
+              address.nodeIndex(),
+              resolve(address.receiver(), resolver),
+              resolve(address.field(), resolver),
+              resolve(address.type(), resolver));
+      case CoreExpression.Dereference dereference ->
+          new CoreExpression.Dereference(
+              dereference.nodeIndex(),
+              resolve(dereference.reference(), resolver),
+              resolve(dereference.type(), resolver));
       case CoreExpression.EnumConstruct construct ->
           new CoreExpression.EnumConstruct(
               construct.nodeIndex(),

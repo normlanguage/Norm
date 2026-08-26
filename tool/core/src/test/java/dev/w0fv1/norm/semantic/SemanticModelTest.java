@@ -107,6 +107,14 @@ final class SemanticModelTest {
         model.typeOf(accept.parameters().getFirst().type()).orElseThrow().displayName());
   }
 
+  @Test
+  void resolvesReferenceTypeSyntax() {
+    SemanticModel model = analyze("Void use(ref<Integer> value) {} Void main() {}");
+    var reference = model.syntax().functions().getFirst().parameters().getFirst().type();
+
+    assertEquals("ref<Integer>", model.typeOf(reference).orElseThrow().displayName());
+  }
+
   private static SemanticModel analyze(String text) {
     return new CompilerSession()
         .analyze(SourceFile.of(DocumentId.of("untitled:test"), text))

@@ -11,6 +11,9 @@ public sealed interface CoreExpression extends CoreNode
         CoreExpression.CollectionLiteral,
         CoreExpression.LocalRead,
         CoreExpression.FieldRead,
+        CoreExpression.AddressLocal,
+        CoreExpression.AddressField,
+        CoreExpression.Dereference,
         CoreExpression.EnumConstruct,
         CoreExpression.Unary,
         CoreExpression.Binary,
@@ -83,6 +86,34 @@ public sealed interface CoreExpression extends CoreNode
       requireNode(nodeIndex);
       Objects.requireNonNull(receiver, "receiver");
       Objects.requireNonNull(field, "field");
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record AddressLocal(int nodeIndex, int localIndex, CoreType type) implements CoreExpression {
+    public AddressLocal {
+      requireNode(nodeIndex);
+      if (localIndex < 0) throw new IllegalArgumentException("local index must not be negative");
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record AddressField(
+      int nodeIndex, CoreExpression receiver, CoreFieldReference field, CoreType type)
+      implements CoreExpression {
+    public AddressField {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(receiver, "receiver");
+      Objects.requireNonNull(field, "field");
+      Objects.requireNonNull(type, "type");
+    }
+  }
+
+  record Dereference(int nodeIndex, CoreExpression reference, CoreType type)
+      implements CoreExpression {
+    public Dereference {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(reference, "reference");
       Objects.requireNonNull(type, "type");
     }
   }

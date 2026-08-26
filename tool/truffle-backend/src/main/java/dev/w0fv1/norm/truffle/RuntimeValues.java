@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
+import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.core.BuiltinTypeId;
@@ -41,6 +42,76 @@ final class RuntimeValues {
       captures = captures.clone();
       receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
+    }
+  }
+
+  sealed interface ReferenceValue permits LocalReference, FieldReference {
+    Object read();
+
+    void write(Object value);
+
+    boolean sameLocation(ReferenceValue other);
+
+    int locationHash();
+  }
+
+  record LocalReference(MaterializedFrame frame, FrameBinding binding) implements ReferenceValue {
+    LocalReference {
+      Objects.requireNonNull(frame, "frame");
+      Objects.requireNonNull(binding, "binding");
+    }
+
+    @Override
+    public Object read() {
+      return binding.read(frame);
+    }
+
+    @Override
+    public void write(Object value) {
+      binding.write(frame, value);
+    }
+
+    @Override
+    public boolean sameLocation(ReferenceValue other) {
+      return other instanceof LocalReference local
+          && frame == local.frame
+          && binding.slot() == local.binding.slot();
+    }
+
+    @Override
+    public int locationHash() {
+      return 31 * System.identityHashCode(frame) + binding.slot();
+    }
+  }
+
+  record FieldReference(ObjectValue receiver, int field) implements ReferenceValue {
+    FieldReference {
+      Objects.requireNonNull(receiver, "receiver");
+      if (field < 0 || field >= receiver.fields.length) {
+        throw new IllegalArgumentException("field reference is outside its receiver");
+      }
+    }
+
+    @Override
+    public Object read() {
+      return receiver.fields[field];
+    }
+
+    @Override
+    public void write(Object value) {
+      receiver.fields[field] = value;
+    }
+
+    @Override
+    public boolean sameLocation(ReferenceValue other) {
+      return other instanceof FieldReference reference
+          && receiver == reference.receiver
+          && field == reference.field;
+    }
+
+    @Override
+    public int locationHash() {
+      return 31 * System.identityHashCode(receiver) + field;
     }
   }
 
@@ -132,6 +203,7 @@ final class RuntimeValues {
               && value.end == ((RangeValue) right).end
               && value.step == ((RangeValue) right).step;
       case ObjectValue value -> value.sameValue((ObjectValue) right);
+      case ReferenceValue value -> value.sameLocation((ReferenceValue) right);
       default -> Objects.equals(left, right);
     };
   }
@@ -168,6 +240,7 @@ final class RuntimeValues {
           isValueObject(item)
               ? orderedHash(31 * 0x56414c55 + item.type.hashCode(), List.of(item.fields))
               : System.identityHashCode(item);
+      case ReferenceValue item -> item.locationHash();
       default -> value.hashCode();
     };
   }

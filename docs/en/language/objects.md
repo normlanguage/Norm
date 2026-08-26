@@ -44,4 +44,4 @@ A user-defined value may have methods and generic parameters and may implement i
 
 ## `ref<T>` identifies value storage
 
-`ref<T>` refers to a value storage location. It is not the mechanism for sharing class instances. Copying a ref preserves the location identity; its expression forms are defined by the grammar specification.
+`ref<T>` refers to a value storage location. It is not the mechanism for sharing class instances. Use `&location` to take an address and `*reference` to read or write the location. Copying a ref preserves location identity; refs remain within lexical local and call boundaries. The complete rules are in the [`ref<T>` grammar](/en/spec/grammar/references).

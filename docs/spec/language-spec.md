@@ -55,7 +55,7 @@ Norm 没有统一 Object 根类型。泛型约束和 interface 表达通用行�
 
 class 可变且具有身份；赋值、传参和返回共享同一对象。基本类型、enum 和内建容器是 value。`class.copy()` 创建新的顶层对象，value 使用结构相等，class 使用身份相等。完整定义见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
 
-`ref<T>` 引用 value 的存储位置，不是 class 共享入口。
+`ref<T>` 引用 value 的存储位置，不是 class 共享入口。完整边界见 [`ref<T>` 引用语法](/spec/grammar/references)。
 
 ## 控制流
 

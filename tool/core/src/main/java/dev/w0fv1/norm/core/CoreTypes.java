@@ -29,6 +29,8 @@ public final class CoreTypes {
               function.parameterTypes().stream().map(value -> mapLinks(value, mapper)).toList(),
               function.nullability());
       case CoreType.Parameter parameter -> parameter;
+      case CoreType.Reference reference ->
+          new CoreType.Reference(mapLinks(reference.target(), mapper));
       case CoreType.Special special -> special;
     };
   }
@@ -61,6 +63,8 @@ public final class CoreTypes {
     } else if (type instanceof CoreType.Function function) {
       collect(function.returnType(), result);
       function.parameterTypes().forEach(argument -> collect(argument, result));
+    } else if (type instanceof CoreType.Reference reference) {
+      collect(reference.target(), result);
     }
   }
 }

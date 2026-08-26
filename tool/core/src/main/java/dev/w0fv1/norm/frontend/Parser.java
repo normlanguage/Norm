@@ -392,7 +392,7 @@ final class Parser {
   }
 
   private Syntax.TypeRef parseType() {
-    if (match(TokenKind.IDENTIFIER)) {
+    if (match(TokenKind.IDENTIFIER, TokenKind.REF)) {
       Token type = previous();
       List<Syntax.TypeRef> arguments =
           type.value().equals("Function") && check(TokenKind.LESS)
@@ -502,7 +502,8 @@ final class Parser {
     if (match(TokenKind.EQUAL)) {
       if (!(expression instanceof Syntax.Name
           || expression instanceof Syntax.Member
-          || expression instanceof Syntax.Index)) {
+          || expression instanceof Syntax.Index
+          || expression instanceof Syntax.Unary unary && unary.operator() == TokenKind.STAR)) {
         diagnostics.error(INVALID_ASSIGNMENT, "invalid assignment target", expression.span());
       }
       Syntax.Expression value = parseExpression();
@@ -526,7 +527,7 @@ final class Parser {
   }
 
   private boolean looksLikeCallableBinding() {
-    if (!check(TokenKind.IDENTIFIER)) return false;
+    if (!isTypeToken(peek().kind())) return false;
     int nameIndex = tokenAfterType(current);
     if (nameIndex < 0
         || nameIndex + 1 >= tokens.size()
@@ -750,7 +751,7 @@ final class Parser {
   }
 
   private Syntax.Expression parseUnary() {
-    if (match(TokenKind.BANG, TokenKind.MINUS)) {
+    if (match(TokenKind.BANG, TokenKind.MINUS, TokenKind.STAR, TokenKind.AMPERSAND)) {
       Token operator = previous();
       Syntax.Expression operand = parseUnary();
       if (operator.kind() == TokenKind.MINUS && operand instanceof Syntax.IntegerLiteral integer) {
@@ -977,7 +978,7 @@ final class Parser {
 
   private boolean looksLikeVariableDeclaration() {
     if (check(TokenKind.VAR)) return true;
-    if (!check(TokenKind.IDENTIFIER)) return false;
+    if (!isTypeToken(peek().kind())) return false;
     int next = tokenAfterType(current);
     return next >= 0 && next < tokens.size() && tokens.get(next).kind() == TokenKind.IDENTIFIER;
   }
@@ -1237,7 +1238,7 @@ final class Parser {
   }
 
   private static boolean isTypeToken(TokenKind kind) {
-    return kind == TokenKind.IDENTIFIER;
+    return kind == TokenKind.IDENTIFIER || kind == TokenKind.REF;
   }
 
   private record Block(List<Syntax.Statement> statements, SourceSpan span) {

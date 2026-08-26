@@ -54,8 +54,8 @@ merge(left: mergeSort(left), right: mergeSort(right))
 
 逻辑独立不要求立即深复制。执行器可以使用写时复制、结构共享、逃逸分析或复制消除，但不能改变身份、相等、修改结果和源码求值顺序。
 
-## `ref<T>` 方向
+## `ref<T>`
 
 `ref<T>` 表示 value 存储位置的身份，而不是 class 共享机制。它只接受 value 类型；`ref<Class>` 不合法，因为 class 已经具有身份。
 
-`ref<T>` 的取地址、解引用和相等语法仍需由语法规范确定。
+`&location` 取得位置引用，`*reference` 读取位置中的 value，`*reference = value` 写入位置。复制 ref 保留位置身份，ref 的 `==` 比较位置而不是内容。完整的可寻址位置与词法生命周期边界见 [`ref<T>` 引用语法](/spec/grammar/references)。

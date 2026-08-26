@@ -177,6 +177,7 @@ final class CompletionEngine {
           keyword("return"),
           keyword("break"),
           keyword("continue"),
+          keyword("ref"),
           keyword("true"),
           keyword("false"),
           keyword("null"));

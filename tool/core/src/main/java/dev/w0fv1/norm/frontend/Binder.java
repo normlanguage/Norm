@@ -534,6 +534,9 @@ final class Binder {
             value,
             assignment.span());
       }
+      case Syntax.Unary unary when unary.operator() == TokenKind.STAR ->
+          new BoundStatement.ReferenceAssignment(
+              bindExpression(unary.operand()), value, assignment.span());
       default -> throw new IllegalStateException("invalid checked assignment target");
     };
   }
@@ -566,14 +569,7 @@ final class Binder {
               type,
               array.span());
       case Syntax.Name name -> bindName(name, type);
-      case Syntax.Unary unary ->
-          new BoundExpression.Unary(
-              unary.operator() == TokenKind.BANG
-                  ? BoundUnaryOperator.NOT
-                  : BoundUnaryOperator.NEGATE,
-              bindExpression(unary.operand()),
-              type,
-              unary.span());
+      case Syntax.Unary unary -> bindUnary(unary, type);
       case Syntax.Binary binary ->
           new BoundExpression.Binary(
               bindExpression(binary.left()),
@@ -601,6 +597,38 @@ final class Binder {
               switched.cases().stream().map(this::bindSwitchCase).toList(),
               type,
               switched.span());
+    };
+  }
+
+  private BoundExpression bindUnary(Syntax.Unary unary, SemanticType type) {
+    if (unary.operator() == TokenKind.AMPERSAND) return bindAddress(unary, type);
+    if (unary.operator() == TokenKind.STAR) {
+      return new BoundExpression.Dereference(bindExpression(unary.operand()), type, unary.span());
+    }
+    return new BoundExpression.Unary(
+        unary.operator() == TokenKind.BANG ? BoundUnaryOperator.NOT : BoundUnaryOperator.NEGATE,
+        bindExpression(unary.operand()),
+        type,
+        unary.span());
+  }
+
+  private BoundExpression bindAddress(Syntax.Unary unary, SemanticType type) {
+    return switch (unary.operand()) {
+      case Syntax.Name name -> {
+        Symbol target = symbol(name.span());
+        if (target.kind() == SymbolKind.FIELD) {
+          BoundField field = field(target);
+          yield new BoundExpression.AddressField(
+              thisRead(name.span()), field.id(), field.ordinal(), type, unary.span());
+        }
+        yield new BoundExpression.AddressLocal(BoundLocalId.of(target.id()), type, unary.span());
+      }
+      case Syntax.Member member -> {
+        BoundField field = field(symbol(member.nameSpan()));
+        yield new BoundExpression.AddressField(
+            bindExpression(member.receiver()), field.id(), field.ordinal(), type, unary.span());
+      }
+      default -> throw new IllegalStateException("invalid checked address target");
     };
   }
 

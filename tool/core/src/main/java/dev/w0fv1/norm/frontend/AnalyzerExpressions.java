@@ -13,12 +13,16 @@ import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.semantic.TypeConstraintSolver;
 import dev.w0fv1.norm.semantic.TypeParameterInfo;
+import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.LexicalLifetime;
 import dev.w0fv1.norm.value.SourceSpan;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,7 +86,36 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       type = expected;
     }
     semanticTypes.put(expression.span(), type);
+    if (type.isReference()) {
+      referenceLifetimes.put(expression.span(), referenceLifetime(expression));
+    }
     return type;
+  }
+
+  LexicalLifetime referenceLifetime(Syntax.Expression expression) {
+    LexicalLifetime known = referenceLifetimes.get(expression.span());
+    if (known != null) return known;
+    if (expression instanceof Syntax.Name name) {
+      FlowScopes.ScopedSymbol symbol = findScoped(name.value());
+      LexicalLifetime lifetime = symbol == null ? null : flowScopes.referenceLifetime(symbol);
+      return lifetime == null ? LexicalLifetime.unusable() : lifetime;
+    }
+    if (expression instanceof Syntax.Unary unary && unary.operator() == TokenKind.AMPERSAND) {
+      if (unary.operand() instanceof Syntax.Name name) {
+        FlowScopes.ScopedSymbol symbol = findScoped(name.value());
+        if (symbol != null) {
+          SymbolKind kind = scopedSymbol(symbol).kind();
+          if (kind == SymbolKind.LOCAL_VARIABLE || kind == SymbolKind.PARAMETER) {
+            return flowScopes.storageLifetime(symbol);
+          }
+          if (kind == SymbolKind.FIELD) return LexicalLifetime.longLived();
+        }
+      }
+      if (unary.operand() instanceof Syntax.Member) {
+        return LexicalLifetime.longLived();
+      }
+    }
+    return LexicalLifetime.unusable();
   }
 
   SemanticType analyzeNameValue(Syntax.Name name, SemanticType expected) {
@@ -94,6 +127,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           && (symbol.kind() == SymbolKind.LOCAL_VARIABLE
               || symbol.kind() == SymbolKind.PARAMETER
               || symbol.kind() == SymbolKind.SELF)) {
+        if (symbol.type().isReference()) {
+          diagnostics.error(TYPE_MISMATCH, "ref cannot be captured by a lambda", name.span());
+        }
         capturedLocals.add(scoped.id());
         if (assignedLocals.contains(scoped.id())) reportMutableCapture(scoped.id(), name.span());
       }
@@ -182,7 +218,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
               .map(
                   type -> {
                     validateType(type, false);
-                    return resolveType(type, activeTypeParameters);
+                    SemanticType resolved = resolveType(type, activeTypeParameters);
+                    return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
                   })
               .orElse(null);
       if (explicit != null && contextual != null)
@@ -202,7 +239,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
             .map(
                 type -> {
                   validateType(type, true);
-                  return resolveType(type, activeTypeParameters);
+                  SemanticType resolved = resolveType(type, activeTypeParameters);
+                  return resolved.containsReference() ? SemanticType.DYNAMIC : resolved;
                 })
             .orElse(expectedFunction == null ? null : expectedFunction.functionReturnType());
     SemanticType contextualReturn =
@@ -219,6 +257,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     expectedReturnType = contextualReturn == null ? SemanticType.DYNAMIC : contextualReturn;
     implicitSelfReturn = false;
     pushScope(lambda.span());
+    Deque<ControlContext> outerControls = new ArrayDeque<>(controls);
+    controls.clear();
     Set<SymbolId> localSymbols = new HashSet<>();
     lambdaLocals.addFirst(localSymbols);
     for (int index = 0; index < lambda.parameters().size(); index++) {
@@ -249,6 +289,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         analyzeStatement(statement);
       }
     }
+    controls.addAll(outerControls);
     popScope();
     lambdaLocals.removeFirst();
     expectedReturnType = previousReturn;
@@ -258,6 +299,10 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           TYPE_MISMATCH,
           "lambda return type requires an expected type or a final expression",
           lambda.span());
+      result = SemanticType.DYNAMIC;
+    }
+    if (result.containsReference()) {
+      diagnostics.error(TYPE_MISMATCH, "lambda return type cannot contain ref", lambda.span());
       result = SemanticType.DYNAMIC;
     }
     return SemanticType.function(result, parameterTypes);
@@ -382,7 +427,10 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     List<PatternCoverage.Pattern> previous = new ArrayList<>();
     PatternCoverage<SemanticType> coverage = new PatternCoverage<>(new SemanticPatternDomain());
     ControlContext context = ControlContext.switchExpression(expected);
+    FlowScopes.FlowState incoming = flowScopes.snapshot();
+    List<FlowScopes.FlowState> caseFlows = new ArrayList<>();
     for (Syntax.SwitchCase switchCase : switchExpression.cases()) {
+      replaceFlow(incoming);
       pushScope(switchCase.span());
       PatternCoverage.Pattern pattern = analyzePattern(switchCase.pattern(), valueType);
       if (!coverage.isUseful(previous, pattern, valueType)) {
@@ -394,6 +442,14 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       analyzeStatements(switchCase.body());
       controls.removeFirst();
       popScope();
+      caseFlows.add(flowScopes.snapshot());
+    }
+    if (!caseFlows.isEmpty()) {
+      FlowScopes.FlowState merged = caseFlows.getFirst();
+      for (int index = 1; index < caseFlows.size(); index++) {
+        merged = mergeFlows(incoming, merged, caseFlows.get(index));
+      }
+      replaceFlow(merged);
     }
     if (!coverage.isExhaustive(previous, valueType)) {
       diagnostics.error(INVALID_CONTROL, "switch is not exhaustive", switchExpression.span());
@@ -405,6 +461,21 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         diagnostics.error(
             INVALID_CONTROL, "switch expression case must produce a value", switchCase.span());
       }
+    }
+    if (result.isReference()) {
+      LexicalLifetime lifetime =
+          context.referenceLifetime() == null
+              ? LexicalLifetime.unusable()
+              : context.referenceLifetime();
+      LexicalLifetime useLifetime = flowScopes.currentLifetime();
+      if (!lifetime.outlives(useLifetime)) {
+        diagnostics.error(
+            INVALID_CONTROL,
+            "reference cannot outlive the addressed storage location",
+            switchExpression.span());
+        lifetime = useLifetime;
+      }
+      referenceLifetimes.put(switchExpression.span(), lifetime);
     }
     return result;
   }
@@ -568,6 +639,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       return;
     }
     SemanticType actual = typeOf(statement.value(), context.resultType());
+    if (actual.isReference()) {
+      context.mergeReferenceLifetime(referenceLifetime(statement.value()));
+    }
     if (context.resultType() == null || context.resultType().equals(SemanticType.DYNAMIC)) {
       context.setResultType(actual);
     } else {
@@ -591,7 +665,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         Map.copyOf(functionReferenceTypeArguments),
         Map.copyOf(iterations),
         Map.copyOf(indexes),
-        Map.copyOf(flowScopes.snapshot()),
+        Map.copyOf(referenceLifetimes),
+        flowScopes.snapshot(),
         flowScopes.semanticScopeCount(),
         diagnostics.mark());
   }
@@ -603,7 +678,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     restore(functionReferenceTypeArguments, checkpoint.functionReferenceTypeArguments());
     restore(iterations, checkpoint.iterations());
     restore(indexes, checkpoint.indexes());
-    flowScopes.replace(checkpoint.flowTypes());
+    restore(referenceLifetimes, checkpoint.referenceLifetimes());
+    flowScopes.replace(checkpoint.flowState());
     flowScopes.restoreSemanticScopes(checkpoint.semanticScopeCount());
     diagnostics.rollback(checkpoint.diagnosticMark());
   }
@@ -670,12 +746,25 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       }
     }
     SemanticType inferredElement = elementType == null ? SemanticType.DYNAMIC : elementType;
+    if (inferredElement.containsReference()) {
+      diagnostics.error(TYPE_MISMATCH, "collection element type cannot contain ref", array.span());
+      return SemanticType.DYNAMIC;
+    }
     return expectedArray == null
         ? builtins.instantiate("Array", List.of(inferredElement))
         : expectedArray;
   }
 
   SemanticType analyzeUnary(Syntax.Unary unary, SemanticType expected) {
+    if (unary.operator() == TokenKind.AMPERSAND) return analyzeAddress(unary);
+    if (unary.operator() == TokenKind.STAR) {
+      SemanticType operand = typeOf(unary.operand(), null);
+      if (!operand.isReference()) {
+        diagnostics.error(TYPE_MISMATCH, "dereference requires ref<T>", unary.span());
+        return SemanticType.DYNAMIC;
+      }
+      return operand.referenceTarget();
+    }
     SemanticType required =
         unary.operator() == TokenKind.BANG
             ? SemanticType.BOOLEAN
@@ -694,9 +783,47 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     return operand;
   }
 
+  SemanticType analyzeAddress(Syntax.Unary unary) {
+    Syntax.Expression target = unary.operand();
+    SemanticType targetType = typeOf(target, null);
+    boolean addressable = false;
+    if (target instanceof Syntax.Name name) {
+      FlowScopes.ScopedSymbol scoped = findScoped(name.value());
+      if (scoped != null) {
+        SymbolKind kind = scopedSymbol(scoped).kind();
+        addressable =
+            (kind == SymbolKind.LOCAL_VARIABLE || kind == SymbolKind.PARAMETER)
+                    && (lambdaLocals.isEmpty() || lambdaLocals.getFirst().contains(scoped.id()))
+                || kind == SymbolKind.FIELD
+                    && currentAggregate != null
+                    && currentAggregate.kind() == Syntax.AggregateKind.CLASS;
+      }
+    } else if (target instanceof Syntax.Member member && !member.nullSafe()) {
+      SemanticType receiver = semanticTypes.get(member.receiver().span());
+      SymbolId fieldId = bindings.get(member.nameSpan());
+      Symbol field = fieldId == null ? null : symbols.get(fieldId);
+      addressable =
+          receiver != null
+              && receiver.nonNullable().category() == ValueCategory.IDENTITY
+              && field != null
+              && field.kind() == SymbolKind.FIELD;
+    }
+    if (!addressable) {
+      diagnostics.error(
+          TYPE_MISMATCH, "address-of requires a writable storage location", target.span());
+      return SemanticType.DYNAMIC;
+    }
+    if (targetType.category() != ValueCategory.VALUE) {
+      diagnostics.error(TYPE_MISMATCH, "ref target must be a value type", target.span());
+      return SemanticType.DYNAMIC;
+    }
+    return SemanticType.reference(targetType);
+  }
+
   SemanticType analyzeBinary(Syntax.Binary binary, SemanticType expected) {
     if (binary.operator() == TokenKind.QUESTION_QUESTION) {
-      SemanticType leftExpected = expected == null ? null : expected.nullable();
+      SemanticType leftExpected =
+          expected == null || expected.isReference() ? expected : expected.nullable();
       SemanticType left = typeOf(binary.left(), leftExpected);
       if (!left.mayContainNull()) {
         diagnostics.error(TYPE_MISMATCH, "left side of ?? must be nullable", binary.left().span());
@@ -721,14 +848,14 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     }
     if (right == null) {
       if (binary.operator() == TokenKind.AND_AND) {
-        Map<SymbolId, SemanticType> incoming = flowScopes.snapshot();
+        FlowScopes.FlowState incoming = flowScopes.snapshot();
         pushScope(binary.right().span());
         applyNarrowings(narrowingsFor(binary.left(), true));
         right = typeOf(binary.right(), SemanticType.BOOLEAN);
         popScope();
         replaceFlow(incoming);
       } else if (binary.operator() == TokenKind.OR_OR) {
-        Map<SymbolId, SemanticType> incoming = flowScopes.snapshot();
+        FlowScopes.FlowState incoming = flowScopes.snapshot();
         pushScope(binary.right().span());
         applyNarrowings(narrowingsFor(binary.left(), false));
         right = typeOf(binary.right(), SemanticType.BOOLEAN);
@@ -1617,6 +1744,15 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         yield memberType(member);
       }
       case Syntax.Index index -> analyzeIndex(index);
+      case Syntax.Unary unary when unary.operator() == TokenKind.STAR -> {
+        SemanticType reference = typeOf(unary.operand(), null);
+        if (!reference.isReference()) {
+          diagnostics.error(TYPE_MISMATCH, "dereference assignment requires ref<T>", unary.span());
+          yield SemanticType.DYNAMIC;
+        }
+        semanticTypes.put(unary.span(), reference.referenceTarget());
+        yield reference.referenceTarget();
+      }
       default -> {
         diagnostics.error(TYPE_MISMATCH, "invalid assignment target", target.span());
         yield SemanticType.DYNAMIC;

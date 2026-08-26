@@ -92,6 +92,10 @@ abstract class CoreWalker {
         assignment.index().ifPresent(this::walkExpression);
         walkExpression(assignment.value());
       }
+      case CoreStatement.ReferenceAssignment assignment -> {
+        walkExpression(assignment.reference());
+        walkExpression(assignment.value());
+      }
       case CoreStatement.ExpressionStatement expression -> walkExpression(expression.expression());
       case CoreStatement.IfStatement conditional -> {
         walkExpression(conditional.condition());
@@ -129,6 +133,12 @@ abstract class CoreWalker {
         visitLink(field.field().owner());
         walkExpression(field.receiver());
       }
+      case CoreExpression.AddressLocal ignored -> {}
+      case CoreExpression.AddressField field -> {
+        visitLink(field.field().owner());
+        walkExpression(field.receiver());
+      }
+      case CoreExpression.Dereference dereference -> walkExpression(dereference.reference());
       case CoreExpression.EnumConstruct construct -> {
         visitReference(construct.nodeIndex(), construct.target());
         visitLink(construct.target());

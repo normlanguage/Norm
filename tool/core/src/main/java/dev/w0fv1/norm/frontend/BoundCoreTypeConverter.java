@@ -99,6 +99,7 @@ final class BoundCoreTypeConverter {
                   type.arguments().stream().map(this::convert).toList(),
                   category(type.category()),
                   nullability(type.nullability()));
+      case REFERENCE -> new CoreType.Reference(convert(type.referenceTarget()));
       case VOID -> CoreType.VOID;
       case NULL -> CoreType.NULL;
       case ERROR -> CoreType.DYNAMIC;

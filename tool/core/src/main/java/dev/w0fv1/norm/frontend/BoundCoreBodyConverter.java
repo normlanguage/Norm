@@ -101,6 +101,10 @@ final class BoundCoreBodyConverter {
           assignment.index().ifPresent(this::scanExpression);
           scanExpression(assignment.value());
         }
+        case BoundStatement.ReferenceAssignment assignment -> {
+          scanExpression(assignment.reference());
+          scanExpression(assignment.value());
+        }
         case BoundStatement.IfStatement conditional -> {
           scanExpression(conditional.condition());
           scanLocals(conditional.thenBlock());
@@ -137,6 +141,9 @@ final class BoundCoreBodyConverter {
           collection.elements().forEach(this::scanExpression);
       case BoundExpression.LocalRead ignored -> {}
       case BoundExpression.FieldRead field -> scanExpression(field.receiver());
+      case BoundExpression.AddressLocal ignored -> {}
+      case BoundExpression.AddressField field -> scanExpression(field.receiver());
+      case BoundExpression.Dereference dereference -> scanExpression(dereference.reference());
       case BoundExpression.EnumConstruct construct ->
           construct.arguments().forEach(argument -> scanExpression(argument.value()));
       case BoundExpression.Unary unary -> scanExpression(unary.operand());
@@ -217,6 +224,9 @@ final class BoundCoreBodyConverter {
               convert(assignment.receiver()),
               assignment.index().map(this::convert),
               convert(assignment.value()));
+      case BoundStatement.ReferenceAssignment assignment ->
+          new CoreStatement.ReferenceAssignment(
+              node, convert(assignment.reference()), convert(assignment.value()));
       case BoundStatement.ExpressionStatement expression ->
           new CoreStatement.ExpressionStatement(node, convert(expression.expression()));
       case BoundStatement.IfStatement conditional ->
@@ -272,6 +282,18 @@ final class BoundCoreBodyConverter {
               field(field.field().value(), field.ordinal()),
               field.nullSafe(),
               types.convert(field.type()));
+      case BoundExpression.AddressLocal address ->
+          new CoreExpression.AddressLocal(
+              node, locals.index(address.local()), types.convert(address.type()));
+      case BoundExpression.AddressField address ->
+          new CoreExpression.AddressField(
+              node,
+              convert(address.receiver()),
+              field(address.field().value(), address.ordinal()),
+              types.convert(address.type()));
+      case BoundExpression.Dereference dereference ->
+          new CoreExpression.Dereference(
+              node, convert(dereference.reference()), types.convert(dereference.type()));
       case BoundExpression.EnumConstruct construct ->
           new CoreExpression.EnumConstruct(
               node,

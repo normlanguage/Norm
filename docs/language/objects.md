@@ -66,6 +66,6 @@ value Point {
 
 ## `ref<T>`：Value 存储位置
 
-`ref<T>` 用于引用 value 的存储位置，不用于 class 共享。复制 ref 后仍指向同一位置；具体取地址和解引用写法以语法规范为准。
+`ref<T>` 用于引用 value 的存储位置，不用于 class 共享。复制 ref 后仍指向同一位置；具体取地址、读写和生命周期边界见 [`ref<T>` 引用语法](/spec/grammar/references)。
 
 下一章：[函数](/language/functions)。

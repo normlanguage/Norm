@@ -86,6 +86,9 @@ final class CoreTraversalContractTest {
             expressions.get(4),
             Optional.of(expressions.get(5)),
             expressions.get(6)));
+    statements.add(
+        new CoreStatement.ReferenceAssignment(
+            113, expressions.get(expressions.size() - 3), expressions.get(0)));
     expressions.forEach(
         expression -> statements.add(new CoreStatement.ExpressionStatement(104, expression)));
     statements.add(
@@ -269,6 +272,14 @@ final class CoreTraversalContractTest {
             Optional.of(runtimeType(links)),
             false,
             links.type()));
+    values.add(new CoreExpression.AddressLocal(18, 3, new CoreType.Reference(links.type())));
+    values.add(
+        new CoreExpression.AddressField(
+            19,
+            values.get(0),
+            new CoreFieldReference(links.next(), 0),
+            new CoreType.Reference(links.type())));
+    values.add(new CoreExpression.Dereference(20, values.get(17), links.type()));
     return List.copyOf(values);
   }
 

@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.truffle;
 
+import com.oracle.truffle.api.frame.Frame;
 import com.oracle.truffle.api.frame.FrameSlotKind;
-import com.oracle.truffle.api.frame.VirtualFrame;
 
 record FrameBinding(int slot, FrameSlotKind kind) {
-  Object read(VirtualFrame frame) {
+  Object read(Frame frame) {
     return switch (kind) {
       case Int -> frame.getInt(slot);
       case Long -> frame.getLong(slot);
@@ -15,7 +15,7 @@ record FrameBinding(int slot, FrameSlotKind kind) {
     };
   }
 
-  void write(VirtualFrame frame, Object value) {
+  void write(Frame frame, Object value) {
     switch (kind) {
       case Int -> frame.setInt(slot, (Integer) value);
       case Long -> frame.setLong(slot, (Long) value);

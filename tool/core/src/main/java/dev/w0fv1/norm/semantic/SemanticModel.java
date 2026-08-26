@@ -363,6 +363,10 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public Optional<SemanticType> typeOf(Syntax.TypeRef reference) {
+    if (reference.name().equals("ref")) {
+      if (reference.nullable() || reference.arguments().size() != 1) return Optional.empty();
+      return typeOf(reference.arguments().getFirst()).map(SemanticType::reference);
+    }
     if (reference.name().equals("Function") && !reference.arguments().isEmpty()) {
       List<SemanticType> signature =
           reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();

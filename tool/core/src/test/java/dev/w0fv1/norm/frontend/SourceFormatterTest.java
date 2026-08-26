@@ -62,6 +62,23 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsReferenceTypesAndOperations() {
+    assertFormats(
+        "Void replace(ref<Integer> target,Integer value){*target=value}main(){Integer value=1 ref<Integer> location=&value replace(target:location,value:*location+1)}",
+        """
+        Void replace(ref<Integer> target, Integer value) {
+          *target = value
+        }
+
+        main() {
+          Integer value = 1
+          ref<Integer> location = &value
+          replace(target: location, value: *location + 1)
+        }
+        """);
+  }
+
+  @Test
   void formatsNestedExpressionsAndControlFlow() {
     assertFormats(
         """

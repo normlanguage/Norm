@@ -25,4 +25,4 @@ Argument expressions are evaluated from left to right in source order. Labels on
 
 ## `ref<T>`
 
-`ref<T>` represents the identity of a value storage location. It is not required for class sharing and does not accept class types. Addressing, dereference, and equality syntax remain to be fixed by the grammar specification.
+`ref<T>` represents the identity of a value storage location. It is not required for class sharing and does not accept class types. `&location` takes an address, `*reference` reads the stored value, and `*reference = value` writes it. Ref equality compares location identity. Refs are confined to local variables and callable parameters, cannot escape through returns, fields, containers, generic arguments, function types, or lambda capture, and use lexical scope or a single call as their lifetime boundary. The normative rules are in the [`ref<T>` grammar](/spec/grammar/references).

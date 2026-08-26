@@ -11,6 +11,7 @@ public sealed interface BoundStatement extends BoundNode
         BoundStatement.LocalAssignment,
         BoundStatement.FieldAssignment,
         BoundStatement.IntrinsicAssignment,
+        BoundStatement.ReferenceAssignment,
         BoundStatement.ExpressionStatement,
         BoundStatement.IfStatement,
         BoundStatement.ConditionalForStatement,
@@ -71,6 +72,15 @@ public sealed interface BoundStatement extends BoundNode
       Objects.requireNonNull(intrinsic, "intrinsic");
       Objects.requireNonNull(receiver, "receiver");
       index = Objects.requireNonNull(index, "index");
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record ReferenceAssignment(BoundExpression reference, BoundExpression value, SourceSpan span)
+      implements BoundStatement {
+    public ReferenceAssignment {
+      Objects.requireNonNull(reference, "reference");
       Objects.requireNonNull(value, "value");
       Objects.requireNonNull(span, "span");
     }

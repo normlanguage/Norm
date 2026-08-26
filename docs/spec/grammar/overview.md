@@ -47,3 +47,4 @@ Norm 使用类型前置：`String name`、`Integer parse(String text)`。generic
 - [语句](/spec/grammar/statements)
 - [模块配置](/spec/grammar/modules)
 - [运算符优先级](/spec/grammar/operators-precedence)
+- [`ref<T>` 引用](/spec/grammar/references)

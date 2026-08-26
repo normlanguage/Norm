@@ -12,6 +12,9 @@ public sealed interface BoundExpression extends BoundNode
         BoundExpression.CollectionLiteral,
         BoundExpression.LocalRead,
         BoundExpression.FieldRead,
+        BoundExpression.AddressLocal,
+        BoundExpression.AddressField,
+        BoundExpression.Dereference,
         BoundExpression.EnumConstruct,
         BoundExpression.InterfaceCall,
         BoundExpression.Unary,
@@ -89,6 +92,36 @@ public sealed interface BoundExpression extends BoundNode
         SemanticType type,
         SourceSpan span) {
       this(receiver, field, ordinal, false, type, span);
+    }
+  }
+
+  record AddressLocal(BoundLocalId local, SemanticType type, SourceSpan span)
+      implements BoundExpression {
+    public AddressLocal {
+      Objects.requireNonNull(local, "local");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record AddressField(
+      BoundExpression receiver, BoundFieldId field, int ordinal, SemanticType type, SourceSpan span)
+      implements BoundExpression {
+    public AddressField {
+      Objects.requireNonNull(receiver, "receiver");
+      Objects.requireNonNull(field, "field");
+      if (ordinal < 0) throw new IllegalArgumentException("field ordinal must be non-negative");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record Dereference(BoundExpression reference, SemanticType type, SourceSpan span)
+      implements BoundExpression {
+    public Dereference {
+      Objects.requireNonNull(reference, "reference");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(span, "span");
     }
   }
 

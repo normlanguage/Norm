@@ -1,0 +1,11 @@
+package project
+
+import project.references.replace
+
+main() {
+  Integer value = 3
+  ref<Integer> location = &value
+  replace(target: location, value: 8)
+  printLine(*location)
+  expectedOutputLine("8")
+}

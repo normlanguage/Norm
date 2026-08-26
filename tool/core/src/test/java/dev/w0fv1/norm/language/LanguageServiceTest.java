@@ -34,6 +34,16 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesReferenceDeclarationsInStatementPosition() {
+    String text = "Void main() { }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:ref-completion"), text));
+
+    assertTrue(
+        service.complete(analysis, text.indexOf('}')).stream()
+            .anyMatch(completion -> completion.label().equals("ref")));
+  }
+
+  @Test
   void exposesIndexedLoopLocalsToHoverAndCompletion() {
     String text = "Void main() { for value,index : [10, 20] { printLine(index) ind } }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:indexed-loop"), text));

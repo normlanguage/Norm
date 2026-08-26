@@ -76,7 +76,7 @@ final class Lexer {
       case '=' -> addSimple(match('=') ? TokenKind.EQUAL_EQUAL : TokenKind.EQUAL, start);
       case '<' -> addSimple(match('=') ? TokenKind.LESS_EQUAL : TokenKind.LESS, start);
       case '>' -> addSimple(match('=') ? TokenKind.GREATER_EQUAL : TokenKind.GREATER, start);
-      case '&' -> scanDoubleOperator('&', TokenKind.AND_AND, start);
+      case '&' -> addSimple(match('&') ? TokenKind.AND_AND : TokenKind.AMPERSAND, start);
       case '|' -> scanDoubleOperator('|', TokenKind.OR_OR, start);
       case '"' -> scanString(start);
       case '\'' -> scanCodePoint(start);

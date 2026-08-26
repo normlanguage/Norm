@@ -300,6 +300,10 @@ final class Lowerer {
                 lowerExpression(assignment.receiver(), plan),
                 arguments.toArray(ExpressionNode[]::new));
           }
+          case CoreStatement.ReferenceAssignment assignment ->
+              new StatementNodes.WriteReference(
+                  lowerExpression(assignment.reference(), plan),
+                  lowerExpression(assignment.value(), plan));
           case CoreStatement.ExpressionStatement expression ->
               new StatementNodes.ExpressionStatement(
                   lowerExpression(expression.expression(), plan));
@@ -376,6 +380,13 @@ final class Lowerer {
                   lowerExpression(field.receiver(), plan),
                   field.field().ordinal(),
                   field.nullSafe());
+          case CoreExpression.AddressLocal address ->
+              new ExpressionNodes.AddressLocal(plan.binding(address.localIndex()));
+          case CoreExpression.AddressField address ->
+              new ExpressionNodes.AddressField(
+                  lowerExpression(address.receiver(), plan), address.field().ordinal());
+          case CoreExpression.Dereference dereference ->
+              new ExpressionNodes.Dereference(lowerExpression(dereference.reference(), plan));
           case CoreExpression.EnumConstruct construct -> lowerEnumConstruct(construct, plan);
           case CoreExpression.Unary unary ->
               unary.operator() == dev.w0fv1.norm.core.CoreUnaryOperator.NOT
@@ -495,6 +506,7 @@ final class Lowerer {
               dev.w0fv1.norm.core.CoreNullability.NON_NULL);
       case CoreType.Parameter parameter ->
           new CoreType.Parameter(parameter.index(), dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+      case CoreType.Reference reference -> reference;
       case CoreType.Special special -> special;
     };
   }
