@@ -18,6 +18,7 @@ hs_err_pid*
 replay_pid*
 .idea/
 .vscode/
+.tmp/
 *.iml
 .DS_Store
 Thumbs.db
