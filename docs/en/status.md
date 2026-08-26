@@ -2,6 +2,7 @@
 
 The handbook, specification, and standard library describe the future Norm 1.0 language. Delivered compiler behavior is tracked separately by release.
 
+- [Norm 0.10 implementation contract](/en/versions/0.10)
 - [Norm 0.9 implementation contract](/en/versions/0.9)
 - [Norm 0.8 implementation contract](/en/versions/0.8)
 - [Norm 0.7 implementation contract](/en/versions/0.7)
