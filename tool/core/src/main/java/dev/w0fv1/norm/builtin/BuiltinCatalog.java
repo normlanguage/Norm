@@ -220,7 +220,7 @@ public final class BuiltinCatalog {
                     Optional.empty(),
                     candidate.symbol().parameters(),
                     candidate.symbol().type(),
-                    false))
+                    candidate.intrinsic().requiresResultRuntimeType()))
         .forEach(result::add);
     for (TypeDefinition type : types.values()) {
       SemanticType owner = ownerType(type);
@@ -931,6 +931,14 @@ public final class BuiltinCatalog {
             SemanticType.VOID,
             IntrinsicId.EXPECTED_OUTPUT_LINE,
             parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "require",
+            SemanticType.VOID,
+            IntrinsicId.REQUIRE_ARGUMENT,
+            parameterInfo("condition", booleanType),
+            parameterInfo("message", stringType)));
     addGlobal(
         globals,
         global(

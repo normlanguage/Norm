@@ -3,6 +3,7 @@ package dev.w0fv1.norm.builtin;
 public enum IntrinsicId {
   PRINT_LINE,
   EXPECTED_OUTPUT_LINE,
+  REQUIRE_ARGUMENT,
   TO_STRING,
   RANGE_CONSTRUCT,
   ARRAY_CONSTRUCT,
@@ -103,5 +104,9 @@ public enum IntrinsicId {
   DEQUE_ITERATOR,
   RANGE_ITERATOR,
   ITERATOR_HAS_NEXT,
-  ITERATOR_NEXT
+  ITERATOR_NEXT;
+
+  public boolean requiresResultRuntimeType() {
+    return this == RANGE_CONSTRUCT;
+  }
 }

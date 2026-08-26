@@ -23,21 +23,15 @@ log(String text) {
 ## 参数与命名调用
 
 ```norm
-Integer clamp(Integer value, Integer minimum, Integer maximum) {
-    if value < minimum {
-        return minimum
-    }
-    if value > maximum {
-        return maximum
-    }
-    return value
+Integer subtract(Integer left, Integer right) {
+    return left - right
 }
 ```
 
 具有多个参数的函数使用命名调用：
 
 ```norm
-Integer opacity = clamp(value: 140, minimum: 0, maximum: 100)
+Integer difference = subtract(left: 140, right: 100)
 ```
 
 参数名是公开调用约定的一部分。命名调用可以避免连续出现多个同类型实参时产生含义歧义。
@@ -51,6 +45,8 @@ Integer difference = subtract(left, right)
 其他多参数实参必须写出名称，具名实参不能与位置实参混用。
 
 实参表达式始终按源码从左到右求值。标签只选择形参槽位，因此 `combine(right: first(), left: second())` 先调用 `first()`，再调用 `second()`。
+
+内建 `require(condition: Boolean, message: String)` 用于函数参数前置条件。条件为 false 时产生 `INVALID_ARGUMENT`；标准库 `clamp` 的具体实现以 [`std/math/integer.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/math/integer.norm) 为准。
 
 ## 顶层函数
 

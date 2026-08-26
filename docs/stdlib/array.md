@@ -23,4 +23,4 @@ Array<String> repeated = Array.filled(size: 3, value: "item")
 
 Array 赋值、传参和返回会复制容器结构，并按元素类别执行普通赋值。value 元素逻辑独立，class 元素保留对象身份。Array 使用结构相等。
 
-索引范围是 `0 <= index < size()`，越界产生 `IndexError`。Array 实现 `Iterable<T>`，因此循环变量可以推断为 `T`。
+索引范围是 `0 <= index < size()`，越界产生 `INDEX_OUT_OF_BOUNDS`（`NORM-RUNTIME-0001`）。Array 实现 `Iterable<T>`，因此循环变量可以推断为 `T`。

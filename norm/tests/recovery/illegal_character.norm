@@ -1,0 +1,6 @@
+Void main() {
+  Integer first = 1
+  @ printLine(first)
+  Integer last = 2
+  printLine(last)
+}

@@ -1,6 +1,6 @@
 # 词法规则
 
-Norm 源文件使用 UTF-8。编译器必须拒绝无法解码的字节序列，并在诊断中报告字节位置和源码位置。
+Norm 源文件使用 UTF-8。编译器将文件解码为 Unicode 文本后再建立源码位置。
 
 ## 空白与换行
 
@@ -23,4 +23,4 @@ public API 建议使用 ASCII 标识符以提高工具与生态兼容性。编�
 
 ## 源码位置
 
-token 保存文件、UTF-8 字节范围和行列范围。诊断不得因 Unicode code point 与字节偏移混淆而指向错误字符。
+`SourceSpan` 保存文件和 UTF-16 code unit 的半开范围，行列位置使用同一单位并与 LSP 对齐。需要面向原始文件字节的协议时，应从 UTF-8 输入单独建立 byte range，不能把它与 `SourceSpan` 混用。

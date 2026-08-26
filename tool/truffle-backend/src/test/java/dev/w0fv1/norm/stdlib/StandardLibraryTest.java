@@ -3,8 +3,14 @@ package dev.w0fv1.norm.stdlib;
 import static dev.w0fv1.norm.testing.NormTestKit.assertOutput;
 import static dev.w0fv1.norm.testing.NormTestKit.compile;
 import static dev.w0fv1.norm.testing.NormTestKit.suite;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.execution.RuntimeErrorCode;
+import java.nio.file.Path;
+import java.util.Objects;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -23,6 +29,20 @@ final class StandardLibraryTest {
         "9",
         "11",
         "0");
+  }
+
+  @Test
+  void rejectsAnInvertedClampInterval() throws Exception {
+    Path source =
+        Path.of(
+            Objects.requireNonNull(
+                    StandardLibraryTest.class.getResource("/runtime/invalid_clamp.norm"))
+                .toURI());
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class, () -> dev.w0fv1.norm.testing.NormTestKit.run(source));
+
+    assertEquals(RuntimeErrorCode.INVALID_ARGUMENT, exception.code());
   }
 
   @Test

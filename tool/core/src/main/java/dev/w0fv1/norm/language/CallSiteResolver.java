@@ -182,7 +182,7 @@ final class CallSiteResolver {
               .or(
                   () ->
                       model.visibleSymbols(offset).stream()
-                          .filter(symbol -> symbol.name().equals(receiverToken.lexeme()))
+                          .filter(symbol -> symbol.name().equals(receiverToken.value()))
                           .findFirst());
       if (receiver.isPresent() && receiver.orElseThrow().kind() == SymbolKind.TYPE) {
         Symbol type = model.resolveAlias(receiver.orElseThrow());
@@ -200,14 +200,14 @@ final class CallSiteResolver {
         }
         List<Symbol> sourceMembers =
             model.members(receiverType).stream()
-                .filter(symbol -> symbol.name().equals(name.lexeme()))
+                .filter(symbol -> symbol.name().equals(name.value()))
                 .toList();
         if (!sourceMembers.isEmpty()) {
           return new CandidateSet(sourceMembers, Optional.empty());
         }
         return new CandidateSet(
             model.typeMembers(type.name()).stream()
-                .filter(symbol -> symbol.name().equals(name.lexeme()))
+                .filter(symbol -> symbol.name().equals(name.value()))
                 .toList(),
             Optional.empty());
       }
@@ -219,13 +219,13 @@ final class CallSiteResolver {
       return new CandidateSet(
           receiverType.stream()
               .flatMap(type -> model.members(type).stream())
-              .filter(symbol -> symbol.name().equals(name.lexeme()))
+              .filter(symbol -> symbol.name().equals(name.value()))
               .toList(),
           Optional.empty());
     }
     List<Symbol> visible =
         model.visibleSymbols(offset).stream()
-            .filter(symbol -> symbol.name().equals(name.lexeme()))
+            .filter(symbol -> symbol.name().equals(name.value()))
             .flatMap(symbol -> model.callableAlternatives(symbol).stream())
             .filter(CallSiteResolver::callable)
             .map(SymbolPresentation::callable)
@@ -233,7 +233,7 @@ final class CallSiteResolver {
     if (!visible.isEmpty()) return new CandidateSet(unique(visible), Optional.empty());
     return new CandidateSet(
         model.symbols().stream()
-            .filter(symbol -> symbol.name().equals(name.lexeme()))
+            .filter(symbol -> symbol.name().equals(name.value()))
             .filter(symbol -> symbol.owner().isEmpty())
             .filter(
                 symbol ->
@@ -280,7 +280,7 @@ final class CallSiteResolver {
       if (depth == 0
           && kind == TokenKind.IDENTIFIER
           && tokens.get(index + 1).kind() == TokenKind.COLON) {
-        labels.add(tokens.get(index).lexeme());
+        labels.add(tokens.get(index).value());
       }
     }
     return Set.copyOf(labels);
@@ -314,7 +314,7 @@ final class CallSiteResolver {
     if (segmentStart + 1 < tokens.size()
         && tokens.get(segmentStart).kind() == TokenKind.IDENTIFIER
         && tokens.get(segmentStart + 1).kind() == TokenKind.COLON) {
-      String label = tokens.get(segmentStart).lexeme();
+      String label = tokens.get(segmentStart).value();
       for (int index = 0; index < callable.parameters().size(); index++) {
         if (callable.parameters().get(index).name().equals(label)) return index;
       }

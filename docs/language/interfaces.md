@@ -69,6 +69,6 @@ T larger<T extends Comparable<T>>(T left, T right) {
 
 这里的约束表示 `T` 必须显式实现 `Comparable<T>`。更多内容见[泛型](/language/generics)。
 
-`Iterable<T>`、`Iterator<T>`、`Sized`、`Comparable<T>`、`Equatable<T>` 与 `Hashable` 都是 `std.core` 中的普通接口。遍历式 `for` 使用 Iterable；这些接口不会重载语言操作符。
+`Iterable<T>`、`Iterator<T>`、`Sized`、`Comparable<T>`、`Equatable<T>` 与 `Hashable` 都是 `std.core` 中的普通接口。遍历式 `for` 使用 Iterable；这些接口不会重载语言操作符，也不会替换 Map 与 Set 的语言内建 equality/hash。
 
 下一章：[Enum 与 Switch](/language/enum-switch)。

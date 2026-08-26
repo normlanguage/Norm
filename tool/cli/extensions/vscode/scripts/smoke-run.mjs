@@ -3,11 +3,13 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 const repository = resolve(process.cwd(), '..', '..', '..', '..');
-const cli = resolve(
-  repository,
-  'tool/cli/app/build/install/norm/bin',
-  process.platform === 'win32' ? 'norm.bat' : 'norm',
-);
+const cli =
+  process.env.NORM_CLI ??
+  resolve(
+    repository,
+    'tool/cli/app/build/vscode-test-server/bin',
+    process.platform === 'win32' ? 'norm.bat' : 'norm',
+  );
 const source = resolve(repository, 'norm/tests/class/02_parameter_identity.norm');
 const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : cli;
 const args =

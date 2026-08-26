@@ -46,6 +46,13 @@ public final class IntrinsicDispatcher {
         context.expectedOutput().println(RuntimeValues.stringify(first));
         yield null;
       }
+      case REQUIRE_ARGUMENT -> {
+        if (!(Boolean) first) {
+          throw new NormGuestException(
+              RuntimeErrorCode.INVALID_ARGUMENT, (String) second, location);
+        }
+        yield null;
+      }
       case TO_STRING -> RuntimeValues.stringify(receiver);
       case RANGE_CONSTRUCT -> {
         int step = third == null ? 1 : (Integer) third;
@@ -53,7 +60,7 @@ public final class IntrinsicDispatcher {
           throw new NormGuestException(
               RuntimeErrorCode.INVALID_ARGUMENT, "range step must not be zero", location);
         }
-        yield new RuntimeValues.RangeValue((Integer) first, (Integer) second, step);
+        yield new RuntimeValues.RangeValue(type, (Integer) first, (Integer) second, step);
       }
       case ARRAY_CONSTRUCT -> new RuntimeValues.ArrayValue(type, new ArrayList<>());
       case LIST_CONSTRUCT -> new RuntimeValues.ListValue(type);
@@ -63,7 +70,7 @@ public final class IntrinsicDispatcher {
       case QUEUE_CONSTRUCT -> new RuntimeValues.QueueValue(type);
       case DEQUE_CONSTRUCT -> new RuntimeValues.DequeValue(type);
       case PAIR_CONSTRUCT -> new RuntimeValues.PairValue(type, first, second);
-      case STRING_BUILDER_CONSTRUCT -> new RuntimeValues.BuilderValue();
+      case STRING_BUILDER_CONSTRUCT -> new RuntimeValues.BuilderValue(type);
       case SIZE -> {
         try {
           yield RuntimeValues.size(receiver);
@@ -287,7 +294,7 @@ public final class IntrinsicDispatcher {
       case SET_ITERATOR ->
           nativeIterator(
               ((RuntimeValues.SetValue) receiver).type,
-              ((RuntimeValues.SetValue) receiver).values.iterator());
+              ((RuntimeValues.SetValue) receiver).values.stream().map(key -> key.value).iterator());
       case STACK_ITERATOR ->
           nativeIterator(
               ((RuntimeValues.StackValue) receiver).type,
@@ -389,7 +396,8 @@ public final class IntrinsicDispatcher {
   }
 
   private static Iterator<Object> mapIterator(RuntimeValues.MapValue map) {
-    Iterator<Map.Entry<Object, Object>> entries = map.values.entrySet().iterator();
+    Iterator<Map.Entry<RuntimeValues.RuntimeKey, Object>> entries =
+        map.values.entrySet().iterator();
     if (!(map.type instanceof CoreType.Declared mapType)) {
       throw new IllegalStateException("map runtime type is not declared");
     }
@@ -407,8 +415,8 @@ public final class IntrinsicDispatcher {
 
       @Override
       public Object next() {
-        Map.Entry<Object, Object> entry = entries.next();
-        return new RuntimeValues.PairValue(pairType, entry.getKey(), entry.getValue());
+        Map.Entry<RuntimeValues.RuntimeKey, Object> entry = entries.next();
+        return new RuntimeValues.PairValue(pairType, entry.getKey().value, entry.getValue());
       }
     };
   }

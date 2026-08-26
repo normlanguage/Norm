@@ -29,6 +29,17 @@ final class LexerTest {
   }
 
   @Test
+  void preservesIdentifierSpellingAndCanonicalizesItsSemanticValueToNfc() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(SourceFile.of(Path.of("unicode.norm"), "e\u0301"), diagnostics).lex();
+
+    assertFalse(diagnostics.hasErrors());
+    assertEquals("e\u0301", tokens.getFirst().lexeme());
+    assertEquals("\u00e9", tokens.getFirst().value());
+  }
+
+  @Test
   void lexesTheHelloWorldSurface() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =

@@ -40,6 +40,7 @@ import dev.w0fv1.norm.bound.BoundTypeParameter;
 import dev.w0fv1.norm.bound.BoundUnaryOperator;
 import dev.w0fv1.norm.bound.BoundWitness;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
+import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
@@ -598,6 +599,10 @@ final class Binder {
               Optional.ofNullable(receiver),
               arguments,
               target.kind() == SymbolKind.TYPE_METHOD
+                      || builtins
+                          .intrinsic(target.id())
+                          .filter(IntrinsicId::requiresResultRuntimeType)
+                          .isPresent()
                       || builtins
                           .type(target.id())
                           .flatMap(BuiltinCatalog.TypeDefinition::constructor)

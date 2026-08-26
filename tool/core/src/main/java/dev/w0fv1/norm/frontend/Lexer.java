@@ -6,6 +6,7 @@ import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceSpan;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -106,9 +107,15 @@ final class Lexer {
       offset += Character.charCount(character);
     }
     String lexeme = source.text().substring(start, offset);
+    TokenKind kind = LanguageSyntax.tokenKind(lexeme);
     tokens.add(
-        Token.simple(
-            LanguageSyntax.tokenKind(lexeme), lexeme, new SourceSpan(source, start, offset)));
+        new Token(
+            kind,
+            lexeme,
+            kind == TokenKind.IDENTIFIER
+                ? Normalizer.normalize(lexeme, Normalizer.Form.NFC)
+                : lexeme,
+            new SourceSpan(source, start, offset)));
   }
 
   private void scanNumber(int start) {

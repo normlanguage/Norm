@@ -7,10 +7,8 @@ Parameter := Type Identifier ("=" ConstantExpression)?
 ```
 
 ```norm
-Integer clamp(Integer value, Integer minimum, Integer maximum) {
-    if value < minimum { return minimum }
-    if value > maximum { return maximum }
-    return value
+Integer subtract(Integer left, Integer right) {
+    return left - right
 }
 ```
 
@@ -21,7 +19,7 @@ Integer clamp(Integer value, Integer minimum, Integer maximum) {
 参数标签决定结果绑定到哪个形参，但所有实参表达式始终按源码从左到右求值。未知、重复或缺失标签属于编译错误，`name = value` 不是调用语法。
 
 ```norm
-Integer result = clamp(value: 120, minimum: 0, maximum: 100)
+Integer result = subtract(left: 120, right: 100)
 ```
 
 ## 返回

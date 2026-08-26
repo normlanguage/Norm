@@ -22,6 +22,7 @@ Integer abs(Integer value) {
 }
 
 Integer clamp(Integer value, Integer minimum, Integer maximum) {
+  require(condition: minimum <= maximum, message: "clamp minimum must not exceed maximum")
   if value < minimum {
     return minimum
   }

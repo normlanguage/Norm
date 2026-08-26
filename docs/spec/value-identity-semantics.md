@@ -38,7 +38,7 @@ Box second = first.copy()
 
 `Array`、`List`、`Map`、`Set`、`Stack`、`Queue`、`Deque`、`Pair`、`Range` 与 `StringBuilder` 是 value。复制容器会复制其结构，并对每个元素执行普通赋值语义。
 
-因此，容器中的 value 元素逻辑独立，class 元素保留对象身份。容器相等按内容递归比较；作为 Map key 或 Set 元素时也使用相同相等规则。
+因此，容器中的 value 元素逻辑独立，class 元素保留对象身份。容器相等与 hash 使用同一套递归规则；作为 Map key 或 Set 元素时仍使用这套语言内建规则。`Equatable` 与 `Hashable` 表达显式领域协议，不重载容器的键语义。
 
 ## 求值和调用
 

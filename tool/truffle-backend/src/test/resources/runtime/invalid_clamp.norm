@@ -1,0 +1,5 @@
+import std.math.clamp
+
+Void main() {
+  clamp(value: 4, minimum: 10, maximum: 2)
+}

@@ -38,6 +38,7 @@ Understand what exists today and where the language is heading.
 
 - [Norm 0.7 implementation contract](/en/versions/0.7)
 - [Norm 0.6 implementation contract](/en/versions/0.6)
+- [Norm 0.5 implementation contract](/en/versions/0.5)
 - [Norm 0.4 implementation contract](/en/versions/0.4)
 - [Norm 0.3 release record](/en/versions/0.3)
 - [Norm 0.2 release record](/en/versions/0.2)

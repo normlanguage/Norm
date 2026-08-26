@@ -99,3 +99,8 @@ tasks.named<CreateStartScripts>("startScripts") {
         }
     }
 }
+
+tasks.register<Sync>("installVsCodeTestServer") {
+    into(layout.buildDirectory.dir("vscode-test-server"))
+    with(distributions.named("main").get().contents)
+}

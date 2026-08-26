@@ -1,5 +1,7 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
+import { cliInvocation } from '../cli-command';
+import { ProcessTerminal } from '../process-terminal';
 
 suite('Norm VS Code extension', () => {
   suiteSetup(async () => {
@@ -85,6 +87,54 @@ suite('Norm VS Code extension', () => {
         .some((diagnostic) => diagnosticCode(diagnostic) === 'NORM-NAME-0003')
         ? true
         : undefined,
+    );
+  });
+
+  test('retains language features after a destructive edit', async () => {
+    const broken =
+      'Void main() {\n' +
+      '  printLine(return 1)\n' +
+      '  String message = "ok"\n' +
+      '  message.\n' +
+      '}';
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: broken });
+    await vscode.window.showTextDocument(document);
+
+    await eventually(() =>
+      vscode.languages
+        .getDiagnostics(document.uri)
+        .some((diagnostic) => String(diagnosticCode(diagnostic)).startsWith('NORM-PARSER-'))
+        ? true
+        : undefined,
+    );
+    const position = document.positionAt(broken.indexOf('message.') + 'message.'.length);
+    const completions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider',
+        document.uri,
+        position,
+        '.',
+      );
+      return value?.items.some((item) => labelOf(item) === 'graphemeSize') ? value : undefined;
+    });
+
+    assert.ok(completions.items.some((item) => labelOf(item) === 'graphemeSize'));
+
+    const valid =
+      'Void main() {\n' +
+      '  printLine(1)\n' +
+      '  String message = "ok"\n' +
+      '  printLine(message)\n' +
+      '}';
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(
+      document.uri,
+      new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)),
+      valid,
+    );
+    assert.ok(await vscode.workspace.applyEdit(edit));
+    await eventually(() =>
+      vscode.languages.getDiagnostics(document.uri).length === 0 ? true : undefined,
     );
   });
 
@@ -565,6 +615,57 @@ suite('Norm VS Code extension', () => {
       });
     });
     assert.equal(exitCode, 0);
+  });
+
+  test('reports a failed run through a custom execution', async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    assert.ok(root, 'test workspace was not opened');
+    const document = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(root, 'norm/tests/recovery/missing_parenthesis.norm'),
+    );
+    await vscode.window.showTextDocument(document);
+
+    const execution = await vscode.commands.executeCommand<vscode.TaskExecution | undefined>(
+      'norm.runCurrentFile',
+    );
+
+    assert.ok(execution);
+    assert.ok(execution.task.execution instanceof vscode.CustomExecution);
+    const exitCode = await new Promise<number | undefined>((resolve) => {
+      const subscription = vscode.tasks.onDidEndTaskProcess((event) => {
+        if (event.execution === execution) {
+          subscription.dispose();
+          resolve(event.exitCode);
+        }
+      });
+    });
+    assert.equal(exitCode, 1);
+  });
+
+  test('forwards only Norm output from a failed process', async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    assert.ok(root, 'test workspace was not opened');
+    const source = vscode.Uri.joinPath(root, 'norm/tests/recovery/missing_parenthesis.norm');
+    const cli = vscode.workspace.getConfiguration('norm').get<string>('cli.path');
+    assert.ok(cli);
+    const terminal = new ProcessTerminal(
+      cliInvocation(cli, ['run', source.fsPath]),
+      root.fsPath,
+    );
+    const output: string[] = [];
+    const writeSubscription = terminal.onDidWrite((text) => output.push(text));
+    const completion = new Promise<number>((resolve) => terminal.onDidClose(resolve));
+
+    terminal.open();
+
+    assert.equal(await completion, 1);
+    writeSubscription.dispose();
+    assert.equal(
+      output.join('').replaceAll('\r\n', '\n'),
+      `${source.fsPath}:4:3: error[NORM-PARSER-0001]: expected ')' after arguments\n` +
+        '  Integer last = 2\n' +
+        '  ^\n',
+    );
   });
 });
 

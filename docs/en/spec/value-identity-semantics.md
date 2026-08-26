@@ -17,7 +17,7 @@ Assignment, parameter passing, and returns preserve a class instance's identity.
 
 ## Containers
 
-Built-in containers are values. Copying one creates an independent structure and assigns each element according to its category. Class elements therefore keep their identity. Container equality is structural, including when values are used as Map keys or Set elements.
+Built-in containers are values. Copying one creates an independent structure and assigns each element according to its category. Class elements therefore keep their identity. Containers use one recursive equality-and-hash rule, including for Map keys and Set elements. `Equatable` and `Hashable` are explicit domain protocols and do not override this built-in key semantics.
 
 ## Calls
 

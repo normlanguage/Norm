@@ -1,6 +1,6 @@
 # `Set<T>`
 
-Set 保存不重复的值，唯一性由 T 的 equality 与 hash 共同决定。
+Set 保存不重复的值，唯一性由语言内建的 equality 与 hash 共同决定；`Equatable` 与 `Hashable` 不替换这套规则。
 
 ```norm
 Set<String> permissions = Set<>()

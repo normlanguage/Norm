@@ -383,6 +383,37 @@ final class CompilerTest {
   }
 
   @Test
+  void treatsCanonicallyEquivalentIdentifiersAsTheSameName() {
+    CompilationResult result =
+        compile(
+            "Integer \u00e9() { return 1 } Integer e\u0301() { return 2 } Void main() { printLine(\u00e9()) }");
+
+    assertFalse(result.isSuccess());
+    assertTrue(
+        result.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-NAME-0001")),
+        () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void rejectsUnparenthesizedEqualityAndComparisonChains() {
+    CompilationResult equality = compile("Void main() { printLine(1 == 1 == true) }");
+    CompilationResult comparison = compile("Void main() { printLine(1 < 2 < 3) }");
+    CompilationResult parenthesized =
+        compile("Void main() { printLine((1 == 1) == true) printLine((1 < 2) == true) }");
+
+    assertFalse(equality.isSuccess());
+    assertFalse(comparison.isSuccess());
+    assertTrue(
+        equality.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-PARSER-0004")));
+    assertTrue(
+        comparison.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-PARSER-0004")));
+    assertTrue(parenthesized.isSuccess(), () -> parenthesized.diagnostics().toString());
+  }
+
+  @Test
   void rejectsIdentifierShorthandWhenTheParameterNameDiffers() {
     CompilationResult result =
         compile(

@@ -67,11 +67,50 @@ final class RuntimeValuesTest {
             .toString());
   }
 
+  @Test
+  void givesEqualCompositeValuesTheSameLanguageHash() {
+    RuntimeValues.ListValue first = new RuntimeValues.ListValue(listType(CoreType.INTEGER));
+    first.values.addAll(List.of(1, 2));
+    RuntimeValues.ListValue second = new RuntimeValues.ListValue(listType(CoreType.INTEGER));
+    second.values.addAll(List.of(1, 2));
+
+    assertTrue(RuntimeValues.equal(first, second));
+    assertEquals(RuntimeValues.hash(first), RuntimeValues.hash(second));
+  }
+
+  @Test
+  void storesResolvedRuntimeTypesForRangeAndStringBuilderValues() {
+    CoreType rangeType = declaredType("Range", CoreValueCategory.VALUE);
+    CoreType builderType = declaredType("StringBuilder", CoreValueCategory.VALUE);
+
+    assertEquals(
+        rangeType, RuntimeValues.runtimeType(new RuntimeValues.RangeValue(rangeType, 0, 2, 1)));
+    assertEquals(
+        builderType,
+        RuntimeValues.runtimeType(new RuntimeValues.BuilderValue(builderType, "Norm")));
+  }
+
   private static CoreType resultType(CoreType argument) {
     return new CoreType.Declared(
         new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.List")),
         List.of(argument),
         CoreValueCategory.VALUE,
+        CoreNullability.NON_NULL);
+  }
+
+  private static CoreType listType(CoreType argument) {
+    return new CoreType.Declared(
+        new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.List")),
+        List.of(argument),
+        CoreValueCategory.VALUE,
+        CoreNullability.NON_NULL);
+  }
+
+  private static CoreType declaredType(String name, CoreValueCategory category) {
+    return new CoreType.Declared(
+        new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core." + name)),
+        List.of(),
+        category,
         CoreNullability.NON_NULL);
   }
 }

@@ -1,6 +1,7 @@
 import { defineConfig } from '@vscode/test-cli';
+import { resolve } from 'node:path';
 
-export default defineConfig({
+const shared = {
   files: 'out/test/**/*.test.js',
   version: 'stable',
   workspaceFolder: '../../../..',
@@ -8,4 +9,15 @@ export default defineConfig({
   mocha: {
     timeout: 30_000,
   },
-});
+};
+
+const testCli = resolve(
+  process.cwd(),
+  '../../app/build/vscode-test-server/bin',
+  process.platform === 'win32' ? 'norm.bat' : 'norm',
+);
+
+export default defineConfig([
+  { ...shared, label: 'jvm', env: { NORM_CLI: testCli } },
+  { ...shared, label: 'native' },
+]);

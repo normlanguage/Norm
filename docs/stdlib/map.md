@@ -26,6 +26,6 @@ Integer? optionalValue = counts.get(key: "closed")
 
 ## 键规则
 
-键必须提供一致的 equality 与 hash。value 键按结构比较；class 键按对象 identity 比较，并使用稳定的 identity hash。Map 插入键和值时遵循各自的数据类别语义。
+Map 使用语言内建且一致的 equality 与 hash：value 键按结构递归计算，class 键按对象 identity 计算。`Equatable` 与 `Hashable` 不替换这套规则。Map 插入键和值时遵循各自的数据类别语义。
 
 通用 Map 不承诺遍历顺序。需要插入顺序或排序时使用 OrderedMap 或 SortedMap，并显式提供 comparator。Map 自身遵循 value 语义。

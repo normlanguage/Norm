@@ -1,4 +1,5 @@
 import type { DefaultTheme } from 'vitepress'
+import { currentRelease, releaseItems } from '../release'
 
 const handbook = [
   { text: 'Handbook Introduction', link: '/en/language/overview' },
@@ -19,20 +20,10 @@ export const enTheme: DefaultTheme.Config = {
     '/en/language/': [{ text: 'Core Language', items: handbook }],
     '/en/versions/': [{ text: 'Releases', items: [
       { text: 'Version index', link: '/en/versions/' },
-      { text: 'Norm 0.6', link: '/en/versions/0.6' },
-      { text: 'Norm 0.5', link: '/en/versions/0.5' },
-      { text: 'Norm 0.4', link: '/en/versions/0.4' },
-      { text: 'Norm 0.3', link: '/en/versions/0.3' },
-      { text: 'Norm 0.2', link: '/en/versions/0.2' },
-      { text: 'Norm 0.1', link: '/en/versions/0.1' },
+      ...releaseItems('/en/versions'),
     ]}],
     '/en/design/': [{ text: 'Implementation', items: [
-      { text: 'Norm 0.6', link: '/en/versions/0.6' },
-      { text: 'Norm 0.5', link: '/en/versions/0.5' },
-      { text: 'Norm 0.4', link: '/en/versions/0.4' },
-      { text: 'Norm 0.3', link: '/en/versions/0.3' },
-      { text: 'Norm 0.2', link: '/en/versions/0.2' },
-      { text: 'Norm 0.1', link: '/en/versions/0.1' },
+      ...releaseItems('/en/versions'),
       { text: 'Implementation Strategy', link: '/en/design/implementation-strategy' },
       { text: 'Toolchain Development Standard', link: '/en/design/toolchain-development' },
       { text: 'Compiler Bootstrap Plan', link: '/en/design/bootstrap-plan' },
@@ -46,6 +37,6 @@ export const enTheme: DefaultTheme.Config = {
   sidebarMenuLabel: 'Menu',
   darkModeSwitchLabel: 'Appearance',
   langMenuLabel: 'Change language',
-  footer: { message: 'Norm 0.6 development line', copyright: 'Norm Project' },
+  footer: { message: `Norm ${currentRelease} development line`, copyright: 'Norm Project' },
 }
 

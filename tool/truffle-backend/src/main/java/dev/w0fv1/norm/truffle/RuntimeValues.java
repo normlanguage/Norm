@@ -44,12 +44,12 @@ final class RuntimeValues {
       case ListValue list -> new ListValue(list.type, copyList(list.values));
       case MapValue map -> {
         MapValue result = new MapValue(map.type);
-        map.values.forEach((key, item) -> result.values.put(copy(key), copy(item)));
+        map.values.forEach((key, item) -> mapPut(result, key.value, item));
         yield result;
       }
       case SetValue set -> {
         SetValue result = new SetValue(set.type);
-        set.values.forEach(item -> result.values.add(copy(item)));
+        set.values.forEach(item -> setAdd(result, item.value));
         yield result;
       }
       case StackValue stack -> {
@@ -78,7 +78,7 @@ final class RuntimeValues {
               enumValue.enumName,
               enumValue.variantKey,
               copyList(enumValue.payload));
-      case BuilderValue builder -> new BuilderValue(builder.value.toString());
+      case BuilderValue builder -> new BuilderValue(builder.type, builder.value.toString());
       case NativeIteratorValue iterator -> iterator;
       case ObjectValue object -> object;
       case null, default -> value;
@@ -125,43 +125,73 @@ final class RuntimeValues {
     };
   }
 
+  static int hash(Object value) {
+    return switch (value) {
+      case null -> 0;
+      case Integer item -> Integer.hashCode(item);
+      case Long item -> Long.hashCode(item);
+      case Float item -> item == 0.0f ? 0 : Float.hashCode(item);
+      case Double item -> item == 0.0d ? 0 : Double.hashCode(item);
+      case ArrayValue item -> orderedHash(0x41525259, item.values);
+      case ListValue item -> orderedHash(0x4c495354, item.values);
+      case MapValue item -> {
+        int result = 0x4d415000;
+        for (Map.Entry<RuntimeKey, Object> entry : item.values.entrySet()) {
+          result += entry.getKey().hashCode() ^ Integer.rotateLeft(hash(entry.getValue()), 16);
+        }
+        yield result;
+      }
+      case SetValue item -> {
+        int result = 0x53455400;
+        for (RuntimeKey element : item.values) result += element.hashCode();
+        yield result;
+      }
+      case StackValue item -> orderedHash(0x53544143, new ArrayList<>(item.values));
+      case QueueValue item -> orderedHash(0x51554555, new ArrayList<>(item.values));
+      case DequeValue item -> orderedHash(0x44455155, new ArrayList<>(item.values));
+      case PairValue item -> 31 * hash(item.first) + hash(item.second);
+      case EnumValue item -> item.valueHash();
+      case BuilderValue item -> item.value.toString().hashCode();
+      case RangeValue item -> Objects.hash(item.start, item.end, item.step);
+      case ObjectValue item -> System.identityHashCode(item);
+      default -> value.hashCode();
+    };
+  }
+
   static void mapPut(MapValue map, Object key, Object value) {
-    Object existing = findEqual(map.values.keySet(), key);
-    map.values.put(existing == null ? copy(key) : existing, copy(value));
+    map.values.put(new RuntimeKey(copy(key)), copy(value));
   }
 
   static Object mapGet(MapValue map, Object key) {
-    Object existing = findEqual(map.values.keySet(), key);
-    if (existing == null) throw new IllegalStateException("map key lookup invariant violated");
-    return map.values.get(existing);
+    RuntimeKey runtimeKey = new RuntimeKey(key);
+    if (!map.values.containsKey(runtimeKey)) {
+      throw new IllegalStateException("map key lookup invariant violated");
+    }
+    return map.values.get(runtimeKey);
   }
 
   static Object mapGetOrNull(MapValue map, Object key) {
-    Object existing = findEqual(map.values.keySet(), key);
-    return existing == null ? NullValue.INSTANCE : map.values.get(existing);
+    return map.values.getOrDefault(new RuntimeKey(key), NullValue.INSTANCE);
   }
 
   static boolean mapContains(MapValue map, Object key) {
-    return findEqual(map.values.keySet(), key) != null;
+    return map.values.containsKey(new RuntimeKey(key));
   }
 
   static boolean mapRemove(MapValue map, Object key) {
-    Object existing = findEqual(map.values.keySet(), key);
-    return existing != null && map.values.remove(existing) != null;
+    return map.values.remove(new RuntimeKey(key)) != null;
   }
 
   static boolean setAdd(SetValue set, Object value) {
-    if (findEqual(set.values, value) != null) return false;
-    return set.values.add(copy(value));
+    return set.values.add(new RuntimeKey(copy(value)));
   }
 
   static boolean setContains(SetValue set, Object value) {
-    return findEqual(set.values, value) != null;
+    return set.values.contains(new RuntimeKey(value));
   }
 
   static boolean setRemove(SetValue set, Object value) {
-    Object existing = findEqual(set.values, value);
-    return existing != null && set.values.remove(existing);
+    return set.values.remove(new RuntimeKey(value));
   }
 
   static int size(Object value) {
@@ -399,18 +429,8 @@ final class RuntimeValues {
       case QueueValue item -> item.type;
       case DequeValue item -> item.type;
       case PairValue item -> item.type;
-      case RangeValue ignored ->
-          new CoreType.Declared(
-              new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Range")),
-              List.of(),
-              CoreValueCategory.VALUE,
-              CoreNullability.NON_NULL);
-      case BuilderValue ignored ->
-          new CoreType.Declared(
-              new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.StringBuilder")),
-              List.of(),
-              CoreValueCategory.IDENTITY,
-              CoreNullability.NON_NULL);
+      case RangeValue item -> item.type;
+      case BuilderValue item -> item.type;
       case NativeIteratorValue item -> item.type;
       case ObjectValue item -> item.type;
       default -> throw new IllegalStateException("interface receiver has no builtin type");
@@ -465,26 +485,21 @@ final class RuntimeValues {
 
   private static boolean equalMaps(MapValue left, MapValue right) {
     if (left.values.size() != right.values.size()) return false;
-    for (Map.Entry<Object, Object> entry : left.values.entrySet()) {
-      Object key = findEqual(right.values.keySet(), entry.getKey());
-      if (key == null || !equal(entry.getValue(), right.values.get(key))) return false;
+    for (Map.Entry<RuntimeKey, Object> entry : left.values.entrySet()) {
+      if (!right.values.containsKey(entry.getKey())
+          || !equal(entry.getValue(), right.values.get(entry.getKey()))) return false;
     }
     return true;
   }
 
   private static boolean equalSets(SetValue left, SetValue right) {
-    if (left.values.size() != right.values.size()) return false;
-    for (Object value : left.values) {
-      if (findEqual(right.values, value) == null) return false;
-    }
-    return true;
+    return left.values.equals(right.values);
   }
 
-  private static Object findEqual(Iterable<Object> values, Object expected) {
-    for (Object value : values) {
-      if (equal(value, expected)) return value;
-    }
-    return null;
+  private static int orderedHash(int seed, List<Object> values) {
+    int result = seed;
+    for (Object value : values) result = 31 * result + hash(value);
+    return result;
   }
 
   private static CoreType arrayType(CoreType element) {
@@ -521,7 +536,7 @@ final class RuntimeValues {
 
   static final class MapValue {
     final CoreType type;
-    final Map<Object, Object> values = new LinkedHashMap<>();
+    final Map<RuntimeKey, Object> values = new LinkedHashMap<>();
 
     MapValue(CoreType type) {
       this.type = type;
@@ -530,7 +545,7 @@ final class RuntimeValues {
 
   static final class SetValue {
     final CoreType type;
-    final java.util.Set<Object> values = new LinkedHashSet<>();
+    final java.util.Set<RuntimeKey> values = new LinkedHashSet<>();
 
     SetValue(CoreType type) {
       this.type = type;
@@ -565,13 +580,15 @@ final class RuntimeValues {
   }
 
   static final class BuilderValue {
+    final CoreType type;
     final StringBuilder value;
 
-    BuilderValue() {
-      this("");
+    BuilderValue(CoreType type) {
+      this(type, "");
     }
 
-    BuilderValue(String value) {
+    BuilderValue(CoreType type, String value) {
+      this.type = Objects.requireNonNull(type, "type");
       this.value = new StringBuilder(value);
     }
 
@@ -656,6 +673,11 @@ final class RuntimeValues {
           && equalLists(payload, other.payload);
     }
 
+    private int valueHash() {
+      int result = Objects.hash(definition, type, variantKey);
+      return 31 * result + orderedHash(0, payload);
+    }
+
     @Override
     public boolean equals(Object other) {
       return this == other || other instanceof EnumValue value && sameValue(value);
@@ -681,15 +703,17 @@ final class RuntimeValues {
   }
 
   static final class RangeValue {
+    final CoreType type;
     final int start;
     final int end;
     final int step;
 
-    RangeValue(int start, int end) {
-      this(start, end, 1);
+    RangeValue(CoreType type, int start, int end) {
+      this(type, start, end, 1);
     }
 
-    RangeValue(int start, int end, int step) {
+    RangeValue(CoreType type, int start, int end, int step) {
+      this.type = Objects.requireNonNull(type, "type");
       this.start = start;
       this.end = end;
       this.step = step;
@@ -726,6 +750,24 @@ final class RuntimeValues {
           return value;
         }
       };
+    }
+  }
+
+  static final class RuntimeKey {
+    final Object value;
+
+    RuntimeKey(Object value) {
+      this.value = value;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return this == other || other instanceof RuntimeKey key && equal(value, key.value);
+    }
+
+    @Override
+    public int hashCode() {
+      return hash(value);
     }
   }
 

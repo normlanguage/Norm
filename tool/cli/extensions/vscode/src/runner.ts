@@ -1,6 +1,7 @@
 import { basename, dirname } from 'node:path';
 import * as vscode from 'vscode';
 import { cliInvocation, resolveCliCommand } from './cli-command';
+import { ProcessTerminal } from './process-terminal';
 
 export class NormRunner {
   public constructor(private readonly extensionPath: string) {}
@@ -48,7 +49,9 @@ export class NormRunner {
       scope,
       `Run ${basename(document.uri.fsPath)}`,
       'Norm',
-      new vscode.ProcessExecution(invocation.command, [...invocation.args], { cwd: workingDirectory }),
+      new vscode.CustomExecution(
+        async () => new ProcessTerminal(invocation, workingDirectory),
+      ),
       [],
     );
     task.presentationOptions = {

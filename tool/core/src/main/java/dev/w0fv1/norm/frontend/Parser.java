@@ -15,6 +15,8 @@ final class Parser {
   private static final DiagnosticCode EXPECTED_TOKEN = new DiagnosticCode("NORM-PARSER-0001");
   private static final DiagnosticCode EXPECTED_EXPRESSION = new DiagnosticCode("NORM-PARSER-0002");
   private static final DiagnosticCode INVALID_ASSIGNMENT = new DiagnosticCode("NORM-PARSER-0003");
+  private static final DiagnosticCode CHAINED_RELATIONAL_OPERATOR =
+      new DiagnosticCode("NORM-PARSER-0004");
 
   private final SourceFile source;
   private final List<Token> tokens;
@@ -50,7 +52,7 @@ final class Parser {
       Optional<SourceSpan> aliasSpan = Optional.empty();
       if (match(TokenKind.AS)) {
         Token aliasToken = consume(TokenKind.IDENTIFIER, "expected import alias");
-        alias = Optional.of(aliasToken.lexeme());
+        alias = Optional.of(aliasToken.value());
         aliasSpan = Optional.of(aliasToken.span());
       }
       SourceSpan span = start.span().cover(previous().span());
@@ -119,10 +121,10 @@ final class Parser {
 
   private QualifiedName parseQualifiedNameWithSpan(String message) {
     Token segment = consume(TokenKind.IDENTIFIER, message);
-    StringBuilder result = new StringBuilder(segment.lexeme());
+    StringBuilder result = new StringBuilder(segment.value());
     while (match(TokenKind.DOT)) {
       segment = consume(TokenKind.IDENTIFIER, message);
-      result.append('.').append(segment.lexeme());
+      result.append('.').append(segment.value());
     }
     return new QualifiedName(result.toString(), segment.span());
   }
@@ -143,14 +145,14 @@ final class Parser {
           variantSpan = variant.span().cover(closing.span());
         }
         variants.add(
-            new Syntax.EnumVariant(variant.lexeme(), variant.span(), parameters, variantSpan));
+            new Syntax.EnumVariant(variant.value(), variant.span(), parameters, variantSpan));
       } while (match(TokenKind.COMMA) && !check(TokenKind.RIGHT_BRACE));
     }
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after enum body");
     match(TokenKind.SEMICOLON);
     return new Syntax.EnumDecl(
         visibility,
-        name.lexeme(),
+        name.value(),
         name.span(),
         typeParameters,
         variants,
@@ -182,7 +184,7 @@ final class Parser {
             new Syntax.FieldDecl(
                 memberVisibility,
                 type,
-                memberName.lexeme(),
+                memberName.value(),
                 memberName.span(),
                 type.span().cover(memberName.span())));
       }
@@ -190,7 +192,7 @@ final class Parser {
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after class body");
     return new Syntax.ClassDecl(
         visibility,
-        name.lexeme(),
+        name.value(),
         name.span(),
         typeParameters,
         implementedInterfaces,
@@ -234,7 +236,7 @@ final class Parser {
       methods.add(
           new Syntax.InterfaceMethodDecl(
               returnType,
-              methodName.lexeme(),
+              methodName.value(),
               methodName.span(),
               methodTypeParameters,
               parameters,
@@ -244,7 +246,7 @@ final class Parser {
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after interface body");
     return new Syntax.InterfaceDecl(
         visibility,
-        name.lexeme(),
+        name.value(),
         name.span(),
         typeParameters,
         extendedInterfaces,
@@ -280,7 +282,7 @@ final class Parser {
     return new Syntax.FunctionDecl(
         visibility,
         returnType,
-        name.lexeme(),
+        name.value(),
         name.span(),
         typeParameters,
         parameters,
@@ -324,7 +326,7 @@ final class Parser {
         parameters.add(
             new Syntax.Parameter(
                 type,
-                parameterName.lexeme(),
+                parameterName.value(),
                 parameterName.span(),
                 callableParameters,
                 type.span().cover(parameterName.span())));
@@ -337,7 +339,7 @@ final class Parser {
     if (match(TokenKind.IDENTIFIER)) {
       Token type = previous();
       List<Syntax.TypeRef> arguments =
-          type.lexeme().equals("Function") && check(TokenKind.LESS)
+          type.value().equals("Function") && check(TokenKind.LESS)
               ? parseFunctionTypeArguments()
               : parseTypeArguments();
       SourceSpan span =
@@ -346,7 +348,7 @@ final class Parser {
               : type.span().cover(arguments.getLast().span()).cover(previous().span());
       boolean nullable = match(TokenKind.QUESTION);
       if (nullable) span = span.cover(previous().span());
-      return new Syntax.TypeRef(type.lexeme(), arguments, nullable, span);
+      return new Syntax.TypeRef(type.value(), arguments, nullable, span);
     }
     throw error(peek(), "expected type name");
   }
@@ -373,7 +375,7 @@ final class Parser {
       Token name = consume(TokenKind.IDENTIFIER, "expected type parameter name");
       Optional<Syntax.TypeRef> upperBound = Optional.empty();
       if (match(TokenKind.EXTENDS)) upperBound = Optional.of(parseType());
-      parameters.add(new Syntax.TypeParameter(name.lexeme(), name.span(), upperBound));
+      parameters.add(new Syntax.TypeParameter(name.value(), name.span(), upperBound));
     } while (match(TokenKind.COMMA));
     consume(TokenKind.GREATER, "expected '>' after type parameters");
     return List.copyOf(parameters);
@@ -395,8 +397,8 @@ final class Parser {
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
       try {
         statements.add(parseStatement());
-      } catch (ParseError ignored) {
-        synchronizeStatement();
+      } catch (ParseError error) {
+        synchronizeStatement(error);
       }
     }
     Token closing = peek();
@@ -464,7 +466,7 @@ final class Parser {
     Syntax.Expression initializer = parseExpression();
     match(TokenKind.SEMICOLON);
     return new Syntax.VariableDecl(
-        type, name.lexeme(), name.span(), initializer, start.span().cover(initializer.span()));
+        type, name.value(), name.span(), initializer, start.span().cover(initializer.span()));
   }
 
   private boolean looksLikeCallableBinding() {
@@ -504,7 +506,7 @@ final class Parser {
         new Syntax.TypeRef("Function", signature, false, returnType.span().cover(closing.span()));
     return new Syntax.VariableDecl(
         Optional.of(functionType),
-        name.lexeme(),
+        name.value(),
         name.span(),
         Optional.of(parameters),
         initializer,
@@ -567,14 +569,14 @@ final class Parser {
     Optional<Syntax.ForIndex> index = Optional.empty();
     if (match(TokenKind.COMMA)) {
       Token indexName = consume(TokenKind.IDENTIFIER, "expected loop index name");
-      index = Optional.of(new Syntax.ForIndex(indexName.lexeme(), indexName.span()));
+      index = Optional.of(new Syntax.ForIndex(indexName.value(), indexName.span()));
     }
     consume(TokenKind.COLON, "expected ':' after loop variable");
     Syntax.Expression iterable = parseExpression();
     Block body = parseBlock();
     return new Syntax.ForStatement(
         type,
-        name.lexeme(),
+        name.value(),
         name.span(),
         index,
         iterable,
@@ -633,27 +635,38 @@ final class Parser {
 
   private Syntax.Expression parseEquality() {
     Syntax.Expression expression = parseComparison();
-    while (match(TokenKind.EQUAL_EQUAL, TokenKind.BANG_EQUAL)) {
+    if (match(TokenKind.EQUAL_EQUAL, TokenKind.BANG_EQUAL)) {
       Token operator = previous();
       Syntax.Expression right = parseComparison();
       expression =
           new Syntax.Binary(
               expression, operator.kind(), right, expression.span().cover(right.span()));
+      rejectRelationalChain(TokenKind.EQUAL_EQUAL, TokenKind.BANG_EQUAL);
     }
     return expression;
   }
 
   private Syntax.Expression parseComparison() {
     Syntax.Expression expression = parseTerm();
-    while (match(
-        TokenKind.LESS, TokenKind.LESS_EQUAL, TokenKind.GREATER, TokenKind.GREATER_EQUAL)) {
+    if (match(TokenKind.LESS, TokenKind.LESS_EQUAL, TokenKind.GREATER, TokenKind.GREATER_EQUAL)) {
       Token operator = previous();
       Syntax.Expression right = parseTerm();
       expression =
           new Syntax.Binary(
               expression, operator.kind(), right, expression.span().cover(right.span()));
+      rejectRelationalChain(
+          TokenKind.LESS, TokenKind.LESS_EQUAL, TokenKind.GREATER, TokenKind.GREATER_EQUAL);
     }
     return expression;
+  }
+
+  private void rejectRelationalChain(TokenKind... kinds) {
+    if (java.util.Arrays.stream(kinds).noneMatch(this::check)) return;
+    diagnostics.error(
+        CHAINED_RELATIONAL_OPERATOR,
+        "equality and comparison operators cannot be chained; use parentheses",
+        peek().span());
+    throw new ParseError(peek().span().start().line());
   }
 
   private Syntax.Expression parseTerm() {
@@ -708,7 +721,7 @@ final class Parser {
             Token argumentStart = peek();
             if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON)) {
               Token name = advance();
-              label = Optional.of(new Syntax.ArgumentLabel(name.lexeme(), name.span()));
+              label = Optional.of(new Syntax.ArgumentLabel(name.value(), name.span()));
               advance();
             }
             Syntax.Expression value = parseExpression();
@@ -723,7 +736,7 @@ final class Parser {
         Token name = consume(TokenKind.IDENTIFIER, "expected method name after '::'");
         expression =
             new Syntax.MethodReference(
-                expression, name.lexeme(), name.span(), expression.span().cover(name.span()));
+                expression, name.value(), name.span(), expression.span().cover(name.span()));
       } else if (match(TokenKind.DOT, TokenKind.QUESTION_DOT)) {
         boolean nullSafe = previous().kind() == TokenKind.QUESTION_DOT;
         Token name;
@@ -743,7 +756,7 @@ final class Parser {
                 : expression.span().cover(previous().span());
         expression =
             new Syntax.Member(
-                expression, name.lexeme(), name.span(), typeArguments, nullSafe, memberSpan);
+                expression, name.value(), name.span(), typeArguments, nullSafe, memberSpan);
       } else if (match(TokenKind.LEFT_BRACKET)) {
         Syntax.Expression index = parseExpression();
         Token closing = consume(TokenKind.RIGHT_BRACKET, "expected ']' after index");
@@ -801,7 +814,7 @@ final class Parser {
           typeArguments.isEmpty() && !diamond
               ? token.span()
               : token.span().cover(previous().span());
-      return new Syntax.Name(token.lexeme(), typeArguments, diamond, span);
+      return new Syntax.Name(token.value(), typeArguments, diamond, span);
     }
     if (match(TokenKind.LEFT_PAREN)) {
       Syntax.Expression expression = parseExpression();
@@ -859,8 +872,8 @@ final class Parser {
 
   private boolean looksLikeSelfTypedLambda() {
     if (!check(TokenKind.IDENTIFIER)
-        || peek().lexeme().isEmpty()
-        || !Character.isUpperCase(peek().lexeme().codePointAt(0))
+        || peek().value().isEmpty()
+        || !Character.isUpperCase(peek().value().codePointAt(0))
         || !checkNext(TokenKind.LEFT_PAREN)) {
       return false;
     }
@@ -891,7 +904,7 @@ final class Parser {
           name = consume(TokenKind.IDENTIFIER, "expected lambda parameter name");
         }
         SourceSpan span = type.map(value -> value.span().cover(name.span())).orElse(name.span());
-        parameters.add(new Syntax.LambdaParameter(type, name.lexeme(), name.span(), span));
+        parameters.add(new Syntax.LambdaParameter(type, name.value(), name.span(), span));
       } while (match(TokenKind.COMMA));
     }
     consume(TokenKind.RIGHT_PAREN, "expected ')' after lambda parameters");
@@ -970,7 +983,7 @@ final class Parser {
       return new Syntax.StringPattern(token.value(), token.span());
     }
     if (check(TokenKind.IDENTIFIER)
-        && peek().lexeme().equals("_")
+        && peek().value().equals("_")
         && !checkNext(TokenKind.LEFT_PAREN)) {
       return new Syntax.WildcardPattern(advance().span());
     }
@@ -982,7 +995,7 @@ final class Parser {
       Syntax.TypeRef type = parseType();
       Token name = consume(TokenKind.IDENTIFIER, "expected pattern binding name");
       return new Syntax.BindingPattern(
-          type, name.lexeme(), name.span(), type.span().cover(name.span()));
+          type, name.value(), name.span(), type.span().cover(name.span()));
     }
     Token name = advance();
     List<Syntax.Pattern> arguments = new ArrayList<>();
@@ -996,7 +1009,7 @@ final class Parser {
       Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after variant pattern");
       span = name.span().cover(closing.span());
     }
-    return new Syntax.VariantPattern(name.lexeme(), name.span(), arguments, span);
+    return new Syntax.VariantPattern(name.value(), name.span(), arguments, span);
   }
 
   private int tokenAfterType(int start) {
@@ -1035,6 +1048,19 @@ final class Parser {
     if (check(kind)) {
       return advance();
     }
+    if (!isAtEnd() && checkNext(kind)) {
+      Token unexpected = advance();
+      diagnostics.error(
+          EXPECTED_TOKEN,
+          "unexpected " + ParserRecovery.display(unexpected) + "; " + message,
+          unexpected.span());
+      return advance();
+    }
+    if (ParserRecovery.canInsert(kind, previous(), peek())) {
+      diagnostics.error(
+          EXPECTED_TOKEN, message, SourceSpan.at(source, peek().span().startOffset()));
+      return Token.simple(kind, "", SourceSpan.at(source, peek().span().startOffset()));
+    }
     throw error(peek(), message);
   }
 
@@ -1043,7 +1069,11 @@ final class Parser {
         message.equals("expected expression") ? EXPECTED_EXPRESSION : EXPECTED_TOKEN,
         message,
         token.span());
-    return new ParseError();
+    int recoveryLine =
+        current == 0
+            ? token.span().start().line()
+            : Math.min(token.span().start().line(), previous().span().end().line());
+    return new ParseError(recoveryLine);
   }
 
   private java.math.BigInteger integerValue(Token token) {
@@ -1071,9 +1101,12 @@ final class Parser {
     }
   }
 
-  private void synchronizeStatement() {
+  private void synchronizeStatement(ParseError error) {
     while (!isAtEnd() && !check(TokenKind.RIGHT_BRACE)) {
       if (match(TokenKind.SEMICOLON)) {
+        return;
+      }
+      if (ParserRecovery.canResumeStatement(peek(), error.recoveryLine())) {
         return;
       }
       advance();
@@ -1132,8 +1165,15 @@ final class Parser {
 
   @SuppressWarnings("serial")
   private static final class ParseError extends RuntimeException {
-    private ParseError() {
+    private final int recoveryLine;
+
+    private ParseError(int recoveryLine) {
       super(null, null, false, false);
+      this.recoveryLine = recoveryLine;
+    }
+
+    private int recoveryLine() {
+      return recoveryLine;
     }
   }
 }

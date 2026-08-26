@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,27 @@ final class LanguageServiceTest {
     assertTrue(
         service.complete(analysis, text.lastIndexOf("ind") + 3).stream()
             .anyMatch(completion -> completion.label().equals("index")));
+  }
+
+  @Test
+  void completesMembersDeclaredAfterDamagedStatements() {
+    String text =
+        "Void main() {\n"
+            + "  printLine(return 1)\n"
+            + "  String message = \"ok\"\n"
+            + "  message.\n"
+            + "}";
+    var snapshot =
+        service.snapshot(CompilationRequest.single(SourceFile.of(Path.of("damaged.norm"), text)));
+
+    List<String> labels =
+        service
+            .complete(snapshot.entryDocument(), text.indexOf("message.") + "message.".length())
+            .stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.contains("graphemeSize"), labels.toString());
   }
 
   @Test

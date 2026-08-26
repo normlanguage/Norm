@@ -47,7 +47,7 @@ Boolean present = counts.containsKey(key: "ready")
 Integer? missing = counts.get(key: "missing")
 ```
 
-索引操作要求键存在，`get` 在缺失时返回 nullable value。键必须提供稳定的相等与哈希语义。遍历顺序不是通用 Map 契约的一部分；需要稳定顺序时使用专门类型。
+索引操作要求键存在，`get` 在缺失时返回 nullable value。键使用语言内建且一致的 equality/hash；`Equatable` 与 `Hashable` 不替换容器键语义。遍历顺序不是通用 Map 契约的一部分；需要稳定顺序时使用专门类型。
 
 ## `Set<T>`
 

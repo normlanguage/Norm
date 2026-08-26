@@ -1,4 +1,5 @@
 import type { DefaultTheme } from 'vitepress'
+import { currentRelease, releaseItems } from '../release'
 
 const handbook = [
   { text: '手册介绍', link: '/language/overview' },
@@ -139,21 +140,11 @@ export const zhTheme: DefaultTheme.Config = {
     '/web/': [{ text: 'Web 应用开发', items: web }],
     '/versions/': [{ text: '版本记录', items: [
       { text: '版本索引', link: '/versions/' },
-      { text: 'Norm 0.6', link: '/versions/0.6' },
-      { text: 'Norm 0.5', link: '/versions/0.5' },
-      { text: 'Norm 0.4', link: '/versions/0.4' },
-      { text: 'Norm 0.3', link: '/versions/0.3' },
-      { text: 'Norm 0.2', link: '/versions/0.2' },
-      { text: 'Norm 0.1', link: '/versions/0.1' },
+      ...releaseItems('/versions'),
     ]}],
     '/design/': [
       { text: '实现与规划', items: [
-        { text: '0.6 实现契约', link: '/versions/0.6' },
-        { text: '0.5 实现契约', link: '/versions/0.5' },
-        { text: '0.4 实现契约', link: '/versions/0.4' },
-        { text: '0.3 版本记录', link: '/versions/0.3' },
-        { text: '0.2 版本记录', link: '/versions/0.2' },
-        { text: '0.1 版本记录', link: '/versions/0.1' },
+        ...releaseItems('/versions'),
         { text: '实现策略决议', link: '/design/implementation-strategy' },
         { text: '工具链开发规范', link: '/design/toolchain-development' },
         { text: '编译器引导计划', link: '/design/bootstrap-plan' },
@@ -176,6 +167,6 @@ export const zhTheme: DefaultTheme.Config = {
   sidebarMenuLabel: '目录',
   darkModeSwitchLabel: '外观',
   langMenuLabel: '切换语言',
-  footer: { message: 'Norm 0.6 开发线', copyright: 'Norm Project' },
+  footer: { message: `Norm ${currentRelease} 开发线`, copyright: 'Norm Project' },
 }
 

@@ -89,21 +89,16 @@ Point origin = Point(x: 0, y: 0)
 ## 一个完整例子
 
 ```norm
-Integer clamp(Integer value, Integer minimum, Integer maximum) {
-    if value < minimum {
-        return minimum
+Integer choose(Boolean enabled, Integer preferred, Integer fallback) {
+    if enabled {
+        return preferred
     }
-
-    if value > maximum {
-        return maximum
-    }
-
-    return value
+    return fallback
 }
 
 main() {
-    Integer opacity = clamp(value: 140, minimum: 0, maximum: 100)
-    printLine(opacity)
+    Integer result = choose(enabled: true, preferred: 100, fallback: 0)
+    printLine(result)
 }
 ```
 

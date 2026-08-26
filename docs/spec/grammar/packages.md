@@ -1,10 +1,10 @@
 # Package 语法
 
 ```text
-PackageDeclaration := "package" Identifier ("." Identifier)*
+PackageDeclaration := "package" Identifier ("." Identifier)* ";"?
 ```
 
-package 声明是项目源码文件的第一个声明，名称使用点分隔，不以分号结尾。
+package 声明是项目源码文件的第一个声明，名称使用点分隔；行尾分号可省略。
 
 ```norm
 package geometry.shapes
