@@ -138,8 +138,9 @@ final class CoreTraversalContractTest {
         new CoreWitness(links.next(), new CoreWitnessTarget.Intrinsic(intrinsic()));
     return List.of(
         callable,
-        new CoreDefinition.Class(
+        new CoreDefinition.Aggregate(
             nominal("Class"),
+            CoreValueCategory.IDENTITY,
             List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
             List.of(new CoreField(0, links.type())),
             List.of(new CoreConformance(links.type(), List.of(callableWitness, intrinsicWitness)))),

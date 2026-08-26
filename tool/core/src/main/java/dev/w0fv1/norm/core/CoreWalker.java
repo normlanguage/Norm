@@ -17,7 +17,7 @@ abstract class CoreWalker {
             .forEach(local -> walkType(local.type()));
         walkBlock(callable.body());
       }
-      case CoreDefinition.Class declaration -> {
+      case CoreDefinition.Aggregate declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
         declaration.fields().forEach(field -> walkType(field.type()));
         declaration.conformances().forEach(this::walkConformance);

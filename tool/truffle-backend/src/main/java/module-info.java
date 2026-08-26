@@ -2,6 +2,7 @@
 module dev.w0fv1.norm.truffle {
   requires transitive dev.w0fv1.norm.core;
   requires transitive dev.w0fv1.norm.execution;
+  requires dev.w0fv1.norm.project;
   requires org.graalvm.polyglot;
   requires org.graalvm.truffle;
 

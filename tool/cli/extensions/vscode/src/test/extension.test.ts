@@ -30,6 +30,9 @@ suite('Norm VS Code extension', () => {
     await vscode.workspace
       .getConfiguration('editor')
       .update('wordBasedSuggestions', 'off', vscode.ConfigurationTarget.Workspace);
+    await vscode.workspace
+      .getConfiguration('files')
+      .update('autoSave', 'off', vscode.ConfigurationTarget.Workspace);
     const extension = vscode.extensions.getExtension('normlang.norm-language-support');
     assert.ok(extension, 'development extension was not loaded');
     await extension.activate();
@@ -350,7 +353,7 @@ suite('Norm VS Code extension', () => {
   });
 
   test('supports generics and cross-file project navigation', async () => {
-    const document = await openProjectFixture('sample/app/Main.norm');
+    const document = await openProjectFixture('sample/Main.norm');
     const text = document.getText();
     const identityOffset = text.lastIndexOf('identity');
     const identityPosition = document.positionAt(identityOffset);
@@ -460,10 +463,10 @@ suite('Norm VS Code extension', () => {
       document.positionAt(text.lastIndexOf('identity<T>')),
     );
     assert.ok(
-      declarationReferences.some((location) => location.uri.path.endsWith('/sample/app/Main.norm')),
+      declarationReferences.some((location) => location.uri.path.endsWith('/sample/Main.norm')),
     );
 
-    const main = await openProjectFixture('sample/app/Main.norm');
+    const main = await openProjectFixture('sample/Main.norm');
     const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
       'vscode.executeCompletionItemProvider',
       main.uri,
@@ -473,10 +476,10 @@ suite('Norm VS Code extension', () => {
   });
 
   test('ranks expected values and serves signature help for incomplete code', async () => {
-    const document = await openProjectFixture('sample/app/Main.norm');
+    const document = await openProjectFixture('sample/Main.norm');
     const original = document.getText();
     const text =
-      'package sample.app\n\nVoid consume(String value, Integer count) {} Void main() { ' +
+      'package sample\n\nVoid consume(String value, Integer count) {} Void main() { ' +
       'String label = "ready" Integer count = 1 consume(';
     await replaceDocument(document, text);
     try {
@@ -514,7 +517,7 @@ suite('Norm VS Code extension', () => {
   });
 
   test('offers exported declarations with precise auto-import edits', async () => {
-    const document = await openProjectFixture('sample/app/Main.norm');
+    const document = await openProjectFixture('sample/Main.norm');
     const original = document.getText();
     const edited = original
       .replace(/import sample\.util\.identity\r?\n/, '')
@@ -615,6 +618,39 @@ suite('Norm VS Code extension', () => {
       });
     });
     assert.equal(exitCode, 0);
+  });
+
+  test('saves open Norm project files before running', async () => {
+    const module = await openProjectFixture('sample/module.norm');
+    const original = module.getText();
+    await replaceDocumentWithoutSave(
+      module,
+      'Module module() { return module(name: "sample", version: 0, exports: []) }',
+    );
+    assert.equal(module.isDirty, true);
+    const main = await openProjectFixture('sample/Main.norm');
+
+    try {
+      const execution = await vscode.commands.executeCommand<vscode.TaskExecution | undefined>(
+        'norm.runCurrentFile',
+      );
+      assert.ok(execution);
+      const exitCode = await new Promise<number | undefined>((resolve) => {
+        const subscription = vscode.tasks.onDidEndTaskProcess((event) => {
+          if (event.execution === execution) {
+            subscription.dispose();
+            resolve(event.exitCode);
+          }
+        });
+      });
+
+      assert.equal(exitCode, 74);
+      assert.equal(module.isDirty, false);
+    } finally {
+      await vscode.window.showTextDocument(module);
+      await replaceDocument(module, original);
+      await vscode.window.showTextDocument(main);
+    }
   });
 
   test('reports a failed run through a custom execution', async () => {
@@ -773,6 +809,14 @@ async function eventually<T>(operation: () => T | undefined | Promise<T | undefi
 }
 
 async function replaceDocument(document: vscode.TextDocument, text: string): Promise<void> {
+  await replaceDocumentWithoutSave(document, text);
+  assert.ok(await document.save());
+}
+
+async function replaceDocumentWithoutSave(
+  document: vscode.TextDocument,
+  text: string,
+): Promise<void> {
   const edit = new vscode.WorkspaceEdit();
   edit.replace(
     document.uri,
@@ -780,5 +824,4 @@ async function replaceDocument(document: vscode.TextDocument, text: string): Pro
     text,
   );
   assert.ok(await vscode.workspace.applyEdit(edit));
-  assert.ok(await document.save());
 }

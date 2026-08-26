@@ -8,7 +8,7 @@ Norm 区分 value 与 identity：
 
 | 类别 | 类型 | 赋值、传参和返回 | `==` |
 | --- | --- | --- | --- |
-| Value | `Integer`、`Boolean`、`String`、enum、内建容器 | 产生逻辑独立的值 | 结构相等 |
+| Value | `Integer`、`Boolean`、`String`、enum、用户定义 value、内建容器 | 产生逻辑独立的值 | 结构相等 |
 | Identity | `class` 实例 | 复制对象引用，共享同一对象 | 对象身份相等 |
 
 统一的 `=` 复制右侧表达式的值。class 变量保存的值是对象引用，因此复制该值会共享对象；容器保存的是容器值，因此复制后容器结构彼此独立。

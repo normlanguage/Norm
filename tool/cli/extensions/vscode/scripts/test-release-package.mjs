@@ -9,6 +9,7 @@ import {
   targetExecutable,
   verifyCliVersion,
 } from './release-package.mjs';
+import { packageIgnore } from './vsce-package.mjs';
 
 assert.equal(releaseVersion('0.1.0'), '0.1.0');
 assert.throws(() => releaseVersion('v0.1.0'));
@@ -17,6 +18,7 @@ assert.equal(targetExecutable('win32-x64'), 'norm.exe');
 assert.equal(targetExecutable('linux-x64'), 'norm');
 assert.equal(targetExecutable('darwin-arm64'), 'norm');
 assert.throws(() => targetExecutable('darwin-x64'));
+assert.equal(packageIgnore('out/test/**\n', 'server'), 'out/test/**\n\nserver/**\n');
 
 const extensionRoot = resolve(import.meta.dirname, '..');
 const extensionPackage = JSON.parse(readFileSync(join(extensionRoot, 'package.json'), 'utf8'));

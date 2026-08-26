@@ -23,7 +23,7 @@ final class CompilationSnapshotTest {
     AtomicInteger parses = new AtomicInteger();
     CompilerSession compiler =
         new CompilerSession(
-            LanguageProfile.current(),
+            LanguageProfile.kernel(),
             new dev.w0fv1.norm.core.store.InMemoryDefinitionStore(),
             CompilerSessionCapacity.standard(),
             parses::incrementAndGet,
@@ -69,7 +69,7 @@ final class CompilationSnapshotTest {
         };
     CompilerSession compiler =
         new CompilerSession(
-            LanguageProfile.current(),
+            LanguageProfile.kernel(),
             store,
             CompilerSessionCapacity.standard(),
             () -> {},

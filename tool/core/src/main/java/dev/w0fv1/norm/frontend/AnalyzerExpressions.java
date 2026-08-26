@@ -15,6 +15,7 @@ import dev.w0fv1.norm.semantic.TypeConstraintSolver;
 import dev.w0fv1.norm.semantic.TypeParameterInfo;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
@@ -34,7 +35,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       Set<DocumentId> exportedSources,
       CompilationGuard guard,
       Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId) {
+      int minimumBodySymbolId,
+      Set<DocumentId> moduleEvaluationDocuments,
+      CompilationScope scope) {
     super(
         programs,
         entryProgram,
@@ -43,7 +46,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         exportedSources,
         guard,
         reusableDeclarations,
-        minimumBodySymbolId);
+        minimumBodySymbolId,
+        moduleEvaluationDocuments,
+        scope);
   }
 
   abstract void analyzeStatement(Syntax.Statement statement);
@@ -148,8 +153,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         .map(type -> resolveDeclarationType(type, declaration, typeParameters))
         .orElseGet(
             () -> {
-              Syntax.ClassDecl owner = ownerOf(declaration);
-              return owner == null ? SemanticType.VOID : classSelfType(owner);
+              Syntax.AggregateDecl owner = ownerOf(declaration);
+              return owner == null ? SemanticType.VOID : aggregateSelfType(owner);
             });
   }
 
@@ -278,7 +283,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           TYPE_MISMATCH, "method reference requires an expected function type", reference.span());
       return SemanticType.DYNAMIC;
     }
-    Syntax.ClassDecl owner = resolveClass(receiver.nonNullable());
+    Syntax.AggregateDecl owner = resolveAggregate(receiver.nonNullable());
     if (owner == null) {
       diagnostics.error(
           TYPE_MISMATCH,
@@ -286,7 +291,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           reference.span());
       return SemanticType.DYNAMIC;
     }
-    Map<String, SemanticType> substitutions = classSubstitutions(owner, receiver.nonNullable());
+    Map<String, SemanticType> substitutions = aggregateSubstitutions(owner, receiver.nonNullable());
     List<FunctionReferenceResolution> matches =
         owner.methods().stream()
             .filter(method -> method.name().equals(reference.name()))
@@ -832,7 +837,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
 
   SemanticType memberTypeWithoutDiagnostics(Syntax.Member member, SemanticType nullableReceiver) {
     SemanticType receiver = accessibleReceiverType(member, nullableReceiver);
-    Syntax.ClassDecl owner = resolveClass(receiver);
+    Syntax.AggregateDecl owner = resolveAggregate(receiver);
     if (owner == null) return null;
     Syntax.FieldDecl field =
         owner.fields().stream()
@@ -840,16 +845,22 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
             .findFirst()
             .orElse(null);
     if (field == null) return null;
-    if (field.visibility() == Syntax.Visibility.PRIVATE && currentClass != owner) {
+    if (field.visibility() == Syntax.Visibility.PRIVATE && currentAggregate != owner) {
       diagnostics.error(
           UNKNOWN_NAME,
-          "field '" + member.name() + "' is private in class '" + owner.name() + "'",
+          "field '"
+              + member.name()
+              + "' is private in "
+              + aggregateKeyword(owner)
+              + " '"
+              + owner.name()
+              + "'",
           member.nameSpan());
     }
     bindings.put(member.nameSpan(), declarationSymbols.get(field));
     SemanticType type =
-        resolveDeclarationType(field.type(), field, classTypeParameters(owner))
-            .substitute(classSubstitutions(owner, receiver));
+        resolveDeclarationType(field.type(), field, aggregateTypeParameters(owner))
+            .substitute(aggregateSubstitutions(owner, receiver));
     return safeAccessResult(member, nullableReceiver, type);
   }
 
@@ -877,7 +888,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           function.functionReturnType());
     }
     builtins.type(callee).ifPresent(symbol -> bindings.put(name.span(), symbol.id()));
-    List<Symbol> builtinFunctions = builtins.globals(callee);
+    List<Symbol> builtinFunctions = builtins.globals(callee, currentProgram.span().source().id());
     if (!builtinFunctions.isEmpty()) {
       if (name.diamond()) {
         diagnostics.error(
@@ -885,6 +896,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       }
       Symbol symbol = selectBuiltinOverload(builtinFunctions, call, name.span());
       if (symbol == null) return SemanticType.DYNAMIC;
+      symbols.putIfAbsent(symbol.id(), symbol);
       bindings.put(name.span(), symbol.id());
       validateTypeArgumentCount(callee, 0, name.typeArguments(), name.span());
       name.typeArguments().forEach(argument -> resolveCheckedType(argument, activeTypeParameters));
@@ -910,16 +922,17 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           List.of(),
           constructedType);
     }
-    Syntax.ClassDecl classDecl = resolveClass(callee);
-    if (classDecl != null) {
-      bindDeclarationUse(name.span(), callee, classDecl);
-      Map<String, SemanticType> substitutions = classSubstitutions(classDecl, constructedType);
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(callee);
+    if (aggregateDecl != null) {
+      bindDeclarationUse(name.span(), callee, aggregateDecl);
+      Map<String, SemanticType> substitutions =
+          aggregateSubstitutions(aggregateDecl, constructedType);
       return recordCall(
           call,
           name.span(),
           ResolvedCall.Kind.CONSTRUCT,
-          declarationSymbols.get(classDecl),
-          fieldParameters(classDecl, substitutions),
+          declarationSymbols.get(aggregateDecl),
+          fieldParameters(aggregateDecl, substitutions),
           List.of(),
           constructedType);
     }
@@ -1074,9 +1087,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           List.of(),
           safeAccessResult(member, nullableReceiver, symbol.type()));
     }
-    Syntax.ClassDecl classDecl = resolveClass(receiver);
-    if (classDecl != null) {
-      if (member.name().equals("copy")) {
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiver);
+    if (aggregateDecl != null) {
+      if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS && member.name().equals("copy")) {
         bindings.put(member.nameSpan(), copyMethods.get(receiver.identity()));
         validateTypeArgumentCount(member.name(), 0, member.typeArguments(), member.span());
         member
@@ -1091,9 +1104,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
             List.of(),
             safeAccessResult(member, nullableReceiver, receiver));
       }
-      Map<String, SemanticType> substitutions = classSubstitutions(classDecl, receiver);
+      Map<String, SemanticType> substitutions = aggregateSubstitutions(aggregateDecl, receiver);
       List<Syntax.FunctionDecl> methods =
-          classDecl.methods().stream()
+          aggregateDecl.methods().stream()
               .filter(candidate -> candidate.name().equals(member.name()))
               .toList();
       List<Syntax.FunctionDecl> accessibleMethods =
@@ -1101,7 +1114,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
               .filter(
                   candidate ->
                       candidate.visibility() != Syntax.Visibility.PRIVATE
-                          || currentClass == classDecl)
+                          || currentAggregate == aggregateDecl)
               .toList();
       SourceCallResolution resolution =
           resolveSourceCall(
@@ -1116,7 +1129,13 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
         if (!methods.isEmpty() && accessibleMethods.isEmpty()) {
           diagnostics.error(
               UNKNOWN_NAME,
-              "method '" + member.name() + "' is private in class '" + classDecl.name() + "'",
+              "method '"
+                  + member.name()
+                  + "' is private in "
+                  + aggregateKeyword(aggregateDecl)
+                  + " '"
+                  + aggregateDecl.name()
+                  + "'",
               member.nameSpan());
           analyzeArguments(call.arguments());
           return SemanticType.DYNAMIC;
@@ -1330,29 +1349,40 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           member.span());
       return SemanticType.DYNAMIC;
     }
-    Syntax.ClassDecl classDecl = resolveClass(receiverType);
-    if (classDecl != null) {
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiverType);
+    if (aggregateDecl != null) {
       Syntax.FieldDecl field =
-          classDecl.fields().stream()
+          aggregateDecl.fields().stream()
               .filter(candidate -> candidate.name().equals(member.name()))
               .findFirst()
               .orElse(null);
       if (field != null) {
-        if (field.visibility() == Syntax.Visibility.PRIVATE && currentClass != classDecl) {
+        if (field.visibility() == Syntax.Visibility.PRIVATE && currentAggregate != aggregateDecl) {
           diagnostics.error(
               UNKNOWN_NAME,
-              "field '" + member.name() + "' is private in class '" + classDecl.name() + "'",
+              "field '"
+                  + member.name()
+                  + "' is private in "
+                  + aggregateKeyword(aggregateDecl)
+                  + " '"
+                  + aggregateDecl.name()
+                  + "'",
               member.nameSpan());
         }
         bindings.put(member.nameSpan(), declarationSymbols.get(field));
         SemanticType result =
-            resolveDeclarationType(field.type(), field, classTypeParameters(classDecl))
-                .substitute(classSubstitutions(classDecl, receiverType));
+            resolveDeclarationType(field.type(), field, aggregateTypeParameters(aggregateDecl))
+                .substitute(aggregateSubstitutions(aggregateDecl, receiverType));
         return safeAccessResult(member, nullableReceiverType, result);
       }
       diagnostics.error(
           UNKNOWN_NAME,
-          "class '" + receiverType.displayName() + "' has no field '" + member.name() + "'",
+          aggregateKeyword(aggregateDecl)
+              + " '"
+              + receiverType.displayName()
+              + "' has no field '"
+              + member.name()
+              + "'",
           member.span());
       return SemanticType.DYNAMIC;
     }
@@ -1448,12 +1478,12 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
             .filter(value -> value.identity().equals(interfaceIdentity))
             .findFirst();
     if (builtinConformance.isPresent()) return builtinConformance;
-    Syntax.ClassDecl declaration = resolveClass(concrete);
+    Syntax.AggregateDecl declaration = resolveAggregate(concrete);
     if (declaration == null) return Optional.empty();
     Syntax.Program previous = currentProgram;
     currentProgram = declarations.owner(declaration);
-    Map<String, SemanticType> parameters = classTypeParameters(declaration);
-    Map<String, SemanticType> substitutions = classSubstitutions(declaration, concrete);
+    Map<String, SemanticType> parameters = aggregateTypeParameters(declaration);
+    Map<String, SemanticType> substitutions = aggregateSubstitutions(declaration, concrete);
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
     for (Syntax.TypeRef interfaceRef : declaration.implementedInterfaces()) {
       SemanticType conformance = resolveType(interfaceRef, parameters).substitute(substitutions);
@@ -1547,6 +1577,11 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       case Syntax.Member member -> {
         if (member.nullSafe()) {
           diagnostics.error(TYPE_MISMATCH, "safe access cannot be assigned", member.span());
+        }
+        SemanticType receiver = typeOf(member.receiver(), null);
+        if (receiver.nonNullable().category() == dev.w0fv1.norm.semantic.ValueCategory.VALUE
+            && resolveAggregate(receiver.nonNullable()) != null) {
+          diagnostics.error(TYPE_MISMATCH, "value field cannot be assigned", member.span());
         }
         yield memberType(member);
       }

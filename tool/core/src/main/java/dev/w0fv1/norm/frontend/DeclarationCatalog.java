@@ -2,6 +2,7 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.syntax.Syntax;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,15 +15,18 @@ import java.util.Set;
 final class DeclarationCatalog {
   private final List<Syntax.Program> programs;
   private final Set<DocumentId> exportedSources;
+  private final CompilationScope scope;
   private final Map<String, List<Syntax.FunctionDecl>> functions = new LinkedHashMap<>();
-  private final Map<String, Syntax.ClassDecl> classes = new LinkedHashMap<>();
+  private final Map<String, Syntax.AggregateDecl> aggregates = new LinkedHashMap<>();
   private final Map<String, Syntax.EnumDecl> enums = new LinkedHashMap<>();
   private final Map<String, Syntax.InterfaceDecl> interfaces = new LinkedHashMap<>();
   private final Map<Object, Syntax.Program> owners = new IdentityHashMap<>();
 
-  DeclarationCatalog(List<Syntax.Program> programs, Set<DocumentId> exportedSources) {
+  DeclarationCatalog(
+      List<Syntax.Program> programs, Set<DocumentId> exportedSources, CompilationScope scope) {
     this.programs = List.copyOf(programs);
     this.exportedSources = Set.copyOf(exportedSources);
+    this.scope = java.util.Objects.requireNonNull(scope, "scope");
     indexOwners();
   }
 
@@ -38,8 +42,8 @@ final class DeclarationCatalog {
         == null;
   }
 
-  boolean addClass(Syntax.Program program, Syntax.ClassDecl declaration) {
-    return classes.putIfAbsent(
+  boolean addAggregate(Syntax.Program program, Syntax.AggregateDecl declaration) {
+    return aggregates.putIfAbsent(
             key(program, declaration.name(), declaration.visibility()), declaration)
         == null;
   }
@@ -72,7 +76,7 @@ final class DeclarationCatalog {
   Object declaration(String qualifiedName) {
     List<Syntax.FunctionDecl> overloads = functions.get(qualifiedName);
     if (overloads != null && !overloads.isEmpty()) return overloads.getFirst();
-    Object declaration = classes.get(qualifiedName);
+    Object declaration = aggregates.get(qualifiedName);
     if (declaration == null) declaration = enums.get(qualifiedName);
     if (declaration == null) declaration = interfaces.get(qualifiedName);
     return declaration;
@@ -95,7 +99,9 @@ final class DeclarationCatalog {
     if (program == null) return List.of();
     List<Syntax.FunctionDecl> visible = new ArrayList<>();
     visible.addAll(functions(localIdentity(qualified(program.packageName(), name), program)));
-    visible.addAll(functions(qualified(program.packageName(), name)));
+    functions(qualified(program.packageName(), name)).stream()
+        .filter(candidate -> sameModule(program, candidate))
+        .forEach(visible::add);
     if (!visible.isEmpty()) return List.copyOf(visible);
     for (Syntax.ImportDecl imported : program.imports()) {
       if (!imported.localName().equals(name)) continue;
@@ -106,8 +112,8 @@ final class DeclarationCatalog {
     return List.of();
   }
 
-  Syntax.ClassDecl resolveClass(Syntax.Program program, String name) {
-    return resolve(program, name, classes);
+  Syntax.AggregateDecl resolveAggregate(Syntax.Program program, String name) {
+    return resolve(program, name, aggregates);
   }
 
   Syntax.EnumDecl resolveEnum(Syntax.Program program, String name) {
@@ -118,10 +124,10 @@ final class DeclarationCatalog {
     return resolve(program, name, interfaces);
   }
 
-  Syntax.ClassDecl importedClassByDeclaredName(Syntax.Program program, String name) {
+  Syntax.AggregateDecl importedAggregateByDeclaredName(Syntax.Program program, String name) {
     if (program == null) return null;
     for (Syntax.ImportDecl imported : program.imports()) {
-      Syntax.ClassDecl candidate = classes.get(imported.qualifiedName());
+      Syntax.AggregateDecl candidate = aggregates.get(imported.qualifiedName());
       if (candidate != null && candidate.name().equals(name) && canImport(program, candidate)) {
         return candidate;
       }
@@ -129,8 +135,8 @@ final class DeclarationCatalog {
     return null;
   }
 
-  Syntax.ClassDecl resolveClass(SemanticType type) {
-    return resolve(type, classes);
+  Syntax.AggregateDecl resolveAggregate(SemanticType type) {
+    return resolve(type, aggregates);
   }
 
   Syntax.EnumDecl resolveEnum(SemanticType type) {
@@ -141,9 +147,9 @@ final class DeclarationCatalog {
     return resolve(type, interfaces);
   }
 
-  Syntax.ClassDecl ownerOf(Syntax.FunctionDecl method) {
+  Syntax.AggregateDecl ownerOf(Syntax.FunctionDecl method) {
     for (Syntax.Program program : programs) {
-      for (Syntax.ClassDecl declaration : program.classes()) {
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
         if (declaration.methods().stream().anyMatch(candidate -> candidate == method)) {
           return declaration;
         }
@@ -156,7 +162,9 @@ final class DeclarationCatalog {
     Syntax.Program owner = owners.get(declaration);
     return owner != null
         && (owner.packageName().equals(importer.packageName())
-            || exportedSources.contains(owner.span().source().id()));
+                && scope.sameModule(importer.span().source().id(), owner.span().source().id())
+            || exportedSources.contains(owner.span().source().id())
+                && scope.canRead(importer.span().source().id(), owner.span().source().id()));
   }
 
   private void indexOwners() {
@@ -166,7 +174,7 @@ final class DeclarationCatalog {
         declaration.methods().forEach(method -> owners.put(method, program));
       }
       program.enums().forEach(declaration -> owners.put(declaration, program));
-      for (Syntax.ClassDecl declaration : program.classes()) {
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
         owners.put(declaration, program);
         declaration.fields().forEach(field -> owners.put(field, program));
         declaration.methods().forEach(method -> owners.put(method, program));
@@ -180,7 +188,7 @@ final class DeclarationCatalog {
     T local = declarations.get(localIdentity(qualified(program.packageName(), name), program));
     if (local != null) return local;
     T samePackage = declarations.get(qualified(program.packageName(), name));
-    if (samePackage != null) return samePackage;
+    if (samePackage != null && sameModule(program, samePackage)) return samePackage;
     for (Syntax.ImportDecl imported : program.imports()) {
       if (!imported.localName().equals(name)) continue;
       T declaration = declarations.get(imported.qualifiedName());
@@ -194,7 +202,7 @@ final class DeclarationCatalog {
       Syntax.Program owner = owners.get(candidate);
       String name;
       Syntax.Visibility visibility;
-      if (candidate instanceof Syntax.ClassDecl declaration) {
+      if (candidate instanceof Syntax.AggregateDecl declaration) {
         name = declaration.name();
         visibility = declaration.visibility();
       } else if (candidate instanceof Syntax.EnumDecl declaration) {
@@ -224,6 +232,12 @@ final class DeclarationCatalog {
 
   private static String localIdentity(String qualified, Syntax.Program program) {
     return qualified + "@" + program.span().source().id().uri();
+  }
+
+  private boolean sameModule(Syntax.Program program, Object declaration) {
+    Syntax.Program owner = owners.get(declaration);
+    return owner != null
+        && scope.sameModule(program.span().source().id(), owner.span().source().id());
   }
 
   private static String signature(Syntax.FunctionDecl function) {

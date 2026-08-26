@@ -45,7 +45,7 @@ final class SourceRecoveryTest {
 
   private static void assertRecoveryCase(RecoveryCase recoveryCase) {
     SourceFile source = source(recoveryCase.fixture());
-    ParsedDocument parsed = SourceParser.parse(source, false);
+    ParsedDocument parsed = SourceParser.parse(source);
 
     assertSame(source, parsed.source());
     assertTrue(

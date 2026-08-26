@@ -63,27 +63,16 @@ final class CompilerTest {
   }
 
   @Test
-  void analyzesAModuleDescriptorAsACompileTimeObject() {
+  void hidesModuleProtocolFromApplicationCode() {
     AnalysisResult result =
         new CompilerSession()
             .analyze(
                 SourceFile.of(
-                    Path.of("module.norm"),
-                    "Module(name: \"sample\", version: 1, exports: [\"math.integer\"])"));
-
-    assertFalse(result.hasErrors(), () -> result.diagnostics().toString());
-  }
-
-  @Test
-  void reportsInvalidModuleDescriptors() {
-    AnalysisResult result =
-        new CompilerSession()
-            .analyze(
-                SourceFile.of(
-                    Path.of("module.norm"), "Module(name: \"sample\", version: 0, exports: [])"));
+                    Path.of("application.norm"),
+                    "Void main() { dependency(name: \"sample\", version: 1) }"));
 
     assertTrue(result.hasErrors());
-    assertEquals("NORM-MODULE-0001", result.diagnostics().getFirst().code().value());
+    assertEquals("NORM-NAME-0003", result.diagnostics().getFirst().code().value());
   }
 
   @Test

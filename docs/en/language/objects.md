@@ -27,6 +27,17 @@ Call `copy()` when a new top-level identity is required. Value fields become ind
 
 Copying a built-in container creates an independent structure. Class elements within that structure retain their identity. Values compare structurally; classes compare by identity.
 
+## User-defined values
+
+```norm
+value Point {
+  Integer x
+  Integer y
+}
+```
+
+A user-defined value may have methods and generic parameters and may implement interfaces. Its fields cannot be assigned after construction. Assignment, parameter passing, returns, and field reads preserve logical independence, while equality and hash recursively use the language semantics of each field. `value` is contextual only in a top-level declaration header and remains available as an ordinary identifier elsewhere.
+
 ## `ref<T>` identifies value storage
 
 `ref<T>` refers to a value storage location. It is not the mechanism for sharing class instances. Copying a ref preserves the location identity; its expression forms are defined by the grammar specification.

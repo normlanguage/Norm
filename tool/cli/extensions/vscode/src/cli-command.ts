@@ -24,11 +24,11 @@ export function resolveCliCommand(
   const bundledExecutable = process.platform === 'win32' ? 'norm.exe' : 'norm';
   const bundledJvmExecutable = process.platform === 'win32' ? 'norm.bat' : 'norm';
   const candidates = [
-    join(extensionPath, 'bin', `${process.platform}-${process.arch}`, bundledExecutable),
     workspacePath &&
       join(workspacePath, 'tool', 'cli', 'app', 'build', 'install', 'norm', 'bin', executable),
     resolve(extensionPath, '..', '..', 'app', 'build', 'install', 'norm', 'bin', executable),
     join(extensionPath, 'server', 'bin', bundledJvmExecutable),
+    join(extensionPath, 'bin', `${process.platform}-${process.arch}`, bundledExecutable),
     executableOnPath('norm'),
   ];
   return candidates.find(

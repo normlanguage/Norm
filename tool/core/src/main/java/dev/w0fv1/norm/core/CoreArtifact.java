@@ -88,7 +88,10 @@ public final class CoreArtifact {
         switch (definition) {
           case CoreDefinition.Callable callable ->
               callable.hasReceiver() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
-          case CoreDefinition.Class ignored -> CoreBindingKind.CLASS;
+          case CoreDefinition.Aggregate declaration ->
+              declaration.valueCategory() == CoreValueCategory.VALUE
+                  ? CoreBindingKind.VALUE
+                  : CoreBindingKind.CLASS;
           case CoreDefinition.Enum ignored -> CoreBindingKind.ENUM;
           case CoreDefinition.Interface ignored -> CoreBindingKind.INTERFACE;
           case CoreDefinition.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;
@@ -125,16 +128,21 @@ public final class CoreArtifact {
               namespace.bindings().stream()
                   .anyMatch(
                       candidate ->
-                          candidate.kind() == CoreBindingKind.CLASS
+                          candidate.kind()
+                                  == (receiver.category() == CoreValueCategory.VALUE
+                                      ? CoreBindingKind.VALUE
+                                      : CoreBindingKind.CLASS)
                               && candidate.packageName().equals(binding.packageName())
                               && candidate.name().equals(binding.ownerName().orElseThrow())
                               && candidate.definition().equals(owner));
           if (!ownerBindingPresent) throw bindingMismatch(binding);
         }
       }
-      case CoreDefinition.Class declaration -> {
-        CoreBindingShape.Class shape = (CoreBindingShape.Class) binding.shape();
-        if (!sameTypeParameters(program, id, shape.typeParameters(), declaration.typeParameters())
+      case CoreDefinition.Aggregate declaration -> {
+        CoreBindingShape.Aggregate shape = (CoreBindingShape.Aggregate) binding.shape();
+        if (shape.valueCategory() != declaration.valueCategory()
+            || !sameTypeParameters(
+                program, id, shape.typeParameters(), declaration.typeParameters())
             || shape.fields().size() != declaration.fields().size()
             || shape.conformances().size() != declaration.conformances().size()) {
           throw bindingMismatch(binding);

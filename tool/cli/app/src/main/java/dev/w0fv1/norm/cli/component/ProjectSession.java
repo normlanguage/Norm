@@ -3,9 +3,9 @@ package dev.w0fv1.norm.cli.component;
 import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
-import dev.w0fv1.norm.frontend.ProjectLoader;
-import dev.w0fv1.norm.frontend.ProjectSourceSet;
 import dev.w0fv1.norm.language.LanguageService;
+import dev.w0fv1.norm.project.ProjectLoader;
+import dev.w0fv1.norm.project.ProjectSourceSet;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.SourceFile;
@@ -41,18 +41,19 @@ final class ProjectSession {
 
   static ProjectSession load(
       LanguageService language,
+      ProjectLoader projects,
       SourceFile entry,
       Map<Path, SourceFile> openSources,
       long revision) {
     try {
-      ProjectSourceSet sourceSet = new ProjectLoader().load(entry, openSources.values());
+      ProjectSourceSet sourceSet = projects.load(entry, openSources.values());
       CompilationSnapshot snapshot = language.snapshot(sourceSet.compilationRequest());
       return new ProjectSession(
           sourceSet.root(), revision, snapshot, sourceSet.inputPaths(), Optional.empty());
     } catch (IOException | IllegalArgumentException exception) {
       CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(entry));
       return new ProjectSession(
-          ProjectLoader.projectRoot(entry, openSources.values()),
+          projects.projectRoot(entry, openSources.values()),
           revision,
           snapshot,
           Set.of(normalize(entry.path())),

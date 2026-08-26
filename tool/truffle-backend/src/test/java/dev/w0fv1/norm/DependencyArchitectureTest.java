@@ -9,11 +9,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 final class DependencyArchitectureTest {
-  private static JavaClasses classes;
+  private static JavaClasses aggregates;
 
   @BeforeAll
   static void importProductionClasses() {
-    classes =
+    aggregates =
         new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
             .importPackages("dev.w0fv1.norm");
@@ -28,7 +28,7 @@ final class DependencyArchitectureTest {
         .dependOnClassesThat()
         .resideInAnyPackage(
             "..bound..", "..execution..", "..frontend..", "..syntax..", "..truffle..")
-        .check(classes);
+        .check(aggregates);
   }
 
   @Test
@@ -39,7 +39,7 @@ final class DependencyArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..truffle..")
-        .check(classes);
+        .check(aggregates);
   }
 
   @Test
@@ -50,7 +50,7 @@ final class DependencyArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..bound..")
-        .check(classes);
+        .check(aggregates);
   }
 
   @Test
@@ -61,7 +61,7 @@ final class DependencyArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage("..core..", "..execution..", "..frontend..", "..truffle..")
-        .check(classes);
+        .check(aggregates);
   }
 
   @Test
@@ -73,7 +73,7 @@ final class DependencyArchitectureTest {
         .dependOnClassesThat()
         .resideInAnyPackage(
             "..bound..", "..frontend..", "..semantic..", "..syntax..", "..truffle..")
-        .check(classes);
+        .check(aggregates);
   }
 
   @Test
@@ -84,6 +84,6 @@ final class DependencyArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage("..bound..", "..frontend..", "..semantic..", "..syntax..")
-        .check(classes);
+        .check(aggregates);
   }
 }

@@ -1,0 +1,9 @@
+import std.math.max
+
+Module module() {
+  return module(
+    name: "project",
+    version: max(left: 1, right: 1),
+    exports: ["Main", "model.Counter", "service.CounterService"]
+  )
+}

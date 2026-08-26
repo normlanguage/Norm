@@ -17,12 +17,15 @@ Norm 官方实现遵循以下四条规则：
 ## 模块边界
 
 ```text
-tool/core       编译器前端、执行模型与 Truffle 后端
-tool/cli        命令行、Language Server 与编辑器插件
-norm            使用 Norm 编写的标准库与语言源码
+tool/core              编译器前端与 canonical Core
+tool/execution-api     后端无关的执行契约
+tool/project-system    标准库引导与项目生命周期
+tool/truffle-backend   唯一执行后端
+tool/cli               命令行、Language Server 与编辑器插件
+norm                   使用 Norm 编写的标准库与语言源码
 ```
 
-编译器、运行时和 Truffle 后端位于单一 `core` Gradle 模块。CLI 通过 core 的公开 Java API 调用它们；标准库公开 API 使用 Norm 编写，平台能力由 core 提供。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
+依赖方向是 `core ← execution-api ← project-system ← truffle-backend ← cli`；Truffle 同时实现 execution API，CLI 只组合公开入口。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
 
 ## 构建与发行
 

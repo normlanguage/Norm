@@ -1,14 +1,27 @@
-# Module 描述语法
+# Module 配置
 
-```text
-ModuleFile := ModuleExpression ";"?
-ModuleExpression := "Module" "(" ModuleField ("," ModuleField)* ")"
-ModuleField := "name" ":" StringLiteral
-             | "version" ":" IntegerLiteral
-             | "exports" ":" ExportList
-ExportList := "[" (StringLiteral ("," StringLiteral)*)? "]"
+模块根 package 目录中的 `module.norm` 是普通 Norm 源文件，使用同一套 import、声明、表达式和函数体语法。它不声明 package，并必须提供：
+
+```norm
+Module module()
 ```
 
-三个字段顺序任意，但必须各出现一次。`name` 和每个 export 都是由点分隔的有效标识符；`version` 必须为正整数；export 不能重复。文件在 `Module` 表达式后不得包含其他内容。
+常用实现调用 bootstrap 源码中的参数化工厂：
 
-`Module(...)` 使用普通调用表达式和命名参数语法。模块加载阶段将该表达式解释为编译期内置 `Module` 值。路径映射与可见性见[模块系统](/spec/module-system)。
+```norm
+import std.math.max
+
+String projectName() {
+  return "sample"
+}
+
+Module module() {
+  return module(
+    name: projectName(),
+    version: max(left: 1, right: 1),
+    exports: ["Main", "model.User"]
+  )
+}
+```
+
+依赖使用 `List<ModuleRequirement>` 表示，并通过 `dependency(String name, Integer version)` 构造。完整语义见[模块系统](/spec/module-system)。

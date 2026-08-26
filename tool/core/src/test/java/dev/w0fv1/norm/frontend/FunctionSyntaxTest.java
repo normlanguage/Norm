@@ -17,10 +17,10 @@ final class FunctionSyntaxTest {
         parse("class Counter { add(Integer amount) { } Void clear() { } } main() { }");
 
     assertTrue(program.functions().getFirst().returnType().isEmpty());
-    assertTrue(program.classes().getFirst().methods().getFirst().returnType().isEmpty());
+    assertTrue(program.aggregates().getFirst().methods().getFirst().returnType().isEmpty());
     assertEquals(
         "Void",
-        program.classes().getFirst().methods().get(1).returnType().orElseThrow().displayName());
+        program.aggregates().getFirst().methods().get(1).returnType().orElseThrow().displayName());
   }
 
   @Test

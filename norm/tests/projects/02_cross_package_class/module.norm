@@ -1,5 +1,0 @@
-Module(
-  name: "project",
-  version: 1,
-  exports: ["app.Main", "model.Counter", "service.CounterService"]
-)

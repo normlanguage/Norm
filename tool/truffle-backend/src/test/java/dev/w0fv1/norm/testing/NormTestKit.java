@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.frontend.ProjectLoader;
+import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.project.ProjectLoader;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
@@ -21,10 +22,15 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
 
 public final class NormTestKit {
+  private static final NormRuntime RUNTIME = new NormRuntime();
+  private static final ProjectEnvironment ENVIRONMENT = environment();
+
   private NormTestKit() {}
 
   public static CompilationResult compile(String text) {
-    return new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
+    try (CompilerSession compiler = ENVIRONMENT.compilerSession()) {
+      return compiler.compile(SourceFile.of(Path.of("test.norm"), text));
+    }
   }
 
   public static String run(String text) {
@@ -32,7 +38,13 @@ public final class NormTestKit {
   }
 
   public static String run(Path path) throws Exception {
-    return run(new CompilerSession().compile(new ProjectLoader().load(path).compilationRequest()));
+    StringWriter output = new StringWriter();
+    try (var launcher = ENVIRONMENT.launcher()) {
+      CompilationResult result =
+          launcher.run(path, dev.w0fv1.norm.execution.ExecutionContext.of(new PrintWriter(output)));
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    return output.toString();
   }
 
   private static String run(CompilationResult compilation) {
@@ -42,7 +54,7 @@ public final class NormTestKit {
 
   private static String run(TypedProgram program) {
     StringWriter output = new StringWriter();
-    new NormRuntime().run(program, new PrintWriter(output));
+    RUNTIME.run(program, new PrintWriter(output));
     return output.toString();
   }
 
@@ -79,39 +91,40 @@ public final class NormTestKit {
               .sorted()
               .toList();
     }
-    List<Path> manifests = new ArrayList<>();
+    List<Path> modules = new ArrayList<>();
     for (Path candidate : candidates) {
-      if (ProjectLoader.isManifest(SourceFile.read(candidate))) manifests.add(candidate);
+      if (ProjectLoader.isModuleSource(SourceFile.read(candidate))) modules.add(candidate);
     }
     List<DynamicTest> tests = new ArrayList<>();
-    for (Path manifest : manifests) {
-      List<Path> sourceCandidates;
-      try (Stream<Path> files = Files.walk(manifest.getParent())) {
-        sourceCandidates =
-            files
-                .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().endsWith(".norm"))
-                .filter(path -> !path.equals(manifest))
-                .sorted()
-                .toList();
+    try (ProjectLoader projects = ENVIRONMENT.projectLoader();
+        CompilerSession compiler = ENVIRONMENT.compilerSession()) {
+      for (Path module : modules) {
+        List<Path> sourceCandidates;
+        try (Stream<Path> files = Files.walk(module.getParent())) {
+          sourceCandidates =
+              files
+                  .filter(Files::isRegularFile)
+                  .filter(path -> path.getFileName().toString().endsWith(".norm"))
+                  .filter(path -> !path.equals(module))
+                  .sorted()
+                  .toList();
+        }
+        List<Path> entryPoints = new ArrayList<>();
+        for (Path source : sourceCandidates) {
+          var sourceSet = projects.load(source);
+          if (!sourceSet.modulePaths().contains(module.toAbsolutePath().normalize())) continue;
+          CompilationRequest request = sourceSet.compilationRequest();
+          var snapshot = compiler.snapshot(request);
+          assertTrue(!snapshot.analysis().hasErrors(), () -> snapshot.diagnostics().toString());
+          if (snapshot.analysis().entryPoint().isPresent()) entryPoints.add(source);
+        }
+        assertEquals(1, entryPoints.size(), module + " must contain exactly one entry point");
+        Path entry = entryPoints.getFirst();
+        tests.add(
+            DynamicTest.dynamicTest(
+                directory.relativize(module.getParent()).toString(),
+                () -> assertSelfContainedTest(entry)));
       }
-      List<Path> entryPoints = new ArrayList<>();
-      for (Path source : sourceCandidates) {
-        var sourceSet = new ProjectLoader().load(source);
-        if (!sourceSet
-            .manifestPath()
-            .equals(java.util.Optional.of(manifest.toAbsolutePath().normalize()))) continue;
-        CompilationRequest request = sourceSet.compilationRequest();
-        var snapshot = new CompilerSession().snapshot(request);
-        assertTrue(!snapshot.analysis().hasErrors(), () -> snapshot.diagnostics().toString());
-        if (snapshot.analysis().entryPoint().isPresent()) entryPoints.add(source);
-      }
-      assertEquals(1, entryPoints.size(), manifest + " must contain exactly one entry point");
-      Path entry = entryPoints.getFirst();
-      tests.add(
-          DynamicTest.dynamicTest(
-              directory.relativize(manifest.getParent()).toString(),
-              () -> assertSelfContainedTest(entry)));
     }
     return tests.stream();
   }
@@ -122,17 +135,25 @@ public final class NormTestKit {
   }
 
   static void assertSelfContainedTest(Path path) throws Exception {
-    CompilationResult compilation =
-        new CompilerSession().compile(new ProjectLoader().load(path).compilationRequest());
-    assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     StringWriter actual = new StringWriter();
     StringWriter expected = new StringWriter();
-    new NormRuntime()
-        .run(
-            compilation.program().orElseThrow(),
-            dev.w0fv1.norm.execution.ExecutionContext.testing(
-                new PrintWriter(actual), new PrintWriter(expected)));
+    try (var launcher = ENVIRONMENT.launcher()) {
+      CompilationResult compilation =
+          launcher.run(
+              path,
+              dev.w0fv1.norm.execution.ExecutionContext.testing(
+                  new PrintWriter(actual), new PrintWriter(expected)));
+      assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
+    }
     assertTrue(!expected.toString().isEmpty(), path + " must declare expected output lines");
     assertEquals(expected.toString(), actual.toString(), () -> "unexpected output from " + path);
+  }
+
+  private static ProjectEnvironment environment() {
+    try {
+      return ProjectEnvironment.bootstrap(RUNTIME);
+    } catch (java.io.IOException exception) {
+      throw new ExceptionInInitializerError(exception);
+    }
   }
 }

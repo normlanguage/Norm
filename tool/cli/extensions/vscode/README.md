@@ -31,7 +31,13 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
    npm run compile
    ```
 
-4. Open this directory in VS Code and press F5, or run `npm run package` and install the resulting VSIX.
+4. Open this directory in VS Code and press F5. `npm run package:local` rebuilds the current JVM CLI distribution and creates `norm-language-support-<version>-local.vsix` containing `server/` and any staged multi-platform `bin/` bundle for direct installation.
+
+The universal release package contains `bin/` artifacts produced for every target in `tool/cli/release-targets.json`:
+
+```powershell
+npm run package -- <version> <binaries-directory> <output.vsix>
+```
 
 Run `npm run test:extension` for the real Extension Host suite; it builds a current CLI distribution before starting VS Code. Run `npm run smoke:lsp` for the stdio protocol handshake.
 

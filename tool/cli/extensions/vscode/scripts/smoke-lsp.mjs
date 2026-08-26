@@ -1,13 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { buildServer } from './build-server.mjs';
 
-const defaultCli = resolve(
-  process.cwd(),
-  '../../app/build/install/norm/bin',
-  process.platform === 'win32' ? 'norm.bat' : 'norm',
-);
-const cli = process.env.NORM_CLI ?? defaultCli;
+const cli =
+  process.env.NORM_CLI ??
+  join(buildServer(), 'bin', process.platform === 'win32' ? 'norm.bat' : 'norm');
 const child =
   process.platform === 'win32'
     ? spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', 'call', cli, 'lsp'], {
@@ -90,7 +88,7 @@ function readMessages() {
             uri: moduleUri,
             languageId: 'norm',
             version: 1,
-            text: 'Module(name: "sample", version: 1, exports: [])',
+            text: 'Module module(){return module(name:"sample",version:1,exports:[])}',
           },
         },
       });
@@ -99,7 +97,7 @@ function readMessages() {
       message.params?.uri === moduleUri
     ) {
       if (message.params.diagnostics?.length) {
-        return finish(new Error(`Module descriptor diagnostics failed: ${JSON.stringify(message)}`));
+        return finish(new Error(`Module configuration diagnostics failed: ${JSON.stringify(message)}`));
       }
       send({
         jsonrpc: '2.0',
@@ -158,7 +156,7 @@ function readMessages() {
     } else if (message.id === 4) {
       if (
         message.result?.[0]?.newText !==
-        'Module(\n  name: "sample",\n  version: 1,\n  exports: []\n)\n'
+        'Module module() {\n  return module(name: "sample", version: 1, exports: [])\n}\n'
       ) {
         return finish(
           new Error(`Formatting request failed: ${JSON.stringify(message)} stderr: ${stderr}`),

@@ -1,0 +1,7 @@
+Module module() {
+  return module(
+    name: "chain",
+    version: 1,
+    exports: ["Main", "base.Increment", "middle.Transform"]
+  )
+}

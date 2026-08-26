@@ -28,21 +28,15 @@ Norm 的 VS Code 扩展位于 `tool/cli/extensions/vscode`。它负责编辑器�
 
 ## 从源码开发
 
-先构建 CLI 安装目录：
-
-```powershell
-.\gradlew.bat :cli:installDist
-```
-
-再构建 VSIX：
+构建当前源码对应的 JVM 开发版 VSIX：
 
 ```powershell
 cd tool/cli/extensions/vscode
-npm install
-npm run package
+npm ci
+npm run package:local
 ```
 
-在 VS Code 中执行 **Extensions: Install from VSIX...**，选择生成的 VSIX。开发版扩展会从当前 Norm 仓库自动查找：
+在 VS Code 中执行 **Extensions: Install from VSIX...**，选择生成的 `norm-language-support-<version>-local.vsix`。该开发包内置当前源码构建的 JVM server，并收录已经暂存的完整多平台 `bin/`。直接按 F5 调试扩展时，也会从当前 Norm 仓库自动查找：
 
 ```text
 <仓库>\tool\cli\app\build\install\norm\bin\norm.bat
@@ -50,7 +44,7 @@ npm run package
 
 macOS 或 Linux 使用同目录下的 `norm`。
 
-解析顺序为显式设置的 `norm.cli.path`、扩展内置 CLI、当前工作区构建、扩展源码树中的开发构建、系统 `PATH`。发布版使用内置 CLI；只有工具链开发、自动化测试或自定义 CLI 时才需要覆盖它。
+解析顺序为显式设置的 `norm.cli.path`、当前工作区构建、扩展源码树中的开发构建、开发包内置 JVM server、扩展内置原生 CLI、系统 `PATH`。正式发布包只包含原生 CLI；只有工具链开发、自动化测试或自定义 CLI 时才需要覆盖它。
 
 ## 实现边界
 

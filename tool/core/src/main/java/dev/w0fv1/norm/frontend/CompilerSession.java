@@ -12,6 +12,7 @@ import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
@@ -41,10 +42,11 @@ public final class CompilerSession implements AutoCloseable {
   private boolean closed;
 
   public CompilerSession() {
-    this(
-        LanguageProfile.current(),
-        new InMemoryDefinitionStore(),
-        CompilerSessionCapacity.standard());
+    this(LanguageProfile.kernel());
+  }
+
+  public CompilerSession(LanguageProfile profile) {
+    this(profile, new InMemoryDefinitionStore(), CompilerSessionCapacity.standard());
   }
 
   public CompilerSession(
@@ -66,7 +68,11 @@ public final class CompilerSession implements AutoCloseable {
   }
 
   public static CompilerSession persistent() throws IOException {
-    LanguageProfile profile = LanguageProfile.current();
+    LanguageProfile profile = LanguageProfile.kernel();
+    return persistent(profile);
+  }
+
+  public static CompilerSession persistent(LanguageProfile profile) throws IOException {
     Path root =
         Path.of(
             System.getProperty("user.home"),
@@ -74,14 +80,19 @@ public final class CompilerSession implements AutoCloseable {
             "cache",
             "definitions",
             profile.identityVersion().storageNamespace());
-    return persistent(root);
+    return persistent(root, profile);
   }
 
   public static CompilerSession persistent(Path root) throws IOException {
     return new CompilerSession(
-        LanguageProfile.current(),
+        LanguageProfile.kernel(),
         new FileDefinitionStore(root),
         CompilerSessionCapacity.standard());
+  }
+
+  public static CompilerSession persistent(Path root, LanguageProfile profile) throws IOException {
+    return new CompilerSession(
+        profile, new FileDefinitionStore(root), CompilerSessionCapacity.standard());
   }
 
   public CompilationResult compile(SourceFile source) {
@@ -191,6 +202,15 @@ public final class CompilerSession implements AutoCloseable {
     compilations.remove(java.util.Objects.requireNonNull(unit, "unit"));
   }
 
+  public Optional<SourceFile> preludeSource(DocumentId document) {
+    return profile.preludeSource(document);
+  }
+
+  public CompilationSnapshot preludeSnapshot(DocumentId document) {
+    requireOpen();
+    return snapshot(profile.prelude().request(document));
+  }
+
   @Override
   public synchronized void close() {
     if (closed) return;
@@ -209,12 +229,12 @@ public final class CompilerSession implements AutoCloseable {
     DiagnosticBag diagnostics = new DiagnosticBag();
     LinkedHashMap<DocumentId, ParsedDocument> parsedByDocument = new LinkedHashMap<>();
     profile
-        .standardLibrary()
+        .prelude()
         .documents()
         .forEach(parsed -> parsedByDocument.put(parsed.source().id(), parsed));
     for (SourceFile source : request.sources()) {
       guard.checkpoint();
-      parsedByDocument.put(source.id(), parse(source, ProjectLoader.isManifest(source), guard));
+      parsedByDocument.put(source.id(), parse(source, guard));
     }
     List<ParsedDocument> parsed = List.copyOf(parsedByDocument.values());
     parsed.forEach(document -> document.diagnostics().forEach(diagnostics::report));
@@ -223,12 +243,19 @@ public final class CompilerSession implements AutoCloseable {
             .map(ParsedDocument::syntax)
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     Syntax.Program entryProgram = null;
-    Set<DocumentId> exportedSources =
-        new LinkedHashSet<>(profile.standardLibrary().exportedSources());
+    Set<DocumentId> exportedSources = new LinkedHashSet<>(profile.prelude().exportedSources());
     exportedSources.addAll(request.exportedSources());
-    Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates =
-        new LinkedHashMap<>(profile.standardLibrary().scope().coordinates());
-    sourceCoordinates.putAll(request.scope().coordinates());
+    CompilationScope sourceScope = request.scope();
+    if (profile.prelude().scope().isPresent()) {
+      CompilationScope preludeScope = profile.prelude().scope().orElseThrow();
+      sourceScope = preludeScope.merge(sourceScope);
+      Set<dev.w0fv1.norm.value.ModuleCoordinate> preludeExports =
+          profile.prelude().exportedSources().stream()
+              .map(preludeScope::coordinate)
+              .map(ModuleSourceCoordinate::module)
+              .collect(java.util.stream.Collectors.toSet());
+      sourceScope = sourceScope.withReads(request.scope().modules().modules(), preludeExports);
+    }
     for (ParsedDocument document : parsed) {
       if (document.source().id().equals(request.entryDocument())) entryProgram = document.syntax();
     }
@@ -243,20 +270,26 @@ public final class CompilerSession implements AutoCloseable {
                 exportedSources,
                 guard,
                 analysisPlan.reusable(),
-                previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal())
+                previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
+                profile.moduleEvaluationDocuments(),
+                sourceScope)
             .analyze(resolveProgram);
     CompilationSnapshot snapshot =
         new CompilationSnapshot(request.entryDocument(), parsed, analyzed.analysis());
     return new PreparedCompilation(
-        snapshot, analyzed.resolvedProgram(), exportedSources, sourceCoordinates, analysisPlan);
+        snapshot,
+        analyzed.resolvedProgram(),
+        exportedSources,
+        sourceScope.coordinates(),
+        analysisPlan);
   }
 
-  private ParsedDocument parse(SourceFile source, boolean manifest, CompilationGuard guard) {
-    ParseKey key = new ParseKey(source.id(), manifest);
+  private ParsedDocument parse(SourceFile source, CompilationGuard guard) {
+    ParseKey key = new ParseKey(source.id());
     ParsedDocument existing = parsedDocuments.get(key);
     if (existing != null && existing.source().text().equals(source.text())) return existing;
     parseObserver.run();
-    ParsedDocument parsed = SourceParser.parse(source, manifest, guard);
+    ParsedDocument parsed = SourceParser.parse(source, guard);
     parsedDocuments.put(key, parsed);
     evictParsedDocuments();
     return parsed;
@@ -344,7 +377,7 @@ public final class CompilerSession implements AutoCloseable {
     if (closed) throw new IllegalStateException("compiler session is closed");
   }
 
-  private record ParseKey(DocumentId document, boolean manifest) {}
+  private record ParseKey(DocumentId document) {}
 
   private record TrackedUnit(
       CompilationRequest request,

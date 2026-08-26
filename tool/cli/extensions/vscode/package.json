@@ -143,13 +143,15 @@
     "check": "tsc --noEmit -p ./",
     "test:language": "node scripts/test-language-configuration.mjs",
     "test:discovery": "esbuild src/cli-command.ts --bundle --platform=node --format=cjs --outfile=out/cli-command.cjs && node scripts/test-discovery.mjs",
+    "test:local-package": "node scripts/test-local-package.mjs",
     "test:release": "node scripts/test-release-package.mjs",
     "verify:vsix": "node scripts/verify-vsix.mjs",
     "test:extension": "node scripts/build-server.mjs && npm run compile && vscode-test --label jvm",
     "test:extension:native": "npm run compile && vscode-test --label native",
     "smoke:lsp": "node scripts/smoke-lsp.mjs",
     "smoke:run": "node scripts/build-server.mjs && node scripts/smoke-run.mjs",
-    "package": "vsce package --no-dependencies"
+    "package": "node scripts/release-package.mjs",
+    "package:local": "node scripts/package-local.mjs"
   },
   "dependencies": {
     "vscode-languageclient": "10.1.0"

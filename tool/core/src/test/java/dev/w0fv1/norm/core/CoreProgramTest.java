@@ -82,13 +82,14 @@ final class CoreProgramTest {
     CoreDefinitionGroup group =
         CoreDefinitionGroup.create(
             List.of(
-                new CoreDefinition.Class(
+                new CoreDefinition.Aggregate(
                     new CoreNominalTypeKey(
                         new ModuleCoordinate("sample", 1),
                         "sample",
                         "Box",
                         CoreVisibility.PUBLIC,
                         Optional.empty()),
+                    CoreValueCategory.IDENTITY,
                     List.of(),
                     List.of(new CoreField(0, fieldType)),
                     List.of())));

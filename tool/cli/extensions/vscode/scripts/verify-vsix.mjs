@@ -27,7 +27,7 @@ const entries = await readEntries(vsix, [
   'extension/images/norm-256.png',
   'extension/images/norm-file.png',
   ...executableEntries,
-]);
+], ['extension/server/']);
 const extensionPackage = JSON.parse(entries.get('extension/package.json').content.toString('utf8'));
 if (extensionPackage.version !== version) {
   throw new Error(
@@ -72,14 +72,18 @@ try {
 }
 console.log(`Universal VSIX verified with all embedded Norm ${version} CLIs.`);
 
-function readEntries(path, names) {
+function readEntries(path, names, forbiddenPrefixes) {
   return new Promise((resolvePromise, reject) => {
     yauzl.open(path, { lazyEntries: true }, (openError, archive) => {
       if (openError) return reject(openError);
       const expected = new Set(names);
       const result = new Map();
+      let forbiddenEntry;
       archive.on('error', reject);
       archive.on('entry', (entry) => {
+        if (forbiddenPrefixes.some((prefix) => entry.fileName.startsWith(prefix))) {
+          forbiddenEntry = entry.fileName;
+        }
         if (!expected.has(entry.fileName)) return archive.readEntry();
         archive.openReadStream(entry, (streamError, stream) => {
           if (streamError) return reject(streamError);
@@ -96,6 +100,9 @@ function readEntries(path, names) {
         });
       });
       archive.on('end', () => {
+        if (forbiddenEntry) {
+          return reject(new Error(`VSIX contains forbidden release entry: ${forbiddenEntry}`));
+        }
         const missing = names.filter((name) => !result.has(name));
         if (missing.length > 0) return reject(new Error(`VSIX is missing: ${missing.join(', ')}`));
         resolvePromise(result);

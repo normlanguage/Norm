@@ -1,18 +1,21 @@
 package dev.w0fv1.norm.cli.component;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
+import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
-import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.frontend.ProjectLoader;
 import dev.w0fv1.norm.language.Completion;
 import dev.w0fv1.norm.language.CompletionKind;
 import dev.w0fv1.norm.language.LanguageService;
+import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.project.ProjectLoader;
+import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceLocation;
 import dev.w0fv1.norm.value.SourcePosition;
+import dev.w0fv1.norm.value.SourceSpan;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -56,11 +59,24 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
 final class DocumentService implements TextDocumentService, AutoCloseable {
-  private final LanguageService language = new LanguageService(new CompilerSession());
+  private static final DiagnosticCode PROJECT_CONFIGURATION =
+      new DiagnosticCode("NORM-PROJECT-0001");
+  private final LanguageService language;
+  private final ProjectLoader projects;
   private final Map<String, DocumentState> documents = new ConcurrentHashMap<>();
   private final java.util.concurrent.atomic.AtomicLong revisions =
       new java.util.concurrent.atomic.AtomicLong();
   private volatile LanguageClient client;
+
+  DocumentService() {
+    try {
+      ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+      language = new LanguageService(environment.compilerSession());
+      projects = environment.projectLoader();
+    } catch (java.io.IOException exception) {
+      throw new IllegalStateException("cannot bootstrap Norm project environment", exception);
+    }
+  }
 
   void connect(LanguageClient client) {
     this.client = client;
@@ -70,6 +86,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   public void close() {
     documents.clear();
     language.close();
+    projects.close();
   }
 
   String standardLibrarySource(String uri) {
@@ -258,8 +275,12 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       documents.remove(existing.clientUri(), existing);
     }
     if (!"file".equals(source.id().uri().getScheme())) {
-      CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(source));
+      CompilationSnapshot snapshot =
+          "stdlib".equals(source.id().uri().getScheme())
+              ? language.standardLibrarySnapshot(source.id())
+              : language.snapshot(CompilationRequest.single(source));
       AnalysisResult analysis = snapshot.analysis();
+      source = analysis.semanticModel().source();
       DocumentState candidate =
           new DocumentState(
               version,
@@ -274,10 +295,32 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
       publish(uri, analysis);
       return;
     }
-    if (ProjectLoader.isManifest(source)) {
-      Path root = ProjectSession.normalize(source.path()).getParent();
-      CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(source));
-      AnalysisResult analysis = snapshot.analysis();
+    if (ProjectLoader.isModuleSource(source)) {
+      Path sourcePath = ProjectSession.normalize(source.path());
+      Path root = projects.projectRoot(source, openSources().values());
+      Set<Path> affectedRoots = new java.util.LinkedHashSet<>();
+      affectedRoots.add(root);
+      documents.values().stream()
+          .filter(state -> state.projectRoot() != null)
+          .filter(state -> state.sourcePaths().contains(sourcePath))
+          .map(DocumentState::projectRoot)
+          .forEach(affectedRoots::add);
+      CompilationSnapshot snapshot = projects.analyzeModule(source);
+      AnalysisResult analysis = snapshot.analysis(source.id());
+      if (!analysis.hasErrors()) {
+        try {
+          projects.evaluateModule(source);
+        } catch (java.io.IOException exception) {
+          List<Diagnostic> diagnostics = new java.util.ArrayList<>(analysis.diagnostics());
+          diagnostics.add(
+              Diagnostic.error(
+                  PROJECT_CONFIGURATION,
+                  exception.getMessage(),
+                  new SourceSpan(source, 0, Math.min(1, source.length()))));
+          analysis =
+              new AnalysisResult(analysis.semanticModel(), analysis.entryPoint(), diagnostics);
+        }
+      }
       DocumentState candidate =
           new DocumentState(
               version,
@@ -290,13 +333,13 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
               snapshot);
       if (!install(uri, candidate)) return;
       publish(uri, analysis);
-      refresh(root);
+      affectedRoots.forEach(this::refresh);
       return;
     }
     Map<Path, SourceFile> openSources = openSources();
     openSources.put(ProjectSession.normalize(source.path()), source);
     ProjectSession session =
-        ProjectSession.load(language, source, openSources, revisions.incrementAndGet());
+        ProjectSession.load(language, projects, source, openSources, revisions.incrementAndGet());
     AnalysisResult analysis = session.analysis(source);
     DocumentState candidate =
         new DocumentState(
@@ -357,13 +400,17 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
                 state ->
                     root.equals(state.projectRoot())
                         || ProjectSession.normalize(state.source().path()).startsWith(root))
-            .filter(state -> !ProjectLoader.isManifest(state.source()))
+            .filter(state -> !ProjectLoader.isModuleSource(state.source()))
             .toList();
     List<DocumentState> remaining = new java.util.ArrayList<>(states);
     while (!remaining.isEmpty()) {
       ProjectSession session =
           ProjectSession.load(
-              language, remaining.getFirst().source(), openSources(), revisions.incrementAndGet());
+              language,
+              projects,
+              remaining.getFirst().source(),
+              openSources(),
+              revisions.incrementAndGet());
       List<DocumentState> members =
           remaining.stream()
               .filter(

@@ -14,7 +14,7 @@ final class CoreProgramVerifierTest {
   void rejectsSpecialTypesInValueAbis() {
     for (CoreType special : List.of(CoreType.VOID, CoreType.NULL, CoreType.DYNAMIC)) {
       CoreDefinitionGroup field =
-          group(classDefinition("Box", 0, List.of(new CoreField(0, special))));
+          group(aggregateDefinition("Box", 0, List.of(new CoreField(0, special))));
       CoreDefinitionGroup parameter =
           group(
               new CoreDefinition.Callable(
@@ -116,7 +116,7 @@ final class CoreProgramVerifierTest {
 
   @Test
   void rejectsMethodCallsWithoutTheDeclaredReceiver() {
-    CoreDefinitionGroup owner = group(classDefinition("Box", 0, List.of()));
+    CoreDefinitionGroup owner = group(aggregateDefinition("Box", 0, List.of()));
     CoreType receiver = userType(owner.definitionId(0), List.of());
     CoreDefinitionGroup method =
         group(
@@ -178,7 +178,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsConstructorArgumentsWithTheWrongType() {
     CoreDefinitionGroup target =
-        group(classDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
+        group(aggregateDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
     CoreType box = userType(target.definitionId(0), List.of());
     CoreExpression.Construct construct =
         new CoreExpression.Construct(
@@ -195,7 +195,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsInvalidFieldAndEnumTargets() {
     CoreDefinitionGroup owner =
-        group(classDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
+        group(aggregateDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
     CoreType box = userType(owner.definitionId(0), List.of());
     CoreExpression.FieldRead read =
         new CoreExpression.FieldRead(
@@ -317,7 +317,7 @@ final class CoreProgramVerifierTest {
   void rejectsTypeParametersOutsideTheirDefinitionAbi() {
     CoreDefinitionGroup invalid =
         group(
-            classDefinition(
+            aggregateDefinition(
                 "Box",
                 1,
                 List.of(new CoreField(0, new CoreType.Parameter(1, CoreNullability.NON_NULL)))));
@@ -336,7 +336,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsUnsafeNullableFieldReadsAndCopies() {
     CoreDefinitionGroup owner =
-        group(classDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
+        group(aggregateDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
     CoreType box = userType(owner.definitionId(0), List.of());
     CoreType nullableBox = box.asNullable();
     CoreExpression receiver = new CoreExpression.LocalRead(3, 0, nullableBox);
@@ -553,10 +553,14 @@ final class CoreProgramVerifierTest {
         CoreNullability.NON_NULL);
   }
 
-  private static CoreDefinition.Class classDefinition(
+  private static CoreDefinition.Aggregate aggregateDefinition(
       String name, int typeParameters, List<CoreField> fields) {
-    return new CoreDefinition.Class(
-        nominal(name), typeParameters(typeParameters), fields, List.of());
+    return new CoreDefinition.Aggregate(
+        nominal(name),
+        CoreValueCategory.IDENTITY,
+        typeParameters(typeParameters),
+        fields,
+        List.of());
   }
 
   private static List<CoreTypeParameter> typeParameters(int count) {

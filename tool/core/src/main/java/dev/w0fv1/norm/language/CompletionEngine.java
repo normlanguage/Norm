@@ -30,7 +30,7 @@ final class CompletionEngine {
     if (context instanceof CompletionContext.None) return List.of();
     if (context instanceof CompletionContext.Import imported) {
       return withTextEdits(
-          importCompletions(model), document, imported.qualifiedNameStart(), offset);
+          importCompletions(model, document), document, imported.qualifiedNameStart(), offset);
     }
     if (context instanceof CompletionContext.Member member) {
       return withTextEdits(
@@ -55,7 +55,7 @@ final class CompletionEngine {
         .filter(symbol -> isCandidateForContext(context, symbol))
         .map(symbol -> ranked(symbol, expectedType, List.of(), constructors))
         .forEach(result::add);
-    model.importableSymbols().stream()
+    model.importableSymbols(document.source().id()).stream()
         .filter(candidate -> isCandidateForContext(context, candidate.symbol()))
         .filter(candidate -> !visibleNames.contains(candidate.symbol().name()))
         .filter(
@@ -119,8 +119,9 @@ final class CompletionEngine {
         offset);
   }
 
-  private static List<Completion> importCompletions(SemanticModel model) {
-    return model.importableSymbols().stream()
+  private static List<Completion> importCompletions(
+      SemanticModel model, DocumentSemanticModel document) {
+    return model.importableSymbols(document.source().id()).stream()
         .map(
             candidate -> {
               Completion symbol = completion(candidate.symbol());
@@ -156,6 +157,7 @@ final class CompletionEngine {
     if (context instanceof CompletionContext.TopLevel) {
       return List.of(
           snippet("class", "Norm class", "class ${1:Name} {\n  ${2}\n}"),
+          snippet("value", "Norm value", "value ${1:Name} {\n  ${2}\n}"),
           snippet("enum", "Norm enum", "enum ${1:Name} {\n  ${2:Value}\n}"),
           snippet("interface", "Norm interface", "interface ${1:Name} {\n  ${2}\n}"),
           keyword("package"),

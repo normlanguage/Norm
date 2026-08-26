@@ -3,21 +3,23 @@
 Norm 官方编译器使用 Java 实现。`.norm` 源码是项目的 authoring source，名称解析和类型检查之后生成确定性的 content-addressed Core IR；Truffle 是 Core 的唯一执行后端。技术栈由[实现策略决议](/design/implementation-strategy)固定，工程依赖规则见[工具链开发规范](/design/toolchain-development)。
 
 ```text
-ProjectSourceSet
+ProjectEnvironment
+  → module.norm + hidden entry → Core → Truffle → ModuleDescriptor
+  → ProjectSourceSet
   → Lexer / Parser
   → Analyzer / SemanticModel ──→ authoring snapshot
   → Binder
   → CoreBuilder
   → CoreCanonicalizer
   → DefinitionStore
-  → CoreCompilation
+  → CompilationOutput
   → Lowerer
   → Truffle CallTarget
 ```
 
 ## 项目与前端
 
-`ProjectLoader` 一次建立不可变 `ProjectSourceSet`。存在 `module.norm` 时加载当前模块的源码集合、排除嵌套模块，并由清单确定导出边界；不存在清单时只加载入口文件。项目拓扑只读取清单、路径和 package 头，正文语法诊断不会使编辑中的模块退化为单文件。CLI、Language Server 和测试工具从同一个 source set 派生 `CompilationRequest`。模块名、版本和模块相对源码路径由 `CompilationScope` 统一携带。
+`ProjectEnvironment` 先用 bootstrap 协议求值标准库的 `module.norm`，再建立共享标准库 prelude。`ProjectLoader` 递归求值 `Module module()` 返回的精确依赖图，并建立不可变 `ProjectSourceSet`。模块配置与业务程序分别编译，配置 artifact 不进入业务 Core 依赖图。CLI、Language Server、Polyglot 入口和测试工具共享 `tool/project-system` 中的生命周期。`CompilationScope` 统一携带每个源码文档的模块名、版本、相对路径和模块直接读取边，Analyzer 与语言服务共同使用这一个可见性模型。模块规则见[模块系统](/spec/module-system)。
 
 Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类型头，再解析成员与 callable，在完整项目声明图上完成名称解析、类型检查、泛型推断、interface 关系与见证验证、switch 穷尽检查、nullable 流分析、确定赋值和调用绑定，并产生不可变 `SemanticModel`。普通调用由 `ResolvedCall` 保存精确目标、实例化形参、类型实参、实参映射与结果类型；interface requirement 与实现关系同样只在语义模型中保存一份。Binder、签名帮助、导航和引用索引共同读取这份结果。编辑器诊断、补全、悬停、导航、引用和重命名始终读取同一修订的语义快照；authoring snapshot 到此结束，执行编译才物化 Core。
 
@@ -34,15 +36,15 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 `DefinitionId` 只来自版本化 canonical encoding。可调用定义的名字、参数名、局部变量名、源码位置和空白位于 semantic Core 之外；局部绑定与类型参数使用定义内的稠密索引。
 
-内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class 的泛型参数、字段类型和 interface conformances，interface 的泛型参数、父接口与 requirements，以及 enum variant 的稳定键与 payload 类型都属于语义内容。
+内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class/value aggregate 的类别、泛型参数、字段类型和 interface conformances，interface 的泛型参数、父接口与 requirements，以及 enum variant 的稳定键与 payload 类型都属于语义内容。
 
 `CoreNamespace` 保存 authoring 名字、签名、可见性、导出状态与精确 occurrence。`CoreAuthoringMap` 为每个 canonical definition 保存按来源稳定编号的 `DefinitionOccurrenceId`、`CoreDefinitionOrigin` 和引用 occurrence 路由。Lowerer 按调用所在 occurrence 选择对应来源，因此共享同一 `DefinitionId` 的多个源码定义仍保留各自的名字、位置和调用栈。
 
 ## Canonical Core
 
-`CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。callable、class、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
+`CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。callable、aggregate、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
-`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V3` 与 `LanguageSemanticsVersion.V3`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
+`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V4` 与 `LanguageSemanticsVersion.V4`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
 
 `CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 bound、callable receiver 与 reified ABI、interface 继承和完整 witness、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建协议与操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
 
@@ -50,7 +52,7 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 ## 增量边界
 
-`CompilationEnvironment` 按文档内容复用解析结果；每个 `Compiler` 会话按稳定的 `CompilationUnitId` 保留前一份 `CoreCompilation`。定义依赖被编码进 identity，因此修改叶子定义会为其依赖闭包产生新 identity，而不相关定义继续复用原有 identity 和内容组。模块以根 `module.norm` 的 URI 标识编译单元，独立文件以自身 URI 标识。
+`CompilerSession` 按文档内容复用解析结果，并按稳定的 `CompilationUnitId` 保留前一份 `CompilationOutput`。定义依赖被编码进 identity，因此修改叶子定义会为其依赖闭包产生新 identity，而不相关定义继续复用原有 identity 和内容组。模块以根 `module.norm` 的 URI 标识编译单元，独立文件以自身 URI 标识。
 
 `CoreDependencyIndex` 提供直接依赖、反向依赖和传递 dependents；`CoreCompilationDelta` 给出新增、复用和脱离当前 source set 的定义。类型引用与可执行引用使用同一依赖传播规则。下游缓存以这些强类型 identity 作为失效边界，内容存储命中只做完整性校验和读取。
 

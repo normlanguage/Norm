@@ -13,7 +13,7 @@ public final class Syntax {
       List<ImportDecl> imports,
       List<EnumDecl> enums,
       List<InterfaceDecl> interfaces,
-      List<ClassDecl> classes,
+      List<AggregateDecl> aggregates,
       List<FunctionDecl> functions,
       SourceSpan span)
       implements AstNode {
@@ -22,7 +22,7 @@ public final class Syntax {
       imports = List.copyOf(imports);
       enums = List.copyOf(enums);
       interfaces = List.copyOf(interfaces);
-      classes = List.copyOf(classes);
+      aggregates = List.copyOf(aggregates);
       functions = List.copyOf(functions);
       Objects.requireNonNull(span, "span");
     }
@@ -55,6 +55,21 @@ public final class Syntax {
   public enum Visibility {
     PUBLIC,
     PRIVATE
+  }
+
+  public enum AggregateKind {
+    CLASS("class"),
+    VALUE("value");
+
+    private final String keyword;
+
+    AggregateKind(String keyword) {
+      this.keyword = keyword;
+    }
+
+    public String keyword() {
+      return keyword;
+    }
   }
 
   public record EnumVariant(
@@ -232,7 +247,8 @@ public final class Syntax {
     }
   }
 
-  public record ClassDecl(
+  public record AggregateDecl(
+      AggregateKind kind,
       Visibility visibility,
       String name,
       SourceSpan nameSpan,
@@ -242,7 +258,8 @@ public final class Syntax {
       List<FunctionDecl> methods,
       SourceSpan span)
       implements AstNode {
-    public ClassDecl {
+    public AggregateDecl {
+      Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);

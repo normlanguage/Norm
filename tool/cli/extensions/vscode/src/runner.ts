@@ -13,16 +13,28 @@ export class NormRunner {
       return undefined;
     }
     if (basename(document.uri.path) === 'module.norm') {
-      void vscode.window.showErrorMessage('module.norm is a compile-time module descriptor.');
+      void vscode.window.showErrorMessage('module.norm runs automatically with the project.');
       return undefined;
     }
-    if (!(await document.save())) return undefined;
     if (document.uri.scheme !== 'file') {
       void vscode.window.showErrorMessage('Save the Norm file to disk before running it.');
       return undefined;
     }
 
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const documents = vscode.workspace.textDocuments.filter(
+      (candidate) =>
+        candidate.languageId === 'norm' &&
+        candidate.uri.scheme === 'file' &&
+        candidate.isDirty &&
+        (workspaceFolder
+          ? vscode.workspace.getWorkspaceFolder(candidate.uri)?.uri.toString() ===
+            workspaceFolder.uri.toString()
+          : candidate.uri.toString() === document.uri.toString()),
+    );
+    const saved = await Promise.all(documents.map((candidate) => candidate.save()));
+    if (saved.some((value) => !value)) return undefined;
+
     const configuration = vscode.workspace.getConfiguration('norm', document.uri);
     const cli = resolveCliCommand(
       configuration.get<string>('cli.path', ''),

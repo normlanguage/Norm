@@ -2,19 +2,29 @@ package dev.w0fv1.norm.semantic;
 
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.value.DocumentId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public final class BuiltinSymbols {
   private final BuiltinCatalog catalog;
+  private final java.util.Set<DocumentId> moduleEvaluationDocuments;
 
   public BuiltinSymbols() {
+    this(java.util.Set.of());
+  }
+
+  public BuiltinSymbols(java.util.Set<DocumentId> moduleEvaluationDocuments) {
     catalog = BuiltinCatalog.standard();
+    this.moduleEvaluationDocuments = java.util.Set.copyOf(moduleEvaluationDocuments);
   }
 
   public Map<SymbolId, Symbol> symbols() {
-    return catalog.symbols();
+    SymbolId publisher = catalog.global("__publishModule").orElseThrow().symbol().id();
+    Map<SymbolId, Symbol> symbols = new java.util.LinkedHashMap<>(catalog.symbols());
+    symbols.remove(publisher);
+    return java.util.Collections.unmodifiableMap(symbols);
   }
 
   public Map<SymbolId, List<SymbolId>> members() {
@@ -22,10 +32,19 @@ public final class BuiltinSymbols {
   }
 
   public Optional<Symbol> global(String name) {
+    if (name.equals("__publishModule")) return Optional.empty();
     return catalog.global(name).map(BuiltinCatalog.GlobalDefinition::symbol);
   }
 
   public List<Symbol> globals(String name) {
+    if (name.equals("__publishModule")) return List.of();
+    return catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList();
+  }
+
+  public List<Symbol> globals(String name, DocumentId document) {
+    if (name.equals("__publishModule") && !moduleEvaluationDocuments.contains(document)) {
+      return List.of();
+    }
     return catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList();
   }
 

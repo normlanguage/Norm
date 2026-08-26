@@ -1,0 +1,11 @@
+package geometry
+
+import geometry.model.Point
+import geometry.service.origin
+
+main() {
+  Point first = origin()
+  Point second = first
+  printLine(first == second)
+  expectedOutputLine("true")
+}

@@ -14,10 +14,17 @@ public sealed interface CoreBindingShape {
     }
   }
 
-  record Class(
-      List<CoreTypeParameter> typeParameters, List<Field> fields, List<CoreType> conformances)
+  record Aggregate(
+      CoreValueCategory valueCategory,
+      List<CoreTypeParameter> typeParameters,
+      List<Field> fields,
+      List<CoreType> conformances)
       implements CoreBindingShape {
-    public Class {
+    public Aggregate {
+      Objects.requireNonNull(valueCategory, "valueCategory");
+      if (valueCategory != CoreValueCategory.IDENTITY && valueCategory != CoreValueCategory.VALUE) {
+        throw new IllegalArgumentException("aggregate binding must be identity or value");
+      }
       typeParameters = requireTypeParameters(typeParameters, 0);
       fields = List.copyOf(fields);
       conformances = List.copyOf(conformances);

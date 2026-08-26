@@ -72,10 +72,15 @@ final class CoreNamespaceTest {
             CoreValueCategory.POLYMORPHIC,
             CoreNullability.NON_NULL);
     CoreBinding plain =
-        binding(occurrence, new CoreBindingShape.Class(List.of(), List.of(), List.of()));
+        binding(
+            occurrence,
+            new CoreBindingShape.Aggregate(
+                CoreValueCategory.IDENTITY, List.of(), List.of(), List.of()));
     CoreBinding conforming =
         binding(
-            occurrence, new CoreBindingShape.Class(List.of(), List.of(), List.of(interfaceType)));
+            occurrence,
+            new CoreBindingShape.Aggregate(
+                CoreValueCategory.IDENTITY, List.of(), List.of(), List.of(interfaceType)));
 
     assertNotEquals(
         CoreNamespace.create(List.of(plain)).id(), CoreNamespace.create(List.of(conforming)).id());

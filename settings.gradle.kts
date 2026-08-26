@@ -11,9 +11,10 @@ plugins {
 
 rootProject.name = "norm"
 
-include("core", "execution-api", "truffle-backend", "cli")
+include("core", "execution-api", "project-system", "truffle-backend", "cli")
 
 project(":core").projectDir = file("tool/core")
 project(":execution-api").projectDir = file("tool/execution-api")
+project(":project-system").projectDir = file("tool/project-system")
 project(":truffle-backend").projectDir = file("tool/truffle-backend")
 project(":cli").projectDir = file("tool/cli/app")

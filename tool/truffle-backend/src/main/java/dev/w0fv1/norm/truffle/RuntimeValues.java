@@ -80,17 +80,22 @@ final class RuntimeValues {
               copyList(enumValue.payload));
       case BuilderValue builder -> new BuilderValue(builder.type, builder.value.toString());
       case NativeIteratorValue iterator -> iterator;
-      case ObjectValue object -> object;
+      case ObjectValue object -> isValueObject(object) ? copyObject(object) : object;
       case null, default -> value;
     };
   }
 
   static ObjectValue copyObject(ObjectValue object) {
-    ObjectValue result = new ObjectValue(object.classInfo, object.type);
+    ObjectValue result = new ObjectValue(object.aggregateInfo, object.type);
     for (int index = 0; index < object.fields.length; index++) {
       result.fields[index] = copy(object.fields[index]);
     }
     return result;
+  }
+
+  private static boolean isValueObject(ObjectValue object) {
+    return object.type instanceof CoreType.Declared declared
+        && declared.category() == CoreValueCategory.VALUE;
   }
 
   static boolean equal(Object left, Object right) {
@@ -120,7 +125,7 @@ final class RuntimeValues {
           value.start == ((RangeValue) right).start
               && value.end == ((RangeValue) right).end
               && value.step == ((RangeValue) right).step;
-      case ObjectValue ignored -> false;
+      case ObjectValue value -> value.sameValue((ObjectValue) right);
       default -> Objects.equals(left, right);
     };
   }
@@ -153,7 +158,10 @@ final class RuntimeValues {
       case EnumValue item -> item.valueHash();
       case BuilderValue item -> item.value.toString().hashCode();
       case RangeValue item -> Objects.hash(item.start, item.end, item.step);
-      case ObjectValue item -> System.identityHashCode(item);
+      case ObjectValue item ->
+          isValueObject(item)
+              ? orderedHash(31 * 0x56414c55 + item.type.hashCode(), List.of(item.fields))
+              : System.identityHashCode(item);
       default -> value.hashCode();
     };
   }
@@ -794,25 +802,32 @@ final class RuntimeValues {
     record Intrinsic(IntrinsicId intrinsic) implements DispatchTarget {}
   }
 
-  record ClassInfo(
+  record AggregateInfo(
       DefinitionId definition,
       String name,
       int fieldCount,
       Map<DefinitionId, DispatchTarget> dispatch) {
-    ClassInfo {
+    AggregateInfo {
       dispatch = Map.copyOf(dispatch);
     }
   }
 
   static final class ObjectValue {
-    final ClassInfo classInfo;
+    final AggregateInfo aggregateInfo;
     final CoreType type;
     final Object[] fields;
 
-    ObjectValue(ClassInfo classInfo, CoreType type) {
-      this.classInfo = classInfo;
+    ObjectValue(AggregateInfo aggregateInfo, CoreType type) {
+      this.aggregateInfo = aggregateInfo;
       this.type = type;
-      fields = new Object[classInfo.fieldCount()];
+      fields = new Object[aggregateInfo.fieldCount()];
+    }
+
+    private boolean sameValue(ObjectValue other) {
+      return isValueObject(this)
+          && isValueObject(other)
+          && type.equals(other.type)
+          && equalLists(List.of(fields), List.of(other.fields));
     }
   }
 }

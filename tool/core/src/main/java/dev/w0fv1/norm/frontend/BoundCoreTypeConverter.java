@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.bound.BoundAggregate;
 import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
-import dev.w0fv1.norm.bound.BoundClass;
 import dev.w0fv1.norm.bound.BoundEnum;
 import dev.w0fv1.norm.bound.BoundInterface;
 import dev.w0fv1.norm.bound.BoundInterfaceMethod;
@@ -27,8 +27,8 @@ final class BoundCoreTypeConverter {
     this.nominalTypes = Map.copyOf(nominalTypes);
   }
 
-  static BoundCoreTypeConverter forClass(
-      BoundClass declaration, Map<String, Integer> nominalTypes) {
+  static BoundCoreTypeConverter forAggregate(
+      BoundAggregate declaration, Map<String, Integer> nominalTypes) {
     Map<String, Integer> parameters = new LinkedHashMap<>();
     for (int index = 0; index < declaration.typeParameters().size(); index++) {
       parameters.put(declaration.typeParameters().get(index).type().identity(), index);

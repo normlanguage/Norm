@@ -43,7 +43,7 @@ final class Parser {
     List<Syntax.ImportDecl> imports = new ArrayList<>();
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
-    List<Syntax.ClassDecl> classes = new ArrayList<>();
+    List<Syntax.AggregateDecl> aggregates = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     while (match(TokenKind.IMPORT)) {
       Token start = previous();
@@ -69,7 +69,9 @@ final class Parser {
         } else if (match(TokenKind.INTERFACE)) {
           interfaces.add(parseInterface(previous(), visibility));
         } else if (match(TokenKind.CLASS)) {
-          classes.add(parseClass(previous(), visibility));
+          aggregates.add(parseAggregate(previous(), visibility, Syntax.AggregateKind.CLASS));
+        } else if (matchValueDeclarationKeyword()) {
+          aggregates.add(parseAggregate(previous(), visibility, Syntax.AggregateKind.VALUE));
         } else {
           functions.add(parseFunction(visibility));
         }
@@ -82,7 +84,7 @@ final class Parser {
         imports,
         enums,
         interfaces,
-        classes,
+        aggregates,
         functions,
         new SourceSpan(source, 0, source.length()));
   }
@@ -159,12 +161,14 @@ final class Parser {
         enumKeyword.span().cover(closing.span()));
   }
 
-  private Syntax.ClassDecl parseClass(Token classKeyword, Syntax.Visibility visibility) {
-    Token name = consume(TokenKind.IDENTIFIER, "expected class name");
+  private Syntax.AggregateDecl parseAggregate(
+      Token keyword, Syntax.Visibility visibility, Syntax.AggregateKind kind) {
+    String declarationKind = kind.keyword();
+    Token name = consume(TokenKind.IDENTIFIER, "expected " + declarationKind + " name");
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     List<Syntax.TypeRef> implementedInterfaces =
         match(TokenKind.IMPLEMENTS) ? parseTypeList() : List.of();
-    consume(TokenKind.LEFT_BRACE, "expected '{' before class body");
+    consume(TokenKind.LEFT_BRACE, "expected '{' before " + declarationKind + " body");
     List<Syntax.FieldDecl> fields = new ArrayList<>();
     List<Syntax.FunctionDecl> methods = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
@@ -189,8 +193,10 @@ final class Parser {
                 type.span().cover(memberName.span())));
       }
     }
-    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after class body");
-    return new Syntax.ClassDecl(
+    Token closing =
+        consume(TokenKind.RIGHT_BRACE, "expected '}' after " + declarationKind + " body");
+    return new Syntax.AggregateDecl(
+        kind,
         visibility,
         name.value(),
         name.span(),
@@ -198,7 +204,7 @@ final class Parser {
         implementedInterfaces,
         fields,
         methods,
-        classKeyword.span().cover(closing.span()));
+        keyword.span().cover(closing.span()));
   }
 
   private Syntax.InterfaceDecl parseInterface(
@@ -1094,11 +1100,34 @@ final class Parser {
 
   private void synchronizeTopLevel() {
     while (!isAtEnd()) {
-      if (check(TokenKind.CLASS) || check(TokenKind.ENUM) || isTypeToken(peek().kind())) {
+      if (check(TokenKind.CLASS)
+          || checkValueDeclarationKeyword()
+          || check(TokenKind.ENUM)
+          || isTypeToken(peek().kind())) {
         return;
       }
       advance();
     }
+  }
+
+  private boolean matchContextual(String value) {
+    if (!checkContextual(value)) return false;
+    advance();
+    return true;
+  }
+
+  private boolean matchValueDeclarationKeyword() {
+    if (!checkValueDeclarationKeyword()) return false;
+    advance();
+    return true;
+  }
+
+  private boolean checkValueDeclarationKeyword() {
+    return checkContextual("value") && checkNext(TokenKind.IDENTIFIER);
+  }
+
+  private boolean checkContextual(String value) {
+    return check(TokenKind.IDENTIFIER) && peek().value().equals(value);
   }
 
   private void synchronizeStatement(ParseError error) {

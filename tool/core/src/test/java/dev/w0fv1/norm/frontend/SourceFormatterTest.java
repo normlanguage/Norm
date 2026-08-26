@@ -31,6 +31,21 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsValueDeclarations() {
+    assertFormats(
+        "value Point<T> implements Named<T>{T value public T read(){return value}}",
+        """
+        value Point<T> implements Named<T> {
+          T value
+
+          T read() {
+            return value
+          }
+        }
+        """);
+  }
+
+  @Test
   void formatsNestedExpressionsAndControlFlow() {
     assertFormats(
         """
@@ -85,19 +100,17 @@ final class SourceFormatterTest {
   }
 
   @Test
-  void formatsModuleManifests() {
+  void formatsModuleConfigurationAsSourceCode() {
     SourceFile source =
         SourceFile.of(
             Path.of("module.norm"),
-            "Module(name:\"sample\",version:1,exports:[\"api.Names\",\"model.User\"])");
+            "Module module(){return module(name:\"sample\",version:1,exports:[\"api.Names\",\"model.User\"])}");
 
     assertEquals(
         """
-        Module(
-          name: "sample",
-          version: 1,
-          exports: ["api.Names", "model.User"]
-        )
+        Module module() {
+          return module(name: "sample", version: 1, exports: ["api.Names", "model.User"])
+        }
         """,
         formatter.format(source).orElseThrow());
   }

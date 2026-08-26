@@ -23,7 +23,8 @@ final class CoreArtifactBoundaryTest {
             copy(
                 binding,
                 binding.ownerName(),
-                new CoreBindingShape.Class(List.of(), List.of(), List.of())));
+                new CoreBindingShape.Aggregate(
+                    CoreValueCategory.IDENTITY, List.of(), List.of(), List.of())));
   }
 
   @Test
@@ -68,7 +69,7 @@ final class CoreArtifactBoundaryTest {
   void rejectsClassShapesThatDoNotMatchCoreAbi() {
     CoreArtifact compilation = compile("class Box { Integer value } Void main() {}");
     CoreBinding binding = binding(compilation, "Box");
-    CoreBindingShape.Class shape = (CoreBindingShape.Class) binding.shape();
+    CoreBindingShape.Aggregate shape = (CoreBindingShape.Aggregate) binding.shape();
 
     assertRejected(
         compilation,
@@ -77,7 +78,8 @@ final class CoreArtifactBoundaryTest {
             copy(
                 value,
                 value.ownerName(),
-                new CoreBindingShape.Class(
+                new CoreBindingShape.Aggregate(
+                    CoreValueCategory.IDENTITY,
                     List.of(new CoreTypeParameter(0, Optional.empty())),
                     shape.fields(),
                     shape.conformances())));
@@ -88,8 +90,11 @@ final class CoreArtifactBoundaryTest {
             copy(
                 value,
                 value.ownerName(),
-                new CoreBindingShape.Class(
-                    shape.typeParameters(), List.of(), shape.conformances())));
+                new CoreBindingShape.Aggregate(
+                    CoreValueCategory.IDENTITY,
+                    shape.typeParameters(),
+                    List.of(),
+                    shape.conformances())));
     assertRejected(
         compilation,
         "Box",
@@ -97,7 +102,8 @@ final class CoreArtifactBoundaryTest {
             copy(
                 value,
                 value.ownerName(),
-                new CoreBindingShape.Class(
+                new CoreBindingShape.Aggregate(
+                    CoreValueCategory.IDENTITY,
                     shape.typeParameters(),
                     List.of(
                         new CoreBindingShape.Field(

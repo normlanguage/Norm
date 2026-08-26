@@ -1,0 +1,7 @@
+Module module() {
+  return module(
+    name: "geometry",
+    version: 1,
+    exports: ["Main", "model.Point", "service.Points"]
+  )
+}

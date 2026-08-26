@@ -20,6 +20,7 @@ import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Source;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class BackendTest {
   @Test
@@ -151,6 +152,30 @@ final class BackendTest {
 
     assertEquals(
         "Hello from Polyglot" + System.lineSeparator(), output.toString(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void executesAFileBackedProjectThroughTheRegisteredPolyglotLanguage(@TempDir Path root)
+      throws Exception {
+    Path moduleRoot = java.nio.file.Files.createDirectories(root.resolve("sample"));
+    Path libraryRoot = java.nio.file.Files.createDirectories(moduleRoot.resolve("library"));
+    Path entry = moduleRoot.resolve("Main.norm");
+    java.nio.file.Files.writeString(
+        moduleRoot.resolve("module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\", \"library.Value\"]) }");
+    java.nio.file.Files.writeString(
+        libraryRoot.resolve("Value.norm"),
+        "package sample.library public Integer value() { return 42 }");
+    String text = "package sample import sample.library.value Void main() { printLine(value()) }";
+    java.nio.file.Files.writeString(entry, text);
+    Source source = Source.newBuilder("norm", text, "Main.norm").uri(entry.toUri()).build();
+    var output = new ByteArrayOutputStream();
+
+    try (Context context = Context.newBuilder("norm").out(output).build()) {
+      context.eval(source);
+    }
+
+    assertEquals("42" + System.lineSeparator(), output.toString(StandardCharsets.UTF_8));
   }
 
   @Test

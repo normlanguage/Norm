@@ -49,6 +49,17 @@ printLine(first == second)
 printLine(counter == counter.copy())
 ```
 
+## 用户定义 Value
+
+```norm
+value Point {
+  Integer x
+  Integer y
+}
+```
+
+用户定义 value 可以声明方法、泛型参数并实现 interface。字段在构造后不可赋值；赋值、传参和返回产生逻辑独立值，相等与 hash 递归使用字段的语言内建语义。`value` 只在顶层声明头中作为上下文关键字，普通标识符仍可使用这个名字。
+
 ## `ref<T>`：Value 存储位置
 
 `ref<T>` 用于引用 value 的存储位置，不用于 class 共享。复制 ref 后仍指向同一位置；具体取地址和解引用写法以语法规范为准。

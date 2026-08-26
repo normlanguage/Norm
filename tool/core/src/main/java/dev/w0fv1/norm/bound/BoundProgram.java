@@ -9,7 +9,7 @@ public record BoundProgram(
     List<BoundEnum> enums,
     List<BoundInterface> interfaces,
     List<BoundBuiltinConformance> builtinConformances,
-    List<BoundClass> classes,
+    List<BoundAggregate> aggregates,
     List<BoundCallable> callables,
     Optional<BoundCallableId> entryPoint) {
   public BoundProgram {
@@ -17,7 +17,7 @@ public record BoundProgram(
     enums = List.copyOf(enums);
     interfaces = List.copyOf(interfaces);
     builtinConformances = List.copyOf(builtinConformances);
-    classes = List.copyOf(classes);
+    aggregates = List.copyOf(aggregates);
     callables = List.copyOf(callables);
     entryPoint = Objects.requireNonNull(entryPoint, "entryPoint");
   }
@@ -31,6 +31,6 @@ public record BoundProgram(
 
   public BoundProgram withEntryPoint(BoundCallableId entry) {
     return new BoundProgram(
-        sources, enums, interfaces, builtinConformances, classes, callables, Optional.of(entry));
+        sources, enums, interfaces, builtinConformances, aggregates, callables, Optional.of(entry));
   }
 }

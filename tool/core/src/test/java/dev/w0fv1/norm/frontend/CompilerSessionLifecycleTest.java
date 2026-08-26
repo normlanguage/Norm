@@ -78,7 +78,7 @@ final class CompilerSessionLifecycleTest {
 
   private static CompilerSession session(CompilerSessionCapacity capacity, AtomicInteger parses) {
     return new CompilerSession(
-        LanguageProfile.current(),
+        LanguageProfile.kernel(),
         new InMemoryDefinitionStore(),
         capacity,
         parses::incrementAndGet,

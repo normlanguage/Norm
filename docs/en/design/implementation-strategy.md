@@ -14,12 +14,15 @@ This decision applies to the official Norm compiler, runtime, execution backend,
 ## Module boundaries
 
 ```text
-tool/core   compiler frontend, execution model, and Truffle backend
-tool/cli    command line, Language Server, and editor extensions
-norm        standard library and language sources written in Norm
+tool/core              compiler frontend and canonical Core
+tool/execution-api     backend-neutral execution contracts
+tool/project-system    standard-library bootstrap and project lifecycle
+tool/truffle-backend   sole execution backend
+tool/cli               command line, Language Server, and editor extensions
+norm                   standard library and language sources written in Norm
 ```
 
-The compiler, runtime, and Truffle backend share one `core` Gradle module. The CLI consumes its public Java API. The standard library exposes Norm APIs while platform capabilities remain in core. The [toolchain development standard](/en/design/toolchain-development) is authoritative for package responsibilities, dependency direction, and verification.
+The dependency direction is `core ← execution-api ← project-system ← truffle-backend ← cli`. Truffle implements the execution API, and the CLI composes public entry points. The [toolchain development standard](/en/design/toolchain-development) is authoritative for package responsibilities, dependency direction, and verification.
 
 The build uses a Gradle multi-project layout and pins the Java toolchain, GraalVM, and Truffle versions. A change to this decision requires a new project proposal with migration, debugging, and Native Image impact analysis.
 

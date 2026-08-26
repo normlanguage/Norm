@@ -1,14 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.runtime.NormRuntime;
-import dev.w0fv1.norm.value.SourceFile;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class FunctionExecutionTest {
@@ -136,11 +129,7 @@ final class FunctionExecutionTest {
   }
 
   private static void assertOutput(String text, String expected) throws Exception {
-    var compilation = new CompilerSession().compile(SourceFile.of(Path.of("functions.norm"), text));
-    assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
-    StringWriter output = new StringWriter();
-    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
-    assertEquals(expected, output.toString());
+    assertEquals(expected, dev.w0fv1.norm.testing.NormTestKit.run(text));
   }
 
   private static String lines(String... values) {

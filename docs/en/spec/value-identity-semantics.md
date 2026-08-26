@@ -6,7 +6,7 @@ This page is the normative source for assignment, parameter passing, returns, eq
 
 | Category | Types | Assignment, parameters, and returns | `==` |
 | --- | --- | --- | --- |
-| Value | `Integer`, `Boolean`, `String`, enums, built-in containers | Produces a logically independent value | Structural equality |
+| Value | `Integer`, `Boolean`, `String`, enums, user-defined values, built-in containers | Produces a logically independent value | Structural equality |
 | Identity | `class` instances | Copies an object reference and shares the object | Object identity |
 
 The `=` operator always copies the value of its right-hand expression. A class variable's value is an object reference, while a container's value is its container structure.

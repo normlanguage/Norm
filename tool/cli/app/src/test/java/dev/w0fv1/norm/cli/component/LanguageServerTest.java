@@ -294,7 +294,7 @@ final class LanguageServerTest {
                     "file:///module.norm",
                     "norm",
                     1,
-                    "Module(name: \"sample\", version: 1, exports: [])")));
+                    "Module module() { return module(name: \"sample\", version: 1, exports: []) }")));
 
     assertNotNull(client.diagnostics);
     assertTrue(client.diagnostics.getDiagnostics().isEmpty());
@@ -314,25 +314,26 @@ final class LanguageServerTest {
                     "file:///module.norm",
                     "norm",
                     1,
-                    "Module(name: \"sample\", version: 0, exports: [])")));
+                    "Module module() { return module(name: \"sample\", version: 0, exports: []) }")));
 
     assertNotNull(client.diagnostics);
     assertEquals(
-        "NORM-MODULE-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
+        "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
   }
 
   @Test
   void assemblesAnUnsavedModuleFromOpenDocuments() throws Exception {
     Path root = temporaryDirectory.resolve("unsaved-project");
-    Path entry = root.resolve("sample/app/Main.norm");
+    Path entry = root.resolve("sample/Main.norm");
     Path library = root.resolve("sample/util/Identity.norm");
-    Path manifest = root.resolve("module.norm");
+    Path module = root.resolve("sample/module.norm");
     Files.createDirectories(entry.getParent());
     Files.createDirectories(library.getParent());
-    String entryText = "package sample.app import sample.util.identity Void main() { identity(1) }";
+    String entryText = "package sample import sample.util.identity Void main() { identity(1) }";
     String libraryText =
         "package sample.util public Integer identity(Integer value) { return value }";
-    String manifestText = "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])";
+    String moduleText =
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"util.Identity\"]) }";
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
 
@@ -350,7 +351,7 @@ final class LanguageServerTest {
         .getTextDocumentService()
         .didOpen(
             new DidOpenTextDocumentParams(
-                new TextDocumentItem(manifest.toUri().toString(), "norm", 1, manifestText)));
+                new TextDocumentItem(module.toUri().toString(), "norm", 1, moduleText)));
 
     List<? extends org.eclipse.lsp4j.Location> definitions =
         server
@@ -374,8 +375,8 @@ final class LanguageServerTest {
     Files.createDirectories(source.getParent());
     Files.createDirectories(library.getParent());
     Files.writeString(
-        root.resolve("module.norm"),
-        "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+        root.resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"util.Identity\"]) }");
     Files.writeString(
         library, "package sample.util public Integer identity(Integer value) { return value }");
     String sourceText =
@@ -438,12 +439,12 @@ final class LanguageServerTest {
   void navigatesAndRenamesAcrossProjectFiles() throws Exception {
     Path root = temporaryDirectory.resolve("project");
     Path library = root.resolve("sample/util/Identity.norm");
-    Path entry = root.resolve("sample/app/Main.norm");
+    Path entry = root.resolve("sample/Main.norm");
     Files.createDirectories(library.getParent());
     Files.createDirectories(entry.getParent());
     Files.writeString(
-        root.resolve("module.norm"),
-        "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+        root.resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"util.Identity\"]) }");
     Files.writeString(
         library,
         "package sample.util\n\n"
@@ -451,7 +452,7 @@ final class LanguageServerTest {
             + "private T preserve<T>(T value) {\n  return value\n}\n\n"
             + "public T identity<T>(T value) {\n  return preserve(value)\n}\n");
     String text =
-        "package sample.app\n\n"
+        "package sample\n\n"
             + "import sample.util.Box\n"
             + "import sample.util.identity\n\n"
             + "Void main() {\n"
@@ -577,8 +578,8 @@ final class LanguageServerTest {
   void reportsProjectLoadingFailuresInsteadOfFallingBackSilently() throws Exception {
     ProjectFixture fixture = projectFixture();
     Files.writeString(
-        fixture.root().resolve("module.norm"),
-        "Module(name: \"sample\", version: 0, exports: [\"util.Identity\"])");
+        fixture.root().resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 0, exports: [\"util.Identity\"]) }");
     LanguageServer server = new LanguageServer();
     RecordingClient client = new RecordingClient();
     server.connect(client);
@@ -596,7 +597,7 @@ final class LanguageServerTest {
   @Test
   void completesExportedSymbolsWithImportEdits() throws Exception {
     ProjectFixture fixture = projectFixture();
-    String text = "package sample.app\n\nVoid main() { iden }\n";
+    String text = "package sample\n\nVoid main() { iden }\n";
     Files.writeString(fixture.entry(), text);
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
@@ -631,7 +632,7 @@ final class LanguageServerTest {
     String body =
         "Void consume(String value, Integer count) {} Void main() { "
             + "String label = \"ready\" Integer count = 1 consume(";
-    String text = "package sample.app\n\n" + body;
+    String text = "package sample\n\n" + body;
     Files.writeString(fixture.entry(), text);
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());
@@ -657,15 +658,15 @@ final class LanguageServerTest {
   void completesImportedGenericFieldMembersAfterAnIncompleteEdit() throws Exception {
     Path root = temporaryDirectory.resolve("generic-member-" + System.nanoTime());
     Path library = root.resolve("sample/util/Box.norm");
-    Path entry = root.resolve("sample/app/Main.norm");
+    Path entry = root.resolve("sample/Main.norm");
     Files.createDirectories(library.getParent());
     Files.createDirectories(entry.getParent());
     Files.writeString(
-        root.resolve("module.norm"),
-        "Module(name: \"sample\", version: 1, exports: [\"util.Box\"])");
+        root.resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"util.Box\"]) }");
     Files.writeString(library, "package sample.util public class Box<T> { T value }");
     String complete =
-        "package sample.app import sample.util.Box Void main() { "
+        "package sample import sample.util.Box Void main() { "
             + "Box<List<Integer>> box = Box<List<Integer>>(value: List<Integer>()) box.value.add(9) }";
     String incomplete = complete.replace("add(9)", "");
     Files.writeString(entry, complete);
@@ -731,16 +732,16 @@ final class LanguageServerTest {
   private ProjectFixture projectFixture() throws Exception {
     Path root = temporaryDirectory.resolve("session-" + System.nanoTime());
     Path library = root.resolve("sample/util/Identity.norm");
-    Path entry = root.resolve("sample/app/Main.norm");
+    Path entry = root.resolve("sample/Main.norm");
     Files.createDirectories(library.getParent());
     Files.createDirectories(entry.getParent());
     Files.writeString(
-        root.resolve("module.norm"),
-        "Module(name: \"sample\", version: 1, exports: [\"util.Identity\"])");
+        root.resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"util.Identity\"]) }");
     String libraryText =
         "package sample.util\n\n" + "public T identity<T>(T value) {\n  return value\n}\n";
     String entryText =
-        "package sample.app\n\n"
+        "package sample\n\n"
             + "import sample.util.identity\n\n"
             + "Void main() {\n  printLine(identity(1))\n}\n";
     Files.writeString(library, libraryText);

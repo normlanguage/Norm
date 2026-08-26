@@ -31,7 +31,7 @@ final class IncrementalCompilationTest {
   void reusesUnchangedDefinitionsAndRekeysOnlyDependencyClosure() {
     CompilerSession compiler =
         new CompilerSession(
-            LanguageProfile.current(),
+            LanguageProfile.kernel(),
             new InMemoryDefinitionStore(),
             CompilerSessionCapacity.standard());
     CompilationOutput first =
@@ -151,7 +151,7 @@ final class IncrementalCompilationTest {
   void reusesUnchangedGroupsWithoutInvokingTheStoreAgain() {
     RecordingDefinitionStore store = new RecordingDefinitionStore();
     CompilerSession compiler =
-        new CompilerSession(LanguageProfile.current(), store, CompilerSessionCapacity.standard());
+        new CompilerSession(LanguageProfile.kernel(), store, CompilerSessionCapacity.standard());
 
     compile(compiler, "Void main() { printLine(1) }");
     int initialWrites = store.writes();
@@ -169,7 +169,7 @@ final class IncrementalCompilationTest {
   void skipsFrontendAndCoreWorkForAnUnchangedCompilationRequest() {
     CompilerSession compiler =
         new CompilerSession(
-            LanguageProfile.current(),
+            LanguageProfile.kernel(),
             new InMemoryDefinitionStore(),
             CompilerSessionCapacity.standard());
     CompilationRequest request =
@@ -252,7 +252,7 @@ final class IncrementalCompilationTest {
     CompilationRequest first =
         new CompilationRequest(
             unit,
-            new CompilationScope(
+            CompilationScope.module(
                 new ModuleCoordinate("first", 1), java.util.Map.of(source.id(), "Main.norm")),
             source.id(),
             List.of(source),
@@ -260,7 +260,7 @@ final class IncrementalCompilationTest {
     CompilationRequest changed =
         new CompilationRequest(
             unit,
-            new CompilationScope(
+            CompilationScope.module(
                 new ModuleCoordinate("second", 1), java.util.Map.of(source.id(), "Main.norm")),
             source.id(),
             List.of(source),
@@ -297,7 +297,7 @@ final class IncrementalCompilationTest {
           }
         };
     CompilerSession compiler =
-        new CompilerSession(LanguageProfile.current(), store, CompilerSessionCapacity.standard());
+        new CompilerSession(LanguageProfile.kernel(), store, CompilerSessionCapacity.standard());
 
     CoreBuildReport report =
         compile(compiler, "Void main() { printLine(1) }").state().buildReport();

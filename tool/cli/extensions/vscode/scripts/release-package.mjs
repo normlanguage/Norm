@@ -2,6 +2,7 @@ import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:f
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { packageVsix } from './vsce-package.mjs';
 
 const targetsPath = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -75,28 +76,12 @@ function packageExtension(version, binaries, output) {
   stageCliBundle(binaries, extensionRoot);
   const destination = resolve(output);
   mkdirSync(dirname(destination), { recursive: true });
-  const vsce = join(
+  packageVsix({
     extensionRoot,
-    'node_modules',
-    '.bin',
-    process.platform === 'win32' ? 'vsce.cmd' : 'vsce',
-  );
-  const args = [
-    'package',
-    releaseVersion(version),
-    '--no-update-package-json',
-    '--no-dependencies',
-    '--out',
     destination,
-  ];
-  const commandScript = process.platform === 'win32';
-  const result = spawnSync(
-    commandScript ? (process.env.ComSpec ?? 'cmd.exe') : vsce,
-    commandScript ? ['/d', '/c', 'call', vsce, ...args] : args,
-    { cwd: extensionRoot, stdio: 'inherit' },
-  );
-  if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+    excludedDirectory: 'server',
+    version: releaseVersion(version),
+  });
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

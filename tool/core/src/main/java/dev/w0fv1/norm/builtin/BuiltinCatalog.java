@@ -942,6 +942,26 @@ public final class BuiltinCatalog {
     addGlobal(
         globals,
         global(
+            "__publishModule",
+            SemanticType.VOID,
+            IntrinsicId.PUBLISH_MODULE,
+            parameterInfo("name", stringType),
+            parameterInfo("version", integerType),
+            parameterInfo(
+                "exports",
+                SemanticType.declared(
+                    "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
+            parameterInfo(
+                "dependencyNames",
+                SemanticType.declared(
+                    "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
+            parameterInfo(
+                "dependencyVersions",
+                SemanticType.declared(
+                    "std.core.List", "List", List.of(integerType), ValueCategory.VALUE))));
+    addGlobal(
+        globals,
+        global(
             "range",
             rangeType,
             IntrinsicId.RANGE_CONSTRUCT,

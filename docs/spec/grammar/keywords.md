@@ -4,7 +4,7 @@
 
 ## 声明
 
-`package`、`import`、`as`、`class`、`value`、`interface`、`enum`、`annotation`、`extends`、`implements`、`public`、`private`
+`package`、`import`、`as`、`class`、`interface`、`enum`、`annotation`、`extends`、`implements`、`public`、`private`
 
 ## 控制流
 
@@ -22,5 +22,7 @@
 
 大小写敏感：`class` 是关键字，`Class` 可以是类型名。关键字只能使用 ASCII 字符，避免视觉相似字符影响审查。
 
-`Module` 不是关键字。它是仅由 `module.norm` 使用的编译期内置类型名，字段标签 `name`、`version` 和 `exports` 也都是普通标识符。
+`value` 是上下文关键字，只在顶层的 `value TypeName` 声明头中具有特殊含义；字段、参数、局部变量和函数仍可命名为 `value`。
+
+`Module` 和 `module` 都不是关键字。前者是 bootstrap interface，后者的模块入口与 bootstrap 工厂都是普通函数；参数标签 `name`、`version`、`exports` 和 `dependencies` 都是普通标识符。
 

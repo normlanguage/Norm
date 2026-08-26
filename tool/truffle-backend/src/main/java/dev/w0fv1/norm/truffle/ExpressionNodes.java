@@ -686,17 +686,17 @@ final class ExpressionNodes {
   }
 
   static final class Construct extends ExpressionNode {
-    private final RuntimeValues.ClassInfo classInfo;
+    private final RuntimeValues.AggregateInfo aggregateInfo;
     @Child private ExpressionNode type;
     @Children private final ExpressionNode[] fields;
     private final int[] fieldIndices;
 
     Construct(
-        RuntimeValues.ClassInfo classInfo,
+        RuntimeValues.AggregateInfo aggregateInfo,
         ExpressionNode type,
         ExpressionNode[] fields,
         int[] fieldIndices) {
-      this.classInfo = classInfo;
+      this.aggregateInfo = aggregateInfo;
       this.type = type;
       this.fields = fields;
       this.fieldIndices = fieldIndices;
@@ -705,7 +705,7 @@ final class ExpressionNodes {
     @Override
     Object execute(VirtualFrame frame) {
       RuntimeValues.ObjectValue object =
-          new RuntimeValues.ObjectValue(classInfo, (CoreType) type.execute(frame));
+          new RuntimeValues.ObjectValue(aggregateInfo, (CoreType) type.execute(frame));
       Object[] values = evaluateArguments(fields, fieldIndices, frame);
       System.arraycopy(values, 0, object.fields, 0, values.length);
       return object;
@@ -778,7 +778,12 @@ final class ExpressionNodes {
     Object execute(VirtualFrame frame) {
       Object receiverValue = receiver.execute(frame);
       if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) return receiverValue;
-      return ((RuntimeValues.ObjectValue) receiverValue).fields[field];
+      RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
+      Object value = object.fields[field];
+      return object.type instanceof CoreType.Declared declared
+              && declared.category() == dev.w0fv1.norm.core.CoreValueCategory.VALUE
+          ? RuntimeValues.copy(value)
+          : value;
     }
   }
 

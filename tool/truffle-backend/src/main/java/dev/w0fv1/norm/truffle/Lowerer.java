@@ -42,8 +42,10 @@ import java.util.Objects;
 
 final class Lowerer {
   private final Language language;
-  private final Map<DefinitionOccurrenceId, RuntimeValues.ClassInfo> classInfo = new HashMap<>();
-  private final Map<DefinitionOccurrenceId, CoreDefinition.Class> classes = new LinkedHashMap<>();
+  private final Map<DefinitionOccurrenceId, RuntimeValues.AggregateInfo> aggregateInfo =
+      new HashMap<>();
+  private final Map<DefinitionOccurrenceId, CoreDefinition.Aggregate> aggregates =
+      new LinkedHashMap<>();
   private final Map<DefinitionOccurrenceId, FunctionPlan> callables = new LinkedHashMap<>();
   private final Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>>
       builtinDispatch = new HashMap<>();
@@ -73,7 +75,7 @@ final class Lowerer {
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
       switch (definition) {
-        case CoreDefinition.Class declaration -> classes.put(occurrence.id(), declaration);
+        case CoreDefinition.Aggregate declaration -> aggregates.put(occurrence.id(), declaration);
         case CoreDefinition.Callable declaration ->
             callables.put(occurrence.id(), plan(occurrence.id(), declaration));
         case CoreDefinition.Enum ignored -> {}
@@ -113,7 +115,8 @@ final class Lowerer {
     callables
         .values()
         .forEach(plan -> callableByDefinition.putIfAbsent(plan.id.representative(), plan));
-    for (Map.Entry<DefinitionOccurrenceId, CoreDefinition.Class> entry : classes.entrySet()) {
+    for (Map.Entry<DefinitionOccurrenceId, CoreDefinition.Aggregate> entry :
+        aggregates.entrySet()) {
       DefinitionOccurrenceId occurrence = entry.getKey();
       Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new HashMap<>();
       for (CoreConformance conformance : entry.getValue().conformances()) {
@@ -132,13 +135,13 @@ final class Lowerer {
                     callable.target(), ((CoreType.Declared) interfaceType).arguments());
           }
           if (dispatch.putIfAbsent(requirement, target) != null) {
-            throw new IllegalStateException("verified class dispatch is duplicated");
+            throw new IllegalStateException("verified aggregate dispatch is duplicated");
           }
         }
       }
-      classInfo.put(
+      aggregateInfo.put(
           occurrence,
-          new RuntimeValues.ClassInfo(
+          new RuntimeValues.AggregateInfo(
               occurrence.representative(),
               artifact.displayName(occurrence),
               entry.getValue().fields().size(),
@@ -451,8 +454,8 @@ final class Lowerer {
 
   private ExpressionNode lowerConstruct(CoreExpression.Construct construct, FunctionPlan plan) {
     DefinitionOccurrenceId target = resolve(plan, construct.nodeIndex(), construct.target());
-    RuntimeValues.ClassInfo info = classInfo.get(target);
-    if (info == null) throw new IllegalStateException("core class target is absent: " + target);
+    RuntimeValues.AggregateInfo info = aggregateInfo.get(target);
+    if (info == null) throw new IllegalStateException("core aggregate target is absent: " + target);
     return new ExpressionNodes.Construct(
         info,
         lowerRuntimeType(construct.runtimeType(), plan),

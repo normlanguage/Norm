@@ -5,11 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.frontend.CompilationPrelude;
+import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.frontend.LanguageProfile;
 import dev.w0fv1.norm.value.CompilationRequest;
+import dev.w0fv1.norm.value.CompilationScope;
+import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
+import dev.w0fv1.norm.value.ModuleGraph;
+import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -145,11 +154,18 @@ final class LanguageServiceTest {
             .filter(candidate -> candidate.label().equals("class"))
             .findFirst()
             .orElseThrow();
+    Completion valueCompletion =
+        service.complete(topLevelAnalysis, 0).stream()
+            .filter(candidate -> candidate.label().equals("value"))
+            .findFirst()
+            .orElseThrow();
 
     assertTrue(ifCompletion.snippet());
     assertEquals("if ${1:condition} {\n  ${2}\n}", ifCompletion.insertText());
     assertTrue(classCompletion.snippet());
     assertEquals("class ${1:Name} {\n  ${2}\n}", classCompletion.insertText());
+    assertTrue(valueCompletion.snippet());
+    assertEquals("value ${1:Name} {\n  ${2}\n}", valueCompletion.insertText());
   }
 
   @Test
@@ -324,6 +340,22 @@ final class LanguageServiceTest {
 
     assertTrue(point.containsAll(List.of("x", "move", "copy")));
     assertTrue(color.containsAll(List.of("Red", "Green")));
+  }
+
+  @Test
+  void completesValueMembersWithoutIdentityCopy() {
+    String text =
+        "value Point { Integer x Integer twice() { return x * 2 } } "
+            + "Void main() { Point point = Point(x: 1) printLine(point.x) }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:value"), text));
+
+    List<String> members =
+        service.complete(analysis, text.indexOf("point.x") + "point.".length()).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(members.containsAll(List.of("x", "twice")));
+    assertFalse(members.contains("copy"));
   }
 
   @Test
@@ -568,21 +600,35 @@ final class LanguageServiceTest {
 
   @Test
   void navigatesToReadOnlyStandardLibraryDeclarations() {
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("stdlib:/std/math/integer.norm"),
+            "package std.math Integer clamp(Integer value, Integer minimum, Integer maximum) "
+                + "{ return value }");
+    CompilationPrelude prelude =
+        new CompilationPrelude(
+            List.of(library),
+            Set.of(library.id()),
+            CompilationScope.module(
+                new ModuleCoordinate("std", 1), Map.of(library.id(), "std/math/integer.norm")));
     String text =
         "import std.math.clamp Void main() { printLine(clamp(value: 4, minimum: 0, maximum: 2)) }";
-    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:stdlib"), text));
-    int use = text.lastIndexOf("clamp");
+    try (LanguageService preludeService =
+        new LanguageService(new CompilerSession(LanguageProfile.withPrelude(prelude)))) {
+      var analysis = preludeService.analyze(SourceFile.of(DocumentId.of("untitled:stdlib"), text));
+      int use = text.lastIndexOf("clamp");
 
-    var definition = service.definition(analysis, use).orElseThrow();
+      var definition = preludeService.definition(analysis, use).orElseThrow();
 
-    assertEquals("stdlib", definition.document().uri().getScheme());
-    assertTrue(
-        service
-            .standardLibrarySource(definition.document())
-            .orElseThrow()
-            .contains("Integer clamp"));
-    assertTrue(service.prepareRename(analysis, use).isEmpty());
-    assertTrue(service.rename(analysis, use, "bound").isEmpty());
+      assertEquals("stdlib", definition.document().uri().getScheme());
+      assertTrue(
+          preludeService
+              .standardLibrarySource(definition.document())
+              .orElseThrow()
+              .contains("Integer clamp"));
+      assertTrue(preludeService.prepareRename(analysis, use).isEmpty());
+      assertTrue(preludeService.rename(analysis, use, "bound").isEmpty());
+    }
   }
 
   @Test
@@ -1093,6 +1139,52 @@ final class LanguageServiceTest {
     assertTrue(labels.contains("visible"));
     assertFalse(labels.contains("hidden"));
     assertFalse(labels.contains("internal"));
+  }
+
+  @Test
+  void excludesSymbolsFromTransitiveModuleDependencies() {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/application/Main.norm"),
+            "package application Void main() { }");
+    SourceFile direct =
+        SourceFile.of(
+            DocumentId.of("file:///src/middle/Value.norm"),
+            "package middle public Integer directValue() { return 1 }");
+    SourceFile transitive =
+        SourceFile.of(
+            DocumentId.of("file:///src/base/Value.norm"),
+            "package base public Integer transitiveValue() { return 2 }");
+    ModuleCoordinate applicationModule = new ModuleCoordinate("application", 1);
+    ModuleCoordinate middleModule = new ModuleCoordinate("middle", 1);
+    ModuleCoordinate baseModule = new ModuleCoordinate("base", 1);
+    CompilationScope scope =
+        new CompilationScope(
+            Map.of(
+                entry.id(), new ModuleSourceCoordinate(applicationModule, "application/Main.norm"),
+                direct.id(), new ModuleSourceCoordinate(middleModule, "middle/Value.norm"),
+                transitive.id(), new ModuleSourceCoordinate(baseModule, "base/Value.norm")),
+            new ModuleGraph(
+                Map.of(
+                    applicationModule, Set.of(middleModule),
+                    middleModule, Set.of(baseModule),
+                    baseModule, Set.of())));
+    var snapshot =
+        service.snapshot(
+            new CompilationRequest(
+                new CompilationUnitId(entry.id().uri()),
+                scope,
+                entry.id(),
+                List.of(entry, direct, transitive),
+                Set.of(direct.id(), transitive.id())));
+
+    List<String> labels =
+        service.complete(snapshot.entryDocument(), entry.text().indexOf('}')).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.contains("directValue"));
+    assertFalse(labels.contains("transitiveValue"));
   }
 
   @Test

@@ -9,6 +9,8 @@ import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
+import dev.w0fv1.norm.value.ModuleDescriptor;
+import dev.w0fv1.norm.value.ModuleRequirement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -37,6 +39,8 @@ public final class IntrinsicDispatcher {
     Object first = arguments.length == 0 ? null : arguments[0];
     Object second = arguments.length < 2 ? null : arguments[1];
     Object third = arguments.length < 3 ? null : arguments[2];
+    Object fourth = arguments.length < 4 ? null : arguments[3];
+    Object fifth = arguments.length < 5 ? null : arguments[4];
     return switch (intrinsic) {
       case PRINT_LINE -> {
         context.output().println(RuntimeValues.stringify(first));
@@ -51,6 +55,27 @@ public final class IntrinsicDispatcher {
           throw new NormGuestException(
               RuntimeErrorCode.INVALID_ARGUMENT, (String) second, location);
         }
+        yield null;
+      }
+      case PUBLISH_MODULE -> {
+        RuntimeValues.ListValue exportedValues = (RuntimeValues.ListValue) third;
+        List<String> exports = exportedValues.values.stream().map(String.class::cast).toList();
+        List<Object> dependencyNames = ((RuntimeValues.ListValue) fourth).values;
+        List<Object> dependencyVersions = ((RuntimeValues.ListValue) fifth).values;
+        if (dependencyNames.size() != dependencyVersions.size()) {
+          throw new IllegalStateException("module dependency coordinates are inconsistent");
+        }
+        List<ModuleRequirement> dependencies = new ArrayList<>(dependencyNames.size());
+        for (int index = 0; index < dependencyNames.size(); index++) {
+          dependencies.add(
+              new ModuleRequirement(
+                  (String) dependencyNames.get(index), (Integer) dependencyVersions.get(index)));
+        }
+        context
+            .modulePublisher()
+            .orElseThrow(
+                () -> new IllegalStateException("module publication capability is unavailable"))
+            .publish(new ModuleDescriptor((String) first, (Integer) second, exports, dependencies));
         yield null;
       }
       case TO_STRING -> RuntimeValues.stringify(receiver);

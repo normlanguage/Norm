@@ -27,7 +27,7 @@ public record CompilationRequest(
     if (!unique.containsKey(entryDocument)) {
       throw new IllegalArgumentException("entry document is not part of the compilation");
     }
-    if (!scope.sourcePaths().keySet().equals(unique.keySet())) {
+    if (!scope.coordinates().keySet().equals(unique.keySet())) {
       throw new IllegalArgumentException("compilation scope must describe every source document");
     }
     exportedSources = Set.copyOf(exportedSources);

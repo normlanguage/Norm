@@ -9,7 +9,6 @@ import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.semantic.TypeParameterInfo;
-import dev.w0fv1.norm.stdlib.StandardLibrary;
 import dev.w0fv1.norm.syntax.LanguageSyntax;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
@@ -52,7 +51,11 @@ public final class LanguageService implements AutoCloseable {
   }
 
   public Optional<String> standardLibrarySource(DocumentId document) {
-    return StandardLibrary.source(document).map(SourceFile::text);
+    return compiler.preludeSource(document).map(SourceFile::text);
+  }
+
+  public CompilationSnapshot standardLibrarySnapshot(DocumentId document) {
+    return compiler.preludeSnapshot(document);
   }
 
   public Optional<String> format(SourceFile source) {

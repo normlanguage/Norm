@@ -23,9 +23,8 @@ final class IncrementalAnalysisPlanTest {
             Path.of("dependency.norm"),
             "Integer leaf(String  value) { return 1     } Void main() { leaf(1) }");
     CompilationSnapshot previous = new CompilerSession().snapshot(first);
-    List<ParsedDocument> current =
-        new ArrayList<>(LanguageProfile.current().standardLibrary().documents());
-    current.add(SourceParser.parse(changed, false));
+    List<ParsedDocument> current = new ArrayList<>();
+    current.add(SourceParser.parse(changed));
 
     IncrementalAnalysisPlan plan = IncrementalAnalysisPlan.create(previous, current);
 
@@ -56,11 +55,10 @@ final class IncrementalAnalysisPlanTest {
         SourceFile.of(
             Path.of("src/app/Main.norm"),
             "package app import other.value Void main() { printLine(value()) }");
-    List<ParsedDocument> current =
-        new ArrayList<>(LanguageProfile.current().standardLibrary().documents());
-    current.add(SourceParser.parse(changed, false));
-    current.add(SourceParser.parse(first, false));
-    current.add(SourceParser.parse(other, false));
+    List<ParsedDocument> current = new ArrayList<>();
+    current.add(SourceParser.parse(changed));
+    current.add(SourceParser.parse(first));
+    current.add(SourceParser.parse(other));
 
     IncrementalAnalysisPlan plan = IncrementalAnalysisPlan.create(previous, current);
 

@@ -1,0 +1,6 @@
+package geometry.model
+
+public value Point {
+  Integer x
+  Integer y
+}

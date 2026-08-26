@@ -1,0 +1,69 @@
+interface ModuleRequirement {
+  String name()
+  Integer version()
+}
+
+interface Module {
+  String name()
+  Integer version()
+  List<String> exports()
+  List<ModuleRequirement> dependencies()
+}
+
+private class DeclaredModuleRequirement implements ModuleRequirement {
+  String moduleName
+  Integer moduleVersion
+
+  String name() {
+    return moduleName
+  }
+
+  Integer version() {
+    return moduleVersion
+  }
+}
+
+private class DeclaredModule implements Module {
+  String moduleName
+  Integer moduleVersion
+  List<String> exportedSources
+  List<ModuleRequirement> requiredModules
+
+  String name() {
+    return moduleName
+  }
+
+  Integer version() {
+    return moduleVersion
+  }
+
+  List<String> exports() {
+    return exportedSources
+  }
+
+  List<ModuleRequirement> dependencies() {
+    return requiredModules
+  }
+}
+
+ModuleRequirement dependency(String name, Integer version) {
+  return DeclaredModuleRequirement(moduleName: name, moduleVersion: version)
+}
+
+Module module(String name, Integer version, List<String> exports) {
+  return module(name: name, version: version, exports: exports, dependencies: [])
+}
+
+Module module(
+  String name,
+  Integer version,
+  List<String> exports,
+  List<ModuleRequirement> dependencies
+) {
+  return DeclaredModule(
+    moduleName: name,
+    moduleVersion: version,
+    exportedSources: exports,
+    requiredModules: dependencies
+  )
+}

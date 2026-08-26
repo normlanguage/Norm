@@ -8,12 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
-import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.runtime.NormRuntime;
-import dev.w0fv1.norm.value.SourceFile;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.nio.file.Path;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -240,6 +234,23 @@ final class ProgramExecutionTest {
             + "printLine(box.get()) Box result = same(value: box) "
             + "printLine(box.get()) printLine(result == box) }",
         String.join(System.lineSeparator(), "9", "12", "true", ""));
+  }
+
+  @Test
+  void executesUserDefinedValueCopyEqualityHashAndInterfaceSemantics() throws Exception {
+    assertOutput(
+        "interface Named { String name() } "
+            + "value Point implements Named { Integer x Integer y "
+            + "public String name() { return \"point\" } } "
+            + "value Bucket { List<Integer> values } "
+            + "String read(Named value) { return value.name() } "
+            + "Void main() { Point first = Point(x: 1, y: 2) Point second = first "
+            + "printLine(first == second) printLine(read(value: second)) "
+            + "Map<Point, String> names = Map<>() names.put(key: first, value: \"origin\") "
+            + "printLine(names.get(key: second) ?? \"missing\") "
+            + "List<Integer> source = [1] Bucket bucket = Bucket(values: source) source.add(2) "
+            + "printLine(bucket.values.size()) }",
+        String.join(System.lineSeparator(), "true", "point", "origin", "1", ""));
   }
 
   @Test
@@ -568,6 +579,11 @@ final class ProgramExecutionTest {
   }
 
   @TestFactory
+  Stream<DynamicTest> runsValuePrograms() throws Exception {
+    return suite("value");
+  }
+
+  @TestFactory
   Stream<DynamicTest> runsGenericPrograms() throws Exception {
     return suite("generics");
   }
@@ -603,10 +619,6 @@ final class ProgramExecutionTest {
   }
 
   private static void assertOutput(String text, String expected) throws Exception {
-    var compilation = new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
-    assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
-    StringWriter output = new StringWriter();
-    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
-    assertEquals(expected, output.toString());
+    assertEquals(expected, dev.w0fv1.norm.testing.NormTestKit.run(text));
   }
 }

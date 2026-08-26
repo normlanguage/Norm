@@ -30,7 +30,10 @@ public record CoreBinding(
     return switch (shape) {
       case CoreBindingShape.Callable ignored ->
           ownerName.isPresent() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
-      case CoreBindingShape.Class ignored -> CoreBindingKind.CLASS;
+      case CoreBindingShape.Aggregate declared ->
+          declared.valueCategory() == CoreValueCategory.VALUE
+              ? CoreBindingKind.VALUE
+              : CoreBindingKind.CLASS;
       case CoreBindingShape.Enum ignored -> CoreBindingKind.ENUM;
       case CoreBindingShape.Interface ignored -> CoreBindingKind.INTERFACE;
       case CoreBindingShape.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;

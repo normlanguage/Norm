@@ -5,14 +5,17 @@ This standard defines code organization, dependency direction, and backend rules
 ## Repository boundaries
 
 ```text
-tool/core/             compiler frontend, diagnostics, execution API, and Truffle backend
+tool/core/             compiler frontend and canonical Core
+tool/execution-api/    backend-neutral execution contracts
+tool/project-system/   standard-library bootstrap, module configuration, and project launch
+tool/truffle-backend/  Core lowering and Truffle execution
 tool/cli/app/          command-line and Language Server lifecycle
 tool/cli/extensions/   editor extensions
 norm/stdlib/           standard-library sources written in Norm
 norm/tests/            executable Norm acceptance programs
 ```
 
-Compiler, runtime, and Truffle code remain in one `core` Gradle module so syntax, type information, and source locations have one representation.
+Gradle modules separate compilation, execution contracts, project lifecycle, the backend, and host tools. Cross-layer data uses the strongly typed public model owned by the lower layer.
 
 ## Core packages
 
@@ -26,10 +29,10 @@ dev.w0fv1.norm.core         content-addressed Core IR and dependency indexes
 dev.w0fv1.norm.core.store   canonical definition storage
 dev.w0fv1.norm.diagnostic   diagnostic values and rendering
 dev.w0fv1.norm.language     language services over semantic snapshots
-dev.w0fv1.norm.execution    public execution API, context, and structured errors
-dev.w0fv1.norm.truffle      lowering, executable nodes, and runtime representation
 dev.w0fv1.norm.value        immutable cross-phase data
 ```
+
+`execution-api` owns `ExecutionBackend`, `ExecutionContext`, and structured runtime errors. `project-system` owns `ProjectEnvironment`, `ProjectLoader`, and `ProjectLauncher`. `truffle-backend` owns lowering, executable nodes, and runtime representations.
 
 The required stage dependency constraints are:
 
@@ -37,7 +40,9 @@ The required stage dependency constraints are:
 frontend ⇏ truffle
 core ⇏ frontend, truffle
 Lowerer → core
-CLI → core public API
+project-system → execution-api → core
+truffle-backend → project-system, execution-api, core
+CLI → project-system, truffle-backend
 ```
 
 `⇏` denotes a forbidden dependency. `bound` is confined to the frontend conversion into Core. The lowerer consumes Core and has no dependency on the Syntax AST, `SemanticModel`, or `bound`. The CLI does not access internal Truffle nodes. New packages follow domain ownership and share existing semantic tables.
@@ -78,16 +83,16 @@ SourceFile
   → CoreBuilder
   → CoreCanonicalizer
   → DefinitionStore
-  → CoreCompilation
+  → CompilationOutput
   → Lowerer
   → Truffle executable AST
 ```
 
-The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics, CoreBuilder separates canonical definitions from authoring occurrence metadata, and CoreCanonicalizer assigns content identities to recursive groups and their fixed dependencies. The lowerer converts only `CoreCompilation` into executable nodes. See the [compiler architecture](/spec/compiler-design) for the identity boundaries.
+The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics, CoreBuilder separates canonical definitions from authoring occurrence metadata, and CoreCanonicalizer assigns content identities to recursive groups and their fixed dependencies. The lowerer converts only `CompilationOutput` into executable nodes. See the [compiler architecture](/spec/compiler-design) for the identity boundaries.
 
-One project analysis creates an immutable `CompilationSnapshot`. Diagnostics and language features use per-document projections of the same `SemanticModel`, `SpanIndex`, and `ReferenceIndex`. Unchanged parse results and the standard-library prelude are cached by `CompilationEnvironment`; a new document revision replaces the snapshot atomically.
+One project analysis creates an immutable `CompilationSnapshot`. Diagnostics and language features use per-document projections of the same `SemanticModel`, `SpanIndex`, and `ReferenceIndex`. `CompilerSession` caches unchanged parse results and the standard-library prelude; a new document revision replaces the snapshot atomically.
 
-`ProgramRunner` and Polyglot Source execution share the `Compiler → CoreCompilation → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, and cancellation as a hidden root argument, allowing artifacts to be reused across independent executions. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
+`ProjectLauncher` and Polyglot Source execution share the `CompilerSession → CompilationOutput → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, cancellation, and host capabilities as a hidden root argument, allowing artifacts to be reused across independent executions. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
 
 Each function owns a `FunctionRootNode` and `CallTarget`. Static function and method calls use `DirectCallNode`; locals use indexed `VirtualFrame` slots; loops use `LoopNode`; return, break, and continue use `ControlFlowException`. Executable nodes receive their exact occurrence origin and `SourceSection` from `CoreAuthoringMap`.
 
@@ -103,6 +108,7 @@ Each function owns a `FunctionRootNode` and `CallTarget`. Static function and me
 
 ```powershell
 .\gradlew.bat :core:spotlessApply :core:test
+.\gradlew.bat :project-system:test
 .\gradlew.bat :cli:test
 .\gradlew.bat :cli:run --args="run docs/examples/hello.norm"
 ```

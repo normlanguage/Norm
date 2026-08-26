@@ -2,10 +2,9 @@ package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
+import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
-import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
-import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.frontend.ProjectLoader;
+import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -32,26 +31,34 @@ final class RunCommand implements Command {
       return ExitCode.USAGE_ERROR;
     }
 
-    dev.w0fv1.norm.value.CompilationRequest request;
+    Path entry;
     try {
-      request = new ProjectLoader().load(Path.of(arguments.getFirst())).compilationRequest();
+      entry = Path.of(arguments.getFirst());
     } catch (InvalidPathException exception) {
       err.printf("error[NORM-CLI-0004]: invalid source path '%s'%n", arguments.getFirst());
-      return ExitCode.INPUT_ERROR;
-    } catch (IOException exception) {
-      err.printf(
-          "error[NORM-CLI-0004]: cannot read source file '%s': %s%n",
-          arguments.getFirst(), exception.getMessage());
       return ExitCode.INPUT_ERROR;
     }
 
     dev.w0fv1.norm.value.CompilationResult result;
-    try (CompilerSession session = CompilerSession.persistent()) {
-      result = session.compile(request);
-    } catch (IOException | CompilationInfrastructureException exception) {
+    try {
+      NormRuntime backend = new NormRuntime();
+      ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
+      try (var launcher = environment.persistentLauncher()) {
+        result = launcher.run(entry, ExecutionContext.of(out));
+      }
+    } catch (IOException exception) {
+      err.printf(
+          "error[NORM-CLI-0004]: cannot load source file '%s': %s%n",
+          arguments.getFirst(), exception.getMessage());
+      return ExitCode.INPUT_ERROR;
+    } catch (dev.w0fv1.norm.frontend.CompilationInfrastructureException exception) {
       err.printf(
           "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
       return ExitCode.INTERNAL_ERROR;
+    } catch (NormExecutionException exception) {
+      err.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
+      err.printf(" --> %s:%d:%d%n", exception.uri(), exception.line(), exception.column());
+      return ExitCode.RUNTIME_ERROR;
     }
     if (!result.isSuccess()) {
       for (var diagnostic : result.diagnostics()) {
@@ -60,13 +67,6 @@ final class RunCommand implements Command {
       return ExitCode.COMPILATION_ERROR;
     }
 
-    try {
-      new NormRuntime().run(result.program().orElseThrow(), out);
-      return ExitCode.SUCCESS;
-    } catch (NormExecutionException exception) {
-      err.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
-      err.printf(" --> %s:%d:%d%n", exception.uri(), exception.line(), exception.column());
-      return ExitCode.RUNTIME_ERROR;
-    }
+    return ExitCode.SUCCESS;
   }
 }

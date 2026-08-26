@@ -29,6 +29,16 @@ final class LexerTest {
   }
 
   @Test
+  void keepsValueAvailableAsAnIdentifier() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(SourceFile.of(Path.of("value.norm"), "value"), diagnostics).lex();
+
+    assertFalse(diagnostics.hasErrors());
+    assertEquals(TokenKind.IDENTIFIER, tokens.getFirst().kind());
+  }
+
+  @Test
   void preservesIdentifierSpellingAndCanonicalizesItsSemanticValueToNfc() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =

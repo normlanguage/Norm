@@ -36,6 +36,7 @@ A short, sequential introduction to Norm's core semantics.
 
 Understand what exists today and where the language is heading.
 
+- [Norm 0.8 implementation contract](/en/versions/0.8)
 - [Norm 0.7 implementation contract](/en/versions/0.7)
 - [Norm 0.6 implementation contract](/en/versions/0.6)
 - [Norm 0.5 implementation contract](/en/versions/0.5)

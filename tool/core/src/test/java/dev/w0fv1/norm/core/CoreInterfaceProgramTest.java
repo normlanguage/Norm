@@ -157,9 +157,13 @@ final class CoreInterfaceProgramTest {
                     new PendingDefinitionReference(1),
                     new CoreWitnessTarget.Callable(new PendingDefinitionReference(3))))
             : List.of();
-    CoreDefinition.Class itemDefinition =
-        new CoreDefinition.Class(
-            nominal("Item"), List.of(), List.of(), List.of(new CoreConformance(named, witnesses)));
+    CoreDefinition.Aggregate itemDefinition =
+        new CoreDefinition.Aggregate(
+            nominal("Item"),
+            CoreValueCategory.IDENTITY,
+            List.of(),
+            List.of(),
+            List.of(new CoreConformance(named, witnesses)));
     CoreDefinition.Callable implementation =
         new CoreDefinition.Callable(
             Optional.of(item),
@@ -218,9 +222,10 @@ final class CoreInterfaceProgramTest {
             List.of(new CoreTypeParameter(0, Optional.empty())),
             List.of(parameter),
             parameter);
-    CoreDefinition.Class serviceDefinition =
-        new CoreDefinition.Class(
+    CoreDefinition.Aggregate serviceDefinition =
+        new CoreDefinition.Aggregate(
             nominal("IdentityService"),
+            CoreValueCategory.IDENTITY,
             List.of(),
             List.of(),
             List.of(

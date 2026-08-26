@@ -364,10 +364,10 @@ final class CoreArtifactIdentityTest {
             Path.of("module-v2/sample/Box.norm"),
             "package sample public class Box { Integer value } Void main() {}");
     CompilationScope firstScope =
-        new CompilationScope(
+        CompilationScope.module(
             new ModuleCoordinate("sample", 1), Map.of(first.id(), "sample/Box.norm"));
     CompilationScope secondScope =
-        new CompilationScope(
+        CompilationScope.module(
             new ModuleCoordinate("sample", 2), Map.of(second.id(), "sample/Box.norm"));
 
     CoreArtifact firstCompilation =
@@ -399,6 +399,23 @@ final class CoreArtifactIdentityTest {
 
     assertNotEquals(
         plain.namespace().definition("", "Box"), generic.namespace().definition("", "Box"));
+  }
+
+  @Test
+  void distinguishesValueAndIdentityAggregateDefinitions() {
+    CoreArtifact identity =
+        compile("identity-point.norm", "class Point { Integer x } Void main() {}");
+    CoreArtifact value = compile("value-point.norm", "value Point { Integer x } Void main() {}");
+
+    assertNotEquals(
+        identity.namespace().definition("", "Point"), value.namespace().definition("", "Point"));
+    assertEquals(
+        CoreBindingKind.VALUE,
+        value.namespace().bindings().stream()
+            .filter(binding -> binding.name().equals("Point"))
+            .findFirst()
+            .orElseThrow()
+            .kind());
   }
 
   @Test

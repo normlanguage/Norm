@@ -4,6 +4,7 @@ import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceLocation;
@@ -37,6 +38,7 @@ public final class SemanticModel implements SemanticIndex {
   private final List<SemanticScope> scopes;
   private final List<Diagnostic> diagnostics;
   private final List<ImportableSymbol> importableSymbols;
+  private final CompilationScope scope;
   private final List<Token> tokens;
   private final SpanIndex<SymbolId> bindingIndex;
   private final SpanIndex<SymbolId> resolvedCalleeIndex;
@@ -62,7 +64,8 @@ public final class SemanticModel implements SemanticIndex {
       Map<String, List<SemanticType>> interfaceParents,
       List<SemanticScope> scopes,
       List<Diagnostic> diagnostics,
-      List<ImportableSymbol> importableSymbols) {
+      List<ImportableSymbol> importableSymbols,
+      CompilationScope scope) {
     this.source = Objects.requireNonNull(source, "source");
     this.syntax = Objects.requireNonNull(syntax, "syntax");
     this.symbols = Map.copyOf(symbols);
@@ -98,6 +101,7 @@ public final class SemanticModel implements SemanticIndex {
     this.scopes = List.copyOf(scopes);
     this.diagnostics = List.copyOf(diagnostics);
     this.importableSymbols = List.copyOf(importableSymbols);
+    this.scope = Objects.requireNonNull(scope, "scope");
     this.tokens = List.of();
     this.bindingIndex = SpanIndex.from(this.bindings);
     Map<SourceSpan, SymbolId> callTargets = new LinkedHashMap<>();
@@ -132,6 +136,7 @@ public final class SemanticModel implements SemanticIndex {
     this.scopes = project.scopes;
     this.diagnostics = project.diagnostics;
     this.importableSymbols = project.importableSymbols;
+    this.scope = project.scope;
     this.tokens = List.copyOf(tokens);
     this.bindingIndex = project.bindingIndex;
     this.resolvedCalleeIndex = project.resolvedCalleeIndex;
@@ -289,8 +294,15 @@ public final class SemanticModel implements SemanticIndex {
     return maximum + 1;
   }
 
-  public List<ImportableSymbol> importableSymbols() {
-    return importableSymbols;
+  public List<ImportableSymbol> importableSymbols(DocumentId importer) {
+    Objects.requireNonNull(importer, "importer");
+    return importableSymbols.stream()
+        .filter(
+            candidate ->
+                candidate.symbol().declaration().isPresent()
+                    && scope.canRead(
+                        importer, candidate.symbol().declaration().orElseThrow().document()))
+        .toList();
   }
 
   public Optional<Symbol> symbolAt(int offset) {

@@ -4,6 +4,7 @@ public enum CoreBindingKind {
   FUNCTION,
   METHOD,
   CLASS,
+  VALUE,
   ENUM,
   INTERFACE,
   INTERFACE_METHOD

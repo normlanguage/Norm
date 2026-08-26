@@ -1,28 +1,58 @@
 package dev.w0fv1.norm.value;
 
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
-public record CompilationScope(ModuleCoordinate module, Map<DocumentId, String> sourcePaths) {
+public record CompilationScope(
+    Map<DocumentId, ModuleSourceCoordinate> coordinates, ModuleGraph modules) {
   private static final ModuleCoordinate ANONYMOUS = new ModuleCoordinate("anonymous", 0);
 
   public CompilationScope {
-    Objects.requireNonNull(module, "module");
-    Map<DocumentId, String> stable = new LinkedHashMap<>();
-    Objects.requireNonNull(sourcePaths, "sourcePaths").entrySet().stream()
+    Map<DocumentId, ModuleSourceCoordinate> stable = new LinkedHashMap<>();
+    Objects.requireNonNull(coordinates, "coordinates").entrySet().stream()
         .sorted(java.util.Comparator.comparing(entry -> entry.getKey().uri().toString()))
         .forEach(
             entry ->
                 stable.put(
-                    entry.getKey(),
-                    new ModuleSourceCoordinate(module, entry.getValue()).relativePath()));
-    if (new java.util.HashSet<>(stable.values()).size() != stable.size()) {
-      throw new IllegalArgumentException("source paths must be unique within a module");
+                    entry.getKey(), Objects.requireNonNull(entry.getValue(), "source coordinate")));
+    Map<ModuleCoordinate, Set<String>> pathsByModule = new LinkedHashMap<>();
+    for (ModuleSourceCoordinate coordinate : stable.values()) {
+      if (!pathsByModule
+          .computeIfAbsent(coordinate.module(), ignored -> new HashSet<>())
+          .add(coordinate.relativePath())) {
+        throw new IllegalArgumentException("source paths must be unique within a module");
+      }
     }
-    sourcePaths = java.util.Collections.unmodifiableMap(stable);
+    coordinates = java.util.Collections.unmodifiableMap(stable);
+    Objects.requireNonNull(modules, "modules");
+    if (!modules
+        .modules()
+        .containsAll(stable.values().stream().map(ModuleSourceCoordinate::module).toList())) {
+      throw new IllegalArgumentException("source modules must belong to the module graph");
+    }
+  }
+
+  public CompilationScope(Map<DocumentId, ModuleSourceCoordinate> coordinates) {
+    this(
+        coordinates,
+        ModuleGraph.isolated(
+            coordinates.values().stream().map(ModuleSourceCoordinate::module).toList()));
+  }
+
+  public static CompilationScope module(
+      ModuleCoordinate module, Map<DocumentId, String> sourcePaths) {
+    Objects.requireNonNull(module, "module");
+    Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>();
+    Objects.requireNonNull(sourcePaths, "sourcePaths")
+        .forEach(
+            (document, relativePath) ->
+                coordinates.put(document, new ModuleSourceCoordinate(module, relativePath)));
+    return new CompilationScope(coordinates, ModuleGraph.isolated(List.of(module)));
   }
 
   public static CompilationScope anonymous(List<SourceFile> sources) {
@@ -62,24 +92,44 @@ public record CompilationScope(ModuleCoordinate module, Map<DocumentId, String> 
       }
       paths.put(source.id(), logicalPath);
     }
-    return new CompilationScope(ANONYMOUS, paths);
+    return module(ANONYMOUS, paths);
   }
 
   public String sourcePath(DocumentId document) {
-    String path = sourcePaths.get(Objects.requireNonNull(document, "document"));
-    if (path == null) throw new IllegalArgumentException("source is outside the compilation scope");
-    return path;
+    return coordinate(document).relativePath();
   }
 
   public ModuleSourceCoordinate coordinate(DocumentId document) {
-    return new ModuleSourceCoordinate(module, sourcePath(document));
+    ModuleSourceCoordinate coordinate =
+        coordinates.get(Objects.requireNonNull(document, "document"));
+    if (coordinate == null)
+      throw new IllegalArgumentException("source is outside the compilation scope");
+    return coordinate;
   }
 
-  public Map<DocumentId, ModuleSourceCoordinate> coordinates() {
-    Map<DocumentId, ModuleSourceCoordinate> result = new LinkedHashMap<>();
-    sourcePaths.forEach(
-        (document, relativePath) ->
-            result.put(document, new ModuleSourceCoordinate(module, relativePath)));
-    return java.util.Collections.unmodifiableMap(result);
+  public boolean canRead(DocumentId source, DocumentId target) {
+    return modules.canRead(coordinate(source).module(), coordinate(target).module());
+  }
+
+  public boolean sameModule(DocumentId first, DocumentId second) {
+    return coordinate(first).module().equals(coordinate(second).module());
+  }
+
+  public CompilationScope merge(CompilationScope other) {
+    Objects.requireNonNull(other, "other");
+    Map<DocumentId, ModuleSourceCoordinate> merged = new LinkedHashMap<>(coordinates);
+    for (Map.Entry<DocumentId, ModuleSourceCoordinate> entry : other.coordinates.entrySet()) {
+      ModuleSourceCoordinate previous = merged.putIfAbsent(entry.getKey(), entry.getValue());
+      if (previous != null && !previous.equals(entry.getValue())) {
+        throw new IllegalArgumentException("conflicting source in compilation scopes");
+      }
+    }
+    return new CompilationScope(merged, modules.merge(other.modules));
+  }
+
+  public CompilationScope withReads(
+      java.util.Collection<ModuleCoordinate> readers,
+      java.util.Collection<ModuleCoordinate> targets) {
+    return new CompilationScope(coordinates, modules.withReads(readers, targets));
   }
 }

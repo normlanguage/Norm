@@ -8,7 +8,7 @@ import java.util.Set;
 
 public sealed interface CoreDefinition
     permits CoreDefinition.Callable,
-        CoreDefinition.Class,
+        CoreDefinition.Aggregate,
         CoreDefinition.Enum,
         CoreDefinition.Interface,
         CoreDefinition.InterfaceMethod,
@@ -162,14 +162,19 @@ public sealed interface CoreDefinition
     }
   }
 
-  record Class(
+  record Aggregate(
       CoreNominalTypeKey nominalType,
+      CoreValueCategory valueCategory,
       List<CoreTypeParameter> typeParameters,
       List<CoreField> fields,
       List<CoreConformance> conformances)
       implements CoreDefinition {
-    public Class {
+    public Aggregate {
       Objects.requireNonNull(nominalType, "nominalType");
+      Objects.requireNonNull(valueCategory, "valueCategory");
+      if (valueCategory != CoreValueCategory.IDENTITY && valueCategory != CoreValueCategory.VALUE) {
+        throw new IllegalArgumentException("core aggregate must be identity or value");
+      }
       typeParameters = requireTypeParameters(typeParameters, 0);
       fields = List.copyOf(fields);
       conformances = List.copyOf(conformances);

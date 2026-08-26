@@ -70,17 +70,17 @@ final class CliControllerTest {
 
   @Test
   void loadsAndRunsTheEntrySourceRoot() throws IOException {
-    Path app = Files.createDirectories(temporaryDirectory.resolve("src/sample/app"));
+    Path app = Files.createDirectories(temporaryDirectory.resolve("src/sample"));
     Path math = Files.createDirectories(temporaryDirectory.resolve("src/sample/math"));
     Path entry = app.resolve("Main.norm");
     Files.writeString(
-        entry, "package sample.app import sample.math.twice Void main() { printLine(twice(7)) }");
+        entry, "package sample import sample.math.twice Void main() { printLine(twice(7)) }");
     Files.writeString(
         math.resolve("Numbers.norm"),
         "package sample.math public Integer twice(Integer value) { return value * 2 }");
     Files.writeString(
-        temporaryDirectory.resolve("src/module.norm"),
-        "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
+        temporaryDirectory.resolve("src/sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"math.Numbers\"]) }");
 
     Result result = run("run", entry.toString());
 

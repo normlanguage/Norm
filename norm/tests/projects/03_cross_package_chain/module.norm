@@ -1,5 +1,0 @@
-Module(
-  name: "chain",
-  version: 1,
-  exports: ["app.Main", "base.Increment", "middle.Transform"]
-)

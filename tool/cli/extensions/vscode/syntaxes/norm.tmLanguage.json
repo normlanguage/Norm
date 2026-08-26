@@ -40,7 +40,7 @@
     "declarations": {
       "patterns": [
         {
-          "match": "\\b(class|enum|interface)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "\\b(class|value|enum|interface)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": { "name": "storage.type.norm" },
             "2": { "name": "entity.name.type.norm" }

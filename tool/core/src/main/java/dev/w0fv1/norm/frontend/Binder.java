@@ -1,5 +1,7 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.bound.BoundAggregate;
+import dev.w0fv1.norm.bound.BoundAggregateId;
 import dev.w0fv1.norm.bound.BoundArgument;
 import dev.w0fv1.norm.bound.BoundBinaryOperator;
 import dev.w0fv1.norm.bound.BoundBlock;
@@ -7,8 +9,6 @@ import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCall;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundCallableId;
-import dev.w0fv1.norm.bound.BoundClass;
-import dev.w0fv1.norm.bound.BoundClassId;
 import dev.w0fv1.norm.bound.BoundClosure;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundConstruct;
@@ -59,7 +59,7 @@ final class Binder {
   private final List<Syntax.Program> programs;
   private final SemanticModel semantics;
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
-  private final Map<String, BoundClass> classes = new LinkedHashMap<>();
+  private final Map<String, BoundAggregate> aggregates = new LinkedHashMap<>();
   private final Map<String, BoundEnum> enums = new LinkedHashMap<>();
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
@@ -91,7 +91,7 @@ final class Binder {
                         program.packageName(),
                         program.enums().stream().map(this::enumId).toList(),
                         program.interfaces().stream().map(this::interfaceId).toList(),
-                        program.classes().stream().map(this::classId).toList(),
+                        program.aggregates().stream().map(this::aggregateId).toList(),
                         sourceCallables(program)))
             .toList();
     return new BoundProgram(
@@ -99,7 +99,7 @@ final class Binder {
         List.copyOf(enums.values()),
         List.copyOf(interfaces.values()),
         bindBuiltinConformances(),
-        List.copyOf(classes.values()),
+        List.copyOf(aggregates.values()),
         List.copyOf(callables.values()),
         Optional.ofNullable(entryPoint).map(this::callableId));
   }
@@ -137,7 +137,7 @@ final class Binder {
                 declaration.span());
         enums.put(value.id().value(), value);
       }
-      for (Syntax.ClassDecl declaration : program.classes()) {
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
         Symbol symbol = symbol(declaration.nameSpan());
         List<BoundField> boundFields = new ArrayList<>();
         for (int ordinal = 0; ordinal < declaration.fields().size(); ordinal++) {
@@ -155,9 +155,9 @@ final class Binder {
           fields.put(bound.id().value(), bound);
           boundFields.add(bound);
         }
-        BoundClass value =
-            new BoundClass(
-                BoundClassId.of(symbol.id()),
+        BoundAggregate value =
+            new BoundAggregate(
+                BoundAggregateId.of(symbol.id()),
                 declaration.name(),
                 declaration.visibility() == Syntax.Visibility.PUBLIC
                     ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
@@ -168,7 +168,7 @@ final class Binder {
                 declaration.methods().stream().map(this::callableId).toList(),
                 bindConformances(declaration),
                 declaration.span());
-        classes.put(value.id().value(), value);
+        aggregates.put(value.id().value(), value);
       }
     }
   }
@@ -176,7 +176,7 @@ final class Binder {
   private void bindCallables() {
     for (Syntax.Program program : programs) {
       for (Syntax.FunctionDecl function : program.functions()) bindCallable(function, null);
-      for (Syntax.ClassDecl owner : program.classes()) {
+      for (Syntax.AggregateDecl owner : program.aggregates()) {
         for (Syntax.FunctionDecl method : owner.methods()) bindCallable(method, owner);
       }
       for (Syntax.InterfaceDecl owner : program.interfaces()) {
@@ -244,13 +244,13 @@ final class Binder {
     currentCallableId = previousCallableId;
   }
 
-  private void bindCallable(Syntax.FunctionDecl declaration, Syntax.ClassDecl owner) {
+  private void bindCallable(Syntax.FunctionDecl declaration, Syntax.AggregateDecl owner) {
     Symbol callable = symbol(declaration.nameSpan());
     BoundCallableId id = BoundCallableId.of(callable.id());
     BoundCallableId previousCallableId = currentCallableId;
     List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
     currentCallableId = id;
-    BoundClassId ownerId = owner == null ? null : classId(owner);
+    BoundAggregateId ownerId = owner == null ? null : aggregateId(owner);
     boolean previousImplicitSelfReturn = implicitSelfReturn;
     implicitSelfReturn = owner != null && declaration.returnType().isEmpty();
     thisLocal = owner == null ? null : new BoundLocalId(id.value() + "/this");
@@ -583,7 +583,14 @@ final class Binder {
     if (resolution.kind() == ResolvedCall.Kind.INVOKE) {
       return new BoundInvoke(bindExpression(call.callee()), arguments, type, call.span());
     }
-    Symbol target = semantics.symbol(resolution.target()).orElseThrow();
+    Symbol target =
+        semantics
+            .symbol(resolution.target())
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "resolved call target is absent from the semantic model: "
+                            + resolution.target()));
     Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
     BoundExpression receiver =
         member == null
@@ -614,7 +621,7 @@ final class Binder {
               call.span());
       case CONSTRUCT ->
           new BoundConstruct(
-              new BoundClassId(target.id().value()),
+              new BoundAggregateId(target.id().value()),
               runtimeType(type),
               arguments,
               type,
@@ -692,7 +699,7 @@ final class Binder {
               value.methods().forEach(method -> result.addAll(method.typeParameters()));
             });
     program
-        .classes()
+        .aggregates()
         .forEach(
             value -> {
               result.addAll(value.typeParameters());
@@ -764,7 +771,7 @@ final class Binder {
   }
 
   private List<BoundTypeParameter> bindCallableTypeParameters(
-      Syntax.FunctionDecl declaration, Syntax.ClassDecl owner) {
+      Syntax.FunctionDecl declaration, Syntax.AggregateDecl owner) {
     List<BoundTypeParameter> result = new ArrayList<>();
     if (owner != null) result.addAll(bindTypeParameters(owner.typeParameters()));
     result.addAll(bindTypeParameters(declaration.typeParameters()));
@@ -802,7 +809,7 @@ final class Binder {
         declaration.span());
   }
 
-  private List<BoundConformance> bindConformances(Syntax.ClassDecl declaration) {
+  private List<BoundConformance> bindConformances(Syntax.AggregateDecl declaration) {
     return declaration.implementedInterfaces().stream()
         .map(
             type -> {
@@ -863,7 +870,7 @@ final class Binder {
   }
 
   private void collectWitnesses(
-      Syntax.ClassDecl declaration,
+      Syntax.AggregateDecl declaration,
       SemanticType interfaceType,
       List<BoundWitness> witnesses,
       java.util.Set<String> visited) {
@@ -871,11 +878,11 @@ final class Binder {
     Syntax.InterfaceDecl contract = interfaceDeclaration(interfaceType);
     if (contract == null) return;
     for (Syntax.InterfaceMethodDecl requirement : contract.methods()) {
-      Symbol classSymbol = symbol(declaration.nameSpan());
+      Symbol aggregateSymbol = symbol(declaration.nameSpan());
       Symbol requirementSymbol = symbol(requirement.nameSpan());
       var implementationId =
           semantics
-              .witness(classSymbol.id(), requirementSymbol.id())
+              .witness(aggregateSymbol.id(), requirementSymbol.id())
               .orElseThrow(
                   () -> new IllegalStateException("validated interface witness is absent"));
       BoundWitness witness =
@@ -1086,8 +1093,8 @@ final class Binder {
     return BoundCallableId.of(symbol(declaration.nameSpan()).id());
   }
 
-  private BoundClassId classId(Syntax.ClassDecl declaration) {
-    return BoundClassId.of(symbol(declaration.nameSpan()).id());
+  private BoundAggregateId aggregateId(Syntax.AggregateDecl declaration) {
+    return BoundAggregateId.of(symbol(declaration.nameSpan()).id());
   }
 
   private BoundInterfaceId interfaceId(Syntax.InterfaceDecl declaration) {

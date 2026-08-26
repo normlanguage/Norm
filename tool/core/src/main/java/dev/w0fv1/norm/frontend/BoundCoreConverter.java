@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.bound.BoundAggregate;
 import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
-import dev.w0fv1.norm.bound.BoundClass;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundEnum;
 import dev.w0fv1.norm.bound.BoundInterface;
@@ -22,6 +22,7 @@ import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeParameter;
 import dev.w0fv1.norm.core.CoreTypes;
+import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.CoreVisibility;
 import dev.w0fv1.norm.core.CoreWitness;
 import dev.w0fv1.norm.core.CoreWitnessTarget;
@@ -47,7 +48,7 @@ final class BoundCoreConverter {
   private final Map<String, Integer> declarationIndices = new LinkedHashMap<>();
   private final Map<String, Integer> nominalTypeIndices = new LinkedHashMap<>();
   private final Map<String, SourceOwner> sourceOwners = new LinkedHashMap<>();
-  private final Map<String, BoundClass> classes = new LinkedHashMap<>();
+  private final Map<String, BoundAggregate> aggregates = new LinkedHashMap<>();
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOwnerIndices = new LinkedHashMap<>();
 
@@ -66,7 +67,7 @@ final class BoundCoreConverter {
       value.methods().forEach(method -> declarations.add(convert(value, method)));
     }
     program.builtinConformances().forEach(value -> declarations.add(convert(value)));
-    program.classes().forEach(value -> declarations.add(convert(value)));
+    program.aggregates().forEach(value -> declarations.add(convert(value)));
     program.callables().forEach(value -> declarations.add(convert(value)));
     Optional<Integer> entryPointIndex =
         program.entryPoint().map(entry -> declarationIndex(entry.value()));
@@ -88,11 +89,11 @@ final class BoundCoreConverter {
       }
     }
     index += program.builtinConformances().size();
-    for (BoundClass value : program.classes()) {
+    for (BoundAggregate value : program.aggregates()) {
       int declaration = index++;
       declarationIndices.put(value.id().value(), declaration);
       nominalTypeIndices.put(value.type().identity(), declaration);
-      classes.put(value.id().value(), value);
+      aggregates.put(value.id().value(), value);
       value.fields().forEach(field -> fieldOwnerIndices.put(field.id().value(), declaration));
     }
     for (BoundCallable value : program.callables()) {
@@ -119,7 +120,7 @@ final class BoundCoreConverter {
                     .methods()
                     .forEach(method -> sourceOwners.put(method.id().value(), owner));
               });
-      source.classes().forEach(value -> sourceOwners.put(value.value(), owner));
+      source.aggregates().forEach(value -> sourceOwners.put(value.value(), owner));
       source.callables().forEach(value -> sourceOwners.put(value.value(), owner));
     }
   }
@@ -258,12 +259,18 @@ final class BoundCoreConverter {
         Optional.empty());
   }
 
-  private Declaration convert(BoundClass declaration) {
+  private Declaration convert(BoundAggregate declaration) {
     SourceOwner source = sourceOwner(declaration.id().value());
-    BoundCoreTypeConverter types = BoundCoreTypeConverter.forClass(declaration, nominalTypeIndices);
+    BoundCoreTypeConverter types =
+        BoundCoreTypeConverter.forAggregate(declaration, nominalTypeIndices);
     CoreDefinition definition =
-        new CoreDefinition.Class(
+        new CoreDefinition.Aggregate(
             nominalType(source, declaration.name(), visibility(declaration.visibility())),
+            switch (declaration.type().category()) {
+              case IDENTITY -> CoreValueCategory.IDENTITY;
+              case VALUE -> CoreValueCategory.VALUE;
+              default -> throw new IllegalStateException("invalid aggregate value category");
+            },
             coreTypeParameters(declaration.typeParameters(), types),
             declaration.fields().stream()
                 .map(field -> new CoreField(field.ordinal(), types.convert(field.type())))
@@ -278,7 +285,12 @@ final class BoundCoreConverter {
             Optional.empty(),
             declaration.name(),
             visibility(declaration.visibility()),
-            new CoreBindingShape.Class(
+            new CoreBindingShape.Aggregate(
+                switch (declaration.type().category()) {
+                  case IDENTITY -> CoreValueCategory.IDENTITY;
+                  case VALUE -> CoreValueCategory.VALUE;
+                  default -> throw new IllegalStateException("invalid aggregate value category");
+                },
                 coreTypeParameters(declaration.typeParameters(), types),
                 declaration.fields().stream()
                     .map(
@@ -298,7 +310,8 @@ final class BoundCoreConverter {
     SourceOwner source = sourceOwner(declaration.id().value());
     BoundCoreTypeConverter types =
         BoundCoreTypeConverter.forCallable(declaration, nominalTypeIndices);
-    Optional<BoundClass> owner = declaration.owner().map(value -> classDeclaration(value.value()));
+    Optional<BoundAggregate> owner =
+        declaration.owner().map(value -> aggregateDeclaration(value.value()));
     Optional<CoreType> receiverType =
         declaration
             .receiverType()
@@ -346,7 +359,7 @@ final class BoundCoreConverter {
             types.convert(declaration.returnType()),
             body.locals(),
             body.body());
-    Optional<String> ownerName = owner.map(BoundClass::name);
+    Optional<String> ownerName = owner.map(BoundAggregate::name);
     return new Declaration(
         definition,
         origin(declaration.name(), declaration.span(), body.nodeSpans()),
@@ -395,9 +408,9 @@ final class BoundCoreConverter {
     return source;
   }
 
-  private BoundClass classDeclaration(String declaration) {
-    BoundClass value = classes.get(declaration);
-    if (value == null) throw new IllegalStateException("core class is absent: " + declaration);
+  private BoundAggregate aggregateDeclaration(String declaration) {
+    BoundAggregate value = aggregates.get(declaration);
+    if (value == null) throw new IllegalStateException("core aggregate is absent: " + declaration);
     return value;
   }
 
@@ -576,10 +589,11 @@ final class BoundCoreConverter {
                                 parameter.label(), CoreTypes.mapLinks(parameter.type(), links)))
                     .toList(),
                 CoreTypes.mapLinks(callable.returnType(), links));
-        case CoreBindingShape.Class classShape ->
-            new CoreBindingShape.Class(
-                resolveTypeParameters(classShape.typeParameters(), links),
-                classShape.fields().stream()
+        case CoreBindingShape.Aggregate aggregateShape ->
+            new CoreBindingShape.Aggregate(
+                aggregateShape.valueCategory(),
+                resolveTypeParameters(aggregateShape.typeParameters(), links),
+                aggregateShape.fields().stream()
                     .map(
                         field ->
                             new CoreBindingShape.Field(
@@ -587,7 +601,7 @@ final class BoundCoreConverter {
                                 field.visibility(),
                                 CoreTypes.mapLinks(field.type(), links)))
                     .toList(),
-                classShape.conformances().stream()
+                aggregateShape.conformances().stream()
                     .map(type -> CoreTypes.mapLinks(type, links))
                     .toList());
         case CoreBindingShape.Enum enumShape ->

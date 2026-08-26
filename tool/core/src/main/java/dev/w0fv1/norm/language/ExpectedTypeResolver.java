@@ -31,7 +31,7 @@ final class ExpectedTypeResolver {
         return model.symbolOf(function.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type);
       }
     }
-    for (Syntax.ClassDecl declaration : document.syntax().classes()) {
+    for (Syntax.AggregateDecl declaration : document.syntax().aggregates()) {
       for (Syntax.FunctionDecl method : declaration.methods()) {
         if (!contains(method.span(), offset)) continue;
         Optional<SemanticType> expected =

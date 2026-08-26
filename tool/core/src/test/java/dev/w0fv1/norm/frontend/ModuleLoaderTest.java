@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -15,17 +16,22 @@ final class ModuleLoaderTest {
   void loadsInternalPackagePeersWithoutExportingThem() throws Exception {
     Map<String, String> resources = new LinkedHashMap<>();
     resources.put(
-        "module.norm", "Module(name: \"sample\", version: 1, exports: [\"math.Numbers\"])");
-    resources.put(
         "sample/math/Numbers.norm",
         "package sample.math public Integer twice(Integer value) { return helper(value) * 2 }");
     resources.put(
         "sample/math/Helper.norm",
         "package sample.math public Integer helper(Integer value) { return value }");
+    resources.put(
+        "sample/internal/Hidden.norm",
+        "package sample.internal private Integer hidden() { return 1 }");
 
-    ModuleLoader.LoadedModule loaded = new ModuleLoader().load(new MemoryResolver(resources));
+    ModuleLoader.LoadedModule loaded =
+        new ModuleLoader()
+            .load(
+                new MemoryResolver(resources),
+                new ModuleDescriptor("sample", 1, List.of("math.Numbers")));
 
-    assertEquals(2, loaded.sources().size());
+    assertEquals(3, loaded.sources().size());
     assertEquals(1, loaded.exportedSources().size());
   }
 
@@ -38,12 +44,8 @@ final class ModuleLoaderTest {
     }
 
     @Override
-    public List<String> list(String relativeDirectory) {
-      String prefix = relativeDirectory + "/";
-      return resources.keySet().stream()
-          .filter(path -> path.startsWith(prefix))
-          .filter(path -> path.indexOf('/', prefix.length()) < 0)
-          .toList();
+    public List<String> listSources() {
+      return List.copyOf(resources.keySet());
     }
   }
 }

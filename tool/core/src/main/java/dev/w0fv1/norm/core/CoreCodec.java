@@ -46,20 +46,21 @@ final class CoreCodec {
         callable.locals().forEach(local -> writeLocal(writer, local, referenceResolver));
         writeBlock(writer, callable.body(), referenceResolver);
       }
-      case CoreDefinition.Class classDefinition -> {
-        writer.writeTag("class");
-        writeNominalType(writer, classDefinition.nominalType());
-        writeTypeParameters(writer, classDefinition.typeParameters(), referenceResolver);
-        writer.writeInt(classDefinition.fields().size());
-        classDefinition
+      case CoreDefinition.Aggregate aggregateDefinition -> {
+        writer.writeTag("aggregate");
+        writeNominalType(writer, aggregateDefinition.nominalType());
+        writer.writeTag(aggregateDefinition.valueCategory().name());
+        writeTypeParameters(writer, aggregateDefinition.typeParameters(), referenceResolver);
+        writer.writeInt(aggregateDefinition.fields().size());
+        aggregateDefinition
             .fields()
             .forEach(
                 field -> {
                   writer.writeInt(field.ordinal());
                   writeType(writer, field.type(), referenceResolver);
                 });
-        writer.writeInt(classDefinition.conformances().size());
-        classDefinition.conformances().stream()
+        writer.writeInt(aggregateDefinition.conformances().size());
+        aggregateDefinition.conformances().stream()
             .sorted(
                 (left, right) ->
                     java.util.Arrays.compareUnsigned(

@@ -4,8 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.value.CompilationResult;
+import dev.w0fv1.norm.value.CompilationScope;
+import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class BidirectionalInferenceCompilerTest {
@@ -23,7 +29,7 @@ final class BidirectionalInferenceCompilerTest {
   @Test
   void projectsProtocolExpectedTypesIntoCollectionLiterals() {
     CompilationResult result =
-        compile(
+        compileWithStandardProtocols(
             "import std.testing.expectedOutputLines " + "Void main() { expectedOutputLines([]) } ");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
@@ -44,7 +50,7 @@ final class BidirectionalInferenceCompilerTest {
   @Test
   void infersStringableForHeterogeneousPrintableCollectionLiterals() {
     CompilationResult result =
-        compile(
+        compileWithStandardProtocols(
             "import std.io.printLines "
                 + "Void main() { var values = [1, true, \"Norm\"] printLines(values) }");
 
@@ -124,5 +130,37 @@ final class BidirectionalInferenceCompilerTest {
 
   private static CompilationResult compile(String text) {
     return new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
+  }
+
+  private static CompilationResult compileWithStandardProtocols(String text) {
+    SourceFile entry = SourceFile.of(Path.of("test.norm"), text);
+    SourceFile protocols =
+        SourceFile.of(
+            DocumentId.of("stdlib:/std/core/protocols.norm"),
+            "package std.core "
+                + "interface Iterator<T> { Boolean hasNext() T next() } "
+                + "interface Iterable<T> { Iterator<T> iterator() } "
+                + "interface Stringable { String toString() }");
+    SourceFile output =
+        SourceFile.of(
+            DocumentId.of("stdlib:/std/io/output.norm"),
+            "package std.io import std.core.Iterable import std.core.Stringable "
+                + "Void printLines<T extends Stringable>(Iterable<T> values) {}");
+    SourceFile testing =
+        SourceFile.of(
+            DocumentId.of("stdlib:/std/testing/output.norm"),
+            "package std.testing import std.core.Iterable "
+                + "Void expectedOutputLines(Iterable<String> lines) {}");
+    CompilationPrelude prelude =
+        new CompilationPrelude(
+            List.of(protocols, output, testing),
+            Set.of(protocols.id(), output.id(), testing.id()),
+            CompilationScope.module(
+                new ModuleCoordinate("std", 1),
+                Map.of(
+                    protocols.id(), "std/core/protocols.norm",
+                    output.id(), "std/io/output.norm",
+                    testing.id(), "std/testing/output.norm")));
+    return new CompilerSession(LanguageProfile.withPrelude(prelude)).compile(entry);
   }
 }

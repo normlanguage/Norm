@@ -36,7 +36,7 @@ final class CoreProgramVerifier {
     for (CoreDefinitionRecord record : program.definitions()) {
       switch (record.definition()) {
         case CoreDefinition.Callable callable -> verifyCallable(record.id(), callable);
-        case CoreDefinition.Class declaration -> verifyClass(record.id(), declaration);
+        case CoreDefinition.Aggregate declaration -> verifyAggregate(record.id(), declaration);
         case CoreDefinition.Enum declaration -> verifyEnum(record.id(), declaration);
         case CoreDefinition.Interface ignored -> {}
         case CoreDefinition.InterfaceMethod method -> verifyInterfaceMethod(record.id(), method);
@@ -83,7 +83,7 @@ final class CoreProgramVerifier {
     verifyBlock(id, callable, callable.body());
   }
 
-  private void verifyClass(DefinitionId id, CoreDefinition.Class declaration) {
+  private void verifyAggregate(DefinitionId id, CoreDefinition.Aggregate declaration) {
     declaration
         .fields()
         .forEach(field -> verifyValueType(id, field.type(), declaration.typeParameters().size()));
@@ -94,7 +94,7 @@ final class CoreProgramVerifier {
       verifyValueType(id, conformance.interfaceType(), declaration.typeParameters().size());
       InterfaceInstance instance = interfaceInstance(id, conformance.interfaceType());
       if (!interfaces.add(instance.definition())) {
-        throw new IllegalArgumentException("class conformances must be unique");
+        throw new IllegalArgumentException("aggregate conformances must be unique");
       }
       collectInterfaceInstances(instance, inheritedInterfaces);
       verifyConformance(id, declaration, instance, conformance);
@@ -160,15 +160,15 @@ final class CoreProgramVerifier {
   }
 
   private void verifyConformance(
-      DefinitionId classId,
-      CoreDefinition.Class declaration,
+      DefinitionId aggregateId,
+      CoreDefinition.Aggregate declaration,
       InterfaceInstance instance,
       CoreConformance conformance) {
     Map<DefinitionId, CoreDefinition.InterfaceMethod> requirements =
         inheritedRequirements(instance.definition());
     Map<DefinitionId, CoreWitnessTarget> witnesses = new LinkedHashMap<>();
     for (CoreWitness witness : conformance.witnesses()) {
-      DefinitionId requirementId = resolve(classId, witness.requirement());
+      DefinitionId requirementId = resolve(aggregateId, witness.requirement());
       if (witnesses.putIfAbsent(requirementId, witness.implementation()) != null) {
         throw new IllegalArgumentException("conformance witnesses must be unique");
       }
@@ -181,17 +181,17 @@ final class CoreProgramVerifier {
       CoreDefinition.InterfaceMethod requirement = entry.getValue();
       CoreWitnessTarget witness = witnesses.get(requirementId);
       if (!(witness instanceof CoreWitnessTarget.Callable callableWitness)) {
-        throw new IllegalArgumentException("source class witnesses must target callables");
+        throw new IllegalArgumentException("source aggregate witnesses must target callables");
       }
-      DefinitionId implementationId = resolve(classId, callableWitness.definition());
+      DefinitionId implementationId = resolve(aggregateId, callableWitness.definition());
       CoreDefinition implementationDefinition = program.definition(implementationId).orElseThrow();
-      boolean classReceiver =
+      boolean aggregateReceiver =
           implementationDefinition instanceof CoreDefinition.Callable candidate
               && candidate.receiverType().isPresent()
               && isReceiverOf(
                   implementationId,
                   candidate.receiverType().orElseThrow(),
-                  classId,
+                  aggregateId,
                   declaration.typeParameters().size());
       boolean defaultReceiver =
           implementationDefinition instanceof CoreDefinition.Callable candidate
@@ -199,7 +199,7 @@ final class CoreProgramVerifier {
               && absolute(implementationId, candidate.receiverType().orElseThrow())
                   .equals(absolute(requirementId, requirement.receiverInterfaceType()));
       int expectedReified =
-          classReceiver
+          aggregateReceiver
               ? declaration.typeParameters().size() + requirement.typeParameters().size()
               : implementationDefinition instanceof CoreDefinition.Callable candidate
                   ? candidate.receiverTypeParameterCount() + candidate.typeParameters().size()
@@ -207,7 +207,7 @@ final class CoreProgramVerifier {
       if (!(implementationDefinition instanceof CoreDefinition.Callable implementation)
           || implementation.receiverType().isEmpty()
           || implementation.reifiedTypeLocals().size() != expectedReified
-          || (!classReceiver && !defaultReceiver)) {
+          || (!aggregateReceiver && !defaultReceiver)) {
         throw new IllegalArgumentException(
             "conformance witness implementation has an incompatible receiver");
       }
@@ -224,7 +224,7 @@ final class CoreProgramVerifier {
         }
       }
       List<CoreType> implementationSubstitutions = new ArrayList<>();
-      if (classReceiver) {
+      if (aggregateReceiver) {
         for (int index = 0; index < declaration.typeParameters().size(); index++) {
           implementationSubstitutions.add(new CoreType.Parameter(index, CoreNullability.NON_NULL));
         }
@@ -454,7 +454,7 @@ final class CoreProgramVerifier {
         CoreDefinition definition = program.definition(id).orElseThrow();
         CoreNominalTypeKey nominal =
             switch (definition) {
-              case CoreDefinition.Class declaration -> declaration.nominalType();
+              case CoreDefinition.Aggregate declaration -> declaration.nominalType();
               case CoreDefinition.Enum declaration -> declaration.nominalType();
               case CoreDefinition.Interface declaration -> declaration.nominalType();
               default -> null;
@@ -1320,8 +1320,8 @@ final class CoreProgramVerifier {
       DefinitionId owner, CoreDefinition.Callable caller, CoreExpression.Construct construct) {
     DefinitionId targetId = resolve(owner, construct.target());
     CoreDefinition targetDefinition = program.definition(targetId).orElseThrow();
-    if (!(targetDefinition instanceof CoreDefinition.Class target)) {
-      throw new IllegalArgumentException("construct target is not a class");
+    if (!(targetDefinition instanceof CoreDefinition.Aggregate target)) {
+      throw new IllegalArgumentException("construct target is not an aggregate");
     }
     verifyRuntimeType(owner, caller, construct.runtimeType());
     construct.arguments().forEach(argument -> verifyExpression(owner, caller, argument.value()));
@@ -1334,7 +1334,7 @@ final class CoreProgramVerifier {
         || !(declared.constructor() instanceof CoreTypeConstructor.User user)
         || !resolveExternal(user.definition()).equals(targetId)
         || declared.arguments().size() != target.typeParameters().size()) {
-      throw new IllegalArgumentException("constructed type does not match the class ABI");
+      throw new IllegalArgumentException("constructed type does not match the aggregate ABI");
     }
     verifyDenseArguments(construct.arguments(), target.fields().size());
     for (CoreArgument argument : construct.arguments()) {
@@ -1592,7 +1592,7 @@ final class CoreProgramVerifier {
       DefinitionId owner, CoreType receiverType, CoreFieldReference reference) {
     DefinitionId targetId = resolve(owner, reference.owner());
     CoreDefinition targetDefinition = program.definition(targetId).orElseThrow();
-    if (!(targetDefinition instanceof CoreDefinition.Class target)
+    if (!(targetDefinition instanceof CoreDefinition.Aggregate target)
         || reference.ordinal() >= target.fields().size()) {
       throw new IllegalArgumentException("field owner or ordinal is invalid");
     }
@@ -1737,9 +1737,9 @@ final class CoreProgramVerifier {
     CoreDefinition target = program.definition(targetId).orElseThrow();
     int arity;
     CoreValueCategory category;
-    if (target instanceof CoreDefinition.Class declaration) {
+    if (target instanceof CoreDefinition.Aggregate declaration) {
       arity = declaration.typeParameters().size();
-      category = CoreValueCategory.IDENTITY;
+      category = declaration.valueCategory();
     } else if (target instanceof CoreDefinition.Enum declaration) {
       arity = declaration.typeParameters().size();
       category = CoreValueCategory.VALUE;
@@ -1764,7 +1764,7 @@ final class CoreProgramVerifier {
     }
     List<CoreTypeParameter> parameters =
         switch (target) {
-          case CoreDefinition.Class declaration -> declaration.typeParameters();
+          case CoreDefinition.Aggregate declaration -> declaration.typeParameters();
           case CoreDefinition.Enum declaration -> declaration.typeParameters();
           case CoreDefinition.Interface declaration -> declaration.typeParameters();
           default -> throw new IllegalStateException("nominal definition kind changed");
@@ -1932,8 +1932,8 @@ final class CoreProgramVerifier {
       if (arguments == null) return null;
       return interfaceType(target, arguments);
     }
-    if (!(definition instanceof CoreDefinition.Class classDefinition)) return null;
-    for (CoreConformance conformance : classDefinition.conformances()) {
+    if (!(definition instanceof CoreDefinition.Aggregate aggregateDefinition)) return null;
+    for (CoreConformance conformance : aggregateDefinition.conformances()) {
       CoreType instantiated =
           absolute(actualId, conformance.interfaceType()).substitute(declared.arguments()::get);
       InterfaceInstance instance = interfaceInstance(actualId, instantiated);

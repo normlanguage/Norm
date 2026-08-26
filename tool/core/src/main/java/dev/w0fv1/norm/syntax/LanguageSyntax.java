@@ -1,42 +1,13 @@
 package dev.w0fv1.norm.syntax;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public final class LanguageSyntax {
   private static final Map<String, TokenKind> RESERVED_WORDS = createReservedWords();
-  private static final List<String> COMPLETION_KEYWORDS =
-      List.of(
-          "class",
-          "enum",
-          "interface",
-          "implements",
-          "extends",
-          "package",
-          "import",
-          "as",
-          "public",
-          "private",
-          "if",
-          "else",
-          "switch",
-          "case",
-          "for",
-          "return",
-          "break",
-          "continue",
-          "true",
-          "false",
-          "null",
-          "var");
 
   private LanguageSyntax() {}
-
-  public static List<String> completionKeywords() {
-    return COMPLETION_KEYWORDS;
-  }
 
   public static boolean isIdentifier(String value) {
     if (value == null || value.isEmpty() || RESERVED_WORDS.containsKey(value)) return false;

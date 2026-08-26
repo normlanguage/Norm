@@ -63,14 +63,6 @@ try {
   const bundled = join(bin, process.platform === 'win32' ? 'norm.exe' : 'norm');
   writeFileSync(bundled, '');
   chmodSync(bundled, 0o755);
-  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
-  const external = join(fixture, process.platform === 'win32' ? 'external.exe' : 'external');
-  writeFileSync(external, '');
-  chmodSync(external, 0o755);
-  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
-  assert.equal(resolveCliCommand(external, undefined, packagedExtension), external);
-
-  rmSync(bin, { recursive: true, force: true });
   const bundledJvm = join(
     packagedExtension,
     'server',
@@ -81,6 +73,14 @@ try {
   writeFileSync(bundledJvm, '');
   chmodSync(bundledJvm, 0o755);
   assert.equal(resolveCliCommand('', undefined, packagedExtension), bundledJvm);
+  const external = join(fixture, process.platform === 'win32' ? 'external.exe' : 'external');
+  writeFileSync(external, '');
+  chmodSync(external, 0o755);
+  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundledJvm);
+  assert.equal(resolveCliCommand(external, undefined, packagedExtension), external);
+
+  rmSync(join(packagedExtension, 'server'), { recursive: true, force: true });
+  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
 } finally {
   rmSync(fixture, { recursive: true, force: true });
 }

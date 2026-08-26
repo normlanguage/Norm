@@ -14,6 +14,7 @@ import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.semantic.TypeRelations;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayDeque;
@@ -51,12 +52,13 @@ abstract class AnalyzerState {
   final TypeRelations.DeclarationGraph typeRelations;
   final boolean requireEntryPoint;
   final Set<DocumentId> exportedSources;
+  final CompilationScope scope;
   final CompilationGuard guard;
   final Map<SourceSpan, SemanticContribution> reusableDeclarations;
   final int minimumBodySymbolId;
   final DeclarationCatalog declarations;
   final Map<String, SemanticType> typeParameterBounds = new HashMap<>();
-  final BuiltinSymbols builtins = new BuiltinSymbols();
+  final BuiltinSymbols builtins;
   final Map<SymbolId, Symbol> symbols = new LinkedHashMap<>();
   final Map<SourceSpan, SymbolId> bindings = new LinkedHashMap<>();
   final Map<SourceSpan, SemanticType> semanticTypes = new LinkedHashMap<>();
@@ -79,7 +81,7 @@ abstract class AnalyzerState {
   Map<String, SemanticType> activeTypeParameters = Map.of();
   Map<String, SymbolId> activeTypeParameterSymbols = Map.of();
   Syntax.Program currentProgram;
-  Syntax.ClassDecl currentClass;
+  Syntax.AggregateDecl currentAggregate;
   final Deque<ControlContext> controls = new ArrayDeque<>();
   final Set<SymbolId> assignedLocals = new HashSet<>();
   final Set<SymbolId> capturedLocals = new HashSet<>();
@@ -94,7 +96,9 @@ abstract class AnalyzerState {
       Set<DocumentId> exportedSources,
       CompilationGuard guard,
       Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId) {
+      int minimumBodySymbolId,
+      Set<DocumentId> moduleEvaluationDocuments,
+      CompilationScope scope) {
     this.programs = List.copyOf(programs);
     this.entryProgram = entryProgram;
     this.syntax = merge(programs, entryProgram);
@@ -103,10 +107,12 @@ abstract class AnalyzerState {
     this.overloads = new OverloadResolver(diagnostics, INVALID_CALL, typeRelations, this::typeOf);
     this.requireEntryPoint = requireEntryPoint;
     this.exportedSources = Set.copyOf(exportedSources);
+    this.scope = java.util.Objects.requireNonNull(scope, "scope");
     this.guard = java.util.Objects.requireNonNull(guard, "guard");
-    this.declarations = new DeclarationCatalog(this.programs, this.exportedSources);
+    this.declarations = new DeclarationCatalog(this.programs, this.exportedSources, scope);
     this.reusableDeclarations = Map.copyOf(reusableDeclarations);
     this.minimumBodySymbolId = minimumBodySymbolId;
+    this.builtins = new BuiltinSymbols(moduleEvaluationDocuments);
     symbols.putAll(builtins.symbols());
     symbols.values().stream()
         .filter(symbol -> symbol.kind() == SymbolKind.TYPE)
@@ -121,12 +127,12 @@ abstract class AnalyzerState {
   static Syntax.Program merge(List<Syntax.Program> programs, Syntax.Program entryProgram) {
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
-    List<Syntax.ClassDecl> classes = new ArrayList<>();
+    List<Syntax.AggregateDecl> aggregates = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     for (Syntax.Program program : programs) {
       enums.addAll(program.enums());
       interfaces.addAll(program.interfaces());
-      classes.addAll(program.classes());
+      aggregates.addAll(program.aggregates());
       functions.addAll(program.functions());
     }
     return new Syntax.Program(
@@ -134,7 +140,7 @@ abstract class AnalyzerState {
         entryProgram.imports(),
         enums,
         interfaces,
-        classes,
+        aggregates,
         functions,
         entryProgram.span());
   }

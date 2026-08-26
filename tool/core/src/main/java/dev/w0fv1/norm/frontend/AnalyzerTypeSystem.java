@@ -15,6 +15,7 @@ import dev.w0fv1.norm.semantic.TypeRelations;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
@@ -35,7 +36,9 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       Set<DocumentId> exportedSources,
       CompilationGuard guard,
       Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId) {
+      int minimumBodySymbolId,
+      Set<DocumentId> moduleEvaluationDocuments,
+      CompilationScope scope) {
     super(
         programs,
         entryProgram,
@@ -44,7 +47,9 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         exportedSources,
         guard,
         reusableDeclarations,
-        minimumBodySymbolId);
+        minimumBodySymbolId,
+        moduleEvaluationDocuments,
+        scope);
   }
 
   abstract SemanticType typeOf(Syntax.Expression expression, SemanticType expected);
@@ -158,6 +163,17 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       SourceCallCandidate candidate = structural.getFirst();
       reportInferenceFailures(candidate, span);
       validateArguments(call, candidate.parameters());
+      if (expected != null
+          && !expected.equals(SemanticType.DYNAMIC)
+          && !isPotentiallyAssignable(expected, candidate.resolution().result())) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "expected "
+                + expected.displayName()
+                + " but found "
+                + candidate.resolution().result().displayName(),
+            span);
+      }
     } else {
       diagnostics.error(INVALID_CALL, "no overload accepts the supplied argument types", span);
     }
@@ -317,16 +333,16 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   List<SemanticType> nominalViews(SemanticType actual) {
     List<SemanticType> result = new ArrayList<>(builtins.protocolConformances(actual));
-    Syntax.ClassDecl concrete = resolveClass(actual);
+    Syntax.AggregateDecl concrete = resolveAggregate(actual);
     if (concrete == null) return List.copyOf(result);
     Syntax.Program previous = currentProgram;
     currentProgram = declarations.owner(concrete);
-    Map<String, SemanticType> substitutions = classSubstitutions(concrete, actual);
-    Map<String, SemanticType> classParameters = classTypeParameters(concrete);
+    Map<String, SemanticType> substitutions = aggregateSubstitutions(concrete, actual);
+    Map<String, SemanticType> aggregateParameters = aggregateTypeParameters(concrete);
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
     for (Syntax.TypeRef interfaceRef : concrete.implementedInterfaces()) {
       SemanticType conformance =
-          resolveType(interfaceRef, classParameters).substitute(substitutions);
+          resolveType(interfaceRef, aggregateParameters).substitute(substitutions);
       Syntax.InterfaceDecl declaration = resolveInterface(conformance);
       if (declaration != null) {
         collectConformances(declaration, conformance, conformances, interfaceRef.span());
@@ -521,16 +537,16 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Map<String, SemanticType> declared;
     Object declaration;
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(reference.name());
-    Syntax.ClassDecl classDecl = resolveClass(reference.name());
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(reference.name());
     Syntax.EnumDecl enumDecl = resolveEnum(reference.name());
     if (interfaceDecl != null) {
       parameters = interfaceDecl.typeParameters();
       declared = interfaceTypeParameters(interfaceDecl);
       declaration = interfaceDecl;
-    } else if (classDecl != null) {
-      parameters = classDecl.typeParameters();
-      declared = classTypeParameters(classDecl);
-      declaration = classDecl;
+    } else if (aggregateDecl != null) {
+      parameters = aggregateDecl.typeParameters();
+      declared = aggregateTypeParameters(aggregateDecl);
+      declaration = aggregateDecl;
     } else if (enumDecl != null) {
       parameters = enumDecl.typeParameters();
       declared = enumTypeParameters(enumDecl);
@@ -627,16 +643,17 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         if (expected.nonNullable().equals(inherited.get(expected.identity()))) return true;
       }
     }
-    Syntax.ClassDecl concrete = resolveClass(actual.nonNullable());
+    Syntax.AggregateDecl concrete = resolveAggregate(actual.nonNullable());
     if (required == null || concrete == null) return false;
     Syntax.Program previous = currentProgram;
     currentProgram = declarations.owner(concrete);
-    Map<String, SemanticType> substitutions = classSubstitutions(concrete, actual.nonNullable());
-    Map<String, SemanticType> classParameters = classTypeParameters(concrete);
+    Map<String, SemanticType> substitutions =
+        aggregateSubstitutions(concrete, actual.nonNullable());
+    Map<String, SemanticType> aggregateParameters = aggregateTypeParameters(concrete);
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
     for (Syntax.TypeRef interfaceRef : concrete.implementedInterfaces()) {
       SemanticType conformance =
-          resolveType(interfaceRef, classParameters).substitute(substitutions);
+          resolveType(interfaceRef, aggregateParameters).substitute(substitutions);
       Syntax.InterfaceDecl declaration = resolveInterface(conformance);
       if (declaration != null) {
         collectConformances(declaration, conformance, conformances, interfaceRef.span());
@@ -869,7 +886,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     }
   }
 
-  Map<String, SymbolId> typeParameterSymbols(Syntax.FunctionDecl function, Syntax.ClassDecl owner) {
+  Map<String, SymbolId> typeParameterSymbols(
+      Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
     Map<String, SymbolId> result = new LinkedHashMap<>();
     if (owner != null) {
       owner
@@ -897,9 +915,9 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
     if (interfaceDecl != null)
       return Optional.ofNullable(symbols.get(declarationSymbols.get(interfaceDecl)));
-    Syntax.ClassDecl classDecl = resolveClass(name);
-    if (classDecl != null)
-      return Optional.ofNullable(symbols.get(declarationSymbols.get(classDecl)));
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
+    if (aggregateDecl != null)
+      return Optional.ofNullable(symbols.get(declarationSymbols.get(aggregateDecl)));
     Syntax.EnumDecl enumDecl = resolveEnum(name);
     if (enumDecl != null) return Optional.ofNullable(symbols.get(declarationSymbols.get(enumDecl)));
     return builtins.type(name);
@@ -960,13 +978,14 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   List<ParameterInfo> fieldParameters(
-      Syntax.ClassDecl classDecl, Map<String, SemanticType> substitutions) {
-    return classDecl.fields().stream()
+      Syntax.AggregateDecl aggregateDecl, Map<String, SemanticType> substitutions) {
+    return aggregateDecl.fields().stream()
         .map(
             field ->
                 new ParameterInfo(
                     field.name(),
-                    resolveDeclarationType(field.type(), field, classTypeParameters(classDecl))
+                    resolveDeclarationType(
+                            field.type(), field, aggregateTypeParameters(aggregateDecl))
                         .substitute(substitutions)))
         .toList();
   }
@@ -1005,7 +1024,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     if (!name.diamond()) return appliedType(name.value(), name.typeArguments(), name.span());
     String typeName = name.value();
     Symbol builtin = builtins.type(typeName).orElse(null);
-    Syntax.ClassDecl source = resolveClass(typeName);
+    Syntax.AggregateDecl source = resolveAggregate(typeName);
     List<TypeParameterInfo> parameters;
     SemanticType prototype;
     List<ParameterInfo> constructorParameters;
@@ -1015,7 +1034,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
           builtins.instantiate(typeName, parameters.stream().map(TypeParameterInfo::type).toList());
       constructorParameters = builtins.constructorParameters(prototype).orElse(List.of());
     } else if (source != null) {
-      Map<String, SemanticType> declared = classTypeParameters(source);
+      Map<String, SemanticType> declared = aggregateTypeParameters(source);
       parameters =
           source.typeParameters().stream()
               .map(
@@ -1135,12 +1154,12 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   void validatePublicType(Syntax.TypeRef type) {
     if (activeTypeParameters.containsKey(type.name())) return;
-    Syntax.ClassDecl classDecl = resolveClass(type.name());
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(type.name());
     Syntax.EnumDecl enumDecl = resolveEnum(type.name());
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(type.name());
     boolean privateType =
         interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
-            || classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
+            || aggregateDecl != null && aggregateDecl.visibility() == Syntax.Visibility.PRIVATE
             || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE;
     if (privateType) {
       diagnostics.error(
@@ -1188,26 +1207,32 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   SemanticType sourceType(String name, List<SemanticType> arguments) {
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
-    Syntax.ClassDecl classDecl = resolveClass(name);
-    if (classDecl == null) classDecl = resolveImportedClassByDeclaredName(name);
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
+    if (aggregateDecl == null) aggregateDecl = resolveImportedAggregateByDeclaredName(name);
     Syntax.EnumDecl enumDecl = resolveEnum(name);
     Object declaration =
-        interfaceDecl != null ? interfaceDecl : classDecl != null ? classDecl : enumDecl;
+        interfaceDecl != null ? interfaceDecl : aggregateDecl != null ? aggregateDecl : enumDecl;
     Syntax.Program owner = declaration == null ? currentProgram : declarations.owner(declaration);
     String declaredName =
         interfaceDecl != null
             ? interfaceDecl.name()
-            : classDecl != null ? classDecl.name() : enumDecl != null ? enumDecl.name() : name;
+            : aggregateDecl != null
+                ? aggregateDecl.name()
+                : enumDecl != null ? enumDecl.name() : name;
     String identity = qualifiedName(owner == null ? "" : owner.packageName(), declaredName);
     if (interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
-        || classDecl != null && classDecl.visibility() == Syntax.Visibility.PRIVATE
+        || aggregateDecl != null && aggregateDecl.visibility() == Syntax.Visibility.PRIVATE
         || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE) {
       identity = fileLocalIdentity(identity, owner);
     }
     ValueCategory category =
         interfaceDecl != null
             ? ValueCategory.POLYMORPHIC
-            : classDecl != null ? ValueCategory.IDENTITY : ValueCategory.VALUE;
+            : aggregateDecl != null
+                ? aggregateDecl.kind() == Syntax.AggregateKind.CLASS
+                    ? ValueCategory.IDENTITY
+                    : ValueCategory.VALUE
+                : ValueCategory.VALUE;
     return SemanticType.declared(identity, declaredName, arguments, category);
   }
 
@@ -1216,24 +1241,29 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     if (builtinArity >= 0) return builtinArity;
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
     if (interfaceDecl != null) return interfaceDecl.typeParameters().size();
-    Syntax.ClassDecl classDecl = resolveClass(name);
-    if (classDecl != null) return classDecl.typeParameters().size();
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
+    if (aggregateDecl != null) return aggregateDecl.typeParameters().size();
     Syntax.EnumDecl enumDecl = resolveEnum(name);
     return enumDecl == null ? -1 : enumDecl.typeParameters().size();
   }
 
-  Map<String, SemanticType> typeParameters(Syntax.FunctionDecl function, Syntax.ClassDecl owner) {
+  Map<String, SemanticType> typeParameters(
+      Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
     Map<String, SemanticType> result = new LinkedHashMap<>();
-    if (owner != null) result.putAll(classTypeParameters(owner));
+    if (owner != null) result.putAll(aggregateTypeParameters(owner));
     result.putAll(functionTypeParameters(function));
     return Map.copyOf(result);
   }
 
-  Map<String, SemanticType> classTypeParameters(Syntax.ClassDecl classDecl) {
+  Map<String, SemanticType> aggregateTypeParameters(Syntax.AggregateDecl aggregateDecl) {
     return declarationTypeParameters(
-        declarations.ownerOr(classDecl, currentProgram),
-        "class/" + classDecl.name(),
-        classDecl.typeParameters());
+        declarations.ownerOr(aggregateDecl, currentProgram),
+        "aggregate/" + aggregateDecl.name(),
+        aggregateDecl.typeParameters());
+  }
+
+  static String aggregateKeyword(Syntax.AggregateDecl declaration) {
+    return declaration.kind().keyword();
   }
 
   Map<String, SemanticType> interfaceTypeParameters(Syntax.InterfaceDecl declaration) {
@@ -1262,11 +1292,11 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     return Map.copyOf(result);
   }
 
-  SemanticType classSelfType(Syntax.ClassDecl classDecl) {
-    Map<String, SemanticType> parameters = classTypeParameters(classDecl);
+  SemanticType aggregateSelfType(Syntax.AggregateDecl aggregateDecl) {
+    Map<String, SemanticType> parameters = aggregateTypeParameters(aggregateDecl);
     return sourceType(
-        classDecl.name(),
-        classDecl.typeParameters().stream()
+        aggregateDecl.name(),
+        aggregateDecl.typeParameters().stream()
             .map(parameter -> parameters.get(parameter.name()))
             .toList());
   }
@@ -1319,13 +1349,14 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     }
   }
 
-  Map<String, SemanticType> classSubstitutions(Syntax.ClassDecl classDecl, SemanticType instance) {
-    Map<String, SemanticType> declarations = classTypeParameters(classDecl);
+  Map<String, SemanticType> aggregateSubstitutions(
+      Syntax.AggregateDecl aggregateDecl, SemanticType instance) {
+    Map<String, SemanticType> declarations = aggregateTypeParameters(aggregateDecl);
     Map<String, SemanticType> result = new LinkedHashMap<>();
     for (int index = 0;
-        index < Math.min(classDecl.typeParameters().size(), instance.arguments().size());
+        index < Math.min(aggregateDecl.typeParameters().size(), instance.arguments().size());
         index++) {
-      SemanticType parameter = declarations.get(classDecl.typeParameters().get(index).name());
+      SemanticType parameter = declarations.get(aggregateDecl.typeParameters().get(index).name());
       result.put(parameter.identity(), instance.arguments().get(index));
     }
     return result;
@@ -1465,19 +1496,19 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     return Map.copyOf(result);
   }
 
-  Syntax.ClassDecl resolveClass(String name) {
-    return declarations.resolveClass(currentProgram, name);
+  Syntax.AggregateDecl resolveAggregate(String name) {
+    return declarations.resolveAggregate(currentProgram, name);
   }
 
-  Syntax.ClassDecl resolveImportedClassByDeclaredName(String name) {
-    return declarations.importedClassByDeclaredName(currentProgram, name);
+  Syntax.AggregateDecl resolveImportedAggregateByDeclaredName(String name) {
+    return declarations.importedAggregateByDeclaredName(currentProgram, name);
   }
 
-  Syntax.ClassDecl resolveClass(SemanticType type) {
-    return declarations.resolveClass(type);
+  Syntax.AggregateDecl resolveAggregate(SemanticType type) {
+    return declarations.resolveAggregate(type);
   }
 
-  Syntax.ClassDecl ownerOf(Syntax.FunctionDecl method) {
+  Syntax.AggregateDecl ownerOf(Syntax.FunctionDecl method) {
     return declarations.ownerOf(method);
   }
 

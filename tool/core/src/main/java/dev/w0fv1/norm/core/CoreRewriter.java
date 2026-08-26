@@ -27,14 +27,15 @@ final class CoreRewriter {
                               local.index(), resolve(local.type(), resolver), local.kind()))
                   .toList(),
               resolve(callable.body(), resolver));
-      case CoreDefinition.Class classDefinition ->
-          new CoreDefinition.Class(
-              classDefinition.nominalType(),
-              resolveTypeParameters(classDefinition.typeParameters(), resolver),
-              classDefinition.fields().stream()
+      case CoreDefinition.Aggregate aggregateDefinition ->
+          new CoreDefinition.Aggregate(
+              aggregateDefinition.nominalType(),
+              aggregateDefinition.valueCategory(),
+              resolveTypeParameters(aggregateDefinition.typeParameters(), resolver),
+              aggregateDefinition.fields().stream()
                   .map(field -> new CoreField(field.ordinal(), resolve(field.type(), resolver)))
                   .toList(),
-              classDefinition.conformances().stream()
+              aggregateDefinition.conformances().stream()
                   .map(value -> resolve(value, resolver))
                   .toList());
       case CoreDefinition.Enum enumDefinition ->

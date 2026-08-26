@@ -18,35 +18,12 @@ public final class SourceFormatter {
 
   public Optional<String> format(SourceFile source) {
     java.util.Objects.requireNonNull(source, "source");
-    if (ModuleManifest.isManifest(source)) return formatManifest(source);
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens = new Lexer(source, diagnostics).lex();
     Syntax.Program program = new Parser(source, tokens, diagnostics).parse();
     if (diagnostics.hasErrors()) return Optional.empty();
     String formatted = Renderer.render(program(program), WIDTH);
     return Optional.of(formatted.isEmpty() ? formatted : formatted + "\n");
-  }
-
-  private Optional<String> formatManifest(SourceFile source) {
-    try {
-      ModuleManifest manifest = new ModuleManifestParser().parse(source);
-      List<Doc> fields =
-          List.of(
-              Docs.text("name: " + stringLiteral(manifest.name())),
-              Docs.text("version: " + manifest.version()),
-              Docs.concat(
-                  Docs.text("exports: "),
-                  delimited("[", "]", manifest.exports().stream().map(this::stringDoc).toList())));
-      Doc document =
-          Docs.concat(
-              Docs.text("Module("),
-              Docs.nest(2, Docs.concat(Docs.hardLine(), Docs.join(Docs.commaLine(), fields))),
-              Docs.hardLine(),
-              Docs.text(")"));
-      return Optional.of(Renderer.render(document, WIDTH) + "\n");
-    } catch (IllegalArgumentException exception) {
-      return Optional.empty();
-    }
   }
 
   private Doc program(Syntax.Program program) {
@@ -62,7 +39,7 @@ public final class SourceFormatter {
     List<AstNode> declarations = new ArrayList<>();
     declarations.addAll(program.enums());
     declarations.addAll(program.interfaces());
-    declarations.addAll(program.classes());
+    declarations.addAll(program.aggregates());
     declarations.addAll(program.functions());
     declarations.sort(Comparator.comparingInt(value -> value.span().startOffset()));
     if (!declarations.isEmpty()) {
@@ -83,7 +60,7 @@ public final class SourceFormatter {
     return switch (declaration) {
       case Syntax.EnumDecl value -> enumDeclaration(value);
       case Syntax.InterfaceDecl value -> interfaceDeclaration(value);
-      case Syntax.ClassDecl value -> classDeclaration(value);
+      case Syntax.AggregateDecl value -> aggregateDeclaration(value);
       case Syntax.FunctionDecl value -> functionDeclaration(value);
       default -> throw new IllegalArgumentException("unsupported declaration " + declaration);
     };
@@ -147,11 +124,11 @@ public final class SourceFormatter {
         .orElse(signature);
   }
 
-  private Doc classDeclaration(Syntax.ClassDecl declaration) {
+  private Doc aggregateDeclaration(Syntax.AggregateDecl declaration) {
     Doc header =
         Docs.concat(
             visibility(declaration.visibility()),
-            Docs.text("class " + declaration.name()),
+            Docs.text(declaration.kind().keyword() + " " + declaration.name()),
             typeParameters(declaration.typeParameters()),
             declaration.implementedInterfaces().isEmpty()
                 ? Docs.empty()
@@ -168,17 +145,17 @@ public final class SourceFormatter {
     members.addAll(declaration.fields());
     members.addAll(declaration.methods());
     members.sort(Comparator.comparingInt(value -> value.span().startOffset()));
-    List<Doc> formatted = members.stream().map(this::classMember).toList();
+    List<Doc> formatted = members.stream().map(this::aggregateMember).toList();
     return Docs.concat(header, declarationBody(formatted));
   }
 
-  private Doc classMember(AstNode member) {
+  private Doc aggregateMember(AstNode member) {
     return switch (member) {
       case Syntax.FieldDecl field ->
           Docs.concat(
               visibility(field.visibility()), type(field.type()), Docs.text(" " + field.name()));
       case Syntax.FunctionDecl method -> functionDeclaration(method);
-      default -> throw new IllegalArgumentException("unsupported class member " + member);
+      default -> throw new IllegalArgumentException("unsupported aggregate member " + member);
     };
   }
 
@@ -511,10 +488,6 @@ public final class SourceFormatter {
             Docs.nest(2, Docs.concat(Docs.breakLine(), Docs.join(Docs.commaLine(), values))),
             Docs.breakLine(),
             Docs.text(closing)));
-  }
-
-  private Doc stringDoc(String value) {
-    return Docs.text(stringLiteral(value));
   }
 
   private static int precedence(Syntax.Expression expression) {

@@ -12,6 +12,7 @@ import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.AnalysisResult;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
@@ -24,53 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 
 final class Analyzer extends AnalyzerExpressions {
-  Analyzer(Syntax.Program syntax, DiagnosticBag diagnostics) {
-    this(
-        List.of(syntax),
-        syntax,
-        diagnostics,
-        false,
-        Set.of(),
-        CompilationGuard.unlimited(),
-        Map.of(),
-        0);
-  }
-
-  Analyzer(
-      List<Syntax.Program> programs,
-      Syntax.Program entryProgram,
-      DiagnosticBag diagnostics,
-      boolean requireEntryPoint,
-      Set<DocumentId> exportedSources) {
-    this(
-        programs,
-        entryProgram,
-        diagnostics,
-        requireEntryPoint,
-        exportedSources,
-        CompilationGuard.unlimited(),
-        Map.of(),
-        0);
-  }
-
-  Analyzer(
-      List<Syntax.Program> programs,
-      Syntax.Program entryProgram,
-      DiagnosticBag diagnostics,
-      boolean requireEntryPoint,
-      Set<DocumentId> exportedSources,
-      CompilationGuard guard) {
-    this(
-        programs,
-        entryProgram,
-        diagnostics,
-        requireEntryPoint,
-        exportedSources,
-        guard,
-        Map.of(),
-        0);
-  }
-
   Analyzer(
       List<Syntax.Program> programs,
       Syntax.Program entryProgram,
@@ -79,7 +33,9 @@ final class Analyzer extends AnalyzerExpressions {
       Set<DocumentId> exportedSources,
       CompilationGuard guard,
       Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId) {
+      int minimumBodySymbolId,
+      Set<DocumentId> moduleEvaluationDocuments,
+      CompilationScope scope) {
     super(
         programs,
         entryProgram,
@@ -88,7 +44,9 @@ final class Analyzer extends AnalyzerExpressions {
         exportedSources,
         guard,
         reusableDeclarations,
-        minimumBodySymbolId);
+        minimumBodySymbolId,
+        moduleEvaluationDocuments,
+        scope);
   }
 
   FrontendAnalysis analyze(boolean resolveProgram) {
@@ -129,12 +87,12 @@ final class Analyzer extends AnalyzerExpressions {
         if (reuse(function.span())) continue;
         analyzeFunction(function, null);
       }
-      for (Syntax.ClassDecl classDecl : program.classes()) {
-        if (reuse(classDecl.span())) continue;
-        validateTypeParameterNames(classDecl.typeParameters());
-        validateFields(classDecl);
-        for (Syntax.FunctionDecl method : classDecl.methods()) {
-          analyzeFunction(method, classDecl);
+      for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
+        if (reuse(aggregateDecl.span())) continue;
+        validateTypeParameterNames(aggregateDecl.typeParameters());
+        validateFields(aggregateDecl);
+        for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
+          analyzeFunction(method, aggregateDecl);
         }
       }
     }
@@ -159,7 +117,8 @@ final class Analyzer extends AnalyzerExpressions {
             interfaceParentTypes(),
             flowScopes.semanticScopes(),
             snapshot,
-            importableSymbols());
+            importableSymbols(),
+            scope);
     Optional<dev.w0fv1.norm.bound.BoundProgram> boundProgram =
         !resolveProgram
                 || snapshot.stream()
@@ -241,29 +200,30 @@ final class Analyzer extends AnalyzerExpressions {
     }
     for (Syntax.Program program : programs) {
       currentProgram = program;
-      for (Syntax.ClassDecl classDecl : program.classes()) {
-        if (!declarations.addClass(program, classDecl)
-            || resolveEnum(classDecl.name()) != null
-            || resolveInterface(classDecl.name()) != null
-            || builtins.isType(classDecl.name())) {
+      for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
+        if (!declarations.addAggregate(program, aggregateDecl)
+            || resolveEnum(aggregateDecl.name()) != null
+            || resolveInterface(aggregateDecl.name()) != null
+            || builtins.isType(aggregateDecl.name())) {
           diagnostics.error(
               DUPLICATE_NAME,
-              "type '" + classDecl.name() + "' is already declared",
-              classDecl.span());
+              "type '" + aggregateDecl.name() + "' is already declared",
+              aggregateDecl.span());
         }
         Symbol type =
             register(
-                classDecl,
-                classDecl.name(),
+                aggregateDecl,
+                aggregateDecl.name(),
                 SymbolKind.TYPE,
-                sourceType(classDecl.name(), List.of()),
-                classDecl.nameSpan(),
+                sourceType(aggregateDecl.name(), List.of()),
+                aggregateDecl.nameSpan(),
                 null,
-                symbolTypeParameters(classDecl.typeParameters(), classTypeParameters(classDecl)),
+                symbolTypeParameters(
+                    aggregateDecl.typeParameters(), aggregateTypeParameters(aggregateDecl)),
                 List.of());
         typeSymbols.putIfAbsent(type.type().identity(), type.id());
         registerTypeParameters(
-            classDecl.typeParameters(), type.id(), classTypeParameters(classDecl));
+            aggregateDecl.typeParameters(), type.id(), aggregateTypeParameters(aggregateDecl));
       }
     }
     for (Syntax.Program program : programs) {
@@ -329,15 +289,16 @@ final class Analyzer extends AnalyzerExpressions {
           addMember(type.id(), value.id());
         }
       }
-      for (Syntax.ClassDecl classDecl : program.classes()) {
-        Symbol type = symbols.get(declarationSymbols.get(classDecl));
-        for (Syntax.FieldDecl field : classDecl.fields()) {
+      for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
+        Symbol type = symbols.get(declarationSymbols.get(aggregateDecl));
+        for (Syntax.FieldDecl field : aggregateDecl.fields()) {
           Symbol symbol =
               register(
                   field,
                   field.name(),
                   SymbolKind.FIELD,
-                  resolveDeclarationType(field.type(), field, classTypeParameters(classDecl)),
+                  resolveDeclarationType(
+                      field.type(), field, aggregateTypeParameters(aggregateDecl)),
                   field.nameSpan(),
                   type.id(),
                   List.of(),
@@ -355,32 +316,35 @@ final class Analyzer extends AnalyzerExpressions {
                 type.declaration(),
                 type.owner(),
                 type.typeParameters(),
-                fieldParameters(classDecl.fields(), Map.of(), classTypeParameters(classDecl)),
+                fieldParameters(
+                    aggregateDecl.fields(), Map.of(), aggregateTypeParameters(aggregateDecl)),
                 type.documentation());
         symbols.put(type.id(), type);
-        SymbolId copyId = SymbolId.source(classDecl.nameSpan().source().id(), nextSymbolId++);
-        Symbol copy =
-            new Symbol(
-                copyId,
-                "copy",
-                SymbolKind.METHOD,
-                classSelfType(classDecl),
-                Optional.empty(),
-                Optional.of(type.id()),
-                List.of(),
-                List.of(),
-                "Creates a new top-level object identity.");
-        symbols.put(copyId, copy);
-        addMember(type.id(), copyId);
-        copyMethods.put(type.type().identity(), copyId);
-        for (Syntax.FunctionDecl method : classDecl.methods()) {
+        if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS) {
+          SymbolId copyId = SymbolId.source(aggregateDecl.nameSpan().source().id(), nextSymbolId++);
+          Symbol copy =
+              new Symbol(
+                  copyId,
+                  "copy",
+                  SymbolKind.METHOD,
+                  aggregateSelfType(aggregateDecl),
+                  Optional.empty(),
+                  Optional.of(type.id()),
+                  List.of(),
+                  List.of(),
+                  "Creates a new top-level object identity.");
+          symbols.put(copyId, copy);
+          addMember(type.id(), copyId);
+          copyMethods.put(type.type().identity(), copyId);
+        }
+        for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
           validateTypeParameterNames(method.typeParameters());
           Symbol symbol =
               register(
                   method,
                   method.name(),
                   SymbolKind.METHOD,
-                  functionReturnType(method, typeParameters(method, classDecl)),
+                  functionReturnType(method, typeParameters(method, aggregateDecl)),
                   method.nameSpan(),
                   type.id(),
                   symbolTypeParameters(method.typeParameters(), functionTypeParameters(method)),
@@ -424,7 +388,7 @@ final class Analyzer extends AnalyzerExpressions {
       Set<String> localNames = new HashSet<>();
       program.enums().forEach(declaration -> localNames.add(declaration.name()));
       program.interfaces().forEach(declaration -> localNames.add(declaration.name()));
-      program.classes().forEach(declaration -> localNames.add(declaration.name()));
+      program.aggregates().forEach(declaration -> localNames.add(declaration.name()));
       program.functions().forEach(declaration -> localNames.add(declaration.name()));
       Set<String> importedNames = new HashSet<>();
       for (Syntax.ImportDecl imported : program.imports()) {
@@ -483,7 +447,9 @@ final class Analyzer extends AnalyzerExpressions {
           .forEach(symbol -> visible.put(symbol.id(), symbol.id()));
       for (Syntax.Program candidate : programs) {
         boolean sameFile = candidate == program;
-        boolean samePackage = candidate.packageName().equals(program.packageName());
+        boolean samePackage =
+            candidate.packageName().equals(program.packageName())
+                && scope.sameModule(program.span().source().id(), candidate.span().source().id());
         for (Syntax.EnumDecl declaration : candidate.enums()) {
           if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
             SymbolId id = declarationSymbols.get(declaration);
@@ -496,7 +462,7 @@ final class Analyzer extends AnalyzerExpressions {
             visible.put(id, id);
           }
         }
-        for (Syntax.ClassDecl declaration : candidate.classes()) {
+        for (Syntax.AggregateDecl declaration : candidate.aggregates()) {
           if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
             SymbolId id = declarationSymbols.get(declaration);
             visible.put(id, id);
@@ -513,7 +479,7 @@ final class Analyzer extends AnalyzerExpressions {
       currentProgram = program;
       for (Syntax.ImportDecl imported : program.imports()) {
         Object declaration = resolveFunction(imported.localName());
-        if (declaration == null) declaration = resolveClass(imported.localName());
+        if (declaration == null) declaration = resolveAggregate(imported.localName());
         if (declaration == null) declaration = resolveEnum(imported.localName());
         if (declaration == null) declaration = resolveInterface(imported.localName());
         if (declaration != null) {
@@ -550,7 +516,7 @@ final class Analyzer extends AnalyzerExpressions {
                       symbols.get(declarationSymbols.get(declaration)),
                       qualifiedName(program.packageName(), declaration.name())))
           .forEach(result::add);
-      program.classes().stream()
+      program.aggregates().stream()
           .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
           .map(
               declaration ->
@@ -570,14 +536,14 @@ final class Analyzer extends AnalyzerExpressions {
     return List.copyOf(result);
   }
 
-  private void validateFields(Syntax.ClassDecl classDecl) {
-    activeTypeParameters = classTypeParameters(classDecl);
-    activeTypeParameterSymbols = typeParameterSymbols(classDecl.typeParameters());
-    registerBounds(classDecl.typeParameters(), activeTypeParameters);
+  private void validateFields(Syntax.AggregateDecl aggregateDecl) {
+    activeTypeParameters = aggregateTypeParameters(aggregateDecl);
+    activeTypeParameterSymbols = typeParameterSymbols(aggregateDecl.typeParameters());
+    registerBounds(aggregateDecl.typeParameters(), activeTypeParameters);
     Set<String> names = new HashSet<>();
-    for (Syntax.FieldDecl field : classDecl.fields()) {
+    for (Syntax.FieldDecl field : aggregateDecl.fields()) {
       validateType(field.type(), false);
-      if (classDecl.visibility() == Syntax.Visibility.PUBLIC
+      if (aggregateDecl.visibility() == Syntax.Visibility.PUBLIC
           && field.visibility() == Syntax.Visibility.PUBLIC) {
         validatePublicType(field.type());
       }
@@ -587,8 +553,8 @@ final class Analyzer extends AnalyzerExpressions {
       }
     }
     Set<String> methods = new HashSet<>();
-    for (Syntax.FunctionDecl method : classDecl.methods()) {
-      if (method.name().equals("copy")) {
+    for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
+      if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS && method.name().equals("copy")) {
         diagnostics.error(
             DUPLICATE_NAME, "method 'copy' is reserved for identity copying", method.nameSpan());
       }
@@ -740,8 +706,8 @@ final class Analyzer extends AnalyzerExpressions {
     }
     for (Syntax.Program program : programs) {
       currentProgram = program;
-      for (Syntax.ClassDecl declaration : program.classes()) {
-        validateClassConformance(declaration);
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
+        validateAggregateConformance(declaration);
       }
     }
   }
@@ -768,8 +734,8 @@ final class Analyzer extends AnalyzerExpressions {
     visited.add(declaration);
   }
 
-  private void validateClassConformance(Syntax.ClassDecl declaration) {
-    activeTypeParameters = classTypeParameters(declaration);
+  private void validateAggregateConformance(Syntax.AggregateDecl declaration) {
+    activeTypeParameters = aggregateTypeParameters(declaration);
     activeTypeParameterSymbols = typeParameterSymbols(declaration.typeParameters());
     registerBounds(declaration.typeParameters(), activeTypeParameters);
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
@@ -779,7 +745,9 @@ final class Analyzer extends AnalyzerExpressions {
       Syntax.InterfaceDecl interfaceDecl = resolveInterface(interfaceType);
       if (interfaceDecl == null) {
         diagnostics.error(
-            TYPE_MISMATCH, "class may implement interfaces only", interfaceRef.span());
+            TYPE_MISMATCH,
+            aggregateKeyword(declaration) + " may implement interfaces only",
+            interfaceRef.span());
         continue;
       }
       collectConformances(interfaceDecl, interfaceType, conformances, interfaceRef.span());
@@ -840,7 +808,8 @@ final class Analyzer extends AnalyzerExpressions {
         if (requirement.method().body().isEmpty()) {
           diagnostics.error(
               TYPE_MISMATCH,
-              "class '"
+              aggregateKeyword(declaration)
+                  + " '"
                   + declaration.name()
                   + "' must provide public interface method '"
                   + requirement.method().name()
@@ -1020,7 +989,7 @@ final class Analyzer extends AnalyzerExpressions {
     return Map.copyOf(result);
   }
 
-  private void analyzeFunction(Syntax.FunctionDecl function, Syntax.ClassDecl owner) {
+  private void analyzeFunction(Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
     activeTypeParameters = typeParameters(function, owner);
     activeTypeParameterSymbols = typeParameterSymbols(function, owner);
     if (owner != null) registerBounds(owner.typeParameters(), activeTypeParameters);
@@ -1028,7 +997,7 @@ final class Analyzer extends AnalyzerExpressions {
     function.returnType().ifPresent(type -> validateType(type, true));
     expectedReturnType = functionReturnType(function, activeTypeParameters);
     implicitSelfReturn = owner != null && function.returnType().isEmpty();
-    currentClass = owner;
+    currentAggregate = owner;
     if (function.visibility() == Syntax.Visibility.PUBLIC
         && (owner == null || owner.visibility() == Syntax.Visibility.PUBLIC)) {
       function.returnType().ifPresent(this::validatePublicType);
@@ -1058,7 +1027,7 @@ final class Analyzer extends AnalyzerExpressions {
           declarationSymbols.get(parameter));
     }
     if (owner != null) {
-      declareSelf(classSelfType(owner), owner.nameSpan());
+      declareSelf(aggregateSelfType(owner), owner.nameSpan());
       for (Syntax.FieldDecl field : owner.fields()) {
         declareExisting(
             field.name(),
@@ -1096,7 +1065,7 @@ final class Analyzer extends AnalyzerExpressions {
     }
     popScope();
     currentCallable = null;
-    currentClass = null;
+    currentAggregate = null;
     implicitSelfReturn = false;
     activeTypeParameters = Map.of();
     activeTypeParameterSymbols = Map.of();
@@ -1147,6 +1116,14 @@ final class Analyzer extends AnalyzerExpressions {
       }
       case Syntax.Assignment assignment -> {
         SemanticType target = assignmentTargetType(assignment.target());
+        if (assignment.target() instanceof Syntax.Name name
+            && currentAggregate != null
+            && currentAggregate.kind() == Syntax.AggregateKind.VALUE) {
+          FlowScopes.ScopedSymbol scoped = findScoped(name.value());
+          if (scoped != null && scopedSymbol(scoped).kind() == SymbolKind.FIELD) {
+            diagnostics.error(TYPE_MISMATCH, "value field cannot be assigned", name.span());
+          }
+        }
         SemanticType value = typeOf(assignment.value(), target);
         requireAssignable(target, value, assignment.value().span());
         if (assignment.target() instanceof Syntax.Name name) {

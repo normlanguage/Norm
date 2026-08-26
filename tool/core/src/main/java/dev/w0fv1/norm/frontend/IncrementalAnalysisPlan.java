@@ -91,7 +91,7 @@ record IncrementalAnalysisPlan(
     for (ParsedDocument document : documents) {
       add(declarations, document.source().id(), "enum", document.syntax().enums());
       add(declarations, document.source().id(), "interface", document.syntax().interfaces());
-      add(declarations, document.source().id(), "class", document.syntax().classes());
+      add(declarations, document.source().id(), "aggregate", document.syntax().aggregates());
       add(declarations, document.source().id(), "function", document.syntax().functions());
     }
     return List.copyOf(declarations);
@@ -106,7 +106,7 @@ record IncrementalAnalysisPlan(
               Syntax.Program syntax = snapshot.document(document).orElseThrow().syntax();
               add(declarations, document, "enum", syntax.enums());
               add(declarations, document, "interface", syntax.interfaces());
-              add(declarations, document, "class", syntax.classes());
+              add(declarations, document, "aggregate", syntax.aggregates());
               add(declarations, document, "function", syntax.functions());
             });
     return List.copyOf(declarations);
@@ -124,7 +124,7 @@ record IncrementalAnalysisPlan(
       } else if (declaration instanceof Syntax.InterfaceDecl value) {
         span = value.span();
         name = value.name();
-      } else if (declaration instanceof Syntax.ClassDecl value) {
+      } else if (declaration instanceof Syntax.AggregateDecl value) {
         span = value.span();
         name = value.name();
       } else if (declaration instanceof Syntax.FunctionDecl value) {

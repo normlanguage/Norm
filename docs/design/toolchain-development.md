@@ -5,14 +5,17 @@
 ## 仓库边界
 
 ```text
-tool/core/             编译前端、诊断、执行入口与 Truffle 后端
+tool/core/             编译前端与 canonical Core
+tool/execution-api/    后端无关的执行契约
+tool/project-system/   标准库引导、模块配置与项目启动
+tool/truffle-backend/  Core lowering 与 Truffle 执行
 tool/cli/app/          命令行与 Language Server 生命周期
 tool/cli/extensions/   编辑器扩展
 norm/stdlib/           使用 Norm 编写的标准库
 norm/tests/            可执行的 Norm 验收程序
 ```
 
-`core` 不拆成 compiler、runtime 和 truffle Gradle 模块。它们共享同一份语法、类型信息和源码位置，避免跨模块复制模型。
+Gradle 模块按编译、执行契约、项目生命周期、后端和宿主工具分层。跨层数据只使用下层公开的强类型模型。
 
 ## Core package
 
@@ -26,10 +29,10 @@ dev.w0fv1.norm.core         content-addressed Core IR 与依赖索引
 dev.w0fv1.norm.core.store   canonical definition 内容存储
 dev.w0fv1.norm.diagnostic   诊断值与渲染
 dev.w0fv1.norm.language     基于语义快照的语言服务
-dev.w0fv1.norm.execution    对外执行入口、上下文与结构化错误
-dev.w0fv1.norm.truffle      Lowerer、可执行节点与运行时表示
 dev.w0fv1.norm.value        跨阶段不可变数据
 ```
+
+`execution-api` 提供 `ExecutionBackend`、`ExecutionContext` 和结构化运行错误。`project-system` 提供 `ProjectEnvironment`、`ProjectLoader` 和 `ProjectLauncher`。`truffle-backend` 保存 Lowerer、可执行节点和运行时表示。
 
 必须保持的阶段依赖约束为：
 
@@ -37,7 +40,9 @@ dev.w0fv1.norm.value        跨阶段不可变数据
 frontend ⇏ truffle
 core ⇏ frontend, truffle
 Lowerer → core
-CLI → core public API
+project-system → execution-api → core
+truffle-backend → project-system, execution-api, core
+CLI → project-system, truffle-backend
 ```
 
 `⇏` 表示禁止依赖。`bound` 只在前端内部完成已解析语义到 Core 的转换。Lowerer 只消费 Core，不依赖 Syntax AST、`SemanticModel` 或 `bound`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。
@@ -87,7 +92,7 @@ Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查�
 
 一个项目分析产生不可变 `CompilationSnapshot`。诊断和语言能力使用同一 `SemanticModel`、`SpanIndex` 与 `ReferenceIndex` 的文档视图；`CompilationEnvironment` 复用未变化的解析结果和标准库 prelude，新文档修订以原子方式替换快照。
 
-`ProgramRunner` 与 Polyglot Source 执行共享 `Compiler → CoreCompilation → TruffleExecutionBackend` 链路。每个函数对应独立的 `FunctionRootNode` 和 `CallTarget`。静态函数与方法调用使用 `DirectCallNode`，局部变量使用 `VirtualFrame` 的索引 slot，循环使用 `LoopNode`，return、break 和 continue 使用 `ControlFlowException`。执行上下文通过隐藏根参数传递，源码位置由 `CoreAuthoringMap` 中的精确 occurrence origin 附加到 Truffle 节点。
+`ProjectLauncher` 与 Polyglot Source 执行共享 `CompilerSession → CompilationOutput → TruffleExecutionBackend` 链路。每个函数对应独立的 `FunctionRootNode` 和 `CallTarget`。静态函数与方法调用使用 `DirectCallNode`，局部变量使用 `VirtualFrame` 的索引 slot，循环使用 `LoopNode`，return、break 和 continue 使用 `ControlFlowException`。执行上下文通过隐藏根参数传递，源码位置由 `CoreAuthoringMap` 中的精确 occurrence origin 附加到 Truffle 节点。
 
 `@TruffleBoundary` 只允许出现在宿主 I/O 等慢路径，不能包围 guest-language 计算。值复制语义集中在运行时表示中；如改为 copy-on-write，不得改变语言可观察行为。
 
@@ -103,6 +108,7 @@ Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查�
 
 ```powershell
 .\gradlew.bat :core:spotlessApply :core:test
+.\gradlew.bat :project-system:test
 .\gradlew.bat :cli:test
 .\gradlew.bat :cli:run --args="run docs/examples/hello.norm"
 ```

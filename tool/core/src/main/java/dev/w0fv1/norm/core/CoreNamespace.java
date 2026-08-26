@@ -93,7 +93,8 @@ public final class CoreNamespace {
                 });
         CoreCodec.writeType(writer, callable.returnType());
       }
-      case CoreBindingShape.Class declared -> {
+      case CoreBindingShape.Aggregate declared -> {
+        writer.writeTag(declared.valueCategory().name());
         writeTypeParameters(writer, declared.typeParameters());
         writer.writeInt(declared.fields().size());
         declared

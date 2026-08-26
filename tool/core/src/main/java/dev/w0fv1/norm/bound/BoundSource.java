@@ -9,14 +9,14 @@ public record BoundSource(
     String packageName,
     List<BoundEnumId> enums,
     List<BoundInterfaceId> interfaces,
-    List<BoundClassId> classes,
+    List<BoundAggregateId> aggregates,
     List<BoundCallableId> callables) {
   public BoundSource {
     Objects.requireNonNull(source, "source");
     Objects.requireNonNull(packageName, "packageName");
     enums = List.copyOf(enums);
     interfaces = List.copyOf(interfaces);
-    classes = List.copyOf(classes);
+    aggregates = List.copyOf(aggregates);
     callables = List.copyOf(callables);
   }
 }

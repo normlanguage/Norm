@@ -7,7 +7,7 @@ import java.util.List;
 public interface ModuleSourceResolver extends AutoCloseable {
   SourceFile read(String relativePath) throws IOException;
 
-  List<String> list(String relativeDirectory) throws IOException;
+  List<String> listSources() throws IOException;
 
   @Override
   default void close() throws IOException {}

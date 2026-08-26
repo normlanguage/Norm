@@ -64,8 +64,8 @@ public final class CoreProgram {
     return List.copyOf(result);
   }
 
-  public List<CoreDefinition.Class> classes() {
-    return definitions(CoreDefinition.Class.class);
+  public List<CoreDefinition.Aggregate> aggregates() {
+    return definitions(CoreDefinition.Aggregate.class);
   }
 
   public List<CoreDefinition.Enum> enums() {

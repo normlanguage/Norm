@@ -94,7 +94,7 @@ final class CoreIrArchitectureTest {
         java.util.List.of(1, 0),
         choose.arguments().stream().map(dev.w0fv1.norm.core.CoreArgument::parameterIndex).toList());
     var box =
-        (CoreDefinition.Class)
+        (CoreDefinition.Aggregate)
             compilation
                 .artifact()
                 .program()
@@ -123,7 +123,7 @@ final class CoreIrArchitectureTest {
   }
 
   private static ModuleDescriptor moduleDescriptor(Class<?> type) throws Exception {
-    Path classes = Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI());
-    return ModuleFinder.of(classes).findAll().stream().findFirst().orElseThrow().descriptor();
+    Path aggregates = Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI());
+    return ModuleFinder.of(aggregates).findAll().stream().findFirst().orElseThrow().descriptor();
   }
 }
