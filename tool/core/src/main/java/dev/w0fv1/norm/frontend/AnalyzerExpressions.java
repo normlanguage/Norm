@@ -283,35 +283,45 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           TYPE_MISMATCH, "method reference requires an expected function type", reference.span());
       return SemanticType.DYNAMIC;
     }
-    Syntax.AggregateDecl owner = resolveAggregate(receiver.nonNullable());
-    if (owner == null) {
+    Syntax.AggregateDecl aggregate = resolveAggregate(receiver.nonNullable());
+    if (aggregate == null) {
       diagnostics.error(
           TYPE_MISMATCH,
           "type '" + receiver.displayName() + "' has no source methods",
           reference.span());
       return SemanticType.DYNAMIC;
     }
-    Map<String, SemanticType> substitutions = aggregateSubstitutions(owner, receiver.nonNullable());
-    List<FunctionReferenceResolution> matches =
-        owner.methods().stream()
-            .filter(method -> method.name().equals(reference.name()))
-            .map(
-                method -> {
-                  Map<String, SemanticType> parameters = typeParameters(method, owner);
-                  SemanticType pattern =
-                      SemanticType.function(
-                              functionReturnType(method, parameters),
-                              method.parameters().stream()
-                                  .map(
-                                      parameter ->
-                                          resolveDeclarationType(
-                                              parameter.type(), method, parameters))
-                                  .toList())
-                          .substitute(substitutions);
-                  return resolveFunctionReference(method, pattern, expected);
-                })
-            .flatMap(Optional::stream)
-            .toList();
+    List<FunctionReferenceResolution> matches = List.of();
+    for (AggregateView view : aggregateViews(receiver.nonNullable())) {
+      Map<String, SemanticType> substitutions =
+          aggregateSubstitutions(view.declaration(), view.type());
+      matches =
+          view.declaration().methods().stream()
+              .filter(method -> method.name().equals(reference.name()))
+              .filter(
+                  method ->
+                      method.visibility() != Syntax.Visibility.PRIVATE
+                          || currentAggregate == view.declaration())
+              .map(
+                  method -> {
+                    Map<String, SemanticType> parameters =
+                        typeParameters(method, view.declaration());
+                    SemanticType pattern =
+                        SemanticType.function(
+                                functionReturnType(method, parameters),
+                                method.parameters().stream()
+                                    .map(
+                                        parameter ->
+                                            resolveDeclarationType(
+                                                parameter.type(), method, parameters))
+                                    .toList())
+                            .substitute(substitutions);
+                    return resolveFunctionReference(method, pattern, expected);
+                  })
+              .flatMap(Optional::stream)
+              .toList();
+      if (!matches.isEmpty()) break;
+    }
     if (matches.size() != 1) {
       diagnostics.error(
           TYPE_MISMATCH,
@@ -839,12 +849,10 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     SemanticType receiver = accessibleReceiverType(member, nullableReceiver);
     Syntax.AggregateDecl owner = resolveAggregate(receiver);
     if (owner == null) return null;
-    Syntax.FieldDecl field =
-        owner.fields().stream()
-            .filter(value -> value.name().equals(member.name()))
-            .findFirst()
-            .orElse(null);
-    if (field == null) return null;
+    AggregateField resolved = aggregateField(receiver, member.name());
+    if (resolved == null) return null;
+    Syntax.FieldDecl field = resolved.field();
+    owner = resolved.view().declaration();
     if (field.visibility() == Syntax.Visibility.PRIVATE && currentAggregate != owner) {
       diagnostics.error(
           UNKNOWN_NAME,
@@ -860,7 +868,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     bindings.put(member.nameSpan(), declarationSymbols.get(field));
     SemanticType type =
         resolveDeclarationType(field.type(), field, aggregateTypeParameters(owner))
-            .substitute(aggregateSubstitutions(owner, receiver));
+            .substitute(aggregateSubstitutions(owner, resolved.view().type()));
     return safeAccessResult(member, nullableReceiver, type);
   }
 
@@ -932,7 +940,12 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           name.span(),
           ResolvedCall.Kind.CONSTRUCT,
           declarationSymbols.get(aggregateDecl),
-          fieldParameters(aggregateDecl, substitutions),
+          aggregateDecl.constructors().isEmpty()
+              ? fieldParameters(aggregateDecl, substitutions)
+              : parameters(
+                  aggregateDecl.constructors().getFirst().parameters(),
+                  substitutions,
+                  aggregateTypeParameters(aggregateDecl)),
           List.of(),
           constructedType);
     }
@@ -1104,29 +1117,55 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
             List.of(),
             safeAccessResult(member, nullableReceiver, receiver));
       }
-      Map<String, SemanticType> substitutions = aggregateSubstitutions(aggregateDecl, receiver);
-      List<Syntax.FunctionDecl> methods =
-          aggregateDecl.methods().stream()
-              .filter(candidate -> candidate.name().equals(member.name()))
-              .toList();
-      List<Syntax.FunctionDecl> accessibleMethods =
-          methods.stream()
-              .filter(
-                  candidate ->
-                      candidate.visibility() != Syntax.Visibility.PRIVATE
-                          || currentAggregate == aggregateDecl)
-              .toList();
-      SourceCallResolution resolution =
-          resolveSourceCall(
-              accessibleMethods,
-              member.typeArguments(),
-              call,
-              callableExpected(member, nullableReceiver, expected),
-              substitutions,
-              member.nameSpan(),
-              "method");
-      if (resolution == null) {
-        if (!methods.isEmpty() && accessibleMethods.isEmpty()) {
+      boolean foundMethod = false;
+      boolean foundAccessibleMethod = false;
+      for (AggregateView view : aggregateViews(receiver)) {
+        List<Syntax.FunctionDecl> methods =
+            view.declaration().methods().stream()
+                .filter(candidate -> candidate.name().equals(member.name()))
+                .toList();
+        foundMethod |= !methods.isEmpty();
+        List<Syntax.FunctionDecl> accessibleMethods =
+            methods.stream()
+                .filter(
+                    candidate ->
+                        candidate.visibility() != Syntax.Visibility.PRIVATE
+                            || currentAggregate == view.declaration())
+                .toList();
+        foundAccessibleMethod |= !accessibleMethods.isEmpty();
+        Map<String, SemanticType> substitutions =
+            aggregateSubstitutions(view.declaration(), view.type());
+        boolean structuralMatch =
+            accessibleMethods.stream()
+                .anyMatch(
+                    candidate ->
+                        overloads.argumentIndices(
+                                call, parametersOf(candidate, substitutions), false)
+                            != null);
+        if (!structuralMatch) continue;
+        SourceCallResolution resolution =
+            resolveSourceCall(
+                accessibleMethods,
+                member.typeArguments(),
+                call,
+                callableExpected(member, nullableReceiver, expected),
+                substitutions,
+                member.nameSpan(),
+                "method");
+        if (resolution == null) return SemanticType.DYNAMIC;
+        Syntax.FunctionDecl method = resolution.declaration();
+        bindings.put(member.nameSpan(), declarationSymbols.get(method));
+        return recordCall(
+            call,
+            member.nameSpan(),
+            ResolvedCall.Kind.CALLABLE,
+            declarationSymbols.get(method),
+            resolution.parameters(),
+            resolution.reifiedArguments(),
+            safeAccessResult(member, nullableReceiver, resolution.result()));
+      }
+      if (foundMethod) {
+        if (!foundAccessibleMethod) {
           diagnostics.error(
               UNKNOWN_NAME,
               "method '"
@@ -1140,18 +1179,10 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           analyzeArguments(call.arguments());
           return SemanticType.DYNAMIC;
         }
-        if (!methods.isEmpty()) return SemanticType.DYNAMIC;
-      } else {
-        Syntax.FunctionDecl method = resolution.declaration();
-        bindings.put(member.nameSpan(), declarationSymbols.get(method));
-        return recordCall(
-            call,
-            member.nameSpan(),
-            ResolvedCall.Kind.CALLABLE,
-            declarationSymbols.get(method),
-            resolution.parameters(),
-            resolution.reifiedArguments(),
-            safeAccessResult(member, nullableReceiver, resolution.result()));
+        diagnostics.error(
+            INVALID_CALL, "no method overload accepts the supplied arguments", call.span());
+        analyzeArguments(call.arguments());
+        return SemanticType.DYNAMIC;
       }
     }
     List<InterfaceRequirement> interfaceMethods =
@@ -1351,28 +1382,26 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     }
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiverType);
     if (aggregateDecl != null) {
-      Syntax.FieldDecl field =
-          aggregateDecl.fields().stream()
-              .filter(candidate -> candidate.name().equals(member.name()))
-              .findFirst()
-              .orElse(null);
-      if (field != null) {
-        if (field.visibility() == Syntax.Visibility.PRIVATE && currentAggregate != aggregateDecl) {
+      AggregateField resolved = aggregateField(receiverType, member.name());
+      if (resolved != null) {
+        Syntax.FieldDecl field = resolved.field();
+        Syntax.AggregateDecl owner = resolved.view().declaration();
+        if (field.visibility() == Syntax.Visibility.PRIVATE && currentAggregate != owner) {
           diagnostics.error(
               UNKNOWN_NAME,
               "field '"
                   + member.name()
                   + "' is private in "
-                  + aggregateKeyword(aggregateDecl)
+                  + aggregateKeyword(owner)
                   + " '"
-                  + aggregateDecl.name()
+                  + owner.name()
                   + "'",
               member.nameSpan());
         }
         bindings.put(member.nameSpan(), declarationSymbols.get(field));
         SemanticType result =
-            resolveDeclarationType(field.type(), field, aggregateTypeParameters(aggregateDecl))
-                .substitute(aggregateSubstitutions(aggregateDecl, receiverType));
+            resolveDeclarationType(field.type(), field, aggregateTypeParameters(owner))
+                .substitute(aggregateSubstitutions(owner, resolved.view().type()));
         return safeAccessResult(member, nullableReceiverType, result);
       }
       diagnostics.error(
@@ -1478,18 +1507,20 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
             .filter(value -> value.identity().equals(interfaceIdentity))
             .findFirst();
     if (builtinConformance.isPresent()) return builtinConformance;
-    Syntax.AggregateDecl declaration = resolveAggregate(concrete);
-    if (declaration == null) return Optional.empty();
+    if (resolveAggregate(concrete) == null) return Optional.empty();
     Syntax.Program previous = currentProgram;
-    currentProgram = declarations.owner(declaration);
-    Map<String, SemanticType> parameters = aggregateTypeParameters(declaration);
-    Map<String, SemanticType> substitutions = aggregateSubstitutions(declaration, concrete);
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
-    for (Syntax.TypeRef interfaceRef : declaration.implementedInterfaces()) {
-      SemanticType conformance = resolveType(interfaceRef, parameters).substitute(substitutions);
-      Syntax.InterfaceDecl contract = resolveInterface(conformance);
-      if (contract != null) {
-        collectConformances(contract, conformance, conformances, interfaceRef.span());
+    for (AggregateView view : aggregateViews(concrete)) {
+      currentProgram = declarations.owner(view.declaration());
+      Map<String, SemanticType> parameters = aggregateTypeParameters(view.declaration());
+      Map<String, SemanticType> substitutions =
+          aggregateSubstitutions(view.declaration(), view.type());
+      for (Syntax.TypeRef interfaceRef : view.declaration().implementedInterfaces()) {
+        SemanticType conformance = resolveType(interfaceRef, parameters).substitute(substitutions);
+        Syntax.InterfaceDecl contract = resolveInterface(conformance);
+        if (contract != null) {
+          collectConformances(contract, conformance, conformances, interfaceRef.span());
+        }
       }
     }
     currentProgram = previous;

@@ -18,6 +18,7 @@ import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreExpression;
 import dev.w0fv1.norm.core.CoreIteration;
 import dev.w0fv1.norm.core.CoreLocal;
+import dev.w0fv1.norm.core.CoreMethodDispatch;
 import dev.w0fv1.norm.core.CorePattern;
 import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.CoreRuntimeType;
@@ -119,22 +120,51 @@ final class Lowerer {
         aggregates.entrySet()) {
       DefinitionOccurrenceId occurrence = entry.getKey();
       Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new HashMap<>();
-      for (CoreConformance conformance : entry.getValue().conformances()) {
+      Map<DefinitionId, RuntimeValues.DispatchTarget> methodTargets = new HashMap<>();
+      for (CoreMethodDispatch method : entry.getValue().dispatch()) {
+        DefinitionId slot = resolve(occurrence.representative(), method.slot());
+        DefinitionId implementation = resolve(occurrence.representative(), method.implementation());
+        FunctionPlan plan = callableByDefinition.get(implementation);
+        if (plan == null) throw new IllegalStateException("method dispatch target is absent");
+        CoreType receiverType =
+            CoreTypes.absolute(method.receiverType(), occurrence.representative(), program);
+        List<CoreType> arguments = ((CoreType.Declared) receiverType).arguments();
+        RuntimeValues.DispatchTarget target =
+            new RuntimeValues.DispatchTarget.Callable(plan.target, arguments);
+        dispatch.put(slot, target);
+        methodTargets.put(slot, target);
+      }
+      List<CoreType> rootArguments =
+          java.util.stream.IntStream.range(0, entry.getValue().typeParameters().size())
+              .mapToObj(
+                  index ->
+                      (CoreType)
+                          new CoreType.Parameter(
+                              index, dev.w0fv1.norm.core.CoreNullability.NON_NULL))
+              .toList();
+      for (RuntimeConformance inherited :
+          aggregateConformances(occurrence.representative(), entry.getValue(), rootArguments)) {
+        CoreConformance conformance = inherited.conformance();
         for (CoreWitness witness : conformance.witnesses()) {
-          DefinitionId requirement = resolve(occurrence.representative(), witness.requirement());
-          RuntimeValues.DispatchTarget target =
-              lowerWitnessTarget(
-                  occurrence.representative(), witness.implementation(), callableByDefinition);
+          DefinitionId requirement = resolve(inherited.owner(), witness.requirement());
+          DefinitionId implementation =
+              witness.implementation() instanceof CoreWitnessTarget.Callable callable
+                  ? resolve(inherited.owner(), callable.definition())
+                  : null;
+          RuntimeValues.DispatchTarget target = methodTargets.get(implementation);
+          if (target == null) {
+            target =
+                lowerWitnessTarget(
+                    inherited.owner(), witness.implementation(), callableByDefinition);
+          }
           if (target instanceof RuntimeValues.DispatchTarget.Callable callable
-              && isDefaultWitness(occurrence.representative(), witness.implementation())) {
-            CoreType interfaceType =
-                CoreTypes.absolute(
-                    conformance.interfaceType(), occurrence.representative(), program);
+              && isDefaultWitness(inherited.owner(), witness.implementation())) {
+            CoreType interfaceType = inherited.interfaceType();
             target =
                 new RuntimeValues.DispatchTarget.Callable(
                     callable.target(), ((CoreType.Declared) interfaceType).arguments());
           }
-          if (dispatch.putIfAbsent(requirement, target) != null) {
+          if (dispatch.put(requirement, target) != null) {
             throw new IllegalStateException("verified aggregate dispatch is duplicated");
           }
         }
@@ -144,7 +174,7 @@ final class Lowerer {
           new RuntimeValues.AggregateInfo(
               occurrence.representative(),
               artifact.displayName(occurrence),
-              entry.getValue().fields().size(),
+              entry.getValue().fieldCount(),
               dispatch));
     }
     for (CoreDefinitionRecord record : program.definitions()) {
@@ -187,6 +217,35 @@ final class Lowerer {
           new RuntimeValues.DispatchTarget.Intrinsic(intrinsic.intrinsic());
     };
   }
+
+  private List<RuntimeConformance> aggregateConformances(
+      DefinitionId owner, CoreDefinition.Aggregate aggregate, List<CoreType> ownerArguments) {
+    List<RuntimeConformance> result = new ArrayList<>();
+    for (CoreConformance conformance : aggregate.conformances()) {
+      CoreType interfaceType =
+          CoreTypes.absolute(conformance.interfaceType(), owner, program)
+              .substitute(ownerArguments::get);
+      result.add(new RuntimeConformance(owner, conformance, interfaceType));
+    }
+    if (aggregate.parentType().isPresent()) {
+      CoreType parent =
+          CoreTypes.absolute(aggregate.parentType().orElseThrow(), owner, program)
+              .substitute(ownerArguments::get);
+      CoreType.Declared declared = (CoreType.Declared) parent;
+      DefinitionId parentId =
+          ((DefinitionReference.External)
+                  ((CoreTypeConstructor.User) declared.constructor()).definition())
+              .definition();
+      CoreDefinition parentDefinition = program.definition(parentId).orElseThrow();
+      result.addAll(
+          aggregateConformances(
+              parentId, (CoreDefinition.Aggregate) parentDefinition, declared.arguments()));
+    }
+    return List.copyOf(result);
+  }
+
+  private record RuntimeConformance(
+      DefinitionId owner, CoreConformance conformance, CoreType interfaceType) {}
 
   private boolean isDefaultWitness(DefinitionId owner, CoreWitnessTarget target) {
     if (!(target instanceof CoreWitnessTarget.Callable callable)) return false;
@@ -456,8 +515,16 @@ final class Lowerer {
     DefinitionOccurrenceId target = resolve(plan, construct.nodeIndex(), construct.target());
     RuntimeValues.AggregateInfo info = aggregateInfo.get(target);
     if (info == null) throw new IllegalStateException("core aggregate target is absent: " + target);
+    DefinitionId initializerId = resolve(plan.id.representative(), construct.initializer());
+    com.oracle.truffle.api.CallTarget initializer =
+        callables.values().stream()
+            .filter(value -> value.id.representative().equals(initializerId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("constructor target is absent"))
+            .target;
     return new ExpressionNodes.Construct(
         info,
+        initializer,
         lowerRuntimeType(construct.runtimeType(), plan),
         lowerArguments(construct.arguments(), plan),
         parameterIndices(construct.arguments()));
@@ -490,12 +557,27 @@ final class Lowerer {
     FunctionPlan target = callables.get(targetId);
     if (target == null) throw new IllegalStateException("core call target is absent: " + targetId);
     if (call.receiver().isPresent()) {
+      if (call.virtual()) {
+        return new ExpressionNodes.DispatchedCall(
+            targetId.representative(),
+            lowerExpression(call.receiver().orElseThrow(), plan),
+            lowerArguments(call.arguments(), plan),
+            parameterIndices(call.arguments()),
+            call.reifiedArguments().stream()
+                .map(value -> lowerRuntimeType(value, plan))
+                .toArray(ExpressionNode[]::new),
+            call.nullSafe(),
+            builtinDispatch);
+      }
       return new ExpressionNodes.MethodCall(
           target.target,
           lowerExpression(call.receiver().orElseThrow(), plan),
           lowerArguments(call.arguments(), plan),
           parameterIndices(call.arguments()),
           call.reifiedArguments().stream()
+              .map(value -> lowerRuntimeType(value, plan))
+              .toArray(ExpressionNode[]::new),
+          call.receiverTypeArguments().stream()
               .map(value -> lowerRuntimeType(value, plan))
               .toArray(ExpressionNode[]::new),
           call.nullSafe());
@@ -516,18 +598,22 @@ final class Lowerer {
       throw new IllegalStateException("core closure target is absent: " + targetId);
     return new ExpressionNodes.Closure(
         target.target,
+        closure.virtual() ? targetId.representative() : null,
         closure.receiver().map(value -> lowerExpression(value, plan)).orElse(null),
         closure.captures().stream()
             .map(value -> lowerExpression(value, plan))
             .toArray(ExpressionNode[]::new),
         closure.reifiedArguments().stream()
             .map(value -> lowerRuntimeType(value, plan))
+            .toArray(ExpressionNode[]::new),
+        closure.receiverTypeArguments().stream()
+            .map(value -> lowerRuntimeType(value, plan))
             .toArray(ExpressionNode[]::new));
   }
 
   private ExpressionNode lowerInterfaceCall(CoreExpression.InterfaceCall call, FunctionPlan plan) {
     DefinitionOccurrenceId requirement = resolve(plan, call.nodeIndex(), call.requirement());
-    return new ExpressionNodes.InterfaceCall(
+    return new ExpressionNodes.DispatchedCall(
         requirement.representative(),
         lowerExpression(call.receiver(), plan),
         lowerArguments(call.arguments(), plan),

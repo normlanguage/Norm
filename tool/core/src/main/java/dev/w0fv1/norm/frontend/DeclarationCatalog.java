@@ -177,6 +177,7 @@ final class DeclarationCatalog {
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         owners.put(declaration, program);
         declaration.fields().forEach(field -> owners.put(field, program));
+        declaration.constructors().forEach(constructor -> owners.put(constructor, program));
         declaration.methods().forEach(method -> owners.put(method, program));
       }
       program.functions().forEach(declaration -> owners.put(declaration, program));

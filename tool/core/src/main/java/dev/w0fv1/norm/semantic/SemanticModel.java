@@ -33,6 +33,8 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SymbolId, List<SymbolId>> aliasTargets;
   private final Map<SymbolId, List<SymbolId>> callableGroups;
   private final Map<SymbolId, Map<SymbolId, SymbolId>> witnesses;
+  private final Map<String, SemanticType> aggregateParents;
+  private final Map<SymbolId, SymbolId> methodOverrides;
   private final Map<String, SymbolId> typeSymbols;
   private final Map<String, List<SemanticType>> interfaceParents;
   private final List<SemanticScope> scopes;
@@ -60,6 +62,8 @@ public final class SemanticModel implements SemanticIndex {
       Map<SymbolId, List<SymbolId>> aliasTargets,
       Map<SymbolId, List<SymbolId>> callableGroups,
       Map<SymbolId, Map<SymbolId, SymbolId>> witnesses,
+      Map<String, SemanticType> aggregateParents,
+      Map<SymbolId, SymbolId> methodOverrides,
       Map<String, SymbolId> typeSymbols,
       Map<String, List<SemanticType>> interfaceParents,
       List<SemanticScope> scopes,
@@ -93,6 +97,8 @@ public final class SemanticModel implements SemanticIndex {
     Map<SymbolId, Map<SymbolId, SymbolId>> copiedWitnesses = new LinkedHashMap<>();
     witnesses.forEach((owner, values) -> copiedWitnesses.put(owner, Map.copyOf(values)));
     this.witnesses = Map.copyOf(copiedWitnesses);
+    this.aggregateParents = Map.copyOf(aggregateParents);
+    this.methodOverrides = Map.copyOf(methodOverrides);
     this.typeSymbols = Map.copyOf(typeSymbols);
     Map<String, List<SemanticType>> copiedParents = new LinkedHashMap<>();
     interfaceParents.forEach(
@@ -131,6 +137,8 @@ public final class SemanticModel implements SemanticIndex {
     this.aliasTargets = project.aliasTargets;
     this.callableGroups = project.callableGroups;
     this.witnesses = project.witnesses;
+    this.aggregateParents = project.aggregateParents;
+    this.methodOverrides = project.methodOverrides;
     this.typeSymbols = project.typeSymbols;
     this.interfaceParents = project.interfaceParents;
     this.scopes = project.scopes;
@@ -393,6 +401,26 @@ public final class SemanticModel implements SemanticIndex {
     return Optional.ofNullable(witnesses.getOrDefault(classType, Map.of()).get(requirement));
   }
 
+  public Optional<SemanticType> aggregateParent(SemanticType type) {
+    SemanticType parent = aggregateParents.get(type.identity());
+    if (parent == null) return Optional.empty();
+    SymbolId typeSymbol = typeSymbols.get(type.identity());
+    if (typeSymbol == null) return Optional.of(parent);
+    Symbol symbol = symbols.get(typeSymbol);
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+    for (int index = 0;
+        index < Math.min(symbol.typeParameters().size(), type.arguments().size());
+        index++) {
+      substitutions.put(
+          symbol.typeParameters().get(index).type().identity(), type.arguments().get(index));
+    }
+    return Optional.of(parent.substitute(substitutions));
+  }
+
+  public Optional<SymbolId> overriddenMethod(SymbolId method) {
+    return Optional.ofNullable(methodOverrides.get(method));
+  }
+
   public Optional<ResolvedIteration> iterationOf(SourceSpan iterableSpan) {
     return Optional.ofNullable(iterations.get(iterableSpan));
   }
@@ -450,6 +478,23 @@ public final class SemanticModel implements SemanticIndex {
         }
       }
     }
+    aggregateParent(type)
+        .ifPresent(
+            parent -> {
+              Set<SymbolId> overridden =
+                  result.stream()
+                      .map(Symbol::id)
+                      .map(methodOverrides::get)
+                      .filter(Objects::nonNull)
+                      .collect(java.util.stream.Collectors.toSet());
+              for (Symbol inherited : members(parent, visiting)) {
+                if (!overridden.contains(inherited.id())
+                    && result.stream()
+                        .noneMatch(existing -> existing.id().equals(inherited.id()))) {
+                  result.add(inherited);
+                }
+              }
+            });
     return List.copyOf(result);
   }
 

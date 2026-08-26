@@ -79,20 +79,42 @@ final class CoreProgramTest {
             List.of(),
             CoreValueCategory.IDENTITY,
             CoreNullability.NON_NULL);
-    CoreDefinitionGroup group =
-        CoreDefinitionGroup.create(
+    CoreType receiver =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new PendingDefinitionReference(0)),
+            List.of(),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    CoreDefinition.Aggregate aggregate =
+        new CoreDefinition.Aggregate(
+            new CoreNominalTypeKey(
+                new ModuleCoordinate("sample", 1),
+                "sample",
+                "Box",
+                CoreVisibility.PUBLIC,
+                Optional.empty()),
+            CoreValueCategory.IDENTITY,
+            List.of(),
+            Optional.empty(),
+            1,
+            List.of(new CoreField(0, fieldType)),
+            List.of(),
+            new PendingDefinitionReference(1),
+            List.of());
+    CoreDefinition.Callable constructor =
+        new CoreDefinition.Callable(
+            Optional.of(receiver),
+            List.of(),
+            List.of(fieldType),
+            List.of(1),
+            List.of(),
+            CoreType.VOID,
             List.of(
-                new CoreDefinition.Aggregate(
-                    new CoreNominalTypeKey(
-                        new ModuleCoordinate("sample", 1),
-                        "sample",
-                        "Box",
-                        CoreVisibility.PUBLIC,
-                        Optional.empty()),
-                    CoreValueCategory.IDENTITY,
-                    List.of(),
-                    List.of(new CoreField(0, fieldType)),
-                    List.of())));
+                new CoreLocal(0, receiver, CoreLocal.Kind.RECEIVER),
+                new CoreLocal(1, fieldType, CoreLocal.Kind.PARAMETER)),
+            new CoreBlock(0, List.of()));
+    CoreDefinitionGroup group =
+        new CoreCanonicalizer().canonicalize(List.of(aggregate, constructor)).groups().getFirst();
     CoreDefinitionGroup enumGroup =
         CoreDefinitionGroup.create(
             List.of(

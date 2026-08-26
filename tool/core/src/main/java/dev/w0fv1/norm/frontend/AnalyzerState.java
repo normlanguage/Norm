@@ -73,6 +73,8 @@ abstract class AnalyzerState {
   final Map<Syntax.ImportDecl, SymbolId> importAliases = new IdentityHashMap<>();
   final Map<SymbolId, List<SymbolId>> aliasTargets = new LinkedHashMap<>();
   final Map<SymbolId, Map<SymbolId, SymbolId>> witnesses = new LinkedHashMap<>();
+  final Map<String, SemanticType> aggregateParents = new LinkedHashMap<>();
+  final Map<SymbolId, SymbolId> methodOverrides = new LinkedHashMap<>();
   final FlowScopes flowScopes = new FlowScopes();
   int nextSymbolId;
   SymbolId currentCallable;

@@ -633,6 +633,9 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             ? typeParameterBounds.get(actual.identity())
             : null;
     if (bound != null && isAssignable(expected, bound)) return true;
+    for (AggregateView view : aggregateViews(actual.nonNullable())) {
+      if (expected.nonNullable().equals(view.type())) return true;
+    }
     Syntax.InterfaceDecl required = resolveInterface(expected.nonNullable());
     for (SemanticType conformance : builtins.protocolConformances(actual.nonNullable())) {
       if (expected.nonNullable().equals(conformance)) return true;
@@ -643,24 +646,51 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         if (expected.nonNullable().equals(inherited.get(expected.identity()))) return true;
       }
     }
-    Syntax.AggregateDecl concrete = resolveAggregate(actual.nonNullable());
-    if (required == null || concrete == null) return false;
-    Syntax.Program previous = currentProgram;
-    currentProgram = declarations.owner(concrete);
-    Map<String, SemanticType> substitutions =
-        aggregateSubstitutions(concrete, actual.nonNullable());
-    Map<String, SemanticType> aggregateParameters = aggregateTypeParameters(concrete);
+    if (required == null) return false;
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
-    for (Syntax.TypeRef interfaceRef : concrete.implementedInterfaces()) {
-      SemanticType conformance =
-          resolveType(interfaceRef, aggregateParameters).substitute(substitutions);
-      Syntax.InterfaceDecl declaration = resolveInterface(conformance);
-      if (declaration != null) {
-        collectConformances(declaration, conformance, conformances, interfaceRef.span());
+    Syntax.Program previous = currentProgram;
+    for (AggregateView view : aggregateViews(actual.nonNullable())) {
+      currentProgram = declarations.owner(view.declaration());
+      Map<String, SemanticType> substitutions =
+          aggregateSubstitutions(view.declaration(), view.type());
+      Map<String, SemanticType> aggregateParameters = aggregateTypeParameters(view.declaration());
+      for (Syntax.TypeRef interfaceRef : view.declaration().implementedInterfaces()) {
+        SemanticType conformance =
+            resolveType(interfaceRef, aggregateParameters).substitute(substitutions);
+        Syntax.InterfaceDecl declaration = resolveInterface(conformance);
+        if (declaration != null) {
+          collectConformances(declaration, conformance, conformances, interfaceRef.span());
+        }
       }
     }
     currentProgram = previous;
     return expected.nonNullable().equals(conformances.get(expected.identity()));
+  }
+
+  Optional<SemanticType> directParentType(Syntax.AggregateDecl declaration, SemanticType instance) {
+    if (declaration.extendedClass().isEmpty()) return Optional.empty();
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarations.ownerOr(declaration, currentProgram);
+    SemanticType parent =
+        resolveType(declaration.extendedClass().orElseThrow(), aggregateTypeParameters(declaration))
+            .substitute(aggregateSubstitutions(declaration, instance));
+    currentProgram = previous;
+    return Optional.of(parent);
+  }
+
+  List<AggregateView> aggregateViews(SemanticType instance) {
+    List<AggregateView> result = new ArrayList<>();
+    Set<String> visited = new HashSet<>();
+    SemanticType current = instance.nonNullable();
+    while (visited.add(current.identity())) {
+      Syntax.AggregateDecl declaration = resolveAggregate(current);
+      if (declaration == null) break;
+      result.add(new AggregateView(declaration, current));
+      Optional<SemanticType> parent = directParentType(declaration, current);
+      if (parent.isEmpty()) break;
+      current = parent.orElseThrow().nonNullable();
+    }
+    return List.copyOf(result);
   }
 
   void declareExisting(String name, SemanticType type, SourceSpan span, SymbolId id) {
@@ -1043,7 +1073,13 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
               .toList();
       prototype =
           sourceType(source.name(), parameters.stream().map(TypeParameterInfo::type).toList());
-      constructorParameters = fieldParameters(source, Map.of());
+      constructorParameters =
+          source.constructors().isEmpty()
+              ? fieldParameters(source, Map.of())
+              : parameters(
+                  source.constructors().getFirst().parameters(),
+                  Map.of(),
+                  aggregateTypeParameters(source));
     } else {
       diagnostics.error(UNKNOWN_NAME, "cannot find type '" + typeName + "'", name.span());
       return SemanticType.DYNAMIC;
@@ -1265,6 +1301,22 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   static String aggregateKeyword(Syntax.AggregateDecl declaration) {
     return declaration.kind().keyword();
   }
+
+  record AggregateView(Syntax.AggregateDecl declaration, SemanticType type) {}
+
+  AggregateField aggregateField(SemanticType receiver, String name) {
+    for (AggregateView view : aggregateViews(receiver)) {
+      Syntax.FieldDecl field =
+          view.declaration().fields().stream()
+              .filter(candidate -> candidate.name().equals(name))
+              .findFirst()
+              .orElse(null);
+      if (field != null) return new AggregateField(field, view);
+    }
+    return null;
+  }
+
+  record AggregateField(Syntax.FieldDecl field, AggregateView view) {}
 
   Map<String, SemanticType> interfaceTypeParameters(Syntax.InterfaceDecl declaration) {
     return declarationTypeParameters(

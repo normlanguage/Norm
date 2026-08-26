@@ -263,6 +263,11 @@ final class BoundCoreConverter {
     SourceOwner source = sourceOwner(declaration.id().value());
     BoundCoreTypeConverter types =
         BoundCoreTypeConverter.forAggregate(declaration, nominalTypeIndices);
+    BoundCallable constructor =
+        program.callables().stream()
+            .filter(callable -> callable.id().equals(declaration.constructor()))
+            .findFirst()
+            .orElseThrow();
     CoreDefinition definition =
         new CoreDefinition.Aggregate(
             nominalType(source, declaration.name(), visibility(declaration.visibility())),
@@ -272,9 +277,22 @@ final class BoundCoreConverter {
               default -> throw new IllegalStateException("invalid aggregate value category");
             },
             coreTypeParameters(declaration.typeParameters(), types),
+            declaration.parentType().map(types::convert),
+            declaration.fieldCount(),
             declaration.fields().stream()
                 .map(field -> new CoreField(field.ordinal(), types.convert(field.type())))
                 .toList(),
+            declaration.dispatch().stream()
+                .map(
+                    dispatch ->
+                        new dev.w0fv1.norm.core.CoreMethodDispatch(
+                            new PendingDefinitionReference(
+                                declarationIndex(dispatch.slot().value())),
+                            new PendingDefinitionReference(
+                                declarationIndex(dispatch.implementation().value())),
+                            types.convert(dispatch.receiverType())))
+                .toList(),
+            new PendingDefinitionReference(declarationIndex(declaration.constructor().value())),
             coreConformances(declaration.conformances(), types));
     return new Declaration(
         definition,
@@ -292,6 +310,7 @@ final class BoundCoreConverter {
                   default -> throw new IllegalStateException("invalid aggregate value category");
                 },
                 coreTypeParameters(declaration.typeParameters(), types),
+                declaration.parentType().map(types::convert),
                 declaration.fields().stream()
                     .map(
                         field ->
@@ -299,6 +318,12 @@ final class BoundCoreConverter {
                                 field.name(),
                                 visibility(field.visibility()),
                                 types.convert(field.type())))
+                    .toList(),
+                constructor.parameters().stream()
+                    .map(
+                        parameter ->
+                            new CoreBindingShape.Parameter(
+                                parameter.name(), types.convert(parameter.type())))
                     .toList(),
                 declaration.conformances().stream()
                     .map(conformance -> types.convert(conformance.interfaceType()))
@@ -593,6 +618,7 @@ final class BoundCoreConverter {
             new CoreBindingShape.Aggregate(
                 aggregateShape.valueCategory(),
                 resolveTypeParameters(aggregateShape.typeParameters(), links),
+                aggregateShape.parentType().map(type -> CoreTypes.mapLinks(type, links)),
                 aggregateShape.fields().stream()
                     .map(
                         field ->
@@ -600,6 +626,12 @@ final class BoundCoreConverter {
                                 field.name(),
                                 field.visibility(),
                                 CoreTypes.mapLinks(field.type(), links)))
+                    .toList(),
+                aggregateShape.constructorParameters().stream()
+                    .map(
+                        parameter ->
+                            new CoreBindingShape.Parameter(
+                                parameter.label(), CoreTypes.mapLinks(parameter.type(), links)))
                     .toList(),
                 aggregateShape.conformances().stream()
                     .map(type -> CoreTypes.mapLinks(type, links))

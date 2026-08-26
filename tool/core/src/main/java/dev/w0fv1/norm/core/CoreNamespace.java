@@ -96,6 +96,8 @@ public final class CoreNamespace {
       case CoreBindingShape.Aggregate declared -> {
         writer.writeTag(declared.valueCategory().name());
         writeTypeParameters(writer, declared.typeParameters());
+        writer.writeBoolean(declared.parentType().isPresent());
+        declared.parentType().ifPresent(type -> CoreCodec.writeType(writer, type));
         writer.writeInt(declared.fields().size());
         declared
             .fields()
@@ -103,6 +105,14 @@ public final class CoreNamespace {
                 field -> {
                   writer.writeString(field.name()).writeTag(field.visibility().name());
                   CoreCodec.writeType(writer, field.type());
+                });
+        writer.writeInt(declared.constructorParameters().size());
+        declared
+            .constructorParameters()
+            .forEach(
+                parameter -> {
+                  writer.writeString(parameter.label());
+                  CoreCodec.writeType(writer, parameter.type());
                 });
         writer.writeInt(declared.conformances().size());
         declared.conformances().stream()

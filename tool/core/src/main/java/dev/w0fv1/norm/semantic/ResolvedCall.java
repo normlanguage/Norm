@@ -30,6 +30,7 @@ public record ResolvedCall(
   public enum Kind {
     CALLABLE,
     CONSTRUCT,
+    SUPER,
     ENUM_CONSTRUCT,
     INTERFACE_CALL,
     INTRINSIC,

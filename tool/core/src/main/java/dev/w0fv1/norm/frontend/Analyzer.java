@@ -2,6 +2,7 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.semantic.ImportableSymbol;
 import dev.w0fv1.norm.semantic.ParameterInfo;
+import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.ResolvedIteration;
 import dev.w0fv1.norm.semantic.SemanticContribution;
 import dev.w0fv1.norm.semantic.SemanticModel;
@@ -11,6 +12,7 @@ import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.syntax.Syntax;
+import dev.w0fv1.norm.syntax.TokenKind;
 import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
@@ -55,6 +57,7 @@ final class Analyzer extends AnalyzerExpressions {
     nextSymbolId = Math.max(nextSymbolId, minimumBodySymbolId);
     validateImports();
     createFileScopes();
+    validateClassHierarchy();
     currentProgram = entryProgram;
     Syntax.FunctionDecl main =
         entryProgram.functions().stream()
@@ -91,6 +94,9 @@ final class Analyzer extends AnalyzerExpressions {
         if (reuse(aggregateDecl.span())) continue;
         validateTypeParameterNames(aggregateDecl.typeParameters());
         validateFields(aggregateDecl);
+        for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
+          analyzeConstructor(constructor, aggregateDecl);
+        }
         for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
           analyzeFunction(method, aggregateDecl);
         }
@@ -113,6 +119,8 @@ final class Analyzer extends AnalyzerExpressions {
             aliasTargets,
             callableGroups(),
             witnesses,
+            aggregateParents,
+            methodOverrides,
             typeSymbols,
             interfaceParentTypes(),
             flowScopes.semanticScopes(),
@@ -307,6 +315,14 @@ final class Analyzer extends AnalyzerExpressions {
             addMember(type.id(), symbol.id());
           }
         }
+        List<ParameterInfo> constructionParameters =
+            aggregateDecl.constructors().isEmpty()
+                ? fieldParameters(
+                    aggregateDecl.fields(), Map.of(), aggregateTypeParameters(aggregateDecl))
+                : parameters(
+                    aggregateDecl.constructors().getFirst().parameters(),
+                    Map.of(),
+                    aggregateTypeParameters(aggregateDecl));
         type =
             new Symbol(
                 type.id(),
@@ -316,10 +332,21 @@ final class Analyzer extends AnalyzerExpressions {
                 type.declaration(),
                 type.owner(),
                 type.typeParameters(),
-                fieldParameters(
-                    aggregateDecl.fields(), Map.of(), aggregateTypeParameters(aggregateDecl)),
+                constructionParameters,
                 type.documentation());
         symbols.put(type.id(), type);
+        for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
+          register(
+              constructor,
+              constructor.name(),
+              SymbolKind.CONSTRUCTOR,
+              SemanticType.VOID,
+              constructor.nameSpan(),
+              type.id(),
+              List.of(),
+              parameters(
+                  constructor.parameters(), Map.of(), aggregateTypeParameters(aggregateDecl)));
+        }
         if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS) {
           SymbolId copyId = SymbolId.source(aggregateDecl.nameSpan().source().id(), nextSymbolId++);
           Symbol copy =
@@ -347,7 +374,8 @@ final class Analyzer extends AnalyzerExpressions {
                   functionReturnType(method, typeParameters(method, aggregateDecl)),
                   method.nameSpan(),
                   type.id(),
-                  symbolTypeParameters(method.typeParameters(), functionTypeParameters(method)),
+                  symbolTypeParameters(
+                      method.typeParameters(), typeParameters(method, aggregateDecl)),
                   parametersOf(method, Map.of()));
           registerTypeParameters(
               method.typeParameters(), symbol.id(), functionTypeParameters(method));
@@ -536,6 +564,190 @@ final class Analyzer extends AnalyzerExpressions {
     return List.copyOf(result);
   }
 
+  private void validateClassHierarchy() {
+    Set<Syntax.AggregateDecl> visiting =
+        java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    Set<Syntax.AggregateDecl> visited =
+        java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
+        activeTypeParameters = aggregateTypeParameters(declaration);
+        activeTypeParameterSymbols = typeParameterSymbols(declaration.typeParameters());
+        declaration
+            .extendedClass()
+            .ifPresent(
+                parentRef -> {
+                  validateType(parentRef, false);
+                  SemanticType parent = resolveType(parentRef, activeTypeParameters);
+                  Syntax.AggregateDecl parentDeclaration = resolveAggregate(parent);
+                  if (declaration.kind() != Syntax.AggregateKind.CLASS
+                      || parentDeclaration == null
+                      || parentDeclaration.kind() != Syntax.AggregateKind.CLASS) {
+                    diagnostics.error(
+                        TYPE_MISMATCH, "class inheritance requires a class", parentRef.span());
+                    return;
+                  }
+                  aggregateParents.put(aggregateSelfType(declaration).identity(), parent);
+                  if (declaration.constructors().isEmpty()) {
+                    diagnostics.error(
+                        TYPE_MISMATCH,
+                        "subclass '" + declaration.name() + "' must declare a constructor",
+                        declaration.nameSpan());
+                  }
+                  validateInheritedFields(declaration);
+                  validateOverrides(declaration);
+                });
+        activeTypeParameters = Map.of();
+        activeTypeParameterSymbols = Map.of();
+      }
+    }
+    for (Syntax.Program program : programs) {
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
+        validateClassCycle(declaration, visiting, visited);
+      }
+    }
+  }
+
+  private void validateClassCycle(
+      Syntax.AggregateDecl declaration,
+      Set<Syntax.AggregateDecl> visiting,
+      Set<Syntax.AggregateDecl> visited) {
+    if (visited.contains(declaration)) return;
+    if (!visiting.add(declaration)) {
+      diagnostics.error(
+          TYPE_MISMATCH, "class inheritance contains a cycle", declaration.nameSpan());
+      return;
+    }
+    Syntax.Program previous = currentProgram;
+    currentProgram = declarations.owner(declaration);
+    directParentType(declaration, aggregateSelfType(declaration))
+        .map(this::resolveAggregate)
+        .ifPresent(parent -> validateClassCycle(parent, visiting, visited));
+    currentProgram = previous;
+    visiting.remove(declaration);
+    visited.add(declaration);
+  }
+
+  private void validateInheritedFields(Syntax.AggregateDecl declaration) {
+    Set<String> inherited = new HashSet<>();
+    List<AggregateView> views = aggregateViews(aggregateSelfType(declaration));
+    for (AggregateView view : views.subList(Math.min(1, views.size()), views.size())) {
+      view.declaration().fields().forEach(field -> inherited.add(field.name()));
+    }
+    for (Syntax.FieldDecl field : declaration.fields()) {
+      if (inherited.contains(field.name())) {
+        diagnostics.error(
+            DUPLICATE_NAME,
+            "field '" + field.name() + "' is already declared by a parent class",
+            field.nameSpan());
+      }
+    }
+  }
+
+  private void validateOverrides(Syntax.AggregateDecl declaration) {
+    List<AggregateView> views = aggregateViews(aggregateSelfType(declaration));
+    if (views.size() < 2) return;
+    for (Syntax.FunctionDecl method : declaration.methods()) {
+      if (method.visibility() != Syntax.Visibility.PUBLIC) continue;
+      List<ParentMethod> sameShape = new ArrayList<>();
+      for (AggregateView view : views.subList(1, views.size())) {
+        for (Syntax.FunctionDecl inherited : view.declaration().methods()) {
+          if (inherited.visibility() == Syntax.Visibility.PUBLIC
+              && inherited.name().equals(method.name())
+              && sameOverrideParameters(method, inherited, view)) {
+            sameShape.add(new ParentMethod(inherited, view));
+          }
+        }
+        if (!sameShape.isEmpty()) break;
+      }
+      if (sameShape.isEmpty()) continue;
+      ParentMethod parent = sameShape.getFirst();
+      Symbol methodSymbol = symbols.get(declarationSymbols.get(method));
+      Symbol parentSymbol = symbols.get(declarationSymbols.get(parent.method()));
+      Map<String, SemanticType> parentSubstitutions =
+          aggregateSubstitutions(parent.view().declaration(), parent.view().type());
+      if (!sameGenericShape(methodSymbol, Map.of(), parentSymbol, parentSubstitutions)) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "override of '" + method.name() + "' must preserve type parameter bounds",
+            method.nameSpan());
+        continue;
+      }
+      SemanticType expected =
+          functionReturnType(
+                  parent.method(), typeParameters(parent.method(), parent.view().declaration()))
+              .substitute(parentSubstitutions);
+      SemanticType actual = functionReturnType(method, typeParameters(method, declaration));
+      boolean sameReturnShape =
+          canonicalType(expected, canonicalTypeParameters(parentSymbol))
+              .equals(canonicalType(actual, canonicalTypeParameters(methodSymbol)));
+      if (!sameReturnShape && !isAssignable(expected, actual)) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "override of '" + method.name() + "' must return " + expected.displayName(),
+            method.nameSpan());
+        continue;
+      }
+      methodOverrides.put(declarationSymbols.get(method), declarationSymbols.get(parent.method()));
+    }
+  }
+
+  private boolean sameOverrideParameters(
+      Syntax.FunctionDecl method, Syntax.FunctionDecl inherited, AggregateView parent) {
+    if (method.typeParameters().size() != inherited.typeParameters().size()
+        || method.parameters().size() != inherited.parameters().size()) return false;
+    Symbol methodSymbol = symbols.get(declarationSymbols.get(method));
+    Symbol parentSymbol = symbols.get(declarationSymbols.get(inherited));
+    Map<String, String> methodTypes = canonicalTypeParameters(methodSymbol);
+    Map<String, String> parentTypes = canonicalTypeParameters(parentSymbol);
+    Map<String, SemanticType> substitutions =
+        aggregateSubstitutions(parent.declaration(), parent.type());
+    for (int index = 0; index < methodSymbol.parameters().size(); index++) {
+      ParameterInfo own = methodSymbol.parameters().get(index);
+      ParameterInfo base = parentSymbol.parameters().get(index);
+      if (!own.name().equals(base.name())
+          || !canonicalType(own.type(), methodTypes)
+              .equals(canonicalType(base.type().substitute(substitutions), parentTypes)))
+        return false;
+    }
+    return true;
+  }
+
+  private boolean sameGenericShape(
+      Symbol candidate,
+      Map<String, SemanticType> candidateSubstitutions,
+      Symbol requirement,
+      Map<String, SemanticType> requirementSubstitutions) {
+    if (candidate.typeParameters().size() != requirement.typeParameters().size()) return false;
+    Map<String, String> candidateParameters = canonicalTypeParameters(candidate);
+    Map<String, String> requiredParameters = canonicalTypeParameters(requirement);
+    for (int index = 0; index < candidate.typeParameters().size(); index++) {
+      Optional<SemanticType> candidateBound = candidate.typeParameters().get(index).upperBound();
+      Optional<SemanticType> requiredBound = requirement.typeParameters().get(index).upperBound();
+      if (candidateBound.isPresent() != requiredBound.isPresent()) return false;
+      if (candidateBound.isPresent()
+          && !canonicalType(
+                  candidateBound.orElseThrow().substitute(candidateSubstitutions),
+                  candidateParameters)
+              .equals(
+                  canonicalType(
+                      requiredBound.orElseThrow().substitute(requirementSubstitutions),
+                      requiredParameters))) return false;
+    }
+    return true;
+  }
+
+  private static Map<String, String> canonicalTypeParameters(Symbol symbol) {
+    Map<String, String> result = new LinkedHashMap<>();
+    for (int index = 0; index < symbol.typeParameters().size(); index++) {
+      result.put(symbol.typeParameters().get(index).type().identity(), "$" + index);
+    }
+    return result;
+  }
+
+  private record ParentMethod(Syntax.FunctionDecl method, AggregateView view) {}
+
   private void validateFields(Syntax.AggregateDecl aggregateDecl) {
     activeTypeParameters = aggregateTypeParameters(aggregateDecl);
     activeTypeParameterSymbols = typeParameterSymbols(aggregateDecl.typeParameters());
@@ -562,6 +774,19 @@ final class Analyzer extends AnalyzerExpressions {
         diagnostics.error(
             DUPLICATE_NAME, "method '" + method.name() + "' is already declared", method.span());
       }
+    }
+    if (aggregateDecl.constructors().size() > 1) {
+      diagnostics.error(
+          DUPLICATE_NAME,
+          "class '" + aggregateDecl.name() + "' may declare one constructor",
+          aggregateDecl.constructors().get(1).span());
+    }
+    if (aggregateDecl.kind() == Syntax.AggregateKind.VALUE
+        && !aggregateDecl.constructors().isEmpty()) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "value '" + aggregateDecl.name() + "' cannot declare a constructor",
+          aggregateDecl.constructors().getFirst().span());
     }
     activeTypeParameters = Map.of();
     activeTypeParameterSymbols = Map.of();
@@ -902,27 +1127,15 @@ final class Analyzer extends AnalyzerExpressions {
     if (witness.typeParameters().size() != requirement.method().typeParameters().size()
         || witness.parameters().size() != requirement.parameters().size()) return false;
     Map<String, SemanticType> witnessTypes = typeParameters(witness, ownerOf(witness));
-    Map<String, String> requiredParameters = new LinkedHashMap<>();
     Symbol requiredSymbol = symbols.get(declarationSymbols.get(requirement.method()));
-    for (int index = 0; index < requiredSymbol.typeParameters().size(); index++) {
-      requiredParameters.put(
-          requiredSymbol.typeParameters().get(index).type().identity(), "$" + index);
-    }
-    Map<String, String> witnessParameters = new LinkedHashMap<>();
     Symbol witnessSymbol = symbols.get(declarationSymbols.get(witness));
-    for (int index = 0; index < witnessSymbol.typeParameters().size(); index++) {
-      witnessParameters.put(
-          witnessSymbol.typeParameters().get(index).type().identity(), "$" + index);
-      Optional<SemanticType> requiredBound =
-          requiredSymbol.typeParameters().get(index).upperBound();
-      Optional<SemanticType> witnessBound = witnessSymbol.typeParameters().get(index).upperBound();
-      if (requiredBound.isPresent() != witnessBound.isPresent()
-          || requiredBound.isPresent()
-              && !canonicalType(requiredBound.orElseThrow(), requiredParameters)
-                  .equals(canonicalType(witnessBound.orElseThrow(), witnessParameters))) {
-        return false;
-      }
+    Map<String, SemanticType> requiredSubstitutions =
+        interfaceSubstitutions(requirement.owner(), requirement.receiver());
+    if (!sameGenericShape(witnessSymbol, Map.of(), requiredSymbol, requiredSubstitutions)) {
+      return false;
     }
+    Map<String, String> requiredParameters = canonicalTypeParameters(requiredSymbol);
+    Map<String, String> witnessParameters = canonicalTypeParameters(witnessSymbol);
     for (int index = 0; index < witness.parameters().size(); index++) {
       Syntax.Parameter parameter = witness.parameters().get(index);
       ParameterInfo required = requirement.parameters().get(index);
@@ -1028,12 +1241,20 @@ final class Analyzer extends AnalyzerExpressions {
     }
     if (owner != null) {
       declareSelf(aggregateSelfType(owner), owner.nameSpan());
-      for (Syntax.FieldDecl field : owner.fields()) {
-        declareExisting(
-            field.name(),
-            resolveType(field.type(), activeTypeParameters),
-            field.nameSpan(),
-            declarationSymbols.get(field));
+      for (AggregateView view : aggregateViews(aggregateSelfType(owner))) {
+        Map<String, SemanticType> substitutions =
+            aggregateSubstitutions(view.declaration(), view.type());
+        for (Syntax.FieldDecl field : view.declaration().fields()) {
+          if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
+            continue;
+          declareExisting(
+              field.name(),
+              resolveDeclarationType(
+                      field.type(), field, aggregateTypeParameters(view.declaration()))
+                  .substitute(substitutions),
+              field.nameSpan(),
+              declarationSymbols.get(field));
+        }
       }
     }
     for (Syntax.Parameter parameter : function.parameters()) {
@@ -1069,6 +1290,430 @@ final class Analyzer extends AnalyzerExpressions {
     implicitSelfReturn = false;
     activeTypeParameters = Map.of();
     activeTypeParameterSymbols = Map.of();
+  }
+
+  private void analyzeConstructor(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {
+    activeTypeParameters = aggregateTypeParameters(owner);
+    activeTypeParameterSymbols = typeParameterSymbols(owner.typeParameters());
+    registerBounds(owner.typeParameters(), activeTypeParameters);
+    expectedReturnType = SemanticType.VOID;
+    implicitSelfReturn = false;
+    currentAggregate = owner;
+    currentCallable = declarationSymbols.get(constructor);
+    flowScopes.clear();
+    assignedLocals.clear();
+    capturedLocals.clear();
+    reportedMutableCaptures.clear();
+    lambdaLocals.clear();
+    pushScope(constructor.span());
+    for (Syntax.TypeParameter parameter : owner.typeParameters()) {
+      declareExisting(
+          parameter.name(),
+          activeTypeParameters.get(parameter.name()),
+          parameter.nameSpan(),
+          declarationSymbols.get(parameter));
+    }
+    declareSelf(aggregateSelfType(owner), owner.nameSpan());
+    for (AggregateView view : aggregateViews(aggregateSelfType(owner))) {
+      Map<String, SemanticType> substitutions =
+          aggregateSubstitutions(view.declaration(), view.type());
+      for (Syntax.FieldDecl field : view.declaration().fields()) {
+        if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
+          continue;
+        declareExisting(
+            field.name(),
+            resolveDeclarationType(field.type(), field, aggregateTypeParameters(view.declaration()))
+                .substitute(substitutions),
+            field.nameSpan(),
+            declarationSymbols.get(field));
+      }
+    }
+    pushScope(constructor.span());
+    for (Syntax.Parameter parameter : constructor.parameters()) {
+      validateType(parameter.type(), false);
+      Symbol symbol =
+          register(
+              parameter,
+              parameter.name(),
+              SymbolKind.PARAMETER,
+              resolveType(parameter.type(), activeTypeParameters),
+              parameter.nameSpan(),
+              currentCallable,
+              List.of(),
+              List.of());
+      declareExisting(parameter.name(), symbol.type(), parameter.nameSpan(), symbol.id());
+    }
+    analyzeSuperCall(constructor, owner);
+    analyzeStatements(constructor.body());
+    Map<SymbolId, String> fields = new LinkedHashMap<>();
+    Set<SymbolId> ownFields = new HashSet<>();
+    for (AggregateView view : aggregateViews(aggregateSelfType(owner))) {
+      for (Syntax.FieldDecl field : view.declaration().fields()) {
+        SymbolId fieldId = declarationSymbols.get(field);
+        fields.put(fieldId, field.name());
+        if (view.declaration() == owner) ownFields.add(fieldId);
+      }
+    }
+    List<Set<SymbolId>> exits = new ArrayList<>();
+    ConstructorInitialization beforeSuper = new ConstructorInitialization(fields, exits, true);
+    constructor
+        .superCall()
+        .ifPresent(
+            call -> {
+              Set<SymbolId> assigned = Set.of();
+              for (Syntax.CallArgument argument : call.arguments()) {
+                assigned = constructorExpressionFlow(argument.value(), assigned, beforeSuper);
+              }
+            });
+    ConstructorInitialization body = new ConstructorInitialization(fields, exits, false);
+    Set<SymbolId> inheritedFields = new HashSet<>(fields.keySet());
+    inheritedFields.removeAll(ownFields);
+    constructorFlow(constructor.body(), inheritedFields, body, null).ifPresent(exits::add);
+    for (Syntax.FieldDecl field : owner.fields()) {
+      SymbolId fieldId = declarationSymbols.get(field);
+      if (exits.stream().anyMatch(assigned -> !assigned.contains(fieldId))) {
+        diagnostics.error(
+            INVALID_CONTROL,
+            "constructor must initialize field '" + field.name() + "'",
+            field.nameSpan());
+      }
+    }
+    popScope();
+    popScope();
+    currentCallable = null;
+    currentAggregate = null;
+    activeTypeParameters = Map.of();
+    activeTypeParameterSymbols = Map.of();
+  }
+
+  private void analyzeSuperCall(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {
+    Optional<SemanticType> parentType = directParentType(owner, aggregateSelfType(owner));
+    if (parentType.isEmpty()) {
+      if (constructor.superCall().isPresent()) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "root class constructor cannot call super",
+            constructor.superCall().orElseThrow().span());
+        analyzeArguments(constructor.superCall().orElseThrow().arguments());
+      }
+      return;
+    }
+    if (constructor.superCall().isEmpty()) {
+      diagnostics.error(
+          INVALID_CONTROL, "subclass constructor must call super", constructor.nameSpan());
+      return;
+    }
+    SemanticType parent = parentType.orElseThrow();
+    Syntax.AggregateDecl declaration = resolveAggregate(parent);
+    if (declaration == null) {
+      analyzeArguments(constructor.superCall().orElseThrow().arguments());
+      return;
+    }
+    Syntax.SuperCall call = constructor.superCall().orElseThrow();
+    Syntax.Call syntaxCall =
+        new Syntax.Call(new Syntax.Name("super", call.span()), call.arguments(), call.span());
+    Map<String, SemanticType> substitutions = aggregateSubstitutions(declaration, parent);
+    List<ParameterInfo> parameters;
+    SymbolId target;
+    if (declaration.constructors().isEmpty()) {
+      parameters = fieldParameters(declaration, substitutions);
+      target = declarationSymbols.get(declaration);
+    } else {
+      Syntax.ConstructorDecl parentConstructor = declaration.constructors().getFirst();
+      parameters =
+          parameters(
+              parentConstructor.parameters(), substitutions, aggregateTypeParameters(declaration));
+      target = declarationSymbols.get(parentConstructor);
+    }
+    recordCall(
+        syntaxCall,
+        call.span(),
+        ResolvedCall.Kind.SUPER,
+        target,
+        parameters,
+        List.of(),
+        SemanticType.VOID);
+  }
+
+  private Optional<Set<SymbolId>> constructorFlow(
+      List<Syntax.Statement> statements,
+      Set<SymbolId> incoming,
+      ConstructorInitialization initialization,
+      List<Set<SymbolId>> breaks) {
+    Set<SymbolId> assigned = new HashSet<>(incoming);
+    for (Syntax.Statement statement : statements) {
+      switch (statement) {
+        case Syntax.VariableDecl variable ->
+            assigned = constructorExpressionFlow(variable.initializer(), assigned, initialization);
+        case Syntax.Assignment assignment -> {
+          assigned = constructorExpressionFlow(assignment.value(), assigned, initialization);
+          SymbolId field = constructorFieldBinding(assignment.target(), initialization);
+          if (field != null) {
+            if (initialization.beforeSuper()) {
+              diagnostics.error(
+                  INVALID_CONTROL,
+                  "field cannot be assigned before super initialization",
+                  assignment.target().span());
+            } else {
+              assigned = new HashSet<>(assigned);
+              assigned.add(field);
+            }
+          } else {
+            assigned = constructorExpressionFlow(assignment.target(), assigned, initialization);
+          }
+        }
+        case Syntax.ExpressionStatement expression ->
+            assigned = constructorExpressionFlow(expression.expression(), assigned, initialization);
+        case Syntax.IfStatement conditional -> {
+          assigned = constructorExpressionFlow(conditional.condition(), assigned, initialization);
+          Optional<Set<SymbolId>> thenAssigned =
+              constructorFlow(conditional.thenBody(), assigned, initialization, breaks);
+          Optional<Set<SymbolId>> elseAssigned =
+              constructorFlow(conditional.elseBody(), assigned, initialization, breaks);
+          if (thenAssigned.isEmpty() && elseAssigned.isEmpty()) return Optional.empty();
+          if (thenAssigned.isEmpty()) assigned = new HashSet<>(elseAssigned.orElseThrow());
+          else if (elseAssigned.isEmpty()) assigned = new HashSet<>(thenAssigned.orElseThrow());
+          else {
+            assigned = new HashSet<>(thenAssigned.orElseThrow());
+            assigned.retainAll(elseAssigned.orElseThrow());
+          }
+        }
+        case Syntax.ConditionalForStatement loop -> {
+          assigned = constructorExpressionFlow(loop.condition(), assigned, initialization);
+          constructorFlow(loop.body(), assigned, initialization, new ArrayList<>());
+        }
+        case Syntax.ForStatement loop -> {
+          assigned = constructorExpressionFlow(loop.iterable(), assigned, initialization);
+          constructorFlow(loop.body(), assigned, initialization, new ArrayList<>());
+        }
+        case Syntax.ReturnStatement returned -> {
+          if (returned.value() != null) {
+            assigned = constructorExpressionFlow(returned.value(), assigned, initialization);
+          }
+          initialization.exits().add(Set.copyOf(assigned));
+          return Optional.empty();
+        }
+        case Syntax.BreakStatement broken -> {
+          if (broken.value() != null) {
+            assigned = constructorExpressionFlow(broken.value(), assigned, initialization);
+          }
+          if (breaks != null) breaks.add(Set.copyOf(assigned));
+          return Optional.empty();
+        }
+        case Syntax.ContinueStatement ignored -> {
+          return Optional.empty();
+        }
+      }
+    }
+    return Optional.of(Set.copyOf(assigned));
+  }
+
+  private Set<SymbolId> constructorExpressionFlow(
+      Syntax.Expression expression,
+      Set<SymbolId> incoming,
+      ConstructorInitialization initialization) {
+    Set<SymbolId> assigned = new HashSet<>(incoming);
+    switch (expression) {
+      case Syntax.Name name ->
+          validateConstructorBindingRead(name.span(), assigned, initialization);
+      case Syntax.Unary unary ->
+          assigned = constructorExpressionFlow(unary.operand(), assigned, initialization);
+      case Syntax.Binary binary -> {
+        assigned = constructorExpressionFlow(binary.left(), assigned, initialization);
+        Set<SymbolId> afterLeft = assigned;
+        Set<SymbolId> afterRight =
+            constructorExpressionFlow(binary.right(), assigned, initialization);
+        assigned =
+            binary.operator() == TokenKind.AND_AND || binary.operator() == TokenKind.OR_OR
+                ? afterLeft
+                : afterRight;
+      }
+      case Syntax.Call call -> {
+        SymbolId callee = binding(call.callee());
+        if (call.callee() instanceof Syntax.Name
+            && callee != null
+            && symbols.get(callee) != null
+            && symbols.get(callee).kind() == SymbolKind.METHOD) {
+          requireInitializedReceiver(call.callee().span(), assigned, initialization);
+        }
+        assigned = constructorExpressionFlow(call.callee(), assigned, initialization);
+        for (Syntax.CallArgument argument : call.arguments()) {
+          assigned = constructorExpressionFlow(argument.value(), assigned, initialization);
+        }
+      }
+      case Syntax.Member member -> {
+        SymbolId receiver = binding(member.receiver());
+        SymbolId field = bindings.get(member.nameSpan());
+        if (receiver != null
+            && symbols.get(receiver) != null
+            && symbols.get(receiver).kind() == SymbolKind.SELF
+            && initialization.fields().containsKey(field)) {
+          validateConstructorBindingRead(member.nameSpan(), assigned, initialization);
+        } else {
+          assigned = constructorExpressionFlow(member.receiver(), assigned, initialization);
+        }
+      }
+      case Syntax.ArrayLiteral array -> {
+        for (Syntax.Expression value : array.elements()) {
+          assigned = constructorExpressionFlow(value, assigned, initialization);
+        }
+      }
+      case Syntax.MethodReference reference ->
+          assigned = constructorExpressionFlow(reference.receiver(), assigned, initialization);
+      case Syntax.Index index -> {
+        assigned = constructorExpressionFlow(index.receiver(), assigned, initialization);
+        assigned = constructorExpressionFlow(index.index(), assigned, initialization);
+      }
+      case Syntax.SwitchExpression switched -> {
+        assigned = constructorExpressionFlow(switched.value(), assigned, initialization);
+        List<Set<SymbolId>> caseExits = new ArrayList<>();
+        for (Syntax.SwitchCase branch : switched.cases()) {
+          List<Set<SymbolId>> breaks = new ArrayList<>();
+          constructorFlow(branch.body(), assigned, initialization, breaks).ifPresent(breaks::add);
+          caseExits.addAll(breaks);
+        }
+        if (!caseExits.isEmpty()) {
+          assigned = new HashSet<>(caseExits.getFirst());
+          for (Set<SymbolId> branch : caseExits) assigned.retainAll(branch);
+        }
+      }
+      case Syntax.Lambda lambda -> {
+        if (constructorStatementsUseSelf(lambda.body())) {
+          requireInitializedReceiver(lambda.span(), assigned, initialization);
+        }
+      }
+      case Syntax.IntegerLiteral ignored -> {}
+      case Syntax.DecimalLiteral ignored -> {}
+      case Syntax.CodePointLiteral ignored -> {}
+      case Syntax.BooleanLiteral ignored -> {}
+      case Syntax.NullLiteral ignored -> {}
+      case Syntax.StringLiteralExpr ignored -> {}
+    }
+    return Set.copyOf(assigned);
+  }
+
+  private boolean constructorStatementsUseSelf(List<Syntax.Statement> statements) {
+    for (Syntax.Statement statement : statements) {
+      boolean usesSelf =
+          switch (statement) {
+            case Syntax.VariableDecl variable ->
+                constructorExpressionUsesSelf(variable.initializer());
+            case Syntax.Assignment assignment ->
+                constructorExpressionUsesSelf(assignment.target())
+                    || constructorExpressionUsesSelf(assignment.value());
+            case Syntax.ExpressionStatement expression ->
+                constructorExpressionUsesSelf(expression.expression());
+            case Syntax.IfStatement conditional ->
+                constructorExpressionUsesSelf(conditional.condition())
+                    || constructorStatementsUseSelf(conditional.thenBody())
+                    || constructorStatementsUseSelf(conditional.elseBody());
+            case Syntax.ConditionalForStatement loop ->
+                constructorExpressionUsesSelf(loop.condition())
+                    || constructorStatementsUseSelf(loop.body());
+            case Syntax.ForStatement loop ->
+                constructorExpressionUsesSelf(loop.iterable())
+                    || constructorStatementsUseSelf(loop.body());
+            case Syntax.ReturnStatement returned ->
+                returned.value() != null && constructorExpressionUsesSelf(returned.value());
+            case Syntax.BreakStatement broken ->
+                broken.value() != null && constructorExpressionUsesSelf(broken.value());
+            case Syntax.ContinueStatement ignored -> false;
+          };
+      if (usesSelf) return true;
+    }
+    return false;
+  }
+
+  private boolean constructorExpressionUsesSelf(Syntax.Expression expression) {
+    return switch (expression) {
+      case Syntax.Name name -> {
+        SymbolId id = bindings.get(name.span());
+        Symbol symbol = id == null ? null : symbols.get(id);
+        yield symbol != null
+            && (symbol.kind() == SymbolKind.SELF
+                || symbol.kind() == SymbolKind.FIELD
+                || symbol.kind() == SymbolKind.METHOD);
+      }
+      case Syntax.Unary unary -> constructorExpressionUsesSelf(unary.operand());
+      case Syntax.Binary binary ->
+          constructorExpressionUsesSelf(binary.left())
+              || constructorExpressionUsesSelf(binary.right());
+      case Syntax.Call call ->
+          constructorExpressionUsesSelf(call.callee())
+              || call.arguments().stream()
+                  .anyMatch(argument -> constructorExpressionUsesSelf(argument.value()));
+      case Syntax.Member member -> constructorExpressionUsesSelf(member.receiver());
+      case Syntax.ArrayLiteral array ->
+          array.elements().stream().anyMatch(this::constructorExpressionUsesSelf);
+      case Syntax.MethodReference reference -> constructorExpressionUsesSelf(reference.receiver());
+      case Syntax.Index index ->
+          constructorExpressionUsesSelf(index.receiver())
+              || constructorExpressionUsesSelf(index.index());
+      case Syntax.SwitchExpression switched ->
+          constructorExpressionUsesSelf(switched.value())
+              || switched.cases().stream()
+                  .anyMatch(branch -> constructorStatementsUseSelf(branch.body()));
+      case Syntax.Lambda lambda -> constructorStatementsUseSelf(lambda.body());
+      case Syntax.IntegerLiteral ignored -> false;
+      case Syntax.DecimalLiteral ignored -> false;
+      case Syntax.CodePointLiteral ignored -> false;
+      case Syntax.BooleanLiteral ignored -> false;
+      case Syntax.NullLiteral ignored -> false;
+      case Syntax.StringLiteralExpr ignored -> false;
+    };
+  }
+
+  private void validateConstructorBindingRead(
+      SourceSpan span, Set<SymbolId> assigned, ConstructorInitialization initialization) {
+    SymbolId id = bindings.get(span);
+    if (id == null) return;
+    String field = initialization.fields().get(id);
+    if (field != null && !assigned.contains(id)) {
+      diagnostics.error(
+          INVALID_CONTROL, "field '" + field + "' is read before initialization", span);
+    } else if (symbols.get(id) != null && symbols.get(id).kind() == SymbolKind.SELF) {
+      requireInitializedReceiver(span, assigned, initialization);
+    }
+  }
+
+  private SymbolId constructorFieldBinding(
+      Syntax.Expression target, ConstructorInitialization initialization) {
+    if (target instanceof Syntax.Name) {
+      SymbolId id = binding(target);
+      return initialization.fields().containsKey(id) ? id : null;
+    }
+    if (target instanceof Syntax.Member member) {
+      SymbolId receiver = binding(member.receiver());
+      SymbolId id = bindings.get(member.nameSpan());
+      if (receiver != null
+          && symbols.get(receiver) != null
+          && symbols.get(receiver).kind() == SymbolKind.SELF
+          && initialization.fields().containsKey(id)) {
+        return id;
+      }
+    }
+    return null;
+  }
+
+  private SymbolId binding(Syntax.Expression expression) {
+    return expression instanceof Syntax.Member member
+        ? bindings.get(member.nameSpan())
+        : bindings.get(expression.span());
+  }
+
+  private void requireInitializedReceiver(
+      SourceSpan span, Set<SymbolId> assigned, ConstructorInitialization initialization) {
+    if (initialization.beforeSuper() || !assigned.containsAll(initialization.fields().keySet())) {
+      diagnostics.error(
+          INVALID_CONTROL, "this cannot be used before initialization completes", span);
+    }
+  }
+
+  private record ConstructorInitialization(
+      Map<SymbolId, String> fields, List<Set<SymbolId>> exits, boolean beforeSuper) {
+    private ConstructorInitialization {
+      fields = Map.copyOf(fields);
+    }
   }
 
   @Override

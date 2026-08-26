@@ -30,6 +30,10 @@ second.increment()
 
 `copy()` 只创建新的顶层对象。若字段也是 class，原对象和副本仍共享该字段指向的对象。
 
+## 构造与继承
+
+class 可以声明一个同名、无返回类型和可见性修饰符的构造器。子 class 使用 `extends` 单继承，并在构造器第一项显式调用 `super(...)`；public 方法按签名覆盖并动态分派。完整规则见 [Class 声明](/spec/grammar/classes)。
+
 ## 容器是 Value
 
 ```norm

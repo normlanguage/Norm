@@ -7,6 +7,7 @@ import java.util.Objects;
 
 public record BoundConstruct(
     BoundAggregateId target,
+    BoundCallableId initializer,
     BoundRuntimeType runtimeType,
     List<BoundArgument> arguments,
     SemanticType type,
@@ -14,6 +15,7 @@ public record BoundConstruct(
     implements BoundExpression {
   public BoundConstruct {
     Objects.requireNonNull(target, "target");
+    Objects.requireNonNull(initializer, "initializer");
     Objects.requireNonNull(runtimeType, "runtimeType");
     arguments = List.copyOf(arguments);
     Objects.requireNonNull(type, "type");

@@ -176,6 +176,8 @@ public sealed interface CoreExpression extends CoreNode
       Optional<CoreExpression> receiver,
       List<CoreExpression> captures,
       List<CoreRuntimeType> reifiedArguments,
+      List<CoreRuntimeType> receiverTypeArguments,
+      boolean virtual,
       CoreType type)
       implements CoreExpression {
     public Closure {
@@ -184,7 +186,18 @@ public sealed interface CoreExpression extends CoreNode
       receiver = Objects.requireNonNull(receiver, "receiver");
       captures = List.copyOf(captures);
       reifiedArguments = List.copyOf(reifiedArguments);
+      receiverTypeArguments = List.copyOf(receiverTypeArguments);
       Objects.requireNonNull(type, "type");
+    }
+
+    public Closure(
+        int nodeIndex,
+        CoreDefinitionLink target,
+        Optional<CoreExpression> receiver,
+        List<CoreExpression> captures,
+        List<CoreRuntimeType> reifiedArguments,
+        CoreType type) {
+      this(nodeIndex, target, receiver, captures, reifiedArguments, List.of(), false, type);
     }
   }
 
@@ -204,6 +217,8 @@ public sealed interface CoreExpression extends CoreNode
       Optional<CoreExpression> receiver,
       List<CoreArgument> arguments,
       List<CoreRuntimeType> reifiedArguments,
+      List<CoreRuntimeType> receiverTypeArguments,
+      boolean virtual,
       boolean nullSafe,
       CoreType type)
       implements CoreExpression {
@@ -213,7 +228,28 @@ public sealed interface CoreExpression extends CoreNode
       receiver = Objects.requireNonNull(receiver, "receiver");
       arguments = List.copyOf(arguments);
       reifiedArguments = List.copyOf(reifiedArguments);
+      receiverTypeArguments = List.copyOf(receiverTypeArguments);
       Objects.requireNonNull(type, "type");
+    }
+
+    public Call(
+        int nodeIndex,
+        CoreDefinitionLink target,
+        Optional<CoreExpression> receiver,
+        List<CoreArgument> arguments,
+        List<CoreRuntimeType> reifiedArguments,
+        boolean nullSafe,
+        CoreType type) {
+      this(
+          nodeIndex,
+          target,
+          receiver,
+          arguments,
+          reifiedArguments,
+          List.of(),
+          false,
+          nullSafe,
+          type);
     }
   }
 
@@ -239,6 +275,7 @@ public sealed interface CoreExpression extends CoreNode
   record Construct(
       int nodeIndex,
       CoreDefinitionLink target,
+      CoreDefinitionLink initializer,
       CoreRuntimeType runtimeType,
       List<CoreArgument> arguments,
       CoreType type)
@@ -246,6 +283,7 @@ public sealed interface CoreExpression extends CoreNode
     public Construct {
       requireNode(nodeIndex);
       Objects.requireNonNull(target, "target");
+      Objects.requireNonNull(initializer, "initializer");
       Objects.requireNonNull(runtimeType, "runtimeType");
       arguments = List.copyOf(arguments);
       Objects.requireNonNull(type, "type");

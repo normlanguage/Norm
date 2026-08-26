@@ -101,6 +101,39 @@ final class ProgramExecutionTest {
   }
 
   @Test
+  void executesExplicitConstructorsSuperCallsAndDynamicOverrides() throws Exception {
+    assertOutput(
+        "class Base { String name Base(String initial) { name = initial } "
+            + "public String label() { return \"base:\" + name } } "
+            + "class Child extends Base { Integer rank "
+            + "Child(String initial, Integer initialRank) { "
+            + "super(initial: initial) rank = initialRank } "
+            + "public String label() { return \"child:\" + name } } "
+            + "Void main() { Child child = Child(initial: \"norm\", initialRank: 9) "
+            + "Base base = child printLine(base.label()) printLine(child.name) "
+            + "printLine(child.rank) }",
+        String.join(System.lineSeparator(), "child:norm", "norm", "9", ""));
+  }
+
+  @Test
+  void preservesGenericParentViewsAndInterfaceDispatch() throws Exception {
+    assertOutput(
+        "interface Named { String name() } "
+            + "class Base<T> implements Named { T value "
+            + "Base(T initial) { value = initial } public T get() { return value } "
+            + "public String name() { return \"base\" } } "
+            + "class Child extends Base<String> { Integer rank "
+            + "Child(String initial, Integer initialRank) { "
+            + "super(initial: initial) rank = initialRank } "
+            + "public String name() { return value } } "
+            + "Void main() { Child child = Child(initial: \"norm\", initialRank: 9) "
+            + "Base<String> base = child Named named = child "
+            + "Function<String()> method = child::name "
+            + "printLine(base.get()) printLine(named.name()) printLine(method()) }",
+        String.join(System.lineSeparator(), "norm", "norm", "norm", ""));
+  }
+
+  @Test
   void copiesValueContainersButSharesTheirClassElements() throws Exception {
     assertOutput(
         "class Box { Integer value Void set(Integer next) { value = next } } "

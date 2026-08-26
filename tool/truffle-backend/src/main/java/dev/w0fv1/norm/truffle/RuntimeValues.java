@@ -30,10 +30,16 @@ final class RuntimeValues {
 
   private RuntimeValues() {}
 
-  record Closure(CallTarget target, Object receiver, Object[] captures, Object[] reifiedArguments) {
+  record Closure(
+      CallTarget target,
+      Object receiver,
+      Object[] captures,
+      Object[] receiverTypeArguments,
+      Object[] reifiedArguments) {
     Closure {
       Objects.requireNonNull(target, "target");
       captures = captures.clone();
+      receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
     }
   }

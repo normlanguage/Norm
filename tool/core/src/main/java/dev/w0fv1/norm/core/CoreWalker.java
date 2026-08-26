@@ -19,7 +19,17 @@ abstract class CoreWalker {
       }
       case CoreDefinition.Aggregate declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
+        declaration.parentType().ifPresent(this::walkType);
         declaration.fields().forEach(field -> walkType(field.type()));
+        declaration
+            .dispatch()
+            .forEach(
+                dispatch -> {
+                  visitLink(dispatch.slot());
+                  visitLink(dispatch.implementation());
+                  walkType(dispatch.receiverType());
+                });
+        visitLink(declaration.constructor());
         declaration.conformances().forEach(this::walkConformance);
       }
       case CoreDefinition.Enum declaration -> {
@@ -145,6 +155,7 @@ abstract class CoreWalker {
         closure.receiver().ifPresent(this::walkExpression);
         closure.captures().forEach(this::walkExpression);
         closure.reifiedArguments().forEach(this::walkRuntimeType);
+        closure.receiverTypeArguments().forEach(this::walkRuntimeType);
       }
       case CoreExpression.Invoke invoke -> {
         walkExpression(invoke.callee());
@@ -156,6 +167,7 @@ abstract class CoreWalker {
         call.receiver().ifPresent(this::walkExpression);
         call.arguments().forEach(argument -> walkExpression(argument.value()));
         call.reifiedArguments().forEach(this::walkRuntimeType);
+        call.receiverTypeArguments().forEach(this::walkRuntimeType);
       }
       case CoreExpression.InterfaceCall call -> {
         visitReference(call.nodeIndex(), call.requirement());
@@ -167,6 +179,7 @@ abstract class CoreWalker {
       case CoreExpression.Construct construct -> {
         visitReference(construct.nodeIndex(), construct.target());
         visitLink(construct.target());
+        visitLink(construct.initializer());
         walkRuntimeType(construct.runtimeType());
         construct.arguments().forEach(argument -> walkExpression(argument.value()));
       }

@@ -359,6 +359,24 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesInheritedMembersAndHidesOverriddenMethods() {
+    String text =
+        "class Base<T> { public T value public T read() { return value } } "
+            + "class Child extends Base<String> { Child(String initial) { super(value: initial) } "
+            + "public String read() { return value } } "
+            + "Void main() { Child child = Child(initial: \"Norm\") printLine(child.value) }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:inheritance"), text));
+
+    List<String> members =
+        service.complete(analysis, text.indexOf("child.value") + "child.".length()).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(members.containsAll(List.of("value", "read", "copy")));
+    assertEquals(1, members.stream().filter("read"::equals).count());
+  }
+
+  @Test
   void completesAppliedGenericEnumVariantsWithPayloadSnippets() {
     String text =
         "enum Result<T, E> { Ok(T value), Err(E error) } Void main() { "

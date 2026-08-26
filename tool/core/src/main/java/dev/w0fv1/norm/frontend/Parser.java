@@ -166,13 +166,27 @@ final class Parser {
     String declarationKind = kind.keyword();
     Token name = consume(TokenKind.IDENTIFIER, "expected " + declarationKind + " name");
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
+    Optional<Syntax.TypeRef> extendedClass =
+        match(TokenKind.EXTENDS) ? Optional.of(parseType()) : Optional.empty();
     List<Syntax.TypeRef> implementedInterfaces =
         match(TokenKind.IMPLEMENTS) ? parseTypeList() : List.of();
     consume(TokenKind.LEFT_BRACE, "expected '{' before " + declarationKind + " body");
     List<Syntax.FieldDecl> fields = new ArrayList<>();
+    List<Syntax.ConstructorDecl> constructors = new ArrayList<>();
     List<Syntax.FunctionDecl> methods = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      boolean hasExplicitVisibility = check(TokenKind.PUBLIC) || check(TokenKind.PRIVATE);
       Syntax.Visibility memberVisibility = parseVisibility();
+      SourceSpan visibilitySpan = hasExplicitVisibility ? previous().span() : null;
+      if (check(TokenKind.IDENTIFIER)
+          && peek().value().equals(name.value())
+          && checkNext(TokenKind.LEFT_PAREN)) {
+        if (visibilitySpan != null) {
+          diagnostics.error(EXPECTED_TOKEN, "constructor visibility is implicit", visibilitySpan);
+        }
+        constructors.add(parseConstructor(name.value()));
+        continue;
+      }
       if (looksLikeOmittedReturnFunction()) {
         Token memberName = consume(TokenKind.IDENTIFIER, "expected method name");
         methods.add(parseFunctionRest(Optional.empty(), memberName, memberVisibility));
@@ -201,10 +215,46 @@ final class Parser {
         name.value(),
         name.span(),
         typeParameters,
+        extendedClass,
         implementedInterfaces,
         fields,
+        constructors,
         methods,
         keyword.span().cover(closing.span()));
+  }
+
+  private Syntax.ConstructorDecl parseConstructor(String ownerName) {
+    Token name = consume(TokenKind.IDENTIFIER, "expected constructor name");
+    consume(TokenKind.LEFT_PAREN, "expected '(' after constructor name");
+    List<Syntax.Parameter> parameters = parseParameterList();
+    consume(TokenKind.RIGHT_PAREN, "expected ')' after constructor parameters");
+    Token opening = consume(TokenKind.LEFT_BRACE, "expected '{' before constructor body");
+    Optional<Syntax.SuperCall> superCall = Optional.empty();
+    if (match(TokenKind.SUPER)) {
+      Token keyword = previous();
+      consume(TokenKind.LEFT_PAREN, "expected '(' after super");
+      List<Syntax.CallArgument> arguments = parseCallArguments();
+      Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after super arguments");
+      match(TokenKind.SEMICOLON);
+      superCall =
+          Optional.of(new Syntax.SuperCall(arguments, keyword.span().cover(closing.span())));
+    }
+    List<Syntax.Statement> statements = new ArrayList<>();
+    while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      try {
+        statements.add(parseStatement());
+      } catch (ParseError error) {
+        synchronizeStatement(error);
+      }
+    }
+    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after constructor body");
+    return new Syntax.ConstructorDecl(
+        ownerName,
+        name.span(),
+        parameters,
+        superCall,
+        statements,
+        name.span().cover(opening.span()).cover(closing.span()));
   }
 
   private Syntax.InterfaceDecl parseInterface(
@@ -720,21 +770,7 @@ final class Parser {
     Syntax.Expression expression = parsePrimary();
     while (true) {
       if (match(TokenKind.LEFT_PAREN)) {
-        List<Syntax.CallArgument> arguments = new ArrayList<>();
-        if (!check(TokenKind.RIGHT_PAREN)) {
-          do {
-            Optional<Syntax.ArgumentLabel> label = Optional.empty();
-            Token argumentStart = peek();
-            if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON)) {
-              Token name = advance();
-              label = Optional.of(new Syntax.ArgumentLabel(name.value(), name.span()));
-              advance();
-            }
-            Syntax.Expression value = parseExpression();
-            arguments.add(
-                new Syntax.CallArgument(label, value, argumentStart.span().cover(value.span())));
-          } while (match(TokenKind.COMMA));
-        }
+        List<Syntax.CallArgument> arguments = parseCallArguments();
         Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after arguments");
         expression =
             new Syntax.Call(expression, arguments, expression.span().cover(closing.span()));
@@ -768,9 +804,29 @@ final class Parser {
         Token closing = consume(TokenKind.RIGHT_BRACKET, "expected ']' after index");
         expression = new Syntax.Index(expression, index, expression.span().cover(closing.span()));
       } else {
-        return expression;
+        break;
       }
     }
+    return expression;
+  }
+
+  private List<Syntax.CallArgument> parseCallArguments() {
+    List<Syntax.CallArgument> arguments = new ArrayList<>();
+    if (!check(TokenKind.RIGHT_PAREN)) {
+      do {
+        Optional<Syntax.ArgumentLabel> label = Optional.empty();
+        Token argumentStart = peek();
+        if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.COLON)) {
+          Token name = advance();
+          label = Optional.of(new Syntax.ArgumentLabel(name.value(), name.span()));
+          advance();
+        }
+        Syntax.Expression value = parseExpression();
+        arguments.add(
+            new Syntax.CallArgument(label, value, argumentStart.span().cover(value.span())));
+      } while (match(TokenKind.COMMA));
+    }
+    return List.copyOf(arguments);
   }
 
   private Syntax.Expression parsePrimary() {

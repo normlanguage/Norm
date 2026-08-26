@@ -36,7 +36,7 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 `DefinitionId` 只来自版本化 canonical encoding。可调用定义的名字、参数名、局部变量名、源码位置和空白位于 semantic Core 之外；局部绑定与类型参数使用定义内的稠密索引。
 
-内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class/value aggregate 的类别、泛型参数、字段类型和 interface conformances，interface 的泛型参数、父接口与 requirements，以及 enum variant 的稳定键与 payload 类型都属于语义内容。
+内置类型由稳定的 `BuiltinTypeId` 标识，用户类型由 `CoreDefinitionLink` 标识。名义类型键包含模块名、模块版本、package、类型名和可见性；private 类型额外包含模块相对源码路径。类型改名或在模块内移动 private 类型会产生新的名义身份，移动整个项目根目录不会改变身份。class/value aggregate 的类别、泛型参数、父类型、字段布局、构造入口、方法分派和 interface conformances，interface 的泛型参数、父接口与 requirements，以及 enum variant 的稳定键与 payload 类型都属于语义内容。
 
 `CoreNamespace` 保存 authoring 名字、签名、可见性、导出状态与精确 occurrence。`CoreAuthoringMap` 为每个 canonical definition 保存按来源稳定编号的 `DefinitionOccurrenceId`、`CoreDefinitionOrigin` 和引用 occurrence 路由。Lowerer 按调用所在 occurrence 选择对应来源，因此共享同一 `DefinitionId` 的多个源码定义仍保留各自的名字、位置和调用栈。
 
@@ -44,7 +44,7 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 `CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。callable、aggregate、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
-`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V4` 与 `LanguageSemanticsVersion.V4`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
+`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V5` 与 `LanguageSemanticsVersion.V5`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
 
 `CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 bound、callable receiver 与 reified ABI、interface 继承和完整 witness、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建协议与操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
 
@@ -58,7 +58,7 @@ Lexer 与 Parser 建立带源码位置的语法树。Analyzer 先登记完整类
 
 ## Truffle 后端
 
-`TypedProgram` 和 `ExecutionBackend` 只暴露 `CoreCompilation`。Lowerer 只消费已解析 Core，生成函数 `CallTarget`、frame slot、控制流节点、固定目标调用和按 interface requirement `DefinitionId` 索引的见证分发表。class 与内建类型共用同一 interface dispatch 节点；遍历式 `for` 通过 `Iterable<T>` 和 `Iterator<T>` requirements 工作，内建集合返回内部 `NativeIterator<T>` 运行时值。
+`TypedProgram` 和 `ExecutionBackend` 只暴露 `CoreCompilation`。Lowerer 只消费已解析 Core，生成函数 `CallTarget`、frame slot、控制流节点、固定目标调用和按静态方法或 interface requirement `DefinitionId` 索引的分发表。class 与 interface 调用共用动态分派入口；遍历式 `for` 通过 `Iterable<T>` 和 `Iterator<T>` requirements 工作，内建集合返回内部 `NativeIterator<T>` 运行时值。
 
 `ExecutionContext` 作为隐藏根参数沿固定调用边传递，可执行节点不捕获单次运行状态。`TruffleExecutionBackend` 以 `ArtifactId` 在有界缓存中保存上下文无关的可执行程序；artifact identity 覆盖 Core groups、入口 occurrence、namespace、binding occurrence、源码 URI 与内容、origin span、引用 occurrence 路由和后端 ABI。Polyglot 入口在执行时取得当前 language context，因此同一 artifact 可以安全服务多个执行上下文。
 

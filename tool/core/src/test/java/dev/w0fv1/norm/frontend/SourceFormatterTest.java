@@ -46,6 +46,22 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsInheritanceAndConstructors() {
+    assertFormats(
+        "class Child extends Base<String>{Integer rank Child(String name,Integer value){super(name:name) rank=value}}",
+        """
+        class Child extends Base<String> {
+          Integer rank
+
+          Child(String name, Integer value) {
+            super(name: name)
+            rank = value
+          }
+        }
+        """);
+  }
+
+  @Test
   void formatsNestedExpressionsAndControlFlow() {
     assertFormats(
         """

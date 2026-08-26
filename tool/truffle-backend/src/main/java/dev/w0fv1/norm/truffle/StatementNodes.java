@@ -179,12 +179,12 @@ final class StatementNodes {
   }
 
   static final class InterfaceIteratorFactory extends IteratorFactoryNode {
-    @Child private InterfaceDispatchNode dispatch;
+    @Child private MethodDispatchNode dispatch;
 
     InterfaceIteratorFactory(
         DefinitionId requirement,
         Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>> builtinDispatch) {
-      dispatch = new InterfaceDispatchNode(requirement, builtinDispatch);
+      dispatch = new MethodDispatchNode(requirement, builtinDispatch);
     }
 
     @Override
@@ -225,15 +225,15 @@ final class StatementNodes {
   }
 
   static final class InterfaceIteratorCursor extends IteratorCursorNode {
-    @Child private InterfaceDispatchNode hasNext;
-    @Child private InterfaceDispatchNode next;
+    @Child private MethodDispatchNode hasNext;
+    @Child private MethodDispatchNode next;
 
     InterfaceIteratorCursor(
         DefinitionId hasNextRequirement,
         DefinitionId nextRequirement,
         Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>> builtinDispatch) {
-      hasNext = new InterfaceDispatchNode(hasNextRequirement, builtinDispatch);
-      next = new InterfaceDispatchNode(nextRequirement, builtinDispatch);
+      hasNext = new MethodDispatchNode(hasNextRequirement, builtinDispatch);
+      next = new MethodDispatchNode(nextRequirement, builtinDispatch);
     }
 
     @Override

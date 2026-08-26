@@ -9,15 +9,15 @@ import dev.w0fv1.norm.core.DefinitionId;
 import java.util.List;
 import java.util.Map;
 
-final class InterfaceDispatchNode extends Node {
-  private final DefinitionId requirement;
+final class MethodDispatchNode extends Node {
+  private final DefinitionId slot;
   private final Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>> builtinDispatch;
   @Child private IndirectCallNode call = IndirectCallNode.create();
 
-  InterfaceDispatchNode(
-      DefinitionId requirement,
+  MethodDispatchNode(
+      DefinitionId slot,
       Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>> builtinDispatch) {
-    this.requirement = requirement;
+    this.slot = slot;
     this.builtinDispatch = builtinDispatch;
   }
 
@@ -67,16 +67,16 @@ final class InterfaceDispatchNode extends Node {
 
   private RuntimeValues.DispatchTarget target(Object receiver) {
     if (receiver instanceof RuntimeValues.ObjectValue object) {
-      RuntimeValues.DispatchTarget target = object.aggregateInfo.dispatch().get(requirement);
+      RuntimeValues.DispatchTarget target = object.aggregateInfo.dispatch().get(slot);
       if (target != null) return target;
     } else {
       Map<DefinitionId, RuntimeValues.DispatchTarget> table =
           builtinDispatch.get(RuntimeValues.builtinType(receiver));
       if (table != null) {
-        RuntimeValues.DispatchTarget target = table.get(requirement);
+        RuntimeValues.DispatchTarget target = table.get(slot);
         if (target != null) return target;
       }
     }
-    throw new IllegalStateException("verified interface witness is absent");
+    throw new IllegalStateException("verified method dispatch slot is absent");
   }
 }

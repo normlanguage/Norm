@@ -247,14 +247,41 @@ public final class Syntax {
     }
   }
 
+  public record ConstructorDecl(
+      String name,
+      SourceSpan nameSpan,
+      List<Parameter> parameters,
+      Optional<SuperCall> superCall,
+      List<Statement> body,
+      SourceSpan span)
+      implements AstNode {
+    public ConstructorDecl {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      parameters = List.copyOf(parameters);
+      superCall = Objects.requireNonNull(superCall, "superCall");
+      body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record SuperCall(List<CallArgument> arguments, SourceSpan span) implements AstNode {
+    public SuperCall {
+      arguments = List.copyOf(arguments);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
   public record AggregateDecl(
       AggregateKind kind,
       Visibility visibility,
       String name,
       SourceSpan nameSpan,
       List<TypeParameter> typeParameters,
+      Optional<TypeRef> extendedClass,
       List<TypeRef> implementedInterfaces,
       List<FieldDecl> fields,
+      List<ConstructorDecl> constructors,
       List<FunctionDecl> methods,
       SourceSpan span)
       implements AstNode {
@@ -263,8 +290,10 @@ public final class Syntax {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);
+      extendedClass = Objects.requireNonNull(extendedClass, "extendedClass");
       implementedInterfaces = List.copyOf(implementedInterfaces);
       fields = List.copyOf(fields);
+      constructors = List.copyOf(constructors);
       methods = List.copyOf(methods);
       Objects.requireNonNull(span, "span");
     }

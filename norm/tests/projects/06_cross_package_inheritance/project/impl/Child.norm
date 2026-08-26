@@ -1,0 +1,16 @@
+package project.impl
+
+import project.model.Base
+
+public class Child extends Base<String> {
+  public Integer rank
+
+  Child(String initial, Integer initialRank) {
+    super(initial: initial)
+    rank = initialRank
+  }
+
+  public String get() {
+    return value
+  }
+}

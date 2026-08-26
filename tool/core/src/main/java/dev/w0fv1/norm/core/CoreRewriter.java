@@ -32,9 +32,20 @@ final class CoreRewriter {
               aggregateDefinition.nominalType(),
               aggregateDefinition.valueCategory(),
               resolveTypeParameters(aggregateDefinition.typeParameters(), resolver),
+              aggregateDefinition.parentType().map(type -> resolve(type, resolver)),
+              aggregateDefinition.fieldCount(),
               aggregateDefinition.fields().stream()
                   .map(field -> new CoreField(field.ordinal(), resolve(field.type(), resolver)))
                   .toList(),
+              aggregateDefinition.dispatch().stream()
+                  .map(
+                      dispatch ->
+                          new CoreMethodDispatch(
+                              resolve(dispatch.slot(), resolver),
+                              resolve(dispatch.implementation(), resolver),
+                              resolve(dispatch.receiverType(), resolver)))
+                  .toList(),
+              resolve(aggregateDefinition.constructor(), resolver),
               aggregateDefinition.conformances().stream()
                   .map(value -> resolve(value, resolver))
                   .toList());
@@ -231,6 +242,10 @@ final class CoreRewriter {
               closure.receiver().map(value -> resolve(value, resolver)),
               closure.captures().stream().map(value -> resolve(value, resolver)).toList(),
               closure.reifiedArguments().stream().map(type -> resolve(type, resolver)).toList(),
+              closure.receiverTypeArguments().stream()
+                  .map(type -> resolve(type, resolver))
+                  .toList(),
+              closure.virtual(),
               resolve(closure.type(), resolver));
       case CoreExpression.Invoke invoke ->
           new CoreExpression.Invoke(
@@ -245,6 +260,8 @@ final class CoreRewriter {
               call.receiver().map(value -> resolve(value, resolver)),
               resolveArguments(call.arguments(), resolver),
               call.reifiedArguments().stream().map(type -> resolve(type, resolver)).toList(),
+              call.receiverTypeArguments().stream().map(type -> resolve(type, resolver)).toList(),
+              call.virtual(),
               call.nullSafe(),
               resolve(call.type(), resolver));
       case CoreExpression.InterfaceCall call ->
@@ -260,6 +277,7 @@ final class CoreRewriter {
           new CoreExpression.Construct(
               construct.nodeIndex(),
               resolve(construct.target(), resolver),
+              resolve(construct.initializer(), resolver),
               resolve(construct.runtimeType(), resolver),
               resolveArguments(construct.arguments(), resolver),
               resolve(construct.type(), resolver));

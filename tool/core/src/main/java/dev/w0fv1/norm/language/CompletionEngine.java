@@ -324,7 +324,7 @@ final class CompletionEngine {
         switch (symbol.kind()) {
           case TYPE, TYPE_PARAMETER -> CompletionKind.TYPE;
           case INTERFACE -> CompletionKind.INTERFACE;
-          case FUNCTION -> CompletionKind.FUNCTION;
+          case FUNCTION, CONSTRUCTOR -> CompletionKind.FUNCTION;
           case METHOD, INTERFACE_METHOD, TYPE_METHOD -> CompletionKind.METHOD;
           case FIELD -> CompletionKind.FIELD;
           case PROPERTY -> CompletionKind.PROPERTY;

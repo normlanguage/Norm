@@ -49,6 +49,7 @@ public final class LanguageSyntax {
     words.put("return", TokenKind.RETURN);
     words.put("break", TokenKind.BREAK);
     words.put("continue", TokenKind.CONTINUE);
+    words.put("super", TokenKind.SUPER);
     words.put("true", TokenKind.TRUE);
     words.put("false", TokenKind.FALSE);
     words.put("null", TokenKind.NULL);

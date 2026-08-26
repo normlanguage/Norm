@@ -28,6 +28,7 @@ import dev.w0fv1.norm.bound.BoundIntrinsic;
 import dev.w0fv1.norm.bound.BoundInvoke;
 import dev.w0fv1.norm.bound.BoundIteration;
 import dev.w0fv1.norm.bound.BoundLocalId;
+import dev.w0fv1.norm.bound.BoundMethodDispatch;
 import dev.w0fv1.norm.bound.BoundParameter;
 import dev.w0fv1.norm.bound.BoundPattern;
 import dev.w0fv1.norm.bound.BoundProgram;
@@ -139,6 +140,7 @@ final class Binder {
       }
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         Symbol symbol = symbol(declaration.nameSpan());
+        int fieldOffset = inheritedFieldCount(declaration);
         List<BoundField> boundFields = new ArrayList<>();
         for (int ordinal = 0; ordinal < declaration.fields().size(); ordinal++) {
           Syntax.FieldDecl field = declaration.fields().get(ordinal);
@@ -151,7 +153,7 @@ final class Binder {
                       ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
                       : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                   fieldSymbol.type(),
-                  ordinal);
+                  fieldOffset + ordinal);
           fields.put(bound.id().value(), bound);
           boundFields.add(bound);
         }
@@ -164,8 +166,12 @@ final class Binder {
                     : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                 symbol.type(),
                 bindTypeParameters(declaration.typeParameters()),
+                semantics.aggregateParent(aggregateSelfType(declaration)),
+                fieldOffset + boundFields.size(),
                 boundFields,
                 declaration.methods().stream().map(this::callableId).toList(),
+                bindDispatch(declaration),
+                constructorId(declaration),
                 bindConformances(declaration),
                 declaration.span());
         aggregates.put(value.id().value(), value);
@@ -177,6 +183,7 @@ final class Binder {
     for (Syntax.Program program : programs) {
       for (Syntax.FunctionDecl function : program.functions()) bindCallable(function, null);
       for (Syntax.AggregateDecl owner : program.aggregates()) {
+        bindConstructor(owner);
         for (Syntax.FunctionDecl method : owner.methods()) bindCallable(method, owner);
       }
       for (Syntax.InterfaceDecl owner : program.interfaces()) {
@@ -310,6 +317,100 @@ final class Binder {
     activeTypeParameters = previousTypeParameters;
     currentCallableId = previousCallableId;
     implicitSelfReturn = previousImplicitSelfReturn;
+  }
+
+  private void bindConstructor(Syntax.AggregateDecl owner) {
+    BoundCallableId id = constructorId(owner);
+    BoundCallableId previousCallableId = currentCallableId;
+    List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
+    currentCallableId = id;
+    thisLocal = new BoundLocalId(id.value() + "/this");
+    thisType = aggregateSelfType(owner);
+    Map<String, BoundLocalId> activeReified = new LinkedHashMap<>();
+    List<BoundReifiedArgument> reified = new ArrayList<>();
+    addReified(owner.typeParameters(), id, activeReified, reified);
+    reifiedLocals = Map.copyOf(activeReified);
+    activeTypeParameters = bindTypeParameters(owner.typeParameters());
+    List<BoundParameter> parameters = new ArrayList<>();
+    List<BoundStatement> statements = new ArrayList<>();
+    if (owner.constructors().isEmpty()) {
+      for (int ordinal = 0; ordinal < owner.fields().size(); ordinal++) {
+        Syntax.FieldDecl field = owner.fields().get(ordinal);
+        BoundField boundField = field(symbol(field.nameSpan()));
+        BoundLocalId local = new BoundLocalId(id.value() + "/parameter/" + ordinal);
+        parameters.add(new BoundParameter(local, field.name(), boundField.type(), ordinal));
+        statements.add(
+            new BoundStatement.FieldAssignment(
+                thisRead(field.span()),
+                boundField.id(),
+                boundField.ordinal(),
+                new BoundExpression.LocalRead(local, boundField.type(), field.span()),
+                field.span()));
+      }
+    } else {
+      Syntax.ConstructorDecl constructor = owner.constructors().getFirst();
+      for (int ordinal = 0; ordinal < constructor.parameters().size(); ordinal++) {
+        Syntax.Parameter parameter = constructor.parameters().get(ordinal);
+        Symbol symbol = symbol(parameter.nameSpan());
+        parameters.add(
+            new BoundParameter(
+                BoundLocalId.of(symbol.id()), parameter.name(), symbol.type(), ordinal));
+      }
+      constructor
+          .superCall()
+          .ifPresent(
+              superCall -> {
+                ResolvedCall resolution = semantics.callOf(superCall.span()).orElseThrow();
+                Syntax.Call call =
+                    new Syntax.Call(
+                        new Syntax.Name("super", superCall.span()),
+                        superCall.arguments(),
+                        superCall.span());
+                Symbol target = semantics.symbol(resolution.target()).orElseThrow();
+                BoundCallableId initializer =
+                    target.kind() == SymbolKind.CONSTRUCTOR
+                        ? BoundCallableId.of(target.id())
+                        : new BoundCallableId(target.id().value() + "/constructor");
+                SemanticType parent = semantics.aggregateParent(thisType).orElseThrow();
+                statements.add(
+                    new BoundStatement.ExpressionStatement(
+                        new BoundCall(
+                            initializer,
+                            Optional.of(thisRead(superCall.span())),
+                            bindArguments(call, resolution),
+                            List.of(),
+                            parent.arguments().stream().map(this::runtimeType).toList(),
+                            false,
+                            false,
+                            SemanticType.VOID,
+                            superCall.span()),
+                        superCall.span()));
+              });
+      statements.addAll(bindBlock(constructor.body(), constructor.span()).statements());
+    }
+    SourceSpan span =
+        owner.constructors().isEmpty() ? owner.span() : owner.constructors().getFirst().span();
+    callables.put(
+        id.value(),
+        new BoundCallable(
+            id,
+            owner.name(),
+            dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
+            Optional.of(aggregateId(owner)),
+            Optional.of(thisType),
+            Optional.of(thisLocal),
+            List.of(),
+            parameters,
+            activeTypeParameters,
+            reified,
+            SemanticType.VOID,
+            new BoundBlock(statements, span),
+            span));
+    reifiedLocals = Map.of();
+    thisLocal = null;
+    thisType = null;
+    activeTypeParameters = previousTypeParameters;
+    currentCallableId = previousCallableId;
   }
 
   private void addReified(
@@ -622,6 +723,7 @@ final class Binder {
       case CONSTRUCT ->
           new BoundConstruct(
               new BoundAggregateId(target.id().value()),
+              aggregates.get(target.id().value()).constructor(),
               runtimeType(type),
               arguments,
               type,
@@ -657,10 +759,17 @@ final class Binder {
               Optional.ofNullable(receiver),
               arguments,
               resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
+              receiver == null
+                  ? List.of()
+                  : methodReceiverType(receiver.type(), target).stream()
+                      .map(this::runtimeType)
+                      .toList(),
+              isVirtualMethod(target),
               nullSafe,
               type,
               call.span());
       case INVOKE -> throw new IllegalStateException("function invocation was bound eagerly");
+      case SUPER -> throw new IllegalStateException("super calls are bound by constructors");
       case INTERFACE_CALL ->
           new BoundExpression.InterfaceCall(
               BoundInterfaceMethodId.of(target.id()),
@@ -910,6 +1019,87 @@ final class Binder {
     return null;
   }
 
+  private Syntax.AggregateDecl aggregateDeclaration(SemanticType type) {
+    for (Syntax.Program program : programs) {
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
+        if (symbol(declaration.nameSpan()).type().identity().equals(type.identity())) {
+          return declaration;
+        }
+      }
+    }
+    return null;
+  }
+
+  private SemanticType aggregateSelfType(Syntax.AggregateDecl declaration) {
+    Symbol symbol = symbol(declaration.nameSpan());
+    return SemanticType.declared(
+        symbol.type().identity(),
+        declaration.name(),
+        declaration.typeParameters().stream()
+            .map(value -> symbol(value.nameSpan()).type())
+            .toList(),
+        symbol.type().category());
+  }
+
+  private int inheritedFieldCount(Syntax.AggregateDecl declaration) {
+    SemanticType parent = semantics.aggregateParent(aggregateSelfType(declaration)).orElse(null);
+    if (parent == null) return 0;
+    Syntax.AggregateDecl parentDeclaration = aggregateDeclaration(parent);
+    if (parentDeclaration == null) return 0;
+    return inheritedFieldCount(parentDeclaration) + parentDeclaration.fields().size();
+  }
+
+  private List<BoundMethodDispatch> bindDispatch(Syntax.AggregateDecl declaration) {
+    SemanticType self = aggregateSelfType(declaration);
+    List<BoundMethodDispatch> result = new ArrayList<>();
+    SemanticType parent = semantics.aggregateParent(self).orElse(null);
+    if (parent != null) {
+      Syntax.AggregateDecl parentDeclaration = aggregateDeclaration(parent);
+      if (parentDeclaration != null) {
+        Map<String, SemanticType> substitutions = aggregateSubstitutions(parentDeclaration, parent);
+        bindDispatch(parentDeclaration).stream()
+            .map(
+                dispatch ->
+                    new BoundMethodDispatch(
+                        dispatch.slot(),
+                        dispatch.implementation(),
+                        dispatch.receiverType().substitute(substitutions)))
+            .forEach(result::add);
+      }
+    }
+    for (Syntax.FunctionDecl method : declaration.methods()) {
+      if (method.visibility() != Syntax.Visibility.PUBLIC) continue;
+      BoundCallableId methodId = callableId(method);
+      semantics
+          .overriddenMethod(symbol(method.nameSpan()).id())
+          .ifPresent(
+              overridden -> {
+                BoundCallableId parentMethod = BoundCallableId.of(overridden);
+                for (int index = 0; index < result.size(); index++) {
+                  BoundMethodDispatch inherited = result.get(index);
+                  if (inherited.implementation().equals(parentMethod)) {
+                    result.set(index, new BoundMethodDispatch(inherited.slot(), methodId, self));
+                  }
+                }
+              });
+      result.add(new BoundMethodDispatch(methodId, methodId, self));
+    }
+    return List.copyOf(result);
+  }
+
+  private Map<String, SemanticType> aggregateSubstitutions(
+      Syntax.AggregateDecl declaration, SemanticType instance) {
+    Map<String, SemanticType> result = new LinkedHashMap<>();
+    for (int index = 0;
+        index < Math.min(declaration.typeParameters().size(), instance.arguments().size());
+        index++) {
+      result.put(
+          symbol(declaration.typeParameters().get(index).nameSpan()).type().identity(),
+          instance.arguments().get(index));
+    }
+    return Map.copyOf(result);
+  }
+
   private static dev.w0fv1.norm.bound.BoundVisibility visibility(Syntax.Visibility visibility) {
     return visibility == Syntax.Visibility.PUBLIC
         ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
@@ -1027,13 +1217,16 @@ final class Binder {
 
   private BoundExpression bindMethodReference(Syntax.MethodReference reference, SemanticType type) {
     Symbol target = symbol(reference.nameSpan());
+    BoundExpression receiver = bindExpression(reference.receiver());
     return new BoundClosure(
         BoundCallableId.of(target.id()),
-        Optional.of(bindExpression(reference.receiver())),
+        Optional.of(receiver),
         List.of(),
         semantics.functionReferenceTypeArguments(reference.span()).stream()
             .map(this::runtimeType)
             .toList(),
+        methodReceiverType(receiver.type(), target).stream().map(this::runtimeType).toList(),
+        isVirtualMethod(target),
         type,
         reference.span());
   }
@@ -1079,6 +1272,35 @@ final class Binder {
     return field;
   }
 
+  private List<SemanticType> methodReceiverType(SemanticType receiver, Symbol target) {
+    if (target.owner().isEmpty()) return List.of();
+    Symbol owner = semantics.symbol(target.owner().orElseThrow()).orElse(null);
+    if (owner == null || owner.kind() != SymbolKind.TYPE) return List.of();
+    SemanticType view = receiver.nonNullable();
+    java.util.Set<String> visited = new java.util.HashSet<>();
+    while (visited.add(view.identity())) {
+      if (view.identity().equals(owner.type().identity())) return view.arguments();
+      Optional<SemanticType> parent = semantics.aggregateParent(view);
+      if (parent.isEmpty()) break;
+      view = parent.orElseThrow();
+    }
+    return List.of();
+  }
+
+  private boolean isVirtualMethod(Symbol target) {
+    if (target.kind() != SymbolKind.METHOD) return false;
+    for (Syntax.Program program : programs) {
+      for (Syntax.AggregateDecl aggregate : program.aggregates()) {
+        for (Syntax.FunctionDecl method : aggregate.methods()) {
+          if (symbol(method.nameSpan()).id().equals(target.id())) {
+            return method.visibility() == Syntax.Visibility.PUBLIC;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   private Symbol symbol(SourceSpan span) {
     return semantics
         .symbolOf(span)
@@ -1091,6 +1313,13 @@ final class Binder {
 
   private BoundCallableId callableId(Syntax.FunctionDecl declaration) {
     return BoundCallableId.of(symbol(declaration.nameSpan()).id());
+  }
+
+  private BoundCallableId constructorId(Syntax.AggregateDecl declaration) {
+    if (!declaration.constructors().isEmpty()) {
+      return BoundCallableId.of(symbol(declaration.constructors().getFirst().nameSpan()).id());
+    }
+    return new BoundCallableId(symbol(declaration.nameSpan()).id().value() + "/constructor");
   }
 
   private BoundAggregateId aggregateId(Syntax.AggregateDecl declaration) {

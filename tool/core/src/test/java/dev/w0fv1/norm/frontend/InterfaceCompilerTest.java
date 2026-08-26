@@ -95,6 +95,25 @@ final class InterfaceCompilerTest {
     assertTrue(body.isSuccess(), () -> body.diagnostics().toString());
   }
 
+  @Test
+  void matchesInterfaceWitnessTypeParameterBoundsByShape() {
+    CompilationResult mismatched =
+        compile(
+            "interface Sized { Integer size() } "
+                + "interface Keeper { T keep<T extends Sized>(T value) } "
+                + "class Invalid implements Keeper { "
+                + "public T keep<T>(T value) { return value } } Void main() {} ");
+    CompilationResult alphaEquivalent =
+        compile(
+            "interface Related<T> {} "
+                + "interface Keeper<T> { U keep<U extends Related<T>>(U value) } "
+                + "class Valid<T> implements Keeper<T> { "
+                + "public V keep<V extends Related<T>>(V value) { return value } } Void main() {} ");
+
+    assertFalse(mismatched.isSuccess());
+    assertTrue(alphaEquivalent.isSuccess(), () -> alphaEquivalent.diagnostics().toString());
+  }
+
   private static CompilationResult compile(String text) {
     return new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
   }

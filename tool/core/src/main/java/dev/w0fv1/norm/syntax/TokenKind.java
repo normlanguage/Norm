@@ -19,6 +19,7 @@ public enum TokenKind {
   RETURN,
   BREAK,
   CONTINUE,
+  SUPER,
   TRUE,
   FALSE,
   NULL,

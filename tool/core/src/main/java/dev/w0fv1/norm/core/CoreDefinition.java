@@ -166,7 +166,11 @@ public sealed interface CoreDefinition
       CoreNominalTypeKey nominalType,
       CoreValueCategory valueCategory,
       List<CoreTypeParameter> typeParameters,
+      Optional<CoreType> parentType,
+      int fieldCount,
       List<CoreField> fields,
+      List<CoreMethodDispatch> dispatch,
+      CoreDefinitionLink constructor,
       List<CoreConformance> conformances)
       implements CoreDefinition {
     public Aggregate {
@@ -176,11 +180,17 @@ public sealed interface CoreDefinition
         throw new IllegalArgumentException("core aggregate must be identity or value");
       }
       typeParameters = requireTypeParameters(typeParameters, 0);
+      parentType = Objects.requireNonNull(parentType, "parentType");
+      if (fieldCount < fields.size()) throw new IllegalArgumentException("field count is invalid");
       fields = List.copyOf(fields);
+      dispatch = List.copyOf(dispatch);
+      Objects.requireNonNull(constructor, "constructor");
       conformances = List.copyOf(conformances);
+      int firstOrdinal = fieldCount - fields.size();
       for (int index = 0; index < fields.size(); index++) {
-        if (fields.get(index).ordinal() != index) {
-          throw new IllegalArgumentException("core fields must be dense and ordered");
+        if (fields.get(index).ordinal() != firstOrdinal + index) {
+          throw new IllegalArgumentException(
+              "core fields must be dense and ordered after inherited fields");
         }
       }
     }

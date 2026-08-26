@@ -51,6 +51,11 @@ final class CoreCodec {
         writeNominalType(writer, aggregateDefinition.nominalType());
         writer.writeTag(aggregateDefinition.valueCategory().name());
         writeTypeParameters(writer, aggregateDefinition.typeParameters(), referenceResolver);
+        writer.writeBoolean(aggregateDefinition.parentType().isPresent());
+        aggregateDefinition
+            .parentType()
+            .ifPresent(type -> writeType(writer, type, referenceResolver));
+        writer.writeInt(aggregateDefinition.fieldCount());
         writer.writeInt(aggregateDefinition.fields().size());
         aggregateDefinition
             .fields()
@@ -59,6 +64,20 @@ final class CoreCodec {
                   writer.writeInt(field.ordinal());
                   writeType(writer, field.type(), referenceResolver);
                 });
+        writer.writeInt(aggregateDefinition.dispatch().size());
+        aggregateDefinition.dispatch().stream()
+            .sorted(
+                java.util.Comparator.comparing(
+                    dispatch ->
+                        java.util.HexFormat.of()
+                            .formatHex(referenceBytes(referenceResolver.apply(dispatch.slot())))))
+            .forEach(
+                dispatch -> {
+                  writeReference(writer, referenceResolver.apply(dispatch.slot()));
+                  writeReference(writer, referenceResolver.apply(dispatch.implementation()));
+                  writeType(writer, dispatch.receiverType(), referenceResolver);
+                });
+        writeReference(writer, referenceResolver.apply(aggregateDefinition.constructor()));
         writer.writeInt(aggregateDefinition.conformances().size());
         aggregateDefinition.conformances().stream()
             .sorted(
@@ -313,6 +332,11 @@ final class CoreCodec {
         closure
             .reifiedArguments()
             .forEach(type -> writeRuntimeType(writer, type, referenceResolver));
+        writer.writeInt(closure.receiverTypeArguments().size());
+        closure
+            .receiverTypeArguments()
+            .forEach(type -> writeRuntimeType(writer, type, referenceResolver));
+        writer.writeBoolean(closure.virtual());
         writeType(writer, closure.type(), referenceResolver);
       }
       case CoreExpression.Invoke invoke -> {
@@ -328,6 +352,10 @@ final class CoreCodec {
         writeArguments(writer, call.arguments(), referenceResolver);
         writer.writeInt(call.reifiedArguments().size());
         call.reifiedArguments().forEach(type -> writeRuntimeType(writer, type, referenceResolver));
+        writer.writeInt(call.receiverTypeArguments().size());
+        call.receiverTypeArguments()
+            .forEach(type -> writeRuntimeType(writer, type, referenceResolver));
+        writer.writeBoolean(call.virtual());
         writer.writeBoolean(call.nullSafe());
         writeType(writer, call.type(), referenceResolver);
       }
@@ -344,6 +372,7 @@ final class CoreCodec {
       case CoreExpression.Construct construct -> {
         writer.writeTag("construct");
         writeReference(writer, referenceResolver.apply(construct.target()));
+        writeReference(writer, referenceResolver.apply(construct.initializer()));
         writeRuntimeType(writer, construct.runtimeType(), referenceResolver);
         writeArguments(writer, construct.arguments(), referenceResolver);
         writeType(writer, construct.type(), referenceResolver);

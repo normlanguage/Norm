@@ -130,6 +130,10 @@ public final class SourceFormatter {
             visibility(declaration.visibility()),
             Docs.text(declaration.kind().keyword() + " " + declaration.name()),
             typeParameters(declaration.typeParameters()),
+            declaration
+                .extendedClass()
+                .map(value -> Docs.concat(Docs.text(" extends "), type(value)))
+                .orElse(Docs.empty()),
             declaration.implementedInterfaces().isEmpty()
                 ? Docs.empty()
                 : Docs.concat(
@@ -143,6 +147,7 @@ public final class SourceFormatter {
             Docs.text(" "));
     List<AstNode> members = new ArrayList<>();
     members.addAll(declaration.fields());
+    members.addAll(declaration.constructors());
     members.addAll(declaration.methods());
     members.sort(Comparator.comparingInt(value -> value.span().startOffset()));
     List<Doc> formatted = members.stream().map(this::aggregateMember).toList();
@@ -154,9 +159,29 @@ public final class SourceFormatter {
       case Syntax.FieldDecl field ->
           Docs.concat(
               visibility(field.visibility()), type(field.type()), Docs.text(" " + field.name()));
+      case Syntax.ConstructorDecl constructor -> constructorDeclaration(constructor);
       case Syntax.FunctionDecl method -> functionDeclaration(method);
       default -> throw new IllegalArgumentException("unsupported aggregate member " + member);
     };
+  }
+
+  private Doc constructorDeclaration(Syntax.ConstructorDecl declaration) {
+    List<Doc> body = new ArrayList<>();
+    declaration
+        .superCall()
+        .ifPresent(
+            call ->
+                body.add(
+                    Docs.concat(
+                        Docs.text("super"),
+                        delimited(
+                            "(", ")", call.arguments().stream().map(this::argument).toList()))));
+    body.addAll(declaration.body().stream().map(this::statement).toList());
+    return Docs.concat(
+        Docs.text(declaration.name()),
+        parameters(declaration.parameters()),
+        Docs.text(" "),
+        blockDocs(body));
   }
 
   private Doc declarationBody(List<Doc> members) {
@@ -238,14 +263,14 @@ public final class SourceFormatter {
   }
 
   private Doc block(List<Syntax.Statement> statements) {
+    return blockDocs(statements.stream().map(this::statement).toList());
+  }
+
+  private Doc blockDocs(List<Doc> statements) {
     if (statements.isEmpty()) return Docs.text("{}");
     return Docs.concat(
         Docs.text("{"),
-        Docs.nest(
-            2,
-            Docs.concat(
-                Docs.hardLine(),
-                Docs.join(Docs.hardLine(), statements.stream().map(this::statement).toList()))),
+        Docs.nest(2, Docs.concat(Docs.hardLine(), Docs.join(Docs.hardLine(), statements))),
         Docs.hardLine(),
         Docs.text("}"));
   }

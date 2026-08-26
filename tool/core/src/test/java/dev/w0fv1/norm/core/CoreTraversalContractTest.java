@@ -142,7 +142,11 @@ final class CoreTraversalContractTest {
             nominal("Class"),
             CoreValueCategory.IDENTITY,
             List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
+            Optional.empty(),
+            1,
             List.of(new CoreField(0, links.type())),
+            List.of(),
+            links.next(),
             List.of(new CoreConformance(links.type(), List.of(callableWitness, intrinsicWitness)))),
         new CoreDefinition.Enum(
             nominal("Enum"),
@@ -251,6 +255,7 @@ final class CoreTraversalContractTest {
     values.add(
         new CoreExpression.Construct(
             16,
+            links.next(),
             links.next(),
             runtimeType(links),
             List.of(new CoreArgument(values.get(0), 0)),

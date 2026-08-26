@@ -2,6 +2,7 @@ package dev.w0fv1.norm.core;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public sealed interface CoreBindingShape {
   record Callable(
@@ -17,7 +18,9 @@ public sealed interface CoreBindingShape {
   record Aggregate(
       CoreValueCategory valueCategory,
       List<CoreTypeParameter> typeParameters,
+      Optional<CoreType> parentType,
       List<Field> fields,
+      List<Parameter> constructorParameters,
       List<CoreType> conformances)
       implements CoreBindingShape {
     public Aggregate {
@@ -26,8 +29,24 @@ public sealed interface CoreBindingShape {
         throw new IllegalArgumentException("aggregate binding must be identity or value");
       }
       typeParameters = requireTypeParameters(typeParameters, 0);
+      parentType = Objects.requireNonNull(parentType, "parentType");
       fields = List.copyOf(fields);
+      constructorParameters = List.copyOf(constructorParameters);
       conformances = List.copyOf(conformances);
+    }
+
+    public Aggregate(
+        CoreValueCategory valueCategory,
+        List<CoreTypeParameter> typeParameters,
+        List<Field> fields,
+        List<CoreType> conformances) {
+      this(
+          valueCategory,
+          typeParameters,
+          Optional.empty(),
+          fields,
+          fields.stream().map(field -> new Parameter(field.name(), field.type())).toList(),
+          conformances);
     }
   }
 

@@ -322,6 +322,8 @@ final class BoundCoreBodyConverter {
               closure.receiver().map(this::convert),
               closure.captures().stream().map(this::convert).toList(),
               closure.reifiedArguments().stream().map(this::runtimeType).toList(),
+              closure.receiverTypeArguments().stream().map(this::runtimeType).toList(),
+              closure.virtual(),
               types.convert(closure.type()));
       case BoundInvoke invoke ->
           new CoreExpression.Invoke(
@@ -345,12 +347,16 @@ final class BoundCoreBodyConverter {
               call.receiver().map(this::convert),
               arguments(call.arguments()),
               call.reifiedArguments().stream().map(this::runtimeType).toList(),
+              call.receiverTypeArguments().stream().map(this::runtimeType).toList(),
+              call.virtual(),
               call.nullSafe(),
               types.convert(call.type()));
       case BoundConstruct construct ->
           new CoreExpression.Construct(
               node,
               reference(node, construct.target().value()),
+              new PendingDefinitionReference(
+                  declarationIndex.applyAsInt(construct.initializer().value())),
               runtimeType(construct.runtimeType()),
               arguments(construct.arguments()),
               types.convert(construct.type()));

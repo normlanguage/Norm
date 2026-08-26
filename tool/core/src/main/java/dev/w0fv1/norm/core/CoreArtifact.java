@@ -143,8 +143,17 @@ public final class CoreArtifact {
         if (shape.valueCategory() != declaration.valueCategory()
             || !sameTypeParameters(
                 program, id, shape.typeParameters(), declaration.typeParameters())
+            || shape.parentType().isPresent() != declaration.parentType().isPresent()
             || shape.fields().size() != declaration.fields().size()
             || shape.conformances().size() != declaration.conformances().size()) {
+          throw bindingMismatch(binding);
+        }
+        if (shape.parentType().isPresent()
+            && !sameType(
+                program,
+                id,
+                shape.parentType().orElseThrow(),
+                declaration.parentType().orElseThrow())) {
           throw bindingMismatch(binding);
         }
         for (int field = 0; field < shape.fields().size(); field++) {
@@ -161,6 +170,22 @@ public final class CoreArtifact {
               declaration.conformances().stream()
                   .anyMatch(value -> sameType(program, id, conformance, value.interfaceType()));
           if (!present) throw bindingMismatch(binding);
+        }
+        DefinitionId constructorId =
+            program.resolve(id, (DefinitionReference) declaration.constructor());
+        CoreDefinition constructorDefinition = program.definition(constructorId).orElseThrow();
+        if (!(constructorDefinition instanceof CoreDefinition.Callable constructor)
+            || shape.constructorParameters().size() != constructor.parameterTypes().size()) {
+          throw bindingMismatch(binding);
+        }
+        for (int parameter = 0; parameter < shape.constructorParameters().size(); parameter++) {
+          if (!sameType(
+              program,
+              constructorId,
+              shape.constructorParameters().get(parameter).type(),
+              constructor.parameterTypes().get(parameter))) {
+            throw bindingMismatch(binding);
+          }
         }
       }
       case CoreDefinition.Enum declaration -> {

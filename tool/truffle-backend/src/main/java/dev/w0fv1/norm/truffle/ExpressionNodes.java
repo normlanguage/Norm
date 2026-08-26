@@ -512,19 +512,25 @@ final class ExpressionNodes {
 
   static final class Closure extends ExpressionNode {
     private final CallTarget target;
+    private final DefinitionId virtualSlot;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] captures;
     @Children private final ExpressionNode[] reifiedArguments;
+    @Children private final ExpressionNode[] receiverTypeArguments;
 
     Closure(
         CallTarget target,
+        DefinitionId virtualSlot,
         ExpressionNode receiver,
         ExpressionNode[] captures,
-        ExpressionNode[] reifiedArguments) {
+        ExpressionNode[] reifiedArguments,
+        ExpressionNode[] receiverTypeArguments) {
       this.target = target;
+      this.virtualSlot = virtualSlot;
       this.receiver = receiver;
       this.captures = captures;
       this.reifiedArguments = reifiedArguments;
+      this.receiverTypeArguments = receiverTypeArguments;
     }
 
     @Override
@@ -537,8 +543,27 @@ final class ExpressionNodes {
       for (int index = 0; index < reifiedArguments.length; index++) {
         reified[index] = reifiedArguments[index].execute(frame);
       }
+      Object receiverValue = receiver == null ? null : receiver.execute(frame);
+      CallTarget resolvedTarget = target;
+      Object[] ownerArguments = new Object[receiverTypeArguments.length];
+      for (int index = 0; index < receiverTypeArguments.length; index++) {
+        ownerArguments[index] = receiverTypeArguments[index].execute(frame);
+      }
+      if (virtualSlot != null) {
+        RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
+        RuntimeValues.DispatchTarget.Callable dispatch =
+            (RuntimeValues.DispatchTarget.Callable)
+                object.aggregateInfo.dispatch().get(virtualSlot);
+        resolvedTarget = dispatch.target();
+        List<CoreType> concreteArguments =
+            object.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+        ownerArguments =
+            dispatch.receiverTypeArguments().stream()
+                .map(type -> type.substitute(concreteArguments::get))
+                .toArray();
+      }
       return new RuntimeValues.Closure(
-          target, receiver == null ? null : receiver.execute(frame), values, reified);
+          resolvedTarget, receiverValue, values, ownerArguments, reified);
     }
   }
 
@@ -559,11 +584,7 @@ final class ExpressionNodes {
       RuntimeValues.Closure closure = (RuntimeValues.Closure) callee.execute(frame);
       Object[] values = evaluateArguments(arguments, parameterIndices, frame);
       int receiverCount = closure.receiver() == null ? 0 : 1;
-      int ownerTypeArgumentCount =
-          closure.receiver() instanceof RuntimeValues.ObjectValue object
-                  && object.type instanceof CoreType.Declared declared
-              ? declared.arguments().size()
-              : 0;
+      int ownerTypeArgumentCount = closure.receiverTypeArguments().length;
       Object[] complete =
           new Object
               [1
@@ -579,10 +600,9 @@ final class ExpressionNodes {
       offset += closure.captures().length;
       System.arraycopy(values, 0, complete, offset, values.length);
       offset += values.length;
-      if (closure.receiver() instanceof RuntimeValues.ObjectValue object
-          && object.type instanceof CoreType.Declared declared) {
-        for (CoreType argument : declared.arguments()) complete[offset++] = argument;
-      }
+      System.arraycopy(
+          closure.receiverTypeArguments(), 0, complete, offset, ownerTypeArgumentCount);
+      offset += ownerTypeArgumentCount;
       System.arraycopy(
           closure.reifiedArguments(), 0, complete, offset, closure.reifiedArguments().length);
       return call.call(closure.target(), complete);
@@ -594,6 +614,7 @@ final class ExpressionNodes {
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     @Children private final ExpressionNode[] typeArguments;
+    @Children private final ExpressionNode[] receiverTypeArguments;
     private final int[] parameterIndices;
     private final boolean nullSafe;
 
@@ -603,12 +624,14 @@ final class ExpressionNodes {
         ExpressionNode[] arguments,
         int[] parameterIndices,
         ExpressionNode[] typeArguments,
+        ExpressionNode[] receiverTypeArguments,
         boolean nullSafe) {
       call = DirectCallNode.create(target);
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
       this.typeArguments = typeArguments;
+      this.receiverTypeArguments = receiverTypeArguments;
       this.nullSafe = nullSafe;
     }
 
@@ -619,21 +642,14 @@ final class ExpressionNodes {
         return RuntimeValues.NullValue.INSTANCE;
       }
       Object[] bound = evaluateArguments(arguments, parameterIndices, frame);
-      int ownerTypeArgumentCount =
-          receiverValue instanceof RuntimeValues.ObjectValue object
-                  && object.type instanceof CoreType.Declared declared
-              ? declared.arguments().size()
-              : 0;
+      int ownerTypeArgumentCount = receiverTypeArguments.length;
       Object[] values =
           new Object[bound.length + ownerTypeArgumentCount + typeArguments.length + 2];
       values[0] = ExecutionContextAccess.get(frame);
       values[1] = receiverValue;
       System.arraycopy(bound, 0, values, 2, bound.length);
-      if (receiverValue instanceof RuntimeValues.ObjectValue object
-          && object.type instanceof CoreType.Declared declared) {
-        for (int index = 0; index < declared.arguments().size(); index++) {
-          values[bound.length + index + 2] = declared.arguments().get(index);
-        }
+      for (int index = 0; index < receiverTypeArguments.length; index++) {
+        values[bound.length + index + 2] = receiverTypeArguments[index].execute(frame);
       }
       for (int index = 0; index < typeArguments.length; index++) {
         values[bound.length + ownerTypeArgumentCount + index + 2] =
@@ -643,15 +659,15 @@ final class ExpressionNodes {
     }
   }
 
-  static final class InterfaceCall extends ExpressionNode {
+  static final class DispatchedCall extends ExpressionNode {
     private final int[] parameterIndices;
     private final boolean nullSafe;
-    @Child private InterfaceDispatchNode dispatch;
+    @Child private MethodDispatchNode dispatch;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     @Children private final ExpressionNode[] typeArguments;
 
-    InterfaceCall(
+    DispatchedCall(
         DefinitionId requirement,
         ExpressionNode receiver,
         ExpressionNode[] arguments,
@@ -662,7 +678,7 @@ final class ExpressionNodes {
                 dev.w0fv1.norm.core.BuiltinTypeId,
                 java.util.Map<DefinitionId, RuntimeValues.DispatchTarget>>
             builtinDispatch) {
-      dispatch = new InterfaceDispatchNode(requirement, builtinDispatch);
+      dispatch = new MethodDispatchNode(requirement, builtinDispatch);
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
@@ -687,16 +703,19 @@ final class ExpressionNodes {
 
   static final class Construct extends ExpressionNode {
     private final RuntimeValues.AggregateInfo aggregateInfo;
+    @Child private DirectCallNode initializer;
     @Child private ExpressionNode type;
     @Children private final ExpressionNode[] fields;
     private final int[] fieldIndices;
 
     Construct(
         RuntimeValues.AggregateInfo aggregateInfo,
+        CallTarget initializer,
         ExpressionNode type,
         ExpressionNode[] fields,
         int[] fieldIndices) {
       this.aggregateInfo = aggregateInfo;
+      this.initializer = DirectCallNode.create(initializer);
       this.type = type;
       this.fields = fields;
       this.fieldIndices = fieldIndices;
@@ -707,7 +726,16 @@ final class ExpressionNodes {
       RuntimeValues.ObjectValue object =
           new RuntimeValues.ObjectValue(aggregateInfo, (CoreType) type.execute(frame));
       Object[] values = evaluateArguments(fields, fieldIndices, frame);
-      System.arraycopy(values, 0, object.fields, 0, values.length);
+      List<CoreType> ownerArguments =
+          object.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+      Object[] callArguments = new Object[values.length + ownerArguments.size() + 2];
+      callArguments[0] = ExecutionContextAccess.get(frame);
+      callArguments[1] = object;
+      System.arraycopy(values, 0, callArguments, 2, values.length);
+      for (int index = 0; index < ownerArguments.size(); index++) {
+        callArguments[values.length + index + 2] = ownerArguments.get(index);
+      }
+      initializer.call(callArguments);
       return object;
     }
   }

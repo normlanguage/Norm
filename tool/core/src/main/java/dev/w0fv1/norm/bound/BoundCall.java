@@ -11,6 +11,8 @@ public record BoundCall(
     Optional<BoundExpression> receiver,
     List<BoundArgument> arguments,
     List<BoundRuntimeType> reifiedArguments,
+    List<BoundRuntimeType> receiverTypeArguments,
+    boolean virtual,
     boolean nullSafe,
     SemanticType type,
     SourceSpan span)
@@ -20,6 +22,7 @@ public record BoundCall(
     receiver = Objects.requireNonNull(receiver, "receiver");
     arguments = List.copyOf(arguments);
     reifiedArguments = List.copyOf(reifiedArguments);
+    receiverTypeArguments = List.copyOf(receiverTypeArguments);
     Objects.requireNonNull(type, "type");
     Objects.requireNonNull(span, "span");
   }
@@ -29,8 +32,19 @@ public record BoundCall(
       Optional<BoundExpression> receiver,
       List<BoundArgument> arguments,
       List<BoundRuntimeType> reifiedArguments,
+      boolean nullSafe,
       SemanticType type,
       SourceSpan span) {
-    this(target, receiver, arguments, reifiedArguments, false, type, span);
+    this(target, receiver, arguments, reifiedArguments, List.of(), false, nullSafe, type, span);
+  }
+
+  public BoundCall(
+      BoundCallableId target,
+      Optional<BoundExpression> receiver,
+      List<BoundArgument> arguments,
+      List<BoundRuntimeType> reifiedArguments,
+      SemanticType type,
+      SourceSpan span) {
+    this(target, receiver, arguments, reifiedArguments, List.of(), false, false, type, span);
   }
 }

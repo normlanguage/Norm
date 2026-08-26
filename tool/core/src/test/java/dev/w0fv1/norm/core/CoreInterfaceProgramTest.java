@@ -162,8 +162,13 @@ final class CoreInterfaceProgramTest {
             nominal("Item"),
             CoreValueCategory.IDENTITY,
             List.of(),
+            Optional.empty(),
+            0,
             List.of(),
+            List.of(),
+            new PendingDefinitionReference(5),
             List.of(new CoreConformance(named, witnesses)));
+    CoreDefinition.Callable constructor = constructor(item);
     CoreDefinition.Callable implementation =
         new CoreDefinition.Callable(
             Optional.of(item),
@@ -204,7 +209,8 @@ final class CoreInterfaceProgramTest {
     CoreCanonicalizer.Result result =
         new CoreCanonicalizer()
             .canonicalize(
-                List.of(declaration, requirement, itemDefinition, implementation, invoke));
+                List.of(
+                    declaration, requirement, itemDefinition, implementation, invoke, constructor));
     return new CoreProgram(result.groups());
   }
 
@@ -227,7 +233,11 @@ final class CoreInterfaceProgramTest {
             nominal("IdentityService"),
             CoreValueCategory.IDENTITY,
             List.of(),
+            Optional.empty(),
+            0,
             List.of(),
+            List.of(),
+            new PendingDefinitionReference(5),
             List.of(
                 new CoreConformance(
                     identity,
@@ -235,6 +245,7 @@ final class CoreInterfaceProgramTest {
                         new CoreWitness(
                             new PendingDefinitionReference(1),
                             new CoreWitnessTarget.Callable(new PendingDefinitionReference(3)))))));
+    CoreDefinition.Callable constructor = constructor(service);
     CoreDefinition.Callable implementation =
         new CoreDefinition.Callable(
             Optional.of(service),
@@ -280,7 +291,13 @@ final class CoreInterfaceProgramTest {
     CoreCanonicalizer.Result result =
         new CoreCanonicalizer()
             .canonicalize(
-                List.of(declaration, requirement, serviceDefinition, implementation, invoke));
+                List.of(
+                    declaration,
+                    requirement,
+                    serviceDefinition,
+                    implementation,
+                    invoke,
+                    constructor));
     return new CoreProgram(result.groups());
   }
 
@@ -290,6 +307,18 @@ final class CoreInterfaceProgramTest {
         arguments,
         CoreValueCategory.POLYMORPHIC,
         CoreNullability.NON_NULL);
+  }
+
+  private static CoreDefinition.Callable constructor(CoreType receiver) {
+    return new CoreDefinition.Callable(
+        Optional.of(receiver),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        CoreType.VOID,
+        List.of(new CoreLocal(0, receiver, CoreLocal.Kind.RECEIVER)),
+        new CoreBlock(0, List.of()));
   }
 
   private static CoreType identityType(CoreDefinitionLink definition, List<CoreType> arguments) {

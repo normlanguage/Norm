@@ -23,6 +23,10 @@ The program prints `1`: both variables refer to the same Counter. Parameters and
 
 Call `copy()` when a new top-level identity is required. Value fields become independent, while class fields still refer to the same nested objects.
 
+## Construction and inheritance
+
+A class may declare one same-named constructor without a return type or visibility modifier. A subclass uses `extends` for single inheritance and calls `super(...)` first in its constructor. Public methods override by signature and dispatch dynamically. See [Class declarations](/spec/grammar/classes) for the normative rules.
+
 ## Containers are values
 
 Copying a built-in container creates an independent structure. Class elements within that structure retain their identity. Values compare structurally; classes compare by identity.

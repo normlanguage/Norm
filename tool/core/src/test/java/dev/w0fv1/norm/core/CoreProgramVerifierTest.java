@@ -13,8 +13,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsSpecialTypesInValueAbis() {
     for (CoreType special : List.of(CoreType.VOID, CoreType.NULL, CoreType.DYNAMIC)) {
-      CoreDefinitionGroup field =
-          group(aggregateDefinition("Box", 0, List.of(new CoreField(0, special))));
+      CoreDefinitionGroup field = aggregateGroup("Box", 0, List.of(new CoreField(0, special)));
       CoreDefinitionGroup parameter =
           group(
               new CoreDefinition.Callable(
@@ -116,8 +115,8 @@ final class CoreProgramVerifierTest {
 
   @Test
   void rejectsMethodCallsWithoutTheDeclaredReceiver() {
-    CoreDefinitionGroup owner = group(aggregateDefinition("Box", 0, List.of()));
-    CoreType receiver = userType(owner.definitionId(0), List.of());
+    CoreDefinitionGroup owner = aggregateGroup("Box", 0, List.of());
+    CoreType receiver = userType(aggregateId(owner), List.of());
     CoreDefinitionGroup method =
         group(
             new CoreDefinition.Callable(
@@ -178,12 +177,13 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsConstructorArgumentsWithTheWrongType() {
     CoreDefinitionGroup target =
-        group(aggregateDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
-    CoreType box = userType(target.definitionId(0), List.of());
+        aggregateGroup("Box", 0, List.of(new CoreField(0, CoreType.INTEGER)));
+    CoreType box = userType(aggregateId(target), List.of());
     CoreExpression.Construct construct =
         new CoreExpression.Construct(
             2,
-            new DefinitionReference.External(target.definitionId(0)),
+            new DefinitionReference.External(aggregateId(target)),
+            new DefinitionReference.External(constructorId(target)),
             new CoreRuntimeType(box, List.of()),
             List.of(new CoreArgument(new CoreExpression.Literal(3, "wrong", CoreType.STRING), 0)),
             box);
@@ -193,15 +193,34 @@ final class CoreProgramVerifierTest {
   }
 
   @Test
+  void rejectsConstructInitializerFromAnotherAggregate() {
+    CoreDefinitionGroup target = aggregateGroup("Box", 0, List.of());
+    CoreDefinitionGroup other = aggregateGroup("Other", 0, List.of());
+    CoreType box = userType(aggregateId(target), List.of());
+    CoreExpression.Construct construct =
+        new CoreExpression.Construct(
+            2,
+            new DefinitionReference.External(aggregateId(target)),
+            new DefinitionReference.External(constructorId(other)),
+            new CoreRuntimeType(box, List.of()),
+            List.of(),
+            box);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(target, other, group(function(construct)))));
+  }
+
+  @Test
   void rejectsInvalidFieldAndEnumTargets() {
     CoreDefinitionGroup owner =
-        group(aggregateDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
-    CoreType box = userType(owner.definitionId(0), List.of());
+        aggregateGroup("Box", 0, List.of(new CoreField(0, CoreType.INTEGER)));
+    CoreType box = userType(aggregateId(owner), List.of());
     CoreExpression.FieldRead read =
         new CoreExpression.FieldRead(
             2,
             new CoreExpression.LocalRead(3, 0, box),
-            new CoreFieldReference(new DefinitionReference.External(owner.definitionId(0)), 1),
+            new CoreFieldReference(new DefinitionReference.External(aggregateId(owner)), 1),
             false,
             CoreType.INTEGER);
     CoreDefinitionGroup fieldCaller =
@@ -316,11 +335,10 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsTypeParametersOutsideTheirDefinitionAbi() {
     CoreDefinitionGroup invalid =
-        group(
-            aggregateDefinition(
-                "Box",
-                1,
-                List.of(new CoreField(0, new CoreType.Parameter(1, CoreNullability.NON_NULL)))));
+        aggregateGroup(
+            "Box",
+            1,
+            List.of(new CoreField(0, new CoreType.Parameter(1, CoreNullability.NON_NULL))));
 
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(invalid)));
   }
@@ -336,15 +354,15 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsUnsafeNullableFieldReadsAndCopies() {
     CoreDefinitionGroup owner =
-        group(aggregateDefinition("Box", 0, List.of(new CoreField(0, CoreType.INTEGER))));
-    CoreType box = userType(owner.definitionId(0), List.of());
+        aggregateGroup("Box", 0, List.of(new CoreField(0, CoreType.INTEGER)));
+    CoreType box = userType(aggregateId(owner), List.of());
     CoreType nullableBox = box.asNullable();
     CoreExpression receiver = new CoreExpression.LocalRead(3, 0, nullableBox);
     CoreExpression.FieldRead field =
         new CoreExpression.FieldRead(
             2,
             receiver,
-            new CoreFieldReference(new DefinitionReference.External(owner.definitionId(0)), 0),
+            new CoreFieldReference(new DefinitionReference.External(aggregateId(owner)), 0),
             false,
             CoreType.INTEGER);
     CoreExpression.CopyObject copy = new CoreExpression.CopyObject(2, receiver, false, box);
@@ -553,14 +571,84 @@ final class CoreProgramVerifierTest {
         CoreNullability.NON_NULL);
   }
 
-  private static CoreDefinition.Aggregate aggregateDefinition(
+  private static CoreDefinitionGroup aggregateGroup(
       String name, int typeParameters, List<CoreField> fields) {
-    return new CoreDefinition.Aggregate(
-        nominal(name),
-        CoreValueCategory.IDENTITY,
-        typeParameters(typeParameters),
-        fields,
-        List.of());
+    List<CoreTypeParameter> parameters = typeParameters(typeParameters);
+    CoreType receiver =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new PendingDefinitionReference(0)),
+            java.util.stream.IntStream.range(0, typeParameters)
+                .mapToObj(index -> new CoreType.Parameter(index, CoreNullability.NON_NULL))
+                .map(CoreType.class::cast)
+                .toList(),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NON_NULL);
+    List<Integer> parameterLocals =
+        java.util.stream.IntStream.range(0, fields.size()).map(index -> index + 1).boxed().toList();
+    List<Integer> reifiedLocals =
+        java.util.stream.IntStream.range(0, typeParameters)
+            .map(index -> fields.size() + index + 1)
+            .boxed()
+            .toList();
+    List<CoreLocal> locals = new java.util.ArrayList<>();
+    locals.add(new CoreLocal(0, receiver, CoreLocal.Kind.RECEIVER));
+    for (int index = 0; index < fields.size(); index++) {
+      locals.add(new CoreLocal(index + 1, fields.get(index).type(), CoreLocal.Kind.PARAMETER));
+    }
+    for (int index = 0; index < typeParameters; index++) {
+      locals.add(
+          new CoreLocal(fields.size() + index + 1, CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE));
+    }
+    CoreDefinition.Aggregate aggregate =
+        new CoreDefinition.Aggregate(
+            nominal(name),
+            CoreValueCategory.IDENTITY,
+            parameters,
+            Optional.empty(),
+            fields.size(),
+            fields,
+            List.of(),
+            new PendingDefinitionReference(1),
+            List.of());
+    CoreDefinition.Callable constructor =
+        new CoreDefinition.Callable(
+            Optional.of(receiver),
+            List.of(),
+            fields.stream().map(CoreField::type).toList(),
+            parameterLocals,
+            reifiedLocals,
+            CoreType.VOID,
+            locals,
+            new CoreBlock(0, List.of()));
+    return new CoreCanonicalizer()
+        .canonicalize(List.of(aggregate, constructor))
+        .groups()
+        .getFirst();
+  }
+
+  private static DefinitionId aggregateId(CoreDefinitionGroup group) {
+    for (int index = 0; index < group.definitions().size(); index++) {
+      if (group.definitions().get(index) instanceof CoreDefinition.Aggregate) {
+        return group.definitionId(index);
+      }
+    }
+    throw new IllegalArgumentException("group has no aggregate");
+  }
+
+  private static DefinitionId constructorId(CoreDefinitionGroup group) {
+    CoreDefinition.Aggregate aggregate =
+        group.definitions().stream()
+            .filter(CoreDefinition.Aggregate.class::isInstance)
+            .map(CoreDefinition.Aggregate.class::cast)
+            .findFirst()
+            .orElseThrow();
+    return switch (aggregate.constructor()) {
+      case DefinitionReference.External external -> external.definition();
+      case DefinitionReference.RecursiveMember recursive ->
+          group.definitionId(recursive.memberIndex());
+      case PendingDefinitionReference ignored ->
+          throw new IllegalArgumentException("group constructor is unresolved");
+    };
   }
 
   private static List<CoreTypeParameter> typeParameters(int count) {

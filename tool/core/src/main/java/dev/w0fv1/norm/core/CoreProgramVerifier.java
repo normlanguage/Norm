@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 final class CoreProgramVerifier {
@@ -84,10 +85,44 @@ final class CoreProgramVerifier {
   }
 
   private void verifyAggregate(DefinitionId id, CoreDefinition.Aggregate declaration) {
+    int inheritedFields = 0;
+    DefinitionId parentId = null;
+    CoreType.Declared parentInstance = null;
+    if (declaration.parentType().isPresent()) {
+      CoreType parentType = declaration.parentType().orElseThrow();
+      verifyValueType(id, parentType, declaration.typeParameters().size());
+      CoreType absoluteParent = absolute(id, parentType);
+      if (!(absoluteParent instanceof CoreType.Declared declared)
+          || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+          || !(program.definition(resolveExternal(user.definition())).orElseThrow()
+              instanceof CoreDefinition.Aggregate parent)
+          || parent.valueCategory() != CoreValueCategory.IDENTITY) {
+        throw new IllegalArgumentException("aggregate parent must be an aggregate type");
+      }
+      parentInstance = declared;
+      parentId = resolveExternal(user.definition());
+      inheritedFields = parent.fieldCount();
+      requireAcyclicAggregate(id, parentId, new HashSet<>());
+    }
+    if (declaration.fieldCount() != inheritedFields + declaration.fields().size()) {
+      throw new IllegalArgumentException("aggregate field count does not match its parent");
+    }
     declaration
         .fields()
         .forEach(field -> verifyValueType(id, field.type(), declaration.typeParameters().size()));
     verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
+    DefinitionId constructorId = resolve(id, declaration.constructor());
+    CoreDefinition constructor = program.definition(constructorId).orElseThrow();
+    if (!(constructor instanceof CoreDefinition.Callable constructorCallable)
+        || constructorCallable.receiverType().isEmpty()
+        || !isReceiverOf(
+            constructorId,
+            constructorCallable.receiverType().orElseThrow(),
+            id,
+            declaration.typeParameters().size())) {
+      throw new IllegalArgumentException("aggregate constructor must target a method");
+    }
+    verifyAggregateDispatch(id, declaration, parentId, parentInstance);
     Set<DefinitionId> interfaces = new HashSet<>();
     Map<DefinitionId, CoreType.Declared> inheritedInterfaces = new LinkedHashMap<>();
     for (CoreConformance conformance : declaration.conformances()) {
@@ -99,6 +134,223 @@ final class CoreProgramVerifier {
       collectInterfaceInstances(instance, inheritedInterfaces);
       verifyConformance(id, declaration, instance, conformance);
     }
+  }
+
+  private void verifyAggregateDispatch(
+      DefinitionId id,
+      CoreDefinition.Aggregate declaration,
+      DefinitionId parentId,
+      CoreType.Declared parentInstance) {
+    CoreType.Declared self = aggregateType(id, declaration);
+    Map<DefinitionId, CoreMethodDispatch> dispatchBySlot = new LinkedHashMap<>();
+    for (CoreMethodDispatch dispatch : declaration.dispatch()) {
+      DefinitionId slotId = resolve(id, dispatch.slot());
+      if (dispatchBySlot.putIfAbsent(slotId, dispatch) != null) {
+        throw new IllegalArgumentException("aggregate method dispatch slots must be unique");
+      }
+      DefinitionId implementationId = resolve(id, dispatch.implementation());
+      CoreDefinition.Callable slot = dispatchMethod(slotId, "dispatch slot");
+      CoreDefinition.Callable implementation =
+          dispatchMethod(implementationId, "dispatch implementation");
+      verifyValueType(id, dispatch.receiverType(), declaration.typeParameters().size());
+      CoreType receiverType = absolute(id, dispatch.receiverType());
+      DefinitionId implementationOwner = methodOwner(implementationId, implementation);
+      CoreType.Declared implementationView = aggregateView(self, implementationOwner);
+      if (implementationView == null || !implementationView.equals(receiverType)) {
+        throw new IllegalArgumentException(
+            "aggregate dispatch receiver does not match its implementation owner");
+      }
+      CoreType.Declared slotView = aggregateView(self, methodOwner(slotId, slot));
+      if (slotView == null) {
+        throw new IllegalArgumentException("aggregate dispatch slot is not inherited");
+      }
+      verifyDispatchMethodAbi(
+          slotId,
+          slot,
+          slotView,
+          implementationId,
+          implementation,
+          implementationView,
+          declaration.typeParameters().size());
+    }
+
+    Map<DefinitionId, CoreMethodDispatch> inherited = new LinkedHashMap<>();
+    if (parentId != null) {
+      Map<DefinitionId, DefinitionId> replacements = new LinkedHashMap<>();
+      CoreDefinition.Aggregate parent =
+          (CoreDefinition.Aggregate) program.definition(parentId).orElseThrow();
+      for (CoreMethodDispatch parentDispatch : parent.dispatch()) {
+        DefinitionId slotId = resolve(parentId, parentDispatch.slot());
+        inherited.put(slotId, parentDispatch);
+        CoreMethodDispatch actual = dispatchBySlot.get(slotId);
+        if (actual == null) {
+          throw new IllegalArgumentException("aggregate dispatch omits an inherited slot");
+        }
+        DefinitionId parentImplementation = resolve(parentId, parentDispatch.implementation());
+        DefinitionId actualImplementation = resolve(id, actual.implementation());
+        DefinitionId previous =
+            replacements.putIfAbsent(parentImplementation, actualImplementation);
+        if (previous != null && !previous.equals(actualImplementation)) {
+          throw new IllegalArgumentException(
+              "aggregate dispatch must replace an inherited implementation consistently");
+        }
+        if (actualImplementation.equals(parentImplementation)) {
+          CoreType expectedReceiver =
+              absolute(parentId, parentDispatch.receiverType())
+                  .substitute(parentInstance.arguments()::get);
+          requireSameType(
+              expectedReceiver, absolute(id, actual.receiverType()), "inherited dispatch receiver");
+        } else {
+          if (!methodOwner(
+                  actualImplementation,
+                  dispatchMethod(actualImplementation, "dispatch implementation"))
+              .equals(id)) {
+            throw new IllegalArgumentException(
+                "aggregate dispatch override must be declared by the child");
+          }
+          CoreMethodDispatch selfSlot = dispatchBySlot.get(actualImplementation);
+          if (selfSlot == null
+              || !resolve(id, selfSlot.implementation()).equals(actualImplementation)) {
+            throw new IllegalArgumentException(
+                "aggregate dispatch override must declare its own slot");
+          }
+        }
+      }
+    }
+    for (Map.Entry<DefinitionId, CoreMethodDispatch> entry : dispatchBySlot.entrySet()) {
+      if (inherited.containsKey(entry.getKey())) continue;
+      DefinitionId implementation = resolve(id, entry.getValue().implementation());
+      if (!methodOwner(entry.getKey(), dispatchMethod(entry.getKey(), "dispatch slot")).equals(id)
+          || !implementation.equals(entry.getKey())
+          || !absolute(id, entry.getValue().receiverType()).equals(self)) {
+        throw new IllegalArgumentException(
+            "new aggregate dispatch slots must be declared by the aggregate");
+      }
+    }
+  }
+
+  private CoreDefinition.Callable dispatchMethod(DefinitionId id, String subject) {
+    CoreDefinition definition = program.definition(id).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable callable)
+        || callable.receiverType().isEmpty()
+        || !callable.captureTypes().isEmpty()
+        || isAggregateConstructor(id)) {
+      throw new IllegalArgumentException(subject + " must be a non-capturing method");
+    }
+    return callable;
+  }
+
+  private boolean isAggregateConstructor(DefinitionId id) {
+    for (CoreDefinitionRecord record : program.definitions()) {
+      if (record.definition() instanceof CoreDefinition.Aggregate aggregate
+          && resolve(record.id(), aggregate.constructor()).equals(id)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private DefinitionId methodOwner(DefinitionId id, CoreDefinition.Callable method) {
+    CoreType receiver = nonNullable(absolute(id, method.receiverType().orElseThrow()));
+    if (!(receiver instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException("dispatch method receiver must be an aggregate type");
+    }
+    DefinitionId owner = resolveExternal(user.definition());
+    if (!(program.definition(owner).orElseThrow() instanceof CoreDefinition.Aggregate)) {
+      throw new IllegalArgumentException("dispatch method receiver must be an aggregate type");
+    }
+    return owner;
+  }
+
+  private void verifyDispatchMethodAbi(
+      DefinitionId slotId,
+      CoreDefinition.Callable slot,
+      CoreType.Declared slotView,
+      DefinitionId implementationId,
+      CoreDefinition.Callable implementation,
+      CoreType.Declared implementationView,
+      int aggregateParameterCount) {
+    if (slot.typeParameters().size() != implementation.typeParameters().size()
+        || slot.parameterTypes().size() != implementation.parameterTypes().size()) {
+      throw new IllegalArgumentException("dispatch implementation does not match its slot ABI");
+    }
+    for (int index = 0; index < slot.typeParameters().size(); index++) {
+      Optional<CoreType> expected =
+          normalizedMethodBound(
+              slotId, slot, slotView, slot.typeParameters().get(index), aggregateParameterCount);
+      Optional<CoreType> actual =
+          normalizedMethodBound(
+              implementationId,
+              implementation,
+              implementationView,
+              implementation.typeParameters().get(index),
+              aggregateParameterCount);
+      if (!expected.equals(actual)) {
+        throw new IllegalArgumentException("dispatch implementation does not match its slot ABI");
+      }
+    }
+    for (int index = 0; index < slot.parameterTypes().size(); index++) {
+      requireSameType(
+          normalizeMethodType(
+              slotId, slot.parameterTypes().get(index), slot, slotView, aggregateParameterCount),
+          normalizeMethodType(
+              implementationId,
+              implementation.parameterTypes().get(index),
+              implementation,
+              implementationView,
+              aggregateParameterCount),
+          "dispatch parameter");
+    }
+    CoreType expectedResult =
+        normalizeMethodType(slotId, slot.returnType(), slot, slotView, aggregateParameterCount);
+    CoreType actualResult =
+        normalizeMethodType(
+            implementationId,
+            implementation.returnType(),
+            implementation,
+            implementationView,
+            aggregateParameterCount);
+    requireAssignable(expectedResult, actualResult, "dispatch result");
+  }
+
+  private Optional<CoreType> normalizedMethodBound(
+      DefinitionId owner,
+      CoreDefinition.Callable method,
+      CoreType.Declared receiver,
+      CoreTypeParameter parameter,
+      int aggregateParameterCount) {
+    return parameter
+        .upperBound()
+        .map(bound -> normalizeMethodType(owner, bound, method, receiver, aggregateParameterCount));
+  }
+
+  private CoreType normalizeMethodType(
+      DefinitionId owner,
+      CoreType type,
+      CoreDefinition.Callable method,
+      CoreType.Declared receiver,
+      int aggregateParameterCount) {
+    int receiverParameters = method.receiverTypeParameterCount();
+    return absolute(owner, type)
+        .substitute(
+            index -> {
+              if (index < receiverParameters) return receiver.arguments().get(index);
+              return new CoreType.Parameter(
+                  aggregateParameterCount + index - receiverParameters, CoreNullability.NON_NULL);
+            });
+  }
+
+  private static CoreType.Declared aggregateType(
+      DefinitionId id, CoreDefinition.Aggregate declaration) {
+    return new CoreType.Declared(
+        new CoreTypeConstructor.User(new DefinitionReference.External(id)),
+        java.util.stream.IntStream.range(0, declaration.typeParameters().size())
+            .mapToObj(index -> new CoreType.Parameter(index, CoreNullability.NON_NULL))
+            .map(CoreType.class::cast)
+            .toList(),
+        declaration.valueCategory(),
+        CoreNullability.NON_NULL);
   }
 
   private void verifyInterface(DefinitionId id, CoreDefinition.Interface declaration) {
@@ -501,6 +753,21 @@ final class CoreProgramVerifier {
     for (CoreType parent : declaration.directParents()) {
       requireAcyclicInterface(root, interfaceInstance(current, parent).definition(), visited);
     }
+  }
+
+  private void requireAcyclicAggregate(
+      DefinitionId root, DefinitionId current, Set<DefinitionId> visited) {
+    if (current.equals(root)) {
+      throw new IllegalArgumentException("aggregate inheritance must be acyclic");
+    }
+    if (!visited.add(current)) return;
+    CoreDefinition definition = program.definition(current).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Aggregate aggregate)
+        || aggregate.parentType().isEmpty()) return;
+    CoreType parent = nonNullable(absolute(current, aggregate.parentType().orElseThrow()));
+    CoreTypeConstructor.User user =
+        (CoreTypeConstructor.User) ((CoreType.Declared) parent).constructor();
+    requireAcyclicAggregate(root, resolveExternal(user.definition()), visited);
   }
 
   private boolean isReceiverOf(
@@ -1145,6 +1412,7 @@ final class CoreProgramVerifier {
     call.receiver().ifPresent(value -> verifyExpression(owner, caller, value));
     call.arguments().forEach(argument -> verifyExpression(owner, caller, argument.value()));
     call.reifiedArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
+    call.receiverTypeArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
     if (target.hasReceiver() != call.receiver().isPresent()) {
       throw new IllegalArgumentException("call receiver does not match the target ABI");
     }
@@ -1155,13 +1423,21 @@ final class CoreProgramVerifier {
     if (target.hasReceiver()) {
       CoreType actualReceiver = absolute(owner, call.receiver().orElseThrow().type());
       CoreType nonNullableReceiver = nonNullable(actualReceiver);
-      if (!(nonNullableReceiver instanceof CoreType.Declared declared)) {
+      if (!(nonNullableReceiver instanceof CoreType.Declared)) {
         throw new IllegalArgumentException("method receiver is not a declared type");
       }
-      substitutions.addAll(declared.arguments());
+      verifyMethodDispatch(nonNullableReceiver, targetId, call.virtual(), "call");
+      if (call.receiverTypeArguments().isEmpty()) {
+        substitutions.addAll(((CoreType.Declared) nonNullableReceiver).arguments());
+      } else {
+        call.receiverTypeArguments().stream()
+            .map(CoreRuntimeType::template)
+            .map(type -> absolute(owner, type))
+            .forEach(substitutions::add);
+      }
       CoreType expectedReceiver =
           absolute(targetId, target.receiverType().orElseThrow()).substitute(substitutions::get);
-      if (!expectedReceiver.equals(nonNullableReceiver)) {
+      if (!isAssignable(expectedReceiver, nonNullableReceiver)) {
         throw new IllegalArgumentException("method receiver type does not match the target ABI");
       }
       if (!call.nullSafe() && actualReceiver.isNullable()) {
@@ -1199,6 +1475,7 @@ final class CoreProgramVerifier {
     closure.receiver().ifPresent(value -> verifyExpression(owner, caller, value));
     closure.captures().forEach(value -> verifyExpression(owner, caller, value));
     closure.reifiedArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
+    closure.receiverTypeArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
     if (target.hasReceiver() != closure.receiver().isPresent()) {
       throw new IllegalArgumentException("closure receiver does not match the target ABI");
     }
@@ -1211,7 +1488,20 @@ final class CoreProgramVerifier {
       if (!(receiver instanceof CoreType.Declared declared)) {
         throw new IllegalArgumentException("bound method receiver is not declared");
       }
-      substitutions.addAll(declared.arguments());
+      verifyMethodDispatch(receiver, targetId, closure.virtual(), "closure");
+      if (closure.receiverTypeArguments().isEmpty()) {
+        substitutions.addAll(declared.arguments());
+      } else {
+        closure.receiverTypeArguments().stream()
+            .map(CoreRuntimeType::template)
+            .map(type -> absolute(owner, type))
+            .forEach(substitutions::add);
+      }
+      CoreType expectedReceiver =
+          absolute(targetId, target.receiverType().orElseThrow()).substitute(substitutions::get);
+      if (!isAssignable(expectedReceiver, receiver)) {
+        throw new IllegalArgumentException("bound method receiver does not match the target ABI");
+      }
     }
     closure.reifiedArguments().stream()
         .map(CoreRuntimeType::template)
@@ -1236,6 +1526,24 @@ final class CoreProgramVerifier {
     if (!substitutions.isEmpty()) result = result.substitute(substitutions::get);
     CoreType expected = new CoreType.Function(result, parameters, CoreNullability.NON_NULL);
     requireSameType(expected, absolute(owner, closure.type()), "closure type");
+  }
+
+  private void verifyMethodDispatch(
+      CoreType receiver, DefinitionId slot, boolean virtual, String subject) {
+    boolean dispatched = false;
+    if (receiver instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.User user) {
+      DefinitionId aggregateId = resolveExternal(user.definition());
+      CoreDefinition definition = program.definition(aggregateId).orElseThrow();
+      if (definition instanceof CoreDefinition.Aggregate aggregate) {
+        dispatched =
+            aggregate.dispatch().stream()
+                .anyMatch(dispatch -> resolve(aggregateId, dispatch.slot()).equals(slot));
+      }
+    }
+    if (dispatched != virtual) {
+      throw new IllegalArgumentException(subject + " dispatch mode does not match its method slot");
+    }
   }
 
   private void verifyInvoke(
@@ -1336,11 +1644,21 @@ final class CoreProgramVerifier {
         || declared.arguments().size() != target.typeParameters().size()) {
       throw new IllegalArgumentException("constructed type does not match the aggregate ABI");
     }
-    verifyDenseArguments(construct.arguments(), target.fields().size());
+    DefinitionId initializerId = resolve(owner, construct.initializer());
+    if (!initializerId.equals(resolve(targetId, target.constructor()))) {
+      throw new IllegalArgumentException("construct initializer does not match the aggregate");
+    }
+    CoreDefinition definition = program.definition(initializerId).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable initializer)
+        || initializer.receiverType().isEmpty()) {
+      throw new IllegalArgumentException("construct initializer is not a constructor");
+    }
+    verifyDenseArguments(construct.arguments(), initializer.parameterTypes().size());
+    List<CoreType> substitutions = new ArrayList<>(declared.arguments());
     for (CoreArgument argument : construct.arguments()) {
       CoreType expected =
-          absolute(targetId, target.fields().get(argument.parameterIndex()).type())
-              .substitute(declared.arguments()::get);
+          absolute(initializerId, initializer.parameterTypes().get(argument.parameterIndex()))
+              .substitute(substitutions::get);
       requireAssignable(expected, absolute(owner, argument.value().type()), "constructor argument");
     }
   }
@@ -1592,19 +1910,20 @@ final class CoreProgramVerifier {
       DefinitionId owner, CoreType receiverType, CoreFieldReference reference) {
     DefinitionId targetId = resolve(owner, reference.owner());
     CoreDefinition targetDefinition = program.definition(targetId).orElseThrow();
-    if (!(targetDefinition instanceof CoreDefinition.Aggregate target)
-        || reference.ordinal() >= target.fields().size()) {
+    if (!(targetDefinition instanceof CoreDefinition.Aggregate target)) {
       throw new IllegalArgumentException("field owner or ordinal is invalid");
     }
+    CoreField field =
+        target.fields().stream()
+            .filter(candidate -> candidate.ordinal() == reference.ordinal())
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("field owner or ordinal is invalid"));
     CoreType receiver = nonNullable(absolute(owner, receiverType));
-    if (!(receiver instanceof CoreType.Declared declared)
-        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
-        || !resolveExternal(user.definition()).equals(targetId)
-        || declared.arguments().size() != target.typeParameters().size()) {
+    CoreType.Declared declared = aggregateView(receiver, targetId);
+    if (declared == null || declared.arguments().size() != target.typeParameters().size()) {
       throw new IllegalArgumentException("field receiver does not match its owner");
     }
-    return absolute(targetId, target.fields().get(reference.ordinal()).type())
-        .substitute(declared.arguments()::get);
+    return absolute(targetId, field.type()).substitute(declared.arguments()::get);
   }
 
   private void verifyRuntimeType(
@@ -1881,6 +2200,13 @@ final class CoreProgramVerifier {
             || expectedValue.equals(CoreType.NUMBER) && isNumericLeaf(actualValue);
     if (!compatible
         && expectedValue instanceof CoreType.Declared expectedDeclared
+        && expectedDeclared.constructor() instanceof CoreTypeConstructor.User expectedUser) {
+      CoreType.Declared view =
+          aggregateView(actualValue, resolveExternal(expectedUser.definition()));
+      compatible = expectedValue.equals(view);
+    }
+    if (!compatible
+        && expectedValue instanceof CoreType.Declared expectedDeclared
         && expectedDeclared.category() == CoreValueCategory.POLYMORPHIC
         && expectedDeclared.constructor() instanceof CoreTypeConstructor.User expectedUser) {
       DefinitionId expectedInterface = resolveExternal(expectedUser.definition());
@@ -1888,6 +2214,23 @@ final class CoreProgramVerifier {
       compatible = expectedValue.equals(realized);
     }
     return compatible && (expected.isNullable() || !actual.isNullable());
+  }
+
+  private CoreType.Declared aggregateView(CoreType type, DefinitionId target) {
+    CoreType current = nonNullable(type);
+    Set<DefinitionId> visited = new HashSet<>();
+    while (current instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.User user) {
+      DefinitionId id = resolveExternal(user.definition());
+      if (!visited.add(id)) return null;
+      if (id.equals(target)) return declared;
+      CoreDefinition definition = program.definition(id).orElse(null);
+      if (!(definition instanceof CoreDefinition.Aggregate aggregate)
+          || aggregate.parentType().isEmpty()) return null;
+      current =
+          absolute(id, aggregate.parentType().orElseThrow()).substitute(declared.arguments()::get);
+    }
+    return null;
   }
 
   private static boolean isNumericLeaf(CoreType type) {
@@ -1939,6 +2282,12 @@ final class CoreProgramVerifier {
       InterfaceInstance instance = interfaceInstance(actualId, instantiated);
       List<CoreType> arguments = interfaceSubstitutions(instance, target);
       if (arguments != null) return interfaceType(target, arguments);
+    }
+    if (aggregateDefinition.parentType().isPresent()) {
+      CoreType parent =
+          absolute(actualId, aggregateDefinition.parentType().orElseThrow())
+              .substitute(declared.arguments()::get);
+      return realizedInterface(parent, target);
     }
     return null;
   }

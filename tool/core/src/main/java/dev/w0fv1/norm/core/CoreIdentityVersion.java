@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public record CoreIdentityVersion(CoreSchemaVersion schema, LanguageSemanticsVersion semantics) {
   public static final CoreIdentityVersion CURRENT =
-      new CoreIdentityVersion(CoreSchemaVersion.V4, LanguageSemanticsVersion.V4);
+      new CoreIdentityVersion(CoreSchemaVersion.V5, LanguageSemanticsVersion.V5);
 
   public CoreIdentityVersion {
     Objects.requireNonNull(schema, "schema");
