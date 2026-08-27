@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.core;
 
 import dev.w0fv1.norm.builtin.IntrinsicId;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -15,6 +16,8 @@ public sealed interface CoreStatement extends CoreNode
         CoreStatement.IfStatement,
         CoreStatement.ConditionalForStatement,
         CoreStatement.ForStatement,
+        CoreStatement.TryStatement,
+        CoreStatement.ThrowStatement,
         CoreStatement.ReturnStatement,
         CoreStatement.YieldStatement,
         CoreStatement.BreakStatement,
@@ -118,6 +121,27 @@ public sealed interface CoreStatement extends CoreNode
       Objects.requireNonNull(iterable, "iterable");
       Objects.requireNonNull(body, "body");
       Objects.requireNonNull(iteration, "iteration");
+    }
+  }
+
+  record TryStatement(
+      int nodeIndex,
+      CoreBlock body,
+      List<CoreCatchClause> catches,
+      Optional<CoreBlock> finallyBlock)
+      implements CoreStatement {
+    public TryStatement {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(body, "body");
+      catches = List.copyOf(catches);
+      finallyBlock = Objects.requireNonNull(finallyBlock, "finallyBlock");
+    }
+  }
+
+  record ThrowStatement(int nodeIndex, CoreExpression exception) implements CoreStatement {
+    public ThrowStatement {
+      requireNode(nodeIndex);
+      Objects.requireNonNull(exception, "exception");
     }
   }
 

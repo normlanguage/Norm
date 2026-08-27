@@ -26,7 +26,7 @@ Norm 使用确定性的从左到右求值。编译器优化不得改变异常、
 
 ## 异常与 Finally
 
-Throw 沿调用栈寻找首个兼容 catch。离开 try 时执行 finally；finally 正常完成后恢复原完成结果，finally 自己 Return 或 Throw 时替代原结果。
+Throw 沿调用栈寻找首个动态类型兼容的 catch。try 的 normal、Return、Throw、Break 与 Continue 完成态在离开前都执行 finally；finally 正常完成后恢复原完成态，finally 自己产生的完成态替代原结果。工具链运行时错误绕过用户 catch，但仍执行 finally。
 
 ## 赋值
 

@@ -1763,6 +1763,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
   static boolean definitelyYields(List<Syntax.Statement> statements) {
     for (Syntax.Statement statement : statements) {
       if (statement instanceof Syntax.ReturnStatement
+          || statement instanceof Syntax.ThrowStatement
           || statement instanceof Syntax.BreakStatement broken && broken.value() != null) {
         return true;
       }
@@ -1770,6 +1771,16 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           && definitelyYields(conditional.thenBody())
           && definitelyYields(conditional.elseBody())) {
         return true;
+      }
+      if (statement instanceof Syntax.TryStatement tried) {
+        if (tried.finallyClause().isPresent()
+            && definitelyYields(tried.finallyClause().orElseThrow().body())) {
+          return true;
+        }
+        if (definitelyYields(tried.body())
+            && tried.catches().stream().allMatch(clause -> definitelyYields(clause.body()))) {
+          return true;
+        }
       }
     }
     return false;

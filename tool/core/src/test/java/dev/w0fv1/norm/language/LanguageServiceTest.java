@@ -156,6 +156,16 @@ final class LanguageServiceTest {
             .filter(candidate -> candidate.label().equals("if"))
             .findFirst()
             .orElseThrow();
+    Completion tryCompletion =
+        service.complete(statementAnalysis, statementText.indexOf('}')).stream()
+            .filter(candidate -> candidate.label().equals("try"))
+            .findFirst()
+            .orElseThrow();
+    Completion throwCompletion =
+        service.complete(statementAnalysis, statementText.indexOf('}')).stream()
+            .filter(candidate -> candidate.label().equals("throw"))
+            .findFirst()
+            .orElseThrow();
 
     var topLevelAnalysis =
         service.analyze(SourceFile.of(DocumentId.of("untitled:declaration-template"), ""));
@@ -172,6 +182,11 @@ final class LanguageServiceTest {
 
     assertTrue(ifCompletion.snippet());
     assertEquals("if ${1:condition} {\n  ${2}\n}", ifCompletion.insertText());
+    assertTrue(tryCompletion.snippet());
+    assertEquals(
+        "try {\n  ${1}\n} catch ${2:Exception} ${3:error} {\n  ${4}\n}",
+        tryCompletion.insertText());
+    assertEquals(CompletionKind.KEYWORD, throwCompletion.kind());
     assertTrue(classCompletion.snippet());
     assertEquals("class ${1:Name} {\n  ${2}\n}", classCompletion.insertText());
     assertTrue(valueCompletion.snippet());

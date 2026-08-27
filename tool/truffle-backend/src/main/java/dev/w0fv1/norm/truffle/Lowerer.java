@@ -175,7 +175,8 @@ final class Lowerer {
               occurrence.representative(),
               artifact.displayName(occurrence),
               entry.getValue().fieldCount(),
-              dispatch));
+              dispatch,
+              aggregateAncestors(occurrence.representative())));
     }
     for (CoreDefinitionRecord record : program.definitions()) {
       if (!(record.definition() instanceof CoreDefinition.BuiltinConformance conformance)) continue;
@@ -263,6 +264,25 @@ final class Lowerer {
         && !external.definition().equals(owner);
   }
 
+  private java.util.Set<DefinitionId> aggregateAncestors(DefinitionId definition) {
+    java.util.LinkedHashSet<DefinitionId> result = new java.util.LinkedHashSet<>();
+    DefinitionId current = definition;
+    while (result.add(current)) {
+      CoreDefinition value = program.definition(current).orElseThrow();
+      if (!(value instanceof CoreDefinition.Aggregate aggregate)
+          || aggregate.parentType().isEmpty()) {
+        break;
+      }
+      CoreType parent = CoreTypes.absolute(aggregate.parentType().orElseThrow(), current, program);
+      CoreType.Declared declared = (CoreType.Declared) parent;
+      current =
+          ((DefinitionReference.External)
+                  ((CoreTypeConstructor.User) declared.constructor()).definition())
+              .definition();
+    }
+    return java.util.Set.copyOf(result);
+  }
+
   private void lowerBodies() {
     callables
         .values()
@@ -346,6 +366,20 @@ final class Lowerer {
           case CoreStatement.ConditionalForStatement loop ->
               new StatementNodes.ConditionalFor(
                   lowerExpression(loop.condition(), plan), lowerBlock(loop.body(), plan));
+          case CoreStatement.TryStatement tried ->
+              new StatementNodes.Try(
+                  lowerBlock(tried.body(), plan),
+                  tried.catches().stream()
+                      .map(
+                          clause ->
+                              new StatementNodes.CatchHandler(
+                                  catchDefinition(plan.id.representative(), clause.type()),
+                                  plan.binding(clause.localIndex()),
+                                  lowerBlock(clause.body(), plan)))
+                      .toArray(StatementNodes.CatchHandler[]::new),
+                  tried.finallyBlock().map(value -> lowerBlock(value, plan)).orElse(null));
+          case CoreStatement.ThrowStatement thrown ->
+              new StatementNodes.Throw(lowerExpression(thrown.exception(), plan));
           case CoreStatement.ReturnStatement returned ->
               new StatementNodes.Return(
                   returned.value().map(value -> lowerExpression(value, plan)).orElse(null));
@@ -355,6 +389,14 @@ final class Lowerer {
           case CoreStatement.ContinueStatement ignored -> new StatementNodes.Continue();
         };
     return lowered.at(section(plan.id, statement.nodeIndex()));
+  }
+
+  private DefinitionId catchDefinition(DefinitionId owner, CoreType type) {
+    CoreType absolute = CoreTypes.absolute(type, owner, program);
+    CoreType.Declared declared = (CoreType.Declared) absolute;
+    return ((DefinitionReference.External)
+            ((CoreTypeConstructor.User) declared.constructor()).definition())
+        .definition();
   }
 
   private ExpressionNode lowerExpression(CoreExpression expression, FunctionPlan plan) {

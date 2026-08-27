@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.core.ExceptionAbi;
 import dev.w0fv1.norm.semantic.ImportableSymbol;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedCall;
@@ -18,16 +19,21 @@ import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.LexicalLifetime;
 import dev.w0fv1.norm.value.SourceSpan;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 final class Analyzer extends AnalyzerExpressions {
+  private final Deque<Set<SymbolId>> flowWriteCollectors = new ArrayDeque<>();
+
   Analyzer(
       List<Syntax.Program> programs,
       Syntax.Program entryProgram,
@@ -575,6 +581,24 @@ final class Analyzer extends AnalyzerExpressions {
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         activeTypeParameters = aggregateTypeParameters(declaration);
         activeTypeParameterSymbols = typeParameterSymbols(declaration.typeParameters());
+        if (aggregateSelfType(declaration).identity().equals(SemanticType.EXCEPTION.identity())) {
+          boolean validField =
+              declaration.fields().size() == 1
+                  && declaration.fields().getFirst().visibility() == Syntax.Visibility.PUBLIC
+                  && declaration.fields().getFirst().name().equals(ExceptionAbi.MESSAGE_FIELD_NAME)
+                  && resolveType(declaration.fields().getFirst().type(), activeTypeParameters)
+                      .equals(SemanticType.STRING);
+          if (declaration.kind() != Syntax.AggregateKind.CLASS
+              || declaration.visibility() != Syntax.Visibility.PUBLIC
+              || !declaration.typeParameters().isEmpty()
+              || declaration.extendedClass().isPresent()
+              || !validField) {
+            diagnostics.error(
+                TYPE_MISMATCH,
+                "Exception root ABI requires public class Exception with one public String message field",
+                declaration.nameSpan());
+          }
+        }
         declaration
             .extendedClass()
             .ifPresent(
@@ -590,6 +614,13 @@ final class Analyzer extends AnalyzerExpressions {
                     return;
                   }
                   aggregateParents.put(aggregateSelfType(declaration).identity(), parent);
+                  if (isAssignable(SemanticType.EXCEPTION, aggregateSelfType(declaration))
+                      && !declaration.typeParameters().isEmpty()) {
+                    diagnostics.error(
+                        TYPE_MISMATCH,
+                        "Exception classes cannot declare type parameters",
+                        declaration.nameSpan());
+                  }
                   if (declaration.constructors().isEmpty()) {
                     diagnostics.error(
                         TYPE_MISMATCH,
@@ -892,7 +923,7 @@ final class Analyzer extends AnalyzerExpressions {
     }
     analyzeStatements(method.body().orElseThrow());
     if (!expectedReturnType.equals(SemanticType.VOID)
-        && !definitelyReturns(method.body().orElseThrow())) {
+        && !definitelyExits(method.body().orElseThrow())) {
       diagnostics.error(
           INVALID_CONTROL,
           "default method '" + method.name() + "' must return " + expectedReturnType.displayName(),
@@ -1279,7 +1310,7 @@ final class Analyzer extends AnalyzerExpressions {
     analyzeStatements(function.body());
     if (!expectedReturnType.equals(SemanticType.VOID)
         && !implicitSelfReturn
-        && !definitelyReturns(function.body())) {
+        && !definitelyExits(function.body())) {
       diagnostics.error(
           INVALID_CONTROL,
           "function '" + function.name() + "' must return " + expectedReturnType.displayName(),
@@ -1356,20 +1387,33 @@ final class Analyzer extends AnalyzerExpressions {
       }
     }
     List<Set<SymbolId>> exits = new ArrayList<>();
-    ConstructorInitialization beforeSuper = new ConstructorInitialization(fields, exits, true);
-    constructor
-        .superCall()
-        .ifPresent(
-            call -> {
-              Set<SymbolId> assigned = Set.of();
-              for (Syntax.CallArgument argument : call.arguments()) {
-                assigned = constructorExpressionFlow(argument.value(), assigned, beforeSuper);
-              }
-            });
-    ConstructorInitialization body = new ConstructorInitialization(fields, exits, false);
+    ConstructorInitialization beforeSuper = new ConstructorInitialization(fields, true);
+    ConstructorFlow prefix = ConstructorFlow.normal(Set.of());
+    if (constructor.superCall().isPresent()) {
+      for (Syntax.CallArgument argument : constructor.superCall().orElseThrow().arguments()) {
+        if (prefix.normal().isEmpty()) break;
+        prefix =
+            prefix.then(
+                constructorExpressionFlow(
+                    argument.value(), prefix.normal().orElseThrow(), beforeSuper));
+      }
+    }
+    if (prefix.returned().isPresent()) {
+      diagnostics.error(
+          INVALID_CONTROL,
+          "constructor cannot return before super initialization",
+          constructor.superCall().orElseThrow().span());
+    }
+    ConstructorInitialization body = new ConstructorInitialization(fields, false);
     Set<SymbolId> inheritedFields = new HashSet<>(fields.keySet());
     inheritedFields.removeAll(ownFields);
-    constructorFlow(constructor.body(), inheritedFields, body, null).ifPresent(exits::add);
+    ConstructorFlow flow =
+        prefix.then(
+            prefix.normal().isPresent()
+                ? constructorFlow(constructor.body(), inheritedFields, body)
+                : ConstructorFlow.empty());
+    flow.normal().ifPresent(exits::add);
+    flow.returned().ifPresent(exits::add);
     for (Syntax.FieldDecl field : owner.fields()) {
       SymbolId fieldId = declarationSymbols.get(field);
       if (exits.stream().anyMatch(assigned -> !assigned.contains(fieldId))) {
@@ -1436,98 +1480,176 @@ final class Analyzer extends AnalyzerExpressions {
         SemanticType.VOID);
   }
 
-  private Optional<Set<SymbolId>> constructorFlow(
+  private ConstructorFlow constructorFlow(
       List<Syntax.Statement> statements,
       Set<SymbolId> incoming,
-      ConstructorInitialization initialization,
-      List<Set<SymbolId>> breaks) {
-    Set<SymbolId> assigned = new HashSet<>(incoming);
+      ConstructorInitialization initialization) {
+    ConstructorFlow flow = ConstructorFlow.normal(incoming);
     for (Syntax.Statement statement : statements) {
-      switch (statement) {
-        case Syntax.VariableDecl variable ->
-            assigned = constructorExpressionFlow(variable.initializer(), assigned, initialization);
-        case Syntax.Assignment assignment -> {
-          assigned = constructorExpressionFlow(assignment.value(), assigned, initialization);
-          SymbolId field = constructorFieldBinding(assignment.target(), initialization);
-          if (field != null) {
-            if (initialization.beforeSuper()) {
-              diagnostics.error(
-                  INVALID_CONTROL,
-                  "field cannot be assigned before super initialization",
-                  assignment.target().span());
-            } else {
-              assigned = new HashSet<>(assigned);
-              assigned.add(field);
-            }
-          } else {
-            assigned = constructorExpressionFlow(assignment.target(), assigned, initialization);
-          }
-        }
-        case Syntax.ExpressionStatement expression ->
-            assigned = constructorExpressionFlow(expression.expression(), assigned, initialization);
-        case Syntax.IfStatement conditional -> {
-          assigned = constructorExpressionFlow(conditional.condition(), assigned, initialization);
-          Optional<Set<SymbolId>> thenAssigned =
-              constructorFlow(conditional.thenBody(), assigned, initialization, breaks);
-          Optional<Set<SymbolId>> elseAssigned =
-              constructorFlow(conditional.elseBody(), assigned, initialization, breaks);
-          if (thenAssigned.isEmpty() && elseAssigned.isEmpty()) return Optional.empty();
-          if (thenAssigned.isEmpty()) assigned = new HashSet<>(elseAssigned.orElseThrow());
-          else if (elseAssigned.isEmpty()) assigned = new HashSet<>(thenAssigned.orElseThrow());
-          else {
-            assigned = new HashSet<>(thenAssigned.orElseThrow());
-            assigned.retainAll(elseAssigned.orElseThrow());
-          }
-        }
-        case Syntax.ConditionalForStatement loop -> {
-          assigned = constructorExpressionFlow(loop.condition(), assigned, initialization);
-          constructorFlow(loop.body(), assigned, initialization, new ArrayList<>());
-        }
-        case Syntax.ForStatement loop -> {
-          assigned = constructorExpressionFlow(loop.iterable(), assigned, initialization);
-          constructorFlow(loop.body(), assigned, initialization, new ArrayList<>());
-        }
-        case Syntax.ReturnStatement returned -> {
-          if (returned.value() != null) {
-            assigned = constructorExpressionFlow(returned.value(), assigned, initialization);
-          }
-          initialization.exits().add(Set.copyOf(assigned));
-          return Optional.empty();
-        }
-        case Syntax.BreakStatement broken -> {
-          if (broken.value() != null) {
-            assigned = constructorExpressionFlow(broken.value(), assigned, initialization);
-          }
-          if (breaks != null) breaks.add(Set.copyOf(assigned));
-          return Optional.empty();
-        }
-        case Syntax.ContinueStatement ignored -> {
-          return Optional.empty();
-        }
-      }
+      if (flow.normal().isEmpty()) break;
+      ConstructorFlow next =
+          constructorStatementFlow(statement, flow.normal().orElseThrow(), initialization);
+      flow = flow.then(next);
     }
-    return Optional.of(Set.copyOf(assigned));
+    return flow;
   }
 
-  private Set<SymbolId> constructorExpressionFlow(
+  private ConstructorFlow constructorStatementFlow(
+      Syntax.Statement statement,
+      Set<SymbolId> incoming,
+      ConstructorInitialization initialization) {
+    Set<SymbolId> assigned = new HashSet<>(incoming);
+    return switch (statement) {
+      case Syntax.VariableDecl variable ->
+          constructorExpressionFlow(variable.initializer(), assigned, initialization);
+      case Syntax.Assignment assignment -> {
+        SymbolId field = constructorFieldBinding(assignment.target(), initialization);
+        ConstructorFlow targetFlow =
+            field == null
+                ? constructorExpressionFlow(assignment.target(), assigned, initialization)
+                : ConstructorFlow.normal(assigned);
+        if (targetFlow.normal().isEmpty()) yield targetFlow;
+        if (field != null) {
+          if (initialization.beforeSuper()) {
+            diagnostics.error(
+                INVALID_CONTROL,
+                "field cannot be assigned before super initialization",
+                assignment.target().span());
+          }
+        }
+        ConstructorFlow valueFlow =
+            constructorExpressionFlow(
+                assignment.value(), targetFlow.normal().orElseThrow(), initialization);
+        ConstructorFlow flow = targetFlow.then(valueFlow);
+        if (field == null || flow.normal().isEmpty() || initialization.beforeSuper()) yield flow;
+        assigned = new HashSet<>(flow.normal().orElseThrow());
+        assigned.add(field);
+        yield flow.withNormal(assigned);
+      }
+      case Syntax.ExpressionStatement expression ->
+          constructorExpressionFlow(expression.expression(), assigned, initialization);
+      case Syntax.IfStatement conditional -> {
+        ConstructorFlow condition =
+            constructorExpressionFlow(conditional.condition(), assigned, initialization);
+        if (condition.normal().isEmpty()) yield condition;
+        Set<SymbolId> afterCondition = condition.normal().orElseThrow();
+        ConstructorFlow branches =
+            constructorFlow(conditional.thenBody(), afterCondition, initialization)
+                .merge(constructorFlow(conditional.elseBody(), afterCondition, initialization));
+        yield condition.withoutNormal().merge(branches);
+      }
+      case Syntax.ConditionalForStatement loop -> {
+        ConstructorFlow condition =
+            constructorExpressionFlow(loop.condition(), assigned, initialization);
+        if (condition.normal().isEmpty()) yield condition;
+        Set<SymbolId> afterCondition = condition.normal().orElseThrow();
+        ConstructorFlow body = constructorFlow(loop.body(), afterCondition, initialization);
+        ConstructorFlow completion =
+            new ConstructorFlow(
+                Optional.of(afterCondition),
+                body.returned(),
+                Optional.empty(),
+                Optional.empty(),
+                ConstructorFlow.mergeAssigned(Optional.of(afterCondition), body.thrown()));
+        yield condition.withoutNormal().merge(completion);
+      }
+      case Syntax.ForStatement loop -> {
+        ConstructorFlow iterable =
+            constructorExpressionFlow(loop.iterable(), assigned, initialization);
+        if (iterable.normal().isEmpty()) yield iterable;
+        Set<SymbolId> afterIterable = iterable.normal().orElseThrow();
+        ConstructorFlow body = constructorFlow(loop.body(), afterIterable, initialization);
+        ConstructorFlow completion =
+            new ConstructorFlow(
+                Optional.of(afterIterable),
+                body.returned(),
+                Optional.empty(),
+                Optional.empty(),
+                ConstructorFlow.mergeAssigned(Optional.of(afterIterable), body.thrown()));
+        yield iterable.withoutNormal().merge(completion);
+      }
+      case Syntax.TryStatement tried -> constructorTryFlow(tried, assigned, initialization);
+      case Syntax.ThrowStatement thrown -> {
+        ConstructorFlow exception =
+            constructorExpressionFlow(thrown.exception(), assigned, initialization);
+        ConstructorFlow completion =
+            exception.normal().isPresent()
+                ? ConstructorFlow.thrown(exception.normal().orElseThrow())
+                : ConstructorFlow.empty();
+        yield exception.withoutNormal().merge(completion);
+      }
+      case Syntax.ReturnStatement returned -> {
+        if (returned.value() == null) yield ConstructorFlow.returned(assigned);
+        ConstructorFlow value =
+            constructorExpressionFlow(returned.value(), assigned, initialization);
+        ConstructorFlow completion =
+            value.normal().isPresent()
+                ? ConstructorFlow.returned(value.normal().orElseThrow())
+                : ConstructorFlow.empty();
+        yield value.withoutNormal().merge(completion);
+      }
+      case Syntax.BreakStatement broken -> {
+        if (broken.value() == null) yield ConstructorFlow.broken(assigned);
+        ConstructorFlow value = constructorExpressionFlow(broken.value(), assigned, initialization);
+        ConstructorFlow completion =
+            value.normal().isPresent()
+                ? ConstructorFlow.broken(value.normal().orElseThrow())
+                : ConstructorFlow.empty();
+        yield value.withoutNormal().merge(completion);
+      }
+      case Syntax.ContinueStatement ignored -> ConstructorFlow.continued(assigned);
+    };
+  }
+
+  private ConstructorFlow constructorTryFlow(
+      Syntax.TryStatement tried, Set<SymbolId> incoming, ConstructorInitialization initialization) {
+    ConstructorFlow triedFlow = constructorFlow(tried.body(), incoming, initialization);
+    ConstructorFlow combined = triedFlow;
+    if (triedFlow.thrown().isPresent()) {
+      Set<SymbolId> catchEntry = triedFlow.thrown().orElseThrow();
+      for (Syntax.CatchClause clause : tried.catches()) {
+        combined = combined.merge(constructorFlow(clause.body(), catchEntry, initialization));
+      }
+    }
+    if (tried.finallyClause().isEmpty()) return combined;
+    List<Set<SymbolId>> entries = new ArrayList<>(combined.completionStates());
+    ConstructorFlow finalFlow =
+        constructorFlow(
+            tried.finallyClause().orElseThrow().body(),
+            ConstructorFlow.intersect(entries),
+            initialization);
+    ConstructorFlow preserved = combined.afterFinally(finalFlow.normal());
+    return preserved.merge(finalFlow.withoutNormal());
+  }
+
+  private ConstructorFlow constructorExpressionFlow(
       Syntax.Expression expression,
       Set<SymbolId> incoming,
       ConstructorInitialization initialization) {
     Set<SymbolId> assigned = new HashSet<>(incoming);
-    switch (expression) {
-      case Syntax.Name name ->
-          validateConstructorBindingRead(name.span(), assigned, initialization);
+    return switch (expression) {
+      case Syntax.Name name -> {
+        validateConstructorBindingRead(name.span(), assigned, initialization);
+        yield ConstructorFlow.normal(assigned);
+      }
       case Syntax.Unary unary ->
-          assigned = constructorExpressionFlow(unary.operand(), assigned, initialization);
+          constructorExpressionFlow(unary.operand(), assigned, initialization);
       case Syntax.Binary binary -> {
-        assigned = constructorExpressionFlow(binary.left(), assigned, initialization);
-        Set<SymbolId> afterLeft = assigned;
-        Set<SymbolId> afterRight =
-            constructorExpressionFlow(binary.right(), assigned, initialization);
-        assigned =
-            binary.operator() == TokenKind.AND_AND || binary.operator() == TokenKind.OR_OR
-                ? afterLeft
-                : afterRight;
+        ConstructorFlow left = constructorExpressionFlow(binary.left(), assigned, initialization);
+        if (left.normal().isEmpty()) yield left;
+        ConstructorFlow right =
+            constructorExpressionFlow(binary.right(), left.normal().orElseThrow(), initialization);
+        if (binary.operator() == TokenKind.AND_AND || binary.operator() == TokenKind.OR_OR) {
+          yield left.withoutNormal()
+              .merge(right.withoutNormal())
+              .withNormal(left.normal().orElseThrow());
+        }
+        ConstructorFlow flow = left.then(right);
+        if ((binary.operator() == TokenKind.SLASH || binary.operator() == TokenKind.PERCENT)
+            && flow.normal().isPresent()) {
+          flow = flow.merge(ConstructorFlow.thrown(flow.normal().orElseThrow()));
+        }
+        yield flow;
       }
       case Syntax.Call call -> {
         SymbolId callee = binding(call.callee());
@@ -1537,10 +1659,18 @@ final class Analyzer extends AnalyzerExpressions {
             && symbols.get(callee).kind() == SymbolKind.METHOD) {
           requireInitializedReceiver(call.callee().span(), assigned, initialization);
         }
-        assigned = constructorExpressionFlow(call.callee(), assigned, initialization);
+        ConstructorFlow flow = constructorExpressionFlow(call.callee(), assigned, initialization);
         for (Syntax.CallArgument argument : call.arguments()) {
-          assigned = constructorExpressionFlow(argument.value(), assigned, initialization);
+          if (flow.normal().isEmpty()) break;
+          flow =
+              flow.then(
+                  constructorExpressionFlow(
+                      argument.value(), flow.normal().orElseThrow(), initialization));
         }
+        if (flow.normal().isPresent()) {
+          flow = flow.merge(ConstructorFlow.thrown(flow.normal().orElseThrow()));
+        }
+        yield flow;
       }
       case Syntax.Member member -> {
         SymbolId receiver = binding(member.receiver());
@@ -1550,47 +1680,66 @@ final class Analyzer extends AnalyzerExpressions {
             && symbols.get(receiver).kind() == SymbolKind.SELF
             && initialization.fields().containsKey(field)) {
           validateConstructorBindingRead(member.nameSpan(), assigned, initialization);
+          yield ConstructorFlow.normal(assigned);
         } else {
-          assigned = constructorExpressionFlow(member.receiver(), assigned, initialization);
+          yield constructorExpressionFlow(member.receiver(), assigned, initialization);
         }
       }
       case Syntax.ArrayLiteral array -> {
+        ConstructorFlow flow = ConstructorFlow.normal(assigned);
         for (Syntax.Expression value : array.elements()) {
-          assigned = constructorExpressionFlow(value, assigned, initialization);
+          if (flow.normal().isEmpty()) break;
+          flow =
+              flow.then(
+                  constructorExpressionFlow(value, flow.normal().orElseThrow(), initialization));
         }
+        yield flow;
       }
       case Syntax.MethodReference reference ->
-          assigned = constructorExpressionFlow(reference.receiver(), assigned, initialization);
+          constructorExpressionFlow(reference.receiver(), assigned, initialization);
       case Syntax.Index index -> {
-        assigned = constructorExpressionFlow(index.receiver(), assigned, initialization);
-        assigned = constructorExpressionFlow(index.index(), assigned, initialization);
+        ConstructorFlow receiver =
+            constructorExpressionFlow(index.receiver(), assigned, initialization);
+        if (receiver.normal().isEmpty()) yield receiver;
+        ConstructorFlow flow =
+            receiver.then(
+                constructorExpressionFlow(
+                    index.index(), receiver.normal().orElseThrow(), initialization));
+        if (flow.normal().isPresent()) {
+          flow = flow.merge(ConstructorFlow.thrown(flow.normal().orElseThrow()));
+        }
+        yield flow;
       }
       case Syntax.SwitchExpression switched -> {
-        assigned = constructorExpressionFlow(switched.value(), assigned, initialization);
+        ConstructorFlow value =
+            constructorExpressionFlow(switched.value(), assigned, initialization);
+        if (value.normal().isEmpty()) yield value;
         List<Set<SymbolId>> caseExits = new ArrayList<>();
+        ConstructorFlow abrupt = value.withoutNormal();
         for (Syntax.SwitchCase branch : switched.cases()) {
-          List<Set<SymbolId>> breaks = new ArrayList<>();
-          constructorFlow(branch.body(), assigned, initialization, breaks).ifPresent(breaks::add);
-          caseExits.addAll(breaks);
+          ConstructorFlow branchFlow =
+              constructorFlow(branch.body(), value.normal().orElseThrow(), initialization);
+          ConstructorFlow.mergeAssigned(branchFlow.normal(), branchFlow.broken())
+              .ifPresent(caseExits::add);
+          abrupt = abrupt.merge(branchFlow.withoutNormalAndBroken());
         }
-        if (!caseExits.isEmpty()) {
-          assigned = new HashSet<>(caseExits.getFirst());
-          for (Set<SymbolId> branch : caseExits) assigned.retainAll(branch);
-        }
+        yield caseExits.isEmpty()
+            ? abrupt
+            : abrupt.withNormal(ConstructorFlow.intersect(caseExits));
       }
       case Syntax.Lambda lambda -> {
         if (constructorStatementsUseSelf(lambda.body())) {
           requireInitializedReceiver(lambda.span(), assigned, initialization);
         }
+        yield ConstructorFlow.normal(assigned);
       }
-      case Syntax.IntegerLiteral ignored -> {}
-      case Syntax.DecimalLiteral ignored -> {}
-      case Syntax.CodePointLiteral ignored -> {}
-      case Syntax.BooleanLiteral ignored -> {}
-      case Syntax.NullLiteral ignored -> {}
-      case Syntax.StringLiteralExpr ignored -> {}
-    }
-    return Set.copyOf(assigned);
+      case Syntax.IntegerLiteral ignored -> ConstructorFlow.normal(assigned);
+      case Syntax.DecimalLiteral ignored -> ConstructorFlow.normal(assigned);
+      case Syntax.CodePointLiteral ignored -> ConstructorFlow.normal(assigned);
+      case Syntax.BooleanLiteral ignored -> ConstructorFlow.normal(assigned);
+      case Syntax.NullLiteral ignored -> ConstructorFlow.normal(assigned);
+      case Syntax.StringLiteralExpr ignored -> ConstructorFlow.normal(assigned);
+    };
   }
 
   private boolean constructorStatementsUseSelf(List<Syntax.Statement> statements) {
@@ -1614,6 +1763,13 @@ final class Analyzer extends AnalyzerExpressions {
             case Syntax.ForStatement loop ->
                 constructorExpressionUsesSelf(loop.iterable())
                     || constructorStatementsUseSelf(loop.body());
+            case Syntax.TryStatement tried ->
+                constructorStatementsUseSelf(tried.body())
+                    || tried.catches().stream()
+                        .anyMatch(clause -> constructorStatementsUseSelf(clause.body()))
+                    || tried.finallyClause().stream()
+                        .anyMatch(clause -> constructorStatementsUseSelf(clause.body()));
+            case Syntax.ThrowStatement thrown -> constructorExpressionUsesSelf(thrown.exception());
             case Syntax.ReturnStatement returned ->
                 returned.value() != null && constructorExpressionUsesSelf(returned.value());
             case Syntax.BreakStatement broken ->
@@ -1710,8 +1866,7 @@ final class Analyzer extends AnalyzerExpressions {
     }
   }
 
-  private record ConstructorInitialization(
-      Map<SymbolId, String> fields, List<Set<SymbolId>> exits, boolean beforeSuper) {
+  private record ConstructorInitialization(Map<SymbolId, String> fields, boolean beforeSuper) {
     private ConstructorInitialization {
       fields = Map.copyOf(fields);
     }
@@ -1791,6 +1946,7 @@ final class Analyzer extends AnalyzerExpressions {
               reportMutableCapture(scoped.id(), name.span());
             }
             assignedLocals.add(scoped.id());
+            flowWriteCollectors.forEach(writes -> writes.add(scoped.id()));
             if (capturedLocals.contains(scoped.id())) {
               reportMutableCapture(scoped.id(), name.span());
             }
@@ -1811,8 +1967,8 @@ final class Analyzer extends AnalyzerExpressions {
         FlowScopes.FlowState elseFlow =
             analyzeBranch(
                 ifStatement.elseBody(), narrowingsFor(ifStatement.condition(), false), incoming);
-        boolean thenReturns = definitelyReturns(ifStatement.thenBody());
-        boolean elseReturns = definitelyReturns(ifStatement.elseBody());
+        boolean thenReturns = definitelyExits(ifStatement.thenBody());
+        boolean elseReturns = definitelyExits(ifStatement.elseBody());
         if (thenReturns && !elseReturns) {
           replaceFlow(elseFlow);
         } else if (elseReturns && !thenReturns) {
@@ -1919,6 +2075,16 @@ final class Analyzer extends AnalyzerExpressions {
         controls.removeFirst();
         popScope();
       }
+      case Syntax.TryStatement tried -> analyzeTry(tried);
+      case Syntax.ThrowStatement thrown -> {
+        SemanticType type = typeOf(thrown.exception(), SemanticType.EXCEPTION);
+        if (!isAssignable(SemanticType.EXCEPTION, type)) {
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "throw requires an Exception but found " + type.displayName(),
+              thrown.exception().span());
+        }
+      }
       case Syntax.ReturnStatement returnStatement -> {
         if (implicitSelfReturn) {
           if (returnStatement.value() != null) {
@@ -1939,6 +2105,88 @@ final class Analyzer extends AnalyzerExpressions {
       case Syntax.BreakStatement breakStatement -> analyzeBreak(breakStatement);
       case Syntax.ContinueStatement continueStatement -> validateContinue(continueStatement.span());
     }
+  }
+
+  private void analyzeTry(Syntax.TryStatement tried) {
+    FlowScopes.FlowState incoming = flowScopes.snapshot();
+    List<FlowScopes.FlowState> completing = new ArrayList<>();
+    FlowScopes.FlowState tryFlow = analyzeBranch(tried.body(), Map.of(), incoming);
+    if (!definitelyExits(tried.body())) completing.add(tryFlow);
+    List<SemanticType> preceding = new ArrayList<>();
+    for (Syntax.CatchClause clause : tried.catches()) {
+      validateType(clause.type(), false);
+      SemanticType type = resolveType(clause.type(), activeTypeParameters);
+      if (!isAssignable(SemanticType.EXCEPTION, type)) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "catch requires an Exception type but found " + type.displayName(),
+            clause.type().span());
+      }
+      if (preceding.stream().anyMatch(previous -> isAssignable(previous, type))) {
+        diagnostics.error(
+            INVALID_CONTROL,
+            "catch type " + type.displayName() + " is already covered by an earlier catch",
+            clause.type().span());
+      }
+      preceding.add(type);
+      replaceFlow(incoming);
+      pushScope(clause.span());
+      Symbol symbol =
+          register(
+              clause,
+              clause.name(),
+              SymbolKind.LOCAL_VARIABLE,
+              type,
+              clause.nameSpan(),
+              currentCallable,
+              List.of(),
+              List.of());
+      declareExisting(clause.name(), type, clause.nameSpan(), symbol.id());
+      if (!lambdaLocals.isEmpty()) lambdaLocals.getFirst().add(symbol.id());
+      analyzeStatements(clause.body());
+      popScope();
+      if (!definitelyExits(clause.body())) completing.add(flowScopes.snapshot());
+    }
+    FlowScopes.FlowState normal = mergeCompletingFlows(incoming, completing);
+    replaceFlow(normal);
+    if (tried.finallyClause().isPresent()) {
+      Set<SymbolId> finalWrites = new HashSet<>();
+      flowWriteCollectors.addFirst(finalWrites);
+      FlowScopes.FlowState finalFlow;
+      try {
+        finalFlow = analyzeBranch(tried.finallyClause().orElseThrow().body(), Map.of(), incoming);
+      } finally {
+        flowWriteCollectors.removeFirst();
+      }
+      Map<SymbolId, SemanticType> types = new LinkedHashMap<>(normal.types());
+      for (Map.Entry<SymbolId, SemanticType> entry : finalFlow.types().entrySet()) {
+        if (finalWrites.contains(entry.getKey())
+            || !entry.getValue().equals(incoming.types().get(entry.getKey()))) {
+          types.put(entry.getKey(), entry.getValue());
+        }
+      }
+      Map<SymbolId, LexicalLifetime> lifetimes = new LinkedHashMap<>(normal.referenceLifetimes());
+      Set<SymbolId> lifetimeSymbols = new HashSet<>(incoming.referenceLifetimes().keySet());
+      lifetimeSymbols.addAll(finalFlow.referenceLifetimes().keySet());
+      for (SymbolId symbol : lifetimeSymbols) {
+        LexicalLifetime before = incoming.referenceLifetimes().get(symbol);
+        LexicalLifetime after = finalFlow.referenceLifetimes().get(symbol);
+        if (!finalWrites.contains(symbol) && Objects.equals(before, after)) continue;
+        if (after == null) lifetimes.remove(symbol);
+        else lifetimes.put(symbol, after);
+      }
+      replaceFlow(new FlowScopes.FlowState(types, lifetimes));
+    }
+  }
+
+  private FlowScopes.FlowState mergeCompletingFlows(
+      FlowScopes.FlowState incoming, List<FlowScopes.FlowState> flows) {
+    if (flows.isEmpty()) return incoming;
+    FlowScopes.FlowState result = flows.getFirst();
+    for (int index = 1; index < flows.size(); index++) {
+      result = mergeFlows(incoming, result, flows.get(index));
+    }
+    return result;
   }
 
   private void updateReferenceLifetime(

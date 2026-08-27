@@ -1,0 +1,40 @@
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+class SpecificFailure extends Failure {
+  SpecificFailure(String message) {
+    super(message: message)
+  }
+}
+
+Void fail() {
+  throw SpecificFailure(message: "specific")
+}
+
+Integer result() {
+  try {
+    return 7
+  } finally {
+    printLine("cleanup")
+  }
+}
+
+main() {
+  try {
+    fail()
+  } catch SpecificFailure error {
+    printLine(error.message)
+  } catch Failure error {
+    printLine("failure")
+  } finally {
+    printLine("finally")
+  }
+  printLine(result())
+  expectedOutputLines(["specific", "finally", "cleanup", "7"])
+}

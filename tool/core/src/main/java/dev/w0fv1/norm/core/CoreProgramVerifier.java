@@ -21,6 +21,8 @@ final class CoreProgramVerifier {
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
   private final Deque<Control> controls = new ArrayDeque<>();
   private CoreReferenceFlow referenceFlow;
+  private DefinitionId resolvedExceptionDefinition;
+  private boolean exceptionDefinitionResolved;
 
   private CoreProgramVerifier(CoreProgram program) {
     this.program = Objects.requireNonNull(program, "program");
@@ -31,6 +33,7 @@ final class CoreProgramVerifier {
   }
 
   private void verify() {
+    indexExceptionDefinition();
     for (CoreDefinitionRecord record : program.definitions()) {
       if (record.definition() instanceof CoreDefinition.Interface declaration) {
         verifyInterface(record.id(), declaration);
@@ -85,7 +88,12 @@ final class CoreProgramVerifier {
     callable.locals().forEach(local -> verifyLocalType(id, local, parameterCount));
     if (!controls.isEmpty()) throw new IllegalStateException("core control stack is not empty");
     referenceFlow = new CoreReferenceFlow();
-    verifyBlock(id, callable, callable.body(), callable.parameterLocals(), true);
+    List<Integer> entryLocals = new ArrayList<>();
+    if (callable.receiverType().isPresent()) entryLocals.add(0);
+    entryLocals.addAll(callable.captureLocals());
+    entryLocals.addAll(callable.parameterLocals());
+    entryLocals.addAll(callable.reifiedTypeLocals());
+    verifyBlock(id, callable, callable.body(), entryLocals, true);
     referenceFlow = null;
   }
 
@@ -101,7 +109,8 @@ final class CoreProgramVerifier {
           || !(declared.constructor() instanceof CoreTypeConstructor.User user)
           || !(program.definition(resolveExternal(user.definition())).orElseThrow()
               instanceof CoreDefinition.Aggregate parent)
-          || parent.valueCategory() != CoreValueCategory.IDENTITY) {
+          || parent.valueCategory() != CoreValueCategory.IDENTITY
+          || declaration.valueCategory() != CoreValueCategory.IDENTITY) {
         throw new IllegalArgumentException("aggregate parent must be an aggregate type");
       }
       parentInstance = declared;
@@ -116,6 +125,11 @@ final class CoreProgramVerifier {
         .fields()
         .forEach(field -> verifyStoredType(id, field.type(), declaration.typeParameters().size()));
     verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
+    if (resolvedExceptionDefinition != null
+        && !declaration.typeParameters().isEmpty()
+        && aggregateView(aggregateType(id, declaration), resolvedExceptionDefinition) != null) {
+      throw new IllegalArgumentException("Exception descendants cannot be generic");
+    }
     DefinitionId constructorId = resolve(id, declaration.constructor());
     CoreDefinition constructor = program.definition(constructorId).orElseThrow();
     if (!(constructor instanceof CoreDefinition.Callable constructorCallable)
@@ -888,6 +902,7 @@ final class CoreProgramVerifier {
               && target.kind() != CoreLocal.Kind.PARAMETER) {
             throw new IllegalArgumentException("local assignment target is not mutable storage");
           }
+          referenceFlow.requireDeclared(assignment.localIndex());
           verifyExpression(owner, callable, assignment.value());
           requireAssignable(
               owner, target.type(), owner, assignment.value().type(), "local assignment");
@@ -970,6 +985,47 @@ final class CoreProgramVerifier {
           referenceFlow.replace(
               CoreReferenceFlow.merge(incoming, incoming, referenceFlow.snapshot()));
         }
+        case CoreStatement.TryStatement tried -> {
+          if (tried.catches().isEmpty() && tried.finallyBlock().isEmpty()) {
+            throw new IllegalArgumentException("core try requires catch or finally");
+          }
+          CoreReferenceFlow.State incoming = referenceFlow.snapshot();
+          List<CoreReferenceFlow.State> completing = new ArrayList<>();
+          verifyBlock(owner, callable, tried.body());
+          if (!definitelyExits(tried.body())) completing.add(referenceFlow.snapshot());
+          List<CoreType> preceding = new ArrayList<>();
+          for (CoreCatchClause clause : tried.catches()) {
+            requireExceptionType(owner, clause.type(), "catch");
+            CoreLocal target = local(callable, clause.localIndex());
+            if (target.kind() != CoreLocal.Kind.VARIABLE) {
+              throw new IllegalArgumentException("catch binding must be a variable local");
+            }
+            requireSameType(owner, target.type(), owner, clause.type(), "catch binding");
+            CoreType absoluteType = absolute(owner, clause.type());
+            if (preceding.stream().anyMatch(previous -> isAssignable(previous, absoluteType))) {
+              throw new IllegalArgumentException("core catch type is already covered");
+            }
+            preceding.add(absoluteType);
+            referenceFlow.replace(incoming);
+            verifyBlock(owner, callable, clause.body(), List.of(clause.localIndex()), false);
+            if (!definitelyExits(clause.body())) completing.add(referenceFlow.snapshot());
+          }
+          CoreReferenceFlow.State normal = mergeCompletingReferenceFlows(incoming, completing);
+          referenceFlow.replace(normal);
+          if (tried.finallyBlock().isPresent()) {
+            referenceFlow.replace(incoming);
+            CoreReferenceFlow.Writes writes = referenceFlow.trackWrites();
+            try (writes) {
+              verifyBlock(owner, callable, tried.finallyBlock().orElseThrow());
+            }
+            CoreReferenceFlow.State finalFlow = referenceFlow.snapshot();
+            referenceFlow.replace(CoreReferenceFlow.overlay(normal, finalFlow, writes.locals()));
+          }
+        }
+        case CoreStatement.ThrowStatement thrown -> {
+          verifyExpression(owner, callable, thrown.exception());
+          requireExceptionType(owner, thrown.exception().type(), "throw");
+        }
         case CoreStatement.ReturnStatement returned -> {
           if (returned.value().isEmpty()) {
             requireSameType(owner, CoreType.VOID, owner, callable.returnType(), "return");
@@ -1016,6 +1072,70 @@ final class CoreProgramVerifier {
           "core reference cannot outlive the addressed storage location");
     }
     referenceFlow.update(destination, source);
+  }
+
+  private static CoreReferenceFlow.State mergeCompletingReferenceFlows(
+      CoreReferenceFlow.State incoming, List<CoreReferenceFlow.State> flows) {
+    if (flows.isEmpty()) return incoming;
+    CoreReferenceFlow.State result = flows.getFirst();
+    for (int index = 1; index < flows.size(); index++) {
+      result = CoreReferenceFlow.merge(incoming, result, flows.get(index));
+    }
+    return result;
+  }
+
+  private void requireExceptionType(DefinitionId owner, CoreType type, String subject) {
+    CoreType value = absolute(owner, type);
+    if (value.isNullable()
+        || !(value instanceof CoreType.Declared declared)
+        || declared.category() != CoreValueCategory.IDENTITY
+        || !declared.arguments().isEmpty()
+        || !(declared.constructor() instanceof CoreTypeConstructor.User)
+        || aggregateView(value, exceptionDefinition()) == null) {
+      throw new IllegalArgumentException(subject + " requires an Exception type");
+    }
+  }
+
+  private DefinitionId exceptionDefinition() {
+    if (!exceptionDefinitionResolved) indexExceptionDefinition();
+    if (resolvedExceptionDefinition == null) {
+      throw new IllegalArgumentException("Exception root is absent");
+    }
+    return resolvedExceptionDefinition;
+  }
+
+  private void indexExceptionDefinition() {
+    DefinitionId result = resolvedExceptionDefinition;
+    for (CoreDefinitionRecord record : program.definitions()) {
+      if (!(record.definition() instanceof CoreDefinition.Aggregate aggregate)) continue;
+      CoreNominalTypeKey nominal = aggregate.nominalType();
+      if (!isExceptionRoot(nominal)) continue;
+      verifyExceptionRoot(aggregate);
+      if (result != null && !result.equals(record.id())) {
+        throw new IllegalArgumentException("Exception root must be unique");
+      }
+      result = record.id();
+    }
+    resolvedExceptionDefinition = result;
+    exceptionDefinitionResolved = true;
+  }
+
+  private static boolean isExceptionRoot(CoreNominalTypeKey nominal) {
+    return nominal.packageName().equals(ExceptionAbi.PACKAGE_NAME)
+        && nominal.name().equals(ExceptionAbi.TYPE_NAME);
+  }
+
+  private static void verifyExceptionRoot(CoreDefinition.Aggregate declaration) {
+    if (declaration.nominalType().visibility() != CoreVisibility.PUBLIC
+        || declaration.valueCategory() != CoreValueCategory.IDENTITY
+        || !declaration.typeParameters().isEmpty()
+        || declaration.parentType().isPresent()
+        || declaration.fieldCount() != 1
+        || declaration.fields().size() != 1
+        || declaration.fields().getFirst().ordinal() != ExceptionAbi.MESSAGE_FIELD_ORDINAL
+        || !declaration.fields().getFirst().type().equals(CoreType.STRING)) {
+      throw new IllegalArgumentException("Exception root ABI is invalid");
+    }
   }
 
   private LexicalLifetime referenceLifetime(CoreExpression expression) {
@@ -1076,6 +1196,7 @@ final class CoreProgramVerifier {
       }
       case CoreExpression.LocalRead read -> {
         CoreLocal local = local(callable, read.localIndex());
+        referenceFlow.requireDeclared(read.localIndex());
         requireAssignable(owner, local.type(), owner, read.type(), "local read");
         if (local.type() instanceof CoreType.Reference) {
           referenceFlow.referenceLifetime(read.localIndex());
@@ -1986,13 +2107,50 @@ final class CoreProgramVerifier {
   private static boolean definitelyYields(CoreBlock block) {
     for (CoreStatement statement : block.statements()) {
       if (statement instanceof CoreStatement.ReturnStatement
-          || statement instanceof CoreStatement.YieldStatement) {
+          || statement instanceof CoreStatement.YieldStatement
+          || statement instanceof CoreStatement.ThrowStatement) {
         return true;
       }
       if (statement instanceof CoreStatement.IfStatement conditional
           && definitelyYields(conditional.thenBlock())
           && definitelyYields(conditional.elseBlock())) {
         return true;
+      }
+      if (statement instanceof CoreStatement.TryStatement tried) {
+        if (tried.finallyBlock().isPresent()
+            && definitelyYields(tried.finallyBlock().orElseThrow())) {
+          return true;
+        }
+        if (definitelyYields(tried.body())
+            && tried.catches().stream().allMatch(clause -> definitelyYields(clause.body()))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean definitelyExits(CoreBlock block) {
+    for (CoreStatement statement : block.statements()) {
+      if (statement instanceof CoreStatement.ReturnStatement
+          || statement instanceof CoreStatement.ThrowStatement
+          || statement instanceof CoreStatement.YieldStatement) {
+        return true;
+      }
+      if (statement instanceof CoreStatement.IfStatement conditional
+          && definitelyExits(conditional.thenBlock())
+          && definitelyExits(conditional.elseBlock())) {
+        return true;
+      }
+      if (statement instanceof CoreStatement.TryStatement tried) {
+        if (tried.finallyBlock().isPresent()
+            && definitelyExits(tried.finallyBlock().orElseThrow())) {
+          return true;
+        }
+        if (definitelyExits(tried.body())
+            && tried.catches().stream().allMatch(clause -> definitelyExits(clause.body()))) {
+          return true;
+        }
       }
     }
     return false;
@@ -2126,6 +2284,7 @@ final class CoreProgramVerifier {
           || local(callable, capture.localIndex()).kind() != CoreLocal.Kind.REIFIED_TYPE) {
         throw new IllegalArgumentException("runtime type capture does not match a reified local");
       }
+      referenceFlow.requireDeclared(capture.localIndex());
     }
     if (!captures.equals(parameters)) {
       throw new IllegalArgumentException("runtime type captures do not cover the template");

@@ -20,7 +20,10 @@ final class ParserRecovery {
               || current.kind() == TokenKind.END_OF_FILE
               || startsStatementOnLaterLine(previous, current);
       case RIGHT_BRACE ->
-          current.kind() == TokenKind.ELSE || current.kind() == TokenKind.END_OF_FILE;
+          current.kind() == TokenKind.ELSE
+              || current.kind() == TokenKind.CATCH
+              || current.kind() == TokenKind.FINALLY
+              || current.kind() == TokenKind.END_OF_FILE;
       default -> false;
     };
   }
@@ -44,6 +47,8 @@ final class ParserRecovery {
     return switch (kind) {
       case IF,
           FOR,
+          TRY,
+          THROW,
           RETURN,
           BREAK,
           CONTINUE,

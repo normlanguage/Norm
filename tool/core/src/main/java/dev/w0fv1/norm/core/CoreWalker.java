@@ -111,6 +111,15 @@ abstract class CoreWalker {
         walkIteration(loop.iteration());
         walkBlock(loop.body());
       }
+      case CoreStatement.TryStatement tried -> {
+        walkBlock(tried.body());
+        for (CoreCatchClause clause : tried.catches()) {
+          walkType(clause.type());
+          walkBlock(clause.body());
+        }
+        tried.finallyBlock().ifPresent(this::walkBlock);
+      }
+      case CoreStatement.ThrowStatement thrown -> walkExpression(thrown.exception());
       case CoreStatement.ReturnStatement returned ->
           returned.value().ifPresent(this::walkExpression);
       case CoreStatement.YieldStatement yielded -> walkExpression(yielded.value());

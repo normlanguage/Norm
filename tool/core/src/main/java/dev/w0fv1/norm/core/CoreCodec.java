@@ -240,6 +240,22 @@ final class CoreCodec {
           }
         }
       }
+      case CoreStatement.TryStatement tried -> {
+        writer.writeTag("try");
+        writeBlock(writer, tried.body(), referenceResolver);
+        writer.writeInt(tried.catches().size());
+        for (CoreCatchClause clause : tried.catches()) {
+          writeType(writer, clause.type(), referenceResolver);
+          writer.writeInt(clause.localIndex());
+          writeBlock(writer, clause.body(), referenceResolver);
+        }
+        writer.writeBoolean(tried.finallyBlock().isPresent());
+        tried.finallyBlock().ifPresent(block -> writeBlock(writer, block, referenceResolver));
+      }
+      case CoreStatement.ThrowStatement thrown -> {
+        writer.writeTag("throw");
+        writeExpression(writer, thrown.exception(), referenceResolver);
+      }
       case CoreStatement.ReturnStatement returned -> {
         writer.writeTag("return");
         writeOptionalExpression(writer, returned.value(), referenceResolver);

@@ -118,6 +118,75 @@ final class StatementNodes {
     }
   }
 
+  static final class Throw extends StatementNode {
+    @Child private ExpressionNode exception;
+
+    Throw(ExpressionNode exception) {
+      this.exception = exception;
+    }
+
+    @Override
+    void executeVoid(VirtualFrame frame) {
+      throw new NormThrownException((RuntimeValues.ObjectValue) exception.execute(frame), this);
+    }
+  }
+
+  static final class Try extends StatementNode {
+    @Child private StatementNode body;
+    @Children private final CatchHandler[] catches;
+    @Child private StatementNode finallyBlock;
+
+    Try(StatementNode body, CatchHandler[] catches, StatementNode finallyBlock) {
+      this.body = body;
+      this.catches = catches;
+      this.finallyBlock = finallyBlock;
+    }
+
+    @Override
+    void executeVoid(VirtualFrame frame) {
+      try {
+        try {
+          body.executeVoid(frame);
+        } catch (NormThrownException thrown) {
+          for (CatchHandler handler : catches) {
+            if (handler.matches(thrown.value)) {
+              handler.execute(frame, thrown.value);
+              return;
+            }
+          }
+          throw thrown;
+        }
+      } finally {
+        if (finallyBlock != null) finallyBlock.executeVoid(frame);
+      }
+    }
+  }
+
+  static final class CatchHandler extends Node {
+    private final DefinitionId type;
+    private final FrameBinding binding;
+    @Child private StatementNode body;
+
+    CatchHandler(DefinitionId type, FrameBinding binding, StatementNode body) {
+      this.type = type;
+      this.binding = binding;
+      this.body = body;
+    }
+
+    boolean matches(RuntimeValues.ObjectValue value) {
+      return value.aggregateInfo.ancestors().contains(type);
+    }
+
+    void execute(VirtualFrame frame, RuntimeValues.ObjectValue value) {
+      binding.write(frame, value);
+      try {
+        body.executeVoid(frame);
+      } finally {
+        frame.clear(binding.slot());
+      }
+    }
+  }
+
   static final class For extends StatementNode {
     private final FrameBinding iteratorBinding;
     private final java.util.Optional<FrameBinding> indexBinding;

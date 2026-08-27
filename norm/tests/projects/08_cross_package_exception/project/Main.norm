@@ -1,0 +1,20 @@
+package project
+
+import project.errors.Failure
+import project.errors.fail
+import std.core.Exception
+
+main() {
+  try {
+    fail(message: "specific")
+  } catch Failure error {
+    printLine(error.message)
+  }
+  try {
+    fail(message: "root")
+  } catch Exception error {
+    printLine(error.message)
+  }
+  expectedOutputLine("specific")
+  expectedOutputLine("root")
+}

@@ -4,7 +4,7 @@ import com.oracle.truffle.api.exception.AbstractTruffleException;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 
-final class NormGuestException extends AbstractTruffleException {
+class NormGuestException extends AbstractTruffleException {
   private static final long serialVersionUID = 1L;
   private final RuntimeErrorCode code;
 

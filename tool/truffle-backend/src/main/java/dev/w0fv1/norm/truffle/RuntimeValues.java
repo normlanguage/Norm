@@ -885,9 +885,22 @@ final class RuntimeValues {
       DefinitionId definition,
       String name,
       int fieldCount,
-      Map<DefinitionId, DispatchTarget> dispatch) {
+      Map<DefinitionId, DispatchTarget> dispatch,
+      java.util.Set<DefinitionId> ancestors) {
     AggregateInfo {
       dispatch = Map.copyOf(dispatch);
+      ancestors = java.util.Set.copyOf(ancestors);
+      if (!ancestors.contains(definition)) {
+        throw new IllegalArgumentException("aggregate ancestors must include itself");
+      }
+    }
+
+    AggregateInfo(
+        DefinitionId definition,
+        String name,
+        int fieldCount,
+        Map<DefinitionId, DispatchTarget> dispatch) {
+      this(definition, name, fieldCount, dispatch, java.util.Set.of(definition));
     }
   }
 

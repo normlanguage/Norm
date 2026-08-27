@@ -79,6 +79,23 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsExceptionControlFlow() {
+    assertFormats(
+        "Void run(){try{load()}catch IOException error{throw error}finally{close()}}",
+        """
+        Void run() {
+          try {
+            load()
+          } catch IOException error {
+            throw error
+          } finally {
+            close()
+          }
+        }
+        """);
+  }
+
+  @Test
   void formatsNestedExpressionsAndControlFlow() {
     assertFormats(
         """

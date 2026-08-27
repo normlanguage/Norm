@@ -306,6 +306,8 @@ public final class Syntax {
           IfStatement,
           ConditionalForStatement,
           ForStatement,
+          TryStatement,
+          ThrowStatement,
           ReturnStatement,
           BreakStatement,
           ContinueStatement {}
@@ -397,6 +399,46 @@ public final class Syntax {
     public ConditionalForStatement {
       Objects.requireNonNull(condition, "condition");
       body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record CatchClause(
+      TypeRef type, String name, SourceSpan nameSpan, List<Statement> body, SourceSpan span)
+      implements AstNode {
+    public CatchClause {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record FinallyClause(List<Statement> body, SourceSpan span) implements AstNode {
+    public FinallyClause {
+      body = List.copyOf(body);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record TryStatement(
+      List<Statement> body,
+      List<CatchClause> catches,
+      Optional<FinallyClause> finallyClause,
+      SourceSpan span)
+      implements Statement {
+    public TryStatement {
+      body = List.copyOf(body);
+      catches = List.copyOf(catches);
+      finallyClause = Objects.requireNonNull(finallyClause, "finallyClause");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record ThrowStatement(Expression exception, SourceSpan span) implements Statement {
+    public ThrowStatement {
+      Objects.requireNonNull(exception, "exception");
       Objects.requireNonNull(span, "span");
     }
   }

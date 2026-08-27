@@ -290,6 +290,9 @@ public final class SourceFormatter {
               expression(value.condition()),
               Docs.text(" "),
               block(value.body()));
+      case Syntax.TryStatement value -> tryStatement(value);
+      case Syntax.ThrowStatement value ->
+          Docs.concat(Docs.text("throw "), expression(value.exception()));
       case Syntax.ReturnStatement value ->
           value.value() == null
               ? Docs.text("return")
@@ -300,6 +303,22 @@ public final class SourceFormatter {
               : Docs.concat(Docs.text("break "), expression(value.value()));
       case Syntax.ContinueStatement ignored -> Docs.text("continue");
     };
+  }
+
+  private Doc tryStatement(Syntax.TryStatement statement) {
+    Doc result = Docs.concat(Docs.text("try "), block(statement.body()));
+    for (Syntax.CatchClause clause : statement.catches()) {
+      result =
+          Docs.concat(
+              result,
+              Docs.text(" catch "),
+              type(clause.type()),
+              Docs.text(" " + clause.name() + " "),
+              block(clause.body()));
+    }
+    if (statement.finallyClause().isEmpty()) return result;
+    return Docs.concat(
+        result, Docs.text(" finally "), block(statement.finallyClause().orElseThrow().body()));
   }
 
   private Doc variableDeclaration(Syntax.VariableDecl declaration) {

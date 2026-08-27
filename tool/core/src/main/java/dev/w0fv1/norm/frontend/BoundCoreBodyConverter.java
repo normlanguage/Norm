@@ -4,6 +4,7 @@ import dev.w0fv1.norm.bound.BoundArgument;
 import dev.w0fv1.norm.bound.BoundBlock;
 import dev.w0fv1.norm.bound.BoundCall;
 import dev.w0fv1.norm.bound.BoundCallable;
+import dev.w0fv1.norm.bound.BoundCatchClause;
 import dev.w0fv1.norm.bound.BoundClosure;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundExpression;
@@ -17,6 +18,7 @@ import dev.w0fv1.norm.bound.BoundStatement;
 import dev.w0fv1.norm.core.CoreArgument;
 import dev.w0fv1.norm.core.CoreBinaryOperator;
 import dev.w0fv1.norm.core.CoreBlock;
+import dev.w0fv1.norm.core.CoreCatchClause;
 import dev.w0fv1.norm.core.CoreExpression;
 import dev.w0fv1.norm.core.CoreFieldReference;
 import dev.w0fv1.norm.core.CoreIteration;
@@ -122,6 +124,15 @@ final class BoundCoreBodyConverter {
           scanExpression(loop.iterable());
           scanLocals(loop.body());
         }
+        case BoundStatement.TryStatement tried -> {
+          scanLocals(tried.body());
+          for (BoundCatchClause clause : tried.catches()) {
+            locals.add(clause.local(), types.convert(clause.type()), CoreLocal.Kind.VARIABLE);
+            scanLocals(clause.body());
+          }
+          tried.finallyBlock().ifPresent(this::scanLocals);
+        }
+        case BoundStatement.ThrowStatement thrown -> scanExpression(thrown.exception());
         case BoundStatement.ExpressionStatement expression ->
             scanExpression(expression.expression());
         case BoundStatement.ReturnStatement returned ->
@@ -249,6 +260,14 @@ final class BoundCoreBodyConverter {
               convert(loop.iterable()),
               convert(loop.body()),
               convert(loop.iteration()));
+      case BoundStatement.TryStatement tried ->
+          new CoreStatement.TryStatement(
+              node,
+              convert(tried.body()),
+              tried.catches().stream().map(this::convert).toList(),
+              tried.finallyBlock().map(this::convert));
+      case BoundStatement.ThrowStatement thrown ->
+          new CoreStatement.ThrowStatement(node, convert(thrown.exception()));
       case BoundStatement.ReturnStatement returned ->
           new CoreStatement.ReturnStatement(node, returned.value().map(this::convert));
       case BoundStatement.YieldStatement yielded ->
@@ -256,6 +275,11 @@ final class BoundCoreBodyConverter {
       case BoundStatement.BreakStatement ignored -> new CoreStatement.BreakStatement(node);
       case BoundStatement.ContinueStatement ignored -> new CoreStatement.ContinueStatement(node);
     };
+  }
+
+  private CoreCatchClause convert(BoundCatchClause clause) {
+    return new CoreCatchClause(
+        types.convert(clause.type()), locals.index(clause.local()), convert(clause.body()));
   }
 
   private CoreExpression convert(BoundExpression expression) {

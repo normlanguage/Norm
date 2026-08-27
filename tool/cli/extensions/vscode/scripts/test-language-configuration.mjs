@@ -46,6 +46,10 @@ assert.match('interface', keywordPattern);
 assert.match('var', keywordPattern);
 assert.match('implements', keywordPattern);
 assert.match('extends', keywordPattern);
+assert.match('try', keywordPattern);
+assert.match('catch', keywordPattern);
+assert.match('finally', keywordPattern);
+assert.match('throw', keywordPattern);
 assert.match('interface Named', declarationPattern);
 
 assert.equal(grammar.repository.codePoints.name, 'constant.character.norm');

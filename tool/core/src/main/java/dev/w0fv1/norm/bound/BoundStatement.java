@@ -3,6 +3,7 @@ package dev.w0fv1.norm.bound;
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.value.SourceSpan;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -16,6 +17,8 @@ public sealed interface BoundStatement extends BoundNode
         BoundStatement.IfStatement,
         BoundStatement.ConditionalForStatement,
         BoundStatement.ForStatement,
+        BoundStatement.TryStatement,
+        BoundStatement.ThrowStatement,
         BoundStatement.ReturnStatement,
         BoundStatement.YieldStatement,
         BoundStatement.BreakStatement,
@@ -134,6 +137,27 @@ public sealed interface BoundStatement extends BoundNode
     public ConditionalForStatement {
       Objects.requireNonNull(condition, "condition");
       Objects.requireNonNull(body, "body");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record TryStatement(
+      BoundBlock body,
+      List<BoundCatchClause> catches,
+      Optional<BoundBlock> finallyBlock,
+      SourceSpan span)
+      implements BoundStatement {
+    public TryStatement {
+      Objects.requireNonNull(body, "body");
+      catches = List.copyOf(catches);
+      finallyBlock = Objects.requireNonNull(finallyBlock, "finallyBlock");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  record ThrowStatement(BoundExpression exception, SourceSpan span) implements BoundStatement {
+    public ThrowStatement {
+      Objects.requireNonNull(exception, "exception");
       Objects.requireNonNull(span, "span");
     }
   }

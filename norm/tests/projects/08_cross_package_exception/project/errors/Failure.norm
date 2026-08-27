@@ -1,0 +1,13 @@
+package project.errors
+
+import std.core.Exception
+
+public class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+public Void fail(String message) {
+  throw Failure(message: message)
+}

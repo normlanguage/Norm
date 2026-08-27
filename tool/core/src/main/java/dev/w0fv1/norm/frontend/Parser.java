@@ -473,6 +473,15 @@ final class Parser {
     if (match(TokenKind.FOR)) {
       return parseFor(previous());
     }
+    if (match(TokenKind.TRY)) {
+      return parseTry(previous());
+    }
+    if (match(TokenKind.THROW)) {
+      Token keyword = previous();
+      Syntax.Expression exception = parseExpression();
+      match(TokenKind.SEMICOLON);
+      return new Syntax.ThrowStatement(exception, keyword.span().cover(exception.span()));
+    }
     if (match(TokenKind.RETURN)) {
       return parseReturn(previous());
     }
@@ -639,6 +648,41 @@ final class Parser {
         iterable,
         body.statements(),
         keyword.span().cover(body.span()));
+  }
+
+  private Syntax.TryStatement parseTry(Token keyword) {
+    Block body = parseBlock();
+    List<Syntax.CatchClause> catches = new ArrayList<>();
+    SourceSpan end = body.span();
+    while (match(TokenKind.CATCH)) {
+      Token catchKeyword = previous();
+      Syntax.TypeRef type = parseType();
+      Token name = consume(TokenKind.IDENTIFIER, "expected catch binding name");
+      Block catchBody = parseBlock();
+      end = catchBody.span();
+      catches.add(
+          new Syntax.CatchClause(
+              type,
+              name.value(),
+              name.span(),
+              catchBody.statements(),
+              catchKeyword.span().cover(catchBody.span())));
+    }
+    Optional<Syntax.FinallyClause> finallyClause = Optional.empty();
+    if (match(TokenKind.FINALLY)) {
+      Token finallyKeyword = previous();
+      Block finallyBody = parseBlock();
+      end = finallyBody.span();
+      finallyClause =
+          Optional.of(
+              new Syntax.FinallyClause(
+                  finallyBody.statements(), finallyKeyword.span().cover(finallyBody.span())));
+    }
+    if (catches.isEmpty() && finallyClause.isEmpty()) {
+      diagnostics.error(EXPECTED_TOKEN, "try requires at least one catch or finally", body.span());
+    }
+    return new Syntax.TryStatement(
+        body.statements(), catches, finallyClause, keyword.span().cover(end));
   }
 
   private Syntax.ReturnStatement parseReturn(Token keyword) {

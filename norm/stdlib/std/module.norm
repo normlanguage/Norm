@@ -3,6 +3,7 @@ Module module() {
     name: "std",
     version: 1,
     exports: [
+      "core.exception",
       "core.protocols",
       "core.result",
       "core.unit",

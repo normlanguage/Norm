@@ -172,6 +172,17 @@ final class ReferenceCompilerTest {
   }
 
   @Test
+  void appliesExplicitFinallyReferenceWritesToCoreFlow() {
+    CompilationResult result =
+        compile(
+            "Void main() { Integer first = 1 ref<Integer> outer = &first if true { "
+                + "Integer second = 2 ref<Integer> current = &first try { current = &second } "
+                + "finally { current = &first } outer = current } printLine(*outer) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void keepsLambdaControlFlowSeparateFromEnclosingSwitches() {
     CompilationResult result =
         compile(

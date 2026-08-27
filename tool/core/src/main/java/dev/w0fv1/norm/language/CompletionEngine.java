@@ -174,6 +174,11 @@ final class CompletionEngine {
               "switch ${1:value} {\n  case ${2:_} {\n    ${3}\n  }\n}"),
           keyword("case"),
           snippet("for", "Norm loop", "for ${1:item}: ${2:values} {\n  ${3}\n}"),
+          snippet(
+              "try",
+              "Norm exception handler",
+              "try {\n  ${1}\n} catch ${2:Exception} ${3:error} {\n  ${4}\n}"),
+          keyword("throw"),
           keyword("return"),
           keyword("break"),
           keyword("continue"),

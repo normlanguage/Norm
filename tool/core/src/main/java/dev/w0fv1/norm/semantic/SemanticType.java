@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.semantic;
 
+import dev.w0fv1.norm.core.ExceptionAbi;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,6 +35,13 @@ public record SemanticType(
           Kind.DECLARED, "std.core.Boolean", "Boolean", List.of(), ValueCategory.VALUE);
   public static final SemanticType STRING =
       new SemanticType(Kind.DECLARED, "std.core.String", "String", List.of(), ValueCategory.VALUE);
+  public static final SemanticType EXCEPTION =
+      new SemanticType(
+          Kind.DECLARED,
+          ExceptionAbi.IDENTITY,
+          ExceptionAbi.TYPE_NAME,
+          List.of(),
+          ValueCategory.IDENTITY);
   public static final SemanticType VOID =
       new SemanticType(Kind.VOID, "std.core.Void", "Void", List.of(), ValueCategory.VOID);
   public static final SemanticType NULL =

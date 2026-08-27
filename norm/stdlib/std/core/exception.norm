@@ -1,0 +1,9 @@
+package std.core
+
+class Exception {
+  String message
+
+  Exception(String message) {
+    this.message = message
+  }
+}

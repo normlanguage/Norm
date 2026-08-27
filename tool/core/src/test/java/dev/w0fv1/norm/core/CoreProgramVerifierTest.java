@@ -5,11 +5,106 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class CoreProgramVerifierTest {
+  @Test
+  void rejectsThrowValuesOutsideTheExceptionHierarchy() {
+    CoreDefinition.Callable callable =
+        functionWithStatements(
+            List.of(),
+            List.of(
+                new CoreStatement.ThrowStatement(
+                    1, new CoreExpression.Literal(2, 1, CoreType.INTEGER))));
+
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(group(callable))));
+  }
+
+  @Test
+  void rejectsNonExceptionAndCoveredCatchTypes() {
+    CoreDefinitionGroup exception = exceptionRootGroup();
+    CoreDefinitionGroup box = aggregateGroup("Box", 0, List.of());
+    CoreType boxType = userType(aggregateId(box), List.of());
+    CoreDefinition.Callable invalidType =
+        functionWithStatements(
+            List.of(new CoreLocal(0, boxType, CoreLocal.Kind.VARIABLE)),
+            List.of(
+                new CoreStatement.TryStatement(
+                    1,
+                    new CoreBlock(2, List.of()),
+                    List.of(new CoreCatchClause(boxType, 0, new CoreBlock(3, List.of()))),
+                    Optional.empty())));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(exception, box, group(invalidType))));
+
+    CoreDefinitionGroup child = derivedExceptionGroup("Failure", aggregateId(exception));
+    CoreType exceptionType = userType(aggregateId(exception), List.of());
+    CoreType childType = userType(aggregateId(child), List.of());
+    CoreDefinition.Callable covered =
+        functionWithStatements(
+            List.of(
+                new CoreLocal(0, exceptionType, CoreLocal.Kind.VARIABLE),
+                new CoreLocal(1, childType, CoreLocal.Kind.VARIABLE)),
+            List.of(
+                new CoreStatement.TryStatement(
+                    1,
+                    new CoreBlock(2, List.of()),
+                    List.of(
+                        new CoreCatchClause(exceptionType, 0, new CoreBlock(3, List.of())),
+                        new CoreCatchClause(childType, 1, new CoreBlock(4, List.of()))),
+                    Optional.empty())));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(exception, child, group(covered))));
+  }
+
+  @Test
+  void rejectsMalformedExceptionRootAbi() {
+    CoreDefinitionGroup malformed = aggregateGroup(exceptionNominal(), Optional.empty(), List.of());
+
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(malformed)));
+  }
+
+  @Test
+  void rejectsCatchLocalsUsedOutsideTheirLexicalScope() {
+    CoreDefinitionGroup exception = exceptionRootGroup();
+    CoreType exceptionType = userType(aggregateId(exception), List.of());
+    CoreDefinition.Callable callable =
+        functionWithStatements(
+            List.of(new CoreLocal(0, exceptionType, CoreLocal.Kind.VARIABLE)),
+            List.of(
+                new CoreStatement.TryStatement(
+                    1,
+                    new CoreBlock(2, List.of()),
+                    List.of(new CoreCatchClause(exceptionType, 0, new CoreBlock(3, List.of()))),
+                    Optional.empty()),
+                new CoreStatement.ExpressionStatement(
+                    4, new CoreExpression.LocalRead(5, 0, exceptionType))));
+
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(exception, group(callable))));
+  }
+
+  @Test
+  void rejectsGenericAndValueExceptionDescendants() {
+    CoreDefinitionGroup exception = exceptionRootGroup();
+    Optional<CoreType> parent = Optional.of(userType(aggregateId(exception), List.of()));
+    CoreDefinitionGroup generic =
+        aggregateGroup(nominal("GenericFailure"), CoreValueCategory.IDENTITY, 1, parent, List.of());
+    CoreDefinitionGroup value =
+        aggregateGroup(nominal("ValueFailure"), CoreValueCategory.VALUE, 0, parent, List.of());
+
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(exception, generic)));
+    assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(exception, value)));
+  }
+
   @Test
   void rejectsSpecialTypesInValueAbis() {
     for (CoreType special : List.of(CoreType.VOID, CoreType.NULL, CoreType.DYNAMIC)) {
@@ -700,6 +795,88 @@ final class CoreProgramVerifierTest {
   private static CoreDefinitionGroup aggregateGroup(
       String name, int typeParameters, List<CoreField> fields) {
     return aggregateGroup(name, CoreValueCategory.IDENTITY, typeParameters, fields);
+  }
+
+  private static CoreDefinitionGroup exceptionRootGroup() {
+    return aggregateGroup(
+        exceptionNominal(), Optional.empty(), List.of(new CoreField(0, CoreType.STRING)));
+  }
+
+  private static CoreNominalTypeKey exceptionNominal() {
+    return new CoreNominalTypeKey(
+        new ModuleCoordinate("std", 1),
+        "std.core",
+        "Exception",
+        CoreVisibility.PUBLIC,
+        Optional.empty());
+  }
+
+  private static CoreDefinitionGroup derivedExceptionGroup(String name, DefinitionId parent) {
+    return aggregateGroup(nominal(name), Optional.of(userType(parent, List.of())), List.of());
+  }
+
+  private static CoreDefinitionGroup aggregateGroup(
+      CoreNominalTypeKey nominal, Optional<CoreType> parent, List<CoreField> fields) {
+    return aggregateGroup(nominal, CoreValueCategory.IDENTITY, 0, parent, fields);
+  }
+
+  private static CoreDefinitionGroup aggregateGroup(
+      CoreNominalTypeKey nominal,
+      CoreValueCategory category,
+      int typeParameterCount,
+      Optional<CoreType> parent,
+      List<CoreField> fields) {
+    List<CoreTypeParameter> typeParameters = typeParameters(typeParameterCount);
+    CoreType receiver =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new PendingDefinitionReference(0)),
+            java.util.stream.IntStream.range(0, typeParameterCount)
+                .mapToObj(index -> new CoreType.Parameter(index, CoreNullability.NON_NULL))
+                .map(CoreType.class::cast)
+                .toList(),
+            category,
+            CoreNullability.NON_NULL);
+    CoreDefinition.Aggregate aggregate =
+        new CoreDefinition.Aggregate(
+            nominal,
+            category,
+            typeParameters,
+            parent,
+            parent.isPresent() ? 1 + fields.size() : fields.size(),
+            fields,
+            List.of(),
+            new PendingDefinitionReference(1),
+            List.of());
+    List<Integer> parameters =
+        java.util.stream.IntStream.range(0, fields.size()).map(index -> index + 1).boxed().toList();
+    List<Integer> reifiedLocals =
+        java.util.stream.IntStream.range(0, typeParameterCount)
+            .map(index -> fields.size() + index + 1)
+            .boxed()
+            .toList();
+    List<CoreLocal> locals = new ArrayList<>();
+    locals.add(new CoreLocal(0, receiver, CoreLocal.Kind.RECEIVER));
+    for (int index = 0; index < fields.size(); index++) {
+      locals.add(new CoreLocal(index + 1, fields.get(index).type(), CoreLocal.Kind.PARAMETER));
+    }
+    for (int index = 0; index < typeParameterCount; index++) {
+      locals.add(
+          new CoreLocal(fields.size() + index + 1, CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE));
+    }
+    CoreDefinition.Callable constructor =
+        new CoreDefinition.Callable(
+            Optional.of(receiver),
+            List.of(),
+            fields.stream().map(CoreField::type).toList(),
+            parameters,
+            reifiedLocals,
+            CoreType.VOID,
+            locals,
+            new CoreBlock(0, List.of()));
+    return new CoreCanonicalizer()
+        .canonicalize(List.of(aggregate, constructor))
+        .groups()
+        .getFirst();
   }
 
   private static CoreDefinitionGroup aggregateGroup(

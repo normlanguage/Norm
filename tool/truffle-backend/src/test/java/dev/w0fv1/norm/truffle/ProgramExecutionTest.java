@@ -15,6 +15,77 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void executesNominalCatchSelectionAndFinallyCompletion() throws Exception {
+    assertOutput(
+        "import std.core.Exception class Failure extends Exception { "
+            + "Failure(String message) { super(message: message) } } "
+            + "class SpecificFailure extends Failure { "
+            + "SpecificFailure(String message) { super(message: message) } } "
+            + "Void fail() { throw SpecificFailure(message: \"specific\") } "
+            + "Void main() { try { fail() } catch SpecificFailure error { "
+            + "printLine(error.message) } catch Failure error { printLine(\"failure\") } "
+            + "finally { printLine(\"finally\") } try { fail() } catch Exception error { "
+            + "printLine(\"root\") } }",
+        String.join(System.lineSeparator(), "specific", "finally", "root", ""));
+  }
+
+  @Test
+  void finallyRunsForReturnAndCanReplaceItWithThrow() throws Exception {
+    assertOutput(
+        "import std.core.Exception class Failure extends Exception { "
+            + "Failure(String message) { super(message: message) } } "
+            + "Integer choose() { try { return 1 } finally { printLine(\"cleanup\") } } "
+            + "Void main() { printLine(choose()) try { try { return } finally { "
+            + "throw Failure(message: \"replacement\") } } catch Failure error { "
+            + "printLine(error.message) } }",
+        String.join(System.lineSeparator(), "cleanup", "1", "replacement", ""));
+  }
+
+  @Test
+  void finallyRunsAcrossLoopControl() throws Exception {
+    assertOutput(
+        "Void main() { for value : [1, 2, 3] { try { "
+            + "if value == 1 { continue } if value == 2 { break } "
+            + "} finally { printLine(value) } } }",
+        String.join(System.lineSeparator(), "1", "2", ""));
+  }
+
+  @Test
+  void exposesUncaughtGuestExceptionsWithSourceAndStack() {
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class,
+            () ->
+                assertOutput(
+                    "import std.core.Exception "
+                        + "class Failure extends Exception { "
+                        + "Failure(String message) { super(message: message) } } "
+                        + "Void fail() { throw Failure(message: \"boom\") } "
+                        + "Void main() { fail() }",
+                    ""));
+
+    assertEquals(RuntimeErrorCode.UNCAUGHT_EXCEPTION, exception.code());
+    assertEquals("boom", exception.getMessage());
+    assertTrue(exception.line() > 0);
+    assertTrue(exception.guestStack().stream().anyMatch(frame -> frame.name().equals("fail")));
+  }
+
+  @Test
+  void keepsRuntimeFailuresOutsideUserCatchClauses() {
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class,
+            () ->
+                assertOutput(
+                    "import std.core.Exception Void main() { "
+                        + "try { printLine(1 / 0) } catch Exception error { "
+                        + "printLine(error.message) } }",
+                    ""));
+
+    assertEquals(RuntimeErrorCode.DIVISION_BY_ZERO, exception.code());
+  }
+
+  @Test
   void readsWritesAndComparesReferenceLocations() throws Exception {
     assertOutput(
         "Void replace(ref<Integer> target, Integer value) { *target = value } "
@@ -666,6 +737,11 @@ final class ProgramExecutionTest {
   @TestFactory
   Stream<DynamicTest> runsFunctionPrograms() throws Exception {
     return suite("functions");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsExceptionPrograms() throws Exception {
+    return suite("exceptions");
   }
 
   @TestFactory

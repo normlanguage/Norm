@@ -119,6 +119,13 @@ final class CoreTraversalContractTest {
     statements.add(new CoreStatement.YieldStatement(110, expressions.get(10)));
     statements.add(new CoreStatement.BreakStatement(111));
     statements.add(new CoreStatement.ContinueStatement(112));
+    statements.add(
+        new CoreStatement.TryStatement(
+            114,
+            block(expressions.get(11)),
+            List.of(new CoreCatchClause(links.type(), 3, block(expressions.get(12)))),
+            Optional.of(block(expressions.get(13)))));
+    statements.add(new CoreStatement.ThrowStatement(115, expressions.get(14)));
     CoreDefinition.Callable callable =
         new CoreDefinition.Callable(
             Optional.empty(),

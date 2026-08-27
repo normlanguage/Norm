@@ -157,6 +157,22 @@ final class CoreRewriter {
               resolve(loop.iterable(), resolver),
               resolve(loop.body(), resolver),
               resolve(loop.iteration(), resolver));
+      case CoreStatement.TryStatement tried ->
+          new CoreStatement.TryStatement(
+              tried.nodeIndex(),
+              resolve(tried.body(), resolver),
+              tried.catches().stream()
+                  .map(
+                      clause ->
+                          new CoreCatchClause(
+                              resolve(clause.type(), resolver),
+                              clause.localIndex(),
+                              resolve(clause.body(), resolver)))
+                  .toList(),
+              tried.finallyBlock().map(block -> resolve(block, resolver)));
+      case CoreStatement.ThrowStatement thrown ->
+          new CoreStatement.ThrowStatement(
+              thrown.nodeIndex(), resolve(thrown.exception(), resolver));
       case CoreStatement.ReturnStatement returned ->
           new CoreStatement.ReturnStatement(
               returned.nodeIndex(), returned.value().map(value -> resolve(value, resolver)));

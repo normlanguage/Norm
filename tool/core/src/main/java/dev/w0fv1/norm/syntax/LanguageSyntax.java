@@ -46,6 +46,10 @@ public final class LanguageSyntax {
     words.put("switch", TokenKind.SWITCH);
     words.put("case", TokenKind.CASE);
     words.put("for", TokenKind.FOR);
+    words.put("try", TokenKind.TRY);
+    words.put("catch", TokenKind.CATCH);
+    words.put("finally", TokenKind.FINALLY);
+    words.put("throw", TokenKind.THROW);
     words.put("return", TokenKind.RETURN);
     words.put("break", TokenKind.BREAK);
     words.put("continue", TokenKind.CONTINUE);

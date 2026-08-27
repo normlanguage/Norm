@@ -6,7 +6,8 @@ public enum LanguageSemanticsVersion {
   V3(3),
   V4(4),
   V5(5),
-  V6(6);
+  V6(6),
+  V7(7);
 
   private final int code;
 

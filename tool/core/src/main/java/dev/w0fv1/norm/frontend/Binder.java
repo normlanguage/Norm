@@ -9,6 +9,7 @@ import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCall;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundCallableId;
+import dev.w0fv1.norm.bound.BoundCatchClause;
 import dev.w0fv1.norm.bound.BoundClosure;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundConstruct;
@@ -479,6 +480,14 @@ final class Binder {
             bindIteration(semantics.iterationOf(loop.iterable().span()).orElseThrow()),
             loop.span());
       }
+      case Syntax.TryStatement tried ->
+          new BoundStatement.TryStatement(
+              bindBlock(tried.body(), tried.span()),
+              tried.catches().stream().map(this::bindCatchClause).toList(),
+              tried.finallyClause().map(clause -> bindBlock(clause.body(), clause.span())),
+              tried.span());
+      case Syntax.ThrowStatement thrown ->
+          new BoundStatement.ThrowStatement(bindExpression(thrown.exception()), thrown.span());
       case Syntax.ReturnStatement returned ->
           new BoundStatement.ReturnStatement(
               implicitSelfReturn && returned.value() == null
@@ -492,6 +501,14 @@ final class Binder {
       case Syntax.ContinueStatement continued ->
           new BoundStatement.ContinueStatement(continued.span());
     };
+  }
+
+  private BoundCatchClause bindCatchClause(Syntax.CatchClause clause) {
+    Symbol symbol = symbol(clause.nameSpan());
+    BoundLocalId local = BoundLocalId.of(symbol.id());
+    if (lambdaCaptures != null) lambdaLocals.add(local);
+    return new BoundCatchClause(
+        symbol.type(), local, bindBlock(clause.body(), clause.span()), clause.span());
   }
 
   private BoundStatement bindAssignment(Syntax.Assignment assignment) {

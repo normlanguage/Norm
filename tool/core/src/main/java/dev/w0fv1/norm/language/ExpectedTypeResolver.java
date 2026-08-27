@@ -122,6 +122,12 @@ final class ExpectedTypeResolver {
       return inExpression(model, returned.value(), returnType, returnType, offset, incompleteBreak)
           .or(() -> returnType);
     }
+    if (statement instanceof Syntax.ThrowStatement thrown
+        && contains(thrown.exception().span(), offset)) {
+      Optional<SemanticType> expected = Optional.of(SemanticType.EXCEPTION);
+      return inExpression(model, thrown.exception(), returnType, expected, offset, incompleteBreak)
+          .or(() -> expected);
+    }
     if (statement instanceof Syntax.BreakStatement broken
         && broken.value() != null
         && contains(broken.value().span(), offset)) {
@@ -153,6 +159,24 @@ final class ExpectedTypeResolver {
     if (statement instanceof Syntax.ConditionalForStatement loop) {
       return inStatements(
           model, loop.body(), returnType, Optional.empty(), offset, incompleteBreak);
+    }
+    if (statement instanceof Syntax.TryStatement tried) {
+      Optional<SemanticType> nested =
+          inStatements(model, tried.body(), returnType, breakType, offset, incompleteBreak);
+      if (nested.isPresent()) return nested;
+      for (Syntax.CatchClause clause : tried.catches()) {
+        nested = inStatements(model, clause.body(), returnType, breakType, offset, incompleteBreak);
+        if (nested.isPresent()) return nested;
+      }
+      if (tried.finallyClause().isPresent()) {
+        return inStatements(
+            model,
+            tried.finallyClause().orElseThrow().body(),
+            returnType,
+            breakType,
+            offset,
+            incompleteBreak);
+      }
     }
     return Optional.empty();
   }

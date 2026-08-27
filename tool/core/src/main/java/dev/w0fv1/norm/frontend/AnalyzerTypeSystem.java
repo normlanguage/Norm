@@ -1042,15 +1042,26 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         .toList();
   }
 
-  static boolean definitelyReturns(List<Syntax.Statement> statements) {
+  static boolean definitelyExits(List<Syntax.Statement> statements) {
     for (Syntax.Statement statement : statements) {
-      if (statement instanceof Syntax.ReturnStatement) {
+      if (statement instanceof Syntax.ReturnStatement
+          || statement instanceof Syntax.ThrowStatement) {
         return true;
       }
       if (statement instanceof Syntax.IfStatement conditional
-          && definitelyReturns(conditional.thenBody())
-          && definitelyReturns(conditional.elseBody())) {
+          && definitelyExits(conditional.thenBody())
+          && definitelyExits(conditional.elseBody())) {
         return true;
+      }
+      if (statement instanceof Syntax.TryStatement tried) {
+        if (tried.finallyClause().isPresent()
+            && definitelyExits(tried.finallyClause().orElseThrow().body())) {
+          return true;
+        }
+        if (definitelyExits(tried.body())
+            && tried.catches().stream().allMatch(clause -> definitelyExits(clause.body()))) {
+          return true;
+        }
       }
     }
     return false;

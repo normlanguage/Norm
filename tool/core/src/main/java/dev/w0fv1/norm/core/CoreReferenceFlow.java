@@ -6,15 +6,18 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 final class CoreReferenceFlow {
   private final Deque<Scope> scopes = new ArrayDeque<>();
   private final Map<Integer, LexicalLifetime.Region> storageRegions = new LinkedHashMap<>();
   private final Map<Integer, LexicalLifetime> referenceLifetimes = new LinkedHashMap<>();
   private final Map<CoreExpression, LexicalLifetime> expressionLifetimes = new IdentityHashMap<>();
+  private final Deque<Set<Integer>> writeCollectors = new ArrayDeque<>();
 
   void push() {
     LexicalLifetime.Region region =
@@ -47,6 +50,10 @@ final class CoreReferenceFlow {
     return region.lifetime();
   }
 
+  void requireDeclared(int localIndex) {
+    storageLifetime(localIndex);
+  }
+
   LexicalLifetime referenceLifetime(int localIndex) {
     LexicalLifetime lifetime = referenceLifetimes.get(localIndex);
     if (lifetime == null) {
@@ -58,6 +65,7 @@ final class CoreReferenceFlow {
   void update(int localIndex, LexicalLifetime lifetime) {
     storageLifetime(localIndex);
     referenceLifetimes.put(localIndex, Objects.requireNonNull(lifetime, "lifetime"));
+    writeCollectors.forEach(writes -> writes.add(localIndex));
   }
 
   LexicalLifetime expressionLifetime(CoreExpression expression) {
@@ -79,6 +87,12 @@ final class CoreReferenceFlow {
     referenceLifetimes.putAll(state.referenceLifetimes());
   }
 
+  Writes trackWrites() {
+    Set<Integer> locals = new LinkedHashSet<>();
+    writeCollectors.addFirst(locals);
+    return new Writes(locals);
+  }
+
   static State merge(State incoming, State left, State right) {
     Map<Integer, LexicalLifetime> result = new LinkedHashMap<>();
     for (Map.Entry<Integer, LexicalLifetime> entry : incoming.referenceLifetimes().entrySet()) {
@@ -91,9 +105,40 @@ final class CoreReferenceFlow {
     return new State(result);
   }
 
+  static State overlay(State base, State writes, Set<Integer> writtenLocals) {
+    Map<Integer, LexicalLifetime> result = new LinkedHashMap<>(base.referenceLifetimes());
+    for (int local : writtenLocals) {
+      LexicalLifetime lifetime = writes.referenceLifetimes().get(local);
+      if (lifetime == null) result.remove(local);
+      else result.put(local, lifetime);
+    }
+    return new State(result);
+  }
+
   record State(Map<Integer, LexicalLifetime> referenceLifetimes) {
     State {
       referenceLifetimes = Map.copyOf(referenceLifetimes);
+    }
+  }
+
+  final class Writes implements AutoCloseable {
+    private final Set<Integer> locals;
+    private boolean closed;
+
+    private Writes(Set<Integer> locals) {
+      this.locals = locals;
+    }
+
+    Set<Integer> locals() {
+      return Set.copyOf(locals);
+    }
+
+    @Override
+    public void close() {
+      if (closed || writeCollectors.removeFirst() != locals) {
+        throw new IllegalStateException("core reference write tracking is unbalanced");
+      }
+      closed = true;
     }
   }
 

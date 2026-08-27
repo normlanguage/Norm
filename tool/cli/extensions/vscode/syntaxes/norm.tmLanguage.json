@@ -50,7 +50,7 @@
     },
     "types": {
       "name": "support.type.norm",
-      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Function|Module)\\b"
+      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Function|Module|Exception)\\b"
     },
     "typeParameters": {
       "name": "entity.name.type.parameter.norm",
@@ -85,7 +85,7 @@
     },
     "keywords": {
       "name": "keyword.control.norm",
-      "match": "\\b(?:package|import|as|class|enum|interface|implements|extends|if|else|switch|case|for|return|break|continue|super|ref|var)\\b"
+      "match": "\\b(?:package|import|as|class|enum|interface|implements|extends|if|else|switch|case|for|try|catch|finally|throw|return|break|continue|super|ref|var)\\b"
     },
     "constants": {
       "name": "constant.language.norm",
