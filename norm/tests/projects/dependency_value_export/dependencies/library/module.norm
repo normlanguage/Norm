@@ -1,0 +1,8 @@
+Module module() {
+  return module(
+    name: "library",
+    version: 1,
+    exports: ["model.Point"]
+  )
+}
+

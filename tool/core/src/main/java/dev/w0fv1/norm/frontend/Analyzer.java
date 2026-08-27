@@ -65,7 +65,6 @@ final class Analyzer extends AnalyzerAnnotations {
     nextSymbolId = Math.max(nextSymbolId, minimumBodySymbolId);
     validateImports();
     createFileScopes();
-    validateAnnotationSchemas();
     validateClassHierarchy();
     currentProgram = entryProgram;
     Syntax.FunctionDecl main =
@@ -111,6 +110,7 @@ final class Analyzer extends AnalyzerAnnotations {
         }
       }
     }
+    validateAnnotationSchemas();
     validateAnnotationApplications();
     validateInterfaceGraphAndConformances();
     List<dev.w0fv1.norm.diagnostic.Diagnostic> snapshot = diagnostics.snapshot();
@@ -219,36 +219,10 @@ final class Analyzer extends AnalyzerAnnotations {
     }
     for (Syntax.Program program : programs) {
       currentProgram = program;
-      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
-        if (!declarations.addAnnotation(program, declaration)
-            || resolveEnum(declaration.name()) != null
-            || resolveInterface(declaration.name()) != null
-            || builtins.isType(declaration.name())) {
-          diagnostics.error(
-              DUPLICATE_NAME,
-              "type '" + declaration.name() + "' is already declared",
-              declaration.span());
-        }
-        Symbol type =
-            register(
-                declaration,
-                declaration.name(),
-                SymbolKind.TYPE,
-                sourceType(declaration.name(), List.of()),
-                declaration.nameSpan(),
-                null,
-                List.of(),
-                List.of());
-        typeSymbols.putIfAbsent(type.type().identity(), type.id());
-      }
-    }
-    for (Syntax.Program program : programs) {
-      currentProgram = program;
       for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
         if (!declarations.addAggregate(program, aggregateDecl)
             || resolveEnum(aggregateDecl.name()) != null
             || resolveInterface(aggregateDecl.name()) != null
-            || resolveAnnotation(aggregateDecl.name()) != null
             || builtins.isType(aggregateDecl.name())) {
           diagnostics.error(
               DUPLICATE_NAME,
@@ -345,22 +319,6 @@ final class Analyzer extends AnalyzerAnnotations {
           addMember(type.id(), value.id());
         }
       }
-      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
-        Symbol type = symbols.get(declarationSymbols.get(declaration));
-        for (Syntax.AnnotationParameter parameter : declaration.parameters()) {
-          Symbol symbol =
-              register(
-                  parameter,
-                  parameter.name(),
-                  SymbolKind.FIELD,
-                  resolveDeclarationType(parameter.type(), parameter, Map.of()),
-                  parameter.nameSpan(),
-                  type.id(),
-                  List.of(),
-                  List.of());
-          addMember(type.id(), symbol.id());
-        }
-      }
       for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
         Symbol type = symbols.get(declarationSymbols.get(aggregateDecl));
         for (Syntax.FieldDecl field : aggregateDecl.fields()) {
@@ -411,7 +369,7 @@ final class Analyzer extends AnalyzerAnnotations {
               parameters(
                   constructor.parameters(), Map.of(), aggregateTypeParameters(aggregateDecl)));
         }
-        if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS) {
+        if (aggregateDecl.kind() != Syntax.AggregateKind.VALUE) {
           SymbolId copyId = SymbolId.source(aggregateDecl.nameSpan().source().id(), nextSymbolId++);
           Symbol copy =
               new Symbol(
@@ -480,7 +438,6 @@ final class Analyzer extends AnalyzerAnnotations {
       Set<String> localNames = new HashSet<>();
       program.enums().forEach(declaration -> localNames.add(declaration.name()));
       program.interfaces().forEach(declaration -> localNames.add(declaration.name()));
-      program.annotationDeclarations().forEach(declaration -> localNames.add(declaration.name()));
       program.aggregates().forEach(declaration -> localNames.add(declaration.name()));
       program.functions().forEach(declaration -> localNames.add(declaration.name()));
       Set<String> importedNames = new HashSet<>();
@@ -561,12 +518,6 @@ final class Analyzer extends AnalyzerAnnotations {
             visible.put(id, id);
           }
         }
-        for (Syntax.AnnotationDecl declaration : candidate.annotationDeclarations()) {
-          if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
-            SymbolId id = declarationSymbols.get(declaration);
-            visible.put(id, id);
-          }
-        }
         for (Syntax.FunctionDecl declaration : candidate.functions()) {
           if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
             SymbolId id = declarationSymbols.get(declaration);
@@ -581,7 +532,6 @@ final class Analyzer extends AnalyzerAnnotations {
         if (declaration == null) declaration = resolveAggregate(imported.localName());
         if (declaration == null) declaration = resolveEnum(imported.localName());
         if (declaration == null) declaration = resolveInterface(imported.localName());
-        if (declaration == null) declaration = resolveAnnotation(imported.localName());
         if (declaration != null) {
           SymbolId id =
               imported.alias().isPresent()
@@ -617,14 +567,6 @@ final class Analyzer extends AnalyzerAnnotations {
                       qualifiedName(program.packageName(), declaration.name())))
           .forEach(result::add);
       program.aggregates().stream()
-          .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
-          .map(
-              declaration ->
-                  new ImportableSymbol(
-                      symbols.get(declarationSymbols.get(declaration)),
-                      qualifiedName(program.packageName(), declaration.name())))
-          .forEach(result::add);
-      program.annotationDeclarations().stream()
           .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
           .map(
               declaration ->
@@ -871,7 +813,7 @@ final class Analyzer extends AnalyzerAnnotations {
     }
     Set<String> methods = new HashSet<>();
     for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
-      if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS && method.name().equals("copy")) {
+      if (aggregateDecl.kind() != Syntax.AggregateKind.VALUE && method.name().equals("copy")) {
         diagnostics.error(
             DUPLICATE_NAME, "method 'copy' is reserved for identity copying", method.nameSpan());
       }
@@ -883,7 +825,7 @@ final class Analyzer extends AnalyzerAnnotations {
     if (aggregateDecl.constructors().size() > 1) {
       diagnostics.error(
           DUPLICATE_NAME,
-          "class '" + aggregateDecl.name() + "' may declare one constructor",
+          "aggregate '" + aggregateDecl.name() + "' may declare one constructor",
           aggregateDecl.constructors().get(1).span());
     }
     if (aggregateDecl.kind() == Syntax.AggregateKind.VALUE
@@ -1097,57 +1039,49 @@ final class Analyzer extends AnalyzerAnnotations {
                     LinkedHashMap::new,
                     java.util.stream.Collectors.toList()));
     for (List<InterfaceRequirement> group : requirementGroups.values()) {
-      long defaults = group.stream().filter(value -> value.method().body().isPresent()).count();
-      if (defaults < 2) continue;
-      boolean resolved =
+      Syntax.FunctionDecl witness =
           declaration.methods().stream()
+              .filter(method -> method.name().equals(group.getFirst().method().name()))
               .filter(method -> method.visibility() == Syntax.Visibility.PUBLIC)
-              .anyMatch(
+              .filter(
                   method ->
-                      group.stream().allMatch(requirement -> witnessMatches(method, requirement)));
-      if (!resolved) {
-        diagnostics.error(
-            TYPE_MISMATCH,
-            "inherited interface default methods conflict for method '"
-                + group.getFirst().method().name()
-                + "'",
-            declaration.nameSpan());
-      }
-    }
-    for (InterfaceRequirement requirement : requirements.values()) {
-      List<Syntax.FunctionDecl> candidates =
-          declaration.methods().stream()
-              .filter(method -> method.name().equals(requirement.method().name()))
-              .filter(method -> method.visibility() == Syntax.Visibility.PUBLIC)
-              .toList();
-      Syntax.FunctionDecl matched =
-          candidates.stream()
-              .filter(method -> witnessMatches(method, requirement))
+                      group.stream().allMatch(requirement -> witnessMatches(method, requirement)))
               .findFirst()
               .orElse(null);
-      if (matched == null) {
-        if (requirement.method().body().isEmpty()) {
+      SymbolId implementation = witness == null ? null : declarationSymbols.get(witness);
+      if (implementation == null) {
+        List<InterfaceRequirement> active = mostSpecificRequirements(group);
+        List<InterfaceRequirement> defaults =
+            active.stream().filter(value -> value.method().body().isPresent()).toList();
+        if (defaults.size() == 1) {
+          implementation = defaultMethodId(defaults.getFirst().method());
+        } else if (defaults.size() > 1) {
+          diagnostics.error(
+              TYPE_MISMATCH,
+              "inherited interface default methods conflict for method '"
+                  + group.getFirst().method().name()
+                  + "'",
+              declaration.nameSpan());
+        } else {
           diagnostics.error(
               TYPE_MISMATCH,
               aggregateKeyword(declaration)
                   + " '"
                   + declaration.name()
                   + "' must provide public interface method '"
-                  + requirement.method().name()
+                  + group.getFirst().method().name()
                   + "'",
               declaration.nameSpan());
-        } else {
-          witnesses
-              .computeIfAbsent(
-                  declarationSymbols.get(declaration), ignored -> new LinkedHashMap<>())
-              .put(
-                  declarationSymbols.get(requirement.method()),
-                  defaultMethodId(requirement.method()));
         }
-      } else {
-        witnesses
-            .computeIfAbsent(declarationSymbols.get(declaration), ignored -> new LinkedHashMap<>())
-            .put(declarationSymbols.get(requirement.method()), declarationSymbols.get(matched));
+      }
+      if (implementation != null) {
+        SymbolId selected = implementation;
+        Map<SymbolId, SymbolId> aggregateWitnesses =
+            witnesses.computeIfAbsent(
+                declarationSymbols.get(declaration), ignored -> new LinkedHashMap<>());
+        for (InterfaceRequirement requirement : group) {
+          aggregateWitnesses.put(declarationSymbols.get(requirement.method()), selected);
+        }
       }
     }
     activeTypeParameters = Map.of();
@@ -1243,34 +1177,6 @@ final class Analyzer extends AnalyzerAnnotations {
     }
     return canonicalType(functionReturnType(witness, witnessTypes), witnessParameters)
         .equals(canonicalType(requirement.result(), requiredParameters));
-  }
-
-  private String requirementShape(InterfaceRequirement requirement) {
-    Symbol symbol = symbols.get(declarationSymbols.get(requirement.method()));
-    Map<String, String> typeParameters = new LinkedHashMap<>();
-    for (int index = 0; index < symbol.typeParameters().size(); index++) {
-      typeParameters.put(symbol.typeParameters().get(index).type().identity(), "$" + index);
-    }
-    return requirement.method().name()
-        + "("
-        + requirement.parameters().stream()
-            .map(
-                parameter ->
-                    parameter.name() + ":" + semanticTypeShape(parameter.type(), typeParameters))
-            .collect(java.util.stream.Collectors.joining(","))
-        + ")->"
-        + semanticTypeShape(requirement.result(), typeParameters);
-  }
-
-  private static String semanticTypeShape(SemanticType type, Map<String, String> typeParameters) {
-    String identity = typeParameters.getOrDefault(type.identity(), type.identity());
-    String arguments =
-        type.arguments().isEmpty()
-            ? ""
-            : type.arguments().stream()
-                .map(argument -> semanticTypeShape(argument, typeParameters))
-                .collect(java.util.stream.Collectors.joining(",", "<", ">"));
-    return identity + arguments + (type.isNullable() ? "?" : "");
   }
 
   private static String canonicalType(SemanticType type, Map<String, String> typeParameters) {

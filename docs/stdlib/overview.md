@@ -6,7 +6,7 @@
 
 | 层级 | 模块 | 责任 |
 | --- | --- | --- |
-| 核心 | std.core、std.text、std.collections、std.math、std.time | 不依赖外部系统的值、接口与算法 |
+| 核心 | std.core、std.text、std.collections、std.math、std.time、std.validation | 不依赖外部系统的值、接口、算法与约束 |
 | 系统 | std.io、filesystem、process、network、thread | 操作系统资源与并发边界 |
 | 数据 | serialization、json、sql、configuration | 外部数据和持久化 |
 | 安全 | crypto、security、random | 密码学与敏感值 |

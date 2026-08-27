@@ -9,44 +9,18 @@ import java.util.Set;
 public sealed interface CoreDefinition
     permits CoreDefinition.Callable,
         CoreDefinition.Aggregate,
-        CoreDefinition.Annotation,
         CoreDefinition.Enum,
         CoreDefinition.Interface,
         CoreDefinition.InterfaceMethod,
         CoreDefinition.BuiltinConformance {
-  record Annotation(
-      CoreNominalTypeKey nominalType,
-      java.util.Set<dev.w0fv1.norm.value.AnnotationTarget> targets,
-      dev.w0fv1.norm.value.AnnotationRetention retention,
-      List<CoreField> fields,
-      List<Optional<CoreAnnotationValue>> defaults)
-      implements CoreDefinition {
-    public Annotation {
-      Objects.requireNonNull(nominalType, "nominalType");
-      targets = java.util.Set.copyOf(targets);
-      if (targets.isEmpty()) throw new IllegalArgumentException("annotation targets are empty");
-      Objects.requireNonNull(retention, "retention");
-      fields = List.copyOf(fields);
-      defaults = defaults.stream().map(value -> Objects.requireNonNull(value, "default")).toList();
-      if (fields.size() != defaults.size()) {
-        throw new IllegalArgumentException("annotation fields and defaults must have equal size");
-      }
-      for (int index = 0; index < fields.size(); index++) {
-        if (fields.get(index).ordinal() != index) {
-          throw new IllegalArgumentException("annotation fields must be dense and ordered");
-        }
-      }
-    }
-  }
-
   record Callable(
       Optional<CoreType> receiverType,
       List<CoreTypeParameter> typeParameters,
       List<CoreType> captureTypes,
       List<Integer> captureLocals,
-      List<CoreType> parameterTypes,
-      List<Integer> parameterLocals,
+      List<CoreCallableParameter> parameters,
       List<Integer> reifiedTypeLocals,
+      List<CoreInterceptor> interceptors,
       CoreType returnType,
       List<CoreLocal> locals,
       CoreBlock body)
@@ -58,16 +32,12 @@ public sealed interface CoreDefinition
       typeParameters = requireTypeParameters(typeParameters, receiverTypeParameterCount);
       captureTypes = List.copyOf(captureTypes);
       captureLocals = List.copyOf(captureLocals);
-      parameterTypes = List.copyOf(parameterTypes);
-      parameterLocals = List.copyOf(parameterLocals);
+      parameters = List.copyOf(parameters);
       reifiedTypeLocals = List.copyOf(reifiedTypeLocals);
+      interceptors = List.copyOf(interceptors);
       Objects.requireNonNull(returnType, "returnType");
       locals = List.copyOf(locals);
       Objects.requireNonNull(body, "body");
-      if (parameterTypes.size() != parameterLocals.size()) {
-        throw new IllegalArgumentException(
-            "parameter types and local bindings must have equal size");
-      }
       if (captureTypes.size() != captureLocals.size()) {
         throw new IllegalArgumentException("capture types and local bindings must have equal size");
       }
@@ -77,7 +47,7 @@ public sealed interface CoreDefinition
         }
       }
       int localCount = locals.size();
-      parameterLocals.forEach(index -> requireLocal(index, localCount));
+      parameters.forEach(parameter -> requireLocal(parameter.localIndex(), localCount));
       captureLocals.forEach(index -> requireLocal(index, localCount));
       reifiedTypeLocals.forEach(index -> requireLocal(index, localCount));
       if (receiverType.isPresent()
@@ -101,20 +71,21 @@ public sealed interface CoreDefinition
           && !locals.getFirst().type().equals(receiverType.orElseThrow())) {
         throw new IllegalArgumentException("receiver local does not match the receiver ABI type");
       }
-      requireDistinct(parameterLocals, "parameter local");
+      requireDistinct(
+          parameters.stream().map(CoreCallableParameter::localIndex).toList(), "parameter local");
       requireDistinct(captureLocals, "capture local");
       requireDistinct(reifiedTypeLocals, "reified type local");
-      Set<Integer> occupied = new HashSet<>(parameterLocals);
+      Set<Integer> occupied =
+          new HashSet<>(parameters.stream().map(CoreCallableParameter::localIndex).toList());
       if (captureLocals.stream().anyMatch(index -> !occupied.add(index))) {
         throw new IllegalArgumentException("capture and parameter local bindings overlap");
       }
       if (reifiedTypeLocals.stream().anyMatch(index -> !occupied.add(index))) {
         throw new IllegalArgumentException("parameter and reified local bindings overlap");
       }
-      for (int index = 0; index < parameterLocals.size(); index++) {
-        CoreLocal local = locals.get(parameterLocals.get(index));
-        if (local.kind() != CoreLocal.Kind.PARAMETER
-            || !local.type().equals(parameterTypes.get(index))) {
+      for (CoreCallableParameter parameter : parameters) {
+        CoreLocal local = locals.get(parameter.localIndex());
+        if (local.kind() != CoreLocal.Kind.PARAMETER || !local.type().equals(parameter.type())) {
           throw new IllegalArgumentException("parameter local does not match its ABI type");
         }
       }
@@ -132,7 +103,9 @@ public sealed interface CoreDefinition
         }
       }
       for (CoreLocal local : locals) {
-        if (local.kind() == CoreLocal.Kind.PARAMETER && !parameterLocals.contains(local.index())) {
+        if (local.kind() == CoreLocal.Kind.PARAMETER
+            && parameters.stream()
+                .noneMatch(parameter -> parameter.localIndex() == local.index())) {
           throw new IllegalArgumentException("parameter local is absent from the callable ABI");
         }
         if (local.kind() == CoreLocal.Kind.CAPTURE && !captureLocals.contains(local.index())) {
@@ -145,26 +118,12 @@ public sealed interface CoreDefinition
       }
     }
 
-    public Callable(
-        Optional<CoreType> receiverType,
-        List<CoreTypeParameter> typeParameters,
-        List<CoreType> parameterTypes,
-        List<Integer> parameterLocals,
-        List<Integer> reifiedTypeLocals,
-        CoreType returnType,
-        List<CoreLocal> locals,
-        CoreBlock body) {
-      this(
-          receiverType,
-          typeParameters,
-          List.of(),
-          List.of(),
-          parameterTypes,
-          parameterLocals,
-          reifiedTypeLocals,
-          returnType,
-          locals,
-          body);
+    public List<CoreType> parameterTypes() {
+      return parameters.stream().map(CoreCallableParameter::type).toList();
+    }
+
+    public List<Integer> parameterLocals() {
+      return parameters.stream().map(CoreCallableParameter::localIndex).toList();
     }
 
     public boolean hasReceiver() {
@@ -190,6 +149,7 @@ public sealed interface CoreDefinition
 
   record Aggregate(
       CoreNominalTypeKey nominalType,
+      CoreAggregateKind kind,
       CoreValueCategory valueCategory,
       List<CoreTypeParameter> typeParameters,
       Optional<CoreType> parentType,
@@ -201,6 +161,7 @@ public sealed interface CoreDefinition
       implements CoreDefinition {
     public Aggregate {
       Objects.requireNonNull(nominalType, "nominalType");
+      Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(valueCategory, "valueCategory");
       if (valueCategory != CoreValueCategory.IDENTITY && valueCategory != CoreValueCategory.VALUE) {
         throw new IllegalArgumentException("core aggregate must be identity or value");

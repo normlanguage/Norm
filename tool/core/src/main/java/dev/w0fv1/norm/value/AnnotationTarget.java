@@ -1,8 +1,5 @@
 package dev.w0fv1.norm.value;
 
-import java.util.Arrays;
-import java.util.Optional;
-
 public enum AnnotationTarget {
   PACKAGE("package"),
   TYPE("type"),
@@ -20,9 +17,5 @@ public enum AnnotationTarget {
 
   public String keyword() {
     return keyword;
-  }
-
-  public static Optional<AnnotationTarget> fromKeyword(String keyword) {
-    return Arrays.stream(values()).filter(value -> value.keyword.equals(keyword)).findFirst();
   }
 }

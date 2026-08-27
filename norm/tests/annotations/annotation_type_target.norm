@@ -1,0 +1,17 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.testing.expectedOutputLines
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+}
+
+@Label(text: "annotation")
+annotation Marker implements TypeTarget, RuntimeRetention {
+}
+
+main() {
+  printLine(reflect<Marker>().annotation<Label>()?.text ?? "missing")
+  expectedOutputLines(["annotation"])
+}
+

@@ -1,0 +1,24 @@
+package app.metadata
+
+import std.annotation.FunctionTarget
+import std.annotation.RuntimeRetention
+
+public annotation Log implements FunctionTarget, RuntimeRetention {
+  String tag
+
+  public Void before(FunctionContext context) {
+    printLine("[" + tag + "] before " + context.name())
+  }
+
+  public R around<R>(FunctionInvocation<R> invocation) {
+    printLine("[" + tag + "] around-in")
+    R result = invocation.proceed()
+    printLine("[" + tag + "] around-out")
+    return result
+  }
+
+  public Void after(FunctionContext context, FunctionCompletion completion) {
+    printLine("[" + tag + "] after " + context.name())
+    printLine(completion.succeeded())
+  }
+}

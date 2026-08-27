@@ -1,0 +1,17 @@
+import std.testing.expectedOutputLines
+
+class Box {
+  Integer value
+}
+
+main() {
+  Box first = Box(value: 1)
+  Box second = first
+  ref<Integer> firstLocation = &first.value
+  ref<Integer> secondLocation = &second.value
+  printLine(firstLocation == secondLocation)
+  *secondLocation = 8
+  printLine(first.value)
+  expectedOutputLines(["true", "8"])
+}
+

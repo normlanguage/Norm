@@ -1,0 +1,35 @@
+import std.annotation.BinaryRetention
+import std.annotation.FieldTarget
+import std.testing.expectedOutputLines
+
+annotation Mark implements FieldTarget<String>, BinaryRetention {
+  String before(FieldContext context, String value) {
+    printLine(context.name())
+    printLine(context.index())
+    return "[" + value + "]"
+  }
+
+  Void after(FieldContext context, FunctionCompletion completion) {
+    printLine(completion.succeeded())
+  }
+}
+
+class Box {
+  @Mark()
+  String value
+}
+
+main() {
+  Box box = Box(value: "initial")
+  printLine(box.value)
+  box.value = "assigned"
+  printLine(box.value)
+  ref<String> location = &box.value
+  *location = "referenced"
+  printLine(box.value)
+  expectedOutputLines([
+    "value", "0", "true", "[initial]",
+    "value", "0", "true", "[assigned]",
+    "value", "0", "true", "[referenced]"
+  ])
+}

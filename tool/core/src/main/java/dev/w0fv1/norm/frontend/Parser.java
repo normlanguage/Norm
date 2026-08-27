@@ -4,8 +4,6 @@ import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.AnnotationRetention;
-import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
@@ -25,6 +23,8 @@ final class Parser {
   private final DiagnosticBag diagnostics;
   private final CompilationGuard guard;
   private int current;
+  private int expressionDepth;
+  private boolean lineLeadingDereferenceBoundary;
 
   Parser(SourceFile source, List<Token> tokens, DiagnosticBag diagnostics) {
     this(source, tokens, diagnostics, CompilationGuard.unlimited());
@@ -52,7 +52,6 @@ final class Parser {
     List<Syntax.ImportDecl> imports = new ArrayList<>();
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
-    List<Syntax.AnnotationDecl> annotationDeclarations = new ArrayList<>();
     List<Syntax.AggregateDecl> aggregates = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     while (match(TokenKind.IMPORT)) {
@@ -80,8 +79,9 @@ final class Parser {
         } else if (match(TokenKind.INTERFACE)) {
           interfaces.add(parseInterface(previous(), visibility, pendingAnnotations));
         } else if (matchAnnotationDeclarationKeyword()) {
-          annotationDeclarations.add(
-              parseAnnotationDeclaration(previous(), visibility, pendingAnnotations));
+          aggregates.add(
+              parseAggregate(
+                  previous(), visibility, Syntax.AggregateKind.ANNOTATION, pendingAnnotations));
         } else if (match(TokenKind.CLASS)) {
           aggregates.add(
               parseAggregate(
@@ -105,7 +105,6 @@ final class Parser {
         imports,
         enums,
         interfaces,
-        annotationDeclarations,
         aggregates,
         functions,
         new SourceSpan(source, 0, source.length()));
@@ -157,68 +156,6 @@ final class Parser {
               name.value(), name.span(), arguments, start.span().cover(closing.span())));
     }
     return List.copyOf(annotations);
-  }
-
-  private Syntax.AnnotationDecl parseAnnotationDeclaration(
-      Token keyword, Syntax.Visibility visibility, List<Syntax.AnnotationUse> annotations) {
-    Token name = consume(TokenKind.IDENTIFIER, "expected annotation name");
-    if (check(TokenKind.LESS)) {
-      List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
-      diagnostics.error(
-          EXPECTED_TOKEN,
-          "annotation cannot declare type parameters",
-          typeParameters.isEmpty() ? name.span() : typeParameters.getFirst().nameSpan());
-    }
-    consumeContextual("targets", "expected 'targets' after annotation name");
-    consume(TokenKind.LEFT_PAREN, "expected '(' after targets");
-    java.util.LinkedHashSet<AnnotationTarget> targets = new java.util.LinkedHashSet<>();
-    do {
-      Token target = advance();
-      Optional<AnnotationTarget> resolved = AnnotationTarget.fromKeyword(target.value());
-      if (resolved.isEmpty()) {
-        throw error(target, "expected annotation target");
-      }
-      if (!targets.add(resolved.orElseThrow())) {
-        diagnostics.error(EXPECTED_TOKEN, "duplicate annotation target", target.span());
-      }
-    } while (match(TokenKind.COMMA));
-    consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation targets");
-    consumeContextual("retention", "expected 'retention' after annotation targets");
-    consume(TokenKind.LEFT_PAREN, "expected '(' after retention");
-    Token retentionToken = advance();
-    AnnotationRetention retention =
-        AnnotationRetention.fromKeyword(retentionToken.value())
-            .orElseThrow(() -> error(retentionToken, "expected annotation retention"));
-    consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation retention");
-    consume(TokenKind.LEFT_BRACE, "expected '{' before annotation body");
-    List<Syntax.AnnotationParameter> parameters = new ArrayList<>();
-    while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
-      List<Syntax.AnnotationUse> parameterAnnotations = parseAnnotationUses();
-      Syntax.TypeRef type = parseType();
-      Token parameterName = consume(TokenKind.IDENTIFIER, "expected annotation parameter name");
-      Optional<Syntax.Expression> defaultValue = Optional.empty();
-      if (match(TokenKind.EQUAL)) defaultValue = Optional.of(parseExpression());
-      match(TokenKind.SEMICOLON);
-      SourceSpan span =
-          type.span().cover(defaultValue.map(Syntax.Expression::span).orElse(parameterName.span()));
-      parameters.add(
-          new Syntax.AnnotationParameter(
-              parameterAnnotations,
-              type,
-              parameterName.value(),
-              parameterName.span(),
-              defaultValue,
-              span));
-    }
-    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after annotation body");
-    SourceSpan span = coverAnnotations(annotations, keyword.span().cover(closing.span()));
-    return new Syntax.AnnotationDecl(
-        annotations, visibility, name.value(), name.span(), targets, retention, parameters, span);
-  }
-
-  private Token consumeContextual(String value, String message) {
-    if (check(TokenKind.IDENTIFIER) && peek().value().equals(value)) return advance();
-    throw error(peek(), message);
   }
 
   private SourceSpan coverAnnotations(
@@ -621,7 +558,7 @@ final class Parser {
     }
     if (match(TokenKind.THROW)) {
       Token keyword = previous();
-      Syntax.Expression exception = parseExpression();
+      Syntax.Expression exception = parseStatementExpression();
       match(TokenKind.SEMICOLON);
       return new Syntax.ThrowStatement(exception, keyword.span().cover(exception.span()));
     }
@@ -632,7 +569,7 @@ final class Parser {
       Token keyword = previous();
       Syntax.Expression value = null;
       if (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.SEMICOLON)) {
-        value = parseExpression();
+        value = parseStatementExpression();
       }
       match(TokenKind.SEMICOLON);
       return new Syntax.BreakStatement(
@@ -650,7 +587,7 @@ final class Parser {
       return parseVariableDeclaration(List.of());
     }
 
-    Syntax.Expression expression = parseExpression();
+    Syntax.Expression expression = parseStatementExpression();
     if (match(TokenKind.EQUAL)) {
       if (!(expression instanceof Syntax.Name
           || expression instanceof Syntax.Member
@@ -658,7 +595,7 @@ final class Parser {
           || expression instanceof Syntax.Unary unary && unary.operator() == TokenKind.STAR)) {
         diagnostics.error(INVALID_ASSIGNMENT, "invalid assignment target", expression.span());
       }
-      Syntax.Expression value = parseExpression();
+      Syntax.Expression value = parseStatementExpression();
       match(TokenKind.SEMICOLON);
       return new Syntax.Assignment(expression, value, expression.span().cover(value.span()));
     }
@@ -672,7 +609,7 @@ final class Parser {
         match(TokenKind.VAR) ? Optional.empty() : Optional.of(parseType());
     Token name = consume(TokenKind.IDENTIFIER, "expected variable name");
     consume(TokenKind.EQUAL, "variables must have an initializer");
-    Syntax.Expression initializer = parseExpression();
+    Syntax.Expression initializer = parseStatementExpression();
     match(TokenKind.SEMICOLON);
     return new Syntax.VariableDecl(
         annotations,
@@ -712,7 +649,7 @@ final class Parser {
     List<Syntax.Parameter> parameters = parseParameterList();
     Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after callable signature");
     consume(TokenKind.EQUAL, "callable binding requires a function value");
-    Syntax.Expression initializer = parseExpression();
+    Syntax.Expression initializer = parseStatementExpression();
     match(TokenKind.SEMICOLON);
     List<Syntax.TypeRef> signature = new ArrayList<>();
     signature.add(returnType);
@@ -838,7 +775,7 @@ final class Parser {
   private Syntax.ReturnStatement parseReturn(Token keyword) {
     Syntax.Expression value = null;
     if (!check(TokenKind.RIGHT_BRACE) && !check(TokenKind.SEMICOLON)) {
-      value = parseExpression();
+      value = parseStatementExpression();
     }
     match(TokenKind.SEMICOLON);
     return new Syntax.ReturnStatement(
@@ -846,7 +783,22 @@ final class Parser {
   }
 
   private Syntax.Expression parseExpression() {
-    return parseCoalescing();
+    expressionDepth++;
+    try {
+      return parseCoalescing();
+    } finally {
+      expressionDepth--;
+    }
+  }
+
+  private Syntax.Expression parseStatementExpression() {
+    boolean previous = lineLeadingDereferenceBoundary;
+    lineLeadingDereferenceBoundary = true;
+    try {
+      return parseExpression();
+    } finally {
+      lineLeadingDereferenceBoundary = previous;
+    }
   }
 
   private Syntax.Expression parseCoalescing() {
@@ -934,8 +886,12 @@ final class Parser {
 
   private Syntax.Expression parseFactor() {
     Syntax.Expression expression = parseUnary();
-    while (match(TokenKind.STAR, TokenKind.SLASH, TokenKind.PERCENT)) {
-      Token operator = previous();
+    while (check(TokenKind.STAR) || check(TokenKind.SLASH) || check(TokenKind.PERCENT)) {
+      if (lineLeadingDereferenceBoundary
+          && expressionDepth == 1
+          && check(TokenKind.STAR)
+          && expression.span().end().line() < peek().span().start().line()) break;
+      Token operator = advance();
       Syntax.Expression right = parseUnary();
       expression =
           new Syntax.Binary(
@@ -1383,16 +1339,19 @@ final class Parser {
   }
 
   private boolean checkAnnotationDeclarationKeyword() {
-    return checkContextual("annotation")
-        && current + 2 < tokens.size()
-        && tokens.get(current + 1).kind() == TokenKind.IDENTIFIER
-        && (tokens.get(current + 2).kind() == TokenKind.LESS
-            || tokens.get(current + 2).kind() == TokenKind.IDENTIFIER
-                && tokens.get(current + 2).value().equals("targets"));
+    return checkContextualAggregateDeclaration("annotation");
   }
 
   private boolean checkValueDeclarationKeyword() {
-    return checkContextual("value") && checkNext(TokenKind.IDENTIFIER);
+    return checkContextualAggregateDeclaration("value");
+  }
+
+  private boolean checkContextualAggregateDeclaration(String keyword) {
+    if (!checkContextual(keyword) || !checkNext(TokenKind.IDENTIFIER)) return false;
+    int afterName = tokenAfterType(current + 1);
+    if (afterName < 0 || afterName >= tokens.size()) return false;
+    Token token = tokens.get(afterName);
+    return token.kind() == TokenKind.LEFT_BRACE || token.kind() == TokenKind.IMPLEMENTS;
   }
 
   private boolean checkContextual(String value) {

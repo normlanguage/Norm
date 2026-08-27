@@ -1,0 +1,38 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class InvalidSize extends Exception {
+  InvalidSize(String message) {
+    super(message: message)
+  }
+}
+
+annotation Size implements ParameterTarget<String>, SourceRetention {
+  Integer minimum
+
+  String before(ParameterContext context, String value) {
+    if value == "tiny" {
+      throw InvalidSize(message: context.name())
+    }
+    return value
+  }
+
+  Void after(ParameterContext context, FunctionCompletion completion) {
+    printLine("after")
+  }
+}
+
+Void accept(@Size(minimum: 5) String value) {
+  printLine("body")
+}
+
+main() {
+  try {
+    accept(value: "tiny")
+  } catch InvalidSize error {
+    printLine(error.message)
+  }
+  expectedOutputLines(["value"])
+}

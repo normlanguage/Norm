@@ -65,7 +65,7 @@ public final class NormTestKit {
   public static Stream<DynamicTest> suite(String resource) throws Exception {
     Path directory = resourceDirectory(resource);
     List<Path> cases;
-    try (Stream<Path> files = Files.list(directory)) {
+    try (Stream<Path> files = Files.walk(directory)) {
       cases =
           files
               .filter(Files::isRegularFile)
@@ -77,28 +77,25 @@ public final class NormTestKit {
         .map(
             path ->
                 DynamicTest.dynamicTest(
-                    path.getFileName().toString(), () -> assertSelfContainedTest(path)));
+                    directory.relativize(path).toString().replace('\\', '/'),
+                    () -> assertSelfContainedTest(path)));
   }
 
   public static Stream<DynamicTest> projectSuite(String resource) throws Exception {
     Path directory = resourceDirectory(resource);
-    List<Path> candidates;
-    try (Stream<Path> files = Files.walk(directory)) {
-      candidates =
-          files
-              .filter(Files::isRegularFile)
-              .filter(path -> path.getFileName().toString().equals("module.norm"))
-              .sorted()
-              .toList();
-    }
-    List<Path> modules = new ArrayList<>();
-    for (Path candidate : candidates) {
-      if (ProjectLoader.isModuleSource(SourceFile.read(candidate))) modules.add(candidate);
+    List<Path> cases;
+    try (Stream<Path> files = Files.list(directory)) {
+      cases = files.filter(Files::isDirectory).sorted().toList();
     }
     List<DynamicTest> tests = new ArrayList<>();
     try (ProjectLoader projects = ENVIRONMENT.projectLoader();
         CompilerSession compiler = ENVIRONMENT.compilerSession()) {
-      for (Path module : modules) {
+      for (Path projectCase : cases) {
+        Path module = projectCase.resolve("app").resolve("module.norm");
+        assertTrue(Files.isRegularFile(module), projectCase + " must contain app/module.norm");
+        assertTrue(
+            ProjectLoader.isModuleSource(SourceFile.read(module)),
+            module + " must declare the root module");
         List<Path> sourceCandidates;
         try (Stream<Path> files = Files.walk(module.getParent())) {
           sourceCandidates =
@@ -115,15 +112,16 @@ public final class NormTestKit {
           if (!sourceSet.modulePaths().contains(module.toAbsolutePath().normalize())) continue;
           CompilationRequest request = sourceSet.compilationRequest();
           var snapshot = compiler.snapshot(request);
-          assertTrue(!snapshot.analysis().hasErrors(), () -> snapshot.diagnostics().toString());
+          assertTrue(
+              !snapshot.analysis().hasErrors(),
+              () -> projectCase.getFileName() + ": " + snapshot.diagnostics());
           if (snapshot.analysis().entryPoint().isPresent()) entryPoints.add(source);
         }
         assertEquals(1, entryPoints.size(), module + " must contain exactly one entry point");
         Path entry = entryPoints.getFirst();
         tests.add(
             DynamicTest.dynamicTest(
-                directory.relativize(module.getParent()).toString(),
-                () -> assertSelfContainedTest(entry)));
+                projectCase.getFileName().toString(), () -> assertSelfContainedTest(entry)));
       }
     }
     return tests.stream();

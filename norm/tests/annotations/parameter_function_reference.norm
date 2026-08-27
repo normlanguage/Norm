@@ -1,0 +1,19 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Wrap implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    return "[" + value + "]"
+  }
+}
+
+String echo(@Wrap() String value) {
+  return value
+}
+
+main() {
+  Function<String(String)> reference = echo
+  printLine(reference("reference"))
+  expectedOutputLines(["[reference]"])
+}

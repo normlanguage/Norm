@@ -6,11 +6,15 @@ import dev.w0fv1.norm.execution.ExecutionContext;
 final class ExecutionContextAccess {
   private ExecutionContextAccess() {}
 
-  static ExecutionContext get(VirtualFrame frame) {
+  static ExecutionState state(VirtualFrame frame) {
     Object[] arguments = frame.getArguments();
-    if (arguments.length == 0 || !(arguments[0] instanceof ExecutionContext context)) {
-      throw new IllegalStateException("execution context argument is absent");
+    if (arguments.length == 0 || !(arguments[0] instanceof ExecutionState state)) {
+      throw new IllegalStateException("execution state argument is absent");
     }
-    return context;
+    return state;
+  }
+
+  static ExecutionContext get(VirtualFrame frame) {
+    return state(frame).context();
   }
 }

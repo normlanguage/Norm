@@ -41,11 +41,16 @@ final class CoreProgramTest {
             Optional.empty());
     CoreEnumVariant ok =
         new CoreEnumVariant(
-            "Ok", List.of(new CoreField(0, new CoreType.Parameter(0, CoreNullability.NON_NULL))));
+            "Ok",
+            List.of(
+                new CoreField(
+                    "value", 0, new CoreType.Parameter(0, CoreNullability.NON_NULL), List.of())));
     CoreEnumVariant error =
         new CoreEnumVariant(
             "Error",
-            List.of(new CoreField(0, new CoreType.Parameter(1, CoreNullability.NON_NULL))));
+            List.of(
+                new CoreField(
+                    "value", 0, new CoreType.Parameter(1, CoreNullability.NON_NULL), List.of())));
 
     DefinitionId ordered =
         CoreDefinitionGroup.create(
@@ -62,7 +67,9 @@ final class CoreProgramTest {
                         nominal,
                         typeParameters(2),
                         List.of(
-                            new CoreEnumVariant("Ok", List.of(new CoreField(0, CoreType.INTEGER))),
+                            new CoreEnumVariant(
+                                "Ok",
+                                List.of(new CoreField("value", 0, CoreType.INTEGER, List.of()))),
                             error))))
             .definitionId(0);
 
@@ -93,11 +100,12 @@ final class CoreProgramTest {
                 "Box",
                 CoreVisibility.PUBLIC,
                 Optional.empty()),
+            CoreAggregateKind.CLASS,
             CoreValueCategory.IDENTITY,
             List.of(),
             Optional.empty(),
             1,
-            List.of(new CoreField(0, fieldType)),
+            List.of(new CoreField("value", 0, fieldType, List.of())),
             List.of(),
             new PendingDefinitionReference(1),
             List.of());
@@ -105,8 +113,10 @@ final class CoreProgramTest {
         new CoreDefinition.Callable(
             Optional.of(receiver),
             List.of(),
-            List.of(fieldType),
-            List.of(1),
+            List.of(),
+            List.of(),
+            List.of(new CoreCallableParameter("argument0", fieldType, 1, List.of())),
+            List.of(),
             List.of(),
             CoreType.VOID,
             List.of(
@@ -126,7 +136,9 @@ final class CoreProgramTest {
                         CoreVisibility.PUBLIC,
                         Optional.empty()),
                     List.of(),
-                    List.of(new CoreEnumVariant("Value", List.of(new CoreField(0, fieldType)))))));
+                    List.of(
+                        new CoreEnumVariant(
+                            "Value", List.of(new CoreField("value", 0, fieldType, List.of())))))));
 
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(group)));
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(enumGroup)));

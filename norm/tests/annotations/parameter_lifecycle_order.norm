@@ -1,0 +1,49 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation First implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    printLine("first before " + context.name())
+    return value + "1"
+  }
+
+  Void after(ParameterContext context, FunctionCompletion completion) {
+    printLine("first after")
+    printLine(completion.succeeded())
+  }
+}
+
+annotation Second implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    printLine("second before " + context.name())
+    return value + "2"
+  }
+
+  Void after(ParameterContext context, FunctionCompletion completion) {
+    printLine("second after")
+    printLine(completion.succeeded())
+  }
+}
+
+String join(@First() @Second() String left, @First() String right) {
+  printLine(left + right)
+  return left + right
+}
+
+main() {
+  printLine(join(left: "a", right: "b"))
+  expectedOutputLines([
+    "first before left",
+    "second before left",
+    "first before right",
+    "a12b1",
+    "first after",
+    "true",
+    "second after",
+    "true",
+    "first after",
+    "true",
+    "a12b1"
+  ])
+}

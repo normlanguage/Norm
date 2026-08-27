@@ -1,0 +1,26 @@
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class First extends Exception {
+  First(String message) {
+    super(message: message)
+  }
+}
+
+class Second extends Exception {
+  Second(String message) {
+    super(message: message)
+  }
+}
+
+main() {
+  try {
+    throw Second(message: "second")
+  } catch First error {
+    printLine("first")
+  } catch Exception error {
+    printLine(error.message)
+  }
+  expectedOutputLines(["second"])
+}
+

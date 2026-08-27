@@ -1,0 +1,14 @@
+package app
+
+import app.model.Box
+import app.service.preserve
+import std.testing.expectedOutputLines
+
+main() {
+  Box<String> first = Box<>(value: "Norm")
+  Box<String> second = preserve(box: first)
+  printLine(second.value)
+  printLine(first == second)
+  expectedOutputLines(["Norm", "true"])
+}
+

@@ -1,0 +1,11 @@
+package app
+
+import app.metadata.Label
+import app.model.Point
+import std.testing.expectedOutputLines
+
+main() {
+  printLine(reflect<Point>().annotation<Label>()?.text ?? "missing")
+  expectedOutputLines(["point"])
+}
+

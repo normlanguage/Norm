@@ -5,9 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.value.CompilationRequest;
+import dev.w0fv1.norm.value.CompilationScope;
+import dev.w0fv1.norm.value.CompilationUnitId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class CoreAnnotationProgramTest {
@@ -15,7 +21,8 @@ final class CoreAnnotationProgramTest {
   void verifiesNormalizedRuntimeApplications() {
     CoreArtifact artifact =
         compile(
-            "annotation Marker targets(type) retention(runtime) { String text } "
+            policies("RuntimeRetention")
+                + "annotation Marker implements TypeTarget, RuntimeRetention { String text } "
                 + "@Marker(text: \"value\") value Point {} Void main() {}");
 
     assertEquals(1, artifact.metadata().annotations().size());
@@ -32,7 +39,8 @@ final class CoreAnnotationProgramTest {
   void rejectsMalformedValuesAndDuplicates() {
     CoreArtifact artifact =
         compile(
-            "annotation Marker targets(type) retention(runtime) { String text } "
+            policies("RuntimeRetention")
+                + "annotation Marker implements TypeTarget, RuntimeRetention { String text } "
                 + "@Marker(text: \"value\") value Point {} Void main() {}");
     CoreAnnotationApplication application = artifact.metadata().annotations().getFirst();
     CoreAnnotationApplication malformed =
@@ -54,18 +62,140 @@ final class CoreAnnotationProgramTest {
   void sourceRetentionApplicationsAreAbsent() {
     CoreArtifact artifact =
         compile(
-            "annotation Marker targets(type) retention(source) { String text } "
+            policies("SourceRetention")
+                + "annotation Marker implements TypeTarget, SourceRetention { String text } "
                 + "@Marker(text: \"value\") value Point {} Void main() {}");
 
     assertEquals(List.of(), artifact.metadata().annotations());
   }
 
+  @Test
+  void requiresStoredFunctionApplicationsToMatchCallableInterceptors() {
+    CoreArtifact artifact =
+        compile(
+            "package std.annotation public interface AnnotationTarget {} "
+                + "public interface FunctionTarget extends AnnotationTarget { "
+                + "Void before(FunctionContext context) {} "
+                + "R around<R>(FunctionInvocation<R> invocation) { return invocation.proceed() } "
+                + "Void after(FunctionContext context, FunctionCompletion completion) {} } "
+                + "public interface AnnotationRetention {} "
+                + "public interface RuntimeRetention extends AnnotationRetention {} "
+                + "annotation Trace implements FunctionTarget, RuntimeRetention {} "
+                + "@Trace() Void run() {} Void main() { run() }");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                artifact.program(),
+                artifact.namespace(),
+                artifact.authoring(),
+                new CoreMetadata(List.of())));
+  }
+
+  @Test
+  void rejectsMalformedFunctionTargetProtocolAtTheCoreBoundary() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            compile(
+                "package std.annotation public interface AnnotationTarget {} "
+                    + "public interface FunctionTarget extends AnnotationTarget {} "
+                    + "Void main() {}"));
+  }
+
+  @Test
+  void requiresStoredParameterApplicationsToMatchParameterInterceptors() {
+    CoreArtifact artifact =
+        compile(
+            "package std.annotation public interface AnnotationTarget {} "
+                + "public interface ParameterTarget<T> extends AnnotationTarget { "
+                + "T before(ParameterContext context, T value) { return value } "
+                + "Void after(ParameterContext context, FunctionCompletion completion) {} } "
+                + "public interface AnnotationRetention {} "
+                + "public interface RuntimeRetention extends AnnotationRetention {} "
+                + "annotation Normalize implements ParameterTarget<String>, RuntimeRetention {} "
+                + "String echo(@Normalize() String value) { return value } "
+                + "Void main() { echo(value: \"value\") }");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                artifact.program(),
+                artifact.namespace(),
+                artifact.authoring(),
+                new CoreMetadata(List.of())));
+  }
+
+  @Test
+  void rejectsMalformedParameterTargetProtocolAtTheCoreBoundary() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            compile(
+                "package std.annotation public interface AnnotationTarget {} "
+                    + "public interface ParameterTarget<T> extends AnnotationTarget {} "
+                    + "Void main() {}"));
+  }
+
+  @Test
+  void requiresStoredFieldApplicationsToMatchFieldInterceptors() {
+    CoreArtifact artifact =
+        compile(
+            "package std.annotation public interface AnnotationTarget {} "
+                + "public interface FieldTarget<T> extends AnnotationTarget { "
+                + "T before(FieldContext context, T value) { return value } "
+                + "Void after(FieldContext context, FunctionCompletion completion) {} } "
+                + "public interface AnnotationRetention {} "
+                + "public interface RuntimeRetention extends AnnotationRetention {} "
+                + "annotation Normalize implements FieldTarget<String>, RuntimeRetention {} "
+                + "class Box { @Normalize() String value } "
+                + "Void main() { Box(value: \"value\") }");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                artifact.program(),
+                artifact.namespace(),
+                artifact.authoring(),
+                new CoreMetadata(List.of())));
+  }
+
+  @Test
+  void rejectsMalformedFieldTargetProtocolAtTheCoreBoundary() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            compile(
+                "package std.annotation public interface AnnotationTarget {} "
+                    + "public interface FieldTarget<T> extends AnnotationTarget {} "
+                    + "Void main() {}"));
+  }
+
   private static CoreArtifact compile(String source) {
+    SourceFile file = SourceFile.of(Path.of("metadata.norm"), source);
     return new CompilerSession()
-        .compile(SourceFile.of(Path.of("metadata.norm"), source))
+        .compile(
+            new CompilationRequest(
+                new CompilationUnitId(file.id().uri()),
+                CompilationScope.module(
+                    new ModuleCoordinate("std", 1), Map.of(file.id(), "metadata.norm")),
+                file.id(),
+                List.of(file),
+                Set.of()))
         .program()
         .orElseThrow()
         .compilation()
         .artifact();
+  }
+
+  private static String policies(String retention) {
+    return "package std.annotation public interface AnnotationTarget {} "
+        + "public interface TypeTarget extends AnnotationTarget {} "
+        + "public interface AnnotationRetention {} public interface "
+        + retention
+        + " extends AnnotationRetention {} ";
   }
 }

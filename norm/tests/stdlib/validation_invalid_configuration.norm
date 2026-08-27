@@ -1,0 +1,24 @@
+import std.testing.expectedOutputLines
+import std.validation.CodePointSize
+import std.validation.ConstraintDefinitionException
+import std.validation.GraphemeSize
+
+Void negative(@CodePointSize(minimum: -1, maximum: 3) String value) {
+}
+
+Void inverted(@GraphemeSize(minimum: 4, maximum: 2) String value) {
+}
+
+main() {
+  try {
+    negative(value: "Norm")
+  } catch ConstraintDefinitionException error {
+    printLine(error.code)
+  }
+  try {
+    inverted(value: "Norm")
+  } catch ConstraintDefinitionException error {
+    printLine(error.code)
+  }
+  expectedOutputLines(["code_point_size", "grapheme_size"])
+}

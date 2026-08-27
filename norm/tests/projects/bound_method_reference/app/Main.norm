@@ -1,0 +1,13 @@
+package app
+
+import app.model.Counter
+import app.service.apply
+import std.testing.expectedOutputLines
+
+main() {
+  Counter counter = Counter(base: 5)
+  Integer add(Integer amount) = counter::add
+  printLine(apply(operation: add, input: 7))
+  expectedOutputLines(["12"])
+}
+

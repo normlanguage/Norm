@@ -1,0 +1,6 @@
+package app.service
+
+public Integer apply(Integer operation(Integer value), Integer input) {
+  return operation(input)
+}
+

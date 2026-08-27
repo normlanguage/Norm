@@ -1,0 +1,14 @@
+import std.testing.expectedOutputLines
+
+value Key {
+  Integer id
+}
+
+main() {
+  Set<Key> keys = Set<>()
+  keys.add(Key(id: 7))
+  keys.add(Key(id: 7))
+  printLine(keys.size())
+  expectedOutputLines(["1"])
+}
+

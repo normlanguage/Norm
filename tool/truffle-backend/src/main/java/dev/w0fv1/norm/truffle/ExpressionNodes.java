@@ -149,7 +149,7 @@ final class ExpressionNodes {
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     @Child private ExpressionNode type;
-    private final ReflectionRegistry reflectionRegistry;
+    private final AnnotationRuntime annotations;
 
     Intrinsic(
         IntrinsicId intrinsic,
@@ -158,14 +158,14 @@ final class ExpressionNodes {
         int[] parameterIndices,
         ExpressionNode type,
         boolean nullSafe,
-        ReflectionRegistry reflectionRegistry) {
+        AnnotationRuntime annotations) {
       this.intrinsic = intrinsic;
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
       this.type = type;
       this.nullSafe = nullSafe;
-      this.reflectionRegistry = reflectionRegistry;
+      this.annotations = annotations;
     }
 
     @Override
@@ -181,7 +181,8 @@ final class ExpressionNodes {
           type == null ? null : (CoreType) type.execute(frame),
           ExecutionContextAccess.get(frame),
           this,
-          reflectionRegistry);
+          annotations,
+          ExecutionContextAccess.state(frame));
     }
   }
 
@@ -547,7 +548,7 @@ final class ExpressionNodes {
     Object execute(VirtualFrame frame) {
       Object[] values = evaluateArguments(arguments, parameterIndices, frame);
       Object[] complete = new Object[values.length + typeArguments.length + 1];
-      complete[0] = ExecutionContextAccess.get(frame);
+      complete[0] = ExecutionContextAccess.state(frame);
       System.arraycopy(values, 0, complete, 1, values.length);
       for (int index = 0; index < typeArguments.length; index++) {
         complete[values.length + index + 1] = typeArguments[index].execute(frame);
@@ -638,7 +639,7 @@ final class ExpressionNodes {
                   + values.length
                   + ownerTypeArgumentCount
                   + closure.reifiedArguments().length];
-      complete[0] = ExecutionContextAccess.get(frame);
+      complete[0] = ExecutionContextAccess.state(frame);
       int offset = 1;
       if (receiverCount == 1) complete[offset++] = closure.receiver();
       System.arraycopy(closure.captures(), 0, complete, offset, closure.captures().length);
@@ -690,7 +691,7 @@ final class ExpressionNodes {
       int ownerTypeArgumentCount = receiverTypeArguments.length;
       Object[] values =
           new Object[bound.length + ownerTypeArgumentCount + typeArguments.length + 2];
-      values[0] = ExecutionContextAccess.get(frame);
+      values[0] = ExecutionContextAccess.state(frame);
       values[1] = receiverValue;
       System.arraycopy(bound, 0, values, 2, bound.length);
       for (int index = 0; index < receiverTypeArguments.length; index++) {
@@ -774,7 +775,7 @@ final class ExpressionNodes {
       List<CoreType> ownerArguments =
           object.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
       Object[] callArguments = new Object[values.length + ownerArguments.size() + 2];
-      callArguments[0] = ExecutionContextAccess.get(frame);
+      callArguments[0] = ExecutionContextAccess.state(frame);
       callArguments[1] = object;
       System.arraycopy(values, 0, callArguments, 2, values.length);
       for (int index = 0; index < ownerArguments.size(); index++) {

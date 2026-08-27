@@ -104,14 +104,7 @@ Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查�
 - Java 修改先运行相关模块测试；提交前执行格式检查。发布前才运行完整发布验证。
 - 后端变更必须通过 Polyglot 注册入口和 CLI 的真实 `.norm` 文件执行测试。
 
-常用命令：
-
-```powershell
-.\gradlew.bat :core:spotlessApply :core:test
-.\gradlew.bat :project-system:test
-.\gradlew.bat :cli:test
-.\gradlew.bat :cli:run --args="run docs/examples/hello.norm"
-```
+验收测试的领域、目录、命名、发现入口与运行命令统一由 [`norm/tests/README.md`](https://github.com/w0fv1/norm/blob/main/norm/tests/README.md) 定义。
 
 ## 文档同步
 

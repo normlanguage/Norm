@@ -2,16 +2,10 @@
 
 ```ebnf
 AnnotationDeclaration = Visibility? "annotation" Identifier
-                        "targets" "(" AnnotationTarget ("," AnnotationTarget)* ")"
-                        "retention" "(" Retention ")"
-                        "{" AnnotationField* "}" ;
-AnnotationField       = Type Identifier ("=" ConstantLiteral)? ";"? ;
-AnnotationTarget      = "package" | "type" | "field" | "constructor"
-                      | "function" | "parameter" | "local" ;
-Retention             = "source" | "binary" | "runtime" ;
+                        ImplementsClause? AggregateBody ;
 AnnotationUse         = "@" Identifier "(" NamedArgumentList? ")" ;
 ```
 
-Annotation 可放在 package、enum、interface、class、value、annotation、field、constructor、function、method、parameter 和局部变量之前。具体目标必须属于 annotation 声明的 `targets` 集合。
+Annotation body 与 class body 共用字段、构造器和方法语法。`implements` 后列出目标与保留策略 interface；完整标准 interface 集合见 [Annotation 规范](/spec/annotations)。
 
-Annotation 参数只接受命名参数和编译期字面量。字段没有默认值时，对应参数必填。
+Annotation 可放在 package、enum、interface、class、value、annotation、field、constructor、function、method、parameter和局部变量之前。应用参数只接受命名参数和编译期标量字面量。

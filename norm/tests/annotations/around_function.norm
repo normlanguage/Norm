@@ -1,0 +1,24 @@
+import std.annotation.FunctionTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Trace implements FunctionTarget, SourceRetention {
+  R around<R>(FunctionInvocation<R> invocation) {
+    printLine("around-in")
+    R result = invocation.proceed()
+    printLine("around-out")
+    return result
+  }
+}
+
+@Trace()
+String run() {
+  printLine("body")
+  return "result"
+}
+
+main() {
+  printLine(run())
+  expectedOutputLines(["around-in", "body", "around-out", "result"])
+}
+

@@ -1,0 +1,9 @@
+package app.metadata
+
+import app.protocol.ModelTarget
+import std.annotation.RuntimeRetention
+
+public annotation Label implements ModelTarget, RuntimeRetention {
+  String text
+}
+

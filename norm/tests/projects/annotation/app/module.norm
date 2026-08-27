@@ -1,0 +1,10 @@
+Module module() {
+  return module(
+    name: "app",
+    version: 1,
+    exports: [
+      "Main", "metadata.FieldWrap", "metadata.Label", "metadata.Log", "metadata.Wrap",
+      "model.Box", "model.Point"
+    ]
+  )
+}

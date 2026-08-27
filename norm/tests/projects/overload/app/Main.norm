@@ -1,0 +1,10 @@
+package app
+
+import app.format.format
+import std.testing.expectedOutputLines
+
+main() {
+  printLine(format(value: 7))
+  printLine(format(value: "Norm"))
+  expectedOutputLines(["integer", "string:Norm"])
+}

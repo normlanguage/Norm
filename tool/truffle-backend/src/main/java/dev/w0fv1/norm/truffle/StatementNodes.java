@@ -413,33 +413,45 @@ final class StatementNodes {
     @Child private ExpressionNode receiver;
     @Child private ExpressionNode value;
     private final int field;
+    @Child private FieldWriteNode writer;
 
-    WriteField(ExpressionNode receiver, int field, ExpressionNode value) {
+    WriteField(
+        ExpressionNode receiver, int field, ExpressionNode value, AnnotationRuntime annotations) {
       this.receiver = receiver;
       this.field = field;
       this.value = value;
+      writer = new FieldWriteNode(annotations);
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
       RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiver.execute(frame);
-      object.fields[field] = RuntimeValues.copy(value.execute(frame));
+      writer.execute(object, field, value.execute(frame), ExecutionContextAccess.state(frame));
     }
   }
 
   static final class WriteReference extends StatementNode {
     @Child private ExpressionNode reference;
     @Child private ExpressionNode value;
+    @Child private FieldWriteNode writer;
 
-    WriteReference(ExpressionNode reference, ExpressionNode value) {
+    WriteReference(ExpressionNode reference, ExpressionNode value, AnnotationRuntime annotations) {
       this.reference = reference;
       this.value = value;
+      writer = new FieldWriteNode(annotations);
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
       RuntimeValues.ReferenceValue target = (RuntimeValues.ReferenceValue) reference.execute(frame);
-      target.write(RuntimeValues.copy(value.execute(frame)));
+      Object written = value.execute(frame);
+      switch (target) {
+        case RuntimeValues.LocalReference local ->
+            local.binding().write(local.frame(), RuntimeValues.copy(written));
+        case RuntimeValues.FieldReference field ->
+            writer.execute(
+                field.receiver(), field.field(), written, ExecutionContextAccess.state(frame));
+      }
     }
   }
 

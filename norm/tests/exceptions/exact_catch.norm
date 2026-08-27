@@ -1,0 +1,18 @@
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+main() {
+  try {
+    throw Failure(message: "exact")
+  } catch Failure error {
+    printLine(error.message)
+  }
+  expectedOutputLines(["exact"])
+}
+

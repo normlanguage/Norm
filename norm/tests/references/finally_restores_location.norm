@@ -1,0 +1,17 @@
+import std.testing.expectedOutputLines
+
+main() {
+  Integer first = 1
+  Integer second = 2
+  ref<Integer> current = &first
+  try {
+    current = &second
+  } finally {
+    current = &first
+  }
+  *current = 9
+  printLine(first)
+  printLine(second)
+  expectedOutputLines(["9", "2"])
+}
+

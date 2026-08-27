@@ -28,6 +28,32 @@ final class InterfaceCompilerTest {
   }
 
   @Test
+  void assignsAnExtendedInterfaceToItsParentType() {
+    CompilationResult result =
+        compile(
+            "interface Parent {} interface Child extends Parent {} "
+                + "Parent widen(Child value) { return value } Void main() {} ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void specializesReceiverDependentBoundsOfInheritedDefaults() {
+    CompilationResult result =
+        compile(
+            "interface Related<T> {} "
+                + "interface Parent<Left, Right> { "
+                + "U keep<U extends Related<Right>>(U value) { return value } } "
+                + "interface Child<T> extends Parent<Integer, T> {} "
+                + "class Token implements Related<String> {} "
+                + "class Service implements Child<String> {} "
+                + "Void main() { Service service = Service() Token token = Token() "
+                + "Token kept = service.keep(value: token) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void requiresExplicitNominalConformance() {
     CompilationResult result =
         compile(

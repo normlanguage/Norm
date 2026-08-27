@@ -41,7 +41,6 @@ public final class SourceFormatter {
     List<AstNode> declarations = new ArrayList<>();
     declarations.addAll(program.enums());
     declarations.addAll(program.interfaces());
-    declarations.addAll(program.annotationDeclarations());
     declarations.addAll(program.aggregates());
     declarations.addAll(program.functions());
     declarations.sort(Comparator.comparingInt(value -> value.span().startOffset()));
@@ -63,7 +62,6 @@ public final class SourceFormatter {
     return switch (declaration) {
       case Syntax.EnumDecl value -> enumDeclaration(value);
       case Syntax.InterfaceDecl value -> interfaceDeclaration(value);
-      case Syntax.AnnotationDecl value -> annotationDeclaration(value);
       case Syntax.AggregateDecl value -> aggregateDeclaration(value);
       case Syntax.FunctionDecl value -> functionDeclaration(value);
       default -> throw new IllegalArgumentException("unsupported declaration " + declaration);
@@ -90,43 +88,6 @@ public final class SourceFormatter {
             Docs.text(" "),
             body),
         false);
-  }
-
-  private Doc annotationDeclaration(Syntax.AnnotationDecl declaration) {
-    Doc header =
-        Docs.concat(
-            visibility(declaration.visibility()),
-            Docs.text("annotation " + declaration.name() + " targets("),
-            Docs.join(
-                Docs.text(", "),
-                declaration.targets().stream()
-                    .sorted(java.util.Comparator.comparingInt(Enum::ordinal))
-                    .map(value -> Docs.text(value.keyword()))
-                    .toList()),
-            Docs.text(") retention(" + declaration.retention().keyword() + ") "));
-    List<Doc> parameters =
-        declaration.parameters().stream().map(this::annotationParameter).toList();
-    Doc body =
-        parameters.isEmpty()
-            ? Docs.text("{}")
-            : Docs.concat(
-                Docs.text("{"),
-                Docs.nest(2, Docs.concat(Docs.hardLine(), Docs.join(Docs.hardLine(), parameters))),
-                Docs.hardLine(),
-                Docs.text("}"));
-    return annotated(declaration.annotations(), Docs.concat(header, body), false);
-  }
-
-  private Doc annotationParameter(Syntax.AnnotationParameter parameter) {
-    Doc value =
-        Docs.concat(
-            type(parameter.type()),
-            Docs.text(" " + parameter.name()),
-            parameter
-                .defaultValue()
-                .map(defaultValue -> Docs.concat(Docs.text(" = "), expression(defaultValue)))
-                .orElse(Docs.empty()));
-    return annotated(parameter.annotations(), value, false);
   }
 
   private Doc enumVariant(Syntax.EnumVariant variant) {

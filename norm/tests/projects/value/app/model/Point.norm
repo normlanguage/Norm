@@ -1,0 +1,6 @@
+package app.model
+
+public value Point {
+  Integer x
+  Integer y
+}

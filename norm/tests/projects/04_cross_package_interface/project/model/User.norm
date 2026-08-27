@@ -1,9 +1,0 @@
-package project.model
-
-class User implements Named {
-  String value
-
-  String name() {
-    return value
-  }
-}

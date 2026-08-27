@@ -1,0 +1,8 @@
+Module module() {
+  return module(
+    name: "app",
+    version: 1,
+    exports: ["Main", "metadata.Trace", "service.Failure"]
+  )
+}
+

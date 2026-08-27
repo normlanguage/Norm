@@ -1,0 +1,35 @@
+import std.testing.expectedOutputLines
+import std.validation.AssertFalse
+import std.validation.ConstraintViolation
+import std.validation.NegativeOrZero
+import std.validation.Positive
+
+Void flags(@AssertFalse() Boolean enabled) {
+  printLine(enabled)
+}
+
+Void offsets(@NegativeOrZero() Integer left, @Positive() Integer right) {
+  printLine(left)
+  printLine(right)
+}
+
+main() {
+  flags(enabled: false)
+  offsets(left: 0, right: 1)
+  try {
+    flags(enabled: true)
+  } catch ConstraintViolation error {
+    printLine(error.code)
+  }
+  try {
+    offsets(left: 1, right: 1)
+  } catch ConstraintViolation error {
+    printLine(error.code)
+  }
+  try {
+    offsets(left: 0, right: 0)
+  } catch ConstraintViolation error {
+    printLine(error.code)
+  }
+  expectedOutputLines(["false", "0", "1", "assert_false", "negative_or_zero", "positive"])
+}

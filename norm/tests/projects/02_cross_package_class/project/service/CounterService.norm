@@ -1,7 +1,0 @@
-package project.service
-
-import project.model.Counter
-
-Counter advance(Counter counter, Integer amount) {
-  return counter.add(amount)
-}

@@ -1,0 +1,5 @@
+package app.base
+
+Integer increment(Integer value) {
+  return value + 1
+}

@@ -1,0 +1,23 @@
+import std.testing.expectedOutputLines
+
+interface Named {
+  String name()
+}
+
+value Item implements Named {
+  String text
+
+  public String name() {
+    return text
+  }
+}
+
+String read(Named item) {
+  return item.name()
+}
+
+main() {
+  printLine(read(item: Item(text: "value")))
+  expectedOutputLines(["value"])
+}
+

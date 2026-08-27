@@ -1,0 +1,21 @@
+import std.testing.expectedOutputLines
+
+class Base {
+  Integer value
+
+  Base(Integer initial) {
+    value = initial
+  }
+}
+
+class Child extends Base {
+  Child(Integer input) {
+    super(initial: input + 1)
+  }
+}
+
+main() {
+  printLine(Child(input: 8).value)
+  expectedOutputLines(["9"])
+}
+

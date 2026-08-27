@@ -1,0 +1,23 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Wrap implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    printLine(context.function().name())
+    return "[" + value + "]"
+  }
+}
+
+class Box {
+  String value
+
+  Box(@Wrap() String initial) {
+    value = initial
+  }
+}
+
+main() {
+  printLine(Box(initial: "constructor").value)
+  expectedOutputLines(["Box", "[constructor]"])
+}

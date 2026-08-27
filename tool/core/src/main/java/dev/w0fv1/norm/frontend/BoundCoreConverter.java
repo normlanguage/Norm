@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundAggregate;
-import dev.w0fv1.norm.bound.BoundAnnotation;
 import dev.w0fv1.norm.bound.BoundAnnotationApplication;
 import dev.w0fv1.norm.bound.BoundAnnotationTarget;
 import dev.w0fv1.norm.bound.BoundAnnotationValue;
@@ -57,7 +56,6 @@ final class BoundCoreConverter {
   private final Map<String, Integer> nominalTypeIndices = new LinkedHashMap<>();
   private final Map<String, SourceOwner> sourceOwners = new LinkedHashMap<>();
   private final Map<String, BoundAggregate> aggregates = new LinkedHashMap<>();
-  private final Map<String, BoundAnnotation> annotations = new LinkedHashMap<>();
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOwnerIndices = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOrdinals = new LinkedHashMap<>();
@@ -79,7 +77,6 @@ final class BoundCoreConverter {
       value.methods().forEach(method -> declarations.add(convert(value, method)));
     }
     program.builtinConformances().forEach(value -> declarations.add(convert(value)));
-    program.annotations().forEach(value -> declarations.add(convert(value)));
     program.aggregates().forEach(value -> declarations.add(convert(value)));
     program.callables().forEach(value -> declarations.add(convert(value)));
     Optional<Integer> entryPointIndex =
@@ -103,19 +100,6 @@ final class BoundCoreConverter {
       }
     }
     index += program.builtinConformances().size();
-    for (BoundAnnotation value : program.annotations()) {
-      int declaration = index++;
-      declarationIndices.put(value.id().value(), declaration);
-      nominalTypeIndices.put(value.type().identity(), declaration);
-      annotations.put(value.id().value(), value);
-      value
-          .fields()
-          .forEach(
-              field -> {
-                fieldOwnerIndices.put(field.id().value(), declaration);
-                fieldOrdinals.put(field.id().value(), field.ordinal());
-              });
-    }
     for (BoundAggregate value : program.aggregates()) {
       int declaration = index++;
       declarationIndices.put(value.id().value(), declaration);
@@ -154,57 +138,12 @@ final class BoundCoreConverter {
                     .forEach(method -> sourceOwners.put(method.id().value(), owner));
               });
       source.aggregates().forEach(value -> sourceOwners.put(value.value(), owner));
-      source.annotations().forEach(value -> sourceOwners.put(value.value(), owner));
       source.callables().forEach(value -> sourceOwners.put(value.value(), owner));
     }
   }
 
   private List<BoundAnnotationApplication> coreApplications() {
-    return program.annotationApplications().stream()
-        .filter(
-            application ->
-                annotations.get(application.annotation().value()).retention()
-                    != dev.w0fv1.norm.value.AnnotationRetention.SOURCE)
-        .toList();
-  }
-
-  private Declaration convert(BoundAnnotation declaration) {
-    SourceOwner source = sourceOwner(declaration.id().value());
-    BoundCoreTypeConverter types =
-        BoundCoreTypeConverter.forAnnotation(declaration, nominalTypeIndices);
-    List<Optional<CoreAnnotationValue>> defaults =
-        declaration.defaults().stream()
-            .map(value -> value.map(item -> annotationValue(item, types)))
-            .toList();
-    CoreDefinition definition =
-        new CoreDefinition.Annotation(
-            nominalType(source, declaration.name(), visibility(declaration.visibility())),
-            declaration.targets(),
-            declaration.retention(),
-            declaration.fields().stream()
-                .map(field -> new CoreField(field.ordinal(), types.convert(field.type())))
-                .toList(),
-            defaults);
-    return new Declaration(
-        definition,
-        origin(declaration.name(), declaration.span(), Map.of(0, declaration.span())),
-        Map.of(),
-        new BindingSeed(
-            source,
-            Optional.empty(),
-            declaration.name(),
-            visibility(declaration.visibility()),
-            new CoreBindingShape.Annotation(
-                declaration.targets(),
-                declaration.retention(),
-                declaration.fields().stream()
-                    .map(
-                        field ->
-                            new CoreBindingShape.Field(
-                                field.name(), CoreVisibility.PUBLIC, types.convert(field.type())))
-                    .toList(),
-                defaults),
-            true));
+    return program.annotationApplications();
   }
 
   private AnnotationSeed annotationSeed(BoundAnnotationApplication application) {
@@ -334,7 +273,11 @@ final class BoundCoreConverter {
                             variant.fields().stream()
                                 .map(
                                     field ->
-                                        new CoreField(field.ordinal(), types.convert(field.type())))
+                                        new CoreField(
+                                            field.name(),
+                                            field.ordinal(),
+                                            types.convert(field.type()),
+                                            List.of()))
                                 .toList()))
                 .toList());
     return new Declaration(
@@ -393,6 +336,11 @@ final class BoundCoreConverter {
     CoreDefinition definition =
         new CoreDefinition.Aggregate(
             nominalType(source, declaration.name(), visibility(declaration.visibility())),
+            switch (declaration.kind()) {
+              case CLASS -> dev.w0fv1.norm.core.CoreAggregateKind.CLASS;
+              case VALUE -> dev.w0fv1.norm.core.CoreAggregateKind.VALUE;
+              case ANNOTATION -> dev.w0fv1.norm.core.CoreAggregateKind.ANNOTATION;
+            },
             switch (declaration.type().category()) {
               case IDENTITY -> CoreValueCategory.IDENTITY;
               case VALUE -> CoreValueCategory.VALUE;
@@ -402,7 +350,15 @@ final class BoundCoreConverter {
             declaration.parentType().map(types::convert),
             declaration.fieldCount(),
             declaration.fields().stream()
-                .map(field -> new CoreField(field.ordinal(), types.convert(field.type())))
+                .map(
+                    field ->
+                        new CoreField(
+                            field.name(),
+                            field.ordinal(),
+                            types.convert(field.type()),
+                            field.interceptors().stream()
+                                .map(interceptor -> coreInterceptor(interceptor, types))
+                                .toList()))
                 .toList(),
             declaration.dispatch().stream()
                 .map(
@@ -426,6 +382,11 @@ final class BoundCoreConverter {
             declaration.name(),
             visibility(declaration.visibility()),
             new CoreBindingShape.Aggregate(
+                switch (declaration.kind()) {
+                  case CLASS -> dev.w0fv1.norm.core.CoreAggregateKind.CLASS;
+                  case VALUE -> dev.w0fv1.norm.core.CoreAggregateKind.VALUE;
+                  case ANNOTATION -> dev.w0fv1.norm.core.CoreAggregateKind.ANNOTATION;
+                },
                 switch (declaration.type().category()) {
                   case IDENTITY -> CoreValueCategory.IDENTITY;
                   case VALUE -> CoreValueCategory.VALUE;
@@ -496,13 +457,21 @@ final class BoundCoreConverter {
             declaration.captures().stream().map(capture -> types.convert(capture.type())).toList(),
             declaration.captures().stream().map(capture -> body.localIndex(capture.id())).toList(),
             declaration.parameters().stream()
-                .map(parameter -> types.convert(parameter.type()))
-                .toList(),
-            declaration.parameters().stream()
-                .map(parameter -> body.localIndex(parameter.id()))
+                .map(
+                    parameter ->
+                        new dev.w0fv1.norm.core.CoreCallableParameter(
+                            parameter.name(),
+                            types.convert(parameter.type()),
+                            body.localIndex(parameter.id()),
+                            parameter.interceptors().stream()
+                                .map(interceptor -> coreInterceptor(interceptor, types))
+                                .toList()))
                 .toList(),
             declaration.reifiedParameters().stream()
                 .map(parameter -> body.localIndex(parameter.source()))
+                .toList(),
+            declaration.interceptors().stream()
+                .map(interceptor -> coreInterceptor(interceptor, types))
                 .toList(),
             types.convert(declaration.returnType()),
             body.locals(),
@@ -557,6 +526,13 @@ final class BoundCoreConverter {
     if (index == null)
       throw new IllegalStateException("core declaration is absent: " + declaration);
     return index;
+  }
+
+  private dev.w0fv1.norm.core.CoreInterceptor coreInterceptor(
+      dev.w0fv1.norm.bound.BoundInterceptor interceptor, BoundCoreTypeConverter types) {
+    return new dev.w0fv1.norm.core.CoreInterceptor(
+        new PendingDefinitionReference(declarationIndex(interceptor.annotation().value())),
+        interceptor.values().stream().map(value -> annotationValue(value, types)).toList());
   }
 
   private int fieldOwnerIndex(String field) {
@@ -798,7 +774,6 @@ final class BoundCoreConverter {
 
     private static CoreDefinitionRole role(CoreDefinition definition) {
       return switch (definition) {
-        case CoreDefinition.Annotation ignored -> CoreDefinitionRole.ANNOTATION;
         case CoreDefinition.Aggregate ignored -> CoreDefinitionRole.AGGREGATE;
         case CoreDefinition.Enum ignored -> CoreDefinitionRole.ENUM;
         case CoreDefinition.Interface ignored -> CoreDefinitionRole.INTERFACE;
@@ -870,26 +845,6 @@ final class BoundCoreConverter {
                       ? resolver.apply(pending)
                       : link;
       return switch (shape) {
-        case CoreBindingShape.Annotation annotation ->
-            new CoreBindingShape.Annotation(
-                annotation.targets(),
-                annotation.retention(),
-                annotation.fields().stream()
-                    .map(
-                        field ->
-                            new CoreBindingShape.Field(
-                                field.name(),
-                                field.visibility(),
-                                CoreTypes.mapLinks(field.type(), links)))
-                    .toList(),
-                annotation.defaults().stream()
-                    .map(
-                        value ->
-                            value.map(
-                                item ->
-                                    new CoreAnnotationValue(
-                                        CoreTypes.mapLinks(item.type(), links), item.value())))
-                    .toList());
         case CoreBindingShape.Callable callable ->
             new CoreBindingShape.Callable(
                 resolveTypeParameters(callable.typeParameters(), links),
@@ -902,6 +857,7 @@ final class BoundCoreConverter {
                 CoreTypes.mapLinks(callable.returnType(), links));
         case CoreBindingShape.Aggregate aggregateShape ->
             new CoreBindingShape.Aggregate(
+                aggregateShape.kind(),
                 aggregateShape.valueCategory(),
                 resolveTypeParameters(aggregateShape.typeParameters(), links),
                 aggregateShape.parentType().map(type -> CoreTypes.mapLinks(type, links)),

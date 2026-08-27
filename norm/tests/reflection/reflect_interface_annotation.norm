@@ -1,0 +1,18 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.testing.expectedOutputLines
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+}
+
+@Label(text: "named")
+interface Named {
+  String name()
+}
+
+main() {
+  printLine(reflect<Named>().annotation<Label>()?.text ?? "missing")
+  expectedOutputLines(["named"])
+}
+

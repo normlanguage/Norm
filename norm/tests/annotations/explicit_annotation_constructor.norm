@@ -1,0 +1,17 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.testing.expectedOutputLines
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+
+  Label(String initial) {
+    text = "created:" + initial
+  }
+}
+
+main() {
+  printLine(Label(initial: "value").text)
+  expectedOutputLines(["created:value"])
+}
+

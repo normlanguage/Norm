@@ -108,14 +108,17 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsSpecialTypesInValueAbis() {
     for (CoreType special : List.of(CoreType.VOID, CoreType.NULL, CoreType.DYNAMIC)) {
-      CoreDefinitionGroup field = aggregateGroup("Box", 0, List.of(new CoreField(0, special)));
+      CoreDefinitionGroup field =
+          aggregateGroup("Box", 0, List.of(new CoreField("value", 0, special, List.of())));
       CoreDefinitionGroup parameter =
           group(
               new CoreDefinition.Callable(
                   Optional.empty(),
                   List.of(),
-                  List.of(special),
-                  List.of(0),
+                  List.of(),
+                  List.of(),
+                  List.of(new CoreCallableParameter("argument0", special, 0, List.of())),
+                  List.of(),
                   List.of(),
                   CoreType.VOID,
                   List.of(new CoreLocal(0, special, CoreLocal.Kind.PARAMETER)),
@@ -124,6 +127,8 @@ final class CoreProgramVerifierTest {
           group(
               new CoreDefinition.Callable(
                   Optional.empty(),
+                  List.of(),
+                  List.of(),
                   List.of(),
                   List.of(),
                   List.of(),
@@ -147,7 +152,9 @@ final class CoreProgramVerifierTest {
                 List.of(new CoreTypeParameter(0, Optional.empty())),
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of(0),
+                List.of(),
                 CoreType.VOID,
                 List.of(
                     new CoreLocal(0, CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE),
@@ -194,7 +201,9 @@ final class CoreProgramVerifierTest {
   void rejectsAddressesOfValueAggregateFields() {
     CoreDefinitionGroup owner =
         aggregateGroup(
-            "Point", CoreValueCategory.VALUE, List.of(new CoreField(0, CoreType.INTEGER)));
+            "Point",
+            CoreValueCategory.VALUE,
+            List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
     CoreType point = userType(aggregateId(owner), List.of(), CoreValueCategory.VALUE);
     CoreExpression address =
         new CoreExpression.AddressField(
@@ -314,8 +323,10 @@ final class CoreProgramVerifierTest {
             new CoreDefinition.Callable(
                 Optional.empty(),
                 List.of(),
-                List.of(CoreType.INTEGER),
-                List.of(0),
+                List.of(),
+                List.of(),
+                List.of(new CoreCallableParameter("argument0", CoreType.INTEGER, 0, List.of())),
+                List.of(),
                 List.of(),
                 CoreType.VOID,
                 List.of(new CoreLocal(0, CoreType.INTEGER, CoreLocal.Kind.PARAMETER)),
@@ -342,6 +353,8 @@ final class CoreProgramVerifierTest {
         group(
             new CoreDefinition.Callable(
                 Optional.of(receiver),
+                List.of(),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -387,7 +400,9 @@ final class CoreProgramVerifierTest {
                 List.of(new CoreTypeParameter(0, Optional.empty())),
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of(0),
+                List.of(),
                 CoreType.VOID,
                 List.of(new CoreLocal(0, CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE)),
                 new CoreBlock(0, List.of(new CoreStatement.ExpressionStatement(1, literal)))));
@@ -398,7 +413,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsConstructorArgumentsWithTheWrongType() {
     CoreDefinitionGroup target =
-        aggregateGroup("Box", 0, List.of(new CoreField(0, CoreType.INTEGER)));
+        aggregateGroup("Box", 0, List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
     CoreType box = userType(aggregateId(target), List.of());
     CoreExpression.Construct construct =
         new CoreExpression.Construct(
@@ -435,7 +450,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsInvalidFieldAndEnumTargets() {
     CoreDefinitionGroup owner =
-        aggregateGroup("Box", 0, List.of(new CoreField(0, CoreType.INTEGER)));
+        aggregateGroup("Box", 0, List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
     CoreType box = userType(aggregateId(owner), List.of());
     CoreExpression.FieldRead read =
         new CoreExpression.FieldRead(
@@ -448,6 +463,8 @@ final class CoreProgramVerifierTest {
         group(
             new CoreDefinition.Callable(
                 Optional.empty(),
+                List.of(),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -485,8 +502,10 @@ final class CoreProgramVerifierTest {
                 nominal("Result"),
                 typeParameters(1),
                 List.of(
-                    new CoreEnumVariant("Error", List.of(new CoreField(0, CoreType.STRING))),
-                    new CoreEnumVariant("Ok", List.of(new CoreField(0, element))))));
+                    new CoreEnumVariant(
+                        "Error", List.of(new CoreField("value", 0, CoreType.STRING, List.of()))),
+                    new CoreEnumVariant(
+                        "Ok", List.of(new CoreField("value", 0, element, List.of()))))));
     CoreType resultOfInteger = enumType(result.definitionId(0), List.of(CoreType.INTEGER));
     CoreExpression.EnumConstruct construct =
         new CoreExpression.EnumConstruct(
@@ -508,7 +527,9 @@ final class CoreProgramVerifierTest {
             new CoreDefinition.Enum(
                 nominal("Result"),
                 typeParameters(1),
-                List.of(new CoreEnumVariant("Ok", List.of(new CoreField(0, element))))));
+                List.of(
+                    new CoreEnumVariant(
+                        "Ok", List.of(new CoreField("value", 0, element, List.of()))))));
     CoreType resultOfInteger = enumType(result.definitionId(0), List.of(CoreType.INTEGER));
     CoreType resultOfString = enumType(result.definitionId(0), List.of(CoreType.STRING));
     CoreExpression.EnumConstruct wrongRuntime =
@@ -548,7 +569,10 @@ final class CoreProgramVerifierTest {
                         "Box",
                         List.of(
                             new CoreField(
-                                0, new CoreType.Parameter(1, CoreNullability.NON_NULL)))))));
+                                "value",
+                                0,
+                                new CoreType.Parameter(1, CoreNullability.NON_NULL),
+                                List.of()))))));
 
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(invalid)));
   }
@@ -559,7 +583,9 @@ final class CoreProgramVerifierTest {
         aggregateGroup(
             "Box",
             1,
-            List.of(new CoreField(0, new CoreType.Parameter(1, CoreNullability.NON_NULL))));
+            List.of(
+                new CoreField(
+                    "value", 0, new CoreType.Parameter(1, CoreNullability.NON_NULL), List.of())));
 
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(invalid)));
   }
@@ -575,7 +601,7 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsUnsafeNullableFieldReadsAndCopies() {
     CoreDefinitionGroup owner =
-        aggregateGroup("Box", 0, List.of(new CoreField(0, CoreType.INTEGER)));
+        aggregateGroup("Box", 0, List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
     CoreType box = userType(aggregateId(owner), List.of());
     CoreType nullableBox = box.asNullable();
     CoreExpression receiver = new CoreExpression.LocalRead(3, 0, nullableBox);
@@ -673,8 +699,8 @@ final class CoreProgramVerifierTest {
             List.of(),
             List.of(),
             List.of(),
-            List.of(reflected),
-            List.of(0),
+            List.of(new CoreCallableParameter("argument0", reflected, 0, List.of())),
+            List.of(),
             List.of(),
             CoreType.VOID,
             List.of(new CoreLocal(0, reflected, CoreLocal.Kind.PARAMETER)),
@@ -682,42 +708,6 @@ final class CoreProgramVerifierTest {
 
     assertThrows(
         IllegalArgumentException.class, () -> new CoreProgram(List.of(box, group(callable))));
-  }
-
-  @Test
-  void rejectsFieldAssignmentThroughAnnotationReceivers() {
-    CoreDefinitionGroup marker =
-        group(
-            new CoreDefinition.Annotation(
-                nominal("Marker"),
-                java.util.Set.of(dev.w0fv1.norm.value.AnnotationTarget.TYPE),
-                dev.w0fv1.norm.value.AnnotationRetention.RUNTIME,
-                List.of(new CoreField(0, CoreType.INTEGER)),
-                List.of(Optional.empty())));
-    DefinitionId markerId = marker.definitionId(0);
-    CoreType markerType = userType(markerId, List.of(), CoreValueCategory.VALUE);
-    CoreExpression receiver = new CoreExpression.LocalRead(2, 0, markerType);
-    CoreStatement.FieldAssignment assignment =
-        new CoreStatement.FieldAssignment(
-            1,
-            receiver,
-            new CoreFieldReference(new DefinitionReference.External(markerId), 0),
-            new CoreExpression.Literal(3, 1, CoreType.INTEGER));
-    CoreDefinition.Callable callable =
-        new CoreDefinition.Callable(
-            Optional.of(markerType),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            CoreType.VOID,
-            List.of(new CoreLocal(0, markerType, CoreLocal.Kind.RECEIVER)),
-            new CoreBlock(0, List.of(assignment)));
-
-    assertThrows(
-        IllegalArgumentException.class, () -> new CoreProgram(List.of(marker, group(callable))));
   }
 
   @Test
@@ -786,6 +776,8 @@ final class CoreProgramVerifierTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
+        List.of(),
         CoreType.VOID,
         List.of(),
         new CoreBlock(0, List.of(new CoreStatement.ExpressionStatement(1, expression))));
@@ -794,6 +786,8 @@ final class CoreProgramVerifierTest {
   private static CoreDefinition.Callable emptyFunction(CoreType returnType) {
     return new CoreDefinition.Callable(
         Optional.empty(),
+        List.of(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),
@@ -811,6 +805,8 @@ final class CoreProgramVerifierTest {
         List.of(),
         List.of(),
         List.of(),
+        List.of(),
+        List.of(),
         CoreType.VOID,
         List.of(new CoreLocal(0, localType, CoreLocal.Kind.VARIABLE)),
         new CoreBlock(0, List.of(new CoreStatement.ExpressionStatement(1, expression))));
@@ -820,6 +816,8 @@ final class CoreProgramVerifierTest {
       List<CoreLocal> locals, List<CoreStatement> statements) {
     return new CoreDefinition.Callable(
         Optional.empty(),
+        List.of(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),
@@ -837,7 +835,9 @@ final class CoreProgramVerifierTest {
                 List.of(new CoreTypeParameter(0, Optional.empty())),
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of(0),
+                List.of(),
                 CoreType.VOID,
                 List.of(new CoreLocal(0, CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE)),
                 new CoreBlock(0, List.of())));
@@ -872,7 +872,9 @@ final class CoreProgramVerifierTest {
 
   private static CoreDefinitionGroup exceptionRootGroup() {
     return aggregateGroup(
-        exceptionNominal(), Optional.empty(), List.of(new CoreField(0, CoreType.STRING)));
+        exceptionNominal(),
+        Optional.empty(),
+        List.of(new CoreField("message", 0, CoreType.STRING, List.of())));
   }
 
   private static CoreNominalTypeKey exceptionNominal() {
@@ -912,6 +914,7 @@ final class CoreProgramVerifierTest {
     CoreDefinition.Aggregate aggregate =
         new CoreDefinition.Aggregate(
             nominal,
+            category == CoreValueCategory.VALUE ? CoreAggregateKind.VALUE : CoreAggregateKind.CLASS,
             category,
             typeParameters,
             parent,
@@ -940,9 +943,19 @@ final class CoreProgramVerifierTest {
         new CoreDefinition.Callable(
             Optional.of(receiver),
             List.of(),
-            fields.stream().map(CoreField::type).toList(),
-            parameters,
+            List.of(),
+            List.of(),
+            java.util.stream.IntStream.range(0, fields.size())
+                .mapToObj(
+                    index ->
+                        new CoreCallableParameter(
+                            "argument" + index,
+                            fields.get(index).type(),
+                            parameters.get(index),
+                            List.of()))
+                .toList(),
             reifiedLocals,
+            List.of(),
             CoreType.VOID,
             locals,
             new CoreBlock(0, List.of()));
@@ -988,6 +1001,7 @@ final class CoreProgramVerifierTest {
     CoreDefinition.Aggregate aggregate =
         new CoreDefinition.Aggregate(
             nominal(name),
+            category == CoreValueCategory.VALUE ? CoreAggregateKind.VALUE : CoreAggregateKind.CLASS,
             category,
             parameters,
             Optional.empty(),
@@ -1000,9 +1014,19 @@ final class CoreProgramVerifierTest {
         new CoreDefinition.Callable(
             Optional.of(receiver),
             List.of(),
-            fields.stream().map(CoreField::type).toList(),
-            parameterLocals,
+            List.of(),
+            List.of(),
+            java.util.stream.IntStream.range(0, fields.size())
+                .mapToObj(
+                    index ->
+                        new CoreCallableParameter(
+                            "argument" + index,
+                            fields.get(index).type(),
+                            parameterLocals.get(index),
+                            List.of()))
+                .toList(),
             reifiedLocals,
+            List.of(),
             CoreType.VOID,
             locals,
             new CoreBlock(0, List.of()));

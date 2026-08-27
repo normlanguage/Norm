@@ -1,0 +1,8 @@
+package app.model
+
+import app.metadata.Label
+
+@Label(text: "point", replacement: null)
+public value Point {
+  Integer x
+}

@@ -18,6 +18,7 @@ public record BoundCallable(
     List<BoundParameter> parameters,
     List<BoundTypeParameter> typeParameters,
     List<BoundReifiedArgument> reifiedParameters,
+    List<BoundInterceptor> interceptors,
     SemanticType returnType,
     BoundBlock body,
     SourceSpan span)
@@ -50,6 +51,7 @@ public record BoundCallable(
     captures = List.copyOf(captures);
     typeParameters = List.copyOf(typeParameters);
     reifiedParameters = List.copyOf(reifiedParameters);
+    interceptors = List.copyOf(interceptors);
     Objects.requireNonNull(returnType, "returnType");
     Objects.requireNonNull(body, "body");
     Objects.requireNonNull(span, "span");

@@ -1,0 +1,15 @@
+import std.testing.expectedOutputLines
+
+Integer choose() {
+  try {
+    return 1
+  } finally {
+    return 2
+  }
+}
+
+main() {
+  printLine(choose())
+  expectedOutputLines(["2"])
+}
+

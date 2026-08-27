@@ -41,9 +41,9 @@
     "declarations": {
       "patterns": [
         {
-          "match": "\\b(class|value|enum|interface)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "\\b(annotation|class|enum|interface|value)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
-            "1": { "name": "storage.type.norm" },
+            "1": { "name": "keyword.declaration.type.norm" },
             "2": { "name": "entity.name.type.norm" }
           }
         }
@@ -77,14 +77,6 @@
             },
             { "name": "punctuation.separator.comma.norm", "match": "," }
           ]
-        }
-        ,
-        {
-          "match": "\\b(annotation)\\s+([A-Za-z_][A-Za-z0-9_]*)(?=\\s+targets\\s*\\()",
-          "captures": {
-            "1": { "name": "storage.type.norm" },
-            "2": { "name": "entity.name.type.norm" }
-          }
         }
       ]
     },

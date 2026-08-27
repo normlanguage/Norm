@@ -1,0 +1,37 @@
+import std.testing.expectedOutputLines
+import std.validation.Constraint
+import std.validation.ConstraintViolation
+
+annotation Even implements Constraint<Integer> {
+  public Boolean isValid(Integer value) {
+    return value % 2 == 0
+  }
+
+  public String code() {
+    return "even"
+  }
+
+  public String message() {
+    return "must be even"
+  }
+}
+
+Void accept(@Even() Integer value) {
+  printLine(value)
+}
+
+main() {
+  Even constraint = Even()
+  printLine(constraint.code())
+  printLine(constraint.message())
+  Constraint<Integer> view = constraint
+  printLine(view.code())
+  printLine(view.message())
+  accept(value: 4)
+  try {
+    accept(value: 3)
+  } catch ConstraintViolation error {
+    printLine(error.message)
+  }
+  expectedOutputLines(["even", "must be even", "even", "must be even", "4", "must be even"])
+}

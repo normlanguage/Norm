@@ -1,0 +1,52 @@
+import std.annotation.FieldTarget
+import std.annotation.SourceRetention
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+annotation Outer implements FieldTarget<String>, SourceRetention {
+  String before(FieldContext context, String value) {
+    printLine("outer before")
+    return value
+  }
+
+  Void after(FieldContext context, FunctionCompletion completion) {
+    printLine("outer after")
+    printLine(completion.succeeded())
+  }
+}
+
+annotation Reject implements FieldTarget<String>, SourceRetention {
+  String before(FieldContext context, String value) {
+    if value == "rejected" {
+      printLine("reject before")
+      throw Failure(message: value)
+    }
+    return value
+  }
+}
+
+class Box {
+  @Outer() @Reject()
+  String value
+}
+
+main() {
+  Box box = Box(value: "initial")
+  try {
+    box.value = "rejected"
+  } catch Failure error {
+    printLine(error.message)
+  }
+  printLine(box.value)
+  expectedOutputLines([
+    "outer before", "outer after", "true",
+    "outer before", "reject before", "outer after", "false",
+    "rejected", "initial"
+  ])
+}

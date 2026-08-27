@@ -50,7 +50,23 @@ assert.match('try', keywordPattern);
 assert.match('catch', keywordPattern);
 assert.match('finally', keywordPattern);
 assert.match('throw', keywordPattern);
-assert.match('interface Named', declarationPattern);
+for (const declaration of [
+  'class Counter',
+  'value Point',
+  'enum Result',
+  'interface Named',
+  'annotation Log implements FunctionTarget',
+]) {
+  assert.match(declaration, declarationPattern);
+}
+for (const expression of ['Integer value', 'value = next', 'String annotation']) {
+  assert.doesNotMatch(expression, declarationPattern);
+}
+assert.equal(
+  grammar.repository.declarations.patterns[0].captures['1'].name,
+  'keyword.declaration.type.norm',
+);
+assert.equal(grammar.repository.generics.patterns.length, 1);
 
 assert.equal(grammar.repository.codePoints.name, 'constant.character.norm');
 assert.equal(grammar.repository.codePoints.begin, "'");

@@ -15,10 +15,147 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void executesFunctionTargetAnnotationLifecycleAndOrdinaryMethods() throws Exception {
+    assertOutput(
+        "import std.annotation.FunctionTarget "
+            + "import std.annotation.RuntimeRetention "
+            + "annotation Log implements FunctionTarget, RuntimeRetention { "
+            + "String level "
+            + "String prefix() { return \"[\" + level + \"]\" } "
+            + "Void before(FunctionContext context) { "
+            + "printLine(this.prefix() + \" before \" + context.name()) } "
+            + "R around<R>(FunctionInvocation<R> invocation) { "
+            + "printLine(this.prefix() + \" around-in\") "
+            + "R result = invocation.proceed() "
+            + "printLine(this.prefix() + \" around-out\") return result } "
+            + "Void after(FunctionContext context, FunctionCompletion completion) { "
+            + "printLine(this.prefix() + \" after \" + context.name()) "
+            + "printLine(completion.succeeded()) } } "
+            + "@Log(level: \"debug\") String greet(String name) { "
+            + "printLine(\"body \" + name) return \"hello \" + name } "
+            + "Void main() { Log direct = Log(level: \"manual\") "
+            + "printLine(direct.prefix()) printLine(greet(name: \"Norm\")) }",
+        String.join(
+            System.lineSeparator(),
+            "[manual]",
+            "[debug] before greet",
+            "[debug] around-in",
+            "body Norm",
+            "[debug] around-out",
+            "[debug] after greet",
+            "true",
+            "hello Norm",
+            ""));
+  }
+
+  @Test
+  void interceptsDynamicDispatchAndFunctionReferencesAtTheCallableDefinition() throws Exception {
+    assertOutput(
+        "import std.annotation.FunctionTarget "
+            + "import std.annotation.SourceRetention "
+            + "annotation Trace implements FunctionTarget, SourceRetention { "
+            + "Void before(FunctionContext context) { printLine(\"trace \" + context.name()) } } "
+            + "interface Named { String name() } "
+            + "class Base implements Named { public String name() { return \"base\" } } "
+            + "class Child extends Base { Child() { super() } "
+            + "@Trace() public String name() { return \"child\" } } "
+            + "Void main() { Child child = Child() Named named = child "
+            + "Function<String()> reference = child::name "
+            + "printLine(named.name()) printLine(reference()) }",
+        String.join(System.lineSeparator(), "trace name", "child", "trace name", "child", ""));
+  }
+
+  @Test
+  void reifiesGenericCallableReturnTypesForAround() throws Exception {
+    assertOutput(
+        "import std.annotation.FunctionTarget "
+            + "import std.annotation.SourceRetention "
+            + "annotation ReturnType implements FunctionTarget, SourceRetention { "
+            + "R around<R>(FunctionInvocation<R> invocation) { "
+            + "printLine(reflect<R>().name()) return invocation.proceed() } } "
+            + "@ReturnType() T identity<T>(T value) { return value } "
+            + "Void main() { printLine(identity(value: \"Norm\")) "
+            + "printLine(identity(value: 9)) }",
+        String.join(System.lineSeparator(), "String", "Norm", "Integer", "9", ""));
+  }
+
+  @Test
+  void rejectsCallingAnInterceptorContinuationTwice() {
+    NormExecutionException exception =
+        assertThrows(
+            NormExecutionException.class,
+            () ->
+                assertOutput(
+                    "import std.annotation.FunctionTarget "
+                        + "import std.annotation.SourceRetention "
+                        + "annotation Twice implements FunctionTarget, SourceRetention { "
+                        + "R around<R>(FunctionInvocation<R> invocation) { "
+                        + "R result = invocation.proceed() invocation.proceed() return result } } "
+                        + "@Twice() String run() { return \"value\" } "
+                        + "Void main() { printLine(run()) }",
+                    ""));
+
+    assertEquals(RuntimeErrorCode.INVALID_ARGUMENT, exception.code());
+    assertTrue(exception.getMessage().contains("proceed() can be called once"));
+  }
+
+  @Test
+  void preservesInterceptorOrderAndRunsAfterDuringExceptionUnwinding() throws Exception {
+    assertOutput(
+        "import std.annotation.FunctionTarget import std.annotation.RuntimeRetention "
+            + "import std.core.Exception "
+            + "annotation Outer implements FunctionTarget, RuntimeRetention { String name "
+            + "Void before(FunctionContext context) { printLine(name + \" before\") } "
+            + "R around<R>(FunctionInvocation<R> invocation) { printLine(name + \" in\") "
+            + "R result = invocation.proceed() printLine(name + \" out\") return result } "
+            + "Void after(FunctionContext context, FunctionCompletion completion) { "
+            + "printLine(name + \" after\") printLine(completion.succeeded()) } } "
+            + "annotation Inner implements FunctionTarget, RuntimeRetention { String name "
+            + "Void before(FunctionContext context) { printLine(name + \" before\") } "
+            + "R around<R>(FunctionInvocation<R> invocation) { printLine(name + \" in\") "
+            + "R result = invocation.proceed() printLine(name + \" out\") return result } "
+            + "Void after(FunctionContext context, FunctionCompletion completion) { "
+            + "printLine(name + \" after\") printLine(completion.succeeded()) } } "
+            + "class Failure extends Exception { Failure(String message) { super(message: message) } } "
+            + "@Outer(name: \"outer\") @Inner(name: \"inner\") Void fail() { "
+            + "printLine(\"body\") throw Failure(message: \"boom\") } "
+            + "Void main() { try { fail() } catch Failure error { printLine(error.message) } }",
+        String.join(
+            System.lineSeparator(),
+            "outer before",
+            "outer in",
+            "inner before",
+            "inner in",
+            "body",
+            "inner after",
+            "false",
+            "outer after",
+            "false",
+            "boom",
+            ""));
+  }
+
+  @Test
+  void sharesOneConstructedAnnotationInstanceWithReflection() throws Exception {
+    assertOutput(
+        "import std.annotation.TypeTarget import std.annotation.RuntimeRetention "
+            + "annotation Label implements TypeTarget, RuntimeRetention { String text "
+            + "Label(String initial) { this.text = \"created:\" + initial } } "
+            + "@Label(initial: \"point\") value Point {} "
+            + "Void main() { Label? first = reflect<Point>().annotation<Label>() "
+            + "Label? second = reflect<Point>().annotation<Label>() "
+            + "if (first != null) { first.text = \"changed\" } "
+            + "printLine(second?.text ?? \"missing\") }",
+        "changed" + System.lineSeparator());
+  }
+
+  @Test
   void reflectsRuntimeTypeAnnotations() throws Exception {
     assertOutput(
-        "annotation Label targets(type) retention(runtime) { String text } "
-            + "annotation Internal targets(type) retention(binary) { String text } "
+        "import std.annotation.TypeTarget import std.annotation.RuntimeRetention "
+            + "import std.annotation.BinaryRetention "
+            + "annotation Label implements TypeTarget, RuntimeRetention { String text } "
+            + "annotation Internal implements TypeTarget, BinaryRetention { String text } "
             + "@Label(text: \"point\") @Internal(text: \"hidden\") value Point { Integer x } "
             + "Void main() { Type<Point> type = reflect<Point>() "
             + "Label? label = type.annotation<Label>() "
@@ -361,6 +498,42 @@ final class ProgramExecutionTest {
             + "Void main() { printLine(read(value: User(value: \"Norm\"))) "
             + "printLine(read(value: Service(value: \"compiler\"))) }",
         String.join(System.lineSeparator(), "Norm", "service:compiler", ""));
+  }
+
+  @Test
+  void dispatchesDistinctInterfaceMethodsWithTheSameTypeShape() throws Exception {
+    assertOutput(
+        "interface Description { String code() String message() } "
+            + "class Failure implements Description { "
+            + "public String code() { return \"invalid\" } "
+            + "public String message() { return \"invalid value\" } } "
+            + "Void main() { Description value = Failure() "
+            + "printLine(value.code()) printLine(value.message()) }",
+        String.join(System.lineSeparator(), "invalid", "invalid value", ""));
+  }
+
+  @Test
+  void dispatchesTheMostSpecificInheritedInterfaceDefault() throws Exception {
+    assertOutput(
+        "interface Parent { String value() { return \"parent\" } } "
+            + "interface Child extends Parent { String value() { return \"child\" } } "
+            + "class Implementation implements Child { } "
+            + "Void main() { Parent value = Implementation() printLine(value.value()) }",
+        String.join(System.lineSeparator(), "child", ""));
+  }
+
+  @Test
+  void executesInheritedDefaultWithAReceiverDependentGenericBound() throws Exception {
+    assertOutput(
+        "interface Related<T> {} "
+            + "interface Parent<Left, Right> { "
+            + "U keep<U extends Related<Right>>(U value) { return value } } "
+            + "interface Child<T> extends Parent<Integer, T> {} "
+            + "class Token implements Related<String> {} "
+            + "class Service implements Child<String> {} "
+            + "Void main() { Service service = Service() Token token = Token() "
+            + "Token kept = service.keep(value: token) printLine(kept == token) }",
+        String.join(System.lineSeparator(), "true", ""));
   }
 
   @Test
@@ -721,11 +894,6 @@ final class ProgramExecutionTest {
   }
 
   @TestFactory
-  Stream<DynamicTest> runsLeetCodeAlgorithms() throws Exception {
-    return suite("algorithms/leetcode");
-  }
-
-  @TestFactory
   Stream<DynamicTest> runsClassPrograms() throws Exception {
     return suite("class");
   }
@@ -763,6 +931,21 @@ final class ProgramExecutionTest {
   @TestFactory
   Stream<DynamicTest> runsExceptionPrograms() throws Exception {
     return suite("exceptions");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsReferencePrograms() throws Exception {
+    return suite("references");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsReflectionPrograms() throws Exception {
+    return suite("reflection");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsAnnotationPrograms() throws Exception {
+    return suite("annotations");
   }
 
   @TestFactory

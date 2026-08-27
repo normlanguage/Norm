@@ -1,0 +1,22 @@
+import std.annotation.FieldTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+interface Normalize<T> extends FieldTarget<T> {
+}
+
+annotation Wrap implements Normalize<String>, SourceRetention {
+  String before(FieldContext context, String value) {
+    return "[" + value + "]"
+  }
+}
+
+class Box {
+  @Wrap()
+  String value
+}
+
+main() {
+  printLine(Box(value: "custom").value)
+  expectedOutputLines(["[custom]"])
+}

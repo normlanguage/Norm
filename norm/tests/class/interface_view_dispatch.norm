@@ -1,0 +1,28 @@
+import std.testing.expectedOutputLines
+
+interface Named {
+  String name()
+}
+
+class Base implements Named {
+  public String name() {
+    return "base"
+  }
+}
+
+class Child extends Base {
+  Child() {
+    super()
+  }
+
+  public String name() {
+    return "child"
+  }
+}
+
+main() {
+  Named value = Child()
+  printLine(value.name())
+  expectedOutputLines(["child"])
+}
+

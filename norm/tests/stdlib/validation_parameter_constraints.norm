@@ -1,0 +1,40 @@
+import std.testing.expectedOutputLines
+import std.validation.AssertTrue
+import std.validation.ConstraintViolation
+import std.validation.Max
+import std.validation.Min
+import std.validation.NotBlank
+import std.validation.Positive
+
+Void create(
+  @NotBlank() String name,
+  @Min(value: 1) @Max(value: 10) Integer quantity,
+  @AssertTrue() Boolean accepted
+) {
+  printLine(name)
+  printLine(quantity)
+  printLine(accepted)
+}
+
+main() {
+  create(name: "Norm", quantity: 4, accepted: true)
+  try {
+    create(name: "   ", quantity: 4, accepted: true)
+  } catch ConstraintViolation error {
+    printLine(error.code)
+    printLine(error.target)
+  }
+  try {
+    create(name: "Norm", quantity: 0, accepted: true)
+  } catch ConstraintViolation error {
+    printLine(error.code)
+    printLine(error.target)
+  }
+  try {
+    create(name: "Norm", quantity: 4, accepted: false)
+  } catch ConstraintViolation error {
+    printLine(error.code)
+    printLine(error.target)
+  }
+  expectedOutputLines(["Norm", "4", "true", "not_blank", "name", "min", "quantity", "assert_true", "accepted"])
+}

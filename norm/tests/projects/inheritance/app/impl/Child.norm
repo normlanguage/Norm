@@ -1,0 +1,16 @@
+package app.impl
+
+import app.model.Base
+
+public class Child extends Base<String> {
+  public Integer rank
+
+  Child(String initial, Integer initialRank) {
+    super(initial: initial)
+    rank = initialRank
+  }
+
+  public String get() {
+    return "child:" + value
+  }
+}

@@ -1,0 +1,14 @@
+import std.testing.expectedOutputLines
+
+value Point {
+  Integer x
+}
+
+main() {
+  Point point = Point(x: 1)
+  ref<Point> location = &point
+  *location = Point(x: 9)
+  printLine(point.x)
+  expectedOutputLines(["9"])
+}
+

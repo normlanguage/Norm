@@ -50,7 +50,7 @@ final class MethodDispatchNode extends Node {
             : concreteReceiverArguments;
     Object[] values =
         new Object[arguments.length + ownerTypeArguments.size() + methodTypeArguments.length + 2];
-    values[0] = ExecutionContextAccess.get(frame);
+    values[0] = ExecutionContextAccess.state(frame);
     values[1] = receiver;
     System.arraycopy(arguments, 0, values, 2, arguments.length);
     for (int index = 0; index < ownerTypeArguments.size(); index++) {

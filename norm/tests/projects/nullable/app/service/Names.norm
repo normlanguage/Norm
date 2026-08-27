@@ -1,0 +1,8 @@
+package app.service
+
+import app.model.User
+
+public String nameOr(User? user, String fallback) {
+  return user?.name ?? fallback
+}
+

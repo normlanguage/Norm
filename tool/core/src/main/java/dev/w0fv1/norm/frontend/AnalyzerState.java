@@ -135,13 +135,11 @@ abstract class AnalyzerState {
   static Syntax.Program merge(List<Syntax.Program> programs, Syntax.Program entryProgram) {
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
-    List<Syntax.AnnotationDecl> annotations = new ArrayList<>();
     List<Syntax.AggregateDecl> aggregates = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     for (Syntax.Program program : programs) {
       enums.addAll(program.enums());
       interfaces.addAll(program.interfaces());
-      annotations.addAll(program.annotationDeclarations());
       aggregates.addAll(program.aggregates());
       functions.addAll(program.functions());
     }
@@ -151,7 +149,6 @@ abstract class AnalyzerState {
         entryProgram.imports(),
         enums,
         interfaces,
-        annotations,
         aggregates,
         functions,
         entryProgram.span());

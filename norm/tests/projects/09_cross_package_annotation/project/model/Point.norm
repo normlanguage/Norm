@@ -1,8 +1,0 @@
-package project.model
-
-import project.metadata.Label
-
-@Label(text: "point")
-public value Point {
-  Integer x
-}

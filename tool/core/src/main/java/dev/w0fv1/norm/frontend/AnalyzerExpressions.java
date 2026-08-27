@@ -796,7 +796,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
                     && (lambdaLocals.isEmpty() || lambdaLocals.getFirst().contains(scoped.id()))
                 || kind == SymbolKind.FIELD
                     && currentAggregate != null
-                    && currentAggregate.kind() == Syntax.AggregateKind.CLASS;
+                    && currentAggregate.kind() != Syntax.AggregateKind.VALUE;
       }
     } else if (target instanceof Syntax.Member member && !member.nullSafe()) {
       SemanticType receiver = semanticTypes.get(member.receiver().span());
@@ -1061,16 +1061,6 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           reifiedArguments,
           symbol.type().substitute(substitutions));
     }
-    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(callee);
-    if (annotationDecl != null) {
-      bindDeclarationUse(name.span(), callee, annotationDecl);
-      diagnostics.error(
-          TYPE_MISMATCH,
-          "annotation types are metadata and cannot be constructed directly",
-          call.span());
-      analyzeArguments(call.arguments());
-      return sourceType(callee, List.of());
-    }
     SemanticType constructedType = constructedType(name, call, expected);
     Optional<List<ParameterInfo>> constructor = builtins.constructorParameters(constructedType);
     if (constructor.isPresent()) {
@@ -1283,7 +1273,7 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     }
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiver);
     if (aggregateDecl != null) {
-      if (aggregateDecl.kind() == Syntax.AggregateKind.CLASS && member.name().equals("copy")) {
+      if (aggregateDecl.kind() != Syntax.AggregateKind.VALUE && member.name().equals("copy")) {
         bindings.put(member.nameSpan(), copyMethods.get(receiver.identity()));
         validateTypeArgumentCount(member.name(), 0, member.typeArguments(), member.span());
         member
@@ -1561,26 +1551,6 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           member.span());
       return SemanticType.DYNAMIC;
     }
-    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(receiverType);
-    if (annotationDecl != null) {
-      Syntax.AnnotationParameter parameter =
-          annotationDecl.parameters().stream()
-              .filter(candidate -> candidate.name().equals(member.name()))
-              .findFirst()
-              .orElse(null);
-      if (parameter == null) {
-        diagnostics.error(
-            UNKNOWN_NAME,
-            "annotation '" + annotationDecl.name() + "' has no field '" + member.name() + "'",
-            member.span());
-        return SemanticType.DYNAMIC;
-      }
-      bindings.put(member.nameSpan(), declarationSymbols.get(parameter));
-      return safeAccessResult(
-          member,
-          nullableReceiverType,
-          resolveDeclarationType(parameter.type(), parameter, Map.of()));
-    }
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiverType);
     if (aggregateDecl != null) {
       AggregateField resolved = aggregateField(receiverType, member.name());
@@ -1648,7 +1618,50 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       directRequirements(declaration, conformance)
           .forEach(requirement -> result.putIfAbsent(requirement.key(), requirement));
     }
-    return List.copyOf(result.values());
+    return mostSpecificRequirements(List.copyOf(result.values()));
+  }
+
+  final List<InterfaceRequirement> mostSpecificRequirements(
+      List<InterfaceRequirement> requirements) {
+    return requirements.stream()
+        .filter(
+            requirement ->
+                requirements.stream()
+                    .noneMatch(
+                        candidate ->
+                            candidate != requirement
+                                && requirementShape(candidate).equals(requirementShape(requirement))
+                                && isAssignable(requirement.receiver(), candidate.receiver())
+                                && !isAssignable(candidate.receiver(), requirement.receiver())))
+        .toList();
+  }
+
+  final String requirementShape(InterfaceRequirement requirement) {
+    Symbol symbol = symbols.get(declarationSymbols.get(requirement.method()));
+    Map<String, String> typeParameters = new LinkedHashMap<>();
+    for (int index = 0; index < symbol.typeParameters().size(); index++) {
+      typeParameters.put(symbol.typeParameters().get(index).type().identity(), "$" + index);
+    }
+    return requirement.method().name()
+        + "("
+        + requirement.parameters().stream()
+            .map(
+                parameter ->
+                    parameter.name() + ":" + semanticTypeShape(parameter.type(), typeParameters))
+            .collect(java.util.stream.Collectors.joining(","))
+        + ")->"
+        + semanticTypeShape(requirement.result(), typeParameters);
+  }
+
+  private static String semanticTypeShape(SemanticType type, Map<String, String> typeParameters) {
+    String identity = typeParameters.getOrDefault(type.identity(), type.identity());
+    String arguments =
+        type.arguments().isEmpty()
+            ? ""
+            : type.arguments().stream()
+                .map(argument -> semanticTypeShape(argument, typeParameters))
+                .collect(java.util.stream.Collectors.joining(",", "<", ">"));
+    return identity + arguments + (type.isNullable() ? "?" : "");
   }
 
   Optional<ResolvedIteration> resolveInterfaceIteration(SemanticType iterableType) {
@@ -1811,9 +1824,8 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           diagnostics.error(TYPE_MISMATCH, "safe access cannot be assigned", member.span());
         }
         SemanticType receiver = typeOf(member.receiver(), null);
-        if (resolveAnnotation(receiver.nonNullable()) != null
-            || receiver.nonNullable().category() == dev.w0fv1.norm.semantic.ValueCategory.VALUE
-                && resolveAggregate(receiver.nonNullable()) != null) {
+        if (receiver.nonNullable().category() == dev.w0fv1.norm.semantic.ValueCategory.VALUE
+            && resolveAggregate(receiver.nonNullable()) != null) {
           diagnostics.error(TYPE_MISMATCH, "value field cannot be assigned", member.span());
         }
         yield memberType(member);

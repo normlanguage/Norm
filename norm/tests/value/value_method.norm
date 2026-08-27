@@ -1,0 +1,15 @@
+import std.testing.expectedOutputLines
+
+value Scale {
+  Integer factor
+
+  Integer apply(Integer input) {
+    return factor * input
+  }
+}
+
+main() {
+  printLine(Scale(factor: 3).apply(input: 7))
+  expectedOutputLines(["21"])
+}
+

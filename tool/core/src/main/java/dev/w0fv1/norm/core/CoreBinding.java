@@ -31,10 +31,11 @@ public record CoreBinding(
       case CoreBindingShape.Callable ignored ->
           ownerName.isPresent() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
       case CoreBindingShape.Aggregate declared ->
-          declared.valueCategory() == CoreValueCategory.VALUE
-              ? CoreBindingKind.VALUE
-              : CoreBindingKind.CLASS;
-      case CoreBindingShape.Annotation ignored -> CoreBindingKind.ANNOTATION;
+          switch (declared.kind()) {
+            case CLASS -> CoreBindingKind.CLASS;
+            case VALUE -> CoreBindingKind.VALUE;
+            case ANNOTATION -> CoreBindingKind.ANNOTATION;
+          };
       case CoreBindingShape.Enum ignored -> CoreBindingKind.ENUM;
       case CoreBindingShape.Interface ignored -> CoreBindingKind.INTERFACE;
       case CoreBindingShape.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;

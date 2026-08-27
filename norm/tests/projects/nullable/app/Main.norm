@@ -1,0 +1,13 @@
+package app
+
+import app.model.User
+import app.service.nameOr
+import std.testing.expectedOutputLines
+
+main() {
+  User? missing = null
+  printLine(nameOr(user: User(name: "Norm"), fallback: "guest"))
+  printLine(nameOr(user: missing, fallback: "guest"))
+  expectedOutputLines(["Norm", "guest"])
+}
+

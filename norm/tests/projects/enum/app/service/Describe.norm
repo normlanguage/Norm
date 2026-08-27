@@ -1,0 +1,15 @@
+package app.service
+
+import app.model.Status
+
+public String describe(Status status) {
+  return switch status {
+    case Ready {
+      break "ready"
+    }
+    case Failed(String message) {
+      break message
+    }
+  }
+}
+

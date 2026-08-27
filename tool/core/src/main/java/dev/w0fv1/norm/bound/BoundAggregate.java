@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public record BoundAggregate(
     BoundAggregateId id,
+    BoundAggregateKind kind,
     String name,
     BoundVisibility visibility,
     SemanticType type,
@@ -23,6 +24,7 @@ public record BoundAggregate(
     implements BoundNode {
   public BoundAggregate {
     Objects.requireNonNull(id, "id");
+    Objects.requireNonNull(kind, "kind");
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(visibility, "visibility");
     Objects.requireNonNull(type, "type");

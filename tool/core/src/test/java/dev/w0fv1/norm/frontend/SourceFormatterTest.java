@@ -64,7 +64,7 @@ final class SourceFormatterTest {
   @Test
   void formatsReferenceTypesAndOperations() {
     assertFormats(
-        "Void replace(ref<Integer> target,Integer value){*target=value}main(){Integer value=1 ref<Integer> location=&value replace(target:location,value:*location+1)}",
+        "Void replace(ref<Integer> target,Integer value){*target=value}main(){Integer value=1 ref<Integer> location=&value\n*location=2 replace(target:location,value:*location+1)}",
         """
         Void replace(ref<Integer> target, Integer value) {
           *target = value
@@ -73,6 +73,7 @@ final class SourceFormatterTest {
         main() {
           Integer value = 1
           ref<Integer> location = &value
+          *location = 2
           replace(target: location, value: *location + 1)
         }
         """);
@@ -98,16 +99,17 @@ final class SourceFormatterTest {
   @Test
   void formatsAnnotationsAndReflection() {
     assertFormats(
-        "annotation Label targets(type,field) retention(runtime){String text String? replacement=null}@Label(text:\"point\")value Point{@Label(text:\"x\")Integer x}Void main(){Label? label=reflect<Point>().annotation<Label>()}",
+        "annotation Label implements TypeTarget,RuntimeRetention{String text String? replacement}@Label(text:\"point\",replacement:null)value Point{@Label(text:\"x\",replacement:null)Integer x}Void main(){Label? label=reflect<Point>().annotation<Label>()}",
         """
-        annotation Label targets(type, field) retention(runtime) {
+        annotation Label implements TypeTarget, RuntimeRetention {
           String text
-          String? replacement = null
+
+          String? replacement
         }
 
-        @Label(text: "point")
+        @Label(text: "point", replacement: null)
         value Point {
-          @Label(text: "x")
+          @Label(text: "x", replacement: null)
           Integer x
         }
 

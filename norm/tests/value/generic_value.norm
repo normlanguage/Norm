@@ -1,0 +1,12 @@
+import std.testing.expectedOutputLines
+
+value Box<T> {
+  T item
+}
+
+main() {
+  Box<String> box = Box<>(item: "Norm")
+  printLine(box.item)
+  expectedOutputLines(["Norm"])
+}
+

@@ -535,6 +535,10 @@ public final class BuiltinCatalog {
     SemanticType graphemesType =
         SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
     SemanticType annotationA = methodParameter("Type", "annotation", "A");
+    SemanticType invocationR = parameter("FunctionInvocation", "R");
+    SemanticType functionContextType =
+        SemanticType.declared(
+            "std.core.FunctionContext", "FunctionContext", List.of(), ValueCategory.IDENTITY);
     SemanticType reflectT = globalParameter("reflect", "T");
 
     addType(types, type(integerType.name(), RuntimeShape.INTEGER));
@@ -585,6 +589,55 @@ public final class BuiltinCatalog {
                     annotationA.nullable(),
                     IntrinsicId.TYPE_ANNOTATION,
                     List.of(new TypeParameterInfo("A", annotationA)))));
+    addType(
+        types,
+        type("FunctionContext", RuntimeShape.FUNCTION_CONTEXT)
+            .category(ValueCategory.IDENTITY)
+            .members(
+                method("FunctionContext", "name", stringType, IntrinsicId.FUNCTION_CONTEXT_NAME)));
+    addType(
+        types,
+        type("ParameterContext", RuntimeShape.PARAMETER_CONTEXT)
+            .category(ValueCategory.IDENTITY)
+            .members(
+                method(
+                    "ParameterContext",
+                    "function",
+                    functionContextType,
+                    IntrinsicId.PARAMETER_CONTEXT_FUNCTION),
+                method("ParameterContext", "name", stringType, IntrinsicId.PARAMETER_CONTEXT_NAME),
+                method(
+                    "ParameterContext",
+                    "index",
+                    integerType,
+                    IntrinsicId.PARAMETER_CONTEXT_INDEX)));
+    addType(
+        types,
+        type("FieldContext", RuntimeShape.FIELD_CONTEXT)
+            .category(ValueCategory.IDENTITY)
+            .members(
+                method("FieldContext", "name", stringType, IntrinsicId.FIELD_CONTEXT_NAME),
+                method("FieldContext", "index", integerType, IntrinsicId.FIELD_CONTEXT_INDEX)));
+    addType(
+        types,
+        type("FunctionInvocation", RuntimeShape.FUNCTION_INVOCATION, "R")
+            .category(ValueCategory.IDENTITY)
+            .members(
+                method(
+                    "FunctionInvocation",
+                    "proceed",
+                    invocationR,
+                    IntrinsicId.FUNCTION_INVOCATION_PROCEED)));
+    addType(
+        types,
+        type("FunctionCompletion", RuntimeShape.FUNCTION_COMPLETION)
+            .category(ValueCategory.IDENTITY)
+            .members(
+                method(
+                    "FunctionCompletion",
+                    "succeeded",
+                    booleanType,
+                    IntrinsicId.FUNCTION_COMPLETION_SUCCEEDED)));
     addType(
         types,
         type(stringType.name(), RuntimeShape.STRING)

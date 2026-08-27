@@ -5,15 +5,18 @@ import java.util.Set;
 abstract class CoreWalker {
   final void walk(CoreDefinition definition) {
     switch (definition) {
-      case CoreDefinition.Annotation annotation -> {
-        annotation.fields().forEach(field -> walkType(field.type()));
-        annotation.defaults().forEach(value -> value.ifPresent(this::walkAnnotationValue));
-      }
       case CoreDefinition.Callable callable -> {
         callable.receiverType().ifPresent(this::walkType);
         callable.typeParameters().forEach(this::walkTypeParameter);
         callable.captureTypes().forEach(this::walkType);
-        callable.parameterTypes().forEach(this::walkType);
+        callable
+            .parameters()
+            .forEach(
+                parameter -> {
+                  walkType(parameter.type());
+                  walkInterceptors(parameter.interceptors());
+                });
+        walkInterceptors(callable.interceptors());
         walkType(callable.returnType());
         Set<Integer> captureLocals = Set.copyOf(callable.captureLocals());
         callable.locals().stream()
@@ -24,7 +27,13 @@ abstract class CoreWalker {
       case CoreDefinition.Aggregate declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
         declaration.parentType().ifPresent(this::walkType);
-        declaration.fields().forEach(field -> walkType(field.type()));
+        declaration
+            .fields()
+            .forEach(
+                field -> {
+                  walkType(field.type());
+                  walkInterceptors(field.interceptors());
+                });
         declaration
             .dispatch()
             .forEach(
@@ -40,7 +49,15 @@ abstract class CoreWalker {
         declaration.typeParameters().forEach(this::walkTypeParameter);
         declaration
             .variants()
-            .forEach(variant -> variant.fields().forEach(field -> walkType(field.type())));
+            .forEach(
+                variant ->
+                    variant
+                        .fields()
+                        .forEach(
+                            field -> {
+                              walkType(field.type());
+                              walkInterceptors(field.interceptors());
+                            }));
       }
       case CoreDefinition.Interface declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
@@ -62,8 +79,12 @@ abstract class CoreWalker {
     }
   }
 
-  private void walkAnnotationValue(CoreAnnotationValue value) {
-    walkType(value.type());
+  private void walkInterceptors(java.util.List<CoreInterceptor> interceptors) {
+    interceptors.forEach(
+        interceptor -> {
+          visitLink(interceptor.annotation());
+          interceptor.values().forEach(value -> walkType(value.type()));
+        });
   }
 
   protected void visitLink(CoreDefinitionLink link) {}

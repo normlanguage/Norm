@@ -54,6 +54,19 @@ public final class CoreTypes {
         });
   }
 
+  public static boolean containsReference(CoreType type) {
+    return switch (type) {
+      case CoreType.Reference ignored -> true;
+      case CoreType.Declared declared ->
+          declared.arguments().stream().anyMatch(CoreTypes::containsReference);
+      case CoreType.Function function ->
+          containsReference(function.returnType())
+              || function.parameterTypes().stream().anyMatch(CoreTypes::containsReference);
+      case CoreType.Parameter ignored -> false;
+      case CoreType.Special ignored -> false;
+    };
+  }
+
   private static void collect(CoreType type, List<CoreDefinitionLink> result) {
     if (type instanceof CoreType.Declared declared) {
       if (declared.constructor() instanceof CoreTypeConstructor.User user) {

@@ -9,7 +9,6 @@ public record BoundProgram(
     List<BoundEnum> enums,
     List<BoundInterface> interfaces,
     List<BoundBuiltinConformance> builtinConformances,
-    List<BoundAnnotation> annotations,
     List<BoundAggregate> aggregates,
     List<BoundCallable> callables,
     List<BoundAnnotationApplication> annotationApplications,
@@ -19,7 +18,6 @@ public record BoundProgram(
     enums = List.copyOf(enums);
     interfaces = List.copyOf(interfaces);
     builtinConformances = List.copyOf(builtinConformances);
-    annotations = List.copyOf(annotations);
     aggregates = List.copyOf(aggregates);
     callables = List.copyOf(callables);
     annotationApplications = List.copyOf(annotationApplications);
@@ -39,7 +37,6 @@ public record BoundProgram(
         enums,
         interfaces,
         builtinConformances,
-        annotations,
         aggregates,
         callables,
         annotationApplications,

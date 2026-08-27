@@ -1,0 +1,12 @@
+import std.testing.expectedOutputLines
+
+main() {
+  Integer value = 1
+  if true {
+    ref<Integer> location = &value
+    *location = 6
+  }
+  printLine(value)
+  expectedOutputLines(["6"])
+}
+

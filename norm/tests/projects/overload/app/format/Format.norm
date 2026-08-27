@@ -1,0 +1,9 @@
+package app.format
+
+public String format(Integer value) {
+  return "integer"
+}
+
+public String format(String value) {
+  return "string:" + value
+}

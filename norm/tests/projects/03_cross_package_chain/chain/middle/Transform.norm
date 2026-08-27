@@ -1,7 +1,0 @@
-package chain.middle
-
-import chain.base.increment
-
-Integer transform(Integer value) {
-  return increment(value) * 2 - 1
-}

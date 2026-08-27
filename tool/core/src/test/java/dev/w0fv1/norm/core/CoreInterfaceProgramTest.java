@@ -87,8 +87,10 @@ final class CoreInterfaceProgramTest {
         new CoreDefinition.Callable(
             Optional.empty(),
             List.of(),
-            List.of(iterableInteger),
-            List.of(0),
+            List.of(),
+            List.of(),
+            List.of(new CoreCallableParameter("argument0", iterableInteger, 0, List.of())),
+            List.of(),
             List.of(),
             CoreType.VOID,
             List.of(
@@ -160,6 +162,7 @@ final class CoreInterfaceProgramTest {
     CoreDefinition.Aggregate itemDefinition =
         new CoreDefinition.Aggregate(
             nominal("Item"),
+            CoreAggregateKind.CLASS,
             CoreValueCategory.IDENTITY,
             List.of(),
             Optional.empty(),
@@ -176,6 +179,8 @@ final class CoreInterfaceProgramTest {
             List.of(),
             List.of(),
             List.of(),
+            List.of(),
+            List.of(),
             CoreType.STRING,
             List.of(new CoreLocal(0, item, CoreLocal.Kind.RECEIVER)),
             new CoreBlock(
@@ -187,8 +192,10 @@ final class CoreInterfaceProgramTest {
         new CoreDefinition.Callable(
             Optional.empty(),
             List.of(),
-            List.of(named),
-            List.of(0),
+            List.of(),
+            List.of(),
+            List.of(new CoreCallableParameter("argument0", named, 0, List.of())),
+            List.of(),
             List.of(),
             CoreType.STRING,
             List.of(new CoreLocal(0, named, CoreLocal.Kind.PARAMETER)),
@@ -231,6 +238,7 @@ final class CoreInterfaceProgramTest {
     CoreDefinition.Aggregate serviceDefinition =
         new CoreDefinition.Aggregate(
             nominal("IdentityService"),
+            CoreAggregateKind.CLASS,
             CoreValueCategory.IDENTITY,
             List.of(),
             Optional.empty(),
@@ -250,9 +258,11 @@ final class CoreInterfaceProgramTest {
         new CoreDefinition.Callable(
             Optional.of(service),
             List.of(new CoreTypeParameter(0, Optional.empty())),
-            List.of(parameter),
-            List.of(1),
+            List.of(),
+            List.of(),
+            List.of(new CoreCallableParameter("argument0", parameter, 1, List.of())),
             List.of(2),
+            List.of(),
             parameter,
             List.of(
                 new CoreLocal(0, service, CoreLocal.Kind.RECEIVER),
@@ -267,8 +277,10 @@ final class CoreInterfaceProgramTest {
         new CoreDefinition.Callable(
             Optional.empty(),
             List.of(),
-            List.of(identity),
-            List.of(0),
+            List.of(),
+            List.of(),
+            List.of(new CoreCallableParameter("argument0", identity, 0, List.of())),
+            List.of(),
             List.of(),
             CoreType.STRING,
             List.of(new CoreLocal(0, identity, CoreLocal.Kind.PARAMETER)),
@@ -312,6 +324,8 @@ final class CoreInterfaceProgramTest {
   private static CoreDefinition.Callable constructor(CoreType receiver) {
     return new CoreDefinition.Callable(
         Optional.of(receiver),
+        List.of(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),

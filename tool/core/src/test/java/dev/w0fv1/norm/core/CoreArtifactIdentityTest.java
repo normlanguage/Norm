@@ -33,23 +33,29 @@ final class CoreArtifactIdentityTest {
   }
 
   @Test
-  void ignoresFileFunctionParameterAndLocalNames() {
+  void includesParameterNamesButIgnoresFunctionAndLocalNames() {
     CoreArtifact first =
         compile(
             "first.norm",
             "Integer calculate(Integer input) { Integer result = input + 1 return result } "
                 + "Void main() { printLine(calculate(2)) }");
-    CoreArtifact renamed =
+    CoreArtifact functionAndLocalRenamed =
         compile(
             "moved/renamed.norm",
+            "Integer transformed(Integer input) { Integer answer = input + 1 return answer } "
+                + "Void main() { printLine(transformed(2)) }");
+    CoreArtifact parameterRenamed =
+        compile(
+            "parameter-renamed.norm",
             "Integer transformed(Integer value) { Integer answer = value + 1 return answer } "
                 + "Void main() { printLine(transformed(2)) }");
 
-    assertEquals(first.entryDefinition(), renamed.entryDefinition());
+    assertEquals(first.entryDefinition(), functionAndLocalRenamed.entryDefinition());
     assertEquals(
         first.namespace().definition("", "calculate"),
-        renamed.namespace().definition("", "transformed"));
-    assertNotEquals(first.namespace().id(), renamed.namespace().id());
+        functionAndLocalRenamed.namespace().definition("", "transformed"));
+    assertNotEquals(first.entryDefinition(), parameterRenamed.entryDefinition());
+    assertNotEquals(first.namespace().id(), functionAndLocalRenamed.namespace().id());
   }
 
   @Test
@@ -62,7 +68,7 @@ final class CoreArtifactIdentityTest {
     CoreArtifact renamed =
         compile(
             "generic-renamed.norm",
-            "U transformed<U>(U item) { U answer = item return answer } "
+            "U transformed<U>(U input) { U answer = input return answer } "
                 + "Void main() { String output = transformed(\"Norm\") }");
 
     assertEquals(first.entryDefinition(), renamed.entryDefinition());
@@ -142,8 +148,8 @@ final class CoreArtifactIdentityTest {
     CoreArtifact reorderedAndRenamed =
         compile(
             "other.norm",
-            "Boolean beta(Integer item) { if item == 0 { return false } return alpha(item - 1) } "
-                + "Boolean alpha(Integer item) { if item == 0 { return true } return beta(item - 1) } "
+            "Boolean beta(Integer value) { if value == 0 { return false } return alpha(value - 1) } "
+                + "Boolean alpha(Integer value) { if value == 0 { return true } return beta(value - 1) } "
                 + "Void main() { printLine(alpha(8)) }");
 
     DefinitionId even = first.namespace().definition("", "even").orElseThrow();

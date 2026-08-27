@@ -1,0 +1,50 @@
+import std.annotation.FunctionTarget
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation FunctionTrace implements FunctionTarget, SourceRetention {
+  Void before(FunctionContext context) {
+    printLine("function before")
+  }
+
+  R around<R>(FunctionInvocation<R> invocation) {
+    printLine("around before")
+    R result = invocation.proceed()
+    printLine("around after")
+    return result
+  }
+
+  Void after(FunctionContext context, FunctionCompletion completion) {
+    printLine("function after")
+  }
+}
+
+annotation ParameterTrace implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    printLine("parameter before")
+    return value
+  }
+
+  Void after(ParameterContext context, FunctionCompletion completion) {
+    printLine("parameter after")
+  }
+}
+
+@FunctionTrace()
+Void run(@ParameterTrace() String value) {
+  printLine(value)
+}
+
+main() {
+  run(value: "body")
+  expectedOutputLines([
+    "function before",
+    "around before",
+    "parameter before",
+    "body",
+    "parameter after",
+    "around after",
+    "function after"
+  ])
+}

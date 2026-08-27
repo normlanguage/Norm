@@ -1,0 +1,8 @@
+package app
+
+import std.testing.expectedOutputLines
+
+main() {
+  printLine("configured")
+  expectedOutputLines(["configured"])
+}

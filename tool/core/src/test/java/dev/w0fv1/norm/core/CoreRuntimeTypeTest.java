@@ -62,7 +62,9 @@ final class CoreRuntimeTypeTest {
                 new CoreTypeParameter(1, java.util.Optional.empty())),
             List.of(),
             List.of(),
+            List.of(),
             List.of(0, 1),
+            List.of(),
             CoreType.VOID,
             List.of(
                 new CoreLocal(0, CoreType.DYNAMIC, CoreLocal.Kind.REIFIED_TYPE),

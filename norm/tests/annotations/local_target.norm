@@ -1,0 +1,14 @@
+import std.annotation.LocalTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Mark implements LocalTarget, SourceRetention {
+}
+
+main() {
+  @Mark()
+  String value = "local"
+  printLine(value)
+  expectedOutputLines(["local"])
+}
+

@@ -1,0 +1,33 @@
+import std.annotation.FunctionTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Trace implements FunctionTarget, SourceRetention {
+  Void before(FunctionContext context) {
+    printLine("trace " + context.name())
+  }
+}
+
+class Base {
+  public String name() {
+    return "base"
+  }
+}
+
+class Child extends Base {
+  Child() {
+    super()
+  }
+
+  @Trace()
+  public String name() {
+    return "child"
+  }
+}
+
+main() {
+  Base value = Child()
+  printLine(value.name())
+  expectedOutputLines(["trace name", "child"])
+}
+

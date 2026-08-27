@@ -1,0 +1,15 @@
+import std.testing.expectedOutputLines
+
+main() {
+  try {
+    try {
+      printLine("body")
+    } finally {
+      printLine("inner")
+    }
+  } finally {
+    printLine("outer")
+  }
+  expectedOutputLines(["body", "inner", "outer"])
+}
+

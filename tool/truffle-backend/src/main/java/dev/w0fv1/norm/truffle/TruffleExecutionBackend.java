@@ -39,7 +39,7 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     Objects.requireNonNull(artifact, "artifact");
     Objects.requireNonNull(context, "context");
     try {
-      compile(null, artifact).entryPoint().call(context);
+      compile(null, artifact).execute(context);
     } catch (NormGuestException exception) {
       throw translate(exception);
     } finally {

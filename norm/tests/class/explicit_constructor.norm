@@ -1,0 +1,15 @@
+import std.testing.expectedOutputLines
+
+class Point {
+  Integer x
+
+  Point(Integer initial) {
+    x = initial
+  }
+}
+
+main() {
+  printLine(Point(initial: 4).x)
+  expectedOutputLines(["4"])
+}
+

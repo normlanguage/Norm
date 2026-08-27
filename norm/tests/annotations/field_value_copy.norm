@@ -1,0 +1,27 @@
+import std.annotation.FieldTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Append implements FieldTarget<List<Integer>>, SourceRetention {
+  List<Integer> before(FieldContext context, List<Integer> value) {
+    value.add(2)
+    return value
+  }
+}
+
+class Box {
+  @Append()
+  List<Integer> values
+}
+
+main() {
+  List<Integer> source = [1]
+  Box box = Box(values: source)
+  printLine(source.size())
+  printLine(box.values.size())
+  List<Integer> replacement = [3]
+  box.values = replacement
+  printLine(replacement.size())
+  printLine(box.values.size())
+  expectedOutputLines(["1", "2", "1", "2"])
+}

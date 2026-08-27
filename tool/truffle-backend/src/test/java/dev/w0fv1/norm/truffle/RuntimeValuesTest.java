@@ -12,6 +12,7 @@ import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionHasher;
 import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -95,8 +96,17 @@ final class RuntimeValuesTest {
   void preservesReferenceLocationIdentityAcrossCopiesEqualityAndHashing() {
     DefinitionId definition = new DefinitionId(DefinitionHasher.hashGroup(new byte[] {3}), 0);
     CoreType type = declaredType("Box", CoreValueCategory.IDENTITY);
+    DefinitionOccurrenceId occurrence = new DefinitionOccurrenceId(definition, 0);
     RuntimeValues.AggregateInfo info =
-        new RuntimeValues.AggregateInfo(definition, "Box", 2, Map.of());
+        new RuntimeValues.AggregateInfo(
+            definition,
+            "Box",
+            2,
+            List.of(
+                new RuntimeValues.FieldPlan(occurrence, "first", 0, List.of()),
+                new RuntimeValues.FieldPlan(occurrence, "second", 1, List.of())),
+            Map.of(),
+            java.util.Set.of(definition));
     RuntimeValues.ObjectValue receiver = new RuntimeValues.ObjectValue(info, type);
     RuntimeValues.ObjectValue otherReceiver = new RuntimeValues.ObjectValue(info, type);
     RuntimeValues.FieldReference first = new RuntimeValues.FieldReference(receiver, 0);
@@ -104,7 +114,7 @@ final class RuntimeValuesTest {
     RuntimeValues.FieldReference otherField = new RuntimeValues.FieldReference(receiver, 1);
     RuntimeValues.FieldReference otherObject = new RuntimeValues.FieldReference(otherReceiver, 0);
 
-    first.write(7);
+    receiver.fields[0] = 7;
 
     assertEquals(7, same.read());
     assertEquals(first, RuntimeValues.copy(first));

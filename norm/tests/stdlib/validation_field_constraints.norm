@@ -1,0 +1,29 @@
+import std.testing.expectedOutputLines
+import std.validation.ConstraintLocation
+import std.validation.ConstraintViolation
+import std.validation.Max
+import std.validation.NotEmpty
+import std.validation.PositiveOrZero
+
+class Account {
+  @NotEmpty()
+  String owner
+
+  @PositiveOrZero() @Max(value: 100)
+  Integer balance
+}
+
+main() {
+  Account account = Account(owner: "Norm", balance: 20)
+  printLine(account.balance)
+  account.balance = 80
+  printLine(account.balance)
+  try {
+    account.balance = -1
+  } catch ConstraintViolation error {
+    printLine(error.code)
+    printLine(error.location == ConstraintLocation.Field)
+    printLine(account.balance)
+  }
+  expectedOutputLines(["20", "80", "positive_or_zero", "true", "80"])
+}

@@ -65,7 +65,7 @@ public final class Language extends TruffleLanguage<LanguageContext> {
     }
     ExecutableProgram executable =
         backend.compile(this, compilation.program().orElseThrow().compilation().artifact());
-    return new ExecutionRootNode(this, executable.entryPoint()).getCallTarget();
+    return new ExecutionRootNode(this, executable).getCallTarget();
   }
 
   static LanguageContext context(Node node) {

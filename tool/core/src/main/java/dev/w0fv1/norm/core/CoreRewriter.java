@@ -10,26 +10,27 @@ final class CoreRewriter {
       CoreDefinition definition,
       Function<PendingDefinitionReference, DefinitionReference> resolver) {
     return switch (definition) {
-      case CoreDefinition.Annotation annotation ->
-          new CoreDefinition.Annotation(
-              annotation.nominalType(),
-              annotation.targets(),
-              annotation.retention(),
-              annotation.fields().stream()
-                  .map(field -> new CoreField(field.ordinal(), resolve(field.type(), resolver)))
-                  .toList(),
-              annotation.defaults().stream()
-                  .map(value -> value.map(item -> resolve(item, resolver)))
-                  .toList());
       case CoreDefinition.Callable callable ->
           new CoreDefinition.Callable(
               callable.receiverType().map(type -> resolve(type, resolver)),
               resolveTypeParameters(callable.typeParameters(), resolver),
               callable.captureTypes().stream().map(type -> resolve(type, resolver)).toList(),
               callable.captureLocals(),
-              callable.parameterTypes().stream().map(type -> resolve(type, resolver)).toList(),
-              callable.parameterLocals(),
+              callable.parameters().stream()
+                  .map(
+                      parameter ->
+                          new CoreCallableParameter(
+                              parameter.name(),
+                              resolve(parameter.type(), resolver),
+                              parameter.localIndex(),
+                              parameter.interceptors().stream()
+                                  .map(interceptor -> resolve(interceptor, resolver))
+                                  .toList()))
+                  .toList(),
               callable.reifiedTypeLocals(),
+              callable.interceptors().stream()
+                  .map(interceptor -> resolve(interceptor, resolver))
+                  .toList(),
               resolve(callable.returnType(), resolver),
               callable.locals().stream()
                   .map(
@@ -41,12 +42,21 @@ final class CoreRewriter {
       case CoreDefinition.Aggregate aggregateDefinition ->
           new CoreDefinition.Aggregate(
               aggregateDefinition.nominalType(),
+              aggregateDefinition.kind(),
               aggregateDefinition.valueCategory(),
               resolveTypeParameters(aggregateDefinition.typeParameters(), resolver),
               aggregateDefinition.parentType().map(type -> resolve(type, resolver)),
               aggregateDefinition.fieldCount(),
               aggregateDefinition.fields().stream()
-                  .map(field -> new CoreField(field.ordinal(), resolve(field.type(), resolver)))
+                  .map(
+                      field ->
+                          new CoreField(
+                              field.name(),
+                              field.ordinal(),
+                              resolve(field.type(), resolver),
+                              field.interceptors().stream()
+                                  .map(interceptor -> resolve(interceptor, resolver))
+                                  .toList()))
                   .toList(),
               aggregateDefinition.dispatch().stream()
                   .map(
@@ -73,7 +83,13 @@ final class CoreRewriter {
                                   .map(
                                       field ->
                                           new CoreField(
-                                              field.ordinal(), resolve(field.type(), resolver)))
+                                              field.name(),
+                                              field.ordinal(),
+                                              resolve(field.type(), resolver),
+                                              field.interceptors().stream()
+                                                  .map(
+                                                      interceptor -> resolve(interceptor, resolver))
+                                                  .toList()))
                                   .toList()))
                   .toList());
       case CoreDefinition.Interface declaration ->
@@ -109,10 +125,14 @@ final class CoreRewriter {
     };
   }
 
-  private static CoreAnnotationValue resolve(
-      CoreAnnotationValue value,
+  private static CoreInterceptor resolve(
+      CoreInterceptor interceptor,
       Function<PendingDefinitionReference, DefinitionReference> resolver) {
-    return new CoreAnnotationValue(resolve(value.type(), resolver), value.value());
+    return new CoreInterceptor(
+        resolve(interceptor.annotation(), resolver),
+        interceptor.values().stream()
+            .map(value -> new CoreAnnotationValue(resolve(value.type(), resolver), value.value()))
+            .toList());
   }
 
   private static CoreBlock resolve(

@@ -1,9 +1,0 @@
-package project.model
-
-class Counter {
-  Integer value
-
-  add(Integer amount) {
-    value = value + amount
-  }
-}

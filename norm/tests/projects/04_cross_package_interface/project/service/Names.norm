@@ -1,7 +1,0 @@
-package project.service
-
-import project.model.Named
-
-String readName(Named value) {
-  return value.name()
-}

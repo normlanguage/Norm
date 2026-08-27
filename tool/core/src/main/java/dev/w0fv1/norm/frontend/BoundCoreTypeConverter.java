@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundAggregate;
-import dev.w0fv1.norm.bound.BoundAnnotation;
 import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundEnum;
@@ -35,11 +34,6 @@ final class BoundCoreTypeConverter {
       parameters.put(declaration.typeParameters().get(index).type().identity(), index);
     }
     return new BoundCoreTypeConverter(parameters, nominalTypes);
-  }
-
-  static BoundCoreTypeConverter forAnnotation(
-      BoundAnnotation declaration, Map<String, Integer> nominalTypes) {
-    return new BoundCoreTypeConverter(Map.of(), nominalTypes);
   }
 
   static BoundCoreTypeConverter forMetadata(Map<String, Integer> nominalTypes) {

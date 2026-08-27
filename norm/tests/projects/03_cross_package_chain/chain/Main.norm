@@ -1,8 +1,0 @@
-package chain
-
-import chain.middle.transform
-
-main() {
-  printLine(transform(4))
-  expectedOutputLine("9")
-}

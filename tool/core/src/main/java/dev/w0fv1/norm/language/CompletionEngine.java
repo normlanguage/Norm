@@ -164,7 +164,7 @@ final class CompletionEngine {
           snippet(
               "annotation",
               "Norm annotation",
-              "annotation ${1:Name} targets(${2:type}) retention(${3:runtime}) {\n  ${4}\n}"),
+              "annotation ${1:Name} implements ${2:TypeTarget}, ${3:RuntimeRetention} {\n  ${4}\n}"),
           keyword("package"),
           keyword("import"),
           keyword("public"),

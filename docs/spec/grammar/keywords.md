@@ -24,7 +24,7 @@
 
 `value` 是上下文关键字，只在顶层的 `value TypeName` 声明头中具有特殊含义；字段、参数、局部变量和函数仍可命名为 `value`。
 
-`annotation` 是上下文关键字，只在顶层 Annotation 声明头中具有特殊含义。`targets`、`retention`、各目标名和保留策略名也只由该声明语法解释。
+`annotation` 是上下文关键字，只在顶层 Annotation 声明头中具有特殊含义。目标与保留策略是 `std.annotation` 中的普通 interface 名称。
 
 `reflect` 是预声明的 generic 函数名，可以被词法作用域中的普通声明遮蔽。
 

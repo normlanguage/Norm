@@ -20,7 +20,6 @@ final class DeclarationCatalog {
   private final Map<String, Syntax.AggregateDecl> aggregates = new LinkedHashMap<>();
   private final Map<String, Syntax.EnumDecl> enums = new LinkedHashMap<>();
   private final Map<String, Syntax.InterfaceDecl> interfaces = new LinkedHashMap<>();
-  private final Map<String, Syntax.AnnotationDecl> annotations = new LinkedHashMap<>();
   private final Map<Object, Syntax.Program> owners = new IdentityHashMap<>();
 
   DeclarationCatalog(
@@ -45,12 +44,6 @@ final class DeclarationCatalog {
 
   boolean addAggregate(Syntax.Program program, Syntax.AggregateDecl declaration) {
     return aggregates.putIfAbsent(
-            key(program, declaration.name(), declaration.visibility()), declaration)
-        == null;
-  }
-
-  boolean addAnnotation(Syntax.Program program, Syntax.AnnotationDecl declaration) {
-    return annotations.putIfAbsent(
             key(program, declaration.name(), declaration.visibility()), declaration)
         == null;
   }
@@ -86,7 +79,6 @@ final class DeclarationCatalog {
     Object declaration = aggregates.get(qualifiedName);
     if (declaration == null) declaration = enums.get(qualifiedName);
     if (declaration == null) declaration = interfaces.get(qualifiedName);
-    if (declaration == null) declaration = annotations.get(qualifiedName);
     return declaration;
   }
 
@@ -132,8 +124,11 @@ final class DeclarationCatalog {
     return resolve(program, name, interfaces);
   }
 
-  Syntax.AnnotationDecl resolveAnnotation(Syntax.Program program, String name) {
-    return resolve(program, name, annotations);
+  Syntax.AggregateDecl resolveAnnotation(Syntax.Program program, String name) {
+    Syntax.AggregateDecl declaration = resolveAggregate(program, name);
+    return declaration != null && declaration.kind() == Syntax.AggregateKind.ANNOTATION
+        ? declaration
+        : null;
   }
 
   Syntax.AggregateDecl importedAggregateByDeclaredName(Syntax.Program program, String name) {
@@ -159,8 +154,11 @@ final class DeclarationCatalog {
     return resolve(type, interfaces);
   }
 
-  Syntax.AnnotationDecl resolveAnnotation(SemanticType type) {
-    return resolve(type, annotations);
+  Syntax.AggregateDecl resolveAnnotation(SemanticType type) {
+    Syntax.AggregateDecl declaration = resolveAggregate(type);
+    return declaration != null && declaration.kind() == Syntax.AggregateKind.ANNOTATION
+        ? declaration
+        : null;
   }
 
   Syntax.AggregateDecl ownerOf(Syntax.FunctionDecl method) {
@@ -188,10 +186,6 @@ final class DeclarationCatalog {
       for (Syntax.InterfaceDecl declaration : program.interfaces()) {
         owners.put(declaration, program);
         declaration.methods().forEach(method -> owners.put(method, program));
-      }
-      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
-        owners.put(declaration, program);
-        declaration.parameters().forEach(parameter -> owners.put(parameter, program));
       }
       program.enums().forEach(declaration -> owners.put(declaration, program));
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
@@ -230,9 +224,6 @@ final class DeclarationCatalog {
         name = declaration.name();
         visibility = declaration.visibility();
       } else if (candidate instanceof Syntax.InterfaceDecl declaration) {
-        name = declaration.name();
-        visibility = declaration.visibility();
-      } else if (candidate instanceof Syntax.AnnotationDecl declaration) {
         name = declaration.name();
         visibility = declaration.visibility();
       } else {

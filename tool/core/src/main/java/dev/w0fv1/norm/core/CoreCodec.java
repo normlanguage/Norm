@@ -49,9 +49,18 @@ final class CoreCodec {
         writeTypeParameters(writer, callable.typeParameters(), referenceResolver);
         writeTypes(writer, callable.captureTypes(), referenceResolver);
         writeIntegers(writer, callable.captureLocals());
-        writeTypes(writer, callable.parameterTypes(), referenceResolver);
-        writeIntegers(writer, callable.parameterLocals());
+        writer.writeInt(callable.parameters().size());
+        callable
+            .parameters()
+            .forEach(
+                parameter -> {
+                  writer.writeString(parameter.name());
+                  writeType(writer, parameter.type(), referenceResolver);
+                  writer.writeInt(parameter.localIndex());
+                  writeInterceptors(writer, parameter.interceptors(), referenceResolver);
+                });
         writeIntegers(writer, callable.reifiedTypeLocals());
+        writeInterceptors(writer, callable.interceptors(), referenceResolver);
         writeType(writer, callable.returnType(), referenceResolver);
         writer.writeInt(callable.locals().size());
         callable.locals().forEach(local -> writeLocal(writer, local, referenceResolver));
@@ -60,6 +69,7 @@ final class CoreCodec {
       case CoreDefinition.Aggregate aggregateDefinition -> {
         writer.writeTag("aggregate");
         writeNominalType(writer, aggregateDefinition.nominalType());
+        writer.writeTag(aggregateDefinition.kind().name());
         writer.writeTag(aggregateDefinition.valueCategory().name());
         writeTypeParameters(writer, aggregateDefinition.typeParameters(), referenceResolver);
         writer.writeBoolean(aggregateDefinition.parentType().isPresent());
@@ -72,8 +82,9 @@ final class CoreCodec {
             .fields()
             .forEach(
                 field -> {
-                  writer.writeInt(field.ordinal());
+                  writer.writeString(field.name()).writeInt(field.ordinal());
                   writeType(writer, field.type(), referenceResolver);
+                  writeInterceptors(writer, field.interceptors(), referenceResolver);
                 });
         writer.writeInt(aggregateDefinition.dispatch().size());
         aggregateDefinition.dispatch().stream()
@@ -98,22 +109,6 @@ final class CoreCodec {
                         conformanceKey(right, referenceResolver)))
             .forEach(value -> writeConformance(writer, value, referenceResolver));
       }
-      case CoreDefinition.Annotation annotation -> {
-        writer.writeTag("annotation");
-        writeNominalType(writer, annotation.nominalType());
-        writer.writeInt(annotation.targets().size());
-        annotation.targets().stream()
-            .sorted(java.util.Comparator.comparingInt(Enum::ordinal))
-            .forEach(target -> writer.writeTag(target.name()));
-        writer.writeTag(annotation.retention().name());
-        writer.writeInt(annotation.fields().size());
-        for (int index = 0; index < annotation.fields().size(); index++) {
-          CoreField field = annotation.fields().get(index);
-          writer.writeInt(field.ordinal());
-          writeType(writer, field.type(), referenceResolver);
-          writeOptionalAnnotationValue(writer, annotation.defaults().get(index), referenceResolver);
-        }
-      }
       case CoreDefinition.Enum enumDefinition -> {
         writer.writeTag("enum");
         writeNominalType(writer, enumDefinition.nominalType());
@@ -128,8 +123,9 @@ final class CoreCodec {
                       .fields()
                       .forEach(
                           field -> {
-                            writer.writeInt(field.ordinal());
+                            writer.writeString(field.name()).writeInt(field.ordinal());
                             writeType(writer, field.type(), referenceResolver);
+                            writeInterceptors(writer, field.interceptors(), referenceResolver);
                           });
                 });
       }
@@ -187,6 +183,21 @@ final class CoreCodec {
                 });
       }
     }
+  }
+
+  private static void writeInterceptors(
+      CanonicalWriter writer,
+      List<CoreInterceptor> interceptors,
+      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+    writer.writeInt(interceptors.size());
+    interceptors.forEach(
+        interceptor -> {
+          writeReference(writer, referenceResolver.apply(interceptor.annotation()));
+          writer.writeInt(interceptor.values().size());
+          interceptor
+              .values()
+              .forEach(value -> writeAnnotationValue(writer, value, referenceResolver));
+        });
   }
 
   private static void writeLocal(

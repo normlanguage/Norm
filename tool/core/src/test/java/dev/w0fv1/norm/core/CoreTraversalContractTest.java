@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.builtin.IntrinsicId;
-import dev.w0fv1.norm.value.AnnotationRetention;
-import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
@@ -134,9 +132,9 @@ final class CoreTraversalContractTest {
             List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
             List.of(capture),
             List.of(0),
-            List.of(parameter),
-            List.of(1),
+            List.of(new CoreCallableParameter("argument0", parameter, 1, List.of())),
             List.of(2),
+            List.of(),
             result,
             List.of(
                 new CoreLocal(0, capture, CoreLocal.Kind.CAPTURE),
@@ -150,22 +148,28 @@ final class CoreTraversalContractTest {
         new CoreWitness(links.next(), new CoreWitnessTarget.Intrinsic(intrinsic()));
     List<CoreDefinition> definitions = new ArrayList<>();
     definitions.add(
-        new CoreDefinition.Annotation(
+        new CoreDefinition.Aggregate(
             nominal("Annotation"),
-            Set.of(AnnotationTarget.TYPE),
-            AnnotationRetention.RUNTIME,
-            List.of(new CoreField(0, links.type())),
-            List.of(Optional.of(new CoreAnnotationValue(links.type(), "value")))));
+            CoreAggregateKind.ANNOTATION,
+            CoreValueCategory.IDENTITY,
+            List.of(),
+            Optional.empty(),
+            1,
+            List.of(new CoreField("value", 0, links.type(), List.of())),
+            List.of(),
+            links.next(),
+            List.of()));
     definitions.addAll(
         List.of(
             callable,
             new CoreDefinition.Aggregate(
                 nominal("Class"),
+                CoreAggregateKind.CLASS,
                 CoreValueCategory.IDENTITY,
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
                 Optional.empty(),
                 1,
-                List.of(new CoreField(0, links.type())),
+                List.of(new CoreField("value", 0, links.type(), List.of())),
                 List.of(),
                 links.next(),
                 List.of(
@@ -173,7 +177,9 @@ final class CoreTraversalContractTest {
             new CoreDefinition.Enum(
                 nominal("Enum"),
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
-                List.of(new CoreEnumVariant("Value", List.of(new CoreField(0, links.type()))))),
+                List.of(
+                    new CoreEnumVariant(
+                        "Value", List.of(new CoreField("value", 0, links.type(), List.of()))))),
             new CoreDefinition.Interface(
                 nominal("Interface"),
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),

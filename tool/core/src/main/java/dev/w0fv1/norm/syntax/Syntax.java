@@ -1,7 +1,5 @@
 package dev.w0fv1.norm.syntax;
 
-import dev.w0fv1.norm.value.AnnotationRetention;
-import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
 import java.util.Objects;
@@ -16,7 +14,6 @@ public final class Syntax {
       List<ImportDecl> imports,
       List<EnumDecl> enums,
       List<InterfaceDecl> interfaces,
-      List<AnnotationDecl> annotationDeclarations,
       List<AggregateDecl> aggregates,
       List<FunctionDecl> functions,
       SourceSpan span)
@@ -27,7 +24,6 @@ public final class Syntax {
       imports = List.copyOf(imports);
       enums = List.copyOf(enums);
       interfaces = List.copyOf(interfaces);
-      annotationDeclarations = List.copyOf(annotationDeclarations);
       aggregates = List.copyOf(aggregates);
       functions = List.copyOf(functions);
       Objects.requireNonNull(span, "span");
@@ -41,48 +37,6 @@ public final class Syntax {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       arguments = List.copyOf(arguments);
-      Objects.requireNonNull(span, "span");
-    }
-  }
-
-  public record AnnotationParameter(
-      List<AnnotationUse> annotations,
-      TypeRef type,
-      String name,
-      SourceSpan nameSpan,
-      Optional<Expression> defaultValue,
-      SourceSpan span)
-      implements AstNode {
-    public AnnotationParameter {
-      annotations = List.copyOf(annotations);
-      Objects.requireNonNull(type, "type");
-      Objects.requireNonNull(name, "name");
-      Objects.requireNonNull(nameSpan, "nameSpan");
-      defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
-      Objects.requireNonNull(span, "span");
-    }
-  }
-
-  public record AnnotationDecl(
-      List<AnnotationUse> annotations,
-      Visibility visibility,
-      String name,
-      SourceSpan nameSpan,
-      java.util.Set<AnnotationTarget> targets,
-      AnnotationRetention retention,
-      List<AnnotationParameter> parameters,
-      SourceSpan span)
-      implements AstNode {
-    public AnnotationDecl {
-      annotations = List.copyOf(annotations);
-      Objects.requireNonNull(visibility, "visibility");
-      Objects.requireNonNull(name, "name");
-      Objects.requireNonNull(nameSpan, "nameSpan");
-      targets = java.util.Set.copyOf(targets);
-      if (targets.isEmpty())
-        throw new IllegalArgumentException("annotation targets must not be empty");
-      Objects.requireNonNull(retention, "retention");
-      parameters = List.copyOf(parameters);
       Objects.requireNonNull(span, "span");
     }
   }
@@ -118,7 +72,8 @@ public final class Syntax {
 
   public enum AggregateKind {
     CLASS("class"),
-    VALUE("value");
+    VALUE("value"),
+    ANNOTATION("annotation");
 
     private final String keyword;
 

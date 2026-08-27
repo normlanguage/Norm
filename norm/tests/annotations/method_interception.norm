@@ -1,0 +1,22 @@
+import std.annotation.FunctionTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Trace implements FunctionTarget, SourceRetention {
+  Void before(FunctionContext context) {
+    printLine("before " + context.name())
+  }
+}
+
+class Service {
+  @Trace()
+  String read() {
+    return "value"
+  }
+}
+
+main() {
+  printLine(Service().read())
+  expectedOutputLines(["before read", "value"])
+}
+

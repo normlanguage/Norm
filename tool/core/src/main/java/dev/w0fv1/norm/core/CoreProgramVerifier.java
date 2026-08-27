@@ -19,13 +19,18 @@ import java.util.Set;
 final class CoreProgramVerifier {
   private final CoreProgram program;
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
+  private final CoreInterfaceHierarchy interfaces;
   private final Deque<Control> controls = new ArrayDeque<>();
   private CoreReferenceFlow referenceFlow;
+  private CoreFunctionTargetProtocol functionTarget;
+  private CoreParameterTargetProtocol parameterTarget;
+  private CoreFieldTargetProtocol fieldTarget;
   private DefinitionId resolvedExceptionDefinition;
   private boolean exceptionDefinitionResolved;
 
   private CoreProgramVerifier(CoreProgram program) {
     this.program = Objects.requireNonNull(program, "program");
+    interfaces = new CoreInterfaceHierarchy(program);
   }
 
   static void verify(CoreProgram program) {
@@ -39,9 +44,11 @@ final class CoreProgramVerifier {
         verifyInterface(record.id(), declaration);
       }
     }
+    functionTarget = CoreFunctionTargetProtocol.resolve(program).orElse(null);
+    parameterTarget = CoreParameterTargetProtocol.resolve(program).orElse(null);
+    fieldTarget = CoreFieldTargetProtocol.resolve(program).orElse(null);
     for (CoreDefinitionRecord record : program.definitions()) {
       switch (record.definition()) {
-        case CoreDefinition.Annotation annotation -> verifyAnnotation(record.id(), annotation);
         case CoreDefinition.Callable callable -> verifyCallable(record.id(), callable);
         case CoreDefinition.Aggregate declaration -> verifyAggregate(record.id(), declaration);
         case CoreDefinition.Enum declaration -> verifyEnum(record.id(), declaration);
@@ -52,10 +59,6 @@ final class CoreProgramVerifier {
       }
     }
     verifyBuiltinDispatchUniqueness();
-  }
-
-  private void verifyAnnotation(DefinitionId id, CoreDefinition.Annotation annotation) {
-    CoreAnnotationVerifier.verifySchema(program, id, annotation);
   }
 
   private void verifyBuiltinDispatchUniqueness() {
@@ -89,6 +92,31 @@ final class CoreProgramVerifier {
     callable.receiverType().ifPresent(type -> verifyStoredType(id, type, parameterCount));
     callable.captureTypes().forEach(type -> verifyStoredType(id, type, parameterCount));
     callable.parameterTypes().forEach(type -> verifyParameterType(id, type, parameterCount));
+    if (callable.parameters().stream().map(CoreCallableParameter::name).distinct().count()
+        != callable.parameters().size()) {
+      throw new IllegalArgumentException("callable parameter names must be unique");
+    }
+    Set<DefinitionId> interceptorTypes = new HashSet<>();
+    for (CoreInterceptor interceptor : callable.interceptors()) {
+      if (!interceptorTypes.add(resolve(id, interceptor.annotation()))) {
+        throw new IllegalArgumentException("interceptor annotation must be unique per callable");
+      }
+    }
+    callable
+        .interceptors()
+        .forEach(
+            interceptor ->
+                CoreAnnotationVerifier.verifyInterceptor(program, id, interceptor, functionTarget));
+    for (CoreCallableParameter parameter : callable.parameters()) {
+      Set<DefinitionId> parameterInterceptorTypes = new HashSet<>();
+      for (CoreInterceptor interceptor : parameter.interceptors()) {
+        if (!parameterInterceptorTypes.add(resolve(id, interceptor.annotation()))) {
+          throw new IllegalArgumentException("interceptor annotation must be unique per parameter");
+        }
+        CoreAnnotationVerifier.verifyParameterInterceptor(
+            program, id, parameter, interceptor, parameterTarget);
+      }
+    }
     verifyReturnType(id, callable.returnType(), parameterCount);
     callable.locals().forEach(local -> verifyLocalType(id, local, parameterCount));
     if (!controls.isEmpty()) throw new IllegalStateException("core control stack is not empty");
@@ -103,6 +131,20 @@ final class CoreProgramVerifier {
   }
 
   private void verifyAggregate(DefinitionId id, CoreDefinition.Aggregate declaration) {
+    if (declaration.kind()
+        == CoreAggregateKind.VALUE
+        != (declaration.valueCategory() == CoreValueCategory.VALUE)) {
+      throw new IllegalArgumentException("aggregate kind and value category disagree");
+    }
+    if (declaration.kind() == CoreAggregateKind.ANNOTATION) {
+      if (!declaration.typeParameters().isEmpty() || declaration.parentType().isPresent()) {
+        throw new IllegalArgumentException("annotation cannot be generic or inherit a class");
+      }
+      CoreAnnotationPolicy.resolve(program, id, declaration);
+    } else if (CoreAnnotationPolicy.usesPolicyInterfaces(program, id, declaration)) {
+      throw new IllegalArgumentException(
+          "annotation policy interfaces require an annotation aggregate");
+    }
     int inheritedFields = 0;
     DefinitionId parentId = null;
     CoreType.Declared parentInstance = null;
@@ -114,9 +156,11 @@ final class CoreProgramVerifier {
           || !(declared.constructor() instanceof CoreTypeConstructor.User user)
           || !(program.definition(resolveExternal(user.definition())).orElseThrow()
               instanceof CoreDefinition.Aggregate parent)
+          || declaration.kind() != CoreAggregateKind.CLASS
+          || parent.kind() != CoreAggregateKind.CLASS
           || parent.valueCategory() != CoreValueCategory.IDENTITY
           || declaration.valueCategory() != CoreValueCategory.IDENTITY) {
-        throw new IllegalArgumentException("aggregate parent must be an aggregate type");
+        throw new IllegalArgumentException("aggregate inheritance requires class types");
       }
       parentInstance = declared;
       parentId = resolveExternal(user.definition());
@@ -126,9 +170,25 @@ final class CoreProgramVerifier {
     if (declaration.fieldCount() != inheritedFields + declaration.fields().size()) {
       throw new IllegalArgumentException("aggregate field count does not match its parent");
     }
-    declaration
-        .fields()
-        .forEach(field -> verifyStoredType(id, field.type(), declaration.typeParameters().size()));
+    if (declaration.fields().stream().map(CoreField::name).distinct().count()
+        != declaration.fields().size()) {
+      throw new IllegalArgumentException("aggregate field names must be unique");
+    }
+    for (int index = 0; index < declaration.fields().size(); index++) {
+      CoreField field = declaration.fields().get(index);
+      if (field.ordinal() != inheritedFields + index) {
+        throw new IllegalArgumentException("aggregate field ordinals must be contiguous");
+      }
+      verifyStoredType(id, field.type(), declaration.typeParameters().size());
+      Set<DefinitionId> interceptors = new HashSet<>();
+      for (CoreInterceptor interceptor : field.interceptors()) {
+        DefinitionId annotation = resolve(id, interceptor.annotation());
+        if (!interceptors.add(annotation)) {
+          throw new IllegalArgumentException("field interceptors must be unique");
+        }
+        CoreAnnotationVerifier.verifyFieldInterceptor(program, id, field, interceptor, fieldTarget);
+      }
+    }
     verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
     if (resolvedExceptionDefinition != null
         && !declaration.typeParameters().isEmpty()
@@ -139,12 +199,17 @@ final class CoreProgramVerifier {
     CoreDefinition constructor = program.definition(constructorId).orElseThrow();
     if (!(constructor instanceof CoreDefinition.Callable constructorCallable)
         || constructorCallable.receiverType().isEmpty()
+        || !constructorCallable.typeParameters().isEmpty()
+        || !constructorCallable.returnType().equals(CoreType.VOID)
         || !isReceiverOf(
             constructorId,
             constructorCallable.receiverType().orElseThrow(),
             id,
             declaration.typeParameters().size())) {
       throw new IllegalArgumentException("aggregate constructor must target a method");
+    }
+    if (declaration.kind() == CoreAggregateKind.ANNOTATION) {
+      CoreAnnotationVerifier.verifyDeclaration(program, id, declaration);
     }
     verifyAggregateDispatch(id, declaration, parentId, parentInstance);
     Set<DefinitionId> interfaces = new HashSet<>();
@@ -407,18 +472,7 @@ final class CoreProgramVerifier {
 
   private void collectInterfaceInstances(
       InterfaceInstance instance, Map<DefinitionId, CoreType.Declared> result) {
-    CoreType.Declared previous = result.putIfAbsent(instance.definition(), instance.type());
-    if (previous != null) {
-      if (!previous.equals(instance.type())) {
-        throw new IllegalArgumentException("interface inheritance has conflicting instantiations");
-      }
-      return;
-    }
-    for (CoreType parent : instance.declaration().directParents()) {
-      CoreType instantiated =
-          absolute(instance.definition(), parent).substitute(instance.type().arguments()::get);
-      collectInterfaceInstances(interfaceInstance(instance.definition(), instantiated), result);
-    }
+    interfaces.collect(instance.definition(), instance.type(), result);
   }
 
   private void verifyInterfaceMethod(DefinitionId id, CoreDefinition.InterfaceMethod method) {
@@ -473,7 +527,9 @@ final class CoreProgramVerifier {
           implementationDefinition instanceof CoreDefinition.Callable candidate
               && candidate.receiverType().isPresent()
               && absolute(implementationId, candidate.receiverType().orElseThrow())
-                  .equals(absolute(requirementId, requirement.receiverInterfaceType()));
+                  instanceof CoreType.Declared receiver
+              && receiver.constructor() instanceof CoreTypeConstructor.User user
+              && interfaceSubstitutions(instance, resolveExternal(user.definition())) != null;
       int expectedReified =
           aggregateReceiver
               ? declaration.typeParameters().size() + requirement.typeParameters().size()
@@ -554,7 +610,8 @@ final class CoreProgramVerifier {
                   .substitute(substitutions::get);
           requireSameType(
               expectedBound,
-              absolute(implementationId, implementationParameter.upperBound().orElseThrow()),
+              absolute(implementationId, implementationParameter.upperBound().orElseThrow())
+                  .substitute(implementationSubstitutions::get),
               "conformance witness generic bound");
         }
       }
@@ -818,31 +875,14 @@ final class CoreProgramVerifier {
   }
 
   private InterfaceInstance interfaceInstance(DefinitionId owner, CoreType type) {
-    CoreType actual = nonNullable(absolute(owner, type));
-    if (!(actual instanceof CoreType.Declared declared)
-        || declared.category() != CoreValueCategory.POLYMORPHIC
-        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
-      throw new IllegalArgumentException("core type is not an interface");
-    }
-    DefinitionId definition = resolveExternal(user.definition());
-    CoreDefinition target = program.definition(definition).orElseThrow();
-    if (!(target instanceof CoreDefinition.Interface declaration)
-        || declared.arguments().size() != declaration.typeParameters().size()) {
-      throw new IllegalArgumentException("core interface type does not match its nominal ABI");
-    }
-    return new InterfaceInstance(definition, declaration, declared);
+    CoreInterfaceHierarchy.Instance instance = interfaces.instance(owner, type);
+    return new InterfaceInstance(instance.definition(), instance.declaration(), instance.type());
   }
 
   private List<CoreType> interfaceSubstitutions(InterfaceInstance instance, DefinitionId target) {
-    if (instance.definition().equals(target)) return instance.type().arguments();
-    for (CoreType parent : instance.declaration().directParents()) {
-      CoreType instantiated =
-          absolute(instance.definition(), parent).substitute(instance.type().arguments()::get);
-      List<CoreType> result =
-          interfaceSubstitutions(interfaceInstance(instance.definition(), instantiated), target);
-      if (result != null) return result;
-    }
-    return null;
+    CoreType.Declared targetInstance =
+        interfaces.instances(instance.definition(), instance.type()).get(target);
+    return targetInstance == null ? null : targetInstance.arguments();
   }
 
   private record InterfaceInstance(
@@ -857,13 +897,19 @@ final class CoreProgramVerifier {
     declaration
         .variants()
         .forEach(
-            variant ->
-                variant
-                    .fields()
-                    .forEach(
-                        field ->
-                            verifyStoredType(
-                                id, field.type(), declaration.typeParameters().size())));
+            variant -> {
+              if (variant.fields().stream().map(CoreField::name).distinct().count()
+                  != variant.fields().size()) {
+                throw new IllegalArgumentException("enum field names must be unique");
+              }
+              for (int index = 0; index < variant.fields().size(); index++) {
+                CoreField field = variant.fields().get(index);
+                if (field.ordinal() != index || !field.interceptors().isEmpty()) {
+                  throw new IllegalArgumentException("enum field structure is invalid");
+                }
+                verifyStoredType(id, field.type(), declaration.typeParameters().size());
+              }
+            });
   }
 
   private void verifyBlock(DefinitionId owner, CoreDefinition.Callable callable, CoreBlock block) {
@@ -919,13 +965,6 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, assignment.receiver());
           verifyExpression(owner, callable, assignment.value());
           requireNonNullableReceiver(owner, assignment.receiver().type(), "field assignment");
-          CoreType receiverType = nonNullable(absolute(owner, assignment.receiver().type()));
-          if (receiverType instanceof CoreType.Declared declared
-              && declared.constructor() instanceof CoreTypeConstructor.User user
-              && program.definition(resolve(owner, user.definition())).orElse(null)
-                  instanceof CoreDefinition.Annotation) {
-            throw new IllegalArgumentException("annotation fields cannot be assigned");
-          }
           CoreType fieldType =
               instantiatedFieldType(owner, assignment.receiver().type(), assignment.field());
           requireAssignable(owner, fieldType, owner, assignment.value().type(), "field assignment");
@@ -1435,7 +1474,8 @@ final class CoreProgramVerifier {
       if (!(annotationType instanceof CoreType.Declared declared)
           || !(declared.constructor() instanceof CoreTypeConstructor.User user)
           || !(program.definition(resolve(owner, user.definition())).orElse(null)
-              instanceof CoreDefinition.Annotation)) {
+              instanceof CoreDefinition.Aggregate annotation)
+          || annotation.kind() != CoreAggregateKind.ANNOTATION) {
         throw new IllegalArgumentException("Type.annotation result must name an annotation");
       }
     }
@@ -2276,7 +2316,6 @@ final class CoreProgramVerifier {
     CoreDefinition targetDefinition = program.definition(targetId).orElseThrow();
     List<CoreField> fields =
         switch (targetDefinition) {
-          case CoreDefinition.Annotation annotation -> annotation.fields();
           case CoreDefinition.Aggregate aggregate -> aggregate.fields();
           default -> throw new IllegalArgumentException("field owner or ordinal is invalid");
         };
@@ -2286,15 +2325,6 @@ final class CoreProgramVerifier {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("field owner or ordinal is invalid"));
     CoreType receiver = nonNullable(absolute(owner, receiverType));
-    if (targetDefinition instanceof CoreDefinition.Annotation) {
-      if (!(receiver instanceof CoreType.Declared declared)
-          || !(declared.constructor() instanceof CoreTypeConstructor.User user)
-          || !resolveExternal(user.definition()).equals(targetId)
-          || !declared.arguments().isEmpty()) {
-        throw new IllegalArgumentException("field receiver does not match its owner");
-      }
-      return absolute(targetId, field.type());
-    }
     CoreDefinition.Aggregate target = (CoreDefinition.Aggregate) targetDefinition;
     CoreType.Declared declared = aggregateView(receiver, targetId);
     if (declared == null || declared.arguments().size() != target.typeParameters().size()) {
@@ -2331,28 +2361,28 @@ final class CoreProgramVerifier {
 
   private void verifyReturnType(DefinitionId owner, CoreType type, int parameterCount) {
     if (type.equals(CoreType.VOID)) return;
-    if (containsReference(type)) {
+    if (CoreTypes.containsReference(type)) {
       throw new IllegalArgumentException("core return ABI cannot contain a reference type");
     }
     verifyInhabitedType(owner, type, parameterCount, "core return ABI");
   }
 
   private void verifyParameterType(DefinitionId owner, CoreType type, int parameterCount) {
-    if (containsReference(type) && !(type instanceof CoreType.Reference)) {
+    if (CoreTypes.containsReference(type) && !(type instanceof CoreType.Reference)) {
       throw new IllegalArgumentException("core parameter ABI cannot contain a nested reference");
     }
     verifyValueType(owner, type, parameterCount);
   }
 
   private void verifyStoredType(DefinitionId owner, CoreType type, int parameterCount) {
-    if (containsReference(type)) {
+    if (CoreTypes.containsReference(type)) {
       throw new IllegalArgumentException("stored core types cannot contain references");
     }
     verifyValueType(owner, type, parameterCount);
   }
 
   private void verifyRuntimeTypeTemplate(DefinitionId owner, CoreType type, int parameterCount) {
-    if (containsReference(type)) {
+    if (CoreTypes.containsReference(type)) {
       throw new IllegalArgumentException("runtime type templates cannot contain references");
     }
     verifyInhabitedType(owner, type, parameterCount, "runtime type template");
@@ -2389,7 +2419,8 @@ final class CoreProgramVerifier {
       }
       return;
     }
-    if (containsReference(local.type()) && !(local.type() instanceof CoreType.Reference)) {
+    if (CoreTypes.containsReference(local.type())
+        && !(local.type() instanceof CoreType.Reference)) {
       throw new IllegalArgumentException("core local ABI cannot contain a nested reference");
     }
     verifyValueType(owner, local.type(), parameterCount);
@@ -2404,7 +2435,7 @@ final class CoreProgramVerifier {
         }
       }
       case CoreType.Declared declared -> {
-        if (declared.arguments().stream().anyMatch(CoreProgramVerifier::containsReference)) {
+        if (declared.arguments().stream().anyMatch(CoreTypes::containsReference)) {
           throw new IllegalArgumentException("declared core types cannot contain references");
         }
         declared
@@ -2416,9 +2447,8 @@ final class CoreProgramVerifier {
         }
       }
       case CoreType.Function function -> {
-        if (containsReference(function.returnType())
-            || function.parameterTypes().stream()
-                .anyMatch(CoreProgramVerifier::containsReference)) {
+        if (CoreTypes.containsReference(function.returnType())
+            || function.parameterTypes().stream().anyMatch(CoreTypes::containsReference)) {
           throw new IllegalArgumentException("function core types cannot contain references");
         }
         verifyReturnType(owner, function.returnType(), parameterCount);
@@ -2473,10 +2503,7 @@ final class CoreProgramVerifier {
     CoreDefinition target = program.definition(targetId).orElseThrow();
     int arity;
     CoreValueCategory category;
-    if (target instanceof CoreDefinition.Annotation) {
-      arity = 0;
-      category = CoreValueCategory.VALUE;
-    } else if (target instanceof CoreDefinition.Aggregate declaration) {
+    if (target instanceof CoreDefinition.Aggregate declaration) {
       arity = declaration.typeParameters().size();
       category = declaration.valueCategory();
     } else if (target instanceof CoreDefinition.Enum declaration) {
@@ -2503,7 +2530,6 @@ final class CoreProgramVerifier {
     }
     List<CoreTypeParameter> parameters =
         switch (target) {
-          case CoreDefinition.Annotation ignored -> List.of();
           case CoreDefinition.Aggregate declaration -> declaration.typeParameters();
           case CoreDefinition.Enum declaration -> declaration.typeParameters();
           case CoreDefinition.Interface declaration -> declaration.typeParameters();
@@ -2536,20 +2562,6 @@ final class CoreProgramVerifier {
       case CoreType.Reference reference -> collectTypeParameters(reference.target(), result);
       case CoreType.Special ignored -> {}
     }
-  }
-
-  private static boolean containsReference(CoreType type) {
-    return switch (type) {
-      case CoreType.Reference ignored -> true;
-      case CoreType.Declared declared ->
-          declared.arguments().stream().anyMatch(CoreProgramVerifier::containsReference);
-      case CoreType.Function function ->
-          containsReference(function.returnType())
-              || function.parameterTypes().stream()
-                  .anyMatch(CoreProgramVerifier::containsReference);
-      case CoreType.Parameter ignored -> false;
-      case CoreType.Special ignored -> false;
-    };
   }
 
   private static void verifyDenseArguments(List<CoreArgument> arguments, int parameterCount) {

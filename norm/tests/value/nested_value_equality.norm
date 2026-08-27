@@ -1,0 +1,18 @@
+import std.testing.expectedOutputLines
+
+value Point {
+  Integer x
+}
+
+value Segment {
+  Point start
+  Point end
+}
+
+main() {
+  Segment first = Segment(start: Point(x: 1), end: Point(x: 2))
+  Segment second = Segment(start: Point(x: 1), end: Point(x: 2))
+  printLine(first == second)
+  expectedOutputLines(["true"])
+}
+

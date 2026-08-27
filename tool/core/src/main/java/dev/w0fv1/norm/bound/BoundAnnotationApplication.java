@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 public record BoundAnnotationApplication(
-    BoundAnnotationId annotation,
+    BoundAggregateId annotation,
     BoundAnnotationTarget target,
     List<BoundAnnotationValue> values,
     SourceSpan span) {

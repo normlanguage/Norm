@@ -1,0 +1,10 @@
+package app.model
+
+public class Counter {
+  Integer base
+
+  public Integer add(Integer amount) {
+    return base + amount
+  }
+}
+

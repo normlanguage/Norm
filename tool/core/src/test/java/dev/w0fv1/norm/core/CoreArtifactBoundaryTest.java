@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.value.SourceSpan;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -12,26 +13,33 @@ import org.junit.jupiter.api.Test;
 
 final class CoreArtifactBoundaryTest {
   @Test
-  void rejectsNonPublicOrDuplicateAnnotationFieldBindings() {
+  void rejectsAmbiguousAggregateOccurrences() {
+    CoreArtifact compilation = compile("class Box { Integer value } Void main() {}");
+    CoreDefinitionOccurrence aggregate =
+        compilation.authoring().occurrence(binding(compilation, "Box").occurrence()).orElseThrow();
+    SourceFile duplicateSource = SourceFile.of(Path.of("z-boundary.norm"), "class Box {}");
+    CoreDefinitionOccurrence duplicate =
+        new CoreDefinitionOccurrence(
+            new DefinitionOccurrenceId(aggregate.id().representative(), 1),
+            aggregate.representedDefinitions(),
+            aggregate.role(),
+            new CoreDefinitionOrigin(
+                aggregate.origin().definitionName(),
+                new SourceSpan(duplicateSource, 0, duplicateSource.length()),
+                java.util.Map.of()),
+            aggregate.references());
+    List<CoreDefinitionOccurrence> occurrences =
+        new java.util.ArrayList<>(compilation.authoring().occurrences());
+    occurrences.add(duplicate);
+
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            new CoreBindingShape.Annotation(
-                java.util.Set.of(dev.w0fv1.norm.value.AnnotationTarget.TYPE),
-                dev.w0fv1.norm.value.AnnotationRetention.RUNTIME,
-                List.of(
-                    new CoreBindingShape.Field("text", CoreVisibility.PRIVATE, CoreType.STRING)),
-                List.of(Optional.empty())));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            new CoreBindingShape.Annotation(
-                java.util.Set.of(dev.w0fv1.norm.value.AnnotationTarget.TYPE),
-                dev.w0fv1.norm.value.AnnotationRetention.RUNTIME,
-                List.of(
-                    new CoreBindingShape.Field("text", CoreVisibility.PUBLIC, CoreType.STRING),
-                    new CoreBindingShape.Field("text", CoreVisibility.PUBLIC, CoreType.STRING)),
-                List.of(Optional.empty(), Optional.empty())));
+            new CoreArtifact(
+                compilation.program(),
+                compilation.namespace(),
+                new CoreAuthoringMap(occurrences, compilation.entryPoint()),
+                compilation.metadata()));
   }
 
   @Test

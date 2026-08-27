@@ -1,0 +1,21 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Append implements ParameterTarget<List<Integer>>, SourceRetention {
+  List<Integer> before(ParameterContext context, List<Integer> value) {
+    value.add(2)
+    return value
+  }
+}
+
+Void inspect(@Append() List<Integer> values) {
+  printLine(values.size())
+}
+
+main() {
+  List<Integer> values = [1]
+  inspect(values: values)
+  printLine(values.size())
+  expectedOutputLines(["2", "1"])
+}

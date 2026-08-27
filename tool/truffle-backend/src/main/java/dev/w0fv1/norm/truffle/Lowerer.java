@@ -16,6 +16,7 @@ import dev.w0fv1.norm.core.CoreDefinitionOccurrence;
 import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreExpression;
+import dev.w0fv1.norm.core.CoreInterfaceHierarchy;
 import dev.w0fv1.norm.core.CoreIteration;
 import dev.w0fv1.norm.core.CoreLocal;
 import dev.w0fv1.norm.core.CoreMethodDispatch;
@@ -53,7 +54,7 @@ final class Lowerer {
   private final Map<DocumentId, Source> sources = new HashMap<>();
   private CoreArtifact artifact;
   private CoreProgram program;
-  private ReflectionRegistry reflectionRegistry;
+  private AnnotationRuntime annotations;
 
   Lowerer(Language language) {
     this.language = language;
@@ -62,15 +63,16 @@ final class Lowerer {
   ExecutableProgram lower(CoreArtifact checkedArtifact) {
     artifact = Objects.requireNonNull(checkedArtifact, "checkedArtifact");
     program = artifact.program();
-    reflectionRegistry = new ReflectionRegistry(artifact);
+    annotations = new AnnotationRuntime(artifact);
     indexDefinitions();
     createCallTargets();
     indexDispatch();
+    initializeAnnotations();
     lowerBodies();
     DefinitionOccurrenceId entry = artifact.entryPoint();
     FunctionPlan entryPlan = callables.get(entry);
     if (entryPlan == null) throw new IllegalStateException("entry callable is absent");
-    return new ExecutableProgram(entryPlan.target);
+    return new ExecutableProgram(entryPlan.target, annotations);
   }
 
   private void indexDefinitions() {
@@ -78,7 +80,6 @@ final class Lowerer {
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
       switch (definition) {
-        case CoreDefinition.Annotation ignored -> {}
         case CoreDefinition.Aggregate declaration -> aggregates.put(occurrence.id(), declaration);
         case CoreDefinition.Callable declaration ->
             callables.put(occurrence.id(), plan(occurrence.id(), declaration));
@@ -110,8 +111,32 @@ final class Lowerer {
               plan.descriptor,
               plan.arguments.toArray(FrameBinding[]::new),
               section(plan.id, 0));
-      plan.target = plan.root.getCallTarget();
+      plan.implementation = plan.root.getCallTarget();
+      plan.target = plan.implementation;
     }
+    for (FunctionPlan plan : callables.values()) {
+      if (plan.declaration.interceptors().isEmpty()
+          && plan.declaration.parameters().stream()
+              .allMatch(parameter -> parameter.interceptors().isEmpty())) continue;
+      plan.target =
+          new CallableInterceptorRootNode(
+                  language,
+                  artifact.displayName(plan.id),
+                  section(plan.id, 0),
+                  plan.id,
+                  plan.implementation,
+                  plan.declaration,
+                  CoreTypes.absolute(
+                      plan.declaration.returnType(), plan.id.representative(), program),
+                  annotations)
+              .getCallTarget();
+    }
+  }
+
+  private void initializeAnnotations() {
+    Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
+    callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
+    annotations.initialize(aggregateInfo, targets);
   }
 
   private void indexDispatch() {
@@ -119,6 +144,10 @@ final class Lowerer {
     callables
         .values()
         .forEach(plan -> callableByDefinition.putIfAbsent(plan.id.representative(), plan));
+    Map<DefinitionId, DefinitionOccurrenceId> aggregateOccurrences = new HashMap<>();
+    aggregates
+        .keySet()
+        .forEach(occurrence -> aggregateOccurrences.put(occurrence.representative(), occurrence));
     for (Map.Entry<DefinitionOccurrenceId, CoreDefinition.Aggregate> entry :
         aggregates.entrySet()) {
       DefinitionOccurrenceId occurrence = entry.getKey();
@@ -160,12 +189,14 @@ final class Lowerer {
                 lowerWitnessTarget(
                     inherited.owner(), witness.implementation(), callableByDefinition);
           }
+          List<CoreType> defaultReceiverArguments =
+              defaultWitnessReceiverArguments(
+                  inherited.owner(), witness.implementation(), inherited.interfaceType());
           if (target instanceof RuntimeValues.DispatchTarget.Callable callable
-              && isDefaultWitness(inherited.owner(), witness.implementation())) {
-            CoreType interfaceType = inherited.interfaceType();
+              && defaultReceiverArguments != null) {
             target =
                 new RuntimeValues.DispatchTarget.Callable(
-                    callable.target(), ((CoreType.Declared) interfaceType).arguments());
+                    callable.target(), defaultReceiverArguments);
           }
           if (dispatch.put(requirement, target) != null) {
             throw new IllegalStateException("verified aggregate dispatch is duplicated");
@@ -178,6 +209,7 @@ final class Lowerer {
               occurrence.representative(),
               artifact.displayName(occurrence),
               entry.getValue().fieldCount(),
+              fieldPlans(occurrence, entry.getValue(), aggregateOccurrences),
               dispatch,
               aggregateAncestors(occurrence.representative())));
     }
@@ -205,6 +237,40 @@ final class Lowerer {
         }
       }
     }
+  }
+
+  private List<RuntimeValues.FieldPlan> fieldPlans(
+      DefinitionOccurrenceId occurrence,
+      CoreDefinition.Aggregate aggregate,
+      Map<DefinitionId, DefinitionOccurrenceId> occurrences) {
+    List<RuntimeValues.FieldPlan> result = new ArrayList<>();
+    if (aggregate.parentType().isPresent()) {
+      CoreType parent =
+          CoreTypes.absolute(
+              aggregate.parentType().orElseThrow(), occurrence.representative(), program);
+      DefinitionId parentId =
+          ((DefinitionReference.External)
+                  ((CoreTypeConstructor.User) ((CoreType.Declared) parent).constructor())
+                      .definition())
+              .definition();
+      DefinitionOccurrenceId parentOccurrence = occurrences.get(parentId);
+      if (parentOccurrence == null) {
+        throw new IllegalStateException("aggregate parent occurrence is absent");
+      }
+      result.addAll(
+          fieldPlans(
+              parentOccurrence,
+              (CoreDefinition.Aggregate) program.definition(parentId).orElseThrow(),
+              occurrences));
+    }
+    aggregate
+        .fields()
+        .forEach(
+            field ->
+                result.add(
+                    new RuntimeValues.FieldPlan(
+                        occurrence, field.name(), field.ordinal(), field.interceptors())));
+    return List.copyOf(result);
   }
 
   private RuntimeValues.DispatchTarget lowerWitnessTarget(
@@ -251,20 +317,24 @@ final class Lowerer {
   private record RuntimeConformance(
       DefinitionId owner, CoreConformance conformance, CoreType interfaceType) {}
 
-  private boolean isDefaultWitness(DefinitionId owner, CoreWitnessTarget target) {
-    if (!(target instanceof CoreWitnessTarget.Callable callable)) return false;
+  private List<CoreType> defaultWitnessReceiverArguments(
+      DefinitionId owner, CoreWitnessTarget target, CoreType interfaceType) {
+    if (!(target instanceof CoreWitnessTarget.Callable callable)) return null;
     DefinitionId implementationId = resolve(owner, callable.definition());
     CoreDefinition implementation = program.definition(implementationId).orElseThrow();
     if (!(implementation instanceof CoreDefinition.Callable method)
         || method.receiverType().isEmpty()) {
-      return false;
+      return null;
     }
     CoreType receiver =
         CoreTypes.absolute(method.receiverType().orElseThrow(), implementationId, program);
-    return receiver instanceof CoreType.Declared declared
-        && declared.constructor() instanceof CoreTypeConstructor.User user
-        && user.definition() instanceof dev.w0fv1.norm.core.DefinitionReference.External external
-        && !external.definition().equals(owner);
+    if (!(receiver instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+        || !(user.definition() instanceof DefinitionReference.External external)
+        || external.definition().equals(owner)) {
+      return null;
+    }
+    return CoreInterfaceHierarchy.arguments(program, owner, interfaceType, external.definition());
   }
 
   private java.util.Set<DefinitionId> aggregateAncestors(DefinitionId definition) {
@@ -313,7 +383,8 @@ final class Lowerer {
               new StatementNodes.WriteField(
                   lowerExpression(assignment.receiver(), plan),
                   assignment.field().ordinal(),
-                  lowerExpression(assignment.value(), plan));
+                  lowerExpression(assignment.value(), plan),
+                  annotations);
           case CoreStatement.IntrinsicAssignment assignment -> {
             List<ExpressionNode> arguments = new ArrayList<>();
             assignment.index().ifPresent(value -> arguments.add(lowerExpression(value, plan)));
@@ -326,7 +397,8 @@ final class Lowerer {
           case CoreStatement.ReferenceAssignment assignment ->
               new StatementNodes.WriteReference(
                   lowerExpression(assignment.reference(), plan),
-                  lowerExpression(assignment.value(), plan));
+                  lowerExpression(assignment.value(), plan),
+                  annotations);
           case CoreStatement.ExpressionStatement expression ->
               new StatementNodes.ExpressionStatement(
                   lowerExpression(expression.expression(), plan));
@@ -447,7 +519,7 @@ final class Lowerer {
                   new int[] {0},
                   null,
                   false,
-                  reflectionRegistry);
+                  annotations);
           case CoreExpression.CopyObject copied ->
               new ExpressionNodes.CopyObject(
                   lowerExpression(copied.receiver(), plan), copied.nullSafe());
@@ -468,7 +540,7 @@ final class Lowerer {
                   parameterIndices(intrinsic.arguments()),
                   intrinsic.runtimeType().map(value -> lowerRuntimeType(value, plan)).orElse(null),
                   intrinsic.nullSafe(),
-                  reflectionRegistry);
+                  annotations);
         };
     return lowered.at(section(plan.id, expression.nodeIndex()));
   }
@@ -772,6 +844,7 @@ final class Lowerer {
     private final Map<Integer, FrameBinding> bindings = new LinkedHashMap<>();
     private FrameDescriptor descriptor;
     private FunctionRootNode root;
+    private RootCallTarget implementation;
     private RootCallTarget target;
 
     private FunctionPlan(DefinitionOccurrenceId id, CoreDefinition.Callable declaration) {

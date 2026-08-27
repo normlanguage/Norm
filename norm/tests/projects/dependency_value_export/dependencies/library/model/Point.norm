@@ -1,0 +1,7 @@
+package library.model
+
+public value Point {
+  Integer x
+  Integer y
+}
+

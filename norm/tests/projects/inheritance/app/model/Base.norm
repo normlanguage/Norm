@@ -1,0 +1,18 @@
+package app.model
+
+import app.metadata.Wrap
+
+public class Base<T> {
+  public T value
+  @Wrap()
+  public String label
+
+  Base(T initial) {
+    value = initial
+    label = "initial"
+  }
+
+  public T get() {
+    return value
+  }
+}

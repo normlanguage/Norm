@@ -1,0 +1,11 @@
+import std.testing.expectedOutputLines
+
+main() {
+  try {
+    printLine("body")
+  } finally {
+    printLine("finally")
+  }
+  expectedOutputLines(["body", "finally"])
+}
+

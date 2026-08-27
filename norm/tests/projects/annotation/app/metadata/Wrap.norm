@@ -1,0 +1,15 @@
+package app.metadata
+
+import std.annotation.ParameterTarget
+import std.annotation.RuntimeRetention
+
+public annotation Wrap implements ParameterTarget<String>, RuntimeRetention {
+  public String before(ParameterContext context, String value) {
+    printLine(context.name())
+    return "[" + value + "]"
+  }
+
+  public Void after(ParameterContext context, FunctionCompletion completion) {
+    printLine(completion.succeeded())
+  }
+}

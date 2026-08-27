@@ -1,0 +1,21 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Wrap implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    return "[" + value + "]"
+  }
+}
+
+class Service {
+  String echo(@Wrap() String value) {
+    return value
+  }
+}
+
+main() {
+  String echo(String value) = Service()::echo
+  printLine(echo("bound"))
+  expectedOutputLines(["[bound]"])
+}

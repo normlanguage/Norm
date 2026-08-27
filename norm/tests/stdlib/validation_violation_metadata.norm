@@ -1,0 +1,20 @@
+import std.testing.expectedOutputLines
+import std.validation.ConstraintLocation
+import std.validation.ConstraintViolation
+import std.validation.Negative
+
+Void accept(@Negative() Integer amount) {
+}
+
+main() {
+  try {
+    accept(amount: 1)
+  } catch ConstraintViolation error {
+    printLine(error.location == ConstraintLocation.Parameter)
+    printLine(error.target)
+    printLine(error.index)
+    printLine(error.code)
+    printLine(error.message)
+  }
+  expectedOutputLines(["true", "amount", "0", "negative", "must be negative"])
+}

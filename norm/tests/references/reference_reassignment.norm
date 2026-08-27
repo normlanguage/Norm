@@ -1,0 +1,13 @@
+import std.testing.expectedOutputLines
+
+main() {
+  Integer first = 1
+  Integer second = 2
+  ref<Integer> location = &first
+  location = &second
+  *location = 5
+  printLine(first)
+  printLine(second)
+  expectedOutputLines(["1", "5"])
+}
+

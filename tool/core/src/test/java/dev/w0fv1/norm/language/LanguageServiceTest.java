@@ -198,14 +198,13 @@ final class LanguageServiceTest {
     assertEquals("value ${1:Name} {\n  ${2}\n}", valueCompletion.insertText());
     assertTrue(annotationCompletion.snippet());
     assertEquals(
-        "annotation ${1:Name} targets(${2:type}) retention(${3:runtime}) {\n  ${4}\n}",
+        "annotation ${1:Name} implements ${2:TypeTarget}, ${3:RuntimeRetention} {\n  ${4}\n}",
         annotationCompletion.insertText());
   }
 
   @Test
   void completesOnlyAnnotationTypesAfterAtSign() {
-    String text =
-        "annotation Marker targets(type) retention(runtime) {} class Other {} @Mar value Point {}";
+    String text = "annotation Marker {} class Other {} @Mar value Point {}";
     var analysis =
         service.analyze(SourceFile.of(DocumentId.of("untitled:annotation-completion"), text));
     int offset = text.indexOf("@Mar") + 4;
@@ -872,8 +871,7 @@ final class LanguageServiceTest {
   @Test
   void presentsAnnotationSchemasAsCallSitesAndHover() {
     String text =
-        "annotation Label targets(type) retention(runtime) { "
-            + "String text String? replacement = null } "
+        "annotation Label { String text String? replacement } "
             + "@Label(text: \"point\", replacement: null) class Point {} Void main() {}";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:annotation-help"), text));
     int replacement = text.indexOf("null) class");

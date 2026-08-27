@@ -1,0 +1,24 @@
+import std.testing.expectedOutputLines
+
+class Base {
+  public String label() {
+    return "base"
+  }
+}
+
+class Child extends Base {
+  Child() {
+    super()
+  }
+
+  public String label() {
+    return "child"
+  }
+}
+
+main() {
+  Base value = Child()
+  printLine(value.label())
+  expectedOutputLines(["child"])
+}
+

@@ -1,0 +1,17 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.testing.expectedOutputLines
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+}
+
+@Label(text: "box")
+class Box {
+}
+
+main() {
+  printLine(reflect<Box>().annotation<Label>()?.text ?? "missing")
+  expectedOutputLines(["box"])
+}
+

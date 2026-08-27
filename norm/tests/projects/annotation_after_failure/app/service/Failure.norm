@@ -1,0 +1,16 @@
+package app.service
+
+import app.metadata.Trace
+import std.core.Exception
+
+public class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+@Trace()
+public Void fail() {
+  throw Failure(message: "failed")
+}
+

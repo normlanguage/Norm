@@ -97,6 +97,18 @@ final class FunctionCompilerTest {
             .anyMatch(value -> value.message().contains("default methods conflict")));
   }
 
+  @Test
+  void inheritsTheMostSpecificInterfaceDefault() {
+    var compilation =
+        compile(
+            "interface Parent { Integer value() { return 1 } } "
+                + "interface Child extends Parent { Integer value() { return 2 } } "
+                + "class Implementation implements Child { } "
+                + "Void main() { printLine(Implementation().value()) }");
+
+    assertTrue(compilation.isSuccess(), compilation.diagnostics().toString());
+  }
+
   private dev.w0fv1.norm.value.CompilationResult compile(String text) {
     return new CompilerSession().compile(SourceFile.of(Path.of("functions.norm"), text));
   }

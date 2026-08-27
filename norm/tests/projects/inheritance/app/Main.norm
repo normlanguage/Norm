@@ -1,0 +1,19 @@
+package app
+
+import app.impl.Child
+import app.model.Base
+
+main() {
+  Child child = Child(initial: "Norm", initialRank: 9)
+  Base<String> base = child
+  printLine(base.get())
+  printLine(child.rank)
+  ref<String> label = &child.label
+  *label = "reference"
+  printLine(child.label)
+  expectedOutputLine("label")
+  expectedOutputLine("child:Norm")
+  expectedOutputLine("9")
+  expectedOutputLine("label")
+  expectedOutputLine("[reference]")
+}

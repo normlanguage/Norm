@@ -1,5 +1,0 @@
-package chain.base
-
-Integer increment(Integer value) {
-  return value + 1
-}

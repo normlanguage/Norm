@@ -1,0 +1,27 @@
+import std.annotation.FieldTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+interface Normalize<T, State> extends FieldTarget<T> {
+  T normalize(T value) {
+    printLine(reflect<T>().name())
+    printLine(reflect<State>().name())
+    return value
+  }
+}
+
+annotation Keep implements Normalize<String, Integer>, SourceRetention {
+  String before(FieldContext context, String value) {
+    return this.normalize(value: value)
+  }
+}
+
+class Box {
+  @Keep()
+  String value
+}
+
+main() {
+  printLine(Box(value: "generic").value)
+  expectedOutputLines(["String", "Integer", "generic"])
+}

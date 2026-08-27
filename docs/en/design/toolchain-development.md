@@ -106,12 +106,7 @@ Each function owns a `FunctionRootNode` and `CallTarget`. Static function and me
 - Run affected module tests during development and formatting checks before submission. Full release verification is reserved for releases.
 - Backend changes cover both the registered Polyglot language and execution of a real `.norm` file through the CLI.
 
-```powershell
-.\gradlew.bat :core:spotlessApply :core:test
-.\gradlew.bat :project-system:test
-.\gradlew.bat :cli:test
-.\gradlew.bat :cli:run --args="run docs/examples/hello.norm"
-```
+Acceptance-test domains, layout, naming, discovery entry points, and commands are defined in one place by [`norm/tests/README.md`](https://github.com/w0fv1/norm/blob/main/norm/tests/README.md).
 
 ## Documentation ownership
 

@@ -5,10 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.value.CompilationRequest;
+import dev.w0fv1.norm.value.CompilationScope;
+import dev.w0fv1.norm.value.CompilationUnitId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class ArtifactIdTest {
@@ -16,11 +20,19 @@ final class ArtifactIdTest {
   void includesAnnotationMetadataValues() {
     CoreArtifact first =
         compile(
-            "annotation Label targets(type) retention(binary) { String text } "
+            "package std.annotation public interface AnnotationTarget {} "
+                + "public interface TypeTarget extends AnnotationTarget {} "
+                + "public interface AnnotationRetention {} "
+                + "public interface BinaryRetention extends AnnotationRetention {} "
+                + "annotation Label implements TypeTarget, BinaryRetention { String text } "
                 + "@Label(text: \"first\") class Point {} Void main() {}");
     CoreArtifact second =
         compile(
-            "annotation Label targets(type) retention(binary) { String text } "
+            "package std.annotation public interface AnnotationTarget {} "
+                + "public interface TypeTarget extends AnnotationTarget {} "
+                + "public interface AnnotationRetention {} "
+                + "public interface BinaryRetention extends AnnotationRetention {} "
+                + "annotation Label implements TypeTarget, BinaryRetention { String text } "
                 + "@Label(text: \"second\") class Point {} Void main() {}");
 
     assertNotEquals(ArtifactId.forArtifact(first, "test"), ArtifactId.forArtifact(second, "test"));
@@ -30,8 +42,26 @@ final class ArtifactIdTest {
   void canonicalizesEveryAnnotationTargetVariantIndependentlyOfInputOrder() {
     CoreArtifact original =
         compile(
-            "@Marker() package sample "
-                + "annotation Marker targets(package, type, field, constructor, function, parameter, local) retention(binary) {} "
+            "@Marker() package std.annotation "
+                + "public interface AnnotationTarget {} "
+                + "public interface PackageTarget extends AnnotationTarget {} "
+                + "public interface TypeTarget extends AnnotationTarget {} "
+                + "public interface FieldTarget<T> extends AnnotationTarget { "
+                + "T before(FieldContext context, T value) { return value } "
+                + "Void after(FieldContext context, FunctionCompletion completion) {} } "
+                + "public interface ConstructorTarget extends AnnotationTarget {} "
+                + "public interface ParameterTarget<T> extends AnnotationTarget { "
+                + "T before(ParameterContext context, T value) { return value } "
+                + "Void after(ParameterContext context, FunctionCompletion completion) {} } "
+                + "public interface LocalTarget extends AnnotationTarget {} "
+                + "public interface AnnotationRetention {} "
+                + "public interface BinaryRetention extends AnnotationRetention {} "
+                + "public interface FunctionTarget extends AnnotationTarget { "
+                + "Void before(FunctionContext context) {} "
+                + "R around<R>(FunctionInvocation<R> invocation) { return invocation.proceed() } "
+                + "Void after(FunctionContext context, FunctionCompletion completion) {} } "
+                + "annotation Marker implements PackageTarget, TypeTarget, FieldTarget<Integer>, "
+                + "ConstructorTarget, FunctionTarget, ParameterTarget<Integer>, LocalTarget, BinaryRetention {} "
                 + "@Marker() class Box { @Marker() Integer value @Marker() Box(@Marker() Integer value) { this.value = value } } "
                 + "@Marker() Integer read(@Marker() Integer input) { @Marker() Integer copy = input return copy } "
                 + "Void main() {}");
@@ -151,8 +181,16 @@ final class ArtifactIdTest {
   }
 
   private static CoreArtifact compile(String source) {
+    SourceFile file = SourceFile.of(Path.of("artifact-annotations.norm"), source);
     return new CompilerSession()
-        .compile(SourceFile.of(Path.of("artifact-annotations.norm"), source))
+        .compile(
+            new CompilationRequest(
+                new CompilationUnitId(file.id().uri()),
+                CompilationScope.module(
+                    new ModuleCoordinate("std", 1), Map.of(file.id(), "artifact-annotations.norm")),
+                file.id(),
+                List.of(file),
+                Set.of()))
         .program()
         .orElseThrow()
         .compilation()

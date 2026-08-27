@@ -1,0 +1,19 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.testing.expectedOutputLines
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+}
+
+@Label(text: "choice")
+enum Choice {
+  First,
+  Second
+}
+
+main() {
+  printLine(reflect<Choice>().annotation<Label>()?.text ?? "missing")
+  expectedOutputLines(["choice"])
+}
+

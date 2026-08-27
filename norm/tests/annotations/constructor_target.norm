@@ -1,0 +1,21 @@
+import std.annotation.ConstructorTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Mark implements ConstructorTarget, SourceRetention {
+}
+
+class Box {
+  String value
+
+  @Mark()
+  Box(String initial) {
+    value = initial
+  }
+}
+
+main() {
+  printLine(Box(initial: "constructor").value)
+  expectedOutputLines(["constructor"])
+}
+

@@ -1,37 +1,69 @@
 # Validation API
 
-验证库把不可信输入转换成满足约束的领域值。验证失败是正常结果，使用结构化错误返回，而不是依赖异常或字段 annotation。
+`std.validation` 提供作用于函数参数和对象字段的强类型 Annotation 约束。参数在进入函数体前校验；字段在初始化、赋值和 `ref<T>` 写入前校验。失败抛出 `ConstraintViolation`，对应写入不会提交。
 
 ```norm
-value ValidationError {
-    String path
-    String code
-    String message
+import std.validation.CodePointSize
+import std.validation.Min
+import std.validation.NotBlank
+
+class Account {
+  @NotBlank()
+  String owner
+
+  @Min(value: 0)
+  Integer balance
 }
 
-Result<EmailAddress, List<ValidationError>> validateEmail(String input) {
-    // 显式检查并构造领域值
+Void register(@CodePointSize(minimum: 3, maximum: 32) String name) {
 }
 ```
 
-## 组合规则
+## 公共契约
 
-`Validator<T>` 可以通过普通函数组合：
+所有内置约束实现 `Constraint<T>`。它组合 `ParameterTarget<T>`、`FieldTarget<T>` 与 `SourceRetention`，并以 `isValid(T)`、稳定 `code()` 和展示 `message()` 定义约束。用户 Annotation 实现同一 interface 即可复用相同生命周期和失败模型。
+
+`ConstraintViolation` 提供：
+
+- `location`：`ConstraintLocation.Parameter` 或 `ConstraintLocation.Field`；
+- `target`：声明侧参数名或字段名；
+- `index`：声明侧序号；
+- `code`：稳定机器标识；
+- `message`：从 `Exception` 继承的默认展示文本。
+
+实现与完整声明以 [`validation/constraints.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/validation/constraints.norm) 为准。
+
+## 内置约束
+
+| 类型 | Annotation |
+| --- | --- |
+| `Boolean` | `AssertTrue`、`AssertFalse` |
+| `Integer` | `Min`、`Max`、`Negative`、`NegativeOrZero`、`Positive`、`PositiveOrZero` |
+| `String` | `NotEmpty`、`NotBlank`、`CodePointSize`、`GraphemeSize` |
+
+文本范围分别由 `CodePointSize` 和 `GraphemeSize` 表达 Unicode code point 与 grapheme cluster 语义。空值约束由默认非空的 `T` 和显式可空的 `T?` 类型表达。
+
+`CodePointSize` 与 `GraphemeSize` 要求 `0 <= minimum <= maximum`；无效定义在首次执行 Annotation 时抛出 `ConstraintDefinitionException`。
+该异常通过 `code` 提供对应约束的稳定机器标识。
+
+## 自定义约束
 
 ```norm
-Validator<String> username = Validators.string()
-    .trimmed()
-    .length(minimum: 3, maximum: 32)
-    .matches(pattern: usernamePattern)
+import std.validation.Constraint
+
+annotation Even implements Constraint<Integer> {
+  public Boolean isValid(Integer value) {
+    return value % 2 == 0
+  }
+
+  public String code() {
+    return "even"
+  }
+
+  public String message() {
+    return "must be even"
+  }
+}
 ```
 
-转换和验证是两个步骤：解析失败使用 `InvalidFormat`，解析成功但违反领域规则使用具体 code。默认收集全部独立错误；需要遇错即停时必须显式选择。
-
-## 路径与本地化
-
-错误 path 使用结构化字段段和索引段构成，展示层再渲染为 `user.addresses[0].city`。核心错误携带稳定 code 和参数，不把本地化后的最终文案作为机器契约。
-
-## 边界
-
-验证不会自动修改领域对象，也不会绕过构造器不变量。Web 表单、JSON 和配置模块可以适配同一 Validator，但传输层字段名到领域类型的映射必须显式可查。
-
+多个约束遵循 Annotation 源码顺序，遇到首个失败即抛出。需要收集多项输入错误的解析层应先形成自己的结构化结果，再构造领域对象。

@@ -1,0 +1,13 @@
+package app.metadata
+
+import std.annotation.TypeTarget
+import std.annotation.RuntimeRetention
+
+public annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+  String? replacement
+
+  public String display() {
+    return text
+  }
+}

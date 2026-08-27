@@ -36,7 +36,7 @@ public final class IntrinsicDispatcher {
       CoreType type,
       ExecutionContext context,
       Node location) {
-    return execute(intrinsic, receiver, arguments, type, context, location, null);
+    return execute(intrinsic, receiver, arguments, type, context, location, null, null);
   }
 
   static Object execute(
@@ -46,7 +46,8 @@ public final class IntrinsicDispatcher {
       CoreType type,
       ExecutionContext context,
       Node location,
-      ReflectionRegistry reflectionRegistry) {
+      AnnotationRuntime annotations,
+      ExecutionState execution) {
     Object first = arguments.length == 0 ? null : arguments[0];
     Object second = arguments.length < 2 ? null : arguments[1];
     Object third = arguments.length < 3 ? null : arguments[2];
@@ -54,22 +55,35 @@ public final class IntrinsicDispatcher {
     Object fifth = arguments.length < 5 ? null : arguments[4];
     return switch (intrinsic) {
       case REFLECT_TYPE -> {
-        if (reflectionRegistry == null
+        if (annotations == null
             || !(type instanceof CoreType.Declared declared)
             || declared.arguments().size() != 1) {
           throw new IllegalStateException("reflect runtime type is unavailable");
         }
-        yield new RuntimeValues.TypeValue(
-            type, declared.arguments().getFirst(), reflectionRegistry);
+        yield new RuntimeValues.TypeValue(type, declared.arguments().getFirst(), annotations);
       }
       case TYPE_NAME ->
           ((RuntimeValues.TypeValue) receiver)
-              .registry()
+              .annotations()
               .name(((RuntimeValues.TypeValue) receiver).reflectedType());
       case TYPE_ANNOTATION -> {
+        if (execution == null) {
+          throw new IllegalStateException("annotation execution is unavailable");
+        }
         RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) receiver;
-        yield reflected.registry().annotation(reflected.reflectedType(), type);
+        yield reflected.annotations().annotation(reflected.reflectedType(), type, execution);
       }
+      case FUNCTION_CONTEXT_NAME -> ((RuntimeValues.FunctionContextValue) receiver).name();
+      case PARAMETER_CONTEXT_FUNCTION ->
+          ((RuntimeValues.ParameterContextValue) receiver).function();
+      case PARAMETER_CONTEXT_NAME -> ((RuntimeValues.ParameterContextValue) receiver).name();
+      case PARAMETER_CONTEXT_INDEX -> ((RuntimeValues.ParameterContextValue) receiver).index();
+      case FIELD_CONTEXT_NAME -> ((RuntimeValues.FieldContextValue) receiver).name();
+      case FIELD_CONTEXT_INDEX -> ((RuntimeValues.FieldContextValue) receiver).index();
+      case FUNCTION_INVOCATION_PROCEED ->
+          ((RuntimeValues.FunctionInvocationValue) receiver).proceed(location);
+      case FUNCTION_COMPLETION_SUCCEEDED ->
+          ((RuntimeValues.FunctionCompletionValue) receiver).succeeded();
       case PRINT_LINE -> {
         context.output().println(RuntimeValues.stringify(first));
         yield null;

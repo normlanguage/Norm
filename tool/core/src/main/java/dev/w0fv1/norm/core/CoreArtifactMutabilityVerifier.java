@@ -55,20 +55,10 @@ final class CoreArtifactMutabilityVerifier {
         || declared.category() != CoreValueCategory.VALUE) {
       return;
     }
-    boolean annotation =
-        declared.constructor() instanceof CoreTypeConstructor.User user
-            && program.definition(resolve(user.definition())).orElse(null)
-                instanceof CoreDefinition.Annotation;
-    if (annotation
-        || occurrence.role() != CoreDefinitionRole.CONSTRUCTOR
+    if (occurrence.role() != CoreDefinitionRole.CONSTRUCTOR
         || !(assignment.receiver() instanceof CoreExpression.LocalRead local)
         || local.localIndex() != 0) {
       throw new IllegalArgumentException("value field mutation is invalid");
     }
-  }
-
-  private static DefinitionId resolve(CoreDefinitionLink link) {
-    if (link instanceof DefinitionReference.External external) return external.definition();
-    throw new IllegalArgumentException("absolute type contains a non-external definition");
   }
 }

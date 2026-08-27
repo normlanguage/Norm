@@ -1,0 +1,12 @@
+package app
+
+import app.model.Status
+import app.service.describe
+import std.testing.expectedOutputLines
+
+main() {
+  printLine(describe(status: Status.Ready))
+  printLine(describe(status: Status.Failed(message: "failed")))
+  expectedOutputLines(["ready", "failed"])
+}
+

@@ -77,8 +77,12 @@ final class CoreCanonicalizerTest {
                 new CoreEnumVariant(
                     "Next",
                     List.of(
-                        new CoreField(0, new CoreType.Parameter(0, CoreNullability.NON_NULL)),
-                        new CoreField(1, recursive)))));
+                        new CoreField(
+                            "first",
+                            0,
+                            new CoreType.Parameter(0, CoreNullability.NON_NULL),
+                            List.of()),
+                        new CoreField("second", 1, recursive, List.of())))));
 
     CoreCanonicalizer.Result result = new CoreCanonicalizer().canonicalize(List.of(declaration));
     CoreDefinition.Enum resolved =
@@ -106,6 +110,8 @@ final class CoreCanonicalizerTest {
     CoreDefinition.Callable callable =
         new CoreDefinition.Callable(
             Optional.empty(),
+            List.of(),
+            List.of(),
             List.of(),
             List.of(),
             List.of(),
@@ -155,6 +161,8 @@ final class CoreCanonicalizerTest {
       definitions.add(
           new CoreDefinition.Callable(
               Optional.empty(),
+              List.of(),
+              List.of(),
               List.of(),
               List.of(),
               List.of(),

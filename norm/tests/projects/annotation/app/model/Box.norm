@@ -1,0 +1,8 @@
+package app.model
+
+import app.metadata.FieldWrap
+
+public class Box {
+  @FieldWrap()
+  public String value
+}

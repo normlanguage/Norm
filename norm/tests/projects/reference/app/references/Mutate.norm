@@ -1,0 +1,5 @@
+package app.references
+
+public Void replace(ref<Integer> target, Integer value) {
+  *target = value
+}

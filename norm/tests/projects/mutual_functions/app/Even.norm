@@ -1,0 +1,8 @@
+package app
+
+Boolean even(Integer value) {
+  if value == 0 {
+    return true
+  }
+  return odd(value - 1)
+}

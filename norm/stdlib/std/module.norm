@@ -3,6 +3,7 @@ Module module() {
     name: "std",
     version: 1,
     exports: [
+      "annotation.protocols",
       "core.exception",
       "core.protocols",
       "core.result",
@@ -13,7 +14,8 @@ Module module() {
       "testing.output",
       "testing.predicates",
       "text.builders",
-      "text.normalization"
+      "text.normalization",
+      "validation.constraints"
     ]
   )
 }

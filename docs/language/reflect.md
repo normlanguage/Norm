@@ -1,20 +1,21 @@
 # Annotation 与 Reflect
 
-Annotation 为声明附加结构化常量元数据。Reflect 是读取类型 metadata 的显式、类型安全入口。
+Reflect 是读取 runtime Annotation 的显式、类型安全入口。
 
 ```norm
-annotation Label targets(type) retention(runtime) {
-    String text
+import std.annotation.TypeTarget
+import std.annotation.RuntimeRetention
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
 }
 
 @Label(text: "two-dimensional coordinate")
 value Point {
-    Integer x
-    Integer y
+  Integer x
+  Integer y
 }
 ```
-
-## 最小反射 API
 
 ```norm
 Type<Point> point = reflect<Point>()
@@ -24,10 +25,9 @@ Label? label = point.annotation<Label>()
 
 - `reflect<T>()` 返回 reified `Type<T>`；
 - `Type<T>.name()` 返回稳定的 Norm 类型显示名；
-- `Type<T>.annotation<A>()` 只接受 annotation 类型，并返回该类型目标上的 runtime annotation；目标没有该 annotation 时返回 `null`。
+- `Type<T>.annotation<A>()` 只接受 Annotation 类型，读取类型目标上的 `RuntimeRetention` 实例；不存在时返回 `null`；
+- 同一次 execution 内的重复查询返回该 `@` 应用创建的同一对象。
 
-0.12 只查询类型目标。其他目标的 binary/runtime metadata 仍保存在 Core 中，后续 API 可以在同一 metadata 模型上扩展。
+当前反射 API 只查询类型目标。其他目标的 binary/runtime metadata 已保存在同一 Core metadata 模型中。
 
-Annotation 和 Reflect 不允许改写 AST、注入成员、拦截调用或改变类型检查。需要行为时使用普通函数和显式注册 API。
-
-完整规则见 [Annotation 规范](/spec/annotations)。
+完整声明、策略与 FunctionTarget 生命周期见 [Annotation 规范](/spec/annotations)。

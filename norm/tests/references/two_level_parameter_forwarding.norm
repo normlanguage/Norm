@@ -1,0 +1,17 @@
+import std.testing.expectedOutputLines
+
+Void replace(ref<Integer> target, Integer value) {
+  *target = value
+}
+
+Void forward(ref<Integer> target, Integer value) {
+  replace(target: target, value: value)
+}
+
+main() {
+  Integer value = 1
+  forward(target: &value, value: 7)
+  printLine(value)
+  expectedOutputLines(["7"])
+}
+

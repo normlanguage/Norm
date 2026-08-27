@@ -1,9 +1,0 @@
-package mutual
-
-import std.io.printLines
-import std.testing.expectedOutputLines
-
-main() {
-  printLines([even(0), odd(7), even(10)])
-  expectedOutputLines(["true", "true", "true"])
-}

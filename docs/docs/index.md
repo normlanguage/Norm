@@ -92,6 +92,7 @@ aside: false
 - [文件与进程](/stdlib/filesystem)
 - [HTTP 与 SQL](/stdlib/http)
 - [测试 API](/stdlib/testing-api)
+- [Validation API](/stdlib/validation-api)
 
 </section>
 

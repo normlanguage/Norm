@@ -10,12 +10,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.utils.BackendInfo;
+import dev.w0fv1.norm.value.CompilationRequest;
+import dev.w0fv1.norm.value.CompilationScope;
+import dev.w0fv1.norm.value.CompilationUnitId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Source;
@@ -59,6 +66,47 @@ final class BackendTest {
 
     assertEquals("cached" + System.lineSeparator(), first.toString());
     assertEquals(first.toString(), second.toString());
+    assertEquals(1, backend.cachedArtifacts());
+  }
+
+  @Test
+  void createsAnnotationInstancesForEachExecution() {
+    SourceFile source =
+        SourceFile.of(
+            Path.of("annotation-state.norm"),
+            "package std.annotation public interface AnnotationTarget {} "
+                + "public interface TypeTarget extends AnnotationTarget {} "
+                + "public interface AnnotationRetention {} "
+                + "public interface RuntimeRetention extends AnnotationRetention {} "
+                + "annotation Label implements TypeTarget, RuntimeRetention { String text } "
+                + "@Label(text: \"initial\") value Point {} "
+                + "Void main() { Label? label = reflect<Point>().annotation<Label>() "
+                + "printLine(label?.text ?? \"missing\") "
+                + "if (label != null) { label.text = \"changed\" } }");
+    var program =
+        new CompilerSession()
+            .compile(
+                new CompilationRequest(
+                    new CompilationUnitId(source.id().uri()),
+                    CompilationScope.module(
+                        new ModuleCoordinate("std", 1),
+                        Map.of(source.id(), "annotation-state.norm")),
+                    source.id(),
+                    List.of(source),
+                    Set.of()))
+            .program()
+            .orElseThrow();
+    TruffleExecutionBackend backend = new TruffleExecutionBackend();
+    NormRuntime runner = new NormRuntime(backend);
+    StringWriter first = new StringWriter();
+    StringWriter second = new StringWriter();
+
+    runner.run(program, new PrintWriter(first));
+    runner.run(program, new PrintWriter(second));
+
+    String expected = "initial" + System.lineSeparator();
+    assertEquals(expected, first.toString());
+    assertEquals(expected, second.toString());
     assertEquals(1, backend.cachedArtifacts());
   }
 

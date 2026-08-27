@@ -1,7 +1,0 @@
-Module module() {
-  return module(
-    name: "project",
-    version: 1,
-    exports: ["Main", "model.Named", "model.User", "service.Names"]
-  )
-}

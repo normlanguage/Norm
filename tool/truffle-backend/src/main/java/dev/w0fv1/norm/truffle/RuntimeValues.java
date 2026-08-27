@@ -5,11 +5,13 @@ import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.core.BuiltinTypeId;
+import dev.w0fv1.norm.core.CoreInterceptor;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -48,8 +50,6 @@ final class RuntimeValues {
   sealed interface ReferenceValue permits LocalReference, FieldReference {
     Object read();
 
-    void write(Object value);
-
     boolean sameLocation(ReferenceValue other);
 
     int locationHash();
@@ -64,11 +64,6 @@ final class RuntimeValues {
     @Override
     public Object read() {
       return binding.read(frame);
-    }
-
-    @Override
-    public void write(Object value) {
-      binding.write(frame, value);
     }
 
     @Override
@@ -95,11 +90,6 @@ final class RuntimeValues {
     @Override
     public Object read() {
       return receiver.fields[field];
-    }
-
-    @Override
-    public void write(Object value) {
-      receiver.fields[field] = value;
     }
 
     @Override
@@ -509,6 +499,11 @@ final class RuntimeValues {
       case String ignored -> CoreType.STRING;
       case CodePointValue ignored -> CoreType.CODE_POINT;
       case TypeValue item -> item.type;
+      case FunctionContextValue item -> item.type;
+      case ParameterContextValue item -> item.type;
+      case FieldContextValue item -> item.type;
+      case FunctionInvocationValue item -> item.type;
+      case FunctionCompletionValue item -> item.type;
       case ArrayValue item -> item.type;
       case ListValue item -> item.type;
       case MapValue item -> item.type;
@@ -557,16 +552,69 @@ final class RuntimeValues {
     }
   }
 
-  record TypeValue(CoreType type, CoreType reflectedType, ReflectionRegistry registry) {
+  record TypeValue(CoreType type, CoreType reflectedType, AnnotationRuntime annotations) {
     TypeValue {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(reflectedType, "reflectedType");
-      Objects.requireNonNull(registry, "registry");
+      Objects.requireNonNull(annotations, "annotations");
     }
 
     @Override
     public String toString() {
-      return registry.name(reflectedType);
+      return annotations.name(reflectedType);
+    }
+  }
+
+  record FunctionContextValue(CoreType type, String name) {
+    FunctionContextValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(name, "name");
+    }
+  }
+
+  record ParameterContextValue(
+      CoreType type, FunctionContextValue function, String name, int index) {
+    ParameterContextValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(function, "function");
+      Objects.requireNonNull(name, "name");
+      if (index < 0) throw new IllegalArgumentException("parameter index must not be negative");
+    }
+  }
+
+  record FieldContextValue(CoreType type, String name, int index) {
+    FieldContextValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(name, "name");
+      if (index < 0) throw new IllegalArgumentException("field index must not be negative");
+    }
+  }
+
+  static final class FunctionInvocationValue {
+    final CoreType type;
+    private final java.util.function.Supplier<Object> continuation;
+    private boolean proceeded;
+
+    FunctionInvocationValue(CoreType type, java.util.function.Supplier<Object> continuation) {
+      this.type = Objects.requireNonNull(type, "type");
+      this.continuation = Objects.requireNonNull(continuation, "continuation");
+    }
+
+    Object proceed(Node location) {
+      if (proceeded) {
+        throw new NormGuestException(
+            RuntimeErrorCode.INVALID_ARGUMENT,
+            "FunctionInvocation.proceed() can be called once",
+            location);
+      }
+      proceeded = true;
+      return continuation.get();
+    }
+  }
+
+  record FunctionCompletionValue(CoreType type, boolean succeeded) {
+    FunctionCompletionValue {
+      Objects.requireNonNull(type, "type");
     }
   }
 
@@ -895,7 +943,7 @@ final class RuntimeValues {
     record Intrinsic(IntrinsicId intrinsic) implements DispatchTarget {}
   }
 
-  sealed interface ObjectInfo permits AggregateInfo, AnnotationInfo {
+  sealed interface ObjectInfo permits AggregateInfo {
     DefinitionId definition();
 
     String name();
@@ -911,36 +959,35 @@ final class RuntimeValues {
       DefinitionId definition,
       String name,
       int fieldCount,
+      List<FieldPlan> fields,
       Map<DefinitionId, DispatchTarget> dispatch,
       java.util.Set<DefinitionId> ancestors)
       implements ObjectInfo {
     AggregateInfo {
+      fields = List.copyOf(fields);
+      if (fields.size() != fieldCount) {
+        throw new IllegalArgumentException("aggregate field plans must be complete");
+      }
+      for (int index = 0; index < fields.size(); index++) {
+        if (fields.get(index).index() != index) {
+          throw new IllegalArgumentException("aggregate field plans must be ordered");
+        }
+      }
       dispatch = Map.copyOf(dispatch);
       ancestors = java.util.Set.copyOf(ancestors);
       if (!ancestors.contains(definition)) {
         throw new IllegalArgumentException("aggregate ancestors must include itself");
       }
     }
-
-    AggregateInfo(
-        DefinitionId definition,
-        String name,
-        int fieldCount,
-        Map<DefinitionId, DispatchTarget> dispatch) {
-      this(definition, name, fieldCount, dispatch, java.util.Set.of(definition));
-    }
   }
 
-  record AnnotationInfo(DefinitionId definition, String name, int fieldCount)
-      implements ObjectInfo {
-    @Override
-    public Map<DefinitionId, DispatchTarget> dispatch() {
-      return Map.of();
-    }
-
-    @Override
-    public java.util.Set<DefinitionId> ancestors() {
-      return java.util.Set.of(definition);
+  record FieldPlan(
+      DefinitionOccurrenceId owner, String name, int index, List<CoreInterceptor> interceptors) {
+    FieldPlan {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(name, "name");
+      if (index < 0) throw new IllegalArgumentException("field index must not be negative");
+      interceptors = List.copyOf(interceptors);
     }
   }
 

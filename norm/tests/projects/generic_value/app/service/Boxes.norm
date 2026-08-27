@@ -1,0 +1,8 @@
+package app.service
+
+import app.model.Box
+
+public Box<T> preserve<T>(Box<T> box) {
+  return box
+}
+

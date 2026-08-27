@@ -1,0 +1,27 @@
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Mark implements ParameterTarget<String>, SourceRetention {
+  String before(ParameterContext context, String value) {
+    printLine(context.function().name())
+    printLine(context.name())
+    printLine(context.index())
+    return "[" + value + "]"
+  }
+
+  Void after(ParameterContext context, FunctionCompletion completion) {
+    printLine(context.name())
+    printLine(completion.succeeded())
+  }
+}
+
+String echo(@Mark() String value) {
+  printLine(value)
+  return value
+}
+
+main() {
+  printLine(echo(value: "parameter"))
+  expectedOutputLines(["echo", "value", "0", "[parameter]", "value", "true", "[parameter]"])
+}

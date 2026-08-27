@@ -64,7 +64,7 @@ Integer coordinateSum(Point point) {
 
 ## Annotation
 
-Annotation 声明编译期元数据的字段和默认值，不执行构造代码，也不能改变普通语句语义。
+Annotation 是带目标与保留策略 interface 的特殊 class，可以声明字段、构造器和方法。完整语义见 [Annotation 规范](/spec/annotations)。
 
 ## 重复与作用域
 

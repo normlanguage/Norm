@@ -58,6 +58,16 @@ final class ValueCompilerTest {
         () -> result.diagnostics().toString());
   }
 
+  @Test
+  void valueRemainsAvailableAsAGenericFunctionReturnType() {
+    CompilationResult result =
+        compile(
+            "class value {} value make<T>(T ignored) { return value() } "
+                + "Void main() { printLine(make(ignored: 1)) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
   private static CompilationResult compile(String text) {
     return new CompilerSession().compile(SourceFile.of(Path.of("test.norm"), text));
   }

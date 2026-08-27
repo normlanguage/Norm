@@ -1,0 +1,36 @@
+package app
+
+import app.metadata.Label
+import app.metadata.Log
+import app.metadata.Wrap
+import app.model.Box
+import app.model.Point
+
+@Log(tag: "trace")
+String greet(@Wrap() String name) {
+  return "hello " + name
+}
+
+main() {
+  Type<Point> type = reflect<Point>()
+  Label? label = type.annotation<Label>()
+  printLine(type.name())
+  printLine(label?.display() ?? "missing")
+  printLine(label?.replacement ?? "none")
+  printLine(greet(name: "Norm"))
+  Box box = Box(value: "field")
+  printLine(box.value)
+  expectedOutputLine("Point")
+  expectedOutputLine("point")
+  expectedOutputLine("none")
+  expectedOutputLine("[trace] before greet")
+  expectedOutputLine("[trace] around-in")
+  expectedOutputLine("name")
+  expectedOutputLine("true")
+  expectedOutputLine("[trace] around-out")
+  expectedOutputLine("[trace] after greet")
+  expectedOutputLine("true")
+  expectedOutputLine("hello [Norm]")
+  expectedOutputLine("value")
+  expectedOutputLine("[field]")
+}

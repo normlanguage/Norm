@@ -1,0 +1,49 @@
+import std.annotation.FieldTarget
+import std.annotation.SourceRetention
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+annotation Outer implements FieldTarget<String>, SourceRetention {
+  Void after(FieldContext context, FunctionCompletion completion) {
+    printLine("outer")
+    printLine(completion.succeeded())
+  }
+}
+
+annotation FailSecondAfter implements FieldTarget<String>, SourceRetention {
+  Integer writes
+
+  Void after(FieldContext context, FunctionCompletion completion) {
+    writes = writes + 1
+    if writes == 2 {
+      printLine("inner")
+      printLine(completion.succeeded())
+      throw Failure(message: "after-failed")
+    }
+  }
+}
+
+class Box {
+  @Outer() @FailSecondAfter(writes: 0)
+  String value
+}
+
+main() {
+  Box box = Box(value: "initial")
+  try {
+    box.value = "stored"
+  } catch Failure error {
+    printLine(error.message)
+  }
+  printLine(box.value)
+  expectedOutputLines([
+    "outer", "true",
+    "inner", "true", "outer", "false", "after-failed", "stored"
+  ])
+}

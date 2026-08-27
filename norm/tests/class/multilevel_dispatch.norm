@@ -1,0 +1,34 @@
+import std.testing.expectedOutputLines
+
+class Root {
+  public Integer level() {
+    return 1
+  }
+}
+
+class Middle extends Root {
+  Middle() {
+    super()
+  }
+
+  public Integer level() {
+    return 2
+  }
+}
+
+class Leaf extends Middle {
+  Leaf() {
+    super()
+  }
+
+  public Integer level() {
+    return 3
+  }
+}
+
+main() {
+  Root value = Leaf()
+  printLine(value.level())
+  expectedOutputLines(["3"])
+}
+

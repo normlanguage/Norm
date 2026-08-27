@@ -1,0 +1,7 @@
+package app.middle
+
+import app.base.increment
+
+Integer transform(Integer value) {
+  return increment(value) * 2 - 1
+}

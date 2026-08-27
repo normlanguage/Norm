@@ -1,7 +1,0 @@
-package geometry.service
-
-import geometry.model.Point
-
-public Point origin() {
-  return Point(x: 0, y: 0)
-}

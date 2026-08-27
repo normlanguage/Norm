@@ -1,0 +1,21 @@
+import std.testing.expectedOutputLines
+
+class Base {
+  Integer value
+}
+
+class Child extends Base {
+  Child(Integer initial) {
+    super(value: initial)
+  }
+}
+
+main() {
+  Base first = Child(initial: 1)
+  Base second = first
+  second.value = 5
+  printLine(first.value)
+  printLine(first == second)
+  expectedOutputLines(["5", "true"])
+}
+

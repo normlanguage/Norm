@@ -22,6 +22,29 @@ final class ReferenceCompilerTest {
   }
 
   @Test
+  void separatesDereferenceAssignmentAtTheStartOfANewLine() {
+    CompilationResult result =
+        compile(
+            "Void main() { Integer value = 1 ref<Integer> location = &value\n"
+                + "*location = 2 printLine(value) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void keepsLineLeadingMultiplicationInsideDelimitedExpressions() {
+    CompilationResult parenthesized =
+        compile(
+            "Void main() { Integer left = 2 Integer right = 3 Integer product = (left\n"
+                + "* right) printLine(product) }");
+    CompilationResult argument =
+        compile("Void main() { Integer left = 2 Integer right = 3 printLine(left\n* right) }");
+
+    assertTrue(parenthesized.isSuccess(), () -> parenthesized.diagnostics().toString());
+    assertTrue(argument.isSuccess(), () -> argument.diagnostics().toString());
+  }
+
+  @Test
   void rejectsNonValueAndNestedReferenceTargets() {
     CompilationResult classTarget =
         compile("class Box {} Void use(ref<Box> value) {} Void main() {}");

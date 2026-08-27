@@ -1,0 +1,9 @@
+Module module() {
+  return module(
+    name: "app",
+    version: 1,
+    exports: ["Main"],
+    dependencies: [dependency(name: "library", version: 1)]
+  )
+}
+

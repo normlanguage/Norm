@@ -1,0 +1,15 @@
+package app
+
+import app.service.Failure
+import app.service.fail
+import std.testing.expectedOutputLines
+
+main() {
+  try {
+    fail()
+  } catch Failure error {
+    printLine(error.message)
+  }
+  expectedOutputLines(["fail", "false", "failed"])
+}
+

@@ -2,9 +2,7 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundAggregate;
 import dev.w0fv1.norm.bound.BoundAggregateId;
-import dev.w0fv1.norm.bound.BoundAnnotation;
 import dev.w0fv1.norm.bound.BoundAnnotationApplication;
-import dev.w0fv1.norm.bound.BoundAnnotationId;
 import dev.w0fv1.norm.bound.BoundAnnotationTarget;
 import dev.w0fv1.norm.bound.BoundAnnotationValue;
 import dev.w0fv1.norm.bound.BoundArgument;
@@ -26,6 +24,7 @@ import dev.w0fv1.norm.bound.BoundEnumVariantId;
 import dev.w0fv1.norm.bound.BoundExpression;
 import dev.w0fv1.norm.bound.BoundField;
 import dev.w0fv1.norm.bound.BoundFieldId;
+import dev.w0fv1.norm.bound.BoundInterceptor;
 import dev.w0fv1.norm.bound.BoundInterface;
 import dev.w0fv1.norm.bound.BoundInterfaceId;
 import dev.w0fv1.norm.bound.BoundInterfaceMethod;
@@ -48,6 +47,7 @@ import dev.w0fv1.norm.bound.BoundUnaryOperator;
 import dev.w0fv1.norm.bound.BoundWitness;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.semantic.AnnotationApplication;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
@@ -55,6 +55,7 @@ import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
+import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -67,7 +68,6 @@ final class Binder {
   private final SemanticModel semantics;
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
   private final Map<String, BoundAggregate> aggregates = new LinkedHashMap<>();
-  private final Map<String, BoundAnnotation> annotations = new LinkedHashMap<>();
   private final Map<String, BoundEnum> enums = new LinkedHashMap<>();
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
@@ -99,7 +99,6 @@ final class Binder {
                         program.packageName(),
                         program.enums().stream().map(this::enumId).toList(),
                         program.interfaces().stream().map(this::interfaceId).toList(),
-                        program.annotationDeclarations().stream().map(this::annotationId).toList(),
                         program.aggregates().stream().map(this::aggregateId).toList(),
                         sourceCallables(program)))
             .toList();
@@ -108,7 +107,6 @@ final class Binder {
         List.copyOf(enums.values()),
         List.copyOf(interfaces.values()),
         bindBuiltinConformances(),
-        List.copyOf(annotations.values()),
         List.copyOf(aggregates.values()),
         List.copyOf(callables.values()),
         bindAnnotationApplications(),
@@ -148,45 +146,6 @@ final class Binder {
                 declaration.span());
         enums.put(value.id().value(), value);
       }
-      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
-        Symbol symbol = symbol(declaration.nameSpan());
-        List<BoundField> boundFields = new ArrayList<>();
-        for (int ordinal = 0; ordinal < declaration.parameters().size(); ordinal++) {
-          Syntax.AnnotationParameter parameter = declaration.parameters().get(ordinal);
-          Symbol fieldSymbol = symbol(parameter.nameSpan());
-          BoundField field =
-              new BoundField(
-                  BoundFieldId.of(fieldSymbol.id()),
-                  parameter.name(),
-                  dev.w0fv1.norm.bound.BoundVisibility.PUBLIC,
-                  fieldSymbol.type(),
-                  ordinal);
-          fields.put(field.id().value(), field);
-          boundFields.add(field);
-        }
-        dev.w0fv1.norm.semantic.AnnotationSchema schema =
-            semantics.annotations().schema(symbol.id()).orElseThrow();
-        BoundAnnotation value =
-            new BoundAnnotation(
-                BoundAnnotationId.of(symbol.id()),
-                declaration.name(),
-                declaration.visibility() == Syntax.Visibility.PUBLIC
-                    ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
-                    : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
-                symbol.type(),
-                declaration.targets(),
-                declaration.retention(),
-                boundFields,
-                schema.parameters().stream()
-                    .map(
-                        parameter ->
-                            parameter
-                                .defaultValue()
-                                .map(item -> new BoundAnnotationValue(item.type(), item.value())))
-                    .toList(),
-                declaration.span());
-        annotations.put(value.id().value(), value);
-      }
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         Symbol symbol = symbol(declaration.nameSpan());
         int fieldOffset = inheritedFieldCount(declaration);
@@ -202,13 +161,19 @@ final class Binder {
                       ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
                       : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
                   fieldSymbol.type(),
-                  fieldOffset + ordinal);
+                  fieldOffset + ordinal,
+                  interceptors(AnnotationTarget.FIELD, fieldSymbol.id()));
           fields.put(bound.id().value(), bound);
           boundFields.add(bound);
         }
         BoundAggregate value =
             new BoundAggregate(
                 BoundAggregateId.of(symbol.id()),
+                switch (declaration.kind()) {
+                  case CLASS -> dev.w0fv1.norm.bound.BoundAggregateKind.CLASS;
+                  case VALUE -> dev.w0fv1.norm.bound.BoundAggregateKind.VALUE;
+                  case ANNOTATION -> dev.w0fv1.norm.bound.BoundAggregateKind.ANNOTATION;
+                },
                 declaration.name(),
                 declaration.visibility() == Syntax.Visibility.PUBLIC
                     ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
@@ -245,10 +210,14 @@ final class Binder {
 
   private List<BoundAnnotationApplication> bindAnnotationApplications() {
     return semantics.annotations().applications().stream()
+        .filter(
+            application ->
+                semantics.annotations().schema(application.annotation()).orElseThrow().retention()
+                    != dev.w0fv1.norm.value.AnnotationRetention.SOURCE)
         .map(
             application ->
                 new BoundAnnotationApplication(
-                    BoundAnnotationId.of(application.annotation()),
+                    BoundAggregateId.of(application.annotation()),
                     bindAnnotationTarget(application.target()),
                     application.values().stream()
                         .map(value -> new BoundAnnotationValue(value.type(), value.value()))
@@ -310,10 +279,7 @@ final class Binder {
     List<BoundParameter> parameters = new ArrayList<>();
     for (int ordinal = 0; ordinal < declaration.parameters().size(); ordinal++) {
       Syntax.Parameter parameter = declaration.parameters().get(ordinal);
-      Symbol symbol = symbol(parameter.nameSpan());
-      parameters.add(
-          new BoundParameter(
-              BoundLocalId.of(symbol.id()), parameter.name(), symbol.type(), ordinal));
+      parameters.add(bindParameter(parameter, ordinal));
     }
     List<BoundTypeParameter> typeParameters = new ArrayList<>();
     typeParameters.addAll(bindTypeParameters(owner.typeParameters()));
@@ -333,6 +299,7 @@ final class Binder {
             parameters,
             typeParameters,
             reified,
+            List.of(),
             requirement.type(),
             bindBlock(declaration.body().orElseThrow(), declaration.span()),
             declaration.span()));
@@ -374,10 +341,7 @@ final class Binder {
     List<BoundParameter> parameters = new ArrayList<>();
     for (int ordinal = 0; ordinal < declaration.parameters().size(); ordinal++) {
       Syntax.Parameter parameter = declaration.parameters().get(ordinal);
-      Symbol symbol = symbol(parameter.nameSpan());
-      parameters.add(
-          new BoundParameter(
-              BoundLocalId.of(symbol.id()), parameter.name(), symbol.type(), ordinal));
+      parameters.add(bindParameter(parameter, ordinal));
     }
     BoundBlock body = bindBlock(declaration.body(), declaration.span());
     if (implicitSelfReturn) {
@@ -404,6 +368,7 @@ final class Binder {
             parameters,
             activeTypeParameters,
             reified,
+            interceptors(AnnotationTarget.FUNCTION, callable.id()),
             callable.type(),
             body,
             declaration.span());
@@ -448,10 +413,7 @@ final class Binder {
       Syntax.ConstructorDecl constructor = owner.constructors().getFirst();
       for (int ordinal = 0; ordinal < constructor.parameters().size(); ordinal++) {
         Syntax.Parameter parameter = constructor.parameters().get(ordinal);
-        Symbol symbol = symbol(parameter.nameSpan());
-        parameters.add(
-            new BoundParameter(
-                BoundLocalId.of(symbol.id()), parameter.name(), symbol.type(), ordinal));
+        parameters.add(bindParameter(parameter, ordinal));
       }
       constructor
           .superCall()
@@ -501,6 +463,7 @@ final class Binder {
             parameters,
             activeTypeParameters,
             reified,
+            List.of(),
             SemanticType.VOID,
             new BoundBlock(statements, span),
             span));
@@ -522,6 +485,36 @@ final class Binder {
       active.put(type.identity(), local);
       result.add(new BoundReifiedArgument(type.identity(), local));
     }
+  }
+
+  private BoundParameter bindParameter(Syntax.Parameter parameter, int ordinal) {
+    Symbol symbol = symbol(parameter.nameSpan());
+    return new BoundParameter(
+        BoundLocalId.of(symbol.id()),
+        parameter.name(),
+        symbol.type(),
+        ordinal,
+        interceptors(AnnotationTarget.PARAMETER, symbol.id()));
+  }
+
+  private List<BoundInterceptor> interceptors(
+      AnnotationTarget target, dev.w0fv1.norm.semantic.SymbolId symbol) {
+    return semantics.annotations().applications().stream()
+        .filter(
+            application ->
+                application.target() instanceof dev.w0fv1.norm.semantic.AnnotationSite.Symbol site
+                    && site.kind() == target
+                    && site.symbol().equals(symbol))
+        .map(this::bindInterceptor)
+        .toList();
+  }
+
+  private BoundInterceptor bindInterceptor(AnnotationApplication application) {
+    return new BoundInterceptor(
+        BoundAggregateId.of(application.annotation()),
+        application.values().stream()
+            .map(value -> new BoundAnnotationValue(value.type(), value.value()))
+            .toList());
   }
 
   private BoundBlock bindBlock(List<Syntax.Statement> statements, SourceSpan fallback) {
@@ -1315,6 +1308,7 @@ final class Binder {
             parameters,
             activeTypeParameters,
             lambdaReifiedParameters,
+            List.of(),
             type.functionReturnType(),
             body,
             lambda.span()));
@@ -1467,10 +1461,6 @@ final class Binder {
 
   private BoundAggregateId aggregateId(Syntax.AggregateDecl declaration) {
     return BoundAggregateId.of(symbol(declaration.nameSpan()).id());
-  }
-
-  private BoundAnnotationId annotationId(Syntax.AnnotationDecl declaration) {
-    return BoundAnnotationId.of(symbol(declaration.nameSpan()).id());
   }
 
   private BoundInterfaceId interfaceId(Syntax.InterfaceDecl declaration) {

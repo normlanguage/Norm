@@ -1,0 +1,42 @@
+import std.annotation.FieldTarget
+import std.annotation.SourceRetention
+import std.testing.expectedOutputLines
+
+annotation Wrap implements FieldTarget<String>, SourceRetention {
+  String before(FieldContext context, String value) {
+    printLine(context.name())
+    printLine(context.index())
+    return "[" + value + "]"
+  }
+}
+
+class Base {
+  @Wrap()
+  String name
+
+  Base(String initial) {
+    name = initial
+  }
+}
+
+class Child extends Base {
+  @Wrap()
+  String detail
+
+  Child(String initial) {
+    super(initial: initial)
+    detail = initial
+  }
+}
+
+main() {
+  Child child = Child(initial: "created")
+  printLine(child.name)
+  printLine(child.detail)
+  child.name = "assigned"
+  printLine(child.name)
+  expectedOutputLines([
+    "name", "0", "detail", "1", "[created]", "[created]",
+    "name", "0", "[assigned]"
+  ])
+}

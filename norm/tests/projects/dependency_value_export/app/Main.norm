@@ -1,0 +1,12 @@
+package app
+
+import library.model.Point
+import std.testing.expectedOutputLines
+
+main() {
+  Point first = Point(x: 2, y: 3)
+  Point second = Point(x: 2, y: 3)
+  printLine(first == second)
+  expectedOutputLines(["true"])
+}
+

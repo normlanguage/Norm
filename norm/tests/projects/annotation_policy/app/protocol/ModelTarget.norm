@@ -1,0 +1,7 @@
+package app.protocol
+
+import std.annotation.TypeTarget
+
+public interface ModelTarget extends TypeTarget {
+}
+

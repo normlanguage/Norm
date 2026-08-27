@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.core;
 
 import java.util.Objects;
-import java.util.Optional;
 
 public final class CoreArtifact {
   private final CoreProgram program;
@@ -59,6 +58,7 @@ public final class CoreArtifact {
       CoreNamespace namespace,
       CoreAuthoringMap authoring,
       CoreMetadata metadata) {
+    java.util.Set<DefinitionId> aggregateOccurrences = new java.util.HashSet<>();
     for (CoreDefinitionOccurrence occurrence : authoring.occurrences()) {
       for (DefinitionId definition : occurrence.representedDefinitions()) {
         if (program.definition(definition).isEmpty()) {
@@ -67,6 +67,10 @@ public final class CoreArtifact {
       }
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
+      if (definition instanceof CoreDefinition.Aggregate
+          && !aggregateOccurrences.add(occurrence.id().representative())) {
+        throw new IllegalArgumentException("aggregate definition requires a unique occurrence");
+      }
       validateRole(definition, occurrence.role());
       var references = CoreTree.referenceSites(definition);
       if (!references.keySet().equals(occurrence.references().keySet())) {
@@ -95,14 +99,13 @@ public final class CoreArtifact {
       }
       validateBinding(program, namespace, authoring, binding);
     }
-    CoreAnnotationVerifier.verifyMetadata(program, authoring, metadata);
+    CoreAnnotationVerifier.verifyArtifact(program, authoring, metadata);
     CoreArtifactMutabilityVerifier.verify(program, authoring);
   }
 
   private static void validateRole(CoreDefinition definition, CoreDefinitionRole role) {
     boolean valid =
         switch (definition) {
-          case CoreDefinition.Annotation ignored -> role == CoreDefinitionRole.ANNOTATION;
           case CoreDefinition.Aggregate ignored -> role == CoreDefinitionRole.AGGREGATE;
           case CoreDefinition.Enum ignored -> role == CoreDefinitionRole.ENUM;
           case CoreDefinition.Interface ignored -> role == CoreDefinitionRole.INTERFACE;
@@ -132,15 +135,16 @@ public final class CoreArtifact {
         switch (role) {
           case FUNCTION -> CoreBindingKind.FUNCTION;
           case METHOD -> CoreBindingKind.METHOD;
-          case ANNOTATION -> CoreBindingKind.ANNOTATION;
           case ENUM -> CoreBindingKind.ENUM;
           case INTERFACE -> CoreBindingKind.INTERFACE;
           case INTERFACE_METHOD -> CoreBindingKind.INTERFACE_METHOD;
           case AGGREGATE -> {
             CoreDefinition.Aggregate declaration = (CoreDefinition.Aggregate) definition;
-            yield declaration.valueCategory() == CoreValueCategory.VALUE
-                ? CoreBindingKind.VALUE
-                : CoreBindingKind.CLASS;
+            yield switch (declaration.kind()) {
+              case CLASS -> CoreBindingKind.CLASS;
+              case VALUE -> CoreBindingKind.VALUE;
+              case ANNOTATION -> CoreBindingKind.ANNOTATION;
+            };
           }
           case CONSTRUCTOR, LAMBDA, BUILTIN_CONFORMANCE ->
               throw new IllegalArgumentException(
@@ -148,32 +152,6 @@ public final class CoreArtifact {
         };
     if (binding.kind() != expectedKind) throw bindingMismatch(binding);
     switch (definition) {
-      case CoreDefinition.Annotation declaration -> {
-        CoreBindingShape.Annotation shape = (CoreBindingShape.Annotation) binding.shape();
-        if (!shape.targets().equals(declaration.targets())
-            || shape.retention() != declaration.retention()
-            || shape.fields().size() != declaration.fields().size()
-            || shape.defaults().size() != declaration.defaults().size()) {
-          throw bindingMismatch(binding);
-        }
-        for (int field = 0; field < shape.fields().size(); field++) {
-          if (!sameType(
-              program,
-              id,
-              shape.fields().get(field).type(),
-              declaration.fields().get(field).type())) {
-            throw bindingMismatch(binding);
-          }
-          Optional<CoreAnnotationValue> left = shape.defaults().get(field);
-          Optional<CoreAnnotationValue> right = declaration.defaults().get(field);
-          if (left.isPresent() != right.isPresent()) throw bindingMismatch(binding);
-          if (left.isPresent()
-              && (!sameType(program, id, left.orElseThrow().type(), right.orElseThrow().type())
-                  || !Objects.equals(left.orElseThrow().value(), right.orElseThrow().value()))) {
-            throw bindingMismatch(binding);
-          }
-        }
-      }
       case CoreDefinition.Callable callable -> {
         CoreBindingShape.Callable shape = (CoreBindingShape.Callable) binding.shape();
         if (!sameTypeParameters(program, id, shape.typeParameters(), callable.typeParameters())
@@ -182,11 +160,16 @@ public final class CoreArtifact {
           throw bindingMismatch(binding);
         }
         for (int parameter = 0; parameter < shape.parameters().size(); parameter++) {
-          if (!sameType(
-              program,
-              id,
-              shape.parameters().get(parameter).type(),
-              callable.parameterTypes().get(parameter))) {
+          if (!shape
+                  .parameters()
+                  .get(parameter)
+                  .label()
+                  .equals(callable.parameters().get(parameter).name())
+              || !sameType(
+                  program,
+                  id,
+                  shape.parameters().get(parameter).type(),
+                  callable.parameterTypes().get(parameter))) {
             throw bindingMismatch(binding);
           }
         }
@@ -201,9 +184,11 @@ public final class CoreArtifact {
           CoreBindingKind ownerKind =
               switch (ownerDefinition) {
                 case CoreDefinition.Aggregate aggregate ->
-                    aggregate.valueCategory() == CoreValueCategory.VALUE
-                        ? CoreBindingKind.VALUE
-                        : CoreBindingKind.CLASS;
+                    switch (aggregate.kind()) {
+                      case CLASS -> CoreBindingKind.CLASS;
+                      case VALUE -> CoreBindingKind.VALUE;
+                      case ANNOTATION -> CoreBindingKind.ANNOTATION;
+                    };
                 case CoreDefinition.Interface ignored -> CoreBindingKind.INTERFACE;
                 default -> throw bindingMismatch(binding);
               };
@@ -220,7 +205,8 @@ public final class CoreArtifact {
       }
       case CoreDefinition.Aggregate declaration -> {
         CoreBindingShape.Aggregate shape = (CoreBindingShape.Aggregate) binding.shape();
-        if (shape.valueCategory() != declaration.valueCategory()
+        if (shape.kind() != declaration.kind()
+            || shape.valueCategory() != declaration.valueCategory()
             || !sameTypeParameters(
                 program, id, shape.typeParameters(), declaration.typeParameters())
             || shape.parentType().isPresent() != declaration.parentType().isPresent()
@@ -237,11 +223,12 @@ public final class CoreArtifact {
           throw bindingMismatch(binding);
         }
         for (int field = 0; field < shape.fields().size(); field++) {
-          if (!sameType(
-              program,
-              id,
-              shape.fields().get(field).type(),
-              declaration.fields().get(field).type())) {
+          if (!shape.fields().get(field).name().equals(declaration.fields().get(field).name())
+              || !sameType(
+                  program,
+                  id,
+                  shape.fields().get(field).type(),
+                  declaration.fields().get(field).type())) {
             throw bindingMismatch(binding);
           }
         }
@@ -259,11 +246,16 @@ public final class CoreArtifact {
           throw bindingMismatch(binding);
         }
         for (int parameter = 0; parameter < shape.constructorParameters().size(); parameter++) {
-          if (!sameType(
-              program,
-              constructorId,
-              shape.constructorParameters().get(parameter).type(),
-              constructor.parameterTypes().get(parameter))) {
+          if (!shape
+                  .constructorParameters()
+                  .get(parameter)
+                  .label()
+                  .equals(constructor.parameters().get(parameter).name())
+              || !sameType(
+                  program,
+                  constructorId,
+                  shape.constructorParameters().get(parameter).type(),
+                  constructor.parameterTypes().get(parameter))) {
             throw bindingMismatch(binding);
           }
         }

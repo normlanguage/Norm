@@ -1,0 +1,297 @@
+package std.validation
+
+import std.annotation.FieldTarget
+import std.annotation.ParameterTarget
+import std.annotation.SourceRetention
+import std.core.Exception
+
+public enum ConstraintLocation { Parameter, Field }
+
+public value ConstraintContext {
+  ConstraintLocation location
+  String target
+  Integer index
+}
+
+public class ConstraintViolation extends Exception {
+  ConstraintLocation location
+  String target
+  Integer index
+  String code
+
+  ConstraintViolation(
+    ConstraintLocation location,
+    String target,
+    Integer index,
+    String code,
+    String message
+  ) {
+    super(message: message)
+    this.location = location
+    this.target = target
+    this.index = index
+    this.code = code
+  }
+}
+
+public class ConstraintDefinitionException extends Exception {
+  String code
+
+  ConstraintDefinitionException(String code, String message) {
+    super(message: message)
+    this.code = code
+  }
+}
+
+public interface Constraint<T> extends ParameterTarget<T>, FieldTarget<T>, SourceRetention {
+  Boolean isValid(T value)
+
+  String code()
+
+  String message()
+
+  T validate(ConstraintContext context, T value) {
+    if !this.isValid(value) {
+      throw ConstraintViolation(
+        location: context.location,
+        target: context.target,
+        index: context.index,
+        code: this.code(),
+        message: this.message()
+      )
+    }
+    return value
+  }
+
+  T before(ParameterContext context, T value) {
+    return this.validate(
+      context: ConstraintContext(
+        location: ConstraintLocation.Parameter,
+        target: context.name(),
+        index: context.index()
+      ),
+      value: value
+    )
+  }
+
+  T before(FieldContext context, T value) {
+    return this.validate(
+      context: ConstraintContext(
+        location: ConstraintLocation.Field,
+        target: context.name(),
+        index: context.index()
+      ),
+      value: value
+    )
+  }
+}
+
+public annotation AssertTrue implements Constraint<Boolean> {
+  public Boolean isValid(Boolean value) {
+    return value
+  }
+
+  public String code() {
+    return "assert_true"
+  }
+
+  public String message() {
+    return "must be true"
+  }
+}
+
+public annotation AssertFalse implements Constraint<Boolean> {
+  public Boolean isValid(Boolean value) {
+    return !value
+  }
+
+  public String code() {
+    return "assert_false"
+  }
+
+  public String message() {
+    return "must be false"
+  }
+}
+
+public annotation Min implements Constraint<Integer> {
+  Integer minimum
+
+  Min(Integer value) {
+    minimum = value
+  }
+
+  public Boolean isValid(Integer value) {
+    return value >= minimum
+  }
+
+  public String code() {
+    return "min"
+  }
+
+  public String message() {
+    return "must be greater than or equal to the minimum"
+  }
+}
+
+public annotation Max implements Constraint<Integer> {
+  Integer maximum
+
+  Max(Integer value) {
+    maximum = value
+  }
+
+  public Boolean isValid(Integer value) {
+    return value <= maximum
+  }
+
+  public String code() {
+    return "max"
+  }
+
+  public String message() {
+    return "must be less than or equal to the maximum"
+  }
+}
+
+public annotation Negative implements Constraint<Integer> {
+  public Boolean isValid(Integer value) {
+    return value < 0
+  }
+
+  public String code() {
+    return "negative"
+  }
+
+  public String message() {
+    return "must be negative"
+  }
+}
+
+public annotation NegativeOrZero implements Constraint<Integer> {
+  public Boolean isValid(Integer value) {
+    return value <= 0
+  }
+
+  public String code() {
+    return "negative_or_zero"
+  }
+
+  public String message() {
+    return "must be negative or zero"
+  }
+}
+
+public annotation Positive implements Constraint<Integer> {
+  public Boolean isValid(Integer value) {
+    return value > 0
+  }
+
+  public String code() {
+    return "positive"
+  }
+
+  public String message() {
+    return "must be positive"
+  }
+}
+
+public annotation PositiveOrZero implements Constraint<Integer> {
+  public Boolean isValid(Integer value) {
+    return value >= 0
+  }
+
+  public String code() {
+    return "positive_or_zero"
+  }
+
+  public String message() {
+    return "must be positive or zero"
+  }
+}
+
+public annotation NotEmpty implements Constraint<String> {
+  public Boolean isValid(String value) {
+    return !value.isEmpty()
+  }
+
+  public String code() {
+    return "not_empty"
+  }
+
+  public String message() {
+    return "must not be empty"
+  }
+}
+
+public annotation NotBlank implements Constraint<String> {
+  public Boolean isValid(String value) {
+    return !value.trim().isEmpty()
+  }
+
+  public String code() {
+    return "not_blank"
+  }
+
+  public String message() {
+    return "must not be blank"
+  }
+}
+
+public annotation CodePointSize implements Constraint<String> {
+  Integer minimum
+  Integer maximum
+
+  CodePointSize(Integer minimum, Integer maximum) {
+    this.minimum = minimum
+    this.maximum = maximum
+    if minimum < 0 || maximum < minimum {
+      throw ConstraintDefinitionException(
+        code: this.code(),
+        message: "code point size requires 0 <= minimum <= maximum"
+      )
+    }
+  }
+
+  public Boolean isValid(String value) {
+    Integer size = value.codePointSize()
+    return size >= minimum && size <= maximum
+  }
+
+  public String code() {
+    return "code_point_size"
+  }
+
+  public String message() {
+    return "code point size is outside the allowed range"
+  }
+}
+
+public annotation GraphemeSize implements Constraint<String> {
+  Integer minimum
+  Integer maximum
+
+  GraphemeSize(Integer minimum, Integer maximum) {
+    this.minimum = minimum
+    this.maximum = maximum
+    if minimum < 0 || maximum < minimum {
+      throw ConstraintDefinitionException(
+        code: this.code(),
+        message: "grapheme size requires 0 <= minimum <= maximum"
+      )
+    }
+  }
+
+  public Boolean isValid(String value) {
+    Integer size = value.graphemeSize()
+    return size >= minimum && size <= maximum
+  }
+
+  public String code() {
+    return "grapheme_size"
+  }
+
+  public String message() {
+    return "grapheme size is outside the allowed range"
+  }
+}

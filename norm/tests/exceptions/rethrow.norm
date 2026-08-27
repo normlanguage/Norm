@@ -1,0 +1,26 @@
+import std.core.Exception
+import std.testing.expectedOutputLines
+
+class Failure extends Exception {
+  Failure(String message) {
+    super(message: message)
+  }
+}
+
+Void fail() {
+  try {
+    throw Failure(message: "again")
+  } catch Failure error {
+    throw error
+  }
+}
+
+main() {
+  try {
+    fail()
+  } catch Failure error {
+    printLine(error.message)
+  }
+  expectedOutputLines(["again"])
+}
+

@@ -3,7 +3,9 @@ package dev.w0fv1.norm.semantic;
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 public record AnnotationSchema(
@@ -11,12 +13,18 @@ public record AnnotationSchema(
     String name,
     Set<AnnotationTarget> targets,
     AnnotationRetention retention,
+    Map<AnnotationTarget, SemanticType> targetTypes,
     List<AnnotationParameterInfo> parameters) {
   public AnnotationSchema {
     Objects.requireNonNull(symbol, "symbol");
     Objects.requireNonNull(name, "name");
     targets = Set.copyOf(targets);
     Objects.requireNonNull(retention, "retention");
+    targetTypes = Map.copyOf(targetTypes);
     parameters = List.copyOf(parameters);
+  }
+
+  public Optional<SemanticType> targetType(AnnotationTarget target) {
+    return Optional.ofNullable(targetTypes.get(target));
   }
 }

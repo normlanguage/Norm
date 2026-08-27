@@ -1,0 +1,15 @@
+import std.testing.expectedOutputLines
+
+value Bucket {
+  List<Integer> items
+}
+
+main() {
+  Bucket bucket = Bucket(items: [1])
+  ref<Bucket> location = &bucket
+  Bucket copy = *location
+  *location = Bucket(items: [1, 2])
+  printLine(bucket.items.size())
+  printLine(copy.items.size())
+  expectedOutputLines(["2", "1"])
+}

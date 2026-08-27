@@ -15,4 +15,6 @@ The target `T` must be a non-nullable value type. References cannot be nested or
 
 Copying a ref preserves its location identity. Dereferencing reads an ordinary copy of `T`, writing replaces the stored value, and `==` or `!=` compares locations. The lifetime is bounded by the declaring lexical scope or one callable invocation; 0.10 has no named lifetime syntax.
 
+A line-leading `*reference` starts a new dereference expression; adding `= value` makes it a write statement. It does not continue the preceding semicolon-free expression as multiplication. Keep `*` on the preceding line or use parentheses when multiplication spans lines.
+
 See [Value and Identity Semantics](/en/spec/value-identity-semantics) for the shared assignment and copying rules.

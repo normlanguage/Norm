@@ -1,0 +1,12 @@
+import std.testing.expectedOutputLines
+
+Boolean same(ref<Integer> first, ref<Integer> second) {
+  return first == second
+}
+
+main() {
+  Integer value = 3
+  printLine(same(first: &value, second: &value))
+  expectedOutputLines(["true"])
+}
+
