@@ -8,6 +8,7 @@ import dev.w0fv1.norm.core.store.DefinitionStore;
 import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
 import dev.w0fv1.norm.core.store.PutBatchResult;
 import dev.w0fv1.norm.core.store.PutResult;
+import dev.w0fv1.norm.frontend.CompilationPrelude;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.CompilerSessionCapacity;
 import dev.w0fv1.norm.frontend.LanguageProfile;
@@ -27,6 +28,28 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class IncrementalCompilationTest {
+  @Test
+  void compilesAfterAnAnalysisSnapshotReusesSyntheticBodySymbols() {
+    SourceFile protocols =
+        SourceFile.of(
+            DocumentId.of("stdlib:/std/core/protocols.norm"),
+            "package std.core public interface Self { Self self() { return this } }");
+    CompilationPrelude prelude =
+        new CompilationPrelude(
+            List.of(protocols),
+            java.util.Set.of(protocols.id()),
+            CompilationScope.module(
+                new ModuleCoordinate("std", 1),
+                java.util.Map.of(protocols.id(), "std/core/protocols.norm")));
+    CompilerSession compiler = new CompilerSession(LanguageProfile.withPrelude(prelude));
+    SourceFile source = SourceFile.of(Path.of("snapshot.norm"), "Void main() {}");
+
+    compiler.snapshot(source);
+    CompilationResult result = compiler.compile(source);
+
+    assertTrue(result.isSuccess());
+  }
+
   @Test
   void reusesUnchangedDefinitionsAndRekeysOnlyDependencyClosure() {
     CompilerSession compiler =
@@ -63,6 +86,7 @@ final class IncrementalCompilationTest {
     assertTrue(
         changed.state().delta().detached().containsAll(java.util.Set.of(firstLeaf, firstMain)));
     assertTrue(changed.state().buildReport().reusedGroups() > 0);
+    assertTrue(changed.state().buildReport().canonicalization().components() > 0);
     assertTrue(changed.state().analysisReport().analyzedDeclarations() > 0);
     assertTrue(changed.state().analysisReport().reusedDeclarations() > 0);
     assertTrue(
@@ -215,6 +239,105 @@ final class IncrementalCompilationTest {
     assertEquals(
         changed.state().analysisReport().declarations() - 1,
         changed.state().analysisReport().reusedDeclarations());
+  }
+
+  @Test
+  void preservesSemanticIdentityAndLocationsAcrossDeclarationReordering() {
+    CompilerSession compiler = new CompilerSession();
+    String first =
+        "Integer first() { return 1 } "
+            + "Integer second() { return first() } "
+            + "Void main() { printLine(second()) }";
+    String changedText =
+        "Void main() { printLine(second()) } "
+            + "Integer second() { return first() } "
+            + "Integer first() { return 1 }";
+    SourceFile changed = SourceFile.of(Path.of("incremental.norm"), changedText);
+    compile(compiler, first);
+
+    CompilationOutput output = compiler.compile(changed).program().orElseThrow().compilation();
+    var semantic = compiler.snapshot(changed).semanticModel();
+    int firstCall = changedText.indexOf("first()", changedText.indexOf("Integer second"));
+    int secondCall = changedText.indexOf("second()", changedText.indexOf("Void main"));
+
+    assertEquals(0, output.state().analysisReport().analyzedDeclarations());
+    assertEquals(3, output.state().analysisReport().reusedDeclarations());
+    assertEquals("first", semantic.resolvedSymbolAt(changed.id(), firstCall).orElseThrow().name());
+    assertEquals(
+        changedText.lastIndexOf("first()"),
+        semantic
+            .resolvedSymbolAt(changed.id(), firstCall)
+            .orElseThrow()
+            .declaration()
+            .orElseThrow()
+            .startOffset());
+    assertEquals(
+        "second", semantic.resolvedSymbolAt(changed.id(), secondCall).orElseThrow().name());
+    assertEquals(
+        changedText.indexOf("second()", changedText.indexOf("Integer second")),
+        semantic
+            .resolvedSymbolAt(changed.id(), secondCall)
+            .orElseThrow()
+            .declaration()
+            .orElseThrow()
+            .startOffset());
+  }
+
+  @Test
+  void preservesAggregateMemberIdentityAcrossDeclarationReordering() {
+    CompilerSession compiler = new CompilerSession();
+    String first =
+        "class First { Integer value Integer read() { return value } } "
+            + "class Second { Integer value } "
+            + "Void main() { First first = First(value: 1) printLine(first.read()) }";
+    String changedText =
+        "class Second { Integer value } "
+            + "Void main() { First first = First(value: 1) printLine(first.read()) } "
+            + "class First { Integer value Integer read() { return value } }";
+    SourceFile changed = SourceFile.of(Path.of("incremental.norm"), changedText);
+    compile(compiler, first);
+
+    CompilationOutput output = compiler.compile(changed).program().orElseThrow().compilation();
+    var semantic = compiler.snapshot(changed).semanticModel();
+    int methodCall = changedText.indexOf("read()", changedText.indexOf("Void main"));
+
+    assertEquals(0, output.state().analysisReport().analyzedDeclarations());
+    assertEquals(3, output.state().analysisReport().reusedDeclarations());
+    assertEquals("read", semantic.resolvedSymbolAt(changed.id(), methodCall).orElseThrow().name());
+    assertEquals(
+        changedText.lastIndexOf("read()"),
+        semantic
+            .resolvedSymbolAt(changed.id(), methodCall)
+            .orElseThrow()
+            .declaration()
+            .orElseThrow()
+            .startOffset());
+  }
+
+  @Test
+  void rebasesSemanticLocationsAcrossWhitespaceOnlyEdits() {
+    CompilerSession compiler = new CompilerSession();
+    compile(
+        compiler,
+        "Integer first() { return 1 } Integer second() { return first() } Void main() {}");
+    String changedText =
+        "\n  Integer first()  {  return 1  }\n\nInteger second() { return first() } Void main() {}\n";
+    SourceFile changed = SourceFile.of(Path.of("incremental.norm"), changedText);
+
+    CompilationOutput output = compiler.compile(changed).program().orElseThrow().compilation();
+    var semantic = compiler.snapshot(changed).semanticModel();
+    int call = changedText.indexOf("first()", changedText.indexOf("Integer second"));
+
+    assertEquals(0, output.state().analysisReport().analyzedDeclarations());
+    assertEquals("first", semantic.resolvedSymbolAt(changed.id(), call).orElseThrow().name());
+    assertEquals(
+        changedText.indexOf("first()"),
+        semantic
+            .resolvedSymbolAt(changed.id(), call)
+            .orElseThrow()
+            .declaration()
+            .orElseThrow()
+            .startOffset());
   }
 
   @Test

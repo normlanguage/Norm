@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.nodes.Node;
-import dev.w0fv1.norm.core.ExceptionAbi;
+import dev.w0fv1.norm.abi.ExceptionAbi;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 
 final class NormThrownException extends NormGuestException {

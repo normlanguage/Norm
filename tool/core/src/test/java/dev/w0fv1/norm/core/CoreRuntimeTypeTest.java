@@ -51,7 +51,7 @@ final class CoreRuntimeTypeTest {
         new CoreExpression.CollectionLiteral(
             2,
             List.of(),
-            dev.w0fv1.norm.builtin.IntrinsicId.ARRAY_CONSTRUCT,
+            dev.w0fv1.norm.abi.IntrinsicId.ARRAY_CONSTRUCT,
             runtimeType,
             runtimeType.template());
     CoreDefinition.Callable callable =

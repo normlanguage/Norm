@@ -5,7 +5,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.LoopNode;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.RepeatingNode;
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;

@@ -12,10 +12,44 @@ import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceFile;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 final class CompilerSessionLifecycleTest {
+  @Test
+  void analyzesIndependentCompilationUnitsConcurrently() throws Exception {
+    CountDownLatch analyses = new CountDownLatch(2);
+    CompilerSession session =
+        new CompilerSession(
+            LanguageProfile.kernel(),
+            new InMemoryDefinitionStore(),
+            new CompilerSessionCapacity(4, 4),
+            () -> {},
+            () -> {
+              analyses.countDown();
+              try {
+                if (!analyses.await(1, TimeUnit.SECONDS)) {
+                  throw new AssertionError("independent analyses did not overlap");
+                }
+              } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(exception);
+              }
+            });
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      var first =
+          executor.submit(() -> session.compile(request("parallel-first", "Void main() {}")));
+      var second =
+          executor.submit(() -> session.compile(request("parallel-second", "Void main() {}")));
+
+      assertTrue(first.get(2, TimeUnit.SECONDS).isSuccess());
+      assertTrue(second.get(2, TimeUnit.SECONDS).isSuccess());
+    }
+  }
+
   @Test
   void evictsLeastRecentlyUsedParsedDocumentsAtTheConfiguredCapacity() {
     AtomicInteger parses = new AtomicInteger();

@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.bound;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
@@ -209,8 +209,8 @@ public sealed interface BoundExpression extends BoundNode
   record Index(
       BoundExpression receiver,
       BoundExpression index,
-      dev.w0fv1.norm.builtin.IntrinsicId readIntrinsic,
-      java.util.Optional<dev.w0fv1.norm.builtin.IntrinsicId> writeIntrinsic,
+      IntrinsicId readIntrinsic,
+      java.util.Optional<IntrinsicId> writeIntrinsic,
       SemanticType type,
       SourceSpan span)
       implements BoundExpression {

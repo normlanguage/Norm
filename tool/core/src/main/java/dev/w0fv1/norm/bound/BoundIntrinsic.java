@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.bound;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;

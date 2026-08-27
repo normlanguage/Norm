@@ -13,6 +13,142 @@ import org.junit.jupiter.api.Test;
 
 final class IncrementalAnalysisPlanTest {
   @Test
+  void reusesDeclarationsAcrossWhitespaceOnlyEdits() {
+    SourceFile first =
+        SourceFile.of(
+            Path.of("whitespace.norm"),
+            "Integer first() { return 1 } Integer second() { return first() } Void main() {}");
+    SourceFile changed =
+        SourceFile.of(
+            Path.of("whitespace.norm"),
+            "\n  Integer first()  {  return 1  }\n\nInteger second() { return first() } Void main() {}\n");
+    CompilationSnapshot previous = new CompilerSession().snapshot(first);
+
+    IncrementalAnalysisPlan plan =
+        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+
+    assertEquals(3, plan.declarations());
+    assertEquals(3, plan.reusedDeclarations());
+    assertEquals(0, plan.analyzedDeclarations());
+  }
+
+  @Test
+  void analyzesOnlyAnAppendedIndependentDeclaration() {
+    SourceFile first =
+        SourceFile.of(Path.of("append.norm"), "Integer stable() { return 1 } Void main() {}");
+    SourceFile changed =
+        SourceFile.of(
+            Path.of("append.norm"),
+            "Integer stable() { return 1 } Void main() {} Integer added() { return 2 }");
+    CompilationSnapshot previous = new CompilerSession().snapshot(first);
+
+    IncrementalAnalysisPlan plan =
+        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+
+    assertEquals(3, plan.declarations());
+    assertEquals(2, plan.reusedDeclarations());
+    assertEquals(1, plan.analyzedDeclarations());
+  }
+
+  @Test
+  void reusesRemainingDeclarationsAfterAnIndependentDeclarationIsRemoved() {
+    SourceFile first =
+        SourceFile.of(
+            Path.of("remove.norm"),
+            "Integer stable() { return 1 } Integer removed() { return 2 } Void main() {}");
+    SourceFile changed =
+        SourceFile.of(Path.of("remove.norm"), "Integer stable() { return 1 } Void main() {}");
+    CompilationSnapshot previous = new CompilerSession().snapshot(first);
+
+    IncrementalAnalysisPlan plan =
+        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+
+    assertEquals(2, plan.declarations());
+    assertEquals(2, plan.reusedDeclarations());
+    assertEquals(0, plan.analyzedDeclarations());
+  }
+
+  @Test
+  void invalidatesAnOverloadFamilyAndItsCallersWhenAnOverloadIsAdded() {
+    SourceFile first =
+        SourceFile.of(
+            Path.of("overloads.norm"),
+            "Integer pick(Integer value) { return value } "
+                + "Integer stable() { return 1 } Void main() { pick(1) }");
+    SourceFile changed =
+        SourceFile.of(
+            Path.of("overloads.norm"),
+            "Integer pick(Integer value) { return value } "
+                + "Integer pick(String value) { return 2 } "
+                + "Integer stable() { return 1 } Void main() { pick(1) }");
+    CompilationSnapshot previous = new CompilerSession().snapshot(first);
+
+    IncrementalAnalysisPlan plan =
+        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+
+    assertEquals(4, plan.declarations());
+    assertEquals(1, plan.reusedDeclarations());
+    assertEquals(3, plan.analyzedDeclarations());
+  }
+
+  @Test
+  void invalidatesAnOverloadFamilyAcrossDocuments() {
+    SourceFile integerOverload =
+        SourceFile.of(
+            Path.of("src/lib/IntegerPick.norm"),
+            "package lib public Integer pick(Integer value) { return value }");
+    SourceFile library =
+        SourceFile.of(
+            Path.of("src/lib/Library.norm"), "package lib public Integer stable() { return 1 }");
+    SourceFile entry =
+        SourceFile.of(
+            Path.of("src/app/Main.norm"), "package app import lib.pick Void main() { pick(1) }");
+    CompilationRequest request =
+        new CompilationRequest(
+            entry.id(),
+            List.of(entry, integerOverload, library),
+            Set.of(integerOverload.id(), library.id()));
+    CompilationSnapshot previous = new CompilerSession().snapshot(request);
+    SourceFile changedLibrary =
+        SourceFile.of(
+            Path.of("src/lib/Library.norm"),
+            "package lib public Integer stable() { return 1 } "
+                + "public Integer pick(String value) { return 2 }");
+
+    IncrementalAnalysisPlan plan =
+        IncrementalAnalysisPlan.create(
+            previous,
+            List.of(
+                SourceParser.parse(entry),
+                SourceParser.parse(integerOverload),
+                SourceParser.parse(changedLibrary)));
+
+    assertEquals(4, plan.declarations());
+    assertEquals(1, plan.reusedDeclarations());
+    assertEquals(3, plan.analyzedDeclarations());
+  }
+
+  @Test
+  void reusesDeclarationsAfterTheyAreReordered() {
+    SourceFile first =
+        SourceFile.of(
+            Path.of("reorder.norm"),
+            "Integer first() { return 1 } Integer second() { return 2 } Void main() {}");
+    SourceFile changed =
+        SourceFile.of(
+            Path.of("reorder.norm"),
+            "Integer second() { return 2 } Void main() {} Integer first() { return 1 }");
+    CompilationSnapshot previous = new CompilerSession().snapshot(first);
+
+    IncrementalAnalysisPlan plan =
+        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+
+    assertEquals(3, plan.declarations());
+    assertEquals(3, plan.reusedDeclarations());
+    assertEquals(0, plan.analyzedDeclarations());
+  }
+
+  @Test
   void invalidatesChangedDeclarationsAndTheirSemanticDependents() {
     SourceFile first =
         SourceFile.of(

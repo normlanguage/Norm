@@ -1,10 +1,17 @@
 package dev.w0fv1.norm.frontend;
 
+import static dev.w0fv1.norm.frontend.SemanticDiagnosticCodes.*;
+
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
+import dev.w0fv1.norm.frontend.SemanticAnalysisContext.BoundViolation;
+import dev.w0fv1.norm.frontend.SemanticAnalysisContext.ControlKind;
+import dev.w0fv1.norm.frontend.SemanticAnalysisContext.InferenceConflict;
+import dev.w0fv1.norm.frontend.SemanticAnalysisContext.SourceCallCandidate;
+import dev.w0fv1.norm.frontend.SemanticAnalysisContext.SourceCallResolution;
+import dev.w0fv1.norm.frontend.SemanticAnalysisContext.TypeProbe;
 import dev.w0fv1.norm.semantic.ArgumentBinding;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedCall;
-import dev.w0fv1.norm.semantic.SemanticContribution;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
@@ -15,8 +22,6 @@ import dev.w0fv1.norm.semantic.TypeRelations;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.LexicalLifetime;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
@@ -28,89 +33,48 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-abstract class AnalyzerTypeSystem extends AnalyzerState {
-  AnalyzerTypeSystem(
-      List<Syntax.Program> programs,
-      Syntax.Program entryProgram,
-      DiagnosticBag diagnostics,
-      boolean requireEntryPoint,
-      Set<DocumentId> exportedSources,
-      CompilationGuard guard,
-      Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId,
-      Set<DocumentId> moduleEvaluationDocuments,
-      CompilationScope scope) {
-    super(
-        programs,
-        entryProgram,
-        diagnostics,
-        requireEntryPoint,
-        exportedSources,
-        guard,
-        reusableDeclarations,
-        minimumBodySymbolId,
-        moduleEvaluationDocuments,
-        scope);
+final class TypeSystem {
+  private final Analyzer analyzer;
+
+  TypeSystem(Analyzer analyzer) {
+    this.analyzer = java.util.Objects.requireNonNull(analyzer, "analyzer");
   }
 
-  abstract SemanticType typeOf(Syntax.Expression expression, SemanticType expected);
-
-  abstract TypeProbe probeType(Syntax.Expression expression, SemanticType expected);
-
-  abstract SemanticType memberType(Syntax.Member member);
-
-  abstract SemanticType functionReturnType(
-      Syntax.FunctionDecl function, Map<String, SemanticType> typeParameters);
-
-  abstract Map<String, SemanticType> interfaceSubstitutions(
-      Syntax.InterfaceDecl declaration, SemanticType type);
-
-  abstract void collectConformances(
-      Syntax.InterfaceDecl declaration,
-      SemanticType concrete,
-      Map<String, SemanticType> result,
-      SourceSpan span);
-
-  abstract List<InterfaceRequirement> directRequirements(
-      Syntax.InterfaceDecl declaration, SemanticType receiver);
-
-  abstract void analyzeStatements(List<Syntax.Statement> statements);
-
   SourceCallResolution resolveSourceCall(
-      List<Syntax.FunctionDecl> declarations,
+      List<Syntax.FunctionDecl> candidates,
       List<Syntax.TypeRef> explicitTypeArguments,
       Syntax.Call call,
       SemanticType expected,
       Map<String, SemanticType> ownerSubstitutions,
       SourceSpan span,
       String callableKind) {
-    if (declarations.isEmpty()) return null;
+    if (candidates.isEmpty()) return null;
     List<SemanticType> explicitTypes =
         explicitTypeArguments.stream()
-            .map(argument -> resolveCheckedType(argument, activeTypeParameters))
+            .map(argument -> resolveCheckedType(argument, analyzer.context.activeTypeParameters))
             .toList();
     List<Syntax.FunctionDecl> arityMatches =
         explicitTypeArguments.isEmpty()
-            ? declarations
-            : declarations.stream()
+            ? candidates
+            : candidates.stream()
                 .filter(
                     declaration ->
                         declaration.typeParameters().size() == explicitTypeArguments.size())
                 .toList();
     if (arityMatches.isEmpty()) {
-      if (declarations.size() == 1) {
+      if (candidates.size() == 1) {
         validateTypeArgumentCount(
-            declarations.getFirst().name(),
-            declarations.getFirst().typeParameters().size(),
+            candidates.getFirst().name(),
+            candidates.getFirst().typeParameters().size(),
             explicitTypeArguments,
             span);
       } else {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             INVALID_CALL,
             "no overload of "
                 + callableKind
                 + " '"
-                + declarations.getFirst().name()
+                + candidates.getFirst().name()
                 + "' accepts "
                 + explicitTypeArguments.size()
                 + " type argument(s)",
@@ -123,7 +87,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     List<SourceCallCandidate> structural = new ArrayList<>();
     for (Syntax.FunctionDecl declaration : arityMatches) {
       List<ParameterInfo> unresolved = parametersOf(declaration, ownerSubstitutions);
-      List<Integer> indices = overloads.argumentIndices(call, unresolved, false);
+      List<Integer> indices = analyzer.context.overloads.argumentIndices(call, unresolved, false);
       if (indices != null) {
         structural.add(
             sourceCallCandidate(
@@ -138,10 +102,10 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     }
     if (structural.isEmpty()) {
       if (arityMatches.size() == 1) {
-        overloads.argumentIndices(
+        analyzer.context.overloads.argumentIndices(
             call, parametersOf(arityMatches.getFirst(), ownerSubstitutions), true);
       } else {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             INVALID_CALL,
             "no overload accepts the supplied argument labels and count",
             call.span());
@@ -157,7 +121,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         applicable.stream().filter(candidate -> candidate.score() == bestScore).toList();
     if (best.size() == 1) return best.getFirst().resolution();
     if (best.size() > 1) {
-      diagnostics.error(INVALID_CALL, "call is ambiguous between multiple overloads", span);
+      analyzer.context.diagnostics.error(
+          INVALID_CALL, "call is ambiguous between multiple overloads", span);
       return null;
     }
     if (structural.size() == 1) {
@@ -167,7 +132,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       if (expected != null
           && !expected.equals(SemanticType.DYNAMIC)
           && !isPotentiallyAssignable(expected, candidate.resolution().result())) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "expected "
                 + expected.displayName()
@@ -176,7 +141,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             span);
       }
     } else {
-      diagnostics.error(INVALID_CALL, "no overload accepts the supplied argument types", span);
+      analyzer.context.diagnostics.error(
+          INVALID_CALL, "no overload accepts the supplied argument types", span);
     }
     return null;
   }
@@ -196,7 +162,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             .collect(java.util.stream.Collectors.toSet());
     Map<String, SemanticType> substitutions = new LinkedHashMap<>(ownerSubstitutions);
     TypeConstraintSolver solver = new TypeConstraintSolver(callableParameters.values());
-    Map<String, SemanticType> declarations = typeParameters(declaration, ownerOf(declaration));
+    Map<String, SemanticType> declarationTypes = typeParameters(declaration, ownerOf(declaration));
     if (hasExplicitTypes) {
       for (int index = 0; index < declaration.typeParameters().size(); index++) {
         SemanticType parameter =
@@ -206,18 +172,20 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     } else {
       if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
         SemanticType pattern =
-            functionReturnType(declaration, declarations).substitute(ownerSubstitutions);
+            analyzer
+                .functionReturnType(declaration, declarationTypes)
+                .substitute(ownerSubstitutions);
         constrainInference(solver, pattern, expected);
         substitutions.putAll(solver.solve().substitutions());
       }
       for (int index = 0; index < call.arguments().size(); index++) {
         Syntax.Parameter parameter = declaration.parameters().get(argumentIndices.get(index));
         SemanticType pattern =
-            resolveDeclarationType(parameter.type(), declaration, declarations)
+            resolveDeclarationType(parameter.type(), declaration, declarationTypes)
                 .substitute(substitutions);
         SemanticType probeExpected =
             containsTypeParameter(pattern, callableParameterIds) ? null : pattern;
-        TypeProbe probe = probeType(call.arguments().get(index).value(), probeExpected);
+        TypeProbe probe = analyzer.probeType(call.arguments().get(index).value(), probeExpected);
         constrainInference(solver, pattern, probe.type());
       }
     }
@@ -252,7 +220,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
                         conflict.first(),
                         conflict.second())));
     List<ParameterInfo> parameters = parametersOf(declaration, substitutions);
-    SemanticType result = functionReturnType(declaration, declarations).substitute(substitutions);
+    SemanticType result =
+        analyzer.functionReturnType(declaration, declarationTypes).substitute(substitutions);
     boolean assignable = true;
     List<BoundViolation> boundViolations = new ArrayList<>();
     for (Syntax.TypeParameter parameterSyntax : declaration.typeParameters()) {
@@ -261,7 +230,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       SemanticType actual = substitutions.get(parameter.identity());
       SemanticType bound =
           resolveDeclarationType(
-                  parameterSyntax.upperBound().orElseThrow(), declaration, declarations)
+                  parameterSyntax.upperBound().orElseThrow(), declaration, declarationTypes)
               .substitute(substitutions);
       if (actual != null && !isAssignable(bound, actual)) {
         assignable = false;
@@ -278,14 +247,14 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       int parameterIndex = argumentIndices.get(index);
       SemanticType parameter = parameters.get(parameterIndex).type();
       Syntax.Expression argument = call.arguments().get(index).value();
-      TypeProbe probe = probeType(argument, parameter);
+      TypeProbe probe = analyzer.probeType(argument, parameter);
       SemanticType actual =
           argument instanceof Syntax.NullLiteral ? SemanticType.NULL : probe.type();
       if (probe.hasErrors() || !isPotentiallyAssignable(parameter, actual)) assignable = false;
       score +=
           callCompatibilityScore(
               patterns.get(parameterIndex).type(), parameter, actual, callableParameterIds);
-      TypeProbe intrinsicProbe = probeType(argument, null);
+      TypeProbe intrinsicProbe = analyzer.probeType(argument, null);
       if (!intrinsicProbe.hasErrors() && !parameter.equals(intrinsicProbe.type())) {
         score += isPotentiallyAssignable(parameter, intrinsicProbe.type()) ? 1 : 2;
       }
@@ -334,11 +303,12 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   List<SemanticType> nominalViews(SemanticType actual) {
-    List<SemanticType> result = new ArrayList<>(builtins.protocolConformances(actual));
+    List<SemanticType> result =
+        new ArrayList<>(analyzer.context.builtins.protocolConformances(actual));
     Syntax.AggregateDecl concrete = resolveAggregate(actual);
     if (concrete == null) return List.copyOf(result);
-    Syntax.Program previous = currentProgram;
-    currentProgram = declarations.owner(concrete);
+    Syntax.Program previous = analyzer.context.currentProgram;
+    analyzer.context.currentProgram = analyzer.context.declarations.owner(concrete);
     Map<String, SemanticType> substitutions = aggregateSubstitutions(concrete, actual);
     Map<String, SemanticType> aggregateParameters = aggregateTypeParameters(concrete);
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
@@ -347,10 +317,10 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
           resolveType(interfaceRef, aggregateParameters).substitute(substitutions);
       Syntax.InterfaceDecl declaration = resolveInterface(conformance);
       if (declaration != null) {
-        collectConformances(declaration, conformance, conformances, interfaceRef.span());
+        analyzer.collectConformances(declaration, conformance, conformances, interfaceRef.span());
       }
     }
-    currentProgram = previous;
+    analyzer.context.currentProgram = previous;
     result.addAll(conformances.values());
     return List.copyOf(result);
   }
@@ -392,7 +362,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   static boolean containsDynamic(SemanticType type) {
     if (type.equals(SemanticType.DYNAMIC)) return true;
-    return type.arguments().stream().anyMatch(Analyzer::containsDynamic);
+    return type.arguments().stream().anyMatch(TypeSystem::containsDynamic);
   }
 
   static boolean containsTypeParameter(SemanticType type, Set<String> identities) {
@@ -405,10 +375,11 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   void reportInferenceFailures(SourceCallCandidate candidate, SourceSpan span) {
     for (String name : candidate.missingTypeArguments()) {
-      diagnostics.error(INVALID_CALL, "cannot infer type argument '" + name + "'", span);
+      analyzer.context.diagnostics.error(
+          INVALID_CALL, "cannot infer type argument '" + name + "'", span);
     }
     for (InferenceConflict conflict : candidate.conflicts()) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "type parameter '"
               + conflict.name()
@@ -419,7 +390,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
           span);
     }
     for (BoundViolation violation : candidate.boundViolations()) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "type argument '"
               + violation.actual().displayName()
@@ -434,7 +405,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Symbol selectBuiltinOverload(List<Symbol> candidates, Syntax.Call call, SourceSpan span) {
     OverloadResolver.Candidate selected =
-        overloads.select(
+        analyzer.context.overloads.select(
             candidates.stream()
                 .map(candidate -> new OverloadResolver.Candidate(candidate, candidate.parameters()))
                 .toList(),
@@ -444,16 +415,17 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   ArgumentBinding validateArguments(Syntax.Call call, List<ParameterInfo> parameters) {
-    List<Integer> parameterIndices = overloads.argumentIndices(call, parameters, true);
+    List<Integer> parameterIndices =
+        analyzer.context.overloads.argumentIndices(call, parameters, true);
     for (int index = 0; index < call.arguments().size(); index++) {
       Syntax.CallArgument argument = call.arguments().get(index);
       int parameterIndex = parameterIndices.get(index);
       if (parameterIndex >= 0) {
         ParameterInfo parameter = parameters.get(parameterIndex);
         requireAssignable(
-            parameter.type(), typeOf(argument.value(), parameter.type()), argument.span());
+            parameter.type(), analyzer.typeOf(argument.value(), parameter.type()), argument.span());
       } else {
-        typeOf(argument.value(), null);
+        analyzer.typeOf(argument.value(), null);
       }
     }
     return new ArgumentBinding(parameterIndices);
@@ -472,7 +444,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         .anyMatch(index -> index < 0 || index >= parameters.size())) {
       return result;
     }
-    resolvedCalls.put(
+    analyzer.context.resolvedCalls.put(
         call.span(),
         new ResolvedCall(
             kind, target, calleeSpan, arguments, parameters, reifiedArguments, result));
@@ -481,7 +453,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   void analyzeArguments(List<Syntax.CallArgument> arguments) {
     for (Syntax.CallArgument argument : arguments) {
-      typeOf(argument.value(), null);
+      analyzer.typeOf(argument.value(), null);
     }
   }
 
@@ -497,11 +469,11 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       Syntax.TypeRef type, boolean allowVoid, boolean allowTopLevelReference) {
     if (type.name().equals("ref")) {
       if (!allowTopLevelReference) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH, "ref is only valid as a local or callable parameter type", type.span());
       }
       if (type.arguments().size() != 1) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "type 'ref' requires 1 type argument, found " + type.arguments().size(),
             type.span());
@@ -509,50 +481,55 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         return;
       }
       if (type.nullable()) {
-        diagnostics.error(INVALID_NULLABLE_TYPE, "ref cannot be nullable", type.span());
+        analyzer.context.diagnostics.error(
+            INVALID_NULLABLE_TYPE, "ref cannot be nullable", type.span());
       }
       Syntax.TypeRef targetSyntax = type.arguments().getFirst();
       validateType(targetSyntax, false, false);
-      SemanticType target = resolveType(targetSyntax, activeTypeParameters);
+      SemanticType target = resolveType(targetSyntax, analyzer.context.activeTypeParameters);
       if (target.isReference() || target.isNullable() || target.category() != ValueCategory.VALUE) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH, "ref target must be a non-reference value type", targetSyntax.span());
       }
       return;
     }
     String name = type.displayName();
-    SymbolId typeParameter = activeTypeParameterSymbols.get(type.name());
+    SymbolId typeParameter = analyzer.context.activeTypeParameterSymbols.get(type.name());
     if (typeParameter != null) {
-      bindings.put(type.span(), typeParameter);
+      analyzer.context.bindings.put(type.span(), typeParameter);
     } else {
       SymbolId alias = importedAlias(type.name());
       if (alias != null) {
-        bindings.put(type.span(), alias);
+        analyzer.context.bindings.put(type.span(), alias);
       } else {
-        typeSymbol(type.name()).ifPresent(symbol -> bindings.put(type.span(), symbol.id()));
+        typeSymbol(type.name())
+            .ifPresent(symbol -> analyzer.context.bindings.put(type.span(), symbol.id()));
       }
     }
     int arity =
         type.name().equals("Function") ? type.arguments().size() : declaredTypeArity(type.name());
-    if (activeTypeParameters.containsKey(type.name())) arity = 0;
+    if (analyzer.context.activeTypeParameters.containsKey(type.name())) arity = 0;
     if (type.name().equals("Function") && type.arguments().isEmpty()) {
-      diagnostics.error(TYPE_MISMATCH, "Function requires a complete call signature", type.span());
+      analyzer.context.diagnostics.error(
+          TYPE_MISMATCH, "Function requires a complete call signature", type.span());
       return;
     }
-    if (arity < 0 && !activeTypeParameters.containsKey(type.name())) {
-      diagnostics.error(UNKNOWN_NAME, "unknown type '" + name + "'", type.span());
+    if (arity < 0 && !analyzer.context.activeTypeParameters.containsKey(type.name())) {
+      analyzer.context.diagnostics.error(UNKNOWN_NAME, "unknown type '" + name + "'", type.span());
       return;
     }
     if (!allowVoid && type.name().equals("Void")) {
-      diagnostics.error(TYPE_MISMATCH, "type 'Void' is not valid here", type.span());
+      analyzer.context.diagnostics.error(
+          TYPE_MISMATCH, "type 'Void' is not valid here", type.span());
       return;
     }
     if (type.nullable() && type.name().equals("Void")) {
-      diagnostics.error(INVALID_NULLABLE_TYPE, "Void cannot be nullable", type.span());
+      analyzer.context.diagnostics.error(
+          INVALID_NULLABLE_TYPE, "Void cannot be nullable", type.span());
       return;
     }
     if (!type.name().equals("Function") && arity != type.arguments().size()) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "type '"
               + type.name()
@@ -595,7 +572,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Map<String, SemanticType> substitutions = new LinkedHashMap<>();
     List<SemanticType> actualArguments =
         reference.arguments().stream()
-            .map(argument -> resolveType(argument, activeTypeParameters))
+            .map(argument -> resolveType(argument, analyzer.context.activeTypeParameters))
             .toList();
     for (int index = 0; index < parameters.size(); index++) {
       substitutions.put(
@@ -609,7 +586,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
               .substitute(substitutions);
       SemanticType actual = actualArguments.get(index);
       if (!isAssignable(bound, actual)) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "type argument '"
                 + actual.displayName()
@@ -638,13 +615,13 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
           actual.mayContainNull() && !expected.mayContainNull()
               ? NULLABILITY_MISMATCH
               : TYPE_MISMATCH;
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           code, "expected " + expected.displayName() + " but found " + actual.displayName(), span);
     }
   }
 
   boolean isAssignable(SemanticType expected, SemanticType actual) {
-    return typeRelations.isAssignable(expected, actual);
+    return analyzer.context.typeRelations.isAssignable(expected, actual);
   }
 
   Optional<SemanticType> commonType(SemanticType left, SemanticType right) {
@@ -652,34 +629,38 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     if (direct.isPresent()) return direct;
     SemanticType leftValue = left.nonNullable();
     SemanticType rightValue = right.nonNullable();
-    if (!isAssignable(STRINGABLE, leftValue) || !isAssignable(STRINGABLE, rightValue)) {
+    if (!isAssignable(SemanticAnalysisContext.STRINGABLE, leftValue)
+        || !isAssignable(SemanticAnalysisContext.STRINGABLE, rightValue)) {
       return Optional.empty();
     }
     return Optional.of(
-        left.isNullable() || right.isNullable() ? STRINGABLE.nullable() : STRINGABLE);
+        left.isNullable() || right.isNullable()
+            ? SemanticAnalysisContext.STRINGABLE.nullable()
+            : SemanticAnalysisContext.STRINGABLE);
   }
 
-  @Override
-  final boolean isNominallyAssignable(SemanticType expected, SemanticType actual) {
+  boolean isNominallyAssignable(SemanticType expected, SemanticType actual) {
     if (actual.isNullable() && !expected.isNullable()) return false;
     if (expected.isNullable() && !actual.isNullable()) {
       return isAssignable(expected.nonNullable(), actual);
     }
     SemanticType bound =
         actual.kind() == SemanticType.Kind.TYPE_PARAMETER
-            ? typeParameterBounds.get(actual.identity())
+            ? analyzer.context.typeParameterBounds.get(actual.identity())
             : null;
     if (bound != null && isAssignable(expected, bound)) return true;
     for (AggregateView view : aggregateViews(actual.nonNullable())) {
       if (expected.nonNullable().equals(view.type())) return true;
     }
     Syntax.InterfaceDecl required = resolveInterface(expected.nonNullable());
-    for (SemanticType conformance : builtins.protocolConformances(actual.nonNullable())) {
+    for (SemanticType conformance :
+        analyzer.context.builtins.protocolConformances(actual.nonNullable())) {
       if (expected.nonNullable().equals(conformance)) return true;
       Syntax.InterfaceDecl declaration = resolveInterface(conformance);
       if (declaration != null) {
         Map<String, SemanticType> inherited = new LinkedHashMap<>();
-        collectConformances(declaration, conformance, inherited, currentProgram.span());
+        analyzer.collectConformances(
+            declaration, conformance, inherited, analyzer.context.currentProgram.span());
         if (expected.nonNullable().equals(inherited.get(expected.identity()))) return true;
       }
     }
@@ -687,13 +668,14 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Syntax.InterfaceDecl actualInterface = resolveInterface(actual.nonNullable());
     if (actualInterface != null) {
       Map<String, SemanticType> inherited = new LinkedHashMap<>();
-      collectConformances(actualInterface, actual.nonNullable(), inherited, currentProgram.span());
+      analyzer.collectConformances(
+          actualInterface, actual.nonNullable(), inherited, analyzer.context.currentProgram.span());
       return expected.nonNullable().equals(inherited.get(expected.identity()));
     }
     Map<String, SemanticType> conformances = new LinkedHashMap<>();
-    Syntax.Program previous = currentProgram;
+    Syntax.Program previous = analyzer.context.currentProgram;
     for (AggregateView view : aggregateViews(actual.nonNullable())) {
-      currentProgram = declarations.owner(view.declaration());
+      analyzer.context.currentProgram = analyzer.context.declarations.owner(view.declaration());
       Map<String, SemanticType> substitutions =
           aggregateSubstitutions(view.declaration(), view.type());
       Map<String, SemanticType> aggregateParameters = aggregateTypeParameters(view.declaration());
@@ -702,22 +684,23 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             resolveType(interfaceRef, aggregateParameters).substitute(substitutions);
         Syntax.InterfaceDecl declaration = resolveInterface(conformance);
         if (declaration != null) {
-          collectConformances(declaration, conformance, conformances, interfaceRef.span());
+          analyzer.collectConformances(declaration, conformance, conformances, interfaceRef.span());
         }
       }
     }
-    currentProgram = previous;
+    analyzer.context.currentProgram = previous;
     return expected.nonNullable().equals(conformances.get(expected.identity()));
   }
 
   Optional<SemanticType> directParentType(Syntax.AggregateDecl declaration, SemanticType instance) {
     if (declaration.extendedClass().isEmpty()) return Optional.empty();
-    Syntax.Program previous = currentProgram;
-    currentProgram = declarations.ownerOr(declaration, currentProgram);
+    Syntax.Program previous = analyzer.context.currentProgram;
+    analyzer.context.currentProgram =
+        analyzer.context.declarations.ownerOr(declaration, analyzer.context.currentProgram);
     SemanticType parent =
         resolveType(declaration.extendedClass().orElseThrow(), aggregateTypeParameters(declaration))
             .substitute(aggregateSubstitutions(declaration, instance));
-    currentProgram = previous;
+    analyzer.context.currentProgram = previous;
     return Optional.of(parent);
   }
 
@@ -737,14 +720,15 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   void declareExisting(String name, SemanticType type, SourceSpan span, SymbolId id) {
-    if (!flowScopes.declare(name, type, id)) {
-      diagnostics.error(DUPLICATE_NAME, "name '" + name + "' is already declared", span);
+    if (!analyzer.context.flowScopes.declare(name, type, id)) {
+      analyzer.context.diagnostics.error(
+          DUPLICATE_NAME, "name '" + name + "' is already declared", span);
       return;
     }
     if (type.isReference()) {
-      FlowScopes.ScopedSymbol scoped = flowScopes.find(name);
-      Symbol symbol = symbols.get(id);
-      flowScopes.updateReferenceLifetime(
+      FlowScopes.ScopedSymbol scoped = analyzer.context.flowScopes.find(name);
+      Symbol symbol = analyzer.context.symbols.get(id);
+      analyzer.context.flowScopes.updateReferenceLifetime(
           scoped,
           symbol != null && symbol.kind() == SymbolKind.PARAMETER
               ? LexicalLifetime.longLived()
@@ -753,7 +737,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   void declareSelf(SemanticType type, SourceSpan span) {
-    SymbolId id = SymbolId.source(span.source().id(), nextSymbolId++);
+    SymbolId id = SymbolId.source(span.source().id(), analyzer.context.nextSymbolId++);
     Symbol symbol =
         new Symbol(
             id,
@@ -761,42 +745,42 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             SymbolKind.SELF,
             type,
             Optional.empty(),
-            Optional.ofNullable(currentCallable),
+            Optional.ofNullable(analyzer.context.currentCallable),
             List.of(),
             List.of(),
             "");
-    symbols.put(id, symbol);
+    analyzer.context.symbols.put(id, symbol);
     declareExisting("this", type, span, symbol.id());
   }
 
   SemanticType lookup(String name, SourceSpan span) {
-    FlowScopes.ScopedSymbol symbol = flowScopes.find(name);
+    FlowScopes.ScopedSymbol symbol = analyzer.context.flowScopes.find(name);
     if (symbol != null) {
-      bindings.put(span, symbol.id());
-      return flowScopes.type(symbol);
+      analyzer.context.bindings.put(span, symbol.id());
+      return analyzer.context.flowScopes.type(symbol);
     }
-    diagnostics.error(UNKNOWN_NAME, "cannot find name '" + name + "'", span);
+    analyzer.context.diagnostics.error(UNKNOWN_NAME, "cannot find name '" + name + "'", span);
     return SemanticType.DYNAMIC;
   }
 
   SemanticType lookupDeclared(String name, SourceSpan span) {
     FlowScopes.ScopedSymbol symbol = findScoped(name);
     if (symbol == null) {
-      diagnostics.error(UNKNOWN_NAME, "cannot find name '" + name + "'", span);
+      analyzer.context.diagnostics.error(UNKNOWN_NAME, "cannot find name '" + name + "'", span);
       return SemanticType.DYNAMIC;
     }
-    bindings.put(span, symbol.id());
+    analyzer.context.bindings.put(span, symbol.id());
     return symbol.declaredType();
   }
 
   FlowScopes.ScopedSymbol findScoped(String name) {
-    return flowScopes.find(name);
+    return analyzer.context.flowScopes.find(name);
   }
 
   void invalidateNarrowing(String name) {
     FlowScopes.ScopedSymbol symbol = findScoped(name);
     if (symbol == null) return;
-    flowScopes.update(symbol, symbol.declaredType());
+    analyzer.context.flowScopes.update(symbol, symbol.declaredType());
   }
 
   Map<String, SemanticType> narrowingsFor(Syntax.Expression condition, boolean truth) {
@@ -819,9 +803,9 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         if (name != null && nonNull) {
           FlowScopes.ScopedSymbol scoped = findScoped(name.value());
           if (scoped != null
-              && flowScopes.type(scoped).isNullable()
+              && analyzer.context.flowScopes.type(scoped).isNullable()
               && isFlowNarrowable(scoped.id())) {
-            return Map.of(name.value(), flowScopes.type(scoped).nonNullable());
+            return Map.of(name.value(), analyzer.context.flowScopes.type(scoped).nonNullable());
           }
         }
       }
@@ -838,7 +822,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   boolean isFlowNarrowable(SymbolId id) {
-    Symbol symbol = symbols.get(id);
+    Symbol symbol = analyzer.context.symbols.get(id);
     return symbol != null
         && (symbol.kind() == SymbolKind.LOCAL_VARIABLE || symbol.kind() == SymbolKind.PARAMETER);
   }
@@ -847,7 +831,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     for (Map.Entry<String, SemanticType> entry : narrowings.entrySet()) {
       FlowScopes.ScopedSymbol symbol = findScoped(entry.getKey());
       if (symbol != null) {
-        flowScopes.update(symbol, entry.getValue());
+        analyzer.context.flowScopes.update(symbol, entry.getValue());
       }
     }
   }
@@ -859,15 +843,15 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     replaceFlow(incoming);
     pushScope(scopeSpan(statements));
     applyNarrowings(narrowings);
-    analyzeStatements(statements);
+    analyzer.analyzeStatements(statements);
     popScope();
-    return flowScopes.snapshot();
+    return analyzer.context.flowScopes.snapshot();
   }
 
   FlowScopes.FlowState mergeFlows(
       FlowScopes.FlowState incoming, FlowScopes.FlowState left, FlowScopes.FlowState right) {
     Map<SymbolId, SemanticType> result = new HashMap<>();
-    Map<SymbolId, LexicalLifetime> referenceLifetimes = new HashMap<>();
+    Map<SymbolId, LexicalLifetime> lifetimes = new HashMap<>();
     for (Map.Entry<SymbolId, SemanticType> entry : incoming.types().entrySet()) {
       SemanticType leftType = left.types().getOrDefault(entry.getKey(), entry.getValue());
       SemanticType rightType = right.types().getOrDefault(entry.getKey(), entry.getValue());
@@ -884,32 +868,34 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             left.referenceLifetimes().getOrDefault(entry.getKey(), incomingLifetime);
         LexicalLifetime rightLifetime =
             right.referenceLifetimes().getOrDefault(entry.getKey(), incomingLifetime);
-        referenceLifetimes.put(entry.getKey(), leftLifetime.narrowest(rightLifetime));
+        lifetimes.put(entry.getKey(), leftLifetime.narrowest(rightLifetime));
       }
     }
-    return new FlowScopes.FlowState(result, referenceLifetimes);
+    return new FlowScopes.FlowState(result, lifetimes);
   }
 
   void replaceFlow(FlowScopes.FlowState values) {
-    flowScopes.replace(values);
+    analyzer.context.flowScopes.replace(values);
   }
 
   void validateContinue(SourceSpan span) {
-    if (controls.stream().noneMatch(context -> context.kind() == ControlKind.LOOP)) {
-      diagnostics.error(INVALID_CONTROL, "continue is only valid inside for", span);
+    if (analyzer.context.controls.stream()
+        .noneMatch(context -> context.kind() == ControlKind.LOOP)) {
+      analyzer.context.diagnostics.error(
+          INVALID_CONTROL, "continue is only valid inside for", span);
     }
   }
 
   void pushScope(SourceSpan span) {
-    flowScopes.push(span);
+    analyzer.context.flowScopes.push(span);
   }
 
   void popScope() {
-    flowScopes.pop();
+    analyzer.context.flowScopes.pop();
   }
 
   SourceSpan scopeSpan(List<Syntax.Statement> statements) {
-    if (statements.isEmpty()) return currentProgram.span();
+    if (statements.isEmpty()) return analyzer.context.currentProgram.span();
     return statements.getFirst().span().cover(statements.getLast().span());
   }
 
@@ -922,7 +908,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       SymbolId owner,
       List<TypeParameterInfo> typeParameters,
       List<ParameterInfo> parameters) {
-    SymbolId id = SymbolId.source(nameSpan.source().id(), nextSymbolId++);
+    SymbolId id = SymbolId.source(nameSpan.source().id(), analyzer.context.nextSymbolId++);
     Symbol symbol =
         new Symbol(
             id,
@@ -934,45 +920,75 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             typeParameters,
             parameters,
             "");
-    symbols.put(id, symbol);
-    declarationSymbols.put(declaration, id);
-    bindings.put(nameSpan, id);
+    analyzer.context.symbols.put(id, symbol);
+    analyzer.context.declarationSymbols.put(declaration, id);
+    analyzer.context.bindings.put(nameSpan, id);
+    return symbol;
+  }
+
+  Symbol registerDeclaration(
+      Object declaration,
+      String name,
+      SymbolKind kind,
+      SemanticType type,
+      SourceSpan nameSpan,
+      SymbolId owner,
+      List<TypeParameterInfo> typeParameters,
+      List<ParameterInfo> parameters) {
+    SymbolId id =
+        owner == null
+            ? SymbolId.authored(
+                DeclarationIdentity.topLevel(analyzer.context.currentProgram, declaration).value())
+            : SymbolId.authored(DeclarationIdentity.member(owner, kind, declaration, name));
+    Symbol symbol =
+        new Symbol(
+            id,
+            name,
+            kind,
+            type,
+            Optional.of(nameSpan.location()),
+            Optional.ofNullable(owner),
+            typeParameters,
+            parameters,
+            "");
+    analyzer.context.symbols.put(id, symbol);
+    analyzer.context.declarationSymbols.put(declaration, id);
+    analyzer.context.bindings.put(nameSpan, id);
     return symbol;
   }
 
   List<TypeParameterInfo> symbolTypeParameters(
-      List<Syntax.TypeParameter> parameters, Map<String, SemanticType> semanticTypes) {
+      List<Syntax.TypeParameter> parameters, Map<String, SemanticType> types) {
     return parameters.stream()
         .map(
             parameter -> {
-              SemanticType type = semanticTypes.get(parameter.name());
+              SemanticType type = types.get(parameter.name());
               Optional<SemanticType> bound =
-                  parameter.upperBound().map(value -> resolveType(value, semanticTypes));
+                  parameter.upperBound().map(value -> resolveType(value, types));
               return new TypeParameterInfo(parameter.name(), type, bound);
             })
         .toList();
   }
 
   void registerTypeParameters(
-      List<Syntax.TypeParameter> parameters,
-      SymbolId owner,
-      Map<String, SemanticType> semanticTypes) {
-    for (Syntax.TypeParameter parameter : parameters) {
-      SymbolId id = SymbolId.source(parameter.nameSpan().source().id(), nextSymbolId++);
+      List<Syntax.TypeParameter> parameters, SymbolId owner, Map<String, SemanticType> types) {
+    for (int index = 0; index < parameters.size(); index++) {
+      Syntax.TypeParameter parameter = parameters.get(index);
+      SymbolId id = SymbolId.authored(DeclarationIdentity.typeParameter(owner, index));
       Symbol symbol =
           new Symbol(
               id,
               parameter.name(),
               SymbolKind.TYPE_PARAMETER,
-              semanticTypes.get(parameter.name()),
+              types.get(parameter.name()),
               Optional.of(parameter.nameSpan().location()),
               Optional.of(owner),
               List.of(),
               List.of(),
               "");
-      symbols.put(id, symbol);
-      declarationSymbols.put(parameter, id);
-      bindings.put(parameter.nameSpan(), id);
+      analyzer.context.symbols.put(id, symbol);
+      analyzer.context.declarationSymbols.put(parameter, id);
+      analyzer.context.bindings.put(parameter.nameSpan(), id);
     }
   }
 
@@ -982,56 +998,65 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     if (owner != null) {
       owner
           .typeParameters()
-          .forEach(parameter -> result.put(parameter.name(), declarationSymbols.get(parameter)));
+          .forEach(
+              parameter ->
+                  result.put(parameter.name(), analyzer.context.declarationSymbols.get(parameter)));
     }
     function
         .typeParameters()
-        .forEach(parameter -> result.put(parameter.name(), declarationSymbols.get(parameter)));
+        .forEach(
+            parameter ->
+                result.put(parameter.name(), analyzer.context.declarationSymbols.get(parameter)));
     return Map.copyOf(result);
   }
 
   Map<String, SymbolId> typeParameterSymbols(List<Syntax.TypeParameter> parameters) {
     Map<String, SymbolId> result = new LinkedHashMap<>();
     parameters.forEach(
-        parameter -> result.put(parameter.name(), declarationSymbols.get(parameter)));
+        parameter ->
+            result.put(parameter.name(), analyzer.context.declarationSymbols.get(parameter)));
     return Map.copyOf(result);
   }
 
   void addMember(SymbolId owner, SymbolId member) {
-    members.computeIfAbsent(owner, ignored -> new ArrayList<>()).add(member);
+    analyzer.context.members.computeIfAbsent(owner, ignored -> new ArrayList<>()).add(member);
   }
 
   Optional<Symbol> typeSymbol(String name) {
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
     if (interfaceDecl != null)
-      return Optional.ofNullable(symbols.get(declarationSymbols.get(interfaceDecl)));
+      return Optional.ofNullable(
+          analyzer.context.symbols.get(analyzer.context.declarationSymbols.get(interfaceDecl)));
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
     if (aggregateDecl != null)
-      return Optional.ofNullable(symbols.get(declarationSymbols.get(aggregateDecl)));
+      return Optional.ofNullable(
+          analyzer.context.symbols.get(analyzer.context.declarationSymbols.get(aggregateDecl)));
     Syntax.EnumDecl enumDecl = resolveEnum(name);
-    if (enumDecl != null) return Optional.ofNullable(symbols.get(declarationSymbols.get(enumDecl)));
-    return builtins.type(name);
+    if (enumDecl != null)
+      return Optional.ofNullable(
+          analyzer.context.symbols.get(analyzer.context.declarationSymbols.get(enumDecl)));
+    return analyzer.context.builtins.type(name);
   }
 
   List<ParameterInfo> parameters(List<Syntax.Parameter> parameters) {
-    return parameters(parameters, Map.of(), activeTypeParameters);
+    return parameters(parameters, Map.of(), analyzer.context.activeTypeParameters);
   }
 
   List<ParameterInfo> parameters(
       List<Syntax.Parameter> parameters, Map<String, SemanticType> substitutions) {
-    return parameters(parameters, substitutions, activeTypeParameters);
+    return parameters(parameters, substitutions, analyzer.context.activeTypeParameters);
   }
 
   List<ParameterInfo> parameters(
       List<Syntax.Parameter> parameters,
       Map<String, SemanticType> substitutions,
-      Map<String, SemanticType> declarations) {
+      Map<String, SemanticType> declarationTypes) {
     return parameters.stream()
         .map(
             parameter ->
                 new ParameterInfo(
                     parameter.name(),
-                    resolveType(parameter.type(), declarations).substitute(substitutions)))
+                    resolveType(parameter.type(), declarationTypes).substitute(substitutions)))
         .toList();
   }
 
@@ -1075,7 +1100,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   List<ParameterInfo> fieldParameters(
       List<Syntax.FieldDecl> fields, Map<String, SemanticType> substitutions) {
-    return fieldParameters(fields, substitutions, activeTypeParameters);
+    return fieldParameters(fields, substitutions, analyzer.context.activeTypeParameters);
   }
 
   List<ParameterInfo> fieldParameters(
@@ -1094,13 +1119,13 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   List<ParameterInfo> fieldParameters(
       List<Syntax.FieldDecl> fields,
       Map<String, SemanticType> substitutions,
-      Map<String, SemanticType> declarations) {
+      Map<String, SemanticType> declarationTypes) {
     return fields.stream()
         .map(
             field ->
                 new ParameterInfo(
                     field.name(),
-                    resolveType(field.type(), declarations).substitute(substitutions)))
+                    resolveType(field.type(), declarationTypes).substitute(substitutions)))
         .toList();
   }
 
@@ -1108,23 +1133,24 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     int arity = declaredTypeArity(name);
     if (arity < 0) return sourceType(name, List.of());
     if (arity != arguments.size()) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "type '" + name + "' requires " + arity + " type argument(s), found " + arguments.size(),
           span);
     }
     List<SemanticType> resolved =
         arguments.stream()
-            .map(argument -> resolveCheckedType(argument, activeTypeParameters))
+            .map(argument -> resolveCheckedType(argument, analyzer.context.activeTypeParameters))
             .toList();
-    if (builtins.isType(name)) return builtins.instantiate(name, resolved);
+    if (analyzer.context.builtins.isType(name))
+      return analyzer.context.builtins.instantiate(name, resolved);
     return sourceType(name, resolved);
   }
 
   SemanticType constructedType(Syntax.Name name, Syntax.Call call, SemanticType expected) {
     if (!name.diamond()) return appliedType(name.value(), name.typeArguments(), name.span());
     String typeName = name.value();
-    Symbol builtin = builtins.type(typeName).orElse(null);
+    Symbol builtin = analyzer.context.builtins.type(typeName).orElse(null);
     Syntax.AggregateDecl source = resolveAggregate(typeName);
     List<TypeParameterInfo> parameters;
     SemanticType prototype;
@@ -1132,8 +1158,10 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     if (builtin != null) {
       parameters = builtin.typeParameters();
       prototype =
-          builtins.instantiate(typeName, parameters.stream().map(TypeParameterInfo::type).toList());
-      constructorParameters = builtins.constructorParameters(prototype).orElse(List.of());
+          analyzer.context.builtins.instantiate(
+              typeName, parameters.stream().map(TypeParameterInfo::type).toList());
+      constructorParameters =
+          analyzer.context.builtins.constructorParameters(prototype).orElse(List.of());
     } else if (source != null) {
       Map<String, SemanticType> declared = aggregateTypeParameters(source);
       parameters =
@@ -1152,11 +1180,13 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
                   Map.of(),
                   aggregateTypeParameters(source));
     } else {
-      diagnostics.error(UNKNOWN_NAME, "cannot find type '" + typeName + "'", name.span());
+      analyzer.context.diagnostics.error(
+          UNKNOWN_NAME, "cannot find type '" + typeName + "'", name.span());
       return SemanticType.DYNAMIC;
     }
     if (parameters.isEmpty()) {
-      diagnostics.error(INVALID_CALL, "diamond requires a generic type constructor", name.span());
+      analyzer.context.diagnostics.error(
+          INVALID_CALL, "diamond requires a generic type constructor", name.span());
       return prototype;
     }
     TypeConstraintSolver solver =
@@ -1165,14 +1195,15 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       constrainInference(solver, prototype, expected);
     }
     Map<String, SemanticType> contextualSubstitutions = solver.solve().substitutions();
-    List<Integer> indices = overloads.argumentIndices(call, constructorParameters, false);
+    List<Integer> indices =
+        analyzer.context.overloads.argumentIndices(call, constructorParameters, false);
     if (indices != null) {
       for (int index = 0; index < call.arguments().size(); index++) {
         Syntax.Expression argument = call.arguments().get(index).value();
         SemanticType inferencePattern = constructorParameters.get(indices.get(index)).type();
         SemanticType pattern = inferencePattern.substitute(contextualSubstitutions);
         TypeProbe probe =
-            probeType(
+            analyzer.probeType(
                 argument,
                 containsTypeParameter(pattern, solverVariables(parameters)) ? null : pattern);
         constrainInference(solver, inferencePattern, probe.type());
@@ -1188,13 +1219,13 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
                     (left, right) -> left,
                     LinkedHashMap::new));
     for (String missing : solution.missing()) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           INVALID_CALL,
           "cannot infer type argument '" + parameterNames.get(missing) + "'",
           name.span());
     }
     for (TypeConstraintSolver.Conflict conflict : solution.conflicts()) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "type parameter '"
               + parameterNames.get(conflict.variable())
@@ -1213,7 +1244,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
                         .getOrDefault(parameter.type().identity(), SemanticType.DYNAMIC))
             .toList();
     return builtin != null
-        ? builtins.instantiate(typeName, arguments)
+        ? analyzer.context.builtins.instantiate(typeName, arguments)
         : sourceType(typeName, arguments);
   }
 
@@ -1252,8 +1283,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       return type.nullable() ? function.nullable() : function;
     }
     SemanticType resolved =
-        builtins.isType(type.name())
-            ? builtins.instantiate(type.name(), arguments)
+        analyzer.context.builtins.isType(type.name())
+            ? analyzer.context.builtins.instantiate(type.name(), arguments)
             : sourceType(type.name(), arguments);
     return type.nullable() ? resolved.nullable() : resolved;
   }
@@ -1266,17 +1297,17 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   SemanticType resolveDeclarationType(
       Syntax.TypeRef type, Object declaration, Map<String, SemanticType> typeParameters) {
-    Syntax.Program previous = currentProgram;
-    currentProgram = declarations.ownerOr(declaration, previous);
+    Syntax.Program previous = analyzer.context.currentProgram;
+    analyzer.context.currentProgram = analyzer.context.declarations.ownerOr(declaration, previous);
     try {
       return resolveType(type, typeParameters);
     } finally {
-      currentProgram = previous;
+      analyzer.context.currentProgram = previous;
     }
   }
 
   void validatePublicType(Syntax.TypeRef type) {
-    if (activeTypeParameters.containsKey(type.name())) return;
+    if (analyzer.context.activeTypeParameters.containsKey(type.name())) return;
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(type.name());
     Syntax.EnumDecl enumDecl = resolveEnum(type.name());
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(type.name());
@@ -1285,7 +1316,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
             || aggregateDecl != null && aggregateDecl.visibility() == Syntax.Visibility.PRIVATE
             || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE;
     if (privateType) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "private type '" + type.name() + "' cannot appear in a public signature",
           type.span());
@@ -1296,7 +1327,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   void validateTypeArgumentCount(
       String name, int expected, List<Syntax.TypeRef> arguments, SourceSpan span) {
     if (arguments.size() != expected) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           INVALID_CALL,
           "function '"
               + name
@@ -1309,20 +1340,20 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   void bindDeclarationUse(SourceSpan span, String localName, Object declaration) {
-    for (Syntax.ImportDecl imported : currentProgram.imports()) {
+    for (Syntax.ImportDecl imported : analyzer.context.currentProgram.imports()) {
       if (imported.alias().isPresent() && imported.localName().equals(localName)) {
-        bindings.put(span, importAliases.get(imported));
+        analyzer.context.bindings.put(span, analyzer.context.importAliases.get(imported));
         return;
       }
     }
-    bindings.put(span, declarationSymbols.get(declaration));
+    analyzer.context.bindings.put(span, analyzer.context.declarationSymbols.get(declaration));
   }
 
   SymbolId importedAlias(String localName) {
-    if (currentProgram == null) return null;
-    for (Syntax.ImportDecl imported : currentProgram.imports()) {
+    if (analyzer.context.currentProgram == null) return null;
+    for (Syntax.ImportDecl imported : analyzer.context.currentProgram.imports()) {
       if (imported.alias().isPresent() && imported.localName().equals(localName)) {
-        return importAliases.get(imported);
+        return analyzer.context.importAliases.get(imported);
       }
     }
     return null;
@@ -1335,7 +1366,10 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Syntax.EnumDecl enumDecl = resolveEnum(name);
     Object declaration =
         interfaceDecl != null ? interfaceDecl : aggregateDecl != null ? aggregateDecl : enumDecl;
-    Syntax.Program owner = declaration == null ? currentProgram : declarations.owner(declaration);
+    Syntax.Program owner =
+        declaration == null
+            ? analyzer.context.currentProgram
+            : analyzer.context.declarations.owner(declaration);
     String declaredName =
         interfaceDecl != null
             ? interfaceDecl.name()
@@ -1360,7 +1394,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   int declaredTypeArity(String name) {
-    int builtinArity = builtins.typeArity(name);
+    int builtinArity = analyzer.context.builtins.typeArity(name);
     if (builtinArity >= 0) return builtinArity;
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
     if (interfaceDecl != null) return interfaceDecl.typeParameters().size();
@@ -1381,7 +1415,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Map<String, SemanticType> aggregateTypeParameters(Syntax.AggregateDecl aggregateDecl) {
     return declarationTypeParameters(
-        declarations.ownerOr(aggregateDecl, currentProgram),
+        analyzer.context.declarations.ownerOr(aggregateDecl, analyzer.context.currentProgram),
         "aggregate/" + aggregateDecl.name(),
         aggregateDecl.typeParameters());
   }
@@ -1408,7 +1442,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Map<String, SemanticType> interfaceTypeParameters(Syntax.InterfaceDecl declaration) {
     return declarationTypeParameters(
-        declarations.ownerOr(declaration, currentProgram),
+        analyzer.context.declarations.ownerOr(declaration, analyzer.context.currentProgram),
         "interface/" + declaration.name(),
         declaration.typeParameters());
   }
@@ -1443,7 +1477,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Map<String, SemanticType> enumTypeParameters(Syntax.EnumDecl enumDecl) {
     return declarationTypeParameters(
-        declarations.ownerOr(enumDecl, currentProgram),
+        analyzer.context.declarations.ownerOr(enumDecl, analyzer.context.currentProgram),
         "enum/" + enumDecl.name(),
         enumDecl.typeParameters());
   }
@@ -1459,7 +1493,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Map<String, SemanticType> functionTypeParameters(Syntax.FunctionDecl function) {
     return declarationTypeParameters(
-        declarations.ownerOr(function, currentProgram),
+        analyzer.context.declarations.ownerOr(function, analyzer.context.currentProgram),
         "function/" + function.name(),
         function.typeParameters());
   }
@@ -1481,7 +1515,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Set<String> names = new HashSet<>();
     for (Syntax.TypeParameter parameter : parameters) {
       if (!names.add(parameter.name())) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             DUPLICATE_NAME,
             "type parameter '" + parameter.name() + "' is already declared",
             parameter.nameSpan());
@@ -1491,24 +1525,24 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Map<String, SemanticType> aggregateSubstitutions(
       Syntax.AggregateDecl aggregateDecl, SemanticType instance) {
-    Map<String, SemanticType> declarations = aggregateTypeParameters(aggregateDecl);
+    Map<String, SemanticType> parameters = aggregateTypeParameters(aggregateDecl);
     Map<String, SemanticType> result = new LinkedHashMap<>();
     for (int index = 0;
         index < Math.min(aggregateDecl.typeParameters().size(), instance.arguments().size());
         index++) {
-      SemanticType parameter = declarations.get(aggregateDecl.typeParameters().get(index).name());
+      SemanticType parameter = parameters.get(aggregateDecl.typeParameters().get(index).name());
       result.put(parameter.identity(), instance.arguments().get(index));
     }
     return result;
   }
 
   Map<String, SemanticType> enumSubstitutions(Syntax.EnumDecl enumDecl, SemanticType instance) {
-    Map<String, SemanticType> declarations = enumTypeParameters(enumDecl);
+    Map<String, SemanticType> parameters = enumTypeParameters(enumDecl);
     Map<String, SemanticType> result = new LinkedHashMap<>();
     for (int index = 0;
         index < Math.min(enumDecl.typeParameters().size(), instance.arguments().size());
         index++) {
-      SemanticType parameter = declarations.get(enumDecl.typeParameters().get(index).name());
+      SemanticType parameter = parameters.get(enumDecl.typeParameters().get(index).name());
       result.put(parameter.identity(), instance.arguments().get(index));
     }
     return result;
@@ -1531,11 +1565,12 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         if (parameter != null) {
           substitutions.put(
               parameter.identity(),
-              resolveCheckedType(explicitArguments.get(index), activeTypeParameters));
+              resolveCheckedType(
+                  explicitArguments.get(index), analyzer.context.activeTypeParameters));
         }
       }
       for (int index = symbol.typeParameters().size(); index < explicitArguments.size(); index++) {
-        resolveCheckedType(explicitArguments.get(index), activeTypeParameters);
+        resolveCheckedType(explicitArguments.get(index), analyzer.context.activeTypeParameters);
       }
     } else {
       TypeConstraintSolver solver =
@@ -1546,7 +1581,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
         constrainInference(solver, symbol.type(), expected);
       }
       Map<String, SemanticType> contextualSubstitutions = solver.solve().substitutions();
-      List<Integer> indices = overloads.argumentIndices(call, symbol.parameters(), false);
+      List<Integer> indices =
+          analyzer.context.overloads.argumentIndices(call, symbol.parameters(), false);
       if (indices != null) {
         for (int index = 0; index < call.arguments().size(); index++) {
           Syntax.CallArgument argument = call.arguments().get(index);
@@ -1557,7 +1593,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
                       && !(argument.value() instanceof Syntax.Lambda && pattern.isFunction())
                   ? null
                   : pattern;
-          constrainInference(solver, inferencePattern, typeOf(argument.value(), argumentExpected));
+          constrainInference(
+              solver, inferencePattern, analyzer.typeOf(argument.value(), argumentExpected));
         }
       }
       TypeConstraintSolver.Solution solution = solver.solve();
@@ -1571,7 +1608,7 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
                       (left, right) -> left,
                       LinkedHashMap::new));
       for (TypeConstraintSolver.Conflict conflict : solution.conflicts()) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "type parameter '"
                 + parameterNames.get(conflict.variable())
@@ -1586,7 +1623,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       String name = parameterInfo.name();
       SemanticType parameter = parameterInfo.type();
       if (parameter != null && !substitutions.containsKey(parameter.identity())) {
-        diagnostics.error(INVALID_CALL, "cannot infer type argument '" + name + "'", span);
+        analyzer.context.diagnostics.error(
+            INVALID_CALL, "cannot infer type argument '" + name + "'", span);
         substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
       }
     }
@@ -1603,17 +1641,17 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
   }
 
   Syntax.FunctionDecl resolveFunction(String name) {
-    return declarations.resolveFunction(currentProgram, name);
+    return analyzer.context.declarations.resolveFunction(analyzer.context.currentProgram, name);
   }
 
   List<Syntax.FunctionDecl> resolveFunctions(String name) {
-    return declarations.resolveFunctions(currentProgram, name);
+    return analyzer.context.declarations.resolveFunctions(analyzer.context.currentProgram, name);
   }
 
   Map<SymbolId, List<SymbolId>> callableGroups() {
     Map<SymbolId, List<SymbolId>> result = new LinkedHashMap<>();
-    for (List<Syntax.FunctionDecl> group : declarations.functionGroups()) {
-      List<SymbolId> ids = group.stream().map(declarationSymbols::get).toList();
+    for (List<Syntax.FunctionDecl> group : analyzer.context.declarations.functionGroups()) {
+      List<SymbolId> ids = group.stream().map(analyzer.context.declarationSymbols::get).toList();
       ids.forEach(id -> result.put(id, ids));
     }
     return Map.copyOf(result);
@@ -1621,63 +1659,70 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Map<String, List<SemanticType>> interfaceParentTypes() {
     Map<String, List<SemanticType>> result = new LinkedHashMap<>();
-    Syntax.Program previous = currentProgram;
-    for (Syntax.InterfaceDecl declaration : declarations.interfaces()) {
-      currentProgram = declarations.owner(declaration);
+    Syntax.Program previous = analyzer.context.currentProgram;
+    for (Syntax.InterfaceDecl declaration : analyzer.context.declarations.interfaces()) {
+      analyzer.context.currentProgram = analyzer.context.declarations.owner(declaration);
       Map<String, SemanticType> parameters = interfaceTypeParameters(declaration);
-      String identity = symbols.get(declarationSymbols.get(declaration)).type().identity();
+      String identity =
+          analyzer
+              .context
+              .symbols
+              .get(analyzer.context.declarationSymbols.get(declaration))
+              .type()
+              .identity();
       result.put(
           identity,
           declaration.extendedInterfaces().stream()
               .map(parent -> resolveType(parent, parameters))
               .toList());
     }
-    currentProgram = previous;
+    analyzer.context.currentProgram = previous;
     return Map.copyOf(result);
   }
 
   Syntax.AggregateDecl resolveAggregate(String name) {
-    return declarations.resolveAggregate(currentProgram, name);
+    return analyzer.context.declarations.resolveAggregate(analyzer.context.currentProgram, name);
   }
 
   Syntax.AggregateDecl resolveImportedAggregateByDeclaredName(String name) {
-    return declarations.importedAggregateByDeclaredName(currentProgram, name);
+    return analyzer.context.declarations.importedAggregateByDeclaredName(
+        analyzer.context.currentProgram, name);
   }
 
   Syntax.AggregateDecl resolveAggregate(SemanticType type) {
-    return declarations.resolveAggregate(type);
+    return analyzer.context.declarations.resolveAggregate(type);
   }
 
   Syntax.AggregateDecl ownerOf(Syntax.FunctionDecl method) {
-    return declarations.ownerOf(method);
+    return analyzer.context.declarations.ownerOf(method);
   }
 
   Syntax.EnumDecl resolveEnum(String name) {
-    return declarations.resolveEnum(currentProgram, name);
+    return analyzer.context.declarations.resolveEnum(analyzer.context.currentProgram, name);
   }
 
   Syntax.AggregateDecl resolveAnnotation(String name) {
-    return declarations.resolveAnnotation(currentProgram, name);
+    return analyzer.context.declarations.resolveAnnotation(analyzer.context.currentProgram, name);
   }
 
   Syntax.AggregateDecl resolveAnnotation(SemanticType type) {
-    return declarations.resolveAnnotation(type);
+    return analyzer.context.declarations.resolveAnnotation(type);
   }
 
   Syntax.InterfaceDecl resolveInterface(String name) {
-    return declarations.resolveInterface(currentProgram, name);
+    return analyzer.context.declarations.resolveInterface(analyzer.context.currentProgram, name);
   }
 
   Syntax.InterfaceDecl resolveInterface(SemanticType type) {
-    return declarations.resolveInterface(type);
+    return analyzer.context.declarations.resolveInterface(type);
   }
 
   Syntax.EnumDecl resolveEnum(SemanticType type) {
-    return declarations.resolveEnum(type);
+    return analyzer.context.declarations.resolveEnum(type);
   }
 
   boolean canImport(Syntax.Program importer, Object declaration) {
-    return declarations.canImport(importer, declaration);
+    return analyzer.context.declarations.canImport(importer, declaration);
   }
 
   static String callableSignature(Syntax.FunctionDecl function) {

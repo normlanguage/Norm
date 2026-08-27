@@ -108,6 +108,7 @@ final class Lowerer {
           new FunctionRootNode(
               language,
               artifact.displayName(plan.id),
+              plan.id,
               plan.descriptor,
               plan.arguments.toArray(FrameBinding[]::new),
               section(plan.id, 0));
@@ -367,7 +368,8 @@ final class Lowerer {
         block.statements().stream()
             .map(statement -> lowerStatement(statement, plan))
             .toArray(StatementNode[]::new);
-    return new StatementNodes.Block(statements).at(section(plan.id, block.nodeIndex()));
+    return new StatementNodes.Block(statements)
+        .at(section(plan.id, block.nodeIndex()), plan.id, block.nodeIndex());
   }
 
   private StatementNode lowerStatement(CoreStatement statement, FunctionPlan plan) {
@@ -463,7 +465,7 @@ final class Lowerer {
           case CoreStatement.BreakStatement ignored -> new StatementNodes.Break();
           case CoreStatement.ContinueStatement ignored -> new StatementNodes.Continue();
         };
-    return lowered.at(section(plan.id, statement.nodeIndex()));
+    return lowered.at(section(plan.id, statement.nodeIndex()), plan.id, statement.nodeIndex());
   }
 
   private DefinitionId catchDefinition(DefinitionId owner, CoreType type) {
@@ -542,7 +544,7 @@ final class Lowerer {
                   intrinsic.nullSafe(),
                   annotations);
         };
-    return lowered.at(section(plan.id, expression.nodeIndex()));
+    return lowered.at(section(plan.id, expression.nodeIndex()), plan.id, expression.nodeIndex());
   }
 
   private ExpressionNode lowerSwitch(CoreExpression.Switch switched, FunctionPlan plan) {

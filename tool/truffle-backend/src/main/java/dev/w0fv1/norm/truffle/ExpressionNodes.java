@@ -4,7 +4,7 @@ import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.DirectCallNode;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;

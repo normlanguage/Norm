@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.semantic;
 
-import dev.w0fv1.norm.core.ExceptionAbi;
+import dev.w0fv1.norm.abi.ExceptionAbi;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

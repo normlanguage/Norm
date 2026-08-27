@@ -1,0 +1,503 @@
+{
+  "version": 1,
+  "intrinsics": [
+    {
+      "name": "PRINT_LINE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "EXPECTED_OUTPUT_LINE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "REQUIRE_ARGUMENT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PUBLISH_MODULE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "TO_STRING",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "REFLECT_TYPE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "TYPE_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "TYPE_ANNOTATION",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FUNCTION_CONTEXT_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PARAMETER_CONTEXT_FUNCTION",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PARAMETER_CONTEXT_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PARAMETER_CONTEXT_INDEX",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_CONTEXT_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_CONTEXT_INDEX",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FUNCTION_INVOCATION_PROCEED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FUNCTION_COMPLETION_SUCCEEDED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "RANGE_CONSTRUCT",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "ARRAY_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "SET_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STACK_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "QUEUE_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PAIR_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_BUILDER_CONSTRUCT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "IS_EMPTY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_ADD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_GET",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_REMOVE_AT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ARRAY_FILLED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ARRAY_LAST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ARRAY_REVERSED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_FILLED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_LAST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_REMOVE_LAST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_REVERSED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_PUT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_GET",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_CONTAINS_KEY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_REMOVE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "SET_ADD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "SET_CONTAINS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "SET_REMOVE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STACK_PUSH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STACK_POP",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STACK_PEEK",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "QUEUE_ADD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "QUEUE_REMOVE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "QUEUE_PEEK",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_ADD_FIRST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_ADD_LAST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_REMOVE_FIRST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_REMOVE_LAST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_PEEK_FIRST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_PEEK_LAST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "BUILDER_APPEND",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "BUILDER_TO_STRING",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_BYTE_SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_CODE_POINT_SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_GRAPHEME_SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_CODE_POINTS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_GRAPHEMES",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_SLICE_CODE_POINTS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_SPLIT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_IS_EMPTY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_CONTAINS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_STARTS_WITH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_ENDS_WITH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_SLICE_GRAPHEMES",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_REPLACE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_REPLACE_FIRST",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_TRIM",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_TRIM_START",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_TRIM_END",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_TO_LOWERCASE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_TO_UPPERCASE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_EQUALS_IGNORE_CASE_ASCII",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_COMPARE_CODE_POINTS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_NORMALIZE_NFC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_NORMALIZE_NFD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_NORMALIZE_NFKC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_NORMALIZE_NFKD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_IS_NORMALIZED_NFC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_IS_NORMALIZED_NFD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_IS_NORMALIZED_NFKC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STRING_IS_NORMALIZED_NFKD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_SCALAR_VALUE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_IS_DECIMAL_DIGIT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_IS_LETTER",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_IS_WHITESPACE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_IS_UPPERCASE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_IS_LOWERCASE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_IS_ASCII_DIGIT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CODE_POINT_ASCII_DIGIT_VALUE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PAIR_FIRST_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PAIR_FIRST_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PAIR_SECOND_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PAIR_SECOND_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ARRAY_INDEX_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ARRAY_INDEX_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_INDEX_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_INDEX_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_INDEX_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_INDEX_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ARRAY_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "LIST_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "MAP_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "SET_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "STACK_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "QUEUE_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DEQUE_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "RANGE_ITERATOR",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ITERATOR_HAS_NEXT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "ITERATOR_NEXT",
+      "requiresResultRuntimeType": false
+    }
+  ],
+  "runtimeShapes": [
+    "INTEGER",
+    "LONG",
+    "FLOAT",
+    "DOUBLE",
+    "NUMBER",
+    "CODE_POINT",
+    "BOOL",
+    "STRING",
+    "VOID",
+    "TYPE",
+    "FUNCTION_CONTEXT",
+    "PARAMETER_CONTEXT",
+    "FIELD_CONTEXT",
+    "FUNCTION_INVOCATION",
+    "FUNCTION_COMPLETION",
+    "ARRAY",
+    "LIST",
+    "MAP",
+    "SET",
+    "STACK",
+    "QUEUE",
+    "DEQUE",
+    "PAIR",
+    "RANGE",
+    "STRING_BUILDER",
+    "NATIVE_ITERATOR"
+  ],
+  "exception": {
+    "packageName": "std.core",
+    "typeName": "Exception",
+    "messageFieldName": "message",
+    "messageFieldOrdinal": 0
+  }
+}

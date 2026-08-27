@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 
 public final class CompilerSession implements AutoCloseable {
   private final LanguageProfile profile;
@@ -35,6 +39,10 @@ public final class CompilerSession implements AutoCloseable {
   private final CompilerSessionCapacity capacity;
   private final Runnable parseObserver;
   private final Runnable analysisObserver;
+  private final ReentrantReadWriteLock lifecycleLock = new ReentrantReadWriteLock(true);
+  private final ReentrantLock stateLock = new ReentrantLock();
+  private final GatePool<CompilationUnitId> unitLocks = new GatePool<>();
+  private final GatePool<DocumentId> parseLocks = new GatePool<>();
   private final LinkedHashMap<ParseKey, ParsedDocument> parsedDocuments =
       new LinkedHashMap<>(16, 0.75f, true);
   private final LinkedHashMap<CompilationUnitId, TrackedUnit> compilations =
@@ -107,13 +115,15 @@ public final class CompilerSession implements AutoCloseable {
     return compile(request, CompilationControl.standard());
   }
 
-  public synchronized CompilationResult compile(
-      CompilationRequest request, CompilationControl control) {
-    requireOpen();
+  public CompilationResult compile(CompilationRequest request, CompilationControl control) {
     java.util.Objects.requireNonNull(request, "request");
+    return withUnitLock(request.unit(), () -> compileUnit(request, control));
+  }
+
+  private CompilationResult compileUnit(CompilationRequest request, CompilationControl control) {
     CompilationGuard guard = java.util.Objects.requireNonNull(control, "control").begin();
     guard.validate(request);
-    TrackedUnit cached = compilations.get(request.unit());
+    TrackedUnit cached = tracked(request.unit());
     if (cached != null && cached.request().equals(request) && cached.cachedResult() != null) {
       return cached.reuse();
     }
@@ -147,59 +157,77 @@ public final class CompilerSession implements AutoCloseable {
     return new CompilationResult(Optional.of(new TypedProgram(output)), analysis.diagnostics());
   }
 
-  public synchronized AnalysisResult analyze(CompilationRequest request) {
+  public AnalysisResult analyze(CompilationRequest request) {
     return analyze(request, CompilationControl.standard());
   }
 
-  public synchronized AnalysisResult analyze(
-      CompilationRequest request, CompilationControl control) {
+  public AnalysisResult analyze(CompilationRequest request, CompilationControl control) {
     return snapshot(request, control).analysis();
   }
 
-  public synchronized AnalysisResult analyze(SourceFile source) {
+  public AnalysisResult analyze(SourceFile source) {
     return analyze(source, CompilationControl.standard());
   }
 
-  public synchronized AnalysisResult analyze(SourceFile source, CompilationControl control) {
+  public AnalysisResult analyze(SourceFile source, CompilationControl control) {
     return snapshot(source, control).analysis();
   }
 
-  public synchronized CompilationSnapshot snapshot(SourceFile source) {
+  public CompilationSnapshot snapshot(SourceFile source) {
     return snapshot(source, CompilationControl.standard());
   }
 
-  public synchronized CompilationSnapshot snapshot(SourceFile source, CompilationControl control) {
-    requireOpen();
+  public CompilationSnapshot snapshot(SourceFile source, CompilationControl control) {
     java.util.Objects.requireNonNull(source, "source");
     return snapshot(CompilationRequest.single(source), control);
   }
 
-  public synchronized CompilationSnapshot snapshot(CompilationRequest request) {
+  public CompilationSnapshot snapshot(CompilationRequest request) {
     return snapshot(request, CompilationControl.standard());
   }
 
-  public synchronized CompilationSnapshot snapshot(
-      CompilationRequest request, CompilationControl control) {
-    requireOpen();
+  public CompilationSnapshot snapshot(CompilationRequest request, CompilationControl control) {
+    java.util.Objects.requireNonNull(request, "request");
+    return withUnitLock(request.unit(), () -> snapshotUnit(request, control));
+  }
+
+  private CompilationSnapshot snapshotUnit(CompilationRequest request, CompilationControl control) {
     CompilationGuard guard = java.util.Objects.requireNonNull(control, "control").begin();
     guard.validate(request);
-    TrackedUnit cached = compilations.get(request.unit());
+    TrackedUnit cached = tracked(request.unit());
     PreparedCompilation prepared =
         prepare(request, false, false, guard, cached == null ? null : cached.snapshotFor(request));
     trackSnapshot(request, prepared.snapshot(), cached);
     return prepared.snapshot();
   }
 
-  public synchronized void invalidate(DocumentId document) {
-    requireOpen();
+  public void invalidate(DocumentId document) {
     java.util.Objects.requireNonNull(document, "document");
-    parsedDocuments.keySet().removeIf(key -> key.document().equals(document));
-    compilations.values().removeIf(compilation -> compilation.documents().contains(document));
+    withExclusiveLifecycle(
+        () -> {
+          stateLock.lock();
+          try {
+            parsedDocuments.keySet().removeIf(key -> key.document().equals(document));
+            compilations
+                .values()
+                .removeIf(compilation -> compilation.documents().contains(document));
+          } finally {
+            stateLock.unlock();
+          }
+        });
   }
 
-  public synchronized void invalidate(CompilationUnitId unit) {
-    requireOpen();
-    compilations.remove(java.util.Objects.requireNonNull(unit, "unit"));
+  public void invalidate(CompilationUnitId unit) {
+    java.util.Objects.requireNonNull(unit, "unit");
+    withExclusiveLifecycle(
+        () -> {
+          stateLock.lock();
+          try {
+            compilations.remove(unit);
+          } finally {
+            stateLock.unlock();
+          }
+        });
   }
 
   public Optional<SourceFile> preludeSource(DocumentId document) {
@@ -207,16 +235,25 @@ public final class CompilerSession implements AutoCloseable {
   }
 
   public CompilationSnapshot preludeSnapshot(DocumentId document) {
-    requireOpen();
     return snapshot(profile.prelude().request(document));
   }
 
   @Override
-  public synchronized void close() {
-    if (closed) return;
-    parsedDocuments.clear();
-    compilations.clear();
-    closed = true;
+  public void close() {
+    lifecycleLock.writeLock().lock();
+    try {
+      if (closed) return;
+      stateLock.lock();
+      try {
+        parsedDocuments.clear();
+        compilations.clear();
+        closed = true;
+      } finally {
+        stateLock.unlock();
+      }
+    } finally {
+      lifecycleLock.writeLock().unlock();
+    }
   }
 
   private PreparedCompilation prepare(
@@ -261,19 +298,22 @@ public final class CompilerSession implements AutoCloseable {
     }
     IncrementalAnalysisPlan analysisPlan = IncrementalAnalysisPlan.create(previous, parsed);
     analysisObserver.run();
+    Syntax.Program resolvedEntryProgram = java.util.Objects.requireNonNull(entryProgram);
+    DeclarationCatalog declarations =
+        new DeclarationCatalog(programs, exportedSources, sourceScope);
+    SemanticAnalysisInput analysisInput =
+        new SemanticAnalysisInput(
+            programs,
+            resolvedEntryProgram,
+            requireEntryPoint,
+            exportedSources,
+            analysisPlan.reusable(),
+            previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
+            profile.moduleEvaluationDocuments(),
+            sourceScope,
+            declarations);
     FrontendAnalysis analyzed =
-        new Analyzer(
-                programs,
-                java.util.Objects.requireNonNull(entryProgram),
-                diagnostics,
-                requireEntryPoint,
-                exportedSources,
-                guard,
-                analysisPlan.reusable(),
-                previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
-                profile.moduleEvaluationDocuments(),
-                sourceScope)
-            .analyze(resolveProgram);
+        new Analyzer(analysisInput, diagnostics, guard).analyze(resolveProgram);
     CompilationSnapshot snapshot =
         new CompilationSnapshot(request.entryDocument(), parsed, analyzed.analysis());
     return new PreparedCompilation(
@@ -286,13 +326,27 @@ public final class CompilerSession implements AutoCloseable {
 
   private ParsedDocument parse(SourceFile source, CompilationGuard guard) {
     ParseKey key = new ParseKey(source.id());
-    ParsedDocument existing = parsedDocuments.get(key);
-    if (existing != null && existing.source().text().equals(source.text())) return existing;
-    parseObserver.run();
-    ParsedDocument parsed = SourceParser.parse(source, guard);
-    parsedDocuments.put(key, parsed);
-    evictParsedDocuments();
-    return parsed;
+    return parseLocks.withLock(
+        source.id(),
+        () -> {
+          stateLock.lock();
+          try {
+            ParsedDocument existing = parsedDocuments.get(key);
+            if (existing != null && existing.source().text().equals(source.text())) return existing;
+          } finally {
+            stateLock.unlock();
+          }
+          parseObserver.run();
+          ParsedDocument parsed = SourceParser.parse(source, guard);
+          stateLock.lock();
+          try {
+            parsedDocuments.put(key, parsed);
+            evictParsedDocuments();
+          } finally {
+            stateLock.unlock();
+          }
+          return parsed;
+        });
   }
 
   private CompilationOutput trackCompilation(
@@ -314,9 +368,14 @@ public final class CompilerSession implements AutoCloseable {
         request.sources().stream()
             .map(SourceFile::id)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
-    compilations.put(
-        request.unit(), new TrackedUnit(request, result, tracked, documents, snapshot));
-    evictCompilations();
+    stateLock.lock();
+    try {
+      compilations.put(
+          request.unit(), new TrackedUnit(request, result, tracked, documents, snapshot));
+      evictCompilations();
+    } finally {
+      stateLock.unlock();
+    }
     return tracked;
   }
 
@@ -329,15 +388,20 @@ public final class CompilerSession implements AutoCloseable {
         request.sources().stream()
             .map(SourceFile::id)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
-    compilations.put(
-        request.unit(),
-        new TrackedUnit(
-            request,
-            result,
-            previous == null ? null : previous.lastSuccessfulOutput(),
-            documents,
-            snapshot));
-    evictCompilations();
+    stateLock.lock();
+    try {
+      compilations.put(
+          request.unit(),
+          new TrackedUnit(
+              request,
+              result,
+              previous == null ? null : previous.lastSuccessfulOutput(),
+              documents,
+              snapshot));
+      evictCompilations();
+    } finally {
+      stateLock.unlock();
+    }
   }
 
   private void trackSnapshot(
@@ -346,15 +410,20 @@ public final class CompilerSession implements AutoCloseable {
         request.sources().stream()
             .map(SourceFile::id)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
-    compilations.put(
-        request.unit(),
-        new TrackedUnit(
-            request,
-            null,
-            previous == null ? null : previous.lastSuccessfulOutput(),
-            documents,
-            snapshot));
-    evictCompilations();
+    stateLock.lock();
+    try {
+      compilations.put(
+          request.unit(),
+          new TrackedUnit(
+              request,
+              null,
+              previous == null ? null : previous.lastSuccessfulOutput(),
+              documents,
+              snapshot));
+      evictCompilations();
+    } finally {
+      stateLock.unlock();
+    }
   }
 
   private void evictParsedDocuments() {
@@ -375,6 +444,68 @@ public final class CompilerSession implements AutoCloseable {
 
   private void requireOpen() {
     if (closed) throw new IllegalStateException("compiler session is closed");
+  }
+
+  private TrackedUnit tracked(CompilationUnitId unit) {
+    stateLock.lock();
+    try {
+      return compilations.get(unit);
+    } finally {
+      stateLock.unlock();
+    }
+  }
+
+  private <T> T withUnitLock(CompilationUnitId unit, Supplier<T> operation) {
+    lifecycleLock.readLock().lock();
+    try {
+      requireOpen();
+      return unitLocks.withLock(unit, operation);
+    } finally {
+      lifecycleLock.readLock().unlock();
+    }
+  }
+
+  private void withExclusiveLifecycle(Runnable operation) {
+    lifecycleLock.writeLock().lock();
+    try {
+      requireOpen();
+      operation.run();
+    } finally {
+      lifecycleLock.writeLock().unlock();
+    }
+  }
+
+  private static final class GatePool<K> {
+    private final ConcurrentHashMap<K, Gate> gates = new ConcurrentHashMap<>();
+
+    private <T> T withLock(K key, Supplier<T> operation) {
+      Gate gate =
+          gates.compute(
+              key,
+              (ignored, current) -> {
+                Gate acquired = current == null ? new Gate() : current;
+                acquired.users++;
+                return acquired;
+              });
+      gate.lock.lock();
+      try {
+        return operation.get();
+      } finally {
+        gate.lock.unlock();
+        gates.computeIfPresent(
+            key,
+            (ignored, current) -> {
+              if (current != gate) throw new IllegalStateException("gate identity changed");
+              current.users--;
+              return current.users == 0 ? null : current;
+            });
+      }
+    }
+  }
+
+  private static final class Gate {
+    private final ReentrantLock lock = new ReentrantLock();
+    private int users;
   }
 
   private record ParseKey(DocumentId document) {}

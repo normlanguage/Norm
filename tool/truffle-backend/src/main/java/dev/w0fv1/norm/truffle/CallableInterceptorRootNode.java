@@ -17,7 +17,7 @@ import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import java.util.ArrayList;
 import java.util.List;
 
-final class CallableInterceptorRootNode extends RootNode {
+final class CallableInterceptorRootNode extends RootNode implements RuntimeLocation {
   private static final CoreType FUNCTION_CONTEXT_TYPE =
       builtin("std.core.FunctionContext", List.of());
   private static final CoreType PARAMETER_CONTEXT_TYPE =
@@ -77,6 +77,16 @@ final class CallableInterceptorRootNode extends RootNode {
             ? CoreType.DYNAMIC
             : returnTypeTemplate.substitute(index -> (CoreType) arguments[reifiedOffset + index]);
     return invokeFunction(0, execution, function, arguments, returnType);
+  }
+
+  @Override
+  public DefinitionOccurrenceId occurrence() {
+    return callable;
+  }
+
+  @Override
+  public int nodeIndex() {
+    return 0;
   }
 
   private Object invokeFunction(

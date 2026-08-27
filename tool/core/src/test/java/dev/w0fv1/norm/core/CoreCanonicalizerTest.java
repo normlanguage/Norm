@@ -45,14 +45,40 @@ final class CoreCanonicalizerTest {
 
   @Test
   void boundsCanonicalSearchForSymmetricComponents() {
-    List<List<Integer>> graph = List.of(List.of(1, 2), List.of(0, 2), List.of(0, 3), List.of(0, 1));
+    List<List<Integer>> graph = List.of(List.of(1), List.of(2), List.of(0));
 
     assertThrows(
         CoreCanonicalizationBudgetExceededException.class,
         () ->
-            canonicalize(
-                graph, List.of(0, 1, 2, 3), new CoreCanonicalizationControl(() -> false, 1)));
-    assertTrue(canonicalize(graph, List.of(0, 1, 2, 3)).metrics().searchBranches() > 1);
+            canonicalize(graph, List.of(0, 1, 2), new CoreCanonicalizationControl(() -> false, 1)));
+    assertTrue(canonicalize(graph, List.of(0, 1, 2)).metrics().searchBranches() > 1);
+  }
+
+  @Test
+  void prunesEquivalentBranchesInLargeFullySymmetricComponents() {
+    int size = 12;
+    List<Integer> vertices = java.util.stream.IntStream.range(0, size).boxed().toList();
+    List<List<Integer>> graph =
+        java.util.stream.IntStream.range(0, size).mapToObj(ignored -> vertices).toList();
+
+    CoreCanonicalizer.Result result =
+        canonicalize(graph, vertices, new CoreCanonicalizationControl(() -> false, 1_000));
+    List<Integer> reversed = new ArrayList<>(vertices);
+    java.util.Collections.reverse(reversed);
+    CoreCanonicalizer.Result reordered =
+        canonicalize(graph, reversed, new CoreCanonicalizationControl(() -> false, 1_000));
+
+    assertTrue(result.metrics().searchBranches() < 32);
+    assertEquals(size, result.groups().getFirst().definitions().size());
+    assertEquals(result.groups().getFirst().id(), reordered.groups().getFirst().id());
+  }
+
+  @Test
+  void recordsBranchesRemovedByExactAutomorphisms() {
+    CoreCanonicalizer.Result result = canonicalize(List.of(List.of(1), List.of(0)), List.of(0, 1));
+
+    assertEquals(1, result.metrics().searchBranches());
+    assertEquals(1, result.metrics().automorphicBranches());
   }
 
   @Test

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.List;
 import java.util.Optional;

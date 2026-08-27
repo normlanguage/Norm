@@ -5,4 +5,5 @@ public record CoreCanonicalizationMetrics(
     int maximumComponentSize,
     long refinementRounds,
     long searchBranches,
-    long memoizedSearches) {}
+    long memoizedSearches,
+    long automorphicBranches) {}

@@ -17,4 +17,11 @@ public record SymbolId(String value) {
     if (ordinal < 0) throw new IllegalArgumentException("symbol ordinal must not be negative");
     return new SymbolId("source/" + document.uri() + "#" + ordinal);
   }
+
+  public static SymbolId authored(String identity) {
+    Objects.requireNonNull(identity, "identity");
+    if (identity.isBlank())
+      throw new IllegalArgumentException("authored identity must not be blank");
+    return new SymbolId("authored/" + identity);
+  }
 }

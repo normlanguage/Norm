@@ -5,7 +5,6 @@ import dev.w0fv1.norm.core.DefinitionHasher;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -23,24 +22,14 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.LockSupport;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 
 public final class FileDefinitionStore implements DefinitionStore {
   private static final int DEFAULT_MAXIMUM_GROUPS = 50_000;
   private static final long DEFAULT_MAXIMUM_BYTES = 512L * 1024 * 1024;
-  private static final int LOCK_STRIPE_COUNT = 256;
-  private static final int MAINTENANCE_LOCK_STRIPE_COUNT = 64;
   private static final int ATOMIC_MOVE_ATTEMPTS = 100;
   private static final Pattern HASH = Pattern.compile("[0-9a-f]{64}");
-  private static final ReentrantLock[] PROCESS_LOCKS = new ReentrantLock[LOCK_STRIPE_COUNT];
-  private static final ReentrantLock[] MAINTENANCE_PROCESS_LOCKS =
-      new ReentrantLock[MAINTENANCE_LOCK_STRIPE_COUNT];
-
-  static {
-    Arrays.setAll(PROCESS_LOCKS, ignored -> new ReentrantLock());
-    Arrays.setAll(MAINTENANCE_PROCESS_LOCKS, ignored -> new ReentrantLock());
-  }
+  private static final FileLockCoordinator LOCKS = FileLockCoordinator.shared();
 
   private final Path root;
   private final StorePolicy policy;
@@ -74,70 +63,74 @@ public final class FileDefinitionStore implements DefinitionStore {
       pendingGroups.add(new PendingGroup(id, ownedGroup, path(id)));
     }
     if (pendingGroups.isEmpty()) return new PutBatchResult(List.of());
-    return withMaintenanceLock(
-        () -> {
-          List<PutResult> results = new ArrayList<>(pendingGroups.size());
-          Path protectedPath = null;
-          for (PendingGroup pending : pendingGroups) {
-            if (pending.content().length > policy.maximumBytes()) {
-              results.add(new PutResult(pending.id(), PutResult.Status.NOT_ADMITTED));
-              continue;
-            }
-            Files.createDirectories(pending.path().getParent());
-            results.add(
-                withShardLock(
+    List<PutResult> results = new ArrayList<>(pendingGroups.size());
+    Path protectedPath = null;
+    for (PendingGroup pending : pendingGroups) {
+      if (pending.content().length > policy.maximumBytes()) {
+        results.add(new PutResult(pending.id(), PutResult.Status.NOT_ADMITTED));
+        continue;
+      }
+      Files.createDirectories(pending.path().getParent());
+      results.add(
+          withShardLock(
+              pending.id(),
+              () -> {
+                PutResult.Status status;
+                Optional<byte[]> existing;
+                try {
+                  existing = read(pending.path(), pending.id());
+                } catch (CorruptDefinitionException exception) {
+                  existing = Optional.empty();
+                }
+                if (existing.isPresent()) {
+                  requireSameContent(pending.id(), pending.content(), existing.orElseThrow());
+                  status = PutResult.Status.REUSED;
+                } else {
+                  Path temporary =
+                      Files.createTempFile(
+                          pending.path().getParent(),
+                          "." + pending.path().getFileName() + "-",
+                          ".tmp");
+                  try {
+                    try (FileChannel channel =
+                        FileChannel.open(
+                            temporary,
+                            StandardOpenOption.WRITE,
+                            StandardOpenOption.TRUNCATE_EXISTING)) {
+                      ByteBuffer content = ByteBuffer.wrap(pending.content());
+                      while (content.hasRemaining()) {
+                        channel.write(content);
+                      }
+                      channel.force(true);
+                    }
+                    moveAtomically(temporary, pending.path(), true);
+                  } finally {
+                    Files.deleteIfExists(temporary);
+                  }
+                  status = PutResult.Status.STORED;
+                }
+                requireSameContent(
                     pending.id(),
-                    () -> {
-                      PutResult.Status status;
-                      Optional<byte[]> existing;
-                      try {
-                        existing = read(pending.path(), pending.id());
-                      } catch (CorruptDefinitionException exception) {
-                        existing = Optional.empty();
-                      }
-                      if (existing.isPresent()) {
-                        requireSameContent(pending.id(), pending.content(), existing.orElseThrow());
-                        status = PutResult.Status.REUSED;
-                      } else {
-                        Path temporary =
-                            Files.createTempFile(
-                                pending.path().getParent(),
-                                "." + pending.path().getFileName() + "-",
-                                ".tmp");
-                        try {
-                          try (FileChannel channel =
-                              FileChannel.open(
-                                  temporary,
-                                  StandardOpenOption.WRITE,
-                                  StandardOpenOption.TRUNCATE_EXISTING)) {
-                            ByteBuffer content = ByteBuffer.wrap(pending.content());
-                            while (content.hasRemaining()) {
-                              channel.write(content);
-                            }
-                            channel.force(true);
-                          }
-                          moveAtomically(temporary, pending.path(), true);
-                        } finally {
-                          Files.deleteIfExists(temporary);
-                        }
-                        status = PutResult.Status.STORED;
-                      }
-                      requireSameContent(
-                          pending.id(),
-                          pending.content(),
-                          read(pending.path(), pending.id())
-                              .orElseThrow(
-                                  () ->
-                                      new IOException(
-                                          "definition disappeared during write: " + pending.id())));
-                      recordAccess(pending.path());
-                      return new PutResult(pending.id(), status);
-                    }));
-            protectedPath = pending.path();
-          }
-          if (protectedPath != null) enforceCapacity(protectedPath);
-          return new PutBatchResult(results);
-        });
+                    pending.content(),
+                    read(pending.path(), pending.id())
+                        .orElseThrow(
+                            () ->
+                                new IOException(
+                                    "definition disappeared during write: " + pending.id())));
+                recordAccess(pending.path());
+                return new PutResult(pending.id(), status);
+              }));
+      protectedPath = pending.path();
+    }
+    if (protectedPath != null) {
+      Path retainedPath = protectedPath;
+      withMaintenanceLock(
+          () -> {
+            enforceCapacity(retainedPath);
+            return null;
+          });
+    }
+    return new PutBatchResult(results);
   }
 
   @Override
@@ -149,47 +142,17 @@ public final class FileDefinitionStore implements DefinitionStore {
     return content;
   }
 
-  private <T> T withMaintenanceLock(IoOperation<T> operation) throws IOException {
+  private <T> T withMaintenanceLock(FileLockCoordinator.IoOperation<T> operation)
+      throws IOException {
     Path lockPath = root.resolve(".locks").resolve("maintenance");
-    Files.createDirectories(lockPath.getParent());
-    ReentrantLock processLock =
-        MAINTENANCE_PROCESS_LOCKS[Math.floorMod(root.hashCode(), MAINTENANCE_PROCESS_LOCKS.length)];
-    processLock.lock();
-    try {
-      try (FileChannel lockChannel =
-          FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-        FileLock maintenanceLock = lockChannel.lock();
-        try {
-          return operation.run();
-        } finally {
-          maintenanceLock.release();
-        }
-      }
-    } finally {
-      processLock.unlock();
-    }
+    return LOCKS.withLock(lockPath, operation);
   }
 
-  private <T> T withShardLock(DefinitionGroupId id, IoOperation<T> operation) throws IOException {
+  private <T> T withShardLock(DefinitionGroupId id, FileLockCoordinator.IoOperation<T> operation)
+      throws IOException {
     String prefix = id.toString().substring(0, 2);
-    int lockStripe = Integer.parseInt(prefix, 16);
     Path lockPath = root.resolve(".locks").resolve(prefix);
-    Files.createDirectories(lockPath.getParent());
-    ReentrantLock processLock = PROCESS_LOCKS[lockStripe];
-    processLock.lock();
-    try {
-      try (FileChannel lockChannel =
-          FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-        FileLock definitionLock = lockChannel.lock();
-        try {
-          return operation.run();
-        } finally {
-          definitionLock.release();
-        }
-      }
-    } finally {
-      processLock.unlock();
-    }
+    return LOCKS.withLock(lockPath, operation);
   }
 
   private Path path(DefinitionGroupId id) {
@@ -355,11 +318,6 @@ public final class FileDefinitionStore implements DefinitionStore {
 
   private synchronized void forgetAccess(Path path) {
     accessHints.remove(path);
-  }
-
-  @FunctionalInterface
-  private interface IoOperation<T> {
-    T run() throws IOException;
   }
 
   private record StorePolicy(int maximumGroups, long maximumBytes) {

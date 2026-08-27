@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.w0fv1.norm.core.ContentHash;
 import dev.w0fv1.norm.core.DefinitionGroupId;
 import dev.w0fv1.norm.core.DefinitionHasher;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -189,6 +191,106 @@ final class FileDefinitionStoreTest {
     Path prefixDirectory = root.resolve(id.toString().substring(0, 2));
     try (var paths = Files.list(prefixDirectory)) {
       assertEquals(1, paths.count());
+    }
+  }
+
+  @Test
+  void publishesCompleteGroupsBeforeWaitingForCapacityMaintenance() throws Exception {
+    Path root = temporaryDirectory.resolve("independent-publishing");
+    FileDefinitionStore store = new FileDefinitionStore(root, 10, 1024);
+    byte[] canonicalGroup = "independent-group".getBytes(StandardCharsets.UTF_8);
+    DefinitionGroupId id = DefinitionHasher.hashGroup(canonicalGroup);
+    Path storedGroup = storedPath(root, id);
+    CountDownLatch locked = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      Future<?> lockHolder =
+          executor.submit(
+              () -> {
+                holdLock(root.resolve(".locks").resolve("maintenance"), locked, release);
+                return null;
+              });
+      assertTrue(locked.await(3, TimeUnit.SECONDS));
+      Future<PutResult> publication = executor.submit(() -> put(store, canonicalGroup));
+      try {
+        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(3).toNanos();
+        while (!Files.isRegularFile(storedGroup) && System.nanoTime() < deadline) {
+          Thread.onSpinWait();
+        }
+        assertTrue(Files.isRegularFile(storedGroup));
+        assertArrayEquals(canonicalGroup, Files.readAllBytes(storedGroup));
+        assertFalse(publication.isDone());
+      } finally {
+        release.countDown();
+      }
+      assertEquals(id, publication.get().id());
+      lockHolder.get();
+    }
+  }
+
+  @Test
+  void blockedShardDoesNotBlockPublicationToAnotherShard() throws Exception {
+    Path root = temporaryDirectory.resolve("parallel-shards");
+    FileDefinitionStore firstStore = new FileDefinitionStore(root, 10, 1024);
+    FileDefinitionStore secondStore = new FileDefinitionStore(root, 10, 1024);
+    byte[] firstGroup = "blocked-group".getBytes(StandardCharsets.UTF_8);
+    DefinitionGroupId firstId = DefinitionHasher.hashGroup(firstGroup);
+    byte[] secondGroup = distinctShardGroup(firstId);
+    DefinitionGroupId secondId = DefinitionHasher.hashGroup(secondGroup);
+    CountDownLatch locked = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+
+    try (var executor = Executors.newFixedThreadPool(3)) {
+      Path shardLock = root.resolve(".locks").resolve(firstId.toString().substring(0, 2));
+      Future<?> lockHolder =
+          executor.submit(
+              () -> {
+                holdLock(shardLock, locked, release);
+                return null;
+              });
+      assertTrue(locked.await(3, TimeUnit.SECONDS));
+      Future<PutResult> blockedPublication = executor.submit(() -> put(firstStore, firstGroup));
+      try {
+        Future<PutResult> independentPublication =
+            executor.submit(() -> put(secondStore, secondGroup));
+        assertEquals(secondId, independentPublication.get(3, TimeUnit.SECONDS).id());
+        assertFalse(blockedPublication.isDone());
+      } finally {
+        release.countDown();
+      }
+      assertEquals(firstId, blockedPublication.get().id());
+      lockHolder.get();
+    }
+  }
+
+  @Test
+  void sameShardPrefixInAnotherStoreRootRemainsIndependent() throws Exception {
+    Path firstRoot = temporaryDirectory.resolve("first-root");
+    Path secondRoot = temporaryDirectory.resolve("second-root");
+    new FileDefinitionStore(firstRoot, 10, 1024);
+    FileDefinitionStore secondStore = new FileDefinitionStore(secondRoot, 10, 1024);
+    byte[] canonicalGroup = "same-prefix".getBytes(StandardCharsets.UTF_8);
+    DefinitionGroupId id = DefinitionHasher.hashGroup(canonicalGroup);
+    String prefix = id.toString().substring(0, 2);
+    CountDownLatch locked = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      Future<?> lockHolder =
+          executor.submit(
+              () -> {
+                holdLock(firstRoot.resolve(".locks").resolve(prefix), locked, release);
+                return null;
+              });
+      assertTrue(locked.await(3, TimeUnit.SECONDS));
+      try {
+        Future<PutResult> publication = executor.submit(() -> put(secondStore, canonicalGroup));
+        assertEquals(id, publication.get(3, TimeUnit.SECONDS).id());
+      } finally {
+        release.countDown();
+      }
+      lockHolder.get();
     }
   }
 
@@ -416,6 +518,33 @@ final class FileDefinitionStoreTest {
   private static Path storedPath(Path root, DefinitionGroupId id) {
     String hash = id.toString();
     return root.resolve(hash.substring(0, 2)).resolve(hash.substring(2));
+  }
+
+  private static void holdLock(Path path, CountDownLatch locked, CountDownLatch release)
+      throws IOException {
+    FileLockCoordinator.shared()
+        .withLock(
+            path,
+            () -> {
+              locked.countDown();
+              try {
+                release.await();
+              } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IOException(exception);
+              }
+              return null;
+            });
+  }
+
+  private static byte[] distinctShardGroup(DefinitionGroupId other) {
+    String excludedPrefix = other.toString().substring(0, 2);
+    for (int discriminator = 0; ; discriminator++) {
+      byte[] candidate = ("independent-" + discriminator).getBytes(StandardCharsets.UTF_8);
+      if (!DefinitionHasher.hashGroup(candidate).toString().startsWith(excludedPrefix)) {
+        return candidate;
+      }
+    }
   }
 
   private static PutResult put(DefinitionStore store, byte[] canonicalGroup) throws Exception {

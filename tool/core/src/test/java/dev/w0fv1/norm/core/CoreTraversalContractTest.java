@@ -3,7 +3,7 @@ package dev.w0fv1.norm.core;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;

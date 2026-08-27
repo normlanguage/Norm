@@ -5,7 +5,6 @@ import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +20,8 @@ final class DeclarationCatalog {
   private final Map<String, Syntax.EnumDecl> enums = new LinkedHashMap<>();
   private final Map<String, Syntax.InterfaceDecl> interfaces = new LinkedHashMap<>();
   private final Map<Object, Syntax.Program> owners = new IdentityHashMap<>();
+  private final Set<Object> duplicates =
+      java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 
   DeclarationCatalog(
       List<Syntax.Program> programs, Set<DocumentId> exportedSources, CompilationScope scope) {
@@ -28,36 +29,11 @@ final class DeclarationCatalog {
     this.exportedSources = Set.copyOf(exportedSources);
     this.scope = java.util.Objects.requireNonNull(scope, "scope");
     indexOwners();
+    indexDeclarations();
   }
 
-  boolean addInterface(Syntax.Program program, Syntax.InterfaceDecl declaration) {
-    return interfaces.putIfAbsent(
-            key(program, declaration.name(), declaration.visibility()), declaration)
-        == null;
-  }
-
-  boolean addEnum(Syntax.Program program, Syntax.EnumDecl declaration) {
-    return enums.putIfAbsent(
-            key(program, declaration.name(), declaration.visibility()), declaration)
-        == null;
-  }
-
-  boolean addAggregate(Syntax.Program program, Syntax.AggregateDecl declaration) {
-    return aggregates.putIfAbsent(
-            key(program, declaration.name(), declaration.visibility()), declaration)
-        == null;
-  }
-
-  boolean addFunction(Syntax.Program program, Syntax.FunctionDecl declaration) {
-    List<Syntax.FunctionDecl> overloads =
-        functions.computeIfAbsent(
-            key(program, declaration.name(), declaration.visibility()),
-            ignored -> new ArrayList<>());
-    boolean unique =
-        overloads.stream()
-            .noneMatch(candidate -> signature(candidate).equals(signature(declaration)));
-    overloads.add(declaration);
-    return unique;
+  boolean duplicate(Object declaration) {
+    return duplicates.contains(declaration);
   }
 
   Syntax.Program owner(Object declaration) {
@@ -198,6 +174,51 @@ final class DeclarationCatalog {
     }
   }
 
+  private void indexDeclarations() {
+    for (Syntax.Program program : programs) {
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        indexType(interfaces, program, declaration.name(), declaration.visibility(), declaration);
+      }
+    }
+    for (Syntax.Program program : programs) {
+      for (Syntax.EnumDecl declaration : program.enums()) {
+        indexType(enums, program, declaration.name(), declaration.visibility(), declaration);
+      }
+    }
+    for (Syntax.Program program : programs) {
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
+        indexType(aggregates, program, declaration.name(), declaration.visibility(), declaration);
+      }
+    }
+    for (Syntax.Program program : programs) {
+      for (Syntax.FunctionDecl declaration : program.functions()) {
+        List<Syntax.FunctionDecl> overloads =
+            functions.computeIfAbsent(
+                key(program, declaration.name(), declaration.visibility()),
+                ignored -> new ArrayList<>());
+        if (overloads.stream()
+            .anyMatch(
+                candidate ->
+                    DeclarationIdentity.functionSignature(candidate)
+                        .equals(DeclarationIdentity.functionSignature(declaration)))) {
+          duplicates.add(declaration);
+        }
+        overloads.add(declaration);
+      }
+    }
+  }
+
+  private <T> void indexType(
+      Map<String, T> declarations,
+      Syntax.Program program,
+      String name,
+      Syntax.Visibility visibility,
+      T declaration) {
+    if (declarations.putIfAbsent(key(program, name, visibility), declaration) != null) {
+      duplicates.add(declaration);
+    }
+  }
+
   private <T> T resolve(Syntax.Program program, String name, Map<String, T> declarations) {
     if (program == null) return null;
     T local = declarations.get(localIdentity(qualified(program.packageName(), name), program));
@@ -253,29 +274,5 @@ final class DeclarationCatalog {
     Syntax.Program owner = owners.get(declaration);
     return owner != null
         && scope.sameModule(program.span().source().id(), owner.span().source().id());
-  }
-
-  private static String signature(Syntax.FunctionDecl function) {
-    Map<String, String> typeParameters = new HashMap<>();
-    for (int index = 0; index < function.typeParameters().size(); index++) {
-      typeParameters.put(function.typeParameters().get(index).name(), "$" + index);
-    }
-    return function.name()
-        + "("
-        + function.parameters().stream()
-            .map(parameter -> normalizedType(parameter.type(), typeParameters))
-            .collect(java.util.stream.Collectors.joining(","))
-        + ")";
-  }
-
-  private static String normalizedType(Syntax.TypeRef type, Map<String, String> typeParameters) {
-    String name = typeParameters.getOrDefault(type.name(), type.name());
-    String arguments =
-        type.arguments().isEmpty()
-            ? ""
-            : type.arguments().stream()
-                .map(argument -> normalizedType(argument, typeParameters))
-                .collect(java.util.stream.Collectors.joining(",", "<", ">"));
-    return name + arguments + (type.nullable() ? "?" : "");
   }
 }

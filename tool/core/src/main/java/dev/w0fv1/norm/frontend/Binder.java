@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.bound.BoundAggregate;
 import dev.w0fv1.norm.bound.BoundAggregateId;
 import dev.w0fv1.norm.bound.BoundAnnotationApplication;
@@ -46,7 +47,6 @@ import dev.w0fv1.norm.bound.BoundTypeParameter;
 import dev.w0fv1.norm.bound.BoundUnaryOperator;
 import dev.w0fv1.norm.bound.BoundWitness;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
-import dev.w0fv1.norm.builtin.IntrinsicId;
 import dev.w0fv1.norm.semantic.AnnotationApplication;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
@@ -1441,7 +1441,10 @@ final class Binder {
   private Symbol symbol(SourceSpan span) {
     return semantics
         .symbolOf(span)
-        .orElseThrow(() -> new IllegalStateException("symbol is absent"));
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "symbol is absent for '" + span.text() + "' at " + span.location()));
   }
 
   private static boolean isBuiltin(Symbol symbol) {

@@ -1,5 +1,7 @@
 package dev.w0fv1.norm.builtin;
 
+import dev.w0fv1.norm.abi.IntrinsicId;
+import dev.w0fv1.norm.abi.RuntimeShape;
 import dev.w0fv1.norm.semantic.IndexKind;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.SemanticType;

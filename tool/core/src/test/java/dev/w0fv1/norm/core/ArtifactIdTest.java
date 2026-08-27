@@ -17,6 +17,25 @@ import org.junit.jupiter.api.Test;
 
 final class ArtifactIdTest {
   @Test
+  void separatesExecutableContentFromDebugInformation() {
+    CoreArtifact compact = compile("Void main() { printLine(1) }");
+    CoreArtifact formatted = compile("\n\nVoid main() {\n  printLine(1)\n}\n");
+    CoreArtifact moved = compile(Path.of("moved/artifact.norm"), "Void main() { printLine(1) }");
+
+    assertEquals(CoreCodeId.forArtifact(compact), CoreCodeId.forArtifact(formatted));
+    assertEquals(CoreCodeId.forArtifact(compact), CoreCodeId.forArtifact(moved));
+    assertEquals(PublicAbiId.forArtifact(compact), PublicAbiId.forArtifact(formatted));
+    assertEquals(MetadataId.forArtifact(compact), MetadataId.forArtifact(formatted));
+    assertEquals(
+        ExecutableId.forArtifact(compact, "test"), ExecutableId.forArtifact(formatted, "test"));
+    assertEquals(
+        ExecutableId.forArtifact(compact, "test"), ExecutableId.forArtifact(moved, "test"));
+    assertNotEquals(DebugInfoId.forArtifact(compact), DebugInfoId.forArtifact(formatted));
+    assertNotEquals(
+        ArtifactId.forArtifact(compact, "test"), ArtifactId.forArtifact(formatted, "test"));
+  }
+
+  @Test
   void includesAnnotationMetadataValues() {
     CoreArtifact first =
         compile(
@@ -181,7 +200,11 @@ final class ArtifactIdTest {
   }
 
   private static CoreArtifact compile(String source) {
-    SourceFile file = SourceFile.of(Path.of("artifact-annotations.norm"), source);
+    return compile(Path.of("artifact-annotations.norm"), source);
+  }
+
+  private static CoreArtifact compile(Path path, String source) {
+    SourceFile file = SourceFile.of(path, source);
     return new CompilerSession()
         .compile(
             new CompilationRequest(

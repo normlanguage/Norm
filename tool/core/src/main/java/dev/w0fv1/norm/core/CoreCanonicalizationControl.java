@@ -28,6 +28,7 @@ public record CoreCanonicalizationControl(
     private long searchBranches;
     private long refinementRounds;
     private long memoizedSearches;
+    private long automorphicBranches;
 
     private State(BooleanSupplier cancellation, long maximumSearchBranches) {
       this.cancellation = cancellation;
@@ -55,9 +56,18 @@ public record CoreCanonicalizationControl(
       memoizedSearches++;
     }
 
+    void automorphicBranch() {
+      automorphicBranches++;
+    }
+
     CoreCanonicalizationMetrics metrics(int components, int maximumComponentSize) {
       return new CoreCanonicalizationMetrics(
-          components, maximumComponentSize, refinementRounds, searchBranches, memoizedSearches);
+          components,
+          maximumComponentSize,
+          refinementRounds,
+          searchBranches,
+          memoizedSearches,
+          automorphicBranches);
     }
   }
 }

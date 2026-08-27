@@ -1,19 +1,18 @@
 package dev.w0fv1.norm.frontend;
 
+import static dev.w0fv1.norm.frontend.SemanticDiagnosticCodes.*;
+
 import dev.w0fv1.norm.semantic.AnnotationApplication;
 import dev.w0fv1.norm.semantic.AnnotationParameterInfo;
 import dev.w0fv1.norm.semantic.AnnotationSchema;
 import dev.w0fv1.norm.semantic.AnnotationSite;
 import dev.w0fv1.norm.semantic.AnnotationValue;
-import dev.w0fv1.norm.semantic.SemanticContribution;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.AnnotationAbi;
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
-import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,43 +22,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-abstract class AnalyzerAnnotations extends AnalyzerExpressions {
+final class AnnotationChecker {
+  private final Analyzer analyzer;
   private final Set<AnnotationApplicationKey> indexedAnnotationApplications = new HashSet<>();
 
-  AnalyzerAnnotations(
-      List<Syntax.Program> programs,
-      Syntax.Program entryProgram,
-      DiagnosticBag diagnostics,
-      boolean requireEntryPoint,
-      Set<DocumentId> exportedSources,
-      CompilationGuard guard,
-      Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId,
-      Set<DocumentId> moduleEvaluationDocuments,
-      CompilationScope scope) {
-    super(
-        programs,
-        entryProgram,
-        diagnostics,
-        requireEntryPoint,
-        exportedSources,
-        guard,
-        reusableDeclarations,
-        minimumBodySymbolId,
-        moduleEvaluationDocuments,
-        scope);
+  AnnotationChecker(Analyzer analyzer) {
+    this.analyzer = java.util.Objects.requireNonNull(analyzer, "analyzer");
   }
 
   final void validateAnnotationSchemas() {
-    for (Syntax.Program program : programs) {
-      currentProgram = program;
+    for (Syntax.Program program : analyzer.context.programs) {
+      analyzer.context.currentProgram = program;
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
-        List<SemanticType> views = nominalViews(aggregateSelfType(declaration));
+        List<SemanticType> views =
+            analyzer.typeSystem.nominalViews(analyzer.typeSystem.aggregateSelfType(declaration));
         List<AnnotationPolicy> policies = views.stream().map(this::annotationPolicy).toList();
         boolean policyType = policies.stream().anyMatch(AnnotationPolicy::policyInterface);
         if (declaration.kind() != Syntax.AggregateKind.ANNOTATION) {
           if (policyType) {
-            diagnostics.error(
+            analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
                 "annotation policy interfaces can only be implemented by annotation types",
                 declaration.nameSpan());
@@ -67,13 +48,13 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
           continue;
         }
         if (!declaration.typeParameters().isEmpty()) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "annotation cannot declare type parameters",
               declaration.typeParameters().getFirst().nameSpan());
         }
         if (declaration.extendedClass().isPresent()) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "annotation cannot extend a class",
               declaration.extendedClass().orElseThrow().span());
@@ -102,13 +83,13 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
           }
         }
         if (targets.isEmpty()) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "annotation must implement at least one annotation target interface",
               declaration.nameSpan());
         }
         if (retentions.size() != 1) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "annotation must implement exactly one annotation retention interface",
               declaration.nameSpan());
@@ -117,7 +98,7 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
             List.of(AnnotationTarget.FIELD, AnnotationTarget.PARAMETER)) {
           List<SemanticType> types = typedTargets.getOrDefault(target, List.of());
           if (targets.contains(target) && types.stream().distinct().count() != 1) {
-            diagnostics.error(
+            analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
                 "annotation must implement "
                     + (target == AnnotationTarget.FIELD ? "FieldTarget" : "ParameterTarget")
@@ -143,26 +124,26 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
               parameter instanceof Syntax.FieldDecl field
                   ? field.nameSpan()
                   : ((Syntax.Parameter) parameter).nameSpan();
-          validateType(typeRef, false);
-          SemanticType type = resolveType(typeRef, Map.of());
+          analyzer.typeSystem.validateType(typeRef, false);
+          SemanticType type = analyzer.typeSystem.resolveType(typeRef, Map.of());
           SemanticType scalar = type.nonNullable();
           if (!scalar.arguments().isEmpty()
               || !Set.of("Boolean", "CodePoint", "Integer", "Long", "Float", "Double", "String")
                   .contains(scalar.name())) {
-            diagnostics.error(
+            analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
                 "annotation constructor parameters must be scalar types",
                 typeRef.span());
           }
           parameters.add(
               new AnnotationParameterInfo(
-                  Optional.ofNullable(declarationSymbols.get(parameter))
-                      .orElseGet(() -> bindings.get(nameSpan)),
+                  Optional.ofNullable(analyzer.context.declarationSymbols.get(parameter))
+                      .orElseGet(() -> analyzer.context.bindings.get(nameSpan)),
                   name,
                   type));
         }
-        SymbolId symbol = declarationSymbols.get(declaration);
-        annotationSchemas.put(
+        SymbolId symbol = analyzer.context.declarationSymbols.get(declaration);
+        analyzer.context.annotationSchemas.put(
             symbol,
             new AnnotationSchema(
                 symbol,
@@ -183,11 +164,11 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
   }
 
   private AnnotationPolicy annotationPolicy(SemanticType type) {
-    Syntax.InterfaceDecl declaration = resolveInterface(type);
+    Syntax.InterfaceDecl declaration = analyzer.typeSystem.resolveInterface(type);
     if (declaration == null) return AnnotationPolicy.NONE;
-    Syntax.Program owner = declarations.owner(declaration);
+    Syntax.Program owner = analyzer.context.declarations.owner(declaration);
     dev.w0fv1.norm.value.ModuleCoordinate module =
-        scope.coordinate(owner.span().source().id()).module();
+        analyzer.context.scope.coordinate(owner.span().source().id()).module();
     return new AnnotationPolicy(
         AnnotationAbi.target(module, owner.packageName(), declaration.name()),
         AnnotationAbi.retention(module, owner.packageName(), declaration.name()),
@@ -196,12 +177,12 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
 
   final void validateAnnotationApplications() {
     indexedAnnotationApplications.clear();
-    for (Syntax.Program program : programs) {
-      currentProgram = program;
+    for (Syntax.Program program : analyzer.context.programs) {
+      analyzer.context.currentProgram = program;
       validateAnnotationUses(
           program.packageAnnotations(),
           new AnnotationSite.Package(
-              scope.coordinate(program.span().source().id()).module(),
+              analyzer.context.scope.coordinate(program.span().source().id()).module(),
               program.packageName(),
               program.span().source().id()));
       for (Syntax.EnumDecl declaration : program.enums()) {
@@ -259,12 +240,12 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
             || expression instanceof Syntax.StringLiteralExpr
             || expression instanceof Syntax.NullLiteral;
     if (!literal) {
-      diagnostics.error(
+      analyzer.context.diagnostics.error(
           TYPE_MISMATCH, "annotation argument must be a compile-time constant", expression.span());
       return Optional.empty();
     }
-    SemanticType actual = typeOf(expression, expected);
-    requireAssignable(expected, actual, expression.span());
+    SemanticType actual = analyzer.typeOf(expression, expected);
+    analyzer.typeSystem.requireAssignable(expected, actual, expression.span());
     Object value =
         switch (expression) {
           case Syntax.BooleanLiteral item -> item.value();
@@ -295,9 +276,9 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
       validateDeclarationAnnotations(
           parameter.annotations(), AnnotationTarget.PARAMETER, parameter);
     }
-    SymbolId callableId = declarationSymbols.get(declaration);
+    SymbolId callableId = analyzer.context.declarationSymbols.get(declaration);
     List<AnnotationApplication> interceptors =
-        annotationApplications.stream()
+        analyzer.context.annotationApplications.stream()
             .filter(
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
@@ -306,10 +287,10 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()
-            .map(parameter -> declarationSymbols.get(parameter))
+            .map(parameter -> analyzer.context.declarationSymbols.get(parameter))
             .collect(java.util.stream.Collectors.toSet());
     List<AnnotationApplication> parameterInterceptors =
-        annotationApplications.stream()
+        analyzer.context.annotationApplications.stream()
             .filter(
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
@@ -320,18 +301,18 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
     if (declaration instanceof Syntax.InterfaceMethodDecl) {
       interceptors.forEach(
           application ->
-              diagnostics.error(
+              analyzer.context.diagnostics.error(
                   TYPE_MISMATCH,
                   "FunctionTarget annotation requires a concrete function or method",
                   application.span()));
       parameterInterceptors.forEach(
           application ->
-              diagnostics.error(
+              analyzer.context.diagnostics.error(
                   TYPE_MISMATCH,
                   "ParameterTarget annotation requires a concrete callable parameter",
                   application.span()));
     }
-    dev.w0fv1.norm.semantic.Symbol callable = symbols.get(callableId);
+    dev.w0fv1.norm.semantic.Symbol callable = analyzer.context.symbols.get(callableId);
     boolean containsReference =
         callable.type().containsReference()
             || callable.parameters().stream()
@@ -339,7 +320,7 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
     if (containsReference) {
       interceptors.forEach(
           application ->
-              diagnostics.error(
+              analyzer.context.diagnostics.error(
                   TYPE_MISMATCH,
                   "FunctionTarget annotation cannot intercept a ref signature",
                   application.span()));
@@ -347,8 +328,8 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
     parameterInterceptors.forEach(
         application -> {
           AnnotationSite.Symbol site = (AnnotationSite.Symbol) application.target();
-          if (symbols.get(site.symbol()).type().isReference()) {
-            diagnostics.error(
+          if (analyzer.context.symbols.get(site.symbol()).type().isReference()) {
+            analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
                 "ParameterTarget annotation cannot intercept a ref parameter",
                 application.span());
@@ -357,12 +338,14 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
   }
 
   private AnnotationSite annotationSite(AnnotationTarget target, Object declaration) {
-    SymbolId symbol = declarationSymbols.get(declaration);
+    SymbolId symbol = analyzer.context.declarationSymbols.get(declaration);
     if (symbol == null && declaration instanceof Syntax.VariableDecl variable) {
-      symbol = bindings.get(variable.nameSpan());
+      symbol = analyzer.context.bindings.get(variable.nameSpan());
     }
     return new AnnotationSite.Symbol(
-        target, java.util.Objects.requireNonNull(symbol), currentProgram.span().source().id());
+        target,
+        java.util.Objects.requireNonNull(symbol),
+        analyzer.context.currentProgram.span().source().id());
   }
 
   private void validateLocalAnnotations(List<Syntax.Statement> statements) {
@@ -440,27 +423,27 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
 
   private void validateAnnotationUses(List<Syntax.AnnotationUse> uses, AnnotationSite target) {
     for (Syntax.AnnotationUse use : uses) {
-      Syntax.AggregateDecl declaration = resolveAnnotation(use.name());
+      Syntax.AggregateDecl declaration = analyzer.typeSystem.resolveAnnotation(use.name());
       if (declaration == null) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             UNKNOWN_NAME, "cannot find annotation '" + use.name() + "'", use.nameSpan());
         use.arguments()
             .forEach(argument -> annotationConstant(argument.value(), SemanticType.DYNAMIC));
         continue;
       }
-      SymbolId annotation = declarationSymbols.get(declaration);
-      bindings.put(use.nameSpan(), annotation);
-      AnnotationSchema schema = annotationSchemas.get(annotation);
+      SymbolId annotation = analyzer.context.declarationSymbols.get(declaration);
+      analyzer.context.bindings.put(use.nameSpan(), annotation);
+      AnnotationSchema schema = analyzer.context.annotationSchemas.get(annotation);
       if (schema == null) continue;
       boolean duplicate = !indexedAnnotationApplications.add(applicationKey(annotation, target));
       if (duplicate) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "duplicate annotation '" + use.name() + "' on the same target",
             use.span());
       }
       if (!schema.targets().contains(target.kind())) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "annotation '"
                 + use.name()
@@ -472,12 +455,13 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
       Map<String, Syntax.CallArgument> supplied = new LinkedHashMap<>();
       for (Syntax.CallArgument argument : use.arguments()) {
         if (argument.label().isEmpty()) {
-          diagnostics.error(TYPE_MISMATCH, "annotation arguments must be named", argument.span());
+          analyzer.context.diagnostics.error(
+              TYPE_MISMATCH, "annotation arguments must be named", argument.span());
           continue;
         }
         String label = argument.label().orElseThrow().name();
         if (supplied.putIfAbsent(label, argument) != null) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH, "duplicate annotation parameter '" + label + "'", argument.span());
         }
       }
@@ -486,10 +470,10 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
       if (target instanceof AnnotationSite.Symbol site
           && site.kind() == AnnotationTarget.FIELD
           && schema.targetType(AnnotationTarget.FIELD).isPresent()) {
-        SemanticType fieldType = symbols.get(site.symbol()).type();
+        SemanticType fieldType = analyzer.context.symbols.get(site.symbol()).type();
         SemanticType targetType = schema.targetType(AnnotationTarget.FIELD).orElseThrow();
         if (!fieldType.equals(targetType)) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "FieldTarget type '"
                   + targetType.displayName()
@@ -503,16 +487,16 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
       if (target instanceof AnnotationSite.Symbol site
           && site.kind() == AnnotationTarget.PARAMETER
           && schema.targetType(AnnotationTarget.PARAMETER).isPresent()) {
-        SemanticType parameterType = symbols.get(site.symbol()).type();
+        SemanticType parameterType = analyzer.context.symbols.get(site.symbol()).type();
         SemanticType targetType = schema.targetType(AnnotationTarget.PARAMETER).orElseThrow();
         if (parameterType.isReference()) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "ParameterTarget annotation cannot intercept a ref parameter",
               use.span());
           complete = false;
         } else if (!parameterType.equals(targetType)) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "ParameterTarget type '"
                   + targetType.displayName()
@@ -526,20 +510,20 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
       for (AnnotationParameterInfo parameter : schema.parameters()) {
         Syntax.CallArgument argument = supplied.remove(parameter.name());
         if (argument == null) {
-          diagnostics.error(
+          analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "required annotation parameter '" + parameter.name() + "' is missing",
               use.span());
           complete = false;
           continue;
         }
-        bindings.put(argument.label().orElseThrow().span(), parameter.symbol());
+        analyzer.context.bindings.put(argument.label().orElseThrow().span(), parameter.symbol());
         Optional<AnnotationValue> value = annotationConstant(argument.value(), parameter.type());
         if (value.isEmpty()) complete = false;
         else values.add(value.orElseThrow());
       }
       for (Syntax.CallArgument argument : supplied.values()) {
-        diagnostics.error(
+        analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "unknown annotation parameter '" + argument.label().orElseThrow().name() + "'",
             argument.span());
@@ -547,7 +531,7 @@ abstract class AnalyzerAnnotations extends AnalyzerExpressions {
         complete = false;
       }
       if (!duplicate && complete && values.size() == schema.parameters().size()) {
-        annotationApplications.add(
+        analyzer.context.annotationApplications.add(
             new AnnotationApplication(annotation, target, values, use.span()));
       }
     }

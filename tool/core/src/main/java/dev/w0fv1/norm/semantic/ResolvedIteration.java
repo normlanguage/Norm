@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.semantic;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import java.util.Objects;
 
 public record ResolvedIteration(SemanticType elementType, Strategy strategy) {

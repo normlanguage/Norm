@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.core;
 
+import dev.w0fv1.norm.abi.ExceptionAbi;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.semantic.PatternCoverage;
 import dev.w0fv1.norm.semantic.SemanticType;
@@ -710,7 +711,7 @@ final class CoreProgramVerifier {
       InterfaceInstance instance,
       DefinitionId requirementId,
       CoreDefinition.InterfaceMethod requirement,
-      dev.w0fv1.norm.builtin.IntrinsicId intrinsic) {
+      dev.w0fv1.norm.abi.IntrinsicId intrinsic) {
     if (!requirement.typeParameters().isEmpty()) return false;
     InterfaceInstance requirementOwner =
         interfaceInstance(requirementId, requirement.receiverInterfaceType());
@@ -1469,7 +1470,7 @@ final class CoreProgramVerifier {
     if (!valid) {
       throw new IllegalArgumentException("intrinsic expression does not match its builtin ABI");
     }
-    if (intrinsic.intrinsic() == dev.w0fv1.norm.builtin.IntrinsicId.TYPE_ANNOTATION) {
+    if (intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION) {
       CoreType annotationType = nonNullable(absolute(owner, intrinsic.type()));
       if (!(annotationType instanceof CoreType.Declared declared)
           || !(declared.constructor() instanceof CoreTypeConstructor.User user)

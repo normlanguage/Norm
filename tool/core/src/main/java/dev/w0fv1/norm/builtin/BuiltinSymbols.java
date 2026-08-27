@@ -1,13 +1,17 @@
-package dev.w0fv1.norm.semantic;
+package dev.w0fv1.norm.builtin;
 
-import dev.w0fv1.norm.builtin.BuiltinCatalog;
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
+import dev.w0fv1.norm.semantic.BuiltinSemanticIndex;
+import dev.w0fv1.norm.semantic.ParameterInfo;
+import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.semantic.Symbol;
+import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.value.DocumentId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public final class BuiltinSymbols {
+public final class BuiltinSymbols implements BuiltinSemanticIndex {
   private final BuiltinCatalog catalog;
   private final java.util.Set<DocumentId> moduleEvaluationDocuments;
 
@@ -56,12 +60,25 @@ public final class BuiltinSymbols {
     return catalog.member(owner, name);
   }
 
+  @Override
+  public Optional<Symbol> member(SemanticType owner, SymbolId member) {
+    return catalog.member(owner, member);
+  }
+
   public List<Symbol> members(SemanticType owner, String name) {
     return catalog.members(owner, name);
   }
 
   public List<Symbol> typeMembers(String owner, String name) {
     return catalog.typeMembers(owner, name);
+  }
+
+  @Override
+  public List<Symbol> typeMembers(String owner) {
+    return catalog.type(owner).stream()
+        .flatMap(type -> type.typeMembers().stream())
+        .map(BuiltinCatalog.MemberDefinition::symbol)
+        .toList();
   }
 
   public boolean isType(String name) {

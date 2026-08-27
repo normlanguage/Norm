@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.utils.BackendInfo;
@@ -66,6 +67,38 @@ final class BackendTest {
 
     assertEquals("cached" + System.lineSeparator(), first.toString());
     assertEquals(first.toString(), second.toString());
+    assertEquals(1, backend.cachedArtifacts());
+  }
+
+  @Test
+  void reusesExecutableCodeAcrossDebugOnlySourceChanges() {
+    var compact =
+        new CompilerSession()
+            .compile(SourceFile.of(Path.of("debug-cache.norm"), "Void main() { printLine(1 / 0) }"))
+            .program()
+            .orElseThrow();
+    var formatted =
+        new CompilerSession()
+            .compile(
+                SourceFile.of(
+                    Path.of("debug-cache.norm"), "\n\nVoid main() {\n  printLine(1 / 0)\n}\n"))
+            .program()
+            .orElseThrow();
+    TruffleExecutionBackend backend = new TruffleExecutionBackend();
+    NormRuntime runner = new NormRuntime(backend);
+
+    assertSame(
+        backend.compile(null, compact.compilation().artifact()),
+        backend.compile(null, formatted.compilation().artifact()));
+    assertThrows(
+        NormExecutionException.class,
+        () -> runner.run(compact, new PrintWriter(new StringWriter())));
+    NormExecutionException formattedFailure =
+        assertThrows(
+            NormExecutionException.class,
+            () -> runner.run(formatted, new PrintWriter(new StringWriter())));
+
+    assertEquals(4, formattedFailure.line());
     assertEquals(1, backend.cachedArtifacts());
   }
 

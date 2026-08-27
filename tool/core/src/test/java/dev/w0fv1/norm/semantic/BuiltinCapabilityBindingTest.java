@@ -3,7 +3,7 @@ package dev.w0fv1.norm.semantic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.SourceFile;

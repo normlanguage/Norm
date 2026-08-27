@@ -1,9 +1,10 @@
 package dev.w0fv1.norm.frontend;
 
-import dev.w0fv1.norm.diagnostic.DiagnosticCode;
+import static dev.w0fv1.norm.frontend.SemanticDiagnosticCodes.INVALID_CALL;
+
+import dev.w0fv1.norm.builtin.BuiltinSymbols;
 import dev.w0fv1.norm.semantic.AnnotationApplication;
 import dev.w0fv1.norm.semantic.AnnotationSchema;
-import dev.w0fv1.norm.semantic.BuiltinSymbols;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.ResolvedIndex;
@@ -30,19 +31,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 
-abstract class AnalyzerState {
+final class SemanticAnalysisContext {
 
-  static final DiagnosticCode DUPLICATE_NAME = new DiagnosticCode("NORM-NAME-0001");
-  static final DiagnosticCode MISSING_MAIN = new DiagnosticCode("NORM-NAME-0002");
-  static final DiagnosticCode UNKNOWN_NAME = new DiagnosticCode("NORM-NAME-0003");
-  static final DiagnosticCode TYPE_MISMATCH = new DiagnosticCode("NORM-TYPE-0001");
-  static final DiagnosticCode INVALID_CALL = new DiagnosticCode("NORM-TYPE-0002");
-  static final DiagnosticCode INVALID_CONTROL = new DiagnosticCode("NORM-FLOW-0001");
-  static final DiagnosticCode NULLABILITY_MISMATCH = new DiagnosticCode("NORM-NULL-0001");
-  static final DiagnosticCode UNTYPED_NULL = new DiagnosticCode("NORM-NULL-0002");
-  static final DiagnosticCode INVALID_NULLABLE_TYPE = new DiagnosticCode("NORM-NULL-0003");
-  static final DiagnosticCode UNSAFE_NULLABLE_ACCESS = new DiagnosticCode("NORM-NULL-0004");
   static final SemanticType STRINGABLE =
       SemanticType.declared(
           "std.core.Stringable", "Stringable", List.of(), ValueCategory.POLYMORPHIC);
@@ -96,41 +89,32 @@ abstract class AnalyzerState {
   final Set<SymbolId> reportedMutableCaptures = new HashSet<>();
   final Deque<Set<SymbolId>> lambdaLocals = new ArrayDeque<>();
 
-  AnalyzerState(
-      List<Syntax.Program> programs,
-      Syntax.Program entryProgram,
+  SemanticAnalysisContext(
+      SemanticAnalysisInput input,
       DiagnosticBag diagnostics,
-      boolean requireEntryPoint,
-      Set<DocumentId> exportedSources,
       CompilationGuard guard,
-      Map<SourceSpan, SemanticContribution> reusableDeclarations,
-      int minimumBodySymbolId,
-      Set<DocumentId> moduleEvaluationDocuments,
-      CompilationScope scope) {
-    this.programs = List.copyOf(programs);
-    this.entryProgram = entryProgram;
+      BiPredicate<SemanticType, SemanticType> nominalAssignability,
+      BiFunction<Syntax.Expression, SemanticType, SemanticType> expressionType) {
+    this.programs = input.programs();
+    this.entryProgram = input.entryProgram();
     this.syntax = merge(programs, entryProgram);
     this.diagnostics = diagnostics;
-    this.typeRelations = new TypeRelations.DeclarationGraph(this::isNominallyAssignable);
-    this.overloads = new OverloadResolver(diagnostics, INVALID_CALL, typeRelations, this::typeOf);
-    this.requireEntryPoint = requireEntryPoint;
-    this.exportedSources = Set.copyOf(exportedSources);
-    this.scope = java.util.Objects.requireNonNull(scope, "scope");
+    this.typeRelations = new TypeRelations.DeclarationGraph(nominalAssignability);
+    this.overloads = new OverloadResolver(diagnostics, INVALID_CALL, typeRelations, expressionType);
+    this.requireEntryPoint = input.requireEntryPoint();
+    this.exportedSources = input.exportedSources();
+    this.scope = input.scope();
     this.guard = java.util.Objects.requireNonNull(guard, "guard");
-    this.declarations = new DeclarationCatalog(this.programs, this.exportedSources, scope);
-    this.reusableDeclarations = Map.copyOf(reusableDeclarations);
-    this.minimumBodySymbolId = minimumBodySymbolId;
-    this.builtins = new BuiltinSymbols(moduleEvaluationDocuments);
+    this.declarations = input.declarations();
+    this.reusableDeclarations = input.reusableDeclarations();
+    this.minimumBodySymbolId = input.minimumBodySymbolId();
+    this.builtins = new BuiltinSymbols(input.moduleEvaluationDocuments());
     symbols.putAll(builtins.symbols());
     symbols.values().stream()
         .filter(symbol -> symbol.kind() == SymbolKind.TYPE)
         .forEach(symbol -> typeSymbols.put(symbol.type().identity(), symbol.id()));
     builtins.members().forEach((owner, values) -> members.put(owner, new ArrayList<>(values)));
   }
-
-  abstract SemanticType typeOf(Syntax.Expression expression, SemanticType expected);
-
-  abstract boolean isNominallyAssignable(SemanticType expected, SemanticType actual);
 
   static Syntax.Program merge(List<Syntax.Program> programs, Syntax.Program entryProgram) {
     List<Syntax.EnumDecl> enums = new ArrayList<>();

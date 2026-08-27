@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.core;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import java.util.Objects;
 
 public sealed interface CoreWitnessTarget

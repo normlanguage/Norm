@@ -3,7 +3,7 @@ package dev.w0fv1.norm.core;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.ArrayList;
 import java.util.List;
@@ -390,7 +390,7 @@ final class CoreProgramVerifierTest {
         new CoreExpression.CollectionLiteral(
             2,
             List.of(),
-            dev.w0fv1.norm.builtin.IntrinsicId.ARRAY_CONSTRUCT,
+            IntrinsicId.ARRAY_CONSTRUCT,
             new CoreRuntimeType(array, List.of()),
             array);
     CoreDefinitionGroup group =

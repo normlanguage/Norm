@@ -3,6 +3,7 @@ package dev.w0fv1.norm.builtin;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.abi.IntrinsicId;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;

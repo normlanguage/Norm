@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.nodes.Node;
-import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;

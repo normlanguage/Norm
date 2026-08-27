@@ -125,7 +125,8 @@ final class CoreBuilder {
                 canonical.groups().size(),
                 counts.stored(),
                 counts.reused(),
-                counts.notAdmitted()),
+                counts.notAdmitted(),
+                canonical.metrics()),
             CoreDependencyIndex.create(coreProgram),
             CoreCompilationDelta.initial(coreProgram),
             IncrementalAnalysisReport.analyzed(converted.declarations().size(), 0)));

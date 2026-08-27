@@ -150,22 +150,38 @@ public final class CoreCanonicalizer {
       return result;
     }
     CanonicalLabeling best = null;
+    List<SearchedBranch> searched = new ArrayList<>();
     for (int candidate : cell) {
-      state.searchBranch();
-      Map<Integer, byte[]> individualized = new HashMap<>();
-      for (int declaration : component) {
-        individualized.put(
-            declaration,
-            new CanonicalWriter()
-                .writeTag("canonical-partition")
-                .writeInt(partition.get(declaration))
-                .writeBoolean(declaration == candidate)
-                .toByteArray());
+      SearchedBranch equivalent =
+          searched.stream()
+              .filter(
+                  branch ->
+                      isTranspositionAutomorphism(
+                          component, definitions, definitionIds, branch.candidate(), candidate))
+              .findFirst()
+              .orElse(null);
+      CanonicalLabeling current;
+      if (equivalent != null) {
+        state.automorphicBranch();
+        current = equivalent.labeling().transpose(equivalent.candidate(), candidate);
+        searched.add(new SearchedBranch(candidate, current));
+      } else {
+        state.searchBranch();
+        Map<Integer, byte[]> individualized = new HashMap<>();
+        for (int declaration : component) {
+          individualized.put(
+              declaration,
+              new CanonicalWriter()
+                  .writeTag("canonical-partition")
+                  .writeInt(partition.get(declaration))
+                  .writeBoolean(declaration == candidate)
+                  .toByteArray());
+        }
+        Map<Integer, Integer> refined =
+            refine(component, definitions, definitionIds, colors(individualized), state);
+        current = search(component, definitions, definitionIds, refined, state, memoized);
+        searched.add(new SearchedBranch(candidate, current));
       }
-      Map<Integer, Integer> refined =
-          refine(component, definitions, definitionIds, colors(individualized), state);
-      CanonicalLabeling current =
-          search(component, definitions, definitionIds, refined, state, memoized);
       if (best == null
           || Arrays.compareUnsigned(current.canonicalBytes(), best.canonicalBytes()) < 0) {
         best = current;
@@ -176,6 +192,48 @@ public final class CoreCanonicalizer {
     CanonicalLabeling result = Objects.requireNonNull(best, "canonical labeling");
     memoized.put(stateKey, result);
     return result;
+  }
+
+  private static boolean isTranspositionAutomorphism(
+      List<Integer> component,
+      List<CoreDefinition> definitions,
+      Map<Integer, DefinitionId> definitionIds,
+      int first,
+      int second) {
+    Set<Integer> members = Set.copyOf(component);
+    for (int declaration : component) {
+      byte[] transformed =
+          CoreCodec.encodeDefinition(
+              definitions.get(declaration),
+              link -> permutedReference(link, members, definitionIds, first, second));
+      byte[] target =
+          CoreCodec.encodeDefinition(
+              definitions.get(transpose(declaration, first, second)),
+              link -> permutedReference(link, members, definitionIds, -1, -1));
+      if (!Arrays.equals(transformed, target)) return false;
+    }
+    return true;
+  }
+
+  private static DefinitionReference permutedReference(
+      CoreDefinitionLink link,
+      Set<Integer> members,
+      Map<Integer, DefinitionId> definitionIds,
+      int first,
+      int second) {
+    if (link instanceof DefinitionReference reference) return reference;
+    int target = ((PendingDefinitionReference) link).declarationIndex();
+    if (members.contains(target)) {
+      return new DefinitionReference.RecursiveMember(transpose(target, first, second));
+    }
+    DefinitionId external = definitionIds.get(target);
+    if (external == null) throw new IllegalStateException("external definition is unresolved");
+    return new DefinitionReference.External(external);
+  }
+
+  private static int transpose(int declaration, int first, int second) {
+    if (declaration == first) return second;
+    return declaration == second ? first : declaration;
   }
 
   private static Map<Integer, Integer> refine(
@@ -191,21 +249,68 @@ public final class CoreCanonicalizer {
       Map<Integer, Integer> currentPartition = partition;
       Map<Integer, byte[]> labels = new HashMap<>();
       for (int declaration : component) {
-        labels.put(
-            declaration,
+        CanonicalWriter label =
             new CanonicalWriter()
                 .writeTag("canonical-refinement")
                 .writeInt(currentPartition.get(declaration))
                 .writeBytes(
                     CoreCodec.encodeDefinition(
                         definitions.get(declaration),
-                        link -> shapeReference(link, members, definitionIds, currentPartition)))
-                .toByteArray());
+                        link -> shapeReference(link, members, definitionIds, currentPartition)));
+        List<byte[]> incoming =
+            incomingLabels(
+                declaration, component, definitions, definitionIds, currentPartition, members);
+        label.writeInt(incoming.size());
+        incoming.forEach(label::writeBytes);
+        labels.put(declaration, label.toByteArray());
       }
       Map<Integer, Integer> refined = colors(labels);
       if (samePartition(component, partition, refined)) return refined;
       partition = refined;
     }
+  }
+
+  private static List<byte[]> incomingLabels(
+      int target,
+      List<Integer> component,
+      List<CoreDefinition> definitions,
+      Map<Integer, DefinitionId> definitionIds,
+      Map<Integer, Integer> partition,
+      Set<Integer> members) {
+    int distinguishedColor =
+        partition.values().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
+    List<byte[]> incoming = new ArrayList<>();
+    for (int source : component) {
+      boolean referencesTarget =
+          CoreTree.links(definitions.get(source)).stream()
+              .filter(PendingDefinitionReference.class::isInstance)
+              .map(PendingDefinitionReference.class::cast)
+              .anyMatch(link -> link.declarationIndex() == target);
+      if (!referencesTarget) continue;
+      incoming.add(
+          new CanonicalWriter()
+              .writeTag("canonical-incoming")
+              .writeInt(partition.get(source))
+              .writeBytes(
+                  CoreCodec.encodeDefinition(
+                      definitions.get(source),
+                      link -> {
+                        if (link instanceof DefinitionReference reference) return reference;
+                        int linked = ((PendingDefinitionReference) link).declarationIndex();
+                        if (members.contains(linked)) {
+                          return new DefinitionReference.RecursiveMember(
+                              linked == target ? distinguishedColor : partition.get(linked));
+                        }
+                        DefinitionId external = definitionIds.get(linked);
+                        if (external == null) {
+                          throw new IllegalStateException("external definition is unresolved");
+                        }
+                        return new DefinitionReference.External(external);
+                      }))
+              .toByteArray());
+    }
+    incoming.sort(Arrays::compareUnsigned);
+    return List.copyOf(incoming);
   }
 
   private static boolean samePartition(
@@ -367,7 +472,21 @@ public final class CoreCanonicalizer {
               merged.computeIfAbsent(declaration, ignored -> new LinkedHashSet<>()).addAll(orbit));
       return new CanonicalLabeling(order, canonicalBytes, merged);
     }
+
+    private CanonicalLabeling transpose(int first, int second) {
+      List<Integer> transposedOrder =
+          order.stream()
+              .map(declaration -> CoreCanonicalizer.transpose(declaration, first, second))
+              .toList();
+      Map<Integer, Set<Integer>> transposedOrbits = new HashMap<>();
+      memberOrbits.forEach(
+          (declaration, orbit) ->
+              transposedOrbits.put(CoreCanonicalizer.transpose(declaration, first, second), orbit));
+      return new CanonicalLabeling(transposedOrder, canonicalBytes, transposedOrbits);
+    }
   }
+
+  private record SearchedBranch(int candidate, CanonicalLabeling labeling) {}
 
   private static final class Tarjan {
     private final List<CoreDefinition> definitions;

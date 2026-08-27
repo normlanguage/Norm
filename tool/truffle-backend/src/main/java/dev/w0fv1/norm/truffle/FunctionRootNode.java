@@ -4,21 +4,25 @@ import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.RootNode;
 import com.oracle.truffle.api.source.SourceSection;
+import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 
-final class FunctionRootNode extends RootNode {
+final class FunctionRootNode extends RootNode implements RuntimeLocation {
   private final String name;
   private final FrameBinding[] parameters;
   private final SourceSection sourceSection;
+  private final DefinitionOccurrenceId occurrence;
   @Child private StatementNode body;
 
   FunctionRootNode(
       Language language,
       String name,
+      DefinitionOccurrenceId occurrence,
       FrameDescriptor frameDescriptor,
       FrameBinding[] parameters,
       SourceSection sourceSection) {
     super(language, frameDescriptor);
     this.name = name;
+    this.occurrence = occurrence;
     this.parameters = parameters;
     this.sourceSection = sourceSection;
   }
@@ -45,6 +49,16 @@ final class FunctionRootNode extends RootNode {
   @Override
   public String getName() {
     return name;
+  }
+
+  @Override
+  public DefinitionOccurrenceId occurrence() {
+    return occurrence;
+  }
+
+  @Override
+  public int nodeIndex() {
+    return 0;
   }
 
   @Override
