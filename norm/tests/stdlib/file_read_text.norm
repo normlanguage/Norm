@@ -5,7 +5,7 @@ import std.testing.expectedOutputLines
 
 main() {
   String text = readText(
-    path: Path(value: "../../norm/tests/stdlib/file_read_text.txt"),
+    path: Path(value: "file_read_text.txt"),
     encoding: TextEncoding.Utf8
   ).trim()
   printLine(text)

@@ -20,8 +20,9 @@ final class TimeIoFoundationTest {
   @Test
   void exposesDurationInstantAndAnInjectedClock() {
     SystemPlatform platform =
-        JdkSystemPlatform.withClock(
-            Clock.fixed(Instant.ofEpochSecond(1_700_000_000L, 123_456_789), ZoneOffset.UTC));
+        JdkSystemPlatform.builder()
+            .clock(Clock.fixed(Instant.ofEpochSecond(1_700_000_000L, 123_456_789), ZoneOffset.UTC))
+            .build();
 
     assertOutput(
         platform,

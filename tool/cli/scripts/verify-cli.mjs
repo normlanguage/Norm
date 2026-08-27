@@ -48,19 +48,19 @@ for (const group of ['base', 'algorithms', 'class', 'generics', 'stdlib']) {
     .sort();
   if (!cases.length) throw new Error(`No acceptance programs found in ${directory}`);
   for (const file of cases) {
-    verify(['run', resolve(directory, file)]);
+    verify(['run', resolve(directory, file)], undefined, directory);
     count += 1;
   }
 }
 
 console.log(`Norm CLI verified with ${count} acceptance programs.`);
 
-function verify(args, expected) {
+function verify(args, expected, workingDirectory = repository) {
   const commandScript = process.platform === 'win32' && /\.(?:bat|cmd)$/i.test(cli);
   const result = spawnSync(
     commandScript ? (process.env.ComSpec ?? 'cmd.exe') : cli,
     commandScript ? ['/d', '/c', 'call', cli, ...args] : args,
-    { cwd: repository, encoding: 'utf8' },
+    { cwd: workingDirectory, encoding: 'utf8' },
   );
   if (result.error) throw result.error;
   if (result.status !== 0) {

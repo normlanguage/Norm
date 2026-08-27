@@ -50,7 +50,7 @@ public final class NormTestKit {
           launcher.run(
               path,
               dev.w0fv1.norm.execution.ExecutionContext.of(
-                  new PrintWriter(output), JdkSystemPlatform.standard()));
+                  new PrintWriter(output), platformFor(path)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
     return output.toString();
@@ -155,9 +155,7 @@ public final class NormTestKit {
           launcher.run(
               path,
               dev.w0fv1.norm.execution.ExecutionContext.testing(
-                  new PrintWriter(actual),
-                  new PrintWriter(expected),
-                  JdkSystemPlatform.standard()));
+                  new PrintWriter(actual), new PrintWriter(expected), platformFor(path)));
       assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     }
     assertTrue(!expected.toString().isEmpty(), path + " must declare expected output lines");
@@ -170,5 +168,9 @@ public final class NormTestKit {
     } catch (java.io.IOException exception) {
       throw new ExceptionInInitializerError(exception);
     }
+  }
+
+  private static SystemPlatform platformFor(Path path) {
+    return JdkSystemPlatform.builder().workingDirectory(path.getParent()).build();
   }
 }

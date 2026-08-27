@@ -35,6 +35,20 @@ final class JdkSystemPlatformTest {
   }
 
   @Test
+  void resolvesRelativePathsAgainstTheInjectedWorkingDirectory() throws Exception {
+    Files.writeString(directory.resolve("message.txt"), "Norm relative", StandardCharsets.UTF_8);
+
+    String text =
+        JdkSystemPlatform.builder()
+            .workingDirectory(directory)
+            .build()
+            .fileSystem()
+            .readText("message.txt", StandardCharsets.UTF_8);
+
+    assertEquals("Norm relative", text);
+  }
+
+  @Test
   void normalizesMissingAndInvalidPaths() {
     PlatformFileException missing =
         assertThrows(
@@ -61,7 +75,8 @@ final class JdkSystemPlatformTest {
   void readsAnInjectedFixedClock() {
     Instant fixed = Instant.ofEpochSecond(1_700_000_000L, 123_456_789);
 
-    var value = JdkSystemPlatform.withClock(Clock.fixed(fixed, ZoneOffset.UTC)).clock().now();
+    var value =
+        JdkSystemPlatform.builder().clock(Clock.fixed(fixed, ZoneOffset.UTC)).build().clock().now();
 
     assertEquals(fixed.getEpochSecond(), value.epochSecond());
     assertEquals(fixed.getNano(), value.nanosecond());
@@ -89,7 +104,8 @@ final class JdkSystemPlatformTest {
 
     PlatformTimeException failure =
         assertThrows(
-            PlatformTimeException.class, () -> JdkSystemPlatform.withClock(broken).clock().now());
+            PlatformTimeException.class,
+            () -> JdkSystemPlatform.builder().clock(broken).build().clock().now());
 
     assertEquals(TimeOperation.NOW, failure.operation());
     assertEquals(TimeFailure.CLOCK_UNAVAILABLE, failure.reason());

@@ -22,21 +22,21 @@ import java.time.Instant;
 import java.util.Objects;
 
 public final class JdkSystemPlatform implements SystemPlatform {
-  private static final JdkSystemPlatform STANDARD =
-      new JdkSystemPlatform(java.time.Clock.systemUTC());
-  private final FileSystem fileSystem = new JdkFileSystem();
+  private static final JdkSystemPlatform STANDARD = builder().build();
+  private final FileSystem fileSystem;
   private final SystemClock clock;
 
-  private JdkSystemPlatform(java.time.Clock clock) {
-    this.clock = new JdkSystemClock(clock);
+  private JdkSystemPlatform(Builder builder) {
+    fileSystem = new JdkFileSystem(builder.workingDirectory);
+    clock = new JdkSystemClock(builder.clock);
   }
 
   public static JdkSystemPlatform standard() {
     return STANDARD;
   }
 
-  public static JdkSystemPlatform withClock(java.time.Clock clock) {
-    return new JdkSystemPlatform(Objects.requireNonNull(clock, "clock"));
+  public static Builder builder() {
+    return new Builder();
   }
 
   @Override
@@ -70,11 +70,18 @@ public final class JdkSystemPlatform implements SystemPlatform {
     }
   }
 
-  private static final class JdkFileSystem implements FileSystem {
+  private record JdkFileSystem(Path workingDirectory) implements FileSystem {
+    private JdkFileSystem {
+      workingDirectory =
+          Objects.requireNonNull(workingDirectory, "workingDirectory").toAbsolutePath().normalize();
+    }
+
     @Override
     public String readText(String path, Charset encoding) {
       try {
-        return Files.readString(Path.of(path), encoding);
+        Path target = Path.of(path);
+        return Files.readString(
+            target.isAbsolute() ? target : workingDirectory.resolve(target).normalize(), encoding);
       } catch (InvalidPathException exception) {
         throw failure(FileFailure.INVALID_PATH, path, exception);
       } catch (NoSuchFileException exception) {
@@ -94,6 +101,27 @@ public final class JdkSystemPlatform implements SystemPlatform {
           path,
           Objects.requireNonNullElse(exception.getMessage(), reason.name()),
           exception);
+    }
+  }
+
+  public static final class Builder {
+    private Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+    private java.time.Clock clock = java.time.Clock.systemUTC();
+
+    private Builder() {}
+
+    public Builder workingDirectory(Path value) {
+      workingDirectory = Objects.requireNonNull(value, "value").toAbsolutePath().normalize();
+      return this;
+    }
+
+    public Builder clock(java.time.Clock value) {
+      clock = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public JdkSystemPlatform build() {
+      return new JdkSystemPlatform(this);
     }
   }
 }

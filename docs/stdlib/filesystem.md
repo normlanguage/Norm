@@ -2,6 +2,8 @@
 
 文件系统模块提供 Path、File、Directory 和流操作。Path 是纯值，打开的文件和目录迭代器是必须关闭的外部资源。
 
+相对 Path 以当前 execution platform 的 working directory 为基准。CLI 在启动 execution 时捕获进程工作目录，嵌入方和测试通过平台 adapter 显式注入基准目录。
+
 ```norm
 Path path = Path(value: "data").resolve(child: "settings.json")
 String text = readText(
