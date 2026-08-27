@@ -52,6 +52,7 @@ final class ParserRecovery {
           RETURN,
           BREAK,
           CONTINUE,
+          AT,
           VAR,
           IDENTIFIER,
           SWITCH,

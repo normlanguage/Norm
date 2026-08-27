@@ -96,6 +96,10 @@ public final class BuiltinSymbols {
     return catalog.collectionLiteral(type);
   }
 
+  public Optional<IntrinsicId> intrinsic(SymbolId symbol) {
+    return catalog.intrinsic(symbol);
+  }
+
   public Optional<BuiltinCatalog.ResolvedCollectionLiteral> resolveCollectionLiteral(
       SemanticType expected) {
     return catalog.resolveCollectionLiteral(expected);

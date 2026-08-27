@@ -44,6 +44,7 @@ final class CompletionEngine {
     boolean constructors =
         !(context instanceof CompletionContext.Type
             || context instanceof CompletionContext.TypeArgument
+            || context instanceof CompletionContext.Annotation
             || context instanceof CompletionContext.TopLevel);
     completionKeywords(context)
         .forEach(completion -> result.add(new RankedCompletion(completion, Optional.empty(), 0)));
@@ -52,11 +53,11 @@ final class CompletionEngine {
         visibleSymbols.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
     visibleSymbols.stream()
         .flatMap(symbol -> model.callableAlternatives(symbol).stream())
-        .filter(symbol -> isCandidateForContext(context, symbol))
+        .filter(symbol -> isCandidateForContext(model, context, symbol))
         .map(symbol -> ranked(symbol, expectedType, List.of(), constructors))
         .forEach(result::add);
     model.importableSymbols(document.source().id()).stream()
-        .filter(candidate -> isCandidateForContext(context, candidate.symbol()))
+        .filter(candidate -> isCandidateForContext(model, context, candidate.symbol()))
         .filter(candidate -> !visibleNames.contains(candidate.symbol().name()))
         .filter(
             candidate ->
@@ -160,6 +161,10 @@ final class CompletionEngine {
           snippet("value", "Norm value", "value ${1:Name} {\n  ${2}\n}"),
           snippet("enum", "Norm enum", "enum ${1:Name} {\n  ${2:Value}\n}"),
           snippet("interface", "Norm interface", "interface ${1:Name} {\n  ${2}\n}"),
+          snippet(
+              "annotation",
+              "Norm annotation",
+              "annotation ${1:Name} targets(${2:type}) retention(${3:runtime}) {\n  ${4}\n}"),
           keyword("package"),
           keyword("import"),
           keyword("public"),
@@ -205,7 +210,11 @@ final class CompletionEngine {
     return new Completion(label, CompletionKind.KEYWORD, "Norm keyword", "", label, false);
   }
 
-  private static boolean isCandidateForContext(CompletionContext context, Symbol symbol) {
+  private static boolean isCandidateForContext(
+      SemanticModel model, CompletionContext context, Symbol symbol) {
+    if (context instanceof CompletionContext.Annotation) {
+      return model.annotations().schema(symbol.id()).isPresent();
+    }
     if (context instanceof CompletionContext.InterfaceType) {
       return symbol.kind() == SymbolKind.INTERFACE;
     }

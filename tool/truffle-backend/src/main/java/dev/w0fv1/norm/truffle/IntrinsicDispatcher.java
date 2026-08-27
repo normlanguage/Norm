@@ -36,12 +36,40 @@ public final class IntrinsicDispatcher {
       CoreType type,
       ExecutionContext context,
       Node location) {
+    return execute(intrinsic, receiver, arguments, type, context, location, null);
+  }
+
+  static Object execute(
+      IntrinsicId intrinsic,
+      Object receiver,
+      Object[] arguments,
+      CoreType type,
+      ExecutionContext context,
+      Node location,
+      ReflectionRegistry reflectionRegistry) {
     Object first = arguments.length == 0 ? null : arguments[0];
     Object second = arguments.length < 2 ? null : arguments[1];
     Object third = arguments.length < 3 ? null : arguments[2];
     Object fourth = arguments.length < 4 ? null : arguments[3];
     Object fifth = arguments.length < 5 ? null : arguments[4];
     return switch (intrinsic) {
+      case REFLECT_TYPE -> {
+        if (reflectionRegistry == null
+            || !(type instanceof CoreType.Declared declared)
+            || declared.arguments().size() != 1) {
+          throw new IllegalStateException("reflect runtime type is unavailable");
+        }
+        yield new RuntimeValues.TypeValue(
+            type, declared.arguments().getFirst(), reflectionRegistry);
+      }
+      case TYPE_NAME ->
+          ((RuntimeValues.TypeValue) receiver)
+              .registry()
+              .name(((RuntimeValues.TypeValue) receiver).reflectedType());
+      case TYPE_ANNOTATION -> {
+        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) receiver;
+        yield reflected.registry().annotation(reflected.reflectedType(), type);
+      }
       case PRINT_LINE -> {
         context.output().println(RuntimeValues.stringify(first));
         yield null;

@@ -9,6 +9,7 @@ public record BoundSource(
     String packageName,
     List<BoundEnumId> enums,
     List<BoundInterfaceId> interfaces,
+    List<BoundAnnotationId> annotations,
     List<BoundAggregateId> aggregates,
     List<BoundCallableId> callables) {
   public BoundSource {
@@ -16,6 +17,7 @@ public record BoundSource(
     Objects.requireNonNull(packageName, "packageName");
     enums = List.copyOf(enums);
     interfaces = List.copyOf(interfaces);
+    annotations = List.copyOf(annotations);
     aggregates = List.copyOf(aggregates);
     callables = List.copyOf(callables);
   }

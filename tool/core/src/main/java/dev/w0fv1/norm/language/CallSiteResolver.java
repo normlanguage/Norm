@@ -129,7 +129,7 @@ final class CallSiteResolver {
       }
       Optional<Symbol> target = model.symbol(call.target());
       if (target.isPresent()) {
-        Symbol declaration = target.orElseThrow();
+        Symbol declaration = SymbolPresentation.annotation(model, target.orElseThrow());
         String presentedName =
             model.symbolOf(name.span()).map(Symbol::name).orElse(declaration.name());
         List<dev.w0fv1.norm.semantic.SemanticType> typeArguments =
@@ -162,6 +162,10 @@ final class CallSiteResolver {
     }
     Optional<Symbol> bound = model.resolvedSymbolOf(name.span()).filter(CallSiteResolver::callable);
     if (bound.isPresent()) {
+      if (model.annotations().schema(bound.orElseThrow().id()).isPresent()) {
+        Symbol annotation = SymbolPresentation.annotation(model, bound.orElseThrow());
+        return new CandidateSet(List.of(annotation), Optional.of(annotation));
+      }
       List<Symbol> candidates =
           model.callableAlternatives(bound.orElseThrow()).stream()
               .map(SymbolPresentation::callable)
@@ -226,7 +230,12 @@ final class CallSiteResolver {
     List<Symbol> visible =
         model.visibleSymbols(offset).stream()
             .filter(symbol -> symbol.name().equals(name.value()))
-            .flatMap(symbol -> model.callableAlternatives(symbol).stream())
+            .map(symbol -> SymbolPresentation.annotation(model, symbol))
+            .flatMap(
+                symbol ->
+                    model.annotations().schema(symbol.id()).isPresent()
+                        ? java.util.stream.Stream.of(symbol)
+                        : model.callableAlternatives(symbol).stream())
             .filter(CallSiteResolver::callable)
             .map(SymbolPresentation::callable)
             .toList();
@@ -243,6 +252,7 @@ final class CallSiteResolver {
                             .orElseThrow()
                             .document()
                             .equals(model.source().id()))
+            .map(symbol -> SymbolPresentation.annotation(model, symbol))
             .filter(CallSiteResolver::callable)
             .map(SymbolPresentation::callable)
             .toList(),

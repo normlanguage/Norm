@@ -96,6 +96,28 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsAnnotationsAndReflection() {
+    assertFormats(
+        "annotation Label targets(type,field) retention(runtime){String text String? replacement=null}@Label(text:\"point\")value Point{@Label(text:\"x\")Integer x}Void main(){Label? label=reflect<Point>().annotation<Label>()}",
+        """
+        annotation Label targets(type, field) retention(runtime) {
+          String text
+          String? replacement = null
+        }
+
+        @Label(text: "point")
+        value Point {
+          @Label(text: "x")
+          Integer x
+        }
+
+        Void main() {
+          Label? label = reflect<Point>().annotation<Label>()
+        }
+        """);
+  }
+
+  @Test
   void formatsNestedExpressionsAndControlFlow() {
     assertFormats(
         """

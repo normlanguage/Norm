@@ -29,7 +29,9 @@ public final class SourceFormatter {
   private Doc program(Syntax.Program program) {
     List<Doc> sections = new ArrayList<>();
     if (!program.packageName().isEmpty()) {
-      sections.add(Docs.text("package " + program.packageName()));
+      sections.add(
+          annotated(
+              program.packageAnnotations(), Docs.text("package " + program.packageName()), false));
     }
     if (!program.imports().isEmpty()) {
       sections.add(
@@ -39,6 +41,7 @@ public final class SourceFormatter {
     List<AstNode> declarations = new ArrayList<>();
     declarations.addAll(program.enums());
     declarations.addAll(program.interfaces());
+    declarations.addAll(program.annotationDeclarations());
     declarations.addAll(program.aggregates());
     declarations.addAll(program.functions());
     declarations.sort(Comparator.comparingInt(value -> value.span().startOffset()));
@@ -60,6 +63,7 @@ public final class SourceFormatter {
     return switch (declaration) {
       case Syntax.EnumDecl value -> enumDeclaration(value);
       case Syntax.InterfaceDecl value -> interfaceDeclaration(value);
+      case Syntax.AnnotationDecl value -> annotationDeclaration(value);
       case Syntax.AggregateDecl value -> aggregateDeclaration(value);
       case Syntax.FunctionDecl value -> functionDeclaration(value);
       default -> throw new IllegalArgumentException("unsupported declaration " + declaration);
@@ -77,12 +81,52 @@ public final class SourceFormatter {
                     Docs.nest(2, Docs.concat(Docs.line(), Docs.join(Docs.commaLine(), variants))),
                     Docs.line(),
                     Docs.text("}")));
-    return Docs.concat(
-        visibility(declaration.visibility()),
-        Docs.text("enum " + declaration.name()),
-        typeParameters(declaration.typeParameters()),
-        Docs.text(" "),
-        body);
+    return annotated(
+        declaration.annotations(),
+        Docs.concat(
+            visibility(declaration.visibility()),
+            Docs.text("enum " + declaration.name()),
+            typeParameters(declaration.typeParameters()),
+            Docs.text(" "),
+            body),
+        false);
+  }
+
+  private Doc annotationDeclaration(Syntax.AnnotationDecl declaration) {
+    Doc header =
+        Docs.concat(
+            visibility(declaration.visibility()),
+            Docs.text("annotation " + declaration.name() + " targets("),
+            Docs.join(
+                Docs.text(", "),
+                declaration.targets().stream()
+                    .sorted(java.util.Comparator.comparingInt(Enum::ordinal))
+                    .map(value -> Docs.text(value.keyword()))
+                    .toList()),
+            Docs.text(") retention(" + declaration.retention().keyword() + ") "));
+    List<Doc> parameters =
+        declaration.parameters().stream().map(this::annotationParameter).toList();
+    Doc body =
+        parameters.isEmpty()
+            ? Docs.text("{}")
+            : Docs.concat(
+                Docs.text("{"),
+                Docs.nest(2, Docs.concat(Docs.hardLine(), Docs.join(Docs.hardLine(), parameters))),
+                Docs.hardLine(),
+                Docs.text("}"));
+    return annotated(declaration.annotations(), Docs.concat(header, body), false);
+  }
+
+  private Doc annotationParameter(Syntax.AnnotationParameter parameter) {
+    Doc value =
+        Docs.concat(
+            type(parameter.type()),
+            Docs.text(" " + parameter.name()),
+            parameter
+                .defaultValue()
+                .map(defaultValue -> Docs.concat(Docs.text(" = "), expression(defaultValue)))
+                .orElse(Docs.empty()));
+    return annotated(parameter.annotations(), value, false);
   }
 
   private Doc enumVariant(Syntax.EnumVariant variant) {
@@ -108,7 +152,8 @@ public final class SourceFormatter {
                             declaration.extendedInterfaces().stream().map(this::type).toList()))),
             Docs.text(" "));
     List<Doc> methods = declaration.methods().stream().map(this::interfaceMethod).toList();
-    return Docs.concat(header, declarationBody(methods));
+    return annotated(
+        declaration.annotations(), Docs.concat(header, declarationBody(methods)), false);
   }
 
   private Doc interfaceMethod(Syntax.InterfaceMethodDecl method) {
@@ -118,10 +163,12 @@ public final class SourceFormatter {
             Docs.text(" " + method.name()),
             typeParameters(method.typeParameters()),
             parameters(method.parameters()));
-    return method
-        .body()
-        .map(body -> Docs.concat(signature, Docs.text(" "), block(body)))
-        .orElse(signature);
+    Doc value =
+        method
+            .body()
+            .map(body -> Docs.concat(signature, Docs.text(" "), block(body)))
+            .orElse(signature);
+    return annotated(method.annotations(), value, false);
   }
 
   private Doc aggregateDeclaration(Syntax.AggregateDecl declaration) {
@@ -151,14 +198,20 @@ public final class SourceFormatter {
     members.addAll(declaration.methods());
     members.sort(Comparator.comparingInt(value -> value.span().startOffset()));
     List<Doc> formatted = members.stream().map(this::aggregateMember).toList();
-    return Docs.concat(header, declarationBody(formatted));
+    return annotated(
+        declaration.annotations(), Docs.concat(header, declarationBody(formatted)), false);
   }
 
   private Doc aggregateMember(AstNode member) {
     return switch (member) {
       case Syntax.FieldDecl field ->
-          Docs.concat(
-              visibility(field.visibility()), type(field.type()), Docs.text(" " + field.name()));
+          annotated(
+              field.annotations(),
+              Docs.concat(
+                  visibility(field.visibility()),
+                  type(field.type()),
+                  Docs.text(" " + field.name())),
+              false);
       case Syntax.ConstructorDecl constructor -> constructorDeclaration(constructor);
       case Syntax.FunctionDecl method -> functionDeclaration(method);
       default -> throw new IllegalArgumentException("unsupported aggregate member " + member);
@@ -177,11 +230,14 @@ public final class SourceFormatter {
                         delimited(
                             "(", ")", call.arguments().stream().map(this::argument).toList()))));
     body.addAll(declaration.body().stream().map(this::statement).toList());
-    return Docs.concat(
-        Docs.text(declaration.name()),
-        parameters(declaration.parameters()),
-        Docs.text(" "),
-        blockDocs(body));
+    return annotated(
+        declaration.annotations(),
+        Docs.concat(
+            Docs.text(declaration.name()),
+            parameters(declaration.parameters()),
+            Docs.text(" "),
+            blockDocs(body)),
+        false);
   }
 
   private Doc declarationBody(List<Doc> members) {
@@ -194,17 +250,20 @@ public final class SourceFormatter {
   }
 
   private Doc functionDeclaration(Syntax.FunctionDecl declaration) {
-    return Docs.concat(
-        visibility(declaration.visibility()),
-        declaration
-            .returnType()
-            .map(value -> Docs.concat(type(value), Docs.text(" ")))
-            .orElse(Docs.empty()),
-        Docs.text(declaration.name()),
-        typeParameters(declaration.typeParameters()),
-        parameters(declaration.parameters()),
-        Docs.text(" "),
-        block(declaration.body()));
+    return annotated(
+        declaration.annotations(),
+        Docs.concat(
+            visibility(declaration.visibility()),
+            declaration
+                .returnType()
+                .map(value -> Docs.concat(type(value), Docs.text(" ")))
+                .orElse(Docs.empty()),
+            Docs.text(declaration.name()),
+            typeParameters(declaration.typeParameters()),
+            parameters(declaration.parameters()),
+            Docs.text(" "),
+            block(declaration.body())),
+        false);
   }
 
   private Doc visibility(Syntax.Visibility visibility) {
@@ -234,12 +293,18 @@ public final class SourceFormatter {
 
   private Doc parameter(Syntax.Parameter parameter) {
     if (parameter.callableParameters().isPresent() && parameter.type().name().equals("Function")) {
-      return Docs.concat(
-          type(parameter.type().arguments().getFirst()),
-          Docs.text(" " + parameter.name()),
-          parameters(parameter.callableParameters().orElseThrow()));
+      return annotated(
+          parameter.annotations(),
+          Docs.concat(
+              type(parameter.type().arguments().getFirst()),
+              Docs.text(" " + parameter.name()),
+              parameters(parameter.callableParameters().orElseThrow())),
+          true);
     }
-    return Docs.concat(type(parameter.type()), Docs.text(" " + parameter.name()));
+    return annotated(
+        parameter.annotations(),
+        Docs.concat(type(parameter.type()), Docs.text(" " + parameter.name())),
+        true);
   }
 
   private Doc type(Syntax.TypeRef type) {
@@ -341,7 +406,25 @@ public final class SourceFormatter {
                   .orElse(Docs.text("var ")),
               Docs.text(declaration.name()));
     }
-    return Docs.concat(prefix, Docs.text(" = "), expression(declaration.initializer()));
+    return annotated(
+        declaration.annotations(),
+        Docs.concat(prefix, Docs.text(" = "), expression(declaration.initializer())),
+        false);
+  }
+
+  private Doc annotated(List<Syntax.AnnotationUse> annotations, Doc target, boolean inline) {
+    if (annotations.isEmpty()) return target;
+    Doc separator = inline ? Docs.text(" ") : Docs.hardLine();
+    return Docs.concat(
+        Docs.join(separator, annotations.stream().map(this::annotationUse).toList()),
+        separator,
+        target);
+  }
+
+  private Doc annotationUse(Syntax.AnnotationUse annotation) {
+    return Docs.concat(
+        Docs.text("@" + annotation.name()),
+        delimited("(", ")", annotation.arguments().stream().map(this::argument).toList()));
   }
 
   private Doc ifStatement(Syntax.IfStatement statement) {

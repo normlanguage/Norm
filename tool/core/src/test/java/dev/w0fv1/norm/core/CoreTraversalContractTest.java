@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.builtin.IntrinsicId;
+import dev.w0fv1.norm.value.AnnotationRetention;
+import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
@@ -146,42 +148,53 @@ final class CoreTraversalContractTest {
         new CoreWitness(links.next(), new CoreWitnessTarget.Callable(links.next()));
     CoreWitness intrinsicWitness =
         new CoreWitness(links.next(), new CoreWitnessTarget.Intrinsic(intrinsic()));
-    return List.of(
-        callable,
-        new CoreDefinition.Aggregate(
-            nominal("Class"),
-            CoreValueCategory.IDENTITY,
-            List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
-            Optional.empty(),
-            1,
+    List<CoreDefinition> definitions = new ArrayList<>();
+    definitions.add(
+        new CoreDefinition.Annotation(
+            nominal("Annotation"),
+            Set.of(AnnotationTarget.TYPE),
+            AnnotationRetention.RUNTIME,
             List.of(new CoreField(0, links.type())),
-            List.of(),
-            links.next(),
-            List.of(new CoreConformance(links.type(), List.of(callableWitness, intrinsicWitness)))),
-        new CoreDefinition.Enum(
-            nominal("Enum"),
-            List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
-            List.of(new CoreEnumVariant("Value", List.of(new CoreField(0, links.type()))))),
-        new CoreDefinition.Interface(
-            nominal("Interface"),
-            List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
-            List.of(links.type()),
-            List.of(links.next())),
-        new CoreDefinition.InterfaceMethod(
-            "method",
-            links.type(),
-            List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
-            List.of(links.type()),
-            links.type()),
-        new CoreDefinition.BuiltinConformance(
-            List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
-            new CoreType.Declared(
-                new CoreTypeConstructor.Builtin(new BuiltinTypeId("test.Builtin")),
-                List.of(new CoreType.Parameter(0, CoreNullability.NON_NULL)),
-                CoreValueCategory.VALUE,
-                CoreNullability.NON_NULL),
-            links.type(),
-            List.of(callableWitness, intrinsicWitness)));
+            List.of(Optional.of(new CoreAnnotationValue(links.type(), "value")))));
+    definitions.addAll(
+        List.of(
+            callable,
+            new CoreDefinition.Aggregate(
+                nominal("Class"),
+                CoreValueCategory.IDENTITY,
+                List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
+                Optional.empty(),
+                1,
+                List.of(new CoreField(0, links.type())),
+                List.of(),
+                links.next(),
+                List.of(
+                    new CoreConformance(links.type(), List.of(callableWitness, intrinsicWitness)))),
+            new CoreDefinition.Enum(
+                nominal("Enum"),
+                List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
+                List.of(new CoreEnumVariant("Value", List.of(new CoreField(0, links.type()))))),
+            new CoreDefinition.Interface(
+                nominal("Interface"),
+                List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
+                List.of(links.type()),
+                List.of(links.next())),
+            new CoreDefinition.InterfaceMethod(
+                "method",
+                links.type(),
+                List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
+                List.of(links.type()),
+                links.type()),
+            new CoreDefinition.BuiltinConformance(
+                List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
+                new CoreType.Declared(
+                    new CoreTypeConstructor.Builtin(new BuiltinTypeId("test.Builtin")),
+                    List.of(new CoreType.Parameter(0, CoreNullability.NON_NULL)),
+                    CoreValueCategory.VALUE,
+                    CoreNullability.NON_NULL),
+                links.type(),
+                List.of(callableWitness, intrinsicWitness))));
+    return List.copyOf(definitions);
   }
 
   private static List<CoreExpression> expressions(Links links) {

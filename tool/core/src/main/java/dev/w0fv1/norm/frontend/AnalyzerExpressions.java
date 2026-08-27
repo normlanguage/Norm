@@ -1033,16 +1033,43 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       if (symbol == null) return SemanticType.DYNAMIC;
       symbols.putIfAbsent(symbol.id(), symbol);
       bindings.put(name.span(), symbol.id());
-      validateTypeArgumentCount(callee, 0, name.typeArguments(), name.span());
-      name.typeArguments().forEach(argument -> resolveCheckedType(argument, activeTypeParameters));
+      Map<String, SemanticType> substitutions =
+          inferBuiltinTypeArguments(symbol, name.typeArguments(), call, expected, name.span());
+      List<ParameterInfo> parameters =
+          symbol.parameters().stream()
+              .map(
+                  parameter ->
+                      new ParameterInfo(
+                          parameter.name(), parameter.type().substitute(substitutions)))
+              .toList();
+      List<SemanticType> reifiedArguments =
+          symbol.typeParameters().stream()
+              .map(parameter -> substitutions.get(parameter.type().identity()))
+              .toList();
+      if (builtins.intrinsic(symbol.id()).orElse(null)
+              == dev.w0fv1.norm.builtin.IntrinsicId.REFLECT_TYPE
+          && !reifiedArguments.isEmpty()
+          && !isReflectableType(reifiedArguments.getFirst())) {
+        diagnostics.error(TYPE_MISMATCH, "reflect requires a nominal type", name.span());
+      }
       return recordCall(
           call,
           name.span(),
           ResolvedCall.Kind.INTRINSIC,
           symbol.id(),
-          symbol.parameters(),
-          List.of(),
-          symbol.type());
+          parameters,
+          reifiedArguments,
+          symbol.type().substitute(substitutions));
+    }
+    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(callee);
+    if (annotationDecl != null) {
+      bindDeclarationUse(name.span(), callee, annotationDecl);
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "annotation types are metadata and cannot be constructed directly",
+          call.span());
+      analyzeArguments(call.arguments());
+      return sourceType(callee, List.of());
     }
     SemanticType constructedType = constructedType(name, call, expected);
     Optional<List<ParameterInfo>> constructor = builtins.constructorParameters(constructedType);
@@ -1105,6 +1132,12 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
     diagnostics.error(UNKNOWN_NAME, "cannot find function or type '" + callee + "'", name.span());
     analyzeArguments(call.arguments());
     return SemanticType.DYNAMIC;
+  }
+
+  private boolean isReflectableType(SemanticType type) {
+    SemanticType value = type.nonNullable();
+    return value.kind() == SemanticType.Kind.TYPE_PARAMETER
+        || value.kind() == SemanticType.Kind.DECLARED && !value.isFunction();
   }
 
   SemanticType analyzeMethodCall(
@@ -1214,18 +1247,39 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
       Symbol symbol = selectBuiltinOverload(builtinMethods, call, member.nameSpan());
       if (symbol == null) return SemanticType.DYNAMIC;
       bindings.put(member.nameSpan(), symbol.id());
-      validateTypeArgumentCount(member.name(), 0, member.typeArguments(), member.span());
-      member
-          .typeArguments()
-          .forEach(argument -> resolveCheckedType(argument, activeTypeParameters));
+      Map<String, SemanticType> substitutions =
+          inferBuiltinTypeArguments(
+              symbol,
+              member.typeArguments(),
+              call,
+              callableExpected(member, nullableReceiver, expected),
+              member.span());
+      List<SemanticType> reifiedArguments =
+          symbol.typeParameters().stream()
+              .map(parameter -> substitutions.get(parameter.type().identity()))
+              .toList();
+      if (builtins.intrinsic(symbol.id()).orElse(null)
+              == dev.w0fv1.norm.builtin.IntrinsicId.TYPE_ANNOTATION
+          && !reifiedArguments.isEmpty()
+          && resolveAnnotation(reifiedArguments.getFirst().nonNullable()) == null) {
+        diagnostics.error(
+            TYPE_MISMATCH, "Type.annotation requires an annotation type", member.span());
+      }
+      List<ParameterInfo> parameters =
+          symbol.parameters().stream()
+              .map(
+                  parameter ->
+                      new ParameterInfo(
+                          parameter.name(), parameter.type().substitute(substitutions)))
+              .toList();
       return recordCall(
           call,
           member.nameSpan(),
           ResolvedCall.Kind.INTRINSIC,
           symbol.id(),
-          symbol.parameters(),
-          List.of(),
-          safeAccessResult(member, nullableReceiver, symbol.type()));
+          parameters,
+          reifiedArguments,
+          safeAccessResult(member, nullableReceiver, symbol.type().substitute(substitutions)));
     }
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiver);
     if (aggregateDecl != null) {
@@ -1507,6 +1561,26 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           member.span());
       return SemanticType.DYNAMIC;
     }
+    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(receiverType);
+    if (annotationDecl != null) {
+      Syntax.AnnotationParameter parameter =
+          annotationDecl.parameters().stream()
+              .filter(candidate -> candidate.name().equals(member.name()))
+              .findFirst()
+              .orElse(null);
+      if (parameter == null) {
+        diagnostics.error(
+            UNKNOWN_NAME,
+            "annotation '" + annotationDecl.name() + "' has no field '" + member.name() + "'",
+            member.span());
+        return SemanticType.DYNAMIC;
+      }
+      bindings.put(member.nameSpan(), declarationSymbols.get(parameter));
+      return safeAccessResult(
+          member,
+          nullableReceiverType,
+          resolveDeclarationType(parameter.type(), parameter, Map.of()));
+    }
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(receiverType);
     if (aggregateDecl != null) {
       AggregateField resolved = aggregateField(receiverType, member.name());
@@ -1737,8 +1811,9 @@ abstract class AnalyzerExpressions extends AnalyzerTypeSystem {
           diagnostics.error(TYPE_MISMATCH, "safe access cannot be assigned", member.span());
         }
         SemanticType receiver = typeOf(member.receiver(), null);
-        if (receiver.nonNullable().category() == dev.w0fv1.norm.semantic.ValueCategory.VALUE
-            && resolveAggregate(receiver.nonNullable()) != null) {
+        if (resolveAnnotation(receiver.nonNullable()) != null
+            || receiver.nonNullable().category() == dev.w0fv1.norm.semantic.ValueCategory.VALUE
+                && resolveAggregate(receiver.nonNullable()) != null) {
           diagnostics.error(TYPE_MISMATCH, "value field cannot be assigned", member.span());
         }
         yield memberType(member);

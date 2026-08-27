@@ -238,7 +238,7 @@ public final class BuiltinCatalog {
                       Optional.of(owner),
                       candidate.symbol().parameters(),
                       candidate.symbol().type(),
-                      false))
+                      candidate.intrinsic().requiresResultRuntimeType()))
           .forEach(result::add);
       type.typeMembers().stream()
           .filter(candidate -> candidate.intrinsic() == intrinsic)
@@ -534,6 +534,8 @@ public final class BuiltinCatalog {
             "std.core.Array", "Array", List.of(codePointType), ValueCategory.VALUE);
     SemanticType graphemesType =
         SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
+    SemanticType annotationA = methodParameter("Type", "annotation", "A");
+    SemanticType reflectT = globalParameter("reflect", "T");
 
     addType(types, type(integerType.name(), RuntimeShape.INTEGER));
     addType(types, type(SemanticType.LONG.name(), RuntimeShape.LONG));
@@ -572,6 +574,17 @@ public final class BuiltinCatalog {
                     IntrinsicId.CODE_POINT_ASCII_DIGIT_VALUE)));
     addType(types, type(booleanType.name(), RuntimeShape.BOOL));
     addType(types, type(SemanticType.VOID.name(), RuntimeShape.VOID));
+    addType(
+        types,
+        type("Type", RuntimeShape.TYPE, "T")
+            .members(
+                method("Type", "name", stringType, IntrinsicId.TYPE_NAME),
+                genericMethod(
+                    "Type",
+                    "annotation",
+                    annotationA.nullable(),
+                    IntrinsicId.TYPE_ANNOTATION,
+                    List.of(new TypeParameterInfo("A", annotationA)))));
     addType(
         types,
         type(stringType.name(), RuntimeShape.STRING)
@@ -919,6 +932,13 @@ public final class BuiltinCatalog {
 
     addGlobal(
         globals,
+        genericGlobal(
+            "reflect",
+            SemanticType.declared("std.core.Type", "Type", List.of(reflectT), ValueCategory.VALUE),
+            IntrinsicId.REFLECT_TYPE,
+            List.of(new TypeParameterInfo("T", reflectT))));
+    addGlobal(
+        globals,
         global(
             "printLine",
             SemanticType.VOID,
@@ -1017,6 +1037,28 @@ public final class BuiltinCatalog {
     return new MemberDefinition(symbol, intrinsic, Optional.empty());
   }
 
+  private static MemberDefinition genericMethod(
+      String owner,
+      String name,
+      SemanticType result,
+      IntrinsicId intrinsic,
+      List<TypeParameterInfo> typeParameters,
+      ParameterInfo... parameters) {
+    Symbol base = member(owner, name, SymbolKind.METHOD, result, parameters);
+    Symbol symbol =
+        new Symbol(
+            base.id(),
+            base.name(),
+            base.kind(),
+            base.type(),
+            base.declaration(),
+            base.owner(),
+            typeParameters,
+            base.parameters(),
+            base.documentation());
+    return new MemberDefinition(symbol, intrinsic, Optional.empty());
+  }
+
   private static MemberDefinition field(
       String owner, String name, SemanticType result, IntrinsicId read, IntrinsicId write) {
     return new MemberDefinition(
@@ -1055,6 +1097,28 @@ public final class BuiltinCatalog {
             List.of(parameters),
             documentation(name));
     return new GlobalDefinition(symbol, intrinsic);
+  }
+
+  private static GlobalDefinition genericGlobal(
+      String name,
+      SemanticType result,
+      IntrinsicId intrinsic,
+      List<TypeParameterInfo> typeParameters,
+      ParameterInfo... parameters) {
+    GlobalDefinition base = global(name, result, intrinsic, parameters);
+    Symbol value = base.symbol();
+    return new GlobalDefinition(
+        new Symbol(
+            value.id(),
+            value.name(),
+            value.kind(),
+            value.type(),
+            value.declaration(),
+            value.owner(),
+            typeParameters,
+            value.parameters(),
+            value.documentation()),
+        intrinsic);
   }
 
   private static void addType(Map<String, TypeDefinition> values, TypeBuilder builder) {
@@ -1106,6 +1170,14 @@ public final class BuiltinCatalog {
 
   private static SemanticType parameter(String owner, String name) {
     return SemanticType.parameter("std.core." + owner + "/" + name, name);
+  }
+
+  private static SemanticType methodParameter(String owner, String method, String name) {
+    return SemanticType.parameter("std.core." + owner + "/" + method + "/" + name, name);
+  }
+
+  private static SemanticType globalParameter(String function, String name) {
+    return SemanticType.parameter("std.core." + function + "/" + name, name);
   }
 
   private static SemanticType ownerType(TypeDefinition definition) {

@@ -5,6 +5,32 @@ import java.util.Objects;
 import java.util.Optional;
 
 public sealed interface CoreBindingShape {
+  record Annotation(
+      java.util.Set<dev.w0fv1.norm.value.AnnotationTarget> targets,
+      dev.w0fv1.norm.value.AnnotationRetention retention,
+      List<Field> fields,
+      List<Optional<CoreAnnotationValue>> defaults)
+      implements CoreBindingShape {
+    public Annotation {
+      targets = java.util.Set.copyOf(targets);
+      Objects.requireNonNull(retention, "retention");
+      fields = List.copyOf(fields);
+      defaults = defaults.stream().map(value -> Objects.requireNonNull(value, "default")).toList();
+      if (fields.size() != defaults.size()) {
+        throw new IllegalArgumentException("annotation fields and defaults must have equal size");
+      }
+      java.util.Set<String> names = new java.util.HashSet<>();
+      for (Field field : fields) {
+        if (field.visibility() != CoreVisibility.PUBLIC) {
+          throw new IllegalArgumentException("annotation fields must be public");
+        }
+        if (!names.add(field.name())) {
+          throw new IllegalArgumentException("annotation field names must be unique");
+        }
+      }
+    }
+  }
+
   record Callable(
       List<CoreTypeParameter> typeParameters, List<Parameter> parameters, CoreType returnType)
       implements CoreBindingShape {

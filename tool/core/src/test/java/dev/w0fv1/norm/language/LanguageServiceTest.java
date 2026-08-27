@@ -179,6 +179,11 @@ final class LanguageServiceTest {
             .filter(candidate -> candidate.label().equals("value"))
             .findFirst()
             .orElseThrow();
+    Completion annotationCompletion =
+        service.complete(topLevelAnalysis, 0).stream()
+            .filter(candidate -> candidate.label().equals("annotation"))
+            .findFirst()
+            .orElseThrow();
 
     assertTrue(ifCompletion.snippet());
     assertEquals("if ${1:condition} {\n  ${2}\n}", ifCompletion.insertText());
@@ -191,6 +196,24 @@ final class LanguageServiceTest {
     assertEquals("class ${1:Name} {\n  ${2}\n}", classCompletion.insertText());
     assertTrue(valueCompletion.snippet());
     assertEquals("value ${1:Name} {\n  ${2}\n}", valueCompletion.insertText());
+    assertTrue(annotationCompletion.snippet());
+    assertEquals(
+        "annotation ${1:Name} targets(${2:type}) retention(${3:runtime}) {\n  ${4}\n}",
+        annotationCompletion.insertText());
+  }
+
+  @Test
+  void completesOnlyAnnotationTypesAfterAtSign() {
+    String text =
+        "annotation Marker targets(type) retention(runtime) {} class Other {} @Mar value Point {}";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:annotation-completion"), text));
+    int offset = text.indexOf("@Mar") + 4;
+    List<String> labels =
+        service.complete(analysis, offset).stream().map(Completion::label).toList();
+
+    assertTrue(labels.contains("Marker"));
+    assertFalse(labels.contains("Other"));
   }
 
   @Test
@@ -844,6 +867,24 @@ final class LanguageServiceTest {
 
     assertEquals("Void consume(String value, Integer count)", help.signatures().getFirst().label());
     assertEquals(0, help.activeParameter());
+  }
+
+  @Test
+  void presentsAnnotationSchemasAsCallSitesAndHover() {
+    String text =
+        "annotation Label targets(type) retention(runtime) { "
+            + "String text String? replacement = null } "
+            + "@Label(text: \"point\", replacement: null) class Point {} Void main() {}";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:annotation-help"), text));
+    int replacement = text.indexOf("null) class");
+
+    SignatureHelp help = service.signatureHelp(analysis, replacement).orElseThrow();
+
+    assertEquals("Label(String text, String? replacement)", help.signatures().getFirst().label());
+    assertEquals(1, help.activeParameter());
+    assertEquals(
+        "`Label(String text, String? replacement)`",
+        service.hover(analysis, text.indexOf("Label(text")).orElseThrow().markdown());
   }
 
   @Test

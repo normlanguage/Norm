@@ -1,61 +1,33 @@
 # Annotation 与 Reflect
 
-Annotation 为声明附加结构化元数据；`reflect` 标记代码进入运行时检查或拦截边界。两者属于进阶语言功能，不是组织普通程序的默认方式。
-
-## 声明 Annotation
+Annotation 为声明附加结构化常量元数据。Reflect 是读取类型 metadata 的显式、类型安全入口。
 
 ```norm
-annotation Label {
+annotation Label targets(type) retention(runtime) {
     String text
 }
-```
 
-Annotation 是有明确字段的元数据类型。它可以标记 class、value、函数或字段，具体允许目标由 annotation 规范定义。
-
-```norm
 @Label(text: "two-dimensional coordinate")
 value Point {
-    @Label(text: "horizontal position")
     Integer x
-
-    @Label(text: "vertical position")
     Integer y
 }
 ```
 
-这段代码只附加元数据，不会偷偷改写 `Point` 的字段、构造方式或运行逻辑。
-
-## 查询元数据
-
-编译工具可以读取声明元数据。运行时查询 API 由后续的标准库反射模块定义；语言层只负责保留所需类型信息，并让特殊访问边界在源码中可见。
-
-## Reflect 边界
-
-需要拦截函数调用或执行特殊元编程行为时，方法必须显式标记 `reflect`。
+## 最小反射 API
 
 ```norm
-annotation Measure {
-    reflect Void beforeFunction(Measure annotation, Function function) {
-        timer.start()
-    }
-
-    reflect Void afterFunction(Measure annotation, Function function) {
-        timer.stop()
-    }
-}
+Type<Point> point = reflect<Point>()
+String name = point.name()
+Label? label = point.annotation<Label>()
 ```
 
-看到 `reflect`，读者就知道这里不再是普通函数调用语义。
+- `reflect<T>()` 返回 reified `Type<T>`；
+- `Type<T>.name()` 返回稳定的 Norm 类型显示名；
+- `Type<T>.annotation<A>()` 只接受 annotation 类型，并返回该类型目标上的 runtime annotation；目标没有该 annotation 时返回 `null`。
 
-## 明确限制
+0.12 只查询类型目标。其他目标的 binary/runtime metadata 仍保存在 Core 中，后续 API 可以在同一 metadata 模型上扩展。
 
-Norm 的反射模型不允许：
+Annotation 和 Reflect 不允许改写 AST、注入成员、拦截调用或改变类型检查。需要行为时使用普通函数和显式注册 API。
 
-- 任意重写源代码或 AST；
-- 在调用点不可见地改变类型系统；
-- 生成新的隐式字段或方法；
-- 把普通 annotation 自动解释为运行时拦截。
-
-如果 metadata 只需要被工具读取，就不应使用 `reflect`。如果行为可以写成普通函数，也优先使用普通函数。
-
-下一步可以查阅[语言规范](/spec/language-spec)，或者进入[标准库](/stdlib/overview)。
+完整规则见 [Annotation 规范](/spec/annotations)。

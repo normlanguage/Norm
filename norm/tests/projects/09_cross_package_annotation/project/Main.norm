@@ -1,0 +1,15 @@
+package project
+
+import project.metadata.Label
+import project.model.Point
+
+main() {
+  Type<Point> type = reflect<Point>()
+  Label? label = type.annotation<Label>()
+  printLine(type.name())
+  printLine(label?.text ?? "missing")
+  printLine(label?.replacement ?? "none")
+  expectedOutputLine("Point")
+  expectedOutputLine("point")
+  expectedOutputLine("none")
+}

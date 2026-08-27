@@ -1,31 +1,17 @@
-# Annotation 声明
+# Annotation 声明与使用
 
-annotation 是附加到声明上的静态元数据。它不能改变语法含义、注入控制流或替代普通函数调用。
-
-```norm
-annotation Deprecated {
-    String message
-    String? replacement = null
-}
-
-@Deprecated(message: "use parse", replacement: "parse")
-Integer parseLegacy(String text) {
-    return parse(text: text)
-}
+```ebnf
+AnnotationDeclaration = Visibility? "annotation" Identifier
+                        "targets" "(" AnnotationTarget ("," AnnotationTarget)* ")"
+                        "retention" "(" Retention ")"
+                        "{" AnnotationField* "}" ;
+AnnotationField       = Type Identifier ("=" ConstantLiteral)? ";"? ;
+AnnotationTarget      = "package" | "type" | "field" | "constructor"
+                      | "function" | "parameter" | "local" ;
+Retention             = "source" | "binary" | "runtime" ;
+AnnotationUse         = "@" Identifier "(" NamedArgumentList? ")" ;
 ```
 
-## 参数规则
+Annotation 可放在 package、enum、interface、class、value、annotation、field、constructor、function、method、parameter 和局部变量之前。具体目标必须属于 annotation 声明的 `targets` 集合。
 
-annotation 参数必须是编译期常量：基本字面量、String、enum variant、类型描述或这些值的不可变集合。必填参数没有默认值，可选参数必须声明默认值。
-
-## 目标与保留
-
-每个 annotation 类型声明允许的目标和保留级别。当前草案区分 source、binary 与 runtime。runtime annotation 可由反射读取，但读取必须通过显式 API。
-
-## 边界
-
-- annotation 的求值不能执行用户代码；
-- 未识别 annotation 是否报错由其命名空间和工具链扩展规则决定；
-- Web 路由、验证和依赖关系优先使用显式注册，不应把 annotation 变成隐藏框架语言；
-- 编译器专用 annotation 必须进入标准命名空间并有规范定义。
-
+Annotation 参数只接受命名参数和编译期字面量。字段没有默认值时，对应参数必填。

@@ -6,6 +6,9 @@ public enum IntrinsicId {
   REQUIRE_ARGUMENT,
   PUBLISH_MODULE,
   TO_STRING,
+  REFLECT_TYPE,
+  TYPE_NAME,
+  TYPE_ANNOTATION,
   RANGE_CONSTRUCT,
   ARRAY_CONSTRUCT,
   LIST_CONSTRUCT,
@@ -108,6 +111,6 @@ public enum IntrinsicId {
   ITERATOR_NEXT;
 
   public boolean requiresResultRuntimeType() {
-    return this == RANGE_CONSTRUCT;
+    return this == RANGE_CONSTRUCT || this == REFLECT_TYPE || this == TYPE_ANNOTATION;
   }
 }

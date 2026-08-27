@@ -53,6 +53,7 @@ final class Lowerer {
   private final Map<DocumentId, Source> sources = new HashMap<>();
   private CoreArtifact artifact;
   private CoreProgram program;
+  private ReflectionRegistry reflectionRegistry;
 
   Lowerer(Language language) {
     this.language = language;
@@ -61,6 +62,7 @@ final class Lowerer {
   ExecutableProgram lower(CoreArtifact checkedArtifact) {
     artifact = Objects.requireNonNull(checkedArtifact, "checkedArtifact");
     program = artifact.program();
+    reflectionRegistry = new ReflectionRegistry(artifact);
     indexDefinitions();
     createCallTargets();
     indexDispatch();
@@ -76,6 +78,7 @@ final class Lowerer {
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
       switch (definition) {
+        case CoreDefinition.Annotation ignored -> {}
         case CoreDefinition.Aggregate declaration -> aggregates.put(occurrence.id(), declaration);
         case CoreDefinition.Callable declaration ->
             callables.put(occurrence.id(), plan(occurrence.id(), declaration));
@@ -443,7 +446,8 @@ final class Lowerer {
                   new ExpressionNode[] {lowerExpression(index.index(), plan)},
                   new int[] {0},
                   null,
-                  false);
+                  false,
+                  reflectionRegistry);
           case CoreExpression.CopyObject copied ->
               new ExpressionNodes.CopyObject(
                   lowerExpression(copied.receiver(), plan), copied.nullSafe());
@@ -463,7 +467,8 @@ final class Lowerer {
                   lowerArguments(intrinsic.arguments(), plan),
                   parameterIndices(intrinsic.arguments()),
                   intrinsic.runtimeType().map(value -> lowerRuntimeType(value, plan)).orElse(null),
-                  intrinsic.nullSafe());
+                  intrinsic.nullSafe(),
+                  reflectionRegistry);
         };
     return lowered.at(section(plan.id, expression.nodeIndex()));
   }

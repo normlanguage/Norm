@@ -29,6 +29,9 @@ public final class CompletionContextResolver {
       identifierStart--;
     }
     int previousOffset = previousNonWhitespace(text, identifierStart);
+    if (previousOffset >= 0 && text.charAt(previousOffset) == '@') {
+      return new CompletionContext.Annotation();
+    }
     if (previousOffset >= 0 && text.charAt(previousOffset) == '.') {
       return new CompletionContext.Member(previousOffset);
     }

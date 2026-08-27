@@ -149,6 +149,7 @@ final class ExpressionNodes {
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
     @Child private ExpressionNode type;
+    private final ReflectionRegistry reflectionRegistry;
 
     Intrinsic(
         IntrinsicId intrinsic,
@@ -156,13 +157,15 @@ final class ExpressionNodes {
         ExpressionNode[] arguments,
         int[] parameterIndices,
         ExpressionNode type,
-        boolean nullSafe) {
+        boolean nullSafe,
+        ReflectionRegistry reflectionRegistry) {
       this.intrinsic = intrinsic;
       this.receiver = receiver;
       this.arguments = arguments;
       this.parameterIndices = parameterIndices;
       this.type = type;
       this.nullSafe = nullSafe;
+      this.reflectionRegistry = reflectionRegistry;
     }
 
     @Override
@@ -177,7 +180,8 @@ final class ExpressionNodes {
           evaluateArguments(arguments, parameterIndices, frame),
           type == null ? null : (CoreType) type.execute(frame),
           ExecutionContextAccess.get(frame),
-          this);
+          this,
+          reflectionRegistry);
     }
   }
 
@@ -594,8 +598,7 @@ final class ExpressionNodes {
       if (virtualSlot != null) {
         RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
         RuntimeValues.DispatchTarget.Callable dispatch =
-            (RuntimeValues.DispatchTarget.Callable)
-                object.aggregateInfo.dispatch().get(virtualSlot);
+            (RuntimeValues.DispatchTarget.Callable) object.objectInfo.dispatch().get(virtualSlot);
         resolvedTarget = dispatch.target();
         List<CoreType> concreteArguments =
             object.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();

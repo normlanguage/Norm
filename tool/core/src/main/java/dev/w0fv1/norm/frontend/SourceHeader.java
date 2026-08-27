@@ -11,8 +11,7 @@ public record SourceHeader(Optional<String> packageName) {
   public static SourceHeader parse(SourceFile source) {
     DiagnosticBag diagnostics = new DiagnosticBag();
     Optional<String> packageName =
-        new Parser(source, new Lexer(source, diagnostics).lex(), diagnostics)
-            .parsePackageDeclaration();
+        new Parser(source, new Lexer(source, diagnostics).lex(), diagnostics).parsePackageHeader();
     return new SourceHeader(packageName);
   }
 }

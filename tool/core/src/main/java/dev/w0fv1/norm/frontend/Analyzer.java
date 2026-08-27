@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.core.ExceptionAbi;
+import dev.w0fv1.norm.semantic.AnnotationIndex;
 import dev.w0fv1.norm.semantic.ImportableSymbol;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedCall;
@@ -31,7 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-final class Analyzer extends AnalyzerExpressions {
+final class Analyzer extends AnalyzerAnnotations {
   private final Deque<Set<SymbolId>> flowWriteCollectors = new ArrayDeque<>();
 
   Analyzer(
@@ -64,6 +65,7 @@ final class Analyzer extends AnalyzerExpressions {
     nextSymbolId = Math.max(nextSymbolId, minimumBodySymbolId);
     validateImports();
     createFileScopes();
+    validateAnnotationSchemas();
     validateClassHierarchy();
     currentProgram = entryProgram;
     Syntax.FunctionDecl main =
@@ -109,6 +111,7 @@ final class Analyzer extends AnalyzerExpressions {
         }
       }
     }
+    validateAnnotationApplications();
     validateInterfaceGraphAndConformances();
     List<dev.w0fv1.norm.diagnostic.Diagnostic> snapshot = diagnostics.snapshot();
     SemanticModel semanticModel =
@@ -130,6 +133,7 @@ final class Analyzer extends AnalyzerExpressions {
             methodOverrides,
             typeSymbols,
             interfaceParentTypes(),
+            new AnnotationIndex(annotationSchemas, annotationApplications),
             flowScopes.semanticScopes(),
             snapshot,
             importableSymbols(),
@@ -215,10 +219,36 @@ final class Analyzer extends AnalyzerExpressions {
     }
     for (Syntax.Program program : programs) {
       currentProgram = program;
+      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
+        if (!declarations.addAnnotation(program, declaration)
+            || resolveEnum(declaration.name()) != null
+            || resolveInterface(declaration.name()) != null
+            || builtins.isType(declaration.name())) {
+          diagnostics.error(
+              DUPLICATE_NAME,
+              "type '" + declaration.name() + "' is already declared",
+              declaration.span());
+        }
+        Symbol type =
+            register(
+                declaration,
+                declaration.name(),
+                SymbolKind.TYPE,
+                sourceType(declaration.name(), List.of()),
+                declaration.nameSpan(),
+                null,
+                List.of(),
+                List.of());
+        typeSymbols.putIfAbsent(type.type().identity(), type.id());
+      }
+    }
+    for (Syntax.Program program : programs) {
+      currentProgram = program;
       for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
         if (!declarations.addAggregate(program, aggregateDecl)
             || resolveEnum(aggregateDecl.name()) != null
             || resolveInterface(aggregateDecl.name()) != null
+            || resolveAnnotation(aggregateDecl.name()) != null
             || builtins.isType(aggregateDecl.name())) {
           diagnostics.error(
               DUPLICATE_NAME,
@@ -272,6 +302,17 @@ final class Analyzer extends AnalyzerExpressions {
                   symbolTypeParameters(method.typeParameters(), parameters),
                   parameters(method.parameters(), Map.of(), parameters));
           registerTypeParameters(method.typeParameters(), symbol.id(), parameters);
+          for (Syntax.Parameter parameter : method.parameters()) {
+            register(
+                parameter,
+                parameter.name(),
+                SymbolKind.PARAMETER,
+                resolveDeclarationType(parameter.type(), method, parameters),
+                parameter.nameSpan(),
+                symbol.id(),
+                List.of(),
+                List.of());
+          }
           addMember(type.id(), symbol.id());
         }
       }
@@ -302,6 +343,22 @@ final class Analyzer extends AnalyzerExpressions {
                   symbolTypeParameters(enumDecl.typeParameters(), enumTypeParameters(enumDecl)),
                   parameters(variant.parameters(), Map.of(), enumTypeParameters(enumDecl)));
           addMember(type.id(), value.id());
+        }
+      }
+      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
+        Symbol type = symbols.get(declarationSymbols.get(declaration));
+        for (Syntax.AnnotationParameter parameter : declaration.parameters()) {
+          Symbol symbol =
+              register(
+                  parameter,
+                  parameter.name(),
+                  SymbolKind.FIELD,
+                  resolveDeclarationType(parameter.type(), parameter, Map.of()),
+                  parameter.nameSpan(),
+                  type.id(),
+                  List.of(),
+                  List.of());
+          addMember(type.id(), symbol.id());
         }
       }
       for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
@@ -423,6 +480,7 @@ final class Analyzer extends AnalyzerExpressions {
       Set<String> localNames = new HashSet<>();
       program.enums().forEach(declaration -> localNames.add(declaration.name()));
       program.interfaces().forEach(declaration -> localNames.add(declaration.name()));
+      program.annotationDeclarations().forEach(declaration -> localNames.add(declaration.name()));
       program.aggregates().forEach(declaration -> localNames.add(declaration.name()));
       program.functions().forEach(declaration -> localNames.add(declaration.name()));
       Set<String> importedNames = new HashSet<>();
@@ -503,6 +561,12 @@ final class Analyzer extends AnalyzerExpressions {
             visible.put(id, id);
           }
         }
+        for (Syntax.AnnotationDecl declaration : candidate.annotationDeclarations()) {
+          if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
+            SymbolId id = declarationSymbols.get(declaration);
+            visible.put(id, id);
+          }
+        }
         for (Syntax.FunctionDecl declaration : candidate.functions()) {
           if (sameFile || samePackage && declaration.visibility() == Syntax.Visibility.PUBLIC) {
             SymbolId id = declarationSymbols.get(declaration);
@@ -517,6 +581,7 @@ final class Analyzer extends AnalyzerExpressions {
         if (declaration == null) declaration = resolveAggregate(imported.localName());
         if (declaration == null) declaration = resolveEnum(imported.localName());
         if (declaration == null) declaration = resolveInterface(imported.localName());
+        if (declaration == null) declaration = resolveAnnotation(imported.localName());
         if (declaration != null) {
           SymbolId id =
               imported.alias().isPresent()
@@ -552,6 +617,14 @@ final class Analyzer extends AnalyzerExpressions {
                       qualifiedName(program.packageName(), declaration.name())))
           .forEach(result::add);
       program.aggregates().stream()
+          .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
+          .map(
+              declaration ->
+                  new ImportableSymbol(
+                      symbols.get(declarationSymbols.get(declaration)),
+                      qualifiedName(program.packageName(), declaration.name())))
+          .forEach(result::add);
+      program.annotationDeclarations().stream()
           .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
           .map(
               declaration ->
@@ -909,17 +982,8 @@ final class Analyzer extends AnalyzerExpressions {
     declareSelf(interfaceSelfType(owner), owner.nameSpan());
     for (Syntax.Parameter parameter : method.parameters()) {
       SemanticType type = resolveDeclarationType(parameter.type(), method, methodTypes);
-      Symbol symbol =
-          register(
-              parameter,
-              parameter.name(),
-              SymbolKind.PARAMETER,
-              type,
-              parameter.nameSpan(),
-              currentCallable,
-              List.of(),
-              List.of());
-      declareExisting(parameter.name(), type, parameter.nameSpan(), symbol.id());
+      declareExisting(
+          parameter.name(), type, parameter.nameSpan(), declarationSymbols.get(parameter));
     }
     analyzeStatements(method.body().orElseThrow());
     if (!expectedReturnType.equals(SemanticType.VOID)

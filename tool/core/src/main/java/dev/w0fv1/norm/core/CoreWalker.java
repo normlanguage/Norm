@@ -5,6 +5,10 @@ import java.util.Set;
 abstract class CoreWalker {
   final void walk(CoreDefinition definition) {
     switch (definition) {
+      case CoreDefinition.Annotation annotation -> {
+        annotation.fields().forEach(field -> walkType(field.type()));
+        annotation.defaults().forEach(value -> value.ifPresent(this::walkAnnotationValue));
+      }
       case CoreDefinition.Callable callable -> {
         callable.receiverType().ifPresent(this::walkType);
         callable.typeParameters().forEach(this::walkTypeParameter);
@@ -56,6 +60,10 @@ abstract class CoreWalker {
         conformance.witnesses().forEach(this::walkWitness);
       }
     }
+  }
+
+  private void walkAnnotationValue(CoreAnnotationValue value) {
+    walkType(value.type());
   }
 
   protected void visitLink(CoreDefinitionLink link) {}

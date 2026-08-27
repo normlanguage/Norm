@@ -1004,6 +1004,9 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
       return Optional.ofNullable(symbols.get(declarationSymbols.get(aggregateDecl)));
     Syntax.EnumDecl enumDecl = resolveEnum(name);
     if (enumDecl != null) return Optional.ofNullable(symbols.get(declarationSymbols.get(enumDecl)));
+    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(name);
+    if (annotationDecl != null)
+      return Optional.ofNullable(symbols.get(declarationSymbols.get(annotationDecl)));
     return builtins.type(name);
   }
 
@@ -1274,10 +1277,12 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(type.name());
     Syntax.EnumDecl enumDecl = resolveEnum(type.name());
     Syntax.InterfaceDecl interfaceDecl = resolveInterface(type.name());
+    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(type.name());
     boolean privateType =
         interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
             || aggregateDecl != null && aggregateDecl.visibility() == Syntax.Visibility.PRIVATE
-            || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE;
+            || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE
+            || annotationDecl != null && annotationDecl.visibility() == Syntax.Visibility.PRIVATE;
     if (privateType) {
       diagnostics.error(
           TYPE_MISMATCH,
@@ -1327,19 +1332,25 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
     if (aggregateDecl == null) aggregateDecl = resolveImportedAggregateByDeclaredName(name);
     Syntax.EnumDecl enumDecl = resolveEnum(name);
+    Syntax.AnnotationDecl annotationDecl = resolveAnnotation(name);
     Object declaration =
-        interfaceDecl != null ? interfaceDecl : aggregateDecl != null ? aggregateDecl : enumDecl;
+        interfaceDecl != null
+            ? interfaceDecl
+            : aggregateDecl != null ? aggregateDecl : enumDecl != null ? enumDecl : annotationDecl;
     Syntax.Program owner = declaration == null ? currentProgram : declarations.owner(declaration);
     String declaredName =
         interfaceDecl != null
             ? interfaceDecl.name()
             : aggregateDecl != null
                 ? aggregateDecl.name()
-                : enumDecl != null ? enumDecl.name() : name;
+                : enumDecl != null
+                    ? enumDecl.name()
+                    : annotationDecl != null ? annotationDecl.name() : name;
     String identity = qualifiedName(owner == null ? "" : owner.packageName(), declaredName);
     if (interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
         || aggregateDecl != null && aggregateDecl.visibility() == Syntax.Visibility.PRIVATE
-        || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE) {
+        || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE
+        || annotationDecl != null && annotationDecl.visibility() == Syntax.Visibility.PRIVATE) {
       identity = fileLocalIdentity(identity, owner);
     }
     ValueCategory category =
@@ -1361,7 +1372,8 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
     if (aggregateDecl != null) return aggregateDecl.typeParameters().size();
     Syntax.EnumDecl enumDecl = resolveEnum(name);
-    return enumDecl == null ? -1 : enumDecl.typeParameters().size();
+    if (enumDecl != null) return enumDecl.typeParameters().size();
+    return resolveAnnotation(name) == null ? -1 : 0;
   }
 
   Map<String, SemanticType> typeParameters(
@@ -1647,6 +1659,14 @@ abstract class AnalyzerTypeSystem extends AnalyzerState {
 
   Syntax.EnumDecl resolveEnum(String name) {
     return declarations.resolveEnum(currentProgram, name);
+  }
+
+  Syntax.AnnotationDecl resolveAnnotation(String name) {
+    return declarations.resolveAnnotation(currentProgram, name);
+  }
+
+  Syntax.AnnotationDecl resolveAnnotation(SemanticType type) {
+    return declarations.resolveAnnotation(type);
   }
 
   Syntax.InterfaceDecl resolveInterface(String name) {

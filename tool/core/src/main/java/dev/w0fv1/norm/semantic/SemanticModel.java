@@ -37,6 +37,7 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SymbolId, SymbolId> methodOverrides;
   private final Map<String, SymbolId> typeSymbols;
   private final Map<String, List<SemanticType>> interfaceParents;
+  private final AnnotationIndex annotations;
   private final List<SemanticScope> scopes;
   private final List<Diagnostic> diagnostics;
   private final List<ImportableSymbol> importableSymbols;
@@ -66,6 +67,7 @@ public final class SemanticModel implements SemanticIndex {
       Map<SymbolId, SymbolId> methodOverrides,
       Map<String, SymbolId> typeSymbols,
       Map<String, List<SemanticType>> interfaceParents,
+      AnnotationIndex annotations,
       List<SemanticScope> scopes,
       List<Diagnostic> diagnostics,
       List<ImportableSymbol> importableSymbols,
@@ -104,6 +106,7 @@ public final class SemanticModel implements SemanticIndex {
     interfaceParents.forEach(
         (identity, values) -> copiedParents.put(identity, List.copyOf(values)));
     this.interfaceParents = Map.copyOf(copiedParents);
+    this.annotations = Objects.requireNonNull(annotations, "annotations");
     this.scopes = List.copyOf(scopes);
     this.diagnostics = List.copyOf(diagnostics);
     this.importableSymbols = List.copyOf(importableSymbols);
@@ -141,6 +144,7 @@ public final class SemanticModel implements SemanticIndex {
     this.methodOverrides = project.methodOverrides;
     this.typeSymbols = project.typeSymbols;
     this.interfaceParents = project.interfaceParents;
+    this.annotations = project.annotations;
     this.scopes = project.scopes;
     this.diagnostics = project.diagnostics;
     this.importableSymbols = project.importableSymbols;
@@ -265,6 +269,10 @@ public final class SemanticModel implements SemanticIndex {
 
   public List<Token> tokens() {
     return tokens;
+  }
+
+  public AnnotationIndex annotations() {
+    return annotations;
   }
 
   public SourceFile source() {

@@ -52,6 +52,7 @@ public enum TokenKind {
   MINUS,
   STAR,
   AMPERSAND,
+  AT,
   SLASH,
   PERCENT,
   BANG,

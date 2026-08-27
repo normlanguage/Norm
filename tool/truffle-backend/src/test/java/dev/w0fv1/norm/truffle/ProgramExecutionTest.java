@@ -15,6 +15,27 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void reflectsRuntimeTypeAnnotations() throws Exception {
+    assertOutput(
+        "annotation Label targets(type) retention(runtime) { String text } "
+            + "annotation Internal targets(type) retention(binary) { String text } "
+            + "@Label(text: \"point\") @Internal(text: \"hidden\") value Point { Integer x } "
+            + "Void main() { Type<Point> type = reflect<Point>() "
+            + "Label? label = type.annotation<Label>() "
+            + "Internal? hidden = type.annotation<Internal>() "
+            + "printLine(type.name()) printLine(label?.text ?? \"missing\") "
+            + "printLine(hidden == null) }",
+        String.join(System.lineSeparator(), "Point", "point", "true", ""));
+  }
+
+  @Test
+  void reflectsGenericAndNullableDisplayNames() throws Exception {
+    assertOutput(
+        "Void main() { printLine(reflect<List<String>?>().name()) }",
+        "List<String>?" + System.lineSeparator());
+  }
+
+  @Test
   void executesNominalCatchSelectionAndFinallyCompletion() throws Exception {
     assertOutput(
         "import std.core.Exception class Failure extends Exception { "

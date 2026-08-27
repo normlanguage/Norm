@@ -174,7 +174,7 @@ final class StatementNodes {
     }
 
     boolean matches(RuntimeValues.ObjectValue value) {
-      return value.aggregateInfo.ancestors().contains(type);
+      return value.objectInfo.ancestors().contains(type);
     }
 
     void execute(VirtualFrame frame, RuntimeValues.ObjectValue value) {

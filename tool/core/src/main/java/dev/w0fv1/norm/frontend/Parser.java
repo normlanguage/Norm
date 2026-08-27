@@ -4,6 +4,8 @@ import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
+import dev.w0fv1.norm.value.AnnotationRetention;
+import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
@@ -39,10 +41,18 @@ final class Parser {
   }
 
   Syntax.Program parse() {
-    String packageName = parsePackageDeclaration().orElse("");
+    List<Syntax.AnnotationUse> pendingAnnotations = parseAnnotationUses();
+    List<Syntax.AnnotationUse> packageAnnotations = List.of();
+    String packageName = "";
+    if (check(TokenKind.PACKAGE)) {
+      packageAnnotations = pendingAnnotations;
+      pendingAnnotations = List.of();
+      packageName = parsePackageDeclaration().orElse("");
+    }
     List<Syntax.ImportDecl> imports = new ArrayList<>();
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
+    List<Syntax.AnnotationDecl> annotationDeclarations = new ArrayList<>();
     List<Syntax.AggregateDecl> aggregates = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     while (match(TokenKind.IMPORT)) {
@@ -63,27 +73,39 @@ final class Parser {
     }
     while (!isAtEnd()) {
       try {
+        if (pendingAnnotations.isEmpty()) pendingAnnotations = parseAnnotationUses();
         Syntax.Visibility visibility = parseVisibility();
         if (match(TokenKind.ENUM)) {
-          enums.add(parseEnum(previous(), visibility));
+          enums.add(parseEnum(previous(), visibility, pendingAnnotations));
         } else if (match(TokenKind.INTERFACE)) {
-          interfaces.add(parseInterface(previous(), visibility));
+          interfaces.add(parseInterface(previous(), visibility, pendingAnnotations));
+        } else if (matchAnnotationDeclarationKeyword()) {
+          annotationDeclarations.add(
+              parseAnnotationDeclaration(previous(), visibility, pendingAnnotations));
         } else if (match(TokenKind.CLASS)) {
-          aggregates.add(parseAggregate(previous(), visibility, Syntax.AggregateKind.CLASS));
+          aggregates.add(
+              parseAggregate(
+                  previous(), visibility, Syntax.AggregateKind.CLASS, pendingAnnotations));
         } else if (matchValueDeclarationKeyword()) {
-          aggregates.add(parseAggregate(previous(), visibility, Syntax.AggregateKind.VALUE));
+          aggregates.add(
+              parseAggregate(
+                  previous(), visibility, Syntax.AggregateKind.VALUE, pendingAnnotations));
         } else {
-          functions.add(parseFunction(visibility));
+          functions.add(parseFunction(visibility, pendingAnnotations));
         }
+        pendingAnnotations = List.of();
       } catch (ParseError ignored) {
+        pendingAnnotations = List.of();
         synchronizeTopLevel();
       }
     }
     return new Syntax.Program(
         packageName,
+        packageAnnotations,
         imports,
         enums,
         interfaces,
+        annotationDeclarations,
         aggregates,
         functions,
         new SourceSpan(source, 0, source.length()));
@@ -98,6 +120,11 @@ final class Parser {
     } catch (ParseError ignored) {
       return Optional.empty();
     }
+  }
+
+  Optional<String> parsePackageHeader() {
+    parseAnnotationUses();
+    return parsePackageDeclaration();
   }
 
   Optional<Syntax.Expression> parseExpressionDocument() {
@@ -117,6 +144,90 @@ final class Parser {
     return Syntax.Visibility.PUBLIC;
   }
 
+  private List<Syntax.AnnotationUse> parseAnnotationUses() {
+    List<Syntax.AnnotationUse> annotations = new ArrayList<>();
+    while (match(TokenKind.AT)) {
+      Token start = previous();
+      Token name = consume(TokenKind.IDENTIFIER, "expected annotation name after '@'");
+      consume(TokenKind.LEFT_PAREN, "expected '(' after annotation name");
+      List<Syntax.CallArgument> arguments = parseCallArguments();
+      Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation arguments");
+      annotations.add(
+          new Syntax.AnnotationUse(
+              name.value(), name.span(), arguments, start.span().cover(closing.span())));
+    }
+    return List.copyOf(annotations);
+  }
+
+  private Syntax.AnnotationDecl parseAnnotationDeclaration(
+      Token keyword, Syntax.Visibility visibility, List<Syntax.AnnotationUse> annotations) {
+    Token name = consume(TokenKind.IDENTIFIER, "expected annotation name");
+    if (check(TokenKind.LESS)) {
+      List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
+      diagnostics.error(
+          EXPECTED_TOKEN,
+          "annotation cannot declare type parameters",
+          typeParameters.isEmpty() ? name.span() : typeParameters.getFirst().nameSpan());
+    }
+    consumeContextual("targets", "expected 'targets' after annotation name");
+    consume(TokenKind.LEFT_PAREN, "expected '(' after targets");
+    java.util.LinkedHashSet<AnnotationTarget> targets = new java.util.LinkedHashSet<>();
+    do {
+      Token target = advance();
+      Optional<AnnotationTarget> resolved = AnnotationTarget.fromKeyword(target.value());
+      if (resolved.isEmpty()) {
+        throw error(target, "expected annotation target");
+      }
+      if (!targets.add(resolved.orElseThrow())) {
+        diagnostics.error(EXPECTED_TOKEN, "duplicate annotation target", target.span());
+      }
+    } while (match(TokenKind.COMMA));
+    consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation targets");
+    consumeContextual("retention", "expected 'retention' after annotation targets");
+    consume(TokenKind.LEFT_PAREN, "expected '(' after retention");
+    Token retentionToken = advance();
+    AnnotationRetention retention =
+        AnnotationRetention.fromKeyword(retentionToken.value())
+            .orElseThrow(() -> error(retentionToken, "expected annotation retention"));
+    consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation retention");
+    consume(TokenKind.LEFT_BRACE, "expected '{' before annotation body");
+    List<Syntax.AnnotationParameter> parameters = new ArrayList<>();
+    while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      List<Syntax.AnnotationUse> parameterAnnotations = parseAnnotationUses();
+      Syntax.TypeRef type = parseType();
+      Token parameterName = consume(TokenKind.IDENTIFIER, "expected annotation parameter name");
+      Optional<Syntax.Expression> defaultValue = Optional.empty();
+      if (match(TokenKind.EQUAL)) defaultValue = Optional.of(parseExpression());
+      match(TokenKind.SEMICOLON);
+      SourceSpan span =
+          type.span().cover(defaultValue.map(Syntax.Expression::span).orElse(parameterName.span()));
+      parameters.add(
+          new Syntax.AnnotationParameter(
+              parameterAnnotations,
+              type,
+              parameterName.value(),
+              parameterName.span(),
+              defaultValue,
+              span));
+    }
+    Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after annotation body");
+    SourceSpan span = coverAnnotations(annotations, keyword.span().cover(closing.span()));
+    return new Syntax.AnnotationDecl(
+        annotations, visibility, name.value(), name.span(), targets, retention, parameters, span);
+  }
+
+  private Token consumeContextual(String value, String message) {
+    if (check(TokenKind.IDENTIFIER) && peek().value().equals(value)) return advance();
+    throw error(peek(), message);
+  }
+
+  private SourceSpan coverAnnotations(
+      List<Syntax.AnnotationUse> annotations, SourceSpan declarationSpan) {
+    return annotations.isEmpty()
+        ? declarationSpan
+        : annotations.getFirst().span().cover(declarationSpan);
+  }
+
   private String parseQualifiedName(String message) {
     return parseQualifiedNameWithSpan(message).value();
   }
@@ -131,7 +242,8 @@ final class Parser {
     return new QualifiedName(result.toString(), segment.span());
   }
 
-  private Syntax.EnumDecl parseEnum(Token enumKeyword, Syntax.Visibility visibility) {
+  private Syntax.EnumDecl parseEnum(
+      Token enumKeyword, Syntax.Visibility visibility, List<Syntax.AnnotationUse> annotations) {
     Token name = consume(TokenKind.IDENTIFIER, "expected enum name");
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_BRACE, "expected '{' before enum body");
@@ -153,16 +265,20 @@ final class Parser {
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after enum body");
     match(TokenKind.SEMICOLON);
     return new Syntax.EnumDecl(
+        annotations,
         visibility,
         name.value(),
         name.span(),
         typeParameters,
         variants,
-        enumKeyword.span().cover(closing.span()));
+        coverAnnotations(annotations, enumKeyword.span().cover(closing.span())));
   }
 
   private Syntax.AggregateDecl parseAggregate(
-      Token keyword, Syntax.Visibility visibility, Syntax.AggregateKind kind) {
+      Token keyword,
+      Syntax.Visibility visibility,
+      Syntax.AggregateKind kind,
+      List<Syntax.AnnotationUse> annotations) {
     String declarationKind = kind.keyword();
     Token name = consume(TokenKind.IDENTIFIER, "expected " + declarationKind + " name");
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
@@ -175,6 +291,7 @@ final class Parser {
     List<Syntax.ConstructorDecl> constructors = new ArrayList<>();
     List<Syntax.FunctionDecl> methods = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      List<Syntax.AnnotationUse> memberAnnotations = parseAnnotationUses();
       boolean hasExplicitVisibility = check(TokenKind.PUBLIC) || check(TokenKind.PRIVATE);
       Syntax.Visibility memberVisibility = parseVisibility();
       SourceSpan visibilitySpan = hasExplicitVisibility ? previous().span() : null;
@@ -184,32 +301,36 @@ final class Parser {
         if (visibilitySpan != null) {
           diagnostics.error(EXPECTED_TOKEN, "constructor visibility is implicit", visibilitySpan);
         }
-        constructors.add(parseConstructor(name.value()));
+        constructors.add(parseConstructor(name.value(), memberAnnotations));
         continue;
       }
       if (looksLikeOmittedReturnFunction()) {
         Token memberName = consume(TokenKind.IDENTIFIER, "expected method name");
-        methods.add(parseFunctionRest(Optional.empty(), memberName, memberVisibility));
+        methods.add(
+            parseFunctionRest(Optional.empty(), memberName, memberVisibility, memberAnnotations));
         continue;
       }
       Syntax.TypeRef type = parseType();
       Token memberName = consume(TokenKind.IDENTIFIER, "expected field or method name");
       if (check(TokenKind.LEFT_PAREN) || check(TokenKind.LESS)) {
-        methods.add(parseFunctionRest(Optional.of(type), memberName, memberVisibility));
+        methods.add(
+            parseFunctionRest(Optional.of(type), memberName, memberVisibility, memberAnnotations));
       } else {
         match(TokenKind.SEMICOLON);
         fields.add(
             new Syntax.FieldDecl(
+                memberAnnotations,
                 memberVisibility,
                 type,
                 memberName.value(),
                 memberName.span(),
-                type.span().cover(memberName.span())));
+                coverAnnotations(memberAnnotations, type.span().cover(memberName.span()))));
       }
     }
     Token closing =
         consume(TokenKind.RIGHT_BRACE, "expected '}' after " + declarationKind + " body");
     return new Syntax.AggregateDecl(
+        annotations,
         kind,
         visibility,
         name.value(),
@@ -220,10 +341,11 @@ final class Parser {
         fields,
         constructors,
         methods,
-        keyword.span().cover(closing.span()));
+        coverAnnotations(annotations, keyword.span().cover(closing.span())));
   }
 
-  private Syntax.ConstructorDecl parseConstructor(String ownerName) {
+  private Syntax.ConstructorDecl parseConstructor(
+      String ownerName, List<Syntax.AnnotationUse> annotations) {
     Token name = consume(TokenKind.IDENTIFIER, "expected constructor name");
     consume(TokenKind.LEFT_PAREN, "expected '(' after constructor name");
     List<Syntax.Parameter> parameters = parseParameterList();
@@ -249,16 +371,19 @@ final class Parser {
     }
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after constructor body");
     return new Syntax.ConstructorDecl(
+        annotations,
         ownerName,
         name.span(),
         parameters,
         superCall,
         statements,
-        name.span().cover(opening.span()).cover(closing.span()));
+        coverAnnotations(annotations, name.span().cover(opening.span()).cover(closing.span())));
   }
 
   private Syntax.InterfaceDecl parseInterface(
-      Token interfaceKeyword, Syntax.Visibility visibility) {
+      Token interfaceKeyword,
+      Syntax.Visibility visibility,
+      List<Syntax.AnnotationUse> annotations) {
     Token name = consume(TokenKind.IDENTIFIER, "expected interface name");
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     List<Syntax.TypeRef> extendedInterfaces =
@@ -266,6 +391,7 @@ final class Parser {
     consume(TokenKind.LEFT_BRACE, "expected '{' before interface body");
     List<Syntax.InterfaceMethodDecl> methods = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      List<Syntax.AnnotationUse> methodAnnotations = parseAnnotationUses();
       if (match(TokenKind.PUBLIC, TokenKind.PRIVATE)) {
         diagnostics.error(
             EXPECTED_TOKEN, "interface method visibility is implicit", previous().span());
@@ -291,23 +417,25 @@ final class Parser {
       }
       methods.add(
           new Syntax.InterfaceMethodDecl(
+              methodAnnotations,
               returnType,
               methodName.value(),
               methodName.span(),
               methodTypeParameters,
               parameters,
               defaultBody,
-              span));
+              coverAnnotations(methodAnnotations, span)));
     }
     Token closing = consume(TokenKind.RIGHT_BRACE, "expected '}' after interface body");
     return new Syntax.InterfaceDecl(
+        annotations,
         visibility,
         name.value(),
         name.span(),
         typeParameters,
         extendedInterfaces,
         methods,
-        interfaceKeyword.span().cover(closing.span()));
+        coverAnnotations(annotations, interfaceKeyword.span().cover(closing.span())));
   }
 
   private List<Syntax.TypeRef> parseTypeList() {
@@ -318,24 +446,29 @@ final class Parser {
     return List.copyOf(types);
   }
 
-  private Syntax.FunctionDecl parseFunction(Syntax.Visibility visibility) {
+  private Syntax.FunctionDecl parseFunction(
+      Syntax.Visibility visibility, List<Syntax.AnnotationUse> annotations) {
     if (looksLikeOmittedReturnFunction()) {
       Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-      return parseFunctionRest(Optional.empty(), name, visibility);
+      return parseFunctionRest(Optional.empty(), name, visibility, annotations);
     }
     Syntax.TypeRef returnType = parseType();
     Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-    return parseFunctionRest(Optional.of(returnType), name, visibility);
+    return parseFunctionRest(Optional.of(returnType), name, visibility, annotations);
   }
 
   private Syntax.FunctionDecl parseFunctionRest(
-      Optional<Syntax.TypeRef> returnType, Token name, Syntax.Visibility visibility) {
+      Optional<Syntax.TypeRef> returnType,
+      Token name,
+      Syntax.Visibility visibility,
+      List<Syntax.AnnotationUse> annotations) {
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_PAREN, "expected '(' after function name");
     List<Syntax.Parameter> parameters = parseParameterList();
     consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
     Block block = parseBlock();
     return new Syntax.FunctionDecl(
+        annotations,
         visibility,
         returnType,
         name.value(),
@@ -343,7 +476,9 @@ final class Parser {
         typeParameters,
         parameters,
         block.statements(),
-        returnType.map(Syntax.TypeRef::span).orElse(name.span()).cover(block.span()));
+        coverAnnotations(
+            annotations,
+            returnType.map(Syntax.TypeRef::span).orElse(name.span()).cover(block.span())));
   }
 
   private boolean looksLikeOmittedReturnFunction() {
@@ -365,6 +500,7 @@ final class Parser {
     List<Syntax.Parameter> parameters = new ArrayList<>();
     if (!check(TokenKind.RIGHT_PAREN)) {
       do {
+        List<Syntax.AnnotationUse> annotations = parseAnnotationUses();
         Syntax.TypeRef type = parseType();
         Token parameterName = consume(TokenKind.IDENTIFIER, "expected parameter name");
         Optional<List<Syntax.Parameter>> callableParameters = Optional.empty();
@@ -381,6 +517,7 @@ final class Parser {
         }
         parameters.add(
             new Syntax.Parameter(
+                annotations,
                 type,
                 parameterName.value(),
                 parameterName.span(),
@@ -467,6 +604,12 @@ final class Parser {
   }
 
   private Syntax.Statement parseStatement() {
+    List<Syntax.AnnotationUse> annotations = parseAnnotationUses();
+    if (!annotations.isEmpty()) {
+      if (looksLikeCallableBinding()) return parseCallableBinding(annotations);
+      if (looksLikeVariableDeclaration()) return parseVariableDeclaration(annotations);
+      throw error(peek(), "annotation target must be a local declaration");
+    }
     if (match(TokenKind.IF)) {
       return parseIf(previous());
     }
@@ -501,10 +644,10 @@ final class Parser {
       return new Syntax.ContinueStatement(keyword.span());
     }
     if (looksLikeCallableBinding()) {
-      return parseCallableBinding();
+      return parseCallableBinding(List.of());
     }
     if (looksLikeVariableDeclaration()) {
-      return parseVariableDeclaration();
+      return parseVariableDeclaration(List.of());
     }
 
     Syntax.Expression expression = parseExpression();
@@ -523,7 +666,7 @@ final class Parser {
     return new Syntax.ExpressionStatement(expression, expression.span());
   }
 
-  private Syntax.Statement parseVariableDeclaration() {
+  private Syntax.Statement parseVariableDeclaration(List<Syntax.AnnotationUse> annotations) {
     Token start = peek();
     Optional<Syntax.TypeRef> type =
         match(TokenKind.VAR) ? Optional.empty() : Optional.of(parseType());
@@ -532,7 +675,13 @@ final class Parser {
     Syntax.Expression initializer = parseExpression();
     match(TokenKind.SEMICOLON);
     return new Syntax.VariableDecl(
-        type, name.value(), name.span(), initializer, start.span().cover(initializer.span()));
+        annotations,
+        type,
+        name.value(),
+        name.span(),
+        Optional.empty(),
+        initializer,
+        coverAnnotations(annotations, start.span().cover(initializer.span())));
   }
 
   private boolean looksLikeCallableBinding() {
@@ -555,7 +704,7 @@ final class Parser {
     return false;
   }
 
-  private Syntax.Statement parseCallableBinding() {
+  private Syntax.Statement parseCallableBinding(List<Syntax.AnnotationUse> annotations) {
     Token start = peek();
     Syntax.TypeRef returnType = parseType();
     Token name = consume(TokenKind.IDENTIFIER, "expected callable binding name");
@@ -571,12 +720,13 @@ final class Parser {
     Syntax.TypeRef functionType =
         new Syntax.TypeRef("Function", signature, false, returnType.span().cover(closing.span()));
     return new Syntax.VariableDecl(
+        annotations,
         Optional.of(functionType),
         name.value(),
         name.span(),
         Optional.of(parameters),
         initializer,
-        start.span().cover(initializer.span()));
+        coverAnnotations(annotations, start.span().cover(initializer.span())));
   }
 
   private Syntax.IfStatement parseIf(Token keyword) {
@@ -1204,6 +1354,9 @@ final class Parser {
       if (check(TokenKind.CLASS)
           || checkValueDeclarationKeyword()
           || check(TokenKind.ENUM)
+          || check(TokenKind.INTERFACE)
+          || checkAnnotationDeclarationKeyword()
+          || check(TokenKind.AT)
           || isTypeToken(peek().kind())) {
         return;
       }
@@ -1221,6 +1374,21 @@ final class Parser {
     if (!checkValueDeclarationKeyword()) return false;
     advance();
     return true;
+  }
+
+  private boolean matchAnnotationDeclarationKeyword() {
+    if (!checkAnnotationDeclarationKeyword()) return false;
+    advance();
+    return true;
+  }
+
+  private boolean checkAnnotationDeclarationKeyword() {
+    return checkContextual("annotation")
+        && current + 2 < tokens.size()
+        && tokens.get(current + 1).kind() == TokenKind.IDENTIFIER
+        && (tokens.get(current + 2).kind() == TokenKind.LESS
+            || tokens.get(current + 2).kind() == TokenKind.IDENTIFIER
+                && tokens.get(current + 2).value().equals("targets"));
   }
 
   private boolean checkValueDeclarationKeyword() {

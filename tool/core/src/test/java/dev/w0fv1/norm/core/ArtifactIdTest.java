@@ -13,6 +13,53 @@ import org.junit.jupiter.api.Test;
 
 final class ArtifactIdTest {
   @Test
+  void includesAnnotationMetadataValues() {
+    CoreArtifact first =
+        compile(
+            "annotation Label targets(type) retention(binary) { String text } "
+                + "@Label(text: \"first\") class Point {} Void main() {}");
+    CoreArtifact second =
+        compile(
+            "annotation Label targets(type) retention(binary) { String text } "
+                + "@Label(text: \"second\") class Point {} Void main() {}");
+
+    assertNotEquals(ArtifactId.forArtifact(first, "test"), ArtifactId.forArtifact(second, "test"));
+  }
+
+  @Test
+  void canonicalizesEveryAnnotationTargetVariantIndependentlyOfInputOrder() {
+    CoreArtifact original =
+        compile(
+            "@Marker() package sample "
+                + "annotation Marker targets(package, type, field, constructor, function, parameter, local) retention(binary) {} "
+                + "@Marker() class Box { @Marker() Integer value @Marker() Box(@Marker() Integer value) { this.value = value } } "
+                + "@Marker() Integer read(@Marker() Integer input) { @Marker() Integer copy = input return copy } "
+                + "Void main() {}");
+    List<CoreAnnotationApplication> reversed =
+        new java.util.ArrayList<>(original.metadata().annotations());
+    java.util.Collections.reverse(reversed);
+    CoreArtifact reordered =
+        new CoreArtifact(
+            original.program(),
+            original.namespace(),
+            original.authoring(),
+            new CoreMetadata(reversed));
+
+    assertEquals(
+        java.util.Set.of(
+            CoreAnnotationTarget.Package.class,
+            CoreAnnotationTarget.Definition.class,
+            CoreAnnotationTarget.Field.class,
+            CoreAnnotationTarget.Parameter.class,
+            CoreAnnotationTarget.Local.class),
+        original.metadata().annotations().stream()
+            .map(value -> value.target().getClass())
+            .collect(java.util.stream.Collectors.toSet()));
+    assertEquals(
+        ArtifactId.forArtifact(original, "test"), ArtifactId.forArtifact(reordered, "test"));
+  }
+
+  @Test
   void includesTheNamespaceDefinitionMapping() {
     CoreArtifact original =
         new CompilerSession()
@@ -46,7 +93,8 @@ final class ArtifactIdTest {
             .toList();
     CoreNamespace swappedNamespace = CoreNamespace.create(swappedBindings);
     CoreArtifact swapped =
-        new CoreArtifact(original.program(), swappedNamespace, original.authoring());
+        new CoreArtifact(
+            original.program(), swappedNamespace, original.authoring(), original.metadata());
 
     assertEquals(original.namespace().id(), swappedNamespace.id());
     assertNotEquals(
@@ -86,6 +134,7 @@ final class ArtifactIdTest {
                   return new CoreDefinitionOccurrence(
                       occurrence.id(),
                       occurrence.representedDefinitions(),
+                      occurrence.role(),
                       occurrence.origin(),
                       references);
                 })
@@ -94,9 +143,19 @@ final class ArtifactIdTest {
         new CoreArtifact(
             original.program(),
             original.namespace(),
-            new CoreAuthoringMap(reroutedOccurrences, original.entryPoint()));
+            new CoreAuthoringMap(reroutedOccurrences, original.entryPoint()),
+            original.metadata());
 
     assertNotEquals(
         ArtifactId.forArtifact(original, "test"), ArtifactId.forArtifact(rerouted, "test"));
+  }
+
+  private static CoreArtifact compile(String source) {
+    return new CompilerSession()
+        .compile(SourceFile.of(Path.of("artifact-annotations.norm"), source))
+        .program()
+        .orElseThrow()
+        .compilation()
+        .artifact();
   }
 }

@@ -34,6 +34,7 @@ public record CoreBinding(
           declared.valueCategory() == CoreValueCategory.VALUE
               ? CoreBindingKind.VALUE
               : CoreBindingKind.CLASS;
+      case CoreBindingShape.Annotation ignored -> CoreBindingKind.ANNOTATION;
       case CoreBindingShape.Enum ignored -> CoreBindingKind.ENUM;
       case CoreBindingShape.Interface ignored -> CoreBindingKind.INTERFACE;
       case CoreBindingShape.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;

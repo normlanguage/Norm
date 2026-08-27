@@ -14,6 +14,7 @@ import dev.w0fv1.norm.core.CoreCanonicalizer;
 import dev.w0fv1.norm.core.CoreCompilationDelta;
 import dev.w0fv1.norm.core.CoreDefinitionGroup;
 import dev.w0fv1.norm.core.CoreDependencyIndex;
+import dev.w0fv1.norm.core.CoreMetadata;
 import dev.w0fv1.norm.core.CoreNamespace;
 import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.DefinitionId;
@@ -80,6 +81,7 @@ final class CoreBuilder {
           new CoreAuthoringMap.Seed(
               canonical.definitionIds().get(declaration),
               canonical.definitionOrbits().get(declaration),
+              value.role(),
               value.origin(),
               value.referenceTargets()));
     }
@@ -104,7 +106,17 @@ final class CoreBuilder {
           .ifPresent(bindings::add);
     }
     CoreArtifact artifact =
-        new CoreArtifact(coreProgram, CoreNamespace.create(bindings), allocation.authoring());
+        new CoreArtifact(
+            coreProgram,
+            CoreNamespace.create(bindings),
+            allocation.authoring(),
+            new CoreMetadata(
+                converted.annotations().stream()
+                    .map(
+                        annotation ->
+                            annotation.resolve(
+                                canonical.definitionIds(), allocation.occurrenceIds()))
+                    .toList()));
     return new CompilationOutput(
         artifact,
         new CompilationState(

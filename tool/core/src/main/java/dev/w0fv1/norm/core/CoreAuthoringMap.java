@@ -90,7 +90,11 @@ public final class CoreAuthoringMap {
               });
       occurrences.add(
           new CoreDefinitionOccurrence(
-              ids.get(index), seed.representedDefinitions(), seed.origin(), references));
+              ids.get(index),
+              seed.representedDefinitions(),
+              seed.role(),
+              seed.origin(),
+              references));
     }
     List<DefinitionOccurrenceId> stableIds = List.copyOf(ids);
     return new Allocation(new CoreAuthoringMap(occurrences, stableIds.get(entryIndex)), stableIds);
@@ -175,6 +179,7 @@ public final class CoreAuthoringMap {
   public record Seed(
       DefinitionId representative,
       Set<DefinitionId> representedDefinitions,
+      CoreDefinitionRole role,
       CoreDefinitionOrigin origin,
       Map<Integer, Integer> referenceTargets) {
     public Seed {
@@ -183,6 +188,7 @@ public final class CoreAuthoringMap {
       if (!representedDefinitions.contains(representative)) {
         throw new IllegalArgumentException("occurrence representative is outside its orbit");
       }
+      Objects.requireNonNull(role, "role");
       Objects.requireNonNull(origin, "origin");
       referenceTargets = Map.copyOf(referenceTargets);
     }

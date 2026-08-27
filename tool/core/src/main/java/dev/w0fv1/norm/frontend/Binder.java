@@ -2,6 +2,11 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundAggregate;
 import dev.w0fv1.norm.bound.BoundAggregateId;
+import dev.w0fv1.norm.bound.BoundAnnotation;
+import dev.w0fv1.norm.bound.BoundAnnotationApplication;
+import dev.w0fv1.norm.bound.BoundAnnotationId;
+import dev.w0fv1.norm.bound.BoundAnnotationTarget;
+import dev.w0fv1.norm.bound.BoundAnnotationValue;
 import dev.w0fv1.norm.bound.BoundArgument;
 import dev.w0fv1.norm.bound.BoundBinaryOperator;
 import dev.w0fv1.norm.bound.BoundBlock;
@@ -62,6 +67,7 @@ final class Binder {
   private final SemanticModel semantics;
   private final BuiltinCatalog builtins = BuiltinCatalog.standard();
   private final Map<String, BoundAggregate> aggregates = new LinkedHashMap<>();
+  private final Map<String, BoundAnnotation> annotations = new LinkedHashMap<>();
   private final Map<String, BoundEnum> enums = new LinkedHashMap<>();
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
@@ -93,6 +99,7 @@ final class Binder {
                         program.packageName(),
                         program.enums().stream().map(this::enumId).toList(),
                         program.interfaces().stream().map(this::interfaceId).toList(),
+                        program.annotationDeclarations().stream().map(this::annotationId).toList(),
                         program.aggregates().stream().map(this::aggregateId).toList(),
                         sourceCallables(program)))
             .toList();
@@ -101,8 +108,10 @@ final class Binder {
         List.copyOf(enums.values()),
         List.copyOf(interfaces.values()),
         bindBuiltinConformances(),
+        List.copyOf(annotations.values()),
         List.copyOf(aggregates.values()),
         List.copyOf(callables.values()),
+        bindAnnotationApplications(),
         Optional.ofNullable(entryPoint).map(this::callableId));
   }
 
@@ -138,6 +147,45 @@ final class Binder {
                 bindEnumVariants(declaration),
                 declaration.span());
         enums.put(value.id().value(), value);
+      }
+      for (Syntax.AnnotationDecl declaration : program.annotationDeclarations()) {
+        Symbol symbol = symbol(declaration.nameSpan());
+        List<BoundField> boundFields = new ArrayList<>();
+        for (int ordinal = 0; ordinal < declaration.parameters().size(); ordinal++) {
+          Syntax.AnnotationParameter parameter = declaration.parameters().get(ordinal);
+          Symbol fieldSymbol = symbol(parameter.nameSpan());
+          BoundField field =
+              new BoundField(
+                  BoundFieldId.of(fieldSymbol.id()),
+                  parameter.name(),
+                  dev.w0fv1.norm.bound.BoundVisibility.PUBLIC,
+                  fieldSymbol.type(),
+                  ordinal);
+          fields.put(field.id().value(), field);
+          boundFields.add(field);
+        }
+        dev.w0fv1.norm.semantic.AnnotationSchema schema =
+            semantics.annotations().schema(symbol.id()).orElseThrow();
+        BoundAnnotation value =
+            new BoundAnnotation(
+                BoundAnnotationId.of(symbol.id()),
+                declaration.name(),
+                declaration.visibility() == Syntax.Visibility.PUBLIC
+                    ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
+                    : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
+                symbol.type(),
+                declaration.targets(),
+                declaration.retention(),
+                boundFields,
+                schema.parameters().stream()
+                    .map(
+                        parameter ->
+                            parameter
+                                .defaultValue()
+                                .map(item -> new BoundAnnotationValue(item.type(), item.value())))
+                    .toList(),
+                declaration.span());
+        annotations.put(value.id().value(), value);
       }
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         Symbol symbol = symbol(declaration.nameSpan());
@@ -195,6 +243,48 @@ final class Binder {
     }
   }
 
+  private List<BoundAnnotationApplication> bindAnnotationApplications() {
+    return semantics.annotations().applications().stream()
+        .map(
+            application ->
+                new BoundAnnotationApplication(
+                    BoundAnnotationId.of(application.annotation()),
+                    bindAnnotationTarget(application.target()),
+                    application.values().stream()
+                        .map(value -> new BoundAnnotationValue(value.type(), value.value()))
+                        .toList(),
+                    application.span()))
+        .toList();
+  }
+
+  private BoundAnnotationTarget bindAnnotationTarget(
+      dev.w0fv1.norm.semantic.AnnotationSite target) {
+    if (target instanceof dev.w0fv1.norm.semantic.AnnotationSite.Package site) {
+      return new BoundAnnotationTarget.Package(site.document(), site.packageName());
+    }
+    dev.w0fv1.norm.semantic.AnnotationSite.Symbol site =
+        (dev.w0fv1.norm.semantic.AnnotationSite.Symbol) target;
+    Symbol symbol = semantics.symbol(site.symbol()).orElseThrow();
+    return switch (site.kind()) {
+      case TYPE, CONSTRUCTOR, FUNCTION ->
+          new BoundAnnotationTarget.Definition(target.kind(), symbol.id().value());
+      case FIELD -> new BoundAnnotationTarget.Field(BoundFieldId.of(symbol.id()));
+      case PARAMETER -> {
+        Symbol owner = semantics.symbol(symbol.owner().orElseThrow()).orElseThrow();
+        int ordinal =
+            java.util.stream.IntStream.range(0, owner.parameters().size())
+                .filter(index -> owner.parameters().get(index).name().equals(symbol.name()))
+                .findFirst()
+                .orElseThrow();
+        yield new BoundAnnotationTarget.Parameter(owner.id().value(), ordinal);
+      }
+      case LOCAL ->
+          new BoundAnnotationTarget.Local(
+              BoundCallableId.of(symbol.owner().orElseThrow()), BoundLocalId.of(symbol.id()));
+      case PACKAGE -> throw new IllegalStateException("package annotation target is invalid");
+    };
+  }
+
   private void bindDefaultMethod(
       Syntax.InterfaceMethodDecl declaration, Syntax.InterfaceDecl owner) {
     Symbol requirement = symbol(declaration.nameSpan());
@@ -233,6 +323,7 @@ final class Binder {
         id.value(),
         new BoundCallable(
             id,
+            dev.w0fv1.norm.bound.BoundCallableKind.METHOD,
             declaration.name(),
             dev.w0fv1.norm.bound.BoundVisibility.PUBLIC,
             Optional.empty(),
@@ -299,12 +390,17 @@ final class Binder {
     BoundCallable bound =
         new BoundCallable(
             id,
+            owner == null
+                ? dev.w0fv1.norm.bound.BoundCallableKind.FUNCTION
+                : dev.w0fv1.norm.bound.BoundCallableKind.METHOD,
             declaration.name(),
             declaration.visibility() == Syntax.Visibility.PUBLIC
                 ? dev.w0fv1.norm.bound.BoundVisibility.PUBLIC
                 : dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
             Optional.ofNullable(ownerId),
+            Optional.ofNullable(thisType),
             Optional.ofNullable(thisLocal),
+            List.of(),
             parameters,
             activeTypeParameters,
             reified,
@@ -395,6 +491,7 @@ final class Binder {
         id.value(),
         new BoundCallable(
             id,
+            dev.w0fv1.norm.bound.BoundCallableKind.CONSTRUCTOR,
             owner.name(),
             dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
             Optional.of(aggregateId(owner)),
@@ -1208,6 +1305,7 @@ final class Binder {
         lambdaId.value(),
         new BoundCallable(
             lambdaId,
+            dev.w0fv1.norm.bound.BoundCallableKind.LAMBDA,
             "$lambda",
             dev.w0fv1.norm.bound.BoundVisibility.PRIVATE,
             Optional.empty(),
@@ -1369,6 +1467,10 @@ final class Binder {
 
   private BoundAggregateId aggregateId(Syntax.AggregateDecl declaration) {
     return BoundAggregateId.of(symbol(declaration.nameSpan()).id());
+  }
+
+  private BoundAnnotationId annotationId(Syntax.AnnotationDecl declaration) {
+    return BoundAnnotationId.of(symbol(declaration.nameSpan()).id());
   }
 
   private BoundInterfaceId interfaceId(Syntax.InterfaceDecl declaration) {

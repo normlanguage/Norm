@@ -28,6 +28,30 @@ final class SymbolPresentation {
         symbol.documentation());
   }
 
+  static Symbol annotation(dev.w0fv1.norm.semantic.SemanticModel model, Symbol symbol) {
+    return model
+        .annotations()
+        .schema(symbol.id())
+        .map(
+            schema ->
+                new Symbol(
+                    symbol.id(),
+                    symbol.name(),
+                    symbol.kind(),
+                    symbol.type(),
+                    symbol.declaration(),
+                    symbol.owner(),
+                    symbol.typeParameters(),
+                    schema.parameters().stream()
+                        .map(
+                            parameter ->
+                                new dev.w0fv1.norm.semantic.ParameterInfo(
+                                    parameter.name(), parameter.type()))
+                        .toList(),
+                    symbol.documentation()))
+        .orElse(symbol);
+  }
+
   static String signature(Symbol symbol) {
     String typeParameters =
         symbol.typeParameters().isEmpty()

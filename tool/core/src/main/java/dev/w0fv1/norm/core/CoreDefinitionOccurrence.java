@@ -9,6 +9,7 @@ import java.util.TreeSet;
 public record CoreDefinitionOccurrence(
     DefinitionOccurrenceId id,
     Set<DefinitionId> representedDefinitions,
+    CoreDefinitionRole role,
     CoreDefinitionOrigin origin,
     Map<Integer, DefinitionOccurrenceId> references) {
   public CoreDefinitionOccurrence {
@@ -20,6 +21,7 @@ public record CoreDefinitionOccurrence(
     if (!representedDefinitions.contains(id.representative())) {
       throw new IllegalArgumentException("occurrence representative is outside its orbit");
     }
+    Objects.requireNonNull(role, "role");
     Objects.requireNonNull(origin, "origin");
     Map<Integer, DefinitionOccurrenceId> stableReferences = new LinkedHashMap<>();
     Objects.requireNonNull(references, "references").entrySet().stream()

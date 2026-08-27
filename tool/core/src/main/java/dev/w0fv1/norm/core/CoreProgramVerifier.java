@@ -41,6 +41,7 @@ final class CoreProgramVerifier {
     }
     for (CoreDefinitionRecord record : program.definitions()) {
       switch (record.definition()) {
+        case CoreDefinition.Annotation annotation -> verifyAnnotation(record.id(), annotation);
         case CoreDefinition.Callable callable -> verifyCallable(record.id(), callable);
         case CoreDefinition.Aggregate declaration -> verifyAggregate(record.id(), declaration);
         case CoreDefinition.Enum declaration -> verifyEnum(record.id(), declaration);
@@ -51,6 +52,10 @@ final class CoreProgramVerifier {
       }
     }
     verifyBuiltinDispatchUniqueness();
+  }
+
+  private void verifyAnnotation(DefinitionId id, CoreDefinition.Annotation annotation) {
+    CoreAnnotationVerifier.verifySchema(program, id, annotation);
   }
 
   private void verifyBuiltinDispatchUniqueness() {
@@ -914,6 +919,13 @@ final class CoreProgramVerifier {
           verifyExpression(owner, callable, assignment.receiver());
           verifyExpression(owner, callable, assignment.value());
           requireNonNullableReceiver(owner, assignment.receiver().type(), "field assignment");
+          CoreType receiverType = nonNullable(absolute(owner, assignment.receiver().type()));
+          if (receiverType instanceof CoreType.Declared declared
+              && declared.constructor() instanceof CoreTypeConstructor.User user
+              && program.definition(resolve(owner, user.definition())).orElse(null)
+                  instanceof CoreDefinition.Annotation) {
+            throw new IllegalArgumentException("annotation fields cannot be assigned");
+          }
           CoreType fieldType =
               instantiatedFieldType(owner, assignment.receiver().type(), assignment.field());
           requireAssignable(owner, fieldType, owner, assignment.value().type(), "field assignment");
@@ -1417,6 +1429,15 @@ final class CoreProgramVerifier {
             .anyMatch(candidate -> matchesIntrinsic(owner, intrinsic, candidate));
     if (!valid) {
       throw new IllegalArgumentException("intrinsic expression does not match its builtin ABI");
+    }
+    if (intrinsic.intrinsic() == dev.w0fv1.norm.builtin.IntrinsicId.TYPE_ANNOTATION) {
+      CoreType annotationType = nonNullable(absolute(owner, intrinsic.type()));
+      if (!(annotationType instanceof CoreType.Declared declared)
+          || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+          || !(program.definition(resolve(owner, user.definition())).orElse(null)
+              instanceof CoreDefinition.Annotation)) {
+        throw new IllegalArgumentException("Type.annotation result must name an annotation");
+      }
     }
   }
 
@@ -2253,15 +2274,28 @@ final class CoreProgramVerifier {
       DefinitionId owner, CoreType receiverType, CoreFieldReference reference) {
     DefinitionId targetId = resolve(owner, reference.owner());
     CoreDefinition targetDefinition = program.definition(targetId).orElseThrow();
-    if (!(targetDefinition instanceof CoreDefinition.Aggregate target)) {
-      throw new IllegalArgumentException("field owner or ordinal is invalid");
-    }
+    List<CoreField> fields =
+        switch (targetDefinition) {
+          case CoreDefinition.Annotation annotation -> annotation.fields();
+          case CoreDefinition.Aggregate aggregate -> aggregate.fields();
+          default -> throw new IllegalArgumentException("field owner or ordinal is invalid");
+        };
     CoreField field =
-        target.fields().stream()
+        fields.stream()
             .filter(candidate -> candidate.ordinal() == reference.ordinal())
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("field owner or ordinal is invalid"));
     CoreType receiver = nonNullable(absolute(owner, receiverType));
+    if (targetDefinition instanceof CoreDefinition.Annotation) {
+      if (!(receiver instanceof CoreType.Declared declared)
+          || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+          || !resolveExternal(user.definition()).equals(targetId)
+          || !declared.arguments().isEmpty()) {
+        throw new IllegalArgumentException("field receiver does not match its owner");
+      }
+      return absolute(targetId, field.type());
+    }
+    CoreDefinition.Aggregate target = (CoreDefinition.Aggregate) targetDefinition;
     CoreType.Declared declared = aggregateView(receiver, targetId);
     if (declared == null || declared.arguments().size() != target.typeParameters().size()) {
       throw new IllegalArgumentException("field receiver does not match its owner");
@@ -2439,7 +2473,10 @@ final class CoreProgramVerifier {
     CoreDefinition target = program.definition(targetId).orElseThrow();
     int arity;
     CoreValueCategory category;
-    if (target instanceof CoreDefinition.Aggregate declaration) {
+    if (target instanceof CoreDefinition.Annotation) {
+      arity = 0;
+      category = CoreValueCategory.VALUE;
+    } else if (target instanceof CoreDefinition.Aggregate declaration) {
       arity = declaration.typeParameters().size();
       category = declaration.valueCategory();
     } else if (target instanceof CoreDefinition.Enum declaration) {
@@ -2466,6 +2503,7 @@ final class CoreProgramVerifier {
     }
     List<CoreTypeParameter> parameters =
         switch (target) {
+          case CoreDefinition.Annotation ignored -> List.of();
           case CoreDefinition.Aggregate declaration -> declaration.typeParameters();
           case CoreDefinition.Enum declaration -> declaration.typeParameters();
           case CoreDefinition.Interface declaration -> declaration.typeParameters();

@@ -42,6 +42,9 @@ final class CompletionContextResolverTest {
     assertContext(
         "interface Named {} T read<T extends Named, |U>(T value) { return value }",
         CompletionContext.TypeArgument.class);
+    assertContext(
+        "annotation Marker targets(type) retention(runtime) {} @Mar| value Point {}",
+        CompletionContext.Annotation.class);
     assertContext("Void main() { printLine(\"text |\") }", CompletionContext.None.class);
     assertContext("Void main() { // comment |\n printLine(1) }", CompletionContext.None.class);
   }

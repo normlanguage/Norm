@@ -509,6 +509,10 @@ final class BoundCoreBodyConverter {
       return nodeSpans;
     }
 
+    Map<BoundLocalId, Integer> localIndices() {
+      return localIndices;
+    }
+
     Map<Integer, Integer> referenceTargets() {
       return referenceTargets;
     }

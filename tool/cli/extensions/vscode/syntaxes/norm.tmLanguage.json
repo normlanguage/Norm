@@ -7,6 +7,7 @@
     { "include": "#codePoints" },
     { "include": "#numbers" },
     { "include": "#modifiers" },
+    { "include": "#annotations" },
     { "include": "#declarations" },
     { "include": "#generics" },
     { "include": "#typeParameters" },
@@ -50,7 +51,7 @@
     },
     "types": {
       "name": "support.type.norm",
-      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Function|Module|Exception)\\b"
+      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Function|Module|Exception|Type)\\b"
     },
     "typeParameters": {
       "name": "entity.name.type.parameter.norm",
@@ -77,11 +78,23 @@
             { "name": "punctuation.separator.comma.norm", "match": "," }
           ]
         }
+        ,
+        {
+          "match": "\\b(annotation)\\s+([A-Za-z_][A-Za-z0-9_]*)(?=\\s+targets\\s*\\()",
+          "captures": {
+            "1": { "name": "storage.type.norm" },
+            "2": { "name": "entity.name.type.norm" }
+          }
+        }
       ]
     },
     "modifiers": {
       "name": "storage.modifier.norm",
       "match": "\\b(?:public|private)\\b"
+    },
+    "annotations": {
+      "name": "meta.annotation.norm",
+      "match": "@[A-Za-z_][A-Za-z0-9_]*"
     },
     "keywords": {
       "name": "keyword.control.norm",

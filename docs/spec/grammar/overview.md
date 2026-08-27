@@ -16,7 +16,7 @@ A | B        二选一
 ## 源文件
 
 ```text
-SourceFile := PackageDeclaration? Import* Declaration*
+SourceFile := (AnnotationUse* PackageDeclaration)? Import* Declaration*
 ```
 
 package 位于文件开头，import 位于其他声明之前。没有 package 的文件是单文件脚本。源码顶层允许类型、函数和编译期常量，不允许任意执行语句。模块根 package 目录中的 `module.norm` 也使用 `SourceFile` 语法，并通过 `Module module()` 产生模块定义。

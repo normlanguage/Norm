@@ -10,6 +10,17 @@ final class CoreRewriter {
       CoreDefinition definition,
       Function<PendingDefinitionReference, DefinitionReference> resolver) {
     return switch (definition) {
+      case CoreDefinition.Annotation annotation ->
+          new CoreDefinition.Annotation(
+              annotation.nominalType(),
+              annotation.targets(),
+              annotation.retention(),
+              annotation.fields().stream()
+                  .map(field -> new CoreField(field.ordinal(), resolve(field.type(), resolver)))
+                  .toList(),
+              annotation.defaults().stream()
+                  .map(value -> value.map(item -> resolve(item, resolver)))
+                  .toList());
       case CoreDefinition.Callable callable ->
           new CoreDefinition.Callable(
               callable.receiverType().map(type -> resolve(type, resolver)),
@@ -96,6 +107,12 @@ final class CoreRewriter {
                               }))
                   .toList());
     };
+  }
+
+  private static CoreAnnotationValue resolve(
+      CoreAnnotationValue value,
+      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return new CoreAnnotationValue(resolve(value.type(), resolver), value.value());
   }
 
   private static CoreBlock resolve(

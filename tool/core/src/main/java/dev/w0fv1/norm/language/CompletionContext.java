@@ -11,6 +11,8 @@ public sealed interface CompletionContext {
 
   record InterfaceType() implements CompletionContext {}
 
+  record Annotation() implements CompletionContext {}
+
   record Statement() implements CompletionContext {}
 
   record Expression() implements CompletionContext {}

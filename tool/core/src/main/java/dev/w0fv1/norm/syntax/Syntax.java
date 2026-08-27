@@ -1,5 +1,7 @@
 package dev.w0fv1.norm.syntax;
 
+import dev.w0fv1.norm.value.AnnotationRetention;
+import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
 import java.util.Objects;
@@ -10,20 +12,77 @@ public final class Syntax {
 
   public record Program(
       String packageName,
+      List<AnnotationUse> packageAnnotations,
       List<ImportDecl> imports,
       List<EnumDecl> enums,
       List<InterfaceDecl> interfaces,
+      List<AnnotationDecl> annotationDeclarations,
       List<AggregateDecl> aggregates,
       List<FunctionDecl> functions,
       SourceSpan span)
       implements AstNode {
     public Program {
       Objects.requireNonNull(packageName, "packageName");
+      packageAnnotations = List.copyOf(packageAnnotations);
       imports = List.copyOf(imports);
       enums = List.copyOf(enums);
       interfaces = List.copyOf(interfaces);
+      annotationDeclarations = List.copyOf(annotationDeclarations);
       aggregates = List.copyOf(aggregates);
       functions = List.copyOf(functions);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record AnnotationUse(
+      String name, SourceSpan nameSpan, List<CallArgument> arguments, SourceSpan span)
+      implements AstNode {
+    public AnnotationUse {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      arguments = List.copyOf(arguments);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record AnnotationParameter(
+      List<AnnotationUse> annotations,
+      TypeRef type,
+      String name,
+      SourceSpan nameSpan,
+      Optional<Expression> defaultValue,
+      SourceSpan span)
+      implements AstNode {
+    public AnnotationParameter {
+      annotations = List.copyOf(annotations);
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record AnnotationDecl(
+      List<AnnotationUse> annotations,
+      Visibility visibility,
+      String name,
+      SourceSpan nameSpan,
+      java.util.Set<AnnotationTarget> targets,
+      AnnotationRetention retention,
+      List<AnnotationParameter> parameters,
+      SourceSpan span)
+      implements AstNode {
+    public AnnotationDecl {
+      annotations = List.copyOf(annotations);
+      Objects.requireNonNull(visibility, "visibility");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(nameSpan, "nameSpan");
+      targets = java.util.Set.copyOf(targets);
+      if (targets.isEmpty())
+        throw new IllegalArgumentException("annotation targets must not be empty");
+      Objects.requireNonNull(retention, "retention");
+      parameters = List.copyOf(parameters);
       Objects.requireNonNull(span, "span");
     }
   }
@@ -84,6 +143,7 @@ public final class Syntax {
   }
 
   public record EnumDecl(
+      List<AnnotationUse> annotations,
       Visibility visibility,
       String name,
       SourceSpan nameSpan,
@@ -92,6 +152,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public EnumDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);
@@ -144,6 +205,7 @@ public final class Syntax {
   }
 
   public record InterfaceMethodDecl(
+      List<AnnotationUse> annotations,
       TypeRef returnType,
       String name,
       SourceSpan nameSpan,
@@ -153,6 +215,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public InterfaceMethodDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(returnType, "returnType");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -169,11 +232,20 @@ public final class Syntax {
         List<TypeParameter> typeParameters,
         List<Parameter> parameters,
         SourceSpan span) {
-      this(returnType, name, nameSpan, typeParameters, parameters, Optional.empty(), span);
+      this(
+          List.of(),
+          returnType,
+          name,
+          nameSpan,
+          typeParameters,
+          parameters,
+          Optional.empty(),
+          span);
     }
   }
 
   public record InterfaceDecl(
+      List<AnnotationUse> annotations,
       Visibility visibility,
       String name,
       SourceSpan nameSpan,
@@ -183,6 +255,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public InterfaceDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(visibility, "visibility");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -194,6 +267,7 @@ public final class Syntax {
   }
 
   public record Parameter(
+      List<AnnotationUse> annotations,
       TypeRef type,
       String name,
       SourceSpan nameSpan,
@@ -201,6 +275,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public Parameter {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -210,14 +285,20 @@ public final class Syntax {
     }
 
     public Parameter(TypeRef type, String name, SourceSpan nameSpan, SourceSpan span) {
-      this(type, name, nameSpan, Optional.empty(), span);
+      this(List.of(), type, name, nameSpan, Optional.empty(), span);
     }
   }
 
   public record FieldDecl(
-      Visibility visibility, TypeRef type, String name, SourceSpan nameSpan, SourceSpan span)
+      List<AnnotationUse> annotations,
+      Visibility visibility,
+      TypeRef type,
+      String name,
+      SourceSpan nameSpan,
+      SourceSpan span)
       implements AstNode {
     public FieldDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(visibility, "visibility");
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
@@ -227,6 +308,7 @@ public final class Syntax {
   }
 
   public record FunctionDecl(
+      List<AnnotationUse> annotations,
       Visibility visibility,
       Optional<TypeRef> returnType,
       String name,
@@ -237,6 +319,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public FunctionDecl {
+      annotations = List.copyOf(annotations);
       returnType = Objects.requireNonNull(returnType, "returnType");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -248,6 +331,7 @@ public final class Syntax {
   }
 
   public record ConstructorDecl(
+      List<AnnotationUse> annotations,
       String name,
       SourceSpan nameSpan,
       List<Parameter> parameters,
@@ -256,6 +340,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public ConstructorDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       parameters = List.copyOf(parameters);
@@ -273,6 +358,7 @@ public final class Syntax {
   }
 
   public record AggregateDecl(
+      List<AnnotationUse> annotations,
       AggregateKind kind,
       Visibility visibility,
       String name,
@@ -286,6 +372,7 @@ public final class Syntax {
       SourceSpan span)
       implements AstNode {
     public AggregateDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -313,6 +400,7 @@ public final class Syntax {
           ContinueStatement {}
 
   public record VariableDecl(
+      List<AnnotationUse> annotations,
       Optional<TypeRef> type,
       String name,
       SourceSpan nameSpan,
@@ -321,6 +409,7 @@ public final class Syntax {
       SourceSpan span)
       implements Statement {
     public VariableDecl {
+      annotations = List.copyOf(annotations);
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -336,7 +425,7 @@ public final class Syntax {
         SourceSpan nameSpan,
         Expression initializer,
         SourceSpan span) {
-      this(type, name, nameSpan, Optional.empty(), initializer, span);
+      this(List.of(), type, name, nameSpan, Optional.empty(), initializer, span);
     }
   }
 

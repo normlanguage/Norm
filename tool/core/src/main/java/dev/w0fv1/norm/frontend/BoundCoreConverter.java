@@ -1,6 +1,10 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundAggregate;
+import dev.w0fv1.norm.bound.BoundAnnotation;
+import dev.w0fv1.norm.bound.BoundAnnotationApplication;
+import dev.w0fv1.norm.bound.BoundAnnotationTarget;
+import dev.w0fv1.norm.bound.BoundAnnotationValue;
 import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundConformance;
@@ -11,11 +15,15 @@ import dev.w0fv1.norm.bound.BoundProgram;
 import dev.w0fv1.norm.bound.BoundSource;
 import dev.w0fv1.norm.bound.BoundTypeParameter;
 import dev.w0fv1.norm.bound.BoundWitness;
+import dev.w0fv1.norm.core.CoreAnnotationApplication;
+import dev.w0fv1.norm.core.CoreAnnotationTarget;
+import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreBinding;
 import dev.w0fv1.norm.core.CoreBindingShape;
 import dev.w0fv1.norm.core.CoreConformance;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreDefinitionOrigin;
+import dev.w0fv1.norm.core.CoreDefinitionRole;
 import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
@@ -49,8 +57,12 @@ final class BoundCoreConverter {
   private final Map<String, Integer> nominalTypeIndices = new LinkedHashMap<>();
   private final Map<String, SourceOwner> sourceOwners = new LinkedHashMap<>();
   private final Map<String, BoundAggregate> aggregates = new LinkedHashMap<>();
+  private final Map<String, BoundAnnotation> annotations = new LinkedHashMap<>();
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOwnerIndices = new LinkedHashMap<>();
+  private final Map<String, Integer> fieldOrdinals = new LinkedHashMap<>();
+  private final Map<String, Map<dev.w0fv1.norm.bound.BoundLocalId, Integer>> callableLocals =
+      new LinkedHashMap<>();
 
   BoundCoreConverter(
       BoundProgram program, Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates) {
@@ -67,11 +79,13 @@ final class BoundCoreConverter {
       value.methods().forEach(method -> declarations.add(convert(value, method)));
     }
     program.builtinConformances().forEach(value -> declarations.add(convert(value)));
+    program.annotations().forEach(value -> declarations.add(convert(value)));
     program.aggregates().forEach(value -> declarations.add(convert(value)));
     program.callables().forEach(value -> declarations.add(convert(value)));
     Optional<Integer> entryPointIndex =
         program.entryPoint().map(entry -> declarationIndex(entry.value()));
-    return new Result(declarations, entryPointIndex);
+    List<AnnotationSeed> metadata = coreApplications().stream().map(this::annotationSeed).toList();
+    return new Result(declarations, metadata, entryPointIndex);
   }
 
   private void indexDeclarations() {
@@ -89,12 +103,31 @@ final class BoundCoreConverter {
       }
     }
     index += program.builtinConformances().size();
+    for (BoundAnnotation value : program.annotations()) {
+      int declaration = index++;
+      declarationIndices.put(value.id().value(), declaration);
+      nominalTypeIndices.put(value.type().identity(), declaration);
+      annotations.put(value.id().value(), value);
+      value
+          .fields()
+          .forEach(
+              field -> {
+                fieldOwnerIndices.put(field.id().value(), declaration);
+                fieldOrdinals.put(field.id().value(), field.ordinal());
+              });
+    }
     for (BoundAggregate value : program.aggregates()) {
       int declaration = index++;
       declarationIndices.put(value.id().value(), declaration);
       nominalTypeIndices.put(value.type().identity(), declaration);
       aggregates.put(value.id().value(), value);
-      value.fields().forEach(field -> fieldOwnerIndices.put(field.id().value(), declaration));
+      value
+          .fields()
+          .forEach(
+              field -> {
+                fieldOwnerIndices.put(field.id().value(), declaration);
+                fieldOrdinals.put(field.id().value(), field.ordinal());
+              });
     }
     for (BoundCallable value : program.callables()) {
       declarationIndices.put(value.id().value(), index++);
@@ -121,8 +154,97 @@ final class BoundCoreConverter {
                     .forEach(method -> sourceOwners.put(method.id().value(), owner));
               });
       source.aggregates().forEach(value -> sourceOwners.put(value.value(), owner));
+      source.annotations().forEach(value -> sourceOwners.put(value.value(), owner));
       source.callables().forEach(value -> sourceOwners.put(value.value(), owner));
     }
+  }
+
+  private List<BoundAnnotationApplication> coreApplications() {
+    return program.annotationApplications().stream()
+        .filter(
+            application ->
+                annotations.get(application.annotation().value()).retention()
+                    != dev.w0fv1.norm.value.AnnotationRetention.SOURCE)
+        .toList();
+  }
+
+  private Declaration convert(BoundAnnotation declaration) {
+    SourceOwner source = sourceOwner(declaration.id().value());
+    BoundCoreTypeConverter types =
+        BoundCoreTypeConverter.forAnnotation(declaration, nominalTypeIndices);
+    List<Optional<CoreAnnotationValue>> defaults =
+        declaration.defaults().stream()
+            .map(value -> value.map(item -> annotationValue(item, types)))
+            .toList();
+    CoreDefinition definition =
+        new CoreDefinition.Annotation(
+            nominalType(source, declaration.name(), visibility(declaration.visibility())),
+            declaration.targets(),
+            declaration.retention(),
+            declaration.fields().stream()
+                .map(field -> new CoreField(field.ordinal(), types.convert(field.type())))
+                .toList(),
+            defaults);
+    return new Declaration(
+        definition,
+        origin(declaration.name(), declaration.span(), Map.of(0, declaration.span())),
+        Map.of(),
+        new BindingSeed(
+            source,
+            Optional.empty(),
+            declaration.name(),
+            visibility(declaration.visibility()),
+            new CoreBindingShape.Annotation(
+                declaration.targets(),
+                declaration.retention(),
+                declaration.fields().stream()
+                    .map(
+                        field ->
+                            new CoreBindingShape.Field(
+                                field.name(), CoreVisibility.PUBLIC, types.convert(field.type())))
+                    .toList(),
+                defaults),
+            true));
+  }
+
+  private AnnotationSeed annotationSeed(BoundAnnotationApplication application) {
+    BoundCoreTypeConverter types = BoundCoreTypeConverter.forMetadata(nominalTypeIndices);
+    return new AnnotationSeed(
+        declarationIndex(application.annotation().value()),
+        annotationTarget(application.target()),
+        application.values().stream().map(value -> annotationValue(value, types)).toList());
+  }
+
+  private PendingAnnotationTarget annotationTarget(BoundAnnotationTarget target) {
+    return switch (target) {
+      case BoundAnnotationTarget.Package value -> {
+        ModuleSourceCoordinate coordinate = sourceCoordinates.get(value.document());
+        if (coordinate == null) throw new IllegalStateException("annotation source is absent");
+        yield new PendingAnnotationTarget.Package(coordinate.module(), value.packageName());
+      }
+      case BoundAnnotationTarget.Definition value ->
+          new PendingAnnotationTarget.Definition(value.kind(), declarationIndex(value.id()));
+      case BoundAnnotationTarget.Field value ->
+          new PendingAnnotationTarget.Field(
+              fieldOwnerIndex(value.field().value()), fieldOrdinal(value.field().value()));
+      case BoundAnnotationTarget.Parameter value ->
+          new PendingAnnotationTarget.Parameter(declarationIndex(value.owner()), value.ordinal());
+      case BoundAnnotationTarget.Local value ->
+          new PendingAnnotationTarget.Local(
+              declarationIndex(value.owner().value()),
+              localIndex(value.owner().value(), value.local()));
+    };
+  }
+
+  private CoreAnnotationValue annotationValue(
+      BoundAnnotationValue value, BoundCoreTypeConverter types) {
+    Object materialized = value.value();
+    if (materialized instanceof java.math.BigInteger integer) {
+      materialized = dev.w0fv1.norm.semantic.NumericTypes.materialize(integer, value.type());
+    } else if (materialized instanceof java.math.BigDecimal decimal) {
+      materialized = dev.w0fv1.norm.semantic.NumericTypes.materialize(decimal, value.type());
+    }
+    return new CoreAnnotationValue(types.convert(value.type()), materialized);
   }
 
   private Declaration convert(BoundInterface declaration) {
@@ -366,6 +488,7 @@ final class BoundCoreConverter {
         new BoundCoreBodyConverter(
                 types, receiverType, this::declarationIndex, this::fieldOwnerIndex)
             .convert(declaration);
+    callableLocals.put(declaration.id().value(), body.localIndices());
     CoreDefinition definition =
         new CoreDefinition.Callable(
             receiverType,
@@ -384,12 +507,27 @@ final class BoundCoreConverter {
             types.convert(declaration.returnType()),
             body.locals(),
             body.body());
-    Optional<String> ownerName = owner.map(BoundAggregate::name);
+    Optional<String> ownerName =
+        owner
+            .map(BoundAggregate::name)
+            .or(
+                () ->
+                    declaration.kind() == dev.w0fv1.norm.bound.BoundCallableKind.METHOD
+                        ? declaration.receiverType().map(SemanticType::name)
+                        : Optional.empty());
+    CoreDefinitionRole role =
+        switch (declaration.kind()) {
+          case CONSTRUCTOR -> CoreDefinitionRole.CONSTRUCTOR;
+          case FUNCTION -> CoreDefinitionRole.FUNCTION;
+          case METHOD -> CoreDefinitionRole.METHOD;
+          case LAMBDA -> CoreDefinitionRole.LAMBDA;
+        };
     return new Declaration(
         definition,
         origin(declaration.name(), declaration.span(), body.nodeSpans()),
         body.referenceTargets(),
-        declaration.name().equals("$lambda") || declaration.receiverType().isPresent()
+        declaration.kind() == dev.w0fv1.norm.bound.BoundCallableKind.CONSTRUCTOR
+                || declaration.kind() == dev.w0fv1.norm.bound.BoundCallableKind.LAMBDA
             ? Optional.empty()
             : Optional.of(
                 new BindingSeed(
@@ -410,7 +548,8 @@ final class BoundCoreConverter {
                         .map(
                             value ->
                                 value.visibility() == dev.w0fv1.norm.bound.BoundVisibility.PUBLIC)
-                        .orElse(true))));
+                        .orElse(true))),
+        role);
   }
 
   private int declarationIndex(String declaration) {
@@ -424,6 +563,20 @@ final class BoundCoreConverter {
     Integer index = fieldOwnerIndices.get(field);
     if (index == null) throw new IllegalStateException("core field owner is absent: " + field);
     return index;
+  }
+
+  private int fieldOrdinal(String field) {
+    Integer ordinal = fieldOrdinals.get(field);
+    if (ordinal == null) throw new IllegalStateException("core field is absent: " + field);
+    return ordinal;
+  }
+
+  private int localIndex(String callable, dev.w0fv1.norm.bound.BoundLocalId local) {
+    Map<dev.w0fv1.norm.bound.BoundLocalId, Integer> locals = callableLocals.get(callable);
+    if (locals == null || !locals.containsKey(local)) {
+      throw new IllegalStateException("core local is absent: " + local);
+    }
+    return locals.get(local);
   }
 
   private SourceOwner sourceOwner(String declaration) {
@@ -499,10 +652,95 @@ final class BoundCoreConverter {
         .toList();
   }
 
-  record Result(List<Declaration> declarations, Optional<Integer> entryPointIndex) {
+  record Result(
+      List<Declaration> declarations,
+      List<AnnotationSeed> annotations,
+      Optional<Integer> entryPointIndex) {
     Result {
       declarations = List.copyOf(declarations);
+      annotations = List.copyOf(annotations);
       entryPointIndex = Objects.requireNonNull(entryPointIndex, "entryPointIndex");
+    }
+  }
+
+  record AnnotationSeed(
+      int annotationDeclaration, PendingAnnotationTarget target, List<CoreAnnotationValue> values) {
+    AnnotationSeed {
+      if (annotationDeclaration < 0) {
+        throw new IllegalArgumentException("annotation declaration index must not be negative");
+      }
+      Objects.requireNonNull(target, "target");
+      values = List.copyOf(values);
+    }
+
+    CoreAnnotationApplication resolve(
+        Map<Integer, dev.w0fv1.norm.core.DefinitionId> definitions,
+        List<DefinitionOccurrenceId> occurrences) {
+      java.util.function.Function<
+              dev.w0fv1.norm.core.CoreDefinitionLink, dev.w0fv1.norm.core.CoreDefinitionLink>
+          links =
+              link -> {
+                if (link instanceof PendingDefinitionReference pending) {
+                  return new DefinitionReference.External(
+                      definitions.get(pending.declarationIndex()));
+                }
+                return link;
+              };
+      return new CoreAnnotationApplication(
+          definitions.get(annotationDeclaration),
+          target.resolve(occurrences),
+          values.stream()
+              .map(
+                  value ->
+                      new CoreAnnotationValue(
+                          CoreTypes.mapLinks(value.type(), links), value.value()))
+              .toList());
+    }
+  }
+
+  sealed interface PendingAnnotationTarget
+      permits PendingAnnotationTarget.Package,
+          PendingAnnotationTarget.Definition,
+          PendingAnnotationTarget.Field,
+          PendingAnnotationTarget.Parameter,
+          PendingAnnotationTarget.Local {
+    CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences);
+
+    record Package(dev.w0fv1.norm.value.ModuleCoordinate module, String packageName)
+        implements PendingAnnotationTarget {
+      @Override
+      public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
+        return new CoreAnnotationTarget.Package(module, packageName);
+      }
+    }
+
+    record Definition(dev.w0fv1.norm.value.AnnotationTarget kind, int declaration)
+        implements PendingAnnotationTarget {
+      @Override
+      public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
+        return new CoreAnnotationTarget.Definition(kind, occurrences.get(declaration));
+      }
+    }
+
+    record Field(int owner, int ordinal) implements PendingAnnotationTarget {
+      @Override
+      public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
+        return new CoreAnnotationTarget.Field(occurrences.get(owner), ordinal);
+      }
+    }
+
+    record Parameter(int callable, int index) implements PendingAnnotationTarget {
+      @Override
+      public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
+        return new CoreAnnotationTarget.Parameter(occurrences.get(callable), index);
+      }
+    }
+
+    record Local(int callable, int index) implements PendingAnnotationTarget {
+      @Override
+      public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
+        return new CoreAnnotationTarget.Local(occurrences.get(callable), index);
+      }
     }
   }
 
@@ -511,6 +749,7 @@ final class BoundCoreConverter {
     private final CoreDefinitionOrigin origin;
     private final Map<Integer, Integer> referenceTargets;
     private final Optional<BindingSeed> binding;
+    private final CoreDefinitionRole role;
 
     private Declaration(
         CoreDefinition definition,
@@ -525,10 +764,20 @@ final class BoundCoreConverter {
         CoreDefinitionOrigin origin,
         Map<Integer, Integer> referenceTargets,
         Optional<BindingSeed> binding) {
+      this(definition, origin, referenceTargets, binding, role(definition));
+    }
+
+    private Declaration(
+        CoreDefinition definition,
+        CoreDefinitionOrigin origin,
+        Map<Integer, Integer> referenceTargets,
+        Optional<BindingSeed> binding,
+        CoreDefinitionRole role) {
       this.definition = Objects.requireNonNull(definition, "definition");
       this.origin = Objects.requireNonNull(origin, "origin");
       this.referenceTargets = Map.copyOf(referenceTargets);
       this.binding = Objects.requireNonNull(binding, "binding");
+      this.role = Objects.requireNonNull(role, "role");
     }
 
     CoreDefinition definition() {
@@ -541,6 +790,23 @@ final class BoundCoreConverter {
 
     Map<Integer, Integer> referenceTargets() {
       return referenceTargets;
+    }
+
+    CoreDefinitionRole role() {
+      return role;
+    }
+
+    private static CoreDefinitionRole role(CoreDefinition definition) {
+      return switch (definition) {
+        case CoreDefinition.Annotation ignored -> CoreDefinitionRole.ANNOTATION;
+        case CoreDefinition.Aggregate ignored -> CoreDefinitionRole.AGGREGATE;
+        case CoreDefinition.Enum ignored -> CoreDefinitionRole.ENUM;
+        case CoreDefinition.Interface ignored -> CoreDefinitionRole.INTERFACE;
+        case CoreDefinition.InterfaceMethod ignored -> CoreDefinitionRole.INTERFACE_METHOD;
+        case CoreDefinition.BuiltinConformance ignored -> CoreDefinitionRole.BUILTIN_CONFORMANCE;
+        case CoreDefinition.Callable ignored ->
+            throw new IllegalArgumentException("callable declaration role must be explicit");
+      };
     }
 
     Optional<CoreBinding> bind(
@@ -604,6 +870,26 @@ final class BoundCoreConverter {
                       ? resolver.apply(pending)
                       : link;
       return switch (shape) {
+        case CoreBindingShape.Annotation annotation ->
+            new CoreBindingShape.Annotation(
+                annotation.targets(),
+                annotation.retention(),
+                annotation.fields().stream()
+                    .map(
+                        field ->
+                            new CoreBindingShape.Field(
+                                field.name(),
+                                field.visibility(),
+                                CoreTypes.mapLinks(field.type(), links)))
+                    .toList(),
+                annotation.defaults().stream()
+                    .map(
+                        value ->
+                            value.map(
+                                item ->
+                                    new CoreAnnotationValue(
+                                        CoreTypes.mapLinks(item.type(), links), item.value())))
+                    .toList());
         case CoreBindingShape.Callable callable ->
             new CoreBindingShape.Callable(
                 resolveTypeParameters(callable.typeParameters(), links),

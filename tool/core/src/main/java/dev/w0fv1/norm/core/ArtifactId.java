@@ -67,6 +67,7 @@ public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
         .forEach(
             occurrence -> {
               writeOccurrence(writer, occurrence.id());
+              writer.writeTag(occurrence.role().name());
               writer.writeInt(occurrence.representedDefinitions().size());
               occurrence
                   .representedDefinitions()
@@ -81,6 +82,11 @@ public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
                         writeOccurrence(writer, reference.getValue());
                       });
             });
+    writer.writeInt(artifact.metadata().annotations().size());
+    artifact
+        .metadata()
+        .annotations()
+        .forEach(value -> writer.writeBytes(CoreCodec.encodeAnnotationApplication(value)));
     byte[] canonical = writer.toByteArray();
     return new ArtifactId(ContentHasher.hash(DOMAIN, CoreIdentityVersion.CURRENT, canonical));
   }

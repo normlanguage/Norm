@@ -18,6 +18,6 @@ final class NormThrownException extends NormGuestException {
         && value.fields[ExceptionAbi.MESSAGE_FIELD_ORDINAL] instanceof String message) {
       return message;
     }
-    return value.aggregateInfo.name();
+    return value.objectInfo.name();
   }
 }

@@ -10,6 +10,7 @@ public enum RuntimeShape {
   BOOL,
   STRING,
   VOID,
+  TYPE,
   ARRAY,
   LIST,
   MAP,

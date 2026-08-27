@@ -12,6 +12,94 @@ import org.junit.jupiter.api.Test;
 
 final class CoreArtifactBoundaryTest {
   @Test
+  void rejectsNonPublicOrDuplicateAnnotationFieldBindings() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreBindingShape.Annotation(
+                java.util.Set.of(dev.w0fv1.norm.value.AnnotationTarget.TYPE),
+                dev.w0fv1.norm.value.AnnotationRetention.RUNTIME,
+                List.of(
+                    new CoreBindingShape.Field("text", CoreVisibility.PRIVATE, CoreType.STRING)),
+                List.of(Optional.empty())));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreBindingShape.Annotation(
+                java.util.Set.of(dev.w0fv1.norm.value.AnnotationTarget.TYPE),
+                dev.w0fv1.norm.value.AnnotationRetention.RUNTIME,
+                List.of(
+                    new CoreBindingShape.Field("text", CoreVisibility.PUBLIC, CoreType.STRING),
+                    new CoreBindingShape.Field("text", CoreVisibility.PUBLIC, CoreType.STRING)),
+                List.of(Optional.empty(), Optional.empty())));
+  }
+
+  @Test
+  void rejectsValueInitializationBodiesAssignedANonConstructorRole() {
+    CoreArtifact compilation =
+        compile("value Point { Integer x } Void main() { Point point = Point(x: 1) }");
+    List<CoreDefinitionOccurrence> occurrences =
+        compilation.authoring().occurrences().stream()
+            .map(
+                occurrence ->
+                    occurrence.role() == CoreDefinitionRole.CONSTRUCTOR
+                        ? new CoreDefinitionOccurrence(
+                            occurrence.id(),
+                            occurrence.representedDefinitions(),
+                            CoreDefinitionRole.METHOD,
+                            occurrence.origin(),
+                            occurrence.references())
+                        : occurrence)
+            .toList();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                compilation.program(),
+                compilation.namespace(),
+                new CoreAuthoringMap(occurrences, compilation.entryPoint()),
+                compilation.metadata()));
+  }
+
+  @Test
+  void rejectsCallableRolesThatDisagreeWithReceiverShape() {
+    CoreArtifact compilation = compile("class Box { Integer value() { return 1 } } Void main() {}");
+
+    assertRoleRejected(compilation, "value", CoreDefinitionRole.FUNCTION);
+  }
+
+  @Test
+  void rejectsNonFunctionNamespaceBindingsAndEntryPoints() {
+    CoreArtifact compilation =
+        compile("Integer value() { return 1 } Void main() { printLine(value()) }");
+
+    assertRoleRejected(compilation, "value", CoreDefinitionRole.LAMBDA);
+    List<CoreDefinitionOccurrence> occurrences =
+        compilation.authoring().occurrences().stream()
+            .map(
+                occurrence ->
+                    occurrence.id().equals(compilation.entryPoint())
+                        ? new CoreDefinitionOccurrence(
+                            occurrence.id(),
+                            occurrence.representedDefinitions(),
+                            CoreDefinitionRole.LAMBDA,
+                            occurrence.origin(),
+                            occurrence.references())
+                        : occurrence)
+            .toList();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                compilation.program(),
+                CoreNamespace.create(List.of()),
+                new CoreAuthoringMap(occurrences, compilation.entryPoint()),
+                compilation.metadata()));
+  }
+
+  @Test
   void rejectsBindingKindsThatDoNotMatchCoreDefinitions() {
     CoreArtifact compilation =
         compile("Integer value() { return 1 } Void main() { printLine(value()) }");
@@ -173,7 +261,36 @@ final class CoreArtifactBoundaryTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> new CoreArtifact(compilation.program(), namespace, compilation.authoring()));
+        () ->
+            new CoreArtifact(
+                compilation.program(), namespace, compilation.authoring(), compilation.metadata()));
+  }
+
+  private static void assertRoleRejected(
+      CoreArtifact compilation, String name, CoreDefinitionRole role) {
+    DefinitionOccurrenceId target = binding(compilation, name).occurrence();
+    List<CoreDefinitionOccurrence> occurrences =
+        compilation.authoring().occurrences().stream()
+            .map(
+                occurrence ->
+                    occurrence.id().equals(target)
+                        ? new CoreDefinitionOccurrence(
+                            occurrence.id(),
+                            occurrence.representedDefinitions(),
+                            role,
+                            occurrence.origin(),
+                            occurrence.references())
+                        : occurrence)
+            .toList();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                compilation.program(),
+                compilation.namespace(),
+                new CoreAuthoringMap(occurrences, compilation.entryPoint()),
+                compilation.metadata()));
   }
 
   private static CoreBinding copy(

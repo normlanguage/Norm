@@ -163,7 +163,7 @@ final class RuntimeValues {
   }
 
   static ObjectValue copyObject(ObjectValue object) {
-    ObjectValue result = new ObjectValue(object.aggregateInfo, object.type);
+    ObjectValue result = new ObjectValue(object.objectInfo, object.type);
     for (int index = 0; index < object.fields.length; index++) {
       result.fields[index] = copy(object.fields[index]);
     }
@@ -508,6 +508,7 @@ final class RuntimeValues {
       case Boolean ignored -> CoreType.BOOLEAN;
       case String ignored -> CoreType.STRING;
       case CodePointValue ignored -> CoreType.CODE_POINT;
+      case TypeValue item -> item.type;
       case ArrayValue item -> item.type;
       case ListValue item -> item.type;
       case MapValue item -> item.type;
@@ -553,6 +554,19 @@ final class RuntimeValues {
     @Override
     public String toString() {
       return new String(Character.toChars(value));
+    }
+  }
+
+  record TypeValue(CoreType type, CoreType reflectedType, ReflectionRegistry registry) {
+    TypeValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(reflectedType, "reflectedType");
+      Objects.requireNonNull(registry, "registry");
+    }
+
+    @Override
+    public String toString() {
+      return registry.name(reflectedType);
     }
   }
 
@@ -881,12 +895,25 @@ final class RuntimeValues {
     record Intrinsic(IntrinsicId intrinsic) implements DispatchTarget {}
   }
 
+  sealed interface ObjectInfo permits AggregateInfo, AnnotationInfo {
+    DefinitionId definition();
+
+    String name();
+
+    int fieldCount();
+
+    Map<DefinitionId, DispatchTarget> dispatch();
+
+    java.util.Set<DefinitionId> ancestors();
+  }
+
   record AggregateInfo(
       DefinitionId definition,
       String name,
       int fieldCount,
       Map<DefinitionId, DispatchTarget> dispatch,
-      java.util.Set<DefinitionId> ancestors) {
+      java.util.Set<DefinitionId> ancestors)
+      implements ObjectInfo {
     AggregateInfo {
       dispatch = Map.copyOf(dispatch);
       ancestors = java.util.Set.copyOf(ancestors);
@@ -904,15 +931,28 @@ final class RuntimeValues {
     }
   }
 
+  record AnnotationInfo(DefinitionId definition, String name, int fieldCount)
+      implements ObjectInfo {
+    @Override
+    public Map<DefinitionId, DispatchTarget> dispatch() {
+      return Map.of();
+    }
+
+    @Override
+    public java.util.Set<DefinitionId> ancestors() {
+      return java.util.Set.of(definition);
+    }
+  }
+
   static final class ObjectValue {
-    final AggregateInfo aggregateInfo;
+    final ObjectInfo objectInfo;
     final CoreType type;
     final Object[] fields;
 
-    ObjectValue(AggregateInfo aggregateInfo, CoreType type) {
-      this.aggregateInfo = aggregateInfo;
+    ObjectValue(ObjectInfo objectInfo, CoreType type) {
+      this.objectInfo = objectInfo;
       this.type = type;
-      fields = new Object[aggregateInfo.fieldCount()];
+      fields = new Object[objectInfo.fieldCount()];
     }
 
     private boolean sameValue(ObjectValue other) {

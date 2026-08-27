@@ -1,17 +1,24 @@
 package dev.w0fv1.norm.core;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public final class CoreArtifact {
   private final CoreProgram program;
   private final CoreNamespace namespace;
   private final CoreAuthoringMap authoring;
+  private final CoreMetadata metadata;
 
-  public CoreArtifact(CoreProgram program, CoreNamespace namespace, CoreAuthoringMap authoring) {
+  public CoreArtifact(
+      CoreProgram program,
+      CoreNamespace namespace,
+      CoreAuthoringMap authoring,
+      CoreMetadata metadata) {
     this.program = Objects.requireNonNull(program, "program");
     this.namespace = Objects.requireNonNull(namespace, "namespace");
     this.authoring = Objects.requireNonNull(authoring, "authoring");
-    validate(program, namespace, authoring);
+    this.metadata = Objects.requireNonNull(metadata, "metadata");
+    validate(program, namespace, authoring, metadata);
   }
 
   public CoreProgram program() {
@@ -26,8 +33,12 @@ public final class CoreArtifact {
     return authoring;
   }
 
+  public CoreMetadata metadata() {
+    return metadata;
+  }
+
   public CoreArtifact withEntryPoint(DefinitionOccurrenceId entryPoint) {
-    return new CoreArtifact(program, namespace, authoring.withEntryPoint(entryPoint));
+    return new CoreArtifact(program, namespace, authoring.withEntryPoint(entryPoint), metadata);
   }
 
   public DefinitionOccurrenceId entryPoint() {
@@ -44,7 +55,10 @@ public final class CoreArtifact {
   }
 
   private static void validate(
-      CoreProgram program, CoreNamespace namespace, CoreAuthoringMap authoring) {
+      CoreProgram program,
+      CoreNamespace namespace,
+      CoreAuthoringMap authoring,
+      CoreMetadata metadata) {
     for (CoreDefinitionOccurrence occurrence : authoring.occurrences()) {
       for (DefinitionId definition : occurrence.representedDefinitions()) {
         if (program.definition(definition).isEmpty()) {
@@ -53,6 +67,7 @@ public final class CoreArtifact {
       }
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
+      validateRole(definition, occurrence.role());
       var references = CoreTree.referenceSites(definition);
       if (!references.keySet().equals(occurrence.references().keySet())) {
         throw new IllegalArgumentException("authoring references do not match the core definition");
@@ -68,39 +83,97 @@ public final class CoreArtifact {
             }
           });
     }
-    if (!(program.definition(authoring.entryPoint().representative()).orElseThrow()
-        instanceof CoreDefinition.Callable)) {
-      throw new IllegalArgumentException("entry occurrence must be callable");
+    CoreDefinitionOccurrence entry = authoring.occurrence(authoring.entryPoint()).orElseThrow();
+    if (!(program.definition(entry.id().representative()).orElseThrow()
+            instanceof CoreDefinition.Callable)
+        || entry.role() != CoreDefinitionRole.FUNCTION) {
+      throw new IllegalArgumentException("entry occurrence must be a function");
     }
     for (CoreBinding binding : namespace.bindings()) {
       if (authoring.occurrence(binding.occurrence()).isEmpty()) {
         throw new IllegalArgumentException("namespace binding occurrence is absent");
       }
-      validateBinding(program, namespace, binding);
+      validateBinding(program, namespace, authoring, binding);
     }
+    CoreAnnotationVerifier.verifyMetadata(program, authoring, metadata);
+    CoreArtifactMutabilityVerifier.verify(program, authoring);
+  }
+
+  private static void validateRole(CoreDefinition definition, CoreDefinitionRole role) {
+    boolean valid =
+        switch (definition) {
+          case CoreDefinition.Annotation ignored -> role == CoreDefinitionRole.ANNOTATION;
+          case CoreDefinition.Aggregate ignored -> role == CoreDefinitionRole.AGGREGATE;
+          case CoreDefinition.Enum ignored -> role == CoreDefinitionRole.ENUM;
+          case CoreDefinition.Interface ignored -> role == CoreDefinitionRole.INTERFACE;
+          case CoreDefinition.InterfaceMethod ignored ->
+              role == CoreDefinitionRole.INTERFACE_METHOD;
+          case CoreDefinition.BuiltinConformance ignored ->
+              role == CoreDefinitionRole.BUILTIN_CONFORMANCE;
+          case CoreDefinition.Callable callable ->
+              switch (role) {
+                case CONSTRUCTOR, METHOD -> callable.hasReceiver();
+                case FUNCTION, LAMBDA -> !callable.hasReceiver();
+                default -> false;
+              };
+        };
+    if (!valid) throw new IllegalArgumentException("definition occurrence role is invalid");
   }
 
   private static void validateBinding(
-      CoreProgram program, CoreNamespace namespace, CoreBinding binding) {
+      CoreProgram program,
+      CoreNamespace namespace,
+      CoreAuthoringMap authoring,
+      CoreBinding binding) {
     DefinitionId id = binding.definition();
     CoreDefinition definition = program.definition(id).orElseThrow();
+    CoreDefinitionRole role = authoring.occurrence(binding.occurrence()).orElseThrow().role();
     CoreBindingKind expectedKind =
-        switch (definition) {
-          case CoreDefinition.Callable callable ->
-              callable.hasReceiver() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
-          case CoreDefinition.Aggregate declaration ->
-              declaration.valueCategory() == CoreValueCategory.VALUE
-                  ? CoreBindingKind.VALUE
-                  : CoreBindingKind.CLASS;
-          case CoreDefinition.Enum ignored -> CoreBindingKind.ENUM;
-          case CoreDefinition.Interface ignored -> CoreBindingKind.INTERFACE;
-          case CoreDefinition.InterfaceMethod ignored -> CoreBindingKind.INTERFACE_METHOD;
-          case CoreDefinition.BuiltinConformance ignored ->
+        switch (role) {
+          case FUNCTION -> CoreBindingKind.FUNCTION;
+          case METHOD -> CoreBindingKind.METHOD;
+          case ANNOTATION -> CoreBindingKind.ANNOTATION;
+          case ENUM -> CoreBindingKind.ENUM;
+          case INTERFACE -> CoreBindingKind.INTERFACE;
+          case INTERFACE_METHOD -> CoreBindingKind.INTERFACE_METHOD;
+          case AGGREGATE -> {
+            CoreDefinition.Aggregate declaration = (CoreDefinition.Aggregate) definition;
+            yield declaration.valueCategory() == CoreValueCategory.VALUE
+                ? CoreBindingKind.VALUE
+                : CoreBindingKind.CLASS;
+          }
+          case CONSTRUCTOR, LAMBDA, BUILTIN_CONFORMANCE ->
               throw new IllegalArgumentException(
-                  "builtin conformances cannot be namespace bindings");
+                  "definition occurrence role cannot be a namespace binding: " + role);
         };
     if (binding.kind() != expectedKind) throw bindingMismatch(binding);
     switch (definition) {
+      case CoreDefinition.Annotation declaration -> {
+        CoreBindingShape.Annotation shape = (CoreBindingShape.Annotation) binding.shape();
+        if (!shape.targets().equals(declaration.targets())
+            || shape.retention() != declaration.retention()
+            || shape.fields().size() != declaration.fields().size()
+            || shape.defaults().size() != declaration.defaults().size()) {
+          throw bindingMismatch(binding);
+        }
+        for (int field = 0; field < shape.fields().size(); field++) {
+          if (!sameType(
+              program,
+              id,
+              shape.fields().get(field).type(),
+              declaration.fields().get(field).type())) {
+            throw bindingMismatch(binding);
+          }
+          Optional<CoreAnnotationValue> left = shape.defaults().get(field);
+          Optional<CoreAnnotationValue> right = declaration.defaults().get(field);
+          if (left.isPresent() != right.isPresent()) throw bindingMismatch(binding);
+          if (left.isPresent()
+              && (!sameType(program, id, left.orElseThrow().type(), right.orElseThrow().type())
+                  || !Objects.equals(left.orElseThrow().value(), right.orElseThrow().value()))) {
+            throw bindingMismatch(binding);
+          }
+        }
+      }
       case CoreDefinition.Callable callable -> {
         CoreBindingShape.Callable shape = (CoreBindingShape.Callable) binding.shape();
         if (!sameTypeParameters(program, id, shape.typeParameters(), callable.typeParameters())
@@ -124,14 +197,21 @@ public final class CoreArtifact {
           CoreTypeConstructor.User constructor = (CoreTypeConstructor.User) receiver.constructor();
           DefinitionId owner =
               ((DefinitionReference.External) constructor.definition()).definition();
+          CoreDefinition ownerDefinition = program.definition(owner).orElseThrow();
+          CoreBindingKind ownerKind =
+              switch (ownerDefinition) {
+                case CoreDefinition.Aggregate aggregate ->
+                    aggregate.valueCategory() == CoreValueCategory.VALUE
+                        ? CoreBindingKind.VALUE
+                        : CoreBindingKind.CLASS;
+                case CoreDefinition.Interface ignored -> CoreBindingKind.INTERFACE;
+                default -> throw bindingMismatch(binding);
+              };
           boolean ownerBindingPresent =
               namespace.bindings().stream()
                   .anyMatch(
                       candidate ->
-                          candidate.kind()
-                                  == (receiver.category() == CoreValueCategory.VALUE
-                                      ? CoreBindingKind.VALUE
-                                      : CoreBindingKind.CLASS)
+                          candidate.kind() == ownerKind
                               && candidate.packageName().equals(binding.packageName())
                               && candidate.name().equals(binding.ownerName().orElseThrow())
                               && candidate.definition().equals(owner));

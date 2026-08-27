@@ -81,6 +81,31 @@ public final class CoreNamespace {
         .writeTag(binding.visibility().name())
         .writeBoolean(binding.exported());
     switch (binding.shape()) {
+      case CoreBindingShape.Annotation annotation -> {
+        writer.writeInt(annotation.targets().size());
+        annotation.targets().stream()
+            .sorted(java.util.Comparator.comparingInt(Enum::ordinal))
+            .forEach(target -> writer.writeTag(target.name()));
+        writer.writeTag(annotation.retention().name());
+        writer.writeInt(annotation.fields().size());
+        for (int index = 0; index < annotation.fields().size(); index++) {
+          CoreBindingShape.Field field = annotation.fields().get(index);
+          writer.writeString(field.name()).writeTag(field.visibility().name());
+          CoreCodec.writeType(writer, field.type());
+          java.util.Optional<CoreAnnotationValue> value = annotation.defaults().get(index);
+          writer.writeBoolean(value.isPresent());
+          value.ifPresent(
+              item ->
+                  CoreCodec.writeAnnotationValue(
+                      writer,
+                      item,
+                      link -> {
+                        if (link instanceof DefinitionReference reference) return reference;
+                        throw new IllegalArgumentException(
+                            "namespace contains pending annotation reference");
+                      }));
+        }
+      }
       case CoreBindingShape.Callable callable -> {
         writeTypeParameters(writer, callable.typeParameters());
         writer.writeInt(callable.parameters().size());

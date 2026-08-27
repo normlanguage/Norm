@@ -648,6 +648,79 @@ final class CoreProgramVerifierTest {
   }
 
   @Test
+  void rejectsTypeAnnotationIntrinsicForNonAnnotationResults() {
+    CoreDefinitionGroup box = aggregateGroup("Box", 0, List.of());
+    CoreType boxType = userType(aggregateId(box), List.of());
+    CoreType nullableBox =
+        new CoreType.Declared(
+            ((CoreType.Declared) boxType).constructor(),
+            List.of(),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NULLABLE);
+    CoreType reflected = builtinType("Type", List.of(boxType));
+    CoreExpression.Intrinsic query =
+        new CoreExpression.Intrinsic(
+            2,
+            IntrinsicId.TYPE_ANNOTATION,
+            Optional.of(new CoreExpression.LocalRead(3, 0, reflected)),
+            List.of(),
+            Optional.of(new CoreRuntimeType(nullableBox, List.of())),
+            false,
+            nullableBox);
+    CoreDefinition.Callable callable =
+        new CoreDefinition.Callable(
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(reflected),
+            List.of(0),
+            List.of(),
+            CoreType.VOID,
+            List.of(new CoreLocal(0, reflected, CoreLocal.Kind.PARAMETER)),
+            new CoreBlock(0, List.of(new CoreStatement.ExpressionStatement(1, query))));
+
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(box, group(callable))));
+  }
+
+  @Test
+  void rejectsFieldAssignmentThroughAnnotationReceivers() {
+    CoreDefinitionGroup marker =
+        group(
+            new CoreDefinition.Annotation(
+                nominal("Marker"),
+                java.util.Set.of(dev.w0fv1.norm.value.AnnotationTarget.TYPE),
+                dev.w0fv1.norm.value.AnnotationRetention.RUNTIME,
+                List.of(new CoreField(0, CoreType.INTEGER)),
+                List.of(Optional.empty())));
+    DefinitionId markerId = marker.definitionId(0);
+    CoreType markerType = userType(markerId, List.of(), CoreValueCategory.VALUE);
+    CoreExpression receiver = new CoreExpression.LocalRead(2, 0, markerType);
+    CoreStatement.FieldAssignment assignment =
+        new CoreStatement.FieldAssignment(
+            1,
+            receiver,
+            new CoreFieldReference(new DefinitionReference.External(markerId), 0),
+            new CoreExpression.Literal(3, 1, CoreType.INTEGER));
+    CoreDefinition.Callable callable =
+        new CoreDefinition.Callable(
+            Optional.of(markerType),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            CoreType.VOID,
+            List.of(new CoreLocal(0, markerType, CoreLocal.Kind.RECEIVER)),
+            new CoreBlock(0, List.of(assignment)));
+
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(marker, group(callable))));
+  }
+
+  @Test
   void rejectsIntrinsicWritesAndIterationOutsideBuiltinContracts() {
     CoreType list = builtinType("List", List.of(CoreType.INTEGER));
     CoreExpression receiver = new CoreExpression.LocalRead(2, 0, list);

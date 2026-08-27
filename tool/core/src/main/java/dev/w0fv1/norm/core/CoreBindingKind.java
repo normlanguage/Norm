@@ -5,6 +5,7 @@ public enum CoreBindingKind {
   METHOD,
   CLASS,
   VALUE,
+  ANNOTATION,
   ENUM,
   INTERFACE,
   INTERFACE_METHOD

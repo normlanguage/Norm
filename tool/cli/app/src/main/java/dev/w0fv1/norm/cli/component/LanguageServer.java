@@ -39,7 +39,7 @@ final class LanguageServer
   public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
     ServerCapabilities capabilities = new ServerCapabilities();
     capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
-    capabilities.setCompletionProvider(new CompletionOptions(false, List.of(".")));
+    capabilities.setCompletionProvider(new CompletionOptions(false, List.of(".", "@")));
     capabilities.setSignatureHelpProvider(new SignatureHelpOptions(List.of("(", ",")));
     capabilities.setHoverProvider(true);
     capabilities.setDefinitionProvider(true);

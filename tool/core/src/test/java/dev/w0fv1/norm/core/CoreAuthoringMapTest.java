@@ -24,10 +24,18 @@ final class CoreAuthoringMapTest {
             "second", new SourceSpan(secondSource, 0, secondSource.length()), Map.of());
     CoreDefinitionOccurrence wrongFirst =
         new CoreDefinitionOccurrence(
-            new DefinitionOccurrenceId(definition, 1), Set.of(definition), first, Map.of());
+            new DefinitionOccurrenceId(definition, 1),
+            Set.of(definition),
+            CoreDefinitionRole.FUNCTION,
+            first,
+            Map.of());
     CoreDefinitionOccurrence wrongSecond =
         new CoreDefinitionOccurrence(
-            new DefinitionOccurrenceId(definition, 0), Set.of(definition), second, Map.of());
+            new DefinitionOccurrenceId(definition, 0),
+            Set.of(definition),
+            CoreDefinitionRole.FUNCTION,
+            second,
+            Map.of());
 
     assertThrows(
         IllegalArgumentException.class,

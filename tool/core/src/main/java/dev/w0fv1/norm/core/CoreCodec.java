@@ -27,6 +27,17 @@ final class CoreCodec {
     return writer.toByteArray();
   }
 
+  static byte[] encodeAnnotationApplication(CoreAnnotationApplication application) {
+    CanonicalWriter writer = new CanonicalWriter().writeTag("annotation-application");
+    writeDefinitionId(writer, application.annotation());
+    writeAnnotationTarget(writer, application.target());
+    writer.writeInt(application.values().size());
+    application
+        .values()
+        .forEach(value -> writeAnnotationValue(writer, value, CoreCodec::requireResolved));
+    return writer.toByteArray();
+  }
+
   private static void writeDefinition(
       CanonicalWriter writer,
       CoreDefinition definition,
@@ -86,6 +97,22 @@ final class CoreCodec {
                         conformanceKey(left, referenceResolver),
                         conformanceKey(right, referenceResolver)))
             .forEach(value -> writeConformance(writer, value, referenceResolver));
+      }
+      case CoreDefinition.Annotation annotation -> {
+        writer.writeTag("annotation");
+        writeNominalType(writer, annotation.nominalType());
+        writer.writeInt(annotation.targets().size());
+        annotation.targets().stream()
+            .sorted(java.util.Comparator.comparingInt(Enum::ordinal))
+            .forEach(target -> writer.writeTag(target.name()));
+        writer.writeTag(annotation.retention().name());
+        writer.writeInt(annotation.fields().size());
+        for (int index = 0; index < annotation.fields().size(); index++) {
+          CoreField field = annotation.fields().get(index);
+          writer.writeInt(field.ordinal());
+          writeType(writer, field.type(), referenceResolver);
+          writeOptionalAnnotationValue(writer, annotation.defaults().get(index), referenceResolver);
+        }
       }
       case CoreDefinition.Enum enumDefinition -> {
         writer.writeTag("enum");
@@ -633,6 +660,62 @@ final class CoreCodec {
       case String string -> writer.writeTag("string").writeString(string);
       default -> throw new IllegalArgumentException("unsupported core literal value");
     }
+  }
+
+  private static void writeOptionalAnnotationValue(
+      CanonicalWriter writer,
+      Optional<CoreAnnotationValue> value,
+      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+    writer.writeBoolean(value.isPresent());
+    value.ifPresent(item -> writeAnnotationValue(writer, item, referenceResolver));
+  }
+
+  static void writeAnnotationValue(
+      CanonicalWriter writer,
+      CoreAnnotationValue value,
+      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+    writeType(writer, value.type(), referenceResolver);
+    writer.writeBoolean(value.value() != null);
+    if (value.value() != null) writeLiteral(writer, value.value());
+  }
+
+  private static void writeAnnotationTarget(CanonicalWriter writer, CoreAnnotationTarget target) {
+    switch (target) {
+      case CoreAnnotationTarget.Package value ->
+          writer
+              .writeTag("package-target")
+              .writeString(value.module().name())
+              .writeInt(value.module().version())
+              .writeString(value.packageName());
+      case CoreAnnotationTarget.Definition value -> {
+        writer.writeTag("definition-target").writeTag(value.kind().name());
+        writeOccurrence(writer, value.occurrence());
+      }
+      case CoreAnnotationTarget.Field value -> {
+        writer.writeTag("field-target");
+        writeOccurrence(writer, value.owner());
+        writer.writeInt(value.ordinal());
+      }
+      case CoreAnnotationTarget.Parameter value -> {
+        writer.writeTag("parameter-target");
+        writeOccurrence(writer, value.callable());
+        writer.writeInt(value.index());
+      }
+      case CoreAnnotationTarget.Local value -> {
+        writer.writeTag("local-target");
+        writeOccurrence(writer, value.callable());
+        writer.writeInt(value.index());
+      }
+    }
+  }
+
+  private static void writeOccurrence(CanonicalWriter writer, DefinitionOccurrenceId occurrence) {
+    writeDefinitionId(writer, occurrence.representative());
+    writer.writeInt(occurrence.ordinal());
+  }
+
+  private static void writeDefinitionId(CanonicalWriter writer, DefinitionId definition) {
+    writer.writeBytes(definition.group().hash().bytes()).writeInt(definition.memberIndex());
   }
 
   private static void writeIntegers(CanonicalWriter writer, List<Integer> values) {

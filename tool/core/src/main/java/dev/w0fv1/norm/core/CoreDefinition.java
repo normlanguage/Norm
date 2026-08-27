@@ -9,10 +9,36 @@ import java.util.Set;
 public sealed interface CoreDefinition
     permits CoreDefinition.Callable,
         CoreDefinition.Aggregate,
+        CoreDefinition.Annotation,
         CoreDefinition.Enum,
         CoreDefinition.Interface,
         CoreDefinition.InterfaceMethod,
         CoreDefinition.BuiltinConformance {
+  record Annotation(
+      CoreNominalTypeKey nominalType,
+      java.util.Set<dev.w0fv1.norm.value.AnnotationTarget> targets,
+      dev.w0fv1.norm.value.AnnotationRetention retention,
+      List<CoreField> fields,
+      List<Optional<CoreAnnotationValue>> defaults)
+      implements CoreDefinition {
+    public Annotation {
+      Objects.requireNonNull(nominalType, "nominalType");
+      targets = java.util.Set.copyOf(targets);
+      if (targets.isEmpty()) throw new IllegalArgumentException("annotation targets are empty");
+      Objects.requireNonNull(retention, "retention");
+      fields = List.copyOf(fields);
+      defaults = defaults.stream().map(value -> Objects.requireNonNull(value, "default")).toList();
+      if (fields.size() != defaults.size()) {
+        throw new IllegalArgumentException("annotation fields and defaults must have equal size");
+      }
+      for (int index = 0; index < fields.size(); index++) {
+        if (fields.get(index).ordinal() != index) {
+          throw new IllegalArgumentException("annotation fields must be dense and ordered");
+        }
+      }
+    }
+  }
+
   record Callable(
       Optional<CoreType> receiverType,
       List<CoreTypeParameter> typeParameters,

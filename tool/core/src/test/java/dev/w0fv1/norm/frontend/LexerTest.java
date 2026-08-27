@@ -167,7 +167,7 @@ final class LexerTest {
   @Test
   void reportsInvalidCharactersAndUnterminatedStrings() {
     DiagnosticBag diagnostics = new DiagnosticBag();
-    new Lexer(SourceFile.of(Path.of("bad.norm"), "@ \"open"), diagnostics).lex();
+    new Lexer(SourceFile.of(Path.of("bad.norm"), "` \"open"), diagnostics).lex();
 
     assertTrue(diagnostics.hasErrors());
     assertEquals(2, diagnostics.size());

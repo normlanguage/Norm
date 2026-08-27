@@ -1,6 +1,8 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
+import dev.w0fv1.norm.semantic.AnnotationApplication;
+import dev.w0fv1.norm.semantic.AnnotationSchema;
 import dev.w0fv1.norm.semantic.BuiltinSymbols;
 import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedCall;
@@ -77,6 +79,8 @@ abstract class AnalyzerState {
   final Map<SymbolId, Map<SymbolId, SymbolId>> witnesses = new LinkedHashMap<>();
   final Map<String, SemanticType> aggregateParents = new LinkedHashMap<>();
   final Map<SymbolId, SymbolId> methodOverrides = new LinkedHashMap<>();
+  final Map<SymbolId, AnnotationSchema> annotationSchemas = new LinkedHashMap<>();
+  final List<AnnotationApplication> annotationApplications = new ArrayList<>();
   final FlowScopes flowScopes = new FlowScopes();
   int nextSymbolId;
   SymbolId currentCallable;
@@ -131,19 +135,23 @@ abstract class AnalyzerState {
   static Syntax.Program merge(List<Syntax.Program> programs, Syntax.Program entryProgram) {
     List<Syntax.EnumDecl> enums = new ArrayList<>();
     List<Syntax.InterfaceDecl> interfaces = new ArrayList<>();
+    List<Syntax.AnnotationDecl> annotations = new ArrayList<>();
     List<Syntax.AggregateDecl> aggregates = new ArrayList<>();
     List<Syntax.FunctionDecl> functions = new ArrayList<>();
     for (Syntax.Program program : programs) {
       enums.addAll(program.enums());
       interfaces.addAll(program.interfaces());
+      annotations.addAll(program.annotationDeclarations());
       aggregates.addAll(program.aggregates());
       functions.addAll(program.functions());
     }
     return new Syntax.Program(
         entryProgram.packageName(),
+        entryProgram.packageAnnotations(),
         entryProgram.imports(),
         enums,
         interfaces,
+        annotations,
         aggregates,
         functions,
         entryProgram.span());

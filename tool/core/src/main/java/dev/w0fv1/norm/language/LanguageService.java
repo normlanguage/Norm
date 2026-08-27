@@ -86,7 +86,7 @@ public final class LanguageService implements AutoCloseable {
     SemanticModel model = analysis.semanticModel();
     Optional<Symbol> symbol = model.resolvedSymbolAt(offset);
     if (symbol.isPresent()) {
-      Symbol value = symbol.orElseThrow();
+      Symbol value = SymbolPresentation.annotation(model, symbol.orElseThrow());
       if (value.kind() == SymbolKind.TYPE_PARAMETER && value.owner().isPresent()) {
         Optional<TypeParameterInfo> parameter =
             model.symbol(value.owner().orElseThrow()).stream()
