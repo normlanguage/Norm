@@ -72,7 +72,32 @@ final class Lowerer {
     DefinitionOccurrenceId entry = artifact.entryPoint();
     FunctionPlan entryPlan = callables.get(entry);
     if (entryPlan == null) throw new IllegalStateException("entry callable is absent");
-    return new ExecutableProgram(entryPlan.target, annotations);
+    return new ExecutableProgram(entryPlan.target, annotations, guestValues());
+  }
+
+  private GuestValueFactory guestValues() {
+    Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
+    callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
+    List<GuestValueFactory.AggregatePlan> aggregatePlans = new ArrayList<>();
+    for (Map.Entry<DefinitionOccurrenceId, CoreDefinition.Aggregate> entry :
+        aggregates.entrySet()) {
+      DefinitionId definition = entry.getKey().representative();
+      DefinitionId constructor = resolve(definition, entry.getValue().constructor());
+      com.oracle.truffle.api.CallTarget initializer = targets.get(constructor);
+      if (initializer == null) throw new IllegalStateException("aggregate initializer is absent");
+      aggregatePlans.add(
+          GuestValueFactory.AggregatePlan.create(
+              definition, entry.getValue(), aggregateInfo.get(entry.getKey()), initializer));
+    }
+    List<GuestValueFactory.EnumPlan> enumPlans =
+        program.definitions().stream()
+            .filter(record -> record.definition() instanceof CoreDefinition.Enum)
+            .map(
+                record ->
+                    GuestValueFactory.EnumPlan.create(
+                        record.id(), (CoreDefinition.Enum) record.definition()))
+            .toList();
+    return new GuestValueFactory(aggregatePlans, enumPlans);
   }
 
   private void indexDefinitions() {

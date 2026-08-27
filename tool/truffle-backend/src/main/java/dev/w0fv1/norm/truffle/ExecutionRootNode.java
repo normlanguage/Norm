@@ -16,6 +16,15 @@ final class ExecutionRootNode extends RootNode {
 
   @Override
   public Object execute(VirtualFrame frame) {
-    return entryPoint.call(executable.execution(Language.context(this).execution()));
+    ExecutionState state = executable.execution(Language.context(this).execution());
+    Throwable failure = null;
+    try {
+      return entryPoint.call(state);
+    } catch (RuntimeException | Error exception) {
+      failure = exception;
+      throw exception;
+    } finally {
+      state.close(failure);
+    }
   }
 }

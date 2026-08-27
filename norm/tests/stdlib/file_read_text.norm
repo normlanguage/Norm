@@ -1,0 +1,13 @@
+import std.filesystem.Path
+import std.filesystem.readText
+import std.io.TextEncoding
+import std.testing.expectedOutputLines
+
+main() {
+  String text = readText(
+    path: Path(value: "../../norm/tests/stdlib/file_read_text.txt"),
+    encoding: TextEncoding.Utf8
+  ).trim()
+  printLine(text)
+  expectedOutputLines(["Norm filesystem"])
+}

@@ -17,14 +17,14 @@
 
 - public API 保留完整静态类型，不提供 raw collection；
 - 普通值和集合遵循默认值语义，共享必须显式出现；
-- 普通缺失使用 `T?`，需要错误原因的可预期失败使用 `Result<T, E>`；
+- 普通缺失使用 `T?`，应用领域的显式互斥结果可以使用 `Result<T, E>`，系统层失败使用领域 Exception；
 - 文件、socket、进程等外部资源需要确定性关闭；
 - 时间、编码、舍入、超时和安全策略不能依赖环境默认值；
 - adapter 差异不能被不真实的统一接口掩盖。
 
 ## std.core
 
-`Result<T, E>` 与 `Unit` 是 `std.core` 中的普通 enum，不具有语言特例。`Unit.Value` 用于 `Result<Unit, E>` 等需要实际值的位置，不替代无返回值函数的 `Void`。公开声明以标准库的 `core.result` 与 `core.unit` 源文件为准。
+`Result<T, E>` 与 `Unit` 是 `std.core` 中的普通 enum，不具有语言特例。`Unit.Value` 用于需要实际 Unit 值的位置，不替代无返回值函数的 `Void`。公开声明以标准库的 `core.result` 与 `core.unit` 源文件为准。系统层错误规则见[标准库 API 原则](/stdlib/library-design-principles)。
 
 标准库 protocol 是 `core.protocols` 定义的普通 interface：
 

@@ -4,6 +4,7 @@ import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
@@ -44,7 +45,7 @@ final class RunCommand implements Command {
       NormRuntime backend = new NormRuntime();
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
       try (var launcher = environment.persistentLauncher()) {
-        result = launcher.run(entry, ExecutionContext.of(out));
+        result = launcher.run(entry, ExecutionContext.of(out, JdkSystemPlatform.standard()));
       }
     } catch (IOException exception) {
       err.printf(

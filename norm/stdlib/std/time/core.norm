@@ -1,0 +1,99 @@
+package std.time
+
+import std.system.SystemException
+
+public enum TimeOperation { Now, CreateDuration, CreateInstant }
+
+public enum TimeFailure { ClockUnavailable, InvalidDuration, InvalidInstant }
+
+public class TimeException extends SystemException {
+  TimeOperation operation
+  TimeFailure reason
+
+  TimeException(
+    String code,
+    String message,
+    TimeOperation operation,
+    TimeFailure reason
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+  }
+}
+
+public interface Duration {
+  Long seconds()
+
+  Integer nanoseconds()
+}
+
+private value DurationValue implements Duration {
+  private Long secondsValue
+  private Integer nanosecondsValue
+
+  public Long seconds() {
+    return secondsValue
+  }
+
+  public Integer nanoseconds() {
+    return nanosecondsValue
+  }
+}
+
+public interface Instant {
+  Long epochSecond()
+
+  Integer nanosecond()
+}
+
+private value InstantValue implements Instant {
+  private Long epochSecondValue
+  private Integer nanosecondValue
+
+  public Long epochSecond() {
+    return epochSecondValue
+  }
+
+  public Integer nanosecond() {
+    return nanosecondValue
+  }
+}
+
+public Duration duration(Long seconds, Integer nanoseconds) {
+  if nanoseconds < 0 || nanoseconds > 999999999 {
+    throw TimeException(
+      code: "NORM-TIME-INVALID-DURATION",
+      message: "duration nanoseconds must be within 0..999999999",
+      operation: TimeOperation.CreateDuration,
+      reason: TimeFailure.InvalidDuration
+    )
+  }
+  return DurationValue(secondsValue: seconds, nanosecondsValue: nanoseconds)
+}
+
+public Instant instant(Long epochSecond, Integer nanosecond) {
+  if nanosecond < 0 || nanosecond > 999999999 {
+    throw TimeException(
+      code: "NORM-TIME-INVALID-INSTANT",
+      message: "instant nanosecond must be within 0..999999999",
+      operation: TimeOperation.CreateInstant,
+      reason: TimeFailure.InvalidInstant
+    )
+  }
+  return InstantValue(epochSecondValue: epochSecond, nanosecondValue: nanosecond)
+}
+
+public interface Clock {
+  Instant now()
+}
+
+private value SystemClock implements Clock {
+  public Instant now() {
+    return __clockNow<InstantValue>(clock: this)
+  }
+}
+
+public Clock systemClock() {
+  return __systemClock<SystemClock>()
+}

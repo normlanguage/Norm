@@ -84,11 +84,10 @@ final class RuntimeErrorTest {
   void executionContextOwnsProcessInputs() {
     StringWriter output = new StringWriter();
     ExecutionContext context =
-        new ExecutionContext(
-            java.io.Reader.nullReader(),
-            new PrintWriter(output),
-            java.util.List.of("first", "second"),
-            () -> false);
+        ExecutionContext.builder()
+            .output(new PrintWriter(output))
+            .arguments(java.util.List.of("first", "second"))
+            .build();
 
     assertEquals(java.util.List.of("first", "second"), context.arguments());
     assertFalse(context.cancellation().getAsBoolean());
@@ -104,11 +103,10 @@ final class RuntimeErrorTest {
                     path,
                     "Void main() { for value : range(start: 0, end: 10) { printLine(value) } }"));
     ExecutionContext context =
-        new ExecutionContext(
-            java.io.Reader.nullReader(),
-            new PrintWriter(new StringWriter()),
-            java.util.List.of(),
-            () -> true);
+        ExecutionContext.builder()
+            .output(new PrintWriter(new StringWriter()))
+            .cancellation(() -> true)
+            .build();
 
     NormExecutionException exception =
         assertThrows(

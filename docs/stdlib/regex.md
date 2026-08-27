@@ -1,9 +1,9 @@
 # Regex
 
-Regex 是编译后的正则表达式值。构造可能失败，因此动态 pattern 使用 Result。
+Regex 是编译后的正则表达式值。动态 pattern 无效时抛出 `RegexException`。
 
 ```norm
-Result<Regex, RegexError> compiled = Regex.compile(
+Regex compiled = Regex.compile(
     pattern: "^[a-z][a-z0-9_]{2,31}$",
     options: RegexOptions(caseInsensitive: false)
 )

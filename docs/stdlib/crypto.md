@@ -25,3 +25,4 @@ hash 用于完整性与内容寻址，不用于存储密码。验证 MAC 使用�
 
 底层 primitive 与协议级功能分模块发布，避免普通调用者误用不安全组合。
 
+无效 key、nonce 或编码、认证失败、算法不可用等操作失败抛出 `CryptoException`。验证签名或 MAC 得到的不匹配是 Boolean 正常结果，不作为异常或 Result 分支。

@@ -9,12 +9,18 @@ Module module() {
       "core.result",
       "core.unit",
       "collections.sequences",
+      "filesystem.files",
+      "io.bytes",
       "io.output",
+      "io.streams",
+      "io.system",
       "math.integer",
       "testing.output",
       "testing.predicates",
       "text.builders",
       "text.normalization",
+      "system.exceptions",
+      "time.core",
       "validation.constraints"
     ]
   )

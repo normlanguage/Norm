@@ -310,6 +310,7 @@ public final class CompilerSession implements AutoCloseable {
             analysisPlan.reusable(),
             previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
             profile.moduleEvaluationDocuments(),
+            profile.standardLibraryDocuments(),
             sourceScope,
             declarations);
     FrontendAnalysis analyzed =

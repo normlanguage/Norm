@@ -87,6 +87,7 @@ aside: false
 
 - [标准库概览](/stdlib/overview)
 - [输出 API](/stdlib/output-api)
+- [I/O 基础 API](/stdlib/io)
 - [字符串与集合](/stdlib/string)
 - [时间与数值](/stdlib/time)
 - [文件与进程](/stdlib/filesystem)
@@ -129,6 +130,7 @@ aside: false
 - [0.1 版本记录](/versions/0.1)
 - [实现策略决议](/design/implementation-strategy)
 - [工具链开发规范](/design/toolchain-development)
+- [系统运行时架构](/design/system-runtime)
 - [编译器引导计划](/design/bootstrap-plan)
 - [生态策略](/ecosystem/strategy)
 - [包管理器](/ecosystem/package-manager)

@@ -3,6 +3,7 @@ package dev.w0fv1.norm.truffle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.BuiltinTypeId;
@@ -122,6 +123,25 @@ final class RuntimeValuesTest {
     assertEquals(RuntimeValues.hash(first), RuntimeValues.hash(same));
     assertFalse(RuntimeValues.equal(first, otherField));
     assertFalse(RuntimeValues.equal(first, otherObject));
+  }
+
+  @Test
+  void copiesOpaqueValuesButSharesOpaqueResourceIdentity() {
+    CoreType valueType = declaredType("OpaqueValue", CoreValueCategory.VALUE);
+    CoreType resourceType = declaredType("OpaqueResource", CoreValueCategory.IDENTITY);
+    RuntimeValues.OpaqueValue value =
+        new RuntimeValues.OpaqueValue(valueType, "payload", "OpaqueValue");
+    ManagedResource handle = new ResourceScope().register("resource", () -> {});
+    RuntimeValues.OpaqueResource resource =
+        new RuntimeValues.OpaqueResource(resourceType, handle, "OpaqueResource");
+
+    Object valueCopy = RuntimeValues.copy(value);
+    Object resourceCopy = RuntimeValues.copy(resource);
+
+    assertNotSame(value, valueCopy);
+    assertTrue(RuntimeValues.equal(value, valueCopy));
+    assertEquals(RuntimeValues.hash(value), RuntimeValues.hash(valueCopy));
+    assertSame(resource, resourceCopy);
   }
 
   private static CoreType resultType(CoreType argument) {

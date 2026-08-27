@@ -68,6 +68,8 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
         val runtimeShapes = schema["runtimeShapes"] as List<String>
         @Suppress("UNCHECKED_CAST")
         val exception = schema["exception"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val systemExceptions = schema["systemExceptions"] as Map<String, Map<String, Any>>
         val packageDirectory = outputDirectory.dir("dev/w0fv1/norm/abi").get().asFile
         packageDirectory.mkdirs()
         packageDirectory.resolve("IntrinsicId.java").writeText(
@@ -130,6 +132,91 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                 appendLine("}")
             },
         )
+        fun constantName(name: String): String =
+            name.replace(Regex("([a-z])([A-Z])"), "\$1_\$2").uppercase()
+        systemExceptions.forEach { (domain, contract) ->
+            @Suppress("UNCHECKED_CAST")
+            val fields = contract.getValue("fields") as List<Map<String, Any>>
+            @Suppress("UNCHECKED_CAST")
+            val operations = contract.getValue("operations") as List<Map<String, String>>
+            @Suppress("UNCHECKED_CAST")
+            val failures = contract.getValue("failures") as List<Map<String, String>>
+            val className = domain.replaceFirstChar(Char::uppercase) + "ExceptionAbi"
+            packageDirectory.resolve("$className.java").writeText(
+                buildString {
+                    appendLine("package dev.w0fv1.norm.abi;")
+                    appendLine()
+                    appendLine("import java.util.Map;")
+                    appendLine()
+                    appendLine("public final class $className {")
+                    contract.entries
+                        .filter { it.value is String }
+                        .forEach { (name, value) ->
+                            appendLine(
+                                "  public static final String ${constantName(name)} = \"$value\";",
+                            )
+                        }
+                    appendLine(
+                        "  public static final int MODULE_VERSION = " +
+                            "${contract.getValue("moduleVersion")};",
+                    )
+                    fields.forEach { field ->
+                        val fieldName = constantName(field.getValue("name").toString())
+                        appendLine(
+                            "  public static final String FIELD_${fieldName}_NAME = " +
+                                "\"${field.getValue("name")}\";",
+                        )
+                        appendLine(
+                            "  public static final int FIELD_${fieldName}_ORDINAL = " +
+                                "${field.getValue("ordinal")};",
+                        )
+                    }
+                    appendLine()
+                    appendLine("  private static final Map<String, String> OPERATIONS =")
+                    appendLine("      Map.ofEntries(")
+                    operations.forEachIndexed { index, operation ->
+                        val suffix = if (index + 1 == operations.size) ");" else ","
+                        appendLine(
+                            "          Map.entry(\"${operation.getValue("platformName")}\", " +
+                                "\"${operation.getValue("variant")}\")$suffix",
+                        )
+                    }
+                    appendLine("  private static final Map<String, Failure> FAILURES =")
+                    appendLine("      Map.ofEntries(")
+                    failures.forEachIndexed { index, failure ->
+                        val suffix = if (index + 1 == failures.size) ");" else ","
+                        appendLine(
+                            "          Map.entry(\"${failure.getValue("platformName")}\", " +
+                                "new Failure(\"${failure.getValue("variant")}\", " +
+                                "\"${failure.getValue("code")}\"))$suffix",
+                        )
+                    }
+                    appendLine()
+                    appendLine("  public static String operationVariant(String platformName) {")
+                    appendLine("    String variant = OPERATIONS.get(platformName);")
+                    appendLine(
+                        "    if (variant == null) throw new IllegalArgumentException(" +
+                            "\"unknown $domain operation \" + platformName);",
+                    )
+                    appendLine("    return variant;")
+                    appendLine("  }")
+                    appendLine()
+                    appendLine("  public static Failure failure(String platformName) {")
+                    appendLine("    Failure failure = FAILURES.get(platformName);")
+                    appendLine(
+                        "    if (failure == null) throw new IllegalArgumentException(" +
+                            "\"unknown $domain failure \" + platformName);",
+                    )
+                    appendLine("    return failure;")
+                    appendLine("  }")
+                    appendLine()
+                    appendLine("  public record Failure(String variant, String code) {}")
+                    appendLine()
+                    appendLine("  private $className() {}")
+                    appendLine("}")
+                },
+            )
+        }
         val fingerprintInput = buildString {
             append(schema["version"]).append('\n')
             intrinsics.forEach {
@@ -141,6 +228,7 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
             runtimeShapes.forEach { append(it).append('\n') }
             listOf("packageName", "typeName", "messageFieldName", "messageFieldOrdinal")
                 .forEach { append(exception.getValue(it)).append('\n') }
+            append(groovy.json.JsonOutput.toJson(systemExceptions)).append('\n')
         }.toByteArray(Charsets.UTF_8)
         val fingerprint = MessageDigest.getInstance("SHA-256")
             .digest(fingerprintInput)

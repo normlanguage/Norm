@@ -5,7 +5,7 @@
 ## 地址与解析
 
 ```norm
-Result<List<IpAddress>, NetworkError> addresses = Dns.resolve(
+List<IpAddress> addresses = Dns.resolve(
     host: "example.com"
 )
 
@@ -20,9 +20,9 @@ SocketAddress endpoint = SocketAddress(
 ## TCP
 
 ```norm
-Result<TcpConnection, NetworkError> opened = Tcp.connect(
+TcpConnection opened = Tcp.connect(
     address: endpoint,
-    timeout: Duration.seconds(value: 5)
+    timeout: duration(seconds: 5, nanoseconds: 0)
 )
 ```
 
@@ -32,5 +32,4 @@ Result<TcpConnection, NetworkError> opened = Tcp.connect(
 
 TLS 客户端默认验证证书链和主机名。关闭验证只能通过显式测试配置完成，并应产生明显警告。协议版本、信任根与客户端证书属于 `TlsConfig`，不能由全局可变状态悄悄改变。
 
-socket 是外部资源，所有成功打开的连接都必须确定性关闭。网络错误使用带操作、地址和可重试信息的 enum 表达。
-
+socket 是外部资源，所有成功打开的连接都必须确定性关闭。网络失败抛出 `NetworkException`，异常携带操作、地址和可重试信息。

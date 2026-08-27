@@ -6,7 +6,7 @@
 RateLimitPolicy policy = TokenBucket(
     capacity: 100,
     refill: 10,
-    interval: Duration.seconds(value: 1)
+    interval: duration(seconds: 1, nanoseconds: 0)
 )
 
 RateLimitResult result = limiter.acquire(
@@ -28,4 +28,3 @@ RateLimitResult result = limiter.acquire(
 单实例 limiter 只约束本地进程。跨实例限制需要集中存储或一致分片，并明确时钟、网络分区和存储不可用时采用 fail-open 还是 fail-closed。
 
 策略更新应原子生效；已有 bucket 的迁移规则必须确定，避免部署后瞬间清空或翻倍配额。
-

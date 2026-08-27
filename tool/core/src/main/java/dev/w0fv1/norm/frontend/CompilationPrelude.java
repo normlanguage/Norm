@@ -79,6 +79,10 @@ public final class CompilationPrelude {
     return exportedSources;
   }
 
+  Set<DocumentId> documentIds() {
+    return documents.keySet();
+  }
+
   Optional<CompilationScope> scope() {
     return scope;
   }

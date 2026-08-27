@@ -6,9 +6,9 @@ HTTP 模块提供协议基础类型和客户端/服务器 adapter。路由、Con
 
 ```norm
 HttpRequest request = HttpRequest.get(uri: Uri("https://example.com/status"))
-Result<HttpResponse, HttpError> response = client.send(
+HttpResponse response = client.send(
     request: request,
-    timeout: Duration.seconds(value: 5)
+    timeout: duration(seconds: 5, nanoseconds: 0)
 )
 ```
 
@@ -24,3 +24,4 @@ Method 与 Status 是受控值类型，HeaderMap 支持重复值，Uri 区分 pa
 
 首版可以复用成熟 HTTP runtime，但 Norm 层必须保持相同的超时、资源关闭和错误模型。
 
+DNS、连接、TLS、协议解析、超时与取消失败抛出 `HttpException`。HTTP status 是正常响应数据，不作为异常或 Result 分支。

@@ -9,6 +9,7 @@ description = "Norm command-line interface"
 dependencies {
     implementation(project(":core"))
     implementation(project(":execution-api"))
+    implementation(project(":platform-jdk"))
     implementation(project(":project-system"))
     implementation(project(":truffle-backend"))
     implementation(libs.lsp4j)

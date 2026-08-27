@@ -108,7 +108,8 @@ final class SemanticAnalysisContext {
     this.declarations = input.declarations();
     this.reusableDeclarations = input.reusableDeclarations();
     this.minimumBodySymbolId = input.minimumBodySymbolId();
-    this.builtins = new BuiltinSymbols(input.moduleEvaluationDocuments());
+    this.builtins =
+        new BuiltinSymbols(input.moduleEvaluationDocuments(), input.standardLibraryDocuments());
     symbols.putAll(builtins.symbols());
     symbols.values().stream()
         .filter(symbol -> symbol.kind() == SymbolKind.TYPE)

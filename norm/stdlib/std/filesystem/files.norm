@@ -1,0 +1,38 @@
+package std.filesystem
+
+import std.io.IOException
+import std.io.TextEncoding
+
+public value Path {
+  String value
+}
+
+public enum FileOperation { ReadText }
+
+public enum FileFailure { NotFound, PermissionDenied, InvalidPath, Io }
+
+public class FileException extends IOException {
+  FileOperation operation
+  FileFailure reason
+  Path path
+
+  FileException(
+    String code,
+    String message,
+    FileOperation operation,
+    FileFailure reason,
+    Path path
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+    this.path = path
+  }
+}
+
+public String readText(Path path, TextEncoding encoding) {
+  String encodingName = switch encoding {
+    case Utf8 { break "UTF-8" }
+  }
+  return __fileReadText(path: path.value, encoding: encodingName)
+}

@@ -147,6 +147,9 @@ final class RuntimeValues {
               copyList(enumValue.payload));
       case BuilderValue builder -> new BuilderValue(builder.type, builder.value.toString());
       case NativeIteratorValue iterator -> iterator;
+      case OpaqueValue opaque ->
+          new OpaqueValue(opaque.type, opaque.value, opaque.displayName, opaque.aggregateInfo);
+      case OpaqueResource resource -> resource;
       case ObjectValue object -> isValueObject(object) ? copyObject(object) : object;
       case null, default -> value;
     };
@@ -192,6 +195,7 @@ final class RuntimeValues {
           value.start == ((RangeValue) right).start
               && value.end == ((RangeValue) right).end
               && value.step == ((RangeValue) right).step;
+      case OpaqueValue value -> value.sameValue((OpaqueValue) right);
       case ObjectValue value -> value.sameValue((ObjectValue) right);
       case ReferenceValue value -> value.sameLocation((ReferenceValue) right);
       default -> Objects.equals(left, right);
@@ -226,6 +230,8 @@ final class RuntimeValues {
       case EnumValue item -> item.valueHash();
       case BuilderValue item -> item.value.toString().hashCode();
       case RangeValue item -> Objects.hash(item.start, item.end, item.step);
+      case OpaqueValue item -> 31 * item.type.hashCode() + item.value.hashCode();
+      case OpaqueResource item -> System.identityHashCode(item);
       case ObjectValue item ->
           isValueObject(item)
               ? orderedHash(31 * 0x56414c55 + item.type.hashCode(), List.of(item.fields))
@@ -515,6 +521,8 @@ final class RuntimeValues {
       case RangeValue item -> item.type;
       case BuilderValue item -> item.type;
       case NativeIteratorValue item -> item.type;
+      case OpaqueValue item -> item.type;
+      case OpaqueResource item -> item.type;
       case ObjectValue item -> item.type;
       default -> throw new IllegalStateException("interface receiver has no builtin type");
     };
@@ -771,6 +779,57 @@ final class RuntimeValues {
               CoreValueCategory.IDENTITY,
               CoreNullability.NON_NULL);
       this.iterator = Objects.requireNonNull(iterator, "iterator");
+    }
+  }
+
+  static final class OpaqueValue {
+    final CoreType type;
+    final Object value;
+    final String displayName;
+    final AggregateInfo aggregateInfo;
+
+    OpaqueValue(CoreType type, Object value, String displayName) {
+      this(type, value, displayName, null);
+    }
+
+    OpaqueValue(CoreType type, Object value, String displayName, AggregateInfo aggregateInfo) {
+      this.type = Objects.requireNonNull(type, "type");
+      this.value = Objects.requireNonNull(value, "value");
+      this.displayName = Objects.requireNonNull(displayName, "displayName");
+      this.aggregateInfo = aggregateInfo;
+    }
+
+    boolean sameValue(OpaqueValue other) {
+      return type.equals(other.type) && value.equals(other.value);
+    }
+
+    @Override
+    public String toString() {
+      return displayName;
+    }
+  }
+
+  static final class OpaqueResource {
+    final CoreType type;
+    final ManagedResource resource;
+    final String displayName;
+    final AggregateInfo aggregateInfo;
+
+    OpaqueResource(CoreType type, ManagedResource resource, String displayName) {
+      this(type, resource, displayName, null);
+    }
+
+    OpaqueResource(
+        CoreType type, ManagedResource resource, String displayName, AggregateInfo aggregateInfo) {
+      this.type = Objects.requireNonNull(type, "type");
+      this.resource = Objects.requireNonNull(resource, "resource");
+      this.displayName = Objects.requireNonNull(displayName, "displayName");
+      this.aggregateInfo = aggregateInfo;
+    }
+
+    @Override
+    public String toString() {
+      return displayName;
     }
   }
 

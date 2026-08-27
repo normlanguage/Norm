@@ -10,13 +10,13 @@ Parser 使用手写递归下降和 Pratt 表达式解析。Syntax 与语义快�
 
 ## 2. GraalVM/Truffle Backend
 
-core 同时实现 `NormLanguage`、执行节点、Interop、instrumentation、`NormClass`、`NormValue`、`NormRef` 与 reified generic metadata。
+`truffle-backend` 实现 Norm language、执行节点、Interop、instrumentation、运行时值表示与 reified generic metadata。
 
 Truffle 只消费通过类型检查的 IR，不重新解析名称或推断类型。官方项目不维护第二套执行后端。
 
 ## 3. 标准库与真实应用
 
-语言闭环完成后，依次实现 collections、text、time、I/O、JSON、HTTP、SQL、testing 和 logging。平台能力可以先使用 Java/JDK/JDBC adapter，但 public Norm API 不暴露宿主实现细节。
+语言闭环完成后，依次实现 collections、text、time、I/O、JSON、HTTP、SQL、testing 和 logging。平台能力可以先使用 Java/JDK/JDBC adapter，但 public Norm API 不暴露宿主实现细节。系统能力、异常转换、宿主值和资源生命周期统一遵循[系统运行时架构](/design/system-runtime)。
 
 ## 4. Native Image 发行
 

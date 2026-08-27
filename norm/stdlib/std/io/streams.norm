@@ -1,0 +1,7 @@
+package std.io
+
+public enum ReadChunk { Data(Bytes bytes), Eof }
+
+public interface Resource {
+  Void close()
+}

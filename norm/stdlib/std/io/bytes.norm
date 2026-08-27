@@ -1,0 +1,67 @@
+package std.io
+
+public enum ByteOperation { Create }
+
+public enum ByteFailure { OutOfRange }
+
+public class ByteException extends IOException {
+  ByteOperation operation
+  ByteFailure reason
+  Integer index
+  Integer value
+
+  ByteException(
+    String code,
+    String message,
+    ByteOperation operation,
+    ByteFailure reason,
+    Integer index,
+    Integer value
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+    this.index = index
+    this.value = value
+  }
+}
+
+public interface Bytes {
+  Integer size()
+
+  Integer at(Integer index)
+
+  Array<Integer> toArray()
+}
+
+private value BytesValue implements Bytes {
+  private Array<Integer> values
+
+  public Integer size() {
+    return values.size()
+  }
+
+  public Integer at(Integer index) {
+    return values[index]
+  }
+
+  public Array<Integer> toArray() {
+    return values
+  }
+}
+
+public Bytes bytes(Array<Integer> values) {
+  for Integer value,index : values {
+    if value < 0 || value > 255 {
+      throw ByteException(
+        code: "NORM-IO-BYTE-OUT-OF-RANGE",
+        message: "byte value must be within 0..255",
+        operation: ByteOperation.Create,
+        reason: ByteFailure.OutOfRange,
+        index: index,
+        value: value
+      )
+    }
+  }
+  return BytesValue(values: values)
+}

@@ -8,8 +8,8 @@ Command command = Command(
     arguments: ["check", "src"]
 )
 
-Result<ProcessOutput, ProcessError> result = command.run(
-    timeout: Duration.seconds(value: 30)
+ProcessOutput result = command.run(
+    timeout: duration(seconds: 30, nanoseconds: 0)
 )
 ```
 
@@ -20,14 +20,15 @@ Result<ProcessOutput, ProcessError> result = command.run(
 长时间任务使用 `Process`：
 
 ```norm
-Result<Process, ProcessError> started = command.start()
+Process started = command.start()
 ```
 
 调用者负责读取管道、等待退出并在取消时终止进程。`terminate()` 请求正常结束，`kill()` 表示强制结束，两者不能混为一个布尔参数。
+
+启动失败、超时、取消和管道 I/O 失败抛出 `ProcessException`。子进程非零退出码属于 `ProcessOutput`，不自动转成异常。
 
 ## 环境与目录
 
 工作目录和环境变量由 Command 值显式设置。环境继承策略必须选择 `inherit` 或 `empty`，敏感变量不会自动写入日志。
 
 需要 shell 语法时使用单独的 `ShellCommand` API，并把注入风险保留在类型和调用点上。
-

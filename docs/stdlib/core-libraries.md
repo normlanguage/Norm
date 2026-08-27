@@ -13,7 +13,7 @@ Bytes encoded = message.encode(encoding: TextEncoding.Utf8)
 
 ## 数值与时间
 
-Math 提供固定语义的基础函数。计划中的 Decimal 将单独管理十进制 scale 与 rounding；时间库将区分 Instant、LocalDate、LocalTime、Duration、TimeZone 和带时区时间，避免把本地时间误当成全球时间点。
+Math 提供固定语义的基础函数。计划中的 Decimal 将单独管理十进制 scale 与 rounding；时间库区分 Instant、Duration 与 Clock，后续日历类型不会把本地时间误当成全球时间点。
 
 ## 集合
 

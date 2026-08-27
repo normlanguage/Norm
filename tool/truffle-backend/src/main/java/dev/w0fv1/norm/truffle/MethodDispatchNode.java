@@ -69,6 +69,14 @@ final class MethodDispatchNode extends Node {
     if (receiver instanceof RuntimeValues.ObjectValue object) {
       RuntimeValues.DispatchTarget target = object.objectInfo.dispatch().get(slot);
       if (target != null) return target;
+    } else if (receiver instanceof RuntimeValues.OpaqueValue opaque
+        && opaque.aggregateInfo != null) {
+      RuntimeValues.DispatchTarget target = opaque.aggregateInfo.dispatch().get(slot);
+      if (target != null) return target;
+    } else if (receiver instanceof RuntimeValues.OpaqueResource resource
+        && resource.aggregateInfo != null) {
+      RuntimeValues.DispatchTarget target = resource.aggregateInfo.dispatch().get(slot);
+      if (target != null) return target;
     } else {
       Map<DefinitionId, RuntimeValues.DispatchTarget> table =
           builtinDispatch.get(RuntimeValues.builtinType(receiver));

@@ -3,7 +3,9 @@ package dev.w0fv1.norm.testing;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.execution.SystemPlatform;
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.project.ProjectLoader;
 import dev.w0fv1.norm.runtime.NormRuntime;
@@ -34,32 +36,45 @@ public final class NormTestKit {
   }
 
   public static String run(String text) {
-    return run(compile(text));
+    return run(compile(text), JdkSystemPlatform.standard());
+  }
+
+  public static String run(String text, SystemPlatform platform) {
+    return run(compile(text), platform);
   }
 
   public static String run(Path path) throws Exception {
     StringWriter output = new StringWriter();
     try (var launcher = ENVIRONMENT.launcher()) {
       CompilationResult result =
-          launcher.run(path, dev.w0fv1.norm.execution.ExecutionContext.of(new PrintWriter(output)));
+          launcher.run(
+              path,
+              dev.w0fv1.norm.execution.ExecutionContext.of(
+                  new PrintWriter(output), JdkSystemPlatform.standard()));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
     return output.toString();
   }
 
-  private static String run(CompilationResult compilation) {
+  private static String run(CompilationResult compilation, SystemPlatform platform) {
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
-    return run(compilation.program().orElseThrow());
+    return run(compilation.program().orElseThrow(), platform);
   }
 
-  private static String run(TypedProgram program) {
+  private static String run(TypedProgram program, SystemPlatform platform) {
     StringWriter output = new StringWriter();
-    RUNTIME.run(program, new PrintWriter(output));
+    RUNTIME.run(
+        program, dev.w0fv1.norm.execution.ExecutionContext.of(new PrintWriter(output), platform));
     return output.toString();
   }
 
   public static void assertOutput(String text, String... lines) {
     assertEquals(String.join(System.lineSeparator(), lines) + System.lineSeparator(), run(text));
+  }
+
+  public static void assertOutput(SystemPlatform platform, String text, String... lines) {
+    assertEquals(
+        String.join(System.lineSeparator(), lines) + System.lineSeparator(), run(text, platform));
   }
 
   public static Stream<DynamicTest> suite(String resource) throws Exception {
@@ -140,7 +155,9 @@ public final class NormTestKit {
           launcher.run(
               path,
               dev.w0fv1.norm.execution.ExecutionContext.testing(
-                  new PrintWriter(actual), new PrintWriter(expected)));
+                  new PrintWriter(actual),
+                  new PrintWriter(expected),
+                  JdkSystemPlatform.standard()));
       assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     }
     assertTrue(!expected.toString().isEmpty(), path + " must declare expected output lines");

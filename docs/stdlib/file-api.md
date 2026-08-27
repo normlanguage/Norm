@@ -5,7 +5,7 @@
 ## Path
 
 ```norm
-Path root = Path("data")
+Path root = Path(value: "data")
 Path file = root.resolve(child: "users.json")
 Path normalized = file.normalize()
 ```
@@ -15,19 +15,19 @@ Path 只表示平台路径，不保证目标存在。拼接不会把未经验证
 ## 一次性读写
 
 ```norm
-Result<String, FileError> text = File.readText(
+String text = readText(
     path: file,
     encoding: TextEncoding.Utf8
 )
 
-Result<Unit, FileError> saved = File.writeText(
+writeText(
     path: file,
     text: content,
     mode: WriteMode.Replace
 )
 ```
 
-预期的不存在、权限不足、已存在等失败通过 `FileError` variant 返回。API 不用 null 表示文件缺失。
+不存在、权限不足、已存在等失败抛出 `FileException`。API 不用 null、状态码或 Result 表示文件操作失败。
 
 ## 流与关闭
 

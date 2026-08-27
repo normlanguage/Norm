@@ -541,6 +541,8 @@ public final class BuiltinCatalog {
     SemanticType functionContextType =
         SemanticType.declared(
             "std.core.FunctionContext", "FunctionContext", List.of(), ValueCategory.IDENTITY);
+    SemanticType systemClockT = globalParameter("__systemClock", "T");
+    SemanticType clockNowT = globalParameter("__clockNow", "T");
     SemanticType reflectT = globalParameter("reflect", "T");
 
     addType(types, type(integerType.name(), RuntimeShape.INTEGER));
@@ -1034,6 +1036,29 @@ public final class BuiltinCatalog {
                 "dependencyVersions",
                 SemanticType.declared(
                     "std.core.List", "List", List.of(integerType), ValueCategory.VALUE))));
+    addGlobal(
+        globals,
+        global(
+            "__fileReadText",
+            stringType,
+            IntrinsicId.FILE_READ_TEXT,
+            parameterInfo("path", stringType),
+            parameterInfo("encoding", stringType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__systemClock",
+            systemClockT,
+            IntrinsicId.TIME_SYSTEM_CLOCK,
+            List.of(new TypeParameterInfo("T", systemClockT))));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__clockNow",
+            clockNowT,
+            IntrinsicId.TIME_CLOCK_NOW,
+            List.of(new TypeParameterInfo("T", clockNowT)),
+            parameterInfo("clock", SemanticType.DYNAMIC)));
     addGlobal(
         globals,
         global(

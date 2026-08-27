@@ -120,6 +120,9 @@ public final class IntrinsicDispatcher {
             .publish(new ModuleDescriptor((String) first, (Integer) second, exports, dependencies));
         yield null;
       }
+      case FILE_READ_TEXT, TIME_SYSTEM_CLOCK, TIME_CLOCK_NOW ->
+          SystemIntrinsicDispatcher.execute(
+              intrinsic, first, second, type, context, execution, location);
       case TO_STRING -> RuntimeValues.stringify(receiver);
       case RANGE_CONSTRUCT -> {
         int step = third == null ? 1 : (Integer) third;

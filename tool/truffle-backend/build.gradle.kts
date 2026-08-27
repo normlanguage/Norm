@@ -3,6 +3,7 @@ description = "Norm Truffle execution backend and language adapter"
 dependencies {
     api(project(":core"))
     api(project(":execution-api"))
+    implementation(project(":platform-jdk"))
     implementation(project(":project-system"))
     implementation(libs.truffle.api)
     implementation(libs.polyglot)

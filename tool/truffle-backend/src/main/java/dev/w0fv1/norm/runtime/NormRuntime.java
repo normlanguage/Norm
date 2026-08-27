@@ -2,6 +2,7 @@ package dev.w0fv1.norm.runtime;
 
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import dev.w0fv1.norm.value.TypedProgram;
 import java.io.PrintWriter;
@@ -20,7 +21,7 @@ public final class NormRuntime implements ExecutionBackend {
 
   public void run(TypedProgram program, PrintWriter output) {
     Objects.requireNonNull(output, "output");
-    run(program, ExecutionContext.of(output));
+    run(program, ExecutionContext.of(output, JdkSystemPlatform.standard()));
   }
 
   public void run(TypedProgram program, ExecutionContext context) {

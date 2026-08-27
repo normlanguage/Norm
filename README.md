@@ -35,6 +35,8 @@ After GitHub Pages deployment, the documentation is available at:
 ```text
 tool/core/                    Compiler frontend and canonical Core IR
 tool/execution-api/           Backend-neutral execution contract
+tool/platform-jdk/            JDK-backed system capability implementation
+tool/project-system/          Project loading and standard-library bootstrap
 tool/truffle-backend/         Truffle backend and runtime composition
 tool/cli/app/                 command-line application and language server
 tool/cli/extensions/          editor extensions

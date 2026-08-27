@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -16,6 +16,18 @@
     {
       "name": "PUBLISH_MODULE",
       "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FILE_READ_TEXT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "TIME_SYSTEM_CLOCK",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "TIME_CLOCK_NOW",
+      "requiresResultRuntimeType": true
     },
     {
       "name": "TO_STRING",
@@ -492,12 +504,116 @@
     "PAIR",
     "RANGE",
     "STRING_BUILDER",
-    "NATIVE_ITERATOR"
+    "NATIVE_ITERATOR",
+    "OPAQUE_VALUE",
+    "OPAQUE_RESOURCE"
   ],
   "exception": {
     "packageName": "std.core",
     "typeName": "Exception",
     "messageFieldName": "message",
     "messageFieldOrdinal": 0
+  },
+  "systemExceptions": {
+    "file": {
+      "intrinsicName": "FILE_READ_TEXT",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.filesystem",
+      "typeName": "FileException",
+      "pathTypeName": "Path",
+      "operationTypeName": "FileOperation",
+      "failureTypeName": "FileFailure",
+      "fields": [
+        {
+          "name": "message",
+          "ordinal": 0
+        },
+        {
+          "name": "code",
+          "ordinal": 1
+        },
+        {
+          "name": "operation",
+          "ordinal": 2
+        },
+        {
+          "name": "reason",
+          "ordinal": 3
+        },
+        {
+          "name": "path",
+          "ordinal": 4
+        }
+      ],
+      "operations": [
+        {
+          "platformName": "READ_TEXT",
+          "variant": "ReadText"
+        }
+      ],
+      "failures": [
+        {
+          "platformName": "NOT_FOUND",
+          "variant": "NotFound",
+          "code": "NORM-FS-NOT-FOUND"
+        },
+        {
+          "platformName": "PERMISSION_DENIED",
+          "variant": "PermissionDenied",
+          "code": "NORM-FS-PERMISSION-DENIED"
+        },
+        {
+          "platformName": "INVALID_PATH",
+          "variant": "InvalidPath",
+          "code": "NORM-FS-INVALID-PATH"
+        },
+        {
+          "platformName": "IO",
+          "variant": "Io",
+          "code": "NORM-FS-IO"
+        }
+      ]
+    },
+    "time": {
+      "intrinsicName": "TIME_CLOCK_NOW",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.time",
+      "typeName": "TimeException",
+      "operationTypeName": "TimeOperation",
+      "failureTypeName": "TimeFailure",
+      "fields": [
+        {
+          "name": "message",
+          "ordinal": 0
+        },
+        {
+          "name": "code",
+          "ordinal": 1
+        },
+        {
+          "name": "operation",
+          "ordinal": 2
+        },
+        {
+          "name": "reason",
+          "ordinal": 3
+        }
+      ],
+      "operations": [
+        {
+          "platformName": "NOW",
+          "variant": "Now"
+        }
+      ],
+      "failures": [
+        {
+          "platformName": "CLOCK_UNAVAILABLE",
+          "variant": "ClockUnavailable",
+          "code": "NORM-TIME-CLOCK-UNAVAILABLE"
+        }
+      ]
+    }
   }
 }

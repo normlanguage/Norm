@@ -5,7 +5,7 @@
 ```norm
 Cache<OrderId, Order> orders = cacheFactory.create(
     name: "orders",
-    ttl: Duration.minutes(value: 5),
+    ttl: duration(seconds: 300, nanoseconds: 0),
     codec: orderCodec
 )
 

@@ -1,0 +1,11 @@
+package std.io
+
+import std.system.SystemException
+
+public enum TextEncoding { Utf8 }
+
+public class IOException extends SystemException {
+  IOException(String code, String message) {
+    super(code: code, message: message)
+  }
+}

@@ -7,6 +7,7 @@
 ```text
 tool/core/             编译前端与 canonical Core
 tool/execution-api/    后端无关的执行契约
+tool/platform-jdk/     JDK 系统能力实现
 tool/project-system/   标准库引导、模块配置与项目启动
 tool/truffle-backend/  Core lowering 与 Truffle 执行
 tool/cli/app/          命令行与 Language Server 生命周期
@@ -32,7 +33,7 @@ dev.w0fv1.norm.language     基于语义快照的语言服务
 dev.w0fv1.norm.value        跨阶段不可变数据
 ```
 
-`execution-api` 提供 `ExecutionBackend`、`ExecutionContext` 和结构化运行错误。`project-system` 提供 `ProjectEnvironment`、`ProjectLoader` 和 `ProjectLauncher`。`truffle-backend` 保存 Lowerer、可执行节点和运行时表示。
+`execution-api` 提供 `ExecutionBackend`、`ExecutionContext`、`SystemPlatform` 和结构化运行错误。`platform-jdk` 提供 JDK 文件、网络、进程、时钟和其他宿主系统能力实现。`project-system` 提供 `ProjectEnvironment`、`ProjectLoader` 和 `ProjectLauncher`。`truffle-backend` 保存 Lowerer、可执行节点、运行时表示和 Norm 系统异常桥。系统层完整边界见[系统运行时架构](/design/system-runtime)。
 
 必须保持的阶段依赖约束为：
 
@@ -41,8 +42,9 @@ frontend ⇏ truffle
 core ⇏ frontend, truffle
 Lowerer → core
 project-system → execution-api → core
-truffle-backend → project-system, execution-api, core
-CLI → project-system, truffle-backend
+platform-jdk → execution-api
+truffle-backend → platform-jdk, project-system, execution-api, core
+CLI → platform-jdk, project-system, truffle-backend
 ```
 
 `⇏` 表示禁止依赖。`bound` 只在前端内部完成已解析语义到 Core 的转换。Lowerer 只消费 Core，不依赖 Syntax AST、`SemanticModel` 或 `bound`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。

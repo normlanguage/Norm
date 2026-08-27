@@ -7,6 +7,7 @@ This standard defines code organization, dependency direction, and backend rules
 ```text
 tool/core/             compiler frontend and canonical Core
 tool/execution-api/    backend-neutral execution contracts
+tool/platform-jdk/     JDK-backed system capability implementation
 tool/project-system/   standard-library bootstrap, module configuration, and project launch
 tool/truffle-backend/  Core lowering and Truffle execution
 tool/cli/app/          command-line and Language Server lifecycle
@@ -32,7 +33,7 @@ dev.w0fv1.norm.language     language services over semantic snapshots
 dev.w0fv1.norm.value        immutable cross-phase data
 ```
 
-`execution-api` owns `ExecutionBackend`, `ExecutionContext`, and structured runtime errors. `project-system` owns `ProjectEnvironment`, `ProjectLoader`, and `ProjectLauncher`. `truffle-backend` owns lowering, executable nodes, and runtime representations.
+`execution-api` owns `ExecutionBackend`, `ExecutionContext`, `SystemPlatform`, and structured runtime errors. `platform-jdk` owns the JDK implementations of filesystem and other host system capabilities. `project-system` owns `ProjectEnvironment`, `ProjectLoader`, and `ProjectLauncher`. `truffle-backend` owns lowering, executable nodes, runtime representations, and the Norm system-exception bridge.
 
 The required stage dependency constraints are:
 
@@ -41,8 +42,9 @@ frontend ⇏ truffle
 core ⇏ frontend, truffle
 Lowerer → core
 project-system → execution-api → core
-truffle-backend → project-system, execution-api, core
-CLI → project-system, truffle-backend
+platform-jdk → execution-api
+truffle-backend → platform-jdk, project-system, execution-api, core
+CLI → platform-jdk, project-system, truffle-backend
 ```
 
 `⇏` denotes a forbidden dependency. `bound` is confined to the frontend conversion into Core. The lowerer consumes Core and has no dependency on the Syntax AST, `SemanticModel`, or `bound`. The CLI does not access internal Truffle nodes. New packages follow domain ownership and share existing semantic tables.

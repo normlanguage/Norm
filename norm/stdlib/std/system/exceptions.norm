@@ -1,0 +1,12 @@
+package std.system
+
+import std.core.Exception
+
+public class SystemException extends Exception {
+  String code
+
+  SystemException(String code, String message) {
+    super(message: message)
+    this.code = code
+  }
+}

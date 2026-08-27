@@ -5,8 +5,8 @@ session 使用客户端 cookie 中的随机 id 关联服务端状态。默认设
 ```norm
 SessionConfig config = SessionConfig(
     cookieName: "session",
-    idleTimeout: Duration.minutes(value: 30),
-    absoluteTimeout: Duration.hours(value: 12),
+    idleTimeout: duration(seconds: 1800, nanoseconds: 0),
+    absoluteTimeout: duration(seconds: 43200, nanoseconds: 0),
     secure: true,
     httpOnly: true,
     sameSite: SameSite.Lax
@@ -26,4 +26,3 @@ SessionStore 提供 load、save、rotate 和 delete。多实例部署使用共�
 session 只保存小型、稳定、可撤销的身份或流程数据。大型缓存、数据库实体和长期业务状态不放入 session。敏感字段在存储层加密，日志只记录不可逆 session 标识摘要。
 
 CSRF 防护与 session 认证配套配置，SameSite 不能作为唯一防护。
-

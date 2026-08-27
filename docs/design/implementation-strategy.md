@@ -19,13 +19,14 @@ Norm 官方实现遵循以下四条规则：
 ```text
 tool/core              编译器前端与 canonical Core
 tool/execution-api     后端无关的执行契约
+tool/platform-jdk      JDK 系统能力实现
 tool/project-system    标准库引导与项目生命周期
 tool/truffle-backend   唯一执行后端
 tool/cli               命令行、Language Server 与编辑器插件
 norm                   使用 Norm 编写的标准库与语言源码
 ```
 
-依赖方向是 `core ← execution-api ← project-system ← truffle-backend ← cli`；Truffle 同时实现 execution API，CLI 只组合公开入口。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
+`execution-api` 仅依赖 `core`；`platform-jdk` 实现 execution API；`project-system` 只依赖执行契约；Truffle 组合 project system、execution API 与 JDK 平台；CLI 只组合公开入口。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
 
 ## 构建与发行
 

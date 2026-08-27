@@ -18,6 +18,7 @@ record SemanticAnalysisInput(
     Map<SourceSpan, SemanticContribution> reusableDeclarations,
     int minimumBodySymbolId,
     Set<DocumentId> moduleEvaluationDocuments,
+    Set<DocumentId> standardLibraryDocuments,
     CompilationScope scope,
     DeclarationCatalog declarations) {
   SemanticAnalysisInput {
@@ -26,6 +27,7 @@ record SemanticAnalysisInput(
     exportedSources = Set.copyOf(exportedSources);
     reusableDeclarations = Map.copyOf(reusableDeclarations);
     moduleEvaluationDocuments = Set.copyOf(moduleEvaluationDocuments);
+    standardLibraryDocuments = Set.copyOf(standardLibraryDocuments);
     Objects.requireNonNull(scope, "scope");
     Objects.requireNonNull(declarations, "declarations");
   }

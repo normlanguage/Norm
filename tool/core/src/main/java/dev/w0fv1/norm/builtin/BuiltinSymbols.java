@@ -14,20 +14,27 @@ import java.util.Optional;
 public final class BuiltinSymbols implements BuiltinSemanticIndex {
   private final BuiltinCatalog catalog;
   private final java.util.Set<DocumentId> moduleEvaluationDocuments;
+  private final java.util.Set<DocumentId> standardLibraryDocuments;
 
   public BuiltinSymbols() {
-    this(java.util.Set.of());
+    this(java.util.Set.of(), java.util.Set.of());
   }
 
   public BuiltinSymbols(java.util.Set<DocumentId> moduleEvaluationDocuments) {
+    this(moduleEvaluationDocuments, java.util.Set.of());
+  }
+
+  public BuiltinSymbols(
+      java.util.Set<DocumentId> moduleEvaluationDocuments,
+      java.util.Set<DocumentId> standardLibraryDocuments) {
     catalog = BuiltinCatalog.standard();
     this.moduleEvaluationDocuments = java.util.Set.copyOf(moduleEvaluationDocuments);
+    this.standardLibraryDocuments = java.util.Set.copyOf(standardLibraryDocuments);
   }
 
   public Map<SymbolId, Symbol> symbols() {
-    SymbolId publisher = catalog.global("__publishModule").orElseThrow().symbol().id();
     Map<SymbolId, Symbol> symbols = new java.util.LinkedHashMap<>(catalog.symbols());
-    symbols.remove(publisher);
+    symbols.entrySet().removeIf(entry -> entry.getValue().name().startsWith("__"));
     return java.util.Collections.unmodifiableMap(symbols);
   }
 
@@ -36,19 +43,21 @@ public final class BuiltinSymbols implements BuiltinSemanticIndex {
   }
 
   public Optional<Symbol> global(String name) {
-    if (name.equals("__publishModule")) return Optional.empty();
+    if (name.startsWith("__")) return Optional.empty();
     return catalog.global(name).map(BuiltinCatalog.GlobalDefinition::symbol);
   }
 
   public List<Symbol> globals(String name) {
-    if (name.equals("__publishModule")) return List.of();
+    if (name.startsWith("__")) return List.of();
     return catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList();
   }
 
   public List<Symbol> globals(String name, DocumentId document) {
-    if (name.equals("__publishModule") && !moduleEvaluationDocuments.contains(document)) {
-      return List.of();
-    }
+    if (name.equals("__publishModule"))
+      return moduleEvaluationDocuments.contains(document)
+          ? catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList()
+          : List.of();
+    if (name.startsWith("__") && !standardLibraryDocuments.contains(document)) return List.of();
     return catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList();
   }
 
