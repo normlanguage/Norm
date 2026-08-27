@@ -7,7 +7,7 @@ aside: false
 
 # 参与 Norm
 
-Norm 当前正式版本为 0.10，并沿 0.11 开发线演进。语言、编译器、标准库和编辑器工具的实际边界见[版本索引](/versions/)。
+Norm 当前正式版本为 0.12。语言、编译器、标准库和编辑器工具的实际边界见[版本索引](/versions/)。
 
 <div class="community-grid">
   <a href="https://github.com/w0fv1/norm">
