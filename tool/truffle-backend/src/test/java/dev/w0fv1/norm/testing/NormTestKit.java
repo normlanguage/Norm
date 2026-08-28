@@ -9,6 +9,7 @@ import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.project.ProjectLoader;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.SourceFile;
@@ -24,7 +25,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
 
 public final class NormTestKit {
-  private static final NormRuntime RUNTIME = new NormRuntime();
+  private static final NormRuntime RUNTIME = new NormRuntime(new TruffleExecutionBackend(8));
   private static final ProjectEnvironment ENVIRONMENT = environment();
 
   private NormTestKit() {}

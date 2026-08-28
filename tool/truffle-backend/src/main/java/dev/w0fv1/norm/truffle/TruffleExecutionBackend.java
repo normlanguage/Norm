@@ -29,7 +29,7 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     this(DEFAULT_MAXIMUM_ARTIFACTS);
   }
 
-  TruffleExecutionBackend(int maximumArtifacts) {
+  public TruffleExecutionBackend(int maximumArtifacts) {
     if (maximumArtifacts < 1) {
       throw new IllegalArgumentException("maximum artifacts must be positive");
     }

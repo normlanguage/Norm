@@ -3,7 +3,7 @@
   "displayName": "Norm Language Support",
   "description": "All-in-one editing, navigation, refactoring, and execution support for Norm",
   "icon": "images/norm-256.png",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "publisher": "normlang",
   "repository": {
     "type": "git",
