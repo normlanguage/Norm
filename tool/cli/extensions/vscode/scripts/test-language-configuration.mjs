@@ -10,6 +10,7 @@ const numericPattern = new RegExp(grammar.repository.numbers.match);
 const constantPattern = new RegExp(grammar.repository.constants.match);
 const operatorPattern = new RegExp(grammar.repository.operators.match);
 const keywordPattern = new RegExp(grammar.repository.keywords.match);
+const modifierPattern = new RegExp(grammar.repository.modifiers.match);
 const declarationPattern = new RegExp(grammar.repository.declarations.patterns[0].match);
 
 for (const type of [
@@ -23,6 +24,12 @@ for (const type of [
   'Void',
   'CodePoint',
   'Stringable',
+  'Field',
+  'ReflectedValue',
+  'FunctionContext',
+  'JsonMapper',
+  'XmlMapper',
+  'YamlMapper',
   'Array<CodePoint>',
 ]) {
   assert.match(type, typePattern);
@@ -50,12 +57,15 @@ assert.match('try', keywordPattern);
 assert.match('catch', keywordPattern);
 assert.match('finally', keywordPattern);
 assert.match('throw', keywordPattern);
+assert.match('public', modifierPattern);
+assert.match('private', modifierPattern);
+assert.match('extension', modifierPattern);
 for (const declaration of [
   'class Counter',
   'value Point',
   'enum Result',
   'interface Named',
-  'annotation Log implements FunctionTarget',
+  'annotation Log implements FunctionInterceptor',
 ]) {
   assert.match(declaration, declarationPattern);
 }
@@ -83,5 +93,11 @@ assert.equal(
   'normlang.norm-language-support',
 );
 assert.equal(extension.contributes.configurationDefaults['[norm]']['editor.formatOnSave'], true);
+
+const projectVersion = /^normVersion=(\d+\.\d+\.\d+)(?:-SNAPSHOT)?$/m.exec(
+  readFileSync('../../../../gradle.properties', 'utf8'),
+)?.[1];
+assert.ok(projectVersion, 'gradle.properties does not declare a semantic Norm version');
+assert.equal(extension.version, projectVersion, 'extension version must track the Norm version');
 
 console.log('Norm language configuration tests succeeded.');

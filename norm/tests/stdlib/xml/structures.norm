@@ -1,0 +1,47 @@
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.xml.fromXml
+import std.xml.toXml
+
+enum State { Ready, Done }
+
+@Serializable()
+value Node {
+  String name
+  Node? next
+}
+
+@Serializable()
+@SerialName(name: "payload")
+value Payload<T> {
+  T value
+  State state
+  Map<Integer, String> labels
+  String? note
+}
+
+main() {
+  Map<Integer, String> labels = Map<>()
+  labels.put(key: 1, value: "one")
+  Payload<Node> source = Payload<>(
+    value: Node(name: "a", next: Node(name: "b", next: null)),
+    state: State.Ready,
+    labels: labels,
+    note: null
+  )
+  String encoded = source.toXml()
+  Payload<Node> decoded = encoded.fromXml<Payload<Node>>()
+  printLine(encoded)
+  printLine(decoded.value.next?.name ?? "missing")
+  printLine(decoded.state == State.Ready)
+  printLine(decoded.labels.get(key: 1) ?? "missing")
+  printLine(decoded.note ?? "missing")
+  expectedOutputLines([
+    "<payload><value><name>a</name><next><name>b</name></next></value><state>Ready</state><labels><entry><key>1</key><value>one</value></entry></labels></payload>",
+    "b",
+    "true",
+    "one",
+    "missing"
+  ])
+}

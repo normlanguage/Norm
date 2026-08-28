@@ -535,6 +535,8 @@ final class RuntimeValues {
       case String ignored -> CoreType.STRING;
       case CodePointValue ignored -> CoreType.CODE_POINT;
       case TypeValue item -> item.type;
+      case FieldValue item -> item.type;
+      case ReflectedValue item -> item.type;
       case FunctionContextValue item -> item.type;
       case ParameterContextValue item -> item.type;
       case FieldContextValue item -> item.type;
@@ -600,6 +602,40 @@ final class RuntimeValues {
     @Override
     public String toString() {
       return annotations.name(reflectedType);
+    }
+  }
+
+  record FieldValue(
+      CoreType type,
+      CoreType ownerType,
+      DefinitionOccurrenceId owner,
+      String name,
+      int index,
+      CoreType fieldType,
+      AnnotationRuntime annotations) {
+    FieldValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(ownerType, "ownerType");
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(fieldType, "fieldType");
+      Objects.requireNonNull(annotations, "annotations");
+      if (index < 0) throw new IllegalArgumentException("field index must not be negative");
+    }
+  }
+
+  record ReflectedValue(
+      CoreType type, CoreType reflectedType, Object value, AnnotationRuntime annotations) {
+    ReflectedValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(reflectedType, "reflectedType");
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(annotations, "annotations");
+    }
+
+    @Override
+    public String toString() {
+      return RuntimeValues.stringify(value);
     }
   }
 

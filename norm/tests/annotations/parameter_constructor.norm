@@ -1,8 +1,8 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation Wrap implements ParameterTarget<String>, SourceRetention {
+annotation Wrap implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
     printLine(context.function().name())
     return "[" + value + "]"

@@ -8,7 +8,7 @@ Norm prioritizes explicit behavior, predictable semantics, strong typing, value 
 
 ## Status
 
-**Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [current implementation contract](https://w0fv1.github.io/norm/en/versions/0.15) defines this boundary.
+**Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [current implementation contract](https://w0fv1.github.io/Norm/en/versions/0.16) defines this boundary.
 
 ## Build
 
@@ -20,7 +20,7 @@ Norm prioritizes explicit behavior, predictable semantics, strong typing, value 
 
 On Windows, use `gradlew.bat`. Gradle selects the pinned Java 25 toolchain automatically.
 
-Tagged releases provide a standalone `norm` executable and a VS Code extension that contains the matching executable. See the [release process](https://w0fv1.github.io/norm/design/release-process) for supported platforms and acceptance requirements.
+Tagged releases provide a standalone `norm` executable and a VS Code extension that contains the matching executable. See the [release process](https://w0fv1.github.io/Norm/design/release-process) for supported platforms and acceptance requirements.
 
 ## Documentation
 
@@ -28,7 +28,7 @@ The complete handbook lives in `docs/` and is built with VitePress.
 
 After GitHub Pages deployment, the documentation is available at:
 
-**https://w0fv1.github.io/norm/**
+**https://w0fv1.github.io/Norm/**
 
 ## Repository layout
 
@@ -49,4 +49,4 @@ docs/                         language handbook and examples
 
 Norm's official toolchain is implemented in Java. GraalVM/Truffle is the sole official execution backend, and GraalVM Native Image produces the standalone `norm` CLI. Zig is not part of the compiler, runtime, backend, CLI, or core standard-library adapters.
 
-The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://w0fv1.github.io/norm/spec/compiler-design) and [implementation strategy](https://w0fv1.github.io/norm/design/implementation-strategy).
+The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://w0fv1.github.io/Norm/spec/compiler-design) and [implementation strategy](https://w0fv1.github.io/Norm/design/implementation-strategy).

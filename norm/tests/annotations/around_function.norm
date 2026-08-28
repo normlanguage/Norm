@@ -1,8 +1,8 @@
-import std.annotation.FunctionTarget
+import std.annotation.FunctionInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation Trace implements FunctionTarget, SourceRetention {
+annotation Trace implements FunctionInterceptor, SourceRetention {
   R around<R>(FunctionInvocation<R> invocation) {
     printLine("around-in")
     R result = invocation.proceed()

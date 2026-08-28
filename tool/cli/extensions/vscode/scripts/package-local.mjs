@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import yauzl from 'yauzl';
 import { buildServer } from './build-server.mjs';
-import { releaseTargets, releaseVersion } from './release-package.mjs';
+import { releaseVersion } from './release-package.mjs';
 import { packageVsix } from './vsce-package.mjs';
 
 export function localPackageName(version) {
@@ -21,6 +21,7 @@ export async function packageLocal() {
   packageVsix({
     extensionRoot,
     destination,
+    excludedDirectory: 'bin',
   });
   await verifyPackage(destination, version);
   console.log(`Created ${destination}`);
@@ -46,9 +47,6 @@ function verifyPackage(path, version) {
     'extension/package.json',
     `extension/server/bin/${process.platform === 'win32' ? 'norm.bat' : 'norm'}`,
   ]);
-  const expectedReleaseEntries = new Set(
-    releaseTargets.map(({ target, executable }) => `extension/bin/${target}/${executable}`),
-  );
   return new Promise((resolvePromise, reject) => {
     yauzl.open(path, { lazyEntries: true }, (openError, archive) => {
       if (openError) return reject(openError);
@@ -75,12 +73,8 @@ function verifyPackage(path, version) {
       });
       archive.on('end', () => {
         if (expected.size > 0) return reject(new Error(`VSIX is missing: ${[...expected].join(', ')}`));
-        if (
-          packagedReleaseEntries.size > 0 &&
-          (packagedReleaseEntries.size !== expectedReleaseEntries.size ||
-            [...expectedReleaseEntries].some((entry) => !packagedReleaseEntries.has(entry)))
-        ) {
-          return reject(new Error('Local VSIX contains an incomplete release CLI bundle'));
+        if (packagedReleaseEntries.size > 0) {
+          return reject(new Error('Local VSIX contains a release CLI bundle'));
         }
         if (packagedVersion !== version) {
           return reject(

@@ -29,4 +29,4 @@ Run `spotlessApply` before submitting Java changes. CI executes the test suite o
 
 ## Architecture rules
 
-The [toolchain development standard](https://w0fv1.github.io/norm/en/design/toolchain-development) is the source of truth for module boundaries, package responsibilities, dependency direction, naming, and verification. Language changes must keep the specification, frontend diagnostics, Truffle lowering, and focused tests synchronized.
+The [toolchain development standard](https://w0fv1.github.io/Norm/en/design/toolchain-development) is the source of truth for module boundaries, package responsibilities, dependency direction, naming, and verification. Language changes must keep the specification, frontend diagnostics, Truffle lowering, and focused tests synchronized.

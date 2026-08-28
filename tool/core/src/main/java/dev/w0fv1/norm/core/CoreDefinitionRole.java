@@ -8,6 +8,7 @@ public enum CoreDefinitionRole {
   BUILTIN_CONFORMANCE,
   CONSTRUCTOR,
   FUNCTION,
+  EXTENSION,
   METHOD,
   LAMBDA
 }

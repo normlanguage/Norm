@@ -21,7 +21,7 @@ Void register(@CodePointSize(minimum: 3, maximum: 32) String name) {
 
 ## 公共契约
 
-所有内置约束实现 `Constraint<T>`。它组合 `ParameterTarget<T>`、`FieldTarget<T>` 与 `SourceRetention`，并以 `isValid(T)`、稳定 `code()` 和展示 `message()` 定义约束。用户 Annotation 实现同一 interface 即可复用相同生命周期和失败模型。
+所有内置约束实现 `Constraint<T>`。它组合 `ParameterInterceptor<T>`、`FieldInterceptor<T>` 与 `SourceRetention`，并以 `isValid(T)`、稳定 `code()` 和展示 `message()` 定义约束。用户 Annotation 实现同一 interface 即可复用相同生命周期和失败模型。
 
 `ConstraintViolation` 提供：
 

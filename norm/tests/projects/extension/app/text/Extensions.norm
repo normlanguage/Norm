@@ -1,0 +1,5 @@
+package app.text
+
+public extension String quoted(String value) {
+  return "\"" + value + "\""
+}

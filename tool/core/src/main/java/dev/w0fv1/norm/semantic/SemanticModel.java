@@ -535,6 +535,41 @@ public final class SemanticModel implements SemanticIndex {
     return Optional.of(parent.substitute(substitutions));
   }
 
+  public boolean isAssignable(SemanticType expected, SemanticType actual) {
+    return isAssignable(expected, actual, new java.util.HashSet<>());
+  }
+
+  private boolean isAssignable(SemanticType expected, SemanticType actual, Set<String> visiting) {
+    if (containsTypeParameter(expected) || TypeRelations.isAssignable(expected, actual))
+      return true;
+    if (!visiting.add(actual.identity())) return false;
+    return directParents(actual).stream()
+        .anyMatch(parent -> isAssignable(expected, parent, visiting));
+  }
+
+  private List<SemanticType> directParents(SemanticType type) {
+    List<SemanticType> result = new java.util.ArrayList<>();
+    aggregateParent(type).ifPresent(result::add);
+    SymbolId ownerId = typeSymbols.get(type.identity());
+    Symbol owner = ownerId == null ? null : symbols.get(ownerId);
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+    if (owner != null && owner.typeParameters().size() == type.arguments().size()) {
+      for (int index = 0; index < type.arguments().size(); index++) {
+        substitutions.put(
+            owner.typeParameters().get(index).type().identity(), type.arguments().get(index));
+      }
+    }
+    interfaceParents.getOrDefault(type.identity(), List.of()).stream()
+        .map(parent -> parent.substitute(substitutions))
+        .forEach(result::add);
+    return List.copyOf(result);
+  }
+
+  private static boolean containsTypeParameter(SemanticType type) {
+    return type.kind() == SemanticType.Kind.TYPE_PARAMETER
+        || type.arguments().stream().anyMatch(SemanticModel::containsTypeParameter);
+  }
+
   public Optional<SymbolId> overriddenMethod(SymbolId method) {
     return Optional.ofNullable(methodOverrides.get(method));
   }
@@ -647,6 +682,11 @@ public final class SemanticModel implements SemanticIndex {
                     .filter(
                         symbol ->
                             symbol.declaration().isEmpty()
+                                || !symbol
+                                    .declaration()
+                                    .orElseThrow()
+                                    .document()
+                                    .equals(source.id())
                                 || symbol.declaration().orElseThrow().startOffset() <= offset)
                     .forEach(
                         symbol -> {
@@ -670,6 +710,7 @@ public final class SemanticModel implements SemanticIndex {
 
   private static boolean callable(Symbol symbol) {
     return symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.EXTENSION
         || symbol.kind() == SymbolKind.METHOD
         || symbol.kind() == SymbolKind.INTERFACE_METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD;

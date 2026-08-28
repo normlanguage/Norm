@@ -73,6 +73,94 @@ public final class IntrinsicDispatcher {
         RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) receiver;
         yield reflected.annotations().annotation(reflected.reflectedType(), type, execution);
       }
+      case TYPE_FIELDS -> {
+        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) receiver;
+        yield reflected.annotations().fields(reflected.reflectedType(), type);
+      }
+      case FIELD_NAME -> ((RuntimeValues.FieldValue) receiver).name();
+      case FIELD_INDEX -> ((RuntimeValues.FieldValue) receiver).index();
+      case FIELD_TYPE_NAME -> {
+        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+        yield field.annotations().name(field.fieldType());
+      }
+      case FIELD_ANNOTATION -> {
+        if (execution == null) {
+          throw new IllegalStateException("annotation execution is unavailable");
+        }
+        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+        yield field.annotations().fieldAnnotation(field, type, execution);
+      }
+      case FIELD_READ -> {
+        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+        yield field.annotations().readField(field, first, type);
+      }
+      case REFLECTED_VALUE_TYPE_NAME -> {
+        RuntimeValues.ReflectedValue reflected = (RuntimeValues.ReflectedValue) receiver;
+        yield reflected.annotations().name(reflected.reflectedType());
+      }
+      case JSON_ENCODE -> {
+        if (annotations == null || execution == null) {
+          throw new IllegalStateException("serialization runtime is unavailable");
+        }
+        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) second;
+        yield annotations
+            .mapper()
+            .write(JsonDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
+      }
+      case JSON_DECODE -> {
+        if (annotations == null || execution == null || type == null) {
+          throw new IllegalStateException("serialization runtime is unavailable");
+        }
+        yield annotations
+            .mapper()
+            .read(JsonDataFormat.INSTANCE, type, (String) first, execution, location);
+      }
+      case JSON_PARSE -> {
+        if (annotations == null || execution == null || type == null) {
+          throw new IllegalStateException("JSON runtime is unavailable");
+        }
+        yield JsonRuntime.parseValue((String) first, type, annotations, execution, location);
+      }
+      case JSON_WRITE -> {
+        if (annotations == null || execution == null) {
+          throw new IllegalStateException("JSON runtime is unavailable");
+        }
+        yield JsonRuntime.writeValue(first, annotations, execution, location);
+      }
+      case XML_ENCODE -> {
+        if (annotations == null || execution == null) {
+          throw new IllegalStateException("serialization runtime is unavailable");
+        }
+        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) second;
+        yield annotations
+            .mapper()
+            .write(annotations.xml(), reflected.reflectedType(), first, execution, location);
+      }
+      case XML_DECODE -> {
+        if (annotations == null || execution == null || type == null) {
+          throw new IllegalStateException("serialization runtime is unavailable");
+        }
+        yield annotations
+            .mapper()
+            .read(annotations.xml(), type, (String) first, execution, location);
+      }
+      case YAML_ENCODE -> {
+        if (annotations == null || execution == null) {
+          throw new IllegalStateException("serialization runtime is unavailable");
+        }
+        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) second;
+        yield annotations
+            .mapper()
+            .write(YamlDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
+      }
+      case YAML_DECODE -> {
+        if (annotations == null || execution == null || type == null) {
+          throw new IllegalStateException("serialization runtime is unavailable");
+        }
+        yield annotations
+            .mapper()
+            .read(YamlDataFormat.INSTANCE, type, (String) first, execution, location);
+      }
       case FUNCTION_CONTEXT_NAME -> ((RuntimeValues.FunctionContextValue) receiver).name();
       case PARAMETER_CONTEXT_FUNCTION ->
           ((RuntimeValues.ParameterContextValue) receiver).function();

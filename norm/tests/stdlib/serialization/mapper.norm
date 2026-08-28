@@ -1,0 +1,30 @@
+import std.json.JsonMapper
+import std.serialization.DataMapper
+import std.serialization.DataReader
+import std.serialization.DataWriter
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.xml.XmlMapper
+import std.yaml.YamlMapper
+
+@Serializable()
+value Message {
+  String text
+}
+
+Void roundTrip(DataMapper mapper) {
+  DataWriter<Message> writer = mapper.writer<Message>()
+  DataReader<Message> reader = mapper.reader<Message>()
+  String encoded = writer.writeString(value: Message(text: "Norm"))
+  Message decoded = reader.readString(source: encoded)
+  Message bytesDecoded = reader.readBytes(source: writer.writeBytes(value: Message(text: "Bytes")))
+  printLine(decoded.text)
+  printLine(bytesDecoded.text)
+}
+
+main() {
+  roundTrip(mapper: JsonMapper())
+  roundTrip(mapper: XmlMapper())
+  roundTrip(mapper: YamlMapper())
+  expectedOutputLines(["Norm", "Bytes", "Norm", "Bytes", "Norm", "Bytes"])
+}

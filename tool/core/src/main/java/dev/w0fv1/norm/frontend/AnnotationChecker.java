@@ -69,16 +69,21 @@ final class AnnotationChecker {
                 .map(AnnotationPolicy::retention)
                 .flatMap(Optional::stream)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        Set<AnnotationTarget> interceptors =
+            policies.stream()
+                .map(AnnotationPolicy::interceptor)
+                .flatMap(Optional::stream)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
         Map<AnnotationTarget, List<SemanticType>> typedTargets = new LinkedHashMap<>();
         for (int index = 0; index < views.size(); index++) {
           SemanticType view = views.get(index);
-          Optional<AnnotationTarget> target = policies.get(index).target();
-          if (target.isPresent()
-              && (target.orElseThrow() == AnnotationTarget.FIELD
-                  || target.orElseThrow() == AnnotationTarget.PARAMETER)
+          Optional<AnnotationTarget> interceptor = policies.get(index).interceptor();
+          if (interceptor.isPresent()
+              && (interceptor.orElseThrow() == AnnotationTarget.FIELD
+                  || interceptor.orElseThrow() == AnnotationTarget.PARAMETER)
               && view.arguments().size() == 1) {
             typedTargets
-                .computeIfAbsent(target.orElseThrow(), ignored -> new ArrayList<>())
+                .computeIfAbsent(interceptor.orElseThrow(), ignored -> new ArrayList<>())
                 .add(view.arguments().getFirst());
           }
         }
@@ -97,11 +102,13 @@ final class AnnotationChecker {
         for (AnnotationTarget target :
             List.of(AnnotationTarget.FIELD, AnnotationTarget.PARAMETER)) {
           List<SemanticType> types = typedTargets.getOrDefault(target, List.of());
-          if (targets.contains(target) && types.stream().distinct().count() != 1) {
+          if (interceptors.contains(target) && types.stream().distinct().count() != 1) {
             analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
                 "annotation must implement "
-                    + (target == AnnotationTarget.FIELD ? "FieldTarget" : "ParameterTarget")
+                    + (target == AnnotationTarget.FIELD
+                        ? "FieldInterceptor"
+                        : "ParameterInterceptor")
                     + " with one concrete type",
                 declaration.nameSpan());
           }
@@ -150,6 +157,7 @@ final class AnnotationChecker {
                 declaration.name(),
                 targets,
                 retentions.stream().findFirst().orElse(AnnotationRetention.SOURCE),
+                interceptors,
                 typedTargets.entrySet().stream()
                     .filter(entry -> entry.getValue().stream().distinct().count() == 1)
                     .collect(
@@ -172,6 +180,7 @@ final class AnnotationChecker {
     return new AnnotationPolicy(
         AnnotationAbi.target(module, owner.packageName(), declaration.name()),
         AnnotationAbi.retention(module, owner.packageName(), declaration.name()),
+        AnnotationAbi.interceptor(module, owner.packageName(), declaration.name()),
         AnnotationAbi.isPolicyInterface(module, owner.packageName(), declaration.name()));
   }
 
@@ -283,7 +292,8 @@ final class AnnotationChecker {
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
                         && site.kind() == AnnotationTarget.FUNCTION
-                        && site.symbol().equals(callableId))
+                        && site.symbol().equals(callableId)
+                        && isInterceptor(application, AnnotationTarget.FUNCTION))
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()
@@ -295,7 +305,8 @@ final class AnnotationChecker {
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
                         && site.kind() == AnnotationTarget.PARAMETER
-                        && parameterSymbols.contains(site.symbol()))
+                        && parameterSymbols.contains(site.symbol())
+                        && isInterceptor(application, AnnotationTarget.PARAMETER))
             .toList();
     if (interceptors.isEmpty() && parameterInterceptors.isEmpty()) return;
     if (declaration instanceof Syntax.InterfaceMethodDecl) {
@@ -303,13 +314,13 @@ final class AnnotationChecker {
           application ->
               analyzer.context.diagnostics.error(
                   TYPE_MISMATCH,
-                  "FunctionTarget annotation requires a concrete function or method",
+                  "FunctionInterceptor annotation requires a concrete function or method",
                   application.span()));
       parameterInterceptors.forEach(
           application ->
               analyzer.context.diagnostics.error(
                   TYPE_MISMATCH,
-                  "ParameterTarget annotation requires a concrete callable parameter",
+                  "ParameterInterceptor annotation requires a concrete callable parameter",
                   application.span()));
     }
     dev.w0fv1.norm.semantic.Symbol callable = analyzer.context.symbols.get(callableId);
@@ -322,7 +333,7 @@ final class AnnotationChecker {
           application ->
               analyzer.context.diagnostics.error(
                   TYPE_MISMATCH,
-                  "FunctionTarget annotation cannot intercept a ref signature",
+                  "FunctionInterceptor annotation cannot intercept a ref signature",
                   application.span()));
     }
     parameterInterceptors.forEach(
@@ -331,7 +342,7 @@ final class AnnotationChecker {
           if (analyzer.context.symbols.get(site.symbol()).type().isReference()) {
             analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
-                "ParameterTarget annotation cannot intercept a ref parameter",
+                "ParameterInterceptor annotation cannot intercept a ref parameter",
                 application.span());
           }
         });
@@ -475,7 +486,7 @@ final class AnnotationChecker {
         if (!fieldType.equals(targetType)) {
           analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
-              "FieldTarget type '"
+              "FieldInterceptor type '"
                   + targetType.displayName()
                   + "' does not match field type '"
                   + fieldType.displayName()
@@ -492,13 +503,13 @@ final class AnnotationChecker {
         if (parameterType.isReference()) {
           analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
-              "ParameterTarget annotation cannot intercept a ref parameter",
+              "ParameterInterceptor annotation cannot intercept a ref parameter",
               use.span());
           complete = false;
         } else if (!parameterType.equals(targetType)) {
           analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
-              "ParameterTarget type '"
+              "ParameterInterceptor type '"
                   + targetType.displayName()
                   + "' does not match parameter type '"
                   + parameterType.displayName()
@@ -547,15 +558,21 @@ final class AnnotationChecker {
     return new AnnotationApplicationKey(annotation, target.kind(), identity);
   }
 
+  private boolean isInterceptor(AnnotationApplication application, AnnotationTarget target) {
+    AnnotationSchema schema = analyzer.context.annotationSchemas.get(application.annotation());
+    return schema != null && schema.intercepts(target);
+  }
+
   private record AnnotationApplicationKey(
       SymbolId annotation, AnnotationTarget target, Object identity) {}
 
   private record AnnotationPolicy(
       Optional<AnnotationTarget> target,
       Optional<AnnotationRetention> retention,
+      Optional<AnnotationTarget> interceptor,
       boolean policyInterface) {
     private static final AnnotationPolicy NONE =
-        new AnnotationPolicy(Optional.empty(), Optional.empty(), false);
+        new AnnotationPolicy(Optional.empty(), Optional.empty(), Optional.empty(), false);
   }
 
   private record PackageIdentity(

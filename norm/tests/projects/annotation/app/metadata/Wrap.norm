@@ -1,9 +1,9 @@
 package app.metadata
 
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.RuntimeRetention
 
-public annotation Wrap implements ParameterTarget<String>, RuntimeRetention {
+public annotation Wrap implements ParameterInterceptor<String>, RuntimeRetention {
   public String before(ParameterContext context, String value) {
     printLine(context.name())
     return "[" + value + "]"

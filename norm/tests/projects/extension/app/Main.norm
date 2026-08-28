@@ -1,0 +1,9 @@
+package app
+
+import app.text.quoted
+import std.testing.expectedOutputLines
+
+main() {
+  printLine("Norm".quoted())
+  expectedOutputLines(["\"Norm\""])
+}

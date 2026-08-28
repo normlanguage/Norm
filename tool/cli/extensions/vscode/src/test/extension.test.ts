@@ -93,6 +93,44 @@ suite('Norm VS Code extension', () => {
     );
   });
 
+  test('serves extension, reflection, and serialization language features', async () => {
+    const document = await openProjectFixture('sample/Modern.norm');
+    const completions = await atCompletionPoint(document, 'user.label()', (position) =>
+      eventually(async () => {
+        const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+          'vscode.executeCompletionItemProvider',
+          document.uri,
+          position,
+          '.',
+        );
+        return value?.items.some((item) => labelOf(item) === 'label') ? value : undefined;
+      }),
+    );
+    const label = completions.items.find((item) => labelOf(item) === 'label');
+    const labels = completions.items.map(labelOf);
+
+    assert.ok(label);
+    assert.equal(completionText(label.insertText), 'label()');
+    for (const name of ['toJson', 'toXml', 'toYaml']) {
+      assert.ok(labels.includes(name), `completion lacks ${name}`);
+    }
+
+    const reflectionCompletions = await atCompletionPoint(document, 'type.fields()', (position) =>
+      eventually(async () => {
+        const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+          'vscode.executeCompletionItemProvider',
+          document.uri,
+          position,
+          '.',
+        );
+        return value?.items.some((item) => labelOf(item) === 'fields') ? value : undefined;
+      }),
+    );
+
+    assert.ok(reflectionCompletions.items.some((item) => labelOf(item) === 'fields'));
+    assert.deepEqual(vscode.languages.getDiagnostics(document.uri), []);
+  });
+
   test('retains language features after a destructive edit', async () => {
     const broken =
       'Void main() {\n' +

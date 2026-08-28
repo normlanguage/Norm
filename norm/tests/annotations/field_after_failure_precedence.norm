@@ -1,4 +1,4 @@
-import std.annotation.FieldTarget
+import std.annotation.FieldInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 import std.testing.expectedOutputLines
@@ -9,14 +9,14 @@ class Failure extends Exception {
   }
 }
 
-annotation Outer implements FieldTarget<String>, SourceRetention {
+annotation Outer implements FieldInterceptor<String>, SourceRetention {
   Void after(FieldContext context, FunctionCompletion completion) {
     printLine("outer")
     printLine(completion.succeeded())
   }
 }
 
-annotation FailSecondAfter implements FieldTarget<String>, SourceRetention {
+annotation FailSecondAfter implements FieldInterceptor<String>, SourceRetention {
   Integer writes
 
   Void after(FieldContext context, FunctionCompletion completion) {

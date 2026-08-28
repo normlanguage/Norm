@@ -1,8 +1,8 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-interface Normalize<T, State> extends ParameterTarget<T> {
+interface Normalize<T, State> extends ParameterInterceptor<T> {
 }
 
 annotation Keep implements Normalize<String, Integer>, SourceRetention {

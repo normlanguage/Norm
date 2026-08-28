@@ -1313,13 +1313,15 @@ final class ExpressionChecker {
           symbol.typeParameters().stream()
               .map(parameter -> substitutions.get(parameter.type().identity()))
               .toList();
-      if (analyzer.context.builtins.intrinsic(symbol.id()).orElse(null)
-              == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION
+      dev.w0fv1.norm.abi.IntrinsicId intrinsic =
+          analyzer.context.builtins.intrinsic(symbol.id()).orElse(null);
+      if ((intrinsic == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION
+              || intrinsic == dev.w0fv1.norm.abi.IntrinsicId.FIELD_ANNOTATION)
           && !reifiedArguments.isEmpty()
           && analyzer.typeSystem.resolveAnnotation(reifiedArguments.getFirst().nonNullable())
               == null) {
         analyzer.context.diagnostics.error(
-            TYPE_MISMATCH, "Type.annotation requires an annotation type", member.span());
+            TYPE_MISMATCH, "annotation query requires an annotation type", member.span());
       }
       List<ParameterInfo> parameters =
           symbol.parameters().stream()
@@ -1463,6 +1465,37 @@ final class ExpressionChecker {
           interfaceResolution.parameters(),
           interfaceResolution.reifiedArguments(),
           safeAccessResult(member, nullableReceiver, interfaceResolution.result()));
+    }
+    List<Syntax.FunctionDecl> extensions =
+        analyzer.typeSystem.resolveFunctions(member.name()).stream()
+            .filter(candidate -> candidate.kind() == Syntax.FunctionKind.EXTENSION)
+            .toList();
+    if (!extensions.isEmpty()) {
+      if (member.nullSafe()) {
+        analyzer.context.diagnostics.error(
+            INVALID_CALL, "null-safe extension calls are not supported", member.span());
+        analyzer.typeSystem.analyzeArguments(call.arguments());
+        return SemanticType.DYNAMIC;
+      }
+      SourceCallResolution resolution =
+          analyzer.typeSystem.resolveExtensionCall(
+              extensions,
+              member.typeArguments(),
+              member.receiver(),
+              call,
+              expected,
+              member.nameSpan());
+      if (resolution == null) return SemanticType.DYNAMIC;
+      Syntax.FunctionDecl extension = resolution.declaration();
+      SymbolId target = analyzer.context.declarationSymbols.get(extension);
+      analyzer.context.bindings.put(member.nameSpan(), target);
+      return analyzer.typeSystem.recordExtensionCall(
+          member,
+          call,
+          target,
+          resolution.parameters(),
+          resolution.reifiedArguments(),
+          resolution.result());
     }
     if (analyzer.context.builtins.isType(receiver.name())) {
       analyzer.context.diagnostics.error(

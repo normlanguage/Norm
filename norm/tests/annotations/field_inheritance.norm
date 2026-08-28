@@ -1,8 +1,8 @@
-import std.annotation.FieldTarget
+import std.annotation.FieldInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation Wrap implements FieldTarget<String>, SourceRetention {
+annotation Wrap implements FieldInterceptor<String>, SourceRetention {
   String before(FieldContext context, String value) {
     printLine(context.name())
     printLine(context.index())

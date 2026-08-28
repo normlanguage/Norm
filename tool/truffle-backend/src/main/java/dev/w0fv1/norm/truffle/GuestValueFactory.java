@@ -5,8 +5,11 @@ import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.FileExceptionAbi;
 import dev.w0fv1.norm.abi.HttpExceptionAbi;
 import dev.w0fv1.norm.abi.IntrinsicId;
+import dev.w0fv1.norm.abi.JsonAbi;
 import dev.w0fv1.norm.abi.OpaqueValueAbi;
 import dev.w0fv1.norm.abi.TimeExceptionAbi;
+import dev.w0fv1.norm.abi.XmlAbi;
+import dev.w0fv1.norm.abi.YamlAbi;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
@@ -21,8 +24,51 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 final class GuestValueFactory {
+  private static final DataExceptionContract JSON_EXCEPTION =
+      new DataExceptionContract(
+          JsonAbi.MODULE_NAME,
+          JsonAbi.MODULE_VERSION,
+          JsonAbi.PACKAGE_NAME,
+          JsonAbi.EXCEPTION_TYPE_NAME,
+          JsonAbi.INTRINSIC_NAMES,
+          List.of(
+              new FieldContract(JsonAbi.FIELD_MESSAGE_ORDINAL, JsonAbi.FIELD_MESSAGE_NAME),
+              new FieldContract(JsonAbi.FIELD_CODE_ORDINAL, JsonAbi.FIELD_CODE_NAME),
+              new FieldContract(JsonAbi.FIELD_PATH_ORDINAL, JsonAbi.FIELD_PATH_NAME),
+              new FieldContract(JsonAbi.FIELD_OFFSET_ORDINAL, JsonAbi.FIELD_OFFSET_NAME),
+              new FieldContract(JsonAbi.FIELD_LINE_ORDINAL, JsonAbi.FIELD_LINE_NAME),
+              new FieldContract(JsonAbi.FIELD_COLUMN_ORDINAL, JsonAbi.FIELD_COLUMN_NAME)));
+  private static final DataExceptionContract XML_EXCEPTION =
+      new DataExceptionContract(
+          XmlAbi.MODULE_NAME,
+          XmlAbi.MODULE_VERSION,
+          XmlAbi.PACKAGE_NAME,
+          XmlAbi.EXCEPTION_TYPE_NAME,
+          XmlAbi.INTRINSIC_NAMES,
+          List.of(
+              new FieldContract(XmlAbi.FIELD_MESSAGE_ORDINAL, XmlAbi.FIELD_MESSAGE_NAME),
+              new FieldContract(XmlAbi.FIELD_CODE_ORDINAL, XmlAbi.FIELD_CODE_NAME),
+              new FieldContract(XmlAbi.FIELD_PATH_ORDINAL, XmlAbi.FIELD_PATH_NAME),
+              new FieldContract(XmlAbi.FIELD_OFFSET_ORDINAL, XmlAbi.FIELD_OFFSET_NAME),
+              new FieldContract(XmlAbi.FIELD_LINE_ORDINAL, XmlAbi.FIELD_LINE_NAME),
+              new FieldContract(XmlAbi.FIELD_COLUMN_ORDINAL, XmlAbi.FIELD_COLUMN_NAME)));
+  private static final DataExceptionContract YAML_EXCEPTION =
+      new DataExceptionContract(
+          YamlAbi.MODULE_NAME,
+          YamlAbi.MODULE_VERSION,
+          YamlAbi.PACKAGE_NAME,
+          YamlAbi.EXCEPTION_TYPE_NAME,
+          YamlAbi.INTRINSIC_NAMES,
+          List.of(
+              new FieldContract(YamlAbi.FIELD_MESSAGE_ORDINAL, YamlAbi.FIELD_MESSAGE_NAME),
+              new FieldContract(YamlAbi.FIELD_CODE_ORDINAL, YamlAbi.FIELD_CODE_NAME),
+              new FieldContract(YamlAbi.FIELD_PATH_ORDINAL, YamlAbi.FIELD_PATH_NAME),
+              new FieldContract(YamlAbi.FIELD_OFFSET_ORDINAL, YamlAbi.FIELD_OFFSET_NAME),
+              new FieldContract(YamlAbi.FIELD_LINE_ORDINAL, YamlAbi.FIELD_LINE_NAME),
+              new FieldContract(YamlAbi.FIELD_COLUMN_ORDINAL, YamlAbi.FIELD_COLUMN_NAME)));
   private final Map<Key, AggregatePlan> aggregates;
   private final Map<DefinitionId, AggregatePlan> aggregatesByDefinition;
   private final Map<Key, EnumPlan> enums;
@@ -161,6 +207,74 @@ final class GuestValueFactory {
     return new NormThrownException(exception, location);
   }
 
+  NormThrownException jsonException(
+      String code,
+      String message,
+      String path,
+      int offset,
+      int line,
+      int column,
+      ExecutionState execution,
+      Node location) {
+    validateJsonContract();
+    return dataException(
+        JSON_EXCEPTION, code, message, path, offset, line, column, execution, location);
+  }
+
+  NormThrownException xmlException(
+      String code,
+      String message,
+      String path,
+      int offset,
+      int line,
+      int column,
+      ExecutionState execution,
+      Node location) {
+    validateDataExceptionContract(XML_EXCEPTION);
+    return dataException(
+        XML_EXCEPTION, code, message, path, offset, line, column, execution, location);
+  }
+
+  NormThrownException yamlException(
+      String code,
+      String message,
+      String path,
+      int offset,
+      int line,
+      int column,
+      ExecutionState execution,
+      Node location) {
+    validateDataExceptionContract(YAML_EXCEPTION);
+    return dataException(
+        YAML_EXCEPTION, code, message, path, offset, line, column, execution, location);
+  }
+
+  private NormThrownException dataException(
+      DataExceptionContract contract,
+      String code,
+      String message,
+      String path,
+      int offset,
+      int line,
+      int column,
+      ExecutionState execution,
+      Node location) {
+    RuntimeValues.ObjectValue exception =
+        construct(
+            contract.module(),
+            contract.version(),
+            contract.packageName(),
+            contract.typeName(),
+            execution,
+            code,
+            message,
+            path,
+            offset,
+            line,
+            column);
+    return new NormThrownException(exception, location);
+  }
+
   RuntimeValues.ObjectValue construct(
       CoreType type, ExecutionState execution, Object... arguments) {
     return construct(requireAggregate(type), type, execution, arguments);
@@ -215,10 +329,18 @@ final class GuestValueFactory {
   private RuntimeValues.ObjectValue construct(
       AggregatePlan plan, CoreType type, ExecutionState execution, Object... arguments) {
     RuntimeValues.ObjectValue value = new RuntimeValues.ObjectValue(plan.info(), type);
-    Object[] callArguments = new Object[arguments.length + 2];
+    List<CoreType> reifiedArguments =
+        type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+    if (reifiedArguments.size() != plan.reifiedTypeCount()) {
+      throw new IllegalStateException("runtime aggregate type argument count is inconsistent");
+    }
+    Object[] callArguments = new Object[arguments.length + reifiedArguments.size() + 2];
     callArguments[0] = execution;
     callArguments[1] = value;
     System.arraycopy(arguments, 0, callArguments, 2, arguments.length);
+    for (int index = 0; index < reifiedArguments.size(); index++) {
+      callArguments[arguments.length + index + 2] = reifiedArguments.get(index);
+    }
     plan.initializer().call(callArguments);
     return value;
   }
@@ -329,6 +451,33 @@ final class GuestValueFactory {
     requireField(exception, HttpExceptionAbi.FIELD_URI_ORDINAL, HttpExceptionAbi.FIELD_URI_NAME);
   }
 
+  private void validateJsonContract() {
+    validateDataExceptionContract(JSON_EXCEPTION);
+    EnumPlan value =
+        require(
+            enums,
+            JsonAbi.MODULE_NAME,
+            JsonAbi.MODULE_VERSION,
+            JsonAbi.PACKAGE_NAME,
+            JsonAbi.VALUE_TYPE_NAME);
+    if (value.variants().size() != JsonAbi.VALUE_VARIANTS.size()
+        || !value.variants().containsAll(JsonAbi.VALUE_VARIANTS)) {
+      throw new IllegalStateException("runtime JsonValue variants are inconsistent");
+    }
+  }
+
+  private void validateDataExceptionContract(DataExceptionContract contract) {
+    validateIntrinsics(contract.intrinsics());
+    AggregatePlan exception =
+        require(
+            aggregates,
+            contract.module(),
+            contract.version(),
+            contract.packageName(),
+            contract.typeName());
+    contract.fields().forEach(field -> requireField(exception, field.ordinal(), field.name()));
+  }
+
   private static void requireField(AggregatePlan plan, int ordinal, String name) {
     List<RuntimeValues.FieldPlan> fields = plan.info().fields();
     if (ordinal < 0 || ordinal >= fields.size() || !fields.get(ordinal).name().equals(name)) {
@@ -341,15 +490,32 @@ final class GuestValueFactory {
     names.forEach(IntrinsicId::valueOf);
   }
 
+  private record FieldContract(int ordinal, String name) {}
+
+  private record DataExceptionContract(
+      String module,
+      int version,
+      String packageName,
+      String typeName,
+      Set<String> intrinsics,
+      List<FieldContract> fields) {
+    DataExceptionContract {
+      intrinsics = Set.copyOf(intrinsics);
+      fields = List.copyOf(fields);
+    }
+  }
+
   record AggregatePlan(
       CoreNominalTypeKey nominal,
       RuntimeValues.AggregateInfo info,
       CoreType type,
+      int reifiedTypeCount,
       CallTarget initializer) {
     AggregatePlan {
       Objects.requireNonNull(nominal, "nominal");
       Objects.requireNonNull(info, "info");
       Objects.requireNonNull(type, "type");
+      if (reifiedTypeCount < 0) throw new IllegalArgumentException("negative reified type count");
       Objects.requireNonNull(initializer, "initializer");
     }
 
@@ -364,7 +530,8 @@ final class GuestValueFactory {
               List.of(),
               aggregate.valueCategory(),
               CoreNullability.NON_NULL);
-      return new AggregatePlan(aggregate.nominalType(), info, type, initializer);
+      return new AggregatePlan(
+          aggregate.nominalType(), info, type, aggregate.typeParameters().size(), initializer);
     }
   }
 

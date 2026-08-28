@@ -23,9 +23,9 @@ final class CoreProgramVerifier {
   private final CoreInterfaceHierarchy interfaces;
   private final Deque<Control> controls = new ArrayDeque<>();
   private CoreReferenceFlow referenceFlow;
-  private CoreFunctionTargetProtocol functionTarget;
-  private CoreParameterTargetProtocol parameterTarget;
-  private CoreFieldTargetProtocol fieldTarget;
+  private CoreFunctionInterceptorProtocol functionInterceptor;
+  private CoreParameterInterceptorProtocol parameterInterceptor;
+  private CoreFieldInterceptorProtocol fieldInterceptor;
   private DefinitionId resolvedExceptionDefinition;
   private boolean exceptionDefinitionResolved;
 
@@ -45,9 +45,9 @@ final class CoreProgramVerifier {
         verifyInterface(record.id(), declaration);
       }
     }
-    functionTarget = CoreFunctionTargetProtocol.resolve(program).orElse(null);
-    parameterTarget = CoreParameterTargetProtocol.resolve(program).orElse(null);
-    fieldTarget = CoreFieldTargetProtocol.resolve(program).orElse(null);
+    functionInterceptor = CoreFunctionInterceptorProtocol.resolve(program).orElse(null);
+    parameterInterceptor = CoreParameterInterceptorProtocol.resolve(program).orElse(null);
+    fieldInterceptor = CoreFieldInterceptorProtocol.resolve(program).orElse(null);
     for (CoreDefinitionRecord record : program.definitions()) {
       switch (record.definition()) {
         case CoreDefinition.Callable callable -> verifyCallable(record.id(), callable);
@@ -107,7 +107,8 @@ final class CoreProgramVerifier {
         .interceptors()
         .forEach(
             interceptor ->
-                CoreAnnotationVerifier.verifyInterceptor(program, id, interceptor, functionTarget));
+                CoreAnnotationVerifier.verifyInterceptor(
+                    program, id, interceptor, functionInterceptor));
     for (CoreCallableParameter parameter : callable.parameters()) {
       Set<DefinitionId> parameterInterceptorTypes = new HashSet<>();
       for (CoreInterceptor interceptor : parameter.interceptors()) {
@@ -115,7 +116,7 @@ final class CoreProgramVerifier {
           throw new IllegalArgumentException("interceptor annotation must be unique per parameter");
         }
         CoreAnnotationVerifier.verifyParameterInterceptor(
-            program, id, parameter, interceptor, parameterTarget);
+            program, id, parameter, interceptor, parameterInterceptor);
       }
     }
     verifyReturnType(id, callable.returnType(), parameterCount);
@@ -187,7 +188,8 @@ final class CoreProgramVerifier {
         if (!interceptors.add(annotation)) {
           throw new IllegalArgumentException("field interceptors must be unique");
         }
-        CoreAnnotationVerifier.verifyFieldInterceptor(program, id, field, interceptor, fieldTarget);
+        CoreAnnotationVerifier.verifyFieldInterceptor(
+            program, id, field, interceptor, fieldInterceptor);
       }
     }
     verifyTypeParameters(id, declaration.typeParameters(), declaration.typeParameters().size());
@@ -1471,14 +1473,15 @@ final class CoreProgramVerifier {
       throw new IllegalArgumentException(
           "intrinsic expression does not match its builtin ABI: " + intrinsic.intrinsic());
     }
-    if (intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION) {
+    if (intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION
+        || intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.FIELD_ANNOTATION) {
       CoreType annotationType = nonNullable(absolute(owner, intrinsic.type()));
       if (!(annotationType instanceof CoreType.Declared declared)
           || !(declared.constructor() instanceof CoreTypeConstructor.User user)
           || !(program.definition(resolve(owner, user.definition())).orElse(null)
               instanceof CoreDefinition.Aggregate annotation)
           || annotation.kind() != CoreAggregateKind.ANNOTATION) {
-        throw new IllegalArgumentException("Type.annotation result must name an annotation");
+        throw new IllegalArgumentException("annotation query result must name an annotation");
       }
     }
   }
@@ -1505,19 +1508,30 @@ final class CoreProgramVerifier {
     if (candidate.runtimeType()) {
       CoreType runtimeTemplate = absolute(owner, intrinsic.runtimeType().orElseThrow().template());
       if (!bindPattern(runtimeTemplate, candidate.result(), substitutions)) return false;
-    } else {
+    }
+    for (CoreArgument argument : intrinsic.arguments()) {
+      SemanticType parameter = candidate.parameters().get(argument.parameterIndex()).type();
+      CoreType actual = absolute(owner, argument.value().type());
+      Map<String, CoreType> argumentBindings = new LinkedHashMap<>(substitutions);
+      if (bindPattern(actual, parameter, argumentBindings)) {
+        substitutions.putAll(argumentBindings);
+      }
+    }
+    if (!candidate.runtimeType() && containsUnbound(candidate.result(), substitutions)) {
       CoreType resultTemplate = absolute(owner, intrinsic.type());
       if (intrinsic.nullSafe()) resultTemplate = nonNullable(resultTemplate);
       if (!bindPattern(resultTemplate, candidate.result(), substitutions)) return false;
     }
     for (CoreArgument argument : intrinsic.arguments()) {
       SemanticType parameter = candidate.parameters().get(argument.parameterIndex()).type();
+      CoreType actual = absolute(owner, argument.value().type());
+      if (containsUnbound(parameter, substitutions)) return false;
       CoreType expected = instantiate(parameter, substitutions);
-      if (!expected.equals(CoreType.DYNAMIC)
-          && !isAssignable(expected, absolute(owner, argument.value().type()))) {
+      if (!expected.equals(CoreType.DYNAMIC) && !isAssignable(expected, actual)) {
         return false;
       }
     }
+    if (containsUnbound(candidate.result(), substitutions)) return false;
     CoreType result = instantiate(candidate.result(), substitutions);
     CoreType receiver =
         intrinsic
@@ -1641,9 +1655,14 @@ final class CoreProgramVerifier {
       CoreType actual, SemanticType pattern, Map<String, CoreType> substitutions) {
     if (pattern.kind() == SemanticType.Kind.ERROR) return true;
     if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      CoreType previous = substitutions.get(pattern.identity());
+      if (previous != null) {
+        CoreType expected = pattern.isNullable() ? previous.asNullable() : previous;
+        return expected.equals(actual);
+      }
       CoreType captured = pattern.isNullable() ? nonNullable(actual) : actual;
-      CoreType previous = substitutions.putIfAbsent(pattern.identity(), captured);
-      return previous == null || previous.equals(captured);
+      substitutions.put(pattern.identity(), captured);
+      return true;
     }
     if (pattern.kind() == SemanticType.Kind.VOID) return actual.equals(CoreType.VOID);
     if (pattern.kind() == SemanticType.Kind.NULL) return actual.equals(CoreType.NULL);
@@ -1679,6 +1698,20 @@ final class CoreProgramVerifier {
       }
     }
     return true;
+  }
+
+  private static boolean containsUnbound(
+      SemanticType pattern, Map<String, CoreType> substitutions) {
+    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      return !substitutions.containsKey(pattern.identity());
+    }
+    if (pattern.isFunction()) {
+      return containsUnbound(pattern.functionReturnType(), substitutions)
+          || pattern.functionParameterTypes().stream()
+              .anyMatch(parameter -> containsUnbound(parameter, substitutions));
+    }
+    return pattern.arguments().stream()
+        .anyMatch(argument -> containsUnbound(argument, substitutions));
   }
 
   private CoreType instantiate(SemanticType pattern, Map<String, CoreType> substitutions) {

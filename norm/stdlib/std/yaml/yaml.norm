@@ -1,0 +1,80 @@
+package std.yaml
+
+import std.core.Exception
+import std.io.Bytes
+import std.io.TextEncoding
+import std.io.decodeText
+import std.io.encodeText
+import std.serialization.DataMapper
+import std.serialization.DataReader
+import std.serialization.DataWriter
+
+public class YamlException extends Exception {
+  String code
+  String path
+  Integer offset
+  Integer line
+  Integer column
+
+  YamlException(
+    String code,
+    String message,
+    String path,
+    Integer offset,
+    Integer line,
+    Integer column
+  ) {
+    super(message: message)
+    this.code = code
+    this.path = path
+    this.offset = offset
+    this.line = line
+    this.column = column
+  }
+}
+
+public value YamlMapper implements DataMapper {
+  DataReader<T> reader<T>() {
+    return YamlReader<T>()
+  }
+
+  DataWriter<T> writer<T>() {
+    return YamlWriter<T>()
+  }
+}
+
+public value YamlReader<T> implements DataReader<T> {
+  T readString(String source) {
+    return __yamlDecode<T>(value: source)
+  }
+
+  T readBytes(Bytes source) {
+    return this.readString(source: decodeText(content: source, encoding: TextEncoding.Utf8))
+  }
+}
+
+public value YamlWriter<T> implements DataWriter<T> {
+  String writeString(T value) {
+    return __yamlEncode<T>(value: value, type: reflect<T>())
+  }
+
+  Bytes writeBytes(T value) {
+    return encodeText(text: this.writeString(value: value), encoding: TextEncoding.Utf8)
+  }
+}
+
+public extension String toYaml<T>(T value) {
+  return YamlMapper().writer<T>().writeString(value: value)
+}
+
+public extension T fromYaml<T>(String value) {
+  return YamlMapper().reader<T>().readString(source: value)
+}
+
+public extension Bytes toYamlBytes<T>(T value) {
+  return YamlMapper().writer<T>().writeBytes(value: value)
+}
+
+public extension T fromYamlBytes<T>(Bytes value) {
+  return YamlMapper().reader<T>().readBytes(source: value)
+}

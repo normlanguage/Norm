@@ -29,6 +29,7 @@ public record ResolvedCall(
 
   public enum Kind {
     CALLABLE,
+    EXTENSION,
     CONSTRUCT,
     SUPER,
     ENUM_CONSTRUCT,

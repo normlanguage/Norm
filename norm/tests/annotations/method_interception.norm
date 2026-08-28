@@ -1,8 +1,8 @@
-import std.annotation.FunctionTarget
+import std.annotation.FunctionInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation Trace implements FunctionTarget, SourceRetention {
+annotation Trace implements FunctionInterceptor, SourceRetention {
   Void before(FunctionContext context) {
     printLine("before " + context.name())
   }

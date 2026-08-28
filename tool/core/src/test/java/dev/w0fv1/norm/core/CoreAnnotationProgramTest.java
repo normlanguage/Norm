@@ -75,12 +75,13 @@ final class CoreAnnotationProgramTest {
         compile(
             "package std.annotation public interface AnnotationTarget {} "
                 + "public interface FunctionTarget extends AnnotationTarget { "
+                + "} public interface FunctionInterceptor extends FunctionTarget { "
                 + "Void before(FunctionContext context) {} "
                 + "R around<R>(FunctionInvocation<R> invocation) { return invocation.proceed() } "
                 + "Void after(FunctionContext context, FunctionCompletion completion) {} } "
                 + "public interface AnnotationRetention {} "
                 + "public interface RuntimeRetention extends AnnotationRetention {} "
-                + "annotation Trace implements FunctionTarget, RuntimeRetention {} "
+                + "annotation Trace implements FunctionInterceptor, RuntimeRetention {} "
                 + "@Trace() Void run() {} Void main() { run() }");
 
     assertThrows(
@@ -94,13 +95,14 @@ final class CoreAnnotationProgramTest {
   }
 
   @Test
-  void rejectsMalformedFunctionTargetProtocolAtTheCoreBoundary() {
+  void rejectsMalformedFunctionInterceptorProtocolAtTheCoreBoundary() {
     assertThrows(
         IllegalArgumentException.class,
         () ->
             compile(
                 "package std.annotation public interface AnnotationTarget {} "
                     + "public interface FunctionTarget extends AnnotationTarget {} "
+                    + "public interface FunctionInterceptor extends FunctionTarget {} "
                     + "Void main() {}"));
   }
 
@@ -109,12 +111,13 @@ final class CoreAnnotationProgramTest {
     CoreArtifact artifact =
         compile(
             "package std.annotation public interface AnnotationTarget {} "
-                + "public interface ParameterTarget<T> extends AnnotationTarget { "
+                + "public interface ParameterTarget extends AnnotationTarget {} "
+                + "public interface ParameterInterceptor<T> extends ParameterTarget { "
                 + "T before(ParameterContext context, T value) { return value } "
                 + "Void after(ParameterContext context, FunctionCompletion completion) {} } "
                 + "public interface AnnotationRetention {} "
                 + "public interface RuntimeRetention extends AnnotationRetention {} "
-                + "annotation Normalize implements ParameterTarget<String>, RuntimeRetention {} "
+                + "annotation Normalize implements ParameterInterceptor<String>, RuntimeRetention {} "
                 + "String echo(@Normalize() String value) { return value } "
                 + "Void main() { echo(value: \"value\") }");
 
@@ -129,13 +132,14 @@ final class CoreAnnotationProgramTest {
   }
 
   @Test
-  void rejectsMalformedParameterTargetProtocolAtTheCoreBoundary() {
+  void rejectsMalformedParameterInterceptorProtocolAtTheCoreBoundary() {
     assertThrows(
         IllegalArgumentException.class,
         () ->
             compile(
                 "package std.annotation public interface AnnotationTarget {} "
-                    + "public interface ParameterTarget<T> extends AnnotationTarget {} "
+                    + "public interface ParameterTarget extends AnnotationTarget {} "
+                    + "public interface ParameterInterceptor<T> extends ParameterTarget {} "
                     + "Void main() {}"));
   }
 
@@ -144,12 +148,13 @@ final class CoreAnnotationProgramTest {
     CoreArtifact artifact =
         compile(
             "package std.annotation public interface AnnotationTarget {} "
-                + "public interface FieldTarget<T> extends AnnotationTarget { "
+                + "public interface FieldTarget extends AnnotationTarget {} "
+                + "public interface FieldInterceptor<T> extends FieldTarget { "
                 + "T before(FieldContext context, T value) { return value } "
                 + "Void after(FieldContext context, FunctionCompletion completion) {} } "
                 + "public interface AnnotationRetention {} "
                 + "public interface RuntimeRetention extends AnnotationRetention {} "
-                + "annotation Normalize implements FieldTarget<String>, RuntimeRetention {} "
+                + "annotation Normalize implements FieldInterceptor<String>, RuntimeRetention {} "
                 + "class Box { @Normalize() String value } "
                 + "Void main() { Box(value: \"value\") }");
 
@@ -164,13 +169,14 @@ final class CoreAnnotationProgramTest {
   }
 
   @Test
-  void rejectsMalformedFieldTargetProtocolAtTheCoreBoundary() {
+  void rejectsMalformedFieldInterceptorProtocolAtTheCoreBoundary() {
     assertThrows(
         IllegalArgumentException.class,
         () ->
             compile(
                 "package std.annotation public interface AnnotationTarget {} "
-                    + "public interface FieldTarget<T> extends AnnotationTarget {} "
+                    + "public interface FieldTarget extends AnnotationTarget {} "
+                    + "public interface FieldInterceptor<T> extends FieldTarget {} "
                     + "Void main() {}"));
   }
 

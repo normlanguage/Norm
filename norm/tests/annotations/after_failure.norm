@@ -1,9 +1,9 @@
-import std.annotation.FunctionTarget
+import std.annotation.FunctionInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 import std.testing.expectedOutputLines
 
-annotation Trace implements FunctionTarget, SourceRetention {
+annotation Trace implements FunctionInterceptor, SourceRetention {
   Void after(FunctionContext context, FunctionCompletion completion) {
     printLine(completion.succeeded())
   }

@@ -28,8 +28,12 @@ public record CoreBinding(
 
   public CoreBindingKind kind() {
     return switch (shape) {
-      case CoreBindingShape.Callable ignored ->
-          ownerName.isPresent() ? CoreBindingKind.METHOD : CoreBindingKind.FUNCTION;
+      case CoreBindingShape.Callable callable ->
+          switch (callable.kind()) {
+            case FUNCTION -> CoreBindingKind.FUNCTION;
+            case EXTENSION -> CoreBindingKind.EXTENSION;
+            case METHOD -> CoreBindingKind.METHOD;
+          };
       case CoreBindingShape.Aggregate declared ->
           switch (declared.kind()) {
             case CLASS -> CoreBindingKind.CLASS;

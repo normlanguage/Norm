@@ -689,6 +689,33 @@ final class CoreProgramVerifierTest {
   }
 
   @Test
+  void bindsGenericIntrinsicsFromArgumentsWhenTheResultIsConcrete() {
+    CoreType reflectedInteger = builtinType("Type", List.of(CoreType.INTEGER));
+    CoreExpression reflected =
+        new CoreExpression.Intrinsic(
+            4,
+            IntrinsicId.REFLECT_TYPE,
+            Optional.empty(),
+            List.of(),
+            Optional.of(new CoreRuntimeType(reflectedInteger, List.of())),
+            false,
+            reflectedInteger);
+    CoreExpression encoded =
+        new CoreExpression.Intrinsic(
+            2,
+            IntrinsicId.JSON_ENCODE,
+            Optional.empty(),
+            List.of(
+                new CoreArgument(new CoreExpression.Literal(3, 1, CoreType.INTEGER), 0),
+                new CoreArgument(reflected, 1)),
+            Optional.empty(),
+            false,
+            CoreType.STRING);
+
+    assertDoesNotThrow(() -> new CoreProgram(List.of(group(function(encoded)))));
+  }
+
+  @Test
   void rejectsTypeAnnotationIntrinsicForNonAnnotationResults() {
     CoreDefinitionGroup box = aggregateGroup("Box", 0, List.of());
     CoreType boxType = userType(aggregateId(box), List.of());

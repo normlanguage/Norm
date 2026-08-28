@@ -215,6 +215,9 @@ public final class SourceFormatter {
         declaration.annotations(),
         Docs.concat(
             visibility(declaration.visibility()),
+            declaration.kind() == Syntax.FunctionKind.EXTENSION
+                ? Docs.text("extension ")
+                : Docs.empty(),
             declaration
                 .returnType()
                 .map(value -> Docs.concat(type(value), Docs.text(" ")))

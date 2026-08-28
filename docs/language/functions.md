@@ -60,6 +60,20 @@ Double average(Double left, Double right) {
 
 Norm 没有 `static`，因此不需要创建 `MathUtils` 一类只充当函数容器的 class。
 
+## Extension function
+
+Extension function 让显式导入的顶层函数使用点号调用，同时保持静态解析：
+
+```norm
+extension String quoted(String value) {
+  return "\"" + value + "\""
+}
+
+String result = "Norm".quoted()
+```
+
+首参数是接收者，点号后的参数从第二个参数开始。真实实例方法按名称优先；extension 不修改类型，也不参与动态分派。完整规则见 [Extension function 语法](/spec/grammar/functions#extension-function)。
+
 ## 方法
 
 方法是声明在 class 中、能够访问实例状态的函数。

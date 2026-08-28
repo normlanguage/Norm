@@ -1,0 +1,22 @@
+package sample
+
+import std.json.toJson
+import std.serialization.Serializable
+import std.xml.toXml
+import std.yaml.toYaml
+
+@Serializable()
+value User {
+  String name
+}
+
+extension String label(User value) {
+  return value.name
+}
+
+Void modern() {
+  User user = User(name: "Norm")
+  printLine(user.label())
+  Type<User> type = reflect<User>()
+  printLine(type.fields().size())
+}

@@ -1,9 +1,9 @@
 package app.metadata
 
-import std.annotation.FunctionTarget
+import std.annotation.FunctionInterceptor
 import std.annotation.SourceRetention
 
-public annotation Trace implements FunctionTarget, SourceRetention {
+public annotation Trace implements FunctionInterceptor, SourceRetention {
   public Void after(FunctionContext context, FunctionCompletion completion) {
     printLine(context.name())
     printLine(completion.succeeded())

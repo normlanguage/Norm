@@ -1,0 +1,22 @@
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.validation.ConstraintViolation
+import std.validation.Min
+import std.yaml.fromYaml
+
+@Serializable()
+value Score {
+  @Min(value: 1)
+  Integer value
+}
+
+main() {
+  Score valid = "value: 2\n".fromYaml<Score>()
+  printLine(valid.value)
+  try {
+    "value: 0\n".fromYaml<Score>()
+  } catch ConstraintViolation error {
+    printLine(error.code)
+  }
+  expectedOutputLines(["2", "min"])
+}

@@ -1,31 +1,23 @@
 # Serialization
 
-序列化把类型化值转换为外部数据格式。公开格式是长期契约，不能简单等同于当前字段布局。
+`std.serialization` 定义格式无关的映射契约与公共 metadata。公开签名以 [`core.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/serialization/core.norm) 为准。
 
 ```norm
-interface Codec<T> {
-    Result<Bytes, EncodeError> encode(T value)
-    Result<T, DecodeError> decode(Bytes input)
+@Serializable()
+value Message {
+  @SerialName(name: "message_text")
+  String text
+}
+
+Void roundTrip(DataMapper mapper) {
+  DataWriter<Message> writer = mapper.writer<Message>()
+  DataReader<Message> reader = mapper.reader<Message>()
+  Message decoded = reader.readString(source: writer.writeString(value: Message(text: "Norm")))
 }
 ```
 
-## Schema
+`DataMapper`、`DataReader<T>` 与 `DataWriter<T>` 是应用层唯一的格式抽象；JSON、XML 与 YAML 各自实现它们。`@Serializable`、`@SerialName`、`@SerialIgnore` 描述共享结构，格式专属 metadata 留在对应格式包中。
 
-JSON、二进制或消息格式分别提供 Codec 实现。应用可以通过显式 builder 或代码生成定义字段名称、版本、缺失默认值和未知字段策略。
+运行时只为精确 `CoreType` 编译并缓存 reader/writer plan。自动结构映射只处理 value；class identity、对象图、循环引用与多态需要独立协议。失败抛出对应格式的类型化异常。
 
-```norm
-JsonCodec<Point> pointCodec = JsonCodec<Point>.builder()
-    .field(name: "x", read: Point.x)
-    .field(name: "y", read: Point.y)
-    .construct(factory: Point)
-    .build()
-```
-
-反射可以减少样板，但必须生成可检查 schema；不能让重命名 private 字段静默改变线上格式。
-
-## 安全
-
-decoder 对深度、集合长度、字符串和总字节数设置上限。输入不会指定任意运行时 class；多态解码只接受注册的 enum 或类型表。
-
-class identity 和 ref 位置 identity 默认不序列化。对象图需要保留共享或循环时必须使用专门协议，避免普通 JSON codec 隐藏 identity 语义。
-
+格式入口见 [JSON API](/stdlib/json-api)、[XML API](/stdlib/xml-api) 与 [YAML API](/stdlib/yaml-api)，内部边界见[序列化运行时](/design/serialization-runtime)。

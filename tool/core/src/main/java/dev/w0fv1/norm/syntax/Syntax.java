@@ -265,6 +265,7 @@ public final class Syntax {
   public record FunctionDecl(
       List<AnnotationUse> annotations,
       Visibility visibility,
+      FunctionKind kind,
       Optional<TypeRef> returnType,
       String name,
       SourceSpan nameSpan,
@@ -275,6 +276,7 @@ public final class Syntax {
       implements AstNode {
     public FunctionDecl {
       annotations = List.copyOf(annotations);
+      Objects.requireNonNull(kind, "kind");
       returnType = Objects.requireNonNull(returnType, "returnType");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
@@ -283,6 +285,11 @@ public final class Syntax {
       body = List.copyOf(body);
       Objects.requireNonNull(span, "span");
     }
+  }
+
+  public enum FunctionKind {
+    REGULAR,
+    EXTENSION
   }
 
   public record ConstructorDecl(

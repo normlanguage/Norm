@@ -1,0 +1,26 @@
+import std.http.HttpRequest
+import std.http.Uri
+import std.http.decodeJson
+import std.http.jsonBody
+import std.http.postJson
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+
+@Serializable()
+value Message {
+  @SerialName(name: "message")
+  String text
+}
+
+main() {
+  HttpRequest request = postJson(
+    uri: Uri(value: "https://example.test/messages"),
+    body: Message(text: "你好")
+  )
+  printLine(request.headers.values[0].name)
+  printLine(request.headers.values[0].value)
+  Message decoded = decodeJson<Message>(body: request.body ?? jsonBody(value: Message(text: "")))
+  printLine(decoded.text)
+  expectedOutputLines(["Content-Type", "application/json", "你好"])
+}

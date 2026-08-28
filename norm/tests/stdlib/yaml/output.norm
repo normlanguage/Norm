@@ -1,0 +1,15 @@
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.yaml.toYaml
+
+@Serializable()
+value Message {
+  String text
+  Boolean enabled
+}
+
+main() {
+  String encoded = Message(text: "true", enabled: true).toYaml()
+  printLine(encoded == "text: \"true\"\nenabled: true")
+  expectedOutputLines(["true"])
+}

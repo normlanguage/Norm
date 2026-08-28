@@ -1,0 +1,26 @@
+import std.testing.expectedOutputLines
+
+class Base<T> {
+  T value
+
+  Base(T initial) {
+    value = initial
+  }
+}
+
+class Child extends Base<String> {
+  Integer rank
+
+  Child(String initial, Integer initialRank) {
+    super(initial: initial)
+    rank = initialRank
+  }
+}
+
+main() {
+  for Field<Child> field : reflect<Child>().fields() {
+    printLine(field.name())
+    printLine(field.typeName())
+  }
+  expectedOutputLines(["value", "String", "rank", "Integer"])
+}

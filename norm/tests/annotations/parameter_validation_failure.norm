@@ -1,4 +1,4 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 import std.testing.expectedOutputLines
@@ -9,7 +9,7 @@ class InvalidSize extends Exception {
   }
 }
 
-annotation Size implements ParameterTarget<String>, SourceRetention {
+annotation Size implements ParameterInterceptor<String>, SourceRetention {
   Integer minimum
 
   String before(ParameterContext context, String value) {

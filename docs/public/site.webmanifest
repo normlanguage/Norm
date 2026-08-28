@@ -2,19 +2,19 @@
   "name": "Norm",
   "short_name": "Norm",
   "description": "A statically typed language with explicit behavior and predictable semantics",
-  "start_url": "/norm/",
-  "scope": "/norm/",
+  "start_url": "/Norm/",
+  "scope": "/Norm/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3178c6",
   "icons": [
     {
-      "src": "/norm/brand/norm-192.png",
+      "src": "/Norm/brand/norm-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/norm/brand/norm-512.png",
+      "src": "/Norm/brand/norm-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

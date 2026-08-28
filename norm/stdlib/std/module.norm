@@ -11,18 +11,23 @@ Module module() {
       "collections.sequences",
       "filesystem.files",
       "http.client",
+      "http.json",
       "io.bytes",
       "io.output",
       "io.streams",
       "io.system",
+      "json.json",
       "math.integer",
+      "serialization.core",
       "testing.output",
       "testing.predicates",
       "text.builders",
       "text.normalization",
       "system.exceptions",
       "time.core",
-      "validation.constraints"
+      "validation.constraints",
+      "xml.xml",
+      "yaml.yaml"
     ]
   )
 }

@@ -91,6 +91,50 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void completesVisibleExtensionsWithoutShowingTheReceiverParameter() {
+    String text =
+        "extension String surround(String value, String left, String right) { return value } "
+            + "Void main() { String value = \"Norm\" value. }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:extension-completion"), text));
+    int offset = text.indexOf("value. }") + "value.".length();
+
+    Completion completion =
+        service.complete(analysis, offset).stream()
+            .filter(value -> value.label().equals("surround"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("surround(left: ${1:left}, right: ${2:right})", completion.insertText());
+  }
+
+  @Test
+  void completesImportedExtensionsRegardlessOfTheirSourceOffset() {
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/library/Encoding.norm"),
+            "package library "
+                + "private Void padding() { printLine(1) printLine(2) printLine(3) } "
+                + "public extension String encode<T>(T value) { return \"\" }");
+    String text =
+        "package app import library.encode value User { String name } "
+            + "Void main() { User user = User(name: \"Norm\") user. }";
+    SourceFile entry = SourceFile.of(DocumentId.of("file:///src/app/Main.norm"), text);
+    var document =
+        service
+            .snapshot(
+                new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())))
+            .entryDocument();
+
+    List<String> labels =
+        service.complete(document, text.indexOf("user. }") + "user.".length()).stream()
+            .map(Completion::label)
+            .toList();
+
+    assertTrue(labels.contains("encode"), labels.toString());
+  }
+
+  @Test
   void completesSafeAccessAndTypeLevelMembers() {
     String safeText =
         "Void main() { String? value = null Integer size = value?.codePointSize() ?? 0 }";

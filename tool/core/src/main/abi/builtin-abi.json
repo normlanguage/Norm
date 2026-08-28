@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -123,6 +123,66 @@
     },
     {
       "name": "TYPE_ANNOTATION",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "TYPE_FIELDS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FIELD_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_INDEX",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_TYPE_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_ANNOTATION",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FIELD_READ",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "REFLECTED_VALUE_TYPE_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JSON_ENCODE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JSON_DECODE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JSON_PARSE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JSON_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "XML_ENCODE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "XML_DECODE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "YAML_ENCODE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "YAML_DECODE",
       "requiresResultRuntimeType": true
     },
     {
@@ -578,6 +638,8 @@
     "STRING",
     "VOID",
     "TYPE",
+    "FIELD",
+    "REFLECTED_VALUE",
     "FUNCTION_CONTEXT",
     "PARAMETER_CONTEXT",
     "FIELD_CONTEXT",
@@ -602,6 +664,134 @@
     "typeName": "Exception",
     "messageFieldName": "message",
     "messageFieldOrdinal": 0
+  },
+  "serialization": {
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.serialization",
+    "serializableAnnotationName": "Serializable",
+    "serialNameAnnotationName": "SerialName",
+    "serialIgnoreAnnotationName": "SerialIgnore"
+  },
+  "json": {
+    "intrinsicNames": [
+      "JSON_ENCODE",
+      "JSON_DECODE",
+      "JSON_PARSE",
+      "JSON_WRITE"
+    ],
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.json",
+    "exceptionTypeName": "JsonException",
+    "valueTypeName": "JsonValue",
+    "fields": [
+      {
+        "name": "message",
+        "ordinal": 0
+      },
+      {
+        "name": "code",
+        "ordinal": 1
+      },
+      {
+        "name": "path",
+        "ordinal": 2
+      },
+      {
+        "name": "offset",
+        "ordinal": 3
+      },
+      {
+        "name": "line",
+        "ordinal": 4
+      },
+      {
+        "name": "column",
+        "ordinal": 5
+      }
+    ],
+    "variants": [
+      "Object",
+      "Array",
+      "String",
+      "Number",
+      "Boolean",
+      "Null"
+    ]
+  },
+  "xml": {
+    "intrinsicNames": [
+      "XML_ENCODE",
+      "XML_DECODE"
+    ],
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.xml",
+    "exceptionTypeName": "XmlException",
+    "xmlAttributeAnnotationName": "XmlAttribute",
+    "fields": [
+      {
+        "name": "message",
+        "ordinal": 0
+      },
+      {
+        "name": "code",
+        "ordinal": 1
+      },
+      {
+        "name": "path",
+        "ordinal": 2
+      },
+      {
+        "name": "offset",
+        "ordinal": 3
+      },
+      {
+        "name": "line",
+        "ordinal": 4
+      },
+      {
+        "name": "column",
+        "ordinal": 5
+      }
+    ]
+  },
+  "yaml": {
+    "intrinsicNames": [
+      "YAML_ENCODE",
+      "YAML_DECODE"
+    ],
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.yaml",
+    "exceptionTypeName": "YamlException",
+    "fields": [
+      {
+        "name": "message",
+        "ordinal": 0
+      },
+      {
+        "name": "code",
+        "ordinal": 1
+      },
+      {
+        "name": "path",
+        "ordinal": 2
+      },
+      {
+        "name": "offset",
+        "ordinal": 3
+      },
+      {
+        "name": "line",
+        "ordinal": 4
+      },
+      {
+        "name": "column",
+        "ordinal": 5
+      }
+    ]
   },
   "systemExceptions": {
     "file": {

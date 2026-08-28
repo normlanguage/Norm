@@ -91,7 +91,11 @@ final class Parser {
               parseAggregate(
                   previous(), visibility, Syntax.AggregateKind.VALUE, pendingAnnotations));
         } else {
-          functions.add(parseFunction(visibility, pendingAnnotations));
+          Syntax.FunctionKind kind =
+              matchExtensionDeclarationKeyword()
+                  ? Syntax.FunctionKind.EXTENSION
+                  : Syntax.FunctionKind.REGULAR;
+          functions.add(parseFunction(visibility, pendingAnnotations, kind));
         }
         pendingAnnotations = List.of();
       } catch (ParseError ignored) {
@@ -244,14 +248,24 @@ final class Parser {
       if (looksLikeOmittedReturnFunction()) {
         Token memberName = consume(TokenKind.IDENTIFIER, "expected method name");
         methods.add(
-            parseFunctionRest(Optional.empty(), memberName, memberVisibility, memberAnnotations));
+            parseFunctionRest(
+                Optional.empty(),
+                memberName,
+                memberVisibility,
+                memberAnnotations,
+                Syntax.FunctionKind.REGULAR));
         continue;
       }
       Syntax.TypeRef type = parseType();
       Token memberName = consume(TokenKind.IDENTIFIER, "expected field or method name");
       if (check(TokenKind.LEFT_PAREN) || check(TokenKind.LESS)) {
         methods.add(
-            parseFunctionRest(Optional.of(type), memberName, memberVisibility, memberAnnotations));
+            parseFunctionRest(
+                Optional.of(type),
+                memberName,
+                memberVisibility,
+                memberAnnotations,
+                Syntax.FunctionKind.REGULAR));
       } else {
         match(TokenKind.SEMICOLON);
         fields.add(
@@ -384,21 +398,24 @@ final class Parser {
   }
 
   private Syntax.FunctionDecl parseFunction(
-      Syntax.Visibility visibility, List<Syntax.AnnotationUse> annotations) {
-    if (looksLikeOmittedReturnFunction()) {
+      Syntax.Visibility visibility,
+      List<Syntax.AnnotationUse> annotations,
+      Syntax.FunctionKind kind) {
+    if (kind == Syntax.FunctionKind.REGULAR && looksLikeOmittedReturnFunction()) {
       Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-      return parseFunctionRest(Optional.empty(), name, visibility, annotations);
+      return parseFunctionRest(Optional.empty(), name, visibility, annotations, kind);
     }
     Syntax.TypeRef returnType = parseType();
     Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-    return parseFunctionRest(Optional.of(returnType), name, visibility, annotations);
+    return parseFunctionRest(Optional.of(returnType), name, visibility, annotations, kind);
   }
 
   private Syntax.FunctionDecl parseFunctionRest(
       Optional<Syntax.TypeRef> returnType,
       Token name,
       Syntax.Visibility visibility,
-      List<Syntax.AnnotationUse> annotations) {
+      List<Syntax.AnnotationUse> annotations,
+      Syntax.FunctionKind kind) {
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_PAREN, "expected '(' after function name");
     List<Syntax.Parameter> parameters = parseParameterList();
@@ -407,6 +424,7 @@ final class Parser {
     return new Syntax.FunctionDecl(
         annotations,
         visibility,
+        kind,
         returnType,
         name.value(),
         name.span(),
@@ -1334,6 +1352,20 @@ final class Parser {
 
   private boolean matchAnnotationDeclarationKeyword() {
     if (!checkAnnotationDeclarationKeyword()) return false;
+    advance();
+    return true;
+  }
+
+  private boolean matchExtensionDeclarationKeyword() {
+    if (!checkContextual("extension")) return false;
+    int name = tokenAfterType(current + 1);
+    if (name < 0 || name >= tokens.size() || tokens.get(name).kind() != TokenKind.IDENTIFIER) {
+      return false;
+    }
+    int afterName = name + 1;
+    if (afterName >= tokens.size()) return false;
+    TokenKind next = tokens.get(afterName).kind();
+    if (next != TokenKind.LEFT_PAREN && next != TokenKind.LESS) return false;
     advance();
     return true;
   }

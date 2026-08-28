@@ -92,6 +92,10 @@ aside: false
 - [时间与数值](/stdlib/time)
 - [文件与进程](/stdlib/filesystem)
 - [HTTP 与 SQL](/stdlib/http)
+- [Serialization](/stdlib/serialization)
+- [JSON API](/stdlib/json-api)
+- [XML API](/stdlib/xml-api)
+- [YAML API](/stdlib/yaml-api)
 - [测试 API](/stdlib/testing-api)
 - [Validation API](/stdlib/validation-api)
 
@@ -131,6 +135,7 @@ aside: false
 - [实现策略决议](/design/implementation-strategy)
 - [工具链开发规范](/design/toolchain-development)
 - [系统运行时架构](/design/system-runtime)
+- [序列化运行时计划](/design/serialization-runtime)
 - [编译器引导计划](/design/bootstrap-plan)
 - [生态策略](/ecosystem/strategy)
 - [包管理器](/ecosystem/package-manager)

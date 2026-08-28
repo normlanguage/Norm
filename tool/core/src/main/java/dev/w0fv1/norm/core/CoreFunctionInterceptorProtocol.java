@@ -5,25 +5,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public record CoreFunctionTargetProtocol(
+public record CoreFunctionInterceptorProtocol(
     DefinitionId interfaceId, DefinitionId before, DefinitionId around, DefinitionId after) {
-  private static final String NAME = "FunctionTarget";
+  private static final String NAME = "FunctionInterceptor";
 
-  public static Optional<CoreFunctionTargetProtocol> resolve(CoreProgram program) {
+  public static Optional<CoreFunctionInterceptorProtocol> resolve(CoreProgram program) {
     Optional<CoreAnnotationProtocolSupport.Protocol> found =
         CoreAnnotationProtocolSupport.locate(
             program,
             NAME,
             nominal ->
-                AnnotationAbi.isFunctionTarget(
+                AnnotationAbi.isFunctionInterceptor(
                     nominal.module(), nominal.packageName(), nominal.name()));
     if (found.isEmpty()) return Optional.empty();
     CoreAnnotationProtocolSupport.Protocol protocol = found.orElseThrow();
-    CoreAnnotationProtocolSupport.requireAnnotationTargetParent(program, NAME, protocol);
+    CoreAnnotationProtocolSupport.requireParent(
+        program, NAME, protocol, AnnotationAbi.FUNCTION_TARGET);
     Map<String, DefinitionId> methods =
         CoreAnnotationProtocolSupport.methods(program, NAME, protocol);
     if (methods.size() != 3) {
-      throw new IllegalArgumentException("FunctionTarget must declare three lifecycle methods");
+      throw new IllegalArgumentException(
+          "FunctionInterceptor must declare three lifecycle methods");
     }
     DefinitionId before =
         CoreAnnotationProtocolSupport.require(methods, NAME, AnnotationAbi.BEFORE);
@@ -33,7 +35,7 @@ public record CoreFunctionTargetProtocol(
     verifyBefore(program, protocol, before);
     verifyAround(program, protocol, around);
     verifyAfter(program, protocol, after);
-    return Optional.of(new CoreFunctionTargetProtocol(protocol.id(), before, around, after));
+    return Optional.of(new CoreFunctionInterceptorProtocol(protocol.id(), before, around, after));
   }
 
   private static void verifyBefore(
@@ -45,7 +47,7 @@ public record CoreFunctionTargetProtocol(
         || method.parameterTypes().size() != 1
         || !CoreAnnotationProtocolSupport.builtin(
             method.parameterTypes().getFirst(), "std.core.FunctionContext", List.of())) {
-      throw new IllegalArgumentException("FunctionTarget.before has an invalid ABI");
+      throw new IllegalArgumentException("FunctionInterceptor.before has an invalid ABI");
     }
   }
 
@@ -62,7 +64,7 @@ public record CoreFunctionTargetProtocol(
             method.parameterTypes().getFirst(),
             "std.core.FunctionInvocation",
             List.of(parameter))) {
-      throw new IllegalArgumentException("FunctionTarget.around has an invalid ABI");
+      throw new IllegalArgumentException("FunctionInterceptor.around has an invalid ABI");
     }
   }
 
@@ -77,7 +79,7 @@ public record CoreFunctionTargetProtocol(
             method.parameterTypes().get(0), "std.core.FunctionContext", List.of())
         || !CoreAnnotationProtocolSupport.builtin(
             method.parameterTypes().get(1), "std.core.FunctionCompletion", List.of())) {
-      throw new IllegalArgumentException("FunctionTarget.after has an invalid ABI");
+      throw new IllegalArgumentException("FunctionInterceptor.after has an invalid ABI");
     }
   }
 }

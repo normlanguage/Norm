@@ -6,12 +6,21 @@ import java.util.Optional;
 
 public sealed interface CoreBindingShape {
   record Callable(
-      List<CoreTypeParameter> typeParameters, List<Parameter> parameters, CoreType returnType)
+      CoreCallableBindingKind kind,
+      List<CoreTypeParameter> typeParameters,
+      List<Parameter> parameters,
+      CoreType returnType)
       implements CoreBindingShape {
     public Callable {
+      Objects.requireNonNull(kind, "kind");
       typeParameters = requireDenseTypeParameters(typeParameters);
       parameters = List.copyOf(parameters);
       Objects.requireNonNull(returnType, "returnType");
+    }
+
+    public Callable(
+        List<CoreTypeParameter> typeParameters, List<Parameter> parameters, CoreType returnType) {
+      this(CoreCallableBindingKind.FUNCTION, typeParameters, parameters, returnType);
     }
   }
 

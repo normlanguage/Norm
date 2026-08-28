@@ -1,0 +1,22 @@
+import std.json.fromJson
+import std.json.toJson
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+
+@Serializable()
+value Node {
+  String name
+  Node? next
+}
+
+main() {
+  Node source = Node(name: "a", next: Node(name: "b", next: null))
+  String encoded = source.toJson()
+  Node decoded = encoded.fromJson<Node>()
+  printLine(encoded)
+  printLine(decoded.next?.name ?? "missing")
+  expectedOutputLines([
+    "{\"name\":\"a\",\"next\":{\"name\":\"b\",\"next\":null}}",
+    "b"
+  ])
+}

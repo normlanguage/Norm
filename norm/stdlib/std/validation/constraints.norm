@@ -1,7 +1,7 @@
 package std.validation
 
-import std.annotation.FieldTarget
-import std.annotation.ParameterTarget
+import std.annotation.FieldInterceptor
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 
@@ -43,7 +43,7 @@ public class ConstraintDefinitionException extends Exception {
   }
 }
 
-public interface Constraint<T> extends ParameterTarget<T>, FieldTarget<T>, SourceRetention {
+public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor<T>, SourceRetention {
   Boolean isValid(T value)
 
   String code()

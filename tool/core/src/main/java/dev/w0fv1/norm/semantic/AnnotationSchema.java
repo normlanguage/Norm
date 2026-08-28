@@ -13,6 +13,7 @@ public record AnnotationSchema(
     String name,
     Set<AnnotationTarget> targets,
     AnnotationRetention retention,
+    Set<AnnotationTarget> interceptors,
     Map<AnnotationTarget, SemanticType> targetTypes,
     List<AnnotationParameterInfo> parameters) {
   public AnnotationSchema {
@@ -20,11 +21,16 @@ public record AnnotationSchema(
     Objects.requireNonNull(name, "name");
     targets = Set.copyOf(targets);
     Objects.requireNonNull(retention, "retention");
+    interceptors = Set.copyOf(interceptors);
     targetTypes = Map.copyOf(targetTypes);
     parameters = List.copyOf(parameters);
   }
 
   public Optional<SemanticType> targetType(AnnotationTarget target) {
     return Optional.ofNullable(targetTypes.get(target));
+  }
+
+  public boolean intercepts(AnnotationTarget target) {
+    return interceptors.contains(target);
   }
 }

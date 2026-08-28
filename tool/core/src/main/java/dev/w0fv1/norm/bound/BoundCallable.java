@@ -43,7 +43,9 @@ public record BoundCallable(
     if (kind == BoundCallableKind.CONSTRUCTOR && owner.isEmpty()) {
       throw new IllegalArgumentException("constructor must have an owner");
     }
-    if ((kind == BoundCallableKind.FUNCTION || kind == BoundCallableKind.LAMBDA)
+    if ((kind == BoundCallableKind.FUNCTION
+            || kind == BoundCallableKind.EXTENSION
+            || kind == BoundCallableKind.LAMBDA)
         && owner.isPresent()) {
       throw new IllegalArgumentException("function and lambda cannot have an owner");
     }

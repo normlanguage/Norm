@@ -85,7 +85,7 @@ final class AnnotationCompilerTest {
   void validatesApplicationTargetArgumentsConstantsAndDuplicates() {
     String prefix =
         policies("TypeTarget", "FieldTarget", "RuntimeRetention")
-            + "annotation Label implements FieldTarget<Integer>, RuntimeRetention { String text } ";
+            + "annotation Label implements FieldTarget, RuntimeRetention { String text } ";
     assertDiagnostic(prefix + "@Label(text: \"x\") class Box {}", "target");
     assertDiagnostic(prefix + "class Box { @Label(value: \"x\") Integer value }", "parameter");
     assertDiagnostic(prefix + "class Box { @Label() Integer value }", "required");
@@ -97,6 +97,27 @@ final class AnnotationCompilerTest {
     assertDiagnostic(
         prefix + "class Box { @Label(text: \"a\") @Label(text: \"b\") Integer value }",
         "duplicate");
+  }
+
+  @Test
+  void compilesPassiveFieldMetadataWithoutAnInterceptor() {
+    CompilationResult result =
+        compile(
+            "package std.annotation "
+                + "public interface AnnotationTarget {} "
+                + "public interface FieldTarget extends AnnotationTarget {} "
+                + "public interface AnnotationRetention {} "
+                + "public interface RuntimeRetention extends AnnotationRetention {} "
+                + "annotation Label implements FieldTarget, RuntimeRetention { String text } "
+                + "value User { @Label(text: \"user_name\") String name } Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    var artifact = result.program().orElseThrow().compilation().artifact();
+    assertEquals(1, artifact.metadata().annotations().size());
+    CoreDefinition.Aggregate user =
+        (CoreDefinition.Aggregate)
+            artifact.program().definition(definition(result, "User")).orElseThrow();
+    assertTrue(user.fields().getFirst().interceptors().isEmpty());
   }
 
   @Test
@@ -113,26 +134,26 @@ final class AnnotationCompilerTest {
   }
 
   @Test
-  void rejectsFunctionTargetOnRefSignaturesAndInterfaceRequirements() {
+  void rejectsFunctionInterceptorOnRefSignaturesAndInterfaceRequirements() {
     String prefix = functionPolicies();
     assertDiagnostic(
         prefix
-            + "annotation Log implements FunctionTarget, RuntimeRetention {} "
+            + "annotation Log implements FunctionInterceptor, RuntimeRetention {} "
             + "@Log() Void mutate(ref<Integer> value) {}",
         "ref signature");
     assertDiagnostic(
         prefix
-            + "annotation Log implements FunctionTarget, RuntimeRetention {} "
+            + "annotation Log implements FunctionInterceptor, RuntimeRetention {} "
             + "interface Reader { @Log() String read() }",
         "concrete function");
   }
 
   @Test
-  void compilesTypedParameterTargetIntoTheParameterModel() {
+  void compilesTypedParameterInterceptorIntoTheParameterModel() {
     CompilationResult result =
         compile(
             parameterPolicies()
-                + "annotation Normalize implements ParameterTarget<String>, RuntimeRetention { "
+                + "annotation Normalize implements ParameterInterceptor<String>, RuntimeRetention { "
                 + "String before(ParameterContext context, String value) { return value } } "
                 + "String echo(@Normalize() String value) { return value } Void main() {}");
 
@@ -152,10 +173,10 @@ final class AnnotationCompilerTest {
   }
 
   @Test
-  void rejectsParameterTargetTypeMismatchReferenceAndInterfaceRequirement() {
+  void rejectsParameterInterceptorTypeMismatchReferenceAndInterfaceRequirement() {
     String prefix =
         parameterPolicies()
-            + "annotation Normalize implements ParameterTarget<String>, RuntimeRetention {} ";
+            + "annotation Normalize implements ParameterInterceptor<String>, RuntimeRetention {} ";
     assertDiagnostic(
         prefix + "Integer echo(@Normalize() Integer value) { return value } Void main() {}",
         "does not match parameter type");
@@ -167,11 +188,11 @@ final class AnnotationCompilerTest {
   }
 
   @Test
-  void compilesTypedFieldTargetIntoTheFieldModel() {
+  void compilesTypedFieldInterceptorIntoTheFieldModel() {
     CompilationResult result =
         compile(
             fieldPolicies()
-                + "annotation Normalize implements FieldTarget<String>, RuntimeRetention { "
+                + "annotation Normalize implements FieldInterceptor<String>, RuntimeRetention { "
                 + "String before(FieldContext context, String value) { return value } } "
                 + "class Box { @Normalize() String value } Void main() {}");
 
@@ -191,21 +212,21 @@ final class AnnotationCompilerTest {
   }
 
   @Test
-  void rejectsFieldTargetTypeMismatch() {
+  void rejectsFieldInterceptorTypeMismatch() {
     String prefix =
         fieldPolicies()
-            + "annotation Normalize implements FieldTarget<String>, RuntimeRetention {} ";
+            + "annotation Normalize implements FieldInterceptor<String>, RuntimeRetention {} ";
     assertDiagnostic(
         prefix + "class Box { @Normalize() Integer value } Void main() {}",
         "does not match field type");
   }
 
   @Test
-  void allowsParameterTargetBesideAnUnannotatedReferenceParameter() {
+  void allowsParameterInterceptorBesideAnUnannotatedReferenceParameter() {
     CompilationResult result =
         compile(
             parameterPolicies()
-                + "annotation Normalize implements ParameterTarget<String>, RuntimeRetention {} "
+                + "annotation Normalize implements ParameterInterceptor<String>, RuntimeRetention {} "
                 + "Void mutate(ref<Integer> count, @Normalize() String value) {} Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
@@ -219,7 +240,7 @@ final class AnnotationCompilerTest {
                 + "public interface TypeTarget {} "
                 + "public interface SourceRetention {} "
                 + "public interface BinaryRetention {} "
-                + "annotation SourceOnly implements FunctionTarget, SourceRetention {} "
+                + "annotation SourceOnly implements FunctionInterceptor, SourceRetention {} "
                 + "annotation BinaryOnly implements TypeTarget, BinaryRetention {} "
                 + "annotation RuntimeVisible implements TypeTarget, RuntimeRetention {} "
                 + "@SourceOnly() Void run() {} "
@@ -310,24 +331,19 @@ final class AnnotationCompilerTest {
             .filter(name -> !name.equals("AnnotationTarget") && !name.equals("AnnotationRetention"))
             .map(
                 name ->
-                    name.equals("FieldTarget")
-                        ? "public interface FieldTarget<T> extends AnnotationTarget { "
-                            + "T before(FieldContext context, T value) { return value } "
-                            + "Void after(FieldContext context, FunctionCompletion completion) {} } "
-                        : "public interface "
-                            + name
-                            + " extends "
-                            + (name.endsWith("Retention")
-                                ? "AnnotationRetention"
-                                : "AnnotationTarget")
-                            + " {} ")
+                    "public interface "
+                        + name
+                        + " extends "
+                        + (name.endsWith("Retention") ? "AnnotationRetention" : "AnnotationTarget")
+                        + " {} ")
             .collect(java.util.stream.Collectors.joining());
   }
 
   private static String functionPolicies() {
     return "package std.annotation "
         + "public interface AnnotationTarget {} "
-        + "public interface FunctionTarget extends AnnotationTarget { "
+        + "public interface FunctionTarget extends AnnotationTarget {} "
+        + "public interface FunctionInterceptor extends FunctionTarget { "
         + "Void before(FunctionContext context) {} "
         + "R around<R>(FunctionInvocation<R> invocation) { return invocation.proceed() } "
         + "Void after(FunctionContext context, FunctionCompletion completion) {} } "
@@ -338,7 +354,8 @@ final class AnnotationCompilerTest {
   private static String parameterPolicies() {
     return "package std.annotation "
         + "public interface AnnotationTarget {} "
-        + "public interface ParameterTarget<T> extends AnnotationTarget { "
+        + "public interface ParameterTarget extends AnnotationTarget {} "
+        + "public interface ParameterInterceptor<T> extends ParameterTarget { "
         + "T before(ParameterContext context, T value) { return value } "
         + "Void after(ParameterContext context, FunctionCompletion completion) {} } "
         + "public interface AnnotationRetention {} "
@@ -348,7 +365,8 @@ final class AnnotationCompilerTest {
   private static String fieldPolicies() {
     return "package std.annotation "
         + "public interface AnnotationTarget {} "
-        + "public interface FieldTarget<T> extends AnnotationTarget { "
+        + "public interface FieldTarget extends AnnotationTarget {} "
+        + "public interface FieldInterceptor<T> extends FieldTarget { "
         + "T before(FieldContext context, T value) { return value } "
         + "Void after(FieldContext context, FunctionCompletion completion) {} } "
         + "public interface AnnotationRetention {} "

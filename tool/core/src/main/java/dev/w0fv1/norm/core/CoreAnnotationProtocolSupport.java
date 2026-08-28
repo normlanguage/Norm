@@ -22,10 +22,11 @@ final class CoreAnnotationProtocolSupport {
     return Optional.ofNullable(protocol);
   }
 
-  static Optional<TypedTarget> typedTarget(
+  static Optional<TypedInterceptor> typedInterceptor(
       CoreProgram program,
       String name,
       Predicate<CoreNominalTypeKey> matches,
+      String parent,
       String contextIdentity) {
     Optional<Protocol> found = locate(program, name, matches);
     if (found.isEmpty()) return Optional.empty();
@@ -35,7 +36,7 @@ final class CoreAnnotationProtocolSupport {
         || declaration.typeParameters().getFirst().upperBound().isPresent()) {
       throw new IllegalArgumentException(name + " must declare one unbounded type parameter");
     }
-    requireAnnotationTargetParent(program, name, protocol);
+    requireParent(program, name, protocol, parent);
     Map<String, DefinitionId> methods = methods(program, name, protocol);
     if (methods.size() != 2) {
       throw new IllegalArgumentException(name + " must declare two lifecycle methods");
@@ -44,7 +45,7 @@ final class CoreAnnotationProtocolSupport {
     DefinitionId after = require(methods, name, AnnotationAbi.AFTER);
     verifyTypedBefore(program, name, contextIdentity, protocol, before);
     verifyTypedAfter(program, name, contextIdentity, protocol, after);
-    return Optional.of(new TypedTarget(protocol.id(), before, after));
+    return Optional.of(new TypedInterceptor(protocol.id(), before, after));
   }
 
   private static void verifyTypedBefore(
@@ -83,9 +84,10 @@ final class CoreAnnotationProtocolSupport {
     }
   }
 
-  static void requireAnnotationTargetParent(CoreProgram program, String name, Protocol protocol) {
+  static void requireParent(
+      CoreProgram program, String name, Protocol protocol, String parentName) {
     if (protocol.declaration().directParents().size() != 1) {
-      throw new IllegalArgumentException(name + " must extend AnnotationTarget");
+      throw new IllegalArgumentException(name + " must extend " + parentName);
     }
     CoreType parent =
         CoreTypes.absolute(
@@ -95,13 +97,11 @@ final class CoreAnnotationProtocolSupport {
         || !(user.definition() instanceof DefinitionReference reference)
         || !(program.definition(program.resolve(protocol.id(), reference)).orElseThrow()
             instanceof CoreDefinition.Interface parentDeclaration)
-        || !AnnotationAbi.isPolicyInterface(
-            parentDeclaration.nominalType().module(),
-            parentDeclaration.nominalType().packageName(),
-            parentDeclaration.nominalType().name())
-        || !parentDeclaration.nominalType().name().equals(AnnotationAbi.ANNOTATION_TARGET)
+        || !parentDeclaration.nominalType().module().name().equals(AnnotationAbi.MODULE)
+        || !parentDeclaration.nominalType().packageName().equals(AnnotationAbi.PACKAGE)
+        || !parentDeclaration.nominalType().name().equals(parentName)
         || !declared.arguments().isEmpty()) {
-      throw new IllegalArgumentException(name + " must extend AnnotationTarget");
+      throw new IllegalArgumentException(name + " must extend " + parentName);
     }
   }
 
@@ -167,5 +167,5 @@ final class CoreAnnotationProtocolSupport {
 
   record Protocol(DefinitionId id, CoreDefinition.Interface declaration) {}
 
-  record TypedTarget(DefinitionId interfaceId, DefinitionId before, DefinitionId after) {}
+  record TypedInterceptor(DefinitionId interfaceId, DefinitionId before, DefinitionId after) {}
 }

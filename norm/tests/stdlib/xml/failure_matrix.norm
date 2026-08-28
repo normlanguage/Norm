@@ -1,0 +1,50 @@
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.xml.XmlException
+import std.xml.fromXml
+import std.xml.toXml
+
+@Serializable()
+value Required {
+  Integer count
+}
+
+@Serializable()
+@SerialName(name: "bad:name")
+value InvalidName {
+  Integer count
+}
+
+Void decode(String source) {
+  try {
+    source.fromXml<Required>()
+  } catch XmlException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+}
+
+main() {
+  decode(source: "<Required><count>1</count><extra>2</extra></Required>")
+  decode(source: "<Required></Required>")
+  decode(source: "<Required><count>1</count><count>2</count></Required>")
+  decode(source: "<Other><count>1</count></Other>")
+  decode(source: "<Required><count>2147483648</count></Required>")
+  decode(source: "<!DOCTYPE Required [<!ENTITY x SYSTEM 'file:///missing'>]><Required><count>1</count></Required>")
+  try {
+    InvalidName(count: 1).toXml()
+  } catch XmlException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+  expectedOutputLines([
+    "NORM-XML-UNKNOWN-FIELD", "$.extra",
+    "NORM-XML-MISSING-FIELD", "$.count",
+    "NORM-XML-DUPLICATE-FIELD", "$.count",
+    "NORM-XML-ROOT", "$",
+    "NORM-XML-NUMBER", "$.count",
+    "NORM-XML-SYNTAX", "$",
+    "NORM-XML-NAME", "$"
+  ])
+}

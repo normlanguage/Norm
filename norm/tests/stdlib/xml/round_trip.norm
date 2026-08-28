@@ -1,0 +1,45 @@
+import std.serialization.SerialIgnore
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.xml.XmlAttribute
+import std.xml.fromXml
+import std.xml.toXml
+
+@Serializable()
+@SerialName(name: "profile")
+value Profile {
+  @XmlAttribute()
+  Integer id
+
+  @SerialName(name: "display_name")
+  String name
+
+  List<String> tags
+
+  @SerialIgnore()
+  String? secret
+}
+
+main() {
+  Profile source = Profile(
+    id: 7,
+    name: "Norm & XML",
+    tags: ["语言", "xml"],
+    secret: "hidden"
+  )
+  String encoded = source.toXml()
+  Profile decoded = encoded.fromXml<Profile>()
+  printLine(encoded)
+  printLine(decoded.id)
+  printLine(decoded.name)
+  printLine(decoded.tags[0])
+  printLine(decoded.secret ?? "missing")
+  expectedOutputLines([
+    "<profile id=\"7\"><display_name>Norm &amp; XML</display_name><tags><item>语言</item><item>xml</item></tags></profile>",
+    "7",
+    "Norm & XML",
+    "语言",
+    "missing"
+  ])
+}

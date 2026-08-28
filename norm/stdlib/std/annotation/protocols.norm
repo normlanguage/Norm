@@ -9,7 +9,10 @@ public interface PackageTarget extends AnnotationTarget {
 public interface TypeTarget extends AnnotationTarget {
 }
 
-public interface FieldTarget<T> extends AnnotationTarget {
+public interface FieldTarget extends AnnotationTarget {
+}
+
+public interface FieldInterceptor<T> extends FieldTarget {
   T before(FieldContext context, T value) {
     return value
   }
@@ -22,6 +25,9 @@ public interface ConstructorTarget extends AnnotationTarget {
 }
 
 public interface FunctionTarget extends AnnotationTarget {
+}
+
+public interface FunctionInterceptor extends FunctionTarget {
   Void before(FunctionContext context) {
   }
 
@@ -33,7 +39,10 @@ public interface FunctionTarget extends AnnotationTarget {
   }
 }
 
-public interface ParameterTarget<T> extends AnnotationTarget {
+public interface ParameterTarget extends AnnotationTarget {
+}
+
+public interface ParameterInterceptor<T> extends ParameterTarget {
   T before(ParameterContext context, T value) {
     return value
   }

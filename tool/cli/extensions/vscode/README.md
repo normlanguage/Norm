@@ -2,7 +2,7 @@
 
 <p align="center"><img src="images/norm-256.png" alt="Norm Logo" width="128"></p>
 
-This extension provides syntax highlighting, compiler diagnostics, type-aware completion, signature help, automatic imports, hover, definition navigation, references, rename, and execution through `norm run`.
+This extension provides syntax highlighting, compiler diagnostics, type-aware completion, signature help, automatic imports, hover, definition navigation, references, rename, and execution through `norm run`. Extension functions, reflection, annotation protocols, and data-format libraries use the same compiler-backed language services as the rest of Norm.
 
 Platform-specific release packages contain the matching standalone Norm CLI. No Java installation or separate server configuration is required.
 
@@ -31,7 +31,7 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
    npm run compile
    ```
 
-4. Open this directory in VS Code and press F5. `npm run package:local` rebuilds the current JVM CLI distribution and creates `norm-language-support-<version>-local.vsix` containing `server/` and any staged multi-platform `bin/` bundle for direct installation.
+4. Open this directory in VS Code and press F5. `npm run package:local` rebuilds the current JVM CLI distribution and creates `norm-language-support-<version>-local.vsix` containing that server for direct installation.
 
 The universal release package contains `bin/` artifacts produced for every target in `tool/cli/release-targets.json`:
 

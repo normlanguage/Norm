@@ -1,0 +1,83 @@
+import std.json.JsonException
+import std.json.fromJson
+import std.json.toJson
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+
+value Unmarked {
+  Integer count
+}
+
+@Serializable()
+value Required {
+  Integer count
+}
+
+enum State { Ready, Done }
+
+@Serializable()
+value Payload<T> {
+  T value
+  State state
+  Map<String, Integer> scores
+}
+
+main() {
+  try {
+    Unmarked(count: 1).toJson()
+  } catch JsonException error {
+    printLine(error.code)
+  }
+  try {
+    "{\"count\":1,\"extra\":2}".fromJson<Required>()
+  } catch JsonException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+  try {
+    "{}".fromJson<Required>()
+  } catch JsonException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+  try {
+    "{\"count\":1,\"count\":2}".fromJson<Required>()
+  } catch JsonException error {
+    printLine(error.code)
+  }
+  try {
+    "{\"count\":2147483648}".fromJson<Required>()
+  } catch JsonException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+
+  Map<String, Integer> scores = Map<>()
+  scores.put(key: "one", value: 1)
+  Payload<List<String>> source = Payload<>(
+    value: ["a", "语言"],
+    state: State.Ready,
+    scores: scores
+  )
+  String encoded = source.toJson()
+  Payload<List<String>> decoded = encoded.fromJson<Payload<List<String>>>()
+  printLine(encoded)
+  printLine(decoded.value[1])
+  printLine(decoded.state == State.Ready)
+  printLine(decoded.scores.get(key: "one") ?? -1)
+
+  expectedOutputLines([
+    "NORM-JSON-UNSUPPORTED-TYPE",
+    "NORM-JSON-UNKNOWN-FIELD",
+    "$.extra",
+    "NORM-JSON-MISSING-FIELD",
+    "$.count",
+    "NORM-JSON-DUPLICATE-FIELD",
+    "NORM-JSON-NUMBER",
+    "$.count",
+    "{\"value\":[\"a\",\"语言\"],\"state\":\"Ready\",\"scores\":{\"one\":1}}",
+    "语言",
+    "true",
+    "1"
+  ])
+}

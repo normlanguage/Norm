@@ -1,0 +1,85 @@
+package std.xml
+
+import std.annotation.FieldTarget
+import std.annotation.RuntimeRetention
+import std.core.Exception
+import std.io.Bytes
+import std.io.TextEncoding
+import std.io.decodeText
+import std.io.encodeText
+import std.serialization.DataMapper
+import std.serialization.DataReader
+import std.serialization.DataWriter
+
+public annotation XmlAttribute implements FieldTarget, RuntimeRetention {
+}
+
+public class XmlException extends Exception {
+  String code
+  String path
+  Integer offset
+  Integer line
+  Integer column
+
+  XmlException(
+    String code,
+    String message,
+    String path,
+    Integer offset,
+    Integer line,
+    Integer column
+  ) {
+    super(message: message)
+    this.code = code
+    this.path = path
+    this.offset = offset
+    this.line = line
+    this.column = column
+  }
+}
+
+public value XmlMapper implements DataMapper {
+  DataReader<T> reader<T>() {
+    return XmlReader<T>()
+  }
+
+  DataWriter<T> writer<T>() {
+    return XmlWriter<T>()
+  }
+}
+
+public value XmlReader<T> implements DataReader<T> {
+  T readString(String source) {
+    return __xmlDecode<T>(value: source)
+  }
+
+  T readBytes(Bytes source) {
+    return this.readString(source: decodeText(content: source, encoding: TextEncoding.Utf8))
+  }
+}
+
+public value XmlWriter<T> implements DataWriter<T> {
+  String writeString(T value) {
+    return __xmlEncode<T>(value: value, type: reflect<T>())
+  }
+
+  Bytes writeBytes(T value) {
+    return encodeText(text: this.writeString(value: value), encoding: TextEncoding.Utf8)
+  }
+}
+
+public extension String toXml<T>(T value) {
+  return XmlMapper().writer<T>().writeString(value: value)
+}
+
+public extension T fromXml<T>(String value) {
+  return XmlMapper().reader<T>().readString(source: value)
+}
+
+public extension Bytes toXmlBytes<T>(T value) {
+  return XmlMapper().writer<T>().writeBytes(value: value)
+}
+
+public extension T fromXmlBytes<T>(Bytes value) {
+  return XmlMapper().reader<T>().readBytes(source: value)
+}

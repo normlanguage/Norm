@@ -10,15 +10,15 @@ import org.junit.jupiter.api.Test;
 
 final class DefinitionHasherTest {
   private static final String GOLDEN_HASH =
-      "a38fbe3d89d788ae65130866f066ab8e2e66cfa4ebc8a73942786b0524c4438d";
+      "5a43a58a924ff59e1d27feb954f80315afc1a2afdffbc10c61561a1efaca1c40";
 
   @Test
   void hashesTheVersionedLengthDelimitedGroupPreimage() {
     DefinitionGroupId group = DefinitionHasher.hashGroup(new byte[] {0, 1, 2, (byte) 0xff});
 
     assertEquals(GOLDEN_HASH, group.toString());
-    assertEquals(CoreSchemaVersion.V9, CoreIdentityVersion.CURRENT.schema());
-    assertEquals(LanguageSemanticsVersion.V9, CoreIdentityVersion.CURRENT.semantics());
+    assertEquals(CoreSchemaVersion.V10, CoreIdentityVersion.CURRENT.schema());
+    assertEquals(LanguageSemanticsVersion.V10, CoreIdentityVersion.CURRENT.semantics());
   }
 
   @Test

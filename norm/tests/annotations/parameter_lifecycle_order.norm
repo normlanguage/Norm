@@ -1,8 +1,8 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation First implements ParameterTarget<String>, SourceRetention {
+annotation First implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
     printLine("first before " + context.name())
     return value + "1"
@@ -14,7 +14,7 @@ annotation First implements ParameterTarget<String>, SourceRetention {
   }
 }
 
-annotation Second implements ParameterTarget<String>, SourceRetention {
+annotation Second implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
     printLine("second before " + context.name())
     return value + "2"

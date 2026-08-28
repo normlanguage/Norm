@@ -11,6 +11,9 @@ public final class AnnotationAbi {
   public static final String FUNCTION_TARGET = "FunctionTarget";
   public static final String PARAMETER_TARGET = "ParameterTarget";
   public static final String FIELD_TARGET = "FieldTarget";
+  public static final String FUNCTION_INTERCEPTOR = "FunctionInterceptor";
+  public static final String PARAMETER_INTERCEPTOR = "ParameterInterceptor";
+  public static final String FIELD_INTERCEPTOR = "FieldInterceptor";
   public static final String BEFORE = "before";
   public static final String AROUND = "around";
   public static final String AFTER = "after";
@@ -36,6 +39,11 @@ public final class AnnotationAbi {
           "SourceRetention", AnnotationRetention.SOURCE,
           "BinaryRetention", AnnotationRetention.BINARY,
           "RuntimeRetention", AnnotationRetention.RUNTIME);
+  private static final Map<String, AnnotationTarget> INTERCEPTORS =
+      Map.of(
+          FUNCTION_INTERCEPTOR, AnnotationTarget.FUNCTION,
+          PARAMETER_INTERCEPTOR, AnnotationTarget.PARAMETER,
+          FIELD_INTERCEPTOR, AnnotationTarget.FIELD);
 
   private AnnotationAbi() {}
 
@@ -59,20 +67,30 @@ public final class AnnotationAbi {
         && (name.equals(ANNOTATION_TARGET)
             || name.equals(ANNOTATION_RETENTION)
             || TARGETS.containsKey(name)
+            || INTERCEPTORS.containsKey(name)
             || RETENTIONS.containsKey(name));
   }
 
-  public static boolean isFunctionTarget(ModuleCoordinate module, String packageName, String name) {
-    return standard(module, packageName) && name.equals(FUNCTION_TARGET);
-  }
-
-  public static boolean isParameterTarget(
+  public static Optional<AnnotationTarget> interceptor(
       ModuleCoordinate module, String packageName, String name) {
-    return standard(module, packageName) && name.equals(PARAMETER_TARGET);
+    return standard(module, packageName)
+        ? Optional.ofNullable(INTERCEPTORS.get(name))
+        : Optional.empty();
   }
 
-  public static boolean isFieldTarget(ModuleCoordinate module, String packageName, String name) {
-    return standard(module, packageName) && name.equals(FIELD_TARGET);
+  public static boolean isFunctionInterceptor(
+      ModuleCoordinate module, String packageName, String name) {
+    return standard(module, packageName) && name.equals(FUNCTION_INTERCEPTOR);
+  }
+
+  public static boolean isParameterInterceptor(
+      ModuleCoordinate module, String packageName, String name) {
+    return standard(module, packageName) && name.equals(PARAMETER_INTERCEPTOR);
+  }
+
+  public static boolean isFieldInterceptor(
+      ModuleCoordinate module, String packageName, String name) {
+    return standard(module, packageName) && name.equals(FIELD_INTERCEPTOR);
   }
 
   private static boolean standard(ModuleCoordinate module, String packageName) {

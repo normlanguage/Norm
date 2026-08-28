@@ -1,0 +1,62 @@
+package std.http
+
+import std.io.Bytes
+import std.json.fromJsonBytes
+import std.json.toJsonBytes
+
+public Bytes jsonBody<T>(T value) {
+  return toJsonBytes(value: value)
+}
+
+public HttpRequest jsonRequest<T>(
+  HttpMethod method,
+  Uri uri,
+  HeaderMap headers,
+  T body
+) {
+  Boolean hasContentType = false
+  for HttpHeader header : headers.values {
+    if header.name.equalsIgnoreCaseAscii(other: "Content-Type") {
+      hasContentType = true
+    }
+  }
+  Integer size = headers.values.size()
+  if !hasContentType {
+    size = size + 1
+  }
+  Array<HttpHeader> values = Array.filled(
+    size: size,
+    value: HttpHeader(name: "", value: "")
+  )
+  for HttpHeader header,index : headers.values {
+    values[index] = header
+    if header.name.equalsIgnoreCaseAscii(other: "Content-Type") {
+      values[index] = HttpHeader(name: "Content-Type", value: "application/json")
+    }
+  }
+  if !hasContentType {
+    values[headers.values.size()] = HttpHeader(
+      name: "Content-Type",
+      value: "application/json"
+    )
+  }
+  return HttpRequest(
+    method: method,
+    uri: uri,
+    headers: HeaderMap(values: values),
+    body: toJsonBytes(value: body)
+  )
+}
+
+public HttpRequest postJson<T>(Uri uri, T body) {
+  return jsonRequest(
+    method: HttpMethod.Post,
+    uri: uri,
+    headers: HeaderMap(values: []),
+    body: body
+  )
+}
+
+public T decodeJson<T>(Bytes body) {
+  return body.fromJsonBytes<T>()
+}

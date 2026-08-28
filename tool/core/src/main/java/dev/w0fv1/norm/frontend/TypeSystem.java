@@ -48,6 +48,37 @@ final class TypeSystem {
       Map<String, SemanticType> ownerSubstitutions,
       SourceSpan span,
       String callableKind) {
+    return resolveSourceCall(
+        candidates,
+        explicitTypeArguments,
+        call,
+        expected,
+        ownerSubstitutions,
+        span,
+        callableKind,
+        null);
+  }
+
+  SourceCallResolution resolveExtensionCall(
+      List<Syntax.FunctionDecl> candidates,
+      List<Syntax.TypeRef> explicitTypeArguments,
+      Syntax.Expression receiver,
+      Syntax.Call call,
+      SemanticType expected,
+      SourceSpan span) {
+    return resolveSourceCall(
+        candidates, explicitTypeArguments, call, expected, Map.of(), span, "extension", receiver);
+  }
+
+  private SourceCallResolution resolveSourceCall(
+      List<Syntax.FunctionDecl> candidates,
+      List<Syntax.TypeRef> explicitTypeArguments,
+      Syntax.Call call,
+      SemanticType expected,
+      Map<String, SemanticType> ownerSubstitutions,
+      SourceSpan span,
+      String callableKind,
+      Syntax.Expression extensionReceiver) {
     if (candidates.isEmpty()) return null;
     List<SemanticType> explicitTypes =
         explicitTypeArguments.stream()
@@ -87,14 +118,14 @@ final class TypeSystem {
     List<SourceCallCandidate> structural = new ArrayList<>();
     for (Syntax.FunctionDecl declaration : arityMatches) {
       List<ParameterInfo> unresolved = parametersOf(declaration, ownerSubstitutions);
-      List<Integer> indices = analyzer.context.overloads.argumentIndices(call, unresolved, false);
+      List<Integer> indices = sourceArgumentIndices(call, unresolved, extensionReceiver, false);
       if (indices != null) {
         structural.add(
             sourceCallCandidate(
                 declaration,
                 explicitTypes,
                 !explicitTypeArguments.isEmpty(),
-                call,
+                sourceCall(call, extensionReceiver),
                 indices,
                 expected,
                 ownerSubstitutions));
@@ -102,8 +133,11 @@ final class TypeSystem {
     }
     if (structural.isEmpty()) {
       if (arityMatches.size() == 1) {
-        analyzer.context.overloads.argumentIndices(
-            call, parametersOf(arityMatches.getFirst(), ownerSubstitutions), true);
+        sourceArgumentIndices(
+            call,
+            parametersOf(arityMatches.getFirst(), ownerSubstitutions),
+            extensionReceiver,
+            true);
       } else {
         analyzer.context.diagnostics.error(
             INVALID_CALL,
@@ -128,7 +162,12 @@ final class TypeSystem {
     if (structural.size() == 1) {
       SourceCallCandidate candidate = structural.getFirst();
       reportInferenceFailures(candidate, span);
-      validateArguments(call, candidate.parameters());
+      if (extensionReceiver == null) {
+        validateArguments(call, candidate.parameters());
+      } else {
+        analyzer.typeOf(extensionReceiver, candidate.parameters().getFirst().type());
+        validateArguments(call, candidate.parameters().subList(1, candidate.parameters().size()));
+      }
       if (expected != null
           && !expected.equals(SemanticType.DYNAMIC)
           && !isPotentiallyAssignable(expected, candidate.resolution().result())) {
@@ -145,6 +184,34 @@ final class TypeSystem {
           INVALID_CALL, "no overload accepts the supplied argument types", span);
     }
     return null;
+  }
+
+  private List<Integer> sourceArgumentIndices(
+      Syntax.Call call,
+      List<ParameterInfo> parameters,
+      Syntax.Expression extensionReceiver,
+      boolean report) {
+    if (extensionReceiver == null) {
+      return analyzer.context.overloads.argumentIndices(call, parameters, report);
+    }
+    if (parameters.isEmpty()) return null;
+    List<Integer> visible =
+        analyzer.context.overloads.argumentIndices(
+            call, parameters.subList(1, parameters.size()), report);
+    if (visible == null) return null;
+    List<Integer> result = new ArrayList<>(visible.size() + 1);
+    result.add(0);
+    visible.stream().map(index -> index + 1).forEach(result::add);
+    return List.copyOf(result);
+  }
+
+  private static Syntax.Call sourceCall(Syntax.Call call, Syntax.Expression extensionReceiver) {
+    if (extensionReceiver == null) return call;
+    List<Syntax.CallArgument> arguments = new ArrayList<>(call.arguments().size() + 1);
+    arguments.add(
+        new Syntax.CallArgument(Optional.empty(), extensionReceiver, extensionReceiver.span()));
+    arguments.addAll(call.arguments());
+    return new Syntax.Call(call.callee(), arguments, call.span());
   }
 
   SourceCallCandidate sourceCallCandidate(
@@ -448,6 +515,31 @@ final class TypeSystem {
         call.span(),
         new ResolvedCall(
             kind, target, calleeSpan, arguments, parameters, reifiedArguments, result));
+    return result;
+  }
+
+  SemanticType recordExtensionCall(
+      Syntax.Member member,
+      Syntax.Call call,
+      SymbolId target,
+      List<ParameterInfo> parameters,
+      List<SemanticType> reifiedArguments,
+      SemanticType result) {
+    if (parameters.isEmpty()) return result;
+    analyzer.typeOf(member.receiver(), parameters.getFirst().type());
+    List<ParameterInfo> visible = parameters.subList(1, parameters.size());
+    ArgumentBinding binding = validateArguments(call, visible);
+    List<Integer> indices = binding.parameterIndices().stream().map(index -> index + 1).toList();
+    analyzer.context.resolvedCalls.put(
+        call.span(),
+        new ResolvedCall(
+            ResolvedCall.Kind.EXTENSION,
+            target,
+            member.nameSpan(),
+            new ArgumentBinding(indices),
+            parameters,
+            reifiedArguments,
+            result));
     return result;
   }
 

@@ -13,6 +13,12 @@ final class CoreAnnotationVerifier {
 
   static void verifyArtifact(
       CoreProgram program, CoreAuthoringMap authoring, CoreMetadata metadata) {
+    CoreFunctionInterceptorProtocol functionInterceptor =
+        CoreFunctionInterceptorProtocol.resolve(program).orElse(null);
+    CoreParameterInterceptorProtocol parameterInterceptor =
+        CoreParameterInterceptorProtocol.resolve(program).orElse(null);
+    CoreFieldInterceptorProtocol fieldInterceptor =
+        CoreFieldInterceptorProtocol.resolve(program).orElse(null);
     Map<ApplicationKey, CoreAnnotationApplication> applications = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : metadata.annotations()) {
       verifyApplication(program, authoring, application);
@@ -63,10 +69,14 @@ final class CoreAnnotationVerifier {
         }
       }
     }
-    for (ApplicationKey application : applications.keySet()) {
-      if ((application.kind() == AnnotationTarget.FIELD
-              || application.kind() == AnnotationTarget.FUNCTION
-              || application.kind() == AnnotationTarget.PARAMETER)
+    for (Map.Entry<ApplicationKey, CoreAnnotationApplication> entry : applications.entrySet()) {
+      ApplicationKey application = entry.getKey();
+      if (isBehaviorApplication(
+              program,
+              entry.getValue(),
+              functionInterceptor,
+              parameterInterceptor,
+              fieldInterceptor)
           && !matched.contains(application)) {
         throw new IllegalArgumentException(
             "stored behavior annotation requires a declaration interceptor");
@@ -106,7 +116,7 @@ final class CoreAnnotationVerifier {
       CoreProgram program,
       DefinitionId callableId,
       CoreInterceptor interceptor,
-      CoreFunctionTargetProtocol functionTarget) {
+      CoreFunctionInterceptorProtocol functionInterceptor) {
     CoreDefinition.Callable callable =
         (CoreDefinition.Callable) program.definition(callableId).orElseThrow();
     if (CoreTypes.containsReference(callable.returnType())
@@ -124,10 +134,13 @@ final class CoreAnnotationVerifier {
     }
     CoreAnnotationPolicy policy = CoreAnnotationPolicy.resolve(program, annotationId, annotation);
     if (!policy.targets().contains(dev.w0fv1.norm.value.AnnotationTarget.FUNCTION)) {
-      throw new IllegalArgumentException("interceptor annotation must implement FunctionTarget");
+      throw new IllegalArgumentException("interceptor annotation must allow function targets");
     }
-    if (functionTarget == null) {
-      throw new IllegalArgumentException("FunctionTarget protocol is absent");
+    if (functionInterceptor == null
+        || !implementsProtocol(
+            program, annotationId, annotation, functionInterceptor.interfaceId())) {
+      throw new IllegalArgumentException(
+          "interceptor annotation must implement FunctionInterceptor");
     }
     verifyValues(program, callableId, annotationId, annotation, interceptor.values());
   }
@@ -137,7 +150,7 @@ final class CoreAnnotationVerifier {
       DefinitionId callableId,
       CoreCallableParameter parameter,
       CoreInterceptor interceptor,
-      CoreParameterTargetProtocol parameterTarget) {
+      CoreParameterInterceptorProtocol parameterInterceptor) {
     if (CoreTypes.containsReference(parameter.type())) {
       throw new IllegalArgumentException("interceptor parameter cannot use a reference type");
     }
@@ -152,17 +165,21 @@ final class CoreAnnotationVerifier {
     }
     CoreAnnotationPolicy policy = CoreAnnotationPolicy.resolve(program, annotationId, annotation);
     if (!policy.targets().contains(AnnotationTarget.PARAMETER)) {
-      throw new IllegalArgumentException("interceptor annotation must implement ParameterTarget");
+      throw new IllegalArgumentException("interceptor annotation must allow parameter targets");
     }
-    if (parameterTarget == null) {
-      throw new IllegalArgumentException("ParameterTarget protocol is absent");
+    if (parameterInterceptor == null) {
+      throw new IllegalArgumentException("ParameterInterceptor protocol is absent");
     }
     CoreType expected =
         targetType(
-            program, annotationId, annotation, parameterTarget.interfaceId(), "ParameterTarget");
+            program,
+            annotationId,
+            annotation,
+            parameterInterceptor.interfaceId(),
+            "ParameterInterceptor");
     CoreType actual = CoreTypes.absolute(parameter.type(), callableId, program);
     if (!actual.equals(expected)) {
-      throw new IllegalArgumentException("ParameterTarget type does not match parameter type");
+      throw new IllegalArgumentException("ParameterInterceptor type does not match parameter type");
     }
     verifyValues(program, callableId, annotationId, annotation, interceptor.values());
   }
@@ -172,7 +189,7 @@ final class CoreAnnotationVerifier {
       DefinitionId aggregateId,
       CoreField field,
       CoreInterceptor interceptor,
-      CoreFieldTargetProtocol fieldTarget) {
+      CoreFieldInterceptorProtocol fieldInterceptor) {
     DefinitionId annotationId = resolve(program, aggregateId, interceptor.annotation());
     CoreDefinition definition =
         program
@@ -184,16 +201,17 @@ final class CoreAnnotationVerifier {
     }
     CoreAnnotationPolicy policy = CoreAnnotationPolicy.resolve(program, annotationId, annotation);
     if (!policy.targets().contains(AnnotationTarget.FIELD)) {
-      throw new IllegalArgumentException("interceptor annotation must implement FieldTarget");
+      throw new IllegalArgumentException("interceptor annotation must allow field targets");
     }
-    if (fieldTarget == null) {
-      throw new IllegalArgumentException("FieldTarget protocol is absent");
+    if (fieldInterceptor == null) {
+      throw new IllegalArgumentException("FieldInterceptor protocol is absent");
     }
     CoreType expected =
-        targetType(program, annotationId, annotation, fieldTarget.interfaceId(), "FieldTarget");
+        targetType(
+            program, annotationId, annotation, fieldInterceptor.interfaceId(), "FieldInterceptor");
     CoreType actual = CoreTypes.absolute(field.type(), aggregateId, program);
     if (!actual.equals(expected)) {
-      throw new IllegalArgumentException("FieldTarget type does not match field type");
+      throw new IllegalArgumentException("FieldInterceptor type does not match field type");
     }
     verifyValues(program, aggregateId, annotationId, annotation, interceptor.values());
   }
@@ -214,6 +232,39 @@ final class CoreAnnotationVerifier {
       throw new IllegalArgumentException("interceptor annotation must implement " + name);
     }
     return target.arguments().getFirst();
+  }
+
+  private static boolean isBehaviorApplication(
+      CoreProgram program,
+      CoreAnnotationApplication application,
+      CoreFunctionInterceptorProtocol functionInterceptor,
+      CoreParameterInterceptorProtocol parameterInterceptor,
+      CoreFieldInterceptorProtocol fieldInterceptor) {
+    DefinitionId annotationId = application.annotation();
+    CoreDefinition.Aggregate annotation =
+        (CoreDefinition.Aggregate) program.definition(annotationId).orElseThrow();
+    DefinitionId protocol =
+        switch (application.target().kind()) {
+          case FUNCTION -> functionInterceptor == null ? null : functionInterceptor.interfaceId();
+          case PARAMETER ->
+              parameterInterceptor == null ? null : parameterInterceptor.interfaceId();
+          case FIELD -> fieldInterceptor == null ? null : fieldInterceptor.interfaceId();
+          default -> null;
+        };
+    return protocol != null && implementsProtocol(program, annotationId, annotation, protocol);
+  }
+
+  private static boolean implementsProtocol(
+      CoreProgram program,
+      DefinitionId annotationId,
+      CoreDefinition.Aggregate annotation,
+      DefinitionId protocol) {
+    Map<DefinitionId, CoreType.Declared> interfaces = new LinkedHashMap<>();
+    CoreInterfaceHierarchy hierarchy = new CoreInterfaceHierarchy(program);
+    for (CoreConformance conformance : annotation.conformances()) {
+      hierarchy.collect(annotationId, conformance.interfaceType(), interfaces);
+    }
+    return interfaces.containsKey(protocol);
   }
 
   static void verifyDeclaration(
@@ -310,6 +361,7 @@ final class CoreAnnotationVerifier {
                       && targetDefinition instanceof CoreDefinition.Callable;
               case FUNCTION ->
                   (occurrence.role() == CoreDefinitionRole.FUNCTION
+                          || occurrence.role() == CoreDefinitionRole.EXTENSION
                           || occurrence.role() == CoreDefinitionRole.METHOD)
                       && targetDefinition instanceof CoreDefinition.Callable;
               default -> false;
@@ -340,6 +392,7 @@ final class CoreAnnotationVerifier {
         CoreDefinitionOccurrence occurrence = requireOccurrence(authoring, parameter.callable());
         if (occurrence.role() != CoreDefinitionRole.CONSTRUCTOR
             && occurrence.role() != CoreDefinitionRole.FUNCTION
+            && occurrence.role() != CoreDefinitionRole.EXTENSION
             && occurrence.role() != CoreDefinitionRole.METHOD
             && occurrence.role() != CoreDefinitionRole.INTERFACE_METHOD) {
           throw new IllegalArgumentException("annotation parameter target has the wrong role");
@@ -361,6 +414,7 @@ final class CoreAnnotationVerifier {
         CoreDefinitionOccurrence occurrence = requireOccurrence(authoring, local.callable());
         if (occurrence.role() != CoreDefinitionRole.CONSTRUCTOR
             && occurrence.role() != CoreDefinitionRole.FUNCTION
+            && occurrence.role() != CoreDefinitionRole.EXTENSION
             && occurrence.role() != CoreDefinitionRole.METHOD
             && occurrence.role() != CoreDefinitionRole.LAMBDA) {
           throw new IllegalArgumentException("annotation local target has the wrong role");

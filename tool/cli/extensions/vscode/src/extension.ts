@@ -113,7 +113,7 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
 async function stopClient(): Promise<void> {
   const running = client;
   client = undefined;
-  if (running) await running.dispose();
+  if (running) await running.dispose(10_000);
 }
 
 function trace(value: string): Trace {

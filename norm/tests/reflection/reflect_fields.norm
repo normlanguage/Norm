@@ -1,0 +1,36 @@
+import std.annotation.FieldTarget
+import std.annotation.RuntimeRetention
+import std.testing.expectedOutputLines
+
+annotation Label implements FieldTarget, RuntimeRetention {
+  String text
+}
+
+value User {
+  @Label(text: "user_name")
+  String name
+  Integer age
+}
+
+main() {
+  User user = User(name: "Norm", age: 1)
+  for Field<User> field : reflect<User>().fields() {
+    printLine(field.name())
+    printLine(field.index())
+    printLine(field.typeName())
+    printLine(field.annotation<Label>()?.text ?? "none")
+    printLine(field.read(value: user))
+  }
+  expectedOutputLines([
+    "name",
+    "0",
+    "String",
+    "user_name",
+    "Norm",
+    "age",
+    "1",
+    "Integer",
+    "none",
+    "1"
+  ])
+}

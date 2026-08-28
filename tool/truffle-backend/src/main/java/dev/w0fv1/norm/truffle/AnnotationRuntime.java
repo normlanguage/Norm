@@ -9,30 +9,37 @@ import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreDefinition;
-import dev.w0fv1.norm.core.CoreFieldTargetProtocol;
-import dev.w0fv1.norm.core.CoreFunctionTargetProtocol;
+import dev.w0fv1.norm.core.CoreField;
+import dev.w0fv1.norm.core.CoreFieldInterceptorProtocol;
+import dev.w0fv1.norm.core.CoreFunctionInterceptorProtocol;
 import dev.w0fv1.norm.core.CoreInterceptor;
 import dev.w0fv1.norm.core.CoreNullability;
-import dev.w0fv1.norm.core.CoreParameterTargetProtocol;
+import dev.w0fv1.norm.core.CoreParameterInterceptorProtocol;
 import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
+import dev.w0fv1.norm.core.CoreTypes;
 import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 final class AnnotationRuntime {
   private final CoreProgram program;
   private final Map<ApplicationKey, List<CoreAnnotationValue>> applications;
-  private final CoreFunctionTargetProtocol functionTarget;
-  private final CoreParameterTargetProtocol parameterTarget;
-  private final CoreFieldTargetProtocol fieldTarget;
+  private final CoreFunctionInterceptorProtocol functionInterceptor;
+  private final CoreParameterInterceptorProtocol parameterInterceptor;
+  private final CoreFieldInterceptorProtocol fieldInterceptor;
+  private final SerializationRuntime serialization;
+  private final MapperEngine mapper;
+  private final XmlDataFormat xml;
   private Map<DefinitionId, RuntimeValues.AggregateInfo> aggregateInfo = Map.of();
   private Map<DefinitionId, CallTarget> constructors = Map.of();
 
@@ -44,9 +51,12 @@ final class AnnotationRuntime {
       if (key != null) indexed.put(key, application.values());
     }
     applications = Map.copyOf(indexed);
-    functionTarget = CoreFunctionTargetProtocol.resolve(program).orElse(null);
-    parameterTarget = CoreParameterTargetProtocol.resolve(program).orElse(null);
-    fieldTarget = CoreFieldTargetProtocol.resolve(program).orElse(null);
+    functionInterceptor = CoreFunctionInterceptorProtocol.resolve(program).orElse(null);
+    parameterInterceptor = CoreParameterInterceptorProtocol.resolve(program).orElse(null);
+    fieldInterceptor = CoreFieldInterceptorProtocol.resolve(program).orElse(null);
+    serialization = new SerializationRuntime(this);
+    mapper = new MapperEngine(serialization);
+    xml = new XmlDataFormat(serialization);
   }
 
   void initialize(
@@ -63,8 +73,101 @@ final class AnnotationRuntime {
     return displayName(type);
   }
 
+  RuntimeValues.ListValue fields(CoreType reflectedType, CoreType listType) {
+    CoreType.Declared reflected = declared(reflectedType);
+    if (!(reflected.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException("fields require an aggregate type");
+    }
+    DefinitionId aggregateId = resolveExternal(user.definition());
+    if (!(program.definition(aggregateId).orElseThrow()
+            instanceof CoreDefinition.Aggregate aggregate)
+        || aggregate.kind() == CoreAggregateKind.ANNOTATION) {
+      throw new IllegalArgumentException("fields require a class or value type");
+    }
+    RuntimeValues.AggregateInfo info = aggregateInfo.get(aggregateId);
+    if (info == null) throw new IllegalStateException("aggregate reflection is not initialized");
+    CoreType.Declared list = declared(listType);
+    CoreType fieldRuntimeType = list.arguments().getFirst();
+    List<Object> fields =
+        info.fields().stream()
+            .map(
+                field ->
+                    new RuntimeValues.FieldValue(
+                        fieldRuntimeType,
+                        reflectedType,
+                        field.owner(),
+                        field.name(),
+                        field.index(),
+                        reflectedFieldType(field, reflected),
+                        this))
+            .map(Object.class::cast)
+            .toList();
+    return new RuntimeValues.ListValue(listType, fields);
+  }
+
+  Object fieldAnnotation(
+      RuntimeValues.FieldValue field, CoreType annotationType, ExecutionState execution) {
+    CoreType.Declared annotation = declared(annotationType);
+    if (!(annotation.constructor() instanceof CoreTypeConstructor.User annotationUser)) {
+      return RuntimeValues.NullValue.INSTANCE;
+    }
+    DefinitionId annotationId = resolveExternal(annotationUser.definition());
+    ApplicationKey key =
+        new ApplicationKey(
+            annotationId, AnnotationTarget.FIELD, new IndexedKey(field.owner(), field.index()));
+    List<CoreAnnotationValue> values = applications.get(key);
+    if (values == null || retention(annotationId) != AnnotationRetention.RUNTIME) {
+      return RuntimeValues.NullValue.INSTANCE;
+    }
+    return execution.annotationExecution().instance(key, values).value(execution);
+  }
+
+  RuntimeValues.ReflectedValue readField(
+      RuntimeValues.FieldValue field, Object receiver, CoreType reflectedValueType) {
+    if (!(receiver instanceof RuntimeValues.ObjectValue object)
+        || !object.type.equals(field.ownerType())
+        || field.index() >= object.fields.length) {
+      throw new IllegalArgumentException("field receiver does not match its declaring type");
+    }
+    return new RuntimeValues.ReflectedValue(
+        reflectedValueType,
+        field.fieldType(),
+        RuntimeValues.copy(object.fields[field.index()]),
+        this);
+  }
+
   Execution execution() {
     return new Execution();
+  }
+
+  SerializationRuntime serialization() {
+    return serialization;
+  }
+
+  MapperEngine mapper() {
+    return mapper;
+  }
+
+  XmlDataFormat xml() {
+    return xml;
+  }
+
+  CoreProgram program() {
+    return program;
+  }
+
+  RuntimeValues.AggregateInfo aggregateInfo(DefinitionId definition) {
+    return aggregateInfo.get(definition);
+  }
+
+  List<CoreAnnotationValue> typeAnnotationValues(DefinitionId annotation, DefinitionId type) {
+    return applications.get(new ApplicationKey(annotation, AnnotationTarget.TYPE, type));
+  }
+
+  List<CoreAnnotationValue> fieldAnnotationValues(
+      DefinitionId annotation, DefinitionOccurrenceId owner, int ordinal) {
+    return applications.get(
+        new ApplicationKey(annotation, AnnotationTarget.FIELD, new IndexedKey(owner, ordinal)));
   }
 
   Object annotation(CoreType reflectedType, CoreType annotationType, ExecutionState execution) {
@@ -132,31 +235,31 @@ final class AnnotationRuntime {
   }
 
   LifecycleDispatch functionBefore(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, functionTarget().before());
+    return dispatch(annotation, functionInterceptor().before());
   }
 
   LifecycleDispatch functionAround(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, functionTarget().around());
+    return dispatch(annotation, functionInterceptor().around());
   }
 
   LifecycleDispatch functionAfter(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, functionTarget().after());
+    return dispatch(annotation, functionInterceptor().after());
   }
 
   LifecycleDispatch parameterBefore(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, parameterTarget().before());
+    return dispatch(annotation, parameterInterceptor().before());
   }
 
   LifecycleDispatch parameterAfter(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, parameterTarget().after());
+    return dispatch(annotation, parameterInterceptor().after());
   }
 
   LifecycleDispatch fieldBefore(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, fieldTarget().before());
+    return dispatch(annotation, fieldInterceptor().before());
   }
 
   LifecycleDispatch fieldAfter(RuntimeValues.ObjectValue annotation) {
-    return dispatch(annotation, fieldTarget().after());
+    return dispatch(annotation, fieldInterceptor().after());
   }
 
   private LifecycleDispatch dispatch(
@@ -190,25 +293,25 @@ final class AnnotationRuntime {
     return annotation;
   }
 
-  private CoreFunctionTargetProtocol functionTarget() {
-    if (functionTarget == null) {
-      throw new IllegalStateException("std.annotation.FunctionTarget is absent");
+  private CoreFunctionInterceptorProtocol functionInterceptor() {
+    if (functionInterceptor == null) {
+      throw new IllegalStateException("std.annotation.FunctionInterceptor is absent");
     }
-    return functionTarget;
+    return functionInterceptor;
   }
 
-  private CoreParameterTargetProtocol parameterTarget() {
-    if (parameterTarget == null) {
-      throw new IllegalStateException("std.annotation.ParameterTarget is absent");
+  private CoreParameterInterceptorProtocol parameterInterceptor() {
+    if (parameterInterceptor == null) {
+      throw new IllegalStateException("std.annotation.ParameterInterceptor is absent");
     }
-    return parameterTarget;
+    return parameterInterceptor;
   }
 
-  private CoreFieldTargetProtocol fieldTarget() {
-    if (fieldTarget == null) {
-      throw new IllegalStateException("std.annotation.FieldTarget is absent");
+  private CoreFieldInterceptorProtocol fieldInterceptor() {
+    if (fieldInterceptor == null) {
+      throw new IllegalStateException("std.annotation.FieldInterceptor is absent");
     }
-    return fieldTarget;
+    return fieldInterceptor;
   }
 
   private ApplicationKey key(CoreAnnotationApplication application) {
@@ -248,6 +351,45 @@ final class AnnotationRuntime {
               .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
     }
     return declared.nullability() == CoreNullability.NULLABLE ? name + "?" : name;
+  }
+
+  CoreType reflectedFieldType(RuntimeValues.FieldPlan field, CoreType.Declared reflected) {
+    DefinitionId ownerId = field.owner().representative();
+    CoreDefinition.Aggregate owner =
+        (CoreDefinition.Aggregate) program.definition(ownerId).orElseThrow();
+    CoreField declaration =
+        owner.fields().stream()
+            .filter(candidate -> candidate.ordinal() == field.index())
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("reflected field definition is absent"));
+    CoreType absolute = CoreTypes.absolute(declaration.type(), ownerId, program);
+    CoreType.Declared ownerView = aggregateView(reflected, ownerId);
+    if (ownerView == null) {
+      throw new IllegalArgumentException("reflected field owner is not an ancestor");
+    }
+    return absolute.substitute(
+        index ->
+            index < ownerView.arguments().size()
+                ? ownerView.arguments().get(index)
+                : new CoreType.Parameter(index, CoreNullability.NON_NULL));
+  }
+
+  private CoreType.Declared aggregateView(CoreType type, DefinitionId target) {
+    CoreType current = type;
+    Set<DefinitionId> visited = new HashSet<>();
+    while (current instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.User user) {
+      DefinitionId id = resolveExternal(user.definition());
+      if (!visited.add(id)) return null;
+      if (id.equals(target)) return declared;
+      CoreDefinition definition = program.definition(id).orElse(null);
+      if (!(definition instanceof CoreDefinition.Aggregate aggregate)
+          || aggregate.parentType().isEmpty()) return null;
+      current =
+          CoreTypes.absolute(aggregate.parentType().orElseThrow(), id, program)
+              .substitute(declared.arguments()::get);
+    }
+    return null;
   }
 
   private String nominal(DefinitionId id) {

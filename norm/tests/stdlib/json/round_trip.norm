@@ -1,0 +1,58 @@
+import std.json.JsonException
+import std.json.JsonValue
+import std.json.fromJson
+import std.json.fromJsonValue
+import std.json.parseJson
+import std.json.toJson
+import std.json.writeJson
+import std.serialization.SerialIgnore
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+
+@Serializable()
+value Profile {
+  @SerialName(name: "user_name")
+  String name
+  Integer? score
+  List<String> tags
+  @SerialIgnore()
+  String? secret
+}
+
+main() {
+  Profile source = Profile(
+    name: "Norm",
+    score: null,
+    tags: ["语言", "json"],
+    secret: "hidden"
+  )
+  String encoded = source.toJson()
+  printLine(encoded)
+  Profile decoded = encoded.fromJson<Profile>()
+  printLine(decoded.name)
+  printLine(decoded.score ?? -1)
+  printLine(decoded.tags.size())
+  printLine(decoded.secret ?? "missing")
+  JsonValue tree = parseJson(value: "{\"user_name\":\"Tree\",\"tags\":[]}")
+  printLine(writeJson(value: tree))
+  Profile fromTree = fromJsonValue<Profile>(value: tree)
+  printLine(fromTree.name)
+  try {
+    "{".fromJson<Profile>()
+  } catch JsonException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+  expectedOutputLines([
+    "{\"user_name\":\"Norm\",\"score\":null,\"tags\":[\"语言\",\"json\"]}",
+    "Norm",
+    "-1",
+    "2",
+    "missing",
+    "{\"user_name\":\"Tree\",\"tags\":[]}",
+    "Tree",
+    "NORM-JSON-SYNTAX",
+    "$"
+  ])
+}

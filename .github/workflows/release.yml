@@ -273,7 +273,7 @@ jobs:
           fi
           if [[ "$state" == "missing" ]]; then
             release_line="${VERSION%.*}"
-            notes="Version record: https://w0fv1.github.io/norm/en/versions/$release_line
+            notes="Version record: https://w0fv1.github.io/Norm/en/versions/$release_line
 
           The Windows and macOS binaries are not code-signed yet, so the operating system may display an origin warning. Verify downloads against SHA256SUMS and the attached build provenance."
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Norm $VERSION" --generate-notes --notes "$notes"

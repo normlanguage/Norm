@@ -150,12 +150,14 @@ final class CallSiteResolver {
             new Symbol(
                 declaration.id(),
                 presentedName,
-                declaration.kind(),
+                call.kind() == ResolvedCall.Kind.EXTENSION ? SymbolKind.METHOD : declaration.kind(),
                 call.resultType(),
                 declaration.declaration(),
                 declaration.owner(),
                 instantiatedTypeParameters,
-                call.parameters(),
+                call.kind() == ResolvedCall.Kind.EXTENSION
+                    ? call.parameters().subList(1, call.parameters().size())
+                    : call.parameters(),
                 declaration.documentation());
         return new CandidateSet(List.of(instantiated), Optional.of(instantiated));
       }
@@ -298,6 +300,7 @@ final class CallSiteResolver {
 
   private static boolean callable(Symbol symbol) {
     return symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.EXTENSION
         || symbol.kind() == SymbolKind.METHOD
         || symbol.kind() == SymbolKind.INTERFACE_METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD

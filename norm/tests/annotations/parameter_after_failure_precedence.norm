@@ -1,4 +1,4 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 import std.testing.expectedOutputLines
@@ -9,14 +9,14 @@ class Failure extends Exception {
   }
 }
 
-annotation Outer implements ParameterTarget<String>, SourceRetention {
+annotation Outer implements ParameterInterceptor<String>, SourceRetention {
   Void after(ParameterContext context, FunctionCompletion completion) {
     printLine("outer")
     printLine(completion.succeeded())
   }
 }
 
-annotation FailAfter implements ParameterTarget<String>, SourceRetention {
+annotation FailAfter implements ParameterInterceptor<String>, SourceRetention {
   Void after(ParameterContext context, FunctionCompletion completion) {
     printLine("inner")
     printLine(completion.succeeded())

@@ -1,9 +1,9 @@
 package app.metadata
 
-import std.annotation.FunctionTarget
+import std.annotation.FunctionInterceptor
 import std.annotation.RuntimeRetention
 
-public annotation Log implements FunctionTarget, RuntimeRetention {
+public annotation Log implements FunctionInterceptor, RuntimeRetention {
   String tag
 
   public Void before(FunctionContext context) {

@@ -1,0 +1,31 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+extension T echoed<T>(T value) {
+  return value
+}
+
+extension String surround(String value, String left, String right) {
+  return left + value + right
+}
+
+class Named {
+  public String name() {
+    return "method"
+  }
+}
+
+extension String name(Named value) {
+  return "extension"
+}
+
+main() {
+  String text = "Norm"
+  printLines([
+    text.echoed(),
+    text.surround(left: "[", right: "]"),
+    Named().name(),
+    echoed(value: "direct")
+  ])
+  expectedOutputLines(["Norm", "[Norm]", "method", "direct"])
+}

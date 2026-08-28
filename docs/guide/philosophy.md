@@ -51,7 +51,7 @@ Norm 采用静态类型、非空默认、确定赋值、Result，以及明确的
 
 ## 普通行为使用普通结构
 
-独立行为写成顶层函数；数据写成 value；具有身份和行为的状态写成 class。语言不要求把每个概念包装进 class；横切行为由 Annotation 显式实现 `FunctionTarget` 协议。
+独立行为写成顶层函数；数据写成 value；具有身份和行为的状态写成 class。语言不要求把每个概念包装进 class；横切行为由 Annotation 显式实现 `FunctionInterceptor` 协议。
 
 ```norm
 Double midpoint(Double left, Double right) {

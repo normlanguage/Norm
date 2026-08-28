@@ -25,10 +25,10 @@ Path 只描述路径，File 执行一次性操作，Reader/Writer 与 Stream 管
 
 ## 数据格式
 
-`Codec<T>` 是序列化共同接口。JSON 等格式通过显式 schema 或可检查的代码生成工作，不把 private 字段布局直接当作线上契约。
+结构序列化由 runtime Annotation 显式加入契约，格式 mapper 复用 Core metadata 与缓存的字段访问计划。公共接口见 [Serialization](/stdlib/serialization)，格式入口见 [JSON API](/stdlib/json-api)、[XML API](/stdlib/xml-api) 与 [YAML API](/stdlib/yaml-api)，架构见[序列化运行时](/design/serialization-runtime)。
 
 ## 系统边界
 
 HTTP、SQL、网络与进程 API 分离稳定接口和平台 adapter。超时、取消、事务与错误类型都保留在调用签名或配置中。
 
-进一步阅读：[集合 API](/stdlib/collections-api)、[文件 API](/stdlib/file-api)、[网络 API](/stdlib/network-api)、[HTTP API](/stdlib/http)。
+进一步阅读：[集合 API](/stdlib/collections-api)、[文件 API](/stdlib/file-api)、[网络 API](/stdlib/network-api)、[HTTP API](/stdlib/http)、[Serialization](/stdlib/serialization)。

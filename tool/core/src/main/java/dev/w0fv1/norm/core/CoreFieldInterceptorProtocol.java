@@ -3,21 +3,22 @@ package dev.w0fv1.norm.core;
 import dev.w0fv1.norm.value.AnnotationAbi;
 import java.util.Optional;
 
-public record CoreFieldTargetProtocol(
+public record CoreFieldInterceptorProtocol(
     DefinitionId interfaceId, DefinitionId before, DefinitionId after) {
-  private static final String NAME = "FieldTarget";
+  private static final String NAME = "FieldInterceptor";
 
-  public static Optional<CoreFieldTargetProtocol> resolve(CoreProgram program) {
-    return CoreAnnotationProtocolSupport.typedTarget(
+  public static Optional<CoreFieldInterceptorProtocol> resolve(CoreProgram program) {
+    return CoreAnnotationProtocolSupport.typedInterceptor(
             program,
             NAME,
             nominal ->
-                AnnotationAbi.isFieldTarget(
+                AnnotationAbi.isFieldInterceptor(
                     nominal.module(), nominal.packageName(), nominal.name()),
+            AnnotationAbi.FIELD_TARGET,
             "std.core.FieldContext")
         .map(
             protocol ->
-                new CoreFieldTargetProtocol(
+                new CoreFieldInterceptorProtocol(
                     protocol.interfaceId(), protocol.before(), protocol.after()));
   }
 }

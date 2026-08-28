@@ -1,4 +1,4 @@
-import std.annotation.FieldTarget
+import std.annotation.FieldInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 import std.testing.expectedOutputLines
@@ -9,7 +9,7 @@ class Failure extends Exception {
   }
 }
 
-annotation Outer implements FieldTarget<String>, SourceRetention {
+annotation Outer implements FieldInterceptor<String>, SourceRetention {
   String before(FieldContext context, String value) {
     printLine("outer before")
     return value
@@ -21,7 +21,7 @@ annotation Outer implements FieldTarget<String>, SourceRetention {
   }
 }
 
-annotation Reject implements FieldTarget<String>, SourceRetention {
+annotation Reject implements FieldInterceptor<String>, SourceRetention {
   String before(FieldContext context, String value) {
     if value == "rejected" {
       printLine("reject before")

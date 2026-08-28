@@ -54,6 +54,16 @@ final class FunctionSyntaxTest {
     assertEquals("add", reference.name());
   }
 
+  @Test
+  void parsesExtensionFunctionsAsDistinctTopLevelDeclarations() {
+    Syntax.Program program =
+        parse("public extension String display<T>(T value) { return value.toString() }");
+
+    Syntax.FunctionDecl function = program.functions().getFirst();
+    assertEquals(Syntax.FunctionKind.EXTENSION, function.kind());
+    assertEquals("value", function.parameters().getFirst().name());
+  }
+
   private Syntax.Program parse(String text) {
     SourceFile source = SourceFile.of(Path.of("functions.norm"), text);
     DiagnosticBag diagnostics = new DiagnosticBag();

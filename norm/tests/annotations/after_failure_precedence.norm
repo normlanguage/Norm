@@ -1,4 +1,4 @@
-import std.annotation.FunctionTarget
+import std.annotation.FunctionInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 import std.testing.expectedOutputLines
@@ -9,7 +9,7 @@ class Failure extends Exception {
   }
 }
 
-annotation Trace implements FunctionTarget, SourceRetention {
+annotation Trace implements FunctionInterceptor, SourceRetention {
   Void after(FunctionContext context, FunctionCompletion completion) {
     throw Failure(message: "after-failed")
   }

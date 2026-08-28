@@ -5,8 +5,11 @@
   "scripts": {
     "brand:check": "node scripts/check-brand-assets.mjs",
     "brand:generate": "node scripts/generate-brand-assets.mjs",
+    "site:check": "node scripts/check-site-config.mjs",
+    "site:dist-check": "node scripts/check-site-config.mjs --dist",
+    "site:generate": "node scripts/generate-site-manifest.mjs",
     "docs:dev": "vitepress dev",
-    "docs:build": "npm run brand:check && vitepress build",
+    "docs:build": "npm run site:check && npm run brand:check && vitepress build && npm run site:dist-check",
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {

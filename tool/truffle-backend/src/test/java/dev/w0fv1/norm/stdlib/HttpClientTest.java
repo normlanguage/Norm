@@ -19,6 +19,7 @@ import dev.w0fv1.norm.execution.SystemClock;
 import dev.w0fv1.norm.execution.SystemPlatform;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -32,9 +33,90 @@ import org.junit.jupiter.api.Test;
 
 final class HttpClientTest {
   @Test
+  void sendsAndDecodesJsonAgainstARealLoopbackServer() throws Exception {
+    try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+      server.setSoTimeout(10_000);
+      Future<?> exchange =
+          executor.submit(
+              () -> {
+                try (var socket = server.accept()) {
+                  var input = socket.getInputStream();
+                  ByteArrayOutputStream headerBytes = new ByteArrayOutputStream();
+                  int matched = 0;
+                  while (matched < 4) {
+                    int value = input.read();
+                    if (value < 0) throw new java.io.EOFException();
+                    headerBytes.write(value);
+                    matched =
+                        switch (matched) {
+                          case 0 -> value == '\r' ? 1 : 0;
+                          case 1 -> value == '\n' ? 2 : 0;
+                          case 2 -> value == '\r' ? 3 : 0;
+                          default -> value == '\n' ? 4 : 0;
+                        };
+                  }
+                  String headers = headerBytes.toString(StandardCharsets.US_ASCII);
+                  String[] lines = headers.split("\\r\\n");
+                  org.junit.jupiter.api.Assertions.assertEquals(
+                      "POST /messages HTTP/1.1", lines[0]);
+                  int contentLength = 0;
+                  boolean jsonContentType = false;
+                  for (int index = 1; index < lines.length; index++) {
+                    String line = lines[index];
+                    if (line.regionMatches(true, 0, "Content-Length:", 0, 15)) {
+                      contentLength = Integer.parseInt(line.substring(15).trim());
+                    }
+                    if (line.equalsIgnoreCase("Content-Type: application/json")) {
+                      jsonContentType = true;
+                    }
+                  }
+                  org.junit.jupiter.api.Assertions.assertTrue(jsonContentType);
+                  byte[] body = input.readNBytes(contentLength);
+                  org.junit.jupiter.api.Assertions.assertEquals(
+                      "{\"message\":\"你好\"}", new String(body, StandardCharsets.UTF_8));
+                  byte[] response = "{\"message\":\"pong\"}".getBytes(StandardCharsets.UTF_8);
+                  socket
+                      .getOutputStream()
+                      .write(
+                          ("HTTP/1.1 200 OK\r\n"
+                                  + "Content-Length: "
+                                  + response.length
+                                  + "\r\nContent-Type: application/json\r\n"
+                                  + "Connection: close\r\n\r\n")
+                              .getBytes(StandardCharsets.US_ASCII));
+                  socket.getOutputStream().write(response);
+                } catch (java.io.IOException failure) {
+                  throw new java.io.UncheckedIOException(failure);
+                }
+              });
+
+      assertOutput(
+          JdkSystemPlatform.standard(),
+          "import std.http.HttpRequest import std.http.HttpResponse import std.http.Uri "
+              + "import std.http.decodeJson import std.http.postJson import std.http.systemHttpClient "
+              + "import std.io.Bytes import std.io.readAll import std.io.use "
+              + "import std.serialization.SerialName import std.serialization.Serializable "
+              + "import std.time.Duration import std.time.duration @Serializable() value Message { "
+              + "@SerialName(name: \"message\") String text } Void main() { "
+              + "HttpRequest request = postJson(uri: Uri(value: \"http://127.0.0.1:"
+              + server.getLocalPort()
+              + "/messages\"), body: Message(text: \"你好\")) "
+              + "HttpResponse response = systemHttpClient().send(request: request, "
+              + "timeout: duration(seconds: 5, nanoseconds: 0)) "
+              + "Bytes body = use<Bytes>(resource: response, body: () { "
+              + "printLine(response.status().code) readAll(reader: response, maximumBytes: 128) }) "
+              + "Message decoded = decodeJson<Message>(body: body) printLine(decoded.text) }",
+          "200",
+          "pong");
+      exchange.get();
+    }
+  }
+
+  @Test
   void performsAUserLevelRequestAgainstARealLoopbackServer() throws Exception {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
       Future<?> exchange =
           executor.submit(
               () -> {

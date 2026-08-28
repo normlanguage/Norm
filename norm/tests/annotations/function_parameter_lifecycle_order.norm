@@ -1,9 +1,9 @@
-import std.annotation.FunctionTarget
-import std.annotation.ParameterTarget
+import std.annotation.FunctionInterceptor
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation FunctionTrace implements FunctionTarget, SourceRetention {
+annotation FunctionTrace implements FunctionInterceptor, SourceRetention {
   Void before(FunctionContext context) {
     printLine("function before")
   }
@@ -20,7 +20,7 @@ annotation FunctionTrace implements FunctionTarget, SourceRetention {
   }
 }
 
-annotation ParameterTrace implements ParameterTarget<String>, SourceRetention {
+annotation ParameterTrace implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
     printLine("parameter before")
     return value

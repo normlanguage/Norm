@@ -1,0 +1,31 @@
+package std.serialization
+
+import std.annotation.FieldTarget
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.io.Bytes
+
+public annotation Serializable implements TypeTarget, RuntimeRetention {
+}
+
+public annotation SerialName implements TypeTarget, FieldTarget, RuntimeRetention {
+  String name
+}
+
+public annotation SerialIgnore implements FieldTarget, RuntimeRetention {
+}
+
+public interface DataMapper {
+  DataReader<T> reader<T>()
+  DataWriter<T> writer<T>()
+}
+
+public interface DataReader<T> {
+  T readString(String source)
+  T readBytes(Bytes source)
+}
+
+public interface DataWriter<T> {
+  String writeString(T value)
+  Bytes writeBytes(T value)
+}

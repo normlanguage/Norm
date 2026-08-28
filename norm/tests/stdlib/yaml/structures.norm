@@ -1,0 +1,34 @@
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.yaml.fromYaml
+import std.yaml.toYaml
+
+enum State { Ready, Done }
+
+@Serializable()
+value Node {
+  String name
+  Node? next
+}
+
+@Serializable()
+value Payload<T> {
+  T value
+  State state
+  Map<String, Integer> scores
+}
+
+main() {
+  Map<String, Integer> scores = Map<>()
+  scores.put(key: "one", value: 1)
+  Payload<Node> source = Payload<>(
+    value: Node(name: "a", next: Node(name: "b", next: null)),
+    state: State.Ready,
+    scores: scores
+  )
+  Payload<Node> decoded = source.toYaml().fromYaml<Payload<Node>>()
+  printLine(decoded.value.next?.name ?? "missing")
+  printLine(decoded.state == State.Ready)
+  printLine(decoded.scores.get(key: "one") ?? -1)
+  expectedOutputLines(["b", "true", "1"])
+}

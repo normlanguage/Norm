@@ -1,8 +1,8 @@
-import std.annotation.FieldTarget
+import std.annotation.FieldInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-interface Normalize<T, State> extends FieldTarget<T> {
+interface Normalize<T, State> extends FieldInterceptor<T> {
   T normalize(T value) {
     printLine(reflect<T>().name())
     printLine(reflect<State>().name())

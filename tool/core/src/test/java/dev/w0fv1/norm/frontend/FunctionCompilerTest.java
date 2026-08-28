@@ -109,6 +109,56 @@ final class FunctionCompilerTest {
     assertTrue(compilation.isSuccess(), compilation.diagnostics().toString());
   }
 
+  @Test
+  void resolvesGenericExtensionsFromTheReceiverAndKeepsOrdinaryFunctionsExplicit() {
+    var extension =
+        compile(
+            "extension T echoed<T>(T value) { return value } "
+                + "Void main() { String text = \"Norm\" String copy = text.echoed() }");
+    var ordinary =
+        compile(
+            "String echoed(String value) { return value } "
+                + "Void main() { String text = \"Norm\" String copy = text.echoed() }");
+
+    assertTrue(extension.isSuccess(), () -> extension.diagnostics().toString());
+    assertFalse(ordinary.isSuccess());
+    var artifact = extension.program().orElseThrow().compilation().artifact();
+    var binding =
+        artifact.namespace().bindings().stream()
+            .filter(value -> value.name().equals("echoed"))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(binding.kind() == dev.w0fv1.norm.core.CoreBindingKind.EXTENSION);
+    assertTrue(
+        artifact.authoring().occurrence(binding.occurrence()).orElseThrow().role()
+            == dev.w0fv1.norm.core.CoreDefinitionRole.EXTENSION);
+  }
+
+  @Test
+  void requiresAnExtensionReceiver() {
+    var compilation = compile("extension String invalid() { return \"invalid\" } Void main() {}");
+
+    assertFalse(compilation.isSuccess());
+    assertTrue(
+        compilation.diagnostics().stream()
+            .anyMatch(value -> value.message().contains("receiver parameter")));
+  }
+
+  @Test
+  void rejectsAmbiguousExtensionOverloads() {
+    var compilation =
+        compile(
+            "interface First {} interface Second {} class Both implements First, Second {} "
+                + "extension String label(First value) { return \"first\" } "
+                + "extension String label(Second value) { return \"second\" } "
+                + "Void main() { String label = Both().label() }");
+
+    assertFalse(compilation.isSuccess());
+    assertTrue(
+        compilation.diagnostics().stream()
+            .anyMatch(value -> value.message().contains("ambiguous")));
+  }
+
   private dev.w0fv1.norm.value.CompilationResult compile(String text) {
     return new CompilerSession().compile(SourceFile.of(Path.of("functions.norm"), text));
   }

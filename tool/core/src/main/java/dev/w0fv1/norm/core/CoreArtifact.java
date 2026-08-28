@@ -116,7 +116,7 @@ public final class CoreArtifact {
           case CoreDefinition.Callable callable ->
               switch (role) {
                 case CONSTRUCTOR, METHOD -> callable.hasReceiver();
-                case FUNCTION, LAMBDA -> !callable.hasReceiver();
+                case FUNCTION, EXTENSION, LAMBDA -> !callable.hasReceiver();
                 default -> false;
               };
         };
@@ -131,9 +131,14 @@ public final class CoreArtifact {
     DefinitionId id = binding.definition();
     CoreDefinition definition = program.definition(id).orElseThrow();
     CoreDefinitionRole role = authoring.occurrence(binding.occurrence()).orElseThrow().role();
+    if (binding.shape() instanceof CoreBindingShape.Callable callable
+        && (callable.kind() == CoreCallableBindingKind.METHOD) != binding.ownerName().isPresent()) {
+      throw bindingMismatch(binding);
+    }
     CoreBindingKind expectedKind =
         switch (role) {
           case FUNCTION -> CoreBindingKind.FUNCTION;
+          case EXTENSION -> CoreBindingKind.EXTENSION;
           case METHOD -> CoreBindingKind.METHOD;
           case ENUM -> CoreBindingKind.ENUM;
           case INTERFACE -> CoreBindingKind.INTERFACE;

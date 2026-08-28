@@ -4,7 +4,7 @@ Norm 的 VS Code 扩展位于 `tool/cli/extensions/vscode`。它负责编辑器�
 
 ## 当前能力
 
-- `.norm` 文件识别，以及 nullable、泛型、package/import、`public`、`private` 等语法的 TextMate 高亮；
+- `.norm` 文件识别，以及 nullable、泛型、package/import、Annotation、extension function 与类型名的 TextMate 高亮；
 - 括号与引号编辑行为；
 - 使用编译器统一格式规则执行文档格式化，并默认在保存时格式化；
 - 直接显示 Norm 编译器诊断及源码范围；
@@ -14,6 +14,8 @@ Norm 的 VS Code 扩展位于 `tool/cli/extensions/vscode`。它负责编辑器�
 - nullable receiver 的 safe access 补全、类型级集合成员补全和重载签名提示；
 - 补全 module 导出的跨 package 声明时自动加入 import；
 - enum 成员补全；
+- extension function 的成员式补全，以及 JSON、XML、YAML 等标准库导出的自动 import；
+- 结构反射内置类型的补全、悬停和跳转，以及 Annotation 生命周期协议诊断；
 - 泛型声明签名、类型参数、核心类型、标准库和用户声明的悬停说明；
 - 泛型类型参数的补全、跳转定义、引用和重命名；
 - 遵循 module 导出、顶层文件私有声明与 class 私有成员可见性的跨文件诊断、跳转定义、引用和重命名。
@@ -36,7 +38,7 @@ npm ci
 npm run package:local
 ```
 
-在 VS Code 中执行 **Extensions: Install from VSIX...**，选择生成的 `norm-language-support-<version>-local.vsix`。该开发包内置当前源码构建的 JVM server，并收录已经暂存的完整多平台 `bin/`。直接按 F5 调试扩展时，也会从当前 Norm 仓库自动查找：
+在 VS Code 中执行 **Extensions: Install from VSIX...**，选择生成的 `norm-language-support-<version>-local.vsix`。该开发包内置当前源码构建的 JVM server。直接按 F5 调试扩展时，也会从当前 Norm 仓库自动查找：
 
 ```text
 <仓库>\tool\cli\app\build\install\norm\bin\norm.bat

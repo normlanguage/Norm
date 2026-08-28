@@ -1,0 +1,48 @@
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.yaml.YamlException
+import std.yaml.fromYaml
+import std.yaml.toYaml
+
+value Unmarked {
+  Integer count
+}
+
+@Serializable()
+value Required {
+  Integer count
+}
+
+Void decode(String source) {
+  try {
+    source.fromYaml<Required>()
+  } catch YamlException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+}
+
+main() {
+  try {
+    Unmarked(count: 1).toYaml()
+  } catch YamlException error {
+    printLine(error.code)
+  }
+  decode(source: "count: 1\nextra: 2\n")
+  decode(source: "{}")
+  decode(source: "count: 1\ncount: 2\n")
+  decode(source: "count: 2147483648\n")
+  decode(source: "count: 1\n---\ncount: 2\n")
+  decode(source: "count: *shared\n")
+  decode(source: "count: !custom 1\n")
+  expectedOutputLines([
+    "NORM-YAML-UNSUPPORTED-TYPE",
+    "NORM-YAML-UNKNOWN-FIELD", "$.extra",
+    "NORM-YAML-MISSING-FIELD", "$.count",
+    "NORM-YAML-DUPLICATE-FIELD", "$.count",
+    "NORM-YAML-NUMBER", "$.count",
+    "NORM-YAML-SYNTAX", "$",
+    "NORM-YAML-UNSUPPORTED-FEATURE", "$.count",
+    "NORM-YAML-UNSUPPORTED-FEATURE", "$.count"
+  ])
+}

@@ -1,8 +1,8 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation Mark implements ParameterTarget<String>, SourceRetention {
+annotation Mark implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
     printLine(context.function().name())
     printLine(context.name())

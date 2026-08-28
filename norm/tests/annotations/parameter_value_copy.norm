@@ -1,8 +1,8 @@
-import std.annotation.ParameterTarget
+import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.testing.expectedOutputLines
 
-annotation Append implements ParameterTarget<List<Integer>>, SourceRetention {
+annotation Append implements ParameterInterceptor<List<Integer>>, SourceRetention {
   List<Integer> before(ParameterContext context, List<Integer> value) {
     value.add(2)
     return value

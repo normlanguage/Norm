@@ -355,7 +355,9 @@ final class Binder {
         new BoundCallable(
             id,
             owner == null
-                ? dev.w0fv1.norm.bound.BoundCallableKind.FUNCTION
+                ? declaration.kind() == Syntax.FunctionKind.EXTENSION
+                    ? dev.w0fv1.norm.bound.BoundCallableKind.EXTENSION
+                    : dev.w0fv1.norm.bound.BoundCallableKind.FUNCTION
                 : dev.w0fv1.norm.bound.BoundCallableKind.METHOD,
             declaration.name(),
             declaration.visibility() == Syntax.Visibility.PUBLIC
@@ -504,7 +506,12 @@ final class Binder {
             application ->
                 application.target() instanceof dev.w0fv1.norm.semantic.AnnotationSite.Symbol site
                     && site.kind() == target
-                    && site.symbol().equals(symbol))
+                    && site.symbol().equals(symbol)
+                    && semantics
+                        .annotations()
+                        .schema(application.annotation())
+                        .orElseThrow()
+                        .intercepts(target))
         .map(this::bindInterceptor)
         .toList();
   }
@@ -741,7 +748,9 @@ final class Binder {
 
   private BoundExpression bindName(Syntax.Name name, SemanticType type) {
     Symbol symbol = symbol(name.span());
-    if (symbol.kind() == SymbolKind.FUNCTION || symbol.kind() == SymbolKind.METHOD) {
+    if (symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.EXTENSION
+        || symbol.kind() == SymbolKind.METHOD) {
       return new BoundClosure(
           BoundCallableId.of(symbol.id()),
           Optional.empty(),
@@ -828,8 +837,16 @@ final class Binder {
                         "resolved call target is absent from the semantic model: "
                             + resolution.target()));
     Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
+    if (resolution.kind() == ResolvedCall.Kind.EXTENSION) {
+      if (member == null) throw new IllegalStateException("extension call has no receiver");
+      List<BoundArgument> complete = new ArrayList<>(arguments.size() + 1);
+      complete.add(new BoundArgument(bindExpression(member.receiver()), 0));
+      complete.addAll(arguments);
+      arguments = List.copyOf(complete);
+    }
     BoundExpression receiver =
         member == null
+                || resolution.kind() == ResolvedCall.Kind.EXTENSION
                 || target.kind() == SymbolKind.TYPE_METHOD
                 || target.kind() == SymbolKind.ENUM_VARIANT
             ? null
@@ -888,7 +905,7 @@ final class Binder {
       case COPY ->
           new BoundExpression.CopyObject(
               java.util.Objects.requireNonNull(receiver), nullSafe, type, call.span());
-      case CALLABLE ->
+      case CALLABLE, EXTENSION ->
           new BoundCall(
               BoundCallableId.of(target.id()),
               Optional.ofNullable(receiver),
@@ -899,7 +916,7 @@ final class Binder {
                   : methodReceiverType(receiver.type(), target).stream()
                       .map(this::runtimeType)
                       .toList(),
-              isVirtualMethod(target),
+              resolution.kind() == ResolvedCall.Kind.CALLABLE && isVirtualMethod(target),
               nullSafe,
               type,
               call.span());

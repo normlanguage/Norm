@@ -82,6 +82,7 @@ public final class CoreNamespace {
         .writeBoolean(binding.exported());
     switch (binding.shape()) {
       case CoreBindingShape.Callable callable -> {
+        writer.writeTag(callable.kind().name());
         writeTypeParameters(writer, callable.typeParameters());
         writer.writeInt(callable.parameters().size());
         callable

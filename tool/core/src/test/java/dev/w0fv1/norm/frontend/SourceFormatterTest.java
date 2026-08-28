@@ -174,6 +174,17 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsExtensionFunctions() {
+    assertFormats(
+        "public extension String display<T>(T value){return value.toString()}",
+        """
+        extension String display<T>(T value) {
+          return value.toString()
+        }
+        """);
+  }
+
+  @Test
   void formatsModuleConfigurationAsSourceCode() {
     SourceFile source =
         SourceFile.of(

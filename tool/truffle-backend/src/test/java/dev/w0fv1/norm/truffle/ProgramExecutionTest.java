@@ -15,11 +15,11 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
-  void executesFunctionTargetAnnotationLifecycleAndOrdinaryMethods() throws Exception {
+  void executesFunctionInterceptorAnnotationLifecycleAndOrdinaryMethods() throws Exception {
     assertOutput(
-        "import std.annotation.FunctionTarget "
+        "import std.annotation.FunctionInterceptor "
             + "import std.annotation.RuntimeRetention "
-            + "annotation Log implements FunctionTarget, RuntimeRetention { "
+            + "annotation Log implements FunctionInterceptor, RuntimeRetention { "
             + "String level "
             + "String prefix() { return \"[\" + level + \"]\" } "
             + "Void before(FunctionContext context) { "
@@ -51,9 +51,9 @@ final class ProgramExecutionTest {
   @Test
   void interceptsDynamicDispatchAndFunctionReferencesAtTheCallableDefinition() throws Exception {
     assertOutput(
-        "import std.annotation.FunctionTarget "
+        "import std.annotation.FunctionInterceptor "
             + "import std.annotation.SourceRetention "
-            + "annotation Trace implements FunctionTarget, SourceRetention { "
+            + "annotation Trace implements FunctionInterceptor, SourceRetention { "
             + "Void before(FunctionContext context) { printLine(\"trace \" + context.name()) } } "
             + "interface Named { String name() } "
             + "class Base implements Named { public String name() { return \"base\" } } "
@@ -68,9 +68,9 @@ final class ProgramExecutionTest {
   @Test
   void reifiesGenericCallableReturnTypesForAround() throws Exception {
     assertOutput(
-        "import std.annotation.FunctionTarget "
+        "import std.annotation.FunctionInterceptor "
             + "import std.annotation.SourceRetention "
-            + "annotation ReturnType implements FunctionTarget, SourceRetention { "
+            + "annotation ReturnType implements FunctionInterceptor, SourceRetention { "
             + "R around<R>(FunctionInvocation<R> invocation) { "
             + "printLine(reflect<R>().name()) return invocation.proceed() } } "
             + "@ReturnType() T identity<T>(T value) { return value } "
@@ -86,9 +86,9 @@ final class ProgramExecutionTest {
             NormExecutionException.class,
             () ->
                 assertOutput(
-                    "import std.annotation.FunctionTarget "
+                    "import std.annotation.FunctionInterceptor "
                         + "import std.annotation.SourceRetention "
-                        + "annotation Twice implements FunctionTarget, SourceRetention { "
+                        + "annotation Twice implements FunctionInterceptor, SourceRetention { "
                         + "R around<R>(FunctionInvocation<R> invocation) { "
                         + "R result = invocation.proceed() invocation.proceed() return result } } "
                         + "@Twice() String run() { return \"value\" } "
@@ -102,15 +102,15 @@ final class ProgramExecutionTest {
   @Test
   void preservesInterceptorOrderAndRunsAfterDuringExceptionUnwinding() throws Exception {
     assertOutput(
-        "import std.annotation.FunctionTarget import std.annotation.RuntimeRetention "
+        "import std.annotation.FunctionInterceptor import std.annotation.RuntimeRetention "
             + "import std.core.Exception "
-            + "annotation Outer implements FunctionTarget, RuntimeRetention { String name "
+            + "annotation Outer implements FunctionInterceptor, RuntimeRetention { String name "
             + "Void before(FunctionContext context) { printLine(name + \" before\") } "
             + "R around<R>(FunctionInvocation<R> invocation) { printLine(name + \" in\") "
             + "R result = invocation.proceed() printLine(name + \" out\") return result } "
             + "Void after(FunctionContext context, FunctionCompletion completion) { "
             + "printLine(name + \" after\") printLine(completion.succeeded()) } } "
-            + "annotation Inner implements FunctionTarget, RuntimeRetention { String name "
+            + "annotation Inner implements FunctionInterceptor, RuntimeRetention { String name "
             + "Void before(FunctionContext context) { printLine(name + \" before\") } "
             + "R around<R>(FunctionInvocation<R> invocation) { printLine(name + \" in\") "
             + "R result = invocation.proceed() printLine(name + \" out\") return result } "

@@ -488,6 +488,7 @@ final class BoundCoreConverter {
         switch (declaration.kind()) {
           case CONSTRUCTOR -> CoreDefinitionRole.CONSTRUCTOR;
           case FUNCTION -> CoreDefinitionRole.FUNCTION;
+          case EXTENSION -> CoreDefinitionRole.EXTENSION;
           case METHOD -> CoreDefinitionRole.METHOD;
           case LAMBDA -> CoreDefinitionRole.LAMBDA;
         };
@@ -505,6 +506,11 @@ final class BoundCoreConverter {
                     declaration.name(),
                     visibility(declaration.visibility()),
                     new CoreBindingShape.Callable(
+                        switch (declaration.kind()) {
+                          case EXTENSION -> dev.w0fv1.norm.core.CoreCallableBindingKind.EXTENSION;
+                          case METHOD -> dev.w0fv1.norm.core.CoreCallableBindingKind.METHOD;
+                          default -> dev.w0fv1.norm.core.CoreCallableBindingKind.FUNCTION;
+                        },
                         coreTypeParameters(callableTypeParameters, types),
                         declaration.parameters().stream()
                             .map(
@@ -847,6 +853,7 @@ final class BoundCoreConverter {
       return switch (shape) {
         case CoreBindingShape.Callable callable ->
             new CoreBindingShape.Callable(
+                callable.kind(),
                 resolveTypeParameters(callable.typeParameters(), links),
                 callable.parameters().stream()
                     .map(

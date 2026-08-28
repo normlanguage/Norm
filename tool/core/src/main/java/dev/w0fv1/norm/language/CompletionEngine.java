@@ -165,6 +165,10 @@ final class CompletionEngine {
               "annotation",
               "Norm annotation",
               "annotation ${1:Name} implements ${2:TypeTarget}, ${3:RuntimeRetention} {\n  ${4}\n}"),
+          snippet(
+              "extension",
+              "Norm extension function",
+              "extension ${1:ReturnType} ${2:name}(${3:ReceiverType} ${4:value}) {\n  ${5}\n}"),
           keyword("package"),
           keyword("import"),
           keyword("public"),
@@ -272,8 +276,35 @@ final class CompletionEngine {
                           .typeAt(identifierStart)
                           .or(() -> model.symbolAt(identifierStart).map(Symbol::type));
                     });
-    return symbolCompletions(
-        receiverType.stream().flatMap(type -> model.members(type).stream()), methodReference);
+    if (receiverType.isEmpty()) return List.of();
+    SemanticType type = receiverType.orElseThrow();
+    List<Symbol> members = model.members(type);
+    Set<String> memberNames =
+        members.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
+    Stream<Symbol> extensions =
+        methodReference
+            ? Stream.empty()
+            : model.visibleSymbols(dotOffset).stream()
+                .flatMap(symbol -> model.callableAlternatives(symbol).stream())
+                .filter(symbol -> symbol.kind() == SymbolKind.EXTENSION)
+                .filter(symbol -> !symbol.parameters().isEmpty())
+                .filter(symbol -> !memberNames.contains(symbol.name()))
+                .filter(symbol -> model.isAssignable(symbol.parameters().getFirst().type(), type))
+                .map(CompletionEngine::extensionMember);
+    return symbolCompletions(Stream.concat(members.stream(), extensions), methodReference);
+  }
+
+  private static Symbol extensionMember(Symbol extension) {
+    return new Symbol(
+        extension.id(),
+        extension.name(),
+        SymbolKind.METHOD,
+        extension.type(),
+        extension.declaration(),
+        extension.owner(),
+        extension.typeParameters(),
+        extension.parameters().subList(1, extension.parameters().size()),
+        extension.documentation());
   }
 
   private static List<Completion> symbolCompletions(Stream<Symbol> symbols) {
@@ -339,7 +370,7 @@ final class CompletionEngine {
         switch (symbol.kind()) {
           case TYPE, TYPE_PARAMETER -> CompletionKind.TYPE;
           case INTERFACE -> CompletionKind.INTERFACE;
-          case FUNCTION, CONSTRUCTOR -> CompletionKind.FUNCTION;
+          case FUNCTION, EXTENSION, CONSTRUCTOR -> CompletionKind.FUNCTION;
           case METHOD, INTERFACE_METHOD, TYPE_METHOD -> CompletionKind.METHOD;
           case FIELD -> CompletionKind.FIELD;
           case PROPERTY -> CompletionKind.PROPERTY;
@@ -362,7 +393,8 @@ final class CompletionEngine {
     } else if (symbol.kind() == SymbolKind.METHOD
         || symbol.kind() == SymbolKind.INTERFACE_METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD
-        || symbol.kind() == SymbolKind.FUNCTION) {
+        || symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.EXTENSION) {
       String arguments =
           java.util.stream.IntStream.range(0, symbol.parameters().size())
               .mapToObj(

@@ -26,6 +26,8 @@
 
 `annotation` 是上下文关键字，只在顶层 Annotation 声明头中具有特殊含义。目标与保留策略是 `std.annotation` 中的普通 interface 名称。
 
+`extension` 是上下文关键字，只在顶层 extension function 声明头中具有特殊含义。
+
 `reflect` 是预声明的 generic 函数名，可以被词法作用域中的普通声明遮蔽。
 
 `Module` 和 `module` 都不是关键字。前者是 bootstrap interface，后者的模块入口与 bootstrap 工厂都是普通函数；参数标签 `name`、`version`、`exports` 和 `dependencies` 都是普通标识符。

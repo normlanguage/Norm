@@ -1,5 +1,5 @@
 import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 if (process.argv.length !== 4) {
@@ -42,13 +42,13 @@ verify(['run', resolve(repository, 'docs', 'examples', 'hello.norm')], 'Hello fr
 let count = 0;
 for (const group of ['base', 'algorithms', 'class', 'generics', 'stdlib']) {
   const directory = resolve(repository, 'norm', 'tests', group);
-  const cases = readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.norm'))
-    .map((entry) => entry.name)
+  const cases = readdirSync(directory, { recursive: true })
+    .filter((path) => path.endsWith('.norm'))
     .sort();
   if (!cases.length) throw new Error(`No acceptance programs found in ${directory}`);
   for (const file of cases) {
-    verify(['run', resolve(directory, file)], undefined, directory);
+    const path = resolve(directory, file);
+    verify(['run', path], undefined, dirname(path));
     count += 1;
   }
 }

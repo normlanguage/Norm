@@ -503,7 +503,9 @@ final class Analyzer {
             typeSystem.registerDeclaration(
                 function,
                 function.name(),
-                SymbolKind.FUNCTION,
+                function.kind() == Syntax.FunctionKind.EXTENSION
+                    ? SymbolKind.EXTENSION
+                    : SymbolKind.FUNCTION,
                 functionReturnType(function, typeSystem.functionTypeParameters(function)),
                 function.nameSpan(),
                 null,
@@ -1089,7 +1091,15 @@ final class Analyzer {
                       context.declarations.owner(declaration),
                       "interface-method/" + method.name());
               List<ParameterInfo> methodParameters =
-                  typeSystem.parameters(method.parameters(), substitutions, methodTypes);
+                  method.parameters().stream()
+                      .map(
+                          parameter ->
+                              new ParameterInfo(
+                                  parameter.name(),
+                                  typeSystem
+                                      .resolveDeclarationType(parameter.type(), method, methodTypes)
+                                      .substitute(substitutions)))
+                      .toList();
               SemanticType result =
                   typeSystem
                       .resolveDeclarationType(method.returnType(), method, methodTypes)
@@ -1165,6 +1175,10 @@ final class Analyzer {
   }
 
   private void analyzeFunction(Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
+    if (function.kind() == Syntax.FunctionKind.EXTENSION && function.parameters().isEmpty()) {
+      context.diagnostics.error(
+          INVALID_CALL, "extension function requires a receiver parameter", function.nameSpan());
+    }
     context.activeTypeParameters = typeSystem.typeParameters(function, owner);
     context.activeTypeParameterSymbols = typeSystem.typeParameterSymbols(function, owner);
     if (owner != null) registerBounds(owner.typeParameters(), context.activeTypeParameters);

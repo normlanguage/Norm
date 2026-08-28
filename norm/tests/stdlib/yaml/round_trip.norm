@@ -1,0 +1,52 @@
+import std.serialization.SerialIgnore
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.yaml.YamlException
+import std.yaml.fromYaml
+import std.yaml.toYaml
+
+@Serializable()
+value Profile {
+  @SerialName(name: "user_name")
+  String name
+  Integer? score
+  List<String> tags
+  @SerialIgnore()
+  String? secret
+}
+
+main() {
+  Profile source = Profile(
+    name: "Norm",
+    score: null,
+    tags: ["语言", "yaml"],
+    secret: "hidden"
+  )
+  Profile decoded = source.toYaml().fromYaml<Profile>()
+  printLine(decoded.name)
+  printLine(decoded.score ?? -1)
+  printLine(decoded.tags[0])
+  printLine(decoded.secret ?? "missing")
+
+  Profile block = "user_name: Block\nscore: 7\ntags:\n- one\n- two\n".fromYaml<Profile>()
+  printLine(block.name)
+  printLine(block.tags[1])
+
+  try {
+    "{".fromYaml<Profile>()
+  } catch YamlException error {
+    printLine(error.code)
+    printLine(error.path)
+  }
+  expectedOutputLines([
+    "Norm",
+    "-1",
+    "语言",
+    "missing",
+    "Block",
+    "two",
+    "NORM-YAML-SYNTAX",
+    "$"
+  ])
+}

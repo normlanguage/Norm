@@ -71,6 +71,14 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
         @Suppress("UNCHECKED_CAST")
         val exception = schema["exception"] as Map<String, Any>
         @Suppress("UNCHECKED_CAST")
+        val serialization = schema["serialization"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val json = schema["json"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val xml = schema["xml"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val yaml = schema["yaml"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
         val systemExceptions = schema["systemExceptions"] as Map<String, Map<String, Any>>
         val packageDirectory = outputDirectory.dir("dev/w0fv1/norm/abi").get().asFile
         packageDirectory.mkdirs()
@@ -161,6 +169,95 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
         )
         fun constantName(name: String): String =
             name.replace(Regex("([a-z])([A-Z])"), "\$1_\$2").uppercase()
+        packageDirectory.resolve("SerializationAbi.java").writeText(
+            buildString {
+                appendLine("package dev.w0fv1.norm.abi;")
+                appendLine()
+                appendLine("public final class SerializationAbi {")
+                serialization.entries.forEach { (name, value) ->
+                    if (value is String) {
+                        appendLine(
+                            "  public static final String ${constantName(name)} = \"$value\";",
+                        )
+                    }
+                }
+                appendLine(
+                    "  public static final int MODULE_VERSION = " +
+                        "${serialization.getValue("moduleVersion")};",
+                )
+                appendLine()
+                appendLine("  private SerializationAbi() {}")
+                appendLine("}")
+            },
+        )
+        fun generateFormatAbi(domain: String, contract: Map<String, Any>) {
+            @Suppress("UNCHECKED_CAST")
+            val fields = contract.getValue("fields") as List<Map<String, Any>>
+            @Suppress("UNCHECKED_CAST")
+            val intrinsicNames = contract.getValue("intrinsicNames") as List<String>
+            @Suppress("UNCHECKED_CAST")
+            val variants = contract["variants"] as? List<String> ?: listOf()
+            val className = domain.replaceFirstChar(Char::uppercase) + "Abi"
+            packageDirectory.resolve("$className.java").writeText(
+                buildString {
+                    appendLine("package dev.w0fv1.norm.abi;")
+                    appendLine()
+                    if (variants.isNotEmpty()) appendLine("import java.util.List;")
+                    appendLine("import java.util.Set;")
+                    appendLine()
+                    appendLine("public final class $className {")
+                    contract.entries
+                        .filter { it.value is String }
+                        .forEach { (name, value) ->
+                            appendLine(
+                                "  public static final String ${constantName(name)} = \"$value\";",
+                            )
+                        }
+                    appendLine(
+                        "  public static final int MODULE_VERSION = " +
+                            "${contract.getValue("moduleVersion")};",
+                    )
+                    fields.forEach { field ->
+                        val fieldName = constantName(field.getValue("name").toString())
+                        appendLine(
+                            "  public static final String FIELD_${fieldName}_NAME = " +
+                                "\"${field.getValue("name")}\";",
+                        )
+                        appendLine(
+                            "  public static final int FIELD_${fieldName}_ORDINAL = " +
+                                "${field.getValue("ordinal")};",
+                        )
+                    }
+                    variants.forEach { variant ->
+                        appendLine(
+                            "  public static final String VALUE_VARIANT_${constantName(variant)} = " +
+                                "\"$variant\";",
+                        )
+                    }
+                    appendLine()
+                    appendLine("  public static final Set<String> INTRINSIC_NAMES =")
+                    appendLine("      Set.of(")
+                    intrinsicNames.forEachIndexed { index, intrinsic ->
+                        val suffix = if (index + 1 == intrinsicNames.size) ");" else ","
+                        appendLine("          \"$intrinsic\"$suffix")
+                    }
+                    if (variants.isNotEmpty()) {
+                        appendLine("  public static final List<String> VALUE_VARIANTS =")
+                        appendLine("      List.of(")
+                        variants.forEachIndexed { index, variant ->
+                            val suffix = if (index + 1 == variants.size) ");" else ","
+                            appendLine("          VALUE_VARIANT_${constantName(variant)}$suffix")
+                        }
+                    }
+                    appendLine()
+                    appendLine("  private $className() {}")
+                    appendLine("}")
+                },
+            )
+        }
+        generateFormatAbi("json", json)
+        generateFormatAbi("xml", xml)
+        generateFormatAbi("yaml", yaml)
         systemExceptions.forEach { (domain, contract) ->
             @Suppress("UNCHECKED_CAST")
             val fields = contract.getValue("fields") as List<Map<String, Any>>
@@ -267,6 +364,9 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
             listOf("packageName", "typeName", "messageFieldName", "messageFieldOrdinal")
                 .forEach { append(exception.getValue(it)).append('\n') }
             append(groovy.json.JsonOutput.toJson(systemExceptions)).append('\n')
+            append(groovy.json.JsonOutput.toJson(serialization)).append('\n')
+            append(groovy.json.JsonOutput.toJson(json)).append('\n')
+            append(groovy.json.JsonOutput.toJson(xml)).append('\n')
         }.toByteArray(Charsets.UTF_8)
         val fingerprint = MessageDigest.getInstance("SHA-256")
             .digest(fingerprintInput)

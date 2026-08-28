@@ -73,6 +73,7 @@ final class SymbolPresentation {
                     .collect(java.util.stream.Collectors.joining(", "))
                 + ">";
     if (symbol.kind() == SymbolKind.FUNCTION
+        || symbol.kind() == SymbolKind.EXTENSION
         || symbol.kind() == SymbolKind.METHOD
         || symbol.kind() == SymbolKind.TYPE_METHOD
         || symbol.kind() == SymbolKind.INTERFACE_METHOD) {

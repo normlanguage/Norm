@@ -1,9 +1,9 @@
 package app.metadata
 
-import std.annotation.FieldTarget
+import std.annotation.FieldInterceptor
 import std.annotation.RuntimeRetention
 
-public annotation FieldWrap implements FieldTarget<String>, RuntimeRetention {
+public annotation FieldWrap implements FieldInterceptor<String>, RuntimeRetention {
   public String before(FieldContext context, String value) {
     printLine(context.name())
     return "[" + value + "]"

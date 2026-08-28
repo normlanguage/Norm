@@ -1,0 +1,105 @@
+package std.json
+
+import std.core.Exception
+import std.io.Bytes
+import std.io.TextEncoding
+import std.io.decodeText
+import std.io.encodeText
+import std.serialization.DataMapper
+import std.serialization.DataReader
+import std.serialization.DataWriter
+
+public enum JsonValue {
+  Object(Map<String, JsonValue> fields),
+  Array(List<JsonValue> values),
+  String(String value),
+  Number(String value),
+  Boolean(Boolean value),
+  Null
+}
+
+public class JsonException extends Exception {
+  String code
+  String path
+  Integer offset
+  Integer line
+  Integer column
+
+  JsonException(
+    String code,
+    String message,
+    String path,
+    Integer offset,
+    Integer line,
+    Integer column
+  ) {
+    super(message: message)
+    this.code = code
+    this.path = path
+    this.offset = offset
+    this.line = line
+    this.column = column
+  }
+}
+
+public value JsonMapper implements DataMapper {
+  DataReader<T> reader<T>() {
+    return JsonReader<T>()
+  }
+
+  DataWriter<T> writer<T>() {
+    return JsonWriter<T>()
+  }
+}
+
+public value JsonReader<T> implements DataReader<T> {
+  T readString(String source) {
+    return __jsonDecode<T>(value: source)
+  }
+
+  T readBytes(Bytes source) {
+    return this.readString(source: decodeText(content: source, encoding: TextEncoding.Utf8))
+  }
+}
+
+public value JsonWriter<T> implements DataWriter<T> {
+  String writeString(T value) {
+    return __jsonEncode<T>(value: value, type: reflect<T>())
+  }
+
+  Bytes writeBytes(T value) {
+    return encodeText(text: this.writeString(value: value), encoding: TextEncoding.Utf8)
+  }
+}
+
+public extension String toJson<T>(T value) {
+  return JsonMapper().writer<T>().writeString(value: value)
+}
+
+public extension T fromJson<T>(String value) {
+  return JsonMapper().reader<T>().readString(source: value)
+}
+
+public extension Bytes toJsonBytes<T>(T value) {
+  return JsonMapper().writer<T>().writeBytes(value: value)
+}
+
+public extension T fromJsonBytes<T>(Bytes value) {
+  return JsonMapper().reader<T>().readBytes(source: value)
+}
+
+public JsonValue parseJson(String value) {
+  return __jsonParse<JsonValue>(value: value)
+}
+
+public String writeJson(JsonValue value) {
+  return __jsonWrite(value: value)
+}
+
+public JsonValue toJsonValue<T>(T value) {
+  return parseJson(value: toJson(value: value))
+}
+
+public T fromJsonValue<T>(JsonValue value) {
+  return fromJson<T>(value: writeJson(value: value))
+}

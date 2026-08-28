@@ -537,6 +537,14 @@ public final class BuiltinCatalog {
     SemanticType graphemesType =
         SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
     SemanticType annotationA = methodParameter("Type", "annotation", "A");
+    SemanticType typeT = parameter("Type", "T");
+    SemanticType fieldT = parameter("Field", "T");
+    SemanticType fieldAnnotationA = methodParameter("Field", "annotation", "A");
+    SemanticType fieldOfTypeT =
+        SemanticType.declared("std.core.Field", "Field", List.of(typeT), ValueCategory.VALUE);
+    SemanticType fieldsOfTypeT =
+        SemanticType.declared("std.core.List", "List", List.of(fieldOfTypeT), ValueCategory.VALUE);
+    SemanticType reflectedValueType = declared("ReflectedValue");
     SemanticType invocationR = parameter("FunctionInvocation", "R");
     SemanticType functionContextType =
         SemanticType.declared(
@@ -554,6 +562,19 @@ public final class BuiltinCatalog {
     SemanticType httpSendT = globalParameter("__httpSend", "T");
     SemanticType httpReadT = globalParameter("__httpRead", "T");
     SemanticType reflectT = globalParameter("reflect", "T");
+    SemanticType jsonEncodeT = globalParameter("__jsonEncode", "T");
+    SemanticType jsonDecodeT = globalParameter("__jsonDecode", "T");
+    SemanticType jsonParseT = globalParameter("__jsonParse", "T");
+    SemanticType xmlEncodeT = globalParameter("__xmlEncode", "T");
+    SemanticType xmlDecodeT = globalParameter("__xmlDecode", "T");
+    SemanticType yamlEncodeT = globalParameter("__yamlEncode", "T");
+    SemanticType yamlDecodeT = globalParameter("__yamlDecode", "T");
+    SemanticType jsonEncodeType =
+        SemanticType.declared("std.core.Type", "Type", List.of(jsonEncodeT), ValueCategory.VALUE);
+    SemanticType xmlEncodeType =
+        SemanticType.declared("std.core.Type", "Type", List.of(xmlEncodeT), ValueCategory.VALUE);
+    SemanticType yamlEncodeType =
+        SemanticType.declared("std.core.Type", "Type", List.of(yamlEncodeT), ValueCategory.VALUE);
     SemanticType integerArrayType =
         SemanticType.declared("std.core.Array", "Array", List.of(integerType), ValueCategory.VALUE);
     SemanticType stringArrayType =
@@ -606,7 +627,36 @@ public final class BuiltinCatalog {
                     "annotation",
                     annotationA.nullable(),
                     IntrinsicId.TYPE_ANNOTATION,
-                    List.of(new TypeParameterInfo("A", annotationA)))));
+                    List.of(new TypeParameterInfo("A", annotationA))),
+                method("Type", "fields", fieldsOfTypeT, IntrinsicId.TYPE_FIELDS)));
+    addType(
+        types,
+        type("Field", RuntimeShape.FIELD, "T")
+            .members(
+                method("Field", "name", stringType, IntrinsicId.FIELD_NAME),
+                method("Field", "index", integerType, IntrinsicId.FIELD_INDEX),
+                method("Field", "typeName", stringType, IntrinsicId.FIELD_TYPE_NAME),
+                genericMethod(
+                    "Field",
+                    "annotation",
+                    fieldAnnotationA.nullable(),
+                    IntrinsicId.FIELD_ANNOTATION,
+                    List.of(new TypeParameterInfo("A", fieldAnnotationA))),
+                method(
+                    "Field",
+                    "read",
+                    reflectedValueType,
+                    IntrinsicId.FIELD_READ,
+                    parameterInfo("value", fieldT))));
+    addType(
+        types,
+        type("ReflectedValue", RuntimeShape.REFLECTED_VALUE)
+            .members(
+                method(
+                    "ReflectedValue",
+                    "typeName",
+                    stringType,
+                    IntrinsicId.REFLECTED_VALUE_TYPE_NAME)));
     addType(
         types,
         type("FunctionContext", RuntimeShape.FUNCTION_CONTEXT)
@@ -1008,6 +1058,72 @@ public final class BuiltinCatalog {
             SemanticType.declared("std.core.Type", "Type", List.of(reflectT), ValueCategory.VALUE),
             IntrinsicId.REFLECT_TYPE,
             List.of(new TypeParameterInfo("T", reflectT))));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__jsonEncode",
+            stringType,
+            IntrinsicId.JSON_ENCODE,
+            List.of(new TypeParameterInfo("T", jsonEncodeT)),
+            parameterInfo("value", jsonEncodeT),
+            parameterInfo("type", jsonEncodeType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__jsonDecode",
+            jsonDecodeT,
+            IntrinsicId.JSON_DECODE,
+            List.of(new TypeParameterInfo("T", jsonDecodeT)),
+            parameterInfo("value", stringType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__jsonParse",
+            jsonParseT,
+            IntrinsicId.JSON_PARSE,
+            List.of(new TypeParameterInfo("T", jsonParseT)),
+            parameterInfo("value", stringType)));
+    addGlobal(
+        globals,
+        global(
+            "__jsonWrite",
+            stringType,
+            IntrinsicId.JSON_WRITE,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__xmlEncode",
+            stringType,
+            IntrinsicId.XML_ENCODE,
+            List.of(new TypeParameterInfo("T", xmlEncodeT)),
+            parameterInfo("value", xmlEncodeT),
+            parameterInfo("type", xmlEncodeType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__xmlDecode",
+            xmlDecodeT,
+            IntrinsicId.XML_DECODE,
+            List.of(new TypeParameterInfo("T", xmlDecodeT)),
+            parameterInfo("value", stringType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__yamlEncode",
+            stringType,
+            IntrinsicId.YAML_ENCODE,
+            List.of(new TypeParameterInfo("T", yamlEncodeT)),
+            parameterInfo("value", yamlEncodeT),
+            parameterInfo("type", yamlEncodeType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__yamlDecode",
+            yamlDecodeT,
+            IntrinsicId.YAML_DECODE,
+            List.of(new TypeParameterInfo("T", yamlDecodeT)),
+            parameterInfo("value", stringType)));
     addGlobal(
         globals,
         global(

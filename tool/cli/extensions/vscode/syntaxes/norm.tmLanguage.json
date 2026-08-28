@@ -50,8 +50,8 @@
       ]
     },
     "types": {
-      "name": "support.type.norm",
-      "match": "\\b(?:Integer|Long|Float|Double|Number|Boolean|String|Void|CodePoint|Array|List|Map|Set|Stack|Queue|Deque|Pair|Range|StringBuilder|Stringable|Function|Module|Exception|Type)\\b"
+      "name": "entity.name.type.norm",
+      "match": "\\b[A-Z][A-Za-z0-9_]+\\b"
     },
     "typeParameters": {
       "name": "entity.name.type.parameter.norm",
@@ -82,7 +82,7 @@
     },
     "modifiers": {
       "name": "storage.modifier.norm",
-      "match": "\\b(?:public|private)\\b"
+      "match": "\\b(?:public|private|extension)\\b"
     },
     "annotations": {
       "name": "meta.annotation.norm",
