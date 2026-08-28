@@ -6,7 +6,7 @@ lsp4j = "1.0.0"
 gson = "2.14.0"
 junit = "6.0.1"
 spotless = "8.10.0"
-native-build-tools = "1.1.6"
+native-build-tools = "1.1.10"
 archunit = "1.5.0"
 
 [libraries]
