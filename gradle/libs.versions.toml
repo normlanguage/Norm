@@ -1,7 +1,7 @@
 [versions]
 java = "25"
 google-java-format = "1.36.0"
-graalvm = "25.1.3"
+graalvm = "25.2.4"
 lsp4j = "1.0.0"
 gson = "2.14.0"
 jacksonCore = "2.20.2"
