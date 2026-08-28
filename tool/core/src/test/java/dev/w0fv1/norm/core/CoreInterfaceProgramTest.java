@@ -169,7 +169,7 @@ final class CoreInterfaceProgramTest {
             0,
             List.of(),
             List.of(),
-            new PendingDefinitionReference(5),
+            List.of(new PendingDefinitionReference(5)),
             List.of(new CoreConformance(named, witnesses)));
     CoreDefinition.Callable constructor = constructor(item);
     CoreDefinition.Callable implementation =
@@ -245,7 +245,7 @@ final class CoreInterfaceProgramTest {
             0,
             List.of(),
             List.of(),
-            new PendingDefinitionReference(5),
+            List.of(new PendingDefinitionReference(5)),
             List.of(
                 new CoreConformance(
                     identity,

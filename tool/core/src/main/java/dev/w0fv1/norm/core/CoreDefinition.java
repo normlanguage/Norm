@@ -156,7 +156,7 @@ public sealed interface CoreDefinition
       int fieldCount,
       List<CoreField> fields,
       List<CoreMethodDispatch> dispatch,
-      CoreDefinitionLink constructor,
+      List<CoreDefinitionLink> constructors,
       List<CoreConformance> conformances)
       implements CoreDefinition {
     public Aggregate {
@@ -171,7 +171,9 @@ public sealed interface CoreDefinition
       if (fieldCount < fields.size()) throw new IllegalArgumentException("field count is invalid");
       fields = List.copyOf(fields);
       dispatch = List.copyOf(dispatch);
-      Objects.requireNonNull(constructor, "constructor");
+      constructors = List.copyOf(constructors);
+      if (constructors.isEmpty())
+        throw new IllegalArgumentException("core aggregate requires a constructor");
       conformances = List.copyOf(conformances);
       int firstOrdinal = fieldCount - fields.size();
       for (int index = 0; index < fields.size(); index++) {

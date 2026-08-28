@@ -1,6 +1,6 @@
 ---
 title: Status
-description: Norm 0.16 已交付能力、成熟度和当前限制
+description: Norm 当前已交付能力、成熟度和实现边界
 ---
 
 <script setup>
@@ -28,10 +28,11 @@ import { currentRelease } from './.vitepress/release'
 | 数据 Enum 与穷尽 Switch | Stable | [Enum 与 Switch](/spec/grammar/switch) |
 | Nullable、`?.`、`??` 与控制流收窄 | Stable | [类型系统](/spec/type-system) |
 | 泛型类型、函数、方法与双向推断 | Stable | [类型推断](/spec/type-inference) |
-| Lambda、函数值、方法引用 | Stable | [函数高级规则](/spec/grammar/functions-advanced) |
+| Lambda、函数值与声明引用 | Stable | [函数高级规则](/spec/grammar/functions-advanced) |
 | Extension function | Stable | [函数参考](/spec/grammar/functions#extension-function) |
 | `ref<T>` 与词法生命周期 | Stable | [引用参考](/spec/grammar/references) |
-| Annotation、反射与类型化拦截器 | Stable | [Annotation 规范](/spec/annotations) |
+| `Class<T>` 与类型化声明引用 | Stable | [声明引用与反射](/spec/declaration-references) |
+| Annotation、`@Document` 与类型化拦截器 | Stable | [Annotation 规范](/spec/annotations) |
 | Package、Module 与跨文件可见性 | Stable | [模块系统](/spec/module-system) |
 | 字符串插值 | Planned | 当前产生 `NORM-LEXER-0005` |
 | `//` 与 `/* */` 源码注释 | Planned | 当前 Lexer 将标记解析为运算符 token |

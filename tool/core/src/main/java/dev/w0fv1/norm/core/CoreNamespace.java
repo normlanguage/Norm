@@ -108,13 +108,22 @@ public final class CoreNamespace {
                   writer.writeString(field.name()).writeTag(field.visibility().name());
                   CoreCodec.writeType(writer, field.type());
                 });
-        writer.writeInt(declared.constructorParameters().size());
-        declared
-            .constructorParameters()
+        writer.writeInt(declared.constructors().size());
+        declared.constructors().stream()
+            .sorted(
+                (left, right) ->
+                    java.util.Arrays.compareUnsigned(
+                        constructorBytes(left), constructorBytes(right)))
             .forEach(
-                parameter -> {
-                  writer.writeString(parameter.label());
-                  CoreCodec.writeType(writer, parameter.type());
+                constructor -> {
+                  writer.writeInt(constructor.parameters().size());
+                  constructor
+                      .parameters()
+                      .forEach(
+                          parameter -> {
+                            writer.writeString(parameter.label());
+                            CoreCodec.writeType(writer, parameter.type());
+                          });
                 });
         writer.writeInt(declared.conformances().size());
         declared.conformances().stream()
@@ -177,6 +186,19 @@ public final class CoreNamespace {
   private static byte[] typeBytes(CoreType type) {
     CanonicalWriter writer = new CanonicalWriter();
     CoreCodec.writeType(writer, type);
+    return writer.toByteArray();
+  }
+
+  private static byte[] constructorBytes(CoreBindingShape.Constructor constructor) {
+    CanonicalWriter writer = new CanonicalWriter();
+    writer.writeInt(constructor.parameters().size());
+    constructor
+        .parameters()
+        .forEach(
+            parameter -> {
+              writer.writeString(parameter.label());
+              CoreCodec.writeType(writer, parameter.type());
+            });
     return writer.toByteArray();
   }
 }

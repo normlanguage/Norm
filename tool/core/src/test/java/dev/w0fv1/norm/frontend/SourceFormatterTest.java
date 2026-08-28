@@ -99,7 +99,7 @@ final class SourceFormatterTest {
   @Test
   void formatsAnnotationsAndReflection() {
     assertFormats(
-        "annotation Label implements TypeTarget,RuntimeRetention{String text String? replacement}@Label(text:\"point\",replacement:null)value Point{@Label(text:\"x\",replacement:null)Integer x}Void main(){Label? label=reflect<Point>().annotation<Label>()}",
+        "annotation Label implements TypeTarget,RuntimeRetention{String text String? replacement}@Label(text:\"point\",replacement:null)value Point{@Label(text:\"x\",replacement:null)Integer x}Void main(){Label? label=Point.class.annotation<Label>()}",
         """
         annotation Label implements TypeTarget, RuntimeRetention {
           String text
@@ -114,7 +114,7 @@ final class SourceFormatterTest {
         }
 
         Void main() {
-          Label? label = reflect<Point>().annotation<Label>()
+          Label? label = Point.class.annotation<Label>()
         }
         """);
   }

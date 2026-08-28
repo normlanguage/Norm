@@ -9,27 +9,31 @@ public enum ConstraintLocation { Parameter, Field }
 
 public value ConstraintContext {
   ConstraintLocation location
-  String target
-  Integer index
+  Function<?>? functionReference
+  Parameter<?>? parameterReference
+  Field<?, ?>? fieldReference
 }
 
 public class ConstraintViolation extends Exception {
   ConstraintLocation location
-  String target
-  Integer index
+  Function<?>? functionReference
+  Parameter<?>? parameterReference
+  Field<?, ?>? fieldReference
   String code
 
   ConstraintViolation(
     ConstraintLocation location,
-    String target,
-    Integer index,
+    Function<?>? functionReference,
+    Parameter<?>? parameterReference,
+    Field<?, ?>? fieldReference,
     String code,
     String message
   ) {
     super(message: message)
     this.location = location
-    this.target = target
-    this.index = index
+    this.functionReference = functionReference
+    this.parameterReference = parameterReference
+    this.fieldReference = fieldReference
     this.code = code
   }
 }
@@ -54,8 +58,9 @@ public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor
     if !this.isValid(value) {
       throw ConstraintViolation(
         location: context.location,
-        target: context.target,
-        index: context.index,
+        functionReference: context.functionReference,
+        parameterReference: context.parameterReference,
+        fieldReference: context.fieldReference,
         code: this.code(),
         message: this.message()
       )
@@ -67,8 +72,9 @@ public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor
     return this.validate(
       context: ConstraintContext(
         location: ConstraintLocation.Parameter,
-        target: context.name(),
-        index: context.index()
+        functionReference: context.parameter().function(),
+        parameterReference: context.parameter(),
+        fieldReference: null
       ),
       value: value
     )
@@ -78,8 +84,9 @@ public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor
     return this.validate(
       context: ConstraintContext(
         location: ConstraintLocation.Field,
-        target: context.name(),
-        index: context.index()
+        functionReference: null,
+        parameterReference: null,
+        fieldReference: context.field()
       ),
       value: value
     )

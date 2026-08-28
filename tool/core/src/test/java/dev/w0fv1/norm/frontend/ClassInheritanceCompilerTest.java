@@ -26,6 +26,22 @@ final class ClassInheritanceCompilerTest {
   }
 
   @Test
+  void resolvesOverloadedConstructorsAndSuperCalls() {
+    CompilationResult result =
+        compile(
+            "class Base { String name "
+                + "Base(String value) { name = value } "
+                + "Base(Integer value) { name = value.toString() } } "
+                + "class User extends Base { "
+                + "User(String value) { super(value: value) } "
+                + "User(Integer value) { super(value: value) } } "
+                + "Void main() { User first = User(value: \"Norm\") "
+                + "User second = User(value: 7) printLine(first.name) printLine(second.name) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void rejectsConstructorThatLeavesAFieldUninitialized() {
     CompilationResult result =
         compile("class Point { Integer x Integer y Point(Integer initial) { x = initial } } ");

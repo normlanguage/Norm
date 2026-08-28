@@ -157,7 +157,7 @@ final class CoreTraversalContractTest {
             1,
             List.of(new CoreField("value", 0, links.type(), List.of())),
             List.of(),
-            links.next(),
+            List.of(links.next()),
             List.of()));
     definitions.addAll(
         List.of(
@@ -171,7 +171,7 @@ final class CoreTraversalContractTest {
                 1,
                 List.of(new CoreField("value", 0, links.type(), List.of())),
                 List.of(),
-                links.next(),
+                List.of(links.next()),
                 List.of(
                     new CoreConformance(links.type(), List.of(callableWitness, intrinsicWitness)))),
             new CoreDefinition.Enum(

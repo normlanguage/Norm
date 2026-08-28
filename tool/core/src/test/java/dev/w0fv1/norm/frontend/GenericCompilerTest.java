@@ -64,6 +64,34 @@ final class GenericCompilerTest {
   }
 
   @Test
+  void acceptsUnboundedExistentialArgumentsWithoutAcceptingRawTypes() {
+    CompilationResult result =
+        compile(
+            "Void inspect(Class<?> type, Function<?> function) {} "
+                + "Void output(String value) {} "
+                + "Void main() { Class<String> type = String.class "
+                + "inspect(type: type, function: output.function) }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void rejectsWritingValuesThroughExistentialProjections() {
+    CompilationResult result =
+        compile("Void mutate(List<?> values) { values.add(value: \"unsafe\") } Void main() {}");
+
+    assertFalse(result.isSuccess());
+  }
+
+  @Test
+  void rejectsInvokingFunctionsWithAnExistentialSignature() {
+    CompilationResult result =
+        compile("Void invoke(Function<?> function) { function() } Void main() {}");
+
+    assertFalse(result.isSuccess());
+  }
+
+  @Test
   void rejectsMismatchedInvariantTypeArguments() {
     CompilationResult result =
         compile("Void main() { List<Integer> values = List<String>() printLine(values.size()) }");

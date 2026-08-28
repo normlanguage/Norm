@@ -35,12 +35,16 @@ final class RuntimeValues {
 
   record Closure(
       CallTarget target,
+      DefinitionOccurrenceId declaration,
+      DefinitionId virtualSlot,
+      boolean unbound,
       Object receiver,
       Object[] captures,
       Object[] receiverTypeArguments,
       Object[] reifiedArguments) {
     Closure {
       Objects.requireNonNull(target, "target");
+      Objects.requireNonNull(declaration, "declaration");
       captures = captures.clone();
       receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
@@ -48,33 +52,65 @@ final class RuntimeValues {
   }
 
   static Object invoke(ExecutionState execution, Closure closure, Object... arguments) {
-    return closure.target().call(invocationArguments(execution, closure, arguments));
+    PreparedInvocation invocation = prepareInvocation(execution, closure, arguments);
+    return invocation.target().call(invocation.arguments());
   }
 
-  static Object[] invocationArguments(
+  static PreparedInvocation prepareInvocation(
       ExecutionState execution, Closure closure, Object... arguments) {
-    int receiverCount = closure.receiver() == null ? 0 : 1;
-    int ownerTypeArgumentCount = closure.receiverTypeArguments().length;
+    CallTarget target = closure.target();
+    Object receiver = closure.receiver();
+    Object[] callableArguments = arguments;
+    Object[] receiverTypeArguments = closure.receiverTypeArguments();
+    if (closure.unbound()) {
+      if (arguments.length == 0 || !(arguments[0] instanceof ObjectValue object)) {
+        throw new IllegalArgumentException("unbound method requires an object receiver");
+      }
+      receiver = object;
+      callableArguments = java.util.Arrays.copyOfRange(arguments, 1, arguments.length);
+      if (closure.virtualSlot() != null) {
+        DispatchTarget targetValue = object.objectInfo.dispatch().get(closure.virtualSlot());
+        if (!(targetValue instanceof DispatchTarget.Callable dispatch)) {
+          throw new IllegalStateException("virtual method dispatch target is absent");
+        }
+        target = dispatch.target();
+        List<CoreType> concreteArguments =
+            object.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+        receiverTypeArguments =
+            dispatch.receiverTypeArguments().stream()
+                .map(type -> type.substitute(concreteArguments::get))
+                .toArray();
+      }
+    }
+    int receiverCount = receiver == null ? 0 : 1;
+    int ownerTypeArgumentCount = receiverTypeArguments.length;
     Object[] complete =
         new Object
             [1
                 + receiverCount
                 + closure.captures().length
-                + arguments.length
+                + callableArguments.length
                 + ownerTypeArgumentCount
                 + closure.reifiedArguments().length];
     complete[0] = execution;
     int offset = 1;
-    if (receiverCount == 1) complete[offset++] = closure.receiver();
+    if (receiverCount == 1) complete[offset++] = receiver;
     System.arraycopy(closure.captures(), 0, complete, offset, closure.captures().length);
     offset += closure.captures().length;
-    System.arraycopy(arguments, 0, complete, offset, arguments.length);
-    offset += arguments.length;
-    System.arraycopy(closure.receiverTypeArguments(), 0, complete, offset, ownerTypeArgumentCount);
+    System.arraycopy(callableArguments, 0, complete, offset, callableArguments.length);
+    offset += callableArguments.length;
+    System.arraycopy(receiverTypeArguments, 0, complete, offset, ownerTypeArgumentCount);
     offset += ownerTypeArgumentCount;
     System.arraycopy(
         closure.reifiedArguments(), 0, complete, offset, closure.reifiedArguments().length);
-    return complete;
+    return new PreparedInvocation(target, complete);
+  }
+
+  record PreparedInvocation(CallTarget target, Object[] arguments) {
+    PreparedInvocation {
+      Objects.requireNonNull(target, "target");
+      arguments = arguments.clone();
+    }
   }
 
   sealed interface ReferenceValue permits LocalReference, FieldReference {
@@ -534,9 +570,10 @@ final class RuntimeValues {
       case Boolean ignored -> CoreType.BOOLEAN;
       case String ignored -> CoreType.STRING;
       case CodePointValue ignored -> CoreType.CODE_POINT;
-      case TypeValue item -> item.type;
+      case ClassValue item -> item.type;
       case FieldValue item -> item.type;
-      case ReflectedValue item -> item.type;
+      case ConstructorValue item -> item.type;
+      case ParameterValue item -> item.type;
       case FunctionContextValue item -> item.type;
       case ParameterContextValue item -> item.type;
       case FieldContextValue item -> item.type;
@@ -592,8 +629,8 @@ final class RuntimeValues {
     }
   }
 
-  record TypeValue(CoreType type, CoreType reflectedType, AnnotationRuntime annotations) {
-    TypeValue {
+  record ClassValue(CoreType type, CoreType reflectedType, AnnotationRuntime annotations) {
+    ClassValue {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(reflectedType, "reflectedType");
       Objects.requireNonNull(annotations, "annotations");
@@ -624,43 +661,52 @@ final class RuntimeValues {
     }
   }
 
-  record ReflectedValue(
-      CoreType type, CoreType reflectedType, Object value, AnnotationRuntime annotations) {
-    ReflectedValue {
+  record ConstructorValue(
+      CoreType type,
+      CoreType ownerType,
+      DefinitionOccurrenceId declaration,
+      AnnotationRuntime annotations) {
+    ConstructorValue {
       Objects.requireNonNull(type, "type");
-      Objects.requireNonNull(reflectedType, "reflectedType");
-      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(ownerType, "ownerType");
+      Objects.requireNonNull(declaration, "declaration");
       Objects.requireNonNull(annotations, "annotations");
     }
-
-    @Override
-    public String toString() {
-      return RuntimeValues.stringify(value);
-    }
   }
 
-  record FunctionContextValue(CoreType type, String name) {
-    FunctionContextValue {
-      Objects.requireNonNull(type, "type");
-      Objects.requireNonNull(name, "name");
-    }
-  }
-
-  record ParameterContextValue(
-      CoreType type, FunctionContextValue function, String name, int index) {
-    ParameterContextValue {
+  record ParameterValue(
+      CoreType type,
+      Closure function,
+      String name,
+      CoreType valueType,
+      AnnotationRuntime annotations) {
+    ParameterValue {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(function, "function");
       Objects.requireNonNull(name, "name");
-      if (index < 0) throw new IllegalArgumentException("parameter index must not be negative");
+      Objects.requireNonNull(valueType, "valueType");
+      Objects.requireNonNull(annotations, "annotations");
     }
   }
 
-  record FieldContextValue(CoreType type, String name, int index) {
+  record FunctionContextValue(CoreType type, Closure function) {
+    FunctionContextValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(function, "function");
+    }
+  }
+
+  record ParameterContextValue(CoreType type, ParameterValue parameter) {
+    ParameterContextValue {
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(parameter, "parameter");
+    }
+  }
+
+  record FieldContextValue(CoreType type, FieldValue field) {
     FieldContextValue {
       Objects.requireNonNull(type, "type");
-      Objects.requireNonNull(name, "name");
-      if (index < 0) throw new IllegalArgumentException("field index must not be negative");
+      Objects.requireNonNull(field, "field");
     }
   }
 

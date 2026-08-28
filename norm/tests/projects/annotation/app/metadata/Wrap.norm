@@ -5,7 +5,7 @@ import std.annotation.RuntimeRetention
 
 public annotation Wrap implements ParameterInterceptor<String>, RuntimeRetention {
   public String before(ParameterContext context, String value) {
-    printLine(context.name())
+    printLine(context.parameter().name())
     return "[" + value + "]"
   }
 

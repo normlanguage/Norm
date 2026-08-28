@@ -88,7 +88,7 @@ aside: false
 确认当前版本已经实现什么、仍缺少什么，以及采用时需要注意的边界。
 
 - [Current Status](/status)
-- [Norm 0.16 实现契约](/versions/0.16)
+- [最新实现契约](/versions/)
 
 </section>
 

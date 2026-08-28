@@ -5,7 +5,6 @@ import app.model.Point
 import std.testing.expectedOutputLines
 
 main() {
-  printLine(reflect<Point>().annotation<Label>()?.text ?? "missing")
+  printLine(Point.class.annotation<Label>()?.text ?? "missing")
   expectedOutputLines(["point"])
 }
-

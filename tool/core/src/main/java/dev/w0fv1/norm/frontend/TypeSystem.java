@@ -402,6 +402,7 @@ final class TypeSystem {
       return isAssignable(expected, actual);
     }
     for (int index = 0; index < expected.arguments().size(); index++) {
+      if (expected.arguments().get(index).kind() == SemanticType.Kind.EXISTENTIAL) continue;
       if (!isPotentiallyAssignable(
           expected.arguments().get(index), actual.arguments().get(index))) {
         return false;
@@ -479,6 +480,32 @@ final class TypeSystem {
             call,
             span);
     return selected == null ? null : (Symbol) selected.target();
+  }
+
+  OverloadResolver.Candidate resolveConstructor(
+      Syntax.AggregateDecl declaration,
+      SemanticType constructedType,
+      Syntax.Call call,
+      SourceSpan span) {
+    Map<String, SemanticType> substitutions = aggregateSubstitutions(declaration, constructedType);
+    List<OverloadResolver.Candidate> candidates;
+    if (declaration.constructors().isEmpty()) {
+      candidates =
+          List.of(
+              new OverloadResolver.Candidate(
+                  declaration, fieldParameters(declaration, substitutions)));
+    } else {
+      Map<String, SemanticType> declared = aggregateTypeParameters(declaration);
+      candidates =
+          declaration.constructors().stream()
+              .map(
+                  constructor ->
+                      new OverloadResolver.Candidate(
+                          constructor,
+                          parameters(constructor.parameters(), substitutions, declared)))
+              .toList();
+    }
+    return analyzer.context.overloads.select(candidates, call, span);
   }
 
   ArgumentBinding validateArguments(Syntax.Call call, List<ParameterInfo> parameters) {
@@ -559,6 +586,7 @@ final class TypeSystem {
 
   private void validateType(
       Syntax.TypeRef type, boolean allowVoid, boolean allowTopLevelReference) {
+    if (type.isWildcard()) return;
     if (type.name().equals("ref")) {
       if (!allowTopLevelReference) {
         analyzer.context.diagnostics.error(
@@ -639,6 +667,7 @@ final class TypeSystem {
   }
 
   void validateDeclaredTypeBounds(Syntax.TypeRef reference) {
+    if (reference.isWildcard()) return;
     List<Syntax.TypeParameter> parameters;
     Map<String, SemanticType> declared;
     Object declaration;
@@ -677,7 +706,7 @@ final class TypeSystem {
           resolveDeclarationType(parameter.upperBound().orElseThrow(), declaration, declared)
               .substitute(substitutions);
       SemanticType actual = actualArguments.get(index);
-      if (!isAssignable(bound, actual)) {
+      if (actual.kind() != SemanticType.Kind.EXISTENTIAL && !isAssignable(bound, actual)) {
         analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "type argument '"
@@ -1347,6 +1376,7 @@ final class TypeSystem {
   }
 
   SemanticType resolveType(Syntax.TypeRef type, Map<String, SemanticType> typeParameters) {
+    if (type.isWildcard()) return SemanticType.EXISTENTIAL;
     if (type.name().equals("ref")) {
       if (type.arguments().size() != 1) return SemanticType.DYNAMIC;
       SemanticType target = resolveType(type.arguments().getFirst(), typeParameters);
@@ -1399,6 +1429,7 @@ final class TypeSystem {
   }
 
   void validatePublicType(Syntax.TypeRef type) {
+    if (type.isWildcard()) return;
     if (analyzer.context.activeTypeParameters.containsKey(type.name())) return;
     Syntax.AggregateDecl aggregateDecl = resolveAggregate(type.name());
     Syntax.EnumDecl enumDecl = resolveEnum(type.name());
@@ -1830,6 +1861,12 @@ final class TypeSystem {
         + ")";
   }
 
+  static String constructorSignature(Syntax.ConstructorDecl constructor) {
+    return constructor.parameters().stream()
+        .map(parameter -> normalizedType(parameter.type(), Map.of()))
+        .collect(java.util.stream.Collectors.joining(",", "(", ")"));
+  }
+
   static String fileLocalIdentity(String qualified, Syntax.Program program) {
     return qualified + "@" + program.span().source().id().uri();
   }
@@ -1848,6 +1885,7 @@ final class TypeSystem {
   }
 
   static String normalizedType(Syntax.TypeRef type, Map<String, String> typeParameters) {
+    if (type.isWildcard()) return "?";
     String name = typeParameters.getOrDefault(type.name(), type.name());
     String arguments =
         type.arguments().isEmpty()

@@ -61,7 +61,7 @@ import heroExample from '../norm/tests/docs/tour/05_enum_switch.norm?raw'
   <div class="norm-showcase-grid norm-showcase-grid--three">
     <article><div><span>NULL SAFETY</span><h3>缺失进入类型。</h3><p><code>String?</code>、<code>?.</code> 和 <code>??</code> 分别表达可空值、安全访问和回退路径。</p></div><pre v-pre><code>Integer size(String? text) {&#10;  return text?.graphemeSize() ?? 0&#10;}</code></pre></article>
     <article><div><span>INFERENCE</span><h3>推断使用期望类型。</h3><p>集合字面量和泛型构造器利用赋值目标与实参；失败时不会退化成动态类型。</p></div><pre v-pre><code>Array&lt;Integer&gt; fixed = [1, 2, 3]&#10;List&lt;Integer&gt; dynamic = [1, 2, 3]&#10;List&lt;Pair&lt;Integer, String&gt;&gt; pairs = List&lt;&gt;()</code></pre></article>
-    <article><div><span>FUNCTIONS</span><h3>函数保持函数。</h3><p>顶层函数、Lambda、方法引用和 Extension 共用静态类型与普通调用规则。</p></div><pre v-pre><code>extension T echoed&lt;T&gt;(T value) {&#10;  return value&#10;}&#10;&#10;String copy = "Norm".echoed()</code></pre></article>
+    <article><div><span>FUNCTIONS</span><h3>函数保持函数。</h3><p>顶层函数、Lambda、函数值、声明引用和 Extension 共用静态类型与普通调用规则。</p></div><pre v-pre><code>extension T echoed&lt;T&gt;(T value) {&#10;  return value&#10;}&#10;&#10;String copy = "Norm".echoed()</code></pre></article>
   </div>
 </section>
 

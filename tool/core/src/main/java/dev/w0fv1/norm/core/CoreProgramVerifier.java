@@ -198,18 +198,22 @@ final class CoreProgramVerifier {
         && aggregateView(aggregateType(id, declaration), resolvedExceptionDefinition) != null) {
       throw new IllegalArgumentException("Exception descendants cannot be generic");
     }
-    DefinitionId constructorId = resolve(id, declaration.constructor());
-    CoreDefinition constructor = program.definition(constructorId).orElseThrow();
-    if (!(constructor instanceof CoreDefinition.Callable constructorCallable)
-        || constructorCallable.receiverType().isEmpty()
-        || !constructorCallable.typeParameters().isEmpty()
-        || !constructorCallable.returnType().equals(CoreType.VOID)
-        || !isReceiverOf(
-            constructorId,
-            constructorCallable.receiverType().orElseThrow(),
-            id,
-            declaration.typeParameters().size())) {
-      throw new IllegalArgumentException("aggregate constructor must target a method");
+    Set<DefinitionId> constructors = new HashSet<>();
+    for (CoreDefinitionLink constructorReference : declaration.constructors()) {
+      DefinitionId constructorId = resolve(id, constructorReference);
+      CoreDefinition constructor = program.definition(constructorId).orElseThrow();
+      if (!constructors.add(constructorId)
+          || !(constructor instanceof CoreDefinition.Callable constructorCallable)
+          || constructorCallable.receiverType().isEmpty()
+          || !constructorCallable.typeParameters().isEmpty()
+          || !constructorCallable.returnType().equals(CoreType.VOID)
+          || !isReceiverOf(
+              constructorId,
+              constructorCallable.receiverType().orElseThrow(),
+              id,
+              declaration.typeParameters().size())) {
+        throw new IllegalArgumentException("aggregate constructor must target a distinct method");
+      }
     }
     if (declaration.kind() == CoreAggregateKind.ANNOTATION) {
       CoreAnnotationVerifier.verifyDeclaration(program, id, declaration);
@@ -335,7 +339,9 @@ final class CoreProgramVerifier {
   private boolean isAggregateConstructor(DefinitionId id) {
     for (CoreDefinitionRecord record : program.definitions()) {
       if (record.definition() instanceof CoreDefinition.Aggregate aggregate
-          && resolve(record.id(), aggregate.constructor()).equals(id)) {
+          && aggregate.constructors().stream()
+              .map(constructor -> resolve(record.id(), constructor))
+              .anyMatch(id::equals)) {
         return true;
       }
     }
@@ -760,6 +766,7 @@ final class CoreProgramVerifier {
       case VOID -> expected.equals(CoreType.VOID);
       case NULL -> expected.equals(CoreType.NULL);
       case ERROR -> true;
+      case EXISTENTIAL -> true;
       case REFERENCE ->
           expected instanceof CoreType.Reference reference
               && matchesSemanticType(reference.target(), pattern.referenceTarget(), substitutions);
@@ -1473,7 +1480,7 @@ final class CoreProgramVerifier {
       throw new IllegalArgumentException(
           "intrinsic expression does not match its builtin ABI: " + intrinsic.intrinsic());
     }
-    if (intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION
+    if (intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.CLASS_ANNOTATION
         || intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.FIELD_ANNOTATION) {
       CoreType annotationType = nonNullable(absolute(owner, intrinsic.type()));
       if (!(annotationType instanceof CoreType.Declared declared)
@@ -1654,6 +1661,7 @@ final class CoreProgramVerifier {
   private boolean bindPattern(
       CoreType actual, SemanticType pattern, Map<String, CoreType> substitutions) {
     if (pattern.kind() == SemanticType.Kind.ERROR) return true;
+    if (pattern.kind() == SemanticType.Kind.EXISTENTIAL) return true;
     if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
       CoreType previous = substitutions.get(pattern.identity());
       if (previous != null) {
@@ -1667,6 +1675,11 @@ final class CoreProgramVerifier {
     if (pattern.kind() == SemanticType.Kind.VOID) return actual.equals(CoreType.VOID);
     if (pattern.kind() == SemanticType.Kind.NULL) return actual.equals(CoreType.NULL);
     if (pattern.isFunction()) {
+      if (pattern.isUnknownFunction()) {
+        return actual instanceof CoreType.Function function
+            && function.nullability()
+                == (pattern.isNullable() ? CoreNullability.NULLABLE : CoreNullability.NON_NULL);
+      }
       if (!(actual instanceof CoreType.Function function)
           || function.isNullable() != pattern.isNullable()
           || function.parameterTypes().size() != pattern.functionParameterTypes().size()
@@ -1706,6 +1719,7 @@ final class CoreProgramVerifier {
       return !substitutions.containsKey(pattern.identity());
     }
     if (pattern.isFunction()) {
+      if (pattern.isUnknownFunction()) return false;
       return containsUnbound(pattern.functionReturnType(), substitutions)
           || pattern.functionParameterTypes().stream()
               .anyMatch(parameter -> containsUnbound(parameter, substitutions));
@@ -1725,10 +1739,14 @@ final class CoreProgramVerifier {
       case DECLARED ->
           pattern.isFunction()
               ? new CoreType.Function(
-                  instantiate(pattern.functionReturnType(), substitutions),
-                  pattern.functionParameterTypes().stream()
-                      .map(argument -> instantiate(argument, substitutions))
-                      .toList(),
+                  pattern.isUnknownFunction()
+                      ? CoreType.EXISTENTIAL
+                      : instantiate(pattern.functionReturnType(), substitutions),
+                  pattern.isUnknownFunction()
+                      ? List.of()
+                      : pattern.functionParameterTypes().stream()
+                          .map(argument -> instantiate(argument, substitutions))
+                          .toList(),
                   pattern.isNullable() ? CoreNullability.NULLABLE : CoreNullability.NON_NULL)
               : new CoreType.Declared(
                   new CoreTypeConstructor.Builtin(new BuiltinTypeId(pattern.identity())),
@@ -1742,6 +1760,7 @@ final class CoreProgramVerifier {
       case VOID -> CoreType.VOID;
       case NULL -> CoreType.NULL;
       case ERROR -> CoreType.DYNAMIC;
+      case EXISTENTIAL -> CoreType.EXISTENTIAL;
     };
   }
 
@@ -1843,31 +1862,44 @@ final class CoreProgramVerifier {
     closure.captures().forEach(value -> verifyExpression(owner, caller, value));
     closure.reifiedArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
     closure.receiverTypeArguments().forEach(type -> verifyRuntimeType(owner, caller, type));
-    if (target.hasReceiver() != closure.receiver().isPresent()) {
+    if (!target.hasReceiver() && closure.receiver().isPresent()) {
       throw new IllegalArgumentException("closure receiver does not match the target ABI");
     }
     if (target.captureTypes().size() != closure.captures().size()) {
       throw new IllegalArgumentException("closure captures do not match the target ABI");
     }
     List<CoreType> substitutions = new ArrayList<>();
+    CoreType unboundReceiver = null;
     if (target.hasReceiver()) {
-      CoreType receiver = nonNullable(absolute(owner, closure.receiver().orElseThrow().type()));
-      if (!(receiver instanceof CoreType.Declared declared)) {
-        throw new IllegalArgumentException("bound method receiver is not declared");
-      }
-      verifyMethodDispatch(receiver, targetId, closure.virtual(), "closure");
-      if (closure.receiverTypeArguments().isEmpty()) {
-        substitutions.addAll(declared.arguments());
+      if (closure.receiver().isPresent()) {
+        CoreType receiver = nonNullable(absolute(owner, closure.receiver().orElseThrow().type()));
+        if (!(receiver instanceof CoreType.Declared declared)) {
+          throw new IllegalArgumentException("bound method receiver is not declared");
+        }
+        verifyMethodDispatch(receiver, targetId, closure.virtual(), "closure");
+        if (closure.receiverTypeArguments().isEmpty()) {
+          substitutions.addAll(declared.arguments());
+        } else {
+          closure.receiverTypeArguments().stream()
+              .map(CoreRuntimeType::template)
+              .map(type -> absolute(owner, type))
+              .forEach(substitutions::add);
+        }
+        CoreType expectedReceiver =
+            absolute(targetId, target.receiverType().orElseThrow()).substitute(substitutions::get);
+        if (!isAssignable(expectedReceiver, receiver)) {
+          throw new IllegalArgumentException("bound method receiver does not match the target ABI");
+        }
       } else {
         closure.receiverTypeArguments().stream()
             .map(CoreRuntimeType::template)
             .map(type -> absolute(owner, type))
             .forEach(substitutions::add);
-      }
-      CoreType expectedReceiver =
-          absolute(targetId, target.receiverType().orElseThrow()).substitute(substitutions::get);
-      if (!isAssignable(expectedReceiver, receiver)) {
-        throw new IllegalArgumentException("bound method receiver does not match the target ABI");
+        unboundReceiver = absolute(targetId, target.receiverType().orElseThrow());
+        if (!substitutions.isEmpty()) {
+          unboundReceiver = unboundReceiver.substitute(substitutions::get);
+        }
+        verifyMethodDispatch(unboundReceiver, targetId, closure.virtual(), "closure");
       }
     }
     closure.reifiedArguments().stream()
@@ -1884,11 +1916,12 @@ final class CoreProgramVerifier {
       requireAssignable(
           expected, absolute(owner, closure.captures().get(index).type()), "closure capture");
     }
-    List<CoreType> parameters =
-        target.parameterTypes().stream()
-            .map(value -> absolute(targetId, value))
-            .map(value -> substitutions.isEmpty() ? value : value.substitute(substitutions::get))
-            .toList();
+    List<CoreType> parameters = new ArrayList<>();
+    if (unboundReceiver != null) parameters.add(unboundReceiver);
+    target.parameterTypes().stream()
+        .map(value -> absolute(targetId, value))
+        .map(value -> substitutions.isEmpty() ? value : value.substitute(substitutions::get))
+        .forEach(parameters::add);
     CoreType result = absolute(targetId, target.returnType());
     if (!substitutions.isEmpty()) result = result.substitute(substitutions::get);
     CoreType expected = new CoreType.Function(result, parameters, CoreNullability.NON_NULL);
@@ -2012,7 +2045,9 @@ final class CoreProgramVerifier {
       throw new IllegalArgumentException("constructed type does not match the aggregate ABI");
     }
     DefinitionId initializerId = resolve(owner, construct.initializer());
-    if (!initializerId.equals(resolve(targetId, target.constructor()))) {
+    if (target.constructors().stream()
+        .map(constructor -> resolve(targetId, constructor))
+        .noneMatch(initializerId::equals)) {
       throw new IllegalArgumentException("construct initializer does not match the aggregate");
     }
     CoreDefinition definition = program.definition(initializerId).orElseThrow();
@@ -2501,8 +2536,8 @@ final class CoreProgramVerifier {
         if (declared.arguments().stream().anyMatch(CoreTypes::containsReference)) {
           throw new IllegalArgumentException("declared core types cannot contain references");
         }
-        declared
-            .arguments()
+        declared.arguments().stream()
+            .filter(argument -> !argument.equals(CoreType.EXISTENTIAL))
             .forEach(argument -> verifyInhabitedType(owner, argument, parameterCount, subject));
         switch (declared.constructor()) {
           case CoreTypeConstructor.Builtin builtin -> verifyBuiltinType(builtin, declared);
@@ -2510,6 +2545,10 @@ final class CoreProgramVerifier {
         }
       }
       case CoreType.Function function -> {
+        if (function.returnType().equals(CoreType.EXISTENTIAL)
+            && function.parameterTypes().isEmpty()) {
+          break;
+        }
         if (CoreTypes.containsReference(function.returnType())
             || function.parameterTypes().stream().anyMatch(CoreTypes::containsReference)) {
           throw new IllegalArgumentException("function core types cannot contain references");
@@ -2702,12 +2741,15 @@ final class CoreProgramVerifier {
 
   private boolean isAssignable(CoreType expected, CoreType actual) {
     if (expected.equals(CoreType.DYNAMIC) || actual.equals(CoreType.DYNAMIC)) return true;
+    if (expected.equals(CoreType.EXISTENTIAL) || actual.equals(CoreType.EXISTENTIAL)) {
+      return expected.equals(CoreType.EXISTENTIAL) && actual.equals(CoreType.EXISTENTIAL);
+    }
     if (actual.equals(CoreType.NULL)) return expected.isNullable();
     if (expected.equals(CoreType.NULL)) return actual.equals(CoreType.NULL);
     CoreType expectedValue = nonNullable(expected);
     CoreType actualValue = nonNullable(actual);
     boolean compatible =
-        expectedValue.equals(actualValue)
+        matchesExistentialProjection(expectedValue, actualValue)
             || expectedValue.equals(CoreType.NUMBER) && isNumericLeaf(actualValue);
     if (!compatible
         && expectedValue instanceof CoreType.Declared expectedDeclared
@@ -2725,6 +2767,32 @@ final class CoreProgramVerifier {
       compatible = expectedValue.equals(realized);
     }
     return compatible && (expected.isNullable() || !actual.isNullable());
+  }
+
+  private static boolean matchesExistentialProjection(CoreType expected, CoreType actual) {
+    if (expected.equals(actual) || expected.equals(CoreType.EXISTENTIAL)) return true;
+    if (expected instanceof CoreType.Function expectedFunction
+        && actual instanceof CoreType.Function actualFunction) {
+      return expectedFunction.returnType().equals(CoreType.EXISTENTIAL)
+          && expectedFunction.parameterTypes().isEmpty()
+          && expectedFunction.nullability() == actualFunction.nullability();
+    }
+    if (!(expected instanceof CoreType.Declared expectedDeclared)
+        || !(actual instanceof CoreType.Declared actualDeclared)
+        || !expectedDeclared.constructor().equals(actualDeclared.constructor())
+        || expectedDeclared.category() != actualDeclared.category()
+        || expectedDeclared.arguments().size() != actualDeclared.arguments().size()) {
+      return false;
+    }
+    for (int index = 0; index < expectedDeclared.arguments().size(); index++) {
+      CoreType expectedArgument = expectedDeclared.arguments().get(index);
+      CoreType actualArgument = actualDeclared.arguments().get(index);
+      if (!expectedArgument.equals(CoreType.EXISTENTIAL)
+          && !expectedArgument.equals(actualArgument)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private CoreType.Declared aggregateView(CoreType type, DefinitionId target) {

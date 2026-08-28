@@ -536,19 +536,71 @@ public final class BuiltinCatalog {
             "std.core.Array", "Array", List.of(codePointType), ValueCategory.VALUE);
     SemanticType graphemesType =
         SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
-    SemanticType annotationA = methodParameter("Type", "annotation", "A");
-    SemanticType typeT = parameter("Type", "T");
-    SemanticType fieldT = parameter("Field", "T");
+    SemanticType annotationA = methodParameter("Class", "annotation", "A");
+    SemanticType classT = parameter("Class", "T");
+    SemanticType fieldOwner = parameter("Field", "Owner");
+    SemanticType fieldValue = parameter("Field", "Value");
     SemanticType fieldAnnotationA = methodParameter("Field", "annotation", "A");
-    SemanticType fieldOfTypeT =
-        SemanticType.declared("std.core.Field", "Field", List.of(typeT), ValueCategory.VALUE);
-    SemanticType fieldsOfTypeT =
-        SemanticType.declared("std.core.List", "List", List.of(fieldOfTypeT), ValueCategory.VALUE);
-    SemanticType reflectedValueType = declared("ReflectedValue");
-    SemanticType invocationR = parameter("FunctionInvocation", "R");
-    SemanticType functionContextType =
+    SemanticType fieldOfClassT =
         SemanticType.declared(
-            "std.core.FunctionContext", "FunctionContext", List.of(), ValueCategory.IDENTITY);
+            "std.core.Field",
+            "Field",
+            List.of(classT, SemanticType.EXISTENTIAL),
+            ValueCategory.VALUE);
+    SemanticType fieldsOfClassT =
+        SemanticType.declared("std.core.List", "List", List.of(fieldOfClassT), ValueCategory.VALUE);
+    SemanticType classOfFieldOwner =
+        SemanticType.declared("std.core.Class", "Class", List.of(fieldOwner), ValueCategory.VALUE);
+    SemanticType classOfFieldValue =
+        SemanticType.declared("std.core.Class", "Class", List.of(fieldValue), ValueCategory.VALUE);
+    SemanticType unknownFunction =
+        SemanticType.declared(
+            "std.core.Function",
+            "Function",
+            List.of(SemanticType.EXISTENTIAL),
+            ValueCategory.IDENTITY);
+    SemanticType parameterValue = parameter("Parameter", "Value");
+    SemanticType parameterOfFunction =
+        SemanticType.declared(
+            "std.core.Parameter",
+            "Parameter",
+            List.of(SemanticType.EXISTENTIAL),
+            ValueCategory.VALUE);
+    SemanticType parametersOfFunction =
+        SemanticType.declared(
+            "std.core.List", "List", List.of(parameterOfFunction), ValueCategory.VALUE);
+    SemanticType classOfParameterValue =
+        SemanticType.declared(
+            "std.core.Class", "Class", List.of(parameterValue), ValueCategory.VALUE);
+    SemanticType functionsOfClassT =
+        SemanticType.declared(
+            "std.core.List", "List", List.of(unknownFunction), ValueCategory.VALUE);
+    SemanticType constructorT = parameter("Constructor", "T");
+    SemanticType constructorOfClassT =
+        SemanticType.declared(
+            "std.core.Constructor", "Constructor", List.of(classT), ValueCategory.VALUE);
+    SemanticType constructorsOfClassT =
+        SemanticType.declared(
+            "std.core.List", "List", List.of(constructorOfClassT), ValueCategory.VALUE);
+    SemanticType classOfConstructorT =
+        SemanticType.declared(
+            "std.core.Class", "Class", List.of(constructorT), ValueCategory.VALUE);
+    SemanticType unknownClass =
+        SemanticType.declared(
+            "std.core.Class", "Class", List.of(SemanticType.EXISTENTIAL), ValueCategory.VALUE);
+    SemanticType unknownField =
+        SemanticType.declared(
+            "std.core.Field",
+            "Field",
+            List.of(SemanticType.EXISTENTIAL, SemanticType.EXISTENTIAL),
+            ValueCategory.VALUE);
+    SemanticType unknownParameter =
+        SemanticType.declared(
+            "std.core.Parameter",
+            "Parameter",
+            List.of(SemanticType.EXISTENTIAL),
+            ValueCategory.VALUE);
+    SemanticType invocationR = parameter("FunctionInvocation", "R");
     SemanticType systemClockT = globalParameter("__systemClock", "T");
     SemanticType clockNowT = globalParameter("__clockNow", "T");
     SemanticType bytesCreateT = globalParameter("__bytesCreate", "T");
@@ -561,7 +613,9 @@ public final class BuiltinCatalog {
     SemanticType fileOpenWriteT = globalParameter("__fileOpenWrite", "T");
     SemanticType httpSendT = globalParameter("__httpSend", "T");
     SemanticType httpReadT = globalParameter("__httpRead", "T");
-    SemanticType reflectT = globalParameter("reflect", "T");
+    SemanticType classLiteralT = globalParameter("__classLiteral", "T");
+    SemanticType fieldLiteralOwner = globalParameter("__fieldLiteral", "Owner");
+    SemanticType fieldLiteralValue = globalParameter("__fieldLiteral", "Value");
     SemanticType jsonEncodeT = globalParameter("__jsonEncode", "T");
     SemanticType jsonDecodeT = globalParameter("__jsonDecode", "T");
     SemanticType jsonParseT = globalParameter("__jsonParse", "T");
@@ -570,11 +624,11 @@ public final class BuiltinCatalog {
     SemanticType yamlEncodeT = globalParameter("__yamlEncode", "T");
     SemanticType yamlDecodeT = globalParameter("__yamlDecode", "T");
     SemanticType jsonEncodeType =
-        SemanticType.declared("std.core.Type", "Type", List.of(jsonEncodeT), ValueCategory.VALUE);
+        SemanticType.declared("std.core.Class", "Class", List.of(jsonEncodeT), ValueCategory.VALUE);
     SemanticType xmlEncodeType =
-        SemanticType.declared("std.core.Type", "Type", List.of(xmlEncodeT), ValueCategory.VALUE);
+        SemanticType.declared("std.core.Class", "Class", List.of(xmlEncodeT), ValueCategory.VALUE);
     SemanticType yamlEncodeType =
-        SemanticType.declared("std.core.Type", "Type", List.of(yamlEncodeT), ValueCategory.VALUE);
+        SemanticType.declared("std.core.Class", "Class", List.of(yamlEncodeT), ValueCategory.VALUE);
     SemanticType integerArrayType =
         SemanticType.declared("std.core.Array", "Array", List.of(integerType), ValueCategory.VALUE);
     SemanticType stringArrayType =
@@ -619,23 +673,29 @@ public final class BuiltinCatalog {
     addType(types, type(SemanticType.VOID.name(), RuntimeShape.VOID));
     addType(
         types,
-        type("Type", RuntimeShape.TYPE, "T")
+        type("Class", RuntimeShape.CLASS, "T")
             .members(
-                method("Type", "name", stringType, IntrinsicId.TYPE_NAME),
+                method("Class", "name", stringType, IntrinsicId.CLASS_NAME),
                 genericMethod(
-                    "Type",
+                    "Class",
                     "annotation",
                     annotationA.nullable(),
-                    IntrinsicId.TYPE_ANNOTATION,
+                    IntrinsicId.CLASS_ANNOTATION,
                     List.of(new TypeParameterInfo("A", annotationA))),
-                method("Type", "fields", fieldsOfTypeT, IntrinsicId.TYPE_FIELDS)));
+                method("Class", "fields", fieldsOfClassT, IntrinsicId.CLASS_FIELDS),
+                method("Class", "functions", functionsOfClassT, IntrinsicId.CLASS_FUNCTIONS),
+                method(
+                    "Class",
+                    "constructors",
+                    constructorsOfClassT,
+                    IntrinsicId.CLASS_CONSTRUCTORS)));
     addType(
         types,
-        type("Field", RuntimeShape.FIELD, "T")
+        type("Field", RuntimeShape.FIELD, "Owner", "Value")
             .members(
                 method("Field", "name", stringType, IntrinsicId.FIELD_NAME),
-                method("Field", "index", integerType, IntrinsicId.FIELD_INDEX),
-                method("Field", "typeName", stringType, IntrinsicId.FIELD_TYPE_NAME),
+                method("Field", "type", classOfFieldValue, IntrinsicId.FIELD_TYPE),
+                method("Field", "owner", classOfFieldOwner, IntrinsicId.FIELD_OWNER),
                 genericMethod(
                     "Field",
                     "annotation",
@@ -645,24 +705,44 @@ public final class BuiltinCatalog {
                 method(
                     "Field",
                     "read",
-                    reflectedValueType,
+                    fieldValue,
                     IntrinsicId.FIELD_READ,
-                    parameterInfo("value", fieldT))));
+                    parameterInfo("receiver", fieldOwner))));
     addType(
         types,
-        type("ReflectedValue", RuntimeShape.REFLECTED_VALUE)
+        type("Constructor", RuntimeShape.CONSTRUCTOR, "T")
             .members(
                 method(
-                    "ReflectedValue",
-                    "typeName",
-                    stringType,
-                    IntrinsicId.REFLECTED_VALUE_TYPE_NAME)));
+                    "Constructor", "owner", classOfConstructorT, IntrinsicId.CONSTRUCTOR_OWNER)));
+    addType(
+        types,
+        type("Function", RuntimeShape.FUNCTION, "Signature")
+            .category(ValueCategory.IDENTITY)
+            .members(
+                method("Function", "name", stringType, IntrinsicId.FUNCTION_NAME),
+                method("Function", "owner", unknownClass.nullable(), IntrinsicId.FUNCTION_OWNER),
+                method(
+                    "Function",
+                    "parameters",
+                    parametersOfFunction,
+                    IntrinsicId.FUNCTION_PARAMETERS)));
+    addType(
+        types,
+        type("Parameter", RuntimeShape.PARAMETER, "Value")
+            .members(
+                method("Parameter", "name", stringType, IntrinsicId.PARAMETER_NAME),
+                method("Parameter", "type", classOfParameterValue, IntrinsicId.PARAMETER_TYPE),
+                method("Parameter", "function", unknownFunction, IntrinsicId.PARAMETER_FUNCTION)));
     addType(
         types,
         type("FunctionContext", RuntimeShape.FUNCTION_CONTEXT)
             .category(ValueCategory.IDENTITY)
             .members(
-                method("FunctionContext", "name", stringType, IntrinsicId.FUNCTION_CONTEXT_NAME)));
+                method(
+                    "FunctionContext",
+                    "function",
+                    unknownFunction,
+                    IntrinsicId.FUNCTION_CONTEXT_FUNCTION)));
     addType(
         types,
         type("ParameterContext", RuntimeShape.PARAMETER_CONTEXT)
@@ -670,22 +750,15 @@ public final class BuiltinCatalog {
             .members(
                 method(
                     "ParameterContext",
-                    "function",
-                    functionContextType,
-                    IntrinsicId.PARAMETER_CONTEXT_FUNCTION),
-                method("ParameterContext", "name", stringType, IntrinsicId.PARAMETER_CONTEXT_NAME),
-                method(
-                    "ParameterContext",
-                    "index",
-                    integerType,
-                    IntrinsicId.PARAMETER_CONTEXT_INDEX)));
+                    "parameter",
+                    unknownParameter,
+                    IntrinsicId.PARAMETER_CONTEXT_PARAMETER)));
     addType(
         types,
         type("FieldContext", RuntimeShape.FIELD_CONTEXT)
             .category(ValueCategory.IDENTITY)
             .members(
-                method("FieldContext", "name", stringType, IntrinsicId.FIELD_CONTEXT_NAME),
-                method("FieldContext", "index", integerType, IntrinsicId.FIELD_CONTEXT_INDEX)));
+                method("FieldContext", "field", unknownField, IntrinsicId.FIELD_CONTEXT_FIELD)));
     addType(
         types,
         type("FunctionInvocation", RuntimeShape.FUNCTION_INVOCATION, "R")
@@ -1054,10 +1127,25 @@ public final class BuiltinCatalog {
     addGlobal(
         globals,
         genericGlobal(
-            "reflect",
-            SemanticType.declared("std.core.Type", "Type", List.of(reflectT), ValueCategory.VALUE),
-            IntrinsicId.REFLECT_TYPE,
-            List.of(new TypeParameterInfo("T", reflectT))));
+            "__classLiteral",
+            SemanticType.declared(
+                "std.core.Class", "Class", List.of(classLiteralT), ValueCategory.VALUE),
+            IntrinsicId.CLASS_LITERAL,
+            List.of(new TypeParameterInfo("T", classLiteralT))));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__fieldLiteral",
+            SemanticType.declared(
+                "std.core.Field",
+                "Field",
+                List.of(fieldLiteralOwner, fieldLiteralValue),
+                ValueCategory.VALUE),
+            IntrinsicId.FIELD_LITERAL,
+            List.of(
+                new TypeParameterInfo("Owner", fieldLiteralOwner),
+                new TypeParameterInfo("Value", fieldLiteralValue)),
+            parameterInfo("ordinal", integerType)));
     addGlobal(
         globals,
         genericGlobal(
@@ -1554,6 +1642,13 @@ public final class BuiltinCatalog {
   }
 
   private static SemanticType ownerType(TypeDefinition definition) {
+    if (definition.symbol().name().equals("Function")) {
+      return SemanticType.declared(
+          "std.core.Function",
+          "Function",
+          List.of(SemanticType.EXISTENTIAL),
+          ValueCategory.IDENTITY);
+    }
     List<SemanticType> arguments =
         definition.typeParameters().stream()
             .map(name -> parameter(definition.symbol().name(), name))

@@ -30,6 +30,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -196,9 +197,12 @@ final class SemanticAnalysisContext {
   }
 
   record FunctionReferenceResolution(
-      Syntax.FunctionDecl declaration, List<SemanticType> reifiedArguments) {
+      Syntax.FunctionDecl declaration,
+      List<SemanticType> reifiedArguments,
+      SemanticType functionType) {
     FunctionReferenceResolution {
       reifiedArguments = List.copyOf(reifiedArguments);
+      Objects.requireNonNull(functionType, "functionType");
     }
   }
 

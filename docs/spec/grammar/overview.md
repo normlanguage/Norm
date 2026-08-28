@@ -48,3 +48,4 @@ Norm 使用类型前置：`String name`、`Integer parse(String text)`。generic
 - [模块配置](/spec/grammar/modules)
 - [运算符优先级](/spec/grammar/operators-precedence)
 - [`ref<T>` 引用](/spec/grammar/references)
+- [声明引用与反射](/spec/declaration-references)

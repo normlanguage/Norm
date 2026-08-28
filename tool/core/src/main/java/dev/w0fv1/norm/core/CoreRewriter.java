@@ -66,7 +66,9 @@ final class CoreRewriter {
                               resolve(dispatch.implementation(), resolver),
                               resolve(dispatch.receiverType(), resolver)))
                   .toList(),
-              resolve(aggregateDefinition.constructor(), resolver),
+              aggregateDefinition.constructors().stream()
+                  .map(constructor -> resolve(constructor, resolver))
+                  .toList(),
               aggregateDefinition.conformances().stream()
                   .map(value -> resolve(value, resolver))
                   .toList());
@@ -131,8 +133,43 @@ final class CoreRewriter {
     return new CoreInterceptor(
         resolve(interceptor.annotation(), resolver),
         interceptor.values().stream()
-            .map(value -> new CoreAnnotationValue(resolve(value.type(), resolver), value.value()))
+            .map(value -> resolveAnnotationValue(value, resolver))
             .toList());
+  }
+
+  private static CoreAnnotationValue resolveAnnotationValue(
+      CoreAnnotationValue value,
+      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return new CoreAnnotationValue(
+        resolve(value.type(), resolver), resolveAnnotationContent(value.value(), resolver));
+  }
+
+  private static CoreAnnotationValue.Content resolveAnnotationContent(
+      CoreAnnotationValue.Content value,
+      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return switch (value) {
+      case CoreAnnotationValue.Literal literal -> literal;
+      case CoreAnnotationValue.Null ignored -> CoreAnnotationValue.Null.INSTANCE;
+      case CoreAnnotationValue.ListValue list ->
+          new CoreAnnotationValue.ListValue(
+              list.values().stream().map(item -> resolveAnnotationValue(item, resolver)).toList());
+      case CoreAnnotationReference.ClassReference classReference ->
+          new CoreAnnotationReference.ClassReference(
+              resolve(classReference.reflectedType(), resolver));
+      case CoreAnnotationReference.CallableReference callable ->
+          new CoreAnnotationReference.CallableReference(
+              resolve(callable.callable(), resolver),
+              callable.receiverTypeArguments().stream()
+                  .map(type -> resolve(type, resolver))
+                  .toList(),
+              callable.reifiedArguments().stream().map(type -> resolve(type, resolver)).toList(),
+              callable.virtual());
+      case CoreAnnotationReference.FieldReference field ->
+          new CoreAnnotationReference.FieldReference(
+              field.ordinal(),
+              resolve(field.ownerType(), resolver),
+              resolve(field.valueType(), resolver));
+    };
   }
 
   private static CoreBlock resolve(

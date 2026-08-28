@@ -53,8 +53,8 @@ final class Analyzer {
     return expressionChecker.probeType(expression, expected);
   }
 
-  SemanticType memberType(Syntax.Member member) {
-    return expressionChecker.memberType(member);
+  SemanticType memberType(Syntax.Member member, SemanticType expected) {
+    return expressionChecker.memberType(member, expected);
   }
 
   SemanticType functionReturnType(
@@ -421,10 +421,7 @@ final class Analyzer {
                     aggregateDecl.fields(),
                     Map.of(),
                     typeSystem.aggregateTypeParameters(aggregateDecl))
-                : typeSystem.parameters(
-                    aggregateDecl.constructors().getFirst().parameters(),
-                    Map.of(),
-                    typeSystem.aggregateTypeParameters(aggregateDecl));
+                : List.of();
         type =
             new Symbol(
                 type.id(),
@@ -770,11 +767,14 @@ final class Analyzer {
             DUPLICATE_NAME, "method '" + method.name() + "' is already declared", method.span());
       }
     }
-    if (aggregateDecl.constructors().size() > 1) {
-      context.diagnostics.error(
-          DUPLICATE_NAME,
-          "aggregate '" + aggregateDecl.name() + "' may declare one constructor",
-          aggregateDecl.constructors().get(1).span());
+    Set<String> constructors = new HashSet<>();
+    for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
+      if (!constructors.add(TypeSystem.constructorSignature(constructor))) {
+        context.diagnostics.error(
+            DUPLICATE_NAME,
+            "constructor '" + aggregateDecl.name() + "' is already declared",
+            constructor.span());
+      }
     }
     if (aggregateDecl.kind() == Syntax.AggregateKind.VALUE
         && !aggregateDecl.constructors().isEmpty()) {
@@ -1384,28 +1384,19 @@ final class Analyzer {
     Syntax.SuperCall call = constructor.superCall().orElseThrow();
     Syntax.Call syntaxCall =
         new Syntax.Call(new Syntax.Name("super", call.span()), call.arguments(), call.span());
-    Map<String, SemanticType> substitutions =
-        typeSystem.aggregateSubstitutions(declaration, parent);
-    List<ParameterInfo> parameters;
-    SymbolId target;
-    if (declaration.constructors().isEmpty()) {
-      parameters = typeSystem.fieldParameters(declaration, substitutions);
-      target = context.declarationSymbols.get(declaration);
-    } else {
-      Syntax.ConstructorDecl parentConstructor = declaration.constructors().getFirst();
-      parameters =
-          typeSystem.parameters(
-              parentConstructor.parameters(),
-              substitutions,
-              typeSystem.aggregateTypeParameters(declaration));
-      target = context.declarationSymbols.get(parentConstructor);
-    }
+    OverloadResolver.Candidate selected =
+        typeSystem.resolveConstructor(declaration, parent, syntaxCall, call.span());
+    if (selected == null) return;
+    SymbolId target =
+        selected.target() instanceof Syntax.ConstructorDecl parentConstructor
+            ? context.declarationSymbols.get(parentConstructor)
+            : context.declarationSymbols.get(declaration);
     typeSystem.recordCall(
         syntaxCall,
         call.span(),
         ResolvedCall.Kind.SUPER,
         target,
-        parameters,
+        selected.parameters(),
         List.of(),
         SemanticType.VOID);
   }

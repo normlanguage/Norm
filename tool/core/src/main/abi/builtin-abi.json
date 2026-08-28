@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -114,19 +114,31 @@
       "requiresResultRuntimeType": false
     },
     {
-      "name": "REFLECT_TYPE",
+      "name": "CLASS_LITERAL",
       "requiresResultRuntimeType": true
     },
     {
-      "name": "TYPE_NAME",
+      "name": "CLASS_NAME",
       "requiresResultRuntimeType": false
     },
     {
-      "name": "TYPE_ANNOTATION",
+      "name": "CLASS_ANNOTATION",
       "requiresResultRuntimeType": true
     },
     {
-      "name": "TYPE_FIELDS",
+      "name": "CLASS_FIELDS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "CLASS_FUNCTIONS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "CLASS_CONSTRUCTORS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FIELD_LITERAL",
       "requiresResultRuntimeType": true
     },
     {
@@ -134,12 +146,12 @@
       "requiresResultRuntimeType": false
     },
     {
-      "name": "FIELD_INDEX",
-      "requiresResultRuntimeType": false
+      "name": "FIELD_TYPE",
+      "requiresResultRuntimeType": true
     },
     {
-      "name": "FIELD_TYPE_NAME",
-      "requiresResultRuntimeType": false
+      "name": "FIELD_OWNER",
+      "requiresResultRuntimeType": true
     },
     {
       "name": "FIELD_ANNOTATION",
@@ -150,8 +162,32 @@
       "requiresResultRuntimeType": true
     },
     {
-      "name": "REFLECTED_VALUE_TYPE_NAME",
+      "name": "FUNCTION_NAME",
       "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FUNCTION_OWNER",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FUNCTION_PARAMETERS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "PARAMETER_NAME",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PARAMETER_TYPE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "PARAMETER_FUNCTION",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CONSTRUCTOR_OWNER",
+      "requiresResultRuntimeType": true
     },
     {
       "name": "JSON_ENCODE",
@@ -186,27 +222,15 @@
       "requiresResultRuntimeType": true
     },
     {
-      "name": "FUNCTION_CONTEXT_NAME",
+      "name": "FUNCTION_CONTEXT_FUNCTION",
       "requiresResultRuntimeType": false
     },
     {
-      "name": "PARAMETER_CONTEXT_FUNCTION",
+      "name": "PARAMETER_CONTEXT_PARAMETER",
       "requiresResultRuntimeType": false
     },
     {
-      "name": "PARAMETER_CONTEXT_NAME",
-      "requiresResultRuntimeType": false
-    },
-    {
-      "name": "PARAMETER_CONTEXT_INDEX",
-      "requiresResultRuntimeType": false
-    },
-    {
-      "name": "FIELD_CONTEXT_NAME",
-      "requiresResultRuntimeType": false
-    },
-    {
-      "name": "FIELD_CONTEXT_INDEX",
+      "name": "FIELD_CONTEXT_FIELD",
       "requiresResultRuntimeType": false
     },
     {
@@ -637,9 +661,11 @@
     "BOOL",
     "STRING",
     "VOID",
-    "TYPE",
+    "CLASS",
     "FIELD",
-    "REFLECTED_VALUE",
+    "CONSTRUCTOR",
+    "FUNCTION",
+    "PARAMETER",
     "FUNCTION_CONTEXT",
     "PARAMETER_CONTEXT",
     "FIELD_CONTEXT",

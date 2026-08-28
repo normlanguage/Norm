@@ -27,6 +27,7 @@ final class CompletionEngine {
     }
     SemanticModel model = document.semanticModel();
     CompletionContext context = contexts.resolve(document, offset);
+    Optional<SemanticType> expectedType = expectedTypes.resolve(document, offset);
     if (context instanceof CompletionContext.None) return List.of();
     if (context instanceof CompletionContext.Import imported) {
       return withTextEdits(
@@ -34,13 +35,16 @@ final class CompletionEngine {
     }
     if (context instanceof CompletionContext.Member member) {
       return withTextEdits(
-          memberCompletions(model, document.source().text(), member.dotOffset()),
+          memberCompletions(
+              model,
+              document.source().text(),
+              member.dotOffset(),
+              expectedType.map(SemanticType::isFunction).orElse(false)),
           document,
           identifierStart(document.source().text(), offset),
           offset);
     }
     List<RankedCompletion> result = new ArrayList<>();
-    Optional<SemanticType> expectedType = expectedTypes.resolve(document, offset);
     boolean constructors =
         !(context instanceof CompletionContext.Type
             || context instanceof CompletionContext.TypeArgument
@@ -236,12 +240,9 @@ final class CompletionEngine {
   }
 
   private static List<Completion> memberCompletions(
-      SemanticModel model, String text, int dotOffset) {
-    boolean methodReference = text.charAt(dotOffset) == ':';
+      SemanticModel model, String text, int dotOffset, boolean functionValueContext) {
     int receiverEnd =
-        !methodReference && dotOffset > 0 && text.charAt(dotOffset - 1) == '?'
-            ? dotOffset - 1
-            : dotOffset;
+        dotOffset > 0 && text.charAt(dotOffset - 1) == '?' ? dotOffset - 1 : dotOffset;
     int start = receiverEnd;
     while (start > 0 && Character.isUnicodeIdentifierPart(text.charAt(start - 1))) start--;
     int identifierStart = start;
@@ -261,7 +262,7 @@ final class CompletionEngine {
         receiverSymbol.isPresent() && receiverSymbol.orElseThrow().kind() == SymbolKind.TYPE;
     List<Symbol> typeMembers = model.typeMembers(receiverName);
     if (typeReceiver && !typeMembers.isEmpty()) {
-      return symbolCompletions(typeMembers.stream(), methodReference);
+      return symbolCompletions(typeMembers.stream(), functionValueContext);
     }
     Optional<SemanticType> receiverType =
         identifierStart > 0 && text.charAt(identifierStart - 1) == '.'
@@ -282,7 +283,7 @@ final class CompletionEngine {
     Set<String> memberNames =
         members.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
     Stream<Symbol> extensions =
-        methodReference
+        functionValueContext
             ? Stream.empty()
             : model.visibleSymbols(dotOffset).stream()
                 .flatMap(symbol -> model.callableAlternatives(symbol).stream())
@@ -291,7 +292,7 @@ final class CompletionEngine {
                 .filter(symbol -> !memberNames.contains(symbol.name()))
                 .filter(symbol -> model.isAssignable(symbol.parameters().getFirst().type(), type))
                 .map(CompletionEngine::extensionMember);
-    return symbolCompletions(Stream.concat(members.stream(), extensions), methodReference);
+    return symbolCompletions(Stream.concat(members.stream(), extensions), functionValueContext);
   }
 
   private static Symbol extensionMember(Symbol extension) {
@@ -312,10 +313,10 @@ final class CompletionEngine {
   }
 
   private static List<Completion> symbolCompletions(
-      Stream<Symbol> symbols, boolean methodReference) {
+      Stream<Symbol> symbols, boolean functionValueContext) {
     Map<String, Completion> unique = new LinkedHashMap<>();
     symbols
-        .filter(symbol -> !methodReference || callable(symbol))
+        .filter(symbol -> !functionValueContext || callable(symbol))
         .sorted(
             Comparator.comparing(Symbol::name)
                 .thenComparingInt(symbol -> symbol.parameters().size()))
@@ -323,7 +324,7 @@ final class CompletionEngine {
             symbol ->
                 unique.putIfAbsent(
                     symbol.kind() + "\u0000" + symbol.name(),
-                    methodReference ? referenceCompletion(symbol) : completion(symbol)));
+                    functionValueContext ? functionValueCompletion(symbol) : completion(symbol)));
     return List.copyOf(unique.values());
   }
 
@@ -333,7 +334,7 @@ final class CompletionEngine {
         || symbol.kind() == SymbolKind.TYPE_METHOD;
   }
 
-  private static Completion referenceCompletion(Symbol symbol) {
+  private static Completion functionValueCompletion(Symbol symbol) {
     Completion completion = completion(symbol);
     return new Completion(
         completion.label(),

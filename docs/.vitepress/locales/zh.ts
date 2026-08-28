@@ -28,6 +28,7 @@ const specification = [
   { text: '错误模型', link: '/spec/error-model' },
   { text: 'Enum 设计', link: '/spec/enum-design' },
   { text: 'Annotation 规范', link: '/spec/annotations' },
+  { text: '声明引用与反射', link: '/spec/declaration-references' },
   { text: 'Package 系统', link: '/spec/package-system' },
   { text: '导入系统', link: '/spec/import-system' },
   { text: '模块系统', link: '/spec/module-system' },

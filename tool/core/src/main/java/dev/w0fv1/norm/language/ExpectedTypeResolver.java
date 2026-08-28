@@ -265,10 +265,6 @@ final class ExpectedTypeResolver {
       return inExpression(
           model, member.receiver(), returnType, Optional.empty(), offset, incompleteBreak);
     }
-    if (expression instanceof Syntax.MethodReference reference) {
-      return inExpression(
-          model, reference.receiver(), returnType, Optional.empty(), offset, incompleteBreak);
-    }
     if (expression instanceof Syntax.Index index) {
       Optional<SemanticType> nested =
           inExpression(

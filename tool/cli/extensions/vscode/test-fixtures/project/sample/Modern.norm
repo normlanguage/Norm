@@ -17,6 +17,6 @@ extension String label(User value) {
 Void modern() {
   User user = User(name: "Norm")
   printLine(user.label())
-  Type<User> type = reflect<User>()
+  Class<User> type = User.class
   printLine(type.fields().size())
 }

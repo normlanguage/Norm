@@ -7,7 +7,7 @@ public annotation Log implements FunctionInterceptor, RuntimeRetention {
   String tag
 
   public Void before(FunctionContext context) {
-    printLine("[" + tag + "] before " + context.name())
+    printLine("[" + tag + "] before " + context.function().name())
   }
 
   public R around<R>(FunctionInvocation<R> invocation) {
@@ -18,7 +18,7 @@ public annotation Log implements FunctionInterceptor, RuntimeRetention {
   }
 
   public Void after(FunctionContext context, FunctionCompletion completion) {
-    printLine("[" + tag + "] after " + context.name())
+    printLine("[" + tag + "] after " + context.function().name())
     printLine(completion.succeeded())
   }
 }

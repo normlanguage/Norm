@@ -503,6 +503,11 @@ final class Parser {
 
   private List<Syntax.TypeRef> parseFunctionTypeArguments() {
     consume(TokenKind.LESS, "expected '<' after Function");
+    if (match(TokenKind.QUESTION)) {
+      Syntax.TypeRef wildcard = Syntax.TypeRef.wildcard(previous().span());
+      consume(TokenKind.GREATER, "expected '>' after function wildcard");
+      return List.of(wildcard);
+    }
     List<Syntax.TypeRef> arguments = new ArrayList<>();
     arguments.add(parseType());
     consume(TokenKind.LEFT_PAREN, "expected '(' after function return type");
@@ -533,7 +538,8 @@ final class Parser {
     if (!match(TokenKind.LESS)) return List.of();
     List<Syntax.TypeRef> arguments = new ArrayList<>();
     do {
-      arguments.add(parseType());
+      arguments.add(
+          match(TokenKind.QUESTION) ? Syntax.TypeRef.wildcard(previous().span()) : parseType());
     } while (match(TokenKind.COMMA));
     consume(TokenKind.GREATER, "expected '>' after type arguments");
     return List.copyOf(arguments);
@@ -943,15 +949,10 @@ final class Parser {
         Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after arguments");
         expression =
             new Syntax.Call(expression, arguments, expression.span().cover(closing.span()));
-      } else if (match(TokenKind.COLON_COLON)) {
-        Token name = consume(TokenKind.IDENTIFIER, "expected method name after '::'");
-        expression =
-            new Syntax.MethodReference(
-                expression, name.value(), name.span(), expression.span().cover(name.span()));
       } else if (match(TokenKind.DOT, TokenKind.QUESTION_DOT)) {
         boolean nullSafe = previous().kind() == TokenKind.QUESTION_DOT;
         Token name;
-        if (check(TokenKind.IDENTIFIER)) {
+        if (check(TokenKind.IDENTIFIER) || check(TokenKind.CLASS)) {
           name = advance();
         } else {
           error(peek(), "expected member name after '.'");

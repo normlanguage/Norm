@@ -46,6 +46,9 @@ public record SemanticType(
       new SemanticType(Kind.VOID, "std.core.Void", "Void", List.of(), ValueCategory.VOID);
   public static final SemanticType NULL =
       new SemanticType(Kind.NULL, "<null>", "null", List.of(), ValueCategory.VALUE);
+  public static final SemanticType EXISTENTIAL =
+      new SemanticType(
+          Kind.EXISTENTIAL, "std.core.existential", "?", List.of(), ValueCategory.POLYMORPHIC);
 
   public SemanticType(
       Kind kind,
@@ -84,13 +87,13 @@ public record SemanticType(
     if (identity.isBlank() || name.isBlank()) {
       throw new IllegalArgumentException("type identity and name must not be blank");
     }
-    if (kind == Kind.TYPE_PARAMETER && !arguments.isEmpty()) {
-      throw new IllegalArgumentException("type parameters cannot have arguments");
+    if ((kind == Kind.TYPE_PARAMETER || kind == Kind.EXISTENTIAL) && !arguments.isEmpty()) {
+      throw new IllegalArgumentException("type variables cannot have arguments");
     }
     if (kind == Kind.REFERENCE && arguments.size() != 1) {
       throw new IllegalArgumentException("reference types require exactly one target type");
     }
-    if ((kind == Kind.VOID || kind == Kind.NULL || kind == Kind.ERROR)
+    if ((kind == Kind.VOID || kind == Kind.NULL || kind == Kind.ERROR || kind == Kind.EXISTENTIAL)
         && nullability == Nullability.NULLABLE) {
       throw new IllegalArgumentException(kind + " cannot be nullable");
     }
@@ -145,18 +148,28 @@ public record SemanticType(
     return kind == Kind.DECLARED && identity.equals("std.core.Function") && !arguments.isEmpty();
   }
 
+  public boolean isUnknownFunction() {
+    return isFunction() && arguments.size() == 1 && arguments.getFirst().kind == Kind.EXISTENTIAL;
+  }
+
   public SemanticType functionReturnType() {
-    if (!isFunction()) throw new IllegalStateException("type is not a function");
+    if (!isFunction() || isUnknownFunction()) {
+      throw new IllegalStateException("function signature is not known");
+    }
     return arguments.getFirst();
   }
 
   public List<SemanticType> functionParameterTypes() {
-    if (!isFunction()) throw new IllegalStateException("type is not a function");
+    if (!isFunction() || isUnknownFunction()) {
+      throw new IllegalStateException("function signature is not known");
+    }
     return arguments.subList(1, arguments.size());
   }
 
   public String displayName() {
     if (isFunction()) {
+      if (isUnknownFunction())
+        return nullability == Nullability.NULLABLE ? "Function<?>?" : "Function<?>";
       String parameters =
           functionParameterTypes().stream()
               .map(SemanticType::displayName)
@@ -214,6 +227,7 @@ public record SemanticType(
     DECLARED,
     REFERENCE,
     TYPE_PARAMETER,
+    EXISTENTIAL,
     NULL,
     VOID,
     ERROR

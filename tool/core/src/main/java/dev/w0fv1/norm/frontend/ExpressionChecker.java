@@ -63,9 +63,8 @@ final class ExpressionChecker {
           case Syntax.Unary unary -> analyzeUnary(unary, expected);
           case Syntax.Binary binary -> analyzeBinary(binary, expected);
           case Syntax.Call call -> analyzeCall(call, expected);
-          case Syntax.Member member -> analyzer.memberType(member);
+          case Syntax.Member member -> analyzer.memberType(member, expected);
           case Syntax.Lambda lambda -> analyzeLambda(lambda, expected);
-          case Syntax.MethodReference reference -> analyzeMethodReference(reference, expected);
           case Syntax.Index index -> analyzeIndex(index);
           case Syntax.SwitchExpression switchExpression ->
               analyzeSwitch(switchExpression, expected);
@@ -325,73 +324,6 @@ final class ExpressionChecker {
     }
   }
 
-  SemanticType analyzeMethodReference(Syntax.MethodReference reference, SemanticType expected) {
-    SemanticType receiver = analyzer.typeOf(reference.receiver(), null);
-    if (expected == null || !expected.isFunction()) {
-      analyzer.context.diagnostics.error(
-          TYPE_MISMATCH, "method reference requires an expected function type", reference.span());
-      return SemanticType.DYNAMIC;
-    }
-    Syntax.AggregateDecl aggregate = analyzer.typeSystem.resolveAggregate(receiver.nonNullable());
-    if (aggregate == null) {
-      analyzer.context.diagnostics.error(
-          TYPE_MISMATCH,
-          "type '" + receiver.displayName() + "' has no source methods",
-          reference.span());
-      return SemanticType.DYNAMIC;
-    }
-    List<FunctionReferenceResolution> matches = List.of();
-    for (AggregateView view : analyzer.typeSystem.aggregateViews(receiver.nonNullable())) {
-      Map<String, SemanticType> substitutions =
-          analyzer.typeSystem.aggregateSubstitutions(view.declaration(), view.type());
-      matches =
-          view.declaration().methods().stream()
-              .filter(method -> method.name().equals(reference.name()))
-              .filter(
-                  method ->
-                      method.visibility() != Syntax.Visibility.PRIVATE
-                          || analyzer.context.currentAggregate == view.declaration())
-              .map(
-                  method -> {
-                    Map<String, SemanticType> parameters =
-                        analyzer.typeSystem.typeParameters(method, view.declaration());
-                    SemanticType pattern =
-                        SemanticType.function(
-                                analyzer.functionReturnType(method, parameters),
-                                method.parameters().stream()
-                                    .map(
-                                        parameter ->
-                                            analyzer.typeSystem.resolveDeclarationType(
-                                                parameter.type(), method, parameters))
-                                    .toList())
-                            .substitute(substitutions);
-                    return resolveFunctionReference(method, pattern, expected);
-                  })
-              .flatMap(Optional::stream)
-              .toList();
-      if (!matches.isEmpty()) break;
-    }
-    if (matches.size() != 1) {
-      analyzer.context.diagnostics.error(
-          TYPE_MISMATCH,
-          matches.isEmpty()
-              ? "no method '" + reference.name() + "' matches " + expected.displayName()
-              : "method reference '"
-                  + reference.name()
-                  + "' is ambiguous for "
-                  + expected.displayName(),
-          reference.span());
-      return SemanticType.DYNAMIC;
-    }
-    FunctionReferenceResolution resolution = matches.getFirst();
-    Syntax.FunctionDecl selected = resolution.declaration();
-    analyzer.context.bindings.put(
-        reference.nameSpan(), analyzer.context.declarationSymbols.get(selected));
-    analyzer.context.functionReferenceTypeArguments.put(
-        reference.span(), resolution.reifiedArguments());
-    return expected.nonNullable();
-  }
-
   Optional<FunctionReferenceResolution> resolveFunctionReference(
       Syntax.FunctionDecl declaration, SemanticType pattern, SemanticType expected) {
     SemanticType target = expected.nonNullable();
@@ -399,7 +331,7 @@ final class ExpressionChecker {
         analyzer.context.symbols.get(analyzer.context.declarationSymbols.get(declaration));
     if (symbol.typeParameters().isEmpty()) {
       return pattern.equals(target)
-          ? Optional.of(new FunctionReferenceResolution(declaration, List.of()))
+          ? Optional.of(new FunctionReferenceResolution(declaration, List.of(), pattern))
           : Optional.empty();
     }
     TypeConstraintSolver solver =
@@ -425,8 +357,9 @@ final class ExpressionChecker {
       if (bound != null && !analyzer.typeSystem.isAssignable(bound, arguments.get(index)))
         return Optional.empty();
     }
-    return pattern.substitute(solution.substitutions()).equals(target)
-        ? Optional.of(new FunctionReferenceResolution(declaration, arguments))
+    SemanticType resolved = pattern.substitute(solution.substitutions());
+    return resolved.equals(target)
+        ? Optional.of(new FunctionReferenceResolution(declaration, arguments, resolved))
         : Optional.empty();
   }
 
@@ -997,6 +930,19 @@ final class ExpressionChecker {
   }
 
   SemanticType analyzeFunctionInvocation(Syntax.Call call, SemanticType function, SymbolId target) {
+    if (function.isUnknownFunction()) {
+      analyzer.context.diagnostics.error(
+          INVALID_CALL, "Function<?> has no callable signature", call.callee().span());
+      analyzer.typeSystem.analyzeArguments(call.arguments());
+      return analyzer.typeSystem.recordCall(
+          call,
+          call.callee().span(),
+          ResolvedCall.Kind.INVOKE,
+          target,
+          List.of(),
+          List.of(),
+          SemanticType.DYNAMIC);
+    }
     List<ParameterInfo> parameters =
         java.util.stream.IntStream.range(0, function.functionParameterTypes().size())
             .mapToObj(
@@ -1053,21 +999,7 @@ final class ExpressionChecker {
       SemanticType function = scoped.declaredType();
       analyzer.context.bindings.put(name.span(), scoped.id());
       analyzer.context.semanticTypes.put(name.span(), function);
-      List<ParameterInfo> parameters =
-          java.util.stream.IntStream.range(0, function.functionParameterTypes().size())
-              .mapToObj(
-                  index ->
-                      new ParameterInfo(
-                          "argument" + index, function.functionParameterTypes().get(index)))
-              .toList();
-      return analyzer.typeSystem.recordCall(
-          call,
-          name.span(),
-          ResolvedCall.Kind.INVOKE,
-          scoped.id(),
-          parameters,
-          List.of(),
-          function.functionReturnType());
+      return analyzeFunctionInvocation(call, function, scoped.id());
     }
     analyzer
         .context
@@ -1101,13 +1033,6 @@ final class ExpressionChecker {
           symbol.typeParameters().stream()
               .map(parameter -> substitutions.get(parameter.type().identity()))
               .toList();
-      if (analyzer.context.builtins.intrinsic(symbol.id()).orElse(null)
-              == dev.w0fv1.norm.abi.IntrinsicId.REFLECT_TYPE
-          && !reifiedArguments.isEmpty()
-          && !isReflectableType(reifiedArguments.getFirst())) {
-        analyzer.context.diagnostics.error(
-            TYPE_MISMATCH, "reflect requires a nominal type", name.span());
-      }
       return analyzer.typeSystem.recordCall(
           call,
           name.span(),
@@ -1134,19 +1059,19 @@ final class ExpressionChecker {
     Syntax.AggregateDecl aggregateDecl = analyzer.typeSystem.resolveAggregate(callee);
     if (aggregateDecl != null) {
       analyzer.typeSystem.bindDeclarationUse(name.span(), callee, aggregateDecl);
-      Map<String, SemanticType> substitutions =
-          analyzer.typeSystem.aggregateSubstitutions(aggregateDecl, constructedType);
+      OverloadResolver.Candidate selected =
+          analyzer.typeSystem.resolveConstructor(aggregateDecl, constructedType, call, name.span());
+      if (selected == null) return SemanticType.DYNAMIC;
+      SymbolId target =
+          selected.target() instanceof Syntax.ConstructorDecl declaration
+              ? analyzer.context.declarationSymbols.get(declaration)
+              : analyzer.context.declarationSymbols.get(aggregateDecl);
       return analyzer.typeSystem.recordCall(
           call,
           name.span(),
           ResolvedCall.Kind.CONSTRUCT,
-          analyzer.context.declarationSymbols.get(aggregateDecl),
-          aggregateDecl.constructors().isEmpty()
-              ? analyzer.typeSystem.fieldParameters(aggregateDecl, substitutions)
-              : analyzer.typeSystem.parameters(
-                  aggregateDecl.constructors().getFirst().parameters(),
-                  substitutions,
-                  analyzer.typeSystem.aggregateTypeParameters(aggregateDecl)),
+          target,
+          selected.parameters(),
           List.of(),
           constructedType);
     }
@@ -1315,7 +1240,7 @@ final class ExpressionChecker {
               .toList();
       dev.w0fv1.norm.abi.IntrinsicId intrinsic =
           analyzer.context.builtins.intrinsic(symbol.id()).orElse(null);
-      if ((intrinsic == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION
+      if ((intrinsic == dev.w0fv1.norm.abi.IntrinsicId.CLASS_ANNOTATION
               || intrinsic == dev.w0fv1.norm.abi.IntrinsicId.FIELD_ANNOTATION)
           && !reifiedArguments.isEmpty()
           && analyzer.typeSystem.resolveAnnotation(reifiedArguments.getFirst().nonNullable())
@@ -1621,7 +1546,9 @@ final class ExpressionChecker {
         parameters, requirement.result().substitute(substitutions), reified);
   }
 
-  SemanticType memberType(Syntax.Member member) {
+  SemanticType memberType(Syntax.Member member, SemanticType expected) {
+    SemanticType declarationReference = declarationReferenceType(member, expected);
+    if (declarationReference != null) return declarationReference;
     if (member.receiver() instanceof Syntax.Name enumName) {
       Syntax.EnumDecl enumDecl = analyzer.typeSystem.resolveEnum(enumName.value());
       if (enumDecl != null) {
@@ -1699,6 +1626,8 @@ final class ExpressionChecker {
                     analyzer.typeSystem.aggregateSubstitutions(owner, resolved.view().type()));
         return safeAccessResult(member, nullableReceiverType, result);
       }
+      SemanticType method = boundMethodType(member, receiverType, expected);
+      if (method != null) return method;
       analyzer.context.diagnostics.error(
           UNKNOWN_NAME,
           TypeSystem.aggregateKeyword(aggregateDecl)
@@ -1716,6 +1645,210 @@ final class ExpressionChecker {
         member.span());
     return SemanticType.DYNAMIC;
   }
+
+  private SemanticType declarationReferenceType(Syntax.Member member, SemanticType expected) {
+    if (!member.typeArguments().isEmpty()) return null;
+    if (member.name().equals("class") && member.receiver() instanceof Syntax.Name typeName) {
+      if (typeName.diamond()) {
+        analyzer.context.diagnostics.error(
+            INVALID_CALL, "class reference cannot use diamond inference", typeName.span());
+        return SemanticType.DYNAMIC;
+      }
+      SemanticType reflected = referencedType(typeName, member.nullSafe());
+      if (!isReflectableType(reflected)) {
+        analyzer.context.diagnostics.error(
+            TYPE_MISMATCH, "class reference requires a nominal type", member.span());
+        return SemanticType.DYNAMIC;
+      }
+      SymbolId target = analyzer.context.bindings.get(typeName.span());
+      if (target != null) analyzer.context.bindings.put(member.nameSpan(), target);
+      return analyzer.context.builtins.instantiate("Class", List.of(reflected));
+    }
+    if (member.nullSafe()) return null;
+    if (member.name().equals("field")
+        && member.receiver() instanceof Syntax.Member selected
+        && selected.receiver() instanceof Syntax.Name ownerName) {
+      SemanticType ownerType = referencedType(ownerName);
+      AggregateField field = analyzer.typeSystem.aggregateField(ownerType, selected.name());
+      if (field == null) {
+        analyzer.context.diagnostics.error(
+            UNKNOWN_NAME,
+            "type '" + ownerType.displayName() + "' has no field '" + selected.name() + "'",
+            selected.span());
+        return SemanticType.DYNAMIC;
+      }
+      Syntax.FieldDecl declaration = field.field();
+      if (declaration.visibility() == Syntax.Visibility.PRIVATE
+          && analyzer.context.currentAggregate != field.view().declaration()) {
+        analyzer.context.diagnostics.error(
+            UNKNOWN_NAME, "field '" + selected.name() + "' is private", selected.nameSpan());
+      }
+      SymbolId fieldId = analyzer.context.declarationSymbols.get(declaration);
+      analyzer.context.bindings.put(selected.nameSpan(), fieldId);
+      analyzer.context.bindings.put(member.nameSpan(), fieldId);
+      SemanticType valueType =
+          analyzer
+              .typeSystem
+              .resolveDeclarationType(
+                  declaration.type(),
+                  declaration,
+                  analyzer.typeSystem.aggregateTypeParameters(field.view().declaration()))
+              .substitute(
+                  analyzer.typeSystem.aggregateSubstitutions(
+                      field.view().declaration(), field.view().type()));
+      return analyzer.context.builtins.instantiate("Field", List.of(ownerType, valueType));
+    }
+    if (!member.name().equals("function")) return null;
+    if (member.receiver() instanceof Syntax.Name functionName) {
+      return topLevelFunctionReference(member, functionName, expected);
+    }
+    if (member.receiver() instanceof Syntax.Member selected
+        && selected.receiver() instanceof Syntax.Name ownerName) {
+      return unboundMethodReference(member, selected, ownerName, expected);
+    }
+    return null;
+  }
+
+  private SemanticType referencedType(Syntax.Name name) {
+    return referencedType(name, false);
+  }
+
+  private SemanticType referencedType(Syntax.Name name, boolean nullable) {
+    Syntax.TypeRef reference =
+        new Syntax.TypeRef(name.value(), name.typeArguments(), nullable, name.span());
+    return analyzer.typeSystem.resolveCheckedType(reference, analyzer.context.activeTypeParameters);
+  }
+
+  private SemanticType topLevelFunctionReference(
+      Syntax.Member member, Syntax.Name name, SemanticType expected) {
+    List<Syntax.FunctionDecl> candidates = analyzer.typeSystem.resolveFunctions(name.value());
+    if (candidates.isEmpty()) {
+      analyzer.context.diagnostics.error(
+          UNKNOWN_NAME, "cannot find function '" + name.value() + "'", name.span());
+      return SemanticType.DYNAMIC;
+    }
+    List<FunctionReferenceResolution> matches =
+        selectFunctionReferences(
+            candidates.stream()
+                .map(candidate -> new FunctionPattern(candidate, functionType(candidate)))
+                .toList(),
+            expected);
+    return bindFunctionReference(member, name.span(), name.value(), matches, expected);
+  }
+
+  private SemanticType unboundMethodReference(
+      Syntax.Member member, Syntax.Member selected, Syntax.Name ownerName, SemanticType expected) {
+    SemanticType ownerType = referencedType(ownerName);
+    List<FunctionPattern> candidates = new ArrayList<>();
+    for (AggregateView view : analyzer.typeSystem.aggregateViews(ownerType)) {
+      Map<String, SemanticType> substitutions =
+          analyzer.typeSystem.aggregateSubstitutions(view.declaration(), view.type());
+      for (Syntax.FunctionDecl method : view.declaration().methods()) {
+        if (!method.name().equals(selected.name())) continue;
+        if (method.visibility() == Syntax.Visibility.PRIVATE
+            && analyzer.context.currentAggregate != view.declaration()) continue;
+        Map<String, SemanticType> parameters =
+            analyzer.typeSystem.typeParameters(method, view.declaration());
+        List<SemanticType> signature = new ArrayList<>();
+        signature.add(view.type());
+        method.parameters().stream()
+            .map(
+                parameter ->
+                    analyzer.typeSystem.resolveDeclarationType(
+                        parameter.type(), method, parameters))
+            .map(type -> type.substitute(substitutions))
+            .forEach(signature::add);
+        SemanticType result =
+            analyzer.functionReturnType(method, parameters).substitute(substitutions);
+        candidates.add(new FunctionPattern(method, SemanticType.function(result, signature)));
+      }
+      if (!candidates.isEmpty()) break;
+    }
+    List<FunctionReferenceResolution> matches = selectFunctionReferences(candidates, expected);
+    SemanticType type =
+        bindFunctionReference(member, selected.nameSpan(), selected.name(), matches, expected);
+    if (!type.equals(SemanticType.DYNAMIC)) {
+      analyzer.context.bindings.put(
+          member.nameSpan(), analyzer.context.bindings.get(selected.nameSpan()));
+    }
+    return type;
+  }
+
+  private SemanticType boundMethodType(
+      Syntax.Member member, SemanticType receiver, SemanticType expected) {
+    List<FunctionPattern> candidates = new ArrayList<>();
+    for (AggregateView view : analyzer.typeSystem.aggregateViews(receiver)) {
+      Map<String, SemanticType> substitutions =
+          analyzer.typeSystem.aggregateSubstitutions(view.declaration(), view.type());
+      for (Syntax.FunctionDecl method : view.declaration().methods()) {
+        if (!method.name().equals(member.name())) continue;
+        if (method.visibility() == Syntax.Visibility.PRIVATE
+            && analyzer.context.currentAggregate != view.declaration()) continue;
+        Map<String, SemanticType> parameters =
+            analyzer.typeSystem.typeParameters(method, view.declaration());
+        SemanticType pattern =
+            SemanticType.function(
+                    analyzer.functionReturnType(method, parameters),
+                    method.parameters().stream()
+                        .map(
+                            parameter ->
+                                analyzer.typeSystem.resolveDeclarationType(
+                                    parameter.type(), method, parameters))
+                        .toList())
+                .substitute(substitutions);
+        candidates.add(new FunctionPattern(method, pattern));
+      }
+      if (!candidates.isEmpty()) break;
+    }
+    if (candidates.isEmpty()) return null;
+    List<FunctionReferenceResolution> matches = selectFunctionReferences(candidates, expected);
+    return bindFunctionReference(member, member.nameSpan(), member.name(), matches, expected);
+  }
+
+  private List<FunctionReferenceResolution> selectFunctionReferences(
+      List<FunctionPattern> candidates, SemanticType expected) {
+    if (expected == null || expected.isUnknownFunction()) {
+      return candidates.size() == 1
+          ? List.of(
+              new FunctionReferenceResolution(
+                  candidates.getFirst().declaration(), List.of(), candidates.getFirst().type()))
+          : List.of();
+    }
+    if (!expected.isFunction()) return List.of();
+    return candidates.stream()
+        .map(
+            candidate ->
+                resolveFunctionReference(candidate.declaration(), candidate.type(), expected))
+        .flatMap(Optional::stream)
+        .toList();
+  }
+
+  private SemanticType bindFunctionReference(
+      Syntax.Member member,
+      SourceSpan targetSpan,
+      String name,
+      List<FunctionReferenceResolution> matches,
+      SemanticType expected) {
+    if (matches.size() != 1) {
+      analyzer.context.diagnostics.error(
+          TYPE_MISMATCH,
+          matches.isEmpty()
+              ? "function reference '" + name + "' requires an unambiguous exact function type"
+              : "function reference '" + name + "' is ambiguous",
+          member.span());
+      return SemanticType.DYNAMIC;
+    }
+    FunctionReferenceResolution resolution = matches.getFirst();
+    analyzer.context.bindings.put(
+        targetSpan, analyzer.context.declarationSymbols.get(resolution.declaration()));
+    analyzer.context.bindings.put(
+        member.nameSpan(), analyzer.context.declarationSymbols.get(resolution.declaration()));
+    analyzer.context.functionReferenceTypeArguments.put(
+        member.span(), resolution.reifiedArguments());
+    return resolution.functionType();
+  }
+
+  private record FunctionPattern(Syntax.FunctionDecl declaration, SemanticType type) {}
 
   List<InterfaceRequirement> interfaceRequirements(SemanticType receiver) {
     SemanticType interfaceType = receiver;
@@ -1970,7 +2103,7 @@ final class ExpressionChecker {
           analyzer.context.diagnostics.error(
               TYPE_MISMATCH, "value field cannot be assigned", member.span());
         }
-        yield analyzer.memberType(member);
+        yield analyzer.memberType(member, null);
       }
       case Syntax.Index index -> analyzeIndex(index);
       case Syntax.Unary unary when unary.operator() == TokenKind.STAR -> {

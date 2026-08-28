@@ -65,3 +65,10 @@ public interface BinaryRetention extends AnnotationRetention {
 
 public interface RuntimeRetention extends AnnotationRetention {
 }
+
+public annotation Document implements PackageTarget, TypeTarget, FieldTarget, ConstructorTarget, FunctionTarget, ParameterTarget, LocalTarget, BinaryRetention {
+  String description
+  List<Class<?>>? types
+  List<Function<?>>? functions
+  List<Field<?, ?>>? fields
+}

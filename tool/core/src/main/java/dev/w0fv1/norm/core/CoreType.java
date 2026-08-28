@@ -61,6 +61,7 @@ public sealed interface CoreType
   CoreType VOID = new Special(SpecialKind.VOID);
   CoreType NULL = new Special(SpecialKind.NULL);
   CoreType DYNAMIC = new Special(SpecialKind.DYNAMIC);
+  CoreType EXISTENTIAL = new Special(SpecialKind.EXISTENTIAL);
 
   default boolean isNullable() {
     return switch (this) {
@@ -181,6 +182,7 @@ public sealed interface CoreType
   enum SpecialKind {
     VOID,
     NULL,
-    DYNAMIC
+    DYNAMIC,
+    EXISTENTIAL
   }
 }

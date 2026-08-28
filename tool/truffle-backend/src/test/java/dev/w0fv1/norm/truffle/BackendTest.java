@@ -113,7 +113,7 @@ final class BackendTest {
                 + "public interface RuntimeRetention extends AnnotationRetention {} "
                 + "annotation Label implements TypeTarget, RuntimeRetention { String text } "
                 + "@Label(text: \"initial\") value Point {} "
-                + "Void main() { Label? label = reflect<Point>().annotation<Label>() "
+                + "Void main() { Label? label = Point.class.annotation<Label>() "
                 + "printLine(label?.text ?? \"missing\") "
                 + "if (label != null) { label.text = \"changed\" } }");
     var program =

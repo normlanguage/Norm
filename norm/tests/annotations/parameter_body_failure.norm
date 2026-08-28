@@ -11,7 +11,7 @@ class Failure extends Exception {
 
 annotation Observe implements ParameterInterceptor<String>, SourceRetention {
   Void after(ParameterContext context, FunctionCompletion completion) {
-    printLine(context.name())
+    printLine(context.parameter().name())
     printLine(completion.succeeded())
   }
 }

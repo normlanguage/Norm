@@ -15,6 +15,7 @@ import dev.w0fv1.norm.core.PendingDefinitionReference;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.ValueCategory;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 final class BoundCoreTypeConverter {
@@ -95,8 +96,12 @@ final class BoundCoreTypeConverter {
       case DECLARED ->
           type.isFunction()
               ? new CoreType.Function(
-                  convert(type.functionReturnType()),
-                  type.functionParameterTypes().stream().map(this::convert).toList(),
+                  type.isUnknownFunction()
+                      ? CoreType.EXISTENTIAL
+                      : convert(type.functionReturnType()),
+                  type.isUnknownFunction()
+                      ? List.of()
+                      : type.functionParameterTypes().stream().map(this::convert).toList(),
                   nullability(type.nullability()))
               : new CoreType.Declared(
                   constructor(type),
@@ -107,6 +112,7 @@ final class BoundCoreTypeConverter {
       case VOID -> CoreType.VOID;
       case NULL -> CoreType.NULL;
       case ERROR -> CoreType.DYNAMIC;
+      case EXISTENTIAL -> CoreType.EXISTENTIAL;
     };
   }
 

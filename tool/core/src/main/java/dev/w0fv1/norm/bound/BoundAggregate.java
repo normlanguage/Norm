@@ -18,7 +18,7 @@ public record BoundAggregate(
     List<BoundField> fields,
     List<BoundCallableId> methods,
     List<BoundMethodDispatch> dispatch,
-    BoundCallableId constructor,
+    List<BoundCallableId> constructors,
     List<BoundConformance> conformances,
     SourceSpan span)
     implements BoundNode {
@@ -34,7 +34,9 @@ public record BoundAggregate(
     fields = List.copyOf(fields);
     methods = List.copyOf(methods);
     dispatch = List.copyOf(dispatch);
-    Objects.requireNonNull(constructor, "constructor");
+    constructors = List.copyOf(constructors);
+    if (constructors.isEmpty())
+      throw new IllegalArgumentException("aggregate requires a constructor");
     conformances = List.copyOf(conformances);
     Objects.requireNonNull(span, "span");
   }

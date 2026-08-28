@@ -59,6 +59,75 @@ final class CoreAnnotationProgramTest {
   }
 
   @Test
+  void rejectsCallableReferencesWhoseSignatureDoesNotMatchTheAnnotationField() {
+    CoreArtifact artifact =
+        compile(
+            policies("RuntimeRetention")
+                + "annotation Link implements TypeTarget, RuntimeRetention { "
+                + "Function<String(Integer)> function } "
+                + "String selected(Integer value) { return value.toString() } "
+                + "String incompatible(String value) { return value } "
+                + "@Link(function: selected.function) class Api {} Void main() {}");
+    CoreAnnotationApplication application = artifact.metadata().annotations().getFirst();
+    CoreAnnotationValue original = application.values().getFirst();
+    CoreAnnotationReference.CallableReference reference =
+        (CoreAnnotationReference.CallableReference) original.value();
+    DefinitionId incompatible =
+        artifact.namespace().definition("std.annotation", "incompatible").orElseThrow();
+    CoreAnnotationReference.CallableReference malformed =
+        new CoreAnnotationReference.CallableReference(
+            new DefinitionReference.External(incompatible),
+            reference.receiverTypeArguments(),
+            reference.reifiedArguments(),
+            reference.virtual());
+    CoreAnnotationApplication replaced =
+        new CoreAnnotationApplication(
+            application.annotation(),
+            application.target(),
+            List.of(new CoreAnnotationValue(original.type(), malformed)));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                artifact.program(),
+                artifact.namespace(),
+                artifact.authoring(),
+                new CoreMetadata(List.of(replaced))));
+  }
+
+  @Test
+  void rejectsListMetadataWhoseElementTypeDoesNotMatch() {
+    CoreArtifact artifact =
+        compile(
+            policies("RuntimeRetention")
+                + "annotation Links implements TypeTarget, RuntimeRetention { "
+                + "List<Class<?>> types } "
+                + "class User {} @Links(types: [User.class]) class Api {} Void main() {}");
+    CoreAnnotationApplication application = artifact.metadata().annotations().getFirst();
+    CoreAnnotationValue original = application.values().getFirst();
+    CoreAnnotationValue malformed =
+        new CoreAnnotationValue(
+            original.type(),
+            new CoreAnnotationValue.ListValue(
+                List.of(
+                    new CoreAnnotationValue(
+                        CoreType.STRING, new CoreAnnotationValue.Literal("User")))));
+    CoreAnnotationApplication replaced =
+        new CoreAnnotationApplication(
+            application.annotation(), application.target(), List.of(malformed));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                artifact.program(),
+                artifact.namespace(),
+                artifact.authoring(),
+                new CoreMetadata(List.of(replaced))));
+  }
+
+  @Test
   void sourceRetentionApplicationsAreAbsent() {
     CoreArtifact artifact =
         compile(

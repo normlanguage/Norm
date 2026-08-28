@@ -27,7 +27,9 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 ## 构造与应用
 
-`@Label(text: "point")` 定义一次 Annotation 对象构造。参数必须命名、完整且为可赋值的编译期标量常量；显式构造器存在时使用它的参数，否则使用字段生成的构造参数。Annotation 也能在普通表达式中直接构造，字段可变。
+`@Label(text: "point")` 定义一次 Annotation 对象构造。参数必须命名、完整且为可赋值的编译期值；可用值包括标量常量和类型化声明引用 `T.class`、`name.function`、`Owner.name.function`、`Owner.name.field`。显式构造器存在时使用它的参数，否则使用字段生成的构造参数。Annotation 也能在普通表达式中直接构造，字段可变。
+
+声明引用在 Core metadata 中保留目标 identity，不保存声明名字符串。目标丢失或重载不唯一时编译失败。
 
 每次 execution 中，一个 `@` 应用在首次被函数拦截或 runtime reflection 观察时构造一次；两条路径读取同一实例，不同 execution 的实例隔离。未被运行时观察的应用不执行构造器。同一 Annotation 类型不能重复应用于同一目标。
 
@@ -45,7 +47,7 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 实现 `ParameterInterceptor<T>` 的 Annotation 可以覆盖 `before(ParameterContext, T)` 和 `after(ParameterContext, FunctionCompletion)`。`T` 必须与被标参数的声明类型精确一致，`ref<T>` 参数和 interface requirement 参数不能使用参数生命周期。
 
-`before` 接收声明侧参数名、参数序号和所属函数信息，可以校验参数、抛出异常，或返回新的 `T` 写入 callee 参数槽。输入和返回值都经过 value-copy 边界。`after` 不接收参数值或引用，只观察该层是否正常完成，不能替换参数绑定。
+`before` 通过 `context.parameter()` 取得 `Parameter<T>` 声明引用，并可以继续查询 `name()`、`type()` 和 `function()`。它可以校验参数、抛出异常，或返回新的 `T` 写入 callee 参数槽。输入和返回值都经过 value-copy 边界。`after` 不接收参数值或引用，只观察该层是否正常完成，不能替换参数绑定。
 
 多个参数生命周期按参数序号和 Annotation 源码顺序进入，按完整反序退出。与 `FunctionInterceptor` 同时存在时，参数生命周期位于 `around` 的 `proceed()` 内部；`around` 不调用 `proceed()` 时不会执行参数生命周期。直接调用、构造、动态分派和函数引用共用定义侧入口。
 
@@ -53,7 +55,24 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 实现 `FieldInterceptor<T>` 的 Annotation 可以覆盖 `before(FieldContext, T)` 和 `after(FieldContext, FunctionCompletion)`。`T` 必须与字段声明类型精确一致。
 
-字段初始化、普通赋值和通过 `ref<T>` 的间接赋值共用同一生命周期。`before` 接收声明侧字段名、全对象字段序号和值副本，可校验、抛出异常或返回新的 `T` 写入存储；`after` 在存储完成后观察完成态，不能替换已写入的值。多个 Annotation 按源码顺序进入、反序退出；继承字段保留声明侧行为。
+字段初始化、普通赋值和通过 `ref<T>` 的间接赋值共用同一生命周期。`before` 通过 `context.field()` 取得 `Field<Owner, T>` 声明引用，可校验、抛出异常或返回新的 `T` 写入存储；`after` 在存储完成后观察完成态，不能替换已写入的值。多个 Annotation 按源码顺序进入、反序退出；继承字段保留声明侧行为。
+
+`FunctionContext.function()` 返回 `Function<?>`。拦截器与日志、校验和文档工具因此共用同一套声明引用，不传递名称和 ordinal 副本。
+
+## Document
+
+`std.annotation.Document` 是 BinaryRetention 的结构化文档 Annotation，可用于 package、类型、字段、构造器、函数、参数和局部声明。`description` 保存正文，`types`、`functions`、`fields` 分别保存有序的类型、函数和字段声明引用；三个 nullable 列表均可省略。
+
+```norm
+@Document(
+  description: "按标识查询用户。",
+  types: [User.class],
+  functions: [findUser.function],
+  fields: [User.id.field]
+)
+```
+
+Annotation 元数据可以使用标量、声明引用及由这些值递归组成的 `List` 字面量。`List` 表示有序声明元数据；`Array` 不是 Annotation 元数据类型。非 nullable 参数必须显式提供，省略 nullable 参数等价于提供 `null`。完整声明以 [`std.annotation`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/annotation/protocols.norm) 为准。
 
 ## 保留与 Core
 

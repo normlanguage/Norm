@@ -27,7 +27,7 @@ Norm 为这些问题保留稳定的源码表示。
 | `Result<T, E>` | 调用方需要处理的业务结果分支 |
 | `throw` / `catch` | 非正常执行路径跨越调用边界 |
 | `extension` | 点号语法背后是静态顶层函数 |
-| `reflect<T>()` | 代码显式进入运行时类型查询 |
+| `T.class` | 代码取得与该类型绑定的 `Class<T>` |
 
 ## 省略包装，不省略含义
 
@@ -81,7 +81,7 @@ String describe(State state) {
 
 Norm 采用非空默认、确定赋值、名义 interface、泛型不变性和 reified 类型参数。这些规则优先保护模块边界，而不是鼓励类型级计算。
 
-同一判断也适用于反射和框架扩展。字段反射返回带精确字段类型的 `ReflectedValue`，Annotation 生命周期使用 `ParameterInterceptor<T>` 与 `FieldInterceptor<T>` 约束输入；序列化根据 exact Core type 构建计划。运行时能力不应把已经得到的类型信息降级为字符串和无类型 Map。
+同一判断也适用于反射和框架扩展。`Field<Owner, Value>` 保留 owner 和字段值类型，Annotation 生命周期使用 `ParameterInterceptor<T>` 与 `FieldInterceptor<T>` 约束输入；序列化根据 exact Core type 构建计划。运行时能力不应把已经得到的类型信息降级为字符串和无类型 Map。
 
 ## 失败不是一种东西
 

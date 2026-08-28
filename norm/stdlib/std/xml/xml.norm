@@ -60,7 +60,7 @@ public value XmlReader<T> implements DataReader<T> {
 
 public value XmlWriter<T> implements DataWriter<T> {
   String writeString(T value) {
-    return __xmlEncode<T>(value: value, type: reflect<T>())
+    return __xmlEncode<T>(value: value, type: T.class)
   }
 
   Bytes writeBytes(T value) {

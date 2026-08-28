@@ -12,6 +12,6 @@ value Point {
 }
 
 main() {
-  Label? label = reflect<Point>().annotation<Label>()
+  Label? label = Point.class.annotation<Label>()
   printLine(label?.text ?? "missing")
 }

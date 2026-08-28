@@ -116,20 +116,42 @@ public final class Syntax {
     }
   }
 
-  public record TypeRef(String name, List<TypeRef> arguments, boolean nullable, SourceSpan span)
+  public record TypeRef(
+      Kind kind, String name, List<TypeRef> arguments, boolean nullable, SourceSpan span)
       implements AstNode {
     public TypeRef {
+      Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(name, "name");
       arguments = List.copyOf(arguments);
       Objects.requireNonNull(span, "span");
+      if (kind == Kind.WILDCARD && (!name.equals("?") || !arguments.isEmpty() || nullable)) {
+        throw new IllegalArgumentException(
+            "wildcard type references cannot have a name, arguments, or nullability");
+      }
+    }
+
+    public TypeRef(String name, List<TypeRef> arguments, boolean nullable, SourceSpan span) {
+      this(Kind.NAMED, name, arguments, nullable, span);
     }
 
     public TypeRef(String name, List<TypeRef> arguments, SourceSpan span) {
       this(name, arguments, false, span);
     }
 
+    public static TypeRef wildcard(SourceSpan span) {
+      return new TypeRef(Kind.WILDCARD, "?", List.of(), false, span);
+    }
+
+    public boolean isWildcard() {
+      return kind == Kind.WILDCARD;
+    }
+
     public String displayName() {
+      if (isWildcard()) return "?";
       if (name.equals("Function") && !arguments.isEmpty()) {
+        if (arguments.size() == 1 && arguments.getFirst().isWildcard()) {
+          return nullable ? "Function<?>?" : "Function<?>";
+        }
         String parameters =
             arguments.stream()
                 .skip(1)
@@ -148,6 +170,11 @@ public final class Syntax {
                       .collect(java.util.stream.Collectors.joining(", "))
                   + ">";
       return nullable ? base + "?" : base;
+    }
+
+    public enum Kind {
+      NAMED,
+      WILDCARD
     }
   }
 
@@ -526,7 +553,6 @@ public final class Syntax {
           Call,
           Member,
           Lambda,
-          MethodReference,
           Index,
           SwitchExpression {}
 
@@ -551,17 +577,6 @@ public final class Syntax {
       returnType = Objects.requireNonNull(returnType, "returnType");
       parameters = List.copyOf(parameters);
       body = List.copyOf(body);
-      Objects.requireNonNull(span, "span");
-    }
-  }
-
-  public record MethodReference(
-      Expression receiver, String name, SourceSpan nameSpan, SourceSpan span)
-      implements Expression {
-    public MethodReference {
-      Objects.requireNonNull(receiver, "receiver");
-      Objects.requireNonNull(name, "name");
-      Objects.requireNonNull(nameSpan, "nameSpan");
       Objects.requireNonNull(span, "span");
     }
   }

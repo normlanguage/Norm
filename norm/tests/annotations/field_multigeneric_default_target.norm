@@ -4,8 +4,8 @@ import std.testing.expectedOutputLines
 
 interface Normalize<T, State> extends FieldInterceptor<T> {
   T normalize(T value) {
-    printLine(reflect<T>().name())
-    printLine(reflect<State>().name())
+    printLine(T.class.name())
+    printLine(State.class.name())
     return value
   }
 }

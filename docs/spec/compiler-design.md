@@ -55,7 +55,7 @@ Lexer 与 Parser 建立带源码位置的语法树。语义流水线先从全部
 
 规范化 refinement 同时使用带位置的出边和入边结构，并跳过已证明属于同一 automorphism 的搜索分支。搜索预算保留为对抗性图的资源边界；component 大小、refinement、搜索、memo 和 automorphism 剪枝统一进入 `CoreBuildReport`。
 
-`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V10` 与 `LanguageSemanticsVersion.V10`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
+`CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V11` 与 `LanguageSemanticsVersion.V11`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
 
 `CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 bound、callable receiver 与 reified ABI、interface 继承和完整 witness、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建协议与操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
 

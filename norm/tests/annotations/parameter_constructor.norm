@@ -4,7 +4,7 @@ import std.testing.expectedOutputLines
 
 annotation Wrap implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
-    printLine(context.function().name())
+    printLine(context.parameter().function().name())
     return "[" + value + "]"
   }
 }

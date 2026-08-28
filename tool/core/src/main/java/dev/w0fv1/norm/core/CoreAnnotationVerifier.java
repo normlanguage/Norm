@@ -2,6 +2,7 @@ package dev.w0fv1.norm.core;
 
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -269,7 +270,7 @@ final class CoreAnnotationVerifier {
 
   static void verifyDeclaration(
       CoreProgram program, DefinitionId annotationId, CoreDefinition.Aggregate annotation) {
-    DefinitionId constructorId = resolve(program, annotationId, annotation.constructor());
+    DefinitionId constructorId = annotationConstructor(program, annotationId, annotation);
     CoreDefinition.Callable constructor = callable(program, constructorId);
     constructor.parameterTypes().forEach(type -> requireMetadataType(program, constructorId, type));
   }
@@ -302,7 +303,7 @@ final class CoreAnnotationVerifier {
       DefinitionId annotationId,
       CoreDefinition.Aggregate annotation,
       List<CoreAnnotationValue> values) {
-    DefinitionId constructorId = resolve(program, annotationId, annotation.constructor());
+    DefinitionId constructorId = annotationConstructor(program, annotationId, annotation);
     CoreDefinition constructorDefinition = program.definition(constructorId).orElseThrow();
     if (!(constructorDefinition instanceof CoreDefinition.Callable constructor)) {
       throw new IllegalArgumentException("annotation constructor is not callable");
@@ -318,6 +319,14 @@ final class CoreAnnotationVerifier {
           constructor.parameterTypes().get(index),
           values.get(index));
     }
+  }
+
+  private static DefinitionId annotationConstructor(
+      CoreProgram program, DefinitionId annotationId, CoreDefinition.Aggregate annotation) {
+    if (annotation.constructors().size() != 1) {
+      throw new IllegalArgumentException("annotation must declare exactly one constructor");
+    }
+    return resolve(program, annotationId, annotation.constructors().getFirst());
   }
 
   private static ApplicationKey applicationKey(CoreAnnotationApplication application) {
@@ -441,25 +450,40 @@ final class CoreAnnotationVerifier {
           "annotation value type does not match its constructor parameter");
     }
     requireMetadataType(program, valueOwner, value.type());
-    Object raw = value.value();
-    if (raw == null) {
-      if (!value.type().isNullable()) {
-        throw new IllegalArgumentException(
-            "null annotation value requires a nullable constructor parameter");
+    switch (value.value()) {
+      case CoreAnnotationValue.Null ignored -> {
+        if (!value.type().isNullable()) {
+          throw new IllegalArgumentException(
+              "null annotation value requires a nullable constructor parameter");
+        }
       }
-      return;
+      case CoreAnnotationReference reference ->
+          requireDeclarationReference(program, valueOwner, absoluteActual, reference);
+      case CoreAnnotationValue.ListValue list -> {
+        CoreType nonNull = nonNullable(absoluteActual);
+        if (!isBuiltin(nonNull, "std.core.List", 1)) {
+          throw new IllegalArgumentException("list value requires a List annotation value");
+        }
+        CoreType elementType = ((CoreType.Declared) nonNull).arguments().getFirst();
+        for (CoreAnnotationValue element : list.values()) {
+          verifyValue(program, valueOwner, valueOwner, elementType, element);
+        }
+      }
+      case CoreAnnotationValue.Literal literal -> {
+        CoreType nonNull = nonNullable(absoluteActual);
+        Object raw = literal.value();
+        boolean valid =
+            nonNull.equals(CoreType.BOOLEAN) && raw instanceof Boolean
+                || nonNull.equals(CoreType.CODE_POINT) && raw instanceof Integer
+                || nonNull.equals(CoreType.INTEGER) && raw instanceof Integer
+                || nonNull.equals(CoreType.LONG) && raw instanceof Long
+                || nonNull.equals(CoreType.FLOAT) && raw instanceof Float
+                || nonNull.equals(CoreType.DOUBLE) && raw instanceof Double
+                || nonNull.equals(CoreType.STRING) && raw instanceof String;
+        if (!valid)
+          throw new IllegalArgumentException("annotation value has an invalid representation");
+      }
     }
-    CoreType nonNull = nonNullable(absoluteActual);
-    boolean valid =
-        nonNull.equals(CoreType.BOOLEAN) && raw instanceof Boolean
-            || nonNull.equals(CoreType.CODE_POINT) && raw instanceof Integer
-            || nonNull.equals(CoreType.INTEGER) && raw instanceof Integer
-            || nonNull.equals(CoreType.LONG) && raw instanceof Long
-            || nonNull.equals(CoreType.FLOAT) && raw instanceof Float
-            || nonNull.equals(CoreType.DOUBLE) && raw instanceof Double
-            || nonNull.equals(CoreType.STRING) && raw instanceof String;
-    if (!valid)
-      throw new IllegalArgumentException("annotation value has an invalid representation");
   }
 
   private static void requireMetadataType(CoreProgram program, DefinitionId owner, CoreType type) {
@@ -471,22 +495,180 @@ final class CoreAnnotationVerifier {
         && !nonNull.equals(CoreType.LONG)
         && !nonNull.equals(CoreType.FLOAT)
         && !nonNull.equals(CoreType.DOUBLE)
-        && !nonNull.equals(CoreType.STRING)) {
+        && !nonNull.equals(CoreType.STRING)
+        && !isMetadataList(program, owner, nonNull)
+        && !isDeclarationReferenceType(nonNull)) {
       throw new IllegalArgumentException(
-          "annotation constructor parameter is not a metadata scalar");
+          "annotation constructor parameter is not a metadata value");
     }
   }
 
-  private static CoreType nonNullable(CoreType type) {
+  private static boolean isMetadataList(CoreProgram program, DefinitionId owner, CoreType type) {
+    if (!isBuiltin(type, "std.core.List", 1)) return false;
+    requireMetadataType(program, owner, ((CoreType.Declared) type).arguments().getFirst());
+    return true;
+  }
+
+  private static boolean isDeclarationReferenceType(CoreType type) {
+    if (type instanceof CoreType.Function) return true;
     if (!(type instanceof CoreType.Declared declared)
-        || declared.nullability() == CoreNullability.NON_NULL) {
-      return type;
+        || !(declared.constructor() instanceof CoreTypeConstructor.Builtin builtin)) {
+      return false;
     }
-    return new CoreType.Declared(
-        declared.constructor(),
-        declared.arguments(),
-        declared.category(),
-        CoreNullability.NON_NULL);
+    return builtin.id().value().equals("std.core.Class")
+        || builtin.id().value().equals("std.core.Field");
+  }
+
+  private static void requireDeclarationReference(
+      CoreProgram program,
+      DefinitionId owner,
+      CoreType expected,
+      CoreAnnotationReference reference) {
+    CoreType nonNull = nonNullable(expected);
+    switch (reference) {
+      case CoreAnnotationReference.ClassReference classReference -> {
+        if (!isBuiltin(nonNull, "std.core.Class", 1)) {
+          throw new IllegalArgumentException("class reference requires a Class annotation value");
+        }
+        CoreType reflected = CoreTypes.absolute(classReference.reflectedType(), owner, program);
+        requireReferencedTypes(program, owner, List.of(classReference.reflectedType()));
+        CoreType projected = ((CoreType.Declared) nonNull).arguments().getFirst();
+        if (!projected.equals(CoreType.EXISTENTIAL) && !projected.equals(reflected)) {
+          throw new IllegalArgumentException("class annotation reference type does not match");
+        }
+      }
+      case CoreAnnotationReference.FieldReference field -> {
+        if (!isBuiltin(nonNull, "std.core.Field", 2)) {
+          throw new IllegalArgumentException("field reference requires a Field annotation value");
+        }
+        CoreType ownerType = CoreTypes.absolute(field.ownerType(), owner, program);
+        CoreType valueType = CoreTypes.absolute(field.valueType(), owner, program);
+        requireReferencedTypes(program, owner, List.of(field.ownerType(), field.valueType()));
+        CoreType actualFieldType = reflectedFieldType(program, ownerType, field.ordinal());
+        if (!actualFieldType.equals(valueType)) {
+          throw new IllegalArgumentException("field annotation reference type does not match");
+        }
+      }
+      case CoreAnnotationReference.CallableReference callableReference -> {
+        if (!(nonNull instanceof CoreType.Function)) {
+          throw new IllegalArgumentException(
+              "callable reference requires a Function annotation value");
+        }
+        DefinitionId callableId = resolve(program, owner, callableReference.callable());
+        CoreDefinition definition = definition(program, callableId);
+        if (!(definition instanceof CoreDefinition.Callable callable)) {
+          throw new IllegalArgumentException("annotation callable reference is not callable");
+        }
+        if (callableReference.virtual() && !callable.hasReceiver()) {
+          throw new IllegalArgumentException("only methods can be virtual declaration references");
+        }
+        if (callableReference.receiverTypeArguments().size()
+            != callable.receiverTypeParameterCount()) {
+          throw new IllegalArgumentException(
+              "callable annotation reference receiver type arguments do not match");
+        }
+        if (callableReference.reifiedArguments().size() != callable.typeParameters().size()) {
+          throw new IllegalArgumentException(
+              "callable annotation reference type arguments do not match");
+        }
+        List<CoreType> referencedTypes = new ArrayList<>(callableReference.receiverTypeArguments());
+        referencedTypes.addAll(callableReference.reifiedArguments());
+        requireReferencedTypes(program, owner, referencedTypes);
+        CoreType.Function expectedFunction = (CoreType.Function) nonNull;
+        if (!expectedFunction.returnType().equals(CoreType.EXISTENTIAL)
+            || !expectedFunction.parameterTypes().isEmpty()) {
+          List<CoreType> substitutions = new ArrayList<>();
+          callableReference.receiverTypeArguments().stream()
+              .map(type -> CoreTypes.absolute(type, owner, program))
+              .forEach(substitutions::add);
+          callableReference.reifiedArguments().stream()
+              .map(type -> CoreTypes.absolute(type, owner, program))
+              .forEach(substitutions::add);
+          List<CoreType> parameters = new ArrayList<>();
+          callable
+              .receiverType()
+              .map(type -> CoreTypes.absolute(type, callableId, program))
+              .map(type -> type.substitute(substitutions::get))
+              .ifPresent(parameters::add);
+          callable.parameterTypes().stream()
+              .map(type -> CoreTypes.absolute(type, callableId, program))
+              .map(type -> type.substitute(substitutions::get))
+              .forEach(parameters::add);
+          CoreType result =
+              CoreTypes.absolute(callable.returnType(), callableId, program)
+                  .substitute(substitutions::get);
+          CoreType.Function actualFunction =
+              new CoreType.Function(result, parameters, CoreNullability.NON_NULL);
+          if (!expectedFunction.equals(actualFunction)) {
+            throw new IllegalArgumentException(
+                "callable annotation reference signature does not match");
+          }
+        }
+      }
+    }
+  }
+
+  private static void requireReferencedTypes(
+      CoreProgram program, DefinitionId owner, List<CoreType> types) {
+    types.stream()
+        .flatMap(type -> CoreTypes.links(type).stream())
+        .map(link -> resolve(program, owner, link))
+        .forEach(id -> definition(program, id));
+  }
+
+  private static boolean isBuiltin(CoreType type, String identity, int arity) {
+    return type instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
+        && builtin.id().value().equals(identity)
+        && declared.arguments().size() == arity;
+  }
+
+  private static CoreType reflectedFieldType(CoreProgram program, CoreType ownerType, int ordinal) {
+    CoreType current = ownerType;
+    while (current instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.User user) {
+      if (!(user.definition() instanceof DefinitionReference.External external)) {
+        throw new IllegalArgumentException("annotation field owner is not absolute");
+      }
+      DefinitionId aggregateId = external.definition();
+      CoreDefinition definition = definition(program, aggregateId);
+      if (!(definition instanceof CoreDefinition.Aggregate aggregate)) break;
+      for (CoreField field : aggregate.fields()) {
+        if (field.ordinal() == ordinal) {
+          return CoreTypes.absolute(field.type(), aggregateId, program)
+              .substitute(declared.arguments()::get);
+        }
+      }
+      if (aggregate.parentType().isEmpty()) break;
+      current =
+          CoreTypes.absolute(aggregate.parentType().orElseThrow(), aggregateId, program)
+              .substitute(declared.arguments()::get);
+    }
+    throw new IllegalArgumentException("annotation field reference is absent");
+  }
+
+  private static CoreType nonNullable(CoreType type) {
+    return switch (type) {
+      case CoreType.Declared declared ->
+          declared.nullability() == CoreNullability.NON_NULL
+              ? declared
+              : new CoreType.Declared(
+                  declared.constructor(),
+                  declared.arguments(),
+                  declared.category(),
+                  CoreNullability.NON_NULL);
+      case CoreType.Function function ->
+          function.nullability() == CoreNullability.NON_NULL
+              ? function
+              : new CoreType.Function(
+                  function.returnType(), function.parameterTypes(), CoreNullability.NON_NULL);
+      case CoreType.Parameter parameter ->
+          parameter.nullability() == CoreNullability.NON_NULL
+              ? parameter
+              : new CoreType.Parameter(parameter.index(), CoreNullability.NON_NULL);
+      case CoreType.Reference reference -> reference;
+      case CoreType.Special special -> special;
+    };
   }
 
   private static CoreDefinition definition(CoreProgram program, DefinitionId id) {

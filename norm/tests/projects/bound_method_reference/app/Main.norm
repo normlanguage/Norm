@@ -6,8 +6,7 @@ import std.testing.expectedOutputLines
 
 main() {
   Counter counter = Counter(base: 5)
-  Integer add(Integer amount) = counter::add
+  Integer add(Integer amount) = counter.add
   printLine(apply(operation: add, input: 7))
   expectedOutputLines(["12"])
 }
-

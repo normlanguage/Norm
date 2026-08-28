@@ -2,10 +2,13 @@ package dev.w0fv1.norm.frontend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CoreAggregateKind;
+import dev.w0fv1.norm.core.CoreAnnotationReference;
+import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.value.CompilationRequest;
@@ -21,6 +24,128 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class AnnotationCompilerTest {
+  @Test
+  void storesTypedDeclarationReferencesInAnnotationMetadata() {
+    CompilationResult result =
+        compile(
+            policies("TypeTarget", "RuntimeRetention")
+                + "annotation Document implements TypeTarget, RuntimeRetention { "
+                + "String description List<Class<?>>? types List<Function<?>>? functions "
+                + "List<Field<?, ?>>? fields } "
+                + "class User { public String name } "
+                + "String lookup(String value) { return value } "
+                + "@Document(description: \"API\", types: [User.class], "
+                + "functions: [lookup.function], fields: [User.name.field]) "
+                + "class Api {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    List<dev.w0fv1.norm.core.CoreAnnotationValue> values =
+        result
+            .program()
+            .orElseThrow()
+            .compilation()
+            .artifact()
+            .metadata()
+            .annotations()
+            .getFirst()
+            .values();
+    CoreAnnotationValue.ListValue types =
+        assertInstanceOf(CoreAnnotationValue.ListValue.class, values.get(1).value());
+    CoreAnnotationValue.ListValue functions =
+        assertInstanceOf(CoreAnnotationValue.ListValue.class, values.get(2).value());
+    CoreAnnotationValue.ListValue fields =
+        assertInstanceOf(CoreAnnotationValue.ListValue.class, values.get(3).value());
+    assertInstanceOf(
+        CoreAnnotationReference.ClassReference.class, types.values().getFirst().value());
+    assertInstanceOf(
+        CoreAnnotationReference.CallableReference.class, functions.values().getFirst().value());
+    assertInstanceOf(
+        CoreAnnotationReference.FieldReference.class, fields.values().getFirst().value());
+  }
+
+  @Test
+  void rejectsMissingDocumentDeclarationReferences() {
+    assertDiagnostic(
+        policies("TypeTarget", "RuntimeRetention")
+            + "annotation Document implements TypeTarget, RuntimeRetention { "
+            + "List<Class<?>> types } "
+            + "@Document(types: [Missing.class]) class Api {} Void main() {}",
+        "unknown type");
+    assertDiagnostic(
+        policies("TypeTarget", "RuntimeRetention")
+            + "annotation Document implements TypeTarget, RuntimeRetention { "
+            + "List<Function<?>> functions } "
+            + "@Document(functions: [missing.function]) class Api {} Void main() {}",
+        "cannot find function");
+    assertDiagnostic(
+        policies("TypeTarget", "RuntimeRetention")
+            + "annotation Document implements TypeTarget, RuntimeRetention { "
+            + "List<Field<?, ?>> fields } class User {} "
+            + "@Document(fields: [User.missing.field]) class Api {} Void main() {}",
+        "field");
+  }
+
+  @Test
+  void suppliesNullForOmittedNullableMetadataLists() {
+    CompilationResult result =
+        compile(
+            policies("TypeTarget", "RuntimeRetention")
+                + "annotation Document implements TypeTarget, RuntimeRetention { "
+                + "String description List<Class<?>>? types List<Function<?>>? functions "
+                + "List<Field<?, ?>>? fields } "
+                + "@Document(description: \"API\") class Api {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    List<dev.w0fv1.norm.core.CoreAnnotationValue> values =
+        result
+            .program()
+            .orElseThrow()
+            .compilation()
+            .artifact()
+            .metadata()
+            .annotations()
+            .getFirst()
+            .values();
+    assertEquals(4, values.size());
+    values.subList(1, 4).stream()
+        .map(CoreAnnotationValue::value)
+        .forEach(value -> assertEquals(CoreAnnotationValue.Null.INSTANCE, value));
+  }
+
+  @Test
+  void rejectsArrayMetadataParameters() {
+    assertDiagnostic(
+        policies("TypeTarget", "RuntimeRetention")
+            + "annotation Links implements TypeTarget, RuntimeRetention { "
+            + "Array<Class<?>> types }",
+        "metadata value types");
+  }
+
+  @Test
+  void storesNestedListMetadataConstants() {
+    CompilationResult result =
+        compile(
+            policies("TypeTarget", "RuntimeRetention")
+                + "annotation Matrix implements TypeTarget, RuntimeRetention { "
+                + "List<List<String>> rows } "
+                + "@Matrix(rows: [[\"first\"], [\"second\"]]) class Api {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void acceptsNonNullCallableReferencesForNullableExactMetadataFields() {
+    CompilationResult result =
+        compile(
+            policies("TypeTarget", "RuntimeRetention")
+                + "annotation Link implements TypeTarget, RuntimeRetention { "
+                + "Function<String(Integer)>? function } "
+                + "String lookup(Integer value) { return value.toString() } "
+                + "@Link(function: lookup.function) class Api {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
   @Test
   void compilesAnnotationAsIdentityAggregateWithMethodsConstructorAndInterfaces() {
     CompilationResult result =
@@ -121,7 +246,7 @@ final class AnnotationCompilerTest {
   }
 
   @Test
-  void rejectsGenericAnnotationsAndNonScalarApplicationConstructors() {
+  void rejectsGenericAnnotationsAndNonMetadataApplicationConstructors() {
     assertDiagnostic(
         policies("TypeTarget", "RuntimeRetention")
             + "annotation Label<T> implements TypeTarget, RuntimeRetention { String text }",
@@ -129,8 +254,8 @@ final class AnnotationCompilerTest {
     assertDiagnostic(
         policies("TypeTarget", "RuntimeRetention")
             + "annotation Label implements TypeTarget, RuntimeRetention { "
-            + "List<String> values Label(List<String> values) { this.values = values } }",
-        "scalar types");
+            + "Array<String> values Label(Array<String> values) { this.values = values } }",
+        "metadata value types");
   }
 
   @Test
@@ -280,7 +405,7 @@ final class AnnotationCompilerTest {
   @Test
   void requiresAnnotationTypeForReflectionQuery() {
     assertDiagnostic(
-        "class Box {} Void main() { Type<Box> type = reflect<Box>() "
+        "class Box {} Void main() { Class<Box> type = Box.class "
             + "Box? value = type.annotation<Box>() }",
         "annotation type");
   }

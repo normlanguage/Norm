@@ -5,9 +5,11 @@ import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationApplication;
 import dev.w0fv1.norm.core.CoreAnnotationPolicy;
+import dev.w0fv1.norm.core.CoreAnnotationReference;
 import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
+import dev.w0fv1.norm.core.CoreAuthoringMap;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreFieldInterceptorProtocol;
@@ -25,6 +27,7 @@ import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +36,7 @@ import java.util.Set;
 
 final class AnnotationRuntime {
   private final CoreProgram program;
+  private final CoreAuthoringMap authoring;
   private final Map<ApplicationKey, List<CoreAnnotationValue>> applications;
   private final CoreFunctionInterceptorProtocol functionInterceptor;
   private final CoreParameterInterceptorProtocol parameterInterceptor;
@@ -41,10 +45,11 @@ final class AnnotationRuntime {
   private final MapperEngine mapper;
   private final XmlDataFormat xml;
   private Map<DefinitionId, RuntimeValues.AggregateInfo> aggregateInfo = Map.of();
-  private Map<DefinitionId, CallTarget> constructors = Map.of();
+  private Map<DefinitionId, CallTarget> callableTargets = Map.of();
 
   AnnotationRuntime(CoreArtifact artifact) {
     program = artifact.program();
+    authoring = artifact.authoring();
     Map<ApplicationKey, List<CoreAnnotationValue>> indexed = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : artifact.metadata().annotations()) {
       ApplicationKey key = key(application);
@@ -66,7 +71,7 @@ final class AnnotationRuntime {
     occurrences.forEach(
         (occurrence, info) -> indexed.putIfAbsent(occurrence.representative(), info));
     aggregateInfo = Map.copyOf(indexed);
-    constructors = Map.copyOf(callableTargets);
+    this.callableTargets = Map.copyOf(callableTargets);
   }
 
   String name(CoreType type) {
@@ -105,6 +110,196 @@ final class AnnotationRuntime {
     return new RuntimeValues.ListValue(listType, fields);
   }
 
+  RuntimeValues.FieldValue field(CoreType fieldType, int ordinal) {
+    CoreType.Declared descriptor = declared(fieldType);
+    if (descriptor.arguments().size() != 2) {
+      throw new IllegalArgumentException("field descriptor type is invalid");
+    }
+    CoreType ownerType = descriptor.arguments().getFirst();
+    CoreType.Declared owner = declared(ownerType);
+    if (!(owner.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException("field owner must be an aggregate type");
+    }
+    DefinitionId aggregateId = resolveExternal(user.definition());
+    RuntimeValues.AggregateInfo info = aggregateInfo.get(aggregateId);
+    if (info == null || ordinal < 0 || ordinal >= info.fields().size()) {
+      throw new IllegalArgumentException("field declaration is absent");
+    }
+    RuntimeValues.FieldPlan plan = info.fields().get(ordinal);
+    return new RuntimeValues.FieldValue(
+        fieldType,
+        ownerType,
+        plan.owner(),
+        plan.name(),
+        ordinal,
+        reflectedFieldType(plan, owner),
+        this);
+  }
+
+  RuntimeValues.FieldValue field(
+      RuntimeValues.FieldPlan plan, CoreType ownerType, CoreType fieldType) {
+    CoreType.Declared owner = declared(ownerType);
+    return new RuntimeValues.FieldValue(
+        fieldType,
+        ownerType,
+        plan.owner(),
+        plan.name(),
+        plan.index(),
+        reflectedFieldType(plan, owner),
+        this);
+  }
+
+  RuntimeValues.FieldValue field(
+      CoreType descriptorType, CoreAnnotationReference.FieldReference reference) {
+    CoreType.Declared owner = declared(reference.ownerType());
+    if (!(owner.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException("field owner must be an aggregate type");
+    }
+    RuntimeValues.AggregateInfo info = aggregateInfo.get(resolveExternal(user.definition()));
+    if (info == null || reference.ordinal() < 0 || reference.ordinal() >= info.fields().size()) {
+      throw new IllegalArgumentException("field declaration is absent");
+    }
+    RuntimeValues.FieldPlan plan = info.fields().get(reference.ordinal());
+    return new RuntimeValues.FieldValue(
+        descriptorType,
+        reference.ownerType(),
+        plan.owner(),
+        plan.name(),
+        plan.index(),
+        reference.valueType(),
+        this);
+  }
+
+  RuntimeValues.ListValue functions(CoreType reflectedType, CoreType listType) {
+    CoreType.Declared reflected = declared(reflectedType);
+    DefinitionId aggregateId = aggregateDefinition(reflected, "functions");
+    CoreDefinition.Aggregate aggregate =
+        (CoreDefinition.Aggregate) program.definition(aggregateId).orElseThrow();
+    RuntimeValues.AggregateInfo info = aggregateInfo.get(aggregateId);
+    if (info == null) throw new IllegalStateException("aggregate reflection is not initialized");
+    List<Object> functions =
+        aggregate.dispatch().stream()
+            .map(dispatch -> resolve(aggregateId, dispatch.slot()))
+            .distinct()
+            .map(
+                slot -> {
+                  RuntimeValues.DispatchTarget target = info.dispatch().get(slot);
+                  if (!(target instanceof RuntimeValues.DispatchTarget.Callable callable)) {
+                    throw new IllegalStateException("reflected function target is absent");
+                  }
+                  return (Object)
+                      new RuntimeValues.Closure(
+                          callable.target(),
+                          occurrence(slot),
+                          slot,
+                          true,
+                          null,
+                          new Object[0],
+                          reflected.arguments().toArray(),
+                          new Object[0]);
+                })
+            .toList();
+    return new RuntimeValues.ListValue(listType, functions);
+  }
+
+  RuntimeValues.ListValue constructors(CoreType reflectedType, CoreType listType) {
+    CoreType.Declared reflected = declared(reflectedType);
+    DefinitionId aggregateId = aggregateDefinition(reflected, "constructors");
+    CoreDefinition.Aggregate aggregate =
+        (CoreDefinition.Aggregate) program.definition(aggregateId).orElseThrow();
+    CoreType descriptorType = declared(listType).arguments().getFirst();
+    List<Object> constructors =
+        aggregate.constructors().stream()
+            .map(link -> resolve(aggregateId, link))
+            .map(
+                constructor ->
+                    (Object)
+                        new RuntimeValues.ConstructorValue(
+                            descriptorType, reflectedType, occurrence(constructor), this))
+            .toList();
+    return new RuntimeValues.ListValue(listType, constructors);
+  }
+
+  String functionName(RuntimeValues.Closure function) {
+    return authoring.origin(function.declaration()).definitionName();
+  }
+
+  Object functionOwner(RuntimeValues.Closure function, CoreType classType) {
+    CoreDefinition definition =
+        program.definition(function.declaration().representative()).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable callable)
+        || callable.receiverType().isEmpty()) {
+      return RuntimeValues.NullValue.INSTANCE;
+    }
+    CoreType owner =
+        CoreTypes.absolute(
+                callable.receiverType().orElseThrow(),
+                function.declaration().representative(),
+                program)
+            .substitute(
+                index -> {
+                  if (index >= function.receiverTypeArguments().length) {
+                    return new CoreType.Parameter(index, CoreNullability.NON_NULL);
+                  }
+                  return (CoreType) function.receiverTypeArguments()[index];
+                });
+    return new RuntimeValues.ClassValue(classType, owner, this);
+  }
+
+  RuntimeValues.ListValue parameters(RuntimeValues.Closure function, CoreType listType) {
+    CoreType descriptorType = declared(listType).arguments().getFirst();
+    CoreDefinition.Callable callable = callable(function);
+    List<Object> parameters = new ArrayList<>();
+    if (function.unbound() && callable.receiverType().isPresent()) {
+      CoreType receiverType =
+          CoreTypes.absolute(
+                  callable.receiverType().orElseThrow(),
+                  function.declaration().representative(),
+                  program)
+              .substitute(typeIndex -> callableTypeArgument(function, typeIndex));
+      parameters.add(
+          new RuntimeValues.ParameterValue(descriptorType, function, "this", receiverType, this));
+    }
+    java.util.stream.IntStream.range(0, callable.parameters().size())
+        .mapToObj(index -> (Object) parameter(function, index, descriptorType))
+        .forEach(parameters::add);
+    return new RuntimeValues.ListValue(listType, parameters);
+  }
+
+  RuntimeValues.ParameterValue parameter(
+      RuntimeValues.Closure function, int index, CoreType parameterType) {
+    CoreDefinition.Callable callable = callable(function);
+    if (index < 0 || index >= callable.parameters().size()) {
+      throw new IllegalArgumentException("parameter declaration is absent");
+    }
+    dev.w0fv1.norm.core.CoreCallableParameter parameter = callable.parameters().get(index);
+    CoreType valueType =
+        CoreTypes.absolute(parameter.type(), function.declaration().representative(), program)
+            .substitute(typeIndex -> callableTypeArgument(function, typeIndex));
+    return new RuntimeValues.ParameterValue(
+        parameterType, function, parameter.name(), valueType, this);
+  }
+
+  private CoreDefinition.Callable callable(RuntimeValues.Closure function) {
+    CoreDefinition definition =
+        program.definition(function.declaration().representative()).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable callable)) {
+      throw new IllegalArgumentException("function declaration is not callable");
+    }
+    return callable;
+  }
+
+  private CoreType callableTypeArgument(RuntimeValues.Closure function, int index) {
+    if (index < function.receiverTypeArguments().length) {
+      return (CoreType) function.receiverTypeArguments()[index];
+    }
+    int callableIndex = index - function.receiverTypeArguments().length;
+    if (callableIndex < function.reifiedArguments().length) {
+      return (CoreType) function.reifiedArguments()[callableIndex];
+    }
+    return new CoreType.Parameter(index, CoreNullability.NON_NULL);
+  }
+
   Object fieldAnnotation(
       RuntimeValues.FieldValue field, CoreType annotationType, ExecutionState execution) {
     CoreType.Declared annotation = declared(annotationType);
@@ -122,18 +317,20 @@ final class AnnotationRuntime {
     return execution.annotationExecution().instance(key, values).value(execution);
   }
 
-  RuntimeValues.ReflectedValue readField(
-      RuntimeValues.FieldValue field, Object receiver, CoreType reflectedValueType) {
+  Object readField(RuntimeValues.FieldValue field, Object receiver) {
     if (!(receiver instanceof RuntimeValues.ObjectValue object)
-        || !object.type.equals(field.ownerType())
         || field.index() >= object.fields.length) {
       throw new IllegalArgumentException("field receiver does not match its declaring type");
     }
-    return new RuntimeValues.ReflectedValue(
-        reflectedValueType,
-        field.fieldType(),
-        RuntimeValues.copy(object.fields[field.index()]),
-        this);
+    CoreType.Declared actual = declared(object.type);
+    CoreType.Declared expected = declared(field.ownerType());
+    DefinitionId expectedId =
+        resolveExternal(((CoreTypeConstructor.User) expected.constructor()).definition());
+    CoreType.Declared view = aggregateView(actual, expectedId);
+    if (view == null || !view.equals(expected)) {
+      throw new IllegalArgumentException("field receiver does not match its declaring type");
+    }
+    return RuntimeValues.copy(object.fields[field.index()]);
   }
 
   Execution execution() {
@@ -392,6 +589,26 @@ final class AnnotationRuntime {
     return null;
   }
 
+  private DefinitionId aggregateDefinition(CoreType.Declared type, String operation) {
+    if (!(type.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalArgumentException(operation + " require an aggregate type");
+    }
+    DefinitionId aggregateId = resolveExternal(user.definition());
+    if (!(program.definition(aggregateId).orElseThrow() instanceof CoreDefinition.Aggregate)) {
+      throw new IllegalArgumentException(operation + " require an aggregate type");
+    }
+    return aggregateId;
+  }
+
+  private DefinitionOccurrenceId occurrence(DefinitionId definition) {
+    List<dev.w0fv1.norm.core.CoreDefinitionOccurrence> occurrences =
+        authoring.occurrences(definition);
+    if (occurrences.isEmpty()) {
+      throw new IllegalStateException("reflected declaration occurrence is absent");
+    }
+    return occurrences.getFirst().id();
+  }
+
   private String nominal(DefinitionId id) {
     return switch (program.definition(id).orElseThrow()) {
       case CoreDefinition.Aggregate aggregate -> aggregate.nominalType().name();
@@ -421,11 +638,42 @@ final class AnnotationRuntime {
     return separator < 0 ? id.value() : id.value().substring(separator + 1);
   }
 
-  private static Object runtimeValue(CoreAnnotationValue value) {
-    if (value.value() == null) return RuntimeValues.NullValue.INSTANCE;
-    return isCodePoint(value.type())
-        ? new RuntimeValues.CodePointValue((Integer) value.value())
-        : value.value();
+  private Object runtimeValue(CoreAnnotationValue value) {
+    return switch (value.value()) {
+      case CoreAnnotationValue.Null ignored -> RuntimeValues.NullValue.INSTANCE;
+      case CoreAnnotationValue.Literal literal ->
+          isCodePoint(value.type())
+              ? new RuntimeValues.CodePointValue((Integer) literal.value())
+              : literal.value();
+      case CoreAnnotationValue.ListValue list ->
+          new RuntimeValues.ListValue(
+              value.type(), list.values().stream().map(this::runtimeValue).toList());
+      case CoreAnnotationReference reference ->
+          switch (reference) {
+            case CoreAnnotationReference.ClassReference classReference ->
+                new RuntimeValues.ClassValue(value.type(), classReference.reflectedType(), this);
+            case CoreAnnotationReference.FieldReference fieldReference ->
+                field(value.type(), fieldReference);
+            case CoreAnnotationReference.CallableReference callableReference -> {
+              DefinitionId callableId =
+                  resolveExternal((DefinitionReference.External) callableReference.callable());
+              CallTarget target = callableTargets.get(callableId);
+              if (target == null) {
+                throw new IllegalStateException("annotation callable reference is not initialized");
+              }
+              yield new RuntimeValues.Closure(
+                  target,
+                  occurrence(callableId),
+                  callableReference.virtual() ? callableId : null,
+                  ((CoreDefinition.Callable) program.definition(callableId).orElseThrow())
+                      .hasReceiver(),
+                  null,
+                  new Object[0],
+                  callableReference.receiverTypeArguments().toArray(),
+                  callableReference.reifiedArguments().toArray());
+            }
+          };
+    };
   }
 
   private static boolean isCodePoint(CoreType type) {
@@ -448,8 +696,8 @@ final class AnnotationRuntime {
       if (value != null) return value;
       CoreDefinition.Aggregate declaration = annotation(annotationId);
       RuntimeValues.AggregateInfo info = aggregateInfo.get(annotationId);
-      DefinitionId constructorId = resolve(annotationId, declaration.constructor());
-      CallTarget constructor = constructors.get(constructorId);
+      DefinitionId constructorId = resolve(annotationId, declaration.constructors().getFirst());
+      CallTarget constructor = callableTargets.get(constructorId);
       if (info == null || constructor == null) {
         throw new IllegalStateException("annotation runtime is not initialized");
       }

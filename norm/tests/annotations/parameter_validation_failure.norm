@@ -14,7 +14,7 @@ annotation Size implements ParameterInterceptor<String>, SourceRetention {
 
   String before(ParameterContext context, String value) {
     if value == "tiny" {
-      throw InvalidSize(message: context.name())
+      throw InvalidSize(message: context.parameter().name())
     }
     return value
   }

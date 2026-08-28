@@ -4,7 +4,7 @@ import std.testing.expectedOutputLines
 
 annotation Trace implements FunctionInterceptor, SourceRetention {
   Void before(FunctionContext context) {
-    printLine("before " + context.name())
+    printLine("before " + context.function().name())
   }
 }
 
@@ -19,4 +19,3 @@ main() {
   printLine(Service().read())
   expectedOutputLines(["before read", "value"])
 }
-

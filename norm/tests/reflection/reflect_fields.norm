@@ -14,23 +14,21 @@ value User {
 
 main() {
   User user = User(name: "Norm", age: 1)
-  for Field<User> field : reflect<User>().fields() {
+  for Field<User, ?> field : User.class.fields() {
     printLine(field.name())
-    printLine(field.index())
-    printLine(field.typeName())
+    printLine(field.type().name())
     printLine(field.annotation<Label>()?.text ?? "none")
-    printLine(field.read(value: user))
   }
+  printLine(User.name.field.read(receiver: user))
+  printLine(User.age.field.read(receiver: user))
   expectedOutputLines([
     "name",
-    "0",
     "String",
     "user_name",
-    "Norm",
     "age",
-    "1",
     "Integer",
     "none",
+    "Norm",
     "1"
   ])
 }

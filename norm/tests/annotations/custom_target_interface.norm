@@ -14,7 +14,6 @@ value Model {
 }
 
 main() {
-  printLine(reflect<Model>().annotation<Label>()?.text ?? "missing")
+  printLine(Model.class.annotation<Label>()?.text ?? "missing")
   expectedOutputLines(["model"])
 }
-

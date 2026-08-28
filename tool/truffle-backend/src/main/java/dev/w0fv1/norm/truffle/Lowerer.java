@@ -82,12 +82,26 @@ final class Lowerer {
     for (Map.Entry<DefinitionOccurrenceId, CoreDefinition.Aggregate> entry :
         aggregates.entrySet()) {
       DefinitionId definition = entry.getKey().representative();
-      DefinitionId constructor = resolve(definition, entry.getValue().constructor());
-      com.oracle.truffle.api.CallTarget initializer = targets.get(constructor);
-      if (initializer == null) throw new IllegalStateException("aggregate initializer is absent");
+      List<GuestValueFactory.Initializer> initializers =
+          entry.getValue().constructors().stream()
+              .map(link -> resolve(definition, link))
+              .map(
+                  constructor -> {
+                    com.oracle.truffle.api.CallTarget target = targets.get(constructor);
+                    if (target == null) {
+                      throw new IllegalStateException("aggregate initializer is absent");
+                    }
+                    CoreDefinition constructorDefinition =
+                        program.definition(constructor).orElseThrow();
+                    if (!(constructorDefinition instanceof CoreDefinition.Callable callable)) {
+                      throw new IllegalStateException("aggregate initializer is not callable");
+                    }
+                    return new GuestValueFactory.Initializer(target, callable.parameters().size());
+                  })
+              .toList();
       aggregatePlans.add(
           GuestValueFactory.AggregatePlan.create(
-              definition, entry.getValue(), aggregateInfo.get(entry.getKey()), initializer));
+              definition, entry.getValue(), aggregateInfo.get(entry.getKey()), initializers));
     }
     List<GuestValueFactory.EnumPlan> enumPlans =
         program.definitions().stream()
@@ -756,7 +770,9 @@ final class Lowerer {
       throw new IllegalStateException("core closure target is absent: " + targetId);
     return new ExpressionNodes.Closure(
         target.target,
+        targetId,
         closure.virtual() ? targetId.representative() : null,
+        target.declaration.hasReceiver() && closure.receiver().isEmpty(),
         closure.receiver().map(value -> lowerExpression(value, plan)).orElse(null),
         closure.captures().stream()
             .map(value -> lowerExpression(value, plan))

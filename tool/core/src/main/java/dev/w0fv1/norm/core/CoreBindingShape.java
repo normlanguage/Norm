@@ -30,7 +30,7 @@ public sealed interface CoreBindingShape {
       List<CoreTypeParameter> typeParameters,
       Optional<CoreType> parentType,
       List<Field> fields,
-      List<Parameter> constructorParameters,
+      List<Constructor> constructors,
       List<CoreType> conformances)
       implements CoreBindingShape {
     public Aggregate {
@@ -42,7 +42,9 @@ public sealed interface CoreBindingShape {
       typeParameters = requireTypeParameters(typeParameters, 0);
       parentType = Objects.requireNonNull(parentType, "parentType");
       fields = List.copyOf(fields);
-      constructorParameters = List.copyOf(constructorParameters);
+      constructors = List.copyOf(constructors);
+      if (constructors.isEmpty())
+        throw new IllegalArgumentException("aggregate binding requires a constructor");
       conformances = List.copyOf(conformances);
     }
 
@@ -59,8 +61,18 @@ public sealed interface CoreBindingShape {
           typeParameters,
           Optional.empty(),
           fields,
-          fields.stream().map(field -> new Parameter(field.name(), field.type())).toList(),
+          List.of(
+              new Constructor(
+                  fields.stream()
+                      .map(field -> new Parameter(field.name(), field.type()))
+                      .toList())),
           conformances);
+    }
+  }
+
+  record Constructor(List<Parameter> parameters) {
+    public Constructor {
+      parameters = List.copyOf(parameters);
     }
   }
 

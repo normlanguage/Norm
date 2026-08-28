@@ -55,7 +55,7 @@ public value YamlReader<T> implements DataReader<T> {
 
 public value YamlWriter<T> implements DataWriter<T> {
   String writeString(T value) {
-    return __yamlEncode<T>(value: value, type: reflect<T>())
+    return __yamlEncode<T>(value: value, type: T.class)
   }
 
   Bytes writeBytes(T value) {

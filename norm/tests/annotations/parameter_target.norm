@@ -4,14 +4,13 @@ import std.testing.expectedOutputLines
 
 annotation Mark implements ParameterInterceptor<String>, SourceRetention {
   String before(ParameterContext context, String value) {
-    printLine(context.function().name())
-    printLine(context.name())
-    printLine(context.index())
+    printLine(context.parameter().function().name())
+    printLine(context.parameter().name())
     return "[" + value + "]"
   }
 
   Void after(ParameterContext context, FunctionCompletion completion) {
-    printLine(context.name())
+    printLine(context.parameter().name())
     printLine(completion.succeeded())
   }
 }
@@ -23,5 +22,5 @@ String echo(@Mark() String value) {
 
 main() {
   printLine(echo(value: "parameter"))
-  expectedOutputLines(["echo", "value", "0", "[parameter]", "value", "true", "[parameter]"])
+  expectedOutputLines(["echo", "value", "[parameter]", "value", "true", "[parameter]"])
 }

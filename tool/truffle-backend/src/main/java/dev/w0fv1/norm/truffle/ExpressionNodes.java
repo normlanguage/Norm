@@ -7,6 +7,7 @@ import com.oracle.truffle.api.nodes.IndirectCallNode;
 import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -559,7 +560,9 @@ final class ExpressionNodes {
 
   static final class Closure extends ExpressionNode {
     private final CallTarget target;
+    private final DefinitionOccurrenceId declaration;
     private final DefinitionId virtualSlot;
+    private final boolean unbound;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] captures;
     @Children private final ExpressionNode[] reifiedArguments;
@@ -567,13 +570,17 @@ final class ExpressionNodes {
 
     Closure(
         CallTarget target,
+        DefinitionOccurrenceId declaration,
         DefinitionId virtualSlot,
+        boolean unbound,
         ExpressionNode receiver,
         ExpressionNode[] captures,
         ExpressionNode[] reifiedArguments,
         ExpressionNode[] receiverTypeArguments) {
       this.target = target;
+      this.declaration = declaration;
       this.virtualSlot = virtualSlot;
+      this.unbound = unbound;
       this.receiver = receiver;
       this.captures = captures;
       this.reifiedArguments = reifiedArguments;
@@ -596,7 +603,8 @@ final class ExpressionNodes {
       for (int index = 0; index < receiverTypeArguments.length; index++) {
         ownerArguments[index] = receiverTypeArguments[index].execute(frame);
       }
-      if (virtualSlot != null) {
+      DefinitionId pendingVirtualSlot = virtualSlot;
+      if (virtualSlot != null && receiverValue != null) {
         RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
         RuntimeValues.DispatchTarget.Callable dispatch =
             (RuntimeValues.DispatchTarget.Callable) object.objectInfo.dispatch().get(virtualSlot);
@@ -607,9 +615,17 @@ final class ExpressionNodes {
             dispatch.receiverTypeArguments().stream()
                 .map(type -> type.substitute(concreteArguments::get))
                 .toArray();
+        pendingVirtualSlot = null;
       }
       return new RuntimeValues.Closure(
-          resolvedTarget, receiverValue, values, ownerArguments, reified);
+          resolvedTarget,
+          declaration,
+          pendingVirtualSlot,
+          unbound,
+          receiverValue,
+          values,
+          ownerArguments,
+          reified);
     }
   }
 
@@ -629,9 +645,9 @@ final class ExpressionNodes {
     Object execute(VirtualFrame frame) {
       RuntimeValues.Closure closure = (RuntimeValues.Closure) callee.execute(frame);
       Object[] values = evaluateArguments(arguments, parameterIndices, frame);
-      return call.call(
-          closure.target(),
-          RuntimeValues.invocationArguments(ExecutionContextAccess.state(frame), closure, values));
+      RuntimeValues.PreparedInvocation invocation =
+          RuntimeValues.prepareInvocation(ExecutionContextAccess.state(frame), closure, values);
+      return call.call(invocation.target(), invocation.arguments());
     }
   }
 

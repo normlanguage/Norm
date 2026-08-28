@@ -690,11 +690,11 @@ final class CoreProgramVerifierTest {
 
   @Test
   void bindsGenericIntrinsicsFromArgumentsWhenTheResultIsConcrete() {
-    CoreType reflectedInteger = builtinType("Type", List.of(CoreType.INTEGER));
+    CoreType reflectedInteger = builtinType("Class", List.of(CoreType.INTEGER));
     CoreExpression reflected =
         new CoreExpression.Intrinsic(
             4,
-            IntrinsicId.REFLECT_TYPE,
+            IntrinsicId.CLASS_LITERAL,
             Optional.empty(),
             List.of(),
             Optional.of(new CoreRuntimeType(reflectedInteger, List.of())),
@@ -716,7 +716,7 @@ final class CoreProgramVerifierTest {
   }
 
   @Test
-  void rejectsTypeAnnotationIntrinsicForNonAnnotationResults() {
+  void rejectsClassAnnotationIntrinsicForNonAnnotationResults() {
     CoreDefinitionGroup box = aggregateGroup("Box", 0, List.of());
     CoreType boxType = userType(aggregateId(box), List.of());
     CoreType nullableBox =
@@ -725,11 +725,11 @@ final class CoreProgramVerifierTest {
             List.of(),
             CoreValueCategory.IDENTITY,
             CoreNullability.NULLABLE);
-    CoreType reflected = builtinType("Type", List.of(boxType));
+    CoreType reflected = builtinType("Class", List.of(boxType));
     CoreExpression.Intrinsic query =
         new CoreExpression.Intrinsic(
             2,
-            IntrinsicId.TYPE_ANNOTATION,
+            IntrinsicId.CLASS_ANNOTATION,
             Optional.of(new CoreExpression.LocalRead(3, 0, reflected)),
             List.of(),
             Optional.of(new CoreRuntimeType(nullableBox, List.of())),
@@ -963,7 +963,7 @@ final class CoreProgramVerifierTest {
             parent.isPresent() ? 1 + fields.size() : fields.size(),
             fields,
             List.of(),
-            new PendingDefinitionReference(1),
+            List.of(new PendingDefinitionReference(1)),
             List.of());
     List<Integer> parameters =
         java.util.stream.IntStream.range(0, fields.size()).map(index -> index + 1).boxed().toList();
@@ -1050,7 +1050,7 @@ final class CoreProgramVerifierTest {
             fields.size(),
             fields,
             List.of(),
-            new PendingDefinitionReference(1),
+            List.of(new PendingDefinitionReference(1)),
             List.of());
     CoreDefinition.Callable constructor =
         new CoreDefinition.Callable(
@@ -1094,7 +1094,7 @@ final class CoreProgramVerifierTest {
             .map(CoreDefinition.Aggregate.class::cast)
             .findFirst()
             .orElseThrow();
-    return switch (aggregate.constructor()) {
+    return switch (aggregate.constructors().getFirst()) {
       case DefinitionReference.External external -> external.definition();
       case DefinitionReference.RecursiveMember recursive ->
           group.definitionId(recursive.memberIndex());

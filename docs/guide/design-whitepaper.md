@@ -124,14 +124,14 @@ Enum variant 可以携带数据，switch 通过模式解构 payload。`Result<T,
 
 Norm 泛型保持不变，类型位置写全实参，构造和泛型调用可以根据期望类型与实参求解。求解后的实际类型参数进入 canonical Core 和运行时类型环境，不采用类型擦除。
 
-Reified 类型模型服务动态分派、反射、Annotation、serialization 和运行时诊断。公共反射入口使用 `reflect<T>()`：
+Reified 类型模型服务动态分派、反射、Annotation、serialization 和运行时诊断。公共反射入口使用类型字面量：
 
 ```norm
-Type<Order> type = reflect<Order>()
-List<Field<Order>> fields = type.fields()
+Class<Order> type = Order.class
+List<Field<Order, ?>> fields = type.fields()
 ```
 
-字段具有稳定 ordinal、声明类型和 runtime Annotation。读取字段返回携带精确字段类型的 `ReflectedValue`，不会根据字符串搜索 getter 或依赖 JVM reflection。
+字段声明引用具有稳定 identity、owner、声明类型和 runtime Annotation。`Field<Owner, Value>.read(Owner)` 直接返回精确的 Value，不会根据字符串搜索 getter 或依赖 JVM reflection。
 
 ## 7. Annotation 与受控扩展
 

@@ -1,0 +1,28 @@
+import std.annotation.Document
+import std.testing.expectedOutputLines
+
+class User {
+  public String name
+}
+
+String normalizeName(String name) {
+  return name
+}
+
+@Document(
+  description: "User-facing account API backed by checked declaration references.",
+  types: [User.class],
+  functions: [normalizeName.function],
+  fields: [User.name.field]
+)
+class UserApi {
+}
+
+@Document(description: "API without cross-references.")
+class HealthApi {
+}
+
+main() {
+  printLine("document metadata compiled")
+  expectedOutputLines(["document metadata compiled"])
+}

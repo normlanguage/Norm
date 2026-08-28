@@ -23,7 +23,7 @@ final class FunctionExecutionTest {
     assertOutput(
         "class Counter { Integer value add(Integer amount) { value = value + amount } } "
             + "main() { Counter counter = Counter(value: 4) "
-            + "Function<Counter(Integer)> add = counter::add "
+            + "Function<Counter(Integer)> add = counter.add "
             + "Counter result = add(5) printLine(result.value) printLine(result == counter) }",
         lines("9", "true"));
   }
@@ -46,12 +46,12 @@ final class FunctionExecutionTest {
   }
 
   @Test
-  void createsTopLevelAndBoundMethodReferences() throws Exception {
+  void createsTopLevelAndBoundFunctionValues() throws Exception {
     assertOutput(
         "Integer doubled(Integer value) { return value * 2 } "
             + "class Counter { Integer value Integer add(Integer amount) { value = value + amount return value } } "
             + "Void main() { Function<Integer(Integer)> first = doubled "
-            + "Counter counter = Counter(value: 10) Function<Integer(Integer)> second = counter::add "
+            + "Counter counter = Counter(value: 10) Function<Integer(Integer)> second = counter.add "
             + "printLine(first(6)) printLine(second(5)) printLine(counter.value) }",
         lines("12", "15", "15"));
   }
@@ -62,7 +62,7 @@ final class FunctionExecutionTest {
         "Integer apply(Integer transform(Integer value), Integer input) { return transform(input) } "
             + "class Counter { Integer value Integer add(Integer amount) { return value + amount } } "
             + "Void main() { var doubled = Integer(Integer value) { value * 2 } "
-            + "Counter counter = Counter(value: 10) Integer add(Integer amount) = counter::add "
+            + "Counter counter = Counter(value: 10) Integer add(Integer amount) = counter.add "
             + "printLine(apply(transform: doubled, input: 6)) printLine(add(5)) }",
         lines("12", "15"));
   }
@@ -107,15 +107,26 @@ final class FunctionExecutionTest {
   }
 
   @Test
-  void specializesGenericFunctionAndMethodReferences() throws Exception {
+  void specializesGenericFunctionAndBoundFunctionValues() throws Exception {
     assertOutput(
         "T identity<T>(T value) { return value } "
             + "class Identity { T apply<T>(T value) { return value } } "
             + "Void main() { Function<Integer(Integer)> first = identity "
             + "Identity identityObject = Identity() "
-            + "Function<String(String)> second = identityObject::apply "
+            + "Function<String(String)> second = identityObject.apply "
             + "printLine(first(9)) printLine(second(\"nine\")) }",
         lines("9", "nine"));
+  }
+
+  @Test
+  void invokesUnboundPrivateMethodDeclarationsWithAnExplicitReceiver() throws Exception {
+    assertOutput(
+        "class Vault { String value "
+            + "private String reveal() { return value } "
+            + "public Function<String(Vault)> revealer() { return Vault.reveal.function } } "
+            + "Void main() { Vault vault = Vault(value: \"secret\") "
+            + "Function<String(Vault)> reveal = vault.revealer() printLine(reveal(vault)) }",
+        lines("secret"));
   }
 
   @Test

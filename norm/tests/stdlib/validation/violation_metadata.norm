@@ -11,10 +11,10 @@ main() {
     accept(amount: 1)
   } catch ConstraintViolation error {
     printLine(error.location == ConstraintLocation.Parameter)
-    printLine(error.target)
-    printLine(error.index)
+    printLine(error.parameterReference?.name() ?? "missing")
+    printLine(error.functionReference?.name() ?? "missing")
     printLine(error.code)
     printLine(error.message)
   }
-  expectedOutputLines(["true", "amount", "0", "negative", "must be negative"])
+  expectedOutputLines(["true", "amount", "accept", "negative", "must be negative"])
 }

@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import static dev.w0fv1.norm.frontend.SemanticDiagnosticCodes.*;
 
 import dev.w0fv1.norm.semantic.AnnotationApplication;
+import dev.w0fv1.norm.semantic.AnnotationDeclarationReference;
 import dev.w0fv1.norm.semantic.AnnotationParameterInfo;
 import dev.w0fv1.norm.semantic.AnnotationSchema;
 import dev.w0fv1.norm.semantic.AnnotationSite;
@@ -134,12 +135,10 @@ final class AnnotationChecker {
           analyzer.typeSystem.validateType(typeRef, false);
           SemanticType type = analyzer.typeSystem.resolveType(typeRef, Map.of());
           SemanticType scalar = type.nonNullable();
-          if (!scalar.arguments().isEmpty()
-              || !Set.of("Boolean", "CodePoint", "Integer", "Long", "Float", "Double", "String")
-                  .contains(scalar.name())) {
+          if (!isAnnotationValueType(scalar)) {
             analyzer.context.diagnostics.error(
                 TYPE_MISMATCH,
-                "annotation constructor parameters must be scalar types",
+                "annotation constructor parameters must be metadata value types",
                 typeRef.span());
           }
           parameters.add(
@@ -169,6 +168,19 @@ final class AnnotationChecker {
                 parameters));
       }
     }
+  }
+
+  private static boolean isAnnotationValueType(SemanticType type) {
+    if (type.isFunction()) return true;
+    if (type.arguments().isEmpty()) {
+      return Set.of("Boolean", "CodePoint", "Integer", "Long", "Float", "Double", "String")
+          .contains(type.name());
+    }
+    return type.name().equals("Class") && type.arguments().size() == 1
+        || type.name().equals("Field") && type.arguments().size() == 2
+        || type.name().equals("List")
+            && type.arguments().size() == 1
+            && isAnnotationValueType(type.arguments().getFirst().nonNullable());
   }
 
   private AnnotationPolicy annotationPolicy(SemanticType type) {
@@ -241,6 +253,28 @@ final class AnnotationChecker {
 
   private Optional<AnnotationValue> annotationConstant(
       Syntax.Expression expression, SemanticType expected) {
+    if (expression instanceof Syntax.ArrayLiteral list) {
+      SemanticType collection = expected.nonNullable();
+      if (!collection.name().equals("List") || collection.arguments().size() != 1) {
+        analyzer.context.diagnostics.error(
+            TYPE_MISMATCH, "annotation list requires a List metadata type", expression.span());
+        analyzer.typeOf(expression, expected);
+        return Optional.empty();
+      }
+      analyzer.context.semanticTypes.put(expression.span(), collection);
+      analyzer.typeSystem.requireAssignable(expected, collection, expression.span());
+      List<AnnotationValue> values = new ArrayList<>();
+      boolean complete = true;
+      for (Syntax.Expression element : list.elements()) {
+        Optional<AnnotationValue> value =
+            annotationConstant(element, collection.arguments().getFirst());
+        if (value.isEmpty()) complete = false;
+        else values.add(value.orElseThrow());
+      }
+      return complete
+          ? Optional.of(new AnnotationValue(expected, new AnnotationValue.ListValue(values)))
+          : Optional.empty();
+    }
     boolean literal =
         expression instanceof Syntax.BooleanLiteral
             || expression instanceof Syntax.CodePointLiteral
@@ -248,24 +282,55 @@ final class AnnotationChecker {
             || expression instanceof Syntax.DecimalLiteral
             || expression instanceof Syntax.StringLiteralExpr
             || expression instanceof Syntax.NullLiteral;
-    if (!literal) {
+    boolean declarationReference = isDeclarationReference(expression);
+    if (!literal && !declarationReference) {
       analyzer.context.diagnostics.error(
-          TYPE_MISMATCH, "annotation argument must be a compile-time constant", expression.span());
+          TYPE_MISMATCH,
+          "annotation argument must be a compile-time constant or declaration reference",
+          expression.span());
       return Optional.empty();
     }
     SemanticType actual = analyzer.typeOf(expression, expected);
     analyzer.typeSystem.requireAssignable(expected, actual, expression.span());
-    Object value =
-        switch (expression) {
-          case Syntax.BooleanLiteral item -> item.value();
-          case Syntax.CodePointLiteral item -> item.value();
-          case Syntax.IntegerLiteral item -> item.value();
-          case Syntax.DecimalLiteral item -> item.value();
-          case Syntax.StringLiteralExpr item -> item.value();
-          case Syntax.NullLiteral ignored -> null;
-          default -> throw new IllegalStateException("annotation constant is not a literal");
-        };
+    Optional<AnnotationDeclarationReference> reference =
+        declarationReference
+            ? declarationReference((Syntax.Member) expression, actual)
+            : Optional.empty();
+    if (declarationReference && reference.isEmpty()) return Optional.empty();
+    AnnotationValue.Content value =
+        declarationReference
+            ? reference.orElseThrow()
+            : switch (expression) {
+              case Syntax.BooleanLiteral item -> new AnnotationValue.Literal(item.value());
+              case Syntax.CodePointLiteral item -> new AnnotationValue.Literal(item.value());
+              case Syntax.IntegerLiteral item -> new AnnotationValue.Literal(item.value());
+              case Syntax.DecimalLiteral item -> new AnnotationValue.Literal(item.value());
+              case Syntax.StringLiteralExpr item -> new AnnotationValue.Literal(item.value());
+              case Syntax.NullLiteral ignored -> AnnotationValue.Null.INSTANCE;
+              default -> throw new IllegalStateException("annotation constant is not a literal");
+            };
     return Optional.of(new AnnotationValue(expected, value));
+  }
+
+  private static boolean isDeclarationReference(Syntax.Expression expression) {
+    return expression instanceof Syntax.Member member
+        && (member.name().equals("class")
+            || member.name().equals("function")
+            || member.name().equals("field"));
+  }
+
+  private Optional<AnnotationDeclarationReference> declarationReference(
+      Syntax.Member member, SemanticType actualType) {
+    SymbolId target = analyzer.context.bindings.get(member.nameSpan());
+    if (target == null) return Optional.empty();
+    AnnotationDeclarationReference.Kind kind =
+        switch (member.name()) {
+          case "class" -> AnnotationDeclarationReference.Kind.CLASS;
+          case "function" -> AnnotationDeclarationReference.Kind.CALLABLE;
+          case "field" -> AnnotationDeclarationReference.Kind.FIELD;
+          default -> throw new IllegalStateException("invalid annotation declaration reference");
+        };
+    return Optional.of(new AnnotationDeclarationReference(kind, target, actualType, member.span()));
   }
 
   private void validateCallableAnnotations(
@@ -413,7 +478,6 @@ final class AnnotationChecker {
       }
       case Syntax.Member member -> validateLocalAnnotations(member.receiver());
       case Syntax.Lambda lambda -> validateLocalAnnotations(lambda.body());
-      case Syntax.MethodReference reference -> validateLocalAnnotations(reference.receiver());
       case Syntax.Index index -> {
         validateLocalAnnotations(index.receiver());
         validateLocalAnnotations(index.index());
@@ -521,11 +585,15 @@ final class AnnotationChecker {
       for (AnnotationParameterInfo parameter : schema.parameters()) {
         Syntax.CallArgument argument = supplied.remove(parameter.name());
         if (argument == null) {
-          analyzer.context.diagnostics.error(
-              TYPE_MISMATCH,
-              "required annotation parameter '" + parameter.name() + "' is missing",
-              use.span());
-          complete = false;
+          if (parameter.type().isNullable()) {
+            values.add(new AnnotationValue(parameter.type(), AnnotationValue.Null.INSTANCE));
+          } else {
+            analyzer.context.diagnostics.error(
+                TYPE_MISMATCH,
+                "required annotation parameter '" + parameter.name() + "' is missing",
+                use.span());
+            complete = false;
+          }
           continue;
         }
         analyzer.context.bindings.put(argument.label().orElseThrow().span(), parameter.symbol());

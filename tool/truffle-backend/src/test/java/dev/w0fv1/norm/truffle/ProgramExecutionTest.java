@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
-import static dev.w0fv1.norm.testing.NormTestKit.projectSuite;
 import static dev.w0fv1.norm.testing.NormTestKit.outputSuite;
+import static dev.w0fv1.norm.testing.NormTestKit.projectSuite;
 import static dev.w0fv1.norm.testing.NormTestKit.suite;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,13 +24,13 @@ final class ProgramExecutionTest {
             + "String level "
             + "String prefix() { return \"[\" + level + \"]\" } "
             + "Void before(FunctionContext context) { "
-            + "printLine(this.prefix() + \" before \" + context.name()) } "
+            + "printLine(this.prefix() + \" before \" + context.function().name()) } "
             + "R around<R>(FunctionInvocation<R> invocation) { "
             + "printLine(this.prefix() + \" around-in\") "
             + "R result = invocation.proceed() "
             + "printLine(this.prefix() + \" around-out\") return result } "
             + "Void after(FunctionContext context, FunctionCompletion completion) { "
-            + "printLine(this.prefix() + \" after \" + context.name()) "
+            + "printLine(this.prefix() + \" after \" + context.function().name()) "
             + "printLine(completion.succeeded()) } } "
             + "@Log(level: \"debug\") String greet(String name) { "
             + "printLine(\"body \" + name) return \"hello \" + name } "
@@ -55,13 +55,13 @@ final class ProgramExecutionTest {
         "import std.annotation.FunctionInterceptor "
             + "import std.annotation.SourceRetention "
             + "annotation Trace implements FunctionInterceptor, SourceRetention { "
-            + "Void before(FunctionContext context) { printLine(\"trace \" + context.name()) } } "
+            + "Void before(FunctionContext context) { printLine(\"trace \" + context.function().name()) } } "
             + "interface Named { String name() } "
             + "class Base implements Named { public String name() { return \"base\" } } "
             + "class Child extends Base { Child() { super() } "
             + "@Trace() public String name() { return \"child\" } } "
             + "Void main() { Child child = Child() Named named = child "
-            + "Function<String()> reference = child::name "
+            + "Function<String()> reference = child.name "
             + "printLine(named.name()) printLine(reference()) }",
         String.join(System.lineSeparator(), "trace name", "child", "trace name", "child", ""));
   }
@@ -73,7 +73,7 @@ final class ProgramExecutionTest {
             + "import std.annotation.SourceRetention "
             + "annotation ReturnType implements FunctionInterceptor, SourceRetention { "
             + "R around<R>(FunctionInvocation<R> invocation) { "
-            + "printLine(reflect<R>().name()) return invocation.proceed() } } "
+            + "printLine(R.class.name()) return invocation.proceed() } } "
             + "@ReturnType() T identity<T>(T value) { return value } "
             + "Void main() { printLine(identity(value: \"Norm\")) "
             + "printLine(identity(value: 9)) }",
@@ -143,8 +143,8 @@ final class ProgramExecutionTest {
             + "annotation Label implements TypeTarget, RuntimeRetention { String text "
             + "Label(String initial) { this.text = \"created:\" + initial } } "
             + "@Label(initial: \"point\") value Point {} "
-            + "Void main() { Label? first = reflect<Point>().annotation<Label>() "
-            + "Label? second = reflect<Point>().annotation<Label>() "
+            + "Void main() { Label? first = Point.class.annotation<Label>() "
+            + "Label? second = Point.class.annotation<Label>() "
             + "if (first != null) { first.text = \"changed\" } "
             + "printLine(second?.text ?? \"missing\") }",
         "changed" + System.lineSeparator());
@@ -158,7 +158,7 @@ final class ProgramExecutionTest {
             + "annotation Label implements TypeTarget, RuntimeRetention { String text } "
             + "annotation Internal implements TypeTarget, BinaryRetention { String text } "
             + "@Label(text: \"point\") @Internal(text: \"hidden\") value Point { Integer x } "
-            + "Void main() { Type<Point> type = reflect<Point>() "
+            + "Void main() { Class<Point> type = Point.class "
             + "Label? label = type.annotation<Label>() "
             + "Internal? hidden = type.annotation<Internal>() "
             + "printLine(type.name()) printLine(label?.text ?? \"missing\") "
@@ -169,8 +169,90 @@ final class ProgramExecutionTest {
   @Test
   void reflectsGenericAndNullableDisplayNames() throws Exception {
     assertOutput(
-        "Void main() { printLine(reflect<List<String>?>().name()) }",
+        "String reflectedName<T>() { return T.class.name() } "
+            + "Void main() { printLine(reflectedName<List<String>?>()) }",
         "List<String>?" + System.lineSeparator());
+  }
+
+  @Test
+  void executesTypedDeclarationReferencesAndReflectionCollections() throws Exception {
+    assertOutput(
+        "class User { public String name "
+            + "User() { this.name = \"empty\" } "
+            + "User(String name) { this.name = name } "
+            + "public String label() { return \"user:\" + name } "
+            + "public String format(Integer value) { return value.toString() } "
+            + "public String format(String value) { return value } } "
+            + "class Admin extends User { Admin(String name) { super(name: name) } "
+            + "public String label() { return \"admin:\" + name } } "
+            + "String normalize(String value) { return value } "
+            + "Void main() { Admin admin = Admin(name: \"Ada\") "
+            + "Field<User, String> field = User.name.field "
+            + "Function<String(User)> unbound = User.label.function "
+            + "Function<?> unknownUnbound = User.label.function "
+            + "Function<String()> bound = admin.label "
+            + "List<Field<User, ?>> fields = User.class.fields() "
+            + "List<Function<?>> functions = User.class.functions() "
+            + "List<Constructor<User>> constructors = User.class.constructors() "
+            + "printLine(User.class.name()) printLine(field.name()) "
+            + "printLine(field.owner().name()) printLine(field.type().name()) "
+            + "printLine(field.read(receiver: admin)) printLine(unbound(admin)) printLine(bound()) "
+            + "printLine(unknownUnbound.parameters().size()) "
+            + "printLine(unknownUnbound.parameters()[0].type().name()) "
+            + "printLine(fields[0].name()) printLine(functions[0].name()) "
+            + "printLine(functions.size()) "
+            + "printLine(functions[1].name()) printLine(functions[1].parameters()[1].type().name()) "
+            + "printLine(functions[2].name()) printLine(functions[2].parameters()[1].type().name()) "
+            + "printLine(constructors.size()) printLine(constructors[0].owner().name()) "
+            + "printLine(normalize.function.parameters()[0].name()) "
+            + "printLine(normalize.function.parameters()[0].type().name()) "
+            + "printLine(normalize.function.name()) printLine(normalize.function.owner() == null) }",
+        String.join(
+            System.lineSeparator(),
+            "User",
+            "name",
+            "User",
+            "String",
+            "Ada",
+            "admin:Ada",
+            "admin:Ada",
+            "1",
+            "User",
+            "name",
+            "label",
+            "3",
+            "format",
+            "Integer",
+            "format",
+            "String",
+            "2",
+            "User",
+            "value",
+            "String",
+            "normalize",
+            "true",
+            ""));
+  }
+
+  @Test
+  void materializesDeclarationReferencesFromRuntimeAnnotations() throws Exception {
+    assertOutput(
+        "import std.annotation.TypeTarget import std.annotation.RuntimeRetention "
+            + "annotation Links implements TypeTarget, RuntimeRetention { "
+            + "List<Class<?>>? types List<Function<?>>? functions List<Field<?, ?>>? fields } "
+            + "class User { public String name } "
+            + "String lookup(String value) { return value } "
+            + "@Links(types: [User.class], functions: [lookup.function], "
+            + "fields: [User.name.field]) class Api {} "
+            + "@Links() class EmptyApi {} "
+            + "Void main() { Links? links = Api.class.annotation<Links>() "
+            + "Links? empty = EmptyApi.class.annotation<Links>() "
+            + "List<Class<?>> types = links?.types ?? [] "
+            + "List<Function<?>> functions = links?.functions ?? [] "
+            + "List<Field<?, ?>> fields = links?.fields ?? [] "
+            + "printLine(types[0].name()) printLine(functions[0].name()) "
+            + "printLine(fields[0].name()) printLine(empty?.types == null) }",
+        String.join(System.lineSeparator(), "User", "lookup", "name", "true", ""));
   }
 
   @Test
@@ -385,7 +467,7 @@ final class ProgramExecutionTest {
             + "public String name() { return value } } "
             + "Void main() { Child child = Child(initial: \"norm\", initialRank: 9) "
             + "Base<String> base = child Named named = child "
-            + "Function<String()> method = child::name "
+            + "Function<String()> method = child.name "
             + "printLine(base.get()) printLine(named.name()) printLine(method()) }",
         String.join(System.lineSeparator(), "norm", "norm", "norm", ""));
   }

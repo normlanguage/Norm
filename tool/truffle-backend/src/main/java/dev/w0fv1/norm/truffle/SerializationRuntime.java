@@ -103,7 +103,7 @@ final class SerializationRuntime {
           String name =
               typeName == null
                   ? aggregate.nominalType().name()
-                  : (String) typeName.getFirst().value();
+                  : annotationString(typeName.getFirst());
           requireName(name, "$", "type");
           List<FieldShape> fields = new ArrayList<>();
           Map<String, Integer> names = new LinkedHashMap<>();
@@ -114,7 +114,8 @@ final class SerializationRuntime {
                     != null;
             List<CoreAnnotationValue> renamed =
                 reflection.fieldAnnotationValues(serialName, field.owner(), field.index());
-            String fieldName = renamed == null ? field.name() : (String) renamed.getFirst().value();
+            String fieldName =
+                renamed == null ? field.name() : annotationString(renamed.getFirst());
             requireName(fieldName, "$", "field");
             if (!ignored && names.putIfAbsent(fieldName, field.index()) != null) {
               throw new ShapeException(
@@ -155,6 +156,14 @@ final class SerializationRuntime {
       throw new ShapeException(
           "NORM-SERIALIZATION-NAME", path, "serialized " + target + " name is blank");
     }
+  }
+
+  private static String annotationString(CoreAnnotationValue value) {
+    if (value.value() instanceof CoreAnnotationValue.Literal literal
+        && literal.value() instanceof String string) {
+      return string;
+    }
+    throw new IllegalStateException("annotation string metadata is invalid");
   }
 
   private DefinitionId annotation(String name) {

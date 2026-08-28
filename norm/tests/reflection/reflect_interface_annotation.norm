@@ -12,7 +12,6 @@ interface Named {
 }
 
 main() {
-  printLine(reflect<Named>().annotation<Label>()?.text ?? "missing")
+  printLine(Named.class.annotation<Label>()?.text ?? "missing")
   expectedOutputLines(["named"])
 }
-

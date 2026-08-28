@@ -216,6 +216,7 @@ public final class CoreArtifact {
                 program, id, shape.typeParameters(), declaration.typeParameters())
             || shape.parentType().isPresent() != declaration.parentType().isPresent()
             || shape.fields().size() != declaration.fields().size()
+            || shape.constructors().size() != declaration.constructors().size()
             || shape.conformances().size() != declaration.conformances().size()) {
           throw bindingMismatch(binding);
         }
@@ -243,26 +244,16 @@ public final class CoreArtifact {
                   .anyMatch(value -> sameType(program, id, conformance, value.interfaceType()));
           if (!present) throw bindingMismatch(binding);
         }
-        DefinitionId constructorId =
-            program.resolve(id, (DefinitionReference) declaration.constructor());
-        CoreDefinition constructorDefinition = program.definition(constructorId).orElseThrow();
-        if (!(constructorDefinition instanceof CoreDefinition.Callable constructor)
-            || shape.constructorParameters().size() != constructor.parameterTypes().size()) {
-          throw bindingMismatch(binding);
-        }
-        for (int parameter = 0; parameter < shape.constructorParameters().size(); parameter++) {
-          if (!shape
-                  .constructorParameters()
-                  .get(parameter)
-                  .label()
-                  .equals(constructor.parameters().get(parameter).name())
-              || !sameType(
-                  program,
-                  constructorId,
-                  shape.constructorParameters().get(parameter).type(),
-                  constructor.parameterTypes().get(parameter))) {
-            throw bindingMismatch(binding);
-          }
+        java.util.Set<DefinitionId> matched = new java.util.HashSet<>();
+        for (CoreBindingShape.Constructor constructorShape : shape.constructors()) {
+          DefinitionId constructorId =
+              declaration.constructors().stream()
+                  .map(reference -> program.resolve(id, (DefinitionReference) reference))
+                  .filter(candidate -> !matched.contains(candidate))
+                  .filter(candidate -> matchesConstructor(program, candidate, constructorShape))
+                  .findFirst()
+                  .orElseThrow(() -> bindingMismatch(binding));
+          matched.add(constructorId);
         }
       }
       case CoreDefinition.Enum declaration -> {
@@ -321,6 +312,30 @@ public final class CoreArtifact {
       }
       case CoreDefinition.BuiltinConformance ignored -> throw bindingMismatch(binding);
     }
+  }
+
+  private static boolean matchesConstructor(
+      CoreProgram program, DefinitionId constructorId, CoreBindingShape.Constructor shape) {
+    CoreDefinition definition = program.definition(constructorId).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Callable constructor)
+        || shape.parameters().size() != constructor.parameterTypes().size()) {
+      return false;
+    }
+    for (int parameter = 0; parameter < shape.parameters().size(); parameter++) {
+      if (!shape
+              .parameters()
+              .get(parameter)
+              .label()
+              .equals(constructor.parameters().get(parameter).name())
+          || !sameType(
+              program,
+              constructorId,
+              shape.parameters().get(parameter).type(),
+              constructor.parameterTypes().get(parameter))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static boolean sameType(

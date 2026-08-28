@@ -11,7 +11,6 @@ class Box {
 }
 
 main() {
-  printLine(reflect<Box>().annotation<Label>()?.text ?? "missing")
+  printLine(Box.class.annotation<Label>()?.text ?? "missing")
   expectedOutputLines(["box"])
 }
-

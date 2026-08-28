@@ -755,12 +755,12 @@ final class LanguageServiceTest {
   }
 
   @Test
-  void completesBoundMethodReferencesWithoutCallParentheses() {
+  void completesBoundFunctionValuesWithoutCallParentheses() {
     String text =
         "class Counter { public Integer add(Integer amount) { return amount } } "
-            + "Void main() { Counter counter = Counter() Function<Integer(Integer)> add = counter:: }";
+            + "Void main() { Counter counter = Counter() Function<Integer(Integer)> add = counter. }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:method-reference"), text));
-    int offset = text.indexOf("counter::") + "counter::".length();
+    int offset = text.indexOf("counter.") + "counter.".length();
 
     Completion completion =
         service.complete(analysis, offset).stream()

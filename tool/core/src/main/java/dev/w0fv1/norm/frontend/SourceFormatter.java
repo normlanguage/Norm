@@ -272,8 +272,13 @@ public final class SourceFormatter {
   }
 
   private Doc type(Syntax.TypeRef type) {
+    if (type.isWildcard()) return Docs.text("?");
     Doc base;
     if (type.name().equals("Function") && !type.arguments().isEmpty()) {
+      if (type.arguments().size() == 1 && type.arguments().getFirst().isWildcard()) {
+        base = Docs.text("Function<?>");
+        return type.nullable() ? Docs.concat(base, Docs.text("?")) : base;
+      }
       base =
           Docs.concat(
               Docs.text("Function<"),
@@ -467,10 +472,6 @@ public final class SourceFormatter {
       case Syntax.Call value -> call(value);
       case Syntax.Member value -> member(value);
       case Syntax.Lambda value -> lambda(value);
-      case Syntax.MethodReference value ->
-          Docs.concat(
-              expression(value.receiver(), precedence, false, null),
-              Docs.text("::" + value.name()));
       case Syntax.Index value ->
           Docs.concat(
               expression(value.receiver(), precedence, false, null),
@@ -600,7 +601,6 @@ public final class SourceFormatter {
     if (expression instanceof Syntax.Unary) return 8;
     if (expression instanceof Syntax.Call
         || expression instanceof Syntax.Member
-        || expression instanceof Syntax.MethodReference
         || expression instanceof Syntax.Index) return 9;
     return 10;
   }

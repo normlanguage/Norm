@@ -107,7 +107,7 @@ final class CoreProgramTest {
             1,
             List.of(new CoreField("value", 0, fieldType, List.of())),
             List.of(),
-            new PendingDefinitionReference(1),
+            List.of(new PendingDefinitionReference(1)),
             List.of());
     CoreDefinition.Callable constructor =
         new CoreDefinition.Callable(

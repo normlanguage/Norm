@@ -11,6 +11,8 @@ import java.util.List;
 
 final class FieldWriteNode extends Node {
   private static final CoreType FIELD_CONTEXT_TYPE = builtin("std.core.FieldContext");
+  private static final CoreType FIELD_TYPE =
+      builtin("std.core.Field", List.of(CoreType.EXISTENTIAL, CoreType.EXISTENTIAL));
   private static final CoreType COMPLETION_TYPE = builtin("std.core.FunctionCompletion");
   private final AnnotationRuntime annotations;
   @Child private AnnotationLifecycleNode lifecycle = new AnnotationLifecycleNode();
@@ -38,7 +40,8 @@ final class FieldWriteNode extends Node {
     }
     CoreInterceptor interceptor = plan.interceptors().get(layer);
     RuntimeValues.FieldContextValue context =
-        new RuntimeValues.FieldContextValue(FIELD_CONTEXT_TYPE, plan.name(), plan.index());
+        new RuntimeValues.FieldContextValue(
+            FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type, FIELD_TYPE));
     RuntimeValues.ObjectValue annotation =
         annotations.fieldAnnotation(plan.owner(), plan.index(), interceptor, execution);
     Object transformed =
@@ -65,9 +68,13 @@ final class FieldWriteNode extends Node {
   }
 
   private static CoreType builtin(String identity) {
+    return builtin(identity, List.of());
+  }
+
+  private static CoreType builtin(String identity, List<CoreType> arguments) {
     return new CoreType.Declared(
         new CoreTypeConstructor.Builtin(new BuiltinTypeId(identity)),
-        List.of(),
+        arguments,
         CoreValueCategory.IDENTITY,
         CoreNullability.NON_NULL);
   }

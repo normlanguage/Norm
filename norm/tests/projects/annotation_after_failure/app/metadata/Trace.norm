@@ -5,8 +5,7 @@ import std.annotation.SourceRetention
 
 public annotation Trace implements FunctionInterceptor, SourceRetention {
   public Void after(FunctionContext context, FunctionCompletion completion) {
-    printLine(context.name())
+    printLine(context.function().name())
     printLine(completion.succeeded())
   }
 }
-

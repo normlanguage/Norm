@@ -42,7 +42,7 @@ abstract class CoreWalker {
                   visitLink(dispatch.implementation());
                   walkType(dispatch.receiverType());
                 });
-        visitLink(declaration.constructor());
+        declaration.constructors().forEach(this::visitLink);
         declaration.conformances().forEach(this::walkConformance);
       }
       case CoreDefinition.Enum declaration -> {

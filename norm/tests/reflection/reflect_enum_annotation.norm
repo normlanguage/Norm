@@ -13,7 +13,6 @@ enum Choice {
 }
 
 main() {
-  printLine(reflect<Choice>().annotation<Label>()?.text ?? "missing")
+  printLine(Choice.class.annotation<Label>()?.text ?? "missing")
   expectedOutputLines(["choice"])
 }
-

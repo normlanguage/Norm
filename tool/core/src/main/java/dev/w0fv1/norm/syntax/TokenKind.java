@@ -43,7 +43,6 @@ public enum TokenKind {
   COMMA,
   SEMICOLON,
   COLON,
-  COLON_COLON,
   DOT,
   QUESTION,
   QUESTION_DOT,

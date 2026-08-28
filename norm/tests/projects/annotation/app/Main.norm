@@ -12,7 +12,7 @@ String greet(@Wrap() String name) {
 }
 
 main() {
-  Type<Point> type = reflect<Point>()
+  Class<Point> type = Point.class
   Label? label = type.annotation<Label>()
   printLine(type.name())
   printLine(label?.display() ?? "missing")

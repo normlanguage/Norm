@@ -48,7 +48,7 @@ main() {
 - nullable receiver 提供 safe access 补全；
 - 容器成员按实际类型参数显示；
 - 显式导出的 extension function 可以成员式补全，并自动加入 import；
-- `Type<T>`、`Field<T>`、Annotation 生命周期及 JSON/XML/YAML API 提供补全、悬停和跳转。
+- `Class<T>`、`Field<Owner, Value>`、`Function<Signature>`、Annotation 生命周期及 JSON/XML/YAML API 提供补全、悬停和跳转。
 
 ### 浏览项目
 

@@ -57,10 +57,7 @@ final class Lexer {
       case ']' -> addSimple(TokenKind.RIGHT_BRACKET, start);
       case ',' -> addSimple(TokenKind.COMMA, start);
       case ';' -> addSimple(TokenKind.SEMICOLON, start);
-      case ':' -> {
-        if (match(':')) addSimple(TokenKind.COLON_COLON, start);
-        else addSimple(TokenKind.COLON, start);
-      }
+      case ':' -> addSimple(TokenKind.COLON, start);
       case '.' -> addSimple(TokenKind.DOT, start);
       case '?' ->
           addSimple(

@@ -4,6 +4,7 @@ import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.bound.BoundAggregate;
 import dev.w0fv1.norm.bound.BoundAggregateId;
 import dev.w0fv1.norm.bound.BoundAnnotationApplication;
+import dev.w0fv1.norm.bound.BoundAnnotationReference;
 import dev.w0fv1.norm.bound.BoundAnnotationTarget;
 import dev.w0fv1.norm.bound.BoundAnnotationValue;
 import dev.w0fv1.norm.bound.BoundArgument;
@@ -48,6 +49,8 @@ import dev.w0fv1.norm.bound.BoundUnaryOperator;
 import dev.w0fv1.norm.bound.BoundWitness;
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.semantic.AnnotationApplication;
+import dev.w0fv1.norm.semantic.AnnotationDeclarationReference;
+import dev.w0fv1.norm.semantic.AnnotationValue;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
@@ -185,7 +188,7 @@ final class Binder {
                 boundFields,
                 declaration.methods().stream().map(this::callableId).toList(),
                 bindDispatch(declaration),
-                constructorId(declaration),
+                constructorIds(declaration),
                 bindConformances(declaration),
                 declaration.span());
         aggregates.put(value.id().value(), value);
@@ -197,7 +200,13 @@ final class Binder {
     for (Syntax.Program program : programs) {
       for (Syntax.FunctionDecl function : program.functions()) bindCallable(function, null);
       for (Syntax.AggregateDecl owner : program.aggregates()) {
-        bindConstructor(owner);
+        if (owner.constructors().isEmpty()) {
+          bindConstructor(owner, Optional.empty());
+        } else {
+          for (Syntax.ConstructorDecl constructor : owner.constructors()) {
+            bindConstructor(owner, Optional.of(constructor));
+          }
+        }
         for (Syntax.FunctionDecl method : owner.methods()) bindCallable(method, owner);
       }
       for (Syntax.InterfaceDecl owner : program.interfaces()) {
@@ -219,9 +228,7 @@ final class Binder {
                 new BoundAnnotationApplication(
                     BoundAggregateId.of(application.annotation()),
                     bindAnnotationTarget(application.target()),
-                    application.values().stream()
-                        .map(value -> new BoundAnnotationValue(value.type(), value.value()))
-                        .toList(),
+                    application.values().stream().map(this::bindAnnotationValue).toList(),
                     application.span()))
         .toList();
   }
@@ -383,8 +390,10 @@ final class Binder {
     implicitSelfReturn = previousImplicitSelfReturn;
   }
 
-  private void bindConstructor(Syntax.AggregateDecl owner) {
-    BoundCallableId id = constructorId(owner);
+  private void bindConstructor(
+      Syntax.AggregateDecl owner, Optional<Syntax.ConstructorDecl> declaration) {
+    BoundCallableId id =
+        declaration.map(this::constructorId).orElseGet(() -> syntheticConstructorId(owner));
     BoundCallableId previousCallableId = currentCallableId;
     List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
     currentCallableId = id;
@@ -397,7 +406,7 @@ final class Binder {
     activeTypeParameters = bindTypeParameters(owner.typeParameters());
     List<BoundParameter> parameters = new ArrayList<>();
     List<BoundStatement> statements = new ArrayList<>();
-    if (owner.constructors().isEmpty()) {
+    if (declaration.isEmpty()) {
       for (int ordinal = 0; ordinal < owner.fields().size(); ordinal++) {
         Syntax.FieldDecl field = owner.fields().get(ordinal);
         BoundField boundField = field(symbol(field.nameSpan()));
@@ -412,7 +421,7 @@ final class Binder {
                 field.span()));
       }
     } else {
-      Syntax.ConstructorDecl constructor = owner.constructors().getFirst();
+      Syntax.ConstructorDecl constructor = declaration.orElseThrow();
       for (int ordinal = 0; ordinal < constructor.parameters().size(); ordinal++) {
         Syntax.Parameter parameter = constructor.parameters().get(ordinal);
         parameters.add(bindParameter(parameter, ordinal));
@@ -449,8 +458,7 @@ final class Binder {
               });
       statements.addAll(bindBlock(constructor.body(), constructor.span()).statements());
     }
-    SourceSpan span =
-        owner.constructors().isEmpty() ? owner.span() : owner.constructors().getFirst().span();
+    SourceSpan span = declaration.map(Syntax.ConstructorDecl::span).orElse(owner.span());
     callables.put(
         id.value(),
         new BoundCallable(
@@ -519,9 +527,51 @@ final class Binder {
   private BoundInterceptor bindInterceptor(AnnotationApplication application) {
     return new BoundInterceptor(
         BoundAggregateId.of(application.annotation()),
-        application.values().stream()
-            .map(value -> new BoundAnnotationValue(value.type(), value.value()))
-            .toList());
+        application.values().stream().map(this::bindAnnotationValue).toList());
+  }
+
+  private BoundAnnotationValue bindAnnotationValue(AnnotationValue value) {
+    return new BoundAnnotationValue(value.type(), bindAnnotationContent(value.value()));
+  }
+
+  private BoundAnnotationValue.Content bindAnnotationContent(AnnotationValue.Content value) {
+    return switch (value) {
+      case AnnotationValue.Literal literal -> new BoundAnnotationValue.Literal(literal.value());
+      case AnnotationValue.Null ignored -> BoundAnnotationValue.Null.INSTANCE;
+      case AnnotationValue.ListValue list ->
+          new BoundAnnotationValue.ListValue(
+              list.values().stream().map(this::bindAnnotationValue).toList());
+      case AnnotationDeclarationReference reference -> bindAnnotationReference(reference);
+    };
+  }
+
+  private BoundAnnotationReference bindAnnotationReference(
+      AnnotationDeclarationReference reference) {
+    Symbol target = semantics.symbol(reference.target()).orElseThrow();
+    return switch (reference.kind()) {
+      case CLASS ->
+          new BoundAnnotationReference.ClassReference(
+              reference.actualType().arguments().getFirst());
+      case CALLABLE -> {
+        SemanticType receiver =
+            target.kind() == SymbolKind.METHOD
+                ? reference.actualType().functionParameterTypes().getFirst()
+                : null;
+        yield new BoundAnnotationReference.CallableReference(
+            BoundCallableId.of(target.id()),
+            receiver == null ? List.of() : methodReceiverType(receiver, target),
+            semantics.functionReferenceTypeArguments(reference.span()),
+            isVirtualMethod(target));
+      }
+      case FIELD -> {
+        BoundField field = field(target);
+        yield new BoundAnnotationReference.FieldReference(
+            field.id(),
+            field.ordinal(),
+            reference.actualType().arguments().get(0),
+            reference.actualType().arguments().get(1));
+      }
+    };
   }
 
   private BoundBlock bindBlock(List<Syntax.Statement> statements, SourceSpan fallback) {
@@ -694,7 +744,6 @@ final class Binder {
       case Syntax.Call call -> bindCall(call, type);
       case Syntax.Member member -> bindMember(member, type);
       case Syntax.Lambda lambda -> bindLambda(lambda, type);
-      case Syntax.MethodReference reference -> bindMethodReference(reference, type);
       case Syntax.Index index -> {
         var resolved = semantics.indexOf(index.span()).orElseThrow();
         yield new BoundExpression.Index(
@@ -874,8 +923,12 @@ final class Binder {
               call.span());
       case CONSTRUCT ->
           new BoundConstruct(
-              new BoundAggregateId(target.id().value()),
-              aggregates.get(target.id().value()).constructor(),
+              target.kind() == SymbolKind.CONSTRUCTOR
+                  ? BoundAggregateId.of(target.owner().orElseThrow())
+                  : BoundAggregateId.of(target.id()),
+              target.kind() == SymbolKind.CONSTRUCTOR
+                  ? BoundCallableId.of(target.id())
+                  : aggregates.get(target.id().value()).constructors().getFirst(),
               runtimeType(type),
               arguments,
               type,
@@ -972,6 +1025,66 @@ final class Binder {
 
   private BoundExpression bindMember(Syntax.Member member, SemanticType type) {
     Symbol target = symbol(member.nameSpan());
+    if (member.name().equals("class")
+        && (target.kind() == SymbolKind.TYPE
+            || target.kind() == SymbolKind.INTERFACE
+            || target.kind() == SymbolKind.TYPE_PARAMETER)) {
+      return new BoundIntrinsic(
+          IntrinsicId.CLASS_LITERAL,
+          Optional.empty(),
+          List.of(),
+          Optional.of(runtimeType(type)),
+          type,
+          member.span());
+    }
+    if (member.name().equals("field") && target.kind() == SymbolKind.FIELD) {
+      BoundField field = field(target);
+      BoundExpression ordinal =
+          new BoundExpression.Literal(field.ordinal(), SemanticType.INTEGER, member.nameSpan());
+      return new BoundIntrinsic(
+          IntrinsicId.FIELD_LITERAL,
+          Optional.empty(),
+          List.of(new BoundArgument(ordinal, 0)),
+          Optional.of(runtimeType(type)),
+          type,
+          member.span());
+    }
+    if (member.name().equals("function")
+        && (target.kind() == SymbolKind.FUNCTION
+            || target.kind() == SymbolKind.EXTENSION
+            || target.kind() == SymbolKind.METHOD)) {
+      SemanticType unboundReceiver =
+          target.kind() == SymbolKind.METHOD ? type.functionParameterTypes().getFirst() : null;
+      return new BoundClosure(
+          BoundCallableId.of(target.id()),
+          Optional.empty(),
+          List.of(),
+          semantics.functionReferenceTypeArguments(member.span()).stream()
+              .map(this::runtimeType)
+              .toList(),
+          unboundReceiver == null
+              ? List.of()
+              : methodReceiverType(unboundReceiver, target).stream()
+                  .map(this::runtimeType)
+                  .toList(),
+          isVirtualMethod(target),
+          type,
+          member.span());
+    }
+    if (target.kind() == SymbolKind.METHOD) {
+      BoundExpression receiver = bindExpression(member.receiver());
+      return new BoundClosure(
+          BoundCallableId.of(target.id()),
+          Optional.of(receiver),
+          List.of(),
+          semantics.functionReferenceTypeArguments(member.span()).stream()
+              .map(this::runtimeType)
+              .toList(),
+          methodReceiverType(receiver.type(), target).stream().map(this::runtimeType).toList(),
+          isVirtualMethod(target),
+          type,
+          member.span());
+    }
     if (target.kind() == SymbolKind.ENUM_VARIANT) {
       Symbol owner = semantics.symbol(target.owner().orElseThrow()).orElseThrow();
       return new BoundExpression.EnumConstruct(
@@ -1369,22 +1482,6 @@ final class Binder {
     return new BoundBlock(statements, lambda.span());
   }
 
-  private BoundExpression bindMethodReference(Syntax.MethodReference reference, SemanticType type) {
-    Symbol target = symbol(reference.nameSpan());
-    BoundExpression receiver = bindExpression(reference.receiver());
-    return new BoundClosure(
-        BoundCallableId.of(target.id()),
-        Optional.of(receiver),
-        List.of(),
-        semantics.functionReferenceTypeArguments(reference.span()).stream()
-            .map(this::runtimeType)
-            .toList(),
-        methodReceiverType(receiver.type(), target).stream().map(this::runtimeType).toList(),
-        isVirtualMethod(target),
-        type,
-        reference.span());
-  }
-
   private void recordCapture(BoundLocalId local, SemanticType type) {
     if (lambdaCaptures != null && !lambdaLocals.contains(local)) {
       lambdaCaptures.putIfAbsent(local, type);
@@ -1472,10 +1569,18 @@ final class Binder {
     return BoundCallableId.of(symbol(declaration.nameSpan()).id());
   }
 
-  private BoundCallableId constructorId(Syntax.AggregateDecl declaration) {
+  private List<BoundCallableId> constructorIds(Syntax.AggregateDecl declaration) {
     if (!declaration.constructors().isEmpty()) {
-      return BoundCallableId.of(symbol(declaration.constructors().getFirst().nameSpan()).id());
+      return declaration.constructors().stream().map(this::constructorId).toList();
     }
+    return List.of(syntheticConstructorId(declaration));
+  }
+
+  private BoundCallableId constructorId(Syntax.ConstructorDecl declaration) {
+    return BoundCallableId.of(symbol(declaration.nameSpan()).id());
+  }
+
+  private BoundCallableId syntheticConstructorId(Syntax.AggregateDecl declaration) {
     return new BoundCallableId(symbol(declaration.nameSpan()).id().value() + "/constructor");
   }
 

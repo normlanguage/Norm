@@ -18,9 +18,10 @@ class Child extends Base<String> {
 }
 
 main() {
-  for Field<Child> field : reflect<Child>().fields() {
+  for Field<Child, ?> field : Child.class.fields() {
     printLine(field.name())
-    printLine(field.typeName())
+    printLine(field.type().name())
+    printLine(field.owner().name())
   }
-  expectedOutputLines(["value", "String", "rank", "Integer"])
+  expectedOutputLines(["value", "String", "Child", "rank", "Integer", "Child"])
 }

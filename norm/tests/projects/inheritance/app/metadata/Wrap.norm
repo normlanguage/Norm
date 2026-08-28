@@ -5,7 +5,7 @@ import std.annotation.RuntimeRetention
 
 public annotation Wrap implements FieldInterceptor<String>, RuntimeRetention {
   public String before(FieldContext context, String value) {
-    printLine(context.name())
+    printLine(context.field().name())
     return "[" + value + "]"
   }
 }

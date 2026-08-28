@@ -17,7 +17,7 @@ class Counter {
 main() {
   Function<String(String)> same = identity
   Counter counter = Counter(value: 10)
-  Integer add(Integer amount) = counter::add
+  Integer add(Integer amount) = counter.add
   printLines([same("seven"), add(5), counter.value])
   expectedOutputLines(["seven", "15", "15"])
 }

@@ -245,6 +245,7 @@ final class ConstructorFlowAnalyzer {
         if (receiver != null
             && symbols.get(receiver) != null
             && symbols.get(receiver).kind() == SymbolKind.SELF
+            && field != null
             && initialization.fields().containsKey(field)) {
           validateBindingRead(member.nameSpan(), assigned, initialization);
           yield ConstructorFlow.normal(assigned);
@@ -260,8 +261,6 @@ final class ConstructorFlowAnalyzer {
         }
         yield flow;
       }
-      case Syntax.MethodReference reference ->
-          expressionFlow(reference.receiver(), assigned, initialization);
       case Syntax.Index index -> {
         ConstructorFlow receiver = expressionFlow(index.receiver(), assigned, initialization);
         if (receiver.normal().isEmpty()) yield receiver;
@@ -358,7 +357,6 @@ final class ConstructorFlowAnalyzer {
       case Syntax.Member member -> expressionUsesSelf(member.receiver());
       case Syntax.ArrayLiteral array ->
           array.elements().stream().anyMatch(this::expressionUsesSelf);
-      case Syntax.MethodReference reference -> expressionUsesSelf(reference.receiver());
       case Syntax.Index index ->
           expressionUsesSelf(index.receiver()) || expressionUsesSelf(index.index());
       case Syntax.SwitchExpression switched ->
@@ -390,7 +388,7 @@ final class ConstructorFlowAnalyzer {
       Syntax.Expression target, ConstructorInitialization initialization) {
     if (target instanceof Syntax.Name) {
       SymbolId id = binding(target);
-      return initialization.fields().containsKey(id) ? id : null;
+      return id != null && initialization.fields().containsKey(id) ? id : null;
     }
     if (target instanceof Syntax.Member member) {
       SymbolId receiver = binding(member.receiver());
@@ -398,6 +396,7 @@ final class ConstructorFlowAnalyzer {
       if (receiver != null
           && symbols.get(receiver) != null
           && symbols.get(receiver).kind() == SymbolKind.SELF
+          && id != null
           && initialization.fields().containsKey(id)) {
         return id;
       }

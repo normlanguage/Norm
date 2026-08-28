@@ -26,10 +26,13 @@ Void register(@CodePointSize(minimum: 3, maximum: 32) String name) {
 `ConstraintViolation` 提供：
 
 - `location`：`ConstraintLocation.Parameter` 或 `ConstraintLocation.Field`；
-- `target`：声明侧参数名或字段名；
-- `index`：声明侧序号；
+- `functionReference`：参数约束所属的 `Function<?>`；
+- `parameterReference`：参数约束的 `Parameter<?>`；
+- `fieldReference`：字段约束的 `Field<?, ?>`；
 - `code`：稳定机器标识；
 - `message`：从 `Exception` 继承的默认展示文本。
+
+`location` 决定哪组声明引用非空：Parameter 位置提供 function 和 parameter，Field 位置提供 field。名称和类型通过引用查询，不在异常中再存一份副本。
 
 实现与完整声明以 [`validation/constraints.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/validation/constraints.norm) 为准。
 

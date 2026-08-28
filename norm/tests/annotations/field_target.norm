@@ -4,8 +4,7 @@ import std.testing.expectedOutputLines
 
 annotation Mark implements FieldInterceptor<String>, BinaryRetention {
   String before(FieldContext context, String value) {
-    printLine(context.name())
-    printLine(context.index())
+    printLine(context.field().name())
     return "[" + value + "]"
   }
 
@@ -28,8 +27,8 @@ main() {
   *location = "referenced"
   printLine(box.value)
   expectedOutputLines([
-    "value", "0", "true", "[initial]",
-    "value", "0", "true", "[assigned]",
-    "value", "0", "true", "[referenced]"
+    "value", "true", "[initial]",
+    "value", "true", "[assigned]",
+    "value", "true", "[referenced]"
   ])
 }

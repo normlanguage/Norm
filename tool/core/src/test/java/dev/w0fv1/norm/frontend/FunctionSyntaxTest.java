@@ -37,11 +37,11 @@ final class FunctionSyntaxTest {
   }
 
   @Test
-  void parsesTypedLambdasAndBoundMethodReferences() {
+  void parsesTypedLambdasAndBoundMethodValues() {
     Syntax.Program program =
         parse(
             "Void main() { var doubled = (Integer value) { value * 2 } "
-                + "var add = counter::add }");
+                + "var add = counter.add }");
 
     Syntax.VariableDecl lambdaDeclaration =
         (Syntax.VariableDecl) program.functions().getFirst().body().getFirst();
@@ -49,9 +49,30 @@ final class FunctionSyntaxTest {
     assertEquals("Integer", lambda.parameters().getFirst().type().orElseThrow().displayName());
     Syntax.VariableDecl referenceDeclaration =
         (Syntax.VariableDecl) program.functions().getFirst().body().get(1);
-    Syntax.MethodReference reference =
-        assertInstanceOf(Syntax.MethodReference.class, referenceDeclaration.initializer());
+    Syntax.Member reference =
+        assertInstanceOf(Syntax.Member.class, referenceDeclaration.initializer());
     assertEquals("add", reference.name());
+  }
+
+  @Test
+  void parsesExistentialReflectionTypes() {
+    Syntax.Program program =
+        parse(
+            "class User {} Void inspect(Class<?> type, Function<?> function, "
+                + "Field<User, ?> field) {}");
+
+    Syntax.FunctionDecl inspect = program.functions().getFirst();
+    assertEquals("Class<?>", inspect.parameters().get(0).type().displayName());
+    assertEquals("Function<?>", inspect.parameters().get(1).type().displayName());
+    assertEquals("Field<User, ?>", inspect.parameters().get(2).type().displayName());
+  }
+
+  @Test
+  void parsesDeclarationReflectionLiterals() {
+    parse(
+        "class User { String name String find(Integer id) { return name } } "
+            + "Void main() { var type = User.class var field = User.name.field "
+            + "var function = User.find.function }");
   }
 
   @Test

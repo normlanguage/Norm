@@ -49,11 +49,15 @@ Lambda 可以捕获外层局部、参数和 `this`。被捕获的局部与参数
 
 ```norm
 Function<Integer(Integer)> first = doubled
-Function<Integer(Integer)> second = counter::add
-Integer add(Integer amount) = counter::add
+Function<Integer(Integer)> second = counter.add
+Integer add(Integer amount) = counter.add
+Function<Integer(Counter, Integer)> unbound = Counter.add.function
+Function<?> declaration = Counter.add.function
 ```
 
-顶层函数引用创建无捕获函数值，`receiver::method` 创建绑定接收者的方法值。重载引用必须由期望函数类型唯一确定。函数值与普通值一样可以存入字段、传参和返回，并以 `operation(value)` 调用。
+顶层函数可直接转换为期望函数类型，`receiver.method` 创建绑定接收者的函数值。`Owner.method.function` 是未绑定声明引用，其精确签名把 receiver 作为第一个参数，调用时仍按 receiver 的动态类型分派。顶层声明使用 `name.function`。
+
+重载引用在精确的期望 `Function<R(P...)>` 下必须唯一确定。`Function<?>` 只保留声明 identity 和可查询 metadata，不可直接调用。函数值可以存入字段、传参和返回，并以 `operation(value)` 调用。声明引用的统一规则见[声明引用与反射](/spec/declaration-references)。
 
 ## 递归与泛型
 

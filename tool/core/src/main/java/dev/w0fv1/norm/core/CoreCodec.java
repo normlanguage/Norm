@@ -99,7 +99,13 @@ final class CoreCodec {
                   writeReference(writer, referenceResolver.apply(dispatch.implementation()));
                   writeType(writer, dispatch.receiverType(), referenceResolver);
                 });
-        writeReference(writer, referenceResolver.apply(aggregateDefinition.constructor()));
+        writer.writeInt(aggregateDefinition.constructors().size());
+        aggregateDefinition.constructors().stream()
+            .map(referenceResolver)
+            .sorted(
+                (left, right) ->
+                    java.util.Arrays.compareUnsigned(referenceBytes(left), referenceBytes(right)))
+            .forEach(constructor -> writeReference(writer, constructor));
         writer.writeInt(aggregateDefinition.conformances().size());
         aggregateDefinition.conformances().stream()
             .sorted(
@@ -686,8 +692,33 @@ final class CoreCodec {
       CoreAnnotationValue value,
       Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
     writeType(writer, value.type(), referenceResolver);
-    writer.writeBoolean(value.value() != null);
-    if (value.value() != null) writeLiteral(writer, value.value());
+    switch (value.value()) {
+      case CoreAnnotationValue.Null ignored -> writer.writeTag("null-annotation-value");
+      case CoreAnnotationValue.Literal literal -> {
+        writer.writeTag("literal-annotation-value");
+        writeLiteral(writer, literal.value());
+      }
+      case CoreAnnotationValue.ListValue list -> {
+        writer.writeTag("list-annotation-value").writeInt(list.values().size());
+        list.values().forEach(item -> writeAnnotationValue(writer, item, referenceResolver));
+      }
+      case CoreAnnotationReference.ClassReference classReference -> {
+        writer.writeTag("class-annotation-reference");
+        writeType(writer, classReference.reflectedType(), referenceResolver);
+      }
+      case CoreAnnotationReference.CallableReference callable -> {
+        writer.writeTag("callable-annotation-reference");
+        writeReference(writer, referenceResolver.apply(callable.callable()));
+        writeTypes(writer, callable.receiverTypeArguments(), referenceResolver);
+        writeTypes(writer, callable.reifiedArguments(), referenceResolver);
+        writer.writeBoolean(callable.virtual());
+      }
+      case CoreAnnotationReference.FieldReference field -> {
+        writer.writeTag("field-annotation-reference").writeInt(field.ordinal());
+        writeType(writer, field.ownerType(), referenceResolver);
+        writeType(writer, field.valueType(), referenceResolver);
+      }
+    }
   }
 
   private static void writeAnnotationTarget(CanonicalWriter writer, CoreAnnotationTarget target) {

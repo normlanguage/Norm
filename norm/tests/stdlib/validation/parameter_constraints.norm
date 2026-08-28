@@ -22,19 +22,19 @@ main() {
     create(name: "   ", quantity: 4, accepted: true)
   } catch ConstraintViolation error {
     printLine(error.code)
-    printLine(error.target)
+    printLine(error.parameterReference?.name() ?? "missing")
   }
   try {
     create(name: "Norm", quantity: 0, accepted: true)
   } catch ConstraintViolation error {
     printLine(error.code)
-    printLine(error.target)
+    printLine(error.parameterReference?.name() ?? "missing")
   }
   try {
     create(name: "Norm", quantity: 4, accepted: false)
   } catch ConstraintViolation error {
     printLine(error.code)
-    printLine(error.target)
+    printLine(error.parameterReference?.name() ?? "missing")
   }
   expectedOutputLines(["Norm", "4", "true", "not_blank", "name", "min", "quantity", "assert_true", "accepted"])
 }

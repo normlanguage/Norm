@@ -22,6 +22,14 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
       builtin("std.core.FunctionContext", List.of());
   private static final CoreType PARAMETER_CONTEXT_TYPE =
       builtin("std.core.ParameterContext", List.of());
+  private static final CoreType UNKNOWN_FUNCTION_TYPE =
+      builtin("std.core.Function", List.of(CoreType.EXISTENTIAL));
+  private static final CoreType PARAMETER_TYPE =
+      new CoreType.Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Parameter")),
+          List.of(CoreType.EXISTENTIAL),
+          CoreValueCategory.VALUE,
+          CoreNullability.NON_NULL);
   private static final CoreType COMPLETION_TYPE = builtin("std.core.FunctionCompletion", List.of());
   private final String name;
   private final SourceSection sourceSection;
@@ -30,6 +38,9 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
   private final List<CoreInterceptor> functionInterceptors;
   private final List<ParameterLayer> parameterLayers;
   private final int parameterOffset;
+  private final boolean hasReceiver;
+  private final int captureCount;
+  private final int receiverTypeParameterCount;
   private final CoreType returnTypeTemplate;
   private final int reifiedTypeCount;
   private final AnnotationRuntime annotations;
@@ -55,11 +66,14 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     for (int index = 0; index < declaration.parameters().size(); index++) {
       CoreCallableParameter parameter = declaration.parameters().get(index);
       for (CoreInterceptor interceptor : parameter.interceptors()) {
-        layers.add(new ParameterLayer(index, parameter.name(), interceptor));
+        layers.add(new ParameterLayer(index, interceptor));
       }
     }
     parameterLayers = List.copyOf(layers);
     parameterOffset = 1 + (declaration.hasReceiver() ? 1 : 0) + declaration.captureTypes().size();
+    hasReceiver = declaration.hasReceiver();
+    captureCount = declaration.captureTypes().size();
+    receiverTypeParameterCount = declaration.receiverTypeParameterCount();
     returnTypeTemplate = returnType;
     reifiedTypeCount = declaration.reifiedTypeLocals().size();
     this.annotations = annotations;
@@ -69,9 +83,30 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
   public Object execute(VirtualFrame frame) {
     Object[] arguments = frame.getArguments();
     ExecutionState execution = (ExecutionState) arguments[0];
-    RuntimeValues.FunctionContextValue function =
-        new RuntimeValues.FunctionContextValue(FUNCTION_CONTEXT_TYPE, name);
     int reifiedOffset = arguments.length - reifiedTypeCount;
+    Object receiver = hasReceiver ? arguments[1] : null;
+    int captureOffset = 1 + (hasReceiver ? 1 : 0);
+    Object[] captures = new Object[captureCount];
+    for (int index = 0; index < captureCount; index++) {
+      captures[index] = RuntimeValues.copy(arguments[captureOffset + index]);
+    }
+    Object[] ownerTypeArguments = new Object[receiverTypeParameterCount];
+    System.arraycopy(arguments, reifiedOffset, ownerTypeArguments, 0, receiverTypeParameterCount);
+    Object[] callableTypeArguments =
+        java.util.Arrays.copyOfRange(
+            arguments, reifiedOffset + receiverTypeParameterCount, arguments.length);
+    RuntimeValues.Closure declarationReference =
+        new RuntimeValues.Closure(
+            implementation,
+            callable,
+            null,
+            false,
+            receiver,
+            captures,
+            ownerTypeArguments,
+            callableTypeArguments);
+    RuntimeValues.FunctionContextValue function =
+        new RuntimeValues.FunctionContextValue(FUNCTION_CONTEXT_TYPE, declarationReference);
     CoreType returnType =
         returnTypeTemplate.equals(CoreType.VOID)
             ? CoreType.DYNAMIC
@@ -143,7 +178,8 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     ParameterLayer layer = parameterLayers.get(index);
     RuntimeValues.ParameterContextValue context =
         new RuntimeValues.ParameterContextValue(
-            PARAMETER_CONTEXT_TYPE, function, layer.name(), layer.parameterIndex());
+            PARAMETER_CONTEXT_TYPE,
+            annotations.parameter(function.function(), layer.parameterIndex(), PARAMETER_TYPE));
     RuntimeValues.ObjectValue annotation =
         annotations.parameterAnnotation(
             callable, layer.parameterIndex(), layer.interceptor(), execution);
@@ -191,5 +227,5 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     return sourceSection;
   }
 
-  private record ParameterLayer(int parameterIndex, String name, CoreInterceptor interceptor) {}
+  private record ParameterLayer(int parameterIndex, CoreInterceptor interceptor) {}
 }

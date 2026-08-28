@@ -54,34 +54,51 @@ public final class IntrinsicDispatcher {
     Object fourth = arguments.length < 4 ? null : arguments[3];
     Object fifth = arguments.length < 5 ? null : arguments[4];
     return switch (intrinsic) {
-      case REFLECT_TYPE -> {
+      case CLASS_LITERAL -> {
         if (annotations == null
             || !(type instanceof CoreType.Declared declared)
             || declared.arguments().size() != 1) {
-          throw new IllegalStateException("reflect runtime type is unavailable");
+          throw new IllegalStateException("class literal runtime type is unavailable");
         }
-        yield new RuntimeValues.TypeValue(type, declared.arguments().getFirst(), annotations);
+        yield new RuntimeValues.ClassValue(type, declared.arguments().getFirst(), annotations);
       }
-      case TYPE_NAME ->
-          ((RuntimeValues.TypeValue) receiver)
+      case CLASS_NAME ->
+          ((RuntimeValues.ClassValue) receiver)
               .annotations()
-              .name(((RuntimeValues.TypeValue) receiver).reflectedType());
-      case TYPE_ANNOTATION -> {
+              .name(((RuntimeValues.ClassValue) receiver).reflectedType());
+      case CLASS_ANNOTATION -> {
         if (execution == null) {
           throw new IllegalStateException("annotation execution is unavailable");
         }
-        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) receiver;
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
         yield reflected.annotations().annotation(reflected.reflectedType(), type, execution);
       }
-      case TYPE_FIELDS -> {
-        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) receiver;
+      case CLASS_FIELDS -> {
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
         yield reflected.annotations().fields(reflected.reflectedType(), type);
       }
+      case CLASS_FUNCTIONS -> {
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
+        yield reflected.annotations().functions(reflected.reflectedType(), type);
+      }
+      case CLASS_CONSTRUCTORS -> {
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
+        yield reflected.annotations().constructors(reflected.reflectedType(), type);
+      }
+      case FIELD_LITERAL -> {
+        if (annotations == null || type == null) {
+          throw new IllegalStateException("field literal runtime type is unavailable");
+        }
+        yield annotations.field(type, (Integer) first);
+      }
       case FIELD_NAME -> ((RuntimeValues.FieldValue) receiver).name();
-      case FIELD_INDEX -> ((RuntimeValues.FieldValue) receiver).index();
-      case FIELD_TYPE_NAME -> {
+      case FIELD_TYPE -> {
         RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-        yield field.annotations().name(field.fieldType());
+        yield new RuntimeValues.ClassValue(type, field.fieldType(), field.annotations());
+      }
+      case FIELD_OWNER -> {
+        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+        yield new RuntimeValues.ClassValue(type, field.ownerType(), field.annotations());
       }
       case FIELD_ANNOTATION -> {
         if (execution == null) {
@@ -92,17 +109,36 @@ public final class IntrinsicDispatcher {
       }
       case FIELD_READ -> {
         RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-        yield field.annotations().readField(field, first, type);
+        yield field.annotations().readField(field, first);
       }
-      case REFLECTED_VALUE_TYPE_NAME -> {
-        RuntimeValues.ReflectedValue reflected = (RuntimeValues.ReflectedValue) receiver;
-        yield reflected.annotations().name(reflected.reflectedType());
+      case FUNCTION_NAME -> {
+        RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+        yield annotations.functionName(function);
+      }
+      case FUNCTION_OWNER -> {
+        RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+        yield annotations.functionOwner(function, type);
+      }
+      case FUNCTION_PARAMETERS -> {
+        RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+        yield annotations.parameters(function, type);
+      }
+      case PARAMETER_NAME -> ((RuntimeValues.ParameterValue) receiver).name();
+      case PARAMETER_TYPE -> {
+        RuntimeValues.ParameterValue parameter = (RuntimeValues.ParameterValue) receiver;
+        yield new RuntimeValues.ClassValue(type, parameter.valueType(), parameter.annotations());
+      }
+      case PARAMETER_FUNCTION -> ((RuntimeValues.ParameterValue) receiver).function();
+      case CONSTRUCTOR_OWNER -> {
+        RuntimeValues.ConstructorValue constructor = (RuntimeValues.ConstructorValue) receiver;
+        yield new RuntimeValues.ClassValue(
+            type, constructor.ownerType(), constructor.annotations());
       }
       case JSON_ENCODE -> {
         if (annotations == null || execution == null) {
           throw new IllegalStateException("serialization runtime is unavailable");
         }
-        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) second;
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
         yield annotations
             .mapper()
             .write(JsonDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
@@ -131,7 +167,7 @@ public final class IntrinsicDispatcher {
         if (annotations == null || execution == null) {
           throw new IllegalStateException("serialization runtime is unavailable");
         }
-        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) second;
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
         yield annotations
             .mapper()
             .write(annotations.xml(), reflected.reflectedType(), first, execution, location);
@@ -148,7 +184,7 @@ public final class IntrinsicDispatcher {
         if (annotations == null || execution == null) {
           throw new IllegalStateException("serialization runtime is unavailable");
         }
-        RuntimeValues.TypeValue reflected = (RuntimeValues.TypeValue) second;
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
         yield annotations
             .mapper()
             .write(YamlDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
@@ -161,13 +197,10 @@ public final class IntrinsicDispatcher {
             .mapper()
             .read(YamlDataFormat.INSTANCE, type, (String) first, execution, location);
       }
-      case FUNCTION_CONTEXT_NAME -> ((RuntimeValues.FunctionContextValue) receiver).name();
-      case PARAMETER_CONTEXT_FUNCTION ->
-          ((RuntimeValues.ParameterContextValue) receiver).function();
-      case PARAMETER_CONTEXT_NAME -> ((RuntimeValues.ParameterContextValue) receiver).name();
-      case PARAMETER_CONTEXT_INDEX -> ((RuntimeValues.ParameterContextValue) receiver).index();
-      case FIELD_CONTEXT_NAME -> ((RuntimeValues.FieldContextValue) receiver).name();
-      case FIELD_CONTEXT_INDEX -> ((RuntimeValues.FieldContextValue) receiver).index();
+      case FUNCTION_CONTEXT_FUNCTION -> ((RuntimeValues.FunctionContextValue) receiver).function();
+      case PARAMETER_CONTEXT_PARAMETER ->
+          ((RuntimeValues.ParameterContextValue) receiver).parameter();
+      case FIELD_CONTEXT_FIELD -> ((RuntimeValues.FieldContextValue) receiver).field();
       case FUNCTION_INVOCATION_PROCEED ->
           ((RuntimeValues.FunctionInvocationValue) receiver).proceed(location);
       case FUNCTION_COMPLETION_SUCCEEDED ->

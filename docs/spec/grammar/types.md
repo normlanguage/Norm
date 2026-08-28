@@ -15,6 +15,8 @@ Type := NamedType
       | NamedType "<" TypeArgumentList ">"
       | Type "?"
       | FunctionType
+
+TypeArgument := Type | "?"
 ```
 
 当前类型形式包括命名类型、参数化类型、nullable 类型和函数类型。数组、列表与映射是标准库泛型类型，不是特殊的类型语法。
@@ -41,7 +43,15 @@ Map<String, Integer> counts
 Map counts // 编译错误
 ```
 
-参数化类型不变，当前类型语法不包含使用位置通配符。完整边界见[泛型不变性](/spec/generic-variance)。
+参数化类型不变。`?` 是存在类型投影，表示“这个实参存在，但当前代码不知道它”：
+
+```norm
+Class<?> type
+Field<User, ?> field
+Function<?> function
+```
+
+投影值只能使用不依赖被隐藏实参的成员。例如 `Function<?>` 可查询名称和参数，但不能被直接调用；调用需要精确的 `Function<R(P...)>`。完整边界见[泛型不变性](/spec/generic-variance)。
 
 ## 函数类型
 

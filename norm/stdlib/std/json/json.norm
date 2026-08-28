@@ -64,7 +64,7 @@ public value JsonReader<T> implements DataReader<T> {
 
 public value JsonWriter<T> implements DataWriter<T> {
   String writeString(T value) {
-    return __jsonEncode<T>(value: value, type: reflect<T>())
+    return __jsonEncode<T>(value: value, type: T.class)
   }
 
   Bytes writeBytes(T value) {

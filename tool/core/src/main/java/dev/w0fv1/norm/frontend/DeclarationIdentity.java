@@ -102,6 +102,7 @@ record DeclarationIdentity(String value, String family) {
   }
 
   private static String normalizedType(Syntax.TypeRef type, Map<String, String> typeParameters) {
+    if (type.isWildcard()) return "?";
     String name = typeParameters.getOrDefault(type.name(), type.name());
     String arguments =
         type.arguments().isEmpty()

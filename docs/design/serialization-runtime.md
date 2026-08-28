@@ -40,7 +40,7 @@ Annotation 的“可应用目标”与“调用拦截生命周期”分离：`Ty
 
 ## 运行时结构
 
-`Type<T>.fields()` 公开稳定字段名、ordinal、字段类型、runtime Annotation 和受控的 `ReflectedValue` 读取能力。公共反射 API 与序列化运行时都以 Core aggregate 和 field metadata 为结构真相源；序列化热路径直接按 ordinal 访问 `ObjectValue.fields`。
+`Class<T>.fields()` 公开 `List<Field<T, ?>>`；每个字段引用保留稳定 identity、owner、字段类型、runtime Annotation 和强类型读取能力。公共反射 API 与序列化运行时都以 Core aggregate 和 field metadata 为结构真相源；序列化热路径直接按内部 ordinal 访问 `ObjectValue.fields`。
 
 每个精确 reified type 只构建一次 serialization shape：
 

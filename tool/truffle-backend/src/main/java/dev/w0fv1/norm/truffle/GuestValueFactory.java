@@ -341,7 +341,7 @@ final class GuestValueFactory {
     for (int index = 0; index < reifiedArguments.size(); index++) {
       callArguments[arguments.length + index + 2] = reifiedArguments.get(index);
     }
-    plan.initializer().call(callArguments);
+    plan.initializer(arguments.length).call(callArguments);
     return value;
   }
 
@@ -510,20 +510,35 @@ final class GuestValueFactory {
       RuntimeValues.AggregateInfo info,
       CoreType type,
       int reifiedTypeCount,
-      CallTarget initializer) {
+      List<Initializer> initializers) {
     AggregatePlan {
       Objects.requireNonNull(nominal, "nominal");
       Objects.requireNonNull(info, "info");
       Objects.requireNonNull(type, "type");
       if (reifiedTypeCount < 0) throw new IllegalArgumentException("negative reified type count");
-      Objects.requireNonNull(initializer, "initializer");
+      initializers = List.copyOf(initializers);
+      if (initializers.isEmpty()) {
+        throw new IllegalArgumentException("runtime aggregate requires an initializer");
+      }
+    }
+
+    CallTarget initializer(int parameterCount) {
+      List<Initializer> matches =
+          initializers.stream()
+              .filter(initializer -> initializer.parameterCount() == parameterCount)
+              .toList();
+      if (matches.size() != 1) {
+        throw new IllegalStateException(
+            "runtime aggregate constructor is not uniquely identified by parameter count");
+      }
+      return matches.getFirst().target();
     }
 
     static AggregatePlan create(
         DefinitionId definition,
         CoreDefinition.Aggregate aggregate,
         RuntimeValues.AggregateInfo info,
-        CallTarget initializer) {
+        List<Initializer> initializers) {
       CoreType type =
           new CoreType.Declared(
               new CoreTypeConstructor.User(new DefinitionReference.External(definition)),
@@ -531,7 +546,16 @@ final class GuestValueFactory {
               aggregate.valueCategory(),
               CoreNullability.NON_NULL);
       return new AggregatePlan(
-          aggregate.nominalType(), info, type, aggregate.typeParameters().size(), initializer);
+          aggregate.nominalType(), info, type, aggregate.typeParameters().size(), initializers);
+    }
+  }
+
+  record Initializer(CallTarget target, int parameterCount) {
+    Initializer {
+      Objects.requireNonNull(target, "target");
+      if (parameterCount < 0) {
+        throw new IllegalArgumentException("initializer parameter count must not be negative");
+      }
     }
   }
 

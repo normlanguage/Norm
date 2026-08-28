@@ -89,6 +89,7 @@ String sign = if number < 0 {
 - [Package 与模块](/spec/module-system)
 - [引用生命周期](/spec/grammar/references)
 - [Annotation 语义](/spec/annotations)
+- [声明引用与反射](/spec/declaration-references)
 - [当前限制](/status)
 - [对象模型](/spec/object-model)
 - [内存语义](/spec/memory-semantics)

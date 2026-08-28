@@ -17,7 +17,7 @@ Norm
 
 Lambda 的最后一个表达式形成结果；具名函数仍必须显式 `return`。Lambda 可以捕获外层局部、参数和 `this`，被捕获绑定必须 effectively final。
 
-绑定方法引用使用 `receiver::method`，普通函数可以直接赋给兼容的函数类型。
+绑定方法引用使用 `receiver.method`，普通函数可以直接赋给兼容的函数类型。需要不绑定 receiver 的声明引用时使用 `Owner.method.function`。
 
 ## Extension function
 
