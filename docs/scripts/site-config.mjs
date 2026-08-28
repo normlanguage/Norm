@@ -6,7 +6,7 @@ export const sitePath = (path) => `${siteBase}${path.replace(/^\/+/, '')}`
 export const siteManifest = {
   name: 'Norm',
   short_name: 'Norm',
-  description: 'A statically typed language with explicit behavior and predictable semantics',
+  description: 'A statically typed language with familiar syntax and explicit semantics',
   start_url: siteBase,
   scope: siteBase,
   display: 'standalone',

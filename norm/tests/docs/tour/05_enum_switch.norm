@@ -1,0 +1,24 @@
+enum Delivery {
+  Pending,
+  Sent(String trackingCode),
+  Failed(String reason)
+}
+
+String describe(Delivery delivery) {
+  return switch delivery {
+    case Pending {
+      break "pending"
+    }
+    case Sent(String trackingCode) {
+      break trackingCode
+    }
+    case Failed(_) {
+      break "failed"
+    }
+  }
+}
+
+main() {
+  Delivery delivery = Delivery.Sent(trackingCode: "N-42")
+  printLine(describe(delivery))
+}

@@ -1,0 +1,11 @@
+import std.io.printLines
+
+main() {
+  Array<Integer> fixed = [1, 2, 3]
+  List<Integer> dynamic = [4, 5]
+  dynamic.add(6)
+  for value, index : dynamic {
+    printLines([index, value])
+  }
+  printLine(fixed[0])
+}

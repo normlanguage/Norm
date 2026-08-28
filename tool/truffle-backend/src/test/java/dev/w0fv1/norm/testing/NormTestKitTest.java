@@ -29,6 +29,26 @@ final class NormTestKitTest {
   }
 
   @Test
+  void acceptsCompanionExpectedOutputFiles() throws Exception {
+    Path test = temporaryDirectory.resolve("Documentation.norm");
+    Path output = temporaryDirectory.resolve("Documentation.out");
+    Files.writeString(test, "Void main() { printLine(20) }");
+    Files.writeString(output, "20\n");
+
+    assertDoesNotThrow(() -> NormTestKit.assertGoldenOutput(test, output));
+  }
+
+  @Test
+  void reportsCompanionOutputMismatches() throws Exception {
+    Path test = temporaryDirectory.resolve("Documentation.norm");
+    Path output = temporaryDirectory.resolve("Documentation.out");
+    Files.writeString(test, "Void main() { printLine(20) }");
+    Files.writeString(output, "21\n");
+
+    assertThrows(AssertionError.class, () -> NormTestKit.assertGoldenOutput(test, output));
+  }
+
+  @Test
   void regularExecutionOnlyEmitsProgramOutput() {
     assertEquals(
         "20" + System.lineSeparator(),

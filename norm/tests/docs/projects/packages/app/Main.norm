@@ -1,0 +1,8 @@
+package app
+
+import app.model.Profile
+
+main() {
+  Profile profile = Profile(name: "Norm")
+  printLine(profile.name)
+}

@@ -1,0 +1,19 @@
+enum ParseResult {
+  Parsed(Integer value),
+  Invalid(String reason)
+}
+
+String message(ParseResult result) {
+  return switch result {
+    case Parsed(Integer value) {
+      break "parsed"
+    }
+    case Invalid(String reason) {
+      break reason
+    }
+  }
+}
+
+main() {
+  printLine(message(ParseResult.Invalid(reason: "empty input")))
+}

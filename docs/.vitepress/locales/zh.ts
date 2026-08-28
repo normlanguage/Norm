@@ -1,22 +1,24 @@
 import type { DefaultTheme } from 'vitepress'
 import { currentRelease, releaseItems } from '../release'
 
-const handbook = [
-  { text: '手册介绍', link: '/language/overview' },
-  { text: '基础语法', link: '/language/basics' },
-  { text: '类型与 Null', link: '/language/types' },
-  { text: 'Class、Value 与 Identity', link: '/language/objects' },
-  { text: '函数', link: '/language/functions' },
-  { text: '控制流', link: '/language/control-flow' },
-  { text: '接口', link: '/language/interfaces' },
-  { text: 'Enum 与 Switch', link: '/language/enum-switch' },
-  { text: '泛型', link: '/language/generics' },
-  { text: '错误处理', link: '/language/errors' },
-  { text: 'Annotation 与 Reflect', link: '/language/reflect' },
+const tour = [
+  { text: 'Language Tour', link: '/learn/' },
+  { text: '01 Hello, Norm', link: '/learn/hello' },
+  { text: '02 值与绑定', link: '/learn/bindings' },
+  { text: '03 函数与调用', link: '/learn/functions' },
+  { text: '04 Class、Value 与 Interface', link: '/learn/data-model' },
+  { text: '05 数据 Enum 与 Switch', link: '/learn/enum-switch' },
+  { text: '06 Null 与类型推断', link: '/learn/nullability-inference' },
+  { text: '07 集合与迭代', link: '/learn/collections' },
+  { text: '08 Lambda 与 Extension', link: '/learn/lambdas-extensions' },
+  { text: '09 错误与异常', link: '/learn/errors' },
+  { text: '10 引用', link: '/learn/references' },
+  { text: '11 Annotation', link: '/learn/annotations' },
+  { text: '12 Package 与 Module', link: '/learn/packages-modules' },
 ]
 
 const specification = [
-  { text: '语言规范', link: '/spec/language-spec' },
+  { text: 'Language Reference', link: '/spec/language-spec' },
   { text: '类型系统', link: '/spec/type-system' },
   { text: '类型推断', link: '/spec/type-inference' },
   { text: 'Value 与 Identity', link: '/spec/value-identity-semantics' },
@@ -55,7 +57,6 @@ const grammar = [
 
 const stdlib = [
   { text: '标准库概览', link: '/stdlib/overview' },
-  { text: '核心库', link: '/stdlib/core-libraries' },
   { text: '输出', link: '/stdlib/output-api' },
   { text: 'I/O 基础', link: '/stdlib/io' },
   { text: 'String', link: '/stdlib/string' },
@@ -64,76 +65,42 @@ const stdlib = [
   { text: 'Map', link: '/stdlib/map' },
   { text: 'Set', link: '/stdlib/set' },
   { text: 'Math', link: '/stdlib/math' },
-  { text: 'Decimal', link: '/stdlib/decimal-api' },
   { text: 'Time', link: '/stdlib/time' },
-  { text: 'Regex', link: '/stdlib/regex' },
   { text: 'Filesystem', link: '/stdlib/filesystem' },
   { text: 'HTTP', link: '/stdlib/http' },
-  { text: 'SQL', link: '/stdlib/sql' },
   { text: 'Serialization', link: '/stdlib/serialization' },
   { text: 'JSON', link: '/stdlib/json-api' },
   { text: 'XML', link: '/stdlib/xml-api' },
   { text: 'YAML', link: '/stdlib/yaml-api' },
-  { text: '测试', link: '/stdlib/testing-api' },
-  { text: 'Logging', link: '/stdlib/logging' },
-  { text: 'Process', link: '/stdlib/process' },
-  { text: 'Command Line', link: '/stdlib/command-line' },
-]
-
-const web = [
-  { text: 'Web 平台概览', link: '/web/overview' },
-  { text: '框架架构', link: '/web/framework-architecture' },
-  { text: '应用参考', link: '/web/application-reference' },
-  { text: '请求与响应', link: '/web/request-response' },
-  { text: '路由', link: '/web/routing-design' },
-  { text: 'Controller', link: '/web/controller-design' },
-  { text: 'Middleware', link: '/web/middleware-design' },
-  { text: '依赖注入', link: '/web/dependency-injection' },
-  { text: '配置', link: '/web/configuration' },
-  { text: '安全', link: '/web/security' },
-  { text: '认证', link: '/web/authentication-design' },
-  { text: 'REST', link: '/web/rest-design' },
-  { text: 'GraphQL', link: '/web/graphql' },
-  { text: 'OpenAPI', link: '/web/openapi' },
-  { text: 'WebSocket', link: '/web/websocket' },
-  { text: '数据库迁移', link: '/web/database-migration' },
-  { text: '后台任务', link: '/web/background-jobs' },
-  { text: '可观测性', link: '/web/observability' },
-  { text: '部署', link: '/web/deployment' },
+  { text: 'Validation', link: '/stdlib/validation-api' },
+  { text: 'Testing', link: '/stdlib/testing-api' },
 ]
 
 export const zhTheme: DefaultTheme.Config = {
   nav: [
-    { text: 'Guide', link: '/guide/', activeMatch: '^/guide/' },
-    { text: '文档', link: '/docs/' },
-    { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
-    { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
-    { text: '标准库', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
-    { text: '版本说明', link: '/versions/', activeMatch: '^/versions/' },
-    { text: '社区', link: '/community' },
+    { text: 'Learn', link: '/learn/', activeMatch: '^/learn/' },
+    { text: 'Language', link: '/guide/', activeMatch: '^/guide/' },
+    { text: 'Reference', link: '/spec/language-spec', activeMatch: '^/spec/' },
+    { text: 'Standard Library', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
+    { text: 'Tooling', link: '/tooling/', activeMatch: '^/tooling/' },
+    { text: 'Design', link: '/design/', activeMatch: '^/design/' },
+    { text: 'Status', link: '/status' },
+    { text: 'GitHub', link: 'https://github.com/w0fv1/Norm' },
   ],
   sidebar: {
+    '/learn/': [{ text: 'Language Tour', items: tour }],
     '/guide/': [
       { text: '开始', items: [
-        { text: '认识 Norm', link: '/guide/' },
-        { text: 'Norm 是什么', link: '/guide/introduction' },
-        { text: 'VS Code 支持', link: '/guide/vscode' },
+        { text: 'Language', link: '/guide/' },
         { text: '语言哲学', link: '/guide/philosophy' },
         { text: '设计原则', link: '/guide/design-principles' },
         { text: '语言设计白皮书', link: '/guide/design-whitepaper' },
         { text: '比较、取舍与方向', link: '/guide/comparison-and-future' },
       ]},
-      { text: '下一步', items: handbook },
-    ],
-    '/language/': [
-      { text: '语言手册', items: handbook },
-      { text: '深入阅读', items: [
-        { text: '正式语言规范', link: '/spec/language-spec' },
-        { text: '比较、取舍与方向', link: '/guide/comparison-and-future' },
-      ]},
+      { text: '开始学习', items: tour },
     ],
     '/spec/': [
-      { text: '语言规范', items: specification },
+      { text: 'Language Reference', items: specification },
       { text: '语法参考', collapsed: true, items: grammar },
       { text: '形式化规范', collapsed: true, items: [
         { text: '语义', link: '/spec/formal/semantics' },
@@ -144,12 +111,20 @@ export const zhTheme: DefaultTheme.Config = {
       ]},
     ],
     '/stdlib/': [{ text: '标准库', items: stdlib }],
-    '/web/': [{ text: 'Web 应用开发', items: web }],
+    '/tooling/': [{ text: 'Tooling', items: [
+      { text: '工具链概览', link: '/tooling/' },
+      { text: 'VS Code', link: '/guide/vscode' },
+      { text: '当前状态', link: '/status' },
+    ]}],
     '/versions/': [{ text: '版本记录', items: [
       { text: '版本索引', link: '/versions/' },
       ...releaseItems('/versions'),
     ]}],
     '/design/': [
+      { text: '设计入口', items: [
+        { text: 'Compiler Design', link: '/design/' },
+        { text: '编译器架构', link: '/spec/compiler-design' },
+      ]},
       { text: '实现与规划', items: [
         ...releaseItems('/versions'),
         { text: '实现策略决议', link: '/design/implementation-strategy' },

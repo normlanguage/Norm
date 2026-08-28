@@ -21,7 +21,7 @@ String message = switch reserve(command: command) {
 
 `std.core.Exception` 是所有可抛出异常的名义 class 根类型。异常子类使用普通单继承，catch 只接受非 nullable、非泛型的 Exception 子类型。`throw`、`try`、`catch` 与 `finally` 处理无法作为当前函数正常结果继续的异常。Norm 不使用 checked exception，也不会把 Result.Err 自动转换为 Exception。
 
-std.io、filesystem、network、http、time、process、regex、crypto 与 concurrent 的操作失败统一抛出领域 Exception，不返回 Result。具体边界以[标准库 API 原则](/stdlib/library-design-principles)为准。
+当前系统边界中的 I/O、filesystem、HTTP 与 time 操作失败统一抛出领域 Exception，不返回 Result。具体交付范围以[标准库概览](/stdlib/overview)为准。
 
 运行时参数错误、越界、除零等工具链故障使用稳定运行时错误码，不属于用户 Exception 层级，也不会被 catch 截获。
 

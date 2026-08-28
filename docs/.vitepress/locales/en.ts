@@ -11,10 +11,12 @@ const handbook = [
 
 export const enTheme: DefaultTheme.Config = {
   nav: [
+    { text: 'Learn', link: '/en/language/overview', activeMatch: '^/en/language/' },
     { text: 'Docs', link: '/en/docs/' },
-    { text: 'Handbook', link: '/en/language/overview', activeMatch: '^/en/language/' },
-    { text: 'Releases', link: '/en/versions/', activeMatch: '^/en/versions/' },
+    { text: 'Design', link: '/en/design/implementation-strategy', activeMatch: '^/en/design/' },
     { text: 'Project Status', link: '/en/status' },
+    { text: 'Releases', link: '/en/versions/', activeMatch: '^/en/versions/' },
+    { text: 'GitHub', link: 'https://github.com/w0fv1/Norm' },
   ],
   sidebar: {
     '/en/language/': [{ text: 'Core Language', items: handbook }],

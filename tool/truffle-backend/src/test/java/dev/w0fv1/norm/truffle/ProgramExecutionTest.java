@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import static dev.w0fv1.norm.testing.NormTestKit.projectSuite;
+import static dev.w0fv1.norm.testing.NormTestKit.outputSuite;
 import static dev.w0fv1.norm.testing.NormTestKit.suite;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -956,6 +957,16 @@ final class ProgramExecutionTest {
   @TestFactory
   Stream<DynamicTest> runsMultiFilePrograms() throws Exception {
     return projectSuite("projects");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsDocumentationExamples() throws Exception {
+    return outputSuite("docs/tour");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsDocumentationProjectExamples() throws Exception {
+    return projectSuite("docs/projects");
   }
 
   private static void assertOutput(String text, String expected) throws Exception {

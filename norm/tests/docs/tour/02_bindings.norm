@@ -1,0 +1,11 @@
+Integer advance(Integer current) {
+  return current + 1
+}
+
+main() {
+  Integer count = 1
+  count = advance(count)
+  var label = "ready"
+  printLine(label)
+  printLine(count)
+}

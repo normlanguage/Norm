@@ -1,0 +1,31 @@
+interface Named {
+  String name()
+}
+
+value Point implements Named {
+  Integer x
+  Integer y
+
+  String name() {
+    return "point"
+  }
+}
+
+class Counter {
+  Integer value
+
+  increment() {
+    value = value + 1
+  }
+}
+
+main() {
+  Point first = Point(x: 2, y: 4)
+  Point second = first
+  Counter counter = Counter(value: 0)
+  Counter alias = counter
+  alias.increment()
+  printLine(first == second)
+  printLine(first.name())
+  printLine(counter.value)
+}

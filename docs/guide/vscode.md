@@ -20,7 +20,7 @@ Norm 的官方 VS Code 扩展包含当前版本的原生 `norm` CLI。安装一�
 ```norm
 main() {
     String language = "Norm"
-    printLine("Hello, ${language}")
+    printLine("Hello, " + language)
 }
 ```
 
@@ -37,7 +37,7 @@ main() {
 ### 编写代码
 
 - `.norm` 文件、关键字、类型、nullable、泛型、Annotation 与 extension function 高亮；
-- 括号、引号、注释和缩进编辑行为；
+- 括号、引号和缩进编辑行为；
 - 保存时使用编译器 formatter；
 - 在未完成的返回语句、变量初始化和调用参数中继续提供建议；
 - 根据期望类型和作用域排序局部值、函数、类型、enum variant 与模板。

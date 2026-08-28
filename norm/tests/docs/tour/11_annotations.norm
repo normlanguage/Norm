@@ -1,0 +1,17 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+}
+
+@Label(text: "coordinate")
+value Point {
+  Integer x
+  Integer y
+}
+
+main() {
+  Label? label = reflect<Point>().annotation<Label>()
+  printLine(label?.text ?? "missing")
+}

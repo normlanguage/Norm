@@ -1,0 +1,8 @@
+Integer subtract(Integer left, Integer right) {
+  return left - right
+}
+
+main() {
+  Integer difference = subtract(left: 140, right: 100)
+  printLine(difference)
+}

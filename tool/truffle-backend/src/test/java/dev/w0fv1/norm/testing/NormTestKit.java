@@ -134,12 +134,39 @@ public final class NormTestKit {
         }
         assertEquals(1, entryPoints.size(), module + " must contain exactly one entry point");
         Path entry = entryPoints.getFirst();
+        Path output = projectCase.resolve("expected.out");
         tests.add(
             DynamicTest.dynamicTest(
-                projectCase.getFileName().toString(), () -> assertSelfContainedTest(entry)));
+                projectCase.getFileName().toString(),
+                () -> {
+                  if (Files.isRegularFile(output)) assertGoldenOutput(entry, output);
+                  else assertSelfContainedTest(entry);
+                }));
       }
     }
     return tests.stream();
+  }
+
+  public static Stream<DynamicTest> outputSuite(String resource) throws Exception {
+    Path directory = resourceDirectory(resource);
+    List<Path> cases;
+    try (Stream<Path> files = Files.walk(directory)) {
+      cases =
+          files
+              .filter(Files::isRegularFile)
+              .filter(path -> path.getFileName().toString().endsWith(".norm"))
+              .sorted()
+              .toList();
+    }
+    return cases.stream()
+        .map(
+            path -> {
+              String name = path.getFileName().toString();
+              Path output = path.resolveSibling(name.substring(0, name.length() - 5) + ".out");
+              return DynamicTest.dynamicTest(
+                  directory.relativize(path).toString().replace('\\', '/'),
+                  () -> assertGoldenOutput(path, output));
+            });
   }
 
   private static Path resourceDirectory(String resource) throws Exception {
@@ -160,6 +187,18 @@ public final class NormTestKit {
     }
     assertTrue(!expected.toString().isEmpty(), path + " must declare expected output lines");
     assertEquals(expected.toString(), actual.toString(), () -> "unexpected output from " + path);
+  }
+
+  static void assertGoldenOutput(Path path, Path output) throws Exception {
+    assertTrue(Files.isRegularFile(output), output + " must declare expected output");
+    assertEquals(
+        normalizeLineEndings(Files.readString(output)),
+        normalizeLineEndings(run(path)),
+        () -> "unexpected output from " + path);
+  }
+
+  private static String normalizeLineEndings(String value) {
+    return value.replace("\r\n", "\n").replace('\r', '\n');
   }
 
   private static ProjectEnvironment environment() {

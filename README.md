@@ -4,7 +4,7 @@
 
 Norm is a specification and compiler-bootstrap repository for a statically typed, application-oriented programming language.
 
-Norm prioritizes explicit behavior, predictable semantics, strong typing, value semantics by default, and practical application development.
+Norm uses distinct language constructs for distinct semantics: classes express identity, values express data, enums express alternatives, interfaces express capability, and refs express controlled aliasing.
 
 ## Status
 
@@ -24,7 +24,7 @@ Tagged releases provide a standalone `norm` executable and a VS Code extension t
 
 ## Documentation
 
-The complete handbook lives in `docs/` and is built with VitePress.
+The VitePress site separates the continuous Language Tour, precise Language Reference, current standard-library API, tooling and compiler design, and release status. Its primary examples are compiled, executed, and checked against companion output files.
 
 After GitHub Pages deployment, the documentation is available at:
 
@@ -42,7 +42,8 @@ tool/cli/app/                 command-line application and language server
 tool/cli/extensions/          editor extensions
 norm/stdlib/                  standard library written in Norm
 norm/tests/                   executable Norm test programs
-docs/                         language handbook and examples
+docs/                         documentation site
+norm/tests/docs/              executable documentation examples
 ```
 
 ## Implementation strategy

@@ -1,8 +1,8 @@
-# Norm 语言规范
+# Language Reference
 
-本文是 Norm 1.0 核心语言规则的入口。手册解释如何使用语言，本规范定义编译器必须接受、拒绝和执行什么。
+本页是 Norm 核心语言规则的索引。Language Tour 解释如何使用语言，Reference 定义编译器必须接受、拒绝和执行什么。
 
-> Norm 当前处于规范草案阶段。标为“待定”的内容不能被实现或文档当作稳定承诺。
+当前发布版尚未实现的语法不会写成可用规则；版本成熟度和限制统一列在 [Status](/status)。
 
 ## 设计边界
 
@@ -21,10 +21,8 @@ Norm 是静态、名义、非空默认的语言，核心差异集中在三条具
 ```norm
 package geometry
 
-import std.math.sqrt
-
-Double length(Point point) {
-    return sqrt(value: point.x * point.x + point.y * point.y)
+Integer coordinateSum(Point point) {
+    return point.x + point.y
 }
 ```
 
@@ -41,7 +39,7 @@ Integer square(Integer value) {
 }
 ```
 
-核心声明包括 class、value、interface、enum、annotation 和 function。interface 是唯一的名义行为抽象；标准库 protocol 只是普通 interface。public/private 控制可见性；更细模块可见性仍待定。
+核心声明包括 class、value、interface、enum、annotation 和 function。interface 是唯一的名义行为抽象；标准库 protocol 只是普通 interface。声明默认 `public`，`private` 限制在声明文件内；跨 package 和跨模块可见性由 `module.norm` 的 exports 与直接依赖共同确定。
 
 顶层函数省略返回类型时是 `Void`。class 方法省略返回类型时返回同一接收者，真实签名使用完整 owner 类型。显式 `Void` 不产生结果。
 
@@ -69,7 +67,7 @@ String sign = if number < 0 {
 }
 ```
 
-控制流表达式不会把最后表达式自动作为结果，也不会为缺失分支插入 null。每个 switch 都必须穷尽，被匹配表达式只求值一次且 case 不 fallthrough。Lambda 的末尾表达式规则见[高级函数规则](/spec/grammar/functions-advanced)。遍历式 for 通过标准库 Iterable interface 工作；首版没有 C 风格 for 和 while。
+控制流表达式不会把最后表达式自动作为结果，也不会为缺失分支插入 null。每个 switch 都必须穷尽，被匹配表达式只求值一次且 case 不 fallthrough。Lambda 的末尾表达式规则见[高级函数规则](/spec/grammar/functions-advanced)。遍历式 for 通过标准库 Iterable interface 工作；当前语法没有 C 风格 for 和 while。
 
 ## 泛型
 
@@ -88,6 +86,10 @@ String sign = if number < 0 {
 - [语法总览](/spec/grammar/overview)
 - [类型系统](/spec/type-system)
 - [Value 与 Identity 语义](/spec/value-identity-semantics)
+- [Package 与模块](/spec/module-system)
+- [引用生命周期](/spec/grammar/references)
+- [Annotation 语义](/spec/annotations)
+- [当前限制](/status)
 - [对象模型](/spec/object-model)
 - [内存语义](/spec/memory-semantics)
 - [表达式语义](/spec/expression-semantics-formal)

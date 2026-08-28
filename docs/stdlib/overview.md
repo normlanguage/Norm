@@ -1,56 +1,40 @@
-# 标准库概览
+# Standard Library
 
-标准库为 Norm 程序提供跨平台的基础值类型、集合、I/O 和应用能力。本节定义 1.0 标准库的模块职责与公共 API。
+当前标准库围绕核心值、Unicode 文本、集合、受控系统资源和结构数据建立强类型 API。公开能力以 `norm/stdlib/std` 源码、内建 ABI 与当前版本验收程序为准。
 
-## 模块分层
+## 已交付模块
 
-| 层级 | 模块 | 责任 |
+| Package | 职责 | 参考 |
 | --- | --- | --- |
-| 核心 | std.core、std.text、std.collections、std.math、std.time、std.validation | 不依赖外部系统的值、接口、算法与约束 |
-| 系统 | std.io、filesystem、process、network、thread | 操作系统资源与并发边界 |
-| 数据 | serialization、json、sql、configuration | 外部数据和持久化 |
-| 安全 | crypto、security、random | 密码学与敏感值 |
-| 工程 | logging、std.testing、command-line | 开发、诊断和应用入口 |
-| 协议 | http | HTTP 客户端、请求与流式响应 |
+| `std.core` | Result、Unit、Exception 与核心 interface | [核心类型](https://github.com/w0fv1/Norm/tree/main/norm/stdlib/std/core) |
+| `std.annotation` | Annotation 目标、保留与拦截 interface | [Annotation 规范](/spec/annotations) |
+| `std.text` | Unicode 规范化与文本构造 | [String](/stdlib/string) |
+| `std.collections` | 序列算法与集合 extension | [Collections](/stdlib/collections) |
+| `std.math` | Integer 数学函数 | [Math](/stdlib/math) |
+| `std.time` | Instant、Duration 与 Clock | [Time](/stdlib/time) |
+| `std.io` | Bytes、UTF-8、流与 Resource | [I/O](/stdlib/io) |
+| `std.filesystem` | 流式文件读写 | [Filesystem](/stdlib/filesystem) |
+| `std.http` | URI、请求、响应与 HTTP client | [HTTP](/stdlib/http) |
+| `std.serialization` | 结构映射契约与 metadata | [Serialization](/stdlib/serialization) |
+| `std.json` | JSON tree、parse/write 与结构映射 | [JSON](/stdlib/json-api) |
+| `std.xml` | XML 结构映射 | [XML](/stdlib/xml-api) |
+| `std.yaml` | YAML 结构映射 | [YAML](/stdlib/yaml-api) |
+| `std.validation` | 字段与参数约束 | [Validation](/stdlib/validation-api) |
+| `std.testing` | 断言值与验收输出协议 | [Testing](/stdlib/testing-api) |
+
+`Array`、`List`、`Map`、`Set`、`Stack`、`Queue`、`Deque`、`Pair`、`Range` 和 `StringBuilder` 是当前内建类型模型的一部分，并由标准库源码提供组合算法。
 
 ## 共同规则
 
-- public API 保留完整静态类型，不提供 raw collection；
-- 普通值和集合遵循默认值语义，共享必须显式出现；
-- 普通缺失使用 `T?`，应用领域的显式互斥结果可以使用 `Result<T, E>`，系统层失败使用领域 Exception；
-- 文件、socket、进程等外部资源需要确定性关闭；
-- 时间、编码、舍入、超时和安全策略不能依赖环境默认值；
-- adapter 差异不能被不真实的统一接口掩盖。
+- 公共 API 保留完整静态类型，不接受 raw collection；
+- 普通缺失使用 `T?`，互斥业务结果使用 enum 或 `Result<T, E>`，系统失败抛出领域 Exception；
+- 外部资源通过 `Resource` 与 `use` 确定性关闭；
+- 文本 API 明确区分 byte、Unicode code point 和 grapheme；
+- 序列化按 Core field ordinal 读取 value，不依赖 JVM reflection 或字符串 getter；
+- 每个格式保留自己的领域规则和失败类型，不使用不真实的统一错误模型。
 
-## std.core
+## 当前边界
 
-`Result<T, E>` 与 `Unit` 是 `std.core` 中的普通 enum，不具有语言特例。`Unit.Value` 用于需要实际 Unit 值的位置，不替代无返回值函数的 `Void`。公开声明以标准库的 `core.result` 与 `core.unit` 源文件为准。系统层错误规则见[标准库 API 原则](/stdlib/library-design-principles)。
+结构映射只处理 `value`。Class identity、对象图、循环引用和多态尚未进入协议；HTTP server 也尚未交付。完整状态见 [Status](/status)。
 
-标准库 protocol 是 `core.protocols` 定义的普通 interface：
-
-| Interface | 契约 |
-| --- | --- |
-| `Iterable<T>` | 提供产生 `Iterator<T>` 的遍历入口 |
-| `Iterator<T>` | 按顺序提供元素并明确表示耗尽 |
-| `Sized` | 显式查询有限元素数量 |
-| `Comparable<T>` | 显式比较两个值的顺序 |
-| `Equatable<T>` | 显式比较领域等价性 |
-| `Hashable` | 为哈希容器提供稳定 hash |
-
-类型必须显式声明 `implements` 才满足这些接口。遍历式 `for` 只通过 `Iterable<T>` 工作；语言操作符使用自身固定语义，不由 Comparable、Equatable 或其他 protocol 重载。
-
-## 集合示例
-
-```norm
-List<Integer> first = [1, 2, 3]
-List<Integer> second = first
-second.add(value: 4)
-```
-
-此时 `first` 仍为 `[1, 2, 3]`。
-
-运行时可以使用写时复制优化，但可观察行为保持独立。确实需要共享同一集合存储位置时使用 `ref<List<Integer>>`。
-
-## 实现策略
-
-首版运行时可以通过 adapter 复用成熟平台的文件、网络或数据库驱动。Norm API、错误模型和资源生命周期保持稳定，未来可替换为原生实现而不改变应用源码语义。
+具体签名以各页面链接的 Norm 源码为准，文档负责解释模块职责、失败边界和最小用法，不复制第二份完整方法清单。

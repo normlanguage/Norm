@@ -25,7 +25,7 @@ export default defineConfig({
       label: '简体中文',
       lang: 'zh-CN',
       title: 'Norm',
-      description: '默认值语义、显式共享与显式值流的静态类型语言',
+      description: '用不同语言构造表达身份、值、选择、能力与受控别名',
       themeConfig: zhTheme,
     },
     en: {
@@ -33,7 +33,7 @@ export default defineConfig({
       lang: 'en-US',
       link: '/en/',
       title: 'Norm',
-      description: 'A statically typed language with value semantics, explicit sharing, and visible value flow',
+      description: 'A statically typed language with familiar syntax and explicit semantics',
       themeConfig: enTheme,
     },
   },

@@ -1,0 +1,14 @@
+String? select(Boolean available) {
+  if available {
+    return "Norm"
+  }
+  return null
+}
+
+main() {
+  List<Pair<Integer, String>> values = List<>()
+  values.add(Pair<>(first: 7, second: "seven"))
+  String name = select(available: false) ?? "missing"
+  printLine(values[0].second)
+  printLine(name)
+}

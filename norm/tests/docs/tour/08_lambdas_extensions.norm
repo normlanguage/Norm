@@ -1,0 +1,15 @@
+Integer apply(Integer transform(Integer value), Integer input) {
+  return transform(input)
+}
+
+extension T echoed<T>(T value) {
+  return value
+}
+
+main() {
+  Function<Integer(Integer)> twice = (value) {
+    value * 2
+  }
+  printLine(apply(transform: twice, input: 6))
+  printLine("Norm".echoed())
+}

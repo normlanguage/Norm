@@ -83,4 +83,4 @@ Norm 使用名义类型和 reified 泛型，编译器产生 canonical Core，运
 
 判断后续工作的优先级时，Norm 会继续沿用三条标准：先补齐应用开发的基础闭环，再扩大生态；先建立统一抽象，再增加格式或平台实现；新能力必须同时进入编译器、LSP、JVM/Native 验收和版本契约。
 
-下一篇：[语言手册](/language/overview)。
+接下来：[开始 Language Tour](/learn/)或查看[当前状态](/status)。

@@ -1,92 +1,90 @@
 ---
 layout: home
-title: Norm：让关键语义留在源码里
+title: Norm：熟悉的语法，明确的语义
 titleTemplate: false
 pageClass: norm-home
 ---
+
+<script setup>
+import heroExample from '../norm/tests/docs/tour/05_enum_switch.norm?raw'
+</script>
 
 <section class="norm-hero">
   <div class="norm-hero__inner">
     <img class="norm-hero__logo" src="/brand/norm.svg" alt="Norm Logo">
     <p class="norm-hero__eyebrow">静态类型应用编程语言</p>
-    <h1>把共享、失败和值流，写在代码里。</h1>
-    <p class="norm-hero__lead">Norm 使用熟悉的类型前置语法，但让对象身份、结构数据、控制流结果和运行时类型信息拥有清楚且可组合的规则。</p>
+    <h1><span>熟悉的语法，</span><span>明确的语义。</span></h1>
+    <p class="norm-hero__lead">用 <code>class</code> 表达身份，用 <code>value</code> 表达值，用 <code>enum</code> 表达状态，用 <code>interface</code> 表达能力，用 <code>ref</code> 表达受控的可变访问。</p>
     <div class="norm-hero__actions">
-      <a class="norm-button norm-button--dark" href="./guide/">认识 Norm</a>
-      <a class="norm-button norm-button--light" href="https://github.com/w0fv1/Norm/releases/latest">下载最新版本</a>
+      <a class="norm-button norm-button--dark" href="./learn/">开始学习</a>
+      <a class="norm-button norm-button--light" href="./guide/">了解语言设计</a>
     </div>
-    <div class="norm-code-window" aria-label="Norm 结构数据与显式值流示例">
-      <div class="norm-code-window__bar"><span></span><span></span><span></span><b>profile.norm</b></div>
-      <pre><code v-pre>import std.json.toJson&#10;import std.serialization.Serializable&#10;&#10;enum Audience { Adult, Minor }&#10;&#10;@Serializable()&#10;value Profile {&#10;    String name&#10;    Audience audience&#10;}&#10;&#10;String label(Audience audience) {&#10;    return switch audience {&#10;        case Adult { break "adult" }&#10;        case Minor { break "minor" }&#10;    }&#10;}&#10;&#10;main() {&#10;    Profile profile = Profile(&#10;        name: "Ada",&#10;        audience: Audience.Adult&#10;    )&#10;    printLine(label(profile.audience))&#10;    printLine(profile.toJson())&#10;}</code></pre>
+    <div class="norm-code-window" aria-label="经过编译和运行验证的数据枚举示例">
+      <div class="norm-code-window__bar"><span></span><span></span><span></span><b>delivery.norm · N-42</b></div>
+      <pre><code>{{ heroExample }}</code></pre>
     </div>
   </div>
 </section>
 
 <section class="norm-intro norm-section">
-  <p class="norm-kicker">一条设计主线</p>
-  <h2>读代码，就能知道程序会怎样运行。</h2>
-  <p class="norm-section__lead">Norm 不靠宏、类型擦除或框架约定补充关键含义。高影响行为在声明处和调用点都有稳定、可检查的表示。</p>
-  <div class="norm-feature-grid">
-    <article><span class="norm-feature-number">01</span><h3>Value、Identity 与 Ref</h3><p><code>value</code> 表达结构数据，<code>class</code> 保留对象身份，<code>ref&lt;T&gt;</code> 只引用 value 的存储位置。</p></article>
-    <article><span class="norm-feature-number">02</span><h3>显式值流</h3><p>命名参数保留调用含义；穷尽的 <code>switch</code> 用 <code>break value</code> 明确产生结果。</p></article>
-    <article><span class="norm-feature-number">03</span><h3>运行时精确类型</h3><p>泛型实参不会被擦除。反射读取 Core metadata 和字段 ordinal，不按字符串调用 getter。</p></article>
-    <article><span class="norm-feature-number">04</span><h3>受约束的扩展能力</h3><p>Extension function 保持静态解析；Annotation 分离 metadata 与拦截生命周期，不向语言引入宏系统。</p></article>
-    <article><span class="norm-feature-number">05</span><h3>面向应用的边界</h3><p>文件、流式 I/O、HTTP 客户端和 JSON/XML/YAML 已使用强类型 API 与领域 Exception 接入同一运行时。</p></article>
-    <article><span class="norm-feature-number">06</span><h3>一套工具链</h3><p>编译器、LSP 和 Truffle 后端共享语义模型；Native Image 交付无需预装 Java 的独立 CLI 与 VS Code 扩展。</p></article>
+  <p class="norm-kicker">一个类型模型</p>
+  <h2>不是所有数据都应该是同一种对象。</h2>
+  <p class="norm-section__lead">语言构造直接说明数据是否具有身份、能否改变、如何组合，以及调用者可以依赖什么。</p>
+  <div class="norm-feature-grid norm-semantics-grid">
+    <article><span class="norm-feature-number">CLASS</span><h3>Identity</h3><p>具有身份和可变状态的实体；赋值、传参和返回保留同一对象。</p></article>
+    <article><span class="norm-feature-number">VALUE</span><h3>Data</h3><p>由字段内容定义的值；构造后字段不可重新赋值。</p></article>
+    <article><span class="norm-feature-number">ENUM</span><h3>Alternatives</h3><p>有限且可携带数据的状态集合，由模式解构。</p></article>
+    <article><span class="norm-feature-number">INTERFACE</span><h3>Capability</h3><p>名义化能力和替换契约，不改变底层数据类别。</p></article>
+    <article><span class="norm-feature-number">REF</span><h3>Controlled aliasing</h3><p>受词法生命周期约束的 value 存储位置引用。</p></article>
   </div>
 </section>
 
 <section class="norm-dark-section">
   <div class="norm-section norm-split">
     <div>
-      <p class="norm-kicker">Value 与 Identity</p>
-      <h2>共享发生时，不让它伪装成复制。</h2>
-      <p><code>class</code> 变量保存对象引用，赋值后继续观察同一个对象。<code>value</code> 与容器保持结构语义。需要新的 class 身份时，代码必须显式调用 <code>copy()</code>。</p>
-      <a class="norm-text-link" href="./language/objects">理解完整数据模型 →</a>
+      <p class="norm-kicker">Data Enum 与 Switch</p>
+      <h2>每一种状态都由编译器检查。</h2>
+      <p><code>switch</code> 是表达式。Variant 可以携带数据，模式可以递归嵌套；遗漏分支和不可达分支都会产生诊断。</p>
+      <a class="norm-text-link" href="./learn/enum-switch">学习数据 Enum 与模式匹配 →</a>
     </div>
     <div class="norm-compare">
-      <div><small>保留同一对象身份</small><pre><code v-pre>Counter second = first&#10;second.increment()&#10;printLine(first.value)</code></pre></div>
-      <div><small>创建新的顶层身份</small><pre><code v-pre>Counter second = first.copy()&#10;second.increment()&#10;printLine(first.value)</code></pre></div>
-      <div><small>引用 value 的存储位置</small><pre><code v-pre>ref&lt;Integer&gt; position = &cursor&#10;*position = 12</code></pre></div>
+      <div><small>显式产生结果</small><pre v-pre><code>case Sent(String code) {&#10;  break code&#10;}</code></pre></div>
+      <div><small>覆盖剩余状态</small><pre v-pre><code>case Failed(_) {&#10;  break "failed"&#10;}</code></pre></div>
+      <div><small>没有隐式 Fallthrough</small><pre v-pre><code>每个 case 独占执行&#10;被匹配值只求值一次</code></pre></div>
     </div>
   </div>
 </section>
 
 <section class="norm-section norm-syntax-section">
-  <p class="norm-kicker">语言能力</p>
-  <h2>高级能力仍然遵守普通调用和类型规则。</h2>
-  <div class="norm-showcase-grid">
-    <article>
-      <div><span>Reified Type Model</span><h3>运行时看到的类型，与源码写下的类型一致。</h3><p><code>reflect&lt;T&gt;()</code>、结构序列化和泛型运行时共享精确 CoreType。字段访问使用稳定 ordinal。</p><a href="./language/reflect">阅读 Annotation 与 Reflect →</a></div>
-      <pre><code v-pre>Type&lt;Profile&gt; type = reflect&lt;Profile&gt;()&#10;List&lt;Field&lt;Profile&gt;&gt; fields = type.fields()&#10;String name = fields[0].name()</code></pre>
-    </article>
-    <article>
-      <div><span>Static Extension</span><h3>点号只是清晰的调用形式，不是隐藏分派。</h3><p>Extension function 必须显式导入，真实实例方法优先；它不会修改目标类型或改变动态方法表。</p><a href="./language/functions#extension-function">阅读 Extension function →</a></div>
-      <pre><code v-pre>import std.json.toJson&#10;&#10;String body = profile.toJson()&#10;String same = toJson(value: profile)</code></pre>
-    </article>
+  <p class="norm-kicker">类型服务于理解</p>
+  <h2>能从上下文确定时省略，语义不足时拒绝猜测。</h2>
+  <div class="norm-showcase-grid norm-showcase-grid--three">
+    <article><div><span>NULL SAFETY</span><h3>缺失进入类型。</h3><p><code>String?</code>、<code>?.</code> 和 <code>??</code> 分别表达可空值、安全访问和回退路径。</p><a href="./learn/nullability-inference">学习 Null 与推断 →</a></div><pre v-pre><code>Integer size(String? text) {&#10;  return text?.graphemeSize() ?? 0&#10;}</code></pre></article>
+    <article><div><span>INFERENCE</span><h3>推断使用期望类型。</h3><p>集合字面量和泛型构造器利用赋值目标与实参；失败时不会退化成动态类型。</p><a href="./spec/type-inference">查看推断规则 →</a></div><pre v-pre><code>Array&lt;Integer&gt; fixed = [1, 2, 3]&#10;List&lt;Integer&gt; dynamic = [1, 2, 3]&#10;List&lt;Pair&lt;Integer, String&gt;&gt; pairs = List&lt;&gt;()</code></pre></article>
+    <article><div><span>FUNCTIONS</span><h3>函数保持函数。</h3><p>顶层函数、Lambda、方法引用和 Extension 共用静态类型与普通调用规则。</p><a href="./learn/lambdas-extensions">学习函数值与 Extension →</a></div><pre v-pre><code>extension T echoed&lt;T&gt;(T value) {&#10;  return value&#10;}&#10;&#10;String copy = "Norm".echoed()</code></pre></article>
   </div>
 </section>
 
 <section class="norm-section">
-  <p class="norm-kicker">现在可以做什么</p>
-  <h2>从语言实验走向真实应用边界。</h2>
+  <p class="norm-kicker">高级能力</p>
+  <h2>别名和运行时策略仍然有清楚边界。</h2>
   <div class="norm-path-grid">
-    <a href="./guide/introduction"><span>LANGUAGE</span><h3>编写并运行 Norm</h3><p>使用独立 CLI、项目模块、测试 API 和 VS Code 语言服务完成开发闭环。</p><b>从快速介绍开始 →</b></a>
-    <a href="./stdlib/http"><span>SYSTEM</span><h3>访问文件与网络</h3><p>通过有界流、确定性资源关闭、强类型 URI 和 HTTP request/response 连接系统能力。</p><b>查看 HTTP 与 I/O →</b></a>
-    <a href="./stdlib/serialization"><span>DATA</span><h3>映射结构数据</h3><p>一套 DataMapper 契约处理 JSON、XML 与 YAML，递归映射显式标记的 value。</p><b>查看序列化 →</b></a>
+    <a href="./learn/references"><span>REFERENCES</span><h3>受控的可变访问</h3><p><code>&amp;</code> 取得位置，<code>*</code> 读写 value；引用不能逃逸到返回值、字段、容器或 Lambda。</p><b>学习引用 →</b></a>
+    <a href="./learn/annotations"><span>ANNOTATIONS</span><h3>类型化元数据与行为</h3><p>目标、保留策略和拦截生命周期通过名义接口表达，并与字段类型精确匹配。</p><b>学习 Annotation →</b></a>
+    <a href="./stdlib/overview"><span>STANDARD LIBRARY</span><h3>Unicode-aware at the core</h3><p>文本 API 区分 byte、code point 和 grapheme，并连接集合、文件、HTTP 与结构数据格式。</p><b>查看标准库 →</b></a>
   </div>
 </section>
 
 <section class="norm-blue-band">
   <div class="norm-section norm-blue-band__inner">
-    <div><p class="norm-kicker">选择阅读深度</p><h2>从语言感觉，到精确规则。</h2></div>
-    <p>Guide 建立整体认识，语言手册用于连续学习，规范定义编译器必须接受和执行的行为，版本记录说明当前工具链已经实现的边界。</p>
-    <div class="norm-chip-list"><a href="./guide/">Guide</a><a href="./language/overview">语言手册</a><a href="./spec/language-spec">语言规范</a><a href="./versions/">当前实现</a><a href="./docs/">全部文档</a></div>
+    <div><p class="norm-kicker">一套语义模型</p><h2>编译器、工具与执行共享同一事实。</h2></div>
+    <p>Formatter、补全、签名、Hover、导航和 Rename 读取编译器语义快照；Canonical Core 固定解析结果，Truffle 只执行已解析表示。</p>
+    <div class="norm-chip-list"><a href="./tooling/">Tooling</a><a href="./design/">Compiler Design</a><a href="./status">Current Status</a><a href="./versions/0.16">Norm 0.16</a></div>
   </div>
 </section>
 
 <section class="norm-section norm-final-cta">
-  <h2>先运行一段真实的 Norm 代码。</h2>
-  <p>下载独立 CLI 或通用 VS Code 扩展，不需要预装 Java 或 GraalVM。</p>
-  <div><a class="norm-button norm-button--blue" href="https://github.com/w0fv1/Norm/releases/latest">获取最新 Release</a><a class="norm-button norm-button--outline" href="./guide/vscode">配置 VS Code</a></div>
+  <h2>从一段真实的 Norm 程序开始。</h2>
+  <p>Tour 中的主要示例由当前编译器编译、执行并校验输出。</p>
+  <div><a class="norm-button norm-button--blue" href="./learn/">开始 Language Tour</a><a class="norm-button norm-button--outline" href="https://github.com/w0fv1/Norm/releases/latest">获取最新 Release</a></div>
 </section>

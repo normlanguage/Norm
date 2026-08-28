@@ -52,4 +52,4 @@ import std.collections.sort
 List<Integer> ordered = sort(values: values)
 ```
 
-详细签名见 [Collections API](/stdlib/collections-api)。
+完整签名以 [`std.collections.sequences`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/collections/sequences.norm) 为准。

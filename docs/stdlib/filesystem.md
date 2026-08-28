@@ -21,4 +21,4 @@ String text = readText(
 
 `openWrite(path:, mode:)` 的模式区分 `CreateNew`、`Replace` 与 `Append`。`flush()` 推进用户态缓冲，`sync(mode:)` 区分数据同步与数据及 metadata 同步。
 
-完整签名见[File API](/stdlib/file-api)和 [`std.filesystem.files`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/filesystem/files.norm)。
+完整签名以 [`std.filesystem.files`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/filesystem/files.norm) 为准。

@@ -1,16 +1,27 @@
+<script setup>
+import { currentRelease } from '../.vitepress/release'
+</script>
+
 # Project Status
 
-The handbook, specification, and standard library describe the future Norm 1.0 language. Delivered compiler behavior is tracked separately by release.
+The current release is Norm {{ currentRelease }}. This page describes delivered behavior; the specification describes the long-term language contract.
 
-- [Norm 0.10 implementation contract](/en/versions/0.10)
-- [Norm 0.9 implementation contract](/en/versions/0.9)
-- [Norm 0.8 implementation contract](/en/versions/0.8)
-- [Norm 0.7 implementation contract](/en/versions/0.7)
-- [Norm 0.6 implementation contract](/en/versions/0.6)
-- [Norm 0.5 implementation contract](/en/versions/0.5)
-- [Norm 0.4 implementation contract](/en/versions/0.4)
-- [Norm 0.3 release record](/en/versions/0.3)
-- [Norm 0.2 release record](/en/versions/0.2)
-- [Norm 0.1 release record](/en/versions/0.1)
-- [Implementation strategy](/en/design/implementation-strategy)
-- [Compiler bootstrap plan](/en/design/bootstrap-plan)
+## Delivered
+
+- classes, values, nominal interfaces, data enums, and exhaustive switch;
+- nullable types, bidirectional generic inference, lambdas, method references, and extensions;
+- lexically constrained `ref<T>` references;
+- typed annotations, interceptors, and runtime reflection;
+- packages, modules, formatting, semantic diagnostics, completion, signatures, hover, navigation, references, and rename;
+- Unicode text, collections, streaming I/O, files, an HTTP client, JSON, XML, YAML, validation, and testing APIs;
+- standalone CLIs and the official VS Code extension.
+
+## Current limits
+
+- string interpolation reports `NORM-LEXER-0005`;
+- source comments are not implemented by the current lexer;
+- automatic structural mapping supports values, not class identity, object graphs, cycles, or polymorphism;
+- the standard library does not yet provide an HTTP server;
+- a debugger and online execution environment are not part of the release.
+
+See the [release index](/en/versions/) for the latest implementation contract, evidence, and version history.

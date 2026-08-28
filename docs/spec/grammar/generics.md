@@ -21,7 +21,7 @@ T maximum<T extends Comparable<T>>(T left, T right) {
 }
 ```
 
-多个约束的具体连接语法尚未定稿；规范示例目前每个参数只展示一个 extends 上界。
+每个类型参数当前只接受一个 `extends` interface 上界，不提供多个上界的连接语法。
 
 bound 必须是 interface 类型。实际类型参数通过显式声明的 `implements` 或 interface `extends` 关系满足 bound；拥有相同成员不构成满足关系。约束内的调用通过 interface 动态分派。
 

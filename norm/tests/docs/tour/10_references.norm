@@ -1,0 +1,9 @@
+Void increment(ref<Integer> value) {
+  *value = *value + 1
+}
+
+main() {
+  Integer count = 1
+  increment(value: &count)
+  printLine(count)
+}
