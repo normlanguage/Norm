@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import { readdir, readFile } from 'node:fs/promises'
+import { access, readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { docsRoot, repositoryRoot } from './brand-config.mjs'
 import { repositoryName, siteBase, siteManifest, siteOrigin, siteUrl } from './site-config.mjs'
 
 const manifestPath = resolve(docsRoot, 'public', 'site.webmanifest')
 assert.deepEqual(JSON.parse(await readFile(manifestPath, 'utf8')), siteManifest)
+await access(resolve(docsRoot, 'guide', 'index.md'))
 
 const wrongCaseBase = `/${repositoryName.toLowerCase()}/`
 const wrongCaseUrl = `${siteOrigin}${wrongCaseBase}`
@@ -29,7 +30,12 @@ if (wrongCaseBase !== siteBase) {
 
 if (process.argv.includes('--dist')) {
   const html = await readFile(resolve(docsRoot, '.vitepress', 'dist', 'index.html'), 'utf8')
+  const guide = await readFile(
+    resolve(docsRoot, '.vitepress', 'dist', 'guide', 'index.html'),
+    'utf8',
+  )
   assert.match(html, new RegExp(`(?:href|src)="${siteBase.replaceAll('/', '\\/')}`))
+  assert.match(guide, /<h1[^>]*>认识 Norm/)
   assert.equal(html.includes(wrongCaseBase), false)
   assert.equal(html.includes(wrongCaseUrl), false)
   assert.deepEqual(

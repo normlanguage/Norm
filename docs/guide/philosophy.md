@@ -1,57 +1,37 @@
 # 语言哲学
 
-Norm 的核心判断很简单：代码首先是给人阅读的，其次才是给编译器执行的。语言应该让重要行为容易发现，而不是用更多语法糖把它们藏起来。
+Norm 的核心判断是：程序最昂贵的阶段不是第一次写出来，而是被不同的人反复阅读、修改和运行。语言设计首先要降低长期理解成本。
 
-## 显式优于隐式
+这不是要求所有代码都写得冗长。Norm 会省略没有语义价值的包装，但不会隐藏会改变控制流、共享关系、失败方式或运行时行为的信息。
 
-Norm 为几类高影响语义保留了醒目的语法：
+## 语义可见性
 
-| 写法 | 读者能立即知道 |
+一段代码应当让读者在局部回答下面的问题：
+
+- 这个值能否为 null？
+- 赋值后两个变量是否观察同一个对象？
+- 这个控制结构从哪条路径产生结果？
+- 失败是普通缺失、业务分支还是系统异常？
+- 点号调用来自真实方法还是静态 extension？
+- Annotation 只是 metadata，还是会执行生命周期？
+- 运行时读取的是哪个精确类型？
+
+Norm 为这些问题保留稳定的源码表示。
+
+| 写法 | 可见含义 |
 | --- | --- |
-| `T?` | 这里可能没有值 |
-| `name: value` | 参数含义在调用点可见 |
-| `Result<T, E>` | 这是函数契约内的可预期失败 |
-| `reflect` | 这里跨入反射或拦截边界 |
-| `break value` | 控制流结构正在产生值 |
+| `T?` | 这个位置允许 null |
+| `value` / `class` / `ref<T>` | 结构值、对象身份或 value 存储位置 |
+| `name: expression` | 实参绑定的公开形参 |
+| `break expression` | 控制流结构在这里产生结果 |
+| `Result<T, E>` | 调用方需要处理的业务结果分支 |
+| `throw` / `catch` | 非正常执行路径跨越调用边界 |
+| `extension` | 点号语法背后是静态顶层函数 |
+| `reflect<T>()` | 代码显式进入运行时类型查询 |
 
-显式不等于冗长。它意味着代码在最需要信息的位置保留信息。
+## 省略包装，不省略含义
 
-## Identity 不伪装成 Value
-
-```norm
-class Counter {
-    Integer value
-
-    Void increment() {
-        value = value + 1
-    }
-}
-
-Counter first = Counter(value: 0)
-Counter second = first
-second.increment()
-```
-
-`first.value` 是 `1`。class 具有身份，普通赋值不会隐式克隆对象。
-
-需要新身份时写出来：
-
-```norm
-Counter copied = first.copy()
-copied.increment()
-```
-
-这条规则减少的是“修改为什么从另一个地方发生”的不确定性。
-
-## 安全不应要求类型体操
-
-Norm 采用静态类型、非空默认、确定赋值、Result，以及明确的 value/identity 语义，但不把所有复杂性转移给类型系统使用者。
-
-它不采用完整所有权与借用系统，也不鼓励通过复杂泛型表达业务流程。应用开发需要可靠边界，也需要普通开发者能够快速阅读代码。
-
-## 普通行为使用普通结构
-
-独立行为写成顶层函数；数据写成 value；具有身份和行为的状态写成 class。语言不要求把每个概念包装进 class；横切行为由 Annotation 显式实现 `FunctionInterceptor` 协议。
+不依赖对象状态的行为可以直接写成顶层函数：
 
 ```norm
 Double midpoint(Double left, Double right) {
@@ -59,18 +39,66 @@ Double midpoint(Double left, Double right) {
 }
 ```
 
-这里不需要工具类、扩展机制或代码生成。
+这里不需要 `static`、单例对象或工具 class。省略这些结构不会损失信息。
 
-## Norm 项目使用 Norm 配置
+相反，多参数调用默认保留参数标签：
 
-Norm 能表达的项目配置、模块描述、构建规则和测试定义都使用 Norm 本身。工具读取类型化的 `.norm` 对象与声明，共享语言的语法、类型检查、编辑器支持和演进规则。
+```norm
+Double center = midpoint(left: start, right: end)
+```
 
-项目不为同一职责并列引入 JSON、JSONC、JavaScript、TypeScript、YAML、TOML 或 INI 配置。只有必须与外部系统交换的数据才使用对方要求的格式，并在边界处转换为 Norm 类型。
+标签增加了字符，却让两个同类型实参的角色留在调用点。Norm 衡量简洁性的单位不是字符数，而是读者需要从别处恢复多少上下文。
 
-## 平台不是语言规范
+## Identity 不伪装成 Value
 
-Norm 官方实现使用 GraalVM/Truffle，但前端、类型系统、反射模型和 canonical Core IR 不依赖 JVM 类型模型。
+有状态对象需要稳定身份，结构数据需要按内容理解。把两者压进同一种“对象”语义，会让复制、相等和共享在不同 API 中产生意外。
 
-同样，Web、数据库和序列化是语言之上的应用平台。它们可以使用语言能力，却不能反过来定义基础语义。
+Norm 因此区分：
 
-下一步：[设计原则](/guide/design-principles)。
+- `class`：可变、具有 identity，普通赋值保留同一对象；
+- `value`：由字段内容定义，构造后不可变，使用结构相等；
+- 内建容器：复制容器结构，class 元素的身份继续共享；
+- `ref<T>`：引用 value 的存储位置，不接受 class 类型。
+
+实现可以使用结构共享、写时复制和逃逸分析优化 value，只要程序观察到的语义不变。
+
+## 控制流不能偷偷产值
+
+Norm 的控制流表达式使用 `break value` 标出结果，不把代码块的最后一项升级为隐式返回。当前发布版已经实现穷尽 switch 表达式；if 与 for 的产值形式属于 1.0 规范目标。
+
+```norm
+String describe(State state) {
+    return switch state {
+        case Ready { break "ready" }
+        case Disabled { break "disabled" }
+    }
+}
+```
+
+缺失 variant 会成为穷尽性错误，也不会产生隐式 null。表达式能力存在，值流仍然清楚。
+
+## 强类型用于约束边界
+
+Norm 采用非空默认、确定赋值、名义 interface、泛型不变性和 reified 类型参数。这些规则优先保护模块边界，而不是鼓励类型级计算。
+
+同一判断也适用于反射和框架扩展。字段反射返回带精确字段类型的 `ReflectedValue`，Annotation 生命周期使用 `ParameterInterceptor<T>` 与 `FieldInterceptor<T>` 约束输入；序列化根据 exact Core type 构建计划。运行时能力不应把已经得到的类型信息降级为字符串和无类型 Map。
+
+## 失败不是一种东西
+
+普通缺失、业务拒绝和系统故障对调用方意味着不同的控制责任。Norm 分别使用 nullable、Result 和 Exception，不提供自动 Result 传播语法，也不要求系统 API 把异常包装成 Result。
+
+这使函数签名能够表达稳定业务分支，同时让文件、网络、协议和运行时错误沿异常边界传播，并在合适的应用层转换。
+
+## 扩展能力必须有边界
+
+Norm 不引入宏或运行时代码注入。Extension function 是显式导入的静态函数；Annotation 的目标、保留策略与拦截协议由普通 interface 表达；Reflect 读取编译器保留的 Core metadata。
+
+框架可以在这些边界内组合 validation、serialization 和生命周期行为，但不能创造一套绕过语言名称解析、类型检查和调用规则的隐形程序。
+
+## 一种语义服务所有工具
+
+编译器、formatter、Language Server、Core builder 和 Truffle backend 不分别猜测程序含义。名称解析、调用绑定、泛型实参、字段 ordinal 和 Annotation 应用先进入统一语义链路，后续工具消费同一结果。
+
+这条原则也解释了为什么 Native Image 不是第二套后端：它打包同一个 Truffle 实现。开发时运行、编辑器分析和最终发行不应形成三种语言。
+
+下一篇：[设计原则](/guide/design-principles)。

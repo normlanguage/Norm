@@ -104,6 +104,7 @@ const web = [
 
 export const zhTheme: DefaultTheme.Config = {
   nav: [
+    { text: 'Guide', link: '/guide/', activeMatch: '^/guide/' },
     { text: '文档', link: '/docs/' },
     { text: '语言手册', link: '/language/overview', activeMatch: '^/language/' },
     { text: '规范', link: '/spec/language-spec', activeMatch: '^/spec/' },
@@ -114,12 +115,13 @@ export const zhTheme: DefaultTheme.Config = {
   sidebar: {
     '/guide/': [
       { text: '开始', items: [
+        { text: '认识 Norm', link: '/guide/' },
         { text: 'Norm 是什么', link: '/guide/introduction' },
         { text: 'VS Code 支持', link: '/guide/vscode' },
         { text: '语言哲学', link: '/guide/philosophy' },
         { text: '设计原则', link: '/guide/design-principles' },
-        { text: '设计白皮书', link: '/guide/design-whitepaper' },
-        { text: '语言比较与未来', link: '/guide/comparison-and-future' },
+        { text: '语言设计白皮书', link: '/guide/design-whitepaper' },
+        { text: '比较、取舍与方向', link: '/guide/comparison-and-future' },
       ]},
       { text: '下一步', items: handbook },
     ],
@@ -127,7 +129,7 @@ export const zhTheme: DefaultTheme.Config = {
       { text: '语言手册', items: handbook },
       { text: '深入阅读', items: [
         { text: '正式语言规范', link: '/spec/language-spec' },
-        { text: '与其他语言比较', link: '/comparison/languages' },
+        { text: '比较、取舍与方向', link: '/guide/comparison-and-future' },
       ]},
     ],
     '/spec/': [

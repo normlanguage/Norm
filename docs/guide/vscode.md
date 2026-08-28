@@ -1,55 +1,109 @@
-# VS Code 支持
+# VS Code 开发体验
 
-Norm 的 VS Code 扩展位于 `tool/cli/extensions/vscode`。它负责编辑器接入，语言分析仍由 Java 工具链中的 `norm lsp` 完成。
+Norm 的官方 VS Code 扩展包含当前版本的原生 `norm` CLI。安装一个 VSIX 后即可获得语法高亮、编译器诊断、格式化、补全、导航和运行命令，不需要另行安装 Java 或 GraalVM。
 
-## 当前能力
+## 安装
 
-- `.norm` 文件识别，以及 nullable、泛型、package/import、Annotation、extension function 与类型名的 TextMate 高亮；
-- 括号与引号编辑行为；
-- 使用编译器统一格式规则执行文档格式化，并默认在保存时格式化；
-- 直接显示 Norm 编译器诊断及源码范围；
-- 根据语法位置和期望类型排序关键字、局部值、函数、类型与代码模板；
-- 在未闭合的返回语句、变量初始化和调用参数中继续提供补全与参数提示；
-- 根据参数化类型补全对应的容器成员，并显示替换后的泛型签名；
-- nullable receiver 的 safe access 补全、类型级集合成员补全和重载签名提示；
-- 补全 module 导出的跨 package 声明时自动加入 import；
-- enum 成员补全；
-- extension function 的成员式补全，以及 JSON、XML、YAML 等标准库导出的自动 import；
-- 结构反射内置类型的补全、悬停和跳转，以及 Annotation 生命周期协议诊断；
-- 泛型声明签名、类型参数、核心类型、标准库和用户声明的悬停说明；
-- 泛型类型参数的补全、跳转定义、引用和重命名；
-- 遵循 module 导出、顶层文件私有声明与 class 私有成员可见性的跨文件诊断、跳转定义、引用和重命名。
+1. 打开 [Norm 最新 Release](https://github.com/w0fv1/Norm/releases/latest)。
+2. 下载唯一的 `norm-language-support-vMAJOR.MINOR.PATCH.vsix`。
+3. 在 VS Code 命令面板执行 **Extensions: Install from VSIX...**。
+4. 选择下载的文件，重新加载窗口。
 
-## 安装发布版本
+通用 VSIX 同时包含 Windows x64、Linux x64 与 macOS ARM64 的同版本 CLI，扩展会根据当前平台选择正确的可执行文件。
 
-从 GitHub Release 下载唯一的 `norm-language-support-vMAJOR.MINOR.PATCH.vsix`，在 VS Code 中执行 **Extensions: Install from VSIX...**。发布版扩展已包含所有受支持平台的同版本 `norm` 可执行文件，会自动选择当前平台，不要求预装 Java、GraalVM 或单独配置 CLI。
+如果还需要在终端运行 `norm`，从同一 Release 下载对应平台的 CLI 压缩包，解压后把可执行文件目录加入 `PATH`。不要混用不同 Release 的扩展和 CLI。
 
-如果需要让终端直接执行 `norm run example.norm`，再下载同一 Release 中对应平台的 CLI 压缩包，解压并将可执行文件所在目录加入 `PATH`。
+## 第一个文件
 
-受支持的平台与产物名称见[发布流程](/design/release-process)。
+新建 `hello.norm`：
 
-## 从源码开发
-
-构建当前源码对应的 JVM 开发版 VSIX：
-
-```powershell
-cd tool/cli/extensions/vscode
-npm ci
-npm run package:local
+```norm
+main() {
+    String language = "Norm"
+    printLine("Hello, ${language}")
+}
 ```
 
-在 VS Code 中执行 **Extensions: Install from VSIX...**，选择生成的 `norm-language-support-<version>-local.vsix`。该开发包内置当前源码构建的 JVM server。直接按 F5 调试扩展时，也会从当前 Norm 仓库自动查找：
+保存后可以：
 
-```text
-<仓库>\tool\cli\app\build\install\norm\bin\norm.bat
-```
+- 点击编辑器右上角的运行按钮；
+- 在命令面板执行 **Norm: Run Current File**；
+- 使用 `Ctrl+F5`，macOS 使用 `Cmd+F5`。
 
-macOS 或 Linux 使用同目录下的 `norm`。
+扩展会先保存当前项目中已打开的 Norm 文件，再启动程序。输出进入专用任务终端，编译错误同时显示在编辑器和 Problems 面板。
 
-解析顺序为显式设置的 `norm.cli.path`、当前工作区构建、扩展源码树中的开发构建、开发包内置 JVM server、扩展内置原生 CLI、系统 `PATH`。正式发布包只包含原生 CLI；只有工具链开发、自动化测试或自定义 CLI 时才需要覆盖它。
+## 编辑器能力
 
-## 实现边界
+### 编写代码
 
-扩展通过微软的 `vscode-languageclient` 启动 `norm lsp`，Java 端使用 Eclipse LSP4J 处理 LSP/JSON-RPC。补全、参数提示及其排序由编译器语义快照统一计算，扩展不维护第二套语言规则。语法高亮不依赖语言服务器，因此 CLI 未配置时仍可使用；其他语言能力需要 CLI。
+- `.norm` 文件、关键字、类型、nullable、泛型、Annotation 与 extension function 高亮；
+- 括号、引号、注释和缩进编辑行为；
+- 保存时使用编译器 formatter；
+- 在未完成的返回语句、变量初始化和调用参数中继续提供建议；
+- 根据期望类型和作用域排序局部值、函数、类型、enum variant 与模板。
 
-当前扩展的语言能力边界见[版本索引](/versions/)。调试器由后续工具版本交付。
+### 理解类型与调用
+
+- 参数提示显示命名参数、重载和替换后的泛型签名；
+- nullable receiver 提供 safe access 补全；
+- 容器成员按实际类型参数显示；
+- 显式导出的 extension function 可以成员式补全，并自动加入 import；
+- `Type<T>`、`Field<T>`、Annotation 生命周期及 JSON/XML/YAML API 提供补全、悬停和跳转。
+
+### 浏览项目
+
+- 跨文件与跨 package 跳转定义、查找引用和语义重命名；
+- module export、文件私有声明和 class private 成员使用编译器可见性规则；
+- 补全其他 package 的公开声明时生成精确 import edit；
+- 诊断、导航和补全会跟随未保存的内存文档更新。
+
+这些能力都由 `norm lsp` 的编译器语义快照计算。扩展不复制一套类型检查或名称解析逻辑。
+
+## 单文件与项目
+
+没有 package 声明的 `.norm` 文件可以作为独立脚本运行。带 package 的应用应放在 Norm 项目中，并由根 `module.norm` 描述 module 与源码结构。
+
+如果一个带 package 的文件被单独放在任意目录，编辑器无法凭文件名猜出完整模块图。打开包含 `module.norm` 的项目目录，让 CLI 和 Language Server 使用相同的项目根。
+
+模块规则见[模块系统](/spec/module-system)。
+
+## CLI 选择
+
+正式扩展默认使用自身包含的原生 CLI。只有测试其他工具链版本或开发 Norm 仓库时，才需要设置 `norm.cli.path`。
+
+解析顺序是：
+
+1. 用户显式配置的 `norm.cli.path`；
+2. 当前工作区构建出的 CLI；
+3. 扩展源码树中的开发构建；
+4. 本地开发 VSIX 包含的 JVM server；
+5. 正式扩展包含的原生 CLI；
+6. 系统 `PATH` 中的 `norm`。
+
+设置路径后执行 **Norm: Restart Language Server**，确保窗口不再使用旧进程。
+
+## 常见问题
+
+### 文件有高亮，但没有诊断或补全
+
+TextMate 高亮不需要语言服务器，其余功能需要 CLI。先执行 **Norm: Restart Language Server**；仍然失败时检查 Output 面板中的 Norm 日志，以及 `norm.cli.path` 是否指向当前平台可执行文件。
+
+### 终端可以运行，扩展仍然使用旧版本
+
+扩展内置 CLI 的优先级高于系统 `PATH`。需要临时测试终端版本时，把它的完整路径写入 `norm.cli.path`，测试结束后清空设置。
+
+### 跨文件 import 或补全缺失
+
+确认 VS Code 打开的是包含 `module.norm` 的项目根，目标声明是 public，并由 module 导出。单文件脚本之间不会因为处于同一目录就自动组成项目。
+
+### 运行命令使用了错误目录
+
+`norm.run.workingDirectory` 可以选择工作区目录或当前文件目录。项目程序通常使用工作区目录，依赖同目录资源的独立脚本可以选择文件目录。
+
+## 开发扩展
+
+只有修改 Norm 编译器或 VS Code 扩展时才需要源码开发包。完整构建、测试和本地 VSIX 流程以 [`tool/cli/extensions/vscode/README.md`](https://github.com/w0fv1/Norm/blob/main/tool/cli/extensions/vscode/README.md) 为准；发布平台、资产和验收要求以[发布流程](/design/release-process)为准。
+
+当前语言服务的精确边界见[版本索引](/versions/)。调试器尚未进入发布版。
+
+下一篇：[语言哲学](/guide/philosophy)。

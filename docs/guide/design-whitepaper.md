@@ -1,468 +1,208 @@
-# Norm Language Whitepaper
+# Norm 语言设计白皮书
 
-## 1. Introduction
+## 摘要
 
-Norm is a statically typed application-oriented programming language designed for large-scale software development. The purpose of Norm is not to maximize language features, but to provide a predictable and readable programming model for building real applications.
+Norm 是一门静态强类型、面向应用开发的编程语言。它希望保留 Java、Kotlin、C# 一类语言容易阅读和工程化的部分，同时重新定义几条长期影响程序可维护性的语义边界：值与对象身份、null、控制流产值、泛型运行时表示、框架 metadata、系统资源以及编译产物身份。
 
-Norm targets backend services, enterprise applications, desktop software, command line tools and general application development.
+Norm 不追求最多的语言功能。它追求较少但能稳定组合的概念，并要求编译器、编辑器、运行时和原生发行共同实现同一份程序含义。
 
-The core idea is:
+## 1. 设计问题
 
-> Ordinary code should remain ordinary. The meaning of a program should be visible from the source code.
+大型应用的复杂度经常来自局部代码没有携带足够信息。
 
-Norm combines:
+一次普通赋值可能复制结构、共享对象或引用某个可变位置；函数失败可能使用 null、状态码、Result、异常或框架包装；泛型在编译后可能消失；Annotation 可能只是 metadata，也可能在运行时改写调用；编辑器和构建工具还可能各自实现不同的名称解析规则。
 
-- Java-like readability and ecosystem practicality
-- Strong static typing
-- Explicit null safety
-- Value semantics by default
-- Explicit shared references
-- Modern control-flow expressions
-- Reified generics
-- Annotation based metadata and reflection
-- Native executable deployment
-- Interpreter and compiler execution modes
+这些问题单独看都能靠文档解释，组合后却会不断提高理解成本。Norm 的设计目标是让高影响语义进入语言的类型、声明和调用结构，而不是留给习惯或框架约定。
 
-Norm is designed as a language, not as a collection of syntax features.
+## 2. 语言定位
 
----
+Norm 主要服务后端服务、业务系统、桌面应用、命令行工具和共享应用库。它采用垃圾回收和运行时支持，不要求普通应用开发者管理对象生命周期或证明借用关系。
 
-## 2. Why Norm Exists
+语言使用名义静态类型。类型关系必须通过 `extends` 或 `implements` 声明，成员形状相同不会自动建立兼容关系。普通类型非空，nullable 使用 `T?` 明确表示。局部变量和字段必须经过确定赋值，类型转换与 null 收窄遵守静态规则。
 
-Modern application development has several conflicting trends.
+Norm 不把极端元编程、内核开发、硬实时执行或类型级计算作为核心目标。这个边界让语言可以把工程可读性、诊断和应用运行时放在更高优先级。
 
-Java provides excellent engineering discipline, but carries historical design limitations:
+## 3. 数据模型
 
-- everything being forced into classes
-- type erasure generics
-- confusing object equality
-- excessive framework magic
-- verbose property patterns
+### 3.1 Class
 
-JavaScript and TypeScript provide flexibility, but introduce different problems:
-
-- weak runtime type guarantees
-- increasingly complex type-level programming
-- implicit conversions
-- difficult large-system reasoning
-
-Rust provides excellent safety, but introduces concepts that are expensive for ordinary application developers:
-
-- ownership
-- borrowing
-- lifetimes
-- complex trait systems
-
-Kotlin improves many Java problems, but its language surface has expanded significantly.
-
-Norm chooses a different balance:
-
-- safer than JavaScript
-- simpler than Kotlin
-- easier for application developers than Rust
-- more predictable than dynamic languages
-
----
-
-## 3. Design Principles
-
-### 3.1 Explicit over implicit
-
-Norm avoids hidden behavior.
-
-The following are deliberately avoided:
-
-- macros
-- operator overloading
-- implicit string conversion
-- hidden null creation
-- automatic Result propagation
-- mutable closure capture
-
-Powerful features exist, but they require visible syntax.
-
-Examples:
-
-New object identity:
+`class` 表达具有 identity 的对象。class 可以包含可变字段、方法、构造器、单继承和 interface conformance。
 
 ```norm
-Counter copied = counter.copy()
-```
+class Session {
+    String state
 
-Reflection:
-
-```norm
-reflect Void beforeFunction(...)
-```
-
-These keywords communicate that special behavior exists.
-
----
-
-### 3.2 Application first
-
-Norm optimizes for software that people actually build:
-
-- Web services
-- APIs
-- Database applications
-- Business systems
-- Tools
-
-The language does not prioritize:
-
-- kernel programming
-- extreme metaprogramming
-- hardware control
-
-Therefore Norm chooses garbage collection and runtime support.
-
-The developer should focus on business logic rather than memory lifetime management.
-
----
-
-# 4. Type System
-
-Norm uses nominal static typing.
-
-A type relationship exists because it is explicitly declared.
-
-Example:
-
-```norm
-interface Formattable {
-    String format()
-}
-
-class HexNumber implements Formattable {
-    Integer value
-
-    String format() {
-        return "0x${value}"
+    activate() {
+        state = "active"
     }
 }
 ```
 
-A class does not automatically implement an interface just because it has the same methods.
+class 变量保存对象引用。赋值、传参和返回保留同一对象身份，`==` 使用身份相等。`copy()` 创建新的顶层对象；若字段仍指向其他 class，对象副本继续共享这些嵌套身份。
 
-This improves readability in large systems.
+### 3.2 Value
 
----
-
-## 4.1 Null Safety
-
-Norm uses non-null by default.
+`value` 表达由内容定义的结构数据。
 
 ```norm
-String name = "Alice"
+value Money {
+    Decimal amount
+    String currency
+}
 ```
 
-`name` can never become null.
+value 字段在构造后不可重新赋值，赋值和调用边界产生逻辑独立的值，`==` 与 hash 递归使用字段语义。编译器和运行时可以消除复制或共享内部存储，只要程序无法观察到 identity。
 
-Nullable values require explicit syntax:
+基本类型、enum 和内建容器同样属于 value 世界。容器复制自身结构；容器内的 class 元素仍保留各自对象身份。
+
+### 3.3 Ref
+
+`ref<T>` 引用 value 的存储位置。它不接受 class，也不承担对象共享。
 
 ```norm
-String? label = null
+Integer cursor = 0
+ref<Integer> location = &cursor
+*location = 8
 ```
 
-This prevents the most common application bug category: unexpected null values.
+这三种类别分别回答“数据是什么”“对象是谁”和“值存在哪里”，避免让一个通用引用模型承担互相冲突的语义。
 
-Norm does not provide late initialization.
+完整规则见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
 
-Instead, the compiler performs definite assignment analysis.
+## 4. 函数与调用
+
+函数是顶层语言结构，不需要放进 class。package 组织声明，class 表达对象，函数表达不依赖对象状态的行为。
 
 ```norm
-class Interval {
-    Integer start
-    Integer end
+Integer clamp(Integer value, Integer minimum, Integer maximum) {
+    if value < minimum {
+        return minimum
+    }
+    if value > maximum {
+        return maximum
+    }
+    return value
+}
 
-    Interval(Integer start, Integer end) {
-        this.start = start
-        this.end = end
+Integer opacity = clamp(value: input, minimum: 0, maximum: 100)
+```
+
+多参数调用使用名称绑定。参数名属于公开调用约定，实参表达式仍按源码从左到右求值。
+
+Class 方法访问对象状态，并参与动态分派。省略返回类型的方法是返回同一接收者的 fluent 方法；真正无结果的方法显式写 `Void`。
+
+Extension function 允许显式导入的顶层函数使用点号形式：
+
+```norm
+extension String quoted(String value) {
+    return "\"" + value + "\""
+}
+
+String text = "Norm".quoted()
+```
+
+它不修改目标类型，不进入动态方法表。真实实例方法优先，extension 候选继续使用普通静态重载规则。
+
+## 5. 控制流与结果
+
+Norm 1.0 规范让 `if`、`for` 和 `switch` 都可以产生值，表达式路径必须显式给出结果。当前发布版已经实现其中的穷尽 switch 表达式，其余实现边界以版本记录为准。
+
+```norm
+String describe(Token token) {
+    return switch token {
+        case Name(String text) { break text }
+        case End { break "end" }
     }
 }
 ```
 
-The compiler proves every construction path initializes `name`.
+Norm 不把代码块的最后一个表达式隐式当作结果，也不会为不完整路径补 null。`for` 表达式使用 `else` 处理正常耗尽，`switch` 必须穷尽且不会 fallthrough。
 
----
+Enum variant 可以携带数据，switch 通过模式解构 payload。`Result<T, E>` 就是使用该能力定义的普通泛型 enum，而不是编译器内置的特殊控制流。
 
-# 5. Object Model
+## 6. 泛型与运行时类型
 
-Norm has two implemented data models:
+Norm 泛型保持不变，类型位置写全实参，构造和泛型调用可以根据期望类型与实参求解。求解后的实际类型参数进入 canonical Core 和运行时类型环境，不采用类型擦除。
 
-- class
-- value
-
----
-
-## 5.1 class
-
-Class represents objects with behavior.
+Reified 类型模型服务动态分派、反射、Annotation、serialization 和运行时诊断。公共反射入口使用 `reflect<T>()`：
 
 ```norm
-class Counter {
-    Integer value
-
-    Void increment() {
-        value = value + 1
-    }
-}
+Type<Order> type = reflect<Order>()
+List<Field<Order>> fields = type.fields()
 ```
 
-Like Java references, class assignment preserves object identity.
+字段具有稳定 ordinal、声明类型和 runtime Annotation。读取字段返回携带精确字段类型的 `ReflectedValue`，不会根据字符串搜索 getter 或依赖 JVM reflection。
 
-```norm
-Counter first = Counter(value: 0)
-Counter second = first
-```
+## 7. Annotation 与受控扩展
 
-`second` refers to the same object as `first`.
+Annotation 是 Norm 对象模型中的 identity aggregate。它通过普通 interface 声明可应用目标、metadata 保留和可选生命周期。
 
-Use `first.copy()` to create a new top-level object identity.
+只提供 metadata 的 Annotation 可以实现 `TypeTarget`、`FieldTarget` 等目标 interface 与 `RuntimeRetention`。需要参与执行时，Annotation 显式实现 `FunctionInterceptor`、`ParameterInterceptor<T>` 或 `FieldInterceptor<T>`。
 
-The semantic rule remains:
+这种分层区分三件事：Annotation 能标在哪里，metadata 保留多久，以及它是否真的执行行为。生命周期在定义侧进入普通调用、构造、动态分派和函数引用的统一入口，不依赖调用点代理或运行时扫描。
 
-> Assignment copies the value held by the variable; for class types that value is an object reference.
+Norm 不提供宏、编译期代码派生 DSL 或运行时代码注入。Validation 使用强类型参数/字段生命周期，serialization 使用 passive metadata；两者共享 Annotation 模型，不共享不必要的执行机制。
 
----
+## 8. 缺失、失败与资源
 
-## 5.2 ref&lt;T&gt;
+Norm 根据调用方责任区分三类情况：
 
-`ref&lt;T&gt;` gives identity to a value storage location. It is not required for class sharing and does not accept class types. Its expression syntax is fixed by the language grammar.
+- nullable 表达普通缺失；
+- `Result<T, E>` 表达业务契约内的可预期结果分支；
+- Exception 表达无法正常完成的系统、协议和运行时状态。
 
----
+语言不提供隐式 Result 传播。Exception 使用 `throw`、`try`、`catch` 和 `finally`，系统标准库抛出带稳定 code、operation 和 reason 的领域异常。
 
-## 5.3 value
+外部资源通过 `Resource`、`ByteReader`、`ByteWriter` 与作用域 `use` API 管理。读取完整内容必须提供上限，HTTP response body 与文件流进入同一确定性关闭模型。取消与 timeout 由执行上下文和平台 adapter 传递，不依赖全局服务定位器。
 
-Value is designed for pure data.
+## 9. 标准库与应用边界
 
-```norm
-value Point {
-    Integer x
-    Integer y
-}
-```
+Norm 标准库的公开 API 使用 Norm 编写，宿主能力通过后端无关的 system contract 接入，JDK adapter 是当前官方平台实现。
 
-Value provides:
+HTTP 核心 request body 是 `Bytes`，不依赖 JSON。`std.http` 的 JSON 组合调用 `std.serialization`，因此协议传输和数据格式可以独立演进。
 
-- value equality
-- hash support
-- immutable fields
-- copy semantics
+结构序列化由 `DataMapper`、`DataReader<T>` 和 `DataWriter<T>` 定义统一入口。JSON、XML 与 YAML 共享 exact Core type shape、字段访问和规范构造路径，各格式只实现 token、格式 metadata 与错误映射。自动映射显式标记的 value；class 对象图、循环引用和多态需要独立 identity 协议。
 
-Point should behave like a mathematical value, not an identity object.
+Web server、数据库和依赖注入属于应用平台，不进入核心语言语义。当前可用标准库以[标准库索引](/stdlib/overview)和[版本记录](/versions/)为准。
 
----
+## 10. 编译与执行架构
 
-# 6. Functions
-
-Functions are first-class language structures.
-
-They do not need a class container.
-
-```norm
-String hello(String name) {
-    return "Hello ${name}"
-}
-```
-
-This avoids utility classes such as:
-
-```text
-StringUtils
-MathUtils
-FileUtils
-```
-
-A package organizes functions and types across source files.
-
-A class models objects.
-
----
-
-# 7. Control Flow Philosophy
-
-Norm treats important control structures as expressions.
-
-However, expressions must explicitly produce values.
-
-There is no implicit last-expression return.
-
-Values are produced using break.
-
-Example:
-
-```norm
-String status = if active {
-    break "running"
-} else {
-    break "stopped"
-}
-```
-
-This keeps value flow visible.
-
----
-
-# 8. For Expression
-
-Norm uses for as the main iteration structure.
-
-```norm
-for Integer number : numbers {
-    printLine("${number}")
-}
-```
-
-A for expression must explicitly handle all result paths.
-
-```norm
-Integer firstEven = for Integer number : numbers {
-    if number % 2 == 0 {
-        break number
-    }
-} else {
-    break 0
-}
-```
-
-There is no hidden null result.
-
-The programmer decides what happens when nothing is found.
-
----
-
-# 9. Runtime Architecture
-
-Norm has one official execution backend.
-
-The first implementation uses:
+官方工具链使用一条确定的语义管线：
 
 ```text
 Norm Source
-    ↓
-Parser
-    ↓
-Semantic Analysis
-    ↓
-Canonical Core IR
-    ↓
-Truffle Backend
-    ↓
-GraalVM
+    → Lexer / Parser
+    → SemanticModel
+    → Binder
+    → Canonical Core IR
+    → Truffle Backend
+    → JVM execution / JIT / Native Image
 ```
 
-This provides:
+SemanticModel 是名称解析、类型检查、调用目标、泛型实例化、可见性和编辑器 authoring 信息的唯一结果。Binder 将已验证语义冻结为确定引用，Core 不再重新解析源码名称。
 
-- interpreter mode
-- JIT optimization
-- native packaging through Native Image
+Canonical Core 使用内容寻址的 definition identity。公开 ABI、代码、runtime metadata、调试信息和最终 executable 按各自真实依赖建立身份，支持精确增量失效、跨进程 definition store 和 Truffle artifact 复用。
 
-Native Image packages the same Truffle implementation as a native CLI. The language model and canonical Core IR remain independent from JVM type semantics.
+Truffle 是唯一官方执行后端。Native Image 打包同一个 Core 与 Truffle 执行实现，并不是另一套语言编译器。CLI、Language Server、测试入口和项目加载共享同一 project system 生命周期。
 
----
+详细架构见[编译器架构](/spec/compiler-design)与[实现策略决议](/design/implementation-strategy)。
 
-# 10. Ecosystem Strategy
+## 11. 工具与发行
 
-Norm does not rebuild the entire software ecosystem immediately.
+官方 VS Code 扩展只负责编辑器集成，诊断、补全、签名、格式化、导航和重命名都由 `norm lsp` 及编译器语义快照提供。扩展不维护第二套语言规则。
 
-The first stage uses compatibility layers.
+Tagged Release 为 Windows x64、Linux x64 与 macOS ARM64 生成独立 CLI，并把所有受支持平台的同版本 CLI 打进一个通用 VSIX。每个平台运行相同的语言验收、LSP smoke 和 Extension Host 测试后，发布任务才生成校验和与构建证明。
 
-Architecture:
+## 12. 规范与实现
 
-```text
-Norm API
-   ↓
-Adapter Layer
-   ↓
-Existing Java Ecosystem
-```
+Norm 语言规范面向 1.0 长期语义，版本记录定义当前发布版已经实现的边界。规范中的稳定目标不自动等于当前产品能力，发布版也不能用未记录的实现行为扩展语言。
 
-Examples:
+这一区分让语言设计可以提前建立完整方向，同时让用户基于可执行、经过验收的版本契约做决定。
 
-Database:
+## 结论
 
-```text
-Norm SQL
-   ↓
-JDBC adapter
-   ↓
-PostgreSQL/MySQL drivers
-```
+Norm 的核心不是某一个语法功能，而是一组互相支持的边界：value 不携带 identity，class 不伪装成复制，ref 只引用 value 存储；控制流显式交出结果；泛型类型进入运行时；Annotation 和 extension 仍服从普通类型与调用规则；系统资源和数据格式通过强类型标准库进入唯一执行后端。
 
-JSON:
+这些选择共同服务于一件事：让应用代码在规模增长以后，仍然可以从源码判断它会怎样运行。
 
-```text
-Norm JSON
-   ↓
-Existing serializer implementation
-```
-
-Over time these components can become native Norm implementations.
-
----
-
-# 11. Development Roadmap
-
-## Stage 1: Language Prototype
-
-Implement:
-
-- lexer
-- parser
-- AST
-- type checker
-- interpreter
-
-## Stage 2: Runtime
-
-Implement:
-
-- objects
-- value semantics
-- ref&lt;T&gt;
-- GC integration
-- reflection metadata
-
-## Stage 3: Application Platform
-
-Build:
-
-- HTTP
-- JSON
-- SQL
-- testing
-- logging
-
-## Stage 4: Native Distribution
-
-Deliver:
-
-- optimized Truffle execution
-- a standalone `norm` CLI built with GraalVM Native Image
-- a production deployment and compatibility model
-
-Native Image packages the Java toolchain and its GraalVM integration; it is not a second Norm execution backend. The official project does not plan an LLVM, Cranelift, custom machine-code, or Zig backend.
-
----
-
-# Conclusion
-
-Norm is designed around one central idea:
-
-A programming language should make correct application design easy.
-
-It does not try to remove every abstraction. It tries to remove unnecessary uncertainty.
-
-A Norm developer should be able to answer:
-
-- Is this value nullable?
-- Is this object shared?
-- Can this function fail?
-- Where does this behavior come from?
-- What does this code actually execute?
-
-by reading the program itself.
-
-That is the meaning of Norm.
+下一篇：[比较、取舍与发展方向](/guide/comparison-and-future)。

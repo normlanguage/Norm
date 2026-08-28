@@ -19,6 +19,7 @@ replay_pid*
 .idea/
 .vscode/
 .tmp/
+.playwright-cli/
 *.iml
 .DS_Store
 Thumbs.db

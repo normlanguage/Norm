@@ -8,7 +8,7 @@ aside: false
 
 # Norm 文档
 
-从快速介绍开始，或者直接进入手册、规范和应用开发参考。
+先用 Guide 建立整体认识，再进入手册、规范和应用开发参考。
 
 ::: tip 选择正确的文档
 **语言手册**适合按顺序学习，章节会逐步引入概念。**语言规范**面向已经熟悉 Norm、需要确认精确规则的读者，可以独立查阅。**标准库参考**描述库类型与 API。Web、数据库和部署内容只出现在应用平台文档中。
@@ -20,13 +20,15 @@ aside: false
 
 #### 开始
 
-了解语言定位和阅读顺序，不引入应用框架。
+了解语言定位、核心语义、工具体验和当前边界。
 
+- [认识 Norm](/guide/)
 - [Norm 是什么](/guide/introduction)
+- [VS Code 开发体验](/guide/vscode)
 - [语言哲学](/guide/philosophy)
 - [设计原则](/guide/design-principles)
-- [设计白皮书](/guide/design-whitepaper)
-- [与其他语言比较](/comparison/languages)
+- [语言设计白皮书](/guide/design-whitepaper)
+- [比较、取舍与发展方向](/guide/comparison-and-future)
 
 </section>
 
@@ -122,20 +124,11 @@ aside: false
 
 了解工具链、包生态和迁移策略。
 
-- [0.10 实现契约](/versions/0.10)
-- [0.9 实现契约](/versions/0.9)
-- [0.8 实现契约](/versions/0.8)
-- [0.7 实现契约](/versions/0.7)
-- [0.6 实现契约](/versions/0.6)
-- [0.5 实现契约](/versions/0.5)
-- [0.4 实现契约](/versions/0.4)
-- [0.3 版本记录](/versions/0.3)
-- [0.2 版本记录](/versions/0.2)
-- [0.1 版本记录](/versions/0.1)
+- [版本索引](/versions/)
 - [实现策略决议](/design/implementation-strategy)
 - [工具链开发规范](/design/toolchain-development)
 - [系统运行时架构](/design/system-runtime)
-- [序列化运行时计划](/design/serialization-runtime)
+- [序列化运行时架构](/design/serialization-runtime)
 - [编译器引导计划](/design/bootstrap-plan)
 - [生态策略](/ecosystem/strategy)
 - [包管理器](/ecosystem/package-manager)
@@ -165,4 +158,4 @@ aside: false
 
 ## 推荐阅读路径
 
-第一次接触 Norm，建议依次阅读：[Norm 是什么](/guide/introduction) → [手册介绍](/language/overview) → [基础语法](/language/basics) → [类型与 Null](/language/types) → [Class、Value 与 Identity](/language/objects) → [函数](/language/functions) → [控制流](/language/control-flow)。需要处理边界情况时，再进入正式规范。
+第一次接触 Norm，建议依次阅读：[认识 Norm](/guide/) → [Norm 是什么](/guide/introduction) → [手册介绍](/language/overview) → [类型与 Null](/language/types) → [Class、Value 与 Identity](/language/objects) → [函数](/language/functions) → [控制流](/language/control-flow)。评估采用时同时查看[比较、取舍与发展方向](/guide/comparison-and-future)和[当前版本记录](/versions/)。
