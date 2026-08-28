@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 final class ExecutionContextTest {
   @Test
   void carriesTheExplicitSystemPlatform() {
-    FileSystem fileSystem = (path, encoding) -> "content";
+    FileSystem fileSystem = SystemPlatform.unavailable().fileSystem();
     SystemClock clock = () -> new PlatformInstant(10, 20);
     SystemPlatform platform =
         new SystemPlatform() {
@@ -21,6 +21,11 @@ final class ExecutionContextTest {
           @Override
           public SystemClock clock() {
             return clock;
+          }
+
+          @Override
+          public HttpTransport httpTransport() {
+            return SystemPlatform.unavailable().httpTransport();
           }
         };
 

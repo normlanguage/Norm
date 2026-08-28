@@ -1,15 +1,28 @@
 package std.filesystem
 
 import std.io.IOException
+import std.io.ByteReader
+import std.io.ByteWriter
+import std.io.Bytes
+import std.io.Flushable
+import std.io.ReadChunk
+import std.io.Resource
 import std.io.TextEncoding
+import std.io.decodeText
+import std.io.readAll
+import std.io.use
 
 public value Path {
   String value
 }
 
-public enum FileOperation { ReadText }
+public enum FileOperation { OpenRead, OpenWrite, Read, Write, Flush, Sync, Close }
 
-public enum FileFailure { NotFound, PermissionDenied, InvalidPath, Io }
+public enum FileFailure { NotFound, PermissionDenied, AlreadyExists, InvalidPath, Closed, Io }
+
+public enum FileWriteMode { CreateNew, Replace, Append }
+
+public enum FileSyncMode { Data, DataAndMetadata }
 
 public class FileException extends IOException {
   FileOperation operation
@@ -30,9 +43,67 @@ public class FileException extends IOException {
   }
 }
 
-public String readText(Path path, TextEncoding encoding) {
-  String encodingName = switch encoding {
-    case Utf8 { break "UTF-8" }
+public interface FileReader extends ByteReader, Resource {}
+
+public interface FileWriter extends ByteWriter, Flushable, Resource {
+  Void sync(FileSyncMode mode)
+}
+
+class FileReaderValue implements FileReader {
+  public ReadChunk read(Integer maximumBytes) {
+    Bytes? content = __fileRead<Bytes>(reader: this, maximumBytes: maximumBytes)
+    if content == null {
+      return ReadChunk.Eof
+    }
+    return ReadChunk.Data(bytes: content)
   }
-  return __fileReadText(path: path.value, encoding: encodingName)
+
+  public Void close() {
+    __fileClose(resource: this)
+  }
+}
+
+class FileWriterValue implements FileWriter {
+  public Integer write(Bytes content) {
+    return __fileWrite(writer: this, content: content)
+  }
+
+  public Void flush() {
+    __fileFlush(writer: this)
+  }
+
+  public Void sync(FileSyncMode mode) {
+    String modeName = switch mode {
+      case Data { break "DATA" }
+      case DataAndMetadata { break "DATA_AND_METADATA" }
+    }
+    __fileSync(writer: this, mode: modeName)
+  }
+
+  public Void close() {
+    __fileClose(resource: this)
+  }
+}
+
+public FileReader openRead(Path path) {
+  return __fileOpenRead<FileReaderValue>(path: path.value)
+}
+
+public FileWriter openWrite(Path path, FileWriteMode mode) {
+  String modeName = switch mode {
+    case CreateNew { break "CREATE_NEW" }
+    case Replace { break "REPLACE" }
+    case Append { break "APPEND" }
+  }
+  return __fileOpenWrite<FileWriterValue>(path: path.value, mode: modeName)
+}
+
+public String readText(Path path, TextEncoding encoding, Integer maximumBytes) {
+  FileReader reader = openRead(path: path)
+  return use<String>(resource: reader, body: () {
+    decodeText(
+      content: readAll(reader: reader, maximumBytes: maximumBytes),
+      encoding: encoding
+    )
+  })
 }

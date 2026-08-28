@@ -674,6 +674,21 @@ final class CoreProgramVerifierTest {
   }
 
   @Test
+  void bindsGenericIntrinsicResultsWithoutRuntimeTypes() {
+    CoreExpression intrinsic =
+        new CoreExpression.Intrinsic(
+            2,
+            IntrinsicId.IO_TEXT_ENCODE_UTF8,
+            Optional.empty(),
+            List.of(new CoreArgument(new CoreExpression.Literal(3, "text", CoreType.STRING), 0)),
+            Optional.empty(),
+            false,
+            CoreType.STRING.asNullable());
+
+    assertDoesNotThrow(() -> new CoreProgram(List.of(group(function(intrinsic)))));
+  }
+
+  @Test
   void rejectsTypeAnnotationIntrinsicForNonAnnotationResults() {
     CoreDefinitionGroup box = aggregateGroup("Box", 0, List.of());
     CoreType boxType = userType(aggregateId(box), List.of());

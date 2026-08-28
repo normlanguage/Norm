@@ -5,11 +5,9 @@ import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.execution.ExecutionContext;
-import dev.w0fv1.norm.execution.PlatformFileException;
 import dev.w0fv1.norm.execution.PlatformInstant;
 import dev.w0fv1.norm.execution.PlatformTimeException;
 import dev.w0fv1.norm.execution.SystemClock;
-import java.nio.charset.StandardCharsets;
 
 final class SystemIntrinsicDispatcher {
   private SystemIntrinsicDispatcher() {}
@@ -23,8 +21,6 @@ final class SystemIntrinsicDispatcher {
       ExecutionState execution,
       Node location) {
     return switch (intrinsic) {
-      case FILE_READ_TEXT ->
-          readText((String) first, (String) second, context, execution, location);
       case TIME_SYSTEM_CLOCK -> systemClock(type, context, execution);
       case TIME_CLOCK_NOW -> clockNow(first, type, execution, location);
       default -> throw new IllegalStateException("unsupported system intrinsic " + intrinsic);
@@ -56,30 +52,6 @@ final class SystemIntrinsicDispatcher {
     } catch (PlatformTimeException failure) {
       throw execution.values().timeException(failure, execution, location);
     }
-  }
-
-  private static String readText(
-      String path,
-      String encoding,
-      ExecutionContext context,
-      ExecutionState execution,
-      Node location) {
-    try {
-      return hostReadText(context, path, encoding);
-    } catch (PlatformFileException failure) {
-      if (execution == null) {
-        throw new IllegalStateException("system exception runtime is unavailable", failure);
-      }
-      throw execution.values().fileException(failure, execution, location);
-    }
-  }
-
-  @TruffleBoundary
-  private static String hostReadText(ExecutionContext context, String path, String encoding) {
-    if (!encoding.equals("UTF-8")) {
-      throw new IllegalStateException("unsupported standard-library text encoding " + encoding);
-    }
-    return context.platform().fileSystem().readText(path, StandardCharsets.UTF_8);
   }
 
   @TruffleBoundary

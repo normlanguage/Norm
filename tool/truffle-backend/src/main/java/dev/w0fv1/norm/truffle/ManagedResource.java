@@ -15,6 +15,10 @@ final class ManagedResource implements AutoCloseable {
     this.resource = Objects.requireNonNull(resource, "resource");
   }
 
+  <T> T value(Class<T> type) {
+    return type.cast(resource);
+  }
+
   @Override
   public synchronized void close() {
     if (closed) {

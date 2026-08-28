@@ -1468,7 +1468,8 @@ final class CoreProgramVerifier {
         builtins.intrinsicCandidates(intrinsic.intrinsic()).stream()
             .anyMatch(candidate -> matchesIntrinsic(owner, intrinsic, candidate));
     if (!valid) {
-      throw new IllegalArgumentException("intrinsic expression does not match its builtin ABI");
+      throw new IllegalArgumentException(
+          "intrinsic expression does not match its builtin ABI: " + intrinsic.intrinsic());
     }
     if (intrinsic.intrinsic() == dev.w0fv1.norm.abi.IntrinsicId.TYPE_ANNOTATION) {
       CoreType annotationType = nonNullable(absolute(owner, intrinsic.type()));
@@ -1504,6 +1505,10 @@ final class CoreProgramVerifier {
     if (candidate.runtimeType()) {
       CoreType runtimeTemplate = absolute(owner, intrinsic.runtimeType().orElseThrow().template());
       if (!bindPattern(runtimeTemplate, candidate.result(), substitutions)) return false;
+    } else {
+      CoreType resultTemplate = absolute(owner, intrinsic.type());
+      if (intrinsic.nullSafe()) resultTemplate = nonNullable(resultTemplate);
+      if (!bindPattern(resultTemplate, candidate.result(), substitutions)) return false;
     }
     for (CoreArgument argument : intrinsic.arguments()) {
       SemanticType parameter = candidate.parameters().get(argument.parameterIndex()).type();
@@ -1642,6 +1647,23 @@ final class CoreProgramVerifier {
     }
     if (pattern.kind() == SemanticType.Kind.VOID) return actual.equals(CoreType.VOID);
     if (pattern.kind() == SemanticType.Kind.NULL) return actual.equals(CoreType.NULL);
+    if (pattern.isFunction()) {
+      if (!(actual instanceof CoreType.Function function)
+          || function.isNullable() != pattern.isNullable()
+          || function.parameterTypes().size() != pattern.functionParameterTypes().size()
+          || !bindPattern(function.returnType(), pattern.functionReturnType(), substitutions)) {
+        return false;
+      }
+      for (int index = 0; index < function.parameterTypes().size(); index++) {
+        if (!bindPattern(
+            function.parameterTypes().get(index),
+            pattern.functionParameterTypes().get(index),
+            substitutions)) {
+          return false;
+        }
+      }
+      return true;
+    }
     if (!(actual instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.Builtin builtin)
         || !builtin.id().value().equals(pattern.identity())
@@ -1668,13 +1690,20 @@ final class CoreProgramVerifier {
         yield pattern.isNullable() ? type.asNullable() : type;
       }
       case DECLARED ->
-          new CoreType.Declared(
-              new CoreTypeConstructor.Builtin(new BuiltinTypeId(pattern.identity())),
-              pattern.arguments().stream()
-                  .map(argument -> instantiate(argument, substitutions))
-                  .toList(),
-              category(pattern.category()),
-              pattern.isNullable() ? CoreNullability.NULLABLE : CoreNullability.NON_NULL);
+          pattern.isFunction()
+              ? new CoreType.Function(
+                  instantiate(pattern.functionReturnType(), substitutions),
+                  pattern.functionParameterTypes().stream()
+                      .map(argument -> instantiate(argument, substitutions))
+                      .toList(),
+                  pattern.isNullable() ? CoreNullability.NULLABLE : CoreNullability.NON_NULL)
+              : new CoreType.Declared(
+                  new CoreTypeConstructor.Builtin(new BuiltinTypeId(pattern.identity())),
+                  pattern.arguments().stream()
+                      .map(argument -> instantiate(argument, substitutions))
+                      .toList(),
+                  category(pattern.category()),
+                  pattern.isNullable() ? CoreNullability.NULLABLE : CoreNullability.NON_NULL);
       case REFERENCE ->
           new CoreType.Reference(instantiate(pattern.referenceTarget(), substitutions));
       case VOID -> CoreType.VOID;

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 5,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -18,7 +18,87 @@
       "requiresResultRuntimeType": false
     },
     {
-      "name": "FILE_READ_TEXT",
+      "name": "IO_BYTES_CREATE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "IO_BYTES_SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "IO_BYTES_AT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "IO_BYTES_SLICE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "IO_BYTES_TO_ARRAY",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "IO_BYTES_JOIN",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "IO_TEXT_ENCODE_UTF8",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "IO_TEXT_DECODE_UTF8",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "IO_USE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FILE_OPEN_READ",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FILE_READER_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FILE_OPEN_WRITE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FILE_WRITER_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FILE_WRITER_FLUSH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FILE_WRITER_SYNC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FILE_CLOSE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "HTTP_SEND",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "HTTP_RESPONSE_STATUS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "HTTP_RESPONSE_HEADERS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "HTTP_RESPONSE_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "HTTP_RESPONSE_CLOSE",
       "requiresResultRuntimeType": false
     },
     {
@@ -478,6 +558,15 @@
       "requiresResultRuntimeType": false
     }
   ],
+  "opaqueValues": [
+    {
+      "name": "BYTES",
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.io",
+      "typeName": "BytesValue"
+    }
+  ],
   "runtimeShapes": [
     "INTEGER",
     "LONG",
@@ -516,7 +605,15 @@
   },
   "systemExceptions": {
     "file": {
-      "intrinsicName": "FILE_READ_TEXT",
+      "intrinsicNames": [
+        "FILE_OPEN_READ",
+        "FILE_READER_READ",
+        "FILE_OPEN_WRITE",
+        "FILE_WRITER_WRITE",
+        "FILE_WRITER_FLUSH",
+        "FILE_WRITER_SYNC",
+        "FILE_CLOSE"
+      ],
       "moduleName": "std",
       "moduleVersion": 1,
       "packageName": "std.filesystem",
@@ -548,8 +645,32 @@
       ],
       "operations": [
         {
-          "platformName": "READ_TEXT",
-          "variant": "ReadText"
+          "platformName": "OPEN_READ",
+          "variant": "OpenRead"
+        },
+        {
+          "platformName": "OPEN_WRITE",
+          "variant": "OpenWrite"
+        },
+        {
+          "platformName": "READ",
+          "variant": "Read"
+        },
+        {
+          "platformName": "WRITE",
+          "variant": "Write"
+        },
+        {
+          "platformName": "FLUSH",
+          "variant": "Flush"
+        },
+        {
+          "platformName": "SYNC",
+          "variant": "Sync"
+        },
+        {
+          "platformName": "CLOSE",
+          "variant": "Close"
         }
       ],
       "failures": [
@@ -564,9 +685,19 @@
           "code": "NORM-FS-PERMISSION-DENIED"
         },
         {
+          "platformName": "ALREADY_EXISTS",
+          "variant": "AlreadyExists",
+          "code": "NORM-FS-ALREADY-EXISTS"
+        },
+        {
           "platformName": "INVALID_PATH",
           "variant": "InvalidPath",
           "code": "NORM-FS-INVALID-PATH"
+        },
+        {
+          "platformName": "CLOSED",
+          "variant": "Closed",
+          "code": "NORM-FS-CLOSED"
         },
         {
           "platformName": "IO",
@@ -576,7 +707,9 @@
       ]
     },
     "time": {
-      "intrinsicName": "TIME_CLOCK_NOW",
+      "intrinsicNames": [
+        "TIME_CLOCK_NOW"
+      ],
       "moduleName": "std",
       "moduleVersion": 1,
       "packageName": "std.time",
@@ -612,6 +745,100 @@
           "platformName": "CLOCK_UNAVAILABLE",
           "variant": "ClockUnavailable",
           "code": "NORM-TIME-CLOCK-UNAVAILABLE"
+        }
+      ]
+    },
+    "http": {
+      "intrinsicNames": [
+        "HTTP_SEND",
+        "HTTP_RESPONSE_STATUS",
+        "HTTP_RESPONSE_HEADERS",
+        "HTTP_RESPONSE_READ",
+        "HTTP_RESPONSE_CLOSE"
+      ],
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.http",
+      "typeName": "HttpException",
+      "uriTypeName": "Uri",
+      "operationTypeName": "HttpOperation",
+      "failureTypeName": "HttpFailure",
+      "fields": [
+        {
+          "name": "message",
+          "ordinal": 0
+        },
+        {
+          "name": "code",
+          "ordinal": 1
+        },
+        {
+          "name": "operation",
+          "ordinal": 2
+        },
+        {
+          "name": "reason",
+          "ordinal": 3
+        },
+        {
+          "name": "uri",
+          "ordinal": 4
+        }
+      ],
+      "operations": [
+        {
+          "platformName": "SEND",
+          "variant": "Send"
+        },
+        {
+          "platformName": "READ",
+          "variant": "Read"
+        },
+        {
+          "platformName": "CLOSE",
+          "variant": "Close"
+        }
+      ],
+      "failures": [
+        {
+          "platformName": "INVALID_REQUEST",
+          "variant": "InvalidRequest",
+          "code": "NORM-HTTP-INVALID-REQUEST"
+        },
+        {
+          "platformName": "CONNECT",
+          "variant": "Connect",
+          "code": "NORM-HTTP-CONNECT"
+        },
+        {
+          "platformName": "TIMEOUT",
+          "variant": "Timeout",
+          "code": "NORM-HTTP-TIMEOUT"
+        },
+        {
+          "platformName": "CANCELLED",
+          "variant": "Cancelled",
+          "code": "NORM-HTTP-CANCELLED"
+        },
+        {
+          "platformName": "TLS",
+          "variant": "Tls",
+          "code": "NORM-HTTP-TLS"
+        },
+        {
+          "platformName": "PROTOCOL",
+          "variant": "Protocol",
+          "code": "NORM-HTTP-PROTOCOL"
+        },
+        {
+          "platformName": "CLOSED",
+          "variant": "Closed",
+          "code": "NORM-HTTP-CLOSED"
+        },
+        {
+          "platformName": "IO",
+          "variant": "Io",
+          "code": "NORM-HTTP-IO"
         }
       ]
     }

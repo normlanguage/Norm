@@ -8,7 +8,7 @@ String 是不可变 Unicode 文本值，提供搜索、切分、替换、大小�
 
 ```norm
 String message = "Hello, " + name
-Bytes encoded = message.encode(encoding: TextEncoding.Utf8)
+Bytes encoded = encodeText(text: message, encoding: TextEncoding.Utf8)
 ```
 
 ## 数值与时间
@@ -31,4 +31,4 @@ Path 只描述路径，File 执行一次性操作，Reader/Writer 与 Stream 管
 
 HTTP、SQL、网络与进程 API 分离稳定接口和平台 adapter。超时、取消、事务与错误类型都保留在调用签名或配置中。
 
-进一步阅读：[集合 API](/stdlib/collections-api)、[文件 API](/stdlib/file-api)、[网络 API](/stdlib/network-api)。
+进一步阅读：[集合 API](/stdlib/collections-api)、[文件 API](/stdlib/file-api)、[网络 API](/stdlib/network-api)、[HTTP API](/stdlib/http)。

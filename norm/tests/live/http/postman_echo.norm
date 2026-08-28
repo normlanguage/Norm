@@ -1,0 +1,49 @@
+import std.http.HeaderMap
+import std.http.HttpHeader
+import std.http.HttpMethod
+import std.http.HttpRequest
+import std.http.HttpResponse
+import std.http.Uri
+import std.http.request
+import std.http.systemHttpClient
+import std.io.TextEncoding
+import std.io.decodeText
+import std.io.encodeText
+import std.io.readAll
+import std.io.use
+import std.time.Duration
+import std.time.duration
+
+main() {
+  String requestBody = "{\"source\":\"norm\",\"message\":\"http smoke test\"}"
+  HttpRequest requestValue = request(
+    method: HttpMethod.Post,
+    uri: Uri(value: "https://postman-echo.com/post"),
+    headers: HeaderMap(
+      values: [
+        HttpHeader(name: "Content-Type", value: "application/json"),
+        HttpHeader(name: "X-Norm-Smoke", value: "postman-echo")
+      ]
+    ),
+    body: encodeText(text: requestBody, encoding: TextEncoding.Utf8)
+  )
+  HttpResponse response = systemHttpClient().send(
+    request: requestValue,
+    timeout: duration(seconds: 15, nanoseconds: 0)
+  )
+  Integer status = response.status().code
+  String body = use<String>(
+    resource: response,
+    body: () {
+      decodeText(
+        content: readAll(reader: response, maximumBytes: 1048576),
+        encoding: TextEncoding.Utf8
+      )
+    }
+  )
+
+  require(condition: status == 200, message: "Postman Echo must return HTTP 200")
+  require(condition: body.codePointSize() > 0, message: "Postman Echo must return a body")
+  printLine(status)
+  printLine(body)
+}

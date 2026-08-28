@@ -11,7 +11,7 @@
 | 数据 | serialization、json、sql、configuration | 外部数据和持久化 |
 | 安全 | crypto、security、random | 密码学与敏感值 |
 | 工程 | logging、std.testing、command-line | 开发、诊断和应用入口 |
-| 协议 | http | HTTP 客户端与服务器基础类型 |
+| 协议 | http | HTTP 客户端、请求与流式响应 |
 
 ## 共同规则
 

@@ -6,24 +6,18 @@
 
 ```norm
 Path root = Path(value: "data")
-Path file = root.resolve(child: "users.json")
-Path normalized = file.normalize()
+Path file = Path(value: "data/users.json")
 ```
 
-Path 只表示平台路径，不保证目标存在。拼接不会把未经验证的用户输入自动视为安全子路径；服务端代码必须在 normalize 后检查结果仍位于允许根目录内。
+`Path` 保存平台路径文本。相对路径由 execution platform 的 working directory 解析。
 
-## 一次性读写
+## 有界文本读取
 
 ```norm
 String text = readText(
     path: file,
-    encoding: TextEncoding.Utf8
-)
-
-writeText(
-    path: file,
-    text: content,
-    mode: WriteMode.Replace
+    encoding: TextEncoding.Utf8,
+    maximumBytes: 1048576
 )
 ```
 
@@ -31,6 +25,20 @@ writeText(
 
 ## 流与关闭
 
-大文件使用 `FileReader`、`FileWriter` 或字节流。打开成功后，调用者必须通过作用域资源 API或 `try/finally` 关闭资源。重复 close 应安全但不应掩盖第一次关闭错误。
+大文件使用 `FileReader` 与 `FileWriter`。`read` 返回 `ReadChunk`，`write` 返回本次写入的字节数。
 
-原子替换、同步落盘和符号链接跟随策略必须是显式选项；默认值不能让安全敏感行为依赖操作系统差异。
+```norm
+FileReader reader = openRead(path: file)
+Bytes content = use<Bytes>(resource: reader, body: () {
+    readAll(reader: reader, maximumBytes: 1048576)
+})
+
+FileWriter writer = openWrite(path: file, mode: FileWriteMode.Replace)
+use<Integer>(resource: writer, body: () {
+    writeAll(writer: writer, content: content)
+    writer.sync(mode: FileSyncMode.DataAndMetadata)
+    0
+})
+```
+
+完整声明以 [`std.filesystem.files`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/filesystem/files.norm) 为准。

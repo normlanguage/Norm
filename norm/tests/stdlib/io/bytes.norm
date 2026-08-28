@@ -3,11 +3,6 @@ import std.io.ReadChunk
 import std.io.Resource
 import std.io.bytes
 import std.testing.expectedOutputLines
-import std.time.Clock
-import std.time.Duration
-import std.time.Instant
-import std.time.duration
-import std.time.systemClock
 
 class TestResource implements Resource {
   public Void close() {
@@ -16,20 +11,18 @@ class TestResource implements Resource {
 }
 
 main() {
-  Duration timeout = duration(seconds: 5, nanoseconds: 0)
   Bytes content = bytes(values: [78, 111, 114, 109])
+  Bytes middle = content.slice(start: 1, length: 2)
   ReadChunk chunk = ReadChunk.Data(bytes: content)
-  Clock clock = systemClock()
-  Instant now = clock.now()
 
-  printLine(timeout.seconds())
   printLine(content.size())
+  printLine(middle.at(index: 0))
+  printLine(middle.at(index: 1))
   switch chunk {
     case Data(Bytes data) { printLine(data.at(index: 0)) }
     case Eof { printLine("eof") }
   }
-  printLine(now.epochSecond() > 1700000000)
   Resource resource = TestResource()
   resource.close()
-  expectedOutputLines(["5", "4", "78", "true", "closed"])
+  expectedOutputLines(["4", "111", "114", "78", "closed"])
 }

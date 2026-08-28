@@ -543,7 +543,21 @@ public final class BuiltinCatalog {
             "std.core.FunctionContext", "FunctionContext", List.of(), ValueCategory.IDENTITY);
     SemanticType systemClockT = globalParameter("__systemClock", "T");
     SemanticType clockNowT = globalParameter("__clockNow", "T");
+    SemanticType bytesCreateT = globalParameter("__bytesCreate", "T");
+    SemanticType bytesSliceT = globalParameter("__bytesSlice", "T");
+    SemanticType bytesJoinT = globalParameter("__bytesJoin", "T");
+    SemanticType textEncodeUtf8T = globalParameter("__textEncodeUtf8", "T");
+    SemanticType useT = globalParameter("__use", "T");
+    SemanticType fileOpenReadT = globalParameter("__fileOpenRead", "T");
+    SemanticType fileReadT = globalParameter("__fileRead", "T");
+    SemanticType fileOpenWriteT = globalParameter("__fileOpenWrite", "T");
+    SemanticType httpSendT = globalParameter("__httpSend", "T");
+    SemanticType httpReadT = globalParameter("__httpRead", "T");
     SemanticType reflectT = globalParameter("reflect", "T");
+    SemanticType integerArrayType =
+        SemanticType.declared("std.core.Array", "Array", List.of(integerType), ValueCategory.VALUE);
+    SemanticType stringArrayType =
+        SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
 
     addType(types, type(integerType.name(), RuntimeShape.INTEGER));
     addType(types, type(SemanticType.LONG.name(), RuntimeShape.LONG));
@@ -1038,12 +1052,175 @@ public final class BuiltinCatalog {
                     "std.core.List", "List", List.of(integerType), ValueCategory.VALUE))));
     addGlobal(
         globals,
+        genericGlobal(
+            "__bytesCreate",
+            bytesCreateT,
+            IntrinsicId.IO_BYTES_CREATE,
+            List.of(new TypeParameterInfo("T", bytesCreateT)),
+            parameterInfo("values", integerArrayType)));
+    addGlobal(
+        globals,
         global(
-            "__fileReadText",
-            stringType,
-            IntrinsicId.FILE_READ_TEXT,
+            "__bytesSize",
+            integerType,
+            IntrinsicId.IO_BYTES_SIZE,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__bytesAt",
+            integerType,
+            IntrinsicId.IO_BYTES_AT,
+            parameterInfo("value", SemanticType.DYNAMIC),
+            parameterInfo("index", integerType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__bytesSlice",
+            bytesSliceT,
+            IntrinsicId.IO_BYTES_SLICE,
+            List.of(new TypeParameterInfo("T", bytesSliceT)),
+            parameterInfo("value", SemanticType.DYNAMIC),
+            parameterInfo("start", integerType),
+            parameterInfo("length", integerType)));
+    addGlobal(
+        globals,
+        global(
+            "__bytesToArray",
+            integerArrayType,
+            IntrinsicId.IO_BYTES_TO_ARRAY,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__bytesJoin",
+            bytesJoinT,
+            IntrinsicId.IO_BYTES_JOIN,
+            List.of(new TypeParameterInfo("T", bytesJoinT)),
+            parameterInfo("values", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__textEncodeUtf8",
+            textEncodeUtf8T.nullable(),
+            IntrinsicId.IO_TEXT_ENCODE_UTF8,
+            List.of(new TypeParameterInfo("T", textEncodeUtf8T)),
+            parameterInfo("text", stringType)));
+    addGlobal(
+        globals,
+        global(
+            "__textDecodeUtf8",
+            stringType.nullable(),
+            IntrinsicId.IO_TEXT_DECODE_UTF8,
+            parameterInfo("content", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__use",
+            useT,
+            IntrinsicId.IO_USE,
+            List.of(new TypeParameterInfo("T", useT)),
+            parameterInfo("close", SemanticType.function(SemanticType.VOID, List.of())),
+            parameterInfo("body", SemanticType.function(useT, List.of()))));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__fileOpenRead",
+            fileOpenReadT,
+            IntrinsicId.FILE_OPEN_READ,
+            List.of(new TypeParameterInfo("T", fileOpenReadT)),
+            parameterInfo("path", stringType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__fileRead",
+            fileReadT.nullable(),
+            IntrinsicId.FILE_READER_READ,
+            List.of(new TypeParameterInfo("T", fileReadT)),
+            parameterInfo("reader", SemanticType.DYNAMIC),
+            parameterInfo("maximumBytes", integerType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__fileOpenWrite",
+            fileOpenWriteT,
+            IntrinsicId.FILE_OPEN_WRITE,
+            List.of(new TypeParameterInfo("T", fileOpenWriteT)),
             parameterInfo("path", stringType),
-            parameterInfo("encoding", stringType)));
+            parameterInfo("mode", stringType)));
+    addGlobal(
+        globals,
+        global(
+            "__fileWrite",
+            integerType,
+            IntrinsicId.FILE_WRITER_WRITE,
+            parameterInfo("writer", SemanticType.DYNAMIC),
+            parameterInfo("content", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__fileFlush",
+            SemanticType.VOID,
+            IntrinsicId.FILE_WRITER_FLUSH,
+            parameterInfo("writer", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__fileSync",
+            SemanticType.VOID,
+            IntrinsicId.FILE_WRITER_SYNC,
+            parameterInfo("writer", SemanticType.DYNAMIC),
+            parameterInfo("mode", stringType)));
+    addGlobal(
+        globals,
+        global(
+            "__fileClose",
+            SemanticType.VOID,
+            IntrinsicId.FILE_CLOSE,
+            parameterInfo("resource", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__httpSend",
+            httpSendT,
+            IntrinsicId.HTTP_SEND,
+            List.of(new TypeParameterInfo("T", httpSendT)),
+            parameterInfo("method", stringType),
+            parameterInfo("uri", stringType),
+            parameterInfo("headers", stringArrayType),
+            parameterInfo("body", SemanticType.DYNAMIC),
+            parameterInfo("timeoutSeconds", SemanticType.LONG),
+            parameterInfo("timeoutNanoseconds", integerType)));
+    addGlobal(
+        globals,
+        global(
+            "__httpStatus",
+            integerType,
+            IntrinsicId.HTTP_RESPONSE_STATUS,
+            parameterInfo("response", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__httpHeaders",
+            stringArrayType,
+            IntrinsicId.HTTP_RESPONSE_HEADERS,
+            parameterInfo("response", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__httpRead",
+            httpReadT.nullable(),
+            IntrinsicId.HTTP_RESPONSE_READ,
+            List.of(new TypeParameterInfo("T", httpReadT)),
+            parameterInfo("response", SemanticType.DYNAMIC),
+            parameterInfo("maximumBytes", integerType)));
+    addGlobal(
+        globals,
+        global(
+            "__httpClose",
+            SemanticType.VOID,
+            IntrinsicId.HTTP_RESPONSE_CLOSE,
+            parameterInfo("response", SemanticType.DYNAMIC)));
     addGlobal(
         globals,
         genericGlobal(

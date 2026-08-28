@@ -2,6 +2,134 @@ package std.io
 
 public enum ReadChunk { Data(Bytes bytes), Eof }
 
+public enum StreamOperation { ReadAll, WriteAll }
+
+public enum StreamFailure { LimitExceeded, NoProgress, InvalidProgress }
+
+public class StreamException extends IOException {
+  StreamOperation operation
+  StreamFailure reason
+
+  StreamException(
+    String code,
+    String message,
+    StreamOperation operation,
+    StreamFailure reason
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+  }
+}
+
+public interface ByteReader {
+  ReadChunk read(Integer maximumBytes)
+}
+
+public interface ByteWriter {
+  Integer write(Bytes content)
+}
+
+public interface Flushable {
+  Void flush()
+}
+
 public interface Resource {
   Void close()
+}
+
+public Bytes readAll(ByteReader reader, Integer maximumBytes) {
+  require(condition: maximumBytes >= 0, message: "maximumBytes must not be negative")
+  List<Bytes> chunks = List<>()
+  Integer size = 0
+  Boolean reading = true
+  for reading {
+    Integer remaining = maximumBytes - size
+    Integer request = 65536
+    if remaining < request {
+      request = remaining + 1
+    }
+    ReadChunk chunk = reader.read(maximumBytes: request)
+    switch chunk {
+      case Data(Bytes bytes) {
+        if bytes.size() == 0 {
+          throw streamFailure(
+            operation: StreamOperation.ReadAll,
+            reason: StreamFailure.NoProgress,
+            message: "reader returned an empty data chunk"
+          )
+        }
+        if bytes.size() > request {
+          throw streamFailure(
+            operation: StreamOperation.ReadAll,
+            reason: StreamFailure.InvalidProgress,
+            message: "reader exceeded the requested byte count"
+          )
+        }
+        if bytes.size() > remaining {
+          throw streamFailure(
+            operation: StreamOperation.ReadAll,
+            reason: StreamFailure.LimitExceeded,
+            message: "stream exceeds maximumBytes"
+          )
+        }
+        chunks.add(bytes)
+        size = size + bytes.size()
+      }
+      case Eof {
+        reading = false
+      }
+    }
+  }
+  return __bytesJoin<BytesValue>(values: chunks)
+}
+
+public Void writeAll(ByteWriter writer, Bytes content) {
+  Integer written = 0
+  for written < content.size() {
+    Bytes remaining = content.slice(start: written, length: content.size() - written)
+    Integer count = writer.write(content: remaining)
+    if count == 0 {
+      throw streamFailure(
+        operation: StreamOperation.WriteAll,
+        reason: StreamFailure.NoProgress,
+        message: "writer made no progress"
+      )
+    }
+    if count < 0 || count > remaining.size() {
+      throw streamFailure(
+        operation: StreamOperation.WriteAll,
+        reason: StreamFailure.InvalidProgress,
+        message: "writer returned an invalid byte count"
+      )
+    }
+    written = written + count
+  }
+}
+
+public T use<T>(Resource resource, T body()) {
+  return __use<T>(
+    close: () {
+      resource.close()
+    },
+    body: body
+  )
+}
+
+private StreamException streamFailure(
+  StreamOperation operation,
+  StreamFailure reason,
+  String message
+) {
+  String code = switch reason {
+    case LimitExceeded { break "NORM-IO-LIMIT-EXCEEDED" }
+    case NoProgress { break "NORM-IO-NO-PROGRESS" }
+    case InvalidProgress { break "NORM-IO-INVALID-PROGRESS" }
+  }
+  return StreamException(
+    code: code,
+    message: message,
+    operation: operation,
+    reason: reason
+  )
 }

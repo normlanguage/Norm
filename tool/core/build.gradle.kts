@@ -67,6 +67,8 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
         @Suppress("UNCHECKED_CAST")
         val runtimeShapes = schema["runtimeShapes"] as List<String>
         @Suppress("UNCHECKED_CAST")
+        val opaqueValues = schema["opaqueValues"] as List<Map<String, Any>>
+        @Suppress("UNCHECKED_CAST")
         val exception = schema["exception"] as Map<String, Any>
         @Suppress("UNCHECKED_CAST")
         val systemExceptions = schema["systemExceptions"] as Map<String, Map<String, Any>>
@@ -109,6 +111,31 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                 appendLine("}")
             },
         )
+        packageDirectory.resolve("OpaqueValueAbi.java").writeText(
+            buildString {
+                appendLine("package dev.w0fv1.norm.abi;")
+                appendLine()
+                appendLine("public final class OpaqueValueAbi {")
+                opaqueValues.forEach { value ->
+                    val name = value.getValue("name")
+                    appendLine(
+                        "  public static final Identity $name = new Identity(" +
+                            "\"${value.getValue("moduleName")}\", " +
+                            "${value.getValue("moduleVersion")}, " +
+                            "\"${value.getValue("packageName")}\", " +
+                            "\"${value.getValue("typeName")}\");",
+                    )
+                }
+                appendLine()
+                appendLine(
+                    "  public record Identity(String moduleName, int moduleVersion, " +
+                        "String packageName, String typeName) {}",
+                )
+                appendLine()
+                appendLine("  private OpaqueValueAbi() {}")
+                appendLine("}")
+            },
+        )
         val packageName = exception.getValue("packageName")
         val typeName = exception.getValue("typeName")
         packageDirectory.resolve("ExceptionAbi.java").writeText(
@@ -138,6 +165,8 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
             @Suppress("UNCHECKED_CAST")
             val fields = contract.getValue("fields") as List<Map<String, Any>>
             @Suppress("UNCHECKED_CAST")
+            val intrinsicNames = contract.getValue("intrinsicNames") as List<String>
+            @Suppress("UNCHECKED_CAST")
             val operations = contract.getValue("operations") as List<Map<String, String>>
             @Suppress("UNCHECKED_CAST")
             val failures = contract.getValue("failures") as List<Map<String, String>>
@@ -147,6 +176,7 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                     appendLine("package dev.w0fv1.norm.abi;")
                     appendLine()
                     appendLine("import java.util.Map;")
+                    appendLine("import java.util.Set;")
                     appendLine()
                     appendLine("public final class $className {")
                     contract.entries
@@ -170,6 +200,13 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                             "  public static final int FIELD_${fieldName}_ORDINAL = " +
                                 "${field.getValue("ordinal")};",
                         )
+                    }
+                    appendLine()
+                    appendLine("  public static final Set<String> INTRINSIC_NAMES =")
+                    appendLine("      Set.of(")
+                    intrinsicNames.forEachIndexed { index, intrinsic ->
+                        val suffix = if (index + 1 == intrinsicNames.size) ");" else ","
+                        appendLine("          \"$intrinsic\"$suffix")
                     }
                     appendLine()
                     appendLine("  private static final Map<String, String> OPERATIONS =")
@@ -226,6 +263,7 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                     .append('\n')
             }
             runtimeShapes.forEach { append(it).append('\n') }
+            append(groovy.json.JsonOutput.toJson(opaqueValues)).append('\n')
             listOf("packageName", "typeName", "messageFieldName", "messageFieldOrdinal")
                 .forEach { append(exception.getValue(it)).append('\n') }
             append(groovy.json.JsonOutput.toJson(systemExceptions)).append('\n')

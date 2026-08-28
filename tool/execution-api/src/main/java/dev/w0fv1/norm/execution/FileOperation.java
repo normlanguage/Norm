@@ -1,5 +1,11 @@
 package dev.w0fv1.norm.execution;
 
 public enum FileOperation {
-  READ_TEXT
+  OPEN_READ,
+  OPEN_WRITE,
+  READ,
+  WRITE,
+  FLUSH,
+  SYNC,
+  CLOSE
 }

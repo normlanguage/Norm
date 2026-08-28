@@ -31,22 +31,26 @@ public interface Bytes {
 
   Integer at(Integer index)
 
+  Bytes slice(Integer start, Integer length)
+
   Array<Integer> toArray()
 }
 
-private value BytesValue implements Bytes {
-  private Array<Integer> values
-
+value BytesValue implements Bytes {
   public Integer size() {
-    return values.size()
+    return __bytesSize(value: this)
   }
 
   public Integer at(Integer index) {
-    return values[index]
+    return __bytesAt(value: this, index: index)
+  }
+
+  public Bytes slice(Integer start, Integer length) {
+    return __bytesSlice<BytesValue>(value: this, start: start, length: length)
   }
 
   public Array<Integer> toArray() {
-    return values
+    return __bytesToArray(value: this)
   }
 }
 
@@ -63,5 +67,5 @@ public Bytes bytes(Array<Integer> values) {
       )
     }
   }
-  return BytesValue(values: values)
+  return __bytesCreate<BytesValue>(values: values)
 }

@@ -5,8 +5,20 @@ public interface SystemPlatform {
       new SystemPlatform() {
         @Override
         public FileSystem fileSystem() {
-          return (path, encoding) -> {
-            throw new IllegalStateException("file-system capability is unavailable");
+          return new FileSystem() {
+            @Override
+            public PlatformByteReader openRead(String path) {
+              throw unavailable();
+            }
+
+            @Override
+            public PlatformByteWriter openWrite(String path, FileWriteMode mode) {
+              throw unavailable();
+            }
+
+            private IllegalStateException unavailable() {
+              return new IllegalStateException("file-system capability is unavailable");
+            }
           };
         }
 
@@ -16,11 +28,20 @@ public interface SystemPlatform {
             throw new IllegalStateException("clock capability is unavailable");
           };
         }
+
+        @Override
+        public HttpTransport httpTransport() {
+          return (request, control) -> {
+            throw new IllegalStateException("http capability is unavailable");
+          };
+        }
       };
 
   FileSystem fileSystem();
 
   SystemClock clock();
+
+  HttpTransport httpTransport();
 
   static SystemPlatform unavailable() {
     return UNAVAILABLE;

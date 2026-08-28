@@ -65,6 +65,11 @@ final class TimeIoFoundationTest {
               throw failure;
             };
           }
+
+          @Override
+          public dev.w0fv1.norm.execution.HttpTransport httpTransport() {
+            return JdkSystemPlatform.standard().httpTransport();
+          }
         };
 
     assertOutput(
@@ -84,9 +89,12 @@ final class TimeIoFoundationTest {
             + "import std.io.Resource class TestResource implements Resource { "
             + "public Void close() { printLine(\"closed\") } } Void main() { "
             + "Bytes value = bytes(values: [0, 127, 255]) "
+            + "Bytes middle = value.slice(start: 1, length: 2) "
             + "Array<Integer> copied = value.toArray() copied[0] = 9 "
             + "printLine(value.size()) printLine(value.at(index: 0)) "
             + "printLine(value.at(index: 2)) printLine(value == bytes(values: [0, 127, 255])) "
+            + "printLine(middle.size()) printLine(middle.at(index: 0)) "
+            + "printLine(middle == bytes(values: [127, 255])) "
             + "ReadChunk chunk = ReadChunk.Data(bytes: value) switch chunk { "
             + "case Data(Bytes bytes) { printLine(bytes.size()) } case Eof { printLine(\"eof\") } } "
             + "try { bytes(values: [256]) } catch ByteException error { "
@@ -95,6 +103,9 @@ final class TimeIoFoundationTest {
         "3",
         "0",
         "255",
+        "true",
+        "2",
+        "127",
         "true",
         "3",
         "NORM-IO-BYTE-OUT-OF-RANGE",
@@ -111,5 +122,23 @@ final class TimeIoFoundationTest {
                     + "Duration(seconds: 1, nanoseconds: 0) }")
             .isSuccess());
     assertFalse(compile("Void main() { printLine(__systemClock()) }").isSuccess());
+  }
+
+  @Test
+  void usesResourcesWithoutReplacingBodyFailures() {
+    assertOutput(
+        "import std.core.Exception import std.io.Resource import std.io.use "
+            + "class BodyFailure extends Exception { BodyFailure() { super(message: \"body\") } } "
+            + "class CloseFailure extends Exception { CloseFailure() { super(message: \"close\") } } "
+            + "class FailingResource implements Resource { public Void close() { "
+            + "printLine(\"closed\") throw CloseFailure() } } Void main() { "
+            + "try { use<Integer>(resource: FailingResource(), body: () { "
+            + "throw BodyFailure() 0 }) } catch BodyFailure error { printLine(error.message) } "
+            + "try { use<Integer>(resource: FailingResource(), body: () { "
+            + "7 }) } catch CloseFailure error { printLine(error.message) } }",
+        "closed",
+        "body",
+        "closed",
+        "close");
   }
 }

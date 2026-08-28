@@ -120,7 +120,32 @@ public final class IntrinsicDispatcher {
             .publish(new ModuleDescriptor((String) first, (Integer) second, exports, dependencies));
         yield null;
       }
-      case FILE_READ_TEXT, TIME_SYSTEM_CLOCK, TIME_CLOCK_NOW ->
+      case IO_BYTES_CREATE,
+          IO_BYTES_SIZE,
+          IO_BYTES_AT,
+          IO_BYTES_SLICE,
+          IO_BYTES_TO_ARRAY,
+          IO_BYTES_JOIN,
+          IO_TEXT_ENCODE_UTF8,
+          IO_TEXT_DECODE_UTF8,
+          IO_USE ->
+          IoIntrinsicDispatcher.execute(intrinsic, first, second, third, type, execution, location);
+      case FILE_OPEN_READ,
+          FILE_READER_READ,
+          FILE_OPEN_WRITE,
+          FILE_WRITER_WRITE,
+          FILE_WRITER_FLUSH,
+          FILE_WRITER_SYNC,
+          FILE_CLOSE ->
+          FileIntrinsicDispatcher.execute(
+              intrinsic, first, second, type, context, execution, location);
+      case HTTP_SEND,
+          HTTP_RESPONSE_STATUS,
+          HTTP_RESPONSE_HEADERS,
+          HTTP_RESPONSE_READ,
+          HTTP_RESPONSE_CLOSE ->
+          HttpIntrinsicDispatcher.execute(intrinsic, arguments, type, context, execution, location);
+      case TIME_SYSTEM_CLOCK, TIME_CLOCK_NOW ->
           SystemIntrinsicDispatcher.execute(
               intrinsic, first, second, type, context, execution, location);
       case TO_STRING -> RuntimeValues.stringify(receiver);

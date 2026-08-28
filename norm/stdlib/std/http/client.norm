@@ -1,0 +1,170 @@
+package std.http
+
+import std.io.ByteReader
+import std.io.Bytes
+import std.io.IOException
+import std.io.ReadChunk
+import std.io.Resource
+import std.time.Duration
+
+public value Uri {
+  String value
+}
+
+public enum HttpMethod { Get, Head, Post, Put, Patch, Delete, Options }
+
+public value HttpHeader {
+  String name
+  String value
+}
+
+public value HeaderMap {
+  Array<HttpHeader> values
+}
+
+public value Status {
+  Integer code
+}
+
+public value HttpRequest {
+  HttpMethod method
+  Uri uri
+  HeaderMap headers
+  Bytes? body
+}
+
+public enum HttpOperation { Send, Read, Close }
+
+public enum HttpFailure {
+  InvalidRequest,
+  Connect,
+  Timeout,
+  Cancelled,
+  Tls,
+  Protocol,
+  Closed,
+  Io
+}
+
+public class HttpException extends IOException {
+  HttpOperation operation
+  HttpFailure reason
+  Uri uri
+
+  HttpException(
+    String code,
+    String message,
+    HttpOperation operation,
+    HttpFailure reason,
+    Uri uri
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+    this.uri = uri
+  }
+}
+
+public interface HttpResponse extends ByteReader, Resource {
+  Status status()
+
+  HeaderMap headers()
+}
+
+public interface HttpClient {
+  HttpResponse send(HttpRequest request, Duration timeout)
+}
+
+class HttpResponseValue implements HttpResponse {
+  public Status status() {
+    return Status(code: __httpStatus(response: this))
+  }
+
+  public HeaderMap headers() {
+    Array<String> encoded = __httpHeaders(response: this)
+    Array<HttpHeader> values = Array.filled(
+      size: encoded.size() / 2,
+      value: HttpHeader(name: "", value: "")
+    )
+    for index : range(start: 0, end: values.size()) {
+      values[index] = HttpHeader(
+        name: encoded[index * 2],
+        value: encoded[index * 2 + 1]
+      )
+    }
+    return HeaderMap(values: values)
+  }
+
+  public ReadChunk read(Integer maximumBytes) {
+    Bytes? content = __httpRead<Bytes>(response: this, maximumBytes: maximumBytes)
+    if content == null {
+      return ReadChunk.Eof
+    }
+    return ReadChunk.Data(bytes: content)
+  }
+
+  public Void close() {
+    __httpClose(response: this)
+  }
+}
+
+private value SystemHttpClient implements HttpClient {
+  public HttpResponse send(HttpRequest request, Duration timeout) {
+    if timeout.seconds() < 0 || timeout.seconds() == 0 && timeout.nanoseconds() == 0 {
+      throw HttpException(
+        code: "NORM-HTTP-INVALID-REQUEST",
+        message: "HTTP timeout must be positive",
+        operation: HttpOperation.Send,
+        reason: HttpFailure.InvalidRequest,
+        uri: request.uri
+      )
+    }
+    String method = switch request.method {
+      case Get { break "GET" }
+      case Head { break "HEAD" }
+      case Post { break "POST" }
+      case Put { break "PUT" }
+      case Patch { break "PATCH" }
+      case Delete { break "DELETE" }
+      case Options { break "OPTIONS" }
+    }
+    Array<String> headers = Array.filled(
+      size: request.headers.values.size() * 2,
+      value: ""
+    )
+    for HttpHeader header,index : request.headers.values {
+      headers[index * 2] = header.name
+      headers[index * 2 + 1] = header.value
+    }
+    return __httpSend<HttpResponseValue>(
+      method: method,
+      uri: request.uri.value,
+      headers: headers,
+      body: request.body,
+      timeoutSeconds: timeout.seconds(),
+      timeoutNanoseconds: timeout.nanoseconds()
+    )
+  }
+}
+
+public HttpClient systemHttpClient() {
+  return SystemHttpClient()
+}
+
+public HttpRequest request(
+  HttpMethod method,
+  Uri uri,
+  HeaderMap headers,
+  Bytes? body
+) {
+  return HttpRequest(method: method, uri: uri, headers: headers, body: body)
+}
+
+public HttpRequest get(Uri uri) {
+  return HttpRequest(
+    method: HttpMethod.Get,
+    uri: uri,
+    headers: HeaderMap(values: []),
+    body: null
+  )
+}

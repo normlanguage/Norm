@@ -47,6 +47,36 @@ final class RuntimeValues {
     }
   }
 
+  static Object invoke(ExecutionState execution, Closure closure, Object... arguments) {
+    return closure.target().call(invocationArguments(execution, closure, arguments));
+  }
+
+  static Object[] invocationArguments(
+      ExecutionState execution, Closure closure, Object... arguments) {
+    int receiverCount = closure.receiver() == null ? 0 : 1;
+    int ownerTypeArgumentCount = closure.receiverTypeArguments().length;
+    Object[] complete =
+        new Object
+            [1
+                + receiverCount
+                + closure.captures().length
+                + arguments.length
+                + ownerTypeArgumentCount
+                + closure.reifiedArguments().length];
+    complete[0] = execution;
+    int offset = 1;
+    if (receiverCount == 1) complete[offset++] = closure.receiver();
+    System.arraycopy(closure.captures(), 0, complete, offset, closure.captures().length);
+    offset += closure.captures().length;
+    System.arraycopy(arguments, 0, complete, offset, arguments.length);
+    offset += arguments.length;
+    System.arraycopy(closure.receiverTypeArguments(), 0, complete, offset, ownerTypeArgumentCount);
+    offset += ownerTypeArgumentCount;
+    System.arraycopy(
+        closure.reifiedArguments(), 0, complete, offset, closure.reifiedArguments().length);
+    return complete;
+  }
+
   sealed interface ReferenceValue permits LocalReference, FieldReference {
     Object read();
 

@@ -4,8 +4,58 @@ import std.system.SystemException
 
 public enum TextEncoding { Utf8 }
 
+public enum TextOperation { Encode, Decode }
+
+public enum TextFailure { InvalidInput }
+
 public class IOException extends SystemException {
   IOException(String code, String message) {
     super(code: code, message: message)
   }
+}
+
+public class TextException extends IOException {
+  TextOperation operation
+  TextFailure reason
+
+  TextException(
+    String code,
+    String message,
+    TextOperation operation,
+    TextFailure reason
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+  }
+}
+
+public Bytes encodeText(String text, TextEncoding encoding) {
+  Bytes? encoded = switch encoding {
+    case Utf8 { break __textEncodeUtf8<BytesValue>(text: text) }
+  }
+  if encoded == null {
+    throw TextException(
+      code: "NORM-IO-INVALID-TEXT",
+      message: "text is not valid Unicode",
+      operation: TextOperation.Encode,
+      reason: TextFailure.InvalidInput
+    )
+  }
+  return encoded
+}
+
+public String decodeText(Bytes content, TextEncoding encoding) {
+  String? decoded = switch encoding {
+    case Utf8 { break __textDecodeUtf8(content: content) }
+  }
+  if decoded == null {
+    throw TextException(
+      code: "NORM-IO-INVALID-TEXT",
+      message: "input is not valid for the selected text encoding",
+      operation: TextOperation.Decode,
+      reason: TextFailure.InvalidInput
+    )
+  }
+  return decoded
 }

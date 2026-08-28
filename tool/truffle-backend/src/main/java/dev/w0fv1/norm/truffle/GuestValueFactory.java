@@ -3,7 +3,9 @@ package dev.w0fv1.norm.truffle;
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.FileExceptionAbi;
+import dev.w0fv1.norm.abi.HttpExceptionAbi;
 import dev.w0fv1.norm.abi.IntrinsicId;
+import dev.w0fv1.norm.abi.OpaqueValueAbi;
 import dev.w0fv1.norm.abi.TimeExceptionAbi;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
@@ -13,6 +15,7 @@ import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.PlatformFileException;
+import dev.w0fv1.norm.execution.PlatformHttpException;
 import dev.w0fv1.norm.execution.PlatformTimeException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -117,14 +120,85 @@ final class GuestValueFactory {
     return new NormThrownException(exception, location);
   }
 
+  NormThrownException httpException(
+      PlatformHttpException failure, ExecutionState execution, Node location) {
+    validateHttpContract();
+    HttpExceptionAbi.Failure mappedFailure = HttpExceptionAbi.failure(failure.reason().name());
+    Object operation =
+        enumValue(
+            HttpExceptionAbi.MODULE_NAME,
+            HttpExceptionAbi.MODULE_VERSION,
+            HttpExceptionAbi.PACKAGE_NAME,
+            HttpExceptionAbi.OPERATION_TYPE_NAME,
+            HttpExceptionAbi.operationVariant(failure.operation().name()));
+    Object failureReason =
+        enumValue(
+            HttpExceptionAbi.MODULE_NAME,
+            HttpExceptionAbi.MODULE_VERSION,
+            HttpExceptionAbi.PACKAGE_NAME,
+            HttpExceptionAbi.FAILURE_TYPE_NAME,
+            mappedFailure.variant());
+    Object uri =
+        construct(
+            HttpExceptionAbi.MODULE_NAME,
+            HttpExceptionAbi.MODULE_VERSION,
+            HttpExceptionAbi.PACKAGE_NAME,
+            HttpExceptionAbi.URI_TYPE_NAME,
+            execution,
+            failure.uri());
+    RuntimeValues.ObjectValue exception =
+        construct(
+            HttpExceptionAbi.MODULE_NAME,
+            HttpExceptionAbi.MODULE_VERSION,
+            HttpExceptionAbi.PACKAGE_NAME,
+            HttpExceptionAbi.TYPE_NAME,
+            execution,
+            mappedFailure.code(),
+            failure.getMessage(),
+            operation,
+            failureReason,
+            uri);
+    return new NormThrownException(exception, location);
+  }
+
   RuntimeValues.ObjectValue construct(
       CoreType type, ExecutionState execution, Object... arguments) {
     return construct(requireAggregate(type), type, execution, arguments);
   }
 
   RuntimeValues.OpaqueValue opaque(CoreType type, Object value, String displayName) {
-    AggregatePlan plan = requireAggregate(type);
-    return new RuntimeValues.OpaqueValue(type, value, displayName, plan.info());
+    CoreType concrete = nonNullable(type);
+    AggregatePlan plan = requireAggregate(concrete);
+    return new RuntimeValues.OpaqueValue(concrete, value, displayName, plan.info());
+  }
+
+  RuntimeValues.OpaqueValue bytes(ByteSequence value) {
+    OpaqueValueAbi.Identity identity = OpaqueValueAbi.BYTES;
+    AggregatePlan plan =
+        require(
+            aggregates,
+            identity.moduleName(),
+            identity.moduleVersion(),
+            identity.packageName(),
+            identity.typeName());
+    return new RuntimeValues.OpaqueValue(plan.type(), value, "Bytes", plan.info());
+  }
+
+  RuntimeValues.OpaqueResource resource(
+      CoreType type, AutoCloseable value, String displayName, ExecutionState execution) {
+    CoreType concrete = nonNullable(type);
+    AggregatePlan plan = requireAggregate(concrete);
+    try {
+      ManagedResource managed = execution.resources().register(displayName, value);
+      return new RuntimeValues.OpaqueResource(concrete, managed, displayName, plan.info());
+    } catch (RuntimeException | Error failure) {
+      try {
+        value.close();
+      } catch (Exception | Error closeFailure) {
+        failure.addSuppressed(closeFailure);
+      }
+      throw failure;
+    }
   }
 
   private RuntimeValues.ObjectValue construct(
@@ -162,6 +236,24 @@ final class GuestValueFactory {
     return plan;
   }
 
+  private static CoreType nonNullable(CoreType type) {
+    return switch (type) {
+      case CoreType.Declared declared ->
+          new CoreType.Declared(
+              declared.constructor(),
+              declared.arguments(),
+              declared.category(),
+              CoreNullability.NON_NULL);
+      case CoreType.Function function ->
+          new CoreType.Function(
+              function.returnType(), function.parameterTypes(), CoreNullability.NON_NULL);
+      case CoreType.Parameter parameter ->
+          new CoreType.Parameter(parameter.index(), CoreNullability.NON_NULL);
+      case CoreType.Reference reference -> reference;
+      case CoreType.Special special -> special;
+    };
+  }
+
   private RuntimeValues.EnumValue enumValue(
       String module, int version, String packageName, String name, String variant) {
     EnumPlan plan = require(enums, module, version, packageName, name);
@@ -182,9 +274,7 @@ final class GuestValueFactory {
   }
 
   private void validateFileContract() {
-    if (!FileExceptionAbi.INTRINSIC_NAME.equals(IntrinsicId.FILE_READ_TEXT.name())) {
-      throw new IllegalStateException("file exception intrinsic ABI is inconsistent");
-    }
+    validateIntrinsics(FileExceptionAbi.INTRINSIC_NAMES);
     AggregatePlan exception =
         require(
             aggregates,
@@ -203,9 +293,7 @@ final class GuestValueFactory {
   }
 
   private void validateTimeContract() {
-    if (!TimeExceptionAbi.INTRINSIC_NAME.equals(IntrinsicId.TIME_CLOCK_NOW.name())) {
-      throw new IllegalStateException("time exception intrinsic ABI is inconsistent");
-    }
+    validateIntrinsics(TimeExceptionAbi.INTRINSIC_NAMES);
     AggregatePlan exception =
         require(
             aggregates,
@@ -222,12 +310,35 @@ final class GuestValueFactory {
         exception, TimeExceptionAbi.FIELD_REASON_ORDINAL, TimeExceptionAbi.FIELD_REASON_NAME);
   }
 
+  private void validateHttpContract() {
+    validateIntrinsics(HttpExceptionAbi.INTRINSIC_NAMES);
+    AggregatePlan exception =
+        require(
+            aggregates,
+            HttpExceptionAbi.MODULE_NAME,
+            HttpExceptionAbi.MODULE_VERSION,
+            HttpExceptionAbi.PACKAGE_NAME,
+            HttpExceptionAbi.TYPE_NAME);
+    requireField(
+        exception, HttpExceptionAbi.FIELD_MESSAGE_ORDINAL, HttpExceptionAbi.FIELD_MESSAGE_NAME);
+    requireField(exception, HttpExceptionAbi.FIELD_CODE_ORDINAL, HttpExceptionAbi.FIELD_CODE_NAME);
+    requireField(
+        exception, HttpExceptionAbi.FIELD_OPERATION_ORDINAL, HttpExceptionAbi.FIELD_OPERATION_NAME);
+    requireField(
+        exception, HttpExceptionAbi.FIELD_REASON_ORDINAL, HttpExceptionAbi.FIELD_REASON_NAME);
+    requireField(exception, HttpExceptionAbi.FIELD_URI_ORDINAL, HttpExceptionAbi.FIELD_URI_NAME);
+  }
+
   private static void requireField(AggregatePlan plan, int ordinal, String name) {
     List<RuntimeValues.FieldPlan> fields = plan.info().fields();
     if (ordinal < 0 || ordinal >= fields.size() || !fields.get(ordinal).name().equals(name)) {
       throw new IllegalStateException(
           "runtime aggregate field ABI is inconsistent: " + plan.nominal() + "." + name);
     }
+  }
+
+  private static void validateIntrinsics(java.util.Set<String> names) {
+    names.forEach(IntrinsicId::valueOf);
   }
 
   record AggregatePlan(

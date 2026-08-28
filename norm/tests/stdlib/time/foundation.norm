@@ -1,0 +1,16 @@
+import std.testing.expectedOutputLines
+import std.time.Clock
+import std.time.Duration
+import std.time.Instant
+import std.time.duration
+import std.time.systemClock
+
+main() {
+  Duration timeout = duration(seconds: 5, nanoseconds: 0)
+  Clock clock = systemClock()
+  Instant now = clock.now()
+
+  printLine(timeout.seconds())
+  printLine(now.epochSecond() > 1700000000)
+  expectedOutputLines(["5", "true"])
+}

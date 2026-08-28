@@ -1,0 +1,24 @@
+import std.io.Resource
+import std.io.use
+import std.testing.expectedOutputLines
+
+class TestResource implements Resource {
+  String name
+
+  public Void close() {
+    printLine("close " + name)
+  }
+}
+
+main() {
+  TestResource resource = TestResource(name: "resource")
+  Integer result = use<Integer>(
+    resource: resource,
+    body: () {
+      printLine("body " + resource.name)
+      7
+    }
+  )
+  printLine(result)
+  expectedOutputLines(["body resource", "close resource", "7"])
+}

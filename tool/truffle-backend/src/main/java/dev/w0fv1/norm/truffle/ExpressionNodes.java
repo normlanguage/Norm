@@ -629,29 +629,9 @@ final class ExpressionNodes {
     Object execute(VirtualFrame frame) {
       RuntimeValues.Closure closure = (RuntimeValues.Closure) callee.execute(frame);
       Object[] values = evaluateArguments(arguments, parameterIndices, frame);
-      int receiverCount = closure.receiver() == null ? 0 : 1;
-      int ownerTypeArgumentCount = closure.receiverTypeArguments().length;
-      Object[] complete =
-          new Object
-              [1
-                  + receiverCount
-                  + closure.captures().length
-                  + values.length
-                  + ownerTypeArgumentCount
-                  + closure.reifiedArguments().length];
-      complete[0] = ExecutionContextAccess.state(frame);
-      int offset = 1;
-      if (receiverCount == 1) complete[offset++] = closure.receiver();
-      System.arraycopy(closure.captures(), 0, complete, offset, closure.captures().length);
-      offset += closure.captures().length;
-      System.arraycopy(values, 0, complete, offset, values.length);
-      offset += values.length;
-      System.arraycopy(
-          closure.receiverTypeArguments(), 0, complete, offset, ownerTypeArgumentCount);
-      offset += ownerTypeArgumentCount;
-      System.arraycopy(
-          closure.reifiedArguments(), 0, complete, offset, closure.reifiedArguments().length);
-      return call.call(closure.target(), complete);
+      return call.call(
+          closure.target(),
+          RuntimeValues.invocationArguments(ExecutionContextAccess.state(frame), closure, values));
     }
   }
 

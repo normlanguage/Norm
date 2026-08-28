@@ -6,7 +6,8 @@ import std.testing.expectedOutputLines
 main() {
   String text = readText(
     path: Path(value: "file_read_text.txt"),
-    encoding: TextEncoding.Utf8
+    encoding: TextEncoding.Utf8,
+    maximumBytes: 1024
   ).trim()
   printLine(text)
   expectedOutputLines(["Norm filesystem"])
