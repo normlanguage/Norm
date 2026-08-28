@@ -78,15 +78,28 @@ const stdlib = [
 
 export const zhTheme: DefaultTheme.Config = {
   nav: [
-    { text: 'Learn', link: '/learn/', activeMatch: '^/learn/' },
-    { text: 'Language', link: '/guide/', activeMatch: '^/guide/' },
-    { text: 'Reference', link: '/spec/language-spec', activeMatch: '^/spec/' },
-    { text: 'Standard Library', link: '/stdlib/overview', activeMatch: '^/stdlib/' },
-    { text: 'Tooling', link: '/tooling/', activeMatch: '^/tooling/' },
-    { text: 'Design', link: '/design/', activeMatch: '^/design/' },
-    { text: 'Status', link: '/status' },
-    { text: 'GitHub', link: 'https://github.com/w0fv1/Norm' },
+    { text: '学习', link: '/learn/', activeMatch: '^/learn/' },
+    { text: '语言', link: '/guide/', activeMatch: '^/guide/' },
+    {
+      text: '参考',
+      activeMatch: '^/(spec|stdlib)/',
+      items: [
+        { text: '语言参考', link: '/spec/language-spec' },
+        { text: '标准库', link: '/stdlib/overview' },
+      ],
+    },
+    { text: '工具', link: '/tooling/', activeMatch: '^/tooling/' },
+    {
+      text: '项目',
+      activeMatch: '^/(design|versions)/|^/status$',
+      items: [
+        { text: '编译器设计', link: '/design/' },
+        { text: '当前状态', link: '/status' },
+        { text: '版本记录', link: '/versions/' },
+      ],
+    },
   ],
+  socialLinks: [{ icon: 'github', link: 'https://github.com/w0fv1/Norm' }],
   sidebar: {
     '/learn/': [{ text: 'Language Tour', items: tour }],
     '/guide/': [

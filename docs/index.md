@@ -17,7 +17,7 @@ import heroExample from '../norm/tests/docs/tour/05_enum_switch.norm?raw'
     <p class="norm-hero__lead">用 <code>class</code> 表达身份，用 <code>value</code> 表达值，用 <code>enum</code> 表达状态，用 <code>interface</code> 表达能力，用 <code>ref</code> 表达受控的可变访问。</p>
     <div class="norm-hero__actions">
       <a class="norm-button norm-button--dark" href="./learn/">开始学习</a>
-      <a class="norm-button norm-button--light" href="./guide/">了解语言设计</a>
+      <a class="norm-button norm-button--light" href="./guide/">了解 Norm</a>
     </div>
     <div class="norm-code-window" aria-label="经过编译和运行验证的数据枚举示例">
       <div class="norm-code-window__bar"><span></span><span></span><span></span><b>delivery.norm · N-42</b></div>
@@ -59,19 +59,45 @@ import heroExample from '../norm/tests/docs/tour/05_enum_switch.norm?raw'
   <p class="norm-kicker">类型服务于理解</p>
   <h2>能从上下文确定时省略，语义不足时拒绝猜测。</h2>
   <div class="norm-showcase-grid norm-showcase-grid--three">
-    <article><div><span>NULL SAFETY</span><h3>缺失进入类型。</h3><p><code>String?</code>、<code>?.</code> 和 <code>??</code> 分别表达可空值、安全访问和回退路径。</p><a href="./learn/nullability-inference">学习 Null 与推断 →</a></div><pre v-pre><code>Integer size(String? text) {&#10;  return text?.graphemeSize() ?? 0&#10;}</code></pre></article>
-    <article><div><span>INFERENCE</span><h3>推断使用期望类型。</h3><p>集合字面量和泛型构造器利用赋值目标与实参；失败时不会退化成动态类型。</p><a href="./spec/type-inference">查看推断规则 →</a></div><pre v-pre><code>Array&lt;Integer&gt; fixed = [1, 2, 3]&#10;List&lt;Integer&gt; dynamic = [1, 2, 3]&#10;List&lt;Pair&lt;Integer, String&gt;&gt; pairs = List&lt;&gt;()</code></pre></article>
-    <article><div><span>FUNCTIONS</span><h3>函数保持函数。</h3><p>顶层函数、Lambda、方法引用和 Extension 共用静态类型与普通调用规则。</p><a href="./learn/lambdas-extensions">学习函数值与 Extension →</a></div><pre v-pre><code>extension T echoed&lt;T&gt;(T value) {&#10;  return value&#10;}&#10;&#10;String copy = "Norm".echoed()</code></pre></article>
+    <article><div><span>NULL SAFETY</span><h3>缺失进入类型。</h3><p><code>String?</code>、<code>?.</code> 和 <code>??</code> 分别表达可空值、安全访问和回退路径。</p></div><pre v-pre><code>Integer size(String? text) {&#10;  return text?.graphemeSize() ?? 0&#10;}</code></pre></article>
+    <article><div><span>INFERENCE</span><h3>推断使用期望类型。</h3><p>集合字面量和泛型构造器利用赋值目标与实参；失败时不会退化成动态类型。</p></div><pre v-pre><code>Array&lt;Integer&gt; fixed = [1, 2, 3]&#10;List&lt;Integer&gt; dynamic = [1, 2, 3]&#10;List&lt;Pair&lt;Integer, String&gt;&gt; pairs = List&lt;&gt;()</code></pre></article>
+    <article><div><span>FUNCTIONS</span><h3>函数保持函数。</h3><p>顶层函数、Lambda、方法引用和 Extension 共用静态类型与普通调用规则。</p></div><pre v-pre><code>extension T echoed&lt;T&gt;(T value) {&#10;  return value&#10;}&#10;&#10;String copy = "Norm".echoed()</code></pre></article>
   </div>
 </section>
 
 <section class="norm-section">
-  <p class="norm-kicker">高级能力</p>
-  <h2>别名和运行时策略仍然有清楚边界。</h2>
+  <p class="norm-kicker">高级语言能力</p>
+  <h2>编译期知道的信息，不在运行时悄悄消失。</h2>
   <div class="norm-path-grid">
-    <a href="./learn/references"><span>REFERENCES</span><h3>受控的可变访问</h3><p><code>&amp;</code> 取得位置，<code>*</code> 读写 value；引用不能逃逸到返回值、字段、容器或 Lambda。</p><b>学习引用 →</b></a>
-    <a href="./learn/annotations"><span>ANNOTATIONS</span><h3>类型化元数据与行为</h3><p>目标、保留策略和拦截生命周期通过名义接口表达，并与字段类型精确匹配。</p><b>学习 Annotation →</b></a>
-    <a href="./stdlib/overview"><span>STANDARD LIBRARY</span><h3>Unicode-aware at the core</h3><p>文本 API 区分 byte、code point 和 grapheme，并连接集合、文件、HTTP 与结构数据格式。</p><b>查看标准库 →</b></a>
+    <article><span>REIFIED GENERICS</span><h3>泛型保留精确类型</h3><p>实际类型参数进入 Canonical Core 和运行时类型环境，反射、Annotation 与序列化面对同一份类型事实。</p></article>
+    <article><span>REFERENCES</span><h3>受控的可变访问</h3><p><code>&amp;</code> 取得位置，<code>*</code> 读写 value；引用不能逃逸到返回值、字段、容器或 Lambda。</p></article>
+    <article><span>ANNOTATIONS</span><h3>类型化元数据与行为</h3><p>目标、保留策略、参数和拦截生命周期由类型系统检查，并与被拦截字段和参数精确匹配。</p></article>
+  </div>
+  <a class="norm-section-link" href="./guide/design-whitepaper">深入了解语言能力 →</a>
+</section>
+
+<section class="norm-core-section">
+  <div class="norm-section">
+    <p class="norm-kicker">受 Unison 启发的代码模型</p>
+    <h2>源码给人，语义身份给编译器。</h2>
+    <p class="norm-section__lead">Unison 的关键启发，是把人类操作代码的界面与编译器识别代码的身份分开。Norm 沿用这条分层：普通 <code>.norm</code> 文件是编写与版本管理界面，content-addressed semantic definitions 是编译器内部的真实代码身份与依赖模型。</p>
+    <div class="norm-core-model">
+      <article>
+        <span>AUTHORING SOURCE</span>
+        <h3>普通 <code>.norm</code> 文件</h3>
+        <p>开发者继续使用熟悉的编辑器、文本 Diff、Code Review 和 Git。名称、源码位置与排版服务于阅读和协作。</p>
+        <b>源码 · 名称 · Git</b>
+      </article>
+      <div class="norm-core-model__arrow" aria-hidden="true">→</div>
+      <article>
+        <span>SEMANTIC DEFINITIONS</span>
+        <h3>Content-addressed identity</h3>
+        <p>解析和类型检查之后，定义身份由规范化语义内容与真实依赖决定，不依赖文件路径或声明顺序。</p>
+        <b>Canonical Core · Definition ID</b>
+      </article>
+    </div>
+    <p class="norm-core-result">稳定的语义身份连接精确增量失效、跨进程 Definition Store 和 Truffle Artifact 复用；authoring metadata 仍把诊断、导航与调用栈映射回源码。</p>
+    <a class="norm-section-link" href="./spec/compiler-design">查看编译器架构 →</a>
   </div>
 </section>
 
@@ -79,12 +105,6 @@ import heroExample from '../norm/tests/docs/tour/05_enum_switch.norm?raw'
   <div class="norm-section norm-blue-band__inner">
     <div><p class="norm-kicker">一套语义模型</p><h2>编译器、工具与执行共享同一事实。</h2></div>
     <p>Formatter、补全、签名、Hover、导航和 Rename 读取编译器语义快照；Canonical Core 固定解析结果，Truffle 只执行已解析表示。</p>
-    <div class="norm-chip-list"><a href="./tooling/">Tooling</a><a href="./design/">Compiler Design</a><a href="./status">Current Status</a><a href="./versions/0.16">Norm 0.16</a></div>
+    <a class="norm-blue-band__link" href="./tooling/">了解工具链 →</a>
   </div>
-</section>
-
-<section class="norm-section norm-final-cta">
-  <h2>从一段真实的 Norm 程序开始。</h2>
-  <p>Tour 中的主要示例由当前编译器编译、执行并校验输出。</p>
-  <div><a class="norm-button norm-button--blue" href="./learn/">开始 Language Tour</a><a class="norm-button norm-button--outline" href="https://github.com/w0fv1/Norm/releases/latest">获取最新 Release</a></div>
 </section>
