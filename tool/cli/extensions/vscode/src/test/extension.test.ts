@@ -7,26 +7,6 @@ suite('Norm VS Code extension', () => {
   suiteSetup(async () => {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     assert.ok(root, 'test workspace was not opened');
-    const cli =
-      process.env.NORM_CLI ??
-      vscode.Uri.joinPath(
-        root,
-        'tool/cli/app/build/install/norm/bin',
-        process.platform === 'win32' ? 'norm.bat' : 'norm',
-      ).fsPath;
-    const configuration = vscode.workspace.getConfiguration('norm');
-    if (configuration.get<string>('cli.path') !== cli) {
-      const changed = new Promise<void>((resolve) => {
-        const subscription = vscode.workspace.onDidChangeConfiguration((event) => {
-          if (event.affectsConfiguration('norm.cli.path')) {
-            subscription.dispose();
-            resolve();
-          }
-        });
-      });
-      await configuration.update('cli.path', cli, vscode.ConfigurationTarget.Global);
-      await changed;
-    }
     await vscode.workspace
       .getConfiguration('editor')
       .update('wordBasedSuggestions', 'off', vscode.ConfigurationTarget.Workspace);
@@ -128,6 +108,26 @@ suite('Norm VS Code extension', () => {
     );
 
     assert.ok(reflectionCompletions.items.some((item) => labelOf(item) === 'fields'));
+    assert.deepEqual(vscode.languages.getDiagnostics(document.uri), []);
+  });
+
+  test('accepts structured documentation on standard-library declarations', async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    assert.ok(root, 'test workspace was not opened');
+    const uri = vscode.Uri.joinPath(root, 'norm/stdlib/std/collections/sequences.norm');
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document);
+    const offset = document.getText().indexOf('listContains');
+    const hovers = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider',
+        document.uri,
+        document.positionAt(offset),
+      );
+      return value?.length ? value : undefined;
+    });
+
+    assert.ok(hovers.length > 0);
     assert.deepEqual(vscode.languages.getDiagnostics(document.uri), []);
   });
 
@@ -720,8 +720,13 @@ suite('Norm VS Code extension', () => {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     assert.ok(root, 'test workspace was not opened');
     const source = vscode.Uri.joinPath(root, 'norm/tests/recovery/missing_parenthesis.norm');
-    const cli = vscode.workspace.getConfiguration('norm').get<string>('cli.path');
-    assert.ok(cli);
+    const cli =
+      process.env.NORM_CLI ??
+      vscode.Uri.joinPath(
+        root,
+        'tool/cli/app/build/install/norm/bin',
+        process.platform === 'win32' ? 'norm.bat' : 'norm',
+      ).fsPath;
     const terminal = new ProcessTerminal(
       cliInvocation(cli, ['run', source.fsPath]),
       root.fsPath,

@@ -8,6 +8,8 @@ const require = createRequire(import.meta.url);
 const { cliInvocation, resolveCliCommand } = require('../out/cli-command.cjs');
 const fixture = mkdtempSync(join(tmpdir(), 'norm-vscode-'));
 try {
+  const versions = new Map();
+  const probeVersion = async (command) => versions.get(command);
   const repository = join(fixture, 'repository');
   const developmentExtension = join(
     repository,
@@ -32,6 +34,7 @@ try {
   mkdirSync(dirname(expected), { recursive: true });
   writeFileSync(expected, '');
   chmodSync(expected, 0o755);
+  versions.set(expected, '0.17.1-SNAPSHOT');
   const staleServer = join(
     developmentExtension,
     'server',
@@ -41,12 +44,31 @@ try {
   mkdirSync(dirname(staleServer), { recursive: true });
   writeFileSync(staleServer, '');
   chmodSync(staleServer, 0o755);
-  assert.equal(resolveCliCommand('', repository, developmentExtension), expected);
-  assert.equal(resolveCliCommand(expected, repository, developmentExtension), expected);
-  assert.equal(
-    resolveCliCommand('definitely-missing-norm-cli', repository, developmentExtension),
-    undefined,
+  versions.set(staleServer, '0.16.0-SNAPSHOT');
+  const developmentOptions = {
+    configured: '',
+    workspacePath: repository,
+    extensionPath: developmentExtension,
+    extensionVersion: '0.17.1',
+    development: true,
+  };
+  const development = await resolveCliCommand(developmentOptions, probeVersion);
+  assert.equal(development.selected?.command, expected);
+  assert.equal(development.selected?.version, '0.17.1-SNAPSHOT');
+  assert.equal(development.selected?.source, 'workspace');
+
+  const configured = await resolveCliCommand(
+    { ...developmentOptions, configured: expected },
+    probeVersion,
   );
+  assert.equal(configured.selected?.source, 'configured');
+
+  const missingConfigured = await resolveCliCommand(
+    { ...developmentOptions, configured: 'definitely-missing-norm-cli' },
+    probeVersion,
+  );
+  assert.equal(missingConfigured.selected?.command, expected);
+  assert.equal(missingConfigured.rejected[0].reason, 'not-found');
   const invocation = cliInvocation(expected, ['run', 'source file.norm']);
   if (process.platform === 'win32') {
     assert.equal(invocation.command, process.env.ComSpec ?? 'cmd.exe');
@@ -63,6 +85,7 @@ try {
   const bundled = join(bin, process.platform === 'win32' ? 'norm.exe' : 'norm');
   writeFileSync(bundled, '');
   chmodSync(bundled, 0o755);
+  versions.set(bundled, '0.17.1');
   const bundledJvm = join(
     packagedExtension,
     'server',
@@ -72,15 +95,50 @@ try {
   mkdirSync(dirname(bundledJvm), { recursive: true });
   writeFileSync(bundledJvm, '');
   chmodSync(bundledJvm, 0o755);
-  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundledJvm);
+  versions.set(bundledJvm, '0.16.0-SNAPSHOT');
   const external = join(fixture, process.platform === 'win32' ? 'external.exe' : 'external');
   writeFileSync(external, '');
   chmodSync(external, 0o755);
-  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundledJvm);
-  assert.equal(resolveCliCommand(external, undefined, packagedExtension), external);
+  versions.set(external, '0.16.0');
+  const productionOptions = {
+    configured: external,
+    workspacePath: repository,
+    extensionPath: packagedExtension,
+    extensionVersion: '0.17.1',
+    development: false,
+  };
+  const production = await resolveCliCommand(productionOptions, probeVersion);
+  assert.equal(production.selected?.command, bundled);
+  assert.equal(production.selected?.version, '0.17.1');
+  assert.equal(production.selected?.source, 'bundled');
+  assert.deepEqual(
+    production.rejected
+      .filter(({ reason }) => reason === 'version-mismatch')
+      .map(({ source, version }) => [source, version]),
+    [
+      ['configured', '0.16.0'],
+      ['bundled', '0.16.0-SNAPSHOT'],
+    ],
+  );
 
-  rmSync(join(packagedExtension, 'server'), { recursive: true, force: true });
-  assert.equal(resolveCliCommand('', undefined, packagedExtension), bundled);
+  versions.set(expected, '0.17.1');
+  const productionPrefersBundle = await resolveCliCommand(
+    { ...productionOptions, configured: '' },
+    probeVersion,
+  );
+  assert.equal(productionPrefersBundle.selected?.command, bundled);
+
+  versions.set(external, '0.17.1');
+  const compatibleConfigured = await resolveCliCommand(productionOptions, probeVersion);
+  assert.equal(compatibleConfigured.selected?.command, external);
+  assert.equal(compatibleConfigured.selected?.source, 'configured');
+
+  versions.delete(external);
+  versions.delete(bundled);
+  versions.set(expected, '0.16.0-SNAPSHOT');
+  const incompatible = await resolveCliCommand(productionOptions, probeVersion);
+  assert.equal(incompatible.selected, undefined);
+  assert.ok(incompatible.rejected.some(({ reason }) => reason === 'version-unavailable'));
 } finally {
   rmSync(fixture, { recursive: true, force: true });
 }

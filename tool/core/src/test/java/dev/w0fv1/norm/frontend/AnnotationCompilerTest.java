@@ -396,6 +396,21 @@ final class AnnotationCompilerTest {
   }
 
   @Test
+  void preservesPrimaryDiagnosticsWhenAnAnnotatedDeclarationCannotBeBound() {
+    CompilationResult result =
+        compile(
+            policies("FunctionTarget", "BinaryRetention")
+                + "annotation Document implements FunctionTarget, BinaryRetention { "
+                + "String description } @Document(description: \"Returns an answer.\") "
+                + "Integer answer() { return missing } Void main() {}");
+
+    assertFalse(result.isSuccess());
+    assertTrue(
+        result.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-NAME-0003")));
+  }
+
+  @Test
   void applicationsDoNotChangeTargetIdentityButConformanceChangesAnnotationIdentity() {
     CompilationResult first =
         compile(

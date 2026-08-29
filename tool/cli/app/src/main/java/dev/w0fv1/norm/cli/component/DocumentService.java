@@ -128,7 +128,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   @Override
   public void didSave(DidSaveTextDocumentParams params) {
     DocumentState state = state(params.getTextDocument().getUri());
-    if (state != null) publish(params.getTextDocument().getUri(), state.analysis());
+    if (state != null) publish(state.clientUri(), state.source().id(), state.analysis());
   }
 
   @Override
@@ -292,11 +292,30 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
               revisions.incrementAndGet(),
               snapshot);
       if (!install(uri, candidate)) return;
-      publish(uri, analysis);
+      publish(uri, source.id(), analysis);
+      return;
+    }
+    Path sourcePath = ProjectSession.normalize(source.path());
+    Optional<DocumentId> standardLibraryDocument = standardLibraryDocument(source);
+    if (standardLibraryDocument.isPresent()) {
+      source = SourceFile.of(standardLibraryDocument.orElseThrow(), source.text());
+      CompilationSnapshot snapshot = language.standardLibrarySnapshot(source);
+      AnalysisResult analysis = snapshot.analysis(source.id());
+      DocumentState candidate =
+          new DocumentState(
+              version,
+              uri,
+              source,
+              analysis,
+              null,
+              Set.of(sourcePath),
+              revisions.incrementAndGet(),
+              snapshot);
+      if (!install(uri, candidate)) return;
+      publish(uri, source.id(), analysis);
       return;
     }
     if (ProjectLoader.isModuleSource(source)) {
-      Path sourcePath = ProjectSession.normalize(source.path());
       Path root = projects.projectRoot(source, openSources().values());
       Set<Path> affectedRoots = new java.util.LinkedHashSet<>();
       affectedRoots.add(root);
@@ -332,7 +351,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
               revisions.incrementAndGet(),
               snapshot);
       if (!install(uri, candidate)) return;
-      publish(uri, analysis);
+      publish(uri, source.id(), analysis);
       affectedRoots.forEach(this::refresh);
       return;
     }
@@ -352,7 +371,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
             session.revision(),
             session.snapshot());
     if (!install(uri, candidate)) return;
-    publish(uri, analysis);
+    publish(uri, source.id(), analysis);
     for (Map.Entry<String, DocumentState> entry : List.copyOf(documents.entrySet())) {
       DocumentState state = entry.getValue();
       if (entry.getKey().equals(uri) || !session.root().equals(state.projectRoot())) continue;
@@ -369,7 +388,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
               session.revision(),
               session.snapshot());
       if (documents.replace(entry.getKey(), state, refreshedState)) {
-        publish(state.clientUri(), refreshed);
+        publish(state.clientUri(), state.source().id(), refreshed);
       }
     }
   }
@@ -435,7 +454,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
                       session.snapshot());
                 });
         if (installed != null && installed.revision() == session.revision()) {
-          publish(state.clientUri(), analysis);
+          publish(state.clientUri(), state.source().id(), analysis);
         }
       }
       remaining.removeAll(members);
@@ -470,13 +489,12 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
         .orElse(Set.of());
   }
 
-  private void publish(String uri, AnalysisResult analysis) {
+  private void publish(String uri, DocumentId document, AnalysisResult analysis) {
     LanguageClient connected = client;
     if (connected == null) return;
     List<org.eclipse.lsp4j.Diagnostic> diagnostics =
         analysis.diagnostics().stream()
-            .filter(
-                diagnostic -> diagnostic.primarySpan().source().id().uri().toString().equals(uri))
+            .filter(diagnostic -> diagnostic.primarySpan().source().id().equals(document))
             .map(DocumentService::diagnostic)
             .toList();
     connected.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
@@ -608,6 +626,11 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   private DocumentState state(String uri) {
     DocumentState direct = documents.get(uri);
     if (direct != null) return direct;
+    Optional<DocumentState> semantic =
+        documents.values().stream()
+            .filter(state -> state.source().id().uri().toString().equals(uri))
+            .findFirst();
+    if (semantic.isPresent()) return semantic.orElseThrow();
     Optional<Path> path = filePath(uri);
     if (path.isEmpty()) return null;
     return documents.values().stream()
@@ -628,6 +651,17 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   private String clientUri(DocumentId document) {
     DocumentState state = state(document.uri().toString());
     return state == null ? document.uri().toString() : state.clientUri();
+  }
+
+  private Optional<DocumentId> standardLibraryDocument(SourceFile source) {
+    Path sourcePath = ProjectSession.normalize(source.path());
+    Path root = projects.projectRoot(source, openSources().values());
+    if (!sourcePath.startsWith(root)) return Optional.empty();
+    String relative = root.relativize(sourcePath).toString().replace('\\', '/');
+    DocumentId document = DocumentId.of("stdlib:/" + relative);
+    return language.standardLibrarySource(document).isPresent()
+        ? Optional.of(document)
+        : Optional.empty();
   }
 
   private static Optional<Path> filePath(String uri) {

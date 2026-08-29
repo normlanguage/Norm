@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
-import { cliInvocation, resolveCliCommand } from './cli-command';
+import {
+  cliInvocation,
+  CliRejection,
+  ResolvedCliCommand,
+  resolveCliCommand,
+} from './cli-command';
 import { NormRunner } from './runner';
 import {
   LanguageClient,
@@ -11,9 +16,10 @@ import {
 let client: LanguageClient | undefined;
 let lifecycle = Promise.resolve();
 let outputChannel: vscode.LogOutputChannel | undefined;
+let activeCli: ResolvedCliCommand | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const runner = new NormRunner(context.extensionPath);
+  const runner = new NormRunner(() => activeCli);
   outputChannel = vscode.window.createOutputChannel('Norm Language Server', { log: true });
   context.subscriptions.push(
     outputChannel,
@@ -64,19 +70,40 @@ function restartClient(context: vscode.ExtensionContext): Promise<void> {
 async function startClient(context: vscode.ExtensionContext): Promise<void> {
   const configuration = vscode.workspace.getConfiguration('norm');
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  const command = resolveCliCommand(
-    configuration.get<string>('cli.path', ''),
-    workspaceFolder?.uri.fsPath,
-    context.extensionPath,
-  );
-  if (!command) {
+  const extensionVersion = String(context.extension.packageJSON.version);
+  const resolution = await resolveCliCommand({
+    configured: configuration.get<string>('cli.path', ''),
+    workspacePath: workspaceFolder?.uri.fsPath,
+    extensionPath: context.extensionPath,
+    extensionVersion,
+    development: context.extensionMode === vscode.ExtensionMode.Development,
+  });
+  for (const rejection of resolution.rejected) logRejection(rejection, extensionVersion);
+  const selected = resolution.selected;
+  if (!selected) {
     void vscode.window.showErrorMessage(
-      'Norm CLI was not found. Install Norm or configure "norm.cli.path".',
+      `No Norm CLI compatible with extension ${extensionVersion} was found. ` +
+        'Install a matching extension package or update "norm.cli.path".',
     );
     return;
   }
+  activeCli = selected;
+  outputChannel?.info(
+    `Using Norm CLI ${selected.version} from ${selected.command} (${selected.source}).`,
+  );
+  const rejectedConfiguration = resolution.rejected.find(
+    ({ source }) => source === 'configured',
+  );
+  if (rejectedConfiguration) {
+    void vscode.window.showWarningMessage(
+      `Configured Norm CLI ${rejectedConfiguration.command} ${rejectionDescription(
+        rejectedConfiguration,
+        extensionVersion,
+      )}; using ${selected.version} instead.`,
+    );
+  }
   const options = workspaceFolder ? { cwd: workspaceFolder.uri.fsPath } : undefined;
-  const invocation = cliInvocation(command, ['lsp']);
+  const invocation = cliInvocation(selected.command, ['lsp']);
   const serverOptions: ServerOptions = {
     command: invocation.command,
     args: [...invocation.args],
@@ -113,6 +140,7 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
 async function stopClient(): Promise<void> {
   const running = client;
   client = undefined;
+  activeCli = undefined;
   if (running) await running.dispose(10_000);
 }
 
@@ -120,4 +148,19 @@ function trace(value: string): Trace {
   if (value === 'verbose') return Trace.Verbose;
   if (value === 'messages') return Trace.Messages;
   return Trace.Off;
+}
+
+function logRejection(rejection: CliRejection, extensionVersion: string): void {
+  outputChannel?.warn(
+    `Ignoring Norm CLI ${rejection.command}: ${rejectionDescription(rejection, extensionVersion)}.`,
+  );
+}
+
+function rejectionDescription(rejection: CliRejection, extensionVersion: string): string {
+  if (rejection.reason === 'version-mismatch') {
+    return `version ${rejection.version} does not match extension ${extensionVersion}`;
+  }
+  return rejection.reason === 'not-found'
+    ? 'the executable was not found'
+    : 'its version is unavailable';
 }

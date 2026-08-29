@@ -58,6 +58,15 @@ public final class LanguageService implements AutoCloseable {
     return compiler.preludeSnapshot(document);
   }
 
+  public CompilationSnapshot standardLibrarySnapshot(SourceFile source) {
+    return compiler.preludeSnapshot(source);
+  }
+
+  public CompilationSnapshot standardLibrarySnapshot(
+      java.util.Collection<SourceFile> sources, DocumentId entryDocument) {
+    return compiler.preludeSnapshot(sources, entryDocument);
+  }
+
   public Optional<String> format(SourceFile source) {
     return formatter.format(source);
   }

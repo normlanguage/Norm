@@ -247,7 +247,8 @@ final class AnnotationChecker {
   final void validateDeclarationAnnotations(
       List<Syntax.AnnotationUse> annotations, AnnotationTarget target, Object declaration) {
     if (!annotations.isEmpty()) {
-      validateAnnotationUses(annotations, annotationSite(target, declaration));
+      annotationSite(target, declaration)
+          .ifPresent(site -> validateAnnotationUses(annotations, site));
     }
   }
 
@@ -413,15 +414,16 @@ final class AnnotationChecker {
         });
   }
 
-  private AnnotationSite annotationSite(AnnotationTarget target, Object declaration) {
+  private Optional<AnnotationSite> annotationSite(AnnotationTarget target, Object declaration) {
     SymbolId symbol = analyzer.context.declarationSymbols.get(declaration);
     if (symbol == null && declaration instanceof Syntax.VariableDecl variable) {
       symbol = analyzer.context.bindings.get(variable.nameSpan());
     }
-    return new AnnotationSite.Symbol(
-        target,
-        java.util.Objects.requireNonNull(symbol),
-        analyzer.context.currentProgram.span().source().id());
+    return symbol == null
+        ? Optional.empty()
+        : Optional.of(
+            new AnnotationSite.Symbol(
+                target, symbol, analyzer.context.currentProgram.span().source().id()));
   }
 
   private void validateLocalAnnotations(List<Syntax.Statement> statements) {

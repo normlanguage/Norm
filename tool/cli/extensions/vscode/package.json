@@ -106,7 +106,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Path to the Norm CLI executable used by both Run and the language server. Leave empty to discover it from the workspace or PATH."
+          "description": "Path to the Norm CLI executable used by both Run and the language server. The CLI version must match the extension; incompatible executables are ignored."
         },
         "norm.run.workingDirectory": {
           "type": "string",
@@ -170,6 +170,8 @@
     "esbuild": "0.28.2",
     "mocha": "11.8.0",
     "yauzl": "3.4.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.2.0"
   }
 }

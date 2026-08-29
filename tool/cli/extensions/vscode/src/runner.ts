@@ -1,10 +1,10 @@
 import { basename, dirname } from 'node:path';
 import * as vscode from 'vscode';
-import { cliInvocation, resolveCliCommand } from './cli-command';
+import { cliInvocation, ResolvedCliCommand } from './cli-command';
 import { ProcessTerminal } from './process-terminal';
 
 export class NormRunner {
-  public constructor(private readonly extensionPath: string) {}
+  public constructor(private readonly cli: () => ResolvedCliCommand | undefined) {}
 
   public async runCurrentFile(): Promise<vscode.TaskExecution | undefined> {
     const document = vscode.window.activeTextEditor?.document;
@@ -36,14 +36,10 @@ export class NormRunner {
     if (saved.some((value) => !value)) return undefined;
 
     const configuration = vscode.workspace.getConfiguration('norm', document.uri);
-    const cli = resolveCliCommand(
-      configuration.get<string>('cli.path', ''),
-      workspaceFolder?.uri.fsPath,
-      this.extensionPath,
-    );
+    const cli = this.cli();
     if (!cli) {
       void vscode.window.showErrorMessage(
-        'Norm CLI was not found. Install Norm or configure "norm.cli.path".',
+        'Norm CLI is unavailable because the language server is not running.',
       );
       return undefined;
     }
@@ -52,7 +48,7 @@ export class NormRunner {
       configuration.get<'workspace' | 'file'>('run.workingDirectory', 'workspace') === 'file'
         ? dirname(document.uri.fsPath)
         : (workspaceFolder?.uri.fsPath ?? dirname(document.uri.fsPath));
-    const invocation = cliInvocation(cli, ['run', document.uri.fsPath]);
+    const invocation = cliInvocation(cli.command, ['run', document.uri.fsPath]);
     const definition: vscode.TaskDefinition = { type: 'norm', file: document.uri.toString() };
     const scope: vscode.WorkspaceFolder | vscode.TaskScope =
       workspaceFolder ?? vscode.TaskScope.Global;

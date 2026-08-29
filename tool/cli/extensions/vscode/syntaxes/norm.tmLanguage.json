@@ -85,8 +85,50 @@
       "match": "\\b(?:public|private|extension)\\b"
     },
     "annotations": {
-      "name": "meta.annotation.norm",
-      "match": "@[A-Za-z_][A-Za-z0-9_]*"
+      "patterns": [
+        {
+          "name": "meta.annotation.norm",
+          "begin": "(@)([A-Za-z_][A-Za-z0-9_]*)(\\s*)(\\()",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.annotation.norm" },
+            "2": { "name": "entity.name.type.annotation.norm" },
+            "4": { "name": "punctuation.definition.annotation.arguments.begin.norm" }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.annotation.arguments.end.norm" }
+          },
+          "patterns": [
+            { "include": "#strings" },
+            { "include": "#codePoints" },
+            { "include": "#numbers" },
+            { "include": "#annotationArguments" },
+            { "include": "#generics" },
+            { "include": "#typeParameters" },
+            { "include": "#types" },
+            { "include": "#keywords" },
+            { "include": "#constants" },
+            { "include": "#functions" },
+            { "include": "#operators" },
+            { "name": "punctuation.definition.list.begin.norm", "match": "\\[" },
+            { "name": "punctuation.definition.list.end.norm", "match": "\\]" },
+            { "name": "punctuation.separator.comma.norm", "match": "," },
+            { "name": "punctuation.separator.key-value.norm", "match": ":" }
+          ]
+        },
+        {
+          "name": "meta.annotation.norm",
+          "match": "(@)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "punctuation.definition.annotation.norm" },
+            "2": { "name": "entity.name.type.annotation.norm" }
+          }
+        }
+      ]
+    },
+    "annotationArguments": {
+      "name": "variable.parameter.annotation.norm",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*:)"
     },
     "keywords": {
       "name": "keyword.control.norm",

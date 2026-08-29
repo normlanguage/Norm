@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import oniguruma from 'vscode-oniguruma';
+import textmate from 'vscode-textmate';
+
+const { createOnigScanner, createOnigString, loadWASM } = oniguruma;
+const { Registry } = textmate;
 
 const grammar = JSON.parse(readFileSync('syntaxes/norm.tmLanguage.json', 'utf8'));
 const configuration = JSON.parse(readFileSync('language-configuration.json', 'utf8'));
@@ -12,6 +18,29 @@ const operatorPattern = new RegExp(grammar.repository.operators.match);
 const keywordPattern = new RegExp(grammar.repository.keywords.match);
 const modifierPattern = new RegExp(grammar.repository.modifiers.match);
 const declarationPattern = new RegExp(grammar.repository.declarations.patterns[0].match);
+
+const require = createRequire(import.meta.url);
+const wasm = readFileSync(require.resolve('vscode-oniguruma/release/onig.wasm'));
+await loadWASM(wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength));
+const registry = new Registry({
+  onigLib: Promise.resolve({ createOnigScanner, createOnigString }),
+  loadGrammar: async (scopeName) => (scopeName === grammar.scopeName ? grammar : null),
+});
+const loadedGrammar = await registry.loadGrammar(grammar.scopeName);
+assert.ok(loadedGrammar);
+
+const annotationLine = '@Document(description: "Sorts values.", types: [User.class])';
+const annotationTokens = loadedGrammar.tokenizeLine(annotationLine).tokens;
+const scopesAt = (text) => {
+  const offset = annotationLine.indexOf(text);
+  assert.notEqual(offset, -1);
+  return annotationTokens.find((token) => token.startIndex <= offset && token.endIndex > offset)?.scopes;
+};
+assert.ok(scopesAt('@')?.includes('punctuation.definition.annotation.norm'));
+assert.ok(scopesAt('Document')?.includes('entity.name.type.annotation.norm'));
+assert.ok(scopesAt('description')?.includes('variable.parameter.annotation.norm'));
+assert.ok(scopesAt('types')?.includes('variable.parameter.annotation.norm'));
+assert.ok(scopesAt('Sorts values.')?.includes('string.quoted.double.norm'));
 
 for (const type of [
   'Integer',

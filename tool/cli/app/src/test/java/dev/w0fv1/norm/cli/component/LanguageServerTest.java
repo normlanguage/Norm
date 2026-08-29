@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.stdlib.StandardLibrary;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -238,6 +239,38 @@ final class LanguageServerTest {
     assertNotNull(hover);
     assertTrue(hover.getContents().getRight().getValue().contains("Integer max"));
     assertNull(rename);
+  }
+
+  @Test
+  void analyzesEditableStandardLibrarySourcesAsPreludeOverlays() throws Exception {
+    Path root = temporaryDirectory.resolve("norm/stdlib");
+    Path module = root.resolve("std/module.norm");
+    Path sourcePath = root.resolve("std/collections/sequences.norm");
+    Files.createDirectories(sourcePath.getParent());
+    Files.writeString(module, StandardLibrary.moduleSource().text());
+    LanguageServer server = new LanguageServer();
+    RecordingClient client = new RecordingClient();
+    server.connect(client);
+    String uri = sourcePath.toUri().toString();
+    String source = server.standardLibrarySource("stdlib:/std/collections/sequences.norm").get();
+
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, source)));
+
+    assertTrue(client.diagnostics.getDiagnostics().isEmpty());
+
+    String invalid = source.replaceFirst("return true", "return missing");
+    server
+        .getTextDocumentService()
+        .didChange(
+            new DidChangeTextDocumentParams(
+                new VersionedTextDocumentIdentifier(uri, 2),
+                List.of(new TextDocumentContentChangeEvent(invalid))));
+
+    assertTrue(
+        client.diagnostics.getDiagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.getCode().getLeft().equals("NORM-NAME-0003")));
   }
 
   @Test

@@ -16,13 +16,13 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
    .\gradlew.bat :cli:installDist
    ```
 
-2. Open the Norm repository as the VS Code workspace. The extension automatically discovers:
+2. Open the Norm repository as the VS Code workspace. A development Extension Host automatically discovers:
 
    ```text
    <repository>\tool\cli\app\build\install\norm\bin\norm.bat
    ```
 
-   For another layout, set `norm.cli.path` explicitly. CLI resolution uses the configured path, the bundled release CLI, repository development builds, then `PATH`.
+   For another layout, set `norm.cli.path` explicitly. The configured CLI must match the extension version; a development `-SNAPSHOT` build with the same base version is accepted. Language Server diagnostics and `Norm: Run Current File` share the same verified CLI selection.
 
 3. Install dependencies and compile the extension:
 
