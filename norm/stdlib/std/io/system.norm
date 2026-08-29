@@ -1,28 +1,42 @@
 package std.io
 
+import std.annotation.Document
 import std.system.SystemException
 
+@Document(description: "Selects the text encoding used to convert between strings and bytes.")
 public enum TextEncoding { Utf8 }
 
+@Document(description: "Identifies text encoding and decoding operations.")
 public enum TextOperation { Encode, Decode }
 
+@Document(description: "Classifies text input that is invalid for the selected encoding operation.")
 public enum TextFailure { InvalidInput }
 
+@Document(description: "Provides the common typed base for standard-library I/O failures.")
 public class IOException extends SystemException {
-  IOException(String code, String message) {
+  @Document(description: "Creates an I/O failure with a stable code and readable explanation.")
+  IOException(
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message
+  ) {
     super(code: code, message: message)
   }
 }
 
+@Document(description: "Reports invalid text or bytes for a selected encoding operation.")
 public class TextException extends IOException {
+  @Document(description: "The text conversion operation that failed.")
   TextOperation operation
+
+  @Document(description: "The text conversion failure category.")
   TextFailure reason
 
+  @Document(description: "Creates a typed text conversion failure.")
   TextException(
-    String code,
-    String message,
-    TextOperation operation,
-    TextFailure reason
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The text conversion operation that failed.") TextOperation operation,
+    @Document(description: "The text conversion failure category.") TextFailure reason
   ) {
     super(code: code, message: message)
     this.operation = operation
@@ -30,7 +44,11 @@ public class TextException extends IOException {
   }
 }
 
-public Bytes encodeText(String text, TextEncoding encoding) {
+@Document(description: "Encodes valid Unicode text using the selected byte encoding.")
+public Bytes encodeText(
+  @Document(description: "The Unicode text to encode.") String text,
+  @Document(description: "The byte encoding to apply.") TextEncoding encoding
+) {
   Bytes? encoded = switch encoding {
     case Utf8 { break __textEncodeUtf8<BytesValue>(text: text) }
   }
@@ -45,7 +63,11 @@ public Bytes encodeText(String text, TextEncoding encoding) {
   return encoded
 }
 
-public String decodeText(Bytes content, TextEncoding encoding) {
+@Document(description: "Decodes bytes into valid Unicode text using the selected encoding.")
+public String decodeText(
+  @Document(description: "The encoded bytes to decode.") Bytes content,
+  @Document(description: "The byte encoding to apply.") TextEncoding encoding
+) {
   String? decoded = switch encoding {
     case Utf8 { break __textDecodeUtf8(content: content) }
   }

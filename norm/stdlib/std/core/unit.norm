@@ -1,3 +1,6 @@
 package std.core
 
+import std.annotation.Document
+
+@Document(description: "Represents a single meaningful value when no additional data is required.")
 enum Unit { Value }

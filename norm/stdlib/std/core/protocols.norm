@@ -1,15 +1,25 @@
 package std.core
 
+import std.annotation.Document
+
+@Document(description: "Traverses a sequence of values of type T.")
 interface Iterator<T> {
+  @Document(description: "Reports whether another value can be read from the iterator.")
   Boolean hasNext()
 
+  @Document(description: "Returns the next value and advances the iterator.")
   T next()
 }
 
+@Document(description: "Produces an iterator over values of type T.")
 interface Iterable<T> {
+  @Document(description: "Creates an iterator positioned before the first value.")
   Iterator<T> iterator()
 
-  List<R> map<R>(R transform(T value)) {
+  @Document(description: "Transforms every value in iteration order and returns the collected results.")
+  List<R> map<R>(
+    @Document(description: "The transformation applied once to each source value.") R transform(T value)
+  ) {
     List<R> result = List<>()
     for value : this {
       result.add(transform(value))
@@ -18,22 +28,36 @@ interface Iterable<T> {
   }
 }
 
+@Document(description: "Exposes the number of values held by an object.")
 interface Sized {
+  @Document(description: "Returns the number of contained values.")
   Integer size()
 }
 
+@Document(description: "Defines a total ordering comparison against values of type T.")
 interface Comparable<T> {
-  Integer compareTo(T other)
+  @Document(description: "Returns a negative, zero, or positive integer when this value is less than, equal to, or greater than the other value.")
+  Integer compareTo(
+    @Document(description: "The value to compare against.") T other
+  )
 }
 
+@Document(description: "Defines semantic equality against values of type T.")
 interface Equatable<T> {
-  Boolean equals(T other)
+  @Document(description: "Reports whether this value is semantically equal to the other value.")
+  Boolean equals(
+    @Document(description: "The value to compare for equality.") T other
+  )
 }
 
+@Document(description: "Produces a stable integer hash compatible with semantic equality.")
 interface Hashable {
+  @Document(description: "Returns the hash value of this object.")
   Integer hash()
 }
 
+@Document(description: "Provides a human-readable string representation.")
 interface Stringable {
+  @Document(description: "Returns the string representation of this object.")
   String toString()
 }

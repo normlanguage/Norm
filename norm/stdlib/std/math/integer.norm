@@ -1,27 +1,46 @@
+@Document(description: "Provides integer comparison, magnitude, range, and sign operations.")
 package std.math
 
-Integer min(Integer left, Integer right) {
+import std.annotation.Document
+
+@Document(description: "Returns the smaller of two integers.")
+Integer min(
+  @Document(description: "The first integer.") Integer left,
+  @Document(description: "The second integer.") Integer right
+) {
   if left < right {
     return left
   }
   return right
 }
 
-Integer max(Integer left, Integer right) {
+@Document(description: "Returns the larger of two integers.")
+Integer max(
+  @Document(description: "The first integer.") Integer left,
+  @Document(description: "The second integer.") Integer right
+) {
   if left > right {
     return left
   }
   return right
 }
 
-Integer abs(Integer value) {
+@Document(description: "Returns the absolute magnitude of an integer.")
+Integer abs(
+  @Document(description: "The integer whose magnitude is returned.") Integer value
+) {
   if value < 0 {
     return -value
   }
   return value
 }
 
-Integer clamp(Integer value, Integer minimum, Integer maximum) {
+@Document(description: "Constrains an integer to an inclusive interval.")
+Integer clamp(
+  @Document(description: "The integer to constrain.") Integer value,
+  @Document(description: "The inclusive lower bound.") Integer minimum,
+  @Document(description: "The inclusive upper bound.") Integer maximum
+) {
   require(condition: minimum <= maximum, message: "clamp minimum must not exceed maximum")
   if value < minimum {
     return minimum
@@ -32,7 +51,10 @@ Integer clamp(Integer value, Integer minimum, Integer maximum) {
   return value
 }
 
-Integer sign(Integer value) {
+@Document(description: "Returns -1, 0, or 1 according to an integer's sign.")
+Integer sign(
+  @Document(description: "The integer whose sign is inspected.") Integer value
+) {
   if value < 0 {
     return -1
   }

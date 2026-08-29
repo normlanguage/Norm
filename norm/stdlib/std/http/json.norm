@@ -1,18 +1,23 @@
 package std.http
 
+import std.annotation.Document
 import std.io.Bytes
 import std.json.fromJsonBytes
 import std.json.toJsonBytes
 
-public Bytes jsonBody<T>(T value) {
+@Document(description: "Encodes a value as UTF-8 JSON request-body bytes.")
+public Bytes jsonBody<T>(
+  @Document(description: "The value to encode as JSON.") T value
+) {
   return toJsonBytes(value: value)
 }
 
+@Document(description: "Creates an HTTP request with a JSON body and a canonical application/json content type.")
 public HttpRequest jsonRequest<T>(
-  HttpMethod method,
-  Uri uri,
-  HeaderMap headers,
-  T body
+  @Document(description: "The HTTP request method.") HttpMethod method,
+  @Document(description: "The request target URI.") Uri uri,
+  @Document(description: "The request headers to preserve and normalize.") HeaderMap headers,
+  @Document(description: "The value to encode as the JSON request body.") T body
 ) {
   Boolean hasContentType = false
   for HttpHeader header : headers.values {
@@ -48,7 +53,11 @@ public HttpRequest jsonRequest<T>(
   )
 }
 
-public HttpRequest postJson<T>(Uri uri, T body) {
+@Document(description: "Creates a POST request with a JSON body and no additional headers.")
+public HttpRequest postJson<T>(
+  @Document(description: "The request target URI.") Uri uri,
+  @Document(description: "The value to encode as the JSON request body.") T body
+) {
   return jsonRequest(
     method: HttpMethod.Post,
     uri: uri,
@@ -57,6 +66,9 @@ public HttpRequest postJson<T>(Uri uri, T body) {
   )
 }
 
-public T decodeJson<T>(Bytes body) {
+@Document(description: "Decodes UTF-8 JSON response-body bytes into a value of type T.")
+public T decodeJson<T>(
+  @Document(description: "The JSON response-body bytes to decode.") Bytes body
+) {
   return body.fromJsonBytes<T>()
 }

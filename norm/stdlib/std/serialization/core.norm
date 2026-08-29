@@ -1,31 +1,57 @@
+@Document(description: "Defines serialization metadata and format-independent reader, writer, and mapper protocols.")
 package std.serialization
 
+import std.annotation.Document
 import std.annotation.FieldTarget
 import std.annotation.RuntimeRetention
 import std.annotation.TypeTarget
 import std.io.Bytes
 
+@Document(description: "Marks a type as eligible for structural serialization.")
 public annotation Serializable implements TypeTarget, RuntimeRetention {
 }
 
+@Document(description: "Overrides the serialized name of a type or field.")
 public annotation SerialName implements TypeTarget, FieldTarget, RuntimeRetention {
+  @Document(description: "The external name used by serializers and deserializers.")
   String name
 }
 
+@Document(description: "Excludes a field from structural serialization and deserialization.")
 public annotation SerialIgnore implements FieldTarget, RuntimeRetention {
 }
 
+@Document(description: "Creates typed readers and writers for one serialization format.")
 public interface DataMapper {
+  @Document(description: "Creates a reader that decodes values of type T.")
   DataReader<T> reader<T>()
+
+  @Document(description: "Creates a writer that encodes values of type T.")
   DataWriter<T> writer<T>()
 }
 
+@Document(description: "Decodes values of type T from text or bytes.")
 public interface DataReader<T> {
-  T readString(String source)
-  T readBytes(Bytes source)
+  @Document(description: "Decodes a value from its textual representation.")
+  T readString(
+    @Document(description: "The serialized text to decode.") String source
+  )
+
+  @Document(description: "Decodes a value from its binary representation.")
+  T readBytes(
+    @Document(description: "The serialized bytes to decode.") Bytes source
+  )
 }
 
+@Document(description: "Encodes values of type T as text or bytes.")
 public interface DataWriter<T> {
-  String writeString(T value)
-  Bytes writeBytes(T value)
+  @Document(description: "Encodes a value as text.")
+  String writeString(
+    @Document(description: "The value to encode.") T value
+  )
+
+  @Document(description: "Encodes a value as bytes.")
+  Bytes writeBytes(
+    @Document(description: "The value to encode.") T value
+  )
 }

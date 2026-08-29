@@ -1,33 +1,55 @@
+@Document(description: "Provides typed parameter and field constraints with structured violation metadata.")
 package std.validation
 
+import std.annotation.Document
 import std.annotation.FieldInterceptor
 import std.annotation.ParameterInterceptor
 import std.annotation.SourceRetention
 import std.core.Exception
 
+@Document(description: "Identifies whether a constraint is evaluating a parameter or a field.")
 public enum ConstraintLocation { Parameter, Field }
 
+@Document(description: "Carries the declaration references available while evaluating a constraint.")
 public value ConstraintContext {
+  @Document(description: "The kind of declaration receiving the constrained value.")
   ConstraintLocation location
+
+  @Document(description: "The containing function for a parameter constraint, otherwise null.")
   Function<?>? functionReference
+
+  @Document(description: "The constrained parameter declaration, otherwise null.")
   Parameter<?>? parameterReference
+
+  @Document(description: "The constrained field declaration, otherwise null.")
   Field<?, ?>? fieldReference
 }
 
+@Document(description: "Reports a value that failed a parameter or field constraint.")
 public class ConstraintViolation extends Exception {
+  @Document(description: "The kind of declaration that rejected the value.")
   ConstraintLocation location
+
+  @Document(description: "The containing function for a parameter violation, otherwise null.")
   Function<?>? functionReference
+
+  @Document(description: "The parameter that rejected the value, otherwise null.")
   Parameter<?>? parameterReference
+
+  @Document(description: "The field that rejected the value, otherwise null.")
   Field<?, ?>? fieldReference
+
+  @Document(description: "The stable machine-readable constraint code.")
   String code
 
+  @Document(description: "Creates a violation tied to its constrained declaration.")
   ConstraintViolation(
-    ConstraintLocation location,
-    Function<?>? functionReference,
-    Parameter<?>? parameterReference,
-    Field<?, ?>? fieldReference,
-    String code,
-    String message
+    @Document(description: "The kind of declaration that rejected the value.") ConstraintLocation location,
+    @Document(description: "The containing function for a parameter violation, otherwise null.") Function<?>? functionReference,
+    @Document(description: "The parameter that rejected the value, otherwise null.") Parameter<?>? parameterReference,
+    @Document(description: "The field that rejected the value, otherwise null.") Field<?, ?>? fieldReference,
+    @Document(description: "The stable machine-readable constraint code.") String code,
+    @Document(description: "The human-readable constraint message.") String message
   ) {
     super(message: message)
     this.location = location
@@ -38,23 +60,39 @@ public class ConstraintViolation extends Exception {
   }
 }
 
+@Document(description: "Reports an invalid constraint configuration before value validation can proceed.")
 public class ConstraintDefinitionException extends Exception {
+  @Document(description: "The stable machine-readable constraint code.")
   String code
 
-  ConstraintDefinitionException(String code, String message) {
+  @Document(description: "Creates a failure for an invalid constraint definition.")
+  ConstraintDefinitionException(
+    @Document(description: "The stable machine-readable constraint code.") String code,
+    @Document(description: "The human-readable configuration failure explanation.") String message
+  ) {
     super(message: message)
     this.code = code
   }
 }
 
+@Document(description: "Defines a reusable typed constraint for parameter binding and field writes.")
 public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor<T>, SourceRetention {
-  Boolean isValid(T value)
+  @Document(description: "Reports whether a value satisfies this constraint.")
+  Boolean isValid(
+    @Document(description: "The value to validate.") T value
+  )
 
+  @Document(description: "Returns the stable machine-readable code for this constraint.")
   String code()
 
+  @Document(description: "Returns the human-readable violation message for this constraint.")
   String message()
 
-  T validate(ConstraintContext context, T value) {
+  @Document(description: "Returns a valid value unchanged or throws a declaration-aware violation.")
+  T validate(
+    @Document(description: "The declaration context for the validation.") ConstraintContext context,
+    @Document(description: "The value to validate.") T value
+  ) {
     if !this.isValid(value) {
       throw ConstraintViolation(
         location: context.location,
@@ -68,7 +106,11 @@ public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor
     return value
   }
 
-  T before(ParameterContext context, T value) {
+  @Document(description: "Validates an argument before it is bound to a constrained parameter.")
+  T before(
+    @Document(description: "Identifies the constrained parameter declaration.") ParameterContext context,
+    @Document(description: "The argument to validate.") T value
+  ) {
     return this.validate(
       context: ConstraintContext(
         location: ConstraintLocation.Parameter,
@@ -80,7 +122,11 @@ public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor
     )
   }
 
-  T before(FieldContext context, T value) {
+  @Document(description: "Validates a value before it is stored in a constrained field.")
+  T before(
+    @Document(description: "Identifies the constrained field declaration.") FieldContext context,
+    @Document(description: "The value to validate.") T value
+  ) {
     return this.validate(
       context: ConstraintContext(
         location: ConstraintLocation.Field,
@@ -93,163 +139,239 @@ public interface Constraint<T> extends ParameterInterceptor<T>, FieldInterceptor
   }
 }
 
+@Document(description: "Requires a Boolean value to be true.")
 public annotation AssertTrue implements Constraint<Boolean> {
-  public Boolean isValid(Boolean value) {
+  @Document(description: "Reports whether the Boolean value is true.")
+  public Boolean isValid(
+    @Document(description: "The Boolean value to validate.") Boolean value
+  ) {
     return value
   }
 
+  @Document(description: "Returns the assert_true violation code.")
   public String code() {
     return "assert_true"
   }
 
+  @Document(description: "Returns the violation message for a false value.")
   public String message() {
     return "must be true"
   }
 }
 
+@Document(description: "Requires a Boolean value to be false.")
 public annotation AssertFalse implements Constraint<Boolean> {
-  public Boolean isValid(Boolean value) {
+  @Document(description: "Reports whether the Boolean value is false.")
+  public Boolean isValid(
+    @Document(description: "The Boolean value to validate.") Boolean value
+  ) {
     return !value
   }
 
+  @Document(description: "Returns the assert_false violation code.")
   public String code() {
     return "assert_false"
   }
 
+  @Document(description: "Returns the violation message for a true value.")
   public String message() {
     return "must be false"
   }
 }
 
+@Document(description: "Requires an integer to be greater than or equal to a configured minimum.")
 public annotation Min implements Constraint<Integer> {
+  @Document(description: "The inclusive lower bound.")
   Integer minimum
 
-  Min(Integer value) {
+  @Document(description: "Creates an inclusive minimum constraint.")
+  Min(
+    @Document(description: "The inclusive lower bound.") Integer value
+  ) {
     minimum = value
   }
 
-  public Boolean isValid(Integer value) {
+  @Document(description: "Reports whether an integer is at least the configured minimum.")
+  public Boolean isValid(
+    @Document(description: "The integer to validate.") Integer value
+  ) {
     return value >= minimum
   }
 
+  @Document(description: "Returns the min violation code.")
   public String code() {
     return "min"
   }
 
+  @Document(description: "Returns the violation message for an integer below the minimum.")
   public String message() {
     return "must be greater than or equal to the minimum"
   }
 }
 
+@Document(description: "Requires an integer to be less than or equal to a configured maximum.")
 public annotation Max implements Constraint<Integer> {
+  @Document(description: "The inclusive upper bound.")
   Integer maximum
 
-  Max(Integer value) {
+  @Document(description: "Creates an inclusive maximum constraint.")
+  Max(
+    @Document(description: "The inclusive upper bound.") Integer value
+  ) {
     maximum = value
   }
 
-  public Boolean isValid(Integer value) {
+  @Document(description: "Reports whether an integer is at most the configured maximum.")
+  public Boolean isValid(
+    @Document(description: "The integer to validate.") Integer value
+  ) {
     return value <= maximum
   }
 
+  @Document(description: "Returns the max violation code.")
   public String code() {
     return "max"
   }
 
+  @Document(description: "Returns the violation message for an integer above the maximum.")
   public String message() {
     return "must be less than or equal to the maximum"
   }
 }
 
+@Document(description: "Requires an integer to be less than zero.")
 public annotation Negative implements Constraint<Integer> {
-  public Boolean isValid(Integer value) {
+  @Document(description: "Reports whether an integer is negative.")
+  public Boolean isValid(
+    @Document(description: "The integer to validate.") Integer value
+  ) {
     return value < 0
   }
 
+  @Document(description: "Returns the negative violation code.")
   public String code() {
     return "negative"
   }
 
+  @Document(description: "Returns the violation message for a non-negative integer.")
   public String message() {
     return "must be negative"
   }
 }
 
+@Document(description: "Requires an integer to be less than or equal to zero.")
 public annotation NegativeOrZero implements Constraint<Integer> {
-  public Boolean isValid(Integer value) {
+  @Document(description: "Reports whether an integer is negative or zero.")
+  public Boolean isValid(
+    @Document(description: "The integer to validate.") Integer value
+  ) {
     return value <= 0
   }
 
+  @Document(description: "Returns the negative_or_zero violation code.")
   public String code() {
     return "negative_or_zero"
   }
 
+  @Document(description: "Returns the violation message for a positive integer.")
   public String message() {
     return "must be negative or zero"
   }
 }
 
+@Document(description: "Requires an integer to be greater than zero.")
 public annotation Positive implements Constraint<Integer> {
-  public Boolean isValid(Integer value) {
+  @Document(description: "Reports whether an integer is positive.")
+  public Boolean isValid(
+    @Document(description: "The integer to validate.") Integer value
+  ) {
     return value > 0
   }
 
+  @Document(description: "Returns the positive violation code.")
   public String code() {
     return "positive"
   }
 
+  @Document(description: "Returns the violation message for a non-positive integer.")
   public String message() {
     return "must be positive"
   }
 }
 
+@Document(description: "Requires an integer to be greater than or equal to zero.")
 public annotation PositiveOrZero implements Constraint<Integer> {
-  public Boolean isValid(Integer value) {
+  @Document(description: "Reports whether an integer is positive or zero.")
+  public Boolean isValid(
+    @Document(description: "The integer to validate.") Integer value
+  ) {
     return value >= 0
   }
 
+  @Document(description: "Returns the positive_or_zero violation code.")
   public String code() {
     return "positive_or_zero"
   }
 
+  @Document(description: "Returns the violation message for a negative integer.")
   public String message() {
     return "must be positive or zero"
   }
 }
 
+@Document(description: "Requires a string to contain at least one code point.")
 public annotation NotEmpty implements Constraint<String> {
-  public Boolean isValid(String value) {
+  @Document(description: "Reports whether a string is non-empty.")
+  public Boolean isValid(
+    @Document(description: "The string to validate.") String value
+  ) {
     return !value.isEmpty()
   }
 
+  @Document(description: "Returns the not_empty violation code.")
   public String code() {
     return "not_empty"
   }
 
+  @Document(description: "Returns the violation message for an empty string.")
   public String message() {
     return "must not be empty"
   }
 }
 
+@Document(description: "Requires a string to contain at least one non-whitespace code point.")
 public annotation NotBlank implements Constraint<String> {
-  public Boolean isValid(String value) {
+  @Document(description: "Reports whether a trimmed string is non-empty.")
+  public Boolean isValid(
+    @Document(description: "The string to validate.") String value
+  ) {
     return !value.trim().isEmpty()
   }
 
+  @Document(description: "Returns the not_blank violation code.")
   public String code() {
     return "not_blank"
   }
 
+  @Document(description: "Returns the violation message for a blank string.")
   public String message() {
     return "must not be blank"
   }
 }
 
+@Document(description: "Requires a string's Unicode code point count to fall within an inclusive interval.")
 public annotation CodePointSize implements Constraint<String> {
+  @Document(description: "The inclusive minimum code point count.")
   Integer minimum
+
+  @Document(description: "The inclusive maximum code point count.")
   Integer maximum
 
-  CodePointSize(Integer minimum, Integer maximum) {
+  @Document(description: "Creates an inclusive Unicode code point count constraint.")
+  CodePointSize(
+    @Document(description: "The non-negative inclusive minimum code point count.") Integer minimum,
+    @Document(description: "The inclusive maximum code point count, not less than minimum.") Integer maximum
+  ) {
     this.minimum = minimum
     this.maximum = maximum
     if minimum < 0 || maximum < minimum {
@@ -260,25 +382,38 @@ public annotation CodePointSize implements Constraint<String> {
     }
   }
 
-  public Boolean isValid(String value) {
+  @Document(description: "Reports whether a string's code point count is inside the configured interval.")
+  public Boolean isValid(
+    @Document(description: "The string to validate.") String value
+  ) {
     Integer size = value.codePointSize()
     return size >= minimum && size <= maximum
   }
 
+  @Document(description: "Returns the code_point_size violation code.")
   public String code() {
     return "code_point_size"
   }
 
+  @Document(description: "Returns the violation message for a code point count outside the interval.")
   public String message() {
     return "code point size is outside the allowed range"
   }
 }
 
+@Document(description: "Requires a string's grapheme cluster count to fall within an inclusive interval.")
 public annotation GraphemeSize implements Constraint<String> {
+  @Document(description: "The inclusive minimum grapheme cluster count.")
   Integer minimum
+
+  @Document(description: "The inclusive maximum grapheme cluster count.")
   Integer maximum
 
-  GraphemeSize(Integer minimum, Integer maximum) {
+  @Document(description: "Creates an inclusive grapheme cluster count constraint.")
+  GraphemeSize(
+    @Document(description: "The non-negative inclusive minimum grapheme cluster count.") Integer minimum,
+    @Document(description: "The inclusive maximum grapheme cluster count, not less than minimum.") Integer maximum
+  ) {
     this.minimum = minimum
     this.maximum = maximum
     if minimum < 0 || maximum < minimum {
@@ -289,15 +424,20 @@ public annotation GraphemeSize implements Constraint<String> {
     }
   }
 
-  public Boolean isValid(String value) {
+  @Document(description: "Reports whether a string's grapheme count is inside the configured interval.")
+  public Boolean isValid(
+    @Document(description: "The string to validate.") String value
+  ) {
     Integer size = value.graphemeSize()
     return size >= minimum && size <= maximum
   }
 
+  @Document(description: "Returns the grapheme_size violation code.")
   public String code() {
     return "grapheme_size"
   }
 
+  @Document(description: "Returns the violation message for a grapheme count outside the interval.")
   public String message() {
     return "grapheme size is outside the allowed range"
   }

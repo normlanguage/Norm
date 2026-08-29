@@ -1,6 +1,13 @@
+@Document(description: "Provides text construction and Unicode normalization operations.")
 package std.text
 
-String repeat(String value, Integer count) {
+import std.annotation.Document
+
+@Document(description: "Concatenates a string with itself the requested number of times.")
+String repeat(
+  @Document(description: "The string to repeat.") String value,
+  @Document(description: "The number of repetitions.") Integer count
+) {
   StringBuilder result = StringBuilder()
   for index : range(start: 0, end: count) {
     result.append(value)
@@ -8,7 +15,11 @@ String repeat(String value, Integer count) {
   return result.toString()
 }
 
-String join(List<String> values, String separator) {
+@Document(description: "Joins strings in list order with a separator between adjacent values.")
+String join(
+  @Document(description: "The strings to join.") List<String> values,
+  @Document(description: "The string inserted between adjacent values.") String separator
+) {
   StringBuilder result = StringBuilder()
   for index : range(start: 0, end: values.size()) {
     if index > 0 {
@@ -19,7 +30,10 @@ String join(List<String> values, String separator) {
   return result.toString()
 }
 
-String fromCodePoints(Array<CodePoint> values) {
+@Document(description: "Builds a string from Unicode code points in array order.")
+String fromCodePoints(
+  @Document(description: "The Unicode code points to append.") Array<CodePoint> values
+) {
   StringBuilder result = StringBuilder()
   for CodePoint value : values {
     result.append(value)

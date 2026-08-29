@@ -1,9 +1,13 @@
 package std.io
 
+import std.annotation.Document
 import std.core.Iterable
 import std.core.Stringable
 
-Void printLines<T extends Stringable>(Iterable<T> values) {
+@Document(description: "Prints each stringable value on its own output line in iteration order.")
+Void printLines<T extends Stringable>(
+  @Document(description: "The values whose string representations are printed.") Iterable<T> values
+) {
   for T value : values {
     printLine(value.toString())
   }

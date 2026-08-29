@@ -1,20 +1,29 @@
+@Document(description: "Provides normalized durations, instants, clocks, and typed time failures.")
 package std.time
 
+import std.annotation.Document
 import std.system.SystemException
 
+@Document(description: "Identifies clock access and temporal value construction operations.")
 public enum TimeOperation { Now, CreateDuration, CreateInstant }
 
+@Document(description: "Classifies unavailable clocks and invalid duration or instant components.")
 public enum TimeFailure { ClockUnavailable, InvalidDuration, InvalidInstant }
 
+@Document(description: "Reports a typed clock or temporal value construction failure.")
 public class TimeException extends SystemException {
+  @Document(description: "The time operation that failed.")
   TimeOperation operation
+
+  @Document(description: "The time failure category.")
   TimeFailure reason
 
+  @Document(description: "Creates a typed time failure.")
   TimeException(
-    String code,
-    String message,
-    TimeOperation operation,
-    TimeFailure reason
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The time operation that failed.") TimeOperation operation,
+    @Document(description: "The time failure category.") TimeFailure reason
   ) {
     super(code: code, message: message)
     this.operation = operation
@@ -22,9 +31,12 @@ public class TimeException extends SystemException {
   }
 }
 
+@Document(description: "Represents a normalized signed duration using seconds and a non-negative nanosecond fraction.")
 public interface Duration {
+  @Document(description: "Returns the whole signed seconds component.")
   Long seconds()
 
+  @Document(description: "Returns the nanosecond fraction in the range 0 through 999999999.")
   Integer nanoseconds()
 }
 
@@ -41,9 +53,12 @@ private value DurationValue implements Duration {
   }
 }
 
+@Document(description: "Represents an instant on the Unix time line using an epoch second and nanosecond fraction.")
 public interface Instant {
+  @Document(description: "Returns the whole seconds since the Unix epoch.")
   Long epochSecond()
 
+  @Document(description: "Returns the nanosecond fraction in the range 0 through 999999999.")
   Integer nanosecond()
 }
 
@@ -60,7 +75,11 @@ private value InstantValue implements Instant {
   }
 }
 
-public Duration duration(Long seconds, Integer nanoseconds) {
+@Document(description: "Creates a normalized duration from a seconds component and nanosecond fraction.")
+public Duration duration(
+  @Document(description: "The whole signed seconds component.") Long seconds,
+  @Document(description: "The nanosecond fraction from 0 through 999999999.") Integer nanoseconds
+) {
   if nanoseconds < 0 || nanoseconds > 999999999 {
     throw TimeException(
       code: "NORM-TIME-INVALID-DURATION",
@@ -72,7 +91,11 @@ public Duration duration(Long seconds, Integer nanoseconds) {
   return DurationValue(secondsValue: seconds, nanosecondsValue: nanoseconds)
 }
 
-public Instant instant(Long epochSecond, Integer nanosecond) {
+@Document(description: "Creates an instant from a Unix epoch second and nanosecond fraction.")
+public Instant instant(
+  @Document(description: "The whole seconds since the Unix epoch.") Long epochSecond,
+  @Document(description: "The nanosecond fraction from 0 through 999999999.") Integer nanosecond
+) {
   if nanosecond < 0 || nanosecond > 999999999 {
     throw TimeException(
       code: "NORM-TIME-INVALID-INSTANT",
@@ -84,7 +107,9 @@ public Instant instant(Long epochSecond, Integer nanosecond) {
   return InstantValue(epochSecondValue: epochSecond, nanosecondValue: nanosecond)
 }
 
+@Document(description: "Supplies the current instant from a time source.")
 public interface Clock {
+  @Document(description: "Returns the current instant from this clock.")
   Instant now()
 }
 
@@ -94,6 +119,7 @@ private value SystemClock implements Clock {
   }
 }
 
+@Document(description: "Returns a clock backed by the host system time source.")
 public Clock systemClock() {
   return __systemClock<SystemClock>()
 }

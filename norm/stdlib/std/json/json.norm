@@ -1,5 +1,7 @@
+@Document(description: "Provides typed JSON serialization and a format-neutral JSON value tree.")
 package std.json
 
+import std.annotation.Document
 import std.core.Exception
 import std.io.Bytes
 import std.io.TextEncoding
@@ -9,6 +11,7 @@ import std.serialization.DataMapper
 import std.serialization.DataReader
 import std.serialization.DataWriter
 
+@Document(description: "Represents a JSON object, array, string, number, Boolean, or null value.")
 public enum JsonValue {
   Object(Map<String, JsonValue> fields),
   Array(List<JsonValue> values),
@@ -18,20 +21,31 @@ public enum JsonValue {
   Null
 }
 
+@Document(description: "Reports a JSON parsing, encoding, decoding, or mapping failure with source location data.")
 public class JsonException extends Exception {
+  @Document(description: "The stable machine-readable failure code.")
   String code
+
+  @Document(description: "The structural path at which the failure occurred.")
   String path
+
+  @Document(description: "The zero-based source offset associated with the failure.")
   Integer offset
+
+  @Document(description: "The one-based source line associated with the failure.")
   Integer line
+
+  @Document(description: "The one-based source column associated with the failure.")
   Integer column
 
+  @Document(description: "Creates a JSON failure with structural and textual location details.")
   JsonException(
-    String code,
-    String message,
-    String path,
-    Integer offset,
-    Integer line,
-    Integer column
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The structural path at which the failure occurred.") String path,
+    @Document(description: "The zero-based source offset associated with the failure.") Integer offset,
+    @Document(description: "The one-based source line associated with the failure.") Integer line,
+    @Document(description: "The one-based source column associated with the failure.") Integer column
   ) {
     super(message: message)
     this.code = code
@@ -42,64 +56,105 @@ public class JsonException extends Exception {
   }
 }
 
+@Document(description: "Creates JSON readers and writers for requested value types.")
 public value JsonMapper implements DataMapper {
+  @Document(description: "Creates a JSON reader for values of type T.")
   DataReader<T> reader<T>() {
     return JsonReader<T>()
   }
 
+  @Document(description: "Creates a JSON writer for values of type T.")
   DataWriter<T> writer<T>() {
     return JsonWriter<T>()
   }
 }
 
+@Document(description: "Decodes JSON text and bytes into values of type T.")
 public value JsonReader<T> implements DataReader<T> {
-  T readString(String source) {
+  @Document(description: "Decodes JSON text into a value of type T.")
+  T readString(
+    @Document(description: "The JSON text to decode.") String source
+  ) {
     return __jsonDecode<T>(value: source)
   }
 
-  T readBytes(Bytes source) {
+  @Document(description: "Decodes UTF-8 JSON bytes into a value of type T.")
+  T readBytes(
+    @Document(description: "The UTF-8 JSON bytes to decode.") Bytes source
+  ) {
     return this.readString(source: decodeText(content: source, encoding: TextEncoding.Utf8))
   }
 }
 
+@Document(description: "Encodes values of type T as JSON text and UTF-8 bytes.")
 public value JsonWriter<T> implements DataWriter<T> {
-  String writeString(T value) {
+  @Document(description: "Encodes a value as JSON text.")
+  String writeString(
+    @Document(description: "The value to encode.") T value
+  ) {
     return __jsonEncode<T>(value: value, type: T.class)
   }
 
-  Bytes writeBytes(T value) {
+  @Document(description: "Encodes a value as UTF-8 JSON bytes.")
+  Bytes writeBytes(
+    @Document(description: "The value to encode.") T value
+  ) {
     return encodeText(text: this.writeString(value: value), encoding: TextEncoding.Utf8)
   }
 }
 
-public extension String toJson<T>(T value) {
+@Document(description: "Encodes a value as JSON text.")
+public extension String toJson<T>(
+  @Document(description: "The value to encode.") T value
+) {
   return JsonMapper().writer<T>().writeString(value: value)
 }
 
-public extension T fromJson<T>(String value) {
+@Document(description: "Decodes JSON text into a value of type T.")
+public extension T fromJson<T>(
+  @Document(description: "The JSON text to decode.") String value
+) {
   return JsonMapper().reader<T>().readString(source: value)
 }
 
-public extension Bytes toJsonBytes<T>(T value) {
+@Document(description: "Encodes a value as UTF-8 JSON bytes.")
+public extension Bytes toJsonBytes<T>(
+  @Document(description: "The value to encode.") T value
+) {
   return JsonMapper().writer<T>().writeBytes(value: value)
 }
 
-public extension T fromJsonBytes<T>(Bytes value) {
+@Document(description: "Decodes UTF-8 JSON bytes into a value of type T.")
+public extension T fromJsonBytes<T>(
+  @Document(description: "The UTF-8 JSON bytes to decode.") Bytes value
+) {
   return JsonMapper().reader<T>().readBytes(source: value)
 }
 
-public JsonValue parseJson(String value) {
+@Document(description: "Parses JSON text into a JsonValue tree without mapping it to an application type.")
+public JsonValue parseJson(
+  @Document(description: "The JSON text to parse.") String value
+) {
   return __jsonParse<JsonValue>(value: value)
 }
 
-public String writeJson(JsonValue value) {
+@Document(description: "Writes a JsonValue tree as JSON text.")
+public String writeJson(
+  @Document(description: "The JSON value tree to write.") JsonValue value
+) {
   return __jsonWrite(value: value)
 }
 
-public JsonValue toJsonValue<T>(T value) {
+@Document(description: "Converts a typed value into a JsonValue tree.")
+public JsonValue toJsonValue<T>(
+  @Document(description: "The typed value to convert.") T value
+) {
   return parseJson(value: toJson(value: value))
 }
 
-public T fromJsonValue<T>(JsonValue value) {
+@Document(description: "Maps a JsonValue tree into a value of type T.")
+public T fromJsonValue<T>(
+  @Document(description: "The JSON value tree to map.") JsonValue value
+) {
   return fromJson<T>(value: writeJson(value: value))
 }

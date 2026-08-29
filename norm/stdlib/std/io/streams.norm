@@ -1,20 +1,30 @@
 package std.io
 
+import std.annotation.Document
+
+@Document(description: "Represents either a non-empty chunk of bytes or the end of a readable stream.")
 public enum ReadChunk { Data(Bytes bytes), Eof }
 
+@Document(description: "Identifies complete-stream read and write operations.")
 public enum StreamOperation { ReadAll, WriteAll }
 
+@Document(description: "Classifies stream limit, stalled progress, and invalid progress failures.")
 public enum StreamFailure { LimitExceeded, NoProgress, InvalidProgress }
 
+@Document(description: "Reports a complete-stream operation that violated its progress or size contract.")
 public class StreamException extends IOException {
+  @Document(description: "The complete-stream operation that failed.")
   StreamOperation operation
+
+  @Document(description: "The stream failure category.")
   StreamFailure reason
 
+  @Document(description: "Creates a typed complete-stream failure.")
   StreamException(
-    String code,
-    String message,
-    StreamOperation operation,
-    StreamFailure reason
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The complete-stream operation that failed.") StreamOperation operation,
+    @Document(description: "The stream failure category.") StreamFailure reason
   ) {
     super(code: code, message: message)
     this.operation = operation
@@ -22,23 +32,39 @@ public class StreamException extends IOException {
   }
 }
 
+@Document(description: "Reads bounded byte chunks from a resource.")
 public interface ByteReader {
-  ReadChunk read(Integer maximumBytes)
+  @Document(description: "Reads at most the requested number of bytes or reports end of stream.")
+  ReadChunk read(
+    @Document(description: "The maximum number of bytes requested from this read.") Integer maximumBytes
+  )
 }
 
+@Document(description: "Writes bytes and reports how many values were accepted.")
 public interface ByteWriter {
-  Integer write(Bytes content)
+  @Document(description: "Writes a prefix of the supplied bytes and returns the accepted byte count.")
+  Integer write(
+    @Document(description: "The bytes offered to the writer.") Bytes content
+  )
 }
 
+@Document(description: "Flushes buffered output to its next destination.")
 public interface Flushable {
+  @Document(description: "Flushes all currently buffered output.")
   Void flush()
 }
 
+@Document(description: "Owns an external resource that requires deterministic closure.")
 public interface Resource {
+  @Document(description: "Closes the resource and releases its external ownership.")
   Void close()
 }
 
-public Bytes readAll(ByteReader reader, Integer maximumBytes) {
+@Document(description: "Reads a complete byte stream without exceeding an explicit size limit.")
+public Bytes readAll(
+  @Document(description: "The reader supplying byte chunks.") ByteReader reader,
+  @Document(description: "The maximum total number of bytes allowed in the result.") Integer maximumBytes
+) {
   require(condition: maximumBytes >= 0, message: "maximumBytes must not be negative")
   List<Bytes> chunks = List<>()
   Integer size = 0
@@ -84,7 +110,11 @@ public Bytes readAll(ByteReader reader, Integer maximumBytes) {
   return __bytesJoin<BytesValue>(values: chunks)
 }
 
-public Void writeAll(ByteWriter writer, Bytes content) {
+@Document(description: "Writes all bytes while enforcing forward progress from the writer.")
+public Void writeAll(
+  @Document(description: "The writer receiving the bytes.") ByteWriter writer,
+  @Document(description: "The complete byte sequence to write.") Bytes content
+) {
   Integer written = 0
   for written < content.size() {
     Bytes remaining = content.slice(start: written, length: content.size() - written)
@@ -107,7 +137,11 @@ public Void writeAll(ByteWriter writer, Bytes content) {
   }
 }
 
-public T use<T>(Resource resource, T body()) {
+@Document(description: "Runs a body and closes its resource when the body completes or fails.")
+public T use<T>(
+  @Document(description: "The resource closed after the body exits.") Resource resource,
+  @Document(description: "The operation performed while the resource is open.") T body()
+) {
   return __use<T>(
     close: () {
       resource.close()

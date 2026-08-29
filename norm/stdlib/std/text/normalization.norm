@@ -1,8 +1,15 @@
 package std.text
 
+import std.annotation.Document
+
+@Document(description: "Selects NFC, NFD, NFKC, or NFKD Unicode normalization.")
 enum Normalization { Nfc, Nfd, Nfkc, Nfkd }
 
-String normalize(String value, Normalization form) {
+@Document(description: "Returns a string normalized to the selected Unicode form.")
+String normalize(
+  @Document(description: "The string to normalize.") String value,
+  @Document(description: "The normalization form to produce.") Normalization form
+) {
   if form == Normalization.Nfc {
     return value.normalizeNfc()
   }
@@ -15,7 +22,11 @@ String normalize(String value, Normalization form) {
   return value.normalizeNfkd()
 }
 
-Boolean isNormalized(String value, Normalization form) {
+@Document(description: "Reports whether a string already has the selected Unicode normalization form.")
+Boolean isNormalized(
+  @Document(description: "The string to inspect.") String value,
+  @Document(description: "The normalization form to test.") Normalization form
+) {
   if form == Normalization.Nfc {
     return value.isNormalizedNfc()
   }

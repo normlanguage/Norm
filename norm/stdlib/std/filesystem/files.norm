@@ -1,5 +1,7 @@
+@Document(description: "Provides typed filesystem paths, readers, writers, synchronization, and bounded text reads.")
 package std.filesystem
 
+import std.annotation.Document
 import std.io.IOException
 import std.io.ByteReader
 import std.io.ByteWriter
@@ -12,29 +14,42 @@ import std.io.decodeText
 import std.io.readAll
 import std.io.use
 
+@Document(description: "Represents a filesystem path string interpreted by the host platform.")
 public value Path {
+  @Document(description: "The path text passed to the host filesystem.")
   String value
 }
 
+@Document(description: "Identifies filesystem operations that can fail.")
 public enum FileOperation { OpenRead, OpenWrite, Read, Write, Flush, Sync, Close }
 
+@Document(description: "Classifies filesystem lookup, permission, existence, path, closure, and I/O failures.")
 public enum FileFailure { NotFound, PermissionDenied, AlreadyExists, InvalidPath, Closed, Io }
 
+@Document(description: "Selects creation, replacement, or append behavior when opening a file for writing.")
 public enum FileWriteMode { CreateNew, Replace, Append }
 
+@Document(description: "Selects data-only or data-and-metadata durability for filesystem synchronization.")
 public enum FileSyncMode { Data, DataAndMetadata }
 
+@Document(description: "Reports a typed filesystem failure for a specific operation and path.")
 public class FileException extends IOException {
+  @Document(description: "The filesystem operation that failed.")
   FileOperation operation
+
+  @Document(description: "The filesystem failure category.")
   FileFailure reason
+
+  @Document(description: "The path associated with the failure.")
   Path path
 
+  @Document(description: "Creates a typed filesystem failure.")
   FileException(
-    String code,
-    String message,
-    FileOperation operation,
-    FileFailure reason,
-    Path path
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The filesystem operation that failed.") FileOperation operation,
+    @Document(description: "The filesystem failure category.") FileFailure reason,
+    @Document(description: "The path associated with the failure.") Path path
   ) {
     super(code: code, message: message)
     this.operation = operation
@@ -43,13 +58,18 @@ public class FileException extends IOException {
   }
 }
 
+@Document(description: "Reads byte chunks from an open file and owns its file handle.")
 public interface FileReader extends ByteReader, Resource {}
 
+@Document(description: "Writes bytes to an open file, supports flushing and synchronization, and owns its file handle.")
 public interface FileWriter extends ByteWriter, Flushable, Resource {
-  Void sync(FileSyncMode mode)
+  @Document(description: "Synchronizes written file content according to the selected durability mode.")
+  Void sync(
+    @Document(description: "The durability mode requested from the host filesystem.") FileSyncMode mode
+  )
 }
 
-class FileReaderValue implements FileReader {
+private class FileReaderValue implements FileReader {
   public ReadChunk read(Integer maximumBytes) {
     Bytes? content = __fileRead<Bytes>(reader: this, maximumBytes: maximumBytes)
     if content == null {
@@ -63,7 +83,7 @@ class FileReaderValue implements FileReader {
   }
 }
 
-class FileWriterValue implements FileWriter {
+private class FileWriterValue implements FileWriter {
   public Integer write(Bytes content) {
     return __fileWrite(writer: this, content: content)
   }
@@ -85,11 +105,18 @@ class FileWriterValue implements FileWriter {
   }
 }
 
-public FileReader openRead(Path path) {
+@Document(description: "Opens a file for sequential byte reads.")
+public FileReader openRead(
+  @Document(description: "The path of the file to open.") Path path
+) {
   return __fileOpenRead<FileReaderValue>(path: path.value)
 }
 
-public FileWriter openWrite(Path path, FileWriteMode mode) {
+@Document(description: "Opens a file for byte writes using the selected creation behavior.")
+public FileWriter openWrite(
+  @Document(description: "The path of the file to open.") Path path,
+  @Document(description: "The creation, replacement, or append behavior.") FileWriteMode mode
+) {
   String modeName = switch mode {
     case CreateNew { break "CREATE_NEW" }
     case Replace { break "REPLACE" }
@@ -98,7 +125,12 @@ public FileWriter openWrite(Path path, FileWriteMode mode) {
   return __fileOpenWrite<FileWriterValue>(path: path.value, mode: modeName)
 }
 
-public String readText(Path path, TextEncoding encoding, Integer maximumBytes) {
+@Document(description: "Reads, bounds, decodes, and closes a text file in one operation.")
+public String readText(
+  @Document(description: "The path of the text file to read.") Path path,
+  @Document(description: "The encoding used to decode the file bytes.") TextEncoding encoding,
+  @Document(description: "The maximum number of file bytes accepted.") Integer maximumBytes
+) {
   FileReader reader = openRead(path: path)
   return use<String>(resource: reader, body: () {
     decodeText(

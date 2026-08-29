@@ -1,11 +1,19 @@
+@Document(description: "Provides structured failures reported by host-system capabilities.")
 package std.system
 
+import std.annotation.Document
 import std.core.Exception
 
+@Document(description: "Represents a host-system failure with a stable machine-readable code.")
 public class SystemException extends Exception {
+  @Document(description: "The stable machine-readable failure code.")
   String code
 
-  SystemException(String code, String message) {
+  @Document(description: "Creates a host-system failure with a code and readable explanation.")
+  SystemException(
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message
+  ) {
     super(message: message)
     this.code = code
   }

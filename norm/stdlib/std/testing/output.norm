@@ -1,8 +1,13 @@
+@Document(description: "Provides assertions and expected-output helpers for Norm tests.")
 package std.testing
 
+import std.annotation.Document
 import std.core.Iterable
 
-Void expectedOutputLines(Iterable<String> lines) {
+@Document(description: "Registers each supplied string as the next expected output line.")
+Void expectedOutputLines(
+  @Document(description: "The expected lines in output order.") Iterable<String> lines
+) {
   for String line : lines {
     expectedOutputLine(line)
   }

@@ -1,5 +1,7 @@
+@Document(description: "Provides typed HTTP requests, responses, clients, headers, status values, and transport failures.")
 package std.http
 
+import std.annotation.Document
 import std.io.ByteReader
 import std.io.Bytes
 import std.io.IOException
@@ -7,34 +9,55 @@ import std.io.ReadChunk
 import std.io.Resource
 import std.time.Duration
 
+@Document(description: "Stores an absolute or relative URI string accepted by the HTTP transport.")
 public value Uri {
+  @Document(description: "The URI text passed to the transport.")
   String value
 }
 
+@Document(description: "Selects an HTTP request method: GET, HEAD, POST, PUT, PATCH, DELETE, or OPTIONS.")
 public enum HttpMethod { Get, Head, Post, Put, Patch, Delete, Options }
 
+@Document(description: "Represents one HTTP header name and value pair.")
 public value HttpHeader {
+  @Document(description: "The case-insensitive HTTP header name.")
   String name
+
+  @Document(description: "The HTTP header value.")
   String value
 }
 
+@Document(description: "Preserves an ordered collection of HTTP headers, including repeated names.")
 public value HeaderMap {
+  @Document(description: "The headers in transport order.")
   Array<HttpHeader> values
 }
 
+@Document(description: "Represents a numeric HTTP response status code.")
 public value Status {
+  @Document(description: "The three-digit HTTP status code.")
   Integer code
 }
 
+@Document(description: "Describes an HTTP request before it is sent by a client.")
 public value HttpRequest {
+  @Document(description: "The HTTP request method.")
   HttpMethod method
+
+  @Document(description: "The request target URI.")
   Uri uri
+
+  @Document(description: "The ordered request headers.")
   HeaderMap headers
+
+  @Document(description: "The optional request body bytes.")
   Bytes? body
 }
 
+@Document(description: "Identifies whether an HTTP failure occurred while sending, reading, or closing.")
 public enum HttpOperation { Send, Read, Close }
 
+@Document(description: "Classifies HTTP request, connection, timeout, cancellation, TLS, protocol, closure, and I/O failures.")
 public enum HttpFailure {
   InvalidRequest,
   Connect,
@@ -46,17 +69,24 @@ public enum HttpFailure {
   Io
 }
 
+@Document(description: "Reports a typed HTTP transport failure for a specific operation and URI.")
 public class HttpException extends IOException {
+  @Document(description: "The HTTP operation that failed.")
   HttpOperation operation
+
+  @Document(description: "The transport failure category.")
   HttpFailure reason
+
+  @Document(description: "The request URI associated with the failure.")
   Uri uri
 
+  @Document(description: "Creates a typed HTTP transport failure.")
   HttpException(
-    String code,
-    String message,
-    HttpOperation operation,
-    HttpFailure reason,
-    Uri uri
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The HTTP operation that failed.") HttpOperation operation,
+    @Document(description: "The transport failure category.") HttpFailure reason,
+    @Document(description: "The request URI associated with the failure.") Uri uri
   ) {
     super(code: code, message: message)
     this.operation = operation
@@ -65,17 +95,25 @@ public class HttpException extends IOException {
   }
 }
 
+@Document(description: "Streams an HTTP response body and exposes its status and headers.")
 public interface HttpResponse extends ByteReader, Resource {
+  @Document(description: "Returns the response status code.")
   Status status()
 
+  @Document(description: "Returns the response headers in transport order.")
   HeaderMap headers()
 }
 
+@Document(description: "Sends HTTP requests with an explicit timeout.")
 public interface HttpClient {
-  HttpResponse send(HttpRequest request, Duration timeout)
+  @Document(description: "Sends one request and returns a streaming response.")
+  HttpResponse send(
+    @Document(description: "The request to send.") HttpRequest request,
+    @Document(description: "The positive timeout for the complete send operation.") Duration timeout
+  )
 }
 
-class HttpResponseValue implements HttpResponse {
+private class HttpResponseValue implements HttpResponse {
   public Status status() {
     return Status(code: __httpStatus(response: this))
   }
@@ -147,20 +185,25 @@ private value SystemHttpClient implements HttpClient {
   }
 }
 
+@Document(description: "Returns the process-wide HTTP client backed by the host transport.")
 public HttpClient systemHttpClient() {
   return SystemHttpClient()
 }
 
+@Document(description: "Creates an HTTP request from explicit method, URI, headers, and optional body values.")
 public HttpRequest request(
-  HttpMethod method,
-  Uri uri,
-  HeaderMap headers,
-  Bytes? body
+  @Document(description: "The HTTP request method.") HttpMethod method,
+  @Document(description: "The request target URI.") Uri uri,
+  @Document(description: "The ordered request headers.") HeaderMap headers,
+  @Document(description: "The optional request body bytes.") Bytes? body
 ) {
   return HttpRequest(method: method, uri: uri, headers: headers, body: body)
 }
 
-public HttpRequest get(Uri uri) {
+@Document(description: "Creates a GET request with no headers or body.")
+public HttpRequest get(
+  @Document(description: "The request target URI.") Uri uri
+) {
   return HttpRequest(
     method: HttpMethod.Get,
     uri: uri,

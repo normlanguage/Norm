@@ -1,9 +1,17 @@
+@Document(description: "Provides the root exception type and foundational protocols and result values.")
 package std.core
 
+import std.annotation.Document
+
+@Document(description: "Represents a recoverable failure with a human-readable message.")
 class Exception {
+  @Document(description: "The human-readable explanation of the failure.")
   String message
 
-  Exception(String message) {
+  @Document(description: "Creates an exception with the supplied failure message.")
+  Exception(
+    @Document(description: "The human-readable explanation of the failure.") String message
+  ) {
     this.message = message
   }
 }

@@ -1,5 +1,7 @@
+@Document(description: "Provides typed YAML serialization for text and UTF-8 byte representations.")
 package std.yaml
 
+import std.annotation.Document
 import std.core.Exception
 import std.io.Bytes
 import std.io.TextEncoding
@@ -9,20 +11,31 @@ import std.serialization.DataMapper
 import std.serialization.DataReader
 import std.serialization.DataWriter
 
+@Document(description: "Reports a YAML encoding, decoding, or mapping failure with source location data.")
 public class YamlException extends Exception {
+  @Document(description: "The stable machine-readable failure code.")
   String code
+
+  @Document(description: "The structural path at which the failure occurred.")
   String path
+
+  @Document(description: "The zero-based source offset associated with the failure.")
   Integer offset
+
+  @Document(description: "The one-based source line associated with the failure.")
   Integer line
+
+  @Document(description: "The one-based source column associated with the failure.")
   Integer column
 
+  @Document(description: "Creates a YAML failure with structural and textual location details.")
   YamlException(
-    String code,
-    String message,
-    String path,
-    Integer offset,
-    Integer line,
-    Integer column
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The structural path at which the failure occurred.") String path,
+    @Document(description: "The zero-based source offset associated with the failure.") Integer offset,
+    @Document(description: "The one-based source line associated with the failure.") Integer line,
+    @Document(description: "The one-based source column associated with the failure.") Integer column
   ) {
     super(message: message)
     this.code = code
@@ -33,48 +46,77 @@ public class YamlException extends Exception {
   }
 }
 
+@Document(description: "Creates YAML readers and writers for requested value types.")
 public value YamlMapper implements DataMapper {
+  @Document(description: "Creates a YAML reader for values of type T.")
   DataReader<T> reader<T>() {
     return YamlReader<T>()
   }
 
+  @Document(description: "Creates a YAML writer for values of type T.")
   DataWriter<T> writer<T>() {
     return YamlWriter<T>()
   }
 }
 
+@Document(description: "Decodes YAML text and bytes into values of type T.")
 public value YamlReader<T> implements DataReader<T> {
-  T readString(String source) {
+  @Document(description: "Decodes YAML text into a value of type T.")
+  T readString(
+    @Document(description: "The YAML text to decode.") String source
+  ) {
     return __yamlDecode<T>(value: source)
   }
 
-  T readBytes(Bytes source) {
+  @Document(description: "Decodes UTF-8 YAML bytes into a value of type T.")
+  T readBytes(
+    @Document(description: "The UTF-8 YAML bytes to decode.") Bytes source
+  ) {
     return this.readString(source: decodeText(content: source, encoding: TextEncoding.Utf8))
   }
 }
 
+@Document(description: "Encodes values of type T as YAML text and UTF-8 bytes.")
 public value YamlWriter<T> implements DataWriter<T> {
-  String writeString(T value) {
+  @Document(description: "Encodes a value as YAML text.")
+  String writeString(
+    @Document(description: "The value to encode.") T value
+  ) {
     return __yamlEncode<T>(value: value, type: T.class)
   }
 
-  Bytes writeBytes(T value) {
+  @Document(description: "Encodes a value as UTF-8 YAML bytes.")
+  Bytes writeBytes(
+    @Document(description: "The value to encode.") T value
+  ) {
     return encodeText(text: this.writeString(value: value), encoding: TextEncoding.Utf8)
   }
 }
 
-public extension String toYaml<T>(T value) {
+@Document(description: "Encodes a value as YAML text.")
+public extension String toYaml<T>(
+  @Document(description: "The value to encode.") T value
+) {
   return YamlMapper().writer<T>().writeString(value: value)
 }
 
-public extension T fromYaml<T>(String value) {
+@Document(description: "Decodes YAML text into a value of type T.")
+public extension T fromYaml<T>(
+  @Document(description: "The YAML text to decode.") String value
+) {
   return YamlMapper().reader<T>().readString(source: value)
 }
 
-public extension Bytes toYamlBytes<T>(T value) {
+@Document(description: "Encodes a value as UTF-8 YAML bytes.")
+public extension Bytes toYamlBytes<T>(
+  @Document(description: "The value to encode.") T value
+) {
   return YamlMapper().writer<T>().writeBytes(value: value)
 }
 
-public extension T fromYamlBytes<T>(Bytes value) {
+@Document(description: "Decodes UTF-8 YAML bytes into a value of type T.")
+public extension T fromYamlBytes<T>(
+  @Document(description: "The UTF-8 YAML bytes to decode.") Bytes value
+) {
   return YamlMapper().reader<T>().readBytes(source: value)
 }

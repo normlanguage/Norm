@@ -1,5 +1,7 @@
+@Document(description: "Provides typed XML serialization and XML-specific field metadata.")
 package std.xml
 
+import std.annotation.Document
 import std.annotation.FieldTarget
 import std.annotation.RuntimeRetention
 import std.core.Exception
@@ -11,23 +13,35 @@ import std.serialization.DataMapper
 import std.serialization.DataReader
 import std.serialization.DataWriter
 
+@Document(description: "Serializes the annotated field as an XML attribute instead of an element.")
 public annotation XmlAttribute implements FieldTarget, RuntimeRetention {
 }
 
+@Document(description: "Reports an XML encoding, decoding, or mapping failure with source location data.")
 public class XmlException extends Exception {
+  @Document(description: "The stable machine-readable failure code.")
   String code
+
+  @Document(description: "The structural path at which the failure occurred.")
   String path
+
+  @Document(description: "The zero-based source offset associated with the failure.")
   Integer offset
+
+  @Document(description: "The one-based source line associated with the failure.")
   Integer line
+
+  @Document(description: "The one-based source column associated with the failure.")
   Integer column
 
+  @Document(description: "Creates an XML failure with structural and textual location details.")
   XmlException(
-    String code,
-    String message,
-    String path,
-    Integer offset,
-    Integer line,
-    Integer column
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The structural path at which the failure occurred.") String path,
+    @Document(description: "The zero-based source offset associated with the failure.") Integer offset,
+    @Document(description: "The one-based source line associated with the failure.") Integer line,
+    @Document(description: "The one-based source column associated with the failure.") Integer column
   ) {
     super(message: message)
     this.code = code
@@ -38,48 +52,77 @@ public class XmlException extends Exception {
   }
 }
 
+@Document(description: "Creates XML readers and writers for requested value types.")
 public value XmlMapper implements DataMapper {
+  @Document(description: "Creates an XML reader for values of type T.")
   DataReader<T> reader<T>() {
     return XmlReader<T>()
   }
 
+  @Document(description: "Creates an XML writer for values of type T.")
   DataWriter<T> writer<T>() {
     return XmlWriter<T>()
   }
 }
 
+@Document(description: "Decodes XML text and bytes into values of type T.")
 public value XmlReader<T> implements DataReader<T> {
-  T readString(String source) {
+  @Document(description: "Decodes XML text into a value of type T.")
+  T readString(
+    @Document(description: "The XML text to decode.") String source
+  ) {
     return __xmlDecode<T>(value: source)
   }
 
-  T readBytes(Bytes source) {
+  @Document(description: "Decodes UTF-8 XML bytes into a value of type T.")
+  T readBytes(
+    @Document(description: "The UTF-8 XML bytes to decode.") Bytes source
+  ) {
     return this.readString(source: decodeText(content: source, encoding: TextEncoding.Utf8))
   }
 }
 
+@Document(description: "Encodes values of type T as XML text and UTF-8 bytes.")
 public value XmlWriter<T> implements DataWriter<T> {
-  String writeString(T value) {
+  @Document(description: "Encodes a value as XML text.")
+  String writeString(
+    @Document(description: "The value to encode.") T value
+  ) {
     return __xmlEncode<T>(value: value, type: T.class)
   }
 
-  Bytes writeBytes(T value) {
+  @Document(description: "Encodes a value as UTF-8 XML bytes.")
+  Bytes writeBytes(
+    @Document(description: "The value to encode.") T value
+  ) {
     return encodeText(text: this.writeString(value: value), encoding: TextEncoding.Utf8)
   }
 }
 
-public extension String toXml<T>(T value) {
+@Document(description: "Encodes a value as XML text.")
+public extension String toXml<T>(
+  @Document(description: "The value to encode.") T value
+) {
   return XmlMapper().writer<T>().writeString(value: value)
 }
 
-public extension T fromXml<T>(String value) {
+@Document(description: "Decodes XML text into a value of type T.")
+public extension T fromXml<T>(
+  @Document(description: "The XML text to decode.") String value
+) {
   return XmlMapper().reader<T>().readString(source: value)
 }
 
-public extension Bytes toXmlBytes<T>(T value) {
+@Document(description: "Encodes a value as UTF-8 XML bytes.")
+public extension Bytes toXmlBytes<T>(
+  @Document(description: "The value to encode.") T value
+) {
   return XmlMapper().writer<T>().writeBytes(value: value)
 }
 
-public extension T fromXmlBytes<T>(Bytes value) {
+@Document(description: "Decodes UTF-8 XML bytes into a value of type T.")
+public extension T fromXmlBytes<T>(
+  @Document(description: "The UTF-8 XML bytes to decode.") Bytes value
+) {
   return XmlMapper().reader<T>().readBytes(source: value)
 }

@@ -1,17 +1,33 @@
 package std.testing
 
-Boolean equal<T>(T actual, T expected) {
+import std.annotation.Document
+
+@Document(description: "Reports whether an actual value equals the expected value.")
+Boolean equal<T>(
+  @Document(description: "The value produced by the test subject.") T actual,
+  @Document(description: "The value required by the test.") T expected
+) {
   return actual == expected
 }
 
-Boolean notEqual<T>(T actual, T expected) {
+@Document(description: "Reports whether an actual value differs from the expected value.")
+Boolean notEqual<T>(
+  @Document(description: "The value produced by the test subject.") T actual,
+  @Document(description: "The value that must not match.") T expected
+) {
   return actual != expected
 }
 
-Boolean isTrue(Boolean actual) {
+@Document(description: "Returns the supplied Boolean for a positive truth assertion.")
+Boolean isTrue(
+  @Document(description: "The Boolean value under test.") Boolean actual
+) {
   return actual
 }
 
-Boolean isFalse(Boolean actual) {
+@Document(description: "Reports whether the supplied Boolean is false.")
+Boolean isFalse(
+  @Document(description: "The Boolean value under test.") Boolean actual
+) {
   return !actual
 }

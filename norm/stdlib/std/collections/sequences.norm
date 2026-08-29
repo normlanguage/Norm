@@ -1,6 +1,13 @@
+@Document(description: "Provides reusable operations for List and Array sequences.")
 package std.collections
 
-Boolean listContains<T>(List<T> values, T target) {
+import std.annotation.Document
+
+@Document(description: "Reports whether a list contains a value equal to the target.")
+Boolean listContains<T>(
+  @Document(description: "The list to search.") List<T> values,
+  @Document(description: "The value to find.") T target
+) {
   for T value : values {
     if value == target {
       return true
@@ -9,7 +16,11 @@ Boolean listContains<T>(List<T> values, T target) {
   return false
 }
 
-Integer listCount<T>(List<T> values, T target) {
+@Document(description: "Counts values in a list that are equal to the target.")
+Integer listCount<T>(
+  @Document(description: "The list to search.") List<T> values,
+  @Document(description: "The value to count.") T target
+) {
   Integer count = 0
   for T value : values {
     if value == target {
@@ -19,7 +30,10 @@ Integer listCount<T>(List<T> values, T target) {
   return count
 }
 
-List<T> toList<T>(Array<T> values) {
+@Document(description: "Copies an array into a mutable list while preserving order.")
+List<T> toList<T>(
+  @Document(description: "The array whose values are copied.") Array<T> values
+) {
   List<T> result = List<>()
   for T value : values {
     result.add(value)
@@ -27,7 +41,10 @@ List<T> toList<T>(Array<T> values) {
   return result
 }
 
-List<Integer> sort(List<Integer> values) {
+@Document(description: "Returns the integer list values in ascending numeric order.")
+List<Integer> sort(
+  @Document(description: "The integer list to sort.") List<Integer> values
+) {
   List<Integer> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -41,7 +58,10 @@ List<Integer> sort(List<Integer> values) {
   return result
 }
 
-Array<Integer> sort(Array<Integer> values) {
+@Document(description: "Returns the integer array values in ascending numeric order.")
+Array<Integer> sort(
+  @Document(description: "The integer array to sort.") Array<Integer> values
+) {
   Array<Integer> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -55,7 +75,10 @@ Array<Integer> sort(Array<Integer> values) {
   return result
 }
 
-List<CodePoint> sort(List<CodePoint> values) {
+@Document(description: "Returns the code point list values in ascending scalar-value order.")
+List<CodePoint> sort(
+  @Document(description: "The code point list to sort.") List<CodePoint> values
+) {
   List<CodePoint> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -69,7 +92,10 @@ List<CodePoint> sort(List<CodePoint> values) {
   return result
 }
 
-Array<CodePoint> sort(Array<CodePoint> values) {
+@Document(description: "Returns the code point array values in ascending scalar-value order.")
+Array<CodePoint> sort(
+  @Document(description: "The code point array to sort.") Array<CodePoint> values
+) {
   Array<CodePoint> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -83,7 +109,10 @@ Array<CodePoint> sort(Array<CodePoint> values) {
   return result
 }
 
-List<String> sort(List<String> values) {
+@Document(description: "Returns the string list values in ascending code point order.")
+List<String> sort(
+  @Document(description: "The string list to sort.") List<String> values
+) {
   List<String> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end
@@ -97,7 +126,10 @@ List<String> sort(List<String> values) {
   return result
 }
 
-Array<String> sort(Array<String> values) {
+@Document(description: "Returns the string array values in ascending code point order.")
+Array<String> sort(
+  @Document(description: "The string array to sort.") Array<String> values
+) {
   Array<String> result = values
   for end : range(start: 1, end: result.size()) {
     Integer index = end

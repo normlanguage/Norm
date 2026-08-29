@@ -1,22 +1,36 @@
+@Document(description: "Provides immutable bytes, streaming I/O protocols, text codecs, resources, and typed I/O failures.")
 package std.io
 
+import std.annotation.Document
+
+@Document(description: "Identifies byte operations that can fail.")
 public enum ByteOperation { Create }
 
+@Document(description: "Classifies failures caused by byte values outside the unsigned 0 through 255 range.")
 public enum ByteFailure { OutOfRange }
 
+@Document(description: "Reports an invalid byte value together with its operation and array position.")
 public class ByteException extends IOException {
+  @Document(description: "The byte operation that failed.")
   ByteOperation operation
+
+  @Document(description: "The byte failure category.")
   ByteFailure reason
+
+  @Document(description: "The array index containing the invalid value.")
   Integer index
+
+  @Document(description: "The invalid integer supplied as a byte.")
   Integer value
 
+  @Document(description: "Creates a typed byte construction failure.")
   ByteException(
-    String code,
-    String message,
-    ByteOperation operation,
-    ByteFailure reason,
-    Integer index,
-    Integer value
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The human-readable failure explanation.") String message,
+    @Document(description: "The byte operation that failed.") ByteOperation operation,
+    @Document(description: "The byte failure category.") ByteFailure reason,
+    @Document(description: "The array index containing the invalid value.") Integer index,
+    @Document(description: "The invalid integer supplied as a byte.") Integer value
   ) {
     super(code: code, message: message)
     this.operation = operation
@@ -26,35 +40,58 @@ public class ByteException extends IOException {
   }
 }
 
+@Document(description: "Provides immutable random access to an ordered sequence of unsigned bytes.")
 public interface Bytes {
+  @Document(description: "Returns the number of bytes in the sequence.")
   Integer size()
 
-  Integer at(Integer index)
+  @Document(description: "Returns the unsigned byte value at a zero-based index.")
+  Integer at(
+    @Document(description: "The zero-based byte index.") Integer index
+  )
 
-  Bytes slice(Integer start, Integer length)
+  @Document(description: "Returns an immutable byte slice for the requested range.")
+  Bytes slice(
+    @Document(description: "The zero-based first byte in the slice.") Integer start,
+    @Document(description: "The number of bytes in the slice.") Integer length
+  )
 
+  @Document(description: "Copies the bytes into an integer array in sequence order.")
   Array<Integer> toArray()
 }
 
+@Document(description: "Provides the standard runtime-backed implementation of immutable Bytes values.")
 value BytesValue implements Bytes {
+  @Document(description: "Returns the number of bytes in this sequence.")
   public Integer size() {
     return __bytesSize(value: this)
   }
 
-  public Integer at(Integer index) {
+  @Document(description: "Returns the unsigned byte value at a zero-based index.")
+  public Integer at(
+    @Document(description: "The zero-based byte index.") Integer index
+  ) {
     return __bytesAt(value: this, index: index)
   }
 
-  public Bytes slice(Integer start, Integer length) {
+  @Document(description: "Returns an immutable byte slice for the requested range.")
+  public Bytes slice(
+    @Document(description: "The zero-based first byte in the slice.") Integer start,
+    @Document(description: "The number of bytes in the slice.") Integer length
+  ) {
     return __bytesSlice<BytesValue>(value: this, start: start, length: length)
   }
 
+  @Document(description: "Copies the bytes into an integer array in sequence order.")
   public Array<Integer> toArray() {
     return __bytesToArray(value: this)
   }
 }
 
-public Bytes bytes(Array<Integer> values) {
+@Document(description: "Validates unsigned byte integers and creates an immutable byte sequence.")
+public Bytes bytes(
+  @Document(description: "The integers to validate and copy in sequence order.") Array<Integer> values
+) {
   for Integer value,index : values {
     if value < 0 || value > 255 {
       throw ByteException(

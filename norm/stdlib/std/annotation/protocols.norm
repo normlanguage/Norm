@@ -1,74 +1,124 @@
+@Document(description: "Defines annotation targets, retention policies, interceptors, and structured documentation metadata.")
 package std.annotation
 
+@Document(description: "Marks an interface as an annotation policy rather than an ordinary application interface.")
 public interface AnnotationTarget {
 }
 
+@Document(description: "Allows an annotation to target a package declaration.")
 public interface PackageTarget extends AnnotationTarget {
 }
 
+@Document(description: "Allows an annotation to target a class, value, interface, enum, or annotation declaration.")
 public interface TypeTarget extends AnnotationTarget {
 }
 
+@Document(description: "Allows an annotation to target a stored field declaration.")
 public interface FieldTarget extends AnnotationTarget {
 }
 
+@Document(description: "Intercepts writes to fields whose declared value type is T.")
 public interface FieldInterceptor<T> extends FieldTarget {
-  T before(FieldContext context, T value) {
+  @Document(description: "Transforms or validates a field value before it is stored.")
+  T before(
+    @Document(description: "Identifies the field declaration receiving the value.") FieldContext context,
+    @Document(description: "The value proposed for storage.") T value
+  ) {
     return value
   }
 
-  Void after(FieldContext context, FunctionCompletion completion) {
+  @Document(description: "Observes completion after a field write has entered the interceptor.")
+  Void after(
+    @Document(description: "Identifies the field declaration that received the value.") FieldContext context,
+    @Document(description: "Describes whether the intercepted write completed successfully.") FunctionCompletion completion
+  ) {
   }
 }
 
+@Document(description: "Allows an annotation to target an explicit constructor declaration.")
 public interface ConstructorTarget extends AnnotationTarget {
 }
 
+@Document(description: "Allows an annotation to target a function, method, extension, or interface requirement.")
 public interface FunctionTarget extends AnnotationTarget {
 }
 
+@Document(description: "Intercepts concrete function and method invocations.")
 public interface FunctionInterceptor extends FunctionTarget {
-  Void before(FunctionContext context) {
+  @Document(description: "Runs before entering an intercepted function invocation.")
+  Void before(
+    @Document(description: "Identifies the intercepted function declaration.") FunctionContext context
+  ) {
   }
 
-  R around<R>(FunctionInvocation<R> invocation) {
+  @Document(description: "Controls whether and when the intercepted invocation proceeds.")
+  R around<R>(
+    @Document(description: "Provides the single-use continuation for the intercepted invocation.") FunctionInvocation<R> invocation
+  ) {
     return invocation.proceed()
   }
 
-  Void after(FunctionContext context, FunctionCompletion completion) {
+  @Document(description: "Observes completion after an invocation has entered the interceptor.")
+  Void after(
+    @Document(description: "Identifies the intercepted function declaration.") FunctionContext context,
+    @Document(description: "Describes whether the intercepted invocation completed successfully.") FunctionCompletion completion
+  ) {
   }
 }
 
+@Document(description: "Allows an annotation to target a callable parameter declaration.")
 public interface ParameterTarget extends AnnotationTarget {
 }
 
+@Document(description: "Intercepts arguments bound to parameters whose declared value type is T.")
 public interface ParameterInterceptor<T> extends ParameterTarget {
-  T before(ParameterContext context, T value) {
+  @Document(description: "Transforms or validates an argument before parameter binding.")
+  T before(
+    @Document(description: "Identifies the parameter declaration receiving the argument.") ParameterContext context,
+    @Document(description: "The argument proposed for parameter binding.") T value
+  ) {
     return value
   }
 
-  Void after(ParameterContext context, FunctionCompletion completion) {
+  @Document(description: "Observes completion after a parameter binding has entered the interceptor.")
+  Void after(
+    @Document(description: "Identifies the intercepted parameter declaration.") ParameterContext context,
+    @Document(description: "Describes whether the containing invocation completed successfully.") FunctionCompletion completion
+  ) {
   }
 }
 
+@Document(description: "Allows an annotation to target a local variable declaration.")
 public interface LocalTarget extends AnnotationTarget {
 }
 
+@Document(description: "Marks an interface as an annotation retention policy.")
 public interface AnnotationRetention {
 }
 
+@Document(description: "Retains annotation behavior during compilation without storing general metadata.")
 public interface SourceRetention extends AnnotationRetention {
 }
 
+@Document(description: "Stores annotation metadata in compiled Core artifacts without runtime reflection access.")
 public interface BinaryRetention extends AnnotationRetention {
 }
 
+@Document(description: "Stores annotation metadata in Core artifacts and exposes it through runtime reflection.")
 public interface RuntimeRetention extends AnnotationRetention {
 }
 
+@Document(description: "Attaches structured prose and declaration relationships directly to a code declaration.")
 public annotation Document implements PackageTarget, TypeTarget, FieldTarget, ConstructorTarget, FunctionTarget, ParameterTarget, LocalTarget, BinaryRetention {
+  @Document(description: "The canonical prose description of the annotated declaration.")
   String description
+
+  @Document(description: "Related type declarations in presentation order, or null when none are specified.")
   List<Class<?>>? types
+
+  @Document(description: "Related function declarations in presentation order, or null when none are specified.")
   List<Function<?>>? functions
+
+  @Document(description: "Related field declarations in presentation order, or null when none are specified.")
   List<Field<?, ?>>? fields
 }

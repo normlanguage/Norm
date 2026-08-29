@@ -381,6 +381,21 @@ final class AnnotationCompilerTest {
   }
 
   @Test
+  void storesFunctionMetadataOnInterfaceRequirements() {
+    CompilationResult result =
+        compile(
+            policies("FunctionTarget", "BinaryRetention")
+                + "annotation Document implements FunctionTarget, BinaryRetention { "
+                + "String description } interface Reader { "
+                + "@Document(description: \"Reads the next value.\") String read() } "
+                + "Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    assertEquals(
+        1, result.program().orElseThrow().compilation().artifact().metadata().annotations().size());
+  }
+
+  @Test
   void applicationsDoNotChangeTargetIdentityButConformanceChangesAnnotationIdentity() {
     CompilationResult first =
         compile(

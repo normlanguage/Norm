@@ -370,9 +370,11 @@ final class CoreAnnotationVerifier {
                       && targetDefinition instanceof CoreDefinition.Callable;
               case FUNCTION ->
                   (occurrence.role() == CoreDefinitionRole.FUNCTION
-                          || occurrence.role() == CoreDefinitionRole.EXTENSION
-                          || occurrence.role() == CoreDefinitionRole.METHOD)
-                      && targetDefinition instanceof CoreDefinition.Callable;
+                              || occurrence.role() == CoreDefinitionRole.EXTENSION
+                              || occurrence.role() == CoreDefinitionRole.METHOD)
+                          && targetDefinition instanceof CoreDefinition.Callable
+                      || occurrence.role() == CoreDefinitionRole.INTERFACE_METHOD
+                          && targetDefinition instanceof CoreDefinition.InterfaceMethod;
               default -> false;
             };
         if (!valid) {
