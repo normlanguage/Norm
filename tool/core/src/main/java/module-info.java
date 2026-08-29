@@ -2,6 +2,7 @@
 module dev.w0fv1.norm.core {
   exports dev.w0fv1.norm.abi;
   exports dev.w0fv1.norm.diagnostic;
+  exports dev.w0fv1.norm.documentation;
   exports dev.w0fv1.norm.builtin;
   exports dev.w0fv1.norm.core;
   exports dev.w0fv1.norm.core.store;

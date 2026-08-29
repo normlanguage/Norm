@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.value.BuildMetadata;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -126,6 +129,94 @@ final class CliControllerTest {
   }
 
   @Test
+  void exportsAFileOrderedApiTreeThatMirrorsTheModuleSources() throws IOException {
+    Path sourceRoot = Files.createDirectories(temporaryDirectory.resolve("documentation-sources"));
+    Path moduleRoot = Files.createDirectories(sourceRoot.resolve("sample"));
+    Path library = Files.createDirectories(moduleRoot.resolve("library"));
+    Files.writeString(
+        moduleRoot.resolve("module.norm"),
+        "Module module() { return module(name: \"sample\", version: 7, exports: [\"library.sequences\"]) }");
+    Files.writeString(
+        library.resolve("sequences.norm"),
+        "@Document(description: \"Sequence operations.\") package sample.library\n"
+            + "import std.annotation.Document\n"
+            + "@Document(description: \"Declared first.\") public Integer first("
+            + "@Document(description: \"The input.\") Integer value) { return value }\n"
+            + "@Document(description: \"Declared second.\") public Integer second() { return 2 }\n");
+    Path output = temporaryDirectory.resolve("generated-api");
+
+    Result result =
+        run("docs", moduleRoot.toString(), "--output", output.toString(), "--strict");
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertTrue(Files.isRegularFile(output.resolve("module.api.json")));
+    Path fileDocument = output.resolve("library/sequences.api.json");
+    assertTrue(Files.isRegularFile(fileDocument));
+    JsonObject module = JsonParser.parseString(Files.readString(output.resolve("module.api.json"))).getAsJsonObject();
+    assertEquals("module", module.get("kind").getAsString());
+    assertEquals("sample", module.getAsJsonObject("module").get("name").getAsString());
+    assertEquals("library/sequences.api.json", firstFile(module.getAsJsonArray("tree")).get("document").getAsString());
+    JsonObject file = JsonParser.parseString(Files.readString(fileDocument)).getAsJsonObject();
+    assertEquals("file", file.get("kind").getAsString());
+    assertEquals("library/sequences.norm", file.getAsJsonObject("source").get("path").getAsString());
+    assertEquals("Sequence operations.", file.getAsJsonObject("document").get("description").getAsString());
+    JsonArray declarations = file.getAsJsonArray("declarations");
+    assertEquals("first", declarations.get(0).getAsJsonObject().get("name").getAsString());
+    assertEquals("second", declarations.get(1).getAsJsonObject().get("name").getAsString());
+    assertEquals(
+        "The input.",
+        declarations
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonArray("parameters")
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonObject("document")
+            .get("description")
+            .getAsString());
+
+    Path stale = output.resolve("library/removed.api.json");
+    Files.writeString(stale, "{}");
+    Result regenerated =
+        run("docs", moduleRoot.toString(), "--output", output.toString(), "--strict");
+
+    assertEquals(ExitCode.SUCCESS, regenerated.exitCode(), regenerated.standardError());
+    assertFalse(Files.exists(stale));
+  }
+
+  @Test
+  void requiresModuleNormAndRejectsUndocumentedExportedDeclarationsInStrictMode()
+      throws IOException {
+    Path missingModule = Files.createDirectories(temporaryDirectory.resolve("missing-module"));
+    Result missing =
+        run(
+            "docs",
+            missingModule.toString(),
+            "--output",
+            temporaryDirectory.resolve("missing-output").toString());
+    assertEquals(ExitCode.INPUT_ERROR, missing.exitCode());
+    assertTrue(missing.standardError().contains("module.norm"));
+
+    Path sourceRoot = Files.createDirectories(temporaryDirectory.resolve("strict-sources"));
+    Path moduleRoot = Files.createDirectories(sourceRoot.resolve("strict"));
+    Path library = Files.createDirectories(moduleRoot.resolve("library"));
+    Files.writeString(
+        moduleRoot.resolve("module.norm"),
+        "Module module() { return module(name: \"strict\", version: 1, exports: [\"library.api\"]) }");
+    Files.writeString(
+        library.resolve("api.norm"),
+        "package strict.library public Integer undocumented() { return 1 }");
+    Path output = temporaryDirectory.resolve("strict-output");
+
+    Result strictResult =
+        run("docs", moduleRoot.toString(), "--output", output.toString(), "--strict");
+
+    assertEquals(ExitCode.COMPILATION_ERROR, strictResult.exitCode());
+    assertTrue(strictResult.standardError().contains("undocumented"));
+    assertFalse(Files.exists(output));
+  }
+
+  @Test
   void rendersGuestRuntimeErrors() throws IOException {
     Path source = temporaryDirectory.resolve("runtime-error.norm");
     Files.writeString(source, "Void main() {\n  printLine(1 / 0)\n}");
@@ -220,6 +311,18 @@ final class CliControllerTest {
         new CliController()
             .run(arguments, new PrintWriter(standardOut), new PrintWriter(standardError));
     return new Result(exitCode, standardOut.toString(), standardError.toString());
+  }
+
+  private static JsonObject firstFile(JsonArray entries) {
+    for (var entry : entries) {
+      JsonObject value = entry.getAsJsonObject();
+      if (value.get("kind").getAsString().equals("file")) return value;
+      if (value.get("kind").getAsString().equals("directory")) {
+        JsonObject nested = firstFile(value.getAsJsonArray("children"));
+        if (nested != null) return nested;
+      }
+    }
+    return null;
   }
 
   private record Result(int exitCode, String standardOut, String standardError) {}

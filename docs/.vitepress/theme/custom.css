@@ -290,6 +290,25 @@ body { letter-spacing: -0.006em; }
 }
 .norm-hero h1 span { display: block; }
 
+.norm-api-tree { margin: 0; padding: 0; list-style: none; }
+.norm-api-tree .norm-api-tree { padding-left: 12px; }
+.norm-api-tree li { margin: 2px 0; }
+.norm-api-tree summary { padding: 7px 8px; cursor: pointer; color: var(--vp-c-text-2); font-size: 13px; font-weight: 700; }
+.norm-api-tree button { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 6px; color: var(--vp-c-text-2); text-align: left; }
+.norm-api-tree button:hover, .norm-api-tree button.is-selected { background: var(--vp-c-default-soft); color: var(--vp-c-brand-1); }
+.norm-api-tree small { color: var(--vp-c-text-3); font-family: var(--vp-font-family-mono); }
+.norm-api-declaration { margin: 18px 0; padding: 22px; border: 1px solid var(--vp-c-divider); }
+.norm-api-declaration > header { display: flex; justify-content: space-between; color: var(--vp-c-text-3); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.norm-api-declaration > header a { color: var(--vp-c-text-3); }
+.norm-api-declaration pre { margin: 14px 0 0; padding: 15px 18px; overflow-x: auto; border-radius: 6px; background: var(--vp-code-block-bg); }
+.norm-api-declaration pre code { font-size: 13px; }
+.norm-api-parameters { display: grid; grid-template-columns: minmax(160px, auto) 1fr; margin: 18px 0 0; border-top: 1px solid var(--vp-c-divider); }
+.norm-api-parameters dt, .norm-api-parameters dd { margin: 0; padding: 10px 8px; border-bottom: 1px solid var(--vp-c-divider); }
+.norm-api-parameters dd p { margin: 0; color: var(--vp-c-text-2); }
+.norm-api-related { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 16px; font-size: 13px; }
+.norm-api-related > span { color: var(--vp-c-text-3); font-weight: 700; }
+.norm-api-members { margin: 22px -8px -8px 14px; padding-left: 16px; border-left: 2px solid var(--vp-c-divider); }
+
 @media (max-width: 1120px) and (min-width: 901px) {
   .norm-semantics-grid { grid-template-columns: repeat(3, 1fr); }
   .norm-showcase-grid--three { grid-template-columns: 1fr; }

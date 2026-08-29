@@ -74,6 +74,8 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 Annotation 元数据可以使用标量、声明引用及由这些值递归组成的 `List` 字面量。`List` 表示有序声明元数据；`Array` 不是 Annotation 元数据类型。非 nullable 参数必须显式提供，省略 nullable 参数等价于提供 `null`。完整声明以 [`std.annotation`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/annotation/protocols.norm) 为准。
 
+编译器可直接把保留在语义模型中的 `Document` 与声明、类型和源码位置导出为模块 API 树；命令、文件映射和前端组件见 [API 文档导出](/tooling/api-documentation)。
+
 ## 保留与 Core
 
 - `SourceRetention` 不生成通用 metadata；FunctionInterceptor、ParameterInterceptor 与 FieldInterceptor 行为仍分别编码在 callable、parameter 与 field Core 中；

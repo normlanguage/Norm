@@ -4,6 +4,8 @@ node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/.vitepress/.temp/
+docs/.vitepress/theme/generated/
+docs/public/api/
 tool/cli/extensions/**/out/
 tool/cli/extensions/**/.vscode-test/
 tool/cli/extensions/**/*.vsix

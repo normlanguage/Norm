@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w0fv1.github.io/Norm/schemas/module-api-v1.json",
+  "$ref": "norm-api-v1.json#/$defs/ModuleApi"
+}

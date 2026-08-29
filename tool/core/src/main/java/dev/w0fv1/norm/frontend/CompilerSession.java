@@ -238,6 +238,35 @@ public final class CompilerSession implements AutoCloseable {
     return snapshot(profile.prelude().request(document));
   }
 
+  public CompilationSnapshot preludeSnapshot(SourceFile source) {
+    return preludeSnapshot(List.of(java.util.Objects.requireNonNull(source, "source")), source.id());
+  }
+
+  public CompilationSnapshot preludeSnapshot(
+      java.util.Collection<SourceFile> overlays, DocumentId entryDocument) {
+    Map<DocumentId, SourceFile> replacements = new LinkedHashMap<>();
+    for (SourceFile source : List.copyOf(overlays)) {
+      if (profile.preludeSource(source.id()).isEmpty()) {
+        throw new IllegalArgumentException("source is not part of the compilation prelude");
+      }
+      if (replacements.putIfAbsent(source.id(), source) != null) {
+        throw new IllegalArgumentException("duplicate prelude source overlay");
+      }
+    }
+    CompilationRequest request = profile.prelude().request(entryDocument);
+    List<SourceFile> sources =
+        request.sources().stream()
+            .map(candidate -> replacements.getOrDefault(candidate.id(), candidate))
+            .toList();
+    return snapshot(
+        new CompilationRequest(
+            request.unit(),
+            request.scope(),
+            request.entryDocument(),
+            sources,
+            request.exportedSources()));
+  }
+
   @Override
   public void close() {
     lifecycleLock.writeLock().lock();

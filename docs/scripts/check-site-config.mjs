@@ -69,6 +69,10 @@ async function textFiles(directory) {
 async function assertInternalLinks(directory) {
   const pages = await filesWithExtension(directory, '.html')
   const routes = new Set()
+  for (const path of await files(directory)) {
+    const relative = path.slice(directory.length + 1).replaceAll('\\', '/')
+    routes.add(`${siteBase}${relative}`)
+  }
   for (const path of pages) {
     const relative = path.slice(directory.length + 1).replaceAll('\\', '/')
     if (relative === 'index.html') {
@@ -92,6 +96,16 @@ async function assertInternalLinks(directory) {
       assert.equal(routes.has(href), true, `${path} links to missing route ${href}`)
     }
   }
+}
+
+async function files(directory) {
+  const paths = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = resolve(directory, entry.name)
+    if (entry.isDirectory()) paths.push(...(await files(path)))
+    else paths.push(path)
+  }
+  return paths
 }
 
 async function filesWithExtension(directory, extension) {

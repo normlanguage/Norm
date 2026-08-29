@@ -8,10 +8,13 @@ import dev.w0fv1.norm.core.DefinitionGroupId;
 import dev.w0fv1.norm.core.store.DefinitionStore;
 import dev.w0fv1.norm.core.store.PutBatchResult;
 import dev.w0fv1.norm.value.CompilationRequest;
+import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,5 +83,61 @@ final class CompilationSnapshotTest {
 
     assertTrue(snapshot.document(source.id()).isPresent());
     assertEquals(0, storeAccesses.get());
+  }
+
+  @Test
+  void analyzesPreludeSourceOverlaysWithTheirCanonicalDocumentIdentity() {
+    DocumentId document = DocumentId.of("stdlib:/std/example.norm");
+    SourceFile original = SourceFile.of(document, "package std Integer answer() { return 42 }");
+    CompilationPrelude prelude =
+        new CompilationPrelude(
+            List.of(original),
+            Set.of(document),
+            CompilationScope.module(
+                new ModuleCoordinate("std", 1), Map.of(document, "std/example.norm")));
+    CompilerSession compiler = new CompilerSession(LanguageProfile.withPrelude(prelude));
+    SourceFile overlay = SourceFile.of(document, "package std Integer answer() { return missing }");
+
+    CompilationSnapshot snapshot = compiler.preludeSnapshot(overlay);
+
+    assertEquals(overlay.text(), snapshot.entryDocument().source().text());
+    assertTrue(
+        snapshot.diagnostics(document).stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-NAME-0003")));
+  }
+
+  @Test
+  void analyzesMultiplePreludeSourceOverlaysInOneSemanticSnapshot() {
+    DocumentId firstDocument = DocumentId.of("stdlib:/std/first.norm");
+    DocumentId secondDocument = DocumentId.of("stdlib:/std/second.norm");
+    SourceFile first =
+        SourceFile.of(firstDocument, "package std Integer first() { return 1 }");
+    SourceFile second =
+        SourceFile.of(secondDocument, "package std Integer second() { return 2 }");
+    CompilationPrelude prelude =
+        new CompilationPrelude(
+            List.of(first, second),
+            Set.of(firstDocument, secondDocument),
+            CompilationScope.module(
+                new ModuleCoordinate("std", 1),
+                Map.of(firstDocument, "std/first.norm", secondDocument, "std/second.norm")));
+    CompilerSession compiler = new CompilerSession(LanguageProfile.withPrelude(prelude));
+    SourceFile firstOverlay =
+        SourceFile.of(firstDocument, "package std Integer first() { return missingFirst }");
+    SourceFile secondOverlay =
+        SourceFile.of(secondDocument, "package std Integer second() { return missingSecond }");
+
+    CompilationSnapshot snapshot =
+        compiler.preludeSnapshot(List.of(firstOverlay, secondOverlay), secondDocument);
+
+    assertEquals(secondOverlay.text(), snapshot.entryDocument().source().text());
+    assertEquals(
+        firstOverlay.text(), snapshot.document(firstDocument).orElseThrow().source().text());
+    assertTrue(
+        snapshot.diagnostics(firstDocument).stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-NAME-0003")));
+    assertTrue(
+        snapshot.diagnostics(secondDocument).stream()
+            .anyMatch(diagnostic -> diagnostic.code().value().equals("NORM-NAME-0003")));
   }
 }

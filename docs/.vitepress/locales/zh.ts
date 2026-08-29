@@ -58,6 +58,7 @@ const grammar = [
 
 const stdlib = [
   { text: '标准库概览', link: '/stdlib/overview' },
+  { text: 'API 浏览器', link: '/stdlib/api' },
   { text: '输出', link: '/stdlib/output-api' },
   { text: 'I/O 基础', link: '/stdlib/io' },
   { text: 'String', link: '/stdlib/string' },
@@ -127,6 +128,7 @@ export const zhTheme: DefaultTheme.Config = {
     '/stdlib/': [{ text: '标准库', items: stdlib }],
     '/tooling/': [{ text: 'Tooling', items: [
       { text: '工具链概览', link: '/tooling/' },
+      { text: 'API 文档导出', link: '/tooling/api-documentation' },
       { text: 'VS Code', link: '/guide/vscode' },
       { text: '当前状态', link: '/status' },
     ]}],

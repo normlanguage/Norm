@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w0fv1.github.io/Norm/schemas/norm-api-v1.json",
+  "title": "Norm API Documentation",
+  "oneOf": [
+    { "$ref": "#/$defs/ModuleApi" },
+    { "$ref": "#/$defs/FileApi" }
+  ],
+  "$defs": {
+    "ModuleCoordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "Position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "SourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/Position" },
+        "end": { "$ref": "#/$defs/Position" }
+      }
+    },
+    "Type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity", "name", "display", "nullable", "arguments"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "identity": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "display": { "type": "string", "minLength": 1 },
+        "nullable": { "type": "boolean" },
+        "arguments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Type" }
+        }
+      }
+    },
+    "Reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target", "display"],
+      "properties": {
+        "kind": { "enum": ["type", "function", "field"] },
+        "target": { "type": "string", "minLength": 1 },
+        "display": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "types", "functions", "fields"],
+      "properties": {
+        "description": { "type": "string" },
+        "types": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
+        "functions": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/Reference" } }
+      }
+    },
+    "TypeParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "upperBound": { "$ref": "#/$defs/Type" }
+      }
+    },
+    "Parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/Type" },
+        "document": { "$ref": "#/$defs/Document" }
+      }
+    },
+    "Declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "name",
+        "signature",
+        "visibility",
+        "source",
+        "typeParameters",
+        "parameters",
+        "members"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "annotation",
+            "class",
+            "constructor",
+            "enum",
+            "extension",
+            "field",
+            "function",
+            "interface",
+            "interfaceMethod",
+            "method",
+            "value",
+            "variant"
+          ]
+        },
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "signature": { "type": "string", "minLength": 1 },
+        "visibility": { "enum": ["public", "private"] },
+        "source": { "$ref": "#/$defs/SourceRange" },
+        "typeParameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TypeParameter" }
+        },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Parameter" }
+        },
+        "returns": { "$ref": "#/$defs/Type" },
+        "type": { "$ref": "#/$defs/Type" },
+        "document": { "$ref": "#/$defs/Document" },
+        "members": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Declaration" }
+        }
+      }
+    },
+    "FileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "source", "document", "package", "exported"],
+      "properties": {
+        "kind": { "const": "file" },
+        "name": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "pattern": "\\.norm$" },
+        "document": { "type": "string", "pattern": "\\.api\\.json$" },
+        "package": { "type": "string" },
+        "exported": { "type": "boolean" }
+      }
+    },
+    "DirectoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "children"],
+      "properties": {
+        "kind": { "const": "directory" },
+        "name": { "type": "string", "minLength": 1 },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TreeEntry" }
+        }
+      }
+    },
+    "TreeEntry": {
+      "oneOf": [
+        { "$ref": "#/$defs/FileEntry" },
+        { "$ref": "#/$defs/DirectoryEntry" }
+      ]
+    },
+    "ModuleApi": {
+      "title": "ModuleApi",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schemaVersion",
+        "kind",
+        "generator",
+        "module",
+        "descriptionFormat",
+        "tree"
+      ],
+      "properties": {
+        "$schema": { "type": "string", "format": "uri" },
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "module" },
+        "generator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "const": "norm" },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "module": { "$ref": "#/$defs/ModuleCoordinate" },
+        "descriptionFormat": { "const": "commonmark" },
+        "tree": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TreeEntry" }
+        }
+      }
+    },
+    "FileApi": {
+      "title": "FileApi",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schemaVersion",
+        "kind",
+        "module",
+        "source",
+        "package",
+        "exported",
+        "declarations"
+      ],
+      "properties": {
+        "$schema": { "type": "string", "format": "uri" },
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "file" },
+        "module": { "$ref": "#/$defs/ModuleCoordinate" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "pattern": "\\.norm$" }
+          }
+        },
+        "package": { "type": "string" },
+        "exported": { "type": "boolean" },
+        "document": { "$ref": "#/$defs/Document" },
+        "declarations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Declaration" }
+        }
+      }
+    }
+  }
+}
