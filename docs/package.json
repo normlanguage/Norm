@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
-    "ajv": "^8.17.1",
+    "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "json-schema-to-typescript": "^15.0.4",
     "png-to-ico": "3.0.2",
