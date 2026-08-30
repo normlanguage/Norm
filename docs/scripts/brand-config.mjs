@@ -5,7 +5,6 @@ export const repositoryRoot = resolve(docsRoot, '..')
 export const brandRoot = resolve(docsRoot, 'public', 'brand')
 export const extensionImages = resolve(
   repositoryRoot,
-  'tool',
   'cli',
   'extensions',
   'vscode',

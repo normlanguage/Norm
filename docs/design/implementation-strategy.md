@@ -14,23 +14,20 @@ Norm 官方实现遵循以下四条规则：
 3. **Native Image 生成独立 CLI。** 官方发行物提供平台原生的 `norm` 可执行文件；用户不需要手动运行 JAR。JVM 形态保留给开发、测试和调试。
 4. **Zig 不进入核心实现。** core、CLI 和标准库平台 adapter 不包含 Zig 代码，也不建立 Zig/Java FFI 边界。
 
-## 模块边界
+## 工程边界
 
 ```text
-tool/core              编译器前端与 canonical Core
-tool/execution-api     后端无关的执行契约
-tool/platform-jdk      JDK 系统能力实现
-tool/project-system    标准库引导与项目生命周期
-tool/truffle-backend   唯一执行后端
-tool/cli               命令行、Language Server 与编辑器插件
-norm                   使用 Norm 编写的标准库与语言源码
+cli/                    命令行产品
+  compiler/             Java 编译器、执行运行时、CLI 与 Language Server
+  extensions/           编辑器扩展
+norm/                   使用 Norm 编写的标准库与语言源码
 ```
 
-`execution-api` 仅依赖 `core`；`platform-jdk` 实现 execution API；`project-system` 只依赖执行契约；Truffle 组合 project system、execution API 与 JDK 平台；CLI 只组合公开入口。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
+官方 Java 实现是单一 Gradle 与 JPMS 模块。编译前端、Core、执行、项目、平台和 CLI 仍按领域 package 分离，并由架构测试固定依赖方向；物理模块不重复表达同一边界。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
 
 ## 构建与发行
 
-- 使用 Gradle 多项目构建；
+- 使用单一 Gradle 编译器模块；
 - Java toolchain 和 GraalVM 版本在仓库中锁定；
 - 单元测试在普通 JVM 上快速运行；
 - Truffle 集成测试在 GraalVM 上运行；

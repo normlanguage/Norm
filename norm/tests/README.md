@@ -31,7 +31,7 @@
 - 使用 `std.testing.expectedOutputLine` 或 `expectedOutputLines` 声明非空预期输出。
 - 能独立编译和执行，不依赖其他测试文件的声明或执行顺序。
 
-单文件目录由 [`ProgramExecutionTest`](../../tool/truffle-backend/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) 注册，并由 [`NormTestKit`](../../tool/truffle-backend/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) 递归发现。新增顶层领域时必须同时增加对应的测试入口；领域内新增文件无需注册。
+单文件目录由 [`ProgramExecutionTest`](../../compiler/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) 注册，并由 [`NormTestKit`](../../compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) 递归发现。新增顶层领域时必须同时增加对应的测试入口；领域内新增文件无需注册。
 
 ## 项目程序
 
@@ -63,13 +63,13 @@ projects/<scenario>/
 运行 `ProgramExecutionTest` 覆盖的全部语言与项目程序：
 
 ```powershell
-.\gradlew.bat :truffle-backend:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest"
+.\gradlew.bat :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest"
 ```
 
 运行项目程序：
 
 ```powershell
-.\gradlew.bat :truffle-backend:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsMultiFilePrograms"
+.\gradlew.bat :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsMultiFilePrograms"
 ```
 
 运行单个领域时，使用 `ProgramExecutionTest` 中对应的测试工厂方法。标准库程序由 `StandardLibraryTest` 运行。

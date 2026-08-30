@@ -10,7 +10,7 @@ Parser 使用手写递归下降和 Pratt 表达式解析。Syntax 与语义快�
 
 ## 2. GraalVM/Truffle Backend
 
-`truffle-backend` 实现 Norm language、执行节点、Interop、instrumentation、运行时值表示与 reified generic metadata。
+`compiler` 的 `truffle` package 实现 Norm language、执行节点、Interop、instrumentation、运行时值表示与 reified generic metadata。
 
 Truffle 只消费通过类型检查的 IR，不重新解析名称或推断类型。官方项目不维护第二套执行后端。
 
@@ -24,6 +24,6 @@ CLI 在开发阶段以 JVM 应用运行，正式发行通过 Native Image 生成
 
 ## 5. 构建系统
 
-使用 Gradle 多项目构建并锁定 Java toolchain、GraalVM 和 Truffle 版本。Zig 不进入 core、CLI 或标准库平台 adapter。
+使用单一 Gradle 编译器模块并锁定 Java toolchain、GraalVM 和 Truffle 版本。Zig 不进入编译器或标准库平台 adapter。
 
 具体实施顺序见[编译器引导计划](/design/bootstrap-plan)。

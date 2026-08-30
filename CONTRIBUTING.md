@@ -15,14 +15,14 @@ On Unix-like systems:
 
 ```shell
 ./gradlew qualityCheck
-./gradlew :cli:run --args="--version"
+./gradlew :compiler:run --args="--version"
 ```
 
 On Windows:
 
 ```powershell
 .\gradlew.bat qualityCheck
-.\gradlew.bat :cli:run --args="--version"
+.\gradlew.bat :compiler:run --args="--version"
 ```
 
 Run `spotlessApply` before submitting Java changes. CI executes the test suite on both OpenJDK and GraalVM.

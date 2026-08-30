@@ -4,7 +4,7 @@
 
 ## 工程基础
 
-Gradle 多项目构建统一管理 core 与 CLI，锁定 Java、Truffle 和测试依赖。SourceFile、SourceSpan、Diagnostic、格式检查和 CI 是所有后续阶段的公共基础。
+单一 Gradle 编译器模块锁定 Java、Truffle 和测试依赖。SourceFile、SourceSpan、Diagnostic、格式检查和 CI 是所有后续阶段的公共基础。
 
 ## Lexer 与 Parser
 

@@ -41,4 +41,4 @@ Function<User(UserService, UserId)> lookup = UserService.findUser.function
 
 ## 实现真相源
 
-反射成员和精确类型由 [`BuiltinCatalog`](https://github.com/w0fv1/Norm/blob/main/tool/core/src/main/java/dev/w0fv1/norm/builtin/BuiltinCatalog.java) 定义，二进制 metadata 中的声明引用由 [`CoreAnnotationReference`](https://github.com/w0fv1/Norm/blob/main/tool/core/src/main/java/dev/w0fv1/norm/core/CoreAnnotationReference.java) 表示。
+反射成员和精确类型由 [`BuiltinCatalog`](https://github.com/w0fv1/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/builtin/BuiltinCatalog.java) 定义，二进制 metadata 中的声明引用由 [`CoreAnnotationReference`](https://github.com/w0fv1/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreAnnotationReference.java) 表示。

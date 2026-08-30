@@ -18,9 +18,7 @@ Bound Representation
   ↓
 Canonical Core IR
   ↓
-execution-api
-  ↓
-Truffle Backend
+Runtime: execution contracts → Truffle → platform adapter
 ```
 
 ## 阅读入口

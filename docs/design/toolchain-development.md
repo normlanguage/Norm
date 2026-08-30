@@ -5,18 +5,14 @@
 ## 仓库边界
 
 ```text
-tool/core/             编译前端与 canonical Core
-tool/execution-api/    后端无关的执行契约
-tool/platform-jdk/     JDK 系统能力实现
-tool/project-system/   标准库引导、模块配置与项目启动
-tool/truffle-backend/  Core lowering 与 Truffle 执行
-tool/cli/app/          命令行与 Language Server 生命周期
-tool/cli/extensions/   编辑器扩展
+cli/                  命令行产品
+  compiler/           Java 编译器、执行运行时、CLI 与 Language Server
+  extensions/         编辑器扩展
 norm/stdlib/           使用 Norm 编写的标准库
 norm/tests/            可执行的 Norm 验收程序
 ```
 
-Gradle 模块按编译、执行契约、项目生命周期、后端和宿主工具分层。跨层数据只使用下层公开的强类型模型。
+`compiler` 是唯一 Gradle 与 JPMS 模块。领域 package 负责分层，跨层数据只使用下层拥有的强类型模型；架构测试禁止逆向依赖。
 
 ## Core package
 
@@ -33,7 +29,7 @@ dev.w0fv1.norm.language     基于语义快照的语言服务
 dev.w0fv1.norm.value        跨阶段不可变数据
 ```
 
-`execution-api` 提供 `ExecutionBackend`、`ExecutionContext`、`SystemPlatform` 和结构化运行错误。`platform-jdk` 提供 JDK 文件、网络、进程、时钟和其他宿主系统能力实现。`project-system` 提供 `ProjectEnvironment`、`ProjectLoader` 和 `ProjectLauncher`。`truffle-backend` 保存 Lowerer、可执行节点、运行时表示和 Norm 系统异常桥。系统层完整边界见[系统运行时架构](/design/system-runtime)。
+`compiler` 内部按领域分包：`execution` 提供 `ExecutionBackend`、`ExecutionContext` 和结构化运行错误；`platform` 保存后端无关的文件、HTTP、时间能力契约，`platform.jdk` 提供宿主实现；`project` 提供 `ProjectEnvironment`、`ProjectLoader` 和 `ProjectLauncher`；`truffle` 保存 Lowerer、可执行节点、运行时表示和 Norm 系统异常桥。系统层完整边界见[系统运行时架构](/design/system-runtime)。
 
 必须保持的阶段依赖约束为：
 
@@ -41,10 +37,11 @@ dev.w0fv1.norm.value        跨阶段不可变数据
 frontend ⇏ truffle
 core ⇏ frontend, truffle
 Lowerer → core
-project-system → execution-api → core
-platform-jdk → execution-api
-truffle-backend → platform-jdk, project-system, execution-api, core
-CLI → platform-jdk, project-system, truffle-backend
+execution → core
+project → execution → platform contracts
+truffle → project, execution, platform contracts, core
+platform.jdk → platform contracts
+CLI → project, execution, platform.jdk, frontend, language
 ```
 
 `⇏` 表示禁止依赖。`bound` 只在前端内部完成已解析语义到 Core 的转换。Lowerer 只消费 Core，不依赖 Syntax AST、`SemanticModel` 或 `bound`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。
@@ -66,7 +63,7 @@ dev.w0fv1.norm.cli.utils        无状态文本工具
 ## 命名与可见性
 
 - `dev.w0fv1.norm` 已经提供语言上下文，类型名不增加 `Norm` 前缀；使用 `Compiler`、`Analyzer`、`Lowerer`、`ProgramRunner` 等领域名称。
-- 对外 API 才使用 `public`。Lexer、Parser、Analyzer、Truffle 节点和运行时表示保持模块内部可见。
+- 只有真实的跨进程或扩展契约才形成对外 API。Lexer、Parser、Analyzer、Truffle 节点和运行时表示保持模块内部可见。
 - `value` 只存放跨阶段不可变数据；具有明确领域的数据保留在对应领域，例如 Syntax AST 属于 `syntax`。
 - `utils` 只接受静态、无状态、可独立复用的工具。生命周期、I/O 和可变状态不进入 `utils`。
 - 同一概念只保留一个模型，禁止并行维护旧 AST、临时 IR 或第二条执行链。
@@ -103,7 +100,7 @@ Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查�
 - 先写或迁移失败测试，再修改实现。
 - 单元测试与被测 package 对齐，内部组件不因测试而扩大可见性。
 - 语法或执行变更必须覆盖诊断测试，以及 `norm/tests` 中的单文件和模块程序。
-- Java 修改先运行相关模块测试；提交前执行格式检查。发布前才运行完整发布验证。
+- Java 修改先运行相关 package 测试；提交前执行格式检查。发布前才运行完整发布验证。
 - 后端变更必须通过 Polyglot 注册入口和 CLI 的真实 `.norm` 文件执行测试。
 
 验收测试的领域、目录、命名、发现入口与运行命令统一由 [`norm/tests/README.md`](https://github.com/w0fv1/norm/blob/main/norm/tests/README.md) 定义。

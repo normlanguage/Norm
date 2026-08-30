@@ -53,4 +53,4 @@ Language Server 合并未保存内容后执行同一项目加载生命周期，�
 
 同一模块、同一 package 的源码文件自动加载并可以直接引用彼此的 `public` 声明。跨 package import 只能访问 `exports` 指定文件中的 `public` 声明；跨模块 import 还要求目标模块是当前模块的直接依赖，传递依赖不会自动获得可见性。`private` 始终限制在声明文件内。标准库是工具链显式加入每个模块读取边界的隐式依赖。
 
-标准库首先使用 module bootstrap 求值自己的 `module.norm`，再成为用户模块配置和业务程序共同使用的 prelude。项目生命周期的实现入口见 `tool/project-system`，bootstrap 协议的单一实现见 `tool/core/src/main/resources/bootstrap/module.norm`。
+标准库首先使用 module bootstrap 求值自己的 `module.norm`，再成为用户模块配置和业务程序共同使用的 prelude。项目生命周期的实现入口见 `cli/compiler` 的 `project` package，bootstrap 协议的单一实现见 `cli/compiler/src/main/resources/bootstrap/module.norm`。

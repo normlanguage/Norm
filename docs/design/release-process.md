@@ -24,7 +24,7 @@ GraalVM 25 已停止提供新的 macOS Intel 构建，因此不建立依赖退�
 
 ## 自动化
 
-[发布目标清单](https://github.com/w0fv1/norm/blob/main/tool/cli/release-targets.json)是平台、runner、CLI 路径和插件内目录的唯一机器定义；打包器与 [Release 工作流](https://github.com/w0fv1/norm/blob/main/.github/workflows/release.yml)共同读取它。日常 CI 负责尽早验证 Native Image，Release 工作流只接受 `vMAJOR.MINOR.PATCH` tag。
+[发布目标清单](https://github.com/w0fv1/norm/blob/main/cli/compiler/release-targets.json)是平台、runner、CLI 路径和插件内目录的唯一机器定义；打包器与 [Release 工作流](https://github.com/w0fv1/norm/blob/main/.github/workflows/release.yml)共同读取它。日常 CI 负责尽早验证 Native Image，Release 工作流只接受 `vMAJOR.MINOR.PATCH` tag。
 
 公开版本应逐步接入 Windows Authenticode 签名以及 macOS Developer ID 签名和 notarization。签名接入前，版本说明必须明确系统可能显示来源警告。
 

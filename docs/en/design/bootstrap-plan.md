@@ -4,7 +4,7 @@ The official Java toolchain builds one frontend and one GraalVM/Truffle executio
 
 ## Foundation
 
-The Gradle build owns core and CLI modules, pinned Java and Truffle dependencies, source locations, diagnostics, formatting, tests, and CI.
+The single Gradle compiler module owns pinned Java and Truffle dependencies, source locations, diagnostics, formatting, tests, and CI.
 
 ## Frontend
 

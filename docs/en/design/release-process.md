@@ -24,7 +24,7 @@ The workflow generates SHA-256 checksums and build provenance after every platfo
 
 ## Automation
 
-The [release-target manifest](https://github.com/w0fv1/norm/blob/main/tool/cli/release-targets.json) is the sole machine definition for platforms, runners, CLI paths, and extension directories; the packager and [Release workflow](https://github.com/w0fv1/norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI detects Native Image regressions early. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
+The [release-target manifest](https://github.com/w0fv1/norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, CLI paths, and extension directories; the packager and [Release workflow](https://github.com/w0fv1/norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI detects Native Image regressions early. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
 
 Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 

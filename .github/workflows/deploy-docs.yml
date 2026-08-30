@@ -7,11 +7,7 @@ on:
       - 'docs/**'
       - 'norm/stdlib/std/**'
       - 'norm/tests/docs/**'
-      - 'tool/cli/app/src/**'
-      - 'tool/core/src/**'
-      - 'tool/project-system/src/**'
-      - 'tool/truffle-backend/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java'
-      - 'tool/truffle-backend/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java'
+      - 'cli/compiler/src/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
@@ -41,7 +37,7 @@ jobs:
         working-directory: docs
         run: npm ci
       - name: Verify documentation examples
-        run: ./gradlew :truffle-backend:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsDocumentationExamples" --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsDocumentationProjectExamples" --no-daemon
+        run: ./gradlew :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsDocumentationExamples" --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsDocumentationProjectExamples" --no-daemon
       - name: Build VitePress site
         working-directory: docs
         run: npm run docs:build

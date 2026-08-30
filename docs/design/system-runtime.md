@@ -20,17 +20,17 @@
 norm/stdlib
   → stdlib-internal intrinsic ABI
   → truffle system bridge
-  → execution-api platform contracts
-  → platform-jdk
+  → platform contracts
+  → JDK platform adapter
 ```
 
 `norm/stdlib` 保存 public Norm 类型、函数、异常和资源封装。只有标准库源码可以解析 system intrinsic 与 opaque handle 类型。
 
-`execution-api` 保存后端无关的 `SystemPlatform` 契约和强类型平台失败。它不构造 Norm 值，也不依赖 Truffle。
+`compiler` 的 `platform` package 保存后端无关的 `SystemPlatform` 契约和强类型平台失败。它不构造 Norm 值，也不依赖 Truffle。
 
-`platform-jdk` 实现文件、网络、HTTP transport、时钟、进程、regex、crypto、entropy 与 scheduler。JDK 异常在这里归一化为平台契约异常。
+`platform.jdk` 实现文件、网络、HTTP transport、时钟、进程、regex、crypto、entropy 与 scheduler。JDK 异常在这里归一化为平台契约异常。
 
-`truffle-backend` 保存宿主值表示、资源 scope、intrinsic 执行和 Norm Exception 构造。`GuestValueFactory` 按 ABI 和当前 artifact metadata 构造异常值。宿主 I/O 只在 `@TruffleBoundary` 慢路径中执行。
+`truffle` package 保存宿主值表示、资源 scope、intrinsic 执行和 Norm Exception 构造。`GuestValueFactory` 按 ABI 和当前 artifact metadata 构造异常值。宿主 I/O 只在 `@TruffleBoundary` 慢路径中执行。
 
 ## 执行能力
 
@@ -50,7 +50,7 @@ SystemPlatform
 └─ scheduler
 ```
 
-默认平台由 `platform-jdk` 的唯一工厂创建。测试从同一工厂派生，仅替换需要控制的能力。取消状态与 deadline 属于每次 execution 或 child task，不属于全局平台状态。
+默认平台由 `platform.jdk` 的唯一工厂创建。测试从同一工厂派生，仅替换需要控制的能力。取消状态与 deadline 属于每次 execution 或 child task，不属于全局平台状态。
 
 ## 异常边界
 
@@ -151,7 +151,7 @@ Builtin ABI 是 intrinsic identity 和 runtime shape 的单一来源。Catalog�
 ## 实施顺序
 
 1. 系统异常 ABI 与 `GuestValueFactory`；
-2. `SystemPlatform`、`platform-jdk` 和统一 ExecutionContext 组装；
+2. `SystemPlatform`、JDK platform adapter 和统一 ExecutionContext 组装；
 3. opaque value、opaque resource 与 `ResourceScope`；
 4. stdlib-internal intrinsic access policy 和领域 registry；
 5. time 与 io 基础类型；

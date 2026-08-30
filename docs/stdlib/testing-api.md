@@ -10,4 +10,4 @@ Boolean isFalse(Boolean actual)
 Void expectedOutputLines(Iterable<String> lines)
 ```
 
-`expectedOutputLine(String)` 是测试执行协议的单行原语；批量用例导入 `std.testing.expectedOutputLines`。单文件案例按测试目录发现，多文件案例由 `module.norm` 确定边界，并且每个案例只有一个 `main()` 入口。测试协议入口是 [`NormTestKit`](https://github.com/w0fv1/norm/blob/main/tool/truffle-backend/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java)。
+`expectedOutputLine(String)` 是测试执行协议的单行原语；批量用例导入 `std.testing.expectedOutputLines`。单文件案例按测试目录发现，多文件案例由 `module.norm` 确定边界，并且每个案例只有一个 `main()` 入口。测试协议入口是 [`NormTestKit`](https://github.com/w0fv1/norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java)。

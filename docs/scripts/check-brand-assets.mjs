@@ -37,7 +37,7 @@ assert.deepEqual(
   await pngToIco(icoSizes.map((size) => resolve(brandRoot, `norm-${size}.png`))),
 )
 
-const extensionRoot = resolve(repositoryRoot, 'tool', 'cli', 'extensions', 'vscode')
+const extensionRoot = resolve(repositoryRoot, 'cli', 'extensions', 'vscode')
 const extensionPackage = JSON.parse(await readFile(resolve(extensionRoot, 'package.json'), 'utf8'))
 assert.equal(extensionPackage.icon, 'images/norm-256.png')
 assert.deepEqual(extensionPackage.contributes.languages[0].icon, {
@@ -54,7 +54,7 @@ assert.deepEqual(
 )
 
 const windowsResource = await readFile(
-  resolve(repositoryRoot, 'tool', 'cli', 'app', 'src', 'main', 'windows', 'norm.rc'),
+  resolve(repositoryRoot, 'cli', 'compiler', 'scripts', 'windows-build', 'norm.rc'),
   'utf8',
 )
 assert.match(windowsResource, /ICON\s+"docs\/public\/brand\/norm\.ico"/)

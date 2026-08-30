@@ -37,8 +37,8 @@ jobs:
         id: targets
         shell: bash
         run: |
-          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.binary | type == "string") and (.executable | type == "string")) and (([.[].target] | length) == ([.[].target] | unique | length))' tool/cli/release-targets.json > /dev/null
-          echo "matrix=$(jq -c '{include: .}' tool/cli/release-targets.json)" >> "$GITHUB_OUTPUT"
+          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.binary | type == "string") and (.executable | type == "string")) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
+          echo "matrix=$(jq -c '{include: .}' cli/compiler/release-targets.json)" >> "$GITHUB_OUTPUT"
 
   verify:
     needs: prepare
@@ -58,10 +58,10 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: tool/cli/extensions/vscode/package-lock.json
+          cache-dependency-path: cli/extensions/vscode/package-lock.json
 
       - name: Install extension dependencies
-        run: npm ci --prefix tool/cli/extensions/vscode
+        run: npm ci --prefix cli/extensions/vscode
 
       - name: Verify release record
         env:
@@ -76,7 +76,7 @@ jobs:
         run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
       - name: Verify extension
-        working-directory: tool/cli/extensions/vscode
+        working-directory: cli/extensions/vscode
         run: |
           npm run check
           npm run test:language
@@ -104,20 +104,20 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: tool/cli/extensions/vscode/package-lock.json
+          cache-dependency-path: cli/extensions/vscode/package-lock.json
 
       - name: Install extension dependencies
-        run: npm ci --prefix tool/cli/extensions/vscode
+        run: npm ci --prefix cli/extensions/vscode
 
       - name: Build native CLI
         shell: bash
-        run: ./gradlew :cli:nativeCompile "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+        run: ./gradlew :compiler:nativeCompile "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
       - name: Verify native CLI
-        run: node tool/cli/scripts/verify-cli.mjs ${{ matrix.binary }} ${{ needs.prepare.outputs.version }}
+        run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.binary }} ${{ needs.prepare.outputs.version }}
 
       - name: Verify native language server
-        working-directory: tool/cli/extensions/vscode
+        working-directory: cli/extensions/vscode
         env:
           NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: npm run smoke:lsp
@@ -125,20 +125,20 @@ jobs:
       - name: Stage native CLI for extension testing and packaging
         shell: bash
         run: |
-          mkdir -p "tool/cli/extensions/vscode/bin/${{ matrix.target }}"
-          cp "${{ matrix.binary }}" "tool/cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
-          chmod +x "tool/cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
+          mkdir -p "cli/extensions/vscode/bin/${{ matrix.target }}"
+          cp "${{ matrix.binary }}" "cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
+          chmod +x "cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
 
       - name: Verify extension in VS Code
         if: runner.os != 'Linux'
-        working-directory: tool/cli/extensions/vscode
+        working-directory: cli/extensions/vscode
         env:
           NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: npm run test:extension:native
 
       - name: Verify extension in VS Code on Linux
         if: runner.os == 'Linux'
-        working-directory: tool/cli/extensions/vscode
+        working-directory: cli/extensions/vscode
         env:
           NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
         run: xvfb-run -a npm run test:extension:native
@@ -177,7 +177,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.target }}
-          path: tool/cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}
+          path: cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}
           if-no-files-found: error
 
   package-extension:
@@ -192,10 +192,10 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: tool/cli/extensions/vscode/package-lock.json
+          cache-dependency-path: cli/extensions/vscode/package-lock.json
 
       - name: Install extension dependencies
-        run: npm ci --prefix tool/cli/extensions/vscode
+        run: npm ci --prefix cli/extensions/vscode
 
       - name: Download native CLIs
         uses: actions/download-artifact@v5
@@ -206,13 +206,13 @@ jobs:
       - name: Package universal extension
         run: |
           find binaries -type f -exec chmod +x {} +
-          node tool/cli/extensions/vscode/scripts/release-package.mjs \
+          node cli/extensions/vscode/scripts/release-package.mjs \
             ${{ needs.prepare.outputs.version }} \
             binaries \
             release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
 
       - name: Verify universal extension package
-        working-directory: tool/cli/extensions/vscode
+        working-directory: cli/extensions/vscode
         run: >-
           npm run verify:vsix --
           ${{ needs.prepare.outputs.version }}

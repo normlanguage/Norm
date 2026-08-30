@@ -1,0 +1,23 @@
+[
+  {
+    "runner": "windows-2025",
+    "target": "win32-x64",
+    "platform": "windows-x64",
+    "binary": "cli/compiler/build/native/nativeCompile/norm.exe",
+    "executable": "norm.exe"
+  },
+  {
+    "runner": "ubuntu-22.04",
+    "target": "linux-x64",
+    "platform": "linux-x64",
+    "binary": "cli/compiler/build/native/nativeCompile/norm",
+    "executable": "norm"
+  },
+  {
+    "runner": "macos-15",
+    "target": "darwin-arm64",
+    "platform": "macos-arm64",
+    "binary": "cli/compiler/build/native/nativeCompile/norm",
+    "executable": "norm"
+  }
+]

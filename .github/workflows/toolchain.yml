@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/toolchain.yml'
       - '.github/workflows/release.yml'
-      - 'tool/**'
+      - 'cli/**'
       - 'norm/**'
       - 'docs/examples/**'
       - 'gradle/**'
@@ -18,7 +18,7 @@ on:
     paths:
       - '.github/workflows/toolchain.yml'
       - '.github/workflows/release.yml'
-      - 'tool/**'
+      - 'cli/**'
       - 'norm/**'
       - 'docs/examples/**'
       - 'gradle/**'
@@ -75,19 +75,19 @@ jobs:
 
       - name: Verify CLI entry point
         run: |
-          ./gradlew :cli:run --args="--version" --no-daemon
-          ./gradlew :cli:run --args="run docs/examples/hello.norm" --no-daemon
+          ./gradlew :compiler:run --args="--version" --no-daemon
+          ./gradlew :compiler:run --args="run docs/examples/hello.norm" --no-daemon
 
       - name: Build native CLI
         if: matrix.native
-        run: ./gradlew :cli:nativeCompile --no-daemon
+        run: ./gradlew :compiler:nativeCompile --no-daemon
 
       - name: Verify native CLI and language server
         if: matrix.native
         env:
-          NORM_CLI: ${{ github.workspace }}/tool/cli/app/build/native/nativeCompile/norm
+          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/native/nativeCompile/norm
         run: |
           NORM_VERSION="$(./gradlew properties --no-daemon --console=plain -q | sed -n 's/^version: //p')"
           test -n "$NORM_VERSION"
-          node tool/cli/scripts/verify-cli.mjs "$NORM_CLI" "$NORM_VERSION"
-          npm run --prefix tool/cli/extensions/vscode smoke:lsp
+          node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "$NORM_VERSION"
+          npm run --prefix cli/extensions/vscode smoke:lsp

@@ -14,8 +14,8 @@ Norm uses distinct language constructs for distinct semantics: classes express i
 
 ```shell
 ./gradlew qualityCheck
-./gradlew :cli:run --args="--version"
-./gradlew :cli:run --args="run docs/examples/hello.norm"
+./gradlew :compiler:run --args="--version"
+./gradlew :compiler:run --args="run docs/examples/hello.norm"
 ```
 
 On Windows, use `gradlew.bat`. Gradle selects the pinned Java 25 toolchain automatically.
@@ -33,13 +33,9 @@ After GitHub Pages deployment, the documentation is available at:
 ## Repository layout
 
 ```text
-tool/core/                    Compiler frontend and canonical Core IR
-tool/execution-api/           Backend-neutral execution contract
-tool/platform-jdk/            JDK-backed system capability implementation
-tool/project-system/          Project loading and standard-library bootstrap
-tool/truffle-backend/         Truffle backend and runtime composition
-tool/cli/app/                 command-line application and language server
-tool/cli/extensions/          editor extensions
+cli/                         command-line product
+  compiler/                  Java compiler, runtime, CLI, and language server
+  extensions/                editor extensions
 norm/stdlib/                  standard library written in Norm
 norm/tests/                   executable Norm test programs
 docs/                         documentation site
@@ -48,6 +44,6 @@ norm/tests/docs/              executable documentation examples
 
 ## Implementation strategy
 
-Norm's official toolchain is implemented in Java. GraalVM/Truffle is the sole official execution backend, and GraalVM Native Image produces the standalone `norm` CLI. Zig is not part of the compiler, runtime, backend, CLI, or core standard-library adapters.
+Norm's official compiler is implemented in Java as one physical module whose packages preserve the compilation and execution boundaries. GraalVM/Truffle is the sole official execution backend, and GraalVM Native Image produces the standalone `norm` CLI. Zig is not part of the compiler or standard-library platform adapters.
 
 The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://w0fv1.github.io/Norm/spec/compiler-design) and [implementation strategy](https://w0fv1.github.io/Norm/design/implementation-strategy).

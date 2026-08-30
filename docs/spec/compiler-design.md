@@ -2,7 +2,7 @@
 
 Norm 官方编译器使用 Java 实现。`.norm` 源码是项目的 authoring source，名称解析和类型检查之后生成确定性的 content-addressed Core IR；Truffle 是 Core 的唯一执行后端。技术栈由[实现策略决议](/design/implementation-strategy)固定，工程依赖规则见[工具链开发规范](/design/toolchain-development)。
 
-`dev.w0fv1.norm.abi` 是前端、Core 与后端共享的无状态叶子层。`tool/core/src/main/abi/builtin-abi.json` 是 intrinsic、异常布局和运行时 shape 的声明式来源，构建生成 Java ABI 与指纹；semantic 不依赖 Core 或 builtin catalog，builtin 通过 `BuiltinSemanticIndex` 向语义快照提供只读成员视图。
+`dev.w0fv1.norm.abi` 是前端、Core 与后端共享的无状态叶子层。`cli/compiler/stdlib-abi.json` 是 intrinsic、异常布局和运行时 shape 的声明式来源，构建生成 Java ABI 与指纹；semantic 不依赖 Core 或 builtin catalog，builtin 通过 `BuiltinSemanticIndex` 向语义快照提供只读成员视图。
 
 ```text
 ProjectEnvironment
@@ -21,7 +21,7 @@ ProjectEnvironment
 
 ## 项目与前端
 
-`ProjectEnvironment` 先用 bootstrap 协议求值标准库的 `module.norm`，再建立共享标准库 prelude。`ProjectLoader` 递归求值 `Module module()` 返回的精确依赖图，并建立不可变 `ProjectSourceSet`。模块配置与业务程序分别编译，配置 artifact 不进入业务 Core 依赖图。CLI、Language Server、Polyglot 入口和测试工具共享 `tool/project-system` 中的生命周期。`CompilationScope` 统一携带每个源码文档的模块名、版本、相对路径和模块直接读取边，Analyzer 与语言服务共同使用这一个可见性模型。模块规则见[模块系统](/spec/module-system)。
+`ProjectEnvironment` 先用 bootstrap 协议求值标准库的 `module.norm`，再建立共享标准库 prelude。`ProjectLoader` 递归求值 `Module module()` 返回的精确依赖图，并建立不可变 `ProjectSourceSet`。模块配置与业务程序分别编译，配置 artifact 不进入业务 Core 依赖图。CLI、Language Server、Polyglot 入口和测试工具共享 `compiler` 的 `project` package 中的生命周期。`CompilationScope` 统一携带每个源码文档的模块名、版本、相对路径和模块直接读取边，Analyzer 与语言服务共同使用这一个可见性模型。模块规则见[模块系统](/spec/module-system)。
 
 Lexer 与 Parser 建立带源码位置的语法树。语义流水线先从全部语法树构造只读声明索引，再以不可变 `SemanticAnalysisInput` 建立一次分析独占的 `SemanticAnalysisContext`。`ImportResolver` 返回 alias 与绑定增量，`VisibilityResolver` 只读构造文件作用域和可导出符号；类型关系、表达式/调用、注解与构造器流分别由组合式 `TypeSystem`、`ExpressionChecker`、`AnnotationChecker` 和 `ConstructorFlowAnalyzer` 处理。完整项目分析产生不可变 `SemanticModel`；普通调用由 `ResolvedCall` 保存精确目标、实例化形参、类型实参、实参映射与结果类型。Binder、签名帮助、导航和引用索引共同读取这份结果，authoring snapshot 到此结束，执行编译才物化 Core。
 
@@ -51,7 +51,7 @@ Lexer 与 Parser 建立带源码位置的语法树。语义流水线先从全部
 
 `CoreBuilder` 把 resolved representation 转成强类型 `CoreDefinition`。callable、aggregate、enum、interface、interface method 与 builtin conformance 使用同一内容定义模型；调用、构造、enum variant、interface witness、用户类型和字段 owner 都先成为 `PendingDefinitionReference`。`CoreCanonicalizer` 遍历签名、泛型 bound、interface 关系、局部类型、运行时类型、字段和可执行表达式建立完整依赖图，并对强连通分量进行规范化：分量内引用使用成员索引，分量外引用使用完整 `DefinitionId`。整个递归组由 `DefinitionGroupId` 标识，成员由 group identity 与规范成员索引标识。
 
-`tool/core/src/main/ir/bound-core-schema.json` 是 Bound/Core 共同节点族的映射来源，构建生成 `IrSchema`；契约测试同时校验两层 sealed hierarchy，并以 Core traversal fixture 约束 codec、walker 与 rewriter 的覆盖。
+Bound 到 Core 的转换由 `BoundCoreBodyConverter` 对 sealed hierarchy 进行穷尽匹配，新增节点必须同时完成转换才能通过编译；Core traversal fixture 约束 codec、walker 与 rewriter 的覆盖。
 
 规范化 refinement 同时使用带位置的出边和入边结构，并跳过已证明属于同一 automorphism 的搜索分支。搜索预算保留为对抗性图的资源边界；component 大小、refinement、搜索、memo 和 automorphism 剪枝统一进入 `CoreBuildReport`。
 

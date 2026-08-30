@@ -5,18 +5,14 @@ This standard defines code organization, dependency direction, and backend rules
 ## Repository boundaries
 
 ```text
-tool/core/             compiler frontend and canonical Core
-tool/execution-api/    backend-neutral execution contracts
-tool/platform-jdk/     JDK-backed system capability implementation
-tool/project-system/   standard-library bootstrap, module configuration, and project launch
-tool/truffle-backend/  Core lowering and Truffle execution
-tool/cli/app/          command-line and Language Server lifecycle
-tool/cli/extensions/   editor extensions
+cli/                  command-line product
+  compiler/           Java compiler, execution runtime, CLI, and Language Server
+  extensions/         editor extensions
 norm/stdlib/           standard-library sources written in Norm
 norm/tests/            executable Norm acceptance programs
 ```
 
-Gradle modules separate compilation, execution contracts, project lifecycle, the backend, and host tools. Cross-layer data uses the strongly typed public model owned by the lower layer.
+`compiler` is the only Gradle and JPMS module. Domain packages provide the layers, cross-layer data uses the strongly typed model owned by the lower layer, and architecture tests prohibit reverse dependencies.
 
 ## Core packages
 
@@ -33,7 +29,7 @@ dev.w0fv1.norm.language     language services over semantic snapshots
 dev.w0fv1.norm.value        immutable cross-phase data
 ```
 
-`execution-api` owns `ExecutionBackend`, `ExecutionContext`, `SystemPlatform`, and structured runtime errors. `platform-jdk` owns the JDK implementations of filesystem and other host system capabilities. `project-system` owns `ProjectEnvironment`, `ProjectLoader`, and `ProjectLauncher`. `truffle-backend` owns lowering, executable nodes, runtime representations, and the Norm system-exception bridge.
+Inside `compiler`, `execution` owns `ExecutionBackend`, `ExecutionContext`, and structured runtime errors; `platform` owns backend-neutral file, HTTP, and time contracts while `platform.jdk` implements them; `project` owns `ProjectEnvironment`, `ProjectLoader`, and `ProjectLauncher`; and `truffle` owns lowering, executable nodes, runtime representations, and the Norm system-exception bridge.
 
 The required stage dependency constraints are:
 
@@ -41,10 +37,11 @@ The required stage dependency constraints are:
 frontend ⇏ truffle
 core ⇏ frontend, truffle
 Lowerer → core
-project-system → execution-api → core
-platform-jdk → execution-api
-truffle-backend → platform-jdk, project-system, execution-api, core
-CLI → platform-jdk, project-system, truffle-backend
+execution → core
+project → execution → platform contracts
+truffle → project, execution, platform contracts, core
+platform.jdk → platform contracts
+CLI → project, execution, platform.jdk, frontend, language
 ```
 
 `⇏` denotes a forbidden dependency. `bound` is confined to the frontend conversion into Core. The lowerer consumes Core and has no dependency on the Syntax AST, `SemanticModel`, or `bound`. The CLI does not access internal Truffle nodes. New packages follow domain ownership and share existing semantic tables.
@@ -66,7 +63,7 @@ Editor features use `core`'s `LanguageService` and immutable semantic snapshots 
 ## Naming and visibility
 
 - The package already supplies the language context, so types do not repeat a `Norm` prefix. Use domain names such as `Compiler`, `Analyzer`, `Lowerer`, and `ProgramRunner`.
-- Only external APIs are public. Lexer, Parser, Analyzer, Truffle nodes, and runtime representations remain module-internal.
+- Only genuine process or extension contracts form an external API. Lexer, Parser, Analyzer, Truffle nodes, and runtime representations remain module-internal.
 - `value` contains immutable cross-phase data. Data with a strong domain remains in that domain; the Syntax AST belongs to `syntax`.
 - `utils` is limited to static, stateless, independently reusable tools. Lifecycle, I/O, and mutable state do not belong there.
 - Each concept has one representation. Parallel legacy ASTs, temporary IRs, and secondary execution paths are prohibited.
@@ -105,7 +102,7 @@ Each function owns a `FunctionRootNode` and `CallTarget`. Static function and me
 - Add or migrate a failing test before changing implementation.
 - Test packages mirror production packages; testing does not justify wider visibility.
 - Syntax and execution changes cover diagnostics and the single-file and module programs under `norm/tests`.
-- Run affected module tests during development and formatting checks before submission. Full release verification is reserved for releases.
+- Run affected package tests during development and formatting checks before submission. Full release verification is reserved for releases.
 - Backend changes cover both the registered Polyglot language and execution of a real `.norm` file through the CLI.
 
 Acceptance-test domains, layout, naming, discovery entry points, and commands are defined in one place by [`norm/tests/README.md`](https://github.com/w0fv1/norm/blob/main/norm/tests/README.md).
