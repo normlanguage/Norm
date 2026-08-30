@@ -25,6 +25,6 @@
     "vitepress": "^1.6.4"
   },
   "dependencies": {
-    "markdown-it": "^14.1.0"
+    "markdown-it": "^15.0.0"
   }
 }
