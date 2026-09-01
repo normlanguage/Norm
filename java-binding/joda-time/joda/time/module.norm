@@ -1,0 +1,434 @@
+Module module() {
+  return module(
+    name: "joda.time",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "joda-time",
+        artifact: "joda-time",
+        version: "2.14.3", resolution: sha256("43533e9df6431839d0865c897d7d43a9ca75378a52b7f60b3e08b037a5c94986")
+      ),
+      api: [
+        jarType(
+          name: "DateTime",
+          members: [
+            "getDayOfMonth",
+            "getDayOfWeek",
+            "getHourOfDay",
+            "getMillis",
+            "getMinuteOfHour",
+            "getMonthOfYear",
+            "getSecondOfMinute",
+            "getYear",
+            "getZone",
+            "minusDays",
+            "minusHours",
+            "minusMinutes",
+            "minusMonths",
+            "minusSeconds",
+            "minusWeeks",
+            "minusYears",
+            "now",
+            "plusDays",
+            "plusHours",
+            "plusMinutes",
+            "plusMonths",
+            "plusSeconds",
+            "plusWeeks",
+            "plusYears",
+            "toLocalDate",
+            "toLocalDateTime",
+            "toLocalTime",
+            "withDate",
+            "withTime",
+            "withTimeAtStartOfDay",
+            "withZone",
+            "withZoneRetainFields"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["long"]),
+            jarOverload(name: "new", parameterTypes: ["int", "int", "int", "int", "int"]),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Instant",
+          members: [
+            "EPOCH",
+            "getMillis",
+            "now",
+            "ofEpochMilli",
+            "ofEpochSecond",
+            "toDateTime",
+            "withMillis"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["long"]),
+            jarOverload(name: "minus", parameterTypes: ["long"]),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "plus", parameterTypes: ["long"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "LocalDate",
+          members: [
+            "getDayOfMonth",
+            "getDayOfWeek",
+            "getDayOfYear",
+            "getMonthOfYear",
+            "getYear",
+            "minusDays",
+            "minusMonths",
+            "minusWeeks",
+            "minusYears",
+            "now",
+            "plusDays",
+            "plusMonths",
+            "plusWeeks",
+            "plusYears",
+            "toDateTimeAtStartOfDay",
+            "toInterval",
+            "withDayOfMonth",
+            "withMonthOfYear",
+            "withYear"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["int", "int", "int"]),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "LocalDateTime",
+          members: [
+            "getDayOfMonth",
+            "getDayOfWeek",
+            "getHourOfDay",
+            "getMinuteOfHour",
+            "getMonthOfYear",
+            "getSecondOfMinute",
+            "getYear",
+            "minusDays",
+            "minusHours",
+            "minusMinutes",
+            "minusMonths",
+            "minusSeconds",
+            "minusWeeks",
+            "minusYears",
+            "now",
+            "plusDays",
+            "plusHours",
+            "plusMinutes",
+            "plusMonths",
+            "plusSeconds",
+            "plusWeeks",
+            "plusYears",
+            "toDateTime",
+            "toLocalDate",
+            "toLocalTime",
+            "withDate",
+            "withTime"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["int", "int", "int", "int", "int"]),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "LocalTime",
+          members: [
+            "MIDNIGHT",
+            "fromMillisOfDay",
+            "getHourOfDay",
+            "getMillisOfDay",
+            "getMinuteOfHour",
+            "getSecondOfMinute",
+            "minusHours",
+            "minusMinutes",
+            "minusSeconds",
+            "now",
+            "plusHours",
+            "plusMinutes",
+            "plusSeconds",
+            "toDateTimeToday",
+            "withHourOfDay",
+            "withMinuteOfHour",
+            "withSecondOfMinute"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["int", "int"]),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "DateTimeZone",
+          members: ["UTC", "forOffsetHours", "getDefault", "getID", "isFixed"],
+          overloads: [
+            jarOverload(name: "forID", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "getOffset", parameterTypes: ["long"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Interval",
+          members: [
+            "abuts",
+            "gap",
+            "getEnd",
+            "getStart",
+            "overlap",
+            "overlaps",
+            "parse",
+            "toDuration",
+            "toDurationMillis",
+            "withEndMillis",
+            "withStartMillis"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["long", "long"]),
+            jarOverload(name: "contains", parameterTypes: ["long"]),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Duration",
+          members: [
+            "ZERO",
+            "abs",
+            "getMillis",
+            "getStandardDays",
+            "getStandardHours",
+            "getStandardMinutes",
+            "getStandardSeconds",
+            "millis",
+            "multipliedBy",
+            "negated",
+            "parse",
+            "standardDays",
+            "standardHours",
+            "standardMinutes",
+            "standardSeconds"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: ["long"]),
+            jarOverload(name: "dividedBy", parameterTypes: ["long"]),
+            jarOverload(name: "minus", parameterTypes: ["long"]),
+            jarOverload(name: "plus", parameterTypes: ["long"])
+          ]
+        ),
+        jarType(
+          name: "Period",
+          members: [
+            "ZERO",
+            "days",
+            "getDays",
+            "getHours",
+            "getMillis",
+            "getMinutes",
+            "getMonths",
+            "getSeconds",
+            "getWeeks",
+            "getYears",
+            "hours",
+            "millis",
+            "minutes",
+            "months",
+            "multipliedBy",
+            "negated",
+            "normalizedStandard",
+            "plusDays",
+            "plusHours",
+            "plusMillis",
+            "plusMinutes",
+            "plusMonths",
+            "plusSeconds",
+            "plusWeeks",
+            "plusYears",
+            "seconds",
+            "toStandardDuration",
+            "weeks",
+            "years"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"])
+          ]
+        ),
+        jarType(
+          name: "Days",
+          members: [
+            "ONE",
+            "ZERO",
+            "days",
+            "daysIn",
+            "dividedBy",
+            "getDays",
+            "isGreaterThan",
+            "isLessThan",
+            "minus",
+            "multipliedBy",
+            "negated",
+            "parseDays",
+            "plus",
+            "standardDaysIn",
+            "toStandardDuration"
+          ],
+          overloads: [
+            jarOverload(
+              name: "daysBetween",
+              parameterTypes: ["org.joda.time.ReadablePartial", "org.joda.time.ReadablePartial"]
+            ),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Months",
+          members: [
+            "ONE",
+            "ZERO",
+            "dividedBy",
+            "getMonths",
+            "isGreaterThan",
+            "isLessThan",
+            "minus",
+            "months",
+            "monthsIn",
+            "multipliedBy",
+            "negated",
+            "parseMonths",
+            "plus"
+          ],
+          overloads: [
+            jarOverload(
+              name: "monthsBetween",
+              parameterTypes: ["org.joda.time.ReadablePartial", "org.joda.time.ReadablePartial"]
+            ),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Years",
+          members: [
+            "ONE",
+            "ZERO",
+            "dividedBy",
+            "getYears",
+            "isGreaterThan",
+            "isLessThan",
+            "minus",
+            "multipliedBy",
+            "negated",
+            "parseYears",
+            "plus",
+            "years",
+            "yearsIn"
+          ],
+          overloads: [
+            jarOverload(
+              name: "yearsBetween",
+              parameterTypes: ["org.joda.time.ReadablePartial", "org.joda.time.ReadablePartial"]
+            ),
+            jarOverload(name: "toString", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "DateTimeConstants",
+          members: [
+            "APRIL",
+            "AUGUST",
+            "DAYS_PER_WEEK",
+            "DECEMBER",
+            "FEBRUARY",
+            "FRIDAY",
+            "HOURS_PER_DAY",
+            "JANUARY",
+            "JULY",
+            "JUNE",
+            "MARCH",
+            "MAY",
+            "MILLIS_PER_DAY",
+            "MILLIS_PER_HOUR",
+            "MILLIS_PER_MINUTE",
+            "MILLIS_PER_SECOND",
+            "MINUTES_PER_HOUR",
+            "MONDAY",
+            "NOVEMBER",
+            "OCTOBER",
+            "SATURDAY",
+            "SECONDS_PER_MINUTE",
+            "SEPTEMBER",
+            "SUNDAY",
+            "THURSDAY",
+            "TUESDAY",
+            "WEDNESDAY"
+          ]
+        ),
+        jarType(
+          name: "DateTimeFormat",
+          members: [
+            "forPattern",
+            "forStyle",
+            "fullDate",
+            "fullDateTime",
+            "fullTime",
+            "longDate",
+            "longDateTime",
+            "longTime",
+            "mediumDate",
+            "mediumDateTime",
+            "mediumTime",
+            "shortDate",
+            "shortDateTime",
+            "shortTime"
+          ]
+        ),
+        jarType(
+          name: "DateTimeFormatter",
+          members: [
+            "getDefaultYear",
+            "getZone",
+            "isOffsetParsed",
+            "isParser",
+            "isPrinter",
+            "parseDateTime",
+            "parseLocalDate",
+            "parseLocalDateTime",
+            "parseLocalTime",
+            "parseMillis",
+            "withDefaultYear",
+            "withOffsetParsed",
+            "withZone",
+            "withZoneUTC"
+          ],
+          overloads: [
+            jarOverload(name: "print", parameterTypes: ["org.joda.time.ReadableInstant"]),
+            jarOverload(name: "print", parameterTypes: ["org.joda.time.ReadablePartial"])
+          ]
+        ),
+        jarType(
+          name: "ISODateTimeFormat",
+          members: [
+            "basicDate",
+            "basicDateTime",
+            "date",
+            "dateOptionalTimeParser",
+            "dateParser",
+            "dateTime",
+            "dateTimeNoMillis",
+            "dateTimeParser",
+            "localDateOptionalTimeParser",
+            "localDateParser",
+            "localTimeParser",
+            "time",
+            "timeNoMillis",
+            "timeParser"
+          ]
+        )
+      ]
+    )
+  )
+}
