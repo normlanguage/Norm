@@ -37,12 +37,57 @@ final class ModuleEvaluator implements AutoCloseable {
               dependencyNames.add(requirement.name())
               dependencyVersions.add(requirement.version())
             }
+            String bindingSource = ""
+            String bindingPath = ""
+            String bindingGroup = ""
+            String bindingArtifact = ""
+            String bindingVersion = ""
+            String bindingDigest = ""
+            List<String> bindingApiTypes = []
+            List<List<String>> bindingApiMembers = []
+            List<List<String>> bindingApiOverloadNames = []
+            List<List<List<String>>> bindingApiOverloadParameterTypes = []
+            JarBinding? binding = definition.binding()
+            if binding != null {
+              JarTarget target = binding.target()
+              bindingSource = target.source()
+              bindingPath = target.path()
+              bindingGroup = target.group()
+              bindingArtifact = target.artifact()
+              bindingVersion = target.version()
+              ContentDigest? digest = target.digest()
+              if digest != null {
+                bindingDigest = digest.value()
+              }
+              for JarType type : binding.api() {
+                bindingApiTypes.add(type.name())
+                bindingApiMembers.add(type.members())
+                List<String> overloadNames = []
+                List<List<String>> overloadParameterTypes = []
+                for JarOverload overload : type.overloads() {
+                  overloadNames.add(overload.name())
+                  overloadParameterTypes.add(overload.parameterTypes())
+                }
+                bindingApiOverloadNames.add(overloadNames)
+                bindingApiOverloadParameterTypes.add(overloadParameterTypes)
+              }
+            }
             __publishModule(
               name: definition.name(),
               version: definition.version(),
               exports: definition.exports(),
               dependencyNames: dependencyNames,
-              dependencyVersions: dependencyVersions
+              dependencyVersions: dependencyVersions,
+              bindingSource: bindingSource,
+              bindingPath: bindingPath,
+              bindingGroup: bindingGroup,
+              bindingArtifact: bindingArtifact,
+              bindingVersion: bindingVersion,
+              bindingDigest: bindingDigest,
+              bindingApiTypes: bindingApiTypes,
+              bindingApiMembers: bindingApiMembers,
+              bindingApiOverloadNames: bindingApiOverloadNames,
+              bindingApiOverloadParameterTypes: bindingApiOverloadParameterTypes
             )
           }
           """);

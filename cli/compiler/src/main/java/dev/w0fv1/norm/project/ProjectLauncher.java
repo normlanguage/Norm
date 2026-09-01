@@ -3,6 +3,7 @@ package dev.w0fv1.norm.project;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
 import dev.w0fv1.norm.value.CompilationResult;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -21,17 +22,24 @@ public final class ProjectLauncher implements AutoCloseable {
 
   public CompilationResult compile(Path entry) throws IOException {
     ProjectSourceSet sourceSet = projects.load(entry);
-    return compiler.compile(sourceSet.applicationCompilationRequest(entry));
+    return compile(entry, sourceSet);
   }
 
   public CompilationResult run(Path entry, ExecutionContext context) throws IOException {
-    CompilationResult result = compile(entry);
+    ProjectSourceSet sourceSet = projects.load(entry);
+    CompilationResult result = compile(entry, sourceSet);
     if (result.isSuccess()) {
-      backend.execute(
-          result.program().orElseThrow().compilation().artifact(),
-          Objects.requireNonNull(context, "context"));
+      try (JvmJarBindingRuntime runtime = new JvmJarBindingRuntime(sourceSet.jarBindings())) {
+        backend.execute(
+            result.program().orElseThrow().compilation().artifact(),
+            Objects.requireNonNull(context, "context").withJarBindingRuntime(runtime));
+      }
     }
     return result;
+  }
+
+  private CompilationResult compile(Path entry, ProjectSourceSet sourceSet) throws IOException {
+    return compiler.compile(sourceSet.applicationCompilationRequest(entry));
   }
 
   @Override

@@ -567,6 +567,7 @@ final class ExpressionNodes {
     @Children private final ExpressionNode[] captures;
     @Children private final ExpressionNode[] reifiedArguments;
     @Children private final ExpressionNode[] receiverTypeArguments;
+    private final CoreType functionType;
 
     Closure(
         CallTarget target,
@@ -576,7 +577,8 @@ final class ExpressionNodes {
         ExpressionNode receiver,
         ExpressionNode[] captures,
         ExpressionNode[] reifiedArguments,
-        ExpressionNode[] receiverTypeArguments) {
+        ExpressionNode[] receiverTypeArguments,
+        CoreType functionType) {
       this.target = target;
       this.declaration = declaration;
       this.virtualSlot = virtualSlot;
@@ -585,6 +587,7 @@ final class ExpressionNodes {
       this.captures = captures;
       this.reifiedArguments = reifiedArguments;
       this.receiverTypeArguments = receiverTypeArguments;
+      this.functionType = functionType;
     }
 
     @Override
@@ -625,7 +628,8 @@ final class ExpressionNodes {
           receiverValue,
           values,
           ownerArguments,
-          reified);
+          reified,
+          functionType);
     }
   }
 

@@ -16,6 +16,7 @@ public final class ExecutionContext {
   private final List<String> arguments;
   private final BooleanSupplier cancellation;
   private final Optional<ModulePublisher> modulePublisher;
+  private final JarBindingRuntime jarBindingRuntime;
   private final SystemPlatform platform;
 
   private ExecutionContext(Builder builder) {
@@ -25,6 +26,7 @@ public final class ExecutionContext {
     arguments = List.copyOf(builder.arguments);
     cancellation = Objects.requireNonNull(builder.cancellation, "cancellation");
     modulePublisher = Optional.ofNullable(builder.modulePublisher);
+    jarBindingRuntime = Objects.requireNonNull(builder.jarBindingRuntime, "jarBindingRuntime");
     platform = Objects.requireNonNull(builder.platform, "platform");
   }
 
@@ -81,6 +83,14 @@ public final class ExecutionContext {
     return platform;
   }
 
+  public JarBindingRuntime jarBindingRuntime() {
+    return jarBindingRuntime;
+  }
+
+  public ExecutionContext withJarBindingRuntime(JarBindingRuntime value) {
+    return new Builder(this).jarBindingRuntime(value).build();
+  }
+
   public static final class Builder {
     private Reader input = Reader.nullReader();
     private PrintWriter output = new PrintWriter(Writer.nullWriter());
@@ -88,9 +98,21 @@ public final class ExecutionContext {
     private List<String> arguments = List.of();
     private BooleanSupplier cancellation = () -> false;
     private ModulePublisher modulePublisher;
+    private JarBindingRuntime jarBindingRuntime = JarBindingRuntime.unavailable();
     private SystemPlatform platform = SystemPlatform.unavailable();
 
     private Builder() {}
+
+    private Builder(ExecutionContext context) {
+      input = context.input;
+      output = context.output;
+      expectedOutput = context.expectedOutput;
+      arguments = context.arguments;
+      cancellation = context.cancellation;
+      modulePublisher = context.modulePublisher.orElse(null);
+      jarBindingRuntime = context.jarBindingRuntime;
+      platform = context.platform;
+    }
 
     public Builder input(Reader value) {
       input = Objects.requireNonNull(value, "value");
@@ -119,6 +141,11 @@ public final class ExecutionContext {
 
     public Builder modulePublisher(ModulePublisher value) {
       modulePublisher = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder jarBindingRuntime(JarBindingRuntime value) {
+      jarBindingRuntime = Objects.requireNonNull(value, "value");
       return this;
     }
 

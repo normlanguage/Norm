@@ -1,0 +1,32 @@
+package dev.w0fv1.norm.jvm;
+
+public enum JavaReferenceKind {
+  OBJECT,
+  CLASS,
+  ENUM,
+  OPTIONAL,
+  OPTIONAL_INT,
+  OPTIONAL_LONG,
+  OPTIONAL_DOUBLE,
+  ITERABLE,
+  ITERATOR,
+  COLLECTION,
+  LIST,
+  SET,
+  MAP,
+  STRING,
+  UNIT,
+  CHAR_SEQUENCE,
+  CHARSET,
+  NUMBER,
+  EXCEPTION,
+  RESOURCE,
+  INPUT_STREAM,
+  OUTPUT_STREAM,
+  TASK,
+  DURATION,
+  URI,
+  PATH,
+  FILE,
+  OPAQUE
+}

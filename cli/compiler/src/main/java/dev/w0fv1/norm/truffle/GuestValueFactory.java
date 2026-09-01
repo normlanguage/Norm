@@ -2,11 +2,15 @@ package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.nodes.Node;
+import dev.w0fv1.norm.abi.ExceptionAbi;
 import dev.w0fv1.norm.abi.FileExceptionAbi;
+import dev.w0fv1.norm.abi.FilesystemPathAbi;
 import dev.w0fv1.norm.abi.HttpExceptionAbi;
+import dev.w0fv1.norm.abi.HttpUriAbi;
 import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.abi.JsonAbi;
 import dev.w0fv1.norm.abi.OpaqueValueAbi;
+import dev.w0fv1.norm.abi.TimeDurationAbi;
 import dev.w0fv1.norm.abi.TimeExceptionAbi;
 import dev.w0fv1.norm.abi.XmlAbi;
 import dev.w0fv1.norm.abi.YamlAbi;
@@ -17,6 +21,11 @@ import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
+import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.execution.JarBindingDuration;
+import dev.w0fv1.norm.execution.JarBindingEnumValue;
+import dev.w0fv1.norm.execution.JarBindingPath;
+import dev.w0fv1.norm.execution.JarBindingUri;
 import dev.w0fv1.norm.platform.file.PlatformFileException;
 import dev.w0fv1.norm.platform.http.PlatformHttpException;
 import dev.w0fv1.norm.platform.time.PlatformTimeException;
@@ -72,6 +81,7 @@ final class GuestValueFactory {
   private final Map<Key, AggregatePlan> aggregates;
   private final Map<DefinitionId, AggregatePlan> aggregatesByDefinition;
   private final Map<Key, EnumPlan> enums;
+  private final Map<DefinitionId, EnumPlan> enumsByDefinition;
 
   GuestValueFactory(List<AggregatePlan> aggregatePlans, List<EnumPlan> enumPlans) {
     Map<Key, AggregatePlan> indexedAggregates = new LinkedHashMap<>();
@@ -91,6 +101,9 @@ final class GuestValueFactory {
     aggregatePlans.forEach(plan -> indexedDefinitions.putIfAbsent(plan.info().definition(), plan));
     aggregatesByDefinition = Map.copyOf(indexedDefinitions);
     enums = Map.copyOf(indexedEnums);
+    Map<DefinitionId, EnumPlan> indexedEnumDefinitions = new LinkedHashMap<>();
+    enumPlans.forEach(plan -> indexedEnumDefinitions.putIfAbsent(plan.definition(), plan));
+    enumsByDefinition = Map.copyOf(indexedEnumDefinitions);
   }
 
   NormThrownException fileException(
@@ -132,6 +145,98 @@ final class GuestValueFactory {
             failureReason,
             path);
     return new NormThrownException(exception, location);
+  }
+
+  NormThrownException javaException(Throwable failure, ExecutionState execution, Node location) {
+    return new NormThrownException(javaExceptionValue(failure, execution), location);
+  }
+
+  RuntimeValues.ObjectValue javaExceptionValue(Throwable failure, ExecutionState execution) {
+    String message = failure.getMessage();
+    if (message == null) message = failure.getClass().getName();
+    RuntimeValues.ObjectValue exception =
+        construct(
+            ExceptionAbi.MODULE_NAME,
+            ExceptionAbi.MODULE_VERSION,
+            ExceptionAbi.PACKAGE_NAME,
+            ExceptionAbi.TYPE_NAME,
+            execution,
+            message);
+    exception.attachHost(failure);
+    return exception;
+  }
+
+  RuntimeValues.ObjectValue javaExceptionValue(
+      CoreType type, Throwable failure, ExecutionState execution) {
+    String message = failure.getMessage();
+    if (message == null) message = failure.getClass().getName();
+    RuntimeValues.ObjectValue exception = construct(nonNullable(type), execution, message);
+    exception.attachHost(failure);
+    return exception;
+  }
+
+  Object javaArgument(RuntimeValues.ObjectValue value) {
+    if (value.hostValue != null) return value.hostValue;
+    AggregatePlan exception =
+        require(
+            aggregates,
+            ExceptionAbi.MODULE_NAME,
+            ExceptionAbi.MODULE_VERSION,
+            ExceptionAbi.PACKAGE_NAME,
+            ExceptionAbi.TYPE_NAME);
+    if (value.objectInfo.ancestors().contains(exception.info().definition())) {
+      Object field = value.fields[ExceptionAbi.MESSAGE_FIELD_ORDINAL];
+      String message = field instanceof String text ? text : value.objectInfo.name();
+      RuntimeException host = new RuntimeException(message);
+      value.attachHost(host);
+      return host;
+    }
+    AggregatePlan path =
+        require(
+            aggregates,
+            FilesystemPathAbi.MODULE_NAME,
+            FilesystemPathAbi.MODULE_VERSION,
+            FilesystemPathAbi.PACKAGE_NAME,
+            FilesystemPathAbi.TYPE_NAME);
+    if (value.objectInfo.definition().equals(path.info().definition())) {
+      return new JarBindingPath((String) value.fields[FilesystemPathAbi.VALUE_FIELD_ORDINAL]);
+    }
+    AggregatePlan uri =
+        require(
+            aggregates,
+            HttpUriAbi.MODULE_NAME,
+            HttpUriAbi.MODULE_VERSION,
+            HttpUriAbi.PACKAGE_NAME,
+            HttpUriAbi.TYPE_NAME);
+    if (value.objectInfo.definition().equals(uri.info().definition())) {
+      return new JarBindingUri((String) value.fields[HttpUriAbi.VALUE_FIELD_ORDINAL]);
+    }
+    AggregatePlan duration =
+        require(
+            aggregates,
+            TimeDurationAbi.MODULE_NAME,
+            TimeDurationAbi.MODULE_VERSION,
+            TimeDurationAbi.PACKAGE_NAME,
+            TimeDurationAbi.TYPE_NAME);
+    if (value.objectInfo.definition().equals(duration.info().definition())) {
+      return new JarBindingDuration(
+          (Long) value.fields[TimeDurationAbi.SECONDS_FIELD_ORDINAL],
+          (Integer) value.fields[TimeDurationAbi.NANOSECONDS_FIELD_ORDINAL]);
+    }
+    return value;
+  }
+
+  RuntimeValues.ObjectValue javaPathValue(CoreType type, String value, ExecutionState execution) {
+    return construct(nonNullable(type), execution, value);
+  }
+
+  RuntimeValues.ObjectValue javaUriValue(CoreType type, String value, ExecutionState execution) {
+    return construct(nonNullable(type), execution, value);
+  }
+
+  RuntimeValues.ObjectValue javaDurationValue(
+      CoreType type, long seconds, int nanoseconds, ExecutionState execution) {
+    return construct(nonNullable(type), execution, seconds, nanoseconds);
   }
 
   NormThrownException timeException(
@@ -282,6 +387,9 @@ final class GuestValueFactory {
 
   RuntimeValues.OpaqueValue opaque(CoreType type, Object value, String displayName) {
     CoreType concrete = nonNullable(type);
+    if (concrete.equals(CoreType.ANY)) {
+      return new RuntimeValues.OpaqueValue(concrete, value, displayName);
+    }
     AggregatePlan plan = requireAggregate(concrete);
     return new RuntimeValues.OpaqueValue(concrete, value, displayName, plan.info());
   }
@@ -296,6 +404,32 @@ final class GuestValueFactory {
             identity.packageName(),
             identity.typeName());
     return new RuntimeValues.OpaqueValue(plan.type(), value, "Bytes", plan.info());
+  }
+
+  RuntimeValues.EnumValue javaEnumValue(CoreType type, String variant) {
+    CoreType concrete = nonNullable(type);
+    if (!(concrete instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+        || !(user.definition() instanceof DefinitionReference.External external)) {
+      throw new IllegalStateException("JAR enum result is not a user enum type");
+    }
+    EnumPlan plan = enumsByDefinition.get(external.definition());
+    if (plan == null || !plan.variants().contains(variant)) {
+      throw new IllegalStateException("JAR enum variant is unavailable: " + variant);
+    }
+    return new RuntimeValues.EnumValue(
+        plan.definition(), concrete, plan.nominal().name(), variant, List.of());
+  }
+
+  JarBindingEnumValue javaEnumArgument(RuntimeValues.EnumValue value) {
+    EnumPlan plan = enumsByDefinition.get(value.definition());
+    if (plan == null || !plan.variants().contains(value.variantKey())) {
+      throw new IllegalStateException("JAR enum argument is unavailable");
+    }
+    return new JarBindingEnumValue(
+        new JarBindingClassReference.Nominal(
+            plan.nominal().module(), plan.nominal().packageName(), plan.nominal().name()),
+        value.variantKey());
   }
 
   RuntimeValues.OpaqueResource resource(

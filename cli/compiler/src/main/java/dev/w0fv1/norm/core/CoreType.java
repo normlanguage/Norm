@@ -10,6 +10,12 @@ public sealed interface CoreType
         CoreType.Parameter,
         CoreType.Reference,
         CoreType.Special {
+  CoreType ANY =
+      new Declared(
+          new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Any")),
+          List.of(),
+          CoreValueCategory.POLYMORPHIC,
+          CoreNullability.NON_NULL);
   CoreType INTEGER =
       new Declared(
           new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Integer")),

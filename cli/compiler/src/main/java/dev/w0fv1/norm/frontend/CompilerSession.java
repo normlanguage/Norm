@@ -341,6 +341,7 @@ public final class CompilerSession implements AutoCloseable {
             previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
             profile.moduleEvaluationDocuments(),
             profile.standardLibraryDocuments(),
+            request.bindingSources(),
             sourceScope,
             declarations);
     FrontendAnalysis analyzed =

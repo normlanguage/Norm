@@ -60,6 +60,45 @@ public interface Resource {
   Void close()
 }
 
+@Document(description: "Adapts a hosted byte input stream to Norm byte I/O and resource ownership.")
+public class InputStream implements ByteReader, Resource {
+  @Document(description: "Reads at most the requested number of bytes or reports end of stream.")
+  public ReadChunk read(
+    @Document(description: "The maximum number of bytes requested from this read.") Integer maximumBytes
+  ) {
+    Bytes? content = __jarInputStreamRead<Bytes>(stream: this, maximumBytes: maximumBytes)
+    if content == null {
+      return ReadChunk.Eof
+    }
+    return ReadChunk.Data(bytes: content)
+  }
+
+  @Document(description: "Closes the input stream and releases its external ownership.")
+  public Void close() {
+    __jarStreamClose(stream: this)
+  }
+}
+
+@Document(description: "Adapts a hosted byte output stream to Norm byte I/O and resource ownership.")
+public class OutputStream implements ByteWriter, Flushable, Resource {
+  @Document(description: "Writes the supplied bytes and returns the accepted byte count.")
+  public Integer write(
+    @Document(description: "The bytes offered to the output stream.") Bytes content
+  ) {
+    return __jarOutputStreamWrite(stream: this, content: content)
+  }
+
+  @Document(description: "Flushes buffered bytes to the next destination.")
+  public Void flush() {
+    __jarOutputStreamFlush(stream: this)
+  }
+
+  @Document(description: "Closes the output stream and releases its external ownership.")
+  public Void close() {
+    __jarStreamClose(stream: this)
+  }
+}
+
 @Document(description: "Reads a complete byte stream without exceeding an explicit size limit.")
 public Bytes readAll(
   @Document(description: "The reader supplying byte chunks.") ByteReader reader,

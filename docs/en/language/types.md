@@ -2,6 +2,8 @@
 
 Norm is statically typed and non-null by default. `T?` explicitly adds null to a type.
 
+`Any` is the static top type for every non-null value, while `Any?` also accepts null. Values widen safely to `Any`; `Any` does not implicitly narrow to a concrete type and exposes no concrete-type members. Interfaces and bounded generics remain the way to require common behavior.
+
 `Integer` and `Long` are signed 32-bit and 64-bit integers. `Float` and `Double` are binary floating-point leaves. Abstract `Number` stores any of those leaves while preserving its concrete runtime representation. Numeric literals use a concrete expected leaf when available; otherwise integers default to `Integer` or `Long` by range and decimal literals default to `Double`.
 
 ```norm

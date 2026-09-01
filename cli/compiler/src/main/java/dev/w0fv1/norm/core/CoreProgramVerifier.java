@@ -1809,12 +1809,13 @@ final class CoreProgramVerifier {
     if (target.hasReceiver()) {
       CoreType actualReceiver = absolute(owner, call.receiver().orElseThrow().type());
       CoreType nonNullableReceiver = nonNullable(actualReceiver);
-      if (!(nonNullableReceiver instanceof CoreType.Declared)) {
+      CoreType dispatchReceiver = effectiveClassReceiver(owner, nonNullableReceiver);
+      if (!(dispatchReceiver instanceof CoreType.Declared declaredReceiver)) {
         throw new IllegalArgumentException("method receiver is not a declared type");
       }
-      verifyMethodDispatch(nonNullableReceiver, targetId, call.virtual(), "call");
+      verifyMethodDispatch(dispatchReceiver, targetId, call.virtual(), "call");
       if (call.receiverTypeArguments().isEmpty()) {
-        substitutions.addAll(((CoreType.Declared) nonNullableReceiver).arguments());
+        substitutions.addAll(declaredReceiver.arguments());
       } else {
         call.receiverTypeArguments().stream()
             .map(CoreRuntimeType::template)
@@ -1823,7 +1824,8 @@ final class CoreProgramVerifier {
       }
       CoreType expectedReceiver =
           absolute(targetId, target.receiverType().orElseThrow()).substitute(substitutions::get);
-      if (!isAssignable(expectedReceiver, nonNullableReceiver)) {
+      if (!isAssignable(expectedReceiver, nonNullableReceiver)
+          && !isAssignable(expectedReceiver, dispatchReceiver)) {
         throw new IllegalArgumentException("method receiver type does not match the target ABI");
       }
       if (!call.nullSafe() && actualReceiver.isNullable()) {
@@ -1837,7 +1839,7 @@ final class CoreProgramVerifier {
     if (substitutions.size() != target.reifiedTypeLocals().size()) {
       throw new IllegalArgumentException("call reified arguments do not match the target ABI");
     }
-    verifyTypeArgumentBounds(targetId, target.typeParameters(), substitutions);
+    verifyTypeArgumentBounds(targetId, target.typeParameters(), substitutions, owner);
     verifyDenseArguments(call.arguments(), target.parameterTypes().size());
     for (CoreArgument argument : call.arguments()) {
       CoreType expected =
@@ -1873,10 +1875,11 @@ final class CoreProgramVerifier {
     if (target.hasReceiver()) {
       if (closure.receiver().isPresent()) {
         CoreType receiver = nonNullable(absolute(owner, closure.receiver().orElseThrow().type()));
-        if (!(receiver instanceof CoreType.Declared declared)) {
+        CoreType dispatchReceiver = effectiveClassReceiver(owner, receiver);
+        if (!(dispatchReceiver instanceof CoreType.Declared declared)) {
           throw new IllegalArgumentException("bound method receiver is not declared");
         }
-        verifyMethodDispatch(receiver, targetId, closure.virtual(), "closure");
+        verifyMethodDispatch(dispatchReceiver, targetId, closure.virtual(), "closure");
         if (closure.receiverTypeArguments().isEmpty()) {
           substitutions.addAll(declared.arguments());
         } else {
@@ -1887,7 +1890,8 @@ final class CoreProgramVerifier {
         }
         CoreType expectedReceiver =
             absolute(targetId, target.receiverType().orElseThrow()).substitute(substitutions::get);
-        if (!isAssignable(expectedReceiver, receiver)) {
+        if (!isAssignable(expectedReceiver, receiver)
+            && !isAssignable(expectedReceiver, dispatchReceiver)) {
           throw new IllegalArgumentException("bound method receiver does not match the target ABI");
         }
       } else {
@@ -1909,7 +1913,7 @@ final class CoreProgramVerifier {
     if (substitutions.size() != target.reifiedTypeLocals().size()) {
       throw new IllegalArgumentException("closure reified arguments do not match the target ABI");
     }
-    verifyTypeArgumentBounds(targetId, target.typeParameters(), substitutions);
+    verifyTypeArgumentBounds(targetId, target.typeParameters(), substitutions, owner);
     for (int index = 0; index < closure.captures().size(); index++) {
       CoreType expected = absolute(targetId, target.captureTypes().get(index));
       if (!substitutions.isEmpty()) expected = expected.substitute(substitutions::get);
@@ -1944,6 +1948,21 @@ final class CoreProgramVerifier {
     if (dispatched != virtual) {
       throw new IllegalArgumentException(subject + " dispatch mode does not match its method slot");
     }
+  }
+
+  private CoreType effectiveClassReceiver(DefinitionId owner, CoreType receiver) {
+    if (!(receiver instanceof CoreType.Parameter parameter)) return receiver;
+    ParameterContext context = typeParameterContext(owner, parameter.index());
+    if (context == null || context.parameter().upperBound().isEmpty()) return receiver;
+    CoreType bound =
+        nonNullable(absolute(context.owner(), context.parameter().upperBound().orElseThrow()));
+    if (!(bound instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+        || !(program.definition(resolveExternal(user.definition())).orElseThrow()
+            instanceof CoreDefinition.Aggregate)) {
+      return receiver;
+    }
+    return bound;
   }
 
   private void verifyInvoke(
@@ -2009,7 +2028,7 @@ final class CoreProgramVerifier {
       throw new IllegalArgumentException(
           "interface call type arguments do not match the requirement ABI");
     }
-    verifyTypeArgumentBounds(requirementId, requirement.typeParameters(), substitutions);
+    verifyTypeArgumentBounds(requirementId, requirement.typeParameters(), substitutions, owner);
     verifyDenseArguments(call.arguments(), requirement.parameterTypes().size());
     for (CoreArgument argument : call.arguments()) {
       CoreType expected =
@@ -2494,21 +2513,121 @@ final class CoreProgramVerifier {
           .ifPresent(
               bound -> {
                 verifyValueType(owner, bound, parameterCount);
-                interfaceInstance(owner, bound);
+                CoreType resolved = absolute(owner, bound);
+                if (resolved.isNullable()) {
+                  throw new IllegalArgumentException(
+                      "type parameter bound must be a non-null class, interface, or type parameter");
+                }
+                if (nonNullable(resolved) instanceof CoreType.Parameter boundParameter) {
+                  if (boundParameter.index() == parameter.index()) {
+                    throw new IllegalArgumentException("cyclic type parameter bound");
+                  }
+                  return;
+                }
+                if (!(nonNullable(resolved) instanceof CoreType.Declared declared)
+                    || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+                  throw new IllegalArgumentException(
+                      "type parameter bound must be a non-null class, interface, or type parameter");
+                }
+                CoreDefinition definition =
+                    program.definition(resolveExternal(user.definition())).orElseThrow();
+                if (!(definition instanceof CoreDefinition.Interface)
+                    && (!(definition instanceof CoreDefinition.Aggregate aggregate)
+                        || aggregate.kind() != CoreAggregateKind.CLASS)) {
+                  throw new IllegalArgumentException(
+                      "type parameter bound must be a non-null class or interface");
+                }
               });
     }
   }
 
   private void verifyTypeArgumentBounds(
-      DefinitionId owner, List<CoreTypeParameter> parameters, List<CoreType> substitutions) {
+      DefinitionId owner,
+      List<CoreTypeParameter> parameters,
+      List<CoreType> substitutions,
+      DefinitionId actualOwner) {
     for (CoreTypeParameter parameter : parameters) {
       if (parameter.upperBound().isEmpty()) continue;
       CoreType expected =
           absolute(owner, parameter.upperBound().orElseThrow()).substitute(substitutions::get);
       CoreType actual = substitutions.get(parameter.index());
+      if (isAssignable(expected, actual)) continue;
+      if (actual instanceof CoreType.Parameter actualParameter) {
+        ParameterContext context = typeParameterContext(actualOwner, actualParameter.index());
+        if (context != null && context.parameter().upperBound().isPresent()) {
+          CoreType actualBound =
+              absolute(context.owner(), context.parameter().upperBound().orElseThrow());
+          if (isAssignable(expected, actualBound)) continue;
+        }
+      }
       requireAssignable(expected, actual, "type argument bound");
     }
   }
+
+  private ParameterContext typeParameterContext(DefinitionId owner, int index) {
+    CoreDefinition definition = program.definition(owner).orElseThrow();
+    if (definition instanceof CoreDefinition.Callable callable) {
+      if (index < callable.receiverTypeParameterCount()) {
+        return receiverTypeParameterContext(owner, callable.receiverType().orElseThrow(), index);
+      }
+      return callable.typeParameters().stream()
+          .filter(parameter -> parameter.index() == index)
+          .findFirst()
+          .map(parameter -> new ParameterContext(owner, parameter))
+          .orElse(null);
+    }
+    if (definition instanceof CoreDefinition.InterfaceMethod method) {
+      CoreType receiver = absolute(owner, method.receiverInterfaceType());
+      int receiverCount =
+          receiver instanceof CoreType.Declared declared ? declared.arguments().size() : 0;
+      if (index < receiverCount) {
+        return receiverTypeParameterContext(owner, method.receiverInterfaceType(), index);
+      }
+      return method.typeParameters().stream()
+          .filter(parameter -> parameter.index() == index)
+          .findFirst()
+          .map(parameter -> new ParameterContext(owner, parameter))
+          .orElse(null);
+    }
+    List<CoreTypeParameter> parameters =
+        switch (definition) {
+          case CoreDefinition.Aggregate aggregate -> aggregate.typeParameters();
+          case CoreDefinition.Interface interfaceDefinition -> interfaceDefinition.typeParameters();
+          case CoreDefinition.Enum enumDefinition -> enumDefinition.typeParameters();
+          case CoreDefinition.BuiltinConformance conformance -> conformance.typeParameters();
+          case CoreDefinition.Callable ignored -> throw new IllegalStateException();
+          case CoreDefinition.InterfaceMethod ignored -> throw new IllegalStateException();
+        };
+    return parameters.stream()
+        .filter(parameter -> parameter.index() == index)
+        .findFirst()
+        .map(parameter -> new ParameterContext(owner, parameter))
+        .orElse(null);
+  }
+
+  private ParameterContext receiverTypeParameterContext(
+      DefinitionId owner, CoreType receiverType, int index) {
+    CoreType receiver = absolute(owner, receiverType);
+    if (!(receiver instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      return null;
+    }
+    DefinitionId receiverOwner = resolveExternal(user.definition());
+    CoreDefinition definition = program.definition(receiverOwner).orElseThrow();
+    List<CoreTypeParameter> parameters =
+        definition instanceof CoreDefinition.Aggregate aggregate
+            ? aggregate.typeParameters()
+            : definition instanceof CoreDefinition.Interface interfaceDefinition
+                ? interfaceDefinition.typeParameters()
+                : List.of();
+    return parameters.stream()
+        .filter(parameter -> parameter.index() == index)
+        .findFirst()
+        .map(parameter -> new ParameterContext(receiverOwner, parameter))
+        .orElse(null);
+  }
+
+  private record ParameterContext(DefinitionId owner, CoreTypeParameter parameter) {}
 
   private void verifyLocalType(DefinitionId owner, CoreLocal local, int parameterCount) {
     if (local.kind() == CoreLocal.Kind.REIFIED_TYPE || local.kind() == CoreLocal.Kind.ITERATOR) {
@@ -2637,7 +2756,7 @@ final class CoreProgramVerifier {
           case CoreDefinition.Interface declaration -> declaration.typeParameters();
           default -> throw new IllegalStateException("nominal definition kind changed");
         };
-    verifyTypeArgumentBounds(targetId, parameters, declared.arguments());
+    verifyTypeArgumentBounds(targetId, parameters, declared.arguments(), owner);
   }
 
   private CoreType declaredArgument(
@@ -2715,12 +2834,40 @@ final class CoreProgramVerifier {
       DefinitionId actualOwner,
       CoreType actual,
       String subject) {
-    requireAssignable(absolute(expectedOwner, expected), absolute(actualOwner, actual), subject);
+    CoreType expectedType = absolute(expectedOwner, expected);
+    CoreType actualType = absolute(actualOwner, actual);
+    if (!isAssignableThroughTypeParameterBounds(
+        expectedType, actualOwner, actualType, new HashSet<>())) {
+      throw new IllegalArgumentException(
+          subject
+              + " type does not match its ABI: expected "
+              + expectedType
+              + ", actual "
+              + actualType);
+    }
+  }
+
+  private boolean isAssignableThroughTypeParameterBounds(
+      CoreType expected,
+      DefinitionId actualOwner,
+      CoreType actual,
+      Set<Map.Entry<DefinitionId, Integer>> visiting) {
+    if (isAssignable(expected, actual)) return true;
+    if (actual.isNullable() && !expected.isNullable()) return false;
+    if (!(nonNullable(actual) instanceof CoreType.Parameter parameter)) return false;
+    Map.Entry<DefinitionId, Integer> key = Map.entry(actualOwner, parameter.index());
+    if (!visiting.add(key)) return false;
+    ParameterContext context = typeParameterContext(actualOwner, parameter.index());
+    if (context == null || context.parameter().upperBound().isEmpty()) return false;
+    CoreType bound = absolute(context.owner(), context.parameter().upperBound().orElseThrow());
+    if (actual.isNullable()) bound = bound.asNullable();
+    return isAssignableThroughTypeParameterBounds(expected, context.owner(), bound, visiting);
   }
 
   private void requireAssignable(CoreType expected, CoreType actual, String subject) {
     if (!isAssignable(expected, actual)) {
-      throw new IllegalArgumentException(subject + " type does not match its ABI");
+      throw new IllegalArgumentException(
+          subject + " type does not match its ABI: expected " + expected + ", actual " + actual);
     }
   }
 
@@ -2748,6 +2895,7 @@ final class CoreProgramVerifier {
     if (expected.equals(CoreType.NULL)) return actual.equals(CoreType.NULL);
     CoreType expectedValue = nonNullable(expected);
     CoreType actualValue = nonNullable(actual);
+    if (expectedValue.equals(CoreType.ANY)) return expected.isNullable() || !actual.isNullable();
     boolean compatible =
         matchesExistentialProjection(expectedValue, actualValue)
             || expectedValue.equals(CoreType.NUMBER) && isNumericLeaf(actualValue);

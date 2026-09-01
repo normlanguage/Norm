@@ -4,7 +4,7 @@ Generics let one type or function work with multiple types while preserving stat
 
 ## Current boundary
 
-The current implementation supports generic classes, data enums, functions and instance methods, interface bounds, parameterized core collections, nested nullable type arguments, inference from arguments and expected return types, and runtime type arguments. Generic types are invariant and raw types are invalid. Use-site variance and reflection APIs remain later extensions.
+The current implementation supports generic classes, data enums, functions and instance methods, nominal class and interface bounds, bounds referencing earlier type parameters, parameterized core collections, nested nullable type arguments, inference from arguments and expected return types, and runtime type arguments. Generic types are invariant and raw types are invalid. Use-site variance and reflection APIs remain later extensions.
 
 ## Generic types
 
@@ -48,7 +48,7 @@ Pair<String, Integer> value = Values<String>().pair<Integer>(first: "Norm", seco
 
 Different type arguments produce different invariant types. `List<String>` is not assignable to `List<String?>`; nullable elements must be declared at the collection boundary.
 
-## Interface bounds
+## Nominal bounds
 
 ```norm
 T larger<T extends Comparable<T>>(T left, T right) {
@@ -57,6 +57,6 @@ T larger<T extends Comparable<T>>(T left, T right) {
 }
 ```
 
-A bound names an interface. A type satisfies it only through an explicit `implements` or interface `extends` relationship; matching member names are not sufficient.
+A bound names one non-null class, interface, or earlier type parameter. A class bound is satisfied through class inheritance. An interface bound is satisfied through an explicit `implements` or interface `extends` relationship. A type-parameter bound is checked after substituting the enclosing type arguments, as in `U extends T`. Matching member names are not sufficient. Calls and bound method values through a class bound retain virtual method dispatch; calls through an interface bound use interface dispatch.
 
 Return to the [handbook introduction](/en/language/overview).

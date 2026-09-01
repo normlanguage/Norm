@@ -16,6 +16,47 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void storesEveryValueInTheAnyTopType() throws Exception {
+    assertOutput(
+        "Void main() { Any text = \"Norm\" Any? missing = null "
+            + "printLine(text == \"Norm\") printLine(missing == null) }",
+        "true" + System.lineSeparator() + "true" + System.lineSeparator());
+  }
+
+  @Test
+  void dispatchesMethodsThroughNominalClassBounds() throws Exception {
+    assertOutput(
+        "class Base { public String name() { return \"base\" } } "
+            + "class Child extends Base { Child() { super() } "
+            + "public String name() { return \"child\" } } "
+            + "String nameOf<T extends Base>(T value) { return value.name() } "
+            + "Void main() { printLine(nameOf(value: Child())) }",
+        "child" + System.lineSeparator());
+  }
+
+  @Test
+  void capturesMethodsThroughNominalClassBounds() throws Exception {
+    assertOutput(
+        "class Base { public String name() { return \"base\" } } "
+            + "class Child extends Base { Child() { super() } "
+            + "public String name() { return \"child\" } } "
+            + "String nameOf<T extends Base>(T value) { "
+            + "Function<String()> name = value.name return name() } "
+            + "Void main() { printLine(nameOf(value: Child())) }",
+        "child" + System.lineSeparator());
+  }
+
+  @Test
+  void treatsStringsAsComparableValues() throws Exception {
+    assertOutput(
+        "import std.core.Comparable "
+            + "T maximum<T extends Comparable<T>>(T left, T right) { "
+            + "if left.compareTo(other: right) >= 0 { return left } return right } "
+            + "Void main() { printLine(maximum(left: \"alpha\", right: \"beta\")) }",
+        "beta" + System.lineSeparator());
+  }
+
+  @Test
   void executesFunctionInterceptorAnnotationLifecycleAndOrdinaryMethods() throws Exception {
     assertOutput(
         "import std.annotation.FunctionInterceptor "
@@ -470,6 +511,16 @@ final class ProgramExecutionTest {
             + "Function<String()> method = child.name "
             + "printLine(base.get()) printLine(named.name()) printLine(method()) }",
         String.join(System.lineSeparator(), "norm", "norm", "norm", ""));
+  }
+
+  @Test
+  void executesOneInheritedDefaultThroughAConformanceDiamond() throws Exception {
+    assertOutput(
+        "interface Root { String value() { return \"root\" } } "
+            + "interface Left extends Root {} interface Right extends Root {} "
+            + "class Both implements Left, Right {} "
+            + "Void main() { printLine(Both().value()) }",
+        "root" + System.lineSeparator());
   }
 
   @Test

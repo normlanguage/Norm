@@ -20,6 +20,8 @@ Bytes tail = content.slice(start: 1, length: 3)
 
 外部资源实现 `Resource.close()`。`use(resource:, body:)` 在成功和异常路径都关闭资源，并在 body 与 close 同时失败时保留 body 异常为主异常。execution scope 负责清理仍然打开的资源。
 
+Java Binding 返回的 `java.io.InputStream` 和 `java.io.OutputStream` 分别投影为 `InputStream` 与 `OutputStream`。两者实现上述字节协议与 `Resource`，传回 JAR API 时保持同一宿主对象。
+
 ## 文本编码
 
 `encodeText(text:, encoding:)` 和 `decodeText(content:, encoding:)` 提供严格 UTF-8 转换。非法输入抛出 `TextException`。

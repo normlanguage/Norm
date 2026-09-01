@@ -177,6 +177,70 @@ final class ProjectLauncherTest {
   }
 
   @Test
+  void resolvesGeneratesAndRunsApacheCommonsLangAsANormModule() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("commons-e2e"));
+    Path entry =
+        source(
+            root,
+            "sample/Main.norm",
+            """
+            package sample
+            import commons.lang.stringUtilsReverse
+
+            Void main() {
+              printLine(stringUtilsReverse("Norm") ?? "missing")
+            }
+            """);
+    Files.writeString(
+        root.resolve("sample/module.norm"),
+        """
+        Module module() {
+          return module(
+            name: "sample",
+            version: 1,
+            exports: ["Main"],
+            dependencies: [dependency(name: "commons.lang", version: 1)]
+          )
+        }
+        """);
+    Path dependency = Files.createDirectories(root.resolve("dependencies/commons/lang"));
+    Files.writeString(
+        dependency.resolve("module.norm"),
+        """
+        Module module() {
+          return module(
+            name: "commons.lang",
+            version: 1,
+            binding: jarBinding(
+              target: mavenJar(
+                group: "org.apache.commons",
+                artifact: "commons-lang3",
+                version: "3.20.0"
+              ),
+              api: [jarType(name: "StringUtils", members: ["reverse"])]
+            )
+          )
+        }
+        """);
+    StringWriter output = new StringWriter();
+    NormRuntime backend = new NormRuntime();
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
+    Path cache = temporaryDirectory.resolve("maven-cache");
+
+    try (ProjectLoader projects = environment.projectLoader(cache)) {
+      new ModuleBindingResolutionService(projects).resolve(dependency.resolve("module.norm"));
+    }
+    try (ProjectLauncher launcher =
+        new ProjectLauncher(
+            environment.projectLoader(cache), environment.compilerSession(), backend)) {
+      var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
+
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    assertEquals("mroN" + System.lineSeparator(), output.toString());
+  }
+
+  @Test
   void enforcesDeclaredModuleEdgesDuringImportResolution() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("dependency-visibility"));
     Path entry =
@@ -249,6 +313,7 @@ final class ProjectLauncherTest {
           Integer version() { return 1 }
           List<String> exports() { return ["Main"] }
           List<ModuleRequirement> dependencies() { return [] }
+          JarBinding? binding() { return null }
         }
 
         Module module() {

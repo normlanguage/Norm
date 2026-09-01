@@ -1,0 +1,193 @@
+package std.collections
+
+import std.annotation.Document
+import std.core.Iterable
+import std.core.Iterator
+
+private class IteratorViewToken {
+  IteratorViewToken() {
+  }
+}
+
+@Document(description: "Provides shared cursor access to a host iterator.")
+public class IteratorView<T> implements Iterator<T> {
+  @Document(description: "Creates a host-backed iterator view.")
+  IteratorView(
+    @Document(description: "The private construction capability.") IteratorViewToken token
+  ) {
+  }
+
+  @Document(description: "Reports whether another element is available.")
+  public Boolean hasNext() {
+    return __javaIteratorHasNext(value: this)
+  }
+
+  @Document(description: "Returns the next element.")
+  public T next() {
+    return __javaIteratorNext<T>(value: this)
+  }
+}
+
+private class IterableViewToken {
+  IterableViewToken() {
+  }
+}
+
+@Document(description: "Provides a shared iterable view over a host sequence.")
+public class IterableView<T> implements Iterable<T> {
+  @Document(description: "Creates a host-backed iterable view.")
+  IterableView(
+    @Document(description: "The private construction capability.") IterableViewToken token
+  ) {
+  }
+
+  @Document(description: "Creates an iterator positioned before the first element.")
+  public Iterator<T> iterator() {
+    return __javaIterableIterator<IteratorView<T>>(value: this)
+  }
+}
+
+private class MutableCollectionToken {
+  MutableCollectionToken() {
+  }
+}
+
+@Document(description: "Provides shared mutable access to a collection.")
+public class MutableCollection<T> implements Iterable<T> {
+  @Document(description: "Creates a host-backed mutable collection view.")
+  MutableCollection(
+    @Document(description: "The private construction capability.") MutableCollectionToken token
+  ) {
+  }
+
+  @Document(description: "Returns the number of elements in the collection.")
+  public Integer size() {
+    return __javaCollectionSize(value: this)
+  }
+
+  @Document(description: "Reports whether the collection contains an equal element.")
+  public Boolean contains(
+    @Document(description: "The element to find.") T element
+  ) {
+    return __javaCollectionContains(value: this, element: element)
+  }
+
+  @Document(description: "Adds an element and reports whether the collection changed.")
+  public Boolean add(
+    @Document(description: "The element to add.") T element
+  ) {
+    return __javaCollectionAdd(value: this, element: element)
+  }
+
+  @Document(description: "Removes an equal element and reports whether the collection changed.")
+  public Boolean remove(
+    @Document(description: "The element to remove.") T element
+  ) {
+    return __javaCollectionRemove(value: this, element: element)
+  }
+
+  @Document(description: "Creates an iterator positioned before the first element.")
+  public Iterator<T> iterator() {
+    return __javaIterableIterator<IteratorView<T>>(value: this)
+  }
+}
+
+private class MutableListToken {
+  MutableListToken() {
+  }
+}
+
+@Document(description: "Provides shared mutable access to an ordered sequence.")
+public class MutableList<T> extends MutableCollection<T> {
+  @Document(description: "Creates a host-backed mutable list view.")
+  MutableList(
+    @Document(description: "The private construction capability.") MutableListToken token
+  ) {
+    super(token: MutableCollectionToken())
+  }
+
+  @Document(description: "Returns the element at a zero-based index.")
+  public T get(
+    @Document(description: "The zero-based element index.") Integer index
+  ) {
+    return __javaListGet<T>(value: this, index: index)
+  }
+
+  @Document(description: "Replaces an element and returns its previous value.")
+  public T set(
+    @Document(description: "The zero-based element index.") Integer index,
+    @Document(description: "The replacement element.") T element
+  ) {
+    return __javaListSet<T>(value: this, index: index, element: element)
+  }
+
+  @Document(description: "Removes and returns the element at a zero-based index.")
+  public T removeAt(
+    @Document(description: "The zero-based element index.") Integer index
+  ) {
+    return __javaListRemove<T>(value: this, index: index)
+  }
+}
+
+private class MutableSetToken {
+  MutableSetToken() {
+  }
+}
+
+@Document(description: "Provides shared mutable access to a set of unique elements.")
+public class MutableSet<T> extends MutableCollection<T> {
+  @Document(description: "Creates a host-backed mutable set view.")
+  MutableSet(
+    @Document(description: "The private construction capability.") MutableSetToken token
+  ) {
+    super(token: MutableCollectionToken())
+  }
+}
+
+private class MutableMapToken {
+  MutableMapToken() {
+  }
+}
+
+@Document(description: "Provides shared mutable access to key-value associations.")
+public class MutableMap<K, V> {
+  @Document(description: "Creates a host-backed mutable map view.")
+  MutableMap(
+    @Document(description: "The private construction capability.") MutableMapToken token
+  ) {
+  }
+
+  @Document(description: "Returns the number of associations in the map.")
+  public Integer size() {
+    return __javaMapSize(value: this)
+  }
+
+  @Document(description: "Reports whether the map contains an equal key.")
+  public Boolean containsKey(
+    @Document(description: "The key to find.") K key
+  ) {
+    return __javaMapContainsKey(value: this, key: key)
+  }
+
+  @Document(description: "Returns the value associated with a key, or null when absent.")
+  public V? get(
+    @Document(description: "The key to find.") K key
+  ) {
+    return __javaMapGet<V?>(value: this, key: key)
+  }
+
+  @Document(description: "Associates a value with a key and returns the previous value.")
+  public V? put(
+    @Document(description: "The key to associate.") K key,
+    @Document(description: "The value to associate.") V value
+  ) {
+    return __javaMapPut<V?>(value: this, key: key, element: value)
+  }
+
+  @Document(description: "Removes a key and returns its previous value.")
+  public V? remove(
+    @Document(description: "The key to remove.") K key
+  ) {
+    return __javaMapRemove<V?>(value: this, key: key)
+  }
+}

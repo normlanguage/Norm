@@ -10,6 +10,25 @@ import org.junit.jupiter.api.Test;
 
 final class ClassInheritanceCompilerTest {
   @Test
+  void supportsNominalClassBoundsOnTypeParameters() {
+    CompilationResult accepted =
+        compile(
+            "class Base { public String name() { return \"base\" } } "
+                + "class Child extends Base { Child() { super() } "
+                + "public String name() { return \"child\" } } "
+                + "String nameOf<T extends Base>(T value) { return value.name() } "
+                + "Void main() { String name = nameOf(value: Child()) } ");
+    CompilationResult rejected =
+        compile(
+            "class Base {} class Plain {} "
+                + "T keep<T extends Base>(T value) { return value } "
+                + "Void main() { Plain value = keep(value: Plain()) } ");
+
+    assertTrue(accepted.isSuccess(), () -> accepted.diagnostics().toString());
+    assertFalse(rejected.isSuccess());
+  }
+
+  @Test
   void compilesExplicitConstructorsAndSingleInheritance() {
     CompilationResult result =
         compile(

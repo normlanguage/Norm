@@ -3,11 +3,41 @@ interface ModuleRequirement {
   Integer version()
 }
 
+interface ContentDigest {
+  String value()
+}
+
+interface JarTarget {
+  String source()
+  String path()
+  String group()
+  String artifact()
+  String version()
+  ContentDigest? digest()
+}
+
+interface JarBinding {
+  JarTarget target()
+  List<JarType> api()
+}
+
+interface JarType {
+  String name()
+  List<String> members()
+  List<JarOverload> overloads()
+}
+
+interface JarOverload {
+  String name()
+  List<String> parameterTypes()
+}
+
 interface Module {
   String name()
   Integer version()
   List<String> exports()
   List<ModuleRequirement> dependencies()
+  JarBinding? binding()
 }
 
 private class DeclaredModuleRequirement implements ModuleRequirement {
@@ -28,6 +58,7 @@ private class DeclaredModule implements Module {
   Integer moduleVersion
   List<String> exportedSources
   List<ModuleRequirement> requiredModules
+  JarBinding? jarBinding
 
   String name() {
     return moduleName
@@ -44,14 +75,148 @@ private class DeclaredModule implements Module {
   List<ModuleRequirement> dependencies() {
     return requiredModules
   }
+
+  JarBinding? binding() {
+    return jarBinding
+  }
+}
+
+private class DeclaredContentDigest implements ContentDigest {
+  String digestValue
+
+  String value() {
+    return digestValue
+  }
+}
+
+private class DeclaredJarTarget implements JarTarget {
+  String sourceKind
+  String filePath
+  String groupName
+  String artifactName
+  String artifactVersion
+  ContentDigest? contentDigest
+
+  String source() { return sourceKind }
+  String path() { return filePath }
+  String group() { return groupName }
+  String artifact() { return artifactName }
+  String version() { return artifactVersion }
+  ContentDigest? digest() { return contentDigest }
+}
+
+private class DeclaredJarBinding implements JarBinding {
+  JarTarget boundTarget
+  List<JarType> publicApi
+
+  JarTarget target() {
+    return boundTarget
+  }
+
+  List<JarType> api() {
+    return publicApi
+  }
+}
+
+private class DeclaredJarType implements JarType {
+  String typeName
+  List<String> memberNames
+  List<JarOverload> declaredOverloads
+
+  String name() {
+    return typeName
+  }
+
+  List<String> members() {
+    return memberNames
+  }
+
+  List<JarOverload> overloads() {
+    return declaredOverloads
+  }
+}
+
+private class DeclaredJarOverload implements JarOverload {
+  String memberName
+  List<String> declaredParameterTypes
+
+  String name() {
+    return memberName
+  }
+
+  List<String> parameterTypes() {
+    return declaredParameterTypes
+  }
 }
 
 ModuleRequirement dependency(String name, Integer version) {
   return DeclaredModuleRequirement(moduleName: name, moduleVersion: version)
 }
 
+ContentDigest sha256(String value) {
+  return DeclaredContentDigest(digestValue: value)
+}
+
+JarTarget localJar(String path) {
+  return localJar(path: path, integrity: null)
+}
+
+JarTarget localJar(String path, ContentDigest? integrity) {
+  return DeclaredJarTarget(
+    sourceKind: "local",
+    filePath: path,
+    groupName: "",
+    artifactName: "",
+    artifactVersion: "",
+    contentDigest: integrity
+  )
+}
+
+JarTarget mavenJar(String group, String artifact, String version) {
+  return mavenJar(group: group, artifact: artifact, version: version, resolution: null)
+}
+
+JarTarget mavenJar(
+  String group,
+  String artifact,
+  String version,
+  ContentDigest? resolution
+) {
+  return DeclaredJarTarget(
+    sourceKind: "maven",
+    filePath: "",
+    groupName: group,
+    artifactName: artifact,
+    artifactVersion: version,
+    contentDigest: resolution
+  )
+}
+
+JarType jarType(String name, List<String> members) {
+  return jarType(name: name, members: members, overloads: [])
+}
+
+JarType jarType(String name, List<String> members, List<JarOverload> overloads) {
+  return DeclaredJarType(
+    typeName: name,
+    memberNames: members,
+    declaredOverloads: overloads
+  )
+}
+
+JarOverload jarOverload(String name, List<String> parameterTypes) {
+  return DeclaredJarOverload(
+    memberName: name,
+    declaredParameterTypes: parameterTypes
+  )
+}
+
+JarBinding jarBinding(JarTarget target, List<JarType> api) {
+  return DeclaredJarBinding(boundTarget: target, publicApi: api)
+}
+
 Module module(String name, Integer version, List<String> exports) {
-  return module(name: name, version: version, exports: exports, dependencies: [])
+  return module(name: name, version: version, exports: exports, dependencies: [], binding: null)
 }
 
 Module module(
@@ -60,10 +225,69 @@ Module module(
   List<String> exports,
   List<ModuleRequirement> dependencies
 ) {
+  return module(
+    name: name,
+    version: version,
+    exports: exports,
+    dependencies: dependencies,
+    binding: null
+  )
+}
+
+Module module(
+  String name,
+  Integer version,
+  JarBinding binding
+) {
+  return module(name: name, version: version, dependencies: [], binding: binding)
+}
+
+Module module(
+  String name,
+  Integer version,
+  List<ModuleRequirement> dependencies,
+  JarBinding binding
+) {
+  List<String> exports = []
+  for JarType type : binding.api() {
+    exports.add(type.name())
+  }
+  return module(
+    name: name,
+    version: version,
+    exports: exports,
+    dependencies: dependencies,
+    binding: binding
+  )
+}
+
+Module module(
+  String name,
+  Integer version,
+  List<String> exports,
+  JarBinding binding
+) {
+  return module(
+    name: name,
+    version: version,
+    exports: exports,
+    dependencies: [],
+    binding: binding
+  )
+}
+
+Module module(
+  String name,
+  Integer version,
+  List<String> exports,
+  List<ModuleRequirement> dependencies,
+  JarBinding? binding
+) {
   return DeclaredModule(
     moduleName: name,
     moduleVersion: version,
     exportedSources: exports,
-    requiredModules: dependencies
+    requiredModules: dependencies,
+    jarBinding: binding
   )
 }

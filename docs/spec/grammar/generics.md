@@ -21,9 +21,9 @@ T maximum<T extends Comparable<T>>(T left, T right) {
 }
 ```
 
-每个类型参数当前只接受一个 `extends` interface 上界，不提供多个上界的连接语法。
+每个类型参数当前只接受一个 `extends` 名义上界，不提供多个上界的连接语法。上界可以是 class、interface 或前面已声明的类型参数；`U extends T` 在替换外层类型实参后验证。
 
-bound 必须是 interface 类型。实际类型参数通过显式声明的 `implements` 或 interface `extends` 关系满足 bound；拥有相同成员不构成满足关系。约束内的调用通过 interface 动态分派。
+class bound 通过 class 继承关系满足；interface bound 通过显式声明的 `implements` 或 interface `extends` 关系满足。拥有相同成员不构成满足关系。约束内的 class 方法调用与绑定方法值保留虚方法分派，interface 方法调用通过 interface 动态分派。
 
 ## 使用
 

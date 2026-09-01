@@ -31,6 +31,29 @@ final class GenericCompilerTest {
   }
 
   @Test
+  void acceptsTypeParametersBoundByEarlierTypeParameters() {
+    CompilationResult result =
+        compile(
+            "T widen<T, U extends T>(U value) { return value } "
+                + "Void main() { String value = widen<String, String>(value: \"Norm\") } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void enforcesBoundsThatReferenceEarlierTypeParameters() {
+    CompilationResult result =
+        compile(
+            "T widen<T, U extends T>(U value) { return value } "
+                + "Void main() { String value = widen<String, Integer>(value: 7) } ");
+
+    assertFalse(result.isSuccess());
+    assertTrue(
+        result.diagnostics().stream()
+            .anyMatch(diagnostic -> diagnostic.message().contains("does not satisfy bound")));
+  }
+
+  @Test
   void infersGenericFunctionArgumentsFromTheExpectedType() {
     CompilationResult result =
         compile(

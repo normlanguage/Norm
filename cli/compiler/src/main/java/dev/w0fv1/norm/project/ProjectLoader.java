@@ -4,8 +4,18 @@ import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.frontend.ModuleSourceResolver;
 import dev.w0fv1.norm.frontend.SourceHeader;
+import dev.w0fv1.norm.jvm.GeneratedBindingSource;
+import dev.w0fv1.norm.jvm.GeneratedJarBinding;
+import dev.w0fv1.norm.jvm.JarApiScanner;
+import dev.w0fv1.norm.jvm.JarBindingSourceGenerator;
+import dev.w0fv1.norm.jvm.JarResolver;
+import dev.w0fv1.norm.jvm.ResolvedJarBinding;
+import dev.w0fv1.norm.jvm.ResolvedJarGraph;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.LocalJarTarget;
+import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleGraph;
@@ -28,10 +38,16 @@ import java.util.Set;
 public final class ProjectLoader implements AutoCloseable {
   private final ModuleEvaluator modules;
   private final Set<String> reservedModuleNames;
+  private final JarResolver jars;
 
   ProjectLoader(ModuleEvaluator modules, Set<String> reservedModuleNames) {
+    this(modules, reservedModuleNames, new JarResolver(defaultJarCache()));
+  }
+
+  ProjectLoader(ModuleEvaluator modules, Set<String> reservedModuleNames, JarResolver jars) {
     this.modules = Objects.requireNonNull(modules, "modules");
     this.reservedModuleNames = Set.copyOf(reservedModuleNames);
+    this.jars = Objects.requireNonNull(jars, "jars");
   }
 
   public ProjectSourceSet load(Path entryPath) throws IOException {
@@ -52,7 +68,9 @@ public final class ProjectLoader implements AutoCloseable {
           Set.of(),
           CompilationScope.anonymous(List.of(entrySource)),
           List.of(entrySource),
-          Set.of());
+          Set.of(),
+          Set.of(),
+          List.of());
     }
 
     SourceFile moduleSource = location.module().orElseThrow();
@@ -73,6 +91,8 @@ public final class ProjectLoader implements AutoCloseable {
     Set<Path> modulePaths = new LinkedHashSet<>();
     Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>();
     Map<ModuleCoordinate, Set<ModuleCoordinate>> dependencies = new LinkedHashMap<>();
+    Set<DocumentId> bindingSources = new LinkedHashSet<>();
+    List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
     for (ResolvedModule module : graph) {
       dependencies.put(
           module.descriptor().coordinate(),
@@ -80,6 +100,8 @@ public final class ProjectLoader implements AutoCloseable {
               .map(ModuleRequirement::coordinate)
               .collect(java.util.stream.Collectors.toSet()));
       modulePaths.add(normalize(module.moduleSource().path()));
+      bindingSources.addAll(module.bindingSources());
+      module.binding().ifPresent(jarBindings::add);
       exportedSources.addAll(
           module.exportedSources().stream()
               .map(DocumentId::uri)
@@ -100,7 +122,9 @@ public final class ProjectLoader implements AutoCloseable {
         modulePaths,
         new CompilationScope(coordinates, new ModuleGraph(dependencies)),
         sources,
-        exportedSources);
+        exportedSources,
+        bindingSources,
+        jarBindings);
   }
 
   private List<ResolvedModule> resolveGraph(
@@ -208,13 +232,9 @@ public final class ProjectLoader implements AutoCloseable {
     SourceFile moduleSource = overlays.get(modulePath);
     if (moduleSource == null) {
       if (!Files.isRegularFile(modulePath)) {
-        throw new IOException(
-            "cannot resolve module dependency '"
-                + requirement.name()
-                + "@"
-                + requirement.version()
-                + "' from "
-                + repositoryRoot);
+        ResolvedModule archived = resolveArchivedDependency(repositoryRoot, requirement);
+        repository.put(requirement.coordinate(), archived);
+        return archived;
       }
       moduleSource = SourceFile.read(modulePath);
     }
@@ -237,6 +257,55 @@ public final class ProjectLoader implements AutoCloseable {
     return resolved;
   }
 
+  private ResolvedModule resolveArchivedDependency(
+      Path repositoryRoot, ModuleRequirement requirement) throws IOException {
+    Path archive = jars.resolveModuleArchive(requirement);
+    ModuleArchiveReader.ArchivedModule archived = new ModuleArchiveReader().read(archive);
+    ModuleDescriptor descriptor = archived.descriptor();
+    if (!descriptor.coordinate().equals(requirement.coordinate())) {
+      throw new IOException(
+          "Norm module artifact identity does not match "
+              + requirement.name()
+              + "@"
+              + requirement.version());
+    }
+    ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
+    ResolvedJarBinding binding = generateJarBinding(descriptor, graph);
+    if (!binding.api().apiId().equals(archived.javaApiId())) {
+      throw new IOException("Norm module Java API identity does not match its pinned JAR binding");
+    }
+    Map<String, String> expected = new LinkedHashMap<>();
+    for (GeneratedBindingSource source : binding.generated().sources()) {
+      expected.put(source.relativePath(), source.text());
+    }
+    if (!expected.equals(archived.sources())) {
+      throw new IOException("Norm module generated sources do not match its pinned JAR binding");
+    }
+    Path virtualRoot =
+        normalize(
+            repositoryRoot
+                .resolve(".norm/modules")
+                .resolve(requirement.name().replace('.', java.io.File.separatorChar))
+                .resolve(Integer.toString(requirement.version())));
+    Map<String, SourceFile> sources = new LinkedHashMap<>();
+    Set<DocumentId> bindingSources = new LinkedHashSet<>();
+    for (Map.Entry<String, String> source : archived.sources().entrySet()) {
+      SourceFile generated = SourceFile.of(virtualRoot.resolve(source.getKey()), source.getValue());
+      sources.put(source.getKey(), generated);
+      bindingSources.add(generated.id());
+    }
+    ModuleLoader.LoadedModule loaded =
+        new ModuleLoader().load(new MemoryResolver(sources), descriptor);
+    return new ResolvedModule(
+        normalize(repositoryRoot.resolve("dependencies")),
+        SourceFile.of(archive, ""),
+        descriptor,
+        loaded.sources(),
+        exportedSources(loaded, bindingSources),
+        bindingSources,
+        Optional.of(binding));
+  }
+
   private void requireAvailableModuleName(ModuleDescriptor descriptor) throws IOException {
     if (reservedModuleNames.contains(descriptor.name())) {
       throw new IOException("module name '" + descriptor.name() + "' is reserved");
@@ -248,10 +317,40 @@ public final class ProjectLoader implements AutoCloseable {
     ModuleDescriptor descriptor = modules.evaluate(moduleSource);
     Path root = sourceRoot(moduleSource, descriptor);
     Map<String, SourceFile> sources = collectSources(root, moduleSource, overlays);
+    Optional<ResolvedJarBinding> binding = Optional.empty();
+    Set<DocumentId> bindingSources = Set.of();
+    if (descriptor.binding().isPresent()) {
+      if (!isPinned(descriptor.binding().orElseThrow())) {
+        throw new IOException(
+            "JAR binding is not pinned; run 'norm resolve' for " + moduleSource.path());
+      }
+      Path moduleRoot = normalize(moduleSource.path()).getParent();
+      ResolvedJarGraph graph = jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
+      ResolvedJarBinding resolvedBinding = generateJarBinding(descriptor, graph);
+      GeneratedJarBinding generated = resolvedBinding.generated();
+      descriptor = descriptor.withExports(generated.exports());
+      Set<DocumentId> generatedDocuments = new LinkedHashSet<>();
+      for (GeneratedBindingSource source : generated.sources()) {
+        Path path = normalize(root.resolve(source.relativePath()));
+        SourceFile generatedSource = SourceFile.of(path, source.text());
+        if (sources.putIfAbsent(source.relativePath(), generatedSource) != null) {
+          throw new IOException("JAR binding source conflicts with " + source.relativePath());
+        }
+        generatedDocuments.add(generatedSource.id());
+      }
+      bindingSources = Set.copyOf(generatedDocuments);
+      binding = Optional.of(resolvedBinding);
+    }
     ModuleLoader.LoadedModule loaded =
         new ModuleLoader().load(new MemoryResolver(sources), descriptor);
     return new ResolvedModule(
-        normalize(root), moduleSource, descriptor, loaded.sources(), loaded.exportedSources());
+        normalize(root),
+        moduleSource,
+        descriptor,
+        loaded.sources(),
+        exportedSources(loaded, bindingSources),
+        bindingSources,
+        binding);
   }
 
   public Path projectRoot(SourceFile source, Collection<SourceFile> overlays) {
@@ -281,6 +380,50 @@ public final class ProjectLoader implements AutoCloseable {
     return modules.evaluate(source);
   }
 
+  public ResolvedJarGraph resolveJarBinding(SourceFile source) throws IOException {
+    ModuleDescriptor descriptor = evaluateModule(source);
+    if (descriptor.binding().isEmpty()) {
+      throw new IOException("module does not declare a JAR binding");
+    }
+    Path moduleRoot = normalize(source.path()).getParent();
+    if (moduleRoot == null) throw new IOException("module configuration path has no parent");
+    return jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
+  }
+
+  public ResolvedJarBinding generateJarBinding(SourceFile source) throws IOException {
+    ModuleDescriptor descriptor = evaluateModule(source);
+    if (descriptor.binding().isEmpty())
+      throw new IOException("module does not declare a JAR binding");
+    Path moduleRoot = normalize(source.path()).getParent();
+    if (moduleRoot == null) throw new IOException("module configuration path has no parent");
+    ResolvedJarGraph graph = jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
+    return generateJarBinding(descriptor, graph);
+  }
+
+  private static ResolvedJarBinding generateJarBinding(
+      ModuleDescriptor descriptor, ResolvedJarGraph graph) throws IOException {
+    try {
+      var api = new JarApiScanner().scan(graph);
+      GeneratedJarBinding generated =
+          new JarBindingSourceGenerator()
+              .generateSurface(
+                  descriptor.coordinate(),
+                  descriptor.binding().orElseThrow().api(),
+                  graph.contentId(),
+                  api);
+      return new ResolvedJarBinding(graph, api, generated);
+    } catch (IllegalArgumentException exception) {
+      throw new IOException(
+          "cannot generate JAR binding for "
+              + descriptor.name()
+              + "@"
+              + descriptor.version()
+              + ": "
+              + exception.getMessage(),
+          exception);
+    }
+  }
+
   public CompilationSnapshot analyzeModule(SourceFile source) {
     if (!isModuleSource(source)) {
       throw new IllegalArgumentException("source is not a module configuration");
@@ -297,7 +440,11 @@ public final class ProjectLoader implements AutoCloseable {
 
   @Override
   public void close() {
-    modules.close();
+    try {
+      modules.close();
+    } finally {
+      jars.close();
+    }
   }
 
   private static Map<String, SourceFile> collectSources(
@@ -452,14 +599,36 @@ public final class ProjectLoader implements AutoCloseable {
       SourceFile moduleSource,
       ModuleDescriptor descriptor,
       Map<String, SourceFile> sources,
-      Set<DocumentId> exportedSources) {
+      Set<DocumentId> exportedSources,
+      Set<DocumentId> bindingSources,
+      Optional<ResolvedJarBinding> binding) {
     private ResolvedModule {
       root = normalize(root);
       Objects.requireNonNull(moduleSource, "moduleSource");
       Objects.requireNonNull(descriptor, "descriptor");
       sources = Map.copyOf(sources);
       exportedSources = Set.copyOf(exportedSources);
+      bindingSources = Set.copyOf(bindingSources);
+      Objects.requireNonNull(binding, "binding");
     }
+  }
+
+  private static Path defaultJarCache() {
+    return Path.of(System.getProperty("user.home"), ".norm", "cache", "maven");
+  }
+
+  private static Set<DocumentId> exportedSources(
+      ModuleLoader.LoadedModule loaded, Set<DocumentId> bindingSources) {
+    Set<DocumentId> result = new LinkedHashSet<>(loaded.exportedSources());
+    result.addAll(bindingSources);
+    return Set.copyOf(result);
+  }
+
+  private static boolean isPinned(JarBinding binding) {
+    return switch (binding.target()) {
+      case LocalJarTarget target -> target.integrity().isPresent();
+      case MavenJarTarget target -> target.resolution().isPresent();
+    };
   }
 
   private record MemoryResolver(Map<String, SourceFile> sources) implements ModuleSourceResolver {

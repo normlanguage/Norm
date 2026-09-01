@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 17,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -16,6 +16,74 @@
     {
       "name": "PUBLISH_MODULE",
       "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_INVOKE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAR_INVOKE_VOID",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_COLLECTION_SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_LIST_GET",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_LIST_SET",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_LIST_REMOVE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_COLLECTION_CONTAINS",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_COLLECTION_ADD",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_COLLECTION_REMOVE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_ITERABLE_ITERATOR",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_ITERATOR_HAS_NEXT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_ITERATOR_NEXT",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_MAP_SIZE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_MAP_CONTAINS_KEY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAVA_MAP_GET",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_MAP_PUT",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_MAP_REMOVE",
+      "requiresResultRuntimeType": true
     },
     {
       "name": "IO_BYTES_CREATE",
@@ -51,6 +119,38 @@
     },
     {
       "name": "IO_USE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_INPUT_STREAM_READ",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAR_OUTPUT_STREAM_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_OUTPUT_STREAM_FLUSH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_STREAM_CLOSE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_TASK_AWAIT",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAR_TASK_CANCEL",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_TASK_COMPLETED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JAR_TASK_CLOSE",
       "requiresResultRuntimeType": false
     },
     {
@@ -652,6 +752,7 @@
     }
   ],
   "runtimeShapes": [
+    "ANY",
     "INTEGER",
     "LONG",
     "FLOAT",
@@ -686,6 +787,8 @@
     "OPAQUE_RESOURCE"
   ],
   "exception": {
+    "moduleName": "std",
+    "moduleVersion": 1,
     "packageName": "std.core",
     "typeName": "Exception",
     "messageFieldName": "message",
@@ -818,6 +921,32 @@
         "ordinal": 5
       }
     ]
+  },
+  "filesystemPath": {
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.filesystem",
+    "typeName": "Path",
+    "valueFieldName": "value",
+    "valueFieldOrdinal": 0
+  },
+  "httpUri": {
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.http",
+    "typeName": "Uri",
+    "valueFieldName": "value",
+    "valueFieldOrdinal": 0
+  },
+  "timeDuration": {
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.time",
+    "typeName": "Duration",
+    "secondsFieldName": "secondsValue",
+    "secondsFieldOrdinal": 0,
+    "nanosecondsFieldName": "nanosecondsValue",
+    "nanosecondsFieldOrdinal": 1
   },
   "systemExceptions": {
     "file": {

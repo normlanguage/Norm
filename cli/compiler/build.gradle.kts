@@ -62,7 +62,15 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
         @Suppress("UNCHECKED_CAST")
         val yaml = schema["yaml"] as Map<String, Any>
         @Suppress("UNCHECKED_CAST")
+        val filesystemPath = schema["filesystemPath"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val httpUri = schema["httpUri"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val timeDuration = schema["timeDuration"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
         val systemExceptions = schema["systemExceptions"] as Map<String, Map<String, Any>>
+        fun constantName(name: String): String =
+            name.replace(Regex("([a-z])([A-Z])"), "\$1_\$2").uppercase()
         val packageDirectory = outputDirectory.dir("dev/w0fv1/norm/abi").get().asFile
         packageDirectory.mkdirs()
         packageDirectory.resolve("IntrinsicId.java").writeText(
@@ -134,6 +142,12 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                 appendLine("package dev.w0fv1.norm.abi;")
                 appendLine()
                 appendLine("public final class ExceptionAbi {")
+                appendLine(
+                    "  public static final String MODULE_NAME = \"${exception.getValue("moduleName")}\";",
+                )
+                appendLine(
+                    "  public static final int MODULE_VERSION = ${exception.getValue("moduleVersion")};",
+                )
                 appendLine("  public static final String PACKAGE_NAME = \"$packageName\";")
                 appendLine("  public static final String TYPE_NAME = \"$typeName\";")
                 appendLine("  public static final String IDENTITY = PACKAGE_NAME + \".\" + TYPE_NAME;")
@@ -150,8 +164,31 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                 appendLine("}")
             },
         )
-        fun constantName(name: String): String =
-            name.replace(Regex("([a-z])([A-Z])"), "\$1_\$2").uppercase()
+        fun generateValueAbi(className: String, contract: Map<String, Any>) {
+            packageDirectory.resolve("$className.java").writeText(buildString {
+                appendLine("package dev.w0fv1.norm.abi;")
+                appendLine()
+                appendLine("public final class $className {")
+                contract.entries.forEach { (name, value) ->
+                    when (value) {
+                        is String ->
+                            appendLine(
+                                "  public static final String ${constantName(name)} = \"$value\";",
+                            )
+                        is Number ->
+                            appendLine(
+                                "  public static final int ${constantName(name)} = $value;",
+                            )
+                    }
+                }
+                appendLine()
+                appendLine("  private $className() {}")
+                appendLine("}")
+            })
+        }
+        generateValueAbi("FilesystemPathAbi", filesystemPath)
+        generateValueAbi("HttpUriAbi", httpUri)
+        generateValueAbi("TimeDurationAbi", timeDuration)
         packageDirectory.resolve("SerializationAbi.java").writeText(
             buildString {
                 appendLine("package dev.w0fv1.norm.abi;")
@@ -406,7 +443,12 @@ dependencies {
     implementation(libs.polyglot)
     implementation(libs.lsp4j)
     implementation(libs.gson)
+    implementation(libs.maven.resolver.supplier)
+    implementation(libs.asm)
+    implementation(libs.commons.codec)
+    implementation(libs.jcl.over.slf4j)
     runtimeOnly(libs.truffle.runtime)
+    runtimeOnly(libs.slf4j.nop)
     annotationProcessor(libs.truffle.dsl.processor)
     testImplementation(libs.archunit)
 }
@@ -418,6 +460,13 @@ extraJavaModuleInfo {
         "org.graalvm.truffle:truffle-dsl-processor",
         "org.graalvm.truffle.dsl.processor",
     )
+    automaticModule("org.apache.maven:maven-resolver-provider", "org.apache.maven.resolver.provider") {
+        mergeJar("org.apache.maven:maven-model-builder")
+        mergeJar("org.apache.maven:maven-model")
+        mergeJar("org.apache.maven:maven-repository-metadata")
+        mergeJar("org.apache.maven:maven-artifact")
+        mergeJar("org.apache.maven:maven-builder-support")
+    }
 }
 
 application {

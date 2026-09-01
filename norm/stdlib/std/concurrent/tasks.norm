@@ -1,0 +1,28 @@
+@Document(description: "Provides typed tasks with deterministic waiting, cancellation, and resource ownership.")
+package std.concurrent
+
+import std.annotation.Document
+import std.io.Resource
+
+@Document(description: "Represents a typed operation whose result may become available later.")
+public class Task<T> implements Resource {
+  @Document(description: "Waits for completion and returns the task result.")
+  public T await() {
+    return __jarTaskAwait<T>(task: this)
+  }
+
+  @Document(description: "Requests cancellation and reports whether the task was cancelled.")
+  public Boolean cancel() {
+    return __jarTaskCancel(task: this)
+  }
+
+  @Document(description: "Reports whether the task has completed, failed, or been cancelled.")
+  public Boolean completed() {
+    return __jarTaskCompleted(task: this)
+  }
+
+  @Document(description: "Releases task ownership and cancels unfinished work.")
+  public Void close() {
+    __jarTaskClose(task: this)
+  }
+}

@@ -11,10 +11,12 @@ import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreAuthoringMap;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreFieldInterceptorProtocol;
 import dev.w0fv1.norm.core.CoreFunctionInterceptorProtocol;
 import dev.w0fv1.norm.core.CoreInterceptor;
+import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreParameterInterceptorProtocol;
 import dev.w0fv1.norm.core.CoreProgram;
@@ -25,6 +27,7 @@ import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
+import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
 import java.util.ArrayList;
@@ -76,6 +79,107 @@ final class AnnotationRuntime {
 
   String name(CoreType type) {
     return displayName(type);
+  }
+
+  JarBindingClassReference jarClassReference(CoreType type) {
+    return switch (type) {
+      case CoreType.Declared declared ->
+          switch (declared.constructor()) {
+            case CoreTypeConstructor.Builtin builtin ->
+                new JarBindingClassReference.Builtin(builtin.id().value());
+            case CoreTypeConstructor.User user -> {
+              DefinitionId id = resolveExternal(user.definition());
+              CoreNominalTypeKey nominal = nominalType(program.definition(id).orElseThrow());
+              yield new JarBindingClassReference.Nominal(
+                  nominal.module(), nominal.packageName(), nominal.name());
+            }
+          };
+      case CoreType.Function ignored ->
+          throw new IllegalArgumentException("Norm type has no Java class mapping: " + type);
+      case CoreType.Parameter ignored ->
+          throw new IllegalArgumentException("Norm type has no Java class mapping: " + type);
+      case CoreType.Reference ignored ->
+          throw new IllegalArgumentException("Norm type has no Java class mapping: " + type);
+      case CoreType.Special ignored ->
+          throw new IllegalArgumentException("Norm type has no Java class mapping: " + type);
+    };
+  }
+
+  RuntimeValues.ClassValue jarClassValue(
+      CoreType expectedType, List<JarBindingClassReference> candidates) {
+    CoreType.Declared expectedClass = declared(expectedType);
+    if (expectedClass.arguments().size() != 1) {
+      throw new IllegalStateException("JAR class result requires Class<T>");
+    }
+    CoreType expectedReflected = expectedClass.arguments().getFirst();
+    List<JarBindingClassReference> expectedMatches =
+        candidates.stream().filter(candidate -> matches(expectedReflected, candidate)).toList();
+    CoreType reflected;
+    if (!expectedMatches.isEmpty()) {
+      reflected = expectedReflected;
+    } else if (candidates.size() == 1) {
+      reflected = reflectedType(candidates.getFirst());
+    } else {
+      throw new IllegalArgumentException(
+          "Java class maps to multiple Norm declarations: " + candidates);
+    }
+    CoreType resultType =
+        new CoreType.Declared(
+            expectedClass.constructor(),
+            List.of(reflected),
+            expectedClass.category(),
+            CoreNullability.NON_NULL);
+    return new RuntimeValues.ClassValue(resultType, reflected, this);
+  }
+
+  CoreType jarReferenceType(
+      CoreType expectedType, List<JarBindingClassReference.Nominal> candidates) {
+    CoreType.Declared expected = declared(expectedType);
+    if (!(expected.constructor() instanceof CoreTypeConstructor.User expectedUser)) {
+      throw new IllegalArgumentException("JAR reference requires a user nominal type");
+    }
+    DefinitionId expectedId = resolveExternal(expectedUser.definition());
+    for (JarBindingClassReference.Nominal candidate : candidates) {
+      CoreDefinitionRecord record =
+          program.definitions().stream()
+              .filter(value -> matches(value.definition(), candidate))
+              .findFirst()
+              .orElse(null);
+      if (record == null || !(record.definition() instanceof CoreDefinition.Aggregate aggregate)) {
+        continue;
+      }
+      boolean matchesExpected = record.id().equals(expectedId);
+      if (!matchesExpected) {
+        matchesExpected =
+            aggregate.conformances().stream()
+                .map(
+                    conformance ->
+                        CoreTypes.absolute(conformance.interfaceType(), record.id(), program))
+                .filter(CoreType.Declared.class::isInstance)
+                .map(CoreType.Declared.class::cast)
+                .map(CoreType.Declared::constructor)
+                .filter(CoreTypeConstructor.User.class::isInstance)
+                .map(CoreTypeConstructor.User.class::cast)
+                .map(CoreTypeConstructor.User::definition)
+                .filter(DefinitionReference.External.class::isInstance)
+                .map(DefinitionReference.External.class::cast)
+                .map(DefinitionReference.External::definition)
+                .anyMatch(expectedId::equals);
+      }
+      if (!matchesExpected) continue;
+      List<CoreType> arguments =
+          aggregate.typeParameters().size() == expected.arguments().size()
+              ? expected.arguments()
+              : java.util.Collections.nCopies(
+                  aggregate.typeParameters().size(), CoreType.EXISTENTIAL);
+      return new CoreType.Declared(
+          new CoreTypeConstructor.User(new DefinitionReference.External(record.id())),
+          arguments,
+          aggregate.valueCategory(),
+          CoreNullability.NON_NULL);
+    }
+    throw new IllegalArgumentException(
+        "Java reference has no concrete Norm implementation for " + expectedType);
   }
 
   RuntimeValues.ListValue fields(CoreType reflectedType, CoreType listType) {
@@ -548,6 +652,96 @@ final class AnnotationRuntime {
               .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
     }
     return declared.nullability() == CoreNullability.NULLABLE ? name + "?" : name;
+  }
+
+  private boolean matches(CoreType type, JarBindingClassReference reference) {
+    try {
+      return jarClassReference(type).equals(reference);
+    } catch (IllegalArgumentException exception) {
+      return false;
+    }
+  }
+
+  private CoreType reflectedType(JarBindingClassReference reference) {
+    return switch (reference) {
+      case JarBindingClassReference.Builtin builtin -> builtinType(builtin.typeId());
+      case JarBindingClassReference.Nominal nominal -> {
+        CoreDefinitionRecord record =
+            program.definitions().stream()
+                .filter(value -> matches(value.definition(), nominal))
+                .findFirst()
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException(
+                            "Java class maps to an unavailable Norm declaration: " + nominal));
+        CoreDefinition definition = record.definition();
+        yield new CoreType.Declared(
+            new CoreTypeConstructor.User(new DefinitionReference.External(record.id())),
+            java.util.Collections.nCopies(typeParameterCount(definition), CoreType.EXISTENTIAL),
+            valueCategory(definition),
+            CoreNullability.NON_NULL);
+      }
+    };
+  }
+
+  private static CoreType builtinType(String typeId) {
+    return switch (typeId) {
+      case "std.core.Any" -> CoreType.ANY;
+      case "std.core.String" -> CoreType.STRING;
+      case "std.core.Number" -> CoreType.NUMBER;
+      case "std.core.Integer" -> CoreType.INTEGER;
+      case "std.core.Long" -> CoreType.LONG;
+      case "std.core.Float" -> CoreType.FLOAT;
+      case "std.core.Double" -> CoreType.DOUBLE;
+      case "std.core.Boolean" -> CoreType.BOOLEAN;
+      default ->
+          throw new IllegalArgumentException(
+              "Java class maps to an unavailable Norm builtin: " + typeId);
+    };
+  }
+
+  private static CoreNominalTypeKey nominalType(CoreDefinition definition) {
+    return switch (definition) {
+      case CoreDefinition.Aggregate aggregate -> aggregate.nominalType();
+      case CoreDefinition.Enum declaration -> declaration.nominalType();
+      case CoreDefinition.Interface declaration -> declaration.nominalType();
+      default -> throw new IllegalArgumentException("Norm declaration is not a type");
+    };
+  }
+
+  private static boolean matches(
+      CoreNominalTypeKey type, JarBindingClassReference.Nominal reference) {
+    return type.module().equals(reference.module())
+        && type.packageName().equals(reference.packageName())
+        && type.name().equals(reference.name());
+  }
+
+  private static boolean matches(
+      CoreDefinition definition, JarBindingClassReference.Nominal reference) {
+    return switch (definition) {
+      case CoreDefinition.Aggregate aggregate -> matches(aggregate.nominalType(), reference);
+      case CoreDefinition.Enum declaration -> matches(declaration.nominalType(), reference);
+      case CoreDefinition.Interface declaration -> matches(declaration.nominalType(), reference);
+      default -> false;
+    };
+  }
+
+  private static int typeParameterCount(CoreDefinition definition) {
+    return switch (definition) {
+      case CoreDefinition.Aggregate aggregate -> aggregate.typeParameters().size();
+      case CoreDefinition.Enum declaration -> declaration.typeParameters().size();
+      case CoreDefinition.Interface declaration -> declaration.typeParameters().size();
+      default -> throw new IllegalArgumentException("Norm declaration is not a type");
+    };
+  }
+
+  private static CoreValueCategory valueCategory(CoreDefinition definition) {
+    return switch (definition) {
+      case CoreDefinition.Aggregate aggregate -> aggregate.valueCategory();
+      case CoreDefinition.Enum ignored -> CoreValueCategory.VALUE;
+      case CoreDefinition.Interface ignored -> CoreValueCategory.POLYMORPHIC;
+      default -> throw new IllegalArgumentException("Norm declaration is not a type");
+    };
   }
 
   CoreType reflectedFieldType(RuntimeValues.FieldPlan field, CoreType.Declared reflected) {

@@ -238,8 +238,9 @@ final class Lowerer {
                 new RuntimeValues.DispatchTarget.Callable(
                     callable.target(), defaultReceiverArguments);
           }
-          if (dispatch.put(requirement, target) != null) {
-            throw new IllegalStateException("verified aggregate dispatch is duplicated");
+          RuntimeValues.DispatchTarget previous = dispatch.putIfAbsent(requirement, target);
+          if (previous != null && !previous.equals(target)) {
+            throw new IllegalStateException("verified aggregate dispatch is conflicting");
           }
         }
       }
@@ -782,7 +783,8 @@ final class Lowerer {
             .toArray(ExpressionNode[]::new),
         closure.receiverTypeArguments().stream()
             .map(value -> lowerRuntimeType(value, plan))
-            .toArray(ExpressionNode[]::new));
+            .toArray(ExpressionNode[]::new),
+        CoreTypes.absolute(closure.type(), plan.id.representative(), program));
   }
 
   private ExpressionNode lowerInterfaceCall(CoreExpression.InterfaceCall call, FunctionPlan plan) {

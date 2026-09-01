@@ -15,21 +15,30 @@ public final class BuiltinSymbols implements BuiltinSemanticIndex {
   private final BuiltinCatalog catalog;
   private final java.util.Set<DocumentId> moduleEvaluationDocuments;
   private final java.util.Set<DocumentId> standardLibraryDocuments;
+  private final java.util.Set<DocumentId> bindingDocuments;
 
   public BuiltinSymbols() {
-    this(java.util.Set.of(), java.util.Set.of());
+    this(java.util.Set.of(), java.util.Set.of(), java.util.Set.of());
   }
 
   public BuiltinSymbols(java.util.Set<DocumentId> moduleEvaluationDocuments) {
-    this(moduleEvaluationDocuments, java.util.Set.of());
+    this(moduleEvaluationDocuments, java.util.Set.of(), java.util.Set.of());
   }
 
   public BuiltinSymbols(
       java.util.Set<DocumentId> moduleEvaluationDocuments,
       java.util.Set<DocumentId> standardLibraryDocuments) {
+    this(moduleEvaluationDocuments, standardLibraryDocuments, java.util.Set.of());
+  }
+
+  public BuiltinSymbols(
+      java.util.Set<DocumentId> moduleEvaluationDocuments,
+      java.util.Set<DocumentId> standardLibraryDocuments,
+      java.util.Set<DocumentId> bindingDocuments) {
     catalog = BuiltinCatalog.standard();
     this.moduleEvaluationDocuments = java.util.Set.copyOf(moduleEvaluationDocuments);
     this.standardLibraryDocuments = java.util.Set.copyOf(standardLibraryDocuments);
+    this.bindingDocuments = java.util.Set.copyOf(bindingDocuments);
   }
 
   public Map<SymbolId, Symbol> symbols() {
@@ -55,6 +64,10 @@ public final class BuiltinSymbols implements BuiltinSemanticIndex {
   public List<Symbol> globals(String name, DocumentId document) {
     if (name.equals("__publishModule"))
       return moduleEvaluationDocuments.contains(document)
+          ? catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList()
+          : List.of();
+    if (name.startsWith("__jarInvoke"))
+      return bindingDocuments.contains(document)
           ? catalog.globals(name).stream().map(BuiltinCatalog.GlobalDefinition::symbol).toList()
           : List.of();
     if (name.startsWith("__") && !standardLibraryDocuments.contains(document)) return List.of();

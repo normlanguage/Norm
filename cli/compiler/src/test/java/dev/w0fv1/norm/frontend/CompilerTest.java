@@ -206,6 +206,16 @@ final class CompilerTest {
   }
 
   @Test
+  void acceptsSafeMethodChainsWhoseMethodsAlreadyReturnNullableValues() {
+    CompilationResult result =
+        compile(
+            "class Builder { Builder? next() { return this } } "
+                + "Void main() { Builder value = Builder() Builder? result = value.next()?.next() }");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void keepsBranchFlowSoundAcrossMutationAndFieldReads() {
     CompilationResult nestedMutation =
         compile(

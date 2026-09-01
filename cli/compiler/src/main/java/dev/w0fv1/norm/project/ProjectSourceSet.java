@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.project;
 
+import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
@@ -23,7 +24,9 @@ public record ProjectSourceSet(
     Set<Path> modulePaths,
     CompilationScope scope,
     List<SourceFile> sources,
-    Set<Path> exportedSourcePaths) {
+    Set<Path> exportedSourcePaths,
+    Set<DocumentId> bindingSourceDocuments,
+    List<ResolvedJarBinding> jarBindings) {
   public ProjectSourceSet {
     root = normalize(Objects.requireNonNull(root, "root"));
     primaryPath = normalize(Objects.requireNonNull(primaryPath, "primaryPath"));
@@ -42,6 +45,8 @@ public record ProjectSourceSet(
     }
     Objects.requireNonNull(sources, "sources");
     Objects.requireNonNull(exportedSourcePaths, "exportedSourcePaths");
+    Objects.requireNonNull(bindingSourceDocuments, "bindingSourceDocuments");
+    jarBindings = List.copyOf(jarBindings);
 
     Map<Path, SourceFile> sourcesByPath = new LinkedHashMap<>();
     for (SourceFile source : sources) {
@@ -59,11 +64,6 @@ public record ProjectSourceSet(
     if (modulePaths.isEmpty() && sourcesByPath.size() != 1) {
       throw new IllegalArgumentException("standalone projects contain exactly one source");
     }
-    for (Path module : modulePaths) {
-      if (!module.startsWith(root)) {
-        throw new IllegalArgumentException("module configuration is outside the project root");
-      }
-    }
     sources =
         sourcesByPath.entrySet().stream()
             .sorted(Map.Entry.comparingByKey(Comparator.comparing(Path::toString)))
@@ -73,6 +73,10 @@ public record ProjectSourceSet(
         sources.stream().map(SourceFile::id).collect(java.util.stream.Collectors.toSet());
     if (!scope.coordinates().keySet().equals(sourceDocuments)) {
       throw new IllegalArgumentException("project scope must describe every source document");
+    }
+    bindingSourceDocuments = Set.copyOf(bindingSourceDocuments);
+    if (!sourceDocuments.containsAll(bindingSourceDocuments)) {
+      throw new IllegalArgumentException("binding documents must be part of the project");
     }
 
     Set<Path> normalizedExports = new LinkedHashSet<>();
@@ -105,7 +109,11 @@ public record ProjectSourceSet(
 
   public Set<Path> inputPaths() {
     Set<Path> inputs = new LinkedHashSet<>();
-    sources.stream().map(SourceFile::path).map(ProjectSourceSet::normalize).forEach(inputs::add);
+    sources.stream()
+        .filter(source -> !bindingSourceDocuments.contains(source.id()))
+        .map(SourceFile::path)
+        .map(ProjectSourceSet::normalize)
+        .forEach(inputs::add);
     inputs.addAll(modulePaths);
     return Set.copyOf(inputs);
   }
@@ -123,7 +131,8 @@ public record ProjectSourceSet(
         scope,
         selected.id(),
         sources,
-        exportedDocuments);
+        exportedDocuments,
+        bindingSourceDocuments);
   }
 
   private SourceFile source(Path path) {

@@ -9,6 +9,8 @@ Module module() {
       "core.result",
       "core.unit",
       "collections.sequences",
+      "collections.mutable",
+      "concurrent.tasks",
       "filesystem.files",
       "http.client",
       "http.json",

@@ -11,7 +11,8 @@ public record CompilationRequest(
     CompilationScope scope,
     DocumentId entryDocument,
     List<SourceFile> sources,
-    Set<DocumentId> exportedSources) {
+    Set<DocumentId> exportedSources,
+    Set<DocumentId> bindingSources) {
   public CompilationRequest {
     Objects.requireNonNull(unit, "unit");
     Objects.requireNonNull(scope, "scope");
@@ -34,6 +35,19 @@ public record CompilationRequest(
     if (!unique.keySet().containsAll(exportedSources)) {
       throw new IllegalArgumentException("exported documents must be part of the compilation");
     }
+    bindingSources = Set.copyOf(bindingSources);
+    if (!unique.keySet().containsAll(bindingSources)) {
+      throw new IllegalArgumentException("binding documents must be part of the compilation");
+    }
+  }
+
+  public CompilationRequest(
+      CompilationUnitId unit,
+      CompilationScope scope,
+      DocumentId entryDocument,
+      List<SourceFile> sources,
+      Set<DocumentId> exportedSources) {
+    this(unit, scope, entryDocument, sources, exportedSources, Set.of());
   }
 
   public CompilationRequest(
@@ -41,7 +55,13 @@ public record CompilationRequest(
       DocumentId entryDocument,
       List<SourceFile> sources,
       Set<DocumentId> exportedSources) {
-    this(unit, CompilationScope.anonymous(sources), entryDocument, sources, exportedSources);
+    this(
+        unit,
+        CompilationScope.anonymous(sources),
+        entryDocument,
+        sources,
+        exportedSources,
+        Set.of());
   }
 
   public CompilationRequest(

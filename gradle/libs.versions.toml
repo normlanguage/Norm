@@ -10,6 +10,10 @@ junit = "6.0.1"
 spotless = "8.10.0"
 native-build-tools = "1.1.6"
 archunit = "1.5.0"
+mavenResolver = "2.0.21"
+slf4j = "2.0.18"
+asm = "9.9.1"
+commonsCodec = "1.22.0"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
@@ -25,6 +29,11 @@ jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref
 jackson-dataformat-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jacksonCore" }
 woodstox = { module = "com.fasterxml.woodstox:woodstox-core", version.ref = "woodstox" }
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+maven-resolver-supplier = { module = "org.apache.maven.resolver:maven-resolver-supplier-mvn3", version.ref = "mavenResolver" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
+jcl-over-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

@@ -5,9 +5,11 @@ import dev.w0fv1.norm.frontend.CompilationPrelude;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.LanguageProfile;
 import dev.w0fv1.norm.frontend.ModuleBootstrap;
+import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.stdlib.StandardLibrary;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Objects;
 
 public final class ProjectEnvironment {
@@ -49,6 +51,13 @@ public final class ProjectEnvironment {
 
   public ProjectLoader projectLoader() {
     return new ProjectLoader(new ModuleEvaluator(languageProfile, backend), reservedModuleNames);
+  }
+
+  ProjectLoader projectLoader(Path jarCache) {
+    return new ProjectLoader(
+        new ModuleEvaluator(languageProfile, backend),
+        reservedModuleNames,
+        new JarResolver(jarCache));
   }
 
   public ProjectLauncher launcher() {

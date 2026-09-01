@@ -31,6 +31,18 @@ final class NullableTypeTest {
   }
 
   @Test
+  void treatsAnyAsAOneWayNullAwareTopType() {
+    assertTrue(TypeRelations.isAssignable(SemanticType.ANY, SemanticType.STRING));
+    assertTrue(
+        TypeRelations.isAssignable(SemanticType.ANY.nullable(), SemanticType.STRING.nullable()));
+    assertTrue(TypeRelations.isAssignable(SemanticType.ANY.nullable(), SemanticType.NULL));
+    assertFalse(TypeRelations.isAssignable(SemanticType.ANY, SemanticType.STRING.nullable()));
+    assertFalse(TypeRelations.isAssignable(SemanticType.STRING, SemanticType.ANY));
+    assertFalse(
+        TypeRelations.isAssignable(SemanticType.STRING.nullable(), SemanticType.ANY.nullable()));
+  }
+
+  @Test
   void preservesAndAddsNullabilityDuringGenericSubstitution() {
     SemanticType parameter = SemanticType.parameter("test/T", "T");
 

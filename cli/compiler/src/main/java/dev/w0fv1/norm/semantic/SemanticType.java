@@ -15,6 +15,8 @@ public record SemanticType(
     Nullability nullability) {
   public static final SemanticType DYNAMIC =
       new SemanticType(Kind.ERROR, "<error>", "value", List.of(), ValueCategory.DYNAMIC);
+  public static final SemanticType ANY =
+      new SemanticType(Kind.DECLARED, "std.core.Any", "Any", List.of(), ValueCategory.POLYMORPHIC);
   public static final SemanticType INTEGER =
       new SemanticType(
           Kind.DECLARED, "std.core.Integer", "Integer", List.of(), ValueCategory.VALUE);

@@ -20,6 +20,7 @@ public final class TypeRelations {
     if (actual.isNullable() && !expected.isNullable()) return false;
     SemanticType expectedBase = expected.nonNullable();
     SemanticType actualBase = actual.nonNullable();
+    if (expectedBase.equals(SemanticType.ANY)) return expected.isNullable() || !actual.isNullable();
     if (expectedBase.isUnknownFunction() && actualBase.isFunction()) return true;
     if (expectedBase.kind() != actualBase.kind()
         || !expectedBase.identity().equals(actualBase.identity())

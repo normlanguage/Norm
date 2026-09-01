@@ -19,6 +19,16 @@ final class ManagedResource implements AutoCloseable {
     return type.cast(resource);
   }
 
+  synchronized Object hostValue() {
+    return resource;
+  }
+
+  synchronized void closedExternally() {
+    if (closed) return;
+    closed = true;
+    scope.release(this);
+  }
+
   @Override
   public synchronized void close() {
     if (closed) {

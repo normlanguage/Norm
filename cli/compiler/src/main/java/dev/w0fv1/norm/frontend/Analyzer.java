@@ -910,11 +910,32 @@ final class Analyzer {
       Syntax.TypeRef boundSyntax = parameter.upperBound().orElseThrow();
       typeSystem.validateType(boundSyntax, false);
       SemanticType bound = typeSystem.resolveType(boundSyntax, declaredTypes);
-      if (bound.isNullable() || typeSystem.resolveInterface(bound) == null) {
+      Syntax.AggregateDecl aggregate = typeSystem.resolveAggregate(bound);
+      boolean classBound = aggregate != null && aggregate.kind() == Syntax.AggregateKind.CLASS;
+      boolean typeParameterBound = bound.kind() == SemanticType.Kind.TYPE_PARAMETER;
+      if (bound.isNullable()
+          || typeSystem.resolveInterface(bound) == null && !classBound && !typeParameterBound) {
         context.diagnostics.error(
-            TYPE_MISMATCH, "type parameter bound must be an interface", boundSyntax.span());
+            TYPE_MISMATCH,
+            "type parameter bound must be a non-null class, interface, or type parameter",
+            boundSyntax.span());
       }
       context.typeParameterBounds.put(declaredTypes.get(parameter.name()).identity(), bound);
+    }
+    for (Syntax.TypeParameter parameter : parameters) {
+      SemanticType declared = declaredTypes.get(parameter.name());
+      Set<String> visited = new HashSet<>();
+      SemanticType current = declared;
+      while (current != null && current.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+        if (!visited.add(current.identity())) {
+          context.diagnostics.error(
+              TYPE_MISMATCH,
+              "cyclic type parameter bound",
+              parameter.upperBound().map(Syntax.TypeRef::span).orElse(parameter.nameSpan()));
+          break;
+        }
+        current = context.typeParameterBounds.get(current.identity());
+      }
     }
   }
 

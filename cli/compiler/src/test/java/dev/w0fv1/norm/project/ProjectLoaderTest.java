@@ -6,6 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.value.JarBindingOverload;
+import dev.w0fv1.norm.value.JarBindingType;
+import dev.w0fv1.norm.value.MavenArtifactCoordinate;
+import dev.w0fv1.norm.value.MavenJarTarget;
+import dev.w0fv1.norm.value.Sha256Digest;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ProjectLoaderTest {
+  private static final String SHA256 = "0123456789abcdef".repeat(4);
+
   @TempDir Path temporaryDirectory;
 
   @Test
@@ -216,6 +223,108 @@ final class ProjectLoaderTest {
       IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
 
       assertTrue(exception.getMessage().contains("module name 'std' is reserved"));
+    }
+  }
+
+  @Test
+  void evaluatesOneMavenJarBindingFromModuleConfiguration() throws Exception {
+    Path modulePath = temporaryDirectory.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        JarBinding libraryBinding() {
+          List<JarType> api = []
+          api.add(
+            jarType(
+              name: "StringUtils",
+              members: ["isBlank"],
+              overloads: [
+                jarOverload(name: "reverse", parameterTypes: ["java.lang.String"])
+              ]
+            )
+          )
+          JarTarget target = mavenJar(
+            group: "org.apache.commons",
+            artifact: "commons-lang3",
+            version: "3.20.0",
+            resolution: sha256("%s")
+          )
+          return jarBinding(target: target, api: api)
+        }
+
+        Module module() {
+          String namespace = "commons"
+          String artifact = "lang"
+          return module(
+            name: namespace + "." + artifact,
+            version: 1,
+            binding: libraryBinding()
+          )
+        }
+        """
+            .formatted(SHA256));
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var descriptor = projects.evaluateModule(SourceFile.read(modulePath));
+      MavenJarTarget target = (MavenJarTarget) descriptor.binding().orElseThrow().target();
+
+      assertEquals(
+          new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
+          target.coordinate());
+      assertEquals(Sha256Digest.parse(SHA256), target.resolution().orElseThrow());
+      assertEquals(List.of("StringUtils"), descriptor.exports());
+      assertEquals(
+          List.of(
+              new JarBindingType(
+                  "StringUtils",
+                  List.of("isBlank"),
+                  List.of(new JarBindingOverload("reverse", List.of("java.lang.String"))))),
+          descriptor.binding().orElseThrow().api());
+    }
+  }
+
+  @Test
+  void generatesTrustedNormSourcesForAnApacheCommonsLangBinding() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("binding-project"));
+    Path entry = source(root, "commons/lang/Main.norm", "package commons.lang Void main() {}");
+    Path modulePath = root.resolve("commons/lang/module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() {
+          return module(
+            name: "commons.lang",
+            version: 1,
+            binding: jarBinding(
+              target: mavenJar(
+                group: "org.apache.commons",
+                artifact: "commons-lang3",
+                version: "3.20.0"
+              ),
+              api: [jarType(name: "StringUtils", members: ["reverse"])]
+            )
+          )
+        }
+        """);
+
+    try (ProjectLoader projects =
+        environment().projectLoader(temporaryDirectory.resolve("maven-cache"))) {
+      new ModuleBindingResolutionService(projects).resolve(modulePath);
+      ProjectSourceSet sourceSet = projects.load(entry);
+
+      SourceFile generated =
+          sourceSet.sources().stream()
+              .filter(source -> source.displayName().endsWith("StringUtils.norm"))
+              .findFirst()
+              .orElseThrow();
+      assertTrue(generated.text().contains("stringUtilsReverse"));
+      assertFalse(generated.text().contains("stringUtilsAbbreviate"));
+      assertEquals(Set.of(generated.id()), sourceSet.bindingSourceDocuments());
+      assertTrue(
+          sourceSet.sources().stream()
+              .noneMatch(source -> source.displayName().endsWith("JavaArrays.norm")));
+      assertEquals(1, sourceSet.jarBindings().size());
+      assertFalse(sourceSet.inputPaths().contains(generated.path()));
     }
   }
 

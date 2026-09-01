@@ -1229,11 +1229,7 @@ final class ExpressionChecker {
       analyzer.context.bindings.put(member.nameSpan(), symbol.id());
       Map<String, SemanticType> substitutions =
           analyzer.typeSystem.inferBuiltinTypeArguments(
-              symbol,
-              member.typeArguments(),
-              call,
-              callableExpected(member, nullableReceiver, expected),
-              member.span());
+              symbol, member.typeArguments(), call, expected, member.span());
       List<SemanticType> reifiedArguments =
           symbol.typeParameters().stream()
               .map(parameter -> substitutions.get(parameter.type().identity()))
@@ -1264,7 +1260,8 @@ final class ExpressionChecker {
           reifiedArguments,
           safeAccessResult(member, nullableReceiver, symbol.type().substitute(substitutions)));
     }
-    Syntax.AggregateDecl aggregateDecl = analyzer.typeSystem.resolveAggregate(receiver);
+    SemanticType aggregateReceiver = aggregateReceiver(receiver);
+    Syntax.AggregateDecl aggregateDecl = analyzer.typeSystem.resolveAggregate(aggregateReceiver);
     if (aggregateDecl != null) {
       if (aggregateDecl.kind() != Syntax.AggregateKind.VALUE && member.name().equals("copy")) {
         analyzer.context.bindings.put(
@@ -1288,7 +1285,7 @@ final class ExpressionChecker {
       }
       boolean foundMethod = false;
       boolean foundAccessibleMethod = false;
-      for (AggregateView view : analyzer.typeSystem.aggregateViews(receiver)) {
+      for (AggregateView view : analyzer.typeSystem.aggregateViews(aggregateReceiver)) {
         List<Syntax.FunctionDecl> methods =
             view.declaration().methods().stream()
                 .filter(candidate -> candidate.name().equals(member.name()))
@@ -1319,7 +1316,7 @@ final class ExpressionChecker {
                 accessibleMethods,
                 member.typeArguments(),
                 call,
-                callableExpected(member, nullableReceiver, expected),
+                expected,
                 substitutions,
                 member.nameSpan(),
                 "method");
@@ -1596,9 +1593,11 @@ final class ExpressionChecker {
           member.span());
       return SemanticType.DYNAMIC;
     }
-    Syntax.AggregateDecl aggregateDecl = analyzer.typeSystem.resolveAggregate(receiverType);
+    SemanticType aggregateReceiver = aggregateReceiver(receiverType);
+    Syntax.AggregateDecl aggregateDecl = analyzer.typeSystem.resolveAggregate(aggregateReceiver);
     if (aggregateDecl != null) {
-      AggregateField resolved = analyzer.typeSystem.aggregateField(receiverType, member.name());
+      AggregateField resolved =
+          analyzer.typeSystem.aggregateField(aggregateReceiver, member.name());
       if (resolved != null) {
         Syntax.FieldDecl field = resolved.field();
         Syntax.AggregateDecl owner = resolved.view().declaration();
@@ -1626,7 +1625,7 @@ final class ExpressionChecker {
                     analyzer.typeSystem.aggregateSubstitutions(owner, resolved.view().type()));
         return safeAccessResult(member, nullableReceiverType, result);
       }
-      SemanticType method = boundMethodType(member, receiverType, expected);
+      SemanticType method = boundMethodType(member, aggregateReceiver, expected);
       if (method != null) return method;
       analyzer.context.diagnostics.error(
           UNKNOWN_NAME,
@@ -1803,6 +1802,12 @@ final class ExpressionChecker {
     if (candidates.isEmpty()) return null;
     List<FunctionReferenceResolution> matches = selectFunctionReferences(candidates, expected);
     return bindFunctionReference(member, member.nameSpan(), member.name(), matches, expected);
+  }
+
+  private SemanticType aggregateReceiver(SemanticType receiver) {
+    if (receiver.kind() != SemanticType.Kind.TYPE_PARAMETER) return receiver;
+    SemanticType bound = analyzer.context.typeParameterBounds.get(receiver.identity());
+    return bound != null && analyzer.typeSystem.resolveAggregate(bound) != null ? bound : receiver;
   }
 
   private List<FunctionReferenceResolution> selectFunctionReferences(
@@ -2053,17 +2058,6 @@ final class ExpressionChecker {
       return result;
     }
     return result.nullable();
-  }
-
-  static SemanticType callableExpected(
-      Syntax.Member member, SemanticType receiverType, SemanticType expected) {
-    if (expected != null
-        && member.nullSafe()
-        && receiverType.mayContainNull()
-        && expected.isNullable()) {
-      return expected.nonNullable();
-    }
-    return expected;
   }
 
   SemanticType analyzeIndex(Syntax.Index index) {

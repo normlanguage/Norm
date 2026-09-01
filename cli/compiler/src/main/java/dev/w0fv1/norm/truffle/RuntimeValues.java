@@ -41,13 +41,36 @@ final class RuntimeValues {
       Object receiver,
       Object[] captures,
       Object[] receiverTypeArguments,
-      Object[] reifiedArguments) {
+      Object[] reifiedArguments,
+      CoreType functionType) {
     Closure {
       Objects.requireNonNull(target, "target");
       Objects.requireNonNull(declaration, "declaration");
       captures = captures.clone();
       receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
+      Objects.requireNonNull(functionType, "functionType");
+    }
+
+    Closure(
+        CallTarget target,
+        DefinitionOccurrenceId declaration,
+        DefinitionId virtualSlot,
+        boolean unbound,
+        Object receiver,
+        Object[] captures,
+        Object[] receiverTypeArguments,
+        Object[] reifiedArguments) {
+      this(
+          target,
+          declaration,
+          virtualSlot,
+          unbound,
+          receiver,
+          captures,
+          receiverTypeArguments,
+          reifiedArguments,
+          CoreType.DYNAMIC);
     }
   }
 
@@ -943,6 +966,14 @@ final class RuntimeValues {
     public String toString() {
       return displayName;
     }
+
+    Object hostValue() {
+      return resource.hostValue();
+    }
+
+    void closedExternally() {
+      resource.closedExternally();
+    }
   }
 
   static final class EnumValue {
@@ -1166,11 +1197,18 @@ final class RuntimeValues {
     final ObjectInfo objectInfo;
     final CoreType type;
     final Object[] fields;
+    Object hostValue;
 
     ObjectValue(ObjectInfo objectInfo, CoreType type) {
       this.objectInfo = objectInfo;
       this.type = type;
       fields = new Object[objectInfo.fieldCount()];
+    }
+
+    void attachHost(Object value) {
+      if (hostValue != null)
+        throw new IllegalStateException("runtime object already has a host value");
+      hostValue = Objects.requireNonNull(value, "value");
     }
 
     private boolean sameValue(ObjectValue other) {

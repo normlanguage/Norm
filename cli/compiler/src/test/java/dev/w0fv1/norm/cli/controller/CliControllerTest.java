@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -98,6 +99,36 @@ final class CliControllerTest {
     assertEquals(ExitCode.SUCCESS, result.exitCode());
     assertEquals("14" + System.lineSeparator(), result.standardOut());
     assertEquals("", result.standardError());
+  }
+
+  @Test
+  void resolvesAndPinsALocalJarInModuleNorm() throws IOException {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("resolve/sample"));
+    Path jar = module.resolve("lib/sample.jar");
+    Files.createDirectories(jar.getParent());
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.finish();
+    }
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() {
+          return module(
+            name: "sample",
+            version: 1,
+            binding: jarBinding(target: localJar(path: "lib/sample.jar"), api: [])
+          )
+        }
+        """);
+
+    Result result = run("resolve", module.toString());
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertTrue(result.standardOut().contains("Resolved sample@1 to sha256:"));
+    String updated = Files.readString(modulePath);
+    assertTrue(updated.contains("integrity: sha256(\""));
+    assertFalse(Files.exists(module.resolve("lock.norm")));
   }
 
   @Test

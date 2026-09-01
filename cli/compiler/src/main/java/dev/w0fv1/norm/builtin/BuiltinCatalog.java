@@ -107,6 +107,10 @@ public final class BuiltinCatalog {
     return symbols;
   }
 
+  public Set<String> typeNames() {
+    return types.keySet();
+  }
+
   public Map<SymbolId, List<SymbolId>> members() {
     return members;
   }
@@ -363,6 +367,18 @@ public final class BuiltinCatalog {
                         "Stringable",
                         List.of(),
                         ValueCategory.POLYMORPHIC)));
+    member(type, "compareTo")
+        .filter(value -> value.type().equals(SemanticType.INTEGER))
+        .filter(value -> value.parameters().size() == 1)
+        .filter(value -> value.parameters().getFirst().type().equals(type))
+        .ifPresent(
+            ignored ->
+                result.add(
+                    SemanticType.declared(
+                        "std.core.Comparable",
+                        "Comparable",
+                        List.of(type),
+                        ValueCategory.POLYMORPHIC)));
     return List.copyOf(result);
   }
 
@@ -434,6 +450,31 @@ public final class BuiltinCatalog {
                               "toString",
                               new ProtocolWitness(
                                   List.of(), SemanticType.STRING, toString.intrinsic())))));
+      definition.members().stream()
+          .filter(member -> member.symbol().name().equals("compareTo"))
+          .filter(member -> member.symbol().type().equals(SemanticType.INTEGER))
+          .filter(member -> member.symbol().parameters().size() == 1)
+          .filter(member -> member.symbol().parameters().getFirst().type().equals(concrete))
+          .findFirst()
+          .ifPresent(
+              compareTo ->
+                  result.add(
+                      new ProtocolConformance(
+                          definition.typeParameters().stream()
+                              .map(name -> parameter(definition.symbol().name(), name))
+                              .toList(),
+                          concrete,
+                          SemanticType.declared(
+                              "std.core.Comparable",
+                              "Comparable",
+                              List.of(concrete),
+                              ValueCategory.POLYMORPHIC),
+                          Map.of(
+                              "compareTo",
+                              new ProtocolWitness(
+                                  compareTo.symbol().parameters(),
+                                  SemanticType.INTEGER,
+                                  compareTo.intrinsic())))));
     }
     TypeDefinition nativeIterator = hiddenTypes.get("NativeIterator");
     SemanticType iteratorElement = nativeIterator.symbol().typeParameters().getFirst().type();
@@ -608,6 +649,8 @@ public final class BuiltinCatalog {
     SemanticType bytesJoinT = globalParameter("__bytesJoin", "T");
     SemanticType textEncodeUtf8T = globalParameter("__textEncodeUtf8", "T");
     SemanticType useT = globalParameter("__use", "T");
+    SemanticType jarInputStreamReadT = globalParameter("__jarInputStreamRead", "T");
+    SemanticType jarTaskAwaitT = globalParameter("__jarTaskAwait", "T");
     SemanticType fileOpenReadT = globalParameter("__fileOpenRead", "T");
     SemanticType fileReadT = globalParameter("__fileRead", "T");
     SemanticType fileOpenWriteT = globalParameter("__fileOpenWrite", "T");
@@ -634,6 +677,8 @@ public final class BuiltinCatalog {
     SemanticType stringArrayType =
         SemanticType.declared("std.core.Array", "Array", List.of(stringType), ValueCategory.VALUE);
 
+    addType(
+        types, type(SemanticType.ANY.name(), RuntimeShape.ANY).category(ValueCategory.POLYMORPHIC));
     addType(types, type(integerType.name(), RuntimeShape.INTEGER));
     addType(types, type(SemanticType.LONG.name(), RuntimeShape.LONG));
     addType(types, type(SemanticType.FLOAT.name(), RuntimeShape.FLOAT));
@@ -858,6 +903,12 @@ public final class BuiltinCatalog {
                     integerType,
                     IntrinsicId.STRING_COMPARE_CODE_POINTS,
                     parameterInfo("right", stringType)),
+                method(
+                    "String",
+                    "compareTo",
+                    integerType,
+                    IntrinsicId.STRING_COMPARE_CODE_POINTS,
+                    parameterInfo("other", stringType)),
                 method("String", "normalizeNfc", stringType, IntrinsicId.STRING_NORMALIZE_NFC),
                 method("String", "normalizeNfd", stringType, IntrinsicId.STRING_NORMALIZE_NFD),
                 method("String", "normalizeNfkc", stringType, IntrinsicId.STRING_NORMALIZE_NFKC),
@@ -1253,7 +1304,184 @@ public final class BuiltinCatalog {
             parameterInfo(
                 "dependencyVersions",
                 SemanticType.declared(
-                    "std.core.List", "List", List.of(integerType), ValueCategory.VALUE))));
+                    "std.core.List", "List", List.of(integerType), ValueCategory.VALUE)),
+            parameterInfo("bindingSource", stringType),
+            parameterInfo("bindingPath", stringType),
+            parameterInfo("bindingGroup", stringType),
+            parameterInfo("bindingArtifact", stringType),
+            parameterInfo("bindingVersion", stringType),
+            parameterInfo("bindingDigest", stringType),
+            parameterInfo(
+                "bindingApiTypes",
+                SemanticType.declared(
+                    "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
+            parameterInfo(
+                "bindingApiMembers",
+                SemanticType.declared(
+                    "std.core.List",
+                    "List",
+                    List.of(
+                        SemanticType.declared(
+                            "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
+                    ValueCategory.VALUE)),
+            parameterInfo(
+                "bindingApiOverloadNames",
+                SemanticType.declared(
+                    "std.core.List",
+                    "List",
+                    List.of(
+                        SemanticType.declared(
+                            "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
+                    ValueCategory.VALUE)),
+            parameterInfo(
+                "bindingApiOverloadParameterTypes",
+                SemanticType.declared(
+                    "std.core.List",
+                    "List",
+                    List.of(
+                        SemanticType.declared(
+                            "std.core.List",
+                            "List",
+                            List.of(
+                                SemanticType.declared(
+                                    "std.core.List",
+                                    "List",
+                                    List.of(stringType),
+                                    ValueCategory.VALUE)),
+                            ValueCategory.VALUE)),
+                    ValueCategory.VALUE))));
+    for (int arity = 0; arity <= 8; arity++) {
+      String name = "__jarInvoke" + arity;
+      SemanticType result = globalParameter(name, "T");
+      List<ParameterInfo> parameters = new ArrayList<>();
+      parameters.add(parameterInfo("call", stringType));
+      for (int index = 0; index < arity; index++) {
+        parameters.add(parameterInfo("arg" + index, SemanticType.DYNAMIC));
+      }
+      addGlobal(
+          globals,
+          genericGlobal(
+              name,
+              result,
+              IntrinsicId.JAR_INVOKE,
+              List.of(new TypeParameterInfo("T", result)),
+              parameters.toArray(ParameterInfo[]::new)));
+      addGlobal(
+          globals,
+          global(
+              "__jarInvokeVoid" + arity,
+              SemanticType.VOID,
+              IntrinsicId.JAR_INVOKE_VOID,
+              parameters.toArray(ParameterInfo[]::new)));
+    }
+    for (String operation : List.of("Get", "Set", "Remove")) {
+      String name = "__javaList" + operation;
+      SemanticType result = globalParameter(name, "T");
+      List<ParameterInfo> parameters = new ArrayList<>();
+      parameters.add(parameterInfo("value", SemanticType.DYNAMIC));
+      parameters.add(parameterInfo("index", integerType));
+      if (operation.equals("Set")) parameters.add(parameterInfo("element", result));
+      IntrinsicId intrinsic =
+          switch (operation) {
+            case "Get" -> IntrinsicId.JAVA_LIST_GET;
+            case "Set" -> IntrinsicId.JAVA_LIST_SET;
+            case "Remove" -> IntrinsicId.JAVA_LIST_REMOVE;
+            default -> throw new IllegalStateException("unknown Java list operation");
+          };
+      addGlobal(
+          globals,
+          genericGlobal(
+              name,
+              result,
+              intrinsic,
+              List.of(new TypeParameterInfo("T", result)),
+              parameters.toArray(ParameterInfo[]::new)));
+    }
+    addGlobal(
+        globals,
+        global(
+            "__javaCollectionSize",
+            integerType,
+            IntrinsicId.JAVA_COLLECTION_SIZE,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    for (String operation : List.of("Contains", "Add", "Remove")) {
+      IntrinsicId intrinsic =
+          switch (operation) {
+            case "Contains" -> IntrinsicId.JAVA_COLLECTION_CONTAINS;
+            case "Add" -> IntrinsicId.JAVA_COLLECTION_ADD;
+            case "Remove" -> IntrinsicId.JAVA_COLLECTION_REMOVE;
+            default -> throw new IllegalStateException("unknown Java collection operation");
+          };
+      addGlobal(
+          globals,
+          global(
+              "__javaCollection" + operation,
+              booleanType,
+              intrinsic,
+              parameterInfo("value", SemanticType.DYNAMIC),
+              parameterInfo("element", SemanticType.DYNAMIC)));
+    }
+    for (String operation : List.of("IterableIterator", "IteratorNext")) {
+      String name = "__java" + operation;
+      SemanticType result = globalParameter(name, "T");
+      addGlobal(
+          globals,
+          genericGlobal(
+              name,
+              result,
+              operation.equals("IterableIterator")
+                  ? IntrinsicId.JAVA_ITERABLE_ITERATOR
+                  : IntrinsicId.JAVA_ITERATOR_NEXT,
+              List.of(new TypeParameterInfo("T", result)),
+              parameterInfo("value", SemanticType.DYNAMIC)));
+    }
+    addGlobal(
+        globals,
+        global(
+            "__javaIteratorHasNext",
+            booleanType,
+            IntrinsicId.JAVA_ITERATOR_HAS_NEXT,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__javaMapSize",
+            integerType,
+            IntrinsicId.JAVA_MAP_SIZE,
+            parameterInfo("value", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__javaMapContainsKey",
+            booleanType,
+            IntrinsicId.JAVA_MAP_CONTAINS_KEY,
+            parameterInfo("value", SemanticType.DYNAMIC),
+            parameterInfo("key", SemanticType.DYNAMIC)));
+    for (String operation : List.of("Get", "Put", "Remove")) {
+      String name = "__javaMap" + operation;
+      SemanticType result = globalParameter(name, "T");
+      List<ParameterInfo> parameters = new ArrayList<>();
+      parameters.add(parameterInfo("value", SemanticType.DYNAMIC));
+      parameters.add(parameterInfo("key", SemanticType.DYNAMIC));
+      if (operation.equals("Put")) {
+        parameters.add(parameterInfo("element", SemanticType.DYNAMIC));
+      }
+      IntrinsicId intrinsic =
+          switch (operation) {
+            case "Get" -> IntrinsicId.JAVA_MAP_GET;
+            case "Put" -> IntrinsicId.JAVA_MAP_PUT;
+            case "Remove" -> IntrinsicId.JAVA_MAP_REMOVE;
+            default -> throw new IllegalStateException("unknown Java map operation");
+          };
+      addGlobal(
+          globals,
+          genericGlobal(
+              name,
+              result,
+              intrinsic,
+              List.of(new TypeParameterInfo("T", result)),
+              parameters.toArray(ParameterInfo[]::new)));
+    }
     addGlobal(
         globals,
         genericGlobal(
@@ -1326,6 +1554,66 @@ public final class BuiltinCatalog {
             List.of(new TypeParameterInfo("T", useT)),
             parameterInfo("close", SemanticType.function(SemanticType.VOID, List.of())),
             parameterInfo("body", SemanticType.function(useT, List.of()))));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__jarInputStreamRead",
+            jarInputStreamReadT.nullable(),
+            IntrinsicId.JAR_INPUT_STREAM_READ,
+            List.of(new TypeParameterInfo("T", jarInputStreamReadT)),
+            parameterInfo("stream", SemanticType.DYNAMIC),
+            parameterInfo("maximumBytes", integerType)));
+    addGlobal(
+        globals,
+        global(
+            "__jarOutputStreamWrite",
+            integerType,
+            IntrinsicId.JAR_OUTPUT_STREAM_WRITE,
+            parameterInfo("stream", SemanticType.DYNAMIC),
+            parameterInfo("content", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__jarOutputStreamFlush",
+            SemanticType.VOID,
+            IntrinsicId.JAR_OUTPUT_STREAM_FLUSH,
+            parameterInfo("stream", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__jarStreamClose",
+            SemanticType.VOID,
+            IntrinsicId.JAR_STREAM_CLOSE,
+            parameterInfo("stream", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__jarTaskAwait",
+            jarTaskAwaitT,
+            IntrinsicId.JAR_TASK_AWAIT,
+            List.of(new TypeParameterInfo("T", jarTaskAwaitT)),
+            parameterInfo("task", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__jarTaskCancel",
+            booleanType,
+            IntrinsicId.JAR_TASK_CANCEL,
+            parameterInfo("task", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__jarTaskCompleted",
+            booleanType,
+            IntrinsicId.JAR_TASK_COMPLETED,
+            parameterInfo("task", SemanticType.DYNAMIC)));
+    addGlobal(
+        globals,
+        global(
+            "__jarTaskClose",
+            SemanticType.VOID,
+            IntrinsicId.JAR_TASK_CLOSE,
+            parameterInfo("task", SemanticType.DYNAMIC)));
     addGlobal(
         globals,
         genericGlobal(
