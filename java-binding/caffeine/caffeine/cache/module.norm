@@ -1,0 +1,71 @@
+Module module() {
+  return module(
+    name: "caffeine.cache",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "com.github.ben-manes.caffeine",
+        artifact: "caffeine",
+        version: "3.2.4", resolution: sha256("01cd3f76ce6fc4c4f8863914668224359252c3824ed0e402a57c0d50489677a7")
+      ),
+      api: [
+        jarType(
+          name: "Caffeine",
+          members: [
+            "initialCapacity",
+            "maximumSize",
+            "maximumWeight",
+            "softValues",
+            "toString",
+            "weakKeys",
+            "weakValues"
+          ],
+          overloads: [
+            jarOverload(name: "newBuilder", parameterTypes: []),
+            jarOverload(name: "from", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "expireAfterWrite", parameterTypes: ["java.time.Duration"]),
+            jarOverload(name: "expireAfterAccess", parameterTypes: ["java.time.Duration"]),
+            jarOverload(name: "refreshAfterWrite", parameterTypes: ["java.time.Duration"]),
+            jarOverload(name: "recordStats", parameterTypes: []),
+            jarOverload(name: "build", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Cache",
+          members: [
+            "asMap",
+            "cleanUp",
+            "estimatedSize",
+            "get",
+            "getIfPresent",
+            "invalidate",
+            "put",
+            "stats"
+          ]
+        ),
+        jarType(
+          name: "CacheStats",
+          members: [
+            "averageLoadPenalty",
+            "empty",
+            "evictionCount",
+            "evictionWeight",
+            "hitCount",
+            "hitRate",
+            "loadCount",
+            "loadFailureCount",
+            "loadFailureRate",
+            "loadSuccessCount",
+            "minus",
+            "missCount",
+            "missRate",
+            "plus",
+            "requestCount",
+            "toString",
+            "totalLoadTime"
+          ]
+        )
+      ]
+    )
+  )
+}
