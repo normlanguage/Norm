@@ -1,0 +1,191 @@
+Module module() {
+  return module(
+    name: "guava.core",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "com.google.guava",
+        artifact: "guava",
+        version: "33.7.1-jre", resolution: sha256("ca96ec65738014bfc9a356010a0e7d0dc22412c012f91fd38a975da94e5e4e89")
+      ),
+      api: [
+        jarType(
+          name: "Preconditions",
+          members: [],
+          overloads: [
+            jarOverload(name: "checkArgument", parameterTypes: ["boolean"]),
+            jarOverload(name: "checkState", parameterTypes: ["boolean"]),
+            jarOverload(name: "checkNotNull", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "checkElementIndex", parameterTypes: ["int", "int"]),
+            jarOverload(name: "checkPositionIndex", parameterTypes: ["int", "int"]),
+            jarOverload(name: "checkPositionIndexes", parameterTypes: ["int", "int", "int"])
+          ]
+        ),
+        jarType(
+          name: "Strings",
+          members: [
+            "commonPrefix",
+            "commonSuffix",
+            "emptyToNull",
+            "isNullOrEmpty",
+            "nullToEmpty",
+            "padEnd",
+            "padStart",
+            "repeat"
+          ]
+        ),
+        jarType(
+          name: "Joiner",
+          members: ["skipNulls", "useForNull"],
+          overloads: [
+            jarOverload(name: "on", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "join", parameterTypes: ["java.lang.Iterable"])
+          ]
+        ),
+        jarType(
+          name: "Splitter",
+          members: ["limit", "omitEmptyStrings"],
+          overloads: [
+            jarOverload(name: "on", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "onPattern", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "fixedLength", parameterTypes: ["int"]),
+            jarOverload(name: "trimResults", parameterTypes: []),
+            jarOverload(name: "split", parameterTypes: ["java.lang.CharSequence"]),
+            jarOverload(name: "splitToList", parameterTypes: ["java.lang.CharSequence"])
+          ]
+        ),
+        jarType(
+          name: "ImmutableList",
+          members: ["contains", "indexOf", "lastIndexOf", "reverse"],
+          overloads: [
+            jarOverload(name: "of", parameterTypes: []),
+            jarOverload(name: "of", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "of", parameterTypes: ["java.lang.Object", "java.lang.Object"]),
+            jarOverload(
+              name: "of",
+              parameterTypes: ["java.lang.Object", "java.lang.Object", "java.lang.Object"]
+            ),
+            jarOverload(
+              name: "of",
+              parameterTypes: [
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object"
+              ]
+            ),
+            jarOverload(name: "subList", parameterTypes: ["int", "int"])
+          ]
+        ),
+        jarType(
+          name: "ImmutableSet",
+          members: ["contains"],
+          overloads: [
+            jarOverload(name: "of", parameterTypes: []),
+            jarOverload(name: "of", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "of", parameterTypes: ["java.lang.Object", "java.lang.Object"]),
+            jarOverload(
+              name: "of",
+              parameterTypes: ["java.lang.Object", "java.lang.Object", "java.lang.Object"]
+            ),
+            jarOverload(
+              name: "of",
+              parameterTypes: [
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object"
+              ]
+            )
+          ]
+        ),
+        jarType(
+          name: "ImmutableMap",
+          members: [
+            "containsKey",
+            "containsValue",
+            "get",
+            "getOrDefault",
+            "isEmpty",
+            "toString"
+          ],
+          overloads: [
+            jarOverload(name: "of", parameterTypes: []),
+            jarOverload(name: "of", parameterTypes: ["java.lang.Object", "java.lang.Object"]),
+            jarOverload(
+              name: "of",
+              parameterTypes: [
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object"
+              ]
+            ),
+            jarOverload(
+              name: "of",
+              parameterTypes: [
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object",
+                "java.lang.Object"
+              ]
+            )
+          ]
+        ),
+        jarType(
+          name: "Multimap",
+          members: [
+            "clear",
+            "containsEntry",
+            "containsKey",
+            "containsValue",
+            "get",
+            "isEmpty",
+            "keySet",
+            "put",
+            "remove",
+            "size",
+            "values"
+          ]
+        ),
+        jarType(
+          name: "ArrayListMultimap",
+          members: [],
+          overloads: [
+            jarOverload(name: "create", parameterTypes: []),
+            jarOverload(name: "create", parameterTypes: ["int", "int"])
+          ]
+        ),
+        jarType(
+          name: "Hashing",
+          members: [],
+          overloads: [
+            jarOverload(name: "goodFastHash", parameterTypes: ["int"]),
+            jarOverload(name: "murmur3_128", parameterTypes: []),
+            jarOverload(name: "sha256", parameterTypes: []),
+            jarOverload(name: "sha512", parameterTypes: []),
+            jarOverload(name: "consistentHash", parameterTypes: ["long", "int"])
+          ]
+        ),
+        jarType(
+          name: "HashFunction",
+          members: ["bits", "hashInt", "hashLong"],
+          overloads: [
+            jarOverload(name: "hashUnencodedChars", parameterTypes: ["java.lang.CharSequence"])
+          ]
+        ),
+        jarType(
+          name: "HashCode",
+          members: ["asInt", "asLong", "bits", "padToLong", "toString"],
+          overloads: [
+            jarOverload(name: "fromInt", parameterTypes: ["int"]),
+            jarOverload(name: "fromLong", parameterTypes: ["long"]),
+            jarOverload(name: "fromString", parameterTypes: ["java.lang.String"])
+          ]
+        )
+      ]
+    )
+  )
+}
