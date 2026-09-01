@@ -1,0 +1,6 @@
+package commons.lang
+
+Void main() {
+  String prefix = stringUtilsFieldGetEmpty() ?? ""
+  printLine(prefix + (stringUtilsReverse("Norm") ?? ""))
+}

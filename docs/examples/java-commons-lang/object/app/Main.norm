@@ -1,0 +1,27 @@
+package object.app
+
+import commons.lang.JavaComparableArray
+import commons.lang.JavaObjectArray
+import commons.lang.JavaStringArray
+import commons.lang.javaComparableArrayNew
+import commons.lang.javaObjectArrayNew
+import commons.lang.javaStringArrayNew
+import commons.lang.objectUtilsFirstNonNull
+import commons.lang.objectUtilsMax
+import commons.lang.stringUtilsSplit
+
+Void main() {
+  JavaStringArray parts = stringUtilsSplit("Norm Java") ?? javaStringArrayNew(0)
+  printLine(parts.size())
+  printLine(parts.get(0) ?? "")
+  parts.set(index: 0, value: "NAR")
+  printLine(parts.get(0) ?? "")
+  JavaObjectArray<String> choices = javaObjectArrayNew<String>(2)
+  choices.set(index: 0, value: "first")
+  choices.set(index: 1, value: "second")
+  printLine(objectUtilsFirstNonNull<String>(choices) ?? "")
+  JavaComparableArray<String> ordered = javaComparableArrayNew<String>(2)
+  ordered.set(index: 0, value: "first")
+  ordered.set(index: 1, value: "second")
+  printLine(objectUtilsMax<String>(ordered) ?? "")
+}

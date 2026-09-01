@@ -1,0 +1,37 @@
+Module module() {
+  return module(
+    name: "commons.lang",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "org.apache.commons",
+        artifact: "commons-lang3",
+        version: "3.20.0",
+        resolution: sha256("69e5c9fa35da7a51a5fd2099dfe56a2d8d32cf233e2f6d770e796146440263f4")
+      ),
+      api: [
+        jarType(
+          name: "ObjectUtils",
+          members: [
+            "compare", "firstNonNull", "isEmpty", "isNotEmpty", "max", "min"
+          ]
+        ),
+        jarType(
+          name: "StringUtils",
+          members: [
+            "EMPTY", "abbreviate", "capitalize", "center", "chomp", "chop", "compare",
+            "compareIgnoreCase", "contains", "containsAny", "countMatches", "defaultString",
+            "indexOf", "isAlpha", "isAlphanumeric", "isBlank", "isEmpty", "isNotBlank",
+            "isNotEmpty", "isNumeric", "isWhitespace", "join", "lastIndexOf", "left",
+            "leftPad", "mid", "normalizeSpace", "remove", "removeStart", "repeat", "reverse",
+            "right", "rightPad", "split", "splitPreserveAllTokens", "strip", "stripEnd",
+            "stripStart", "stripToEmpty", "stripToNull", "substring", "substringAfter",
+            "substringAfterLast", "substringBefore", "substringBeforeLast", "substringBetween",
+            "substringsBetween", "swapCase", "trim", "trimToEmpty", "trimToNull", "truncate",
+            "uncapitalize"
+          ]
+        )
+      ]
+    )
+  )
+}

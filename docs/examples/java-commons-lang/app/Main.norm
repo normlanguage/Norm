@@ -1,0 +1,9 @@
+package app
+
+import commons.lang.stringUtilsReverse
+import commons.lang.stringUtilsFieldGetEmpty
+
+Void main() {
+  String prefix = stringUtilsFieldGetEmpty() ?? ""
+  printLine(prefix + (stringUtilsReverse("Norm") ?? ""))
+}
