@@ -1,0 +1,49 @@
+package eclipse.collections
+
+Void main() {
+  FastList<String?> names = fastListNew<String>()
+  names.add("Norm")
+  names.add("Java")
+  names.add("NAR")
+
+  FastList<String?>? selected = names.select((value) { value != "Norm" })
+  if selected != null {
+    printLine(selected.size())
+  }
+
+  FastList<Integer?>? lengths =
+    names.collect<Integer>((value) {
+      Integer? length = (value ?? "").codePointSize()
+      length
+    })
+  if lengths != null {
+    printLine(lengths.get(0) ?? 0)
+  }
+
+  FastListMultimap<Integer?, String?>? grouped =
+    names.groupBy<Integer>((value) {
+      Integer? length = (value ?? "").codePointSize()
+      length
+    })
+  if grouped != null {
+    printLine(grouped.containsKeyAndValue(arg0: 3, arg1: "NAR"))
+  }
+
+  UnifiedSet<String?> unique = unifiedSetNew<String>()
+  unique.add("Norm")
+  unique.add("Norm")
+  printLine(unique.size())
+
+  UnifiedMap<String?, Integer?> lengthByName = unifiedMapNew<String, Integer>()
+  lengthByName.put(arg0: "Norm", arg1: 4)
+  printLine(lengthByName.get("Norm") ?? 0)
+
+  IntArrayList numbers = intArrayListNew()
+  numbers.add(2)
+  numbers.add(3)
+  numbers.add(5)
+  IntArrayList? odd = numbers.select((value) { value % 2 == 1 })
+  if odd != null {
+    printLine(odd.sum())
+  }
+}

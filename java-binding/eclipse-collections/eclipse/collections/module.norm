@@ -1,0 +1,151 @@
+Module module() {
+  return module(
+    name: "eclipse.collections",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "org.eclipse.collections",
+        artifact: "eclipse-collections",
+        version: "13.0.0", resolution: sha256("172b5126049d0fb522a4b6052143ae20eae31834cdeb61cafbd044a348d3649a")
+      ),
+      api: [
+        jarType(
+          name: "FastList",
+          members: [
+            "add",
+            "clear",
+            "contains",
+            "get",
+            "getFirst",
+            "getLast",
+            "isEmpty",
+            "remove",
+            "reverseThis",
+            "size"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "sortThis", parameterTypes: []),
+            jarOverload(
+              name: "select",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.Predicate"]
+            ),
+            jarOverload(
+              name: "reject",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.Predicate"]
+            ),
+            jarOverload(
+              name: "collect",
+              parameterTypes: ["org.eclipse.collections.api.block.function.Function"]
+            ),
+            jarOverload(
+              name: "groupBy",
+              parameterTypes: ["org.eclipse.collections.api.block.function.Function"]
+            ),
+            jarOverload(
+              name: "count",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.Predicate"]
+            ),
+            jarOverload(
+              name: "anySatisfy",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.Predicate"]
+            ),
+            jarOverload(
+              name: "allSatisfy",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.Predicate"]
+            ),
+            jarOverload(
+              name: "noneSatisfy",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.Predicate"]
+            )
+          ]
+        ),
+        jarType(
+          name: "UnifiedSet",
+          members: [
+            "add",
+            "clear",
+            "contains",
+            "isEmpty",
+            "remove",
+            "size"
+          ],
+          overloads: [jarOverload(name: "new", parameterTypes: [])]
+        ),
+        jarType(
+          name: "UnifiedMap",
+          members: [
+            "clear",
+            "containsKey",
+            "containsValue",
+            "get",
+            "getIfAbsentPut",
+            "isEmpty",
+            "keySet",
+            "put",
+            "removeKey",
+            "size",
+            "values"
+          ],
+          overloads: [jarOverload(name: "new", parameterTypes: [])]
+        ),
+        jarType(
+          name: "FastListMultimap",
+          members: [
+            "clear",
+            "containsKey",
+            "containsKeyAndValue",
+            "containsValue",
+            "isEmpty",
+            "notEmpty",
+            "put",
+            "remove",
+            "size",
+            "sizeDistinct"
+          ],
+          overloads: [jarOverload(name: "new", parameterTypes: [])]
+        ),
+        jarType(
+          name: "IntArrayList",
+          members: [
+            "add",
+            "binarySearch",
+            "contains",
+            "get",
+            "getFirst",
+            "getLast",
+            "max",
+            "min",
+            "reverseThis",
+            "size",
+            "sum"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "sortThis", parameterTypes: []),
+            jarOverload(
+              name: "select",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.primitive.IntPredicate"]
+            ),
+            jarOverload(
+              name: "reject",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.primitive.IntPredicate"]
+            ),
+            jarOverload(
+              name: "count",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.primitive.IntPredicate"]
+            ),
+            jarOverload(
+              name: "anySatisfy",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.primitive.IntPredicate"]
+            ),
+            jarOverload(
+              name: "allSatisfy",
+              parameterTypes: ["org.eclipse.collections.api.block.predicate.primitive.IntPredicate"]
+            )
+          ]
+        )
+      ]
+    )
+  )
+}
