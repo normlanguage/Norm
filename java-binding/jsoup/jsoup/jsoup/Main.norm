@@ -1,0 +1,33 @@
+package jsoup.jsoup
+
+Void main() {
+  Document? document = jsoupParse(
+    "<html><head><title>Norm</title></head><body><a class='entry' href='/1'>Topic</a></body></html>"
+  )
+  if document != null {
+    printLine(document.title() ?? "missing")
+    Elements? entries = document.select("a.entry")
+    if entries != null {
+      printLine(entries.size())
+    }
+    Element? entry = document.selectFirst("a.entry")
+    if entry != null {
+      printLine(entry.text() ?? "missing")
+      printLine(entry.attr("href") ?? "missing")
+      entry.addClass("selected")
+      entry.text("Updated")
+      printLine(entry.hasClass("selected"))
+      printLine((entry.outerHtml() ?? "").contains("Updated"))
+    }
+    printLine((document.html() ?? "").contains("Updated"))
+  }
+  Safelist? safelist = safelistBasic()
+  if safelist != null {
+    String clean = jsoupClean(
+      arg0: "<b>safe</b><script>bad()</script>",
+      arg1: safelist
+    ) ?? ""
+    printLine(clean.contains("<b>safe</b>"))
+    printLine(clean.contains("script"))
+  }
+}

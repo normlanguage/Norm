@@ -1,0 +1,182 @@
+Module module() {
+  return module(
+    name: "jsoup.jsoup",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "org.jsoup",
+        artifact: "jsoup",
+        version: "1.23.2", resolution: sha256("e9d8c856856680427f096d156f02a414289985c930998fcb519ce5be39b42003")
+      ),
+      api: [
+        jarType(
+          name: "Jsoup",
+          members: ["clean", "connect", "isValid", "newSession", "parse", "parseBodyFragment"]
+        ),
+        jarType(
+          name: "Connection",
+          members: [
+            "cookie",
+            "cookies",
+            "followRedirects",
+            "get",
+            "header",
+            "headers",
+            "ignoreContentType",
+            "ignoreHttpErrors",
+            "maxBodySize",
+            "method",
+            "newRequest",
+            "parser",
+            "post",
+            "postDataCharset",
+            "referrer",
+            "requestBody",
+            "timeout",
+            "url",
+            "userAgent"
+          ]
+        ),
+        jarType(
+          name: "Document",
+          members: [
+            "body",
+            "charset",
+            "clone",
+            "createElement",
+            "getElementById",
+            "getElementsByClass",
+            "getElementsByTag",
+            "head",
+            "location",
+            "outputSettings",
+            "select",
+            "selectFirst",
+            "text",
+            "title"
+          ],
+          overloads: [
+            jarOverload(name: "html", parameterTypes: []),
+            jarOverload(name: "html", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "outerHtml", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Element",
+          members: [
+            "addClass",
+            "appendChild",
+            "appendElement",
+            "appendText",
+            "attr",
+            "baseUri",
+            "child",
+            "children",
+            "childrenSize",
+            "className",
+            "classNames",
+            "closest",
+            "data",
+            "expectFirst",
+            "getElementById",
+            "getElementsByClass",
+            "getElementsByTag",
+            "hasAttr",
+            "hasClass",
+            "hasText",
+            "id",
+            "is",
+            "nodeName",
+            "ownText",
+            "parent",
+            "parents",
+            "remove",
+            "removeAttr",
+            "removeClass",
+            "select",
+            "selectFirst",
+            "tagName",
+            "text",
+            "toggleClass",
+            "val",
+            "wrap",
+            "wholeText"
+          ],
+          overloads: [
+            jarOverload(name: "html", parameterTypes: []),
+            jarOverload(name: "html", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "outerHtml", parameterTypes: [])
+          ]
+        ),
+        jarType(
+          name: "Elements",
+          members: [
+            "addClass",
+            "attr",
+            "eachAttr",
+            "eachText",
+            "eq",
+            "expectFirst",
+            "first",
+            "hasAttr",
+            "hasClass",
+            "hasText",
+            "html",
+            "is",
+            "last",
+            "next",
+            "not",
+            "parents",
+            "prev",
+            "remove",
+            "removeAttr",
+            "removeClass",
+            "select",
+            "selectFirst",
+            "size",
+            "text",
+            "toggleClass",
+            "unwrap",
+            "val",
+            "wrap"
+          ]
+        ),
+        jarType(
+          name: "Safelist",
+          members: [
+            "addAttributes",
+            "addEnforcedAttribute",
+            "addProtocols",
+            "addTags",
+            "basic",
+            "basicWithImages",
+            "isSafeTag",
+            "new",
+            "none",
+            "preserveRelativeLinks",
+            "relaxed",
+            "removeAttributes",
+            "removeEnforcedAttribute",
+            "removeProtocols",
+            "removeTags",
+            "simpleText"
+          ]
+        ),
+        jarType(
+          name: "Document.OutputSettings",
+          members: [
+            "charset",
+            "clone",
+            "escapeMode",
+            "indentAmount",
+            "maxPaddingWidth",
+            "new",
+            "outline",
+            "prettyPrint",
+            "syntax"
+          ]
+        )
+      ]
+    )
+  )
+}
