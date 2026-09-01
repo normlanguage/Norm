@@ -3,7 +3,9 @@ package dev.w0fv1.norm.jvm;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,12 +27,16 @@ public final class JarApiScanner {
   private static final JavaGenericSignatureParser SIGNATURES = new JavaGenericSignatureParser();
 
   public JarApiSchema scan(ResolvedJarGraph graph) throws IOException {
+    return scan(graph, List.of());
+  }
+
+  public JarApiSchema scan(ResolvedJarGraph graph, List<String> selectedTypes) throws IOException {
     Map<String, RawClass> rootClasses = readClasses(graph.root());
     Map<String, RawClass> classes = readClasses(graph.artifacts());
-    Map<String, JavaReferenceKind> rootTypes = new LinkedHashMap<>();
-    rootClasses.forEach(
+    Map<String, JavaReferenceKind> bindingTypes = new LinkedHashMap<>();
+    classes.forEach(
         (name, type) ->
-            rootTypes.put(
+            bindingTypes.put(
                 name,
                 kind(type.access()) == JavaApiTypeKind.ENUM
                     ? JavaReferenceKind.ENUM
@@ -40,9 +46,117 @@ public final class JarApiScanner {
         rootClasses.values().stream()
             .filter(owner -> publiclyAccessible(owner, classes))
             .filter(owner -> !isSynthetic(owner.access()))
-            .map(owner -> apiType(owner, classes, rootTypes, samTypes))
+            .map(owner -> apiType(owner, classes, bindingTypes, samTypes))
             .toList();
-    return new JarApiSchema(types);
+    List<JavaApiType> supportingTypes =
+        supportingTypes(
+            types, selectedTypes, rootClasses.keySet(), classes, bindingTypes, samTypes);
+    return new JarApiSchema(types, supportingTypes);
+  }
+
+  private static List<JavaApiType> supportingTypes(
+      List<JavaApiType> roots,
+      List<String> selectedTypes,
+      Set<String> rootNames,
+      Map<String, RawClass> classes,
+      Map<String, JavaReferenceKind> bindingTypes,
+      Map<String, RawSam> samTypes) {
+    Deque<String> pending = new ArrayDeque<>();
+    roots.forEach(type -> collectReferences(type, pending::addLast));
+    classes.keySet().stream()
+        .filter(name -> !rootNames.contains(name))
+        .filter(
+            name ->
+                selectedTypes.stream()
+                    .anyMatch(selected -> JavaApiTypeNames.matches(name, selected)))
+        .forEach(pending::addLast);
+    Map<String, JavaApiType> result = new LinkedHashMap<>();
+    while (!pending.isEmpty()) {
+      String binaryName = pending.removeFirst();
+      if (rootNames.contains(binaryName) || result.containsKey(binaryName)) continue;
+      RawClass owner = classes.get(binaryName);
+      if (owner == null || !publiclyAccessible(owner, classes) || isSynthetic(owner.access())) {
+        continue;
+      }
+      JavaApiType type = apiType(owner, classes, bindingTypes, samTypes);
+      result.put(binaryName, type);
+      collectReferences(type, pending::addLast);
+    }
+    return List.copyOf(result.values());
+  }
+
+  private static void collectReferences(JavaApiType owner, Consumer<String> consumer) {
+    owner.signature().typeParameters().forEach(parameter -> collectReferences(parameter, consumer));
+    owner.signature().superclass().ifPresent(type -> collectReferences(type, consumer));
+    owner.signature().interfaces().forEach(type -> collectReferences(type, consumer));
+    owner.fields().stream()
+        .flatMap(field -> field.bindings().stream())
+        .forEach(callable -> collectReferences(callable, consumer));
+    owner.effectiveMethods().stream()
+        .flatMap(method -> method.binding().stream())
+        .forEach(callable -> collectReferences(callable, consumer));
+  }
+
+  private static void collectReferences(JavaBindingCallable callable, Consumer<String> consumer) {
+    callable
+        .typeParameters()
+        .forEach(
+            parameter -> parameter.bound().ifPresent(type -> collectReferences(type, consumer)));
+    callable.parameters().forEach(type -> collectReferences(type, consumer));
+    collectReferences(callable.returnType(), consumer);
+  }
+
+  private static void collectReferences(JavaBindingType type, Consumer<String> consumer) {
+    switch (type) {
+      case JavaArrayType array -> collectReferences(array.component(), consumer);
+      case JavaBindingTypeVariable variable -> collectReferences(variable.erasure(), consumer);
+      case JavaBoxedType boxed -> consumer.accept(boxed.binaryName());
+      case JavaCallbackType callback -> {
+        consumer.accept(callback.binaryName());
+        callback.parameters().forEach(parameter -> collectReferences(parameter, consumer));
+        collectReferences(callback.returnType(), consumer);
+      }
+      case JavaPrimitiveType ignored -> {}
+      case JavaReferenceType reference -> {
+        consumer.accept(reference.binaryName());
+        reference
+            .arguments()
+            .forEach(
+                argument ->
+                    argument
+                        .type()
+                        .ifPresent(argumentType -> collectReferences(argumentType, consumer)));
+      }
+    }
+  }
+
+  private static void collectReferences(JavaTypeParameter parameter, Consumer<String> consumer) {
+    parameter.classBound().ifPresent(type -> collectReferences(type, consumer));
+    parameter.interfaceBounds().forEach(type -> collectReferences(type, consumer));
+  }
+
+  private static void collectReferences(JavaTypeSignature type, Consumer<String> consumer) {
+    switch (type) {
+      case JavaArrayTypeSignature array -> collectReferences(array.component(), consumer);
+      case JavaClassTypeSignature classType -> {
+        consumer.accept(classType.binaryName());
+        classType
+            .segments()
+            .forEach(
+                segment ->
+                    segment
+                        .arguments()
+                        .forEach(
+                            argument ->
+                                argument
+                                    .type()
+                                    .ifPresent(
+                                        argumentType ->
+                                            collectReferences(argumentType, consumer))));
+      }
+      case JavaPrimitiveTypeSignature ignored -> {}
+      case JavaTypeVariableSignature ignored -> {}
+    }
   }
 
   private static JavaApiType apiType(
@@ -95,7 +209,7 @@ public final class JarApiScanner {
         owner.binaryName(),
         kind(owner.access()),
         owner.access(),
-        publicSignature(owner, classes),
+        publicSignature(owner, classes, rootTypes.keySet()),
         owner.annotations(),
         owner.typeAnnotations(),
         Optional.ofNullable(binaryName(owner.enclosingType())),
@@ -107,7 +221,8 @@ public final class JarApiScanner {
         deprecated ? JavaApiDisposition.EXCLUDED_DEPRECATED : JavaApiDisposition.BINDABLE);
   }
 
-  private static JavaClassSignature publicSignature(RawClass owner, Map<String, RawClass> classes) {
+  private static JavaClassSignature publicSignature(
+      RawClass owner, Map<String, RawClass> classes, Set<String> rootTypes) {
     JavaClassSignature declared = classSignature(owner);
     Map<String, JavaClassTypeSignature> interfaces = new LinkedHashMap<>();
     Map<String, JavaTypeSignature> variables = new LinkedHashMap<>();
@@ -117,14 +232,20 @@ public final class JarApiScanner {
             parameter ->
                 variables.put(parameter.name(), new JavaTypeVariableSignature(parameter.name())));
     for (JavaClassTypeSignature relation : declared.interfaces()) {
-      collectPublicInterface(relation, variables, classes, new java.util.HashSet<>(), interfaces);
+      collectPublicInterface(
+          relation, variables, classes, rootTypes, new java.util.HashSet<>(), interfaces);
     }
     declared
         .superclass()
         .ifPresent(
             relation ->
                 collectInheritedInterfaces(
-                    relation, variables, classes, new java.util.HashSet<>(), interfaces));
+                    relation,
+                    variables,
+                    classes,
+                    rootTypes,
+                    new java.util.HashSet<>(),
+                    interfaces));
     return new JavaClassSignature(
         declared.typeParameters(), declared.superclass(), List.copyOf(interfaces.values()));
   }
@@ -239,21 +360,25 @@ public final class JarApiScanner {
       JavaClassTypeSignature relation,
       Map<String, JavaTypeSignature> variables,
       Map<String, RawClass> classes,
+      Set<String> rootTypes,
       Set<String> visited,
       Map<String, JavaClassTypeSignature> interfaces) {
     JavaClassTypeSignature resolved = substitute(relation, variables);
     RawClass type = classes.get(resolved.binaryName());
-    if (type == null || publiclyAccessible(type, classes)) {
+    if (type == null
+        || JavaPlatformTypes.referenceKind(resolved.binaryName()).isPresent()
+        || (rootTypes.contains(resolved.binaryName()) && publiclyAccessible(type, classes))) {
       interfaces.putIfAbsent(resolved.binaryName(), resolved);
       return;
     }
-    collectInheritedInterfaces(resolved, Map.of(), classes, visited, interfaces);
+    collectInheritedInterfaces(resolved, Map.of(), classes, rootTypes, visited, interfaces);
   }
 
   private static void collectInheritedInterfaces(
       JavaClassTypeSignature relation,
       Map<String, JavaTypeSignature> variables,
       Map<String, RawClass> classes,
+      Set<String> rootTypes,
       Set<String> visited,
       Map<String, JavaClassTypeSignature> interfaces) {
     JavaClassTypeSignature resolved = substitute(relation, variables);
@@ -262,14 +387,14 @@ public final class JarApiScanner {
     JavaClassSignature signature = classSignature(type);
     Map<String, JavaTypeSignature> parentVariables = relationVariables(signature, resolved);
     for (JavaClassTypeSignature candidate : signature.interfaces()) {
-      collectPublicInterface(candidate, parentVariables, classes, visited, interfaces);
+      collectPublicInterface(candidate, parentVariables, classes, rootTypes, visited, interfaces);
     }
     signature
         .superclass()
         .ifPresent(
             candidate ->
                 collectInheritedInterfaces(
-                    candidate, parentVariables, classes, visited, interfaces));
+                    candidate, parentVariables, classes, rootTypes, visited, interfaces));
   }
 
   private static Map<String, JavaTypeSignature> relationVariables(
@@ -608,6 +733,10 @@ public final class JarApiScanner {
           arguments.add(JavaBindingTypeArgument.unbounded());
           continue;
         }
+        if (kind == JavaReferenceKind.CLASS && argument.variance() == JavaTypeVariance.EXTENDS) {
+          arguments.add(JavaBindingTypeArgument.unbounded());
+          continue;
+        }
         if (argument.variance() != JavaTypeVariance.EXACT) return null;
         JavaBindingType type =
             bindingType(argument.type().orElseThrow(), variables, rootTypes, samTypes);
@@ -866,8 +995,10 @@ public final class JarApiScanner {
           reference.arguments().stream()
               .allMatch(
                   argument ->
-                      argument.variance() == JavaTypeVariance.EXACT
-                          && concrete(argument.type().orElseThrow()));
+                      (reference.kind() == JavaReferenceKind.CLASS
+                              && argument.variance() == JavaTypeVariance.UNBOUNDED)
+                          || (argument.variance() == JavaTypeVariance.EXACT
+                              && concrete(argument.type().orElseThrow())));
       case JavaBoxedType ignored -> true;
       case JavaPrimitiveType ignored -> true;
     };

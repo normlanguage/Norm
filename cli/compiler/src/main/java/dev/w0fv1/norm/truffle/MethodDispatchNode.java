@@ -3,6 +3,7 @@ package dev.w0fv1.norm.truffle;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.nodes.Node;
+import dev.w0fv1.norm.bridge.JavaApplicationBridge;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.DefinitionId;
@@ -37,8 +38,19 @@ final class MethodDispatchNode extends Node {
           ExecutionContextAccess.get(frame),
           location);
     }
+    if (target instanceof RuntimeValues.DispatchTarget.HostMethod host) {
+      Object hostReceiver =
+          receiver instanceof RuntimeValues.OpaqueValue opaque ? opaque.value : receiver;
+      return JavaApplicationBridge.invokeHost(
+          hostReceiver, host.definition().toString(), arguments);
+    }
     RuntimeValues.DispatchTarget.Callable callableTarget =
         (RuntimeValues.DispatchTarget.Callable) target;
+    if (receiver instanceof RuntimeValues.ObjectValue object
+        && object.dispatchToHost
+        && object.hostValue != null) {
+      return JavaApplicationBridge.invokeHost(object.hostValue, slot.toString(), arguments);
+    }
     CoreType receiverType = RuntimeValues.runtimeType(receiver);
     List<CoreType> concreteReceiverArguments =
         receiverType instanceof CoreType.Declared declared ? declared.arguments() : List.of();

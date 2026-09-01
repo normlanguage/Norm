@@ -1,0 +1,18 @@
+Module module() {
+  return module(
+    name: "micronaut.serde.processor",
+    version: 1,
+    dependencies: [
+      dependency(name: "micronaut.serde.api", version: 1),
+      dependency(name: "micronaut.inject", version: 1)
+    ],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.serde",
+        artifact: "micronaut-serde-processor",
+        version: "3.1.1", resolution: sha256("f725868c343173bbcf15190ee58fd0a7189fc64e58f6d646c6a38d750e3a376c")
+      ),
+      api: []
+    )
+  )
+}

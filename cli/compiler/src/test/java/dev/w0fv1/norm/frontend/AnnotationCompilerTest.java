@@ -64,6 +64,57 @@ final class AnnotationCompilerTest {
   }
 
   @Test
+  void storesPayloadlessEnumVariantsInAnnotationMetadata() {
+    CompilationResult result =
+        compile(
+            policies("TypeTarget", "RuntimeRetention")
+                + "enum Protocol { Http, Https } "
+                + "annotation Endpoint implements TypeTarget, RuntimeRetention { Protocol protocol } "
+                + "@Endpoint(protocol: Protocol.Https) class Api {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    CoreAnnotationValue value =
+        result
+            .program()
+            .orElseThrow()
+            .compilation()
+            .artifact()
+            .metadata()
+            .annotations()
+            .getFirst()
+            .values()
+            .getFirst();
+    CoreAnnotationReference.EnumReference reference =
+        assertInstanceOf(CoreAnnotationReference.EnumReference.class, value.value());
+    assertEquals("Https", reference.variant());
+  }
+
+  @Test
+  void storesVoidClassAsAnUnboundedClassReference() {
+    CompilationResult result =
+        compile(
+            policies("TypeTarget", "RuntimeRetention")
+                + "annotation Replaces implements TypeTarget, RuntimeRetention { Class<?> value } "
+                + "@Replaces(value: Void.class) class Api {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    CoreAnnotationValue value =
+        result
+            .program()
+            .orElseThrow()
+            .compilation()
+            .artifact()
+            .metadata()
+            .annotations()
+            .getFirst()
+            .values()
+            .getFirst();
+    CoreAnnotationReference.ClassReference reference =
+        assertInstanceOf(CoreAnnotationReference.ClassReference.class, value.value());
+    assertEquals(dev.w0fv1.norm.core.CoreType.VOID, reference.reflectedType());
+  }
+
+  @Test
   void rejectsMissingDocumentDeclarationReferences() {
     assertDiagnostic(
         policies("TypeTarget", "RuntimeRetention")
@@ -222,6 +273,26 @@ final class AnnotationCompilerTest {
     assertDiagnostic(
         prefix + "class Box { @Label(text: \"a\") @Label(text: \"b\") Integer value }",
         "duplicate");
+  }
+
+  @Test
+  void storesRepeatedAnnotationApplicationsInOrderIndependentMetadata() {
+    CompilationResult result =
+        compile(
+            "package std.annotation "
+                + "public interface AnnotationTarget {} "
+                + "public interface TypeTarget extends AnnotationTarget {} "
+                + "public interface AnnotationRetention {} "
+                + "public interface RuntimeRetention extends AnnotationRetention {} "
+                + "public interface RepeatableAnnotation {} "
+                + "annotation Label implements TypeTarget, RuntimeRetention, RepeatableAnnotation { "
+                + "String text } "
+                + "@Label(text: \"first\") @Label(text: \"second\") class Item {} "
+                + "Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    assertEquals(
+        2, result.program().orElseThrow().compilation().artifact().metadata().annotations().size());
   }
 
   @Test

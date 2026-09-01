@@ -1442,6 +1442,14 @@ public final class BuiltinCatalog {
             booleanType,
             IntrinsicId.JAVA_ITERATOR_HAS_NEXT,
             parameterInfo("value", SemanticType.DYNAMIC)));
+    SemanticType javaMapNewT = globalParameter("__javaMapNew", "T");
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__javaMapNew",
+            javaMapNewT,
+            IntrinsicId.JAVA_MAP_NEW,
+            List.of(new TypeParameterInfo("T", javaMapNewT))));
     addGlobal(
         globals,
         global(

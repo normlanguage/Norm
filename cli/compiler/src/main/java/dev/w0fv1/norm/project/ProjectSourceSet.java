@@ -5,9 +5,12 @@ import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -107,6 +110,27 @@ public record ProjectSourceSet(
     return compilationRequest(entry);
   }
 
+  public CompilationRequest testCompilationRequest() {
+    SourceFile entry =
+        SourceFile.of(
+            new DocumentId(URI.create("norm-test:/TestEntrypoint.norm")),
+            "package norm.internal.testing\nVoid main() {}\n");
+    List<SourceFile> testSources = new ArrayList<>(sources);
+    testSources.add(entry);
+    Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>(scope.coordinates());
+    coordinates.put(
+        entry.id(),
+        new ModuleSourceCoordinate(
+            scope.coordinate(primarySource().id()).module(), ".norm/TestEntrypoint.norm"));
+    return new CompilationRequest(
+        new CompilationUnitId(rootModulePath.map(Path::toUri).orElseGet(() -> primaryPath.toUri())),
+        new CompilationScope(coordinates, scope.modules()),
+        entry.id(),
+        testSources,
+        exportedDocuments(),
+        bindingSourceDocuments);
+  }
+
   public Set<Path> inputPaths() {
     Set<Path> inputs = new LinkedHashSet<>();
     sources.stream()
@@ -120,19 +144,23 @@ public record ProjectSourceSet(
 
   private CompilationRequest compilationRequest(Path selectedPath) {
     SourceFile selected = source(selectedPath);
+    return new CompilationRequest(
+        new CompilationUnitId(rootModulePath.map(Path::toUri).orElseGet(() -> selected.id().uri())),
+        scope,
+        selected.id(),
+        sources,
+        exportedDocuments(),
+        bindingSourceDocuments);
+  }
+
+  private Set<DocumentId> exportedDocuments() {
     Set<DocumentId> exportedDocuments = new LinkedHashSet<>();
     for (SourceFile source : sources) {
       if (exportedSourcePaths.contains(normalize(source.path()))) {
         exportedDocuments.add(source.id());
       }
     }
-    return new CompilationRequest(
-        new CompilationUnitId(rootModulePath.map(Path::toUri).orElseGet(() -> selected.id().uri())),
-        scope,
-        selected.id(),
-        sources,
-        exportedDocuments,
-        bindingSourceDocuments);
+    return Set.copyOf(exportedDocuments);
   }
 
   private SourceFile source(Path path) {

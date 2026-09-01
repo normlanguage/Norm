@@ -1,0 +1,15 @@
+Module module() {
+  return module(
+    name: "micronaut.jdbc.hikari",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.sql",
+        artifact: "micronaut-jdbc-hikari",
+        version: "7.1.2",
+        resolution: sha256("1f7827a14b6262c3f63c7e7d0786051b18c9ea1b1f75b13027a4b2a50294170f")
+      ),
+      api: []
+    )
+  )
+}

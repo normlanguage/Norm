@@ -1,0 +1,6 @@
+package std.concurrent
+
+import std.annotation.Document
+
+@Document(description: "Represents a backpressured sequence published asynchronously.")
+public interface Publisher<T> {}

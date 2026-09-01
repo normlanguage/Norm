@@ -19,7 +19,10 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -33,21 +36,20 @@ public final class ModulePackager {
 
   public PackagedModule packageModule(Path modulePath, Path repository) throws IOException {
     SourceFile moduleSource = SourceFile.read(modulePath.toAbsolutePath().normalize());
-    ModuleDescriptor descriptor = projects.evaluateModule(moduleSource);
-    if (!(descriptor.binding().map(value -> value.target()).orElse(null)
-        instanceof MavenJarTarget target)) {
-      throw new IOException("publishable JAR binding modules require a Maven root artifact");
-    }
-    if (descriptor.binding().orElseThrow().api().isEmpty()) {
-      throw new IOException("publishable JAR binding modules require a public API");
-    }
-    if (target.resolution().isEmpty()) {
-      throw new IOException("JAR binding must be pinned with 'norm resolve' before packaging");
+    ProjectLoader.ModuleArchiveContents contents = projects.moduleArchiveContents(moduleSource);
+    ModuleDescriptor descriptor = contents.descriptor();
+    Optional<MavenJarTarget> target = Optional.empty();
+    if (descriptor.binding().isPresent()) {
+      if (!(descriptor.binding().orElseThrow().target() instanceof MavenJarTarget maven)) {
+        throw new IOException("publishable JAR binding modules require a Maven root artifact");
+      }
+      if (maven.resolution().isEmpty()) {
+        throw new IOException("JAR binding must be pinned with 'norm resolve' before packaging");
+      }
+      target = Optional.of(maven);
     }
     ModuleRepositoryCoordinate coordinate =
         ModuleRepositoryCoordinate.from(descriptor.coordinate());
-    ResolvedJarBinding binding = projects.generateJarBinding(moduleSource);
-    descriptor = descriptor.withExports(binding.generated().exports());
     Path versionDirectory =
         repository
             .toAbsolutePath()
@@ -59,28 +61,48 @@ public final class ModulePackager {
     String fileName = coordinate.artifact() + "-" + coordinate.version();
     Path archive = versionDirectory.resolve(fileName + ModuleArchiveFormat.FILE_SUFFIX);
     Path pom = versionDirectory.resolve(fileName + ".pom");
-    writeArchive(archive, descriptor, binding);
+    Map<String, SourceFile> archiveSources = new LinkedHashMap<>();
+    if (contents.binding().isPresent()) {
+      for (GeneratedBindingSource generated :
+          contents.binding().orElseThrow().generated().sources()) {
+        SourceFile source = contents.sources().get(generated.relativePath());
+        if (source == null) {
+          throw new IOException("generated binding source is absent: " + generated.relativePath());
+        }
+        archiveSources.put(generated.relativePath(), source);
+      }
+    } else {
+      archiveSources.putAll(contents.sources());
+    }
+    writeArchive(archive, descriptor, archiveSources, contents.binding());
     Files.writeString(pom, pom(descriptor, coordinate, target), StandardCharsets.UTF_8);
     return new PackagedModule(archive.toAbsolutePath(), pom.toAbsolutePath());
   }
 
   private static void writeArchive(
-      Path path, ModuleDescriptor descriptor, ResolvedJarBinding binding) throws IOException {
+      Path path,
+      ModuleDescriptor descriptor,
+      Map<String, SourceFile> sources,
+      Optional<ResolvedJarBinding> binding)
+      throws IOException {
     try (OutputStream file = Files.newOutputStream(path);
         ZipOutputStream archive = new ZipOutputStream(file)) {
       writeEntry(archive, "module.json", manifest(descriptor, binding));
-      writeEntry(
-          archive,
-          "binding/java-api.json",
-          writer -> new JavaApiReportWriter().write(binding.api(), writer));
-      for (GeneratedBindingSource source : binding.generated().sources()) {
-        writeEntry(archive, "sources/" + source.relativePath(), source.text());
+      if (binding.isPresent()) {
+        writeEntry(
+            archive,
+            "binding/java-api.json",
+            writer -> new JavaApiReportWriter().write(binding.orElseThrow().api(), writer));
+      }
+      for (Map.Entry<String, SourceFile> source :
+          sources.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
+        writeEntry(archive, "sources/" + source.getKey(), source.getValue().text());
       }
     }
   }
 
-  private static String manifest(ModuleDescriptor descriptor, ResolvedJarBinding binding) {
-    MavenJarTarget target = (MavenJarTarget) descriptor.binding().orElseThrow().target();
+  private static String manifest(
+      ModuleDescriptor descriptor, Optional<ResolvedJarBinding> binding) {
     JsonObject root = new JsonObject();
     root.addProperty("formatVersion", ModuleArchiveFormat.FORMAT_VERSION);
     JsonObject module = new JsonObject();
@@ -98,52 +120,59 @@ public final class ModulePackager {
     }
     module.add("dependencies", dependencies);
     root.add("module", module);
-    JsonObject jar = new JsonObject();
-    jar.addProperty("group", target.coordinate().group());
-    jar.addProperty("artifact", target.coordinate().artifact());
-    jar.addProperty("version", target.coordinate().version());
-    jar.addProperty("resolution", target.resolution().orElseThrow().value());
-    jar.addProperty("apiId", binding.api().apiId().value());
-    JsonArray api = new JsonArray();
-    descriptor
-        .binding()
-        .orElseThrow()
-        .api()
-        .forEach(
-            type -> {
-              JsonObject value = new JsonObject();
-              value.addProperty("name", type.name());
-              JsonArray members = new JsonArray();
-              type.members().forEach(members::add);
-              value.add("members", members);
-              JsonArray overloads = new JsonArray();
-              type.overloads()
-                  .forEach(
-                      overload -> {
-                        JsonObject overloadValue = new JsonObject();
-                        overloadValue.addProperty("name", overload.name());
-                        JsonArray parameterTypes = new JsonArray();
-                        overload.parameterTypes().forEach(parameterTypes::add);
-                        overloadValue.add("parameterTypes", parameterTypes);
-                        overloads.add(overloadValue);
-                      });
-              value.add("overloads", overloads);
-              api.add(value);
-            });
-    jar.add("api", api);
-    root.add("jar", jar);
+    if (binding.isPresent()) {
+      MavenJarTarget target = (MavenJarTarget) descriptor.binding().orElseThrow().target();
+      JsonObject jar = new JsonObject();
+      jar.addProperty("group", target.coordinate().group());
+      jar.addProperty("artifact", target.coordinate().artifact());
+      jar.addProperty("version", target.coordinate().version());
+      jar.addProperty("resolution", target.resolution().orElseThrow().value());
+      jar.addProperty("apiId", binding.orElseThrow().api().apiId().value());
+      JsonArray api = new JsonArray();
+      descriptor
+          .binding()
+          .orElseThrow()
+          .api()
+          .forEach(
+              type -> {
+                JsonObject value = new JsonObject();
+                value.addProperty("name", type.name());
+                JsonArray members = new JsonArray();
+                type.members().forEach(members::add);
+                value.add("members", members);
+                JsonArray overloads = new JsonArray();
+                type.overloads()
+                    .forEach(
+                        overload -> {
+                          JsonObject overloadValue = new JsonObject();
+                          overloadValue.addProperty("name", overload.name());
+                          JsonArray parameterTypes = new JsonArray();
+                          overload.parameterTypes().forEach(parameterTypes::add);
+                          overloadValue.add("parameterTypes", parameterTypes);
+                          overloads.add(overloadValue);
+                        });
+                value.add("overloads", overloads);
+                api.add(value);
+              });
+      jar.add("api", api);
+      root.add("jar", jar);
+    }
     return JSON.toJson(root) + "\n";
   }
 
   private static String pom(
-      ModuleDescriptor descriptor, ModuleRepositoryCoordinate coordinate, MavenJarTarget target) {
+      ModuleDescriptor descriptor,
+      ModuleRepositoryCoordinate coordinate,
+      Optional<MavenJarTarget> target) {
     StringBuilder dependencies = new StringBuilder();
-    appendDependency(
-        dependencies,
-        target.coordinate().group(),
-        target.coordinate().artifact(),
-        target.coordinate().version(),
-        DependencyType.JAR);
+    target.ifPresent(
+        value ->
+            appendDependency(
+                dependencies,
+                value.coordinate().group(),
+                value.coordinate().artifact(),
+                value.coordinate().version(),
+                DependencyType.JAR));
     for (ModuleRequirement dependency : descriptor.dependencies()) {
       ModuleRepositoryCoordinate dependencyCoordinate =
           ModuleRepositoryCoordinate.from(dependency.coordinate());

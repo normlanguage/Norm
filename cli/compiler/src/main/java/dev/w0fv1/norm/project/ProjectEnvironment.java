@@ -60,6 +60,13 @@ public final class ProjectEnvironment {
         new JarResolver(jarCache));
   }
 
+  ProjectLoader projectLoader(Path moduleRepository, Path jarCache) {
+    return new ProjectLoader(
+        new ModuleEvaluator(languageProfile, backend),
+        reservedModuleNames,
+        new JarResolver(moduleRepository, jarCache));
+  }
+
   public ProjectLauncher launcher() {
     return new ProjectLauncher(projectLoader(), compilerSession(), backend);
   }

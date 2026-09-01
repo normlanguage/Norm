@@ -1,0 +1,29 @@
+package sample.serde
+
+import micronaut.core.annotation.Introspected
+import micronaut.core.annotation.IntrospectedAccessKind
+import micronaut.serde.api.annotation.Serdeable
+import micronaut.serde.api.objectMapperGetDefault
+import micronaut.serde.api.ObjectMapper
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class Message {
+  String text
+
+  Message(String text) {
+    this.text = text
+  }
+}
+
+Void main() {
+  ObjectMapper? mapper = objectMapperGetDefault()
+  if mapper != null {
+    String json = mapper.writeValueAsString(Message(text: "Norm")) ?? "missing"
+    Message? decoded = mapper.readValue<Message>(arg0: json, arg1: Message.class)
+    printLine(json)
+    if decoded != null {
+      printLine(decoded.text)
+    }
+  }
+}

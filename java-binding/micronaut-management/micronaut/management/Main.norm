@@ -1,0 +1,18 @@
+package micronaut.management
+
+import micronaut.management.endpoint.annotation.Endpoint
+import micronaut.management.endpoint.annotation.Read
+
+@Endpoint(value: "sample", defaultEnabled: true)
+class SampleEndpoint {
+  @Read()
+  String status() {
+    return "UP"
+  }
+}
+
+Void main() {
+  if SampleEndpoint.class.annotation<Endpoint>() != null {
+    printLine("Micronaut management endpoint")
+  }
+}

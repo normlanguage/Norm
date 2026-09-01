@@ -1,0 +1,15 @@
+Module module() {
+  return module(
+    name: "micronaut.data.processor",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.data",
+        artifact: "micronaut-data-processor",
+        version: "5.1.3",
+        resolution: sha256("9325c9d52c1882d5b3accac550c161b56314ed91e337966fbb0d8776f1acf8f8")
+      ),
+      api: []
+    )
+  )
+}

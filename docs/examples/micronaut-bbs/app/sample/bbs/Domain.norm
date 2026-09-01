@@ -1,0 +1,225 @@
+package sample.bbs
+
+import jakarta.inject.Inject
+import jakarta.validation.constraints.NotBlank
+import micronaut.core.annotation.Introspected
+import micronaut.core.annotation.IntrospectedAccessKind
+import micronaut.data.jdbc.annotation.JdbcRepository
+import micronaut.data.jdbc.Dialect
+import micronaut.data.model.annotation.GeneratedValue
+import micronaut.data.model.annotation.Id
+import micronaut.data.model.annotation.MappedEntity
+import micronaut.data.model.Page
+import micronaut.data.model.Pageable
+import micronaut.data.model.pageableFrom
+import micronaut.data.model.repository.CrudRepository
+import micronaut.data.model.repository.PageableRepository
+import micronaut.data.tx.annotation.Transactional
+import micronaut.inject.context.annotation.Prototype
+import micronaut.serde.api.annotation.Serdeable
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class Credentials {
+  @NotBlank() String username
+  @NotBlank() String password
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class Registration {
+  Long? id
+  String username
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@MappedEntity(value: "bbs_users")
+class UserEntity {
+  @Id()
+  @GeneratedValue()
+  Long? id
+
+  @NotBlank() String username
+  @NotBlank() String password
+}
+
+@Prototype()
+class CredentialPolicy {
+  Boolean accepts(UserEntity user, String username, String password) {
+    if user.username == username {
+      return user.password == password
+    }
+    return false
+  }
+}
+
+@JdbcRepository(dialect: Dialect.H2)
+interface UserRepository extends CrudRepository<UserEntity, Long> {
+  UserEntity? findByUsername(String username)
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@MappedEntity(value: "bbs_sessions")
+class SessionEntity {
+  @Id()
+  @GeneratedValue()
+  Long? id
+
+  @NotBlank() String token
+  @NotBlank() String username
+}
+
+@JdbcRepository(dialect: Dialect.H2)
+interface SessionRepository extends CrudRepository<SessionEntity, Long> {
+  SessionEntity? findByToken(String token)
+}
+
+@Prototype()
+class AccountService {
+  CredentialPolicy credentialPolicy
+  UserRepository userQueries
+  CrudRepository<UserEntity, Long> users
+  CrudRepository<SessionEntity, Long> sessions
+
+  @Inject()
+  AccountService(
+    CredentialPolicy credentialPolicy,
+    UserRepository users,
+    SessionRepository sessions
+  ) {
+    this.credentialPolicy = credentialPolicy
+    this.userQueries = users
+    this.users = users
+    this.sessions = sessions
+  }
+
+  @Transactional()
+  Registration register(Credentials credentials) {
+    UserEntity user = UserEntity(
+      id: null,
+      username: credentials.username,
+      password: credentials.password
+    )
+    UserEntity saved = users.save<UserEntity>(user) ?? user
+    return Registration(id: saved.id, username: saved.username)
+  }
+
+  @Transactional()
+  String login(Credentials credentials) {
+    UserEntity? user = userQueries.findByUsername(credentials.username)
+    if user != null {
+      if credentialPolicy.accepts(
+        user: user,
+        username: credentials.username,
+        password: credentials.password
+      ) {
+        String token = "session-" + user.username
+        SessionEntity session = SessionEntity(id: null, token: token, username: user.username)
+        sessions.save<SessionEntity>(session)
+        return token
+      }
+    }
+    return ""
+  }
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@MappedEntity(value: "bbs_boards")
+class BoardEntity {
+  @Id()
+  @GeneratedValue()
+  Long? id
+
+  @NotBlank() String name
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@MappedEntity(value: "bbs_topics")
+class TopicEntity {
+  @Id()
+  @GeneratedValue()
+  Long? id
+
+  Long boardId
+  @NotBlank() String author
+  @NotBlank() String title
+  @NotBlank() String content
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@MappedEntity(value: "bbs_replies")
+class ReplyEntity {
+  @Id()
+  @GeneratedValue()
+  Long? id
+
+  Long topicId
+  @NotBlank() String author
+  @NotBlank() String content
+}
+
+@JdbcRepository(dialect: Dialect.H2)
+interface BoardRepository extends CrudRepository<BoardEntity, Long> {
+}
+
+@JdbcRepository(dialect: Dialect.H2)
+interface TopicRepository extends PageableRepository<TopicEntity, Long> {
+}
+
+@JdbcRepository(dialect: Dialect.H2)
+interface ReplyRepository extends CrudRepository<ReplyEntity, Long> {
+}
+
+@Prototype()
+class ForumService {
+  CrudRepository<BoardEntity, Long> boards
+  PageableRepository<TopicEntity, Long> topics
+  CrudRepository<ReplyEntity, Long> replies
+
+  @Inject()
+  ForumService(
+    BoardRepository boards,
+    TopicRepository topics,
+    ReplyRepository replies
+  ) {
+    this.boards = boards
+    this.topics = topics
+    this.replies = replies
+  }
+
+  @Transactional()
+  BoardEntity createBoard(BoardEntity board) {
+    return boards.save<BoardEntity>(board) ?? board
+  }
+
+  @Transactional()
+  TopicEntity createTopic(TopicEntity topic) {
+    return topics.save<TopicEntity>(topic) ?? topic
+  }
+
+  @Transactional()
+  ReplyEntity createReply(ReplyEntity reply) {
+    return replies.save<ReplyEntity>(reply) ?? reply
+  }
+
+  Long topicCount() {
+    return topics.count()
+  }
+
+  Page<TopicEntity?>? topicPage(Integer page, Integer size) {
+    Pageable? pageable = pageableFrom(arg0: page, arg1: size)
+    if pageable != null {
+      return topics.findAll(pageable)
+    }
+    return null
+  }
+
+  Long replyCount() {
+    return replies.count()
+  }
+}

@@ -1,0 +1,5 @@
+package h2.database
+
+Void main() {
+  printLine("H2 database")
+}

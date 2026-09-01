@@ -1,0 +1,17 @@
+Module module() {
+  return module(
+    name: "micronaut.server.netty",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-http-server-netty",
+        version: "5.1.13",
+        resolution: sha256("dd5c17705e7343e0340d170f88cea829b0505c44e1c944e41b4578afc65d24ae")
+      ),
+      api: [
+        jarType(name: "http.server.netty.NettyEmbeddedServer", members: [])
+      ]
+    )
+  )
+}

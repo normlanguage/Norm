@@ -1,0 +1,24 @@
+Module module() {
+  return module(
+    name: "micronaut.json",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-json-core",
+        version: "5.1.13",
+        resolution: sha256("fb5c447e5f2e1461b8b6c55c5950d50c7345e223e88484f3c76d4ebe2373c5f2")
+      ),
+      api: [
+        jarType(
+          name: "JsonMapper",
+          members: [],
+          overloads: [
+            jarOverload(name: "createDefault", parameterTypes: []),
+            jarOverload(name: "writeValueAsString", parameterTypes: ["java.lang.Object"])
+          ]
+        )
+      ]
+    )
+  )
+}

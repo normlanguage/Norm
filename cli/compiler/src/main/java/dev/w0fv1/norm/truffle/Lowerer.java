@@ -48,6 +48,8 @@ final class Lowerer {
       new HashMap<>();
   private final Map<DefinitionOccurrenceId, CoreDefinition.Aggregate> aggregates =
       new LinkedHashMap<>();
+  private final Map<DefinitionId, RuntimeValues.AggregateInfo> hostInterfaces =
+      new LinkedHashMap<>();
   private final Map<DefinitionOccurrenceId, FunctionPlan> callables = new LinkedHashMap<>();
   private final Map<BuiltinTypeId, Map<DefinitionId, RuntimeValues.DispatchTarget>>
       builtinDispatch = new HashMap<>();
@@ -72,7 +74,9 @@ final class Lowerer {
     DefinitionOccurrenceId entry = artifact.entryPoint();
     FunctionPlan entryPlan = callables.get(entry);
     if (entryPlan == null) throw new IllegalStateException("entry callable is absent");
-    return new ExecutableProgram(entryPlan.target, annotations, guestValues());
+    Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
+    callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
+    return new ExecutableProgram(entryPlan.target, annotations, guestValues(), program, targets);
   }
 
   private GuestValueFactory guestValues() {
@@ -111,7 +115,7 @@ final class Lowerer {
                     GuestValueFactory.EnumPlan.create(
                         record.id(), (CoreDefinition.Enum) record.definition()))
             .toList();
-    return new GuestValueFactory(aggregatePlans, enumPlans);
+    return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans);
   }
 
   private void indexDefinitions() {
@@ -275,6 +279,111 @@ final class Lowerer {
         }
         if (dispatch.putIfAbsent(requirement, target) != null) {
           throw new IllegalStateException("verified builtin dispatch is duplicated");
+        }
+      }
+    }
+    indexHostInterfaces(callableByDefinition);
+    indexJavaApplicationInterfaces();
+  }
+
+  private void indexJavaApplicationInterfaces() {
+    for (CoreDefinitionRecord record : program.definitions()) {
+      if (!(record.definition() instanceof CoreDefinition.Interface declared)) continue;
+      Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new LinkedHashMap<>();
+      java.util.LinkedHashSet<DefinitionId> ancestors = new java.util.LinkedHashSet<>();
+      indexJavaApplicationInterface(record.id(), declared, dispatch, ancestors);
+      hostInterfaces.putIfAbsent(
+          record.id(),
+          new RuntimeValues.AggregateInfo(
+              record.id(),
+              declared.nominalType().name(),
+              0,
+              List.of(),
+              dispatch,
+              java.util.Set.copyOf(ancestors)));
+    }
+  }
+
+  private void indexJavaApplicationInterface(
+      DefinitionId definition,
+      CoreDefinition.Interface declared,
+      Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch,
+      java.util.Set<DefinitionId> ancestors) {
+    if (!ancestors.add(definition)) return;
+    for (CoreDefinitionLink link : declared.declaredMethods()) {
+      DefinitionId method = resolve(definition, link);
+      dispatch.putIfAbsent(method, new RuntimeValues.DispatchTarget.HostMethod(method));
+    }
+    for (CoreType parentType : declared.directParents()) {
+      CoreType parent = CoreTypes.absolute(parentType, definition, program);
+      CoreType.Declared parentDeclared = (CoreType.Declared) parent;
+      DefinitionId parentDefinition =
+          ((DefinitionReference.External)
+                  ((CoreTypeConstructor.User) parentDeclared.constructor()).definition())
+              .definition();
+      CoreDefinition parentValue = program.definition(parentDefinition).orElseThrow();
+      indexJavaApplicationInterface(
+          parentDefinition, (CoreDefinition.Interface) parentValue, dispatch, ancestors);
+    }
+  }
+
+  private void indexHostInterfaces(Map<DefinitionId, FunctionPlan> callableByDefinition) {
+    for (CoreDefinitionRecord record : program.definitions()) {
+      if (!(record.definition() instanceof CoreDefinition.Aggregate aggregate)
+          || aggregate.fieldCount() != 0
+          || !aggregate.nominalType().name().endsWith("BindingValue")) {
+        continue;
+      }
+      for (CoreConformance conformance : aggregate.conformances()) {
+        CoreType interfaceType =
+            CoreTypes.absolute(conformance.interfaceType(), record.id(), program);
+        if (!(interfaceType instanceof CoreType.Declared declared)
+            || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+            || !(user.definition() instanceof DefinitionReference.External external)
+            || !(program.definition(external.definition()).orElseThrow()
+                instanceof CoreDefinition.Interface implemented)) {
+          continue;
+        }
+        Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new LinkedHashMap<>();
+        boolean complete = true;
+        for (CoreWitness witness : conformance.witnesses()) {
+          DefinitionId requirement = resolve(record.id(), witness.requirement());
+          RuntimeValues.DispatchTarget target;
+          if (witness.implementation() instanceof CoreWitnessTarget.Callable callable) {
+            DefinitionId implementation = resolve(record.id(), callable.definition());
+            FunctionPlan plan = callableByDefinition.get(implementation);
+            if (plan == null) {
+              complete = false;
+              break;
+            }
+            target = new RuntimeValues.DispatchTarget.Callable(plan.target);
+          } else {
+            target =
+                new RuntimeValues.DispatchTarget.Intrinsic(
+                    ((CoreWitnessTarget.Intrinsic) witness.implementation()).intrinsic());
+          }
+          List<CoreType> receiverArguments =
+              defaultWitnessReceiverArguments(record.id(), witness.implementation(), interfaceType);
+          if (target instanceof RuntimeValues.DispatchTarget.Callable callable
+              && receiverArguments != null) {
+            target =
+                new RuntimeValues.DispatchTarget.Callable(callable.target(), receiverArguments);
+          }
+          dispatch.put(requirement, target);
+        }
+        if (!complete) continue;
+        RuntimeValues.AggregateInfo info =
+            new RuntimeValues.AggregateInfo(
+                external.definition(),
+                implemented.nominalType().name(),
+                0,
+                List.of(),
+                dispatch,
+                java.util.Set.of(external.definition()));
+        RuntimeValues.AggregateInfo previous =
+            hostInterfaces.putIfAbsent(external.definition(), info);
+        if (previous != null && !previous.dispatch().equals(info.dispatch())) {
+          throw new IllegalStateException("host interface dispatch is conflicting");
         }
       }
     }

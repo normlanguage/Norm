@@ -66,21 +66,46 @@ final class JavaGenericParameterProjector {
               Optional.of(new JavaReferenceType(classType.binaryName(), JavaReferenceKind.OPAQUE)))
           : Optional.empty();
     }
-    if (!classType.binaryName().equals(COMPARABLE)) return Optional.empty();
-    if (arguments.size() != 1) return Optional.empty();
-    JavaTypeArgument argument = arguments.getFirst();
-    if (argument.variance() != JavaTypeVariance.EXACT
-        && argument.variance() != JavaTypeVariance.SUPER) {
-      return Optional.empty();
+    if (classType.binaryName().equals(COMPARABLE)) {
+      if (arguments.size() != 1) return Optional.empty();
+      JavaTypeArgument argument = arguments.getFirst();
+      if (argument.variance() != JavaTypeVariance.EXACT
+          && argument.variance() != JavaTypeVariance.SUPER) {
+        return Optional.empty();
+      }
+      JavaBindingType projectedArgument =
+          resolver.resolve(argument.type().orElseThrow(), variables);
+      if (projectedArgument == null) return Optional.empty();
+      return Optional.of(
+          Optional.of(
+              new JavaReferenceType(
+                  COMPARABLE,
+                  JavaReferenceKind.OPAQUE,
+                  List.of(JavaBindingTypeArgument.exact(projectedArgument)))));
     }
-    JavaBindingType projectedArgument = resolver.resolve(argument.type().orElseThrow(), variables);
-    if (projectedArgument == null) return Optional.empty();
-    return Optional.of(
-        Optional.of(
-            new JavaReferenceType(
-                COMPARABLE,
-                JavaReferenceKind.OPAQUE,
-                List.of(JavaBindingTypeArgument.exact(projectedArgument)))));
+    JavaBindingType resolved = resolver.resolve(bound, variables);
+    if (resolved == null) return Optional.empty();
+    return Optional.of(representableNormBound(resolved) ? Optional.of(resolved) : Optional.empty());
+  }
+
+  private static boolean representableNormBound(JavaBindingType type) {
+    if (type instanceof JavaBindingTypeVariable) return true;
+    if (!(type instanceof JavaReferenceType reference)) return false;
+    return switch (reference.kind()) {
+      case OBJECT,
+          ENUM,
+          OPTIONAL,
+          OPTIONAL_INT,
+          OPTIONAL_LONG,
+          OPTIONAL_DOUBLE,
+          STRING,
+          UNIT,
+          CHAR_SEQUENCE,
+          CHARSET,
+          NUMBER ->
+          false;
+      default -> true;
+    };
   }
 
   private static JavaBindingType erasure(

@@ -1,0 +1,14 @@
+Module module() {
+  return module(
+    name: "sample.serde",
+    version: 1,
+    exports: [],
+    dependencies: [
+      dependency(name: "micronaut.core", version: 1),
+      dependency(name: "micronaut.serde.api", version: 1),
+      dependency(name: "micronaut.serde.jackson", version: 1),
+      dependency(name: "micronaut.serde.processor", version: 1),
+      dependency(name: "micronaut.inject.processor", version: 1)
+    ]
+  )
+}

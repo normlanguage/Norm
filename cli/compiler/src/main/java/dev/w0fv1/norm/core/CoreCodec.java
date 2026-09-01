@@ -718,6 +718,8 @@ final class CoreCodec {
         writeType(writer, field.ownerType(), referenceResolver);
         writeType(writer, field.valueType(), referenceResolver);
       }
+      case CoreAnnotationReference.EnumReference enumeration ->
+          writer.writeTag("enum-annotation-reference").writeString(enumeration.variant());
     }
   }
 

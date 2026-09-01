@@ -1,0 +1,14 @@
+package micronaut.test.core
+
+import micronaut.test.core.annotation.MockBean
+
+@MockBean()
+class TestGreeting {
+  String message() {
+    return "test"
+  }
+}
+
+Void main() {
+  printLine(TestGreeting().message())
+}

@@ -1,0 +1,17 @@
+Module module() {
+  return module(
+    name: "micronaut.jackson",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-jackson-databind",
+        version: "5.1.13",
+        resolution: sha256("d03410c3f3f618d63ee66527e2f276dba57216bcb6a52262437c53a90d06fd79")
+      ),
+      api: [
+        jarType(name: "databind.JacksonDatabindMapper", members: [])
+      ]
+    )
+  )
+}

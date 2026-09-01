@@ -1,5 +1,6 @@
 .gradle/
 **/build/
+java-binding/**/artifacts/**/*.pom
 node_modules/
 docs/.vitepress/dist/
 docs/.vitepress/cache/

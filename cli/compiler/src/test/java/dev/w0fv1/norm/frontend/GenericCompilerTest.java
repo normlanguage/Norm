@@ -41,6 +41,16 @@ final class GenericCompilerTest {
   }
 
   @Test
+  void acceptsSelfReferentialNominalBounds() {
+    CompilationResult result =
+        compile(
+            "interface Lifecycle<T extends Lifecycle<T>> {} "
+                + "class Server implements Lifecycle<Server> {} Void main() {} ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void enforcesBoundsThatReferenceEarlierTypeParameters() {
     CompilationResult result =
         compile(

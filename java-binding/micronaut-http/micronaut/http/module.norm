@@ -1,0 +1,68 @@
+Module module() {
+  return module(
+    name: "micronaut.http",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-http",
+        version: "5.1.13",
+        resolution: sha256("b203720783ccf7504ab0a9da35144f0caab36108252dd4fa5f8c017d49e5c5d8")
+      ),
+      api: [
+        jarType(name: "annotation.Controller", members: ["consumes", "port", "produces", "value"]),
+        jarType(name: "annotation.Get", members: ["consumes", "headRoute", "processes", "produces", "single", "uri", "uris", "value"]),
+        jarType(name: "annotation.Post", members: ["consumes", "processes", "produces", "single", "uri", "uris", "value"]),
+        jarType(name: "annotation.Put", members: ["consumes", "processes", "produces", "single", "uri", "uris", "value"]),
+        jarType(name: "annotation.Patch", members: ["consumes", "processes", "produces", "single", "uri", "uris", "value"]),
+        jarType(name: "annotation.Delete", members: ["consumes", "processes", "produces", "single", "uri", "uris", "value"]),
+        jarType(name: "annotation.Body", members: ["defaultValue", "value"]),
+        jarType(name: "annotation.PathVariable", members: ["defaultValue", "name", "value"]),
+        jarType(name: "annotation.QueryValue", members: ["defaultValue", "value"]),
+        jarType(name: "annotation.Header", members: ["defaultValue", "name", "value"]),
+        jarType(name: "annotation.CookieValue", members: ["defaultValue", "value"]),
+        jarType(name: "annotation.RequestAttribute", members: ["defaultValue", "value"]),
+        jarType(name: "annotation.RequestBean", members: []),
+        jarType(
+          name: "annotation.RequestFilter",
+          members: ["methods", "patternStyle", "patterns", "value"]
+        ),
+        jarType(
+          name: "annotation.ResponseFilter",
+          members: ["methods", "patternStyle", "patterns", "value"]
+        ),
+        jarType(
+          name: "annotation.ServerFilter",
+          members: ["appendContextPath", "methods", "patternStyle", "patterns", "value"]
+        ),
+        jarType(name: "annotation.Consumes", members: ["value"]),
+        jarType(name: "annotation.Produces", members: ["value"]),
+        jarType(name: "annotation.Status", members: ["value"]),
+        jarType(name: "annotation.Error", members: ["exception", "global", "status", "value"]),
+        jarType(name: "HttpStatus", members: ["getCode", "getReason"]),
+        jarType(
+          name: "HttpResponse",
+          members: ["body", "code", "reason", "status"],
+          overloads: [
+            jarOverload(name: "ok", parameterTypes: []),
+            jarOverload(name: "ok", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "created", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "accepted", parameterTypes: []),
+            jarOverload(name: "noContent", parameterTypes: []),
+            jarOverload(name: "badRequest", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "notFound", parameterTypes: []),
+            jarOverload(name: "unauthorized", parameterTypes: []),
+            jarOverload(name: "serverError", parameterTypes: ["java.lang.Object"])
+          ]
+        ),
+        jarType(name: "HttpRequest", members: ["getHeaders", "getMethodName", "getPath", "getUri", "isSecure"]),
+        jarType(name: "HttpHeaders", members: ["contains", "findFirst", "getAuthorization"]),
+        jarType(
+          name: "sse.Event",
+          members: ["comment", "getComment", "getData", "getId", "getName", "getRetry", "id", "name", "retry"],
+          overloads: [jarOverload(name: "of", parameterTypes: ["java.lang.Object"])]
+        )
+      ]
+    )
+  )
+}

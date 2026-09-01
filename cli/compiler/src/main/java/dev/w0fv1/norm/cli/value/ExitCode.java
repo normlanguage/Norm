@@ -3,6 +3,7 @@ package dev.w0fv1.norm.cli.value;
 public final class ExitCode {
   public static final int SUCCESS = 0;
   public static final int COMPILATION_ERROR = 1;
+  public static final int TEST_FAILURE = 1;
   public static final int USAGE_ERROR = 2;
   public static final int RUNTIME_ERROR = 3;
   public static final int INTERNAL_ERROR = 70;

@@ -50,4 +50,6 @@ build/norm-repository/commons/lang/1/
 └── lang-1.pom
 ```
 
+POM 由 `module.norm` 派生，只存在于 `norm package` 指定的发布仓库，不进入适配源码树。
+
 完整设计与第一版类型映射见 [Java Library Adapter](../../design/java-library-adapters.md)。

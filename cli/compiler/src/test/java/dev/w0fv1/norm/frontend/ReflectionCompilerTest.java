@@ -75,4 +75,16 @@ final class ReflectionCompilerTest {
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
+
+  @Test
+  void bindsVoidClassAsAnUnboundedClassValue() {
+    CompilationResult result =
+        new CompilerSession()
+            .compile(
+                SourceFile.of(
+                    Path.of("void-reflection.norm"),
+                    "Void main() { Class<?> type = Void.class printLine(type.name()) }"));
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
 }

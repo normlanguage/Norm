@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.core;
 
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,9 +20,6 @@ public final class CoreMetadata {
                         CoreCodec.encodeAnnotationApplication(left),
                         CoreCodec.encodeAnnotationApplication(right)))
             .toList();
-    if (new LinkedHashSet<>(this.annotations).size() != this.annotations.size()) {
-      throw new IllegalArgumentException("duplicate annotation metadata");
-    }
   }
 
   public static CoreMetadata empty() {

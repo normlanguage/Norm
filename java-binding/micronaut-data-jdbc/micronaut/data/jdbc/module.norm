@@ -1,0 +1,18 @@
+Module module() {
+  return module(
+    name: "micronaut.data.jdbc",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.data",
+        artifact: "micronaut-data-jdbc",
+        version: "5.1.3",
+        resolution: sha256("69d52381b270e6e87ddb83ed2e9fd382324895f1c015305168b4c26c6a6ef043")
+      ),
+      api: [
+        jarType(name: "annotation.JdbcRepository", members: ["dataSource", "dialect"]),
+        jarType(name: "Dialect", members: [])
+      ]
+    )
+  )
+}

@@ -181,4 +181,17 @@ final class LexerTest {
     assertTrue(diagnostics.hasErrors());
     assertEquals("NORM-LEXER-0005", diagnostics.snapshot().getFirst().code().value());
   }
+
+  @Test
+  void lexesAnEscapedDollarAsLiteralText() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(
+                SourceFile.of(Path.of("configuration.norm"), "\"\\${bbs.greeting:Hello}\""),
+                diagnostics)
+            .lex();
+
+    assertFalse(diagnostics.hasErrors());
+    assertEquals("${bbs.greeting:Hello}", tokens.getFirst().value());
+  }
 }

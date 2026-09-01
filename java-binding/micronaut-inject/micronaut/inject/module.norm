@@ -1,0 +1,52 @@
+Module module() {
+  return module(
+    name: "micronaut.inject",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-inject",
+        version: "5.1.13",
+        resolution: sha256("b45f4e6890c1b649e5b96cab559d82412f6b886103da0e2f29313be5cc5f5cc2")
+      ),
+      api: [
+        jarType(
+          name: "context.ApplicationContext",
+          members: [],
+          overloads: [
+            jarOverload(name: "run", parameterTypes: []),
+            jarOverload(
+              name: "run",
+              parameterTypes: ["java.lang.Class", "java.lang.String[]"]
+            ),
+            jarOverload(
+              name: "run",
+              parameterTypes: ["java.lang.Class", "java.util.Map", "java.lang.String[]"]
+            )
+          ]
+        ),
+        jarType(
+          name: "context.BeanLocator",
+          members: [],
+          overloads: [
+            jarOverload(name: "getBean", parameterTypes: ["java.lang.Class"])
+          ]
+        ),
+        jarType(name: "context.annotation.Bean", members: ["preDestroy", "typed"]),
+        jarType(name: "context.annotation.Factory", members: []),
+        jarType(name: "context.annotation.Prototype", members: []),
+        jarType(name: "context.annotation.Context", members: []),
+        jarType(name: "context.annotation.Primary", members: []),
+        jarType(name: "context.annotation.Secondary", members: []),
+        jarType(name: "context.annotation.Executable", members: ["processOnStartup"]),
+        jarType(name: "context.annotation.Replaces", members: ["named", "value"]),
+        jarType(name: "context.annotation.Requires", members: ["beans", "missing", "notEquals", "property", "value"]),
+        jarType(name: "context.annotation.ConfigurationProperties", members: ["cliPrefix", "excludes", "includes", "value"]),
+        jarType(name: "context.annotation.EachProperty", members: ["excludes", "includes", "list", "primary", "value"]),
+        jarType(name: "context.annotation.Value", members: ["value"]),
+        jarType(name: "context.annotation.Property", members: ["defaultValue", "name", "value"]),
+        jarType(name: "context.annotation.ConfigurationInject", members: ["value"])
+      ]
+    )
+  )
+}

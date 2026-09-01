@@ -1,0 +1,20 @@
+Module module() {
+  return module(
+    name: "micronaut.core",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-core",
+        version: "5.1.13",
+        resolution: sha256("89c939e92fe69f6aa443da8b36bd34ff2e93d44a061a3d9e0068ead672213d8c")
+      ),
+      api: [
+        jarType(name: "annotation.Introspected", members: ["accessKind", "annotationMetadata"]),
+        jarType(name: "annotation.Introspected.AccessKind", members: []),
+        jarType(name: "annotation.Nullable", members: ["inherited"]),
+        jarType(name: "annotation.ReflectiveAccess", members: [])
+      ]
+    )
+  )
+}

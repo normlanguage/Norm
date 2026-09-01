@@ -14,6 +14,8 @@ public final class AnnotationAbi {
   public static final String FUNCTION_INTERCEPTOR = "FunctionInterceptor";
   public static final String PARAMETER_INTERCEPTOR = "ParameterInterceptor";
   public static final String FIELD_INTERCEPTOR = "FieldInterceptor";
+  public static final String REPEATABLE_ANNOTATION = "RepeatableAnnotation";
+  public static final String INHERITED_ANNOTATION = "InheritedAnnotation";
   public static final String BEFORE = "before";
   public static final String AROUND = "around";
   public static final String AFTER = "after";
@@ -68,7 +70,9 @@ public final class AnnotationAbi {
             || name.equals(ANNOTATION_RETENTION)
             || TARGETS.containsKey(name)
             || INTERCEPTORS.containsKey(name)
-            || RETENTIONS.containsKey(name));
+            || RETENTIONS.containsKey(name)
+            || name.equals(REPEATABLE_ANNOTATION)
+            || name.equals(INHERITED_ANNOTATION));
   }
 
   public static Optional<AnnotationTarget> interceptor(
@@ -91,6 +95,16 @@ public final class AnnotationAbi {
   public static boolean isFieldInterceptor(
       ModuleCoordinate module, String packageName, String name) {
     return standard(module, packageName) && name.equals(FIELD_INTERCEPTOR);
+  }
+
+  public static boolean isRepeatableAnnotation(
+      ModuleCoordinate module, String packageName, String name) {
+    return standard(module, packageName) && name.equals(REPEATABLE_ANNOTATION);
+  }
+
+  public static boolean isInheritedAnnotation(
+      ModuleCoordinate module, String packageName, String name) {
+    return standard(module, packageName) && name.equals(INHERITED_ANNOTATION);
   }
 
   private static boolean standard(ModuleCoordinate module, String packageName) {

@@ -23,7 +23,8 @@ final class CoreAnnotationVerifier {
     Map<ApplicationKey, CoreAnnotationApplication> applications = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : metadata.annotations()) {
       verifyApplication(program, authoring, application);
-      if (applications.putIfAbsent(applicationKey(application), application) != null) {
+      if (applications.putIfAbsent(applicationKey(application), application) != null
+          && !policy(program, application.annotation()).repeatable()) {
         throw new IllegalArgumentException("annotation application must be unique per target");
       }
     }
@@ -83,6 +84,15 @@ final class CoreAnnotationVerifier {
             "stored behavior annotation requires a declaration interceptor");
       }
     }
+  }
+
+  private static CoreAnnotationPolicy policy(CoreProgram program, DefinitionId annotationId) {
+    CoreDefinition definition = program.definition(annotationId).orElseThrow();
+    if (!(definition instanceof CoreDefinition.Aggregate annotation)
+        || annotation.kind() != CoreAggregateKind.ANNOTATION) {
+      throw new IllegalArgumentException("annotation application must reference an annotation");
+    }
+    return CoreAnnotationPolicy.resolve(program, annotationId, annotation);
   }
 
   private static void matchInterceptor(
@@ -498,6 +508,7 @@ final class CoreAnnotationVerifier {
         && !nonNull.equals(CoreType.FLOAT)
         && !nonNull.equals(CoreType.DOUBLE)
         && !nonNull.equals(CoreType.STRING)
+        && !isMetadataEnum(program, owner, nonNull)
         && !isMetadataList(program, owner, nonNull)
         && !isDeclarationReferenceType(nonNull)) {
       throw new IllegalArgumentException(
@@ -509,6 +520,16 @@ final class CoreAnnotationVerifier {
     if (!isBuiltin(type, "std.core.List", 1)) return false;
     requireMetadataType(program, owner, ((CoreType.Declared) type).arguments().getFirst());
     return true;
+  }
+
+  private static boolean isMetadataEnum(CoreProgram program, DefinitionId owner, CoreType type) {
+    if (!(type instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      return false;
+    }
+    DefinitionId id = resolve(program, owner, user.definition());
+    return definition(program, id) instanceof CoreDefinition.Enum enumeration
+        && enumeration.variants().stream().allMatch(variant -> variant.fields().isEmpty());
   }
 
   private static boolean isDeclarationReferenceType(CoreType type) {
@@ -605,6 +626,25 @@ final class CoreAnnotationVerifier {
             throw new IllegalArgumentException(
                 "callable annotation reference signature does not match");
           }
+        }
+      }
+      case CoreAnnotationReference.EnumReference enumeration -> {
+        if (!(nonNull instanceof CoreType.Declared declared)
+            || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+          throw new IllegalArgumentException("enum reference requires an enum annotation value");
+        }
+        DefinitionId id = resolve(program, owner, user.definition());
+        if (!(definition(program, id) instanceof CoreDefinition.Enum enumDefinition)) {
+          throw new IllegalArgumentException("enum reference requires an enum annotation value");
+        }
+        dev.w0fv1.norm.core.CoreEnumVariant variant =
+            enumDefinition.variants().stream()
+                .filter(candidate -> candidate.key().equals(enumeration.variant()))
+                .findFirst()
+                .orElseThrow(
+                    () -> new IllegalArgumentException("annotation enum variant is absent"));
+        if (!variant.fields().isEmpty()) {
+          throw new IllegalArgumentException("annotation enum variant must not have a payload");
         }
       }
     }

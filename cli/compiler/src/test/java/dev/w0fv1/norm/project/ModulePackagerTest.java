@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
@@ -19,7 +19,7 @@ final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
-  void rejectsAnAdapterWithoutAPublicApi() throws Exception {
+  void packagesARuntimeAdapterWithoutAPublicApi() throws Exception {
     Path module = Files.createDirectories(temporaryDirectory.resolve("sources/empty/adapter"));
     Path modulePath = module.resolve("module.norm");
     Files.writeString(
@@ -40,19 +40,25 @@ final class ModulePackagerTest {
           )
         }
         """);
+    Files.writeString(
+        module.resolve("Main.norm"),
+        """
+        package empty.adapter
+        Void main() {}
+        """);
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (ProjectLoader projects =
         environment.projectLoader(temporaryDirectory.resolve("maven-cache"))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
 
-      var failure =
-          assertThrows(
-              java.io.IOException.class,
-              () ->
-                  new ModulePackager(projects)
-                      .packageModule(modulePath, temporaryDirectory.resolve("repository")));
-
-      assertTrue(failure.getMessage().contains("public API"));
+      ModulePackager.PackagedModule packaged =
+          new ModulePackager(projects)
+              .packageModule(modulePath, temporaryDirectory.resolve("repository"));
+      assertTrue(Files.isRegularFile(packaged.archive()));
+      try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
+        assertEquals(
+            0, archive.stream().filter(entry -> entry.getName().startsWith("sources/")).count());
+      }
     }
   }
 
@@ -167,6 +173,111 @@ final class ModulePackagerTest {
   }
 
   @Test
+  void replacesABindingNarWithAPureNormNarWithoutChangingTheConsumer() throws Exception {
+    Path binding = Files.createDirectories(temporaryDirectory.resolve("binding/commons/lang"));
+    Path bindingModule = binding.resolve("module.norm");
+    Files.writeString(
+        bindingModule,
+        """
+        Module module() {
+          return module(
+            name: "commons.lang",
+            version: 1,
+            binding: jarBinding(
+              target: mavenJar(
+                group: "org.apache.commons",
+                artifact: "commons-lang3",
+                version: "3.20.0"
+              ),
+              api: [
+                jarType(
+                  name: "StringUtils",
+                  members: [],
+                  overloads: [
+                    jarOverload(name: "reverse", parameterTypes: ["java.lang.String"])
+                  ]
+                )
+              ]
+            )
+          )
+        }
+        """);
+    Path bindingRepository = temporaryDirectory.resolve("binding-repository");
+    ProjectEnvironment bindingEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (ProjectLoader projects =
+        bindingEnvironment.projectLoader(temporaryDirectory.resolve("binding-cache"))) {
+      new ModuleBindingResolutionService(projects).resolve(bindingModule);
+      new ModulePackager(projects).packageModule(bindingModule, bindingRepository);
+    }
+
+    Path pure = Files.createDirectories(temporaryDirectory.resolve("pure/commons/lang"));
+    Path pureModule = pure.resolve("module.norm");
+    Files.writeString(
+        pureModule,
+        """
+        Module module() {
+          return module(name: "commons.lang", version: 1, exports: ["StringUtils"])
+        }
+        """);
+    Files.writeString(
+        pure.resolve("StringUtils.norm"),
+        """
+        package commons.lang
+
+        public String? stringUtilsReverse(String? value) {
+          if value == null {
+            return null
+          }
+          return "mroN"
+        }
+        """);
+    Path pureRepository = temporaryDirectory.resolve("pure-repository");
+    ProjectEnvironment pureEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
+    ModulePackager.PackagedModule packaged;
+    try (ProjectLoader projects = pureEnvironment.projectLoader()) {
+      packaged = new ModulePackager(projects).packageModule(pureModule, pureRepository);
+    }
+    String pom = Files.readString(packaged.pom());
+    assertTrue(pom.contains("<packaging>nar</packaging>"));
+    assertFalse(pom.contains("commons-lang3"));
+    try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
+      assertTrue(archive.getEntry("sources/commons/lang/StringUtils.norm") != null);
+      assertTrue(archive.getEntry("binding/java-api.json") == null);
+      var manifest =
+          JsonParser.parseReader(
+                  new java.io.InputStreamReader(
+                      archive.getInputStream(archive.getEntry("module.json"))))
+              .getAsJsonObject();
+      assertFalse(manifest.has("jar"));
+    }
+
+    Path app = Files.createDirectories(temporaryDirectory.resolve("replacement-consumer/sample"));
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() {
+          return module(
+            name: "sample",
+            version: 1,
+            exports: ["Main"],
+            dependencies: [dependency(name: "commons.lang", version: 1)]
+          )
+        }
+        """);
+    Files.writeString(
+        entry,
+        """
+        package sample
+        import commons.lang.stringUtilsReverse
+        Void main() { printLine(stringUtilsReverse("Norm") ?? "missing") }
+        """);
+
+    assertEquals("mroN" + System.lineSeparator(), run(bindingRepository, entry));
+    assertEquals("mroN" + System.lineSeparator(), run(pureRepository, entry));
+  }
+
+  @Test
   void writesModuleDependenciesAsNarDependencies() throws Exception {
     Path module = Files.createDirectories(temporaryDirectory.resolve("sources/example/adapter"));
     Path modulePath = module.resolve("module.norm");
@@ -212,5 +323,18 @@ final class ModulePackagerTest {
                   <scope>runtime</scope>
                 </dependency>
             """));
+  }
+
+  private static String run(Path repository, Path entry) throws Exception {
+    StringWriter output = new StringWriter();
+    NormRuntime backend = new NormRuntime();
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
+    try (ProjectLauncher launcher =
+        new ProjectLauncher(
+            environment.projectLoader(repository), environment.compilerSession(), backend)) {
+      var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    return output.toString();
   }
 }

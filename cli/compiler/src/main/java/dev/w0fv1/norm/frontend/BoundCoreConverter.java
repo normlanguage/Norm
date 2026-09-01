@@ -217,6 +217,8 @@ final class BoundCoreConverter {
                     field.ordinal(),
                     types.convert(field.ownerType()),
                     types.convert(field.valueType()));
+            case BoundAnnotationReference.EnumReference enumeration ->
+                new CoreAnnotationReference.EnumReference(enumeration.variantName());
           };
     };
   }
@@ -761,6 +763,7 @@ final class BoundCoreConverter {
                 field.ordinal(),
                 CoreTypes.mapLinks(field.ownerType(), links),
                 CoreTypes.mapLinks(field.valueType(), links));
+        case CoreAnnotationReference.EnumReference enumeration -> enumeration;
       };
     }
   }

@@ -215,6 +215,7 @@ final class Lexer {
         case 't' -> value.append('\t');
         case '"' -> value.append('"');
         case '\\' -> value.append('\\');
+        case '$' -> value.append('$');
         default ->
             diagnostics.error(
                 INVALID_ESCAPE,

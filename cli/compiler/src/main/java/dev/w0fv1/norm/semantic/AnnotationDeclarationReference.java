@@ -16,6 +16,7 @@ public record AnnotationDeclarationReference(
   public enum Kind {
     CLASS,
     CALLABLE,
-    FIELD
+    FIELD,
+    ENUM_VARIANT
   }
 }

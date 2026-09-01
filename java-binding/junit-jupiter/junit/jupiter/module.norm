@@ -1,0 +1,53 @@
+Module module() {
+  return module(
+    name: "junit.jupiter",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "org.junit.jupiter",
+        artifact: "junit-jupiter-api",
+        version: "6.1.2", resolution: sha256("db3c713c5c11adf7a5f1ffc320ed244da00d536d5860d56cd33dcd8b931d3511")
+      ),
+      api: [
+        jarType(name: "api.Test", members: []),
+        jarType(name: "api.BeforeEach", members: []),
+        jarType(name: "api.AfterEach", members: []),
+        jarType(name: "api.BeforeAll", members: []),
+        jarType(name: "api.AfterAll", members: []),
+        jarType(name: "api.DisplayName", members: ["value"]),
+        jarType(name: "api.Disabled", members: ["value"]),
+        jarType(name: "api.Tag", members: ["value"]),
+        jarType(name: "api.Nested", members: []),
+        jarType(name: "api.RepeatedTest", members: ["failureThreshold", "name", "value"]),
+        jarType(name: "api.TestInstance", members: ["value"]),
+        jarType(name: "api.TestInstance.Lifecycle", members: ["PER_CLASS", "PER_METHOD"]),
+        jarType(
+          name: "api.Assertions",
+          members: [],
+          overloads: [
+            jarOverload(name: "assertTrue", parameterTypes: ["boolean"]),
+            jarOverload(name: "assertTrue", parameterTypes: ["boolean", "java.lang.String"]),
+            jarOverload(name: "assertFalse", parameterTypes: ["boolean"]),
+            jarOverload(name: "assertFalse", parameterTypes: ["boolean", "java.lang.String"]),
+            jarOverload(name: "assertNull", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "assertNull", parameterTypes: ["java.lang.Object", "java.lang.String"]),
+            jarOverload(name: "assertNotNull", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "assertNotNull", parameterTypes: ["java.lang.Object", "java.lang.String"]),
+            jarOverload(name: "assertEquals", parameterTypes: ["int", "int"]),
+            jarOverload(name: "assertEquals", parameterTypes: ["int", "int", "java.lang.String"]),
+            jarOverload(name: "assertEquals", parameterTypes: ["long", "long"]),
+            jarOverload(name: "assertEquals", parameterTypes: ["double", "double"]),
+            jarOverload(name: "assertEquals", parameterTypes: ["java.lang.Object", "java.lang.Object"]),
+            jarOverload(name: "assertEquals", parameterTypes: ["java.lang.Object", "java.lang.Object", "java.lang.String"]),
+            jarOverload(name: "assertNotEquals", parameterTypes: ["int", "int"]),
+            jarOverload(name: "assertNotEquals", parameterTypes: ["long", "long"]),
+            jarOverload(name: "assertNotEquals", parameterTypes: ["double", "double"]),
+            jarOverload(name: "assertNotEquals", parameterTypes: ["java.lang.Object", "java.lang.Object"]),
+            jarOverload(name: "assertSame", parameterTypes: ["java.lang.Object", "java.lang.Object"]),
+            jarOverload(name: "assertNotSame", parameterTypes: ["java.lang.Object", "java.lang.Object"])
+          ]
+        )
+      ]
+    )
+  )
+}

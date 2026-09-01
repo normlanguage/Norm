@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.execution.JarBindingDuration;
 import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
@@ -15,6 +16,7 @@ import dev.w0fv1.norm.value.Sha256Digest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 final class JvmJarBindingRuntimeTest {
   @TempDir Path temporaryDirectory;
@@ -64,6 +67,100 @@ final class JvmJarBindingRuntimeTest {
             JarBindingResult.Null.INSTANCE,
             runtime.invoke(reverseCall, java.util.Collections.singletonList(null)));
       }
+    }
+  }
+
+  @Test
+  void linksGeneratedApplicationClassesWithTheResolvedJarGraph() throws Exception {
+    Path jar = temporaryDirectory.resolve("empty.jar");
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.finish();
+    }
+    Path classes = temporaryDirectory.resolve("application-classes");
+    generatedApplicationClass(classes.resolve("sample/Generated.class"));
+    ResolvedJarArtifact root =
+        new ResolvedJarArtifact(
+            new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
+    ResolvedJarGraph graph = new ResolvedJarGraph(root, List.of(root), List.of());
+    JavaBindingCallable callable =
+        new JavaBindingCallable(
+            "sample.Generated",
+            "message",
+            "()Ljava/lang/String;",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(),
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING));
+    JavaReferenceType classToken =
+        new JavaReferenceType(
+            "java.lang.Class",
+            JavaReferenceKind.CLASS,
+            List.of(JavaBindingTypeArgument.unbounded()));
+    JavaBindingCallable echoClass =
+        new JavaBindingCallable(
+            "sample.Generated",
+            "echoClass",
+            "(Ljava/lang/Class;)Ljava/lang/Class;",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(classToken),
+            classToken);
+    GeneratedJarBinding generated =
+        new GeneratedJarBinding(
+            List.of(),
+            List.of(),
+            Map.of("application-message", callable, "application-class", echoClass),
+            Map.of(),
+            Map.of(),
+            Map.of());
+
+    try (JvmJarBindingRuntime runtime =
+        new JvmJarBindingRuntime(
+            List.of(new ResolvedJarBinding(graph, new JarApiSchema(List.of()), generated)),
+            List.of(classes))) {
+      assertEquals(
+          new JarBindingResult.Scalar("generated"),
+          runtime.invoke("application-message", List.of()));
+      JarBindingClassReference.Nominal generatedClass =
+          new JarBindingClassReference.Nominal(
+              new ModuleCoordinate("sample.application", 1), "sample", "Generated");
+      assertEquals(
+          new JarBindingResult.ClassReference(List.of(generatedClass)),
+          runtime.invoke("application-class", List.of(generatedClass)));
+    }
+  }
+
+  @Test
+  void discoversServiceProvidersAcrossBindingModules() throws Exception {
+    Path apiJar = serviceApiJar(temporaryDirectory.resolve("service-api.jar"));
+    Path implementationJar =
+        serviceImplementationJar(temporaryDirectory.resolve("service-implementation.jar"));
+    ResolvedJarGraph apiGraph = graph(apiJar);
+    ResolvedJarGraph implementationGraph = graph(implementationJar);
+    JarApiSchema apiSchema = new JarApiScanner().scan(apiGraph);
+    JarApiSchema implementationSchema = new JarApiScanner().scan(implementationGraph);
+    GeneratedJarBinding api =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.service.api", 1),
+                List.of("ServiceApi"),
+                apiGraph.contentId(),
+                apiSchema);
+    GeneratedJarBinding implementation =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.service.implementation", 1),
+                List.of(),
+                implementationGraph.contentId(),
+                implementationSchema);
+
+    try (JvmJarBindingRuntime runtime =
+        new JvmJarBindingRuntime(
+            List.of(
+                new ResolvedJarBinding(apiGraph, apiSchema, api),
+                new ResolvedJarBinding(
+                    implementationGraph, implementationSchema, implementation)))) {
+      assertEquals(
+          new JarBindingResult.Scalar("loaded"),
+          runtime.invoke(call(api, "message", "()Ljava/lang/String;"), List.of()));
     }
   }
 
@@ -446,6 +543,116 @@ final class JvmJarBindingRuntimeTest {
     return new JarResolver(temporaryDirectory.resolve(directory));
   }
 
+  private static ResolvedJarGraph graph(Path jar) throws Exception {
+    Sha256Digest content = Sha256Digest.compute(jar);
+    ResolvedJarArtifact root = new ResolvedJarArtifact(new LocalJarIdentity(content), jar, content);
+    return new ResolvedJarGraph(root, List.of(root), List.of());
+  }
+
+  private static Path serviceApiJar(Path path) throws Exception {
+    ClassWriter provider = new ClassWriter(0);
+    provider.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+        "sample/Provider",
+        null,
+        "java/lang/Object",
+        null);
+    provider
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+            "message",
+            "()Ljava/lang/String;",
+            null,
+            null)
+        .visitEnd();
+    provider.visitEnd();
+
+    ClassWriter api = new ClassWriter(0);
+    api.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+        "sample/ServiceApi",
+        null,
+        "java/lang/Object",
+        null);
+    MethodVisitor message =
+        api.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "message", "()Ljava/lang/String;", null, null);
+    message.visitCode();
+    message.visitLdcInsn(Type.getType("Lsample/Provider;"));
+    message.visitMethodInsn(
+        Opcodes.INVOKESTATIC,
+        "java/util/ServiceLoader",
+        "load",
+        "(Ljava/lang/Class;)Ljava/util/ServiceLoader;",
+        false);
+    message.visitMethodInsn(
+        Opcodes.INVOKEVIRTUAL,
+        "java/util/ServiceLoader",
+        "findFirst",
+        "()Ljava/util/Optional;",
+        false);
+    message.visitMethodInsn(
+        Opcodes.INVOKEVIRTUAL, "java/util/Optional", "orElseThrow", "()Ljava/lang/Object;", false);
+    message.visitTypeInsn(Opcodes.CHECKCAST, "sample/Provider");
+    message.visitMethodInsn(
+        Opcodes.INVOKEINTERFACE, "sample/Provider", "message", "()Ljava/lang/String;", true);
+    message.visitInsn(Opcodes.ARETURN);
+    message.visitMaxs(1, 0);
+    message.visitEnd();
+    api.visitEnd();
+
+    Files.createDirectories(path.getParent());
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
+      writeClass(output, "sample/Provider.class", provider);
+      writeClass(output, "sample/ServiceApi.class", api);
+    }
+    return path;
+  }
+
+  private static Path serviceImplementationJar(Path path) throws Exception {
+    ClassWriter writer = new ClassWriter(0);
+    writer.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+        "sample/ProviderImpl",
+        null,
+        "java/lang/Object",
+        new String[] {"sample/Provider"});
+    MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+    constructor.visitCode();
+    constructor.visitVarInsn(Opcodes.ALOAD, 0);
+    constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+    constructor.visitInsn(Opcodes.RETURN);
+    constructor.visitMaxs(1, 1);
+    constructor.visitEnd();
+    MethodVisitor message =
+        writer.visitMethod(Opcodes.ACC_PUBLIC, "message", "()Ljava/lang/String;", null, null);
+    message.visitCode();
+    message.visitLdcInsn("loaded");
+    message.visitInsn(Opcodes.ARETURN);
+    message.visitMaxs(1, 1);
+    message.visitEnd();
+    writer.visitEnd();
+
+    Files.createDirectories(path.getParent());
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
+      writeClass(output, "sample/ProviderImpl.class", writer);
+      output.putNextEntry(new JarEntry("META-INF/services/sample.Provider"));
+      output.write("sample.ProviderImpl\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+    }
+    return path;
+  }
+
+  private static void writeClass(JarOutputStream output, String name, ClassWriter writer)
+      throws Exception {
+    output.putNextEntry(new JarEntry(name));
+    output.write(writer.toByteArray());
+    output.closeEntry();
+  }
+
   private static String call(
       GeneratedJarBinding generated, JavaCallableKind kind, String name, String descriptor) {
     return generated.calls().entrySet().stream()
@@ -506,6 +713,40 @@ final class JvmJarBindingRuntimeTest {
       output.closeEntry();
     }
     return path;
+  }
+
+  private static void generatedApplicationClass(Path path) throws Exception {
+    ClassWriter writer = new ClassWriter(0);
+    writer.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+        "sample/Generated",
+        null,
+        "java/lang/Object",
+        null);
+    MethodVisitor message =
+        writer.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "message", "()Ljava/lang/String;", null, null);
+    message.visitCode();
+    message.visitLdcInsn("generated");
+    message.visitInsn(Opcodes.ARETURN);
+    message.visitMaxs(1, 0);
+    message.visitEnd();
+    MethodVisitor echoClass =
+        writer.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+            "echoClass",
+            "(Ljava/lang/Class;)Ljava/lang/Class;",
+            null,
+            null);
+    echoClass.visitCode();
+    echoClass.visitVarInsn(Opcodes.ALOAD, 0);
+    echoClass.visitInsn(Opcodes.ARETURN);
+    echoClass.visitMaxs(1, 1);
+    echoClass.visitEnd();
+    writer.visitEnd();
+    Files.createDirectories(path.getParent());
+    Files.write(path, writer.toByteArray());
   }
 
   private static Path failureJar(Path path) throws Exception {

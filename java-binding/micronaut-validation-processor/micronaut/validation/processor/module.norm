@@ -1,0 +1,15 @@
+Module module() {
+  return module(
+    name: "micronaut.validation.processor",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.validation",
+        artifact: "micronaut-validation-processor",
+        version: "5.1.0",
+        resolution: sha256("103f03ba60e377b1572848108cd15db447b98ecb651dee337ea5af9cce1cdf70")
+      ),
+      api: []
+    )
+  )
+}

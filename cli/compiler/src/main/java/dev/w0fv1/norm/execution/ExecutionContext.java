@@ -16,6 +16,7 @@ public final class ExecutionContext {
   private final List<String> arguments;
   private final BooleanSupplier cancellation;
   private final Optional<ModulePublisher> modulePublisher;
+  private final Optional<JavaApplicationEntrypoint> javaApplicationEntrypoint;
   private final JarBindingRuntime jarBindingRuntime;
   private final SystemPlatform platform;
 
@@ -26,6 +27,7 @@ public final class ExecutionContext {
     arguments = List.copyOf(builder.arguments);
     cancellation = Objects.requireNonNull(builder.cancellation, "cancellation");
     modulePublisher = Optional.ofNullable(builder.modulePublisher);
+    javaApplicationEntrypoint = Optional.ofNullable(builder.javaApplicationEntrypoint);
     jarBindingRuntime = Objects.requireNonNull(builder.jarBindingRuntime, "jarBindingRuntime");
     platform = Objects.requireNonNull(builder.platform, "platform");
   }
@@ -83,12 +85,20 @@ public final class ExecutionContext {
     return platform;
   }
 
+  public Optional<JavaApplicationEntrypoint> javaApplicationEntrypoint() {
+    return javaApplicationEntrypoint;
+  }
+
   public JarBindingRuntime jarBindingRuntime() {
     return jarBindingRuntime;
   }
 
   public ExecutionContext withJarBindingRuntime(JarBindingRuntime value) {
     return new Builder(this).jarBindingRuntime(value).build();
+  }
+
+  public ExecutionContext withJavaApplicationEntrypoint(JavaApplicationEntrypoint value) {
+    return new Builder(this).javaApplicationEntrypoint(value).build();
   }
 
   public static final class Builder {
@@ -98,6 +108,7 @@ public final class ExecutionContext {
     private List<String> arguments = List.of();
     private BooleanSupplier cancellation = () -> false;
     private ModulePublisher modulePublisher;
+    private JavaApplicationEntrypoint javaApplicationEntrypoint;
     private JarBindingRuntime jarBindingRuntime = JarBindingRuntime.unavailable();
     private SystemPlatform platform = SystemPlatform.unavailable();
 
@@ -110,6 +121,7 @@ public final class ExecutionContext {
       arguments = context.arguments;
       cancellation = context.cancellation;
       modulePublisher = context.modulePublisher.orElse(null);
+      javaApplicationEntrypoint = context.javaApplicationEntrypoint.orElse(null);
       jarBindingRuntime = context.jarBindingRuntime;
       platform = context.platform;
     }
@@ -141,6 +153,11 @@ public final class ExecutionContext {
 
     public Builder modulePublisher(ModulePublisher value) {
       modulePublisher = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder javaApplicationEntrypoint(JavaApplicationEntrypoint value) {
+      javaApplicationEntrypoint = Objects.requireNonNull(value, "value");
       return this;
     }
 

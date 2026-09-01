@@ -48,7 +48,7 @@ final class JarBindingSourceGeneratorTest {
     assertTrue(source.text().contains("public String? stringUtilsReverse(String? arg0)"));
     assertTrue(source.text().contains("public Integer stringUtilsLength(String? arg0)"));
     assertTrue(source.text().contains("__jarInvoke1<String?>"));
-    assertTrue(source.callIds().stream().allMatch(value -> value.startsWith("java-v13:")));
+    assertTrue(source.callIds().stream().allMatch(value -> value.startsWith("java-v14:")));
     assertEquals(2, generated.calls().size());
     assertEquals(reverse, generated.calls().get(source.callIds().getLast()));
   }
@@ -395,6 +395,37 @@ final class JarBindingSourceGeneratorTest {
     assertTrue(source.text().contains("import std.concurrent.Task"));
     assertTrue(source.text().contains("Task<String?>? tasksCompleted(String? arg0)"));
     assertTrue(source.text().contains("Boolean tasksInspect(Task<String?>? arg0)"));
+  }
+
+  @Test
+  void projectsReactiveStreamsPublishersAsStandardNormPublishers() {
+    JavaReferenceType string = new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING);
+    JavaReferenceType publisher =
+        new JavaReferenceType(
+            "org.reactivestreams.Publisher",
+            JavaReferenceKind.PUBLISHER,
+            List.of(JavaBindingTypeArgument.exact(string)));
+    JavaBindingCallable events =
+        new JavaBindingCallable(
+            "sample.Events",
+            "events",
+            "()Lorg/reactivestreams/Publisher;",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(),
+            publisher);
+
+    GeneratedBindingSource source =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.binding", 1),
+                List.of("Events"),
+                GRAPH_ID,
+                schema("sample.Events", List.of(events)))
+            .sources()
+            .getFirst();
+
+    assertTrue(source.text().contains("import std.concurrent.Publisher"));
+    assertTrue(source.text().contains("Publisher<String?>? eventsEvents()"));
   }
 
   @Test
@@ -931,7 +962,261 @@ final class JarBindingSourceGeneratorTest {
   }
 
   @Test
-  void generatesRootJarTypesRequiredByAnExportedApi() {
+  void generatesStrongNormAnnotationsFromJavaAnnotationContracts() {
+    String owner = "sample.Endpoint";
+    JavaBindingCallable path =
+        new JavaBindingCallable(
+            owner,
+            "path",
+            "()Ljava/lang/String;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING));
+    JavaApiType endpoint =
+        new JavaApiType(
+            owner,
+            JavaApiTypeKind.ANNOTATION,
+            Opcodes.ACC_PUBLIC
+                | Opcodes.ACC_INTERFACE
+                | Opcodes.ACC_ABSTRACT
+                | Opcodes.ACC_ANNOTATION,
+            new JavaClassSignature(
+                List.of(),
+                Optional.of(JavaClassTypeSignature.raw("java.lang.Object")),
+                List.of(JavaClassTypeSignature.raw("java.lang.annotation.Annotation"))),
+            List.of(
+                new JavaApiAnnotation(
+                    "java.lang.annotation.Target",
+                    true,
+                    List.of(
+                        new JavaAnnotationElement(
+                            "value",
+                            new JavaAnnotationArrayValue(
+                                List.of(
+                                    new JavaAnnotationEnumValue(
+                                        "java.lang.annotation.ElementType", "METHOD"),
+                                    new JavaAnnotationEnumValue(
+                                        "java.lang.annotation.ElementType", "TYPE")))))),
+                new JavaApiAnnotation(
+                    "java.lang.annotation.Retention",
+                    true,
+                    List.of(
+                        new JavaAnnotationElement(
+                            "value",
+                            new JavaAnnotationEnumValue(
+                                "java.lang.annotation.RetentionPolicy", "RUNTIME")))),
+                new JavaApiAnnotation("java.lang.annotation.Inherited", true, List.of()),
+                new JavaApiAnnotation(
+                    "java.lang.annotation.Repeatable",
+                    true,
+                    List.of(
+                        new JavaAnnotationElement(
+                            "value", new JavaAnnotationClassValue("Lsample/Endpoints;"))))),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(apiMethod(path)),
+            JavaApiDisposition.BINDABLE);
+
+    GeneratedBindingSource source =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.binding", 1),
+                List.of("Endpoint"),
+                GRAPH_ID,
+                new JarApiSchema(List.of(endpoint)))
+            .sources()
+            .getFirst();
+
+    assertTrue(source.text().contains("import std.annotation.FunctionTarget"));
+    assertTrue(source.text().contains("import std.annotation.RuntimeRetention"));
+    assertTrue(source.text().contains("import std.annotation.TypeTarget"));
+    assertTrue(source.text().contains("import std.annotation.InheritedAnnotation"));
+    assertTrue(source.text().contains("import std.annotation.RepeatableAnnotation"));
+    assertTrue(
+        source
+            .text()
+            .contains(
+                "public annotation Endpoint implements TypeTarget, FunctionTarget, RuntimeRetention, InheritedAnnotation, RepeatableAnnotation"));
+    assertTrue(source.text().contains("String path"));
+    assertTrue(source.callIds().isEmpty());
+  }
+
+  @Test
+  void preservesJavaAnnotationDefaultsWithOrdinaryNormConstructorSemantics() {
+    String owner = "sample.Endpoint";
+    JavaBindingCallable path =
+        new JavaBindingCallable(
+            owner,
+            "path",
+            "()Ljava/lang/String;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING));
+    JavaBindingCallable as =
+        new JavaBindingCallable(
+            owner,
+            "as",
+            "()Ljava/lang/String;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING));
+    JavaBindingCallable enabled =
+        new JavaBindingCallable(
+            owner,
+            "enabled",
+            "()Z",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            JavaPrimitiveType.BOOLEAN);
+    JavaBindingCallable order =
+        new JavaBindingCallable(
+            owner,
+            "order",
+            "()I",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            JavaPrimitiveType.INT);
+    JavaBindingCallable tags =
+        new JavaBindingCallable(
+            owner,
+            "tags",
+            "()[Ljava/lang/String;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaArrayType(new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING)));
+    JavaBindingCallable level =
+        new JavaBindingCallable(
+            owner,
+            "level",
+            "()Lsample/Level;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaReferenceType("sample.Level", JavaReferenceKind.ENUM));
+    JavaBindingCallable handler =
+        new JavaBindingCallable(
+            owner,
+            "handler",
+            "()Ljava/lang/Class;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaReferenceType(
+                "java.lang.Class",
+                JavaReferenceKind.CLASS,
+                List.of(JavaBindingTypeArgument.unbounded())));
+    JavaBindingCallable failure =
+        new JavaBindingCallable(
+            owner,
+            "failure",
+            "()Ljava/lang/Class;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            new JavaReferenceType(
+                "java.lang.Class",
+                JavaReferenceKind.CLASS,
+                List.of(JavaBindingTypeArgument.unbounded())));
+    JavaApiType levelType = enumType("sample.Level", "DEFAULT", "STRICT");
+    JavaApiType handlerType =
+        type(
+            "sample.config.Handler",
+            new JavaClassSignature(
+                List.of(), Optional.of(JavaClassTypeSignature.raw("java.lang.Object")), List.of()),
+            List.of(),
+            List.of());
+    JavaApiType endpoint =
+        new JavaApiType(
+            owner,
+            JavaApiTypeKind.ANNOTATION,
+            Opcodes.ACC_PUBLIC
+                | Opcodes.ACC_INTERFACE
+                | Opcodes.ACC_ABSTRACT
+                | Opcodes.ACC_ANNOTATION,
+            new JavaClassSignature(
+                List.of(),
+                Optional.of(JavaClassTypeSignature.raw("java.lang.Object")),
+                List.of(JavaClassTypeSignature.raw("java.lang.annotation.Annotation"))),
+            List.of(
+                new JavaApiAnnotation(
+                    "java.lang.annotation.Target",
+                    true,
+                    List.of(
+                        new JavaAnnotationElement(
+                            "value",
+                            new JavaAnnotationArrayValue(
+                                List.of(
+                                    new JavaAnnotationEnumValue(
+                                        "java.lang.annotation.ElementType", "TYPE"))))))),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(
+                annotationMethod(as, new JavaAnnotationConstantValue("self")),
+                annotationMethod(enabled, new JavaAnnotationConstantValue(true)),
+                annotationMethod(failure, new JavaAnnotationClassValue("Ljava/lang/Throwable;")),
+                annotationMethod(order, new JavaAnnotationConstantValue(0)),
+                annotationMethod(level, new JavaAnnotationEnumValue("sample.Level", "STRICT")),
+                annotationMethod(handler, new JavaAnnotationClassValue("Lsample/config/Handler;")),
+                apiMethod(path),
+                annotationMethod(
+                    tags,
+                    new JavaAnnotationArrayValue(
+                        List.of(
+                            new JavaAnnotationConstantValue("http"),
+                            new JavaAnnotationConstantValue("json"))))),
+            JavaApiDisposition.BINDABLE);
+
+    GeneratedBindingSource source =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.binding", 1),
+                List.of("Endpoint", "config.Handler"),
+                GRAPH_ID,
+                new JarApiSchema(List.of(endpoint, levelType, handlerType)))
+            .sources()
+            .getFirst();
+
+    assertTrue(source.text().contains("Boolean enabled"));
+    assertTrue(source.text().contains("String asValue"));
+    assertTrue(source.text().contains("Integer order"));
+    assertTrue(source.text().contains("Level level"));
+    assertTrue(source.text().contains("Class<?> failure"));
+    assertTrue(source.text().contains("import std.core.Exception"));
+    assertTrue(source.text().contains("Class<?> handler"));
+    assertTrue(source.text().contains("import sample.binding.config.Handler"));
+    assertTrue(source.text().contains("String path"));
+    assertTrue(source.text().contains("List<String> tags"));
+    assertTrue(
+        source
+            .text()
+            .contains(
+                """
+                  Endpoint(
+                    String? asValue,
+                    Boolean? enabled,
+                    Class<?>? failure,
+                    Class<?>? handler,
+                    Level? level,
+                    Integer? order,
+                    String path,
+                    List<String>? tags
+                  ) {
+                """));
+    assertTrue(source.text().contains("this.asValue = asValue ?? \"self\""));
+    assertTrue(source.text().contains("this.enabled = enabled ?? true"));
+    assertTrue(source.text().contains("this.failure = failure ?? Exception.class"));
+    assertTrue(source.text().contains("this.handler = handler ?? Handler.class"));
+    assertTrue(source.text().contains("this.order = order ?? 0"));
+    assertTrue(source.text().contains("this.level = level ?? Level.STRICT"));
+    assertTrue(source.text().contains("this.path = path"));
+    assertTrue(source.text().contains("this.tags = tags ?? [\"http\", \"json\"]"));
+  }
+
+  @Test
+  void generatesDependencyGraphTypesRequiredByAnExportedApi() {
     String api = "sample.api.Tools";
     String model = "sample.model.Value";
     JavaReferenceType value = new JavaReferenceType(model, JavaReferenceKind.OPAQUE);
@@ -953,7 +1238,8 @@ final class JarBindingSourceGeneratorTest {
                         Optional.of(JavaClassTypeSignature.raw("java.lang.Object")),
                         List.of()),
                     List.of(),
-                    List.of(echo)),
+                    List.of(echo))),
+            List.of(
                 type(
                     model,
                     new JavaClassSignature(
@@ -1203,6 +1489,30 @@ final class JarBindingSourceGeneratorTest {
   }
 
   @Test
+  void rendersRepresentableNominalGenericBounds() {
+    String owner = "sample.Lifecycle";
+    JavaApiType type =
+        type(
+            owner,
+            new JavaGenericSignatureParser()
+                .parseClass("<T::Lsample/Lifecycle<TT;>;>Ljava/lang/Object;"),
+            List.of(),
+            List.of());
+
+    GeneratedBindingSource source =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.binding", 1),
+                List.of("Lifecycle"),
+                GRAPH_ID,
+                new JarApiSchema(List.of(type)))
+            .sources()
+            .getFirst();
+
+    assertTrue(source.text().contains("class Lifecycle<T extends Lifecycle<T>>"), source.text());
+  }
+
+  @Test
   void projectsJavaComparableGenericBoundsToTheNormProtocol() {
     String owner = "sample.Ordering";
     JavaReferenceType comparableErasure =
@@ -1419,6 +1729,34 @@ final class JarBindingSourceGeneratorTest {
     assertTrue(
         generated.classDescriptors().keySet().stream()
             .anyMatch(reference -> reference.name().equals("ReadableBindingValue")));
+  }
+
+  @Test
+  void importsNativeNormCollectionsUsedByGenericRelations() {
+    JavaApiType parent =
+        interfaceType(
+            "sample.Parent",
+            new JavaGenericSignatureParser()
+                .parseClass("<V:Ljava/lang/Object;>Ljava/lang/Object;"));
+    JavaApiType child =
+        interfaceType(
+            "sample.Child",
+            new JavaGenericSignatureParser()
+                .parseClass(
+                    "Ljava/lang/Object;Lsample/Parent<Ljava/util/List<Ljava/lang/String;>;>;"));
+
+    GeneratedBindingSource source =
+        new JarBindingSourceGenerator()
+            .generateSurface(
+                new ModuleCoordinate("sample.binding", 1),
+                List.of(new JarBindingType("Child", List.of())),
+                GRAPH_ID,
+                new JarApiSchema(List.of(parent, child)))
+            .sources()
+            .getFirst();
+
+    assertTrue(source.text().contains("import std.collections.MutableList"));
+    assertTrue(source.text().contains("interface Child extends Parent<MutableList<String?>>"));
   }
 
   @Test
@@ -1825,6 +2163,58 @@ final class JarBindingSourceGeneratorTest {
         Optional.of(callable));
   }
 
+  private static JavaApiMethod annotationMethod(
+      JavaBindingCallable callable, JavaAnnotationValue defaultValue) {
+    return new JavaApiMethod(
+        callable.owner(),
+        callable.name(),
+        callable.descriptor(),
+        new JavaGenericSignatureParser().parseMethod(callable.descriptor()),
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+        callable.kind(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        Optional.of(defaultValue),
+        JavaApiDisposition.BINDABLE,
+        Optional.empty(),
+        Optional.of(callable));
+  }
+
+  private static JavaApiType enumType(String owner, String... constants) {
+    JavaReferenceType type = new JavaReferenceType(owner, JavaReferenceKind.ENUM);
+    List<JavaApiField> fields =
+        java.util.Arrays.stream(constants)
+            .map(
+                constant -> {
+                  JavaBindingCallable binding =
+                      new JavaBindingCallable(
+                          owner,
+                          constant,
+                          "L" + owner.replace('.', '/') + ";",
+                          JavaCallableKind.STATIC_FIELD_GET,
+                          List.of(),
+                          type);
+                  return enumField(owner, constant, binding);
+                })
+            .toList();
+    return new JavaApiType(
+        owner,
+        JavaApiTypeKind.ENUM,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_ENUM,
+        new JavaClassSignature(
+            List.of(), Optional.of(JavaClassTypeSignature.raw("java.lang.Enum")), List.of()),
+        List.of(),
+        List.of(),
+        Optional.empty(),
+        List.of(),
+        List.of(),
+        fields,
+        List.of(),
+        JavaApiDisposition.BINDABLE);
+  }
+
   private static JavaApiField apiField(
       String owner, String name, int modifiers, List<JavaBindingCallable> bindings) {
     return new JavaApiField(
@@ -1891,6 +2281,22 @@ final class JarBindingSourceGeneratorTest {
         List.of(),
         fields,
         callables.stream().map(JarBindingSourceGeneratorTest::apiMethod).toList(),
+        JavaApiDisposition.BINDABLE);
+  }
+
+  private static JavaApiType interfaceType(String binaryName, JavaClassSignature signature) {
+    return new JavaApiType(
+        binaryName,
+        JavaApiTypeKind.INTERFACE,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
+        signature,
+        List.of(),
+        List.of(),
+        Optional.empty(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
         JavaApiDisposition.BINDABLE);
   }
 }

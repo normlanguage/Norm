@@ -1,0 +1,17 @@
+Module module() {
+  return module(
+    name: "micronaut.test.core",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.test",
+        artifact: "micronaut-test-core",
+        version: "5.1.0", resolution: sha256("385c579d78c8cce65ef4479aef64c7bf36ba38e3713aa62ccbdb9490e8a660f6")
+      ),
+      api: [
+        jarType(name: "annotation.MockBean", members: ["bean", "named", "value"]),
+        jarType(name: "annotation.TransactionMode", members: ["SINGLE_TRANSACTION", "SEPARATE_TRANSACTIONS"])
+      ]
+    )
+  )
+}

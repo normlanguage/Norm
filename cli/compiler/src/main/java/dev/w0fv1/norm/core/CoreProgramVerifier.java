@@ -2546,11 +2546,14 @@ final class CoreProgramVerifier {
       List<CoreTypeParameter> parameters,
       List<CoreType> substitutions,
       DefinitionId actualOwner) {
+    List<CoreType> absoluteSubstitutions =
+        substitutions.stream().map(type -> absolute(actualOwner, type)).toList();
     for (CoreTypeParameter parameter : parameters) {
       if (parameter.upperBound().isEmpty()) continue;
       CoreType expected =
-          absolute(owner, parameter.upperBound().orElseThrow()).substitute(substitutions::get);
-      CoreType actual = substitutions.get(parameter.index());
+          absolute(owner, parameter.upperBound().orElseThrow())
+              .substitute(absoluteSubstitutions::get);
+      CoreType actual = absoluteSubstitutions.get(parameter.index());
       if (isAssignable(expected, actual)) continue;
       if (actual instanceof CoreType.Parameter actualParameter) {
         ParameterContext context = typeParameterContext(actualOwner, actualParameter.index());
@@ -2655,8 +2658,12 @@ final class CoreProgramVerifier {
         if (declared.arguments().stream().anyMatch(CoreTypes::containsReference)) {
           throw new IllegalArgumentException("declared core types cannot contain references");
         }
+        boolean classLiteral =
+            declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
+                && builtin.id().value().equals("std.core.Class");
         declared.arguments().stream()
             .filter(argument -> !argument.equals(CoreType.EXISTENTIAL))
+            .filter(argument -> !classLiteral || !argument.equals(CoreType.VOID))
             .forEach(argument -> verifyInhabitedType(owner, argument, parameterCount, subject));
         switch (declared.constructor()) {
           case CoreTypeConstructor.Builtin builtin -> verifyBuiltinType(builtin, declared);

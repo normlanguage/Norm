@@ -3,6 +3,7 @@ package dev.w0fv1.norm.truffle;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.IntrinsicId;
+import dev.w0fv1.norm.bridge.JavaApplicationBridge;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
@@ -14,6 +15,7 @@ import dev.w0fv1.norm.execution.JarBindingCallbackException;
 import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
+import dev.w0fv1.norm.execution.JavaApplicationRuntime;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.JarBindingOverload;
@@ -108,7 +110,12 @@ public final class IntrinsicDispatcher {
     if (value instanceof RuntimeValues.OpaqueValue opaque) return opaque.value;
     if (value instanceof RuntimeValues.OpaqueResource resource) return resource.hostValue();
     if (value instanceof RuntimeValues.ObjectValue object && execution != null) {
-      return execution.values().javaArgument(object);
+      Object argument = execution.values().javaArgument(object);
+      if (argument != object) return argument;
+      if (execution.context().jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
+        return JavaApplicationBridge.toJava(runtime.applicationClassLoader(), object);
+      }
+      return object;
     }
     return value;
   }
@@ -433,6 +440,12 @@ public final class IntrinsicDispatcher {
           throw new IllegalStateException("Java iterator element type is unavailable");
         }
         yield jarValue(type, javaIterator(first).next(), execution);
+      }
+      case JAVA_MAP_NEW -> {
+        if (execution == null || type == null) {
+          throw new IllegalStateException("Java map result type is unavailable");
+        }
+        yield execution.values().opaque(type, new java.util.LinkedHashMap<>(), "MutableMap");
       }
       case JAVA_MAP_SIZE -> javaMap(first).size();
       case JAVA_MAP_CONTAINS_KEY -> javaMap(first).containsKey(jarArgument(second, execution));
@@ -867,6 +880,11 @@ public final class IntrinsicDispatcher {
         if (execution == null || type == null) {
           throw new IllegalStateException("JAR reference result type is unavailable");
         }
+        if (execution.context().jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
+          Object guest =
+              JavaApplicationBridge.fromJava(runtime.applicationClassLoader(), reference.value());
+          if (guest != null) yield guest;
+        }
         CoreType runtimeType =
             reference.candidates().isEmpty()
                 ? type
@@ -902,7 +920,10 @@ public final class IntrinsicDispatcher {
       List<Object> arguments,
       ExecutionState execution,
       Node location) {
-    if (execution == null || arguments.stream().noneMatch(JarBindingCallback.class::isInstance)) {
+    boolean callbackPumpRequired =
+        arguments.stream().anyMatch(JarBindingCallback.class::isInstance)
+            || context.jarBindingRuntime() instanceof JavaApplicationRuntime;
+    if (execution == null || !callbackPumpRequired) {
       return context.jarBindingRuntime().invoke(call, arguments);
     }
     CompletableFuture<JarBindingResult> result = new CompletableFuture<>();

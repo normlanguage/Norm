@@ -169,6 +169,7 @@ final class CoreRewriter {
               field.ordinal(),
               resolve(field.ownerType(), resolver),
               resolve(field.valueType(), resolver));
+      case CoreAnnotationReference.EnumReference enumeration -> enumeration;
     };
   }
 

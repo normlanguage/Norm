@@ -55,7 +55,13 @@ final class CoreAnnotationProgramTest {
                 artifact.authoring(),
                 new CoreMetadata(List.of(malformed))));
     assertThrows(
-        IllegalArgumentException.class, () -> new CoreMetadata(List.of(application, application)));
+        IllegalArgumentException.class,
+        () ->
+            new CoreArtifact(
+                artifact.program(),
+                artifact.namespace(),
+                artifact.authoring(),
+                new CoreMetadata(List.of(application, application))));
   }
 
   @Test

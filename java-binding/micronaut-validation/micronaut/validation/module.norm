@@ -1,0 +1,17 @@
+Module module() {
+  return module(
+    name: "micronaut.validation",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.validation",
+        artifact: "micronaut-validation",
+        version: "5.1.0",
+        resolution: sha256("b8da18ab479c56e636e8a77b518e9fd25223e386ed6422e893db62a7a7064654")
+      ),
+      api: [
+        jarType(name: "Validated", members: ["groups"])
+      ]
+    )
+  )
+}

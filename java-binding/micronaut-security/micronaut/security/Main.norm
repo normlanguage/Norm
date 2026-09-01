@@ -1,0 +1,11 @@
+package micronaut.security
+
+import micronaut.security.authentication.authenticationResponseFailure
+import micronaut.security.authentication.authenticationResponseSuccess
+
+Void main() {
+  var accepted = authenticationResponseSuccess(arg0: "norm")
+  var rejected = authenticationResponseFailure()
+  printLine(accepted?.isAuthenticated() ?? false)
+  printLine(rejected?.isAuthenticated() ?? false)
+}

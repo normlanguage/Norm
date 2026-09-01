@@ -1,0 +1,30 @@
+Module module() {
+  return module(
+    name: "micronaut.http.client",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-http-client-core",
+        version: "5.1.13", resolution: sha256("e782e7dbae2978536b5442dd8c7437f614d284db3177c8fbdfacd189d6a3af1f")
+      ),
+      api: [
+        jarType(
+          name: "annotation.Client",
+          members: ["alpnModes", "definitionType", "id", "path", "value"]
+        ),
+        jarType(name: "annotation.Client.DefinitionType", members: []),
+        jarType(
+          name: "HttpClient",
+          members: ["close", "toBlocking"],
+          overloads: [jarOverload(name: "create", parameterTypes: ["java.net.URL"])]
+        ),
+        jarType(
+          name: "BlockingHttpClient",
+          members: ["close"],
+          overloads: [jarOverload(name: "retrieve", parameterTypes: ["java.lang.String"])]
+        )
+      ]
+    )
+  )
+}

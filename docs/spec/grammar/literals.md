@@ -15,6 +15,7 @@ Double ratio = 0.125
 ```norm
 String name = "Norm"
 String line = "first\nsecond"
+String configuration = "\${bbs.greeting:Hello}"
 ```
 
 单引号表示一个 `CodePoint`。内容必须解码为恰好一个 Unicode code point：

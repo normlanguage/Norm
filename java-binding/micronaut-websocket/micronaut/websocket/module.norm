@@ -1,0 +1,30 @@
+Module module() {
+  return module(
+    name: "micronaut.websocket",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-websocket",
+        version: "5.1.13",
+        resolution: sha256("6b2dc5e48e6a65133a38b845b989f1cac3008073ed3829c649a1873a3bb446fc")
+      ),
+      api: [
+        jarType(name: "annotation.ClientWebSocket", members: ["subprotocol", "uri", "value", "version"]),
+        jarType(name: "annotation.OnClose", members: []),
+        jarType(name: "annotation.OnError", members: []),
+        jarType(name: "annotation.OnMessage", members: ["maxPayloadLength"]),
+        jarType(name: "annotation.OnOpen", members: []),
+        jarType(name: "annotation.ServerWebSocket", members: ["subprotocols", "uri", "value", "version"]),
+        jarType(
+          name: "WebSocketSession",
+          members: ["close", "getId", "isOpen", "isSecure", "isWritable"],
+          overloads: [
+            jarOverload(name: "sendAsync", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "sendSync", parameterTypes: ["java.lang.Object"])
+          ]
+        )
+      ]
+    )
+  )
+}

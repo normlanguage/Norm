@@ -46,18 +46,38 @@ public final class JarResolver implements AutoCloseable {
               .build());
 
   private final RepositorySystem repositorySystem;
-  private final RepositorySystemSession.CloseableSession session;
+  private final RepositorySystemSession.CloseableSession moduleSession;
+  private final RepositorySystemSession.CloseableSession jarSession;
 
   public JarResolver(Path cacheDirectory) {
-    Objects.requireNonNull(cacheDirectory, "cacheDirectory");
+    this(cacheDirectory, cacheDirectory);
+  }
+
+  public JarResolver(Path moduleRepository, Path jarCache) {
+    Objects.requireNonNull(moduleRepository, "moduleRepository");
+    Objects.requireNonNull(jarCache, "jarCache");
     repositorySystem = new RepositorySystemSupplier().get();
     SessionBuilderSupplier supplier = new SessionBuilderSupplier(repositorySystem);
+    moduleSession = session(supplier, moduleRepository);
+    if (moduleRepository
+        .toAbsolutePath()
+        .normalize()
+        .equals(jarCache.toAbsolutePath().normalize())) {
+      jarSession = moduleSession;
+    } else {
+      jarSession = session(supplier, jarCache);
+    }
+  }
+
+  private static RepositorySystemSession.CloseableSession session(
+      SessionBuilderSupplier supplier, Path localRepository) {
     RepositorySystemSession.SessionBuilder builder = supplier.get();
     builder.setDependencySelector(
         new AndDependencySelector(
             supplier.getDependencySelector(), NonOptionalDependencySelector.INSTANCE));
-    builder.withLocalRepositories(new LocalRepository(cacheDirectory.toAbsolutePath().normalize()));
-    session = builder.build();
+    builder.withLocalRepositories(
+        new LocalRepository(localRepository.toAbsolutePath().normalize()));
+    return builder.build();
   }
 
   public ResolvedJarGraph resolve(Path moduleRoot, JarBinding binding) throws IOException {
@@ -81,7 +101,7 @@ public final class JarResolver implements AutoCloseable {
             coordinate.version());
     try {
       ArtifactRequest request = new ArtifactRequest(artifact, REPOSITORIES, null);
-      Path path = repositorySystem.resolveArtifact(session, request).getArtifact().getPath();
+      Path path = repositorySystem.resolveArtifact(moduleSession, request).getArtifact().getPath();
       if (path == null || !Files.isRegularFile(path)) {
         throw new IOException(
             "resolved Norm module has no artifact content: " + requirement.name());
@@ -126,7 +146,7 @@ public final class JarResolver implements AutoCloseable {
     DependencyRequest request =
         new DependencyRequest(collect, DependencyFilterUtils.classpathFilter(JavaScopes.RUNTIME));
     try {
-      DependencyResult result = repositorySystem.resolveDependencies(session, request);
+      DependencyResult result = repositorySystem.resolveDependencies(jarSession, request);
       ResolvedJarGraph graph = graph(result.getRoot());
       if (target.resolution().isPresent()
           && !target.resolution().orElseThrow().equals(graph.contentId())) {
@@ -186,7 +206,8 @@ public final class JarResolver implements AutoCloseable {
 
   @Override
   public void close() {
-    session.close();
+    if (moduleSession != jarSession) moduleSession.close();
+    jarSession.close();
     repositorySystem.shutdown();
   }
 

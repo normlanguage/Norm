@@ -8,14 +8,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public record JarApiSchema(List<JavaApiType> types, Sha256Digest apiId) {
+public record JarApiSchema(
+    List<JavaApiType> types, List<JavaApiType> supportingTypes, Sha256Digest apiId) {
   public JarApiSchema(List<JavaApiType> types) {
-    this(sorted(types), identify(types));
+    this(types, List.of());
+  }
+
+  public JarApiSchema(List<JavaApiType> types, List<JavaApiType> supportingTypes) {
+    this(sorted(types), sorted(supportingTypes), identify(types));
   }
 
   public JarApiSchema {
     types = List.copyOf(types);
+    supportingTypes = List.copyOf(supportingTypes);
     Objects.requireNonNull(apiId, "apiId");
+  }
+
+  public List<JavaApiType> allTypes() {
+    return java.util.stream.Stream.concat(types.stream(), supportingTypes.stream()).toList();
   }
 
   private static List<JavaApiType> sorted(List<JavaApiType> types) {

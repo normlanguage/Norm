@@ -1,0 +1,15 @@
+Module module() {
+  return module(
+    name: "micronaut.inject.processor",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-inject-java",
+        version: "5.1.13",
+        resolution: sha256("e943e3456967a694d884da42d76c20f25b65873988800a195de3077c81ce1d71")
+      ),
+      api: []
+    )
+  )
+}

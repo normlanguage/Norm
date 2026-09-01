@@ -571,6 +571,11 @@ final class Binder {
             reference.actualType().arguments().get(0),
             reference.actualType().arguments().get(1));
       }
+      case ENUM_VARIANT -> {
+        Symbol owner = semantics.symbol(target.owner().orElseThrow()).orElseThrow();
+        yield new BoundAnnotationReference.EnumReference(
+            BoundEnumId.of(owner.id()), BoundEnumVariantId.of(target.id()), target.name());
+      }
     };
   }
 

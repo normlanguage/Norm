@@ -1,0 +1,20 @@
+package jakarta.annotation
+
+class Lifecycle {
+  @PostConstruct()
+  Void start() {
+    printLine("start")
+  }
+
+  @PreDestroy()
+  Void stop() {
+    printLine("stop")
+  }
+}
+
+Void main() {
+  Lifecycle lifecycle = Lifecycle()
+  lifecycle.start()
+  lifecycle.stop()
+  printLine("lifecycle")
+}

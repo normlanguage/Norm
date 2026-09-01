@@ -1,0 +1,13 @@
+package micronaut.core
+
+import micronaut.core.annotation.Introspected
+
+@Introspected()
+class Message {
+  String value
+}
+
+Void main() {
+  var message = Message(value: "Micronaut core")
+  printLine(message.value)
+}

@@ -1,0 +1,25 @@
+package junit.jupiter
+
+import junit.jupiter.api.BeforeEach
+import junit.jupiter.api.DisplayName
+import junit.jupiter.api.Test
+import junit.jupiter.api.assertionsAssertEquals
+
+class GreetingTest {
+  Integer calls
+
+  GreetingTest() {
+    calls = 0
+  }
+
+  @BeforeEach()
+  Void prepare() {
+    calls = calls + 1
+  }
+
+  @Test()
+  @DisplayName(value: "runs a Norm method through JUnit Jupiter")
+  Void returnsAGreeting() {
+    assertionsAssertEquals(arg0: 1, arg1: calls)
+  }
+}

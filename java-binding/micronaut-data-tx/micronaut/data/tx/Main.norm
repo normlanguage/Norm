@@ -1,0 +1,13 @@
+package micronaut.data.tx
+
+import micronaut.data.tx.annotation.Transactional
+
+@Transactional(readOnly: true)
+class QueryService {
+}
+
+Void main() {
+  if QueryService.class.annotation<Transactional>() != null {
+    printLine("transactional")
+  }
+}

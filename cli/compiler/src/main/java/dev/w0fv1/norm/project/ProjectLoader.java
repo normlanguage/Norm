@@ -269,17 +269,26 @@ public final class ProjectLoader implements AutoCloseable {
               + "@"
               + requirement.version());
     }
-    ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
-    ResolvedJarBinding binding = generateJarBinding(descriptor, graph);
-    if (!binding.api().apiId().equals(archived.javaApiId())) {
-      throw new IOException("Norm module Java API identity does not match its pinned JAR binding");
+    Optional<ResolvedJarBinding> binding = Optional.empty();
+    Map<String, String> generatedSources = Map.of();
+    if (descriptor.binding().isPresent()) {
+      ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
+      ResolvedJarBinding resolved = generateJarBinding(descriptor, graph);
+      if (!resolved.api().apiId().equals(archived.javaApiId().orElseThrow())) {
+        throw new IOException(
+            "Norm module Java API identity does not match its pinned JAR binding");
+      }
+      Map<String, String> expected = new LinkedHashMap<>();
+      for (GeneratedBindingSource source : resolved.generated().sources()) {
+        expected.put(source.relativePath(), source.text());
+      }
+      generatedSources = Map.copyOf(expected);
+      binding = Optional.of(resolved);
     }
-    Map<String, String> expected = new LinkedHashMap<>();
-    for (GeneratedBindingSource source : binding.generated().sources()) {
-      expected.put(source.relativePath(), source.text());
-    }
-    if (!expected.equals(archived.sources())) {
-      throw new IOException("Norm module generated sources do not match its pinned JAR binding");
+    for (Map.Entry<String, String> generated : generatedSources.entrySet()) {
+      if (!generated.getValue().equals(archived.sources().get(generated.getKey()))) {
+        throw new IOException("Norm module generated sources do not match its pinned JAR binding");
+      }
     }
     Path virtualRoot =
         normalize(
@@ -292,7 +301,7 @@ public final class ProjectLoader implements AutoCloseable {
     for (Map.Entry<String, String> source : archived.sources().entrySet()) {
       SourceFile generated = SourceFile.of(virtualRoot.resolve(source.getKey()), source.getValue());
       sources.put(source.getKey(), generated);
-      bindingSources.add(generated.id());
+      if (generatedSources.containsKey(source.getKey())) bindingSources.add(generated.id());
     }
     ModuleLoader.LoadedModule loaded =
         new ModuleLoader().load(new MemoryResolver(sources), descriptor);
@@ -303,7 +312,7 @@ public final class ProjectLoader implements AutoCloseable {
         loaded.sources(),
         exportedSources(loaded, bindingSources),
         bindingSources,
-        Optional.of(binding));
+        binding);
   }
 
   private void requireAvailableModuleName(ModuleDescriptor descriptor) throws IOException {
@@ -400,10 +409,24 @@ public final class ProjectLoader implements AutoCloseable {
     return generateJarBinding(descriptor, graph);
   }
 
+  ModuleArchiveContents moduleArchiveContents(SourceFile source) throws IOException {
+    if (!isModuleSource(source)) {
+      throw new IllegalArgumentException("source is not a module configuration");
+    }
+    ResolvedModule resolved = resolveModule(source, Map.of());
+    return new ModuleArchiveContents(resolved.descriptor(), resolved.sources(), resolved.binding());
+  }
+
   private static ResolvedJarBinding generateJarBinding(
       ModuleDescriptor descriptor, ResolvedJarGraph graph) throws IOException {
     try {
-      var api = new JarApiScanner().scan(graph);
+      var api =
+          new JarApiScanner()
+              .scan(
+                  graph,
+                  descriptor.binding().orElseThrow().api().stream()
+                      .map(dev.w0fv1.norm.value.JarBindingType::name)
+                      .toList());
       GeneratedJarBinding generated =
           new JarBindingSourceGenerator()
               .generateSurface(
@@ -609,6 +632,17 @@ public final class ProjectLoader implements AutoCloseable {
       sources = Map.copyOf(sources);
       exportedSources = Set.copyOf(exportedSources);
       bindingSources = Set.copyOf(bindingSources);
+      Objects.requireNonNull(binding, "binding");
+    }
+  }
+
+  record ModuleArchiveContents(
+      ModuleDescriptor descriptor,
+      Map<String, SourceFile> sources,
+      Optional<ResolvedJarBinding> binding) {
+    ModuleArchiveContents {
+      Objects.requireNonNull(descriptor, "descriptor");
+      sources = Map.copyOf(sources);
       Objects.requireNonNull(binding, "binding");
     }
   }

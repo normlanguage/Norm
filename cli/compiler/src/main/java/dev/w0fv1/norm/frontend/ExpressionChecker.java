@@ -1653,6 +1653,14 @@ final class ExpressionChecker {
             INVALID_CALL, "class reference cannot use diamond inference", typeName.span());
         return SemanticType.DYNAMIC;
       }
+      if (typeName.value().equals("Void")
+          && typeName.typeArguments().isEmpty()
+          && !member.nullSafe()) {
+        Symbol target = analyzer.context.builtins.type("Void").orElseThrow();
+        analyzer.context.bindings.put(typeName.span(), target.id());
+        analyzer.context.bindings.put(member.nameSpan(), target.id());
+        return analyzer.context.builtins.instantiate("Class", List.of(SemanticType.VOID));
+      }
       SemanticType reflected = referencedType(typeName, member.nullSafe());
       if (!isReflectableType(reflected)) {
         analyzer.context.diagnostics.error(

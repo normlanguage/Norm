@@ -1,0 +1,16 @@
+package micronaut.websocket
+
+import micronaut.websocket.annotation.OnMessage
+import micronaut.websocket.annotation.ServerWebSocket
+
+@ServerWebSocket(value: "/echo")
+class EchoSocket {
+  @OnMessage()
+  Void onMessage(String message, WebSocketSession session) {
+    session.sendAsync(arg0: "echo:" + message)
+  }
+}
+
+Void main() {
+  printLine("Micronaut WebSocket endpoint")
+}

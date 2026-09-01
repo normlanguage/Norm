@@ -7,7 +7,8 @@ import java.util.Objects;
 public sealed interface BoundAnnotationReference extends BoundAnnotationValue.Content
     permits BoundAnnotationReference.ClassReference,
         BoundAnnotationReference.CallableReference,
-        BoundAnnotationReference.FieldReference {
+        BoundAnnotationReference.FieldReference,
+        BoundAnnotationReference.EnumReference {
   record ClassReference(SemanticType reflectedType) implements BoundAnnotationReference {
     public ClassReference {
       Objects.requireNonNull(reflectedType, "reflectedType");
@@ -35,6 +36,17 @@ public sealed interface BoundAnnotationReference extends BoundAnnotationValue.Co
       Objects.requireNonNull(ownerType, "ownerType");
       Objects.requireNonNull(valueType, "valueType");
       if (ordinal < 0) throw new IllegalArgumentException("field ordinal must not be negative");
+    }
+  }
+
+  record EnumReference(BoundEnumId enumeration, BoundEnumVariantId variant, String variantName)
+      implements BoundAnnotationReference {
+    public EnumReference {
+      Objects.requireNonNull(enumeration, "enumeration");
+      Objects.requireNonNull(variant, "variant");
+      Objects.requireNonNull(variantName, "variantName");
+      if (variantName.isBlank())
+        throw new IllegalArgumentException("variant name must not be blank");
     }
   }
 }

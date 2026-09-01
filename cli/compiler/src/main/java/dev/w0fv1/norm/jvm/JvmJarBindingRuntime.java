@@ -12,7 +12,7 @@ import dev.w0fv1.norm.execution.JarBindingRuntime;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import dev.w0fv1.norm.execution.JarBindingTask;
 import dev.w0fv1.norm.execution.JarBindingUri;
-import dev.w0fv1.norm.value.ModuleCoordinate;
+import dev.w0fv1.norm.execution.JavaApplicationRuntime;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -21,62 +21,96 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoCloseable {
-  private static final Map<JarBindingClassReference, String> PLATFORM_CLASS_DESCRIPTORS =
-      Map.ofEntries(
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Any"), "Ljava/lang/Object;"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.String"), "Ljava/lang/String;"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Number"), "Ljava/lang/Number;"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Integer"), "I"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Long"), "J"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Float"), "F"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Double"), "D"),
-          Map.entry(new JarBindingClassReference.Builtin("std.core.Boolean"), "Z"),
-          Map.entry(
-              new JarBindingClassReference.Nominal(
-                  new ModuleCoordinate("std", 1), "std.collections", "IterableView"),
-              "Ljava/lang/Iterable;"),
-          Map.entry(
-              new JarBindingClassReference.Nominal(
-                  new ModuleCoordinate("std", 1), "std.collections", "IteratorView"),
-              "Ljava/util/Iterator;"),
-          Map.entry(
-              new JarBindingClassReference.Nominal(
-                  new ModuleCoordinate("std", 1), "std.collections", "MutableCollection"),
-              "Ljava/util/Collection;"),
-          Map.entry(
-              new JarBindingClassReference.Nominal(
-                  new ModuleCoordinate("std", 1), "std.collections", "MutableList"),
-              "Ljava/util/List;"),
-          Map.entry(
-              new JarBindingClassReference.Nominal(
-                  new ModuleCoordinate("std", 1), "std.collections", "MutableSet"),
-              "Ljava/util/Set;"),
-          Map.entry(
-              new JarBindingClassReference.Nominal(
-                  new ModuleCoordinate("std", 1), "std.collections", "MutableMap"),
-              "Ljava/util/Map;"));
+public final class JvmJarBindingRuntime
+    implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
   private final List<URLClassLoader> loaders;
   private final Map<String, BoundCall> calls;
+  private URLClassLoader applicationLoader;
 
   public JvmJarBindingRuntime(List<ResolvedJarBinding> bindings) {
+    this(bindings, List.of());
+  }
+
+  public JvmJarBindingRuntime(List<ResolvedJarBinding> bindings, List<Path> applicationClasspath) {
     loaders = new ArrayList<>();
     calls = new LinkedHashMap<>();
     try {
-      for (ResolvedJarBinding binding : bindings) add(binding);
+      Set<Path> paths = new LinkedHashSet<>();
+      applicationClasspath.stream()
+          .map(Path::toAbsolutePath)
+          .map(Path::normalize)
+          .forEach(paths::add);
+      ResolvedJarClasspath.resolve(bindings.stream().map(ResolvedJarBinding::graph).toList())
+          .forEach(paths::add);
+      URL[] urls =
+          paths.stream()
+              .map(
+                  path -> {
+                    try {
+                      return path.toUri().toURL();
+                    } catch (java.net.MalformedURLException exception) {
+                      throw new JarBindingRuntimeException(
+                          "invalid classpath entry " + path, exception);
+                    }
+                  })
+              .toArray(URL[]::new);
+      URLClassLoader loader = new URLClassLoader(urls, JvmJarBindingRuntime.class.getClassLoader());
+      applicationLoader = loader;
+      loaders.add(loader);
+      Map<JarBindingClassReference.Nominal, String> classDescriptors = new LinkedHashMap<>();
+      Map<JarBindingClassReference.Nominal, Map<String, String>> enumConstants =
+          new LinkedHashMap<>();
+      for (ResolvedJarBinding binding : bindings) {
+        binding
+            .generated()
+            .classDescriptors()
+            .forEach(
+                (reference, descriptor) -> {
+                  if (classDescriptors.putIfAbsent(reference, descriptor) != null) {
+                    throw new JarBindingRuntimeException(
+                        "duplicate Norm class mapping " + reference);
+                  }
+                });
+        binding
+            .generated()
+            .enumConstants()
+            .forEach(
+                (reference, constants) -> {
+                  if (enumConstants.putIfAbsent(reference, constants) != null) {
+                    throw new JarBindingRuntimeException(
+                        "duplicate Norm enum mapping " + reference);
+                  }
+                });
+      }
+      ClassCatalog classes = new ClassCatalog(loader, classDescriptors, enumConstants);
+      for (ResolvedJarBinding binding : bindings) add(binding, loader, classes);
+    } catch (IllegalArgumentException exception) {
+      close();
+      throw new JarBindingRuntimeException(exception.getMessage(), exception);
     } catch (RuntimeException exception) {
       close();
       throw exception;
     }
+  }
+
+  @Override
+  public ClassLoader applicationClassLoader() {
+    if (applicationLoader == null) {
+      throw new JarBindingRuntimeException("JAR binding runtime is closed");
+    }
+    return applicationLoader;
   }
 
   @Override
@@ -92,6 +126,9 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
               + " arguments but received "
               + arguments.size());
     }
+    Thread thread = Thread.currentThread();
+    ClassLoader previousContextLoader = thread.getContextClassLoader();
+    thread.setContextClassLoader(applicationClassLoader());
     try {
       List<Object> adapted = new ArrayList<>(arguments.size());
       if (receiverCount == 1) {
@@ -123,6 +160,8 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
               + call.callable().name()
               + call.callable().descriptor(),
           throwable);
+    } finally {
+      thread.setContextClassLoader(previousContextLoader);
     }
   }
 
@@ -177,6 +216,7 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
               }
               yield task.hostValue();
             }
+            case PUBLISHER -> value;
             case UNIT -> null;
             case ITERABLE, ITERATOR, COLLECTION, LIST, SET, MAP -> value;
             case OPTIONAL, OPTIONAL_INT, OPTIONAL_LONG, OPTIONAL_DOUBLE ->
@@ -289,7 +329,13 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
             default -> new JarBindingResult.Scalar(value);
           };
       case JavaBoxedType boxed -> boxedResult(boxed, value);
-      case JavaBindingTypeVariable ignored -> dynamicResult(value);
+      case JavaBindingTypeVariable variable -> {
+        if (value instanceof AutoCloseable resource) {
+          yield new JarBindingResult.ResourceReference(
+              resource, variable.displayName(), classes.nominalReferences(value.getClass()));
+        }
+        yield dynamicResult(value);
+      }
       case JavaCallbackType ignored ->
           throw new JarBindingRuntimeException("Java callback return values are unsupported");
       case JavaReferenceType reference ->
@@ -299,13 +345,14 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
                 new JarBindingResult.ResourceReference(
                     (AutoCloseable) value,
                     reference.displayName(),
-                    classes.nominalReferences(reference.binaryName()));
+                    classes.nominalReferences(value.getClass()));
             case INPUT_STREAM, OUTPUT_STREAM ->
                 new JarBindingResult.ResourceReference(
                     (AutoCloseable) value, reference.displayName());
             case TASK ->
                 new JarBindingResult.ResourceReference(
                     task(classes, reference, value), reference.displayName());
+            case PUBLISHER -> new JarBindingResult.Reference(value, reference.displayName());
             case PATH -> new JarBindingResult.PathValue(((java.nio.file.Path) value).toString());
             case FILE -> new JarBindingResult.PathValue(((java.io.File) value).getPath());
             case URI -> new JarBindingResult.UriValue(value.toString());
@@ -456,24 +503,7 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
         && arguments.getFirst() instanceof AutoCloseable;
   }
 
-  private void add(ResolvedJarBinding binding) {
-    URL[] urls =
-        binding.graph().artifacts().stream()
-            .map(ResolvedJarArtifact::file)
-            .map(
-                path -> {
-                  try {
-                    return path.toUri().toURL();
-                  } catch (java.net.MalformedURLException exception) {
-                    throw new JarBindingRuntimeException("invalid JAR path " + path, exception);
-                  }
-                })
-            .toArray(URL[]::new);
-    URLClassLoader loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
-    loaders.add(loader);
-    ClassCatalog classes =
-        new ClassCatalog(
-            loader, binding.generated().classDescriptors(), binding.generated().enumConstants());
+  private void add(ResolvedJarBinding binding, URLClassLoader loader, ClassCatalog classes) {
     for (Map.Entry<String, JavaBindingCallable> entry : binding.generated().calls().entrySet()) {
       BoundCall call = bind(loader, classes, entry.getValue());
       if (calls.putIfAbsent(entry.getKey(), call) != null) {
@@ -574,6 +604,7 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
       }
     }
     loaders.clear();
+    applicationLoader = null;
     calls.clear();
     if (failure != null) throw failure;
   }
@@ -590,9 +621,14 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
         Map<JarBindingClassReference.Nominal, Map<String, String>> enumConstants) {
       this.loader = loader;
       Map<JarBindingClassReference, Class<?>> indexedClasses = new LinkedHashMap<>();
-      PLATFORM_CLASS_DESCRIPTORS.forEach(
-          (reference, descriptor) ->
-              indexedClasses.put(reference, descriptorClass(descriptor, loader)));
+      for (Map.Entry<JarBindingClassReference, String> entry :
+          JavaPlatformTypes.classDescriptors().entrySet()) {
+        try {
+          indexedClasses.put(entry.getKey(), descriptorClass(entry.getValue(), loader));
+        } catch (TypeNotPresentException ignored) {
+          continue;
+        }
+      }
       generatedClassDescriptors.forEach(
           (reference, descriptor) -> {
             if (indexedClasses.putIfAbsent(reference, descriptorClass(descriptor, loader))
@@ -600,14 +636,14 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
               throw new JarBindingRuntimeException("duplicate Norm class mapping " + reference);
             }
           });
-      classes = Map.copyOf(indexedClasses);
+      classes = new LinkedHashMap<>(indexedClasses);
       Map<Class<?>, List<JarBindingClassReference>> indexedReferences = new LinkedHashMap<>();
       indexedClasses.forEach(
           (reference, type) ->
               indexedReferences.computeIfAbsent(type, ignored -> new ArrayList<>()).add(reference));
       Map<Class<?>, List<JarBindingClassReference>> stableReferences = new LinkedHashMap<>();
       indexedReferences.forEach((type, values) -> stableReferences.put(type, List.copyOf(values)));
-      references = Map.copyOf(stableReferences);
+      references = new LinkedHashMap<>(stableReferences);
       this.enumConstants = enumConstants;
     }
 
@@ -623,15 +659,31 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
       }
     }
 
-    private Class<?> resolve(JarBindingClassReference reference) {
+    private synchronized Class<?> resolve(JarBindingClassReference reference) {
       Class<?> type = classes.get(reference);
+      if (type == null && reference instanceof JarBindingClassReference.Nominal nominal) {
+        String binaryName =
+            nominal.packageName().isEmpty()
+                ? nominal.name()
+                : nominal.packageName() + "." + nominal.name();
+        try {
+          type = Class.forName(binaryName, false, loader);
+          classes.put(reference, type);
+          List<JarBindingClassReference> candidates =
+              new ArrayList<>(references.getOrDefault(type, List.of()));
+          candidates.add(reference);
+          references.put(type, List.copyOf(candidates));
+        } catch (ClassNotFoundException ignored) {
+          type = null;
+        }
+      }
       if (type == null) {
         throw new JarBindingRuntimeException("Norm class has no Java mapping: " + reference);
       }
       return type;
     }
 
-    private List<JarBindingClassReference> references(Class<?> type) {
+    private synchronized List<JarBindingClassReference> references(Class<?> type) {
       List<JarBindingClassReference> candidates = references.get(type);
       if (candidates == null) {
         throw new JarBindingRuntimeException(
@@ -644,6 +696,17 @@ public final class JvmJarBindingRuntime implements JarBindingRuntime, AutoClosea
       return references(load(binaryName)).stream()
           .filter(JarBindingClassReference.Nominal.class::isInstance)
           .map(JarBindingClassReference.Nominal.class::cast)
+          .toList();
+    }
+
+    private synchronized List<JarBindingClassReference.Nominal> nominalReferences(
+        Class<?> runtimeType) {
+      return references.entrySet().stream()
+          .filter(entry -> entry.getKey().isAssignableFrom(runtimeType))
+          .flatMap(entry -> entry.getValue().stream())
+          .filter(JarBindingClassReference.Nominal.class::isInstance)
+          .map(JarBindingClassReference.Nominal.class::cast)
+          .distinct()
           .toList();
     }
 

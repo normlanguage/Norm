@@ -1,0 +1,16 @@
+package micronaut.inject
+
+import micronaut.inject.context.annotation.Prototype
+
+@Prototype()
+class GreetingService {
+  String greet(String name) {
+    return "Hello, " + name
+  }
+}
+
+Void main() {
+  if GreetingService.class.annotation<Prototype>() != null {
+    printLine("prototype")
+  }
+}

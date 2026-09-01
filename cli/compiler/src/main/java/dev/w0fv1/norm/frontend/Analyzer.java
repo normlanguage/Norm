@@ -908,8 +908,9 @@ final class Analyzer {
     for (Syntax.TypeParameter parameter : parameters) {
       if (parameter.upperBound().isEmpty()) continue;
       Syntax.TypeRef boundSyntax = parameter.upperBound().orElseThrow();
-      typeSystem.validateType(boundSyntax, false);
       SemanticType bound = typeSystem.resolveType(boundSyntax, declaredTypes);
+      context.typeParameterBounds.put(declaredTypes.get(parameter.name()).identity(), bound);
+      typeSystem.validateType(boundSyntax, false);
       Syntax.AggregateDecl aggregate = typeSystem.resolveAggregate(bound);
       boolean classBound = aggregate != null && aggregate.kind() == Syntax.AggregateKind.CLASS;
       boolean typeParameterBound = bound.kind() == SemanticType.Kind.TYPE_PARAMETER;
@@ -920,7 +921,6 @@ final class Analyzer {
             "type parameter bound must be a non-null class, interface, or type parameter",
             boundSyntax.span());
       }
-      context.typeParameterBounds.put(declaredTypes.get(parameter.name()).identity(), bound);
     }
     for (Syntax.TypeParameter parameter : parameters) {
       SemanticType declared = declaredTypes.get(parameter.name());

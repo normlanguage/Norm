@@ -6,7 +6,8 @@ import java.util.Objects;
 public sealed interface CoreAnnotationReference extends CoreAnnotationValue.Content
     permits CoreAnnotationReference.ClassReference,
         CoreAnnotationReference.CallableReference,
-        CoreAnnotationReference.FieldReference {
+        CoreAnnotationReference.FieldReference,
+        CoreAnnotationReference.EnumReference {
   record ClassReference(CoreType reflectedType) implements CoreAnnotationReference {
     public ClassReference {
       Objects.requireNonNull(reflectedType, "reflectedType");
@@ -32,6 +33,13 @@ public sealed interface CoreAnnotationReference extends CoreAnnotationValue.Cont
       if (ordinal < 0) throw new IllegalArgumentException("field ordinal must not be negative");
       Objects.requireNonNull(ownerType, "ownerType");
       Objects.requireNonNull(valueType, "valueType");
+    }
+  }
+
+  record EnumReference(String variant) implements CoreAnnotationReference {
+    public EnumReference {
+      Objects.requireNonNull(variant, "variant");
+      if (variant.isBlank()) throw new IllegalArgumentException("variant must not be blank");
     }
   }
 }

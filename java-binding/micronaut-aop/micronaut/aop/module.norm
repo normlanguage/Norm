@@ -1,0 +1,38 @@
+Module module() {
+  return module(
+    name: "micronaut.aop",
+    version: 1,
+    dependencies: [
+      dependency(name: "micronaut.core", version: 1),
+      dependency(name: "micronaut.inject", version: 1)
+    ],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut",
+        artifact: "micronaut-aop",
+        version: "5.1.13", resolution: sha256("137afc1824ea4e86fa952562feaf2f8fc4ff4fe3e6f85727eaa059c6a2570569")
+      ),
+      api: [
+        jarType(name: "Around", members: ["cacheableLazyTarget", "hotswap", "lazy", "proxyTarget", "proxyTargetMode"]),
+        jarType(name: "Around.ProxyTargetConstructorMode", members: []),
+        jarType(name: "InterceptorBean", members: ["value"]),
+        jarType(
+          name: "MethodInterceptor",
+          members: [],
+          overloads: [
+            jarOverload(
+              name: "intercept",
+              parameterTypes: ["io.micronaut.aop.MethodInvocationContext"]
+            )
+          ]
+        ),
+        jarType(
+          name: "InvocationContext",
+          members: [],
+          overloads: [jarOverload(name: "proceed", parameterTypes: [])]
+        ),
+        jarType(name: "MethodInvocationContext", members: [])
+      ]
+    )
+  )
+}

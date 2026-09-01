@@ -11,6 +11,7 @@ public final class CliController {
     router.register(new HelpCommand(router));
     router.register(new VersionCommand());
     router.register(new RunCommand());
+    router.register(new TestCommand());
     router.register(new ResolveCommand());
     router.register(new PackageCommand());
     router.register(new DocsCommand());

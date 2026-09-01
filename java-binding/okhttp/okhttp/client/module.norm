@@ -38,7 +38,7 @@ Module module() {
         ),
         jarType(
           name: "Request.Builder",
-          members: ["addHeader", "build", "get", "head", "removeHeader"],
+          members: ["addHeader", "build", "get", "head", "post", "removeHeader"],
           overloads: [
             jarOverload(name: "new", parameterTypes: []),
             jarOverload(name: "url", parameterTypes: ["java.lang.String"]),
@@ -93,6 +93,21 @@ Module module() {
           overloads: [
             jarOverload(name: "get", parameterTypes: ["java.lang.String"]),
             jarOverload(name: "parse", parameterTypes: ["java.lang.String"])
+          ]
+        ),
+        jarType(
+          name: "MediaType",
+          members: [],
+          overloads: [jarOverload(name: "get", parameterTypes: ["java.lang.String"])]
+        ),
+        jarType(
+          name: "RequestBody",
+          members: [],
+          overloads: [
+            jarOverload(
+              name: "create",
+              parameterTypes: ["java.lang.String", "okhttp3.MediaType"]
+            )
           ]
         )
       ]

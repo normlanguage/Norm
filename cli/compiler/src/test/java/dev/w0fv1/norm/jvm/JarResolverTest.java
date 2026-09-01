@@ -8,6 +8,7 @@ import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
+import dev.w0fv1.norm.value.ModuleRequirement;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,6 +117,45 @@ final class JarResolverTest {
       assertEquals(1, graph.artifacts().size());
       assertTrue(graph.edges().isEmpty());
       assertEquals(graph.root().content(), graph.contentId());
+    }
+  }
+
+  @Test
+  void resolvesNormModulesAndJavaArtifactsFromIndependentRepositories() throws Exception {
+    Path moduleRepository = temporaryDirectory.resolve("module-repository");
+    Path archive =
+        moduleRepository.resolve("sample/library/1/library-1.nar").toAbsolutePath().normalize();
+    Files.createDirectories(archive.getParent());
+    Files.writeString(archive, "nar");
+
+    Path jarCache = temporaryDirectory.resolve("jar-cache");
+    Path javaArtifact = Files.createDirectories(jarCache.resolve("sample/java-library/1"));
+    createJar(javaArtifact.resolve("java-library-1.jar"), "sample/Value.class", "value");
+    Files.writeString(
+        javaArtifact.resolve("java-library-1.pom"),
+        """
+        <project xmlns="http://maven.apache.org/POM/4.0.0">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>sample</groupId>
+          <artifactId>java-library</artifactId>
+          <version>1</version>
+        </project>
+        """);
+
+    try (JarResolver resolver = new JarResolver(moduleRepository, jarCache)) {
+      assertEquals(
+          archive, resolver.resolveModuleArchive(new ModuleRequirement("sample.library", 1)));
+      ResolvedJarGraph graph =
+          resolver.resolve(
+              temporaryDirectory,
+              new JarBinding(
+                  new MavenJarTarget(
+                      new MavenArtifactCoordinate("sample", "java-library", "1"),
+                      Optional.empty())));
+
+      assertEquals(
+          javaArtifact.resolve("java-library-1.jar").toAbsolutePath().normalize(),
+          graph.root().file());
     }
   }
 

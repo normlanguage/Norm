@@ -1,0 +1,11 @@
+package micronaut.http.client.netty
+
+import micronaut.http.client.HttpClient
+import micronaut.http.client.httpClientCreate
+import std.http.Uri
+
+Void main() {
+  HttpClient? client = httpClientCreate(arg0: Uri(value: "http://localhost"))
+  client?.close()
+  printLine("Micronaut Netty HTTP client")
+}

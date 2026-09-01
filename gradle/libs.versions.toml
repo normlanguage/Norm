@@ -6,7 +6,7 @@ lsp4j = "1.0.0"
 gson = "2.14.0"
 jacksonCore = "2.20.2"
 woodstox = "7.2.2"
-junit = "6.0.1"
+junit = "6.1.2"
 spotless = "8.10.0"
 native-build-tools = "1.1.6"
 archunit = "1.5.0"
@@ -14,11 +14,13 @@ mavenResolver = "2.0.21"
 slf4j = "2.0.18"
 asm = "9.9.1"
 commonsCodec = "1.22.0"
+objenesis = "3.3"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
 truffle-api = { module = "org.graalvm.truffle:truffle-api", version.ref = "graalvm" }
 truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graalvm" }
 truffle-dsl-processor = { module = "org.graalvm.truffle:truffle-dsl-processor", version.ref = "graalvm" }
@@ -34,6 +36,7 @@ slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
 jcl-over-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
+objenesis = { module = "org.objenesis:objenesis", version.ref = "objenesis" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

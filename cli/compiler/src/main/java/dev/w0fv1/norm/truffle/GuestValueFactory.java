@@ -80,10 +80,14 @@ final class GuestValueFactory {
               new FieldContract(YamlAbi.FIELD_COLUMN_ORDINAL, YamlAbi.FIELD_COLUMN_NAME)));
   private final Map<Key, AggregatePlan> aggregates;
   private final Map<DefinitionId, AggregatePlan> aggregatesByDefinition;
+  private final Map<DefinitionId, RuntimeValues.AggregateInfo> hostInterfaces;
   private final Map<Key, EnumPlan> enums;
   private final Map<DefinitionId, EnumPlan> enumsByDefinition;
 
-  GuestValueFactory(List<AggregatePlan> aggregatePlans, List<EnumPlan> enumPlans) {
+  GuestValueFactory(
+      List<AggregatePlan> aggregatePlans,
+      Map<DefinitionId, RuntimeValues.AggregateInfo> hostInterfaces,
+      List<EnumPlan> enumPlans) {
     Map<Key, AggregatePlan> indexedAggregates = new LinkedHashMap<>();
     for (AggregatePlan plan : aggregatePlans) {
       if (indexedAggregates.putIfAbsent(Key.of(plan.nominal()), plan) != null) {
@@ -100,6 +104,7 @@ final class GuestValueFactory {
     Map<DefinitionId, AggregatePlan> indexedDefinitions = new LinkedHashMap<>();
     aggregatePlans.forEach(plan -> indexedDefinitions.putIfAbsent(plan.info().definition(), plan));
     aggregatesByDefinition = Map.copyOf(indexedDefinitions);
+    this.hostInterfaces = Map.copyOf(hostInterfaces);
     enums = Map.copyOf(indexedEnums);
     Map<DefinitionId, EnumPlan> indexedEnumDefinitions = new LinkedHashMap<>();
     enumPlans.forEach(plan -> indexedEnumDefinitions.putIfAbsent(plan.definition(), plan));
@@ -385,13 +390,23 @@ final class GuestValueFactory {
     return construct(requireAggregate(type), type, execution, arguments);
   }
 
+  RuntimeValues.ObjectValue allocate(CoreType type) {
+    AggregatePlan plan = requireAggregate(type);
+    List<CoreType> reifiedArguments =
+        type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
+    if (reifiedArguments.size() != plan.reifiedTypeCount()) {
+      throw new IllegalStateException("runtime aggregate type argument count is inconsistent");
+    }
+    return new RuntimeValues.ObjectValue(plan.info(), type);
+  }
+
   RuntimeValues.OpaqueValue opaque(CoreType type, Object value, String displayName) {
     CoreType concrete = nonNullable(type);
     if (concrete.equals(CoreType.ANY)) {
       return new RuntimeValues.OpaqueValue(concrete, value, displayName);
     }
-    AggregatePlan plan = requireAggregate(concrete);
-    return new RuntimeValues.OpaqueValue(concrete, value, displayName, plan.info());
+    return new RuntimeValues.OpaqueValue(
+        concrete, value, displayName, requireHostObjectInfo(concrete));
   }
 
   RuntimeValues.OpaqueValue bytes(ByteSequence value) {
@@ -435,10 +450,10 @@ final class GuestValueFactory {
   RuntimeValues.OpaqueResource resource(
       CoreType type, AutoCloseable value, String displayName, ExecutionState execution) {
     CoreType concrete = nonNullable(type);
-    AggregatePlan plan = requireAggregate(concrete);
+    RuntimeValues.AggregateInfo info = requireHostObjectInfo(concrete);
     try {
       ManagedResource managed = execution.resources().register(displayName, value);
-      return new RuntimeValues.OpaqueResource(concrete, managed, displayName, plan.info());
+      return new RuntimeValues.OpaqueResource(concrete, managed, displayName, info);
     } catch (RuntimeException | Error failure) {
       try {
         value.close();
@@ -490,6 +505,19 @@ final class GuestValueFactory {
       throw new IllegalStateException("runtime aggregate is absent: " + external.definition());
     }
     return plan;
+  }
+
+  private RuntimeValues.AggregateInfo requireHostObjectInfo(CoreType type) {
+    if (!(type instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)
+        || !(user.definition() instanceof DefinitionReference.External external)) {
+      throw new IllegalStateException("runtime opaque type is not an external nominal type");
+    }
+    AggregatePlan aggregate = aggregatesByDefinition.get(external.definition());
+    if (aggregate != null) return aggregate.info();
+    RuntimeValues.AggregateInfo implemented = hostInterfaces.get(external.definition());
+    if (implemented != null) return implemented;
+    throw new IllegalStateException("runtime host type is absent: " + external.definition());
   }
 
   private static CoreType nonNullable(CoreType type) {

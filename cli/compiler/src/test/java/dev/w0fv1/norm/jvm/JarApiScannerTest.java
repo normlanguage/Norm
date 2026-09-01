@@ -180,6 +180,31 @@ final class JarApiScannerTest {
         (JavaReferenceType) classToken.binding().orElseThrow().returnType();
     assertEquals(JavaReferenceKind.CLASS, classType.kind());
     assertEquals(JavaTypeVariance.UNBOUNDED, classType.arguments().getFirst().variance());
+    JavaApiMethod classTokens =
+        tools.methods().stream()
+            .filter(value -> value.name().equals("classTokens"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(JavaApiDisposition.BINDABLE, classTokens.disposition());
+    JavaArrayType classTokenArray =
+        (JavaArrayType) classTokens.binding().orElseThrow().returnType();
+    JavaReferenceType classTokenComponent = (JavaReferenceType) classTokenArray.component();
+    assertEquals(JavaReferenceKind.CLASS, classTokenComponent.kind());
+    assertEquals(JavaTypeVariance.UNBOUNDED, classTokenComponent.arguments().getFirst().variance());
+    JavaApiMethod annotationClassTokens =
+        tools.methods().stream()
+            .filter(value -> value.name().equals("annotationClassTokens"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(JavaApiDisposition.BINDABLE, annotationClassTokens.disposition());
+    JavaArrayType annotationClassTokenArray =
+        (JavaArrayType) annotationClassTokens.binding().orElseThrow().returnType();
+    JavaReferenceType annotationClassTokenComponent =
+        (JavaReferenceType) annotationClassTokenArray.component();
+    assertEquals(JavaReferenceKind.CLASS, annotationClassTokenComponent.kind());
+    assertEquals(
+        JavaTypeVariance.UNBOUNDED,
+        annotationClassTokenComponent.arguments().getFirst().variance());
     JavaApiMethod optionalClassToken =
         tools.methods().stream()
             .filter(value -> value.name().equals("optionalClassToken"))
@@ -355,8 +380,23 @@ final class JarApiScannerTest {
     assertEquals(
         "default",
         ((JavaAnnotationConstantValue)
-                marker.methods().getFirst().annotationDefault().orElseThrow())
+                marker.methods().stream()
+                    .filter(method -> method.name().equals("value"))
+                    .findFirst()
+                    .orElseThrow()
+                    .annotationDefault()
+                    .orElseThrow())
             .value());
+    JavaApiMethod exception =
+        marker.methods().stream()
+            .filter(method -> method.name().equals("exception"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(JavaApiDisposition.BINDABLE, exception.disposition());
+    JavaReferenceType classToken =
+        (JavaReferenceType) exception.binding().orElseThrow().returnType();
+    assertEquals(JavaReferenceKind.CLASS, classToken.kind());
+    assertEquals(JavaTypeVariance.UNBOUNDED, classToken.arguments().getFirst().variance());
     JavaApiType model = type(schema, "sample.Model");
     assertEquals(JavaApiTypeKind.RECORD, model.kind());
     assertEquals("name", model.recordComponents().getFirst().name());
@@ -414,6 +454,19 @@ final class JarApiScannerTest {
   }
 
   @Test
+  void projectsReactiveStreamsPublisherAsAStandardNormPublisher() throws Exception {
+    JarApiSchema schema = scan(publisherJar(temporaryDirectory.resolve("publisher.jar")));
+    JavaBindingCallable events =
+        type(schema, "sample.PublisherApi").methods().getFirst().binding().orElseThrow();
+    JavaReferenceType publisher = (JavaReferenceType) events.returnType();
+
+    assertEquals(JavaReferenceKind.PUBLISHER, publisher.kind());
+    assertEquals(
+        new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING),
+        publisher.arguments().getFirst().type().orElseThrow());
+  }
+
+  @Test
   void scansApacheCommonsLangStringUtils() throws Exception {
     var coordinate = new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0");
     try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("maven-cache"))) {
@@ -467,6 +520,45 @@ final class JarApiScannerTest {
     assertEquals("sample.Child", binding.owner());
     assertEquals("K", ((JavaBindingTypeVariable) binding.parameters().getFirst()).name());
     assertEquals("V", ((JavaBindingTypeVariable) binding.returnType()).name());
+  }
+
+  @Test
+  void flattensDependencyInterfacesToPlatformProtocols() throws Exception {
+    Path rootJar = rootResourceJar(temporaryDirectory.resolve("root.jar"));
+    Path dependencyJar = dependencyResourceJar(temporaryDirectory.resolve("dependency.jar"));
+    ResolvedJarArtifact root = artifact(rootJar);
+    ResolvedJarArtifact dependency = artifact(dependencyJar);
+
+    JarApiSchema schema =
+        new JarApiScanner().scan(new ResolvedJarGraph(root, List.of(root, dependency), List.of()));
+
+    assertEquals(
+        List.of("dependency.ManagedLifecycle"),
+        type(schema, "sample.Managed").signature().interfaces().stream()
+            .map(JavaClassTypeSignature::binaryName)
+            .toList());
+    assertTrue(
+        schema.supportingTypes().stream()
+            .anyMatch(type -> type.binaryName().equals("dependency.ManagedLifecycle")));
+  }
+
+  @Test
+  void includesAnExplicitlySelectedDependencyTypeAndItsSignatureClosure() throws Exception {
+    Path rootJar = rootResourceJar(temporaryDirectory.resolve("selected-root.jar"));
+    Path dependencyJar =
+        dependencyResourceJar(temporaryDirectory.resolve("selected-dependency.jar"));
+    ResolvedJarArtifact root = artifact(rootJar);
+    ResolvedJarArtifact dependency = artifact(dependencyJar);
+
+    JarApiSchema schema =
+        new JarApiScanner()
+            .scan(
+                new ResolvedJarGraph(root, List.of(root, dependency), List.of()),
+                List.of("dependency.Direct"));
+
+    assertTrue(
+        schema.supportingTypes().stream()
+            .anyMatch(type -> type.binaryName().equals("dependency.Direct")));
   }
 
   @Test
@@ -685,6 +777,22 @@ final class JarApiScannerTest {
     tools
         .visitMethod(
             Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE,
+            "classTokens",
+            "()[Ljava/lang/Class;",
+            "()[Ljava/lang/Class<*>;",
+            null)
+        .visitEnd();
+    tools
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE,
+            "annotationClassTokens",
+            "()[Ljava/lang/Class;",
+            "()[Ljava/lang/Class<+Ljava/lang/annotation/Annotation;>;",
+            null)
+        .visitEnd();
+    tools
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE,
             "optionalClassToken",
             "(Ljava/lang/Class;)Ljava/lang/Class;",
             "(Ljava/lang/Class<Ljava/util/Optional<Ljava/lang/String;>;>;)Ljava/lang/Class<Ljava/util/Optional<Ljava/lang/String;>;>;",
@@ -788,6 +896,14 @@ final class JarApiScannerTest {
             Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "value", "()Ljava/lang/String;", null, null);
     annotationValue.visitAnnotationDefault().visit(null, "default");
     annotationValue.visitEnd();
+    marker
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+            "exception",
+            "()Ljava/lang/Class;",
+            "()Ljava/lang/Class<+Ljava/lang/Throwable;>;",
+            null)
+        .visitEnd();
     marker.visitEnd();
 
     ClassWriter model = new ClassWriter(0);
@@ -873,6 +989,41 @@ final class JarApiScannerTest {
     Files.createDirectories(path.getParent());
     try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
       writeClass(output, "sample/FutureApi.class", writer);
+    }
+    return path;
+  }
+
+  private static Path publisherJar(Path path) throws IOException {
+    ClassWriter publisher = new ClassWriter(0);
+    publisher.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+        "org/reactivestreams/Publisher",
+        "<T:Ljava/lang/Object;>Ljava/lang/Object;",
+        "java/lang/Object",
+        null);
+    publisher.visitEnd();
+
+    ClassWriter api = new ClassWriter(0);
+    api.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+        "sample/PublisherApi",
+        null,
+        "java/lang/Object",
+        null);
+    api.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_NATIVE,
+            "events",
+            "()Lorg/reactivestreams/Publisher;",
+            "()Lorg/reactivestreams/Publisher<Ljava/lang/String;>;",
+            null)
+        .visitEnd();
+    api.visitEnd();
+    Files.createDirectories(path.getParent());
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
+      writeClass(output, "org/reactivestreams/Publisher.class", publisher);
+      writeClass(output, "sample/PublisherApi.class", api);
     }
     return path;
   }
@@ -995,6 +1146,50 @@ final class JarApiScannerTest {
       writeClass(output, "sample/Concrete.class", concrete);
     }
     return path;
+  }
+
+  private static Path rootResourceJar(Path path) throws IOException {
+    ClassWriter managed = new ClassWriter(0);
+    managed.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+        "sample/Managed",
+        null,
+        "java/lang/Object",
+        new String[] {"dependency/ManagedLifecycle"});
+    managed.visitEnd();
+    Files.createDirectories(path.getParent());
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
+      writeClass(output, "sample/Managed.class", managed);
+    }
+    return path;
+  }
+
+  private static Path dependencyResourceJar(Path path) throws IOException {
+    ClassWriter lifecycle = new ClassWriter(0);
+    lifecycle.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+        "dependency/ManagedLifecycle",
+        null,
+        "java/lang/Object",
+        new String[] {"java/lang/AutoCloseable"});
+    lifecycle.visitEnd();
+    ClassWriter direct = new ClassWriter(0);
+    direct.visit(
+        Opcodes.V17, Opcodes.ACC_PUBLIC, "dependency/Direct", null, "java/lang/Object", null);
+    direct.visitEnd();
+    Files.createDirectories(path.getParent());
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
+      writeClass(output, "dependency/ManagedLifecycle.class", lifecycle);
+      writeClass(output, "dependency/Direct.class", direct);
+    }
+    return path;
+  }
+
+  private static ResolvedJarArtifact artifact(Path jar) throws IOException {
+    Sha256Digest content = Sha256Digest.compute(jar);
+    return new ResolvedJarArtifact(new LocalJarIdentity(content), jar, content);
   }
 
   private static void writeClass(JarOutputStream output, String name, ClassWriter writer)

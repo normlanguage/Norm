@@ -48,6 +48,16 @@ final class CliControllerTest {
     assertEquals(noArguments.standardOut(), alias.standardOut());
     assertTrue(noArguments.standardOut().contains("Usage: norm <command> [options]"));
     assertTrue(noArguments.standardOut().contains("version"));
+    assertTrue(noArguments.standardOut().contains("test"));
+  }
+
+  @Test
+  void rejectsTestWithoutExactlyOneSourceFile() {
+    Result result = run("test");
+
+    assertEquals(ExitCode.USAGE_ERROR, result.exitCode());
+    assertTrue(result.standardError().contains("'test' expects exactly one source file"));
+    assertTrue(result.standardError().contains("Usage: norm test <file.norm>"));
   }
 
   @Test

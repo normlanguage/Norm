@@ -1,0 +1,14 @@
+package micronaut.data.jdbc
+
+import micronaut.data.jdbc.annotation.JdbcRepository
+import micronaut.data.jdbc.Dialect
+
+@JdbcRepository(dialect: Dialect.H2)
+interface Messages {
+}
+
+Void main() {
+  if Messages.class.annotation<JdbcRepository>() != null {
+    printLine("jdbc repository")
+  }
+}

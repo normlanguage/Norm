@@ -8,7 +8,11 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-public record CoreAnnotationPolicy(Set<AnnotationTarget> targets, AnnotationRetention retention) {
+public record CoreAnnotationPolicy(
+    Set<AnnotationTarget> targets,
+    AnnotationRetention retention,
+    boolean repeatable,
+    boolean inherited) {
   public CoreAnnotationPolicy {
     targets = Set.copyOf(targets);
     if (targets.isEmpty()) throw new IllegalArgumentException("annotation targets are empty");
@@ -24,7 +28,11 @@ public record CoreAnnotationPolicy(Set<AnnotationTarget> targets, AnnotationRete
     if (policies.retentions().size() != 1) {
       throw new IllegalArgumentException("annotation requires exactly one retention policy");
     }
-    return new CoreAnnotationPolicy(policies.targets(), policies.retentions().iterator().next());
+    return new CoreAnnotationPolicy(
+        policies.targets(),
+        policies.retentions().iterator().next(),
+        policies.repeatable(),
+        policies.inherited());
   }
 
   static boolean usesPolicyInterfaces(
@@ -42,6 +50,8 @@ public record CoreAnnotationPolicy(Set<AnnotationTarget> targets, AnnotationRete
       hierarchy.collect(owner, conformance.interfaceType(), interfaces);
     }
     boolean usesPolicyInterface = false;
+    boolean repeatable = false;
+    boolean inherited = false;
     for (DefinitionId interfaceId : interfaces.keySet()) {
       CoreDefinition.Interface declaration =
           (CoreDefinition.Interface) program.definition(interfaceId).orElseThrow();
@@ -52,12 +62,20 @@ public record CoreAnnotationPolicy(Set<AnnotationTarget> targets, AnnotationRete
           .ifPresent(retentions::add);
       usesPolicyInterface |=
           AnnotationAbi.isPolicyInterface(nominal.module(), nominal.packageName(), nominal.name());
+      repeatable |=
+          AnnotationAbi.isRepeatableAnnotation(
+              nominal.module(), nominal.packageName(), nominal.name());
+      inherited |=
+          AnnotationAbi.isInheritedAnnotation(
+              nominal.module(), nominal.packageName(), nominal.name());
     }
-    return new Policies(targets, retentions, usesPolicyInterface);
+    return new Policies(targets, retentions, repeatable, inherited, usesPolicyInterface);
   }
 
   private record Policies(
       Set<AnnotationTarget> targets,
       Set<AnnotationRetention> retentions,
+      boolean repeatable,
+      boolean inherited,
       boolean usesPolicyInterface) {}
 }

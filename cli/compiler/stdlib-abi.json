@@ -1,5 +1,5 @@
 {
-  "version": 17,
+  "version": 19,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -63,6 +63,10 @@
     },
     {
       "name": "JAVA_ITERATOR_NEXT",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JAVA_MAP_NEW",
       "requiresResultRuntimeType": true
     },
     {

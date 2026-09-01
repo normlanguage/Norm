@@ -11,6 +11,7 @@ import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreAuthoringMap;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionOccurrence;
 import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreFieldInterceptorProtocol;
@@ -145,6 +146,22 @@ final class AnnotationRuntime {
               .filter(value -> matches(value.definition(), candidate))
               .findFirst()
               .orElse(null);
+      if (record != null
+          && record.id().equals(expectedId)
+          && record.definition() instanceof CoreDefinition.Interface) {
+        return new CoreType.Declared(
+            expected.constructor(),
+            expected.arguments(),
+            expected.category(),
+            CoreNullability.NON_NULL);
+      }
+    }
+    for (JarBindingClassReference.Nominal candidate : candidates) {
+      CoreDefinitionRecord record =
+          program.definitions().stream()
+              .filter(value -> matches(value.definition(), candidate))
+              .findFirst()
+              .orElse(null);
       if (record == null || !(record.definition() instanceof CoreDefinition.Aggregate aggregate)) {
         continue;
       }
@@ -167,15 +184,28 @@ final class AnnotationRuntime {
                 .anyMatch(expectedId::equals);
       }
       if (!matchesExpected) continue;
+      DefinitionId runtimeDefinition =
+          authoring.occurrences(record.id()).stream()
+              .map(CoreDefinitionOccurrence::id)
+              .map(DefinitionOccurrenceId::representative)
+              .filter(
+                  definition ->
+                      program.definition(definition).orElseThrow()
+                          instanceof CoreDefinition.Aggregate)
+              .findFirst()
+              .orElse(null);
+      if (runtimeDefinition == null) continue;
+      CoreDefinition.Aggregate runtimeAggregate =
+          (CoreDefinition.Aggregate) program.definition(runtimeDefinition).orElseThrow();
       List<CoreType> arguments =
-          aggregate.typeParameters().size() == expected.arguments().size()
+          runtimeAggregate.typeParameters().size() == expected.arguments().size()
               ? expected.arguments()
               : java.util.Collections.nCopies(
-                  aggregate.typeParameters().size(), CoreType.EXISTENTIAL);
+                  runtimeAggregate.typeParameters().size(), CoreType.EXISTENTIAL);
       return new CoreType.Declared(
-          new CoreTypeConstructor.User(new DefinitionReference.External(record.id())),
+          new CoreTypeConstructor.User(new DefinitionReference.External(runtimeDefinition)),
           arguments,
-          aggregate.valueCategory(),
+          runtimeAggregate.valueCategory(),
           CoreNullability.NON_NULL);
     }
     throw new IllegalArgumentException(
@@ -462,7 +492,8 @@ final class AnnotationRuntime {
   }
 
   List<CoreAnnotationValue> typeAnnotationValues(DefinitionId annotation, DefinitionId type) {
-    return applications.get(new ApplicationKey(annotation, AnnotationTarget.TYPE, type));
+    TypeAnnotation found = typeAnnotation(annotation, type);
+    return found == null ? null : found.values();
   }
 
   List<CoreAnnotationValue> fieldAnnotationValues(
@@ -481,14 +512,33 @@ final class AnnotationRuntime {
       return RuntimeValues.NullValue.INSTANCE;
     }
     DefinitionId annotationId = resolveExternal(annotationUser.definition());
-    ApplicationKey key =
-        new ApplicationKey(
-            annotationId, AnnotationTarget.TYPE, resolveExternal(reflectedUser.definition()));
-    List<CoreAnnotationValue> values = applications.get(key);
-    if (values == null || retention(annotationId) != AnnotationRetention.RUNTIME) {
+    TypeAnnotation found =
+        typeAnnotation(annotationId, resolveExternal(reflectedUser.definition()));
+    if (found == null || retention(annotationId) != AnnotationRetention.RUNTIME) {
       return RuntimeValues.NullValue.INSTANCE;
     }
-    return execution.annotationExecution().instance(key, values).value(execution);
+    return execution.annotationExecution().instance(found.key(), found.values()).value(execution);
+  }
+
+  private TypeAnnotation typeAnnotation(DefinitionId annotationId, DefinitionId typeId) {
+    boolean inherited =
+        CoreAnnotationPolicy.resolve(program, annotationId, annotation(annotationId)).inherited();
+    DefinitionId current = typeId;
+    Set<DefinitionId> visited = new HashSet<>();
+    while (visited.add(current)) {
+      ApplicationKey key = new ApplicationKey(annotationId, AnnotationTarget.TYPE, current);
+      List<CoreAnnotationValue> values = applications.get(key);
+      if (values != null) return new TypeAnnotation(key, values);
+      if (!inherited) return null;
+      CoreDefinition definition = program.definition(current).orElse(null);
+      if (!(definition instanceof CoreDefinition.Aggregate aggregate)
+          || aggregate.parentType().isEmpty()) return null;
+      CoreType parent = CoreTypes.absolute(aggregate.parentType().orElseThrow(), current, program);
+      if (!(parent instanceof CoreType.Declared declared)
+          || !(declared.constructor() instanceof CoreTypeConstructor.User user)) return null;
+      current = resolveExternal(user.definition());
+    }
+    return null;
   }
 
   RuntimeValues.ObjectValue functionAnnotation(
@@ -848,6 +898,8 @@ final class AnnotationRuntime {
                 new RuntimeValues.ClassValue(value.type(), classReference.reflectedType(), this);
             case CoreAnnotationReference.FieldReference fieldReference ->
                 field(value.type(), fieldReference);
+            case CoreAnnotationReference.EnumReference enumeration ->
+                enumValue(value.type(), enumeration.variant());
             case CoreAnnotationReference.CallableReference callableReference -> {
               DefinitionId callableId =
                   resolveExternal((DefinitionReference.External) callableReference.callable());
@@ -868,6 +920,29 @@ final class AnnotationRuntime {
             }
           };
     };
+  }
+
+  private RuntimeValues.EnumValue enumValue(CoreType type, String variant) {
+    CoreType concrete =
+        type instanceof CoreType.Declared declaredType
+                && declaredType.nullability() != CoreNullability.NON_NULL
+            ? new CoreType.Declared(
+                declaredType.constructor(),
+                declaredType.arguments(),
+                declaredType.category(),
+                CoreNullability.NON_NULL)
+            : type;
+    if (!(concrete instanceof CoreType.Declared declared)
+        || !(declared.constructor() instanceof CoreTypeConstructor.User user)) {
+      throw new IllegalStateException("annotation enum value has an invalid type");
+    }
+    DefinitionId id = resolveExternal(user.definition());
+    if (!(program.definition(id).orElseThrow() instanceof CoreDefinition.Enum enumeration)
+        || enumeration.variants().stream().noneMatch(item -> item.key().equals(variant))) {
+      throw new IllegalStateException("annotation enum variant is unavailable: " + variant);
+    }
+    return new RuntimeValues.EnumValue(
+        id, concrete, enumeration.nominalType().name(), variant, List.of());
   }
 
   private static boolean isCodePoint(CoreType type) {
@@ -932,6 +1007,12 @@ final class AnnotationRuntime {
 
   private record ApplicationKey(
       DefinitionId annotation, AnnotationTarget target, Object definition) {}
+
+  private record TypeAnnotation(ApplicationKey key, List<CoreAnnotationValue> values) {
+    private TypeAnnotation {
+      values = List.copyOf(values);
+    }
+  }
 
   private record IndexedKey(DefinitionOccurrenceId callable, int parameterIndex) {}
 

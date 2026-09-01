@@ -1,0 +1,5 @@
+package micronaut.json
+
+Void main() {
+  printLine("Micronaut JSON")
+}

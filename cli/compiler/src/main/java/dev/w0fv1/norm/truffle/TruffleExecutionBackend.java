@@ -92,8 +92,13 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
               frame.known() ? frame.column() : column));
     }
     if (stack.isEmpty()) stack = List.of(new GuestStackFrame("<guest>", uri, line, column));
+    Throwable cause =
+        exception instanceof NormThrownException thrown
+                && thrown.value.hostValue instanceof Throwable host
+            ? host
+            : exception;
     return new NormExecutionException(
-        exception.code(), exception.getMessage(), uri, line, column, stack, exception);
+        exception.code(), exception.getMessage(), uri, line, column, stack, cause);
   }
 
   private static GuestLocation location(Node node, CoreArtifact artifact) {

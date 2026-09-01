@@ -149,6 +149,11 @@ private class MutableMapToken {
   }
 }
 
+@Document(description: "Creates an insertion-ordered mutable map backed by the host runtime.")
+public MutableMap<K, V> mutableMap<K, V>() {
+  return __javaMapNew<MutableMap<K, V>>()
+}
+
 @Document(description: "Provides shared mutable access to key-value associations.")
 public class MutableMap<K, V> {
   @Document(description: "Creates a host-backed mutable map view.")

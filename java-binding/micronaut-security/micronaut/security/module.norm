@@ -1,0 +1,51 @@
+Module module() {
+  return module(
+    name: "micronaut.security",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.security",
+        artifact: "micronaut-security",
+        version: "5.3.2",
+        resolution: sha256("92d7f827ca97fd0380deaccc4971d5071b4f616a5ff5b19c0ac6d3af2acf9544")
+      ),
+      api: [
+        jarType(name: "annotation.Secured", members: ["value"]),
+        jarType(
+          name: "authentication.Authentication",
+          members: ["getAttributes", "getRoles", "withRoles", "withUsername"],
+          overloads: [
+            jarOverload(name: "build", parameterTypes: ["java.lang.String"]),
+            jarOverload(
+              name: "build",
+              parameterTypes: ["java.lang.String", "java.util.Collection"]
+            )
+          ]
+        ),
+        jarType(name: "authentication.AuthenticationRequest", members: ["getIdentity", "getSecret"]),
+        jarType(
+          name: "authentication.AuthenticationResponse",
+          members: ["getAuthentication", "getMessage", "isAuthenticated"],
+          overloads: [
+            jarOverload(name: "failure", parameterTypes: []),
+            jarOverload(name: "failure", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "success", parameterTypes: ["java.lang.String"]),
+            jarOverload(
+              name: "success",
+              parameterTypes: ["java.lang.String", "java.util.Collection"]
+            )
+          ]
+        ),
+        jarType(name: "authentication.provider.AuthenticationProvider", members: ["authenticate"]),
+        jarType(
+          name: "rules.SecurityRule",
+          members: ["DENY_ALL", "IS_ANONYMOUS", "IS_AUTHENTICATED"]
+        ),
+        jarType(
+          name: "utils.SecurityService",
+          members: ["getAuthentication", "hasRole", "isAuthenticated", "username"]
+        )
+      ]
+    )
+  )
+}

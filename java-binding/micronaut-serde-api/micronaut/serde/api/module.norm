@@ -1,0 +1,36 @@
+Module module() {
+  return module(
+    name: "micronaut.serde.api",
+    version: 1,
+    dependencies: [
+      dependency(name: "micronaut.core", version: 1),
+      dependency(name: "micronaut.inject", version: 1),
+      dependency(name: "micronaut.json", version: 1)
+    ],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.serde",
+        artifact: "micronaut-serde-api",
+        version: "3.1.1", resolution: sha256("552cf424397f208aa77600ad737a7da60656aecc2295b350ad85c5ac6abde8b3")
+      ),
+      api: [
+        jarType(name: "annotation.Serdeable", members: ["naming", "validate"]),
+        jarType(name: "annotation.Serdeable.Serializable", members: ["as", "naming", "using", "validate"]),
+        jarType(name: "annotation.Serdeable.Deserializable", members: ["as", "naming", "using", "validate"]),
+        jarType(name: "annotation.SerdeImport", members: ["deserializable", "mixin", "packageName", "serializable", "value"]),
+        jarType(name: "Serializer", members: []),
+        jarType(name: "Deserializer", members: []),
+        jarType(name: "config.naming.IdentityStrategy", members: []),
+        jarType(
+          name: "ObjectMapper",
+          members: [],
+          overloads: [
+            jarOverload(name: "getDefault", parameterTypes: []),
+            jarOverload(name: "writeValueAsString", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "readValue", parameterTypes: ["java.lang.String", "java.lang.Class"])
+          ]
+        )
+      ]
+    )
+  )
+}

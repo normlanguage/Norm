@@ -1,0 +1,39 @@
+Module module() {
+  return module(
+    name: "sample.bbs",
+    version: 1,
+    exports: ["Application", "Archive", "Domain", "Web"],
+    dependencies: [
+      dependency(name: "micronaut.http", version: 1),
+      dependency(name: "micronaut.http.client", version: 1),
+      dependency(name: "micronaut.http.client.netty", version: 1),
+      dependency(name: "micronaut.management", version: 1),
+      dependency(name: "micronaut.aop", version: 1),
+      dependency(name: "micronaut.core", version: 1),
+      dependency(name: "micronaut.inject", version: 1),
+      dependency(name: "micronaut.runtime", version: 1),
+      dependency(name: "micronaut.server.netty", version: 1),
+      dependency(name: "micronaut.json", version: 1),
+      dependency(name: "micronaut.serde.api", version: 1),
+      dependency(name: "micronaut.serde.jackson", version: 1),
+      dependency(name: "micronaut.serde.processor", version: 1),
+      dependency(name: "jakarta.inject", version: 1),
+      dependency(name: "jakarta.validation", version: 1),
+      dependency(name: "micronaut.inject.processor", version: 1),
+      dependency(name: "micronaut.validation", version: 1),
+      dependency(name: "micronaut.validation.processor", version: 1),
+      dependency(name: "micronaut.data.model", version: 1),
+      dependency(name: "micronaut.data.jdbc", version: 1),
+      dependency(name: "micronaut.data.processor", version: 1),
+      dependency(name: "micronaut.data.tx", version: 1),
+      dependency(name: "micronaut.jdbc.hikari", version: 1),
+      dependency(name: "h2.database", version: 1),
+      dependency(name: "micronaut.security", version: 1),
+      dependency(name: "reactor.core", version: 1),
+      dependency(name: "junit.jupiter", version: 1),
+      dependency(name: "micronaut.test.core", version: 1),
+      dependency(name: "micronaut.test.junit5", version: 1),
+      dependency(name: "okhttp.client", version: 1)
+    ]
+  )
+}

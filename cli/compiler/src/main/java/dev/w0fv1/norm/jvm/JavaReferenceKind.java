@@ -24,6 +24,7 @@ public enum JavaReferenceKind {
   INPUT_STREAM,
   OUTPUT_STREAM,
   TASK,
+  PUBLISHER,
   DURATION,
   URI,
   PATH,

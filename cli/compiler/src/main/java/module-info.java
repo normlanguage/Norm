@@ -1,5 +1,7 @@
 @SuppressWarnings("module")
 module dev.w0fv1.norm {
+  exports dev.w0fv1.norm.bridge;
+
   requires com.fasterxml.jackson.core;
   requires com.fasterxml.jackson.dataformat.yaml;
   requires com.ctc.wstx;
@@ -28,6 +30,8 @@ module dev.w0fv1.norm {
   requires org.codehaus.plexus.util;
   requires org.slf4j;
   requires org.objectweb.asm;
+  requires org.junit.platform.launcher;
+  requires org.objenesis;
 
   uses javax.xml.stream.XMLInputFactory;
   uses javax.xml.stream.XMLOutputFactory;

@@ -1,9 +1,31 @@
 package dev.w0fv1.norm.jvm;
 
+import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.value.ModuleCoordinate;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 final class JavaPlatformTypes {
+  private static final ModuleCoordinate STANDARD_LIBRARY = new ModuleCoordinate("std", 1);
+  private static final Map<JarBindingClassReference, String> CLASS_DESCRIPTORS =
+      Map.ofEntries(
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Any"), "Ljava/lang/Object;"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.String"), "Ljava/lang/String;"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Number"), "Ljava/lang/Number;"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Integer"), "I"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Long"), "J"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Float"), "F"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Double"), "D"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.Boolean"), "Z"),
+          Map.entry(nominal("std.core", "Exception"), "Ljava/lang/RuntimeException;"),
+          Map.entry(nominal("std.collections", "IterableView"), "Ljava/lang/Iterable;"),
+          Map.entry(nominal("std.collections", "IteratorView"), "Ljava/util/Iterator;"),
+          Map.entry(nominal("std.collections", "MutableCollection"), "Ljava/util/Collection;"),
+          Map.entry(nominal("std.collections", "MutableList"), "Ljava/util/List;"),
+          Map.entry(nominal("std.collections", "MutableSet"), "Ljava/util/Set;"),
+          Map.entry(nominal("std.collections", "MutableMap"), "Ljava/util/Map;"),
+          Map.entry(nominal("std.concurrent", "Publisher"), "Lorg/reactivestreams/Publisher;"));
   private static final Set<String> EXCEPTIONS =
       Set.of("java.lang.Throwable", "java.lang.Exception", "java.lang.RuntimeException");
   private static final Set<String> LISTS =
@@ -46,6 +68,14 @@ final class JavaPlatformTypes {
 
   private JavaPlatformTypes() {}
 
+  static Map<JarBindingClassReference, String> classDescriptors() {
+    return CLASS_DESCRIPTORS;
+  }
+
+  private static JarBindingClassReference.Nominal nominal(String packageName, String name) {
+    return new JarBindingClassReference.Nominal(STANDARD_LIBRARY, packageName, name);
+  }
+
   static Optional<JavaReferenceKind> referenceKind(String binaryName) {
     if (binaryName.equals("java.lang.Object")) return Optional.of(JavaReferenceKind.OBJECT);
     if (binaryName.equals("java.lang.Class")) return Optional.of(JavaReferenceKind.CLASS);
@@ -73,6 +103,9 @@ final class JavaPlatformTypes {
     if (MAPS.contains(binaryName)) return Optional.of(JavaReferenceKind.MAP);
     if (binaryName.equals("java.lang.String")) return Optional.of(JavaReferenceKind.STRING);
     if (binaryName.equals("java.lang.Void")) return Optional.of(JavaReferenceKind.UNIT);
+    if (binaryName.equals("java.lang.AutoCloseable") || binaryName.equals("java.io.Closeable")) {
+      return Optional.of(JavaReferenceKind.RESOURCE);
+    }
     if (binaryName.equals("java.lang.CharSequence")) {
       return Optional.of(JavaReferenceKind.CHAR_SEQUENCE);
     }
@@ -91,6 +124,9 @@ final class JavaPlatformTypes {
         || binaryName.equals("java.util.concurrent.CompletionStage")
         || binaryName.equals("java.util.concurrent.CompletableFuture")) {
       return Optional.of(JavaReferenceKind.TASK);
+    }
+    if (binaryName.equals("org.reactivestreams.Publisher")) {
+      return Optional.of(JavaReferenceKind.PUBLISHER);
     }
     if (binaryName.equals("java.time.Duration")) {
       return Optional.of(JavaReferenceKind.DURATION);
@@ -116,15 +152,15 @@ final class JavaPlatformTypes {
       case JavaBoxedType ignored -> false;
       case JavaReferenceType reference ->
           switch (reference.kind()) {
-            case OBJECT, STRING, NUMBER, ENUM, OPAQUE, RESOURCE -> true;
+            case OBJECT, STRING, NUMBER, ENUM, OPAQUE, RESOURCE, EXCEPTION -> true;
             case CHAR_SEQUENCE,
                 CHARSET,
                 CLASS,
-                EXCEPTION,
                 FILE,
                 INPUT_STREAM,
                 OUTPUT_STREAM,
                 TASK,
+                PUBLISHER,
                 DURATION,
                 URI,
                 OPTIONAL,

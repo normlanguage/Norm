@@ -117,7 +117,7 @@ norm package path/to/commons/lang --output path/to/repository
 
 ## 发布模型
 
-`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 3 使用 ZIP 容器，包含 `module.json`、`sources/` 和 `binding/java-api.json`；manifest 保存类型、成员组和精确重载公开面，API 报告记录完整 JAR census、结构化适配状态与 `JavaApiId`，消费端以固定 JAR 重新扫描复验。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。后续二进制 Core 复用同一容器与身份模型。
+`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 4 使用 ZIP 容器，所有 Module 都包含已求值的 `module.json` 和普通 Norm `sources/`。纯 Norm Module 保存完整实现源码；Java Binding Module 只保存由公开适配面生成的 Norm 源码，并额外包含 `jar` manifest 与 `binding/java-api.json`，工程中的示例和验证程序不进入制品。Binding manifest 保存类型、成员组和精确重载公开面，API 报告记录完整 JAR census、结构化适配状态与 `JavaApiId`，消费端以固定 JAR 重新扫描复验。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。纯 Norm 实现使用同一归档、坐标和调用边界，移除 Binding 不产生新的包种类。后续二进制 Core 复用同一容器与身份模型。
 
 POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module 时同时获得所需 Java 图。发布本地 JAR 时必须为它声明可解析的发布坐标；同一次发布产生 Java artifact 和依赖它的 Norm artifact。
 
@@ -130,10 +130,11 @@ POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module
 - 不生成传递依赖的公开可调用 API；
 - 不提供任意宿主类查找、反射调用或无类型宿主对象；
 - Java 对象在 Norm 中是具有确定声明身份的不透明引用；
-- Java 版本冲突和 API 指纹不匹配必须在解析期失败；
+- 多个 Module 显式绑定同一 Java artifact 的不同版本时必须失败；传递版本由统一类路径解析器选择，显式根制品优先，其余使用 Maven 版本顺序，并只保留选中版本的依赖闭包；
+- Java artifact 的固定坐标出现不同内容，以及 API 指纹不匹配时必须失败；
 - 公开适配面中的未支持签名产生确定诊断；
 - 远程 artifact 携带已编译模块描述，消费者不执行发布者的配置源码；
-- Maven POM、Gradle metadata、摘要清单和生成声明均为派生产物。
+- Maven POM、摘要清单和生成声明均为派生产物；Gradle 直接消费同一 Maven 元数据。
 
 ## 当前绑定面
 
@@ -159,13 +160,15 @@ Java `Optional<T>` 使用 Norm nullable 表达缺失，`OptionalInt`、`Optional
 
 Java 标准函数接口和根 JAR 中的公开 SAM interface 映射为 Norm 原生 `Function<R(P...)>`。标准接口的 `? super` 输入与 `? extends` 输出在投影时消解，根 JAR SAM 的泛型参数按使用点代入；Norm lambda、捕获闭包和函数引用由运行时生成真实 Java interface 实例。携带回调的 Java 调用在隔离的虚拟线程执行，回调经 execution 所有的调度器回到 Norm 执行线程；同步、异步和 Java 内部等待回调共享同一条参数、返回值与异常传播边界。
 
-Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `std.concurrent.Task<T>`。`await()` 保持元素类型并将 Java 失败送入 Norm throw/catch，`cancel()` 和 `completed()` 提供确定状态操作；Task 实现 `Resource`，显式关闭和执行域退出都会取消未完成任务。Task 传回 Java 参数时恢复原宿主对象。`java.lang.Void` 映射为 nullable `std.core.Unit`。
+Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `std.concurrent.Task<T>`。`await()` 保持元素类型并将 Java 失败送入 Norm throw/catch，`cancel()` 和 `completed()` 提供确定状态操作；Task 实现 `Resource`，显式关闭和执行域退出都会取消未完成任务。Task 传回 Java 参数时恢复原宿主对象。`java.lang.Void` 映射为 nullable `std.core.Unit`。Reactive Streams `Publisher<T>` 映射为 `std.concurrent.Publisher<T>`，订阅回调、完成、失败、取消与执行域释放沿用同一调度和资源边界。
 
-每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。其他泛型约束、跨 Module 外部类型、Publisher 和具体 Java 异常类型按同一 Schema 继续扩展；发布门禁要求公开适配面全部生成并通过行为测试。
+每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。发布门禁要求公开适配面全部生成并通过行为测试。
+
+Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。入口 Module 与纯 Norm 依赖参与处理；作为依赖引入的 Java Binding Module 只提供适配声明，不把其中的验证程序混入应用处理面。真实框架验收入口见 [Micronaut BBS](../examples/micronaut-bbs/README.md)。
 
 ## 验收
 
-- 不存在 `lock.norm`、POM 或 Gradle 手写配置；
+- 源码树不存在 `lock.norm`、手写 POM 或 Gradle 配置；
 - 同一个 `module(...)` 工厂同时表达纯 Norm 和 JAR 支撑的 Module；
 - 类型结构无法为单个 Module 声明两个根 JAR；
 - Maven 与本地 JAR 产生相同的 Binding pipeline；

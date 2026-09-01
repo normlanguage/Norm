@@ -2,6 +2,7 @@ package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.syntax.LanguageSyntax;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
 import dev.w0fv1.norm.value.ModuleCoordinate;
@@ -19,7 +20,7 @@ import java.util.function.Function;
 import org.objectweb.asm.Type;
 
 public final class JarBindingSourceGenerator {
-  private static final String BINDING_ABI = "java-v13";
+  private static final String BINDING_ABI = "java-v14";
   private static final Set<String> RESERVED_TYPE_NAMES =
       java.util.stream.Stream.concat(
               BuiltinCatalog.standard().typeNames().stream(),
@@ -68,7 +69,7 @@ public final class JarBindingSourceGenerator {
     Objects.requireNonNull(graphId, "graphId");
     Objects.requireNonNull(schema, "schema");
     Map<String, JavaApiType> apiTypes =
-        schema.types().stream()
+        schema.allTypes().stream()
             .collect(
                 java.util.stream.Collectors.toMap(
                     JavaApiType::binaryName,
@@ -84,7 +85,9 @@ public final class JarBindingSourceGenerator {
     for (BindingSelection selection : selections) {
       String selectedName = selection.name();
       List<JavaApiType> matching =
-          schema.types().stream().filter(type -> matches(type.binaryName(), selectedName)).toList();
+          schema.allTypes().stream()
+              .filter(type -> JavaApiTypeNames.matches(type.binaryName(), selectedName))
+              .toList();
       if (matching.size() > 1) {
         List<JavaApiType> localMatching =
             matching.stream()
@@ -103,7 +106,7 @@ public final class JarBindingSourceGenerator {
         throw new IllegalArgumentException(
             "JAR binding export '"
                 + selectedName
-                + "' must identify exactly one root JAR class; found "
+                + "' must identify exactly one dependency graph class; found "
                 + matching.size());
       }
       JavaApiType owner = matching.getFirst();
@@ -142,7 +145,11 @@ public final class JarBindingSourceGenerator {
                       selection.isEmpty()
                           || selection.orElseThrow().matches(callable)
                           || enumConstant(owner, callable)
-                          || requiredProtocolBinding(callable))
+                          || requiredProtocolBinding(callable)
+                          || resourceTypes.contains(owner.binaryName())
+                              && callable.kind() == JavaCallableKind.INSTANCE_METHOD
+                              && callable.name().equals("close")
+                              && callable.descriptor().equals("()V"))
               .map(callable -> markResources(callable, resourceTypes))
               .toList();
       exportedTypeParameters.put(exportedName, typeParameters);
@@ -182,13 +189,30 @@ public final class JarBindingSourceGenerator {
         generationOrder.add(relativeName);
       }
     }
-    NormTypes normTypes =
-        new NormTypes(
-            Map.copyOf(referenceNames), Map.copyOf(referencePaths), allocateArrayNames(arrays));
     Map<String, Map<String, String>> enumVariants = new LinkedHashMap<>();
     exportedTypes.values().stream()
         .filter(type -> type.kind() == JavaApiTypeKind.ENUM)
         .forEach(type -> enumVariants.put(type.binaryName(), enumVariants(type)));
+    NormTypes normTypes =
+        new NormTypes(
+            Map.copyOf(referenceNames),
+            Map.copyOf(referencePaths),
+            allocateArrayNames(arrays),
+            enumVariants,
+            exportedTypes.values().stream()
+                .collect(
+                    java.util.stream.Collectors.toUnmodifiableMap(
+                        JavaApiType::binaryName,
+                        type -> type.signature().typeParameters().size())));
+    Map<String, JavaAnnotationBinding> annotationBindings = new LinkedHashMap<>();
+    exportedTypes.forEach(
+        (exportedName, owner) -> {
+          if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
+            annotationBindings.put(
+                exportedName,
+                annotationBinding(owner, exportedBindings.getOrDefault(exportedName, List.of())));
+          }
+        });
     List<GeneratedBindingSource> sources = new ArrayList<>();
     Map<String, JavaBindingCallable> calls = new LinkedHashMap<>();
     exportedTypes.forEach(
@@ -204,6 +228,7 @@ public final class JarBindingSourceGenerator {
                     exportedInterfaces.get(exportedName),
                     resourceTypes.contains(owner.binaryName()),
                     enumVariants.getOrDefault(owner.binaryName(), Map.of()),
+                    Optional.ofNullable(annotationBindings.get(exportedName)),
                     normTypes,
                     calls)));
     if (!arrays.isEmpty()) {
@@ -243,7 +268,16 @@ public final class JarBindingSourceGenerator {
                   module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
               constants);
         });
-    return new GeneratedJarBinding(rootExports, sources, calls, classDescriptors, enumConstants);
+    Map<JarBindingClassReference.Nominal, JavaAnnotationBinding> annotations =
+        new LinkedHashMap<>();
+    annotationBindings.forEach(
+        (exportedName, binding) ->
+            annotations.put(
+                new JarBindingClassReference.Nominal(
+                    module, module.name() + exportPackage(exportedName), simpleName(exportedName)),
+                binding));
+    return new GeneratedJarBinding(
+        rootExports, sources, calls, classDescriptors, enumConstants, annotations);
   }
 
   private static void validateSelectedMembers(
@@ -559,6 +593,10 @@ public final class JarBindingSourceGenerator {
       text.append("import std.concurrent.Task\n");
     }
     if (arrays.stream()
+        .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.PUBLISHER))) {
+      text.append("import std.concurrent.Publisher\n");
+    }
+    if (arrays.stream()
         .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.COLLECTION))) {
       text.append("import std.collections.MutableCollection\n");
     }
@@ -683,6 +721,48 @@ public final class JarBindingSourceGenerator {
         JavaPrimitiveType.VOID);
   }
 
+  private static JavaAnnotationBinding annotationBinding(
+      JavaApiType owner, List<JavaBindingCallable> bindings) {
+    Map<String, JavaApiMethod> methods =
+        owner.methods().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    method -> methodKey(method.name(), method.descriptor()),
+                    Function.identity(),
+                    (left, right) -> left,
+                    LinkedHashMap::new));
+    List<JavaAnnotationElementBinding> elements = new ArrayList<>();
+    for (JavaBindingCallable binding : bindings) {
+      if (binding.kind() != JavaCallableKind.INSTANCE_METHOD
+          || !binding.parameters().isEmpty()
+          || binding.returnType() == JavaPrimitiveType.VOID) {
+        throw new IllegalArgumentException(
+            "invalid Java annotation element "
+                + binding.owner()
+                + "."
+                + binding.name()
+                + binding.descriptor());
+      }
+      JavaApiMethod method = methods.get(methodKey(binding.name(), binding.descriptor()));
+      if (method == null) {
+        throw new IllegalArgumentException(
+            "Java annotation element is not declared by "
+                + owner.binaryName()
+                + ": "
+                + binding.name()
+                + binding.descriptor());
+      }
+      elements.add(
+          new JavaAnnotationElementBinding(
+              binding.name(),
+              binding.descriptor(),
+              binding.returnType(),
+              method.annotationDefault()));
+    }
+    return new JavaAnnotationBinding(
+        owner.binaryName(), JavaAnnotationContract.from(owner), elements);
+  }
+
   private static GeneratedBindingSource generateSource(
       ModuleCoordinate module,
       String exportedName,
@@ -693,14 +773,28 @@ public final class JarBindingSourceGenerator {
       List<JavaReferenceType> interfaces,
       boolean resource,
       Map<String, String> enumVariants,
+      Optional<JavaAnnotationBinding> annotationBinding,
       NormTypes normTypes,
       Map<String, JavaBindingCallable> calls) {
     String className = simpleName(exportedName);
     String packageName = module.name() + exportPackage(exportedName);
     String functionPrefix = lowerCamel(className);
     StringBuilder text = new StringBuilder("package ").append(packageName).append('\n');
+    if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
+      return generateAnnotationSource(
+          module,
+          exportedName,
+          owner,
+          annotationBinding.orElseThrow(),
+          normTypes,
+          className,
+          packageName,
+          text);
+    }
     List<JavaBindingType> bounds = bounds(ownerTypeParameters, bindings);
-    if (bounds.stream().anyMatch(JavaGenericParameterProjector::isComparable)) {
+    List<JavaBindingType> signatureTypes = new ArrayList<>(bounds);
+    signatureTypes.addAll(interfaces);
+    if (signatureTypes.stream().anyMatch(JavaGenericParameterProjector::isComparable)) {
       text.append("import std.core.Comparable\n");
     }
     if (interfaces.stream().anyMatch(JarBindingSourceGenerator::iterableRelation)) {
@@ -709,58 +803,73 @@ public final class JarBindingSourceGenerator {
     if (bindings.stream().anyMatch(JarBindingSourceGenerator::requiredProtocolBinding)) {
       text.append("import std.core.Iterator\n");
     }
-    if (bounds.stream().anyMatch(JavaGenericParameterProjector::isException)
+    if (signatureTypes.stream().anyMatch(JavaGenericParameterProjector::isException)
         || bindings.stream().anyMatch(JarBindingSourceGenerator::containsException)) {
       text.append("import std.core.Exception\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.UNIT))
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.UNIT))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.UNIT))) {
       text.append("import std.core.Unit\n");
     }
-    if (bindings.stream().anyMatch(JarBindingSourceGenerator::containsPath)) {
+    if (signatureTypes.stream().anyMatch(JarBindingSourceGenerator::containsPath)
+        || bindings.stream().anyMatch(JarBindingSourceGenerator::containsPath)) {
       text.append("import std.filesystem.Path\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.URI))
+    if (signatureTypes.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.URI))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.URI))) {
       text.append("import std.http.Uri\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.DURATION))
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.DURATION))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.DURATION))) {
       text.append("import std.time.Duration\n");
     }
-    if (bounds.stream()
+    if (signatureTypes.stream()
             .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.INPUT_STREAM))
         || bindings.stream()
             .anyMatch(
                 callable -> containsReferenceKind(callable, JavaReferenceKind.INPUT_STREAM))) {
       text.append("import std.io.InputStream\n");
     }
-    if (bounds.stream()
+    if (signatureTypes.stream()
             .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.OUTPUT_STREAM))
         || bindings.stream()
             .anyMatch(
                 callable -> containsReferenceKind(callable, JavaReferenceKind.OUTPUT_STREAM))) {
       text.append("import std.io.OutputStream\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.TASK))
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.TASK))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.TASK))) {
       text.append("import std.concurrent.Task\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.COLLECTION))
+    if (interfaces.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.PUBLISHER))
+        || signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.PUBLISHER))
+        || bindings.stream()
+            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.PUBLISHER))) {
+      text.append("import std.concurrent.Publisher\n");
+    }
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.COLLECTION))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.COLLECTION))) {
       text.append("import std.collections.MutableCollection\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERABLE))
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERABLE))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.ITERABLE))) {
       text.append("import std.collections.IterableView\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERATOR))
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERATOR))
         || bindings.stream()
             .anyMatch(
                 callable ->
@@ -768,17 +877,18 @@ public final class JarBindingSourceGenerator {
                         && containsReferenceKind(callable, JavaReferenceKind.ITERATOR))) {
       text.append("import std.collections.IteratorView\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.LIST))
+    if (signatureTypes.stream()
+            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.LIST))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.LIST))) {
       text.append("import std.collections.MutableList\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.SET))
+    if (signatureTypes.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.SET))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.SET))) {
       text.append("import std.collections.MutableSet\n");
     }
-    if (bounds.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.MAP))
+    if (signatureTypes.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.MAP))
         || bindings.stream()
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.MAP))) {
       text.append("import std.collections.MutableMap\n");
@@ -868,6 +978,291 @@ public final class JarBindingSourceGenerator {
     }
     return new GeneratedBindingSource(
         (module.name() + "." + exportedName).replace('.', '/') + ".norm", text.toString(), callIds);
+  }
+
+  private static GeneratedBindingSource generateAnnotationSource(
+      ModuleCoordinate module,
+      String exportedName,
+      JavaApiType owner,
+      JavaAnnotationBinding binding,
+      NormTypes normTypes,
+      String annotationName,
+      String packageName,
+      StringBuilder text) {
+    JavaAnnotationContract contract = binding.contract();
+    List<String> targets = contract.normTargetInterfaces();
+    if (targets.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Java annotation has no Norm declaration target: " + owner.binaryName());
+    }
+    List<String> policies = new ArrayList<>(targets);
+    policies.add(contract.retention().normInterface());
+    if (contract.inherited()) policies.add("InheritedAnnotation");
+    if (contract.repeatableContainer().isPresent()) policies.add("RepeatableAnnotation");
+    policies.stream()
+        .distinct()
+        .forEach(policy -> text.append("import std.annotation.").append(policy).append('\n'));
+    if (binding.elements().stream().anyMatch(element -> containsException(element.type()))
+        || binding.elements().stream()
+            .map(JavaAnnotationElementBinding::defaultValue)
+            .flatMap(Optional::stream)
+            .anyMatch(
+                value ->
+                    value instanceof JavaAnnotationClassValue classValue
+                        && Set.of(
+                                "Ljava/lang/Throwable;",
+                                "Ljava/lang/Exception;",
+                                "Ljava/lang/RuntimeException;")
+                            .contains(classValue.descriptor()))) {
+      text.append("import std.core.Exception\n");
+    }
+    Set<String> referencedTypes = new java.util.LinkedHashSet<>();
+    binding
+        .elements()
+        .forEach(
+            element -> {
+              collectReferences(element.type(), referencedTypes);
+              element
+                  .defaultValue()
+                  .ifPresent(value -> collectAnnotationDefaultReferences(value, referencedTypes));
+            });
+    appendReferenceImports(
+        text, module, packageName, owner.binaryName(), referencedTypes, normTypes);
+    List<JavaAnnotationElementBinding> elements = binding.elements();
+    Map<JavaAnnotationElementBinding, String> elementNames = annotationElementNames(elements);
+    text.append('\n')
+        .append("public annotation ")
+        .append(annotationName)
+        .append(" implements ")
+        .append(String.join(", ", policies))
+        .append(" {\n");
+    for (JavaAnnotationElementBinding element : elements) {
+      text.append("  ")
+          .append(annotationElementType(element.type(), normTypes))
+          .append(' ')
+          .append(elementNames.get(element))
+          .append('\n');
+    }
+    if (elements.stream().anyMatch(element -> element.defaultValue().isPresent())) {
+      text.append('\n').append("  ").append(annotationName).append("(\n");
+      for (int index = 0; index < elements.size(); index++) {
+        JavaAnnotationElementBinding element = elements.get(index);
+        text.append("    ").append(annotationElementType(element.type(), normTypes));
+        if (element.defaultValue().isPresent()) text.append('?');
+        text.append(' ').append(elementNames.get(element));
+        if (index + 1 < elements.size()) text.append(',');
+        text.append('\n');
+      }
+      text.append("  ) {\n");
+      for (JavaAnnotationElementBinding element : elements) {
+        String elementName = elementNames.get(element);
+        text.append("    this.").append(elementName).append(" = ").append(elementName);
+        element
+            .defaultValue()
+            .ifPresent(
+                value ->
+                    text.append(" ?? ")
+                        .append(annotationDefaultLiteral(value, element.type(), normTypes)));
+        text.append('\n');
+      }
+      text.append("  }\n");
+    }
+    text.append("}\n");
+    return new GeneratedBindingSource(
+        (module.name() + "." + exportedName).replace('.', '/') + ".norm",
+        text.toString(),
+        List.of());
+  }
+
+  private static String annotationElementType(JavaBindingType type, NormTypes normTypes) {
+    if (type instanceof JavaArrayType array) {
+      return "List<" + annotationElementType(array.component(), normTypes) + ">";
+    }
+    return normType(type, normTypes, true);
+  }
+
+  private static void collectAnnotationDefaultReferences(
+      JavaAnnotationValue value, Set<String> references) {
+    if (value instanceof JavaAnnotationArrayValue array) {
+      array.values().forEach(element -> collectAnnotationDefaultReferences(element, references));
+      return;
+    }
+    if (!(value instanceof JavaAnnotationClassValue classValue)) return;
+    String descriptor = classValue.descriptor();
+    if (descriptor.startsWith("L") && descriptor.endsWith(";")) {
+      references.add(descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
+    }
+  }
+
+  private static Map<JavaAnnotationElementBinding, String> annotationElementNames(
+      List<JavaAnnotationElementBinding> elements) {
+    Map<JavaAnnotationElementBinding, String> names = new LinkedHashMap<>();
+    Set<String> used = new java.util.LinkedHashSet<>();
+    elements.stream()
+        .map(JavaAnnotationElementBinding::name)
+        .filter(LanguageSyntax::isIdentifier)
+        .forEach(used::add);
+    for (JavaAnnotationElementBinding element : elements) {
+      if (LanguageSyntax.isIdentifier(element.name())) {
+        names.put(element, element.name());
+        continue;
+      }
+      String name = normIdentifier(element.name());
+      if (!used.add(name)) {
+        name +=
+            "Java"
+                + Sha256Digest.compute(element.name().getBytes(StandardCharsets.UTF_8))
+                    .value()
+                    .substring(0, 8);
+        used.add(name);
+      }
+      names.put(element, name);
+    }
+    return Map.copyOf(names);
+  }
+
+  private static String annotationDefaultLiteral(
+      JavaAnnotationValue value, JavaBindingType expectedType, NormTypes normTypes) {
+    if (value instanceof JavaAnnotationArrayValue array) {
+      if (!(expectedType instanceof JavaArrayType expectedArray)) {
+        throw new IllegalArgumentException(
+            "Java annotation array default does not match " + expectedType.displayName());
+      }
+      return array.values().stream()
+          .map(element -> annotationDefaultLiteral(element, expectedArray.component(), normTypes))
+          .collect(java.util.stream.Collectors.joining(", ", "[", "]"));
+    }
+    if (value instanceof JavaAnnotationEnumValue enumeration) {
+      if (!(expectedType instanceof JavaReferenceType reference)
+          || reference.kind() != JavaReferenceKind.ENUM
+          || !reference.binaryName().equals(enumeration.type())) {
+        throw new IllegalArgumentException(
+            "Java annotation enum default does not match " + expectedType.displayName());
+      }
+      Map<String, String> constants = normTypes.enumVariants().get(enumeration.type());
+      if (constants == null) {
+        throw new IllegalArgumentException(
+            "Java annotation enum default type is not exported: " + enumeration.type());
+      }
+      String variant =
+          constants.entrySet().stream()
+              .filter(entry -> entry.getValue().equals(enumeration.constant()))
+              .map(Map.Entry::getKey)
+              .findFirst()
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "Java annotation enum constant is not exported: "
+                              + enumeration.type()
+                              + "."
+                              + enumeration.constant()));
+      return normType(expectedType, normTypes, true) + "." + variant;
+    }
+    if (value instanceof JavaAnnotationClassValue classValue) {
+      String descriptor = classValue.descriptor();
+      String className =
+          switch (descriptor) {
+            case "Z" -> "Boolean";
+            case "B", "S", "I" -> "Integer";
+            case "J" -> "Long";
+            case "F" -> "Float";
+            case "D" -> "Double";
+            case "C" -> "CodePoint";
+            case "V", "Ljava/lang/Void;" -> "Void";
+            case "Ljava/lang/Object;" -> "Any";
+            case "Ljava/lang/String;" -> "String";
+            case "Ljava/lang/Number;" -> "Number";
+            case "Ljava/lang/Throwable;", "Ljava/lang/Exception;", "Ljava/lang/RuntimeException;" ->
+                "Exception";
+            default -> {
+              if (descriptor.startsWith("[")) {
+                yield normTypes.arrays().entrySet().stream()
+                    .filter(entry -> entry.getKey().descriptor().equals(descriptor))
+                    .map(Map.Entry::getValue)
+                    .findFirst()
+                    .orElseThrow(
+                        () ->
+                            new IllegalArgumentException(
+                                "Java annotation class default array is not exported: "
+                                    + descriptor));
+              }
+              if (!descriptor.startsWith("L") || !descriptor.endsWith(";")) {
+                throw new IllegalArgumentException(
+                    "invalid Java annotation class default " + descriptor);
+              }
+              String binaryName =
+                  descriptor.substring(1, descriptor.length() - 1).replace('/', '.');
+              String reference = normTypes.references().get(binaryName);
+              if (reference == null) {
+                throw new IllegalArgumentException(
+                    "Java annotation class default is not exported: " + binaryName);
+              }
+              int typeParameters = normTypes.typeParameterCounts().getOrDefault(binaryName, 0);
+              yield typeParameters == 0
+                  ? reference
+                  : reference
+                      + java.util.stream.IntStream.range(0, typeParameters)
+                          .mapToObj(ignored -> "?")
+                          .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+            }
+          };
+      return className + ".class";
+    }
+    if (!(value instanceof JavaAnnotationConstantValue constant))
+      throw new IllegalArgumentException("unsupported Java annotation default " + value);
+    Object content = constant.value();
+    return switch (content) {
+      case Boolean item -> item.toString();
+      case Byte item -> item.toString();
+      case Short item -> item.toString();
+      case Integer item -> item.toString();
+      case Long item -> item.toString();
+      case Float item -> finiteDecimal(item.doubleValue(), item.toString());
+      case Double item -> finiteDecimal(item, item.toString());
+      case Character item -> codePointLiteral(item);
+      case String item -> stringLiteral(item);
+      default ->
+          throw new IllegalArgumentException(
+              "unsupported Java annotation constant " + content.getClass().getName());
+    };
+  }
+
+  private static String finiteDecimal(double value, String literal) {
+    if (!Double.isFinite(value)) {
+      throw new IllegalArgumentException("non-finite Java annotation default " + literal);
+    }
+    return literal;
+  }
+
+  private static String stringLiteral(String value) {
+    StringBuilder result = new StringBuilder("\"");
+    value.codePoints().forEach(character -> appendLiteralCodePoint(result, character, false));
+    return result.append('"').toString();
+  }
+
+  private static String codePointLiteral(char value) {
+    StringBuilder result = new StringBuilder("'");
+    appendLiteralCodePoint(result, value, true);
+    return result.append('\'').toString();
+  }
+
+  private static void appendLiteralCodePoint(
+      StringBuilder result, int character, boolean codePoint) {
+    switch (character) {
+      case '\n' -> result.append("\\n");
+      case '\r' -> result.append("\\r");
+      case '\t' -> result.append("\\t");
+      case '\\' -> result.append("\\\\");
+      case '"' -> result.append(codePoint ? '"' : "\\\"");
+      case '\'' -> result.append(codePoint ? "\\'" : "'");
+      default -> {
+        if (Character.isISOControl(character)) {
+          throw new IllegalArgumentException(
+              "Java annotation default contains an unsupported control character");
+        }
+        result.appendCodePoint(character);
+      }
+    }
   }
 
   private static void appendEnum(StringBuilder text, String enumName, Set<String> variants) {
@@ -1026,7 +1421,7 @@ public final class JarBindingSourceGenerator {
     if (iterableRelation(type)) {
       return "Iterable<" + normReferenceArgument(type, 0, 1, normTypes) + ">";
     }
-    return normType(type, normTypes, true);
+    return normBoundType(type, normTypes);
   }
 
   private static boolean iterableRelation(JavaReferenceType type) {
@@ -1170,9 +1565,30 @@ public final class JarBindingSourceGenerator {
     }
     Map<JavaBindingCallable, String> names = new LinkedHashMap<>();
     for (List<JavaBindingCallable> group : groups.values()) {
+      Map<JavaBindingCallable, String> candidates = new LinkedHashMap<>();
       for (JavaBindingCallable callable : group) {
         String name = baseName.apply(callable);
         if (group.size() > 1) name += "Java" + parameterSuffix(callable);
+        candidates.put(callable, name);
+      }
+      Map<String, Long> counts =
+          candidates.values().stream()
+              .collect(
+                  java.util.stream.Collectors.groupingBy(
+                      Function.identity(),
+                      LinkedHashMap::new,
+                      java.util.stream.Collectors.counting()));
+      for (JavaBindingCallable callable : group) {
+        String name = candidates.get(callable);
+        if (counts.get(name) > 1) {
+          name +=
+              "Java"
+                  + Sha256Digest.compute(
+                          (callable.name() + callable.descriptor())
+                              .getBytes(StandardCharsets.UTF_8))
+                      .value()
+                      .substring(0, 8);
+        }
         names.put(callable, name);
       }
     }
@@ -1612,6 +2028,9 @@ public final class JarBindingSourceGenerator {
           for (JavaTypeArgument argument : segment.arguments()) {
             if (argument.variance() == JavaTypeVariance.UNBOUNDED) {
               arguments.add(JavaBindingTypeArgument.unbounded());
+            } else if (kind == JavaReferenceKind.CLASS
+                && argument.variance() == JavaTypeVariance.EXTENDS) {
+              arguments.add(JavaBindingTypeArgument.unbounded());
             } else if (argument.variance() == JavaTypeVariance.EXACT) {
               JavaBindingType type =
                   bindingType(argument.type().orElseThrow(), variables, apiTypes);
@@ -1800,7 +2219,7 @@ public final class JarBindingSourceGenerator {
 
   private static String memberName(JavaBindingCallable callable) {
     return switch (callable.kind()) {
-      case INSTANCE_METHOD -> callable.name();
+      case INSTANCE_METHOD -> normIdentifier(callable.name());
       case INSTANCE_FIELD_GET -> "fieldGet" + fieldName(callable.name());
       case INSTANCE_FIELD_SET -> "fieldSet" + fieldName(callable.name());
       case ARRAY_CONSTRUCTOR, ARRAY_LENGTH, ARRAY_GET, ARRAY_SET ->
@@ -1808,6 +2227,26 @@ public final class JarBindingSourceGenerator {
       case CONSTRUCTOR, STATIC_METHOD, STATIC_FIELD_GET, STATIC_FIELD_SET ->
           throw new IllegalArgumentException("static binding cannot generate a member");
     };
+  }
+
+  private static String normIdentifier(String value) {
+    if (LanguageSyntax.isIdentifier(value)) return value;
+    StringBuilder result = new StringBuilder();
+    for (int offset = 0; offset < value.length(); ) {
+      int character = value.codePointAt(offset);
+      boolean valid =
+          result.isEmpty()
+              ? character == '_' || Character.isUnicodeIdentifierStart(character)
+              : Character.isUnicodeIdentifierPart(character);
+      if (valid) {
+        result.appendCodePoint(character);
+      } else {
+        result.append("_u").append(String.format(Locale.ROOT, "%04X", character)).append('_');
+      }
+      offset += Character.charCount(character);
+    }
+    String identifier = result.toString();
+    return LanguageSyntax.isIdentifier(identifier) ? identifier : identifier + "Value";
   }
 
   private static String normType(
@@ -1897,6 +2336,11 @@ public final class JarBindingSourceGenerator {
             case OUTPUT_STREAM -> "OutputStream" + (nonNullReference ? "" : "?");
             case TASK ->
                 "Task<"
+                    + normType(referenceElement(reference), normTypes, false)
+                    + ">"
+                    + (nonNullReference ? "" : "?");
+            case PUBLISHER ->
+                "Publisher<"
                     + normType(referenceElement(reference), normTypes, false)
                     + ">"
                     + (nonNullReference ? "" : "?");
@@ -2036,9 +2480,32 @@ public final class JarBindingSourceGenerator {
   private static String normBoundType(JavaBindingType type, NormTypes normTypes) {
     if (type instanceof JavaBindingTypeVariable variable) return variable.name();
     if (JavaGenericParameterProjector.isException(type)) return "Exception";
-    if (!(type instanceof JavaReferenceType reference)
-        || !JavaGenericParameterProjector.isComparable(reference)
-        || reference.arguments().size() != 1) {
+    if (!(type instanceof JavaReferenceType reference)) {
+      throw new IllegalArgumentException(
+          "Java generic bound cannot be represented in Norm: " + type.displayName());
+    }
+    if (reference.kind() == JavaReferenceKind.RESOURCE
+        && (reference.binaryName().equals("java.lang.AutoCloseable")
+            || reference.binaryName().equals("java.io.Closeable"))) {
+      return "Resource";
+    }
+    if (!JavaGenericParameterProjector.isComparable(reference)) {
+      if (!reference.arguments().isEmpty()
+          && (reference.kind() == JavaReferenceKind.OPAQUE
+              || reference.kind() == JavaReferenceKind.RESOURCE)) {
+        String mapped = normTypes.references().get(reference.binaryName());
+        if (mapped == null) {
+          throw new IllegalArgumentException(
+              "Java generic bound is not exported by this Module: " + type.displayName());
+        }
+        return mapped
+            + reference.arguments().stream()
+                .map(argument -> normClassTypeArgument(argument, normTypes))
+                .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+      }
+      return normType(reference, normTypes, true);
+    }
+    if (reference.arguments().size() != 1) {
       throw new IllegalArgumentException(
           "Java generic bound cannot be represented in Norm: " + type.displayName());
     }
@@ -2062,16 +2529,7 @@ public final class JarBindingSourceGenerator {
   }
 
   private static boolean containsException(JavaBindingType type) {
-    return switch (type) {
-      case JavaArrayType array -> containsException(array.component());
-      case JavaBindingTypeVariable variable -> containsException(variable.erasure());
-      case JavaCallbackType callback ->
-          callback.parameters().stream().anyMatch(JarBindingSourceGenerator::containsException)
-              || containsException(callback.returnType());
-      case JavaReferenceType reference -> reference.kind() == JavaReferenceKind.EXCEPTION;
-      case JavaBoxedType ignored -> false;
-      case JavaPrimitiveType ignored -> false;
-    };
+    return containsReferenceKind(type, JavaReferenceKind.EXCEPTION);
   }
 
   private static boolean containsPath(JavaBindingCallable callable) {
@@ -2230,11 +2688,6 @@ public final class JarBindingSourceGenerator {
         + callable.descriptor();
   }
 
-  private static boolean matches(String binaryName, String exportedName) {
-    String canonicalName = binaryName.replace('$', '.');
-    return canonicalName.equals(exportedName) || canonicalName.endsWith("." + exportedName);
-  }
-
   private static String exportPath(String selectedName, JavaApiType owner) {
     if (owner.enclosingType().isEmpty()) return selectedName;
     String binaryName = owner.binaryName();
@@ -2320,11 +2773,19 @@ public final class JarBindingSourceGenerator {
   private record NormTypes(
       Map<String, String> references,
       Map<String, String> referencePaths,
-      Map<JavaArrayType, String> arrays) {
+      Map<JavaArrayType, String> arrays,
+      Map<String, Map<String, String>> enumVariants,
+      Map<String, Integer> typeParameterCounts) {
     private NormTypes {
       references = Map.copyOf(references);
       referencePaths = Map.copyOf(referencePaths);
       arrays = Map.copyOf(arrays);
+      typeParameterCounts = Map.copyOf(typeParameterCounts);
+      enumVariants =
+          enumVariants.entrySet().stream()
+              .collect(
+                  java.util.stream.Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
     }
   }
 }

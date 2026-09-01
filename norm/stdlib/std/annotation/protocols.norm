@@ -108,6 +108,14 @@ public interface BinaryRetention extends AnnotationRetention {
 public interface RuntimeRetention extends AnnotationRetention {
 }
 
+@Document(description: "Allows multiple applications of the same annotation on one declaration.")
+public interface RepeatableAnnotation {
+}
+
+@Document(description: "Makes type annotation lookup include annotations inherited from parent classes.")
+public interface InheritedAnnotation {
+}
+
 @Document(description: "Attaches structured prose and declaration relationships directly to a code declaration.")
 public annotation Document implements PackageTarget, TypeTarget, FieldTarget, ConstructorTarget, FunctionTarget, ParameterTarget, LocalTarget, BinaryRetention {
   @Document(description: "The canonical prose description of the annotated declaration.")

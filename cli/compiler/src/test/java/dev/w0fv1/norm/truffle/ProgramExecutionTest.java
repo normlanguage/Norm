@@ -208,6 +208,19 @@ final class ProgramExecutionTest {
   }
 
   @Test
+  void reflectsInheritedTypeAnnotationsThroughTheClassHierarchy() throws Exception {
+    assertOutput(
+        "import std.annotation.TypeTarget import std.annotation.RuntimeRetention "
+            + "import std.annotation.InheritedAnnotation "
+            + "annotation Label implements TypeTarget, RuntimeRetention, InheritedAnnotation { "
+            + "String text } "
+            + "@Label(text: \"base\") class Base {} "
+            + "class Child extends Base { Child() { super() } } "
+            + "Void main() { printLine(Child.class.annotation<Label>()?.text ?? \"missing\") }",
+        "base" + System.lineSeparator());
+  }
+
+  @Test
   void reflectsGenericAndNullableDisplayNames() throws Exception {
     assertOutput(
         "String reflectedName<T>() { return T.class.name() } "
@@ -897,6 +910,16 @@ final class ProgramExecutionTest {
             + "printLine(nullable.containsKey(key: \"saved\")) "
             + "printLine(nullable.get(key: \"saved\") == null) }",
         String.join(System.lineSeparator(), "42", "-1", "true", "true", ""));
+  }
+
+  @Test
+  void createsAHostBackedMutableMapForJavaInterop() throws Exception {
+    assertOutput(
+        "import std.collections.MutableMap import std.collections.mutableMap "
+            + "Void main() { MutableMap<String, Integer> values = mutableMap() "
+            + "values.put(key: \"answer\", value: 42) "
+            + "printLine(values.get(key: \"answer\") ?? -1) }",
+        "42" + System.lineSeparator());
   }
 
   @Test

@@ -75,6 +75,8 @@ final class AnnotationChecker {
                 .map(AnnotationPolicy::interceptor)
                 .flatMap(Optional::stream)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        boolean repeatable = policies.stream().anyMatch(AnnotationPolicy::repeatable);
+        boolean inherited = policies.stream().anyMatch(AnnotationPolicy::inherited);
         Map<AnnotationTarget, List<SemanticType>> typedTargets = new LinkedHashMap<>();
         for (int index = 0; index < views.size(); index++) {
           SemanticType view = views.get(index);
@@ -98,6 +100,12 @@ final class AnnotationChecker {
           analyzer.context.diagnostics.error(
               TYPE_MISMATCH,
               "annotation must implement exactly one annotation retention interface",
+              declaration.nameSpan());
+        }
+        if (repeatable && !interceptors.isEmpty()) {
+          analyzer.context.diagnostics.error(
+              TYPE_MISMATCH,
+              "repeatable annotations cannot be invocation interceptors",
               declaration.nameSpan());
         }
         for (AnnotationTarget target :
@@ -156,6 +164,8 @@ final class AnnotationChecker {
                 declaration.name(),
                 targets,
                 retentions.stream().findFirst().orElse(AnnotationRetention.SOURCE),
+                repeatable,
+                inherited,
                 interceptors,
                 typedTargets.entrySet().stream()
                     .filter(entry -> entry.getValue().stream().distinct().count() == 1)
@@ -170,8 +180,12 @@ final class AnnotationChecker {
     }
   }
 
-  private static boolean isAnnotationValueType(SemanticType type) {
+  private boolean isAnnotationValueType(SemanticType type) {
     if (type.isFunction()) return true;
+    Syntax.EnumDecl enumeration = analyzer.typeSystem.resolveEnum(type.nonNullable());
+    if (enumeration != null) {
+      return enumeration.variants().stream().allMatch(variant -> variant.parameters().isEmpty());
+    }
     if (type.arguments().isEmpty()) {
       return Set.of("Boolean", "CodePoint", "Integer", "Long", "Float", "Double", "String")
           .contains(type.name());
@@ -193,6 +207,8 @@ final class AnnotationChecker {
         AnnotationAbi.target(module, owner.packageName(), declaration.name()),
         AnnotationAbi.retention(module, owner.packageName(), declaration.name()),
         AnnotationAbi.interceptor(module, owner.packageName(), declaration.name()),
+        AnnotationAbi.isRepeatableAnnotation(module, owner.packageName(), declaration.name()),
+        AnnotationAbi.isInheritedAnnotation(module, owner.packageName(), declaration.name()),
         AnnotationAbi.isPolicyInterface(module, owner.packageName(), declaration.name()));
   }
 
@@ -283,8 +299,8 @@ final class AnnotationChecker {
             || expression instanceof Syntax.DecimalLiteral
             || expression instanceof Syntax.StringLiteralExpr
             || expression instanceof Syntax.NullLiteral;
-    boolean declarationReference = isDeclarationReference(expression);
-    if (!literal && !declarationReference) {
+    boolean potentialDeclarationReference = expression instanceof Syntax.Member;
+    if (!literal && !potentialDeclarationReference) {
       analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "annotation argument must be a compile-time constant or declaration reference",
@@ -294,12 +310,18 @@ final class AnnotationChecker {
     SemanticType actual = analyzer.typeOf(expression, expected);
     analyzer.typeSystem.requireAssignable(expected, actual, expression.span());
     Optional<AnnotationDeclarationReference> reference =
-        declarationReference
+        potentialDeclarationReference
             ? declarationReference((Syntax.Member) expression, actual)
             : Optional.empty();
-    if (declarationReference && reference.isEmpty()) return Optional.empty();
+    if (potentialDeclarationReference && reference.isEmpty()) {
+      analyzer.context.diagnostics.error(
+          TYPE_MISMATCH,
+          "annotation argument must be a compile-time constant or declaration reference",
+          expression.span());
+      return Optional.empty();
+    }
     AnnotationValue.Content value =
-        declarationReference
+        potentialDeclarationReference
             ? reference.orElseThrow()
             : switch (expression) {
               case Syntax.BooleanLiteral item -> new AnnotationValue.Literal(item.value());
@@ -313,24 +335,30 @@ final class AnnotationChecker {
     return Optional.of(new AnnotationValue(expected, value));
   }
 
-  private static boolean isDeclarationReference(Syntax.Expression expression) {
-    return expression instanceof Syntax.Member member
-        && (member.name().equals("class")
-            || member.name().equals("function")
-            || member.name().equals("field"));
-  }
-
   private Optional<AnnotationDeclarationReference> declarationReference(
       Syntax.Member member, SemanticType actualType) {
     SymbolId target = analyzer.context.bindings.get(member.nameSpan());
     if (target == null) return Optional.empty();
-    AnnotationDeclarationReference.Kind kind =
-        switch (member.name()) {
-          case "class" -> AnnotationDeclarationReference.Kind.CLASS;
-          case "function" -> AnnotationDeclarationReference.Kind.CALLABLE;
-          case "field" -> AnnotationDeclarationReference.Kind.FIELD;
-          default -> throw new IllegalStateException("invalid annotation declaration reference");
-        };
+    dev.w0fv1.norm.semantic.Symbol symbol = analyzer.context.symbols.get(target);
+    if (symbol != null && symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.ENUM_VARIANT) {
+      if (!symbol.parameters().isEmpty()) {
+        analyzer.context.diagnostics.error(
+            TYPE_MISMATCH, "annotation enum value must not have a payload", member.span());
+        return Optional.empty();
+      }
+      return Optional.of(
+          new AnnotationDeclarationReference(
+              AnnotationDeclarationReference.Kind.ENUM_VARIANT, target, actualType, member.span()));
+    }
+    AnnotationDeclarationReference.Kind kind;
+    switch (member.name()) {
+      case "class" -> kind = AnnotationDeclarationReference.Kind.CLASS;
+      case "function" -> kind = AnnotationDeclarationReference.Kind.CALLABLE;
+      case "field" -> kind = AnnotationDeclarationReference.Kind.FIELD;
+      default -> {
+        return Optional.empty();
+      }
+    }
     return Optional.of(new AnnotationDeclarationReference(kind, target, actualType, member.span()));
   }
 
@@ -513,7 +541,7 @@ final class AnnotationChecker {
       AnnotationSchema schema = analyzer.context.annotationSchemas.get(annotation);
       if (schema == null) continue;
       boolean duplicate = !indexedAnnotationApplications.add(applicationKey(annotation, target));
-      if (duplicate) {
+      if (duplicate && !schema.repeatable()) {
         analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "duplicate annotation '" + use.name() + "' on the same target",
@@ -611,7 +639,9 @@ final class AnnotationChecker {
         annotationConstant(argument.value(), SemanticType.DYNAMIC);
         complete = false;
       }
-      if (!duplicate && complete && values.size() == schema.parameters().size()) {
+      if ((!duplicate || schema.repeatable())
+          && complete
+          && values.size() == schema.parameters().size()) {
         analyzer.context.annotationApplications.add(
             new AnnotationApplication(annotation, target, values, use.span()));
       }
@@ -640,9 +670,12 @@ final class AnnotationChecker {
       Optional<AnnotationTarget> target,
       Optional<AnnotationRetention> retention,
       Optional<AnnotationTarget> interceptor,
+      boolean repeatable,
+      boolean inherited,
       boolean policyInterface) {
     private static final AnnotationPolicy NONE =
-        new AnnotationPolicy(Optional.empty(), Optional.empty(), Optional.empty(), false);
+        new AnnotationPolicy(
+            Optional.empty(), Optional.empty(), Optional.empty(), false, false, false);
   }
 
   private record PackageIdentity(

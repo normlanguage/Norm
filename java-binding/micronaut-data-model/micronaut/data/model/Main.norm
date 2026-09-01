@@ -1,0 +1,17 @@
+package micronaut.data.model
+
+import micronaut.data.model.annotation.MappedEntity
+import micronaut.data.model.pageableFrom
+
+@MappedEntity(value: "messages")
+class Message {
+}
+
+Void main() {
+  if Message.class.annotation<MappedEntity>() != null {
+    printLine("mapped entity")
+  }
+  var pageable = pageableFrom(arg0: 2, arg1: 25)
+  printLine(pageable?.getNumber() ?? 0)
+  printLine(pageable?.getSize() ?? 0)
+}

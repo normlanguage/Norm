@@ -1122,7 +1122,8 @@ final class RuntimeValues {
     }
   }
 
-  sealed interface DispatchTarget permits DispatchTarget.Callable, DispatchTarget.Intrinsic {
+  sealed interface DispatchTarget
+      permits DispatchTarget.Callable, DispatchTarget.HostMethod, DispatchTarget.Intrinsic {
     record Callable(
         CallTarget target,
         List<CoreType> receiverTypeArguments,
@@ -1139,6 +1140,12 @@ final class RuntimeValues {
 
       Callable(CallTarget target, List<CoreType> receiverTypeArguments) {
         this(target, receiverTypeArguments, true);
+      }
+    }
+
+    record HostMethod(DefinitionId definition) implements DispatchTarget {
+      public HostMethod {
+        Objects.requireNonNull(definition, "definition");
       }
     }
 
@@ -1198,6 +1205,7 @@ final class RuntimeValues {
     final CoreType type;
     final Object[] fields;
     Object hostValue;
+    boolean dispatchToHost;
 
     ObjectValue(ObjectInfo objectInfo, CoreType type) {
       this.objectInfo = objectInfo;

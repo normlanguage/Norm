@@ -1,0 +1,54 @@
+Module module() {
+  return module(
+    name: "micronaut.data.model",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.data",
+        artifact: "micronaut-data-model",
+        version: "5.1.3",
+        resolution: sha256("ae3b28dd11cf76a11ba90abc0faa6fd1f7cbb4c9cc30442c5870ae842b5ac4fb")
+      ),
+      api: [
+        jarType(name: "annotation.MappedEntity", members: ["value"]),
+        jarType(name: "annotation.Id", members: []),
+        jarType(name: "annotation.GeneratedValue", members: ["value"]),
+        jarType(name: "annotation.GeneratedValue.Type", members: []),
+        jarType(name: "annotation.DateCreated", members: []),
+        jarType(name: "annotation.DateUpdated", members: []),
+        jarType(
+          name: "repository.CrudRepository",
+          members: [],
+          overloads: [
+            jarOverload(name: "count", parameterTypes: []),
+            jarOverload(name: "delete", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "deleteAll", parameterTypes: []),
+            jarOverload(name: "deleteById", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "existsById", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "findAll", parameterTypes: []),
+            jarOverload(name: "findById", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "save", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "saveAll", parameterTypes: ["java.lang.Iterable"])
+          ]
+        ),
+        jarType(
+          name: "repository.PageableRepository",
+          members: [],
+          overloads: [
+            jarOverload(name: "findAll", parameterTypes: ["io.micronaut.data.model.Pageable"])
+          ]
+        ),
+        jarType(
+          name: "Pageable",
+          members: ["getNumber", "getOffset", "getSize", "isUnpaged", "next", "previous"],
+          overloads: [jarOverload(name: "from", parameterTypes: ["int", "int"])]
+        ),
+        jarType(
+          name: "Page",
+          members: ["getContent", "getNumberOfElements", "getTotalPages", "getTotalSize", "hasNext", "hasTotalSize", "isEmpty"]
+        ),
+        jarType(name: "model.query.builder.sql.Dialect", members: [])
+      ]
+    )
+  )
+}

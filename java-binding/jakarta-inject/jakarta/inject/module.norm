@@ -1,0 +1,22 @@
+Module module() {
+  return module(
+    name: "jakarta.inject",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "jakarta.inject",
+        artifact: "jakarta.inject-api",
+        version: "2.0.1",
+        resolution: sha256("f7dc98062fccf14126abb751b64fab12c312566e8cbdc8483598bffcea93af7c")
+      ),
+      api: [
+        jarType(name: "Inject", members: []),
+        jarType(name: "Named", members: ["value"]),
+        jarType(name: "Provider", members: ["get"]),
+        jarType(name: "Qualifier", members: []),
+        jarType(name: "Scope", members: []),
+        jarType(name: "Singleton", members: [])
+      ]
+    )
+  )
+}

@@ -13,6 +13,8 @@ public record AnnotationSchema(
     String name,
     Set<AnnotationTarget> targets,
     AnnotationRetention retention,
+    boolean repeatable,
+    boolean inherited,
     Set<AnnotationTarget> interceptors,
     Map<AnnotationTarget, SemanticType> targetTypes,
     List<AnnotationParameterInfo> parameters) {

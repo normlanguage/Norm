@@ -9,7 +9,8 @@ public record GeneratedJarBinding(
     List<GeneratedBindingSource> sources,
     Map<String, JavaBindingCallable> calls,
     Map<JarBindingClassReference.Nominal, String> classDescriptors,
-    Map<JarBindingClassReference.Nominal, Map<String, String>> enumConstants) {
+    Map<JarBindingClassReference.Nominal, Map<String, String>> enumConstants,
+    Map<JarBindingClassReference.Nominal, JavaAnnotationBinding> annotations) {
   public GeneratedJarBinding {
     exports = List.copyOf(exports);
     sources = List.copyOf(sources);
@@ -20,5 +21,6 @@ public record GeneratedJarBinding(
             .collect(
                 java.util.stream.Collectors.toUnmodifiableMap(
                     Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
+    annotations = Map.copyOf(annotations);
   }
 }
