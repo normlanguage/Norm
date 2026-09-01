@@ -28,6 +28,7 @@ Runtime: execution contracts → Truffle → platform adapter
 - [工具链开发规范](/design/toolchain-development)：模块职责与验证约束；
 - [系统运行时架构](/design/system-runtime)：I/O、资源和平台适配；
 - [序列化运行时架构](/design/serialization-runtime)：结构元数据与 mapper；
+- [Java Library Adapter](/design/java-library-adapters)：单根 JAR、普通 Module 身份、内容寻址与发布边界；
 - [编译器引导计划](/design/bootstrap-plan)：自举边界。
 
 性能目标只记录可验证预算，不从架构反推未经测量的性能结论。当前对外能力见 [Status](/status)。
