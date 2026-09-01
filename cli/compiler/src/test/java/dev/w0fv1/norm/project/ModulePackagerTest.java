@@ -19,6 +19,77 @@ final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void packagesBinaryModuleResourcesAndMaterializesThemForConsumers() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("library/example/assets"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() {
+          return module(name: "example.assets", version: 1, exports: ["Library"])
+        }
+        """);
+    Files.writeString(
+        module.resolve("Library.norm"),
+        """
+        package example.assets
+        public String libraryName() { return "assets" }
+        """);
+    byte[] icon = new byte[] {0, 1, 2, -1};
+    Path resource = module.resolve("resources/public/icon.bin");
+    Files.createDirectories(resource.getParent());
+    Files.write(resource, icon);
+    Path repository = temporaryDirectory.resolve("repository");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    ModulePackager.PackagedModule packaged;
+    try (ProjectLoader projects = environment.projectLoader()) {
+      packaged = new ModulePackager(projects).packageModule(modulePath, repository);
+    }
+    try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
+      var entry = archive.getEntry("resources/public/icon.bin");
+      assertTrue(entry != null);
+      assertTrue(java.util.Arrays.equals(icon, archive.getInputStream(entry).readAllBytes()));
+    }
+
+    Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() {
+          return module(
+            name: "sample",
+            version: 1,
+            exports: ["Main"],
+            dependencies: [dependency(name: "example.assets", version: 1)]
+          )
+        }
+        """);
+    Files.writeString(
+        entry,
+        """
+        package sample
+        import example.assets.libraryName
+        Void main() { printLine(libraryName()) }
+        """);
+    NormRuntime backend = new NormRuntime();
+    ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
+    try (ProjectLauncher launcher =
+        new ProjectLauncher(
+            consumerEnvironment.projectLoader(repository),
+            consumerEnvironment.compilerSession(),
+            backend)) {
+      var result = launcher.compile(entry);
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    assertTrue(
+        java.util.Arrays.equals(
+            icon,
+            Files.readAllBytes(
+                app.getParent().resolve("build/norm/java/classes/public/icon.bin"))));
+  }
+
+  @Test
   void packagesARuntimeAdapterWithoutAPublicApi() throws Exception {
     Path module = Files.createDirectories(temporaryDirectory.resolve("sources/empty/adapter"));
     Path modulePath = module.resolve("module.norm");

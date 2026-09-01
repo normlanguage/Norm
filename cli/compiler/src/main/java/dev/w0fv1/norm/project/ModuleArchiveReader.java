@@ -38,6 +38,7 @@ final class ModuleArchiveReader {
       }
       ModuleDescriptor descriptor = descriptor(manifest);
       Map<String, String> sources = new LinkedHashMap<>();
+      Map<String, ModuleResource> resources = new LinkedHashMap<>();
       var entries = zip.entries();
       String prefix = "sources/";
       while (entries.hasMoreElements()) {
@@ -52,13 +53,27 @@ final class ModuleArchiveReader {
           }
         }
       }
+      entries = zip.entries();
+      prefix = "resources/";
+      while (entries.hasMoreElements()) {
+        var entry = entries.nextElement();
+        if (entry.isDirectory() || !entry.getName().startsWith(prefix)) continue;
+        String relativePath = entry.getName().substring(prefix.length());
+        try (var input = zip.getInputStream(entry)) {
+          ModuleResource resource = new ModuleResource(relativePath, input.readAllBytes());
+          if (resources.putIfAbsent(relativePath, resource) != null) {
+            throw new IOException("duplicate module resource " + relativePath);
+          }
+        }
+      }
       return new ArchivedModule(
           descriptor,
           manifest.has("jar")
               ? Optional.of(
                   Sha256Digest.parse(manifest.getAsJsonObject("jar").get("apiId").getAsString()))
               : Optional.empty(),
-          sources);
+          sources,
+          resources);
     } catch (RuntimeException exception) {
       throw new IOException("invalid module archive " + archive, exception);
     }
@@ -120,7 +135,10 @@ final class ModuleArchiveReader {
   }
 
   record ArchivedModule(
-      ModuleDescriptor descriptor, Optional<Sha256Digest> javaApiId, Map<String, String> sources) {
+      ModuleDescriptor descriptor,
+      Optional<Sha256Digest> javaApiId,
+      Map<String, String> sources,
+      Map<String, ModuleResource> resources) {
     ArchivedModule {
       java.util.Objects.requireNonNull(descriptor, "descriptor");
       java.util.Objects.requireNonNull(javaApiId, "javaApiId");
@@ -128,6 +146,7 @@ final class ModuleArchiveReader {
         throw new IllegalArgumentException("module JAR binding identity is incomplete");
       }
       sources = Map.copyOf(sources);
+      resources = Map.copyOf(resources);
     }
   }
 }

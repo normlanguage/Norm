@@ -29,7 +29,8 @@ public record ProjectSourceSet(
     List<SourceFile> sources,
     Set<Path> exportedSourcePaths,
     Set<DocumentId> bindingSourceDocuments,
-    List<ResolvedJarBinding> jarBindings) {
+    List<ResolvedJarBinding> jarBindings,
+    Map<String, ModuleResource> resources) {
   public ProjectSourceSet {
     root = normalize(Objects.requireNonNull(root, "root"));
     primaryPath = normalize(Objects.requireNonNull(primaryPath, "primaryPath"));
@@ -50,6 +51,7 @@ public record ProjectSourceSet(
     Objects.requireNonNull(exportedSourcePaths, "exportedSourcePaths");
     Objects.requireNonNull(bindingSourceDocuments, "bindingSourceDocuments");
     jarBindings = List.copyOf(jarBindings);
+    resources = Map.copyOf(resources);
 
     Map<Path, SourceFile> sourcesByPath = new LinkedHashMap<>();
     for (SourceFile source : sources) {

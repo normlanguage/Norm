@@ -5,7 +5,7 @@ import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.jvm.JavaAnnotationProcessingException;
+import dev.w0fv1.norm.jvm.ClasspathResourceMaterializer;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessingOutput;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessorPipeline;
 import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
@@ -26,12 +26,14 @@ public final class ProjectLauncher implements AutoCloseable {
   private final CompilerSession compiler;
   private final ExecutionBackend backend;
   private final JavaAnnotationProcessorPipeline annotationProcessors;
+  private final ClasspathResourceMaterializer resources;
 
   ProjectLauncher(ProjectLoader projects, CompilerSession compiler, ExecutionBackend backend) {
     this.projects = Objects.requireNonNull(projects, "projects");
     this.compiler = Objects.requireNonNull(compiler, "compiler");
     this.backend = Objects.requireNonNull(backend, "backend");
     this.annotationProcessors = new JavaAnnotationProcessorPipeline();
+    this.resources = new ClasspathResourceMaterializer();
   }
 
   public CompilationResult compile(Path entry) throws IOException {
@@ -98,8 +100,9 @@ public final class ProjectLauncher implements AutoCloseable {
               request.scope(),
               request.entryDocument(),
               request.bindingSources());
+      resources.materialize(output.classes(), sourceSet.resources());
       return new PreparedCompilation(result, Optional.of(output));
-    } catch (JavaAnnotationProcessingException exception) {
+    } catch (IOException exception) {
       var diagnostics = new ArrayList<>(result.diagnostics());
       diagnostics.add(
           Diagnostic.error(

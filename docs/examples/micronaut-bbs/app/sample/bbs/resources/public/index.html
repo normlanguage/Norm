@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#171714">
+    <title>Norm BBS</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Norm BBS 首页">
+        <span class="brand-mark">N</span>
+        <span>Norm BBS</span>
+      </a>
+      <div id="account" class="account"></div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">BUILT WITH NORM · RUNNING ON MICRONAUT</p>
+        <h1>把想法留在这里。</h1>
+        <p>一个由纯 Norm 编写的轻量社区，Java 框架能力通过 NAR 自然接入。</p>
+      </section>
+
+      <div id="notice" class="notice" role="status" hidden></div>
+
+      <section id="authPanel" class="auth-grid">
+        <form id="loginForm" class="panel">
+          <div>
+            <p class="eyebrow">WELCOME BACK</p>
+            <h2>登录</h2>
+          </div>
+          <label>用户名<input name="username" autocomplete="username" required></label>
+          <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
+          <button type="submit">进入社区</button>
+        </form>
+        <form id="registerForm" class="panel panel-muted">
+          <div>
+            <p class="eyebrow">NEW HERE</p>
+            <h2>创建账号</h2>
+          </div>
+          <label>用户名<input name="username" autocomplete="username" required></label>
+          <label>密码<input name="password" type="password" autocomplete="new-password" required></label>
+          <button type="submit" class="secondary">注册</button>
+        </form>
+      </section>
+
+      <section class="workspace">
+        <aside class="sidebar panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">CHANNELS</p><h2>板块</h2></div>
+          </div>
+          <nav id="boards" class="board-list" aria-label="BBS 板块"></nav>
+          <form id="boardForm" class="compact-form" hidden>
+            <input name="name" placeholder="新板块名称" required>
+            <button type="submit" class="icon-button" aria-label="新建板块">+</button>
+          </form>
+        </aside>
+
+        <section class="feed">
+          <div class="feed-heading">
+            <div><p class="eyebrow">LATEST DISCUSSIONS</p><h2>最新主题</h2></div>
+            <button id="composeButton" type="button" hidden>发布主题</button>
+          </div>
+          <div id="topics" class="topic-list"></div>
+          <div class="pagination">
+            <button id="previousPage" type="button" class="secondary">上一页</button>
+            <span id="pageLabel"></span>
+            <button id="nextPage" type="button" class="secondary">下一页</button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="composeDialog">
+      <form id="topicForm" method="dialog" class="dialog-form">
+        <div class="dialog-heading"><div><p class="eyebrow">NEW TOPIC</p><h2>发布主题</h2></div><button value="cancel" class="close" aria-label="关闭">×</button></div>
+        <label>板块<select name="boardId" id="boardSelect" required></select></label>
+        <label>标题<input name="title" maxlength="120" required></label>
+        <label>内容<textarea name="content" rows="7" required></textarea></label>
+        <button type="submit" value="default">发布</button>
+      </form>
+    </dialog>
+
+    <dialog id="topicDialog" class="topic-dialog">
+      <article>
+        <div class="dialog-heading"><div><p id="topicMeta" class="eyebrow"></p><h2 id="topicTitle"></h2></div><button id="closeTopic" class="close" aria-label="关闭">×</button></div>
+        <p id="topicContent" class="topic-content"></p>
+        <div class="reply-heading"><h3>回复</h3><span id="replyCount"></span></div>
+        <div id="replies" class="reply-list"></div>
+        <form id="replyForm" class="reply-form" hidden>
+          <textarea name="content" rows="3" placeholder="写下你的回复……" required></textarea>
+          <button type="submit">回复</button>
+        </form>
+      </article>
+    </dialog>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

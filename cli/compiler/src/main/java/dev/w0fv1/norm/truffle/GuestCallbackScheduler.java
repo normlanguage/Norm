@@ -32,10 +32,15 @@ final class GuestCallbackScheduler implements AutoCloseable {
         request = requests.poll(10, TimeUnit.MILLISECONDS);
       } catch (InterruptedException failure) {
         Thread.currentThread().interrupt();
+        if (completed.getAsBoolean()) return;
         throw new IllegalStateException("Norm callback wait was interrupted", failure);
       }
       if (request != null) request.run();
     }
+  }
+
+  void runUntilCancellation() {
+    runUntil(() -> Thread.currentThread().isInterrupted());
   }
 
   @Override

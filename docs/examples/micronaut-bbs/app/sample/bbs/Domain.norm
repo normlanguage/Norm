@@ -17,6 +17,7 @@ import micronaut.data.model.repository.PageableRepository
 import micronaut.data.tx.annotation.Transactional
 import micronaut.inject.context.annotation.Prototype
 import micronaut.serde.api.annotation.Serdeable
+import std.collections.MutableList
 
 @Serdeable()
 @Introspected(accessKind: [IntrospectedAccessKind.FIELD])
@@ -82,6 +83,7 @@ class AccountService {
   UserRepository userQueries
   CrudRepository<UserEntity, Long> users
   CrudRepository<SessionEntity, Long> sessions
+  SessionRepository sessionQueries
 
   @Inject()
   AccountService(
@@ -93,6 +95,7 @@ class AccountService {
     this.userQueries = users
     this.users = users
     this.sessions = sessions
+    this.sessionQueries = sessions
   }
 
   @Transactional()
@@ -120,6 +123,14 @@ class AccountService {
         sessions.save<SessionEntity>(session)
         return token
       }
+    }
+    return ""
+  }
+
+  String usernameForToken(String token) {
+    SessionEntity? session = sessionQueries.findByToken(token)
+    if session != null {
+      return session.username
     }
     return ""
   }
@@ -173,6 +184,7 @@ interface TopicRepository extends PageableRepository<TopicEntity, Long> {
 
 @JdbcRepository(dialect: Dialect.H2)
 interface ReplyRepository extends CrudRepository<ReplyEntity, Long> {
+  MutableList<ReplyEntity?>? findByTopicIdOrderByIdAsc(Long topicId)
 }
 
 @Prototype()
@@ -180,6 +192,7 @@ class ForumService {
   CrudRepository<BoardEntity, Long> boards
   PageableRepository<TopicEntity, Long> topics
   CrudRepository<ReplyEntity, Long> replies
+  ReplyRepository replyQueries
 
   @Inject()
   ForumService(
@@ -190,6 +203,7 @@ class ForumService {
     this.boards = boards
     this.topics = topics
     this.replies = replies
+    this.replyQueries = replies
   }
 
   @Transactional()
@@ -209,6 +223,18 @@ class ForumService {
 
   Long topicCount() {
     return topics.count()
+  }
+
+  MutableList<BoardEntity?>? allBoards() {
+    return boards.findAll()
+  }
+
+  TopicEntity? topic(Long id) {
+    return topics.findById(id)
+  }
+
+  MutableList<ReplyEntity?>? repliesForTopic(Long topicId) {
+    return replyQueries.findByTopicIdOrderByIdAsc(topicId)
   }
 
   Page<TopicEntity?>? topicPage(Integer page, Integer size) {

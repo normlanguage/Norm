@@ -10,6 +10,7 @@ Module module() {
       "core.unit",
       "collections.sequences",
       "collections.mutable",
+      "concurrent.lifecycle",
       "concurrent.publishers",
       "concurrent.tasks",
       "filesystem.files",

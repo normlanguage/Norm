@@ -259,16 +259,47 @@ final class MicronautBindingIntegrationTest {
             "Domain.norm",
             "Web.norm",
             "Main.norm",
+            "Smoke.norm",
             "BbsTest.norm")) {
       Files.copy(
           example.resolve(source),
           module.resolve(source),
           java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     }
+    try (var resources = Files.walk(example.resolve("resources"))) {
+      for (Path resource : resources.toList()) {
+        Path target =
+            module
+                .resolve("resources")
+                .resolve(example.resolve("resources").relativize(resource).toString());
+        if (Files.isDirectory(resource)) Files.createDirectories(target);
+        else Files.copy(resource, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      }
+    }
     Path entry = module.resolve("Main.norm");
-    ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
+    ProjectEnvironment mainEnvironment = ProjectEnvironment.bootstrap(backend);
+    try (ProjectLauncher launcher =
+        new ProjectLauncher(
+            mainEnvironment.projectLoader(repository, jarCache),
+            mainEnvironment.compilerSession(),
+            backend)) {
+      var mainCompilation = launcher.compile(entry);
+      assertTrue(mainCompilation.isSuccess(), () -> mainCompilation.diagnostics().toString());
+    }
+    Files.writeString(
+        entry,
+        "package sample.bbs"
+            + System.lineSeparator()
+            + System.lineSeparator()
+            + "Void main() {"
+            + System.lineSeparator()
+            + "  runBbsSmoke()"
+            + System.lineSeparator()
+            + "}"
+            + System.lineSeparator());
     StringWriter output = new StringWriter();
     ProjectTestResult tests;
+    ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
     try (ProjectLauncher launcher =
         new ProjectLauncher(
             consumerEnvironment.projectLoader(repository, jarCache),
@@ -316,7 +347,7 @@ final class MicronautBindingIntegrationTest {
             "401",
             "401",
             "200",
-            "norm session",
+            "norm",
             ""),
         output.toString());
 
@@ -391,17 +422,49 @@ final class MicronautBindingIntegrationTest {
           URI root = URI.create(concurrentInput.readLine()).resolve("/bbs/");
           HttpClient client =
               HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-          HttpRequest board =
-              HttpRequest.newBuilder(root.resolve("boards"))
-                  .header("Content-Type", "application/json")
-                  .POST(HttpRequest.BodyPublishers.ofString("{\"name\":\"General\"}"))
-                  .build();
-          HttpRequest topic =
-              HttpRequest.newBuilder(root.resolve("topics"))
+          HttpResponse<String> page =
+              client.send(
+                  HttpRequest.newBuilder(root.resolve("/")).GET().build(),
+                  HttpResponse.BodyHandlers.ofString());
+          assertEquals(200, page.statusCode());
+          assertTrue(page.body().contains("Norm BBS"));
+          assertEquals(
+              200,
+              client
+                  .send(
+                      HttpRequest.newBuilder(root.resolve("/styles.css")).GET().build(),
+                      HttpResponse.BodyHandlers.discarding())
+                  .statusCode());
+          HttpRequest registration =
+              HttpRequest.newBuilder(root.resolve("users"))
                   .header("Content-Type", "application/json")
                   .POST(
                       HttpRequest.BodyPublishers.ofString(
-                          "{\"boardId\":1,\"author\":\"norm\",\"title\":\"Concurrent\",\"content\":\"Concurrent topic\"}"))
+                          "{\"username\":\"norm\",\"password\":\"password\"}"))
+                  .build();
+          assertEquals(
+              200, client.send(registration, HttpResponse.BodyHandlers.ofString()).statusCode());
+          HttpRequest login =
+              HttpRequest.newBuilder(root.resolve("sessions"))
+                  .header("Content-Type", "application/json")
+                  .POST(
+                      HttpRequest.BodyPublishers.ofString(
+                          "{\"username\":\"norm\",\"password\":\"password\"}"))
+                  .build();
+          assertEquals(200, client.send(login, HttpResponse.BodyHandlers.ofString()).statusCode());
+          HttpRequest board =
+              HttpRequest.newBuilder(root.resolve("session/boards"))
+                  .header("Content-Type", "application/json")
+                  .header("X-Session", "session-norm")
+                  .POST(HttpRequest.BodyPublishers.ofString("{\"name\":\"General\"}"))
+                  .build();
+          HttpRequest topic =
+              HttpRequest.newBuilder(root.resolve("session/topics"))
+                  .header("Content-Type", "application/json")
+                  .header("X-Session", "session-norm")
+                  .POST(
+                      HttpRequest.BodyPublishers.ofString(
+                          "{\"boardId\":1,\"title\":\"Concurrent\",\"content\":\"Concurrent topic\"}"))
                   .build();
           assertEquals(200, client.send(board, HttpResponse.BodyHandlers.ofString()).statusCode());
           assertEquals(200, client.send(topic, HttpResponse.BodyHandlers.ofString()).statusCode());
@@ -409,13 +472,12 @@ final class MicronautBindingIntegrationTest {
           List<CompletableFuture<HttpResponse<String>>> replies = new ArrayList<>();
           for (int index = 0; index < 12; index++) {
             HttpRequest reply =
-                HttpRequest.newBuilder(root.resolve("replies"))
+                HttpRequest.newBuilder(root.resolve("session/replies"))
                     .header("Content-Type", "application/json")
+                    .header("X-Session", "session-norm")
                     .POST(
                         HttpRequest.BodyPublishers.ofString(
-                            "{\"topicId\":1,\"author\":\"norm\",\"content\":\"Reply "
-                                + index
-                                + "\"}"))
+                            "{\"topicId\":1,\"content\":\"Reply " + index + "\"}"))
                     .build();
             replies.add(client.sendAsync(reply, HttpResponse.BodyHandlers.ofString()));
           }

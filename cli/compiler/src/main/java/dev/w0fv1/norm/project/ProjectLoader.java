@@ -70,7 +70,8 @@ public final class ProjectLoader implements AutoCloseable {
           List.of(entrySource),
           Set.of(),
           Set.of(),
-          List.of());
+          List.of(),
+          Map.of());
     }
 
     SourceFile moduleSource = location.module().orElseThrow();
@@ -93,6 +94,7 @@ public final class ProjectLoader implements AutoCloseable {
     Map<ModuleCoordinate, Set<ModuleCoordinate>> dependencies = new LinkedHashMap<>();
     Set<DocumentId> bindingSources = new LinkedHashSet<>();
     List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
+    Map<String, ModuleResource> resources = new LinkedHashMap<>();
     for (ResolvedModule module : graph) {
       dependencies.put(
           module.descriptor().coordinate(),
@@ -102,6 +104,11 @@ public final class ProjectLoader implements AutoCloseable {
       modulePaths.add(normalize(module.moduleSource().path()));
       bindingSources.addAll(module.bindingSources());
       module.binding().ifPresent(jarBindings::add);
+      for (ModuleResource resource : module.resources().values()) {
+        if (resources.putIfAbsent(resource.path(), resource) != null) {
+          throw new IOException("duplicate module resource " + resource.path());
+        }
+      }
       exportedSources.addAll(
           module.exportedSources().stream()
               .map(DocumentId::uri)
@@ -124,7 +131,8 @@ public final class ProjectLoader implements AutoCloseable {
         sources,
         exportedSources,
         bindingSources,
-        jarBindings);
+        jarBindings,
+        resources);
   }
 
   private List<ResolvedModule> resolveGraph(
@@ -312,7 +320,8 @@ public final class ProjectLoader implements AutoCloseable {
         loaded.sources(),
         exportedSources(loaded, bindingSources),
         bindingSources,
-        binding);
+        binding,
+        archived.resources());
   }
 
   private void requireAvailableModuleName(ModuleDescriptor descriptor) throws IOException {
@@ -352,6 +361,8 @@ public final class ProjectLoader implements AutoCloseable {
     }
     ModuleLoader.LoadedModule loaded =
         new ModuleLoader().load(new MemoryResolver(sources), descriptor);
+    Map<String, ModuleResource> resources =
+        collectResources(normalize(moduleSource.path()).getParent());
     return new ResolvedModule(
         normalize(root),
         moduleSource,
@@ -359,7 +370,8 @@ public final class ProjectLoader implements AutoCloseable {
         loaded.sources(),
         exportedSources(loaded, bindingSources),
         bindingSources,
-        binding);
+        binding,
+        resources);
   }
 
   public Path projectRoot(SourceFile source, Collection<SourceFile> overlays) {
@@ -414,7 +426,8 @@ public final class ProjectLoader implements AutoCloseable {
       throw new IllegalArgumentException("source is not a module configuration");
     }
     ResolvedModule resolved = resolveModule(source, Map.of());
-    return new ModuleArchiveContents(resolved.descriptor(), resolved.sources(), resolved.binding());
+    return new ModuleArchiveContents(
+        resolved.descriptor(), resolved.sources(), resolved.binding(), resolved.resources());
   }
 
   private static ResolvedJarBinding generateJarBinding(
@@ -501,6 +514,19 @@ public final class ProjectLoader implements AutoCloseable {
         .sorted(Map.Entry.comparingByKey(Comparator.comparing(Path::toString)))
         .forEach(source -> sources.put(relativePath(root, source.getKey()), source.getValue()));
     return sources;
+  }
+
+  private static Map<String, ModuleResource> collectResources(Path moduleRoot) throws IOException {
+    Path root = normalize(moduleRoot.resolve("resources"));
+    if (!Files.isDirectory(root)) return Map.of();
+    Map<String, ModuleResource> resources = new LinkedHashMap<>();
+    try (var paths = Files.walk(root)) {
+      for (Path path : paths.filter(Files::isRegularFile).sorted().toList()) {
+        String relative = relativePath(root, path);
+        resources.put(relative, new ModuleResource(relative, Files.readAllBytes(path)));
+      }
+    }
+    return Map.copyOf(resources);
   }
 
   private static ProjectLocation locate(Path entry, Map<Path, SourceFile> overlays)
@@ -624,7 +650,8 @@ public final class ProjectLoader implements AutoCloseable {
       Map<String, SourceFile> sources,
       Set<DocumentId> exportedSources,
       Set<DocumentId> bindingSources,
-      Optional<ResolvedJarBinding> binding) {
+      Optional<ResolvedJarBinding> binding,
+      Map<String, ModuleResource> resources) {
     private ResolvedModule {
       root = normalize(root);
       Objects.requireNonNull(moduleSource, "moduleSource");
@@ -633,17 +660,20 @@ public final class ProjectLoader implements AutoCloseable {
       exportedSources = Set.copyOf(exportedSources);
       bindingSources = Set.copyOf(bindingSources);
       Objects.requireNonNull(binding, "binding");
+      resources = Map.copyOf(resources);
     }
   }
 
   record ModuleArchiveContents(
       ModuleDescriptor descriptor,
       Map<String, SourceFile> sources,
-      Optional<ResolvedJarBinding> binding) {
+      Optional<ResolvedJarBinding> binding,
+      Map<String, ModuleResource> resources) {
     ModuleArchiveContents {
       Objects.requireNonNull(descriptor, "descriptor");
       sources = Map.copyOf(sources);
       Objects.requireNonNull(binding, "binding");
+      resources = Map.copyOf(resources);
     }
   }
 

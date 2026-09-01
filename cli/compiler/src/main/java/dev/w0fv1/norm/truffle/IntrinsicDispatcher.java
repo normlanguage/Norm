@@ -304,6 +304,11 @@ public final class IntrinsicDispatcher {
         context.expectedOutput().println(RuntimeValues.stringify(first));
         yield null;
       }
+      case AWAIT_CANCELLATION -> {
+        if (execution == null) throw new IllegalStateException("execution runtime is unavailable");
+        execution.callbacks().runUntilCancellation();
+        yield null;
+      }
       case REQUIRE_ARGUMENT -> {
         if (!(Boolean) first) {
           throw new NormGuestException(

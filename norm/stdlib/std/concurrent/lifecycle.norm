@@ -1,0 +1,8 @@
+package std.concurrent
+
+import std.annotation.Document
+
+@Document(description: "Waits until the current execution is cancelled or interrupted.")
+public Void awaitCancellation() {
+  __awaitCancellation()
+}

@@ -1,29 +1,78 @@
 package sample.bbs
 
 import micronaut.inject.context.applicationContextRun
+import micronaut.inject.JavaStringArray
 import micronaut.inject.javaStringArrayNew
 import micronaut.runtime.runtime.server.EmbeddedServer
 import std.collections.MutableMap
 import std.collections.mutableMap
+import std.concurrent.awaitCancellation
 
 public EmbeddedServer? startBbsServer() {
-  var arguments = javaStringArrayNew(size: 0)
+  return startBbsServer(
+    port: -1,
+    databaseUrl: "jdbc:h2:mem:normbbs;DB_CLOSE_DELAY=-1",
+    schemaGeneration: "CREATE_DROP"
+  )
+}
+
+private EmbeddedServer? startBbsServer(
+  Integer port,
+  String databaseUrl,
+  String schemaGeneration
+) {
   MutableMap<String?, Any?> properties = mutableMap()
-  properties.put(key: "micronaut.server.port", value: -1)
+  JavaStringArray staticResourcePaths = javaStringArrayNew(size: 1)
+  staticResourcePaths.set(index: 0, value: "classpath:public")
+  properties.put(key: "micronaut.server.host", value: "127.0.0.1")
+  properties.put(key: "micronaut.server.port", value: port)
   properties.put(key: "bbs.greeting", value: "Welcome")
-  properties.put(key: "datasources.default.url", value: "jdbc:h2:mem:normbbs;DB_CLOSE_DELAY=-1")
+  properties.put(key: "datasources.default.url", value: databaseUrl)
   properties.put(key: "datasources.default.driver-class-name", value: "org.h2.Driver")
   properties.put(key: "datasources.default.username", value: "sa")
   properties.put(key: "datasources.default.password", value: "")
   properties.put(key: "datasources.default.dialect", value: "H2")
-  properties.put(key: "datasources.default.schema-generate", value: "CREATE_DROP")
+  properties.put(key: "datasources.default.schema-generate", value: schemaGeneration)
+  properties.put(key: "micronaut.router.static-resources.bbs.mapping", value: "/**")
+  properties.put(key: "micronaut.router.static-resources.bbs.paths", value: staticResourcePaths)
   properties.put(key: "micronaut.security.enabled", value: true)
+  properties.put(key: "micronaut.security.intercept-url-map[0].pattern", value: "/")
+  properties.put(
+    key: "micronaut.security.intercept-url-map[0].access[0]",
+    value: "isAnonymous()"
+  )
+  properties.put(key: "micronaut.security.intercept-url-map[1].pattern", value: "/styles.css")
+  properties.put(
+    key: "micronaut.security.intercept-url-map[1].access[0]",
+    value: "isAnonymous()"
+  )
+  properties.put(key: "micronaut.security.intercept-url-map[2].pattern", value: "/app.js")
+  properties.put(
+    key: "micronaut.security.intercept-url-map[2].access[0]",
+    value: "isAnonymous()"
+  )
   properties.put(key: "endpoints.health.enabled", value: true)
   properties.put(key: "endpoints.health.sensitive", value: false)
   properties.put(key: "endpoints.health.details-visible", value: "ANONYMOUS")
   return applicationContextRun<EmbeddedServer>(
     arg0: EmbeddedServer.class,
     arg1: properties,
-    arg2: arguments
+    arg2: javaStringArrayNew(size: 0)
   )
+}
+
+public Void runBbsServer() {
+  var server = startBbsServer(
+    port: 8080,
+    databaseUrl: "jdbc:h2:file:./.tmp/micronaut-bbs/bbs",
+    schemaGeneration: "CREATE"
+  )
+  if server != null {
+    printLine("Micronaut BBS: " + (server.getURI()?.value ?? ""))
+    try {
+      awaitCancellation()
+    } finally {
+      server.close()
+    }
+  }
 }

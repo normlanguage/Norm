@@ -74,7 +74,7 @@ public final class ModulePackager {
     } else {
       archiveSources.putAll(contents.sources());
     }
-    writeArchive(archive, descriptor, archiveSources, contents.binding());
+    writeArchive(archive, descriptor, archiveSources, contents.binding(), contents.resources());
     Files.writeString(pom, pom(descriptor, coordinate, target), StandardCharsets.UTF_8);
     return new PackagedModule(archive.toAbsolutePath(), pom.toAbsolutePath());
   }
@@ -83,7 +83,8 @@ public final class ModulePackager {
       Path path,
       ModuleDescriptor descriptor,
       Map<String, SourceFile> sources,
-      Optional<ResolvedJarBinding> binding)
+      Optional<ResolvedJarBinding> binding,
+      Map<String, ModuleResource> resources)
       throws IOException {
     try (OutputStream file = Files.newOutputStream(path);
         ZipOutputStream archive = new ZipOutputStream(file)) {
@@ -97,6 +98,12 @@ public final class ModulePackager {
       for (Map.Entry<String, SourceFile> source :
           sources.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
         writeEntry(archive, "sources/" + source.getKey(), source.getValue().text());
+      }
+      for (ModuleResource resource :
+          resources.values().stream()
+              .sorted(java.util.Comparator.comparing(ModuleResource::path))
+              .toList()) {
+        writeEntry(archive, "resources/" + resource.path(), resource.content());
       }
     }
   }
@@ -234,6 +241,15 @@ public final class ModulePackager {
   private static void writeEntry(ZipOutputStream output, String name, String content)
       throws IOException {
     writeEntry(output, name, writer -> writer.write(content));
+  }
+
+  private static void writeEntry(ZipOutputStream output, String name, byte[] content)
+      throws IOException {
+    ZipEntry entry = new ZipEntry(name);
+    entry.setTime(0);
+    output.putNextEntry(entry);
+    output.write(content);
+    output.closeEntry();
   }
 
   private static void writeEntry(ZipOutputStream output, String name, EntryWriter content)

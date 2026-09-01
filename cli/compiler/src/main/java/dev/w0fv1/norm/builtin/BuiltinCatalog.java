@@ -1278,6 +1278,8 @@ public final class BuiltinCatalog {
             IntrinsicId.EXPECTED_OUTPUT_LINE,
             parameterInfo("value", SemanticType.DYNAMIC)));
     addGlobal(
+        globals, global("__awaitCancellation", SemanticType.VOID, IntrinsicId.AWAIT_CANCELLATION));
+    addGlobal(
         globals,
         global(
             "require",

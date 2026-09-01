@@ -3,12 +3,14 @@ package dev.w0fv1.norm.truffle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.utils.BackendInfo;
 import dev.w0fv1.norm.value.CompilationRequest;
@@ -24,13 +26,53 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Source;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 final class BackendTest {
+  @Test
+  @Timeout(5)
+  void resumesAwaitCancellationWhenExecutionIsInterrupted() throws Exception {
+    var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    dev.w0fv1.norm.value.CompilationResult compilation;
+    try (var compiler = environment.compilerSession()) {
+      compilation =
+          compiler.compile(
+              SourceFile.of(
+                  Path.of("await-cancellation.norm"),
+                  "import std.concurrent.awaitCancellation "
+                      + "Void main() { printLine(\"ready\") awaitCancellation() printLine(\"stopped\") }"));
+    }
+    assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
+    var output = new StringWriter();
+    var failure = new AtomicReference<Throwable>();
+    Thread execution =
+        Thread.ofVirtual()
+            .start(
+                () -> {
+                  try {
+                    new NormRuntime()
+                        .run(compilation.program().orElseThrow(), new PrintWriter(output, true));
+                  } catch (Throwable throwable) {
+                    failure.set(throwable);
+                  }
+                });
+    while (!output.toString().contains("ready")) Thread.sleep(10);
+
+    execution.interrupt();
+    execution.join(2_000);
+
+    assertFalse(execution.isAlive());
+    assertNull(failure.get());
+    assertEquals(
+        "ready" + System.lineSeparator() + "stopped" + System.lineSeparator(), output.toString());
+  }
+
   @Test
   void resolvesTheConfiguredTruffleRuntime() {
     assertFalse(BackendInfo.runtimeName().isBlank());

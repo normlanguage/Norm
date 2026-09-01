@@ -42,6 +42,7 @@ import std.annotation.FunctionTarget
 import std.annotation.RuntimeRetention
 import std.annotation.TypeTarget
 import std.concurrent.Publisher
+import std.collections.MutableList
 import std.core.Exception
 
 @Around()
@@ -152,6 +153,27 @@ class ErrorMessage {
   String message
 }
 
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class CreateBoardRequest {
+  @NotBlank() String name
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class CreateTopicRequest {
+  Long boardId
+  @NotBlank() String title
+  @NotBlank() String content
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class CreateReplyRequest {
+  Long topicId
+  @NotBlank() String content
+}
+
 class BbsFailure extends Exception {
   BbsFailure(String message) {
     super(message: message)
@@ -221,19 +243,41 @@ class BbsController {
     return accountService.login(credentials)
   }
 
-  @Post(value: "/boards")
-  BoardEntity createBoard(@Body() @Valid() BoardEntity board) {
-    return forumService.createBoard(board)
+  @Get(value: "/boards")
+  MutableList<BoardEntity?>? boards() {
+    return forumService.allBoards()
   }
 
-  @Post(value: "/topics")
-  TopicEntity createTopic(@Body() @Valid() TopicEntity topic) {
-    return forumService.createTopic(topic)
+  @Post(value: "/session/boards")
+  BoardEntity createBoard(@Body() @Valid() CreateBoardRequest request) {
+    return forumService.createBoard(BoardEntity(id: null, name: request.name))
   }
 
-  @Post(value: "/replies")
-  ReplyEntity createReply(@Body() @Valid() ReplyEntity reply) {
-    return forumService.createReply(reply)
+  @Post(value: "/session/topics")
+  TopicEntity createTopic(
+    HttpRequest<Any?> httpRequest,
+    @Body() @Valid() CreateTopicRequest request
+  ) {
+    return forumService.createTopic(TopicEntity(
+      id: null,
+      boardId: request.boardId,
+      author: this.sessionUsername(httpRequest),
+      title: request.title,
+      content: request.content
+    ))
+  }
+
+  @Post(value: "/session/replies")
+  ReplyEntity createReply(
+    HttpRequest<Any?> httpRequest,
+    @Body() @Valid() CreateReplyRequest request
+  ) {
+    return forumService.createReply(ReplyEntity(
+      id: null,
+      topicId: request.topicId,
+      author: this.sessionUsername(httpRequest),
+      content: request.content
+    ))
   }
 
   @Get(value: "/topics/count")
@@ -247,6 +291,16 @@ class BbsController {
     @QueryValue(value: "size") Integer size
   ) {
     return forumService.topicPage(page, size)
+  }
+
+  @Get(value: "/topics/{id}")
+  TopicEntity? topic(Long id) {
+    return forumService.topic(id)
+  }
+
+  @Get(value: "/topics/{id}/replies")
+  MutableList<ReplyEntity?>? replies(Long id) {
+    return forumService.repliesForTopic(id)
   }
 
   @Get(value: "/replies/count")
@@ -267,7 +321,12 @@ class BbsController {
   }
 
   @Get(value: "/session/profile")
-  String sessionProfile() {
-    return "norm session"
+  String sessionProfile(HttpRequest<Any?> request) {
+    return this.sessionUsername(request)
+  }
+
+  private String sessionUsername(HttpRequest<Any?> request) {
+    String? token = request.getHeaders()?.findFirst("X-Session")
+    return accountService.usernameForToken(token ?? "")
   }
 }

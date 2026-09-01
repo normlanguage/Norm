@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -15,6 +15,10 @@
     },
     {
       "name": "PUBLISH_MODULE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "AWAIT_CANCELLATION",
       "requiresResultRuntimeType": false
     },
     {
