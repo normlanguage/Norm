@@ -1,0 +1,109 @@
+Module module() {
+  return module(
+    name: "org.json",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "org.json",
+        artifact: "json",
+        version: "20260814", resolution: sha256("7dd2de1533e766e2b6c07d8194da85145ad313a167a4760050f5c9b6839604fe")
+      ),
+      api: [
+        jarType(
+          name: "JSONObject",
+          members: [
+            "NULL",
+            "clear",
+            "get",
+            "getBoolean",
+            "getDouble",
+            "getInt",
+            "getJSONArray",
+            "getJSONObject",
+            "getLong",
+            "getNumber",
+            "getString",
+            "has",
+            "isEmpty",
+            "isNull",
+            "keys",
+            "keySet",
+            "length",
+            "names",
+            "opt",
+            "optBoolean",
+            "optDouble",
+            "optInt",
+            "optJSONArray",
+            "optJSONObject",
+            "optLong",
+            "optNumber",
+            "optString",
+            "remove",
+            "similar",
+            "toMap",
+            "toString",
+            "wrap"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "new", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "quote", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "stringToValue", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "put", parameterTypes: ["java.lang.String", "boolean"]),
+            jarOverload(name: "put", parameterTypes: ["java.lang.String", "double"]),
+            jarOverload(name: "put", parameterTypes: ["java.lang.String", "int"]),
+            jarOverload(name: "put", parameterTypes: ["java.lang.String", "long"]),
+            jarOverload(name: "put", parameterTypes: ["java.lang.String", "java.lang.Object"])
+          ]
+        ),
+        jarType(
+          name: "JSONArray",
+          members: [
+            "clear",
+            "get",
+            "getBoolean",
+            "getDouble",
+            "getInt",
+            "getJSONArray",
+            "getJSONObject",
+            "getLong",
+            "getNumber",
+            "getString",
+            "isEmpty",
+            "isNull",
+            "join",
+            "length",
+            "opt",
+            "optBoolean",
+            "optDouble",
+            "optInt",
+            "optJSONArray",
+            "optJSONObject",
+            "optLong",
+            "optNumber",
+            "optString",
+            "remove",
+            "similar",
+            "toList",
+            "toString"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "new", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "put", parameterTypes: ["boolean"]),
+            jarOverload(name: "put", parameterTypes: ["double"]),
+            jarOverload(name: "put", parameterTypes: ["int"]),
+            jarOverload(name: "put", parameterTypes: ["long"]),
+            jarOverload(name: "put", parameterTypes: ["java.lang.Object"]),
+            jarOverload(name: "put", parameterTypes: ["int", "boolean"]),
+            jarOverload(name: "put", parameterTypes: ["int", "double"]),
+            jarOverload(name: "put", parameterTypes: ["int", "int"]),
+            jarOverload(name: "put", parameterTypes: ["int", "long"]),
+            jarOverload(name: "put", parameterTypes: ["int", "java.lang.Object"])
+          ]
+        )
+      ]
+    )
+  )
+}

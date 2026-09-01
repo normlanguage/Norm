@@ -1,0 +1,25 @@
+package org.json
+
+Void main() {
+  JSONObject? object = jsonObjectNew("{\"name\":\"Norm\",\"count\":2}")
+  if object != null {
+    object.put(arg0: "count", arg1: 3)
+    object.put(arg0: "language", arg1: "Norm")
+    printLine(object.getString("name") ?? "missing")
+    printLine(object.getInt("count"))
+    printLine(object.optString(arg0: "missing", arg1: "fallback") ?? "missing")
+  }
+
+  JSONArray? values = jsonArrayNew("[1,2,3]")
+  if values != null {
+    values.put("four")
+    Integer count = 0
+    for Any? value : values {
+      if value != null {
+        count = count + 1
+      }
+    }
+    printLine(count)
+    printLine(values.toString() ?? "missing")
+  }
+}
