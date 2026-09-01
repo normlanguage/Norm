@@ -1,0 +1,28 @@
+package commons.io
+
+import std.filesystem.Path
+import std.io.Bytes
+import std.io.InputStream
+import std.io.TextEncoding
+import std.io.decodeText
+import std.io.readAll
+
+Void main() {
+  printLine(filenameUtilsGetExtension("archive.nar") ?? "")
+  Path file = Path(value: "build/commons-io-binding-example.txt")
+  fileUtilsWriteStringToFileJavaFileAndStringAndCharset(
+    arg0: file,
+    arg1: "NAR",
+    arg2: "UTF-8"
+  )
+  printLine(
+    fileUtilsReadFileToStringJavaFileAndCharset(arg0: file, arg1: "UTF-8") ?? ""
+  )
+  fileUtilsDeleteQuietly(arg0: file)
+  InputStream? input = ioUtilsToInputStreamJavaStringAndCharset(arg0: "stream", arg1: "UTF-8")
+  if input != null {
+    Bytes content = readAll(reader: input, maximumBytes: 16)
+    printLine(decodeText(content: content, encoding: TextEncoding.Utf8))
+    input.close()
+  }
+}
