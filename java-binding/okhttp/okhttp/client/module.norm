@@ -1,0 +1,101 @@
+Module module() {
+  return module(
+    name: "okhttp.client",
+    version: 1,
+    binding: jarBinding(
+      target: mavenJar(
+        group: "com.squareup.okhttp3",
+        artifact: "okhttp-jvm",
+        version: "5.5.0", resolution: sha256("e5482e6793a8d9c9e943c2b094ba52b7dc3d25a7e4cbb99f710e2849b7fe86a7")
+      ),
+      api: [
+        jarType(
+          name: "OkHttpClient",
+          members: [
+            "callTimeoutMillis",
+            "connectTimeoutMillis",
+            "followRedirects",
+            "newBuilder",
+            "readTimeoutMillis",
+            "retryOnConnectionFailure",
+            "writeTimeoutMillis"
+          ],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "newCall", parameterTypes: ["okhttp3.Request"])
+          ]
+        ),
+        jarType(
+          name: "OkHttpClient.Builder",
+          members: ["build", "fastFallback", "followRedirects", "followSslRedirects", "retryOnConnectionFailure"],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "callTimeout", parameterTypes: ["java.time.Duration"]),
+            jarOverload(name: "connectTimeout", parameterTypes: ["java.time.Duration"]),
+            jarOverload(name: "readTimeout", parameterTypes: ["java.time.Duration"]),
+            jarOverload(name: "writeTimeout", parameterTypes: ["java.time.Duration"])
+          ]
+        ),
+        jarType(
+          name: "Request.Builder",
+          members: ["addHeader", "build", "get", "head", "removeHeader"],
+          overloads: [
+            jarOverload(name: "new", parameterTypes: []),
+            jarOverload(name: "url", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "header", parameterTypes: ["java.lang.String", "java.lang.String"])
+          ]
+        ),
+        jarType(
+          name: "Request",
+          members: ["header", "headers", "isHttps", "method", "newBuilder", "toString", "url"]
+        ),
+        jarType(
+          name: "Call",
+          members: ["cancel", "execute", "isCanceled", "isExecuted", "request"]
+        ),
+        jarType(
+          name: "Response",
+          members: [
+            "body",
+            "close",
+            "code",
+            "headers",
+            "isRedirect",
+            "isSuccessful",
+            "message",
+            "request",
+            "sentRequestAtMillis",
+            "receivedResponseAtMillis",
+            "toString"
+          ],
+          overloads: [jarOverload(name: "header", parameterTypes: ["java.lang.String"])]
+        ),
+        jarType(
+          name: "ResponseBody",
+          members: ["byteStream", "bytes", "close", "contentLength", "contentType", "string"]
+        ),
+        jarType(
+          name: "Headers",
+          members: ["byteCount", "get", "name", "names", "newBuilder", "size", "toString", "value", "values"]
+        ),
+        jarType(
+          name: "HttpUrl",
+          members: [
+            "encodedPath",
+            "host",
+            "isHttps",
+            "port",
+            "query",
+            "resolve",
+            "scheme",
+            "toString"
+          ],
+          overloads: [
+            jarOverload(name: "get", parameterTypes: ["java.lang.String"]),
+            jarOverload(name: "parse", parameterTypes: ["java.lang.String"])
+          ]
+        )
+      ]
+    )
+  )
+}
