@@ -25,9 +25,9 @@ public record ModuleDescriptor(
     }
     if (binding.isPresent()) {
       JarBinding value = binding.orElseThrow();
-      if (!value.api().isEmpty() && exports.size() != value.api().size()) {
+      if (exports.size() < value.api().size()) {
         throw new IllegalArgumentException(
-            "module exports must match the declared JAR binding API type count");
+            "module exports must include every declared JAR binding API type");
       }
     }
     HashSet<ModuleCoordinate> uniqueDependencies = new HashSet<>();

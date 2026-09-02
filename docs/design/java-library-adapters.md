@@ -26,6 +26,8 @@ Norm API → Norm Core
 
 一个 Module 最多包含一个可选的 `jarBinding`，其中只有一个根 JAR。根 JAR 的 POM 或本地声明可以形成传递运行依赖，但编译器只为根 JAR 中物理拥有的公开类生成可调用声明。依赖 JAR 的对象可以作为受约束的外部类型跨越签名；调用其 API 需要依赖对应的 Norm Module。
 
+显式 `exports` 与 `jarBinding.api` 按声明顺序建立公开 Norm 名称映射。Java 类名因此不构成 Module API 身份；例如 `jakarta.persistence.EntityManager` 可以稳定导出为 `orm.Store`。省略 `exports` 时继续从 `jarType.name` 派生名称。
+
 需要组合多个 Java 库时，每个根 JAR 分别由一个 Module 适配，再由纯 Norm Module 组合。普通 Norm 源码、生成声明和后续纯 Norm 重写共享同一个导出表。
 
 ## 声明模型

@@ -8,6 +8,9 @@
 
 当前真实制品：
 
+- `orm-api`：Jakarta Persistence 3.2 的 Norm ORM 公共面，发布为 `orm@1`；
+- `orm-hibernate`：Hibernate ORM 7.4.7.Final Provider，发布为 `orm.hibernate@1`；
+- `orm-micronaut`：Micronaut SQL 7.1.2 的 ORM 生命周期集成，发布为 `orm.micronaut@1`；
 - `commons-lang`：Apache Commons Lang 3.20.0，发布为 `commons:lang:1`；
 - `commons-io`：Apache Commons IO 2.22.0，发布为 `commons:io:1`；
 - `jsoup`：jsoup 1.23.2，发布为 `jsoup:jsoup:1`；

@@ -1,0 +1,69 @@
+Module module() {
+  return module(
+    name: "orm",
+    version: 1,
+    exports: [
+      "Entity",
+      "Table",
+      "Id",
+      "Generated",
+      "GenerationStrategy",
+      "Column",
+      "Version",
+      "Enumerated",
+      "EnumStorage",
+      "Embedded",
+      "Embeddable",
+      "Transient",
+      "Basic",
+      "Fetch",
+      "Store",
+      "Repository"
+    ],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "jakarta.persistence",
+        artifact: "jakarta.persistence-api",
+        version: "3.2.0", resolution: sha256("be8a26b0e75c84c1b7600f759256fbc68d60333d89ec0ce3f784fc3ffa09aa8c")
+      ),
+      api: [
+        jarType(name: "jakarta.persistence.Entity", members: ["name"]),
+        jarType(name: "jakarta.persistence.Table", members: ["catalog", "name", "schema"]),
+        jarType(name: "jakarta.persistence.Id", members: []),
+        jarType(name: "jakarta.persistence.GeneratedValue", members: ["generator", "strategy"]),
+        jarType(name: "jakarta.persistence.GenerationType", members: []),
+        jarType(
+          name: "jakarta.persistence.Column",
+          members: [
+            "columnDefinition",
+            "insertable",
+            "length",
+            "name",
+            "nullable",
+            "precision",
+            "scale",
+            "table",
+            "unique",
+            "updatable"
+          ]
+        ),
+        jarType(name: "jakarta.persistence.Version", members: []),
+        jarType(name: "jakarta.persistence.Enumerated", members: ["value"]),
+        jarType(name: "jakarta.persistence.EnumType", members: []),
+        jarType(name: "jakarta.persistence.Embedded", members: []),
+        jarType(name: "jakarta.persistence.Embeddable", members: []),
+        jarType(name: "jakarta.persistence.Transient", members: []),
+        jarType(name: "jakarta.persistence.Basic", members: ["fetch", "optional"]),
+        jarType(name: "jakarta.persistence.FetchType", members: []),
+        jarType(
+          name: "jakarta.persistence.EntityManager",
+          members: ["clear", "close", "contains", "detach", "flush", "isOpen", "persist", "remove"],
+          overloads: [
+            jarOverload(name: "find", parameterTypes: ["java.lang.Class", "java.lang.Object"]),
+            jarOverload(name: "merge", parameterTypes: ["java.lang.Object"])
+          ]
+        )
+      ]
+    )
+  )
+}

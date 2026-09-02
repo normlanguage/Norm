@@ -1,0 +1,35 @@
+package orm
+
+import orm.Column
+import orm.Entity
+import orm.Generated
+import orm.GenerationStrategy
+import orm.Id
+import orm.Table
+
+@Entity(name: "Account")
+@Table(name: "accounts")
+class Account {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false, unique: true)
+  String username
+
+  Account(Long? id, String username) {
+    this.id = id
+    this.username = username
+  }
+}
+
+Void main() {
+  Entity? entity = Account.class.annotation<Entity>()
+  Table? table = Account.class.annotation<Table>()
+  if entity != null {
+    printLine(entity.name)
+  }
+  if table != null {
+    printLine(table.name)
+  }
+}

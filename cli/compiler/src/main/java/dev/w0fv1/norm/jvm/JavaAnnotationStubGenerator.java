@@ -977,13 +977,14 @@ public final class JavaAnnotationStubGenerator {
         appendCallable(source, type, callable, artifact, javaTypes);
       }
     }
-    boolean hasConstructor =
-        type.callables.values().stream().anyMatch(callable -> callable.constructor);
+    boolean hasZeroArgumentConstructor =
+        type.callables.values().stream()
+            .anyMatch(callable -> callable.constructor && callable.parameters.isEmpty());
     if (!annotation
         && !type.synthetic
         && type.binding.kind() != CoreBindingKind.INTERFACE
         && type.binding.kind() != CoreBindingKind.ENUM
-        && !hasConstructor) {
+        && !hasZeroArgumentConstructor) {
       source.append("  public ").append(type.key.name()).append("() {");
       source
           .append(" dev.w0fv1.norm.bridge.JavaApplicationBridge.allocate(")

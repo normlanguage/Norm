@@ -1,0 +1,70 @@
+package sample.orm
+
+import orm.Column
+import orm.Entity
+import orm.Generated
+import orm.GenerationStrategy
+import orm.Id
+import orm.Table
+import orm.hibernate.Builder
+import orm.hibernate.Provider
+import orm.hibernate.Session
+import orm.hibernate.Transaction
+import orm.hibernate.builderNew
+
+@Entity(name: "Account")
+@Table(name: "accounts")
+class Account {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false, unique: true)
+  String username
+
+  Account(Long? id, String username) {
+    this.id = id
+    this.username = username
+  }
+}
+
+Void main() {
+  Builder builder = builderNew()
+  builder.setProperty(arg0: "hibernate.connection.driver_class", arg1: "org.h2.Driver")
+  builder.setProperty(
+    arg0: "hibernate.connection.url",
+    arg1: "jdbc:h2:mem:norm_orm;DB_CLOSE_DELAY=-1"
+  )
+  builder.setProperty(arg0: "hibernate.connection.username", arg1: "sa")
+  builder.setProperty(arg0: "hibernate.connection.password", arg1: "")
+  builder.setProperty(arg0: "hibernate.hbm2ddl.auto", arg1: "create-drop")
+  builder.setProperty(arg0: "hibernate.show_sql", arg1: "false")
+  builder.addAnnotatedClass(Account.class)
+
+  Provider? provider = builder.buildSessionFactory()
+  if provider != null {
+    Session? writer = provider.openSession()
+    if writer != null {
+      Transaction? transaction = writer.beginTransaction()
+      Account account = Account(id: null, username: "norm")
+      writer.persist(account)
+      if transaction != null {
+        transaction.commit()
+      }
+      writer.close()
+
+      Long? id = account.id
+      if id != null {
+        Session? reader = provider.openSession()
+        if reader != null {
+          Account? stored = reader.find<Account>(arg0: Account.class, arg1: id)
+          if stored != null {
+            printLine(stored.username + ":" + (stored.id ?? 0).toString())
+          }
+          reader.close()
+        }
+      }
+    }
+    provider.close()
+  }
+}

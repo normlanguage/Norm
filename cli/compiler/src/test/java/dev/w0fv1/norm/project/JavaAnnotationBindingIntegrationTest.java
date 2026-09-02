@@ -40,7 +40,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "tags"]),
                 jarType(name: "Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
-                jarType(name: "GeneratedInvoker", members: ["invoke", "read", "write"])
+                jarType(name: "GeneratedInvoker", members: ["hydrate", "invoke", "managed", "mutate", "read", "write"])
               ]
             )
           )
@@ -68,6 +68,10 @@ final class JavaAnnotationBindingIntegrationTest {
           @Endpoint(path: "/echo")
           String echo(Response response) {
             return response.message
+          }
+
+          Void rename(Response response) {
+            response.message = "Norm DTO"
           }
         }
 
@@ -140,6 +144,11 @@ final class JavaAnnotationBindingIntegrationTest {
               arg2: "Norm"
             )
           )
+          printLine(generatedInvokerManaged())
+          printLine(generatedInvokerMutate())
+          Response hydrated = Response(message: "Initial")
+          generatedInvokerHydrate(hydrated)
+          printLine(hydrated.message)
           printLine(generatedInvokerRead())
           printLine(generatedInvokerWrite())
         }
@@ -164,6 +173,9 @@ final class JavaAnnotationBindingIntegrationTest {
             "http",
             "HTTP",
             "Hello, Norm",
+            "Hydrated DTO",
+            "Norm DTO",
+            "Java Hydrated DTO",
             "Norm DTO",
             "Java DTO",
             ""),
@@ -349,12 +361,47 @@ final class JavaAnnotationBindingIntegrationTest {
             }
           }
 
+          public static void hydrate(Object response) {
+            try {
+              response.getClass().getField("message").set(response, "Java Hydrated DTO");
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            }
+          }
+
           public static String read() {
             try {
               Class<?> type = Class.forName("sample.binding.Response");
               Class<?> controller = Class.forName("sample.binding.Controller");
               Object instance = controller.getConstructor().newInstance();
               Object response = controller.getMethod("response").invoke(instance);
+              return (String) type.getField("message").get(response);
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            }
+          }
+
+          public static String managed() {
+            try {
+              Class<?> type = Class.forName("sample.binding.Response");
+              Class<?> controller = Class.forName("sample.binding.Controller");
+              Object response = type.getConstructor().newInstance();
+              type.getField("message").set(response, "Hydrated DTO");
+              Object instance = controller.getConstructor().newInstance();
+              return (String) controller.getMethod("echo", type).invoke(instance, response);
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            }
+          }
+
+          public static String mutate() {
+            try {
+              Class<?> type = Class.forName("sample.binding.Response");
+              Class<?> controller = Class.forName("sample.binding.Controller");
+              Object response = type.getConstructor().newInstance();
+              type.getField("message").set(response, "Hydrated DTO");
+              Object instance = controller.getConstructor().newInstance();
+              controller.getMethod("rename", type).invoke(instance, response);
               return (String) type.getField("message").get(response);
             } catch (ReflectiveOperationException exception) {
               throw new IllegalStateException(exception);

@@ -33,6 +33,23 @@ final class JarBindingTest {
   }
 
   @Test
+  void bindingModuleCanExportOrdinaryNormSourcesAfterItsJavaSurface() {
+    JarBinding binding =
+        new JarBinding(
+            new LocalJarTarget("lib/sample.jar", Optional.empty()),
+            List.of(new JarBindingType("sample.Entity", List.of())));
+
+    ModuleDescriptor descriptor =
+        new ModuleDescriptor(
+            new ModuleCoordinate("orm", 1),
+            List.of("Entity", "Repository"),
+            List.of(),
+            Optional.of(binding));
+
+    assertEquals(List.of("Entity", "Repository"), descriptor.exports());
+  }
+
+  @Test
   void jarBindingTypesRequireUniqueQualifiedTypesAndMembers() {
     assertThrows(
         IllegalArgumentException.class,

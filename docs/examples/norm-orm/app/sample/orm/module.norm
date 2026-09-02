@@ -1,0 +1,12 @@
+Module module() {
+  return module(
+    name: "sample.orm",
+    version: 1,
+    exports: ["Main"],
+    dependencies: [
+      dependency(name: "orm", version: 1),
+      dependency(name: "orm.hibernate", version: 1),
+      dependency(name: "h2.database", version: 1)
+    ]
+  )
+}

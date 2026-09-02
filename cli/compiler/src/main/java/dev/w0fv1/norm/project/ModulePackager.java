@@ -65,11 +65,12 @@ public final class ModulePackager {
     if (contents.binding().isPresent()) {
       for (GeneratedBindingSource generated :
           contents.binding().orElseThrow().generated().sources()) {
-        SourceFile source = contents.sources().get(generated.relativePath());
-        if (source == null) {
-          throw new IOException("generated binding source is absent: " + generated.relativePath());
-        }
-        archiveSources.put(generated.relativePath(), source);
+        addSource(archiveSources, contents.sources(), generated.relativePath());
+      }
+      int bindingExports = descriptor.binding().orElseThrow().api().size();
+      for (String export :
+          descriptor.exports().subList(bindingExports, descriptor.exports().size())) {
+        addSource(archiveSources, contents.sources(), descriptor.sourcePath(export));
       }
     } else {
       archiveSources.putAll(contents.sources());
@@ -77,6 +78,14 @@ public final class ModulePackager {
     writeArchive(archive, descriptor, archiveSources, contents.binding(), contents.resources());
     Files.writeString(pom, pom(descriptor, coordinate, target), StandardCharsets.UTF_8);
     return new PackagedModule(archive.toAbsolutePath(), pom.toAbsolutePath());
+  }
+
+  private static void addSource(
+      Map<String, SourceFile> destination, Map<String, SourceFile> sources, String path)
+      throws IOException {
+    SourceFile source = sources.get(path);
+    if (source == null) throw new IOException("module source is absent: " + path);
+    destination.put(path, source);
   }
 
   private static void writeArchive(

@@ -47,7 +47,10 @@ public final class JarBindingSourceGenerator {
   public GeneratedJarBinding generate(
       ModuleCoordinate module, List<String> exports, Sha256Digest graphId, JarApiSchema schema) {
     return generateSelected(
-        module, exports.stream().map(BindingSelection::allMembers).toList(), graphId, schema);
+        module,
+        exports.stream().map(name -> BindingSelection.allMembers(name, name)).toList(),
+        graphId,
+        schema);
   }
 
   public GeneratedJarBinding generateSurface(
@@ -55,8 +58,24 @@ public final class JarBindingSourceGenerator {
       List<JarBindingType> api,
       Sha256Digest graphId,
       JarApiSchema schema) {
-    return generateSelected(
-        module, api.stream().map(BindingSelection::declaredMembers).toList(), graphId, schema);
+    return generateSurface(
+        module, api.stream().map(JarBindingType::name).toList(), api, graphId, schema);
+  }
+
+  public GeneratedJarBinding generateSurface(
+      ModuleCoordinate module,
+      List<String> exports,
+      List<JarBindingType> api,
+      Sha256Digest graphId,
+      JarApiSchema schema) {
+    if (exports.size() != api.size()) {
+      throw new IllegalArgumentException("JAR binding exports must match API types");
+    }
+    List<BindingSelection> selections = new ArrayList<>(api.size());
+    for (int index = 0; index < api.size(); index++) {
+      selections.add(BindingSelection.declaredMembers(api.get(index), exports.get(index)));
+    }
+    return generateSelected(module, selections, graphId, schema);
   }
 
   private GeneratedJarBinding generateSelected(
@@ -111,7 +130,8 @@ public final class JarBindingSourceGenerator {
       }
       JavaApiType owner = matching.getFirst();
       String exportedName =
-          allocateTypePath(exportPath(selectedName, owner), owner.binaryName(), referencePaths);
+          allocateTypePath(
+              exportPath(selection.exportName(), owner), owner.binaryName(), referencePaths);
       if (referenceNames.putIfAbsent(owner.binaryName(), simpleName(exportedName)) != null) {
         throw new IllegalArgumentException(
             "JAR binding class is exported more than once: " + owner.binaryName());
@@ -2735,19 +2755,22 @@ public final class JarBindingSourceGenerator {
         .collect(java.util.stream.Collectors.joining());
   }
 
-  private record BindingSelection(String name, Optional<MemberSelection> members) {
+  private record BindingSelection(
+      String name, String exportName, Optional<MemberSelection> members) {
     private BindingSelection {
       Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(exportName, "exportName");
       Objects.requireNonNull(members, "members");
     }
 
-    private static BindingSelection allMembers(String name) {
-      return new BindingSelection(name, Optional.empty());
+    private static BindingSelection allMembers(String name, String exportName) {
+      return new BindingSelection(name, exportName, Optional.empty());
     }
 
-    private static BindingSelection declaredMembers(JarBindingType type) {
+    private static BindingSelection declaredMembers(JarBindingType type, String exportName) {
       return new BindingSelection(
           type.name(),
+          exportName,
           Optional.of(
               new MemberSelection(Set.copyOf(type.members()), Set.copyOf(type.overloads()))));
     }

@@ -47,6 +47,11 @@ public final class JavaApplicationBridge {
     return handler(loader).fromJava(value);
   }
 
+  public static void writeField(Object receiver, String field, Object value) {
+    Objects.requireNonNull(receiver, "receiver");
+    handler(receiver.getClass()).writeField(receiver, field, value);
+  }
+
   private static Handler handler(Class<?> owner) {
     Objects.requireNonNull(owner, "owner");
     return handler(owner.getClassLoader());
@@ -73,6 +78,8 @@ public final class JavaApplicationBridge {
     Object toJava(Object value);
 
     Object fromJava(Object value);
+
+    void writeField(Object receiver, String field, Object value);
   }
 
   @FunctionalInterface

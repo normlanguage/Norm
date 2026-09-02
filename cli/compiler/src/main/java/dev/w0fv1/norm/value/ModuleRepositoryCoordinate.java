@@ -10,9 +10,9 @@ public record ModuleRepositoryCoordinate(String group, String artifact, String v
   public static ModuleRepositoryCoordinate from(ModuleCoordinate module) {
     Objects.requireNonNull(module, "module");
     int separator = module.name().lastIndexOf('.');
-    if (separator < 1 || separator == module.name().length() - 1) {
-      throw new IllegalArgumentException(
-          "published module name must contain a namespace and artifact: " + module.name());
+    if (separator < 0) {
+      return new ModuleRepositoryCoordinate(
+          module.name(), module.name(), Integer.toString(module.version()));
     }
     return new ModuleRepositoryCoordinate(
         module.name().substring(0, separator),

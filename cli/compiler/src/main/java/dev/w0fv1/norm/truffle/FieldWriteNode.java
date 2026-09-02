@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.nodes.Node;
+import dev.w0fv1.norm.bridge.JavaApplicationBridge;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreInterceptor;
 import dev.w0fv1.norm.core.CoreNullability;
@@ -35,7 +36,11 @@ final class FieldWriteNode extends Node {
       Object value,
       ExecutionState execution) {
     if (layer == plan.interceptors().size()) {
-      receiver.fields[plan.index()] = RuntimeValues.copy(value);
+      Object stored = RuntimeValues.copy(value);
+      receiver.fields[plan.index()] = stored;
+      if (receiver.hostValue != null) {
+        JavaApplicationBridge.writeField(receiver.hostValue, plan.name(), stored);
+      }
       return;
     }
     CoreInterceptor interceptor = plan.interceptors().get(layer);

@@ -1,0 +1,36 @@
+package orm
+
+public class Repository<E, I> {
+  private Store store
+  private Class<E> entityType
+
+  Repository(Store store, Class<E> entityType) {
+    this.store = store
+    this.entityType = entityType
+  }
+
+  public E save(E entity) {
+    store.persist(entity)
+    return entity
+  }
+
+  public E update(E entity) {
+    return store.merge<E>(entity) ?? entity
+  }
+
+  public E? find(I id) {
+    return store.find<E>(arg0: entityType, arg1: id)
+  }
+
+  public Void delete(E entity) {
+    store.remove(entity)
+  }
+
+  public Boolean attached(E entity) {
+    return store.contains(entity)
+  }
+
+  public Void flush() {
+    store.flush()
+  }
+}

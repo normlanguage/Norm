@@ -129,6 +129,23 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
             });
   }
 
+  @Override
+  public void writeField(Object receiver, String name, Object value) {
+    RuntimeValues.ObjectValue guest = guests.get(receiver);
+    if (guest == null) {
+      throw new IllegalStateException("Java application receiver has no Norm object");
+    }
+    Field field = publicField(receiver.getClass(), name);
+    if (field == null) {
+      throw new IllegalStateException("Java application field is absent: " + name);
+    }
+    try {
+      field.set(receiver, javaResult(value));
+    } catch (IllegalAccessException exception) {
+      throw new IllegalStateException("Norm application field cannot be written", exception);
+    }
+  }
+
   private Object invokeHostMethod(String callable, Object receiver, Object[] arguments) {
     DefinitionId id = DefinitionId.parse(callable);
     CoreDefinition definition = program.definition(id).orElseThrow();

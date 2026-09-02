@@ -480,8 +480,12 @@ public final class IntrinsicDispatcher {
               java.util.Arrays.stream(arguments, 1, arguments.length)
                   .map(value -> jarArgument(value, execution, annotations))
                   .toList();
-          JarBindingResult result =
-              invokeJar(context, (String) first, jarArguments, execution, location);
+          JarBindingResult result;
+          try {
+            result = invokeJar(context, (String) first, jarArguments, execution, location);
+          } finally {
+            synchronizeJarArguments(context, jarArguments);
+          }
           yield jarBindingValue(type, result, annotations, execution, second);
         } catch (JarBindingInvocationException exception) {
           if (execution == null) {
@@ -954,6 +958,15 @@ public final class IntrinsicDispatcher {
     } catch (RuntimeException | Error failure) {
       worker.interrupt();
       throw failure;
+    }
+  }
+
+  private static void synchronizeJarArguments(ExecutionContext context, List<Object> arguments) {
+    if (!(context.jarBindingRuntime() instanceof JavaApplicationRuntime runtime)) return;
+    for (Object argument : arguments) {
+      if (argument != null) {
+        JavaApplicationBridge.fromJava(runtime.applicationClassLoader(), argument);
+      }
     }
   }
 

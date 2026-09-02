@@ -346,7 +346,13 @@ public final class ProjectLoader implements AutoCloseable {
       ResolvedJarGraph graph = jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
       ResolvedJarBinding resolvedBinding = generateJarBinding(descriptor, graph);
       GeneratedJarBinding generated = resolvedBinding.generated();
-      descriptor = descriptor.withExports(generated.exports());
+      List<String> exports = new java.util.ArrayList<>(generated.exports());
+      exports.addAll(
+          descriptor
+              .exports()
+              .subList(
+                  descriptor.binding().orElseThrow().api().size(), descriptor.exports().size()));
+      descriptor = descriptor.withExports(exports);
       Set<DocumentId> generatedDocuments = new LinkedHashSet<>();
       for (GeneratedBindingSource source : generated.sources()) {
         Path path = normalize(root.resolve(source.relativePath()));
@@ -444,6 +450,7 @@ public final class ProjectLoader implements AutoCloseable {
           new JarBindingSourceGenerator()
               .generateSurface(
                   descriptor.coordinate(),
+                  descriptor.exports().subList(0, descriptor.binding().orElseThrow().api().size()),
                   descriptor.binding().orElseThrow().api(),
                   graph.contentId(),
                   api);

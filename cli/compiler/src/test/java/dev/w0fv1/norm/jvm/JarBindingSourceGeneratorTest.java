@@ -89,6 +89,26 @@ final class JarBindingSourceGeneratorTest {
   }
 
   @Test
+  void generatesAStableNormExportNameIndependentOfTheJavaTypeName() {
+    String owner = "jakarta.persistence.EntityManager";
+    GeneratedJarBinding generated =
+        new JarBindingSourceGenerator()
+            .generateSurface(
+                new ModuleCoordinate("orm", 1),
+                List.of("Store"),
+                List.of(new JarBindingType(owner, List.of())),
+                GRAPH_ID,
+                schema(owner, List.of()));
+
+    assertEquals(List.of("Store"), generated.exports());
+    assertEquals("orm/Store.norm", generated.sources().getFirst().relativePath());
+    assertTrue(generated.sources().getFirst().text().contains("class Store"));
+    assertEquals(
+        "Ljakarta/persistence/EntityManager;",
+        generated.classDescriptors().values().iterator().next());
+  }
+
+  @Test
   void rejectsUnknownDeclaredMemberGroups() {
     String owner = "org.apache.commons.lang3.StringUtils";
     JavaReferenceType string = new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING);

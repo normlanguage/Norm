@@ -1,0 +1,18 @@
+Module module() {
+  return module(
+    name: "orm.micronaut",
+    version: 1,
+    dependencies: [
+      dependency(name: "orm", version: 1),
+      dependency(name: "orm.hibernate", version: 1)
+    ],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.sql",
+        artifact: "micronaut-hibernate-jpa",
+        version: "7.1.2", resolution: sha256("45f1a36be0b6315c169a1b5dda7371c818cdb91ba98b21ee2c7bf0a6815b997d")
+      ),
+      api: []
+    )
+  )
+}

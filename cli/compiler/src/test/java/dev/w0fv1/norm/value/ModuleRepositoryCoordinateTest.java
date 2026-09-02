@@ -1,7 +1,6 @@
 package dev.w0fv1.norm.value;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,9 +26,12 @@ final class ModuleRepositoryCoordinateTest {
   }
 
   @Test
-  void rejectsAnUnqualifiedPublishedModuleName() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ModuleRepositoryCoordinate.from(new ModuleCoordinate("sample", 1)));
+  void publishesATopLevelModuleWithoutChangingItsModuleIdentity() {
+    ModuleRepositoryCoordinate coordinate =
+        ModuleRepositoryCoordinate.from(new ModuleCoordinate("orm", 1));
+
+    assertEquals("orm", coordinate.group());
+    assertEquals("orm", coordinate.artifact());
+    assertEquals("orm:orm:1", coordinate.notation());
   }
 }
