@@ -34,6 +34,24 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void formatsParameterAndFieldDefaults() {
+    SourceFile source =
+        SourceFile.of(
+            DocumentId.of("untitled:default-format"),
+            "value Server{String host=\"localhost\" Integer port=8080} String address(String host=\"localhost\"){return host}");
+
+    assertEquals(
+        "value Server {\n"
+            + "  String host = \"localhost\"\n\n"
+            + "  Integer port = 8080\n"
+            + "}\n\n"
+            + "String address(String host = \"localhost\") {\n"
+            + "  return host\n"
+            + "}\n",
+        service.format(source).orElseThrow());
+  }
+
+  @Test
   void completesReferenceDeclarationsInStatementPosition() {
     String text = "Void main() { }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:ref-completion"), text));

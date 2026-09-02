@@ -1,13 +1,13 @@
 # Micronaut BBS
 
-`app/sample/bbs` 是纯 Norm Micronaut 应用，`module.norm` 声明全部依赖。应用使用官方 Micronaut Processor 生成 Controller、DI、AOP、Serde、Validation、Security、Filter、Data Repository、事务和全局 Error Handler 元数据，通过 Netty、Micronaut HTTP Client、Hikari、H2 与 OkHttp 进行真实端到端验收。
+`app/sample/bbs` 是纯 Norm Micronaut 应用。`application.norm` 使用 `MicronautConfig`、`Server`、`Persistence`、`Security` 等 Norm 类型声明应用配置，`module.norm` 只声明三个生产依赖。应用使用 Norm ORM 定义实体、Repository、字段引用查询与事务，由 Hibernate Provider 和官方 Micronaut Processor 接入持久化上下文、Controller、构造器 DI、Serde、Validation、Security 和 Filter。
 
 从已经发布适配 NAR 的仓库运行：
 
 ```text
-norm run docs/examples/micronaut-bbs/app/sample/bbs/Main.norm
+norm run docs/examples/micronaut-bbs/app/sample/bbs
 ```
 
 浏览器 UI 位于 `http://127.0.0.1:8080/`，HTTP API 位于 `/bbs`。服务持续运行，数据保存在项目 `.tmp/micronaut-bbs`，按 `Ctrl+C` 停止。
 
-当前应用覆盖响应式 HTML UI、注册与登录会话、板块、主题、回复、分页、SSE 通知、Controller、DI、Around Advice、Serde JSON、校验、持久化、事务、Basic Authentication、数据库会话 Filter、官方 Health Endpoint 和领域异常 JSON 响应。`BbsTest.norm` 使用真实 Micronaut Test/JUnit Platform 验证 Bean 注入与凭证策略；端到端门禁还覆盖静态资源、Micronaut HTTP Client、12 路并发写入、BBS NAR 发布以及独立项目从全新 NAR 仓库消费，见 `MicronautBindingIntegrationTest`。
+当前应用覆盖响应式 HTML UI、注册与登录会话、板块、主题、回复、分页、Controller、DI、Serde JSON、校验、持久化、事务、数据库会话 Filter 和官方 Health Endpoint。服务由通用 `application()` 入口自动启动并在取消时关闭；真实 Netty、Hikari 与 H2 端到端门禁见 `MicronautBindingIntegrationTest`。

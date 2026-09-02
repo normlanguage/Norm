@@ -40,7 +40,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "tags"]),
                 jarType(name: "Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
-                jarType(name: "GeneratedInvoker", members: ["hydrate", "invoke", "managed", "mutate", "read", "write"])
+                jarType(name: "GeneratedInvoker", members: ["contextRoundTrip", "contextValue", "hydrate", "invoke", "managed", "mutate", "read", "write"])
               ]
             )
           )
@@ -72,6 +72,10 @@ final class JavaAnnotationBindingIntegrationTest {
 
           Void rename(Response response) {
             response.message = "Norm DTO"
+          }
+
+          String context() {
+            return generatedInvokerContextValue() ?? ""
           }
         }
 
@@ -155,6 +159,7 @@ final class JavaAnnotationBindingIntegrationTest {
           printLine(hydrated.message)
           printLine(generatedInvokerRead())
           printLine(generatedInvokerWrite())
+          printLine(generatedInvokerContextRoundTrip())
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -182,6 +187,7 @@ final class JavaAnnotationBindingIntegrationTest {
             "Java Hydrated DTO",
             "Norm DTO",
             "Java DTO",
+            "framework-context",
             ""),
         output.toString());
     Path processorOutput =
@@ -352,6 +358,8 @@ final class JavaAnnotationBindingIntegrationTest {
         package sample;
 
         public final class GeneratedInvoker {
+          private static final ThreadLocal<String> CONTEXT = new ThreadLocal<>();
+
           private GeneratedInvoker() {
           }
 
@@ -363,6 +371,23 @@ final class JavaAnnotationBindingIntegrationTest {
             } catch (ReflectiveOperationException exception) {
               throw new IllegalStateException(exception);
             }
+          }
+
+          public static String contextRoundTrip() {
+            CONTEXT.set("framework-context");
+            try {
+              Class<?> type = Class.forName("sample.binding.Controller");
+              Object instance = type.getConstructor().newInstance();
+              return (String) type.getMethod("context").invoke(instance);
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            } finally {
+              CONTEXT.remove();
+            }
+          }
+
+          public static String contextValue() {
+            return CONTEXT.get();
           }
 
           public static void hydrate(Object response) {

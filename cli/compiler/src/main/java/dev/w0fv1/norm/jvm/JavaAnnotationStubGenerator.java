@@ -70,11 +70,16 @@ public final class JavaAnnotationStubGenerator {
     }
     applyNormAnnotations(artifact, types, enumerations, javaTypes, scope, excludedModules);
     addNormTypes(artifact, types, javaTypes, scope, excludedModules);
+    Set<String> generatedTypes =
+        java.util.stream.Stream.concat(
+                types.keySet().stream().map(TypeKey::binaryName), javaTypes.values().stream())
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
     return types.values().stream()
         .sorted(Comparator.comparing(type -> type.key.binaryName()))
         .map(
             type ->
-                new JavaAnnotationStub(type.key.binaryName(), source(type, artifact, javaTypes)))
+                new JavaAnnotationStub(
+                    type.key.binaryName(), source(type, artifact, javaTypes, generatedTypes)))
         .toList();
   }
 
@@ -900,7 +905,8 @@ public final class JavaAnnotationStubGenerator {
   private static String source(
       TypeStub type,
       CoreArtifact artifact,
-      Map<JarBindingClassReference.Nominal, String> javaTypes) {
+      Map<JarBindingClassReference.Nominal, String> javaTypes,
+      Set<String> generatedTypes) {
     StringBuilder source = new StringBuilder();
     if (!type.key.packageName().isEmpty()) {
       source.append("package ").append(type.key.packageName()).append(";\n\n");
@@ -936,13 +942,17 @@ public final class JavaAnnotationStubGenerator {
                           javaType(
                               artifact.program(), type.binding.definition(), parent, javaTypes)));
       if (!shape.conformances().isEmpty()) {
-        source.append(
+        List<String> conformances =
             shape.conformances().stream()
                 .map(
                     conformance ->
                         javaType(
                             artifact.program(), type.binding.definition(), conformance, javaTypes))
-                .collect(java.util.stream.Collectors.joining(", ", " implements ", "")));
+                .filter(generatedTypes::contains)
+                .toList();
+        if (!conformances.isEmpty()) {
+          source.append(" implements ").append(String.join(", ", conformances));
+        }
       }
     } else if (type.binding != null
         && type.binding.shape() instanceof CoreBindingShape.Interface shape

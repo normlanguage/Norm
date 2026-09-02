@@ -2,6 +2,8 @@ package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,7 +35,7 @@ public record JarApiSchema(
   }
 
   private static Sha256Digest identify(List<JavaApiType> types) {
-    StringBuilder canonical = new StringBuilder("java-api-v2\n");
+    CanonicalDigest canonical = new CanonicalDigest("java-api-v2\n");
     for (JavaApiType type : sorted(types)) {
       append(canonical, "type", type.binaryName(), type.kind(), type.modifiers());
       Map<String, String> typeVariables = classSignature(canonical, type.signature());
@@ -85,11 +87,11 @@ public record JarApiSchema(
             .ifPresent(value -> annotationValue(canonical, "annotation-default", value));
       }
     }
-    return Sha256Digest.compute(canonical.toString().getBytes(StandardCharsets.UTF_8));
+    return canonical.finish();
   }
 
   private static Map<String, String> classSignature(
-      StringBuilder canonical, JavaClassSignature signature) {
+      CanonicalDigest canonical, JavaClassSignature signature) {
     Map<String, String> variables = typeVariables(signature.typeParameters(), "C", Map.of());
     typeParameters(canonical, signature.typeParameters(), variables);
     signature
@@ -102,7 +104,9 @@ public record JarApiSchema(
   }
 
   private static void methodSignature(
-      StringBuilder canonical, JavaMethodSignature signature, Map<String, String> classVariables) {
+      CanonicalDigest canonical,
+      JavaMethodSignature signature,
+      Map<String, String> classVariables) {
     Map<String, String> variables = typeVariables(signature.typeParameters(), "M", classVariables);
     typeParameters(canonical, signature.typeParameters(), variables);
     signature
@@ -124,7 +128,9 @@ public record JarApiSchema(
   }
 
   private static void typeParameters(
-      StringBuilder canonical, List<JavaTypeParameter> parameters, Map<String, String> variables) {
+      CanonicalDigest canonical,
+      List<JavaTypeParameter> parameters,
+      Map<String, String> variables) {
     for (JavaTypeParameter parameter : parameters) {
       append(canonical, "type-parameter", variables.get(parameter.name()));
       parameter
@@ -137,7 +143,7 @@ public record JarApiSchema(
   }
 
   private static void typeSignature(
-      StringBuilder canonical,
+      CanonicalDigest canonical,
       String label,
       JavaTypeSignature signature,
       Map<String, String> variables) {
@@ -169,7 +175,7 @@ public record JarApiSchema(
     }
   }
 
-  private static void annotation(StringBuilder canonical, JavaApiAnnotation annotation) {
+  private static void annotation(CanonicalDigest canonical, JavaApiAnnotation annotation) {
     append(canonical, "annotation", annotation.type(), annotation.runtimeVisible());
     annotation
         .elements()
@@ -178,7 +184,7 @@ public record JarApiSchema(
   }
 
   private static void typeAnnotation(
-      StringBuilder canonical, JavaApiTypeAnnotation typeAnnotation) {
+      CanonicalDigest canonical, JavaApiTypeAnnotation typeAnnotation) {
     append(
         canonical,
         "type-annotation",
@@ -188,7 +194,7 @@ public record JarApiSchema(
   }
 
   private static void annotationValue(
-      StringBuilder canonical, String label, JavaAnnotationValue value) {
+      CanonicalDigest canonical, String label, JavaAnnotationValue value) {
     switch (value) {
       case JavaAnnotationConstantValue constant ->
           append(canonical, label, "constant", constant(constant.value()));
@@ -208,16 +214,39 @@ public record JarApiSchema(
   }
 
   private static void appendOptional(
-      StringBuilder canonical, String label, java.util.Optional<String> value) {
+      CanonicalDigest canonical, String label, java.util.Optional<String> value) {
     value.ifPresent(item -> append(canonical, label, item));
   }
 
-  private static void append(StringBuilder canonical, Object... parts) {
+  private static void append(CanonicalDigest canonical, Object... parts) {
     for (Object part : parts) {
       String value = Objects.toString(part);
-      canonical.append(value.length()).append(':').append(value);
+      canonical.append(Integer.toString(value.length()));
+      canonical.append(":");
+      canonical.append(value);
     }
-    canonical.append('\n');
+    canonical.append("\n");
+  }
+
+  private static final class CanonicalDigest {
+    private final MessageDigest digest;
+
+    private CanonicalDigest(String prefix) {
+      try {
+        digest = MessageDigest.getInstance("SHA-256");
+      } catch (NoSuchAlgorithmException exception) {
+        throw new IllegalStateException("SHA-256 is unavailable", exception);
+      }
+      append(prefix);
+    }
+
+    private void append(String value) {
+      digest.update(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private Sha256Digest finish() {
+      return new Sha256Digest(java.util.HexFormat.of().formatHex(digest.digest()));
+    }
   }
 
   private static String constant(Object value) {

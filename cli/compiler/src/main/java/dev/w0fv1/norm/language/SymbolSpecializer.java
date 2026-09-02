@@ -43,7 +43,10 @@ final class SymbolSpecializer {
         symbol.parameters().stream()
             .map(
                 parameter ->
-                    new ParameterInfo(parameter.name(), parameter.type().substitute(substitutions)))
+                    new ParameterInfo(
+                        parameter.name(),
+                        parameter.type().substitute(substitutions),
+                        parameter.hasDefault()))
             .toList(),
         symbol.documentation());
   }

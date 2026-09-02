@@ -4,45 +4,222 @@ import jakarta.inject.Inject
 import jakarta.validation.constraints.NotBlank
 import micronaut.core.annotation.Introspected
 import micronaut.core.annotation.IntrospectedAccessKind
-import micronaut.data.jdbc.annotation.JdbcRepository
-import micronaut.data.jdbc.Dialect
-import micronaut.data.model.annotation.GeneratedValue
-import micronaut.data.model.annotation.Id
-import micronaut.data.model.annotation.MappedEntity
-import micronaut.data.model.Page
-import micronaut.data.model.Pageable
-import micronaut.data.model.pageableFrom
-import micronaut.data.model.repository.CrudRepository
-import micronaut.data.model.repository.PageableRepository
-import micronaut.data.tx.annotation.Transactional
 import micronaut.inject.context.annotation.Prototype
 import micronaut.serde.api.annotation.Serdeable
+import orm.Column
+import orm.Context
+import orm.Entity
+import orm.Generated
+import orm.GenerationStrategy
+import orm.Id
+import orm.Repository
+import orm.Store
+import orm.Table
+import orm.micronaut.tx.Transactional
 import std.collections.MutableList
 
 @Serdeable()
 @Introspected(accessKind: [IntrospectedAccessKind.FIELD])
 class Credentials {
-  @NotBlank() String username
-  @NotBlank() String password
+  @NotBlank()
+  String username
+
+  @NotBlank()
+  String password
 }
 
 @Serdeable()
 @Introspected(accessKind: [IntrospectedAccessKind.FIELD])
 class Registration {
   Long? id
+
   String username
 }
 
 @Serdeable()
 @Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-@MappedEntity(value: "bbs_users")
+@Entity(name: "UserEntity")
+@Table(name: "bbs_users")
 class UserEntity {
   @Id()
-  @GeneratedValue()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
   Long? id
 
-  @NotBlank() String username
-  @NotBlank() String password
+  @Column(nullable: false, unique: true)
+  @NotBlank()
+  String username
+
+  @Column(nullable: false)
+  @NotBlank()
+  String password
+
+  UserEntity() {
+    this.id = null
+    this.username = ""
+    this.password = ""
+  }
+
+  UserEntity(Long? id, String username, String password) {
+    this.id = id
+    this.username = username
+    this.password = password
+  }
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@Entity(name: "SessionEntity")
+@Table(name: "bbs_sessions")
+class SessionEntity {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false, unique: true)
+  @NotBlank()
+  String token
+
+  @Column(nullable: false)
+  @NotBlank()
+  String username
+
+  SessionEntity() {
+    this.id = null
+    this.token = ""
+    this.username = ""
+  }
+
+  SessionEntity(Long? id, String token, String username) {
+    this.id = id
+    this.token = token
+    this.username = username
+  }
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@Entity(name: "BoardEntity")
+@Table(name: "bbs_boards")
+class BoardEntity {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false)
+  @NotBlank()
+  String name
+
+  BoardEntity() {
+    this.id = null
+    this.name = ""
+  }
+
+  BoardEntity(Long? id, String name) {
+    this.id = id
+    this.name = name
+  }
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@Entity(name: "TopicEntity")
+@Table(name: "bbs_topics")
+class TopicEntity {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false)
+  Long boardId
+
+  @Column(nullable: false)
+  @NotBlank()
+  String author
+
+  @Column(nullable: false)
+  @NotBlank()
+  String title
+
+  @Column(nullable: false)
+  @NotBlank()
+  String content
+
+  TopicEntity() {
+    this.id = null
+    this.boardId = 0
+    this.author = ""
+    this.title = ""
+    this.content = ""
+  }
+
+  TopicEntity(Long? id, Long boardId, String author, String title, String content) {
+    this.id = id
+    this.boardId = boardId
+    this.author = author
+    this.title = title
+    this.content = content
+  }
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+@Entity(name: "ReplyEntity")
+@Table(name: "bbs_replies")
+class ReplyEntity {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false)
+  Long topicId
+
+  @Column(nullable: false)
+  @NotBlank()
+  String author
+
+  @Column(nullable: false)
+  @NotBlank()
+  String content
+
+  ReplyEntity() {
+    this.id = null
+    this.topicId = 0
+    this.author = ""
+    this.content = ""
+  }
+
+  ReplyEntity(Long? id, Long topicId, String author, String content) {
+    this.id = id
+    this.topicId = topicId
+    this.author = author
+    this.content = content
+  }
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class TopicSort {}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class TopicPageable {
+  Integer size
+
+  Integer number
+
+  TopicSort sort
+
+  String mode
+}
+
+@Serdeable()
+@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
+class TopicPage {
+  MutableList<TopicEntity?>? content
+
+  TopicPageable pageable
+
+  Long totalSize
 }
 
 @Prototype()
@@ -55,47 +232,18 @@ class CredentialPolicy {
   }
 }
 
-@JdbcRepository(dialect: Dialect.H2)
-interface UserRepository extends CrudRepository<UserEntity, Long> {
-  UserEntity? findByUsername(String username)
-}
-
-@Serdeable()
-@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-@MappedEntity(value: "bbs_sessions")
-class SessionEntity {
-  @Id()
-  @GeneratedValue()
-  Long? id
-
-  @NotBlank() String token
-  @NotBlank() String username
-}
-
-@JdbcRepository(dialect: Dialect.H2)
-interface SessionRepository extends CrudRepository<SessionEntity, Long> {
-  SessionEntity? findByToken(String token)
-}
-
 @Prototype()
 class AccountService {
   CredentialPolicy credentialPolicy
-  UserRepository userQueries
-  CrudRepository<UserEntity, Long> users
-  CrudRepository<SessionEntity, Long> sessions
-  SessionRepository sessionQueries
+
+  @Context()
+  @Inject()
+  Store? store
 
   @Inject()
-  AccountService(
-    CredentialPolicy credentialPolicy,
-    UserRepository users,
-    SessionRepository sessions
-  ) {
+  AccountService(CredentialPolicy credentialPolicy) {
     this.credentialPolicy = credentialPolicy
-    this.userQueries = users
-    this.users = users
-    this.sessions = sessions
-    this.sessionQueries = sessions
+    this.store = null
   }
 
   @Transactional()
@@ -105,147 +253,172 @@ class AccountService {
       username: credentials.username,
       password: credentials.password
     )
-    UserEntity saved = users.save<UserEntity>(user) ?? user
-    return Registration(id: saved.id, username: saved.username)
+    Store? active = store
+    if active != null {
+      UserEntity saved = Repository<UserEntity, Long>(store: active, entityType: UserEntity.class).save(
+        user
+      )
+      return Registration(id: saved.id, username: saved.username)
+    }
+    return Registration(id: null, username: user.username)
   }
 
   @Transactional()
   String login(Credentials credentials) {
-    UserEntity? user = userQueries.findByUsername(credentials.username)
-    if user != null {
-      if credentialPolicy.accepts(
+    UserEntity? user = this.userForUsername(credentials.username)
+    if user != null &&
+      credentialPolicy.accepts(
         user: user,
         username: credentials.username,
         password: credentials.password
       ) {
-        String token = "session-" + user.username
-        SessionEntity session = SessionEntity(id: null, token: token, username: user.username)
-        sessions.save<SessionEntity>(session)
-        return token
+      String token = "session-" + user.username
+      Store? active = store
+      if active != null {
+        Repository<SessionEntity, Long>(store: active, entityType: SessionEntity.class).save(
+          SessionEntity(id: null, token: token, username: user.username)
+        )
       }
+      return token
     }
     return ""
   }
 
-  String usernameForToken(String token) {
-    SessionEntity? session = sessionQueries.findByToken(token)
-    if session != null {
-      return session.username
-    }
-    return ""
-  }
-}
-
-@Serdeable()
-@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-@MappedEntity(value: "bbs_boards")
-class BoardEntity {
-  @Id()
-  @GeneratedValue()
-  Long? id
-
-  @NotBlank() String name
-}
-
-@Serdeable()
-@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-@MappedEntity(value: "bbs_topics")
-class TopicEntity {
-  @Id()
-  @GeneratedValue()
-  Long? id
-
-  Long boardId
-  @NotBlank() String author
-  @NotBlank() String title
-  @NotBlank() String content
-}
-
-@Serdeable()
-@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-@MappedEntity(value: "bbs_replies")
-class ReplyEntity {
-  @Id()
-  @GeneratedValue()
-  Long? id
-
-  Long topicId
-  @NotBlank() String author
-  @NotBlank() String content
-}
-
-@JdbcRepository(dialect: Dialect.H2)
-interface BoardRepository extends CrudRepository<BoardEntity, Long> {
-}
-
-@JdbcRepository(dialect: Dialect.H2)
-interface TopicRepository extends PageableRepository<TopicEntity, Long> {
-}
-
-@JdbcRepository(dialect: Dialect.H2)
-interface ReplyRepository extends CrudRepository<ReplyEntity, Long> {
-  MutableList<ReplyEntity?>? findByTopicIdOrderByIdAsc(Long topicId)
-}
-
-@Prototype()
-class ForumService {
-  CrudRepository<BoardEntity, Long> boards
-  PageableRepository<TopicEntity, Long> topics
-  CrudRepository<ReplyEntity, Long> replies
-  ReplyRepository replyQueries
-
-  @Inject()
-  ForumService(
-    BoardRepository boards,
-    TopicRepository topics,
-    ReplyRepository replies
-  ) {
-    this.boards = boards
-    this.topics = topics
-    this.replies = replies
-    this.replyQueries = replies
-  }
-
   @Transactional()
-  BoardEntity createBoard(BoardEntity board) {
-    return boards.save<BoardEntity>(board) ?? board
-  }
-
-  @Transactional()
-  TopicEntity createTopic(TopicEntity topic) {
-    return topics.save<TopicEntity>(topic) ?? topic
-  }
-
-  @Transactional()
-  ReplyEntity createReply(ReplyEntity reply) {
-    return replies.save<ReplyEntity>(reply) ?? reply
-  }
-
-  Long topicCount() {
-    return topics.count()
-  }
-
-  MutableList<BoardEntity?>? allBoards() {
-    return boards.findAll()
-  }
-
-  TopicEntity? topic(Long id) {
-    return topics.findById(id)
-  }
-
-  MutableList<ReplyEntity?>? repliesForTopic(Long topicId) {
-    return replyQueries.findByTopicIdOrderByIdAsc(topicId)
-  }
-
-  Page<TopicEntity?>? topicPage(Integer page, Integer size) {
-    Pageable? pageable = pageableFrom(arg0: page, arg1: size)
-    if pageable != null {
-      return topics.findAll(pageable)
+  UserEntity? userForUsername(String username) {
+    Store? active = store
+    if active != null {
+      return Repository<UserEntity, Long>(
+        store: active,
+        entityType: UserEntity.class
+      ).findFirstWhere<String>(field: UserEntity.username.field, value: username)
     }
     return null
   }
 
+  @Transactional()
+  String usernameForToken(String token) {
+    Store? active = store
+    if active != null {
+      SessionEntity? session = Repository<SessionEntity, Long>(
+        store: active,
+        entityType: SessionEntity.class
+      ).findFirstWhere<String>(field: SessionEntity.token.field, value: token)
+      if session != null {
+        return session.username
+      }
+    }
+    return ""
+  }
+}
+
+@Prototype()
+class ForumService {
+  @Context()
+  @Inject()
+  Store? store
+
+  ForumService() {
+    this.store = null
+  }
+
+  @Transactional()
+  BoardEntity createBoard(BoardEntity board) {
+    Store? active = store
+    if active != null {
+      return Repository<BoardEntity, Long>(store: active, entityType: BoardEntity.class).save(board)
+    }
+    return board
+  }
+
+  @Transactional()
+  TopicEntity createTopic(TopicEntity topic) {
+    Store? active = store
+    if active != null {
+      return Repository<TopicEntity, Long>(store: active, entityType: TopicEntity.class).save(topic)
+    }
+    return topic
+  }
+
+  @Transactional()
+  ReplyEntity createReply(ReplyEntity reply) {
+    Store? active = store
+    if active != null {
+      return Repository<ReplyEntity, Long>(store: active, entityType: ReplyEntity.class).save(reply)
+    }
+    return reply
+  }
+
+  @Transactional()
+  Long topicCount() {
+    Store? active = store
+    if active != null {
+      return Repository<TopicEntity, Long>(store: active, entityType: TopicEntity.class).count()
+    }
+    return 0
+  }
+
+  @Transactional()
+  MutableList<BoardEntity?>? allBoards() {
+    Store? active = store
+    if active != null {
+      return Repository<BoardEntity, Long>(store: active, entityType: BoardEntity.class).findAll()
+    }
+    return null
+  }
+
+  @Transactional()
+  TopicEntity? topic(Long id) {
+    Store? active = store
+    if active != null {
+      return Repository<TopicEntity, Long>(store: active, entityType: TopicEntity.class).find(id)
+    }
+    return null
+  }
+
+  @Transactional()
+  MutableList<ReplyEntity?>? repliesForTopic(Long topicId) {
+    Store? active = store
+    if active != null {
+      return Repository<ReplyEntity, Long>(store: active, entityType: ReplyEntity.class).findWhereOrdered<
+        Long,
+        Long?
+      >(
+        field: ReplyEntity.topicId.field,
+        value: topicId,
+        order: ReplyEntity.id.field,
+        ascending: true
+      )
+    }
+    return null
+  }
+
+  @Transactional()
+  TopicPage topicPage(Integer page, Integer size) {
+    MutableList<TopicEntity?>? content = null
+    Long total = 0
+    Store? active = store
+    if active != null {
+      Repository<TopicEntity, Long> topics = Repository<TopicEntity, Long>(
+        store: active,
+        entityType: TopicEntity.class
+      )
+      content = topics.page(offset: page * size, limit: size)
+      total = topics.count()
+    }
+    return TopicPage(
+      content: content,
+      pageable: TopicPageable(size: size, number: page, sort: TopicSort(), mode: "OFFSET"),
+      totalSize: total
+    )
+  }
+
+  @Transactional()
   Long replyCount() {
-    return replies.count()
+    Store? active = store
+    if active != null {
+      return Repository<ReplyEntity, Long>(store: active, entityType: ReplyEntity.class).count()
+    }
+    return 0
   }
 }

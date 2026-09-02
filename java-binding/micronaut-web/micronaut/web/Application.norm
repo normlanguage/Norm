@@ -1,0 +1,195 @@
+package micronaut.web
+
+import micronaut.inject.JavaStringArray
+import micronaut.inject.context.applicationContextRun
+import micronaut.inject.javaStringArrayNew
+import micronaut.runtime.runtime.server.EmbeddedServer
+import std.application.Application
+import std.collections.MutableMap
+import std.collections.mutableMap
+import std.concurrent.awaitCancellation
+import std.core.Exception
+
+public value Server {
+  String host = "127.0.0.1"
+  Integer port = 8080
+}
+
+public value StaticResource {
+  String name
+  String mapping = "/**"
+  List<String> paths = ["classpath:public"]
+}
+
+public enum SchemaMode { CreateDrop, Create, Update, Validate, None }
+
+public value DataSource {
+  private String url
+  private String driver
+  private String dialect
+  private String username
+  private String password
+
+  Void apply(MutableMap<String?, Any?> properties) {
+    properties.put(key: "datasources.default.url", value: url)
+    properties.put(key: "datasources.default.driver-class-name", value: driver)
+    properties.put(key: "datasources.default.username", value: username)
+    properties.put(key: "datasources.default.password", value: password)
+    properties.put(key: "datasources.default.dialect", value: dialect)
+  }
+}
+
+public enum H2Storage { File, Memory }
+
+public DataSource h2DataSource(
+  String database,
+  H2Storage storage = H2Storage.File,
+  String username = "sa",
+  String password = ""
+) {
+  String url = switch storage {
+    case File { break "jdbc:h2:file:" + database }
+    case Memory { break "jdbc:h2:mem:" + database + ";DB_CLOSE_DELAY=-1" }
+  }
+  return DataSource(
+    url: url,
+    driver: "org.h2.Driver",
+    dialect: "H2",
+    username: username,
+    password: password
+  )
+}
+
+public value Persistence {
+  DataSource datasource
+  List<String> entityPackages
+  SchemaMode schema = SchemaMode.Validate
+}
+
+public enum SecurityAccess { Anonymous, Authenticated }
+
+public value SecurityRule {
+  String pattern
+  SecurityAccess access
+}
+
+public value Security {
+  Boolean enabled = false
+  List<SecurityRule> rules = []
+}
+
+public enum HealthDetails { Never, Anonymous, Authenticated }
+
+public value Health {
+  Boolean enabled = false
+  Boolean sensitive = true
+  HealthDetails details = HealthDetails.Never
+}
+
+public value Router {
+  List<StaticResource> staticResources = []
+}
+
+public value Micronaut {
+  Server server = Server()
+  Router router = Router()
+  Security security = Security()
+  Health health = Health()
+}
+
+public value MicronautConfig {
+  Micronaut micronaut = Micronaut()
+  Persistence? persistence = null
+}
+
+public class RunningMicronautApplication {
+  private EmbeddedServer server
+
+  public String uri() {
+    return server.getURI()?.value ?? ""
+  }
+
+  public Void close() {
+    server.close()
+  }
+}
+
+public class MicronautApplication implements Application {
+  MicronautConfig config
+
+  public RunningMicronautApplication start() {
+    MutableMap<String?, Any?> properties = mutableMap()
+    properties.put(key: "micronaut.server.host", value: config.micronaut.server.host)
+    properties.put(key: "micronaut.server.port", value: config.micronaut.server.port)
+    for StaticResource resource : config.micronaut.router.staticResources {
+      JavaStringArray paths = javaStringArrayNew(size: resource.paths.size())
+      Integer pathIndex = 0
+      for String path : resource.paths {
+        paths.set(index: pathIndex, value: path)
+        pathIndex = pathIndex + 1
+      }
+      String root = "micronaut.router.static-resources." + resource.name
+      properties.put(key: root + ".mapping", value: resource.mapping)
+      properties.put(key: root + ".paths", value: paths)
+    }
+    properties.put(key: "micronaut.security.enabled", value: config.micronaut.security.enabled)
+    Integer securityIndex = 0
+    for SecurityRule rule : config.micronaut.security.rules {
+      String root = "micronaut.security.intercept-url-map[" + securityIndex.toString() + "]"
+      String access = switch rule.access {
+        case Anonymous { break "isAnonymous()" }
+        case Authenticated { break "isAuthenticated()" }
+      }
+      properties.put(key: root + ".pattern", value: rule.pattern)
+      properties.put(key: root + ".access[0]", value: access)
+      securityIndex = securityIndex + 1
+    }
+    properties.put(key: "endpoints.health.enabled", value: config.micronaut.health.enabled)
+    properties.put(key: "endpoints.health.sensitive", value: config.micronaut.health.sensitive)
+    String healthDetails = switch config.micronaut.health.details {
+      case Never { break "NEVER" }
+      case Anonymous { break "ANONYMOUS" }
+      case Authenticated { break "AUTHENTICATED" }
+    }
+    properties.put(key: "endpoints.health.details-visible", value: healthDetails)
+    Persistence? persistence = config.persistence
+    if persistence != null {
+      persistence.datasource.apply(properties)
+      Integer entityIndex = 0
+      for String entityPackage : persistence.entityPackages {
+        properties.put(
+          key: "jpa.default.entity-scan.packages[" + entityIndex.toString() + "]",
+          value: entityPackage
+        )
+        entityIndex = entityIndex + 1
+      }
+      String schema = switch persistence.schema {
+        case CreateDrop { break "create-drop" }
+        case Create { break "create" }
+        case Update { break "update" }
+        case Validate { break "validate" }
+        case None { break "none" }
+      }
+      properties.put(key: "jpa.default.properties.hibernate.hbm2ddl.auto", value: schema)
+    }
+    EmbeddedServer? server = applicationContextRun<EmbeddedServer>(
+      arg0: EmbeddedServer.class,
+      arg1: properties,
+      arg2: javaStringArrayNew(size: 0)
+    )
+    if server == null {
+      throw Exception(message: "Micronaut did not create an embedded server")
+    }
+    return RunningMicronautApplication(server: server)
+  }
+
+  public Void run() {
+    RunningMicronautApplication running = this.start()
+    printLine("Micronaut: " + running.uri())
+    try {
+      awaitCancellation()
+    } finally {
+      running.close()
+    }
+  }
+}

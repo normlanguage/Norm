@@ -745,8 +745,20 @@ final class Analyzer {
         typeSystem.typeParameterSymbols(aggregateDecl.typeParameters());
     registerBounds(aggregateDecl.typeParameters(), context.activeTypeParameters);
     Set<String> names = new HashSet<>();
+    boolean defaultFieldSeen = false;
     for (Syntax.FieldDecl field : aggregateDecl.fields()) {
       typeSystem.validateType(field.type(), false);
+      if (field.defaultValue().isPresent()) {
+        defaultFieldSeen = true;
+        SemanticType expected = typeSystem.resolveType(field.type(), context.activeTypeParameters);
+        typeSystem.requireType(
+            expected,
+            typeOf(field.defaultValue().orElseThrow(), expected),
+            field.defaultValue().orElseThrow().span());
+      } else if (defaultFieldSeen) {
+        context.diagnostics.error(
+            INVALID_CALL, "required field follows a default field", field.nameSpan());
+      }
       if (aggregateDecl.visibility() == Syntax.Visibility.PUBLIC
           && field.visibility() == Syntax.Visibility.PUBLIC) {
         typeSystem.validatePublicType(field.type());
@@ -1119,7 +1131,8 @@ final class Analyzer {
                                   parameter.name(),
                                   typeSystem
                                       .resolveDeclarationType(parameter.type(), method, methodTypes)
-                                      .substitute(substitutions)))
+                                      .substitute(substitutions),
+                                  parameter.defaultValue().isPresent()))
                       .toList();
               SemanticType result =
                   typeSystem
@@ -1257,6 +1270,9 @@ final class Analyzer {
     }
     for (Syntax.Parameter parameter : function.parameters()) {
       typeSystem.validateReferenceCapableType(parameter.type());
+    }
+    analyzeParameterDefaults(function.parameters());
+    for (Syntax.Parameter parameter : function.parameters()) {
       Symbol symbol =
           typeSystem.register(
               parameter,
@@ -1334,6 +1350,9 @@ final class Analyzer {
     typeSystem.pushScope(constructor.span());
     for (Syntax.Parameter parameter : constructor.parameters()) {
       typeSystem.validateReferenceCapableType(parameter.type());
+    }
+    analyzeParameterDefaults(constructor.parameters());
+    for (Syntax.Parameter parameter : constructor.parameters()) {
       Symbol symbol =
           typeSystem.register(
               parameter,
@@ -1360,6 +1379,7 @@ final class Analyzer {
     owner.fields().stream().map(context.declarationSymbols::get).forEach(inheritedFields::remove);
     List<ConstructorFlowAnalyzer.RequiredField> requiredFields =
         owner.fields().stream()
+            .filter(field -> field.defaultValue().isEmpty())
             .map(
                 field ->
                     new ConstructorFlowAnalyzer.RequiredField(
@@ -1376,6 +1396,22 @@ final class Analyzer {
     context.currentAggregate = null;
     context.activeTypeParameters = Map.of();
     context.activeTypeParameterSymbols = Map.of();
+  }
+
+  private void analyzeParameterDefaults(List<Syntax.Parameter> parameters) {
+    boolean defaultSeen = false;
+    for (Syntax.Parameter parameter : parameters) {
+      if (parameter.defaultValue().isPresent()) {
+        defaultSeen = true;
+        SemanticType expected =
+            typeSystem.resolveType(parameter.type(), context.activeTypeParameters);
+        Syntax.Expression value = parameter.defaultValue().orElseThrow();
+        typeSystem.requireType(expected, typeOf(value, expected), value.span());
+      } else if (defaultSeen) {
+        context.diagnostics.error(
+            INVALID_CALL, "required parameter follows a default parameter", parameter.nameSpan());
+      }
+    }
   }
 
   private void analyzeSuperCall(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {

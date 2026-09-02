@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.project;
 
+import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
@@ -109,7 +110,33 @@ public record ProjectSourceSet(
         && !entry.getParent().equals(rootModulePath.orElseThrow().getParent())) {
       throw new IOException("application entry and module.norm must be in the same directory");
     }
-    return compilationRequest(entry);
+    if (!entry.getFileName().toString().equals("application.norm")) {
+      return compilationRequest(entry);
+    }
+    SourceFile application = source(entry);
+    String packageDeclaration =
+        SourceHeader.parse(application)
+            .packageName()
+            .map(packageName -> "package " + packageName + "\n")
+            .orElse("");
+    SourceFile entrypoint =
+        SourceFile.of(
+            new DocumentId(URI.create("norm-application:/ApplicationEntrypoint.norm")),
+            packageDeclaration + "Void main() { application().run() }\n");
+    List<SourceFile> applicationSources = new ArrayList<>(sources);
+    applicationSources.add(entrypoint);
+    Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>(scope.coordinates());
+    coordinates.put(
+        entrypoint.id(),
+        new ModuleSourceCoordinate(
+            scope.coordinate(application.id()).module(), ".norm/ApplicationEntrypoint.norm"));
+    return new CompilationRequest(
+        new CompilationUnitId(rootModulePath.map(Path::toUri).orElseGet(() -> primaryPath.toUri())),
+        new CompilationScope(coordinates, scope.modules()),
+        entrypoint.id(),
+        applicationSources,
+        exportedDocuments(),
+        bindingSourceDocuments);
   }
 
   public CompilationRequest testCompilationRequest() {

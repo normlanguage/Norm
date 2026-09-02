@@ -31,6 +31,17 @@ public final class JarApiScanner {
   }
 
   public JarApiSchema scan(ResolvedJarGraph graph, List<String> selectedTypes) throws IOException {
+    return scan(graph, selectedTypes, false);
+  }
+
+  public JarApiSchema scanSurface(ResolvedJarGraph graph, List<String> selectedTypes)
+      throws IOException {
+    return scan(graph, selectedTypes, true);
+  }
+
+  private JarApiSchema scan(
+      ResolvedJarGraph graph, List<String> selectedTypes, boolean selectedRootsOnly)
+      throws IOException {
     Map<String, RawClass> rootClasses = readClasses(graph.root());
     Map<String, RawClass> classes = readClasses(graph.artifacts());
     Map<String, JavaReferenceKind> bindingTypes = new LinkedHashMap<>();
@@ -46,11 +57,24 @@ public final class JarApiScanner {
         rootClasses.values().stream()
             .filter(owner -> publiclyAccessible(owner, classes))
             .filter(owner -> !isSynthetic(owner.access()))
+            .filter(
+                owner ->
+                    !selectedRootsOnly
+                        || selectedTypes.stream()
+                            .anyMatch(
+                                selected -> JavaApiTypeNames.matches(owner.binaryName(), selected)))
             .map(owner -> apiType(owner, classes, bindingTypes, samTypes))
             .toList();
     List<JavaApiType> supportingTypes =
         supportingTypes(
-            types, selectedTypes, rootClasses.keySet(), classes, bindingTypes, samTypes);
+            types,
+            selectedTypes,
+            types.stream()
+                .map(JavaApiType::binaryName)
+                .collect(java.util.stream.Collectors.toSet()),
+            classes,
+            bindingTypes,
+            samTypes);
     return new JarApiSchema(types, supportingTypes);
   }
 
@@ -86,15 +110,76 @@ public final class JarApiScanner {
   }
 
   private static void collectReferences(JavaApiType owner, Consumer<String> consumer) {
+    owner.annotations().forEach(annotation -> collectReferences(annotation, consumer));
+    owner
+        .typeAnnotations()
+        .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+    owner
+        .recordComponents()
+        .forEach(
+            component -> {
+              component
+                  .annotations()
+                  .forEach(annotation -> collectReferences(annotation, consumer));
+              component
+                  .typeAnnotations()
+                  .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+            });
     owner.signature().typeParameters().forEach(parameter -> collectReferences(parameter, consumer));
     owner.signature().superclass().ifPresent(type -> collectReferences(type, consumer));
     owner.signature().interfaces().forEach(type -> collectReferences(type, consumer));
     owner.fields().stream()
         .flatMap(field -> field.bindings().stream())
         .forEach(callable -> collectReferences(callable, consumer));
+    owner
+        .fields()
+        .forEach(
+            field -> {
+              field.annotations().forEach(annotation -> collectReferences(annotation, consumer));
+              field
+                  .typeAnnotations()
+                  .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+            });
     owner.effectiveMethods().stream()
         .flatMap(method -> method.binding().stream())
         .forEach(callable -> collectReferences(callable, consumer));
+    owner
+        .effectiveMethods()
+        .forEach(
+            method -> {
+              method.annotations().forEach(annotation -> collectReferences(annotation, consumer));
+              method
+                  .typeAnnotations()
+                  .forEach(annotation -> collectReferences(annotation.annotation(), consumer));
+              method
+                  .parameters()
+                  .forEach(
+                      parameter ->
+                          parameter
+                              .annotations()
+                              .forEach(annotation -> collectReferences(annotation, consumer)));
+              method.annotationDefault().ifPresent(value -> collectReferences(value, consumer));
+            });
+  }
+
+  private static void collectReferences(JavaApiAnnotation annotation, Consumer<String> consumer) {
+    consumer.accept(annotation.type());
+    annotation.elements().forEach(element -> collectReferences(element.value(), consumer));
+  }
+
+  private static void collectReferences(JavaAnnotationValue value, Consumer<String> consumer) {
+    switch (value) {
+      case JavaAnnotationConstantValue ignored -> {}
+      case JavaAnnotationClassValue classValue -> {
+        Type type = Type.getType(classValue.descriptor());
+        while (type.getSort() == Type.ARRAY) type = type.getElementType();
+        if (type.getSort() == Type.OBJECT) consumer.accept(type.getClassName());
+      }
+      case JavaAnnotationEnumValue enumeration -> consumer.accept(enumeration.type());
+      case JavaAnnotationNestedValue nested -> collectReferences(nested.annotation(), consumer);
+      case JavaAnnotationArrayValue array ->
+          array.values().forEach(item -> collectReferences(item, consumer));
+    }
   }
 
   private static void collectReferences(JavaBindingCallable callable, Consumer<String> consumer) {

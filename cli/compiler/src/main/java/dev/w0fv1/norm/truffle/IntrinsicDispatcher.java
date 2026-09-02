@@ -321,25 +321,29 @@ public final class IntrinsicDispatcher {
         List<String> exports = exportedValues.values.stream().map(String.class::cast).toList();
         List<Object> dependencyNames = ((RuntimeValues.ListValue) fourth).values;
         List<Object> dependencyVersions = ((RuntimeValues.ListValue) fifth).values;
-        if (dependencyNames.size() != dependencyVersions.size()) {
+        List<Object> dependencyExports = ((RuntimeValues.ListValue) arguments[5]).values;
+        if (dependencyNames.size() != dependencyVersions.size()
+            || dependencyNames.size() != dependencyExports.size()) {
           throw new IllegalStateException("module dependency coordinates are inconsistent");
         }
         List<ModuleRequirement> dependencies = new ArrayList<>(dependencyNames.size());
         for (int index = 0; index < dependencyNames.size(); index++) {
           dependencies.add(
               new ModuleRequirement(
-                  (String) dependencyNames.get(index), (Integer) dependencyVersions.get(index)));
+                  (String) dependencyNames.get(index),
+                  (Integer) dependencyVersions.get(index),
+                  (Boolean) dependencyExports.get(index)));
         }
-        String bindingSource = (String) arguments[5];
+        String bindingSource = (String) arguments[6];
         Optional<Sha256Digest> digest =
-            ((String) arguments[10]).isEmpty()
+            ((String) arguments[11]).isEmpty()
                 ? Optional.empty()
-                : Optional.of(Sha256Digest.parse((String) arguments[10]));
-        List<Object> bindingApiTypes = ((RuntimeValues.ListValue) arguments[11]).values;
-        List<Object> bindingApiMembers = ((RuntimeValues.ListValue) arguments[12]).values;
-        List<Object> bindingApiOverloadNames = ((RuntimeValues.ListValue) arguments[13]).values;
+                : Optional.of(Sha256Digest.parse((String) arguments[11]));
+        List<Object> bindingApiTypes = ((RuntimeValues.ListValue) arguments[12]).values;
+        List<Object> bindingApiMembers = ((RuntimeValues.ListValue) arguments[13]).values;
+        List<Object> bindingApiOverloadNames = ((RuntimeValues.ListValue) arguments[14]).values;
         List<Object> bindingApiOverloadParameterTypes =
-            ((RuntimeValues.ListValue) arguments[14]).values;
+            ((RuntimeValues.ListValue) arguments[15]).values;
         if (bindingApiTypes.size() != bindingApiMembers.size()
             || bindingApiTypes.size() != bindingApiOverloadNames.size()
             || bindingApiTypes.size() != bindingApiOverloadParameterTypes.size()) {
@@ -377,15 +381,15 @@ public final class IntrinsicDispatcher {
               case "" -> Optional.empty();
               case "local" ->
                   Optional.of(
-                      new JarBinding(new LocalJarTarget((String) arguments[6], digest), api));
+                      new JarBinding(new LocalJarTarget((String) arguments[7], digest), api));
               case "maven" ->
                   Optional.of(
                       new JarBinding(
                           new MavenJarTarget(
                               new MavenArtifactCoordinate(
-                                  (String) arguments[7],
                                   (String) arguments[8],
-                                  (String) arguments[9]),
+                                  (String) arguments[9],
+                                  (String) arguments[10]),
                               digest),
                           api));
               default ->
@@ -932,7 +936,7 @@ public final class IntrinsicDispatcher {
     boolean callbackPumpRequired =
         arguments.stream().anyMatch(JarBindingCallback.class::isInstance)
             || context.jarBindingRuntime() instanceof JavaApplicationRuntime;
-    if (execution == null || !callbackPumpRequired) {
+    if (execution == null || !callbackPumpRequired || execution.callbacks().isBorrowedExecution()) {
       return context.jarBindingRuntime().invoke(call, arguments);
     }
     CompletableFuture<JarBindingResult> result = new CompletableFuture<>();

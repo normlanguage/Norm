@@ -46,6 +46,8 @@
 - `micronaut-data-processor`：Micronaut Data 5.1.3 官方编译期处理器，发布为 `micronaut.data:processor:1`；
 - `micronaut-data-tx`：Micronaut Data Transaction 5.1.3，发布为 `micronaut.data:tx:1`；
 - `orm-micronaut-tx`：Micronaut Hibernate Transaction 5.1.3，发布为 `orm.micronaut:tx:1`；
+- `micronaut-web`：Micronaut Web 运行时、编译期处理器与公开 API 的组合 Module，发布为 `micronaut:web:1`；
+- `micronaut-test`：Micronaut Test 与 JUnit Jupiter 的组合 Module，发布为 `micronaut:test:1`；
 - `micronaut-jdbc-hikari`：Micronaut JDBC Hikari 7.1.2，发布为 `micronaut.jdbc:hikari:1`；
 - `h2-database`：H2 Database 2.4.240，发布为 `h2:database:1`；
 - `micronaut-security`：Micronaut Security 5.3.2，发布为 `micronaut:security:1`；

@@ -1,0 +1,9 @@
+package std.application
+
+import std.annotation.Document
+
+@Document(description: "Runs an application and owns its lifetime until completion or cancellation.")
+public interface Application {
+  @Document(description: "Starts the application and blocks until its lifetime ends.")
+  Void run()
+}

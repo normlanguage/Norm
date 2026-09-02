@@ -3,17 +3,11 @@ package sample.bbs
 import jakarta.inject.Inject
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Size
-import micronaut.aop.Around
-import micronaut.aop.InterceptorBean
-import micronaut.aop.MethodInterceptor
-import micronaut.aop.MethodInvocationContext
 import micronaut.core.annotation.Introspected
 import micronaut.core.annotation.IntrospectedAccessKind
 import micronaut.core.annotation.Nullable
 import micronaut.http.HttpRequest
 import micronaut.http.HttpResponse
-import micronaut.http.annotation.Error
 import micronaut.http.annotation.Body
 import micronaut.http.annotation.Controller
 import micronaut.http.annotation.Get
@@ -22,136 +16,10 @@ import micronaut.http.annotation.QueryValue
 import micronaut.http.annotation.RequestFilter
 import micronaut.http.annotation.ServerFilter
 import micronaut.http.httpResponseUnauthorized
-import micronaut.http.httpResponseBadRequest
-import micronaut.http.sse.Event
-import micronaut.http.sse.eventOf
-import micronaut.inject.context.annotation.Prototype
-import micronaut.inject.context.annotation.Value
-import micronaut.data.model.Page
 import micronaut.security.annotation.Secured
-import micronaut.security.authentication.Authentication
-import micronaut.security.authentication.AuthenticationRequest
-import micronaut.security.authentication.AuthenticationResponse
-import micronaut.security.authentication.authenticationResponseFailure
-import micronaut.security.authentication.authenticationResponseSuccess
-import micronaut.security.authentication.provider.AuthenticationProvider
-import micronaut.validation.Validated
 import micronaut.serde.api.annotation.Serdeable
-import reactor.core.publisher.fluxJust
-import std.annotation.FunctionTarget
-import std.annotation.RuntimeRetention
-import std.annotation.TypeTarget
-import std.concurrent.Publisher
+import micronaut.validation.Validated
 import std.collections.MutableList
-import std.core.Exception
-
-@Around()
-annotation Audited implements TypeTarget, FunctionTarget, RuntimeRetention {
-}
-
-@Prototype()
-@InterceptorBean(value: [Audited.class])
-class AuditInterceptor implements MethodInterceptor<Any?, String> {
-  String intercept(MethodInvocationContext<Any?, String> context) {
-    return "AOP:" + (context.proceed() ?? "missing")
-  }
-}
-
-@Prototype()
-class AuditService {
-  @Audited()
-  String label() {
-    return "BBS"
-  }
-}
-
-@Prototype()
-class CredentialsProvider implements AuthenticationProvider<Any, String, String> {
-  CredentialPolicy credentials
-  UserRepository users
-
-  @Inject()
-  CredentialsProvider(CredentialPolicy credentials, UserRepository users) {
-    this.credentials = credentials
-    this.users = users
-  }
-
-  AuthenticationResponse? authenticate(
-    Any? requestContext,
-    AuthenticationRequest<String?, String?>? authenticationRequest
-  ) {
-    if authenticationRequest != null {
-      String? identity = authenticationRequest.getIdentity()
-      UserEntity? user = users.findByUsername(identity ?? "")
-      if user != null {
-        if credentials.accepts(
-          user: user,
-          username: identity ?? "",
-          password: authenticationRequest.getSecret() ?? ""
-        ) {
-          return authenticationResponseSuccess(arg0: user.username)
-        }
-      }
-    }
-    return authenticationResponseFailure()
-  }
-}
-
-@ServerFilter(value: ["/bbs/filter-blocked"])
-class BbsFilter {
-  @RequestFilter()
-  HttpResponse<Any?>? filter(HttpRequest<Any?> request) {
-    return httpResponseUnauthorized<Any>()
-  }
-}
-
-@ServerFilter(value: ["/bbs/session/**"])
-class BbsSessionFilter {
-  SessionRepository sessions
-
-  @Inject()
-  BbsSessionFilter(SessionRepository sessions) {
-    this.sessions = sessions
-  }
-
-  @RequestFilter()
-  @Nullable()
-  HttpResponse<Any?>? filter(HttpRequest<Any?> request) {
-    String? token = request.getHeaders()?.findFirst("X-Session")
-    if token != null {
-      if sessions.findByToken(token) != null {
-        return null
-      }
-    }
-    return httpResponseUnauthorized<Any>()
-  }
-}
-
-@Prototype()
-class GreetingService {
-  String prefix
-
-  @Inject()
-  GreetingService(@Value(value: "\${bbs.greeting:Hello}") String prefix) {
-    this.prefix = prefix
-  }
-
-  String greet(String name) {
-    return prefix + ", " + name
-  }
-}
-
-@Serdeable()
-@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-class GreetingResponse {
-  @NotBlank() @Size(min: 3, max: 32) String message
-}
-
-@Serdeable()
-@Introspected(accessKind: [IntrospectedAccessKind.FIELD])
-class ErrorMessage {
-  String message
-}
 
 @Serdeable()
 @Introspected(accessKind: [IntrospectedAccessKind.FIELD])
@@ -174,9 +42,23 @@ class CreateReplyRequest {
   @NotBlank() String content
 }
 
-class BbsFailure extends Exception {
-  BbsFailure(String message) {
-    super(message: message)
+@ServerFilter(value: ["/bbs/session/**"])
+class BbsSessionFilter {
+  AccountService accounts
+
+  @Inject()
+  BbsSessionFilter(AccountService accounts) {
+    this.accounts = accounts
+  }
+
+  @RequestFilter()
+  @Nullable()
+  HttpResponse<Any?>? filter(HttpRequest<Any?> request) {
+    String? token = request.getHeaders()?.findFirst("X-Session")
+    if token != null && !accounts.usernameForToken(token).isEmpty() {
+      return null
+    }
+    return httpResponseUnauthorized<Any>()
   }
 }
 
@@ -184,53 +66,13 @@ class BbsFailure extends Exception {
 @Secured(value: ["isAnonymous()"])
 @Controller(value: "/bbs")
 class BbsController {
-  GreetingService greetingService
-  AuditService auditService
   AccountService accountService
   ForumService forumService
 
   @Inject()
-  BbsController(
-    GreetingService greetingService,
-    AuditService auditService,
-    AccountService accountService,
-    ForumService forumService
-  ) {
-    this.greetingService = greetingService
-    this.auditService = auditService
+  BbsController(AccountService accountService, ForumService forumService) {
     this.accountService = accountService
     this.forumService = forumService
-  }
-
-  @Get(value: "/audit")
-  String audit() {
-    return auditService.label()
-  }
-
-  @Get(value: "/hello/{name}")
-  String hello(String name) {
-    return greetingService.greet(name)
-  }
-
-  @Get(value: "/failure")
-  String failure() {
-    throw BbsFailure(message: "BBS failure")
-  }
-
-  @Error(global: true, exception: BbsFailure.class)
-  HttpResponse<ErrorMessage?>? error() {
-    return httpResponseBadRequest<ErrorMessage>(arg0: ErrorMessage(message: "BBS failure"))
-  }
-
-  @Get(value: "/dto")
-  GreetingResponse dto() {
-    return GreetingResponse(message: "Norm DTO")
-  }
-
-  @Post(value: "/dto")
-  GreetingResponse echo(@Body() @Valid() GreetingResponse request) {
-    request.message = "Echo " + request.message
-    return request
   }
 
   @Post(value: "/users")
@@ -280,13 +122,8 @@ class BbsController {
     ))
   }
 
-  @Get(value: "/topics/count")
-  Long countTopics() {
-    return forumService.topicCount()
-  }
-
   @Get(value: "/topics")
-  Page<TopicEntity?>? topics(
+  TopicPage topics(
     @QueryValue(value: "page") Integer page,
     @QueryValue(value: "size") Integer size
   ) {
@@ -301,23 +138,6 @@ class BbsController {
   @Get(value: "/topics/{id}/replies")
   MutableList<ReplyEntity?>? replies(Long id) {
     return forumService.repliesForTopic(id)
-  }
-
-  @Get(value: "/replies/count")
-  Long countReplies() {
-    return forumService.replyCount()
-  }
-
-  @Get(value: "/events", produces: ["text/event-stream"])
-  Publisher<Event<String?>?>? events() {
-    var event = eventOf<String>(arg0: "topics:" + forumService.topicCount().toString())
-    return fluxJust<Event<String?>?>(arg0: event)
-  }
-
-  @Secured(value: ["isAuthenticated()"])
-  @Get(value: "/secure")
-  String secure(Authentication authentication) {
-    return "norm"
   }
 
   @Get(value: "/session/profile")

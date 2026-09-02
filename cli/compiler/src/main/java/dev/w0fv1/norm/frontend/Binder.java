@@ -75,6 +75,8 @@ final class Binder {
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
   private final Map<String, BoundField> fields = new LinkedHashMap<>();
+  private final Map<String, List<Optional<Syntax.Expression>>> defaultArguments =
+      new LinkedHashMap<>();
   private Map<String, BoundLocalId> reifiedLocals = Map.of();
   private List<BoundTypeParameter> activeTypeParameters = List.of();
   private BoundLocalId thisLocal;
@@ -88,6 +90,49 @@ final class Binder {
   Binder(List<Syntax.Program> programs, SemanticModel semantics) {
     this.programs = List.copyOf(programs);
     this.semantics = semantics;
+    indexDefaultArguments();
+  }
+
+  private void indexDefaultArguments() {
+    for (Syntax.Program program : programs) {
+      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+        declaration
+            .methods()
+            .forEach(method -> indexDefaults(method.nameSpan(), method.parameters()));
+      }
+      for (Syntax.EnumDecl declaration : program.enums()) {
+        declaration
+            .variants()
+            .forEach(variant -> indexDefaults(variant.nameSpan(), variant.parameters()));
+      }
+      for (Syntax.AggregateDecl declaration : program.aggregates()) {
+        if (declaration.constructors().isEmpty()) {
+          List<Optional<Syntax.Expression>> defaults =
+              declaration.fields().stream().map(Syntax.FieldDecl::defaultValue).toList();
+          if (defaults.stream().anyMatch(Optional::isPresent)) {
+            defaultArguments.put(symbol(declaration.nameSpan()).id().value(), defaults);
+          }
+        } else {
+          declaration
+              .constructors()
+              .forEach(value -> indexDefaults(value.nameSpan(), value.parameters()));
+        }
+        declaration
+            .methods()
+            .forEach(method -> indexDefaults(method.nameSpan(), method.parameters()));
+      }
+      program
+          .functions()
+          .forEach(function -> indexDefaults(function.nameSpan(), function.parameters()));
+    }
+  }
+
+  private void indexDefaults(SourceSpan name, List<Syntax.Parameter> parameters) {
+    List<Optional<Syntax.Expression>> defaults =
+        parameters.stream().map(Syntax.Parameter::defaultValue).toList();
+    if (defaults.stream().anyMatch(Optional::isPresent)) {
+      defaultArguments.put(symbol(name).id().value(), defaults);
+    }
   }
 
   BoundProgram bind(Syntax.FunctionDecl entryPoint) {
@@ -456,6 +501,21 @@ final class Binder {
                             superCall.span()),
                         superCall.span()));
               });
+      for (Syntax.FieldDecl field : owner.fields()) {
+        field
+            .defaultValue()
+            .ifPresent(
+                value -> {
+                  BoundField boundField = field(symbol(field.nameSpan()));
+                  statements.add(
+                      new BoundStatement.FieldAssignment(
+                          thisRead(field.span()),
+                          boundField.id(),
+                          boundField.ordinal(),
+                          bindExpression(value),
+                          field.span()));
+                });
+      }
       statements.addAll(bindBlock(constructor.body(), constructor.span()).statements());
     }
     SourceSpan span = declaration.map(Syntax.ConstructorDecl::span).orElse(owner.span());
@@ -1125,6 +1185,16 @@ final class Binder {
       result.add(
           new BoundArgument(
               bindExpression(call.arguments().get(index).value()), indices.get(index)));
+    }
+    List<Optional<Syntax.Expression>> defaults = defaultArguments.get(resolution.target().value());
+    if (defaults != null) {
+      boolean[] supplied = new boolean[resolution.parameters().size()];
+      for (int index : indices) supplied[index] = true;
+      for (int index = 0; index < defaults.size(); index++) {
+        if (!supplied[index] && defaults.get(index).isPresent()) {
+          result.add(new BoundArgument(bindExpression(defaults.get(index).orElseThrow()), index));
+        }
+      }
     }
     return result;
   }

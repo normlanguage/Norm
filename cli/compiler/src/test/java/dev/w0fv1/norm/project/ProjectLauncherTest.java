@@ -302,6 +302,35 @@ final class ProjectLauncherTest {
   }
 
   @Test
+  void exposesDependenciesReexportedByDirectModules() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("exported-dependency"));
+    Path entry =
+        source(
+            root,
+            "sample/Main.norm",
+            "package sample import base.answer Void main() { printLine(answer().toString()) }");
+    Files.writeString(
+        root.resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"], dependencies: [dependency(name: \"platform\", version: 1)]) }");
+    Path platform = Files.createDirectories(root.resolve("dependencies/platform"));
+    Files.writeString(
+        platform.resolve("module.norm"),
+        "Module module() { return module(name: \"platform\", version: 1, exports: [], dependencies: [exportedDependency(name: \"base\", version: 1)]) }");
+    Path base = Files.createDirectories(root.resolve("dependencies/base"));
+    source(base, "Value.norm", "package base public Integer answer() { return 42 }");
+    Files.writeString(
+        base.resolve("module.norm"),
+        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"]) }");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+
+    try (ProjectLauncher launcher = environment.launcher()) {
+      var result = launcher.compile(entry);
+
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+  }
+
+  @Test
   void acceptsAUserDefinedModuleImplementation() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("custom-module"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");

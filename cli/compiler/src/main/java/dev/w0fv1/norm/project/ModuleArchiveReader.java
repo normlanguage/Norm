@@ -91,7 +91,9 @@ final class ModuleArchiveReader {
               JsonObject dependency = value.getAsJsonObject();
               dependencies.add(
                   new ModuleRequirement(
-                      dependency.get("name").getAsString(), dependency.get("version").getAsInt()));
+                      dependency.get("name").getAsString(),
+                      dependency.get("version").getAsInt(),
+                      dependency.has("exported") && dependency.get("exported").getAsBoolean()));
             });
     Optional<JarBinding> binding = Optional.empty();
     if (manifest.has("jar")) {

@@ -91,6 +91,57 @@ final class CliControllerTest {
   }
 
   @Test
+  void runsFunctionsAndValueConstructorsWithDefaults() throws IOException {
+    Path source = temporaryDirectory.resolve("defaults.norm");
+    Files.writeString(
+        source,
+        """
+        value Server {
+          String host = "0.0.0.0"
+          Integer port = 8080
+        }
+
+        String address(String scheme = "http", String host = "localhost", Integer port = 80) {
+          return scheme + "://" + host + ":" + port.toString()
+        }
+
+        Void main() {
+          Server server = Server(host: "127.0.0.1")
+          printLine(address(port: server.port))
+          printLine(server.host + ":" + server.port.toString())
+        }
+        """);
+
+    Result result = run("run", source.toString());
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode());
+    assertEquals(
+        "http://localhost:8080"
+            + System.lineSeparator()
+            + "127.0.0.1:8080"
+            + System.lineSeparator(),
+        result.standardOut());
+    assertEquals("", result.standardError());
+  }
+
+  @Test
+  void prefersAnExactArityOverloadOverOneUsingDefaults() throws IOException {
+    Path source = temporaryDirectory.resolve("default-overload.norm");
+    Files.writeString(
+        source,
+        """
+        String select(String value) { return "exact:" + value }
+        String select(String value, String suffix = "default") { return value + suffix }
+        Void main() { printLine(select("Norm")) }
+        """);
+
+    Result result = run("run", source.toString());
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertEquals("exact:Norm" + System.lineSeparator(), result.standardOut());
+  }
+
+  @Test
   void loadsAndRunsTheEntrySourceRoot() throws IOException {
     Path app = Files.createDirectories(temporaryDirectory.resolve("src/sample"));
     Path math = Files.createDirectories(temporaryDirectory.resolve("src/sample/math"));
@@ -108,6 +159,37 @@ final class CliControllerTest {
 
     assertEquals(ExitCode.SUCCESS, result.exitCode());
     assertEquals("14" + System.lineSeparator(), result.standardOut());
+    assertEquals("", result.standardError());
+  }
+
+  @Test
+  void runsAnApplicationDeclarationFromItsModuleDirectory() throws IOException {
+    Path application = Files.createDirectories(temporaryDirectory.resolve("application/sample"));
+    Files.writeString(
+        application.resolve("module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1) }");
+    Files.writeString(
+        application.resolve("application.norm"),
+        """
+        package sample
+
+        import std.application.Application
+
+        class GreetingApplication implements Application {
+          Void run() {
+            printLine("Hello from application.norm")
+          }
+        }
+
+        public Application application() {
+          return GreetingApplication()
+        }
+        """);
+
+    Result result = run("run", application.toString());
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertEquals("Hello from application.norm" + System.lineSeparator(), result.standardOut());
     assertEquals("", result.standardError());
   }
 

@@ -267,7 +267,13 @@ final class Parser {
                 memberAnnotations,
                 Syntax.FunctionKind.REGULAR));
       } else {
+        Optional<Syntax.Expression> defaultValue =
+            match(TokenKind.EQUAL) ? Optional.of(parseExpression()) : Optional.empty();
         match(TokenKind.SEMICOLON);
+        SourceSpan fieldSpan =
+            defaultValue
+                .map(value -> type.span().cover(value.span()))
+                .orElseGet(() -> type.span().cover(memberName.span()));
         fields.add(
             new Syntax.FieldDecl(
                 memberAnnotations,
@@ -275,7 +281,8 @@ final class Parser {
                 type,
                 memberName.value(),
                 memberName.span(),
-                coverAnnotations(memberAnnotations, type.span().cover(memberName.span()))));
+                defaultValue,
+                coverAnnotations(memberAnnotations, fieldSpan)));
       }
     }
     Token closing =
@@ -470,6 +477,12 @@ final class Parser {
               new Syntax.TypeRef("Function", arguments, false, type.span().cover(closing.span()));
           callableParameters = Optional.of(signature);
         }
+        Optional<Syntax.Expression> defaultValue =
+            match(TokenKind.EQUAL) ? Optional.of(parseExpression()) : Optional.empty();
+        SourceSpan parameterSpan = type.span().cover(parameterName.span());
+        if (defaultValue.isPresent()) {
+          parameterSpan = type.span().cover(defaultValue.orElseThrow().span());
+        }
         parameters.add(
             new Syntax.Parameter(
                 annotations,
@@ -477,7 +490,8 @@ final class Parser {
                 parameterName.value(),
                 parameterName.span(),
                 callableParameters,
-                type.span().cover(parameterName.span())));
+                defaultValue,
+                parameterSpan));
       } while (match(TokenKind.COMMA));
     }
     return List.copyOf(parameters);

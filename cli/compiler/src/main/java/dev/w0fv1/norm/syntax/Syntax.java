@@ -254,6 +254,7 @@ public final class Syntax {
       String name,
       SourceSpan nameSpan,
       Optional<List<Parameter>> callableParameters,
+      Optional<Expression> defaultValue,
       SourceSpan span)
       implements AstNode {
     public Parameter {
@@ -263,11 +264,22 @@ public final class Syntax {
       Objects.requireNonNull(nameSpan, "nameSpan");
       callableParameters =
           Objects.requireNonNull(callableParameters, "callableParameters").map(List::copyOf);
+      defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
       Objects.requireNonNull(span, "span");
     }
 
+    public Parameter(
+        List<AnnotationUse> annotations,
+        TypeRef type,
+        String name,
+        SourceSpan nameSpan,
+        Optional<List<Parameter>> callableParameters,
+        SourceSpan span) {
+      this(annotations, type, name, nameSpan, callableParameters, Optional.empty(), span);
+    }
+
     public Parameter(TypeRef type, String name, SourceSpan nameSpan, SourceSpan span) {
-      this(List.of(), type, name, nameSpan, Optional.empty(), span);
+      this(List.of(), type, name, nameSpan, Optional.empty(), Optional.empty(), span);
     }
   }
 
@@ -277,6 +289,7 @@ public final class Syntax {
       TypeRef type,
       String name,
       SourceSpan nameSpan,
+      Optional<Expression> defaultValue,
       SourceSpan span)
       implements AstNode {
     public FieldDecl {
@@ -285,7 +298,18 @@ public final class Syntax {
       Objects.requireNonNull(type, "type");
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
+      defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
       Objects.requireNonNull(span, "span");
+    }
+
+    public FieldDecl(
+        List<AnnotationUse> annotations,
+        Visibility visibility,
+        TypeRef type,
+        String name,
+        SourceSpan nameSpan,
+        SourceSpan span) {
+      this(annotations, visibility, type, name, nameSpan, Optional.empty(), span);
     }
   }
 

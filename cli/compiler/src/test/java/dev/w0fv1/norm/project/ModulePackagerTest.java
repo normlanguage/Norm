@@ -359,7 +359,7 @@ final class ModulePackagerTest {
           return module(
             name: "example.adapter",
             version: 1,
-            dependencies: [dependency(name: "example.base", version: 2)],
+            dependencies: [exportedDependency(name: "example.base", version: 2)],
             binding: jarBinding(
               target: mavenJar(
                 group: "org.apache.commons",
@@ -394,6 +394,19 @@ final class ModulePackagerTest {
                   <scope>runtime</scope>
                 </dependency>
             """));
+    try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
+      String manifest =
+          new String(archive.getInputStream(archive.getEntry("module.json")).readAllBytes());
+      assertTrue(
+          JsonParser.parseString(manifest)
+              .getAsJsonObject()
+              .getAsJsonObject("module")
+              .getAsJsonArray("dependencies")
+              .get(0)
+              .getAsJsonObject()
+              .get("exported")
+              .getAsBoolean());
+    }
   }
 
   private static String run(Path repository, Path entry) throws Exception {

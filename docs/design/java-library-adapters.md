@@ -119,7 +119,7 @@ norm package path/to/commons/lang --output path/to/repository
 
 ## 发布模型
 
-`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 4 使用 ZIP 容器，所有 Module 都包含已求值的 `module.json` 和普通 Norm `sources/`。纯 Norm Module 保存完整实现源码；Java Binding Module 只保存由公开适配面生成的 Norm 源码，并额外包含 `jar` manifest 与 `binding/java-api.json`，工程中的示例和验证程序不进入制品。Binding manifest 保存类型、成员组和精确重载公开面，API 报告记录完整 JAR census、结构化适配状态与 `JavaApiId`，消费端以固定 JAR 重新扫描复验。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。纯 Norm 实现使用同一归档、坐标和调用边界，移除 Binding 不产生新的包种类。后续二进制 Core 复用同一容器与身份模型。
+`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 4 使用 ZIP 容器，所有 Module 都包含已求值的 `module.json` 和普通 Norm `sources/`。纯 Norm Module 保存完整实现源码；Java Binding Module 只保存由公开适配面生成的 Norm 源码，并额外包含 `jar` manifest 与 `binding/java-api.json`，工程中的示例和验证程序不进入制品。Binding manifest 保存类型、成员组和精确重载公开面，API 报告在打包阶段记录完整 JAR census、结构化适配状态与 `JavaApiId`；消费端按固定 JAR 只重建公开适配面及其类型闭包，并逐个复验归档中的生成源码。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。纯 Norm 实现使用同一归档、坐标和调用边界，移除 Binding 不产生新的包种类。后续二进制 Core 复用同一容器与身份模型。
 
 POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module 时同时获得所需 Java 图。发布本地 JAR 时必须为它声明可解析的发布坐标；同一次发布产生 Java artifact 和依赖它的 Norm artifact。
 

@@ -24,12 +24,12 @@ class Counter {
 }
 
 value Point {
-    Integer x
-    Integer y
+    Integer x = 0
+    Integer y = 0
 }
 ```
 
-class 可以包含可变字段和行为，并且赋值保留对象 identity；value 构造后不可变并按 value 规则赋值。二者字段都必须满足确定赋值。
+class 可以包含可变字段和行为，并且赋值保留对象 identity；value 构造后不可变并按 value 规则赋值。字段默认表达式使对应的隐式构造参数可省略，并在构造位置按字段顺序求值；必填字段必须位于默认字段之前。没有默认值的字段仍须满足确定赋值。
 
 ## Interface
 

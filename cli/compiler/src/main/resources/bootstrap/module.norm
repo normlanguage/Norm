@@ -1,6 +1,7 @@
 interface ModuleRequirement {
   String name()
   Integer version()
+  Boolean exported()
 }
 
 interface ContentDigest {
@@ -43,6 +44,7 @@ interface Module {
 private class DeclaredModuleRequirement implements ModuleRequirement {
   String moduleName
   Integer moduleVersion
+  Boolean exportedDependency
 
   String name() {
     return moduleName
@@ -50,6 +52,10 @@ private class DeclaredModuleRequirement implements ModuleRequirement {
 
   Integer version() {
     return moduleVersion
+  }
+
+  Boolean exported() {
+    return exportedDependency
   }
 }
 
@@ -150,7 +156,19 @@ private class DeclaredJarOverload implements JarOverload {
 }
 
 ModuleRequirement dependency(String name, Integer version) {
-  return DeclaredModuleRequirement(moduleName: name, moduleVersion: version)
+  return DeclaredModuleRequirement(
+    moduleName: name,
+    moduleVersion: version,
+    exportedDependency: false
+  )
+}
+
+ModuleRequirement exportedDependency(String name, Integer version) {
+  return DeclaredModuleRequirement(
+    moduleName: name,
+    moduleVersion: version,
+    exportedDependency: true
+  )
 }
 
 ContentDigest sha256(String value) {
@@ -215,78 +233,23 @@ JarBinding jarBinding(JarTarget target, List<JarType> api) {
   return DeclaredJarBinding(boundTarget: target, publicApi: api)
 }
 
-Module module(String name, Integer version, List<String> exports) {
-  return module(name: name, version: version, exports: exports, dependencies: [], binding: null)
-}
-
 Module module(
   String name,
   Integer version,
-  List<String> exports,
-  List<ModuleRequirement> dependencies
+  List<String> exports = [],
+  List<ModuleRequirement> dependencies = [],
+  JarBinding? binding = null
 ) {
-  return module(
-    name: name,
-    version: version,
-    exports: exports,
-    dependencies: dependencies,
-    binding: null
-  )
-}
-
-Module module(
-  String name,
-  Integer version,
-  JarBinding binding
-) {
-  return module(name: name, version: version, dependencies: [], binding: binding)
-}
-
-Module module(
-  String name,
-  Integer version,
-  List<ModuleRequirement> dependencies,
-  JarBinding binding
-) {
-  List<String> exports = []
-  for JarType type : binding.api() {
-    exports.add(type.name())
+  List<String> resolvedExports = exports
+  if binding != null && resolvedExports.size() == 0 {
+    for JarType type : binding.api() {
+      resolvedExports.add(type.name())
+    }
   }
-  return module(
-    name: name,
-    version: version,
-    exports: exports,
-    dependencies: dependencies,
-    binding: binding
-  )
-}
-
-Module module(
-  String name,
-  Integer version,
-  List<String> exports,
-  JarBinding binding
-) {
-  return module(
-    name: name,
-    version: version,
-    exports: exports,
-    dependencies: [],
-    binding: binding
-  )
-}
-
-Module module(
-  String name,
-  Integer version,
-  List<String> exports,
-  List<ModuleRequirement> dependencies,
-  JarBinding? binding
-) {
   return DeclaredModule(
     moduleName: name,
     moduleVersion: version,
-    exportedSources: exports,
+    exportedSources: resolvedExports,
     requiredModules: dependencies,
     jarBinding: binding
   )

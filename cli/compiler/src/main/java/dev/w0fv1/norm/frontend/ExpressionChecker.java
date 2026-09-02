@@ -1027,7 +1027,9 @@ final class ExpressionChecker {
               .map(
                   parameter ->
                       new ParameterInfo(
-                          parameter.name(), parameter.type().substitute(substitutions)))
+                          parameter.name(),
+                          parameter.type().substitute(substitutions),
+                          parameter.hasDefault()))
               .toList();
       List<SemanticType> reifiedArguments =
           symbol.typeParameters().stream()
@@ -1147,7 +1149,9 @@ final class ExpressionChecker {
                 .map(
                     parameter ->
                         new ParameterInfo(
-                            parameter.name(), parameter.type().substitute(substitutions)))
+                            parameter.name(),
+                            parameter.type().substitute(substitutions),
+                            parameter.hasDefault()))
                 .toList();
         SemanticType result = variantSymbol.type().substitute(substitutions);
         List<SemanticType> reifiedArguments =
@@ -1186,7 +1190,9 @@ final class ExpressionChecker {
                 .map(
                     parameter ->
                         new ParameterInfo(
-                            parameter.name(), parameter.type().substitute(substitutions)))
+                            parameter.name(),
+                            parameter.type().substitute(substitutions),
+                            parameter.hasDefault()))
                 .toList();
         SemanticType result = symbol.type().substitute(substitutions);
         List<SemanticType> reifiedArguments =
@@ -1249,7 +1255,9 @@ final class ExpressionChecker {
               .map(
                   parameter ->
                       new ParameterInfo(
-                          parameter.name(), parameter.type().substitute(substitutions)))
+                          parameter.name(),
+                          parameter.type().substitute(substitutions),
+                          parameter.hasDefault()))
               .toList();
       return analyzer.typeSystem.recordCall(
           call,
@@ -1537,7 +1545,10 @@ final class ExpressionChecker {
     }
     List<ParameterInfo> parameters =
         requirement.parameters().stream()
-            .map(value -> new ParameterInfo(value.name(), value.type().substitute(substitutions)))
+            .map(
+                value ->
+                    new ParameterInfo(
+                        value.name(), value.type().substitute(substitutions), value.hasDefault()))
             .toList();
     return new InterfaceCallResolution(
         parameters, requirement.result().substitute(substitutions), reified);

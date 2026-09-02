@@ -132,6 +132,7 @@ public final class ModulePackager {
       JsonObject value = new JsonObject();
       value.addProperty("name", dependency.name());
       value.addProperty("version", dependency.version());
+      value.addProperty("exported", dependency.exported());
       dependencies.add(value);
     }
     module.add("dependencies", dependencies);

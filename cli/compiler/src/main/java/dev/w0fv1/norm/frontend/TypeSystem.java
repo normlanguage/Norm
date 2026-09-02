@@ -1177,7 +1177,8 @@ final class TypeSystem {
             parameter ->
                 new ParameterInfo(
                     parameter.name(),
-                    resolveType(parameter.type(), declarationTypes).substitute(substitutions)))
+                    resolveType(parameter.type(), declarationTypes).substitute(substitutions),
+                    parameter.defaultValue().isPresent()))
         .toList();
   }
 
@@ -1190,7 +1191,8 @@ final class TypeSystem {
                     parameter.name(),
                     resolveDeclarationType(
                             parameter.type(), function, typeParameters(function, ownerOf(function)))
-                        .substitute(substitutions)))
+                        .substitute(substitutions),
+                    parameter.defaultValue().isPresent()))
         .toList();
   }
 
@@ -1233,7 +1235,8 @@ final class TypeSystem {
                     field.name(),
                     resolveDeclarationType(
                             field.type(), field, aggregateTypeParameters(aggregateDecl))
-                        .substitute(substitutions)))
+                        .substitute(substitutions),
+                    field.defaultValue().isPresent()))
         .toList();
   }
 
@@ -1246,7 +1249,8 @@ final class TypeSystem {
             field ->
                 new ParameterInfo(
                     field.name(),
-                    resolveType(field.type(), declarationTypes).substitute(substitutions)))
+                    resolveType(field.type(), declarationTypes).substitute(substitutions),
+                    field.defaultValue().isPresent()))
         .toList();
   }
 

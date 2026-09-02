@@ -106,25 +106,25 @@ try {
     development: false,
   };
   const production = await resolveCliCommand(productionOptions, probeVersion);
-  assert.equal(production.selected?.command, bundled);
-  assert.equal(production.selected?.version, '0.17.1');
-  assert.equal(production.selected?.source, 'bundled');
+  assert.equal(production.selected?.command, expected);
+  assert.equal(production.selected?.version, '0.17.1-SNAPSHOT');
+  assert.equal(production.selected?.source, 'workspace');
   assert.deepEqual(
     production.rejected
       .filter(({ reason }) => reason === 'version-mismatch')
       .map(({ source, version }) => [source, version]),
     [
       ['configured', '0.16.0'],
-      ['bundled', '0.16.0-SNAPSHOT'],
     ],
   );
 
   versions.set(expected, '0.17.1');
-  const productionPrefersBundle = await resolveCliCommand(
+  const productionPrefersWorkspace = await resolveCliCommand(
     { ...productionOptions, configured: '' },
     probeVersion,
   );
-  assert.equal(productionPrefersBundle.selected?.command, bundled);
+  assert.equal(productionPrefersWorkspace.selected?.command, expected);
+  assert.equal(productionPrefersWorkspace.selected?.source, 'workspace');
 
   versions.set(external, '0.17.1');
   const compatibleConfigured = await resolveCliCommand(productionOptions, probeVersion);

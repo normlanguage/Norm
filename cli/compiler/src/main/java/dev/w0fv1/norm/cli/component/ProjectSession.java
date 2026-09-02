@@ -12,7 +12,6 @@ import dev.w0fv1.norm.value.SourceFile;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,13 +63,12 @@ final class ProjectSession {
   AnalysisResult analysis(SourceFile primary) {
     AnalysisResult selected = snapshot.analysis(primary.id());
     if (loadFailure.isPresent()) {
-      List<Diagnostic> diagnostics = new ArrayList<>(selected.diagnostics());
-      diagnostics.add(
-          0,
-          Diagnostic.error(
-              PROJECT_LOAD,
-              loadFailure.orElseThrow(),
-              new SourceSpan(primary, 0, Math.min(1, primary.length()))));
+      List<Diagnostic> diagnostics =
+          List.of(
+              Diagnostic.error(
+                  PROJECT_LOAD,
+                  loadFailure.orElseThrow(),
+                  new SourceSpan(primary, 0, Math.min(1, primary.length()))));
       return new AnalysisResult(selected.semanticModel(), selected.entryPoint(), diagnostics);
     }
     return selected;

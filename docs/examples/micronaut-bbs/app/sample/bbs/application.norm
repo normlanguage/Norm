@@ -1,0 +1,43 @@
+package sample.bbs
+
+import micronaut.web.Health
+import micronaut.web.HealthDetails
+import micronaut.web.h2DataSource
+import micronaut.web.Micronaut
+import micronaut.web.MicronautApplication
+import micronaut.web.MicronautConfig
+import micronaut.web.Persistence
+import micronaut.web.Router
+import micronaut.web.SchemaMode
+import micronaut.web.Security
+import micronaut.web.SecurityAccess
+import micronaut.web.SecurityRule
+import micronaut.web.Server
+import micronaut.web.StaticResource
+import std.application.Application
+
+public Application application() {
+  return MicronautApplication(config: MicronautConfig(
+    micronaut: Micronaut(
+      server: Server(host: "127.0.0.1"),
+      router: Router(staticResources: [
+        StaticResource(name: "bbs")
+      ]),
+      security: Security(enabled: true, rules: [
+        SecurityRule(pattern: "/", access: SecurityAccess.Anonymous),
+        SecurityRule(pattern: "/styles.css", access: SecurityAccess.Anonymous),
+        SecurityRule(pattern: "/app.js", access: SecurityAccess.Anonymous)
+      ]),
+      health: Health(
+        enabled: true,
+        sensitive: false,
+        details: HealthDetails.Anonymous
+      )
+    ),
+    persistence: Persistence(
+      datasource: h2DataSource(database: "./.tmp/micronaut-bbs/bbs"),
+      entityPackages: ["sample.bbs"],
+      schema: SchemaMode.Update
+    )
+  ))
+}

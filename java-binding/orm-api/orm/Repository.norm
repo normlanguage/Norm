@@ -57,6 +57,44 @@ public class Repository<E, I> {
     return query?.getResultList()
   }
 
+  public E? findFirstWhere<V>(Field<E, V> field, V value) {
+    QueryExecution<E?>? query = store.createQuery<E>(
+      arg0: "select entity from "
+        + this.entityName()
+        + " entity where entity."
+        + field.name()
+        + " = :value",
+      arg1: entityType
+    )
+    query?.setParameter(arg0: "value", arg1: value)
+    query?.setMaxResults(1)
+    return query?.getSingleResultOrNull()
+  }
+
+  public MutableList<E?>? findWhereOrdered<V, O>(
+    Field<E, V> field,
+    V value,
+    Field<E, O> order,
+    Boolean ascending
+  ) {
+    String direction = " desc"
+    if ascending {
+      direction = " asc"
+    }
+    QueryExecution<E?>? query = store.createQuery<E>(
+      arg0: "select entity from "
+        + this.entityName()
+        + " entity where entity."
+        + field.name()
+        + " = :value order by entity."
+        + order.name()
+        + direction,
+      arg1: entityType
+    )
+    query?.setParameter(arg0: "value", arg1: value)
+    return query?.getResultList()
+  }
+
   public MutableList<E?>? page(Integer offset, Integer limit) {
     QueryExecution<E?>? query = store.createQuery<E>(
       arg0: "select entity from " + this.entityName() + " entity",
@@ -65,6 +103,14 @@ public class Repository<E, I> {
     query?.setFirstResult(offset)
     query?.setMaxResults(limit)
     return query?.getResultList()
+  }
+
+  public Long count() {
+    QueryExecution<Long?>? query = store.createQuery<Long>(
+      arg0: "select count(entity) from " + this.entityName() + " entity",
+      arg1: Long.class
+    )
+    return query?.getSingleResultOrNull() ?? 0
   }
 
   private String entityName() {

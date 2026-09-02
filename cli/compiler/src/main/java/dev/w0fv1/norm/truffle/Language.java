@@ -76,4 +76,9 @@ public final class Language extends TruffleLanguage<LanguageContext> {
   protected void disposeContext(LanguageContext context) {
     context.close();
   }
+
+  @Override
+  protected boolean isThreadAccessAllowed(Thread thread, boolean singleThreaded) {
+    return true;
+  }
 }

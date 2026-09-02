@@ -4,6 +4,7 @@ Module module() {
     version: 1,
     exports: [
       "annotation.protocols",
+      "application.application",
       "core.exception",
       "core.protocols",
       "core.result",

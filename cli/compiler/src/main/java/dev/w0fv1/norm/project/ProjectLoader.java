@@ -92,15 +92,21 @@ public final class ProjectLoader implements AutoCloseable {
     Set<Path> modulePaths = new LinkedHashSet<>();
     Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>();
     Map<ModuleCoordinate, Set<ModuleCoordinate>> dependencies = new LinkedHashMap<>();
+    Map<ModuleCoordinate, ModuleDescriptor> descriptors =
+        graph.stream()
+            .map(ResolvedModule::descriptor)
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    ModuleDescriptor::coordinate,
+                    java.util.function.Function.identity(),
+                    (left, right) -> left,
+                    LinkedHashMap::new));
     Set<DocumentId> bindingSources = new LinkedHashSet<>();
     List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
     Map<String, ModuleResource> resources = new LinkedHashMap<>();
     for (ResolvedModule module : graph) {
       dependencies.put(
-          module.descriptor().coordinate(),
-          module.descriptor().dependencies().stream()
-              .map(ModuleRequirement::coordinate)
-              .collect(java.util.stream.Collectors.toSet()));
+          module.descriptor().coordinate(), readableDependencies(module.descriptor(), descriptors));
       modulePaths.add(normalize(module.moduleSource().path()));
       bindingSources.addAll(module.bindingSources());
       module.binding().ifPresent(jarBindings::add);
@@ -133,6 +139,30 @@ public final class ProjectLoader implements AutoCloseable {
         bindingSources,
         jarBindings,
         resources);
+  }
+
+  private static Set<ModuleCoordinate> readableDependencies(
+      ModuleDescriptor module, Map<ModuleCoordinate, ModuleDescriptor> descriptors) {
+    Set<ModuleCoordinate> readable = new LinkedHashSet<>();
+    for (ModuleRequirement requirement : module.dependencies()) {
+      if (readable.add(requirement.coordinate())) {
+        collectExportedDependencies(requirement.coordinate(), descriptors, readable);
+      }
+    }
+    return Set.copyOf(readable);
+  }
+
+  private static void collectExportedDependencies(
+      ModuleCoordinate coordinate,
+      Map<ModuleCoordinate, ModuleDescriptor> descriptors,
+      Set<ModuleCoordinate> readable) {
+    ModuleDescriptor descriptor = descriptors.get(coordinate);
+    if (descriptor == null) return;
+    for (ModuleRequirement requirement : descriptor.dependencies()) {
+      if (requirement.exported() && readable.add(requirement.coordinate())) {
+        collectExportedDependencies(requirement.coordinate(), descriptors, readable);
+      }
+    }
   }
 
   private List<ResolvedModule> resolveGraph(
@@ -281,11 +311,7 @@ public final class ProjectLoader implements AutoCloseable {
     Map<String, String> generatedSources = Map.of();
     if (descriptor.binding().isPresent()) {
       ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
-      ResolvedJarBinding resolved = generateJarBinding(descriptor, graph);
-      if (!resolved.api().apiId().equals(archived.javaApiId().orElseThrow())) {
-        throw new IOException(
-            "Norm module Java API identity does not match its pinned JAR binding");
-      }
+      ResolvedJarBinding resolved = generateArchivedJarBinding(descriptor, graph);
       Map<String, String> expected = new LinkedHashMap<>();
       for (GeneratedBindingSource source : resolved.generated().sources()) {
         expected.put(source.relativePath(), source.text());
@@ -438,14 +464,25 @@ public final class ProjectLoader implements AutoCloseable {
 
   private static ResolvedJarBinding generateJarBinding(
       ModuleDescriptor descriptor, ResolvedJarGraph graph) throws IOException {
+    return generateJarBinding(descriptor, graph, false);
+  }
+
+  private static ResolvedJarBinding generateArchivedJarBinding(
+      ModuleDescriptor descriptor, ResolvedJarGraph graph) throws IOException {
+    return generateJarBinding(descriptor, graph, true);
+  }
+
+  private static ResolvedJarBinding generateJarBinding(
+      ModuleDescriptor descriptor, ResolvedJarGraph graph, boolean selectedSurfaceOnly)
+      throws IOException {
     try {
-      var api =
-          new JarApiScanner()
-              .scan(
-                  graph,
-                  descriptor.binding().orElseThrow().api().stream()
-                      .map(dev.w0fv1.norm.value.JarBindingType::name)
-                      .toList());
+      List<String> selectedTypes =
+          descriptor.binding().orElseThrow().api().stream()
+              .map(dev.w0fv1.norm.value.JarBindingType::name)
+              .toList();
+      JarApiScanner scanner = new JarApiScanner();
+      var surface = scanner.scanSurface(graph, selectedTypes);
+      var api = selectedSurfaceOnly ? surface : scanner.scan(graph, selectedTypes);
       GeneratedJarBinding generated =
           new JarBindingSourceGenerator()
               .generateSurface(
@@ -453,7 +490,7 @@ public final class ProjectLoader implements AutoCloseable {
                   descriptor.exports().subList(0, descriptor.binding().orElseThrow().api().size()),
                   descriptor.binding().orElseThrow().api(),
                   graph.contentId(),
-                  api);
+                  surface);
       return new ResolvedJarBinding(graph, api, generated);
     } catch (IllegalArgumentException exception) {
       throw new IOException(

@@ -9,6 +9,7 @@ import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
@@ -21,20 +22,22 @@ final class RunCommand implements Command {
 
   @Override
   public String summary() {
-    return "Compile and run a Norm source file";
+    return "Compile and run a Norm source file or application module";
   }
 
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     if (arguments.size() != 1) {
-      err.println("error[NORM-CLI-0003]: 'run' expects exactly one source file");
-      err.println("Usage: norm run <file.norm>");
+      err.println(
+          "error[NORM-CLI-0003]: 'run' expects exactly one source file or module directory");
+      err.println("Usage: norm run <file.norm|module-directory>");
       return ExitCode.USAGE_ERROR;
     }
 
     Path entry;
     try {
       entry = Path.of(arguments.getFirst());
+      if (Files.isDirectory(entry)) entry = entry.resolve("application.norm");
     } catch (InvalidPathException exception) {
       err.printf("error[NORM-CLI-0004]: invalid source path '%s'%n", arguments.getFirst());
       return ExitCode.INPUT_ERROR;

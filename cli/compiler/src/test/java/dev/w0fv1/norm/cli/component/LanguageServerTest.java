@@ -350,6 +350,7 @@ final class LanguageServerTest {
                     "Module module() { return module(name: \"sample\", version: 0, exports: []) }")));
 
     assertNotNull(client.diagnostics);
+    assertEquals(1, client.diagnostics.getDiagnostics().size());
     assertEquals(
         "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
   }
@@ -623,6 +624,7 @@ final class LanguageServerTest {
             new DidOpenTextDocumentParams(
                 new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
 
+    assertEquals(1, client.diagnostics.getDiagnostics().size());
     assertEquals(
         "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
   }

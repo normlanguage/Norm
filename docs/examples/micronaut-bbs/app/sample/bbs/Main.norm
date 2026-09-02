@@ -1,5 +1,0 @@
-package sample.bbs
-
-Void main() {
-  runBbsServer()
-}

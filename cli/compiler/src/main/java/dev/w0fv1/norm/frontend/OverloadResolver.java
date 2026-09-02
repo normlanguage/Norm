@@ -78,8 +78,8 @@ final class OverloadResolver {
   }
 
   List<Integer> argumentIndices(Syntax.Call call, List<ParameterInfo> parameters, boolean report) {
-    boolean valid = call.arguments().size() == parameters.size();
-    if (report && !valid) {
+    boolean valid = call.arguments().size() <= parameters.size();
+    if (report && call.arguments().size() > parameters.size()) {
       diagnostics.error(
           invalidCall,
           "call expects " + parameters.size() + " argument(s), found " + call.arguments().size(),
@@ -106,7 +106,7 @@ final class OverloadResolver {
       result.add(parameterIndex);
     }
     for (int index = 0; index < supplied.length; index++) {
-      if (supplied[index]) continue;
+      if (supplied[index] || parameters.get(index).hasDefault()) continue;
       valid = false;
       if (report) {
         diagnostics.error(
@@ -117,7 +117,7 @@ final class OverloadResolver {
   }
 
   private int score(Candidate candidate, List<SemanticType> argumentTypes) {
-    int score = 0;
+    int score = candidate.parameters().size() - argumentTypes.size();
     for (int index = 0; index < argumentTypes.size(); index++) {
       SemanticType actual = argumentTypes.get(index);
       SemanticType parameter = candidate.parameters().get(candidate.indices().get(index)).type();

@@ -84,6 +84,24 @@ final class FunctionCompilerTest {
   }
 
   @Test
+  void requiresDefaultParametersAndFieldsAfterRequiredOnes() {
+    var function =
+        compile(
+            "String invalid(String optional = \"value\", String required) { return required } Void main() {}");
+    var field =
+        compile("value Invalid { String optional = \"value\" String required } Void main() {}");
+
+    assertFalse(function.isSuccess());
+    assertFalse(field.isSuccess());
+    assertTrue(
+        function.diagnostics().stream()
+            .anyMatch(value -> value.message().contains("required parameter follows a default")));
+    assertTrue(
+        field.diagnostics().stream()
+            .anyMatch(value -> value.message().contains("required field follows a default")));
+  }
+
+  @Test
   void requiresExplicitResolutionForConflictingInterfaceDefaults() {
     var compilation =
         compile(

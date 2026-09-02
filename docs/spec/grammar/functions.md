@@ -3,7 +3,7 @@
 ```text
 Function := Visibility? "extension"? ReturnType? Identifier TypeParameters?
             "(" Parameters? ")" Block
-Parameter := Type Identifier ("=" ConstantExpression)?
+Parameter := Type Identifier ("=" Expression)?
 ```
 
 ```norm
@@ -28,7 +28,7 @@ String text = "Norm".quoted()
 
 ## 参数
 
-参数在函数体内是局部绑定。多参数调用使用 `name: value`，参数名因此属于 public API。单参数调用可以省略名称；多参数调用中的裸标识符只有与对应参数同名时才能省略标签。默认值必须是编译期常量，并且默认参数位于必填参数之后。
+参数在函数体内是局部绑定。多参数调用使用 `name: value`，参数名因此属于 public API。单参数调用可以省略名称；多参数调用中的裸标识符只有与对应参数同名时才能省略标签。默认参数必须位于必填参数之后；省略实参时，默认表达式在调用位置按参数顺序求值。
 
 参数标签决定结果绑定到哪个形参，但所有实参表达式始终按源码从左到右求值。未知、重复或缺失标签属于编译错误，`name = value` 不是调用语法。
 

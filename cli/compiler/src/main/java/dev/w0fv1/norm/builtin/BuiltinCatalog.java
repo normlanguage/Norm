@@ -517,7 +517,10 @@ public final class BuiltinCatalog {
         definition.constructor().orElseThrow().parameters().stream()
             .map(
                 parameter ->
-                    new ParameterInfo(parameter.name(), parameter.type().substitute(substitutions)))
+                    new ParameterInfo(
+                        parameter.name(),
+                        parameter.type().substitute(substitutions),
+                        parameter.hasDefault()))
             .toList());
   }
 
@@ -1307,6 +1310,10 @@ public final class BuiltinCatalog {
                 "dependencyVersions",
                 SemanticType.declared(
                     "std.core.List", "List", List.of(integerType), ValueCategory.VALUE)),
+            parameterInfo(
+                "dependencyExports",
+                SemanticType.declared(
+                    "std.core.List", "List", List.of(booleanType), ValueCategory.VALUE)),
             parameterInfo("bindingSource", stringType),
             parameterInfo("bindingPath", stringType),
             parameterInfo("bindingGroup", stringType),
@@ -1988,7 +1995,10 @@ public final class BuiltinCatalog {
         symbol.parameters().stream()
             .map(
                 parameter ->
-                    new ParameterInfo(parameter.name(), parameter.type().substitute(substitutions)))
+                    new ParameterInfo(
+                        parameter.name(),
+                        parameter.type().substitute(substitutions),
+                        parameter.hasDefault()))
             .toList(),
         symbol.documentation());
   }

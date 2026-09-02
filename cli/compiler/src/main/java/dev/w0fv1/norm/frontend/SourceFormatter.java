@@ -171,7 +171,11 @@ public final class SourceFormatter {
               Docs.concat(
                   visibility(field.visibility()),
                   type(field.type()),
-                  Docs.text(" " + field.name())),
+                  Docs.text(" " + field.name()),
+                  field
+                      .defaultValue()
+                      .map(value -> Docs.concat(Docs.text(" = "), expression(value)))
+                      .orElse(Docs.empty())),
               false);
       case Syntax.ConstructorDecl constructor -> constructorDeclaration(constructor);
       case Syntax.FunctionDecl method -> functionDeclaration(method);
@@ -262,13 +266,22 @@ public final class SourceFormatter {
           Docs.concat(
               type(parameter.type().arguments().getFirst()),
               Docs.text(" " + parameter.name()),
-              parameters(parameter.callableParameters().orElseThrow())),
+              parameters(parameter.callableParameters().orElseThrow()),
+              defaultValue(parameter)),
           true);
     }
     return annotated(
         parameter.annotations(),
-        Docs.concat(type(parameter.type()), Docs.text(" " + parameter.name())),
+        Docs.concat(
+            type(parameter.type()), Docs.text(" " + parameter.name()), defaultValue(parameter)),
         true);
+  }
+
+  private Doc defaultValue(Syntax.Parameter parameter) {
+    return parameter
+        .defaultValue()
+        .map(value -> Docs.concat(Docs.text(" = "), expression(value)))
+        .orElse(Docs.empty());
   }
 
   private Doc type(Syntax.TypeRef type) {

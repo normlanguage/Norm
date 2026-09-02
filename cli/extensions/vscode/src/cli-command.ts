@@ -59,24 +59,24 @@ export async function resolveCliCommand(
 
   const executable = process.platform === 'win32' ? 'norm.bat' : 'norm';
   const bundledExecutable = process.platform === 'win32' ? 'norm.exe' : 'norm';
+  const workspace: CliCandidate[] = options.workspacePath
+    ? [
+        {
+          command: join(
+            options.workspacePath,
+            'cli',
+            'compiler',
+            'build',
+            'install',
+            'norm',
+            'bin',
+            executable,
+          ),
+          source: 'workspace' as const,
+        },
+      ]
+    : [];
   const development: CliCandidate[] = [
-    ...(options.workspacePath
-      ? [
-          {
-            command: join(
-              options.workspacePath,
-              'cli',
-              'compiler',
-              'build',
-              'install',
-              'norm',
-              'bin',
-              executable,
-            ),
-            source: 'workspace' as const,
-          },
-        ]
-      : []),
     {
       command: resolve(
         options.extensionPath,
@@ -109,8 +109,8 @@ export async function resolveCliCommand(
   ];
   const path = executableOnPath('norm');
   const discovered = options.development
-    ? [...development, ...bundled]
-    : [...bundled, ...development];
+    ? [...workspace, ...development, ...bundled]
+    : [...workspace, ...bundled];
   const candidates = [
     ...(configured ? [configured] : []),
     ...discovered,

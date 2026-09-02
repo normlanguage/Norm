@@ -797,7 +797,10 @@ public final class SemanticModel implements SemanticIndex {
         member.parameters().stream()
             .map(
                 parameter ->
-                    new ParameterInfo(parameter.name(), parameter.type().substitute(substitutions)))
+                    new ParameterInfo(
+                        parameter.name(),
+                        parameter.type().substitute(substitutions),
+                        parameter.hasDefault()))
             .toList(),
         member.documentation());
   }
