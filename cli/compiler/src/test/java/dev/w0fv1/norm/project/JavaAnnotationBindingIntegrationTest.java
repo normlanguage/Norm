@@ -85,6 +85,10 @@ final class JavaAnnotationBindingIntegrationTest {
         class Response {
           String message
 
+          Response() {
+            this.message = ""
+          }
+
           Response(@Endpoint(path: "/message") String message) {
             this.message = message
           }

@@ -2,9 +2,12 @@ package sample.orm
 
 import orm.Column
 import orm.Entity
+import orm.Fetch
 import orm.Generated
 import orm.GenerationStrategy
 import orm.Id
+import orm.JoinColumn
+import orm.ManyToOne
 import orm.Table
 import orm.hibernate.Builder
 import orm.hibernate.Provider
@@ -22,9 +25,41 @@ class Account {
   @Column(nullable: false, unique: true)
   String username
 
+  Account() {
+    this.id = null
+    this.username = ""
+  }
+
   Account(Long? id, String username) {
     this.id = id
     this.username = username
+  }
+}
+
+@Entity(name: "Post")
+@Table(name: "posts")
+class Post {
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id
+
+  @Column(nullable: false)
+  String title
+
+  @ManyToOne(fetch: Fetch.LAZY, optional: false)
+  @JoinColumn(name: "author_id", nullable: false)
+  Account author
+
+  Post() {
+    this.id = null
+    this.title = ""
+    this.author = Account(id: null, username: "")
+  }
+
+  Post(Long? id, String title, Account author) {
+    this.id = id
+    this.title = title
+    this.author = author
   }
 }
 
@@ -40,6 +75,7 @@ Void main() {
   builder.setProperty(arg0: "hibernate.hbm2ddl.auto", arg1: "create-drop")
   builder.setProperty(arg0: "hibernate.show_sql", arg1: "false")
   builder.addAnnotatedClass(Account.class)
+  builder.addAnnotatedClass(Post.class)
 
   Provider? provider = builder.buildSessionFactory()
   if provider != null {
@@ -48,18 +84,28 @@ Void main() {
       Transaction? transaction = writer.beginTransaction()
       Account account = Account(id: null, username: "norm")
       writer.persist(account)
+      Post post = Post(id: null, title: "first", author: account)
+      writer.persist(post)
       if transaction != null {
         transaction.commit()
       }
       writer.close()
 
       Long? id = account.id
-      if id != null {
+      Long? postId = post.id
+      if id != null && postId != null {
         Session? reader = provider.openSession()
         if reader != null {
           Account? stored = reader.find<Account>(arg0: Account.class, arg1: id)
-          if stored != null {
-            printLine(stored.username + ":" + (stored.id ?? 0).toString())
+          Post? storedPost = reader.find<Post>(arg0: Post.class, arg1: postId)
+          if stored != null && storedPost != null {
+            printLine(
+              stored.username
+                + ":"
+                + (stored.id ?? 0).toString()
+                + ":"
+                + storedPost.author.username
+            )
           }
           reader.close()
         }

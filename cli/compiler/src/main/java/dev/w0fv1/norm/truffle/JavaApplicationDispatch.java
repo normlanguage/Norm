@@ -240,6 +240,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       if (guest == null) {
         throw new IllegalStateException("Java application receiver has no Norm object");
       }
+      synchronizeFromHost(receiver, guest);
     }
     Object[] parameters = javaArguments(declaration, id, arguments);
     List<CoreType> receiverArguments =
@@ -306,8 +307,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private void attach(Object receiver, RuntimeValues.ObjectValue guest) {
     RuntimeValues.ObjectValue replaced = guests.put(receiver, guest);
     if (replaced != null && replaced != guest) proxies.remove(replaced);
-    proxies.put(guest, receiver);
-    guest.attachHost(receiver);
+    proxies.putIfAbsent(guest, receiver);
+    if (guest.hostValue == null) guest.attachHost(receiver);
   }
 
   private void synchronizeFromHost(Object receiver, RuntimeValues.ObjectValue guest) {

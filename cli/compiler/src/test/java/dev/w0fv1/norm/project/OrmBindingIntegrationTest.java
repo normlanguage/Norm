@@ -44,7 +44,7 @@ final class OrmBindingIntegrationTest {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
-    assertEquals("norm:1" + System.lineSeparator(), output.toString());
+    assertEquals("norm:1:norm" + System.lineSeparator(), output.toString());
   }
 
   private static Path repositoryRoot() {

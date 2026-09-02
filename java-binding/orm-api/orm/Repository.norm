@@ -1,5 +1,7 @@
 package orm
 
+import std.collections.MutableList
+
 public class Repository<E, I> {
   private Store store
   private Class<E> entityType
@@ -32,5 +34,45 @@ public class Repository<E, I> {
 
   public Void flush() {
     store.flush()
+  }
+
+  public MutableList<E?>? findAll() {
+    QueryExecution<E?>? query = store.createQuery<E>(
+      arg0: "select entity from " + this.entityName() + " entity",
+      arg1: entityType
+    )
+    return query?.getResultList()
+  }
+
+  public MutableList<E?>? findWhere<V>(Field<E, V> field, V value) {
+    QueryExecution<E?>? query = store.createQuery<E>(
+      arg0: "select entity from "
+        + this.entityName()
+        + " entity where entity."
+        + field.name()
+        + " = :value",
+      arg1: entityType
+    )
+    query?.setParameter(arg0: "value", arg1: value)
+    return query?.getResultList()
+  }
+
+  public MutableList<E?>? page(Integer offset, Integer limit) {
+    QueryExecution<E?>? query = store.createQuery<E>(
+      arg0: "select entity from " + this.entityName() + " entity",
+      arg1: entityType
+    )
+    query?.setFirstResult(offset)
+    query?.setMaxResults(limit)
+    return query?.getResultList()
+  }
+
+  private String entityName() {
+    Entity? mapping = entityType.annotation<Entity>()
+    if mapping != null && !mapping.name.isEmpty() {
+      return mapping.name
+    }
+    Array<String> names = entityType.name().split(separator: ".")
+    return names[names.size() - 1]
   }
 }

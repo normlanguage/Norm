@@ -1,0 +1,16 @@
+Module module() {
+  return module(
+    name: "orm.micronaut.tx",
+    version: 1,
+    exports: ["Transactional"],
+    dependencies: [dependency(name: "orm.micronaut", version: 1)],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "io.micronaut.data",
+        artifact: "micronaut-data-tx-hibernate",
+        version: "5.1.3", resolution: sha256("b5d90154cda837161d34987f01d7aa4154eb06f851a6651917c65385f4e46144")
+      ),
+      api: [jarType(name: "jakarta.transaction.Transactional", members: [])]
+    )
+  )
+}

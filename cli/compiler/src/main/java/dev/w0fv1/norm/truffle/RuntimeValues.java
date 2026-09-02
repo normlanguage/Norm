@@ -1214,9 +1214,11 @@ final class RuntimeValues {
     }
 
     void attachHost(Object value) {
+      Objects.requireNonNull(value, "value");
+      if (hostValue == value) return;
       if (hostValue != null)
         throw new IllegalStateException("runtime object already has a host value");
-      hostValue = Objects.requireNonNull(value, "value");
+      hostValue = value;
     }
 
     private boolean sameValue(ObjectValue other) {

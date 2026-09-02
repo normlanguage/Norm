@@ -17,7 +17,17 @@ Module module() {
       "Transient",
       "Basic",
       "Fetch",
+      "OneToOne",
+      "ManyToOne",
+      "OneToMany",
+      "ManyToMany",
+      "JoinColumn",
+      "Cascade",
+      "OrderBy",
+      "MapsId",
+      "Context",
       "Store",
+      "QueryExecution",
       "Repository"
     ],
     binding: jarBinding(
@@ -56,11 +66,58 @@ Module module() {
         jarType(name: "jakarta.persistence.Basic", members: ["fetch", "optional"]),
         jarType(name: "jakarta.persistence.FetchType", members: []),
         jarType(
+          name: "jakarta.persistence.OneToOne",
+          members: ["cascade", "fetch", "mappedBy", "optional", "orphanRemoval", "targetEntity"]
+        ),
+        jarType(
+          name: "jakarta.persistence.ManyToOne",
+          members: ["cascade", "fetch", "optional", "targetEntity"]
+        ),
+        jarType(
+          name: "jakarta.persistence.OneToMany",
+          members: ["cascade", "fetch", "mappedBy", "orphanRemoval", "targetEntity"]
+        ),
+        jarType(
+          name: "jakarta.persistence.ManyToMany",
+          members: ["cascade", "fetch", "mappedBy", "targetEntity"]
+        ),
+        jarType(
+          name: "jakarta.persistence.JoinColumn",
+          members: [
+            "columnDefinition",
+            "insertable",
+            "name",
+            "nullable",
+            "referencedColumnName",
+            "table",
+            "unique",
+            "updatable"
+          ]
+        ),
+        jarType(name: "jakarta.persistence.CascadeType", members: []),
+        jarType(name: "jakarta.persistence.OrderBy", members: ["value"]),
+        jarType(name: "jakarta.persistence.MapsId", members: ["value"]),
+        jarType(name: "jakarta.persistence.PersistenceContext", members: ["name", "unitName"]),
+        jarType(
           name: "jakarta.persistence.EntityManager",
           members: ["clear", "close", "contains", "detach", "flush", "isOpen", "persist", "remove"],
           overloads: [
+            jarOverload(
+              name: "createQuery",
+              parameterTypes: ["java.lang.String", "java.lang.Class"]
+            ),
             jarOverload(name: "find", parameterTypes: ["java.lang.Class", "java.lang.Object"]),
             jarOverload(name: "merge", parameterTypes: ["java.lang.Object"])
+          ]
+        ),
+        jarType(
+          name: "jakarta.persistence.TypedQuery",
+          members: ["getResultList", "getSingleResultOrNull", "setFirstResult", "setMaxResults"],
+          overloads: [
+            jarOverload(
+              name: "setParameter",
+              parameterTypes: ["java.lang.String", "java.lang.Object"]
+            )
           ]
         )
       ]

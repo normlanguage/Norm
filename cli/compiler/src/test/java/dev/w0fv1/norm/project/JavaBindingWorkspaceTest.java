@@ -74,9 +74,26 @@ final class JavaBindingWorkspaceTest {
         }
         assertEquals(ModuleArchiveFormat.FORMAT_VERSION, manifest.get("formatVersion").getAsInt());
         assertNotNull(archive.getEntry("binding/java-api.json"), nars.getFirst().toString());
-        assertTrue(
-            archive.stream().noneMatch(entry -> authoredSources.contains(entry.getName())),
-            nars.getFirst().toString());
+        JsonObject moduleManifest = manifest.getAsJsonObject("module");
+        int bindingExportCount = manifest.getAsJsonObject("jar").getAsJsonArray("api").size();
+        Set<String> expectedAuthoredSources = new java.util.LinkedHashSet<>();
+        for (int index = bindingExportCount;
+            index < moduleManifest.getAsJsonArray("exports").size();
+            index++) {
+          String export = moduleManifest.getAsJsonArray("exports").get(index).getAsString();
+          expectedAuthoredSources.add(
+              "sources/"
+                  + moduleManifest.get("name").getAsString().replace('.', '/')
+                  + "/"
+                  + export.replace('.', '/')
+                  + ".norm");
+        }
+        Set<String> packagedAuthoredSources =
+            archive.stream()
+                .map(java.util.zip.ZipEntry::getName)
+                .filter(authoredSources::contains)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        assertEquals(expectedAuthoredSources, packagedAuthoredSources, nars.getFirst().toString());
         JsonObject module = manifest.getAsJsonObject("module");
         JsonObject jar = manifest.getAsJsonObject("jar");
         assertNotNull(jar, nars.getFirst().toString());

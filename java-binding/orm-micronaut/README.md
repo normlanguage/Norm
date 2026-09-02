@@ -1,3 +1,3 @@
 # Micronaut ORM Integration
 
-`orm.micronaut@1` 将 `orm.hibernate` 的 Provider、Persistence Context 和事务生命周期接入 Micronaut DI。该 Module 没有业务 API。
+`orm.micronaut@1` 为 Micronaut 注册 Hibernate/JPA Provider。事务运行时由 `orm.micronaut.tx` 提供。
