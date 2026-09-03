@@ -178,14 +178,14 @@ jobs:
           [[ "$($destination/norm/bin/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
 
       - name: Upload standalone CLI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.platform }}
           path: release/*
           if-no-files-found: error
 
       - name: Upload self-contained CLI for the universal extension
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-${{ matrix.target }}
           path: release-stage
@@ -231,7 +231,7 @@ jobs:
           ${{ github.workspace }}/release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
 
       - name: Upload universal extension
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extension-universal
           path: release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
