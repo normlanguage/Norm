@@ -10,6 +10,7 @@
 | `std.annotation` | Annotation 目标、保留与拦截 interface | [Annotation 规范](/spec/annotations) |
 | `std.text` | Unicode 规范化与文本构造 | [String](/stdlib/string) |
 | `std.collections` | 序列算法与集合 extension | [Collections](/stdlib/collections) |
+| `std.configuration` | 类型化框架配置到宿主属性的结构映射 | [Configuration](/stdlib/configuration) |
 | `std.math` | Integer 数学函数 | [Math](/stdlib/math) |
 | `std.time` | Instant、Duration 与 Clock | [Time](/stdlib/time) |
 | `std.concurrent` | 有类型任务、等待与取消 | [Concurrency](/stdlib/concurrency) |
@@ -32,6 +33,7 @@
 - 外部资源通过 `Resource` 与 `use` 确定性关闭；
 - 文本 API 明确区分 byte、Unicode code point 和 grapheme；
 - 序列化按 Core field ordinal 读取 value，不依赖 JVM reflection 或字符串 getter；
+- 配置映射与序列化共享结构 metadata，不维护第二份字符串属性表；
 - 每个格式保留自己的领域规则和失败类型，不使用不真实的统一错误模型。
 
 ## 当前边界

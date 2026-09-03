@@ -1,0 +1,73 @@
+package sample.bbs.service
+
+import jakarta.inject.Inject
+import micronaut.inject.context.annotation.Prototype
+import orm.micronaut.tx.Transactional
+import sample.bbs.BoardEntity
+import sample.bbs.ReplyEntity
+import sample.bbs.TopicEntity
+import sample.bbs.TopicPage
+import sample.bbs.TopicPageable
+import sample.bbs.TopicSort
+import sample.bbs.repository.ForumRepository
+import std.collections.MutableList
+
+@Prototype()
+public class ForumService {
+  ForumRepository forum
+
+  @Inject()
+  ForumService(ForumRepository forum) {
+    this.forum = forum
+  }
+
+  @Transactional()
+  public BoardEntity createBoard(String name) {
+    return forum.saveBoard(BoardEntity(id: null, name: name))
+  }
+
+  @Transactional()
+  public TopicEntity createTopic(Long boardId, String author, String title, String content) {
+    return forum.saveTopic(TopicEntity(
+      id: null,
+      boardId: boardId,
+      author: author,
+      title: title,
+      content: content
+    ))
+  }
+
+  @Transactional()
+  public ReplyEntity createReply(Long topicId, String author, String content) {
+    return forum.saveReply(ReplyEntity(
+      id: null,
+      topicId: topicId,
+      author: author,
+      content: content
+    ))
+  }
+
+  @Transactional()
+  public MutableList<BoardEntity?>? allBoards() {
+    return forum.allBoards()
+  }
+
+  @Transactional()
+  public TopicEntity? topic(Long id) {
+    return forum.topic(id)
+  }
+
+  @Transactional()
+  public MutableList<ReplyEntity?>? repliesForTopic(Long topicId) {
+    return forum.repliesForTopic(topicId)
+  }
+
+  @Transactional()
+  public TopicPage topicPage(Integer page, Integer size) {
+    return TopicPage(
+      content: forum.topics(offset: page * size, limit: size),
+      pageable: TopicPageable(size: size, number: page, sort: TopicSort(), mode: "OFFSET"),
+      totalSize: forum.topicCount()
+    )
+  }
+}

@@ -288,6 +288,20 @@ public final class IntrinsicDispatcher {
             .mapper()
             .read(YamlDataFormat.INSTANCE, type, (String) first, execution, location);
       }
+      case CONFIGURATION_PROPERTIES -> {
+        if (annotations == null || execution == null || type == null) {
+          throw new IllegalStateException("configuration runtime is unavailable");
+        }
+        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
+        try {
+          Map<String, Object> properties =
+              annotations.configuration().properties(reflected.reflectedType(), first);
+          yield execution.values().opaque(type, properties, "MutableMap");
+        } catch (SerializationRuntime.ShapeException | IllegalArgumentException failure) {
+          throw new NormGuestException(
+              RuntimeErrorCode.INVALID_ARGUMENT, failure.getMessage(), location);
+        }
+      }
       case FUNCTION_CONTEXT_FUNCTION -> ((RuntimeValues.FunctionContextValue) receiver).function();
       case PARAMETER_CONTEXT_PARAMETER ->
           ((RuntimeValues.ParameterContextValue) receiver).parameter();

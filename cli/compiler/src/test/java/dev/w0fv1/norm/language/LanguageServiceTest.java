@@ -1256,7 +1256,7 @@ final class LanguageServiceTest {
   }
 
   @Test
-  void excludesPrivateAndUnexportedSymbolsFromImportCompletion() {
+  void includesSameModulePublicAndExcludesPrivateAndUnexportedDependencySymbols() {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/sample/app/Main.norm"),
@@ -1270,10 +1270,33 @@ final class LanguageServiceTest {
         SourceFile.of(
             DocumentId.of("file:///src/sample/internal/Internal.norm"),
             "package sample.internal public Integer internal() { return 3 }");
+    SourceFile dependencyInternal =
+        SourceFile.of(
+            DocumentId.of("file:///src/library/internal/Internal.norm"),
+            "package library.internal public Integer dependencyInternal() { return 4 }");
+    ModuleCoordinate applicationModule = new ModuleCoordinate("sample", 1);
+    ModuleCoordinate libraryModule = new ModuleCoordinate("library", 1);
+    CompilationScope scope =
+        new CompilationScope(
+            Map.of(
+                entry.id(), new ModuleSourceCoordinate(applicationModule, "app/Main.norm"),
+                internal.id(),
+                    new ModuleSourceCoordinate(applicationModule, "internal/Internal.norm"),
+                exported.id(), new ModuleSourceCoordinate(libraryModule, "api/Public.norm"),
+                dependencyInternal.id(),
+                    new ModuleSourceCoordinate(libraryModule, "internal/Internal.norm")),
+            new ModuleGraph(
+                Map.of(
+                    applicationModule, Set.of(libraryModule),
+                    libraryModule, Set.of())));
     var snapshot =
         service.snapshot(
             new CompilationRequest(
-                entry.id(), List.of(entry, exported, internal), Set.of(exported.id())));
+                new CompilationUnitId(entry.id().uri()),
+                scope,
+                entry.id(),
+                List.of(entry, exported, internal, dependencyInternal),
+                Set.of(exported.id())));
 
     List<String> labels =
         service.complete(snapshot.entryDocument(), entry.text().indexOf('}')).stream()
@@ -1282,7 +1305,8 @@ final class LanguageServiceTest {
 
     assertTrue(labels.contains("visible"));
     assertFalse(labels.contains("hidden"));
-    assertFalse(labels.contains("internal"));
+    assertTrue(labels.contains("internal"));
+    assertFalse(labels.contains("dependencyInternal"));
   }
 
   @Test

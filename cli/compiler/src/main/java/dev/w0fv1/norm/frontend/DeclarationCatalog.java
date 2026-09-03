@@ -151,8 +151,7 @@ final class DeclarationCatalog {
   boolean canImport(Syntax.Program importer, Object declaration) {
     Syntax.Program owner = owners.get(declaration);
     return owner != null
-        && (owner.packageName().equals(importer.packageName())
-                && scope.sameModule(importer.span().source().id(), owner.span().source().id())
+        && (scope.sameModule(importer.span().source().id(), owner.span().source().id())
             || exportedSources.contains(owner.span().source().id())
                 && scope.canRead(importer.span().source().id(), owner.span().source().id()));
   }

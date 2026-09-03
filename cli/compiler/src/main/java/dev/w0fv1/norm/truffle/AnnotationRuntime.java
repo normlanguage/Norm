@@ -46,6 +46,7 @@ final class AnnotationRuntime {
   private final CoreParameterInterceptorProtocol parameterInterceptor;
   private final CoreFieldInterceptorProtocol fieldInterceptor;
   private final SerializationRuntime serialization;
+  private final ConfigurationRuntime configuration;
   private final MapperEngine mapper;
   private final XmlDataFormat xml;
   private Map<DefinitionId, RuntimeValues.AggregateInfo> aggregateInfo = Map.of();
@@ -64,6 +65,7 @@ final class AnnotationRuntime {
     parameterInterceptor = CoreParameterInterceptorProtocol.resolve(program).orElse(null);
     fieldInterceptor = CoreFieldInterceptorProtocol.resolve(program).orElse(null);
     serialization = new SerializationRuntime(this);
+    configuration = new ConfigurationRuntime(serialization);
     mapper = new MapperEngine(serialization);
     xml = new XmlDataFormat(serialization);
   }
@@ -473,6 +475,10 @@ final class AnnotationRuntime {
 
   SerializationRuntime serialization() {
     return serialization;
+  }
+
+  ConfigurationRuntime configuration() {
+    return configuration;
   }
 
   MapperEngine mapper() {

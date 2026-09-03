@@ -1,0 +1,48 @@
+import std.collections.MutableMap
+import std.configuration.ConfigurationKey
+import std.configuration.ConfigurationValue
+import std.configuration.configurationProperties
+import std.serialization.SerialName
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+
+@Serializable()
+value Endpoint {
+  @ConfigurationKey()
+  String name
+  String contextPath
+}
+
+@Serializable()
+value Secret {
+  @ConfigurationValue()
+  String value
+}
+
+@Serializable()
+value Service {
+  List<Endpoint> endpoints
+  Map<String, Endpoint> targets
+  @SerialName(name: "api-key")
+  Secret secret
+  String? description
+}
+
+main() {
+  Map<String, Endpoint> targets = Map<>()
+  targets.put(
+    key: "internal",
+    value: Endpoint(name: "unused", contextPath: "/internal")
+  )
+  MutableMap<String?, Any?> properties = configurationProperties(value: Service(
+    endpoints: [Endpoint(name: "public", contextPath: "/api")],
+    targets: targets,
+    secret: Secret(value: "norm"),
+    description: null
+  ))
+  printLine(properties.get(key: "endpoints.public.context-path") ?? "missing")
+  printLine(properties.get(key: "targets.internal.context-path") ?? "missing")
+  printLine(properties.get(key: "api-key") ?? "missing")
+  printLine(properties.containsKey(key: "description"))
+  expectedOutputLines(["/api", "/internal", "norm", "false"])
+}

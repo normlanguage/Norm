@@ -18,7 +18,7 @@ Module module() {
 
 `Module`、`ModuleRequirement`、`module(...)`、`dependency(...)` 和 `exportedDependency(...)` 由 bootstrap 源码定义。参数化的 `module(...)` 是返回 `Module` 实现的普通 Norm 工厂，零参数 `module()` 是用户入口。模块配置可以声明普通类型与函数、实现自己的 `Module`，也可以导入标准库。
 
-`name` 是点分隔的模块名，也是模块内 package 的共同前缀。工具链 prelude 使用的 `std` 与 `norm.bootstrap` 是保留模块名。`version` 是正整数模块版本，并参与公开名义类型的稳定身份。`exports` 默认为空，只声明供其他 package 或 Module 使用的公开源码；应用自身不需要导出入口。`dependencies` 是精确的模块名与版本坐标：
+`name` 是点分隔的模块名，也是模块内 package 的共同前缀。工具链 prelude 使用的 `std` 与 `norm.bootstrap` 是保留模块名。`version` 是正整数模块版本，并参与公开名义类型的稳定身份。`exports` 默认为空，只声明供其他 Module 使用的公开源码；应用自身和模块内部 package 不需要导出入口或实现。`dependencies` 是精确的模块名与版本坐标：
 
 ```norm
 Module module() {
@@ -51,6 +51,6 @@ Language Server 合并未保存内容后执行同一项目加载生命周期，�
 
 ## 可见范围
 
-同一模块、同一 package 的源码文件自动加载并可以直接引用彼此的 `public` 声明。跨 package import 只能访问 `exports` 指定文件中的 `public` 声明；跨模块 import 要求目标模块是当前模块的直接依赖，或由直接依赖通过 `exportedDependency(...)` 明确导出。普通传递依赖不会获得可见性。组合 Module 使用导出依赖提供稳定的平台边界，应用只声明组合 Module。`private` 始终限制在声明文件内。标准库是工具链显式加入每个模块读取边界的隐式依赖。
+同一模块、同一 package 的源码文件自动加载并可以直接引用彼此的 `public` 声明；同一模块跨 package 使用显式 import，但不要求 `exports`。跨模块 import 只能访问目标模块 `exports` 指定文件中的 `public` 声明，并要求目标模块是当前模块的直接依赖，或由直接依赖通过 `exportedDependency(...)` 明确导出。普通传递依赖不会获得可见性。组合 Module 使用导出依赖提供稳定的平台边界，应用只声明组合 Module。`private` 始终限制在声明文件内。标准库是工具链显式加入每个模块读取边界的隐式依赖。
 
 标准库首先使用 module bootstrap 求值自己的 `module.norm`，再成为用户模块配置和业务程序共同使用的 prelude。项目生命周期的实现入口见 `cli/compiler` 的 `project` package，bootstrap 协议的单一实现见 `cli/compiler/src/main/resources/bootstrap/module.norm`。

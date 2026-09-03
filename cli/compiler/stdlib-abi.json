@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -327,6 +327,10 @@
     },
     {
       "name": "YAML_DECODE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "CONFIGURATION_PROPERTIES",
       "requiresResultRuntimeType": true
     },
     {
@@ -809,6 +813,13 @@
     "serializableAnnotationName": "Serializable",
     "serialNameAnnotationName": "SerialName",
     "serialIgnoreAnnotationName": "SerialIgnore"
+  },
+  "configuration": {
+    "moduleName": "std",
+    "moduleVersion": 1,
+    "packageName": "std.configuration",
+    "configurationKeyAnnotationName": "ConfigurationKey",
+    "configurationValueAnnotationName": "ConfigurationValue"
   },
   "json": {
     "intrinsicNames": [

@@ -82,8 +82,16 @@ final class MicronautBindingIntegrationTest {
 
     Path module = Files.createDirectories(temporaryDirectory.resolve("application/sample/bbs"));
     Path example = repositoryRoot().resolve("docs/examples/micronaut-bbs/app/sample/bbs");
-    for (String source : List.of("module.norm", "application.norm", "Domain.norm", "Web.norm")) {
-      Files.copy(example.resolve(source), module.resolve(source));
+    try (var sources = Files.walk(example)) {
+      for (Path source :
+          sources
+              .filter(Files::isRegularFile)
+              .filter(path -> path.getFileName().toString().endsWith(".norm"))
+              .toList()) {
+        Path target = module.resolve(example.relativize(source).toString());
+        Files.createDirectories(target.getParent());
+        Files.copy(source, target);
+      }
     }
     Path application = module.resolve("application.norm");
     Files.writeString(

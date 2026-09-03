@@ -70,7 +70,6 @@ final class VisibilityResolver {
   private List<ImportableSymbol> importableSymbols() {
     List<ImportableSymbol> result = new ArrayList<>();
     for (Syntax.Program program : input.programs()) {
-      if (!input.exportedSources().contains(program.span().source().id())) continue;
       program.enums().stream()
           .filter(declaration -> declaration.visibility() == Syntax.Visibility.PUBLIC)
           .map(declaration -> importable(program, declaration, declaration.name()))
@@ -94,7 +93,9 @@ final class VisibilityResolver {
   private ImportableSymbol importable(Syntax.Program program, Object declaration, String name) {
     String qualified = program.packageName().isEmpty() ? name : program.packageName() + "." + name;
     return new ImportableSymbol(
-        input.symbols().get(input.declarationSymbols().get(declaration)), qualified);
+        input.symbols().get(input.declarationSymbols().get(declaration)),
+        qualified,
+        input.exportedSources().contains(program.span().source().id()));
   }
 
   private void addVisibleDeclaration(

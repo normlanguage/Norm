@@ -1,0 +1,92 @@
+package sample.bbs.repository
+
+import jakarta.inject.Inject
+import micronaut.inject.context.annotation.Prototype
+import orm.Context
+import orm.Repository
+import orm.Store
+import sample.bbs.BoardEntity
+import sample.bbs.ReplyEntity
+import sample.bbs.TopicEntity
+import std.collections.MutableList
+import std.core.Exception
+
+@Prototype()
+public class ForumRepository {
+  @Context()
+  @Inject()
+  Store? store
+
+  ForumRepository() {
+    this.store = null
+  }
+
+  public BoardEntity saveBoard(BoardEntity board) {
+    return Repository<BoardEntity, Long>(
+      store: this.activeStore(),
+      entityType: BoardEntity.class
+    ).save(board)
+  }
+
+  public TopicEntity saveTopic(TopicEntity topic) {
+    return Repository<TopicEntity, Long>(
+      store: this.activeStore(),
+      entityType: TopicEntity.class
+    ).save(topic)
+  }
+
+  public ReplyEntity saveReply(ReplyEntity reply) {
+    return Repository<ReplyEntity, Long>(
+      store: this.activeStore(),
+      entityType: ReplyEntity.class
+    ).save(reply)
+  }
+
+  public MutableList<BoardEntity?>? allBoards() {
+    return Repository<BoardEntity, Long>(
+      store: this.activeStore(),
+      entityType: BoardEntity.class
+    ).findAll()
+  }
+
+  public TopicEntity? topic(Long id) {
+    return Repository<TopicEntity, Long>(
+      store: this.activeStore(),
+      entityType: TopicEntity.class
+    ).find(id)
+  }
+
+  public MutableList<ReplyEntity?>? repliesForTopic(Long topicId) {
+    return Repository<ReplyEntity, Long>(
+      store: this.activeStore(),
+      entityType: ReplyEntity.class
+    ).findWhereOrdered<Long, Long?>(
+      field: ReplyEntity.topicId.field,
+      value: topicId,
+      order: ReplyEntity.id.field,
+      ascending: true
+    )
+  }
+
+  public MutableList<TopicEntity?>? topics(Integer offset, Integer limit) {
+    return Repository<TopicEntity, Long>(
+      store: this.activeStore(),
+      entityType: TopicEntity.class
+    ).page(offset: offset, limit: limit)
+  }
+
+  public Long topicCount() {
+    return Repository<TopicEntity, Long>(
+      store: this.activeStore(),
+      entityType: TopicEntity.class
+    ).count()
+  }
+
+  private Store activeStore() {
+    Store? active = store
+    if active != null {
+      return active
+    }
+    throw Exception(message: "persistence context is unavailable")
+  }
+}

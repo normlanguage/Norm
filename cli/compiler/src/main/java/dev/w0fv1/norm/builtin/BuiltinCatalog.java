@@ -669,12 +669,17 @@ public final class BuiltinCatalog {
     SemanticType xmlDecodeT = globalParameter("__xmlDecode", "T");
     SemanticType yamlEncodeT = globalParameter("__yamlEncode", "T");
     SemanticType yamlDecodeT = globalParameter("__yamlDecode", "T");
+    SemanticType configurationValueT = globalParameter("__configurationProperties", "Value");
+    SemanticType configurationResultT = globalParameter("__configurationProperties", "Result");
     SemanticType jsonEncodeType =
         SemanticType.declared("std.core.Class", "Class", List.of(jsonEncodeT), ValueCategory.VALUE);
     SemanticType xmlEncodeType =
         SemanticType.declared("std.core.Class", "Class", List.of(xmlEncodeT), ValueCategory.VALUE);
     SemanticType yamlEncodeType =
         SemanticType.declared("std.core.Class", "Class", List.of(yamlEncodeT), ValueCategory.VALUE);
+    SemanticType configurationValueType =
+        SemanticType.declared(
+            "std.core.Class", "Class", List.of(configurationValueT), ValueCategory.VALUE);
     SemanticType integerArrayType =
         SemanticType.declared("std.core.Array", "Array", List.of(integerType), ValueCategory.VALUE);
     SemanticType stringArrayType =
@@ -1266,6 +1271,17 @@ public final class BuiltinCatalog {
             IntrinsicId.YAML_DECODE,
             List.of(new TypeParameterInfo("T", yamlDecodeT)),
             parameterInfo("value", stringType)));
+    addGlobal(
+        globals,
+        genericGlobal(
+            "__configurationProperties",
+            configurationResultT,
+            IntrinsicId.CONFIGURATION_PROPERTIES,
+            List.of(
+                new TypeParameterInfo("Value", configurationValueT),
+                new TypeParameterInfo("Result", configurationResultT)),
+            parameterInfo("value", configurationValueT),
+            parameterInfo("type", configurationValueType)));
     addGlobal(
         globals,
         global(

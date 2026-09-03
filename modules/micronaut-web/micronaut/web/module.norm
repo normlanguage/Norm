@@ -1,7 +1,7 @@
 Module module() {
   return module(
     name: "micronaut.web",
-    version: 1,
+    version: 2,
     exports: ["Application"],
     dependencies: [
       exportedDependency(name: "micronaut.http", version: 1),

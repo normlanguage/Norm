@@ -11,6 +11,7 @@ Module module() {
       "core.unit",
       "collections.sequences",
       "collections.mutable",
+      "configuration.configuration",
       "concurrent.lifecycle",
       "concurrent.publishers",
       "concurrent.tasks",

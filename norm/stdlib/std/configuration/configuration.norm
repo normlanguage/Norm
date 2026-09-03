@@ -1,0 +1,25 @@
+@Document(description: "Maps typed Norm values to flat framework configuration properties.")
+package std.configuration
+
+import std.annotation.Document
+import std.annotation.FieldTarget
+import std.annotation.RuntimeRetention
+import std.collections.MutableMap
+
+@Document(description: "Uses a field as the property-path segment for elements in a named configuration collection.")
+public annotation ConfigurationKey implements FieldTarget, RuntimeRetention {
+}
+
+@Document(description: "Uses a field as the scalar representation of its enclosing configuration value.")
+public annotation ConfigurationValue implements FieldTarget, RuntimeRetention {
+}
+
+@Document(description: "Flattens a serializable typed value into insertion-ordered host configuration properties.")
+public MutableMap<String?, Any?> configurationProperties<T>(
+  @Document(description: "The serializable configuration value to flatten.") T value
+) {
+  return __configurationProperties<T, MutableMap<String?, Any?>>(
+    value: value,
+    type: T.class
+  )
+}

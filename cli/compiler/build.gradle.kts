@@ -56,6 +56,8 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
         @Suppress("UNCHECKED_CAST")
         val serialization = schema["serialization"] as Map<String, Any>
         @Suppress("UNCHECKED_CAST")
+        val configuration = schema["configuration"] as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
         val json = schema["json"] as Map<String, Any>
         @Suppress("UNCHECKED_CAST")
         val xml = schema["xml"] as Map<String, Any>
@@ -210,6 +212,7 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
                 appendLine("}")
             },
         )
+        generateValueAbi("ConfigurationAbi", configuration)
         fun generateFormatAbi(domain: String, contract: Map<String, Any>) {
             @Suppress("UNCHECKED_CAST")
             val fields = contract.getValue("fields") as List<Map<String, Any>>

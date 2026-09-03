@@ -6,11 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
+import dev.w0fv1.norm.value.CompilationScope;
+import dev.w0fv1.norm.value.CompilationUnitId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
+import dev.w0fv1.norm.value.ModuleGraph;
+import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +38,34 @@ final class ProjectCompilerTest {
                 new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void importsPublicDeclarationsAcrossPackagesInsideOneModuleWithoutExportingThem() {
+    SourceFile entry =
+        source(
+            "src/app/Main.norm", "package app import model.Box Void main() { Box value = Box() }");
+    SourceFile model = source("src/model/Box.norm", "package model public class Box {}");
+    CompilationScope scope =
+        CompilationScope.module(
+            new ModuleCoordinate("application", 1),
+            Map.of(entry.id(), "app/Main.norm", model.id(), "model/Box.norm"));
+    CompilationRequest request =
+        new CompilationRequest(
+            new CompilationUnitId(entry.id().uri()),
+            scope,
+            entry.id(),
+            List.of(entry, model),
+            Set.of());
+    CompilerSession compiler = new CompilerSession();
+
+    CompilationResult result = compiler.compile(request);
+    var analysis = compiler.analyze(request);
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    assertTrue(
+        analysis.semanticModel().importableSymbols(entry.id()).stream()
+            .anyMatch(symbol -> symbol.qualifiedName().equals("model.Box")));
   }
 
   @Test
@@ -206,8 +240,23 @@ final class ProjectCompilerTest {
             "src/math/Numbers.norm",
             "package math public Integer twice(Integer value) { return value * 2 }");
 
+    ModuleCoordinate application = new ModuleCoordinate("application", 1);
+    ModuleCoordinate dependency = new ModuleCoordinate("library", 1);
+    CompilationScope scope =
+        new CompilationScope(
+            Map.of(
+                entry.id(), new ModuleSourceCoordinate(application, "app/Main.norm"),
+                library.id(), new ModuleSourceCoordinate(dependency, "math/Numbers.norm")),
+            new ModuleGraph(Map.of(application, Set.of(dependency), dependency, Set.of())));
     CompilationResult result =
-        new CompilerSession().compile(new CompilationRequest(entry.id(), List.of(entry, library)));
+        new CompilerSession()
+            .compile(
+                new CompilationRequest(
+                    new CompilationUnitId(entry.id().uri()),
+                    scope,
+                    entry.id(),
+                    List.of(entry, library),
+                    Set.of()));
 
     assertFalse(result.isSuccess());
   }

@@ -422,8 +422,12 @@ public final class SemanticModel implements SemanticIndex {
         .filter(
             candidate ->
                 candidate.symbol().declaration().isPresent()
-                    && scope.canRead(
-                        importer, candidate.symbol().declaration().orElseThrow().document()))
+                    && (scope.sameModule(
+                            importer, candidate.symbol().declaration().orElseThrow().document())
+                        || candidate.exported()
+                            && scope.canRead(
+                                importer,
+                                candidate.symbol().declaration().orElseThrow().document())))
         .toList();
   }
 

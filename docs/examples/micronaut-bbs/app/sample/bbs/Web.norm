@@ -19,6 +19,8 @@ import micronaut.http.httpResponseUnauthorized
 import micronaut.security.annotation.Secured
 import micronaut.serde.api.annotation.Serdeable
 import micronaut.validation.Validated
+import sample.bbs.service.AccountService
+import sample.bbs.service.ForumService
 import std.collections.MutableList
 
 @Serdeable()
@@ -92,7 +94,7 @@ class BbsController {
 
   @Post(value: "/session/boards")
   BoardEntity createBoard(@Body() @Valid() CreateBoardRequest request) {
-    return forumService.createBoard(BoardEntity(id: null, name: request.name))
+    return forumService.createBoard(request.name)
   }
 
   @Post(value: "/session/topics")
@@ -100,13 +102,12 @@ class BbsController {
     HttpRequest<Any?> httpRequest,
     @Body() @Valid() CreateTopicRequest request
   ) {
-    return forumService.createTopic(TopicEntity(
-      id: null,
+    return forumService.createTopic(
       boardId: request.boardId,
       author: this.sessionUsername(httpRequest),
       title: request.title,
       content: request.content
-    ))
+    )
   }
 
   @Post(value: "/session/replies")
@@ -114,12 +115,11 @@ class BbsController {
     HttpRequest<Any?> httpRequest,
     @Body() @Valid() CreateReplyRequest request
   ) {
-    return forumService.createReply(ReplyEntity(
-      id: null,
+    return forumService.createReply(
       topicId: request.topicId,
       author: this.sessionUsername(httpRequest),
       content: request.content
-    ))
+    )
   }
 
   @Get(value: "/topics")
