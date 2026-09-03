@@ -4,7 +4,7 @@
 
 Norm 是一门静态强类型、面向应用开发的编程语言。它希望保留 Java、Kotlin、C# 一类语言容易阅读和工程化的部分，同时重新定义几条长期影响程序可维护性的语义边界：值与对象身份、null、控制流产值、泛型运行时表示、框架 metadata、系统资源以及编译产物身份。
 
-Norm 不追求最多的语言功能。它追求较少但能稳定组合的概念，并要求编译器、编辑器、运行时和原生发行共同实现同一份程序含义。
+Norm 不追求最多的语言功能。它追求较少但能稳定组合的概念，并要求编译器、编辑器、运行时和正式发行共同实现同一份程序含义。
 
 ## 1. 设计问题
 
@@ -176,14 +176,14 @@ Norm Source
     → Binder
     → Canonical Core IR
     → Truffle Backend
-    → JVM execution / JIT / Native Image
+    → JVM execution / JIT
 ```
 
 SemanticModel 是名称解析、类型检查、调用目标、泛型实例化、可见性和编辑器 authoring 信息的唯一结果。Binder 将已验证语义冻结为确定引用，Core 不再重新解析源码名称。
 
 Canonical Core 使用内容寻址的 definition identity。公开 ABI、代码、runtime metadata、调试信息和最终 executable 按各自真实依赖建立身份，支持精确增量失效、跨进程 definition store 和 Truffle artifact 复用。
 
-Truffle 是唯一官方执行后端。Native Image 打包同一个 Core 与 Truffle 执行实现，并不是另一套语言编译器。CLI、Language Server、测试入口和项目加载共享同一 project system 生命周期。
+Truffle 是唯一官方执行后端。CLI、Language Server、测试入口、Java binding 和项目加载共享同一 JVM 与 project system 生命周期。正式发行包携带平台 runtime，不建立另一套执行模式。
 
 详细架构见[编译器架构](/spec/compiler-design)与[实现策略决议](/design/implementation-strategy)。
 

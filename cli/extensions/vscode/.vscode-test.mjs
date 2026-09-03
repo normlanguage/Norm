@@ -19,5 +19,5 @@ const testCli = resolve(
 
 export default defineConfig([
   { ...shared, label: 'jvm', env: { NORM_CLI: testCli } },
-  { ...shared, label: 'native' },
+  { ...shared, label: 'release' },
 ]);

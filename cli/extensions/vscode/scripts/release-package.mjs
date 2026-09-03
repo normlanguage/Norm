@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,16 +17,14 @@ if (
   !Array.isArray(releaseTargets) ||
   releaseTargets.length === 0 ||
   releaseTargets.some(
-    ({ target, executable }) =>
-      typeof target !== 'string' || !target || typeof executable !== 'string' || !executable,
+    ({ target, launcher }) =>
+      typeof target !== 'string' || !target || typeof launcher !== 'string' || !launcher,
   ) ||
   new Set(releaseTargets.map(({ target }) => target)).size !== releaseTargets.length
 ) {
   throw new Error(`Invalid release target manifest: ${targetsPath}`);
 }
-const targetExecutables = new Map(
-  releaseTargets.map(({ target, executable }) => [target, executable]),
-);
+const targetLaunchers = new Map(releaseTargets.map(({ target, launcher }) => [target, launcher]));
 
 export function releaseVersion(value) {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) {
@@ -35,10 +33,10 @@ export function releaseVersion(value) {
   return value;
 }
 
-export function targetExecutable(target) {
-  const executable = targetExecutables.get(target);
-  if (!executable) throw new Error(`Unsupported release target: ${target}`);
-  return executable;
+export function targetLauncher(target) {
+  const launcher = targetLaunchers.get(target);
+  if (!launcher) throw new Error(`Unsupported release target: ${target}`);
+  return join('norm', launcher);
 }
 
 export function verifyCliVersion(binary, version) {
@@ -62,12 +60,12 @@ export function verifyCliVersion(binary, version) {
 export function stageCliBundle(binaries, extensionRoot) {
   const bin = join(extensionRoot, 'bin');
   rmSync(bin, { recursive: true, force: true });
-  return releaseTargets.map(({ target, executable }) => {
-    const source = join(resolve(binaries), `native-${target}`, executable);
-    const destination = join(bin, target, executable);
+  return releaseTargets.map(({ target, launcher }) => {
+    const source = join(resolve(binaries), `runtime-${target}`, 'norm');
+    const destination = join(bin, target, 'norm');
     mkdirSync(dirname(destination), { recursive: true });
-    copyFileSync(source, destination);
-    chmodSync(destination, 0o755);
+    cpSync(source, destination, { recursive: true, errorOnExist: true });
+    chmodSync(join(destination, launcher), 0o755);
     return destination;
   });
 }

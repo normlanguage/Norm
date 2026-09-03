@@ -39,20 +39,8 @@ concurrency:
 
 jobs:
   test:
-    name: ${{ matrix.runtime }}
+    name: OpenJDK 25
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runtime: OpenJDK 25
-            distribution: temurin
-            java-version: 25.0.3
-            native: false
-          - runtime: GraalVM 25.1.3
-            distribution: graalvm-community
-            java-version: 25.0.3
-            native: true
 
     steps:
       - name: Check out sources
@@ -60,16 +48,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Set up ${{ matrix.runtime }}
-        if: ${{ !matrix.native }}
+      - name: Set up Java
         uses: actions/setup-java@v5
         with:
-          distribution: ${{ matrix.distribution }}
-          java-version: ${{ matrix.java-version }}
-
-      - name: Set up ${{ matrix.runtime }}
-        if: matrix.native
-        uses: ./.github/actions/setup-graalvm-community
+          distribution: temurin
+          java-version: 25.0.3
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -82,14 +65,12 @@ jobs:
           ./gradlew :compiler:run --args="--version" --no-daemon
           ./gradlew :compiler:run --args="run docs/examples/hello.norm" --no-daemon
 
-      - name: Build native CLI
-        if: matrix.native
-        run: ./gradlew :compiler:nativeCompile --no-daemon
+      - name: Build self-contained CLI
+        run: ./gradlew :compiler:installRuntimeDist --no-daemon
 
-      - name: Verify native CLI and language server
-        if: matrix.native
+      - name: Verify self-contained CLI and language server
         env:
-          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/native/nativeCompile/norm
+          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm/bin/norm
         run: |
           NORM_VERSION="$(./gradlew properties --no-daemon --console=plain -q | sed -n 's/^version: //p')"
           test -n "$NORM_VERSION"

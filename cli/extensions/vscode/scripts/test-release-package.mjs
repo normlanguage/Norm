@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   releaseTargets,
   releaseVersion,
   stageCliBundle,
-  targetExecutable,
+  targetLauncher,
   verifyCliVersion,
 } from './release-package.mjs';
 import { packageIgnore } from './vsce-package.mjs';
@@ -14,10 +22,10 @@ import { packageIgnore } from './vsce-package.mjs';
 assert.equal(releaseVersion('0.1.0'), '0.1.0');
 assert.throws(() => releaseVersion('v0.1.0'));
 assert.throws(() => releaseVersion('0.1'));
-assert.equal(targetExecutable('win32-x64'), 'norm.exe');
-assert.equal(targetExecutable('linux-x64'), 'norm');
-assert.equal(targetExecutable('darwin-arm64'), 'norm');
-assert.throws(() => targetExecutable('darwin-x64'));
+assert.equal(targetLauncher('win32-x64'), join('norm', 'bin', 'norm.bat'));
+assert.equal(targetLauncher('linux-x64'), join('norm', 'bin', 'norm'));
+assert.equal(targetLauncher('darwin-arm64'), join('norm', 'bin', 'norm'));
+assert.throws(() => targetLauncher('darwin-x64'));
 assert.equal(packageIgnore('out/test/**\n', 'server'), 'out/test/**\n\nserver/**\n');
 
 const extensionRoot = resolve(import.meta.dirname, '..');
@@ -47,23 +55,43 @@ try {
 
   const binaries = join(root, 'binaries');
   for (const { target } of releaseTargets) {
-    const directory = join(binaries, `native-${target}`);
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(join(directory, targetExecutable(target)), target);
+    const directory = join(binaries, `runtime-${target}`, 'norm');
+    mkdirSync(join(directory, 'bin'), { recursive: true });
+    mkdirSync(join(directory, 'lib'), { recursive: true });
+    mkdirSync(join(directory, 'runtime', 'bin'), { recursive: true });
+    const launcher = join(directory, 'bin', target === 'win32-x64' ? 'norm.bat' : 'norm');
+    writeFileSync(launcher, target);
+    writeFileSync(join(directory, 'lib', 'compiler.jar'), target);
+    writeFileSync(
+      join(directory, 'runtime', 'bin', target === 'win32-x64' ? 'java.exe' : 'java'),
+      target,
+    );
   }
   const extension = join(root, 'extension');
   mkdirSync(extension);
   const staged = stageCliBundle(binaries, extension);
   assert.deepEqual(
     staged,
-    releaseTargets.map(({ target, executable }) =>
-      join(extension, 'bin', target, executable),
-    ),
+    releaseTargets.map(({ target }) => join(extension, 'bin', target, 'norm')),
   );
   for (const { target } of releaseTargets) {
     assert.equal(
-      readFileSync(join(extension, 'bin', target, targetExecutable(target)), 'utf8'),
+      readFileSync(join(extension, 'bin', target, targetLauncher(target)), 'utf8'),
       target,
+    );
+    assert.ok(existsSync(join(extension, 'bin', target, 'norm', 'lib', 'compiler.jar')));
+    assert.ok(
+      existsSync(
+        join(
+          extension,
+          'bin',
+          target,
+          'norm',
+          'runtime',
+          'bin',
+          target === 'win32-x64' ? 'java.exe' : 'java',
+        ),
+      ),
     );
   }
 } finally {

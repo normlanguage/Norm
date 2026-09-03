@@ -38,7 +38,7 @@ Extension function 复用顶层函数和重载解析；Annotation 是普通 aggr
 
 Norm 优先考虑后端服务、业务系统、工具和桌面应用，而不是内核、硬实时或极端类型级编程。
 
-因此语言选择垃圾回收、非空默认、名义类型和确定赋值；标准库选择有界读取、确定性资源关闭和类型化领域异常；工具链选择独立原生 CLI 与一致的编辑器语义。
+因此语言选择垃圾回收、非空默认、名义类型和确定赋值；标准库选择有界读取、确定性资源关闭和类型化领域异常；工具链选择自包含 CLI 与一致的编辑器语义。
 
 默认值应让普通代码安全、清楚，少数特殊需求再通过显式 API 进入。
 
@@ -63,7 +63,7 @@ Norm 优先考虑后端服务、业务系统、工具和桌面应用，而不是
 
 ## 8. 优化位于语义之下
 
-Core canonicalization、definition store、Truffle specialization、结构共享和 Native Image 都可以改变程序的表示与执行方式，但不能改变可观察行为。
+Core canonicalization、definition store、Truffle specialization、结构共享和运行时打包都可以改变程序的表示与执行方式，但不能改变可观察行为。
 
 后端必须消费已解析的 canonical Core，不能重新执行语言级重载或类型推断。缓存以强类型 identity 和真实依赖作为失效边界，不能用文件时间或字符串 key 模拟语义身份。
 
@@ -75,7 +75,7 @@ Core canonicalization、definition store、Truffle specialization、结构共享
 2. 调用者能否从类型和源码看出共享、失败与生命周期？
 3. 它是否复用现有名称解析、类型、调用和资源协议？
 4. 它会不会建立新的 metadata、配置或执行真相源？
-5. 编译器、LSP、JVM 测试和 Native Image 是否观察同一行为？
+5. 编译器、LSP、测试和正式发行包是否观察同一行为？
 6. 删除旧路径后，整体概念数是否仍然可控？
 
 不能清楚回答这些问题时，继续增加 API 通常只会把结构性问题推迟到未来。

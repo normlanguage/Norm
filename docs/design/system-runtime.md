@@ -127,7 +127,7 @@ std.core
 
 `Bytes` 的宿主表示是连续 `byte[]` 加逻辑区间。切片共享只读存储，文件读取直接接管 adapter 返回的 owned storage；只有显式 `toArray()`、拼接和编码边界产生复制。标准库与文件系统通过 builtin ABI 中的同一个 opaque type identity 构造字节值。
 
-文件流 adapter 使用阻塞 `FileChannel`，公开 partial read、partial write、flush、sync 和 close。宿主调用位于 `@TruffleBoundary`，平台工厂在 execution 组装时读取 working directory，Native Image 构建期不捕获进程环境。该路径不依赖运行时反射、动态 classpath 扫描或 provider service loading。
+文件流 adapter 使用阻塞 `FileChannel`，公开 partial read、partial write、flush、sync 和 close。宿主调用位于 `@TruffleBoundary`，平台工厂在 execution 组装时读取 working directory。该路径不依赖动态 classpath 扫描或 provider service loading。
 
 ## Intrinsic 组织
 
@@ -144,7 +144,7 @@ Builtin ABI 是 intrinsic identity 和 runtime shape 的单一来源。Catalog�
 - `norm/tests/stdlib` 用户级程序；
 - 真实临时目录、loopback socket、fixed clock 或真实 child process 测试；
 - CLI 真实 `.norm` 文件执行测试；
-- 发布前 JVM 与 Native Image 行为一致性验证。
+- 发布前开发入口与自包含 CLI 行为一致性验证。
 
 依赖公共服务的外网 smoke 程序位于 `norm/tests/live`，只手动或在发布流水线中运行，不进入默认确定性测试套件。
 

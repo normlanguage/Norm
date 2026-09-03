@@ -77,7 +77,7 @@ Bound 到 Core 的转换由 `BoundCoreBodyConverter` 对 sealed hierarchy 进行
 
 `ExecutionContext` 作为隐藏根参数沿固定调用边传递，可执行节点不捕获单次运行状态。standalone `TruffleExecutionBackend` 以 `ExecutableId` 在有界缓存中保存上下文无关的可执行程序，空白、位置和源码 URI 变化只改变 `DebugInfoId`；运行错误通过当前 artifact 的 authoring sidecar 映射位置。需要 Truffle source instrumentation 的 Polyglot 路径把 `DebugInfoId` 纳入实例化边界。内建 ABI 指纹属于后端 ABI key。
 
-guest 运行错误在 Truffle 节点处携带稳定错误码和 `SourceSection`，跨公开边界后转换为结构化 `NormExecutionException`。Native Image 打包同一 Core 与 Truffle 执行链。
+guest 运行错误在 Truffle 节点处携带稳定错误码和 `SourceSection`，跨公开边界后转换为结构化 `NormExecutionException`。自包含 CLI 打包同一 Core、Truffle 执行链与平台 runtime。
 
 ## 验证
 

@@ -1,4 +1,5 @@
-import { readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -38,6 +39,35 @@ if ($brandPixels -lt 400) { throw "Executable icon does not contain the Norm bra
   }
 }
 verify(['run', resolve(repository, 'docs', 'examples', 'hello.norm')], 'Hello from Norm\n');
+
+const bindingDirectory = mkdtempSync(resolve(tmpdir(), 'norm-java-binding-'));
+try {
+  const bindingSource = resolve(bindingDirectory, 'binding.norm');
+  writeFileSync(
+    bindingSource,
+    `package release.binding
+
+import commons.lang.stringUtilsReverse
+
+Module module() {
+  return module(
+    name: "release.binding",
+    version: 1,
+    dependencies: [
+      dependency(repository: "github", name: "commons.lang", version: 1)
+    ]
+  )
+}
+
+Void main() {
+  printLine(stringUtilsReverse("Norm") ?? "")
+}
+`,
+  );
+  verify(['run', bindingSource], 'mroN\n', bindingDirectory);
+} finally {
+  rmSync(bindingDirectory, { recursive: true, force: true });
+}
 
 let count = 0;
 for (const group of ['base', 'algorithms', 'class', 'generics', 'stdlib']) {

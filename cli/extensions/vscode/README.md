@@ -4,7 +4,7 @@
 
 This extension provides syntax highlighting, compiler diagnostics, type-aware completion, signature help, automatic imports, hover, definition navigation, references, rename, and execution through `norm run`. Extension functions, reflection, annotation protocols, and data-format libraries use the same compiler-backed language services as the rest of Norm.
 
-Platform-specific release packages contain the matching standalone Norm CLI. No Java installation or separate server configuration is required.
+Platform-specific release packages contain the matching self-contained Norm CLI and Java runtime. No Java installation or separate server configuration is required.
 
 Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ctrl+F5` to save and run the active source file in a dedicated VS Code task terminal. Norm settings are available through `Norm: Open Settings`.
 
@@ -13,7 +13,7 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
 1. Build the CLI distribution from the repository root:
 
    ```powershell
-   .\gradlew.bat :compiler:installDist
+   .\gradlew.bat :compiler:installRuntimeDist
    ```
 
 2. Open the Norm repository as the VS Code workspace. A development Extension Host automatically discovers:

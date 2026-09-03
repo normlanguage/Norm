@@ -89,7 +89,7 @@ XML 使用相同的 mapper 与 shape，通过 Woodstox StAX 流式读写。公�
 | `std.xml` | 已完成 | Woodstox streaming、attribute、结构 round-trip、类型异常与资源限制 |
 | `std.yaml` | 已完成 | Jackson YAML streaming、共享 token mapper、严格单文档与类型异常 |
 | HTTP JSON | 已完成 | `Bytes` 边界上的 JSON 请求组合与真实回环集成测试 |
-| 性能与收口 | 已完成 | exact-type 缓存门禁、JVM/Native Image 验证与架构审查 |
+| 性能与收口 | 已完成 | exact-type 缓存门禁、发行包验证与架构审查 |
 
 每阶段先写 parser/Core/runtime 或真实集成测试，再实现；本表是执行状态的唯一入口。
 
@@ -100,4 +100,4 @@ XML 使用相同的 mapper 与 shape，通过 Woodstox StAX 流式读写。公�
 - 编码字段访问与对象构造只走 ordinal；解码只使用预计算名称索引，不按字符串调用方法，不使用 JVM reflection 或中间 JSON tree。
 - 同一精确类型的 shape plan 在 program 内复用，缓存不跨错误的 module/type identity。
 - 回环 HTTP 测试覆盖 JSON request bytes、header 与 response decode；公网 smoke 只位于 `norm/tests/live`。
-- JVM 与 Native Image 的公开行为一致。
+- 开发入口与正式发行包的公开行为一致。

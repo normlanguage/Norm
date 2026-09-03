@@ -8,7 +8,6 @@ jacksonCore = "2.20.2"
 woodstox = "7.2.2"
 junit = "6.1.2"
 spotless = "8.10.0"
-native-build-tools = "1.1.6"
 archunit = "1.5.0"
 mavenResolver = "2.0.21"
 slf4j = "2.0.18"
@@ -40,4 +39,3 @@ objenesis = { module = "org.objenesis:objenesis", version.ref = "objenesis" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
-graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "native-build-tools" }

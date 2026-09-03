@@ -56,7 +56,7 @@ import { currentRelease } from './.vitepress/release'
 
 | 能力 | 状态 |
 | --- | --- |
-| 原生 CLI 与 JVM 开发入口 | Stable |
+| 自带 Java runtime 的 CLI 与 JVM 开发入口 | Stable |
 | Formatter、诊断、补全、Signature Help、Hover | Stable |
 | 跳转定义、查找引用、Prepare Rename、Rename | Stable |
 | 标准库只读源码导航 | Stable |

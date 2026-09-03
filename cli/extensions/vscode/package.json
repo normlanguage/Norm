@@ -147,7 +147,7 @@
     "test:release": "node scripts/test-release-package.mjs",
     "verify:vsix": "node scripts/verify-vsix.mjs",
     "test:extension": "node scripts/build-server.mjs && npm run compile && vscode-test --label jvm",
-    "test:extension:native": "npm run compile && vscode-test --label native",
+    "test:extension:release": "npm run compile && vscode-test --label release",
     "smoke:lsp": "node scripts/smoke-lsp.mjs",
     "smoke:run": "node scripts/build-server.mjs && node scripts/smoke-run.mjs",
     "package": "node scripts/release-package.mjs",

@@ -1,8 +1,9 @@
 import java.security.MessageDigest
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
 
 plugins {
     application
-    alias(libs.plugins.graalvm.native)
     id("org.gradlex.extra-java-module-info") version "1.14.2"
 }
 
@@ -409,6 +410,86 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
     }
 }
 
+abstract class GenerateRuntimeLaunchers : DefaultTask() {
+    @get:Input
+    abstract val moduleName: Property<String>
+
+    @get:Input
+    abstract val mainClass: Property<String>
+
+    @get:Input
+    abstract val jvmArguments: ListProperty<String>
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val directory = outputDirectory.get().asFile
+        directory.mkdirs()
+        val invocation =
+            jvmArguments.get().joinToString(" ") +
+                " --module-path \"\$APP_HOME/lib\" --module " +
+                "${moduleName.get()}/${mainClass.get()} \"\$@\""
+        val unix = directory.resolve("norm")
+        unix.writeText(
+            """
+            #!/bin/sh
+            APP_HOME=${'$'}(CDPATH= cd -- "${'$'}(dirname -- "${'$'}0")/.." && pwd)
+            exec "${'$'}APP_HOME/runtime/bin/java" $invocation
+            """.trimIndent() + "\n",
+        )
+        unix.setExecutable(true, false)
+        val windowsArguments = jvmArguments.get().joinToString(" ")
+        directory.resolve("norm.bat").writeText(
+            """
+            @echo off
+            setlocal
+            set "APP_HOME=%~dp0.."
+            "%APP_HOME%\runtime\bin\java.exe" $windowsArguments --module-path "%APP_HOME%\lib" --module ${moduleName.get()}/${mainClass.get()} %*
+            """.trimIndent().replace("\n", "\r\n") + "\r\n",
+        )
+    }
+}
+
+abstract class CreateRuntimeImage : DefaultTask() {
+    @get:InputDirectory
+    abstract val javaHome: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @TaskAction
+    fun create() {
+        val output = outputDirectory.get().asFile
+        check(!output.exists() || output.deleteRecursively()) {
+            "Cannot replace runtime image $output"
+        }
+        val bin = javaHome.get().dir("bin").asFile
+        val jlink = listOf("jlink", "jlink.exe").map(bin::resolve).firstOrNull(File::isFile)
+            ?: error("jlink is unavailable in ${javaHome.get().asFile}")
+        execOperations.exec {
+            executable(jlink)
+            args(
+                "--module-path",
+                javaHome.get().dir("jmods").asFile.absolutePath,
+                "--add-modules",
+                "ALL-MODULE-PATH",
+                "--strip-debug",
+                "--no-header-files",
+                "--no-man-pages",
+                "--compress",
+                "zip-6",
+                "--output",
+                output.absolutePath,
+            )
+        }
+    }
+}
+
 val standardLibraryDirectory = rootProject.file("norm/stdlib")
 val generatedBuildMetadata = layout.buildDirectory.dir("generated/sources/build-metadata")
 val builtinAbiFile = layout.projectDirectory.file("stdlib-abi.json")
@@ -486,49 +567,38 @@ application {
         )
 }
 
-graalvmNative {
-    toolchainDetection.set(true)
-    binaries.named("main") {
-        imageName.set("norm")
-        mainClass.set(application.mainClass)
-        sharedLibrary.set(false)
-        buildArgs.add("--initialize-at-build-time=dev.w0fv1.norm.truffle.LanguageProvider")
-        buildArgs.add("--enable-native-access=org.graalvm.truffle")
-        resources.autodetect()
-    }
+val runtimeJava = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
+}
+val runtimeImageDirectory = layout.buildDirectory.dir("runtime-image")
+val createRuntimeImage = tasks.register<CreateRuntimeImage>("createRuntimeImage") {
+    javaHome.set(runtimeJava.map { it.metadata.installationPath })
+    outputDirectory.set(runtimeImageDirectory)
 }
 
-val windowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
-val windowsResourceSource = layout.projectDirectory.file("scripts/windows-build/norm.rc")
-val windowsResourceCompiler = layout.projectDirectory.file("scripts/windows-build/compile.ps1")
-val windowsIcon = rootProject.layout.projectDirectory.file("docs/public/brand/norm.ico")
-val windowsResourceDirectory = layout.buildDirectory.dir("generated/windows-resources")
-val windowsResource = windowsResourceDirectory.map { it.file("norm.res") }
-val compileWindowsResources = tasks.register<Exec>("compileWindowsResources") {
-    inputs.files(windowsResourceCompiler, windowsResourceSource, windowsIcon)
-    outputs.file(windowsResource)
-    workingDir(rootProject.layout.projectDirectory)
-    enabled = windowsHost
-    commandLine(
-        "powershell.exe",
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-File",
-        windowsResourceCompiler.asFile.absolutePath,
-        "-Source",
-        windowsResourceSource.asFile.absolutePath,
-        "-Output",
-        windowsResource.get().asFile.absolutePath,
-    )
+val runtimeLaunchers = tasks.register<GenerateRuntimeLaunchers>("generateRuntimeLaunchers") {
+    moduleName.set(application.mainModule)
+    mainClass.set(application.mainClass)
+    jvmArguments.set(application.applicationDefaultJvmArgs)
+    outputDirectory.set(layout.buildDirectory.dir("generated/runtime-launchers"))
 }
 
-if (windowsHost) {
-    graalvmNative.binaries.named("main") {
-        buildArgs.add("-H:NativeLinkerOption=${windowsResource.get().asFile.absolutePath}")
-    }
-    tasks.named("nativeCompile") {
-        dependsOn(compileWindowsResources)
+distributions.create("runtime") {
+    distributionBaseName.set("norm")
+    contents {
+        duplicatesStrategy = DuplicatesStrategy.FAIL
+        from(tasks.jar) {
+            into("lib")
+        }
+        from(configurations.runtimeClasspath) {
+            into("lib")
+        }
+        from(runtimeLaunchers) {
+            into("bin")
+        }
+        from(createRuntimeImage) {
+            into("runtime")
+        }
     }
 }
 

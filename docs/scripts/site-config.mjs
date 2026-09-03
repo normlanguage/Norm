@@ -1,5 +1,5 @@
 export const repositoryName = 'Norm'
-export const siteOrigin = 'https://w0fv1.github.io'
+export const siteOrigin = 'https://normlanguage.github.io'
 export const siteBase = `/${repositoryName}/`
 export const siteUrl = `${siteOrigin}${siteBase}`
 export const sitePath = (path) => `${siteBase}${path.replace(/^\/+/, '')}`

@@ -53,10 +53,4 @@ assert.deepEqual(
   await readFile(resolve(brandRoot, 'norm-32.png')),
 )
 
-const windowsResource = await readFile(
-  resolve(repositoryRoot, 'cli', 'compiler', 'scripts', 'windows-build', 'norm.rc'),
-  'utf8',
-)
-assert.match(windowsResource, /ICON\s+"docs\/public\/brand\/norm\.ico"/)
-
 console.log('Norm brand assets verified.')

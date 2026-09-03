@@ -1,6 +1,6 @@
 # Compiler Bootstrap Plan
 
-The official Java toolchain builds one frontend and one GraalVM/Truffle execution path. Delivered behavior is recorded in the [version index](/en/versions/); this page defines the structural path toward 1.0.
+The official Java toolchain builds one frontend and one Truffle execution path. Delivered behavior is recorded in the [version index](/en/versions/); this page defines the structural path toward 1.0.
 
 ## Foundation
 
@@ -16,8 +16,8 @@ The binder fixes expression types, value and identity categories, call targets, 
 
 ## Truffle backend
 
-Lowering consumes `CoreCompilation` and creates call targets, frame slots, control-flow nodes, and interop boundaries. Native Image packages the same CLI and runtime.
+Lowering consumes `CoreCompilation` and creates call targets, frame slots, control-flow nodes, and interop boundaries. CLI distributions carry the same execution implementation and a platform runtime.
 
 ## Acceptance
 
-Each stage includes syntax, semantic, runtime, and real CLI tests. Documentation examples participate in validation, and JVM and Native Image execution preserve the same observable behavior.
+Each stage includes syntax, semantic, runtime, and real CLI tests. Documentation examples participate in validation, and development entry points and release distributions preserve the same observable behavior.

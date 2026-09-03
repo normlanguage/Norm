@@ -4,27 +4,29 @@ Norm releases are triggered by semantic Git tags. The SemVer value in the tag is
 
 ## Assets
 
-Every release ships standalone CLIs for each platform and one universal VS Code extension containing every supported CLI:
+Every release ships a self-contained CLI for each platform and one universal VS Code extension containing every supported CLI:
 
 | Platform | CLI |
 | --- | --- |
-| Windows x64 | `norm.exe` in ZIP |
-| Linux x64 | `norm` in TAR.GZ |
-| macOS Apple Silicon | `norm` in TAR.GZ |
+| Windows x64 | `norm/bin/norm.bat` in ZIP |
+| Linux x64 | `norm/bin/norm` in TAR.GZ |
+| macOS Apple Silicon | `norm/bin/norm` in TAR.GZ |
 
-`norm-language-support-vMAJOR.MINOR.PATCH.vsix` is the only extension asset. It selects its bundled CLI from the host operating system and architecture. Norm does not publish platform-specific VSIX packages.
+Each CLI directory contains `bin`, compiler `lib`, and a `runtime` produced by JDK 25 `jlink`. Users do not install Java, while third-party Java bindings and annotation processors remain dynamically loadable.
 
-GraalVM 25 no longer provides new macOS Intel builds, so Norm does not establish a release line tied to the retired macOS x64 toolchain. A new platform must first pass the same acceptance suite in continuous integration.
+`norm-language-support-vMAJOR.MINOR.PATCH.vsix` is the only extension asset. It selects a bundled directory with the same structure from the host operating system and architecture. Norm does not publish platform-specific VSIX packages.
+
+A new platform must first pass the same acceptance suite in continuous integration.
 
 ## Release gates
 
-A release must pass the Java toolchain tests, VS Code static checks, native CLI version verification, Hello World, every executable acceptance program under `norm/tests`, and a native LSP handshake. The universal VSIX must contain every CLI in the target manifest and verifies each one byte-for-byte against its accepted platform binary.
+A release must pass the Java toolchain tests, VS Code static checks, CLI version verification, Hello World, every executable acceptance program under `norm/tests`, a dynamic Java-binding program, and an LSP handshake. The universal VSIX verifies the launcher, compiler, and runtime from every accepted platform directory, then extracts and executes the complete host bundle.
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 
 ## Automation
 
-The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, CLI paths, and extension directories; the packager and [Release workflow](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI detects Native Image regressions early. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
+The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, distribution directories, launchers, and extension directories; the packager and [Release workflow](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI verifies the self-contained distribution and dynamic Java loading. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
 
 Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 

@@ -99,6 +99,6 @@ Norm 不引入宏或运行时代码注入。Extension function 是显式导入�
 
 编译器、formatter、Language Server、Core builder 和 Truffle backend 不分别猜测程序含义。名称解析、调用绑定、泛型实参、字段 ordinal 和 Annotation 应用先进入统一语义链路，后续工具消费同一结果。
 
-这条原则也解释了为什么 Native Image 不是第二套后端：它打包同一个 Truffle 实现。开发时运行、编辑器分析和最终发行不应形成三种语言。
+这条原则也要求正式发行直接打包同一个 Truffle 实现和 JVM 执行模型。开发时运行、编辑器分析和最终发行不应形成三种语言。
 
 下一篇：[设计原则](/guide/design-principles)。

@@ -80,7 +80,13 @@ try {
   const target = `${process.platform}-${process.arch}`;
   const bin = join(packagedExtension, 'bin', target);
   mkdirSync(bin, { recursive: true });
-  const bundled = join(bin, process.platform === 'win32' ? 'norm.exe' : 'norm');
+  const bundled = join(
+    bin,
+    'norm',
+    'bin',
+    process.platform === 'win32' ? 'norm.bat' : 'norm',
+  );
+  mkdirSync(dirname(bundled), { recursive: true });
   writeFileSync(bundled, '');
   chmodSync(bundled, 0o755);
   versions.set(bundled, '0.17.1');

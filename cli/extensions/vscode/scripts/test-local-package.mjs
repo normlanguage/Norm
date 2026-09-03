@@ -25,11 +25,11 @@ try {
   mkdirSync(join(distribution, 'bin'), { recursive: true });
   mkdirSync(join(distribution, 'lib'), { recursive: true });
   mkdirSync(join(extension, 'server'), { recursive: true });
-  mkdirSync(join(extension, 'bin', 'win32-x64'), { recursive: true });
+  mkdirSync(join(extension, 'bin', 'win32-x64', 'norm', 'bin'), { recursive: true });
   writeFileSync(join(distribution, 'bin', 'norm'), 'launcher');
   writeFileSync(join(distribution, 'lib', 'compiler.jar'), 'artifact');
   writeFileSync(join(extension, 'server', 'stale'), 'stale');
-  writeFileSync(join(extension, 'bin', 'win32-x64', 'norm.exe'), 'release');
+  writeFileSync(join(extension, 'bin', 'win32-x64', 'norm', 'bin', 'norm.bat'), 'release');
 
   const staged = stageServerDistribution(distribution, extension);
 
@@ -38,7 +38,7 @@ try {
   assert.equal(readFileSync(join(staged, 'lib', 'compiler.jar'), 'utf8'), 'artifact');
   assert.throws(() => readFileSync(join(staged, 'stale')));
   assert.equal(
-    readFileSync(join(extension, 'bin', 'win32-x64', 'norm.exe'), 'utf8'),
+    readFileSync(join(extension, 'bin', 'win32-x64', 'norm', 'bin', 'norm.bat'), 'utf8'),
     'release',
   );
 } finally {

@@ -14,7 +14,7 @@ Norm 不是把现有语言的功能取并集。它选择熟悉的静态类型应
 | 控制流产值 | `break value` 显式交出结果 | 大部分控制流是语句 | block 最后表达式产值 | block 最后表达式产值 | 控制流是语句 | 条件表达式与语句分开 |
 | 扩展机制 | 显式导入的静态 extension；强类型 Annotation 协议 | Annotation、反射、processor、agent | extension、Annotation、compiler plugin | trait、macro | interface、代码生成 | decorator、类型声明合并、转换工具 |
 | 失败模型 | nullable、Result、Exception 分工 | Optional/返回值/Exception | nullable/Result 模式/Exception | Option/Result，panic | 多返回值 error，panic | union/Promise rejection/Exception |
-| 部署 | GraalVM Native Image 独立 CLI | JVM/JAR 或 native 工具 | JVM/native 多后端 | 原生二进制 | 原生二进制 | JavaScript runtime 或 bundle |
+| 部署 | 自带精简 Java runtime | JVM/JAR 或 native 工具 | JVM/native 多后端 | 原生二进制 | 原生二进制 | JavaScript runtime 或 bundle |
 
 表格描述的是默认模型，不代表其他语言不能通过库或规范获得类似效果。Norm 的差异在于这些边界由语言和官方工具链共同固定。
 
@@ -44,7 +44,7 @@ Rust 通过 ownership、borrow 和 lifetime 在编译期证明内存与别名安
 
 ## 与 Go：保持部署简单，同时保留更丰富的类型语义
 
-Norm 和 Go 都希望工具链直接、发行物简单、应用边界实用。Norm 的 Native Image CLI 同样以独立可执行文件交付。
+Norm 和 Go 都希望工具链直接、发行物简单、应用边界实用。Norm 的平台发行包自带运行时，用户同样不需要先安装语言运行环境。
 
 Norm 选择名义 interface、非空类型、enum payload、异常、泛型运行时信息和 class identity；Go 选择更小的语言表面、结构 interface、显式 error 返回和更成熟的并发/网络标准库。
 
@@ -64,7 +64,7 @@ Norm 使用名义类型和 reified 泛型，编译器产生 canonical Core，运
 - 命名参数和显式控制流结果提高调用点与分支的可读性；
 - reified generics、Core metadata、Reflect 与 serialization 形成一条完整类型链；
 - Annotation metadata 与强类型 interceptor 共用对象模型，不需要宏系统；
-- 编译器、LSP、Truffle 和 Native Image 使用同一语义与执行管线；
+- 编译器、LSP 和 Truffle 使用同一语义与执行管线；
 - 系统 API 使用有界流、资源作用域和领域 Exception，已能处理文件、HTTP 与结构数据格式。
 
 ## Norm 当前的限制
@@ -72,7 +72,7 @@ Norm 使用名义类型和 reified 泛型，编译器产生 canonical Core，运
 - 语言、标准库和工具链仍处于 1.0 之前，兼容承诺和诊断契约尚未冻结；
 - 库生态、包管理、数据库、Web server、并发模型、调试器和 profiler 尚不完整；
 - 自动结构序列化只覆盖显式标记的 value，不处理 class 对象图、循环引用和多态；
-- Native Image 缩短了用户安装链路，但构建时间、镜像体积和动态能力仍受 GraalVM 模型约束；
+- 自包含运行时增加了下载体积，但保留了独立 Java 包和框架的动态加载能力；
 - 生产性能、长时间运行行为和大规模项目增量体验需要更多真实应用验证。
 
 这些不是文档脚注，而是评估 Norm 是否适合当前项目的一部分。
@@ -81,6 +81,6 @@ Norm 使用名义类型和 reified 泛型，编译器产生 canonical Core，运
 
 已发布能力统一记录在[版本索引](/versions/)，未来工作统一维护在[项目路线图](/design/roadmap)。Guide 不复制一份阶段清单，以免计划和真实交付分叉。
 
-判断后续工作的优先级时，Norm 会继续沿用三条标准：先补齐应用开发的基础闭环，再扩大生态；先建立统一抽象，再增加格式或平台实现；新能力必须同时进入编译器、LSP、JVM/Native 验收和版本契约。
+判断后续工作的优先级时，Norm 会继续沿用三条标准：先补齐应用开发的基础闭环，再扩大生态；先建立统一抽象，再增加格式或平台实现；新能力必须同时进入编译器、LSP、正式发行包验收和版本契约。
 
 接下来：[开始 Language Tour](/learn/)或查看[当前状态](/status)。

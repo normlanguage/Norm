@@ -1,12 +1,19 @@
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  createWriteStream,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import yauzl from 'yauzl';
 import {
   releaseTargets,
   releaseVersion,
-  targetExecutable,
+  targetLauncher,
   verifyCliVersion,
 } from './release-package.mjs';
 
@@ -18,15 +25,24 @@ const version = releaseVersion(process.argv[2]);
 const binaries = resolve(process.argv[3]);
 const vsix = resolve(process.argv[4]);
 const targets = releaseTargets.map(({ target }) => target);
-const executableEntries = targets.map(
-  (target) => `extension/bin/${target}/${targetExecutable(target)}`,
+const launcherEntries = targets.map(
+  (target) => `extension/bin/${target}/${targetLauncher(target).replaceAll('\\', '/')}`,
+);
+const runtimeEntries = targets.map(
+  (target) =>
+    `extension/bin/${target}/norm/runtime/bin/${target === 'win32-x64' ? 'java.exe' : 'java'}`,
+);
+const compilerEntries = targets.map(
+  (target) => `extension/bin/${target}/norm/lib/compiler-${version}.jar`,
 );
 const entries = await readEntries(vsix, [
   'extension/package.json',
   'extension.vsixmanifest',
   'extension/images/norm-256.png',
   'extension/images/norm-file.png',
-  ...executableEntries,
+  ...launcherEntries,
+  ...runtimeEntries,
+  ...compilerEntries,
 ], ['extension/server/']);
 const extensionPackage = JSON.parse(entries.get('extension/package.json').content.toString('utf8'));
 if (extensionPackage.version !== version) {
@@ -46,31 +62,87 @@ if (!manifest.includes(`Version="${version}"`) || manifest.includes('TargetPlatf
   throw new Error(`VSIX manifest is not universal version ${version}`);
 }
 for (const [index, target] of targets.entries()) {
-  const executable = targetExecutable(target);
-  const embeddedEntry = entries.get(executableEntries[index]);
-  if (executable !== 'norm.exe' && ((embeddedEntry.attributes >>> 16) & 0o111) === 0) {
+  const embeddedEntry = entries.get(launcherEntries[index]);
+  if (target !== 'win32-x64' && ((embeddedEntry.attributes >>> 16) & 0o111) === 0) {
     throw new Error(`VSIX embedded CLI is not executable: ${target}`);
   }
-  const binary = join(binaries, `native-${target}`, executable);
-  const expectedHash = createHash('sha256').update(readFileSync(binary)).digest('hex');
-  const embeddedHash = createHash('sha256').update(embeddedEntry.content).digest('hex');
-  if (embeddedHash !== expectedHash) {
-    throw new Error(`VSIX embedded CLI hash mismatch for ${target}`);
+  for (const [entryName, source] of [
+    [launcherEntries[index], join(binaries, `runtime-${target}`, targetLauncher(target))],
+    [
+      runtimeEntries[index],
+      join(
+        binaries,
+        `runtime-${target}`,
+        'norm',
+        'runtime',
+        'bin',
+        target === 'win32-x64' ? 'java.exe' : 'java',
+      ),
+    ],
+    [
+      compilerEntries[index],
+      join(binaries, `runtime-${target}`, 'norm', 'lib', `compiler-${version}.jar`),
+    ],
+  ]) {
+    const expectedHash = createHash('sha256').update(readFileSync(source)).digest('hex');
+    const embeddedHash = createHash('sha256').update(entries.get(entryName).content).digest('hex');
+    if (embeddedHash !== expectedHash) {
+      throw new Error(`VSIX embedded runtime hash mismatch for ${target}: ${entryName}`);
+    }
   }
 }
 const hostTarget = `${process.platform}-${process.arch}`;
-const hostExecutable = targetExecutable(hostTarget);
-const embedded = entries.get(`extension/bin/${hostTarget}/${hostExecutable}`).content;
 const directory = mkdtempSync(join(tmpdir(), 'norm-vsix-'));
 try {
-  const extracted = join(directory, hostExecutable);
-  writeFileSync(extracted, embedded);
-  chmodSync(extracted, 0o755);
-  verifyCliVersion(extracted, version);
+  await extractPrefix(vsix, `extension/bin/${hostTarget}/norm/`, directory);
+  const launcher = join(
+    directory,
+    'bin',
+    process.platform === 'win32' ? 'norm.bat' : 'norm',
+  );
+  chmodSync(launcher, 0o755);
+  verifyCliVersion(launcher, version);
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
 console.log(`Universal VSIX verified with all embedded Norm ${version} CLIs.`);
+
+function extractPrefix(path, prefix, destinationRoot) {
+  return new Promise((resolvePromise, reject) => {
+    yauzl.open(path, { lazyEntries: true }, (openError, archive) => {
+      if (openError) return reject(openError);
+      archive.on('error', reject);
+      archive.on('entry', (entry) => {
+        if (!entry.fileName.startsWith(prefix)) return archive.readEntry();
+        const relative = entry.fileName.slice(prefix.length);
+        if (!relative) return archive.readEntry();
+        const destination = resolve(destinationRoot, relative);
+        if (!destination.startsWith(resolve(destinationRoot) + sep)) {
+          return reject(new Error(`Invalid VSIX runtime entry: ${entry.fileName}`));
+        }
+        if (entry.fileName.endsWith('/')) {
+          mkdirSync(destination, { recursive: true });
+          return archive.readEntry();
+        }
+        mkdirSync(dirname(destination), { recursive: true });
+        archive.openReadStream(entry, (streamError, stream) => {
+          if (streamError) return reject(streamError);
+          const output = createWriteStream(destination);
+          stream.on('error', reject);
+          output.on('error', reject);
+          output.on('close', () => {
+            const mode = (entry.externalFileAttributes >>> 16) & 0o777;
+            if (mode) chmodSync(destination, mode);
+            archive.readEntry();
+          });
+          stream.pipe(output);
+        });
+      });
+      archive.on('end', resolvePromise);
+      archive.readEntry();
+    });
+  });
+}
 
 function readEntries(path, names, forbiddenPrefixes) {
   return new Promise((resolvePromise, reject) => {

@@ -1,6 +1,6 @@
 # VS Code 开发体验
 
-Norm 的官方 VS Code 扩展包含当前版本的原生 `norm` CLI。安装一个 VSIX 后即可获得语法高亮、编译器诊断、格式化、补全、导航和运行命令，不需要另行安装 Java 或 GraalVM。
+Norm 的官方 VS Code 扩展包含当前版本的自包含 `norm` CLI。安装一个 VSIX 后即可获得语法高亮、编译器诊断、格式化、补全、导航和运行命令，不需要另行安装 Java。
 
 ## 安装
 
@@ -11,7 +11,7 @@ Norm 的官方 VS Code 扩展包含当前版本的原生 `norm` CLI。安装一�
 
 通用 VSIX 同时包含 Windows x64、Linux x64 与 macOS ARM64 的同版本 CLI，扩展会根据当前平台选择正确的可执行文件。
 
-如果还需要在终端运行 `norm`，从同一 Release 下载对应平台的 CLI 压缩包，解压后把可执行文件目录加入 `PATH`。不要混用不同 Release 的扩展和 CLI。
+如果还需要在终端运行 `norm`，从同一 Release 下载对应平台的 CLI 压缩包，解压后把 `norm/bin` 加入 `PATH`。不要混用不同 Release 的扩展和 CLI。
 
 ## 第一个文件
 
@@ -63,20 +63,18 @@ main() {
 
 ## 单文件与项目
 
-没有 package 声明的 `.norm` 文件可以作为独立脚本运行。带 package 的应用应放在 Norm 项目中，并由根 `module.norm` 描述 module 与源码结构。
-
-如果一个带 package 的文件被单独放在任意目录，编辑器无法凭文件名猜出完整模块图。打开包含 `module.norm` 的项目目录，让 CLI 和 Language Server 使用相同的项目根。
+`.norm` 文件可以在同一文件中声明 package、`module()`、依赖和应用入口。CLI 与 Language Server 读取这份唯一声明，并从指定仓库解析依赖。多文件项目仍可使用独立的根 `module.norm`。
 
 模块规则见[模块系统](/spec/module-system)。
 
 ## CLI 选择
 
-正式扩展默认使用自身包含的原生 CLI。只有开发 Norm 工具链时，才需要设置 `norm.cli.path`。候选 CLI 必须与扩展版本一致；同一基础版本的开发构建可以带 `-SNAPSHOT`。不匹配的配置会被跳过，并在 Norm Language Server 输出中说明原因。
+正式扩展默认使用自身包含的自包含 CLI。只有开发 Norm 工具链时，才需要设置 `norm.cli.path`。候选 CLI 必须与扩展版本一致；同一基础版本的开发构建可以带 `-SNAPSHOT`。不匹配的配置会被跳过，并在 Norm Language Server 输出中说明原因。
 
 正式扩展的解析顺序是：
 
 1. 版本匹配的 `norm.cli.path`；
-2. 扩展包内同版本的 JVM 或原生 CLI；
+2. 扩展包内同版本的自包含 CLI；
 3. 当前工作区和扩展源码树中的同版本开发构建；
 4. 系统 `PATH` 中的同版本 `norm`。
 
@@ -96,7 +94,7 @@ TextMate 高亮不需要语言服务器，其余功能需要 CLI。先执行 **N
 
 ### 跨文件 import 或补全缺失
 
-确认 VS Code 打开的是包含 `module.norm` 的项目根，目标声明是 public，并由 module 导出。单文件脚本之间不会因为处于同一目录就自动组成项目。
+确认依赖已在同文件的 `module()` 或项目根 `module.norm` 中声明，目标声明是 public。单文件脚本之间不会因为处于同一目录就自动组成项目。
 
 ### 运行命令使用了错误目录
 

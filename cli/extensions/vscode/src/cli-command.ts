@@ -58,7 +58,6 @@ export async function resolveCliCommand(
   }
 
   const executable = process.platform === 'win32' ? 'norm.bat' : 'norm';
-  const bundledExecutable = process.platform === 'win32' ? 'norm.exe' : 'norm';
   const workspace: CliCandidate[] = options.workspacePath
     ? [
         {
@@ -102,7 +101,9 @@ export async function resolveCliCommand(
         options.extensionPath,
         'bin',
         `${process.platform}-${process.arch}`,
-        bundledExecutable,
+        'norm',
+        'bin',
+        executable,
       ),
       source: 'bundled',
     },

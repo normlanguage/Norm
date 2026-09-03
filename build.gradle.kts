@@ -3,7 +3,6 @@ import com.diffplug.gradle.spotless.SpotlessExtension
 plugins {
     base
     alias(libs.plugins.spotless) apply false
-    alias(libs.plugins.graalvm.native) apply false
 }
 
 group = "dev.w0fv1.norm"

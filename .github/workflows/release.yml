@@ -37,7 +37,7 @@ jobs:
         id: targets
         shell: bash
         run: |
-          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.binary | type == "string") and (.executable | type == "string")) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
+          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.distribution | type == "string") and (.launcher | type == "string")) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
           echo "matrix=$(jq -c '{include: .}' cli/compiler/release-targets.json)" >> "$GITHUB_OUTPUT"
 
   verify:
@@ -49,8 +49,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Set up GraalVM
-        uses: ./.github/actions/setup-graalvm-community
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25.0.3
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -95,8 +98,11 @@ jobs:
       - name: Check out release sources
         uses: actions/checkout@v6
 
-      - name: Set up GraalVM
-        uses: ./.github/actions/setup-graalvm-community
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25.0.3
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -111,50 +117,51 @@ jobs:
       - name: Install extension dependencies
         run: npm ci --prefix cli/extensions/vscode
 
-      - name: Build native CLI
+      - name: Build self-contained CLI
         shell: bash
-        run: ./gradlew :compiler:nativeCompile "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+        run: ./gradlew :compiler:installRuntimeDist "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
-      - name: Verify native CLI
-        run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.binary }} ${{ needs.prepare.outputs.version }}
+      - name: Verify self-contained CLI
+        run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.distribution }}/${{ matrix.launcher }} ${{ needs.prepare.outputs.version }}
 
-      - name: Verify native language server
+      - name: Verify self-contained language server
         working-directory: cli/extensions/vscode
         env:
-          NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
+          NORM_CLI: ${{ github.workspace }}/${{ matrix.distribution }}/${{ matrix.launcher }}
         run: npm run smoke:lsp
 
-      - name: Stage native CLI for extension testing and packaging
+      - name: Stage self-contained CLI
         shell: bash
         run: |
           mkdir -p "cli/extensions/vscode/bin/${{ matrix.target }}"
-          cp "${{ matrix.binary }}" "cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
-          chmod +x "cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}"
+          cp -R "${{ matrix.distribution }}" "cli/extensions/vscode/bin/${{ matrix.target }}/norm"
 
       - name: Verify extension in VS Code
         if: runner.os != 'Linux'
         working-directory: cli/extensions/vscode
         env:
-          NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
-        run: npm run test:extension:native
+          NORM_CLI: ${{ github.workspace }}/${{ matrix.distribution }}/${{ matrix.launcher }}
+        run: npm run test:extension:release
 
       - name: Verify extension in VS Code on Linux
         if: runner.os == 'Linux'
         working-directory: cli/extensions/vscode
         env:
-          NORM_CLI: ${{ github.workspace }}/${{ matrix.binary }}
-        run: xvfb-run -a npm run test:extension:native
+          NORM_CLI: ${{ github.workspace }}/${{ matrix.distribution }}/${{ matrix.launcher }}
+        run: xvfb-run -a npm run test:extension:release
 
       - name: Package Windows CLI
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path release -Force | Out-Null
+          New-Item -ItemType Directory -Path release-stage -Force | Out-Null
+          Copy-Item -LiteralPath '${{ matrix.distribution }}' -Destination release-stage/norm -Recurse
           $archive = 'release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.zip'
-          Compress-Archive -LiteralPath '${{ matrix.binary }}' -DestinationPath $archive
+          Compress-Archive -LiteralPath release-stage/norm -DestinationPath $archive
           $destination = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString('N'))
           Expand-Archive -LiteralPath $archive -DestinationPath $destination
-          $actual = & (Join-Path $destination 'norm.exe') --version
+          $actual = & (Join-Path $destination 'norm/bin/norm.bat') --version
           if ($actual -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Archived CLI version mismatch: $actual" }
 
       - name: Package Unix CLI
@@ -162,11 +169,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p release
+          mkdir -p release-stage
+          cp -R '${{ matrix.distribution }}' release-stage/norm
           archive="release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz"
-          tar -C "$(dirname '${{ matrix.binary }}')" -czf "$archive" norm
+          tar -C release-stage -czf "$archive" norm
           destination="$(mktemp -d)"
           tar -C "$destination" -xzf "$archive"
-          [[ "$($destination/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
+          [[ "$($destination/norm/bin/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
 
       - name: Upload standalone CLI
         uses: actions/upload-artifact@v4
@@ -175,11 +184,11 @@ jobs:
           path: release/*
           if-no-files-found: error
 
-      - name: Upload native CLI for the universal extension
+      - name: Upload self-contained CLI for the universal extension
         uses: actions/upload-artifact@v4
         with:
-          name: native-${{ matrix.target }}
-          path: cli/extensions/vscode/bin/${{ matrix.target }}/${{ matrix.executable }}
+          name: runtime-${{ matrix.target }}
+          path: release-stage
           if-no-files-found: error
 
   package-extension:
@@ -199,15 +208,15 @@ jobs:
       - name: Install extension dependencies
         run: npm ci --prefix cli/extensions/vscode
 
-      - name: Download native CLIs
+      - name: Download self-contained CLIs
         uses: actions/download-artifact@v5
         with:
           path: binaries
-          pattern: native-*
+          pattern: runtime-*
 
       - name: Package universal extension
         run: |
-          find binaries -type f -exec chmod +x {} +
+          find binaries -path '*/norm/bin/norm' -exec chmod +x {} +
           node cli/extensions/vscode/scripts/release-package.mjs \
             ${{ needs.prepare.outputs.version }} \
             binaries \
