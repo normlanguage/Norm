@@ -8,6 +8,7 @@ import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.execution.JarBindingDuration;
 import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
+import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -18,6 +19,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
@@ -467,6 +471,50 @@ final class JvmJarBindingRuntimeTest {
   }
 
   @Test
+  void keepsApplicationClassesAvailableWhileFrameworkThreadsRetire() throws Exception {
+    Path jar = lateFrameworkClassJar(temporaryDirectory.resolve("late-framework-class.jar"));
+    ResolvedJarGraph graph = graph(jar);
+    GeneratedJarBinding generated =
+        new GeneratedJarBinding(List.of(), List.of(), Map.of(), Map.of(), Map.of(), Map.of());
+    JvmJarBindingRuntime runtime =
+        new JvmJarBindingRuntime(
+            List.of(new ResolvedJarBinding(graph, new JarApiSchema(List.of()), generated)));
+    ClassLoader applicationLoader = runtime.applicationClassLoader();
+    CountDownLatch closeStarted = new CountDownLatch(1);
+    CompletableFuture<Class<?>> loaded = new CompletableFuture<>();
+    Thread frameworkThread =
+        Thread.ofPlatform()
+            .unstarted(
+                () -> {
+                  try {
+                    closeStarted.await();
+                    loaded.complete(
+                        Class.forName("sample.LateFrameworkClass", true, applicationLoader));
+                  } catch (Throwable failure) {
+                    loaded.completeExceptionally(failure);
+                  }
+                });
+    frameworkThread.setContextClassLoader(applicationLoader);
+    frameworkThread.start();
+
+    CompletableFuture<Void> closing = CompletableFuture.runAsync(runtime::close);
+    while (true) {
+      try {
+        runtime.applicationClassLoader();
+        Thread.onSpinWait();
+      } catch (JarBindingRuntimeException closed) {
+        break;
+      }
+    }
+    closeStarted.countDown();
+
+    assertEquals("sample.LateFrameworkClass", loaded.get(5, TimeUnit.SECONDS).getName());
+    closing.get(5, TimeUnit.SECONDS);
+    assertThrows(JarBindingRuntimeException.class, runtime::applicationClassLoader);
+    frameworkThread.join();
+  }
+
+  @Test
   void convertsCharsetNamesAtTheJavaBoundary() throws Exception {
     Path jar = charsetJar(temporaryDirectory.resolve("charset.jar"));
     ResolvedJarArtifact root =
@@ -794,6 +842,25 @@ final class JvmJarBindingRuntimeTest {
     Files.createDirectories(path.getParent());
     try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
       output.putNextEntry(new JarEntry("sample/FailureApi.class"));
+      output.write(writer.toByteArray());
+      output.closeEntry();
+    }
+    return path;
+  }
+
+  private static Path lateFrameworkClassJar(Path path) throws Exception {
+    ClassWriter writer = new ClassWriter(0);
+    writer.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+        "sample/LateFrameworkClass",
+        null,
+        "java/lang/Object",
+        null);
+    writer.visitEnd();
+    Files.createDirectories(path.getParent());
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
+      output.putNextEntry(new JarEntry("sample/LateFrameworkClass.class"));
       output.write(writer.toByteArray());
       output.closeEntry();
     }

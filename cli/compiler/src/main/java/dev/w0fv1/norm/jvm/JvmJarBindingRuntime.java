@@ -22,6 +22,7 @@ import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,7 +36,7 @@ import java.util.concurrent.Future;
 
 public final class JvmJarBindingRuntime
     implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
-  private final List<URLClassLoader> loaders;
+  private static final Duration CLASS_LOADER_RETIREMENT_TIMEOUT = Duration.ofSeconds(5);
   private final Map<String, BoundCall> calls;
   private URLClassLoader applicationLoader;
 
@@ -44,7 +45,6 @@ public final class JvmJarBindingRuntime
   }
 
   public JvmJarBindingRuntime(List<ResolvedJarBinding> bindings, List<Path> applicationClasspath) {
-    loaders = new ArrayList<>();
     calls = new LinkedHashMap<>();
     try {
       Set<Path> paths = new LinkedHashSet<>();
@@ -68,7 +68,6 @@ public final class JvmJarBindingRuntime
               .toArray(URL[]::new);
       URLClassLoader loader = new URLClassLoader(urls, JvmJarBindingRuntime.class.getClassLoader());
       applicationLoader = loader;
-      loaders.add(loader);
       Map<JarBindingClassReference.Nominal, String> classDescriptors = new LinkedHashMap<>();
       Map<JarBindingClassReference.Nominal, Map<String, String>> enumConstants =
           new LinkedHashMap<>();
@@ -591,22 +590,47 @@ public final class JvmJarBindingRuntime
 
   @Override
   public void close() {
-    JarBindingRuntimeException failure = null;
-    for (URLClassLoader loader : loaders) {
-      try {
-        loader.close();
-      } catch (IOException exception) {
-        if (failure == null) {
-          failure = new JarBindingRuntimeException("cannot close JAR binding runtime", exception);
-        } else {
-          failure.addSuppressed(exception);
-        }
-      }
-    }
-    loaders.clear();
+    URLClassLoader loader = applicationLoader;
     applicationLoader = null;
     calls.clear();
-    if (failure != null) throw failure;
+    retire(loader);
+  }
+
+  private static void retire(URLClassLoader loader) {
+    if (loader == null) return;
+    long deadline = System.nanoTime() + CLASS_LOADER_RETIREMENT_TIMEOUT.toNanos();
+    boolean interrupted = false;
+    List<Thread> remaining = applicationThreads(loader);
+    while (!remaining.isEmpty() && System.nanoTime() < deadline) {
+      for (Thread thread : remaining) {
+        long wait = deadline - System.nanoTime();
+        if (wait <= 0) break;
+        try {
+          thread.join(Duration.ofNanos(wait));
+        } catch (InterruptedException exception) {
+          interrupted = true;
+        }
+      }
+      remaining = applicationThreads(loader);
+    }
+    close(loader);
+    if (interrupted) Thread.currentThread().interrupt();
+  }
+
+  private static List<Thread> applicationThreads(ClassLoader loader) {
+    return Thread.getAllStackTraces().keySet().stream()
+        .filter(Thread::isAlive)
+        .filter(thread -> thread != Thread.currentThread())
+        .filter(thread -> thread.getContextClassLoader() == loader)
+        .toList();
+  }
+
+  private static void close(URLClassLoader loader) {
+    try {
+      loader.close();
+    } catch (IOException exception) {
+      throw new JarBindingRuntimeException("cannot close JAR binding runtime", exception);
+    }
   }
 
   private static final class ClassCatalog {
