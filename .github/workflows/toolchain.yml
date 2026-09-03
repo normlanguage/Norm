@@ -57,6 +57,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Build self-contained CLI
+        run: ./gradlew :compiler:installRuntimeDist --no-daemon
+
       - name: Run quality checks
         run: ./gradlew qualityCheck --no-daemon
 
@@ -64,9 +67,6 @@ jobs:
         run: |
           ./gradlew :compiler:run --args="--version" --no-daemon
           ./gradlew :compiler:run --args="run docs/examples/hello.norm" --no-daemon
-
-      - name: Build self-contained CLI
-        run: ./gradlew :compiler:installRuntimeDist --no-daemon
 
       - name: Verify self-contained CLI and language server
         env:

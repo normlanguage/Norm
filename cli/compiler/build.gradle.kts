@@ -1,3 +1,4 @@
+import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
@@ -471,13 +472,29 @@ abstract class CreateRuntimeImage : DefaultTask() {
         val bin = javaHome.get().dir("bin").asFile
         val jlink = listOf("jlink", "jlink.exe").map(bin::resolve).firstOrNull(File::isFile)
             ?: error("jlink is unavailable in ${javaHome.get().asFile}")
+        val java = listOf("java", "java.exe").map(bin::resolve).firstOrNull(File::isFile)
+            ?: error("java is unavailable in ${javaHome.get().asFile}")
+        val moduleOutput = ByteArrayOutputStream()
+        execOperations.exec {
+            executable(java)
+            args("--list-modules")
+            standardOutput = moduleOutput
+        }
+        val modules = moduleOutput.toString(Charsets.UTF_8)
+            .lineSequence()
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .map { it.substringBefore('@') }
+            .sorted()
+            .joinToString(",")
+        check(modules.isNotEmpty()) {
+            "No system modules are available in ${javaHome.get().asFile}"
+        }
         execOperations.exec {
             executable(jlink)
             args(
-                "--module-path",
-                javaHome.get().dir("jmods").asFile.absolutePath,
                 "--add-modules",
-                "ALL-MODULE-PATH",
+                modules,
                 "--strip-debug",
                 "--no-header-files",
                 "--no-man-pages",
