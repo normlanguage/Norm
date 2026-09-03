@@ -16,7 +16,7 @@
       "type": "dev.w0fv1.norm.cli.component.LanguageServer",
       "methods": [
         {
-          "name": "standardLibrarySource",
+          "name": "source",
           "parameterTypes": [
             "java.lang.String"
           ]
