@@ -17,6 +17,7 @@ import dev.w0fv1.norm.value.SourceLocation;
 import dev.w0fv1.norm.value.SourcePosition;
 import dev.w0fv1.norm.value.SourceSpan;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -64,6 +65,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   private final LanguageService language;
   private final ProjectLoader projects;
   private final Map<String, DocumentState> documents = new ConcurrentHashMap<>();
+  private final Object mutationLock = new Object();
   private final java.util.concurrent.atomic.AtomicLong revisions =
       new java.util.concurrent.atomic.AtomicLong();
   private volatile LanguageClient client;
@@ -84,15 +86,28 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
 
   @Override
   public void close() {
-    documents.clear();
-    language.close();
-    projects.close();
+    synchronized (mutationLock) {
+      documents.clear();
+      language.close();
+      projects.close();
+    }
   }
 
-  String standardLibrarySource(String uri) {
+  private String standardLibrarySource(String uri) {
     return language
         .standardLibrarySource(DocumentId.of(uri))
         .orElseThrow(() -> new IllegalArgumentException("unknown standard-library source " + uri));
+  }
+
+  String source(String uri) {
+    if ("stdlib".equals(URI.create(uri).getScheme())) return standardLibrarySource(uri);
+    DocumentId document =
+        VirtualDocumentUri.decode(uri)
+            .orElseThrow(() -> new IllegalArgumentException("unknown virtual source " + uri));
+    DocumentState owner =
+        snapshotState(document)
+            .orElseThrow(() -> new IllegalArgumentException("unknown virtual source " + uri));
+    return owner.snapshot().document(document).orElseThrow().source().text();
   }
 
   @Override
@@ -116,13 +131,15 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
 
   @Override
   public void didClose(DidCloseTextDocumentParams params) {
-    String uri = params.getTextDocument().getUri();
-    DocumentState removed = remove(uri);
-    LanguageClient connected = client;
-    if (connected != null) {
-      connected.publishDiagnostics(new PublishDiagnosticsParams(uri, List.of()));
+    synchronized (mutationLock) {
+      String uri = params.getTextDocument().getUri();
+      DocumentState removed = remove(uri);
+      LanguageClient connected = client;
+      if (connected != null) {
+        connected.publishDiagnostics(new PublishDiagnosticsParams(uri, List.of()));
+      }
+      if (removed != null && removed.projectRoot() != null) refresh(removed.projectRoot());
     }
-    if (removed != null && removed.projectRoot() != null) refresh(removed.projectRoot());
   }
 
   @Override
@@ -179,7 +196,9 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
     if (state == null) return CompletableFuture.completedFuture(Either.forLeft(List.of()));
     int offset = offset(state.source(), params.getPosition());
     List<Location> locations =
-        language.definition(state.analysis(), offset).stream().map(this::location).toList();
+        language.definition(state.analysis(), offset).stream()
+            .map(location -> location(state.snapshot(), location))
+            .toList();
     return CompletableFuture.completedFuture(Either.forLeft(locations));
   }
 
@@ -192,7 +211,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
         language
             .references(state.analysis(), offset, params.getContext().isIncludeDeclaration())
             .stream()
-            .map(this::location)
+            .map(location -> location(state.snapshot(), location))
             .toList();
     return CompletableFuture.completedFuture(locations);
   }
@@ -214,7 +233,8 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
                             org.eclipse.lsp4j.PrepareRenameDefaultBehavior>
                             forSecond(
                                 new PrepareRenameResult(
-                                    range(target.location()), target.placeholder())))
+                                    range(state.snapshot(), target.location()),
+                                    target.placeholder())))
             .orElse(null));
   }
 
@@ -236,9 +256,11 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
                             location ->
                                 changes
                                     .computeIfAbsent(
-                                        clientUri(location.document()),
+                                        clientUri(state.snapshot(), location.document()),
                                         ignored -> new java.util.ArrayList<>())
-                                    .add(new TextEdit(range(location), rename.newName())));
+                                    .add(
+                                        new TextEdit(
+                                            range(state.snapshot(), location), rename.newName())));
                     return new WorkspaceEdit(changes);
                   })
               .orElse(null);
@@ -268,11 +290,42 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   }
 
   private void update(String uri, int version, String text) {
-    SourceFile source = SourceFile.of(DocumentId.of(uri), text);
+    synchronized (mutationLock) {
+      updateLocked(uri, version, text);
+    }
+  }
+
+  private void updateLocked(String uri, int version, String text) {
+    SourceFile source =
+        filePath(uri)
+            .map(path -> SourceFile.of(path, text))
+            .orElseGet(() -> SourceFile.of(DocumentId.of(uri), text));
     DocumentState existing = state(uri);
     if (existing != null && version < existing.version()) return;
     if (existing != null && !existing.clientUri().equals(uri)) {
       documents.remove(existing.clientUri(), existing);
+    }
+    Optional<DocumentId> virtualDocument = VirtualDocumentUri.decode(uri);
+    if (virtualDocument.isPresent()) {
+      DocumentId document = virtualDocument.orElseThrow();
+      DocumentState owner =
+          snapshotState(document)
+              .orElseThrow(() -> new IllegalArgumentException("unknown virtual source " + uri));
+      source = owner.snapshot().document(document).orElseThrow().source();
+      AnalysisResult analysis = owner.snapshot().analysis(document);
+      DocumentState candidate =
+          new DocumentState(
+              version,
+              uri,
+              source,
+              analysis,
+              null,
+              Set.of(),
+              revisions.incrementAndGet(),
+              owner.snapshot());
+      if (!install(uri, candidate)) return;
+      publish(uri, source.id(), analysis);
+      return;
     }
     if (!"file".equals(source.id().uri().getScheme())) {
       CompilationSnapshot snapshot =
@@ -394,21 +447,24 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   }
 
   void watchedFilesChanged(Collection<String> uris) {
-    Set<Path> changed =
-        uris.stream()
-            .map(DocumentService::filePath)
-            .flatMap(Optional::stream)
-            .collect(java.util.stream.Collectors.toSet());
-    documents.values().stream()
-        .map(DocumentState::projectRoot)
-        .filter(java.util.Objects::nonNull)
-        .distinct()
-        .filter(
-            root ->
-                changed.stream()
-                    .anyMatch(path -> path.startsWith(root) || sessionInputs(root).contains(path)))
-        .toList()
-        .forEach(this::refresh);
+    synchronized (mutationLock) {
+      Set<Path> changed =
+          uris.stream()
+              .map(DocumentService::filePath)
+              .flatMap(Optional::stream)
+              .collect(java.util.stream.Collectors.toSet());
+      documents.values().stream()
+          .map(DocumentState::projectRoot)
+          .filter(java.util.Objects::nonNull)
+          .distinct()
+          .filter(
+              root ->
+                  changed.stream()
+                      .anyMatch(
+                          path -> path.startsWith(root) || sessionInputs(root).contains(path)))
+          .toList()
+          .forEach(this::refresh);
+    }
   }
 
   private void refresh(Path root) {
@@ -596,23 +652,21 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
         new Position(end.line() - 1, end.column() - 1));
   }
 
-  private Location location(SourceLocation location) {
-    return new Location(clientUri(location.document()), range(location));
+  private Location location(CompilationSnapshot snapshot, SourceLocation location) {
+    return new Location(clientUri(snapshot, location.document()), range(snapshot, location));
   }
 
-  private Range range(SourceLocation location) {
-    DocumentState state = state(location.document().uri().toString());
-    SourceFile source;
-    if (state != null) {
-      source = state.source();
-    } else if (location.document().uri().getScheme().equals("stdlib")) {
+  private Range range(CompilationSnapshot snapshot, SourceLocation location) {
+    SourceFile source =
+        snapshot.document(location.document()).map(document -> document.source()).orElse(null);
+    if (source == null && location.document().uri().getScheme().equals("stdlib")) {
       source =
           language
               .standardLibrarySource(location.document())
               .map(text -> SourceFile.of(location.document(), text))
               .orElseThrow(
                   () -> new IllegalStateException("standard-library source is unavailable"));
-    } else {
+    } else if (source == null) {
       try {
         source = SourceFile.read(Path.of(location.document().uri()));
       } catch (java.io.IOException | IllegalArgumentException exception) {
@@ -648,9 +702,25 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
     return equivalent;
   }
 
-  private String clientUri(DocumentId document) {
+  private String clientUri(CompilationSnapshot snapshot, DocumentId document) {
     DocumentState state = state(document.uri().toString());
-    return state == null ? document.uri().toString() : state.clientUri();
+    if (state != null) return state.clientUri();
+    if (!"file".equalsIgnoreCase(document.uri().getScheme())) {
+      return document.uri().toString();
+    }
+    try {
+      if (Files.isRegularFile(Path.of(document.uri()))) return document.uri().toString();
+    } catch (IllegalArgumentException ignored) {
+    }
+    return snapshot.document(document).isPresent()
+        ? VirtualDocumentUri.encode(document)
+        : document.uri().toString();
+  }
+
+  private Optional<DocumentState> snapshotState(DocumentId document) {
+    return documents.values().stream()
+        .filter(state -> state.snapshot().document(document).isPresent())
+        .max(java.util.Comparator.comparingLong(DocumentState::revision));
   }
 
   private Optional<DocumentId> standardLibraryDocument(SourceFile source) {

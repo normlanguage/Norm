@@ -45,8 +45,8 @@ final class ProjectSession {
       Map<Path, SourceFile> openSources,
       long revision) {
     try {
-      ProjectSourceSet sourceSet = projects.load(entry, openSources.values());
-      CompilationSnapshot snapshot = language.snapshot(sourceSet.compilationRequest());
+      ProjectSourceSet sourceSet = projects.loadForAnalysis(entry, openSources.values());
+      CompilationSnapshot snapshot = language.snapshot(sourceSet.analysisCompilationRequest());
       return new ProjectSession(
           sourceSet.root(), revision, snapshot, sourceSet.inputPaths(), Optional.empty());
     } catch (IOException | IllegalArgumentException exception) {

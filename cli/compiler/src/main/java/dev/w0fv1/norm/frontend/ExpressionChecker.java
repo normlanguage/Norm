@@ -1235,7 +1235,11 @@ final class ExpressionChecker {
       analyzer.context.bindings.put(member.nameSpan(), symbol.id());
       Map<String, SemanticType> substitutions =
           analyzer.typeSystem.inferBuiltinTypeArguments(
-              symbol, member.typeArguments(), call, expected, member.span());
+              symbol,
+              member.typeArguments(),
+              call,
+              safeAccessExpected(member, nullableReceiver, expected, symbol.type()),
+              member.span());
       List<SemanticType> reifiedArguments =
           symbol.typeParameters().stream()
               .map(parameter -> substitutions.get(parameter.type().identity()))
@@ -1327,7 +1331,8 @@ final class ExpressionChecker {
                 expected,
                 substitutions,
                 member.nameSpan(),
-                "method");
+                "method",
+                member.nullSafe() && nullableReceiver.mayContainNull());
         if (resolution == null) return SemanticType.DYNAMIC;
         Syntax.FunctionDecl method = resolution.declaration();
         analyzer.context.bindings.put(
@@ -1385,7 +1390,7 @@ final class ExpressionChecker {
           analyzer.context.symbols.get(
               analyzer.context.declarationSymbols.get(interfaceMethod.method()));
       InterfaceCallResolution interfaceResolution =
-          resolveInterfaceCall(interfaceMethod, target, member, call, expected);
+          resolveInterfaceCall(interfaceMethod, target, member, call, expected, nullableReceiver);
       analyzer.context.bindings.put(member.nameSpan(), target.id());
       return analyzer.typeSystem.recordCall(
           call,
@@ -1446,7 +1451,8 @@ final class ExpressionChecker {
       Symbol method,
       Syntax.Member member,
       Syntax.Call call,
-      SemanticType expected) {
+      SemanticType expected,
+      SemanticType nullableReceiver) {
     Map<String, SemanticType> substitutions =
         new LinkedHashMap<>(
             analyzer.interfaceSubstitutions(requirement.owner(), requirement.receiver()));
@@ -1473,8 +1479,9 @@ final class ExpressionChecker {
               method.typeParameters().stream().map(TypeParameterInfo::type).toList());
       Set<String> variables = TypeSystem.solverVariables(method.typeParameters());
       if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
+        SemanticType result = requirement.result().substitute(substitutions);
         analyzer.typeSystem.constrainInference(
-            solver, requirement.result().substitute(substitutions), expected);
+            solver, result, safeAccessExpected(member, nullableReceiver, expected, result));
       }
       Map<String, SemanticType> contextualSubstitutions = new LinkedHashMap<>(substitutions);
       contextualSubstitutions.putAll(solver.solve().substitutions());
@@ -2077,6 +2084,22 @@ final class ExpressionChecker {
       return result;
     }
     return result.nullable();
+  }
+
+  private static SemanticType safeAccessExpected(
+      Syntax.Member member,
+      SemanticType receiverType,
+      SemanticType expected,
+      SemanticType declaredResult) {
+    if (expected == null
+        || !member.nullSafe()
+        || !receiverType.mayContainNull()
+        || declaredResult.isNullable()
+        || expected.kind() == SemanticType.Kind.VOID
+        || expected.equals(SemanticType.DYNAMIC)) {
+      return expected;
+    }
+    return expected.nonNullable();
   }
 
   SemanticType analyzeIndex(Syntax.Index index) {

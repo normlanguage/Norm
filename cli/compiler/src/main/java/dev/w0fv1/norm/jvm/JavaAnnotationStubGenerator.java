@@ -948,7 +948,12 @@ public final class JavaAnnotationStubGenerator {
                     conformance ->
                         javaType(
                             artifact.program(), type.binding.definition(), conformance, javaTypes))
-                .filter(generatedTypes::contains)
+                .filter(
+                    conformance -> {
+                      int arguments = conformance.indexOf('<');
+                      return generatedTypes.contains(
+                          arguments < 0 ? conformance : conformance.substring(0, arguments));
+                    })
                 .toList();
         if (!conformances.isEmpty()) {
           source.append(" implements ").append(String.join(", ", conformances));

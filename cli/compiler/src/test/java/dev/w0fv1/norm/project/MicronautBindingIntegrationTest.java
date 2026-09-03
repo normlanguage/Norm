@@ -60,10 +60,11 @@ final class MicronautBindingIntegrationTest {
               "micronaut-jdbc-hikari/micronaut/jdbc/hikari",
               "h2-database/h2/database",
               "micronaut-security/micronaut/security",
-              "reactor-core/reactor/core",
-              "micronaut-web/micronaut/web")) {
+              "reactor-core/reactor/core")) {
         packager.packageModule(bindings.resolve(module).resolve("module.norm"), repository);
       }
+      packager.packageModule(
+          repositoryRoot().resolve("modules/micronaut-web/micronaut/web/module.norm"), repository);
     }
     ProjectEnvironment ormEnvironment = ProjectEnvironment.bootstrap(backend);
     try (ProjectLoader projects = ormEnvironment.projectLoader(jarCache)) {

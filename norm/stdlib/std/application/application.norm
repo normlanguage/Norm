@@ -1,3 +1,4 @@
+@Document(description: "Defines the standard application lifecycle contract.")
 package std.application
 
 import std.annotation.Document

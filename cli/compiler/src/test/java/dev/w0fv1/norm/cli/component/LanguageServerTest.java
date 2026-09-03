@@ -201,7 +201,7 @@ final class LanguageServerTest {
   void servesReadOnlyStandardLibrarySources() throws Exception {
     LanguageServer server = new LanguageServer();
 
-    String source = server.standardLibrarySource("stdlib:/std/math/integer.norm").get();
+    String source = server.source("stdlib:/std/math/integer.norm").get();
 
     assertTrue(source.contains("Integer clamp"));
   }
@@ -212,7 +212,7 @@ final class LanguageServerTest {
     RecordingClient client = new RecordingClient();
     server.connect(client);
     String uri = "stdlib:/std/math/integer.norm";
-    String source = server.standardLibrarySource(uri).get();
+    String source = server.source(uri).get();
     server
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, source)));
@@ -252,7 +252,7 @@ final class LanguageServerTest {
     RecordingClient client = new RecordingClient();
     server.connect(client);
     String uri = sourcePath.toUri().toString();
-    String source = server.standardLibrarySource("stdlib:/std/collections/sequences.norm").get();
+    String source = server.source("stdlib:/std/collections/sequences.norm").get();
 
     server
         .getTextDocumentService()
@@ -558,6 +558,76 @@ final class LanguageServerTest {
     assertTrue(
         declarationReferences.stream().anyMatch(location -> location.getUri().equals(entryUri)));
     assertEquals(2, declarationRename.getChanges().get(uri).size());
+  }
+
+  @Test
+  void navigatesToSnapshotSourcesThatAreNotBackedByFiles() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
+    Files.delete(fixture.library());
+
+    List<? extends org.eclipse.lsp4j.Location> definitions = definition(server, fixture);
+
+    assertEquals(1, definitions.size());
+    String virtualUri = definitions.getFirst().getUri();
+    assertEquals("norm-source", java.net.URI.create(virtualUri).getScheme());
+    assertEquals(
+        positionOfLast(fixture.libraryText(), "identity"),
+        definitions.getFirst().getRange().getStart());
+    String virtualSource = server.source(virtualUri).get();
+    assertEquals(fixture.libraryText(), virtualSource);
+
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(virtualUri, "norm", 1, virtualSource)));
+    var hover =
+        server
+            .getTextDocumentService()
+            .hover(
+                new org.eclipse.lsp4j.HoverParams(
+                    new TextDocumentIdentifier(virtualUri),
+                    definitions.getFirst().getRange().getStart()))
+            .get();
+
+    assertNotNull(hover);
+    assertTrue(hover.getContents().getRight().getValue().contains("T identity<T>(T value)"));
+  }
+
+  @Test
+  void serializesConcurrentDocumentOpensIntoOneProjectSnapshot() throws Exception {
+    ProjectFixture fixture = projectFixture();
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+
+    CompletableFuture<Void> entry =
+        CompletableFuture.runAsync(
+            () ->
+                server
+                    .getTextDocumentService()
+                    .didOpen(
+                        new DidOpenTextDocumentParams(
+                            new TextDocumentItem(
+                                fixture.entryUri(), "norm", 1, fixture.entryText()))));
+    CompletableFuture<Void> library =
+        CompletableFuture.runAsync(
+            () ->
+                server
+                    .getTextDocumentService()
+                    .didOpen(
+                        new DidOpenTextDocumentParams(
+                            new TextDocumentItem(
+                                fixture.libraryUri(), "norm", 1, fixture.libraryText()))));
+    CompletableFuture.allOf(entry, library).get();
+
+    assertEquals(fixture.libraryUri(), definition(server, fixture).getFirst().getUri());
   }
 
   @Test

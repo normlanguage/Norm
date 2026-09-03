@@ -195,6 +195,7 @@ public final class CompilerSession implements AutoCloseable {
     CompilationGuard guard = java.util.Objects.requireNonNull(control, "control").begin();
     guard.validate(request);
     TrackedUnit cached = tracked(request.unit());
+    if (cached != null && cached.request().equals(request)) return cached.snapshot();
     PreparedCompilation prepared =
         prepare(request, false, false, guard, cached == null ? null : cached.snapshotFor(request));
     trackSnapshot(request, prepared.snapshot(), cached);

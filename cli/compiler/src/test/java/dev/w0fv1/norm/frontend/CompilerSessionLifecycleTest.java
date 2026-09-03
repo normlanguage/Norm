@@ -59,9 +59,29 @@ final class CompilerSessionLifecycleTest {
 
     session.snapshot(first);
     session.snapshot(second);
+    session.invalidate(new CompilationUnitId(first.id().uri()));
     session.snapshot(first);
 
     assertEquals(3, parses.get());
+  }
+
+  @Test
+  void reusesAnUnchangedCompilationSnapshotWithoutRunningAnalysisAgain() {
+    AtomicInteger analyses = new AtomicInteger();
+    CompilerSession session =
+        new CompilerSession(
+            LanguageProfile.kernel(),
+            new InMemoryDefinitionStore(),
+            new CompilerSessionCapacity(4, 4),
+            () -> {},
+            analyses::incrementAndGet);
+    CompilationRequest request = request("stable", "Void main() {}");
+
+    CompilationSnapshot first = session.snapshot(request);
+    CompilationSnapshot second = session.snapshot(request);
+
+    assertEquals(1, analyses.get());
+    assertTrue(first == second);
   }
 
   @Test

@@ -6,6 +6,7 @@ import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
@@ -101,6 +102,16 @@ public record ProjectSourceSet(
 
   public CompilationRequest compilationRequest() {
     return compilationRequest(primaryPath);
+  }
+
+  public CompilationRequest analysisCompilationRequest() {
+    ModuleCoordinate rootModule = scope.coordinate(primarySource().id()).module();
+    SourceFile entry =
+        sources.stream()
+            .filter(source -> scope.coordinate(source.id()).module().equals(rootModule))
+            .min(Comparator.comparing(source -> normalize(source.path()).toString()))
+            .orElseThrow();
+    return compilationRequest(entry.path());
   }
 
   public CompilationRequest applicationCompilationRequest(Path applicationEntry)

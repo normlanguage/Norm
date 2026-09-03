@@ -160,7 +160,7 @@ Java `java.time.Duration` 与 `std.time.Duration` 按秒和纳秒双向转换。
 
 Java `Optional<T>` 使用 Norm nullable 表达缺失，`OptionalInt`、`OptionalLong` 与 `OptionalDouble` 使用对应 nullable 标量。Java `Collection<T>`、`List<T>`、`Set<T>` 与 `Map<K,V>` 使用 `std.collections` 中的引用 class 表达共享 identity；List 与 Set 继承共同的 `MutableCollection<T>`，平台载体使用 `IterableView<T>` 与 `IteratorView<T>`。根 JAR 中实现 Java `Iterable<T>` 的类型按泛型祖先实现普通 Norm `std.core.Iterable<T>`，其 `iterator()` 返回 `std.core.Iterator<T>`，可直接用于 `for`。这些类型与值语义集合保持不同类型；双方的原位修改和重复传递的宿主 identity 均可观察。
 
-Java 标准函数接口和根 JAR 中的公开 SAM interface 映射为 Norm 原生 `Function<R(P...)>`。标准接口的 `? super` 输入与 `? extends` 输出在投影时消解，根 JAR SAM 的泛型参数按使用点代入；Norm lambda、捕获闭包和函数引用由运行时生成真实 Java interface 实例。携带回调的 Java 调用在隔离的虚拟线程执行，回调经 execution 所有的调度器回到 Norm 执行线程；同步、异步和 Java 内部等待回调共享同一条参数、返回值与异常传播边界。
+Java 标准函数接口和根 JAR 中的公开 SAM interface 映射为 Norm 原生 `Function<R(P...)>`。标准接口的 `? super` 输入与 `? extends` 输出在投影时消解，根 JAR SAM 的泛型参数按使用点代入；Norm lambda、捕获闭包和函数引用由运行时生成真实 Java interface 实例。携带回调的 Java 调用在隔离的虚拟线程执行，回调调度器以受控的独占执行权转移保留 Java 调用线程的框架上下文；同步、异步和 Java 内部等待回调共享同一条参数、返回值与异常传播边界。
 
 Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `std.concurrent.Task<T>`。`await()` 保持元素类型并将 Java 失败送入 Norm throw/catch，`cancel()` 和 `completed()` 提供确定状态操作；Task 实现 `Resource`，显式关闭和执行域退出都会取消未完成任务。Task 传回 Java 参数时恢复原宿主对象。`java.lang.Void` 映射为 nullable `std.core.Unit`。Reactive Streams `Publisher<T>` 映射为 `std.concurrent.Publisher<T>`，订阅回调、完成、失败、取消与执行域释放沿用同一调度和资源边界。
 

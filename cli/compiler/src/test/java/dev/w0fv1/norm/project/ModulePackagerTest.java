@@ -229,6 +229,19 @@ final class ModulePackagerTest {
           )
         }
         """);
+    Path unavailableJarCache = temporaryDirectory.resolve("unavailable-jar-cache");
+    Files.writeString(unavailableJarCache, "not a repository");
+    ProjectEnvironment analysisEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (ProjectLoader projects =
+        analysisEnvironment.projectLoader(repository, unavailableJarCache)) {
+      ProjectSourceSet sourceSet = projects.loadForAnalysis(entry);
+
+      assertTrue(sourceSet.jarBindings().isEmpty());
+      assertEquals(1, sourceSet.bindingSourceDocuments().size());
+      assertTrue(
+          sourceSet.sources().stream()
+              .anyMatch(source -> source.displayName().endsWith("StringUtils.norm")));
+    }
     StringWriter output = new StringWriter();
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);

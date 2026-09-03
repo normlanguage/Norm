@@ -102,7 +102,7 @@ function readMessages() {
       send({
         jsonrpc: '2.0',
         id: 2,
-        method: 'norm/standardLibrarySource',
+        method: 'norm/source',
         params: 'stdlib:/std/math/integer.norm',
       });
     } else if (message.id === 2) {

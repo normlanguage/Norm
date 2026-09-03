@@ -56,7 +56,28 @@ final class TypeSystem {
         ownerSubstitutions,
         span,
         callableKind,
-        null);
+        false);
+  }
+
+  SourceCallResolution resolveSourceCall(
+      List<Syntax.FunctionDecl> candidates,
+      List<Syntax.TypeRef> explicitTypeArguments,
+      Syntax.Call call,
+      SemanticType expected,
+      Map<String, SemanticType> ownerSubstitutions,
+      SourceSpan span,
+      String callableKind,
+      boolean nullableAccess) {
+    return resolveSourceCall(
+        candidates,
+        explicitTypeArguments,
+        call,
+        expected,
+        ownerSubstitutions,
+        span,
+        callableKind,
+        null,
+        nullableAccess);
   }
 
   SourceCallResolution resolveExtensionCall(
@@ -67,7 +88,15 @@ final class TypeSystem {
       SemanticType expected,
       SourceSpan span) {
     return resolveSourceCall(
-        candidates, explicitTypeArguments, call, expected, Map.of(), span, "extension", receiver);
+        candidates,
+        explicitTypeArguments,
+        call,
+        expected,
+        Map.of(),
+        span,
+        "extension",
+        receiver,
+        false);
   }
 
   private SourceCallResolution resolveSourceCall(
@@ -78,7 +107,8 @@ final class TypeSystem {
       Map<String, SemanticType> ownerSubstitutions,
       SourceSpan span,
       String callableKind,
-      Syntax.Expression extensionReceiver) {
+      Syntax.Expression extensionReceiver,
+      boolean nullableAccess) {
     if (candidates.isEmpty()) return null;
     List<SemanticType> explicitTypes =
         explicitTypeArguments.stream()
@@ -128,7 +158,8 @@ final class TypeSystem {
                 sourceCall(call, extensionReceiver),
                 indices,
                 expected,
-                ownerSubstitutions));
+                ownerSubstitutions,
+                nullableAccess));
       }
     }
     if (structural.isEmpty()) {
@@ -170,13 +201,14 @@ final class TypeSystem {
       }
       if (expected != null
           && !expected.equals(SemanticType.DYNAMIC)
-          && !isPotentiallyAssignable(expected, candidate.resolution().result())) {
+          && !isPotentiallyAssignable(
+              expected, contextualResult(candidate.resolution().result(), nullableAccess))) {
         analyzer.context.diagnostics.error(
             TYPE_MISMATCH,
             "expected "
                 + expected.displayName()
                 + " but found "
-                + candidate.resolution().result().displayName(),
+                + contextualResult(candidate.resolution().result(), nullableAccess).displayName(),
             span);
       }
     } else {
@@ -221,7 +253,8 @@ final class TypeSystem {
       Syntax.Call call,
       List<Integer> argumentIndices,
       SemanticType expected,
-      Map<String, SemanticType> ownerSubstitutions) {
+      Map<String, SemanticType> ownerSubstitutions,
+      boolean nullableAccess) {
     Map<String, SemanticType> callableParameters = functionTypeParameters(declaration);
     Set<String> callableParameterIds =
         callableParameters.values().stream()
@@ -242,7 +275,9 @@ final class TypeSystem {
             analyzer
                 .functionReturnType(declaration, declarationTypes)
                 .substitute(ownerSubstitutions);
-        constrainInference(solver, pattern, expected);
+        SemanticType inferenceExpected =
+            nullableAccess && !pattern.isNullable() ? expected.nonNullable() : expected;
+        constrainInference(solver, pattern, inferenceExpected);
         substitutions.putAll(solver.solve().substitutions());
       }
       for (int index = 0; index < call.arguments().size(); index++) {
@@ -306,8 +341,9 @@ final class TypeSystem {
     }
     int score = 0;
     if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
-      if (!isPotentiallyAssignable(expected, result)) assignable = false;
-      else if (!expected.equals(result)) score++;
+      SemanticType contextualResult = contextualResult(result, nullableAccess);
+      if (!isPotentiallyAssignable(expected, contextualResult)) assignable = false;
+      else if (!expected.equals(contextualResult)) score++;
     }
     List<ParameterInfo> patterns = parametersOf(declaration, ownerSubstitutions);
     for (int index = 0; index < call.arguments().size(); index++) {
@@ -340,6 +376,15 @@ final class TypeSystem {
         List.copyOf(boundViolations),
         assignable,
         score);
+  }
+
+  private static SemanticType contextualResult(SemanticType result, boolean nullableAccess) {
+    if (!nullableAccess
+        || result.kind() == SemanticType.Kind.VOID
+        || result.equals(SemanticType.DYNAMIC)) {
+      return result;
+    }
+    return result.nullable();
   }
 
   void constrainInference(TypeConstraintSolver solver, SemanticType pattern, SemanticType actual) {

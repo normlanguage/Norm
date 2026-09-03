@@ -56,9 +56,9 @@ final class LanguageServer
     return CompletableFuture.completedFuture(null);
   }
 
-  @JsonRequest("norm/standardLibrarySource")
-  public CompletableFuture<String> standardLibrarySource(String uri) {
-    return CompletableFuture.completedFuture(documents.standardLibrarySource(uri));
+  @JsonRequest("norm/source")
+  public CompletableFuture<String> source(String uri) {
+    return CompletableFuture.completedFuture(documents.source(uri));
   }
 
   @Override

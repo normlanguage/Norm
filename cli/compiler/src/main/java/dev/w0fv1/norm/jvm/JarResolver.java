@@ -46,6 +46,7 @@ public final class JarResolver implements AutoCloseable {
               .build());
 
   private final RepositorySystem repositorySystem;
+  private final Path moduleRepository;
   private final RepositorySystemSession.CloseableSession moduleSession;
   private final RepositorySystemSession.CloseableSession jarSession;
 
@@ -56,6 +57,7 @@ public final class JarResolver implements AutoCloseable {
   public JarResolver(Path moduleRepository, Path jarCache) {
     Objects.requireNonNull(moduleRepository, "moduleRepository");
     Objects.requireNonNull(jarCache, "jarCache");
+    this.moduleRepository = moduleRepository.toAbsolutePath().normalize();
     repositorySystem = new RepositorySystemSupplier().get();
     SessionBuilderSupplier supplier = new SessionBuilderSupplier(repositorySystem);
     moduleSession = session(supplier, moduleRepository);
@@ -92,6 +94,17 @@ public final class JarResolver implements AutoCloseable {
   public Path resolveModuleArchive(ModuleRequirement requirement) throws IOException {
     ModuleRepositoryCoordinate coordinate =
         ModuleRepositoryCoordinate.from(requirement.coordinate());
+    Path local =
+        moduleRepository
+            .resolve(coordinate.group().replace('.', java.io.File.separatorChar))
+            .resolve(coordinate.artifact())
+            .resolve(coordinate.version())
+            .resolve(
+                coordinate.artifact()
+                    + "-"
+                    + coordinate.version()
+                    + ModuleArchiveFormat.FILE_SUFFIX);
+    if (Files.isRegularFile(local)) return local;
     Artifact artifact =
         new DefaultArtifact(
             coordinate.group(),

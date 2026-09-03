@@ -57,6 +57,22 @@ final class ProjectLoaderTest {
   }
 
   @Test
+  void usesOneStableAnalysisRequestForEverySourceInAModule() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("analysis-request"));
+    Path first = source(root, "sample/First.norm", "package sample Integer first() { return 1 }");
+    Path second =
+        source(root, "sample/Second.norm", "package sample Integer second() { return 2 }");
+    module(root, "sample", "First", "Second");
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var firstRequest = projects.load(first).analysisCompilationRequest();
+      var secondRequest = projects.load(second).analysisCompilationRequest();
+
+      assertEquals(firstRequest, secondRequest);
+    }
+  }
+
+  @Test
   void rejectsSourcesWhosePackageDoesNotMatchTheirPath() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("package"));
     Path entry = source(root, "sample/Main.norm", "package sample.other Void main() {}");

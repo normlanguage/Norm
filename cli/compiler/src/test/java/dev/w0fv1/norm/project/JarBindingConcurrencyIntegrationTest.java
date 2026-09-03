@@ -151,16 +151,16 @@ final class JarBindingConcurrencyIntegrationTest {
 
         Void main() {
           String? owner = taskApiThreadName()
-          Function<Boolean?()> onOwner = () {
-            Boolean? result = taskApiThreadName() == owner
+          Function<Boolean?()> onJavaCallbackThread = () {
+            Boolean? result = taskApiThreadName() != owner
             return result
           }
-          Task<Boolean?>? asynchronous = taskApiAsyncCheck(onOwner)
+          Task<Boolean?>? asynchronous = taskApiAsyncCheck(onJavaCallbackThread)
           if asynchronous != null {
             printLine(asynchronous.await() ?? false)
             asynchronous.close()
           }
-          printLine(taskApiThreadedCheck(onOwner) ?? false)
+          printLine(taskApiThreadedCheck(onJavaCallbackThread) ?? false)
           Function<Boolean?()> callbackFailure = () {
             throw Exception(message: "async callback failure")
           }
