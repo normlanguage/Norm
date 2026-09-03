@@ -20,7 +20,7 @@ jobs:
       matrix: ${{ steps.targets.outputs.matrix }}
     steps:
       - name: Check out release sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Validate release tag
         id: version
@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out release sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           lfs: true
 
@@ -96,7 +96,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out release sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -196,7 +196,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out release sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -246,7 +246,7 @@ jobs:
       attestations: write
     steps:
       - name: Check out release sources
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download release assets
         uses: actions/download-artifact@v5
