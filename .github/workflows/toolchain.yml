@@ -51,9 +51,8 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
-          java-version: 25.0.3
-          java-package: jdk+jmods
+          distribution: oracle
+          java-version: 25.0.2
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
