@@ -19,7 +19,7 @@
     "@types/markdown-it": "^14.1.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "json-schema-to-typescript": "^15.0.4",
+    "json-schema-to-typescript": "^16.0.0",
     "png-to-ico": "3.0.2",
     "sharp": "0.35.3",
     "vitepress": "^1.6.4"
