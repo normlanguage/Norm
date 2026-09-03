@@ -9,7 +9,10 @@ on:
       - 'cli/**'
       - 'norm/**'
       - 'docs/examples/**'
+      - 'java-binding/**'
+      - 'modules/**'
       - 'gradle/**'
+      - '.gitattributes'
       - '*.gradle.kts'
       - 'gradle.properties'
       - 'gradlew'
@@ -21,7 +24,10 @@ on:
       - 'cli/**'
       - 'norm/**'
       - 'docs/examples/**'
+      - 'java-binding/**'
+      - 'modules/**'
       - 'gradle/**'
+      - '.gitattributes'
       - '*.gradle.kts'
       - 'gradle.properties'
       - 'gradlew'
@@ -55,6 +61,8 @@ jobs:
     steps:
       - name: Check out sources
         uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Set up ${{ matrix.runtime }}
         if: ${{ !matrix.native }}

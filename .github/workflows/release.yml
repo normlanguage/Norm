@@ -46,6 +46,8 @@ jobs:
     steps:
       - name: Check out release sources
         uses: actions/checkout@v6
+        with:
+          lfs: true
 
       - name: Set up GraalVM
         uses: ./.github/actions/setup-graalvm-community
