@@ -3,7 +3,7 @@ Module module() {
     name: "orm.micronaut.tx",
     version: 1,
     exports: ["Transactional"],
-    dependencies: [exportedDependency(name: "orm.micronaut", version: 1)],
+    dependencies: [exportedDependency(repository: "github", name: "orm.micronaut", version: 1)],
     binding: jarBinding(
       target: mavenJar(
         group: "io.micronaut.data",

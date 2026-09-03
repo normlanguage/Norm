@@ -4,9 +4,6 @@ import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
-import dev.w0fv1.norm.value.ModuleArchiveFormat;
-import dev.w0fv1.norm.value.ModuleRepositoryCoordinate;
-import dev.w0fv1.norm.value.ModuleRequirement;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,8 +24,6 @@ import org.eclipse.aether.graph.Dependency;
 import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.RemoteRepository;
-import org.eclipse.aether.resolution.ArtifactRequest;
-import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.DependencyRequest;
 import org.eclipse.aether.resolution.DependencyResolutionException;
 import org.eclipse.aether.resolution.DependencyResult;
@@ -46,29 +41,13 @@ public final class JarResolver implements AutoCloseable {
               .build());
 
   private final RepositorySystem repositorySystem;
-  private final Path moduleRepository;
-  private final RepositorySystemSession.CloseableSession moduleSession;
   private final RepositorySystemSession.CloseableSession jarSession;
 
   public JarResolver(Path cacheDirectory) {
-    this(cacheDirectory, cacheDirectory);
-  }
-
-  public JarResolver(Path moduleRepository, Path jarCache) {
-    Objects.requireNonNull(moduleRepository, "moduleRepository");
-    Objects.requireNonNull(jarCache, "jarCache");
-    this.moduleRepository = moduleRepository.toAbsolutePath().normalize();
+    Objects.requireNonNull(cacheDirectory, "cacheDirectory");
     repositorySystem = new RepositorySystemSupplier().get();
     SessionBuilderSupplier supplier = new SessionBuilderSupplier(repositorySystem);
-    moduleSession = session(supplier, moduleRepository);
-    if (moduleRepository
-        .toAbsolutePath()
-        .normalize()
-        .equals(jarCache.toAbsolutePath().normalize())) {
-      jarSession = moduleSession;
-    } else {
-      jarSession = session(supplier, jarCache);
-    }
+    jarSession = session(supplier, cacheDirectory);
   }
 
   private static RepositorySystemSession.CloseableSession session(
@@ -89,42 +68,6 @@ public final class JarResolver implements AutoCloseable {
       case LocalJarTarget target -> resolveLocal(moduleRoot, target);
       case MavenJarTarget target -> resolveMaven(target);
     };
-  }
-
-  public Path resolveModuleArchive(ModuleRequirement requirement) throws IOException {
-    ModuleRepositoryCoordinate coordinate =
-        ModuleRepositoryCoordinate.from(requirement.coordinate());
-    Path local =
-        moduleRepository
-            .resolve(coordinate.group().replace('.', java.io.File.separatorChar))
-            .resolve(coordinate.artifact())
-            .resolve(coordinate.version())
-            .resolve(
-                coordinate.artifact()
-                    + "-"
-                    + coordinate.version()
-                    + ModuleArchiveFormat.FILE_SUFFIX);
-    if (Files.isRegularFile(local)) return local;
-    Artifact artifact =
-        new DefaultArtifact(
-            coordinate.group(),
-            coordinate.artifact(),
-            "",
-            ModuleArchiveFormat.EXTENSION,
-            coordinate.version());
-    try {
-      ArtifactRequest request = new ArtifactRequest(artifact, REPOSITORIES, null);
-      Path path = repositorySystem.resolveArtifact(moduleSession, request).getArtifact().getPath();
-      if (path == null || !Files.isRegularFile(path)) {
-        throw new IOException(
-            "resolved Norm module has no artifact content: " + requirement.name());
-      }
-      return path.toAbsolutePath().normalize();
-    } catch (ArtifactResolutionException exception) {
-      throw new IOException(
-          "cannot resolve Norm module " + requirement.name() + "@" + requirement.version(),
-          exception);
-    }
   }
 
   private static ResolvedJarGraph resolveLocal(Path moduleRoot, LocalJarTarget target)
@@ -219,7 +162,6 @@ public final class JarResolver implements AutoCloseable {
 
   @Override
   public void close() {
-    if (moduleSession != jarSession) moduleSession.close();
     jarSession.close();
     repositorySystem.shutdown();
   }

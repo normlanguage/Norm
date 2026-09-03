@@ -11,7 +11,7 @@ Duration timeout = duration(seconds: 5, nanoseconds: 0)
 Instant epoch = instant(epochSecond: 0, nanosecond: 0)
 ```
 
-完整声明以 [`std.time`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/time/core.norm) 为准。
+完整声明以 [`std.time`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/time/core.norm) 为准。
 
 ## Clock
 

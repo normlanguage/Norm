@@ -1,6 +1,6 @@
 # JSON API
 
-`std.json` 实现格式无关的序列化接口，并提供需要动态 JSON 时使用的 `JsonValue` tree。公开签名以 [`json.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/json/json.norm) 为准；公共 Annotation 与 mapper 接口见 [Serialization](/stdlib/serialization)。
+`std.json` 实现格式无关的序列化接口，并提供需要动态 JSON 时使用的 `JsonValue` tree。公开签名以 [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/json/json.norm) 为准；公共 Annotation 与 mapper 接口见 [Serialization](/stdlib/serialization)。
 
 ```norm
 @Serializable()

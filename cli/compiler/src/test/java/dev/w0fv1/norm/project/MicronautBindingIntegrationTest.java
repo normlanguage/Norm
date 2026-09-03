@@ -245,6 +245,62 @@ final class MicronautBindingIntegrationTest {
         assertEquals(null, failure.get());
       }
     }
+
+    Path singleFile = temporaryDirectory.resolve("single-file/web.norm");
+    Files.createDirectories(singleFile.getParent());
+    Files.writeString(
+        singleFile,
+        Files.readString(repositoryRoot().resolve("docs/examples/micronaut-single-file/web.norm"))
+            .replace("port: 8080", "port: -1"));
+    AtomicReference<Throwable> singleFileFailure = new AtomicReference<>();
+    try (PipedWriter output = new PipedWriter();
+        BufferedReader input = new BufferedReader(new PipedReader(output))) {
+      ProjectEnvironment consumer = ProjectEnvironment.bootstrap(backend);
+      try (ProjectLauncher launcher =
+          new ProjectLauncher(
+              consumer.projectLoader(repository, jarCache), consumer.compilerSession(), backend)) {
+        Thread server =
+            Thread.ofVirtual()
+                .start(
+                    () -> {
+                      try {
+                        var result =
+                            launcher.run(
+                                singleFile, ExecutionContext.of(new PrintWriter(output, true)));
+                        if (!result.isSuccess()) {
+                          singleFileFailure.set(
+                              new AssertionError(result.diagnostics().toString()));
+                        }
+                      } catch (Throwable exception) {
+                        singleFileFailure.set(exception);
+                      }
+                    });
+        try {
+          long deadline = System.nanoTime() + Duration.ofSeconds(90).toNanos();
+          while (!input.ready()
+              && singleFileFailure.get() == null
+              && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+          }
+          assertTrue(input.ready(), () -> "single-file startup failed: " + singleFileFailure.get());
+          String address = input.readLine();
+          assertTrue(address.startsWith("Micronaut: "), address);
+          URI root = URI.create(address.substring("Micronaut: ".length()));
+          HttpResponse<String> response =
+              HttpClient.newHttpClient()
+                  .send(
+                      HttpRequest.newBuilder(root.resolve("/hello/Norm")).GET().build(),
+                      HttpResponse.BodyHandlers.ofString());
+          assertEquals(200, response.statusCode());
+          assertEquals("Hello, Norm!", response.body());
+        } finally {
+          server.interrupt();
+          server.join(Duration.ofSeconds(30));
+        }
+        assertFalse(server.isAlive());
+        assertEquals(null, singleFileFailure.get());
+      }
+    }
   }
 
   private static Path repositoryRoot() {

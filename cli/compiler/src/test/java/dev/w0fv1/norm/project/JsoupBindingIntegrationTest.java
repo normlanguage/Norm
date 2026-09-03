@@ -89,7 +89,7 @@ final class JsoupBindingIntegrationTest {
               name: "app",
               version: 1,
               exports: ["Main"],
-              dependencies: [dependency(name: "jsoup.jsoup", version: 1)]
+              dependencies: [dependency(repository: "github", name: "jsoup.jsoup", version: 1)]
             )
           }
           """);

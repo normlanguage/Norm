@@ -10,12 +10,12 @@ aside: false
 Norm 当前正式版本为 0.16。语言、编译器、标准库和编辑器工具的实际边界见[版本索引](/versions/)。
 
 <div class="community-grid">
-  <a href="https://github.com/w0fv1/norm">
+  <a href="https://github.com/normlanguage/Norm">
     <span>GitHub</span>
     <h2>查看项目源码</h2>
     <p>阅读规范、跟踪进展并参与讨论。</p>
   </a>
-  <a href="https://github.com/w0fv1/norm/issues">
+  <a href="https://github.com/normlanguage/Norm/issues">
     <span>Issues</span>
     <h2>报告问题</h2>
     <p>提交语言设计、文档或工具链问题。</p>

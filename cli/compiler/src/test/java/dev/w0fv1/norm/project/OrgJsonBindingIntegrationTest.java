@@ -54,7 +54,7 @@ final class OrgJsonBindingIntegrationTest {
             name: "app",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "org.json", version: 1)]
+            dependencies: [dependency(repository: "github", name: "org.json", version: 1)]
           )
         }
         """);

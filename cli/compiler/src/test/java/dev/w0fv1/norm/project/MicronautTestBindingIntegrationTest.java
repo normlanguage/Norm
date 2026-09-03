@@ -48,12 +48,12 @@ final class MicronautTestBindingIntegrationTest {
             version: 1,
             exports: [],
             dependencies: [
-              dependency(name: "junit.jupiter", version: 1),
-              dependency(name: "micronaut.test.core", version: 1),
-              dependency(name: "micronaut.test.junit5", version: 1),
-              dependency(name: "micronaut.inject", version: 1),
-              dependency(name: "jakarta.inject", version: 1),
-              dependency(name: "micronaut.inject.processor", version: 1)
+              dependency(repository: "github", name: "junit.jupiter", version: 1),
+              dependency(repository: "github", name: "micronaut.test.core", version: 1),
+              dependency(repository: "github", name: "micronaut.test.junit5", version: 1),
+              dependency(repository: "github", name: "micronaut.inject", version: 1),
+              dependency(repository: "github", name: "jakarta.inject", version: 1),
+              dependency(repository: "github", name: "micronaut.inject.processor", version: 1)
             ]
           )
         }

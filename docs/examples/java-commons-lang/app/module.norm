@@ -3,6 +3,6 @@ Module module() {
     name: "app",
     version: 1,
     exports: ["Main"],
-    dependencies: [dependency(name: "commons.lang", version: 1)]
+    dependencies: [dependency(repository: "github", name: "commons.lang", version: 1)]
   )
 }

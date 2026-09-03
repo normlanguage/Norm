@@ -55,7 +55,7 @@ final class JodaTimeBindingIntegrationTest {
             name: "app",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "joda.time", version: 1)]
+            dependencies: [dependency(repository: "github", name: "joda.time", version: 1)]
           )
         }
         """);

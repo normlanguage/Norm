@@ -31,10 +31,12 @@ final class ModuleEvaluator implements AutoCloseable {
           """
           Void main() {
             Module definition = module()
+            List<String> dependencyRepositories = []
             List<String> dependencyNames = []
             List<Integer> dependencyVersions = []
             List<Boolean> dependencyExports = []
             for ModuleRequirement requirement : definition.dependencies() {
+              dependencyRepositories.add(requirement.repository())
               dependencyNames.add(requirement.name())
               dependencyVersions.add(requirement.version())
               dependencyExports.add(requirement.exported())
@@ -78,6 +80,7 @@ final class ModuleEvaluator implements AutoCloseable {
               name: definition.name(),
               version: definition.version(),
               exports: definition.exports(),
+              dependencyRepositories: dependencyRepositories,
               dependencyNames: dependencyNames,
               dependencyVersions: dependencyVersions,
               dependencyExports: dependencyExports,

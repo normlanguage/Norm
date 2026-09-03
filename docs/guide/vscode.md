@@ -4,7 +4,7 @@ Norm 的官方 VS Code 扩展包含当前版本的原生 `norm` CLI。安装一�
 
 ## 安装
 
-1. 打开 [Norm 最新 Release](https://github.com/w0fv1/Norm/releases/latest)。
+1. 打开 [Norm 最新 Release](https://github.com/normlanguage/Norm/releases/latest)。
 2. 下载唯一的 `norm-language-support-vMAJOR.MINOR.PATCH.vsix`。
 3. 在 VS Code 命令面板执行 **Extensions: Install from VSIX...**。
 4. 选择下载的文件，重新加载窗口。
@@ -104,7 +104,7 @@ TextMate 高亮不需要语言服务器，其余功能需要 CLI。先执行 **N
 
 ## 开发扩展
 
-只有修改 Norm 编译器或 VS Code 扩展时才需要源码开发包。完整构建、测试和本地 VSIX 流程以 [`cli/extensions/vscode/README.md`](https://github.com/w0fv1/Norm/blob/main/cli/extensions/vscode/README.md) 为准；发布平台、资产和验收要求以[发布流程](/design/release-process)为准。
+只有修改 Norm 编译器或 VS Code 扩展时才需要源码开发包。完整构建、测试和本地 VSIX 流程以 [`cli/extensions/vscode/README.md`](https://github.com/normlanguage/Norm/blob/main/cli/extensions/vscode/README.md) 为准；发布平台、资产和验收要求以[发布流程](/design/release-process)为准。
 
 当前语言服务的精确边界见[版本索引](/versions/)。调试器尚未进入发布版。
 

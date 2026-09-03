@@ -1,4 +1,5 @@
 interface ModuleRequirement {
+  String repository()
   String name()
   Integer version()
   Boolean exported()
@@ -42,9 +43,14 @@ interface Module {
 }
 
 private class DeclaredModuleRequirement implements ModuleRequirement {
+  String repositoryName
   String moduleName
   Integer moduleVersion
   Boolean exportedDependency
+
+  String repository() {
+    return repositoryName
+  }
 
   String name() {
     return moduleName
@@ -155,16 +161,18 @@ private class DeclaredJarOverload implements JarOverload {
   }
 }
 
-ModuleRequirement dependency(String name, Integer version) {
+ModuleRequirement dependency(String repository, String name, Integer version) {
   return DeclaredModuleRequirement(
+    repositoryName: repository,
     moduleName: name,
     moduleVersion: version,
     exportedDependency: false
   )
 }
 
-ModuleRequirement exportedDependency(String name, Integer version) {
+ModuleRequirement exportedDependency(String repository, String name, Integer version) {
   return DeclaredModuleRequirement(
+    repositoryName: repository,
     moduleName: name,
     moduleVersion: version,
     exportedDependency: true

@@ -3,9 +3,9 @@ Module module() {
     name: "orm.micronaut",
     version: 1,
     dependencies: [
-      exportedDependency(name: "orm", version: 1),
-      exportedDependency(name: "orm.hibernate", version: 1),
-      dependency(name: "micronaut.jdbc.hikari", version: 1)
+      exportedDependency(repository: "github", name: "orm", version: 1),
+      exportedDependency(repository: "github", name: "orm.hibernate", version: 1),
+      dependency(repository: "github", name: "micronaut.jdbc.hikari", version: 1)
     ],
     binding: jarBinding(
       target: mavenJar(

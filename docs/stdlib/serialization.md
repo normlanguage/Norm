@@ -1,6 +1,6 @@
 # Serialization
 
-`std.serialization` 定义格式无关的映射契约与公共 metadata。公开签名以 [`core.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/serialization/core.norm) 为准。
+`std.serialization` 定义格式无关的映射契约与公共 metadata。公开签名以 [`core.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/serialization/core.norm) 为准。
 
 ```norm
 @Serializable()

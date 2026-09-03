@@ -55,7 +55,7 @@ final class FastutilBindingIntegrationTest {
             name: "app",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "fastutil.collections", version: 1)]
+            dependencies: [dependency(repository: "github", name: "fastutil.collections", version: 1)]
           )
         }
         """);

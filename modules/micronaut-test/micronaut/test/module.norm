@@ -4,9 +4,9 @@ Module module() {
     version: 1,
     exports: [],
     dependencies: [
-      exportedDependency(name: "junit.jupiter", version: 1),
-      exportedDependency(name: "micronaut.test.core", version: 1),
-      exportedDependency(name: "micronaut.test.junit5", version: 1)
+      exportedDependency(repository: "github", name: "junit.jupiter", version: 1),
+      exportedDependency(repository: "github", name: "micronaut.test.core", version: 1),
+      exportedDependency(repository: "github", name: "micronaut.test.junit5", version: 1)
     ]
   )
 }

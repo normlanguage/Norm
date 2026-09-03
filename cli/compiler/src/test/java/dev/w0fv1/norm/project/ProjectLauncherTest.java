@@ -58,6 +58,75 @@ final class ProjectLauncherTest {
   }
 
   @Test
+  void loadsAStandaloneSourceAsAModuleWhenItDeclaresModule() throws Exception {
+    Path source =
+        source(
+            temporaryDirectory,
+            "web.norm",
+            """
+            package hello.web
+
+            public Module module() {
+              return module(name: "hello.web", version: 1)
+            }
+
+            Void main() {}
+            """);
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+
+    try (ProjectLoader projects = environment.projectLoader()) {
+      ProjectSourceSet sourceSet = projects.load(source);
+
+      assertEquals(
+          "hello.web",
+          sourceSet.scope().coordinate(sourceSet.primarySource().id()).module().name());
+      assertTrue(sourceSet.rootModulePath().isPresent());
+      assertEquals(source.toAbsolutePath().normalize(), sourceSet.rootModulePath().orElseThrow());
+    }
+  }
+
+  @Test
+  void resolvesARepositoryDependencyDeclaredInTheApplicationSource() throws Exception {
+    Path entry =
+        source(
+            temporaryDirectory,
+            "web.norm",
+            """
+            package hello.web
+
+            import base.answer
+
+            Module module() {
+              return module(
+                name: "hello.web",
+                version: 1,
+                dependencies: [
+                  dependency(repository: "github", name: "base", version: 1)
+                ]
+              )
+            }
+
+            Void main() {
+              printLine(answer().toString())
+            }
+            """);
+    Path dependency = Files.createDirectories(temporaryDirectory.resolve("dependencies/base"));
+    Files.writeString(
+        dependency.resolve("module.norm"),
+        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"]) }");
+    source(dependency, "Value.norm", "package base public Integer answer() { return 42 }");
+    StringWriter output = new StringWriter();
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+
+    try (ProjectLauncher launcher = environment.launcher()) {
+      var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
+
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    assertEquals("42" + System.lineSeparator(), output.toString());
+  }
+
+  @Test
   void requiresTheModuleFactoryEntryPoint() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("missing"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
@@ -156,7 +225,7 @@ final class ProjectLauncherTest {
             name: "sample",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "base", version: 1)]
+            dependencies: [dependency(repository: "github", name: "base", version: 1)]
           )
         }
         """);
@@ -199,7 +268,7 @@ final class ProjectLauncherTest {
             name: "sample",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "commons.lang", version: 1)]
+            dependencies: [dependency(repository: "github", name: "commons.lang", version: 1)]
           )
         }
         """);
@@ -258,8 +327,8 @@ final class ProjectLauncherTest {
             version: 1,
             exports: ["Main", "Root"],
             dependencies: [
-              dependency(name: "middle", version: 1),
-              dependency(name: "sibling", version: 1)
+              dependency(repository: "github", name: "middle", version: 1),
+              dependency(repository: "github", name: "sibling", version: 1)
             ]
           )
         }
@@ -271,7 +340,7 @@ final class ProjectLauncherTest {
         "package middle import sibling.side public Integer middleValue() { return side() }");
     Files.writeString(
         middle.resolve("module.norm"),
-        "Module module() { return module(name: \"middle\", version: 1, exports: [\"Value\"], dependencies: [dependency(name: \"base\", version: 1)]) }");
+        "Module module() { return module(name: \"middle\", version: 1, exports: [\"Value\"], dependencies: [dependency(repository: \"github\", name: \"base\", version: 1)]) }");
     Path base = Files.createDirectories(root.resolve("dependencies/base"));
     source(
         base,
@@ -311,11 +380,11 @@ final class ProjectLauncherTest {
             "package sample import base.answer Void main() { printLine(answer().toString()) }");
     Files.writeString(
         root.resolve("sample/module.norm"),
-        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"], dependencies: [dependency(name: \"platform\", version: 1)]) }");
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"], dependencies: [dependency(repository: \"github\", name: \"platform\", version: 1)]) }");
     Path platform = Files.createDirectories(root.resolve("dependencies/platform"));
     Files.writeString(
         platform.resolve("module.norm"),
-        "Module module() { return module(name: \"platform\", version: 1, exports: [], dependencies: [exportedDependency(name: \"base\", version: 1)]) }");
+        "Module module() { return module(name: \"platform\", version: 1, exports: [], dependencies: [exportedDependency(repository: \"github\", name: \"base\", version: 1)]) }");
     Path base = Files.createDirectories(root.resolve("dependencies/base"));
     source(base, "Value.norm", "package base public Integer answer() { return 42 }");
     Files.writeString(
@@ -372,7 +441,7 @@ final class ProjectLauncherTest {
             name: "sample",
             version: 1,
             exports: [],
-            dependencies: [dependency(name: "base", version: 2)]
+            dependencies: [dependency(repository: "github", name: "base", version: 2)]
           )
         }
         """);
@@ -402,7 +471,7 @@ final class ProjectLauncherTest {
             name: "sample",
             version: 1,
             exports: [],
-            dependencies: [dependency(name: "base", version: 1)]
+            dependencies: [dependency(repository: "github", name: "base", version: 1)]
           )
         }
         """);
@@ -415,7 +484,7 @@ final class ProjectLauncherTest {
             name: "base",
             version: 1,
             exports: [],
-            dependencies: [dependency(name: "sample", version: 1)]
+            dependencies: [dependency(repository: "github", name: "sample", version: 1)]
           )
         }
         """);

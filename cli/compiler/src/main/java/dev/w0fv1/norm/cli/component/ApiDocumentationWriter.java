@@ -20,8 +20,9 @@ import java.util.UUID;
 
 public final class ApiDocumentationWriter {
   private static final String MODULE_SCHEMA =
-      "https://w0fv1.github.io/Norm/schemas/module-api-v1.json";
-  private static final String FILE_SCHEMA = "https://w0fv1.github.io/Norm/schemas/file-api-v1.json";
+      "https://normlanguage.github.io/Norm/schemas/module-api-v1.json";
+  private static final String FILE_SCHEMA =
+      "https://normlanguage.github.io/Norm/schemas/file-api-v1.json";
   private final Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
   public ApiDocumentationWriter() {}

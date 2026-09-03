@@ -1,6 +1,6 @@
 # 模块系统
 
-模块是一个源码根及其跨 package 公开边界。配置固定在 `<source-root>/<module-name-path>/module.norm`，该目录就是模块的根 package。可运行模块在同目录提供 `application.norm`；子 package 位于其下。`module.norm` 是普通 Norm 源文件，并提供唯一的零参数模块工厂：
+模块是一个源码根及其跨 package 公开边界。模块身份由唯一的零参数 `Module module()` 声明决定，而不是由文件名决定。目录项目通常把它放在 `<source-root>/<module-name-path>/module.norm`，并把应用入口放在同目录的 `application.norm`；单文件应用可以在任意 `.norm` 文件中同时声明模块、业务代码和应用入口：
 
 ```norm
 import std.math.max
@@ -14,11 +14,11 @@ Module module() {
 }
 ```
 
-项目启动时，工具链生成隐藏入口并调用 `Module module()`，再建立业务源码的 `ProjectSourceSet`。`norm run <module-directory>` 为 `application.norm` 生成同 package 的隐藏 `main()`，调用零参数 `application().run()`；返回对象的静态类型必须提供 `Void run()`。模块配置和业务程序分别形成 Core artifact，配置文件不进入业务 source set。
+项目启动时，工具链先隔离求值 `Module module()`，再建立业务源码的 `ProjectSourceSet`。存在零参数 `Application application()` 且不存在显式 `Void main()` 时，工具链生成同 package 的隐藏入口并调用 `application().run()`；返回对象的静态类型必须提供 `Void run()`。目录项目使用 `norm run <module-directory>`，单文件应用使用 `norm <file.norm>` 或等价的 `norm run <file.norm>`。
 
 `Module`、`ModuleRequirement`、`module(...)`、`dependency(...)` 和 `exportedDependency(...)` 由 bootstrap 源码定义。参数化的 `module(...)` 是返回 `Module` 实现的普通 Norm 工厂，零参数 `module()` 是用户入口。模块配置可以声明普通类型与函数、实现自己的 `Module`，也可以导入标准库。
 
-`name` 是点分隔的模块名，也是模块内 package 的共同前缀。工具链 prelude 使用的 `std` 与 `norm.bootstrap` 是保留模块名。`version` 是正整数模块版本，并参与公开名义类型的稳定身份。`exports` 默认为空，只声明供其他 Module 使用的公开源码；应用自身和模块内部 package 不需要导出入口或实现。`dependencies` 是精确的模块名与版本坐标：
+`name` 是点分隔的模块名，也是模块内 package 的共同前缀。工具链 prelude 使用的 `std` 与 `norm.bootstrap` 是保留模块名。`version` 是正整数模块版本，并参与公开名义类型的稳定身份。`exports` 默认为空，只声明供其他 Module 使用的公开源码；应用自身和模块内部 package 不需要导出入口或实现。`dependencies` 由仓库、模块名和版本组成精确坐标：
 
 ```norm
 Module module() {
@@ -26,7 +26,7 @@ Module module() {
     name: "app",
     version: 1,
     exports: ["Main"],
-    dependencies: [dependency(name: "base", version: 2)]
+    dependencies: [dependency(repository: "github", name: "base", version: 2)]
   )
 }
 ```
@@ -47,7 +47,7 @@ std/collections/sequences.norm
 
 存在根模块配置时，source set 包含根模块及其依赖图中的业务 `.norm` 源码，排除所有配置文件和未声明的嵌套模块。每个业务源码的相对目录必须与其 package 一一对应，并位于所属模块名的 package 前缀下。带 package 声明且位于 package 目录内的同名文件是普通业务源码。
 
-Language Server 合并未保存内容后执行同一项目加载生命周期，因此编辑器、CLI 和测试工具读取一致的模块描述和 source set。没有根模块配置时，入口按独立单文件编译单元处理。
+Language Server 合并未保存内容后执行同一项目加载生命周期，因此编辑器、CLI 和测试工具读取一致的模块描述和 source set。没有相邻 `module.norm` 但当前文件声明 `Module module()` 时，该文件就是模块根；没有模块声明时，入口按独立单文件编译单元处理。
 
 ## 可见范围
 

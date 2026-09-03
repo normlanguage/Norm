@@ -3,8 +3,8 @@ Module module() {
     name: "micronaut.aop",
     version: 1,
     dependencies: [
-      dependency(name: "micronaut.core", version: 1),
-      dependency(name: "micronaut.inject", version: 1)
+      dependency(repository: "github", name: "micronaut.core", version: 1),
+      dependency(repository: "github", name: "micronaut.inject", version: 1)
     ],
     binding: jarBinding(
       target: mavenJar(

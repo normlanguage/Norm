@@ -1,6 +1,6 @@
 # 输出 API
 
-`printLine(value)` 是标准输出的单行原语。批量输出导入 `std.io.printLines`，其公共声明以 [`io/output.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/io/output.norm) 为准。
+`printLine(value)` 是标准输出的单行原语。批量输出导入 `std.io.printLines`，其公共声明以 [`io/output.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/output.norm) 为准。
 
 ```norm
 Void printLines<T extends Stringable>(Iterable<T> values)

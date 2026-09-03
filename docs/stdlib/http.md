@@ -1,6 +1,6 @@
 # HTTP API
 
-HTTP 模块提供强类型请求、流式响应和客户端 adapter。公开签名以 [`client.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/http/client.norm) 与 [`json.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/http/json.norm) 为准。HTTP server、路由、Controller 和 Authentication 尚未交付。
+HTTP 模块提供强类型请求、流式响应和客户端 adapter。公开签名以 [`client.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/client.norm) 与 [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/json.norm) 为准。HTTP server、路由、Controller 和 Authentication 尚未交付。
 
 ## 客户端
 

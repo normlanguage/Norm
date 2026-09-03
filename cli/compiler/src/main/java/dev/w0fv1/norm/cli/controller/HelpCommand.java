@@ -29,6 +29,7 @@ final class HelpCommand implements Command {
     }
 
     out.println("Usage: norm <command> [options]");
+    out.println("       norm <file.norm>");
     out.println();
     out.println("Commands:");
     for (Command command : router.commands()) {

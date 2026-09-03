@@ -1319,6 +1319,10 @@ public final class BuiltinCatalog {
                 SemanticType.declared(
                     "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
             parameterInfo(
+                "dependencyRepositories",
+                SemanticType.declared(
+                    "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),
+            parameterInfo(
                 "dependencyNames",
                 SemanticType.declared(
                     "std.core.List", "List", List.of(stringType), ValueCategory.VALUE)),

@@ -91,6 +91,50 @@ final class CliControllerTest {
   }
 
   @Test
+  void runsASourceFileWithoutTheRunSubcommand() throws IOException {
+    Path source = temporaryDirectory.resolve("hello.norm");
+    Files.writeString(source, "Void main() { printLine(\"Hello from one command\") }");
+
+    Result result = run(source.toString());
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertEquals("Hello from one command" + System.lineSeparator(), result.standardOut());
+    assertEquals("", result.standardError());
+  }
+
+  @Test
+  void runsAnApplicationAndModuleDeclaredInOneSourceFile() throws IOException {
+    Path source = temporaryDirectory.resolve("web.norm");
+    Files.writeString(
+        source,
+        """
+        package hello.web
+
+        import std.application.Application
+
+        Module module() {
+          return module(name: "hello.web", version: 1)
+        }
+
+        class WebApplication implements Application {
+          Void run() {
+            printLine("single file application")
+          }
+        }
+
+        public Application application() {
+          return WebApplication()
+        }
+        """);
+
+    Result result = run(source.toString());
+
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertEquals("single file application" + System.lineSeparator(), result.standardOut());
+    assertEquals("", result.standardError());
+  }
+
+  @Test
   void runsFunctionsAndValueConstructorsWithDefaults() throws IOException {
     Path source = temporaryDirectory.resolve("defaults.norm");
     Files.writeString(

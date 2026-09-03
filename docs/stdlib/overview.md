@@ -6,7 +6,7 @@
 
 | Package | 职责 | 参考 |
 | --- | --- | --- |
-| `std.core` | Result、Unit、Exception 与核心 interface | [核心类型](https://github.com/w0fv1/Norm/tree/main/norm/stdlib/std/core) |
+| `std.core` | Result、Unit、Exception 与核心 interface | [核心类型](https://github.com/normlanguage/Norm/tree/main/norm/stdlib/std/core) |
 | `std.annotation` | Annotation 目标、保留与拦截 interface | [Annotation 规范](/spec/annotations) |
 | `std.text` | Unicode 规范化与文本构造 | [String](/stdlib/string) |
 | `std.collections` | 序列算法与集合 extension | [Collections](/stdlib/collections) |

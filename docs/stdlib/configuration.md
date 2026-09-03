@@ -1,6 +1,6 @@
 # Configuration
 
-`std.configuration` 将类型化 Norm value 映射为框架可消费的扁平属性。公开签名以 [`configuration.norm`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/configuration/configuration.norm) 为准。
+`std.configuration` 将类型化 Norm value 映射为框架可消费的扁平属性。公开签名以 [`configuration.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/configuration/configuration.norm) 为准。
 
 ```norm
 @Serializable()

@@ -32,7 +32,9 @@ public record ProjectSourceSet(
     Set<Path> exportedSourcePaths,
     Set<DocumentId> bindingSourceDocuments,
     List<ResolvedJarBinding> jarBindings,
-    Map<String, ModuleResource> resources) {
+    Map<String, ModuleResource> resources,
+    boolean applicationFactory,
+    boolean mainEntrypoint) {
   public ProjectSourceSet {
     root = normalize(Objects.requireNonNull(root, "root"));
     primaryPath = normalize(Objects.requireNonNull(primaryPath, "primaryPath"));
@@ -121,10 +123,10 @@ public record ProjectSourceSet(
         && !entry.getParent().equals(rootModulePath.orElseThrow().getParent())) {
       throw new IOException("application entry and module.norm must be in the same directory");
     }
-    if (!entry.getFileName().toString().equals("application.norm")) {
+    SourceFile application = source(entry);
+    if (!applicationFactory || mainEntrypoint) {
       return compilationRequest(entry);
     }
-    SourceFile application = source(entry);
     String packageDeclaration =
         SourceHeader.parse(application)
             .packageName()

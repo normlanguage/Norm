@@ -1,0 +1,35 @@
+package hello.web
+
+import micronaut.http.annotation.Controller
+import micronaut.http.annotation.Get
+import micronaut.web.Micronaut
+import micronaut.web.MicronautApplication
+import micronaut.web.MicronautConfig
+import micronaut.web.Server
+import std.application.Application
+
+Module module() {
+  return module(
+    name: "hello.web",
+    version: 1,
+    dependencies: [
+      dependency(repository: "github", name: "micronaut.web", version: 2)
+    ]
+  )
+}
+
+@Controller(value: "/hello")
+class HelloController {
+  @Get(value: "/{name}")
+  String hello(String name) {
+    return "Hello, " + name + "!"
+  }
+}
+
+public Application application() {
+  return MicronautApplication(config: MicronautConfig(
+    micronaut: Micronaut(
+      server: Server(host: "127.0.0.1", port: 8080)
+    )
+  ))
+}

@@ -103,7 +103,7 @@ Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查�
 - Java 修改先运行相关 package 测试；提交前执行格式检查。发布前才运行完整发布验证。
 - 后端变更必须通过 Polyglot 注册入口和 CLI 的真实 `.norm` 文件执行测试。
 
-验收测试的领域、目录、命名、发现入口与运行命令统一由 [`norm/tests/README.md`](https://github.com/w0fv1/norm/blob/main/norm/tests/README.md) 定义。
+验收测试的领域、目录、命名、发现入口与运行命令统一由 [`norm/tests/README.md`](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md) 定义。
 
 ## 文档同步
 

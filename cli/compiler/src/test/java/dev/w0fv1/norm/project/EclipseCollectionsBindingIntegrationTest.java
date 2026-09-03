@@ -81,7 +81,7 @@ final class EclipseCollectionsBindingIntegrationTest {
             name: "app",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "eclipse.collections", version: 1)]
+            dependencies: [dependency(repository: "github", name: "eclipse.collections", version: 1)]
           )
         }
         """);

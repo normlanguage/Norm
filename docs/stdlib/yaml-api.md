@@ -1,6 +1,6 @@
 # YAML API
 
-`std.yaml` 实现格式无关的序列化接口。公开签名以 [`yaml.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/yaml/yaml.norm) 为准；共享 mapper 与 Annotation 见 [Serialization](/stdlib/serialization)。
+`std.yaml` 实现格式无关的序列化接口。公开签名以 [`yaml.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/yaml/yaml.norm) 为准；共享 mapper 与 Annotation 见 [Serialization](/stdlib/serialization)。
 
 ```norm
 @Serializable()

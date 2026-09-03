@@ -3,9 +3,9 @@ Module module() {
     name: "sample.bbs",
     version: 1,
     dependencies: [
-      dependency(name: "micronaut.web", version: 2),
-      dependency(name: "orm.micronaut.tx", version: 1),
-      dependency(name: "h2.database", version: 1)
+      dependency(repository: "github", name: "micronaut.web", version: 2),
+      dependency(repository: "github", name: "orm.micronaut.tx", version: 1),
+      dependency(repository: "github", name: "h2.database", version: 1)
     ]
   )
 }

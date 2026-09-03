@@ -53,7 +53,7 @@ final class ProjectTestIntegrationTest {
             name: "app",
             version: 1,
             exports: [],
-            dependencies: [dependency(name: "junit.jupiter", version: 1)]
+            dependencies: [dependency(repository: "github", name: "junit.jupiter", version: 1)]
           )
         }
         """);

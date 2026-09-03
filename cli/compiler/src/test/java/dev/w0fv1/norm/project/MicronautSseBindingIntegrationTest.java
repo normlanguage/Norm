@@ -82,16 +82,16 @@ final class MicronautSseBindingIntegrationTest {
             version: 1,
             exports: ["Main"],
             dependencies: [
-              dependency(name: "micronaut.core", version: 1),
-              dependency(name: "micronaut.http", version: 1),
-              dependency(name: "micronaut.inject", version: 1),
-              dependency(name: "micronaut.runtime", version: 1),
-              dependency(name: "micronaut.server.netty", version: 1),
-              dependency(name: "micronaut.json", version: 1),
-              dependency(name: "micronaut.jackson", version: 1),
-              dependency(name: "micronaut.inject.processor", version: 1),
-              dependency(name: "reactor.core", version: 1),
-              dependency(name: "okhttp.client", version: 1)
+              dependency(repository: "github", name: "micronaut.core", version: 1),
+              dependency(repository: "github", name: "micronaut.http", version: 1),
+              dependency(repository: "github", name: "micronaut.inject", version: 1),
+              dependency(repository: "github", name: "micronaut.runtime", version: 1),
+              dependency(repository: "github", name: "micronaut.server.netty", version: 1),
+              dependency(repository: "github", name: "micronaut.json", version: 1),
+              dependency(repository: "github", name: "micronaut.jackson", version: 1),
+              dependency(repository: "github", name: "micronaut.inject.processor", version: 1),
+              dependency(repository: "github", name: "reactor.core", version: 1),
+              dependency(repository: "github", name: "okhttp.client", version: 1)
             ]
           )
         }

@@ -1,6 +1,6 @@
 # Module 配置
 
-模块根 package 目录中的 `module.norm` 是普通 Norm 源文件，使用同一套 import、声明、表达式和函数体语法。它不声明 package，并必须提供：
+模块配置使用普通 Norm 源码，与业务代码共享 import、声明、表达式和函数体语法。目录项目通常在模块根 package 目录中的 `module.norm` 提供配置；单文件应用可以在业务文件中直接提供：
 
 ```norm
 Module module()
@@ -24,4 +24,4 @@ Module module() {
 }
 ```
 
-依赖使用 `List<ModuleRequirement>` 表示，并通过 `dependency(String name, Integer version)` 构造。完整语义见[模块系统](/spec/module-system)。
+依赖使用 `List<ModuleRequirement>` 表示，并通过 `dependency(String repository, String name, Integer version)` 构造。`repository` 是依赖身份的一部分，不能省略。完整语义见[模块系统](/spec/module-system)。

@@ -4,11 +4,13 @@ import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.frontend.ModuleSourceResolver;
 import dev.w0fv1.norm.frontend.SourceHeader;
+import dev.w0fv1.norm.frontend.SourceStructure;
 import dev.w0fv1.norm.jvm.GeneratedBindingSource;
 import dev.w0fv1.norm.jvm.GeneratedJarBinding;
 import dev.w0fv1.norm.jvm.JarApiScanner;
 import dev.w0fv1.norm.jvm.JarBindingSourceGenerator;
 import dev.w0fv1.norm.jvm.JarResolver;
+import dev.w0fv1.norm.jvm.NormPackageResolver;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
 import dev.w0fv1.norm.value.CompilationScope;
@@ -19,6 +21,7 @@ import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleGraph;
+import dev.w0fv1.norm.value.ModuleRepositoryId;
 import dev.w0fv1.norm.value.ModuleRequirement;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
@@ -39,18 +42,28 @@ public final class ProjectLoader implements AutoCloseable {
   private final ModuleEvaluator modules;
   private final Set<String> reservedModuleNames;
   private final JarResolver jars;
+  private final NormPackageResolver packages;
   private final Map<Path, ModuleArchiveReader.ArchivedModule> archives =
       new java.util.concurrent.ConcurrentHashMap<>();
   private final Map<AnalysisModuleKey, ResolvedModule> analysisModules =
       new java.util.concurrent.ConcurrentHashMap<>();
 
   ProjectLoader(ModuleEvaluator modules, Set<String> reservedModuleNames) {
-    this(modules, reservedModuleNames, new JarResolver(defaultJarCache()));
+    this(
+        modules,
+        reservedModuleNames,
+        new NormPackageResolver(defaultCache().resolve("packages")),
+        new JarResolver(defaultCache().resolve("maven")));
   }
 
-  ProjectLoader(ModuleEvaluator modules, Set<String> reservedModuleNames, JarResolver jars) {
+  ProjectLoader(
+      ModuleEvaluator modules,
+      Set<String> reservedModuleNames,
+      NormPackageResolver packages,
+      JarResolver jars) {
     this.modules = Objects.requireNonNull(modules, "modules");
     this.reservedModuleNames = Set.copyOf(reservedModuleNames);
+    this.packages = Objects.requireNonNull(packages, "packages");
     this.jars = Objects.requireNonNull(jars, "jars");
   }
 
@@ -80,7 +93,11 @@ public final class ProjectLoader implements AutoCloseable {
     Map<Path, SourceFile> overlaySources = overlaySources(entrySource, overlays);
     Path entry = normalize(entrySource.path());
     ProjectLocation location = locate(entry, overlaySources);
+    SourceStructure entryStructure = SourceStructure.inspect(entrySource);
     if (location.module().isEmpty()) {
+      if (entryStructure.moduleConfiguration().isPresent()) {
+        return loadEmbeddedModule(entrySource, overlaySources, purpose, entryStructure);
+      }
       return new ProjectSourceSet(
           location.standaloneRoot(),
           entry,
@@ -91,7 +108,9 @@ public final class ProjectLoader implements AutoCloseable {
           Set.of(),
           Set.of(),
           List.of(),
-          Map.of());
+          Map.of(),
+          entryStructure.applicationFactory(),
+          entryStructure.mainEntrypoint());
     }
 
     SourceFile moduleSource = location.module().orElseThrow();
@@ -107,6 +126,16 @@ public final class ProjectLoader implements AutoCloseable {
     }
     List<ResolvedModule> graph = resolveGraph(rootModule, overlaySources, purpose);
     validatePackageOwnership(graph);
+    return sourceSet(root, entry, modulePath, graph, entryStructure);
+  }
+
+  private static ProjectSourceSet sourceSet(
+      Path root,
+      Path entry,
+      Path rootModulePath,
+      List<ResolvedModule> graph,
+      SourceStructure entryStructure)
+      throws IOException {
     List<SourceFile> sources = new java.util.ArrayList<>();
     Set<Path> exportedSources = new LinkedHashSet<>();
     Set<Path> modulePaths = new LinkedHashSet<>();
@@ -151,14 +180,59 @@ public final class ProjectLoader implements AutoCloseable {
     return new ProjectSourceSet(
         root,
         entry,
-        Optional.of(modulePath),
+        Optional.of(rootModulePath),
         modulePaths,
         new CompilationScope(coordinates, new ModuleGraph(dependencies)),
         sources,
         exportedSources,
         bindingSources,
         jarBindings,
-        resources);
+        resources,
+        entryStructure.applicationFactory(),
+        entryStructure.mainEntrypoint());
+  }
+
+  private ProjectSourceSet loadEmbeddedModule(
+      SourceFile entrySource,
+      Map<Path, SourceFile> overlays,
+      LoadPurpose purpose,
+      SourceStructure structure)
+      throws IOException {
+    ModuleDescriptor descriptor = modules.evaluate(structure.moduleConfiguration().orElseThrow());
+    requireAvailableModuleName(descriptor);
+    if (descriptor.binding().isPresent()) {
+      throw new IOException("an application source cannot declare a Java binding");
+    }
+    SourceFile programSource = structure.programSource();
+    String packageName = SourceHeader.parse(programSource).packageName().orElse("");
+    String modulePackage = descriptor.name();
+    if (!packageName.equals(modulePackage) && !packageName.startsWith(modulePackage + ".")) {
+      throw new IOException(
+          "single-file module source must declare package '"
+              + modulePackage
+              + "' or one of its child packages");
+    }
+    String sourcePath =
+        packageName.replace('.', '/') + "/" + entrySource.path().getFileName().toString();
+    Map<String, SourceFile> moduleSources = Map.of(sourcePath, programSource);
+    ModuleLoader.LoadedModule loaded =
+        new ModuleLoader().load(new MemoryResolver(moduleSources), descriptor);
+    Path root = normalize(entrySource.path()).getParent();
+    if (root == null) throw new IOException("application source path has no parent");
+    ResolvedModule rootModule =
+        new ResolvedModule(
+            root,
+            entrySource,
+            descriptor,
+            loaded.sources(),
+            loaded.exportedSources(),
+            Set.of(),
+            Optional.empty(),
+            collectResources(root));
+    List<ResolvedModule> graph = resolveGraph(rootModule, overlays, purpose);
+    validatePackageOwnership(graph);
+    Path entry = normalize(entrySource.path());
+    return sourceSet(root, entry, entry, graph, structure);
   }
 
   private static Set<ModuleCoordinate> readableDependencies(
@@ -192,6 +266,7 @@ public final class ProjectLoader implements AutoCloseable {
     Map<ModuleCoordinate, ResolvedModule> repository = new LinkedHashMap<>();
     repository.put(rootModule.descriptor().coordinate(), rootModule);
     Map<String, ModuleCoordinate> versions = new LinkedHashMap<>();
+    Map<ModuleCoordinate, ModuleRepositoryId> repositories = new LinkedHashMap<>();
     LinkedHashSet<ModuleCoordinate> visiting = new LinkedHashSet<>();
     List<ResolvedModule> ordered = new java.util.ArrayList<>();
     resolveDependencies(
@@ -201,6 +276,7 @@ public final class ProjectLoader implements AutoCloseable {
         repository,
         resolved,
         versions,
+        repositories,
         visiting,
         ordered,
         purpose);
@@ -238,6 +314,7 @@ public final class ProjectLoader implements AutoCloseable {
       Map<ModuleCoordinate, ResolvedModule> repository,
       Map<ModuleCoordinate, ResolvedModule> resolved,
       Map<String, ModuleCoordinate> versions,
+      Map<ModuleCoordinate, ModuleRepositoryId> repositories,
       LinkedHashSet<ModuleCoordinate> visiting,
       List<ResolvedModule> ordered,
       LoadPurpose purpose)
@@ -265,6 +342,20 @@ public final class ProjectLoader implements AutoCloseable {
                   .collect(java.util.stream.Collectors.joining(" -> ")));
     }
     for (ModuleRequirement requirement : module.descriptor().dependencies()) {
+      var selectedRepository =
+          repositories.putIfAbsent(requirement.coordinate(), requirement.repository());
+      if (selectedRepository != null && !selectedRepository.equals(requirement.repository())) {
+        throw new IOException(
+            "module dependency "
+                + requirement.name()
+                + "@"
+                + requirement.version()
+                + " is selected from both '"
+                + selectedRepository.value()
+                + "' and '"
+                + requirement.repository().value()
+                + "'");
+      }
       ResolvedModule dependency =
           resolveDependency(repositoryRoot, requirement, overlays, repository, purpose);
       requireAvailableModuleName(dependency.descriptor());
@@ -275,6 +366,7 @@ public final class ProjectLoader implements AutoCloseable {
           repository,
           resolved,
           versions,
+          repositories,
           visiting,
           ordered,
           purpose);
@@ -329,13 +421,12 @@ public final class ProjectLoader implements AutoCloseable {
 
   private ResolvedModule resolveArchivedDependency(
       Path repositoryRoot, ModuleRequirement requirement, LoadPurpose purpose) throws IOException {
-    AnalysisModuleKey analysisKey =
-        new AnalysisModuleKey(normalize(repositoryRoot), requirement.coordinate());
+    AnalysisModuleKey analysisKey = new AnalysisModuleKey(normalize(repositoryRoot), requirement);
     if (purpose == LoadPurpose.ANALYSIS) {
       ResolvedModule cached = analysisModules.get(analysisKey);
       if (cached != null) return cached;
     }
-    Path archive = jars.resolveModuleArchive(requirement);
+    Path archive = packages.resolve(requirement);
     ModuleArchiveReader.ArchivedModule archived = archive(archive);
     ModuleDescriptor descriptor = archived.descriptor();
     if (!descriptor.coordinate().equals(requirement.coordinate())) {
@@ -378,6 +469,7 @@ public final class ProjectLoader implements AutoCloseable {
         normalize(
             repositoryRoot
                 .resolve(".norm/modules")
+                .resolve(requirement.repository().value())
                 .resolve(requirement.name().replace('.', java.io.File.separatorChar))
                 .resolve(Integer.toString(requirement.version())));
     Map<String, SourceFile> sources = new LinkedHashMap<>();
@@ -588,7 +680,11 @@ public final class ProjectLoader implements AutoCloseable {
     try {
       modules.close();
     } finally {
-      jars.close();
+      try {
+        packages.close();
+      } finally {
+        jars.close();
+      }
     }
   }
 
@@ -752,7 +848,7 @@ public final class ProjectLoader implements AutoCloseable {
 
   private record ProjectLocation(Path standaloneRoot, Optional<SourceFile> module) {}
 
-  private record AnalysisModuleKey(Path repositoryRoot, ModuleCoordinate coordinate) {}
+  private record AnalysisModuleKey(Path repositoryRoot, ModuleRequirement requirement) {}
 
   private enum LoadPurpose {
     ANALYSIS,
@@ -793,8 +889,8 @@ public final class ProjectLoader implements AutoCloseable {
     }
   }
 
-  private static Path defaultJarCache() {
-    return Path.of(System.getProperty("user.home"), ".norm", "cache", "maven");
+  private static Path defaultCache() {
+    return Path.of(System.getProperty("user.home"), ".norm", "cache");
   }
 
   private static Set<DocumentId> exportedSources(

@@ -27,7 +27,8 @@ final class CommandRouter {
       return commands.get("help").execute(List.of(), out, err);
     }
 
-    String requested = alias(arguments[0]);
+    String requested =
+        arguments.length == 1 && isNormSource(arguments[0]) ? "run" : alias(arguments[0]);
     Command command = commands.get(requested);
     if (command == null) {
       err.printf("error[NORM-CLI-0001]: unknown command '%s'%n", arguments[0]);
@@ -35,7 +36,8 @@ final class CommandRouter {
       return ExitCode.USAGE_ERROR;
     }
 
-    return command.execute(List.of(arguments).subList(1, arguments.length), out, err);
+    int argumentStart = requested.equals("run") && isNormSource(arguments[0]) ? 0 : 1;
+    return command.execute(List.of(arguments).subList(argumentStart, arguments.length), out, err);
   }
 
   List<Command> commands() {
@@ -48,5 +50,9 @@ final class CommandRouter {
       case "-V", "--version" -> "version";
       default -> argument;
     };
+  }
+
+  private static boolean isNormSource(String argument) {
+    return argument.toLowerCase(java.util.Locale.ROOT).endsWith(".norm");
   }
 }

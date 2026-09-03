@@ -67,5 +67,5 @@ pageClass: norm-home
 <section class="norm-section norm-final-cta">
   <h2>Start with the language itself.</h2>
   <p>Follow one path through Norm's values, control flow, and type model.</p>
-  <div><a class="norm-button norm-button--blue" href="./language/overview">Read the handbook</a><a class="norm-button norm-button--outline" href="https://github.com/w0fv1/norm">View on GitHub</a></div>
+  <div><a class="norm-button norm-button--blue" href="./language/overview">Read the handbook</a><a class="norm-button norm-button--outline" href="https://github.com/normlanguage/Norm">View on GitHub</a></div>
 </section>

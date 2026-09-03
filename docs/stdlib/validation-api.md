@@ -34,7 +34,7 @@ Void register(@CodePointSize(minimum: 3, maximum: 32) String name) {
 
 `location` 决定哪组声明引用非空：Parameter 位置提供 function 和 parameter，Field 位置提供 field。名称和类型通过引用查询，不在异常中再存一份副本。
 
-实现与完整声明以 [`validation/constraints.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/validation/constraints.norm) 为准。
+实现与完整声明以 [`validation/constraints.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/validation/constraints.norm) 为准。
 
 ## 内置约束
 

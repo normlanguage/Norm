@@ -3,9 +3,9 @@ Module module() {
     name: "micronaut.http.client.netty",
     version: 1,
     dependencies: [
-      dependency(name: "micronaut.http.client", version: 1),
-      dependency(name: "micronaut.json", version: 1),
-      dependency(name: "micronaut.serde.jackson", version: 1)
+      dependency(repository: "github", name: "micronaut.http.client", version: 1),
+      dependency(repository: "github", name: "micronaut.json", version: 1),
+      dependency(repository: "github", name: "micronaut.serde.jackson", version: 1)
     ],
     binding: jarBinding(
       target: mavenJar(

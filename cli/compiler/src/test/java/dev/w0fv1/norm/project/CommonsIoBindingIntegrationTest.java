@@ -55,7 +55,7 @@ final class CommonsIoBindingIntegrationTest {
             name: "app",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "commons.io", version: 1)]
+            dependencies: [dependency(repository: "github", name: "commons.io", version: 1)]
           )
         }
         """);

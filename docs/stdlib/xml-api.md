@@ -1,6 +1,6 @@
 # XML API
 
-`std.xml` 实现格式无关的序列化接口，并提供 XML 便捷入口。公开签名以 [`xml.norm`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/xml/xml.norm) 为准。
+`std.xml` 实现格式无关的序列化接口，并提供 XML 便捷入口。公开签名以 [`xml.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/xml/xml.norm) 为准。
 
 ```norm
 @Serializable()

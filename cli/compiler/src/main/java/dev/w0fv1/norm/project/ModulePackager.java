@@ -11,6 +11,7 @@ import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleRepositoryCoordinate;
 import dev.w0fv1.norm.value.ModuleRequirement;
+import dev.w0fv1.norm.value.Sha256Digest;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -77,7 +78,22 @@ public final class ModulePackager {
     }
     writeArchive(archive, descriptor, archiveSources, contents.binding(), contents.resources());
     Files.writeString(pom, pom(descriptor, coordinate, target), StandardCharsets.UTF_8);
-    return new PackagedModule(archive.toAbsolutePath(), pom.toAbsolutePath());
+    Path archiveDigest = writeDigest(archive);
+    Path pomDigest = writeDigest(pom);
+    return new PackagedModule(
+        archive.toAbsolutePath(),
+        pom.toAbsolutePath(),
+        archiveDigest.toAbsolutePath(),
+        pomDigest.toAbsolutePath());
+  }
+
+  private static Path writeDigest(Path artifact) throws IOException {
+    Path digest = artifact.resolveSibling(artifact.getFileName() + ".sha256");
+    Files.writeString(
+        digest,
+        Sha256Digest.compute(artifact).value() + System.lineSeparator(),
+        StandardCharsets.UTF_8);
+    return digest;
   }
 
   private static void addSource(
@@ -130,6 +146,7 @@ public final class ModulePackager {
     JsonArray dependencies = new JsonArray();
     for (ModuleRequirement dependency : descriptor.dependencies()) {
       JsonObject value = new JsonObject();
+      value.addProperty("repository", dependency.repository().value());
       value.addProperty("name", dependency.name());
       value.addProperty("version", dependency.version());
       value.addProperty("exported", dependency.exported());
@@ -283,10 +300,13 @@ public final class ModulePackager {
     NAR
   }
 
-  public record PackagedModule(Path archive, Path pom) {
+  public record PackagedModule(Path archive, Path pom, Path archiveDigest, Path pomDigest) {
     public PackagedModule {
       archive = Objects.requireNonNull(archive, "archive").toAbsolutePath().normalize();
       pom = Objects.requireNonNull(pom, "pom").toAbsolutePath().normalize();
+      archiveDigest =
+          Objects.requireNonNull(archiveDigest, "archiveDigest").toAbsolutePath().normalize();
+      pomDigest = Objects.requireNonNull(pomDigest, "pomDigest").toAbsolutePath().normalize();
     }
   }
 }

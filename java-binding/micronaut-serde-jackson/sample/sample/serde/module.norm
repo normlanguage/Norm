@@ -4,11 +4,11 @@ Module module() {
     version: 1,
     exports: [],
     dependencies: [
-      dependency(name: "micronaut.core", version: 1),
-      dependency(name: "micronaut.serde.api", version: 1),
-      dependency(name: "micronaut.serde.jackson", version: 1),
-      dependency(name: "micronaut.serde.processor", version: 1),
-      dependency(name: "micronaut.inject.processor", version: 1)
+      dependency(repository: "github", name: "micronaut.core", version: 1),
+      dependency(repository: "github", name: "micronaut.serde.api", version: 1),
+      dependency(repository: "github", name: "micronaut.serde.jackson", version: 1),
+      dependency(repository: "github", name: "micronaut.serde.processor", version: 1),
+      dependency(repository: "github", name: "micronaut.inject.processor", version: 1)
     ]
   )
 }

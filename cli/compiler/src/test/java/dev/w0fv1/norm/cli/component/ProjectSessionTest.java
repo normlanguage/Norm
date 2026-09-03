@@ -152,6 +152,44 @@ final class ProjectSessionTest {
     assertTrue(session.analysis(entrySource).diagnostics().isEmpty());
   }
 
+  @Test
+  void analyzesDependenciesDeclaredInsideASingleApplicationFile(@TempDir Path directory)
+      throws Exception {
+    Path entry = directory.resolve("web.norm");
+    Files.writeString(
+        entry,
+        """
+        package hello.web
+        import base.answer
+        Module module() {
+          return module(
+            name: "hello.web",
+            version: 1,
+            dependencies: [
+              dependency(repository: "github", name: "base", version: 1)
+            ]
+          )
+        }
+        Void main() { printLine(answer().toString()) }
+        """);
+    Path dependency = directory.resolve("dependencies/base");
+    Files.createDirectories(dependency);
+    Files.writeString(
+        dependency.resolve("module.norm"),
+        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"]) }");
+    Files.writeString(
+        dependency.resolve("Value.norm"), "package base public Integer answer() { return 42 }");
+    SourceFile entrySource = SourceFile.read(entry);
+
+    ProjectSession session =
+        load(entrySource, Map.of(ProjectSession.normalize(entry), entrySource), 1);
+
+    assertTrue(session.analysis(entrySource).diagnostics().isEmpty());
+    assertTrue(session.inputs().contains(ProjectSession.normalize(entry)));
+    assertTrue(
+        session.inputs().contains(ProjectSession.normalize(dependency.resolve("module.norm"))));
+  }
+
   private static ProjectSession load(
       SourceFile entry, Map<Path, SourceFile> openSources, long revision) throws Exception {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());

@@ -3,7 +3,7 @@ Module module() {
     name: "orm.hibernate",
     version: 1,
     exports: ["Builder", "Provider", "Session", "Transaction"],
-    dependencies: [dependency(name: "orm", version: 1)],
+    dependencies: [dependency(repository: "github", name: "orm", version: 1)],
     binding: jarBinding(
       target: mavenJar(
         group: "org.hibernate.orm",

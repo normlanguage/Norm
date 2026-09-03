@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonParser;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -61,7 +62,7 @@ final class ModulePackagerTest {
             name: "sample",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "example.assets", version: 1)]
+            dependencies: [dependency(repository: "github", name: "example.assets", version: 1)]
           )
         }
         """);
@@ -225,7 +226,7 @@ final class ModulePackagerTest {
             name: "sample",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "commons.lang", version: 1)]
+            dependencies: [dependency(repository: "github", name: "commons.lang", version: 1)]
           )
         }
         """);
@@ -345,7 +346,7 @@ final class ModulePackagerTest {
             name: "sample",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "commons.lang", version: 1)]
+            dependencies: [dependency(repository: "github", name: "commons.lang", version: 1)]
           )
         }
         """);
@@ -372,7 +373,7 @@ final class ModulePackagerTest {
           return module(
             name: "example.adapter",
             version: 1,
-            dependencies: [exportedDependency(name: "example.base", version: 2)],
+            dependencies: [exportedDependency(repository: "github", name: "example.base", version: 2)],
             binding: jarBinding(
               target: mavenJar(
                 group: "org.apache.commons",
@@ -410,6 +411,20 @@ final class ModulePackagerTest {
     try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
       String manifest =
           new String(archive.getInputStream(archive.getEntry("module.json")).readAllBytes());
+      assertEquals(
+          ModuleArchiveFormat.FORMAT_VERSION,
+          JsonParser.parseString(manifest).getAsJsonObject().get("formatVersion").getAsInt());
+      assertEquals(5, ModuleArchiveFormat.FORMAT_VERSION);
+      assertTrue(
+          JsonParser.parseString(manifest)
+              .getAsJsonObject()
+              .getAsJsonObject("module")
+              .getAsJsonArray("dependencies")
+              .get(0)
+              .getAsJsonObject()
+              .get("repository")
+              .getAsString()
+              .equals("github"));
       assertTrue(
           JsonParser.parseString(manifest)
               .getAsJsonObject()
@@ -419,6 +434,8 @@ final class ModulePackagerTest {
               .getAsJsonObject()
               .get("exported")
               .getAsBoolean());
+      assertTrue(Files.isRegularFile(packaged.archiveDigest()));
+      assertTrue(Files.isRegularFile(packaged.pomDigest()));
     }
   }
 

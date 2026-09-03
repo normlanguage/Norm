@@ -41,7 +41,7 @@ Understand what exists today and where the language is heading.
 - [Implementation strategy](/en/design/implementation-strategy)
 - [Toolchain development standard](/en/design/toolchain-development)
 - [Compiler bootstrap plan](/en/design/bootstrap-plan)
-- [GitHub repository](https://github.com/w0fv1/norm)
+- [GitHub repository](https://github.com/normlanguage/Norm)
 - [Chinese documentation](/docs/)
 
 </section>

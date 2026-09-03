@@ -105,7 +105,7 @@ Each function owns a `FunctionRootNode` and `CallTarget`. Static function and me
 - Run affected package tests during development and formatting checks before submission. Full release verification is reserved for releases.
 - Backend changes cover both the registered Polyglot language and execution of a real `.norm` file through the CLI.
 
-Acceptance-test domains, layout, naming, discovery entry points, and commands are defined in one place by [`norm/tests/README.md`](https://github.com/w0fv1/norm/blob/main/norm/tests/README.md).
+Acceptance-test domains, layout, naming, discovery entry points, and commands are defined in one place by [`norm/tests/README.md`](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md).
 
 ## Documentation ownership
 

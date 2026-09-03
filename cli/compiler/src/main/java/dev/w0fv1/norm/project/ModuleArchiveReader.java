@@ -33,10 +33,11 @@ final class ModuleArchiveReader {
             JsonParser.parseString(new String(input.readAllBytes(), StandardCharsets.UTF_8))
                 .getAsJsonObject();
       }
-      if (manifest.get("formatVersion").getAsInt() != ModuleArchiveFormat.FORMAT_VERSION) {
+      int formatVersion = manifest.get("formatVersion").getAsInt();
+      if (!ModuleArchiveFormat.isReadable(formatVersion)) {
         throw new IOException("unsupported module archive format");
       }
-      ModuleDescriptor descriptor = descriptor(manifest);
+      ModuleDescriptor descriptor = descriptor(manifest, formatVersion);
       Map<String, String> sources = new LinkedHashMap<>();
       Map<String, ModuleResource> resources = new LinkedHashMap<>();
       var entries = zip.entries();
@@ -79,7 +80,7 @@ final class ModuleArchiveReader {
     }
   }
 
-  private static ModuleDescriptor descriptor(JsonObject manifest) {
+  private static ModuleDescriptor descriptor(JsonObject manifest, int formatVersion) {
     JsonObject module = manifest.getAsJsonObject("module");
     List<String> exports = new ArrayList<>();
     module.getAsJsonArray("exports").forEach(value -> exports.add(value.getAsString()));
@@ -91,6 +92,7 @@ final class ModuleArchiveReader {
               JsonObject dependency = value.getAsJsonObject();
               dependencies.add(
                   new ModuleRequirement(
+                      repository(dependency, formatVersion),
                       dependency.get("name").getAsString(),
                       dependency.get("version").getAsInt(),
                       dependency.has("exported") && dependency.get("exported").getAsBoolean()));
@@ -134,6 +136,12 @@ final class ModuleArchiveReader {
         exports,
         dependencies,
         binding);
+  }
+
+  private static String repository(JsonObject dependency, int formatVersion) {
+    if (dependency.has("repository")) return dependency.get("repository").getAsString();
+    if (formatVersion == 4) return "github";
+    throw new IllegalArgumentException("module dependency has no repository");
   }
 
   record ArchivedModule(

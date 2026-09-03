@@ -102,7 +102,7 @@ final class GuavaBindingIntegrationTest {
             name: "app",
             version: 1,
             exports: ["Main"],
-            dependencies: [dependency(name: "guava.core", version: 1)]
+            dependencies: [dependency(repository: "github", name: "guava.core", version: 1)]
           )
         }
         """);

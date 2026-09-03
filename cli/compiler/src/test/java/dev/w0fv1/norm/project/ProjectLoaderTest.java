@@ -182,7 +182,7 @@ final class ProjectLoaderTest {
     Path entry = source(base, "Value.norm", "package base public Integer value() { return 1 }");
     Files.writeString(
         base.resolve("module.norm"),
-        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"], dependencies: [dependency(name: \"util\", version: 1)]) }");
+        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"], dependencies: [dependency(repository: \"github\", name: \"util\", version: 1)]) }");
     Path util = Files.createDirectories(repository.resolve("util"));
     source(util, "Value.norm", "package util public Integer utility() { return 2 }");
     Files.writeString(
@@ -201,6 +201,35 @@ final class ProjectLoaderTest {
   }
 
   @Test
+  void rejectsOneModuleCoordinateSelectedFromDifferentRepositories() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("repository-conflict"));
+    Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
+    Files.writeString(
+        root.resolve("sample/module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, dependencies: [dependency(repository: \"github\", name: \"left\", version: 1), dependency(repository: \"github\", name: \"right\", version: 1)]) }");
+    Path left = Files.createDirectories(root.resolve("dependencies/left"));
+    Files.writeString(
+        left.resolve("module.norm"),
+        "Module module() { return module(name: \"left\", version: 1, dependencies: [dependency(repository: \"github\", name: \"base\", version: 1)]) }");
+    Path right = Files.createDirectories(root.resolve("dependencies/right"));
+    Files.writeString(
+        right.resolve("module.norm"),
+        "Module module() { return module(name: \"right\", version: 1, dependencies: [dependency(repository: \"mirror\", name: \"base\", version: 1)]) }");
+    Path base = Files.createDirectories(root.resolve("dependencies/base"));
+    Files.writeString(
+        base.resolve("module.norm"),
+        "Module module() { return module(name: \"base\", version: 1) }");
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+
+      assertTrue(exception.getMessage().contains("base@1"));
+      assertTrue(exception.getMessage().contains("github"));
+      assertTrue(exception.getMessage().contains("mirror"));
+    }
+  }
+
+  @Test
   void rejectsPackagesOwnedByMoreThanOneModule() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("split-package"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
@@ -210,7 +239,7 @@ final class ProjectLoaderTest {
         "package sample.shared public Integer rootValue() { return 1 }");
     Files.writeString(
         root.resolve("sample/module.norm"),
-        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"], dependencies: [dependency(name: \"sample.shared\", version: 1)]) }");
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"], dependencies: [dependency(repository: \"github\", name: \"sample.shared\", version: 1)]) }");
     Path dependency = Files.createDirectories(root.resolve("dependencies/sample/shared"));
     source(
         root.resolve("dependencies"),

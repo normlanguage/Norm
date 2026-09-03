@@ -69,7 +69,7 @@ final class CompilerTest {
             .analyze(
                 SourceFile.of(
                     Path.of("application.norm"),
-                    "Void main() { dependency(name: \"sample\", version: 1) }"));
+                    "Void main() { dependency(repository: \"github\", name: \"sample\", version: 1) }"));
 
     assertTrue(result.hasErrors());
     assertEquals("NORM-NAME-0003", result.diagnostics().getFirst().code().value());

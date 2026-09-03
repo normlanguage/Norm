@@ -8,7 +8,6 @@ import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
-import dev.w0fv1.norm.value.ModuleRequirement;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -121,13 +120,7 @@ final class JarResolverTest {
   }
 
   @Test
-  void resolvesNormModulesAndJavaArtifactsFromIndependentRepositories() throws Exception {
-    Path moduleRepository = temporaryDirectory.resolve("module-repository");
-    Path archive =
-        moduleRepository.resolve("sample/library/1/library-1.nar").toAbsolutePath().normalize();
-    Files.createDirectories(archive.getParent());
-    Files.writeString(archive, "nar");
-
+  void resolvesJavaArtifactsFromItsOwnRepository() throws Exception {
     Path jarCache = temporaryDirectory.resolve("jar-cache");
     Path javaArtifact = Files.createDirectories(jarCache.resolve("sample/java-library/1"));
     createJar(javaArtifact.resolve("java-library-1.jar"), "sample/Value.class", "value");
@@ -142,9 +135,7 @@ final class JarResolverTest {
         </project>
         """);
 
-    try (JarResolver resolver = new JarResolver(moduleRepository, jarCache)) {
-      assertEquals(
-          archive, resolver.resolveModuleArchive(new ModuleRequirement("sample.library", 1)));
+    try (JarResolver resolver = new JarResolver(jarCache)) {
       ResolvedJarGraph graph =
           resolver.resolve(
               temporaryDirectory,

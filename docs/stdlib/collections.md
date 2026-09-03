@@ -60,4 +60,4 @@ import std.collections.sort
 List<Integer> ordered = sort(values: values)
 ```
 
-完整签名以 [`std.collections.sequences`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/collections/sequences.norm) 与 [`std.collections.mutable`](https://github.com/w0fv1/Norm/blob/main/norm/stdlib/std/collections/mutable.norm) 为准。
+完整签名以 [`std.collections.sequences`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/collections/sequences.norm) 与 [`std.collections.mutable`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/collections/mutable.norm) 为准。

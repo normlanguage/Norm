@@ -12,7 +12,7 @@ Integer first = content.at(index: 0)
 Bytes tail = content.slice(start: 1, length: 3)
 ```
 
-`toArray()` 返回逻辑独立的数组。完整声明以 [`std.io.bytes`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/io/bytes.norm) 为准。
+`toArray()` 返回逻辑独立的数组。完整声明以 [`std.io.bytes`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/bytes.norm) 为准。
 
 ## 读取与关闭
 
@@ -26,4 +26,4 @@ Java Binding 返回的 `java.io.InputStream` 和 `java.io.OutputStream` 分别�
 
 `encodeText(text:, encoding:)` 和 `decodeText(content:, encoding:)` 提供严格 UTF-8 转换。非法输入抛出 `TextException`。
 
-完整声明见 [`std.io.bytes`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/io/bytes.norm)、[`std.io.system`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/io/system.norm) 和 [`std.io.streams`](https://github.com/w0fv1/norm/blob/main/norm/stdlib/std/io/streams.norm)。
+完整声明见 [`std.io.bytes`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/bytes.norm)、[`std.io.system`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/system.norm) 和 [`std.io.streams`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/streams.norm)。

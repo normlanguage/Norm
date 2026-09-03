@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://w0fv1.github.io/Norm/schemas/norm-api-v1.json",
+  "$id": "https://normlanguage.github.io/Norm/schemas/norm-api-v1.json",
   "title": "Norm API Documentation",
   "oneOf": [
     { "$ref": "#/$defs/ModuleApi" },
