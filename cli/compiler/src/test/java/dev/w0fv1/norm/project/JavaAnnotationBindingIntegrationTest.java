@@ -37,7 +37,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 integrity: sha256("%s")
               ),
               api: [
-                jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "tags"]),
+                jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "protocols", "tags"]),
                 jarType(name: "Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
                 jarType(name: "GeneratedInvoker", members: ["contextRoundTrip", "contextValue", "hydrate", "invoke", "managed", "mutate", "read", "write"])
@@ -238,6 +238,7 @@ final class JavaAnnotationBindingIntegrationTest {
           int order() default 7;
           String path();
           Protocol protocol() default Protocol.HTTPS;
+          Protocol[] protocols() default {Protocol.HTTP};
           String[] tags() default {"http", "json"};
         }
         """);

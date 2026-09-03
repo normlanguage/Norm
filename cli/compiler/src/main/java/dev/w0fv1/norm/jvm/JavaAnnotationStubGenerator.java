@@ -227,7 +227,9 @@ public final class JavaAnnotationStubGenerator {
                   && descriptor.startsWith("L")
                   && descriptor.endsWith(";")) {
                 result.put(
-                    nominal, descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
+                    nominal,
+                    JavaTypeNames.sourceName(
+                        descriptor.substring(1, descriptor.length() - 1).replace('/', '.')));
               }
             });
     for (ResolvedJarBinding binding : bindings) {
@@ -239,10 +241,11 @@ public final class JavaAnnotationStubGenerator {
                 if (!descriptor.startsWith("L") || !descriptor.endsWith(";")) {
                   return;
                 }
-                String binaryName =
-                    descriptor.substring(1, descriptor.length() - 1).replace('/', '.');
-                String previous = result.putIfAbsent(reference, binaryName);
-                if (previous != null && !previous.equals(binaryName)) {
+                String sourceName =
+                    JavaTypeNames.sourceName(
+                        descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
+                String previous = result.putIfAbsent(reference, sourceName);
+                if (previous != null && !previous.equals(sourceName)) {
                   throw new IllegalArgumentException("conflicting Java type binding " + reference);
                 }
               });

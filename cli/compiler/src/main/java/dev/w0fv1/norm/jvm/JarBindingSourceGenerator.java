@@ -105,7 +105,7 @@ public final class JarBindingSourceGenerator {
       String selectedName = selection.name();
       List<JavaApiType> matching =
           schema.allTypes().stream()
-              .filter(type -> JavaApiTypeNames.matches(type.binaryName(), selectedName))
+              .filter(type -> JavaTypeNames.matches(type.binaryName(), selectedName))
               .toList();
       if (matching.size() > 1) {
         List<JavaApiType> localMatching =

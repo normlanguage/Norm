@@ -62,7 +62,7 @@ public final class JarApiScanner {
                     !selectedRootsOnly
                         || selectedTypes.stream()
                             .anyMatch(
-                                selected -> JavaApiTypeNames.matches(owner.binaryName(), selected)))
+                                selected -> JavaTypeNames.matches(owner.binaryName(), selected)))
             .map(owner -> apiType(owner, classes, bindingTypes, samTypes))
             .toList();
     List<JavaApiType> supportingTypes =
@@ -91,8 +91,7 @@ public final class JarApiScanner {
         .filter(name -> !rootNames.contains(name))
         .filter(
             name ->
-                selectedTypes.stream()
-                    .anyMatch(selected -> JavaApiTypeNames.matches(name, selected)))
+                selectedTypes.stream().anyMatch(selected -> JavaTypeNames.matches(name, selected)))
         .forEach(pending::addLast);
     Map<String, JavaApiType> result = new LinkedHashMap<>();
     while (!pending.isEmpty()) {
