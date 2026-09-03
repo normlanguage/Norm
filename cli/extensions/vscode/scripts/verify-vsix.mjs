@@ -14,6 +14,7 @@ import {
   releaseTargets,
   releaseVersion,
   targetLauncher,
+  targetRuntimeJava,
   verifyCliVersion,
 } from './release-package.mjs';
 
@@ -29,8 +30,7 @@ const launcherEntries = targets.map(
   (target) => `extension/bin/${target}/${targetLauncher(target).replaceAll('\\', '/')}`,
 );
 const runtimeEntries = targets.map(
-  (target) =>
-    `extension/bin/${target}/norm/runtime/bin/${target === 'win32-x64' ? 'java.exe' : 'java'}`,
+  (target) => `extension/bin/${target}/${targetRuntimeJava(target).replaceAll('\\', '/')}`,
 );
 const compilerEntries = targets.map(
   (target) => `extension/bin/${target}/norm/lib/compiler-${version}.jar`,
@@ -66,19 +66,13 @@ for (const [index, target] of targets.entries()) {
   if (target !== 'win32-x64' && ((embeddedEntry.attributes >>> 16) & 0o111) === 0) {
     throw new Error(`VSIX embedded CLI is not executable: ${target}`);
   }
+  const embeddedRuntime = entries.get(runtimeEntries[index]);
+  if (target !== 'win32-x64' && ((embeddedRuntime.attributes >>> 16) & 0o111) === 0) {
+    throw new Error(`VSIX embedded runtime is not executable: ${target}`);
+  }
   for (const [entryName, source] of [
     [launcherEntries[index], join(binaries, `runtime-${target}`, targetLauncher(target))],
-    [
-      runtimeEntries[index],
-      join(
-        binaries,
-        `runtime-${target}`,
-        'norm',
-        'runtime',
-        'bin',
-        target === 'win32-x64' ? 'java.exe' : 'java',
-      ),
-    ],
+    [runtimeEntries[index], join(binaries, `runtime-${target}`, targetRuntimeJava(target))],
     [
       compilerEntries[index],
       join(binaries, `runtime-${target}`, 'norm', 'lib', `compiler-${version}.jar`),

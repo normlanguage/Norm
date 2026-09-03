@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,6 +16,7 @@ import {
   releaseVersion,
   stageCliBundle,
   targetLauncher,
+  targetRuntimeJava,
   verifyCliVersion,
 } from './release-package.mjs';
 import { packageIgnore } from './vsce-package.mjs';
@@ -26,6 +28,9 @@ assert.equal(targetLauncher('win32-x64'), join('norm', 'bin', 'norm.bat'));
 assert.equal(targetLauncher('linux-x64'), join('norm', 'bin', 'norm'));
 assert.equal(targetLauncher('darwin-arm64'), join('norm', 'bin', 'norm'));
 assert.throws(() => targetLauncher('darwin-x64'));
+assert.equal(targetRuntimeJava('win32-x64'), join('norm', 'runtime', 'bin', 'java.exe'));
+assert.equal(targetRuntimeJava('linux-x64'), join('norm', 'runtime', 'bin', 'java'));
+assert.throws(() => targetRuntimeJava('darwin-x64'));
 assert.equal(packageIgnore('out/test/**\n', 'server'), 'out/test/**\n\nserver/**\n');
 
 const extensionRoot = resolve(import.meta.dirname, '..');
@@ -55,17 +60,17 @@ try {
 
   const binaries = join(root, 'binaries');
   for (const { target } of releaseTargets) {
-    const directory = join(binaries, `runtime-${target}`, 'norm');
+    const targetRoot = join(binaries, `runtime-${target}`);
+    const directory = join(targetRoot, 'norm');
     mkdirSync(join(directory, 'bin'), { recursive: true });
     mkdirSync(join(directory, 'lib'), { recursive: true });
     mkdirSync(join(directory, 'runtime', 'bin'), { recursive: true });
-    const launcher = join(directory, 'bin', target === 'win32-x64' ? 'norm.bat' : 'norm');
+    const launcher = join(targetRoot, targetLauncher(target));
     writeFileSync(launcher, target);
     writeFileSync(join(directory, 'lib', 'compiler.jar'), target);
-    writeFileSync(
-      join(directory, 'runtime', 'bin', target === 'win32-x64' ? 'java.exe' : 'java'),
-      target,
-    );
+    const runtimeJava = join(targetRoot, targetRuntimeJava(target));
+    writeFileSync(runtimeJava, target);
+    if (process.platform !== 'win32') chmodSync(runtimeJava, 0o644);
   }
   const extension = join(root, 'extension');
   mkdirSync(extension);
@@ -80,19 +85,13 @@ try {
       target,
     );
     assert.ok(existsSync(join(extension, 'bin', target, 'norm', 'lib', 'compiler.jar')));
-    assert.ok(
-      existsSync(
-        join(
-          extension,
-          'bin',
-          target,
-          'norm',
-          'runtime',
-          'bin',
-          target === 'win32-x64' ? 'java.exe' : 'java',
-        ),
-      ),
-    );
+    assert.ok(existsSync(join(extension, 'bin', target, targetRuntimeJava(target))));
+    if (process.platform !== 'win32' && target !== 'win32-x64') {
+      assert.notEqual(
+        statSync(join(extension, 'bin', target, targetRuntimeJava(target))).mode & 0o111,
+        0,
+      );
+    }
   }
 } finally {
   rmSync(root, { recursive: true, force: true });

@@ -39,6 +39,16 @@ export function targetLauncher(target) {
   return join('norm', launcher);
 }
 
+export function targetRuntimeJava(target) {
+  if (!targetLaunchers.has(target)) throw new Error(`Unsupported release target: ${target}`);
+  return join(
+    'norm',
+    'runtime',
+    'bin',
+    target === 'win32-x64' ? 'java.exe' : 'java',
+  );
+}
+
 export function verifyCliVersion(binary, version) {
   const expected = `norm ${releaseVersion(version)}`;
   const commandScript = process.platform === 'win32' && /\.(?:bat|cmd)$/i.test(binary);
@@ -66,6 +76,9 @@ export function stageCliBundle(binaries, extensionRoot) {
     mkdirSync(dirname(destination), { recursive: true });
     cpSync(source, destination, { recursive: true, errorOnExist: true });
     chmodSync(join(destination, launcher), 0o755);
+    if (target !== 'win32-x64') {
+      chmodSync(join(bin, target, targetRuntimeJava(target)), 0o755);
+    }
     return destination;
   });
 }
