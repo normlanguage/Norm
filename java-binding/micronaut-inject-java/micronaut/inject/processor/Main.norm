@@ -1,5 +1,0 @@
-package micronaut.inject.processor
-
-Void main() {
-  printLine("Micronaut annotation processor")
-}

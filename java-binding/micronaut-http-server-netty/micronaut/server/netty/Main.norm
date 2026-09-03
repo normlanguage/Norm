@@ -1,5 +1,0 @@
-package micronaut.server.netty
-
-Void main() {
-  printLine("Micronaut Netty server")
-}

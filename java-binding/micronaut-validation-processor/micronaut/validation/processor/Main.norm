@@ -1,5 +1,0 @@
-package micronaut.validation.processor
-
-Void main() {
-  printLine("Micronaut validation processor")
-}

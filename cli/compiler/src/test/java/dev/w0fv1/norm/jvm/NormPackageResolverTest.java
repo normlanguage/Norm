@@ -20,7 +20,8 @@ final class NormPackageResolverTest {
   @Test
   void downloadsAndCachesANormPackageFromItsSelectedRepository() throws Exception {
     Path remote = temporaryDirectory.resolve("remote");
-    Path archive = remote.resolve("sample/library/1/library-1.nar");
+    Path registry = registry("sample.library", "normlanguage", "sample-library");
+    Path archive = remote.resolve("normlanguage/sample-library/releases/download/v1/library-1.nar");
     Files.createDirectories(archive.getParent());
     Files.writeString(archive, "immutable nar");
     Files.writeString(
@@ -33,7 +34,9 @@ final class NormPackageResolverTest {
         new NormPackageResolver(
             temporaryDirectory.resolve("local"),
             cache,
-            Map.of(ModuleRepositoryId.GITHUB, remote.toUri()))) {
+            Map.of(
+                ModuleRepositoryId.GITHUB,
+                new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
       resolved = resolver.resolve(requirement);
     }
 
@@ -46,7 +49,9 @@ final class NormPackageResolverTest {
         new NormPackageResolver(
             temporaryDirectory.resolve("local"),
             cache,
-            Map.of(ModuleRepositoryId.GITHUB, remote.toUri()))) {
+            Map.of(
+                ModuleRepositoryId.GITHUB,
+                new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
       assertEquals(resolved, resolver.resolve(requirement));
     }
   }
@@ -54,7 +59,8 @@ final class NormPackageResolverTest {
   @Test
   void rejectsContentThatDoesNotMatchThePublishedDigest() throws Exception {
     Path remote = temporaryDirectory.resolve("remote-corrupt");
-    Path archive = remote.resolve("sample/library/1/library-1.nar");
+    Path registry = registry("sample.library", "normlanguage", "sample-library");
+    Path archive = remote.resolve("normlanguage/sample-library/releases/download/v1/library-1.nar");
     Files.createDirectories(archive.getParent());
     Files.writeString(archive, "changed nar");
     Files.writeString(archive.resolveSibling("library-1.nar.sha256"), "0".repeat(64));
@@ -63,7 +69,9 @@ final class NormPackageResolverTest {
         new NormPackageResolver(
             temporaryDirectory.resolve("local"),
             temporaryDirectory.resolve("cache-corrupt"),
-            Map.of(ModuleRepositoryId.GITHUB, remote.toUri()))) {
+            Map.of(
+                ModuleRepositoryId.GITHUB,
+                new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
       IOException exception =
           assertThrows(
               IOException.class,
@@ -85,5 +93,42 @@ final class NormPackageResolverTest {
 
       assertTrue(exception.getMessage().contains("unknown Norm package repository 'missing'"));
     }
+  }
+
+  @Test
+  void rejectsModulesThatAreNotRegisteredInTheSelectedRepository() throws Exception {
+    Path registry = registry("sample.other", "normlanguage", "sample-other");
+
+    try (var resolver =
+        new NormPackageResolver(
+            temporaryDirectory.resolve("local"),
+            temporaryDirectory.resolve("cache-missing"),
+            Map.of(
+                ModuleRepositoryId.GITHUB,
+                new GitHubPackageRepository(
+                    registry.toUri(), temporaryDirectory.resolve("remote-missing").toUri())))) {
+      IOException exception =
+          assertThrows(
+              IOException.class,
+              () -> resolver.resolve(new ModuleRequirement("github", "sample.library", 1, false)));
+
+      assertTrue(exception.getMessage().contains("is not registered"));
+    }
+  }
+
+  private Path registry(String name, String owner, String repository) throws IOException {
+    Path path = temporaryDirectory.resolve("registry-" + repository + ".json");
+    Files.writeString(
+        path,
+        """
+        {
+          "formatVersion": 1,
+          "packages": [
+            {"name": "%s", "owner": "%s", "repository": "%s"}
+          ]
+        }
+        """
+            .formatted(name, owner, repository));
+    return path;
   }
 }

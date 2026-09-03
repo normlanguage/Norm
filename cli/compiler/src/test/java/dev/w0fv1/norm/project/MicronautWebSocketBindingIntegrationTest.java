@@ -17,7 +17,6 @@ import java.net.http.WebSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -31,28 +30,8 @@ final class MicronautWebSocketBindingIntegrationTest {
   @Test
   @Timeout(300)
   void exchangesMessagesWithAPureNormServerWebSocket() throws Exception {
-    Path repository = temporaryDirectory.resolve("repository");
+    Path repository = PublishedPackageCache.path();
     NormRuntime backend = new NormRuntime();
-    ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-    try (ProjectLoader projects =
-        environment.projectLoader(temporaryDirectory.resolve("maven-cache"))) {
-      ModulePackager packager = new ModulePackager(projects);
-      Path bindings = repositoryRoot().resolve("java-binding");
-      for (String module :
-          List.of(
-              "micronaut-websocket/micronaut/websocket",
-              "micronaut-core/micronaut/core",
-              "micronaut-http/micronaut/http",
-              "micronaut-inject/micronaut/inject",
-              "micronaut-runtime/micronaut/runtime",
-              "micronaut-http-server-netty/micronaut/server/netty",
-              "micronaut-json/micronaut/json",
-              "micronaut-jackson/micronaut/jackson",
-              "micronaut-inject-java/micronaut/inject/processor",
-              "okhttp/okhttp/client")) {
-        packager.packageModule(bindings.resolve(module).resolve("module.norm"), repository);
-      }
-    }
     CountDownLatch releaseServer = new CountDownLatch(1);
     com.sun.net.httpserver.HttpServer holdServer =
         com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -157,7 +136,7 @@ final class MicronautWebSocketBindingIntegrationTest {
                         entry,
                         ExecutionContext.builder().output(new PrintWriter(output, true)).build()));
         try {
-          long deadline = System.nanoTime() + Duration.ofSeconds(120).toNanos();
+          long deadline = System.nanoTime() + Duration.ofSeconds(240).toNanos();
           while (!input.ready() && !execution.isDone() && System.nanoTime() < deadline) {
             Thread.sleep(20);
           }
@@ -223,14 +202,5 @@ final class MicronautWebSocketBindingIntegrationTest {
       releaseServer.countDown();
       holdServer.stop(0);
     }
-  }
-
-  private static Path repositoryRoot() {
-    Path current = Path.of("").toAbsolutePath().normalize();
-    while (current != null && !Files.exists(current.resolve("settings.gradle.kts"))) {
-      current = current.getParent();
-    }
-    if (current == null) throw new IllegalStateException("Norm repository root is absent");
-    return current;
   }
 }

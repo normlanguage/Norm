@@ -1,5 +1,0 @@
-package micronaut.jdbc.hikari
-
-Void main() {
-  printLine("Micronaut JDBC Hikari")
-}

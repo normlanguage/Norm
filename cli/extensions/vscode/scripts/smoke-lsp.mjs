@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildServer } from './build-server.mjs';
@@ -18,11 +19,17 @@ let stderr = '';
 let settled = false;
 let protocolComplete = false;
 let signatureRequested = false;
+let packageRequested = false;
 const fixtureRoot = resolve(process.cwd(), 'test-fixtures', 'lsp-smoke');
 const moduleUri = pathToFileURL(resolve(fixtureRoot, 'module.norm')).href;
 const signatureUri = pathToFileURL(resolve(fixtureRoot, 'signature.norm')).href;
+const packagePath = resolve(process.cwd(), '..', '..', '..', 'docs', 'examples', 'micronaut-single-file', 'web.norm');
+const packageUri = pathToFileURL(packagePath).href;
 const signatureText = 'Void consume(String value, Integer count) {} Void main() { consume(';
-const timeout = setTimeout(() => finish(new Error(`LSP initialize timed out. stderr: ${stderr}`)), 10_000);
+const timeout = setTimeout(
+  () => finish(new Error(`LSP package resolution timed out. stderr: ${stderr}`)),
+  180_000,
+);
 
 child.stderr.setEncoding('utf8');
 child.stderr.on('data', (chunk) => {
@@ -161,6 +168,27 @@ function readMessages() {
         return finish(
           new Error(`Formatting request failed: ${JSON.stringify(message)} stderr: ${stderr}`),
         );
+      }
+      packageRequested = true;
+      send({
+        jsonrpc: '2.0',
+        method: 'textDocument/didOpen',
+        params: {
+          textDocument: {
+            uri: packageUri,
+            languageId: 'norm',
+            version: 1,
+            text: readFileSync(packagePath, 'utf8'),
+          },
+        },
+      });
+    } else if (
+      packageRequested &&
+      message.method === 'textDocument/publishDiagnostics' &&
+      message.params?.uri === packageUri
+    ) {
+      if (message.params.diagnostics?.length) {
+        return finish(new Error(`GitHub package diagnostics failed: ${JSON.stringify(message)}`));
       }
       send({ jsonrpc: '2.0', id: 5, method: 'shutdown', params: null });
     } else if (message.id === 5) {

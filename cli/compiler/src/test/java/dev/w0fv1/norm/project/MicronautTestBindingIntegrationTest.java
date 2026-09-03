@@ -9,7 +9,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -18,25 +17,10 @@ final class MicronautTestBindingIntegrationTest {
   @TempDir Path temporaryDirectory;
 
   @Test
-  @Timeout(180)
+  @Timeout(300)
   void injectsAndReplacesNormBeansInAPureNormMicronautTest() throws Exception {
-    Path repository = repositoryRoot().resolve(".tmp/jar-cache");
+    Path repository = PublishedPackageCache.path();
     NormRuntime backend = new NormRuntime();
-    ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-    try (ProjectLoader projects = environment.projectLoader(repository)) {
-      ModulePackager packager = new ModulePackager(projects);
-      Path bindings = repositoryRoot().resolve("java-binding");
-      for (String module :
-          List.of(
-              "junit-jupiter/junit/jupiter",
-              "micronaut-test-core/micronaut/test/core",
-              "micronaut-test-junit5/micronaut/test/junit5",
-              "micronaut-inject/micronaut/inject",
-              "jakarta-inject/jakarta/inject",
-              "micronaut-inject-java/micronaut/inject/processor")) {
-        packager.packageModule(bindings.resolve(module).resolve("module.norm"), repository);
-      }
-    }
 
     Path module = Files.createDirectories(temporaryDirectory.resolve("application/sample/test"));
     Files.writeString(
@@ -126,14 +110,5 @@ final class MicronautTestBindingIntegrationTest {
     assertEquals(1, result.report().orElseThrow().testsFound());
     assertEquals(1, result.report().orElseThrow().testsSucceeded());
     assertEquals("", output.toString());
-  }
-
-  private static Path repositoryRoot() {
-    Path current = Path.of("").toAbsolutePath().normalize();
-    while (current != null && !Files.exists(current.resolve("settings.gradle.kts"))) {
-      current = current.getParent();
-    }
-    if (current == null) throw new IllegalStateException("Norm repository root is absent");
-    return current;
   }
 }

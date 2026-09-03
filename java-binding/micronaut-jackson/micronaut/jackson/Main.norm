@@ -1,5 +1,0 @@
-package micronaut.jackson
-
-Void main() {
-  printLine("Micronaut Jackson")
-}

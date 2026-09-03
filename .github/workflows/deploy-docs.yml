@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - 'java-binding/**/artifacts/**/*.nar'
-      - 'modules/**/artifacts/**/*.nar'
       - 'norm/stdlib/std/**'
       - 'norm/tests/docs/**'
       - 'cli/compiler/src/**'
@@ -27,8 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          lfs: true
       - uses: actions/setup-java@v6
         with:
           distribution: oracle
@@ -45,18 +41,6 @@ jobs:
       - name: Build VitePress site
         working-directory: docs
         run: npm run docs:build
-      - name: Stage Norm package repository
-        shell: bash
-        run: |
-          repository="docs/.vitepress/dist/repository"
-          mkdir -p "$repository"
-          while IFS= read -r -d '' archive; do
-            relative="${archive#*/artifacts/}"
-            target="$repository/$relative"
-            mkdir -p "$(dirname "$target")"
-            cp "$archive" "$target"
-            sha256sum "$target" | awk '{print $1}' > "$target.sha256"
-          done < <(find java-binding modules -type f -path '*/artifacts/*.nar' -print0)
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

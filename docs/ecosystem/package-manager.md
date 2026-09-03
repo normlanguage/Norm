@@ -14,5 +14,7 @@ NAR 是统一的 Module 制品。纯 Norm Module 与 Java Binding Module 使用�
 dependency(repository: "github", name: "micronaut.web", version: 2)
 ```
 
-`github` 通过 `https://normlanguage.github.io/Norm/repository/` 的匿名 Maven 布局取得 NAR 和 SHA-256。NAR 中的 Java Binding 再由编译器从 Maven Central 解析 JAR、POM、BOM 和传递运行依赖。Norm 包来源与 Java artifact 仓库是独立概念；用户不编写 Maven 或 Gradle 配置。GitHub Pages 仓库由源码中的已发布 NAR 派生，未来增加 `norm` 仓库不会改变 `github` 的解析语义。
+`github` 先读取 [`normlanguage/registry`](https://github.com/normlanguage/registry) 的模块名映射，再从模块自己的 GitHub Release `v<version>` 下载 `<artifact>-<version>.nar` 与 SHA-256 sidecar。Release 开启不可变发布；注册表只决定模块由哪个仓库拥有，不保存版本清单或制品。NAR 中的 Java Binding 再由编译器从 Maven Central 解析 JAR、POM、BOM 和传递运行依赖。Norm 包来源与 Java artifact 仓库是独立概念；用户不编写 Maven 或 Gradle 配置。
+
+每个 Module 使用独立源码仓库，`module.norm` 仍是模块身份、依赖与可选 Java 根制品的唯一声明源。第三方先通过注册表 Pull Request 认领模块名，随后可在自己的仓库独立发布新版本；未来增加 `norm` 仓库不会改变 `github` 的解析语义。
 

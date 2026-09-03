@@ -1,5 +1,0 @@
-package micronaut.data.processor
-
-Void main() {
-  printLine("Micronaut Data processor")
-}

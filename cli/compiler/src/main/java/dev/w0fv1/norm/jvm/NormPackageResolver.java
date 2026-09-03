@@ -19,28 +19,31 @@ import java.util.Map;
 import java.util.Objects;
 
 public final class NormPackageResolver implements AutoCloseable {
-  private static final Map<ModuleRepositoryId, URI> DEFAULT_REPOSITORIES =
-      Map.of(
-          ModuleRepositoryId.GITHUB, URI.create("https://normlanguage.github.io/Norm/repository/"));
-
   private final Path localRepository;
   private final Path cache;
-  private final Map<ModuleRepositoryId, URI> repositories;
+  private final Map<ModuleRepositoryId, NormPackageRepository> repositories;
   private final HttpClient client;
 
   public NormPackageResolver(Path cache) {
-    this(cache, cache, DEFAULT_REPOSITORIES);
+    this(cache, cache, defaultRepositories());
   }
 
   public NormPackageResolver(Path localRepository, Path cache) {
-    this(localRepository, cache, DEFAULT_REPOSITORIES);
+    this(localRepository, cache, defaultRepositories());
   }
 
-  NormPackageResolver(Path localRepository, Path cache, Map<ModuleRepositoryId, URI> repositories) {
+  NormPackageResolver(
+      Path localRepository,
+      Path cache,
+      Map<ModuleRepositoryId, NormPackageRepository> repositories) {
     this.localRepository = normalize(Objects.requireNonNull(localRepository, "localRepository"));
     this.cache = normalize(Objects.requireNonNull(cache, "cache"));
     this.repositories = Map.copyOf(repositories);
-    client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
+    client =
+        HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .proxy(EnvironmentProxySelector.system())
+            .build();
   }
 
   public Path resolve(ModuleRequirement requirement) throws IOException {
@@ -50,12 +53,12 @@ public final class NormPackageResolver implements AutoCloseable {
     if (Files.isRegularFile(local)) return normalize(local);
     Path cached = cache.resolve(requirement.repository().value()).resolve(relative);
     if (validCachedArtifact(cached)) return normalize(cached);
-    URI repository = repositories.get(requirement.repository());
+    NormPackageRepository repository = repositories.get(requirement.repository());
     if (repository == null) {
       throw new IOException(
           "unknown Norm package repository '" + requirement.repository().value() + "'");
     }
-    URI archiveUri = repository.resolve(relative.toString().replace('\\', '/'));
+    URI archiveUri = repository.locate(requirement, client);
     URI digestUri = URI.create(archiveUri + ".sha256");
     Sha256Digest expected = publishedDigest(digestUri, requirement);
     Files.createDirectories(cached.getParent());
@@ -173,6 +176,10 @@ public final class NormPackageResolver implements AutoCloseable {
 
   private static Path normalize(Path path) {
     return path.toAbsolutePath().normalize();
+  }
+
+  private static Map<ModuleRepositoryId, NormPackageRepository> defaultRepositories() {
+    return Map.of(ModuleRepositoryId.GITHUB, new GitHubPackageRepository());
   }
 
   @Override

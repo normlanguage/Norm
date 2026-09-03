@@ -1,5 +1,0 @@
-package micronaut.runtime
-
-Void main() {
-  printLine("Micronaut runtime")
-}
