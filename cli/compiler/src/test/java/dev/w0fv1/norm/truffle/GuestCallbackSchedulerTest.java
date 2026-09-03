@@ -2,6 +2,7 @@ package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -97,6 +98,40 @@ final class GuestCallbackSchedulerTest {
 
       assertSame(outer, outerExecution.get());
       assertSame(innerCaller.get(), innerExecution.get());
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  @Timeout(5)
+  void returnsFromACallbackOnlyAfterTheOwnerReclaimsExecution() throws Exception {
+    Thread owner = Thread.currentThread();
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    try (GuestCallbackScheduler scheduler = new GuestCallbackScheduler()) {
+      Thread callback =
+          Thread.ofPlatform()
+              .start(
+                  () -> {
+                    try {
+                      for (int invocation = 0; invocation < 1_000; invocation++) {
+                        scheduler.invoke(() -> null);
+                        if (scheduler.isBorrowedExecution()) {
+                          throw new AssertionError(
+                              "callback returned before ownership was reclaimed");
+                        }
+                      }
+                    } catch (Throwable exception) {
+                      failure.set(exception);
+                    } finally {
+                      owner.interrupt();
+                    }
+                  });
+
+      scheduler.runUntilCancellation();
+      callback.join(2_000);
+
+      assertNull(failure.get());
     } finally {
       Thread.interrupted();
     }

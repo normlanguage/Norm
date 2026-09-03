@@ -186,7 +186,15 @@ final class MicronautBindingIntegrationTest {
                   .header("X-Session", "session-norm")
                   .POST(HttpRequest.BodyPublishers.ofString("{\"name\":\"General\"}"))
                   .build();
-          assertEquals(200, client.send(board, HttpResponse.BodyHandlers.ofString()).statusCode());
+          List<java.util.concurrent.CompletableFuture<HttpResponse<String>>> boardResponses =
+              java.util.stream.IntStream.range(0, 32)
+                  .mapToObj(
+                      ignored -> client.sendAsync(board, HttpResponse.BodyHandlers.ofString()))
+                  .toList();
+          for (var response : boardResponses) {
+            HttpResponse<String> boardResponse = response.join();
+            assertEquals(200, boardResponse.statusCode(), boardResponse.body());
+          }
 
           HttpRequest topic =
               HttpRequest.newBuilder(root.resolve("/bbs/session/topics"))

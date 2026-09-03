@@ -451,7 +451,7 @@ dependencies {
     implementation(libs.objenesis)
     runtimeOnly(libs.truffle.runtime)
     runtimeOnly(libs.junit.jupiter.engine)
-    runtimeOnly(libs.slf4j.nop)
+    runtimeOnly(libs.slf4j.simple)
     annotationProcessor(libs.truffle.dsl.processor)
     testImplementation(libs.archunit)
 }

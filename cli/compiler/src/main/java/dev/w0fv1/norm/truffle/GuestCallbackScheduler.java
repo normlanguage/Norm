@@ -32,6 +32,7 @@ final class GuestCallbackScheduler implements AutoCloseable {
       return operation.get();
     } finally {
       request.complete();
+      request.awaitRelease();
     }
   }
 
@@ -92,12 +93,16 @@ final class GuestCallbackScheduler implements AutoCloseable {
       executor = request.caller;
       request.grant();
     }
-    request.awaitCompletion();
-    synchronized (this) {
-      if (executor != request.caller) {
-        throw new IllegalStateException("Norm execution ownership was not restored");
+    try {
+      request.awaitCompletion();
+      synchronized (this) {
+        if (executor != request.caller) {
+          throw new IllegalStateException("Norm execution ownership was not restored");
+        }
+        executor = current;
       }
-      executor = current;
+    } finally {
+      request.release();
     }
   }
 
@@ -105,6 +110,7 @@ final class GuestCallbackScheduler implements AutoCloseable {
     private final Thread caller;
     private final CompletableFuture<Void> granted = new CompletableFuture<>();
     private final CompletableFuture<Void> completed = new CompletableFuture<>();
+    private final CompletableFuture<Void> released = new CompletableFuture<>();
 
     private Request(Thread caller) {
       this.caller = caller;
@@ -118,6 +124,10 @@ final class GuestCallbackScheduler implements AutoCloseable {
       completed.complete(null);
     }
 
+    private void release() {
+      released.complete(null);
+    }
+
     private void fail(RuntimeException failure) {
       granted.completeExceptionally(failure);
       completed.completeExceptionally(failure);
@@ -129,6 +139,10 @@ final class GuestCallbackScheduler implements AutoCloseable {
 
     private void awaitCompletion() {
       await(completed, "Norm callback execution failed");
+    }
+
+    private void awaitRelease() {
+      await(released, "Norm callback ownership release failed");
     }
 
     private static void await(CompletableFuture<Void> future, String message) {
