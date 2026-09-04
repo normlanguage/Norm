@@ -296,7 +296,7 @@ jobs:
         run: sha256sum norm* > SHA256SUMS
 
       - name: Attest release assets
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: release/*
 
