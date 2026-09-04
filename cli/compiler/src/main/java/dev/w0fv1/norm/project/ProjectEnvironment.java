@@ -89,4 +89,16 @@ public final class ProjectEnvironment {
     return new ProjectLauncher(
         projectLoader(), CompilerSession.persistent(languageProfile), backend);
   }
+
+  public ProjectLauncher bundledLauncher(Path bundle) throws IOException {
+    Path root = Objects.requireNonNull(bundle, "bundle").toAbsolutePath().normalize();
+    ProjectLoader loader =
+        new ProjectLoader(
+            new ModuleEvaluator(languageProfile, backend),
+            reservedModuleNames,
+            new NormPackageResolver(
+                root.resolve("packages"), root.resolve("cache").resolve("packages")),
+            JarResolver.bundled(root.resolve("jars")));
+    return new ProjectLauncher(loader, CompilerSession.persistent(languageProfile), backend);
+  }
 }

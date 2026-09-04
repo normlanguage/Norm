@@ -23,6 +23,22 @@ public sealed class RuntimeLauncherTest : IDisposable
             start.ArgumentList);
     }
 
+    [Fact]
+    public void LaunchesAnEmbeddedApplicationWithItsOfflineBundle()
+    {
+        string bin = Path.Combine(root, "bin");
+        Directory.CreateDirectory(bin);
+        File.WriteAllText(
+            Path.Combine(bin, "launcher.json"),
+            """{"module":"norm/main","jvmArguments":[]}""");
+        EmbeddedApplication application = new(Path.Combine(root, "application"), Path.Combine(root, "application", "source", "web.norm"));
+
+        ProcessStartInfo start = RuntimeLauncher.CreateApplicationStartInfo(root, application);
+
+        Assert.Equal(["--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry], start.ArgumentList);
+        Assert.Equal(application.Root, start.Environment["NORM_APPLICATION_BUNDLE"]);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(root))

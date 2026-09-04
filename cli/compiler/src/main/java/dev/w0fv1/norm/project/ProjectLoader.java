@@ -18,6 +18,7 @@ import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenJarTarget;
+import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleDependency;
@@ -105,6 +106,8 @@ public final class ProjectLoader implements AutoCloseable {
           entry,
           Optional.empty(),
           Set.of(),
+          Map.of(),
+          Map.of(),
           CompilationScope.anonymous(List.of(entrySource)),
           List.of(entrySource),
           Set.of(),
@@ -152,10 +155,20 @@ public final class ProjectLoader implements AutoCloseable {
                     java.util.function.Function.identity(),
                     (left, right) -> left,
                     LinkedHashMap::new));
+    Map<ModuleCoordinate, Path> moduleArchives = new LinkedHashMap<>();
     Set<DocumentId> bindingSources = new LinkedHashSet<>();
     List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
     Map<String, ModuleResource> resources = new LinkedHashMap<>();
     for (ResolvedModule module : graph) {
+      if (!normalize(module.moduleSource().path()).equals(normalize(rootModulePath))
+          && module
+              .moduleSource()
+              .path()
+              .getFileName()
+              .toString()
+              .endsWith(ModuleArchiveFormat.FILE_SUFFIX)) {
+        moduleArchives.put(module.descriptor().coordinate(), module.moduleSource().path());
+      }
       dependencies.put(
           module.descriptor().coordinate(), readableDependencies(module.descriptor(), descriptors));
       modulePaths.add(normalize(module.moduleSource().path()));
@@ -184,6 +197,8 @@ public final class ProjectLoader implements AutoCloseable {
         entry,
         Optional.of(rootModulePath),
         modulePaths,
+        descriptors,
+        moduleArchives,
         new CompilationScope(coordinates, new ModuleGraph(dependencies)),
         sources,
         exportedSources,
@@ -202,26 +217,40 @@ public final class ProjectLoader implements AutoCloseable {
       throws IOException {
     SourceFile programSource = structure.programSource();
     Optional<String> packageName = SourceHeader.parse(programSource).packageName();
+    ModuleDeclaration declaration = modules.evaluate(structure.moduleConfiguration().orElseThrow());
+    boolean localApplication = packageName.isEmpty() && declaration.name().isEmpty();
     ModuleDescriptor descriptor =
         resolveDeclaration(
-            modules.evaluate(structure.moduleConfiguration().orElseThrow()), packageName);
-    requireAvailableModuleName(descriptor);
+            declaration,
+            localApplication
+                ? Optional.of(ModuleCoordinate.localApplication().name())
+                : packageName);
+    if (!localApplication) requireAvailableModuleName(descriptor);
     if (descriptor.binding().isPresent()) {
       throw new IOException("an application source cannot declare a Java binding");
     }
-    String modulePackage = descriptor.name();
     String sourcePackage = packageName.orElse("");
-    if (!sourcePackage.equals(modulePackage) && !sourcePackage.startsWith(modulePackage + ".")) {
+    String modulePackage = descriptor.name();
+    if (!sourcePackage.isEmpty()
+        && !sourcePackage.equals(modulePackage)
+        && !sourcePackage.startsWith(modulePackage + ".")) {
       throw new IOException(
           "single-file module source must declare package '"
               + modulePackage
               + "' or one of its child packages");
     }
+    if (sourcePackage.isEmpty() && !descriptor.exports().isEmpty()) {
+      throw new IOException("a package-less single-file application cannot export sources");
+    }
     String sourcePath =
-        sourcePackage.replace('.', '/') + "/" + entrySource.path().getFileName().toString();
+        sourcePackage.isEmpty()
+            ? entrySource.path().getFileName().toString()
+            : sourcePackage.replace('.', '/') + "/" + entrySource.path().getFileName().toString();
     Map<String, SourceFile> moduleSources = Map.of(sourcePath, programSource);
     ModuleLoader.LoadedModule loaded =
-        new ModuleLoader().load(new MemoryResolver(moduleSources), descriptor);
+        sourcePackage.isEmpty()
+            ? new ModuleLoader.LoadedModule(descriptor, moduleSources, Set.of())
+            : new ModuleLoader().load(new MemoryResolver(moduleSources), descriptor);
     Path root = normalize(entrySource.path()).getParent();
     if (root == null) throw new IOException("application source path has no parent");
     ResolvedModule rootModule =
@@ -511,7 +540,7 @@ public final class ProjectLoader implements AutoCloseable {
   }
 
   private void requireAvailableModuleName(ModuleDescriptor descriptor) throws IOException {
-    if (reservedModuleNames.contains(descriptor.name())) {
+    if (descriptor.name().startsWith("__") || reservedModuleNames.contains(descriptor.name())) {
       throw new IOException("module name '" + descriptor.name() + "' is reserved");
     }
   }

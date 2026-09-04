@@ -63,20 +63,21 @@ main() {
 
 ## 单文件与项目
 
-`.norm` 文件可以在同一文件中声明 package、`module()`、依赖和应用入口。CLI 与 Language Server 读取这份唯一声明，并从指定仓库解析依赖。多文件项目仍可使用独立的根 `module.norm`。
+`.norm` 文件可以在同一文件中声明 `module()`、依赖和应用入口，本地单文件应用不要求 `package`、Module 名称或版本。CLI 与 Language Server 读取这份唯一声明，并从指定仓库解析依赖。多文件项目仍使用正式 package 结构和独立的根 `module.norm`。
 
 模块规则见[模块系统](/spec/module-system)。
 
 ## CLI 选择
 
-正式扩展默认使用自身包含的自包含 CLI。只有开发 Norm 工具链时，才需要设置 `norm.cli.path`。候选 CLI 必须与扩展版本一致；同一基础版本的开发构建可以带 `-SNAPSHOT`。不匹配的配置会被跳过，并在 Norm Language Server 输出中说明原因。
+正式扩展默认使用自身包含的自包含 CLI。只有开发 Norm 工具链时，才需要设置 `norm.cli.path`。配置项、包内 CLI 和系统 CLI 必须与扩展版本一致；Norm 源码工作区可以使用同一 major/minor 且不旧于扩展的工作区补丁版本。不匹配的候选会被跳过，并在 Norm Language Server 输出中说明原因。状态栏持续显示实际使用的 CLI 版本，点击可查看来源和路径。
 
 正式扩展的解析顺序是：
 
 1. 版本匹配的 `norm.cli.path`；
-2. 扩展包内同版本的自包含 CLI；
-3. 当前工作区和扩展源码树中的同版本开发构建；
-4. 系统 `PATH` 中的同版本 `norm`。
+2. 当前 Norm 源码工作区中同一 major/minor 且补丁版本更新的开发构建；
+3. 扩展包内同版本的自包含 CLI；
+4. 当前 Norm 源码工作区中与扩展同补丁版本的开发构建；
+5. 系统 `PATH` 中的同版本 `norm`。
 
 通过 F5 启动扩展开发宿主时，工作区构建优先于扩展包内容。Language Server 与运行命令复用同一次选择，不会分别启动两个工具链版本。
 
@@ -90,7 +91,7 @@ TextMate 高亮不需要语言服务器，其余功能需要 CLI。先执行 **N
 
 ### 终端可以运行，扩展仍然使用旧版本
 
-检查 **Norm Language Server** 输出中的 CLI 路径和版本。`norm.cli.path` 指向其他版本时，扩展会使用包内的匹配版本，并显示一次提示；需要开发其他版本时，应使用对应版本的扩展开发宿主。
+查看状态栏中的 Norm 版本，点击可显示 CLI 路径和来源；同样的信息也会写入 **Norm Language Server** 输出。`norm.cli.path` 指向其他版本时，扩展会使用包内的匹配版本并显示一次提示。
 
 ### 跨文件 import 或补全缺失
 

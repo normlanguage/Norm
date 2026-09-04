@@ -103,6 +103,30 @@ final class CliControllerTest {
   }
 
   @Test
+  void buildsASingleFileApplicationBesideItsSource() throws IOException {
+    Path source = temporaryDirectory.resolve("web.norm");
+    Files.writeString(
+        source,
+        "Module module() { return module(dependencies: []) } Void main() { printLine(\"built\") }");
+    Path launcher = temporaryDirectory.resolve("norm.exe");
+    Files.write(launcher, new byte[] {1, 2, 3, 4});
+    String previous = System.getProperty("norm.launcher.path");
+    try {
+      System.setProperty("norm.launcher.path", launcher.toString());
+
+      Result result = run("build", source.toString());
+
+      Path executable = temporaryDirectory.resolve("web.norm.exe");
+      assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+      assertTrue(Files.size(executable) > Files.size(launcher));
+      assertTrue(result.standardOut().contains("Built " + executable));
+    } finally {
+      if (previous == null) System.clearProperty("norm.launcher.path");
+      else System.setProperty("norm.launcher.path", previous);
+    }
+  }
+
+  @Test
   void runsAnApplicationAndModuleDeclaredInOneSourceFile() throws IOException {
     Path source = temporaryDirectory.resolve("web.norm");
     Files.writeString(

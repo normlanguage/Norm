@@ -10,6 +10,7 @@ public final class CliController {
     router = new CommandRouter();
     router.register(new HelpCommand(router));
     router.register(new VersionCommand());
+    router.register(new BuildCommand());
     router.register(new RunCommand());
     router.register(new TestCommand());
     router.register(new ResolveCommand());

@@ -1298,6 +1298,7 @@ public final class BuiltinCatalog {
             parameterInfo("value", SemanticType.DYNAMIC)));
     addGlobal(
         globals, global("__awaitCancellation", SemanticType.VOID, IntrinsicId.AWAIT_CANCELLATION));
+    addGlobal(globals, global("__applicationPackage", stringType, IntrinsicId.APPLICATION_PACKAGE));
     addGlobal(
         globals,
         global(

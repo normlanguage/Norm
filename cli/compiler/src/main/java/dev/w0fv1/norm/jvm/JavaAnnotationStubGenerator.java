@@ -67,12 +67,23 @@ public final class JavaAnnotationStubGenerator {
         java.util.stream.Stream.concat(
                 types.keySet().stream().map(TypeKey::binaryName), javaTypes.values().stream())
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    Set<String> generatedParents =
+        types.values().stream()
+            .map(type -> generatedParent(type, artifact, javaTypes, generatedTypes))
+            .flatMap(Optional::stream)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
     return types.values().stream()
         .sorted(Comparator.comparing(type -> type.key.binaryName()))
         .map(
             type ->
                 new JavaAnnotationStub(
-                    type.key.binaryName(), source(type, artifact, javaTypes, generatedTypes)))
+                    type.key.binaryName(),
+                    source(
+                        type,
+                        artifact,
+                        javaTypes,
+                        generatedTypes,
+                        generatedParents.contains(type.key.binaryName()))))
         .toList();
   }
 
@@ -494,6 +505,7 @@ public final class JavaAnnotationStubGenerator {
                 shape.returnType(),
                 binding.definition(),
                 isStatic,
+                false,
                 false));
   }
 
@@ -521,6 +533,7 @@ public final class JavaAnnotationStubGenerator {
                     shape.constructors().get(constructorIndex).parameters(),
                     CoreType.VOID,
                     constructor,
+                    false,
                     false,
                     true));
       }
@@ -560,6 +573,7 @@ public final class JavaAnnotationStubGenerator {
                         shape.parameters(),
                         shape.returnType(),
                         method.definition(),
+                        false,
                         false,
                         false));
               });
@@ -606,6 +620,11 @@ public final class JavaAnnotationStubGenerator {
                 CoreType.VOID,
                 definition,
                 false,
+                artifact
+                    .authoring()
+                    .origin(occurrence)
+                    .rootSpan()
+                    .equals(artifact.authoring().origin(binding.occurrence()).rootSpan()),
                 true));
       }
       artifact.namespace().bindings().stream()
@@ -625,6 +644,7 @@ public final class JavaAnnotationStubGenerator {
                         callable.parameters(),
                         callable.returnType(),
                         method.definition(),
+                        false,
                         false,
                         false));
               });
@@ -696,6 +716,7 @@ public final class JavaAnnotationStubGenerator {
                   callableShape.parameters(),
                   callableShape.returnType(),
                   implementation.definition(),
+                  false,
                   false,
                   false));
         }
@@ -908,11 +929,10 @@ public final class JavaAnnotationStubGenerator {
       TypeStub type,
       CoreArtifact artifact,
       Map<JarBindingClassReference.Nominal, String> javaTypes,
-      Set<String> generatedTypes) {
+      Set<String> generatedTypes,
+      boolean generatedParentType) {
     StringBuilder source = new StringBuilder();
-    if (!type.key.packageName().isEmpty()) {
-      source.append("package ").append(type.key.packageName()).append(";\n\n");
-    }
+    source.append("package ").append(type.key.javaPackageName()).append(";\n\n");
     boolean annotation = type.binding != null && type.binding.kind() == CoreBindingKind.ANNOTATION;
     if (annotation) appendAnnotationPolicy(source, type, artifact);
     appendAnnotations(source, type.annotations, "");
@@ -1016,7 +1036,8 @@ public final class JavaAnnotationStubGenerator {
     if (!annotation
         && !type.synthetic
         && type.binding.kind() != CoreBindingKind.INTERFACE
-        && type.binding.kind() != CoreBindingKind.ENUM) {
+        && type.binding.kind() != CoreBindingKind.ENUM
+        && generatedParentType) {
       source
           .append("  protected ")
           .append(type.key.name())
@@ -1039,10 +1060,13 @@ public final class JavaAnnotationStubGenerator {
     boolean hasZeroArgumentConstructor =
         type.callables.values().stream()
             .anyMatch(callable -> callable.constructor && callable.parameters.isEmpty());
+    boolean hasExplicitConstructor =
+        type.callables.values().stream()
+            .anyMatch(callable -> callable.constructor && !callable.implicitConstructor);
     if (!annotation
         && !type.synthetic
-        && type.binding.kind() != CoreBindingKind.INTERFACE
-        && type.binding.kind() != CoreBindingKind.ENUM
+        && type.binding.kind() == CoreBindingKind.CLASS
+        && hasExplicitConstructor
         && !hasZeroArgumentConstructor) {
       source.append("  public ").append(type.key.name()).append("() {");
       generatedParent.ifPresent(
@@ -1367,9 +1391,7 @@ public final class JavaAnnotationStubGenerator {
   }
 
   private static String binaryName(CoreNominalTypeKey nominal) {
-    return nominal.packageName().isEmpty()
-        ? nominal.name()
-        : nominal.packageName() + "." + nominal.name();
+    return JavaApplicationTypeName.binaryName(nominal);
   }
 
   private static String stringLiteral(String value) {
@@ -1409,7 +1431,11 @@ public final class JavaAnnotationStubGenerator {
     }
 
     private String binaryName() {
-      return packageName.isEmpty() ? name : packageName + "." + name;
+      return javaPackageName() + "." + name;
+    }
+
+    private String javaPackageName() {
+      return JavaApplicationTypeName.packageName(packageName);
     }
   }
 
@@ -1439,6 +1465,7 @@ public final class JavaAnnotationStubGenerator {
     private final CoreType returnType;
     private final DefinitionId owner;
     private final boolean isStatic;
+    private final boolean implicitConstructor;
     private final boolean constructor;
     private final List<AnnotationStub> annotations = new ArrayList<>();
 
@@ -1449,6 +1476,7 @@ public final class JavaAnnotationStubGenerator {
         CoreType returnType,
         DefinitionId owner,
         boolean isStatic,
+        boolean implicitConstructor,
         boolean constructor) {
       this.name = name;
       this.typeParameters = List.copyOf(typeParameters);
@@ -1459,6 +1487,7 @@ public final class JavaAnnotationStubGenerator {
       this.returnType = returnType;
       this.owner = owner;
       this.isStatic = isStatic;
+      this.implicitConstructor = implicitConstructor;
       this.constructor = constructor;
     }
 

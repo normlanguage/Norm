@@ -20,7 +20,7 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 ## 验收门槛
 
-发布必须同时通过 Java 工具链测试、Windows 启动器测试、VS Code 静态检查、CLI 版本检查、Hello World、`norm/tests` 中的全部可执行验收程序、动态 Java binding 程序和 LSP 握手。Windows 还必须验证便携执行、安装、PATH 幂等和安装后执行。通用 VSIX 必须包含目标清单中的全部 CLI，并验证 launcher、compiler 和 runtime 来自对应平台已验收的发行目录；宿主平台的完整内置目录必须能从 VSIX 解出并执行。
+发布必须同时通过 Java 工具链测试、Windows 启动器测试、VS Code 静态检查、CLI 版本检查、Hello World、`norm/tests` 中的全部可执行验收程序、动态 Java binding 程序和 LSP 握手。Windows 还必须验证便携执行、安装、PATH 幂等、安装后执行，以及带 NAR 和 Java 依赖的应用 EXE 在空缓存和断网环境运行。通用 VSIX 必须包含目标清单中的全部 CLI，并验证 launcher、compiler 和 runtime 来自对应平台已验收的发行目录；宿主平台的完整内置目录必须能从 VSIX 解出并执行。
 
 构建完成后统一生成 SHA-256 校验和与构建来源证明。任一平台失败时不发布任何平台；全部资产先进入 Draft Release，上传完整后再一次性公开。
 

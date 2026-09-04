@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -65,6 +65,34 @@ Void main() {
 `,
   );
   verify(['run', bindingSource], 'mroN\n', bindingDirectory);
+  if (process.platform === 'win32' && cli.toLowerCase().endsWith('.exe')) {
+    verify(['build', bindingSource], undefined, bindingDirectory);
+    const application = `${bindingSource}.exe`;
+    if (!existsSync(application)) {
+      throw new Error(`Application executable was not created: ${application}`);
+    }
+    const offlineRoot = resolve(bindingDirectory, 'offline');
+    const result = spawnSync(application, [], {
+      cwd: bindingDirectory,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        USERPROFILE: resolve(offlineRoot, 'profile'),
+        LOCALAPPDATA: resolve(offlineRoot, 'local'),
+        APPDATA: resolve(offlineRoot, 'roaming'),
+        HTTP_PROXY: 'http://127.0.0.1:1',
+        HTTPS_PROXY: 'http://127.0.0.1:1',
+      },
+    });
+    if (result.error) throw result.error;
+    if (
+      result.status !== 0
+      || result.stderr
+      || result.stdout.replaceAll('\r\n', '\n') !== 'mroN\n'
+    ) {
+      throw new Error(`Built application verification failed: ${result.stderr || result.stdout}`);
+    }
+  }
 } finally {
   rmSync(bindingDirectory, { recursive: true, force: true });
 }

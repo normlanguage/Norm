@@ -118,6 +118,7 @@ export async function resolveCliCommand(
     ...(path ? [{ command: path, source: 'path' as const }] : []),
   ];
   const seen = new Set<string>();
+  const unique: CliCandidate[] = [];
   for (const candidate of candidates) {
     if (!isExecutable(candidate.command)) continue;
     const identity =
@@ -126,18 +127,28 @@ export async function resolveCliCommand(
         : resolve(candidate.command);
     if (seen.has(identity)) continue;
     seen.add(identity);
-    const version = await probeVersion(candidate.command);
+    unique.push(candidate);
+  }
+  const probed = await Promise.all(
+    unique.map(async (candidate) => ({ candidate, version: await probeVersion(candidate.command) })),
+  );
+  const available: ResolvedCliCommand[] = [];
+  for (const { candidate, version } of probed) {
     if (!version) {
       rejected.push({ ...candidate, reason: 'version-unavailable' });
       continue;
     }
-    if (!compatibleVersion(version, options.extensionVersion)) {
+    if (!compatibleVersion(version, options.extensionVersion, candidate.source)) {
       rejected.push({ ...candidate, reason: 'version-mismatch', version });
       continue;
     }
-    return { selected: { ...candidate, version }, rejected };
+    available.push({ ...candidate, version });
   }
-  return { selected: undefined, rejected };
+  available.sort(
+    (left, right) =>
+      priority(left, options) - priority(right, options),
+  );
+  return { selected: available[0], rejected };
 }
 
 export function cliInvocation(command: string, args: readonly string[]): CliInvocation {
@@ -179,8 +190,44 @@ function readCliVersion(command: string): Promise<string | undefined> {
   });
 }
 
-function compatibleVersion(actual: string, expected: string): boolean {
-  return actual === expected || actual === `${expected}-SNAPSHOT`;
+function compatibleVersion(actual: string, expected: string, source: CliSource): boolean {
+  if (actual === expected || actual === `${expected}-SNAPSHOT`) return true;
+  if (source !== 'workspace') return false;
+  const actualVersion = /^(\d+)\.(\d+)\.(\d+)(?:-SNAPSHOT)?$/u.exec(actual);
+  const expectedVersion = /^(\d+)\.(\d+)\.(\d+)$/u.exec(expected);
+  return (
+    actualVersion !== null &&
+    expectedVersion !== null &&
+    actualVersion[1] === expectedVersion[1] &&
+    actualVersion[2] === expectedVersion[2] &&
+    Number(actualVersion[3]) >= Number(expectedVersion[3])
+  );
+}
+
+function priority(candidate: ResolvedCliCommand, options: CliResolutionOptions): number {
+  if (candidate.source === 'configured') return 0;
+  if (
+    (candidate.source === 'workspace' || candidate.source === 'development') &&
+    (options.development || newerPatch(candidate.version, options.extensionVersion))
+  ) {
+    return 1;
+  }
+  if (candidate.source === 'bundled') return 2;
+  if (candidate.source === 'workspace') return 3;
+  if (candidate.source === 'development') return 4;
+  return 5;
+}
+
+function newerPatch(actual: string, expected: string): boolean {
+  const actualVersion = /^(\d+)\.(\d+)\.(\d+)(?:-SNAPSHOT)?$/u.exec(actual);
+  const expectedVersion = /^(\d+)\.(\d+)\.(\d+)$/u.exec(expected);
+  return (
+    actualVersion !== null &&
+    expectedVersion !== null &&
+    actualVersion[1] === expectedVersion[1] &&
+    actualVersion[2] === expectedVersion[2] &&
+    Number(actualVersion[3]) > Number(expectedVersion[3])
+  );
 }
 
 function executableOnPath(name: string): string | undefined {

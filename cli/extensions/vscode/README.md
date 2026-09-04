@@ -22,7 +22,7 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
    <repository>\cli\compiler\build\install\norm\bin\norm.bat
    ```
 
-   For another layout, set `norm.cli.path` explicitly. The configured CLI must match the extension version; a development `-SNAPSHOT` build with the same base version is accepted. Language Server diagnostics and `Norm: Run Current File` share the same verified CLI selection.
+   For another layout, set `norm.cli.path` explicitly. A Norm source workspace may use a newer patch of the same major/minor line; configured, bundled, and `PATH` CLIs must match the extension exactly. The status bar shows the selected version and source. Language Server diagnostics and `Norm: Run Current File` share the same verified CLI selection.
 
 3. Install dependencies and compile the extension:
 

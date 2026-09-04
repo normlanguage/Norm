@@ -20,6 +20,14 @@ internal sealed class BootstrapApplication(
 
     public int Run(string[] arguments)
     {
+        string executable = Environment.ProcessPath
+            ?? throw new InvalidOperationException("The launcher executable path is unavailable");
+        ApplicationPayload? payload = ApplicationPayload.Read(executable);
+        if (payload is not null)
+        {
+            EmbeddedApplication application = EmbeddedApplication.Prepare(runtime.Paths, payload);
+            return launcher.RunApplication(runtime.EnsureAvailable(), application);
+        }
         return BootstrapCommand.Parse(arguments) switch
         {
             BootstrapCommand.Setup => setup.Run(runtime.EnsureAvailable()),

@@ -17,6 +17,7 @@ public final class ExecutionContext {
   private final BooleanSupplier cancellation;
   private final Optional<ModulePublisher> modulePublisher;
   private final Optional<JavaApplicationEntrypoint> javaApplicationEntrypoint;
+  private final String applicationPackage;
   private final JarBindingRuntime jarBindingRuntime;
   private final SystemPlatform platform;
 
@@ -28,6 +29,7 @@ public final class ExecutionContext {
     cancellation = Objects.requireNonNull(builder.cancellation, "cancellation");
     modulePublisher = Optional.ofNullable(builder.modulePublisher);
     javaApplicationEntrypoint = Optional.ofNullable(builder.javaApplicationEntrypoint);
+    applicationPackage = Objects.requireNonNull(builder.applicationPackage, "applicationPackage");
     jarBindingRuntime = Objects.requireNonNull(builder.jarBindingRuntime, "jarBindingRuntime");
     platform = Objects.requireNonNull(builder.platform, "platform");
   }
@@ -89,6 +91,10 @@ public final class ExecutionContext {
     return javaApplicationEntrypoint;
   }
 
+  public String applicationPackage() {
+    return applicationPackage;
+  }
+
   public JarBindingRuntime jarBindingRuntime() {
     return jarBindingRuntime;
   }
@@ -101,6 +107,10 @@ public final class ExecutionContext {
     return new Builder(this).javaApplicationEntrypoint(value).build();
   }
 
+  public ExecutionContext withApplicationPackage(String value) {
+    return new Builder(this).applicationPackage(value).build();
+  }
+
   public static final class Builder {
     private Reader input = Reader.nullReader();
     private PrintWriter output = new PrintWriter(Writer.nullWriter());
@@ -109,6 +119,7 @@ public final class ExecutionContext {
     private BooleanSupplier cancellation = () -> false;
     private ModulePublisher modulePublisher;
     private JavaApplicationEntrypoint javaApplicationEntrypoint;
+    private String applicationPackage = "";
     private JarBindingRuntime jarBindingRuntime = JarBindingRuntime.unavailable();
     private SystemPlatform platform = SystemPlatform.unavailable();
 
@@ -122,6 +133,7 @@ public final class ExecutionContext {
       cancellation = context.cancellation;
       modulePublisher = context.modulePublisher.orElse(null);
       javaApplicationEntrypoint = context.javaApplicationEntrypoint.orElse(null);
+      applicationPackage = context.applicationPackage;
       jarBindingRuntime = context.jarBindingRuntime;
       platform = context.platform;
     }
@@ -158,6 +170,11 @@ public final class ExecutionContext {
 
     public Builder javaApplicationEntrypoint(JavaApplicationEntrypoint value) {
       javaApplicationEntrypoint = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder applicationPackage(String value) {
+      applicationPackage = Objects.requireNonNull(value, "value");
       return this;
     }
 

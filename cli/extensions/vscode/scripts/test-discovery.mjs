@@ -112,12 +112,12 @@ try {
     development: false,
   };
   const production = await resolveCliCommand(productionOptions, probeVersion);
-  assert.equal(production.selected?.command, expected);
-  assert.equal(production.selected?.version, '0.17.1-SNAPSHOT');
-  assert.equal(production.selected?.source, 'workspace');
+  assert.equal(production.selected?.command, bundled);
+  assert.equal(production.selected?.version, '0.17.1');
+  assert.equal(production.selected?.source, 'bundled');
   assert.deepEqual(
     production.rejected
-      .filter(({ reason }) => reason === 'version-mismatch')
+      .filter(({ source }) => source === 'configured')
       .map(({ source, version }) => [source, version]),
     [
       ['configured', '0.16.0'],
@@ -125,12 +125,29 @@ try {
   );
 
   versions.set(expected, '0.17.1');
-  const productionPrefersWorkspace = await resolveCliCommand(
+  const productionPrefersBundled = await resolveCliCommand(
     { ...productionOptions, configured: '' },
     probeVersion,
   );
-  assert.equal(productionPrefersWorkspace.selected?.command, expected);
-  assert.equal(productionPrefersWorkspace.selected?.source, 'workspace');
+  assert.equal(productionPrefersBundled.selected?.command, bundled);
+  assert.equal(productionPrefersBundled.selected?.source, 'bundled');
+
+  versions.set(expected, '0.17.2-SNAPSHOT');
+  const productionAcceptsCompatibleWorkspacePatch = await resolveCliCommand(
+    { ...productionOptions, configured: '' },
+    probeVersion,
+  );
+  assert.equal(productionAcceptsCompatibleWorkspacePatch.selected?.command, expected);
+  assert.equal(productionAcceptsCompatibleWorkspacePatch.selected?.version, '0.17.2-SNAPSHOT');
+  assert.equal(productionAcceptsCompatibleWorkspacePatch.selected?.source, 'workspace');
+
+  versions.set(expected, '0.17.0');
+  const productionRejectsOlderWorkspacePatch = await resolveCliCommand(
+    { ...productionOptions, configured: '' },
+    probeVersion,
+  );
+  assert.equal(productionRejectsOlderWorkspacePatch.selected?.command, bundled);
+  assert.equal(productionRejectsOlderWorkspacePatch.selected?.source, 'bundled');
 
   versions.set(external, '0.17.1');
   const compatibleConfigured = await resolveCliCommand(productionOptions, probeVersion);

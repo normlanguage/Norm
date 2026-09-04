@@ -348,7 +348,7 @@ final class TypeSystem {
         boundViolations.add(new BoundViolation(parameterSyntax.name(), bound, actual));
       }
     }
-    int score = 0;
+    int score = parameters.size() - call.arguments().size();
     if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
       SemanticType contextualResult = contextualResult(result, nullableAccess);
       if (!isPotentiallyAssignable(expected, contextualResult)) assignable = false;

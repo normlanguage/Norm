@@ -17,10 +17,16 @@ let client: LanguageClient | undefined;
 let lifecycle = Promise.resolve();
 let outputChannel: vscode.LogOutputChannel | undefined;
 let activeCli: ResolvedCliCommand | undefined;
+let toolchainStatus: vscode.StatusBarItem | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const runner = new NormRunner(() => activeCli);
   outputChannel = vscode.window.createOutputChannel('Norm Language Server', { log: true });
+  toolchainStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
+  toolchainStatus.name = 'Norm Toolchain';
+  toolchainStatus.command = 'norm.showToolchain';
+  toolchainStatus.text = '$(sync~spin) Norm';
+  toolchainStatus.show();
   const sourceProvider: vscode.TextDocumentContentProvider = {
     provideTextDocumentContent: (uri) => {
       if (!client) throw new Error('Norm language server is not running.');
@@ -29,12 +35,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
   context.subscriptions.push(
     outputChannel,
+    toolchainStatus,
     vscode.workspace.registerTextDocumentContentProvider('stdlib', sourceProvider),
     vscode.workspace.registerTextDocumentContentProvider('norm-source', sourceProvider),
     vscode.commands.registerCommand('norm.restartLanguageServer', async () => {
       await restartClient(context);
     }),
     vscode.commands.registerCommand('norm.runCurrentFile', () => runner.runCurrentFile()),
+    vscode.commands.registerCommand('norm.showToolchain', () => {
+      if (!activeCli) {
+        return vscode.window.showWarningMessage('No compatible Norm CLI is active.');
+      }
+      return vscode.window.showInformationMessage(
+        `Norm ${activeCli.version} (${activeCli.source})\n${activeCli.command}`,
+      );
+    }),
     vscode.commands.registerCommand('norm.openSettings', () =>
       vscode.commands.executeCommand(
         'workbench.action.openSettings',
@@ -74,7 +89,7 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   const extensionVersion = String(context.extension.packageJSON.version);
   const resolution = await resolveCliCommand({
-    configured: configuration.get<string>('cli.path', ''),
+    configured: configuration.get<string>('cli.path', '') || process.env.NORM_CLI || '',
     workspacePath: workspaceFolder?.uri.fsPath,
     extensionPath: context.extensionPath,
     extensionVersion,
@@ -83,6 +98,10 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
   for (const rejection of resolution.rejected) logRejection(rejection, extensionVersion);
   const selected = resolution.selected;
   if (!selected) {
+    if (toolchainStatus) {
+      toolchainStatus.text = '$(error) Norm';
+      toolchainStatus.tooltip = `No Norm CLI compatible with extension ${extensionVersion} was found.`;
+    }
     void vscode.window.showErrorMessage(
       `No Norm CLI compatible with extension ${extensionVersion} was found. ` +
         'Install a matching extension package or update "norm.cli.path".',
@@ -90,6 +109,10 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
   activeCli = selected;
+  if (toolchainStatus) {
+    toolchainStatus.text = `$(tools) Norm ${selected.version.replace(/-SNAPSHOT$/u, '')}`;
+    toolchainStatus.tooltip = `Using ${selected.command} (${selected.source})`;
+  }
   outputChannel?.info(
     `Using Norm CLI ${selected.version} from ${selected.command} (${selected.source}).`,
   );
@@ -135,6 +158,10 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
     await client.start();
   } catch (error) {
     client = undefined;
+    if (toolchainStatus) {
+      toolchainStatus.text = '$(error) Norm';
+      toolchainStatus.tooltip = 'Norm language server failed to start.';
+    }
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`Norm language server failed to start: ${message}`);
   }

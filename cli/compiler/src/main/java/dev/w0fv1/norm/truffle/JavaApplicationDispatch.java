@@ -11,6 +11,7 @@ import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
 import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -290,10 +291,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       throw new IllegalStateException("Norm application result is not an aggregate");
     }
     CoreNominalTypeKey nominal = aggregate.nominalType();
-    String binaryName =
-        nominal.packageName().isEmpty()
-            ? nominal.name()
-            : nominal.packageName() + "." + nominal.name();
+    String binaryName = JavaApplicationTypeName.binaryName(nominal);
     try {
       Class<?> type = applicationLoader.loadClass(binaryName);
       Object proxy = objenesis.newInstance(type);
@@ -380,10 +378,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     CoreDefinition definition = program.definition(guest.objectInfo.definition()).orElseThrow();
     if (!(definition instanceof CoreDefinition.Aggregate aggregate)) return false;
     CoreNominalTypeKey nominal = aggregate.nominalType();
-    String binaryName =
-        nominal.packageName().isEmpty()
-            ? nominal.name()
-            : nominal.packageName() + "." + nominal.name();
+    String binaryName = JavaApplicationTypeName.binaryName(nominal);
     try {
       return host.getClass() != applicationLoader.loadClass(binaryName);
     } catch (ClassNotFoundException exception) {

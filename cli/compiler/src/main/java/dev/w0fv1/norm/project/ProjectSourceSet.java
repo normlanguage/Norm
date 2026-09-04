@@ -7,6 +7,7 @@ import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
+import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
@@ -27,6 +28,8 @@ public record ProjectSourceSet(
     Path primaryPath,
     Optional<Path> rootModulePath,
     Set<Path> modulePaths,
+    Map<ModuleCoordinate, ModuleDescriptor> moduleDescriptors,
+    Map<ModuleCoordinate, Path> moduleArchives,
     CompilationScope scope,
     List<SourceFile> sources,
     Set<Path> exportedSourcePaths,
@@ -44,12 +47,28 @@ public record ProjectSourceSet(
         Objects.requireNonNull(modulePaths, "modulePaths").stream()
             .map(ProjectSourceSet::normalize)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    moduleDescriptors = Map.copyOf(Objects.requireNonNull(moduleDescriptors, "moduleDescriptors"));
+    moduleArchives =
+        Objects.requireNonNull(moduleArchives, "moduleArchives").entrySet().stream()
+            .collect(
+                java.util.stream.Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey, entry -> normalize(entry.getValue())));
     Objects.requireNonNull(scope, "scope");
     if (rootModulePath.isPresent() != !modulePaths.isEmpty()) {
       throw new IllegalArgumentException("project module identity must match its module graph");
     }
     if (rootModulePath.isPresent() && !modulePaths.contains(rootModulePath.orElseThrow())) {
       throw new IllegalArgumentException("root module configuration must be in the module graph");
+    }
+    if (rootModulePath.isPresent()
+        && !moduleDescriptors.keySet().equals(scope.modules().modules())) {
+      throw new IllegalArgumentException("project descriptors must describe every module");
+    }
+    if (rootModulePath.isEmpty() && !moduleDescriptors.isEmpty()) {
+      throw new IllegalArgumentException("standalone projects cannot describe modules");
+    }
+    if (!moduleDescriptors.keySet().containsAll(moduleArchives.keySet())) {
+      throw new IllegalArgumentException("project archives must belong to the module graph");
     }
     Objects.requireNonNull(sources, "sources");
     Objects.requireNonNull(exportedSourcePaths, "exportedSourcePaths");

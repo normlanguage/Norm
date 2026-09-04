@@ -8,3 +8,8 @@ public interface Application {
   @Document(description: "Starts the application and blocks until its lifetime ends.")
   Void run()
 }
+
+@Document(description: "Returns the package used to expose this application to host frameworks.")
+public String applicationPackage() {
+  return __applicationPackage()
+}

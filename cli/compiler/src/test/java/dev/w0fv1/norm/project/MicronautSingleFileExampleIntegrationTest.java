@@ -2,7 +2,10 @@ package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -15,23 +18,9 @@ final class MicronautSingleFileExampleIntegrationTest {
   @Test
   @Timeout(300)
   void compilesTheDatabaseBackedSingleFileExample() throws Exception {
-    Path root = Path.of("").toAbsolutePath().normalize();
-    while (root != null && !Files.isRegularFile(root.resolve("settings.gradle.kts"))) {
-      root = root.getParent();
-    }
-    if (root == null) throw new IllegalStateException("repository root is unavailable");
-    String source =
-        Files.readString(root.resolve("docs/examples/micronaut-single-file/web.norm"))
-            .replace(
-                "dependency(repository: \"github\", name: \"micronaut.web\")",
-                "dependency(repository: \"github\", name: \"micronaut.web\", version: 3)")
-            .replace(
-                "dependency(repository: \"github\", name: \"orm.micronaut.tx\")",
-                "dependency(repository: \"github\", name: \"orm.micronaut.tx\", version: 2)")
-            .replace(
-                "dependency(repository: \"github\", name: \"h2.database\")",
-                "dependency(repository: \"github\", name: \"h2.database\", version: 1)");
+    String source = exampleSource();
     assertTrue(source.contains("@Entity()"));
+    assertTrue(!source.startsWith("package "));
     assertTrue(!source.contains("@Table"));
     assertTrue(!source.contains("import orm.Table"));
     assertTrue(source.contains("class HelloRepository extends Repository<HelloEntity, Long>"));
@@ -61,5 +50,54 @@ final class MicronautSingleFileExampleIntegrationTest {
 
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
+  }
+
+  @Test
+  @Timeout(300)
+  void startsThePackageLessDatabaseApplication() throws Exception {
+    String source =
+        exampleSource()
+            .replace(
+                "import micronaut.web.MicronautApplication",
+                "import micronaut.web.Micronaut\nimport micronaut.web.MicronautApplication\nimport micronaut.web.Server")
+            .replace(
+                "public Application application() {\n  return MicronautApplication(",
+                "Void main() {\n  var running = MicronautApplication(")
+            .replace(
+                "config: MicronautConfig(\n    datasources:",
+                "config: MicronautConfig(\n    micronaut: Micronaut(server: Server(port: 0)),\n    datasources:")
+            .replace("  ))\n}\n", "  )).start()\n  running.close()\n}\n");
+    Path entry = temporaryDirectory.resolve("running-web.norm");
+    Files.writeString(entry, source);
+    NormRuntime backend = new NormRuntime();
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
+
+    try (ProjectLauncher launcher =
+        new ProjectLauncher(
+            environment.projectLoader(PublishedPackageCache.path()),
+            environment.compilerSession(),
+            backend)) {
+      var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(new StringWriter())));
+
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+  }
+
+  private static String exampleSource() throws Exception {
+    Path root = Path.of("").toAbsolutePath().normalize();
+    while (root != null && !Files.isRegularFile(root.resolve("settings.gradle.kts"))) {
+      root = root.getParent();
+    }
+    if (root == null) throw new IllegalStateException("repository root is unavailable");
+    return Files.readString(root.resolve("docs/examples/micronaut-single-file/web.norm"))
+        .replace(
+            "dependency(repository: \"github\", name: \"micronaut.web\")",
+            "dependency(repository: \"github\", name: \"micronaut.web\", version: 3)")
+        .replace(
+            "dependency(repository: \"github\", name: \"orm.micronaut.tx\")",
+            "dependency(repository: \"github\", name: \"orm.micronaut.tx\", version: 2)")
+        .replace(
+            "dependency(repository: \"github\", name: \"h2.database\")",
+            "dependency(repository: \"github\", name: \"h2.database\", version: 1)");
   }
 }

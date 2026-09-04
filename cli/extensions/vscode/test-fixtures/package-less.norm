@@ -1,0 +1,7 @@
+Module module() {
+  return module(dependencies: [])
+}
+
+Void main() {
+  printLine("Hello")
+}

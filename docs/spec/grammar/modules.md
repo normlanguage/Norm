@@ -6,6 +6,8 @@
 Module module()
 ```
 
+本地单文件应用可以省略 `package`、Module 名称与版本；这种内部应用身份不能发布，也不能声明 exports。正式模块仍使用 package 结构作为公开命名空间。
+
 常用实现调用 bootstrap 源码中的参数化工厂：
 
 ```norm

@@ -7,6 +7,16 @@ internal sealed class RuntimeLauncher
     public int Run(string runtimeDirectory, IReadOnlyList<string> arguments)
     {
         ProcessStartInfo start = CreateStartInfo(runtimeDirectory, arguments);
+        return Run(start);
+    }
+
+    public int RunApplication(string runtimeDirectory, EmbeddedApplication application)
+    {
+        return Run(CreateApplicationStartInfo(runtimeDirectory, application));
+    }
+
+    private static int Run(ProcessStartInfo start)
+    {
         using Process process = Process.Start(start)
             ?? throw new InvalidOperationException("The Norm runtime could not be started");
         using WindowsProcessJob job = WindowsProcessJob.Attach(process);
@@ -42,6 +52,10 @@ internal sealed class RuntimeLauncher
             FileName = Path.Combine(runtimeDirectory, "runtime", "bin", "java.exe"),
             UseShellExecute = false
         };
+        if (Environment.ProcessPath is string executable)
+        {
+            start.Environment["NORM_LAUNCHER_PATH"] = executable;
+        }
         foreach (string argument in descriptor.JvmArguments)
         {
             start.ArgumentList.Add(argument);
@@ -54,6 +68,13 @@ internal sealed class RuntimeLauncher
         {
             start.ArgumentList.Add(argument);
         }
+        return start;
+    }
+
+    internal static ProcessStartInfo CreateApplicationStartInfo(string runtimeDirectory, EmbeddedApplication application)
+    {
+        ProcessStartInfo start = CreateStartInfo(runtimeDirectory, ["run", application.Entry]);
+        start.Environment["NORM_APPLICATION_BUNDLE"] = application.Root;
         return start;
     }
 }

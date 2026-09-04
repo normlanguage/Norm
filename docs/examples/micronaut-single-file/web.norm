@@ -1,5 +1,3 @@
-package hello.web
-
 import jakarta.inject.Inject
 import micronaut.http.annotation.Controller
 import micronaut.http.annotation.Get
@@ -18,6 +16,7 @@ import orm.Repository
 import orm.RepositoryContext
 import orm.micronaut.tx.Transactional
 import std.application.Application
+import std.application.applicationPackage
 import std.core.Result
 
 Module module() {
@@ -97,7 +96,7 @@ public Application application() {
   return MicronautApplication(config: MicronautConfig(
     datasources: DataSources(),
     jpa: hibernateJpa(
-      entityPackages: ["hello.web"],
+      entityPackages: [applicationPackage()],
       schema: SchemaMode.Update
     )
   ))

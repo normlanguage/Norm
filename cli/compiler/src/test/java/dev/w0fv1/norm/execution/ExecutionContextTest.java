@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.execution;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import dev.w0fv1.norm.platform.PlatformInstant;
@@ -12,6 +13,17 @@ import java.io.StringWriter;
 import org.junit.jupiter.api.Test;
 
 final class ExecutionContextTest {
+  @Test
+  void preservesTheHostApplicationPackageAcrossContextDerivations() {
+    ExecutionContext context =
+        ExecutionContext.builder()
+            .applicationPackage("norm.generated.application")
+            .build()
+            .withJarBindingRuntime(JarBindingRuntime.unavailable());
+
+    assertEquals("norm.generated.application", context.applicationPackage());
+  }
+
   @Test
   void carriesTheExplicitSystemPlatform() {
     FileSystem fileSystem = SystemPlatform.unavailable().fileSystem();

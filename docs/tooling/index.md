@@ -17,7 +17,7 @@ Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义�
 - 跨文件、跨 package 和标准库源码导航；
 - 未保存文档参与项目分析。
 
-结构化 API 文档复用同一语义入口，见 [API 文档导出](/tooling/api-documentation)。
+结构化 API 文档复用同一语义入口，见 [API 文档导出](/tooling/api-documentation)。自包含应用的输出约定见[应用构建](/tooling/application-build)。
 
 ## VS Code
 

@@ -20,7 +20,7 @@ A new platform must first pass the same acceptance suite in continuous integrati
 
 ## Release gates
 
-A release must pass the Java toolchain tests, Windows launcher tests, VS Code static checks, CLI version verification, Hello World, every executable acceptance program under `norm/tests`, a dynamic Java-binding program, and an LSP handshake. Windows additionally verifies portable execution, setup, idempotent `PATH` registration, and execution after setup. The universal VSIX verifies the launcher, compiler, and runtime from every accepted platform directory, then extracts and executes the complete host bundle.
+A release must pass the Java toolchain tests, Windows launcher tests, VS Code static checks, CLI version verification, Hello World, every executable acceptance program under `norm/tests`, a dynamic Java-binding program, and an LSP handshake. Windows additionally verifies portable execution, setup, idempotent `PATH` registration, execution after setup, and an application EXE with NAR and Java dependencies running offline from an empty cache. The universal VSIX verifies the launcher, compiler, and runtime from every accepted platform directory, then extracts and executes the complete host bundle.
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 

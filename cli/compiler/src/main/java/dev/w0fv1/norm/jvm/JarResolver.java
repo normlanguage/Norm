@@ -42,12 +42,27 @@ public final class JarResolver implements AutoCloseable {
 
   private final RepositorySystem repositorySystem;
   private final RepositorySystemSession.CloseableSession jarSession;
+  private final Map<Sha256Digest, ResolvedJarGraph> bundledGraphs;
+  private final boolean bundled;
 
   public JarResolver(Path cacheDirectory) {
     Objects.requireNonNull(cacheDirectory, "cacheDirectory");
     repositorySystem = new RepositorySystemSupplier().get();
     SessionBuilderSupplier supplier = new SessionBuilderSupplier(repositorySystem);
     jarSession = session(supplier, cacheDirectory);
+    bundledGraphs = Map.of();
+    bundled = false;
+  }
+
+  private JarResolver(Map<Sha256Digest, ResolvedJarGraph> bundledGraphs) {
+    repositorySystem = null;
+    jarSession = null;
+    this.bundledGraphs = Map.copyOf(bundledGraphs);
+    bundled = true;
+  }
+
+  public static JarResolver bundled(Path directory) throws IOException {
+    return new JarResolver(BundledJarGraphs.read(directory));
   }
 
   private static RepositorySystemSession.CloseableSession session(
@@ -64,6 +79,7 @@ public final class JarResolver implements AutoCloseable {
   public ResolvedJarGraph resolve(Path moduleRoot, JarBinding binding) throws IOException {
     Objects.requireNonNull(moduleRoot, "moduleRoot");
     Objects.requireNonNull(binding, "binding");
+    if (bundled) return resolveBundled(binding);
     return switch (binding.target()) {
       case LocalJarTarget target -> resolveLocal(moduleRoot, target);
       case MavenJarTarget target -> resolveMaven(target);
@@ -120,6 +136,31 @@ public final class JarResolver implements AutoCloseable {
     }
   }
 
+  private ResolvedJarGraph resolveBundled(JarBinding binding) throws IOException {
+    Sha256Digest content =
+        switch (binding.target()) {
+          case MavenJarTarget target ->
+              target
+                  .resolution()
+                  .orElseThrow(
+                      () -> new IOException("bundled Maven JAR must declare its resolution"));
+          case LocalJarTarget target ->
+              target
+                  .integrity()
+                  .orElseThrow(
+                      () -> new IOException("bundled local JAR must declare its integrity"));
+        };
+    ResolvedJarGraph graph = bundledGraphs.get(content);
+    if (graph == null) throw new IOException("bundled JAR graph is unavailable: " + content);
+    if (binding.target() instanceof MavenJarTarget target
+        && (!(graph.root().identity() instanceof MavenJarIdentity root)
+            || !root.coordinate().equals(target.coordinate()))) {
+      throw new IOException(
+          "bundled Maven JAR root does not match " + target.coordinate().notation());
+    }
+    return graph;
+  }
+
   private static ResolvedJarGraph graph(DependencyNode rootNode) throws IOException {
     Map<JarArtifactIdentity, ResolvedJarArtifact> artifacts = new LinkedHashMap<>();
     List<JarDependencyEdge> edges = new ArrayList<>();
@@ -162,8 +203,8 @@ public final class JarResolver implements AutoCloseable {
 
   @Override
   public void close() {
-    jarSession.close();
-    repositorySystem.shutdown();
+    if (jarSession != null) jarSession.close();
+    if (repositorySystem != null) repositorySystem.shutdown();
   }
 
   private enum NonOptionalDependencySelector implements DependencySelector {

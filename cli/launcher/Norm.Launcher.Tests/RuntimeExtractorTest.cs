@@ -46,6 +46,22 @@ public sealed class RuntimeExtractorTest : IDisposable
         Assert.Equal("existing", File.ReadAllText(Path.Combine(destination, "kept.txt")));
     }
 
+    [Fact]
+    public void ReplacesAnExistingRuntimeWhenItsContentIdentityChanges()
+    {
+        string destination = Path.Combine(root, "runtime");
+        Directory.CreateDirectory(destination);
+        File.WriteAllText(Path.Combine(destination, ".complete"), "0.19.1:old");
+        File.WriteAllText(Path.Combine(destination, "obsolete.txt"), "obsolete");
+        using MemoryStream payload = Payload(("bin/launcher.json", "new"));
+
+        RuntimeExtractor.Extract(payload, destination, "0.19.1:new");
+
+        Assert.Equal("new", File.ReadAllText(Path.Combine(destination, "bin", "launcher.json")));
+        Assert.Equal("0.19.1:new", File.ReadAllText(Path.Combine(destination, ".complete")));
+        Assert.False(File.Exists(Path.Combine(destination, "obsolete.txt")));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(root))

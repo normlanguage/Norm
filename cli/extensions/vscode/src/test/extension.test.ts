@@ -73,6 +73,25 @@ suite('Norm VS Code extension', () => {
     );
   });
 
+  test('analyzes package-less single-file applications', async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    assert.ok(root, 'test workspace was not opened');
+    const uri = vscode.Uri.joinPath(root, 'cli/extensions/vscode/test-fixtures/package-less.norm');
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document);
+
+    const hovers = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider',
+        uri,
+        document.positionAt(document.getText().indexOf('printLine')),
+      );
+      return value.length > 0 ? value : undefined;
+    });
+    assert.ok(hovers.length > 0);
+    assert.deepEqual(vscode.languages.getDiagnostics(uri), []);
+  });
+
   test('serves extension, reflection, and serialization language features', async () => {
     const document = await openProjectFixture('sample/Modern.norm');
     const completions = await atCompletionPoint(document, 'user.label()', (position) =>

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
@@ -157,6 +158,24 @@ final class ProjectLoaderTest {
   }
 
   @Test
+  void loadsAPackageLessEmbeddedApplicationAsALocalModule() throws Exception {
+    Path entry =
+        source(
+            temporaryDirectory,
+            "web.norm",
+            "Module module() { return module(dependencies: []) } Void main() {}");
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var sourceSet = projects.load(entry);
+
+      assertEquals(
+          dev.w0fv1.norm.value.ModuleCoordinate.localApplication(),
+          sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
+      assertEquals("", SourceHeader.parse(sourceSet.primarySource()).packageName().orElse(""));
+    }
+  }
+
+  @Test
   void infersADirectoryModuleNameWithoutReadingNestedModules() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("inferred"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
@@ -241,6 +260,43 @@ final class ProjectLoaderTest {
   }
 
   @Test
+  void retainsResolvedDependencyArchivesForApplicationPackaging() throws Exception {
+    Path dependencyRoot = Files.createDirectories(temporaryDirectory.resolve("library/sample/lib"));
+    Path dependencyModule = dependencyRoot.resolve("module.norm");
+    Files.writeString(
+        dependencyModule,
+        "Module module() { return module(name: \"sample.lib\", version: 1, exports: [\"Value\"]) }");
+    source(
+        dependencyRoot, "Value.norm", "package sample.lib public Integer answer() { return 42 }");
+    Path repository = temporaryDirectory.resolve("repository");
+    ProjectEnvironment environment = environment();
+    try (ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects).packageModule(dependencyModule, repository);
+    }
+
+    Path applicationRoot = Files.createDirectories(temporaryDirectory.resolve("application/app"));
+    Path entry =
+        source(
+            applicationRoot,
+            "Main.norm",
+            "package app import sample.lib.answer Void main() { printLine(answer()) }");
+    Files.writeString(
+        applicationRoot.resolve("module.norm"),
+        "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"sample.lib\", version: 1)]) }");
+
+    try (ProjectLoader projects =
+        environment.projectLoader(repository, temporaryDirectory.resolve("cache"))) {
+      ProjectSourceSet sourceSet = projects.load(entry);
+
+      assertEquals(
+          repository.resolve("sample/lib/1/lib-1.nar").toAbsolutePath().normalize(),
+          sourceSet
+              .moduleArchives()
+              .get(new dev.w0fv1.norm.value.ModuleCoordinate("sample.lib", 1)));
+    }
+  }
+
+  @Test
   void rejectsOneModuleCoordinateSelectedFromDifferentRepositories() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("repository-conflict"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
@@ -308,6 +364,23 @@ final class ProjectLoaderTest {
       IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
 
       assertTrue(exception.getMessage().contains("module name 'std' is reserved"));
+    }
+  }
+
+  @Test
+  void reservesInternalModuleNames() throws Exception {
+    Path entry =
+        source(
+            temporaryDirectory,
+            "web.norm",
+            "Module module() { return module(name: \"__private\", version: 1) } Void main() {}");
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+
+      assertTrue(
+          exception.getMessage().contains("module name '__private' is reserved"),
+          exception::getMessage);
     }
   }
 

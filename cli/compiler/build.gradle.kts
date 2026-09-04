@@ -497,6 +497,17 @@ abstract class PublishNativeLauncher : DefaultTask() {
         val output = outputExecutable.get().asFile
         output.parentFile.deleteRecursively()
         output.parentFile.mkdirs()
+        val digest = MessageDigest.getInstance("SHA-256")
+        runtimePayload.get().asFile.inputStream().use { input ->
+            val buffer = ByteArray(128 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        val digestFile = temporaryDir.resolve("norm-runtime.sha256")
+        digestFile.writeText(digest.digest().joinToString("") { "%02x".format(it) })
         execOperations.exec {
             executable("dotnet")
             args(
@@ -512,6 +523,7 @@ abstract class PublishNativeLauncher : DefaultTask() {
                 output.parentFile.absolutePath,
                 "-p:NormVersion=${normVersion.get()}",
                 "-p:NormPayloadPath=${runtimePayload.get().asFile.absolutePath}",
+                "-p:NormPayloadDigestPath=${digestFile.absolutePath}",
             )
         }
         check(output.isFile) {

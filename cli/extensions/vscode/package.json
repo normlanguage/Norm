@@ -3,7 +3,7 @@
   "displayName": "Norm Language Support",
   "description": "All-in-one editing, navigation, refactoring, and execution support for Norm",
   "icon": "images/norm-256.png",
-  "version": "0.19.1",
+  "version": "0.20.0",
   "publisher": "normlang",
   "repository": {
     "type": "git",
@@ -38,8 +38,13 @@
     "languages": [
       {
         "id": "norm",
-        "aliases": ["Norm", "norm"],
-        "extensions": [".norm"],
+        "aliases": [
+          "Norm",
+          "norm"
+        ],
+        "extensions": [
+          ".norm"
+        ],
         "configuration": "./language-configuration.json",
         "icon": {
           "light": "./images/norm-file.png",
@@ -63,6 +68,10 @@
         "command": "norm.runCurrentFile",
         "title": "Norm: Run Current File",
         "icon": "$(play)"
+      },
+      {
+        "command": "norm.showToolchain",
+        "title": "Norm: Show Active Toolchain"
       },
       {
         "command": "norm.openSettings",
@@ -90,7 +99,9 @@
     "taskDefinitions": [
       {
         "type": "norm",
-        "required": ["file"],
+        "required": [
+          "file"
+        ],
         "properties": {
           "file": {
             "type": "string",
@@ -110,7 +121,10 @@
         },
         "norm.run.workingDirectory": {
           "type": "string",
-          "enum": ["workspace", "file"],
+          "enum": [
+            "workspace",
+            "file"
+          ],
           "enumDescriptions": [
             "Use the source file's workspace folder.",
             "Use the source file's containing directory."
@@ -127,7 +141,11 @@
         },
         "norm.trace.server": {
           "type": "string",
-          "enum": ["off", "messages", "verbose"],
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
           "default": "off",
           "scope": "window",
           "description": "Trace communication between VS Code and the Norm language server."

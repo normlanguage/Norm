@@ -323,6 +323,7 @@ public final class IntrinsicDispatcher {
         execution.callbacks().runUntilCancellation();
         yield null;
       }
+      case APPLICATION_PACKAGE -> context.applicationPackage();
       case REQUIRE_ARGUMENT -> {
         if (!(Boolean) first) {
           throw new NormGuestException(

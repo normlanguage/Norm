@@ -30,4 +30,12 @@ norm run hello.norm
 
 编辑器安装和运行入口见 [Tooling](/tooling/)。完整词法规则见[词法结构](/spec/grammar/lexical)。
 
+将单文件构建为无需安装 Norm 的 Windows 程序：
+
+```shell
+norm build hello.norm
+```
+
+命令在同一目录生成 `hello.norm.exe`。项目输出规则和离线运行契约见[应用构建](/tooling/application-build)。
+
 下一章：[值与绑定](/learn/bindings)。

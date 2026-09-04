@@ -16,6 +16,7 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(NormPayloadPath)' != ''">
     <EmbeddedResource Include="$(NormPayloadPath)" LogicalName="Norm.Runtime.zip" />
+    <EmbeddedResource Include="$(NormPayloadDigestPath)" LogicalName="Norm.Runtime.sha256" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Norm.Launcher.Tests" />

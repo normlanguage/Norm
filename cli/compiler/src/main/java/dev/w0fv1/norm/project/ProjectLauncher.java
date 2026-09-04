@@ -5,9 +5,11 @@ import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.jvm.ClasspathResourceMaterializer;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessingOutput;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessorPipeline;
+import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationResult;
@@ -37,8 +39,14 @@ public final class ProjectLauncher implements AutoCloseable {
   }
 
   public CompilationResult compile(Path entry) throws IOException {
+    return compileApplication(entry).result();
+  }
+
+  public ApplicationCompilation compileApplication(Path entry) throws IOException {
     ProjectSourceSet sourceSet = projects.load(entry);
-    return compile(sourceSet.applicationCompilationRequest(entry), sourceSet).result();
+    PreparedCompilation compilation =
+        compile(sourceSet.applicationCompilationRequest(entry), sourceSet);
+    return new ApplicationCompilation(sourceSet, compilation.result());
   }
 
   public CompilationResult run(Path entry, ExecutionContext context) throws IOException {
@@ -53,7 +61,7 @@ public final class ProjectLauncher implements AutoCloseable {
               java.util.List.of(compilation.annotationOutput().orElseThrow().classes()))) {
         backend.execute(
             result.program().orElseThrow().compilation().artifact(),
-            Objects.requireNonNull(context, "context").withJarBindingRuntime(runtime));
+            applicationContext(context, sourceSet).withJarBindingRuntime(runtime));
       }
     }
     return result;
@@ -71,7 +79,7 @@ public final class ProjectLauncher implements AutoCloseable {
         new JvmJarBindingRuntime(
             sourceSet.jarBindings(), java.util.List.of(annotationOutput.classes()))) {
       ExecutionContext execution =
-          Objects.requireNonNull(context, "context")
+          applicationContext(context, sourceSet)
               .withJarBindingRuntime(runtime)
               .withJavaApplicationEntrypoint(
                   loader ->
@@ -112,6 +120,13 @@ public final class ProjectLauncher implements AutoCloseable {
       return new PreparedCompilation(
           new CompilationResult(Optional.empty(), diagnostics), Optional.empty());
     }
+  }
+
+  private static ExecutionContext applicationContext(
+      ExecutionContext context, ProjectSourceSet sourceSet) {
+    String packageName = SourceHeader.parse(sourceSet.primarySource()).packageName().orElse("");
+    return Objects.requireNonNull(context, "context")
+        .withApplicationPackage(JavaApplicationTypeName.packageName(packageName));
   }
 
   private record PreparedCompilation(

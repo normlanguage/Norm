@@ -47,7 +47,11 @@ final class RunCommand implements Command {
     try {
       NormRuntime backend = new NormRuntime();
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-      try (var launcher = environment.persistentLauncher()) {
+      String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
+      try (var launcher =
+          applicationBundle == null || applicationBundle.isBlank()
+              ? environment.persistentLauncher()
+              : environment.bundledLauncher(Path.of(applicationBundle))) {
         result = launcher.run(entry, ExecutionContext.of(out, JdkSystemPlatform.standard()));
       }
     } catch (IOException exception) {

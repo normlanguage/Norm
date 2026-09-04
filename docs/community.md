@@ -7,7 +7,7 @@ aside: false
 
 # 参与 Norm
 
-Norm 当前正式版本为 0.16。语言、编译器、标准库和编辑器工具的实际边界见[版本索引](/versions/)。
+Norm 当前正式版本为 0.20。语言、编译器、标准库和编辑器工具的实际边界见[版本索引](/versions/)。
 
 <div class="community-grid">
   <a href="https://github.com/normlanguage/Norm">

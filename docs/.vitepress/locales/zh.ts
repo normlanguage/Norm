@@ -129,6 +129,7 @@ export const zhTheme: DefaultTheme.Config = {
     '/stdlib/': [{ text: '标准库', items: stdlib }],
     '/tooling/': [{ text: 'Tooling', items: [
       { text: '工具链概览', link: '/tooling/' },
+      { text: '应用构建', link: '/tooling/application-build' },
       { text: 'API 文档导出', link: '/tooling/api-documentation' },
       { text: 'VS Code', link: '/guide/vscode' },
       { text: '当前状态', link: '/status' },
