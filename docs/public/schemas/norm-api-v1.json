@@ -77,7 +77,8 @@
       "required": ["name"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "upperBound": { "$ref": "#/$defs/Type" }
+        "upperBound": { "$ref": "#/$defs/Type" },
+        "defaultType": { "$ref": "#/$defs/Type" }
       }
     },
     "Parameter": {
