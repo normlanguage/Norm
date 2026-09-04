@@ -1,0 +1,33 @@
+using System.Diagnostics;
+
+namespace Norm.Launcher.Tests;
+
+public sealed class RuntimeLauncherTest : IDisposable
+{
+    private readonly string root = Path.Combine(Path.GetTempPath(), "norm-runtime-launcher-tests", Guid.NewGuid().ToString("N"));
+
+    [Fact]
+    public void PreservesEveryJvmAndUserArgument()
+    {
+        string bin = Path.Combine(root, "bin");
+        Directory.CreateDirectory(bin);
+        File.WriteAllText(
+            Path.Combine(bin, "launcher.json"),
+            """{"module":"norm/main","jvmArguments":["--native","value with spaces"]}""");
+
+        ProcessStartInfo start = RuntimeLauncher.CreateStartInfo(root, ["web.norm", "user value"]);
+
+        Assert.Equal(Path.Combine(root, "runtime", "bin", "java.exe"), start.FileName);
+        Assert.Equal(
+            ["--native", "value with spaces", "--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "web.norm", "user value"],
+            start.ArgumentList);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, true);
+        }
+    }
+}

@@ -37,7 +37,7 @@ jobs:
         id: targets
         shell: bash
         run: |
-          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.distribution | type == "string") and (.launcher | type == "string")) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
+          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.distribution | type == "string") and (.launcher | type == "string") and ((.standalone == null) or (.standalone | type == "string"))) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
           echo "matrix=$(jq -c '{include: .}' cli/compiler/release-targets.json)" >> "$GITHUB_OUTPUT"
 
   verify:
@@ -57,6 +57,11 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -79,6 +84,9 @@ jobs:
 
       - name: Verify toolchain
         run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Verify Windows launcher core
+        run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj
 
       - name: Verify extension
         working-directory: cli/extensions/vscode
@@ -107,6 +115,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Set up .NET for the Windows executable
+        if: runner.os == 'Windows'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -120,6 +134,15 @@ jobs:
       - name: Build self-contained CLI
         shell: bash
         run: ./gradlew :compiler:installRuntimeDist "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Build portable Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\gradlew.bat :compiler:publishWindowsExecutable "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Verify portable Windows executable
+        if: runner.os == 'Windows'
+        run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.standalone }} ${{ needs.prepare.outputs.version }}
 
       - name: Verify self-contained CLI
         run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.distribution }}/${{ matrix.launcher }} ${{ needs.prepare.outputs.version }}
@@ -157,12 +180,18 @@ jobs:
           New-Item -ItemType Directory -Path release -Force | Out-Null
           New-Item -ItemType Directory -Path release-stage -Force | Out-Null
           Copy-Item -LiteralPath '${{ matrix.distribution }}' -Destination release-stage/norm -Recurse
-          $archive = 'release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.zip'
-          Compress-Archive -LiteralPath release-stage/norm -DestinationPath $archive
-          $destination = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString('N'))
-          Expand-Archive -LiteralPath $archive -DestinationPath $destination
-          $actual = & (Join-Path $destination 'norm/bin/norm.bat') --version
-          if ($actual -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Archived CLI version mismatch: $actual" }
+          Copy-Item -LiteralPath '${{ matrix.standalone }}' -Destination 'release/norm.exe'
+          $actual = & 'release/norm.exe' --version
+          if ($actual -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Portable CLI version mismatch: $actual" }
+          & 'release/norm.exe' setup
+          if ($LASTEXITCODE -ne 0) { throw "Setup failed with exit code $LASTEXITCODE" }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $installDirectory = Join-Path $env:LOCALAPPDATA 'Programs\Norm\bin'
+          $matches = @($userPath.Split(';') | Where-Object { $_.TrimEnd('\') -ieq $installDirectory.TrimEnd('\') })
+          if ($matches.Count -ne 1) { throw "Setup did not add exactly one PATH entry" }
+          $installed = Join-Path $installDirectory 'norm.exe'
+          $installedVersion = & $installed --version
+          if ($installedVersion -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Installed CLI version mismatch: $installedVersion" }
 
       - name: Package Unix CLI
         if: runner.os != 'Windows'
@@ -264,7 +293,7 @@ jobs:
 
       - name: Create checksums
         working-directory: release
-        run: sha256sum norm-* > SHA256SUMS
+        run: sha256sum norm* > SHA256SUMS
 
       - name: Attest release assets
         uses: actions/attest-build-provenance@v3

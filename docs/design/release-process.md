@@ -8,11 +8,11 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 | 平台 | CLI |
 | --- | --- |
-| Windows x64 | ZIP 内的 `norm/bin/norm.bat` |
+| Windows x64 | 可直接执行和自安装的 `norm.exe` |
 | Linux x64 | TAR.GZ 内的 `norm/bin/norm` |
 | macOS Apple Silicon | TAR.GZ 内的 `norm/bin/norm` |
 
-每个 CLI 目录都包含 `bin`、编译器 `lib` 和由 JDK 25 `jlink` 生成的 `runtime`。这既不要求用户安装 Java，也保留运行时加载第三方 Java binding 和 Annotation Processor 的能力。
+各平台使用同一个由 `bin`、编译器 `lib` 和 JDK 25 `jlink` `runtime` 组成的运行时。Windows 的 `norm.exe` 原样内嵌该目录，首次运行时按版本原子展开；`norm.exe setup` 将 EXE 安装到当前用户并幂等写入用户 `PATH`。这既不要求用户安装 Java，也保留运行时加载第三方 Java binding 和 Annotation Processor 的能力。
 
 `norm-language-support-vMAJOR.MINOR.PATCH.vsix` 是唯一插件产物。插件根据 VS Code 所在的操作系统和架构选择内置的同结构 CLI，不发布平台专用 VSIX。
 
@@ -20,7 +20,7 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 ## 验收门槛
 
-发布必须同时通过 Java 工具链测试、VS Code 静态检查、CLI 版本检查、Hello World、`norm/tests` 中的全部可执行验收程序、动态 Java binding 程序和 LSP 握手。通用 VSIX 必须包含目标清单中的全部 CLI，并验证 launcher、compiler 和 runtime 来自对应平台已验收的发行目录；宿主平台的完整内置目录必须能从 VSIX 解出并执行。
+发布必须同时通过 Java 工具链测试、Windows 启动器测试、VS Code 静态检查、CLI 版本检查、Hello World、`norm/tests` 中的全部可执行验收程序、动态 Java binding 程序和 LSP 握手。Windows 还必须验证便携执行、安装、PATH 幂等和安装后执行。通用 VSIX 必须包含目标清单中的全部 CLI，并验证 launcher、compiler 和 runtime 来自对应平台已验收的发行目录；宿主平台的完整内置目录必须能从 VSIX 解出并执行。
 
 构建完成后统一生成 SHA-256 校验和与构建来源证明。任一平台失败时不发布任何平台；全部资产先进入 Draft Release，上传完整后再一次性公开。
 

@@ -450,6 +450,73 @@ abstract class GenerateRuntimeLaunchers : DefaultTask() {
             "%APP_HOME%\runtime\bin\java.exe" $windowsArguments --module-path "%APP_HOME%\lib" --module ${moduleName.get()}/${mainClass.get()} %*
             """.trimIndent().replace("\n", "\r\n") + "\r\n",
         )
+        directory.resolve("launcher.json").writeText(
+            groovy.json.JsonOutput.prettyPrint(
+                groovy.json.JsonOutput.toJson(
+                    mapOf(
+                        "module" to "${moduleName.get()}/${mainClass.get()}",
+                        "jvmArguments" to jvmArguments.get(),
+                    ),
+                ),
+            ) + "\n",
+        )
+    }
+}
+
+abstract class PublishNativeLauncher : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val projectFile: RegularFileProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceFiles: ConfigurableFileCollection
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val applicationIcon: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val runtimePayload: RegularFileProperty
+
+    @get:Input
+    abstract val normVersion: Property<String>
+
+    @get:OutputFile
+    abstract val outputExecutable: RegularFileProperty
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @TaskAction
+    fun publish() {
+        check(System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+            "The native Norm launcher can only be built on Windows"
+        }
+        val output = outputExecutable.get().asFile
+        output.parentFile.deleteRecursively()
+        output.parentFile.mkdirs()
+        execOperations.exec {
+            executable("dotnet")
+            args(
+                "publish",
+                projectFile.get().asFile.absolutePath,
+                "--configuration",
+                "Release",
+                "--runtime",
+                "win-x64",
+                "--self-contained",
+                "true",
+                "--output",
+                output.parentFile.absolutePath,
+                "-p:NormVersion=${normVersion.get()}",
+                "-p:NormPayloadPath=${runtimePayload.get().asFile.absolutePath}",
+            )
+        }
+        check(output.isFile) {
+            "The native Norm launcher was not created at $output"
+        }
     }
 }
 
@@ -617,6 +684,28 @@ distributions.create("runtime") {
             into("runtime")
         }
     }
+}
+
+val installRuntimeDistribution = tasks.named<Sync>("installRuntimeDist")
+val runtimePayloadArchive = tasks.register<Zip>("runtimePayload") {
+    dependsOn(installRuntimeDistribution)
+    from(installRuntimeDistribution.map { it.destinationDir })
+    archiveFileName.set("norm-runtime.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("launcher"))
+}
+
+tasks.register<PublishNativeLauncher>("publishWindowsExecutable") {
+    dependsOn(runtimePayloadArchive)
+    projectFile.set(rootProject.layout.projectDirectory.file("cli/launcher/Norm.Launcher/Norm.Launcher.csproj"))
+    sourceFiles.from(
+        rootProject.fileTree("cli/launcher/Norm.Launcher") {
+            include("**/*.cs", "**/*.csproj")
+        },
+    )
+    applicationIcon.set(rootProject.layout.projectDirectory.file("docs/public/brand/norm.ico"))
+    runtimePayload.set(runtimePayloadArchive.flatMap { it.archiveFile })
+    normVersion.set(project.version.toString())
+    outputExecutable.set(layout.buildDirectory.file("launcher/publish/norm.exe"))
 }
 
 tasks.named<JavaExec>("run") {

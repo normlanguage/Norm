@@ -8,11 +8,11 @@ Every release ships a self-contained CLI for each platform and one universal VS 
 
 | Platform | CLI |
 | --- | --- |
-| Windows x64 | `norm/bin/norm.bat` in ZIP |
+| Windows x64 | Directly executable and self-installing `norm.exe` |
 | Linux x64 | `norm/bin/norm` in TAR.GZ |
 | macOS Apple Silicon | `norm/bin/norm` in TAR.GZ |
 
-Each CLI directory contains `bin`, compiler `lib`, and a `runtime` produced by JDK 25 `jlink`. Users do not install Java, while third-party Java bindings and annotation processors remain dynamically loadable.
+Every platform uses the same runtime made from `bin`, compiler `lib`, and the JDK 25 `jlink` `runtime`. The Windows `norm.exe` embeds that directory unchanged and atomically expands it by version on first use. `norm.exe setup` installs the executable for the current user and adds its directory to the user `PATH` idempotently. Users do not install Java, while third-party Java bindings and annotation processors remain dynamically loadable.
 
 `norm-language-support-vMAJOR.MINOR.PATCH.vsix` is the only extension asset. It selects a bundled directory with the same structure from the host operating system and architecture. Norm does not publish platform-specific VSIX packages.
 
@@ -20,7 +20,7 @@ A new platform must first pass the same acceptance suite in continuous integrati
 
 ## Release gates
 
-A release must pass the Java toolchain tests, VS Code static checks, CLI version verification, Hello World, every executable acceptance program under `norm/tests`, a dynamic Java-binding program, and an LSP handshake. The universal VSIX verifies the launcher, compiler, and runtime from every accepted platform directory, then extracts and executes the complete host bundle.
+A release must pass the Java toolchain tests, Windows launcher tests, VS Code static checks, CLI version verification, Hello World, every executable acceptance program under `norm/tests`, a dynamic Java-binding program, and an LSP handshake. Windows additionally verifies portable execution, setup, idempotent `PATH` registration, and execution after setup. The universal VSIX verifies the launcher, compiler, and runtime from every accepted platform directory, then extracts and executes the complete host bundle.
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 

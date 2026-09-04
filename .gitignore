@@ -12,6 +12,8 @@ cli/extensions/**/.vscode-test/
 cli/extensions/**/*.vsix
 cli/extensions/**/bin/
 cli/extensions/vscode/server/
+cli/launcher/**/bin/
+cli/launcher/**/obj/
 coverage/
 .nyc_output/
 *.tsbuildinfo

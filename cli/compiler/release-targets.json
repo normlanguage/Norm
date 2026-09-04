@@ -4,7 +4,8 @@
     "target": "win32-x64",
     "platform": "windows-x64",
     "distribution": "cli/compiler/build/install/norm",
-    "launcher": "bin/norm.bat"
+    "launcher": "bin/norm.bat",
+    "standalone": "cli/compiler/build/launcher/publish/norm.exe"
   },
   {
     "runner": "ubuntu-22.04",
