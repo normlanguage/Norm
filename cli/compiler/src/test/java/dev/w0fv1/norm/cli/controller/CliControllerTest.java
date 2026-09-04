@@ -24,6 +24,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 final class CliControllerTest {
@@ -103,6 +105,7 @@ final class CliControllerTest {
   }
 
   @Test
+  @EnabledOnOs(OS.WINDOWS)
   void buildsASingleFileApplicationBesideItsSource() throws IOException {
     Path source = temporaryDirectory.resolve("web.norm");
     Files.writeString(
