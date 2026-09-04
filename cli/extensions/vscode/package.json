@@ -190,6 +190,6 @@
     "yauzl": "3.4.0",
     "typescript": "7.0.2",
     "vscode-oniguruma": "^2.0.1",
-    "vscode-textmate": "^9.2.0"
+    "vscode-textmate": "^9.3.2"
   }
 }
