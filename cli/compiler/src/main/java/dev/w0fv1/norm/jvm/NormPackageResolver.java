@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
+import dev.w0fv1.norm.value.ModuleDependency;
 import dev.w0fv1.norm.value.ModuleRepositoryCoordinate;
 import dev.w0fv1.norm.value.ModuleRepositoryId;
 import dev.w0fv1.norm.value.ModuleRequirement;
@@ -23,6 +24,8 @@ public final class NormPackageResolver implements AutoCloseable {
   private final Path cache;
   private final Map<ModuleRepositoryId, NormPackageRepository> repositories;
   private final HttpClient client;
+  private final Map<LatestModule, Integer> latestVersions =
+      new java.util.concurrent.ConcurrentHashMap<>();
 
   public NormPackageResolver(Path cache) {
     this(cache, cache, defaultRepositories());
@@ -83,6 +86,30 @@ public final class NormPackageResolver implements AutoCloseable {
     } finally {
       Files.deleteIfExists(temporary);
     }
+  }
+
+  public ModuleRequirement resolve(ModuleDependency dependency) throws IOException {
+    Objects.requireNonNull(dependency, "dependency");
+    if (dependency.version().isPresent()) {
+      return dependency.resolved(dependency.version().getAsInt());
+    }
+    NormPackageRepository repository = repositories.get(dependency.repository());
+    if (repository == null) {
+      throw new IOException(
+          "unknown Norm package repository '" + dependency.repository().value() + "'");
+    }
+    LatestModule module = new LatestModule(dependency.repository(), dependency.name());
+    Integer version = latestVersions.get(module);
+    if (version == null) {
+      synchronized (latestVersions) {
+        version = latestVersions.get(module);
+        if (version == null) {
+          version = repository.latestVersion(dependency.name(), client);
+          latestVersions.put(module, version);
+        }
+      }
+    }
+    return dependency.resolved(version);
   }
 
   private static boolean validCachedArtifact(Path archive) throws IOException {
@@ -181,6 +208,8 @@ public final class NormPackageResolver implements AutoCloseable {
   private static Map<ModuleRepositoryId, NormPackageRepository> defaultRepositories() {
     return Map.of(ModuleRepositoryId.GITHUB, new GitHubPackageRepository());
   }
+
+  private record LatestModule(ModuleRepositoryId repository, String name) {}
 
   @Override
   public void close() {

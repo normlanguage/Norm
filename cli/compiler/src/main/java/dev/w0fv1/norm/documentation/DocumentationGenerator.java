@@ -477,7 +477,9 @@ public final class DocumentationGenerator {
         .map(
             parameter ->
                 new ModuleDocumentation.TypeParameter(
-                    parameter.name(), parameter.upperBound().map(DocumentationGenerator::type)))
+                    parameter.name(),
+                    parameter.upperBound().map(DocumentationGenerator::type),
+                    parameter.defaultType().map(DocumentationGenerator::type)))
         .toList();
   }
 
@@ -762,7 +764,8 @@ public final class DocumentationGenerator {
         .map(
             value ->
                 value.name()
-                    + value.upperBound().map(bound -> " extends " + bound.displayName()).orElse(""))
+                    + value.upperBound().map(bound -> " extends " + bound.displayName()).orElse("")
+                    + value.defaultType().map(type -> " = " + type.displayName()).orElse(""))
         .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
   }
 

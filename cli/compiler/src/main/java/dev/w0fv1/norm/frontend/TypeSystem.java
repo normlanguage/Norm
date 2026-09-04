@@ -120,13 +120,14 @@ final class TypeSystem {
             : candidates.stream()
                 .filter(
                     declaration ->
-                        declaration.typeParameters().size() == explicitTypeArguments.size())
+                        acceptsTypeArgumentCount(
+                            declaration.typeParameters(), explicitTypeArguments.size()))
                 .toList();
     if (arityMatches.isEmpty()) {
       if (candidates.size() == 1) {
         validateTypeArgumentCount(
             candidates.getFirst().name(),
-            candidates.getFirst().typeParameters().size(),
+            candidates.getFirst().typeParameters(),
             explicitTypeArguments,
             span);
       } else {
@@ -264,7 +265,7 @@ final class TypeSystem {
     TypeConstraintSolver solver = new TypeConstraintSolver(callableParameters.values());
     Map<String, SemanticType> declarationTypes = typeParameters(declaration, ownerOf(declaration));
     if (hasExplicitTypes) {
-      for (int index = 0; index < declaration.typeParameters().size(); index++) {
+      for (int index = 0; index < explicitTypes.size(); index++) {
         SemanticType parameter =
             callableParameters.get(declaration.typeParameters().get(index).name());
         substitutions.put(parameter.identity(), explicitTypes.get(index));
@@ -298,11 +299,19 @@ final class TypeSystem {
     for (Syntax.TypeParameter parameterSyntax : declaration.typeParameters()) {
       SemanticType parameter = callableParameters.get(parameterSyntax.name());
       SemanticType inferred = inferredTypes.substitutions().get(parameter.identity());
-      if (!hasExplicitTypes && inferred == null) {
-        missing.add(parameterSyntax.name());
-        substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
-      } else if (!hasExplicitTypes) {
+      if (!hasExplicitTypes && inferred != null) {
         substitutions.put(parameter.identity(), inferred);
+      } else if (!substitutions.containsKey(parameter.identity())) {
+        if (parameterSyntax.defaultType().isPresent()) {
+          SemanticType defaultType =
+              resolveDeclarationType(
+                      parameterSyntax.defaultType().orElseThrow(), declaration, declarationTypes)
+                  .substitute(substitutions);
+          substitutions.put(parameter.identity(), defaultType);
+        } else {
+          missing.add(parameterSyntax.name());
+          substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
+        }
       }
     }
     Map<String, String> parameterNames =
@@ -693,15 +702,16 @@ final class TypeSystem {
           INVALID_NULLABLE_TYPE, "Void cannot be nullable", type.span());
       return;
     }
-    if (!type.name().equals("Function") && arity != type.arguments().size()) {
+    List<Syntax.TypeParameter> declaredParameters = declaredTypeParameters(type.name());
+    boolean validArity =
+        declaredParameters == null
+            ? arity == type.arguments().size()
+            : acceptsTypeArgumentCount(declaredParameters, type.arguments().size());
+    if (!type.name().equals("Function") && !validArity) {
       analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
-          "type '"
-              + type.name()
-              + "' requires "
-              + arity
-              + " type argument(s), found "
-              + type.arguments().size(),
+          typeArgumentCountMessage(
+              "type", type.name(), declaredParameters, arity, type.arguments().size()),
           type.span());
     }
     for (int index = 0; index < type.arguments().size(); index++) {
@@ -734,12 +744,14 @@ final class TypeSystem {
     } else {
       return;
     }
-    if (parameters.size() != reference.arguments().size()) return;
+    if (!acceptsTypeArgumentCount(parameters, reference.arguments().size())) return;
     Map<String, SemanticType> substitutions = new LinkedHashMap<>();
-    List<SemanticType> actualArguments =
+    List<SemanticType> providedArguments =
         reference.arguments().stream()
             .map(argument -> resolveType(argument, analyzer.context.activeTypeParameters))
             .toList();
+    List<SemanticType> actualArguments =
+        completeTypeArguments(parameters, declared, declaration, providedArguments);
     for (int index = 0; index < parameters.size(); index++) {
       substitutions.put(
           declared.get(parameters.get(index).name()).identity(), actualArguments.get(index));
@@ -761,7 +773,9 @@ final class TypeSystem {
                 + "' for '"
                 + parameter.name()
                 + "'",
-            reference.arguments().get(index).span());
+            index < reference.arguments().size()
+                ? reference.arguments().get(index).span()
+                : parameter.defaultType().orElseThrow().span());
       }
     }
   }
@@ -1131,7 +1145,9 @@ final class TypeSystem {
               SemanticType type = types.get(parameter.name());
               Optional<SemanticType> bound =
                   parameter.upperBound().map(value -> resolveType(value, types));
-              return new TypeParameterInfo(parameter.name(), type, bound);
+              Optional<SemanticType> defaultType =
+                  parameter.defaultType().map(value -> resolveType(value, types));
+              return new TypeParameterInfo(parameter.name(), type, bound, defaultType);
             })
         .toList();
   }
@@ -1302,10 +1318,15 @@ final class TypeSystem {
   SemanticType appliedType(String name, List<Syntax.TypeRef> arguments, SourceSpan span) {
     int arity = declaredTypeArity(name);
     if (arity < 0) return sourceType(name, List.of());
-    if (arity != arguments.size()) {
+    List<Syntax.TypeParameter> parameters = declaredTypeParameters(name);
+    boolean validArity =
+        parameters == null
+            ? arity == arguments.size()
+            : acceptsTypeArgumentCount(parameters, arguments.size());
+    if (!validArity) {
       analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
-          "type '" + name + "' requires " + arity + " type argument(s), found " + arguments.size(),
+          typeArgumentCountMessage("type", name, parameters, arity, arguments.size()),
           span);
     }
     List<SemanticType> resolved =
@@ -1314,7 +1335,16 @@ final class TypeSystem {
             .toList();
     if (analyzer.context.builtins.isType(name))
       return analyzer.context.builtins.instantiate(name, resolved);
-    return sourceType(name, resolved);
+    DeclaredType declaration = declaredType(name);
+    return sourceType(
+        name,
+        declaration == null
+            ? resolved
+            : completeTypeArguments(
+                declaration.parameters(),
+                declaration.types(),
+                declaration.declaration(),
+                resolved));
   }
 
   SemanticType constructedType(Syntax.Name name, Syntax.Call call, SemanticType expected) {
@@ -1334,12 +1364,7 @@ final class TypeSystem {
           analyzer.context.builtins.constructorParameters(prototype).orElse(List.of());
     } else if (source != null) {
       Map<String, SemanticType> declared = aggregateTypeParameters(source);
-      parameters =
-          source.typeParameters().stream()
-              .map(
-                  parameter ->
-                      new TypeParameterInfo(parameter.name(), declared.get(parameter.name())))
-              .toList();
+      parameters = symbolTypeParameters(source.typeParameters(), declared);
       prototype =
           sourceType(source.name(), parameters.stream().map(TypeParameterInfo::type).toList());
       constructorParameters =
@@ -1388,12 +1413,6 @@ final class TypeSystem {
                     TypeParameterInfo::name,
                     (left, right) -> left,
                     LinkedHashMap::new));
-    for (String missing : solution.missing()) {
-      analyzer.context.diagnostics.error(
-          INVALID_CALL,
-          "cannot infer type argument '" + parameterNames.get(missing) + "'",
-          name.span());
-    }
     for (TypeConstraintSolver.Conflict conflict : solution.conflicts()) {
       analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
@@ -1405,13 +1424,24 @@ final class TypeSystem {
               + conflict.second().displayName(),
           name.span());
     }
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>(solution.substitutions());
+    for (TypeParameterInfo parameter : parameters) {
+      if (substitutions.containsKey(parameter.type().identity())) continue;
+      if (parameter.defaultType().isPresent()) {
+        substitutions.put(
+            parameter.type().identity(),
+            parameter.defaultType().orElseThrow().substitute(substitutions));
+      } else {
+        analyzer.context.diagnostics.error(
+            INVALID_CALL,
+            "cannot infer type argument '" + parameterNames.get(parameter.type().identity()) + "'",
+            name.span());
+        substitutions.put(parameter.type().identity(), SemanticType.DYNAMIC);
+      }
+    }
     List<SemanticType> arguments =
         parameters.stream()
-            .map(
-                parameter ->
-                    solution
-                        .substitutions()
-                        .getOrDefault(parameter.type().identity(), SemanticType.DYNAMIC))
+            .map(parameter -> substitutions.get(parameter.type().identity()))
             .toList();
     return builtin != null
         ? analyzer.context.builtins.instantiate(typeName, arguments)
@@ -1453,10 +1483,19 @@ final class TypeSystem {
           SemanticType.function(arguments.getFirst(), arguments.subList(1, arguments.size()));
       return type.nullable() ? function.nullable() : function;
     }
+    DeclaredType declaration = declaredType(type.name());
     SemanticType resolved =
         analyzer.context.builtins.isType(type.name())
             ? analyzer.context.builtins.instantiate(type.name(), arguments)
-            : sourceType(type.name(), arguments);
+            : sourceType(
+                type.name(),
+                declaration == null
+                    ? arguments
+                    : completeTypeArguments(
+                        declaration.parameters(),
+                        declaration.types(),
+                        declaration.declaration(),
+                        arguments));
     return type.nullable() ? resolved.nullable() : resolved;
   }
 
@@ -1507,6 +1546,37 @@ final class TypeSystem {
               + expected
               + " type argument(s), found "
               + arguments.size(),
+          span);
+    }
+  }
+
+  void validateTypeArgumentCount(
+      String name,
+      List<Syntax.TypeParameter> parameters,
+      List<Syntax.TypeRef> arguments,
+      SourceSpan span) {
+    if (!acceptsTypeArgumentCount(parameters, arguments.size())) {
+      analyzer.context.diagnostics.error(
+          INVALID_CALL,
+          typeArgumentCountMessage(
+              "function", name, parameters, parameters.size(), arguments.size()),
+          span);
+    }
+  }
+
+  void validateSemanticTypeArgumentCount(
+      String name,
+      List<TypeParameterInfo> parameters,
+      List<Syntax.TypeRef> arguments,
+      SourceSpan span) {
+    int required = 0;
+    for (int index = 0; index < parameters.size(); index++) {
+      if (parameters.get(index).defaultType().isEmpty()) required = index + 1;
+    }
+    if (arguments.size() < required || arguments.size() > parameters.size()) {
+      analyzer.context.diagnostics.error(
+          INVALID_CALL,
+          typeArgumentCountMessage("function", name, required, parameters.size(), arguments.size()),
           span);
     }
   }
@@ -1576,6 +1646,86 @@ final class TypeSystem {
     if (enumDecl != null) return enumDecl.typeParameters().size();
     return resolveAnnotation(name) == null ? -1 : 0;
   }
+
+  private DeclaredType declaredType(String name) {
+    Syntax.InterfaceDecl interfaceDecl = resolveInterface(name);
+    if (interfaceDecl != null) {
+      return new DeclaredType(
+          interfaceDecl, interfaceDecl.typeParameters(), interfaceTypeParameters(interfaceDecl));
+    }
+    Syntax.AggregateDecl aggregateDecl = resolveAggregate(name);
+    if (aggregateDecl != null) {
+      return new DeclaredType(
+          aggregateDecl, aggregateDecl.typeParameters(), aggregateTypeParameters(aggregateDecl));
+    }
+    Syntax.EnumDecl enumDecl = resolveEnum(name);
+    if (enumDecl != null) {
+      return new DeclaredType(enumDecl, enumDecl.typeParameters(), enumTypeParameters(enumDecl));
+    }
+    return null;
+  }
+
+  private List<Syntax.TypeParameter> declaredTypeParameters(String name) {
+    DeclaredType declaration = declaredType(name);
+    return declaration == null ? null : declaration.parameters();
+  }
+
+  private List<SemanticType> completeTypeArguments(
+      List<Syntax.TypeParameter> parameters,
+      Map<String, SemanticType> declaredTypes,
+      Object declaration,
+      List<SemanticType> provided) {
+    if (provided.size() >= parameters.size()) return List.copyOf(provided);
+    List<SemanticType> result = new ArrayList<>(provided);
+    Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+    for (int index = 0; index < provided.size(); index++) {
+      substitutions.put(
+          declaredTypes.get(parameters.get(index).name()).identity(), provided.get(index));
+    }
+    for (int index = provided.size(); index < parameters.size(); index++) {
+      Syntax.TypeParameter parameter = parameters.get(index);
+      SemanticType argument =
+          parameter
+              .defaultType()
+              .map(
+                  type ->
+                      resolveDeclarationType(type, declaration, declaredTypes)
+                          .substitute(substitutions))
+              .orElse(SemanticType.DYNAMIC);
+      result.add(argument);
+      substitutions.put(declaredTypes.get(parameter.name()).identity(), argument);
+    }
+    return List.copyOf(result);
+  }
+
+  private static boolean acceptsTypeArgumentCount(
+      List<Syntax.TypeParameter> parameters, int count) {
+    int required = requiredTypeArgumentCount(parameters);
+    return count >= required && count <= parameters.size();
+  }
+
+  private static int requiredTypeArgumentCount(List<Syntax.TypeParameter> parameters) {
+    int required = 0;
+    for (int index = 0; index < parameters.size(); index++) {
+      if (parameters.get(index).defaultType().isEmpty()) required = index + 1;
+    }
+    return required;
+  }
+
+  private static String typeArgumentCountMessage(
+      String kind, String name, List<Syntax.TypeParameter> parameters, int arity, int actual) {
+    int required = parameters == null ? arity : requiredTypeArgumentCount(parameters);
+    return typeArgumentCountMessage(kind, name, required, arity, actual);
+  }
+
+  private static String typeArgumentCountMessage(
+      String kind, String name, int required, int arity, int actual) {
+    String expectation = required == arity ? Integer.toString(arity) : required + " to " + arity;
+    return kind + " '" + name + "' requires " + expectation + " type argument(s), found " + actual;
+  }
+
+  private record DeclaredType(
+      Object declaration, List<Syntax.TypeParameter> parameters, Map<String, SemanticType> types) {}
 
   Map<String, SemanticType> typeParameters(
       Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
@@ -1728,8 +1878,23 @@ final class TypeSystem {
       SourceSpan span) {
     Map<String, SemanticType> substitutions = new LinkedHashMap<>();
     if (!explicitArguments.isEmpty()) {
-      validateTypeArgumentCount(
-          symbol.name(), symbol.typeParameters().size(), explicitArguments, span);
+      int required =
+          (int)
+              symbol.typeParameters().stream()
+                  .filter(parameter -> parameter.defaultType().isEmpty())
+                  .count();
+      if (explicitArguments.size() < required
+          || explicitArguments.size() > symbol.typeParameters().size()) {
+        analyzer.context.diagnostics.error(
+            INVALID_CALL,
+            typeArgumentCountMessage(
+                "function",
+                symbol.name(),
+                required,
+                symbol.typeParameters().size(),
+                explicitArguments.size()),
+            span);
+      }
       for (int index = 0;
           index < Math.min(explicitArguments.size(), symbol.typeParameters().size());
           index++) {
@@ -1795,9 +1960,15 @@ final class TypeSystem {
       String name = parameterInfo.name();
       SemanticType parameter = parameterInfo.type();
       if (parameter != null && !substitutions.containsKey(parameter.identity())) {
-        analyzer.context.diagnostics.error(
-            INVALID_CALL, "cannot infer type argument '" + name + "'", span);
-        substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
+        if (parameterInfo.defaultType().isPresent()) {
+          substitutions.put(
+              parameter.identity(),
+              parameterInfo.defaultType().orElseThrow().substitute(substitutions));
+        } else {
+          analyzer.context.diagnostics.error(
+              INVALID_CALL, "cannot infer type argument '" + name + "'", span);
+          substitutions.put(parameter.identity(), SemanticType.DYNAMIC);
+        }
       }
     }
     return substitutions;

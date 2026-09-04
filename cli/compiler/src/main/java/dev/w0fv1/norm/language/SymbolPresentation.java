@@ -68,6 +68,10 @@ final class SymbolPresentation {
                               + parameter
                                   .upperBound()
                                   .map(bound -> " extends " + bound.displayName())
+                                  .orElse("")
+                              + parameter
+                                  .defaultType()
+                                  .map(type -> " = " + type.displayName())
                                   .orElse("");
                         })
                     .collect(java.util.stream.Collectors.joining(", "))

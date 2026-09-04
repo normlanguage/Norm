@@ -24,4 +24,4 @@ Module module() {
 }
 ```
 
-依赖使用 `List<ModuleRequirement>` 表示，并通过 `dependency(String repository, String name, Integer version)` 构造。`repository` 是依赖身份的一部分，不能省略。完整语义见[模块系统](/spec/module-system)。
+依赖使用 `List<ModuleRequirement>` 表示，并通过 `dependency(String repository, String name, Integer? version = null)` 构造。`repository` 是依赖身份的一部分，不能省略；`version` 省略时由仓库解析最新稳定版本。完整语义见[模块系统](/spec/module-system)。

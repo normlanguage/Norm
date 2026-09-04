@@ -8,6 +8,8 @@ import dev.w0fv1.norm.frontend.ModuleBootstrap;
 import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.jvm.NormPackageResolver;
 import dev.w0fv1.norm.stdlib.StandardLibrary;
+import dev.w0fv1.norm.value.ModuleCoordinate;
+import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -33,7 +35,16 @@ public final class ProjectEnvironment {
     var kernel = LanguageProfile.withPrelude(bootstrap);
     ModuleDescriptor descriptor;
     try (ModuleEvaluator evaluator = new ModuleEvaluator(kernel, backend)) {
-      descriptor = evaluator.evaluate(StandardLibrary.moduleSource());
+      ModuleDeclaration declaration = evaluator.evaluate(StandardLibrary.moduleSource());
+      descriptor =
+          new ModuleDescriptor(
+              new ModuleCoordinate(
+                  declaration.name().orElseThrow(), declaration.version().orElseThrow()),
+              declaration.exports(),
+              declaration.dependencies().stream()
+                  .map(dependency -> dependency.resolved(dependency.version().orElseThrow()))
+                  .toList(),
+              declaration.binding());
     }
     StandardLibrary.LoadedModule standardLibrary = StandardLibrary.load(descriptor);
     CompilationPrelude standardLibraryPrelude =

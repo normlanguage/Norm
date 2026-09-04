@@ -4,7 +4,7 @@ Module module() {
     version: 1,
     dependencies: [
       dependency(repository: "github", name: "micronaut.web", version: 2),
-      dependency(repository: "github", name: "orm.micronaut.tx", version: 1),
+      dependency(repository: "github", name: "orm.micronaut.tx", version: 2),
       dependency(repository: "github", name: "h2.database", version: 1)
     ]
   )

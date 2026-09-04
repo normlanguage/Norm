@@ -75,6 +75,18 @@ final class LanguageServiceTest {
   }
 
   @Test
+  void providesLanguageFeaturesInsideStringInterpolation() {
+    String text = "String greet(String name) { return \"Hello, ${name}!\" }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:string-interpolation"), text));
+    int use = text.lastIndexOf("name");
+
+    assertEquals("`String name`", service.hover(analysis, use).orElseThrow().markdown());
+    assertEquals(
+        text.indexOf("name"), service.definition(analysis, use).orElseThrow().startOffset());
+  }
+
+  @Test
   void completesMembersDeclaredAfterDamagedStatements() {
     String text =
         "Void main() {\n"
@@ -629,6 +641,22 @@ final class LanguageServiceTest {
     assertTrue(
         service.complete(analysis, text.indexOf("return value")).stream()
             .anyMatch(completion -> completion.label().equals("T")));
+  }
+
+  @Test
+  void displaysGenericTypeParameterDefaults() {
+    String text = "enum Outcome<T, E = String> { Ok(T value), Err(E error) } Void main() {}";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:generic-defaults"), text));
+
+    assertTrue(
+        service
+            .hover(analysis, text.indexOf("Outcome"))
+            .orElseThrow()
+            .markdown()
+            .contains("Outcome<T, E = String>"));
+    assertEquals(
+        "`E = String`",
+        service.hover(analysis, text.indexOf("E = String")).orElseThrow().markdown());
   }
 
   @Test

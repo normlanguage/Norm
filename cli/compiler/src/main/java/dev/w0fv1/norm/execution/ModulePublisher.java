@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.execution;
 
-import dev.w0fv1.norm.value.ModuleDescriptor;
+import dev.w0fv1.norm.value.ModuleDeclaration;
 
 @FunctionalInterface
 public interface ModulePublisher {
-  void publish(ModuleDescriptor descriptor);
+  void publish(ModuleDeclaration declaration);
 }

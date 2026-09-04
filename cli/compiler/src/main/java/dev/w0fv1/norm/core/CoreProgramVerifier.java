@@ -601,7 +601,7 @@ final class CoreProgramVerifier {
       }
       CoreType expectedReturn =
           absolute(requirementId, requirement.returnType()).substitute(substitutions::get);
-      requireSameType(
+      requireAssignable(
           expectedReturn,
           absolute(implementationId, implementation.returnType())
               .substitute(implementationSubstitutions::get),
@@ -613,6 +613,10 @@ final class CoreProgramVerifier {
             != implementationParameter.upperBound().isPresent()) {
           throw new IllegalArgumentException("conformance witness generic bound does not match");
         }
+        if (requiredParameter.defaultType().isPresent()
+            != implementationParameter.defaultType().isPresent()) {
+          throw new IllegalArgumentException("conformance witness generic default does not match");
+        }
         if (requiredParameter.upperBound().isPresent()) {
           CoreType expectedBound =
               absolute(requirementId, requiredParameter.upperBound().orElseThrow())
@@ -622,6 +626,16 @@ final class CoreProgramVerifier {
               absolute(implementationId, implementationParameter.upperBound().orElseThrow())
                   .substitute(implementationSubstitutions::get),
               "conformance witness generic bound");
+        }
+        if (requiredParameter.defaultType().isPresent()) {
+          CoreType expectedDefault =
+              absolute(requirementId, requiredParameter.defaultType().orElseThrow())
+                  .substitute(substitutions::get);
+          requireSameType(
+              expectedDefault,
+              absolute(implementationId, implementationParameter.defaultType().orElseThrow())
+                  .substitute(implementationSubstitutions::get),
+              "conformance witness generic default");
         }
       }
     }
@@ -2507,6 +2521,7 @@ final class CoreProgramVerifier {
 
   private void verifyTypeParameters(
       DefinitionId owner, List<CoreTypeParameter> parameters, int parameterCount) {
+    boolean defaultSeen = false;
     for (CoreTypeParameter parameter : parameters) {
       parameter
           .upperBound()
@@ -2538,6 +2553,29 @@ final class CoreProgramVerifier {
                       "type parameter bound must be a non-null class or interface");
                 }
               });
+      if (parameter.defaultType().isEmpty()) {
+        if (defaultSeen) {
+          throw new IllegalArgumentException(
+              "required type parameter follows a default type parameter");
+        }
+        continue;
+      }
+      defaultSeen = true;
+      CoreType defaultType = parameter.defaultType().orElseThrow();
+      verifyValueType(owner, defaultType, parameterCount);
+      Set<Integer> referenced = new HashSet<>();
+      collectTypeParameters(defaultType, referenced);
+      if (referenced.stream().anyMatch(index -> index >= parameter.index())) {
+        throw new IllegalArgumentException(
+            "type parameter default may reference earlier type parameters only");
+      }
+      if (parameter.upperBound().isPresent()) {
+        CoreType bound = absolute(owner, parameter.upperBound().orElseThrow());
+        CoreType actual = absolute(owner, defaultType);
+        if (!isAssignableThroughTypeParameterBounds(bound, owner, actual, new HashSet<>())) {
+          throw new IllegalArgumentException("type parameter default does not satisfy its bound");
+        }
+      }
     }
   }
 

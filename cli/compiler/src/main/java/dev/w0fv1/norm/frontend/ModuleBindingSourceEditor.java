@@ -178,6 +178,8 @@ public final class ModuleBindingSourceEditor {
       case Syntax.BooleanLiteral ignored -> {}
       case Syntax.NullLiteral ignored -> {}
       case Syntax.StringLiteralExpr ignored -> {}
+      case Syntax.InterpolatedStringExpr interpolation ->
+          interpolation.expressions().forEach(value -> collectExpression(value, calls));
       case Syntax.Name ignored -> {}
     }
   }

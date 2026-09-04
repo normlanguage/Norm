@@ -27,7 +27,7 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 ## 构造与应用
 
-`@Label(text: "point")` 定义一次 Annotation 对象构造。参数必须命名、完整且为可赋值的编译期值；可用值包括标量常量和类型化声明引用 `T.class`、`name.function`、`Owner.name.function`、`Owner.name.field`。显式构造器存在时使用它的参数，否则使用字段生成的构造参数。Annotation 也能在普通表达式中直接构造，字段可变。
+`@Label(text: "point")` 定义一次 Annotation 对象构造。参数必须完整且为可赋值的编译期值；当声明包含名为 `value` 的参数时，第一个实参可以省略标签，例如 `@Route("/hello")`。其他实参必须命名。可用值包括标量常量和类型化声明引用 `T.class`、`name.function`、`Owner.name.function`、`Owner.name.field`。显式构造器存在时使用它的参数，否则使用字段生成的构造参数。Annotation 也能在普通表达式中直接构造，字段可变。
 
 声明引用在 Core metadata 中保留目标 identity，不保存声明名字符串。目标丢失或重载不唯一时编译失败。
 

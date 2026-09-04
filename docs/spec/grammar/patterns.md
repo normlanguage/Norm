@@ -17,7 +17,7 @@ case Branch(Leaf(Integer value), _) {
 }
 ```
 
-variant 名必须属于该位置的 enum。参数数量和顺序必须与 variant 声明一致。`Integer value` 是类型化绑定：模式成功时，以声明类型把匹配值绑定到 `value`；名称只在当前 case 块内可见。
+variant 名必须属于该位置的 enum。参数顺序必须与 variant 声明一致；末尾带默认值的数据位置可以省略，语义等同于 `_`。`Integer value` 是类型化绑定：模式成功时，以声明类型把匹配值绑定到 `value`；名称只在当前 case 块内可见。
 
 `_` 匹配任意值且不绑定名称。字面量按该类型的语言内建相等语义匹配，且必须与所在位置的静态类型兼容。`null` 只匹配 nullable 位置的 null 值。
 

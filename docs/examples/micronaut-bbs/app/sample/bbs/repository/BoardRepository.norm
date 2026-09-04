@@ -1,0 +1,15 @@
+package sample.bbs.repository
+
+import jakarta.inject.Inject
+import micronaut.inject.context.annotation.Prototype
+import orm.Repository
+import orm.RepositoryContext
+import sample.bbs.BoardEntity
+
+@Prototype()
+public class BoardRepository extends Repository<BoardEntity, Long> {
+  @Inject()
+  BoardRepository(RepositoryContext context) {
+    super(context)
+  }
+}

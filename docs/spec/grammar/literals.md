@@ -16,6 +16,7 @@ Double ratio = 0.125
 String name = "Norm"
 String line = "first\nsecond"
 String configuration = "\${bbs.greeting:Hello}"
+String greeting = "Hello, ${name}!"
 ```
 
 单引号表示一个 `CodePoint`。内容必须解码为恰好一个 Unicode code point：
@@ -26,7 +27,7 @@ CodePoint emoji = '😀'
 CodePoint newline = '\n'
 ```
 
-字符串使用双引号并支持标准转义。
+字符串使用双引号并支持标准转义。`${expression}` 对表达式求值并通过其 `toString()` 契约产生文本；求值顺序从左到右。`\${` 保留字面 `${`，用于配置占位符等文本。
 
 ## 布尔与 Null
 

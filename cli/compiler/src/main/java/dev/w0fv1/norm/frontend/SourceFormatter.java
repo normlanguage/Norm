@@ -251,6 +251,10 @@ public final class SourceFormatter {
                         parameter
                             .upperBound()
                             .map(bound -> Docs.concat(Docs.text(" extends "), type(bound)))
+                            .orElse(Docs.empty()),
+                        parameter
+                            .defaultType()
+                            .map(value -> Docs.concat(Docs.text(" = "), type(value)))
                             .orElse(Docs.empty())))
             .toList());
   }
@@ -465,6 +469,19 @@ public final class SourceFormatter {
       case Syntax.BooleanLiteral value -> Docs.text(Boolean.toString(value.value()));
       case Syntax.NullLiteral ignored -> Docs.text("null");
       case Syntax.StringLiteralExpr value -> Docs.text(stringLiteral(value.value()));
+      case Syntax.InterpolatedStringExpr value -> {
+        List<Doc> parts = new ArrayList<>();
+        parts.add(Docs.text("\""));
+        for (int index = 0; index < value.expressions().size(); index++) {
+          parts.add(Docs.text(stringContent(value.text().get(index))));
+          parts.add(Docs.text("${"));
+          parts.add(expression(value.expressions().get(index)));
+          parts.add(Docs.text("}"));
+        }
+        parts.add(Docs.text(stringContent(value.text().getLast())));
+        parts.add(Docs.text("\""));
+        yield Docs.concat(parts);
+      }
       case Syntax.ArrayLiteral value ->
           delimited("[", "]", value.elements().stream().map(this::expression).toList());
       case Syntax.Name value -> name(value);
@@ -641,9 +658,21 @@ public final class SourceFormatter {
   }
 
   private static String stringLiteral(String value) {
-    StringBuilder result = new StringBuilder("\"");
-    value.codePoints().forEach(character -> appendEscaped(result, character, false));
-    return result.append('"').toString();
+    return "\"" + stringContent(value) + "\"";
+  }
+
+  private static String stringContent(String value) {
+    StringBuilder result = new StringBuilder();
+    for (int offset = 0; offset < value.length(); ) {
+      int character = value.codePointAt(offset);
+      if (character == '$' && offset + 1 < value.length() && value.charAt(offset + 1) == '{') {
+        result.append("\\$");
+      } else {
+        appendEscaped(result, character, false);
+      }
+      offset += Character.charCount(character);
+    }
+    return result.toString();
   }
 
   private static String codePointLiteral(int value, String original) {

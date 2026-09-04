@@ -496,12 +496,27 @@ public final class SemanticModel implements SemanticIndex {
     }
     Optional<Symbol> symbol = resolvedSymbolOf(reference.span());
     if (symbol.isEmpty()) return Optional.empty();
-    SemanticType base = symbol.orElseThrow().type();
+    Symbol declaration = symbol.orElseThrow();
+    SemanticType base = declaration.type();
     SemanticType resolved = base;
-    if (base.kind() != SemanticType.Kind.TYPE_PARAMETER && !reference.arguments().isEmpty()) {
-      List<SemanticType> arguments =
+    if (base.kind() != SemanticType.Kind.TYPE_PARAMETER
+        && (!reference.arguments().isEmpty() || !declaration.typeParameters().isEmpty())) {
+      List<SemanticType> explicit =
           reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
-      if (arguments.size() != reference.arguments().size()) return Optional.empty();
+      if (explicit.size() != reference.arguments().size()) return Optional.empty();
+      List<SemanticType> arguments = new java.util.ArrayList<>(explicit);
+      Map<String, SemanticType> substitutions = new LinkedHashMap<>();
+      for (int index = 0; index < explicit.size(); index++) {
+        substitutions.put(
+            declaration.typeParameters().get(index).type().identity(), explicit.get(index));
+      }
+      for (int index = explicit.size(); index < declaration.typeParameters().size(); index++) {
+        TypeParameterInfo parameter = declaration.typeParameters().get(index);
+        if (parameter.defaultType().isEmpty()) return Optional.empty();
+        SemanticType argument = parameter.defaultType().orElseThrow().substitute(substitutions);
+        arguments.add(argument);
+        substitutions.put(parameter.type().identity(), argument);
+      }
       resolved = SemanticType.declared(base.identity(), base.name(), arguments, base.category());
     }
     return Optional.of(reference.nullable() ? resolved.nullable() : resolved);

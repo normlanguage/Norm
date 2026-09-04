@@ -478,7 +478,9 @@ final class CoreRewriter {
         .map(
             parameter ->
                 new CoreTypeParameter(
-                    parameter.index(), parameter.upperBound().map(type -> resolve(type, resolver))))
+                    parameter.index(),
+                    parameter.upperBound().map(type -> resolve(type, resolver)),
+                    parameter.defaultType().map(type -> resolve(type, resolver))))
         .toList();
   }
 

@@ -653,7 +653,8 @@ final class BoundCoreConverter {
             parameter ->
                 new CoreTypeParameter(
                     types.parameterIndex(parameter.type().identity()),
-                    parameter.upperBound().map(types::convert)))
+                    parameter.upperBound().map(types::convert),
+                    parameter.defaultType().map(types::convert)))
         .toList();
   }
 
@@ -1024,7 +1025,8 @@ final class BoundCoreConverter {
               parameter ->
                   new CoreTypeParameter(
                       parameter.index(),
-                      parameter.upperBound().map(type -> CoreTypes.mapLinks(type, links))))
+                      parameter.upperBound().map(type -> CoreTypes.mapLinks(type, links)),
+                      parameter.defaultType().map(type -> CoreTypes.mapLinks(type, links))))
           .toList();
     }
   }

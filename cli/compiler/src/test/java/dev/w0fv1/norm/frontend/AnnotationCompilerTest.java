@@ -25,6 +25,62 @@ import org.junit.jupiter.api.Test;
 
 final class AnnotationCompilerTest {
   @Test
+  void bindsTheFirstUnlabelledAnnotationArgumentToValue() {
+    CompilationResult result =
+        compile(
+            policies("FunctionTarget", "RuntimeRetention")
+                + "annotation Route implements FunctionTarget, RuntimeRetention { String value } "
+                + "@Route(\"/hello\") Void hello() {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    CoreAnnotationValue value =
+        result
+            .program()
+            .orElseThrow()
+            .compilation()
+            .artifact()
+            .metadata()
+            .annotations()
+            .getFirst()
+            .values()
+            .getFirst();
+    assertEquals("/hello", ((CoreAnnotationValue.Literal) value.value()).value());
+  }
+
+  @Test
+  void combinesAnUnlabelledValueWithNamedAnnotationArguments() {
+    CompilationResult result =
+        compile(
+            policies("FunctionTarget", "RuntimeRetention")
+                + "annotation Route implements FunctionTarget, RuntimeRetention { "
+                + "String value String method } "
+                + "@Route(\"/hello\", method: \"GET\") Void hello() {} Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    List<CoreAnnotationValue> values =
+        result
+            .program()
+            .orElseThrow()
+            .compilation()
+            .artifact()
+            .metadata()
+            .annotations()
+            .getFirst()
+            .values();
+    assertEquals("/hello", ((CoreAnnotationValue.Literal) values.get(0).value()).value());
+    assertEquals("GET", ((CoreAnnotationValue.Literal) values.get(1).value()).value());
+  }
+
+  @Test
+  void rejectsUnlabelledArgumentsWhenTheAnnotationHasNoValueParameter() {
+    assertDiagnostic(
+        policies("FunctionTarget", "RuntimeRetention")
+            + "annotation Route implements FunctionTarget, RuntimeRetention { String path } "
+            + "@Route(\"/hello\") Void hello() {} Void main() {}",
+        "may omit the 'value' label");
+  }
+
+  @Test
   void storesTypedDeclarationReferencesInAnnotationMetadata() {
     CompilationResult result =
         compile(

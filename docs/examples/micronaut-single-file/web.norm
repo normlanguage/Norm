@@ -1,35 +1,104 @@
 package hello.web
 
+import jakarta.inject.Inject
 import micronaut.http.annotation.Controller
 import micronaut.http.annotation.Get
-import micronaut.web.Micronaut
+import micronaut.inject.context.annotation.Prototype
+import micronaut.web.DataSources
+import micronaut.web.hibernateJpa
 import micronaut.web.MicronautApplication
 import micronaut.web.MicronautConfig
-import micronaut.web.Server
+import micronaut.web.SchemaMode
+import orm.Column
+import orm.Entity
+import orm.Generated
+import orm.GenerationStrategy
+import orm.Id
+import orm.Repository
+import orm.RepositoryContext
+import orm.micronaut.tx.Transactional
 import std.application.Application
+import std.core.Result
 
 Module module() {
   return module(
-    name: "hello.web",
-    version: 1,
     dependencies: [
-      dependency(repository: "github", name: "micronaut.web", version: 2)
+      dependency(repository: "github", name: "micronaut.web"),
+      dependency(repository: "github", name: "orm.micronaut.tx"),
+      dependency(repository: "github", name: "h2.database")
     ]
   )
 }
 
-@Controller(value: "/hello")
+@Entity()
+class HelloEntity {
+  @Column(nullable: false)
+  String name
+
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id = null
+
+  HelloEntity(String name) {
+    this.name = name
+  }
+}
+
+@Prototype()
+class HelloRepository extends Repository<HelloEntity, Long> {
+  @Inject()
+  HelloRepository(RepositoryContext context) {
+    super(context)
+  }
+}
+
+@Prototype()
+class HelloService {
+  HelloRepository names
+
+  @Inject()
+  HelloService(HelloRepository names) {
+    this.names = names
+  }
+
+  @Transactional()
+  Result<String> hello(String name) {
+    if name.isEmpty() {
+      return Result.Err("Name is required")
+    }
+    HelloEntity saved = names.save(HelloEntity(name))
+    return Result.Ok("Hello, ${saved.name}!")
+  }
+}
+
+@Controller("/hello")
 class HelloController {
-  @Get(value: "/{name}")
+  HelloService helloService
+
+  @Inject()
+  HelloController(HelloService helloService) {
+    this.helloService = helloService
+  }
+
+  @Get("/{name}")
   String hello(String name) {
-    return "Hello, " + name + "!"
+    return switch helloService.hello(name) {
+      case Ok(String message) {
+        break message
+      }
+      case Err(String msg) {
+        break msg
+      }
+    }
   }
 }
 
 public Application application() {
   return MicronautApplication(config: MicronautConfig(
-    micronaut: Micronaut(
-      server: Server(host: "127.0.0.1", port: 8080)
+    datasources: DataSources(),
+    jpa: hibernateJpa(
+      entityPackages: ["hello.web"],
+      schema: SchemaMode.Update
     )
   ))
 }

@@ -3,12 +3,11 @@
 模块是一个源码根及其跨 package 公开边界。模块身份由唯一的零参数 `Module module()` 声明决定，而不是由文件名决定。目录项目通常把它放在 `<source-root>/<module-name-path>/module.norm`，并把应用入口放在同目录的 `application.norm`；单文件应用可以在任意 `.norm` 文件中同时声明模块、业务代码和应用入口：
 
 ```norm
-import std.math.max
+package sample
 
 Module module() {
   return module(
-    name: "sample",
-    version: max(left: 1, right: 1),
+    dependencies: [],
     exports: ["model.User"]
   )
 }
@@ -18,15 +17,14 @@ Module module() {
 
 `Module`、`ModuleRequirement`、`module(...)`、`dependency(...)` 和 `exportedDependency(...)` 由 bootstrap 源码定义。参数化的 `module(...)` 是返回 `Module` 实现的普通 Norm 工厂，零参数 `module()` 是用户入口。模块配置可以声明普通类型与函数、实现自己的 `Module`，也可以导入标准库。
 
-`name` 是点分隔的模块名，也是模块内 package 的共同前缀。工具链 prelude 使用的 `std` 与 `norm.bootstrap` 是保留模块名。`version` 是正整数模块版本，并参与公开名义类型的稳定身份。`exports` 默认为空，只声明供其他 Module 使用的公开源码；应用自身和模块内部 package 不需要导出入口或实现。`dependencies` 由仓库、模块名和版本组成精确坐标：
+`name` 是点分隔的模块名，也是模块内 package 的共同前缀。单文件应用省略它时从文件的 package 推导；目录模块省略它时从源码 package 与目录映射推导，无法唯一推导就必须显式声明。工具链 prelude 使用的 `std` 与 `norm.bootstrap` 是保留模块名。`version` 是正整数发布版本；省略时模块具有版本为 `0` 的本地身份且不能发布。`exports` 默认为空，只声明供其他 Module 使用的公开源码；应用自身和模块内部 package 不需要导出入口或实现。
+
+`dependencies` 由仓库、模块名和可选版本组成。省略版本时，仓库选择最新稳定版本，再由项目加载器转成精确依赖图；NAR 只保存精确版本：
 
 ```norm
 Module module() {
   return module(
-    name: "app",
-    version: 1,
-    exports: ["Main"],
-    dependencies: [dependency(repository: "github", name: "base", version: 2)]
+    dependencies: [dependency(repository: "github", name: "base")]
   )
 }
 ```

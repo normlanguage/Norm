@@ -97,6 +97,7 @@ abstract class CoreWalker {
 
   private void walkTypeParameter(CoreTypeParameter parameter) {
     parameter.upperBound().ifPresent(this::walkType);
+    parameter.defaultType().ifPresent(this::walkType);
   }
 
   private void walkRuntimeType(CoreRuntimeType type) {

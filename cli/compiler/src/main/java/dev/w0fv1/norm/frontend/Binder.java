@@ -790,6 +790,31 @@ final class Binder {
       case Syntax.NullLiteral literal -> new BoundExpression.NullLiteral(type, literal.span());
       case Syntax.StringLiteralExpr string ->
           new BoundExpression.Literal(string.value(), type, string.span());
+      case Syntax.InterpolatedStringExpr interpolation -> {
+        BoundExpression result =
+            new BoundExpression.Literal(
+                interpolation.text().getFirst(), SemanticType.STRING, interpolation.span());
+        for (int index = 0; index < interpolation.expressions().size(); index++) {
+          result =
+              new BoundExpression.Binary(
+                  result,
+                  BoundBinaryOperator.STRING_CONCAT,
+                  bindExpression(interpolation.stringConversion(index)),
+                  SemanticType.STRING,
+                  interpolation.span());
+          result =
+              new BoundExpression.Binary(
+                  result,
+                  BoundBinaryOperator.STRING_CONCAT,
+                  new BoundExpression.Literal(
+                      interpolation.text().get(index + 1),
+                      SemanticType.STRING,
+                      interpolation.span()),
+                  SemanticType.STRING,
+                  interpolation.span());
+        }
+        yield result;
+      }
       case Syntax.ArrayLiteral array ->
           new BoundExpression.CollectionLiteral(
               array.elements().stream().map(this::bindExpression).toList(),
@@ -898,11 +923,13 @@ final class Binder {
       case Syntax.VariantPattern variant -> {
         Symbol symbol = symbol(variant.nameSpan());
         Symbol owner = semantics.symbol(symbol.owner().orElseThrow()).orElseThrow();
+        List<BoundPattern> arguments =
+            new ArrayList<>(variant.arguments().stream().map(this::bindPattern).toList());
+        while (arguments.size() < symbol.parameters().size()) {
+          arguments.add(new BoundPattern.Wildcard(variant.span()));
+        }
         yield new BoundPattern.Variant(
-            BoundEnumId.of(owner.id()),
-            variant.name(),
-            variant.arguments().stream().map(this::bindPattern).toList(),
-            variant.span());
+            BoundEnumId.of(owner.id()), variant.name(), arguments, variant.span());
       }
       case Syntax.BindingPattern binding -> {
         Symbol symbol = symbol(binding.nameSpan());
@@ -1233,7 +1260,8 @@ final class Binder {
             parameter ->
                 new BoundTypeParameter(
                     symbol(parameter.nameSpan()).type(),
-                    parameter.upperBound().map(type -> semantics.typeOf(type).orElseThrow())))
+                    parameter.upperBound().map(type -> semantics.typeOf(type).orElseThrow()),
+                    parameter.defaultType().map(type -> semantics.typeOf(type).orElseThrow())))
         .toList();
   }
 

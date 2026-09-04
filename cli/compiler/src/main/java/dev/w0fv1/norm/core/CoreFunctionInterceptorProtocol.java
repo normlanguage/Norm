@@ -58,6 +58,7 @@ public record CoreFunctionInterceptorProtocol(
     if (!CoreAnnotationProtocolSupport.receiver(program, protocol, id, method, List.of())
         || method.typeParameters().size() != 1
         || method.typeParameters().getFirst().upperBound().isPresent()
+        || method.typeParameters().getFirst().defaultType().isPresent()
         || !method.returnType().equals(parameter)
         || method.parameterTypes().size() != 1
         || !CoreAnnotationProtocolSupport.builtin(

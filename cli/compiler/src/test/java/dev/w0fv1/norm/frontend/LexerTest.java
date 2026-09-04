@@ -174,12 +174,26 @@ final class LexerTest {
   }
 
   @Test
-  void rejectsInterpolationUntilItsParserAndIrAreImplemented() {
+  void lexesStringInterpolationAsStructuredTokens() {
     DiagnosticBag diagnostics = new DiagnosticBag();
-    new Lexer(SourceFile.of(Path.of("future.norm"), "\"Hello ${name}\""), diagnostics).lex();
+    List<Token> tokens =
+        new Lexer(SourceFile.of(Path.of("interpolation.norm"), "\"Hello, ${name}!\""), diagnostics)
+            .lex();
 
-    assertTrue(diagnostics.hasErrors());
-    assertEquals("NORM-LEXER-0005", diagnostics.snapshot().getFirst().code().value());
+    assertFalse(diagnostics.hasErrors());
+    assertEquals(
+        List.of(
+            TokenKind.INTERPOLATED_STRING_START,
+            TokenKind.STRING_TEXT,
+            TokenKind.INTERPOLATION_START,
+            TokenKind.IDENTIFIER,
+            TokenKind.INTERPOLATION_END,
+            TokenKind.STRING_TEXT,
+            TokenKind.INTERPOLATED_STRING_END,
+            TokenKind.END_OF_FILE),
+        tokens.stream().map(Token::kind).toList());
+    assertEquals("Hello, ", tokens.get(1).value());
+    assertEquals("!", tokens.get(5).value());
   }
 
   @Test

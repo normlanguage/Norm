@@ -106,7 +106,8 @@ public final class LanguageService implements AutoCloseable {
           TypeParameterInfo info = parameter.orElseThrow();
           String signature =
               info.name()
-                  + info.upperBound().map(bound -> " extends " + bound.displayName()).orElse("");
+                  + info.upperBound().map(bound -> " extends " + bound.displayName()).orElse("")
+                  + info.defaultType().map(type -> " = " + type.displayName()).orElse("");
           return Optional.of(new HoverInfo("`" + signature + "`", value.declaration()));
         }
       }

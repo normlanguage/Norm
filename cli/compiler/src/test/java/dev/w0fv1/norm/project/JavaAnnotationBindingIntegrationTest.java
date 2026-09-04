@@ -40,7 +40,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "protocols", "tags"]),
                 jarType(name: "Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
-                jarType(name: "GeneratedInvoker", members: ["contextRoundTrip", "contextValue", "hydrate", "invoke", "managed", "mutate", "read", "write"])
+                jarType(name: "GeneratedInvoker", members: ["contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "invoke", "managed", "mutate", "read", "write"])
               ]
             )
           )
@@ -52,6 +52,8 @@ final class JavaAnnotationBindingIntegrationTest {
         entry,
         """
         package sample.binding
+
+        import std.core.Exception
 
         @Endpoint(path: "/bbs", protocol: Endpoint_Protocol.HTTP)
         class Controller {
@@ -77,11 +79,31 @@ final class JavaAnnotationBindingIntegrationTest {
           String context() {
             return generatedInvokerContextValue() ?? ""
           }
+
+          String fail() {
+            throw Exception(message: "boundary failure")
+          }
         }
 
         class ChildController extends Controller {
           ChildController() {
             super()
+          }
+        }
+
+        @Endpoint(path: "/generic")
+        class GenericBase<T> {
+          T value
+
+          GenericBase(T value) {
+            this.value = value
+          }
+        }
+
+        @Endpoint(path: "/generic-child")
+        class GenericChild extends GenericBase<String> {
+          GenericChild() {
+            super(value: "generic")
           }
         }
 
@@ -94,6 +116,15 @@ final class JavaAnnotationBindingIntegrationTest {
           }
 
           Response(@Endpoint(path: "/message") String message) {
+            this.message = message
+          }
+        }
+
+        @Endpoint(path: "/managed-response")
+        class ManagedResponse {
+          String message
+
+          ManagedResponse(String message) {
             this.message = message
           }
         }
@@ -160,6 +191,8 @@ final class JavaAnnotationBindingIntegrationTest {
           printLine(generatedInvokerRead())
           printLine(generatedInvokerWrite())
           printLine(generatedInvokerContextRoundTrip())
+          printLine(generatedInvokerFailure())
+          printLine(generatedInvokerFrameworkAllocated())
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -188,6 +221,8 @@ final class JavaAnnotationBindingIntegrationTest {
             "Norm DTO",
             "Java DTO",
             "framework-context",
+            "boundary failure",
+            "Framework Allocated",
             ""),
         output.toString());
     Path processorOutput =
@@ -198,6 +233,9 @@ final class JavaAnnotationBindingIntegrationTest {
             "sample.binding.BoxConsumer:/box:http,json:HTTPS",
             "sample.binding.ChildController:/bbs:http,json:HTTP",
             "sample.binding.Controller:/bbs:http,json:HTTP",
+            "sample.binding.GenericBase:/generic:http,json:HTTPS",
+            "sample.binding.GenericChild:/generic-child:http,json:HTTPS",
+            "sample.binding.ManagedResponse:/managed-response:http,json:HTTPS",
             "sample.binding.RepeatedController:/first,/second:http,json:HTTPS",
             "sample.binding.Response:/response:http,json:HTTPS",
             "sample.binding.StringBox:/string-box:http,json:HTTPS",
@@ -389,6 +427,30 @@ final class JavaAnnotationBindingIntegrationTest {
 
           public static String contextValue() {
             return CONTEXT.get();
+          }
+
+          public static String frameworkAllocated() {
+            try {
+              Class<?> type = Class.forName("sample.binding.ManagedResponse");
+              Object response = type.getDeclaredConstructor().newInstance();
+              type.getField("message").set(response, "Framework Allocated");
+              return (String) type.getField("message").get(response);
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            }
+          }
+
+          public static String failure() {
+            try {
+              Class<?> type = Class.forName("sample.binding.Controller");
+              Object instance = type.getConstructor().newInstance();
+              type.getMethod("fail").invoke(instance);
+              return "";
+            } catch (java.lang.reflect.InvocationTargetException exception) {
+              return exception.getCause().getMessage();
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            }
           }
 
           public static void hydrate(Object response) {

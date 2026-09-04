@@ -1,0 +1,19 @@
+package sample.bbs.repository
+
+import jakarta.inject.Inject
+import micronaut.inject.context.annotation.Prototype
+import orm.Repository
+import orm.RepositoryContext
+import sample.bbs.UserEntity
+
+@Prototype()
+public class UserRepository extends Repository<UserEntity, Long> {
+  @Inject()
+  UserRepository(RepositoryContext context) {
+    super(context)
+  }
+
+  public UserEntity? findByUsername(String username) {
+    return this.findFirstWhere<String>(field: UserEntity.username.field, value: username)
+  }
+}

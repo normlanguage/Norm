@@ -71,11 +71,11 @@ String sign = if number < 0 {
 
 ## 泛型
 
-泛型保持不变，类型位置必须写全实参。表达式中的菱形构造器可以由期望类型和构造参数求解实参；求解结果进入 Core IR 和运行时类型环境。
+泛型保持不变，类型位置必须提供全部必填实参；声明了默认类型的尾部参数可以省略。表达式中的菱形构造器可以由期望类型和构造参数求解实参；默认与推断得到的完整结果进入 Core IR 和运行时类型环境。
 
 ## 错误
 
-普通缺失使用 nullable，可预期且需要错误原因的失败使用 `std.core.Result<T, E>`；没有业务值的成功结果使用 `std.core.Unit`。Result 是普通泛型 enum，语言不提供自动传播。异常使用 throw/try/catch/finally；资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
+普通缺失使用 nullable，可预期失败使用 `std.core.Result<T, E = String>`；只有文本原因时省略 E，需要类型化分类时显式提供 E。没有业务值的成功结果使用 `std.core.Unit`。Result 是普通泛型 enum，语言不提供自动传播。异常使用 throw/try/catch/finally；资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
 
 ## 求值
 

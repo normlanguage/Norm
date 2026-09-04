@@ -57,6 +57,75 @@ final class GitHubPackageRepository implements NormPackageRepository {
             + ".nar");
   }
 
+  @Override
+  public int latestVersion(String moduleName, HttpClient client) throws IOException {
+    GitHubRepository repository = registry(client).get(moduleName);
+    if (repository == null) {
+      throw new IOException(
+          "Norm module '" + moduleName + "' is not registered in repository 'github'");
+    }
+    if (releasesUri.getScheme().equalsIgnoreCase("file")) {
+      Path downloads =
+          Path.of(releasesUri)
+              .resolve(repository.owner())
+              .resolve(repository.repository())
+              .resolve("releases/download");
+      if (!Files.isDirectory(downloads)) {
+        throw new IOException("Norm module '" + moduleName + "' has no stable GitHub release");
+      }
+      try (var paths = Files.list(downloads)) {
+        return paths
+            .filter(Files::isDirectory)
+            .map(path -> stableVersion(path.getFileName().toString()))
+            .flatMapToInt(java.util.OptionalInt::stream)
+            .max()
+            .orElseThrow(
+                () ->
+                    new IOException(
+                        "Norm module '" + moduleName + "' has no stable GitHub release"));
+      }
+    }
+    URI latest =
+        releasesUri.resolve(
+            repository.owner() + "/" + repository.repository() + "/releases/latest");
+    try {
+      HttpResponse<Void> response =
+          client.send(
+              HttpRequest.newBuilder(latest).GET().build(), HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() != 200) {
+        throw new IOException(
+            "cannot resolve latest Norm module '"
+                + moduleName
+                + "': HTTP "
+                + response.statusCode());
+      }
+      String path = response.uri().getPath();
+      int separator = path.lastIndexOf("/tag/");
+      java.util.OptionalInt version =
+          stableVersion(separator < 0 ? "" : path.substring(separator + 5));
+      if (version.isEmpty()) {
+        throw new IOException(
+            "latest GitHub release for Norm module '"
+                + moduleName
+                + "' must use an integer tag such as v2");
+      }
+      return version.getAsInt();
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new IOException(
+          "interrupted while resolving latest Norm module '" + moduleName + "'", exception);
+    }
+  }
+
+  private static java.util.OptionalInt stableVersion(String tag) {
+    if (!tag.matches("v[1-9][0-9]*")) return java.util.OptionalInt.empty();
+    try {
+      return java.util.OptionalInt.of(Integer.parseInt(tag.substring(1)));
+    } catch (NumberFormatException exception) {
+      return java.util.OptionalInt.empty();
+    }
+  }
+
   private Map<String, GitHubRepository> registry(HttpClient client) throws IOException {
     Map<String, GitHubRepository> current = packages;
     if (current != null) return current;

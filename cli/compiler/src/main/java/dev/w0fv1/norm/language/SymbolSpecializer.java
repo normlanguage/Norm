@@ -38,6 +38,11 @@ final class SymbolSpecializer {
                             .typeParameters()
                             .get(index)
                             .upperBound()
+                            .map(value -> value.substitute(substitutions)),
+                        symbol
+                            .typeParameters()
+                            .get(index)
+                            .defaultType()
                             .map(value -> value.substitute(substitutions))))
             .toList(),
         symbol.parameters().stream()

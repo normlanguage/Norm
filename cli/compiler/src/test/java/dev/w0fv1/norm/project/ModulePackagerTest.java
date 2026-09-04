@@ -2,12 +2,14 @@ package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -18,6 +20,27 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void rejectsPublishingALocalModuleWithoutADeclaredVersion() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("local/sample"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath, "Module module() { return module(dependencies: [], exports: [\"Main\"]) }");
+    Files.writeString(module.resolve("Main.norm"), "package sample public Void main() {}");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+
+    try (ProjectLoader projects = environment.projectLoader()) {
+      IOException exception =
+          assertThrows(
+              IOException.class,
+              () ->
+                  new ModulePackager(projects)
+                      .packageModule(modulePath, temporaryDirectory.resolve("repository")));
+
+      assertTrue(exception.getMessage().contains("must declare a version"));
+    }
+  }
 
   @Test
   void packagesBinaryModuleResourcesAndMaterializesThemForConsumers() throws Exception {
@@ -91,7 +114,35 @@ final class ModulePackagerTest {
   }
 
   @Test
-  void packagesARuntimeAdapterWithoutAPublicApi() throws Exception {
+  void preservesGenericTypeDefaultsAcrossNarDependencies() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("library/example/outcome"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        "Module module() { return module(name: \"example.outcome\", version: 1, exports: [\"Outcome\"]) }");
+    Files.writeString(
+        module.resolve("Outcome.norm"),
+        "package example.outcome public enum Outcome<T, E = String> { Ok(T value), Err(E error) }");
+    Path repository = temporaryDirectory.resolve("repository");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects).packageModule(modulePath, repository);
+    }
+
+    Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        "Module module() { return module(dependencies: [dependency(repository: \"github\", name: \"example.outcome\", version: 1)]) }");
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        entry,
+        "package sample import example.outcome.Outcome Void main() { Outcome<Integer> result = Outcome.Err(\"invalid\") }");
+
+    assertEquals("", run(repository, entry));
+  }
+
+  @Test
+  void packagesAuthoredSupportSourceInARuntimeAdapter() throws Exception {
     Path module = Files.createDirectories(temporaryDirectory.resolve("sources/empty/adapter"));
     Path modulePath = module.resolve("module.norm");
     Files.writeString(
@@ -113,10 +164,10 @@ final class ModulePackagerTest {
         }
         """);
     Files.writeString(
-        module.resolve("Main.norm"),
+        module.resolve("Internal.norm"),
         """
         package empty.adapter
-        Void main() {}
+        class Internal {}
         """);
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (ProjectLoader projects =
@@ -129,7 +180,8 @@ final class ModulePackagerTest {
       assertTrue(Files.isRegularFile(packaged.archive()));
       try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
         assertEquals(
-            0, archive.stream().filter(entry -> entry.getName().startsWith("sources/")).count());
+            1, archive.stream().filter(entry -> entry.getName().startsWith("sources/")).count());
+        assertTrue(archive.getEntry("sources/empty/adapter/Internal.norm") != null);
       }
     }
   }

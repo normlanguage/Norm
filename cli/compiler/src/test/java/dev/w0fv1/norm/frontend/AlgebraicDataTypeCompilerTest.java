@@ -39,6 +39,36 @@ final class AlgebraicDataTypeCompilerTest {
   }
 
   @Test
+  void appliesTrailingGenericTypeDefaultsAndAllowsExplicitOverrides() {
+    CompilationResult result =
+        compile(
+            "enum Outcome<T, E = String> { Ok(T value), Err(E error) } "
+                + "String describe(Outcome<Integer> result) { return switch result { "
+                + "case Ok(Integer value) { break \"ok\" } "
+                + "case Err(String msg) { break msg } } } "
+                + "Void main() { "
+                + "Outcome<Integer> simple = Outcome.Err(\"invalid\") "
+                + "Outcome<Integer, Integer> typed = Outcome.Err(7) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void validatesEnumDefaultsAndAllowsTrailingDefaultPatternsToBeOmitted() {
+    CompilationResult valid =
+        compile(
+            "enum Outcome<T> { Success(T value, String msg = \"\") } "
+                + "String read(Outcome<Integer> result) { return switch result { "
+                + "case Success(Integer value) { break \"ok\" } } } "
+                + "Void main() { Outcome<Integer> result = Outcome.Success(7) } ");
+    CompilationResult invalid =
+        compile("enum Invalid { Value(Integer value = \"wrong\") } Void main() {} ");
+
+    assertTrue(valid.isSuccess(), () -> valid.diagnostics().toString());
+    assertFalse(invalid.isSuccess());
+  }
+
+  @Test
   void acceptsLiteralNullWildcardAndTypedBindingPatterns() {
     CompilationResult result =
         compile(

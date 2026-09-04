@@ -13,7 +13,7 @@ import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.ModuleDescriptor;
+import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
@@ -33,7 +33,7 @@ final class ModuleEvaluator implements AutoCloseable {
             Module definition = module()
             List<String> dependencyRepositories = []
             List<String> dependencyNames = []
-            List<Integer> dependencyVersions = []
+            List<Integer?> dependencyVersions = []
             List<Boolean> dependencyExports = []
             for ModuleRequirement requirement : definition.dependencies() {
               dependencyRepositories.add(requirement.repository())
@@ -105,7 +105,7 @@ final class ModuleEvaluator implements AutoCloseable {
     this.backend = Objects.requireNonNull(backend, "backend");
   }
 
-  ModuleDescriptor evaluate(SourceFile source) throws IOException {
+  ModuleDeclaration evaluate(SourceFile source) throws IOException {
     var result = compiler.compile(request(source));
     if (!result.isSuccess()) {
       String diagnostics =
@@ -120,7 +120,7 @@ final class ModuleEvaluator implements AutoCloseable {
       backend.execute(
           result.program().orElseThrow().compilation().artifact(),
           ExecutionContext.module(publication));
-      return publication.descriptor();
+      return publication.declaration();
     } catch (IllegalArgumentException | IllegalStateException | NormExecutionException exception) {
       throw new IOException(
           "invalid " + source.displayName() + ": " + exception.getMessage(), exception);
@@ -153,21 +153,21 @@ final class ModuleEvaluator implements AutoCloseable {
   }
 
   private static final class Publication implements ModulePublisher {
-    private ModuleDescriptor descriptor;
+    private ModuleDeclaration declaration;
 
     @Override
-    public void publish(ModuleDescriptor value) {
-      if (descriptor != null) {
+    public void publish(ModuleDeclaration value) {
+      if (declaration != null) {
         throw new IllegalStateException("module configuration produced more than one definition");
       }
-      descriptor = Objects.requireNonNull(value, "value");
+      declaration = Objects.requireNonNull(value, "value");
     }
 
-    ModuleDescriptor descriptor() {
-      if (descriptor == null) {
+    ModuleDeclaration declaration() {
+      if (declaration == null) {
         throw new IllegalStateException("module configuration did not produce a definition");
       }
-      return descriptor;
+      return declaration;
     }
   }
 }

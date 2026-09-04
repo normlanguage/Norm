@@ -23,8 +23,8 @@ import dev.w0fv1.norm.value.JarBindingType;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
-import dev.w0fv1.norm.value.ModuleDescriptor;
-import dev.w0fv1.norm.value.ModuleRequirement;
+import dev.w0fv1.norm.value.ModuleDeclaration;
+import dev.w0fv1.norm.value.ModuleDependency;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -342,13 +342,15 @@ public final class IntrinsicDispatcher {
             || dependencyNames.size() != dependencyExports.size()) {
           throw new IllegalStateException("module dependency coordinates are inconsistent");
         }
-        List<ModuleRequirement> dependencies = new ArrayList<>(dependencyNames.size());
+        List<ModuleDependency> dependencies = new ArrayList<>(dependencyNames.size());
         for (int index = 0; index < dependencyNames.size(); index++) {
           dependencies.add(
-              new ModuleRequirement(
+              new ModuleDependency(
                   (String) dependencyRepositories.get(index),
                   (String) dependencyNames.get(index),
-                  (Integer) dependencyVersions.get(index),
+                  dependencyVersions.get(index) == RuntimeValues.NullValue.INSTANCE
+                      ? null
+                      : (Integer) dependencyVersions.get(index),
                   (Boolean) dependencyExports.get(index)));
         }
         String bindingSource = (String) arguments[7];
@@ -417,8 +419,9 @@ public final class IntrinsicDispatcher {
             .orElseThrow(
                 () -> new IllegalStateException("module publication capability is unavailable"))
             .publish(
-                new ModuleDescriptor(
-                    new dev.w0fv1.norm.value.ModuleCoordinate((String) first, (Integer) second),
+                new ModuleDeclaration(
+                    first == RuntimeValues.NullValue.INSTANCE ? null : (String) first,
+                    second == RuntimeValues.NullValue.INSTANCE ? null : (Integer) second,
                     exports,
                     dependencies,
                     binding));

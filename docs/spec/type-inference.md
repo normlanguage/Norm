@@ -20,7 +20,7 @@ String first = identity(value: "Norm")
 3. `extends` 声明产生的上界；
 4. nullable 与型变规则产生的附加约束。
 
-求解必须得到唯一、满足全部上界的类型。无法确定时要求调用者显式提供类型参数。
+求解必须得到唯一、满足全部上界的类型。普通约束无法确定的尾部参数若声明了默认类型，则按声明顺序展开默认值；其他无法确定的参数要求调用者显式提供。
 
 ```norm
 List<String> names = emptyList<String>()

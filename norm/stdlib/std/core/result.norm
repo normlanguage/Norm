@@ -2,5 +2,8 @@ package std.core
 
 import std.annotation.Document
 
-@Document(description: "Represents either a successful value of type T or an error value of type E.")
-enum Result<T, E> { Ok(T value), Err(E error) }
+@Document(description: "Represents either a successful value of type T or an error value of type E, with an optional message.")
+enum Result<T, E = String> {
+  Ok(T value, String msg = ""),
+  Err(E error, String msg = "")
+}

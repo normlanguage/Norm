@@ -1,0 +1,19 @@
+package sample.bbs.repository
+
+import jakarta.inject.Inject
+import micronaut.inject.context.annotation.Prototype
+import orm.Repository
+import orm.RepositoryContext
+import sample.bbs.SessionEntity
+
+@Prototype()
+public class SessionRepository extends Repository<SessionEntity, Long> {
+  @Inject()
+  SessionRepository(RepositoryContext context) {
+    super(context)
+  }
+
+  public SessionEntity? findByToken(String token) {
+    return this.findFirstWhere<String>(field: SessionEntity.token.field, value: token)
+  }
+}

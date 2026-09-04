@@ -354,7 +354,8 @@ public final class CoreArtifact {
       CoreTypeParameter leftParameter = left.get(index);
       CoreTypeParameter rightParameter = right.get(index);
       if (leftParameter.index() != rightParameter.index()
-          || leftParameter.upperBound().isPresent() != rightParameter.upperBound().isPresent()) {
+          || leftParameter.upperBound().isPresent() != rightParameter.upperBound().isPresent()
+          || leftParameter.defaultType().isPresent() != rightParameter.defaultType().isPresent()) {
         return false;
       }
       if (leftParameter.upperBound().isPresent()
@@ -363,6 +364,14 @@ public final class CoreArtifact {
               owner,
               leftParameter.upperBound().orElseThrow(),
               rightParameter.upperBound().orElseThrow())) {
+        return false;
+      }
+      if (leftParameter.defaultType().isPresent()
+          && !sameType(
+              program,
+              owner,
+              leftParameter.defaultType().orElseThrow(),
+              rightParameter.defaultType().orElseThrow())) {
         return false;
       }
     }

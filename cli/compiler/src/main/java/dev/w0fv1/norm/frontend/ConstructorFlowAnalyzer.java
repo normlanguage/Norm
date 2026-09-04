@@ -300,6 +300,14 @@ final class ConstructorFlowAnalyzer {
       case Syntax.BooleanLiteral ignored -> ConstructorFlow.normal(assigned);
       case Syntax.NullLiteral ignored -> ConstructorFlow.normal(assigned);
       case Syntax.StringLiteralExpr ignored -> ConstructorFlow.normal(assigned);
+      case Syntax.InterpolatedStringExpr interpolation -> {
+        ConstructorFlow flow = ConstructorFlow.normal(assigned);
+        for (Syntax.Expression value : interpolation.expressions()) {
+          if (flow.normal().isEmpty()) break;
+          flow = flow.then(expressionFlow(value, flow.normal().orElseThrow(), initialization));
+        }
+        yield flow;
+      }
     };
   }
 
@@ -369,6 +377,8 @@ final class ConstructorFlowAnalyzer {
       case Syntax.BooleanLiteral ignored -> false;
       case Syntax.NullLiteral ignored -> false;
       case Syntax.StringLiteralExpr ignored -> false;
+      case Syntax.InterpolatedStringExpr interpolation ->
+          interpolation.expressions().stream().anyMatch(this::expressionUsesSelf);
     };
   }
 

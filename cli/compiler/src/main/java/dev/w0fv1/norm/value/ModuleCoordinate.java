@@ -12,9 +12,7 @@ public record ModuleCoordinate(String name, int version) implements Comparable<M
         throw new IllegalArgumentException("invalid module name '" + name + "'");
       }
     }
-    if (version < 1 && !(name.equals("anonymous") && version == 0)) {
-      throw new IllegalArgumentException("named module version must be positive");
-    }
+    if (version < 0) throw new IllegalArgumentException("module version must not be negative");
   }
 
   @Override

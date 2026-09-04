@@ -14,14 +14,12 @@ import micronaut.web.SchemaMode
 import micronaut.web.Security
 import micronaut.web.SecurityAccess
 import micronaut.web.securityRule
-import micronaut.web.Server
 import micronaut.web.StaticResource
 import std.application.Application
 
 public Application application() {
   return MicronautApplication(config: MicronautConfig(
     micronaut: Micronaut(
-      server: Server(host: "127.0.0.1"),
       router: Router(staticResources: [
         StaticResource(name: "bbs")
       ]),

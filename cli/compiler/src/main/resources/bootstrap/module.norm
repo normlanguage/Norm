@@ -1,7 +1,7 @@
 interface ModuleRequirement {
   String repository()
   String name()
-  Integer version()
+  Integer? version()
   Boolean exported()
 }
 
@@ -35,8 +35,8 @@ interface JarOverload {
 }
 
 interface Module {
-  String name()
-  Integer version()
+  String? name()
+  Integer? version()
   List<String> exports()
   List<ModuleRequirement> dependencies()
   JarBinding? binding()
@@ -45,7 +45,7 @@ interface Module {
 private class DeclaredModuleRequirement implements ModuleRequirement {
   String repositoryName
   String moduleName
-  Integer moduleVersion
+  Integer? moduleVersion
   Boolean exportedDependency
 
   String repository() {
@@ -56,7 +56,7 @@ private class DeclaredModuleRequirement implements ModuleRequirement {
     return moduleName
   }
 
-  Integer version() {
+  Integer? version() {
     return moduleVersion
   }
 
@@ -66,17 +66,17 @@ private class DeclaredModuleRequirement implements ModuleRequirement {
 }
 
 private class DeclaredModule implements Module {
-  String moduleName
-  Integer moduleVersion
+  String? moduleName
+  Integer? moduleVersion
   List<String> exportedSources
   List<ModuleRequirement> requiredModules
   JarBinding? jarBinding
 
-  String name() {
+  String? name() {
     return moduleName
   }
 
-  Integer version() {
+  Integer? version() {
     return moduleVersion
   }
 
@@ -161,7 +161,10 @@ private class DeclaredJarOverload implements JarOverload {
   }
 }
 
-ModuleRequirement dependency(String repository, String name, Integer version) {
+ModuleRequirement dependency(String repository, String name, Integer? version = null) {
+  if version != null {
+    require(condition: version > 0, message: "module dependency version must be positive")
+  }
   return DeclaredModuleRequirement(
     repositoryName: repository,
     moduleName: name,
@@ -170,7 +173,10 @@ ModuleRequirement dependency(String repository, String name, Integer version) {
   )
 }
 
-ModuleRequirement exportedDependency(String repository, String name, Integer version) {
+ModuleRequirement exportedDependency(String repository, String name, Integer? version = null) {
+  if version != null {
+    require(condition: version > 0, message: "module dependency version must be positive")
+  }
   return DeclaredModuleRequirement(
     repositoryName: repository,
     moduleName: name,
@@ -248,6 +254,41 @@ Module module(
   List<ModuleRequirement> dependencies = [],
   JarBinding? binding = null
 ) {
+  return declaredModule(
+    name: name,
+    version: version,
+    exports: exports,
+    dependencies: dependencies,
+    binding: binding
+  )
+}
+
+Module module(
+  List<ModuleRequirement> dependencies,
+  String? name = null,
+  Integer? version = null,
+  List<String> exports = [],
+  JarBinding? binding = null
+) {
+  return declaredModule(
+    name: name,
+    version: version,
+    exports: exports,
+    dependencies: dependencies,
+    binding: binding
+  )
+}
+
+private Module declaredModule(
+  String? name,
+  Integer? version,
+  List<String> exports,
+  List<ModuleRequirement> dependencies,
+  JarBinding? binding
+) {
+  if version != null {
+    require(condition: version > 0, message: "module version must be positive")
+  }
   List<String> resolvedExports = exports
   if binding != null && resolvedExports.size() == 0 {
     for JarType type : binding.api() {

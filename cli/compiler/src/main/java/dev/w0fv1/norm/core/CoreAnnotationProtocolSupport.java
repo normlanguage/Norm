@@ -33,7 +33,8 @@ final class CoreAnnotationProtocolSupport {
     Protocol protocol = found.orElseThrow();
     CoreDefinition.Interface declaration = protocol.declaration();
     if (declaration.typeParameters().size() != 1
-        || declaration.typeParameters().getFirst().upperBound().isPresent()) {
+        || declaration.typeParameters().getFirst().upperBound().isPresent()
+        || declaration.typeParameters().getFirst().defaultType().isPresent()) {
       throw new IllegalArgumentException(name + " must declare one unbounded type parameter");
     }
     requireParent(program, name, protocol, parent);

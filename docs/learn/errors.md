@@ -12,7 +12,7 @@ empty input
 
 ## 可预期失败
 
-业务结果使用普通数据 enum 表达，并由穷尽 switch 处理。标准库的 `Result<T, E>` 遵守同样的构造和模式规则；没有业务值的成功结果使用 `Result<Unit, E>`。
+业务结果使用普通数据 enum 表达，并由穷尽 switch 处理。标准库的 `Result<T, E = String>` 遵守同样的构造和模式规则：只有文本原因时使用 `Result<T>` 和 `Result.Err("message")`，需要类型化分类时显式给出 E；没有业务值的成功结果使用 `Result<Unit>` 或 `Result<Unit, E>`。
 
 Norm 没有自动传播 Result 的特殊运算符。函数从何处退出仍由普通 `return`、`switch` 和调用明确表达。
 

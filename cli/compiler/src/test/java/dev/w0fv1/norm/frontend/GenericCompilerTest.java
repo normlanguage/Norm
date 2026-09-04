@@ -41,6 +41,50 @@ final class GenericCompilerTest {
   }
 
   @Test
+  void appliesGenericFunctionDefaultsAfterExplicitAndInferredArguments() {
+    CompilationResult result =
+        compile(
+            "T choose<T, E = String>(T value) { return value } "
+                + "Void main() { Integer inferred = choose(7) "
+                + "Integer explicit = choose<Integer>(8) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void appliesGenericDefaultsWhenDiamondInferenceLeavesATrailingParameterUnresolved() {
+    CompilationResult result =
+        compile(
+            "class Pairing<T, E = String> { T value } "
+                + "Void main() { printLine(Pairing<>(value: 7).value) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void resolvesNominalTypesReferencedByGenericDefaultsIntoCore() {
+    CompilationResult result =
+        compile(
+            "class Failure {} class Outcome<T, E = Failure> { T value } "
+                + "Void main() { Outcome<Integer> value = Outcome<Integer>(value: 7) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void rejectsInvalidGenericTypeParameterDefaults() {
+    CompilationResult nonTrailing = compile("class Invalid<T = String, E> {} Void main() {} ");
+    CompilationResult forwardReference =
+        compile("class Invalid<T = E, E = String> {} Void main() {} ");
+    CompilationResult invalidBound =
+        compile("interface Named {} class Invalid<T extends Named = String> {} Void main() {} ");
+
+    assertFalse(nonTrailing.isSuccess());
+    assertFalse(forwardReference.isSuccess());
+    assertFalse(invalidBound.isSuccess());
+  }
+
+  @Test
   void acceptsSelfReferentialNominalBounds() {
     CompilationResult result =
         compile(

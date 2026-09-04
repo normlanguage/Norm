@@ -77,10 +77,15 @@ public record ModuleDocumentation(ModuleCoordinate module, List<File> files) {
     }
   }
 
-  public record TypeParameter(String name, Optional<Type> upperBound) {
+  public record TypeParameter(String name, Optional<Type> upperBound, Optional<Type> defaultType) {
     public TypeParameter {
       Objects.requireNonNull(name, "name");
       upperBound = Objects.requireNonNull(upperBound, "upperBound");
+      defaultType = Objects.requireNonNull(defaultType, "defaultType");
+    }
+
+    public TypeParameter(String name, Optional<Type> upperBound) {
+      this(name, upperBound, Optional.empty());
     }
   }
 

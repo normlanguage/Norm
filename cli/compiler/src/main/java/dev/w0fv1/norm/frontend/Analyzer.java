@@ -716,7 +716,11 @@ final class Analyzer {
     for (int index = 0; index < candidate.typeParameters().size(); index++) {
       Optional<SemanticType> candidateBound = candidate.typeParameters().get(index).upperBound();
       Optional<SemanticType> requiredBound = requirement.typeParameters().get(index).upperBound();
-      if (candidateBound.isPresent() != requiredBound.isPresent()) return false;
+      Optional<SemanticType> candidateDefault = candidate.typeParameters().get(index).defaultType();
+      Optional<SemanticType> requiredDefault =
+          requirement.typeParameters().get(index).defaultType();
+      if (candidateBound.isPresent() != requiredBound.isPresent()
+          || candidateDefault.isPresent() != requiredDefault.isPresent()) return false;
       if (candidateBound.isPresent()
           && !canonicalType(
                   candidateBound.orElseThrow().substitute(candidateSubstitutions),
@@ -724,6 +728,14 @@ final class Analyzer {
               .equals(
                   canonicalType(
                       requiredBound.orElseThrow().substitute(requirementSubstitutions),
+                      requiredParameters))) return false;
+      if (candidateDefault.isPresent()
+          && !canonicalType(
+                  candidateDefault.orElseThrow().substitute(candidateSubstitutions),
+                  candidateParameters)
+              .equals(
+                  canonicalType(
+                      requiredDefault.orElseThrow().substitute(requirementSubstitutions),
                       requiredParameters))) return false;
     }
     return true;
@@ -744,6 +756,10 @@ final class Analyzer {
     context.activeTypeParameterSymbols =
         typeSystem.typeParameterSymbols(aggregateDecl.typeParameters());
     registerBounds(aggregateDecl.typeParameters(), context.activeTypeParameters);
+    validateTypeParameterDefaults(
+        aggregateDecl.typeParameters(),
+        context.activeTypeParameters,
+        aggregateDecl.visibility() == Syntax.Visibility.PUBLIC);
     Set<String> names = new HashSet<>();
     boolean defaultFieldSeen = false;
     for (Syntax.FieldDecl field : aggregateDecl.fields()) {
@@ -803,7 +819,12 @@ final class Analyzer {
     context.activeTypeParameters = typeSystem.enumTypeParameters(enumDecl);
     context.activeTypeParameterSymbols = typeSystem.typeParameterSymbols(enumDecl.typeParameters());
     registerBounds(enumDecl.typeParameters(), context.activeTypeParameters);
+    validateTypeParameterDefaults(
+        enumDecl.typeParameters(),
+        context.activeTypeParameters,
+        enumDecl.visibility() == Syntax.Visibility.PUBLIC);
     for (Syntax.EnumVariant variant : enumDecl.variants()) {
+      analyzeParameterDefaults(variant.parameters());
       Set<String> names = new HashSet<>();
       for (Syntax.Parameter parameter : variant.parameters()) {
         typeSystem.validateType(parameter.type(), false);
@@ -824,6 +845,10 @@ final class Analyzer {
     context.activeTypeParameterSymbols =
         typeSystem.typeParameterSymbols(declaration.typeParameters());
     registerBounds(declaration.typeParameters(), context.activeTypeParameters);
+    validateTypeParameterDefaults(
+        declaration.typeParameters(),
+        context.activeTypeParameters,
+        declaration.visibility() == Syntax.Visibility.PUBLIC);
     for (Syntax.TypeRef parent : declaration.extendedInterfaces()) {
       typeSystem.validateType(parent, false);
       if (typeSystem.resolveInterface(typeSystem.resolveType(parent, context.activeTypeParameters))
@@ -849,6 +874,10 @@ final class Analyzer {
       context.activeTypeParameters = methodTypes;
       context.activeTypeParameterSymbols = Map.copyOf(methodSymbols);
       registerBounds(method.typeParameters(), methodTypes);
+      validateTypeParameterDefaults(
+          method.typeParameters(),
+          methodTypes,
+          declaration.visibility() == Syntax.Visibility.PUBLIC);
       typeSystem.validateType(method.returnType(), true);
       method
           .parameters()
@@ -949,6 +978,68 @@ final class Analyzer {
         current = context.typeParameterBounds.get(current.identity());
       }
     }
+  }
+
+  private void validateTypeParameterDefaults(
+      List<Syntax.TypeParameter> parameters,
+      Map<String, SemanticType> declaredTypes,
+      boolean publicSignature) {
+    Set<String> parameterNames =
+        parameters.stream()
+            .map(Syntax.TypeParameter::name)
+            .collect(java.util.stream.Collectors.toSet());
+    Set<String> available = new HashSet<>();
+    boolean defaultSeen = false;
+    for (Syntax.TypeParameter parameter : parameters) {
+      if (parameter.defaultType().isEmpty()) {
+        if (defaultSeen) {
+          context.diagnostics.error(
+              TYPE_MISMATCH,
+              "required type parameter follows a default type parameter",
+              parameter.nameSpan());
+        }
+        available.add(parameter.name());
+        continue;
+      }
+      defaultSeen = true;
+      Syntax.TypeRef defaultSyntax = parameter.defaultType().orElseThrow();
+      Set<String> referenced = new HashSet<>();
+      collectTypeNames(defaultSyntax, referenced);
+      referenced.retainAll(parameterNames);
+      referenced.removeAll(available);
+      if (!referenced.isEmpty()) {
+        context.diagnostics.error(
+            TYPE_MISMATCH,
+            "type parameter default may reference earlier type parameters only",
+            defaultSyntax.span());
+      }
+      typeSystem.validateType(defaultSyntax, false);
+      if (publicSignature) typeSystem.validatePublicType(defaultSyntax);
+      SemanticType defaultType = typeSystem.resolveType(defaultSyntax, declaredTypes);
+      if (parameter.upperBound().isPresent()) {
+        SemanticType bound =
+            typeSystem.resolveType(parameter.upperBound().orElseThrow(), declaredTypes);
+        if (!typeSystem.isAssignable(bound, defaultType)) {
+          context.diagnostics.error(
+              TYPE_MISMATCH,
+              "default type '"
+                  + defaultType.displayName()
+                  + "' does not satisfy bound '"
+                  + bound.displayName()
+                  + "' for '"
+                  + parameter.name()
+                  + "'",
+              defaultSyntax.span());
+        }
+      }
+      available.add(parameter.name());
+    }
+  }
+
+  private static void collectTypeNames(Syntax.TypeRef type, Set<String> names) {
+    if (type.isWildcard()) return;
+    names.add(type.name());
+    type.arguments().forEach(argument -> collectTypeNames(argument, names));
   }
 
   private void validateInterfaceGraphAndConformances() {
@@ -1180,8 +1271,10 @@ final class Analyzer {
                   witnessParameters)
               .equals(canonicalType(required.type(), requiredParameters))) return false;
     }
-    return canonicalType(functionReturnType(witness, witnessTypes), witnessParameters)
-        .equals(canonicalType(requirement.result(), requiredParameters));
+    SemanticType actualResult = functionReturnType(witness, witnessTypes);
+    return canonicalType(actualResult, witnessParameters)
+            .equals(canonicalType(requirement.result(), requiredParameters))
+        || typeSystem.isAssignable(requirement.result(), actualResult);
   }
 
   private static String canonicalType(SemanticType type, Map<String, String> typeParameters) {
@@ -1217,6 +1310,11 @@ final class Analyzer {
     context.activeTypeParameterSymbols = typeSystem.typeParameterSymbols(function, owner);
     if (owner != null) registerBounds(owner.typeParameters(), context.activeTypeParameters);
     registerBounds(function.typeParameters(), context.activeTypeParameters);
+    validateTypeParameterDefaults(
+        function.typeParameters(),
+        context.activeTypeParameters,
+        function.visibility() == Syntax.Visibility.PUBLIC
+            && (owner == null || owner.visibility() == Syntax.Visibility.PUBLIC));
     function.returnType().ifPresent(type -> typeSystem.validateType(type, true));
     context.expectedReturnType = functionReturnType(function, context.activeTypeParameters);
     context.implicitSelfReturn = owner != null && function.returnType().isEmpty();

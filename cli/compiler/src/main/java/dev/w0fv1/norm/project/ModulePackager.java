@@ -3,7 +3,6 @@ package dev.w0fv1.norm.project;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import dev.w0fv1.norm.jvm.GeneratedBindingSource;
 import dev.w0fv1.norm.jvm.JavaApiReportWriter;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -20,7 +19,6 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,6 +37,9 @@ public final class ModulePackager {
     SourceFile moduleSource = SourceFile.read(modulePath.toAbsolutePath().normalize());
     ProjectLoader.ModuleArchiveContents contents = projects.moduleArchiveContents(moduleSource);
     ModuleDescriptor descriptor = contents.descriptor();
+    if (descriptor.version() == 0) {
+      throw new IOException("publishable modules must declare a version");
+    }
     Optional<MavenJarTarget> target = Optional.empty();
     if (descriptor.binding().isPresent()) {
       if (!(descriptor.binding().orElseThrow().target() instanceof MavenJarTarget maven)) {
@@ -62,21 +63,7 @@ public final class ModulePackager {
     String fileName = coordinate.artifact() + "-" + coordinate.version();
     Path archive = versionDirectory.resolve(fileName + ModuleArchiveFormat.FILE_SUFFIX);
     Path pom = versionDirectory.resolve(fileName + ".pom");
-    Map<String, SourceFile> archiveSources = new LinkedHashMap<>();
-    if (contents.binding().isPresent()) {
-      for (GeneratedBindingSource generated :
-          contents.binding().orElseThrow().generated().sources()) {
-        addSource(archiveSources, contents.sources(), generated.relativePath());
-      }
-      int bindingExports = descriptor.binding().orElseThrow().api().size();
-      for (String export :
-          descriptor.exports().subList(bindingExports, descriptor.exports().size())) {
-        addSource(archiveSources, contents.sources(), descriptor.sourcePath(export));
-      }
-    } else {
-      archiveSources.putAll(contents.sources());
-    }
-    writeArchive(archive, descriptor, archiveSources, contents.binding(), contents.resources());
+    writeArchive(archive, descriptor, contents.sources(), contents.binding(), contents.resources());
     Files.writeString(pom, pom(descriptor, coordinate, target), StandardCharsets.UTF_8);
     Path archiveDigest = writeDigest(archive);
     Path pomDigest = writeDigest(pom);
@@ -94,14 +81,6 @@ public final class ModulePackager {
         Sha256Digest.compute(artifact).value() + System.lineSeparator(),
         StandardCharsets.UTF_8);
     return digest;
-  }
-
-  private static void addSource(
-      Map<String, SourceFile> destination, Map<String, SourceFile> sources, String path)
-      throws IOException {
-    SourceFile source = sources.get(path);
-    if (source == null) throw new IOException("module source is absent: " + path);
-    destination.put(path, source);
   }
 
   private static void writeArchive(

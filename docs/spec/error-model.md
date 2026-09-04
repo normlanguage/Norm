@@ -4,13 +4,21 @@ Norm 区分正常契约内的失败值与打断正常求值的 Exception。
 
 ## Result
 
-`std.core.Result<T, E>` 是标准库定义的普通泛型 enum，用于应用领域中由函数契约显式返回的互斥结果。它通过 switch 显式处理，语言不提供隐藏的自动传播运算符。
+`std.core.Result<T, E = String>` 是标准库定义的普通泛型 enum，用于应用领域中由函数契约显式返回的互斥结果。它通过 switch 显式处理，语言不提供隐藏的自动传播运算符。
+
+Ok 与 Err 都带有默认值为空字符串的 `String msg`。简单失败使用 `Result<T>` 与 `Result.Err("message")`，此时错误类型默认为 String；需要程序化分类时使用 `Result<T, Failure>` 与 `Result.Err(Failure.Invalid, msg: "message")`。`msg` 是供用户或边界使用的补充信息，不替代显式错误类型。
 
 ```norm
 String message = switch reserve(command: command) {
     case Ok(Reservation value) { break value.id }
-    case Err(Rejection reason) { break reason.message }
+    case Err(_, String msg) { break msg }
 }
+```
+
+```norm
+Result<String> simple = Result.Err("Name is required")
+Result<String, ReservationFailure> typed =
+    Result.Err(ReservationFailure.Unavailable, msg: "No seats remain")
 ```
 
 ## 普通缺失

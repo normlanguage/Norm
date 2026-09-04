@@ -58,6 +58,12 @@ final class ExpressionChecker {
           case Syntax.BooleanLiteral ignored -> SemanticType.BOOLEAN;
           case Syntax.NullLiteral literal -> analyzeNull(literal, expected);
           case Syntax.StringLiteralExpr ignored -> SemanticType.STRING;
+          case Syntax.InterpolatedStringExpr interpolation -> {
+            for (int index = 0; index < interpolation.expressions().size(); index++) {
+              analyzer.typeOf(interpolation.stringConversion(index), SemanticType.STRING);
+            }
+            yield SemanticType.STRING;
+          }
           case Syntax.ArrayLiteral array -> analyzeArray(array, expected);
           case Syntax.Name name -> analyzeNameValue(name, expected);
           case Syntax.Unary unary -> analyzeUnary(unary, expected);
@@ -551,12 +557,19 @@ final class ExpressionChecker {
                             analyzer.typeSystem.enumTypeParameters(enumDecl))
                         .substitute(substitutions))
             .toList();
-    if (pattern.arguments().size() != payloadTypes.size()) {
+    int requiredPayloads = 0;
+    for (int index = 0; index < variant.parameters().size(); index++) {
+      if (variant.parameters().get(index).defaultValue().isEmpty()) requiredPayloads = index + 1;
+    }
+    if (pattern.arguments().size() < requiredPayloads
+        || pattern.arguments().size() > payloadTypes.size()) {
       analyzer.context.diagnostics.error(
           TYPE_MISMATCH,
           "variant pattern '"
               + pattern.name()
-              + "' requires "
+              + "' accepts "
+              + requiredPayloads
+              + " to "
               + payloadTypes.size()
               + " argument(s), found "
               + pattern.arguments().size(),
@@ -567,6 +580,9 @@ final class ExpressionChecker {
         index < Math.min(pattern.arguments().size(), payloadTypes.size());
         index++) {
       arguments.add(analyzePattern(pattern.arguments().get(index), payloadTypes.get(index)));
+    }
+    for (int index = arguments.size(); index < payloadTypes.size(); index++) {
+      arguments.add(PatternCoverage.Pattern.any());
     }
     return PatternCoverage.Pattern.constructor("variant:" + variant.name(), arguments);
   }
@@ -1465,8 +1481,8 @@ final class ExpressionChecker {
                         argument, analyzer.context.activeTypeParameters))
             .toList();
     if (!explicit.isEmpty()) {
-      analyzer.typeSystem.validateTypeArgumentCount(
-          member.name(), method.typeParameters().size(), member.typeArguments(), member.span());
+      analyzer.typeSystem.validateSemanticTypeArgumentCount(
+          member.name(), method.typeParameters(), member.typeArguments(), member.span());
       for (int index = 0;
           index < Math.min(explicit.size(), method.typeParameters().size());
           index++) {
@@ -1510,9 +1526,13 @@ final class ExpressionChecker {
     for (TypeParameterInfo parameter : method.typeParameters()) {
       SemanticType argument = substitutions.get(parameter.type().identity());
       if (argument == null) {
-        analyzer.context.diagnostics.error(
-            INVALID_CALL, "cannot infer type argument '" + parameter.name() + "'", member.span());
-        argument = SemanticType.DYNAMIC;
+        if (parameter.defaultType().isPresent()) {
+          argument = parameter.defaultType().orElseThrow().substitute(substitutions);
+        } else {
+          analyzer.context.diagnostics.error(
+              INVALID_CALL, "cannot infer type argument '" + parameter.name() + "'", member.span());
+          argument = SemanticType.DYNAMIC;
+        }
         substitutions.put(parameter.type().identity(), argument);
       }
       SemanticType bound =

@@ -46,6 +46,15 @@ final class SourceFormatterTest {
   }
 
   @Test
+  void formatsGenericTypeParameterDefaults() {
+    assertFormats(
+        "enum Result<T,E=String>{Ok(T value),Err(E error)}",
+        """
+        enum Result<T, E = String> { Ok(T value), Err(E error) }
+        """);
+  }
+
+  @Test
   void formatsInheritanceAndConstructors() {
     assertFormats(
         "class Child extends Base<String>{Integer rank Child(String name,Integer value){super(name:name) rank=value}}",
@@ -180,6 +189,17 @@ final class SourceFormatterTest {
         """
         extension String display<T>(T value) {
           return value.toString()
+        }
+        """);
+  }
+
+  @Test
+  void preservesStringInterpolationAndLiteralPlaceholders() {
+    assertFormats(
+        "String greet(String name){return \"\\${literal}: ${name}\"}",
+        """
+        String greet(String name) {
+          return "\\${literal}: ${name}"
         }
         """);
   }

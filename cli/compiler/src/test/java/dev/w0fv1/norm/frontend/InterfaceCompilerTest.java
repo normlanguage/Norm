@@ -85,6 +85,23 @@ final class InterfaceCompilerTest {
   }
 
   @Test
+  void permitsCovariantInterfaceMethodReturns() {
+    CompilationResult narrower =
+        compile(
+            "interface Named { String? name() } "
+                + "class Present implements Named { public String name() { return \"value\" } } "
+                + "Void main() {} ");
+    CompilationResult wider =
+        compile(
+            "interface Named { String name() } "
+                + "class Maybe implements Named { public String? name() { return null } } "
+                + "Void main() {} ");
+
+    assertTrue(narrower.isSuccess(), () -> narrower.diagnostics().toString());
+    assertFalse(wider.isSuccess());
+  }
+
+  @Test
   void rejectsInterfaceCyclesAndConflictingInstantiations() {
     CompilationResult cycle =
         compile("interface Left extends Right {} interface Right extends Left {} Void main() {} ");

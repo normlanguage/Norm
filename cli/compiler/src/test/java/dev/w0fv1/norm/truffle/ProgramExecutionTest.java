@@ -16,6 +16,23 @@ import org.junit.jupiter.api.TestFactory;
 
 final class ProgramExecutionTest {
   @Test
+  void evaluatesStringInterpolationFromLeftToRight() throws Exception {
+    assertOutput(
+        "String greet(String name, Integer count) { return \"Hello, ${name} ${count + 1}!\" } "
+            + "Void main() { printLine(greet(name: \"Norm\", count: 2)) }",
+        "Hello, Norm 3!" + System.lineSeparator());
+  }
+
+  @Test
+  void dispatchesUserStringConversionsDuringInterpolation() throws Exception {
+    assertOutput(
+        "class Name { public String toString() { return \"Norm\" } } "
+            + "Void main() { printLine(\"Hello, ${Name()}!\") "
+            + "printLine(\"Outer ${\"Inner ${Name()}\"}\") }",
+        "Hello, Norm!" + System.lineSeparator() + "Outer Inner Norm" + System.lineSeparator());
+  }
+
+  @Test
   void storesEveryValueInTheAnyTopType() throws Exception {
     assertOutput(
         "Void main() { Any text = \"Norm\" Any? missing = null "

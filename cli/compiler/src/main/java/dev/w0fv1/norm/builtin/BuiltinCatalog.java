@@ -1312,8 +1312,8 @@ public final class BuiltinCatalog {
             "__publishModule",
             SemanticType.VOID,
             IntrinsicId.PUBLISH_MODULE,
-            parameterInfo("name", stringType),
-            parameterInfo("version", integerType),
+            parameterInfo("name", stringType.nullable()),
+            parameterInfo("version", integerType.nullable()),
             parameterInfo(
                 "exports",
                 SemanticType.declared(
@@ -1329,7 +1329,7 @@ public final class BuiltinCatalog {
             parameterInfo(
                 "dependencyVersions",
                 SemanticType.declared(
-                    "std.core.List", "List", List.of(integerType), ValueCategory.VALUE)),
+                    "std.core.List", "List", List.of(integerType.nullable()), ValueCategory.VALUE)),
             parameterInfo(
                 "dependencyExports",
                 SemanticType.declared(

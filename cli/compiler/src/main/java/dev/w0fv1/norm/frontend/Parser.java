@@ -542,7 +542,9 @@ final class Parser {
       Token name = consume(TokenKind.IDENTIFIER, "expected type parameter name");
       Optional<Syntax.TypeRef> upperBound = Optional.empty();
       if (match(TokenKind.EXTENDS)) upperBound = Optional.of(parseType());
-      parameters.add(new Syntax.TypeParameter(name.value(), name.span(), upperBound));
+      Optional<Syntax.TypeRef> defaultType =
+          match(TokenKind.EQUAL) ? Optional.of(parseType()) : Optional.empty();
+      parameters.add(new Syntax.TypeParameter(name.value(), name.span(), upperBound, defaultType));
     } while (match(TokenKind.COMMA));
     consume(TokenKind.GREATER, "expected '>' after type parameters");
     return List.copyOf(parameters);
@@ -1046,6 +1048,26 @@ final class Parser {
     if (match(TokenKind.STRING)) {
       Token token = previous();
       return new Syntax.StringLiteralExpr(token.value(), token.span());
+    }
+    if (match(TokenKind.INTERPOLATED_STRING_START)) {
+      Token opening = previous();
+      List<String> text = new ArrayList<>();
+      List<Syntax.Expression> expressions = new ArrayList<>();
+      List<SourceSpan> interpolationSpans = new ArrayList<>();
+      while (!check(TokenKind.INTERPOLATED_STRING_END) && !isAtEnd()) {
+        text.add(consume(TokenKind.STRING_TEXT, "expected interpolated string text").value());
+        if (check(TokenKind.INTERPOLATED_STRING_END)) break;
+        Token interpolation =
+            consume(TokenKind.INTERPOLATION_START, "expected '${' before interpolated expression");
+        expressions.add(parseExpression());
+        Token closing =
+            consume(TokenKind.INTERPOLATION_END, "expected '}' after interpolated expression");
+        interpolationSpans.add(interpolation.span().cover(closing.span()));
+      }
+      Token closing =
+          consume(TokenKind.INTERPOLATED_STRING_END, "expected closing quote after interpolation");
+      return new Syntax.InterpolatedStringExpr(
+          text, expressions, interpolationSpans, opening.span().cover(closing.span()));
     }
     if (match(TokenKind.IDENTIFIER)) {
       Token token = previous();

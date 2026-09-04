@@ -590,6 +590,8 @@ final class CoreCodec {
         parameter -> {
           writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
           parameter.upperBound().ifPresent(type -> writeType(writer, type, referenceResolver));
+          writer.writeBoolean(parameter.defaultType().isPresent());
+          parameter.defaultType().ifPresent(type -> writeType(writer, type, referenceResolver));
         });
   }
 

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.value.ModuleDependency;
 import dev.w0fv1.norm.value.ModuleRepositoryId;
 import dev.w0fv1.norm.value.ModuleRequirement;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -53,6 +54,35 @@ final class NormPackageResolverTest {
                 ModuleRepositoryId.GITHUB,
                 new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
       assertEquals(resolved, resolver.resolve(requirement));
+    }
+  }
+
+  @Test
+  void resolvesAnOmittedVersionToTheNewestStableRelease() throws Exception {
+    Path remote = temporaryDirectory.resolve("remote-latest");
+    Path registry = registry("sample.library", "normlanguage", "sample-library");
+    Files.createDirectories(remote.resolve("normlanguage/sample-library/releases/download/v1"));
+    Files.createDirectories(remote.resolve("normlanguage/sample-library/releases/download/v3"));
+    Files.createDirectories(
+        remote.resolve("normlanguage/sample-library/releases/download/v4-beta"));
+
+    try (var resolver =
+        new NormPackageResolver(
+            temporaryDirectory.resolve("local-latest"),
+            temporaryDirectory.resolve("cache-latest"),
+            Map.of(
+                ModuleRepositoryId.GITHUB,
+                new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
+      ModuleRequirement resolved =
+          resolver.resolve(new ModuleDependency("github", "sample.library", null, false));
+
+      assertEquals(3, resolved.version());
+      Files.createDirectories(remote.resolve("normlanguage/sample-library/releases/download/v5"));
+      assertEquals(
+          3,
+          resolver
+              .resolve(new ModuleDependency("github", "sample.library", null, false))
+              .version());
     }
   }
 

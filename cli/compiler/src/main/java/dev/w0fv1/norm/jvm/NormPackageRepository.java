@@ -7,4 +7,6 @@ import java.net.http.HttpClient;
 
 interface NormPackageRepository {
   URI locate(ModuleRequirement requirement, HttpClient client) throws IOException;
+
+  int latestVersion(String moduleName, HttpClient client) throws IOException;
 }

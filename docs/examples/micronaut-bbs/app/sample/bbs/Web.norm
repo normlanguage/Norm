@@ -66,7 +66,7 @@ class BbsSessionFilter {
 
 @Validated()
 @Secured(value: ["isAnonymous()"])
-@Controller(value: "/bbs")
+@Controller("/bbs")
 class BbsController {
   AccountService accountService
   ForumService forumService
@@ -77,27 +77,27 @@ class BbsController {
     this.forumService = forumService
   }
 
-  @Post(value: "/users")
+  @Post("/users")
   Registration register(@Body() @Valid() Credentials credentials) {
     return accountService.register(credentials)
   }
 
-  @Post(value: "/sessions")
+  @Post("/sessions")
   String login(@Body() @Valid() Credentials credentials) {
     return accountService.login(credentials)
   }
 
-  @Get(value: "/boards")
+  @Get("/boards")
   MutableList<BoardEntity?>? boards() {
     return forumService.allBoards()
   }
 
-  @Post(value: "/session/boards")
+  @Post("/session/boards")
   BoardEntity createBoard(@Body() @Valid() CreateBoardRequest request) {
     return forumService.createBoard(request.name)
   }
 
-  @Post(value: "/session/topics")
+  @Post("/session/topics")
   TopicEntity createTopic(
     HttpRequest<Any?> httpRequest,
     @Body() @Valid() CreateTopicRequest request
@@ -110,7 +110,7 @@ class BbsController {
     )
   }
 
-  @Post(value: "/session/replies")
+  @Post("/session/replies")
   ReplyEntity createReply(
     HttpRequest<Any?> httpRequest,
     @Body() @Valid() CreateReplyRequest request
@@ -122,7 +122,7 @@ class BbsController {
     )
   }
 
-  @Get(value: "/topics")
+  @Get("/topics")
   TopicPage topics(
     @QueryValue(value: "page") Integer page,
     @QueryValue(value: "size") Integer size
@@ -130,17 +130,17 @@ class BbsController {
     return forumService.topicPage(page, size)
   }
 
-  @Get(value: "/topics/{id}")
+  @Get("/topics/{id}")
   TopicEntity? topic(Long id) {
     return forumService.topic(id)
   }
 
-  @Get(value: "/topics/{id}/replies")
+  @Get("/topics/{id}/replies")
   MutableList<ReplyEntity?>? replies(Long id) {
     return forumService.repliesForTopic(id)
   }
 
-  @Get(value: "/session/profile")
+  @Get("/session/profile")
   String sessionProfile(HttpRequest<Any?> request) {
     return this.sessionUsername(request)
   }

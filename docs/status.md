@@ -34,7 +34,7 @@ import { currentRelease } from './.vitepress/release'
 | `Class<T>` 与类型化声明引用 | Stable | [声明引用与反射](/spec/declaration-references) |
 | Annotation、`@Document` 与类型化拦截器 | Stable | [Annotation 规范](/spec/annotations) |
 | Package、Module 与跨文件可见性 | Stable | [模块系统](/spec/module-system) |
-| 字符串插值 | Planned | 当前产生 `NORM-LEXER-0005` |
+| 类型化字符串插值 | Stable | [字面量](/spec/grammar/literals) |
 | `//` 与 `/* */` 源码注释 | Planned | 当前 Lexer 将标记解析为运算符 token |
 
 ## Standard Library

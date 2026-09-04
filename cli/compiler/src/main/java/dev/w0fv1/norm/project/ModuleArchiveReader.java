@@ -131,8 +131,11 @@ final class ModuleArchiveReader {
               });
       binding = Optional.of(new JarBinding(target, api));
     }
+    int version = module.get("version").getAsInt();
+    if (version < 1)
+      throw new IllegalArgumentException("published module version must be positive");
     return new ModuleDescriptor(
-        new ModuleCoordinate(module.get("name").getAsString(), module.get("version").getAsInt()),
+        new ModuleCoordinate(module.get("name").getAsString(), version),
         exports,
         dependencies,
         binding);

@@ -36,7 +36,7 @@ List<String?> listWithOptionalItems
 
 ## 泛型参数
 
-使用泛型类型必须写出全部参数；Norm 没有 raw type。
+使用泛型类型必须提供全部必填参数；只有声明了默认类型的尾部参数可以省略。Norm 没有 raw type，省略默认参数会在语义分析时展开为完整类型。
 
 ```norm
 Map<String, Integer> counts

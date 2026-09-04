@@ -98,7 +98,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     try {
       return execution.callbacks().invoke(() -> invokeOnOwner(callable, receiver, arguments));
     } catch (NormThrownException failure) {
-      Object materialized = javaResult(failure.value);
+      Object materialized = values.javaArgument(failure.value);
       if (materialized instanceof RuntimeException runtime) throw runtime;
       throw failure;
     }
@@ -357,6 +357,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
       return RuntimeValues.NullValue.INSTANCE;
     }
+    if (value instanceof RuntimeValues.EnumValue) return value;
     RuntimeValues.ObjectValue guest = guests.get(value);
     if (guest != null) {
       synchronizeFromHost(value, guest);

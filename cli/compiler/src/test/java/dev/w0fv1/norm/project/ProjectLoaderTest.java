@@ -140,6 +140,46 @@ final class ProjectLoaderTest {
   }
 
   @Test
+  void derivesTheIdentityOfAnEmbeddedLocalModule() throws Exception {
+    Path entry =
+        source(
+            temporaryDirectory,
+            "web.norm",
+            "package hello.web Module module() { return module(dependencies: []) } Void main() {}");
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var sourceSet = projects.load(entry);
+
+      assertEquals(
+          new dev.w0fv1.norm.value.ModuleCoordinate("hello.web", 0),
+          sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
+    }
+  }
+
+  @Test
+  void infersADirectoryModuleNameWithoutReadingNestedModules() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("inferred"));
+    Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
+    Files.writeString(
+        root.resolve("sample/module.norm"), "Module module() { return module(dependencies: []) }");
+    source(
+        root,
+        "sample/vendor/Value.norm",
+        "package sample.vendor public Integer value() { return 1 }");
+    Files.writeString(
+        root.resolve("sample/vendor/module.norm"),
+        "Module module() { return module(name: \"sample.vendor\", version: 1) }");
+
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var sourceSet = projects.load(entry);
+
+      assertEquals(
+          new dev.w0fv1.norm.value.ModuleCoordinate("sample", 0),
+          sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
+    }
+  }
+
+  @Test
   void rejectsConfigurationDirectoriesThatDoNotMatchTheModuleName() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("wrong-root"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");

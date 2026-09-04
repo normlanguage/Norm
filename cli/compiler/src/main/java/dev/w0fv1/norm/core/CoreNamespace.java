@@ -180,6 +180,8 @@ public final class CoreNamespace {
         parameter -> {
           writer.writeInt(parameter.index()).writeBoolean(parameter.upperBound().isPresent());
           parameter.upperBound().ifPresent(bound -> CoreCodec.writeType(writer, bound));
+          writer.writeBoolean(parameter.defaultType().isPresent());
+          parameter.defaultType().ifPresent(type -> CoreCodec.writeType(writer, type));
         });
   }
 

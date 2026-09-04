@@ -15,7 +15,7 @@ final class Lexer {
   private static final DiagnosticCode UNEXPECTED_CHARACTER = new DiagnosticCode("NORM-LEXER-0001");
   private static final DiagnosticCode UNTERMINATED_STRING = new DiagnosticCode("NORM-LEXER-0002");
   private static final DiagnosticCode INVALID_ESCAPE = new DiagnosticCode("NORM-LEXER-0003");
-  private static final DiagnosticCode UNSUPPORTED_INTERPOLATION =
+  private static final DiagnosticCode UNTERMINATED_INTERPOLATION =
       new DiagnosticCode("NORM-LEXER-0005");
   private static final DiagnosticCode INVALID_CODE_POINT = new DiagnosticCode("NORM-LEXER-0006");
   private static final DiagnosticCode INVALID_NUMBER = new DiagnosticCode("NORM-LEXER-0007");
@@ -175,16 +175,27 @@ final class Lexer {
 
   private void scanString(int start) {
     StringBuilder value = new StringBuilder();
+    int textStart = offset;
+    boolean interpolated = false;
     while (!isAtEnd()) {
       int characterStart = offset;
       int character = advanceCodePoint();
       if (character == '"') {
-        tokens.add(
-            new Token(
-                TokenKind.STRING,
-                source.text().substring(start, offset),
-                value.toString(),
-                new SourceSpan(source, start, offset)));
+        if (interpolated) {
+          addStringPart(TokenKind.STRING_TEXT, textStart, characterStart, value.toString());
+          tokens.add(
+              Token.simple(
+                  TokenKind.INTERPOLATED_STRING_END,
+                  "\"",
+                  new SourceSpan(source, characterStart, offset)));
+        } else {
+          tokens.add(
+              new Token(
+                  TokenKind.STRING,
+                  source.text().substring(start, offset),
+                  value.toString(),
+                  new SourceSpan(source, start, offset)));
+        }
         return;
       }
       if (character == '\n' || character == '\r') {
@@ -196,10 +207,25 @@ final class Lexer {
       }
       if (character != '\\') {
         if (character == '$' && startsWith("{")) {
-          diagnostics.error(
-              UNSUPPORTED_INTERPOLATION,
-              "string interpolation is not supported",
-              new SourceSpan(source, characterStart, Math.min(offset + 1, source.length())));
+          if (!interpolated) {
+            tokens.add(
+                Token.simple(
+                    TokenKind.INTERPOLATED_STRING_START,
+                    "\"",
+                    new SourceSpan(source, start, start + 1)));
+            interpolated = true;
+          }
+          addStringPart(TokenKind.STRING_TEXT, textStart, characterStart, value.toString());
+          value.setLength(0);
+          offset++;
+          tokens.add(
+              Token.simple(
+                  TokenKind.INTERPOLATION_START,
+                  "${",
+                  new SourceSpan(source, characterStart, offset)));
+          if (!scanInterpolation()) return;
+          textStart = offset;
+          continue;
         }
         value.appendCodePoint(character);
         continue;
@@ -227,6 +253,34 @@ final class Lexer {
         UNTERMINATED_STRING,
         "string literal is not terminated before the end of the file",
         new SourceSpan(source, start, offset));
+  }
+
+  private boolean scanInterpolation() {
+    int depth = 0;
+    while (!isAtEnd()) {
+      int start = offset;
+      int character = source.text().codePointAt(offset);
+      if (character == '}' && depth == 0) {
+        offset++;
+        tokens.add(
+            Token.simple(TokenKind.INTERPOLATION_END, "}", new SourceSpan(source, start, offset)));
+        return true;
+      }
+      scanToken();
+      if (character == '{') depth++;
+      if (character == '}') depth--;
+    }
+    diagnostics.error(
+        UNTERMINATED_INTERPOLATION,
+        "string interpolation is not terminated",
+        SourceSpan.at(source, offset));
+    return false;
+  }
+
+  private void addStringPart(TokenKind kind, int start, int end, String value) {
+    tokens.add(
+        new Token(
+            kind, source.text().substring(start, end), value, new SourceSpan(source, start, end)));
   }
 
   private void scanCodePoint(int start) {

@@ -169,6 +169,7 @@ public final class ApiDocumentationWriter {
     JsonObject value = new JsonObject();
     value.addProperty("name", parameter.name());
     parameter.upperBound().ifPresent(bound -> value.add("upperBound", type(bound)));
+    parameter.defaultType().ifPresent(defaultType -> value.add("defaultType", type(defaultType)));
     return value;
   }
 

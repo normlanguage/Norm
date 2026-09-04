@@ -100,6 +100,35 @@ final class CoreArtifactIdentityTest {
   }
 
   @Test
+  void genericDefaultsParticipateInDeclarationsButExpandAtUseSites() {
+    CoreArtifact stringDefault =
+        compile(
+            "default-string.norm",
+            "enum Outcome<T, E = String> { Ok(T value), Err(E error) } Void main() {}");
+    CoreArtifact integerDefault =
+        compile(
+            "default-integer.norm",
+            "enum Outcome<T, E = Integer> { Ok(T value), Err(E error) } Void main() {}");
+    CoreArtifact shorthand =
+        compile(
+            "default-use.norm",
+            "enum Outcome<T, E = String> { Ok(T value), Err(E error) } "
+                + "Outcome<Integer> result() { return Outcome.Err(\"invalid\") } Void main() {}");
+    CoreArtifact explicit =
+        compile(
+            "explicit-use.norm",
+            "enum Outcome<T, E = String> { Ok(T value), Err(E error) } "
+                + "Outcome<Integer, String> result() { return Outcome.Err(\"invalid\") } Void main() {}");
+
+    assertNotEquals(
+        stringDefault.namespace().definition("", "Outcome"),
+        integerDefault.namespace().definition("", "Outcome"));
+    assertEquals(
+        shorthand.namespace().definition("", "result"),
+        explicit.namespace().definition("", "result"));
+  }
+
+  @Test
   void canonicalizesInferredAndExplicitNullSafeGenericMethodCalls() {
     String declarations = "class Values { T identity<T>(T value) { return value } } ";
     CoreArtifact inferred =

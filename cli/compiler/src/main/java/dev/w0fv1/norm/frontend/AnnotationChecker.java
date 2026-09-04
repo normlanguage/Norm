@@ -522,6 +522,8 @@ final class AnnotationChecker {
       case Syntax.BooleanLiteral ignored -> {}
       case Syntax.NullLiteral ignored -> {}
       case Syntax.StringLiteralExpr ignored -> {}
+      case Syntax.InterpolatedStringExpr interpolation ->
+          interpolation.expressions().forEach(this::validateLocalAnnotations);
       case Syntax.Name ignored -> {}
     }
   }
@@ -558,20 +560,34 @@ final class AnnotationChecker {
             use.span());
       }
       Map<String, Syntax.CallArgument> supplied = new LinkedHashMap<>();
-      for (Syntax.CallArgument argument : use.arguments()) {
+      boolean validArguments = true;
+      for (int index = 0; index < use.arguments().size(); index++) {
+        Syntax.CallArgument argument = use.arguments().get(index);
+        String label;
         if (argument.label().isEmpty()) {
-          analyzer.context.diagnostics.error(
-              TYPE_MISMATCH, "annotation arguments must be named", argument.span());
-          continue;
+          boolean hasValue =
+              schema.parameters().stream().anyMatch(parameter -> parameter.name().equals("value"));
+          if (index != 0 || !hasValue) {
+            analyzer.context.diagnostics.error(
+                TYPE_MISMATCH,
+                "only the first annotation argument may omit the 'value' label",
+                argument.span());
+            annotationConstant(argument.value(), SemanticType.DYNAMIC);
+            validArguments = false;
+            continue;
+          }
+          label = "value";
+        } else {
+          label = argument.label().orElseThrow().name();
         }
-        String label = argument.label().orElseThrow().name();
         if (supplied.putIfAbsent(label, argument) != null) {
           analyzer.context.diagnostics.error(
               TYPE_MISMATCH, "duplicate annotation parameter '" + label + "'", argument.span());
+          validArguments = false;
         }
       }
       List<AnnotationValue> values = new ArrayList<>();
-      boolean complete = true;
+      boolean complete = validArguments;
       if (target instanceof AnnotationSite.Symbol site
           && site.kind() == AnnotationTarget.FIELD
           && schema.targetType(AnnotationTarget.FIELD).isPresent()) {
@@ -626,16 +642,17 @@ final class AnnotationChecker {
           }
           continue;
         }
-        analyzer.context.bindings.put(argument.label().orElseThrow().span(), parameter.symbol());
+        argument
+            .label()
+            .ifPresent(label -> analyzer.context.bindings.put(label.span(), parameter.symbol()));
         Optional<AnnotationValue> value = annotationConstant(argument.value(), parameter.type());
         if (value.isEmpty()) complete = false;
         else values.add(value.orElseThrow());
       }
       for (Syntax.CallArgument argument : supplied.values()) {
+        String label = argument.label().map(Syntax.ArgumentLabel::name).orElse("value");
         analyzer.context.diagnostics.error(
-            TYPE_MISMATCH,
-            "unknown annotation parameter '" + argument.label().orElseThrow().name() + "'",
-            argument.span());
+            TYPE_MISMATCH, "unknown annotation parameter '" + label + "'", argument.span());
         annotationConstant(argument.value(), SemanticType.DYNAMIC);
         complete = false;
       }

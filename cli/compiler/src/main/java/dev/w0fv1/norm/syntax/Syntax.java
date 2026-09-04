@@ -178,11 +178,20 @@ public final class Syntax {
     }
   }
 
-  public record TypeParameter(String name, SourceSpan nameSpan, Optional<TypeRef> upperBound) {
+  public record TypeParameter(
+      String name,
+      SourceSpan nameSpan,
+      Optional<TypeRef> upperBound,
+      Optional<TypeRef> defaultType) {
     public TypeParameter {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(nameSpan, "nameSpan");
       upperBound = Objects.requireNonNull(upperBound, "upperBound");
+      defaultType = Objects.requireNonNull(defaultType, "defaultType");
+    }
+
+    public TypeParameter(String name, SourceSpan nameSpan, Optional<TypeRef> upperBound) {
+      this(name, nameSpan, upperBound, Optional.empty());
     }
   }
 
@@ -570,6 +579,7 @@ public final class Syntax {
           BooleanLiteral,
           NullLiteral,
           StringLiteralExpr,
+          InterpolatedStringExpr,
           ArrayLiteral,
           Name,
           Unary,
@@ -736,6 +746,35 @@ public final class Syntax {
     public StringLiteralExpr {
       Objects.requireNonNull(value, "value");
       Objects.requireNonNull(span, "span");
+    }
+  }
+
+  public record InterpolatedStringExpr(
+      List<String> text,
+      List<Expression> expressions,
+      List<SourceSpan> interpolationSpans,
+      SourceSpan span)
+      implements Expression {
+    public InterpolatedStringExpr {
+      text = List.copyOf(text);
+      expressions = List.copyOf(expressions);
+      interpolationSpans = List.copyOf(interpolationSpans);
+      if (text.size() != expressions.size() + 1
+          || expressions.size() != interpolationSpans.size()) {
+        throw new IllegalArgumentException("interpolated string parts are inconsistent");
+      }
+      Objects.requireNonNull(span, "span");
+    }
+
+    public Call stringConversion(int index) {
+      Expression expression = expressions.get(index);
+      SourceSpan interpolation = interpolationSpans.get(index);
+      SourceSpan nameSpan =
+          new SourceSpan(
+              interpolation.source(), interpolation.endOffset() - 1, interpolation.endOffset());
+      Member member =
+          new Member(expression, "toString", nameSpan, expression.span().cover(nameSpan));
+      return new Call(member, List.of(), interpolation);
     }
   }
 

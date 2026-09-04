@@ -9,26 +9,32 @@ import sample.bbs.TopicEntity
 import sample.bbs.TopicPage
 import sample.bbs.TopicPageable
 import sample.bbs.TopicSort
-import sample.bbs.repository.ForumRepository
+import sample.bbs.repository.BoardRepository
+import sample.bbs.repository.ReplyRepository
+import sample.bbs.repository.TopicRepository
 import std.collections.MutableList
 
 @Prototype()
 public class ForumService {
-  ForumRepository forum
+  BoardRepository boards
+  TopicRepository topics
+  ReplyRepository replies
 
   @Inject()
-  ForumService(ForumRepository forum) {
-    this.forum = forum
+  ForumService(BoardRepository boards, TopicRepository topics, ReplyRepository replies) {
+    this.boards = boards
+    this.topics = topics
+    this.replies = replies
   }
 
   @Transactional()
   public BoardEntity createBoard(String name) {
-    return forum.saveBoard(BoardEntity(id: null, name: name))
+    return boards.save(BoardEntity(id: null, name: name))
   }
 
   @Transactional()
   public TopicEntity createTopic(Long boardId, String author, String title, String content) {
-    return forum.saveTopic(TopicEntity(
+    return topics.save(TopicEntity(
       id: null,
       boardId: boardId,
       author: author,
@@ -39,7 +45,7 @@ public class ForumService {
 
   @Transactional()
   public ReplyEntity createReply(Long topicId, String author, String content) {
-    return forum.saveReply(ReplyEntity(
+    return replies.save(ReplyEntity(
       id: null,
       topicId: topicId,
       author: author,
@@ -49,25 +55,25 @@ public class ForumService {
 
   @Transactional()
   public MutableList<BoardEntity?>? allBoards() {
-    return forum.allBoards()
+    return boards.findAll()
   }
 
   @Transactional()
   public TopicEntity? topic(Long id) {
-    return forum.topic(id)
+    return topics.find(id)
   }
 
   @Transactional()
   public MutableList<ReplyEntity?>? repliesForTopic(Long topicId) {
-    return forum.repliesForTopic(topicId)
+    return replies.findByTopic(topicId)
   }
 
   @Transactional()
   public TopicPage topicPage(Integer page, Integer size) {
     return TopicPage(
-      content: forum.topics(offset: page * size, limit: size),
+      content: topics.page(offset: page * size, limit: size),
       pageable: TopicPageable(size: size, number: page, sort: TopicSort(), mode: "OFFSET"),
-      totalSize: forum.topicCount()
+      totalSize: topics.count()
     )
   }
 }

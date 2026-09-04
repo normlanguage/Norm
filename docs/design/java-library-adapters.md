@@ -100,7 +100,7 @@ Void main() {
 norm package path/to/commons/lang --output path/to/repository
 ```
 
-仓库坐标与制品名由 Module 身份派生，规则见[包管理器](/ecosystem/package-manager)。Maven 和 Gradle 都可消费生成的 NAR 与 POM。另一个 Norm 项目的 `dependency(repository, name, version)` 使用同一坐标解析，无需 POM、Gradle 文件或锁文件。
+仓库坐标与制品名由 Module 身份派生，规则见[包管理器](/ecosystem/package-manager)。Maven 和 Gradle 都可消费生成的 NAR 与 POM。另一个 Norm 项目的 `dependency(repository, name, version?)` 使用同一坐标解析，无需 POM、Gradle 文件或锁文件。
 
 可运行目录见 [Apache Commons Lang 示例](../examples/java-commons-lang/README.md)。
 
@@ -119,7 +119,7 @@ norm package path/to/commons/lang --output path/to/repository
 
 ## 发布模型
 
-`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 5 使用 ZIP 容器，所有 Module 都包含已求值的 `module.json` 和普通 Norm `sources/`，依赖项保存明确的仓库身份。纯 Norm Module 保存完整实现源码；Java Binding Module 只保存由公开适配面生成的 Norm 源码，并额外包含 `jar` manifest 与 `binding/java-api.json`，工程中的示例和验证程序不进入制品。Binding manifest 保存类型、成员组和精确重载公开面，API 报告在打包阶段记录完整 JAR census、结构化适配状态与 `JavaApiId`；消费端按固定 JAR 只重建公开适配面及其类型闭包，并逐个复验归档中的生成源码。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。纯 Norm 实现使用同一归档、坐标和调用边界，移除 Binding 不产生新的包种类。后续二进制 Core 复用同一容器与身份模型。
+`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 5 使用 ZIP 容器，所有 Module 都包含已求值的 `module.json` 和普通 Norm `sources/`，依赖项保存明确的仓库身份。纯 Norm Module 与 Java Binding Module 都保存完整生产源码；后者同时保存公开适配面生成的源码，并额外包含 `jar` manifest 与 `binding/java-api.json`。`exports` 只定义公开 API，不参与选择制品文件；示例和验证程序使用嵌套 Module 与生产 Module 隔离。Binding manifest 保存类型、成员组和精确重载公开面，API 报告在打包阶段记录完整 JAR census、结构化适配状态与 `JavaApiId`；消费端按固定 JAR 只重建公开适配面及其类型闭包，并逐个复验归档中的生成源码。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。纯 Norm 实现使用同一归档、坐标和调用边界，移除 Binding 不产生新的包种类。后续二进制 Core 复用同一容器与身份模型。
 
 POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module 时同时获得所需 Java 图。发布本地 JAR 时必须为它声明可解析的发布坐标；同一次发布产生 Java artifact 和依赖它的 Norm artifact。
 
@@ -166,7 +166,7 @@ Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `st
 
 每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。发布门禁要求公开适配面全部生成并通过行为测试。
 
-Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。入口 Module 与纯 Norm 依赖参与处理；作为依赖引入的 Java Binding Module 只提供适配声明，不把其中的验证程序混入应用处理面。真实框架验收入口见 [Micronaut BBS](../examples/micronaut-bbs/README.md)。
+Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。生成的应用类型保留 Norm 泛型继承，并在 JVM 应用外观中提供托管实例分配入口；框架创建的实体或组件会关联回同一个 Norm 对象。入口 Module 与包含框架支持源码的纯 Norm 依赖参与处理；生成的 Binding 声明不进入应用处理面。Norm 异常和枚举值穿过 DI、事务等 Java 代理后保持原有语言语义。真实框架验收入口见 [Micronaut BBS](../examples/micronaut-bbs/README.md)。
 
 ## 验收
 

@@ -9,6 +9,10 @@ public final class JavaApplicationBridge {
 
   private JavaApplicationBridge() {}
 
+  public enum SuperCall {
+    INSTANCE
+  }
+
   public static Registration install(ClassLoader loader, Handler handler) {
     Objects.requireNonNull(loader, "loader");
     Objects.requireNonNull(handler, "handler");

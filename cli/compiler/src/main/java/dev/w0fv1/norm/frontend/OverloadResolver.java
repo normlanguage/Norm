@@ -150,6 +150,11 @@ final class OverloadResolver {
       return -1;
     }
     if (parameters.size() <= 1 && index < parameters.size()) return index;
+    if (index == 0
+        && parameters.size() > 1
+        && parameters.subList(1, parameters.size()).stream().allMatch(ParameterInfo::hasDefault)) {
+      return index;
+    }
     if (index < parameters.size()
         && argument.value() instanceof Syntax.Name shorthand
         && shorthand.value().equals(parameters.get(index).name())) {

@@ -340,6 +340,16 @@ final class CompilerTest {
   }
 
   @Test
+  void acceptsOneUnlabelledRequiredArgumentBeforeDefaultArguments() {
+    CompilationResult result =
+        compile(
+            "enum Outcome<T> { Success(T value, String msg = \"\") } "
+                + "Void main() { Outcome<Integer> result = Outcome.Success(7) } ");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void resolvesFunctionAndMethodOverloadsByArityAndType() {
     CompilationResult result =
         compile(
