@@ -16,40 +16,51 @@ import dev.w0fv1.norm.platform.file.PlatformFileException;
 final class FileIntrinsicDispatcher {
   private FileIntrinsicDispatcher() {}
 
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object first,
-      Object second,
-      CoreType type,
-      ExecutionContext context,
-      ExecutionState execution,
-      Node location) {
-    try {
-      return switch (intrinsic) {
-        case FILE_OPEN_READ -> openRead((String) first, type, context, execution);
-        case FILE_READER_READ -> read(first, (Integer) second, execution, location);
-        case FILE_OPEN_WRITE ->
-            openWrite((String) first, (String) second, type, context, execution);
-        case FILE_WRITER_WRITE -> write(first, second);
-        case FILE_WRITER_FLUSH -> flush(first);
-        case FILE_WRITER_SYNC -> sync(first, (String) second);
-        case FILE_CLOSE -> close(first);
-        default -> throw new IllegalStateException("unsupported file intrinsic " + intrinsic);
-      };
-    } catch (PlatformFileException failure) {
-      if (execution == null) {
-        throw new IllegalStateException("system exception runtime is unavailable", failure);
-      }
-      throw execution.values().fileException(failure, execution, location);
-    } catch (ResourceCloseException failure) {
-      if (failure.getCause() instanceof PlatformFileException platformFailure) {
+  static IntrinsicOperation resolve(IntrinsicId intrinsic) {
+    IntrinsicOperation operation =
+        switch (intrinsic) {
+          case FILE_OPEN_READ ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  openRead((String) arguments[0], type, context, execution);
+          case FILE_READER_READ ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  read(arguments[0], (Integer) arguments[1], execution, location);
+          case FILE_OPEN_WRITE ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  openWrite((String) arguments[0], (String) arguments[1], type, context, execution);
+          case FILE_WRITER_WRITE ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  write(arguments[0], arguments[1]);
+          case FILE_WRITER_FLUSH ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  flush(arguments[0]);
+          case FILE_WRITER_SYNC ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  sync(arguments[0], (String) arguments[1]);
+          case FILE_CLOSE ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  close(arguments[0]);
+          default -> throw new IllegalStateException("unsupported file intrinsic " + intrinsic);
+        };
+    return (receiver, arguments, type, context, location, annotations, execution) -> {
+      try {
+        return operation.execute(
+            receiver, arguments, type, context, location, annotations, execution);
+      } catch (PlatformFileException failure) {
         if (execution == null) {
           throw new IllegalStateException("system exception runtime is unavailable", failure);
         }
-        throw execution.values().fileException(platformFailure, execution, location);
+        throw execution.values().fileException(failure, execution, location);
+      } catch (ResourceCloseException failure) {
+        if (failure.getCause() instanceof PlatformFileException platformFailure) {
+          if (execution == null) {
+            throw new IllegalStateException("system exception runtime is unavailable", failure);
+          }
+          throw execution.values().fileException(platformFailure, execution, location);
+        }
+        throw failure;
       }
-      throw failure;
-    }
+    };
   }
 
   private static RuntimeValues.OpaqueResource openRead(

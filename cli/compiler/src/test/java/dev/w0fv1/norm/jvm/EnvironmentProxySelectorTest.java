@@ -34,10 +34,10 @@ final class EnvironmentProxySelectorTest {
             DIRECT_SELECTOR);
 
     assertEquals(
-        new InetSocketAddress("proxy.example", 8443),
+        InetSocketAddress.createUnresolved("proxy.example", 8443),
         selector.select(URI.create("https://github.com/module")).getFirst().address());
     assertEquals(
-        new InetSocketAddress("proxy.example", 8080),
+        InetSocketAddress.createUnresolved("proxy.example", 8080),
         selector.select(URI.create("http://example.com/module")).getFirst().address());
   }
 

@@ -11,6 +11,7 @@ module dev.w0fv1.norm {
   requires org.eclipse.lsp4j;
   requires org.eclipse.lsp4j.jsonrpc;
   requires org.graalvm.polyglot;
+  requires org.graalvm.nativeimage;
   requires org.graalvm.truffle;
   requires org.apache.maven.resolver;
   requires org.apache.maven.resolver.connector.basic;
@@ -23,6 +24,7 @@ module dev.w0fv1.norm {
   requires org.apache.maven.resolver.transport.file;
   requires org.apache.maven.resolver.util;
   requires org.apache.commons.codec;
+  requires org.apache.commons.compress;
   requires org.apache.commons.logging;
   requires org.apache.httpcomponents.httpclient;
   requires org.apache.httpcomponents.httpcore;
@@ -32,6 +34,8 @@ module dev.w0fv1.norm {
   requires org.objectweb.asm;
   requires org.junit.platform.launcher;
   requires org.objenesis;
+  requires com.esotericsoftware.kryo;
+  requires org.graalvm.reachability;
 
   uses javax.xml.stream.XMLInputFactory;
   uses javax.xml.stream.XMLOutputFactory;
@@ -41,4 +45,14 @@ module dev.w0fv1.norm {
 
   opens dev.w0fv1.norm.cli.component to
       org.eclipse.lsp4j.jsonrpc;
+  opens dev.w0fv1.norm.core to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.execution to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.jvm to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.runtime to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.value to
+      com.esotericsoftware.kryo;
 }

@@ -30,8 +30,13 @@ public final class NormRuntime implements ExecutionBackend {
   }
 
   @Override
-  public void execute(dev.w0fv1.norm.core.CoreArtifact artifact, ExecutionContext context) {
+  public void execute(
+      dev.w0fv1.norm.core.CoreArtifact artifact,
+      dev.w0fv1.norm.core.CoreExecutionPlan execution,
+      ExecutionContext context) {
     backend.execute(
-        Objects.requireNonNull(artifact, "artifact"), Objects.requireNonNull(context, "context"));
+        Objects.requireNonNull(artifact, "artifact"),
+        Objects.requireNonNull(execution, "execution"),
+        Objects.requireNonNull(context, "context"));
   }
 }

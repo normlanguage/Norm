@@ -12,7 +12,6 @@ import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.GuestStackFrame;
 import dev.w0fv1.norm.execution.NormExecutionException;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,29 +37,41 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
   }
 
   @Override
-  public void execute(CoreArtifact artifact, ExecutionContext context) {
+  public void execute(
+      CoreArtifact artifact,
+      dev.w0fv1.norm.core.CoreExecutionPlan execution,
+      ExecutionContext context) {
+    prepare(artifact, execution).execute(context);
+  }
+
+  public dev.w0fv1.norm.execution.PreparedExecution prepare(CoreArtifact artifact) {
+    return prepare(artifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact));
+  }
+
+  public dev.w0fv1.norm.execution.PreparedExecution prepare(
+      CoreArtifact artifact, dev.w0fv1.norm.core.CoreExecutionPlan execution) {
     Objects.requireNonNull(artifact, "artifact");
-    Objects.requireNonNull(context, "context");
-    try {
-      compile(null, artifact).execute(context);
-    } catch (NormGuestException exception) {
-      throw translate(exception, artifact);
-    } finally {
-      context.output().flush();
-    }
+    return new PreparedTruffleProgram(
+        RuntimeSourceMap.from(artifact.authoring()), compile(null, artifact, execution));
   }
 
   synchronized ExecutableProgram compile(Language language, CoreArtifact artifact) {
+    return compile(language, artifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact));
+  }
+
+  synchronized ExecutableProgram compile(
+      Language language, CoreArtifact artifact, dev.w0fv1.norm.core.CoreExecutionPlan execution) {
     String backendAbi =
         (language == null ? "norm-truffle-standalone-v1:" : "norm-truffle-language-v1:")
             + BuiltinAbi.FINGERPRINT;
     CacheKey cacheKey =
         new CacheKey(
             ExecutableId.forArtifact(artifact, backendAbi),
-            language == null ? null : DebugInfoId.forArtifact(artifact));
+            language == null ? null : DebugInfoId.forArtifact(artifact),
+            execution);
     ExecutableProgram executable = artifacts.get(cacheKey);
     if (executable != null) return executable;
-    executable = new Lowerer(language).lower(artifact);
+    executable = new Lowerer(language).lower(artifact, execution);
     artifacts.put(cacheKey, executable);
     if (artifacts.size() > maximumArtifacts) {
       artifacts.remove(artifacts.keySet().iterator().next());
@@ -72,10 +83,10 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     return artifacts.size();
   }
 
-  private static NormExecutionException translate(
-      NormGuestException exception, CoreArtifact artifact) {
+  static NormExecutionException translate(
+      NormGuestException exception, RuntimeSourceMap locations) {
     Node location = exception.getLocation();
-    GuestLocation failure = location(location, artifact);
+    GuestLocation failure = location(location, locations);
     URI uri = failure.uri();
     int line = failure.line();
     int column = failure.column();
@@ -83,7 +94,7 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
     for (TruffleStackTraceElement element : TruffleStackTrace.getStackTrace(exception)) {
       Node frameNode =
           element.getLocation() == null ? element.getTarget().getRootNode() : element.getLocation();
-      GuestLocation frame = location(frameNode, artifact);
+      GuestLocation frame = location(frameNode, locations);
       stack.add(
           new GuestStackFrame(
               element.getTarget().getRootNode().getName(),
@@ -101,16 +112,10 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
         exception.code(), exception.getMessage(), uri, line, column, stack, cause);
   }
 
-  private static GuestLocation location(Node node, CoreArtifact artifact) {
+  private static GuestLocation location(Node node, RuntimeSourceMap locations) {
     if (node instanceof RuntimeLocation runtimeLocation) {
-      SourceSpan span =
-          artifact
-              .authoring()
-              .span(runtimeLocation.occurrence(), runtimeLocation.nodeIndex())
-              .orElseGet(
-                  () -> artifact.authoring().origin(runtimeLocation.occurrence()).rootSpan());
-      return new GuestLocation(
-          span.source().id().uri(), span.start().line(), span.start().column(), true);
+      var position = locations.location(runtimeLocation.occurrence(), runtimeLocation.nodeIndex());
+      return new GuestLocation(position.uri(), position.line(), position.column(), true);
     }
     SourceSection section = node == null ? null : node.getEncapsulatingSourceSection();
     return section == null
@@ -119,7 +124,10 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
             section.getSource().getURI(), section.getStartLine(), section.getStartColumn(), true);
   }
 
-  private record CacheKey(ExecutableId executable, DebugInfoId debug) {}
+  private record CacheKey(
+      ExecutableId executable,
+      DebugInfoId debug,
+      dev.w0fv1.norm.core.CoreExecutionPlan execution) {}
 
   private record GuestLocation(URI uri, int line, int column, boolean known) {
     private static GuestLocation unknown() {

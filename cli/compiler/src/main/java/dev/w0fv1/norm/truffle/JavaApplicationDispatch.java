@@ -2,29 +2,23 @@ package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
 import dev.w0fv1.norm.bridge.JavaApplicationBridge;
-import dev.w0fv1.norm.bridge.NormApplicationMethod;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
-import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import org.objenesis.ObjenesisStd;
 
 final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
-  private final CoreProgram program;
+  private final RuntimeProgram program;
   private final Map<DefinitionId, CallTarget> targets;
   private final GuestValueFactory values;
   private final ExecutionState execution;
@@ -33,18 +27,21 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private final IdentityHashMap<RuntimeValues.ObjectValue, Object> proxies =
       new IdentityHashMap<>();
   private final ObjenesisStd objenesis = new ObjenesisStd();
+  private final Map<String, dev.w0fv1.norm.bridge.JavaDirectCall> hostCalls;
 
   JavaApplicationDispatch(
-      CoreProgram program,
+      RuntimeProgram program,
       Map<DefinitionId, CallTarget> targets,
       GuestValueFactory values,
       ExecutionState execution,
-      ClassLoader applicationLoader) {
+      dev.w0fv1.norm.execution.JavaApplicationRuntime runtime) {
     this.program = Objects.requireNonNull(program, "program");
     this.targets = Map.copyOf(targets);
     this.values = Objects.requireNonNull(values, "values");
     this.execution = Objects.requireNonNull(execution, "execution");
-    this.applicationLoader = Objects.requireNonNull(applicationLoader, "applicationLoader");
+    this.applicationLoader =
+        Objects.requireNonNull(runtime.applicationClassLoader(), "applicationLoader");
+    this.hostCalls = runtime.applicationCalls();
   }
 
   @Override
@@ -54,7 +51,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
         .invoke(
             () -> {
               DefinitionId id = DefinitionId.parse(definition);
-              CoreDefinition declaration = program.definition(id).orElseThrow();
+              CoreDefinition declaration = program.structure(id).orElseThrow();
               if (!(declaration instanceof CoreDefinition.Aggregate aggregate)) {
                 throw new IllegalArgumentException(
                     "Java application allocation is not an aggregate");
@@ -79,15 +76,15 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
         .invoke(
             () -> {
               DefinitionId id = DefinitionId.parse(callable);
-              CoreDefinition.Callable constructor = callable(id);
+              RuntimeProgram.Callable constructor = callable(id);
               if (constructor.receiverType().isEmpty()) {
                 throw new IllegalArgumentException("Java application constructor is not a method");
               }
               requireSimpleCallable(constructor, arguments);
               CoreType owner =
                   CoreTypes.absolute(constructor.receiverType().orElseThrow(), id, program);
-              RuntimeValues.ObjectValue guest =
-                  values.construct(owner, execution, javaArguments(constructor, id, arguments));
+              RuntimeValues.ObjectValue guest = values.allocate(owner);
+              invokeGuest(id, constructor, guest, arguments);
               attach(receiver, guest);
               synchronizeToHost(guest, receiver);
               return null;
@@ -149,91 +146,48 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
 
   private Object invokeHostMethod(String callable, Object receiver, Object[] arguments) {
     DefinitionId id = DefinitionId.parse(callable);
-    CoreDefinition definition = program.definition(id).orElseThrow();
+    CoreDefinition definition = program.structure(id).orElse(null);
     List<CoreType> parameterTypes;
     CoreType returnType;
     if (definition instanceof CoreDefinition.InterfaceMethod method) {
       requireSimpleInterfaceMethod(method, arguments);
       parameterTypes = method.parameterTypes();
       returnType = CoreTypes.absolute(method.returnType(), id, program);
-    } else if (definition instanceof CoreDefinition.Callable method && method.hasReceiver()) {
+    } else if (program.callable(id).isPresent()) {
+      RuntimeProgram.Callable method = callable(id);
+      if (!method.hasReceiver())
+        throw new IllegalArgumentException("Java host target is not an instance method");
       requireSimpleCallable(method, arguments);
       parameterTypes = method.parameterTypes();
       returnType = CoreTypes.absolute(method.returnType(), id, program);
     } else {
       throw new IllegalArgumentException("Java host target is not an instance method");
     }
-    Method javaMethod = javaMethod(receiver.getClass(), id);
-    Object[] parameters = new Object[arguments.length];
+    var javaMethod = hostCalls.get(id.toString());
+    if (javaMethod == null) throw new IllegalStateException("Java host method is absent: " + id);
+    Object[] parameters = new Object[arguments.length + 1];
+    parameters[0] = receiver;
     for (int index = 0; index < arguments.length; index++) {
       Object parameter = javaResult(arguments[index]);
       if (parameter == null
           && !CoreTypes.absolute(parameterTypes.get(index), id, program).isNullable()) {
         throw new IllegalArgumentException("Java application value is unexpectedly null");
       }
-      parameters[index] = parameter;
+      parameters[index + 1] = parameter;
     }
     try {
-      Object result = javaMethod.invoke(receiver, parameters);
+      Object result = javaMethod.invoke(parameters);
       return returnType == CoreType.VOID ? null : javaValue(returnType, result);
-    } catch (IllegalAccessException exception) {
-      throw new IllegalStateException("Java host method cannot be invoked", exception);
-    } catch (InvocationTargetException exception) {
-      Throwable cause = exception.getCause();
-      if (cause instanceof RuntimeException runtime) throw runtime;
+    } catch (Throwable cause) {
+      if (cause instanceof NormGuestException guest) throw guest;
       if (cause instanceof Error error) throw error;
-      throw new IllegalStateException("Java host method failed", cause);
+      throw values.javaException(cause, execution, null);
     }
-  }
-
-  private static Method javaMethod(Class<?> owner, DefinitionId id) {
-    Class<?> current = owner;
-    List<Class<?>> interfaces = new ArrayList<>();
-    while (current != null) {
-      interfaces.addAll(List.of(current.getInterfaces()));
-      Optional<Method> method =
-          java.util.Arrays.stream(current.getDeclaredMethods())
-              .filter(
-                  candidate -> {
-                    NormApplicationMethod annotation =
-                        candidate.getAnnotation(NormApplicationMethod.class);
-                    return annotation != null && annotation.value().equals(id.toString());
-                  })
-              .findFirst();
-      if (method.isPresent()) return method.orElseThrow();
-      current = current.getSuperclass();
-    }
-    for (int index = 0; index < interfaces.size(); index++) {
-      Class<?> implemented = interfaces.get(index);
-      Optional<Method> method =
-          java.util.Arrays.stream(implemented.getDeclaredMethods())
-              .filter(
-                  candidate -> {
-                    NormApplicationMethod annotation =
-                        candidate.getAnnotation(NormApplicationMethod.class);
-                    return annotation != null && annotation.value().equals(id.toString());
-                  })
-              .findFirst();
-      if (method.isPresent()) return method.orElseThrow();
-      interfaces.addAll(List.of(implemented.getInterfaces()));
-    }
-    return java.util.Arrays.stream(owner.getMethods())
-        .filter(
-            candidate -> {
-              NormApplicationMethod annotation =
-                  candidate.getAnnotation(NormApplicationMethod.class);
-              return annotation != null && annotation.value().equals(id.toString());
-            })
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new IllegalStateException(
-                    "Java host method is absent: " + id + " on " + owner.getName()));
   }
 
   private Object invokeOnOwner(String callable, Object receiver, Object[] arguments) {
     DefinitionId id = DefinitionId.parse(callable);
-    CoreDefinition.Callable declaration = callable(id);
+    RuntimeProgram.Callable declaration = callable(id);
     requireSimpleCallable(declaration, arguments);
     RuntimeValues.ObjectValue guest = null;
     if (declaration.hasReceiver()) {
@@ -243,6 +197,14 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
       synchronizeFromHost(receiver, guest);
     }
+    return javaResult(invokeGuest(id, declaration, guest, arguments));
+  }
+
+  private Object invokeGuest(
+      DefinitionId id,
+      RuntimeProgram.Callable declaration,
+      RuntimeValues.ObjectValue guest,
+      Object[] arguments) {
     Object[] parameters = javaArguments(declaration, id, arguments);
     List<CoreType> receiverArguments =
         guest != null && guest.type instanceof CoreType.Declared declared
@@ -258,11 +220,11 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     for (CoreType argument : receiverArguments) call[offset++] = argument;
     CallTarget target = targets.get(id);
     if (target == null) throw new IllegalStateException("Norm application callable is absent");
-    return javaResult(target.call(call));
+    return target.call(call);
   }
 
   private Object[] javaArguments(
-      CoreDefinition.Callable callable, DefinitionId owner, Object[] arguments) {
+      RuntimeProgram.Callable callable, DefinitionId owner, Object[] arguments) {
     Object[] result = new Object[arguments.length];
     for (int index = 0; index < arguments.length; index++) {
       CoreType expected = CoreTypes.absolute(callable.parameterTypes().get(index), owner, program);
@@ -286,7 +248,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private Object materialize(RuntimeValues.ObjectValue guest) {
-    CoreDefinition definition = program.definition(guest.objectInfo.definition()).orElseThrow();
+    CoreDefinition definition = program.structure(guest.objectInfo.definition()).orElseThrow();
     if (!(definition instanceof CoreDefinition.Aggregate aggregate)) {
       throw new IllegalStateException("Norm application result is not an aggregate");
     }
@@ -336,7 +298,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private CoreType fieldType(RuntimeValues.FieldPlan plan) {
-    CoreDefinition definition = program.definition(plan.owner().representative()).orElseThrow();
+    CoreDefinition definition = program.structure(plan.owner().representative()).orElseThrow();
     if (!(definition instanceof CoreDefinition.Aggregate aggregate)) {
       throw new IllegalStateException("Norm application field owner is not an aggregate");
     }
@@ -375,7 +337,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private boolean hostDispatchRequired(RuntimeValues.ObjectValue guest, Object host) {
-    CoreDefinition definition = program.definition(guest.objectInfo.definition()).orElseThrow();
+    CoreDefinition definition = program.structure(guest.objectInfo.definition()).orElseThrow();
     if (!(definition instanceof CoreDefinition.Aggregate aggregate)) return false;
     CoreNominalTypeKey nominal = aggregate.nominalType();
     String binaryName = JavaApplicationTypeName.binaryName(nominal);
@@ -394,20 +356,18 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     }
   }
 
-  private CoreDefinition.Callable callable(DefinitionId id) {
-    CoreDefinition definition = program.definition(id).orElseThrow();
-    if (!(definition instanceof CoreDefinition.Callable callable)) {
-      throw new IllegalArgumentException("Java application target is not callable");
-    }
-    return callable;
+  private RuntimeProgram.Callable callable(DefinitionId id) {
+    return program
+        .callable(id)
+        .orElseThrow(() -> new IllegalArgumentException("Java application target is not callable"));
   }
 
-  private static void requireSimpleCallable(CoreDefinition.Callable callable, Object[] arguments) {
+  private static void requireSimpleCallable(RuntimeProgram.Callable callable, Object[] arguments) {
     if (callable.parameters().size() != arguments.length) {
       throw new IllegalArgumentException("Java application argument count does not match");
     }
-    if (!callable.captureTypes().isEmpty()
-        || !callable.typeParameters().isEmpty()
+    if (callable.captureCount() != 0
+        || callable.typeParameterCount() != 0
         || callable.receiverTypeParameterCount() != 0) {
       throw new IllegalArgumentException(
           "generic or captured Java application callables are not supported");

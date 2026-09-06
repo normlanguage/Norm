@@ -21,6 +21,7 @@ public final class JavaAnnotationProcessorPipeline {
   public JavaAnnotationProcessingOutput process(
       CoreArtifact artifact,
       List<ResolvedJarBinding> bindings,
+      JarBindingClasspath linked,
       Path projectRoot,
       CompilationScope scope,
       DocumentId entryDocument,
@@ -28,6 +29,7 @@ public final class JavaAnnotationProcessorPipeline {
       throws JavaAnnotationProcessingException {
     Objects.requireNonNull(artifact, "artifact");
     Objects.requireNonNull(bindings, "bindings");
+    Objects.requireNonNull(linked, "linked");
     Objects.requireNonNull(scope, "scope");
     Objects.requireNonNull(entryDocument, "entryDocument");
     bindingDocuments = Set.copyOf(bindingDocuments);
@@ -59,10 +61,12 @@ public final class JavaAnnotationProcessorPipeline {
       Path generated = Files.createDirectories(staging.resolve("generated-sources"));
       Path classes = Files.createDirectories(staging.resolve("classes"));
       List<Path> sourceFiles = writeSources(sources, stubs);
-      List<Path> classpath = classpath(bindings);
+      List<Path> classpath = classpath(linked.paths());
       Path arguments = staging.resolve("javac.args");
       Files.writeString(
-          arguments, arguments(classpath, generated, classes, sourceFiles), StandardCharsets.UTF_8);
+          arguments,
+          arguments(classpath, linked.processors(), generated, classes, sourceFiles),
+          StandardCharsets.UTF_8);
       Process process =
           new ProcessBuilder(javac().toString(), "@" + arguments.toAbsolutePath())
               .redirectErrorStream(true)
@@ -82,6 +86,20 @@ public final class JavaAnnotationProcessorPipeline {
             diagnostics.isBlank()
                 ? "Java annotation processing failed with exit code " + status
                 : diagnostics.strip());
+      }
+      var applicationCalls = new java.util.TreeMap<String, JavaCallTarget>();
+      JavaApplicationMethodIndex.analyze(classes, stubs)
+          .instanceMethods()
+          .forEach((id, target) -> applicationCalls.put(id.toString(), target));
+      var generationPaths = new ArrayList<Path>(classpath);
+      generationPaths.add(classes);
+      var generationUrls = new java.net.URL[generationPaths.size()];
+      for (int index = 0; index < generationUrls.length; index++)
+        generationUrls[index] = generationPaths.get(index).toUri().toURL();
+      try (var loader =
+          new java.net.URLClassLoader(generationUrls, ClassLoader.getPlatformClassLoader())) {
+        new JavaDirectCallBundle()
+            .write(JavaApplicationMethodIndex.REGISTRY_NAME, applicationCalls, classes, loader);
       }
       replace(staging, output);
       staging = null;
@@ -115,7 +133,7 @@ public final class JavaAnnotationProcessorPipeline {
     return List.copyOf(result);
   }
 
-  private static List<Path> classpath(List<ResolvedJarBinding> bindings) {
+  private static List<Path> classpath(List<Path> applicationPaths) {
     Set<Path> paths = new LinkedHashSet<>();
     try {
       paths.add(
@@ -130,13 +148,16 @@ public final class JavaAnnotationProcessorPipeline {
     } catch (java.net.URISyntaxException exception) {
       throw new IllegalStateException("invalid Norm runtime classpath", exception);
     }
-    ResolvedJarClasspath.resolve(bindings.stream().map(ResolvedJarBinding::graph).toList())
-        .forEach(paths::add);
+    paths.addAll(applicationPaths);
     return List.copyOf(paths);
   }
 
   private static String arguments(
-      List<Path> classpath, Path generated, Path classes, List<Path> sources) {
+      List<Path> classpath,
+      List<Path> processors,
+      Path generated,
+      Path classes,
+      List<Path> sources) {
     String joinedClasspath =
         classpath.stream()
             .map(Path::toAbsolutePath)
@@ -149,11 +170,18 @@ public final class JavaAnnotationProcessorPipeline {
     values.add("-encoding");
     values.add("UTF-8");
     values.add("-parameters");
-    values.add("-proc:full");
+    values.add(processors.isEmpty() ? "-proc:none" : "-proc:full");
     values.add("-classpath");
     values.add(joinedClasspath);
-    values.add("-processorpath");
-    values.add(joinedClasspath);
+    if (!processors.isEmpty()) {
+      values.add("-processorpath");
+      values.add(
+          processors.stream()
+              .map(Path::toAbsolutePath)
+              .map(Path::normalize)
+              .map(Path::toString)
+              .collect(java.util.stream.Collectors.joining(java.io.File.pathSeparator)));
+    }
     values.add("-s");
     values.add(generated.toAbsolutePath().toString());
     values.add("-d");

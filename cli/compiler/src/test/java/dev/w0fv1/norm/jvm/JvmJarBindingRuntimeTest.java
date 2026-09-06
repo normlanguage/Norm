@@ -32,7 +32,153 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 final class JvmJarBindingRuntimeTest {
+  @Test
+  void reusesPreparedConversionsAcrossIndependentRuntimes() {
+    var callable =
+        new JavaBindingCallable(
+            "sample.Bytes",
+            "identity",
+            "(B)B",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(JavaPrimitiveType.BYTE),
+            JavaPrimitiveType.BYTE);
+    var descriptions = new java.util.HashMap<String, JavaBindingCallable>();
+    descriptions.put("identity", callable);
+    var prepared =
+        JvmJarBindingRuntime.prepareCalls(
+            descriptions, Map.of("identity", arguments -> arguments[0]));
+    descriptions.clear();
+    var classes = LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader());
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try (var runtime = JvmJarBindingRuntime.closedWorld(prepared, classes, Map.of())) {
+        assertEquals(new JarBindingResult.Scalar(127), runtime.invoke("identity", List.of(127)));
+        assertThrows(
+            JarBindingRuntimeException.class, () -> runtime.invoke("identity", List.of(128)));
+      }
+    }
+  }
+
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void reportsResourceClosedOnlyAfterSuccessfulHostClose() {
+    var close =
+        new JavaBindingCallable(
+            "java.lang.AutoCloseable",
+            "close",
+            "()V",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            JavaPrimitiveType.VOID);
+    var closes = new java.util.concurrent.atomic.AtomicInteger();
+    AutoCloseable resource = () -> closes.incrementAndGet();
+    var failure = new java.io.IOException("close failed");
+    AutoCloseable broken =
+        () -> {
+          throw failure;
+        };
+    ClassLoader previous = Thread.currentThread().getContextClassLoader();
+    try (var runtime =
+        JvmJarBindingRuntime.closedWorld(
+            List.of(new LinkedJarBinding(Map.of("close", close), Map.of(), Map.of())))) {
+      assertEquals(
+          JarBindingResult.ResourceClosed.INSTANCE, runtime.invoke("close", List.of(resource)));
+      assertEquals(1, closes.get());
+      var thrown =
+          assertThrows(
+              JarBindingInvocationException.class, () -> runtime.invoke("close", List.of(broken)));
+      org.junit.jupiter.api.Assertions.assertSame(failure, thrown.getCause());
+      org.junit.jupiter.api.Assertions.assertSame(
+          previous, Thread.currentThread().getContextClassLoader());
+      assertEquals(
+          JarBindingResult.ResourceClosed.INSTANCE, runtime.invoke("close", List.of(resource)));
+      assertEquals(2, closes.get());
+    }
+  }
+
+  @Test
+  void adaptsReceiverAndEmptyArgumentsAndRestoresContextAfterFailure() {
+    var string = new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING);
+    var substring =
+        new JavaBindingCallable(
+            "java.lang.String",
+            "substring",
+            "(I)Ljava/lang/String;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(JavaPrimitiveType.INT),
+            string);
+    var separator =
+        new JavaBindingCallable(
+            "java.lang.System",
+            "lineSeparator",
+            "()Ljava/lang/String;",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(),
+            string);
+    var arguments = new java.util.ArrayList<Object>(List.of("binding", 3));
+    ClassLoader previous = Thread.currentThread().getContextClassLoader();
+    try (var runtime =
+        JvmJarBindingRuntime.closedWorld(
+            List.of(
+                new LinkedJarBinding(
+                    Map.of("substring", substring, "separator", separator), Map.of(), Map.of())))) {
+      assertEquals(new JarBindingResult.Scalar("ding"), runtime.invoke("substring", arguments));
+      assertEquals(List.of("binding", 3), arguments);
+      assertEquals(
+          new JarBindingResult.Scalar(System.lineSeparator()),
+          runtime.invoke("separator", List.of()));
+      assertThrows(
+          JarBindingInvocationException.class,
+          () -> runtime.invoke("substring", List.of("binding", 100)));
+      org.junit.jupiter.api.Assertions.assertSame(
+          previous, Thread.currentThread().getContextClassLoader());
+      assertEquals(new JarBindingResult.Scalar("ding"), runtime.invoke("substring", arguments));
+    }
+  }
+
+  @Test
+  void linksOnlyRetainedCallsAndInvokesTheRealJdk() {
+    var parse =
+        new JavaBindingCallable(
+            "java.lang.Integer",
+            "parseInt",
+            "(Ljava/lang/String;)I",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING)),
+            JavaPrimitiveType.INT);
+    var absent =
+        new JavaBindingCallable(
+            "sample.NotAvailable",
+            "unused",
+            "()I",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(),
+            JavaPrimitiveType.INT);
+    var retained =
+        new LinkedJarBinding(Map.of("parse", parse, "unused", absent), Map.of(), Map.of())
+            .retainCalls(java.util.Set.of("parse"));
+    assertEquals(java.util.Set.of("parse"), retained.calls().keySet());
+    try (var runtime = JvmJarBindingRuntime.closedWorld(List.of(retained))) {
+      assertEquals(new JarBindingResult.Scalar(42), runtime.invoke("parse", List.of("42")));
+    }
+  }
+
+  @Test
+  void invokesPrelinkedCallsWithoutAResolvedJarGraph() {
+    JavaBindingCallable parseInt =
+        new JavaBindingCallable(
+            "java.lang.Integer",
+            "parseInt",
+            "(Ljava/lang/String;)I",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING)),
+            JavaPrimitiveType.INT);
+    try (JvmJarBindingRuntime runtime =
+        JvmJarBindingRuntime.closedWorld(
+            List.of(new LinkedJarBinding(Map.of("parse", parseInt), Map.of(), Map.of())))) {
+      assertEquals(new JarBindingResult.Scalar(42), runtime.invoke("parse", List.of("42")));
+    }
+  }
 
   @Test
   void invokesAResolvedApacheCommonsLangMethod() throws Exception {
@@ -74,21 +220,25 @@ final class JvmJarBindingRuntimeTest {
     }
   }
 
-  @Test
-  void linksGeneratedApplicationClassesWithTheResolvedJarGraph() throws Exception {
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"sample", ""})
+  void linksGeneratedApplicationClassesWithTheResolvedJarGraph(String normPackage)
+      throws Exception {
+    String binaryName =
+        (normPackage.isEmpty() ? "norm.generated.application" : normPackage) + ".Generated";
     Path jar = temporaryDirectory.resolve("empty.jar");
     try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
       output.finish();
     }
     Path classes = temporaryDirectory.resolve("application-classes");
-    generatedApplicationClass(classes.resolve("sample/Generated.class"));
+    generatedApplicationClass(classes.resolve(binaryName.replace('.', '/') + ".class"), binaryName);
     ResolvedJarArtifact root =
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
     ResolvedJarGraph graph = new ResolvedJarGraph(root, List.of(root), List.of());
     JavaBindingCallable callable =
         new JavaBindingCallable(
-            "sample.Generated",
+            binaryName,
             "message",
             "()Ljava/lang/String;",
             JavaCallableKind.STATIC_METHOD,
@@ -101,7 +251,7 @@ final class JvmJarBindingRuntimeTest {
             List.of(JavaBindingTypeArgument.unbounded()));
     JavaBindingCallable echoClass =
         new JavaBindingCallable(
-            "sample.Generated",
+            binaryName,
             "echoClass",
             "(Ljava/lang/Class;)Ljava/lang/Class;",
             JavaCallableKind.STATIC_METHOD,
@@ -125,7 +275,7 @@ final class JvmJarBindingRuntimeTest {
           runtime.invoke("application-message", List.of()));
       JarBindingClassReference.Nominal generatedClass =
           new JarBindingClassReference.Nominal(
-              new ModuleCoordinate("sample.application", 1), "sample", "Generated");
+              new ModuleCoordinate("sample.application", 1), normPackage, "Generated");
       assertEquals(
           new JarBindingResult.ClassReference(List.of(generatedClass)),
           runtime.invoke("application-class", List.of(generatedClass)));
@@ -763,12 +913,12 @@ final class JvmJarBindingRuntimeTest {
     return path;
   }
 
-  private static void generatedApplicationClass(Path path) throws Exception {
+  private static void generatedApplicationClass(Path path, String binaryName) throws Exception {
     ClassWriter writer = new ClassWriter(0);
     writer.visit(
         Opcodes.V17,
         Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
-        "sample/Generated",
+        binaryName.replace('.', '/'),
         null,
         "java/lang/Object",
         null);

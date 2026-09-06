@@ -157,6 +157,7 @@ final class GuestValueFactory {
   }
 
   RuntimeValues.ObjectValue javaExceptionValue(Throwable failure, ExecutionState execution) {
+    if (failure instanceof NormJavaException guest) return guest.value;
     String message = failure.getMessage();
     if (message == null) message = failure.getClass().getName();
     RuntimeValues.ObjectValue exception =
@@ -183,47 +184,47 @@ final class GuestValueFactory {
   Object javaArgument(RuntimeValues.ObjectValue value) {
     if (value.hostValue != null) return value.hostValue;
     AggregatePlan exception =
-        require(
-            aggregates,
-            ExceptionAbi.MODULE_NAME,
-            ExceptionAbi.MODULE_VERSION,
-            ExceptionAbi.PACKAGE_NAME,
-            ExceptionAbi.TYPE_NAME);
-    if (value.objectInfo.ancestors().contains(exception.info().definition())) {
+        aggregates.get(
+            new Key(
+                ExceptionAbi.MODULE_NAME,
+                ExceptionAbi.MODULE_VERSION,
+                ExceptionAbi.PACKAGE_NAME,
+                ExceptionAbi.TYPE_NAME));
+    if (exception != null && value.objectInfo.ancestors().contains(exception.info().definition())) {
       Object field = value.fields[ExceptionAbi.MESSAGE_FIELD_ORDINAL];
       String message = field instanceof String text ? text : value.objectInfo.name();
-      RuntimeException host = new RuntimeException(message);
+      RuntimeException host = new NormJavaException(message, value);
       value.attachHost(host);
       return host;
     }
     AggregatePlan path =
-        require(
-            aggregates,
-            FilesystemPathAbi.MODULE_NAME,
-            FilesystemPathAbi.MODULE_VERSION,
-            FilesystemPathAbi.PACKAGE_NAME,
-            FilesystemPathAbi.TYPE_NAME);
-    if (value.objectInfo.definition().equals(path.info().definition())) {
+        aggregates.get(
+            new Key(
+                FilesystemPathAbi.MODULE_NAME,
+                FilesystemPathAbi.MODULE_VERSION,
+                FilesystemPathAbi.PACKAGE_NAME,
+                FilesystemPathAbi.TYPE_NAME));
+    if (path != null && value.objectInfo.definition().equals(path.info().definition())) {
       return new JarBindingPath((String) value.fields[FilesystemPathAbi.VALUE_FIELD_ORDINAL]);
     }
     AggregatePlan uri =
-        require(
-            aggregates,
-            HttpUriAbi.MODULE_NAME,
-            HttpUriAbi.MODULE_VERSION,
-            HttpUriAbi.PACKAGE_NAME,
-            HttpUriAbi.TYPE_NAME);
-    if (value.objectInfo.definition().equals(uri.info().definition())) {
+        aggregates.get(
+            new Key(
+                HttpUriAbi.MODULE_NAME,
+                HttpUriAbi.MODULE_VERSION,
+                HttpUriAbi.PACKAGE_NAME,
+                HttpUriAbi.TYPE_NAME));
+    if (uri != null && value.objectInfo.definition().equals(uri.info().definition())) {
       return new JarBindingUri((String) value.fields[HttpUriAbi.VALUE_FIELD_ORDINAL]);
     }
     AggregatePlan duration =
-        require(
-            aggregates,
-            TimeDurationAbi.MODULE_NAME,
-            TimeDurationAbi.MODULE_VERSION,
-            TimeDurationAbi.PACKAGE_NAME,
-            TimeDurationAbi.TYPE_NAME);
-    if (value.objectInfo.definition().equals(duration.info().definition())) {
+        aggregates.get(
+            new Key(
+                TimeDurationAbi.MODULE_NAME,
+                TimeDurationAbi.MODULE_VERSION,
+                TimeDurationAbi.PACKAGE_NAME,
+                TimeDurationAbi.TYPE_NAME));
+    if (duration != null && value.objectInfo.definition().equals(duration.info().definition())) {
       return new JarBindingDuration(
           (Long) value.fields[TimeDurationAbi.SECONDS_FIELD_ORDINAL],
           (Integer) value.fields[TimeDurationAbi.NANOSECONDS_FIELD_ORDINAL]);
@@ -679,9 +680,6 @@ final class GuestValueFactory {
       Objects.requireNonNull(type, "type");
       if (reifiedTypeCount < 0) throw new IllegalArgumentException("negative reified type count");
       initializers = List.copyOf(initializers);
-      if (initializers.isEmpty()) {
-        throw new IllegalArgumentException("runtime aggregate requires an initializer");
-      }
     }
 
     CallTarget initializer(int parameterCount) {

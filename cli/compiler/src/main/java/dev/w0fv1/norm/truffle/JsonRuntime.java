@@ -256,7 +256,7 @@ final class JsonRuntime {
     if (!(type instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.User user)
         || !(user.definition() instanceof DefinitionReference.External external)
-        || !(reflection.program().definition(external.definition()).orElse(null)
+        || !(reflection.program().structure(external.definition()).orElse(null)
             instanceof CoreDefinition.Enum enumeration)
         || !enumeration.nominalType().module().name().equals(JsonAbi.MODULE_NAME)
         || enumeration.nominalType().module().version() != JsonAbi.MODULE_VERSION

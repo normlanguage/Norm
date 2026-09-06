@@ -1,4 +1,10 @@
 import java.io.ByteArrayOutputStream
+import java.net.InetSocketAddress
+import java.net.ProxySelector
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.security.MessageDigest
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
@@ -10,9 +16,36 @@ plugins {
 
 description = "Norm compiler"
 
+val resolverProviderModule = "org.apache.maven:maven-resolver-provider"
+val resolverProviderMergedModules = listOf(
+    "org.apache.maven:maven-model-builder",
+    "org.apache.maven:maven-model",
+    "org.apache.maven:maven-repository-metadata",
+    "org.apache.maven:maven-artifact",
+    "org.apache.maven:maven-builder-support",
+)
+
+val nativeExecution = configurations.create("nativeExecution") {
+    isCanBeResolved = false
+    isCanBeConsumed = false
+}
+val nativeExecutionRuntime = configurations.create("nativeExecutionRuntime") {
+    isCanBeResolved = false
+    isCanBeConsumed = false
+}
+val nativeHosted = configurations.create("nativeHosted") {
+    isCanBeResolved = false
+    isCanBeConsumed = false
+}
+configurations.implementation { extendsFrom(nativeExecution, nativeHosted) }
+configurations.runtimeOnly { extendsFrom(nativeExecutionRuntime) }
+
 abstract class GenerateBuildMetadata : DefaultTask() {
     @get:Input
     abstract val normVersion: Property<String>
+
+    @get:Input
+    abstract val graalVmVersion: Property<String>
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
@@ -22,17 +55,84 @@ abstract class GenerateBuildMetadata : DefaultTask() {
         val output = outputDirectory.file("dev/w0fv1/norm/value/BuildMetadata.java").get().asFile
         output.parentFile.mkdirs()
         val versionLiteral = groovy.json.JsonOutput.toJson(normVersion.get())
+        val graalVmVersionLiteral = groovy.json.JsonOutput.toJson(graalVmVersion.get())
         output.writeText(
             """
             package dev.w0fv1.norm.value;
 
             public final class BuildMetadata {
               public static final String VERSION = $versionLiteral;
+              public static final String GRAALVM_VERSION = $graalVmVersionLiteral;
 
               private BuildMetadata() {}
             }
             """.trimIndent() + "\n",
         )
+    }
+}
+
+abstract class GenerateToolchainArtifacts : DefaultTask() {
+    @get:Input
+    abstract val identities: MapProperty<String, String>
+
+    @get:Input
+    abstract val roots: ListProperty<String>
+
+    @get:Input
+    abstract val dependencies: MapProperty<String, List<String>>
+
+    @get:Input
+    abstract val purposeRoots: MapProperty<String, List<String>>
+
+    @get:Input
+    abstract val mergedModules: MapProperty<String, List<String>>
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val artifacts: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val files = artifacts.files.associateBy { it.name }
+        check(files.size == artifacts.files.size) { "Duplicate toolchain artifact filenames" }
+        check(files.keys == identities.get().keys) { "Toolchain artifact identities do not match files" }
+        val entries = identities.get().toSortedMap().map { (name, identity) ->
+            val coordinate = identity.split(':')
+            check(coordinate.size == 3) { "Invalid toolchain coordinate: $identity" }
+            val components = listOf(identity) + mergedModules.get()[identity.substringBeforeLast(':')]
+                .orEmpty().map { module ->
+                    val matches = dependencies.get().keys.filter { it.substringBeforeLast(':') == module }
+                    check(matches.size == 1) { "Merged toolchain component is not uniquely resolved: $module" }
+                    matches.single()
+                }
+            val digest = MessageDigest.getInstance("SHA-256")
+            files.getValue(name).inputStream().use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            mapOf(
+                "file" to name,
+                "group" to coordinate[0],
+                "artifact" to coordinate[1],
+                "version" to coordinate[2],
+                "components" to components.sorted(),
+                "sha256" to digest.digest().joinToString("") { "%02x".format(it) },
+            )
+        }
+        val output = outputDirectory.file("toolchain-artifacts.json").get().asFile
+        output.parentFile.mkdirs()
+        output.writeText(groovy.json.JsonOutput.toJson(
+            mapOf("schemaVersion" to 1, "artifacts" to entries,
+                "roots" to roots.get(), "dependencies" to dependencies.get().toSortedMap(),
+                "purposes" to purposeRoots.get().toSortedMap()),
+        ) + "\n")
     }
 }
 
@@ -586,12 +686,79 @@ abstract class CreateRuntimeImage : DefaultTask() {
     }
 }
 
+abstract class FetchReachabilityMetadata : DefaultTask() {
+    @get:Input
+    abstract val metadataVersion: Property<String>
+
+    @get:Input
+    abstract val expectedSha256: Property<String>
+
+    @get:OutputFile
+    abstract val outputFile: RegularFileProperty
+
+    @TaskAction
+    fun fetch() {
+        val version = metadataVersion.get()
+        val source = URI(
+            "https://github.com/oracle/graalvm-reachability-metadata/releases/download/" +
+                "$version/graalvm-reachability-metadata-$version.zip",
+        )
+        val output = outputFile.get().asFile
+        output.parentFile.mkdirs()
+        val temporary = temporaryDir.resolve("reachability-metadata.zip")
+        val clientBuilder = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.ALWAYS)
+        environmentProxy(source)?.let { clientBuilder.proxy(ProxySelector.of(it)) }
+        clientBuilder.build().use { client ->
+            val request = HttpRequest.newBuilder(source).GET().build()
+            val response = client.send(request, HttpResponse.BodyHandlers.ofFile(temporary.toPath()))
+            check(response.statusCode() in 200..299) {
+                "Cannot download GraalVM reachability metadata: HTTP ${response.statusCode()}"
+            }
+        }
+        val actual = MessageDigest.getInstance("SHA-256")
+            .digest(temporary.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        check(actual.equals(expectedSha256.get(), ignoreCase = true)) {
+            "GraalVM reachability metadata checksum mismatch: expected " +
+                "${expectedSha256.get()}, got $actual"
+        }
+        temporary.copyTo(output, overwrite = true)
+    }
+
+    private fun environmentProxy(source: URI): InetSocketAddress? {
+        val names = if (source.scheme.equals("https", ignoreCase = true)) {
+            listOf("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy")
+        } else {
+            listOf("HTTP_PROXY", "http_proxy")
+        }
+        val proxy = names.firstNotNullOfOrNull { System.getenv(it)?.takeIf(String::isNotBlank) }
+            ?: return null
+        val uri = URI(proxy)
+        val port = if (uri.port >= 0) uri.port else 80
+        return InetSocketAddress.createUnresolved(uri.host, port)
+    }
+}
+
 val standardLibraryDirectory = rootProject.file("norm/stdlib")
 val generatedBuildMetadata = layout.buildDirectory.dir("generated/sources/build-metadata")
 val builtinAbiFile = layout.projectDirectory.file("stdlib-abi.json")
 val generatedBuiltinAbi = layout.buildDirectory.dir("generated/sources/builtin-abi")
+val reachabilityMetadataVersion = "1.0.13"
+val fetchReachabilityMetadata = tasks.register<FetchReachabilityMetadata>(
+    "fetchReachabilityMetadata",
+) {
+    metadataVersion.set(reachabilityMetadataVersion)
+    expectedSha256.set("b94893e10448a37a604d24758418dc006223a64827146f0886af172bbbdd818a")
+    outputFile.set(
+        layout.buildDirectory.file(
+            "generated/resources/reachability-metadata/graalvm-reachability-metadata.zip",
+        ),
+    )
+}
 val generateBuildMetadata = tasks.register<GenerateBuildMetadata>("generateBuildMetadata") {
     normVersion.set(project.version.toString())
+    graalVmVersion.set(libs.versions.graalvm)
     outputDirectory.set(generatedBuildMetadata)
 }
 
@@ -600,11 +767,77 @@ val generateBuiltinAbi = tasks.register<GenerateBuiltinAbi>("generateBuiltinAbi"
     outputDirectory.set(generatedBuiltinAbi)
 }
 
+val toolchainArtifacts = configurations.runtimeClasspath.get().incoming.artifacts.resolvedArtifacts
+val toolchainGraph = configurations.runtimeClasspath.get().incoming.resolutionResult.rootComponent.map { root ->
+    val graph = linkedMapOf<String, List<String>>()
+    val pending = ArrayDeque<org.gradle.api.artifacts.result.ResolvedComponentResult>()
+    pending.add(root)
+    while (pending.isNotEmpty()) {
+        val component = pending.removeFirst()
+        val identity = component.id
+        val key = if (component == root) "" else {
+            check(identity is org.gradle.api.artifacts.component.ModuleComponentIdentifier) {
+                "Toolchain component has no module identity: $identity"
+            }
+            "${identity.group}:${identity.module}:${identity.version}"
+        }
+        if (graph.containsKey(key)) continue
+        val edges = component.dependencies.filterNot { it.isConstraint }.map { dependency ->
+            check(dependency is org.gradle.api.artifacts.result.ResolvedDependencyResult) {
+                "Unresolved toolchain dependency: ${dependency.requested}"
+            }
+            val selected = dependency.selected
+            val module = selected.id
+            check(module is org.gradle.api.artifacts.component.ModuleComponentIdentifier) {
+                "Toolchain dependency has no module identity: $module"
+            }
+            pending.add(selected)
+            "${module.group}:${module.module}:${module.version}"
+        }.distinct().sorted()
+        graph[key] = edges
+    }
+    graph.toMap()
+}
+val generateToolchainArtifacts = tasks.register<GenerateToolchainArtifacts>("generateToolchainArtifacts") {
+    artifacts.from(configurations.runtimeClasspath)
+    mergedModules.set(mapOf(resolverProviderModule to resolverProviderMergedModules))
+    roots.set(toolchainGraph.map { it.getValue("") })
+    dependencies.set(toolchainGraph.map { it.filterKeys(String::isNotEmpty) })
+    purposeRoots.set(toolchainGraph.map { graph ->
+        val execution = (nativeExecution.allDependencies + nativeExecutionRuntime.allDependencies)
+            .map { "${it.group}:${it.name}" }.toSet()
+        val hosted = nativeHosted.allDependencies.map { "${it.group}:${it.name}" }.toSet()
+        val roots = graph.getValue("")
+        mapOf(
+            "execution" to roots.filter { it.substringBeforeLast(':') in execution },
+            "hosted" to roots.filter { it.substringBeforeLast(':') in hosted },
+            "tooling" to roots.filter {
+                val module = it.substringBeforeLast(':')
+                module !in execution && module !in hosted
+            },
+        )
+    })
+    identities.set(toolchainArtifacts.map { resolved ->
+        val entries = resolved.map { artifact ->
+            val identity = artifact.id.componentIdentifier as? org.gradle.api.artifacts.component.ModuleComponentIdentifier
+                ?: error("Toolchain artifact has no module identity: ${artifact.id}")
+            artifact.file.name to "${identity.group}:${identity.module}:${identity.version}"
+        }
+        check(entries.map { it.first }.distinct().size == entries.size) {
+            "Duplicate toolchain artifact filenames"
+        }
+        entries.toMap()
+    })
+    outputDirectory.set(layout.buildDirectory.dir("generated/resources/toolchain-artifacts"))
+}
+
 sourceSets {
     main {
         java.srcDir(generatedBuildMetadata)
         java.srcDir(generatedBuiltinAbi)
         resources.srcDir(standardLibraryDirectory)
+        resources.srcDir(generateToolchainArtifacts.flatMap { it.outputDirectory })
+        resources.srcDir(fetchReachabilityMetadata.map { it.outputFile.get().asFile.parentFile })
     }
     test {
         resources.srcDir(rootProject.file("norm/tests"))
@@ -616,39 +849,44 @@ tasks.compileJava {
 }
 
 dependencies {
-    implementation(libs.jackson.core)
-    implementation(libs.jackson.dataformat.yaml)
-    implementation(libs.woodstox)
-    implementation(libs.truffle.api)
-    implementation(libs.polyglot)
+    nativeExecution(libs.jackson.core)
+    nativeExecution(libs.jackson.dataformat.yaml)
+    nativeExecution(libs.woodstox)
+    nativeExecution(libs.truffle.api)
+    nativeExecution(libs.polyglot)
+    nativeHosted(libs.nativeimage)
     implementation(libs.lsp4j)
     implementation(libs.gson)
     implementation(libs.maven.resolver.supplier)
-    implementation(libs.asm)
+    nativeHosted(libs.asm)
     implementation(libs.commons.codec)
+    implementation(libs.commons.compress)
     implementation(libs.jcl.over.slf4j)
     implementation(libs.junit.platform.launcher)
-    implementation(libs.objenesis)
+    nativeExecution(libs.objenesis)
+    nativeHosted(libs.kryo)
+    implementation(libs.graalvm.reachability.metadata)
     runtimeOnly(libs.truffle.runtime)
     runtimeOnly(libs.junit.jupiter.engine)
-    runtimeOnly(libs.slf4j.simple)
+    nativeExecutionRuntime(libs.slf4j.simple)
     annotationProcessor(libs.truffle.dsl.processor)
     testImplementation(libs.archunit)
 }
 
 extraJavaModuleInfo {
+    automaticModule(
+        "org.graalvm.buildtools:graalvm-reachability-metadata",
+        "org.graalvm.reachability",
+    )
+    automaticModule("org.graalvm.buildtools:utils", "org.graalvm.buildtools.utils")
     automaticModule("org.eclipse.lsp4j:org.eclipse.lsp4j", "org.eclipse.lsp4j")
     automaticModule("org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc", "org.eclipse.lsp4j.jsonrpc")
     automaticModule(
         "org.graalvm.truffle:truffle-dsl-processor",
         "org.graalvm.truffle.dsl.processor",
     )
-    automaticModule("org.apache.maven:maven-resolver-provider", "org.apache.maven.resolver.provider") {
-        mergeJar("org.apache.maven:maven-model-builder")
-        mergeJar("org.apache.maven:maven-model")
-        mergeJar("org.apache.maven:maven-repository-metadata")
-        mergeJar("org.apache.maven:maven-artifact")
-        mergeJar("org.apache.maven:maven-builder-support")
+    automaticModule(resolverProviderModule, "org.apache.maven.resolver.provider") {
+        resolverProviderMergedModules.forEach { mergeJar(it) }
     }
 }
 

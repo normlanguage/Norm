@@ -246,8 +246,8 @@ public final class JdkSystemPlatform implements SystemPlatform {
   public static final class Builder {
     private Path workingDirectory = Path.of("").toAbsolutePath().normalize();
     private java.time.Clock clock = java.time.Clock.systemUTC();
-    private HttpClient httpClient =
-        HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private java.util.function.Supplier<HttpClient> httpClient =
+        () -> HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
 
     private Builder() {}
 
@@ -262,7 +262,8 @@ public final class JdkSystemPlatform implements SystemPlatform {
     }
 
     public Builder httpClient(HttpClient value) {
-      httpClient = Objects.requireNonNull(value, "value");
+      HttpClient supplied = Objects.requireNonNull(value, "value");
+      httpClient = () -> supplied;
       return this;
     }
 

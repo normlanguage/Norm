@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.ExceptionAbi;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
@@ -11,6 +12,11 @@ final class NormThrownException extends NormGuestException {
   NormThrownException(RuntimeValues.ObjectValue value, Node location) {
     super(RuntimeErrorCode.UNCAUGHT_EXCEPTION, message(value), location);
     this.value = java.util.Objects.requireNonNull(value, "value");
+  }
+
+  @TruffleBoundary
+  static NormThrownException create(RuntimeValues.ObjectValue value, Node location) {
+    return new NormThrownException(value, location);
   }
 
   private static String message(RuntimeValues.ObjectValue value) {

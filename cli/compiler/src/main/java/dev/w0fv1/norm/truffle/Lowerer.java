@@ -57,16 +57,24 @@ final class Lowerer {
   private CoreArtifact artifact;
   private CoreProgram program;
   private AnnotationRuntime annotations;
+  private dev.w0fv1.norm.core.CoreExecutionPlan execution;
 
   Lowerer(Language language) {
     this.language = language;
   }
 
   ExecutableProgram lower(CoreArtifact checkedArtifact) {
+    return lower(
+        checkedArtifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(checkedArtifact));
+  }
+
+  ExecutableProgram lower(
+      CoreArtifact checkedArtifact, dev.w0fv1.norm.core.CoreExecutionPlan execution) {
+    this.execution = Objects.requireNonNull(execution, "execution");
     artifact = Objects.requireNonNull(checkedArtifact, "checkedArtifact");
     program = artifact.program();
     annotations = new AnnotationRuntime(artifact);
-    indexDefinitions();
+    indexDefinitions(execution);
     createCallTargets();
     indexDispatch();
     initializeAnnotations();
@@ -76,7 +84,8 @@ final class Lowerer {
     if (entryPlan == null) throw new IllegalStateException("entry callable is absent");
     Map<DefinitionId, com.oracle.truffle.api.CallTarget> targets = new LinkedHashMap<>();
     callables.values().forEach(plan -> targets.putIfAbsent(plan.id.representative(), plan.target));
-    return new ExecutableProgram(entryPlan.target, annotations, guestValues(), program, targets);
+    return new ExecutableProgram(
+        entryPlan.target, annotations, guestValues(), annotations.program(), targets);
   }
 
   private GuestValueFactory guestValues() {
@@ -89,6 +98,7 @@ final class Lowerer {
       List<GuestValueFactory.Initializer> initializers =
           entry.getValue().constructors().stream()
               .map(link -> resolve(definition, link))
+              .filter(execution.callables()::contains)
               .map(
                   constructor -> {
                     com.oracle.truffle.api.CallTarget target = targets.get(constructor);
@@ -118,14 +128,16 @@ final class Lowerer {
     return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans);
   }
 
-  private void indexDefinitions() {
+  private void indexDefinitions(dev.w0fv1.norm.core.CoreExecutionPlan execution) {
     for (CoreDefinitionOccurrence occurrence : artifact.authoring().occurrences()) {
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
       switch (definition) {
         case CoreDefinition.Aggregate declaration -> aggregates.put(occurrence.id(), declaration);
-        case CoreDefinition.Callable declaration ->
+        case CoreDefinition.Callable declaration -> {
+          if (execution.callables().contains(occurrence.id().representative()))
             callables.put(occurrence.id(), plan(occurrence.id(), declaration));
+        }
         case CoreDefinition.Enum ignored -> {}
         case CoreDefinition.Interface ignored -> {}
         case CoreDefinition.InterfaceMethod ignored -> {}
@@ -199,6 +211,7 @@ final class Lowerer {
       Map<DefinitionId, RuntimeValues.DispatchTarget> methodTargets = new HashMap<>();
       for (CoreMethodDispatch method : entry.getValue().dispatch()) {
         DefinitionId slot = resolve(occurrence.representative(), method.slot());
+        if (!execution.dispatchSlots().contains(slot)) continue;
         DefinitionId implementation = resolve(occurrence.representative(), method.implementation());
         FunctionPlan plan = callableByDefinition.get(implementation);
         if (plan == null) throw new IllegalStateException("method dispatch target is absent");
@@ -223,6 +236,7 @@ final class Lowerer {
         CoreConformance conformance = inherited.conformance();
         for (CoreWitness witness : conformance.witnesses()) {
           DefinitionId requirement = resolve(inherited.owner(), witness.requirement());
+          if (!execution.dispatchSlots().contains(requirement)) continue;
           DefinitionId implementation =
               witness.implementation() instanceof CoreWitnessTarget.Callable callable
                   ? resolve(inherited.owner(), callable.definition())
@@ -268,6 +282,7 @@ final class Lowerer {
           builtinDispatch.computeIfAbsent(builtin, ignored -> new HashMap<>());
       for (CoreWitness witness : conformance.witnesses()) {
         DefinitionId requirement = resolve(record.id(), witness.requirement());
+        if (!execution.dispatchSlots().contains(requirement)) continue;
         RuntimeValues.DispatchTarget target =
             lowerWitnessTarget(record.id(), witness.implementation(), callableByDefinition);
         if (target instanceof RuntimeValues.DispatchTarget.Callable callable) {
@@ -312,6 +327,7 @@ final class Lowerer {
     if (!ancestors.add(definition)) return;
     for (CoreDefinitionLink link : declared.declaredMethods()) {
       DefinitionId method = resolve(definition, link);
+      if (!execution.dispatchSlots().contains(method)) continue;
       dispatch.putIfAbsent(method, new RuntimeValues.DispatchTarget.HostMethod(method));
     }
     for (CoreType parentType : declared.directParents()) {
@@ -345,16 +361,15 @@ final class Lowerer {
           continue;
         }
         Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new LinkedHashMap<>();
-        boolean complete = true;
         for (CoreWitness witness : conformance.witnesses()) {
           DefinitionId requirement = resolve(record.id(), witness.requirement());
+          if (!execution.dispatchSlots().contains(requirement)) continue;
           RuntimeValues.DispatchTarget target;
           if (witness.implementation() instanceof CoreWitnessTarget.Callable callable) {
             DefinitionId implementation = resolve(record.id(), callable.definition());
             FunctionPlan plan = callableByDefinition.get(implementation);
             if (plan == null) {
-              complete = false;
-              break;
+              throw new IllegalStateException("host interface dispatch target is absent");
             }
             target = new RuntimeValues.DispatchTarget.Callable(plan.target);
           } else {
@@ -371,7 +386,6 @@ final class Lowerer {
           }
           dispatch.put(requirement, target);
         }
-        if (!complete) continue;
         RuntimeValues.AggregateInfo info =
             new RuntimeValues.AggregateInfo(
                 external.definition(),

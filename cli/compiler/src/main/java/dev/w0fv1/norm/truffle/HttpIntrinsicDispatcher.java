@@ -21,36 +21,45 @@ import java.util.Optional;
 final class HttpIntrinsicDispatcher {
   private HttpIntrinsicDispatcher() {}
 
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object[] arguments,
-      CoreType type,
-      ExecutionContext context,
-      ExecutionState execution,
-      Node location) {
-    try {
-      return switch (intrinsic) {
-        case HTTP_SEND -> send(arguments, type, context, execution);
-        case HTTP_RESPONSE_STATUS -> response(arguments[0]).statusCode();
-        case HTTP_RESPONSE_HEADERS -> headers(arguments[0], type);
-        case HTTP_RESPONSE_READ -> read(arguments[0], (Integer) arguments[1], execution, location);
-        case HTTP_RESPONSE_CLOSE -> close(arguments[0]);
-        default -> throw new IllegalStateException("unsupported HTTP intrinsic " + intrinsic);
-      };
-    } catch (PlatformHttpException failure) {
-      if (execution == null) {
-        throw new IllegalStateException("system exception runtime is unavailable", failure);
-      }
-      throw execution.values().httpException(failure, execution, location);
-    } catch (ResourceCloseException failure) {
-      if (failure.getCause() instanceof PlatformHttpException platformFailure) {
+  static IntrinsicOperation resolve(IntrinsicId intrinsic) {
+    IntrinsicOperation operation =
+        switch (intrinsic) {
+          case HTTP_SEND ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  send(arguments, type, context, execution);
+          case HTTP_RESPONSE_STATUS ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  response(arguments[0]).statusCode();
+          case HTTP_RESPONSE_HEADERS ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  headers(arguments[0], type);
+          case HTTP_RESPONSE_READ ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  read(arguments[0], (Integer) arguments[1], execution, location);
+          case HTTP_RESPONSE_CLOSE ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  close(arguments[0]);
+          default -> throw new IllegalStateException("unsupported HTTP intrinsic " + intrinsic);
+        };
+    return (receiver, arguments, type, context, location, annotations, execution) -> {
+      try {
+        return operation.execute(
+            receiver, arguments, type, context, location, annotations, execution);
+      } catch (PlatformHttpException failure) {
         if (execution == null) {
           throw new IllegalStateException("system exception runtime is unavailable", failure);
         }
-        throw execution.values().httpException(platformFailure, execution, location);
+        throw execution.values().httpException(failure, execution, location);
+      } catch (ResourceCloseException failure) {
+        if (failure.getCause() instanceof PlatformHttpException platformFailure) {
+          if (execution == null) {
+            throw new IllegalStateException("system exception runtime is unavailable", failure);
+          }
+          throw execution.values().httpException(platformFailure, execution, location);
+        }
+        throw failure;
       }
-      throw failure;
-    }
+    };
   }
 
   private static RuntimeValues.OpaqueResource send(

@@ -1,9 +1,24 @@
 package dev.w0fv1.norm.core;
 
+import dev.w0fv1.norm.abi.IntrinsicId;
 import java.util.Set;
 
 abstract class CoreWalker {
   final void walk(CoreDefinition definition) {
+    walkDeclaration(definition);
+    walkExecution(definition);
+  }
+
+  final void walkExecution(CoreDefinition definition) {
+    if (!(definition instanceof CoreDefinition.Callable callable)) return;
+    Set<Integer> captureLocals = Set.copyOf(callable.captureLocals());
+    callable.locals().stream()
+        .filter(local -> !captureLocals.contains(local.index()))
+        .forEach(local -> walkType(local.type()));
+    walkBlock(callable.body());
+  }
+
+  final void walkDeclaration(CoreDefinition definition) {
     switch (definition) {
       case CoreDefinition.Callable callable -> {
         callable.receiverType().ifPresent(this::walkType);
@@ -18,11 +33,6 @@ abstract class CoreWalker {
                 });
         walkInterceptors(callable.interceptors());
         walkType(callable.returnType());
-        Set<Integer> captureLocals = Set.copyOf(callable.captureLocals());
-        callable.locals().stream()
-            .filter(local -> !captureLocals.contains(local.index()))
-            .forEach(local -> walkType(local.type()));
-        walkBlock(callable.body());
       }
       case CoreDefinition.Aggregate declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
@@ -38,11 +48,13 @@ abstract class CoreWalker {
             .dispatch()
             .forEach(
                 dispatch -> {
-                  visitLink(dispatch.slot());
-                  visitLink(dispatch.implementation());
+                  visitDependency(CoreDependency.Kind.DECLARED_MEMBER, dispatch.slot());
+                  visitDependency(CoreDependency.Kind.IMPLEMENTATION, dispatch.implementation());
                   walkType(dispatch.receiverType());
                 });
-        declaration.constructors().forEach(this::visitLink);
+        declaration
+            .constructors()
+            .forEach(link -> visitDependency(CoreDependency.Kind.DECLARED_MEMBER, link));
         declaration.conformances().forEach(this::walkConformance);
       }
       case CoreDefinition.Enum declaration -> {
@@ -62,7 +74,9 @@ abstract class CoreWalker {
       case CoreDefinition.Interface declaration -> {
         declaration.typeParameters().forEach(this::walkTypeParameter);
         declaration.directParents().forEach(this::walkType);
-        declaration.declaredMethods().forEach(this::visitLink);
+        declaration
+            .declaredMethods()
+            .forEach(link -> visitDependency(CoreDependency.Kind.DECLARED_MEMBER, link));
       }
       case CoreDefinition.InterfaceMethod method -> {
         walkType(method.receiverInterfaceType());
@@ -82,17 +96,45 @@ abstract class CoreWalker {
   private void walkInterceptors(java.util.List<CoreInterceptor> interceptors) {
     interceptors.forEach(
         interceptor -> {
-          visitLink(interceptor.annotation());
-          interceptor.values().forEach(value -> walkType(value.type()));
+          visitDependency(CoreDependency.Kind.ANNOTATION, interceptor.annotation());
+          interceptor.values().forEach(this::walkAnnotationValue);
         });
+  }
+
+  final void walkAnnotationValue(CoreAnnotationValue value) {
+    walkType(value.type());
+    switch (value.value()) {
+      case CoreAnnotationValue.Literal ignored -> {}
+      case CoreAnnotationValue.Null ignored -> {}
+      case CoreAnnotationValue.ListValue list -> list.values().forEach(this::walkAnnotationValue);
+      case CoreAnnotationReference.ClassReference reference -> walkType(reference.reflectedType());
+      case CoreAnnotationReference.CallableReference reference -> {
+        visitDependency(CoreDependency.Kind.ANNOTATION_CALLABLE, reference.callable());
+        reference.receiverTypeArguments().forEach(this::walkType);
+        reference.reifiedArguments().forEach(this::walkType);
+      }
+      case CoreAnnotationReference.FieldReference reference -> {
+        walkType(reference.ownerType());
+        walkType(reference.valueType());
+      }
+      case CoreAnnotationReference.EnumReference ignored -> {}
+    }
   }
 
   protected void visitLink(CoreDefinitionLink link) {}
 
+  protected void visitDependency(CoreDependency.Kind kind, CoreDefinitionLink link) {
+    visitLink(link);
+  }
+
   protected void visitReference(int nodeIndex, CoreDefinitionLink link) {}
 
+  protected void visitExpression(CoreExpression expression) {}
+
+  protected void visitIntrinsic(IntrinsicId intrinsic) {}
+
   private void walkType(CoreType type) {
-    CoreTypes.links(type).forEach(this::visitLink);
+    CoreTypes.links(type).forEach(link -> visitDependency(CoreDependency.Kind.TYPE, link));
   }
 
   private void walkTypeParameter(CoreTypeParameter parameter) {
@@ -113,11 +155,12 @@ abstract class CoreWalker {
       case CoreStatement.LocalDeclaration local -> walkExpression(local.initializer());
       case CoreStatement.LocalAssignment assignment -> walkExpression(assignment.value());
       case CoreStatement.FieldAssignment assignment -> {
-        visitLink(assignment.field().owner());
+        visitDependency(CoreDependency.Kind.FIELD, assignment.field().owner());
         walkExpression(assignment.receiver());
         walkExpression(assignment.value());
       }
       case CoreStatement.IntrinsicAssignment assignment -> {
+        visitIntrinsic(assignment.intrinsic());
         walkExpression(assignment.receiver());
         assignment.index().ifPresent(this::walkExpression);
         walkExpression(assignment.value());
@@ -159,28 +202,30 @@ abstract class CoreWalker {
   }
 
   private void walkExpression(CoreExpression expression) {
+    visitExpression(expression);
     walkType(expression.type());
     switch (expression) {
       case CoreExpression.Literal ignored -> {}
       case CoreExpression.NullLiteral ignored -> {}
       case CoreExpression.CollectionLiteral collection -> {
+        visitIntrinsic(collection.materializer());
         collection.elements().forEach(this::walkExpression);
         walkRuntimeType(collection.runtimeType());
       }
       case CoreExpression.LocalRead ignored -> {}
       case CoreExpression.FieldRead field -> {
-        visitLink(field.field().owner());
+        visitDependency(CoreDependency.Kind.FIELD, field.field().owner());
         walkExpression(field.receiver());
       }
       case CoreExpression.AddressLocal ignored -> {}
       case CoreExpression.AddressField field -> {
-        visitLink(field.field().owner());
+        visitDependency(CoreDependency.Kind.FIELD, field.field().owner());
         walkExpression(field.receiver());
       }
       case CoreExpression.Dereference dereference -> walkExpression(dereference.reference());
       case CoreExpression.EnumConstruct construct -> {
         visitReference(construct.nodeIndex(), construct.target());
-        visitLink(construct.target());
+        visitDependency(CoreDependency.Kind.CONSTRUCTION, construct.target());
         walkRuntimeType(construct.runtimeType());
         construct.arguments().forEach(argument -> walkExpression(argument.value()));
       }
@@ -194,13 +239,14 @@ abstract class CoreWalker {
         switched.cases().forEach(this::walkSwitchCase);
       }
       case CoreExpression.Index index -> {
+        visitIntrinsic(index.readIntrinsic());
         walkExpression(index.receiver());
         walkExpression(index.index());
       }
       case CoreExpression.CopyObject copied -> walkExpression(copied.receiver());
       case CoreExpression.Closure closure -> {
         visitReference(closure.nodeIndex(), closure.target());
-        visitLink(closure.target());
+        visitDependency(CoreDependency.Kind.CLOSURE, closure.target());
         closure.receiver().ifPresent(this::walkExpression);
         closure.captures().forEach(this::walkExpression);
         closure.reifiedArguments().forEach(this::walkRuntimeType);
@@ -212,7 +258,9 @@ abstract class CoreWalker {
       }
       case CoreExpression.Call call -> {
         visitReference(call.nodeIndex(), call.target());
-        visitLink(call.target());
+        visitDependency(
+            call.virtual() ? CoreDependency.Kind.VIRTUAL_CALL : CoreDependency.Kind.CALL,
+            call.target());
         call.receiver().ifPresent(this::walkExpression);
         call.arguments().forEach(argument -> walkExpression(argument.value()));
         call.reifiedArguments().forEach(this::walkRuntimeType);
@@ -220,19 +268,20 @@ abstract class CoreWalker {
       }
       case CoreExpression.InterfaceCall call -> {
         visitReference(call.nodeIndex(), call.requirement());
-        visitLink(call.requirement());
+        visitDependency(CoreDependency.Kind.INTERFACE_CALL, call.requirement());
         walkExpression(call.receiver());
         call.arguments().forEach(argument -> walkExpression(argument.value()));
         call.reifiedArguments().forEach(this::walkRuntimeType);
       }
       case CoreExpression.Construct construct -> {
         visitReference(construct.nodeIndex(), construct.target());
-        visitLink(construct.target());
-        visitLink(construct.initializer());
+        visitDependency(CoreDependency.Kind.CONSTRUCTION, construct.target());
+        visitDependency(CoreDependency.Kind.CALL, construct.initializer());
         walkRuntimeType(construct.runtimeType());
         construct.arguments().forEach(argument -> walkExpression(argument.value()));
       }
       case CoreExpression.Intrinsic intrinsic -> {
+        visitIntrinsic(intrinsic.intrinsic());
         intrinsic.receiver().ifPresent(this::walkExpression);
         intrinsic.arguments().forEach(argument -> walkExpression(argument.value()));
         intrinsic.runtimeType().ifPresent(this::walkRuntimeType);
@@ -257,11 +306,11 @@ abstract class CoreWalker {
 
   private void walkIteration(CoreIteration iteration) {
     switch (iteration) {
-      case CoreIteration.Builtin ignored -> {}
+      case CoreIteration.Builtin builtin -> visitIntrinsic(builtin.intrinsic());
       case CoreIteration.Interface protocol -> {
-        visitLink(protocol.iteratorRequirement());
-        visitLink(protocol.hasNextRequirement());
-        visitLink(protocol.nextRequirement());
+        visitDependency(CoreDependency.Kind.INTERFACE_CALL, protocol.iteratorRequirement());
+        visitDependency(CoreDependency.Kind.INTERFACE_CALL, protocol.hasNextRequirement());
+        visitDependency(CoreDependency.Kind.INTERFACE_CALL, protocol.nextRequirement());
       }
     }
   }
@@ -272,9 +321,11 @@ abstract class CoreWalker {
   }
 
   private void walkWitness(CoreWitness witness) {
-    visitLink(witness.requirement());
-    if (witness.implementation() instanceof CoreWitnessTarget.Callable callable) {
-      visitLink(callable.definition());
+    visitDependency(CoreDependency.Kind.DECLARED_MEMBER, witness.requirement());
+    switch (witness.implementation()) {
+      case CoreWitnessTarget.Callable callable ->
+          visitDependency(CoreDependency.Kind.IMPLEMENTATION, callable.definition());
+      case CoreWitnessTarget.Intrinsic intrinsic -> visitIntrinsic(intrinsic.intrinsic());
     }
   }
 }

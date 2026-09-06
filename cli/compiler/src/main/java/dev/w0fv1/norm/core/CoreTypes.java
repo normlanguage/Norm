@@ -41,7 +41,7 @@ public final class CoreTypes {
     return List.copyOf(result);
   }
 
-  public static CoreType absolute(CoreType type, DefinitionId owner, CoreProgram program) {
+  public static CoreType absolute(CoreType type, DefinitionId owner, DefinitionResolver program) {
     Objects.requireNonNull(owner, "owner");
     Objects.requireNonNull(program, "program");
     return mapLinks(

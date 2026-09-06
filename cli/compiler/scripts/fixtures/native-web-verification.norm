@@ -1,0 +1,85 @@
+@Prototype()
+class NativeVerificationService {
+  HelloRepository names
+
+  @Inject()
+  NativeVerificationService(HelloRepository names) {
+    this.names = names
+  }
+
+  @Transactional()
+  Long create(String name) {
+    HelloEntity saved = names.save(HelloEntity(name))
+    names.flush()
+    Long? id = saved.id
+    if id == null {
+      throw Exception("Saved entity has no identity")
+    }
+    return id
+  }
+
+  @Transactional()
+  String read(Long id) {
+    HelloEntity? stored = names.find(id)
+    if stored == null {
+      throw Exception("Stored entity is absent")
+    }
+    return stored.name
+  }
+
+  @Transactional()
+  Long count() {
+    return names.count()
+  }
+
+  @Transactional()
+  Void rollback(String name) {
+    names.save(HelloEntity(name))
+    names.flush()
+    throw Exception("Intentional transaction rollback")
+  }
+}
+
+@Validated()
+@Controller("/native-verification")
+class NativeVerificationController {
+  NativeVerificationService service
+
+  @Inject()
+  NativeVerificationController(NativeVerificationService service) {
+    this.service = service
+  }
+
+  @Get("/validate/{name}")
+  String validate(@NotBlank(message: "Native validation rejected blank") String name) {
+    return "validated ${name}"
+  }
+
+  @Get("/create/{name}")
+  String create(String name) {
+    return "${service.create(name)}"
+  }
+
+  @Get("/read/{id}")
+  String read(Long id) {
+    return service.read(id)
+  }
+
+  @Get("/count")
+  String count() {
+    return "${service.count()}"
+  }
+
+  @Get("/rollback/{name}")
+  String rollback(String name) {
+    try {
+      service.rollback(name)
+    } catch Exception failure {
+      if failure.message != "Intentional transaction rollback" {
+        throw failure
+      }
+      return "rolled back"
+    }
+    return "rollback did not throw"
+  }
+}

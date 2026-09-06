@@ -1,7 +1,10 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { verifyNativeWeb } from './verify-native-web.mjs';
+import { verifyNativeSize } from './verify-native-size.mjs';
+import { verifyNativeExecution } from './verify-native-execution.mjs';
 
 if (process.argv.length !== 4) {
   throw new Error('Usage: verify-cli.mjs <norm-cli> <version>');
@@ -40,6 +43,20 @@ if ($brandPixels -lt 400) { throw "Executable icon does not contain the Norm bra
 }
 verify(['run', resolve(repository, 'docs', 'examples', 'hello.norm')], 'Hello from Norm\n');
 
+await verifyNativeWeb(repository, verify);
+
+const plainDirectory = mkdtempSync(resolve(tmpdir(), 'norm-native-hello-'));
+try {
+  const source = resolve(plainDirectory, 'hello.norm');
+  copyFileSync(resolve(repository, 'docs/examples/hello.norm'), source);
+  verify(['build', source], undefined, plainDirectory);
+  const application = process.platform === 'win32' ? `${source}.exe` : resolve(plainDirectory, 'hello');
+  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'));
+  await verifyNativeExecution(application, source, evidence, 'Hello from Norm\n');
+} finally {
+  rmSync(plainDirectory, { recursive: true, force: true });
+}
+
 const bindingDirectory = mkdtempSync(resolve(tmpdir(), 'norm-java-binding-'));
 try {
   const bindingSource = resolve(bindingDirectory, 'binding.norm');
@@ -65,34 +82,15 @@ Void main() {
 `,
   );
   verify(['run', bindingSource], 'mroN\n', bindingDirectory);
-  if (process.platform === 'win32' && cli.toLowerCase().endsWith('.exe')) {
-    verify(['build', bindingSource], undefined, bindingDirectory);
-    const application = `${bindingSource}.exe`;
-    if (!existsSync(application)) {
-      throw new Error(`Application executable was not created: ${application}`);
-    }
-    const offlineRoot = resolve(bindingDirectory, 'offline');
-    const result = spawnSync(application, [], {
-      cwd: bindingDirectory,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        USERPROFILE: resolve(offlineRoot, 'profile'),
-        LOCALAPPDATA: resolve(offlineRoot, 'local'),
-        APPDATA: resolve(offlineRoot, 'roaming'),
-        HTTP_PROXY: 'http://127.0.0.1:1',
-        HTTPS_PROXY: 'http://127.0.0.1:1',
-      },
-    });
-    if (result.error) throw result.error;
-    if (
-      result.status !== 0
-      || result.stderr
-      || result.stdout.replaceAll('\r\n', '\n') !== 'mroN\n'
-    ) {
-      throw new Error(`Built application verification failed: ${result.stderr || result.stdout}`);
-    }
+  verify(['build', bindingSource], undefined, bindingDirectory);
+  const application = process.platform === 'win32'
+    ? `${bindingSource}.exe`
+    : resolve(bindingDirectory, 'binding');
+  if (!existsSync(application)) {
+    throw new Error(`Native application was not created: ${application}`);
   }
+  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'));
+  await verifyNativeExecution(application, bindingSource, evidence, 'mroN\n');
 } finally {
   rmSync(bindingDirectory, { recursive: true, force: true });
 }

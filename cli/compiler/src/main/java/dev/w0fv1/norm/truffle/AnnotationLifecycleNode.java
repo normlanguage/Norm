@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.core.CoreType;
@@ -9,6 +10,17 @@ final class AnnotationLifecycleNode extends Node {
   @Child private IndirectCallNode call = IndirectCallNode.create();
 
   Object execute(
+      AnnotationRuntime.LifecycleDispatch target,
+      ExecutionState execution,
+      RuntimeValues.ObjectValue annotation,
+      Object[] parameters,
+      CoreType[] methodTypeArguments) {
+    Object[] arguments = arguments(target, execution, annotation, parameters, methodTypeArguments);
+    return call.call(target.target(), arguments);
+  }
+
+  @TruffleBoundary
+  private static Object[] arguments(
       AnnotationRuntime.LifecycleDispatch target,
       ExecutionState execution,
       RuntimeValues.ObjectValue annotation,
@@ -24,6 +36,6 @@ final class AnnotationLifecycleNode extends Node {
     int offset = 2 + parameters.length;
     for (CoreType type : receiverTypeArguments) arguments[offset++] = type;
     System.arraycopy(methodTypeArguments, 0, arguments, offset, methodTypeArguments.length);
-    return call.call(target.target(), arguments);
+    return arguments;
   }
 }

@@ -30,9 +30,16 @@ internal sealed class BootstrapApplication(
         }
         return BootstrapCommand.Parse(arguments) switch
         {
-            BootstrapCommand.Setup => setup.Run(runtime.EnsureAvailable()),
+            BootstrapCommand.Setup => Setup(),
             BootstrapCommand.Run run => launcher.Run(runtime.EnsureAvailable(), run.Arguments),
             _ => throw new InvalidOperationException("Unknown launcher command")
         };
+    }
+
+    private int Setup()
+    {
+        string runtimeDirectory = runtime.EnsureAvailable();
+        int toolchainStatus = launcher.Run(runtimeDirectory, ["setup"]);
+        return toolchainStatus == 0 ? setup.Run(runtimeDirectory) : toolchainStatus;
     }
 }

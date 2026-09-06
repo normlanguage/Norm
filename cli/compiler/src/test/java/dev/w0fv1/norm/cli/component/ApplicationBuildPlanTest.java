@@ -23,7 +23,10 @@ final class ApplicationBuildPlanTest {
       ApplicationBuildPlan plan = ApplicationBuildPlan.from(loader.load(source));
 
       assertTrue(plan.singleFile());
-      assertEquals(temporaryDirectory.resolve("web.norm.exe"), plan.output());
+      assertEquals(
+          temporaryDirectory.resolve(
+              System.getProperty("os.name", "").startsWith("Windows") ? "web.norm.exe" : "web"),
+          plan.output());
     }
   }
 
@@ -40,7 +43,12 @@ final class ApplicationBuildPlanTest {
       ApplicationBuildPlan plan = ApplicationBuildPlan.from(loader.load(source));
 
       assertFalse(plan.singleFile());
-      assertEquals(module.resolve("build/web.exe"), plan.output());
+      assertEquals(
+          module.resolve(
+              System.getProperty("os.name", "").startsWith("Windows")
+                  ? "build/web.exe"
+                  : "build/web"),
+          plan.output());
     }
   }
 }

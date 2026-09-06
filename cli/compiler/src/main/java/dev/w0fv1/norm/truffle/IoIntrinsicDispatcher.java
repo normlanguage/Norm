@@ -15,25 +15,41 @@ import java.util.List;
 final class IoIntrinsicDispatcher {
   private IoIntrinsicDispatcher() {}
 
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object first,
-      Object second,
-      Object third,
-      CoreType type,
-      ExecutionState execution,
-      Node location) {
+  static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
-      case IO_BYTES_CREATE -> create(first, type, execution);
-      case IO_BYTES_SIZE -> bytes(first).size();
-      case IO_BYTES_AT -> at(first, (Integer) second, location);
+      case IO_BYTES_CREATE ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              create(arguments[0], type, execution);
+      case IO_BYTES_SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              bytes(arguments[0]).size();
+      case IO_BYTES_AT ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              at(arguments[0], (Integer) arguments[1], location);
       case IO_BYTES_SLICE ->
-          slice(first, (Integer) second, (Integer) third, type, execution, location);
-      case IO_BYTES_TO_ARRAY -> toArray(first, type);
-      case IO_BYTES_JOIN -> join(first, type, execution);
-      case IO_TEXT_ENCODE_UTF8 -> encodeUtf8((String) first, execution);
-      case IO_TEXT_DECODE_UTF8 -> decodeUtf8(first);
-      case IO_USE -> use(first, second, execution);
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              slice(
+                  arguments[0],
+                  (Integer) arguments[1],
+                  (Integer) arguments[2],
+                  type,
+                  execution,
+                  location);
+      case IO_BYTES_TO_ARRAY ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              toArray(arguments[0], type);
+      case IO_BYTES_JOIN ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              join(arguments[0], type, execution);
+      case IO_TEXT_ENCODE_UTF8 ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              encodeUtf8((String) arguments[0], execution);
+      case IO_TEXT_DECODE_UTF8 ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              decodeUtf8(arguments[0]);
+      case IO_USE ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              use(arguments[0], arguments[1], execution);
       default -> throw new IllegalStateException("unsupported io intrinsic " + intrinsic);
     };
   }

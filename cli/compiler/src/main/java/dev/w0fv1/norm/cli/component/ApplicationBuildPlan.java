@@ -17,8 +17,10 @@ public record ApplicationBuildPlan(Path output, boolean singleFile) {
             || sourceSet.rootModulePath().orElseThrow().equals(sourceSet.primaryPath());
     if (singleFile) {
       Path entry = sourceSet.primaryPath();
-      return new ApplicationBuildPlan(
-          entry.resolveSibling(entry.getFileName().toString() + ".exe"), true);
+      String fileName = entry.getFileName().toString();
+      String executable =
+          windows() ? fileName + ".exe" : fileName.substring(0, fileName.length() - 5);
+      return new ApplicationBuildPlan(entry.resolveSibling(executable), true);
     }
     var coordinate = sourceSet.scope().coordinate(sourceSet.primarySource().id()).module();
     String artifact = ModuleRepositoryCoordinate.from(coordinate).artifact();
@@ -28,7 +30,11 @@ public record ApplicationBuildPlan(Path output, boolean singleFile) {
             .orElseThrow()
             .getParent()
             .resolve("build")
-            .resolve(artifact + ".exe"),
+            .resolve(windows() ? artifact + ".exe" : artifact),
         false);
+  }
+
+  private static boolean windows() {
+    return System.getProperty("os.name", "").startsWith("Windows");
   }
 }

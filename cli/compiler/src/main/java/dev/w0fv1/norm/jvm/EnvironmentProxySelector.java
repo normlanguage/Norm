@@ -11,11 +11,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-final class EnvironmentProxySelector extends ProxySelector {
+public final class EnvironmentProxySelector extends ProxySelector {
   private final Map<String, String> environment;
   private final ProxySelector fallback;
 
-  static ProxySelector system() {
+  public static ProxySelector system() {
     ProxySelector fallback = ProxySelector.getDefault();
     return from(System.getenv(), fallback == null ? direct() : fallback);
   }

@@ -31,15 +31,7 @@ public final class ApplicationBundleWriter {
     Files.createDirectories(parent);
     Path staging = Files.createTempDirectory(parent, ".norm-application-");
     try {
-      Path sourceRoot = staging.resolve("source");
-      Files.createDirectories(sourceRoot);
-      Path entry = writeSources(sourceSet, sourceRoot);
-      writePackages(sourceSet, staging.resolve("packages"));
-      BundledJarGraphs.write(staging.resolve("jars"), sourceSet.jarBindings());
-      JsonObject descriptor = new JsonObject();
-      descriptor.addProperty("formatVersion", 1);
-      descriptor.addProperty("entry", unixPath(staging.relativize(entry)));
-      Files.writeString(staging.resolve(DESCRIPTOR), descriptor.toString(), StandardCharsets.UTF_8);
+      writeDirectory(sourceSet, staging);
       Path temporary = Files.createTempFile(parent, output.getFileName().toString(), ".part");
       try {
         zip(staging, temporary);
@@ -51,6 +43,22 @@ public final class ApplicationBundleWriter {
     } finally {
       deleteTree(staging);
     }
+  }
+
+  public Path writeDirectory(ProjectSourceSet sourceSet, Path destination) throws IOException {
+    Objects.requireNonNull(sourceSet, "sourceSet");
+    Path root = normalize(destination);
+    Files.createDirectories(root);
+    Path sourceRoot = root.resolve("source");
+    Files.createDirectories(sourceRoot);
+    Path entry = writeSources(sourceSet, sourceRoot);
+    writePackages(sourceSet, root.resolve("packages"));
+    BundledJarGraphs.write(root.resolve("jars"), sourceSet.jarBindings());
+    JsonObject descriptor = new JsonObject();
+    descriptor.addProperty("formatVersion", 1);
+    descriptor.addProperty("entry", unixPath(root.relativize(entry)));
+    Files.writeString(root.resolve(DESCRIPTOR), descriptor.toString(), StandardCharsets.UTF_8);
+    return entry;
   }
 
   private static Path writeSources(ProjectSourceSet sourceSet, Path destination)

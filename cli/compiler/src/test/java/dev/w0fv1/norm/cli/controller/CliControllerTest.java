@@ -54,6 +54,24 @@ final class CliControllerTest {
   }
 
   @Test
+  void setupAcceptsAnExistingNativeImageToolchain() throws IOException {
+    Path nativeImage = temporaryDirectory.resolve("native-image.cmd");
+    Files.writeString(nativeImage, "@echo native-image");
+    String previous = System.getProperty("norm.native-image.path");
+    try {
+      System.setProperty("norm.native-image.path", nativeImage.toString());
+
+      Result result = run("setup");
+
+      assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+      assertTrue(result.standardOut().contains("Native builds are ready"));
+    } finally {
+      if (previous == null) System.clearProperty("norm.native-image.path");
+      else System.setProperty("norm.native-image.path", previous);
+    }
+  }
+
+  @Test
   void rejectsTestWithoutExactlyOneSourceFile() {
     Result result = run("test");
 
@@ -117,12 +135,17 @@ final class CliControllerTest {
     try {
       System.setProperty("norm.launcher.path", launcher.toString());
 
-      Result result = run("build", source.toString());
+      Result result = run("build", "--jvm", source.toString());
 
       Path executable = temporaryDirectory.resolve("web.norm.exe");
       assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
       assertTrue(Files.size(executable) > Files.size(launcher));
       assertTrue(result.standardOut().contains("Built " + executable));
+      assertTrue(result.standardOut().contains("Target: jvm"));
+      assertTrue(result.standardOut().contains("Resolving sources and dependencies"));
+      assertTrue(result.standardOut().contains("Compiling Norm sources"));
+      assertTrue(result.standardOut().contains("Processing Java annotations"));
+      assertTrue(result.standardOut().contains("Packaging JVM executable"));
     } finally {
       if (previous == null) System.clearProperty("norm.launcher.path");
       else System.setProperty("norm.launcher.path", previous);

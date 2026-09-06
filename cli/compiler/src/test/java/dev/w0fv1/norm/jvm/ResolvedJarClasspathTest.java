@@ -14,6 +14,53 @@ final class ResolvedJarClasspathTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void freezesVersionSelectionBeforeDerivingPurposeClosures() {
+    var processor = artifact("sample", "processor", "1", "processor");
+    var runtime = artifact("sample", "runtime", "1", "runtime");
+    var oldShared = artifact("sample", "shared", "1", "old-shared");
+    var shared = artifact("sample", "shared", "2", "shared");
+    var graphs =
+        new java.util.ArrayList<>(
+            List.of(
+                graph(processor, oldShared, edge(processor, oldShared)),
+                graph(runtime, shared, edge(runtime, shared))));
+    var resolved = ResolvedJarClasspath.resolve(graphs);
+    graphs.clear();
+    assertEquals(List.of(processor, runtime, shared), resolved.artifacts());
+    assertEquals(List.of(processor, shared), resolved.closure(List.of(processor.identity())));
+    assertEquals(List.of(runtime, shared), resolved.closure(List.of(runtime.identity())));
+    assertEquals(List.of(shared), resolved.closure(List.of(oldShared.identity())));
+    assertThrows(UnsupportedOperationException.class, () -> resolved.artifacts().clear());
+    assertEquals(List.of(), resolved.closure(List.of()));
+  }
+
+  @Test
+  void scopesRootsWithoutChangingVersionSelectionOrSharedDependencies() {
+    var processor = artifact("sample", "processor", "1", "processor");
+    var runtime = artifact("sample", "runtime", "1", "runtime");
+    var oldShared = artifact("sample", "shared", "1", "old-shared");
+    var shared = artifact("sample", "shared", "2", "shared");
+    var helper = artifact("sample", "helper", "1", "helper");
+    var graphs =
+        List.of(
+            graph(processor, oldShared, edge(processor, oldShared)),
+            graph(runtime, shared, edge(runtime, shared)),
+            graph(shared, helper, edge(shared, helper)));
+    assertEquals(
+        List.of(processor, shared, helper),
+        ResolvedJarClasspath.artifacts(graphs, List.of(processor.identity())));
+    assertEquals(
+        List.of(runtime, shared, helper),
+        ResolvedJarClasspath.artifacts(graphs, List.of(runtime.identity())));
+    assertEquals(List.of(), ResolvedJarClasspath.artifacts(graphs, List.of()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            ResolvedJarClasspath.artifacts(
+                graphs, List.of(artifact("sample", "missing", "1", "missing").identity())));
+  }
+
+  @Test
   void selectsTheExplicitRootOverAnOlderTransitiveVersion() {
     ResolvedJarArtifact core = artifact("io.micronaut", "micronaut-core", "5.1.13", "core");
     ResolvedJarArtifact serde =
@@ -22,8 +69,8 @@ final class ResolvedJarClasspathTest {
         artifact("io.micronaut", "micronaut-core", "5.1.3", "older-core");
 
     assertEquals(
-        List.of(core.file(), serde.file()),
-        ResolvedJarClasspath.resolve(
+        List.of(core, serde),
+        ResolvedJarClasspath.artifacts(
             List.of(graph(core), graph(serde, olderCore, edge(serde, olderCore)))));
   }
 
@@ -37,8 +84,8 @@ final class ResolvedJarClasspathTest {
     ResolvedJarArtifact newOnly = artifact("sample", "new-only", "1", "new-only");
 
     assertEquals(
-        List.of(first.file(), second.file(), sharedTwo.file(), newOnly.file()),
-        ResolvedJarClasspath.resolve(
+        List.of(first, second, sharedTwo, newOnly),
+        ResolvedJarClasspath.artifacts(
             List.of(
                 graph(
                     first,
@@ -58,7 +105,7 @@ final class ResolvedJarClasspathTest {
     IllegalArgumentException failure =
         assertThrows(
             IllegalArgumentException.class,
-            () -> ResolvedJarClasspath.resolve(List.of(graph(first), graph(second))));
+            () -> ResolvedJarClasspath.artifacts(List.of(graph(first), graph(second))));
 
     assertEquals(
         "Java classpath selects explicit roots sample:library:1 and sample:library:2",
@@ -75,7 +122,7 @@ final class ResolvedJarClasspathTest {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                ResolvedJarClasspath.resolve(
+                ResolvedJarClasspath.artifacts(
                     List.of(
                         graph(root, first, edge(root, first)),
                         graph(root, second, edge(root, second)))));

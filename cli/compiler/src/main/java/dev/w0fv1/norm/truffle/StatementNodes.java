@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.LoopNode;
@@ -87,7 +88,7 @@ final class StatementNodes {
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      throw new ControlFlow.Return(value == null ? null : RuntimeValues.copy(value.execute(frame)));
+      throw ControlFlow.returning(value == null ? null : RuntimeValues.copy(value.execute(frame)));
     }
   }
 
@@ -107,7 +108,7 @@ final class StatementNodes {
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      throw new ControlFlow.Yield(RuntimeValues.copy(value.execute(frame)));
+      throw ControlFlow.yielding(RuntimeValues.copy(value.execute(frame)));
     }
   }
 
@@ -127,7 +128,7 @@ final class StatementNodes {
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      throw new NormThrownException((RuntimeValues.ObjectValue) exception.execute(frame), this);
+      throw NormThrownException.create((RuntimeValues.ObjectValue) exception.execute(frame), this);
     }
   }
 
@@ -173,6 +174,7 @@ final class StatementNodes {
       this.body = body;
     }
 
+    @TruffleBoundary
     boolean matches(RuntimeValues.ObjectValue value) {
       return value.objectInfo.ancestors().contains(type);
     }
@@ -234,16 +236,16 @@ final class StatementNodes {
   }
 
   static final class BuiltinIteratorFactory extends IteratorFactoryNode {
-    private final IntrinsicId intrinsic;
+    private final IntrinsicOperation operation;
 
     BuiltinIteratorFactory(IntrinsicId intrinsic) {
-      this.intrinsic = intrinsic;
+      this.operation = IntrinsicDispatcher.resolve(intrinsic);
     }
 
     @Override
     Object create(VirtualFrame frame, Object iterable, Node location) {
-      return IntrinsicDispatcher.execute(
-          intrinsic, iterable, new Object[0], null, ExecutionContextAccess.get(frame), location);
+      return operation.execute(
+          iterable, new Object[0], null, ExecutionContextAccess.get(frame), location);
     }
   }
 
@@ -269,27 +271,22 @@ final class StatementNodes {
   }
 
   static final class BuiltinIteratorCursor extends IteratorCursorNode {
+    private static final IntrinsicOperation HAS_NEXT =
+        IntrinsicDispatcher.resolve(IntrinsicId.ITERATOR_HAS_NEXT);
+    private static final IntrinsicOperation NEXT =
+        IntrinsicDispatcher.resolve(IntrinsicId.ITERATOR_NEXT);
+
     @Override
     boolean hasNext(VirtualFrame frame, Object iterator, Node location) {
       return (Boolean)
-          IntrinsicDispatcher.execute(
-              IntrinsicId.ITERATOR_HAS_NEXT,
-              iterator,
-              new Object[0],
-              null,
-              ExecutionContextAccess.get(frame),
-              location);
+          HAS_NEXT.execute(
+              iterator, new Object[0], null, ExecutionContextAccess.get(frame), location);
     }
 
     @Override
     Object next(VirtualFrame frame, Object iterator, Node location) {
-      return IntrinsicDispatcher.execute(
-          IntrinsicId.ITERATOR_NEXT,
-          iterator,
-          new Object[0],
-          null,
-          ExecutionContextAccess.get(frame),
-          location);
+      return NEXT.execute(
+          iterator, new Object[0], null, ExecutionContextAccess.get(frame), location);
     }
   }
 
@@ -456,12 +453,12 @@ final class StatementNodes {
   }
 
   static final class IntrinsicWrite extends StatementNode {
-    private final IntrinsicId intrinsic;
+    private final IntrinsicOperation operation;
     @Child private ExpressionNode receiver;
     @Children private final ExpressionNode[] arguments;
 
     IntrinsicWrite(IntrinsicId intrinsic, ExpressionNode receiver, ExpressionNode... arguments) {
-      this.intrinsic = intrinsic;
+      this.operation = IntrinsicDispatcher.resolve(intrinsic);
       this.receiver = receiver;
       this.arguments = arguments;
     }
@@ -473,8 +470,7 @@ final class StatementNodes {
       for (int index = 0; index < arguments.length; index++) {
         values[index] = arguments[index].execute(frame);
       }
-      IntrinsicDispatcher.execute(
-          intrinsic, target, values, null, ExecutionContextAccess.get(frame), this);
+      operation.execute(target, values, null, ExecutionContextAccess.get(frame), this);
     }
   }
 }

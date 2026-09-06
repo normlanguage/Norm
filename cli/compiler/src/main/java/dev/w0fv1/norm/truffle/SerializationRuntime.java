@@ -77,7 +77,7 @@ final class SerializationRuntime {
       } else {
         CoreTypeConstructor.User user = (CoreTypeConstructor.User) declared.constructor();
         DefinitionId definition = external(user.definition());
-        CoreDefinition declaration = reflection.program().definition(definition).orElseThrow();
+        CoreDefinition declaration = reflection.program().structure(definition).orElseThrow();
         if (declaration instanceof CoreDefinition.Enum enumeration) {
           if (enumeration.variants().stream().anyMatch(variant -> !variant.fields().isEmpty())) {
             throw unsupported(type, "$", "enum payload serialization is not supported");
@@ -179,7 +179,7 @@ final class SerializationRuntime {
     DefinitionId cached = annotations.get(identity);
     if (cached != null) return cached;
     DefinitionId found = null;
-    for (var record : reflection.program().definitions()) {
+    for (var record : reflection.program().structures()) {
       if (!(record.definition() instanceof CoreDefinition.Aggregate aggregate)
           || aggregate.kind() != CoreAggregateKind.ANNOTATION
           || !aggregate.nominalType().module().name().equals(module)

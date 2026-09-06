@@ -90,8 +90,10 @@ final class GitHubPackageRepository implements NormPackageRepository {
             repository.owner() + "/" + repository.repository() + "/releases/latest");
     try {
       HttpResponse<Void> response =
-          client.send(
-              HttpRequest.newBuilder(latest).GET().build(), HttpResponse.BodyHandlers.discarding());
+          RepositoryHttp.send(
+              client,
+              HttpRequest.newBuilder(latest).GET().build(),
+              HttpResponse.BodyHandlers.discarding());
       if (response.statusCode() != 200) {
         throw new IOException(
             "cannot resolve latest Norm module '"
@@ -171,7 +173,8 @@ final class GitHubPackageRepository implements NormPackageRepository {
     }
     try {
       HttpResponse<String> response =
-          client.send(
+          RepositoryHttp.send(
+              client,
               HttpRequest.newBuilder(uri).GET().build(),
               HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {

@@ -10,13 +10,33 @@ final class CoreTree {
   private CoreTree() {}
 
   static List<CoreDefinitionLink> links(CoreDefinition definition) {
-    List<CoreDefinitionLink> result = new ArrayList<>();
-    new CoreWalker() {
-      @Override
-      protected void visitLink(CoreDefinitionLink link) {
-        result.add(link);
-      }
-    }.walk(definition);
+    return dependencies(definition).stream().map(CoreDependency::target).toList();
+  }
+
+  static List<CoreDependency> dependencies(CoreDefinition definition) {
+    return dependencies(definition, CoreWalker::walk);
+  }
+
+  static List<CoreDependency> declarationDependencies(CoreDefinition definition) {
+    return dependencies(definition, CoreWalker::walkDeclaration);
+  }
+
+  static List<CoreDependency> executionDependencies(CoreDefinition definition) {
+    return dependencies(definition, CoreWalker::walkExecution);
+  }
+
+  private static List<CoreDependency> dependencies(
+      CoreDefinition definition,
+      java.util.function.BiConsumer<CoreWalker, CoreDefinition> traversal) {
+    List<CoreDependency> result = new ArrayList<>();
+    var walker =
+        new CoreWalker() {
+          @Override
+          protected void visitDependency(CoreDependency.Kind kind, CoreDefinitionLink link) {
+            result.add(new CoreDependency(kind, link));
+          }
+        };
+    traversal.accept(walker, definition);
     return List.copyOf(result);
   }
 

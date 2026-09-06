@@ -11,7 +11,8 @@ public record JavaBindingCallable(
     List<JavaBindingTypeParameter> typeParameters,
     List<JavaBindingType> parameters,
     JavaBindingType returnType,
-    JavaNullability returnNullability) {
+    JavaNullability returnNullability)
+    implements JavaCallTarget {
   public JavaBindingCallable(
       String owner,
       String name,

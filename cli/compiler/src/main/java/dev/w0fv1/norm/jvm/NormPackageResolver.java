@@ -126,7 +126,8 @@ public final class NormPackageResolver implements AutoCloseable {
         value = Files.readString(Path.of(uri), StandardCharsets.UTF_8);
       } else {
         HttpResponse<String> response =
-            client.send(
+            RepositoryHttp.send(
+                client,
                 HttpRequest.newBuilder(uri).GET().build(),
                 HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() != 200) {
@@ -150,8 +151,10 @@ public final class NormPackageResolver implements AutoCloseable {
         return;
       }
       HttpResponse<Path> response =
-          client.send(
-              HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofFile(target));
+          RepositoryHttp.send(
+              client,
+              HttpRequest.newBuilder(uri).GET().build(),
+              HttpResponse.BodyHandlers.ofFile(target));
       if (response.statusCode() != 200) throw unavailable(requirement, response.statusCode());
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();

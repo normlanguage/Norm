@@ -118,6 +118,10 @@ final class JavaAnnotationBindingIntegrationTest {
           Response(@Endpoint(path: "/message") String message) {
             this.message = message
           }
+
+          Response(Integer number) {
+            this.message = "Number ${number}"
+          }
         }
 
         @Endpoint(path: "/managed-response")
@@ -204,6 +208,55 @@ final class JavaAnnotationBindingIntegrationTest {
             new ProjectLauncher(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+      Path supportJar = temporaryDirectory.resolve("selected-support.jar");
+      try (var archive = new JarOutputStream(Files.newOutputStream(supportJar))) {}
+      var support =
+          new dev.w0fv1.norm.jvm.ResolvedJarArtifact(
+              new dev.w0fv1.norm.jvm.MavenJarIdentity(
+                  new dev.w0fv1.norm.value.MavenArtifactCoordinate("sample", "support", "2")),
+              supportJar,
+              Sha256Digest.compute(supportJar));
+      var compiled =
+          launcher.compileApplication(
+              entry,
+              message -> {},
+              java.util.List.of(
+                  new dev.w0fv1.norm.jvm.ResolvedJarGraph(
+                      support, java.util.List.of(support), java.util.List.of())));
+      assertTrue(compiled.result().isSuccess(), compiled.result().diagnostics().toString());
+      var annotationOutput = compiled.annotationOutput().orElseThrow();
+      var index =
+          dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.analyze(
+              annotationOutput.classes(), annotationOutput.stubs());
+      var artifact = compiled.result().program().orElseThrow().compilation().artifact();
+      var constructors = new java.util.HashSet<dev.w0fv1.norm.core.DefinitionId>();
+      for (var record : artifact.program().definitions()) {
+        if (record.definition() instanceof dev.w0fv1.norm.core.CoreDefinition.Aggregate aggregate
+            && aggregate.nominalType().name().equals("Response")) {
+          aggregate
+              .constructors()
+              .forEach(
+                  reference ->
+                      constructors.add(
+                          artifact
+                              .program()
+                              .resolve(
+                                  record.id(),
+                                  (dev.w0fv1.norm.core.DefinitionReference) reference)));
+        }
+      }
+      assertEquals(3, constructors.size());
+      assertTrue(index.entryPoints().containsAll(constructors));
+      assertTrue(java.util.Collections.disjoint(index.instanceMethods().keySet(), constructors));
+      for (var id : index.entryPoints()) {
+        assertTrue(
+            artifact.program().definition(id).orElseThrow()
+                instanceof dev.w0fv1.norm.core.CoreDefinition.Callable);
+      }
+      assertTrue(compiled.javaClasspath().artifacts().contains(support));
+      assertTrue(
+          Files.readString(compiled.annotationOutput().orElseThrow().root().resolve("javac.args"))
+              .contains(supportJar.toAbsolutePath().toString().replace('\\', '/')));
     }
 
     assertEquals(
@@ -506,6 +559,11 @@ final class JavaAnnotationBindingIntegrationTest {
               Class<?> type = Class.forName("sample.binding.Response");
               Class<?> controller = Class.forName("sample.binding.Controller");
               Object response = type.getConstructor(String.class).newInstance("Initial");
+              if (!type.getField("message").get(response).equals("Initial"))
+                throw new AssertionError("String constructor was not invoked");
+              Object numbered = type.getConstructor(int.class).newInstance(7);
+              if (!type.getField("message").get(numbered).equals("Number 7"))
+                throw new AssertionError("Integer constructor was not invoked");
               type.getField("message").set(response, "Java DTO");
               Object instance = controller.getConstructor().newInstance();
               return (String) controller.getMethod("echo", type).invoke(instance, response);

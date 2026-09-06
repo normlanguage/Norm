@@ -1133,12 +1133,10 @@ public final class JavaAnnotationStubGenerator {
       Set<String> generatedTypes,
       boolean generatedParent) {
     appendAnnotations(source, callable.annotations, "  ");
-    if (!callable.constructor) {
-      source
-          .append("  @dev.w0fv1.norm.bridge.NormApplicationMethod(")
-          .append(stringLiteral(callable.owner.toString()))
-          .append(")\n");
-    }
+    source
+        .append("  @dev.w0fv1.norm.bridge.NormApplicationMethod(")
+        .append(stringLiteral(callable.owner.toString()))
+        .append(")\n");
     source.append("  public ");
     if (callable.isStatic) source.append("static ");
     appendTypeParameters(

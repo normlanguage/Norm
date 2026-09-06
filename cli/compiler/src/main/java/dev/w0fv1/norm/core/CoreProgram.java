@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class CoreProgram {
+public final class CoreProgram implements DefinitionResolver {
   private final List<CoreDefinitionGroup> groups;
   private final Map<DefinitionGroupId, CoreDefinitionGroup> groupsById;
 
@@ -85,17 +85,8 @@ public final class CoreProgram {
   }
 
   public DefinitionId resolve(DefinitionId owner, DefinitionReference reference) {
-    Objects.requireNonNull(owner, "owner");
-    return switch (Objects.requireNonNull(reference, "reference")) {
-      case DefinitionReference.External external -> external.definition();
-      case DefinitionReference.RecursiveMember recursive -> {
-        CoreDefinitionGroup group = groupsById.get(owner.group());
-        if (group == null || recursive.memberIndex() >= group.definitions().size()) {
-          throw new IllegalArgumentException("recursive definition reference is outside its group");
-        }
-        yield new DefinitionId(owner.group(), recursive.memberIndex());
-      }
-    };
+    return Objects.requireNonNull(reference, "reference")
+        .resolve(owner, id -> definition(id).isPresent());
   }
 
   private <T extends CoreDefinition> List<T> definitions(java.lang.Class<T> type) {

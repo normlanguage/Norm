@@ -46,17 +46,26 @@ public final class ProjectLoader implements AutoCloseable {
   private final Set<String> reservedModuleNames;
   private final JarResolver jars;
   private final NormPackageResolver packages;
+  private final java.util.function.Consumer<String> progress;
   private final Map<Path, ModuleArchiveReader.ArchivedModule> archives =
       new java.util.concurrent.ConcurrentHashMap<>();
   private final Map<AnalysisModuleKey, ResolvedModule> analysisModules =
       new java.util.concurrent.ConcurrentHashMap<>();
 
   ProjectLoader(ModuleEvaluator modules, Set<String> reservedModuleNames) {
+    this(modules, reservedModuleNames, message -> {});
+  }
+
+  ProjectLoader(
+      ModuleEvaluator modules,
+      Set<String> reservedModuleNames,
+      java.util.function.Consumer<String> progress) {
     this(
         modules,
         reservedModuleNames,
         new NormPackageResolver(defaultCache().resolve("packages")),
-        new JarResolver(defaultCache().resolve("maven")));
+        new JarResolver(defaultCache().resolve("maven")),
+        progress);
   }
 
   ProjectLoader(
@@ -64,10 +73,20 @@ public final class ProjectLoader implements AutoCloseable {
       Set<String> reservedModuleNames,
       NormPackageResolver packages,
       JarResolver jars) {
+    this(modules, reservedModuleNames, packages, jars, message -> {});
+  }
+
+  private ProjectLoader(
+      ModuleEvaluator modules,
+      Set<String> reservedModuleNames,
+      NormPackageResolver packages,
+      JarResolver jars,
+      java.util.function.Consumer<String> progress) {
     this.modules = Objects.requireNonNull(modules, "modules");
     this.reservedModuleNames = Set.copyOf(reservedModuleNames);
     this.packages = Objects.requireNonNull(packages, "packages");
     this.jars = Objects.requireNonNull(jars, "jars");
+    this.progress = Objects.requireNonNull(progress, "progress");
   }
 
   public ProjectSourceSet load(Path entryPath) throws IOException {
@@ -460,7 +479,15 @@ public final class ProjectLoader implements AutoCloseable {
       ResolvedModule cached = analysisModules.get(analysisKey);
       if (cached != null) return cached;
     }
+    progress.accept(
+        "Resolving NAR: "
+            + requirement.repository().value()
+            + ":"
+            + requirement.name()
+            + "@"
+            + requirement.version());
     Path archive = packages.resolve(requirement);
+    progress.accept("Using NAR: " + archive);
     ModuleArchiveReader.ArchivedModule archived = archive(archive);
     ModuleDescriptor descriptor = archived.descriptor();
     if (!descriptor.coordinate().equals(requirement.coordinate())) {
@@ -474,7 +501,10 @@ public final class ProjectLoader implements AutoCloseable {
     Map<String, String> generatedSources = Map.of();
     if (descriptor.binding().isPresent()) {
       if (purpose == LoadPurpose.RUNTIME) {
+        progress.accept("Resolving Java dependencies for " + requirement.name());
         ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
+        progress.accept(
+            "Adapting " + graph.artifacts().size() + " Java artifacts for " + requirement.name());
         ResolvedJarBinding resolved = generateArchivedJarBinding(descriptor, graph);
         Map<String, String> expected = new LinkedHashMap<>();
         for (GeneratedBindingSource source : resolved.generated().sources()) {
@@ -681,6 +711,13 @@ public final class ProjectLoader implements AutoCloseable {
                 () -> new IOException("module name cannot be inferred; declare name explicitly"));
     List<ModuleRequirement> dependencies = new java.util.ArrayList<>();
     for (ModuleDependency dependency : declaration.dependencies()) {
+      progress.accept(
+          "Resolving dependency: "
+              + dependency.repository().value()
+              + ":"
+              + dependency.name()
+              + "@"
+              + (dependency.version().isPresent() ? dependency.version().getAsInt() : "latest"));
       dependencies.add(packages.resolve(dependency));
     }
     return new ModuleDescriptor(

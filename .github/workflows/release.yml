@@ -49,11 +49,12 @@ jobs:
         with:
           lfs: true
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
         with:
-          distribution: oracle
-          java-version: 25.0.2
+          distribution: graalvm-community
+          java-version: 25.0.3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -88,6 +89,9 @@ jobs:
       - name: Verify Windows launcher core
         run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj
 
+      - name: Verify native build evidence tools
+        run: node --test cli/compiler/scripts/*.test.mjs
+
       - name: Verify extension
         working-directory: cli/extensions/vscode
         run: |
@@ -106,11 +110,12 @@ jobs:
       - name: Check out release sources
         uses: actions/checkout@v6
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
         with:
-          distribution: oracle
-          java-version: 25.0.2
+          distribution: graalvm-community
+          java-version: 25.0.3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -212,6 +217,16 @@ jobs:
           name: release-${{ matrix.platform }}
           path: release/*
           if-no-files-found: error
+
+      - name: Upload native build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-size-${{ matrix.platform }}
+          path: build/reports/native-size
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 30
 
       - name: Upload self-contained CLI for the universal extension
         uses: actions/upload-artifact@v4

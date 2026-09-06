@@ -34,10 +34,16 @@ import javax.net.ssl.SSLException;
 
 final class JdkHttpTransport implements HttpTransport {
   private static final long CANCELLATION_POLL_MILLIS = 20;
-  private final HttpClient client;
+  private final java.util.function.Supplier<HttpClient> clientFactory;
+  private HttpClient client;
 
-  JdkHttpTransport(HttpClient client) {
-    this.client = Objects.requireNonNull(client, "client");
+  JdkHttpTransport(java.util.function.Supplier<HttpClient> clientFactory) {
+    this.clientFactory = Objects.requireNonNull(clientFactory, "clientFactory");
+  }
+
+  private synchronized HttpClient client() {
+    if (client == null) client = Objects.requireNonNull(clientFactory.get(), "client");
+    return client;
   }
 
   @Override
@@ -54,7 +60,7 @@ final class JdkHttpTransport implements HttpTransport {
     }
     try {
       HttpRequest hostRequest = request(request, control.timeout());
-      var pending = client.sendAsync(hostRequest, HttpResponse.BodyHandlers.ofInputStream());
+      var pending = client().sendAsync(hostRequest, HttpResponse.BodyHandlers.ofInputStream());
       for (; ; ) {
         if (control.isCancellationRequested()) {
           pending.cancel(true);

@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.nodes.RootNode;
@@ -107,11 +108,15 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
             callableTypeArguments);
     RuntimeValues.FunctionContextValue function =
         new RuntimeValues.FunctionContextValue(FUNCTION_CONTEXT_TYPE, declarationReference);
-    CoreType returnType =
-        returnTypeTemplate.equals(CoreType.VOID)
-            ? CoreType.DYNAMIC
-            : returnTypeTemplate.substitute(index -> (CoreType) arguments[reifiedOffset + index]);
+    CoreType returnType = returnType(arguments, reifiedOffset);
     return invokeFunction(0, execution, function, arguments, returnType);
+  }
+
+  @TruffleBoundary
+  private CoreType returnType(Object[] arguments, int reifiedOffset) {
+    return returnTypeTemplate.equals(CoreType.VOID)
+        ? CoreType.DYNAMIC
+        : returnTypeTemplate.substitute(index -> (CoreType) arguments[reifiedOffset + index]);
   }
 
   @Override
@@ -124,6 +129,7 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     return 0;
   }
 
+  @TruffleBoundary
   private Object invokeFunction(
       int index,
       ExecutionState execution,
@@ -169,6 +175,7 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
     }
   }
 
+  @TruffleBoundary
   private Object invokeParameter(
       int index,
       ExecutionState execution,

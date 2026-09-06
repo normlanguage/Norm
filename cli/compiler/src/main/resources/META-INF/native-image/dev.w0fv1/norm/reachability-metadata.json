@@ -1,0 +1,10 @@
+{
+  "resources": [
+    {
+      "condition": {
+        "typeReached": "org.slf4j.simple.SimpleLoggerConfiguration"
+      },
+      "glob": "simplelogger.properties"
+    }
+  ]
+}

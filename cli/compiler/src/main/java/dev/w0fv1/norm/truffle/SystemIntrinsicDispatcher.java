@@ -12,17 +12,14 @@ import dev.w0fv1.norm.platform.time.SystemClock;
 final class SystemIntrinsicDispatcher {
   private SystemIntrinsicDispatcher() {}
 
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object first,
-      Object second,
-      CoreType type,
-      ExecutionContext context,
-      ExecutionState execution,
-      Node location) {
+  static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
-      case TIME_SYSTEM_CLOCK -> systemClock(type, context, execution);
-      case TIME_CLOCK_NOW -> clockNow(first, type, execution, location);
+      case TIME_SYSTEM_CLOCK ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              systemClock(type, context, execution);
+      case TIME_CLOCK_NOW ->
+          (receiver, arguments, type, context, location, annotations, execution) ->
+              clockNow(arguments[0], type, execution, location);
       default -> throw new IllegalStateException("unsupported system intrinsic " + intrinsic);
     };
   }

@@ -34,6 +34,42 @@ final class JdkHttpTransportTest {
   }
 
   @Test
+  void createsTheClientOnlyForTheFirstRealRequest() throws Exception {
+    var created = new java.util.concurrent.atomic.AtomicInteger();
+    var transport =
+        new JdkHttpTransport(
+            () -> {
+              created.incrementAndGet();
+              return java.net.http.HttpClient.newBuilder()
+                  .proxy(java.net.ProxySelector.of(null))
+                  .build();
+            });
+    assertEquals(0, created.get());
+    server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+    server.createContext(
+        "/ready",
+        exchange -> {
+          exchange.sendResponseHeaders(204, -1);
+          exchange.close();
+        });
+    server.start();
+    var request =
+        new PlatformHttpRequest(HttpMethod.GET, uri("/ready"), List.of(), Optional.empty());
+    assertThrows(
+        PlatformHttpException.class,
+        () ->
+            transport.send(request, new OperationControl(() -> true, new PlatformDuration(5, 0))));
+    assertEquals(0, created.get());
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try (var response =
+          transport.send(request, new OperationControl(() -> false, new PlatformDuration(5, 0)))) {
+        assertEquals(204, response.statusCode());
+      }
+    }
+    assertEquals(1, created.get());
+  }
+
+  @Test
   void sendsARequestAndStreamsTheRealLoopbackResponse() throws Exception {
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     executor = Executors.newVirtualThreadPerTaskExecutor();

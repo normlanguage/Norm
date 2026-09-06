@@ -1,7 +1,8 @@
 # 版本索引
 
-当前正式版本为 Norm 0.20。
+当前正式版本为 Norm 0.21。
 
+- [Norm 0.21 实现契约](/versions/0.21)
 - [Norm 0.20 实现契约](/versions/0.20)
 - [Norm 0.19 实现契约](/versions/0.19)
 - [Norm 0.18 实现契约](/versions/0.18)

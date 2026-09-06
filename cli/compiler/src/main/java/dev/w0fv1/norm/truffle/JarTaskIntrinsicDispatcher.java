@@ -10,27 +10,34 @@ import dev.w0fv1.norm.execution.JarBindingTask;
 final class JarTaskIntrinsicDispatcher {
   private JarTaskIntrinsicDispatcher() {}
 
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object value,
-      CoreType type,
-      AnnotationRuntime annotations,
-      ExecutionState execution,
-      Node location) {
-    if (execution == null) throw new IllegalStateException("JAR task runtime is unavailable");
-    try {
-      return switch (intrinsic) {
-        case JAR_TASK_AWAIT -> await(value, type, annotations, execution, location);
-        case JAR_TASK_CANCEL -> task(value).cancel();
-        case JAR_TASK_COMPLETED -> task(value).completed();
-        case JAR_TASK_CLOSE -> close(value);
-        default -> throw new IllegalStateException("unsupported JAR task intrinsic " + intrinsic);
-      };
-    } catch (JarBindingInvocationException failure) {
-      throw execution.values().javaException(failure.failure(), execution, location);
-    } catch (ResourceCloseException failure) {
-      throw execution.values().javaException(failure.getCause(), execution, location);
-    }
+  static IntrinsicOperation resolve(IntrinsicId intrinsic) {
+    IntrinsicOperation operation =
+        switch (intrinsic) {
+          case JAR_TASK_AWAIT ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  await(arguments[0], type, annotations, execution, location);
+          case JAR_TASK_CANCEL ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  task(arguments[0]).cancel();
+          case JAR_TASK_COMPLETED ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  task(arguments[0]).completed();
+          case JAR_TASK_CLOSE ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  close(arguments[0]);
+          default -> throw new IllegalStateException("unsupported JAR task intrinsic " + intrinsic);
+        };
+    return (receiver, arguments, type, context, location, annotations, execution) -> {
+      if (execution == null) throw new IllegalStateException("JAR task runtime is unavailable");
+      try {
+        return operation.execute(
+            receiver, arguments, type, context, location, annotations, execution);
+      } catch (JarBindingInvocationException failure) {
+        throw execution.values().javaException(failure.failure(), execution, location);
+      } catch (ResourceCloseException failure) {
+        throw execution.values().javaException(failure.getCause(), execution, location);
+      }
+    };
   }
 
   private static JarBindingTask task(Object value) {

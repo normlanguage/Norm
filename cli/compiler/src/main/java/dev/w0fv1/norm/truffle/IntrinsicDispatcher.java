@@ -120,408 +120,555 @@ public final class IntrinsicDispatcher {
     return value;
   }
 
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object receiver,
-      Object[] arguments,
-      CoreType type,
-      ExecutionContext context,
-      Node location) {
-    return execute(intrinsic, receiver, arguments, type, context, location, null, null);
-  }
-
-  static Object execute(
-      IntrinsicId intrinsic,
-      Object receiver,
-      Object[] arguments,
-      CoreType type,
-      ExecutionContext context,
-      Node location,
-      AnnotationRuntime annotations,
-      ExecutionState execution) {
-    Object first = arguments.length == 0 ? null : arguments[0];
-    Object second = arguments.length < 2 ? null : arguments[1];
-    Object third = arguments.length < 3 ? null : arguments[2];
-    Object fourth = arguments.length < 4 ? null : arguments[3];
-    Object fifth = arguments.length < 5 ? null : arguments[4];
+  static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
-      case CLASS_LITERAL -> {
-        if (annotations == null
-            || !(type instanceof CoreType.Declared declared)
-            || declared.arguments().size() != 1) {
-          throw new IllegalStateException("class literal runtime type is unavailable");
-        }
-        yield new RuntimeValues.ClassValue(type, declared.arguments().getFirst(), annotations);
-      }
+      case CLASS_LITERAL ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (annotations == null
+                || !(type instanceof CoreType.Declared declared)
+                || declared.arguments().size() != 1) {
+              throw new IllegalStateException("class literal runtime type is unavailable");
+            }
+            return new RuntimeValues.ClassValue(type, declared.arguments().getFirst(), annotations);
+          };
       case CLASS_NAME ->
-          ((RuntimeValues.ClassValue) receiver)
-              .annotations()
-              .name(((RuntimeValues.ClassValue) receiver).reflectedType());
-      case CLASS_ANNOTATION -> {
-        if (execution == null) {
-          throw new IllegalStateException("annotation execution is unavailable");
-        }
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-        yield reflected.annotations().annotation(reflected.reflectedType(), type, execution);
-      }
-      case CLASS_FIELDS -> {
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-        yield reflected.annotations().fields(reflected.reflectedType(), type);
-      }
-      case CLASS_FUNCTIONS -> {
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-        yield reflected.annotations().functions(reflected.reflectedType(), type);
-      }
-      case CLASS_CONSTRUCTORS -> {
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
-        yield reflected.annotations().constructors(reflected.reflectedType(), type);
-      }
-      case FIELD_LITERAL -> {
-        if (annotations == null || type == null) {
-          throw new IllegalStateException("field literal runtime type is unavailable");
-        }
-        yield annotations.field(type, (Integer) first);
-      }
-      case FIELD_NAME -> ((RuntimeValues.FieldValue) receiver).name();
-      case FIELD_TYPE -> {
-        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-        yield new RuntimeValues.ClassValue(type, field.fieldType(), field.annotations());
-      }
-      case FIELD_OWNER -> {
-        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-        yield new RuntimeValues.ClassValue(type, field.ownerType(), field.annotations());
-      }
-      case FIELD_ANNOTATION -> {
-        if (execution == null) {
-          throw new IllegalStateException("annotation execution is unavailable");
-        }
-        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-        yield field.annotations().fieldAnnotation(field, type, execution);
-      }
-      case FIELD_READ -> {
-        RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
-        yield field.annotations().readField(field, first);
-      }
-      case FUNCTION_NAME -> {
-        RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-        yield annotations.functionName(function);
-      }
-      case FUNCTION_OWNER -> {
-        RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-        yield annotations.functionOwner(function, type);
-      }
-      case FUNCTION_PARAMETERS -> {
-        RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
-        yield annotations.parameters(function, type);
-      }
-      case PARAMETER_NAME -> ((RuntimeValues.ParameterValue) receiver).name();
-      case PARAMETER_TYPE -> {
-        RuntimeValues.ParameterValue parameter = (RuntimeValues.ParameterValue) receiver;
-        yield new RuntimeValues.ClassValue(type, parameter.valueType(), parameter.annotations());
-      }
-      case PARAMETER_FUNCTION -> ((RuntimeValues.ParameterValue) receiver).function();
-      case CONSTRUCTOR_OWNER -> {
-        RuntimeValues.ConstructorValue constructor = (RuntimeValues.ConstructorValue) receiver;
-        yield new RuntimeValues.ClassValue(
-            type, constructor.ownerType(), constructor.annotations());
-      }
-      case JSON_ENCODE -> {
-        if (annotations == null || execution == null) {
-          throw new IllegalStateException("serialization runtime is unavailable");
-        }
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
-        yield annotations
-            .mapper()
-            .write(JsonDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
-      }
-      case JSON_DECODE -> {
-        if (annotations == null || execution == null || type == null) {
-          throw new IllegalStateException("serialization runtime is unavailable");
-        }
-        yield annotations
-            .mapper()
-            .read(JsonDataFormat.INSTANCE, type, (String) first, execution, location);
-      }
-      case JSON_PARSE -> {
-        if (annotations == null || execution == null || type == null) {
-          throw new IllegalStateException("JSON runtime is unavailable");
-        }
-        yield JsonRuntime.parseValue((String) first, type, annotations, execution, location);
-      }
-      case JSON_WRITE -> {
-        if (annotations == null || execution == null) {
-          throw new IllegalStateException("JSON runtime is unavailable");
-        }
-        yield JsonRuntime.writeValue(first, annotations, execution, location);
-      }
-      case XML_ENCODE -> {
-        if (annotations == null || execution == null) {
-          throw new IllegalStateException("serialization runtime is unavailable");
-        }
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
-        yield annotations
-            .mapper()
-            .write(annotations.xml(), reflected.reflectedType(), first, execution, location);
-      }
-      case XML_DECODE -> {
-        if (annotations == null || execution == null || type == null) {
-          throw new IllegalStateException("serialization runtime is unavailable");
-        }
-        yield annotations
-            .mapper()
-            .read(annotations.xml(), type, (String) first, execution, location);
-      }
-      case YAML_ENCODE -> {
-        if (annotations == null || execution == null) {
-          throw new IllegalStateException("serialization runtime is unavailable");
-        }
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
-        yield annotations
-            .mapper()
-            .write(YamlDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
-      }
-      case YAML_DECODE -> {
-        if (annotations == null || execution == null || type == null) {
-          throw new IllegalStateException("serialization runtime is unavailable");
-        }
-        yield annotations
-            .mapper()
-            .read(YamlDataFormat.INSTANCE, type, (String) first, execution, location);
-      }
-      case CONFIGURATION_PROPERTIES -> {
-        if (annotations == null || execution == null || type == null) {
-          throw new IllegalStateException("configuration runtime is unavailable");
-        }
-        RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
-        try {
-          Map<String, Object> properties =
-              annotations.configuration().properties(reflected.reflectedType(), first);
-          yield execution.values().opaque(type, properties, "MutableMap");
-        } catch (SerializationRuntime.ShapeException | IllegalArgumentException failure) {
-          throw new NormGuestException(
-              RuntimeErrorCode.INVALID_ARGUMENT, failure.getMessage(), location);
-        }
-      }
-      case FUNCTION_CONTEXT_FUNCTION -> ((RuntimeValues.FunctionContextValue) receiver).function();
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.ClassValue) receiver)
+                .annotations()
+                .name(((RuntimeValues.ClassValue) receiver).reflectedType());
+          };
+      case CLASS_ANNOTATION ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (execution == null) {
+              throw new IllegalStateException("annotation execution is unavailable");
+            }
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
+            return reflected.annotations().annotation(reflected.reflectedType(), type, execution);
+          };
+      case CLASS_FIELDS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
+            return reflected.annotations().fields(reflected.reflectedType(), type);
+          };
+      case CLASS_FUNCTIONS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
+            return reflected.annotations().functions(reflected.reflectedType(), type);
+          };
+      case CLASS_CONSTRUCTORS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) receiver;
+            return reflected.annotations().constructors(reflected.reflectedType(), type);
+          };
+      case FIELD_LITERAL ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (annotations == null || type == null) {
+              throw new IllegalStateException("field literal runtime type is unavailable");
+            }
+            return annotations.field(type, (Integer) first);
+          };
+      case FIELD_NAME ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.FieldValue) receiver).name();
+          };
+      case FIELD_TYPE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+            return new RuntimeValues.ClassValue(type, field.fieldType(), field.annotations());
+          };
+      case FIELD_OWNER ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+            return new RuntimeValues.ClassValue(type, field.ownerType(), field.annotations());
+          };
+      case FIELD_ANNOTATION ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (execution == null) {
+              throw new IllegalStateException("annotation execution is unavailable");
+            }
+            RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+            return field.annotations().fieldAnnotation(field, type, execution);
+          };
+      case FIELD_READ ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            RuntimeValues.FieldValue field = (RuntimeValues.FieldValue) receiver;
+            return field.annotations().readField(field, first);
+          };
+      case FUNCTION_NAME ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+            return annotations.functionName(function);
+          };
+      case FUNCTION_OWNER ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+            return annotations.functionOwner(function, type);
+          };
+      case FUNCTION_PARAMETERS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.Closure function = (RuntimeValues.Closure) receiver;
+            return annotations.parameters(function, type);
+          };
+      case PARAMETER_NAME ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.ParameterValue) receiver).name();
+          };
+      case PARAMETER_TYPE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ParameterValue parameter = (RuntimeValues.ParameterValue) receiver;
+            return new RuntimeValues.ClassValue(
+                type, parameter.valueType(), parameter.annotations());
+          };
+      case PARAMETER_FUNCTION ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.ParameterValue) receiver).function();
+          };
+      case CONSTRUCTOR_OWNER ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ConstructorValue constructor = (RuntimeValues.ConstructorValue) receiver;
+            return new RuntimeValues.ClassValue(
+                type, constructor.ownerType(), constructor.annotations());
+          };
+      case JSON_ENCODE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (annotations == null || execution == null) {
+              throw new IllegalStateException("serialization runtime is unavailable");
+            }
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
+            return annotations
+                .mapper()
+                .write(
+                    JsonDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
+          };
+      case JSON_DECODE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (annotations == null || execution == null || type == null) {
+              throw new IllegalStateException("serialization runtime is unavailable");
+            }
+            return annotations
+                .mapper()
+                .read(JsonDataFormat.INSTANCE, type, (String) first, execution, location);
+          };
+      case JSON_PARSE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (annotations == null || execution == null || type == null) {
+              throw new IllegalStateException("JSON runtime is unavailable");
+            }
+            return JsonRuntime.parseValue((String) first, type, annotations, execution, location);
+          };
+      case JSON_WRITE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (annotations == null || execution == null) {
+              throw new IllegalStateException("JSON runtime is unavailable");
+            }
+            return JsonRuntime.writeValue(first, annotations, execution, location);
+          };
+      case XML_ENCODE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (annotations == null || execution == null) {
+              throw new IllegalStateException("serialization runtime is unavailable");
+            }
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
+            return annotations
+                .mapper()
+                .write(annotations.xml(), reflected.reflectedType(), first, execution, location);
+          };
+      case XML_DECODE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (annotations == null || execution == null || type == null) {
+              throw new IllegalStateException("serialization runtime is unavailable");
+            }
+            return annotations
+                .mapper()
+                .read(annotations.xml(), type, (String) first, execution, location);
+          };
+      case YAML_ENCODE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (annotations == null || execution == null) {
+              throw new IllegalStateException("serialization runtime is unavailable");
+            }
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
+            return annotations
+                .mapper()
+                .write(
+                    YamlDataFormat.INSTANCE, reflected.reflectedType(), first, execution, location);
+          };
+      case YAML_DECODE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (annotations == null || execution == null || type == null) {
+              throw new IllegalStateException("serialization runtime is unavailable");
+            }
+            return annotations
+                .mapper()
+                .read(YamlDataFormat.INSTANCE, type, (String) first, execution, location);
+          };
+      case CONFIGURATION_PROPERTIES ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (annotations == null || execution == null || type == null) {
+              throw new IllegalStateException("configuration runtime is unavailable");
+            }
+            RuntimeValues.ClassValue reflected = (RuntimeValues.ClassValue) second;
+            try {
+              Map<String, Object> properties =
+                  annotations.configuration().properties(reflected.reflectedType(), first);
+              return execution.values().opaque(type, properties, "MutableMap");
+            } catch (SerializationRuntime.ShapeException | IllegalArgumentException failure) {
+              throw new NormGuestException(
+                  RuntimeErrorCode.INVALID_ARGUMENT, failure.getMessage(), location);
+            }
+          };
+      case FUNCTION_CONTEXT_FUNCTION ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.FunctionContextValue) receiver).function();
+          };
       case PARAMETER_CONTEXT_PARAMETER ->
-          ((RuntimeValues.ParameterContextValue) receiver).parameter();
-      case FIELD_CONTEXT_FIELD -> ((RuntimeValues.FieldContextValue) receiver).field();
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.ParameterContextValue) receiver).parameter();
+          };
+      case FIELD_CONTEXT_FIELD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.FieldContextValue) receiver).field();
+          };
       case FUNCTION_INVOCATION_PROCEED ->
-          ((RuntimeValues.FunctionInvocationValue) receiver).proceed(location);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.FunctionInvocationValue) receiver).proceed(location);
+          };
       case FUNCTION_COMPLETION_SUCCEEDED ->
-          ((RuntimeValues.FunctionCompletionValue) receiver).succeeded();
-      case PRINT_LINE -> {
-        context.output().println(RuntimeValues.stringify(first));
-        yield null;
-      }
-      case EXPECTED_OUTPUT_LINE -> {
-        context.expectedOutput().println(RuntimeValues.stringify(first));
-        yield null;
-      }
-      case AWAIT_CANCELLATION -> {
-        if (execution == null) throw new IllegalStateException("execution runtime is unavailable");
-        execution.callbacks().runUntilCancellation();
-        yield null;
-      }
-      case APPLICATION_PACKAGE -> context.applicationPackage();
-      case REQUIRE_ARGUMENT -> {
-        if (!(Boolean) first) {
-          throw new NormGuestException(
-              RuntimeErrorCode.INVALID_ARGUMENT, (String) second, location);
-        }
-        yield null;
-      }
-      case PUBLISH_MODULE -> {
-        RuntimeValues.ListValue exportedValues = (RuntimeValues.ListValue) third;
-        List<String> exports = exportedValues.values.stream().map(String.class::cast).toList();
-        List<Object> dependencyRepositories = ((RuntimeValues.ListValue) fourth).values;
-        List<Object> dependencyNames = ((RuntimeValues.ListValue) fifth).values;
-        List<Object> dependencyVersions = ((RuntimeValues.ListValue) arguments[5]).values;
-        List<Object> dependencyExports = ((RuntimeValues.ListValue) arguments[6]).values;
-        if (dependencyRepositories.size() != dependencyNames.size()
-            || dependencyNames.size() != dependencyVersions.size()
-            || dependencyNames.size() != dependencyExports.size()) {
-          throw new IllegalStateException("module dependency coordinates are inconsistent");
-        }
-        List<ModuleDependency> dependencies = new ArrayList<>(dependencyNames.size());
-        for (int index = 0; index < dependencyNames.size(); index++) {
-          dependencies.add(
-              new ModuleDependency(
-                  (String) dependencyRepositories.get(index),
-                  (String) dependencyNames.get(index),
-                  dependencyVersions.get(index) == RuntimeValues.NullValue.INSTANCE
-                      ? null
-                      : (Integer) dependencyVersions.get(index),
-                  (Boolean) dependencyExports.get(index)));
-        }
-        String bindingSource = (String) arguments[7];
-        Optional<Sha256Digest> digest =
-            ((String) arguments[12]).isEmpty()
-                ? Optional.empty()
-                : Optional.of(Sha256Digest.parse((String) arguments[12]));
-        List<Object> bindingApiTypes = ((RuntimeValues.ListValue) arguments[13]).values;
-        List<Object> bindingApiMembers = ((RuntimeValues.ListValue) arguments[14]).values;
-        List<Object> bindingApiOverloadNames = ((RuntimeValues.ListValue) arguments[15]).values;
-        List<Object> bindingApiOverloadParameterTypes =
-            ((RuntimeValues.ListValue) arguments[16]).values;
-        if (bindingApiTypes.size() != bindingApiMembers.size()
-            || bindingApiTypes.size() != bindingApiOverloadNames.size()
-            || bindingApiTypes.size() != bindingApiOverloadParameterTypes.size()) {
-          throw new IllegalStateException("JAR binding API declarations are inconsistent");
-        }
-        List<JarBindingType> api = new ArrayList<>(bindingApiTypes.size());
-        for (int index = 0; index < bindingApiTypes.size(); index++) {
-          RuntimeValues.ListValue members = (RuntimeValues.ListValue) bindingApiMembers.get(index);
-          RuntimeValues.ListValue overloadNames =
-              (RuntimeValues.ListValue) bindingApiOverloadNames.get(index);
-          RuntimeValues.ListValue overloadParameterTypes =
-              (RuntimeValues.ListValue) bindingApiOverloadParameterTypes.get(index);
-          if (overloadNames.values.size() != overloadParameterTypes.values.size()) {
-            throw new IllegalStateException("JAR binding overload declarations are inconsistent");
-          }
-          List<JarBindingOverload> overloads = new ArrayList<>(overloadNames.values.size());
-          for (int overloadIndex = 0;
-              overloadIndex < overloadNames.values.size();
-              overloadIndex++) {
-            RuntimeValues.ListValue parameterTypes =
-                (RuntimeValues.ListValue) overloadParameterTypes.values.get(overloadIndex);
-            overloads.add(
-                new JarBindingOverload(
-                    (String) overloadNames.values.get(overloadIndex),
-                    parameterTypes.values.stream().map(String.class::cast).toList()));
-          }
-          api.add(
-              new JarBindingType(
-                  (String) bindingApiTypes.get(index),
-                  members.values.stream().map(String.class::cast).toList(),
-                  overloads));
-        }
-        Optional<JarBinding> binding =
-            switch (bindingSource) {
-              case "" -> Optional.empty();
-              case "local" ->
-                  Optional.of(
-                      new JarBinding(new LocalJarTarget((String) arguments[8], digest), api));
-              case "maven" ->
-                  Optional.of(
-                      new JarBinding(
-                          new MavenJarTarget(
-                              new MavenArtifactCoordinate(
-                                  (String) arguments[9],
-                                  (String) arguments[10],
-                                  (String) arguments[11]),
-                              digest),
-                          api));
-              default ->
-                  throw new IllegalStateException("unknown JAR binding source " + bindingSource);
-            };
-        context
-            .modulePublisher()
-            .orElseThrow(
-                () -> new IllegalStateException("module publication capability is unavailable"))
-            .publish(
-                new ModuleDeclaration(
-                    first == RuntimeValues.NullValue.INSTANCE ? null : (String) first,
-                    second == RuntimeValues.NullValue.INSTANCE ? null : (Integer) second,
-                    exports,
-                    dependencies,
-                    binding));
-        yield null;
-      }
-      case JAVA_COLLECTION_SIZE -> javaCollection(first).size();
-      case JAVA_LIST_GET -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java list element type is unavailable");
-        }
-        List<Object> values = javaList(first);
-        yield jarValue(type, values.get(index(second, values.size(), location)), execution);
-      }
-      case JAVA_LIST_SET -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java list element type is unavailable");
-        }
-        List<Object> values = javaList(first);
-        Object previous =
-            values.set(index(second, values.size(), location), jarArgument(third, execution));
-        yield jarValue(type, previous, execution);
-      }
-      case JAVA_LIST_REMOVE -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java list element type is unavailable");
-        }
-        List<Object> values = javaList(first);
-        Object removed = values.remove(index(second, values.size(), location));
-        yield jarValue(type, removed, execution);
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.FunctionCompletionValue) receiver).succeeded();
+          };
+      case PRINT_LINE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            context.output().println(RuntimeValues.stringify(first));
+            return null;
+          };
+      case EXPECTED_OUTPUT_LINE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            context.expectedOutput().println(RuntimeValues.stringify(first));
+            return null;
+          };
+      case AWAIT_CANCELLATION ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (execution == null)
+              throw new IllegalStateException("execution runtime is unavailable");
+            execution.callbacks().runUntilCancellation();
+            return null;
+          };
+      case APPLICATION_PACKAGE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return context.applicationPackage();
+          };
+      case REQUIRE_ARGUMENT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (!(Boolean) first) {
+              throw new NormGuestException(
+                  RuntimeErrorCode.INVALID_ARGUMENT, (String) second, location);
+            }
+            return null;
+          };
+      case PUBLISH_MODULE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            Object third = arguments.length <= 2 ? null : arguments[2];
+            Object fourth = arguments.length <= 3 ? null : arguments[3];
+            Object fifth = arguments.length <= 4 ? null : arguments[4];
+
+            RuntimeValues.ListValue exportedValues = (RuntimeValues.ListValue) third;
+            List<String> exports = exportedValues.values.stream().map(String.class::cast).toList();
+            List<Object> dependencyRepositories = ((RuntimeValues.ListValue) fourth).values;
+            List<Object> dependencyNames = ((RuntimeValues.ListValue) fifth).values;
+            List<Object> dependencyVersions = ((RuntimeValues.ListValue) arguments[5]).values;
+            List<Object> dependencyExports = ((RuntimeValues.ListValue) arguments[6]).values;
+            if (dependencyRepositories.size() != dependencyNames.size()
+                || dependencyNames.size() != dependencyVersions.size()
+                || dependencyNames.size() != dependencyExports.size()) {
+              throw new IllegalStateException("module dependency coordinates are inconsistent");
+            }
+            List<ModuleDependency> dependencies = new ArrayList<>(dependencyNames.size());
+            for (int index = 0; index < dependencyNames.size(); index++) {
+              dependencies.add(
+                  new ModuleDependency(
+                      (String) dependencyRepositories.get(index),
+                      (String) dependencyNames.get(index),
+                      dependencyVersions.get(index) == RuntimeValues.NullValue.INSTANCE
+                          ? null
+                          : (Integer) dependencyVersions.get(index),
+                      (Boolean) dependencyExports.get(index)));
+            }
+            String bindingSource = (String) arguments[7];
+            Optional<Sha256Digest> digest =
+                ((String) arguments[12]).isEmpty()
+                    ? Optional.empty()
+                    : Optional.of(Sha256Digest.parse((String) arguments[12]));
+            List<Object> bindingApiTypes = ((RuntimeValues.ListValue) arguments[13]).values;
+            List<Object> bindingApiMembers = ((RuntimeValues.ListValue) arguments[14]).values;
+            List<Object> bindingApiOverloadNames = ((RuntimeValues.ListValue) arguments[15]).values;
+            List<Object> bindingApiOverloadParameterTypes =
+                ((RuntimeValues.ListValue) arguments[16]).values;
+            if (bindingApiTypes.size() != bindingApiMembers.size()
+                || bindingApiTypes.size() != bindingApiOverloadNames.size()
+                || bindingApiTypes.size() != bindingApiOverloadParameterTypes.size()) {
+              throw new IllegalStateException("JAR binding API declarations are inconsistent");
+            }
+            List<JarBindingType> api = new ArrayList<>(bindingApiTypes.size());
+            for (int index = 0; index < bindingApiTypes.size(); index++) {
+              RuntimeValues.ListValue members =
+                  (RuntimeValues.ListValue) bindingApiMembers.get(index);
+              RuntimeValues.ListValue overloadNames =
+                  (RuntimeValues.ListValue) bindingApiOverloadNames.get(index);
+              RuntimeValues.ListValue overloadParameterTypes =
+                  (RuntimeValues.ListValue) bindingApiOverloadParameterTypes.get(index);
+              if (overloadNames.values.size() != overloadParameterTypes.values.size()) {
+                throw new IllegalStateException(
+                    "JAR binding overload declarations are inconsistent");
+              }
+              List<JarBindingOverload> overloads = new ArrayList<>(overloadNames.values.size());
+              for (int overloadIndex = 0;
+                  overloadIndex < overloadNames.values.size();
+                  overloadIndex++) {
+                RuntimeValues.ListValue parameterTypes =
+                    (RuntimeValues.ListValue) overloadParameterTypes.values.get(overloadIndex);
+                overloads.add(
+                    new JarBindingOverload(
+                        (String) overloadNames.values.get(overloadIndex),
+                        parameterTypes.values.stream().map(String.class::cast).toList()));
+              }
+              api.add(
+                  new JarBindingType(
+                      (String) bindingApiTypes.get(index),
+                      members.values.stream().map(String.class::cast).toList(),
+                      overloads));
+            }
+            Optional<JarBinding> binding =
+                switch (bindingSource) {
+                  case "" -> Optional.empty();
+                  case "local" ->
+                      Optional.of(
+                          new JarBinding(new LocalJarTarget((String) arguments[8], digest), api));
+                  case "maven" ->
+                      Optional.of(
+                          new JarBinding(
+                              new MavenJarTarget(
+                                  new MavenArtifactCoordinate(
+                                      (String) arguments[9],
+                                      (String) arguments[10],
+                                      (String) arguments[11]),
+                                  digest),
+                              api));
+                  default ->
+                      throw new IllegalStateException(
+                          "unknown JAR binding source " + bindingSource);
+                };
+            context
+                .modulePublisher()
+                .orElseThrow(
+                    () -> new IllegalStateException("module publication capability is unavailable"))
+                .publish(
+                    new ModuleDeclaration(
+                        first == RuntimeValues.NullValue.INSTANCE ? null : (String) first,
+                        second == RuntimeValues.NullValue.INSTANCE ? null : (Integer) second,
+                        exports,
+                        dependencies,
+                        binding));
+            return null;
+          };
+      case JAVA_COLLECTION_SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return javaCollection(first).size();
+          };
+      case JAVA_LIST_GET ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java list element type is unavailable");
+            }
+            List<Object> values = javaList(first);
+            return jarValue(type, values.get(index(second, values.size(), location)), execution);
+          };
+      case JAVA_LIST_SET ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            Object third = arguments.length <= 2 ? null : arguments[2];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java list element type is unavailable");
+            }
+            List<Object> values = javaList(first);
+            Object previous =
+                values.set(index(second, values.size(), location), jarArgument(third, execution));
+            return jarValue(type, previous, execution);
+          };
+      case JAVA_LIST_REMOVE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java list element type is unavailable");
+            }
+            List<Object> values = javaList(first);
+            Object removed = values.remove(index(second, values.size(), location));
+            return jarValue(type, removed, execution);
+          };
       case JAVA_COLLECTION_CONTAINS ->
-          javaCollection(first).contains(jarArgument(second, execution));
-      case JAVA_COLLECTION_ADD -> javaCollection(first).add(jarArgument(second, execution));
-      case JAVA_COLLECTION_REMOVE -> javaCollection(first).remove(jarArgument(second, execution));
-      case JAVA_ITERABLE_ITERATOR -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java iterator result type is unavailable");
-        }
-        Iterator<?> iterator = javaIterable(first).iterator();
-        yield execution.values().opaque(type, iterator, iterator.getClass().getName());
-      }
-      case JAVA_ITERATOR_HAS_NEXT -> javaIterator(first).hasNext();
-      case JAVA_ITERATOR_NEXT -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java iterator element type is unavailable");
-        }
-        yield jarValue(type, javaIterator(first).next(), execution);
-      }
-      case JAVA_MAP_NEW -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java map result type is unavailable");
-        }
-        yield execution.values().opaque(type, new java.util.LinkedHashMap<>(), "MutableMap");
-      }
-      case JAVA_MAP_SIZE -> javaMap(first).size();
-      case JAVA_MAP_CONTAINS_KEY -> javaMap(first).containsKey(jarArgument(second, execution));
-      case JAVA_MAP_GET -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java map value type is unavailable");
-        }
-        yield jarValue(type, javaMap(first).get(jarArgument(second, execution)), execution);
-      }
-      case JAVA_MAP_PUT -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java map value type is unavailable");
-        }
-        Object previous =
-            javaMap(first).put(jarArgument(second, execution), jarArgument(third, execution));
-        yield jarValue(type, previous, execution);
-      }
-      case JAVA_MAP_REMOVE -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("Java map value type is unavailable");
-        }
-        yield jarValue(type, javaMap(first).remove(jarArgument(second, execution)), execution);
-      }
-      case JAR_INVOKE, JAR_INVOKE_VOID -> {
-        try {
-          List<Object> jarArguments =
-              java.util.Arrays.stream(arguments, 1, arguments.length)
-                  .map(value -> jarArgument(value, execution, annotations))
-                  .toList();
-          JarBindingResult result;
-          try {
-            result = invokeJar(context, (String) first, jarArguments, execution, location);
-          } finally {
-            synchronizeJarArguments(context, jarArguments);
-          }
-          yield jarBindingValue(type, result, annotations, execution, second);
-        } catch (JarBindingInvocationException exception) {
-          if (execution == null) {
-            throw new IllegalStateException("JAR invocation exception execution is unavailable");
-          }
-          throw execution.values().javaException(exception.failure(), execution, location);
-        } catch (JarBindingRuntimeException exception) {
-          throw new NormGuestException(
-              RuntimeErrorCode.JAR_BINDING, exception.getMessage(), location);
-        }
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return javaCollection(first).contains(jarArgument(second, execution));
+          };
+      case JAVA_COLLECTION_ADD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return javaCollection(first).add(jarArgument(second, execution));
+          };
+      case JAVA_COLLECTION_REMOVE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return javaCollection(first).remove(jarArgument(second, execution));
+          };
+      case JAVA_ITERABLE_ITERATOR ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java iterator result type is unavailable");
+            }
+            Iterator<?> iterator = javaIterable(first).iterator();
+            return execution.values().opaque(type, iterator, iterator.getClass().getName());
+          };
+      case JAVA_ITERATOR_HAS_NEXT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return javaIterator(first).hasNext();
+          };
+      case JAVA_ITERATOR_NEXT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java iterator element type is unavailable");
+            }
+            return jarValue(type, javaIterator(first).next(), execution);
+          };
+      case JAVA_MAP_NEW ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java map result type is unavailable");
+            }
+            return execution.values().opaque(type, new java.util.LinkedHashMap<>(), "MutableMap");
+          };
+      case JAVA_MAP_SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return javaMap(first).size();
+          };
+      case JAVA_MAP_CONTAINS_KEY ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return javaMap(first).containsKey(jarArgument(second, execution));
+          };
+      case JAVA_MAP_GET ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java map value type is unavailable");
+            }
+            return jarValue(type, javaMap(first).get(jarArgument(second, execution)), execution);
+          };
+      case JAVA_MAP_PUT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            Object third = arguments.length <= 2 ? null : arguments[2];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java map value type is unavailable");
+            }
+            Object previous =
+                javaMap(first).put(jarArgument(second, execution), jarArgument(third, execution));
+            return jarValue(type, previous, execution);
+          };
+      case JAVA_MAP_REMOVE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            if (execution == null || type == null) {
+              throw new IllegalStateException("Java map value type is unavailable");
+            }
+            return jarValue(type, javaMap(first).remove(jarArgument(second, execution)), execution);
+          };
+      case JAR_INVOKE, JAR_INVOKE_VOID ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            try {
+              List<Object> jarArguments =
+                  java.util.Arrays.stream(arguments, 1, arguments.length)
+                      .map(value -> jarArgument(value, execution, annotations))
+                      .toList();
+              JarBindingResult result;
+              try {
+                result = invokeJar(context, (String) first, jarArguments, execution, location);
+              } finally {
+                synchronizeJarArguments(context, jarArguments);
+              }
+              return jarBindingValue(type, result, annotations, execution, second);
+            } catch (JarBindingInvocationException exception) {
+              if (execution == null) {
+                throw new IllegalStateException(
+                    "JAR invocation exception execution is unavailable");
+              }
+              throw execution.values().javaException(exception.failure(), execution, location);
+            } catch (JarBindingRuntimeException exception) {
+              throw new NormGuestException(
+                  RuntimeErrorCode.JAR_BINDING, exception.getMessage(), location);
+            }
+          };
       case IO_BYTES_CREATE,
           IO_BYTES_SIZE,
           IO_BYTES_AT,
@@ -531,15 +678,19 @@ public final class IntrinsicDispatcher {
           IO_TEXT_ENCODE_UTF8,
           IO_TEXT_DECODE_UTF8,
           IO_USE ->
-          IoIntrinsicDispatcher.execute(intrinsic, first, second, third, type, execution, location);
+          IoIntrinsicDispatcher.resolve(intrinsic);
       case JAR_INPUT_STREAM_READ,
           JAR_OUTPUT_STREAM_WRITE,
           JAR_OUTPUT_STREAM_FLUSH,
           JAR_STREAM_CLOSE ->
-          JarStreamIntrinsicDispatcher.execute(intrinsic, first, second, type, execution, location);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return JarStreamIntrinsicDispatcher.execute(
+                intrinsic, first, second, type, execution, location);
+          };
       case JAR_TASK_AWAIT, JAR_TASK_CANCEL, JAR_TASK_COMPLETED, JAR_TASK_CLOSE ->
-          JarTaskIntrinsicDispatcher.execute(
-              intrinsic, first, type, annotations, execution, location);
+          JarTaskIntrinsicDispatcher.resolve(intrinsic);
       case FILE_OPEN_READ,
           FILE_READER_READ,
           FILE_OPEN_WRITE,
@@ -547,283 +698,585 @@ public final class IntrinsicDispatcher {
           FILE_WRITER_FLUSH,
           FILE_WRITER_SYNC,
           FILE_CLOSE ->
-          FileIntrinsicDispatcher.execute(
-              intrinsic, first, second, type, context, execution, location);
+          FileIntrinsicDispatcher.resolve(intrinsic);
       case HTTP_SEND,
           HTTP_RESPONSE_STATUS,
           HTTP_RESPONSE_HEADERS,
           HTTP_RESPONSE_READ,
           HTTP_RESPONSE_CLOSE ->
-          HttpIntrinsicDispatcher.execute(intrinsic, arguments, type, context, execution, location);
-      case TIME_SYSTEM_CLOCK, TIME_CLOCK_NOW ->
-          SystemIntrinsicDispatcher.execute(
-              intrinsic, first, second, type, context, execution, location);
-      case TO_STRING -> RuntimeValues.stringify(receiver);
-      case RANGE_CONSTRUCT -> {
-        int step = third == null ? 1 : (Integer) third;
-        if (step == 0) {
-          throw new NormGuestException(
-              RuntimeErrorCode.INVALID_ARGUMENT, "range step must not be zero", location);
-        }
-        yield new RuntimeValues.RangeValue(type, (Integer) first, (Integer) second, step);
-      }
-      case ARRAY_CONSTRUCT -> new RuntimeValues.ArrayValue(type, new ArrayList<>());
-      case LIST_CONSTRUCT -> new RuntimeValues.ListValue(type);
-      case MAP_CONSTRUCT -> new RuntimeValues.MapValue(type);
-      case SET_CONSTRUCT -> new RuntimeValues.SetValue(type);
-      case STACK_CONSTRUCT -> new RuntimeValues.StackValue(type);
-      case QUEUE_CONSTRUCT -> new RuntimeValues.QueueValue(type);
-      case DEQUE_CONSTRUCT -> new RuntimeValues.DequeValue(type);
-      case PAIR_CONSTRUCT -> new RuntimeValues.PairValue(type, first, second);
-      case STRING_BUILDER_CONSTRUCT -> new RuntimeValues.BuilderValue(type);
-      case SIZE -> {
-        try {
-          yield RuntimeValues.size(receiver);
-        } catch (ArithmeticException exception) {
-          throw new NormGuestException(
-              RuntimeErrorCode.INVALID_ARGUMENT, "range size exceeds Integer", location);
-        }
-      }
-      case IS_EMPTY -> isEmpty(receiver);
-      case LIST_ADD -> {
-        ((RuntimeValues.ListValue) receiver).values.add(RuntimeValues.copy(first));
-        yield null;
-      }
+          HttpIntrinsicDispatcher.resolve(intrinsic);
+      case TIME_SYSTEM_CLOCK, TIME_CLOCK_NOW -> SystemIntrinsicDispatcher.resolve(intrinsic);
+      case TO_STRING ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.stringify(receiver);
+          };
+      case RANGE_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            Object third = arguments.length <= 2 ? null : arguments[2];
+
+            int step = third == null ? 1 : (Integer) third;
+            if (step == 0) {
+              throw new NormGuestException(
+                  RuntimeErrorCode.INVALID_ARGUMENT, "range step must not be zero", location);
+            }
+            return new RuntimeValues.RangeValue(type, (Integer) first, (Integer) second, step);
+          };
+      case ARRAY_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.ArrayValue(type, new ArrayList<>());
+          };
+      case LIST_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.ListValue(type);
+          };
+      case MAP_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.MapValue(type);
+          };
+      case SET_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.SetValue(type);
+          };
+      case STACK_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.StackValue(type);
+          };
+      case QUEUE_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.QueueValue(type);
+          };
+      case DEQUE_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.DequeValue(type);
+          };
+      case PAIR_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return new RuntimeValues.PairValue(type, first, second);
+          };
+      case STRING_BUILDER_CONSTRUCT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.BuilderValue(type);
+          };
+      case SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            try {
+              return RuntimeValues.size(receiver);
+            } catch (ArithmeticException exception) {
+              throw new NormGuestException(
+                  RuntimeErrorCode.INVALID_ARGUMENT, "range size exceeds Integer", location);
+            }
+          };
+      case IS_EMPTY ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return isEmpty(receiver);
+          };
+      case LIST_ADD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            ((RuntimeValues.ListValue) receiver).values.add(RuntimeValues.copy(first));
+            return null;
+          };
       case LIST_GET ->
-          RuntimeValues.copy(
-              ((RuntimeValues.ListValue) receiver)
-                  .values.get(
-                      index(first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(
+                ((RuntimeValues.ListValue) receiver)
+                    .values.get(
+                        index(
+                            first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+          };
       case LIST_REMOVE_AT ->
-          RuntimeValues.copy(
-              ((RuntimeValues.ListValue) receiver)
-                  .values.remove(
-                      index(first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(
+                ((RuntimeValues.ListValue) receiver)
+                    .values.remove(
+                        index(
+                            first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+          };
       case ARRAY_FILLED ->
-          new RuntimeValues.ArrayValue(type, filledValues(first, second, location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return new RuntimeValues.ArrayValue(type, filledValues(first, second, location));
+          };
       case ARRAY_LAST ->
-          RuntimeValues.copy(last(((RuntimeValues.ArrayValue) receiver).values, "Array", location));
-      case ARRAY_REVERSED -> {
-        RuntimeValues.ArrayValue result = (RuntimeValues.ArrayValue) RuntimeValues.copy(receiver);
-        Collections.reverse(result.values);
-        yield result;
-      }
-      case LIST_FILLED -> new RuntimeValues.ListValue(type, filledValues(first, second, location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                last(((RuntimeValues.ArrayValue) receiver).values, "Array", location));
+          };
+      case ARRAY_REVERSED ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ArrayValue result =
+                (RuntimeValues.ArrayValue) RuntimeValues.copy(receiver);
+            Collections.reverse(result.values);
+            return result;
+          };
+      case LIST_FILLED ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return new RuntimeValues.ListValue(type, filledValues(first, second, location));
+          };
       case LIST_LAST ->
-          RuntimeValues.copy(last(((RuntimeValues.ListValue) receiver).values, "List", location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                last(((RuntimeValues.ListValue) receiver).values, "List", location));
+          };
       case LIST_REMOVE_LAST ->
-          RuntimeValues.copy(
-              removeLast(((RuntimeValues.ListValue) receiver).values, "List", location));
-      case LIST_REVERSED -> {
-        RuntimeValues.ListValue result = (RuntimeValues.ListValue) RuntimeValues.copy(receiver);
-        Collections.reverse(result.values);
-        yield result;
-      }
-      case MAP_PUT -> {
-        RuntimeValues.mapPut((RuntimeValues.MapValue) receiver, first, second);
-        yield null;
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                removeLast(((RuntimeValues.ListValue) receiver).values, "List", location));
+          };
+      case LIST_REVERSED ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            RuntimeValues.ListValue result = (RuntimeValues.ListValue) RuntimeValues.copy(receiver);
+            Collections.reverse(result.values);
+            return result;
+          };
+      case MAP_PUT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            RuntimeValues.mapPut((RuntimeValues.MapValue) receiver, first, second);
+            return null;
+          };
       case MAP_GET ->
-          RuntimeValues.copy(RuntimeValues.mapGetOrNull((RuntimeValues.MapValue) receiver, first));
-      case MAP_CONTAINS_KEY -> RuntimeValues.mapContains((RuntimeValues.MapValue) receiver, first);
-      case MAP_REMOVE -> RuntimeValues.mapRemove((RuntimeValues.MapValue) receiver, first);
-      case SET_ADD -> RuntimeValues.setAdd((RuntimeValues.SetValue) receiver, first);
-      case SET_CONTAINS -> RuntimeValues.setContains((RuntimeValues.SetValue) receiver, first);
-      case SET_REMOVE -> RuntimeValues.setRemove((RuntimeValues.SetValue) receiver, first);
-      case STACK_PUSH -> {
-        ((RuntimeValues.StackValue) receiver).values.push(RuntimeValues.copy(first));
-        yield null;
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(
+                RuntimeValues.mapGetOrNull((RuntimeValues.MapValue) receiver, first));
+          };
+      case MAP_CONTAINS_KEY ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.mapContains((RuntimeValues.MapValue) receiver, first);
+          };
+      case MAP_REMOVE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.mapRemove((RuntimeValues.MapValue) receiver, first);
+          };
+      case SET_ADD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.setAdd((RuntimeValues.SetValue) receiver, first);
+          };
+      case SET_CONTAINS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.setContains((RuntimeValues.SetValue) receiver, first);
+          };
+      case SET_REMOVE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.setRemove((RuntimeValues.SetValue) receiver, first);
+          };
+      case STACK_PUSH ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            ((RuntimeValues.StackValue) receiver).values.push(RuntimeValues.copy(first));
+            return null;
+          };
       case STACK_POP ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.StackValue) receiver).values.pollFirst(), "Stack", location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.StackValue) receiver).values.pollFirst(), "Stack", location));
+          };
       case STACK_PEEK ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.StackValue) receiver).values.peekFirst(), "Stack", location));
-      case QUEUE_ADD -> {
-        ((RuntimeValues.QueueValue) receiver).values.addLast(RuntimeValues.copy(first));
-        yield null;
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.StackValue) receiver).values.peekFirst(), "Stack", location));
+          };
+      case QUEUE_ADD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            ((RuntimeValues.QueueValue) receiver).values.addLast(RuntimeValues.copy(first));
+            return null;
+          };
       case QUEUE_REMOVE ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.QueueValue) receiver).values.pollFirst(), "Queue", location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.QueueValue) receiver).values.pollFirst(), "Queue", location));
+          };
       case QUEUE_PEEK ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.QueueValue) receiver).values.peekFirst(), "Queue", location));
-      case DEQUE_ADD_FIRST -> {
-        ((RuntimeValues.DequeValue) receiver).values.addFirst(RuntimeValues.copy(first));
-        yield null;
-      }
-      case DEQUE_ADD_LAST -> {
-        ((RuntimeValues.DequeValue) receiver).values.addLast(RuntimeValues.copy(first));
-        yield null;
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.QueueValue) receiver).values.peekFirst(), "Queue", location));
+          };
+      case DEQUE_ADD_FIRST ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            ((RuntimeValues.DequeValue) receiver).values.addFirst(RuntimeValues.copy(first));
+            return null;
+          };
+      case DEQUE_ADD_LAST ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            ((RuntimeValues.DequeValue) receiver).values.addLast(RuntimeValues.copy(first));
+            return null;
+          };
       case DEQUE_REMOVE_FIRST ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.DequeValue) receiver).values.pollFirst(), "Deque", location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.DequeValue) receiver).values.pollFirst(), "Deque", location));
+          };
       case DEQUE_REMOVE_LAST ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.DequeValue) receiver).values.pollLast(), "Deque", location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.DequeValue) receiver).values.pollLast(), "Deque", location));
+          };
       case DEQUE_PEEK_FIRST ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.DequeValue) receiver).values.peekFirst(), "Deque", location));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.DequeValue) receiver).values.peekFirst(), "Deque", location));
+          };
       case DEQUE_PEEK_LAST ->
-          RuntimeValues.copy(
-              requireElement(
-                  ((RuntimeValues.DequeValue) receiver).values.peekLast(), "Deque", location));
-      case BUILDER_APPEND -> {
-        RuntimeValues.BuilderValue builder = (RuntimeValues.BuilderValue) receiver;
-        builder.value.append(RuntimeValues.stringify(first));
-        yield builder;
-      }
-      case BUILDER_TO_STRING -> ((RuntimeValues.BuilderValue) receiver).value.toString();
-      case STRING_BYTE_SIZE -> RuntimeValues.byteSize((String) receiver);
-      case STRING_CODE_POINT_SIZE -> RuntimeValues.codePointSize((String) receiver);
-      case STRING_GRAPHEME_SIZE -> RuntimeValues.graphemeSize((String) receiver);
-      case STRING_CODE_POINTS -> RuntimeValues.codePoints((String) receiver);
-      case STRING_GRAPHEMES -> RuntimeValues.graphemes((String) receiver);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.copy(
+                requireElement(
+                    ((RuntimeValues.DequeValue) receiver).values.peekLast(), "Deque", location));
+          };
+      case BUILDER_APPEND ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            RuntimeValues.BuilderValue builder = (RuntimeValues.BuilderValue) receiver;
+            builder.value.append(RuntimeValues.stringify(first));
+            return builder;
+          };
+      case BUILDER_TO_STRING ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.BuilderValue) receiver).value.toString();
+          };
+      case STRING_BYTE_SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.byteSize((String) receiver);
+          };
+      case STRING_CODE_POINT_SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.codePointSize((String) receiver);
+          };
+      case STRING_GRAPHEME_SIZE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.graphemeSize((String) receiver);
+          };
+      case STRING_CODE_POINTS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.codePoints((String) receiver);
+          };
+      case STRING_GRAPHEMES ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.graphemes((String) receiver);
+          };
       case STRING_SLICE_CODE_POINTS ->
-          RuntimeValues.sliceCodePoints(
-              (String) receiver, (Integer) first, (Integer) second, location);
-      case STRING_SPLIT -> RuntimeValues.split((String) receiver, (String) first, location);
-      case STRING_IS_EMPTY -> ((String) receiver).isEmpty();
-      case STRING_CONTAINS -> ((String) receiver).contains((String) first);
-      case STRING_STARTS_WITH -> ((String) receiver).startsWith((String) first);
-      case STRING_ENDS_WITH -> ((String) receiver).endsWith((String) first);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return RuntimeValues.sliceCodePoints(
+                (String) receiver, (Integer) first, (Integer) second, location);
+          };
+      case STRING_SPLIT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.split((String) receiver, (String) first, location);
+          };
+      case STRING_IS_EMPTY ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((String) receiver).isEmpty();
+          };
+      case STRING_CONTAINS ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return ((String) receiver).contains((String) first);
+          };
+      case STRING_STARTS_WITH ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return ((String) receiver).startsWith((String) first);
+          };
+      case STRING_ENDS_WITH ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return ((String) receiver).endsWith((String) first);
+          };
       case STRING_SLICE_GRAPHEMES ->
-          RuntimeValues.sliceGraphemes(
-              (String) receiver, (Integer) first, (Integer) second, location);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return RuntimeValues.sliceGraphemes(
+                (String) receiver, (Integer) first, (Integer) second, location);
+          };
       case STRING_REPLACE ->
-          RuntimeValues.replace((String) receiver, (String) first, (String) second, location);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return RuntimeValues.replace(
+                (String) receiver, (String) first, (String) second, location);
+          };
       case STRING_REPLACE_FIRST ->
-          RuntimeValues.replaceFirst((String) receiver, (String) first, (String) second, location);
-      case STRING_TRIM -> RuntimeValues.trim((String) receiver);
-      case STRING_TRIM_START -> RuntimeValues.trimStart((String) receiver);
-      case STRING_TRIM_END -> RuntimeValues.trimEnd((String) receiver);
-      case STRING_TO_LOWERCASE -> RuntimeValues.toLowercase((String) receiver);
-      case STRING_TO_UPPERCASE -> RuntimeValues.toUppercase((String) receiver);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return RuntimeValues.replaceFirst(
+                (String) receiver, (String) first, (String) second, location);
+          };
+      case STRING_TRIM ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.trim((String) receiver);
+          };
+      case STRING_TRIM_START ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.trimStart((String) receiver);
+          };
+      case STRING_TRIM_END ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.trimEnd((String) receiver);
+          };
+      case STRING_TO_LOWERCASE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.toLowercase((String) receiver);
+          };
+      case STRING_TO_UPPERCASE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.toUppercase((String) receiver);
+          };
       case STRING_EQUALS_IGNORE_CASE_ASCII ->
-          RuntimeValues.equalsIgnoreCaseAscii((String) receiver, (String) first);
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.equalsIgnoreCaseAscii((String) receiver, (String) first);
+          };
       case STRING_COMPARE_CODE_POINTS ->
-          RuntimeValues.compareCodePoints((String) receiver, (String) first);
-      case STRING_NORMALIZE_NFC -> RuntimeValues.normalizeNfc((String) receiver);
-      case STRING_NORMALIZE_NFD -> RuntimeValues.normalizeNfd((String) receiver);
-      case STRING_NORMALIZE_NFKC -> RuntimeValues.normalizeNfkc((String) receiver);
-      case STRING_NORMALIZE_NFKD -> RuntimeValues.normalizeNfkd((String) receiver);
-      case STRING_IS_NORMALIZED_NFC -> RuntimeValues.isNormalizedNfc((String) receiver);
-      case STRING_IS_NORMALIZED_NFD -> RuntimeValues.isNormalizedNfd((String) receiver);
-      case STRING_IS_NORMALIZED_NFKC -> RuntimeValues.isNormalizedNfkc((String) receiver);
-      case STRING_IS_NORMALIZED_NFKD -> RuntimeValues.isNormalizedNfkd((String) receiver);
-      case CODE_POINT_SCALAR_VALUE -> ((RuntimeValues.CodePointValue) receiver).value();
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.compareCodePoints((String) receiver, (String) first);
+          };
+      case STRING_NORMALIZE_NFC ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.normalizeNfc((String) receiver);
+          };
+      case STRING_NORMALIZE_NFD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.normalizeNfd((String) receiver);
+          };
+      case STRING_NORMALIZE_NFKC ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.normalizeNfkc((String) receiver);
+          };
+      case STRING_NORMALIZE_NFKD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.normalizeNfkd((String) receiver);
+          };
+      case STRING_IS_NORMALIZED_NFC ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.isNormalizedNfc((String) receiver);
+          };
+      case STRING_IS_NORMALIZED_NFD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.isNormalizedNfd((String) receiver);
+          };
+      case STRING_IS_NORMALIZED_NFKC ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.isNormalizedNfkc((String) receiver);
+          };
+      case STRING_IS_NORMALIZED_NFKD ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.isNormalizedNfkd((String) receiver);
+          };
+      case CODE_POINT_SCALAR_VALUE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.CodePointValue) receiver).value();
+          };
       case CODE_POINT_IS_DECIMAL_DIGIT ->
-          Character.isDigit(((RuntimeValues.CodePointValue) receiver).value());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return Character.isDigit(((RuntimeValues.CodePointValue) receiver).value());
+          };
       case CODE_POINT_IS_LETTER ->
-          Character.isLetter(((RuntimeValues.CodePointValue) receiver).value());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return Character.isLetter(((RuntimeValues.CodePointValue) receiver).value());
+          };
       case CODE_POINT_IS_WHITESPACE ->
-          RuntimeValues.isWhitespace(((RuntimeValues.CodePointValue) receiver).value());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return RuntimeValues.isWhitespace(((RuntimeValues.CodePointValue) receiver).value());
+          };
       case CODE_POINT_IS_UPPERCASE ->
-          Character.isUpperCase(((RuntimeValues.CodePointValue) receiver).value());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return Character.isUpperCase(((RuntimeValues.CodePointValue) receiver).value());
+          };
       case CODE_POINT_IS_LOWERCASE ->
-          Character.isLowerCase(((RuntimeValues.CodePointValue) receiver).value());
-      case CODE_POINT_IS_ASCII_DIGIT -> {
-        int value = ((RuntimeValues.CodePointValue) receiver).value();
-        yield value >= '0' && value <= '9';
-      }
-      case CODE_POINT_ASCII_DIGIT_VALUE -> {
-        int value = ((RuntimeValues.CodePointValue) receiver).value();
-        if (value < '0' || value > '9') {
-          throw new NormGuestException(
-              RuntimeErrorCode.INVALID_ARGUMENT, "code point is not an ASCII digit", location);
-        }
-        yield value - '0';
-      }
-      case PAIR_FIRST_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first);
-      case PAIR_SECOND_READ -> RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second);
-      case PAIR_FIRST_WRITE -> {
-        ((RuntimeValues.PairValue) receiver).first = RuntimeValues.copy(first);
-        yield null;
-      }
-      case PAIR_SECOND_WRITE -> {
-        ((RuntimeValues.PairValue) receiver).second = RuntimeValues.copy(first);
-        yield null;
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return Character.isLowerCase(((RuntimeValues.CodePointValue) receiver).value());
+          };
+      case CODE_POINT_IS_ASCII_DIGIT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            int value = ((RuntimeValues.CodePointValue) receiver).value();
+            return value >= '0' && value <= '9';
+          };
+      case CODE_POINT_ASCII_DIGIT_VALUE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            int value = ((RuntimeValues.CodePointValue) receiver).value();
+            if (value < '0' || value > '9') {
+              throw new NormGuestException(
+                  RuntimeErrorCode.INVALID_ARGUMENT, "code point is not an ASCII digit", location);
+            }
+            return value - '0';
+          };
+      case PAIR_FIRST_READ ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(((RuntimeValues.PairValue) receiver).first);
+          };
+      case PAIR_SECOND_READ ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object second = arguments.length <= 1 ? null : arguments[1];
+            return RuntimeValues.copy(((RuntimeValues.PairValue) receiver).second);
+          };
+      case PAIR_FIRST_WRITE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+
+            ((RuntimeValues.PairValue) receiver).first = RuntimeValues.copy(first);
+            return null;
+          };
+      case PAIR_SECOND_WRITE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            ((RuntimeValues.PairValue) receiver).second = RuntimeValues.copy(first);
+            return null;
+          };
       case ARRAY_INDEX_READ ->
-          RuntimeValues.copy(
-              ((RuntimeValues.ArrayValue) receiver)
-                  .values.get(
-                      index(first, ((RuntimeValues.ArrayValue) receiver).values.size(), location)));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(
+                ((RuntimeValues.ArrayValue) receiver)
+                    .values.get(
+                        index(
+                            first, ((RuntimeValues.ArrayValue) receiver).values.size(), location)));
+          };
       case LIST_INDEX_READ ->
-          RuntimeValues.copy(
-              ((RuntimeValues.ListValue) receiver)
-                  .values.get(
-                      index(first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(
+                ((RuntimeValues.ListValue) receiver)
+                    .values.get(
+                        index(
+                            first, ((RuntimeValues.ListValue) receiver).values.size(), location)));
+          };
       case MAP_INDEX_READ ->
-          RuntimeValues.copy(mapGet((RuntimeValues.MapValue) receiver, first, location));
-      case ARRAY_INDEX_WRITE -> {
-        ((RuntimeValues.ArrayValue) receiver)
-            .values.set(
-                index(first, ((RuntimeValues.ArrayValue) receiver).values.size(), location),
-                RuntimeValues.copy(second));
-        yield null;
-      }
-      case LIST_INDEX_WRITE -> {
-        ((RuntimeValues.ListValue) receiver)
-            .values.set(
-                index(first, ((RuntimeValues.ListValue) receiver).values.size(), location),
-                RuntimeValues.copy(second));
-        yield null;
-      }
-      case MAP_INDEX_WRITE -> {
-        RuntimeValues.mapPut((RuntimeValues.MapValue) receiver, first, second);
-        yield null;
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            return RuntimeValues.copy(mapGet((RuntimeValues.MapValue) receiver, first, location));
+          };
+      case ARRAY_INDEX_WRITE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            ((RuntimeValues.ArrayValue) receiver)
+                .values.set(
+                    index(first, ((RuntimeValues.ArrayValue) receiver).values.size(), location),
+                    RuntimeValues.copy(second));
+            return null;
+          };
+      case LIST_INDEX_WRITE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            ((RuntimeValues.ListValue) receiver)
+                .values.set(
+                    index(first, ((RuntimeValues.ListValue) receiver).values.size(), location),
+                    RuntimeValues.copy(second));
+            return null;
+          };
+      case MAP_INDEX_WRITE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Object first = arguments.length <= 0 ? null : arguments[0];
+            Object second = arguments.length <= 1 ? null : arguments[1];
+
+            RuntimeValues.mapPut((RuntimeValues.MapValue) receiver, first, second);
+            return null;
+          };
       case ARRAY_ITERATOR ->
-          nativeIterator(
-              ((RuntimeValues.ArrayValue) receiver).type,
-              ((RuntimeValues.ArrayValue) receiver).values.iterator());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return nativeIterator(
+                ((RuntimeValues.ArrayValue) receiver).type,
+                ((RuntimeValues.ArrayValue) receiver).values.iterator());
+          };
       case LIST_ITERATOR ->
-          nativeIterator(
-              ((RuntimeValues.ListValue) receiver).type,
-              ((RuntimeValues.ListValue) receiver).values.iterator());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return nativeIterator(
+                ((RuntimeValues.ListValue) receiver).type,
+                ((RuntimeValues.ListValue) receiver).values.iterator());
+          };
       case MAP_ITERATOR ->
-          new RuntimeValues.NativeIteratorValue(
-              mapElementType(((RuntimeValues.MapValue) receiver).type),
-              mapIterator((RuntimeValues.MapValue) receiver));
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.NativeIteratorValue(
+                mapElementType(((RuntimeValues.MapValue) receiver).type),
+                mapIterator((RuntimeValues.MapValue) receiver));
+          };
       case SET_ITERATOR ->
-          nativeIterator(
-              ((RuntimeValues.SetValue) receiver).type,
-              ((RuntimeValues.SetValue) receiver).values.stream().map(key -> key.value).iterator());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return nativeIterator(
+                ((RuntimeValues.SetValue) receiver).type,
+                ((RuntimeValues.SetValue) receiver)
+                    .values.stream().map(key -> key.value).iterator());
+          };
       case STACK_ITERATOR ->
-          nativeIterator(
-              ((RuntimeValues.StackValue) receiver).type,
-              ((RuntimeValues.StackValue) receiver).values.iterator());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return nativeIterator(
+                ((RuntimeValues.StackValue) receiver).type,
+                ((RuntimeValues.StackValue) receiver).values.iterator());
+          };
       case QUEUE_ITERATOR ->
-          nativeIterator(
-              ((RuntimeValues.QueueValue) receiver).type,
-              ((RuntimeValues.QueueValue) receiver).values.iterator());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return nativeIterator(
+                ((RuntimeValues.QueueValue) receiver).type,
+                ((RuntimeValues.QueueValue) receiver).values.iterator());
+          };
       case DEQUE_ITERATOR ->
-          nativeIterator(
-              ((RuntimeValues.DequeValue) receiver).type,
-              ((RuntimeValues.DequeValue) receiver).values.iterator());
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return nativeIterator(
+                ((RuntimeValues.DequeValue) receiver).type,
+                ((RuntimeValues.DequeValue) receiver).values.iterator());
+          };
       case RANGE_ITERATOR ->
-          new RuntimeValues.NativeIteratorValue(
-              CoreType.INTEGER, ((RuntimeValues.RangeValue) receiver).iterator());
-      case ITERATOR_HAS_NEXT -> ((RuntimeValues.NativeIteratorValue) receiver).iterator.hasNext();
-      case ITERATOR_NEXT -> {
-        Iterator<Object> iterator = ((RuntimeValues.NativeIteratorValue) receiver).iterator;
-        if (!iterator.hasNext()) {
-          throw new NormGuestException(
-              RuntimeErrorCode.EMPTY_COLLECTION, "iterator is exhausted", location);
-        }
-        yield RuntimeValues.copy(iterator.next());
-      }
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return new RuntimeValues.NativeIteratorValue(
+                CoreType.INTEGER, ((RuntimeValues.RangeValue) receiver).iterator());
+          };
+      case ITERATOR_HAS_NEXT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return ((RuntimeValues.NativeIteratorValue) receiver).iterator.hasNext();
+          };
+      case ITERATOR_NEXT ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Iterator<Object> iterator = ((RuntimeValues.NativeIteratorValue) receiver).iterator;
+            if (!iterator.hasNext()) {
+              throw new NormGuestException(
+                  RuntimeErrorCode.EMPTY_COLLECTION, "iterator is exhausted", location);
+            }
+            return RuntimeValues.copy(iterator.next());
+          };
     };
   }
 

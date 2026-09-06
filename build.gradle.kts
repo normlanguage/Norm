@@ -49,6 +49,7 @@ subprojects {
 
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
+        maxHeapSize = "1g"
         jvmArgs("--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED")
         testLogging {
             events("failed", "skipped")

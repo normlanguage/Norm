@@ -86,8 +86,16 @@ public final class ProjectEnvironment {
   }
 
   public ProjectLauncher persistentLauncher() throws IOException {
+    return persistentLauncher(message -> {});
+  }
+
+  public ProjectLauncher persistentLauncher(java.util.function.Consumer<String> progress)
+      throws IOException {
     return new ProjectLauncher(
-        projectLoader(), CompilerSession.persistent(languageProfile), backend);
+        new ProjectLoader(
+            new ModuleEvaluator(languageProfile, backend), reservedModuleNames, progress),
+        CompilerSession.persistent(languageProfile),
+        backend);
   }
 
   public ProjectLauncher bundledLauncher(Path bundle) throws IOException {

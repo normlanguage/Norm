@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.IntrinsicId;
@@ -79,6 +80,7 @@ final class RuntimeValues {
     return invocation.target().call(invocation.arguments());
   }
 
+  @TruffleBoundary
   static PreparedInvocation prepareInvocation(
       ExecutionState execution, Closure closure, Object... arguments) {
     CallTarget target = closure.target();
@@ -194,6 +196,7 @@ final class RuntimeValues {
     }
   }
 
+  @TruffleBoundary
   static Object copy(Object value) {
     return switch (value) {
       case ArrayValue array -> new ArrayValue(array.type, copyList(array.values));
@@ -244,6 +247,7 @@ final class RuntimeValues {
     };
   }
 
+  @TruffleBoundary
   static ObjectValue copyObject(ObjectValue object) {
     ObjectValue result = new ObjectValue(object.objectInfo, object.type);
     for (int index = 0; index < object.fields.length; index++) {
@@ -257,6 +261,7 @@ final class RuntimeValues {
         && declared.category() == CoreValueCategory.VALUE;
   }
 
+  @TruffleBoundary
   static boolean equal(Object left, Object right) {
     if (left == right) return true;
     if (left == null || right == null || left.getClass() != right.getClass()) return false;
@@ -291,6 +296,7 @@ final class RuntimeValues {
     };
   }
 
+  @TruffleBoundary
   static int hash(Object value) {
     return switch (value) {
       case null -> 0;
@@ -580,8 +586,52 @@ final class RuntimeValues {
     return index;
   }
 
+  @TruffleBoundary
   static String stringify(Object value) {
     return value == null ? "Void" : value.toString();
+  }
+
+  @TruffleBoundary
+  static String concatenate(String left, Object right) {
+    return left + stringify(right);
+  }
+
+  @TruffleBoundary
+  static ObjectValue object(ObjectInfo objectInfo, CoreType type) {
+    return new ObjectValue(objectInfo, type);
+  }
+
+  @TruffleBoundary
+  static Closure closure(
+      CallTarget target,
+      DefinitionOccurrenceId declaration,
+      DefinitionId virtualSlot,
+      boolean unbound,
+      Object receiver,
+      Object[] captures,
+      Object[] receiverTypeArguments,
+      Object[] reifiedArguments,
+      CoreType functionType) {
+    return new Closure(
+        target,
+        declaration,
+        virtualSlot,
+        unbound,
+        receiver,
+        captures,
+        receiverTypeArguments,
+        reifiedArguments,
+        functionType);
+  }
+
+  @TruffleBoundary
+  static EnumValue enumeration(
+      DefinitionId definition,
+      CoreType type,
+      String enumName,
+      String variantKey,
+      Object[] payload) {
+    return new EnumValue(definition, type, enumName, variantKey, List.of(payload));
   }
 
   static CoreType runtimeType(Object value) {
@@ -761,6 +811,7 @@ final class RuntimeValues {
     }
   }
 
+  @TruffleBoundary
   private static List<Object> copyList(List<Object> values) {
     List<Object> result = new ArrayList<>(values.size());
     values.forEach(value -> result.add(copy(value)));
@@ -1149,7 +1200,22 @@ final class RuntimeValues {
       }
     }
 
-    record Intrinsic(IntrinsicId intrinsic) implements DispatchTarget {}
+    record Intrinsic(IntrinsicId intrinsic, IntrinsicOperation operation)
+        implements DispatchTarget {
+      Intrinsic(IntrinsicId intrinsic) {
+        this(intrinsic, IntrinsicDispatcher.resolve(intrinsic));
+      }
+
+      @Override
+      public boolean equals(Object other) {
+        return other instanceof Intrinsic target && intrinsic == target.intrinsic;
+      }
+
+      @Override
+      public int hashCode() {
+        return intrinsic.hashCode();
+      }
+    }
   }
 
   sealed interface ObjectInfo permits AggregateInfo {

@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.truffle;
 
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.bridge.JavaApplicationBridge;
 import dev.w0fv1.norm.core.BuiltinTypeId;
@@ -24,8 +25,7 @@ final class FieldWriteNode extends Node {
 
   void execute(
       RuntimeValues.ObjectValue receiver, int field, Object value, ExecutionState execution) {
-    RuntimeValues.FieldPlan plan =
-        ((RuntimeValues.AggregateInfo) receiver.objectInfo).fields().get(field);
+    RuntimeValues.FieldPlan plan = fieldPlan(receiver, field);
     invoke(0, receiver, plan, value, execution);
   }
 
@@ -35,15 +35,15 @@ final class FieldWriteNode extends Node {
       RuntimeValues.FieldPlan plan,
       Object value,
       ExecutionState execution) {
-    if (layer == plan.interceptors().size()) {
+    if (layer == interceptorCount(plan)) {
       Object stored = RuntimeValues.copy(value);
       receiver.fields[plan.index()] = stored;
       if (receiver.hostValue != null) {
-        JavaApplicationBridge.writeField(receiver.hostValue, plan.name(), stored);
+        writeHostField(receiver.hostValue, plan.name(), stored);
       }
       return;
     }
-    CoreInterceptor interceptor = plan.interceptors().get(layer);
+    CoreInterceptor interceptor = interceptor(plan, layer);
     RuntimeValues.FieldContextValue context =
         new RuntimeValues.FieldContextValue(
             FIELD_CONTEXT_TYPE, annotations.field(plan, receiver.type, FIELD_TYPE));
@@ -70,6 +70,26 @@ final class FieldWriteNode extends Node {
           },
           new CoreType[0]);
     }
+  }
+
+  @TruffleBoundary
+  private static RuntimeValues.FieldPlan fieldPlan(RuntimeValues.ObjectValue receiver, int field) {
+    return ((RuntimeValues.AggregateInfo) receiver.objectInfo).fields().get(field);
+  }
+
+  @TruffleBoundary
+  private static int interceptorCount(RuntimeValues.FieldPlan plan) {
+    return plan.interceptors().size();
+  }
+
+  @TruffleBoundary
+  private static CoreInterceptor interceptor(RuntimeValues.FieldPlan plan, int index) {
+    return plan.interceptors().get(index);
+  }
+
+  @TruffleBoundary
+  private static void writeHostField(Object receiver, String name, Object value) {
+    JavaApplicationBridge.writeField(receiver, name, value);
   }
 
   private static CoreType builtin(String identity) {

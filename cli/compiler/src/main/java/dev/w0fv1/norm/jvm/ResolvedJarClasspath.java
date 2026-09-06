@@ -1,6 +1,5 @@
 package dev.w0fv1.norm.jvm;
 
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -13,17 +12,36 @@ import java.util.Set;
 import org.eclipse.aether.util.version.GenericVersionScheme;
 
 final class ResolvedJarClasspath {
-  private static final GenericVersionScheme VERSIONS = new GenericVersionScheme();
+  private final Map<ArtifactKey, ResolvedJarArtifact> selected;
+  private final Map<ArtifactKey, Set<ArtifactKey>> dependencies;
+  private final List<JarArtifactIdentity> roots;
 
-  private ResolvedJarClasspath() {}
+  private ResolvedJarClasspath(
+      Map<ArtifactKey, ResolvedJarArtifact> selected,
+      Map<ArtifactKey, Set<ArtifactKey>> dependencies,
+      List<JarArtifactIdentity> roots) {
+    this.selected = Map.copyOf(selected);
+    var edges = new LinkedHashMap<ArtifactKey, Set<ArtifactKey>>();
+    dependencies.forEach(
+        (key, values) ->
+            edges.put(key, java.util.Collections.unmodifiableSet(new LinkedHashSet<>(values))));
+    this.dependencies = Map.copyOf(edges);
+    this.roots = List.copyOf(roots);
+  }
 
-  static List<Path> resolve(List<ResolvedJarGraph> graphs) {
+  static List<ResolvedJarArtifact> artifacts(List<ResolvedJarGraph> graphs) {
+    return resolve(graphs).artifacts();
+  }
+
+  static List<ResolvedJarArtifact> artifacts(
+      List<ResolvedJarGraph> graphs, List<JarArtifactIdentity> entryPoints) {
+    return resolve(graphs).closure(entryPoints);
+  }
+
+  static ResolvedJarClasspath resolve(List<ResolvedJarGraph> graphs) {
     Objects.requireNonNull(graphs, "graphs");
     Map<ArtifactKey, List<Candidate>> candidates = new LinkedHashMap<>();
-    List<ArtifactKey> roots = new ArrayList<>();
     for (ResolvedJarGraph graph : graphs) {
-      ArtifactKey root = ArtifactKey.from(graph.root().identity());
-      if (!roots.contains(root)) roots.add(root);
       for (ResolvedJarArtifact artifact : graph.artifacts()) {
         ArtifactKey key = ArtifactKey.from(artifact.identity());
         candidates
@@ -33,7 +51,22 @@ final class ResolvedJarClasspath {
     }
     Map<ArtifactKey, ResolvedJarArtifact> selected = new LinkedHashMap<>();
     candidates.forEach((key, values) -> selected.put(key, select(key, values)));
-    Map<ArtifactKey, Set<ArtifactKey>> dependencies = dependencies(graphs, selected);
+    return new ResolvedJarClasspath(
+        selected,
+        dependencies(graphs, selected),
+        graphs.stream().map(graph -> graph.root().identity()).toList());
+  }
+
+  List<ResolvedJarArtifact> artifacts() {
+    return closure(roots);
+  }
+
+  List<ResolvedJarArtifact> closure(List<JarArtifactIdentity> entryPoints) {
+    List<ArtifactKey> roots = entryPoints.stream().map(ArtifactKey::from).distinct().toList();
+    for (ArtifactKey root : roots) {
+      if (!selected.containsKey(root))
+        throw new IllegalArgumentException("Java classpath root is absent: " + root.display());
+    }
     LinkedHashSet<ArtifactKey> reachable = new LinkedHashSet<>(roots);
     ArrayDeque<ArtifactKey> pending = new ArrayDeque<>(roots);
     while (!pending.isEmpty()) {
@@ -41,7 +74,7 @@ final class ResolvedJarClasspath {
         if (reachable.add(dependency)) pending.addLast(dependency);
       }
     }
-    return reachable.stream().map(selected::get).map(ResolvedJarArtifact::file).toList();
+    return reachable.stream().map(selected::get).toList();
   }
 
   private static ResolvedJarArtifact select(ArtifactKey key, List<Candidate> candidates) {
@@ -96,7 +129,7 @@ final class ResolvedJarClasspath {
       throw new IllegalArgumentException("local Java artifacts cannot have version conflicts");
     }
     try {
-      return VERSIONS.parseVersion(identity.coordinate().version());
+      return new GenericVersionScheme().parseVersion(identity.coordinate().version());
     } catch (org.eclipse.aether.version.InvalidVersionSpecificationException exception) {
       throw new IllegalArgumentException(
           "invalid Java artifact version " + identity.coordinate().notation(), exception);

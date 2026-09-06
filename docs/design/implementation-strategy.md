@@ -11,7 +11,7 @@ Norm 官方实现遵循以下四条规则：
 
 1. **Java 编写全部核心工具链。** Lexer、Parser、AST、名称解析、类型检查、content-addressed Core IR、格式化器、LSP 共享组件、包工具核心逻辑和 CLI 均以 Java 实现。
 2. **Truffle 是唯一官方执行后端。** Norm 程序通过 Truffle language implementation 执行，Lowerer 只接受 canonical Core。
-3. **CLI 发行物自带 Java runtime。** 官方发行物包含编译器、依赖和按平台生成的精简运行时；用户不安装 Java，也能动态加载独立发布的 Java binding 与 Annotation Processor。
+3. **CLI 发行物自带 Java runtime，并管理 Native Image 工具链。** 官方发行物包含编译器、依赖和按平台生成的精简运行时；`norm setup` 按内容完整性安装固定版本的 GraalVM Community，用户无需配置 Java 或 GraalVM，也能动态加载独立发布的 Java binding 与 Annotation Processor。
 4. **Zig 不进入核心实现。** core、CLI 和标准库平台 adapter 不包含 Zig 代码，也不建立 Zig/Java FFI 边界。
 
 ## 工程边界
@@ -31,6 +31,7 @@ norm/                   使用 Norm 编写的标准库与语言源码
 - Java toolchain 和 Truffle 版本在仓库中锁定；
 - 单元测试与 Truffle 集成测试使用同一 JVM 执行模型；
 - release job 使用 `jlink` 构建各平台自包含 `norm`；
+- `norm build` 默认生成 Native Image，`--jvm` 只作为显式开发与兼容目标；
 - JAR 作为内部构建产物，不作为普通用户的主要安装界面。
 
 ## 不采用 Zig 核心工具链的原因

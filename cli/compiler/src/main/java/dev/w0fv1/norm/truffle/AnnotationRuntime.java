@@ -1,17 +1,15 @@
 package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationApplication;
-import dev.w0fv1.norm.core.CoreAnnotationPolicy;
 import dev.w0fv1.norm.core.CoreAnnotationReference;
 import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
-import dev.w0fv1.norm.core.CoreAuthoringMap;
 import dev.w0fv1.norm.core.CoreDefinition;
-import dev.w0fv1.norm.core.CoreDefinitionOccurrence;
 import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreFieldInterceptorProtocol;
@@ -20,7 +18,6 @@ import dev.w0fv1.norm.core.CoreInterceptor;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreParameterInterceptorProtocol;
-import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
@@ -39,8 +36,8 @@ import java.util.Map;
 import java.util.Set;
 
 final class AnnotationRuntime {
-  private final CoreProgram program;
-  private final CoreAuthoringMap authoring;
+  private final RuntimeProgram program;
+  private final RuntimeDeclarationIndex declarations;
   private final Map<ApplicationKey, List<CoreAnnotationValue>> applications;
   private final CoreFunctionInterceptorProtocol functionInterceptor;
   private final CoreParameterInterceptorProtocol parameterInterceptor;
@@ -53,17 +50,18 @@ final class AnnotationRuntime {
   private Map<DefinitionId, CallTarget> callableTargets = Map.of();
 
   AnnotationRuntime(CoreArtifact artifact) {
-    program = artifact.program();
-    authoring = artifact.authoring();
+    program = RuntimeProgram.from(artifact.program());
+    declarations = RuntimeDeclarationIndex.from(artifact.authoring());
     Map<ApplicationKey, List<CoreAnnotationValue>> indexed = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : artifact.metadata().annotations()) {
       ApplicationKey key = key(application);
       if (key != null) indexed.put(key, application.values());
     }
     applications = Map.copyOf(indexed);
-    functionInterceptor = CoreFunctionInterceptorProtocol.resolve(program).orElse(null);
-    parameterInterceptor = CoreParameterInterceptorProtocol.resolve(program).orElse(null);
-    fieldInterceptor = CoreFieldInterceptorProtocol.resolve(program).orElse(null);
+    functionInterceptor = CoreFunctionInterceptorProtocol.resolve(artifact.program()).orElse(null);
+    parameterInterceptor =
+        CoreParameterInterceptorProtocol.resolve(artifact.program()).orElse(null);
+    fieldInterceptor = CoreFieldInterceptorProtocol.resolve(artifact.program()).orElse(null);
     serialization = new SerializationRuntime(this);
     configuration = new ConfigurationRuntime(serialization);
     mapper = new MapperEngine(serialization);
@@ -92,7 +90,7 @@ final class AnnotationRuntime {
                 new JarBindingClassReference.Builtin(builtin.id().value());
             case CoreTypeConstructor.User user -> {
               DefinitionId id = resolveExternal(user.definition());
-              CoreNominalTypeKey nominal = nominalType(program.definition(id).orElseThrow());
+              CoreNominalTypeKey nominal = nominalType(program.structure(id).orElseThrow());
               yield new JarBindingClassReference.Nominal(
                   nominal.module(), nominal.packageName(), nominal.name());
             }
@@ -144,7 +142,7 @@ final class AnnotationRuntime {
     DefinitionId expectedId = resolveExternal(expectedUser.definition());
     for (JarBindingClassReference.Nominal candidate : candidates) {
       CoreDefinitionRecord record =
-          program.definitions().stream()
+          program.structures().stream()
               .filter(value -> matches(value.definition(), candidate))
               .findFirst()
               .orElse(null);
@@ -160,7 +158,7 @@ final class AnnotationRuntime {
     }
     for (JarBindingClassReference.Nominal candidate : candidates) {
       CoreDefinitionRecord record =
-          program.definitions().stream()
+          program.structures().stream()
               .filter(value -> matches(value.definition(), candidate))
               .findFirst()
               .orElse(null);
@@ -187,18 +185,17 @@ final class AnnotationRuntime {
       }
       if (!matchesExpected) continue;
       DefinitionId runtimeDefinition =
-          authoring.occurrences(record.id()).stream()
-              .map(CoreDefinitionOccurrence::id)
+          declarations.occurrences(record.id()).stream()
               .map(DefinitionOccurrenceId::representative)
               .filter(
                   definition ->
-                      program.definition(definition).orElseThrow()
+                      program.structure(definition).orElseThrow()
                           instanceof CoreDefinition.Aggregate)
               .findFirst()
               .orElse(null);
       if (runtimeDefinition == null) continue;
       CoreDefinition.Aggregate runtimeAggregate =
-          (CoreDefinition.Aggregate) program.definition(runtimeDefinition).orElseThrow();
+          (CoreDefinition.Aggregate) program.structure(runtimeDefinition).orElseThrow();
       List<CoreType> arguments =
           runtimeAggregate.typeParameters().size() == expected.arguments().size()
               ? expected.arguments()
@@ -220,7 +217,7 @@ final class AnnotationRuntime {
       throw new IllegalArgumentException("fields require an aggregate type");
     }
     DefinitionId aggregateId = resolveExternal(user.definition());
-    if (!(program.definition(aggregateId).orElseThrow()
+    if (!(program.structure(aggregateId).orElseThrow()
             instanceof CoreDefinition.Aggregate aggregate)
         || aggregate.kind() == CoreAggregateKind.ANNOTATION) {
       throw new IllegalArgumentException("fields require a class or value type");
@@ -272,6 +269,7 @@ final class AnnotationRuntime {
         this);
   }
 
+  @TruffleBoundary
   RuntimeValues.FieldValue field(
       RuntimeValues.FieldPlan plan, CoreType ownerType, CoreType fieldType) {
     CoreType.Declared owner = declared(ownerType);
@@ -310,7 +308,7 @@ final class AnnotationRuntime {
     CoreType.Declared reflected = declared(reflectedType);
     DefinitionId aggregateId = aggregateDefinition(reflected, "functions");
     CoreDefinition.Aggregate aggregate =
-        (CoreDefinition.Aggregate) program.definition(aggregateId).orElseThrow();
+        (CoreDefinition.Aggregate) program.structure(aggregateId).orElseThrow();
     RuntimeValues.AggregateInfo info = aggregateInfo.get(aggregateId);
     if (info == null) throw new IllegalStateException("aggregate reflection is not initialized");
     List<Object> functions =
@@ -342,7 +340,7 @@ final class AnnotationRuntime {
     CoreType.Declared reflected = declared(reflectedType);
     DefinitionId aggregateId = aggregateDefinition(reflected, "constructors");
     CoreDefinition.Aggregate aggregate =
-        (CoreDefinition.Aggregate) program.definition(aggregateId).orElseThrow();
+        (CoreDefinition.Aggregate) program.structure(aggregateId).orElseThrow();
     CoreType descriptorType = declared(listType).arguments().getFirst();
     List<Object> constructors =
         aggregate.constructors().stream()
@@ -357,14 +355,12 @@ final class AnnotationRuntime {
   }
 
   String functionName(RuntimeValues.Closure function) {
-    return authoring.origin(function.declaration()).definitionName();
+    return declarations.name(function.declaration());
   }
 
   Object functionOwner(RuntimeValues.Closure function, CoreType classType) {
-    CoreDefinition definition =
-        program.definition(function.declaration().representative()).orElseThrow();
-    if (!(definition instanceof CoreDefinition.Callable callable)
-        || callable.receiverType().isEmpty()) {
+    RuntimeProgram.Callable callable = callable(function);
+    if (callable.receiverType().isEmpty()) {
       return RuntimeValues.NullValue.INSTANCE;
     }
     CoreType owner =
@@ -384,7 +380,7 @@ final class AnnotationRuntime {
 
   RuntimeValues.ListValue parameters(RuntimeValues.Closure function, CoreType listType) {
     CoreType descriptorType = declared(listType).arguments().getFirst();
-    CoreDefinition.Callable callable = callable(function);
+    RuntimeProgram.Callable callable = callable(function);
     List<Object> parameters = new ArrayList<>();
     if (function.unbound() && callable.receiverType().isPresent()) {
       CoreType receiverType =
@@ -404,11 +400,11 @@ final class AnnotationRuntime {
 
   RuntimeValues.ParameterValue parameter(
       RuntimeValues.Closure function, int index, CoreType parameterType) {
-    CoreDefinition.Callable callable = callable(function);
+    RuntimeProgram.Callable callable = callable(function);
     if (index < 0 || index >= callable.parameters().size()) {
       throw new IllegalArgumentException("parameter declaration is absent");
     }
-    dev.w0fv1.norm.core.CoreCallableParameter parameter = callable.parameters().get(index);
+    RuntimeProgram.Parameter parameter = callable.parameters().get(index);
     CoreType valueType =
         CoreTypes.absolute(parameter.type(), function.declaration().representative(), program)
             .substitute(typeIndex -> callableTypeArgument(function, typeIndex));
@@ -416,13 +412,10 @@ final class AnnotationRuntime {
         parameterType, function, parameter.name(), valueType, this);
   }
 
-  private CoreDefinition.Callable callable(RuntimeValues.Closure function) {
-    CoreDefinition definition =
-        program.definition(function.declaration().representative()).orElseThrow();
-    if (!(definition instanceof CoreDefinition.Callable callable)) {
-      throw new IllegalArgumentException("function declaration is not callable");
-    }
-    return callable;
+  private RuntimeProgram.Callable callable(RuntimeValues.Closure function) {
+    return program
+        .callable(function.declaration().representative())
+        .orElseThrow(() -> new IllegalArgumentException("function declaration is not callable"));
   }
 
   private CoreType callableTypeArgument(RuntimeValues.Closure function, int index) {
@@ -489,7 +482,7 @@ final class AnnotationRuntime {
     return xml;
   }
 
-  CoreProgram program() {
+  RuntimeProgram program() {
     return program;
   }
 
@@ -527,8 +520,7 @@ final class AnnotationRuntime {
   }
 
   private TypeAnnotation typeAnnotation(DefinitionId annotationId, DefinitionId typeId) {
-    boolean inherited =
-        CoreAnnotationPolicy.resolve(program, annotationId, annotation(annotationId)).inherited();
+    boolean inherited = program.annotationPolicy(annotationId).inherited();
     DefinitionId current = typeId;
     Set<DefinitionId> visited = new HashSet<>();
     while (visited.add(current)) {
@@ -536,7 +528,7 @@ final class AnnotationRuntime {
       List<CoreAnnotationValue> values = applications.get(key);
       if (values != null) return new TypeAnnotation(key, values);
       if (!inherited) return null;
-      CoreDefinition definition = program.definition(current).orElse(null);
+      CoreDefinition definition = program.structure(current).orElse(null);
       if (!(definition instanceof CoreDefinition.Aggregate aggregate)
           || aggregate.parentType().isEmpty()) return null;
       CoreType parent = CoreTypes.absolute(aggregate.parentType().orElseThrow(), current, program);
@@ -637,12 +629,11 @@ final class AnnotationRuntime {
   }
 
   private AnnotationRetention retention(DefinitionId annotationId) {
-    CoreDefinition.Aggregate annotation = annotation(annotationId);
-    return CoreAnnotationPolicy.resolve(program, annotationId, annotation).retention();
+    return program.annotationPolicy(annotationId).retention();
   }
 
   private CoreDefinition.Aggregate annotation(DefinitionId annotationId) {
-    CoreDefinition definition = program.definition(annotationId).orElseThrow();
+    CoreDefinition definition = program.structure(annotationId).orElseThrow();
     if (!(definition instanceof CoreDefinition.Aggregate annotation)
         || annotation.kind() != CoreAggregateKind.ANNOTATION) {
       throw new IllegalStateException("annotation definition is invalid");
@@ -723,7 +714,7 @@ final class AnnotationRuntime {
       case JarBindingClassReference.Builtin builtin -> builtinType(builtin.typeId());
       case JarBindingClassReference.Nominal nominal -> {
         CoreDefinitionRecord record =
-            program.definitions().stream()
+            program.structures().stream()
                 .filter(value -> matches(value.definition(), nominal))
                 .findFirst()
                 .orElseThrow(
@@ -803,7 +794,7 @@ final class AnnotationRuntime {
   CoreType reflectedFieldType(RuntimeValues.FieldPlan field, CoreType.Declared reflected) {
     DefinitionId ownerId = field.owner().representative();
     CoreDefinition.Aggregate owner =
-        (CoreDefinition.Aggregate) program.definition(ownerId).orElseThrow();
+        (CoreDefinition.Aggregate) program.structure(ownerId).orElseThrow();
     CoreField declaration =
         owner.fields().stream()
             .filter(candidate -> candidate.ordinal() == field.index())
@@ -829,7 +820,7 @@ final class AnnotationRuntime {
       DefinitionId id = resolveExternal(user.definition());
       if (!visited.add(id)) return null;
       if (id.equals(target)) return declared;
-      CoreDefinition definition = program.definition(id).orElse(null);
+      CoreDefinition definition = program.structure(id).orElse(null);
       if (!(definition instanceof CoreDefinition.Aggregate aggregate)
           || aggregate.parentType().isEmpty()) return null;
       current =
@@ -844,23 +835,22 @@ final class AnnotationRuntime {
       throw new IllegalArgumentException(operation + " require an aggregate type");
     }
     DefinitionId aggregateId = resolveExternal(user.definition());
-    if (!(program.definition(aggregateId).orElseThrow() instanceof CoreDefinition.Aggregate)) {
+    if (!(program.structure(aggregateId).orElseThrow() instanceof CoreDefinition.Aggregate)) {
       throw new IllegalArgumentException(operation + " require an aggregate type");
     }
     return aggregateId;
   }
 
   private DefinitionOccurrenceId occurrence(DefinitionId definition) {
-    List<dev.w0fv1.norm.core.CoreDefinitionOccurrence> occurrences =
-        authoring.occurrences(definition);
+    List<DefinitionOccurrenceId> occurrences = declarations.occurrences(definition);
     if (occurrences.isEmpty()) {
       throw new IllegalStateException("reflected declaration occurrence is absent");
     }
-    return occurrences.getFirst().id();
+    return occurrences.getFirst();
   }
 
   private String nominal(DefinitionId id) {
-    return switch (program.definition(id).orElseThrow()) {
+    return switch (program.structure(id).orElseThrow()) {
       case CoreDefinition.Aggregate aggregate -> aggregate.nominalType().name();
       case CoreDefinition.Enum declaration -> declaration.nominalType().name();
       case CoreDefinition.Interface declaration -> declaration.nominalType().name();
@@ -917,8 +907,7 @@ final class AnnotationRuntime {
                   target,
                   occurrence(callableId),
                   callableReference.virtual() ? callableId : null,
-                  ((CoreDefinition.Callable) program.definition(callableId).orElseThrow())
-                      .hasReceiver(),
+                  program.callable(callableId).orElseThrow().hasReceiver(),
                   null,
                   new Object[0],
                   callableReference.receiverTypeArguments().toArray(),
@@ -943,7 +932,7 @@ final class AnnotationRuntime {
       throw new IllegalStateException("annotation enum value has an invalid type");
     }
     DefinitionId id = resolveExternal(user.definition());
-    if (!(program.definition(id).orElseThrow() instanceof CoreDefinition.Enum enumeration)
+    if (!(program.structure(id).orElseThrow() instanceof CoreDefinition.Enum enumeration)
         || enumeration.variants().stream().noneMatch(item -> item.key().equals(variant))) {
       throw new IllegalStateException("annotation enum variant is unavailable: " + variant);
     }
