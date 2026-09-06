@@ -124,7 +124,9 @@ node cli/compiler/scripts/compare-native-size.mjs <baseline-report> <candidate-r
 
 整组报告使用 `compare-native-size.mjs --sets <baseline-root> <candidate-root> [maximum-growth-bytes]`。两个目录的直属子目录必须都是完整报告；按已验证的输入与功能范围匹配，不依赖随机目录名。每个候选必须对应唯一基线，样本覆盖必须完整；空集合、歧义基线、重复候选、缺失样本和不可比输入均失败。预算逐样本应用，不允许一个样本的缩小抵消另一个样本的增长。
 
-Toolchain 的 `native-size-gate.mjs` 从同仓库、同工作流、默认分支的较早成功 push 或手动运行中，选择最新包含对应平台证据制品的基线，执行零增长检查。缺失基线、过期制品或不可比输入均失败。首次建立基线或明确接受输入/预算基准变更时，在默认分支手动运行 Toolchain 并勾选 `initialize_native_baseline`；该模式仍验证当次报告与功能凭证，将状态记录为 `initialized` 而非比较通过。初始化不允许由普通 push、PR 或其他分支启用。Release 工作流目前仅归档证据，不运行此历史基线门禁。
+Toolchain 的基线入口为 `native-size-gate.mjs`，策略与持久化分别见 `native-baseline.mjs`、`native-baseline-store.mjs`。首次缺少基线时，仅主仓库默认分支的完整验收允许生成提案；独立写入任务在测试任务成功后保存基线，状态为 `initialized`，不声称比较通过。PR 只读基线，缺少基线时明确失败，不获得仓库写权限。
+
+基线保存在 `refs/heads/ci/native-size/<workflow-id>/<platform>`，只包含比较必需的 JSON 报告与来源记录，不保存 EXE、JAR 或大型调用图，不随 Actions 诊断附件过期。后续运行对照该固定基线，不自动滚动抬高预算；损坏证据和不可比输入不会被当成首次运行。确需重置时，在默认分支手动运行 Toolchain，填写 `native_baseline_reset_reason`。重置保留 Git 历史与来源，使用预期父提交保护并发写入。Actions 摘要区分待初始化、初始化、重置、通过、体积增长及证据/输入错误；Release 仍只归档证据，不运行此基线门禁。验证入口见 `native-baseline-policy.test.mjs`、`native-baseline-store.test.mjs`。
 
 默认允许增长为零，按完整交付大小判断，超预算或证据不可比时退出非零；同时输出 EXE、代码区和镜像堆差值。比较器核对记录的工具链、优化等级、源码哈希、Java 制品内容及至少三次相同范围的功能验收。Java 输入清单验证与归档共用 `native-java-inputs.mjs`，汇总指标与 GraalVM 原始统计的一致性验证共用 `native-size-metrics.mjs`。此检查不重新运行历史程序，也不构成完整可复现构建证明：生成类、全部元数据和额外编译参数尚未形成统一输入指纹，涉及这些输入的变更仍需独立审查。
 

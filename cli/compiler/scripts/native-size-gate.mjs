@@ -1,60 +1,78 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isDeepStrictEqual } from 'node:util';
-import { trustedBaselineRuns, selectBaselineArtifact, validateBaselineInitialization } from './native-baseline.mjs';
-import { readNativeSizeSet, compareNativeSizeSets } from './compare-native-size.mjs';
+import { baselineAction } from './native-baseline.mjs';
+import { BaselineStore, prepareBaseline } from './native-baseline-store.mjs';
+import { compareNativeSizeSets } from './compare-native-size.mjs';
 
-function gh(args) {
-  const result = spawnSync('gh', args, { encoding: 'utf8', windowsHide: true, timeout: 30000 });
+function api(path) {
+  const result = spawnSync('gh', ['api', path], { encoding: 'utf8', windowsHide: true, timeout: 30000 });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, result.stderr);
-  return result.stdout;
+  return JSON.parse(result.stdout);
 }
 
-const repository = process.env.GITHUB_REPOSITORY;
-const runId = Number(process.env.GITHUB_RUN_ID);
-assert.ok(typeof repository === 'string' && /^[\w.-]+\/[\w.-]+$/.test(repository), 'Missing GitHub repository');
-assert.ok(Number.isSafeInteger(runId) && runId > 0, 'Missing workflow run identity');
-const root = resolve(process.argv[2] ?? 'build/reports/native-size');
-const candidates = readNativeSizeSet(root);
-for (let index = 0; index < candidates.length; index++) {
-  assert.ok(!candidates.slice(0, index).some(previous => isDeepStrictEqual(previous.report.inputs, candidates[index].report.inputs)), 'Duplicate candidate scope');
-}
-const current = JSON.parse(gh(['api', `repos/${repository}/actions/runs/${runId}`]));
-const repo = JSON.parse(gh(['api', `repos/${repository}`]));
-assert.equal(current.repository.full_name, repository, 'Current run repository mismatch');
-const artifactName = `native-size-${process.env.RUNNER_OS}-${process.env.RUNNER_ARCH}`;
-assert.ok(process.env.RUNNER_OS && process.env.RUNNER_ARCH, 'Missing runner identity');
-let gate;
-if (process.env.NORM_NATIVE_BASELINE_INITIALIZE === 'true') {
-  validateBaselineInitialization(current, repository, repo.default_branch);
-  gate = { status: 'initialized', runId, artifactName, samples: candidates.length };
-} else {
-  const pages = JSON.parse(gh(['api', '--paginate', '--slurp',
-    `repos/${repository}/actions/workflows/${current.workflow_id}/runs?branch=${encodeURIComponent(repo.default_branch)}&per_page=100`]));
-  const runs = trustedBaselineRuns(pages.flatMap(page => page.workflow_runs), {
-    repository, workflowId: current.workflow_id, branch: repo.default_branch, runNumber: current.run_number,
-  });
-  let baseline;
-  for (const run of runs) {
-    const artifactPages = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`]));
-    const artifact = selectBaselineArtifact(artifactPages.flatMap(page => page.artifacts), artifactName, run.id);
-    if (artifact) { baseline = { run, artifact }; break; }
-  }
-  assert.ok(baseline, 'No trusted native baseline. Explicit default-branch initialization is required.');
-  const directory = mkdtempSync(resolve(tmpdir(), 'norm-native-baseline-'));
-  try {
-    gh(['run', 'download', String(baseline.run.id), '--repo', repository, '--name', artifactName, '--dir', directory]);
-    const comparison = compareNativeSizeSets(directory, root);
-    gate = { status: comparison.passed ? 'passed' : 'failed', runId, baselineRunId: baseline.run.id,
-      baselineArtifactId: baseline.artifact.id, ...comparison };
+const publish = process.argv[2] === '--publish';
+const root = resolve(process.argv[publish ? 3 : 2] ?? 'build/reports/native-size');
+const proposal = resolve('build/reports/native-baseline-proposal');
+let store;
+let stage = 'context-invalid';
+let result;
+try {
+  const repository = process.env.GITHUB_REPOSITORY;
+  const runId = Number(process.env.GITHUB_RUN_ID);
+  assert.match(repository ?? '', /^[\w.-]+\/[\w.-]+$/);
+  assert.ok(Number.isSafeInteger(runId) && runId > 0, 'Invalid workflow run');
+  const run = api(`repos/${repository}/actions/runs/${runId}`);
+  const repo = api(`repos/${repository}`);
+  assert.equal(run.repository.full_name, repository);
+  const context = { repository, branch: repo.default_branch, run,
+    resetReason: process.env.NORM_NATIVE_BASELINE_RESET_REASON?.trim() ?? '' };
+  const identity = { repository, workflowId: run.workflow_id,
+    platform: `${process.env.RUNNER_OS}-${process.env.RUNNER_ARCH}` };
+  assert.ok(process.env.RUNNER_OS && process.env.RUNNER_ARCH, 'Missing platform');
+  const provenance = { ...identity, runId, sourceSha: run.head_sha, branch: run.head_branch };
+  stage = 'candidate-invalid';
+  if (!publish) compareNativeSizeSets(root, root);
+  stage = 'baseline-read-failed';
+  store = new BaselineStore(`https://github.com/${repository}.git`, identity);
+  const baseline = store.load();
+  stage = 'baseline-policy-rejected';
+  const action = baselineAction(context, baseline !== undefined);
+  if (publish) {
+    assert.ok(action !== 'compare', 'Publication requires initialization or explicit reset');
+    const manifest = JSON.parse(readFileSync(resolve(root, 'manifest.json'), 'utf8'));
+    for (const [key, value] of Object.entries(provenance)) assert.equal(manifest[key], value, `Proposal ${key} mismatch`);
+    assert.equal(manifest.reason, context.resetReason || 'First verified default-branch baseline');
+    stage = 'baseline-publication-failed';
+    const commit = store.publish(root);
+    result = { status: action === 'reset' ? 'reset' : 'initialized', ...provenance, baselineCommit: commit, ref: store.ref };
+  } else if (action !== 'compare') {
+    stage = 'baseline-proposal-invalid';
+    prepareBaseline(root, proposal, { ...provenance, parent: baseline?.commit ?? null,
+      reason: context.resetReason || 'First verified default-branch baseline' });
+    result = { status: `${action}-pending`, ...provenance, ref: store.ref };
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'publish_baseline=true\n');
+  } else {
+    stage = 'incomparable-inputs';
+    const comparison = compareNativeSizeSets(baseline.reports, root);
+    result = { status: comparison.passed ? 'passed' : 'size-growth', ...provenance,
+      baselineCommit: baseline.commit, ref: store.ref, ...comparison };
     if (!comparison.passed) process.exitCode = 1;
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
   }
+} catch (error) {
+  result = { status: stage, message: error.message };
+  process.exitCode = 1;
+} finally {
+  store?.close();
 }
-writeFileSync(resolve(root, 'gate.json'), JSON.stringify(gate, null, 2) + '\n');
-console.log(JSON.stringify(gate, null, 2));
+if (!publish) writeFileSync(resolve(root, 'gate.json'), JSON.stringify(result, null, 2) + '\n');
+console.log(JSON.stringify(result, null, 2));
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const details = result.comparisons?.map(item => `${item.candidate}: delivery ${item.deltas.deliveryBytes >= 0 ? '+' : ''}${item.deltas.deliveryBytes} bytes`).join('\n');
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+    `## Native size baseline\n\nStatus: **${result.status}**\n\n` +
+    (result.baselineCommit ? `Baseline commit: \`${result.baselineCommit}\`\n\n` : '') +
+    `<pre>${(result.message ?? details ?? 'No size comparison is claimed for initialization or reset.').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</pre>\n`);
+}

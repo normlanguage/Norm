@@ -30,10 +30,10 @@ on:
       - 'gradlew.bat'
   workflow_dispatch:
     inputs:
-      initialize_native_baseline:
-        description: Initialize native size baseline on the default branch
-        type: boolean
-        default: false
+      native_baseline_reset_reason:
+        description: Explicit baseline reset reason; leave empty for normal comparison
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -47,6 +47,8 @@ jobs:
   test:
     name: OpenJDK 25
     runs-on: ubuntu-latest
+    outputs:
+      publish_baseline: ${{ steps.native-size.outputs.publish_baseline }}
 
     steps:
       - name: Check out sources
@@ -67,6 +69,11 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
 
       - name: Verify Windows launcher core
         run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj
@@ -93,10 +100,20 @@ jobs:
           npm run --prefix cli/extensions/vscode smoke:lsp
 
       - name: Check native size budget
+        id: native-size
         env:
           GH_TOKEN: ${{ github.token }}
-          NORM_NATIVE_BASELINE_INITIALIZE: ${{ inputs.initialize_native_baseline && 'true' || 'false' }}
+          NORM_NATIVE_BASELINE_RESET_REASON: ${{ inputs.native_baseline_reset_reason }}
         run: node cli/compiler/scripts/native-size-gate.mjs build/reports/native-size
+
+      - name: Upload baseline proposal
+        if: steps.native-size.outputs.publish_baseline == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-baseline-proposal
+          path: build/reports/native-baseline-proposal
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload native build evidence
         if: always()
@@ -107,3 +124,36 @@ jobs:
           if-no-files-found: warn
           include-hidden-files: true
           retention-days: 30
+
+  publish-baseline:
+    needs: test
+    if: >-
+      needs.test.outputs.publish_baseline == 'true' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Check out verified sources
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Download verified baseline proposal
+        uses: actions/download-artifact@v5
+        with:
+          name: native-baseline-proposal
+          path: build/reports/native-baseline-proposal
+
+      - name: Publish durable baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NORM_NATIVE_BASELINE_RESET_REASON: ${{ inputs.native_baseline_reset_reason }}
+        run: node cli/compiler/scripts/native-size-gate.mjs --publish build/reports/native-baseline-proposal
