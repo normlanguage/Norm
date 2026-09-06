@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "executable": "/tmp/norm-native-hello-F2Yl9Y/hello",
+  "sha256": "f6edc884c4e9f4315472c7fc0869c91da8d3c9bd788ca14814076eab832fd0d1",
+  "executableBytes": 16845064,
+  "imageBytes": 17891824,
+  "codeBytes": 5979360,
+  "heapBytes": 10354688,
+  "reachableMethods": 18396,
+  "reflectionMethods": 487,
+  "reachableTypes": 4283,
+  "reflectionTypes": 233,
+  "runtimeFiles": [
+    {
+      "path": "hello",
+      "bytes": 16845064,
+      "sha256": "f6edc884c4e9f4315472c7fc0869c91da8d3c9bd788ca14814076eab832fd0d1"
+    }
+  ],
+  "deliveryBytes": 16845064
+}

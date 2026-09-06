@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "arguments": [
+    "-Dtruffle.UseFallbackRuntime\u003dtrue",
+    "-Dpolyglot.engine.WarnInterpreterOnly\u003dfalse",
+    "--enable-native-access\u003dALL-UNNAMED,org.graalvm.truffle",
+    "--initialize-at-build-time\u003ddev.w0fv1.norm",
+    "--initialize-at-run-time\u003ddev.w0fv1.norm.truffle.JsonRuntime,dev.w0fv1.norm.truffle.YamlRuntime,dev.w0fv1.norm.truffle.JacksonDataRuntime,io.netty",
+    "--features\u003ddev.w0fv1.norm.runtime.NativeApplicationFeature",
+    "-H:+UnlockExperimentalVMOptions",
+    "-H:+ReportExceptionStackTraces",
+    "-H:+GenerateBuildArtifactsFile",
+    "-H:+DiagnosticsMode",
+    "-H:DiagnosticsDir\u003d/tmp/norm-native-hello-F2Yl9Y/.norm/build-reports/hello/run-17107559344619064616/analysis",
+    "-H:+PrintAnalysisCallTree",
+    "-H:+PrintImageHeapPartitionSizes",
+    "-H:PrintAnalysisCallTreeType\u003dCSV",
+    "-H:BuildOutputJSONFile\u003d/tmp/norm-native-hello-F2Yl9Y/.norm/build-reports/hello/run-17107559344619064616/build-output.json",
+    "-H:DashboardDump\u003d/tmp/norm-native-hello-F2Yl9Y/.norm/build-reports/hello/run-17107559344619064616/dashboard",
+    "-H:+DashboardCode",
+    "-H:+DashboardHeap",
+    "-H:+DashboardJson",
+    "-H:-DashboardBgv",
+    "-H:-UnlockExperimentalVMOptions",
+    "-J-Dnorm.native.application.archive\u003d/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/application.bin",
+    "-cp",
+    "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/compiler-0.21.1.jar:/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/native-image:/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/reachability/classpath:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-core-2.20.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-dataformat-yaml-2.20.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/woodstox-core-7.2.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/polyglot-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/truffle-api-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/objenesis-3.4.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-simple-2.0.18.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/kryo-5.6.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/nativeimage-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/asm-9.9.1.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-databind-2.20.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/snakeyaml-2.4.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/stax2-api-4.3.0.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/collections-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jniutils-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-api-2.0.18.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/minlog-1.3.1.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/reflectasm-1.11.9.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/word-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-annotations-2.20.jar",
+    "-o",
+    "/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/hello",
+    "dev.w0fv1.norm.runtime.NativeApplicationMain"
+  ],
+  "classpath": [
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/compiler-0.21.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "compiler-0.21.1.jar",
+          "sha256": "cd0af2e03d428e9d1a12ffca2f74bb511060f56888381ac3aacedad491fc4370",
+          "bytes": 4803453
+        }
+      ]
+    },
+    {
+      "path": "/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/native-image",
+      "kind": "directory",
+      "files": [
+        {
+          "path": "META-INF/native-image/norm/application/reachability-metadata.json",
+          "sha256": "8f2b3e241e93ca9e5fa1262c1f4b67d7176619324cb23b4c36096a371af0436a",
+          "bytes": 32
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls.class",
+          "sha256": "8576bdc79572bfaa1a9dfa3b190543cb6dcfa5e960b21b6e6749fd1a9c1fa462",
+          "bytes": 303
+        }
+      ]
+    },
+    {
+      "path": "/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/reachability/classpath",
+      "kind": "directory",
+      "files": [
+        {
+          "path": "META-INF/native-image/com.esotericsoftware/minlog/1.3.1/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.core/jackson-annotations/2.20/reachability-metadata.json",
+          "sha256": "e891f20253a9a6fa5eae8fa1d729ce00bf83163f7862cd06dab907928537b2fc",
+          "bytes": 659
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.core/jackson-core/2.20.2/reachability-metadata.json",
+          "sha256": "1d6faa9e1a76d13f3ab8558a3640158b1f0a54f624a4e37ddc3ef41ed4191058",
+          "bytes": 4
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.core/jackson-databind/2.20.2/reachability-metadata.json",
+          "sha256": "a170b15cedff217e49ae0fc925e2e293ffcd3fc43af001108879bad916d8fc8d",
+          "bytes": 15230
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.20.2/reachability-metadata.json",
+          "sha256": "e004698dde9767bd6facd9a6994895f752c411eb232d971f6a75bc77eb8539fa",
+          "bytes": 323
+        },
+        {
+          "path": "META-INF/native-image/org.codehaus.woodstox/stax2-api/4.3.0/reachability-metadata.json",
+          "sha256": "1d6faa9e1a76d13f3ab8558a3640158b1f0a54f624a4e37ddc3ef41ed4191058",
+          "bytes": 4
+        },
+        {
+          "path": "META-INF/native-image/org.objenesis/objenesis/3.4/reachability-metadata.json",
+          "sha256": "963870e5e664f118d2ca015d878e60ba815df31a8f99e1c5262a40e3937905c8",
+          "bytes": 518
+        },
+        {
+          "path": "META-INF/native-image/org.ow2.asm/asm/9.9.1/reachability-metadata.json",
+          "sha256": "1c6c89bf852f4be16d9240e51cc7ffc5a6b47d169bccc48b2079135879c77927",
+          "bytes": 722
+        },
+        {
+          "path": "META-INF/native-image/org.slf4j/slf4j-api/2.0.18/reachability-metadata.json",
+          "sha256": "4d445a3dba64a9f437785bc17759b0fa182027a66041f3da7a7223c83c500ea4",
+          "bytes": 557
+        },
+        {
+          "path": "META-INF/native-image/org.slf4j/slf4j-simple/2.0.18/reachability-metadata.json",
+          "sha256": "9c9baea4dc3fd054591ca9969900fdca17f2c88b4be3c1a67cc1ae981b7f06a4",
+          "bytes": 709
+        },
+        {
+          "path": "META-INF/native-image/org.yaml/snakeyaml/2.4/reachability-metadata.json",
+          "sha256": "42311d57389c386bd7ee47052737bcacab096c223000fee7a1cf97bd03fb7d5b",
+          "bytes": 1832
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-core-2.20.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-core-2.20.2.jar",
+          "sha256": "61b85a41bbc333e6db3b7724d5a9ff5011ec5f9eb1cee41e622420bc6e0e4131",
+          "bytes": 593203
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-dataformat-yaml-2.20.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-dataformat-yaml-2.20.2.jar",
+          "sha256": "a62b5caa09de0b97e432d00c759b8b241791244bea0e82d64b146b6b490f779f",
+          "bytes": 60090
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/woodstox-core-7.2.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "woodstox-core-7.2.2.jar",
+          "sha256": "3bd35f778fb15cd517fae51961ba7a9388eae8e4a836fac1166c7f70740e55cd",
+          "bytes": 1623687
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/polyglot-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "polyglot-25.1.3.jar",
+          "sha256": "9ff7efeded9107f72d656647c4a775dcb9fe53ed1a27a0a1bb8cee14776cb1c5",
+          "bytes": 513986
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/truffle-api-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "truffle-api-25.1.3.jar",
+          "sha256": "6514bf2d6ab58a89b196a5afa30c864eda6a96bb9010885d1c7098c0c9401042",
+          "bytes": 16847280
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/objenesis-3.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "objenesis-3.4.jar",
+          "sha256": "95488102feaf2e2858adf6b299353677dac6c15294006f8ed1c5556f8e3cd251",
+          "bytes": 49076
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-simple-2.0.18.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "slf4j-simple-2.0.18.jar",
+          "sha256": "8268bd018a5709b07209e0d8ca6221a37584ba1bc12ba985b8335a82c648bdd0",
+          "bytes": 15721
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/kryo-5.6.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "kryo-5.6.2.jar",
+          "sha256": "4e8b1d2f4977187af8a51a957329722dc1cdc56a7c94fbb5a791e82897629cff",
+          "bytes": 373885
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/nativeimage-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "nativeimage-25.1.3.jar",
+          "sha256": "dc0516fb3007c33ebf0b7c8b654c4a5a8230e974c4b5f98bc67cbbfac725c40a",
+          "bytes": 249782
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/asm-9.9.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "asm-9.9.1.jar",
+          "sha256": "6f3828a215c920059a5efa2fb55c233d6c54ec5cadca99ce1b1bdd10077c7ddd",
+          "bytes": 126252
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-databind-2.20.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-databind-2.20.2.jar",
+          "sha256": "119573fc6ceb25b26bb032bb5888e7fd8a4e933987968a388253a017dacb5e54",
+          "bytes": 1688822
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/snakeyaml-2.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "snakeyaml-2.4.jar",
+          "sha256": "ef779af5d29a9dde8cc70ce0341f5c6f7735e23edff9685ceaa9d35359b7bb7f",
+          "bytes": 339825
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/stax2-api-4.3.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "stax2-api-4.3.0.jar",
+          "sha256": "7c805f36129ea9fa42b696093b7ae1eb20bb6ccec65c8280d6f33db5609ca5e1",
+          "bytes": 194113
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/collections-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "collections-25.1.3.jar",
+          "sha256": "ffd397fae7b5cd0ef99b1917081210cec5209c8ea391ca4557d889da638569bd",
+          "bytes": 128674
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jniutils-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jniutils-25.1.3.jar",
+          "sha256": "16aecea0047f1ccdddf21c90be4c3dfd20e690dda3d5a7e0743291a246e18564",
+          "bytes": 280789
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-api-2.0.18.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "slf4j-api-2.0.18.jar",
+          "sha256": "44508fd1576500688c790b190acdd16fec4f8c79a3e0b900afd70503cf055f55",
+          "bytes": 69982
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/minlog-1.3.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "minlog-1.3.1.jar",
+          "sha256": "5d4d632cfbebfe0a7644501cc303570b691406181bee65e9916b921c767d7c72",
+          "bytes": 5923
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/reflectasm-1.11.9.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "reflectasm-1.11.9.jar",
+          "sha256": "712b44da79a5b7f47a28cbfcb3d8ecfc872fae349c48aa4d3e38a5d69956afce",
+          "bytes": 72265
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/word-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "word-25.1.3.jar",
+          "sha256": "5b4aa7d7ef8d79cc22afaeab7396be832253140dd7758ff0a2ee0de853a6d57a",
+          "bytes": 73154
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-annotations-2.20.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-annotations-2.20.jar",
+          "sha256": "959a2ffb2d591436f51f183c6a521fc89347912f711bf0cae008cdf045d95319",
+          "bytes": 79195
+        }
+      ]
+    }
+  ],
+  "archive": {
+    "path": "/tmp/norm-native-hello-F2Yl9Y/.norm-native-11727556632376713839/application.bin",
+    "kind": "file",
+    "files": [
+      {
+        "path": "application.bin",
+        "sha256": "10ffa0879273cc361011427f3c61745ff55b2a041cf5fa1b6f263c391d43af28",
+        "bytes": 1556
+      }
+    ]
+  },
+  "launcher": {
+    "path": "/home/runner/.norm/toolchains/native-image/25.1.3/linux-x64/graalvm-community-25.1.3+9.1/lib/svm/bin/native-image",
+    "kind": "file",
+    "files": [
+      {
+        "path": "native-image",
+        "sha256": "efd19a1053a39962feae9e77f44aceadf30411112d2eb48142c3744c4d0aef30",
+        "bytes": 29919528
+      }
+    ]
+  }
+}

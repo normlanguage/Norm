@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "executableSha256": "db498f45d8376e31a5bf6e27416c4d4353307007fdf9d187e853b3eb1fdcf96c",
+  "sourceSha256": "4b52f4a84568e42f5e579cf78a9a8d5c38749a9fa9ca88837a23a0dff4875d8d",
+  "runs": [
+    {
+      "iteration": 1,
+      "elapsedMs": 235,
+      "checks": [
+        "http",
+        "dependency-injection",
+        "bean-validation",
+        "commit",
+        "database-read",
+        "rollback"
+      ]
+    },
+    {
+      "iteration": 2,
+      "elapsedMs": 175,
+      "checks": [
+        "http",
+        "dependency-injection",
+        "bean-validation",
+        "commit",
+        "database-read",
+        "rollback"
+      ]
+    },
+    {
+      "iteration": 3,
+      "elapsedMs": 165,
+      "checks": [
+        "http",
+        "dependency-injection",
+        "bean-validation",
+        "commit",
+        "database-read",
+        "rollback"
+      ]
+    }
+  ]
+}

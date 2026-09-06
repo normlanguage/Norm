@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "executable": "/tmp/norm-java-binding-BADpdL/binding",
+  "sha256": "9048cb14a99d006da7cd7deea21fba08a4bd46c3b9ab00b78771d399e7d8c407",
+  "executableBytes": 18680072,
+  "imageBytes": 19859784,
+  "codeBytes": 6627456,
+  "heapBytes": 11534336,
+  "reachableMethods": 21034,
+  "reflectionMethods": 530,
+  "reachableTypes": 4762,
+  "reflectionTypes": 256,
+  "runtimeFiles": [
+    {
+      "path": "binding",
+      "bytes": 18680072,
+      "sha256": "9048cb14a99d006da7cd7deea21fba08a4bd46c3b9ab00b78771d399e7d8c407"
+    }
+  ],
+  "deliveryBytes": 18680072
+}

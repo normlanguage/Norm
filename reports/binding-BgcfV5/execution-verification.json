@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "executableSha256": "9048cb14a99d006da7cd7deea21fba08a4bd46c3b9ab00b78771d399e7d8c407",
+  "sourceSha256": "371cab49df1afb5ac72f49e2cd129e5ccd0cb5cb0766ad76bf51349a6611b3f0",
+  "runs": [
+    {
+      "iteration": 1,
+      "elapsedMs": 18,
+      "output": "mroN\n"
+    },
+    {
+      "iteration": 2,
+      "elapsedMs": 17,
+      "output": "mroN\n"
+    },
+    {
+      "iteration": 3,
+      "elapsedMs": 16,
+      "output": "mroN\n"
+    }
+  ]
+}

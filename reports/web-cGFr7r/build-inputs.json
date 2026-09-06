@@ -1,0 +1,2134 @@
+{
+  "schemaVersion": 1,
+  "arguments": [
+    "-Dtruffle.UseFallbackRuntime\u003dtrue",
+    "-Dpolyglot.engine.WarnInterpreterOnly\u003dfalse",
+    "--enable-native-access\u003dALL-UNNAMED,org.graalvm.truffle",
+    "--initialize-at-build-time\u003ddev.w0fv1.norm",
+    "--initialize-at-run-time\u003ddev.w0fv1.norm.truffle.JsonRuntime,dev.w0fv1.norm.truffle.YamlRuntime,dev.w0fv1.norm.truffle.JacksonDataRuntime,io.netty",
+    "--features\u003ddev.w0fv1.norm.runtime.NativeApplicationFeature",
+    "-H:+UnlockExperimentalVMOptions",
+    "-H:ServiceLoaderFeatureExcludeServiceProviders\u003dorg.hibernate.bytecode.internal.bytebuddy.BytecodeProviderImpl",
+    "-H:ExcludeResources\u003dMETA-INF/services/org[.]hibernate[.]bytecode[.]spi[.]BytecodeProvider",
+    "-H:+ReportExceptionStackTraces",
+    "-H:+GenerateBuildArtifactsFile",
+    "-H:+DiagnosticsMode",
+    "-H:DiagnosticsDir\u003d/tmp/norm-native-web-3mLBJa/.norm/build-reports/web/run-17443994411855194937/analysis",
+    "-H:+PrintAnalysisCallTree",
+    "-H:+PrintImageHeapPartitionSizes",
+    "-H:PrintAnalysisCallTreeType\u003dCSV",
+    "-H:BuildOutputJSONFile\u003d/tmp/norm-native-web-3mLBJa/.norm/build-reports/web/run-17443994411855194937/build-output.json",
+    "-H:DashboardDump\u003d/tmp/norm-native-web-3mLBJa/.norm/build-reports/web/run-17443994411855194937/dashboard",
+    "-H:+DashboardCode",
+    "-H:+DashboardHeap",
+    "-H:+DashboardJson",
+    "-H:-DashboardBgv",
+    "-H:-UnlockExperimentalVMOptions",
+    "-J-Dnorm.native.application.archive\u003d/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/application.bin",
+    "-cp",
+    "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/compiler-0.21.1.jar:/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/native-image:/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/reachability/classpath:/tmp/norm-native-web-3mLBJa/build/norm/java/classes:/home/runner/.norm/cache/maven/io/micronaut/micronaut-http/5.1.13/micronaut-http-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-client-core/5.1.13/micronaut-http-client-core-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-core/5.1.13/micronaut-core-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-inject/5.1.13/micronaut-inject-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-aop/5.1.13/micronaut-aop-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-context/5.1.13/micronaut-context-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-json-core/5.1.13/micronaut-json-core-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-api/3.1.1/micronaut-serde-api-3.1.1.jar:/home/runner/.norm/cache/maven/jakarta/inject/jakarta.inject-api/2.0.1/jakarta.inject-api-2.0.1.jar:/home/runner/.norm/cache/maven/jakarta/validation/jakarta.validation-api/3.1.1/jakarta.validation-api-3.1.1.jar:/home/runner/.norm/cache/maven/io/micronaut/validation/micronaut-validation/5.1.0/micronaut-validation-5.1.0.jar:/home/runner/.norm/cache/maven/io/micronaut/security/micronaut-security/5.3.2/micronaut-security-5.3.2.jar:/home/runner/.norm/cache/maven/io/projectreactor/reactor-core/3.8.7/reactor-core-3.8.7.jar:/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-jackson/3.1.1/micronaut-serde-jackson-3.1.1.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-client/5.1.13/micronaut-http-client-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-management/5.1.13/micronaut-management-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-server-netty/5.1.13/micronaut-http-server-netty-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-processor/3.1.1/micronaut-serde-processor-3.1.1.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-inject-java/5.1.13/micronaut-inject-java-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/validation/micronaut-validation-processor/5.1.0/micronaut-validation-processor-5.1.0.jar:/home/runner/.norm/cache/maven/jakarta/persistence/jakarta.persistence-api/3.2.0/jakarta.persistence-api-3.2.0.jar:/home/runner/.norm/cache/maven/org/hibernate/orm/hibernate-core/7.4.7.Final/hibernate-core-7.4.7.Final.jar:/home/runner/.norm/cache/maven/io/micronaut/sql/micronaut-jdbc-hikari/7.1.2/micronaut-jdbc-hikari-7.1.2.jar:/home/runner/.norm/cache/maven/io/micronaut/sql/micronaut-hibernate-jpa/7.1.2/micronaut-hibernate-jpa-7.1.2.jar:/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-tx-hibernate/5.1.3/micronaut-data-tx-hibernate-5.1.3.jar:/home/runner/.norm/cache/maven/com/h2database/h2/2.4.240/h2-2.4.240.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-core-2.20.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-dataformat-yaml-2.20.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/woodstox-core-7.2.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/polyglot-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/truffle-api-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/objenesis-3.4.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-simple-2.0.18.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/kryo-5.6.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/nativeimage-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/asm-9.9.1.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-context-propagation/5.1.13/micronaut-context-propagation-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-core-reactive/5.1.13/micronaut-core-reactive-5.1.13.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-api-2.0.18.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-discovery-core/5.1.13/micronaut-discovery-core-5.1.13.jar:/home/runner/.norm/cache/maven/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.jar:/home/runner/.norm/cache/maven/jakarta/annotation/jakarta.annotation-api/2.1.1/jakarta.annotation-api-2.1.1.jar:/home/runner/.norm/cache/maven/io/micronaut/reactor/micronaut-reactor/4.1.0/micronaut-reactor-4.1.0.jar:/home/runner/.norm/cache/maven/io/micronaut/security/micronaut-security-annotations/5.3.2/micronaut-security-annotations-5.3.2.jar:/home/runner/.norm/cache/maven/org/reactivestreams/reactive-streams/1.0.4/reactive-streams-1.0.4.jar:/home/runner/.norm/cache/maven/com/fasterxml/jackson/core/jackson-annotations/2.21/jackson-annotations-2.21.jar:/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-support/3.1.1/micronaut-serde-support-3.1.1.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-jackson-core/5.1.3/micronaut-jackson-core-5.1.3.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-netty/5.1.13/micronaut-http-netty-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-websocket/5.1.13/micronaut-websocket-5.1.13.jar:/home/runner/.norm/cache/maven/io/netty/netty-handler-proxy/4.2.17.Final/netty-handler-proxy-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-router/5.1.13/micronaut-router-5.1.13.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-server/5.1.13/micronaut-http-server-5.1.13.jar:/home/runner/.norm/cache/maven/io/netty/contrib/netty-codec-multipart-core/1.0.0.Final/netty-codec-multipart-core-1.0.0.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-http/4.2.17.Final/netty-codec-http-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-generator-java/2.0.0/micronaut-sourcegen-generator-java-2.0.0.jar:/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-generator/2.0.0/micronaut-sourcegen-generator-2.0.0.jar:/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-model/2.0.0/micronaut-sourcegen-model-2.0.0.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-core-processor/5.1.13/micronaut-core-processor-5.1.13.jar:/home/runner/.norm/cache/maven/jakarta/transaction/jakarta.transaction-api/2.0.1/jakarta.transaction-api-2.0.1.jar:/home/runner/.norm/cache/maven/jakarta/xml/bind/jakarta.xml.bind-api/4.0.4/jakarta.xml.bind-api-4.0.4.jar:/home/runner/.norm/cache/maven/net/bytebuddy/byte-buddy/1.18.8/byte-buddy-1.18.8.jar:/home/runner/.norm/cache/maven/org/antlr/antlr4-runtime/4.13.2/antlr4-runtime-4.13.2.jar:/home/runner/.norm/cache/maven/org/glassfish/jaxb/jaxb-runtime/4.0.7/jaxb-runtime-4.0.7.jar:/home/runner/.norm/cache/maven/org/hibernate/models/hibernate-models/1.1.2/hibernate-models-1.1.2.jar:/home/runner/.norm/cache/maven/org/jboss/logging/jboss-logging/3.6.1.Final/jboss-logging-3.6.1.Final.jar:/home/runner/.norm/cache/maven/com/zaxxer/HikariCP/7.1.0/HikariCP-7.1.0.jar:/home/runner/.norm/cache/maven/io/micronaut/sql/micronaut-jdbc/7.1.2/micronaut-jdbc-7.1.2.jar:/home/runner/.norm/cache/maven/org/checkerframework/checker-qual/4.2.1/checker-qual-4.2.1.jar:/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-connection-hibernate/5.1.3/micronaut-data-connection-hibernate-5.1.3.jar:/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-tx-jdbc/5.1.3/micronaut-data-tx-jdbc-5.1.3.jar:/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-tx/5.1.3/micronaut-data-tx-5.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-databind-2.20.2.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/snakeyaml-2.4.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/stax2-api-4.3.0.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/collections-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jniutils-25.1.3.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/minlog-1.3.1.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/reflectasm-1.11.9.jar:/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/word-25.1.3.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-retry/5.1.13/micronaut-retry-5.1.13.jar:/home/runner/.norm/cache/maven/tools/jackson/core/jackson-core/3.1.4/jackson-core-3.1.4.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-buffer-netty/5.1.13/micronaut-buffer-netty-5.1.13.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-http2/4.2.17.Final/netty-codec-http2-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-handler/4.2.17.Final/netty-handler-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-buffer/4.2.17.Final/netty-buffer-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-base/4.2.17.Final/netty-codec-base-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-socks/4.2.17.Final/netty-codec-socks-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-common/4.2.17.Final/netty-common-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-transport/4.2.17.Final/netty-transport-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec/4.2.7.Final/netty-codec-4.2.7.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-compression/4.2.17.Final/netty-codec-compression-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-annotations/2.0.0/micronaut-sourcegen-annotations-2.0.0.jar:/home/runner/.norm/cache/maven/com/github/javaparser/javaparser-symbol-solver-core/3.28.0/javaparser-symbol-solver-core-3.28.0.jar:/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-bytecode-writer/2.0.0/micronaut-sourcegen-bytecode-writer-2.0.0.jar:/home/runner/.norm/cache/maven/jakarta/activation/jakarta.activation-api/2.1.4/jakarta.activation-api-2.1.4.jar:/home/runner/.norm/cache/maven/org/glassfish/jaxb/jaxb-core/4.0.7/jaxb-core-4.0.7.jar:/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-connection-jdbc/5.1.3/micronaut-data-connection-jdbc-5.1.3.jar:/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-connection/5.1.3/micronaut-data-connection-5.1.3.jar:/home/runner/.norm/cache/maven/io/netty/netty-resolver/4.2.17.Final/netty-resolver-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-transport-native-unix-common/4.2.17.Final/netty-transport-native-unix-common-4.2.17.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-marshalling/4.2.7.Final/netty-codec-marshalling-4.2.7.Final.jar:/home/runner/.norm/cache/maven/io/netty/netty-codec-protobuf/4.2.7.Final/netty-codec-protobuf-4.2.7.Final.jar:/home/runner/.norm/cache/maven/com/github/javaparser/javaparser-core/3.28.0/javaparser-core-3.28.0.jar:/home/runner/.norm/cache/maven/org/ow2/asm/asm-commons/9.9.1/asm-commons-9.9.1.jar:/home/runner/.norm/cache/maven/org/ow2/asm/asm-util/9.9.1/asm-util-9.9.1.jar:/home/runner/.norm/cache/maven/com/sun/istack/istack-commons-runtime/4.1.2/istack-commons-runtime-4.1.2.jar:/home/runner/.norm/cache/maven/org/eclipse/angus/angus-activation/2.0.3/angus-activation-2.0.3.jar:/home/runner/.norm/cache/maven/org/glassfish/jaxb/txw2/4.0.7/txw2-4.0.7.jar:/home/runner/.norm/cache/maven/io/micronaut/micronaut-runtime/5.1.10/micronaut-runtime-5.1.10.jar:/home/runner/.norm/cache/maven/org/ow2/asm/asm-tree/9.9.1/asm-tree-9.9.1.jar:/home/runner/.norm/cache/maven/org/ow2/asm/asm-analysis/9.9.1/asm-analysis-9.9.1.jar",
+    "-o",
+    "/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/web",
+    "dev.w0fv1.norm.runtime.NativeApplicationMain"
+  ],
+  "classpath": [
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/compiler-0.21.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "compiler-0.21.1.jar",
+          "sha256": "cd0af2e03d428e9d1a12ffca2f74bb511060f56888381ac3aacedad491fc4370",
+          "bytes": 4803453
+        }
+      ]
+    },
+    {
+      "path": "/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/native-image",
+      "kind": "directory",
+      "files": [
+        {
+          "path": "META-INF/native-image/norm/application/reachability-metadata.json",
+          "sha256": "09eea91207844e41543cef89c0344f726edbfdf320f225459e251b00c06bb072",
+          "bytes": 14079
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call0.class",
+          "sha256": "8c671cf5a641a6b6b1425df6562a6b46dbbf1a382782d30c1bb1d42a14e11750",
+          "bytes": 432
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call1.class",
+          "sha256": "963c4dec3a82eadf83585b68a46cb824b523ed6d5afd03b340004efb4a88830c",
+          "bytes": 401
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call10.class",
+          "sha256": "235bbd08c9076d6ba9fa22f950816850d7c2cd85f384058e7848dd0f21836355",
+          "bytes": 514
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call11.class",
+          "sha256": "f8f3f77a3961b4c670cb172984203ee24d384f56d4d4207bd98ab80a65e2cbfa",
+          "bytes": 440
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call12.class",
+          "sha256": "1f51c6d0cfdbd2d26e6e4a3bb06e6caee71d8b6099a496f1a76a41866c45c071",
+          "bytes": 443
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call13.class",
+          "sha256": "9e84dc6416847ce3dc177845c60f94b29a73e5a36862ce373480ece4aaa2bdd1",
+          "bytes": 442
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call14.class",
+          "sha256": "49c0c2578a14e7012a697d8e83870f3c33967ea9ca7b0f866b9db32a071b4bab",
+          "bytes": 527
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call15.class",
+          "sha256": "6350ee11a6082353db23ffce289c36f7d4e2211cc4ef2e2fe6f05e28fff8d08c",
+          "bytes": 405
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call16.class",
+          "sha256": "aefabbf0805b5943a8ff2fad4fdaba68c33cb703081cdde236314873b3f44566",
+          "bytes": 405
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call2.class",
+          "sha256": "02eb271b7a6faa7517254520d7940fd7d11006a4033730398b1cf760a6080cfc",
+          "bytes": 575
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call3.class",
+          "sha256": "94ccfbf930b88fc2aa56f0ba0525a746952b0f9e53f066f872cf01ad8bebe30b",
+          "bytes": 419
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call4.class",
+          "sha256": "ec622f73c69bd5481adb40a6c219895d040d7a953532925fccee835f12c51007",
+          "bytes": 548
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call5.class",
+          "sha256": "10e859eed26872e345da9dbf5b6b40cf0d9f22b775c96175204a1d5289a9ce64",
+          "bytes": 429
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call6.class",
+          "sha256": "35dc14046d63745aa45cfa61daeeff34e13a1d4cfe160956640a27fdeb852744",
+          "bytes": 456
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call7.class",
+          "sha256": "375989b4eed2ccbdf9c5b3582bc59879fd1dc34ca2954afcac7adac7ef6643b1",
+          "bytes": 505
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call8.class",
+          "sha256": "177fb5f11ccc3806ea29ab14ec3e00e4bef4873085f42f0e12c9a884fd4f5746",
+          "bytes": 512
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Call9.class",
+          "sha256": "0a43d6465635cdf8871967e6f91f9eef09d15c4e42a05b9b6ef43cc1d747f17c",
+          "bytes": 511
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls$Group0.class",
+          "sha256": "cc845cca735a6750ea8c8d161a85dd8f81d06ce3aebe9b256232561c8a9a6912",
+          "bytes": 5475
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/binding/Calls.class",
+          "sha256": "00e9c5ca3dd220814306eb62ac4119232422219e641c1a261e3c3189583edcac",
+          "bytes": 396
+        }
+      ]
+    },
+    {
+      "path": "/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/reachability/classpath",
+      "kind": "directory",
+      "files": [
+        {
+          "path": "META-INF/native-image/com.esotericsoftware/minlog/1.3.1/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.core/jackson-annotations/2.21/reachability-metadata.json",
+          "sha256": "e891f20253a9a6fa5eae8fa1d729ce00bf83163f7862cd06dab907928537b2fc",
+          "bytes": 659
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.core/jackson-core/2.20.2/reachability-metadata.json",
+          "sha256": "1d6faa9e1a76d13f3ab8558a3640158b1f0a54f624a4e37ddc3ef41ed4191058",
+          "bytes": 4
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.core/jackson-databind/2.20.2/reachability-metadata.json",
+          "sha256": "a170b15cedff217e49ae0fc925e2e293ffcd3fc43af001108879bad916d8fc8d",
+          "bytes": 15230
+        },
+        {
+          "path": "META-INF/native-image/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.20.2/reachability-metadata.json",
+          "sha256": "e004698dde9767bd6facd9a6994895f752c411eb232d971f6a75bc77eb8539fa",
+          "bytes": 323
+        },
+        {
+          "path": "META-INF/native-image/com.github.javaparser/javaparser-core/3.28.0/reachability-metadata.json",
+          "sha256": "6554d11ea5466549da3746aaf69784518fc17f1cd7ec75cb0314ea6f63d55802",
+          "bytes": 8144
+        },
+        {
+          "path": "META-INF/native-image/com.h2database/h2/2.4.240/reachability-metadata.json",
+          "sha256": "f2e1d2b6a901991c00292d91020d5116b90324aa8f0c139b6e5f3fedef4b6c05",
+          "bytes": 5045
+        },
+        {
+          "path": "META-INF/native-image/com.sun.istack/istack-commons-runtime/4.1.2/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/com.zaxxer/HikariCP/7.1.0/reachability-metadata.json",
+          "sha256": "5475b804a98c4342ab520bd3bbf66626d2593e935e7f12260a0bd7fd20ed42e4",
+          "bytes": 4776
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-buffer/4.2.17.Final/reachability-metadata.properties",
+          "sha256": "63db2b4a614a34d19d0dfd5139aed82eff04ad12031fd359a8ba2e4a5805ad81",
+          "bytes": 14
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-codec-http/4.2.17.Final/reachability-metadata.properties",
+          "sha256": "63db2b4a614a34d19d0dfd5139aed82eff04ad12031fd359a8ba2e4a5805ad81",
+          "bytes": 14
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-codec-http2/4.2.17.Final/reachability-metadata.properties",
+          "sha256": "63db2b4a614a34d19d0dfd5139aed82eff04ad12031fd359a8ba2e4a5805ad81",
+          "bytes": 14
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-codec-socks/4.2.17.Final/reachability-metadata.json",
+          "sha256": "df302564446d759a9a4165ffb8a4f4fa15128441401cb9f9220ce51b17c89ea6",
+          "bytes": 2007
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-codec/4.2.7.Final/reachability-metadata.json",
+          "sha256": "b87492abfcf5d2e0c3daf86079440e21c315da8debcc40b624e74fea5b667bf3",
+          "bytes": 10242
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-common/4.2.17.Final/reachability-metadata.json",
+          "sha256": "1a2759395e02f090ce368349d5bb5d400530ac5167cb06f88565429683d2ee09",
+          "bytes": 176224
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-common/4.2.17.Final/reachability-metadata.properties",
+          "sha256": "63db2b4a614a34d19d0dfd5139aed82eff04ad12031fd359a8ba2e4a5805ad81",
+          "bytes": 14
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-handler-proxy/4.2.17.Final/reachability-metadata.json",
+          "sha256": "4f40dd6465c610c53bea7aec30ba58283f65887950294e36227a4c0d33b78a6c",
+          "bytes": 7008
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-handler/4.2.17.Final/reachability-metadata.properties",
+          "sha256": "63db2b4a614a34d19d0dfd5139aed82eff04ad12031fd359a8ba2e4a5805ad81",
+          "bytes": 14
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-resolver/4.2.17.Final/reachability-metadata.json",
+          "sha256": "65ae0922db10e39893230d0eb1575ea3ca4e952346894a40ff382d8a122f88d1",
+          "bytes": 2555
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-transport-native-unix-common/4.2.17.Final/reachability-metadata.json",
+          "sha256": "a40efc4ddf25fa01342b2bd1087f3229b577103c3531e9dd410c2c841dbf4b07",
+          "bytes": 6653
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-transport/4.2.17.Final/reachability-metadata.json",
+          "sha256": "11ec49a5c4a13b118f3345ef12bda596c43f2fba0723e82108ac3dba8d704b4e",
+          "bytes": 866
+        },
+        {
+          "path": "META-INF/native-image/io.netty/netty-transport/4.2.17.Final/reachability-metadata.properties",
+          "sha256": "63db2b4a614a34d19d0dfd5139aed82eff04ad12031fd359a8ba2e4a5805ad81",
+          "bytes": 14
+        },
+        {
+          "path": "META-INF/native-image/io.projectreactor/reactor-core/3.8.7/reachability-metadata.json",
+          "sha256": "98907905b4236ac32454aeb3b4a717843b412153085eb8ecaf240966b1276240",
+          "bytes": 883
+        },
+        {
+          "path": "META-INF/native-image/jakarta.activation/jakarta.activation-api/2.1.4/reachability-metadata.json",
+          "sha256": "ebcfbf235f3ad600d8d753135ed6e330819b3d75183be60d61eb3471f2fb0d16",
+          "bytes": 591
+        },
+        {
+          "path": "META-INF/native-image/jakarta.annotation/jakarta.annotation-api/2.1.1/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/jakarta.inject/jakarta.inject-api/2.0.1/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/jakarta.persistence/jakarta.persistence-api/3.2.0/reachability-metadata.json",
+          "sha256": "be1d186bbf33b211a5823ea067e12a3e03f44de143efc60e62ac3a4c89e47b6d",
+          "bytes": 786
+        },
+        {
+          "path": "META-INF/native-image/jakarta.transaction/jakarta.transaction-api/2.0.1/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/jakarta.validation/jakarta.validation-api/3.1.1/reachability-metadata.json",
+          "sha256": "1d6faa9e1a76d13f3ab8558a3640158b1f0a54f624a4e37ddc3ef41ed4191058",
+          "bytes": 4
+        },
+        {
+          "path": "META-INF/native-image/jakarta.xml.bind/jakarta.xml.bind-api/4.0.4/reachability-metadata.json",
+          "sha256": "2d5889fb61e1f65d5bb7152792dd31abe0f29c121087a6f4136571feb455a2b7",
+          "bytes": 2916
+        },
+        {
+          "path": "META-INF/native-image/org.antlr/antlr4-runtime/4.13.2/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/org.checkerframework/checker-qual/4.2.1/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/org.codehaus.woodstox/stax2-api/4.3.0/reachability-metadata.json",
+          "sha256": "1d6faa9e1a76d13f3ab8558a3640158b1f0a54f624a4e37ddc3ef41ed4191058",
+          "bytes": 4
+        },
+        {
+          "path": "META-INF/native-image/org.eclipse.angus/angus-activation/2.0.3/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/org.glassfish.jaxb/jaxb-core/4.0.7/reachability-metadata.json",
+          "sha256": "9e67ce6c4d35068d4b57376b103e9f2ab74c8893e98747b5c72af36a5bc10397",
+          "bytes": 1533
+        },
+        {
+          "path": "META-INF/native-image/org.glassfish.jaxb/jaxb-runtime/4.0.7/reachability-metadata.json",
+          "sha256": "74f44287aaaceaf0693f760989f0eaf207240df8683d2a5f1a85a44897963183",
+          "bytes": 2771
+        },
+        {
+          "path": "META-INF/native-image/org.glassfish.jaxb/txw2/4.0.7/reachability-metadata.json",
+          "sha256": "1d6faa9e1a76d13f3ab8558a3640158b1f0a54f624a4e37ddc3ef41ed4191058",
+          "bytes": 4
+        },
+        {
+          "path": "META-INF/native-image/org.hibernate.models/hibernate-models/1.1.2/reachability-metadata.json",
+          "sha256": "e29187239b9c9f0fd5747303ecca84f7f876c6f5beace1f69abe7f6b06029b8e",
+          "bytes": 10641
+        },
+        {
+          "path": "META-INF/native-image/org.hibernate.orm/hibernate-core/7.4.7.Final/reachability-metadata.json",
+          "sha256": "4173e82d09d71eca9a002c8afbf7445ce1809715a92a1a1e892aa00d96c67477",
+          "bytes": 483706
+        },
+        {
+          "path": "META-INF/native-image/org.jboss.logging/jboss-logging/3.6.1.Final/reachability-metadata.json",
+          "sha256": "6a18286612981d92c40cb0c29df7779820fdee89f720378a1f1a1c8dffa73f85",
+          "bytes": 2306
+        },
+        {
+          "path": "META-INF/native-image/org.jspecify/jspecify/1.0.0/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/org.objenesis/objenesis/3.4/reachability-metadata.json",
+          "sha256": "963870e5e664f118d2ca015d878e60ba815df31a8f99e1c5262a40e3937905c8",
+          "bytes": 518
+        },
+        {
+          "path": "META-INF/native-image/org.ow2.asm/asm-analysis/9.9.1/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/org.ow2.asm/asm-commons/9.9.1/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/org.ow2.asm/asm-tree/9.9.1/reachability-metadata.json",
+          "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+          "bytes": 3
+        },
+        {
+          "path": "META-INF/native-image/org.ow2.asm/asm-util/9.9.1/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/org.ow2.asm/asm/9.9.1/reachability-metadata.json",
+          "sha256": "1c6c89bf852f4be16d9240e51cc7ffc5a6b47d169bccc48b2079135879c77927",
+          "bytes": 722
+        },
+        {
+          "path": "META-INF/native-image/org.reactivestreams/reactive-streams/1.0.4/reachability-metadata.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "META-INF/native-image/org.slf4j/slf4j-api/2.0.18/reachability-metadata.json",
+          "sha256": "4d445a3dba64a9f437785bc17759b0fa182027a66041f3da7a7223c83c500ea4",
+          "bytes": 557
+        },
+        {
+          "path": "META-INF/native-image/org.slf4j/slf4j-simple/2.0.18/reachability-metadata.json",
+          "sha256": "9c9baea4dc3fd054591ca9969900fdca17f2c88b4be3c1a67cc1ae981b7f06a4",
+          "bytes": 709
+        },
+        {
+          "path": "META-INF/native-image/org.yaml/snakeyaml/2.4/reachability-metadata.json",
+          "sha256": "42311d57389c386bd7ee47052737bcacab096c223000fee7a1cf97bd03fb7d5b",
+          "bytes": 1832
+        },
+        {
+          "path": "META-INF/native-image/tools.jackson.core/jackson-core/3.1.4/reachability-metadata.json",
+          "sha256": "47b6fc8577995298e16dfe537551e5882414e088d6cb75e5ebcccd12fdcd1e45",
+          "bytes": 298
+        }
+      ]
+    },
+    {
+      "path": "/tmp/norm-native-web-3mLBJa/build/norm/java/classes",
+      "kind": "directory",
+      "files": [
+        {
+          "path": "META-INF/micronaut/io.micronaut.core.beans.BeanIntrospectionReference/norm.generated.application.$HelloEntity$Introspection",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$HelloController$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$HelloRepository$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$HelloService$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$HelloService$Definition$Intercepted$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$NativeVerificationController$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$NativeVerificationController$Definition$Intercepted$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$NativeVerificationService$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/norm.generated.application.$NativeVerificationService$Definition$Intercepted$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "META-INF/micronaut/io.micronaut.inject.BeanDefinitionReference/orm.micronaut.$MicronautRepositoryContext$Definition",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call0.class",
+          "sha256": "9a9458b1691b4b857ed4a816feb48e75b387e33b2fd59f64075be16930857480",
+          "bytes": 486
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call1.class",
+          "sha256": "50026d6a070805d061facc14bba1d85069bd388a92d07b5f968339cc20fbd77b",
+          "bytes": 452
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call10.class",
+          "sha256": "476f01b8c905dcbdebd23abd1b6e4c6c29b800bc59397877282aff1e5eaea911",
+          "bytes": 511
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call11.class",
+          "sha256": "46d1302e039e9a9c2367d4e6d998407edb6590523f4062acb1ec656d232bf3d0",
+          "bytes": 487
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call12.class",
+          "sha256": "815c0258af5f6c573a457f4d50574e756c79b0f1565a7fba4047caccbb143f7d",
+          "bytes": 549
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call13.class",
+          "sha256": "a38818469de47d740e1e4c5b121da24e0d5c8e3fb3bec70940bce80de80f2a53",
+          "bytes": 415
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call14.class",
+          "sha256": "ee21d48e7a040192e870c41cf1f7b11a25df2048cd01ccc7d141632e7b463a9a",
+          "bytes": 435
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call15.class",
+          "sha256": "c11c24226abc2c624b0ae029b1e516611617d9f0d74215a7f9dcc9821f43852d",
+          "bytes": 406
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call16.class",
+          "sha256": "684e17e7f4fa468b8070df7f2c4a204027702675ac4aa5bad870ed0e5c6b959c",
+          "bytes": 455
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call17.class",
+          "sha256": "0b2f4a87ccd09905d933ca9728c9ddf69b72d7e793b3b329f8a0b4c5dce7053f",
+          "bytes": 388
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call18.class",
+          "sha256": "748a5fff6af912d1777f26b8131acbd3582ef5a3a0e45c682d9b8abf32e91a1d",
+          "bytes": 388
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call19.class",
+          "sha256": "feb8c3547af187f1f788c890260ce26ee7fcbcc770b17c2f9e421770ad591ac9",
+          "bytes": 439
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call2.class",
+          "sha256": "40873e7d10841751cd35ef6f816918c6ac39be586e8b600e464c765e22ed7f79",
+          "bytes": 489
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call20.class",
+          "sha256": "251201a3921330c4e0fcf9106f02ce40ad9cafe00a73c4a25fc2048db14963ab",
+          "bytes": 489
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call21.class",
+          "sha256": "f4807330a374cd7757edc84e66ed493fb4b5b672f12cdff5c61d259d4d4a621c",
+          "bytes": 472
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call22.class",
+          "sha256": "9cb315af188a5d6d51aa6b9f6c562b10c4a659fc182b01a4836926c5190ab0b8",
+          "bytes": 479
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call23.class",
+          "sha256": "adde06959536be15b4a338a74e11d72ce68f15be91a0b7aacf619d1f0dc848b4",
+          "bytes": 579
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call24.class",
+          "sha256": "a4883c15b8083233a522be10014b851b19010c3449d27482812893c5d7452e0e",
+          "bytes": 410
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call25.class",
+          "sha256": "ead4ce49603d875576a6b32c50a2142bb1e4bbbe96c0d81a81360d1e88bd5de3",
+          "bytes": 458
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call26.class",
+          "sha256": "bcad9561a2ff00644bd131ccade3eb4a673586825570964f1a0758af50c15851",
+          "bytes": 439
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call27.class",
+          "sha256": "ba77635cbd83d26d3bf735960a2856324a1718e7a2d435a6a6337ad2ef187be2",
+          "bytes": 425
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call28.class",
+          "sha256": "66511a5432b1716858dc1de4b6b9b93cdccfe9675f220d2425b016b7bf2a340b",
+          "bytes": 497
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call29.class",
+          "sha256": "19b6cdd16f456268b95c969dd627b3df22808d5f337721e7ab693e4b7ba15f73",
+          "bytes": 441
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call3.class",
+          "sha256": "1d1ed9ec864317cb41daea613e939ed8bdff50dd70272a821854791b815bd99f",
+          "bytes": 435
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call4.class",
+          "sha256": "6a2195b0ac9cda335e381db5163bf08394876076d592e72b97217a0eef72f1fd",
+          "bytes": 450
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call5.class",
+          "sha256": "d9e4103268a0671825b3356602cbce959200ff51a50431c2ebee5451e9a632c5",
+          "bytes": 513
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call6.class",
+          "sha256": "699065629795c7d6be8b339660cfb284558dc69414dd894c3456a14399098b0d",
+          "bytes": 503
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call7.class",
+          "sha256": "945d7c1cdccab5960d999df14e150df2c146c8ea52b040ddf2a42714fa0718e8",
+          "bytes": 505
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call8.class",
+          "sha256": "737bd16cd52ba0577932c63a37dac4419da071971d98826a59e5883c6e2aed5d",
+          "bytes": 505
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Call9.class",
+          "sha256": "9c68f86a6f153c77baa09284f2aa77b0742084eafaf8075b3f59d5a13358bc07",
+          "bytes": 495
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls$Group0.class",
+          "sha256": "676ab3ca44ad09f0c9b216cff6b46f4cba5a8bd0f3b9bf377175928fe78dfecf",
+          "bytes": 4712
+        },
+        {
+          "path": "dev/w0fv1/norm/generated/application/Calls.class",
+          "sha256": "ccef58340a6455a54dd29688ab77ed5905f64fcc283a14d1d5d2a5e79aba3e8a",
+          "bytes": 404
+        },
+        {
+          "path": "micronaut/web/DataSource.class",
+          "sha256": "27205d64ef906fee34f87478efccd54151aa1bc9aeff89f5e5307771e82585e2",
+          "bytes": 755
+        },
+        {
+          "path": "micronaut/web/DataSources.class",
+          "sha256": "08ac77a12f688db0123c16c05a546e9dd2b240bb5c755fb03171f451a9c4fcf2",
+          "bytes": 665
+        },
+        {
+          "path": "micronaut/web/Endpoints.class",
+          "sha256": "7bd36617ca3c77d546125583e2370f4b0e4d3f744b80f7d721d680fec0a2902a",
+          "bytes": 646
+        },
+        {
+          "path": "micronaut/web/EntityScan.class",
+          "sha256": "802b9bdf7496d7f90dd981725969a5422e55c850ed1e18b1ff39a16165e9f6a7",
+          "bytes": 642
+        },
+        {
+          "path": "micronaut/web/H2Storage.class",
+          "sha256": "1eb9133505802270deae15172c33641abd8238e1bdb2d6c86e878a7525adcd82",
+          "bytes": 1003
+        },
+        {
+          "path": "micronaut/web/Health.class",
+          "sha256": "4d882916af06fc10145a01b0303ce8a8bbf7f4fc8fa62bd19c5212464cf19133",
+          "bytes": 796
+        },
+        {
+          "path": "micronaut/web/HealthDetails.class",
+          "sha256": "0f623c1fdcba0930556895ad5bde144078bb1d12d98e5490f3852d983b8caec9",
+          "bytes": 1095
+        },
+        {
+          "path": "micronaut/web/Hibernate.class",
+          "sha256": "fea9201d2a047f049bbb6c5f837209e9da2c881484cda0225dd2320e25e76074",
+          "bytes": 659
+        },
+        {
+          "path": "micronaut/web/HibernateDdl.class",
+          "sha256": "c911a20732d83f4cf4e9506df05c2ee9d7343b988847fa54b8932e5c1f349734",
+          "bytes": 658
+        },
+        {
+          "path": "micronaut/web/Jpa.class",
+          "sha256": "e5b7942cca09b9e3db7eb67d1d2e3fe318034666218e26a89276c0887cc35f00",
+          "bytes": 650
+        },
+        {
+          "path": "micronaut/web/JpaContext.class",
+          "sha256": "0530181a45be1fc8eacb148be2df35efd47606c61c328aae59014ad15a3c45a2",
+          "bytes": 750
+        },
+        {
+          "path": "micronaut/web/JpaProperties.class",
+          "sha256": "e10dfeb14e9b34c1dfa62c7849dda266243ab493e605c0c7493a58ea0f1b9377",
+          "bytes": 663
+        },
+        {
+          "path": "micronaut/web/Micronaut.class",
+          "sha256": "fbef3b4cc7a1b408e01a75f62ecee663f53ef09deb658be9da0614cd683c640f",
+          "bytes": 796
+        },
+        {
+          "path": "micronaut/web/MicronautApplication.class",
+          "sha256": "d9e4a726b06e7433aa92608f7f96813702408fb736736976c897e2c6f7e25e6a",
+          "bytes": 1193
+        },
+        {
+          "path": "micronaut/web/MicronautConfig.class",
+          "sha256": "877bce12b7bccbb9e06279f397fa64ee1c1fc5a0e0a412aff622555a9466ecdd",
+          "bytes": 899
+        },
+        {
+          "path": "micronaut/web/Router.class",
+          "sha256": "f3c96f3a76e5d8d378111e67f41476ad114b5ff4f4dbbb509a3243ba8b111e4c",
+          "bytes": 641
+        },
+        {
+          "path": "micronaut/web/RunningMicronautApplication.class",
+          "sha256": "8ea7c6636c3e76a71e8973196f74d623a0ef8153c12f57940abcc6bad3d9f6f5",
+          "bytes": 1128
+        },
+        {
+          "path": "micronaut/web/SchemaMode.class",
+          "sha256": "dc7e6ede1cc85b9250114adc3a0a56ae55d20c9cac40f204be164d664bb8d68d",
+          "bytes": 1175
+        },
+        {
+          "path": "micronaut/web/Security.class",
+          "sha256": "b7a4a8ae94fa9d5cb76c0e186c879f0210bec2886279f45b4a95f94b592d4501",
+          "bytes": 737
+        },
+        {
+          "path": "micronaut/web/SecurityAccess.class",
+          "sha256": "e1c860f24dca5e337a0cab75f09e0261b7ff26532f2eff0f92978b10601fdc25",
+          "bytes": 1050
+        },
+        {
+          "path": "micronaut/web/SecurityRule.class",
+          "sha256": "6cedeaec9837811a9236b8edccb6e21515106025718d2ed9f903f63d9147a5e1",
+          "bytes": 680
+        },
+        {
+          "path": "micronaut/web/Server.class",
+          "sha256": "a037181474f8bec3b54f49ff9abb2540ecff01aad7489c08a4c9ff7642af54e3",
+          "bytes": 729
+        },
+        {
+          "path": "micronaut/web/StaticResource.class",
+          "sha256": "99d06cc0522c3d69a48bc00a105c69229d95549006ed41ca55aa1b5d86751708",
+          "bytes": 753
+        },
+        {
+          "path": "norm/generated/application/$HelloController$Definition$Exec.class",
+          "sha256": "0c77dd46988ef7c3358b5d920462f9f8bdebc37a79072de65194f846772bb070",
+          "bytes": 5527
+        },
+        {
+          "path": "norm/generated/application/$HelloController$Definition.class",
+          "sha256": "dcaeb3d47ffd7d7f1d0aa6802df77bae6b95434380547fa6e14dcaecece74776",
+          "bytes": 7678
+        },
+        {
+          "path": "norm/generated/application/$HelloEntity$Introspection.class",
+          "sha256": "a980ef49216de51f18e1c492aa650d8d3151fd41a7cfdb9da19a25b5f0551ff2",
+          "bytes": 3731
+        },
+        {
+          "path": "norm/generated/application/$HelloRepository$Definition.class",
+          "sha256": "f978cf828aa77fd13e0c45d8aad0b99cfd40d2205a8b014ad8be478d040993c9",
+          "bytes": 4828
+        },
+        {
+          "path": "norm/generated/application/$HelloService$Definition$Exec.class",
+          "sha256": "1f12e42f9d2d21fa9b441a82045433f4698281da0d09b7d376a0714fe6d3446c",
+          "bytes": 5566
+        },
+        {
+          "path": "norm/generated/application/$HelloService$Definition$Intercepted$Definition.class",
+          "sha256": "a9f12303007731728163d08e856a25a259fac68aac237f43870bb0db4023198d",
+          "bytes": 8244
+        },
+        {
+          "path": "norm/generated/application/$HelloService$Definition$Intercepted.class",
+          "sha256": "4b0a199dc1a8c74ada3fb6dc28c1e7df26d7e79d8af4d063cfd6e33d5056b4ae",
+          "bytes": 2698
+        },
+        {
+          "path": "norm/generated/application/$HelloService$Definition.class",
+          "sha256": "b5f3287075448409d39f24b31a53104c69e24543cdc72287e1107092572c924b",
+          "bytes": 6607
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationController$Definition$Exec.class",
+          "sha256": "c9f9e52b5d98de2e8dcfb5dc86361cdb22efc51409dd664a9b4d24172835f46f",
+          "bytes": 10267
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationController$Definition$Intercepted$Definition.class",
+          "sha256": "6deaec81465fd95f46d1c21373e7cf46ddfdc5ef9ccd5afa1d626face0e62d67",
+          "bytes": 10244
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationController$Definition$Intercepted.class",
+          "sha256": "936da0ecedde16898ce236b780561f5f6b6a781f617784c8fad87b89f376687b",
+          "bytes": 3806
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationController$Definition.class",
+          "sha256": "b8d42d9bf1b3c07d83f6eb0bd07ca6baca5d7c7ae1fafdd73b99e0b38e73735f",
+          "bytes": 10030
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationService$Definition$Exec.class",
+          "sha256": "5319a37b36a2e5cebb817f9aec4cf3a9153162e60af64d9f953b95c011225c39",
+          "bytes": 7370
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationService$Definition$Intercepted$Definition.class",
+          "sha256": "43cb27e38eaa36e2e2be71fbd1376a2a471b0451d53bda4b1f41b7052568cc14",
+          "bytes": 8348
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationService$Definition$Intercepted.class",
+          "sha256": "771875f0a0e429455c0ee187fe9663dd460f123f5d2dd6da26bbafbe466ff28a",
+          "bytes": 3590
+        },
+        {
+          "path": "norm/generated/application/$NativeVerificationService$Definition.class",
+          "sha256": "09e4d613a05b50d6d52ebabd72ed4df3ba5139ce275e74473460a417a2508783",
+          "bytes": 6672
+        },
+        {
+          "path": "norm/generated/application/HelloController.class",
+          "sha256": "53aa1e5df59bc57f78f21af20e49e890cfdf4b2ae12d9d78f2638cda0a52c880",
+          "bytes": 1468
+        },
+        {
+          "path": "norm/generated/application/HelloEntity.class",
+          "sha256": "bff6a0ca6d844e87709f53fd94c137211d55dfaa77e4964dbfe40aa4cf9a0454",
+          "bytes": 1173
+        },
+        {
+          "path": "norm/generated/application/HelloRepository.class",
+          "sha256": "d0275df2e9e9c521358632c68ad8648bdad234516d3ed8ee04647d5bcb62b152",
+          "bytes": 1332
+        },
+        {
+          "path": "norm/generated/application/HelloService.class",
+          "sha256": "5968844b5cce27414d05c36a43d4511aae80a5ecaf3c557581d4e76125c92a27",
+          "bytes": 1426
+        },
+        {
+          "path": "norm/generated/application/NativeVerificationController.class",
+          "sha256": "8fc6cfee792768cd16cfd226293b6340476d2c4e6357f6702961db5d50f5afea",
+          "bytes": 2674
+        },
+        {
+          "path": "norm/generated/application/NativeVerificationService.class",
+          "sha256": "9c12e99a0d366f0b8d09e10b3d5d9e3d7d71b178fa326875a5c6a70847af4a0e",
+          "bytes": 2132
+        },
+        {
+          "path": "orm/Repository.class",
+          "sha256": "e3d9bb050a65aec98a628fea16f0dfcaf858bfd87ab2e6f0e979112e18442cd5",
+          "bytes": 4441
+        },
+        {
+          "path": "orm/RepositoryContext.class",
+          "sha256": "d485920871464c32671545091d997d09178069d8244a1b4a0f72eb032af46ede",
+          "bytes": 347
+        },
+        {
+          "path": "orm/micronaut/$MicronautRepositoryContext$Definition.class",
+          "sha256": "85b9e0b649648cc57724ff351d133b2dc598252405aa354f29813612400747ba",
+          "bytes": 7044
+        },
+        {
+          "path": "orm/micronaut/MicronautRepositoryContext.class",
+          "sha256": "a7912f7cca46cfced51368b332ecd5eb2f44b233372ffea3cea64b6bd98e0cce",
+          "bytes": 1176
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-http/5.1.13/micronaut-http-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-http-5.1.13.jar",
+          "sha256": "b2062de9104e1250945af9139dc99ff8b43eb54438917567f223b3c7edcc27f9",
+          "bytes": 870894
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-client-core/5.1.13/micronaut-http-client-core-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-http-client-core-5.1.13.jar",
+          "sha256": "0afd5f0494a4f6a4ff42f96c0ad4cd34d9ccbe0cbd16a960cfbbf77eef375aa1",
+          "bytes": 262853
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-core/5.1.13/micronaut-core-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-core-5.1.13.jar",
+          "sha256": "74471623911c1915741ae24112874f7783c5b26c25acec05ebdc0852039c4847",
+          "bytes": 677080
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-inject/5.1.13/micronaut-inject-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-inject-5.1.13.jar",
+          "sha256": "e779bd6db37b52e9f790434f4d5a2ca7820a2adb8db67d4dd87b642860895b84",
+          "bytes": 951665
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-aop/5.1.13/micronaut-aop-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-aop-5.1.13.jar",
+          "sha256": "31856915dc83fe3efea0fcc3594306fcc300bb1d205b62283c9a39f14ab930ff",
+          "bytes": 100016
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-context/5.1.13/micronaut-context-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-context-5.1.13.jar",
+          "sha256": "0383d5cfdcb0cf4a5fb8a6d49d68cc8f7e558e14137360d738d84d6aa451c23d",
+          "bytes": 333079
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-json-core/5.1.13/micronaut-json-core-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-json-core-5.1.13.jar",
+          "sha256": "33a595eaf50396c2a0bca3d174bc17883b10790b224ece0e1cdc1890c411d9a9",
+          "bytes": 71944
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-api/3.1.1/micronaut-serde-api-3.1.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-serde-api-3.1.1.jar",
+          "sha256": "061bdce5ed9574bf4f2c969545dfe9f4f1541ef0311645f5df85c1d2e2677f55",
+          "bytes": 153692
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/inject/jakarta.inject-api/2.0.1/jakarta.inject-api-2.0.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.inject-api-2.0.1.jar",
+          "sha256": "f7dc98062fccf14126abb751b64fab12c312566e8cbdc8483598bffcea93af7c",
+          "bytes": 10681
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/validation/jakarta.validation-api/3.1.1/jakarta.validation-api-3.1.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.validation-api-3.1.1.jar",
+          "sha256": "63ce00156388c365f3ac1be71fcfaf114682fc0c452020b5df6e7ec236e142ab",
+          "bytes": 106136
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/validation/micronaut-validation/5.1.0/micronaut-validation-5.1.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-validation-5.1.0.jar",
+          "sha256": "ab50321bf8b22e4adab854e2c9751cabff7baccc62b32d10b7d819e296bfc409",
+          "bytes": 272620
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/security/micronaut-security/5.3.2/micronaut-security-5.3.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-security-5.3.2.jar",
+          "sha256": "6876e9483dcca03fe5f05c1cfd6af7472b9911274a6ea58b2c277266b0f3fbe6",
+          "bytes": 580175
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/projectreactor/reactor-core/3.8.7/reactor-core-3.8.7.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "reactor-core-3.8.7.jar",
+          "sha256": "9a5f1bfc5ad0416a410ff63beaa279cc30c2da3ae9b111a678c83c99298a1551",
+          "bytes": 1938852
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-jackson/3.1.1/micronaut-serde-jackson-3.1.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-serde-jackson-3.1.1.jar",
+          "sha256": "e813e423a7621f9a7d7f68875c19ba1db8340831a8733582be8648b454903f78",
+          "bytes": 49774
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-client/5.1.13/micronaut-http-client-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-http-client-5.1.13.jar",
+          "sha256": "62a43283ab67798cc1623b58f742c2fdd89d5a35fc882388d85880de1a0a1b05",
+          "bytes": 284997
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-management/5.1.13/micronaut-management-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-management-5.1.13.jar",
+          "sha256": "bb4b2359b9a657bdb7b43d7ace8bbc214c88561382bd0a42a4ce6994aae95940",
+          "bytes": 336849
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-server-netty/5.1.13/micronaut-http-server-netty-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-http-server-netty-5.1.13.jar",
+          "sha256": "a6602a4eb85fe8dc7221b9d4b1daecc69c74d5c7ee2c23a819be78395a332ca3",
+          "bytes": 548169
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-processor/3.1.1/micronaut-serde-processor-3.1.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-serde-processor-3.1.1.jar",
+          "sha256": "9eafd6a7f0ff272ae2e4dd54caa5a9de80360752da28169f4ce202444fb54531",
+          "bytes": 246612
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-inject-java/5.1.13/micronaut-inject-java-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-inject-java-5.1.13.jar",
+          "sha256": "7e144435b16d20c272b119705d92258d4024359c8bcca2d2d7740fa5dc8af69b",
+          "bytes": 188315
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/validation/micronaut-validation-processor/5.1.0/micronaut-validation-processor-5.1.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-validation-processor-5.1.0.jar",
+          "sha256": "78b857d65840ae6251efbe763cbea99a134488b2b4dddca3d1ecf82c0cc13806",
+          "bytes": 12664
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/persistence/jakarta.persistence-api/3.2.0/jakarta.persistence-api-3.2.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.persistence-api-3.2.0.jar",
+          "sha256": "be8a26b0e75c84c1b7600f759256fbc68d60333d89ec0ce3f784fc3ffa09aa8c",
+          "bytes": 195939
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/hibernate/orm/hibernate-core/7.4.7.Final/hibernate-core-7.4.7.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "hibernate-core-7.4.7.Final.jar",
+          "sha256": "c7c3a3ee3da472e1f8ec2dfb7cca86eec0e1a753f43b916e6bc9914e16f62e67",
+          "bytes": 15287350
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sql/micronaut-jdbc-hikari/7.1.2/micronaut-jdbc-hikari-7.1.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-jdbc-hikari-7.1.2.jar",
+          "sha256": "ee8a225ef93213cd408ba8f83c7b2289f78640c0e5e4f91f42ee1ee5af048ce0",
+          "bytes": 30714
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sql/micronaut-hibernate-jpa/7.1.2/micronaut-hibernate-jpa-7.1.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-hibernate-jpa-7.1.2.jar",
+          "sha256": "ab5ea585c6af3fb9077314d1223e7c1512476b5bcbfe5dc35fba6d3751729492",
+          "bytes": 184287
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-tx-hibernate/5.1.3/micronaut-data-tx-hibernate-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-data-tx-hibernate-5.1.3.jar",
+          "sha256": "5be091566c105d9e8a189b7a6e032b39c768872e4cada15e05131cacf6cf32e5",
+          "bytes": 27336
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/com/h2database/h2/2.4.240/h2-2.4.240.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "h2-2.4.240.jar",
+          "sha256": "29b70e427cc1c40cdc376283adbb0cc62853073797bb5fe5761f81fe73d57ce0",
+          "bytes": 2685418
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-core-2.20.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-core-2.20.2.jar",
+          "sha256": "61b85a41bbc333e6db3b7724d5a9ff5011ec5f9eb1cee41e622420bc6e0e4131",
+          "bytes": 593203
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-dataformat-yaml-2.20.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-dataformat-yaml-2.20.2.jar",
+          "sha256": "a62b5caa09de0b97e432d00c759b8b241791244bea0e82d64b146b6b490f779f",
+          "bytes": 60090
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/woodstox-core-7.2.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "woodstox-core-7.2.2.jar",
+          "sha256": "3bd35f778fb15cd517fae51961ba7a9388eae8e4a836fac1166c7f70740e55cd",
+          "bytes": 1623687
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/polyglot-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "polyglot-25.1.3.jar",
+          "sha256": "9ff7efeded9107f72d656647c4a775dcb9fe53ed1a27a0a1bb8cee14776cb1c5",
+          "bytes": 513986
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/truffle-api-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "truffle-api-25.1.3.jar",
+          "sha256": "6514bf2d6ab58a89b196a5afa30c864eda6a96bb9010885d1c7098c0c9401042",
+          "bytes": 16847280
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/objenesis-3.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "objenesis-3.4.jar",
+          "sha256": "95488102feaf2e2858adf6b299353677dac6c15294006f8ed1c5556f8e3cd251",
+          "bytes": 49076
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-simple-2.0.18.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "slf4j-simple-2.0.18.jar",
+          "sha256": "8268bd018a5709b07209e0d8ca6221a37584ba1bc12ba985b8335a82c648bdd0",
+          "bytes": 15721
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/kryo-5.6.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "kryo-5.6.2.jar",
+          "sha256": "4e8b1d2f4977187af8a51a957329722dc1cdc56a7c94fbb5a791e82897629cff",
+          "bytes": 373885
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/nativeimage-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "nativeimage-25.1.3.jar",
+          "sha256": "dc0516fb3007c33ebf0b7c8b654c4a5a8230e974c4b5f98bc67cbbfac725c40a",
+          "bytes": 249782
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/asm-9.9.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "asm-9.9.1.jar",
+          "sha256": "6f3828a215c920059a5efa2fb55c233d6c54ec5cadca99ce1b1bdd10077c7ddd",
+          "bytes": 126252
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-context-propagation/5.1.13/micronaut-context-propagation-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-context-propagation-5.1.13.jar",
+          "sha256": "996dbf448cdf92804a7dd54a7231a2117c8dc1215dd70ce15292b7f1dc671356",
+          "bytes": 11422
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-core-reactive/5.1.13/micronaut-core-reactive-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-core-reactive-5.1.13.jar",
+          "sha256": "aba1f7cbb306b244a8747ce9bbc1e0a984d366f927dc92a18e38bea66d45cd8b",
+          "bytes": 67872
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/slf4j-api-2.0.18.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "slf4j-api-2.0.18.jar",
+          "sha256": "44508fd1576500688c790b190acdd16fec4f8c79a3e0b900afd70503cf055f55",
+          "bytes": 69982
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-discovery-core/5.1.13/micronaut-discovery-core-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-discovery-core-5.1.13.jar",
+          "sha256": "32f90530972b95e66af4a1fa7c860d9ef6f5426729b0303511a2bb0f211d9a16",
+          "bytes": 104790
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jspecify-1.0.0.jar",
+          "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab",
+          "bytes": 3819
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/annotation/jakarta.annotation-api/2.1.1/jakarta.annotation-api-2.1.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.annotation-api-2.1.1.jar",
+          "sha256": "5f65fdaf424eee2b55e1d882ba9bb376be93fb09b37b808be6e22e8851c909fe",
+          "bytes": 26141
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/reactor/micronaut-reactor/4.1.0/micronaut-reactor-4.1.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-reactor-4.1.0.jar",
+          "sha256": "d2c3ce4fd7e8153d5904385ca9da53b76de0aa510ec6e1c643bc4d7442b87633",
+          "bytes": 27429
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/security/micronaut-security-annotations/5.3.2/micronaut-security-annotations-5.3.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-security-annotations-5.3.2.jar",
+          "sha256": "cc0cfbe482a8a723be10ac9734dad2f047e1b310b7a26bb20269fff46c44b9a0",
+          "bytes": 6877
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/reactivestreams/reactive-streams/1.0.4/reactive-streams-1.0.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "reactive-streams-1.0.4.jar",
+          "sha256": "f75ca597789b3dac58f61857b9ac2e1034a68fa672db35055a8fb4509e325f28",
+          "bytes": 11640
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/com/fasterxml/jackson/core/jackson-annotations/2.21/jackson-annotations-2.21.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-annotations-2.21.jar",
+          "sha256": "53ca085f4a150f703f49e1aabd935bd03b43e1ea3d55d135438292af22cef56b",
+          "bytes": 82104
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/serde/micronaut-serde-support/3.1.1/micronaut-serde-support-3.1.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-serde-support-3.1.1.jar",
+          "sha256": "b4980d7d8f7f4df4c62b9989421c9793273205d93616bf0ccb8dbb35a2d7ab2c",
+          "bytes": 725763
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-jackson-core/5.1.3/micronaut-jackson-core-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-jackson-core-5.1.3.jar",
+          "sha256": "3e9da88b7b12b240d0d2d33db04be7f9f8bf1d51b3b389b39c75344a8b322633",
+          "bytes": 43841
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-netty/5.1.13/micronaut-http-netty-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-http-netty-5.1.13.jar",
+          "sha256": "8f50880d641b2a530e5abc2a13eb0d95914b5d3d141f7c9accfaef8ee21068f3",
+          "bytes": 298632
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-websocket/5.1.13/micronaut-websocket-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-websocket-5.1.13.jar",
+          "sha256": "93f8f9e001cde441eacbcaff5661be71a8838c4eedd4fcec9b2335e2626e62cd",
+          "bytes": 42454
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-handler-proxy/4.2.17.Final/netty-handler-proxy-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-handler-proxy-4.2.17.Final.jar",
+          "sha256": "94089bea6ba6f3248725f2bf233aa2bc70ac1547c21b9bdfc7548f710a845aa0",
+          "bytes": 26791
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-router/5.1.13/micronaut-router-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-router-5.1.13.jar",
+          "sha256": "42e288e080790ba4914f9be3fbb808d5f64710900c6fcf695aa32cb2de0a93d7",
+          "bytes": 214609
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-http-server/5.1.13/micronaut-http-server-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-http-server-5.1.13.jar",
+          "sha256": "96c919e5a62d948aae8bd17d45d2f898349bdf5138b95e28d831bb634e949251",
+          "bytes": 406119
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/contrib/netty-codec-multipart-core/1.0.0.Final/netty-codec-multipart-core-1.0.0.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-multipart-core-1.0.0.Final.jar",
+          "sha256": "74b2428a2b510766a2cee9a0ef7e7a99cf4b619cc960e0815731772e7c41f330",
+          "bytes": 39948
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-http/4.2.17.Final/netty-codec-http-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-http-4.2.17.Final.jar",
+          "sha256": "a5bde91ac82ab90579df6559c0bd7ea6ae37460e3f18116ab4122194283b3669",
+          "bytes": 679207
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-generator-java/2.0.0/micronaut-sourcegen-generator-java-2.0.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-sourcegen-generator-java-2.0.0.jar",
+          "sha256": "7e56c0eb488d8110318b755b44970eb44c70b94aaffdb935fb6ecedca5d41ffd",
+          "bytes": 147103
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-generator/2.0.0/micronaut-sourcegen-generator-2.0.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-sourcegen-generator-2.0.0.jar",
+          "sha256": "514b534bf3cdda724fe119010ce31b3f5220dba9b47637f5950bd5770cb4a963",
+          "bytes": 53824
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-model/2.0.0/micronaut-sourcegen-model-2.0.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-sourcegen-model-2.0.0.jar",
+          "sha256": "7ea5bb27cb40a441d1106cfbbe1a9dfeb99ae58b1236e0c493e903314554f650",
+          "bytes": 185818
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-core-processor/5.1.13/micronaut-core-processor-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-core-processor-5.1.13.jar",
+          "sha256": "2458320a76dbf4809382fe6ec3d38818756eb955355c68e134a6aa5d6551d393",
+          "bytes": 790571
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/transaction/jakarta.transaction-api/2.0.1/jakarta.transaction-api-2.0.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.transaction-api-2.0.1.jar",
+          "sha256": "50c0a7c760c13ae6c042acf182b28f0047413db95b4636fb8879bcffab5ba875",
+          "bytes": 28607
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/xml/bind/jakarta.xml.bind-api/4.0.4/jakarta.xml.bind-api-4.0.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.xml.bind-api-4.0.4.jar",
+          "sha256": "c507ca69a8c6dd11bf4afeec9e0d412c4fa3933fffb0a84680ea5727e8472124",
+          "bytes": 131188
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/net/bytebuddy/byte-buddy/1.18.8/byte-buddy-1.18.8.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "byte-buddy-1.18.8.jar",
+          "sha256": "227d3e0ad51915809143f6a744ac0f4cb21f03214dab28e52ee7007c5ad7e9d9",
+          "bytes": 4654217
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/antlr/antlr4-runtime/4.13.2/antlr4-runtime-4.13.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "antlr4-runtime-4.13.2.jar",
+          "sha256": "dd3e8a13a2d669bf84fb8d834de35ce4875f27157698d206241ec8488aadcaf7",
+          "bytes": 326307
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/glassfish/jaxb/jaxb-runtime/4.0.7/jaxb-runtime-4.0.7.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jaxb-runtime-4.0.7.jar",
+          "sha256": "61a5daf5a1987f7ed7149c5a883ddf220ca9bf714a8d8cffc85fac301e92b5f2",
+          "bytes": 922292
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/hibernate/models/hibernate-models/1.1.2/hibernate-models-1.1.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "hibernate-models-1.1.2.jar",
+          "sha256": "d683d70e2592b23c5f2fbc3510d2e087aa61f2ac399a9090b941a1a42d3f3a98",
+          "bytes": 218867
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/jboss/logging/jboss-logging/3.6.1.Final/jboss-logging-3.6.1.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jboss-logging-3.6.1.Final.jar",
+          "sha256": "5e08a4b092dc85b337f0910a740571d8720cfa565fabd880a8caf94a657ca416",
+          "bytes": 61853
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/com/zaxxer/HikariCP/7.1.0/HikariCP-7.1.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "HikariCP-7.1.0.jar",
+          "sha256": "2be45c641b841e81df87292e181f2c203500c5f0e9a1676f135927387f3cf40b",
+          "bytes": 172996
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sql/micronaut-jdbc/7.1.2/micronaut-jdbc-7.1.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-jdbc-7.1.2.jar",
+          "sha256": "b389bfb6d57ddac772d845048b88f52469b9d6330e88e477f24a34b21f376fae",
+          "bytes": 30089
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/checkerframework/checker-qual/4.2.1/checker-qual-4.2.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "checker-qual-4.2.1.jar",
+          "sha256": "d0831f48bf587787bd29a0574692a4e2c494acc15112a4396c71b45f553d73c6",
+          "bytes": 243445
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-connection-hibernate/5.1.3/micronaut-data-connection-hibernate-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-data-connection-hibernate-5.1.3.jar",
+          "sha256": "a92c223d0d793796659b33aaaaf0592a160e6712cc7e31ae40b12bd29a259a23",
+          "bytes": 23969
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-tx-jdbc/5.1.3/micronaut-data-tx-jdbc-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-data-tx-jdbc-5.1.3.jar",
+          "sha256": "c3d684bfa6fe4a16a7c702483c1d121aaadd0fd260f78d794c786220cdf65d83",
+          "bytes": 24467
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-tx/5.1.3/micronaut-data-tx-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-data-tx-5.1.3.jar",
+          "sha256": "bf402bc8d02d56833ef5d6495256fc9b9c75dacabe9223e0673c445036960cb8",
+          "bytes": 154738
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jackson-databind-2.20.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-databind-2.20.2.jar",
+          "sha256": "119573fc6ceb25b26bb032bb5888e7fd8a4e933987968a388253a017dacb5e54",
+          "bytes": 1688822
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/snakeyaml-2.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "snakeyaml-2.4.jar",
+          "sha256": "ef779af5d29a9dde8cc70ce0341f5c6f7735e23edff9685ceaa9d35359b7bb7f",
+          "bytes": 339825
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/stax2-api-4.3.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "stax2-api-4.3.0.jar",
+          "sha256": "7c805f36129ea9fa42b696093b7ae1eb20bb6ccec65c8280d6f33db5609ca5e1",
+          "bytes": 194113
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/collections-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "collections-25.1.3.jar",
+          "sha256": "ffd397fae7b5cd0ef99b1917081210cec5209c8ea391ca4557d889da638569bd",
+          "bytes": 128674
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/jniutils-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jniutils-25.1.3.jar",
+          "sha256": "16aecea0047f1ccdddf21c90be4c3dfd20e690dda3d5a7e0743291a246e18564",
+          "bytes": 280789
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/minlog-1.3.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "minlog-1.3.1.jar",
+          "sha256": "5d4d632cfbebfe0a7644501cc303570b691406181bee65e9916b921c767d7c72",
+          "bytes": 5923
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/reflectasm-1.11.9.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "reflectasm-1.11.9.jar",
+          "sha256": "712b44da79a5b7f47a28cbfcb3d8ecfc872fae349c48aa4d3e38a5d69956afce",
+          "bytes": 72265
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/work/Norm/Norm/cli/compiler/build/install/norm/lib/word-25.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "word-25.1.3.jar",
+          "sha256": "5b4aa7d7ef8d79cc22afaeab7396be832253140dd7758ff0a2ee0de853a6d57a",
+          "bytes": 73154
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-retry/5.1.13/micronaut-retry-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-retry-5.1.13.jar",
+          "sha256": "d711b44effb1270fa82f91280c763f55b65ff4e70f5bf381ca598e5431236d93",
+          "bytes": 71987
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/tools/jackson/core/jackson-core/3.1.4/jackson-core-3.1.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jackson-core-3.1.4.jar",
+          "sha256": "3bda1cd6eff0a8d47bdfcaeae7c2bd5311d6c8ed494ef5f3e51029bb44aa9bdf",
+          "bytes": 598562
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-buffer-netty/5.1.13/micronaut-buffer-netty-5.1.13.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-buffer-netty-5.1.13.jar",
+          "sha256": "7df271f14cb6022251d1dc76e369906978dc5c68822890641011921d012d2a98",
+          "bytes": 27689
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-http2/4.2.17.Final/netty-codec-http2-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-http2-4.2.17.Final.jar",
+          "sha256": "450af97424cf58d2d72ad4d476d9e290f2fdf69fa181c289a6e6dd176bb86a7b",
+          "bytes": 496389
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-handler/4.2.17.Final/netty-handler-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-handler-4.2.17.Final.jar",
+          "sha256": "4df11c7520b556c5e2c84b939182699d48fcbb09e97a6bb5e1c0b6835227d126",
+          "bytes": 588756
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-buffer/4.2.17.Final/netty-buffer-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-buffer-4.2.17.Final.jar",
+          "sha256": "0d249178ec0204b35a6ad3e5ac8a6c2ecb3eb496c6cdae40b8eca4fa3cb6a0c7",
+          "bytes": 378264
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-base/4.2.17.Final/netty-codec-base-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-base-4.2.17.Final.jar",
+          "sha256": "3b92bc3b7d231fa6f4889b2b9281cae6b634428b8121fb1b9b5fccba1543d352",
+          "bytes": 155357
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-socks/4.2.17.Final/netty-codec-socks-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-socks-4.2.17.Final.jar",
+          "sha256": "6b5760cc512cee1f7515e25010892471f3995045f84cd6c1d1b6e6cee534733c",
+          "bytes": 133039
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-common/4.2.17.Final/netty-common-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-common-4.2.17.Final.jar",
+          "sha256": "502aae2a6680e9bca3558a3fa098f06dc4d87340b8b714e925a6d690871c092a",
+          "bytes": 820948
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-transport/4.2.17.Final/netty-transport-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-transport-4.2.17.Final.jar",
+          "sha256": "d2409ce3a735cbab4188d0ea5d82abed823a6a07a8389f49af4a9e1243a562bc",
+          "bytes": 549857
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec/4.2.7.Final/netty-codec-4.2.7.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-4.2.7.Final.jar",
+          "sha256": "5f369658381789998c042a98f02da71d9c39884bbb4f7fd58282f765e09ca031",
+          "bytes": 3947
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-compression/4.2.17.Final/netty-codec-compression-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-compression-4.2.17.Final.jar",
+          "sha256": "425b287a1f36986a5c8edd76379a49decdf99d284f3454f3fa607a073bfb2c18",
+          "bytes": 237078
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-annotations/2.0.0/micronaut-sourcegen-annotations-2.0.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-sourcegen-annotations-2.0.0.jar",
+          "sha256": "06f44da058ee918032ae72fe1e2eac2f215c9cf3fd86945c15bd94500ce7f3e1",
+          "bytes": 7750
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/com/github/javaparser/javaparser-symbol-solver-core/3.28.0/javaparser-symbol-solver-core-3.28.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "javaparser-symbol-solver-core-3.28.0.jar",
+          "sha256": "f7bd9d75c66977d8888851f75dc031397274e73f96e5352472edd4cd3a56a790",
+          "bytes": 521854
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/sourcegen/micronaut-sourcegen-bytecode-writer/2.0.0/micronaut-sourcegen-bytecode-writer-2.0.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-sourcegen-bytecode-writer-2.0.0.jar",
+          "sha256": "6b69ad82c902ee30b5b5afb0650167f87da0c216e3f81716ddcac56945af48f7",
+          "bytes": 119716
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/jakarta/activation/jakarta.activation-api/2.1.4/jakarta.activation-api-2.1.4.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jakarta.activation-api-2.1.4.jar",
+          "sha256": "c9db52100ce6c8aac95cc39075f95720d2e561b11f8051b81c121ad4effd7004",
+          "bytes": 67380
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/glassfish/jaxb/jaxb-core/4.0.7/jaxb-core-4.0.7.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "jaxb-core-4.0.7.jar",
+          "sha256": "f29af5c37592c3a06a912da8cdf1d16036e6ca6d4eed9be6f7670e60fa466601",
+          "bytes": 139157
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-connection-jdbc/5.1.3/micronaut-data-connection-jdbc-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-data-connection-jdbc-5.1.3.jar",
+          "sha256": "0bfd573621f5ae1757c86e5b12838afa277330d283eeaaa76ad4c30b991295da",
+          "bytes": 51903
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/data/micronaut-data-connection/5.1.3/micronaut-data-connection-5.1.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-data-connection-5.1.3.jar",
+          "sha256": "5940579afd35186a771068e04ce31cccd248f4b816d15d16a5b66e33cf4388b2",
+          "bytes": 79294
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-resolver/4.2.17.Final/netty-resolver-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-resolver-4.2.17.Final.jar",
+          "sha256": "7a4b599b9c0c29a505d3b7311f142df883fb27d0f67495a7cbaf533b0e456623",
+          "bytes": 32977
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-transport-native-unix-common/4.2.17.Final/netty-transport-native-unix-common-4.2.17.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-transport-native-unix-common-4.2.17.Final.jar",
+          "sha256": "e01aa467b9104de54a57c08c290f70b22e53ec97cf5583c87c112170ef5832cc",
+          "bytes": 46878
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-marshalling/4.2.7.Final/netty-codec-marshalling-4.2.7.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-marshalling-4.2.7.Final.jar",
+          "sha256": "e550adb758eea43aa49de00e7418b098931711d4a31d62e65c41b0994c95b237",
+          "bytes": 20371
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/netty/netty-codec-protobuf/4.2.7.Final/netty-codec-protobuf-4.2.7.Final.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "netty-codec-protobuf-4.2.7.Final.jar",
+          "sha256": "4b25259b6f75ebfc77f014a08f69bad019116d4f5ca548fdc41f3dad8c0de331",
+          "bytes": 14682
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/com/github/javaparser/javaparser-core/3.28.0/javaparser-core-3.28.0.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "javaparser-core-3.28.0.jar",
+          "sha256": "d3852d78461c02602eb9bfc15e9fc21ad7c765e6013a1b6d5809a5d0e7db5309",
+          "bytes": 1472249
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/ow2/asm/asm-commons/9.9.1/asm-commons-9.9.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "asm-commons-9.9.1.jar",
+          "sha256": "c2319e014ce7199f2b7f7d56d6bb991863168c3f4b6cd6c9f542a4937ef7ef88",
+          "bytes": 75010
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/ow2/asm/asm-util/9.9.1/asm-util-9.9.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "asm-util-9.9.1.jar",
+          "sha256": "c5ebbbeaf68126af094b42fa4800f59bc4413abd02d95b9aefad722cd257e207",
+          "bytes": 94643
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/com/sun/istack/istack-commons-runtime/4.1.2/istack-commons-runtime-4.1.2.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "istack-commons-runtime-4.1.2.jar",
+          "sha256": "7fd6792361f4dd00f8c56af4a20cecc0066deea4a8f3dec38348af23fc2296ee",
+          "bytes": 25788
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/eclipse/angus/angus-activation/2.0.3/angus-activation-2.0.3.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "angus-activation-2.0.3.jar",
+          "sha256": "a6bd35c538cf90fff941ad6258c40c08fca0b5c9c3f536c657114f27ce0527a7",
+          "bytes": 26729
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/glassfish/jaxb/txw2/4.0.7/txw2-4.0.7.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "txw2-4.0.7.jar",
+          "sha256": "c725676f2550caa3f57943f2d10dfac7e14c3abb34a6a9d89ac7ebbf1bde3269",
+          "bytes": 73275
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/io/micronaut/micronaut-runtime/5.1.10/micronaut-runtime-5.1.10.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "micronaut-runtime-5.1.10.jar",
+          "sha256": "80bc4dddfcec98c003dd759af0202f21600377b8331110b04f2e0578a23ab51b",
+          "bytes": 1782
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/ow2/asm/asm-tree/9.9.1/asm-tree-9.9.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "asm-tree-9.9.1.jar",
+          "sha256": "0f3555096b720b820bbacab0b515589bee0200bee099bda14c561738ae837ba1",
+          "bytes": 51963
+        }
+      ]
+    },
+    {
+      "path": "/home/runner/.norm/cache/maven/org/ow2/asm/asm-analysis/9.9.1/asm-analysis-9.9.1.jar",
+      "kind": "file",
+      "files": [
+        {
+          "path": "asm-analysis-9.9.1.jar",
+          "sha256": "6260bffc8ec008dd1b713702c7994e2c94d188a3da5bef9e87278a16df6a7522",
+          "bytes": 35170
+        }
+      ]
+    }
+  ],
+  "archive": {
+    "path": "/tmp/norm-native-web-3mLBJa/.norm-native-822764880575288100/application.bin",
+    "kind": "file",
+    "files": [
+      {
+        "path": "application.bin",
+        "sha256": "e90b3d3541d0cebe1a2ff0bd3ec37803210e74d833ec21211267923f6f90eba1",
+        "bytes": 1751893
+      }
+    ]
+  },
+  "launcher": {
+    "path": "/home/runner/.norm/toolchains/native-image/25.1.3/linux-x64/graalvm-community-25.1.3+9.1/lib/svm/bin/native-image",
+    "kind": "file",
+    "files": [
+      {
+        "path": "native-image",
+        "sha256": "efd19a1053a39962feae9e77f44aceadf30411112d2eb48142c3744c4d0aef30",
+        "bytes": 29919528
+      }
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "executable": "/tmp/norm-native-web-3mLBJa/web",
+  "sha256": "db498f45d8376e31a5bf6e27416c4d4353307007fdf9d187e853b3eb1fdcf96c",
+  "executableBytes": 147589384,
+  "imageBytes": 157696800,
+  "codeBytes": 68955616,
+  "heapBytes": 77922304,
+  "reachableMethods": 173512,
+  "reflectionMethods": 7719,
+  "reachableTypes": 34445,
+  "reflectionTypes": 2752,
+  "runtimeFiles": [
+    {
+      "path": "web",
+      "bytes": 147589384,
+      "sha256": "db498f45d8376e31a5bf6e27416c4d4353307007fdf9d187e853b3eb1fdcf96c"
+    },
+    {
+      "path": "libawt.so",
+      "bytes": 924120,
+      "sha256": "18c6b43405f8faa9bbe7cc3ef5fe227353ddc02a125f469b06335a92df010139"
+    },
+    {
+      "path": "libawt_headless.so",
+      "bytes": 42648,
+      "sha256": "8c3e761cc18b66d6d07dffeb0285f4ddd3d64eba84af1ce931438bd0483f9946"
+    },
+    {
+      "path": "libawt_xawt.so",
+      "bytes": 520232,
+      "sha256": "8921afc574701bc521ef204f215544ccd6ea030c06c3fceee93422c018699d67"
+    },
+    {
+      "path": "libfontmanager.so",
+      "bytes": 2035040,
+      "sha256": "4454e9b72a5eb4844c52bc94c2bea82bdfaa3284b4472adc43c4ca15b308bd8e"
+    },
+    {
+      "path": "libjavajpeg.so",
+      "bytes": 239968,
+      "sha256": "89b5f1699cc7a8ce5ccd686e1d7faaa4079f753f9a8467f9239a8eb3dd8b27f9"
+    },
+    {
+      "path": "liblcms.so",
+      "bytes": 536704,
+      "sha256": "cedb67477c13c18e0452d2ccb2a8928aa44d761189c5e7f7ec3deac6d693dd82"
+    },
+    {
+      "path": "libmanagement_ext.so",
+      "bytes": 33000,
+      "sha256": "9996d9e6d44c28fb2d43342446e0aa62c390b653991b78085cf4a0d034b608a2"
+    },
+    {
+      "path": "libjava.so",
+      "bytes": 9240,
+      "sha256": "1737e72264a6a1c6370fdd5ea81cb2887301325694f5a0108b428744be2ea4e4"
+    },
+    {
+      "path": "libjvm.so",
+      "bytes": 9240,
+      "sha256": "1737e72264a6a1c6370fdd5ea81cb2887301325694f5a0108b428744be2ea4e4"
+    }
+  ],
+  "deliveryBytes": 151939576
+}
