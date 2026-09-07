@@ -20,15 +20,17 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 ## 验收门槛
 
-发布必须同时通过 Java 工具链测试、Windows 启动器测试、VS Code 静态检查、CLI 版本检查、Hello World、默认 native build、`norm/tests` 中的全部可执行验收程序、动态 Java binding 程序和 LSP 握手。Windows 还必须验证便携执行、安装、PATH 幂等、安装后执行，以及带 NAR 和 Java 依赖的 native 应用 EXE 在空缓存和断网环境运行。通用 VSIX 必须包含目标清单中的全部 CLI，并验证 launcher、compiler 和 runtime 来自对应平台已验收的发行目录；宿主平台的完整内置目录必须能从 VSIX 解出并执行。
+发布先构建各平台 CLI 并打包通用 VSIX，再集中执行工具链测试和最终交付验收。语言程序由 `ProgramExecutionTest` 统一覆盖，不在各平台 CLI 验收中重复运行。每个平台验证版本、源码执行、动态 Java binding、一次 native 构建及三次隔离启动，以及 LSP 和编辑器集成。Windows 另外验证便携执行、setup 和 PATH 幂等。通用 VSIX 校验全部目标的内置运行时及宿主平台执行。
+
+框架、ORM 和应用验收归各适配包与 [examples 仓库](https://github.com/normlanguage/examples)所有，不作为编译器发行任务。
 
 构建完成后统一生成 SHA-256 校验和与构建来源证明。任一平台失败时不发布任何平台；全部资产先进入 Draft Release，上传完整后再一次性公开。
 
 ## 自动化
 
-[CLI 验收入口](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs)包含[Micronaut / ORM native 端到端验收](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-native-web.mjs)。
+[CLI 验收入口](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs)只覆盖工具链与通用 Java 互操作。
 
-[发布目标清单](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json)是平台、runner、发行目录、launcher 和插件内目录的唯一机器定义；打包器与 [Release 工作流](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml)共同读取它。日常 CI 负责验证自包含 CLI 与动态 Java binding，Release 工作流只接受 `vMAJOR.MINOR.PATCH` tag。
+[发布目标清单](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json)是平台、runner、发行目录、launcher 和插件内目录的唯一机器定义；打包器与 [Release 工作流](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml)共同读取它。日常 CI 验证工具链；Native size 工作流提供独立手动体积门禁，Release 工作流只接受 `vMAJOR.MINOR.PATCH` tag。
 
 公开版本应逐步接入 Windows Authenticode 签名以及 macOS Developer ID 签名和 notarization。签名接入前，版本说明必须明确系统可能显示来源警告。
 

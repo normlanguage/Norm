@@ -102,7 +102,7 @@ test('rejects incomparable inputs and incomplete evidence', t => {
     d => { d['size.json'].imageBytes++; },
     d => { d['size.json'].reachableMethods++; },
     d => { d['build-output.json'].image_details.image_heap.bytes++; },
-    d => { d['web-verification.json'] = d['execution-verification.json']; }
+    d => { delete d['execution-verification.json'].runs; }
   ];
   changes.forEach((change, index) => {
     const candidate = join(root, String(index));
@@ -113,26 +113,12 @@ test('rejects incomparable inputs and incomplete evidence', t => {
   });
 });
 
-test('accepts archived paths and validates the complete Web check set', t => {
+test('accepts archived Java artifact paths', t => {
   const root = mkdtempSync(join(tmpdir(), 'norm-size-comparison-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const paths = ['baseline', 'candidate'].map(name => join(root, name));
-  const fixtures = paths.map(path => {
-    const fixture = report(path);
-    fixture.documents['web-verification.json'] = fixture.documents['execution-verification.json'];
-    delete fixture.documents['execution-verification.json'];
-    rmSync(join(path, 'execution-verification.json'));
-    for (const run of fixture.documents['web-verification.json'].runs) {
-      delete run.output;
-      run.checks = ['http', 'dependency-injection', 'bean-validation', 'commit', 'database-read', 'rollback'];
-    }
-    fixture.save();
-    return fixture;
-  });
+  const fixtures = paths.map(path => report(path));
   fixtures[1].documents['java-artifacts.json'].artifacts[0].path = 'another-machine/library.jar';
   fixtures[1].save();
   assert.equal(compareNativeSize(...paths).passed, true);
-  fixtures[1].documents['web-verification.json'].runs[0].checks.pop();
-  fixtures[1].save();
-  assert.throws(() => compareNativeSize(...paths), /checks/i);
 });

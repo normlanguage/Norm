@@ -23,7 +23,7 @@ let packageRequested = false;
 const fixtureRoot = resolve(process.cwd(), 'test-fixtures', 'lsp-smoke');
 const moduleUri = pathToFileURL(resolve(fixtureRoot, 'module.norm')).href;
 const signatureUri = pathToFileURL(resolve(fixtureRoot, 'signature.norm')).href;
-const packagePath = resolve(process.cwd(), '..', '..', '..', 'docs', 'examples', 'micronaut-single-file', 'web.norm');
+const packagePath = resolve(process.cwd(), 'test-fixtures', 'package-resolution', 'application.norm');
 const packageUri = pathToFileURL(packagePath).href;
 const signatureText = 'Void consume(String value, Integer count) {} Void main() { consume(';
 const timeout = setTimeout(
@@ -188,7 +188,7 @@ function readMessages() {
       message.params?.uri === packageUri
     ) {
       if (message.params.diagnostics?.length) {
-        return finish(new Error(`GitHub package diagnostics failed: ${JSON.stringify(message)}`));
+        return finish(new Error(`Package dependency diagnostics failed: ${JSON.stringify(message)}`));
       }
       send({ jsonrpc: '2.0', id: 5, method: 'shutdown', params: null });
     } else if (message.id === 5) {

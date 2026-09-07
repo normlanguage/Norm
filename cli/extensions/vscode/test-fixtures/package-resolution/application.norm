@@ -1,0 +1,9 @@
+import sample.library.greet
+
+Module module() {
+  return module(dependencies: [dependency(repository: "github", name: "sample.library", version: 1)])
+}
+
+Void main() {
+  printLine(greet("Norm"))
+}

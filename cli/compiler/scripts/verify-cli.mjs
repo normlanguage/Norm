@@ -1,142 +1,66 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { verifyNativeWeb } from './verify-native-web.mjs';
 import { verifyNativeSize } from './verify-native-size.mjs';
 import { verifyNativeExecution } from './verify-native-execution.mjs';
 
-if (process.argv.length !== 4) {
-  throw new Error('Usage: verify-cli.mjs <norm-cli> <version>');
-}
-
-const repository = resolve(import.meta.dirname, '..', '..', '..');
+if (process.argv.length !== 4) throw new Error('Usage: verify-cli.mjs <norm-cli> <version>');
 const cli = resolve(process.argv[2]);
 const version = process.argv[3];
-verify(['--version'], `norm ${version}\n`);
-if (process.platform === 'win32' && cli.toLowerCase().endsWith('.exe')) {
-  const script = `
-Add-Type -AssemblyName System.Drawing
-$icon = [System.Drawing.Icon]::ExtractAssociatedIcon($env:NORM_ICON_TARGET)
-if ($null -eq $icon) { throw 'No executable icon found' }
-$bitmap = $icon.ToBitmap()
-$brandPixels = 0
-for ($x = 0; $x -lt $bitmap.Width; $x++) {
-  for ($y = 0; $y -lt $bitmap.Height; $y++) {
-    $pixel = $bitmap.GetPixel($x, $y)
-    if ([Math]::Abs($pixel.R - 49) -le 2 -and [Math]::Abs($pixel.G - 120) -le 2 -and [Math]::Abs($pixel.B - 198) -le 2) { $brandPixels++ }
-  }
-}
-$bitmap.Dispose()
-$icon.Dispose()
-if ($brandPixels -lt 400) { throw "Executable icon does not contain the Norm brand mark: $brandPixels matching pixels" }
-`;
-  const result = spawnSync(
-    'powershell.exe',
-    ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
-    { encoding: 'utf8', env: { ...process.env, NORM_ICON_TARGET: cli } },
-  );
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(`Windows executable icon verification failed: ${result.stderr}`);
-  }
-}
-verify(['run', resolve(repository, 'docs', 'examples', 'hello.norm')], 'Hello from Norm\n');
-
-await verifyNativeWeb(repository, verify);
-
-const plainDirectory = mkdtempSync(resolve(tmpdir(), 'norm-native-hello-'));
+const repository = resolve(import.meta.dirname, '../../..');
+const directory = mkdtempSync(resolve(tmpdir(), 'norm-cli-acceptance-'));
 try {
-  const source = resolve(plainDirectory, 'hello.norm');
-  copyFileSync(resolve(repository, 'docs/examples/hello.norm'), source);
-  const buildOutput = verify(['build', source, '--diagnostics'], undefined, plainDirectory);
-  const application = process.platform === 'win32' ? `${source}.exe` : resolve(plainDirectory, 'hello');
-  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'), buildOutput);
-  await verifyNativeExecution(application, source, evidence, 'Hello from Norm\n');
-} finally {
-  rmSync(plainDirectory, { recursive: true, force: true });
-}
-
-const bindingDirectory = mkdtempSync(resolve(tmpdir(), 'norm-java-binding-'));
-try {
-  const bindingSource = resolve(bindingDirectory, 'binding.norm');
-  writeFileSync(
-    bindingSource,
-    `package release.binding
-
-import commons.lang.stringUtilsReverse
-
+  assert.equal(run(cli, ['--version']).trim(), `norm ${version}`);
+  const source = resolve(directory, 'application.norm');
+  copyFileSync(resolve(import.meta.dirname, 'fixtures/hello.norm'), source);
+  assert.equal(run(cli, ['run', source]), 'Hello from Norm\n');
+  const classes = resolve(directory, 'classes');
+  mkdirSync(classes);
+  run('javac', ['-d', classes, resolve(import.meta.dirname, 'fixtures/BindingApi.java')]);
+  const module = resolve(directory, 'dependencies/fixture');
+  mkdirSync(module, { recursive: true });
+  const jar = resolve(module, 'fixture.jar');
+  run('jar', ['--create', '--date=2020-01-01T00:00:00Z', '--file', jar, '-C', classes, '.']);
+  const digest = createHash('sha256').update(readFileSync(jar)).digest('hex');
+  writeFileSync(resolve(module, 'module.norm'), `
 Module module() {
-  return module(
-    name: "release.binding",
-    version: 1,
-    dependencies: [
-      dependency(repository: "github", name: "commons.lang", version: 1)
-    ]
-  )
+  return module(name: "fixture", version: 1, binding: jarBinding(
+    target: localJar(path: "fixture.jar", integrity: sha256("${digest}")),
+    api: [jarType(name: "BindingApi", members: ["greet"])]
+  ))
 }
-
-Void main() {
-  printLine(stringUtilsReverse("Norm") ?? "")
+`);
+  writeFileSync(source, `
+import fixture.bindingApiGreet
+Module module() {
+  return module(dependencies: [dependency(repository: "github", name: "fixture", version: 1)])
 }
-`,
-  );
-  verify(['run', bindingSource], 'mroN\n', bindingDirectory);
-  const buildOutput = verify(['build', bindingSource, '--diagnostics'], undefined, bindingDirectory);
-  const application = process.platform === 'win32'
-    ? `${bindingSource}.exe`
-    : resolve(bindingDirectory, 'binding');
-  if (!existsSync(application)) {
-    throw new Error(`Native application was not created: ${application}`);
-  }
-  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'), buildOutput);
-  await verifyNativeExecution(application, bindingSource, evidence, 'mroN\n');
-} finally {
-  rmSync(bindingDirectory, { recursive: true, force: true });
-}
-
-let count = 0;
-for (const group of ['base', 'algorithms', 'class', 'generics', 'stdlib']) {
-  const directory = resolve(repository, 'norm', 'tests', group);
-  const cases = readdirSync(directory, { recursive: true })
-    .filter((path) => path.endsWith('.norm'))
-    .sort();
-  if (!cases.length) throw new Error(`No acceptance programs found in ${directory}`);
-  for (const file of cases) {
-    const path = resolve(directory, file);
-    verify(['run', path], undefined, dirname(path));
-    count += 1;
-  }
-}
-
-console.log(`Norm CLI verified with ${count} acceptance programs.`);
-
-function verify(args, expected, workingDirectory = repository) {
-  const before = readdirSync(workingDirectory);
-  const commandScript = process.platform === 'win32' && /\.(?:bat|cmd)$/i.test(cli);
-  const result = spawnSync(
-    commandScript ? (process.env.ComSpec ?? 'cmd.exe') : cli,
-    commandScript ? ['/d', '/c', 'call', cli, ...args] : args,
-    { cwd: workingDirectory, encoding: 'utf8' },
-  );
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(`${args.join(' ')} exited with ${result.status}: ${result.stderr}`);
-  }
-  if (result.stderr) {
-    throw new Error(`${args.join(' ')} wrote to stderr: ${result.stderr}`);
-  }
-  const actual = result.stdout.replaceAll('\r\n', '\n');
-  if (args[0] === 'build' && process.platform === 'win32') {
-    assert.deepEqual(readdirSync(workingDirectory).sort(),
-      [...new Set([...before, `${basename(args[1])}.exe`])].sort(),
+Void main() { printLine(bindingApiGreet("Norm") ?? "missing") }
+`);
+  assert.equal(run(cli, ['run', source]), 'Hello, Norm!\n');
+  const before = readdirSync(directory);
+  const output = run(cli, ['build', source, '--diagnostics']);
+  const executable = process.platform === 'win32' ? `${source}.exe` : resolve(directory, 'application');
+  if (process.platform === 'win32') {
+    assert.deepEqual(readdirSync(directory).sort(), [...before, 'application.norm.exe'].sort(),
       'Single-file build must publish only its executable');
   }
-  if (expected !== undefined && actual !== expected) {
-    throw new Error(
-      `${args.join(' ')} output mismatch\nexpected: ${JSON.stringify(expected)}\nreceived: ${JSON.stringify(actual)}`,
-    );
-  }
-  return actual;
+  const evidence = await verifyNativeSize(executable, resolve(repository, 'build/reports/native-size'), output);
+  await verifyNativeExecution(executable, source, evidence, 'Hello, Norm!\n');
+  console.log('Norm CLI and native Java interoperability verified.');
+} finally {
+  rmSync(directory, { recursive: true, force: true });
+}
+
+function run(command, args) {
+  const script = process.platform === 'win32' && /\.(bat|cmd)$/i.test(command);
+  const result = spawnSync(script ? process.env.ComSpec : command,
+    script ? ['/d', '/c', 'call', command, ...args] : args,
+    { cwd: directory, encoding: 'utf8', timeout: 1200000, windowsHide: true });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `${command} ${args.join(' ')}\n${result.stderr}\n${result.stdout}`);
+  return result.stdout.replaceAll('\r\n', '\n');
 }

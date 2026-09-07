@@ -40,8 +40,113 @@ jobs:
           jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.distribution | type == "string") and (.launcher | type == "string") and ((.standalone == null) or (.standalone | type == "string"))) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
           echo "matrix=$(jq -c '{include: .}' cli/compiler/release-targets.json)" >> "$GITHUB_OUTPUT"
 
-  verify:
+  build:
     needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: oracle
+          java-version: 25.0.2
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up .NET for the Windows executable
+        if: runner.os == 'Windows'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build self-contained CLI
+        shell: bash
+        run: ./gradlew :compiler:installRuntimeDist "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Build portable Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\gradlew.bat :compiler:publishWindowsExecutable "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Package Windows CLI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          New-Item -ItemType Directory -Path release-stage -Force | Out-Null
+          Copy-Item -LiteralPath '${{ matrix.distribution }}' -Destination release-stage/norm -Recurse
+          Copy-Item -LiteralPath '${{ matrix.standalone }}' -Destination 'release/norm.exe'
+
+      - name: Package Unix CLI
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p release
+          mkdir -p release-stage
+          cp -R '${{ matrix.distribution }}' release-stage/norm
+          archive="release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz"
+          tar -C release-stage -czf "$archive" norm
+
+      - name: Upload standalone CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release/*
+          if-no-files-found: error
+
+      - name: Upload self-contained CLI for the universal extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.target }}
+          path: release-stage
+          if-no-files-found: error
+
+  package-extension:
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: cli/extensions/vscode/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci --prefix cli/extensions/vscode
+
+      - name: Download self-contained CLIs
+        uses: actions/download-artifact@v5
+        with:
+          path: binaries
+          pattern: runtime-*
+
+      - name: Package universal extension
+        run: |
+          find binaries -path '*/norm/bin/norm' -exec chmod +x {} +
+          node cli/extensions/vscode/scripts/release-package.mjs \
+            ${{ needs.prepare.outputs.version }} \
+            binaries \
+            release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+
+      - name: Upload universal extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-universal
+          path: release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+          if-no-files-found: error
+
+  verify:
+    needs: [prepare, package-extension]
     runs-on: ubuntu-22.04
     steps:
       - name: Check out release sources
@@ -99,122 +204,108 @@ jobs:
           npm run test:discovery
           npm run test:release
 
-  build:
-    needs: [prepare, verify]
+      - name: Download packaged runtimes
+        uses: actions/download-artifact@v5
+        with:
+          path: binaries
+          pattern: runtime-*
+
+      - name: Download packaged extension
+        uses: actions/download-artifact@v5
+        with:
+          name: extension-universal
+          path: release
+
+      - name: Verify final universal extension
+        shell: bash
+        run: |
+          find binaries -path '*/norm/bin/norm' -exec chmod +x {} +
+          npm run --prefix cli/extensions/vscode verify:vsix -- ${{ needs.prepare.outputs.version }} "$GITHUB_WORKSPACE/binaries" "$GITHUB_WORKSPACE/release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix"
+
+  accept:
+    needs: [prepare, package-extension]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - name: Check out release sources
-        uses: actions/checkout@v6
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
         with:
           distribution: oracle
           java-version: 25.0.2
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      - name: Set up .NET for the Windows executable
-        if: runner.os == 'Windows'
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: cli/extensions/vscode/package-lock.json
+      - run: npm ci --prefix cli/extensions/vscode
 
-      - name: Install extension dependencies
-        run: npm ci --prefix cli/extensions/vscode
+      - name: Download final CLI
+        uses: actions/download-artifact@v5
+        with:
+          name: release-${{ matrix.platform }}
+          path: release
 
-      - name: Build self-contained CLI
-        shell: bash
-        run: ./gradlew :compiler:installRuntimeDist "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+      - name: Download packaged runtime
+        uses: actions/download-artifact@v5
+        with:
+          name: runtime-${{ matrix.target }}
+          path: release-stage
 
-      - name: Build portable Windows executable
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: .\gradlew.bat :compiler:publishWindowsExecutable "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
-
-      - name: Verify portable Windows executable
-        if: runner.os == 'Windows'
-        run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.standalone }} ${{ needs.prepare.outputs.version }}
-
-      - name: Verify self-contained CLI
-        run: node cli/compiler/scripts/verify-cli.mjs ${{ matrix.distribution }}/${{ matrix.launcher }} ${{ needs.prepare.outputs.version }}
-
-      - name: Verify self-contained language server
-        working-directory: cli/extensions/vscode
-        env:
-          NORM_CLI: ${{ github.workspace }}/${{ matrix.distribution }}/${{ matrix.launcher }}
-        run: npm run smoke:lsp
-
-      - name: Stage self-contained CLI
-        shell: bash
-        run: |
-          mkdir -p "cli/extensions/vscode/bin/${{ matrix.target }}"
-          cp -R "${{ matrix.distribution }}" "cli/extensions/vscode/bin/${{ matrix.target }}/norm"
-
-      - name: Verify extension in VS Code
-        if: runner.os != 'Linux'
-        working-directory: cli/extensions/vscode
-        env:
-          NORM_CLI: ${{ github.workspace }}/${{ matrix.distribution }}/${{ matrix.launcher }}
-        run: npm run test:extension:release
-
-      - name: Verify extension in VS Code on Linux
-        if: runner.os == 'Linux'
-        working-directory: cli/extensions/vscode
-        env:
-          NORM_CLI: ${{ github.workspace }}/${{ matrix.distribution }}/${{ matrix.launcher }}
-        run: xvfb-run -a npm run test:extension:release
-
-      - name: Package Windows CLI
+      - name: Prepare Windows delivery
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path release -Force | Out-Null
-          New-Item -ItemType Directory -Path release-stage -Force | Out-Null
-          Copy-Item -LiteralPath '${{ matrix.distribution }}' -Destination release-stage/norm -Recurse
-          Copy-Item -LiteralPath '${{ matrix.standalone }}' -Destination 'release/norm.exe'
-          $actual = & 'release/norm.exe' --version
-          if ($actual -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Portable CLI version mismatch: $actual" }
-          & 'release/norm.exe' setup
-          if ($LASTEXITCODE -ne 0) { throw "Setup failed with exit code $LASTEXITCODE" }
-          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $cli = (Resolve-Path release/norm.exe).Path
+          "NORM_CLI=$cli" >> $env:GITHUB_ENV
+          & $cli setup
+          if ($LASTEXITCODE -ne 0) { throw "Setup failed" }
+          & $cli setup
+          if ($LASTEXITCODE -ne 0) { throw "Repeated setup failed" }
           $installDirectory = Join-Path $env:LOCALAPPDATA 'Programs\Norm\bin'
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
           $matches = @($userPath.Split(';') | Where-Object { $_.TrimEnd('\') -ieq $installDirectory.TrimEnd('\') })
-          if ($matches.Count -ne 1) { throw "Setup did not add exactly one PATH entry" }
+          if ($matches.Count -ne 1) { throw "Setup PATH is not idempotent" }
           $installed = Join-Path $installDirectory 'norm.exe'
-          $installedVersion = & $installed --version
-          if ($installedVersion -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Installed CLI version mismatch: $installedVersion" }
+          if ((& $installed --version) -ne 'norm ${{ needs.prepare.outputs.version }}') { throw "Installed version mismatch" }
 
-      - name: Package Unix CLI
+      - name: Prepare Unix delivery
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          mkdir -p release
-          mkdir -p release-stage
-          cp -R '${{ matrix.distribution }}' release-stage/norm
-          archive="release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz"
-          tar -C release-stage -czf "$archive" norm
-          destination="$(mktemp -d)"
-          tar -C "$destination" -xzf "$archive"
-          [[ "$($destination/norm/bin/norm --version)" == 'norm ${{ needs.prepare.outputs.version }}' ]]
+          mkdir -p extracted
+          tar -xzf "release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz" -C extracted
+          echo "NORM_CLI=$GITHUB_WORKSPACE/extracted/norm/bin/norm" >> "$GITHUB_ENV"
 
-      - name: Upload standalone CLI
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.platform }}
-          path: release/*
-          if-no-files-found: error
+      - name: Verify final CLI and native application
+        shell: bash
+        run: node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "${{ needs.prepare.outputs.version }}"
+
+      - name: Stage packaged editor runtime
+        shell: bash
+        run: |
+          mkdir -p "cli/extensions/vscode/bin/${{ matrix.target }}"
+          cp -R release-stage/norm "cli/extensions/vscode/bin/${{ matrix.target }}/norm"
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            chmod +x "cli/extensions/vscode/bin/${{ matrix.target }}/norm/bin/norm" "release-stage/norm/bin/norm"
+          fi
+
+      - name: Verify packaged language server
+        working-directory: cli/extensions/vscode
+        env:
+          NORM_CLI: ${{ github.workspace }}/release-stage/norm/${{ matrix.launcher }}
+        run: npm run smoke:lsp
+
+      - name: Verify editor integration
+        if: runner.os != 'Linux'
+        working-directory: cli/extensions/vscode
+        run: npm run test:extension:release
+
+      - name: Verify editor integration on Linux
+        if: runner.os == 'Linux'
+        working-directory: cli/extensions/vscode
+        run: xvfb-run -a npm run test:extension:release
 
       - name: Upload native build evidence
         if: always()
@@ -226,61 +317,8 @@ jobs:
           include-hidden-files: true
           retention-days: 30
 
-      - name: Upload self-contained CLI for the universal extension
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-${{ matrix.target }}
-          path: release-stage
-          if-no-files-found: error
-
-  package-extension:
-    needs: [prepare, build]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check out release sources
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: cli/extensions/vscode/package-lock.json
-
-      - name: Install extension dependencies
-        run: npm ci --prefix cli/extensions/vscode
-
-      - name: Download self-contained CLIs
-        uses: actions/download-artifact@v5
-        with:
-          path: binaries
-          pattern: runtime-*
-
-      - name: Package universal extension
-        run: |
-          find binaries -path '*/norm/bin/norm' -exec chmod +x {} +
-          node cli/extensions/vscode/scripts/release-package.mjs \
-            ${{ needs.prepare.outputs.version }} \
-            binaries \
-            release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
-
-      - name: Verify universal extension package
-        working-directory: cli/extensions/vscode
-        run: >-
-          npm run verify:vsix --
-          ${{ needs.prepare.outputs.version }}
-          ${{ github.workspace }}/binaries
-          ${{ github.workspace }}/release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
-
-      - name: Upload universal extension
-        uses: actions/upload-artifact@v4
-        with:
-          name: extension-universal
-          path: release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
-          if-no-files-found: error
-
   publish:
-    needs: [prepare, package-extension]
+    needs: [prepare, verify, accept]
     runs-on: ubuntu-22.04
     permissions:
       contents: write

@@ -15,7 +15,7 @@ Norm uses distinct language constructs for distinct semantics: classes express i
 ```shell
 ./gradlew qualityCheck
 ./gradlew :compiler:run --args="--version"
-./gradlew :compiler:run --args="run docs/examples/hello.norm"
+./gradlew :compiler:run --args="run cli/compiler/scripts/fixtures/hello.norm"
 ```
 
 On Windows, use `gradlew.bat`. Gradle selects the pinned Java 25 toolchain automatically.
@@ -47,3 +47,9 @@ norm/tests/docs/              executable documentation examples
 Norm's official compiler is implemented in Java as one physical module whose packages preserve the compilation and execution boundaries. Truffle is the sole official execution backend. Releases bundle a platform runtime so the CLI can load independently published Java libraries without requiring a system Java installation. Zig is not part of the compiler or standard-library platform adapters.
 
 The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://normlanguage.github.io/Norm/spec/compiler-design) and [implementation strategy](https://normlanguage.github.io/Norm/design/implementation-strategy).
+
+## 仓库边界
+
+本仓库维护 Norm 语言、标准库、编译器／CLI 和 VS Code 插件，以及它们的文档与测试。
+
+应用示例与端到端验收见 [examples](https://github.com/normlanguage/examples)。适配包在 [normlanguage](https://github.com/normlanguage) 组织下各自维护、测试和发布；编译器只负责通用包解析、Java 互操作与 Native Image 集成。

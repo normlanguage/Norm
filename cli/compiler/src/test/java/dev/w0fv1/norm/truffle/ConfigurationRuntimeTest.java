@@ -52,14 +52,14 @@ final class ConfigurationRuntimeTest {
                 }
 
                 @Serializable()
-                value Micronaut { Server server Router router Security security }
+                value Host { Server server Router router Security security }
 
                 @Serializable()
-                value Config { Micronaut micronaut }
+                value Config { Host sample }
 
                 Void main() {
                   MutableMap<String?, Any?> properties = configurationProperties(value: Config(
-                    micronaut: Micronaut(
+                    sample: Host(
                       server: Server(host: "127.0.0.1", port: 8080),
                       router: Router(staticResources: [
                         StaticResource(
@@ -79,24 +79,24 @@ final class ConfigurationRuntimeTest {
                       )
                     )
                   ))
-                  printLine(properties.get(key: "micronaut.server.host") ?? "missing")
-                  printLine(properties.get(key: "micronaut.server.port") ?? -1)
+                  printLine(properties.get(key: "sample.server.host") ?? "missing")
+                  printLine(properties.get(key: "sample.server.port") ?? -1)
                   printLine(properties.get(
-                    key: "micronaut.router.static-resources.bbs.mapping"
+                    key: "sample.router.static-resources.bbs.mapping"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "micronaut.router.static-resources.bbs.paths[0]"
+                    key: "sample.router.static-resources.bbs.paths[0]"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "micronaut.router.static-resources.bbs.paths[1]"
+                    key: "sample.router.static-resources.bbs.paths[1]"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "micronaut.security.intercept-url-map[0].pattern"
+                    key: "sample.security.intercept-url-map[0].pattern"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "micronaut.security.intercept-url-map[0].access[0]"
+                    key: "sample.security.intercept-url-map[0].access[0]"
                   ) ?? "missing")
-                  printLine(properties.containsKey(key: "micronaut.security.token"))
+                  printLine(properties.containsKey(key: "sample.security.token"))
                   printLine(properties.size())
                 }
                 """)

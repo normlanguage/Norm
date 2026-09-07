@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +8,6 @@ import { verifyNativeMetrics } from './native-size-metrics.mjs';
 import { readBuildInputs, compareBuildInputs } from './native-build-inputs.mjs';
 
 const metrics = ['executableBytes', 'deliveryBytes', 'codeBytes', 'heapBytes'];
-const webChecks = ['http', 'dependency-injection', 'bean-validation', 'commit', 'database-read', 'rollback'].sort();
 
 function readReport(directory) {
   const read = name => JSON.parse(readFileSync(resolve(directory, name), 'utf8'));
@@ -44,9 +43,7 @@ function readReport(directory) {
     assert.ok(typeof value === 'string' && value.length > 0, `Missing compiler ${key}`);
     toolchain[key] = value;
   }
-  const receipts = ['execution-verification.json', 'web-verification.json'].filter(name => existsSync(resolve(directory, name)));
-  assert.equal(receipts.length, 1, 'Expected exactly one functional receipt');
-  const scope = receipts[0];
+  const scope = 'execution-verification.json';
   const receipt = read(scope);
   assert.equal(receipt.executableSha256, size.sha256, 'Receipt executable mismatch');
   assert.match(receipt.sourceSha256, /^[a-f0-9]{64}$/, 'Invalid source hash');
@@ -56,14 +53,9 @@ function readReport(directory) {
   for (const run of receipt.runs) {
     assert.ok(Number.isSafeInteger(run.iteration) && run.iteration > 0 && !iterations.has(run.iteration), 'Invalid run identity');
     iterations.add(run.iteration);
-    if (scope === 'web-verification.json') {
-      assert.ok(Array.isArray(run.checks), 'Missing Web checks');
-      assert.deepEqual([...run.checks].sort(), webChecks, 'Incomplete Web checks');
-    } else {
-      assert.equal(typeof run.output, 'string', 'Missing execution output');
-      if (output === undefined) output = run.output;
-      assert.equal(run.output, output, 'Inconsistent execution output');
-    }
+    assert.equal(typeof run.output, 'string', 'Missing execution output');
+    if (output === undefined) output = run.output;
+    assert.equal(run.output, output, 'Inconsistent execution output');
   }
   return { size, buildInputs: readBuildInputs(directory), inputs: { toolchain, sourceSha256: receipt.sourceSha256, scope, output, java: readJavaArtifacts(directory) } };
 }

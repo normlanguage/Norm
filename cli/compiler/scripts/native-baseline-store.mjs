@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { readNativeSizeSet, compareNativeSizeSets } from './compare-native-size.mjs';
 
 const files = ['size.json', 'build-output.json', 'build-inputs.json', 'java-artifacts.json',
-  'execution-verification.json', 'web-verification.json'];
+  'execution-verification.json'];
 
 function readSnapshot(directory, identity) {
   const manifest = JSON.parse(readFileSync(resolve(directory, 'manifest.json'), 'utf8'));

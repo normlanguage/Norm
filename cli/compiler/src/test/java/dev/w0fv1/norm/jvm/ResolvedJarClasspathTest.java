@@ -62,11 +62,9 @@ final class ResolvedJarClasspathTest {
 
   @Test
   void selectsTheExplicitRootOverAnOlderTransitiveVersion() {
-    ResolvedJarArtifact core = artifact("io.micronaut", "micronaut-core", "5.1.13", "core");
-    ResolvedJarArtifact serde =
-        artifact("io.micronaut.serde", "micronaut-serde-api", "3.1.1", "serde");
-    ResolvedJarArtifact olderCore =
-        artifact("io.micronaut", "micronaut-core", "5.1.3", "older-core");
+    ResolvedJarArtifact core = artifact("io.sample", "sample-core", "5.1.13", "core");
+    ResolvedJarArtifact serde = artifact("io.sample.serde", "sample-serde-api", "3.1.1", "serde");
+    ResolvedJarArtifact olderCore = artifact("io.sample", "sample-core", "5.1.3", "older-core");
 
     assertEquals(
         List.of(core, serde),

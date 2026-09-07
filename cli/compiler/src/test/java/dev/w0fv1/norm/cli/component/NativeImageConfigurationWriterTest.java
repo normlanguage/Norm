@@ -280,8 +280,8 @@ final class NativeImageConfigurationWriterTest {
   @Test
   void convertsJvmDescriptorsToReachabilityMetadataNames() {
     assertEquals(
-        "io.micronaut.http.annotation.Error",
-        NativeImageConfigurationWriter.descriptorName("Lio/micronaut/http/annotation/Error;"));
+        "io.sample.http.annotation.Error",
+        NativeImageConfigurationWriter.descriptorName("Lio/sample/http/annotation/Error;"));
     assertEquals(
         "java.lang.String[]", NativeImageConfigurationWriter.descriptorName("[Ljava/lang/String;"));
   }

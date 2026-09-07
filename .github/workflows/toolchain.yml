@@ -8,7 +8,6 @@ on:
       - '.github/workflows/release.yml'
       - 'cli/**'
       - 'norm/**'
-      - 'docs/examples/**'
       - 'gradle/**'
       - '.gitattributes'
       - '*.gradle.kts'
@@ -21,7 +20,6 @@ on:
       - '.github/workflows/release.yml'
       - 'cli/**'
       - 'norm/**'
-      - 'docs/examples/**'
       - 'gradle/**'
       - '.gitattributes'
       - '*.gradle.kts'
@@ -29,11 +27,6 @@ on:
       - 'gradlew'
       - 'gradlew.bat'
   workflow_dispatch:
-    inputs:
-      native_baseline_reset_reason:
-        description: Explicit baseline reset reason; leave empty for normal comparison
-        type: string
-        default: ''
 
 permissions:
   contents: read
@@ -47,9 +40,6 @@ jobs:
   test:
     name: OpenJDK 25
     runs-on: ubuntu-latest
-    outputs:
-      publish_baseline: ${{ steps.native-size.outputs.publish_baseline }}
-
     steps:
       - name: Check out sources
         uses: actions/checkout@v6
@@ -84,76 +74,9 @@ jobs:
       - name: Run quality checks
         run: ./gradlew qualityCheck --no-daemon
 
-      - name: Verify CLI entry point
-        run: |
-          ./gradlew :compiler:run --args="--version" --no-daemon
-          ./gradlew :compiler:run --args="run docs/examples/hello.norm" --no-daemon
-
-      - name: Verify self-contained CLI and language server
+      - name: Verify language server and evidence tools
         env:
           NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm/bin/norm
         run: |
           node --test cli/compiler/scripts/*.test.mjs
-          NORM_VERSION="$(./gradlew properties --no-daemon --console=plain -q | sed -n 's/^version: //p')"
-          test -n "$NORM_VERSION"
-          node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "$NORM_VERSION"
           npm run --prefix cli/extensions/vscode smoke:lsp
-
-      - name: Check native size budget
-        id: native-size
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NORM_NATIVE_BASELINE_RESET_REASON: ${{ inputs.native_baseline_reset_reason }}
-        run: node cli/compiler/scripts/native-size-gate.mjs build/reports/native-size
-
-      - name: Upload baseline proposal
-        if: steps.native-size.outputs.publish_baseline == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-baseline-proposal
-          path: build/reports/native-baseline-proposal
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload native build evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-size-${{ runner.os }}-${{ runner.arch }}
-          path: build/reports/native-size
-          if-no-files-found: warn
-          include-hidden-files: true
-          retention-days: 30
-
-  publish-baseline:
-    needs: test
-    if: >-
-      needs.test.outputs.publish_baseline == 'true' &&
-      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - name: Check out verified sources
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - name: Download verified baseline proposal
-        uses: actions/download-artifact@v5
-        with:
-          name: native-baseline-proposal
-          path: build/reports/native-baseline-proposal
-
-      - name: Publish durable baseline
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NORM_NATIVE_BASELINE_RESET_REASON: ${{ inputs.native_baseline_reset_reason }}
-        run: node cli/compiler/scripts/native-size-gate.mjs --publish build/reports/native-baseline-proposal

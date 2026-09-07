@@ -1,3 +1,0 @@
-main() {
-    printLine("Hello from Norm")
-}

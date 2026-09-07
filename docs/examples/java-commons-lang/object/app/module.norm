@@ -1,8 +1,0 @@
-Module module() {
-  return module(
-    name: "object.app",
-    version: 1,
-    exports: ["Main"],
-    dependencies: [dependency(repository: "github", name: "commons.lang", version: 1)]
-  )
-}

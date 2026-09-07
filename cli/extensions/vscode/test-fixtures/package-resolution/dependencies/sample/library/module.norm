@@ -1,0 +1,3 @@
+Module module() {
+  return module(name: "sample.library", version: 1, exports: ["Library"])
+}

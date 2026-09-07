@@ -20,15 +20,17 @@ A new platform must first pass the same acceptance suite in continuous integrati
 
 ## Release gates
 
-A release must pass the Java toolchain tests, Windows launcher tests, VS Code static checks, CLI version verification, Hello World, a default native build, every executable acceptance program under `norm/tests`, a dynamic Java-binding program, and an LSP handshake. Windows additionally verifies portable execution, setup, idempotent `PATH` registration, execution after setup, and a native application EXE with NAR and Java dependencies running offline from an empty cache. The universal VSIX verifies the launcher, compiler, and runtime from every accepted platform directory, then extracts and executes the complete host bundle.
+All platform CLIs and the universal VSIX are built before final acceptance. The toolchain suite covers language programs once through `ProgramExecutionTest`. Each platform verifies source execution, Java interoperability, one native build with three isolated executions, LSP and editor integration. Windows also checks portable execution and idempotent setup. VSIX validation checks all embedded runtimes and executes the host bundle.
+
+Framework and application acceptance belongs to adapter repositories and [examples](https://github.com/normlanguage/examples), not the compiler release.
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 
 ## Automation
 
-The [CLI acceptance entry point](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs) includes [Micronaut / ORM native end-to-end verification](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-native-web.mjs).
+The [CLI acceptance entry point](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs) covers compiler delivery and generic Java interoperability.
 
-The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, distribution directories, launchers, and extension directories; the packager and [Release workflow](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI verifies the self-contained distribution and dynamic Java loading. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
+The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, distribution directories, launchers, and extension directories; the packager and [Release workflow](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI verifies the toolchain. Native size is a separate manual workflow. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
 
 Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 

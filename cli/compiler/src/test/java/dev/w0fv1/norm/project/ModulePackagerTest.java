@@ -63,6 +63,11 @@ final class ModulePackagerTest {
     Path resource = module.resolve("resources/public/icon.bin");
     Files.createDirectories(resource.getParent());
     Files.write(resource, icon);
+    String nativePath = "META-INF/native-image/example/assets/native-image.properties";
+    String nativeOptions = "Args = -Dexample.assets.enabled=true\n";
+    Path nativeResource = module.resolve("resources").resolve(nativePath);
+    Files.createDirectories(nativeResource.getParent());
+    Files.writeString(nativeResource, nativeOptions);
     Path repository = temporaryDirectory.resolve("repository");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     ModulePackager.PackagedModule packaged;
@@ -73,6 +78,11 @@ final class ModulePackagerTest {
       var entry = archive.getEntry("resources/public/icon.bin");
       assertTrue(entry != null);
       assertTrue(java.util.Arrays.equals(icon, archive.getInputStream(entry).readAllBytes()));
+      assertEquals(
+          nativeOptions,
+          new String(
+              archive.getInputStream(archive.getEntry("resources/" + nativePath)).readAllBytes(),
+              java.nio.charset.StandardCharsets.UTF_8));
     }
 
     Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
@@ -104,6 +114,10 @@ final class ModulePackagerTest {
             consumerEnvironment.compilerSession(),
             backend)) {
       var compilation = launcher.compileApplication(entry);
+      assertEquals(
+          nativeOptions,
+          Files.readString(
+              compilation.annotationOutput().orElseThrow().classes().resolve(nativePath)));
       assertTrue(
           compilation.result().isSuccess(), () -> compilation.result().diagnostics().toString());
       org.junit.jupiter.api.Assertions.assertArrayEquals(
