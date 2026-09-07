@@ -14,6 +14,10 @@ test('release accepts completed packages before publication', () => {
   for (const name of ['verify', 'accept']) assert.deepEqual(jobs[name].needs, ['prepare', 'package-extension']);
   assert.deepEqual(jobs.publish.needs, ['prepare', 'verify', 'accept']);
   assert.equal(jobs.accept.steps.filter(step => step.run?.includes('verify-cli.mjs')).length, 1);
+  assert.match(jobs.accept.steps.find(step => step.name === 'Stage packaged editor runtime').run, /stageCliBundle/);
+  assert.match(jobs.accept.steps.find(step => step.name === 'Verify packaged language server').env.NORM_CLI, /cli\/extensions\/vscode\/bin\//);
+  assert.equal(jobs.build.steps.find(step => step.name === 'Upload self-contained CLI for the universal extension').with.path, 'release-stage');
+  assert.equal(jobs.accept.steps.find(step => step.name === 'Download packaged runtime').with.path, 'binaries/runtime-${{ matrix.target }}');
   assert.ok(!jobs.build.steps.some(step => /verify-cli|qualityCheck|smoke:lsp/.test(step.run ?? '')));
 });
 

@@ -93,6 +93,13 @@ try {
       );
     }
   }
+  assert.deepEqual(stageCliBundle(binaries, extension, 'linux-x64'), [join(extension, 'bin', 'linux-x64', 'norm')]);
+  assert.equal(existsSync(join(extension, 'bin', 'win32-x64')), false);
+  assert.throws(() => stageCliBundle(binaries, extension, 'unknown'), /Unsupported release target/);
+  assert.ok(existsSync(join(extension, 'bin', 'linux-x64', targetRuntimeJava('linux-x64'))));
+  if (process.platform !== 'win32') {
+    assert.notEqual(statSync(join(extension, 'bin', 'linux-x64', targetRuntimeJava('linux-x64'))).mode & 0o111, 0);
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

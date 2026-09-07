@@ -251,7 +251,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: runtime-${{ matrix.target }}
-          path: release-stage
+          path: binaries/runtime-${{ matrix.target }}
 
       - name: Prepare Windows delivery
         if: runner.os == 'Windows'
@@ -283,18 +283,12 @@ jobs:
         run: node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "${{ needs.prepare.outputs.version }}"
 
       - name: Stage packaged editor runtime
-        shell: bash
-        run: |
-          mkdir -p "cli/extensions/vscode/bin/${{ matrix.target }}"
-          cp -R release-stage/norm "cli/extensions/vscode/bin/${{ matrix.target }}/norm"
-          if [[ "$RUNNER_OS" != "Windows" ]]; then
-            chmod +x "cli/extensions/vscode/bin/${{ matrix.target }}/norm/bin/norm" "release-stage/norm/bin/norm"
-          fi
+        run: node --input-type=module -e "import { stageCliBundle } from './cli/extensions/vscode/scripts/release-package.mjs'; stageCliBundle('binaries', 'cli/extensions/vscode', '${{ matrix.target }}');"
 
       - name: Verify packaged language server
         working-directory: cli/extensions/vscode
         env:
-          NORM_CLI: ${{ github.workspace }}/release-stage/norm/${{ matrix.launcher }}
+          NORM_CLI: ${{ github.workspace }}/cli/extensions/vscode/bin/${{ matrix.target }}/norm/${{ matrix.launcher }}
         run: npm run smoke:lsp
 
       - name: Verify editor integration

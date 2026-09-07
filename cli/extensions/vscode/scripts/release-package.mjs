@@ -67,10 +67,12 @@ export function verifyCliVersion(binary, version) {
   }
 }
 
-export function stageCliBundle(binaries, extensionRoot) {
+export function stageCliBundle(binaries, extensionRoot, target) {
+  const targets = target === undefined ? releaseTargets : releaseTargets.filter(value => value.target === target);
+  if (targets.length === 0) throw new Error(`Unsupported release target: ${target}`);
   const bin = join(extensionRoot, 'bin');
   rmSync(bin, { recursive: true, force: true });
-  return releaseTargets.map(({ target, launcher }) => {
+  return targets.map(({ target, launcher }) => {
     const source = join(resolve(binaries), `runtime-${target}`, 'norm');
     const destination = join(bin, target, 'norm');
     mkdirSync(dirname(destination), { recursive: true });
