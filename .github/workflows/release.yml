@@ -94,14 +94,14 @@ jobs:
           tar -C release-stage -czf "$archive" norm
 
       - name: Upload standalone CLI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.platform }}
           path: release/*
           if-no-files-found: error
 
       - name: Upload self-contained CLI for the universal extension
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-${{ matrix.target }}
           path: release-stage
@@ -139,7 +139,7 @@ jobs:
             release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
 
       - name: Upload universal extension
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extension-universal
           path: release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
@@ -309,7 +309,7 @@ jobs:
 
       - name: Upload native build evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-size-${{ matrix.platform }}
           path: build/reports/native-size
