@@ -15,7 +15,7 @@ final class CoreDependencyTest {
         Void main() { List<Integer> items = [1] printLine(items[0]) }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var artifact = compiled.program().orElseThrow().compilation().artifact();
+    var artifact = compiled.output().orElseThrow().artifact();
     var entry = artifact.program().definition(artifact.entryDefinition()).orElseThrow();
     var facts = CoreReachability.intrinsics(CoreDefinitionGroup.create(java.util.List.of(entry)));
     var indexes = new java.util.ArrayList<CoreExpression.Index>();
@@ -41,7 +41,7 @@ final class CoreDependencyTest {
         Void main() { Item item = Item() printLine(item.name()) printLine(helper()) }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var artifact = compiled.program().orElseThrow().compilation().artifact();
+    var artifact = compiled.output().orElseThrow().artifact();
     var entry = artifact.program().definition(artifact.entryDefinition()).orElseThrow();
     var calls = new java.util.ArrayList<CoreExpression.Call>();
     new CoreWalker() {
@@ -79,7 +79,7 @@ final class CoreDependencyTest {
         }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var artifact = compiled.program().orElseThrow().compilation().artifact();
+    var artifact = compiled.output().orElseThrow().artifact();
     var entry =
         (CoreDefinition.Callable)
             artifact.program().definition(artifact.entryDefinition()).orElseThrow();
@@ -161,7 +161,7 @@ final class CoreDependencyTest {
         }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var artifact = compiled.program().orElseThrow().compilation().artifact();
+    var artifact = compiled.output().orElseThrow().artifact();
     var entry = artifact.program().definition(artifact.entryDefinition()).orElseThrow();
     var declaration = CoreTree.declarationDependencies(entry);
     var execution = CoreTree.executionDependencies(entry);

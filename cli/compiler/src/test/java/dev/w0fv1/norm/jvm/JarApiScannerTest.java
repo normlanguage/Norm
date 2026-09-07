@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
+import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,6 +25,69 @@ import org.objectweb.asm.TypeReference;
 
 final class JarApiScannerTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void bindingPlanningDoesNotRestoreExcludedGenericOverrides() throws Exception {
+    var parent = new ClassWriter(0);
+    parent.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+        "sample/Parent",
+        "<T:Ljava/lang/Object;>Ljava/lang/Object;",
+        "java/lang/Object",
+        null);
+    parent
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
+            "set",
+            "(Ljava/lang/Object;)V",
+            "(TT;)V",
+            null)
+        .visitEnd();
+    parent.visitEnd();
+    var child = new ClassWriter(0);
+    child.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC,
+        "sample/Child",
+        "Lsample/Parent<Ljava/lang/String;>;",
+        "sample/Parent",
+        null);
+    child
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_NATIVE | Opcodes.ACC_DEPRECATED,
+            "set",
+            "(Ljava/lang/String;)V",
+            null,
+            null)
+        .visitEnd();
+    child
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_NATIVE | Opcodes.ACC_BRIDGE | Opcodes.ACC_SYNTHETIC,
+            "set",
+            "(Ljava/lang/Object;)V",
+            null,
+            null)
+        .visitEnd();
+    child.visitEnd();
+    Path jar = temporaryDirectory.resolve("excluded-override.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      writeClass(output, "sample/Parent.class", parent);
+      writeClass(output, "sample/Child.class", child);
+    }
+    var schema = scan(jar);
+    assertTrue(
+        type(schema, "sample.Child").effectiveMethods().stream()
+            .noneMatch(method -> method.binding().isPresent()));
+    var plan =
+        new BindingPlanner()
+            .plan(
+                new dev.w0fv1.norm.value.ModuleCoordinate("sample.binding", 1),
+                List.of("Child"),
+                Sha256Digest.compute(jar),
+                schema);
+    assertTrue(plan.calls().isEmpty(), plan.calls().toString());
+  }
 
   @Test
   void inventoriesEveryStablePublicDeclarationWithoutLoadingClasses() throws Exception {
@@ -473,8 +538,7 @@ final class JarApiScannerTest {
       ResolvedJarGraph graph =
           resolver.resolve(
               temporaryDirectory,
-              new dev.w0fv1.norm.value.JarBinding(
-                  new dev.w0fv1.norm.value.MavenJarTarget(coordinate, java.util.Optional.empty())));
+              new JarBinding(new MavenJarTarget(coordinate, java.util.Optional.empty())));
 
       JarApiSchema schema = new JarApiScanner().scan(graph);
 

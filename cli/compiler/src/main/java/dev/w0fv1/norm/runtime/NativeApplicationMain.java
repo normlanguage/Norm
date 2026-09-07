@@ -1,6 +1,11 @@
 package dev.w0fv1.norm.runtime;
 
+import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.execution.PreparedExecution;
+import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
+import dev.w0fv1.norm.jvm.LinkedJarBinding;
+import dev.w0fv1.norm.jvm.LinkedJavaClasses;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -51,17 +56,16 @@ public final class NativeApplicationMain {
 
   static void install(
       NativeApplicationData value,
-      dev.w0fv1.norm.execution.PreparedExecution prepared,
-      java.util.Map<String, dev.w0fv1.norm.bridge.JavaDirectCall> calls,
-      dev.w0fv1.norm.jvm.LinkedJavaClasses classes,
-      java.util.Map<String, dev.w0fv1.norm.bridge.JavaDirectCall> applicationCalls) {
+      PreparedExecution prepared,
+      java.util.Map<String, JavaDirectCall> calls,
+      LinkedJavaClasses classes,
+      java.util.Map<String, JavaDirectCall> applicationCalls) {
     if (application != null)
       throw new IllegalStateException("Native application is already installed");
     application =
         new NativeApplicationProgram(
             prepared,
-            dev.w0fv1.norm.jvm.JvmJarBindingRuntime.prepareCalls(
-                dev.w0fv1.norm.jvm.LinkedJarBinding.linkCalls(value.bindings()), calls),
+            JvmJarBindingRuntime.prepareCalls(LinkedJarBinding.linkCalls(value.bindings()), calls),
             value.packageName(),
             classes,
             applicationCalls);

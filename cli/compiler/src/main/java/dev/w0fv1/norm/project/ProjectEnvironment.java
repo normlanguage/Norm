@@ -81,32 +81,25 @@ public final class ProjectEnvironment {
         new JarResolver(jarCache));
   }
 
-  public ProjectLauncher launcher() {
-    return new ProjectLauncher(projectLoader(), compilerSession(), backend);
+  public ExecutionBackend backend() {
+    return backend;
   }
 
-  public ProjectLauncher persistentLauncher() throws IOException {
-    return persistentLauncher(message -> {});
+  public CompilerSession persistentCompilerSession() throws IOException {
+    return CompilerSession.persistent(languageProfile);
   }
 
-  public ProjectLauncher persistentLauncher(java.util.function.Consumer<String> progress)
-      throws IOException {
-    return new ProjectLauncher(
-        new ProjectLoader(
-            new ModuleEvaluator(languageProfile, backend), reservedModuleNames, progress),
-        CompilerSession.persistent(languageProfile),
-        backend);
+  public ProjectLoader projectLoader(java.util.function.Consumer<String> progress) {
+    return new ProjectLoader(
+        new ModuleEvaluator(languageProfile, backend), reservedModuleNames, progress);
   }
 
-  public ProjectLauncher bundledLauncher(Path bundle) throws IOException {
+  public ProjectLoader bundledProjectLoader(Path bundle) throws IOException {
     Path root = Objects.requireNonNull(bundle, "bundle").toAbsolutePath().normalize();
-    ProjectLoader loader =
-        new ProjectLoader(
-            new ModuleEvaluator(languageProfile, backend),
-            reservedModuleNames,
-            new NormPackageResolver(
-                root.resolve("packages"), root.resolve("cache").resolve("packages")),
-            JarResolver.bundled(root.resolve("jars")));
-    return new ProjectLauncher(loader, CompilerSession.persistent(languageProfile), backend);
+    return new ProjectLoader(
+        new ModuleEvaluator(languageProfile, backend),
+        reservedModuleNames,
+        new NormPackageResolver(root.resolve("packages"), root.resolve("cache/packages")),
+        JarResolver.bundled(root.resolve("jars")));
   }
 }

@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import java.util.Map;
 
 public record LinkedJarBinding(
@@ -32,8 +33,7 @@ public record LinkedJarBinding(
           .forEach(
               (name, callable) -> {
                 if (calls.putIfAbsent(name, callable) != null)
-                  throw new dev.w0fv1.norm.execution.JarBindingRuntimeException(
-                      "duplicate JAR binding call " + name);
+                  throw new JarBindingRuntimeException("duplicate JAR binding call " + name);
               });
     }
     return Map.copyOf(calls);

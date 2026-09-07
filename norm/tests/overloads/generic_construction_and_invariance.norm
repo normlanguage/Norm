@@ -1,0 +1,18 @@
+import std.core.Iterable
+import std.testing.expectedOutputLines
+
+class Box<T> {
+  T value
+  Box(String tag, T value) { this.value = value }
+  Box(T value) { this.value = value }
+}
+
+String accept(List<Any> values) { return "list" }
+String accept(Iterable<Integer> values) { return "iterable" }
+
+Void main() {
+  expectedOutputLines(["42", "iterable"])
+  printLine(Box<>(42).value)
+  List<Integer> values = [42]
+  printLine(accept(values))
+}

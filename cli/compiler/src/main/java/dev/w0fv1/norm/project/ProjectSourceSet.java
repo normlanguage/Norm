@@ -2,14 +2,15 @@ package dev.w0fv1.norm.project;
 
 import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
@@ -29,13 +30,13 @@ public record ProjectSourceSet(
     Optional<Path> rootModulePath,
     Set<Path> modulePaths,
     Map<ModuleCoordinate, ModuleDescriptor> moduleDescriptors,
-    Map<ModuleCoordinate, Path> moduleArchives,
+    Map<ModuleCoordinate, FileSnapshot> moduleArchives,
     CompilationScope scope,
     List<SourceFile> sources,
     Set<Path> exportedSourcePaths,
     Set<DocumentId> bindingSourceDocuments,
     List<ResolvedJarBinding> jarBindings,
-    Map<String, ModuleResource> resources,
+    ProjectResources resourceSet,
     boolean applicationFactory,
     boolean mainEntrypoint) {
   public ProjectSourceSet {
@@ -48,11 +49,7 @@ public record ProjectSourceSet(
             .map(ProjectSourceSet::normalize)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
     moduleDescriptors = Map.copyOf(Objects.requireNonNull(moduleDescriptors, "moduleDescriptors"));
-    moduleArchives =
-        Objects.requireNonNull(moduleArchives, "moduleArchives").entrySet().stream()
-            .collect(
-                java.util.stream.Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey, entry -> normalize(entry.getValue())));
+    moduleArchives = Map.copyOf(moduleArchives);
     Objects.requireNonNull(scope, "scope");
     if (rootModulePath.isPresent() != !modulePaths.isEmpty()) {
       throw new IllegalArgumentException("project module identity must match its module graph");
@@ -74,7 +71,7 @@ public record ProjectSourceSet(
     Objects.requireNonNull(exportedSourcePaths, "exportedSourcePaths");
     Objects.requireNonNull(bindingSourceDocuments, "bindingSourceDocuments");
     jarBindings = List.copyOf(jarBindings);
-    resources = Map.copyOf(resources);
+    Objects.requireNonNull(resourceSet, "resourceSet");
 
     Map<Path, SourceFile> sourcesByPath = new LinkedHashMap<>();
     for (SourceFile source : sources) {
@@ -115,6 +112,10 @@ public record ProjectSourceSet(
       throw new IllegalArgumentException("exported sources must be part of the project");
     }
     exportedSourcePaths = Set.copyOf(normalizedExports);
+  }
+
+  public Map<String, ModuleResource> resources() {
+    return resourceSet.classpath();
   }
 
   public SourceFile primarySource() {

@@ -1,5 +1,8 @@
 package dev.w0fv1.norm.cli.component;
 
+import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.workspace.Workspace;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.IntConsumer;
@@ -17,8 +20,8 @@ import org.eclipse.lsp4j.services.TextDocumentService;
 
 final class LanguageServer
     implements org.eclipse.lsp4j.services.LanguageServer, LanguageClientAware {
-  private final DocumentService documents = new DocumentService();
-  private final WorkspaceService workspace = new WorkspaceService(documents);
+  private final DocumentService documents;
+  private final WorkspaceService workspace;
   private final IntConsumer exitHandler;
   private volatile int exitCode = 1;
 
@@ -28,6 +31,13 @@ final class LanguageServer
 
   LanguageServer(IntConsumer exitHandler) {
     this.exitHandler = java.util.Objects.requireNonNull(exitHandler, "exitHandler");
+    try {
+      var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+      documents = new DocumentService(new Workspace(environment));
+      workspace = new WorkspaceService(documents);
+    } catch (java.io.IOException exception) {
+      throw new IllegalStateException("cannot bootstrap Norm project environment", exception);
+    }
   }
 
   @Override
@@ -58,7 +68,7 @@ final class LanguageServer
 
   @JsonRequest("norm/source")
   public CompletableFuture<String> source(String uri) {
-    return CompletableFuture.completedFuture(documents.source(uri));
+    return documents.source(uri);
   }
 
   @Override

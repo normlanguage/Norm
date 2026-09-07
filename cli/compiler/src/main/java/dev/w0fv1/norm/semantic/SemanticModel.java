@@ -1,13 +1,13 @@
 package dev.w0fv1.norm.semantic;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceLocation;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceLocation;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +17,8 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class SemanticModel implements SemanticIndex {
+  private final TypeRelations.DeclarationGraph typeRelations;
+  private final MemberRelations memberRelations;
   private final SourceFile source;
   private final Syntax.Program syntax;
   private final Map<SymbolId, Symbol> symbols;
@@ -123,6 +125,8 @@ public final class SemanticModel implements SemanticIndex {
     this.authoringReferences = ReferenceIndex.from(this.bindings);
     this.semanticReferences =
         ReferenceIndex.semantic(this.bindings, this.aliasTargets, this.resolvedCalls);
+    this.typeRelations = new TypeRelations.DeclarationGraph(this::directParents);
+    this.memberRelations = new MemberRelations(this.symbols, this.witnesses, this.methodOverrides);
   }
 
   private SemanticModel(
@@ -158,6 +162,8 @@ public final class SemanticModel implements SemanticIndex {
     this.typeIndex = project.typeIndex;
     this.authoringReferences = project.authoringReferences;
     this.semanticReferences = project.semanticReferences;
+    this.typeRelations = project.typeRelations;
+    this.memberRelations = project.memberRelations;
   }
 
   public SemanticModel documentView(SourceFile source, Syntax.Program syntax) {
@@ -481,45 +487,19 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public Optional<SemanticType> typeOf(Syntax.TypeRef reference) {
-    if (reference.isWildcard()) return Optional.of(SemanticType.EXISTENTIAL);
-    if (reference.name().equals("ref")) {
-      if (reference.nullable() || reference.arguments().size() != 1) return Optional.empty();
-      return typeOf(reference.arguments().getFirst()).map(SemanticType::reference);
-    }
-    if (reference.name().equals("Function") && !reference.arguments().isEmpty()) {
-      List<SemanticType> signature =
-          reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
-      if (signature.size() != reference.arguments().size()) return Optional.empty();
-      SemanticType function =
-          SemanticType.function(signature.getFirst(), signature.subList(1, signature.size()));
-      return Optional.of(reference.nullable() ? function.nullable() : function);
-    }
-    Optional<Symbol> symbol = resolvedSymbolOf(reference.span());
-    if (symbol.isEmpty()) return Optional.empty();
-    Symbol declaration = symbol.orElseThrow();
-    SemanticType base = declaration.type();
-    SemanticType resolved = base;
-    if (base.kind() != SemanticType.Kind.TYPE_PARAMETER
-        && (!reference.arguments().isEmpty() || !declaration.typeParameters().isEmpty())) {
-      List<SemanticType> explicit =
-          reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
-      if (explicit.size() != reference.arguments().size()) return Optional.empty();
-      List<SemanticType> arguments = new java.util.ArrayList<>(explicit);
-      Map<String, SemanticType> substitutions = new LinkedHashMap<>();
-      for (int index = 0; index < explicit.size(); index++) {
-        substitutions.put(
-            declaration.typeParameters().get(index).type().identity(), explicit.get(index));
-      }
-      for (int index = explicit.size(); index < declaration.typeParameters().size(); index++) {
-        TypeParameterInfo parameter = declaration.typeParameters().get(index);
-        if (parameter.defaultType().isEmpty()) return Optional.empty();
-        SemanticType argument = parameter.defaultType().orElseThrow().substitute(substitutions);
-        arguments.add(argument);
-        substitutions.put(parameter.type().identity(), argument);
-      }
-      resolved = SemanticType.declared(base.identity(), base.name(), arguments, base.category());
-    }
-    return Optional.of(reference.nullable() ? resolved.nullable() : resolved);
+    List<SemanticType> arguments =
+        reference.arguments().stream().map(this::typeOf).flatMap(Optional::stream).toList();
+    if (arguments.size() != reference.arguments().size()) return Optional.empty();
+    SemanticType type =
+        TypeApplication.resolve(
+            reference,
+            arguments,
+            () ->
+                resolvedSymbolOf(reference.span())
+                    .flatMap(symbol -> symbol.specialize(arguments))
+                    .map(Symbol::type)
+                    .orElse(SemanticType.DYNAMIC));
+    return type.equals(SemanticType.DYNAMIC) ? Optional.empty() : Optional.of(type);
   }
 
   @Override
@@ -556,19 +536,49 @@ public final class SemanticModel implements SemanticIndex {
   }
 
   public boolean isAssignable(SemanticType expected, SemanticType actual) {
-    return isAssignable(expected, actual, new java.util.HashSet<>());
+    return typeRelations.isAssignable(expected, actual);
   }
 
-  private boolean isAssignable(SemanticType expected, SemanticType actual, Set<String> visiting) {
-    if (containsTypeParameter(expected) || TypeRelations.isAssignable(expected, actual))
-      return true;
-    if (!visiting.add(actual.identity())) return false;
-    return directParents(actual).stream()
-        .anyMatch(parent -> isAssignable(expected, parent, visiting));
+  public Optional<Symbol> specializeReceiver(Symbol callable, SemanticType receiver) {
+    if (callable.parameters().isEmpty()) return Optional.empty();
+    TypeConstraintSolver solver =
+        new TypeConstraintSolver(
+            callable.typeParameters().stream().map(TypeParameterInfo::type).toList(),
+            typeRelations);
+    solver.constrain(callable.parameters().getFirst().type(), receiver);
+    TypeConstraintSolver.Solution solution = solver.solve();
+    if (!solution.conflicts().isEmpty()) return Optional.empty();
+    Map<String, SemanticType> substitutions =
+        TypeArguments.completeInferred(
+            callable.typeParameters(), solution.substitutions(), TypeParameterInfo::type);
+    for (TypeParameterInfo parameter : callable.typeParameters()) {
+      if (!solution.substitutions().containsKey(parameter.type().identity())) continue;
+      if (parameter.upperBound().isPresent()
+          && !typeRelations.isAssignable(
+              parameter.upperBound().orElseThrow().substitute(substitutions),
+              substitutions.get(parameter.type().identity()))) return Optional.empty();
+    }
+    Symbol specialized = callable.substitute(substitutions);
+    return isAssignable(specialized.parameters().getFirst().type(), receiver)
+        ? Optional.of(specialized)
+        : Optional.empty();
   }
 
   private List<SemanticType> directParents(SemanticType type) {
-    List<SemanticType> result = new java.util.ArrayList<>();
+    if (type.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      return symbols.values().stream()
+          .flatMap(symbol -> symbol.typeParameters().stream())
+          .filter(parameter -> parameter.type().identity().equals(type.identity()))
+          .map(TypeParameterInfo::upperBound)
+          .flatMap(Optional::stream)
+          .distinct()
+          .toList();
+    }
+    List<SemanticType> result =
+        new java.util.ArrayList<>(
+            builtins.protocolConformances(type).stream()
+                .filter(parent -> typeSymbols.containsKey(parent.identity()))
+                .toList());
     aggregateParent(type).ifPresent(result::add);
     SymbolId ownerId = typeSymbols.get(type.identity());
     Symbol owner = ownerId == null ? null : symbols.get(ownerId);
@@ -585,9 +595,12 @@ public final class SemanticModel implements SemanticIndex {
     return List.copyOf(result);
   }
 
-  private static boolean containsTypeParameter(SemanticType type) {
-    return type.kind() == SemanticType.Kind.TYPE_PARAMETER
-        || type.arguments().stream().anyMatch(SemanticModel::containsTypeParameter);
+  public List<Symbol> relatedMembers(Symbol member) {
+    return memberRelations.related(member);
+  }
+
+  public List<Symbol> overriddenMembers(Symbol member) {
+    return memberRelations.parents(member);
   }
 
   public Optional<SymbolId> overriddenMethod(SymbolId method) {
@@ -654,21 +667,18 @@ public final class SemanticModel implements SemanticIndex {
     aggregateParent(type)
         .ifPresent(
             parent -> {
-              Set<SymbolId> overridden =
-                  result.stream()
-                      .map(Symbol::id)
-                      .map(methodOverrides::get)
-                      .filter(Objects::nonNull)
-                      .collect(java.util.stream.Collectors.toSet());
               for (Symbol inherited : members(parent, visiting)) {
-                if (!overridden.contains(inherited.id())
-                    && result.stream()
-                        .noneMatch(existing -> existing.id().equals(inherited.id()))) {
+                if (result.stream().noneMatch(existing -> existing.id().equals(inherited.id()))) {
                   result.add(inherited);
                 }
               }
             });
-    return List.copyOf(result);
+    Set<SymbolId> overridden =
+        result.stream()
+            .flatMap(member -> memberRelations.parents(member).stream())
+            .map(Symbol::id)
+            .collect(java.util.stream.Collectors.toSet());
+    return result.stream().filter(member -> !overridden.contains(member.id())).toList();
   }
 
   public List<Symbol> callableAlternatives(Symbol symbol) {

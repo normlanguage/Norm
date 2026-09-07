@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -117,9 +117,8 @@ final class ArtifactIdTest {
                     Path.of("artifact.norm"),
                     "Integer first() { return 1 } Integer second() { return 2 } "
                         + "Void main() { printLine(first()) }"))
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact();
     DefinitionId first = original.namespace().definition("", "first").orElseThrow();
     DefinitionId second = original.namespace().definition("", "second").orElseThrow();
@@ -159,9 +158,8 @@ final class ArtifactIdTest {
     CoreArtifact original =
         new CompilerSession()
             .compile(new CompilationRequest(entry.id(), List.of(first, second, entry)))
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact();
     DefinitionOccurrenceId alpha = original.namespace().occurrence("", "alpha").orElseThrow();
     DefinitionOccurrenceId beta = original.namespace().occurrence("", "beta").orElseThrow();
@@ -214,9 +212,8 @@ final class ArtifactIdTest {
                 file.id(),
                 List.of(file),
                 Set.of()))
-        .program()
+        .output()
         .orElseThrow()
-        .compilation()
         .artifact();
   }
 }

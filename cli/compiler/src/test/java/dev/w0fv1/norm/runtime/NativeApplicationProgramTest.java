@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
+import dev.w0fv1.norm.jvm.LinkedJavaClasses;
 import dev.w0fv1.norm.testing.NormTestKit;
 import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import java.io.PrintWriter;
@@ -26,16 +28,15 @@ final class NativeApplicationProgramTest {
   void executesPreparedCodeWithIndependentContexts() {
     var artifact =
         NormTestKit.compile("Void main() { printLine(\"native\") }")
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact();
     var program =
         new NativeApplicationProgram(
             new TruffleExecutionBackend().prepare(artifact),
-            dev.w0fv1.norm.jvm.JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
+            JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
             "sample",
-            dev.w0fv1.norm.jvm.LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
+            LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
             Map.of());
     for (int attempt = 0; attempt < 2; attempt++) {
       var output = new StringWriter();
@@ -48,16 +49,15 @@ final class NativeApplicationProgramTest {
   void preservesGuestFailureLocation() {
     var artifact =
         NormTestKit.compile("Void main() {\n  printLine(1 / 0)\n}")
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact();
     var program =
         new NativeApplicationProgram(
             new TruffleExecutionBackend().prepare(artifact),
-            dev.w0fv1.norm.jvm.JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
+            JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
             "sample",
-            dev.w0fv1.norm.jvm.LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
+            LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
             Map.of());
     var failure =
         assertThrows(

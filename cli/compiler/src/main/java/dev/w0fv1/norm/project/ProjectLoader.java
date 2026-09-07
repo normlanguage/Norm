@@ -13,12 +13,14 @@ import dev.w0fv1.norm.jvm.JarResolver;
 import dev.w0fv1.norm.jvm.NormPackageResolver;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.JarBindingType;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenJarTarget;
-import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleDependency;
@@ -27,7 +29,6 @@ import dev.w0fv1.norm.value.ModuleGraph;
 import dev.w0fv1.norm.value.ModuleRepositoryId;
 import dev.w0fv1.norm.value.ModuleRequirement;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -132,7 +133,7 @@ public final class ProjectLoader implements AutoCloseable {
           Set.of(),
           Set.of(),
           List.of(),
-          Map.of(),
+          new ProjectResources(Map.of()),
           entryStructure.applicationFactory(),
           entryStructure.mainEntrypoint());
     }
@@ -174,30 +175,20 @@ public final class ProjectLoader implements AutoCloseable {
                     java.util.function.Function.identity(),
                     (left, right) -> left,
                     LinkedHashMap::new));
-    Map<ModuleCoordinate, Path> moduleArchives = new LinkedHashMap<>();
+    Map<ModuleCoordinate, FileSnapshot> moduleArchives = new LinkedHashMap<>();
     Set<DocumentId> bindingSources = new LinkedHashSet<>();
     List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
-    Map<String, ModuleResource> resources = new LinkedHashMap<>();
+    Map<ModuleCoordinate, Map<String, ModuleResource>> resources = new LinkedHashMap<>();
     for (ResolvedModule module : graph) {
-      if (!normalize(module.moduleSource().path()).equals(normalize(rootModulePath))
-          && module
-              .moduleSource()
-              .path()
-              .getFileName()
-              .toString()
-              .endsWith(ModuleArchiveFormat.FILE_SUFFIX)) {
-        moduleArchives.put(module.descriptor().coordinate(), module.moduleSource().path());
-      }
+      module
+          .archive()
+          .ifPresent(archive -> moduleArchives.put(module.descriptor().coordinate(), archive));
       dependencies.put(
           module.descriptor().coordinate(), readableDependencies(module.descriptor(), descriptors));
       modulePaths.add(normalize(module.moduleSource().path()));
       bindingSources.addAll(module.bindingSources());
       module.binding().ifPresent(jarBindings::add);
-      for (ModuleResource resource : module.resources().values()) {
-        if (resources.putIfAbsent(resource.path(), resource) != null) {
-          throw new IOException("duplicate module resource " + resource.path());
-        }
-      }
+      resources.put(module.descriptor().coordinate(), module.resources());
       exportedSources.addAll(
           module.exportedSources().stream()
               .map(DocumentId::uri)
@@ -223,7 +214,7 @@ public final class ProjectLoader implements AutoCloseable {
         exportedSources,
         bindingSources,
         jarBindings,
-        resources,
+        new ProjectResources(resources),
         entryStructure.applicationFactory(),
         entryStructure.mainEntrypoint());
   }
@@ -281,7 +272,8 @@ public final class ProjectLoader implements AutoCloseable {
             loaded.exportedSources(),
             Set.of(),
             Optional.empty(),
-            collectResources(root));
+            collectResources(root),
+            Optional.empty());
     List<ResolvedModule> graph = resolveGraph(rootModule, overlays, purpose);
     validatePackageOwnership(graph);
     Path entry = normalize(entrySource.path());
@@ -477,7 +469,10 @@ public final class ProjectLoader implements AutoCloseable {
     AnalysisModuleKey analysisKey = new AnalysisModuleKey(normalize(repositoryRoot), requirement);
     if (purpose == LoadPurpose.ANALYSIS) {
       ResolvedModule cached = analysisModules.get(analysisKey);
-      if (cached != null) return cached;
+      if (cached != null) {
+        cached.archive().orElseThrow().verify();
+        return cached;
+      }
     }
     progress.accept(
         "Resolving NAR: "
@@ -554,7 +549,8 @@ public final class ProjectLoader implements AutoCloseable {
             exportedSources(loaded, bindingSources),
             bindingSources,
             binding,
-            archived.resources());
+            archived.resources(),
+            Optional.of(archived.archive()));
     if (purpose != LoadPurpose.ANALYSIS) return result;
     ResolvedModule cached = analysisModules.putIfAbsent(analysisKey, result);
     return cached == null ? result : cached;
@@ -563,7 +559,10 @@ public final class ProjectLoader implements AutoCloseable {
   private ModuleArchiveReader.ArchivedModule archive(Path path) throws IOException {
     Path archive = normalize(path);
     ModuleArchiveReader.ArchivedModule cached = archives.get(archive);
-    if (cached != null) return cached;
+    if (cached != null) {
+      cached.archive().verify();
+      return cached;
+    }
     ModuleArchiveReader.ArchivedModule loaded = new ModuleArchiveReader().read(archive);
     ModuleArchiveReader.ArchivedModule existing = archives.putIfAbsent(archive, loaded);
     return existing == null ? loaded : existing;
@@ -630,7 +629,8 @@ public final class ProjectLoader implements AutoCloseable {
         exportedSources(loaded, bindingSources),
         bindingSources,
         binding,
-        resources);
+        resources,
+        Optional.empty());
   }
 
   public Path projectRoot(SourceFile source, Collection<SourceFile> overlays) {
@@ -742,9 +742,7 @@ public final class ProjectLoader implements AutoCloseable {
       throws IOException {
     try {
       List<String> selectedTypes =
-          descriptor.binding().orElseThrow().api().stream()
-              .map(dev.w0fv1.norm.value.JarBindingType::name)
-              .toList();
+          descriptor.binding().orElseThrow().api().stream().map(JarBindingType::name).toList();
       JarApiScanner scanner = new JarApiScanner();
       var surface = scanner.scanSurface(graph, selectedTypes);
       var api = selectedSurfaceOnly ? surface : scanner.scan(graph, selectedTypes);
@@ -973,7 +971,8 @@ public final class ProjectLoader implements AutoCloseable {
       Set<DocumentId> exportedSources,
       Set<DocumentId> bindingSources,
       Optional<ResolvedJarBinding> binding,
-      Map<String, ModuleResource> resources) {
+      Map<String, ModuleResource> resources,
+      Optional<FileSnapshot> archive) {
     private ResolvedModule {
       root = normalize(root);
       Objects.requireNonNull(moduleSource, "moduleSource");

@@ -2,12 +2,12 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.semantic.SemanticContribution;
 import dev.w0fv1.norm.semantic.SemanticModel;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceLocation;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceLocation;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

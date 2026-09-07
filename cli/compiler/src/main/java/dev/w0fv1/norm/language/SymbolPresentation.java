@@ -1,5 +1,8 @@
 package dev.w0fv1.norm.language;
 
+import dev.w0fv1.norm.semantic.ParameterInfo;
+import dev.w0fv1.norm.semantic.SemanticModel;
+import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import java.util.List;
@@ -9,11 +12,11 @@ final class SymbolPresentation {
 
   static Symbol callable(Symbol symbol) {
     if (!symbol.type().isFunction()) return symbol;
-    List<dev.w0fv1.norm.semantic.ParameterInfo> parameters =
+    List<ParameterInfo> parameters =
         java.util.stream.IntStream.range(0, symbol.type().functionParameterTypes().size())
             .mapToObj(
                 index ->
-                    new dev.w0fv1.norm.semantic.ParameterInfo(
+                    new ParameterInfo(
                         "argument" + index, symbol.type().functionParameterTypes().get(index)))
             .toList();
     return new Symbol(
@@ -28,7 +31,7 @@ final class SymbolPresentation {
         symbol.documentation());
   }
 
-  static Symbol annotation(dev.w0fv1.norm.semantic.SemanticModel model, Symbol symbol) {
+  static Symbol annotation(SemanticModel model, Symbol symbol) {
     return model
         .annotations()
         .schema(symbol.id())
@@ -43,10 +46,7 @@ final class SymbolPresentation {
                     symbol.owner(),
                     symbol.typeParameters(),
                     schema.parameters().stream()
-                        .map(
-                            parameter ->
-                                new dev.w0fv1.norm.semantic.ParameterInfo(
-                                    parameter.name(), parameter.type()))
+                        .map(parameter -> new ParameterInfo(parameter.name(), parameter.type()))
                         .toList(),
                     symbol.documentation()))
         .orElse(symbol);
@@ -60,8 +60,7 @@ final class SymbolPresentation {
                 + symbol.typeParameters().stream()
                     .map(
                         parameter -> {
-                          if (parameter.type().kind()
-                              != dev.w0fv1.norm.semantic.SemanticType.Kind.TYPE_PARAMETER) {
+                          if (parameter.type().kind() != SemanticType.Kind.TYPE_PARAMETER) {
                             return parameter.type().displayName();
                           }
                           return parameter.name()

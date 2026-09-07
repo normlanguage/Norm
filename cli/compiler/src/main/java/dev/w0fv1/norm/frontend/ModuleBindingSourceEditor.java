@@ -1,11 +1,11 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.JarTarget;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.Sha256Digest;
-import dev.w0fv1.norm.value.SourceFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

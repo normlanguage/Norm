@@ -3,8 +3,17 @@ package dev.w0fv1.norm.project;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.jvm.JavaApplicationMethodIndex;
+import dev.w0fv1.norm.jvm.MavenJarIdentity;
+import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
+import dev.w0fv1.norm.jvm.ResolvedJarGraph;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -205,66 +214,70 @@ final class JavaAnnotationBindingIntegrationTest {
     String processorOutput;
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("maven-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
       Path supportJar = temporaryDirectory.resolve("selected-support.jar");
       try (var archive = new JarOutputStream(Files.newOutputStream(supportJar))) {}
       var support =
-          new dev.w0fv1.norm.jvm.ResolvedJarArtifact(
-              new dev.w0fv1.norm.jvm.MavenJarIdentity(
-                  new dev.w0fv1.norm.value.MavenArtifactCoordinate("sample", "support", "2")),
+          new ResolvedJarArtifact(
+              new MavenJarIdentity(new MavenArtifactCoordinate("sample", "support", "2")),
               supportJar,
               Sha256Digest.compute(supportJar));
-      var compiled =
+      try (var compiled =
           launcher.compileApplication(
               entry,
               message -> {},
               java.util.List.of(
-                  new dev.w0fv1.norm.jvm.ResolvedJarGraph(
-                      support, java.util.List.of(support), java.util.List.of())));
-      assertTrue(compiled.result().isSuccess(), compiled.result().diagnostics().toString());
-      var annotationOutput = compiled.annotationOutput().orElseThrow();
-      var index =
-          dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.analyze(
-              annotationOutput.classes(), annotationOutput.stubs());
-      var artifact = compiled.result().program().orElseThrow().compilation().artifact();
-      var constructors = new java.util.HashSet<dev.w0fv1.norm.core.DefinitionId>();
-      for (var record : artifact.program().definitions()) {
-        if (record.definition() instanceof dev.w0fv1.norm.core.CoreDefinition.Aggregate aggregate
-            && aggregate.nominalType().name().equals("Response")) {
-          aggregate
-              .constructors()
-              .forEach(
-                  reference ->
-                      constructors.add(
-                          artifact
-                              .program()
-                              .resolve(
-                                  record.id(),
-                                  (dev.w0fv1.norm.core.DefinitionReference) reference)));
+                  new ResolvedJarGraph(
+                      support, java.util.List.of(support), java.util.List.of())))) {
+        assertTrue(compiled.result().isSuccess(), compiled.result().diagnostics().toString());
+        var annotationOutput = compiled.application().orElseThrow().annotations();
+        var index =
+            JavaApplicationMethodIndex.analyze(
+                annotationOutput.classes(), annotationOutput.stubs());
+        var artifact = compiled.result().output().orElseThrow().artifact();
+        var constructors = new java.util.HashSet<DefinitionId>();
+        for (var record : artifact.program().definitions()) {
+          if (record.definition() instanceof CoreDefinition.Aggregate aggregate
+              && aggregate.nominalType().name().equals("Response")) {
+            aggregate
+                .constructors()
+                .forEach(
+                    reference ->
+                        constructors.add(
+                            artifact
+                                .program()
+                                .resolve(record.id(), (DefinitionReference) reference)));
+          }
         }
-      }
-      assertEquals(3, constructors.size());
-      assertTrue(index.entryPoints().containsAll(constructors));
-      assertTrue(java.util.Collections.disjoint(index.instanceMethods().keySet(), constructors));
-      for (var id : index.entryPoints()) {
+        assertEquals(3, constructors.size());
+        assertTrue(index.entryPoints().containsAll(constructors));
+        assertTrue(java.util.Collections.disjoint(index.instanceMethods().keySet(), constructors));
+        for (var id : index.entryPoints()) {
+          assertTrue(
+              artifact.program().definition(id).orElseThrow() instanceof CoreDefinition.Callable);
+        }
+        var capturedSupport =
+            compiled.application().orElseThrow().javaClasspath().artifacts().stream()
+                .filter(value -> value.identity().equals(support.identity()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(support.content(), capturedSupport.content());
         assertTrue(
-            artifact.program().definition(id).orElseThrow()
-                instanceof dev.w0fv1.norm.core.CoreDefinition.Callable);
+            Files.readString(
+                    compiled.application().orElseThrow().annotations().root().resolve("javac.args"))
+                .contains(capturedSupport.file().toString().replace('\\', '/')));
+        processorOutput =
+            Files.readString(
+                compiled
+                    .application()
+                    .orElseThrow()
+                    .annotations()
+                    .classes()
+                    .resolve("processor/endpoints.txt"));
       }
-      assertTrue(compiled.javaClasspath().artifacts().contains(support));
-      assertTrue(
-          Files.readString(compiled.annotationOutput().orElseThrow().root().resolve("javac.args"))
-              .contains(supportJar.toAbsolutePath().toString().replace('\\', '/')));
-      processorOutput =
-          Files.readString(
-              compiled
-                  .annotationOutput()
-                  .orElseThrow()
-                  .classes()
-                  .resolve("processor/endpoints.txt"));
     }
 
     assertEquals(

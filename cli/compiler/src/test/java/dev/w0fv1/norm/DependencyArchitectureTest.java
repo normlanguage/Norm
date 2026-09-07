@@ -25,6 +25,37 @@ final class DependencyArchitectureTest {
   }
 
   @Test
+  void compilerPackagesHaveNoDependencyCycles() {
+    com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices()
+        .matching("dev.w0fv1.norm.(*)..")
+        .should()
+        .beFreeOfCycles()
+        .check(aggregates);
+  }
+
+  @Test
+  void sourceModelIsALeaf() {
+    noClasses()
+        .that()
+        .resideInAPackage("..source..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..value..", "..syntax..", "..semantic..", "..core..", "..diagnostic..")
+        .check(aggregates);
+  }
+
+  @Test
+  void abiDoesNotDependOnCompilerModels() {
+    noClasses()
+        .that()
+        .resideInAPackage("..abi..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..builtin..", "..semantic..", "..core..", "..frontend..", "..syntax..")
+        .check(aggregates);
+  }
+
+  @Test
   void coreDoesNotDependOnBindingOrRuntimeLayers() {
     noClasses()
         .that()
@@ -32,7 +63,13 @@ final class DependencyArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage(
-            "..bound..", "..execution..", "..frontend..", "..syntax..", "..truffle..")
+            "..bound..",
+            "..execution..",
+            "..frontend..",
+            "..syntax..",
+            "..truffle..",
+            "..semantic..",
+            "..builtin..")
         .check(aggregates);
   }
 
@@ -153,6 +190,57 @@ final class DependencyArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage("..bound..", "..frontend..", "..semantic..", "..syntax..")
+        .check(aggregates);
+  }
+
+  @Test
+  void workspaceOwnsProjectAnalysisWithoutDependingOnProtocolAdapters() {
+    noClasses()
+        .that()
+        .resideInAPackage("..workspace..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..cli..", "org.eclipse.lsp4j..")
+        .check(aggregates);
+  }
+
+  @Test
+  void projectInputsDoNotDependOnApplicationOrJvmConsumers() {
+    noClasses()
+        .that()
+        .resideInAPackage("..project..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..application..", "..workspace..", "..cli..", "..polyglot..")
+        .check(aggregates);
+    noClasses()
+        .that()
+        .resideInAPackage("..jvm..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..application..", "..project..", "..workspace..")
+        .check(aggregates);
+  }
+
+  @Test
+  void truffleExecutionDoesNotOwnPolyglotOrApplicationCompilation() {
+    noClasses()
+        .that()
+        .resideInAPackage("..truffle..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..polyglot..", "..application..", "..project..")
+        .check(aggregates);
+  }
+
+  @Test
+  void lspDocumentAdapterDoesNotLoadOrCompileProjects() {
+    noClasses()
+        .that()
+        .haveSimpleName("DocumentService")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..project..", "..runtime..", "..application..")
         .check(aggregates);
   }
 }

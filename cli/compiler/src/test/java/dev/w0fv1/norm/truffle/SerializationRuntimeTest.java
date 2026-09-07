@@ -17,9 +17,9 @@ final class SerializationRuntimeTest {
                     + "@Serializable() value Box<T> { T value } Void main() { "
                     + "Box<Integer>(value: 1).toJson() Box<Integer>(value: 2).toJson() "
                     + "Box<String>(value: \"a\").toJson() Box<String>(value: \"b\").toJson() }")
-            .program()
+            .output()
             .orElseThrow();
-    ExecutableProgram executable = new Lowerer(null).lower(checked.compilation().artifact());
+    ExecutableProgram executable = new Lowerer(null).lower(checked.artifact());
 
     executable.execute(ExecutionContext.of(new PrintWriter(new StringWriter())));
 
@@ -40,9 +40,9 @@ final class SerializationRuntimeTest {
                     + "source.toJson().fromJson<Message>() "
                     + "source.toXml().fromXml<Message>() "
                     + "source.toYaml().fromYaml<Message>() }")
-            .program()
+            .output()
             .orElseThrow();
-    ExecutableProgram executable = new Lowerer(null).lower(checked.compilation().artifact());
+    ExecutableProgram executable = new Lowerer(null).lower(checked.artifact());
 
     executable.execute(ExecutionContext.of(new PrintWriter(new StringWriter())));
 

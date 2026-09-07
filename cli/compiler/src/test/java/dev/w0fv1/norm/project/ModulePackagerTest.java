@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
@@ -108,22 +109,27 @@ final class ModulePackagerTest {
         """);
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
-    try (ProjectLauncher launcher =
-        new ProjectLauncher(
-            consumerEnvironment.projectLoader(repository),
-            consumerEnvironment.compilerSession(),
-            backend)) {
-      var compilation = launcher.compileApplication(entry);
+    try (ApplicationRunner launcher =
+            new ApplicationRunner(
+                consumerEnvironment.projectLoader(repository),
+                consumerEnvironment.compilerSession(),
+                backend);
+        var compilation = launcher.compileApplication(entry)) {
       assertEquals(
           nativeOptions,
           Files.readString(
-              compilation.annotationOutput().orElseThrow().classes().resolve(nativePath)));
+              compilation.application().orElseThrow().annotations().classes().resolve(nativePath)));
       assertTrue(
           compilation.result().isSuccess(), () -> compilation.result().diagnostics().toString());
       org.junit.jupiter.api.Assertions.assertArrayEquals(
           icon,
           Files.readAllBytes(
-              compilation.annotationOutput().orElseThrow().classes().resolve("public/icon.bin")));
+              compilation
+                  .application()
+                  .orElseThrow()
+                  .annotations()
+                  .classes()
+                  .resolve("public/icon.bin")));
     }
   }
 
@@ -312,8 +318,8 @@ final class ModulePackagerTest {
     StringWriter output = new StringWriter();
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
-    try (ProjectLauncher launcher =
-        new ProjectLauncher(
+    try (ApplicationRunner launcher =
+        new ApplicationRunner(
             consumerEnvironment.projectLoader(repository),
             consumerEnvironment.compilerSession(),
             backend)) {
@@ -509,8 +515,8 @@ final class ModulePackagerTest {
     StringWriter output = new StringWriter();
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-    try (ProjectLauncher launcher =
-        new ProjectLauncher(
+    try (ApplicationRunner launcher =
+        new ApplicationRunner(
             environment.projectLoader(repository), environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());

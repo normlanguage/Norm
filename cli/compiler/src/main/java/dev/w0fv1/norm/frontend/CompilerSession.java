@@ -2,22 +2,22 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundProgram;
 import dev.w0fv1.norm.core.CompilationOutput;
+import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreCompilationDelta;
 import dev.w0fv1.norm.core.IncrementalAnalysisReport;
 import dev.w0fv1.norm.core.store.DefinitionStore;
 import dev.w0fv1.norm.core.store.FileDefinitionStore;
 import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
+import dev.w0fv1.norm.semantic.AnalysisResult;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.Syntax;
-import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.TypedProgram;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -154,7 +154,7 @@ public final class CompilerSession implements AutoCloseable {
                 analysisElapsed));
     CompilationOutput output =
         trackCompilation(request, measured, analysis, prepared.snapshot(), cached);
-    return new CompilationResult(Optional.of(new TypedProgram(output)), analysis.diagnostics());
+    return new CompilationResult(Optional.of(output), analysis.diagnostics());
   }
 
   public AnalysisResult analyze(CompilationRequest request) {
@@ -235,10 +235,6 @@ public final class CompilerSession implements AutoCloseable {
     return profile.preludeSource(document);
   }
 
-  public CompilationSnapshot preludeSnapshot(DocumentId document) {
-    return snapshot(profile.prelude().request(document));
-  }
-
   public CompilationSnapshot preludeSnapshot(SourceFile source) {
     return preludeSnapshot(
         List.of(java.util.Objects.requireNonNull(source, "source")), source.id());
@@ -246,6 +242,13 @@ public final class CompilerSession implements AutoCloseable {
 
   public CompilationSnapshot preludeSnapshot(
       java.util.Collection<SourceFile> overlays, DocumentId entryDocument) {
+    return preludeSnapshot(overlays, entryDocument, CompilationControl.standard());
+  }
+
+  public CompilationSnapshot preludeSnapshot(
+      java.util.Collection<SourceFile> overlays,
+      DocumentId entryDocument,
+      CompilationControl control) {
     Map<DocumentId, SourceFile> replacements = new LinkedHashMap<>();
     for (SourceFile source : List.copyOf(overlays)) {
       if (profile.preludeSource(source.id()).isEmpty()) {
@@ -266,7 +269,8 @@ public final class CompilerSession implements AutoCloseable {
             request.scope(),
             request.entryDocument(),
             sources,
-            request.exportedSources()));
+            request.exportedSources()),
+        control);
   }
 
   @Override
@@ -317,7 +321,7 @@ public final class CompilerSession implements AutoCloseable {
     if (profile.prelude().scope().isPresent()) {
       CompilationScope preludeScope = profile.prelude().scope().orElseThrow();
       sourceScope = preludeScope.merge(sourceScope);
-      Set<dev.w0fv1.norm.value.ModuleCoordinate> preludeExports =
+      Set<ModuleCoordinate> preludeExports =
           profile.prelude().exportedSources().stream()
               .map(preludeScope::coordinate)
               .map(ModuleSourceCoordinate::module)
@@ -395,8 +399,7 @@ public final class CompilerSession implements AutoCloseable {
                 CoreCompilationDelta.between(
                     previous.lastSuccessfulOutput().artifact().program(),
                     output.artifact().program()));
-    CompilationResult result =
-        new CompilationResult(Optional.of(new TypedProgram(tracked)), analysis.diagnostics());
+    CompilationResult result = new CompilationResult(Optional.of(tracked), analysis.diagnostics());
     Set<DocumentId> documents =
         request.sources().stream()
             .map(SourceFile::id)
@@ -556,7 +559,7 @@ public final class CompilerSession implements AutoCloseable {
     }
 
     CompilationResult reuse() {
-      if (cachedResult.program().isEmpty()) return cachedResult;
+      if (cachedResult.output().isEmpty()) return cachedResult;
       CoreArtifact artifact = lastSuccessfulOutput.artifact();
       CompilationOutput reused =
           lastSuccessfulOutput
@@ -564,8 +567,7 @@ public final class CompilerSession implements AutoCloseable {
               .withAnalysisReport(
                   IncrementalAnalysisReport.reused(
                       lastSuccessfulOutput.state().analysisReport().declarations()));
-      return new CompilationResult(
-          Optional.of(new TypedProgram(reused)), cachedResult.diagnostics());
+      return new CompilationResult(Optional.of(reused), cachedResult.diagnostics());
     }
 
     CompilationSnapshot snapshotFor(CompilationRequest current) {

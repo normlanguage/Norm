@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import dev.w0fv1.norm.platform.SystemPlatform;
 import dev.w0fv1.norm.platform.file.FileSystem;
+import dev.w0fv1.norm.platform.http.HttpTransport;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.platform.time.PlatformTimeException;
 import dev.w0fv1.norm.platform.time.SystemClock;
@@ -67,7 +68,7 @@ final class TimeIoFoundationTest {
           }
 
           @Override
-          public dev.w0fv1.norm.platform.http.HttpTransport httpTransport() {
+          public HttpTransport httpTransport() {
             return JdkSystemPlatform.standard().httpTransport();
           }
         };

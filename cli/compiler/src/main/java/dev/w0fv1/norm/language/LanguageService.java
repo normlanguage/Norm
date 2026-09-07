@@ -1,20 +1,22 @@
 package dev.w0fv1.norm.language;
 
+import dev.w0fv1.norm.frontend.CompilationControl;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.SourceFormatter;
+import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.semantic.TypeParameterInfo;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceLocation;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.LanguageSyntax;
-import dev.w0fv1.norm.value.AnalysisResult;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceLocation;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +25,6 @@ public final class LanguageService implements AutoCloseable {
   private final SourceFormatter formatter = new SourceFormatter();
   private final CompletionEngine completions = new CompletionEngine();
   private final SignatureHelpResolver signatures = new SignatureHelpResolver();
-  private final ContractRelations contracts = new ContractRelations();
 
   public LanguageService() {
     this(new CompilerSession());
@@ -41,6 +42,10 @@ public final class LanguageService implements AutoCloseable {
     return compiler.analyze(request);
   }
 
+  public CompilationSnapshot snapshot(CompilationRequest request, CompilationControl control) {
+    return compiler.snapshot(request, control);
+  }
+
   public CompilationSnapshot snapshot(CompilationRequest request) {
     return compiler.snapshot(request);
   }
@@ -54,17 +59,11 @@ public final class LanguageService implements AutoCloseable {
     return compiler.preludeSource(document).map(SourceFile::text);
   }
 
-  public CompilationSnapshot standardLibrarySnapshot(DocumentId document) {
-    return compiler.preludeSnapshot(document);
-  }
-
-  public CompilationSnapshot standardLibrarySnapshot(SourceFile source) {
-    return compiler.preludeSnapshot(source);
-  }
-
   public CompilationSnapshot standardLibrarySnapshot(
-      java.util.Collection<SourceFile> sources, DocumentId entryDocument) {
-    return compiler.preludeSnapshot(sources, entryDocument);
+      java.util.Collection<SourceFile> sources,
+      DocumentId entryDocument,
+      CompilationControl control) {
+    return compiler.preludeSnapshot(sources, entryDocument, control);
   }
 
   public Optional<String> format(SourceFile source) {
@@ -137,7 +136,7 @@ public final class LanguageService implements AutoCloseable {
             .isPresent();
     if (declaration) {
       Optional<SourceLocation> requirement =
-          contracts.requirements(model, symbol).stream()
+          model.overriddenMembers(symbol).stream()
               .map(Symbol::declaration)
               .flatMap(Optional::stream)
               .findFirst();
@@ -153,12 +152,12 @@ public final class LanguageService implements AutoCloseable {
     if (selected.isEmpty()) return List.of();
     Symbol symbol = selected.orElseThrow();
     Optional<SourceLocation> declaration = symbol.declaration();
-    List<dev.w0fv1.norm.value.SourceSpan> references;
+    List<SourceSpan> references;
     if (model.isAlias(symbol.id())) {
       references = model.authoringReferences(symbol.id());
     } else {
       references =
-          contracts.related(model, symbol).stream()
+          model.relatedMembers(symbol).stream()
               .flatMap(related -> model.references(related.id()).stream())
               .distinct()
               .toList();
@@ -176,7 +175,7 @@ public final class LanguageService implements AutoCloseable {
     List<Symbol> related =
         model.isAlias(symbol.orElseThrow().id())
             ? List.of(symbol.orElseThrow())
-            : contracts.related(model, symbol.orElseThrow());
+            : model.relatedMembers(symbol.orElseThrow());
     if (related.stream().anyMatch(candidate -> !isEditable(candidate))) return Optional.empty();
     return model
         .referenceAt(offset)
@@ -193,7 +192,7 @@ public final class LanguageService implements AutoCloseable {
     List<Symbol> related =
         model.isAlias(selected.orElseThrow().id())
             ? List.of(selected.orElseThrow())
-            : contracts.related(model, selected.orElseThrow());
+            : model.relatedMembers(selected.orElseThrow());
     if (related.stream().anyMatch(candidate -> !isEditable(candidate))) return Optional.empty();
     if (related.stream().anyMatch(symbol -> model.hasRenameConflict(symbol.id(), newName))) {
       throw new IllegalArgumentException(

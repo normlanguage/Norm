@@ -3,7 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.diagnostic.Diagnostic;
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticSeverity;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;

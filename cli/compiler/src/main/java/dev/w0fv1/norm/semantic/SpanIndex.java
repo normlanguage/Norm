@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.semantic;
 
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;

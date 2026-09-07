@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.semantic.SemanticContribution;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

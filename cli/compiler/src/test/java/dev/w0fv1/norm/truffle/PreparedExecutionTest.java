@@ -14,9 +14,8 @@ final class PreparedExecutionTest {
   void preparesOnceAndExecutesWithIndependentRuntimeContexts() {
     var artifact =
         NormTestKit.compile("Void main() { printLine(\"prepared\") }")
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact();
     var backend = new TruffleExecutionBackend();
     var prepared = backend.prepare(artifact);

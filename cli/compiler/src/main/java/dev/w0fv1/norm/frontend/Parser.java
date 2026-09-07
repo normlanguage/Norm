@@ -1,11 +1,11 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -37,6 +37,24 @@ final class Parser {
     this.guard = Objects.requireNonNull(guard, "guard");
     if (tokens.isEmpty() || tokens.getLast().kind() != TokenKind.END_OF_FILE) {
       throw new IllegalArgumentException("token stream must end with END_OF_FILE");
+    }
+  }
+
+  Optional<Syntax.TypeRef> typeFragment() {
+    try {
+      Syntax.TypeRef type = parseType();
+      return isAtEnd() && !diagnostics.hasErrors() ? Optional.of(type) : Optional.empty();
+    } catch (ParseError error) {
+      return Optional.empty();
+    }
+  }
+
+  Optional<List<Syntax.TypeRef>> typeArgumentsFragment() {
+    try {
+      List<Syntax.TypeRef> arguments = parseTypeArguments();
+      return isAtEnd() && !diagnostics.hasErrors() ? Optional.of(arguments) : Optional.empty();
+    } catch (ParseError error) {
+      return Optional.empty();
     }
   }
 
@@ -1373,12 +1391,6 @@ final class Parser {
       }
       advance();
     }
-  }
-
-  private boolean matchContextual(String value) {
-    if (!checkContextual(value)) return false;
-    advance();
-    return true;
   }
 
   private boolean matchValueDeclarationKeyword() {

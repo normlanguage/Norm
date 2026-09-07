@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import dev.w0fv1.norm.core.*;
+import dev.w0fv1.norm.execution.ExecutionContext;
+import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.testing.NormTestKit;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -20,15 +22,13 @@ final class GuestValueFactoryTest {
         }
         Void main() { throw Failure("boundary failure") }
         """)
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact();
     var executable = new TruffleExecutionBackend().compile(null, artifact);
     var context =
-        dev.w0fv1.norm.execution.ExecutionContext.of(
-            new java.io.PrintWriter(new java.io.StringWriter()),
-            dev.w0fv1.norm.platform.jdk.JdkSystemPlatform.standard());
+        ExecutionContext.of(
+            new java.io.PrintWriter(new java.io.StringWriter()), JdkSystemPlatform.standard());
     var execution = executable.execution(context);
     try {
       var thrown =
@@ -47,9 +47,7 @@ final class GuestValueFactoryTest {
   @Test
   void ordinaryJavaArgumentsDoNotRequireUnrelatedStandardTypes() {
     var compiled = NormTestKit.compile("class Entity {} Void main() { Entity value = Entity() }");
-    var artifact =
-        CoreReachability.retainApplication(
-            compiled.program().orElseThrow().compilation().artifact());
+    var artifact = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     assertFalse(
         artifact.namespace().bindings().stream()
             .anyMatch(

@@ -8,6 +8,7 @@ import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
+import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,8 +44,7 @@ final class JarResolverTest {
     createJar(moduleRoot.resolve("lib/sample.jar"), "sample/Value.class", "new-content");
     var target =
         new LocalJarTarget(
-            "lib/sample.jar",
-            Optional.of(dev.w0fv1.norm.value.Sha256Digest.parse("0123456789abcdef".repeat(4))));
+            "lib/sample.jar", Optional.of(Sha256Digest.parse("0123456789abcdef".repeat(4))));
 
     try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("cache"))) {
       IOException exception =

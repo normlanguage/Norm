@@ -1,0 +1,31 @@
+import std.testing.expectedOutputLines
+
+Integer apply(Function<Integer(Integer)> action) { return action(1) }
+String apply(Function<String(String)> action) { return action("value") }
+
+interface Transformer {
+  T apply<T>(Function<T(Integer)> action)
+  String apply(Function<String(String)> action)
+}
+
+class Service implements Transformer {
+  public T apply<T>(Function<T(Integer)> action) { return action(1) }
+  public String apply(Function<String(String)> action) { return action("value") }
+}
+
+class Box {
+  Integer value
+  Box(Function<Integer(Integer)> action) { value = action(1) }
+  Box(Function<String(String)> action) { value = 0 }
+}
+
+Void main() {
+  expectedOutputLines(["2", "2", "2"])
+  Integer direct = apply((value) { value + 1 })
+  Transformer service = Service()
+  Integer dispatched = service.apply((value) { value + 1 })
+  Box box = Box((value) { value + 1 })
+  printLine(direct)
+  printLine(dispatched)
+  printLine(box.value)
+}

@@ -29,17 +29,17 @@ dev.w0fv1.norm.language     language services over semantic snapshots
 dev.w0fv1.norm.value        immutable cross-phase data
 ```
 
-Inside `compiler`, `execution` owns `ExecutionBackend`, `ExecutionContext`, and structured runtime errors; `platform` owns backend-neutral file, HTTP, and time contracts while `platform.jdk` implements them; `project` owns `ProjectEnvironment`, `ProjectLoader`, and `ProjectLauncher`; and `truffle` owns lowering, executable nodes, runtime representations, and the Norm system-exception bridge.
+Inside `compiler`, `execution` owns `ExecutionBackend`, `ExecutionContext`, and structured runtime errors; `platform` owns backend-neutral file, HTTP, and time contracts while `platform.jdk` implements them; `project` owns project discovery and input snapshots; `application` owns `ApplicationCompiler`, `CompiledApplication`, and `ApplicationRunner`; and `truffle` owns lowering, executable nodes, runtime representations, and the Norm system-exception bridge.
 
 The required stage dependency constraints are:
 
 ```text
 frontend ⇏ truffle
-core ⇏ frontend, truffle
+core ⇏ frontend, semantic, builtin, truffle
 Lowerer → core
 execution → core
 project → execution → platform contracts
-truffle → project, execution, platform contracts, core
+truffle → execution, platform contracts, core
 platform.jdk → platform contracts
 CLI → project, execution, platform.jdk, frontend, language
 ```
@@ -58,11 +58,11 @@ dev.w0fv1.norm.cli.utils        stateless text utilities
 
 Only `Main` may terminate the JVM. Controllers return exit codes, and components do not parse command-line arguments.
 
-Editor features use `core`'s `LanguageService` and immutable semantic snapshots as their sole semantic implementation. Completion ranking, expected types, generic substitution, call parameters, and import candidates are computed in `dev.w0fv1.norm.language`; the Language Server only maps LSP types, and editor extensions only manage lifecycle and editor integration.
+Editor features use `language.LanguageService` and immutable semantic snapshots as their sole semantic implementation. Completion ranking, expected types, generic substitution, call parameters, and import candidates are computed in `dev.w0fv1.norm.language`; the Language Server only maps LSP types, and editor extensions only manage lifecycle and editor integration.
 
 ## Naming and visibility
 
-- The package already supplies the language context, so types do not repeat a `Norm` prefix. Use domain names such as `Compiler`, `Analyzer`, `Lowerer`, and `ProgramRunner`.
+- The package already supplies the language context, so types do not repeat a `Norm` prefix. Use domain names such as `Compiler`, `Analyzer`, `Lowerer`, and `ApplicationRunner`.
 - Only genuine process or extension contracts form an external API. Lexer, Parser, Analyzer, Truffle nodes, and runtime representations remain module-internal.
 - `value` contains immutable cross-phase data. Data with a strong domain remains in that domain; the Syntax AST belongs to `syntax`.
 - `utils` is limited to static, stateless, independently reusable tools. Lifecycle, I/O, and mutable state do not belong there.
@@ -87,11 +87,11 @@ SourceFile
   → Truffle executable AST
 ```
 
-The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics, CoreBuilder separates canonical definitions from authoring occurrence metadata, and CoreCanonicalizer assigns content identities to recursive groups and their fixed dependencies. The lowerer converts only `CompilationOutput` into executable nodes. See the [compiler architecture](/spec/compiler-design) for the identity boundaries.
+The parser builds syntax only. The analyzer checks names, types, and control flow. The binder freezes validated semantics, CoreBuilder separates canonical definitions from authoring occurrence metadata, and CoreCanonicalizer assigns content identities to recursive groups and their fixed dependencies. The lowerer converts only `CoreArtifact` into executable nodes. See the [compiler architecture](/spec/compiler-design) for the identity boundaries.
 
 One project analysis creates an immutable `CompilationSnapshot`. Diagnostics and language features use per-document projections of the same `SemanticModel`, `SpanIndex`, and `ReferenceIndex`. `CompilerSession` caches unchanged parse results and the standard-library prelude; a new document revision replaces the snapshot atomically.
 
-`ProjectLauncher` and Polyglot Source execution share the `CompilerSession → CompilationOutput → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, cancellation, and host capabilities as a hidden root argument, allowing artifacts to be reused across independent executions. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
+`ApplicationRunner` and Polyglot Source execution share the `ApplicationCompiler → CompiledApplication → TruffleExecutionBackend` path. `ExecutionContext` carries input, output, arguments, cancellation, and host capabilities as a hidden root argument, allowing artifacts to be reused across independent executions. Guest failures cross the public boundary as structured errors with a stable code, original source location, and guest stack.
 
 Each function owns a `FunctionRootNode` and `CallTarget`. Static function and method calls use `DirectCallNode`; locals use indexed `VirtualFrame` slots; loops use `LoopNode`; return, break, and continue use `ControlFlowException`. Executable nodes receive their exact occurrence origin and `SourceSection` from `CoreAuthoringMap`.
 
@@ -110,3 +110,5 @@ Acceptance-test domains, layout, naming, discovery entry points, and commands ar
 ## Documentation ownership
 
 Language behavior belongs in the language specification, implementation structure belongs here, and technology choices belong in the implementation strategy. Other pages link to these sources instead of copying their rules.
+
+Package boundaries and the cycle prohibition are enforced by [DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java). `source` and `abi` own neutral input and runtime contracts. `workspace` owns project analysis scheduling and versioned publication; LSP adapts the protocol. Builtin signatures come from `stdlib-abi.json`, with separate semantic and Core views. Java bindings use `JavaTypeProjector → BindingPlanner → BindingPlan → BindingSourceRenderer`. See [Compiler Architecture](/spec/compiler-design) for the ownership model and source indexes.

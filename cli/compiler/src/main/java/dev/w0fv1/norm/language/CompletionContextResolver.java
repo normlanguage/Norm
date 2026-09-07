@@ -13,7 +13,7 @@ public final class CompletionContextResolver {
     if (offset < 0 || offset > text.length()) {
       throw new IllegalArgumentException("completion offset is outside the source");
     }
-    if (insideExcludedText(text, offset)) return new CompletionContext.None();
+    if (insideLiteral(document.tokens(), offset)) return new CompletionContext.None();
     int lineStart = text.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
     String line = text.substring(lineStart, offset);
     int firstContent = 0;
@@ -118,44 +118,30 @@ public final class CompletionContextResolver {
     return current;
   }
 
-  private static boolean insideExcludedText(String text, int offset) {
-    boolean string = false;
-    boolean lineComment = false;
-    boolean blockComment = false;
-    boolean escaped = false;
-    for (int index = 0; index < offset; index++) {
-      char current = text.charAt(index);
-      char next = index + 1 < offset ? text.charAt(index + 1) : 0;
-      if (lineComment) {
-        if (current == '\n') lineComment = false;
-        continue;
+  private static boolean insideLiteral(List<Token> tokens, int offset) {
+    var strings = new java.util.ArrayDeque<Boolean>();
+    for (Token token : tokens) {
+      if (token.span().startOffset() >= offset) break;
+      if (token.kind() == TokenKind.STRING || token.kind() == TokenKind.CODE_POINT) {
+        if (offset < token.span().endOffset()) return true;
       }
-      if (blockComment) {
-        if (current == '*' && next == '/') {
-          blockComment = false;
-          index++;
+      if (token.kind() == TokenKind.UNTERMINATED_LITERAL && offset <= token.span().endOffset())
+        return true;
+      if (token.span().endOffset() > offset) break;
+      switch (token.kind()) {
+        case INTERPOLATED_STRING_START -> strings.addFirst(true);
+        case INTERPOLATION_START -> {
+          strings.removeFirst();
+          strings.addFirst(false);
         }
-        continue;
-      }
-      if (string) {
-        if (escaped) {
-          escaped = false;
-        } else if (current == '\\') {
-          escaped = true;
-        } else if (current == '"') {
-          string = false;
+        case INTERPOLATION_END -> {
+          strings.removeFirst();
+          strings.addFirst(true);
         }
-        continue;
-      }
-      if (current == '"') string = true;
-      if (current == '/' && next == '/') {
-        lineComment = true;
-        index++;
-      } else if (current == '/' && next == '*') {
-        blockComment = true;
-        index++;
+        case INTERPOLATED_STRING_END -> strings.removeFirst();
+        default -> {}
       }
     }
-    return string || lineComment || blockComment;
+    return !strings.isEmpty() && strings.getFirst();
   }
 }

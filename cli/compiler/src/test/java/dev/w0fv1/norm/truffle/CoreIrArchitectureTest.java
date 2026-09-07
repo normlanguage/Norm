@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CompilationOutput;
 import dev.w0fv1.norm.core.CompilationState;
+import dev.w0fv1.norm.core.CoreArgument;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreExpression;
@@ -14,21 +15,14 @@ import dev.w0fv1.norm.core.CoreStatement;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.polyglot.Language;
+import dev.w0fv1.norm.source.SourceFile;
 import java.lang.module.ModuleDescriptor;
 import java.lang.module.ModuleFinder;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class CoreIrArchitectureTest {
-  @Test
-  void typedProgramContainsOnlyCompilationOutput() {
-    var components = dev.w0fv1.norm.value.TypedProgram.class.getRecordComponents();
-
-    assertEquals(1, components.length);
-    assertEquals(CompilationOutput.class, components[0].getType());
-  }
-
   @Test
   void compilationOutputSeparatesArtifactFromCompilerState() {
     var components = CompilationOutput.class.getRecordComponents();
@@ -68,8 +62,7 @@ final class CoreIrArchitectureTest {
                 + "Integer choose(Integer first, Integer second) { return first } "
                 + "Void main() { Box box = Box(value: 1) box.set(next: choose(second: 2, first: 3)) }");
 
-    CompilationOutput compilation =
-        new CompilerSession().compile(source).program().orElseThrow().compilation();
+    CompilationOutput compilation = new CompilerSession().compile(source).output().orElseThrow();
 
     assertTrue(compilation.artifact().program().callables().size() >= 3);
     var main =
@@ -86,7 +79,7 @@ final class CoreIrArchitectureTest {
 
     assertEquals(
         java.util.List.of(1, 0),
-        choose.arguments().stream().map(dev.w0fv1.norm.core.CoreArgument::parameterIndex).toList());
+        choose.arguments().stream().map(CoreArgument::parameterIndex).toList());
     var box =
         (CoreDefinition.Aggregate)
             compilation

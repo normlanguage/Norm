@@ -4,6 +4,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.core.CoreReachability;
+import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.jvm.JavaApplicationMethodIndex;
+import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
+import dev.w0fv1.norm.platform.jdk.FilePublication;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -113,7 +118,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
     return entry;
   }
 
-  void coreRetention(dev.w0fv1.norm.core.CoreReachability.Analysis analysis) throws IOException {
+  void coreRetention(CoreReachability.Analysis analysis) throws IOException {
     if (!detailed) return;
     var groups = new JsonObject();
     for (var group : analysis.artifact().program().groups()) {
@@ -136,8 +141,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
           .forEach(names::add);
       entry.add("names", names);
       var intrinsicNames = new com.google.gson.JsonArray();
-      dev.w0fv1.norm.core.CoreReachability.intrinsics(group)
-          .forEach(intrinsic -> intrinsicNames.add(intrinsic.name()));
+      CoreReachability.intrinsics(group).forEach(intrinsic -> intrinsicNames.add(intrinsic.name()));
       entry.add("intrinsics", intrinsicNames);
       groups.add(group.id().toString(), entry);
     }
@@ -149,7 +153,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
         new GsonBuilder().setPrettyPrinting().create().toJson(manifest) + "\n");
   }
 
-  void javaArtifacts(List<dev.w0fv1.norm.jvm.ResolvedJarArtifact> artifacts) throws IOException {
+  void javaArtifacts(List<ResolvedJarArtifact> artifacts) throws IOException {
     if (!detailed) return;
     var entries = new com.google.gson.JsonArray();
     for (var artifact :
@@ -179,11 +183,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
         new GsonBuilder().setPrettyPrinting().create().toJson(manifest) + "\n");
   }
 
-  void applicationMethods(
-      java.util.Map<
-              dev.w0fv1.norm.core.DefinitionId,
-              dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.Target>
-          methods)
+  void applicationMethods(java.util.Map<DefinitionId, JavaApplicationMethodIndex.Target> methods)
       throws IOException {
     if (!detailed) return;
     var mapping = new JsonObject();
@@ -315,7 +315,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
       if (!detailed) {
         Path result = directory.resolve("size.json");
         if (!Files.exists(result)) Files.writeString(result, "{\"status\":\"failed\"}\n");
-        dev.w0fv1.norm.platform.jdk.FilePublication.publish(result, summary);
+        FilePublication.publish(result, summary);
       }
     } finally {
       if (!detailed) {

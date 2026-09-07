@@ -8,14 +8,14 @@ import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.LanguageProfile;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -118,8 +118,7 @@ final class ModuleEvaluator implements AutoCloseable {
     Publication publication = new Publication();
     try {
       backend.execute(
-          result.program().orElseThrow().compilation().artifact(),
-          ExecutionContext.module(publication));
+          result.output().orElseThrow().artifact(), ExecutionContext.module(publication));
       return publication.declaration();
     } catch (IllegalArgumentException | IllegalStateException | NormExecutionException exception) {
       throw new IOException(

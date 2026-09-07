@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.oracle.truffle.api.TruffleLanguage;
+import dev.w0fv1.norm.polyglot.Language;
 import dev.w0fv1.norm.value.BuildMetadata;
 import org.junit.jupiter.api.Test;
 

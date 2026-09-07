@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
+import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
-import dev.w0fv1.norm.value.AnalysisResult;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

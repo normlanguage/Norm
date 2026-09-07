@@ -50,7 +50,14 @@ public final class JvmJarBindingRuntime
   }
 
   public JvmJarBindingRuntime(List<ResolvedJarBinding> bindings, List<Path> applicationClasspath) {
-    this(link(bindings), applicationClassLoader(bindings, applicationClasspath), true);
+    this(bindings, JarBindingClasspath.prepare(bindings), applicationClasspath);
+  }
+
+  public JvmJarBindingRuntime(
+      List<ResolvedJarBinding> bindings,
+      JarBindingClasspath classpath,
+      List<Path> applicationClasspath) {
+    this(link(bindings), applicationClassLoader(classpath, applicationClasspath), true);
   }
 
   public static JvmJarBindingRuntime closedWorld(List<LinkedJarBinding> bindings) {
@@ -151,13 +158,13 @@ public final class JvmJarBindingRuntime
   }
 
   private static ClassLoader applicationClassLoader(
-      List<ResolvedJarBinding> bindings, List<Path> applicationClasspath) {
+      JarBindingClasspath classpath, List<Path> applicationClasspath) {
     Set<Path> paths = new LinkedHashSet<>();
     applicationClasspath.stream()
         .map(Path::toAbsolutePath)
         .map(Path::normalize)
         .forEach(paths::add);
-    JarBindingClasspath.resolve(bindings).forEach(paths::add);
+    classpath.paths().forEach(paths::add);
     URL[] urls =
         paths.stream()
             .map(

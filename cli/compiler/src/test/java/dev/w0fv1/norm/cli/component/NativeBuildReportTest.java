@@ -3,6 +3,12 @@ package dev.w0fv1.norm.cli.component;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.core.CoreReachability;
+import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.jvm.JavaApplicationMethodIndex;
+import dev.w0fv1.norm.jvm.MavenJarIdentity;
+import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
+import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -103,8 +109,8 @@ final class NativeBuildReportTest {
   void recordsCoreRetentionPredecessorsAndNames() throws Exception {
     var compiled =
         dev.w0fv1.norm.testing.NormTestKit.compile("Void main() { printLine(\"hello\") }");
-    var original = compiled.program().orElseThrow().compilation().artifact();
-    var analysis = dev.w0fv1.norm.core.CoreReachability.analyze(original, java.util.Set.of());
+    var original = compiled.output().orElseThrow().artifact();
+    var analysis = CoreReachability.analyze(original, java.util.Set.of());
     try (var report =
         NativeBuildReport.create(directory.resolve("causes.exe"), value -> {}, true, reports)) {
       report.coreRetention(analysis);
@@ -126,9 +132,8 @@ final class NativeBuildReportTest {
   void recordsSelectedJavaArtifactIdentityAndRejectsChangedContent() throws Exception {
     Path jar = Files.write(directory.resolve("library.jar"), new byte[] {1, 2, 3});
     var artifact =
-        new dev.w0fv1.norm.jvm.ResolvedJarArtifact(
-            new dev.w0fv1.norm.jvm.MavenJarIdentity(
-                new dev.w0fv1.norm.value.MavenArtifactCoordinate("sample", "library", "2")),
+        new ResolvedJarArtifact(
+            new MavenJarIdentity(new MavenArtifactCoordinate("sample", "library", "2")),
             jar,
             Sha256Digest.compute(jar));
     try (var report =
@@ -161,13 +166,13 @@ final class NativeBuildReportTest {
 
   @org.junit.jupiter.api.Test
   void recordsApplicationMethodIdentityAndJvmTarget() throws Exception {
-    var id = dev.w0fv1.norm.core.DefinitionId.parse("0".repeat(64) + ":0");
+    var id = DefinitionId.parse("0".repeat(64) + ":0");
     try (var report =
         NativeBuildReport.create(directory.resolve("sample.exe"), value -> {}, true, reports)) {
       report.applicationMethods(
           java.util.Map.of(
               id,
-              new dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.Target(
+              new JavaApplicationMethodIndex.Target(
                   "sample.Controller", "hello", "()Ljava/lang/String;")));
       var metadata =
           com.google.gson.JsonParser.parseString(
@@ -289,7 +294,7 @@ final class NativeBuildReportTest {
         String file = artifact.get("file").getAsString();
         assertTrue(names.add(file));
         assertEquals(file, Path.of(file).getFileName().toString());
-        new dev.w0fv1.norm.value.MavenArtifactCoordinate(
+        new MavenArtifactCoordinate(
             artifact.get("group").getAsString(),
             artifact.get("artifact").getAsString(),
             artifact.get("version").getAsString());
@@ -300,12 +305,12 @@ final class NativeBuildReportTest {
                     + artifact.get("artifact").getAsString()
                     + ":"
                     + artifact.get("version").getAsString()));
-        var hash = new dev.w0fv1.norm.value.Sha256Digest(artifact.get("sha256").getAsString());
+        var hash = new Sha256Digest(artifact.get("sha256").getAsString());
         if (file.equals(gson.getFileName().toString())) {
           found = true;
           assertEquals("com.google.code.gson", artifact.get("group").getAsString());
           assertEquals("gson", artifact.get("artifact").getAsString());
-          assertEquals(dev.w0fv1.norm.value.Sha256Digest.compute(gson), hash);
+          assertEquals(Sha256Digest.compute(gson), hash);
         }
       }
       assertTrue(found);

@@ -3,6 +3,7 @@ package dev.w0fv1.norm.project;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -86,8 +87,8 @@ final class JarBindingConcurrencyIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("callback-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -202,8 +203,8 @@ final class JarBindingConcurrencyIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("task-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }

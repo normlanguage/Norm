@@ -13,6 +13,7 @@ import dev.w0fv1.norm.core.CoreBindingShape;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreDefinitionRole;
+import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreProgram;
@@ -26,9 +27,9 @@ import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.AnnotationTarget;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -585,7 +586,7 @@ public final class JavaAnnotationStubGenerator {
       for (int index = 0; index < shape.fields().size(); index++) {
         CoreBindingShape.Field field = shape.fields().get(index);
         if (field.visibility() != CoreVisibility.PUBLIC) continue;
-        dev.w0fv1.norm.core.CoreField declaration = aggregate.fields().get(index);
+        CoreField declaration = aggregate.fields().get(index);
         created.fields.put(
             declaration.ordinal(),
             new FieldStub(field.name(), field.type(), binding.occurrence().representative()));

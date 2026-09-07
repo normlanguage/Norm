@@ -14,37 +14,24 @@ norm/tests/            可执行的 Norm 验收程序
 
 `compiler` 是唯一 Gradle 与 JPMS 模块。领域 package 负责分层，跨层数据只使用下层拥有的强类型模型；架构测试禁止逆向依赖。
 
-## Core package
+## 领域边界
 
-```text
-dev.w0fv1.norm.frontend     Compiler、Lexer、Parser、Analyzer
-dev.w0fv1.norm.syntax       Token 与 Syntax AST
-dev.w0fv1.norm.semantic     类型、符号与文档语义索引
-dev.w0fv1.norm.builtin      内置声明与 intrinsic identity
-dev.w0fv1.norm.bound        前端内部 resolved representation
-dev.w0fv1.norm.core         content-addressed Core IR 与依赖索引
-dev.w0fv1.norm.core.store   canonical definition 内容存储
-dev.w0fv1.norm.diagnostic   诊断值与渲染
-dev.w0fv1.norm.language     基于语义快照的语言服务
-dev.w0fv1.norm.value        跨阶段不可变数据
-```
+| Package | 职责 |
+| --- | --- |
+| `source` / `syntax` | 源码身份、位置与语法模型 |
+| `abi` / `pattern` | 中立运行契约与模式覆盖算法 |
+| `semantic` / `builtin` | 语义模型与内建契约的语义投影 |
+| `frontend` / `bound` | 分析、已解析语义与 Core 构建 |
+| `core` / `core.store` | 内容寻址定义、制品与存储 |
+| `project` | 项目发现、模块解析与输入快照 |
+| `application` | 应用编译产物、执行准备与资源所有权 |
+| `language` / `workspace` | 快照查询、项目分析调度与版本发布 |
+| `jvm` | Java 类型投影、绑定规划与注解处理 |
+| `execution` / `platform` | 执行与宿主能力契约 |
+| `truffle` / `polyglot` | Core 执行实现与 Polyglot 接入 |
+| `diagnostic` / `value` | 诊断与其余跨阶段值 |
 
-`compiler` 内部按领域分包：`execution` 提供 `ExecutionBackend`、`ExecutionContext` 和结构化运行错误；`platform` 保存后端无关的文件、HTTP、时间能力契约，`platform.jdk` 提供宿主实现；`project` 提供 `ProjectEnvironment`、`ProjectLoader` 和 `ProjectLauncher`；`truffle` 保存 Lowerer、可执行节点、运行时表示和 Norm 系统异常桥。系统层完整边界见[系统运行时架构](/design/system-runtime)。
-
-必须保持的阶段依赖约束为：
-
-```text
-frontend ⇏ truffle
-core ⇏ frontend, truffle
-Lowerer → core
-execution → core
-project → execution → platform contracts
-truffle → project, execution, platform contracts, core
-platform.jdk → platform contracts
-CLI → project, execution, platform.jdk, frontend, language
-```
-
-`⇏` 表示禁止依赖。`bound` 只在前端内部完成已解析语义到 Core 的转换。Lowerer 只消费 Core，不依赖 Syntax AST、`SemanticModel` 或 `bound`。CLI 不访问内部 Truffle 节点。新增 package 时按领域归属放置，不能为绕开依赖约束复制类型或语义表。
+[DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java) 是依赖方向的可执行真相源，包含包级无环约束。`bound` 只由前端消费；Core 不依赖前端语义或内建目录；`project`、`jvm` 和 `truffle` 不反向依赖应用编排。完整阶段和生命周期见[编译器架构](/spec/compiler-design)。
 
 ## CLI package
 
@@ -58,11 +45,11 @@ dev.w0fv1.norm.cli.utils        无状态文本工具
 
 只有 `Main` 可以终止 JVM。Controller 通过返回退出码报告结果，component 不读取命令行参数。
 
-编辑器能力以 `core` 的 `LanguageService` 和不可变语义快照为唯一语义实现。补全排序、期望类型、泛型替换、调用参数和导入候选均在 `dev.w0fv1.norm.language` 中计算；Language Server 只负责 LSP 类型转换，编辑器扩展只负责生命周期和编辑器接入。
+编辑器能力以 `language.LanguageService` 和不可变语义快照为唯一语义实现。补全排序、期望类型、泛型替换、调用参数和导入候选均在 `dev.w0fv1.norm.language` 中计算；Workspace 管理项目分析与诊断发布，Language Server 只负责 LSP 类型转换，编辑器扩展只负责生命周期和编辑器接入。
 
 ## 命名与可见性
 
-- `dev.w0fv1.norm` 已经提供语言上下文，类型名不增加 `Norm` 前缀；使用 `Compiler`、`Analyzer`、`Lowerer`、`ProgramRunner` 等领域名称。
+- `dev.w0fv1.norm` 已经提供语言上下文，类型名不增加 `Norm` 前缀；使用 `Compiler`、`Analyzer`、`Lowerer`、`ApplicationRunner` 等领域名称。
 - 只有真实的跨进程或扩展契约才形成对外 API。Lexer、Parser、Analyzer、Truffle 节点和运行时表示保持模块内部可见。
 - `value` 只存放跨阶段不可变数据；具有明确领域的数据保留在对应领域，例如 Syntax AST 属于 `syntax`。
 - `utils` 只接受静态、无状态、可独立复用的工具。生命周期、I/O 和可变状态不进入 `utils`。
@@ -70,30 +57,11 @@ dev.w0fv1.norm.cli.utils        无状态文本工具
 
 ## 编译与执行阶段
 
-```text
-SourceFile
-  → Lexer
-  → Token
-  → Parser
-  → Syntax.Program
-  → Analyzer
-  → SemanticModel
-  → Binder
-  → CoreBuilder
-  → CoreCanonicalizer
-  → DefinitionStore
-  → CoreCompilation
-  → Lowerer
-  → Truffle executable AST
-```
+阶段、产物及所有权以[编译器架构](/spec/compiler-design)和其中的代码入口为准。应用入口使用 `ApplicationCompiler`、`CompiledApplication` 与 `ApplicationRunner`；编辑器入口使用 `Workspace`。调用方关闭自己持有的应用产物，每次运行拥有独立的运行资源。
 
-Parser 只建立语法结构。Analyzer 负责名称、类型和控制流检查。Binder 冻结已验证语义，CoreBuilder 分离 canonical definition 与 authoring occurrence metadata，CoreCanonicalizer 计算递归组和固定依赖的内容身份。Lowerer 只把 `CoreCompilation` 转换成可执行表示。完整身份与阶段边界见[编译器架构](/spec/compiler-design)。
+`ResolvedCall` 是已解析调用的单一结果，语言服务和绑定阶段复用它；尚未完成的类型输入使用 `TypeSyntaxParser`，不能另写类型语法。内建签名只声明在 `stdlib-abi.json`，语义对象与 Core 校验契约均从它派生。
 
-一个项目分析产生不可变 `CompilationSnapshot`。诊断和语言能力使用同一 `SemanticModel`、`SpanIndex` 与 `ReferenceIndex` 的文档视图；`CompilationEnvironment` 复用未变化的解析结果和标准库 prelude，新文档修订以原子方式替换快照。
-
-`ProjectLauncher` 与 Polyglot Source 执行共享 `CompilerSession → CompilationOutput → TruffleExecutionBackend` 链路。每个函数对应独立的 `FunctionRootNode` 和 `CallTarget`。静态函数与方法调用使用 `DirectCallNode`，局部变量使用 `VirtualFrame` 的索引 slot，循环使用 `LoopNode`，return、break 和 continue 使用 `ControlFlowException`。执行上下文通过隐藏根参数传递，源码位置由 `CoreAuthoringMap` 中的精确 occurrence origin 附加到 Truffle 节点。
-
-`@TruffleBoundary` 只允许出现在宿主 I/O 等慢路径，不能包围 guest-language 计算。值复制语义集中在运行时表示中；如改为 copy-on-write，不得改变语言可观察行为。
+值表示、复制、相等性与哈希归属 `RuntimeValues`；调用准备归属 `RuntimeInvocation`，Unicode 文本操作归属 `RuntimeText`。Truffle 节点不能捕获单次运行的外部资源。系统资源契约见[系统运行时架构](/design/system-runtime)。
 
 ## 测试
 

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -92,7 +93,7 @@ final class CoreCanonicalizerTest {
     CoreDefinition.Enum declaration =
         new CoreDefinition.Enum(
             new CoreNominalTypeKey(
-                new dev.w0fv1.norm.value.ModuleCoordinate("sample", 1),
+                new ModuleCoordinate("sample", 1),
                 "sample",
                 "Chain",
                 CoreVisibility.PUBLIC,

@@ -1,12 +1,14 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.application.ProjectTestResult;
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectEnvironment;
-import dev.w0fv1.norm.project.ProjectTestResult;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -45,7 +47,7 @@ final class TestCommand implements Command {
     try {
       NormRuntime backend = new NormRuntime();
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-      try (var launcher = environment.persistentLauncher()) {
+      try (var launcher = ApplicationRunner.persistent(environment)) {
         result = launcher.test(entry, ExecutionContext.of(out, JdkSystemPlatform.standard()));
       }
     } catch (IOException exception) {
@@ -53,7 +55,7 @@ final class TestCommand implements Command {
           "error[NORM-CLI-0004]: cannot load test source '%s': %s%n",
           arguments.getFirst(), exception.getMessage());
       return ExitCode.INPUT_ERROR;
-    } catch (dev.w0fv1.norm.frontend.CompilationInfrastructureException exception) {
+    } catch (CompilationInfrastructureException exception) {
       err.printf(
           "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
       return ExitCode.INTERNAL_ERROR;

@@ -6,7 +6,9 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.DirectCallNode;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import dev.w0fv1.norm.abi.IntrinsicId;
+import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreType;
+import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
@@ -378,7 +380,7 @@ final class ExpressionNodes {
 
     @Override
     Object execute(VirtualFrame frame) {
-      return RuntimeValues.concatenate((String) left.execute(frame), right.execute(frame));
+      return RuntimeText.concatenate((String) left.execute(frame), right.execute(frame));
     }
   }
 
@@ -669,8 +671,8 @@ final class ExpressionNodes {
     Object execute(VirtualFrame frame) {
       RuntimeValues.Closure closure = (RuntimeValues.Closure) callee.execute(frame);
       Object[] values = evaluateArguments(arguments, parameterIndices, frame);
-      RuntimeValues.PreparedInvocation invocation =
-          RuntimeValues.prepareInvocation(ExecutionContextAccess.state(frame), closure, values);
+      RuntimeInvocation.PreparedInvocation invocation =
+          RuntimeInvocation.prepareInvocation(ExecutionContextAccess.state(frame), closure, values);
       return call.call(invocation.target(), invocation.arguments());
     }
   }
@@ -740,9 +742,7 @@ final class ExpressionNodes {
         int[] parameterIndices,
         ExpressionNode[] typeArguments,
         boolean nullSafe,
-        java.util.Map<
-                dev.w0fv1.norm.core.BuiltinTypeId,
-                java.util.Map<DefinitionId, RuntimeValues.DispatchTarget>>
+        java.util.Map<BuiltinTypeId, java.util.Map<DefinitionId, RuntimeValues.DispatchTarget>>
             builtinDispatch) {
       dispatch = new MethodDispatchNode(requirement, builtinDispatch);
       this.receiver = receiver;
@@ -879,7 +879,7 @@ final class ExpressionNodes {
       RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
       Object value = object.fields[field];
       return object.type instanceof CoreType.Declared declared
-              && declared.category() == dev.w0fv1.norm.core.CoreValueCategory.VALUE
+              && declared.category() == CoreValueCategory.VALUE
           ? RuntimeValues.copy(value)
           : value;
     }

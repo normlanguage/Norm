@@ -2,7 +2,11 @@ package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.w0fv1.norm.core.CoreAggregateKind;
+import dev.w0fv1.norm.core.CoreAnnotationPolicy;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreProgram;
+import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.testing.NormTestKit;
 import org.junit.jupiter.api.Test;
@@ -17,8 +21,7 @@ final class RuntimeProgramTest {
         "Function<List<T>(T)> singleton<T>() { return (T value) { List<T> result = List<>() result.add(value) return result } } Void main() { Function<List<Integer>(Integer)> make = singleton<Integer>() List<Integer> values = make(7) printLine(values[0]) }"
       })
   void projectsCallableSignaturesWithoutChangingCanonicalDefinitions(String source) {
-    var core =
-        NormTestKit.compile(source).program().orElseThrow().compilation().artifact().program();
+    var core = NormTestKit.compile(source).output().orElseThrow().artifact().program();
     var runtime = RuntimeProgram.from(core);
     for (var record : core.definitions()) {
       if (record.definition() instanceof CoreDefinition.Callable callable) {
@@ -35,9 +38,9 @@ final class RuntimeProgramTest {
         assertSame(record.definition(), runtime.structure(record.id()).orElseThrow());
         assertTrue(runtime.callable(record.id()).isEmpty());
         if (record.definition() instanceof CoreDefinition.Aggregate aggregate
-            && aggregate.kind() == dev.w0fv1.norm.core.CoreAggregateKind.ANNOTATION) {
+            && aggregate.kind() == CoreAggregateKind.ANNOTATION) {
           assertEquals(
-              dev.w0fv1.norm.core.CoreAnnotationPolicy.resolve(core, record.id(), aggregate),
+              CoreAnnotationPolicy.resolve(core, record.id(), aggregate),
               runtime.annotationPolicy(record.id()));
         } else {
           assertThrows(IllegalArgumentException.class, () -> runtime.annotationPolicy(record.id()));
@@ -51,7 +54,7 @@ final class RuntimeProgramTest {
       assertEquals(core.resolve(record.id(), external), runtime.resolve(record.id(), external));
       var absent =
           new DefinitionReference.External(
-              new dev.w0fv1.norm.core.DefinitionId(record.id().group(), Integer.MAX_VALUE));
+              new DefinitionId(record.id().group(), Integer.MAX_VALUE));
       assertEquals(core.resolve(record.id(), absent), runtime.resolve(record.id(), absent));
       assertThrows(NullPointerException.class, () -> runtime.resolve(null, external));
       assertThrows(
@@ -73,7 +76,7 @@ final class RuntimeProgramTest {
             ExecutableProgram.class, AnnotationRuntime.class, JavaApplicationDispatch.class)) {
       assertTrue(
           java.util.Arrays.stream(holder.getDeclaredFields())
-              .noneMatch(field -> field.getType() == dev.w0fv1.norm.core.CoreProgram.class));
+              .noneMatch(field -> field.getType() == CoreProgram.class));
       assertTrue(
           java.util.Arrays.stream(holder.getDeclaredFields())
               .anyMatch(field -> field.getType() == RuntimeProgram.class));

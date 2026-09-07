@@ -3,6 +3,7 @@ package dev.w0fv1.norm.cli.component;
 import dev.w0fv1.norm.jvm.JarBindingClasspath;
 import dev.w0fv1.norm.jvm.MavenJarIdentity;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
+import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -72,7 +73,7 @@ final class NativeReachabilityMetadata {
               .flatMap(value -> value.getAsJsonArray("tested-versions").asList().stream())
               .anyMatch(version -> version.getAsString().equals(configuration.getVersion()));
       source.addProperty("versionTested", tested);
-      source.addProperty("indexSha256", dev.w0fv1.norm.value.Sha256Digest.compute(index).value());
+      source.addProperty("indexSha256", Sha256Digest.compute(index).value());
       var files = new com.google.gson.JsonObject();
       source.addProperty("sourceDirectoryPresent", Files.isDirectory(origin));
       if (Files.isDirectory(origin)) {
@@ -80,7 +81,7 @@ final class NativeReachabilityMetadata {
           for (var file : paths.filter(Files::isRegularFile).sorted().toList()) {
             files.addProperty(
                 origin.relativize(file).toString().replace('\\', '/'),
-                dev.w0fv1.norm.value.Sha256Digest.compute(file).value());
+                Sha256Digest.compute(file).value());
           }
         }
       }

@@ -87,7 +87,7 @@ public final class IntrinsicDispatcher {
                                     null);
                           }
                           return jarArgument(
-                              RuntimeValues.invoke(execution, closure, values),
+                              RuntimeInvocation.invoke(execution, closure, values),
                               execution,
                               annotations);
                         } catch (JarBindingCallbackException exception) {
@@ -367,14 +367,14 @@ public final class IntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
 
-            context.output().println(RuntimeValues.stringify(first));
+            context.output().println(RuntimeText.stringify(first));
             return null;
           };
       case EXPECTED_OUTPUT_LINE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
 
-            context.expectedOutput().println(RuntimeValues.stringify(first));
+            context.expectedOutput().println(RuntimeText.stringify(first));
             return null;
           };
       case AWAIT_CANCELLATION ->
@@ -716,7 +716,7 @@ public final class IntrinsicDispatcher {
       case TIME_SYSTEM_CLOCK, TIME_CLOCK_NOW -> SystemIntrinsicDispatcher.resolve(intrinsic);
       case TO_STRING ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.stringify(receiver);
+            return RuntimeText.stringify(receiver);
           };
       case RANGE_CONSTRUCT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -967,7 +967,7 @@ public final class IntrinsicDispatcher {
             Object first = arguments.length <= 0 ? null : arguments[0];
 
             RuntimeValues.BuilderValue builder = (RuntimeValues.BuilderValue) receiver;
-            builder.value.append(RuntimeValues.stringify(first));
+            builder.value.append(RuntimeText.stringify(first));
             return builder;
           };
       case BUILDER_TO_STRING ->
@@ -976,35 +976,35 @@ public final class IntrinsicDispatcher {
           };
       case STRING_BYTE_SIZE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.byteSize((String) receiver);
+            return RuntimeText.byteSize((String) receiver);
           };
       case STRING_CODE_POINT_SIZE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.codePointSize((String) receiver);
+            return RuntimeText.codePointSize((String) receiver);
           };
       case STRING_GRAPHEME_SIZE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.graphemeSize((String) receiver);
+            return RuntimeText.graphemeSize((String) receiver);
           };
       case STRING_CODE_POINTS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.codePoints((String) receiver);
+            return RuntimeText.codePoints((String) receiver);
           };
       case STRING_GRAPHEMES ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.graphemes((String) receiver);
+            return RuntimeText.graphemes((String) receiver);
           };
       case STRING_SLICE_CODE_POINTS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
             Object second = arguments.length <= 1 ? null : arguments[1];
-            return RuntimeValues.sliceCodePoints(
+            return RuntimeText.sliceCodePoints(
                 (String) receiver, (Integer) first, (Integer) second, location);
           };
       case STRING_SPLIT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
-            return RuntimeValues.split((String) receiver, (String) first, location);
+            return RuntimeText.split((String) receiver, (String) first, location);
           };
       case STRING_IS_EMPTY ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -1029,84 +1029,84 @@ public final class IntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
             Object second = arguments.length <= 1 ? null : arguments[1];
-            return RuntimeValues.sliceGraphemes(
+            return RuntimeText.sliceGraphemes(
                 (String) receiver, (Integer) first, (Integer) second, location);
           };
       case STRING_REPLACE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
             Object second = arguments.length <= 1 ? null : arguments[1];
-            return RuntimeValues.replace(
+            return RuntimeText.replace(
                 (String) receiver, (String) first, (String) second, location);
           };
       case STRING_REPLACE_FIRST ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
             Object second = arguments.length <= 1 ? null : arguments[1];
-            return RuntimeValues.replaceFirst(
+            return RuntimeText.replaceFirst(
                 (String) receiver, (String) first, (String) second, location);
           };
       case STRING_TRIM ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.trim((String) receiver);
+            return RuntimeText.trim((String) receiver);
           };
       case STRING_TRIM_START ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.trimStart((String) receiver);
+            return RuntimeText.trimStart((String) receiver);
           };
       case STRING_TRIM_END ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.trimEnd((String) receiver);
+            return RuntimeText.trimEnd((String) receiver);
           };
       case STRING_TO_LOWERCASE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.toLowercase((String) receiver);
+            return RuntimeText.toLowercase((String) receiver);
           };
       case STRING_TO_UPPERCASE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.toUppercase((String) receiver);
+            return RuntimeText.toUppercase((String) receiver);
           };
       case STRING_EQUALS_IGNORE_CASE_ASCII ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
-            return RuntimeValues.equalsIgnoreCaseAscii((String) receiver, (String) first);
+            return RuntimeText.equalsIgnoreCaseAscii((String) receiver, (String) first);
           };
       case STRING_COMPARE_CODE_POINTS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
-            return RuntimeValues.compareCodePoints((String) receiver, (String) first);
+            return RuntimeText.compareCodePoints((String) receiver, (String) first);
           };
       case STRING_NORMALIZE_NFC ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.normalizeNfc((String) receiver);
+            return RuntimeText.normalizeNfc((String) receiver);
           };
       case STRING_NORMALIZE_NFD ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.normalizeNfd((String) receiver);
+            return RuntimeText.normalizeNfd((String) receiver);
           };
       case STRING_NORMALIZE_NFKC ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.normalizeNfkc((String) receiver);
+            return RuntimeText.normalizeNfkc((String) receiver);
           };
       case STRING_NORMALIZE_NFKD ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.normalizeNfkd((String) receiver);
+            return RuntimeText.normalizeNfkd((String) receiver);
           };
       case STRING_IS_NORMALIZED_NFC ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.isNormalizedNfc((String) receiver);
+            return RuntimeText.isNormalizedNfc((String) receiver);
           };
       case STRING_IS_NORMALIZED_NFD ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.isNormalizedNfd((String) receiver);
+            return RuntimeText.isNormalizedNfd((String) receiver);
           };
       case STRING_IS_NORMALIZED_NFKC ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.isNormalizedNfkc((String) receiver);
+            return RuntimeText.isNormalizedNfkc((String) receiver);
           };
       case STRING_IS_NORMALIZED_NFKD ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.isNormalizedNfkd((String) receiver);
+            return RuntimeText.isNormalizedNfkd((String) receiver);
           };
       case CODE_POINT_SCALAR_VALUE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -1122,7 +1122,7 @@ public final class IntrinsicDispatcher {
           };
       case CODE_POINT_IS_WHITESPACE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
-            return RuntimeValues.isWhitespace(((RuntimeValues.CodePointValue) receiver).value());
+            return RuntimeText.isWhitespace(((RuntimeValues.CodePointValue) receiver).value());
           };
       case CODE_POINT_IS_UPPERCASE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {

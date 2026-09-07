@@ -2,9 +2,9 @@ package dev.w0fv1.norm.semantic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

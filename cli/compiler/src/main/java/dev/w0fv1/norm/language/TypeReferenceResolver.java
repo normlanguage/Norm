@@ -1,9 +1,13 @@
 package dev.w0fv1.norm.language;
 
+import dev.w0fv1.norm.frontend.TypeSyntaxParser;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.semantic.TypeApplication;
+import dev.w0fv1.norm.semantic.TypeArguments;
+import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
 import java.util.ArrayList;
@@ -13,17 +17,17 @@ import java.util.Optional;
 final class TypeReferenceResolver {
   Optional<List<SemanticType>> arguments(
       DocumentSemanticModel document, List<Token> tokens, int start, int end, int offset) {
-    if (start >= end) return Optional.of(List.of());
-    Cursor cursor = new Cursor(tokens.subList(start, end));
-    if (!cursor.match(TokenKind.LESS)) return Optional.empty();
-    List<SemanticType> arguments = new ArrayList<>();
-    do {
-      Optional<SemanticType> argument = parse(document, cursor, offset);
-      if (argument.isEmpty()) return Optional.empty();
-      arguments.add(argument.orElseThrow());
-    } while (cursor.match(TokenKind.COMMA));
-    if (!cursor.match(TokenKind.GREATER) || !cursor.atEnd()) return Optional.empty();
-    return Optional.of(List.copyOf(arguments));
+    return TypeSyntaxParser.arguments(tokens.subList(start, end))
+        .flatMap(
+            references -> {
+              List<SemanticType> arguments = new ArrayList<>();
+              for (var reference : references) {
+                Optional<SemanticType> type = resolve(document, reference, offset);
+                if (type.isEmpty()) return Optional.empty();
+                arguments.add(type.orElseThrow());
+              }
+              return Optional.of(List.copyOf(arguments));
+            });
   }
 
   Optional<SemanticType> beforeIncompleteInitializer(DocumentSemanticModel document, int offset) {
@@ -61,71 +65,49 @@ final class TypeReferenceResolver {
       }
     }
     if (typeStart < 0) return Optional.empty();
-    Cursor cursor = new Cursor(tokens.subList(typeStart, typeEnd));
-    Optional<SemanticType> type = parse(document, cursor, offset);
-    return cursor.atEnd() ? type : Optional.empty();
+    return TypeSyntaxParser.type(tokens.subList(typeStart, typeEnd))
+        .flatMap(reference -> resolve(document, reference, offset));
   }
 
-  private Optional<SemanticType> parse(DocumentSemanticModel document, Cursor cursor, int offset) {
-    if (cursor.atEnd() || !typeToken(cursor.current().kind())) return Optional.empty();
-    Token name = cursor.advance();
+  private Optional<SemanticType> resolve(
+      DocumentSemanticModel document, Syntax.TypeRef reference, int offset) {
+    Optional<SemanticType> known = document.semanticModel().typeOf(reference);
+    if (known.isPresent()) return known.filter(type -> !type.equals(SemanticType.DYNAMIC));
     List<SemanticType> arguments = new ArrayList<>();
-    if (cursor.match(TokenKind.LESS)) {
-      do {
-        Optional<SemanticType> argument = parse(document, cursor, offset);
-        if (argument.isEmpty()) return Optional.empty();
-        arguments.add(argument.orElseThrow());
-      } while (cursor.match(TokenKind.COMMA));
-      if (!cursor.match(TokenKind.GREATER)) return Optional.empty();
+    for (var argument : reference.arguments()) {
+      Optional<SemanticType> resolved = resolve(document, argument, offset);
+      if (resolved.isEmpty()) return Optional.empty();
+      arguments.add(resolved.orElseThrow());
     }
-    boolean nullable = cursor.match(TokenKind.QUESTION);
-    Optional<Symbol> symbol =
-        document.semanticModel().visibleSymbols(offset).stream()
-            .filter(
-                candidate ->
-                    candidate.kind() == SymbolKind.TYPE
-                        || candidate.kind() == SymbolKind.INTERFACE
-                        || candidate.kind() == SymbolKind.TYPE_PARAMETER)
-            .filter(candidate -> candidate.name().equals(name.value()))
-            .map(document.semanticModel()::resolveAlias)
-            .findFirst();
-    if (symbol.isEmpty()) return Optional.empty();
-    SemanticType base = symbol.orElseThrow().type();
     SemanticType resolved =
-        base.kind() == SemanticType.Kind.TYPE_PARAMETER || arguments.isEmpty()
-            ? base
-            : SemanticType.declared(base.identity(), base.name(), arguments, base.category());
-    return Optional.of(nullable ? resolved.nullable() : resolved);
-  }
-
-  private static boolean typeToken(TokenKind kind) {
-    return kind == TokenKind.IDENTIFIER;
-  }
-
-  private static final class Cursor {
-    private final List<Token> tokens;
-    private int index;
-
-    private Cursor(List<Token> tokens) {
-      this.tokens = List.copyOf(tokens);
-    }
-
-    private boolean atEnd() {
-      return index == tokens.size();
-    }
-
-    private Token current() {
-      return tokens.get(index);
-    }
-
-    private Token advance() {
-      return tokens.get(index++);
-    }
-
-    private boolean match(TokenKind kind) {
-      if (atEnd() || current().kind() != kind) return false;
-      index++;
-      return true;
-    }
+        TypeApplication.resolve(
+            reference,
+            arguments,
+            () -> {
+              Optional<Symbol> symbol =
+                  document.semanticModel().visibleSymbols(offset).stream()
+                      .filter(
+                          candidate ->
+                              candidate.kind() == SymbolKind.TYPE
+                                  || candidate.kind() == SymbolKind.INTERFACE
+                                  || candidate.kind() == SymbolKind.TYPE_PARAMETER)
+                      .filter(candidate -> candidate.name().equals(reference.name()))
+                      .map(document.semanticModel()::resolveAlias)
+                      .findFirst();
+              if (symbol.isEmpty()) return SemanticType.DYNAMIC;
+              Symbol declaration = symbol.orElseThrow();
+              if (declaration.type().kind() == SemanticType.Kind.TYPE_PARAMETER)
+                return declaration.type();
+              return TypeArguments.complete(declaration.typeParameters(), arguments)
+                  .map(
+                      completed ->
+                          SemanticType.declared(
+                              declaration.type().identity(),
+                              declaration.type().name(),
+                              completed,
+                              declaration.type().category()))
+                  .orElse(SemanticType.DYNAMIC);
+            });
+    return resolved.equals(SemanticType.DYNAMIC) ? Optional.empty() : Optional.of(resolved);
   }
 }

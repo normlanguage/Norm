@@ -1,10 +1,14 @@
 package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
+import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
+import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
+import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.semantic.TypeParameterInfo;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
 import java.util.ArrayDeque;
@@ -15,7 +19,6 @@ import java.util.Set;
 
 final class CallSiteResolver {
   private final TypeReferenceResolver typeReferences = new TypeReferenceResolver();
-  private final SymbolSpecializer symbols = new SymbolSpecializer();
 
   Optional<CallSite> resolve(DocumentSemanticModel document, int offset) {
     List<Token> tokens =
@@ -30,20 +33,16 @@ final class CallSiteResolver {
     SemanticModel model = document.semanticModel();
     CandidateSet resolved = callables(document, model, tokens, nameIndex, offset);
     if (resolved.candidates().isEmpty()) return Optional.empty();
-    Optional<List<dev.w0fv1.norm.semantic.SemanticType>> parsedArguments =
-        typeReferences.arguments(document, tokens, nameIndex + 1, opening, offset);
-    boolean explicitArguments = nameIndex + 1 < opening;
-    if (explicitArguments && parsedArguments.isEmpty()) return Optional.empty();
-    List<dev.w0fv1.norm.semantic.SemanticType> arguments = parsedArguments.orElse(List.of());
     List<Symbol> candidates = resolved.candidates();
-    if (explicitArguments) {
+    if (nameIndex + 1 < opening && model.callAtCallee(tokens.get(nameIndex).span()).isEmpty()) {
+      var parsedArguments =
+          typeReferences.arguments(document, tokens, nameIndex + 1, opening, offset);
+      if (parsedArguments.isEmpty()) return Optional.empty();
       candidates =
           candidates.stream()
-              .filter(candidate -> candidate.typeParameters().size() == arguments.size())
+              .flatMap(candidate -> candidate.specialize(parsedArguments.orElseThrow()).stream())
               .toList();
     }
-    candidates =
-        candidates.stream().map(candidate -> symbols.specialize(candidate, arguments)).toList();
     Set<String> labels = argumentLabels(tokens, opening);
     if (!labels.isEmpty()) {
       List<Symbol> labeled =
@@ -51,7 +50,7 @@ final class CallSiteResolver {
               .filter(
                   candidate ->
                       candidate.parameters().stream()
-                          .map(dev.w0fv1.norm.semantic.ParameterInfo::name)
+                          .map(ParameterInfo::name)
                           .collect(java.util.stream.Collectors.toSet())
                           .containsAll(labels))
               .toList();
@@ -132,15 +131,15 @@ final class CallSiteResolver {
         Symbol declaration = SymbolPresentation.annotation(model, target.orElseThrow());
         String presentedName =
             model.symbolOf(name.span()).map(Symbol::name).orElse(declaration.name());
-        List<dev.w0fv1.norm.semantic.SemanticType> typeArguments =
+        List<SemanticType> typeArguments =
             declaration.kind() == SymbolKind.TYPE || declaration.kind() == SymbolKind.INTERFACE
                 ? call.resultType().arguments()
                 : call.callableTypeArguments();
-        List<dev.w0fv1.norm.semantic.TypeParameterInfo> instantiatedTypeParameters =
+        List<TypeParameterInfo> instantiatedTypeParameters =
             java.util.stream.IntStream.range(0, typeArguments.size())
                 .mapToObj(
                     index ->
-                        new dev.w0fv1.norm.semantic.TypeParameterInfo(
+                        new TypeParameterInfo(
                             index < declaration.typeParameters().size()
                                 ? declaration.typeParameters().get(index).name()
                                 : typeArguments.get(index).displayName(),
@@ -192,13 +191,13 @@ final class CallSiteResolver {
                           .findFirst());
       if (receiver.isPresent() && receiver.orElseThrow().kind() == SymbolKind.TYPE) {
         Symbol type = model.resolveAlias(receiver.orElseThrow());
-        Optional<List<dev.w0fv1.norm.semantic.SemanticType>> arguments =
+        Optional<List<SemanticType>> arguments =
             typeReferences.arguments(
                 document, tokens, receiverNameIndex + 1, nameIndex - 1, offset);
-        dev.w0fv1.norm.semantic.SemanticType receiverType = type.type();
+        SemanticType receiverType = type.type();
         if (arguments.isPresent() && !arguments.orElseThrow().isEmpty()) {
           receiverType =
-              dev.w0fv1.norm.semantic.SemanticType.declared(
+              SemanticType.declared(
                   type.type().identity(),
                   type.type().name(),
                   arguments.orElseThrow(),
@@ -217,7 +216,7 @@ final class CallSiteResolver {
                 .toList(),
             Optional.empty());
       }
-      Optional<dev.w0fv1.norm.semantic.SemanticType> receiverType =
+      Optional<SemanticType> receiverType =
           model
               .typeOf(receiverToken.span())
               .or(() -> model.typeAt(receiverOffset))
@@ -277,7 +276,7 @@ final class CallSiteResolver {
   }
 
   private static List<Symbol> unique(List<Symbol> symbols) {
-    LinkedHashMap<dev.w0fv1.norm.semantic.SymbolId, Symbol> result = new LinkedHashMap<>();
+    LinkedHashMap<SymbolId, Symbol> result = new LinkedHashMap<>();
     symbols.forEach(symbol -> result.putIfAbsent(symbol.id(), symbol));
     return List.copyOf(result.values());
   }

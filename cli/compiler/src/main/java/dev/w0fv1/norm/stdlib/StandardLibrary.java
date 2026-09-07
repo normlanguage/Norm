@@ -2,11 +2,11 @@ package dev.w0fv1.norm.stdlib;
 
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.frontend.ModuleSourceResolver;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDescriptor;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

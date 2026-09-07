@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
-import dev.w0fv1.norm.value.SourceFile;
 import java.util.List;
 
 final class SourceParser {

@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.jvm;
 
+import dev.w0fv1.norm.value.FileSnapshot;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,6 +56,20 @@ final class ResolvedJarClasspath {
         selected,
         dependencies(graphs, selected),
         graphs.stream().map(graph -> graph.root().identity()).toList());
+  }
+
+  ResolvedJarClasspath materialize(java.nio.file.Path directory) throws java.io.IOException {
+    Map<ArtifactKey, ResolvedJarArtifact> captured = new LinkedHashMap<>();
+    for (var entry : selected.entrySet()) {
+      var artifact = entry.getValue();
+      var file =
+          new FileSnapshot(artifact.file(), artifact.content())
+              .copyTo(directory.resolve(artifact.content().value() + ".jar"));
+      captured.put(
+          entry.getKey(),
+          new ResolvedJarArtifact(artifact.identity(), file.path(), file.content()));
+    }
+    return new ResolvedJarClasspath(captured, dependencies, roots);
   }
 
   List<ResolvedJarArtifact> artifacts() {

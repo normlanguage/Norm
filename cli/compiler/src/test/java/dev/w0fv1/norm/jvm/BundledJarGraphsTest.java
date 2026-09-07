@@ -1,6 +1,8 @@
 package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -47,6 +49,51 @@ final class BundledJarGraphsTest {
         graph.artifacts().stream().map(ResolvedJarArtifact::identity).toList(),
         restored.artifacts().stream().map(ResolvedJarArtifact::identity).toList());
     assertEquals(graph.edges(), restored.edges());
+  }
+
+  @Test
+  void rejectsChangedSourceBeforePublishingManifest() throws Exception {
+    Path file = Files.writeString(temporaryDirectory.resolve("root.jar"), "original");
+    var artifact = artifact("sample", "root", "1", file);
+    var binding =
+        new ResolvedJarBinding(
+            new ResolvedJarGraph(artifact, List.of(artifact), List.of()),
+            new JarApiSchema(List.of()),
+            new GeneratedJarBinding(
+                List.of(),
+                List.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of()));
+    Files.writeString(file, "changed");
+    Path output = temporaryDirectory.resolve("bundle");
+    assertThrows(java.io.IOException.class, () -> BundledJarGraphs.write(output, List.of(binding)));
+    assertFalse(Files.exists(output.resolve(BundledJarGraphs.MANIFEST)));
+  }
+
+  @Test
+  void repairsChangedDestinationUsingCapturedContentIdentity() throws Exception {
+    Path file = Files.writeString(temporaryDirectory.resolve("root.jar"), "original");
+    var artifact = artifact("sample", "root", "1", file);
+    var binding =
+        new ResolvedJarBinding(
+            new ResolvedJarGraph(artifact, List.of(artifact), List.of()),
+            new JarApiSchema(List.of()),
+            new GeneratedJarBinding(
+                List.of(),
+                List.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of()));
+    Path output = temporaryDirectory.resolve("bundle");
+    BundledJarGraphs.write(output, List.of(binding));
+    Path target = output.resolve("artifacts").resolve(artifact.content().value() + ".jar");
+    Files.writeString(target, "changed");
+    BundledJarGraphs.write(output, List.of(binding));
+    assertEquals("original", Files.readString(target));
+    assertEquals(1, BundledJarGraphs.read(output).size());
   }
 
   private static ResolvedJarArtifact artifact(String group, String name, String version, Path file)

@@ -53,6 +53,7 @@ final class JarApiSchemaTest {
         List.of(),
         List.of(field),
         List.of(),
+        List.of(),
         JavaApiDisposition.BINDABLE);
   }
 }

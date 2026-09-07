@@ -59,15 +59,59 @@ public final class TypeRelations {
   }
 
   public static final class DeclarationGraph {
-    private final java.util.function.BiPredicate<SemanticType, SemanticType> nominalRelation;
+    private final java.util.function.Function<SemanticType, java.util.List<SemanticType>> parents;
 
     public DeclarationGraph(
-        java.util.function.BiPredicate<SemanticType, SemanticType> nominalRelation) {
-      this.nominalRelation = java.util.Objects.requireNonNull(nominalRelation, "nominalRelation");
+        java.util.function.Function<SemanticType, java.util.List<SemanticType>> parents) {
+      this.parents = java.util.Objects.requireNonNull(parents, "parents");
     }
 
     public boolean isAssignable(SemanticType expected, SemanticType actual) {
-      return TypeRelations.isAssignable(expected, actual) || nominalRelation.test(expected, actual);
+      if (TypeRelations.isAssignable(expected, actual)) return true;
+      if (actual.isNullable() && !expected.isNullable()) return false;
+      return views(actual).stream().anyMatch(view -> TypeRelations.isAssignable(expected, view));
+    }
+
+    public java.util.List<SemanticType> views(SemanticType type) {
+      var result = new java.util.LinkedHashMap<String, SemanticType>();
+      var pending = new java.util.ArrayDeque<SemanticType>();
+      pending.add(type.nonNullable());
+      while (!pending.isEmpty()) {
+        SemanticType current = pending.removeFirst();
+        if (result.putIfAbsent(current.identity(), current) != null) continue;
+        pending.addAll(parents.apply(current));
+      }
+      return result.values().stream()
+          .map(view -> type.isNullable() ? view.nullable() : view)
+          .toList();
+    }
+
+    public boolean mayContainNull(SemanticType type) {
+      if (!type.mayContainNull()) return false;
+      if (type.isNullable() || type.kind() != SemanticType.Kind.TYPE_PARAMETER) return true;
+      return views(type).stream().allMatch(SemanticType::mayContainNull);
+    }
+
+    public Optional<SemanticType> commonType(SemanticType left, SemanticType right) {
+      Optional<SemanticType> direct = TypeRelations.commonType(left, right);
+      if (direct.isPresent()) return direct;
+      SemanticType first = left.nonNullable();
+      SemanticType second = right.nonNullable();
+      var shared = views(first).stream().filter(view -> isAssignable(view, second)).toList();
+      var specific =
+          shared.stream()
+              .filter(
+                  candidate ->
+                      shared.stream()
+                          .noneMatch(
+                              other ->
+                                  !candidate.equals(other)
+                                      && isAssignable(candidate, other)
+                                      && !isAssignable(other, candidate)))
+              .toList();
+      if (specific.size() != 1) return Optional.empty();
+      SemanticType result = specific.getFirst();
+      return Optional.of(left.isNullable() || right.isNullable() ? result.nullable() : result);
     }
   }
 }

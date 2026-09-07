@@ -1,10 +1,9 @@
 package dev.w0fv1.norm.core;
 
+import dev.w0fv1.norm.abi.AbiType;
+import dev.w0fv1.norm.abi.BuiltinContracts;
 import dev.w0fv1.norm.abi.ExceptionAbi;
-import dev.w0fv1.norm.builtin.BuiltinCatalog;
-import dev.w0fv1.norm.semantic.PatternCoverage;
-import dev.w0fv1.norm.semantic.SemanticType;
-import dev.w0fv1.norm.semantic.ValueCategory;
+import dev.w0fv1.norm.pattern.PatternCoverage;
 import dev.w0fv1.norm.value.LexicalLifetime;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -19,7 +18,7 @@ import java.util.Set;
 
 final class CoreProgramVerifier {
   private final CoreProgram program;
-  private final BuiltinCatalog builtins = BuiltinCatalog.standard();
+  private final BuiltinContracts builtins = BuiltinContracts.standard();
   private final CoreInterfaceHierarchy interfaces;
   private final Deque<Control> controls = new ArrayDeque<>();
   private CoreReferenceFlow referenceFlow;
@@ -740,7 +739,7 @@ final class CoreProgramVerifier {
     List<CoreType> interfaceArguments =
         interfaceSubstitutions(instance, requirementOwner.definition());
     if (interfaceArguments == null) return false;
-    for (BuiltinCatalog.IntrinsicCandidate candidate : builtins.intrinsicCandidates(intrinsic)) {
+    for (BuiltinContracts.IntrinsicCandidate candidate : builtins.intrinsicCandidates(intrinsic)) {
       if (candidate.receiver().isEmpty()
           || candidate.runtimeType()
           || candidate.parameters().size() != requirement.parameterTypes().size()) {
@@ -753,24 +752,22 @@ final class CoreProgramVerifier {
         CoreType expected =
             absolute(requirementId, requirement.parameterTypes().get(index))
                 .substitute(interfaceArguments::get);
-        if (!matchesSemanticType(
-            expected, candidate.parameters().get(index).type(), substitutions)) {
+        if (!matchesAbiType(expected, candidate.parameters().get(index).type(), substitutions)) {
           parametersMatch = false;
           break;
         }
       }
       CoreType expectedReturn =
           absolute(requirementId, requirement.returnType()).substitute(interfaceArguments::get);
-      if (parametersMatch
-          && matchesSemanticType(expectedReturn, candidate.result(), substitutions)) {
+      if (parametersMatch && matchesAbiType(expectedReturn, candidate.result(), substitutions)) {
         return true;
       }
     }
     return false;
   }
 
-  private boolean matchesSemanticType(
-      CoreType expected, SemanticType pattern, Map<String, CoreType> substitutions) {
+  private boolean matchesAbiType(
+      CoreType expected, AbiType pattern, Map<String, CoreType> substitutions) {
     return switch (pattern.kind()) {
       case TYPE_PARAMETER -> {
         CoreType substituted = substitutions.get(pattern.identity());
@@ -783,18 +780,18 @@ final class CoreProgramVerifier {
       case EXISTENTIAL -> true;
       case REFERENCE ->
           expected instanceof CoreType.Reference reference
-              && matchesSemanticType(reference.target(), pattern.referenceTarget(), substitutions);
+              && matchesAbiType(reference.target(), pattern.referenceTarget(), substitutions);
       case DECLARED -> {
         if (!(expected instanceof CoreType.Declared declared)
             || declared.arguments().size() != pattern.arguments().size()
             || declared.category() != category(pattern.category())
             || declared.isNullable() != pattern.isNullable()
-            || !matchesSemanticConstructor(declared.constructor(), pattern.identity())) {
+            || !matchesAbiConstructor(declared.constructor(), pattern.identity())) {
           yield false;
         }
         boolean matches = true;
         for (int index = 0; index < pattern.arguments().size(); index++) {
-          if (!matchesSemanticType(
+          if (!matchesAbiType(
               declared.arguments().get(index), pattern.arguments().get(index), substitutions)) {
             matches = false;
             break;
@@ -805,10 +802,9 @@ final class CoreProgramVerifier {
     };
   }
 
-  private boolean matchesSemanticConstructor(
-      CoreTypeConstructor constructor, String semanticIdentity) {
+  private boolean matchesAbiConstructor(CoreTypeConstructor constructor, String abiIdentity) {
     return switch (constructor) {
-      case CoreTypeConstructor.Builtin builtin -> builtin.id().value().equals(semanticIdentity);
+      case CoreTypeConstructor.Builtin builtin -> builtin.id().value().equals(abiIdentity);
       case CoreTypeConstructor.User user -> {
         DefinitionId id = resolveExternal(user.definition());
         CoreDefinition definition = program.definition(id).orElseThrow();
@@ -821,7 +817,7 @@ final class CoreProgramVerifier {
             };
         yield nominal != null
             && nominal.module().name().equals("std")
-            && (nominal.packageName() + "." + nominal.name()).equals(semanticIdentity);
+            && (nominal.packageName() + "." + nominal.name()).equals(abiIdentity);
       }
     };
   }
@@ -1457,7 +1453,7 @@ final class CoreProgramVerifier {
   private boolean matchesCollectionLiteral(
       DefinitionId owner, CoreExpression.CollectionLiteral collection) {
     CoreType actual = absolute(owner, collection.type());
-    for (BuiltinCatalog.IntrinsicCandidate candidate :
+    for (BuiltinContracts.IntrinsicCandidate candidate :
         builtins.intrinsicCandidates(collection.materializer())) {
       if (candidate.receiver().isPresent()
           || !candidate.parameters().isEmpty()
@@ -1471,7 +1467,7 @@ final class CoreProgramVerifier {
   }
 
   private boolean matchesIndex(
-      DefinitionId owner, CoreExpression.Index index, BuiltinCatalog.IndexCandidate candidate) {
+      DefinitionId owner, CoreExpression.Index index, BuiltinContracts.IndexCandidate candidate) {
     Map<String, CoreType> substitutions = new LinkedHashMap<>();
     if (!bindPattern(
         nonNullable(absolute(owner, index.receiver().type())),
@@ -1510,7 +1506,7 @@ final class CoreProgramVerifier {
   private boolean matchesIntrinsic(
       DefinitionId owner,
       CoreExpression.Intrinsic intrinsic,
-      BuiltinCatalog.IntrinsicCandidate candidate) {
+      BuiltinContracts.IntrinsicCandidate candidate) {
     if (candidate.receiver().isPresent() != intrinsic.receiver().isPresent()
         || candidate.runtimeType() != intrinsic.runtimeType().isPresent()
         || intrinsic.nullSafe() && intrinsic.receiver().isEmpty()
@@ -1531,7 +1527,7 @@ final class CoreProgramVerifier {
       if (!bindPattern(runtimeTemplate, candidate.result(), substitutions)) return false;
     }
     for (CoreArgument argument : intrinsic.arguments()) {
-      SemanticType parameter = candidate.parameters().get(argument.parameterIndex()).type();
+      AbiType parameter = candidate.parameters().get(argument.parameterIndex()).type();
       CoreType actual = absolute(owner, argument.value().type());
       Map<String, CoreType> argumentBindings = new LinkedHashMap<>(substitutions);
       if (bindPattern(actual, parameter, argumentBindings)) {
@@ -1544,7 +1540,7 @@ final class CoreProgramVerifier {
       if (!bindPattern(resultTemplate, candidate.result(), substitutions)) return false;
     }
     for (CoreArgument argument : intrinsic.arguments()) {
-      SemanticType parameter = candidate.parameters().get(argument.parameterIndex()).type();
+      AbiType parameter = candidate.parameters().get(argument.parameterIndex()).type();
       CoreType actual = absolute(owner, argument.value().type());
       if (containsUnbound(parameter, substitutions)) return false;
       CoreType expected = instantiate(parameter, substitutions);
@@ -1578,7 +1574,7 @@ final class CoreProgramVerifier {
   private boolean matchesWrite(
       DefinitionId owner,
       CoreStatement.IntrinsicAssignment assignment,
-      BuiltinCatalog.WriteCandidate candidate) {
+      BuiltinContracts.WriteCandidate candidate) {
     if (candidate.index().isPresent() != assignment.index().isPresent()) return false;
     Map<String, CoreType> substitutions = new LinkedHashMap<>();
     if (!bindPattern(
@@ -1673,10 +1669,10 @@ final class CoreProgramVerifier {
   }
 
   private boolean bindPattern(
-      CoreType actual, SemanticType pattern, Map<String, CoreType> substitutions) {
-    if (pattern.kind() == SemanticType.Kind.ERROR) return true;
-    if (pattern.kind() == SemanticType.Kind.EXISTENTIAL) return true;
-    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+      CoreType actual, AbiType pattern, Map<String, CoreType> substitutions) {
+    if (pattern.kind() == AbiType.Kind.ERROR) return true;
+    if (pattern.kind() == AbiType.Kind.EXISTENTIAL) return true;
+    if (pattern.kind() == AbiType.Kind.TYPE_PARAMETER) {
       CoreType previous = substitutions.get(pattern.identity());
       if (previous != null) {
         CoreType expected = pattern.isNullable() ? previous.asNullable() : previous;
@@ -1686,8 +1682,8 @@ final class CoreProgramVerifier {
       substitutions.put(pattern.identity(), captured);
       return true;
     }
-    if (pattern.kind() == SemanticType.Kind.VOID) return actual.equals(CoreType.VOID);
-    if (pattern.kind() == SemanticType.Kind.NULL) return actual.equals(CoreType.NULL);
+    if (pattern.kind() == AbiType.Kind.VOID) return actual.equals(CoreType.VOID);
+    if (pattern.kind() == AbiType.Kind.NULL) return actual.equals(CoreType.NULL);
     if (pattern.isFunction()) {
       if (pattern.isUnknownFunction()) {
         return actual instanceof CoreType.Function function
@@ -1727,9 +1723,8 @@ final class CoreProgramVerifier {
     return true;
   }
 
-  private static boolean containsUnbound(
-      SemanticType pattern, Map<String, CoreType> substitutions) {
-    if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER) {
+  private static boolean containsUnbound(AbiType pattern, Map<String, CoreType> substitutions) {
+    if (pattern.kind() == AbiType.Kind.TYPE_PARAMETER) {
       return !substitutions.containsKey(pattern.identity());
     }
     if (pattern.isFunction()) {
@@ -1742,7 +1737,7 @@ final class CoreProgramVerifier {
         .anyMatch(argument -> containsUnbound(argument, substitutions));
   }
 
-  private CoreType instantiate(SemanticType pattern, Map<String, CoreType> substitutions) {
+  private CoreType instantiate(AbiType pattern, Map<String, CoreType> substitutions) {
     return switch (pattern.kind()) {
       case TYPE_PARAMETER -> {
         CoreType type = substitutions.get(pattern.identity());
@@ -1778,7 +1773,7 @@ final class CoreProgramVerifier {
     };
   }
 
-  private static CoreValueCategory category(ValueCategory category) {
+  private static CoreValueCategory category(AbiType.Category category) {
     return switch (category) {
       case VALUE -> CoreValueCategory.VALUE;
       case IDENTITY -> CoreValueCategory.IDENTITY;

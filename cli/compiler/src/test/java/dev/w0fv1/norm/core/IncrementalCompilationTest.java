@@ -8,17 +8,17 @@ import dev.w0fv1.norm.core.store.DefinitionStore;
 import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
 import dev.w0fv1.norm.core.store.PutBatchResult;
 import dev.w0fv1.norm.core.store.PutResult;
+import dev.w0fv1.norm.diagnostic.DiagnosticSeverity;
 import dev.w0fv1.norm.frontend.CompilationPrelude;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.CompilerSessionCapacity;
 import dev.w0fv1.norm.frontend.LanguageProfile;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -113,9 +113,7 @@ final class IncrementalCompilationTest {
     assertTrue(first.isSuccess());
     assertTrue(
         changed.diagnostics().stream()
-            .anyMatch(
-                diagnostic ->
-                    diagnostic.severity() == dev.w0fv1.norm.diagnostic.DiagnosticSeverity.ERROR));
+            .anyMatch(diagnostic -> diagnostic.severity() == DiagnosticSeverity.ERROR));
   }
 
   @Test
@@ -255,7 +253,7 @@ final class IncrementalCompilationTest {
     SourceFile changed = SourceFile.of(Path.of("incremental.norm"), changedText);
     compile(compiler, first);
 
-    CompilationOutput output = compiler.compile(changed).program().orElseThrow().compilation();
+    CompilationOutput output = compiler.compile(changed).output().orElseThrow();
     var semantic = compiler.snapshot(changed).semanticModel();
     int firstCall = changedText.indexOf("first()", changedText.indexOf("Integer second"));
     int secondCall = changedText.indexOf("second()", changedText.indexOf("Void main"));
@@ -297,7 +295,7 @@ final class IncrementalCompilationTest {
     SourceFile changed = SourceFile.of(Path.of("incremental.norm"), changedText);
     compile(compiler, first);
 
-    CompilationOutput output = compiler.compile(changed).program().orElseThrow().compilation();
+    CompilationOutput output = compiler.compile(changed).output().orElseThrow();
     var semantic = compiler.snapshot(changed).semanticModel();
     int methodCall = changedText.indexOf("read()", changedText.indexOf("Void main"));
 
@@ -324,7 +322,7 @@ final class IncrementalCompilationTest {
         "\n  Integer first()  {  return 1  }\n\nInteger second() { return first() } Void main() {}\n";
     SourceFile changed = SourceFile.of(Path.of("incremental.norm"), changedText);
 
-    CompilationOutput output = compiler.compile(changed).program().orElseThrow().compilation();
+    CompilationOutput output = compiler.compile(changed).output().orElseThrow();
     var semantic = compiler.snapshot(changed).semanticModel();
     int call = changedText.indexOf("first()", changedText.indexOf("Integer second"));
 
@@ -450,13 +448,12 @@ final class IncrementalCompilationTest {
   private static CompilationOutput compile(CompilerSession compiler, String text) {
     return compiler
         .compile(SourceFile.of(Path.of("incremental.norm"), text))
-        .program()
-        .orElseThrow()
-        .compilation();
+        .output()
+        .orElseThrow();
   }
 
   private static CompilationOutput compile(CompilerSession compiler, CompilationRequest request) {
-    return compiler.compile(request).program().orElseThrow().compilation();
+    return compiler.compile(request).output().orElseThrow();
   }
 
   private static final class RecordingDefinitionStore implements DefinitionStore {

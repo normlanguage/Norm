@@ -4,6 +4,7 @@ import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.PreparedExecution;
 import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
+import dev.w0fv1.norm.jvm.LinkedJavaClasses;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import java.io.PrintWriter;
 import java.util.List;
@@ -14,7 +15,7 @@ record NativeApplicationProgram(
     PreparedExecution executable,
     JvmJarBindingRuntime.LinkedCalls calls,
     String packageName,
-    dev.w0fv1.norm.jvm.LinkedJavaClasses classes,
+    LinkedJavaClasses classes,
     Map<String, JavaDirectCall> applicationCalls) {
   NativeApplicationProgram {
     Objects.requireNonNull(executable, "executable");

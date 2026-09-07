@@ -1,8 +1,8 @@
 package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
+import dev.w0fv1.norm.source.SourceLocation;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.SourceLocation;
 
 final class ImportEditBuilder {
   CompletionTextEdit create(DocumentSemanticModel document, String qualifiedName) {

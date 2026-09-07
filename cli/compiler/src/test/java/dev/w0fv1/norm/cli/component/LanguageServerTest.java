@@ -9,7 +9,6 @@ import dev.w0fv1.norm.stdlib.StandardLibrary;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -84,6 +83,7 @@ final class LanguageServerTest {
                 new TextDocumentItem(
                     "file:///invalid.norm", "norm", 1, "Void main() { missing(1) }")));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertNotNull(client.diagnostics);
     assertEquals(
         "NORM-NAME-0003", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
@@ -116,7 +116,9 @@ final class LanguageServerTest {
                     new FileEvent(firstUri, FileChangeType.Changed),
                     new FileEvent(secondUri, FileChangeType.Changed))));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(client.diagnosticsByUri.get(firstUri).getDiagnostics().isEmpty());
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(client.diagnosticsByUri.get(secondUri).getDiagnostics().isEmpty());
   }
 
@@ -235,6 +237,7 @@ final class LanguageServerTest {
             .rename(new RenameParams(new TextDocumentIdentifier(uri), position, "maximum"))
             .get();
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(client.diagnostics.getDiagnostics().isEmpty());
     assertNotNull(hover);
     assertTrue(hover.getContents().getRight().getValue().contains("Integer max"));
@@ -258,6 +261,7 @@ final class LanguageServerTest {
         .getTextDocumentService()
         .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, source)));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(client.diagnostics.getDiagnostics().isEmpty());
 
     String invalid = source.replaceFirst("return true", "return missing");
@@ -268,6 +272,7 @@ final class LanguageServerTest {
                 new VersionedTextDocumentIdentifier(uri, 2),
                 List.of(new TextDocumentContentChangeEvent(invalid))));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(
         client.diagnostics.getDiagnostics().stream()
             .anyMatch(diagnostic -> diagnostic.getCode().getLeft().equals("NORM-NAME-0003")));
@@ -308,6 +313,7 @@ final class LanguageServerTest {
                 new TextDocumentItem(
                     "untitled:Untitled-1", "norm", 1, "Void main() { missing(1) }")));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertNotNull(client.diagnostics);
     assertEquals(
         "NORM-NAME-0003", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
@@ -329,7 +335,9 @@ final class LanguageServerTest {
                     1,
                     "Module module() { return module(name: \"sample\", version: 1, exports: []) }")));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertNotNull(client.diagnostics);
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertTrue(client.diagnostics.getDiagnostics().isEmpty());
   }
 
@@ -349,7 +357,9 @@ final class LanguageServerTest {
                     1,
                     "Module module() { return module(name: \"sample\", version: 0, exports: []) }")));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertNotNull(client.diagnostics);
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertEquals(1, client.diagnostics.getDiagnostics().size());
     assertEquals(
         "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
@@ -570,6 +580,7 @@ final class LanguageServerTest {
         .didOpen(
             new DidOpenTextDocumentParams(
                 new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     Files.delete(fixture.library());
 
     List<? extends org.eclipse.lsp4j.Location> definitions = definition(server, fixture);
@@ -694,6 +705,7 @@ final class LanguageServerTest {
             new DidOpenTextDocumentParams(
                 new TextDocumentItem(fixture.entryUri(), "norm", 1, fixture.entryText())));
 
+    ((DocumentService) server.getTextDocumentService()).settled().join();
     assertEquals(1, client.diagnostics.getDiagnostics().size());
     assertEquals(
         "NORM-PROJECT-0001", client.diagnostics.getDiagnostics().getFirst().getCode().getLeft());
@@ -899,8 +911,9 @@ final class LanguageServerTest {
       String entryText) {}
 
   private static final class RecordingClient implements LanguageClient {
-    private PublishDiagnosticsParams diagnostics;
-    private final Map<String, PublishDiagnosticsParams> diagnosticsByUri = new LinkedHashMap<>();
+    private volatile PublishDiagnosticsParams diagnostics;
+    private final Map<String, PublishDiagnosticsParams> diagnosticsByUri =
+        new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     public void telemetryEvent(Object object) {}

@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.core.CompilationResult;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.Syntax;
-import dev.w0fv1.norm.value.CompilationResult;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -73,7 +73,7 @@ final class SourceRecoveryTest {
       CompilationResult result = compiler.compile(source);
 
       assertFalse(result.isSuccess());
-      assertTrue(result.program().isEmpty());
+      assertTrue(result.output().isEmpty());
     }
   }
 

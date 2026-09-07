@@ -2,6 +2,7 @@ package dev.w0fv1.norm.core;
 
 import dev.w0fv1.norm.value.AnnotationRetention;
 import dev.w0fv1.norm.value.AnnotationTarget;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -144,7 +145,7 @@ final class CoreAnnotationVerifier {
       throw new IllegalArgumentException("interceptor must reference an annotation");
     }
     CoreAnnotationPolicy policy = CoreAnnotationPolicy.resolve(program, annotationId, annotation);
-    if (!policy.targets().contains(dev.w0fv1.norm.value.AnnotationTarget.FUNCTION)) {
+    if (!policy.targets().contains(AnnotationTarget.FUNCTION)) {
       throw new IllegalArgumentException("interceptor annotation must allow function targets");
     }
     if (functionInterceptor == null
@@ -637,7 +638,7 @@ final class CoreAnnotationVerifier {
         if (!(definition(program, id) instanceof CoreDefinition.Enum enumDefinition)) {
           throw new IllegalArgumentException("enum reference requires an enum annotation value");
         }
-        dev.w0fv1.norm.core.CoreEnumVariant variant =
+        CoreEnumVariant variant =
             enumDefinition.variants().stream()
                 .filter(candidate -> candidate.key().equals(enumeration.variant()))
                 .findFirst()
@@ -741,13 +742,11 @@ final class CoreAnnotationVerifier {
     return program.resolve(owner, reference);
   }
 
-  record ApplicationKey(
-      DefinitionId annotation, dev.w0fv1.norm.value.AnnotationTarget kind, Object target) {}
+  record ApplicationKey(DefinitionId annotation, AnnotationTarget kind, Object target) {}
 
-  private record PackageKey(dev.w0fv1.norm.value.ModuleCoordinate module, String packageName) {}
+  private record PackageKey(ModuleCoordinate module, String packageName) {}
 
-  private record DefinitionKey(
-      dev.w0fv1.norm.value.AnnotationTarget kind, DefinitionOccurrenceId definition) {}
+  private record DefinitionKey(AnnotationTarget kind, DefinitionOccurrenceId definition) {}
 
   private record IndexedKey(DefinitionOccurrenceId owner, int index) {}
 }

@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.core;
 
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;

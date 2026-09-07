@@ -87,11 +87,11 @@ JAR 调用由 `JvmJarBindingRuntime` 将直接目标与参数/返回转换预先
 
 应用调用表由 `JavaApplicationCallLinker` 链接，经 `JavaApplicationRuntime` 提供给执行桥接；JVM 在建立应用类加载器后准备，Native 在 Hosted 阶段准备。Native 运行期不再反射创建调用注册表；框架反射需求独立保留。不可变共享、关闭隔离及无生成类型应用的边界见 `JavaApplicationCallLinkerTest`，目标初始化时机见 `JavaDirectCallBundleTest`。
 
-框架执行入口与 Java 实例调用目标由编译类上的 `NormApplicationMethod` 经 `JavaApplicationMethodIndex.analyze` 统一派生：构造器和静态方法纳入入口，抽象方法不纳入执行入口。ProjectLauncher 的运行/测试路径与 Native 构建均将这些入口传给执行计划，经 `ExecutionBackend` 显式执行；Native 同时用于 Core 保留分析。生成类型仍保守保留，并不意味着框架成员已精确裁剪。边界与真实注解处理输出验证见 `JavaApplicationMethodIndexTest`、`JavaAnnotationBindingIntegrationTest`。
+框架执行入口与 Java 实例调用目标由编译类上的 `NormApplicationMethod` 经 `JavaApplicationMethodIndex.analyze` 统一派生：构造器和静态方法纳入入口，抽象方法不纳入执行入口。ApplicationRunner 的运行/测试路径与 Native 构建均将这些入口传给执行计划，经 `ExecutionBackend` 显式执行；Native 同时用于 Core 保留分析。生成类型仍保守保留，并不意味着框架成员已精确裁剪。边界与真实注解处理输出验证见 `JavaApplicationMethodIndexTest`、`JavaAnnotationBindingIntegrationTest`。
 
 Native 构建的工具链依赖按执行与 Hosted 用途闭包选择，保留共享依赖并核对发行内容哈希；应用依赖与生成代码不受该筛选影响。选择入口见 `NativeToolchainClasspath`，用途声明见 `cli/compiler/build.gradle.kts`。Hosted 构建仍需要的依赖不等于最终 EXE 中的运行代码。
 
-工具链物理制品图与应用图在项目编译阶段共用 `JarBindingClasspath` 的版本选择，结果由 `ApplicationCompilation` 持有；注解处理的编译路径、处理器路径与 Native 阶段的服务扫描、调用桥接、外部 Graal 元数据和 classpath 均从该计划派生，不在打包时再次选版本。构建期桥接加载与编译器类加载器隔离，避免父加载器中的旧版本遮蔽选定依赖。注解处理与 Native 仍使用独立进程及各自的生命周期。
+工具链物理制品图与应用图在项目编译阶段共用 `JarBindingClasspath` 的版本选择，结果由 `CompiledApplication` 持有；注解处理的编译路径、处理器路径与 Native 阶段的服务扫描、调用桥接、外部 Graal 元数据和 classpath 均从该计划派生，不在打包时再次选版本。构建期桥接加载与编译器类加载器隔离，避免父加载器中的旧版本遮蔽选定依赖。注解处理与 Native 仍使用独立进程及各自的生命周期。
 
 清单中的 `components` 表达每个物理 JAR 承载的逻辑组件；使用其中任一组件会保留该承载制品及相关依赖。合并关系与实际 JAR 合并共用构建声明，不通过文件缺失推断组件没有代码。
 
@@ -139,3 +139,5 @@ Native size 的基线入口为 `native-size-gate.mjs`，策略与持久化分别
 默认允许增长为零，按完整交付大小判断，超预算或证据不可比时退出非零；同时输出 EXE、代码区和镜像堆差值。比较器核对记录的工具链、优化等级、源码哈希、Java 制品内容及至少三次相同范围的功能验收。Java 输入清单验证与归档共用 `native-java-inputs.mjs`，汇总指标与 GraalVM 原始统计的一致性验证共用 `native-size-metrics.mjs`。此检查不重新运行历史程序，也不构成完整可复现构建证明：生成类、全部元数据和额外编译参数尚未形成统一输入指纹，涉及这些输入的变更仍需独立审查。
 
 这些 JSON 是生成的分析产物，不是项目配置，也不参与程序运行。报告不会自动清理，可按需归档或删除。分析时应核对 EXE 哈希，并保持平台、工具链和优化参数一致；磁盘文件大小与链接前镜像大小并不等价，JAR 文件大小也不能当作它在 EXE 中的贡献。原始指标定义见 [Native Image 构建输出](https://www.graalvm.org/latest/reference-manual/native-image/overview/BuildOutput/)。
+
+应用编译产物由调用方关闭，JAR 与资源捕获、方法索引及运行资源边界统一见[编译器架构](/spec/compiler-design#应用与制品边界)。实现入口为 [`ApplicationCompiler`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationCompiler.java) 和 [`ApplicationBundleWriter`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ApplicationBundleWriter.java)。

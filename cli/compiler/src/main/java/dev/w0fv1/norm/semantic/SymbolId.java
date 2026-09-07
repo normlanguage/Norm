@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.semantic;
 
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
 import java.util.Objects;
 
 public record SymbolId(String value) {

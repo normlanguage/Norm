@@ -177,6 +177,101 @@ abstract class GenerateBuiltinAbi : DefaultTask() {
             name.replace(Regex("([a-z])([A-Z])"), "\$1_\$2").uppercase()
         val packageDirectory = outputDirectory.dir("dev/w0fv1/norm/abi").get().asFile
         packageDirectory.mkdirs()
+        val patterns = schema["typePatterns"] as Map<*, *>
+        val builtinTypes = schema["builtinTypes"] as List<*>
+        val builtinGlobals = schema["builtinGlobals"] as List<*>
+        fun literal(value: Any?): String = groovy.json.JsonOutput.toJson(value)
+        fun type(value: Any?): String {
+            require(value is String && patterns.containsKey(value)) { "Unknown ABI type pattern: $value" }
+            return "type(${literal(value)})"
+        }
+        fun list(values: Any?, render: (Any?) -> String): String =
+            (values as List<*>).joinToString(", ", "java.util.List.of(", ")", transform = render)
+        fun optional(value: Any?, render: (Any?) -> String): String =
+            if (value == null) "java.util.Optional.empty()" else "java.util.Optional.of(${render(value)})"
+        fun intrinsic(value: Any?): String {
+            require(intrinsics.any { it["name"] == value }) { "Unknown ABI intrinsic: $value" }
+            return "IntrinsicId.$value"
+        }
+        fun parameter(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.Parameter(${literal(entry["name"])}, ${type(entry["type"])}, ${entry["hasDefault"]})"
+        }
+        fun typeParameter(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.TypeParameter(${literal(entry["name"])}, ${type(entry["type"])}, " +
+                "${optional(entry["upperBound"], ::type)}, ${optional(entry["defaultType"], ::type)})"
+        }
+        fun symbol(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.Symbol(${literal(entry["name"])}, BuiltinContracts.SymbolKind.${entry["kind"]}, " +
+                "${type(entry["type"])}, ${list(entry["typeParameters"], ::typeParameter)}, " +
+                "${list(entry["parameters"], ::parameter)}, ${literal(entry["documentation"])})"
+        }
+        fun member(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.MemberDefinition(${symbol(entry["symbol"])}, ${intrinsic(entry["intrinsic"])}, " +
+                "${optional(entry["writeIntrinsic"], ::intrinsic)})"
+        }
+        fun constructor(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.ConstructorCapability(${list(entry["parameters"], ::parameter)}, ${intrinsic(entry["intrinsic"])})"
+        }
+        fun iterable(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.IterableCapability(${type(entry["elementType"])}, ${intrinsic(entry["intrinsic"])})"
+        }
+        fun index(value: Any?): String {
+            val entry = value as Map<*, *>
+            return "new BuiltinContracts.IndexCapability(BuiltinContracts.IndexKind.${entry["kind"]}, ${type(entry["keyType"])}, " +
+                "${type(entry["resultType"])}, ${intrinsic(entry["readIntrinsic"])}, ${optional(entry["writeIntrinsic"], ::intrinsic)})"
+        }
+        packageDirectory.resolve("BuiltinDeclarations.java").writeText(buildString {
+            appendLine("package dev.w0fv1.norm.abi;")
+            appendLine("final class BuiltinDeclarations {")
+            appendLine("  private static final java.util.Map<String, AbiType> TYPES = patterns();")
+            appendLine("  private BuiltinDeclarations() {}")
+            appendLine("  static AbiType type(String identity) { return java.util.Objects.requireNonNull(TYPES.get(identity), identity); }")
+            appendLine("  private static java.util.Map<String, AbiType> patterns() {")
+            appendLine("    var types = new java.util.LinkedHashMap<String, AbiType>();")
+            val emitted = mutableSetOf<String>()
+            val pending = mutableSetOf<String>()
+            fun emitPattern(key: String) {
+                if (key in emitted) return
+                check(pending.add(key)) { "Cyclic ABI type pattern: $key" }
+                val entry = patterns[key] as? Map<*, *> ?: error("Unknown ABI type pattern: $key")
+                val arguments = entry["arguments"] as List<*>
+                arguments.forEach { emitPattern(it as String) }
+                val argumentTypes = list(arguments) { "types.get(${literal(it)})" }
+                appendLine("    types.put(${literal(key)}, new AbiType(AbiType.Kind.${entry["kind"]}, " +
+                    "${literal(entry["identity"])}, ${literal(entry["name"])}, $argumentTypes, " +
+                    "AbiType.Category.${entry["category"]}, ${entry["nullable"]}));")
+                pending.remove(key)
+                emitted.add(key)
+            }
+            patterns.keys.forEach { emitPattern(it as String) }
+            appendLine("    return java.util.Map.copyOf(types);")
+            appendLine("  }")
+            appendLine("  static java.util.List<BuiltinContracts.TypeDefinition> types() { return java.util.List.of(" +
+                builtinTypes.indices.joinToString(", ") { "type$it()" } + "); }")
+            builtinTypes.forEachIndexed { number, value ->
+                val entry = value as Map<*, *>
+                require(entry["runtimeShape"] in runtimeShapes) { "Unknown ABI runtime shape" }
+                appendLine("  private static BuiltinContracts.TypeDefinition type$number() { return new BuiltinContracts.TypeDefinition(" +
+                    "${symbol(entry["symbol"])}, RuntimeShape.${entry["runtimeShape"]}, " +
+                    "${optional(entry["constructor"], ::constructor)}, ${optional(entry["collectionLiteral"], ::intrinsic)}, " +
+                    "${entry["defaultCollectionLiteral"]}, ${optional(entry["iterable"], ::iterable)}, ${optional(entry["index"], ::index)}, " +
+                    "${list(entry["members"], ::member)}, ${list(entry["typeMembers"], ::member)}, ${entry["hidden"]}); }")
+            }
+            appendLine("  static java.util.List<BuiltinContracts.GlobalDefinition> globals() { return java.util.List.of(" +
+                builtinGlobals.indices.joinToString(", ") { "global$it()" } + "); }")
+            builtinGlobals.forEachIndexed { number, value ->
+                val entry = value as Map<*, *>
+                appendLine("  private static BuiltinContracts.GlobalDefinition global$number() { return new BuiltinContracts.GlobalDefinition(" +
+                    "${symbol(entry["symbol"])}, ${intrinsic(entry["intrinsic"])}); }")
+            }
+            appendLine("}")
+        })
         packageDirectory.resolve("IntrinsicId.java").writeText(
             buildString {
                 appendLine("package dev.w0fv1.norm.abi;")
@@ -846,6 +941,11 @@ sourceSets {
 
 tasks.compileJava {
     dependsOn(generateBuildMetadata, generateBuiltinAbi)
+}
+
+tasks.test {
+    dependsOn(tasks.jar)
+    systemProperty("norm.test.modulePath", files(tasks.jar, configurations.runtimeClasspath).asPath)
 }
 
 dependencies {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.w0fv1.norm.jvm.GeneratedJarBinding;
 import dev.w0fv1.norm.jvm.JarApiSchema;
+import dev.w0fv1.norm.jvm.JarBindingClasspath;
 import dev.w0fv1.norm.jvm.JarDependencyEdge;
 import dev.w0fv1.norm.jvm.MavenJarIdentity;
 import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
@@ -29,7 +30,7 @@ final class NativeReachabilityMetadataTest {
             directory.resolve("slf4j-simple.jar"),
             Sha256Digest.compute(new byte[0]));
     var plan =
-        dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(
+        JarBindingClasspath.prepare(
             List.of(binding(new ResolvedJarGraph(artifact, List.of(artifact), List.of()))));
     var result = new NativeReachabilityMetadata().prepare(plan, directory.resolve("metadata"));
     var manifest =
@@ -51,9 +52,7 @@ final class NativeReachabilityMetadataTest {
   void recordsAnEmptySelection() throws Exception {
     var result =
         new NativeReachabilityMetadata()
-            .prepare(
-                dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(List.of()),
-                directory.resolve("empty"));
+            .prepare(JarBindingClasspath.prepare(List.of()), directory.resolve("empty"));
     var manifest =
         com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(result.manifest()))
             .getAsJsonObject();
@@ -70,7 +69,7 @@ final class NativeReachabilityMetadataTest {
             directory.resolve("netty-handler.jar"),
             Sha256Digest.compute(new byte[0]));
     var plan =
-        dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(
+        JarBindingClasspath.prepare(
             List.of(binding(new ResolvedJarGraph(artifact, List.of(artifact), List.of()))));
     var result = new NativeReachabilityMetadata().prepare(plan, directory.resolve("netty"));
     var manifest =
@@ -110,8 +109,7 @@ final class NativeReachabilityMetadataTest {
             List.of(support, selected),
             List.of(new JarDependencyEdge(support.identity(), selected.identity())));
     var plan =
-        dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(
-            List.of(binding(applicationGraph)), List.of(supportGraph));
+        JarBindingClasspath.prepare(List.of(binding(applicationGraph)), List.of(supportGraph));
     assertEquals(
         Set.of("sample:application:1", "sample:support:1", "sample:library:2"),
         NativeReachabilityMetadata.coordinates(plan));

@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.bound.BoundProgram;
-import dev.w0fv1.norm.value.AnalysisResult;
+import dev.w0fv1.norm.semantic.AnalysisResult;
 import java.util.Objects;
 import java.util.Optional;
 

@@ -6,17 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationReference;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +36,8 @@ final class AnnotationCompilerTest {
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     CoreAnnotationValue value =
         result
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact()
             .metadata()
             .annotations()
@@ -58,15 +58,7 @@ final class AnnotationCompilerTest {
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     List<CoreAnnotationValue> values =
-        result
-            .program()
-            .orElseThrow()
-            .compilation()
-            .artifact()
-            .metadata()
-            .annotations()
-            .getFirst()
-            .values();
+        result.output().orElseThrow().artifact().metadata().annotations().getFirst().values();
     assertEquals("/hello", ((CoreAnnotationValue.Literal) values.get(0).value()).value());
     assertEquals("GET", ((CoreAnnotationValue.Literal) values.get(1).value()).value());
   }
@@ -95,16 +87,8 @@ final class AnnotationCompilerTest {
                 + "class Api {} Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    List<dev.w0fv1.norm.core.CoreAnnotationValue> values =
-        result
-            .program()
-            .orElseThrow()
-            .compilation()
-            .artifact()
-            .metadata()
-            .annotations()
-            .getFirst()
-            .values();
+    List<CoreAnnotationValue> values =
+        result.output().orElseThrow().artifact().metadata().annotations().getFirst().values();
     CoreAnnotationValue.ListValue types =
         assertInstanceOf(CoreAnnotationValue.ListValue.class, values.get(1).value());
     CoreAnnotationValue.ListValue functions =
@@ -131,9 +115,8 @@ final class AnnotationCompilerTest {
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     CoreAnnotationValue value =
         result
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact()
             .metadata()
             .annotations()
@@ -156,9 +139,8 @@ final class AnnotationCompilerTest {
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     CoreAnnotationValue value =
         result
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact()
             .metadata()
             .annotations()
@@ -167,7 +149,7 @@ final class AnnotationCompilerTest {
             .getFirst();
     CoreAnnotationReference.ClassReference reference =
         assertInstanceOf(CoreAnnotationReference.ClassReference.class, value.value());
-    assertEquals(dev.w0fv1.norm.core.CoreType.VOID, reference.reflectedType());
+    assertEquals(CoreType.VOID, reference.reflectedType());
   }
 
   @Test
@@ -203,16 +185,8 @@ final class AnnotationCompilerTest {
                 + "@Document(description: \"API\") class Api {} Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    List<dev.w0fv1.norm.core.CoreAnnotationValue> values =
-        result
-            .program()
-            .orElseThrow()
-            .compilation()
-            .artifact()
-            .metadata()
-            .annotations()
-            .getFirst()
-            .values();
+    List<CoreAnnotationValue> values =
+        result.output().orElseThrow().artifact().metadata().annotations().getFirst().values();
     assertEquals(4, values.size());
     values.subList(1, 4).stream()
         .map(CoreAnnotationValue::value)
@@ -268,9 +242,8 @@ final class AnnotationCompilerTest {
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     CoreDefinition definition =
         result
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact()
             .program()
             .definition(definition(result, "Label"))
@@ -288,8 +261,7 @@ final class AnnotationCompilerTest {
                 + "@Label(text: \"point\") value Point {} Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    assertEquals(
-        1, result.program().orElseThrow().compilation().artifact().metadata().annotations().size());
+    assertEquals(1, result.output().orElseThrow().artifact().metadata().annotations().size());
   }
 
   @Test
@@ -347,8 +319,7 @@ final class AnnotationCompilerTest {
                 + "Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    assertEquals(
-        2, result.program().orElseThrow().compilation().artifact().metadata().annotations().size());
+    assertEquals(2, result.output().orElseThrow().artifact().metadata().annotations().size());
   }
 
   @Test
@@ -364,7 +335,7 @@ final class AnnotationCompilerTest {
                 + "value User { @Label(text: \"user_name\") String name } Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    var artifact = result.program().orElseThrow().compilation().artifact();
+    var artifact = result.output().orElseThrow().artifact();
     assertEquals(1, artifact.metadata().annotations().size());
     CoreDefinition.Aggregate user =
         (CoreDefinition.Aggregate)
@@ -413,9 +384,8 @@ final class AnnotationCompilerTest {
     CoreDefinition.Callable callable =
         (CoreDefinition.Callable)
             result
-                .program()
+                .output()
                 .orElseThrow()
-                .compilation()
                 .artifact()
                 .program()
                 .definition(definition(result, "echo"))
@@ -452,9 +422,8 @@ final class AnnotationCompilerTest {
     CoreDefinition.Aggregate aggregate =
         (CoreDefinition.Aggregate)
             result
-                .program()
+                .output()
                 .orElseThrow()
-                .compilation()
                 .artifact()
                 .program()
                 .definition(definition(result, "Box"))
@@ -499,7 +468,7 @@ final class AnnotationCompilerTest {
                 + "@BinaryOnly() @RuntimeVisible() value Point {} Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    var artifact = result.program().orElseThrow().compilation().artifact();
+    var artifact = result.output().orElseThrow().artifact();
     assertEquals(2, artifact.metadata().annotations().size());
     CoreDefinition.Callable callable =
         (CoreDefinition.Callable)
@@ -518,8 +487,7 @@ final class AnnotationCompilerTest {
                 + "Void main() {}");
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    assertEquals(
-        1, result.program().orElseThrow().compilation().artifact().metadata().annotations().size());
+    assertEquals(1, result.output().orElseThrow().artifact().metadata().annotations().size());
   }
 
   @Test
@@ -678,7 +646,7 @@ final class AnnotationCompilerTest {
 
   private static DefinitionId definition(CompilationResult result, String name) {
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
-    return result.program().orElseThrow().compilation().artifact().namespace().bindings().stream()
+    return result.output().orElseThrow().artifact().namespace().bindings().stream()
         .filter(binding -> binding.name().equals(name))
         .findFirst()
         .orElseThrow()

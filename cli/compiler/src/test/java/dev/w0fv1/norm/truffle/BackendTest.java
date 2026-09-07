@@ -8,16 +8,17 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.utils.BackendInfo;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -39,7 +40,7 @@ final class BackendTest {
   @Timeout(5)
   void resumesAwaitCancellationWhenExecutionIsInterrupted() throws Exception {
     var environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    dev.w0fv1.norm.value.CompilationResult compilation;
+    CompilationResult compilation;
     try (var compiler = environment.compilerSession()) {
       compilation =
           compiler.compile(
@@ -57,7 +58,9 @@ final class BackendTest {
                 () -> {
                   try {
                     new NormRuntime()
-                        .run(compilation.program().orElseThrow(), new PrintWriter(output, true));
+                        .run(
+                            compilation.output().orElseThrow().artifact(),
+                            new PrintWriter(output, true));
                   } catch (Throwable throwable) {
                     failure.set(throwable);
                   }
@@ -87,7 +90,7 @@ final class BackendTest {
                     Path.of("hello.norm"), "Void main() { printLine(\"Hello from Norm\") }"));
     var output = new StringWriter();
 
-    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(compilation.output().orElseThrow().artifact(), new PrintWriter(output));
 
     assertEquals("Hello from Norm" + System.lineSeparator(), output.toString());
   }
@@ -97,15 +100,15 @@ final class BackendTest {
     var program =
         new CompilerSession()
             .compile(SourceFile.of(Path.of("cached.norm"), "Void main() { printLine(\"cached\") }"))
-            .program()
+            .output()
             .orElseThrow();
     TruffleExecutionBackend backend = new TruffleExecutionBackend();
     NormRuntime runner = new NormRuntime(backend);
     StringWriter first = new StringWriter();
     StringWriter second = new StringWriter();
 
-    runner.run(program, new PrintWriter(first));
-    runner.run(program, new PrintWriter(second));
+    runner.run(program.artifact(), new PrintWriter(first));
+    runner.run(program.artifact(), new PrintWriter(second));
 
     assertEquals("cached" + System.lineSeparator(), first.toString());
     assertEquals(first.toString(), second.toString());
@@ -117,28 +120,27 @@ final class BackendTest {
     var compact =
         new CompilerSession()
             .compile(SourceFile.of(Path.of("debug-cache.norm"), "Void main() { printLine(1 / 0) }"))
-            .program()
+            .output()
             .orElseThrow();
     var formatted =
         new CompilerSession()
             .compile(
                 SourceFile.of(
                     Path.of("debug-cache.norm"), "\n\nVoid main() {\n  printLine(1 / 0)\n}\n"))
-            .program()
+            .output()
             .orElseThrow();
     TruffleExecutionBackend backend = new TruffleExecutionBackend();
     NormRuntime runner = new NormRuntime(backend);
 
     assertSame(
-        backend.compile(null, compact.compilation().artifact()),
-        backend.compile(null, formatted.compilation().artifact()));
+        backend.compile(null, compact.artifact()), backend.compile(null, formatted.artifact()));
     assertThrows(
         NormExecutionException.class,
-        () -> runner.run(compact, new PrintWriter(new StringWriter())));
+        () -> runner.run(compact.artifact(), new PrintWriter(new StringWriter())));
     NormExecutionException formattedFailure =
         assertThrows(
             NormExecutionException.class,
-            () -> runner.run(formatted, new PrintWriter(new StringWriter())));
+            () -> runner.run(formatted.artifact(), new PrintWriter(new StringWriter())));
 
     assertEquals(4, formattedFailure.line());
     assertEquals(1, backend.cachedArtifacts());
@@ -169,15 +171,15 @@ final class BackendTest {
                     source.id(),
                     List.of(source),
                     Set.of()))
-            .program()
+            .output()
             .orElseThrow();
     TruffleExecutionBackend backend = new TruffleExecutionBackend();
     NormRuntime runner = new NormRuntime(backend);
     StringWriter first = new StringWriter();
     StringWriter second = new StringWriter();
 
-    runner.run(program, new PrintWriter(first));
-    runner.run(program, new PrintWriter(second));
+    runner.run(program.artifact(), new PrintWriter(first));
+    runner.run(program.artifact(), new PrintWriter(second));
 
     String expected = "initial" + System.lineSeparator();
     assertEquals(expected, first.toString());
@@ -192,7 +194,7 @@ final class BackendTest {
             .compile(
                 SourceFile.of(
                     Path.of("concurrent.norm"), "Void main() { printLine(\"concurrent\") }"))
-            .program()
+            .output()
             .orElseThrow();
     TruffleExecutionBackend backend = new TruffleExecutionBackend();
     NormRuntime runner = new NormRuntime(backend);
@@ -205,7 +207,7 @@ final class BackendTest {
                       java.util.concurrent.CompletableFuture.supplyAsync(
                           () -> {
                             StringWriter output = new StringWriter();
-                            runner.run(program, new PrintWriter(output));
+                            runner.run(program.artifact(), new PrintWriter(output));
                             return output.toString();
                           },
                           executor))
@@ -229,9 +231,9 @@ final class BackendTest {
                   SourceFile.of(
                       Path.of("bounded-" + value + ".norm"),
                       "Void main() { printLine(" + value + ") }"))
-              .program()
+              .output()
               .orElseThrow();
-      runner.run(program, new PrintWriter(new StringWriter()));
+      runner.run(program.artifact(), new PrintWriter(new StringWriter()));
     }
 
     assertEquals(2, backend.cachedArtifacts());
@@ -243,26 +245,26 @@ final class BackendTest {
     var first =
         new CompilerSession()
             .compile(SourceFile.of(Path.of("first.norm"), "Void main() { printLine(1) }"))
-            .program()
+            .output()
             .orElseThrow();
     var second =
         new CompilerSession()
             .compile(SourceFile.of(Path.of("second.norm"), "Void main() { printLine(2) }"))
-            .program()
+            .output()
             .orElseThrow();
     var third =
         new CompilerSession()
             .compile(SourceFile.of(Path.of("third.norm"), "Void main() { printLine(3) }"))
-            .program()
+            .output()
             .orElseThrow();
 
-    ExecutableProgram firstArtifact = backend.compile(null, first.compilation().artifact());
-    ExecutableProgram secondArtifact = backend.compile(null, second.compilation().artifact());
-    assertSame(firstArtifact, backend.compile(null, first.compilation().artifact()));
-    backend.compile(null, third.compilation().artifact());
+    ExecutableProgram firstArtifact = backend.compile(null, first.artifact());
+    ExecutableProgram secondArtifact = backend.compile(null, second.artifact());
+    assertSame(firstArtifact, backend.compile(null, first.artifact()));
+    backend.compile(null, third.artifact());
 
-    assertSame(firstArtifact, backend.compile(null, first.compilation().artifact()));
-    assertNotSame(secondArtifact, backend.compile(null, second.compilation().artifact()));
+    assertSame(firstArtifact, backend.compile(null, first.artifact()));
+    assertNotSame(secondArtifact, backend.compile(null, second.artifact()));
   }
 
   @Test

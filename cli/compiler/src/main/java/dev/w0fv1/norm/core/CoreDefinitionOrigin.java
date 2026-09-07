@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.core;
 
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;

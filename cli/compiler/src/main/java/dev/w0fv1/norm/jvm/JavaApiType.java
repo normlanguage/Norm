@@ -19,35 +19,6 @@ public record JavaApiType(
     List<JavaApiMethod> methods,
     List<JavaApiMethod> inheritedMethods,
     JavaApiDisposition disposition) {
-  public JavaApiType(
-      String binaryName,
-      JavaApiTypeKind kind,
-      int modifiers,
-      JavaClassSignature signature,
-      List<JavaApiAnnotation> annotations,
-      List<JavaApiTypeAnnotation> typeAnnotations,
-      Optional<String> enclosingType,
-      List<JavaApiRecordComponent> recordComponents,
-      List<String> permittedSubclasses,
-      List<JavaApiField> fields,
-      List<JavaApiMethod> methods,
-      JavaApiDisposition disposition) {
-    this(
-        binaryName,
-        kind,
-        modifiers,
-        signature,
-        annotations,
-        typeAnnotations,
-        enclosingType,
-        recordComponents,
-        permittedSubclasses,
-        fields,
-        methods,
-        List.of(),
-        disposition);
-  }
-
   public JavaApiType {
     Objects.requireNonNull(binaryName, "binaryName");
     Objects.requireNonNull(kind, "kind");

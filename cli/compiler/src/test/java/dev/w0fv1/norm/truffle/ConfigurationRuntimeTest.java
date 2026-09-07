@@ -100,9 +100,9 @@ final class ConfigurationRuntimeTest {
                   printLine(properties.size())
                 }
                 """)
-            .program()
+            .output()
             .orElseThrow();
-    ExecutableProgram executable = new Lowerer(null).lower(checked.compilation().artifact());
+    ExecutableProgram executable = new Lowerer(null).lower(checked.artifact());
     StringWriter output = new StringWriter();
 
     executable.execute(ExecutionContext.of(new PrintWriter(output)));
@@ -149,9 +149,9 @@ final class ConfigurationRuntimeTest {
                   ))
                 }
                 """)
-            .program()
+            .output()
             .orElseThrow();
-    ExecutableProgram executable = new Lowerer(null).lower(checked.compilation().artifact());
+    ExecutableProgram executable = new Lowerer(null).lower(checked.artifact());
 
     NormGuestException failure =
         assertThrows(

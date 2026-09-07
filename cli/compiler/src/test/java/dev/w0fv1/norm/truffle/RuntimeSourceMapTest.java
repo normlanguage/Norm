@@ -11,9 +11,8 @@ final class RuntimeSourceMapTest {
   void preservesEveryAuthoredPositionAndRootFallback() {
     var authoring =
         NormTestKit.compile("Void main() { printLine(\"position\") }")
-            .program()
+            .output()
             .orElseThrow()
-            .compilation()
             .artifact()
             .authoring();
     var locations = RuntimeSourceMap.from(authoring);

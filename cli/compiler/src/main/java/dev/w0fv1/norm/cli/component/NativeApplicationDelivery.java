@@ -1,5 +1,7 @@
 package dev.w0fv1.norm.cli.component;
 
+import dev.w0fv1.norm.application.TemporaryDirectory;
+import dev.w0fv1.norm.platform.jdk.FilePublication;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,10 +14,10 @@ final class NativeApplicationDelivery {
   static List<Path> publish(NativeBuildArtifacts artifacts, Path destination) throws IOException {
     if (!System.getProperty("os.name", "").startsWith("Windows") || artifacts.files().size() == 1) {
       var delivered = artifacts.publishLibraries(destination);
-      dev.w0fv1.norm.platform.jdk.FilePublication.publish(artifacts.image(), destination);
+      FilePublication.publish(artifacts.image(), destination);
       return delivered;
     }
-    try (var workspace = new dev.w0fv1.norm.utils.TemporaryDirectory()) {
+    try (var workspace = new TemporaryDirectory()) {
       Path host = workspace.path().resolve("native-host.exe");
       try (var input = NativeApplicationDelivery.class.getResourceAsStream("/native-host.exe")) {
         if (input == null)

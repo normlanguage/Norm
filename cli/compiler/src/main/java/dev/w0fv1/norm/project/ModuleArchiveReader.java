@@ -2,6 +2,7 @@ package dev.w0fv1.norm.project;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
@@ -24,6 +25,7 @@ import java.util.zip.ZipFile;
 
 final class ModuleArchiveReader {
   ArchivedModule read(Path archive) throws IOException {
+    FileSnapshot snapshot = FileSnapshot.capture(archive);
     try (ZipFile zip = new ZipFile(archive.toFile())) {
       var manifestEntry = zip.getEntry("module.json");
       if (manifestEntry == null) throw new IOException("module archive has no manifest");
@@ -67,7 +69,9 @@ final class ModuleArchiveReader {
           }
         }
       }
+      snapshot.verify();
       return new ArchivedModule(
+          snapshot,
           descriptor,
           manifest.has("jar")
               ? Optional.of(
@@ -148,6 +152,7 @@ final class ModuleArchiveReader {
   }
 
   record ArchivedModule(
+      FileSnapshot archive,
       ModuleDescriptor descriptor,
       Optional<Sha256Digest> javaApiId,
       Map<String, String> sources,

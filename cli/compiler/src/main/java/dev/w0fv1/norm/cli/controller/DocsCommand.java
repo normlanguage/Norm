@@ -5,15 +5,16 @@ import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.documentation.DocumentationGenerator;
 import dev.w0fv1.norm.documentation.MissingDocumentationException;
+import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.project.ProjectLoader;
 import dev.w0fv1.norm.project.ProjectSourceSet;
 import dev.w0fv1.norm.runtime.NormRuntime;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.ModuleDescriptor;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
@@ -94,7 +95,7 @@ final class DocsCommand implements Command {
       err.printf(
           "error[NORM-DOC-0001]: cannot export module documentation: %s%n", exception.getMessage());
       return ExitCode.INPUT_ERROR;
-    } catch (dev.w0fv1.norm.frontend.CompilationInfrastructureException exception) {
+    } catch (CompilationInfrastructureException exception) {
       err.printf(
           "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
       return ExitCode.INTERNAL_ERROR;

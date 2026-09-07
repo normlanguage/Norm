@@ -3,13 +3,25 @@ package dev.w0fv1.norm.language;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import org.junit.jupiter.api.Test;
 
 final class CompletionContextResolverTest {
   private final CompilerSession compiler = new CompilerSession();
   private final CompletionContextResolver resolver = new CompletionContextResolver();
+
+  @Test
+  void followsLiteralRecoveryAndNestedInterpolationTokens() {
+    assertContext("Void main() { printLine(\"|", CompletionContext.None.class);
+    assertContext("Void main() { printLine(\"escaped \\\"|", CompletionContext.None.class);
+    assertContext("Void main() { CodePoint value = '|", CompletionContext.None.class);
+    assertContext(
+        "Void main() { printLine(\"${\"${val|ue}\"}\") }", CompletionContext.Expression.class);
+    assertContext(
+        "Void main() { printLine(\"${value} tail\n printLine(val|ue) }",
+        CompletionContext.Expression.class);
+  }
 
   @Test
   void distinguishesMemberTypeArgumentImportAndExcludedText() {
@@ -44,7 +56,13 @@ final class CompletionContextResolverTest {
         CompletionContext.TypeArgument.class);
     assertContext("annotation Marker {} @Mar| value Point {}", CompletionContext.Annotation.class);
     assertContext("Void main() { printLine(\"text |\") }", CompletionContext.None.class);
-    assertContext("Void main() { // comment |\n printLine(1) }", CompletionContext.None.class);
+    assertContext("Void main() { printLine(\"text |", CompletionContext.None.class);
+    assertContext("Void main() { printLine(\"${val|ue}\") }", CompletionContext.Expression.class);
+    assertContext(
+        "Void main() { CodePoint quote = '\"' printLine(val|ue) }",
+        CompletionContext.Expression.class);
+    assertContext(
+        "Void main() { // comment |\n printLine(1) }", CompletionContext.Expression.class);
   }
 
   private void assertContext(String marked, Class<? extends CompletionContext> expected) {

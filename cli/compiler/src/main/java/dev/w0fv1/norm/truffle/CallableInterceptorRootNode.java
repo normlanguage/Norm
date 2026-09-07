@@ -49,7 +49,7 @@ final class CallableInterceptorRootNode extends RootNode implements RuntimeLocat
   @Child private AnnotationLifecycleNode lifecycle = new AnnotationLifecycleNode();
 
   CallableInterceptorRootNode(
-      Language language,
+      com.oracle.truffle.api.TruffleLanguage<?> language,
       String name,
       SourceSection sourceSection,
       DefinitionOccurrenceId callable,

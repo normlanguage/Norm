@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -266,9 +266,8 @@ final class CoreAnnotationProgramTest {
                 file.id(),
                 List.of(file),
                 Set.of()))
-        .program()
+        .output()
         .orElseThrow()
-        .compilation()
         .artifact();
   }
 

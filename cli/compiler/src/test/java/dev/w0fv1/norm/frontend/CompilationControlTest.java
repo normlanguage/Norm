@@ -2,9 +2,9 @@ package dev.w0fv1.norm.frontend;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;

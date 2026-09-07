@@ -14,7 +14,9 @@ import dev.w0fv1.norm.platform.file.FileWriteMode;
 import dev.w0fv1.norm.platform.file.PlatformByteReader;
 import dev.w0fv1.norm.platform.file.PlatformByteWriter;
 import dev.w0fv1.norm.platform.file.PlatformFileException;
+import dev.w0fv1.norm.platform.http.HttpTransport;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
+import dev.w0fv1.norm.platform.time.SystemClock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -210,12 +212,12 @@ final class FileSystemTest {
       }
 
       @Override
-      public dev.w0fv1.norm.platform.time.SystemClock clock() {
+      public SystemClock clock() {
         return JdkSystemPlatform.standard().clock();
       }
 
       @Override
-      public dev.w0fv1.norm.platform.http.HttpTransport httpTransport() {
+      public HttpTransport httpTransport() {
         return JdkSystemPlatform.standard().httpTransport();
       }
     };

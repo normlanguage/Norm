@@ -11,12 +11,13 @@ import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
+import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.AstNode;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.AnnotationAbi;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -621,16 +622,12 @@ public final class DocumentationGenerator {
         symbol.parameters().stream()
             .map(parameter -> parameter.type().displayName())
             .collect(java.util.stream.Collectors.joining(","));
-    String name =
-        symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.CONSTRUCTOR
-            ? "constructor"
-            : symbol.name();
+    String name = symbol.kind() == SymbolKind.CONSTRUCTOR ? "constructor" : symbol.name();
     ids.put(symbol.id(), packageName + "::" + owner + name + "(" + parameters + ")");
   }
 
   private static String externalId(Symbol symbol, SemanticModel semantics) {
-    if (symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.TYPE
-        || symbol.kind() == dev.w0fv1.norm.semantic.SymbolKind.INTERFACE) {
+    if (symbol.kind() == SymbolKind.TYPE || symbol.kind() == SymbolKind.INTERFACE) {
       return symbol.type().identity();
     }
     return symbol

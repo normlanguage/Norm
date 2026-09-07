@@ -6,7 +6,7 @@ import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

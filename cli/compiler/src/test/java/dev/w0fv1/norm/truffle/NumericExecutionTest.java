@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.runtime.NormRuntime;
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.source.SourceFile;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -23,7 +23,7 @@ final class NumericExecutionTest {
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     StringWriter output = new StringWriter();
 
-    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(compilation.output().orElseThrow().artifact(), new PrintWriter(output));
 
     assertEquals(
         String.join(
@@ -47,7 +47,7 @@ final class NumericExecutionTest {
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     StringWriter output = new StringWriter();
 
-    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(compilation.output().orElseThrow().artifact(), new PrintWriter(output));
 
     assertEquals(
         String.join(System.lineSeparator(), "true", "true", "true", "true", ""), output.toString());
@@ -62,7 +62,7 @@ final class NumericExecutionTest {
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     StringWriter output = new StringWriter();
 
-    new NormRuntime().run(compilation.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(compilation.output().orElseThrow().artifact(), new PrintWriter(output));
 
     assertEquals(
         String.join(System.lineSeparator(), "false", "false", "false", ""), output.toString());

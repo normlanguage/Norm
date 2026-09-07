@@ -1,31 +1,19 @@
 package dev.w0fv1.norm.cli.component;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
-import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.language.Completion;
 import dev.w0fv1.norm.language.CompletionKind;
 import dev.w0fv1.norm.language.LanguageService;
-import dev.w0fv1.norm.project.ProjectEnvironment;
-import dev.w0fv1.norm.project.ProjectLoader;
-import dev.w0fv1.norm.runtime.NormRuntime;
-import dev.w0fv1.norm.value.AnalysisResult;
-import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceLocation;
-import dev.w0fv1.norm.value.SourcePosition;
-import dev.w0fv1.norm.value.SourceSpan;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import dev.w0fv1.norm.language.SignatureHelp;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceLocation;
+import dev.w0fv1.norm.source.SourcePosition;
+import dev.w0fv1.norm.workspace.Workspace;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
 import org.eclipse.lsp4j.CompletionList;
@@ -51,7 +39,6 @@ import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.RenameParams;
 import org.eclipse.lsp4j.SignatureHelpParams;
-import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -60,500 +47,246 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
 final class DocumentService implements TextDocumentService, AutoCloseable {
-  private static final DiagnosticCode PROJECT_CONFIGURATION =
-      new DiagnosticCode("NORM-PROJECT-0001");
+  private final Workspace workspace;
   private final LanguageService language;
-  private final ProjectLoader projects;
-  private final Map<String, DocumentState> documents = new ConcurrentHashMap<>();
-  private final Object mutationLock = new Object();
-  private final java.util.concurrent.atomic.AtomicLong revisions =
-      new java.util.concurrent.atomic.AtomicLong();
-  private volatile LanguageClient client;
 
-  DocumentService() {
-    try {
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
-      language = new LanguageService(environment.compilerSession());
-      projects = environment.projectLoader();
-    } catch (java.io.IOException exception) {
-      throw new IllegalStateException("cannot bootstrap Norm project environment", exception);
-    }
+  DocumentService(Workspace workspace) {
+    this.workspace = workspace;
+    this.language = workspace.language();
   }
 
   void connect(LanguageClient client) {
-    this.client = client;
+    workspace.onDiagnostics(
+        update ->
+            client.publishDiagnostics(
+                new PublishDiagnosticsParams(
+                    update.uri(),
+                    update.diagnostics().stream().map(DocumentService::diagnostic).toList(),
+                    update.version())));
   }
 
   @Override
   public void close() {
-    synchronized (mutationLock) {
-      documents.clear();
-      language.close();
-      projects.close();
-    }
+    workspace.close();
   }
 
-  private String standardLibrarySource(String uri) {
-    return language
-        .standardLibrarySource(DocumentId.of(uri))
-        .orElseThrow(() -> new IllegalArgumentException("unknown standard-library source " + uri));
+  CompletableFuture<Void> settled() {
+    return workspace.settled();
   }
 
-  String source(String uri) {
-    if ("stdlib".equals(URI.create(uri).getScheme())) return standardLibrarySource(uri);
-    DocumentId document =
-        VirtualDocumentUri.decode(uri)
-            .orElseThrow(() -> new IllegalArgumentException("unknown virtual source " + uri));
-    DocumentState owner =
-        snapshotState(document)
-            .orElseThrow(() -> new IllegalArgumentException("unknown virtual source " + uri));
-    return owner.snapshot().document(document).orElseThrow().source().text();
+  CompletableFuture<String> source(String uri) {
+    return workspace.source(uri);
   }
 
   @Override
   public void didOpen(DidOpenTextDocumentParams params) {
-    update(
-        params.getTextDocument().getUri(),
-        params.getTextDocument().getVersion(),
-        params.getTextDocument().getText());
+    var document = params.getTextDocument();
+    workspace.update(document.getUri(), document.getVersion(), document.getText());
   }
 
   @Override
   public void didChange(DidChangeTextDocumentParams params) {
-    List<TextDocumentContentChangeEvent> changes = params.getContentChanges();
-    if (!changes.isEmpty()) {
-      update(
-          params.getTextDocument().getUri(),
-          params.getTextDocument().getVersion(),
-          changes.getLast().getText());
-    }
+    if (params.getContentChanges().isEmpty()) return;
+    workspace.update(
+        params.getTextDocument().getUri(),
+        params.getTextDocument().getVersion(),
+        params.getContentChanges().getLast().getText());
   }
 
   @Override
   public void didClose(DidCloseTextDocumentParams params) {
-    synchronized (mutationLock) {
-      String uri = params.getTextDocument().getUri();
-      DocumentState removed = remove(uri);
-      LanguageClient connected = client;
-      if (connected != null) {
-        connected.publishDiagnostics(new PublishDiagnosticsParams(uri, List.of()));
-      }
-      if (removed != null && removed.projectRoot() != null) refresh(removed.projectRoot());
-    }
+    workspace.closeDocument(params.getTextDocument().getUri());
   }
 
   @Override
   public void didSave(DidSaveTextDocumentParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state != null) publish(state.clientUri(), state.source().id(), state.analysis());
+    workspace.watchedFilesChanged(List.of(params.getTextDocument().getUri()));
+  }
+
+  void watchedFilesChanged(Collection<String> uris) {
+    workspace.watchedFilesChanged(uris);
   }
 
   @Override
   public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(
       CompletionParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(Either.forLeft(List.of()));
-    int offset = offset(state.source(), params.getPosition());
-    List<Completion> completions =
-        language.complete(state.snapshot().document(state.source().id()).orElseThrow(), offset);
-    List<CompletionItem> items =
-        java.util.stream.IntStream.range(0, completions.size())
-            .mapToObj(index -> completion(completions.get(index), index, state.source()))
-            .toList();
-    return CompletableFuture.completedFuture(Either.forLeft(items));
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null)
+                return CompletableFuture.completedFuture(Either.forLeft(List.of()));
+              int offset = offset(state.source(), params.getPosition());
+              List<Completion> completions =
+                  language.complete(
+                      state.snapshot().document(state.source().id()).orElseThrow(), offset);
+              List<CompletionItem> items =
+                  java.util.stream.IntStream.range(0, completions.size())
+                      .mapToObj(index -> completion(completions.get(index), index, state.source()))
+                      .toList();
+              return CompletableFuture.completedFuture(Either.forLeft(items));
+            });
   }
 
   @Override
   public CompletableFuture<org.eclipse.lsp4j.SignatureHelp> signatureHelp(
       SignatureHelpParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(null);
-    int offset = offset(state.source(), params.getPosition());
-    return CompletableFuture.completedFuture(
-        language
-            .signatureHelp(state.snapshot().document(state.source().id()).orElseThrow(), offset)
-            .map(DocumentService::signatureHelp)
-            .orElse(null));
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null) return CompletableFuture.completedFuture(null);
+              int offset = offset(state.source(), params.getPosition());
+              return CompletableFuture.completedFuture(
+                  language
+                      .signatureHelp(
+                          state.snapshot().document(state.source().id()).orElseThrow(), offset)
+                      .map(DocumentService::signatureHelp)
+                      .orElse(null));
+            });
   }
 
   @Override
   public CompletableFuture<Hover> hover(HoverParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(null);
-    int offset = offset(state.source(), params.getPosition());
-    return CompletableFuture.completedFuture(
-        language
-            .hover(state.analysis(), offset)
-            .map(info -> new Hover(new MarkupContent(MarkupKind.MARKDOWN, info.markdown())))
-            .orElse(null));
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null) return CompletableFuture.completedFuture(null);
+              int offset = offset(state.source(), params.getPosition());
+              return CompletableFuture.completedFuture(
+                  language
+                      .hover(state.analysis(), offset)
+                      .map(
+                          info ->
+                              new Hover(new MarkupContent(MarkupKind.MARKDOWN, info.markdown())))
+                      .orElse(null));
+            });
   }
 
   @Override
   public CompletableFuture<
           Either<List<? extends Location>, List<? extends org.eclipse.lsp4j.LocationLink>>>
       definition(DefinitionParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(Either.forLeft(List.of()));
-    int offset = offset(state.source(), params.getPosition());
-    List<Location> locations =
-        language.definition(state.analysis(), offset).stream()
-            .map(location -> location(state.snapshot(), location))
-            .toList();
-    return CompletableFuture.completedFuture(Either.forLeft(locations));
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null)
+                return CompletableFuture.completedFuture(Either.forLeft(List.of()));
+              int offset = offset(state.source(), params.getPosition());
+              List<Location> locations =
+                  language.definition(state.analysis(), offset).stream()
+                      .map(location -> location(state.snapshot(), location))
+                      .toList();
+              return CompletableFuture.completedFuture(Either.forLeft(locations));
+            });
   }
 
   @Override
   public CompletableFuture<List<? extends Location>> references(ReferenceParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(List.of());
-    int offset = offset(state.source(), params.getPosition());
-    List<Location> locations =
-        language
-            .references(state.analysis(), offset, params.getContext().isIncludeDeclaration())
-            .stream()
-            .map(location -> location(state.snapshot(), location))
-            .toList();
-    return CompletableFuture.completedFuture(locations);
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null) return CompletableFuture.completedFuture(List.of());
+              int offset = offset(state.source(), params.getPosition());
+              List<Location> locations =
+                  language
+                      .references(
+                          state.analysis(), offset, params.getContext().isIncludeDeclaration())
+                      .stream()
+                      .map(location -> location(state.snapshot(), location))
+                      .toList();
+              return CompletableFuture.completedFuture(locations);
+            });
   }
 
   @Override
   public CompletableFuture<
           Either3<Range, PrepareRenameResult, org.eclipse.lsp4j.PrepareRenameDefaultBehavior>>
       prepareRename(PrepareRenameParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(null);
-    int offset = offset(state.source(), params.getPosition());
-    return CompletableFuture.completedFuture(
-        language
-            .prepareRename(state.analysis(), offset)
-            .map(
-                target ->
-                    Either3
-                        .<Range, PrepareRenameResult,
-                            org.eclipse.lsp4j.PrepareRenameDefaultBehavior>
-                            forSecond(
-                                new PrepareRenameResult(
-                                    range(state.snapshot(), target.location()),
-                                    target.placeholder())))
-            .orElse(null));
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null) return CompletableFuture.completedFuture(null);
+              int offset = offset(state.source(), params.getPosition());
+              return CompletableFuture.completedFuture(
+                  language
+                      .prepareRename(state.analysis(), offset)
+                      .map(
+                          target ->
+                              Either3
+                                  .<Range, PrepareRenameResult,
+                                      org.eclipse.lsp4j.PrepareRenameDefaultBehavior>
+                                      forSecond(
+                                          new PrepareRenameResult(
+                                              range(state.snapshot(), target.location()),
+                                              target.placeholder())))
+                      .orElse(null));
+            });
   }
 
   @Override
   public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(null);
-    int offset = offset(state.source(), params.getPosition());
-    try {
-      WorkspaceEdit edit =
-          language
-              .rename(state.analysis(), offset, params.getNewName())
-              .map(
-                  rename -> {
-                    Map<String, List<TextEdit>> changes = new java.util.LinkedHashMap<>();
-                    rename
-                        .locations()
-                        .forEach(
-                            location ->
-                                changes
-                                    .computeIfAbsent(
-                                        clientUri(state.snapshot(), location.document()),
-                                        ignored -> new java.util.ArrayList<>())
-                                    .add(
-                                        new TextEdit(
-                                            range(state.snapshot(), location), rename.newName())));
-                    return new WorkspaceEdit(changes);
-                  })
-              .orElse(null);
-      return CompletableFuture.completedFuture(edit);
-    } catch (IllegalArgumentException exception) {
-      return CompletableFuture.failedFuture(exception);
-    }
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null) return CompletableFuture.completedFuture(null);
+              int offset = offset(state.source(), params.getPosition());
+              try {
+                WorkspaceEdit edit =
+                    language
+                        .rename(state.analysis(), offset, params.getNewName())
+                        .map(
+                            rename -> {
+                              Map<String, List<TextEdit>> changes = new java.util.LinkedHashMap<>();
+                              rename
+                                  .locations()
+                                  .forEach(
+                                      location ->
+                                          changes
+                                              .computeIfAbsent(
+                                                  workspace.clientUri(
+                                                      state.snapshot(), location.document()),
+                                                  ignored -> new java.util.ArrayList<>())
+                                              .add(
+                                                  new TextEdit(
+                                                      range(state.snapshot(), location),
+                                                      rename.newName())));
+                              return new WorkspaceEdit(changes);
+                            })
+                        .orElse(null);
+                return CompletableFuture.completedFuture(edit);
+              } catch (IllegalArgumentException exception) {
+                return CompletableFuture.failedFuture(exception);
+              }
+            });
   }
 
   @Override
   public CompletableFuture<List<? extends TextEdit>> formatting(DocumentFormattingParams params) {
-    DocumentState state = state(params.getTextDocument().getUri());
-    if (state == null) return CompletableFuture.completedFuture(List.of());
-    return CompletableFuture.completedFuture(
-        language
-            .format(state.source())
-            .filter(formatted -> !formatted.equals(state.source().text()))
-            .map(
-                formatted ->
-                    List.of(
-                        new TextEdit(
-                            range(
-                                state.source().positionAt(0),
-                                state.source().positionAt(state.source().length())),
-                            formatted)))
-            .orElse(List.of()));
-  }
-
-  private void update(String uri, int version, String text) {
-    synchronized (mutationLock) {
-      updateLocked(uri, version, text);
-    }
-  }
-
-  private void updateLocked(String uri, int version, String text) {
-    SourceFile source =
-        filePath(uri)
-            .map(path -> SourceFile.of(path, text))
-            .orElseGet(() -> SourceFile.of(DocumentId.of(uri), text));
-    DocumentState existing = state(uri);
-    if (existing != null && version < existing.version()) return;
-    if (existing != null && !existing.clientUri().equals(uri)) {
-      documents.remove(existing.clientUri(), existing);
-    }
-    Optional<DocumentId> virtualDocument = VirtualDocumentUri.decode(uri);
-    if (virtualDocument.isPresent()) {
-      DocumentId document = virtualDocument.orElseThrow();
-      DocumentState owner =
-          snapshotState(document)
-              .orElseThrow(() -> new IllegalArgumentException("unknown virtual source " + uri));
-      source = owner.snapshot().document(document).orElseThrow().source();
-      AnalysisResult analysis = owner.snapshot().analysis(document);
-      DocumentState candidate =
-          new DocumentState(
-              version,
-              uri,
-              source,
-              analysis,
-              null,
-              Set.of(),
-              revisions.incrementAndGet(),
-              owner.snapshot());
-      if (!install(uri, candidate)) return;
-      publish(uri, source.id(), analysis);
-      return;
-    }
-    if (!"file".equals(source.id().uri().getScheme())) {
-      CompilationSnapshot snapshot =
-          "stdlib".equals(source.id().uri().getScheme())
-              ? language.standardLibrarySnapshot(source.id())
-              : language.snapshot(CompilationRequest.single(source));
-      AnalysisResult analysis = snapshot.analysis();
-      source = analysis.semanticModel().source();
-      DocumentState candidate =
-          new DocumentState(
-              version,
-              uri,
-              source,
-              analysis,
-              null,
-              Set.of(),
-              revisions.incrementAndGet(),
-              snapshot);
-      if (!install(uri, candidate)) return;
-      publish(uri, source.id(), analysis);
-      return;
-    }
-    Path sourcePath = ProjectSession.normalize(source.path());
-    Optional<DocumentId> standardLibraryDocument = standardLibraryDocument(source);
-    if (standardLibraryDocument.isPresent()) {
-      source = SourceFile.of(standardLibraryDocument.orElseThrow(), source.text());
-      CompilationSnapshot snapshot = language.standardLibrarySnapshot(source);
-      AnalysisResult analysis = snapshot.analysis(source.id());
-      DocumentState candidate =
-          new DocumentState(
-              version,
-              uri,
-              source,
-              analysis,
-              null,
-              Set.of(sourcePath),
-              revisions.incrementAndGet(),
-              snapshot);
-      if (!install(uri, candidate)) return;
-      publish(uri, source.id(), analysis);
-      return;
-    }
-    if (ProjectLoader.isModuleSource(source)) {
-      Path root = projects.projectRoot(source, openSources().values());
-      Set<Path> affectedRoots = new java.util.LinkedHashSet<>();
-      affectedRoots.add(root);
-      documents.values().stream()
-          .filter(state -> state.projectRoot() != null)
-          .filter(state -> state.sourcePaths().contains(sourcePath))
-          .map(DocumentState::projectRoot)
-          .forEach(affectedRoots::add);
-      CompilationSnapshot snapshot = projects.analyzeModule(source);
-      AnalysisResult analysis = snapshot.analysis(source.id());
-      if (!analysis.hasErrors()) {
-        try {
-          projects.evaluateModule(source);
-        } catch (java.io.IOException exception) {
-          List<Diagnostic> diagnostics = new java.util.ArrayList<>(analysis.diagnostics());
-          diagnostics.add(
-              Diagnostic.error(
-                  PROJECT_CONFIGURATION,
-                  exception.getMessage(),
-                  new SourceSpan(source, 0, Math.min(1, source.length()))));
-          analysis =
-              new AnalysisResult(analysis.semanticModel(), analysis.entryPoint(), diagnostics);
-        }
-      }
-      DocumentState candidate =
-          new DocumentState(
-              version,
-              uri,
-              source,
-              analysis,
-              root,
-              Set.of(ProjectSession.normalize(source.path())),
-              revisions.incrementAndGet(),
-              snapshot);
-      if (!install(uri, candidate)) return;
-      publish(uri, source.id(), analysis);
-      affectedRoots.forEach(this::refresh);
-      return;
-    }
-    Map<Path, SourceFile> openSources = openSources();
-    openSources.put(ProjectSession.normalize(source.path()), source);
-    ProjectSession session =
-        ProjectSession.load(language, projects, source, openSources, revisions.incrementAndGet());
-    AnalysisResult analysis = session.analysis(source);
-    DocumentState candidate =
-        new DocumentState(
-            version,
-            uri,
-            source,
-            analysis,
-            session.root(),
-            session.inputs(),
-            session.revision(),
-            session.snapshot());
-    if (!install(uri, candidate)) return;
-    publish(uri, source.id(), analysis);
-    for (Map.Entry<String, DocumentState> entry : List.copyOf(documents.entrySet())) {
-      DocumentState state = entry.getValue();
-      if (entry.getKey().equals(uri) || !session.root().equals(state.projectRoot())) continue;
-      if (!session.inputs().contains(ProjectSession.normalize(state.source().path()))) continue;
-      AnalysisResult refreshed = session.analysis(state.source());
-      DocumentState refreshedState =
-          new DocumentState(
-              state.version(),
-              state.clientUri(),
-              state.source(),
-              refreshed,
-              session.root(),
-              session.inputs(),
-              session.revision(),
-              session.snapshot());
-      if (documents.replace(entry.getKey(), state, refreshedState)) {
-        publish(state.clientUri(), state.source().id(), refreshed);
-      }
-    }
-  }
-
-  void watchedFilesChanged(Collection<String> uris) {
-    synchronized (mutationLock) {
-      Set<Path> changed =
-          uris.stream()
-              .map(DocumentService::filePath)
-              .flatMap(Optional::stream)
-              .collect(java.util.stream.Collectors.toSet());
-      documents.values().stream()
-          .map(DocumentState::projectRoot)
-          .filter(java.util.Objects::nonNull)
-          .distinct()
-          .filter(
-              root ->
-                  changed.stream()
-                      .anyMatch(
-                          path -> path.startsWith(root) || sessionInputs(root).contains(path)))
-          .toList()
-          .forEach(this::refresh);
-    }
-  }
-
-  private void refresh(Path root) {
-    List<DocumentState> states =
-        documents.values().stream()
-            .filter(state -> "file".equals(state.source().id().uri().getScheme()))
-            .filter(
-                state ->
-                    root.equals(state.projectRoot())
-                        || ProjectSession.normalize(state.source().path()).startsWith(root))
-            .filter(state -> !ProjectLoader.isModuleSource(state.source()))
-            .toList();
-    List<DocumentState> remaining = new java.util.ArrayList<>(states);
-    while (!remaining.isEmpty()) {
-      ProjectSession session =
-          ProjectSession.load(
-              language,
-              projects,
-              remaining.getFirst().source(),
-              openSources(),
-              revisions.incrementAndGet());
-      List<DocumentState> members =
-          remaining.stream()
-              .filter(
-                  state ->
-                      session.inputs().contains(ProjectSession.normalize(state.source().path())))
-              .toList();
-      for (DocumentState state : members) {
-        AnalysisResult analysis = session.analysis(state.source());
-        DocumentState installed =
-            documents.computeIfPresent(
-                state.clientUri(),
-                (ignored, current) -> {
-                  if (current.revision() > session.revision()) return current;
-                  return new DocumentState(
-                      current.version(),
-                      current.clientUri(),
-                      current.source(),
-                      analysis,
-                      session.root(),
-                      session.inputs(),
-                      session.revision(),
-                      session.snapshot());
-                });
-        if (installed != null && installed.revision() == session.revision()) {
-          publish(state.clientUri(), state.source().id(), analysis);
-        }
-      }
-      remaining.removeAll(members);
-    }
-  }
-
-  private Map<Path, SourceFile> openSources() {
-    Map<Path, SourceFile> result = new java.util.LinkedHashMap<>();
-    documents.values().stream()
-        .filter(state -> "file".equals(state.source().id().uri().getScheme()))
-        .forEach(
-            state -> result.put(ProjectSession.normalize(state.source().path()), state.source()));
-    return result;
-  }
-
-  private boolean install(String uri, DocumentState candidate) {
-    return documents.compute(
-            uri,
-            (ignored, current) -> {
-              if (current == null) return candidate;
-              if (current.version() > candidate.version()) return current;
-              return current.revision() > candidate.revision() ? current : candidate;
-            })
-        == candidate;
-  }
-
-  private Set<Path> sessionInputs(Path root) {
-    return documents.values().stream()
-        .filter(state -> root.equals(state.projectRoot()))
-        .findFirst()
-        .map(DocumentState::sourcePaths)
-        .orElse(Set.of());
-  }
-
-  private void publish(String uri, DocumentId document, AnalysisResult analysis) {
-    LanguageClient connected = client;
-    if (connected == null) return;
-    List<org.eclipse.lsp4j.Diagnostic> diagnostics =
-        analysis.diagnostics().stream()
-            .filter(diagnostic -> diagnostic.primarySpan().source().id().equals(document))
-            .map(DocumentService::diagnostic)
-            .toList();
-    connected.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenCompose(
+            state -> {
+              if (state == null) return CompletableFuture.completedFuture(List.of());
+              return CompletableFuture.completedFuture(
+                  language
+                      .format(state.source())
+                      .filter(formatted -> !formatted.equals(state.source().text()))
+                      .map(
+                          formatted ->
+                              List.of(
+                                  new TextEdit(
+                                      range(
+                                          state.source().positionAt(0),
+                                          state.source().positionAt(state.source().length())),
+                                      formatted)))
+                      .orElse(List.of()));
+            });
   }
 
   private static org.eclipse.lsp4j.Diagnostic diagnostic(Diagnostic diagnostic) {
@@ -607,8 +340,7 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
     return item;
   }
 
-  private static org.eclipse.lsp4j.SignatureHelp signatureHelp(
-      dev.w0fv1.norm.language.SignatureHelp help) {
+  private static org.eclipse.lsp4j.SignatureHelp signatureHelp(SignatureHelp help) {
     return new org.eclipse.lsp4j.SignatureHelp(
         help.signatures().stream()
             .map(
@@ -653,7 +385,8 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   }
 
   private Location location(CompilationSnapshot snapshot, SourceLocation location) {
-    return new Location(clientUri(snapshot, location.document()), range(snapshot, location));
+    return new Location(
+        workspace.clientUri(snapshot, location.document()), range(snapshot, location));
   }
 
   private Range range(CompilationSnapshot snapshot, SourceLocation location) {
@@ -667,95 +400,9 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
               .orElseThrow(
                   () -> new IllegalStateException("standard-library source is unavailable"));
     } else if (source == null) {
-      try {
-        source = SourceFile.read(Path.of(location.document().uri()));
-      } catch (java.io.IOException | IllegalArgumentException exception) {
-        throw new IllegalStateException("source document is unavailable", exception);
-      }
+      throw new IllegalStateException("source document is absent from the compilation snapshot");
     }
     return range(
         source.positionAt(location.startOffset()), source.positionAt(location.endOffset()));
-  }
-
-  private DocumentState state(String uri) {
-    DocumentState direct = documents.get(uri);
-    if (direct != null) return direct;
-    Optional<DocumentState> semantic =
-        documents.values().stream()
-            .filter(state -> state.source().id().uri().toString().equals(uri))
-            .findFirst();
-    if (semantic.isPresent()) return semantic.orElseThrow();
-    Optional<Path> path = filePath(uri);
-    if (path.isEmpty()) return null;
-    return documents.values().stream()
-        .filter(state -> "file".equals(state.source().id().uri().getScheme()))
-        .filter(state -> ProjectSession.normalize(state.source().path()).equals(path.orElseThrow()))
-        .findFirst()
-        .orElse(null);
-  }
-
-  private DocumentState remove(String uri) {
-    DocumentState direct = documents.remove(uri);
-    if (direct != null) return direct;
-    DocumentState equivalent = state(uri);
-    if (equivalent != null) documents.remove(equivalent.clientUri(), equivalent);
-    return equivalent;
-  }
-
-  private String clientUri(CompilationSnapshot snapshot, DocumentId document) {
-    DocumentState state = state(document.uri().toString());
-    if (state != null) return state.clientUri();
-    if (!"file".equalsIgnoreCase(document.uri().getScheme())) {
-      return document.uri().toString();
-    }
-    try {
-      if (Files.isRegularFile(Path.of(document.uri()))) return document.uri().toString();
-    } catch (IllegalArgumentException ignored) {
-    }
-    return snapshot.document(document).isPresent()
-        ? VirtualDocumentUri.encode(document)
-        : document.uri().toString();
-  }
-
-  private Optional<DocumentState> snapshotState(DocumentId document) {
-    return documents.values().stream()
-        .filter(state -> state.snapshot().document(document).isPresent())
-        .max(java.util.Comparator.comparingLong(DocumentState::revision));
-  }
-
-  private Optional<DocumentId> standardLibraryDocument(SourceFile source) {
-    Path sourcePath = ProjectSession.normalize(source.path());
-    Path root = projects.projectRoot(source, openSources().values());
-    if (!sourcePath.startsWith(root)) return Optional.empty();
-    String relative = root.relativize(sourcePath).toString().replace('\\', '/');
-    DocumentId document = DocumentId.of("stdlib:/" + relative);
-    return language.standardLibrarySource(document).isPresent()
-        ? Optional.of(document)
-        : Optional.empty();
-  }
-
-  private static Optional<Path> filePath(String uri) {
-    try {
-      URI parsed = URI.create(uri);
-      return "file".equalsIgnoreCase(parsed.getScheme())
-          ? Optional.of(ProjectSession.normalize(Path.of(parsed)))
-          : Optional.empty();
-    } catch (IllegalArgumentException exception) {
-      return Optional.empty();
-    }
-  }
-
-  private record DocumentState(
-      int version,
-      String clientUri,
-      SourceFile source,
-      AnalysisResult analysis,
-      Path projectRoot,
-      Set<Path> sourcePaths,
-      long revision,
-      CompilationSnapshot snapshot) {
-    private DocumentState {
-      sourcePaths = Set.copyOf(sourcePaths);
-    }
   }
 }

@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -482,14 +482,13 @@ final class CoreArtifactIdentityTest {
   private static CoreArtifact compile(String path, String text) {
     return new CompilerSession()
         .compile(SourceFile.of(Path.of(path), text))
-        .program()
+        .output()
         .orElseThrow()
-        .compilation()
         .artifact();
   }
 
   private static CoreArtifact compile(CompilationRequest request) {
-    return new CompilerSession().compile(request).program().orElseThrow().compilation().artifact();
+    return new CompilerSession().compile(request).output().orElseThrow().artifact();
   }
 
   private static CoreArtifact compileExported(String text) {

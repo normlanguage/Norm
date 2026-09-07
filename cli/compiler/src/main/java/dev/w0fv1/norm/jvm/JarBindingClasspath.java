@@ -30,6 +30,10 @@ public final class JarBindingClasspath {
     return prepare(bindings).artifacts();
   }
 
+  public JarBindingClasspath materialize(Path directory) throws java.io.IOException {
+    return new JarBindingClasspath(resolved.materialize(directory));
+  }
+
   public List<ResolvedJarArtifact> artifacts() {
     return resolved.artifacts();
   }

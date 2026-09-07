@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.bound;
 
+import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.AnnotationTarget;
-import dev.w0fv1.norm.value.DocumentId;
 import java.util.Objects;
 
 public sealed interface BoundAnnotationTarget

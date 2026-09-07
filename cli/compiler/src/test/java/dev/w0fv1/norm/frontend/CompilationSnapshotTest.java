@@ -6,12 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.DefinitionGroupId;
 import dev.w0fv1.norm.core.store.DefinitionStore;
+import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
 import dev.w0fv1.norm.core.store.PutBatchResult;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -22,12 +23,39 @@ import org.junit.jupiter.api.Test;
 
 final class CompilationSnapshotTest {
   @Test
+  void cancelsPreludeOverlayAnalysisWithoutReplacingThePreviousSnapshot() {
+    DocumentId document = DocumentId.of("stdlib:/std/example.norm");
+    SourceFile source = SourceFile.of(document, "package std Integer value() { return 1 }");
+    CompilationPrelude prelude =
+        new CompilationPrelude(
+            List.of(source),
+            Set.of(document),
+            CompilationScope.module(
+                new ModuleCoordinate("std", 1), Map.of(document, "std/example.norm")));
+    try (var compiler = new CompilerSession(LanguageProfile.withPrelude(prelude))) {
+      var before = compiler.preludeSnapshot(source);
+      SourceFile overlay =
+          SourceFile.of(document, "package std String value() { return \"changed\" }");
+      org.junit.jupiter.api.Assertions.assertThrows(
+          CompilationCancelledException.class,
+          () ->
+              compiler.preludeSnapshot(
+                  List.of(overlay),
+                  document,
+                  new CompilationControl(() -> true, CompilationLimits.standard())));
+      var after = compiler.preludeSnapshot(source);
+      assertEquals(before.entryDocument().source(), after.entryDocument().source());
+      assertTrue(after.diagnostics(document).isEmpty());
+    }
+  }
+
+  @Test
   void parsesUnchangedDocumentsOnceAndProjectsOneAnalysisIntoEveryDocument() {
     AtomicInteger parses = new AtomicInteger();
     CompilerSession compiler =
         new CompilerSession(
             LanguageProfile.kernel(),
-            new dev.w0fv1.norm.core.store.InMemoryDefinitionStore(),
+            new InMemoryDefinitionStore(),
             CompilerSessionCapacity.standard(),
             parses::incrementAndGet,
             () -> {});

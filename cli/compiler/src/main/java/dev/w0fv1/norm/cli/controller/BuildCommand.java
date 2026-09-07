@@ -1,10 +1,12 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.cli.component.ApplicationBuildPlan;
 import dev.w0fv1.norm.cli.component.NativeApplicationExecutable;
 import dev.w0fv1.norm.cli.component.WindowsApplicationExecutable;
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
+import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.project.ApplicationBundleWriter;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
@@ -69,32 +71,39 @@ final class BuildCommand implements Command {
           options.target() == ApplicationBuildTarget.NATIVE
               ? new NativeApplicationExecutable()
               : null;
-      try (var project = environment.persistentLauncher(progress)) {
-        var compilation =
+      try (var project = ApplicationRunner.persistent(environment, progress)) {
+        try (var compilation =
             project.compileApplication(
-                entry, progress, nativeBuild == null ? List.of() : nativeBuild.supportGraphs());
-        if (!compilation.result().isSuccess()) {
-          for (var diagnostic : compilation.result().diagnostics()) {
-            err.println(DiagnosticRenderer.render(diagnostic));
+                entry, progress, nativeBuild == null ? List.of() : nativeBuild.supportGraphs())) {
+          if (!compilation.result().isSuccess()) {
+            for (var diagnostic : compilation.result().diagnostics()) {
+              err.println(DiagnosticRenderer.render(diagnostic));
+            }
+            return ExitCode.COMPILATION_ERROR;
           }
-          return ExitCode.COMPILATION_ERROR;
-        }
-        ApplicationBuildPlan plan = ApplicationBuildPlan.from(compilation.sourceSet());
-        if (options.target() == ApplicationBuildTarget.JVM) {
-          progress.accept("Packaging JVM executable: " + plan.output());
-          Path bundle = Files.createTempFile("norm-application-", ".zip");
-          try {
-            new ApplicationBundleWriter().write(compilation.sourceSet(), bundle);
-            new WindowsApplicationExecutable().write(Path.of(launcher), bundle, plan.output());
-          } finally {
-            Files.deleteIfExists(bundle);
+          ApplicationBuildPlan plan =
+              ApplicationBuildPlan.from(compilation.application().orElseThrow().sourceSet());
+          if (options.target() == ApplicationBuildTarget.JVM) {
+            progress.accept("Packaging JVM executable: " + plan.output());
+            Path bundle = Files.createTempFile("norm-application-", ".zip");
+            try {
+              new ApplicationBundleWriter()
+                  .write(compilation.application().orElseThrow().sourceSet(), bundle);
+              new WindowsApplicationExecutable().write(Path.of(launcher), bundle, plan.output());
+            } finally {
+              Files.deleteIfExists(bundle);
+            }
+          } else {
+            progress.accept("Building native executable: " + plan.output());
+            nativeBuild.write(
+                compilation.application().orElseThrow(),
+                plan.output(),
+                progress,
+                options.diagnostics());
           }
-        } else {
-          progress.accept("Building native executable: " + plan.output());
-          nativeBuild.write(compilation, plan.output(), progress, options.diagnostics());
+          progress.accept("Build completed");
+          out.println("Built " + plan.output());
         }
-        progress.accept("Build completed");
-        out.println("Built " + plan.output());
       }
       return ExitCode.SUCCESS;
     } catch (IOException | IllegalArgumentException exception) {
@@ -108,7 +117,7 @@ final class BuildCommand implements Command {
         err.printf("  caused by %s%n", cause);
       }
       return ExitCode.INPUT_ERROR;
-    } catch (dev.w0fv1.norm.frontend.CompilationInfrastructureException exception) {
+    } catch (CompilationInfrastructureException exception) {
       err.printf(
           "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
       return ExitCode.INTERNAL_ERROR;

@@ -15,10 +15,12 @@ import dev.w0fv1.norm.abi.TimeExceptionAbi;
 import dev.w0fv1.norm.abi.XmlAbi;
 import dev.w0fv1.norm.abi.YamlAbi;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
+import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
@@ -733,13 +735,13 @@ final class GuestValueFactory {
           new CoreType.Declared(
               new CoreTypeConstructor.User(new DefinitionReference.External(definition)),
               List.of(),
-              dev.w0fv1.norm.core.CoreValueCategory.VALUE,
+              CoreValueCategory.VALUE,
               CoreNullability.NON_NULL);
       return new EnumPlan(
           declaration.nominalType(),
           definition,
           type,
-          declaration.variants().stream().map(dev.w0fv1.norm.core.CoreEnumVariant::key).toList());
+          declaration.variants().stream().map(CoreEnumVariant::key).toList());
     }
   }
 

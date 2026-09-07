@@ -3,7 +3,10 @@ package dev.w0fv1.norm.frontend;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.core.CompilationResult;
+import dev.w0fv1.norm.core.CoreBindingKind;
+import dev.w0fv1.norm.core.CoreDefinitionRole;
+import dev.w0fv1.norm.source.SourceFile;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
@@ -140,16 +143,16 @@ final class FunctionCompilerTest {
 
     assertTrue(extension.isSuccess(), () -> extension.diagnostics().toString());
     assertFalse(ordinary.isSuccess());
-    var artifact = extension.program().orElseThrow().compilation().artifact();
+    var artifact = extension.output().orElseThrow().artifact();
     var binding =
         artifact.namespace().bindings().stream()
             .filter(value -> value.name().equals("echoed"))
             .findFirst()
             .orElseThrow();
-    assertTrue(binding.kind() == dev.w0fv1.norm.core.CoreBindingKind.EXTENSION);
+    assertTrue(binding.kind() == CoreBindingKind.EXTENSION);
     assertTrue(
         artifact.authoring().occurrence(binding.occurrence()).orElseThrow().role()
-            == dev.w0fv1.norm.core.CoreDefinitionRole.EXTENSION);
+            == CoreDefinitionRole.EXTENSION);
   }
 
   @Test
@@ -177,7 +180,7 @@ final class FunctionCompilerTest {
             .anyMatch(value -> value.message().contains("ambiguous")));
   }
 
-  private dev.w0fv1.norm.value.CompilationResult compile(String text) {
+  private CompilationResult compile(String text) {
     return new CompilerSession().compile(SourceFile.of(Path.of("functions.norm"), text));
   }
 }

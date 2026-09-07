@@ -1,12 +1,15 @@
 package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
+import dev.w0fv1.norm.semantic.ParameterInfo;
+import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.semantic.Symbol;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,12 +26,12 @@ final class ExpectedTypeResolver {
           inStatements(
               model,
               function.body(),
-              model.symbolOf(function.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type),
+              model.symbolOf(function.nameSpan()).map(Symbol::type),
               offset,
               previous == TokenKind.BREAK);
       if (expected.isPresent()) return expected;
       if (previous == TokenKind.RETURN) {
-        return model.symbolOf(function.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type);
+        return model.symbolOf(function.nameSpan()).map(Symbol::type);
       }
     }
     for (Syntax.AggregateDecl declaration : document.syntax().aggregates()) {
@@ -38,12 +41,12 @@ final class ExpectedTypeResolver {
             inStatements(
                 model,
                 method.body(),
-                model.symbolOf(method.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type),
+                model.symbolOf(method.nameSpan()).map(Symbol::type),
                 offset,
                 previous == TokenKind.BREAK);
         if (expected.isPresent()) return expected;
         if (previous == TokenKind.RETURN) {
-          return model.symbolOf(method.nameSpan()).map(dev.w0fv1.norm.semantic.Symbol::type);
+          return model.symbolOf(method.nameSpan()).map(Symbol::type);
         }
       }
     }
@@ -228,15 +231,14 @@ final class ExpectedTypeResolver {
         int currentArgument = argumentIndex;
         Syntax.CallArgument argument = call.arguments().get(argumentIndex);
         if (!contains(argument.value().span(), offset)) continue;
-        Optional<dev.w0fv1.norm.semantic.ResolvedCall> resolved = model.callOf(call.span());
+        Optional<ResolvedCall> resolved = model.callOf(call.span());
         Optional<SemanticType> parameterType = Optional.empty();
         if (resolved.isPresent()) {
           int parameterIndex =
               currentArgument < resolved.orElseThrow().arguments().parameterIndices().size()
                   ? resolved.orElseThrow().arguments().parameterIndices().get(currentArgument)
                   : currentArgument;
-          List<dev.w0fv1.norm.semantic.ParameterInfo> parameters =
-              resolved.orElseThrow().parameters();
+          List<ParameterInfo> parameters = resolved.orElseThrow().parameters();
           if (parameterIndex < parameters.size()) {
             parameterType = Optional.of(parameters.get(parameterIndex).type());
           }

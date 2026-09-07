@@ -2,6 +2,9 @@ package dev.w0fv1.norm.cli.component;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.w0fv1.norm.jvm.MavenJarIdentity;
+import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
+import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,9 +88,8 @@ final class NativeToolchainClasspathTest {
     assertEquals(4, selected.size());
     assertDoesNotThrow(() -> mergedPlan.validate(selected));
     var replacement =
-        new dev.w0fv1.norm.jvm.ResolvedJarArtifact(
-            new dev.w0fv1.norm.jvm.MavenJarIdentity(
-                new dev.w0fv1.norm.value.MavenArtifactCoordinate("sample", "embedded", "2")),
+        new ResolvedJarArtifact(
+            new MavenJarIdentity(new MavenArtifactCoordinate("sample", "embedded", "2")),
             Files.writeString(directory.resolve("replacement.jar"), "replacement"),
             Sha256Digest.compute("replacement".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     var conflict =

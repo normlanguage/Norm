@@ -85,7 +85,7 @@ record DeclarationIdentity(String value, String family) {
     return encode(owner.value(), "synthetic", name);
   }
 
-  private static String callableSignature(
+  static String callableSignature(
       String name,
       java.util.List<Syntax.TypeParameter> declaredTypeParameters,
       java.util.List<Syntax.Parameter> parameters) {

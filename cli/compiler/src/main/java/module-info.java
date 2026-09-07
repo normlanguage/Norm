@@ -41,7 +41,7 @@ module dev.w0fv1.norm {
   uses javax.xml.stream.XMLOutputFactory;
 
   provides com.oracle.truffle.api.provider.TruffleLanguageProvider with
-      dev.w0fv1.norm.truffle.LanguageProvider;
+      dev.w0fv1.norm.polyglot.LanguageProvider;
 
   opens dev.w0fv1.norm.cli.component to
       org.eclipse.lsp4j.jsonrpc;
@@ -52,6 +52,8 @@ module dev.w0fv1.norm {
   opens dev.w0fv1.norm.jvm to
       com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.runtime to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.source to
       com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.value to
       com.esotericsoftware.kryo;

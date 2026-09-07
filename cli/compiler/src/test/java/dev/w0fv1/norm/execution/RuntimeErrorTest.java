@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -111,7 +111,7 @@ final class RuntimeErrorTest {
     NormExecutionException exception =
         assertThrows(
             NormExecutionException.class,
-            () -> new NormRuntime().run(compilation.program().orElseThrow(), context));
+            () -> new NormRuntime().run(compilation.output().orElseThrow().artifact(), context));
 
     assertEquals(RuntimeErrorCode.CANCELLED, exception.code());
     assertEquals(path.toUri(), exception.uri());
@@ -135,7 +135,9 @@ final class RuntimeErrorTest {
             NormExecutionException.class,
             () ->
                 new NormRuntime()
-                    .run(compilation.program().orElseThrow(), new PrintWriter(new StringWriter())));
+                    .run(
+                        compilation.output().orElseThrow().artifact(),
+                        new PrintWriter(new StringWriter())));
 
     assertEquals(secondPath.toUri(), exception.uri());
     assertEquals("beta", exception.guestStack().getFirst().name());
@@ -169,7 +171,9 @@ final class RuntimeErrorTest {
             NormExecutionException.class,
             () ->
                 new NormRuntime()
-                    .run(compilation.program().orElseThrow(), new PrintWriter(new StringWriter())));
+                    .run(
+                        compilation.output().orElseThrow().artifact(),
+                        new PrintWriter(new StringWriter())));
 
     assertEquals(
         List.of("leafB", "callerB"),
@@ -213,7 +217,9 @@ final class RuntimeErrorTest {
             NormExecutionException.class,
             () ->
                 new NormRuntime()
-                    .run(compilation.program().orElseThrow(), new PrintWriter(new StringWriter())));
+                    .run(
+                        compilation.output().orElseThrow().artifact(),
+                        new PrintWriter(new StringWriter())));
 
     assertEquals(
         List.of("alpha", "gamma", "beta"),
@@ -238,7 +244,9 @@ final class RuntimeErrorTest {
             NormExecutionException.class,
             () ->
                 new NormRuntime()
-                    .run(compilation.program().orElseThrow(), new PrintWriter(new StringWriter())));
+                    .run(
+                        compilation.output().orElseThrow().artifact(),
+                        new PrintWriter(new StringWriter())));
 
     assertEquals(code, exception.code());
     assertEquals(path.toUri(), exception.uri());

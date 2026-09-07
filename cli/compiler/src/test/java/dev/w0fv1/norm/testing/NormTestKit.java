@@ -3,17 +3,18 @@ package dev.w0fv1.norm.testing;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.core.CompilationResult;
+import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.platform.SystemPlatform;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.project.ProjectLoader;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.CompilationResult;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.TypedProgram;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -46,12 +47,9 @@ public final class NormTestKit {
 
   public static String run(Path path) throws Exception {
     StringWriter output = new StringWriter();
-    try (var launcher = ENVIRONMENT.launcher()) {
+    try (var launcher = ApplicationRunner.open(ENVIRONMENT)) {
       CompilationResult result =
-          launcher.run(
-              path,
-              dev.w0fv1.norm.execution.ExecutionContext.of(
-                  new PrintWriter(output), platformFor(path)));
+          launcher.run(path, ExecutionContext.of(new PrintWriter(output), platformFor(path)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
     return output.toString();
@@ -59,13 +57,11 @@ public final class NormTestKit {
 
   private static String run(CompilationResult compilation, SystemPlatform platform) {
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
-    return run(compilation.program().orElseThrow(), platform);
-  }
 
-  private static String run(TypedProgram program, SystemPlatform platform) {
     StringWriter output = new StringWriter();
     RUNTIME.run(
-        program, dev.w0fv1.norm.execution.ExecutionContext.of(new PrintWriter(output), platform));
+        compilation.output().orElseThrow().artifact(),
+        ExecutionContext.of(new PrintWriter(output), platform));
     return output.toString();
   }
 
@@ -178,11 +174,11 @@ public final class NormTestKit {
   static void assertSelfContainedTest(Path path) throws Exception {
     StringWriter actual = new StringWriter();
     StringWriter expected = new StringWriter();
-    try (var launcher = ENVIRONMENT.launcher()) {
+    try (var launcher = ApplicationRunner.open(ENVIRONMENT)) {
       CompilationResult compilation =
           launcher.run(
               path,
-              dev.w0fv1.norm.execution.ExecutionContext.testing(
+              ExecutionContext.testing(
                   new PrintWriter(actual), new PrintWriter(expected), platformFor(path)));
       assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
     }

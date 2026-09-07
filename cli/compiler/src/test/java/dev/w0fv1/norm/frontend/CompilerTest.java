@@ -4,11 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.core.CompilationResult;
+import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreExpression;
+import dev.w0fv1.norm.core.CoreStatement;
+import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.Syntax;
-import dev.w0fv1.norm.value.AnalysisResult;
-import dev.w0fv1.norm.value.CompilationResult;
-import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
@@ -93,19 +96,17 @@ final class CompilerTest {
 
     assertTrue(result.isSuccess());
     assertTrue(result.diagnostics().isEmpty());
-    var program = result.program().orElseThrow().compilation().artifact().program();
+    var program = result.output().orElseThrow().artifact().program();
     var entry =
-        (dev.w0fv1.norm.core.CoreDefinition.Callable)
+        (CoreDefinition.Callable)
             program
-                .definition(
-                    result.program().orElseThrow().compilation().artifact().entryDefinition())
+                .definition(result.output().orElseThrow().artifact().entryDefinition())
                 .orElseThrow();
     var statements = entry.body().statements();
     assertEquals(1, statements.size());
-    var statement = (dev.w0fv1.norm.core.CoreStatement.ExpressionStatement) statements.getFirst();
-    var printLine = (dev.w0fv1.norm.core.CoreExpression.Intrinsic) statement.expression();
-    var value =
-        (dev.w0fv1.norm.core.CoreExpression.Literal) printLine.arguments().getFirst().value();
+    var statement = (CoreStatement.ExpressionStatement) statements.getFirst();
+    var printLine = (CoreExpression.Intrinsic) statement.expression();
+    var value = (CoreExpression.Literal) printLine.arguments().getFirst().value();
     assertEquals("Hello from Norm", value.value());
   }
 

@@ -10,6 +10,7 @@ import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreFieldInterceptorProtocol;
@@ -858,11 +859,11 @@ final class AnnotationRuntime {
     };
   }
 
-  private DefinitionId resolve(DefinitionId owner, dev.w0fv1.norm.core.CoreDefinitionLink link) {
+  private DefinitionId resolve(DefinitionId owner, CoreDefinitionLink link) {
     return program.resolve(owner, (DefinitionReference) link);
   }
 
-  private static DefinitionId resolveExternal(dev.w0fv1.norm.core.CoreDefinitionLink link) {
+  private static DefinitionId resolveExternal(CoreDefinitionLink link) {
     return ((DefinitionReference.External) link).definition();
   }
 

@@ -14,7 +14,7 @@ final class FunctionRootNode extends RootNode implements RuntimeLocation {
   @Child private StatementNode body;
 
   FunctionRootNode(
-      Language language,
+      com.oracle.truffle.api.TruffleLanguage<?> language,
       String name,
       DefinitionOccurrenceId occurrence,
       FrameDescriptor frameDescriptor,

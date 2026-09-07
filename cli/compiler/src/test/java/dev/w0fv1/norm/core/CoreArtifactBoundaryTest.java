@@ -3,8 +3,8 @@ package dev.w0fv1.norm.core;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.frontend.CompilerSession;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -246,9 +246,8 @@ final class CoreArtifactBoundaryTest {
   private static CoreArtifact compile(String text) {
     return new CompilerSession()
         .compile(SourceFile.of(Path.of("boundary.norm"), text))
-        .program()
+        .output()
         .orElseThrow()
-        .compilation()
         .artifact();
   }
 

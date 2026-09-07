@@ -15,26 +15,30 @@ import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreDefinitionOccurrence;
 import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreEnumVariant;
+import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.core.CoreExpression;
 import dev.w0fv1.norm.core.CoreInterfaceHierarchy;
 import dev.w0fv1.norm.core.CoreIteration;
 import dev.w0fv1.norm.core.CoreLocal;
 import dev.w0fv1.norm.core.CoreMethodDispatch;
+import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CorePattern;
 import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.CoreRuntimeType;
 import dev.w0fv1.norm.core.CoreStatement;
 import dev.w0fv1.norm.core.CoreType;
+import dev.w0fv1.norm.core.CoreTypeCapture;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
+import dev.w0fv1.norm.core.CoreUnaryOperator;
 import dev.w0fv1.norm.core.CoreWitness;
 import dev.w0fv1.norm.core.CoreWitnessTarget;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.value.LanguageMetadata;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -43,7 +47,7 @@ import java.util.Map;
 import java.util.Objects;
 
 final class Lowerer {
-  private final Language language;
+  private final com.oracle.truffle.api.TruffleLanguage<?> language;
   private final Map<DefinitionOccurrenceId, RuntimeValues.AggregateInfo> aggregateInfo =
       new HashMap<>();
   private final Map<DefinitionOccurrenceId, CoreDefinition.Aggregate> aggregates =
@@ -57,19 +61,17 @@ final class Lowerer {
   private CoreArtifact artifact;
   private CoreProgram program;
   private AnnotationRuntime annotations;
-  private dev.w0fv1.norm.core.CoreExecutionPlan execution;
+  private CoreExecutionPlan execution;
 
-  Lowerer(Language language) {
+  Lowerer(com.oracle.truffle.api.TruffleLanguage<?> language) {
     this.language = language;
   }
 
   ExecutableProgram lower(CoreArtifact checkedArtifact) {
-    return lower(
-        checkedArtifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(checkedArtifact));
+    return lower(checkedArtifact, CoreExecutionPlan.forArtifact(checkedArtifact));
   }
 
-  ExecutableProgram lower(
-      CoreArtifact checkedArtifact, dev.w0fv1.norm.core.CoreExecutionPlan execution) {
+  ExecutableProgram lower(CoreArtifact checkedArtifact, CoreExecutionPlan execution) {
     this.execution = Objects.requireNonNull(execution, "execution");
     artifact = Objects.requireNonNull(checkedArtifact, "checkedArtifact");
     program = artifact.program();
@@ -128,7 +130,7 @@ final class Lowerer {
     return new GuestValueFactory(aggregatePlans, hostInterfaces, enumPlans);
   }
 
-  private void indexDefinitions(dev.w0fv1.norm.core.CoreExecutionPlan execution) {
+  private void indexDefinitions(CoreExecutionPlan execution) {
     for (CoreDefinitionOccurrence occurrence : artifact.authoring().occurrences()) {
       CoreDefinition definition =
           program.definition(occurrence.id().representative()).orElseThrow();
@@ -225,11 +227,7 @@ final class Lowerer {
       }
       List<CoreType> rootArguments =
           java.util.stream.IntStream.range(0, entry.getValue().typeParameters().size())
-              .mapToObj(
-                  index ->
-                      (CoreType)
-                          new CoreType.Parameter(
-                              index, dev.w0fv1.norm.core.CoreNullability.NON_NULL))
+              .mapToObj(index -> (CoreType) new CoreType.Parameter(index, CoreNullability.NON_NULL))
               .toList();
       for (RuntimeConformance inherited :
           aggregateConformances(occurrence.representative(), entry.getValue(), rootArguments)) {
@@ -671,7 +669,7 @@ final class Lowerer {
               new ExpressionNodes.Dereference(lowerExpression(dereference.reference(), plan));
           case CoreExpression.EnumConstruct construct -> lowerEnumConstruct(construct, plan);
           case CoreExpression.Unary unary ->
-              unary.operator() == dev.w0fv1.norm.core.CoreUnaryOperator.NOT
+              unary.operator() == CoreUnaryOperator.NOT
                   ? new ExpressionNodes.Not(lowerExpression(unary.operand(), plan))
                   : new ExpressionNodes.Negate(lowerExpression(unary.operand(), plan));
           case CoreExpression.Binary binary -> lowerBinary(binary, plan);
@@ -782,14 +780,12 @@ final class Lowerer {
               declared.constructor(),
               declared.arguments(),
               declared.category(),
-              dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+              CoreNullability.NON_NULL);
       case CoreType.Function function ->
           new CoreType.Function(
-              function.returnType(),
-              function.parameterTypes(),
-              dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+              function.returnType(), function.parameterTypes(), CoreNullability.NON_NULL);
       case CoreType.Parameter parameter ->
-          new CoreType.Parameter(parameter.index(), dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+          new CoreType.Parameter(parameter.index(), CoreNullability.NON_NULL);
       case CoreType.Reference reference -> reference;
       case CoreType.Special special -> special;
     };
@@ -962,9 +958,7 @@ final class Lowerer {
   private ExpressionNode lowerRuntimeType(CoreRuntimeType type, FunctionPlan plan) {
     return new ExpressionNodes.TypeDescriptor(
         CoreTypes.absolute(type.template(), plan.id.representative(), program),
-        type.captures().stream()
-            .mapToInt(dev.w0fv1.norm.core.CoreTypeCapture::typeParameterIndex)
-            .toArray(),
+        type.captures().stream().mapToInt(CoreTypeCapture::typeParameterIndex).toArray(),
         type.captures().stream()
             .map(capture -> plan.binding(capture.localIndex()))
             .toArray(FrameBinding[]::new));

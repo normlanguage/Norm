@@ -16,7 +16,7 @@ The binder fixes expression types, value and identity categories, call targets, 
 
 ## Truffle backend
 
-Lowering consumes `CoreCompilation` and creates call targets, frame slots, control-flow nodes, and interop boundaries. CLI distributions carry the same execution implementation and a platform runtime.
+Lowering consumes `CoreArtifact` and creates call targets, frame slots, control-flow nodes, and interop boundaries. CLI distributions carry the same execution implementation and a platform runtime.
 
 ## Acceptance
 

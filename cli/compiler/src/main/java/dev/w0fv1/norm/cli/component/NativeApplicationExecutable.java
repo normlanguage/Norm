@@ -1,10 +1,17 @@
 package dev.w0fv1.norm.cli.component;
 
+import dev.w0fv1.norm.application.CompiledApplication;
+import dev.w0fv1.norm.application.TemporaryDirectory;
+import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreExecutionPlan;
+import dev.w0fv1.norm.core.CoreReachability;
+import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
+import dev.w0fv1.norm.jvm.JavaDirectCallBundle;
 import dev.w0fv1.norm.jvm.LinkedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
-import dev.w0fv1.norm.project.ApplicationCompilation;
+import dev.w0fv1.norm.jvm.ResolvedJarGraph;
 import dev.w0fv1.norm.runtime.NativeApplicationArchive;
 import dev.w0fv1.norm.runtime.NativeApplicationData;
 import java.io.IOException;
@@ -36,12 +43,12 @@ public final class NativeApplicationExecutable {
     }
   }
 
-  public List<dev.w0fv1.norm.jvm.ResolvedJarGraph> supportGraphs() {
+  public List<ResolvedJarGraph> supportGraphs() {
     return toolchain.graphs();
   }
 
   public Path write(
-      ApplicationCompilation compilation,
+      CompiledApplication compilation,
       Path destination,
       Consumer<String> buildOutput,
       boolean diagnostics)
@@ -50,46 +57,36 @@ public final class NativeApplicationExecutable {
     Path parent = output.getParent();
     if (parent == null) throw new IOException("application executable has no parent directory");
     Files.createDirectories(parent);
-    try (var workspace = new dev.w0fv1.norm.utils.TemporaryDirectory();
+    try (var workspace = new TemporaryDirectory();
         var report = NativeBuildReport.create(output, buildOutput, diagnostics)) {
       Path staging = workspace.path();
       if (diagnostics) report.accept("Native build diagnostics: " + report.directory());
       Path archive = staging.resolve("application.bin");
-      var applicationIndex =
-          compilation.annotationOutput().isPresent()
-              ? dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.analyze(
-                  compilation.annotationOutput().orElseThrow().classes(),
-                  compilation.annotationOutput().orElseThrow().stubs())
-              : new dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.Analysis(
-                  java.util.Map.of(), Set.of());
+      var applicationIndex = compilation.methods();
       var applicationMethods = applicationIndex.instanceMethods();
       report.applicationMethods(applicationMethods);
-      var original = compilation.result().program().orElseThrow().compilation().artifact();
+      var original = compilation.result().output().orElseThrow().artifact();
       Set<String> hostTypes =
-          compilation.annotationOutput().stream()
-              .flatMap(value -> value.stubs().stream())
+          compilation.annotations().stubs().stream()
               .map(stub -> stub.binaryName())
               .collect(java.util.stream.Collectors.toSet());
-      Set<dev.w0fv1.norm.core.DefinitionId> hostEntries =
-          new LinkedHashSet<>(applicationIndex.entryPoints());
+      Set<DefinitionId> hostEntries = new LinkedHashSet<>(applicationIndex.entryPoints());
       for (var definition : original.program().definitions()) {
         var nominal =
             switch (definition.definition()) {
-              case dev.w0fv1.norm.core.CoreDefinition.Aggregate type -> type.nominalType();
-              case dev.w0fv1.norm.core.CoreDefinition.Interface type -> type.nominalType();
-              case dev.w0fv1.norm.core.CoreDefinition.Enum type -> type.nominalType();
+              case CoreDefinition.Aggregate type -> type.nominalType();
+              case CoreDefinition.Interface type -> type.nominalType();
+              case CoreDefinition.Enum type -> type.nominalType();
               default -> null;
             };
         if (nominal != null && hostTypes.contains(JavaApplicationTypeName.binaryName(nominal)))
           hostEntries.add(definition.id());
       }
-      var retention = dev.w0fv1.norm.core.CoreReachability.analyze(original, hostEntries);
+      var retention = CoreReachability.analyze(original, hostEntries);
       report.coreRetention(retention);
       var retained = retention.artifact();
-      var execution =
-          dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(
-              retained, applicationIndex.entryPoints());
-      var calls = dev.w0fv1.norm.core.CoreReachability.jarCalls(retained, execution);
+      var execution = CoreExecutionPlan.forArtifact(retained, applicationIndex.entryPoints());
+      var calls = CoreReachability.jarCalls(retained, execution);
       report.accept(
           "Execution plan: " + execution.callables().size() + " callable identities selected");
       var bindings =
@@ -124,13 +121,12 @@ public final class NativeApplicationExecutable {
               .write(compilation, bindings, staging.resolve("native-image"));
       var javaPaths = new ArrayList<Path>(toolchain.unmanaged());
       javaPaths.addAll(javaClasspath.paths());
-      compilation.annotationOutput().map(value -> value.classes()).ifPresent(javaPaths::add);
+      javaPaths.add(compilation.annotations().classes());
       var urls = new java.net.URL[javaPaths.size()];
       for (int index = 0; index < urls.length; index++)
         urls[index] = javaPaths.get(index).toUri().toURL();
       try (var loader = new java.net.URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
-        new dev.w0fv1.norm.jvm.JavaDirectCallBundle()
-            .write(bindings, configuration.classpath(), loader);
+        new JavaDirectCallBundle().write(bindings, configuration.classpath(), loader);
       }
       var reachability =
           new NativeReachabilityMetadata().prepare(javaClasspath, staging.resolve("reachability"));
@@ -185,7 +181,7 @@ public final class NativeApplicationExecutable {
   }
 
   private static List<String> arguments(
-      ApplicationCompilation compilation,
+      CompiledApplication compilation,
       Path archive,
       List<Path> classpath,
       Path imageBase,
@@ -216,7 +212,7 @@ public final class NativeApplicationExecutable {
   }
 
   private static List<Path> classpath(
-      ApplicationCompilation compilation,
+      CompiledApplication compilation,
       Path configurationClasspath,
       Path reachabilityClasspath,
       List<ResolvedJarArtifact> applicationClasspath,
@@ -225,11 +221,8 @@ public final class NativeApplicationExecutable {
     Set<Path> paths = new LinkedHashSet<>(toolchainClasses);
     paths.add(configurationClasspath);
     paths.add(reachabilityClasspath);
-    compilation
-        .annotationOutput()
-        .map(output -> output.classes())
-        .filter(Files::isDirectory)
-        .ifPresent(paths::add);
+    if (Files.isDirectory(compilation.annotations().classes()))
+      paths.add(compilation.annotations().classes());
     applicationClasspath.stream().map(ResolvedJarArtifact::file).forEach(paths::add);
     return paths.stream().map(Path::toAbsolutePath).map(Path::normalize).toList();
   }

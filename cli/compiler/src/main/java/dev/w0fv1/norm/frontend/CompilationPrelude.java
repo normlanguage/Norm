@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.frontend;
 
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;

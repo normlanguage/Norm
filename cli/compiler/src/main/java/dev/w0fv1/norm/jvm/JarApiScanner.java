@@ -52,7 +52,7 @@ public final class JarApiScanner {
                 kind(type.access()) == JavaApiTypeKind.ENUM
                     ? JavaReferenceKind.ENUM
                     : JavaReferenceKind.OPAQUE));
-    Map<String, RawSam> samTypes = samTypes(classes);
+    JavaTypeProjector projector = new JavaTypeProjector(bindingTypes, samTypes(classes));
     List<JavaApiType> types =
         rootClasses.values().stream()
             .filter(owner -> publiclyAccessible(owner, classes))
@@ -63,7 +63,7 @@ public final class JarApiScanner {
                         || selectedTypes.stream()
                             .anyMatch(
                                 selected -> JavaTypeNames.matches(owner.binaryName(), selected)))
-            .map(owner -> apiType(owner, classes, bindingTypes, samTypes))
+            .map(owner -> apiType(owner, classes, projector))
             .toList();
     List<JavaApiType> supportingTypes =
         supportingTypes(
@@ -73,8 +73,7 @@ public final class JarApiScanner {
                 .map(JavaApiType::binaryName)
                 .collect(java.util.stream.Collectors.toSet()),
             classes,
-            bindingTypes,
-            samTypes);
+            projector);
     return new JarApiSchema(types, supportingTypes);
   }
 
@@ -83,8 +82,7 @@ public final class JarApiScanner {
       List<String> selectedTypes,
       Set<String> rootNames,
       Map<String, RawClass> classes,
-      Map<String, JavaReferenceKind> bindingTypes,
-      Map<String, RawSam> samTypes) {
+      JavaTypeProjector projector) {
     Deque<String> pending = new ArrayDeque<>();
     roots.forEach(type -> collectReferences(type, pending::addLast));
     classes.keySet().stream()
@@ -101,7 +99,7 @@ public final class JarApiScanner {
       if (owner == null || !publiclyAccessible(owner, classes) || isSynthetic(owner.access())) {
         continue;
       }
-      JavaApiType type = apiType(owner, classes, bindingTypes, samTypes);
+      JavaApiType type = apiType(owner, classes, projector);
       result.put(binaryName, type);
       collectReferences(type, pending::addLast);
     }
@@ -244,16 +242,13 @@ public final class JarApiScanner {
   }
 
   private static JavaApiType apiType(
-      RawClass owner,
-      Map<String, RawClass> classes,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes) {
+      RawClass owner, Map<String, RawClass> classes, JavaTypeProjector projector) {
     boolean deprecated = deprecated(owner.access(), owner.annotations());
     List<JavaApiField> fields =
         owner.fields().stream()
             .filter(field -> isPublic(field.access()))
             .filter(field -> !isSynthetic(field.access()))
-            .map(field -> apiField(owner, field, rootTypes, samTypes, deprecated))
+            .map(field -> apiField(owner, field, projector, deprecated))
             .toList();
     List<EffectiveMethod> effectiveMethods = effectiveMethods(owner, classes);
     Set<String> declaredMethodKeys =
@@ -267,12 +262,12 @@ public final class JarApiScanner {
             .filter(method -> isPublic(method.declaration().access()))
             .filter(method -> !isSynthetic(method.declaration().access()))
             .filter(method -> !method.declaration().name().equals("<clinit>"))
-            .map(method -> apiMethod(owner, method, rootTypes, samTypes, deprecated))
+            .map(method -> apiMethod(owner, method, projector, deprecated))
             .toList();
     List<JavaApiMethod> inheritedMethods =
         effectiveMethods.stream()
             .filter(method -> !declaredMethodKeys.contains(methodKey(method.declaration())))
-            .map(method -> apiMethod(owner, method, rootTypes, samTypes, deprecated))
+            .map(method -> apiMethod(owner, method, projector, deprecated))
             .toList();
     List<JavaApiRecordComponent> recordComponents =
         owner.recordComponents().stream()
@@ -293,7 +288,7 @@ public final class JarApiScanner {
         owner.binaryName(),
         kind(owner.access()),
         owner.access(),
-        publicSignature(owner, classes, rootTypes.keySet()),
+        publicSignature(owner, classes, classes.keySet()),
         owner.annotations(),
         owner.typeAnnotations(),
         Optional.ofNullable(binaryName(owner.enclosingType())),
@@ -529,11 +524,7 @@ public final class JarApiScanner {
   }
 
   private static JavaApiField apiField(
-      RawClass owner,
-      RawField field,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes,
-      boolean ownerDeprecated) {
+      RawClass owner, RawField field, JavaTypeProjector projector, boolean ownerDeprecated) {
     boolean deprecated = ownerDeprecated || deprecated(field.access(), field.annotations());
     JavaApiDisposition disposition;
     Optional<JavaApiIssue> issue;
@@ -547,23 +538,30 @@ public final class JarApiScanner {
     } else {
       JavaBindingType type;
       if (field.signature() == null) {
-        type = bindingType(Type.getType(field.descriptor()), rootTypes, samTypes);
+        type =
+            projector
+                .project(
+                    SIGNATURES.parseType(Type.getType(field.descriptor()).getDescriptor()),
+                    Map.of(),
+                    JavaTypeProjector.Position.VALUE)
+                .orElse(null);
       } else {
         Map<String, JavaBindingTypeVariable> variables = new LinkedHashMap<>();
         Optional<JavaGenericParameterProjector.Projection> projection =
-            addVariables(variables, classSignature(owner).typeParameters(), rootTypes, samTypes);
+            addVariables(variables, classSignature(owner).typeParameters(), projector);
         type =
             projection
                 .map(
                     value ->
-                        bindingType(
-                            declaredType,
-                            new LinkedHashMap<>(value.variables()),
-                            rootTypes,
-                            samTypes))
+                        projector
+                            .project(
+                                declaredType,
+                                new LinkedHashMap<>(value.variables()),
+                                JavaTypeProjector.Position.VALUE)
+                            .orElse(null))
                 .orElse(null);
       }
-      if (type == null || !exposableValue(type)) {
+      if (type == null || !JavaTypeProjector.exposableValue(type)) {
         disposition = JavaApiDisposition.UNSUPPORTED;
         issue =
             Optional.of(
@@ -622,8 +620,7 @@ public final class JarApiScanner {
   private static JavaApiMethod apiMethod(
       RawClass owner,
       EffectiveMethod method,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes,
+      JavaTypeProjector projector,
       boolean ownerDeprecated) {
     RawMethod declaration = method.declaration();
     JavaCallableKind kind =
@@ -641,7 +638,7 @@ public final class JarApiScanner {
           Optional.empty(),
           Optional.empty());
     }
-    BindingResult result = bind(owner, method, rootTypes, samTypes, kind);
+    BindingResult result = bind(owner, method, projector, kind);
     return method(
         owner,
         method,
@@ -685,11 +682,7 @@ public final class JarApiScanner {
   }
 
   private static BindingResult bind(
-      RawClass owner,
-      EffectiveMethod method,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes,
-      JavaCallableKind kind) {
+      RawClass owner, EffectiveMethod method, JavaTypeProjector projector, JavaCallableKind kind) {
     RawMethod declaration = method.declaration();
     Type methodType = Type.getMethodType(declaration.descriptor());
     int invocationArity = methodType.getArgumentTypes().length + (kind.requiresReceiver() ? 1 : 0);
@@ -700,14 +693,14 @@ public final class JarApiScanner {
     JavaMethodSignature signature = method.signature();
     Map<String, JavaBindingTypeVariable> variables = new LinkedHashMap<>();
     Optional<JavaGenericParameterProjector.Projection> classProjection =
-        addVariables(variables, classSignature(owner).typeParameters(), rootTypes, samTypes);
+        addVariables(variables, classSignature(owner).typeParameters(), projector);
     if (classProjection.isEmpty()) {
       return BindingResult.unsupported(
           JavaApiIssueCode.GENERIC_MAPPING, "Java generic bound cannot be represented in Norm");
     }
     variables.putAll(classProjection.orElseThrow().variables());
     Optional<JavaGenericParameterProjector.Projection> methodProjection =
-        addVariables(variables, signature.typeParameters(), rootTypes, samTypes);
+        addVariables(variables, signature.typeParameters(), projector);
     if (methodProjection.isEmpty()) {
       return BindingResult.unsupported(
           JavaApiIssueCode.GENERIC_MAPPING, "Java generic bound cannot be represented in Norm");
@@ -716,8 +709,13 @@ public final class JarApiScanner {
     List<JavaBindingType> parameters = new ArrayList<>();
     for (int index = 0; index < signature.parameters().size(); index++) {
       JavaBindingType type =
-          bindingType(signature.parameters().get(index), variables, rootTypes, samTypes, true);
-      if (type == null || !exposableParameter(type)) {
+          projector
+              .project(
+                  signature.parameters().get(index),
+                  variables,
+                  JavaTypeProjector.Position.PARAMETER)
+              .orElse(null);
+      if (type == null || !JavaTypeProjector.exposableParameter(type)) {
         return declaration.signature() == null
             ? BindingResult.unsupported(methodType.getArgumentTypes()[index])
             : BindingResult.unsupported(
@@ -729,8 +727,10 @@ public final class JarApiScanner {
     JavaBindingType returnType =
         kind == JavaCallableKind.CONSTRUCTOR
             ? ownerType(owner, variables)
-            : bindingType(signature.returnType(), variables, rootTypes, samTypes);
-    if (returnType == null || !exposableValue(returnType)) {
+            : projector
+                .project(signature.returnType(), variables, JavaTypeProjector.Position.VALUE)
+                .orElse(null);
+    if (returnType == null || !JavaTypeProjector.exposableValue(returnType)) {
       return declaration.signature() == null
           ? BindingResult.unsupported(methodType.getReturnType())
           : BindingResult.unsupported(
@@ -754,140 +754,17 @@ public final class JarApiScanner {
   private static Optional<JavaGenericParameterProjector.Projection> addVariables(
       Map<String, JavaBindingTypeVariable> variables,
       List<JavaTypeParameter> parameters,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes) {
+      JavaTypeProjector projector) {
     return JavaGenericParameterProjector.project(
         parameters,
         variables,
-        (signature, available) -> bindingType(signature, available, rootTypes, samTypes));
+        (signature, available) ->
+            projector.project(signature, available, JavaTypeProjector.Position.VALUE).orElse(null));
   }
 
-  private static JavaBindingType bindingType(
-      JavaTypeSignature signature,
-      Map<String, ? extends JavaBindingType> variables,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes) {
-    return bindingType(signature, variables, rootTypes, samTypes, false);
-  }
-
-  private static JavaBindingType bindingType(
-      JavaTypeSignature signature,
-      Map<String, ? extends JavaBindingType> variables,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes,
-      boolean allowCallback) {
-    return switch (signature) {
-      case JavaPrimitiveTypeSignature primitive -> primitive.type();
-      case JavaTypeVariableSignature variable -> variables.get(variable.name());
-      case JavaArrayTypeSignature array -> {
-        JavaBindingType component = bindingType(array.component(), variables, rootTypes, samTypes);
-        yield component == null ? null : new JavaArrayType(component);
-      }
-      case JavaClassTypeSignature classType ->
-          bindingClassType(classType, variables, rootTypes, samTypes, allowCallback);
-    };
-  }
-
-  private static JavaBindingType bindingClassType(
-      JavaClassTypeSignature classType,
-      Map<String, ? extends JavaBindingType> variables,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes,
-      boolean allowCallback) {
-    String name = classType.binaryName();
-    Optional<JavaBoxedType> boxed = JavaBoxedType.fromBinaryName(name);
-    if (boxed.isPresent()
-        && classType.segments().stream().allMatch(segment -> segment.arguments().isEmpty())) {
-      return boxed.orElseThrow();
-    }
-    if (allowCallback) {
-      Optional<JavaCallbackType> callback =
-          JavaPlatformCallbacks.project(
-              classType, signature -> bindingType(signature, variables, rootTypes, samTypes));
-      if (callback.isPresent()) return callback.orElseThrow();
-      callback = projectSam(classType, variables, rootTypes, samTypes);
-      if (callback.isPresent()) return callback.orElseThrow();
-    }
-    JavaReferenceKind kind = JavaPlatformTypes.referenceKind(name).orElse(rootTypes.get(name));
-    if (kind == null) return null;
-    List<JavaBindingTypeArgument> arguments = new ArrayList<>();
-    for (JavaClassTypeSegment segment : classType.segments()) {
-      for (JavaTypeArgument argument : segment.arguments()) {
-        if (argument.variance() == JavaTypeVariance.UNBOUNDED) {
-          arguments.add(JavaBindingTypeArgument.unbounded());
-          continue;
-        }
-        if (kind == JavaReferenceKind.CLASS && argument.variance() == JavaTypeVariance.EXTENDS) {
-          arguments.add(JavaBindingTypeArgument.unbounded());
-          continue;
-        }
-        if (argument.variance() != JavaTypeVariance.EXACT) return null;
-        JavaBindingType type =
-            bindingType(argument.type().orElseThrow(), variables, rootTypes, samTypes);
-        if (type == null) return null;
-        arguments.add(JavaBindingTypeArgument.exact(type));
-      }
-    }
-    if (kind == JavaReferenceKind.CLASS
-        && arguments.stream()
-            .filter(argument -> argument.variance() == JavaTypeVariance.EXACT)
-            .map(argument -> argument.type().orElseThrow())
-            .anyMatch(type -> !JavaPlatformTypes.classTokenCompatible(type))) {
-      return null;
-    }
-    return new JavaReferenceType(name, kind, arguments);
-  }
-
-  private static Optional<JavaCallbackType> projectSam(
-      JavaClassTypeSignature type,
-      Map<String, ? extends JavaBindingType> outerVariables,
-      Map<String, JavaReferenceKind> rootTypes,
-      Map<String, RawSam> samTypes) {
-    RawSam sam = samTypes.get(type.binaryName());
-    if (sam == null) return Optional.empty();
-    List<JavaTypeArgument> arguments =
-        type.segments().stream().flatMap(segment -> segment.arguments().stream()).toList();
-    List<JavaTypeParameter> parameters = classSignature(sam.owner()).typeParameters();
-    if (!arguments.isEmpty() && arguments.size() != parameters.size()) return Optional.empty();
-    Map<String, JavaBindingType> variables = new LinkedHashMap<>(outerVariables);
-    JavaBindingType object = new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT);
-    Map<String, RawSam> nestedSamTypes = new LinkedHashMap<>(samTypes);
-    nestedSamTypes.remove(type.binaryName());
-    for (int index = 0; index < parameters.size(); index++) {
-      JavaBindingType argument = object;
-      if (!arguments.isEmpty() && arguments.get(index).variance() != JavaTypeVariance.UNBOUNDED) {
-        argument =
-            bindingType(
-                arguments.get(index).type().orElseThrow(),
-                outerVariables,
-                rootTypes,
-                nestedSamTypes);
-        if (argument == null) return Optional.empty();
-      }
-      variables.put(parameters.get(index).name(), argument);
-    }
-    JavaMethodSignature signature =
-        SIGNATURES.parseMethod(
-            sam.method().signature() == null
-                ? sam.method().descriptor()
-                : sam.method().signature());
-    if (!signature.typeParameters().isEmpty()) return Optional.empty();
-    List<JavaBindingType> callbackParameters = new ArrayList<>();
-    for (JavaTypeSignature parameter : signature.parameters()) {
-      JavaBindingType projected = bindingType(parameter, variables, rootTypes, nestedSamTypes);
-      if (projected == null || !exposableValue(projected)) return Optional.empty();
-      callbackParameters.add(projected);
-    }
-    JavaBindingType returnType =
-        bindingType(signature.returnType(), variables, rootTypes, nestedSamTypes);
-    if (returnType == null || !exposableValue(returnType)) return Optional.empty();
-    return Optional.of(
-        new JavaCallbackType(
-            type.binaryName(), sam.method().name(), callbackParameters, returnType));
-  }
-
-  private static Map<String, RawSam> samTypes(Map<String, RawClass> classes) {
-    Map<String, RawSam> result = new LinkedHashMap<>();
+  private static Map<String, JavaTypeProjector.FunctionalInterface> samTypes(
+      Map<String, RawClass> classes) {
+    Map<String, JavaTypeProjector.FunctionalInterface> result = new LinkedHashMap<>();
     for (RawClass owner : classes.values()) {
       if ((owner.access() & Opcodes.ACC_INTERFACE) == 0
           || (owner.access() & Opcodes.ACC_ANNOTATION) != 0) continue;
@@ -910,7 +787,15 @@ public final class JarApiScanner {
                   .filter(methods -> methods.size() == 1)
                   .filter(methods -> methods.contains(methodKey(declared.getFirst())))
                   .isPresent())) {
-        result.put(owner.binaryName(), new RawSam(owner, declared.getFirst()));
+        result.put(
+            owner.binaryName(),
+            new JavaTypeProjector.FunctionalInterface(
+                classSignature(owner).typeParameters(),
+                declared.getFirst().name(),
+                SIGNATURES.parseMethod(
+                    declared.getFirst().signature() == null
+                        ? declared.getFirst().descriptor()
+                        : declared.getFirst().signature())));
       }
     }
     return Map.copyOf(result);
@@ -1013,81 +898,6 @@ public final class JarApiScanner {
     return visitor.result();
   }
 
-  private static JavaBindingType bindingType(
-      Type type, Map<String, JavaReferenceKind> rootTypes, Map<String, RawSam> samTypes) {
-    return switch (type.getSort()) {
-      case Type.VOID -> JavaPrimitiveType.VOID;
-      case Type.BOOLEAN -> JavaPrimitiveType.BOOLEAN;
-      case Type.BYTE -> JavaPrimitiveType.BYTE;
-      case Type.SHORT -> JavaPrimitiveType.SHORT;
-      case Type.INT -> JavaPrimitiveType.INT;
-      case Type.LONG -> JavaPrimitiveType.LONG;
-      case Type.FLOAT -> JavaPrimitiveType.FLOAT;
-      case Type.DOUBLE -> JavaPrimitiveType.DOUBLE;
-      case Type.CHAR -> JavaPrimitiveType.CHAR;
-      case Type.OBJECT -> {
-        String name = type.getClassName();
-        Optional<JavaBoxedType> boxed = JavaBoxedType.fromBinaryName(name);
-        if (boxed.isPresent()) yield boxed.orElseThrow();
-        Optional<JavaReferenceKind> platformKind = JavaPlatformTypes.referenceKind(name);
-        if (platformKind.isPresent()) {
-          yield new JavaReferenceType(name, platformKind.orElseThrow());
-        }
-        JavaReferenceKind rootKind = rootTypes.get(name);
-        yield rootKind == null ? null : new JavaReferenceType(name, rootKind);
-      }
-      case Type.ARRAY -> {
-        JavaBindingType component = bindingType(type.getElementType(), rootTypes, samTypes);
-        if (component == null) yield null;
-        JavaBindingType array = component;
-        for (int dimension = 0; dimension < type.getDimensions(); dimension++) {
-          array = new JavaArrayType(array);
-        }
-        yield array;
-      }
-      default -> null;
-    };
-  }
-
-  private static boolean exposableParameter(JavaBindingType type) {
-    if (type instanceof JavaCallbackType callback) {
-      return callback.parameters().stream().allMatch(JarApiScanner::exposableValue)
-          && exposableValue(callback.returnType());
-    }
-    return exposableValue(type);
-  }
-
-  private static boolean exposableValue(JavaBindingType type) {
-    return switch (type) {
-      case JavaPrimitiveType primitive -> true;
-      case JavaBoxedType ignored -> true;
-      case JavaBindingTypeVariable ignored -> true;
-      case JavaCallbackType ignored -> false;
-      case JavaArrayType array ->
-          (array.component() instanceof JavaBindingTypeVariable || concrete(array.component()))
-              && exposableValue(array.component());
-      case JavaReferenceType ignored -> true;
-    };
-  }
-
-  private static boolean concrete(JavaBindingType type) {
-    return switch (type) {
-      case JavaArrayType array -> concrete(array.component());
-      case JavaBindingTypeVariable ignored -> false;
-      case JavaCallbackType ignored -> false;
-      case JavaReferenceType reference ->
-          reference.arguments().stream()
-              .allMatch(
-                  argument ->
-                      (reference.kind() == JavaReferenceKind.CLASS
-                              && argument.variance() == JavaTypeVariance.UNBOUNDED)
-                          || (argument.variance() == JavaTypeVariance.EXACT
-                              && concrete(argument.type().orElseThrow())));
-      case JavaBoxedType ignored -> true;
-      case JavaPrimitiveType ignored -> true;
-    };
-  }
-
   private static JavaApiTypeKind kind(int access) {
     if ((access & Opcodes.ACC_ANNOTATION) != 0) return JavaApiTypeKind.ANNOTATION;
     if ((access & Opcodes.ACC_ENUM) != 0) return JavaApiTypeKind.ENUM;
@@ -1175,8 +985,6 @@ public final class JarApiScanner {
           JavaApiIssueCode.UNSUPPORTED_TYPE, "unsupported Java type " + type.getClassName());
     }
   }
-
-  private record RawSam(RawClass owner, RawMethod method) {}
 
   private record EffectiveMethod(
       RawMethod declaration, JavaMethodSignature signature, String invocationOwner) {}

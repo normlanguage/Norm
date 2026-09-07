@@ -3,13 +3,13 @@ package dev.w0fv1.norm.jvm;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +35,7 @@ public final class BundledJarGraphs {
     }
     for (ResolvedJarArtifact artifact : artifacts.values()) {
       Path target = artifactsDirectory.resolve(artifact.content().value() + ".jar");
-      if (!Files.isRegularFile(target)) {
-        Files.copy(artifact.file(), target, StandardCopyOption.REPLACE_EXISTING);
-      }
+      new FileSnapshot(artifact.file(), artifact.content()).copyTo(target);
     }
     JsonObject manifest = new JsonObject();
     manifest.addProperty("formatVersion", 1);

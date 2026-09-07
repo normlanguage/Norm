@@ -19,10 +19,11 @@ import dev.w0fv1.norm.core.CoreNamespace;
 import dev.w0fv1.norm.core.CoreProgram;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
+import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.core.IncrementalAnalysisReport;
 import dev.w0fv1.norm.core.store.DefinitionStore;
 import dev.w0fv1.norm.core.store.PutResult;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -101,7 +102,7 @@ final class CoreBuilder {
                 if (definition == null) {
                   throw new IllegalStateException("namespace type reference is unresolved");
                 }
-                return new dev.w0fv1.norm.core.DefinitionReference.External(definition);
+                return new DefinitionReference.External(definition);
               })
           .ifPresent(bindings::add);
     }
@@ -132,7 +133,7 @@ final class CoreBuilder {
             IncrementalAnalysisReport.analyzed(converted.declarations().size(), 0)));
   }
 
-  private StoreCounts store(List<dev.w0fv1.norm.core.CoreDefinitionGroup> groups) {
+  private StoreCounts store(List<CoreDefinitionGroup> groups) {
     int stored = 0;
     int reused = 0;
     int notAdmitted = 0;

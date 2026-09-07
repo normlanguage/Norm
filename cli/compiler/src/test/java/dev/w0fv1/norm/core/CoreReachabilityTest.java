@@ -4,8 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
+import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.testing.NormTestKit;
+import dev.w0fv1.norm.value.CompilationRequest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import org.junit.jupiter.api.Test;
@@ -24,7 +27,7 @@ final class CoreReachabilityTest {
         Void main() { Named? value = null; printLine("hello") }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var original = compiled.program().orElseThrow().compilation().artifact();
+    var original = compiled.output().orElseThrow().artifact();
     var analysis = CoreReachability.analyze(original, java.util.Set.of());
     var reduced = analysis.artifact();
     assertEquals(reduced.program().groups().size(), analysis.causes().size());
@@ -77,7 +80,7 @@ final class CoreReachabilityTest {
         Void main() { printLine("hello") }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var original = compiled.program().orElseThrow().compilation().artifact();
+    var original = compiled.output().orElseThrow().artifact();
     var host =
         original.namespace().bindings().stream()
             .filter(binding -> binding.name().equals("Host") && binding.ownerName().isEmpty())
@@ -104,9 +107,7 @@ final class CoreReachabilityTest {
   @Test
   void minimalProgramDoesNotRetainNetworkOrSerializationIntrinsics() {
     var compiled = NormTestKit.compile("Void main() { printLine(\"hello\") }");
-    var artifact =
-        CoreReachability.retainApplication(
-            compiled.program().orElseThrow().compilation().artifact());
+    var artifact = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     var ids = java.util.EnumSet.noneOf(dev.w0fv1.norm.abi.IntrinsicId.class);
     var walker =
         new CoreWalker() {
@@ -137,7 +138,7 @@ final class CoreReachabilityTest {
         Void main() { __jarInvokeVoid0("sample.call") }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var artifact = compiled.program().orElseThrow().compilation().artifact();
+    var artifact = compiled.output().orElseThrow().artifact();
     var dormant =
         artifact.namespace().bindings().stream()
             .filter(binding -> binding.name().equals("dormant"))
@@ -157,8 +158,7 @@ final class CoreReachabilityTest {
     assertEquals(
         java.util.Set.of("sample.call"),
         CoreReachability.jarCalls(
-                CoreReachability.retainApplication(
-                    direct.program().orElseThrow().compilation().artifact()))
+                CoreReachability.retainApplication(direct.output().orElseThrow().artifact()))
             .orElseThrow());
     var dynamic =
         compileBinding(
@@ -169,19 +169,16 @@ final class CoreReachabilityTest {
     assertTrue(dynamic.isSuccess(), () -> dynamic.diagnostics().toString());
     assertTrue(
         CoreReachability.jarCalls(
-                CoreReachability.retainApplication(
-                    dynamic.program().orElseThrow().compilation().artifact()))
+                CoreReachability.retainApplication(dynamic.output().orElseThrow().artifact()))
             .isEmpty());
   }
 
-  private static dev.w0fv1.norm.value.CompilationResult compileBinding(String text)
-      throws Exception {
-    var source = dev.w0fv1.norm.value.SourceFile.of(java.nio.file.Path.of("binding.norm"), text);
-    var request = dev.w0fv1.norm.value.CompilationRequest.single(source);
-    try (var compiler =
-        dev.w0fv1.norm.project.ProjectEnvironment.bootstrap(new NormRuntime()).compilerSession()) {
+  private static CompilationResult compileBinding(String text) throws Exception {
+    var source = SourceFile.of(java.nio.file.Path.of("binding.norm"), text);
+    var request = CompilationRequest.single(source);
+    try (var compiler = ProjectEnvironment.bootstrap(new NormRuntime()).compilerSession()) {
       return compiler.compile(
-          new dev.w0fv1.norm.value.CompilationRequest(
+          new CompilationRequest(
               request.unit(),
               request.scope(),
               request.entryDocument(),
@@ -201,7 +198,7 @@ final class CoreReachabilityTest {
         Void main() { printLine(Parent().name()) }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var original = compiled.program().orElseThrow().compilation().artifact();
+    var original = compiled.output().orElseThrow().artifact();
     var reduced = CoreReachability.retainApplication(original);
     assertTrue(
         reduced.namespace().bindings().stream()
@@ -218,9 +215,7 @@ final class CoreReachabilityTest {
         Void main() { Named? value = null }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var reduced =
-        CoreReachability.retainApplication(
-            compiled.program().orElseThrow().compilation().artifact());
+    var reduced = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     assertTrue(
         reduced.namespace().bindings().stream()
             .anyMatch(binding -> binding.name().equals("HostBindingValue")));
@@ -247,7 +242,7 @@ final class CoreReachabilityTest {
                                       .toURI()));
                       var compiled = NormTestKit.compile(source);
                       assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-                      var original = compiled.program().orElseThrow().compilation().artifact();
+                      var original = compiled.output().orElseThrow().artifact();
                       var expected = new StringWriter();
                       new NormRuntime()
                           .execute(
@@ -274,7 +269,7 @@ final class CoreReachabilityTest {
         Void main() { printLine(greeting()) }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var original = compiled.program().orElseThrow().compilation().artifact();
+    var original = compiled.output().orElseThrow().artifact();
     var reduced = CoreReachability.retainApplication(original);
     assertTrue(reduced.program().definitions().size() < original.program().definitions().size());
     assertFalse(
@@ -308,9 +303,7 @@ final class CoreReachabilityTest {
         }
         """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
-    var reduced =
-        CoreReachability.retainApplication(
-            compiled.program().orElseThrow().compilation().artifact());
+    var reduced = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     var output = new StringWriter();
     new NormRuntime()
         .execute(

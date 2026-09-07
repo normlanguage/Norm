@@ -7,4 +7,6 @@ public interface BuiltinSemanticIndex {
   Optional<Symbol> member(SemanticType owner, SymbolId member);
 
   List<Symbol> typeMembers(String owner);
+
+  List<SemanticType> protocolConformances(SemanticType type);
 }

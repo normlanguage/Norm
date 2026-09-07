@@ -3,6 +3,7 @@ package dev.w0fv1.norm.project;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -70,8 +71,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("failure-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -133,8 +134,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("resource-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -210,8 +211,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("stream-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -266,8 +267,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("path-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -324,8 +325,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("object-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -377,8 +378,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("class-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -439,8 +440,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("enum-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -496,8 +497,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("optional-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
@@ -595,8 +596,8 @@ final class JarBindingRuntimeIntegrationTest {
     StringWriter output = new StringWriter();
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("list-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }

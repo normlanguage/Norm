@@ -1214,5 +1214,5657 @@
         }
       ]
     }
-  }
+  },
+  "typePatterns": {
+    "std.core.Any": {
+      "kind": "DECLARED",
+      "identity": "std.core.Any",
+      "name": "Any",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Array": {
+      "kind": "DECLARED",
+      "identity": "std.core.Array",
+      "name": "Array",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Array/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Array/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Integer": {
+      "kind": "DECLARED",
+      "identity": "std.core.Integer",
+      "name": "Integer",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Array<std.core.Array/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Array",
+      "name": "Array",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Array/T"
+      ],
+      "nullable": false
+    },
+    "std.core.Boolean": {
+      "kind": "DECLARED",
+      "identity": "std.core.Boolean",
+      "name": "Boolean",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.String": {
+      "kind": "DECLARED",
+      "identity": "std.core.String",
+      "name": "String",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Class/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class/annotation/A?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Class/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Class/annotation/A": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Class/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.existential": {
+      "kind": "EXISTENTIAL",
+      "identity": "std.core.existential",
+      "name": "?",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field<std.core.Class/T,std.core.existential>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Field",
+      "name": "Field",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Class/T",
+        "std.core.existential"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.Field<std.core.Class/T,std.core.existential>>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Field<std.core.Class/T,std.core.existential>"
+      ],
+      "nullable": false
+    },
+    "std.core.Function<std.core.existential>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.existential"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.Function<std.core.existential>>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Function<std.core.existential>"
+      ],
+      "nullable": false
+    },
+    "std.core.Constructor<std.core.Class/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Constructor",
+      "name": "Constructor",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Class/T"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.Constructor<std.core.Class/T>>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Constructor<std.core.Class/T>"
+      ],
+      "nullable": false
+    },
+    "std.core.CodePoint": {
+      "kind": "DECLARED",
+      "identity": "std.core.CodePoint",
+      "name": "CodePoint",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Constructor": {
+      "kind": "DECLARED",
+      "identity": "std.core.Constructor",
+      "name": "Constructor",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Constructor/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Constructor/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Constructor/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Constructor/T"
+      ],
+      "nullable": false
+    },
+    "std.core.Deque": {
+      "kind": "DECLARED",
+      "identity": "std.core.Deque",
+      "name": "Deque",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Deque/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Deque/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Void": {
+      "kind": "VOID",
+      "identity": "std.core.Void",
+      "name": "Void",
+      "category": "VOID",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Double": {
+      "kind": "DECLARED",
+      "identity": "std.core.Double",
+      "name": "Double",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field": {
+      "kind": "DECLARED",
+      "identity": "std.core.Field",
+      "name": "Field",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field/Owner": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Field/Owner",
+      "name": "Owner",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field/Value": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Field/Value",
+      "name": "Value",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Field/Value>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Field/Value"
+      ],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Field/Owner>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Field/Owner"
+      ],
+      "nullable": false
+    },
+    "std.core.Field/annotation/A?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Field/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Field/annotation/A": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Field/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FieldContext": {
+      "kind": "DECLARED",
+      "identity": "std.core.FieldContext",
+      "name": "FieldContext",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field<std.core.existential,std.core.existential>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Field",
+      "name": "Field",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.existential",
+        "std.core.existential"
+      ],
+      "nullable": false
+    },
+    "std.core.Float": {
+      "kind": "DECLARED",
+      "identity": "std.core.Float",
+      "name": "Float",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function/Signature": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Function/Signature",
+      "name": "Signature",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.existential>?": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.existential"
+      ],
+      "nullable": true
+    },
+    "std.core.Parameter<std.core.existential>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Parameter",
+      "name": "Parameter",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.existential"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.Parameter<std.core.existential>>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Parameter<std.core.existential>"
+      ],
+      "nullable": false
+    },
+    "std.core.FunctionCompletion": {
+      "kind": "DECLARED",
+      "identity": "std.core.FunctionCompletion",
+      "name": "FunctionCompletion",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FunctionContext": {
+      "kind": "DECLARED",
+      "identity": "std.core.FunctionContext",
+      "name": "FunctionContext",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FunctionInvocation": {
+      "kind": "DECLARED",
+      "identity": "std.core.FunctionInvocation",
+      "name": "FunctionInvocation",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FunctionInvocation/R": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.FunctionInvocation/R",
+      "name": "R",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.List": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.List/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.List/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.List<std.core.List/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.List/T"
+      ],
+      "nullable": false
+    },
+    "std.core.Long": {
+      "kind": "DECLARED",
+      "identity": "std.core.Long",
+      "name": "Long",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Map": {
+      "kind": "DECLARED",
+      "identity": "std.core.Map",
+      "name": "Map",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Map/K": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Map/K",
+      "name": "K",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Map/V": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Map/V",
+      "name": "V",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Pair<std.core.Map/K,std.core.Map/V>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Pair",
+      "name": "Pair",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Map/K",
+        "std.core.Map/V"
+      ],
+      "nullable": false
+    },
+    "std.core.Map/V?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Map/V",
+      "name": "V",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Number": {
+      "kind": "DECLARED",
+      "identity": "std.core.Number",
+      "name": "Number",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Pair": {
+      "kind": "DECLARED",
+      "identity": "std.core.Pair",
+      "name": "Pair",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Pair/A": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Pair/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Pair/B": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Pair/B",
+      "name": "B",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Parameter": {
+      "kind": "DECLARED",
+      "identity": "std.core.Parameter",
+      "name": "Parameter",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Parameter/Value": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Parameter/Value",
+      "name": "Value",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Parameter/Value>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Parameter/Value"
+      ],
+      "nullable": false
+    },
+    "std.core.ParameterContext": {
+      "kind": "DECLARED",
+      "identity": "std.core.ParameterContext",
+      "name": "ParameterContext",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Queue": {
+      "kind": "DECLARED",
+      "identity": "std.core.Queue",
+      "name": "Queue",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Queue/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Queue/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Range": {
+      "kind": "DECLARED",
+      "identity": "std.core.Range",
+      "name": "Range",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Set": {
+      "kind": "DECLARED",
+      "identity": "std.core.Set",
+      "name": "Set",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Set/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Set/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Stack": {
+      "kind": "DECLARED",
+      "identity": "std.core.Stack",
+      "name": "Stack",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Stack/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Stack/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Array<std.core.CodePoint>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Array",
+      "name": "Array",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.CodePoint"
+      ],
+      "nullable": false
+    },
+    "std.core.Array<std.core.String>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Array",
+      "name": "Array",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.String"
+      ],
+      "nullable": false
+    },
+    "std.core.StringBuilder": {
+      "kind": "DECLARED",
+      "identity": "std.core.StringBuilder",
+      "name": "StringBuilder",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "<error>": {
+      "kind": "ERROR",
+      "identity": "<error>",
+      "name": "value",
+      "category": "DYNAMIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.NativeIterator": {
+      "kind": "DECLARED",
+      "identity": "std.core.NativeIterator",
+      "name": "NativeIterator",
+      "category": "IDENTITY",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.NativeIterator/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.NativeIterator/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__bytesCreate/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__bytesCreate/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Array<std.core.Integer>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Array",
+      "name": "Array",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Integer"
+      ],
+      "nullable": false
+    },
+    "std.core.__bytesJoin/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__bytesJoin/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__bytesSlice/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__bytesSlice/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__classLiteral/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__classLiteral/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__classLiteral/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__classLiteral/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__clockNow/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__clockNow/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__configurationProperties/Result": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__configurationProperties/Result",
+      "name": "Result",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__configurationProperties/Value": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__configurationProperties/Value",
+      "name": "Value",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__configurationProperties/Value>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__configurationProperties/Value"
+      ],
+      "nullable": false
+    },
+    "std.core.__fieldLiteral/Owner": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__fieldLiteral/Owner",
+      "name": "Owner",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__fieldLiteral/Value": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__fieldLiteral/Value",
+      "name": "Value",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Field<std.core.__fieldLiteral/Owner,std.core.__fieldLiteral/Value>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Field",
+      "name": "Field",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__fieldLiteral/Owner",
+        "std.core.__fieldLiteral/Value"
+      ],
+      "nullable": false
+    },
+    "std.core.__fileOpenRead/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__fileOpenRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__fileOpenWrite/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__fileOpenWrite/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__fileRead/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__fileRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__fileRead/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__fileRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__httpRead/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__httpRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__httpRead/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__httpRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__httpSend/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__httpSend/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInputStreamRead/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInputStreamRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__jarInputStreamRead/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInputStreamRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke0/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke0/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke1/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke1/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke2/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke2/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke3/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke3/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke4/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke4/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke5/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke5/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke6/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke6/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke7/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke7/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarInvoke8/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarInvoke8/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jarTaskAwait/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jarTaskAwait/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaIterableIterator/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaIterableIterator/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaIteratorNext/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaIteratorNext/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaListGet/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaListGet/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaListRemove/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaListRemove/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaListSet/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaListSet/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaMapGet/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaMapGet/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaMapNew/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaMapNew/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaMapPut/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaMapPut/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__javaMapRemove/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__javaMapRemove/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jsonDecode/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jsonDecode/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__jsonEncode/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jsonEncode/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__jsonEncode/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__jsonEncode/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__jsonParse/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__jsonParse/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.String?": {
+      "kind": "DECLARED",
+      "identity": "std.core.String",
+      "name": "String",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Integer?": {
+      "kind": "DECLARED",
+      "identity": "std.core.Integer",
+      "name": "Integer",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.List<std.core.String>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.String"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.Integer?>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Integer?"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.Boolean>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Boolean"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.List<std.core.String>>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.List<std.core.String>"
+      ],
+      "nullable": false
+    },
+    "std.core.List<std.core.List<std.core.List<std.core.String>>>": {
+      "kind": "DECLARED",
+      "identity": "std.core.List",
+      "name": "List",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.List<std.core.List<std.core.String>>"
+      ],
+      "nullable": false
+    },
+    "std.core.__systemClock/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__systemClock/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__textEncodeUtf8/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__textEncodeUtf8/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__textEncodeUtf8/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__textEncodeUtf8/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__use/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__use/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function<std.core.Void>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.Void"
+      ],
+      "nullable": false
+    },
+    "std.core.Function<std.core.__use/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.__use/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__xmlDecode/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__xmlDecode/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__xmlEncode/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__xmlEncode/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__xmlEncode/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__xmlEncode/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__yamlDecode/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__yamlDecode/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__yamlEncode/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__yamlEncode/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__yamlEncode/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__yamlEncode/T"
+      ],
+      "nullable": false
+    }
+  },
+  "builtinTypes": [
+    {
+      "symbol": {
+        "name": "Any",
+        "kind": "TYPE",
+        "type": "std.core.Any",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "ANY",
+      "defaultCollectionLiteral": false,
+      "members": [],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Array",
+        "kind": "TYPE",
+        "type": "std.core.Array",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Array/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Fixed-length indexed values."
+      },
+      "runtimeShape": "ARRAY",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "ARRAY_CONSTRUCT"
+      },
+      "collectionLiteral": "ARRAY_CONSTRUCT",
+      "defaultCollectionLiteral": true,
+      "iterable": {
+        "elementType": "std.core.Array/T",
+        "intrinsic": "ARRAY_ITERATOR"
+      },
+      "index": {
+        "kind": "INTEGER",
+        "keyType": "std.core.Integer",
+        "resultType": "std.core.Array/T",
+        "readIntrinsic": "ARRAY_INDEX_READ",
+        "writeIntrinsic": "ARRAY_INDEX_WRITE"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Array method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "last",
+            "kind": "METHOD",
+            "type": "std.core.Array/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Array method"
+          },
+          "intrinsic": "ARRAY_LAST"
+        },
+        {
+          "symbol": {
+            "name": "reversed",
+            "kind": "METHOD",
+            "type": "std.core.Array<std.core.Array/T>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Array method"
+          },
+          "intrinsic": "ARRAY_REVERSED"
+        }
+      ],
+      "typeMembers": [
+        {
+          "symbol": {
+            "name": "filled",
+            "kind": "TYPE_METHOD",
+            "type": "std.core.Array<std.core.Array/T>",
+            "typeParameters": [
+              {
+                "name": "T",
+                "type": "std.core.Array/T"
+              }
+            ],
+            "parameters": [
+              {
+                "name": "size",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              },
+              {
+                "name": "value",
+                "type": "std.core.Array/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Array type_method"
+          },
+          "intrinsic": "ARRAY_FILLED"
+        }
+      ],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Boolean",
+        "kind": "TYPE",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "BOOL",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Boolean method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Class",
+        "kind": "TYPE",
+        "type": "std.core.Class",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Class/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "CLASS",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "name",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Class method"
+          },
+          "intrinsic": "CLASS_NAME"
+        },
+        {
+          "symbol": {
+            "name": "annotation",
+            "kind": "METHOD",
+            "type": "std.core.Class/annotation/A?",
+            "typeParameters": [
+              {
+                "name": "A",
+                "type": "std.core.Class/annotation/A"
+              }
+            ],
+            "parameters": [],
+            "documentation": "Norm Class method"
+          },
+          "intrinsic": "CLASS_ANNOTATION"
+        },
+        {
+          "symbol": {
+            "name": "fields",
+            "kind": "METHOD",
+            "type": "std.core.List<std.core.Field<std.core.Class/T,std.core.existential>>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Class method"
+          },
+          "intrinsic": "CLASS_FIELDS"
+        },
+        {
+          "symbol": {
+            "name": "functions",
+            "kind": "METHOD",
+            "type": "std.core.List<std.core.Function<std.core.existential>>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Class method"
+          },
+          "intrinsic": "CLASS_FUNCTIONS"
+        },
+        {
+          "symbol": {
+            "name": "constructors",
+            "kind": "METHOD",
+            "type": "std.core.List<std.core.Constructor<std.core.Class/T>>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Class method"
+          },
+          "intrinsic": "CLASS_CONSTRUCTORS"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "CodePoint",
+        "kind": "TYPE",
+        "type": "std.core.CodePoint",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "CODE_POINT",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "scalarValue",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_SCALAR_VALUE"
+        },
+        {
+          "symbol": {
+            "name": "isDecimalDigit",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_IS_DECIMAL_DIGIT"
+        },
+        {
+          "symbol": {
+            "name": "isLetter",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_IS_LETTER"
+        },
+        {
+          "symbol": {
+            "name": "isWhitespace",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_IS_WHITESPACE"
+        },
+        {
+          "symbol": {
+            "name": "isUppercase",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_IS_UPPERCASE"
+        },
+        {
+          "symbol": {
+            "name": "isLowercase",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_IS_LOWERCASE"
+        },
+        {
+          "symbol": {
+            "name": "isAsciiDigit",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_IS_ASCII_DIGIT"
+        },
+        {
+          "symbol": {
+            "name": "asciiDigitValue",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "CODE_POINT_ASCII_DIGIT_VALUE"
+        },
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm CodePoint method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Constructor",
+        "kind": "TYPE",
+        "type": "std.core.Constructor",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Constructor/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "CONSTRUCTOR",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "owner",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.Constructor/T>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Constructor method"
+          },
+          "intrinsic": "CONSTRUCTOR_OWNER"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Deque",
+        "kind": "TYPE",
+        "type": "std.core.Deque",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Deque/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Double-ended queue."
+      },
+      "runtimeShape": "DEQUE",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "DEQUE_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.Deque/T",
+        "intrinsic": "DEQUE_ITERATOR"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "addFirst",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Deque/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "DEQUE_ADD_FIRST"
+        },
+        {
+          "symbol": {
+            "name": "addLast",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Deque/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "DEQUE_ADD_LAST"
+        },
+        {
+          "symbol": {
+            "name": "removeFirst",
+            "kind": "METHOD",
+            "type": "std.core.Deque/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "DEQUE_REMOVE_FIRST"
+        },
+        {
+          "symbol": {
+            "name": "removeLast",
+            "kind": "METHOD",
+            "type": "std.core.Deque/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "DEQUE_REMOVE_LAST"
+        },
+        {
+          "symbol": {
+            "name": "peekFirst",
+            "kind": "METHOD",
+            "type": "std.core.Deque/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "DEQUE_PEEK_FIRST"
+        },
+        {
+          "symbol": {
+            "name": "peekLast",
+            "kind": "METHOD",
+            "type": "std.core.Deque/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "DEQUE_PEEK_LAST"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Deque method"
+          },
+          "intrinsic": "IS_EMPTY"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Double",
+        "kind": "TYPE",
+        "type": "std.core.Double",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "DOUBLE",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Double method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Field",
+        "kind": "TYPE",
+        "type": "std.core.Field",
+        "typeParameters": [
+          {
+            "name": "Owner",
+            "type": "std.core.Field/Owner"
+          },
+          {
+            "name": "Value",
+            "type": "std.core.Field/Value"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FIELD",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "name",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Field method"
+          },
+          "intrinsic": "FIELD_NAME"
+        },
+        {
+          "symbol": {
+            "name": "type",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.Field/Value>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Field method"
+          },
+          "intrinsic": "FIELD_TYPE"
+        },
+        {
+          "symbol": {
+            "name": "owner",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.Field/Owner>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Field method"
+          },
+          "intrinsic": "FIELD_OWNER"
+        },
+        {
+          "symbol": {
+            "name": "annotation",
+            "kind": "METHOD",
+            "type": "std.core.Field/annotation/A?",
+            "typeParameters": [
+              {
+                "name": "A",
+                "type": "std.core.Field/annotation/A"
+              }
+            ],
+            "parameters": [],
+            "documentation": "Norm Field method"
+          },
+          "intrinsic": "FIELD_ANNOTATION"
+        },
+        {
+          "symbol": {
+            "name": "read",
+            "kind": "METHOD",
+            "type": "std.core.Field/Value",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "receiver",
+                "type": "std.core.Field/Owner",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Field method"
+          },
+          "intrinsic": "FIELD_READ"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "FieldContext",
+        "kind": "TYPE",
+        "type": "std.core.FieldContext",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FIELD_CONTEXT",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "field",
+            "kind": "METHOD",
+            "type": "std.core.Field<std.core.existential,std.core.existential>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm FieldContext method"
+          },
+          "intrinsic": "FIELD_CONTEXT_FIELD"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Float",
+        "kind": "TYPE",
+        "type": "std.core.Float",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FLOAT",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Float method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Function",
+        "kind": "TYPE",
+        "type": "std.core.Function",
+        "typeParameters": [
+          {
+            "name": "Signature",
+            "type": "std.core.Function/Signature"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FUNCTION",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "name",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Function method"
+          },
+          "intrinsic": "FUNCTION_NAME"
+        },
+        {
+          "symbol": {
+            "name": "owner",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.existential>?",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Function method"
+          },
+          "intrinsic": "FUNCTION_OWNER"
+        },
+        {
+          "symbol": {
+            "name": "parameters",
+            "kind": "METHOD",
+            "type": "std.core.List<std.core.Parameter<std.core.existential>>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Function method"
+          },
+          "intrinsic": "FUNCTION_PARAMETERS"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "FunctionCompletion",
+        "kind": "TYPE",
+        "type": "std.core.FunctionCompletion",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FUNCTION_COMPLETION",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "succeeded",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm FunctionCompletion method"
+          },
+          "intrinsic": "FUNCTION_COMPLETION_SUCCEEDED"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "FunctionContext",
+        "kind": "TYPE",
+        "type": "std.core.FunctionContext",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FUNCTION_CONTEXT",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "function",
+            "kind": "METHOD",
+            "type": "std.core.Function<std.core.existential>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm FunctionContext method"
+          },
+          "intrinsic": "FUNCTION_CONTEXT_FUNCTION"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "FunctionInvocation",
+        "kind": "TYPE",
+        "type": "std.core.FunctionInvocation",
+        "typeParameters": [
+          {
+            "name": "R",
+            "type": "std.core.FunctionInvocation/R"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "FUNCTION_INVOCATION",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "proceed",
+            "kind": "METHOD",
+            "type": "std.core.FunctionInvocation/R",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm FunctionInvocation method"
+          },
+          "intrinsic": "FUNCTION_INVOCATION_PROCEED"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Integer",
+        "kind": "TYPE",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "INTEGER",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Integer method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "List",
+        "kind": "TYPE",
+        "type": "std.core.List",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.List/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Dynamic-length sequence."
+      },
+      "runtimeShape": "LIST",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "LIST_CONSTRUCT"
+      },
+      "collectionLiteral": "LIST_CONSTRUCT",
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.List/T",
+        "intrinsic": "LIST_ITERATOR"
+      },
+      "index": {
+        "kind": "INTEGER",
+        "keyType": "std.core.Integer",
+        "resultType": "std.core.List/T",
+        "readIntrinsic": "LIST_INDEX_READ",
+        "writeIntrinsic": "LIST_INDEX_WRITE"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "add",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.List/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "LIST_ADD"
+        },
+        {
+          "symbol": {
+            "name": "get",
+            "kind": "METHOD",
+            "type": "std.core.List/T",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "index",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "LIST_GET"
+        },
+        {
+          "symbol": {
+            "name": "removeAt",
+            "kind": "METHOD",
+            "type": "std.core.List/T",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "index",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "LIST_REMOVE_AT"
+        },
+        {
+          "symbol": {
+            "name": "last",
+            "kind": "METHOD",
+            "type": "std.core.List/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "LIST_LAST"
+        },
+        {
+          "symbol": {
+            "name": "removeLast",
+            "kind": "METHOD",
+            "type": "std.core.List/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "LIST_REMOVE_LAST"
+        },
+        {
+          "symbol": {
+            "name": "reversed",
+            "kind": "METHOD",
+            "type": "std.core.List<std.core.List/T>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "LIST_REVERSED"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm List method"
+          },
+          "intrinsic": "IS_EMPTY"
+        }
+      ],
+      "typeMembers": [
+        {
+          "symbol": {
+            "name": "filled",
+            "kind": "TYPE_METHOD",
+            "type": "std.core.List<std.core.List/T>",
+            "typeParameters": [
+              {
+                "name": "T",
+                "type": "std.core.List/T"
+              }
+            ],
+            "parameters": [
+              {
+                "name": "size",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              },
+              {
+                "name": "value",
+                "type": "std.core.List/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm List type_method"
+          },
+          "intrinsic": "LIST_FILLED"
+        }
+      ],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Long",
+        "kind": "TYPE",
+        "type": "std.core.Long",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "LONG",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Long method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Map",
+        "kind": "TYPE",
+        "type": "std.core.Map",
+        "typeParameters": [
+          {
+            "name": "K",
+            "type": "std.core.Map/K"
+          },
+          {
+            "name": "V",
+            "type": "std.core.Map/V"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Key-value container."
+      },
+      "runtimeShape": "MAP",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "MAP_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.Pair<std.core.Map/K,std.core.Map/V>",
+        "intrinsic": "MAP_ITERATOR"
+      },
+      "index": {
+        "kind": "VALUE",
+        "keyType": "std.core.Map/K",
+        "resultType": "std.core.Map/V",
+        "readIntrinsic": "MAP_INDEX_READ",
+        "writeIntrinsic": "MAP_INDEX_WRITE"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "put",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "key",
+                "type": "std.core.Map/K",
+                "hasDefault": false
+              },
+              {
+                "name": "value",
+                "type": "std.core.Map/V",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Map method"
+          },
+          "intrinsic": "MAP_PUT"
+        },
+        {
+          "symbol": {
+            "name": "get",
+            "kind": "METHOD",
+            "type": "std.core.Map/V?",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "key",
+                "type": "std.core.Map/K",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Map method"
+          },
+          "intrinsic": "MAP_GET"
+        },
+        {
+          "symbol": {
+            "name": "containsKey",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "key",
+                "type": "std.core.Map/K",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Map method"
+          },
+          "intrinsic": "MAP_CONTAINS_KEY"
+        },
+        {
+          "symbol": {
+            "name": "remove",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "key",
+                "type": "std.core.Map/K",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Map method"
+          },
+          "intrinsic": "MAP_REMOVE"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Map method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Map method"
+          },
+          "intrinsic": "IS_EMPTY"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Number",
+        "kind": "TYPE",
+        "type": "std.core.Number",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "NUMBER",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Number method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Pair",
+        "kind": "TYPE",
+        "type": "std.core.Pair",
+        "typeParameters": [
+          {
+            "name": "A",
+            "type": "std.core.Pair/A"
+          },
+          {
+            "name": "B",
+            "type": "std.core.Pair/B"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Pair with first and second values."
+      },
+      "runtimeShape": "PAIR",
+      "constructor": {
+        "parameters": [
+          {
+            "name": "first",
+            "type": "std.core.Pair/A",
+            "hasDefault": false
+          },
+          {
+            "name": "second",
+            "type": "std.core.Pair/B",
+            "hasDefault": false
+          }
+        ],
+        "intrinsic": "PAIR_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "first",
+            "kind": "FIELD",
+            "type": "std.core.Pair/A",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Pair field"
+          },
+          "intrinsic": "PAIR_FIRST_READ",
+          "writeIntrinsic": "PAIR_FIRST_WRITE"
+        },
+        {
+          "symbol": {
+            "name": "second",
+            "kind": "FIELD",
+            "type": "std.core.Pair/B",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Pair field"
+          },
+          "intrinsic": "PAIR_SECOND_READ",
+          "writeIntrinsic": "PAIR_SECOND_WRITE"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Parameter",
+        "kind": "TYPE",
+        "type": "std.core.Parameter",
+        "typeParameters": [
+          {
+            "name": "Value",
+            "type": "std.core.Parameter/Value"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "PARAMETER",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "name",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Parameter method"
+          },
+          "intrinsic": "PARAMETER_NAME"
+        },
+        {
+          "symbol": {
+            "name": "type",
+            "kind": "METHOD",
+            "type": "std.core.Class<std.core.Parameter/Value>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Parameter method"
+          },
+          "intrinsic": "PARAMETER_TYPE"
+        },
+        {
+          "symbol": {
+            "name": "function",
+            "kind": "METHOD",
+            "type": "std.core.Function<std.core.existential>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Parameter method"
+          },
+          "intrinsic": "PARAMETER_FUNCTION"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "ParameterContext",
+        "kind": "TYPE",
+        "type": "std.core.ParameterContext",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "PARAMETER_CONTEXT",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "parameter",
+            "kind": "METHOD",
+            "type": "std.core.Parameter<std.core.existential>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm ParameterContext method"
+          },
+          "intrinsic": "PARAMETER_CONTEXT_PARAMETER"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Queue",
+        "kind": "TYPE",
+        "type": "std.core.Queue",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Queue/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "FIFO container with add, remove, and peek."
+      },
+      "runtimeShape": "QUEUE",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "QUEUE_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.Queue/T",
+        "intrinsic": "QUEUE_ITERATOR"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "add",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Queue/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Queue method"
+          },
+          "intrinsic": "QUEUE_ADD"
+        },
+        {
+          "symbol": {
+            "name": "remove",
+            "kind": "METHOD",
+            "type": "std.core.Queue/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Queue method"
+          },
+          "intrinsic": "QUEUE_REMOVE"
+        },
+        {
+          "symbol": {
+            "name": "peek",
+            "kind": "METHOD",
+            "type": "std.core.Queue/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Queue method"
+          },
+          "intrinsic": "QUEUE_PEEK"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Queue method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Queue method"
+          },
+          "intrinsic": "IS_EMPTY"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Range",
+        "kind": "TYPE",
+        "type": "std.core.Range",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "end-exclusive integer range."
+      },
+      "runtimeShape": "RANGE",
+      "constructor": {
+        "parameters": [
+          {
+            "name": "start",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "end",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "intrinsic": "RANGE_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.Integer",
+        "intrinsic": "RANGE_ITERATOR"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Range method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Range method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Set",
+        "kind": "TYPE",
+        "type": "std.core.Set",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Set/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Unique-value container."
+      },
+      "runtimeShape": "SET",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "SET_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.Set/T",
+        "intrinsic": "SET_ITERATOR"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "add",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Set/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Set method"
+          },
+          "intrinsic": "SET_ADD"
+        },
+        {
+          "symbol": {
+            "name": "contains",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Set/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Set method"
+          },
+          "intrinsic": "SET_CONTAINS"
+        },
+        {
+          "symbol": {
+            "name": "remove",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Set/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Set method"
+          },
+          "intrinsic": "SET_REMOVE"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Set method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Set method"
+          },
+          "intrinsic": "IS_EMPTY"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Stack",
+        "kind": "TYPE",
+        "type": "std.core.Stack",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.Stack/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "LIFO container with push, pop, and peek."
+      },
+      "runtimeShape": "STACK",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "STACK_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "iterable": {
+        "elementType": "std.core.Stack/T",
+        "intrinsic": "STACK_ITERATOR"
+      },
+      "members": [
+        {
+          "symbol": {
+            "name": "push",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.Stack/T",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm Stack method"
+          },
+          "intrinsic": "STACK_PUSH"
+        },
+        {
+          "symbol": {
+            "name": "pop",
+            "kind": "METHOD",
+            "type": "std.core.Stack/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Stack method"
+          },
+          "intrinsic": "STACK_POP"
+        },
+        {
+          "symbol": {
+            "name": "peek",
+            "kind": "METHOD",
+            "type": "std.core.Stack/T",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Stack method"
+          },
+          "intrinsic": "STACK_PEEK"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Stack method"
+          },
+          "intrinsic": "SIZE"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm Stack method"
+          },
+          "intrinsic": "IS_EMPTY"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "String",
+        "kind": "TYPE",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "STRING",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "byteSize",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_BYTE_SIZE"
+        },
+        {
+          "symbol": {
+            "name": "codePointSize",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_CODE_POINT_SIZE"
+        },
+        {
+          "symbol": {
+            "name": "graphemeSize",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_GRAPHEME_SIZE"
+        },
+        {
+          "symbol": {
+            "name": "codePoints",
+            "kind": "METHOD",
+            "type": "std.core.Array<std.core.CodePoint>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_CODE_POINTS"
+        },
+        {
+          "symbol": {
+            "name": "graphemes",
+            "kind": "METHOD",
+            "type": "std.core.Array<std.core.String>",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_GRAPHEMES"
+        },
+        {
+          "symbol": {
+            "name": "sliceCodePoints",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "start",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              },
+              {
+                "name": "end",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_SLICE_CODE_POINTS"
+        },
+        {
+          "symbol": {
+            "name": "split",
+            "kind": "METHOD",
+            "type": "std.core.Array<std.core.String>",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "separator",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_SPLIT"
+        },
+        {
+          "symbol": {
+            "name": "isEmpty",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_IS_EMPTY"
+        },
+        {
+          "symbol": {
+            "name": "contains",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_CONTAINS"
+        },
+        {
+          "symbol": {
+            "name": "startsWith",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "prefix",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_STARTS_WITH"
+        },
+        {
+          "symbol": {
+            "name": "endsWith",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "suffix",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_ENDS_WITH"
+        },
+        {
+          "symbol": {
+            "name": "sliceGraphemes",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "start",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              },
+              {
+                "name": "end",
+                "type": "std.core.Integer",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_SLICE_GRAPHEMES"
+        },
+        {
+          "symbol": {
+            "name": "replace",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "target",
+                "type": "std.core.String",
+                "hasDefault": false
+              },
+              {
+                "name": "replacement",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_REPLACE"
+        },
+        {
+          "symbol": {
+            "name": "replaceFirst",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "target",
+                "type": "std.core.String",
+                "hasDefault": false
+              },
+              {
+                "name": "replacement",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_REPLACE_FIRST"
+        },
+        {
+          "symbol": {
+            "name": "trim",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_TRIM"
+        },
+        {
+          "symbol": {
+            "name": "trimStart",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_TRIM_START"
+        },
+        {
+          "symbol": {
+            "name": "trimEnd",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_TRIM_END"
+        },
+        {
+          "symbol": {
+            "name": "toLowercase",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_TO_LOWERCASE"
+        },
+        {
+          "symbol": {
+            "name": "toUppercase",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_TO_UPPERCASE"
+        },
+        {
+          "symbol": {
+            "name": "equalsIgnoreCaseAscii",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_EQUALS_IGNORE_CASE_ASCII"
+        },
+        {
+          "symbol": {
+            "name": "compareCodePoints",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "right",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_COMPARE_CODE_POINTS"
+        },
+        {
+          "symbol": {
+            "name": "compareTo",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": "std.core.String",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_COMPARE_CODE_POINTS"
+        },
+        {
+          "symbol": {
+            "name": "normalizeNfc",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_NORMALIZE_NFC"
+        },
+        {
+          "symbol": {
+            "name": "normalizeNfd",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_NORMALIZE_NFD"
+        },
+        {
+          "symbol": {
+            "name": "normalizeNfkc",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_NORMALIZE_NFKC"
+        },
+        {
+          "symbol": {
+            "name": "normalizeNfkd",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_NORMALIZE_NFKD"
+        },
+        {
+          "symbol": {
+            "name": "isNormalizedNfc",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_IS_NORMALIZED_NFC"
+        },
+        {
+          "symbol": {
+            "name": "isNormalizedNfd",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_IS_NORMALIZED_NFD"
+        },
+        {
+          "symbol": {
+            "name": "isNormalizedNfkc",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_IS_NORMALIZED_NFKC"
+        },
+        {
+          "symbol": {
+            "name": "isNormalizedNfkd",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "STRING_IS_NORMALIZED_NFKD"
+        },
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm String method"
+          },
+          "intrinsic": "TO_STRING"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "StringBuilder",
+        "kind": "TYPE",
+        "type": "std.core.StringBuilder",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Mutable builder for efficient string concatenation."
+      },
+      "runtimeShape": "STRING_BUILDER",
+      "constructor": {
+        "parameters": [],
+        "intrinsic": "STRING_BUILDER_CONSTRUCT"
+      },
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "append",
+            "kind": "METHOD",
+            "type": "std.core.StringBuilder",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "<error>",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Norm StringBuilder method"
+          },
+          "intrinsic": "BUILDER_APPEND"
+        },
+        {
+          "symbol": {
+            "name": "toString",
+            "kind": "METHOD",
+            "type": "std.core.String",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm StringBuilder method"
+          },
+          "intrinsic": "BUILDER_TO_STRING"
+        },
+        {
+          "symbol": {
+            "name": "size",
+            "kind": "METHOD",
+            "type": "std.core.Integer",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Norm StringBuilder method"
+          },
+          "intrinsic": "SIZE"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "Void",
+        "kind": "TYPE",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "VOID",
+      "defaultCollectionLiteral": false,
+      "members": [],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "NativeIterator",
+        "kind": "TYPE",
+        "type": "std.core.NativeIterator",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.NativeIterator/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "runtimeShape": "NATIVE_ITERATOR",
+      "defaultCollectionLiteral": false,
+      "members": [],
+      "typeMembers": [],
+      "hidden": true
+    }
+  ],
+  "builtinGlobals": [
+    {
+      "symbol": {
+        "name": "__applicationDirectory",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "APPLICATION_DIRECTORY"
+    },
+    {
+      "symbol": {
+        "name": "__applicationPackage",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "APPLICATION_PACKAGE"
+    },
+    {
+      "symbol": {
+        "name": "__awaitCancellation",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "AWAIT_CANCELLATION"
+    },
+    {
+      "symbol": {
+        "name": "__bytesAt",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "index",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_BYTES_AT"
+    },
+    {
+      "symbol": {
+        "name": "__bytesCreate",
+        "kind": "FUNCTION",
+        "type": "std.core.__bytesCreate/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__bytesCreate/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "values",
+            "type": "std.core.Array<std.core.Integer>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_BYTES_CREATE"
+    },
+    {
+      "symbol": {
+        "name": "__bytesJoin",
+        "kind": "FUNCTION",
+        "type": "std.core.__bytesJoin/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__bytesJoin/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "values",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_BYTES_JOIN"
+    },
+    {
+      "symbol": {
+        "name": "__bytesSize",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_BYTES_SIZE"
+    },
+    {
+      "symbol": {
+        "name": "__bytesSlice",
+        "kind": "FUNCTION",
+        "type": "std.core.__bytesSlice/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__bytesSlice/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "start",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "length",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_BYTES_SLICE"
+    },
+    {
+      "symbol": {
+        "name": "__bytesToArray",
+        "kind": "FUNCTION",
+        "type": "std.core.Array<std.core.Integer>",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_BYTES_TO_ARRAY"
+    },
+    {
+      "symbol": {
+        "name": "__classLiteral",
+        "kind": "FUNCTION",
+        "type": "std.core.Class<std.core.__classLiteral/T>",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__classLiteral/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "CLASS_LITERAL"
+    },
+    {
+      "symbol": {
+        "name": "__clockNow",
+        "kind": "FUNCTION",
+        "type": "std.core.__clockNow/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__clockNow/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clock",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TIME_CLOCK_NOW"
+    },
+    {
+      "symbol": {
+        "name": "__configurationProperties",
+        "kind": "FUNCTION",
+        "type": "std.core.__configurationProperties/Result",
+        "typeParameters": [
+          {
+            "name": "Value",
+            "type": "std.core.__configurationProperties/Value"
+          },
+          {
+            "name": "Result",
+            "type": "std.core.__configurationProperties/Result"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.__configurationProperties/Value",
+            "hasDefault": false
+          },
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.__configurationProperties/Value>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "CONFIGURATION_PROPERTIES"
+    },
+    {
+      "symbol": {
+        "name": "__fieldLiteral",
+        "kind": "FUNCTION",
+        "type": "std.core.Field<std.core.__fieldLiteral/Owner,std.core.__fieldLiteral/Value>",
+        "typeParameters": [
+          {
+            "name": "Owner",
+            "type": "std.core.__fieldLiteral/Owner"
+          },
+          {
+            "name": "Value",
+            "type": "std.core.__fieldLiteral/Value"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ordinal",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FIELD_LITERAL"
+    },
+    {
+      "symbol": {
+        "name": "__fileClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "resource",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__fileFlush",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "writer",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_WRITER_FLUSH"
+    },
+    {
+      "symbol": {
+        "name": "__fileOpenRead",
+        "kind": "FUNCTION",
+        "type": "std.core.__fileOpenRead/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__fileOpenRead/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_OPEN_READ"
+    },
+    {
+      "symbol": {
+        "name": "__fileOpenWrite",
+        "kind": "FUNCTION",
+        "type": "std.core.__fileOpenWrite/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__fileOpenWrite/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "mode",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_OPEN_WRITE"
+    },
+    {
+      "symbol": {
+        "name": "__fileRead",
+        "kind": "FUNCTION",
+        "type": "std.core.__fileRead/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__fileRead/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reader",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "maximumBytes",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_READER_READ"
+    },
+    {
+      "symbol": {
+        "name": "__fileSync",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "writer",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "mode",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_WRITER_SYNC"
+    },
+    {
+      "symbol": {
+        "name": "__fileWrite",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "writer",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "content",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_WRITER_WRITE"
+    },
+    {
+      "symbol": {
+        "name": "__httpClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "response",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "HTTP_RESPONSE_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__httpHeaders",
+        "kind": "FUNCTION",
+        "type": "std.core.Array<std.core.String>",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "response",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "HTTP_RESPONSE_HEADERS"
+    },
+    {
+      "symbol": {
+        "name": "__httpRead",
+        "kind": "FUNCTION",
+        "type": "std.core.__httpRead/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__httpRead/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "maximumBytes",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "HTTP_RESPONSE_READ"
+    },
+    {
+      "symbol": {
+        "name": "__httpSend",
+        "kind": "FUNCTION",
+        "type": "std.core.__httpSend/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__httpSend/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "method",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "uri",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "headers",
+            "type": "std.core.Array<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "body",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "HTTP_SEND"
+    },
+    {
+      "symbol": {
+        "name": "__httpStatus",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "response",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "HTTP_RESPONSE_STATUS"
+    },
+    {
+      "symbol": {
+        "name": "__jarInputStreamRead",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInputStreamRead/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInputStreamRead/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stream",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "maximumBytes",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INPUT_STREAM_READ"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke0",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke0/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke0/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke1",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke1/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke1/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke2",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke2/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke2/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke3",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke3/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke3/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke4",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke4/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke4/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke5",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke5/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke5/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke6",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke6/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke6/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg5",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke7",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke7/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke7/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg5",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg6",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvoke8",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarInvoke8/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarInvoke8/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg5",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg6",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg7",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid0",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid1",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid2",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid3",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid4",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid5",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid6",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg5",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid7",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg5",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg6",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarInvokeVoid8",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "call",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arg0",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg1",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg2",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg3",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg4",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg5",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg6",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "arg7",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_INVOKE_VOID"
+    },
+    {
+      "symbol": {
+        "name": "__jarOutputStreamFlush",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "stream",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_OUTPUT_STREAM_FLUSH"
+    },
+    {
+      "symbol": {
+        "name": "__jarOutputStreamWrite",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "stream",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "content",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_OUTPUT_STREAM_WRITE"
+    },
+    {
+      "symbol": {
+        "name": "__jarStreamClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "stream",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_STREAM_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__jarTaskAwait",
+        "kind": "FUNCTION",
+        "type": "std.core.__jarTaskAwait/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jarTaskAwait/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_TASK_AWAIT"
+    },
+    {
+      "symbol": {
+        "name": "__jarTaskCancel",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_TASK_CANCEL"
+    },
+    {
+      "symbol": {
+        "name": "__jarTaskClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_TASK_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__jarTaskCompleted",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAR_TASK_COMPLETED"
+    },
+    {
+      "symbol": {
+        "name": "__javaCollectionAdd",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "element",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_COLLECTION_ADD"
+    },
+    {
+      "symbol": {
+        "name": "__javaCollectionContains",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "element",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_COLLECTION_CONTAINS"
+    },
+    {
+      "symbol": {
+        "name": "__javaCollectionRemove",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "element",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_COLLECTION_REMOVE"
+    },
+    {
+      "symbol": {
+        "name": "__javaCollectionSize",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_COLLECTION_SIZE"
+    },
+    {
+      "symbol": {
+        "name": "__javaIterableIterator",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaIterableIterator/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaIterableIterator/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_ITERABLE_ITERATOR"
+    },
+    {
+      "symbol": {
+        "name": "__javaIteratorHasNext",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_ITERATOR_HAS_NEXT"
+    },
+    {
+      "symbol": {
+        "name": "__javaIteratorNext",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaIteratorNext/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaIteratorNext/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_ITERATOR_NEXT"
+    },
+    {
+      "symbol": {
+        "name": "__javaListGet",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaListGet/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaListGet/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "index",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_LIST_GET"
+    },
+    {
+      "symbol": {
+        "name": "__javaListRemove",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaListRemove/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaListRemove/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "index",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_LIST_REMOVE"
+    },
+    {
+      "symbol": {
+        "name": "__javaListSet",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaListSet/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaListSet/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "index",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "element",
+            "type": "std.core.__javaListSet/T",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_LIST_SET"
+    },
+    {
+      "symbol": {
+        "name": "__javaMapContainsKey",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "key",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_MAP_CONTAINS_KEY"
+    },
+    {
+      "symbol": {
+        "name": "__javaMapGet",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaMapGet/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaMapGet/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "key",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_MAP_GET"
+    },
+    {
+      "symbol": {
+        "name": "__javaMapNew",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaMapNew/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaMapNew/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_MAP_NEW"
+    },
+    {
+      "symbol": {
+        "name": "__javaMapPut",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaMapPut/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaMapPut/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "key",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "element",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_MAP_PUT"
+    },
+    {
+      "symbol": {
+        "name": "__javaMapRemove",
+        "kind": "FUNCTION",
+        "type": "std.core.__javaMapRemove/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__javaMapRemove/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "key",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_MAP_REMOVE"
+    },
+    {
+      "symbol": {
+        "name": "__javaMapSize",
+        "kind": "FUNCTION",
+        "type": "std.core.Integer",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JAVA_MAP_SIZE"
+    },
+    {
+      "symbol": {
+        "name": "__jsonDecode",
+        "kind": "FUNCTION",
+        "type": "std.core.__jsonDecode/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jsonDecode/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JSON_DECODE"
+    },
+    {
+      "symbol": {
+        "name": "__jsonEncode",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jsonEncode/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.__jsonEncode/T",
+            "hasDefault": false
+          },
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.__jsonEncode/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JSON_ENCODE"
+    },
+    {
+      "symbol": {
+        "name": "__jsonParse",
+        "kind": "FUNCTION",
+        "type": "std.core.__jsonParse/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__jsonParse/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JSON_PARSE"
+    },
+    {
+      "symbol": {
+        "name": "__jsonWrite",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "JSON_WRITE"
+    },
+    {
+      "symbol": {
+        "name": "__publishModule",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "name",
+            "type": "std.core.String?",
+            "hasDefault": false
+          },
+          {
+            "name": "version",
+            "type": "std.core.Integer?",
+            "hasDefault": false
+          },
+          {
+            "name": "exports",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "dependencyRepositories",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "dependencyNames",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "dependencyVersions",
+            "type": "std.core.List<std.core.Integer?>",
+            "hasDefault": false
+          },
+          {
+            "name": "dependencyExports",
+            "type": "std.core.List<std.core.Boolean>",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingSource",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingPath",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingGroup",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingArtifact",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingVersion",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingDigest",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingApiTypes",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingApiMembers",
+            "type": "std.core.List<std.core.List<std.core.String>>",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingApiOverloadNames",
+            "type": "std.core.List<std.core.List<std.core.String>>",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingApiOverloadParameterTypes",
+            "type": "std.core.List<std.core.List<std.core.List<std.core.String>>>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "PUBLISH_MODULE"
+    },
+    {
+      "symbol": {
+        "name": "__systemClock",
+        "kind": "FUNCTION",
+        "type": "std.core.__systemClock/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__systemClock/T"
+          }
+        ],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TIME_SYSTEM_CLOCK"
+    },
+    {
+      "symbol": {
+        "name": "__textDecodeUtf8",
+        "kind": "FUNCTION",
+        "type": "std.core.String?",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "content",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_TEXT_DECODE_UTF8"
+    },
+    {
+      "symbol": {
+        "name": "__textEncodeUtf8",
+        "kind": "FUNCTION",
+        "type": "std.core.__textEncodeUtf8/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__textEncodeUtf8/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "text",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_TEXT_ENCODE_UTF8"
+    },
+    {
+      "symbol": {
+        "name": "__use",
+        "kind": "FUNCTION",
+        "type": "std.core.__use/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__use/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "close",
+            "type": "std.core.Function<std.core.Void>",
+            "hasDefault": false
+          },
+          {
+            "name": "body",
+            "type": "std.core.Function<std.core.__use/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "IO_USE"
+    },
+    {
+      "symbol": {
+        "name": "__xmlDecode",
+        "kind": "FUNCTION",
+        "type": "std.core.__xmlDecode/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__xmlDecode/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "XML_DECODE"
+    },
+    {
+      "symbol": {
+        "name": "__xmlEncode",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__xmlEncode/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.__xmlEncode/T",
+            "hasDefault": false
+          },
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.__xmlEncode/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "XML_ENCODE"
+    },
+    {
+      "symbol": {
+        "name": "__yamlDecode",
+        "kind": "FUNCTION",
+        "type": "std.core.__yamlDecode/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__yamlDecode/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "YAML_DECODE"
+    },
+    {
+      "symbol": {
+        "name": "__yamlEncode",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__yamlEncode/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.__yamlEncode/T",
+            "hasDefault": false
+          },
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.__yamlEncode/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "YAML_ENCODE"
+    },
+    {
+      "symbol": {
+        "name": "expectedOutputLine",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Declares one expected output line for a test program."
+      },
+      "intrinsic": "EXPECTED_OUTPUT_LINE"
+    },
+    {
+      "symbol": {
+        "name": "printLine",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Writes one value followed by a newline."
+      },
+      "intrinsic": "PRINT_LINE"
+    },
+    {
+      "symbol": {
+        "name": "range",
+        "kind": "FUNCTION",
+        "type": "std.core.Range",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "start",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "end",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Creates an end-exclusive integer range."
+      },
+      "intrinsic": "RANGE_CONSTRUCT"
+    },
+    {
+      "symbol": {
+        "name": "range",
+        "kind": "FUNCTION",
+        "type": "std.core.Range",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "start",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "end",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "step",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Creates an end-exclusive integer range."
+      },
+      "intrinsic": "RANGE_CONSTRUCT"
+    },
+    {
+      "symbol": {
+        "name": "require",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "condition",
+            "type": "std.core.Boolean",
+            "hasDefault": false
+          },
+          {
+            "name": "message",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "REQUIRE_ARGUMENT"
+    }
+  ]
 }

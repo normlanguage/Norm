@@ -2,8 +2,8 @@ package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.bridge.JavaApplicationBridge;
 import dev.w0fv1.norm.core.CoreArtifact;
+import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -51,7 +51,10 @@ public final class JavaAnnotationProcessorPipeline {
         throw new JavaAnnotationProcessingException(
             "cannot clear Java annotation output " + output, exception);
       }
-      return new JavaAnnotationProcessingOutput(output, stubs);
+      return new JavaAnnotationProcessingOutput(
+          output,
+          stubs,
+          new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()));
     }
     Path staging = null;
     try {
@@ -88,7 +91,8 @@ public final class JavaAnnotationProcessorPipeline {
                 : diagnostics.strip());
       }
       var applicationCalls = new java.util.TreeMap<String, JavaCallTarget>();
-      JavaApplicationMethodIndex.analyze(classes, stubs)
+      var methods = JavaApplicationMethodIndex.analyze(classes, stubs);
+      methods
           .instanceMethods()
           .forEach((id, target) -> applicationCalls.put(id.toString(), target));
       var generationPaths = new ArrayList<Path>(classpath);
@@ -103,7 +107,7 @@ public final class JavaAnnotationProcessorPipeline {
       }
       replace(staging, output);
       staging = null;
-      return new JavaAnnotationProcessingOutput(output, stubs);
+      return new JavaAnnotationProcessingOutput(output, stubs, methods);
     } catch (JavaAnnotationProcessingException exception) {
       throw exception;
     } catch (IllegalArgumentException exception) {

@@ -3,6 +3,8 @@ package dev.w0fv1.norm.jvm;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.w0fv1.norm.bridge.JavaDirectCall;
+import dev.w0fv1.norm.execution.JarBindingInvocationException;
+import dev.w0fv1.norm.execution.JarBindingResult;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -145,12 +147,10 @@ final class JavaDirectCallGeneratorTest {
     try (var runtime =
         JvmJarBindingRuntime.closedWorld(
             List.of(binding), java.util.Map.of("parse", target(call)))) {
-      assertEquals(
-          new dev.w0fv1.norm.execution.JarBindingResult.Scalar(42),
-          runtime.invoke("parse", List.of("42")));
+      assertEquals(new JarBindingResult.Scalar(42), runtime.invoke("parse", List.of("42")));
       var failure =
           assertThrows(
-              dev.w0fv1.norm.execution.JarBindingInvocationException.class,
+              JarBindingInvocationException.class,
               () -> runtime.invoke("parse", List.of("invalid")));
       assertInstanceOf(NumberFormatException.class, failure.getCause());
     }

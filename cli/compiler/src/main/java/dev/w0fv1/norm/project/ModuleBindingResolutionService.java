@@ -2,10 +2,10 @@ package dev.w0fv1.norm.project;
 
 import dev.w0fv1.norm.frontend.ModuleBindingSourceEditor;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.Sha256Digest;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

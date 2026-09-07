@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.SourceFile;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
@@ -15,6 +15,17 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class AnalyzerTypeArchitectureTest {
+  @Test
+  void semanticPassesDoNotHoldTheOrchestrator() {
+    for (Class<?> pass :
+        List.of(TypeSystem.class, ExpressionChecker.class, AnnotationChecker.class)) {
+      assertFalse(
+          java.util.Arrays.stream(pass.getDeclaredFields())
+              .anyMatch(field -> field.getType() == Analyzer.class),
+          pass.getSimpleName());
+    }
+  }
+
   @Test
   void constructsDeclarationLookupBeforeAnalysisAndExposesNoMutationEntrypoints() {
     SourceFile source =
@@ -101,7 +112,7 @@ final class AnalyzerTypeArchitectureTest {
       }
     }
 
-    Field expectedReturnType = SemanticAnalysisContext.class.getDeclaredField("expectedReturnType");
+    Field expectedReturnType = BodyAnalysisState.class.getDeclaredField("expectedReturnType");
     assertEquals(SemanticType.class, expectedReturnType.getType());
     for (Class<?> layer : layers) {
       assertFalse(

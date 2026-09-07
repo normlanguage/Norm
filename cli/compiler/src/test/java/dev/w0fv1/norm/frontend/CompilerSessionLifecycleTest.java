@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CompilationOutput;
 import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationUnitId;
-import dev.w0fv1.norm.value.DocumentId;
-import dev.w0fv1.norm.value.SourceFile;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -93,11 +93,7 @@ final class CompilerSessionLifecycleTest {
     session.compile(first);
     session.compile(second);
     CompilationOutput recompiled =
-        session
-            .compile(request("first", "Void main() { printLine(3) }"))
-            .program()
-            .orElseThrow()
-            .compilation();
+        session.compile(request("first", "Void main() { printLine(3) }")).output().orElseThrow();
 
     assertTrue(recompiled.state().delta().detached().isEmpty());
     assertEquals(
@@ -113,7 +109,7 @@ final class CompilerSessionLifecycleTest {
     session.compile(request);
 
     session.invalidate(request.entryDocument());
-    CompilationOutput recompiled = session.compile(request).program().orElseThrow().compilation();
+    CompilationOutput recompiled = session.compile(request).output().orElseThrow();
 
     assertEquals(2, parses.get());
     assertTrue(recompiled.state().delta().detached().isEmpty());

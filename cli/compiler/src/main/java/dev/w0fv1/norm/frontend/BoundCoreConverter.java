@@ -7,26 +7,36 @@ import dev.w0fv1.norm.bound.BoundAnnotationTarget;
 import dev.w0fv1.norm.bound.BoundAnnotationValue;
 import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
+import dev.w0fv1.norm.bound.BoundCallableKind;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundEnum;
+import dev.w0fv1.norm.bound.BoundInterceptor;
 import dev.w0fv1.norm.bound.BoundInterface;
 import dev.w0fv1.norm.bound.BoundInterfaceMethod;
+import dev.w0fv1.norm.bound.BoundLocalId;
 import dev.w0fv1.norm.bound.BoundProgram;
 import dev.w0fv1.norm.bound.BoundSource;
 import dev.w0fv1.norm.bound.BoundTypeParameter;
+import dev.w0fv1.norm.bound.BoundVisibility;
 import dev.w0fv1.norm.bound.BoundWitness;
+import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationApplication;
 import dev.w0fv1.norm.core.CoreAnnotationReference;
 import dev.w0fv1.norm.core.CoreAnnotationTarget;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreBinding;
 import dev.w0fv1.norm.core.CoreBindingShape;
+import dev.w0fv1.norm.core.CoreCallableBindingKind;
+import dev.w0fv1.norm.core.CoreCallableParameter;
 import dev.w0fv1.norm.core.CoreConformance;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreDefinitionOrigin;
 import dev.w0fv1.norm.core.CoreDefinitionRole;
 import dev.w0fv1.norm.core.CoreEnumVariant;
 import dev.w0fv1.norm.core.CoreField;
+import dev.w0fv1.norm.core.CoreInterceptor;
+import dev.w0fv1.norm.core.CoreMethodDispatch;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeParameter;
@@ -35,14 +45,18 @@ import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.CoreVisibility;
 import dev.w0fv1.norm.core.CoreWitness;
 import dev.w0fv1.norm.core.CoreWitnessTarget;
+import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.core.PendingDefinitionReference;
+import dev.w0fv1.norm.semantic.NumericTypes;
 import dev.w0fv1.norm.semantic.SemanticType;
-import dev.w0fv1.norm.value.DocumentId;
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
+import dev.w0fv1.norm.value.AnnotationTarget;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,8 +75,7 @@ final class BoundCoreConverter {
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOwnerIndices = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOrdinals = new LinkedHashMap<>();
-  private final Map<String, Map<dev.w0fv1.norm.bound.BoundLocalId, Integer>> callableLocals =
-      new LinkedHashMap<>();
+  private final Map<String, Map<BoundLocalId, Integer>> callableLocals = new LinkedHashMap<>();
 
   BoundCoreConverter(
       BoundProgram program, Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates) {
@@ -184,16 +197,14 @@ final class BoundCoreConverter {
   }
 
   private CoreAnnotationValue.Content annotationContent(
-      BoundAnnotationValue.Content value,
-      dev.w0fv1.norm.semantic.SemanticType type,
-      BoundCoreTypeConverter types) {
+      BoundAnnotationValue.Content value, SemanticType type, BoundCoreTypeConverter types) {
     return switch (value) {
       case BoundAnnotationValue.Literal literal -> {
         Object materialized = literal.value();
         if (materialized instanceof java.math.BigInteger integer) {
-          materialized = dev.w0fv1.norm.semantic.NumericTypes.materialize(integer, type);
+          materialized = NumericTypes.materialize(integer, type);
         } else if (materialized instanceof java.math.BigDecimal decimal) {
-          materialized = dev.w0fv1.norm.semantic.NumericTypes.materialize(decimal, type);
+          materialized = NumericTypes.materialize(decimal, type);
         }
         yield new CoreAnnotationValue.Literal(materialized);
       }
@@ -238,7 +249,7 @@ final class BoundCoreConverter {
             declaration.methods().stream()
                 .map(
                     method -> new PendingDefinitionReference(declarationIndex(method.id().value())))
-                .map(dev.w0fv1.norm.core.CoreDefinitionLink.class::cast)
+                .map(CoreDefinitionLink.class::cast)
                 .toList());
     return new Declaration(
         definition,
@@ -292,7 +303,7 @@ final class BoundCoreConverter {
                                 parameter.name(), types.convert(parameter.type())))
                     .toList(),
                 returnType),
-            owner.visibility() == dev.w0fv1.norm.bound.BoundVisibility.PUBLIC));
+            owner.visibility() == BoundVisibility.PUBLIC));
   }
 
   private Declaration convert(BoundEnum declaration) {
@@ -378,9 +389,9 @@ final class BoundCoreConverter {
         new CoreDefinition.Aggregate(
             nominalType(source, declaration.name(), visibility(declaration.visibility())),
             switch (declaration.kind()) {
-              case CLASS -> dev.w0fv1.norm.core.CoreAggregateKind.CLASS;
-              case VALUE -> dev.w0fv1.norm.core.CoreAggregateKind.VALUE;
-              case ANNOTATION -> dev.w0fv1.norm.core.CoreAggregateKind.ANNOTATION;
+              case CLASS -> CoreAggregateKind.CLASS;
+              case VALUE -> CoreAggregateKind.VALUE;
+              case ANNOTATION -> CoreAggregateKind.ANNOTATION;
             },
             switch (declaration.type().category()) {
               case IDENTITY -> CoreValueCategory.IDENTITY;
@@ -404,7 +415,7 @@ final class BoundCoreConverter {
             declaration.dispatch().stream()
                 .map(
                     dispatch ->
-                        new dev.w0fv1.norm.core.CoreMethodDispatch(
+                        new CoreMethodDispatch(
                             new PendingDefinitionReference(
                                 declarationIndex(dispatch.slot().value())),
                             new PendingDefinitionReference(
@@ -414,7 +425,7 @@ final class BoundCoreConverter {
             declaration.constructors().stream()
                 .map(
                     constructor ->
-                        (dev.w0fv1.norm.core.CoreDefinitionLink)
+                        (CoreDefinitionLink)
                             new PendingDefinitionReference(declarationIndex(constructor.value())))
                 .toList(),
             coreConformances(declaration.conformances(), types));
@@ -429,9 +440,9 @@ final class BoundCoreConverter {
             visibility(declaration.visibility()),
             new CoreBindingShape.Aggregate(
                 switch (declaration.kind()) {
-                  case CLASS -> dev.w0fv1.norm.core.CoreAggregateKind.CLASS;
-                  case VALUE -> dev.w0fv1.norm.core.CoreAggregateKind.VALUE;
-                  case ANNOTATION -> dev.w0fv1.norm.core.CoreAggregateKind.ANNOTATION;
+                  case CLASS -> CoreAggregateKind.CLASS;
+                  case VALUE -> CoreAggregateKind.VALUE;
+                  case ANNOTATION -> CoreAggregateKind.ANNOTATION;
                 },
                 switch (declaration.type().category()) {
                   case IDENTITY -> CoreValueCategory.IDENTITY;
@@ -510,7 +521,7 @@ final class BoundCoreConverter {
             declaration.parameters().stream()
                 .map(
                     parameter ->
-                        new dev.w0fv1.norm.core.CoreCallableParameter(
+                        new CoreCallableParameter(
                             parameter.name(),
                             types.convert(parameter.type()),
                             body.localIndex(parameter.id()),
@@ -532,7 +543,7 @@ final class BoundCoreConverter {
             .map(BoundAggregate::name)
             .or(
                 () ->
-                    declaration.kind() == dev.w0fv1.norm.bound.BoundCallableKind.METHOD
+                    declaration.kind() == BoundCallableKind.METHOD
                         ? declaration.receiverType().map(SemanticType::name)
                         : Optional.empty());
     CoreDefinitionRole role =
@@ -547,8 +558,8 @@ final class BoundCoreConverter {
         definition,
         origin(declaration.name(), declaration.span(), body.nodeSpans()),
         body.referenceTargets(),
-        declaration.kind() == dev.w0fv1.norm.bound.BoundCallableKind.CONSTRUCTOR
-                || declaration.kind() == dev.w0fv1.norm.bound.BoundCallableKind.LAMBDA
+        declaration.kind() == BoundCallableKind.CONSTRUCTOR
+                || declaration.kind() == BoundCallableKind.LAMBDA
             ? Optional.empty()
             : Optional.of(
                 new BindingSeed(
@@ -558,9 +569,9 @@ final class BoundCoreConverter {
                     visibility(declaration.visibility()),
                     new CoreBindingShape.Callable(
                         switch (declaration.kind()) {
-                          case EXTENSION -> dev.w0fv1.norm.core.CoreCallableBindingKind.EXTENSION;
-                          case METHOD -> dev.w0fv1.norm.core.CoreCallableBindingKind.METHOD;
-                          default -> dev.w0fv1.norm.core.CoreCallableBindingKind.FUNCTION;
+                          case EXTENSION -> CoreCallableBindingKind.EXTENSION;
+                          case METHOD -> CoreCallableBindingKind.METHOD;
+                          default -> CoreCallableBindingKind.FUNCTION;
                         },
                         coreTypeParameters(callableTypeParameters, types),
                         declaration.parameters().stream()
@@ -570,11 +581,7 @@ final class BoundCoreConverter {
                                         parameter.name(), types.convert(parameter.type())))
                             .toList(),
                         types.convert(declaration.returnType())),
-                    owner
-                        .map(
-                            value ->
-                                value.visibility() == dev.w0fv1.norm.bound.BoundVisibility.PUBLIC)
-                        .orElse(true))),
+                    owner.map(value -> value.visibility() == BoundVisibility.PUBLIC).orElse(true))),
         role);
   }
 
@@ -585,9 +592,9 @@ final class BoundCoreConverter {
     return index;
   }
 
-  private dev.w0fv1.norm.core.CoreInterceptor coreInterceptor(
-      dev.w0fv1.norm.bound.BoundInterceptor interceptor, BoundCoreTypeConverter types) {
-    return new dev.w0fv1.norm.core.CoreInterceptor(
+  private CoreInterceptor coreInterceptor(
+      BoundInterceptor interceptor, BoundCoreTypeConverter types) {
+    return new CoreInterceptor(
         new PendingDefinitionReference(declarationIndex(interceptor.annotation().value())),
         interceptor.values().stream().map(value -> annotationValue(value, types)).toList());
   }
@@ -604,8 +611,8 @@ final class BoundCoreConverter {
     return ordinal;
   }
 
-  private int localIndex(String callable, dev.w0fv1.norm.bound.BoundLocalId local) {
-    Map<dev.w0fv1.norm.bound.BoundLocalId, Integer> locals = callableLocals.get(callable);
+  private int localIndex(String callable, BoundLocalId local) {
+    Map<BoundLocalId, Integer> locals = callableLocals.get(callable);
     if (locals == null || !locals.containsKey(local)) {
       throw new IllegalStateException("core local is absent: " + local);
     }
@@ -642,7 +649,7 @@ final class BoundCoreConverter {
             : Optional.empty());
   }
 
-  private static CoreVisibility visibility(dev.w0fv1.norm.bound.BoundVisibility visibility) {
+  private static CoreVisibility visibility(BoundVisibility visibility) {
     return CoreVisibility.valueOf(visibility.name());
   }
 
@@ -708,18 +715,14 @@ final class BoundCoreConverter {
     }
 
     CoreAnnotationApplication resolve(
-        Map<Integer, dev.w0fv1.norm.core.DefinitionId> definitions,
-        List<DefinitionOccurrenceId> occurrences) {
-      java.util.function.Function<
-              dev.w0fv1.norm.core.CoreDefinitionLink, dev.w0fv1.norm.core.CoreDefinitionLink>
-          links =
-              link -> {
-                if (link instanceof PendingDefinitionReference pending) {
-                  return new DefinitionReference.External(
-                      definitions.get(pending.declarationIndex()));
-                }
-                return link;
-              };
+        Map<Integer, DefinitionId> definitions, List<DefinitionOccurrenceId> occurrences) {
+      java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links =
+          link -> {
+            if (link instanceof PendingDefinitionReference pending) {
+              return new DefinitionReference.External(definitions.get(pending.declarationIndex()));
+            }
+            return link;
+          };
       return new CoreAnnotationApplication(
           definitions.get(annotationDeclaration),
           target.resolve(occurrences),
@@ -728,18 +731,14 @@ final class BoundCoreConverter {
 
     private static CoreAnnotationValue resolveAnnotationValue(
         CoreAnnotationValue value,
-        java.util.function.Function<
-                dev.w0fv1.norm.core.CoreDefinitionLink, dev.w0fv1.norm.core.CoreDefinitionLink>
-            links) {
+        java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links) {
       return new CoreAnnotationValue(
           CoreTypes.mapLinks(value.type(), links), resolveAnnotationContent(value.value(), links));
     }
 
     private static CoreAnnotationValue.Content resolveAnnotationContent(
         CoreAnnotationValue.Content value,
-        java.util.function.Function<
-                dev.w0fv1.norm.core.CoreDefinitionLink, dev.w0fv1.norm.core.CoreDefinitionLink>
-            links) {
+        java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links) {
       return switch (value) {
         case CoreAnnotationValue.Literal literal -> literal;
         case CoreAnnotationValue.Null ignored -> CoreAnnotationValue.Null.INSTANCE;
@@ -777,16 +776,14 @@ final class BoundCoreConverter {
           PendingAnnotationTarget.Local {
     CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences);
 
-    record Package(dev.w0fv1.norm.value.ModuleCoordinate module, String packageName)
-        implements PendingAnnotationTarget {
+    record Package(ModuleCoordinate module, String packageName) implements PendingAnnotationTarget {
       @Override
       public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
         return new CoreAnnotationTarget.Package(module, packageName);
       }
     }
 
-    record Definition(dev.w0fv1.norm.value.AnnotationTarget kind, int declaration)
-        implements PendingAnnotationTarget {
+    record Definition(AnnotationTarget kind, int declaration) implements PendingAnnotationTarget {
       @Override
       public CoreAnnotationTarget resolve(List<DefinitionOccurrenceId> occurrences) {
         return new CoreAnnotationTarget.Definition(kind, occurrences.get(declaration));
@@ -932,13 +929,9 @@ final class BoundCoreConverter {
     private static CoreBindingShape resolve(
         CoreBindingShape shape,
         java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver) {
-      java.util.function.Function<
-              dev.w0fv1.norm.core.CoreDefinitionLink, dev.w0fv1.norm.core.CoreDefinitionLink>
-          links =
-              link ->
-                  link instanceof PendingDefinitionReference pending
-                      ? resolver.apply(pending)
-                      : link;
+      java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links =
+          link ->
+              link instanceof PendingDefinitionReference pending ? resolver.apply(pending) : link;
       return switch (shape) {
         case CoreBindingShape.Callable callable ->
             new CoreBindingShape.Callable(
@@ -1017,9 +1010,7 @@ final class BoundCoreConverter {
 
     private static List<CoreTypeParameter> resolveTypeParameters(
         List<CoreTypeParameter> parameters,
-        java.util.function.Function<
-                dev.w0fv1.norm.core.CoreDefinitionLink, dev.w0fv1.norm.core.CoreDefinitionLink>
-            links) {
+        java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links) {
       return parameters.stream()
           .map(
               parameter ->

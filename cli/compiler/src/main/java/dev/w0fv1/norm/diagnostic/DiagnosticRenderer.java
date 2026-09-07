@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.diagnostic;
 
-import dev.w0fv1.norm.value.SourcePosition;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourcePosition;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.Locale;
 import java.util.Objects;
 

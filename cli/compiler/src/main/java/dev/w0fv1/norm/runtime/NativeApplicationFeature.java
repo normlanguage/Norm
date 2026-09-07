@@ -1,6 +1,11 @@
 package dev.w0fv1.norm.runtime;
 
+import dev.w0fv1.norm.bridge.JavaDirectCallRegistry;
+import dev.w0fv1.norm.jvm.JavaApplicationCallLinker;
 import dev.w0fv1.norm.jvm.JavaCallbackTypes;
+import dev.w0fv1.norm.jvm.JavaDirectCallBundle;
+import dev.w0fv1.norm.jvm.LinkedJavaClasses;
+import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.hosted.RuntimeProxyCreation;
 
@@ -13,21 +18,16 @@ public final class NativeApplicationFeature implements Feature {
     try {
       NativeApplicationData application =
           NativeApplicationArchive.read(java.nio.file.Path.of(archive));
-      Class<?> registryType =
-          access.findClassByName(dev.w0fv1.norm.jvm.JavaDirectCallBundle.REGISTRY_NAME);
+      Class<?> registryType = access.findClassByName(JavaDirectCallBundle.REGISTRY_NAME);
       if (registryType == null)
         throw new IllegalStateException("Native direct Java calls are absent");
-      var registry =
-          (dev.w0fv1.norm.bridge.JavaDirectCallRegistry)
-              registryType.getConstructor().newInstance();
+      var registry = (JavaDirectCallRegistry) registryType.getConstructor().newInstance();
       NativeApplicationMain.install(
           application,
-          new dev.w0fv1.norm.truffle.TruffleExecutionBackend()
-              .prepare(application.artifact(), application.execution()),
+          new TruffleExecutionBackend().prepare(application.artifact(), application.execution()),
           registry.calls(),
-          dev.w0fv1.norm.jvm.LinkedJavaClasses.resolve(
-              application.bindings(), access.getApplicationClassLoader()),
-          dev.w0fv1.norm.jvm.JavaApplicationCallLinker.link(access.getApplicationClassLoader()));
+          LinkedJavaClasses.resolve(application.bindings(), access.getApplicationClassLoader()),
+          JavaApplicationCallLinker.link(access.getApplicationClassLoader()));
       for (String callback : JavaCallbackTypes.from(application.bindings())) {
         Class<?> type = access.findClassByName(callback);
         if (type == null)

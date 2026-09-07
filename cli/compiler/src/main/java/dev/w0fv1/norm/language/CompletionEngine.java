@@ -5,7 +5,7 @@ import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
-import dev.w0fv1.norm.semantic.TypeRelations;
+import dev.w0fv1.norm.source.SourceLocation;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -19,7 +19,6 @@ final class CompletionEngine {
   private final CompletionContextResolver contexts = new CompletionContextResolver();
   private final ExpectedTypeResolver expectedTypes = new ExpectedTypeResolver();
   private final ImportEditBuilder imports = new ImportEditBuilder();
-  private final SymbolSpecializer symbols = new SymbolSpecializer();
 
   List<Completion> complete(DocumentSemanticModel document, int offset) {
     if (offset < 0 || offset > document.source().length()) {
@@ -103,7 +102,7 @@ final class CompletionEngine {
         result.stream()
             .sorted(
                 Comparator.<RankedCompletion>comparingInt(
-                        candidate -> relevance(expectedType, candidate))
+                        candidate -> relevance(model, expectedType, candidate))
                     .thenComparing(candidate -> candidate.completion().label())
                     .thenComparingInt(RankedCompletion::arity))
             .toList();
@@ -144,7 +143,7 @@ final class CompletionEngine {
 
   private static List<Completion> withTextEdits(
       List<Completion> completions, DocumentSemanticModel document, int start, int end) {
-    var location = new dev.w0fv1.norm.value.SourceLocation(document.source().id(), start, end);
+    var location = new SourceLocation(document.source().id(), start, end);
     return completions.stream()
         .map(
             completion ->
@@ -290,7 +289,7 @@ final class CompletionEngine {
                 .filter(symbol -> symbol.kind() == SymbolKind.EXTENSION)
                 .filter(symbol -> !symbol.parameters().isEmpty())
                 .filter(symbol -> !memberNames.contains(symbol.name()))
-                .filter(symbol -> model.isAssignable(symbol.parameters().getFirst().type(), type))
+                .flatMap(symbol -> model.specializeReceiver(symbol, type).stream())
                 .map(CompletionEngine::extensionMember);
     return symbolCompletions(Stream.concat(members.stream(), extensions), functionValueContext);
   }
@@ -467,7 +466,7 @@ final class CompletionEngine {
     if (symbol.kind() == SymbolKind.TYPE
         && expected.isPresent()
         && expected.orElseThrow().identity().equals(symbol.type().identity())) {
-      candidate = symbols.specialize(symbol, expected.orElseThrow().arguments());
+      candidate = symbol.specialize(expected.orElseThrow().arguments()).orElse(symbol);
     }
     return new RankedCompletion(
         completion(candidate, additionalTextEdits, constructor),
@@ -496,13 +495,11 @@ final class CompletionEngine {
         ranked.arity());
   }
 
-  private static int relevance(Optional<SemanticType> expected, RankedCompletion candidate) {
+  private static int relevance(
+      SemanticModel model, Optional<SemanticType> expected, RankedCompletion candidate) {
     int typeRank = 1;
     if (expected.isPresent() && candidate.type().isPresent()) {
-      typeRank =
-          TypeRelations.isAssignable(expected.orElseThrow(), candidate.type().orElseThrow())
-              ? 0
-              : 2;
+      typeRank = model.isAssignable(expected.orElseThrow(), candidate.type().orElseThrow()) ? 0 : 2;
     }
     int kindRank =
         switch (candidate.completion().kind()) {

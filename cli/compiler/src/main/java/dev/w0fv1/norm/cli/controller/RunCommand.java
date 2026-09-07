@@ -1,9 +1,12 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.cli.value.ExitCode;
+import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
@@ -43,15 +46,15 @@ final class RunCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
 
-    dev.w0fv1.norm.value.CompilationResult result;
+    CompilationResult result;
     try {
       NormRuntime backend = new NormRuntime();
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
       String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
       try (var launcher =
           applicationBundle == null || applicationBundle.isBlank()
-              ? environment.persistentLauncher()
-              : environment.bundledLauncher(Path.of(applicationBundle))) {
+              ? ApplicationRunner.persistent(environment)
+              : ApplicationRunner.bundled(environment, Path.of(applicationBundle))) {
         ExecutionContext context = ExecutionContext.of(out, JdkSystemPlatform.standard());
         if (applicationBundle != null && !applicationBundle.isBlank()) {
           String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
@@ -67,7 +70,7 @@ final class RunCommand implements Command {
           "error[NORM-CLI-0004]: cannot load source file '%s': %s%n",
           arguments.getFirst(), exception.getMessage());
       return ExitCode.INPUT_ERROR;
-    } catch (dev.w0fv1.norm.frontend.CompilationInfrastructureException exception) {
+    } catch (CompilationInfrastructureException exception) {
       err.printf(
           "error[NORM-CLI-0005]: compiler storage unavailable: %s%n", exception.getMessage());
       return ExitCode.INTERNAL_ERROR;

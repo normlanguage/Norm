@@ -31,7 +31,7 @@ import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeCapture;
 import dev.w0fv1.norm.core.CoreUnaryOperator;
 import dev.w0fv1.norm.core.PendingDefinitionReference;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

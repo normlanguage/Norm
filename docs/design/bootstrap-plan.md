@@ -20,7 +20,7 @@ Binder 固化表达式类型、value/identity 类别、调用目标、控制流�
 
 ## Truffle 后端
 
-Lowerer 只消费 `CoreCompilation`，生成函数 CallTarget、frame slot、控制流节点和互操作边界。CLI 发行包携带同一执行实现及平台 runtime。
+Lowerer 只消费 `CoreArtifact`，生成函数 CallTarget、frame slot、控制流节点和互操作边界。CLI 发行包携带同一执行实现及平台 runtime。
 
 ## 验收
 

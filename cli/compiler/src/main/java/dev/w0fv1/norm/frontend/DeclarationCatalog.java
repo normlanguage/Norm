@@ -1,9 +1,9 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
-import dev.w0fv1.norm.value.DocumentId;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;

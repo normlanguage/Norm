@@ -155,16 +155,16 @@ final class IoIntrinsicDispatcher {
     if (execution == null) throw new IllegalStateException("resource execution is unavailable");
     Object result;
     try {
-      result = RuntimeValues.invoke(execution, closure(body));
+      result = RuntimeInvocation.invoke(execution, closure(body));
     } catch (RuntimeException | Error failure) {
       try {
-        RuntimeValues.invoke(execution, closure(close));
+        RuntimeInvocation.invoke(execution, closure(close));
       } catch (RuntimeException | Error closeFailure) {
         if (closeFailure != failure) failure.addSuppressed(closeFailure);
       }
       throw failure;
     }
-    RuntimeValues.invoke(execution, closure(close));
+    RuntimeInvocation.invoke(execution, closure(close));
     return result;
   }
 

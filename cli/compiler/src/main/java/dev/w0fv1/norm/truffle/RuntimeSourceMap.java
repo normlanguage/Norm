@@ -2,7 +2,7 @@ package dev.w0fv1.norm.truffle;
 
 import dev.w0fv1.norm.core.CoreAuthoringMap;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;

@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.bound;
 
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.source.SourceFile;
 import java.util.List;
 import java.util.Objects;
 

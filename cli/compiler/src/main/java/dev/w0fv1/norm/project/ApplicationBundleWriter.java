@@ -3,13 +3,12 @@ package dev.w0fv1.norm.project;
 import com.google.gson.JsonObject;
 import dev.w0fv1.norm.frontend.SourceStructure;
 import dev.w0fv1.norm.jvm.BundledJarGraphs;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import dev.w0fv1.norm.value.ModuleRepositoryCoordinate;
 import dev.w0fv1.norm.value.ModuleRequirement;
-import dev.w0fv1.norm.value.Sha256Digest;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -77,6 +76,10 @@ public final class ApplicationBundleWriter {
         source = source.stripTrailing() + System.lineSeparator() + moduleSource(descriptor);
       }
       Files.writeString(entry, source, StandardCharsets.UTF_8);
+      new ClasspathResourceMaterializer()
+          .materialize(
+              entry.getParent().resolve("resources"),
+              sourceSet.resourceSet().forModule(rootCoordinate));
       return entry;
     }
     for (SourceFile source : sourceSet.sources()) {
@@ -92,20 +95,10 @@ public final class ApplicationBundleWriter {
     Path bundledModule = destination.resolve(sourceSet.root().relativize(modulePath));
     Files.createDirectories(bundledModule.getParent());
     Files.writeString(bundledModule, moduleSource(descriptor), StandardCharsets.UTF_8);
-    Path resources = modulePath.getParent().resolve("resources");
-    if (Files.isDirectory(resources)) {
-      try (var paths = Files.walk(resources)) {
-        for (Path resource : paths.filter(Files::isRegularFile).sorted().toList()) {
-          Path target =
-              bundledModule
-                  .getParent()
-                  .resolve("resources")
-                  .resolve(resources.relativize(resource));
-          Files.createDirectories(target.getParent());
-          Files.copy(resource, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-      }
-    }
+    new ClasspathResourceMaterializer()
+        .materialize(
+            bundledModule.getParent().resolve("resources"),
+            sourceSet.resourceSet().forModule(rootCoordinate));
     return destination.resolve(sourceSet.root().relativize(sourceSet.primaryPath()));
   }
 
@@ -123,10 +116,10 @@ public final class ApplicationBundleWriter {
       Path archive =
           directory.resolve(
               coordinate.artifact() + "-" + coordinate.version() + ModuleArchiveFormat.FILE_SUFFIX);
-      Files.copy(entry.getValue(), archive, StandardCopyOption.REPLACE_EXISTING);
+      entry.getValue().copyTo(archive);
       Files.writeString(
           archive.resolveSibling(archive.getFileName() + ".sha256"),
-          Sha256Digest.compute(archive).value() + System.lineSeparator(),
+          entry.getValue().content().value() + System.lineSeparator(),
           StandardCharsets.UTF_8);
     }
   }

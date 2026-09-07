@@ -2,8 +2,8 @@ package dev.w0fv1.norm.diagnostic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 

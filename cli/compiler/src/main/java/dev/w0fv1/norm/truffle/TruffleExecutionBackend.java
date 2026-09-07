@@ -6,12 +6,14 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
 import dev.w0fv1.norm.abi.BuiltinAbi;
 import dev.w0fv1.norm.core.CoreArtifact;
+import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.core.DebugInfoId;
 import dev.w0fv1.norm.core.ExecutableId;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.GuestStackFrame;
 import dev.w0fv1.norm.execution.NormExecutionException;
+import dev.w0fv1.norm.execution.PreparedExecution;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,29 +40,47 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
 
   @Override
   public void execute(
-      CoreArtifact artifact,
-      dev.w0fv1.norm.core.CoreExecutionPlan execution,
-      ExecutionContext context) {
+      CoreArtifact artifact, CoreExecutionPlan execution, ExecutionContext context) {
     prepare(artifact, execution).execute(context);
   }
 
-  public dev.w0fv1.norm.execution.PreparedExecution prepare(CoreArtifact artifact) {
-    return prepare(artifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact));
+  public PreparedExecution prepare(CoreArtifact artifact) {
+    return prepare(artifact, CoreExecutionPlan.forArtifact(artifact));
   }
 
-  public dev.w0fv1.norm.execution.PreparedExecution prepare(
-      CoreArtifact artifact, dev.w0fv1.norm.core.CoreExecutionPlan execution) {
+  public PreparedExecution prepare(CoreArtifact artifact, CoreExecutionPlan execution) {
     Objects.requireNonNull(artifact, "artifact");
     return new PreparedTruffleProgram(
         RuntimeSourceMap.from(artifact.authoring()), compile(null, artifact, execution));
   }
 
-  synchronized ExecutableProgram compile(Language language, CoreArtifact artifact) {
-    return compile(language, artifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact));
+  public com.oracle.truffle.api.RootCallTarget instrumentedEntryPoint(
+      com.oracle.truffle.api.TruffleLanguage<?> language,
+      CoreArtifact artifact,
+      CoreExecutionPlan execution) {
+    ExecutableProgram executable = compile(language, artifact, execution);
+    return new com.oracle.truffle.api.nodes.RootNode(language) {
+      @Override
+      public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
+        ExecutionContext context = (ExecutionContext) frame.getArguments()[0];
+        try {
+          return executable.execute(context);
+        } finally {
+          context.output().flush();
+        }
+      }
+    }.getCallTarget();
   }
 
   synchronized ExecutableProgram compile(
-      Language language, CoreArtifact artifact, dev.w0fv1.norm.core.CoreExecutionPlan execution) {
+      com.oracle.truffle.api.TruffleLanguage<?> language, CoreArtifact artifact) {
+    return compile(language, artifact, CoreExecutionPlan.forArtifact(artifact));
+  }
+
+  synchronized ExecutableProgram compile(
+      com.oracle.truffle.api.TruffleLanguage<?> language,
+      CoreArtifact artifact,
+      CoreExecutionPlan execution) {
     String backendAbi =
         (language == null ? "norm-truffle-standalone-v1:" : "norm-truffle-language-v1:")
             + BuiltinAbi.FINGERPRINT;
@@ -125,9 +145,7 @@ public final class TruffleExecutionBackend implements ExecutionBackend {
   }
 
   private record CacheKey(
-      ExecutableId executable,
-      DebugInfoId debug,
-      dev.w0fv1.norm.core.CoreExecutionPlan execution) {}
+      ExecutableId executable, DebugInfoId debug, CoreExecutionPlan execution) {}
 
   private record GuestLocation(URI uri, int line, int column, boolean known) {
     private static GuestLocation unknown() {

@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.cli.component;
 
+import dev.w0fv1.norm.platform.jdk.FilePublication;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,7 +39,7 @@ public final class WindowsApplicationExecutable {
         stream.write(digest);
         stream.write(MAGIC);
       }
-      dev.w0fv1.norm.platform.jdk.FilePublication.publish(temporary, output);
+      FilePublication.publish(temporary, output);
       return output;
     } finally {
       Files.deleteIfExists(temporary);

@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.semantic;
 
 import dev.w0fv1.norm.diagnostic.Diagnostic;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.List;
 import java.util.Optional;
 

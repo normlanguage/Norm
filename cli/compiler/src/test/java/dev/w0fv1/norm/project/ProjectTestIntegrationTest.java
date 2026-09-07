@@ -3,6 +3,8 @@ package dev.w0fv1.norm.project;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.application.ProjectTestResult;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -79,8 +81,8 @@ final class ProjectTestIntegrationTest {
     ProjectTestResult result;
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("maven-cache"));
-        ProjectLauncher launcher =
-            new ProjectLauncher(projects, environment.compilerSession(), backend)) {
+        ApplicationRunner launcher =
+            new ApplicationRunner(projects, environment.compilerSession(), backend)) {
       result = launcher.test(test, ExecutionContext.of(new PrintWriter(output)));
     }
 

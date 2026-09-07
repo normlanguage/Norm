@@ -2,8 +2,9 @@ package dev.w0fv1.norm.cli.component;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import dev.w0fv1.norm.application.CompiledApplication;
+import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import dev.w0fv1.norm.jvm.LinkedJarBinding;
-import dev.w0fv1.norm.project.ApplicationCompilation;
 import dev.w0fv1.norm.project.ProjectSourceSet;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -15,9 +16,7 @@ import org.objectweb.asm.Type;
 
 final class NativeImageConfigurationWriter {
   NativeImageConfiguration write(
-      ApplicationCompilation compilation,
-      java.util.List<LinkedJarBinding> bindings,
-      Path destination)
+      CompiledApplication compilation, java.util.List<LinkedJarBinding> bindings, Path destination)
       throws IOException {
     Path configuration =
         destination
@@ -37,36 +36,25 @@ final class NativeImageConfigurationWriter {
   }
 
   private static JsonArray reflection(
-      ApplicationCompilation compilation, java.util.List<LinkedJarBinding> bindings)
+      CompiledApplication compilation, java.util.List<LinkedJarBinding> bindings)
       throws IOException {
     Map<String, ReflectedClass> classes = new TreeMap<>();
     var materializable =
-        compilation
-            .result()
-            .program()
-            .orElseThrow()
-            .compilation()
-            .artifact()
-            .program()
-            .aggregates()
-            .stream()
+        compilation.result().output().orElseThrow().artifact().program().aggregates().stream()
             .filter(
                 aggregate ->
                     switch (aggregate.kind()) {
                       case CLASS, VALUE -> true;
                       case ANNOTATION -> false;
                     })
-            .map(
-                aggregate ->
-                    dev.w0fv1.norm.jvm.JavaApplicationTypeName.binaryName(aggregate.nominalType()))
+            .map(aggregate -> JavaApplicationTypeName.binaryName(aggregate.nominalType()))
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
     for (LinkedJarBinding binding : bindings) {
       binding.classDescriptors().values().stream()
           .map(NativeImageConfigurationWriter::descriptorName)
           .forEach(name -> reflect(classes, name));
     }
-    compilation.annotationOutput().stream()
-        .flatMap(output -> output.stubs().stream())
+    compilation.annotations().stubs().stream()
         .forEach(
             stub -> {
               String name = stub.binaryName();

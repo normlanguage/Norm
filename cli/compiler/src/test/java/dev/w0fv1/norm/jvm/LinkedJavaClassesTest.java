@@ -2,7 +2,9 @@ package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.List;
@@ -91,14 +93,13 @@ final class LinkedJavaClassesTest {
             classType);
     var bindings = List.of(new LinkedJarBinding(Map.of("identity", callable), Map.of(), Map.of()));
     var linked = LinkedJavaClasses.resolve(bindings, getClass().getClassLoader());
-    Map<String, dev.w0fv1.norm.bridge.JavaDirectCall> calls =
-        Map.of("identity", arguments -> arguments[0]);
+    Map<String, JavaDirectCall> calls = Map.of("identity", arguments -> arguments[0]);
     for (int iteration = 0; iteration < 2; iteration++) {
       try (var runtime =
           JvmJarBindingRuntime.closedWorld(
               LinkedJarBinding.linkCalls(bindings), calls, linked, Map.of())) {
         assertEquals(
-            new dev.w0fv1.norm.execution.JarBindingResult.ClassReference(List.of(dynamic)),
+            new JarBindingResult.ClassReference(List.of(dynamic)),
             runtime.invoke("identity", List.of(dynamic)));
       }
       assertFalse(linked.classes().containsKey(dynamic));

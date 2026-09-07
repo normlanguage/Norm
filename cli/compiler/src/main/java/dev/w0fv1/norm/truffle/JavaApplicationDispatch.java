@@ -2,13 +2,17 @@ package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
 import dev.w0fv1.norm.bridge.JavaApplicationBridge;
+import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreField;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
+import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
 import dev.w0fv1.norm.core.CoreTypes;
 import dev.w0fv1.norm.core.DefinitionId;
+import dev.w0fv1.norm.core.DefinitionReference;
+import dev.w0fv1.norm.execution.JavaApplicationRuntime;
 import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import java.lang.reflect.Field;
 import java.util.IdentityHashMap;
@@ -27,14 +31,14 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private final IdentityHashMap<RuntimeValues.ObjectValue, Object> proxies =
       new IdentityHashMap<>();
   private final ObjenesisStd objenesis = new ObjenesisStd();
-  private final Map<String, dev.w0fv1.norm.bridge.JavaDirectCall> hostCalls;
+  private final Map<String, JavaDirectCall> hostCalls;
 
   JavaApplicationDispatch(
       RuntimeProgram program,
       Map<DefinitionId, CallTarget> targets,
       GuestValueFactory values,
       ExecutionState execution,
-      dev.w0fv1.norm.execution.JavaApplicationRuntime runtime) {
+      JavaApplicationRuntime runtime) {
     this.program = Objects.requireNonNull(program, "program");
     this.targets = Map.copyOf(targets);
     this.values = Objects.requireNonNull(values, "values");
@@ -58,11 +62,10 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               }
               CoreType owner =
                   new CoreType.Declared(
-                      new CoreTypeConstructor.User(
-                          new dev.w0fv1.norm.core.DefinitionReference.External(id)),
+                      new CoreTypeConstructor.User(new DefinitionReference.External(id)),
                       List.of(),
                       aggregate.valueCategory(),
-                      dev.w0fv1.norm.core.CoreNullability.NON_NULL);
+                      CoreNullability.NON_NULL);
               RuntimeValues.ObjectValue guest = values.allocate(owner);
               attach(receiver, guest);
               return null;

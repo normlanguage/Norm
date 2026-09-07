@@ -3,15 +3,16 @@ package dev.w0fv1.norm.frontend;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.semantic.TypeParameterInfo;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
-import dev.w0fv1.norm.value.CompilationResult;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleGraph;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -103,7 +104,7 @@ final class ProjectCompilerTest {
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     StringWriter output = new StringWriter();
-    new NormRuntime().run(result.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(result.output().orElseThrow().artifact(), new PrintWriter(output));
     assertTrue(output.toString().equals("12" + System.lineSeparator()));
   }
 
@@ -124,7 +125,7 @@ final class ProjectCompilerTest {
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     StringWriter output = new StringWriter();
-    new NormRuntime().run(result.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(result.output().orElseThrow().artifact(), new PrintWriter(output));
     assertTrue(output.toString().equals("10" + System.lineSeparator()));
   }
 
@@ -151,7 +152,7 @@ final class ProjectCompilerTest {
             .filter(
                 symbol ->
                     symbol.typeParameters().stream()
-                        .map(dev.w0fv1.norm.semantic.TypeParameterInfo::name)
+                        .map(TypeParameterInfo::name)
                         .toList()
                         .equals(List.of("T")))
             .findFirst()
@@ -172,7 +173,7 @@ final class ProjectCompilerTest {
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     StringWriter output = new StringWriter();
-    new NormRuntime().run(result.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(result.output().orElseThrow().artifact(), new PrintWriter(output));
     assertTrue(output.toString().equals("7" + System.lineSeparator()));
   }
 
@@ -210,7 +211,7 @@ final class ProjectCompilerTest {
 
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     StringWriter output = new StringWriter();
-    new NormRuntime().run(result.program().orElseThrow(), new PrintWriter(output));
+    new NormRuntime().run(result.output().orElseThrow().artifact(), new PrintWriter(output));
     assertTrue(output.toString().equals(String.join(System.lineSeparator(), "1", "2", "")));
   }
 

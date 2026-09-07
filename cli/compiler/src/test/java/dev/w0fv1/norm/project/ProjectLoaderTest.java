@@ -7,12 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
+import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
-import dev.w0fv1.norm.value.SourceFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -152,7 +153,7 @@ final class ProjectLoaderTest {
       var sourceSet = projects.load(entry);
 
       assertEquals(
-          new dev.w0fv1.norm.value.ModuleCoordinate("hello.web", 0),
+          new ModuleCoordinate("hello.web", 0),
           sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
     }
   }
@@ -169,7 +170,7 @@ final class ProjectLoaderTest {
       var sourceSet = projects.load(entry);
 
       assertEquals(
-          dev.w0fv1.norm.value.ModuleCoordinate.localApplication(),
+          ModuleCoordinate.localApplication(),
           sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
       assertEquals("", SourceHeader.parse(sourceSet.primarySource()).packageName().orElse(""));
     }
@@ -193,7 +194,7 @@ final class ProjectLoaderTest {
       var sourceSet = projects.load(entry);
 
       assertEquals(
-          new dev.w0fv1.norm.value.ModuleCoordinate("sample", 0),
+          new ModuleCoordinate("sample", 0),
           sourceSet.scope().coordinate(sourceSet.primarySource().id()).module());
     }
   }
@@ -290,9 +291,7 @@ final class ProjectLoaderTest {
 
       assertEquals(
           repository.resolve("sample/lib/1/lib-1.nar").toAbsolutePath().normalize(),
-          sourceSet
-              .moduleArchives()
-              .get(new dev.w0fv1.norm.value.ModuleCoordinate("sample.lib", 1)));
+          sourceSet.moduleArchives().get(new ModuleCoordinate("sample.lib", 1)).path());
     }
   }
 

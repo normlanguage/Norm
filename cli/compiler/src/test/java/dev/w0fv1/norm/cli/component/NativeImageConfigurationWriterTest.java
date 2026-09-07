@@ -3,15 +3,28 @@ package dev.w0fv1.norm.cli.component;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.application.ApplicationInput;
+import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.application.CompiledApplication;
+import dev.w0fv1.norm.application.TemporaryDirectory;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.jvm.GeneratedJarBinding;
 import dev.w0fv1.norm.jvm.JarApiSchema;
+import dev.w0fv1.norm.jvm.JarBindingClasspath;
+import dev.w0fv1.norm.jvm.JavaAnnotationProcessingOutput;
+import dev.w0fv1.norm.jvm.JavaAnnotationStub;
+import dev.w0fv1.norm.jvm.JavaApplicationMethodIndex;
+import dev.w0fv1.norm.jvm.JavaBindingCallable;
+import dev.w0fv1.norm.jvm.JavaCallableKind;
+import dev.w0fv1.norm.jvm.JavaPrimitiveType;
+import dev.w0fv1.norm.jvm.LinkedJarBinding;
 import dev.w0fv1.norm.jvm.MavenJarIdentity;
 import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
-import dev.w0fv1.norm.project.ApplicationCompilation;
+import dev.w0fv1.norm.project.ModuleResource;
 import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.project.ProjectResources;
 import dev.w0fv1.norm.project.ProjectSourceSet;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
@@ -46,25 +59,27 @@ final class NativeImageConfigurationWriterTest {
         annotation Label implements TypeTarget, RuntimeRetention { String text }
         Void main() {}
         """);
-    try (var launcher = ProjectEnvironment.bootstrap(new NormRuntime()).launcher()) {
-      var compiled = launcher.compileApplication(source);
+    try (var launcher = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
+        var compiled = launcher.compileApplication(source)) {
       org.junit.jupiter.api.Assertions.assertTrue(
           compiled.result().isSuccess(), compiled.result().diagnostics().toString());
       var names = List.of("Entity", "Snapshot", "Contract", "Choice", "Label", "SyntheticHolder");
       var stubs =
           names.stream()
-              .map(
-                  name ->
-                      new dev.w0fv1.norm.jvm.JavaAnnotationStub(
-                          "norm.generated.application." + name, ""))
+              .map(name -> new JavaAnnotationStub("norm.generated.application." + name, ""))
               .toList();
       var application =
-          new ApplicationCompilation(
-              compiled.sourceSet(),
+          new CompiledApplication(
+              new ApplicationInput(
+                  compiled.application().orElseThrow().sourceSet().compilationRequest(),
+                  java.util.Optional.of(compiled.application().orElseThrow().sourceSet())),
               compiled.result(),
-              java.util.Optional.of(
-                  new dev.w0fv1.norm.jvm.JavaAnnotationProcessingOutput(directory, stubs)),
-              compiled.javaClasspath());
+              new JavaAnnotationProcessingOutput(
+                  directory,
+                  stubs,
+                  new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of())),
+              compiled.application().orElseThrow().javaClasspath(),
+              new TemporaryDirectory());
       var output =
           new NativeImageConfigurationWriter()
               .write(application, List.of(), directory.resolve("metadata"));
@@ -106,19 +121,22 @@ final class NativeImageConfigurationWriterTest {
       throws Exception {
     Path source = directory.resolve("main.norm");
     Files.writeString(source, "Void main() {}\n");
-    try (var launcher = ProjectEnvironment.bootstrap(new NormRuntime()).launcher()) {
-      var compilation = launcher.compileApplication(source);
+    try (var launcher = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
+        var compilation = launcher.compileApplication(source)) {
       var application =
-          new ApplicationCompilation(
-              compilation.sourceSet(),
+          new CompiledApplication(
+              new ApplicationInput(
+                  compilation.application().orElseThrow().sourceSet().compilationRequest(),
+                  java.util.Optional.of(compilation.application().orElseThrow().sourceSet())),
               compilation.result(),
-              java.util.Optional.of(
-                  new dev.w0fv1.norm.jvm.JavaAnnotationProcessingOutput(
-                      directory,
-                      List.of(
-                          new dev.w0fv1.norm.jvm.JavaAnnotationStub(binaryName, ""),
-                          new dev.w0fv1.norm.jvm.JavaAnnotationStub(binaryName + "Sibling", "")))),
-              compilation.javaClasspath());
+              new JavaAnnotationProcessingOutput(
+                  directory,
+                  List.of(
+                      new JavaAnnotationStub(binaryName, ""),
+                      new JavaAnnotationStub(binaryName + "Sibling", "")),
+                  new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of())),
+              compilation.application().orElseThrow().javaClasspath(),
+              new TemporaryDirectory());
       var output =
           new NativeImageConfigurationWriter()
               .write(application, List.of(), directory.resolve("metadata"));
@@ -187,9 +205,9 @@ final class NativeImageConfigurationWriterTest {
             new JarApiSchema(List.of()),
             generated);
     var environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (var launcher = environment.launcher()) {
-      var compilation = launcher.compileApplication(source);
-      var original = compilation.sourceSet();
+    try (var launcher = ApplicationRunner.open(environment);
+        var compilation = launcher.compileApplication(source)) {
+      var original = compilation.application().orElseThrow().sourceSet();
       var sources =
           new ProjectSourceSet(
               original.root(),
@@ -203,18 +221,23 @@ final class NativeImageConfigurationWriterTest {
               original.exportedSourcePaths(),
               original.bindingSourceDocuments(),
               List.of(binding),
-              Map.of(path, new dev.w0fv1.norm.project.ModuleResource(path, new byte[0])),
+              new ProjectResources(
+                  Map.of(
+                      original.scope().coordinate(original.primarySource().id()).module(),
+                      Map.of(path, new ModuleResource(path, new byte[0])))),
               original.applicationFactory(),
               original.mainEntrypoint());
       var output =
           new NativeImageConfigurationWriter()
               .write(
-                  new ApplicationCompilation(
-                      sources,
+                  new CompiledApplication(
+                      new ApplicationInput(
+                          sources.compilationRequest(), java.util.Optional.of(sources)),
                       compilation.result(),
-                      compilation.annotationOutput(),
-                      dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(sources.jarBindings())),
-                  List.of(dev.w0fv1.norm.jvm.LinkedJarBinding.from(binding)),
+                      compilation.application().orElseThrow().annotations(),
+                      JarBindingClasspath.prepare(sources.jarBindings()),
+                      new TemporaryDirectory()),
+                  List.of(LinkedJarBinding.from(binding)),
                   directory.resolve("metadata"));
       var metadata =
           JsonParser.parseString(
@@ -238,32 +261,34 @@ final class NativeImageConfigurationWriterTest {
   @Test
   void directCallsDoNotRequireReflectionRegistration() throws Exception {
     var used =
-        new dev.w0fv1.norm.jvm.JavaBindingCallable(
+        new JavaBindingCallable(
             "java.lang.System",
             "nanoTime",
             "()J",
-            dev.w0fv1.norm.jvm.JavaCallableKind.STATIC_METHOD,
+            JavaCallableKind.STATIC_METHOD,
             List.of(),
-            dev.w0fv1.norm.jvm.JavaPrimitiveType.LONG);
+            JavaPrimitiveType.LONG);
     var unused =
-        new dev.w0fv1.norm.jvm.JavaBindingCallable(
+        new JavaBindingCallable(
             "java.lang.System",
             "gc",
             "()V",
-            dev.w0fv1.norm.jvm.JavaCallableKind.STATIC_METHOD,
+            JavaCallableKind.STATIC_METHOD,
             List.of(),
-            dev.w0fv1.norm.jvm.JavaPrimitiveType.VOID);
+            JavaPrimitiveType.VOID);
     var binding =
-        new dev.w0fv1.norm.jvm.LinkedJarBinding(
-                Map.of("used", used, "unused", unused), Map.of(), Map.of())
+        new LinkedJarBinding(Map.of("used", used, "unused", unused), Map.of(), Map.of())
             .retainCalls(java.util.Set.of("used"));
     Path source = directory.resolve("main.norm");
     Files.writeString(source, "Void main() {}\n");
-    try (var launcher = ProjectEnvironment.bootstrap(new NormRuntime()).launcher()) {
-      var compilation = launcher.compileApplication(source);
+    try (var launcher = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
+        var compilation = launcher.compileApplication(source)) {
       var output =
           new NativeImageConfigurationWriter()
-              .write(compilation, List.of(binding), directory.resolve("metadata"));
+              .write(
+                  compilation.application().orElseThrow(),
+                  List.of(binding),
+                  directory.resolve("metadata"));
       var reflection =
           JsonParser.parseString(
                   Files.readString(

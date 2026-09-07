@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.frontend;
 
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.source.SourceFile;
 import java.io.IOException;
 import java.util.List;
 

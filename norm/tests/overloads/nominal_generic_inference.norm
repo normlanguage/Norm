@@ -1,0 +1,22 @@
+import std.testing.expectedOutputLines
+
+class Parent<T> {
+  T value
+  Parent(T value) { this.value = value }
+}
+
+class Child extends Parent<Integer> {
+  Child(Integer value) { super(value: value) }
+}
+
+T valueOf<T>(Parent<T> parent) { return parent.value }
+T choose<T>(T first, T second) { return first }
+
+Void main() {
+  expectedOutputLines(["42", "1", "42"])
+  Parent<Integer> parent = Parent<Integer>(1)
+  Child child = Child(42)
+  printLine(valueOf(child))
+  printLine(choose(first: parent, second: child).value)
+  printLine(choose(first: child, second: parent).value)
+}

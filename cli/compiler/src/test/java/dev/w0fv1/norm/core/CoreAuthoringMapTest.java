@@ -2,8 +2,8 @@ package dev.w0fv1.norm.core;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;

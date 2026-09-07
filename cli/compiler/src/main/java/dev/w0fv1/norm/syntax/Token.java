@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.syntax;
 
-import dev.w0fv1.norm.value.SourceSpan;
+import dev.w0fv1.norm.source.SourceSpan;
 import java.util.Objects;
 
 public record Token(TokenKind kind, String lexeme, String value, SourceSpan span) {

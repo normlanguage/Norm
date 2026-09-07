@@ -3,8 +3,8 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.semantic.SemanticScope;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.SymbolId;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.value.LexicalLifetime;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -32,14 +32,6 @@ final class FlowScopes {
 
   List<SemanticScope> semanticScopes() {
     return List.copyOf(semanticScopes);
-  }
-
-  int semanticScopeCount() {
-    return semanticScopes.size();
-  }
-
-  void restoreSemanticScopes(int size) {
-    semanticScopes.subList(size, semanticScopes.size()).clear();
   }
 
   void push(SourceSpan span) {
@@ -111,6 +103,48 @@ final class FlowScopes {
     referenceLifetimes.clear();
     referenceLifetimes.putAll(state.referenceLifetimes());
   }
+
+  Checkpoint checkpoint() {
+    return new Checkpoint(
+        scopes.stream()
+            .map(
+                scope ->
+                    new Scope(
+                        new HashMap<>(scope.symbols()),
+                        new ArrayList<>(scope.declarations()),
+                        scope.span(),
+                        scope.depth(),
+                        scope.region()))
+            .toList(),
+        Map.copyOf(declarationRegions),
+        snapshot(),
+        List.copyOf(semanticScopes));
+  }
+
+  void restore(Checkpoint checkpoint) {
+    scopes.clear();
+    checkpoint.scopes().stream()
+        .map(
+            scope ->
+                new Scope(
+                    new HashMap<>(scope.symbols()),
+                    new ArrayList<>(scope.declarations()),
+                    scope.span(),
+                    scope.depth(),
+                    scope.region()))
+        .forEach(scopes::addLast);
+    declarationRegions.clear();
+    declarationRegions.putAll(checkpoint.regions());
+    replace(checkpoint.flow());
+    semanticScopes.clear();
+    semanticScopes.addAll(checkpoint.semanticScopes());
+  }
+
+  record Checkpoint(
+      List<Scope> scopes,
+      Map<SymbolId, LexicalLifetime.Region> regions,
+      FlowState flow,
+      List<SemanticScope> semanticScopes) {}
 
   record ScopedSymbol(SemanticType declaredType, SymbolId id) {}
 

@@ -4,6 +4,7 @@ import dev.w0fv1.norm.abi.SerializationAbi;
 import dev.w0fv1.norm.core.CoreAggregateKind;
 import dev.w0fv1.norm.core.CoreAnnotationValue;
 import dev.w0fv1.norm.core.CoreDefinition;
+import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreNullability;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
@@ -223,7 +224,7 @@ final class SerializationRuntime {
     return new ShapeException("NORM-SERIALIZATION-UNSUPPORTED-TYPE", path, message + ": " + type);
   }
 
-  private static DefinitionId external(dev.w0fv1.norm.core.CoreDefinitionLink link) {
+  private static DefinitionId external(CoreDefinitionLink link) {
     return ((DefinitionReference.External) link).definition();
   }
 

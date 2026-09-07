@@ -46,8 +46,11 @@ record ExecutableProgram(
       failure = exception;
       throw exception;
     } finally {
-      if (bridge != null) bridge.close();
-      state.close(failure);
+      try {
+        state.close(failure);
+      } finally {
+        if (bridge != null) bridge.close();
+      }
     }
   }
 }

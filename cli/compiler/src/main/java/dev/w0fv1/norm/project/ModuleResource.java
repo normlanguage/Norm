@@ -20,4 +20,17 @@ public record ModuleResource(String path, byte[] content) {
   public byte[] content() {
     return content.clone();
   }
+
+  @Override
+  public boolean equals(Object other) {
+    return this == other
+        || other instanceof ModuleResource resource
+            && path.equals(resource.path)
+            && java.util.Arrays.equals(content, resource.content);
+  }
+
+  @Override
+  public int hashCode() {
+    return 31 * path.hashCode() + java.util.Arrays.hashCode(content);
+  }
 }

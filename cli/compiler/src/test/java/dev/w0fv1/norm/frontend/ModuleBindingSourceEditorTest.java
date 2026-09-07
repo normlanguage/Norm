@@ -2,10 +2,10 @@ package dev.w0fv1.norm.frontend;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.Sha256Digest;
-import dev.w0fv1.norm.value.SourceFile;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

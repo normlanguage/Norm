@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.language;
 
-import dev.w0fv1.norm.value.SourceLocation;
+import dev.w0fv1.norm.source.SourceLocation;
 import java.util.Objects;
 import java.util.Optional;
 

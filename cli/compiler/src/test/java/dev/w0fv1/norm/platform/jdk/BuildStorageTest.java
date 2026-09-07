@@ -2,7 +2,7 @@ package dev.w0fv1.norm.platform.jdk;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.w0fv1.norm.utils.TemporaryDirectory;
+import dev.w0fv1.norm.application.TemporaryDirectory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

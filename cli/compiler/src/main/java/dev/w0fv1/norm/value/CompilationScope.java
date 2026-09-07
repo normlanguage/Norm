@@ -1,5 +1,7 @@
 package dev.w0fv1.norm.value;
 
+import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.source.SourceFile;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedHashMap;

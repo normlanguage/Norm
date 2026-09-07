@@ -1,11 +1,11 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
+import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.LanguageSyntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
-import dev.w0fv1.norm.value.SourceFile;
-import dev.w0fv1.norm.value.SourceSpan;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
@@ -203,6 +203,13 @@ final class Lexer {
             UNTERMINATED_STRING,
             "string literal is not terminated before the end of the line",
             new SourceSpan(source, start, characterStart));
+        if (interpolated) {
+          addStringPart(TokenKind.STRING_TEXT, textStart, characterStart, value.toString());
+          tokens.add(
+              Token.simple(
+                  TokenKind.INTERPOLATED_STRING_END, "", SourceSpan.at(source, characterStart)));
+        } else
+          addStringPart(TokenKind.UNTERMINATED_LITERAL, start, characterStart, value.toString());
         return;
       }
       if (character != '\\') {
@@ -249,6 +256,8 @@ final class Lexer {
                 new SourceSpan(source, escapeStart, offset));
       }
     }
+    if (interpolated) addStringPart(TokenKind.STRING_TEXT, textStart, offset, value.toString());
+    else addStringPart(TokenKind.UNTERMINATED_LITERAL, start, offset, value.toString());
     diagnostics.error(
         UNTERMINATED_STRING,
         "string literal is not terminated before the end of the file",
@@ -313,6 +322,7 @@ final class Lexer {
             INVALID_CODE_POINT,
             "code point literal is not terminated before the end of the line",
             new SourceSpan(source, start, characterStart));
+        addStringPart(TokenKind.UNTERMINATED_LITERAL, start, characterStart, "");
         return;
       }
       if (character != '\\') {
@@ -347,6 +357,7 @@ final class Lexer {
         }
       }
     }
+    addStringPart(TokenKind.UNTERMINATED_LITERAL, start, offset, "");
     diagnostics.error(
         INVALID_CODE_POINT,
         "code point literal is not terminated before the end of the file",

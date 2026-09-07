@@ -12,6 +12,31 @@ final class BuiltinCatalogTest {
   private final BuiltinCatalog catalog = BuiltinCatalog.standard();
 
   @Test
+  void instantiatesEveryDeclaredProtocolFromTheSameTable() {
+    for (var declaration : catalog.protocolConformances()) {
+      var substitutions =
+          declaration.typeParameters().stream()
+              .collect(
+                  java.util.stream.Collectors.toMap(
+                      dev.w0fv1.norm.semantic.SemanticType::identity,
+                      ignored -> dev.w0fv1.norm.semantic.SemanticType.INTEGER));
+      var concrete = declaration.concreteType().substitute(substitutions);
+      assertTrue(
+          catalog
+              .protocolConformances(concrete)
+              .contains(declaration.interfaceType().substitute(substitutions)),
+          concrete::displayName);
+    }
+    var impostor =
+        dev.w0fv1.norm.semantic.SemanticType.declared(
+            "app.List",
+            "List",
+            java.util.List.of(dev.w0fv1.norm.semantic.SemanticType.INTEGER),
+            dev.w0fv1.norm.semantic.ValueCategory.IDENTITY);
+    assertTrue(catalog.protocolConformances(impostor).isEmpty());
+  }
+
+  @Test
   void ownsEveryBuiltinSymbolAndIntrinsicExactlyOnce() {
     Set<String> symbolIds = new HashSet<>();
     catalog.symbols().keySet().forEach(id -> assertTrue(symbolIds.add(id.value())));

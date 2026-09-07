@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.project;
 
 import dev.w0fv1.norm.frontend.SourceHeader;
-import dev.w0fv1.norm.value.SourceFile;
+import dev.w0fv1.norm.source.SourceFile;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;

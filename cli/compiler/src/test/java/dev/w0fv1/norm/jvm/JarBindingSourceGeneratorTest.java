@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
 import dev.w0fv1.norm.value.ModuleCoordinate;
@@ -16,6 +17,46 @@ import org.objectweb.asm.Opcodes;
 
 final class JarBindingSourceGeneratorTest {
   private static final Sha256Digest GRAPH_ID = Sha256Digest.parse("0123456789abcdef".repeat(4));
+
+  @Test
+  void planningOwnsNamesAndCallRegistryBeforeRendering() {
+    String owner = "sample.Numbers";
+    JavaBindingCallable integer =
+        new JavaBindingCallable(
+            owner,
+            "value",
+            "(I)I",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(JavaPrimitiveType.INT),
+            JavaPrimitiveType.INT);
+    JavaBindingCallable small =
+        new JavaBindingCallable(
+            owner,
+            "value",
+            "(S)I",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(JavaPrimitiveType.SHORT),
+            JavaPrimitiveType.INT);
+    BindingPlan plan =
+        new BindingPlanner()
+            .plan(
+                new ModuleCoordinate("numbers", 1),
+                List.of("Numbers"),
+                GRAPH_ID,
+                schema(owner, List.of(integer, small)));
+    BindingPlan.Declaration declaration = plan.declarations().getFirst();
+    assertEquals(2, plan.calls().size());
+    assertEquals(2, declaration.functions().size());
+    assertEquals(
+        2, declaration.functions().stream().map(BindingPlan.Call::name).distinct().count());
+    assertTrue(
+        declaration.functions().stream()
+            .allMatch(call -> plan.calls().get(call.id()).equals(call.callable())));
+    assertThrows(UnsupportedOperationException.class, () -> plan.calls().clear());
+    GeneratedJarBinding first = new BindingSourceRenderer().render(plan);
+    assertEquals(first, new BindingSourceRenderer().render(plan));
+    assertEquals(plan.calls(), first.calls());
+  }
 
   @Test
   void generatesTypedNormFunctionsForSupportedStaticMethods() {
@@ -181,6 +222,7 @@ final class JarBindingSourceGeneratorTest {
             List.of(),
             List.of(),
             List.of(apiMethod(supported), unsupported),
+            List.of(),
             JavaApiDisposition.BINDABLE);
 
     IllegalArgumentException failure =
@@ -243,6 +285,7 @@ final class JarBindingSourceGeneratorTest {
             List.of(),
             List.of(),
             List.of(apiMethod(supported), unsupported),
+            List.of(),
             JavaApiDisposition.BINDABLE);
 
     GeneratedBindingSource source =
@@ -618,7 +661,7 @@ final class JarBindingSourceGeneratorTest {
         generated
             .classDescriptors()
             .get(
-                new dev.w0fv1.norm.execution.JarBindingClassReference.Nominal(
+                new JarBindingClassReference.Nominal(
                     new ModuleCoordinate("sample.binding", 1), "sample.binding", "Types")));
   }
 
@@ -961,6 +1004,7 @@ final class JarBindingSourceGeneratorTest {
                 enumField(owner, "LOW", low),
                 enumField(owner, "$DEFAULT", defaultValue)),
             List.of(apiMethod(label), apiMethod(echo)),
+            List.of(),
             JavaApiDisposition.BINDABLE);
 
     GeneratedJarBinding generated =
@@ -1038,6 +1082,7 @@ final class JarBindingSourceGeneratorTest {
             List.of(),
             List.of(),
             List.of(apiMethod(path)),
+            List.of(),
             JavaApiDisposition.BINDABLE);
 
     GeneratedBindingSource source =
@@ -1187,6 +1232,7 @@ final class JarBindingSourceGeneratorTest {
                         List.of(
                             new JavaAnnotationConstantValue("http"),
                             new JavaAnnotationConstantValue("json"))))),
+            List.of(),
             JavaApiDisposition.BINDABLE);
 
     GeneratedBindingSource source =
@@ -1708,6 +1754,7 @@ final class JarBindingSourceGeneratorTest {
             List.of(),
             List.of(),
             List.of(),
+            List.of(),
             JavaApiDisposition.BINDABLE);
     String itemName = "sample.Item";
     JavaReferenceType itemType = new JavaReferenceType(itemName, JavaReferenceKind.OPAQUE);
@@ -1792,6 +1839,7 @@ final class JarBindingSourceGeneratorTest {
             List.of(),
             List.of(),
             Optional.empty(),
+            List.of(),
             List.of(),
             List.of(),
             List.of(),
@@ -1983,18 +2031,33 @@ final class JarBindingSourceGeneratorTest {
                         JavaTypeArgument.of(
                             JavaTypeVariance.EXACT,
                             JavaClassTypeSignature.raw("java.lang.String"))))));
-    JavaApiType first =
-        type(
-            "sample.FirstValue",
-            new JavaClassSignature(List.of(), Optional.of(stringValue), List.of()),
+    JavaBindingCallable inherited =
+        new JavaBindingCallable(
+            parentName,
+            "get",
+            "()Ljava/lang/Object;",
+            JavaCallableKind.INSTANCE_METHOD,
             List.of(),
-            List.of());
-    JavaApiType second =
-        type(
-            "sample.SecondValue",
-            new JavaClassSignature(List.of(), Optional.of(stringValue), List.of()),
-            List.of(),
-            List.of());
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING));
+    List<JavaApiType> children =
+        java.util.stream.Stream.of("sample.FirstValue", "sample.SecondValue")
+            .map(
+                binaryName ->
+                    new JavaApiType(
+                        binaryName,
+                        JavaApiTypeKind.CLASS,
+                        Opcodes.ACC_PUBLIC,
+                        new JavaClassSignature(List.of(), Optional.of(stringValue), List.of()),
+                        List.of(),
+                        List.of(),
+                        Optional.empty(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(apiMethod(inherited)),
+                        JavaApiDisposition.BINDABLE))
+            .toList();
 
     GeneratedJarBinding generated =
         new JarBindingSourceGenerator()
@@ -2002,7 +2065,10 @@ final class JarBindingSourceGeneratorTest {
                 new ModuleCoordinate("sample.binding", 1),
                 List.of("FirstValue", "SecondValue"),
                 GRAPH_ID,
-                new JarApiSchema(List.of(parent, first, second)));
+                new JarApiSchema(
+                    java.util.stream.Stream.concat(
+                            java.util.stream.Stream.of(parent), children.stream())
+                        .toList()));
 
     assertEquals(1, generated.calls().size());
     assertTrue(generated.sources().get(0).text().contains("String? get()"));
@@ -2146,6 +2212,7 @@ final class JarBindingSourceGeneratorTest {
             List.of(),
             List.of(),
             List.of(apiMethod(value)),
+            List.of(),
             JavaApiDisposition.BINDABLE);
 
     GeneratedBindingSource source =
@@ -2232,6 +2299,7 @@ final class JarBindingSourceGeneratorTest {
         List.of(),
         fields,
         List.of(),
+        List.of(),
         JavaApiDisposition.BINDABLE);
   }
 
@@ -2301,6 +2369,7 @@ final class JarBindingSourceGeneratorTest {
         List.of(),
         fields,
         callables.stream().map(JarBindingSourceGeneratorTest::apiMethod).toList(),
+        List.of(),
         JavaApiDisposition.BINDABLE);
   }
 
@@ -2313,6 +2382,7 @@ final class JarBindingSourceGeneratorTest {
         List.of(),
         List.of(),
         Optional.empty(),
+        List.of(),
         List.of(),
         List.of(),
         List.of(),

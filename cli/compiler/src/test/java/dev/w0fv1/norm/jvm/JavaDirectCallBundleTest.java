@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.bridge.JavaDirectCallRegistry;
+import dev.w0fv1.norm.execution.JarBindingResult;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.List;
@@ -139,9 +140,7 @@ final class JavaDirectCallBundleTest {
       assertEquals(java.util.Set.of("parse"), registry.calls().keySet());
       assertEquals(42, registry.calls().get("parse").invoke(new Object[] {"42"}));
       try (var runtime = JvmJarBindingRuntime.closedWorld(List.of(binding), registry.calls())) {
-        assertEquals(
-            new dev.w0fv1.norm.execution.JarBindingResult.Scalar(21),
-            runtime.invoke("parse", List.of("21")));
+        assertEquals(new JarBindingResult.Scalar(21), runtime.invoke("parse", List.of("21")));
       }
     }
   }
