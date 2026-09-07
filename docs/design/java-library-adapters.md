@@ -102,7 +102,7 @@ norm package path/to/commons/lang --output path/to/repository
 
 仓库坐标与制品名由 Module 身份派生，规则见[包管理器](/ecosystem/package-manager)。Maven 和 Gradle 都可消费生成的 NAR 与 POM。另一个 Norm 项目的 `dependency(repository, name, version?)` 使用同一坐标解析，无需 POM、Gradle 文件或锁文件。
 
-可运行目录见 [Apache Commons Lang 示例](../examples/java-commons-lang/README.md)。
+可运行目录见 [Apache Commons Lang 示例](https://github.com/normlanguage/examples/blob/main/java-commons-lang/README.md)。
 
 ## 内容身份
 
@@ -166,7 +166,7 @@ Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `st
 
 每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。发布门禁要求公开适配面全部生成并通过行为测试。
 
-Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。生成的应用类型保留 Norm 泛型继承，并在 JVM 应用外观中提供托管实例分配入口；框架创建的实体或组件会关联回同一个 Norm 对象。入口 Module 与包含框架支持源码的纯 Norm 依赖参与处理；生成的 Binding 声明不进入应用处理面。Norm 异常和枚举值穿过 DI、事务等 Java 代理后保持原有语言语义。真实框架验收入口见 [Micronaut BBS](../examples/micronaut-bbs/README.md)。
+Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。生成的应用类型保留 Norm 泛型继承，并在 JVM 应用外观中提供托管实例分配入口；框架创建的实体或组件会关联回同一个 Norm 对象。入口 Module 与包含框架支持源码的纯 Norm 依赖参与处理；生成的 Binding 声明不进入应用处理面。Norm 异常和枚举值穿过 DI、事务等 Java 代理后保持原有语言语义。真实框架验收入口见 [Micronaut BBS](https://github.com/normlanguage/examples/blob/main/micronaut-bbs/README.md)。
 
 ## 验收
 
