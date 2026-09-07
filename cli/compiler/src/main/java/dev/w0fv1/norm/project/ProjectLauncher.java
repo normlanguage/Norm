@@ -29,6 +29,8 @@ public final class ProjectLauncher implements AutoCloseable {
   private final ExecutionBackend backend;
   private final JavaAnnotationProcessorPipeline annotationProcessors;
   private final ClasspathResourceMaterializer resources;
+  private final dev.w0fv1.norm.utils.TemporaryDirectory workspace =
+      new dev.w0fv1.norm.utils.TemporaryDirectory();
 
   ProjectLauncher(ProjectLoader projects, CompilerSession compiler, ExecutionBackend backend) {
     this.projects = Objects.requireNonNull(projects, "projects");
@@ -158,7 +160,7 @@ public final class ProjectLauncher implements AutoCloseable {
               result.program().orElseThrow().compilation().artifact(),
               sourceSet.jarBindings(),
               javaClasspath,
-              sourceSet.root(),
+              workspace.path(),
               request.scope(),
               request.entryDocument(),
               request.bindingSources());
@@ -181,6 +183,8 @@ public final class ProjectLauncher implements AutoCloseable {
       ExecutionContext context, ProjectSourceSet sourceSet) {
     String packageName = SourceHeader.parse(sourceSet.primarySource()).packageName().orElse("");
     return Objects.requireNonNull(context, "context")
+        .withApplicationDirectory(
+            context.applicationDirectory().orElse(sourceSet.primaryPath().getParent()))
         .withApplicationPackage(JavaApplicationTypeName.packageName(packageName));
   }
 
@@ -194,7 +198,14 @@ public final class ProjectLauncher implements AutoCloseable {
 
   @Override
   public void close() {
-    compiler.close();
-    projects.close();
+    try {
+      compiler.close();
+    } finally {
+      try {
+        projects.close();
+      } finally {
+        workspace.close();
+      }
+    }
   }
 }

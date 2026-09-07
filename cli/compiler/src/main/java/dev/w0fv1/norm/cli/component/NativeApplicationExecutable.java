@@ -9,13 +9,9 @@ import dev.w0fv1.norm.runtime.NativeApplicationArchive;
 import dev.w0fv1.norm.runtime.NativeApplicationData;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,15 +41,19 @@ public final class NativeApplicationExecutable {
   }
 
   public Path write(
-      ApplicationCompilation compilation, Path destination, Consumer<String> buildOutput)
+      ApplicationCompilation compilation,
+      Path destination,
+      Consumer<String> buildOutput,
+      boolean diagnostics)
       throws IOException {
     Path output = destination.toAbsolutePath().normalize();
     Path parent = output.getParent();
     if (parent == null) throw new IOException("application executable has no parent directory");
     Files.createDirectories(parent);
-    Path staging = Files.createTempDirectory(parent, ".norm-native-");
-    try (var report = NativeBuildReport.create(output, buildOutput)) {
-      report.accept("Native build diagnostics: " + report.directory());
+    try (var workspace = new dev.w0fv1.norm.utils.TemporaryDirectory();
+        var report = NativeBuildReport.create(output, buildOutput, diagnostics)) {
+      Path staging = workspace.path();
+      if (diagnostics) report.accept("Native build diagnostics: " + report.directory());
       Path archive = staging.resolve("application.bin");
       var applicationIndex =
           compilation.annotationOutput().isPresent()
@@ -134,7 +134,9 @@ public final class NativeApplicationExecutable {
       }
       var reachability =
           new NativeReachabilityMetadata().prepare(javaClasspath, staging.resolve("reachability"));
-      Files.copy(reachability.manifest(), report.directory().resolve("reachability-sources.json"));
+      if (diagnostics)
+        Files.copy(
+            reachability.manifest(), report.directory().resolve("reachability-sources.json"));
       if (reachability.configurationCount() > 0) {
         report.accept(
             "Using "
@@ -169,18 +171,16 @@ public final class NativeApplicationExecutable {
         throw new IOException("Native Image did not create " + image);
       }
       var artifacts = NativeBuildArtifacts.read(staging, image);
-      Files.copy(
-          staging.resolve("build-artifacts.json"),
-          report.directory().resolve("build-artifacts.json"));
-      var delivered = artifacts.publishLibraries(output);
+      if (diagnostics)
+        Files.copy(
+            staging.resolve("build-artifacts.json"),
+            report.directory().resolve("build-artifacts.json"));
+      var delivered = NativeApplicationDelivery.publish(artifacts, output);
       report.accept("Native runtime delivery: " + delivered.size() + " file(s)");
-      move(image, output);
       report.complete(output, delivered);
       return output;
     } catch (java.io.UncheckedIOException exception) {
       throw exception.getCause();
-    } finally {
-      deleteTree(staging);
     }
   }
 
@@ -268,33 +268,5 @@ public final class NativeApplicationExecutable {
     return System.getProperty("os.name", "").startsWith("Windows")
         ? base.resolveSibling(base.getFileName() + ".exe")
         : base;
-  }
-
-  private static void move(Path source, Path destination) throws IOException {
-    try {
-      try {
-        Files.move(
-            source,
-            destination,
-            StandardCopyOption.ATOMIC_MOVE,
-            StandardCopyOption.REPLACE_EXISTING);
-      } catch (AtomicMoveNotSupportedException exception) {
-        Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
-      }
-    } catch (FileSystemException exception) {
-      if (Files.isRegularFile(destination)) {
-        throw new IOException(
-            "cannot replace " + destination + "; stop the running application and build again",
-            exception);
-      }
-      throw exception;
-    }
-  }
-
-  private static void deleteTree(Path root) throws IOException {
-    if (!Files.exists(root)) return;
-    try (var paths = Files.walk(root)) {
-      for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
-    }
   }
 }

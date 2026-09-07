@@ -26,7 +26,7 @@ public final class WindowsApplicationExecutable {
     Path parent = output.getParent();
     if (parent == null) throw new IOException("application executable has no parent directory");
     Files.createDirectories(parent);
-    Path temporary = Files.createTempFile(parent, output.getFileName().toString(), ".part");
+    Path temporary = Files.createTempFile("norm-application-", ".part");
     try {
       Files.copy(template, temporary, StandardCopyOption.REPLACE_EXISTING);
       long length = Files.size(payload);
@@ -38,19 +38,10 @@ public final class WindowsApplicationExecutable {
         stream.write(digest);
         stream.write(MAGIC);
       }
-      move(temporary, output);
+      dev.w0fv1.norm.platform.jdk.FilePublication.publish(temporary, output);
       return output;
     } finally {
       Files.deleteIfExists(temporary);
-    }
-  }
-
-  private static void move(Path source, Path destination) throws IOException {
-    try {
-      Files.move(
-          source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-    } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
-      Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
     }
   }
 

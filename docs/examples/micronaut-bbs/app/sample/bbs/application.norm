@@ -5,6 +5,7 @@ import micronaut.web.Endpoints
 import micronaut.web.Health
 import micronaut.web.HealthDetails
 import micronaut.web.h2DataSource
+import micronaut.web.H2Storage
 import micronaut.web.hibernateJpa
 import micronaut.web.Micronaut
 import micronaut.web.MicronautApplication
@@ -30,7 +31,7 @@ public Application application() {
       ])
     ),
     datasources: DataSources(
-      defaultSource: h2DataSource(database: "./.tmp/micronaut-bbs/bbs")
+      defaultSource: h2DataSource(database: "./.tmp/micronaut-bbs/bbs", storage: H2Storage.File)
     ),
     jpa: hibernateJpa(
       entityPackages: ["sample.bbs"],

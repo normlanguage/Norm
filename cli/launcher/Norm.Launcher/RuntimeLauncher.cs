@@ -7,40 +7,12 @@ internal sealed class RuntimeLauncher
     public int Run(string runtimeDirectory, IReadOnlyList<string> arguments)
     {
         ProcessStartInfo start = CreateStartInfo(runtimeDirectory, arguments);
-        return Run(start);
+        return ApplicationProcess.Run(start);
     }
 
     public int RunApplication(string runtimeDirectory, EmbeddedApplication application)
     {
-        return Run(CreateApplicationStartInfo(runtimeDirectory, application));
-    }
-
-    private static int Run(ProcessStartInfo start)
-    {
-        using Process process = Process.Start(start)
-            ?? throw new InvalidOperationException("The Norm runtime could not be started");
-        using WindowsProcessJob job = WindowsProcessJob.Attach(process);
-        ConsoleCancelEventHandler cancel = (_, eventArguments) =>
-        {
-            eventArguments.Cancel = true;
-            try
-            {
-                process.Kill(true);
-            }
-            catch (InvalidOperationException)
-            {
-            }
-        };
-        Console.CancelKeyPress += cancel;
-        try
-        {
-            process.WaitForExit();
-            return process.ExitCode;
-        }
-        finally
-        {
-            Console.CancelKeyPress -= cancel;
-        }
+        return ApplicationProcess.Run(CreateApplicationStartInfo(runtimeDirectory, application));
     }
 
     internal static ProcessStartInfo CreateStartInfo(string runtimeDirectory, IReadOnlyList<string> arguments)
@@ -75,6 +47,7 @@ internal sealed class RuntimeLauncher
     {
         ProcessStartInfo start = CreateStartInfo(runtimeDirectory, ["run", application.Entry]);
         start.Environment["NORM_APPLICATION_BUNDLE"] = application.Root;
+        start.Environment["NORM_APPLICATION_EXECUTABLE"] = Environment.ProcessPath;
         return start;
     }
 }

@@ -904,6 +904,24 @@ application {
 val runtimeJava = javaToolchains.launcherFor {
     languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
 }
+
+if (System.getProperty("os.name").startsWith("Windows")) {
+    val hostDirectory = layout.buildDirectory.dir("native-host")
+    val publishNativeHost = tasks.register<Exec>("publishNativeHost") {
+        inputs.files(fileTree("../launcher/Norm.NativeHost") { include("*.cs", "*.csproj") })
+        inputs.files(fileTree("../launcher/Norm.Launcher") { include("*.cs") })
+        outputs.file(hostDirectory.map { it.file("native-host.exe") })
+        commandLine(
+            "dotnet", "publish", file("../launcher/Norm.NativeHost/Norm.NativeHost.csproj"),
+            "-c", "Release", "-r", "win-x64", "--self-contained", "true",
+            "-o", hostDirectory.get().asFile.absolutePath,
+        )
+    }
+    tasks.processResources {
+        dependsOn(publishNativeHost)
+        from(hostDirectory) { include("native-host.exe") }
+    }
+}
 val runtimeImageDirectory = layout.buildDirectory.dir("runtime-image")
 val createRuntimeImage = tasks.register<CreateRuntimeImage>("createRuntimeImage") {
     javaHome.set(runtimeJava.map { it.metadata.installationPath })

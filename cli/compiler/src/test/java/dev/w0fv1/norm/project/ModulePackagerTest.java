@@ -103,14 +103,14 @@ final class ModulePackagerTest {
             consumerEnvironment.projectLoader(repository),
             consumerEnvironment.compilerSession(),
             backend)) {
-      var result = launcher.compile(entry);
-      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+      var compilation = launcher.compileApplication(entry);
+      assertTrue(
+          compilation.result().isSuccess(), () -> compilation.result().diagnostics().toString());
+      org.junit.jupiter.api.Assertions.assertArrayEquals(
+          icon,
+          Files.readAllBytes(
+              compilation.annotationOutput().orElseThrow().classes().resolve("public/icon.bin")));
     }
-    assertTrue(
-        java.util.Arrays.equals(
-            icon,
-            Files.readAllBytes(
-                app.getParent().resolve("build/norm/java/classes/public/icon.bin"))));
   }
 
   @Test

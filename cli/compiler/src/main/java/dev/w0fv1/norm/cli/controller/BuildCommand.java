@@ -33,7 +33,7 @@ final class BuildCommand implements Command {
       options = ApplicationBuildOptions.parse(arguments);
     } catch (IllegalArgumentException exception) {
       err.println("error[NORM-CLI-0003]: " + exception.getMessage());
-      err.println("Usage: norm build [--jvm] [file.norm|project-directory]");
+      err.println("Usage: norm build [--jvm] [--diagnostics] [file.norm|project-directory]");
       return ExitCode.USAGE_ERROR;
     }
     Path entry;
@@ -91,7 +91,7 @@ final class BuildCommand implements Command {
           }
         } else {
           progress.accept("Building native executable: " + plan.output());
-          nativeBuild.write(compilation, plan.output(), progress);
+          nativeBuild.write(compilation, plan.output(), progress, options.diagnostics());
         }
         progress.accept("Build completed");
         out.println("Built " + plan.output());

@@ -1,17 +1,16 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
 import { cp } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { readJavaArtifacts } from './native-java-inputs.mjs';
 import { verifyNativeMetrics } from './native-size-metrics.mjs';
 import { readBuildInputs } from './native-build-inputs.mjs';
 
-export async function verifyNativeSize(executable, evidenceRoot) {
-  const root = resolve(dirname(executable), '.norm/build-reports', basename(executable));
-  const builds = readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory());
-  assert.equal(builds.length, 1, 'Native verification expects one build in a fresh directory');
-  const directory = resolve(root, builds[0].name);
+export async function verifyNativeSize(executable, evidenceRoot, buildOutput) {
+  const reports = [...buildOutput.matchAll(/Build report: ([^\r\n]+)/g)];
+  assert.equal(reports.length, 1, 'Native verification requires one explicit diagnostic report');
+  const directory = resolve(reports[0][1]);
   const size = JSON.parse(readFileSync(resolve(directory, 'size.json'), 'utf8'));
   const raw = JSON.parse(readFileSync(resolve(directory, 'build-output.json'), 'utf8'));
   assert.equal(size.schemaVersion, 1);

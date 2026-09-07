@@ -18,6 +18,7 @@ public final class ExecutionContext {
   private final Optional<ModulePublisher> modulePublisher;
   private final Optional<JavaApplicationEntrypoint> javaApplicationEntrypoint;
   private final String applicationPackage;
+  private final Optional<java.nio.file.Path> applicationDirectory;
   private final JarBindingRuntime jarBindingRuntime;
   private final SystemPlatform platform;
 
@@ -30,6 +31,7 @@ public final class ExecutionContext {
     modulePublisher = Optional.ofNullable(builder.modulePublisher);
     javaApplicationEntrypoint = Optional.ofNullable(builder.javaApplicationEntrypoint);
     applicationPackage = Objects.requireNonNull(builder.applicationPackage, "applicationPackage");
+    applicationDirectory = Optional.ofNullable(builder.applicationDirectory);
     jarBindingRuntime = Objects.requireNonNull(builder.jarBindingRuntime, "jarBindingRuntime");
     platform = Objects.requireNonNull(builder.platform, "platform");
   }
@@ -95,6 +97,14 @@ public final class ExecutionContext {
     return applicationPackage;
   }
 
+  public Optional<java.nio.file.Path> applicationDirectory() {
+    return applicationDirectory;
+  }
+
+  public ExecutionContext withApplicationDirectory(java.nio.file.Path value) {
+    return new Builder(this).applicationDirectory(value).build();
+  }
+
   public JarBindingRuntime jarBindingRuntime() {
     return jarBindingRuntime;
   }
@@ -120,6 +130,7 @@ public final class ExecutionContext {
     private ModulePublisher modulePublisher;
     private JavaApplicationEntrypoint javaApplicationEntrypoint;
     private String applicationPackage = "";
+    private java.nio.file.Path applicationDirectory;
     private JarBindingRuntime jarBindingRuntime = JarBindingRuntime.unavailable();
     private SystemPlatform platform = SystemPlatform.unavailable();
 
@@ -134,12 +145,18 @@ public final class ExecutionContext {
       modulePublisher = context.modulePublisher.orElse(null);
       javaApplicationEntrypoint = context.javaApplicationEntrypoint.orElse(null);
       applicationPackage = context.applicationPackage;
+      applicationDirectory = context.applicationDirectory.orElse(null);
       jarBindingRuntime = context.jarBindingRuntime;
       platform = context.platform;
     }
 
     public Builder input(Reader value) {
       input = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder applicationDirectory(java.nio.file.Path value) {
+      applicationDirectory = Objects.requireNonNull(value, "value").toAbsolutePath().normalize();
       return this;
     }
 

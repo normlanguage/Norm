@@ -388,6 +388,14 @@ public final class IntrinsicDispatcher {
           (receiver, arguments, type, context, location, annotations, execution) -> {
             return context.applicationPackage();
           };
+      case APPLICATION_DIRECTORY ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            return context
+                .applicationDirectory()
+                .orElseThrow(
+                    () -> new IllegalStateException("Application directory is unavailable"))
+                .toString();
+          };
       case REQUIRE_ARGUMENT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];

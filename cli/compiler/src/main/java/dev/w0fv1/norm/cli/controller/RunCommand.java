@@ -52,7 +52,15 @@ final class RunCommand implements Command {
           applicationBundle == null || applicationBundle.isBlank()
               ? environment.persistentLauncher()
               : environment.bundledLauncher(Path.of(applicationBundle))) {
-        result = launcher.run(entry, ExecutionContext.of(out, JdkSystemPlatform.standard()));
+        ExecutionContext context = ExecutionContext.of(out, JdkSystemPlatform.standard());
+        if (applicationBundle != null && !applicationBundle.isBlank()) {
+          String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
+          if (executable != null && !executable.isBlank())
+            context =
+                context.withApplicationDirectory(
+                    Path.of(executable).toAbsolutePath().normalize().getParent());
+        }
+        result = launcher.run(entry, context);
       }
     } catch (IOException exception) {
       err.printf(

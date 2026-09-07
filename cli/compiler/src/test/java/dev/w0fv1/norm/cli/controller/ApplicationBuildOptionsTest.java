@@ -8,6 +8,16 @@ import org.junit.jupiter.api.Test;
 
 final class ApplicationBuildOptionsTest {
   @Test
+  void diagnosticsAreExplicitAndNativeOnly() {
+    assertEquals(false, ApplicationBuildOptions.parse(List.of("web.norm")).diagnostics());
+    assertEquals(
+        true, ApplicationBuildOptions.parse(List.of("web.norm", "--diagnostics")).diagnostics());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ApplicationBuildOptions.parse(List.of("--jvm", "--diagnostics")));
+  }
+
+  @Test
   void buildsNativeApplicationsByDefault() {
     ApplicationBuildOptions options = ApplicationBuildOptions.parse(List.of("web.norm"));
 

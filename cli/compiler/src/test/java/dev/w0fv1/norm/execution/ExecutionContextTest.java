@@ -18,10 +18,14 @@ final class ExecutionContextTest {
     ExecutionContext context =
         ExecutionContext.builder()
             .applicationPackage("norm.generated.application")
+            .applicationDirectory(java.nio.file.Path.of("sample"))
             .build()
             .withJarBindingRuntime(JarBindingRuntime.unavailable());
 
     assertEquals("norm.generated.application", context.applicationPackage());
+    assertEquals(
+        java.nio.file.Path.of("sample").toAbsolutePath().normalize(),
+        context.applicationDirectory().orElseThrow());
   }
 
   @Test

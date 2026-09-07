@@ -202,6 +202,7 @@ final class JavaAnnotationBindingIntegrationTest {
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
     StringWriter output = new StringWriter();
+    String processorOutput;
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("maven-cache"));
         ProjectLauncher launcher =
@@ -257,6 +258,13 @@ final class JavaAnnotationBindingIntegrationTest {
       assertTrue(
           Files.readString(compiled.annotationOutput().orElseThrow().root().resolve("javac.args"))
               .contains(supportJar.toAbsolutePath().toString().replace('\\', '/')));
+      processorOutput =
+          Files.readString(
+              compiled
+                  .annotationOutput()
+                  .orElseThrow()
+                  .classes()
+                  .resolve("processor/endpoints.txt"));
     }
 
     assertEquals(
@@ -278,8 +286,6 @@ final class JavaAnnotationBindingIntegrationTest {
             "Framework Allocated",
             ""),
         output.toString());
-    Path processorOutput =
-        temporaryDirectory.resolve("build/norm/java/classes/processor/endpoints.txt");
     assertEquals(
         String.join(
             System.lineSeparator(),
@@ -295,7 +301,7 @@ final class JavaAnnotationBindingIntegrationTest {
             "sample.binding.StringBoxValue:/string-box-value:http,json:HTTPS",
             "sample.binding.StringConverter:/converter:http,json:HTTPS",
             ""),
-        Files.readString(processorOutput));
+        processorOutput);
   }
 
   private static Path annotationJar(Path path) throws Exception {

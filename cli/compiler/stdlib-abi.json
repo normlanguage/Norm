@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -23,6 +23,10 @@
     },
     {
       "name": "APPLICATION_PACKAGE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "APPLICATION_DIRECTORY",
       "requiresResultRuntimeType": false
     },
     {

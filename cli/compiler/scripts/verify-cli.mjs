@@ -1,6 +1,7 @@
+import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { verifyNativeWeb } from './verify-native-web.mjs';
 import { verifyNativeSize } from './verify-native-size.mjs';
@@ -49,9 +50,9 @@ const plainDirectory = mkdtempSync(resolve(tmpdir(), 'norm-native-hello-'));
 try {
   const source = resolve(plainDirectory, 'hello.norm');
   copyFileSync(resolve(repository, 'docs/examples/hello.norm'), source);
-  verify(['build', source], undefined, plainDirectory);
+  const buildOutput = verify(['build', source, '--diagnostics'], undefined, plainDirectory);
   const application = process.platform === 'win32' ? `${source}.exe` : resolve(plainDirectory, 'hello');
-  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'));
+  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'), buildOutput);
   await verifyNativeExecution(application, source, evidence, 'Hello from Norm\n');
 } finally {
   rmSync(plainDirectory, { recursive: true, force: true });
@@ -82,14 +83,14 @@ Void main() {
 `,
   );
   verify(['run', bindingSource], 'mroN\n', bindingDirectory);
-  verify(['build', bindingSource], undefined, bindingDirectory);
+  const buildOutput = verify(['build', bindingSource, '--diagnostics'], undefined, bindingDirectory);
   const application = process.platform === 'win32'
     ? `${bindingSource}.exe`
     : resolve(bindingDirectory, 'binding');
   if (!existsSync(application)) {
     throw new Error(`Native application was not created: ${application}`);
   }
-  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'));
+  const evidence = await verifyNativeSize(application, resolve(repository, 'build/reports/native-size'), buildOutput);
   await verifyNativeExecution(application, bindingSource, evidence, 'mroN\n');
 } finally {
   rmSync(bindingDirectory, { recursive: true, force: true });
@@ -112,6 +113,7 @@ for (const group of ['base', 'algorithms', 'class', 'generics', 'stdlib']) {
 console.log(`Norm CLI verified with ${count} acceptance programs.`);
 
 function verify(args, expected, workingDirectory = repository) {
+  const before = readdirSync(workingDirectory);
   const commandScript = process.platform === 'win32' && /\.(?:bat|cmd)$/i.test(cli);
   const result = spawnSync(
     commandScript ? (process.env.ComSpec ?? 'cmd.exe') : cli,
@@ -126,9 +128,15 @@ function verify(args, expected, workingDirectory = repository) {
     throw new Error(`${args.join(' ')} wrote to stderr: ${result.stderr}`);
   }
   const actual = result.stdout.replaceAll('\r\n', '\n');
+  if (args[0] === 'build' && process.platform === 'win32') {
+    assert.deepEqual(readdirSync(workingDirectory).sort(),
+      [...new Set([...before, `${basename(args[1])}.exe`])].sort(),
+      'Single-file build must publish only its executable');
+  }
   if (expected !== undefined && actual !== expected) {
     throw new Error(
       `${args.join(' ')} output mismatch\nexpected: ${JSON.stringify(expected)}\nreceived: ${JSON.stringify(actual)}`,
     );
   }
+  return actual;
 }

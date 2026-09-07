@@ -18,22 +18,47 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
   private final Path directory;
   private final BufferedWriter log;
   private final Consumer<String> output;
+  private final boolean detailed;
+  private final Path summary;
 
-  private NativeBuildReport(Path directory, Consumer<String> output) throws IOException {
+  private NativeBuildReport(Path directory, Consumer<String> output, boolean detailed, Path summary)
+      throws IOException {
     this.directory = directory;
     this.output = output;
-    try (var catalog = NativeBuildReport.class.getResourceAsStream("/toolchain-artifacts.json")) {
-      if (catalog == null) throw new IOException("Norm toolchain artifact catalog is unavailable");
-      Files.copy(catalog, directory.resolve("toolchain-artifacts.json"));
+    this.detailed = detailed;
+    this.summary = summary;
+    if (detailed) {
+      try (var catalog = NativeBuildReport.class.getResourceAsStream("/toolchain-artifacts.json")) {
+        if (catalog == null)
+          throw new IOException("Norm toolchain artifact catalog is unavailable");
+        Files.copy(catalog, directory.resolve("toolchain-artifacts.json"));
+      }
     }
-    log = Files.newBufferedWriter(directory.resolve("build.log"));
+    log =
+        detailed
+            ? Files.newBufferedWriter(directory.resolve("build.log"))
+            : new BufferedWriter(java.io.Writer.nullWriter());
   }
 
-  static NativeBuildReport create(Path executable, Consumer<String> output) throws IOException {
+  static NativeBuildReport create(Path executable, Consumer<String> output, boolean detailed)
+      throws IOException {
+    return create(
+        executable,
+        output,
+        detailed,
+        Path.of(System.getProperty("user.home"), ".norm", "cache", "build-reports"));
+  }
+
+  static NativeBuildReport create(
+      Path executable, Consumer<String> output, boolean detailed, Path reports) throws IOException {
     Path target = executable.toAbsolutePath().normalize();
-    Path root = target.getParent().resolve(".norm/build-reports").resolve(target.getFileName());
+    String identity =
+        Sha256Digest.compute(target.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            .value();
+    Path root = reports.resolve(identity);
     Files.createDirectories(root);
-    return new NativeBuildReport(Files.createTempDirectory(root, "run-"), output);
+    return new NativeBuildReport(
+        Files.createTempDirectory(root, "run-"), output, detailed, root.resolve("latest.json"));
   }
 
   Path directory() {
@@ -42,6 +67,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
 
   void buildInputs(List<String> arguments, List<Path> classpath, Path archive, Path launcher)
       throws IOException {
+    if (!detailed) return;
     var manifest = new JsonObject();
     manifest.addProperty("schemaVersion", 1);
     var options = new com.google.gson.JsonArray();
@@ -88,6 +114,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
   }
 
   void coreRetention(dev.w0fv1.norm.core.CoreReachability.Analysis analysis) throws IOException {
+    if (!detailed) return;
     var groups = new JsonObject();
     for (var group : analysis.artifact().program().groups()) {
       var cause = analysis.causes().get(group.id());
@@ -123,6 +150,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
   }
 
   void javaArtifacts(List<dev.w0fv1.norm.jvm.ResolvedJarArtifact> artifacts) throws IOException {
+    if (!detailed) return;
     var entries = new com.google.gson.JsonArray();
     for (var artifact :
         artifacts.stream()
@@ -157,6 +185,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
               dev.w0fv1.norm.jvm.JavaApplicationMethodIndex.Target>
           methods)
       throws IOException {
+    if (!detailed) return;
     var mapping = new JsonObject();
     new java.util.TreeMap<>(methods)
         .forEach(
@@ -173,6 +202,10 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
   }
 
   List<String> arguments() {
+    if (!detailed)
+      return List.of(
+          "-H:+GenerateBuildArtifactsFile",
+          "-H:BuildOutputJSONFile=" + directory.resolve("build-output.json"));
     return List.of(
         "-H:+GenerateBuildArtifactsFile",
         "-H:+DiagnosticsMode",
@@ -239,7 +272,7 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
             code / 1048576.0,
             heap / 1048576.0,
             methods));
-    accept("Build report: " + directory);
+    accept("Build report: " + (detailed ? directory : summary));
     accept(
         String.format(
             Locale.ROOT,
@@ -277,6 +310,20 @@ final class NativeBuildReport implements AutoCloseable, Consumer<String> {
 
   @Override
   public void close() throws IOException {
-    log.close();
+    try {
+      log.close();
+      if (!detailed) {
+        Path result = directory.resolve("size.json");
+        if (!Files.exists(result)) Files.writeString(result, "{\"status\":\"failed\"}\n");
+        dev.w0fv1.norm.platform.jdk.FilePublication.publish(result, summary);
+      }
+    } finally {
+      if (!detailed) {
+        try (var paths = Files.walk(directory)) {
+          for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList())
+            Files.delete(path);
+        }
+      }
+    }
   }
 }

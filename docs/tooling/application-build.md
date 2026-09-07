@@ -19,7 +19,13 @@ norm build web.norm
 
 Windows 产物是同目录的 `web.norm.exe`；Linux 与 macOS 产物是同目录的 `web`。
 
-GraalVM 声明为运行必需的附属库也会保留在产物目录；部署时必须一起复制，不能只移动 EXE。构建报告列出所有运行文件、哈希及总大小。同目录已有内容不同的同名库时，构建会报冲突，不覆盖现有文件；应使用独立输出目录。
+Windows 单文件构建只在源码旁生成 EXE，不生成 `.norm`、`build` 或散落的 DLL。需要附属库时，EXE 内嵌完整原生运行制品；首次启动校验并解包至 `~/.norm/cache/native-applications/<内容哈希>`，后续启动复用。启动器不携带 JVM 或 Norm 编译器，不改变工作目录、程序参数和退出码。该形态是单文件交付，不等同于完全静态链接；报告中的 EXE 大小与原生镜像大小分别统计。
+
+Linux 与 macOS 仍按 GraalVM 制品清单交付必需附属库。构建报告列出实际运行文件、哈希及总大小，部署时按清单一起复制。
+
+依赖和工具链使用用户级缓存；注解处理和原生构建的中间文件归构建会话所有，结束或失败后清理。程序主动创建的数据库、日志等业务数据不属于构建临时文件，不会自动删除。
+
+`std.application.applicationDirectory()` 返回类型化的 `std.filesystem.Path`：打包运行时指向对外 EXE 所在目录，源码运行时指向入口源码目录。它不受内部解包缓存位置或启动命令的当前工作目录影响；显式相对文件路径仍按当前工作目录解释。
 
 ## 项目
 
@@ -91,7 +97,9 @@ Native 构建的工具链依赖按执行与 Hosted 用途闭包选择，保留�
 
 保留的合并 JAR 若与应用 JAR 提供相同的主制品组件，构建会报告物理所有权冲突，不把坐标版本相同当成内容等价。规则见 `JarArtifactOwnership`；不同 classifier 的制品身份仍分别处理。
 
-原生构建自动打印文件大小、机器码、镜像堆大小和可达方法数。每次构建的报告目录位于产物目录下的 `.norm/build-reports/<产物文件名>/run-*`，完整路径会在日志中打印。不同构建的报告互不覆盖。
+原生构建自动打印文件大小、机器码、镜像堆大小和可达方法数。默认仅在 `~/.norm/cache/build-reports/<输出路径哈希>/latest.json` 保留最近一次构建结果，中间报告随构建清理；失败结果不沿用上次成功状态。
+
+需要完整诊断时执行 `norm build web.norm --diagnostics`。详细报告保存在同一用户级目录的独立 `run-*` 下，完整路径由构建日志提供。只有显式开启时才生成调用树、堆明细和输入指纹。CI 显式使用此选项采集证据，不依赖源码目录布局。实现入口为 `NativeBuildReport`、`TemporaryDirectory`、`NativeApplicationDelivery` 与 `cli/launcher/Norm.NativeHost`。
 
 - `size.json`：成功构建的 EXE 路径、SHA-256 与核心体积指标；`runtimeFiles` 与 `deliveryBytes` 表示完整运行文件清单及合计字节数，`executableBytes` 仅衡量 EXE。
 - `build-artifacts.json`：固定版本 GraalVM 的原始制品清单，包含运行文件和诊断文件；相对路径基于已清理的构建暂存目录。实际交付位置以 `runtimeFiles` 为准。

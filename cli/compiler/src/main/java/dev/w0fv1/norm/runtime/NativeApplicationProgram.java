@@ -24,7 +24,7 @@ record NativeApplicationProgram(
     applicationCalls = Map.copyOf(applicationCalls);
   }
 
-  void execute(List<String> arguments, PrintWriter output) {
+  void execute(List<String> arguments, PrintWriter output, java.nio.file.Path directory) {
     try (var runtime = JvmJarBindingRuntime.closedWorld(calls, classes, applicationCalls)) {
       var context =
           ExecutionContext.builder()
@@ -32,6 +32,7 @@ record NativeApplicationProgram(
               .arguments(arguments)
               .platform(JdkSystemPlatform.standard())
               .applicationPackage(packageName)
+              .applicationDirectory(directory)
               .jarBindingRuntime(runtime)
               .build();
       executable.execute(context);

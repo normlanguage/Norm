@@ -15,7 +15,13 @@ public final class NativeApplicationMain {
     PrintWriter error = new PrintWriter(System.err, true, StandardCharsets.UTF_8);
     NativeApplicationProgram prepared = application();
     try {
-      prepared.execute(List.of(arguments), output);
+      String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
+      if (executable == null || executable.isBlank())
+        executable = org.graalvm.nativeimage.ProcessProperties.getExecutableName();
+      prepared.execute(
+          List.of(arguments),
+          output,
+          java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent());
     } catch (NormExecutionException exception) {
       error.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
       error.printf(" --> %s:%d:%d%n", exception.uri(), exception.line(), exception.column());

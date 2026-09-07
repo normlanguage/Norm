@@ -1300,6 +1300,8 @@ public final class BuiltinCatalog {
         globals, global("__awaitCancellation", SemanticType.VOID, IntrinsicId.AWAIT_CANCELLATION));
     addGlobal(globals, global("__applicationPackage", stringType, IntrinsicId.APPLICATION_PACKAGE));
     addGlobal(
+        globals, global("__applicationDirectory", stringType, IntrinsicId.APPLICATION_DIRECTORY));
+    addGlobal(
         globals,
         global(
             "require",

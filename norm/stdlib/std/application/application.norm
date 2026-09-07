@@ -2,6 +2,7 @@
 package std.application
 
 import std.annotation.Document
+import std.filesystem.Path
 
 @Document(description: "Runs an application and owns its lifetime until completion or cancellation.")
 public interface Application {
@@ -12,4 +13,9 @@ public interface Application {
 @Document(description: "Returns the package used to expose this application to host frameworks.")
 public String applicationPackage() {
   return __applicationPackage()
+}
+
+@Document(description: "Returns the deployed executable directory, or the entry source directory during source execution.")
+public Path applicationDirectory() {
+  return Path(value: __applicationDirectory())
 }

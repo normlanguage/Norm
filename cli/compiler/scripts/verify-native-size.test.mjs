@@ -33,7 +33,7 @@ test('archived diagnostics remain readable after the original build is removed',
     writeFileSync(resolve(analysis, 'methods-dated.csv'), 'Id,Name\n1,main\n');
     symlinkSync(resolve(analysis, 'methods-dated.csv'), resolve(analysis, 'methods.csv'), 'file');
     const evidence = resolve(root, 'evidence');
-    await assert.rejects(verifyNativeSize(executable, evidence));
+    await assert.rejects(verifyNativeSize(executable, evidence, `Build report: ${directory}`));
     const artifact = { identity: 'maven:sample:library:1', path: 'unavailable-cache/library.jar', sha256: 'a'.repeat(64), bytes: 10 };
     for (const invalid of [
       { schemaVersion: 2, artifacts: [artifact] },
@@ -44,14 +44,14 @@ test('archived diagnostics remain readable after the original build is removed',
       { schemaVersion: 1, artifacts: [{ ...artifact, path: null }] },
     ]) {
       writeFileSync(resolve(directory, 'java-artifacts.json'), JSON.stringify(invalid));
-      await assert.rejects(verifyNativeSize(executable, evidence));
+      await assert.rejects(verifyNativeSize(executable, evidence, `Build report: ${directory}`));
     }
     writeFileSync(resolve(directory, 'java-artifacts.json'), JSON.stringify({ schemaVersion: 1, artifacts: [artifact] }));
-    await assert.rejects(verifyNativeSize(executable, evidence), /build-inputs/);
+    await assert.rejects(verifyNativeSize(executable, evidence, `Build report: ${directory}`), /build-inputs/);
     const input = { path: '/historical/launcher', kind: 'file', files: [{ path: 'launcher', bytes: 1, sha256: 'b'.repeat(64) }] };
     writeFileSync(resolve(directory, 'build-inputs.json'), JSON.stringify({ schemaVersion: 1,
       arguments: ['args'], classpath: [], archive: input, launcher: input }));
-    const verified = await verifyNativeSize(executable, evidence);
+    const verified = await verifyNativeSize(executable, evidence, `Build report: ${directory}`);
     assert.equal(verified.size.sha256, createHash('sha256').update(content).digest('hex'));
     assert.equal(verified.directory, resolve(evidence, readdirSync(evidence)[0]));
     const archived = resolve(evidence, readdirSync(evidence)[0], 'analysis/methods.csv');

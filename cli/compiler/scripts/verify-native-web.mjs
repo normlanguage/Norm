@@ -24,9 +24,9 @@ export async function verifyNativeWeb(repository, build, measure) {
       + 'import micronaut.validation.Validated\nimport jakarta.validation.constraints.NotBlank\n'
       + example.replace(configuration,
         `${configuration}\nmicronaut: Micronaut(server: Server(port: 0)),`) + '\n' + verification);
-    build(['build', source], undefined, directory);
+    const buildOutput = build(['build', source, '--diagnostics'], undefined, directory);
     const executable = process.platform === 'win32' ? `${source}.exe` : resolve(directory, 'web');
-    const evidence = await verifyNativeSize(executable, resolve(repository, 'build/reports/native-size'));
+    const evidence = await verifyNativeSize(executable, resolve(repository, 'build/reports/native-size'), buildOutput);
     const runs = [];
     for (let iteration = 1; iteration <= 3; iteration++) {
       const started = performance.now();

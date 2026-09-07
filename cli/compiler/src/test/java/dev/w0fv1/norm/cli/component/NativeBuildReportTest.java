@@ -12,6 +12,38 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class NativeBuildReportTest {
+  @TempDir Path reports;
+
+  @Test
+  void ordinaryBuildCleansDiagnosticsAndKeepsOnlyLatestSummary() throws Exception {
+    Path executable = Files.write(directory.resolve("small.exe"), new byte[12]);
+    Path workspace;
+    try (var report = NativeBuildReport.create(executable, ignored -> {}, false, reports)) {
+      workspace = report.directory();
+      assertFalse(workspace.startsWith(directory));
+      assertFalse(report.arguments().contains("-H:+DiagnosticsMode"));
+      assertFalse(report.arguments().contains("-H:+DashboardHeap"));
+      Files.writeString(workspace.resolve("build-output.json"), statistics());
+      report.complete(executable, java.util.List.of(executable));
+    }
+    assertFalse(Files.exists(workspace));
+    assertTrue(Files.isRegularFile(workspace.getParent().resolve("latest.json")));
+    try (var report = NativeBuildReport.create(executable, ignored -> {}, false, reports)) {
+      workspace = report.directory();
+      report.accept("failed build");
+    }
+    assertFalse(Files.exists(workspace));
+    assertEquals(
+        "failed",
+        JsonParser.parseString(Files.readString(workspace.getParent().resolve("latest.json")))
+            .getAsJsonObject()
+            .get("status")
+            .getAsString());
+    try (var files = Files.list(directory)) {
+      assertEquals(java.util.List.of(executable), files.toList());
+    }
+  }
+
   @Test
   void fingerprintsOrderedClasspathIncludingGeneratedFilesAndRequestedArguments() throws Exception {
     Path classes = Files.createDirectories(directory.resolve("generated"));
@@ -22,7 +54,8 @@ final class NativeBuildReportTest {
     Path archive = Files.write(directory.resolve("application.bin"), new byte[] {4});
     Path launcher = Files.writeString(directory.resolve("native-image.cmd"), "launcher");
     var arguments = java.util.List.of("-O2", "-cp", "exact classpath");
-    try (var report = NativeBuildReport.create(directory.resolve("inputs.exe"), value -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("inputs.exe"), value -> {}, true, reports)) {
       report.buildInputs(arguments, java.util.List.of(classes, jar), archive, launcher);
       var snapshot =
           JsonParser.parseString(Files.readString(report.directory().resolve("build-inputs.json")))
@@ -72,7 +105,8 @@ final class NativeBuildReportTest {
         dev.w0fv1.norm.testing.NormTestKit.compile("Void main() { printLine(\"hello\") }");
     var original = compiled.program().orElseThrow().compilation().artifact();
     var analysis = dev.w0fv1.norm.core.CoreReachability.analyze(original, java.util.Set.of());
-    try (var report = NativeBuildReport.create(directory.resolve("causes.exe"), value -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("causes.exe"), value -> {}, true, reports)) {
       report.coreRetention(analysis);
       var manifest =
           JsonParser.parseString(
@@ -97,7 +131,8 @@ final class NativeBuildReportTest {
                 new dev.w0fv1.norm.value.MavenArtifactCoordinate("sample", "library", "2")),
             jar,
             Sha256Digest.compute(jar));
-    try (var report = NativeBuildReport.create(directory.resolve("linked.exe"), value -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("linked.exe"), value -> {}, true, reports)) {
       report.javaArtifacts(java.util.List.of(artifact));
       var manifest =
           JsonParser.parseString(
@@ -109,7 +144,8 @@ final class NativeBuildReportTest {
       assertEquals(3, selected.get("bytes").getAsLong());
     }
     Files.write(jar, new byte[] {4, 5, 6});
-    try (var report = NativeBuildReport.create(directory.resolve("changed.exe"), value -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("changed.exe"), value -> {}, true, reports)) {
       assertThrows(IOException.class, () -> report.javaArtifacts(java.util.List.of(artifact)));
       assertFalse(Files.exists(report.directory().resolve("java-artifacts.json")));
     }
@@ -117,7 +153,8 @@ final class NativeBuildReportTest {
 
   @Test
   void requestsImageHeapPartitionEvidence() throws Exception {
-    try (var report = NativeBuildReport.create(directory.resolve("partitions.exe"), value -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("partitions.exe"), value -> {}, true, reports)) {
       assertTrue(report.arguments().contains("-H:+PrintImageHeapPartitionSizes"));
     }
   }
@@ -125,7 +162,8 @@ final class NativeBuildReportTest {
   @org.junit.jupiter.api.Test
   void recordsApplicationMethodIdentityAndJvmTarget() throws Exception {
     var id = dev.w0fv1.norm.core.DefinitionId.parse("0".repeat(64) + ":0");
-    try (var report = NativeBuildReport.create(directory.resolve("sample.exe"), value -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("sample.exe"), value -> {}, true, reports)) {
       report.applicationMethods(
           java.util.Map.of(
               id,
@@ -146,7 +184,8 @@ final class NativeBuildReportTest {
 
   @Test
   void identifiesComponentsPhysicallyMergedIntoOneArtifact() throws Exception {
-    try (var report = NativeBuildReport.create(directory.resolve("app.exe"), ignored -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("app.exe"), ignored -> {}, true, reports)) {
       var manifest =
           JsonParser.parseString(
                   Files.readString(report.directory().resolve("toolchain-artifacts.json")))
@@ -187,7 +226,8 @@ final class NativeBuildReportTest {
 
   @Test
   void recordsResolvedToolchainArtifactIdentityAndContent() throws Exception {
-    try (var report = NativeBuildReport.create(directory.resolve("app.exe"), ignored -> {})) {
+    try (var report =
+        NativeBuildReport.create(directory.resolve("app.exe"), ignored -> {}, true, reports)) {
       var manifest =
           JsonParser.parseString(
                   Files.readString(report.directory().resolve("toolchain-artifacts.json")))
@@ -289,7 +329,7 @@ final class NativeBuildReportTest {
     Path executable = directory.resolve("web.norm.exe");
     var messages = new ArrayList<String>();
     Path first;
-    try (var report = NativeBuildReport.create(executable, messages::add)) {
+    try (var report = NativeBuildReport.create(executable, messages::add, true, reports)) {
       first = report.directory();
       report.accept("analysis started");
       assertTrue(
@@ -302,9 +342,9 @@ final class NativeBuildReportTest {
       assertTrue(report.arguments().contains("-H:+PrintAnalysisCallTree"));
       assertTrue(report.arguments().contains("-H:PrintAnalysisCallTreeType=CSV"));
     }
-    try (var report = NativeBuildReport.create(executable, messages::add)) {
+    try (var report = NativeBuildReport.create(executable, messages::add, true, reports)) {
       assertNotEquals(first, report.directory());
-      assertEquals(directory.resolve(".norm/build-reports/web.norm.exe"), first.getParent());
+      assertFalse(first.startsWith(directory));
     }
     assertTrue(Files.readString(first.resolve("build.log")).contains("analysis started"));
     assertTrue(messages.contains("analysis started"));
@@ -316,7 +356,7 @@ final class NativeBuildReportTest {
     Path executable = directory.resolve("hello.exe");
     Files.write(executable, new byte[128]);
     Path library = Files.write(directory.resolve("java.dll"), new byte[64]);
-    try (var report = NativeBuildReport.create(executable, ignored -> {})) {
+    try (var report = NativeBuildReport.create(executable, ignored -> {}, true, reports)) {
       Files.writeString(report.directory().resolve("build-output.json"), statistics());
       report.complete(executable, java.util.List.of(executable, library));
       var json =
@@ -339,7 +379,7 @@ final class NativeBuildReportTest {
     Path executable = directory.resolve("hello.exe");
     Files.write(executable, new byte[128]);
     Path diagnostics;
-    try (var report = NativeBuildReport.create(executable, ignored -> {})) {
+    try (var report = NativeBuildReport.create(executable, ignored -> {}, true, reports)) {
       diagnostics = report.directory();
       report.accept("Native Image exited with code 1");
       assertThrows(
@@ -357,7 +397,7 @@ final class NativeBuildReportTest {
         new String[] {
           "{}", statistics().replace("150", "-1"), statistics().replace("150", "1.5")
         }) {
-      try (var report = NativeBuildReport.create(executable, ignored -> {})) {
+      try (var report = NativeBuildReport.create(executable, ignored -> {}, true, reports)) {
         Files.writeString(report.directory().resolve("build-output.json"), content);
         assertThrows(
             IOException.class, () -> report.complete(executable, java.util.List.of(executable)));

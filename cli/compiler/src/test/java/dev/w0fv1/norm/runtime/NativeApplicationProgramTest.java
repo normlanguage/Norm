@@ -39,7 +39,7 @@ final class NativeApplicationProgramTest {
             Map.of());
     for (int attempt = 0; attempt < 2; attempt++) {
       var output = new StringWriter();
-      program.execute(List.of(), new PrintWriter(output));
+      program.execute(List.of(), new PrintWriter(output), java.nio.file.Path.of("."));
       assertEquals("native" + System.lineSeparator(), output.toString());
     }
   }
@@ -62,7 +62,9 @@ final class NativeApplicationProgramTest {
     var failure =
         assertThrows(
             NormExecutionException.class,
-            () -> program.execute(List.of(), new PrintWriter(new StringWriter())));
+            () ->
+                program.execute(
+                    List.of(), new PrintWriter(new StringWriter()), java.nio.file.Path.of(".")));
     assertEquals(2, failure.line());
   }
 }
