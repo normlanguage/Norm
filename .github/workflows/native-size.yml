@@ -103,7 +103,7 @@ jobs:
           node-version: '24'
 
       - name: Download verified baseline proposal
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: native-baseline-proposal
           path: build/reports/native-baseline-proposal
