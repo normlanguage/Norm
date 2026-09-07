@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.frontend.CompilerSession;
+import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.source.SourceLocation;
@@ -27,7 +28,10 @@ final class AuthoringArchitectureTest {
       var model = analysis.semanticModel();
       for (String name : java.util.List.of("Base", "Child")) {
         var owner =
-            model.symbols().stream().filter(s -> s.name().equals(name)).findFirst().orElseThrow();
+            model.symbols().stream()
+                .filter(s -> s.kind() == SymbolKind.TYPE && s.name().equals(name))
+                .findFirst()
+                .orElseThrow();
         var labels =
             model.members(owner.type()).stream().filter(s -> s.name().equals("label")).toList();
         assertEquals(1, labels.size(), name);
