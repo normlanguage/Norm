@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload baseline proposal
         if: steps.native-size.outputs.publish_baseline == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-baseline-proposal
           path: build/reports/native-baseline-proposal
@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload native build evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-size-${{ runner.os }}-${{ runner.arch }}
           path: build/reports/native-size
