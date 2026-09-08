@@ -28,6 +28,80 @@ final class ProjectLoaderTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void infersModuleNamesAcrossConfiguredSourceRoots() throws Exception {
+    Path root = temporaryDirectory.resolve("inferred-roots");
+    source(
+        root,
+        "sample/module.norm",
+        "Module module() { return module(dependencies: [], sources: [\"src\", \"generated\"], tests: [\"tests\"]) }");
+    Path production =
+        source(
+            root,
+            "sample/src/math/value.norm",
+            "package sample.math Integer value() { return generated() }");
+    source(
+        root,
+        "sample/generated/math/generated.norm",
+        "package sample.math Integer generated() { return 7 }");
+    source(root, "sample/tests/math/cases.norm", "package sample.math Void caseTest() {}");
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var sourceSet = projects.load(production);
+      assertEquals(2, sourceSet.sources().size());
+      assertEquals(
+          "sample", sourceSet.scope().coordinate(sourceSet.primarySource().id()).module().name());
+    }
+  }
+
+  @Test
+  void rejectsExportsFromTestRoots() throws Exception {
+    Path root = temporaryDirectory.resolve("test-export");
+    source(
+        root,
+        "sample/module.norm",
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"cases\"]) }");
+    Path test = source(root, "sample/tests/cases.norm", "package sample Void testCase() {}");
+    try (ProjectLoader projects = environment().projectLoader()) {
+      IOException failure = assertThrows(IOException.class, () -> projects.loadForAnalysis(test));
+      assertTrue(failure.getMessage().contains("test sources cannot be exported"));
+    }
+  }
+
+  @Test
+  void separatesProductionAndTestRootsWithinOneModule() throws Exception {
+    Path root = temporaryDirectory.resolve("source-sets");
+    source(
+        root,
+        "sample/module.norm",
+        "Module module() { return module(name: \"sample\", version: 1, sources: [\"src\"], tests: [\"tests\"], exports: [\"Value\"]) }");
+    Path production =
+        source(
+            root,
+            "sample/src/Value.norm",
+            "package sample Integer value() { return 42 } Void main() {}");
+    Path test =
+        source(
+            root,
+            "sample/tests/ValueTest.norm",
+            "package sample import std.testing.Test @Test(functions: [value.function]) Void valueTest() { require(condition: value() == 42, message: \"value\") }");
+    try (ProjectLoader projects = environment().projectLoader()) {
+      var productionSources = projects.load(production);
+      assertEquals(
+          List.of(production), productionSources.sources().stream().map(SourceFile::path).toList());
+      var testSources = projects.loadForAnalysis(test);
+      assertEquals(
+          Set.of(production, test),
+          testSources.sources().stream()
+              .map(SourceFile::path)
+              .collect(java.util.stream.Collectors.toSet()));
+      assertTrue(
+          testSources
+              .scope()
+              .sameModule(SourceFile.read(production).id(), SourceFile.read(test).id()));
+      assertEquals(Set.of(production), testSources.exportedSourcePaths());
+    }
+  }
+
+  @Test
   void loadsEveryModuleSourceAndExportsOnlyDeclaredSources() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("sources"));
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");

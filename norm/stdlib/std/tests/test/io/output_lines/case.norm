@@ -1,0 +1,38 @@
+package std.test.io.output_lines
+
+import std.testing.Test
+import std.core.Iterable
+import std.core.Iterator
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+class CountingIterator implements Iterator<Integer> {
+  Integer current
+
+  Integer end
+
+  Boolean hasNext() {
+    return current < end
+  }
+
+  Integer next() {
+    Integer value = current
+    current = current + 1
+    return value
+  }
+}
+
+class Values implements Iterable<Integer> {
+  Integer end
+
+  Iterator<Integer> iterator() {
+    return CountingIterator(current: 0, end: end)
+  }
+}
+
+@Test(types: [Iterable<Integer>.class, Iterator<Integer>.class], functions: [printLines.function])
+Void outputLinesTest() {
+  printLines(["built-in", "iterable"])
+  printLines(Values(end: 2))
+  expectedOutputLines(["built-in", "iterable", "0", "1"])
+}

@@ -30,3 +30,5 @@ VitePress 主题全局注册了 `NormModuleDocument`。组件只需要生成目�
 ```
 
 组件读取 `module.api.json` 构建目录树，并在选择文件时加载对应的 `.api.json`。每个模块拥有独立的输出根目录和组件实例。
+
+生成器分析模块的生产和测试源码集合，从 `@Test` 派生 `Unit tests` 关联，不执行测试。关联可跳转到对应测试文件中的源码；测试源码不作为公开 API 导出，也不要求 `@Document`。测试声明见 [测试 API](/stdlib/testing-api)。

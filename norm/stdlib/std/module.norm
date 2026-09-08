@@ -27,6 +27,7 @@ Module module() {
       "serialization.core",
       "testing.output",
       "testing.predicates",
+      "testing.tests",
       "text.builders",
       "text.normalization",
       "system.exceptions",

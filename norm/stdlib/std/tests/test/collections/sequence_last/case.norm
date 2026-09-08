@@ -1,0 +1,15 @@
+package std.test.collections.sequence_last
+
+import std.testing.Test
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+@Test
+Void sequenceLastTest() {
+  List<String> words = List<>()
+  words.add("first")
+  words.add("last")
+  Array<Integer> numbers = [1, 4, 9]
+  printLines([words.last(), numbers.last()])
+  expectedOutputLines(["last", "9"])
+}

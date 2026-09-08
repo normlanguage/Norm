@@ -11,7 +11,7 @@
 - `base`：不属于独立语言领域的基础语义。
 - `algorithms`：使用 Norm 实现的算法程序；允许按题集建立子目录。
 - `projects`：跨 package、跨 module 或带依赖的多文件程序。
-- `stdlib`：标准库的用户级验收程序。
+- 标准库函数测试位于 [`norm/stdlib/std/tests/test`](../stdlib/std/tests/test)，通过 `@Test` 发现和执行；规范见 [测试 API](../../docs/stdlib/testing-api.md)。
 - `recovery`：编辑器和语法恢复使用的不完整源码夹具，不作为可执行程序。
 
 新增或迁移测试时遵守以下边界：
@@ -31,7 +31,7 @@
 - 使用 `std.testing.expectedOutputLine` 或 `expectedOutputLines` 声明非空预期输出。
 - 能独立编译和执行，不依赖其他测试文件的声明或执行顺序。
 
-单文件目录由 [`ProgramExecutionTest`](../../compiler/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) 注册，并由 [`NormTestKit`](../../compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) 递归发现。新增顶层领域时必须同时增加对应的测试入口；领域内新增文件无需注册。
+单文件目录由 [`ProgramExecutionTest`](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) 注册，并由 [`NormTestKit`](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) 递归发现。新增顶层领域时必须同时增加对应的测试入口；领域内新增文件无需注册。
 
 ## 项目程序
 
@@ -72,6 +72,6 @@ projects/<scenario>/
 .\gradlew.bat :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsMultiFilePrograms"
 ```
 
-运行单个领域时，使用 `ProgramExecutionTest` 中对应的测试工厂方法。标准库程序由 `StandardLibraryTest` 运行。
+运行单个领域时，使用 `ProgramExecutionTest` 中对应的测试工厂方法。标准库测试由 `StandardLibraryTest` 通过公开的测试运行器执行。
 
 测试架构和工具链约束见 [`docs/design/toolchain-development.md`](../../docs/design/toolchain-development.md)。

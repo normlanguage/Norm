@@ -11,10 +11,20 @@ import java.util.Objects;
 import java.util.Set;
 
 public record CompilationScope(
-    Map<DocumentId, ModuleSourceCoordinate> coordinates, ModuleGraph modules) {
+    Map<DocumentId, ModuleSourceCoordinate> coordinates,
+    ModuleGraph modules,
+    Set<DocumentId> testSources) {
   private static final ModuleCoordinate ANONYMOUS = new ModuleCoordinate("anonymous", 0);
 
+  public CompilationScope(
+      Map<DocumentId, ModuleSourceCoordinate> coordinates, ModuleGraph modules) {
+    this(coordinates, modules, Set.of());
+  }
+
   public CompilationScope {
+    testSources = Set.copyOf(testSources);
+    if (!coordinates.keySet().containsAll(testSources))
+      throw new IllegalArgumentException("test sources must belong to the compilation scope");
     Map<DocumentId, ModuleSourceCoordinate> stable = new LinkedHashMap<>();
     Objects.requireNonNull(coordinates, "coordinates").entrySet().stream()
         .sorted(java.util.Comparator.comparing(entry -> entry.getKey().uri().toString()))
@@ -110,7 +120,12 @@ public record CompilationScope(
   }
 
   public boolean canRead(DocumentId source, DocumentId target) {
-    return modules.canRead(coordinate(source).module(), coordinate(target).module());
+    return permitsSource(source, target)
+        && modules.canRead(coordinate(source).module(), coordinate(target).module());
+  }
+
+  public boolean permitsSource(DocumentId source, DocumentId target) {
+    return testSources.contains(source) || !testSources.contains(target);
   }
 
   public boolean sameModule(DocumentId first, DocumentId second) {
@@ -126,12 +141,14 @@ public record CompilationScope(
         throw new IllegalArgumentException("conflicting source in compilation scopes");
       }
     }
-    return new CompilationScope(merged, modules.merge(other.modules));
+    var tests = new HashSet<>(testSources);
+    tests.addAll(other.testSources);
+    return new CompilationScope(merged, modules.merge(other.modules), tests);
   }
 
   public CompilationScope withReads(
       java.util.Collection<ModuleCoordinate> readers,
       java.util.Collection<ModuleCoordinate> targets) {
-    return new CompilationScope(coordinates, modules.withReads(readers, targets));
+    return new CompilationScope(coordinates, modules.withReads(readers, targets), testSources);
   }
 }

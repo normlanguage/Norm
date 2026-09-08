@@ -29,9 +29,10 @@ final class TestCommand implements Command {
 
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
-    if (arguments.size() != 1) {
-      err.println("error[NORM-CLI-0003]: 'test' expects exactly one source file");
-      err.println("Usage: norm test <file.norm>");
+    if (arguments.size() != 1 && !(arguments.size() == 3 && arguments.get(1).equals("--filter"))) {
+      err.println(
+          "error[NORM-CLI-0003]: 'test' expects a module or source file and an optional filter");
+      err.println("Usage: norm test <module-directory|file.norm> [--filter <package-or-function>]");
       return ExitCode.USAGE_ERROR;
     }
 
@@ -48,7 +49,13 @@ final class TestCommand implements Command {
       NormRuntime backend = new NormRuntime();
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
       try (var launcher = ApplicationRunner.persistent(environment)) {
-        result = launcher.test(entry, ExecutionContext.of(out, JdkSystemPlatform.standard()));
+        result =
+            launcher.test(
+                entry,
+                ExecutionContext.of(out, JdkSystemPlatform.standard()),
+                arguments.size() == 3
+                    ? java.util.Optional.of(arguments.get(2))
+                    : java.util.Optional.empty());
       }
     } catch (IOException exception) {
       err.printf(
@@ -78,6 +85,6 @@ final class TestCommand implements Command {
     out.printf(
         "Tests: %d found, %d passed, %d failed, %d skipped%n",
         report.testsFound(), report.testsSucceeded(), report.testsFailed(), report.testsSkipped());
-    return report.isSuccess() ? ExitCode.SUCCESS : ExitCode.TEST_FAILURE;
+    return report.isSuccess() && report.testsFound() > 0 ? ExitCode.SUCCESS : ExitCode.TEST_FAILURE;
   }
 }

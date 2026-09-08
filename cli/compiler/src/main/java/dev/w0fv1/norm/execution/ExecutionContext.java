@@ -105,6 +105,17 @@ public final class ExecutionContext {
     return new Builder(this).applicationDirectory(value).build();
   }
 
+  public ExecutionContext withOutput(PrintWriter output, PrintWriter expectedOutput) {
+    return new Builder(this).output(output).expectedOutput(expectedOutput).build();
+  }
+
+  public ExecutionContext withWorkingDirectory(java.nio.file.Path directory) {
+    return new Builder(this)
+        .applicationDirectory(directory)
+        .platform(new dev.w0fv1.norm.platform.WorkingDirectoryPlatform(platform, directory))
+        .build();
+  }
+
   public JarBindingRuntime jarBindingRuntime() {
     return jarBindingRuntime;
   }

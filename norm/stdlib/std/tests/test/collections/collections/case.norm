@@ -1,0 +1,29 @@
+package std.test.collections.collections
+
+import std.testing.Test
+import std.io.printLines
+import std.collections.listContains
+import std.collections.listCount
+import std.testing.equal
+import std.testing.expectedOutputLines
+
+@Test(functions: [listContains.function, listCount.function])
+Void collectionsTest() {
+  List<Integer> values = List<>()
+  values.add(2)
+  values.add(5)
+  values.add(2)
+  printLines(
+    [
+      equal(actual: listContains(values: values, target: 5), expected: true),
+      equal(actual: listCount(values: values, target: 2), expected: 2)
+    ]
+  )
+  List<Integer> backwards = values.reversed()
+  List<Integer> expectedBackwards = [2, 5, 2]
+  printLine(equal(actual: backwards, expected: expectedBackwards))
+  List<Integer> left = [4, 7]
+  List<Integer> right = [4, 7]
+  printLine(equal(actual: left, expected: right))
+  expectedOutputLines(["true", "true", "true", "true"])
+}

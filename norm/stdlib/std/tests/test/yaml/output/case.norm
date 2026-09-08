@@ -1,0 +1,19 @@
+package std.test.yaml.output
+
+import std.testing.Test
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.yaml.toYaml
+
+@Serializable()
+value Message {
+  String text
+  Boolean enabled
+}
+
+@Test(types: [Serializable.class], functions: [toYaml.function])
+Void outputTest() {
+  String encoded = Message(text: "true", enabled: true).toYaml()
+  printLine(encoded == "text: \"true\"\nenabled: true")
+  expectedOutputLines(["true"])
+}

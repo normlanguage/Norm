@@ -299,11 +299,20 @@ public final class CompilerSession implements AutoCloseable {
       CompilationSnapshot previous) {
     java.util.Objects.requireNonNull(request, "request");
     DiagnosticBag diagnostics = new DiagnosticBag();
+    CompilationPrelude prelude =
+        profile.moduleEvaluationDocuments().isEmpty()
+            ? profile.prelude().excludingModules(request.scope().modules().modules())
+            : profile.prelude();
+    Set<DocumentId> standardDocuments = new LinkedHashSet<>(profile.standardLibraryDocuments());
+    request
+        .scope()
+        .coordinates()
+        .forEach(
+            (id, coordinate) -> {
+              if (coordinate.module().name().equals("std")) standardDocuments.add(id);
+            });
     LinkedHashMap<DocumentId, ParsedDocument> parsedByDocument = new LinkedHashMap<>();
-    profile
-        .prelude()
-        .documents()
-        .forEach(parsed -> parsedByDocument.put(parsed.source().id(), parsed));
+    prelude.documents().forEach(parsed -> parsedByDocument.put(parsed.source().id(), parsed));
     for (SourceFile source : request.sources()) {
       guard.checkpoint();
       parsedByDocument.put(source.id(), parse(source, guard));
@@ -315,14 +324,14 @@ public final class CompilerSession implements AutoCloseable {
             .map(ParsedDocument::syntax)
             .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     Syntax.Program entryProgram = null;
-    Set<DocumentId> exportedSources = new LinkedHashSet<>(profile.prelude().exportedSources());
+    Set<DocumentId> exportedSources = new LinkedHashSet<>(prelude.exportedSources());
     exportedSources.addAll(request.exportedSources());
     CompilationScope sourceScope = request.scope();
-    if (profile.prelude().scope().isPresent()) {
-      CompilationScope preludeScope = profile.prelude().scope().orElseThrow();
+    if (prelude.scope().isPresent()) {
+      CompilationScope preludeScope = prelude.scope().orElseThrow();
       sourceScope = preludeScope.merge(sourceScope);
       Set<ModuleCoordinate> preludeExports =
-          profile.prelude().exportedSources().stream()
+          prelude.exportedSources().stream()
               .map(preludeScope::coordinate)
               .map(ModuleSourceCoordinate::module)
               .collect(java.util.stream.Collectors.toSet());
@@ -345,7 +354,7 @@ public final class CompilerSession implements AutoCloseable {
             analysisPlan.reusable(),
             previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
             profile.moduleEvaluationDocuments(),
-            profile.standardLibraryDocuments(),
+            standardDocuments,
             request.bindingSources(),
             sourceScope,
             declarations);

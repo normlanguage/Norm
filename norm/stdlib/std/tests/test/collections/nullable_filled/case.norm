@@ -1,0 +1,13 @@
+package std.test.collections.nullable_filled
+
+import std.testing.Test
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+@Test
+Void nullableFilledTest() {
+  List<String?> values = List.filled(size: 2, value: null)
+  values[1] = "ready"
+  printLines([values[0] ?? "missing", values[1] ?? "missing"])
+  expectedOutputLines(["missing", "ready"])
+}

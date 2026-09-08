@@ -106,7 +106,7 @@ public final class NormTestKit {
         Path module = projectCase.resolve("app").resolve("module.norm");
         assertTrue(Files.isRegularFile(module), projectCase + " must contain app/module.norm");
         assertTrue(
-            ProjectLoader.isModuleSource(SourceFile.read(module)),
+            dev.w0fv1.norm.project.ModuleSourceFiles.isModuleSource(SourceFile.read(module)),
             module + " must declare the root module");
         List<Path> sourceCandidates;
         try (Stream<Path> files = Files.walk(module.getParent())) {

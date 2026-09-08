@@ -2,7 +2,6 @@ package dev.w0fv1.norm.stdlib;
 
 import static dev.w0fv1.norm.testing.NormTestKit.assertOutput;
 import static dev.w0fv1.norm.testing.NormTestKit.compile;
-import static dev.w0fv1.norm.testing.NormTestKit.suite;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -11,10 +10,7 @@ import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.stream.Stream;
-import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
 
 final class StandardLibraryTest {
   @Test
@@ -82,8 +78,24 @@ final class StandardLibraryTest {
         "true");
   }
 
-  @TestFactory
-  Stream<DynamicTest> runsStandardLibraryPrograms() throws Exception {
-    return suite("stdlib");
+  @Test
+  void runsStandardLibraryTestsThroughThePublicTestRunner() throws Exception {
+    var environment =
+        dev.w0fv1.norm.project.ProjectEnvironment.bootstrap(
+            new dev.w0fv1.norm.runtime.NormRuntime());
+    try (var runner = dev.w0fv1.norm.application.ApplicationRunner.open(environment)) {
+      var result =
+          runner.test(
+              Path.of(System.getProperty("norm.test.stdlib")),
+              dev.w0fv1.norm.execution.ExecutionContext.of(
+                  new java.io.PrintWriter(java.io.Writer.nullWriter()),
+                  dev.w0fv1.norm.platform.jdk.JdkSystemPlatform.standard()));
+      org.junit.jupiter.api.Assertions.assertTrue(
+          result.compilation().isSuccess(), () -> result.compilation().diagnostics().toString());
+      var report = result.report().orElseThrow();
+      org.junit.jupiter.api.Assertions.assertTrue(report.testsFound() > 0);
+      org.junit.jupiter.api.Assertions.assertTrue(
+          report.isSuccess(), () -> report.failures().toString());
+    }
   }
 }

@@ -1,0 +1,20 @@
+package std.test.collections.sort_integer_list
+
+import std.testing.Test
+import std.collections.sort
+import std.testing.expectedOutputLines
+
+@Test
+Void sortIntegerListTest() {
+  List<Integer> source = List<>()
+  source.add(4)
+  source.add(-1)
+  source.add(4)
+  source.add(0)
+  List<Integer> result = sort(values: source)
+  for value : result {
+    printLine(value)
+  }
+  printLine(source[0])
+  expectedOutputLines(["-1", "0", "4", "4", "4"])
+}

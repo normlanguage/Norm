@@ -10,18 +10,24 @@ import java.util.Optional;
 final class ModuleNameInference {
   private ModuleNameInference() {}
 
-  static Optional<String> infer(SourceFile moduleSource, Map<Path, SourceFile> overlays)
+  static Optional<String> infer(
+      SourceFile moduleSource,
+      Map<Path, SourceFile> overlays,
+      dev.w0fv1.norm.value.ModuleSourceLayout layout)
       throws IOException {
     Path modulePath = normalize(moduleSource.path());
     Path moduleRoot = modulePath.getParent();
     if (moduleRoot == null) throw new IOException("module configuration path has no parent");
     Map<Path, SourceFile> sources =
-        ProjectLoader.collectSourceFiles(moduleRoot, moduleSource, overlays);
+        ModuleSourceFiles.collectSourceFiles(moduleRoot, moduleSource, overlays);
     String inferred = null;
     for (Map.Entry<Path, SourceFile> candidate : sources.entrySet()) {
+      var sourceRoot = layout.locate(moduleRoot, candidate.getKey());
+      if (sourceRoot.isEmpty()) continue;
       Optional<String> packageName = SourceHeader.parse(candidate.getValue()).packageName();
       if (packageName.isEmpty()) continue;
-      Path relativeParent = moduleRoot.relativize(candidate.getKey()).getParent();
+      Path relativeParent =
+          sourceRoot.orElseThrow().directory().relativize(candidate.getKey()).getParent();
       int suffixSize = relativeParent == null ? 0 : relativeParent.getNameCount();
       String[] segments = packageName.orElseThrow().split("\\.");
       if (suffixSize >= segments.length || !matchesSuffix(segments, relativeParent, suffixSize)) {

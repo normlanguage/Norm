@@ -1,0 +1,12 @@
+package std.test.collections.list_remove_last
+
+import std.testing.Test
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+@Test
+Void listRemoveLastTest() {
+  List<Integer> values = List.filled(size: 3, value: 5)
+  printLines([values.removeLast(), values.size(), values.last()])
+  expectedOutputLines(["5", "2", "5"])
+}

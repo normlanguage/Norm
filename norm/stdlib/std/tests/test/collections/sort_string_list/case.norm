@@ -1,0 +1,18 @@
+package std.test.collections.sort_string_list
+
+import std.testing.Test
+import std.collections.sort
+import std.testing.expectedOutputLines
+
+@Test
+Void sortStringListTest() {
+  List<String> source = List<>()
+  source.add("😀")
+  source.add("AA")
+  source.add("A")
+  source.add("é")
+  for value : sort(values: source) {
+    printLine(value)
+  }
+  expectedOutputLines(["A", "AA", "é", "😀"])
+}

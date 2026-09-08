@@ -12,17 +12,23 @@ import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 
 final class JUnitPlatformTestRunner {
-  ProjectTestReport run(ClassLoader applicationClassLoader, List<String> binaryNames) {
+  ProjectTestReport run(
+      ClassLoader applicationClassLoader,
+      List<String> binaryNames,
+      org.junit.platform.engine.TestEngine normEngine) {
     Objects.requireNonNull(applicationClassLoader, "applicationClassLoader");
     List<Class<?>> classes = new ArrayList<>();
     for (String binaryName : new TreeSet<>(binaryNames)) {
       classes.add(load(applicationClassLoader, binaryName));
     }
-    if (classes.isEmpty()) return new ProjectTestReport(0, 0, 0, 0, 0, List.of());
     var discovery =
         request().selectors(classes.stream().map(type -> selectClass(type)).toList()).build();
     var listener = new SummaryGeneratingListener();
-    Launcher launcher = LauncherFactory.create();
+    Launcher launcher =
+        LauncherFactory.create(
+            org.junit.platform.launcher.core.LauncherConfig.builder()
+                .addTestEngines(normEngine)
+                .build());
     Thread thread = Thread.currentThread();
     ClassLoader previous = thread.getContextClassLoader();
     try {

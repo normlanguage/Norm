@@ -44,6 +44,26 @@ final class LanguageServerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void offersRunCommandsForAnnotatedTestDeclarations() throws Exception {
+    LanguageServer server = new LanguageServer();
+    server.connect(new RecordingClient());
+    Path path = temporaryDirectory.resolve("test.norm");
+    String text =
+        "package sample import std.testing.Test @Test Void firstTest() {} Void helper() {}";
+    Files.writeString(path, text);
+    String uri = path.toUri().toString();
+    server
+        .getTextDocumentService()
+        .didOpen(new DidOpenTextDocumentParams(new TextDocumentItem(uri, "norm", 1, text)));
+    var params = new org.eclipse.lsp4j.CodeLensParams(new TextDocumentIdentifier(uri));
+    var lenses = server.getTextDocumentService().codeLens(params).get();
+    assertEquals(1, lenses.size());
+    assertEquals("norm.runTest", lenses.getFirst().getCommand().getCommand());
+    assertEquals(List.of(uri, "sample.firstTest"), lenses.getFirst().getCommand().getArguments());
+    server.shutdown().get();
+  }
+
+  @Test
   void advertisesAndServesWholeDocumentFormatting() throws Exception {
     LanguageServer server = new LanguageServer();
     server.connect(new RecordingClient());

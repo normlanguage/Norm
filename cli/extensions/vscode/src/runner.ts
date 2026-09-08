@@ -12,6 +12,15 @@ export class NormRunner {
       void vscode.window.showErrorMessage('Open a Norm file before running it.');
       return undefined;
     }
+    return this.execute(document, 'run', []);
+  }
+
+  public async runTest(uri: string, name: string): Promise<vscode.TaskExecution | undefined> {
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
+    return this.execute(document, 'test', ['--filter', name]);
+  }
+
+  private async execute(document: vscode.TextDocument, command: 'run' | 'test', arguments_: string[]): Promise<vscode.TaskExecution | undefined> {
     if (basename(document.uri.path) === 'module.norm') {
       void vscode.window.showErrorMessage('module.norm runs automatically with the project.');
       return undefined;
@@ -48,14 +57,14 @@ export class NormRunner {
       configuration.get<'workspace' | 'file'>('run.workingDirectory', 'workspace') === 'file'
         ? dirname(document.uri.fsPath)
         : (workspaceFolder?.uri.fsPath ?? dirname(document.uri.fsPath));
-    const invocation = cliInvocation(cli.command, ['run', document.uri.fsPath]);
-    const definition: vscode.TaskDefinition = { type: 'norm', file: document.uri.toString() };
+    const invocation = cliInvocation(cli.command, [command, document.uri.fsPath, ...arguments_]);
+    const definition: vscode.TaskDefinition = { type: 'norm', file: document.uri.toString(), command, arguments: arguments_ };
     const scope: vscode.WorkspaceFolder | vscode.TaskScope =
       workspaceFolder ?? vscode.TaskScope.Global;
     const task = new vscode.Task(
       definition,
       scope,
-      `Run ${basename(document.uri.fsPath)}`,
+      `${command === 'test' ? 'Test' : 'Run'} ${arguments_.at(-1) ?? basename(document.uri.fsPath)}`,
       'Norm',
       new vscode.CustomExecution(
         async () => new ProcessTerminal(invocation, workingDirectory),

@@ -1,0 +1,18 @@
+package std.test.filesystem.file_read_text
+
+import std.testing.Test
+import std.filesystem.Path
+import std.filesystem.readText
+import std.io.TextEncoding
+import std.testing.expectedOutputLines
+
+@Test(types: [Path.class, TextEncoding.class], functions: [readText.function])
+Void fileReadTextTest() {
+  String text = readText(
+    path: Path(value: "file_read_text.txt"),
+    encoding: TextEncoding.Utf8,
+    maximumBytes: 1024
+  ).trim()
+  printLine(text)
+  expectedOutputLines(["Norm filesystem"])
+}

@@ -1,0 +1,34 @@
+package std.test.core.result
+
+import std.testing.Test
+import std.io.printLines
+import std.core.Result
+import std.core.Unit
+import std.testing.expectedOutputLines
+
+enum Failure {
+  Invalid
+}
+
+@Test(types: [Result<Integer>.class, Unit.class])
+Void resultTest() {
+  Result<Integer> first = Result.Ok(7)
+  Result<Integer, String> second = Result<Integer, String>.Ok(value: 7)
+  Result<Unit> completed = Result.Ok(Unit.Value)
+  Result<Integer> rejected = Result.Err("Value is invalid")
+  Result<Integer, Failure> typed = Result.Err(Failure.Invalid, msg: "Value is invalid")
+  String message = switch rejected {
+    case Ok(_) { break "" }
+    case Err(String msg) { break msg }
+  }
+  printLines([
+    first == second,
+    completed == Result<Unit>.Ok(value: Unit.Value),
+    message,
+    switch typed {
+      case Ok(_) { break "" }
+      case Err(_, String msg) { break msg }
+    }
+  ])
+  expectedOutputLines(["true", "true", "Value is invalid", "Value is invalid"])
+}

@@ -511,7 +511,12 @@ public final class IntrinsicDispatcher {
                         second == RuntimeValues.NullValue.INSTANCE ? null : (Integer) second,
                         exports,
                         dependencies,
-                        binding));
+                        binding,
+                        new dev.w0fv1.norm.value.ModuleSourceLayout(
+                            ((RuntimeValues.ListValue) arguments[17])
+                                .values.stream().map(String.class::cast).toList(),
+                            ((RuntimeValues.ListValue) arguments[18])
+                                .values.stream().map(String.class::cast).toList())));
             return null;
           };
       case JAVA_COLLECTION_SIZE ->

@@ -1,0 +1,16 @@
+package std.test.collections.sort_integer_array
+
+import std.testing.Test
+import std.collections.sort
+import std.testing.expectedOutputLines
+
+@Test
+Void sortIntegerArrayTest() {
+  Array<Integer> source = [3, 1, 2, 1]
+  Array<Integer> result = sort(values: source)
+  for value : result {
+    printLine(value)
+  }
+  printLine(source[0])
+  expectedOutputLines(["1", "1", "2", "3", "3"])
+}

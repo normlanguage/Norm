@@ -210,7 +210,7 @@ public final class Workspace implements AutoCloseable {
         source = analysis.semanticModel().source();
       } else {
         Path path = ProjectSession.normalize(source.path());
-        if (ProjectLoader.isModuleSource(source)) {
+        if (dev.w0fv1.norm.project.ModuleSourceFiles.isModuleSource(source)) {
           snapshot = projects.analyzeModule(source);
           analysis = snapshot.analysis(source.id());
           inputs = Set.of(path);
@@ -238,8 +238,8 @@ public final class Workspace implements AutoCloseable {
           inputs = session.inputs();
           root = session.root();
           for (var member : List.copyOf(remaining)) {
-            if (ProjectLoader.isModuleSource(member.source()) || !session.contains(member.source()))
-              continue;
+            if (dev.w0fv1.norm.project.ModuleSourceFiles.isModuleSource(member.source())
+                || !session.contains(member.source())) continue;
             result.put(
                 member.uri(),
                 new WorkspaceDocument(

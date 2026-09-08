@@ -30,6 +30,9 @@ final class VisibilityResolver {
           .filter(symbol -> symbol.owner().isEmpty())
           .forEach(symbol -> visible.put(symbol.id(), symbol.id()));
       for (Syntax.Program candidate : input.programs()) {
+        if (!input
+            .scope()
+            .permitsSource(program.span().source().id(), candidate.span().source().id())) continue;
         boolean sameFile = candidate == program;
         boolean samePackage =
             candidate.packageName().equals(program.packageName())

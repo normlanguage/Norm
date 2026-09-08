@@ -1,0 +1,17 @@
+package std.testing
+
+import std.annotation.Document
+import std.annotation.FunctionTarget
+import std.annotation.BinaryRetention
+
+@Document(description: "Marks an independently executable, zero-argument Void test function and its tested declarations.")
+public annotation Test implements FunctionTarget, BinaryRetention {
+  @Document(description: "Types whose behavior this test verifies.")
+  List<Class<?>>? types
+
+  @Document(description: "Functions whose behavior this test verifies.")
+  List<Function<?>>? functions
+
+  @Document(description: "Fields whose behavior this test verifies.")
+  List<Field<?, ?>>? fields
+}

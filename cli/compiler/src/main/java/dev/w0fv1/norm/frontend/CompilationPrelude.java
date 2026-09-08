@@ -71,6 +71,27 @@ public final class CompilationPrelude {
     return new CompilationPrelude(mergedDocuments, mergedExports, mergedScope);
   }
 
+  CompilationPrelude excludingModules(
+      java.util.Set<dev.w0fv1.norm.value.ModuleCoordinate> modules) {
+    if (scope.isEmpty()) return this;
+    var current = scope.orElseThrow();
+    var retained = new LinkedHashMap<DocumentId, ParsedDocument>();
+    var coordinates = new LinkedHashMap<DocumentId, dev.w0fv1.norm.value.ModuleSourceCoordinate>();
+    documents.forEach(
+        (id, document) -> {
+          if (!modules.contains(current.coordinate(id).module())) {
+            retained.put(id, document);
+            coordinates.put(id, current.coordinate(id));
+          }
+        });
+    if (retained.size() == documents.size()) return this;
+    if (retained.isEmpty()) return empty();
+    var exports = new LinkedHashSet<>(exportedSources);
+    exports.retainAll(retained.keySet());
+    return new CompilationPrelude(
+        retained, exports, Optional.of(new CompilationScope(coordinates)));
+  }
+
   List<ParsedDocument> documents() {
     return List.copyOf(documents.values());
   }

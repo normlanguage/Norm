@@ -3,7 +3,7 @@
 ```ebnf
 AnnotationDeclaration = Visibility? "annotation" Identifier
                         ImplementsClause? AggregateBody ;
-AnnotationUse         = "@" Identifier "(" AnnotationArgumentList? ")" ;
+AnnotationUse         = "@" Identifier ("(" AnnotationArgumentList? ")")? ;
 AnnotationArgumentList = Expression ("," NamedArgument)* | NamedArgumentList ;
 ```
 

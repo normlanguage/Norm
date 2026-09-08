@@ -1,6 +1,6 @@
 # 模块系统
 
-模块是一个源码根及其跨 package 公开边界。模块身份由唯一的零参数 `Module module()` 声明决定，而不是由文件名决定。目录项目通常把它放在 `<source-root>/<module-name-path>/module.norm`，并把应用入口放在同目录的 `application.norm`；单文件应用可以在任意 `.norm` 文件中同时声明模块、业务代码和应用入口：
+模块定义生产与测试源码集合及其跨 package 公开边界。模块身份由唯一的零参数 `Module module()` 声明决定，而不是由文件名决定。目录项目通常把它放在 `<source-root>/<module-name-path>/module.norm`，并把应用入口放在同目录的 `application.norm`；单文件应用可以在任意 `.norm` 文件中同时声明模块、业务代码和应用入口：
 
 ```norm
 Module module() {
@@ -43,6 +43,18 @@ std/collections/sequences.norm
 存在根模块配置时，source set 包含根模块及其依赖图中的业务 `.norm` 源码，排除所有配置文件和未声明的嵌套模块。正式模块中每个业务源码的相对目录必须与其 package 一一对应，并位于所属模块名的 package 前缀下；无 package 的单文件本地应用直接使用默认命名空间。带 package 声明且位于 package 目录内的同名文件是普通业务源码。
 
 Language Server 合并未保存内容后执行同一项目加载生命周期，因此编辑器、CLI 和测试工具读取一致的模块描述和 source set。没有相邻 `module.norm` 但当前文件声明 `Module module()` 时，该文件就是模块根；没有模块声明时，入口按独立单文件编译单元处理。
+
+模块配置中的 `sources` 与 `tests` 分别声明生产和测试源码目录，默认是 `["."]` 与 `["tests"]`，相对于 `module.norm` 所在目录。每个目录以模块名作为 package 前缀：模块 `sample` 的 `src/math/value.norm` 在 `sources: ["src"]` 下声明 `package sample.math`；`tests/math/value_test.norm` 在 `tests: ["tests"]` 下也可声明同一 package。
+
+```norm
+Module module() {
+  return module(name: "sample", version: 1, sources: ["src"], tests: ["tests"], exports: ["math.value"])
+}
+```
+
+不同源码目录可以共同组成同一模块内的 package，但不能包含重复的逻辑源码路径。更具体的配置目录决定源码所属集合。目录不能越出模块根；测试源码不能被 `exports` 导出。`std` 与 `std.test` 是不同 package，可由同一个 `std` 模块拥有；外部模块不能仅靠声明同名 package 加入该模块。
+
+普通编译和发布仅加载生产源码；测试和编辑器分析加载根模块的生产及测试源码，依赖模块只加载生产源码。生产声明在测试分析中也不能引用测试声明，`private` 仍然保持文件私有。测试函数规范见 [测试 API](/stdlib/testing-api)。
 
 ## 可见范围
 

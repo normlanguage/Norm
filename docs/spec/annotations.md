@@ -27,7 +27,7 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 ## 构造与应用
 
-`@Label(text: "point")` 定义一次 Annotation 对象构造。参数必须完整且为可赋值的编译期值；当声明包含名为 `value` 的参数时，第一个实参可以省略标签，例如 `@Route("/hello")`。其他实参必须命名。可用值包括标量常量和类型化声明引用 `T.class`、`name.function`、`Owner.name.function`、`Owner.name.field`。显式构造器存在时使用它的参数，否则使用字段生成的构造参数。Annotation 也能在普通表达式中直接构造，字段可变。
+`@Label(text: "point")` 定义一次 Annotation 对象构造。没有实参时可省略括号，如 `@Test`；必需参数仍由编译器检查。参数必须完整且为可赋值的编译期值；当声明包含名为 `value` 的参数时，第一个实参可以省略标签，例如 `@Route("/hello")`。其他实参必须命名。可用值包括标量常量和类型化声明引用 `T.class`、`name.function`、`Owner.name.function`、`Owner.name.field`。显式构造器存在时使用它的参数，否则使用字段生成的构造参数。Annotation 也能在普通表达式中直接构造，字段可变。
 
 声明引用在 Core metadata 中保留目标 identity，不保存声明名字符串。目标丢失或重载不唯一时编译失败。
 
@@ -61,7 +61,7 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 ## Document
 
-`std.annotation.Document` 是 BinaryRetention 的结构化文档 Annotation，可用于 package、类型、字段、构造器、函数、参数和局部声明。`description` 保存正文，`types`、`functions`、`fields` 分别保存有序的类型、函数和字段声明引用；三个 nullable 列表均可省略。
+`std.annotation.Document` 是 BinaryRetention 的结构化文档 Annotation，可用于 package、类型、字段、构造器、函数、参数和局部声明。字段及引用类型以 [`std.annotation`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/annotation/protocols.norm) 为准。
 
 ```norm
 @Document(
@@ -71,6 +71,8 @@ annotation Label implements TypeTarget, RuntimeRetention {
   fields: [User.id.field]
 )
 ```
+
+API 文档中的 `unitTests` 由测试侧的 `@Test` 关联派生，不是 `@Document` 的构造参数。测试声明和执行规则见 [测试 API](/stdlib/testing-api)。
 
 Annotation 元数据可以使用标量、声明引用及由这些值递归组成的 `List` 字面量。`List` 表示有序声明元数据；`Array` 不是 Annotation 元数据类型。非 nullable 参数必须显式提供，省略 nullable 参数等价于提供 `null`。完整声明以 [`std.annotation`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/annotation/protocols.norm) 为准。
 

@@ -1603,11 +1603,24 @@ final class ExpressionChecker implements ExpressionTyping {
   private List<FunctionReferenceResolution> selectFunctionReferences(
       List<FunctionPattern> candidates, SemanticType expected) {
     if (expected == null || expected.isUnknownFunction()) {
-      return candidates.size() == 1
-          ? List.of(
-              new FunctionReferenceResolution(
-                  candidates.getFirst().declaration(), List.of(), candidates.getFirst().type()))
-          : List.of();
+      if (candidates.size() != 1) return List.of();
+      FunctionPattern candidate = candidates.getFirst();
+      Symbol symbol =
+          context
+              .model
+              .symbols()
+              .get(context.model.declarationSymbols().get(candidate.declaration()));
+      Map<String, SemanticType> substitutions = new java.util.LinkedHashMap<>();
+      symbol
+          .typeParameters()
+          .forEach(
+              parameter ->
+                  substitutions.put(parameter.type().identity(), SemanticType.EXISTENTIAL));
+      return List.of(
+          new FunctionReferenceResolution(
+              candidate.declaration(),
+              symbol.typeParameters().stream().map(parameter -> SemanticType.EXISTENTIAL).toList(),
+              candidate.type().substitute(substitutions)));
     }
     if (!expected.isFunction()) return List.of();
     return candidates.stream()

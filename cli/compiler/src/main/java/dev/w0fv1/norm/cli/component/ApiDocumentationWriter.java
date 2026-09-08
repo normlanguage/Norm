@@ -103,6 +103,16 @@ public final class ApiDocumentationWriter {
     JsonArray declarations = new JsonArray();
     documentationFile.declarations().forEach(item -> declarations.add(declaration(item)));
     value.add("declarations", declarations);
+    JsonArray tests = new JsonArray();
+    for (var test : documentationFile.tests()) {
+      JsonObject item = new JsonObject();
+      item.addProperty("id", test.id());
+      item.addProperty("name", test.name());
+      item.add("source", source(test.source()));
+      item.addProperty("code", test.code());
+      tests.add(item);
+    }
+    value.add("tests", tests);
     return value;
   }
 
@@ -141,6 +151,7 @@ public final class ApiDocumentationWriter {
     value.addProperty("description", document.description());
     value.add("types", references(document.types()));
     value.add("functions", references(document.functions()));
+    value.add("unitTests", references(document.unitTests()));
     value.add("fields", references(document.fields()));
     return value;
   }
@@ -152,6 +163,7 @@ public final class ApiDocumentationWriter {
       value.addProperty("kind", reference.kind());
       value.addProperty("target", reference.target());
       value.addProperty("display", reference.display());
+      reference.document().ifPresent(document -> value.addProperty("document", document));
       values.add(value);
     }
     return values;

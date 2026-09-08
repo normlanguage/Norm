@@ -141,7 +141,7 @@ Builtin ABI 是 intrinsic identity 和 runtime shape 的单一来源。Catalog�
 
 - adapter 单元测试，使用其下一层真实依赖；
 - Truffle 测试，验证 platform exception 转换为可捕获 Norm Exception；
-- `norm/tests/stdlib` 用户级程序；
+- `norm/stdlib/std/tests/test` 标准库测试；
 - 真实临时目录、loopback socket、fixed clock 或真实 child process 测试；
 - CLI 真实 `.norm` 文件执行测试；
 - 发布前开发入口与自包含 CLI 行为一致性验证。

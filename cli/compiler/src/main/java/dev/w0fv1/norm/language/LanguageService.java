@@ -82,6 +82,24 @@ public final class LanguageService implements AutoCloseable {
     return completions.complete(document, offset);
   }
 
+  public List<TestDeclaration> tests(DocumentSemanticModel document) {
+    var semantics = document.semanticModel();
+    return dev.w0fv1.norm.semantic.TestIndex.from(semantics).tests().stream()
+        .map(test -> semantics.symbol(test.symbol()).orElseThrow())
+        .filter(
+            symbol -> symbol.declaration().orElseThrow().document().equals(document.source().id()))
+        .map(
+            symbol ->
+                new TestDeclaration(
+                    document.syntax().packageName().isEmpty()
+                        ? symbol.name()
+                        : document.syntax().packageName() + "." + symbol.name(),
+                    symbol.declaration().orElseThrow()))
+        .toList();
+  }
+
+  public record TestDeclaration(String name, SourceLocation location) {}
+
   public Optional<SignatureHelp> signatureHelp(AnalysisResult analysis, int offset) {
     return signatures.resolve(document(analysis), offset);
   }

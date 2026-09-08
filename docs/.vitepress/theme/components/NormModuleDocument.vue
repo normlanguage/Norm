@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { withBase } from 'vitepress'
-import type { FileApi, FileEntry, ModuleApi } from '../generated/norm-api'
+import type { FileApi, FileEntry, ModuleApi, Reference } from '../generated/norm-api'
 import NormApiDeclaration from './NormApiDeclaration.vue'
+import NormApiDocument from './NormApiDocument.vue'
 import NormApiTree from './NormApiTree.vue'
-import { firstFile, renderDescription } from './norm-api-view'
+import { declarationTargets, firstFile } from './norm-api-view'
 
 const props = defineProps<{
   root: string
 }>()
 const manifest = ref<ModuleApi>()
 const file = ref<FileApi>()
+const targets = computed(() => new Set([...declarationTargets(file.value?.declarations ?? []), ...(file.value?.tests ?? []).map(test => test.id)]))
 const selected = ref<FileEntry>()
 const loading = ref(true)
 const error = ref('')
+const container = ref<HTMLElement>()
 let mounted = false
 let revision = 0
 
@@ -64,6 +67,22 @@ async function select(entry: FileEntry, current = revision) {
   }
 }
 
+async function navigate(reference: Reference) {
+  if (reference.document && selected.value?.document !== reference.document) {
+    const pending = [...(manifest.value?.tree ?? [])]
+    while (pending.length) {
+      const entry = pending.pop()!
+      if (entry.kind === 'directory') pending.push(...entry.children)
+      else if (entry.document === reference.document) {
+        await select(entry)
+        break
+      }
+    }
+  }
+  await nextTick()
+  container.value?.querySelector(`[id="${CSS.escape(reference.target)}"]`)?.scrollIntoView()
+}
+
 function rootUrl() {
   const root = props.root.endsWith('/') ? props.root : `${props.root}/`
   return /^https?:\/\//.test(root) ? root : withBase(root)
@@ -81,7 +100,7 @@ function message(failure: unknown) {
 </script>
 
 <template>
-  <div class="norm-module-document">
+  <div ref="container" class="norm-module-document">
     <header v-if="manifest" class="norm-module-document__header">
       <div>
         <span>Norm module</span>
@@ -104,18 +123,26 @@ function message(failure: unknown) {
           <header class="norm-api-file-header">
             <span>{{ file.package }}</span>
             <h2>{{ file.source.path }}</h2>
-            <div
+            <NormApiDocument
               v-if="file.document"
-              class="norm-api-description"
-              v-html="renderDescription(file.document.description)"
+              :document="file.document"
+              :targets="targets"
+              @navigate="navigate"
             />
           </header>
           <NormApiDeclaration
             v-for="declaration in file.declarations"
             :key="declaration.id"
             :declaration="declaration"
+            :targets="targets"
+              @navigate="navigate"
           />
-          <p v-if="!file.declarations.length" class="norm-api-state">
+          <article v-for="test in file.tests" :id="test.id" :key="test.id" class="norm-api-declaration">
+            <header><span>Test</span><span>{{ test.name }}</span></header>
+            <p>{{ file.source.path }}:{{ test.source.start.line }}</p>
+            <pre><code>{{ test.code }}</code></pre>
+          </article>
+          <p v-if="!file.declarations.length && !file.tests.length" class="norm-api-state">
             This file does not export public declarations.
           </p>
         </template>

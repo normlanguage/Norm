@@ -42,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await restartClient(context);
     }),
     vscode.commands.registerCommand('norm.runCurrentFile', () => runner.runCurrentFile()),
+    vscode.commands.registerCommand('norm.runTest', (uri: string, name: string) => runner.runTest(uri, name)),
     vscode.commands.registerCommand('norm.showToolchain', () => {
       if (!activeCli) {
         return vscode.window.showWarningMessage('No compatible Norm CLI is active.');

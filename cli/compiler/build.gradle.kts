@@ -931,6 +931,7 @@ sourceSets {
         java.srcDir(generatedBuildMetadata)
         java.srcDir(generatedBuiltinAbi)
         resources.srcDir(standardLibraryDirectory)
+        resources.exclude("std/tests/**")
         resources.srcDir(generateToolchainArtifacts.flatMap { it.outputDirectory })
         resources.srcDir(fetchReachabilityMetadata.map { it.outputFile.get().asFile.parentFile })
     }
@@ -945,6 +946,7 @@ tasks.compileJava {
 
 tasks.test {
     dependsOn(tasks.jar)
+    systemProperty("norm.test.stdlib", rootProject.file("norm/stdlib/std").absolutePath)
     systemProperty("norm.test.modulePath", files(tasks.jar, configurations.runtimeClasspath).asPath)
 }
 

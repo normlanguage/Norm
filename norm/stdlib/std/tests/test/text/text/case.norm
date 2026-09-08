@@ -1,0 +1,23 @@
+package std.test.text.text
+
+import std.testing.Test
+import std.io.printLines
+import std.testing.equal
+import std.testing.expectedOutputLines
+import std.text.join
+import std.text.repeat
+
+@Test(functions: [join.function, repeat.function])
+Void textTest() {
+  printLine(equal(actual: repeat(value: "ab", count: 3), expected: "ababab"))
+  List<String> values = List<>()
+  values.add("Norm")
+  values.add("0.2")
+  printLines(
+    [
+      equal(actual: join(values: values, separator: " "), expected: "Norm 0.2"),
+      equal(actual: join(values: List<>(), separator: ","), expected: "")
+    ]
+  )
+  expectedOutputLines(["true", "true", "true"])
+}

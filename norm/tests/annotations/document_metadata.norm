@@ -1,4 +1,5 @@
 import std.annotation.Document
+import std.testing.Test
 import std.testing.expectedOutputLines
 
 class User {
@@ -7,6 +8,11 @@ class User {
 
 String normalizeName(String name) {
   return name
+}
+
+@Test(functions: [normalizeName.function])
+Void normalizeNameTest() {
+  require(condition: normalizeName("Ada") == "Ada", message: "normalized name")
 }
 
 @Document(

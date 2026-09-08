@@ -6575,7 +6575,9 @@
             "name": "bindingApiOverloadParameterTypes",
             "type": "std.core.List<std.core.List<std.core.List<std.core.String>>>",
             "hasDefault": false
-          }
+          },
+          { "name": "sourceRoots", "type": "std.core.List<std.core.String>", "hasDefault": false },
+          { "name": "testRoots", "type": "std.core.List<std.core.String>", "hasDefault": false }
         ],
         "documentation": "Norm built-in."
       },

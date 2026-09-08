@@ -35,6 +35,8 @@ interface JarOverload {
 }
 
 interface Module {
+  List<String> sources() { return ["."] }
+  List<String> tests() { return ["tests"] }
   String? name()
   Integer? version()
   List<String> exports()
@@ -71,6 +73,11 @@ private class DeclaredModule implements Module {
   List<String> exportedSources
   List<ModuleRequirement> requiredModules
   JarBinding? jarBinding
+  List<String> sourceRoots
+  List<String> testRoots
+
+  List<String> sources() { return sourceRoots }
+  List<String> tests() { return testRoots }
 
   String? name() {
     return moduleName
@@ -252,14 +259,18 @@ Module module(
   Integer version,
   List<String> exports = [],
   List<ModuleRequirement> dependencies = [],
-  JarBinding? binding = null
+  JarBinding? binding = null,
+  List<String> sources = ["."],
+  List<String> tests = ["tests"]
 ) {
   return declaredModule(
     name: name,
     version: version,
     exports: exports,
     dependencies: dependencies,
-    binding: binding
+    binding: binding,
+    sources: sources,
+    tests: tests
   )
 }
 
@@ -268,14 +279,18 @@ Module module(
   String? name = null,
   Integer? version = null,
   List<String> exports = [],
-  JarBinding? binding = null
+  JarBinding? binding = null,
+  List<String> sources = ["."],
+  List<String> tests = ["tests"]
 ) {
   return declaredModule(
     name: name,
     version: version,
     exports: exports,
     dependencies: dependencies,
-    binding: binding
+    binding: binding,
+    sources: sources,
+    tests: tests
   )
 }
 
@@ -284,7 +299,9 @@ private Module declaredModule(
   Integer? version,
   List<String> exports,
   List<ModuleRequirement> dependencies,
-  JarBinding? binding
+  JarBinding? binding,
+  List<String> sources,
+  List<String> tests
 ) {
   if version != null {
     require(condition: version > 0, message: "module version must be positive")
@@ -300,6 +317,8 @@ private Module declaredModule(
     moduleVersion: version,
     exportedSources: resolvedExports,
     requiredModules: dependencies,
-    jarBinding: binding
+    jarBinding: binding,
+    sourceRoots: sources,
+    testRoots: tests
   )
 }

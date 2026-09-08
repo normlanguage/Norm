@@ -1,0 +1,14 @@
+package std.test.collections.list_filled
+
+import std.testing.Test
+import std.testing.expectedOutputLines
+
+@Test
+Void listFilledTest() {
+  List<Integer> values = List.filled(size: 4, value: 3)
+  values[1] = 9
+  for value : values {
+    printLine(value)
+  }
+  expectedOutputLines(["3", "9", "3", "3"])
+}

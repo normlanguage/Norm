@@ -45,7 +45,7 @@ public final class DocumentationGenerator {
     Objects.requireNonNull(snapshot, "snapshot");
     SemanticModel semantics = snapshot.semanticModel();
     DocumentationIndex documents = documentationIndex(semantics);
-    Map<SymbolId, String> declarationIds = declarationIds(sourcePaths, snapshot);
+    Map<SymbolId, DeclarationLink> declarationIds = declarationIds(sourcePaths, snapshot);
     List<String> missing = new ArrayList<>();
     List<ModuleDocumentation.File> files =
         sourcePaths.entrySet().stream()
@@ -72,7 +72,7 @@ public final class DocumentationGenerator {
       DocumentSemanticModel document,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     Syntax.Program program = document.syntax();
@@ -100,8 +100,33 @@ public final class DocumentationGenerator {
             .packages()
             .getOrDefault(document.source().id(), Optional.empty())
             .map(value -> materialize(value, semantics, declarationIds));
+    var marked =
+        documents.tests().tests().stream()
+            .map(dev.w0fv1.norm.semantic.TestIndex.Test::symbol)
+            .collect(java.util.stream.Collectors.toSet());
+    var tests =
+        program.functions().stream()
+            .filter(function -> marked.contains(requireSymbol(semantics, function.nameSpan()).id()))
+            .map(
+                function ->
+                    new ModuleDocumentation.TestCase(
+                        declarationIds.get(requireSymbol(semantics, function.nameSpan()).id()).id(),
+                        function.name(),
+                        range(function.span()),
+                        function
+                            .span()
+                            .source()
+                            .text()
+                            .substring(function.span().startOffset(), function.span().endOffset())))
+            .toList();
     return new ModuleDocumentation.File(
-        sourcePath, documentPath, program.packageName(), exported, fileDocument, declarations);
+        sourcePath,
+        documentPath,
+        program.packageName(),
+        exported,
+        fileDocument,
+        declarations,
+        tests);
   }
 
   private ModuleDocumentation.Declaration declaration(
@@ -109,7 +134,7 @@ public final class DocumentationGenerator {
       String packageName,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     return switch (node) {
@@ -145,7 +170,7 @@ public final class DocumentationGenerator {
       String packageName,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     Symbol symbol = requireSymbol(semantics, declaration.nameSpan());
@@ -239,7 +264,7 @@ public final class DocumentationGenerator {
       String packageName,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     Symbol symbol = requireSymbol(semantics, declaration.nameSpan());
@@ -285,7 +310,7 @@ public final class DocumentationGenerator {
       String packageName,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     Symbol symbol = requireSymbol(semantics, declaration.nameSpan());
@@ -347,7 +372,7 @@ public final class DocumentationGenerator {
       String packageName,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     Symbol symbol = requireSymbol(semantics, nameSpan);
@@ -389,7 +414,7 @@ public final class DocumentationGenerator {
       Optional<ModuleDocumentation.Type> type,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     return leaf(
@@ -422,15 +447,15 @@ public final class DocumentationGenerator {
       Optional<ModuleDocumentation.Type> type,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing,
       List<ModuleDocumentation.Declaration> members) {
     Optional<RawDocument> raw = documents.symbols().getOrDefault(symbol.id(), Optional.empty());
-    if (strict && raw.isEmpty()) missing.add(declarationIds.get(symbol.id()));
+    if (strict && raw.isEmpty()) missing.add(declarationIds.get(symbol.id()).id());
     return new ModuleDocumentation.Declaration(
         kind,
-        declarationIds.get(symbol.id()),
+        declarationIds.get(symbol.id()).id(),
         symbol.name(),
         signature,
         visibility == Syntax.Visibility.PUBLIC ? "public" : "private",
@@ -448,7 +473,7 @@ public final class DocumentationGenerator {
       Symbol callable,
       SemanticModel semantics,
       DocumentationIndex documents,
-      Map<SymbolId, String> declarationIds,
+      Map<SymbolId, DeclarationLink> declarationIds,
       boolean strict,
       List<String> missing) {
     List<ModuleDocumentation.Parameter> result = new ArrayList<>();
@@ -458,7 +483,7 @@ public final class DocumentationGenerator {
       Optional<RawDocument> raw =
           symbol.flatMap(value -> documents.symbols().getOrDefault(value.id(), Optional.empty()));
       if (strict && raw.isEmpty()) {
-        missing.add(declarationIds.get(callable.id()) + "." + parameter.name());
+        missing.add(declarationIds.get(callable.id()).id() + "." + parameter.name());
       }
       SemanticType parameterType =
           index < callable.parameters().size()
@@ -485,32 +510,38 @@ public final class DocumentationGenerator {
   }
 
   private ModuleDocumentation.Document materialize(
-      RawDocument document, SemanticModel semantics, Map<SymbolId, String> declarationIds) {
+      RawDocument document,
+      SemanticModel semantics,
+      Map<SymbolId, DeclarationLink> declarationIds) {
     return new ModuleDocumentation.Document(
         document.description(),
         references("type", document.types(), semantics, declarationIds),
         references("function", document.functions(), semantics, declarationIds),
-        references("field", document.fields(), semantics, declarationIds));
+        references("field", document.fields(), semantics, declarationIds),
+        references("function", document.unitTests(), semantics, declarationIds));
   }
 
   private List<ModuleDocumentation.Reference> references(
       String kind,
       List<SymbolId> targets,
       SemanticModel semantics,
-      Map<SymbolId, String> declarationIds) {
+      Map<SymbolId, DeclarationLink> declarationIds) {
     return targets.stream()
         .map(
             target -> {
               Symbol symbol = semantics.symbol(target).orElseThrow();
+              DeclarationLink link = declarationIds.get(target);
               return new ModuleDocumentation.Reference(
                   kind,
-                  declarationIds.getOrDefault(target, externalId(symbol, semantics)),
-                  symbol.name());
+                  link == null ? externalId(symbol, semantics) : link.id(),
+                  symbol.name(),
+                  Optional.ofNullable(link).map(DeclarationLink::document));
             })
         .toList();
   }
 
   private DocumentationIndex documentationIndex(SemanticModel semantics) {
+    var tests = dev.w0fv1.norm.semantic.TestIndex.from(semantics);
     Map<DocumentId, Optional<RawDocument>> packages = new LinkedHashMap<>();
     Map<SymbolId, Optional<RawDocument>> symbols = new LinkedHashMap<>();
     for (AnnotationApplication application : semantics.annotations().applications()) {
@@ -530,13 +561,16 @@ public final class DocumentationGenerator {
               literal(values.get("description")),
               references(values.get("types")),
               references(values.get("functions")),
-              references(values.get("fields")));
+              references(values.get("fields")),
+              application.target() instanceof AnnotationSite.Symbol site
+                  ? tests.forDeclaration(site.symbol())
+                  : List.of());
       switch (application.target()) {
         case AnnotationSite.Package site -> packages.put(site.document(), Optional.of(document));
         case AnnotationSite.Symbol site -> symbols.put(site.symbol(), Optional.of(document));
       }
     }
-    return new DocumentationIndex(packages, symbols);
+    return new DocumentationIndex(packages, symbols, tests);
   }
 
   private static String literal(AnnotationValue value) {
@@ -555,7 +589,7 @@ public final class DocumentationGenerator {
         .toList();
   }
 
-  private Map<SymbolId, String> declarationIds(
+  private Map<SymbolId, DeclarationLink> declarationIds(
       Map<DocumentId, String> sourcePaths, CompilationSnapshot snapshot) {
     Map<SymbolId, String> result = new LinkedHashMap<>();
     for (DocumentId document : sourcePaths.keySet()) {
@@ -565,7 +599,22 @@ public final class DocumentationGenerator {
         collectIds(declaration, packageName, model.semanticModel(), result);
       }
     }
-    return Map.copyOf(result);
+    Map<SymbolId, DeclarationLink> links = new LinkedHashMap<>();
+    result.forEach(
+        (id, name) -> {
+          String path =
+              sourcePaths.get(
+                  snapshot
+                      .semanticModel()
+                      .symbol(id)
+                      .orElseThrow()
+                      .declaration()
+                      .orElseThrow()
+                      .document());
+          links.put(
+              id, new DeclarationLink(name, path.substring(0, path.length() - 5) + ".api.json"));
+        });
+    return Map.copyOf(links);
   }
 
   private void collectIds(
@@ -782,19 +831,27 @@ public final class DocumentationGenerator {
     return value.type().displayName() + " " + value.name();
   }
 
+  private record DeclarationLink(String id, String document) {}
+
   private record RawDocument(
-      String description, List<SymbolId> types, List<SymbolId> functions, List<SymbolId> fields) {
+      String description,
+      List<SymbolId> types,
+      List<SymbolId> functions,
+      List<SymbolId> fields,
+      List<SymbolId> unitTests) {
     private RawDocument {
       Objects.requireNonNull(description, "description");
       types = List.copyOf(types);
       functions = List.copyOf(functions);
       fields = List.copyOf(fields);
+      unitTests = List.copyOf(unitTests);
     }
   }
 
   private record DocumentationIndex(
       Map<DocumentId, Optional<RawDocument>> packages,
-      Map<SymbolId, Optional<RawDocument>> symbols) {
+      Map<SymbolId, Optional<RawDocument>> symbols,
+      dev.w0fv1.norm.semantic.TestIndex tests) {
     private DocumentationIndex {
       packages = Map.copyOf(packages);
       symbols = Map.copyOf(symbols);

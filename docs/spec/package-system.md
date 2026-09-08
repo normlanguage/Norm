@@ -17,7 +17,7 @@ Integer area(Integer width, Integer height) {
 
 ## 文件与源码根
 
-package 名由点分隔的标识符组成，并与源码根目录下的相对目录一致。`package geometry.shapes` 的源码位于 `<source-root>/geometry/shapes/`。
+package 名由点分隔的标识符组成。模块源码集合的每个根目录以模块名为 package 前缀，其下相对目录补全 package 名；配置与目录映射见 [Source set](/spec/module-system#source-set)。
 
 文件名不创建命名空间，也不限制文件中的 public 声明数量。项目可以按主要类型命名文件，但这只是组织约定。跨文件名称解析只发生在 `module.norm` 建立的 source set 内；没有模块配置时，无论入口是否声明 package，都按独立单文件处理。
 

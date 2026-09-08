@@ -170,9 +170,12 @@ final class Parser {
     while (match(TokenKind.AT)) {
       Token start = previous();
       Token name = consume(TokenKind.IDENTIFIER, "expected annotation name after '@'");
-      consume(TokenKind.LEFT_PAREN, "expected '(' after annotation name");
-      List<Syntax.CallArgument> arguments = parseCallArguments();
-      Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation arguments");
+      List<Syntax.CallArgument> arguments = List.of();
+      Token closing = name;
+      if (match(TokenKind.LEFT_PAREN)) {
+        arguments = parseCallArguments();
+        closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after annotation arguments");
+      }
       annotations.add(
           new Syntax.AnnotationUse(
               name.value(), name.span(), arguments, start.span().cover(closing.span())));

@@ -1,0 +1,32 @@
+package std.test.io.bytes
+
+import std.testing.Test
+import std.io.Bytes
+import std.io.ReadChunk
+import std.io.Resource
+import std.io.bytes
+import std.testing.expectedOutputLines
+
+class TestResource implements Resource {
+  public Void close() {
+    printLine("closed")
+  }
+}
+
+@Test(types: [Bytes.class, ReadChunk.class, Resource.class], functions: [bytes.function])
+Void bytesTest() {
+  Bytes content = bytes(values: [78, 111, 114, 109])
+  Bytes middle = content.slice(start: 1, length: 2)
+  ReadChunk chunk = ReadChunk.Data(bytes: content)
+
+  printLine(content.size())
+  printLine(middle.at(index: 0))
+  printLine(middle.at(index: 1))
+  switch chunk {
+    case Data(Bytes data) { printLine(data.at(index: 0)) }
+    case Eof { printLine("eof") }
+  }
+  Resource resource = TestResource()
+  resource.close()
+  expectedOutputLines(["4", "111", "114", "78", "closed"])
+}

@@ -549,6 +549,26 @@ final class AnnotationChecker {
       context.model.putBinding(use.nameSpan(), annotation);
       AnnotationSchema schema = context.model.annotationSchemas().get(annotation);
       if (schema == null) continue;
+      if (context
+              .model
+              .symbols()
+              .get(annotation)
+              .type()
+              .identity()
+              .equals(dev.w0fv1.norm.value.TestAbi.IDENTITY)
+          && target instanceof AnnotationSite.Symbol site) {
+        Symbol function = context.model.symbols().get(site.symbol());
+        if (function.kind() != dev.w0fv1.norm.semantic.SymbolKind.FUNCTION
+            || function.owner().isPresent()
+            || !function.parameters().isEmpty()
+            || !function.typeParameters().isEmpty()
+            || !function.type().equals(SemanticType.VOID)) {
+          context.diagnostics.error(
+              TYPE_MISMATCH,
+              "@Test requires a top-level, non-generic, zero-argument Void function",
+              use.span());
+        }
+      }
       boolean duplicate = !indexedAnnotationApplications.add(applicationKey(annotation, target));
       if (duplicate && !schema.repeatable()) {
         context.diagnostics.error(

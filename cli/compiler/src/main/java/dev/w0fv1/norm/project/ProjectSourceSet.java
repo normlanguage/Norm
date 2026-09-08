@@ -165,7 +165,7 @@ public record ProjectSourceSet(
             scope.coordinate(application.id()).module(), ".norm/ApplicationEntrypoint.norm"));
     return new CompilationRequest(
         new CompilationUnitId(rootModulePath.map(Path::toUri).orElseGet(() -> primaryPath.toUri())),
-        new CompilationScope(coordinates, scope.modules()),
+        new CompilationScope(coordinates, scope.modules(), scope.testSources()),
         entrypoint.id(),
         applicationSources,
         exportedDocuments(),
@@ -186,7 +186,7 @@ public record ProjectSourceSet(
             scope.coordinate(primarySource().id()).module(), ".norm/TestEntrypoint.norm"));
     return new CompilationRequest(
         new CompilationUnitId(rootModulePath.map(Path::toUri).orElseGet(() -> primaryPath.toUri())),
-        new CompilationScope(coordinates, scope.modules()),
+        new CompilationScope(coordinates, scope.modules(), scope.testSources()),
         entry.id(),
         testSources,
         exportedDocuments(),

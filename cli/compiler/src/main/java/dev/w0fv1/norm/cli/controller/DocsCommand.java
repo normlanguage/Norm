@@ -20,8 +20,6 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -59,10 +57,7 @@ final class DocsCommand implements Command {
           CompilerSession compiler = environment.compilerSession()) {
         SourceFile moduleSource = SourceFile.read(modulePath);
         ModuleDescriptor descriptor = projects.evaluateModule(moduleSource);
-        LoadedModule loaded =
-            descriptor.name().equals("std")
-                ? standardLibrary(moduleRoot, descriptor, compiler)
-                : projectModule(moduleRoot, modulePath, descriptor, projects, compiler);
+        LoadedModule loaded = projectModule(moduleRoot, modulePath, descriptor, projects, compiler);
         if (loaded.snapshot().analysis().hasErrors()) {
           loaded
               .snapshot()
@@ -109,7 +104,7 @@ final class DocsCommand implements Command {
       ProjectLoader projects,
       CompilerSession compiler)
       throws IOException {
-    ProjectSourceSet sourceSet = loadSourceSet(moduleRoot, modulePath, projects);
+    ProjectSourceSet sourceSet = projects.loadForTests(moduleRoot);
     if (sourceSet.rootModulePath().isEmpty()
         || !sourceSet.rootModulePath().orElseThrow().equals(modulePath)) {
       throw new IOException("documentation root does not identify the loaded module");
@@ -126,74 +121,6 @@ final class DocsCommand implements Command {
       if (sourceSet.exportedSourcePaths().contains(path)) exported.add(source.id());
     }
     return new LoadedModule(sourcePaths, exported, snapshot);
-  }
-
-  private static LoadedModule standardLibrary(
-      Path moduleRoot, ModuleDescriptor descriptor, CompilerSession compiler) throws IOException {
-    List<Path> paths;
-    try (var files = Files.walk(moduleRoot)) {
-      paths =
-          files
-              .filter(Files::isRegularFile)
-              .filter(path -> path.getFileName().toString().endsWith(".norm"))
-              .filter(path -> !path.equals(moduleRoot.resolve("module.norm")))
-              .sorted(Comparator.comparing(Path::toString))
-              .toList();
-    }
-    if (paths.isEmpty()) throw new IOException("module does not contain any Norm source files");
-    List<SourceFile> overlays = new ArrayList<>();
-    Map<DocumentId, String> sourcePaths = new LinkedHashMap<>();
-    for (Path path : paths) {
-      String relative = relative(moduleRoot, path);
-      DocumentId document =
-          DocumentId.of("stdlib:/" + descriptor.name().replace('.', '/') + "/" + relative);
-      if (compiler.preludeSource(document).isEmpty()) {
-        throw new IOException(
-            "standard library source is not part of this Norm build: " + relative);
-      }
-      overlays.add(SourceFile.of(document, Files.readString(path)));
-      sourcePaths.put(document, relative);
-    }
-    Set<DocumentId> exported =
-        descriptor.exports().stream()
-            .map(descriptor::sourcePath)
-            .map(path -> DocumentId.of("stdlib:/" + path))
-            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-    CompilationSnapshot snapshot = compiler.preludeSnapshot(overlays, overlays.getFirst().id());
-    return new LoadedModule(sourcePaths, exported, snapshot);
-  }
-
-  private static ProjectSourceSet loadSourceSet(
-      Path moduleRoot, Path modulePath, ProjectLoader projects) throws IOException {
-    List<Path> candidates;
-    try (var paths = Files.walk(moduleRoot)) {
-      candidates =
-          paths
-              .filter(Files::isRegularFile)
-              .filter(path -> path.getFileName().toString().endsWith(".norm"))
-              .filter(path -> !path.equals(modulePath))
-              .sorted(Comparator.comparing(Path::toString))
-              .toList();
-    }
-    List<Path> moduleSources = new ArrayList<>();
-    for (Path candidate : candidates) {
-      if (!insideNestedModule(moduleRoot, candidate)) moduleSources.add(candidate);
-    }
-    if (moduleSources.isEmpty()) {
-      throw new IOException("module does not contain any loadable Norm source files");
-    }
-    return projects.load(moduleSources.getFirst());
-  }
-
-  private static boolean insideNestedModule(Path moduleRoot, Path source) throws IOException {
-    Path directory = source.getParent();
-    while (directory != null && !directory.equals(moduleRoot)) {
-      Path candidate = directory.resolve("module.norm");
-      if (Files.isRegularFile(candidate)
-          && ProjectLoader.isModuleSource(SourceFile.read(candidate))) return true;
-      directory = directory.getParent();
-    }
-    return false;
   }
 
   private static Optional<Options> options(List<String> arguments, PrintWriter err) {

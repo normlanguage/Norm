@@ -17,13 +17,15 @@ public record ModuleDocumentation(ModuleCoordinate module, List<File> files) {
       String packageName,
       boolean exported,
       Optional<Document> document,
-      List<Declaration> declarations) {
+      List<Declaration> declarations,
+      List<TestCase> tests) {
     public File {
       Objects.requireNonNull(sourcePath, "sourcePath");
       Objects.requireNonNull(documentPath, "documentPath");
       Objects.requireNonNull(packageName, "packageName");
       document = Objects.requireNonNull(document, "document");
       declarations = List.copyOf(declarations);
+      tests = List.copyOf(tests);
     }
   }
 
@@ -31,16 +33,24 @@ public record ModuleDocumentation(ModuleCoordinate module, List<File> files) {
       String description,
       List<Reference> types,
       List<Reference> functions,
-      List<Reference> fields) {
+      List<Reference> fields,
+      List<Reference> unitTests) {
     public Document {
       Objects.requireNonNull(description, "description");
       types = List.copyOf(types);
       functions = List.copyOf(functions);
       fields = List.copyOf(fields);
+      unitTests = List.copyOf(unitTests);
     }
   }
 
-  public record Reference(String kind, String target, String display) {
+  public record TestCase(String id, String name, SourceRange source, String code) {}
+
+  public record Reference(String kind, String target, String display, Optional<String> document) {
+    public Reference(String kind, String target, String display) {
+      this(kind, target, display, Optional.empty());
+    }
+
     public Reference {
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(target, "target");

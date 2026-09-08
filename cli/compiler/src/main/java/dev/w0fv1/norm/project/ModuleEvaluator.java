@@ -93,7 +93,9 @@ final class ModuleEvaluator implements AutoCloseable {
               bindingApiTypes: bindingApiTypes,
               bindingApiMembers: bindingApiMembers,
               bindingApiOverloadNames: bindingApiOverloadNames,
-              bindingApiOverloadParameterTypes: bindingApiOverloadParameterTypes
+              bindingApiOverloadParameterTypes: bindingApiOverloadParameterTypes,
+              sourceRoots: definition.sources(),
+              testRoots: definition.tests()
             )
           }
           """);

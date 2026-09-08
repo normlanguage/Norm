@@ -32,6 +32,79 @@ final class CliControllerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void rejectsInvalidTestSignaturesAndProductionDependenciesOnTests() throws IOException {
+    Path source = temporaryDirectory.resolve("invalid-test.norm");
+    for (String declaration :
+        new String[] {
+          "@Test Integer invalid() { return 1 }", "@Test Void invalid(Integer value) {}",
+          "@Test Void invalid<T>() {}", "class Owner { @Test Void invalid() {} }"
+        }) {
+      Files.writeString(source, "import std.testing.Test " + declaration);
+      Result result = run("test", source.toString());
+      assertEquals(ExitCode.COMPILATION_ERROR, result.exitCode(), result.standardError());
+      assertTrue(result.standardError().contains("@Test requires"), result.standardError());
+    }
+    Path module = Files.createDirectories(temporaryDirectory.resolve("boundary"));
+    Files.writeString(
+        module.resolve("module.norm"),
+        "Module module() { return module(name: \"boundary\", version: 1) }");
+    Files.writeString(module.resolve("api.norm"), "package boundary Void api() { testHelper() }");
+    Files.createDirectories(module.resolve("tests"));
+    Files.writeString(
+        module.resolve("tests/cases.norm"),
+        "package boundary import std.testing.Test Void testHelper() {} @Test Void checks() {}");
+    Result result = run("test", module.toString());
+    assertEquals(ExitCode.COMPILATION_ERROR, result.exitCode(), result.standardError());
+    assertTrue(result.standardError().contains("testHelper"));
+  }
+
+  @Test
+  void associatesGenericFunctionsWithTests() throws IOException {
+    Path source = temporaryDirectory.resolve("generic-tests.norm");
+    Files.writeString(
+        source,
+        """
+        import std.testing.Test
+        T identity<T>(T value) { return value }
+        @Test(functions: [identity.function])
+        Void identityTest() { require(condition: identity(value: 7) == 7, message: "identity") }
+        """);
+    Result result = run("test", source.toString());
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertTrue(result.standardOut().contains("1 found, 1 passed"));
+  }
+
+  @Test
+  void runsAnnotatedTestsIndividuallyAndReportsFailures() throws IOException {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("tested"));
+    Files.writeString(
+        module.resolve("module.norm"),
+        "Module module() { return module(name: \"tested\", version: 1) }");
+    Files.writeString(module.resolve("api.norm"), "package tested Integer answer() { return 42 }");
+    Files.createDirectories(module.resolve("tests"));
+    Files.writeString(
+        module.resolve("tests/cases.norm"),
+        """
+        package tested
+        import std.testing.Test
+        @Test(functions: [answer.function])
+        Void succeeds() { require(condition: answer() == 42, message: "answer") }
+        @Test
+        Void fails() { require(condition: false, message: "intentional failure") }
+        Void helper() { require(condition: false, message: "must not run") }
+        """);
+    Result selected = run("test", module.toString(), "--filter", "tested.succeeds");
+    assertEquals(ExitCode.SUCCESS, selected.exitCode(), selected.standardError());
+    assertTrue(selected.standardOut().contains("1 found, 1 passed, 0 failed"));
+    Result all = run("test", module.toString());
+    assertEquals(ExitCode.TEST_FAILURE, all.exitCode(), all.standardError());
+    assertTrue(all.standardOut().contains("2 found, 1 passed, 1 failed"));
+    assertTrue(all.standardError().contains("intentional failure"));
+    Result unmatched = run("test", module.toString(), "--filter", "tested.missing");
+    assertEquals(ExitCode.TEST_FAILURE, unmatched.exitCode());
+  }
+
+  @Test
   void printsTheBuildVersion() {
     Result result = run("--version");
 
@@ -72,12 +145,12 @@ final class CliControllerTest {
   }
 
   @Test
-  void rejectsTestWithoutExactlyOneSourceFile() {
+  void rejectsTestWithoutAModuleOrSourceFile() {
     Result result = run("test");
 
     assertEquals(ExitCode.USAGE_ERROR, result.exitCode());
-    assertTrue(result.standardError().contains("'test' expects exactly one source file"));
-    assertTrue(result.standardError().contains("Usage: norm test <file.norm>"));
+    assertTrue(result.standardError().contains("'test' expects a module or source file"));
+    assertTrue(result.standardError().contains("Usage: norm test <module-directory|file.norm>"));
   }
 
   @Test
@@ -343,6 +416,94 @@ final class CliControllerTest {
     assertEquals("", result.standardOut());
     assertTrue(result.standardError().contains("NORM-NAME-0003"));
     assertTrue(result.standardError().contains("cannot find function or type 'missing'"));
+  }
+
+  @Test
+  void derivesUnitTestReferencesWithoutExecutingThem() throws IOException {
+    Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("sample"));
+    Files.writeString(
+        moduleRoot.resolve("module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"api\"]) }");
+    Files.writeString(
+        moduleRoot.resolve("api.norm"),
+        """
+        @Document(description: "Sample.") package sample
+        import std.annotation.Document
+        @Document(description: "API.") public Void api() {}
+        @Document(description: "Uncovered.") public Void uncovered() {}
+        """);
+    Files.createDirectories(moduleRoot.resolve("tests"));
+    Files.writeString(
+        moduleRoot.resolve("tests/cases.norm"),
+        """
+        package sample
+        import std.testing.Test
+        @Test(functions: [api.function])
+        Void apiTest() { printLine("must not execute") }
+        """);
+    Path output = temporaryDirectory.resolve("api-output");
+    Result result = run("docs", moduleRoot.toString(), "--output", output.toString(), "--strict");
+    assertEquals(ExitCode.SUCCESS, result.exitCode(), result.standardError());
+    assertFalse(result.standardOut().contains("must not execute"));
+    JsonArray declarations =
+        JsonParser.parseString(Files.readString(output.resolve("api.api.json")))
+            .getAsJsonObject()
+            .getAsJsonArray("declarations");
+    JsonArray links =
+        declarations
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonObject("document")
+            .getAsJsonArray("unitTests");
+    assertEquals(1, links.size());
+    assertEquals("apiTest", links.get(0).getAsJsonObject().get("display").getAsString());
+    assertEquals(
+        "tests/cases.api.json", links.get(0).getAsJsonObject().get("document").getAsString());
+    JsonObject testFile =
+        JsonParser.parseString(Files.readString(output.resolve("tests/cases.api.json")))
+            .getAsJsonObject();
+    assertEquals(0, testFile.getAsJsonArray("declarations").size());
+    assertEquals(
+        links.get(0).getAsJsonObject().get("target"),
+        testFile.getAsJsonArray("tests").get(0).getAsJsonObject().get("id"));
+    assertTrue(
+        testFile
+            .getAsJsonArray("tests")
+            .get(0)
+            .getAsJsonObject()
+            .get("code")
+            .getAsString()
+            .contains("must not execute"));
+    assertEquals(
+        0,
+        declarations
+            .get(1)
+            .getAsJsonObject()
+            .getAsJsonObject("document")
+            .getAsJsonArray("unitTests")
+            .size());
+  }
+
+  @Test
+  void rejectsInvalidUnitTestReferences() throws IOException {
+    Path source = temporaryDirectory.resolve("invalid-test-reference.norm");
+    for (String reference :
+        new String[] {
+          "missing.function", "Subject.class", "Subject.value.field", "overloaded.function"
+        }) {
+      Files.writeString(
+          source,
+          "import std.testing.Test class Subject { public String value } "
+              + "Void overloaded() {} Void overloaded(Integer value) {} "
+              + "@Test(functions: ["
+              + reference
+              + "]) "
+              + "Void api() {} Void main() {}");
+      Result result = run("run", source.toString());
+      assertEquals(ExitCode.COMPILATION_ERROR, result.exitCode(), reference);
+      assertFalse(
+          result.standardError().contains("unknown annotation parameter"), result.standardError());
+    }
   }
 
   @Test

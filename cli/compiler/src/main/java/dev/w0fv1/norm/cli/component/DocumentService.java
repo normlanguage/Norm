@@ -108,6 +108,31 @@ final class DocumentService implements TextDocumentService, AutoCloseable {
   }
 
   @Override
+  public CompletableFuture<List<? extends org.eclipse.lsp4j.CodeLens>> codeLens(
+      org.eclipse.lsp4j.CodeLensParams params) {
+    return workspace
+        .document(params.getTextDocument().getUri())
+        .thenApply(
+            state -> {
+              if (state == null || !state.source().id().uri().getScheme().equals("file"))
+                return List.of();
+              return language
+                  .tests(state.snapshot().document(state.source().id()).orElseThrow())
+                  .stream()
+                  .map(
+                      test ->
+                          new org.eclipse.lsp4j.CodeLens(
+                              range(state.snapshot(), test.location()),
+                              new org.eclipse.lsp4j.Command(
+                                  "Run Test",
+                                  "norm.runTest",
+                                  List.of(state.source().id().uri().toString(), test.name())),
+                              null))
+                  .toList();
+            });
+  }
+
+  @Override
   public CompletableFuture<Either<List<CompletionItem>, CompletionList>> completion(
       CompletionParams params) {
     return workspace

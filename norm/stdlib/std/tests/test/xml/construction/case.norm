@@ -1,0 +1,26 @@
+package std.test.xml.construction
+
+import std.testing.Test
+import std.serialization.Serializable
+import std.testing.expectedOutputLines
+import std.validation.ConstraintViolation
+import std.validation.Min
+import std.xml.fromXml
+
+@Serializable()
+value Score {
+  @Min(value: 1)
+  Integer value
+}
+
+@Test(types: [Serializable.class, ConstraintViolation.class, Min.class], functions: [fromXml.function])
+Void constructionTest() {
+  Score valid = "<Score><value>2</value></Score>".fromXml<Score>()
+  printLine(valid.value)
+  try {
+    "<Score><value>0</value></Score>".fromXml<Score>()
+  } catch ConstraintViolation error {
+    printLine(error.code)
+  }
+  expectedOutputLines(["2", "min"])
+}

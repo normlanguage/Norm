@@ -1,0 +1,20 @@
+package std.test.text.ascii_digits
+
+import std.testing.Test
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+@Test
+Void asciiDigitsTest() {
+  printLines(
+    [
+      '0'.isAsciiDigit(),
+      '9'.isAsciiDigit(),
+      'A'.isAsciiDigit(),
+      '９'.isAsciiDigit(),
+      '0'.asciiDigitValue(),
+      '9'.asciiDigitValue()
+    ]
+  )
+  expectedOutputLines(["true", "true", "false", "false", "0", "9"])
+}

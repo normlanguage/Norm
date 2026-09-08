@@ -56,6 +56,7 @@ final class LanguageServer
     capabilities.setReferencesProvider(true);
     capabilities.setRenameProvider(new RenameOptions(true));
     capabilities.setDocumentFormattingProvider(true);
+    capabilities.setCodeLensProvider(new org.eclipse.lsp4j.CodeLensOptions(false));
     return CompletableFuture.completedFuture(new InitializeResult(capabilities));
   }
 

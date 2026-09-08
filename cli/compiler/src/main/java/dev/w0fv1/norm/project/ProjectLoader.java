@@ -94,6 +94,20 @@ public final class ProjectLoader implements AutoCloseable {
     return load(SourceFile.read(normalize(entryPath)), List.of());
   }
 
+  public ProjectSourceSet loadForTests(Path entryPath) throws IOException {
+    Path entry = normalize(entryPath);
+    if (Files.isDirectory(entry)) {
+      SourceFile module = SourceFile.read(entry.resolve("module.norm"));
+      ResolvedModule resolved = resolveModule(module, Map.of(), true);
+      SourceFile first =
+          resolved.sources().values().stream()
+              .min(Comparator.comparing(source -> source.path().toString()))
+              .orElseThrow(() -> new IOException("module contains no source files"));
+      return loadResolvedModule(resolved, first, module.path(), Map.of(), LoadPurpose.TEST);
+    }
+    return load(SourceFile.read(entry), List.of(), LoadPurpose.TEST);
+  }
+
   public ProjectSourceSet loadForAnalysis(Path entryPath) throws IOException {
     return loadForAnalysis(SourceFile.read(normalize(entryPath)), List.of());
   }
@@ -143,15 +157,30 @@ public final class ProjectLoader implements AutoCloseable {
     if (entry.equals(modulePath)) {
       throw new IOException("module.norm is project configuration, not an application entry");
     }
-    ResolvedModule rootModule = resolveModule(moduleSource, overlaySources);
-    requireAvailableModuleName(rootModule.descriptor());
+    ResolvedModule rootModule =
+        resolveModule(moduleSource, overlaySources, purpose != LoadPurpose.RUNTIME);
+    return loadResolvedModule(rootModule, entrySource, modulePath, overlaySources, purpose);
+  }
+
+  private ProjectSourceSet loadResolvedModule(
+      ResolvedModule rootModule,
+      SourceFile entrySource,
+      Path modulePath,
+      Map<Path, SourceFile> overlaySources,
+      LoadPurpose purpose)
+      throws IOException {
+    Path entry = normalize(entrySource.path());
+    if (purpose == LoadPurpose.RUNTIME || !rootModule.descriptor().name().equals("std")) {
+      requireAvailableModuleName(rootModule.descriptor());
+    }
     Path root = rootModule.root();
-    if (!rootModule.sources().containsKey(relativePath(root, entry))) {
+    if (rootModule.sources().values().stream()
+        .noneMatch(source -> normalize(source.path()).equals(entry))) {
       throw new IOException("entry source is not part of the module");
     }
     List<ResolvedModule> graph = resolveGraph(rootModule, overlaySources, purpose);
     validatePackageOwnership(graph);
-    return sourceSet(root, entry, modulePath, graph, entryStructure);
+    return sourceSet(root, entry, modulePath, graph, SourceStructure.inspect(entrySource));
   }
 
   private static ProjectSourceSet sourceSet(
@@ -177,6 +206,7 @@ public final class ProjectLoader implements AutoCloseable {
                     LinkedHashMap::new));
     Map<ModuleCoordinate, FileSnapshot> moduleArchives = new LinkedHashMap<>();
     Set<DocumentId> bindingSources = new LinkedHashSet<>();
+    Set<DocumentId> testSources = new LinkedHashSet<>();
     List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
     Map<ModuleCoordinate, Map<String, ModuleResource>> resources = new LinkedHashMap<>();
     for (ResolvedModule module : graph) {
@@ -187,6 +217,7 @@ public final class ProjectLoader implements AutoCloseable {
           module.descriptor().coordinate(), readableDependencies(module.descriptor(), descriptors));
       modulePaths.add(normalize(module.moduleSource().path()));
       bindingSources.addAll(module.bindingSources());
+      testSources.addAll(module.testSources());
       module.binding().ifPresent(jarBindings::add);
       resources.put(module.descriptor().coordinate(), module.resources());
       exportedSources.addAll(
@@ -209,7 +240,7 @@ public final class ProjectLoader implements AutoCloseable {
         modulePaths,
         descriptors,
         moduleArchives,
-        new CompilationScope(coordinates, new ModuleGraph(dependencies)),
+        new CompilationScope(coordinates, new ModuleGraph(dependencies), testSources),
         sources,
         exportedSources,
         bindingSources,
@@ -445,7 +476,7 @@ public final class ProjectLoader implements AutoCloseable {
       }
       moduleSource = SourceFile.read(modulePath);
     }
-    if (!isModuleSource(moduleSource)) {
+    if (!ModuleSourceFiles.isModuleSource(moduleSource)) {
       throw new IOException("dependency configuration must be module.norm: " + modulePath);
     }
     ResolvedModule resolved = resolveModule(moduleSource, overlays);
@@ -576,17 +607,24 @@ public final class ProjectLoader implements AutoCloseable {
 
   private ResolvedModule resolveModule(SourceFile moduleSource, Map<Path, SourceFile> overlays)
       throws IOException {
+    return resolveModule(moduleSource, overlays, false);
+  }
+
+  private ResolvedModule resolveModule(
+      SourceFile moduleSource, Map<Path, SourceFile> overlays, boolean includeTests)
+      throws IOException {
     ModuleDeclaration declaration = modules.evaluate(moduleSource);
     ModuleDescriptor descriptor =
         resolveDeclaration(
             declaration,
             declaration.name().isPresent()
                 ? Optional.empty()
-                : ModuleNameInference.infer(moduleSource, overlays));
+                : ModuleNameInference.infer(moduleSource, overlays, declaration.layout()));
     Path root = sourceRoot(moduleSource, descriptor);
-    Map<String, SourceFile> sources = new LinkedHashMap<>();
-    collectSourceFiles(root, moduleSource, overlays)
-        .forEach((path, source) -> sources.put(relativePath(root, path), source));
+    ModuleSourceFiles selected =
+        ModuleSourceFiles.load(
+            moduleSource, descriptor.name(), declaration.layout(), overlays, includeTests);
+    Map<String, SourceFile> sources = new LinkedHashMap<>(selected.sources());
     Optional<ResolvedJarBinding> binding = Optional.empty();
     Set<DocumentId> bindingSources = Set.of();
     if (descriptor.binding().isPresent()) {
@@ -619,6 +657,9 @@ public final class ProjectLoader implements AutoCloseable {
     }
     ModuleLoader.LoadedModule loaded =
         new ModuleLoader().load(new MemoryResolver(sources), descriptor);
+    if (loaded.exportedSources().stream().anyMatch(selected.tests()::contains)) {
+      throw new IOException("test sources cannot be exported by a module");
+    }
     Map<String, ModuleResource> resources =
         collectResources(normalize(moduleSource.path()).getParent());
     return new ResolvedModule(
@@ -630,7 +671,8 @@ public final class ProjectLoader implements AutoCloseable {
         bindingSources,
         binding,
         resources,
-        Optional.empty());
+        Optional.empty(),
+        selected.tests());
   }
 
   public Path projectRoot(SourceFile source, Collection<SourceFile> overlays) {
@@ -654,14 +696,15 @@ public final class ProjectLoader implements AutoCloseable {
               declaration,
               declaration.name().isPresent()
                   ? Optional.empty()
-                  : ModuleNameInference.infer(moduleSource, overlaySources(source, overlays))));
+                  : ModuleNameInference.infer(
+                      moduleSource, overlaySources(source, overlays), declaration.layout())));
     } catch (IOException exception) {
       return normalize(location.module().orElseThrow().path()).getParent();
     }
   }
 
   public ModuleDescriptor evaluateModule(SourceFile source) throws IOException {
-    if (!isModuleSource(source)) {
+    if (!ModuleSourceFiles.isModuleSource(source)) {
       throw new IllegalArgumentException("source is not a module configuration");
     }
     ModuleDeclaration declaration = modules.evaluate(source);
@@ -669,7 +712,7 @@ public final class ProjectLoader implements AutoCloseable {
         declaration,
         declaration.name().isPresent()
             ? Optional.empty()
-            : ModuleNameInference.infer(source, Map.of()));
+            : ModuleNameInference.infer(source, Map.of(), declaration.layout()));
   }
 
   public ResolvedJarGraph resolveJarBinding(SourceFile source) throws IOException {
@@ -693,7 +736,7 @@ public final class ProjectLoader implements AutoCloseable {
   }
 
   ModuleArchiveContents moduleArchiveContents(SourceFile source) throws IOException {
-    if (!isModuleSource(source)) {
+    if (!ModuleSourceFiles.isModuleSource(source)) {
       throw new IllegalArgumentException("source is not a module configuration");
     }
     ResolvedModule resolved = resolveModule(source, Map.of());
@@ -768,17 +811,10 @@ public final class ProjectLoader implements AutoCloseable {
   }
 
   public CompilationSnapshot analyzeModule(SourceFile source) {
-    if (!isModuleSource(source)) {
+    if (!ModuleSourceFiles.isModuleSource(source)) {
       throw new IllegalArgumentException("source is not a module configuration");
     }
     return modules.snapshot(source);
-  }
-
-  public static boolean isModuleSource(SourceFile source) {
-    Objects.requireNonNull(source, "source");
-    Path path = source.path();
-    return path.getFileName().toString().equals("module.norm")
-        && SourceHeader.parse(source).packageName().isEmpty();
   }
 
   @Override
@@ -794,39 +830,6 @@ public final class ProjectLoader implements AutoCloseable {
         jars.close();
       }
     }
-  }
-
-  static Map<Path, SourceFile> collectSourceFiles(
-      Path root, SourceFile moduleSource, Map<Path, SourceFile> overlays) throws IOException {
-    Path modulePath = normalize(moduleSource.path());
-    Map<Path, SourceFile> sources = new LinkedHashMap<>();
-    List<Path> diskSources = List.of();
-    if (Files.isDirectory(root)) {
-      try (var paths = Files.walk(root)) {
-        diskSources =
-            paths
-                .filter(Files::isRegularFile)
-                .filter(ProjectLoader::isNormSource)
-                .map(ProjectLoader::normalize)
-                .sorted(Comparator.comparing(Path::toString))
-                .toList();
-      }
-    }
-    Set<Path> nestedRoots = nestedModuleRoots(root, modulePath, diskSources, overlays);
-    for (Path path : diskSources) {
-      if (!path.equals(modulePath) && !insideNestedModule(path, nestedRoots)) {
-        SourceFile overlay = overlays.get(path);
-        sources.put(path, overlay == null ? SourceFile.read(path) : overlay);
-      }
-    }
-    overlays.entrySet().stream()
-        .filter(source -> source.getKey().startsWith(root))
-        .filter(source -> isNormSource(source.getKey()))
-        .filter(source -> !source.getKey().equals(modulePath))
-        .filter(source -> !insideNestedModule(source.getKey(), nestedRoots))
-        .sorted(Map.Entry.comparingByKey(Comparator.comparing(Path::toString)))
-        .forEach(source -> sources.put(source.getKey(), source.getValue()));
-    return sources;
   }
 
   private static Map<String, ModuleResource> collectResources(Path moduleRoot) throws IOException {
@@ -850,12 +853,13 @@ public final class ProjectLoader implements AutoCloseable {
     while (current != null) {
       Path candidate = normalize(current.resolve("module.norm"));
       SourceFile overlay = overlays.get(candidate);
-      if (overlay != null && isModuleSource(overlay)) {
+      if (overlay != null && ModuleSourceFiles.isModuleSource(overlay)) {
         return new ProjectLocation(current, Optional.of(overlay));
       }
       if (overlay == null && Files.isRegularFile(candidate)) {
         SourceFile source = SourceFile.read(candidate);
-        if (isModuleSource(source)) return new ProjectLocation(current, Optional.of(source));
+        if (ModuleSourceFiles.isModuleSource(source))
+          return new ProjectLocation(current, Optional.of(source));
       }
       current = current.getParent();
     }
@@ -871,40 +875,6 @@ public final class ProjectLoader implements AutoCloseable {
     return sources;
   }
 
-  private static Set<Path> nestedModuleRoots(
-      Path root, Path modulePath, List<Path> diskSources, Map<Path, SourceFile> overlays)
-      throws IOException {
-    Map<Path, SourceFile> candidates = new LinkedHashMap<>();
-    for (Path path : diskSources) {
-      if (!path.equals(modulePath) && path.getFileName().toString().equals("module.norm")) {
-        SourceFile overlay = overlays.get(path);
-        candidates.put(path, overlay == null ? SourceFile.read(path) : overlay);
-      }
-    }
-    overlays.entrySet().stream()
-        .filter(source -> source.getKey().startsWith(root))
-        .filter(source -> !source.getKey().equals(modulePath))
-        .filter(source -> source.getKey().getFileName().toString().equals("module.norm"))
-        .forEach(source -> candidates.put(source.getKey(), source.getValue()));
-    List<Path> candidateRoots =
-        candidates.entrySet().stream()
-            .filter(source -> isModuleSource(source.getValue()))
-            .map(source -> source.getKey().getParent())
-            .sorted(
-                Comparator.comparingInt(Path::getNameCount)
-                    .thenComparing(Comparator.comparing(Path::toString)))
-            .toList();
-    Set<Path> nestedRoots = new LinkedHashSet<>();
-    for (Path candidate : candidateRoots) {
-      if (!insideNestedModule(candidate, nestedRoots)) nestedRoots.add(candidate);
-    }
-    return Set.copyOf(nestedRoots);
-  }
-
-  private static boolean insideNestedModule(Path path, Set<Path> nestedRoots) {
-    return nestedRoots.stream().anyMatch(path::startsWith);
-  }
-
   private static String relativePath(Path root, Path path) {
     return root.relativize(path).toString().replace('\\', '/');
   }
@@ -912,10 +882,6 @@ public final class ProjectLoader implements AutoCloseable {
   private static String parent(String path) {
     int separator = path.lastIndexOf('/');
     return separator < 0 ? "" : path.substring(0, separator);
-  }
-
-  private static boolean isNormSource(Path path) {
-    return path.getFileName().toString().endsWith(".norm");
   }
 
   private static Path normalize(Path path) {
@@ -960,6 +926,7 @@ public final class ProjectLoader implements AutoCloseable {
 
   private enum LoadPurpose {
     ANALYSIS,
+    TEST,
     RUNTIME
   }
 
@@ -972,8 +939,33 @@ public final class ProjectLoader implements AutoCloseable {
       Set<DocumentId> bindingSources,
       Optional<ResolvedJarBinding> binding,
       Map<String, ModuleResource> resources,
-      Optional<FileSnapshot> archive) {
+      Optional<FileSnapshot> archive,
+      Set<DocumentId> testSources) {
+    private ResolvedModule(
+        Path root,
+        SourceFile moduleSource,
+        ModuleDescriptor descriptor,
+        Map<String, SourceFile> sources,
+        Set<DocumentId> exportedSources,
+        Set<DocumentId> bindingSources,
+        Optional<ResolvedJarBinding> binding,
+        Map<String, ModuleResource> resources,
+        Optional<FileSnapshot> archive) {
+      this(
+          root,
+          moduleSource,
+          descriptor,
+          sources,
+          exportedSources,
+          bindingSources,
+          binding,
+          resources,
+          archive,
+          Set.of());
+    }
+
     private ResolvedModule {
+      testSources = Set.copyOf(testSources);
       root = normalize(root);
       Objects.requireNonNull(moduleSource, "moduleSource");
       Objects.requireNonNull(descriptor, "descriptor");

@@ -1,0 +1,22 @@
+package std.test.testing.testing_predicates
+
+import std.testing.Test
+import std.io.printLines
+import std.testing.equal
+import std.testing.expectedOutputLines
+import std.testing.isFalse
+import std.testing.isTrue
+import std.testing.notEqual
+
+@Test(functions: [equal.function, isFalse.function, isTrue.function, notEqual.function])
+Void testingPredicatesTest() {
+  printLines(
+    [
+      equal(actual: "Norm", expected: "Norm"),
+      notEqual(actual: 2, expected: 3),
+      isTrue(true),
+      isFalse(false)
+    ]
+  )
+  expectedOutputLines(["true", "true", "true", "true"])
+}

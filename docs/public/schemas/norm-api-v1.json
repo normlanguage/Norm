@@ -57,18 +57,31 @@
       "properties": {
         "kind": { "enum": ["type", "function", "field"] },
         "target": { "type": "string", "minLength": 1 },
-        "display": { "type": "string", "minLength": 1 }
+        "display": { "type": "string", "minLength": 1 },
+        "document": { "type": "string", "pattern": "\\.api\\.json$" }
+      }
+    },
+    "TestCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "source", "code"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "source": { "$ref": "#/$defs/SourceRange" },
+        "code": { "type": "string" }
       }
     },
     "Document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["description", "types", "functions", "fields"],
+      "required": ["description", "types", "functions", "fields", "unitTests"],
       "properties": {
         "description": { "type": "string" },
         "types": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
         "functions": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
-        "fields": { "type": "array", "items": { "$ref": "#/$defs/Reference" } }
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
+        "unitTests": { "type": "array", "items": { "$ref": "#/$defs/Reference" } }
       }
     },
     "TypeParameter": {
@@ -222,7 +235,8 @@
         "source",
         "package",
         "exported",
-        "declarations"
+        "declarations",
+        "tests"
       ],
       "properties": {
         "$schema": { "type": "string", "format": "uri" },
@@ -243,7 +257,8 @@
         "declarations": {
           "type": "array",
           "items": { "$ref": "#/$defs/Declaration" }
-        }
+        },
+        "tests": { "type": "array", "items": { "$ref": "#/$defs/TestCase" } }
       }
     }
   }

@@ -1,0 +1,27 @@
+package std.test.validation.unicode_sizes
+
+import std.testing.Test
+import std.testing.expectedOutputLines
+import std.validation.CodePointSize
+import std.validation.ConstraintViolation
+import std.validation.GraphemeSize
+
+Void codePoints(@CodePointSize(minimum: 2, maximum: 2) String value) {
+  printLine(value)
+}
+
+Void graphemes(@GraphemeSize(minimum: 1, maximum: 1) String value) {
+  printLine(value)
+}
+
+@Test(types: [CodePointSize.class, ConstraintViolation.class, GraphemeSize.class])
+Void unicodeSizesTest() {
+  codePoints(value: "A😀")
+  graphemes(value: "👨‍👩‍👧‍👦")
+  try {
+    codePoints(value: "👨‍👩‍👧‍👦")
+  } catch ConstraintViolation error {
+    printLine(error.code)
+  }
+  expectedOutputLines(["A😀", "👨‍👩‍👧‍👦", "code_point_size"])
+}

@@ -1,0 +1,19 @@
+package std.test.math.sign
+
+import std.testing.Test
+import std.io.printLines
+import std.math.sign
+import std.testing.equal
+import std.testing.expectedOutputLines
+
+@Test(functions: [sign.function])
+Void signTest() {
+  printLines(
+    [
+      equal(actual: sign(-20), expected: -1),
+      equal(actual: sign(0), expected: 0),
+      equal(actual: sign(20), expected: 1)
+    ]
+  )
+  expectedOutputLines(["true", "true", "true"])
+}

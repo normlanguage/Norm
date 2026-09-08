@@ -1,0 +1,19 @@
+package std.test.collections.list_reversed
+
+import std.testing.Test
+import std.testing.expectedOutputLines
+
+@Test
+Void listReversedTest() {
+  List<Integer> source = List<>()
+  source.add(1)
+  source.add(2)
+  source.add(3)
+  List<Integer> result = source.reversed()
+  result[0] = 9
+  printLine(source[0])
+  for value : result {
+    printLine(value)
+  }
+  expectedOutputLines(["1", "9", "2", "1"])
+}

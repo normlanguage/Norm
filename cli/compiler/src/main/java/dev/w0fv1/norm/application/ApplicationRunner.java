@@ -90,7 +90,12 @@ public final class ApplicationRunner implements AutoCloseable {
   }
 
   public ProjectTestResult test(Path entry, ExecutionContext context) throws IOException {
-    var sources = projects.load(entry);
+    return test(entry, context, Optional.empty());
+  }
+
+  public ProjectTestResult test(Path entry, ExecutionContext context, Optional<String> filter)
+      throws IOException {
+    var sources = projects.loadForTests(entry);
     try (var compilation =
         compiler.compile(
             new ApplicationInput(sources.testCompilationRequest(), Optional.of(sources)),
@@ -113,7 +118,8 @@ public final class ApplicationRunner implements AutoCloseable {
                                     loader,
                                     application.annotations().stubs().stream()
                                         .map(JavaAnnotationStub::binaryName)
-                                        .toList())));
+                                        .toList(),
+                                    new NormTestEngine(application, backend, context, filter))));
         backend.execute(
             compilation.result().output().orElseThrow().artifact(),
             application.executionPlan(),
