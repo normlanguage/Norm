@@ -80,7 +80,9 @@ public final class SemanticModel implements SemanticIndex {
     this.source = Objects.requireNonNull(source, "source");
     this.syntax = Objects.requireNonNull(syntax, "syntax");
     this.symbols = Map.copyOf(symbols);
-    this.bindings = Map.copyOf(bindings);
+    var completeBindings = new LinkedHashMap<>(bindings);
+    completeBindings.putAll(ReferenceIndex.namedArguments(resolvedCalls, symbols));
+    this.bindings = Map.copyOf(completeBindings);
     this.declarationOperators = Set.copyOf(declarationOperators);
     if (!this.bindings.keySet().containsAll(this.declarationOperators))
       throw new IllegalArgumentException("declaration operators require semantic bindings");
@@ -212,7 +214,12 @@ public final class SemanticModel implements SemanticIndex {
                   call.kind(),
                   call.target(),
                   rebasedCallee,
-                  call.arguments(),
+                  new ArgumentBinding(
+                      call.arguments().parameterIndices(),
+                      call.arguments().labels().entrySet().stream()
+                          .collect(
+                              java.util.stream.Collectors.toMap(
+                                  entry -> rebaser.rebase(entry.getKey()), Map.Entry::getValue))),
                   call.parameters(),
                   call.callableTypeArguments(),
                   call.resultType()));

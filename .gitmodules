@@ -1,0 +1,3 @@
+[submodule "cli/norm-skill"]
+	path = cli/norm-skill
+	url = https://github.com/normlanguage/Norm-Skill.git

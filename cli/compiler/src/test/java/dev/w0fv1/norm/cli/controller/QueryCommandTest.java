@@ -69,7 +69,7 @@ final class QueryCommandTest {
   @TempDir Path directory;
 
   @Test
-  void searchesThenResolvesAnExactDeclarationAndRejectsStaleContent() throws Exception {
+  void searchesThenResolvesCurrentQualifiedDeclaration() throws Exception {
     Path source = directory.resolve("query.norm");
     Files.writeString(source, "Integer answer() { return 42 } Void main() { printLine(answer()) }");
     var result = run("query", source.toString(), "--search", "answer");
@@ -82,19 +82,7 @@ final class QueryCommandTest {
             .getAsJsonArray("items")
             .get(0)
             .getAsJsonObject();
-    String identity = declaration.get("id").getAsString();
-    String revision = declaration.get("revision").getAsString();
-    var context =
-        run(
-            "query",
-            source.toString(),
-            "--symbol",
-            identity,
-            "--document",
-            source.toUri().toString(),
-            "--revision",
-            revision,
-            "--source");
+    var context = run("query", source.toString(), "answer", "--source");
     assertEquals(
         "Integer answer() { return 42 }",
         context
@@ -104,17 +92,8 @@ final class QueryCommandTest {
             .get("text")
             .getAsString());
     Files.writeString(source, "Integer answer() { return 43 }");
-    var stale =
-        run(
-            "query",
-            source.toString(),
-            "--symbol",
-            identity,
-            "--document",
-            source.toUri().toString(),
-            "--revision",
-            revision);
-    assertEquals("conflict", stale.get("status").getAsString());
+    var current = run("query", source.toString(), "answer", "--source");
+    assertTrue(current.toString().contains("return 43"));
   }
 
   @Test
@@ -136,17 +115,7 @@ final class QueryCommandTest {
     assertTrue(
         data.getAsJsonArray("documents").asList().stream()
             .anyMatch(item -> item.getAsJsonObject().get("testSource").getAsBoolean()));
-    var selected = data.getAsJsonObject("symbols").getAsJsonArray("items").get(0).getAsJsonObject();
-    var context =
-        run(
-            "query",
-            module.toString(),
-            "--symbol",
-            selected.get("id").getAsString(),
-            "--document",
-            selected.getAsJsonObject("location").get("uri").getAsString(),
-            "--revision",
-            selected.get("revision").getAsString());
+    var context = run("query", module.toString(), "queried.answer", "--tests");
     assertEquals(
         1,
         context
@@ -155,18 +124,7 @@ final class QueryCommandTest {
             .getAsJsonObject("tests")
             .get("total")
             .getAsInt());
-    var renamed =
-        run(
-            "rename",
-            module.toString(),
-            "--symbol",
-            selected.get("id").getAsString(),
-            "--document",
-            selected.getAsJsonObject("location").get("uri").getAsString(),
-            "--revision",
-            selected.get("revision").getAsString(),
-            "--to",
-            "result");
+    var renamed = run("refactor", "name", module.toString(), "queried.answer", "--to", "result");
     assertEquals(0, renamed.get("exitCode").getAsInt(), renamed.toString());
     assertFalse(renamed.toString().contains("\"oldText\":\"function\""));
   }
@@ -176,31 +134,13 @@ final class QueryCommandTest {
     Path source = directory.resolve("rename.norm");
     String original = "Integer answer() { return 42 } Void main() { printLine(answer()) }";
     Files.writeString(source, original);
-    var search = run("query", source.toString(), "--search", "answer");
-    var selected =
-        search
-            .getAsJsonObject("query")
-            .getAsJsonObject("symbols")
-            .getAsJsonArray("items")
-            .get(0)
-            .getAsJsonObject();
     var preview =
-        run(
-            "rename",
-            source.toString(),
-            "--symbol",
-            selected.get("id").getAsString(),
-            "--document",
-            source.toUri().toString(),
-            "--revision",
-            selected.get("revision").getAsString(),
-            "--to",
-            "result");
+        run("refactor", "name", source.toString(), "answer", "--to", "result", "--preview");
     assertEquals(0, preview.get("exitCode").getAsInt(), preview.toString());
     assertEquals(original, Files.readString(source));
     var edits =
         preview
-            .getAsJsonObject("rename")
+            .getAsJsonObject("refactor")
             .getAsJsonArray("changes")
             .get(0)
             .getAsJsonObject()
@@ -216,7 +156,7 @@ final class QueryCommandTest {
     }
     Files.writeString(source, changed);
     assertEquals(0, run("check", source.toString(), "--format", "json").get("exitCode").getAsInt());
-    assertTrue(preview.getAsJsonObject("rename").getAsJsonArray("beforeDiagnostics").isEmpty());
+    assertTrue(preview.getAsJsonObject("refactor").getAsJsonArray("beforeDiagnostics").isEmpty());
     assertTrue(preview.getAsJsonArray("diagnostics").isEmpty());
   }
 

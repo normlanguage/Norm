@@ -1,10 +1,7 @@
 package dev.w0fv1.norm.cli.controller;
 
-import dev.w0fv1.norm.language.DocumentRevision;
-import dev.w0fv1.norm.semantic.SymbolId;
-import dev.w0fv1.norm.source.DocumentId;
-import dev.w0fv1.norm.value.Sha256Digest;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -13,46 +10,57 @@ import java.util.Set;
 record AuthoringOptions(
     Path entry,
     String search,
-    Optional<SymbolId> symbol,
-    Optional<DocumentRevision> revision,
+    Optional<String> target,
+    Optional<String> at,
     int offset,
     int limit,
-    boolean source,
+    Set<String> expansions,
     boolean overview,
     Optional<String> newName) {
-  static AuthoringOptions parse(List<String> arguments, boolean rename) {
-    if (arguments.isEmpty() || arguments.getFirst().startsWith("--"))
-      throw new IllegalArgumentException("expected a module directory or source file");
+  static AuthoringOptions parse(List<String> arguments, boolean refactor) {
+    if (arguments.isEmpty() || arguments.getFirst().startsWith("-"))
+      throw new IllegalArgumentException(
+          "expected a module directory or source file; use -h for help");
     var values = new LinkedHashMap<String, String>();
-    boolean source = false;
+    var flags = new HashSet<String>();
+    String target = null;
     for (int index = 1; index < arguments.size(); index++) {
       String key = arguments.get(index);
-      if (key.equals("--source") && !source) {
-        source = true;
+      if (!key.startsWith("-") && target == null) {
+        target = key;
         continue;
       }
-      if (!Set.of("--search", "--symbol", "--document", "--revision", "--offset", "--limit", "--to")
-              .contains(key)
-          || index + 1 == arguments.size())
-        throw new IllegalArgumentException("unexpected or incomplete option: " + key);
+      if (Set.of("--source", "--references", "--dependencies", "--tests", "--preview")
+          .contains(key)) {
+        if (!flags.add(key)) throw new IllegalArgumentException("duplicate option: " + key);
+        continue;
+      }
+      if (!Set.of("--search", "--offset", "--limit", "--to", "--at").contains(key)
+          || index + 1 == arguments.size()
+          || arguments.get(index + 1).startsWith("--"))
+        throw new IllegalArgumentException(
+            "unexpected or incomplete option: " + key + "; use -h for help");
       if (values.putIfAbsent(key, arguments.get(++index)) != null)
         throw new IllegalArgumentException("duplicate option: " + key);
     }
-    boolean selected = values.containsKey("--symbol");
-    if (rename != values.containsKey("--to")
-        || rename
-            && (!selected
-                || source
-                || values.containsKey("--offset")
-                || values.containsKey("--limit")))
+    if (refactor) {
+      if (target == null
+          || !values.containsKey("--to")
+          || values.containsKey("--search")
+          || values.containsKey("--offset")
+          || values.containsKey("--limit")
+          || flags.stream().anyMatch(flag -> !flag.equals("--preview")))
+        throw new IllegalArgumentException(
+            "refactor name requires <qualified-name> and --to <name>; use -h for help");
+    } else if (values.containsKey("--to")
+        || flags.contains("--preview")
+        || target != null && values.containsKey("--search")
+        || target == null && !flags.isEmpty()) {
       throw new IllegalArgumentException(
-          "rename requires a full symbol selector and --to, without source or paging options");
-    if (selected != values.containsKey("--document")
-        || selected != values.containsKey("--revision")
-        || selected && values.containsKey("--search")
-        || source && !selected)
-      throw new IllegalArgumentException(
-          "context requires --symbol, --document and --revision; search and context are mutually exclusive");
+          "query expansions require a qualified name; search and exact selection are exclusive");
+    }
+    if (values.containsKey("--at") && target == null)
+      throw new IllegalArgumentException("--at requires a qualified name");
     int offset = Integer.parseInt(values.getOrDefault("--offset", "0"));
     int limit = Integer.parseInt(values.getOrDefault("--limit", "20"));
     if (offset < 0 || limit < 1 || limit > 1000)
@@ -61,17 +69,12 @@ record AuthoringOptions(
     return new AuthoringOptions(
         Path.of(arguments.getFirst()),
         values.getOrDefault("--search", ""),
-        Optional.ofNullable(values.get("--symbol")).map(SymbolId::new),
-        selected
-            ? Optional.of(
-                new DocumentRevision(
-                    DocumentId.of(values.get("--document")),
-                    Sha256Digest.parse(values.get("--revision"))))
-            : Optional.empty(),
+        Optional.ofNullable(target),
+        Optional.ofNullable(values.get("--at")),
         offset,
         limit,
-        source,
-        !selected && !values.containsKey("--search"),
+        Set.copyOf(flags),
+        target == null && !values.containsKey("--search"),
         Optional.ofNullable(values.get("--to")));
   }
 }

@@ -19,6 +19,21 @@ import java.util.List;
 
 final class BuildCommand implements Command {
   @Override
+  public String usage() {
+    return "norm build [--jvm] [--diagnostics] [file.norm|project-directory]";
+  }
+
+  @Override
+  public int help(PrintWriter out, PrintWriter err) {
+    Command.super.help(out, err);
+    out.println("Default input is the current directory; default target is Native Image.");
+    out.println(
+        "--jvm selects the JVM development target; --diagnostics retains detailed Native build reports.");
+    out.println("--diagnostics cannot be combined with --jvm.");
+    return 0;
+  }
+
+  @Override
   public String name() {
     return "build";
   }
@@ -35,7 +50,7 @@ final class BuildCommand implements Command {
       options = ApplicationBuildOptions.parse(arguments);
     } catch (IllegalArgumentException exception) {
       err.println("error[NORM-CLI-0003]: " + exception.getMessage());
-      err.println("Usage: norm build [--jvm] [--diagnostics] [file.norm|project-directory]");
+      err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
     Path entry;

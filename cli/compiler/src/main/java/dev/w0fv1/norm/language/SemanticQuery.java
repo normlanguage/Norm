@@ -25,12 +25,14 @@ public final class SemanticQuery {
           .thenComparingInt(SourceLocation::endOffset);
   private final CompilationSnapshot snapshot;
   private final LanguageService language;
+  private final DeclarationNames names;
   private final Map<DocumentId, DocumentRevision> revisions;
   private final Map<DocumentId, List<SourceSpan>> declarations;
 
   SemanticQuery(
       CompilationSnapshot snapshot, LanguageService language, java.util.Set<DocumentId> documents) {
     this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
+    this.names = new DeclarationNames(snapshot);
     this.language = Objects.requireNonNull(language, "language");
     var revisions = new LinkedHashMap<DocumentId, DocumentRevision>();
     var declarations = new LinkedHashMap<DocumentId, List<SourceSpan>>();
@@ -107,6 +109,11 @@ public final class SemanticQuery {
 
   public Context context(
       SymbolId id, DocumentRevision expected, int offset, int limit, boolean includeSource) {
+    return context(id, expected, offset, limit, new Sections(includeSource, true, true, true));
+  }
+
+  public Context context(
+      SymbolId id, DocumentRevision expected, int offset, int limit, Sections sections) {
     Declaration selected = declaration(id, expected);
     SourceLocation location = selected.symbol().declaration().orElseThrow();
     Optional<SourceSpan> span =
@@ -118,43 +125,50 @@ public final class SemanticQuery {
             .findFirst();
     var model = snapshot.semanticModel();
     List<Declaration> dependencies =
-        span.stream()
-            .flatMap(root -> model.declarationDependencies(root).stream())
-            .sorted(LOCATION_ORDER)
-            .flatMap(
-                target -> model.resolvedSymbolAt(target.document(), target.startOffset()).stream())
-            .filter(symbol -> !symbol.id().equals(id))
-            .filter(
-                symbol ->
-                    span.isEmpty()
-                        || !symbol
-                            .declaration()
-                            .orElseThrow()
-                            .document()
-                            .equals(location.document())
-                        || !span.orElseThrow()
-                            .location()
-                            .contains(symbol.declaration().orElseThrow().startOffset()))
-            .distinct()
-            .map(this::describe)
-            .toList();
+        !sections.dependencies()
+            ? List.of()
+            : span.stream()
+                .flatMap(root -> model.declarationDependencies(root).stream())
+                .sorted(LOCATION_ORDER)
+                .flatMap(
+                    target ->
+                        model.resolvedSymbolAt(target.document(), target.startOffset()).stream())
+                .filter(symbol -> !symbol.id().equals(id))
+                .filter(
+                    symbol ->
+                        span.isEmpty()
+                            || !symbol
+                                .declaration()
+                                .orElseThrow()
+                                .document()
+                                .equals(location.document())
+                            || !span.orElseThrow()
+                                .location()
+                                .contains(symbol.declaration().orElseThrow().startOffset()))
+                .distinct()
+                .map(this::describe)
+                .toList();
     List<SourceLocation> references =
-        language
-            .references(snapshot.analysis(location.document()), location.startOffset(), false)
-            .stream()
-            .sorted(LOCATION_ORDER)
-            .toList();
+        !sections.references()
+            ? List.of()
+            : language
+                .references(snapshot.analysis(location.document()), location.startOffset(), false)
+                .stream()
+                .sorted(LOCATION_ORDER)
+                .toList();
     List<Declaration> tests =
-        TestIndex.from(model).forDeclaration(id).stream()
-            .flatMap(test -> model.symbol(test).stream())
-            .map(this::describe)
-            .sorted(
-                Comparator.comparing(
-                    test -> test.symbol().declaration().orElseThrow(), LOCATION_ORDER))
-            .toList();
+        !sections.tests()
+            ? List.of()
+            : TestIndex.from(model).forDeclaration(id).stream()
+                .flatMap(test -> model.symbol(test).stream())
+                .map(this::describe)
+                .sorted(
+                    Comparator.comparing(
+                        test -> test.symbol().declaration().orElseThrow(), LOCATION_ORDER))
+                .toList();
     return new Context(
         selected,
-        includeSource ? span : Optional.empty(),
+        sections.source() ? span : Optional.empty(),
         QueryPage.of(dependencies, offset, limit),
         QueryPage.of(references, offset, limit),
         QueryPage.of(tests, offset, limit));
@@ -175,15 +189,47 @@ public final class SemanticQuery {
     return describe(symbol);
   }
 
+  public QueryPage<Declaration> select(
+      String selector, Optional<String> at, int offset, int limit) {
+    var matches =
+        snapshot.semanticModel().symbols().stream()
+            .filter(symbol -> symbol.declaration().isPresent())
+            .filter(symbol -> symbol.kind() != dev.w0fv1.norm.semantic.SymbolKind.SELF)
+            .filter(
+                symbol ->
+                    names.name(symbol, false).equals(selector)
+                        || names.name(symbol, true).equals(selector))
+            .filter(
+                symbol ->
+                    at.isEmpty()
+                        || at.orElseThrow()
+                            .equals(
+                                symbol.declaration().orElseThrow().document().uri()
+                                    + "#"
+                                    + symbol.declaration().orElseThrow().startOffset()))
+            .sorted(
+                Comparator.comparing(symbol -> symbol.declaration().orElseThrow(), LOCATION_ORDER))
+            .map(this::describe)
+            .toList();
+    return QueryPage.of(matches, offset, limit);
+  }
+
   private Declaration describe(Symbol symbol) {
     return new Declaration(
         symbol,
         SymbolPresentation.signature(
             SymbolPresentation.annotation(snapshot.semanticModel(), symbol)),
-        Optional.ofNullable(revisions.get(symbol.declaration().orElseThrow().document())));
+        Optional.ofNullable(revisions.get(symbol.declaration().orElseThrow().document())),
+        names.name(symbol, false),
+        names.name(symbol, true));
   }
 
-  public record Declaration(Symbol symbol, String signature, Optional<DocumentRevision> revision) {
+  public record Declaration(
+      Symbol symbol,
+      String signature,
+      Optional<DocumentRevision> revision,
+      String qualifiedName,
+      String selector) {
     public Declaration {
       Objects.requireNonNull(symbol, "symbol");
       Objects.requireNonNull(signature, "signature");
@@ -197,6 +243,8 @@ public final class SemanticQuery {
       QueryPage<Declaration> dependencies,
       QueryPage<SourceLocation> references,
       QueryPage<Declaration> tests) {}
+
+  public record Sections(boolean source, boolean references, boolean dependencies, boolean tests) {}
 
   public static final class StaleRevisionException extends IllegalArgumentException {
     private static final long serialVersionUID = 1L;

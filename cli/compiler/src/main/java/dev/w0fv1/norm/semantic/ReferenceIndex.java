@@ -27,6 +27,38 @@ public final class ReferenceIndex {
     return create(grouped);
   }
 
+  public static Map<SourceSpan, SymbolId> namedArguments(
+      Map<SourceSpan, ResolvedCall> calls, Map<SymbolId, Symbol> symbols) {
+    Map<SymbolId, Map<String, SymbolId>> parameters = new LinkedHashMap<>();
+    symbols.values().stream()
+        .filter(symbol -> symbol.kind() == SymbolKind.PARAMETER)
+        .forEach(
+            symbol ->
+                symbol
+                    .owner()
+                    .ifPresent(
+                        owner ->
+                            parameters
+                                .computeIfAbsent(owner, ignored -> new LinkedHashMap<>())
+                                .put(symbol.name(), symbol.id())));
+    Map<SourceSpan, SymbolId> result = new LinkedHashMap<>();
+    calls
+        .values()
+        .forEach(
+            call ->
+                call.arguments()
+                    .labels()
+                    .forEach(
+                        (span, index) -> {
+                          SymbolId parameter =
+                              parameters
+                                  .getOrDefault(call.target(), Map.of())
+                                  .get(call.parameters().get(index).name());
+                          if (parameter != null) result.put(span, parameter);
+                        }));
+    return Map.copyOf(result);
+  }
+
   public static ReferenceIndex semantic(
       Map<SourceSpan, SymbolId> bindings,
       Map<SymbolId, List<SymbolId>> aliasTargets,

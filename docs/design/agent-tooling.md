@@ -24,7 +24,7 @@ Token 数量与耗时应结合任务成功率测量。省略必要信息、隐�
 
 ## 共享架构
 
-查询与重构归属 `language`，项目快照与调度归属 `workspace`，编译和测试执行归属 `application`。CLI、LSP 与未来 MCP 接入只转换协议，不实现第二套名称解析、类型推断或重构规则。源码入口与身份边界见[编译器架构](/spec/compiler-design)，依赖约束见[工具链开发规范](/design/toolchain-development)。
+查询与重构归属 `language`，项目快照与调度归属 `workspace`，编译和测试执行归属 `application`。CLI、LSP 与未来 MCP 接入只转换协议，不实现第二套名称解析、类型推断或重构规则。限定名称是 CLI 的主要选择方式，由语义所属关系解析为内部声明身份；歧义必须返回可复制候选。查询采用单一 query 入口，关联信息按选项展开。refactor 的每种类型共用输入修订、编辑集合和预检结果，默认预览；命令帮助必须足以完成调用，不要求学习 JSON 输入文件。源码入口与身份边界见[编译器架构](/spec/compiler-design)，依赖约束见[工具链开发规范](/design/toolchain-development)。
 
 作者态操作使用 `DocumentId`、`SymbolId` 与修订；Core 内容身份用于依赖与缓存。声明身份、源码修订和字符位置不能互相替代。机器输出采用显式协议模型，不能直接序列化整个编译器对象图。
 

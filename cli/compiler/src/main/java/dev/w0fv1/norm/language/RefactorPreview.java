@@ -5,12 +5,12 @@ import dev.w0fv1.norm.source.SourceLocation;
 import java.util.List;
 import java.util.Objects;
 
-public record RenamePreview(
+public record RefactorPreview(
     List<DocumentRevision> inputs,
     List<DocumentChange> changes,
     List<Diagnostic> before,
     List<Diagnostic> after) {
-  public RenamePreview {
+  public RefactorPreview {
     inputs = List.copyOf(inputs);
     changes = List.copyOf(changes);
     before = List.copyOf(before);

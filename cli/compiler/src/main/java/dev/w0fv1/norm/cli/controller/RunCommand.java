@@ -19,6 +19,11 @@ import java.util.List;
 
 final class RunCommand implements Command {
   @Override
+  public String usage() {
+    return "norm run <file.norm|module-directory>";
+  }
+
+  @Override
   public String name() {
     return "run";
   }
@@ -33,7 +38,7 @@ final class RunCommand implements Command {
     if (arguments.size() != 1) {
       err.println(
           "error[NORM-CLI-0003]: 'run' expects exactly one source file or module directory");
-      err.println("Usage: norm run <file.norm|module-directory>");
+      err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
 

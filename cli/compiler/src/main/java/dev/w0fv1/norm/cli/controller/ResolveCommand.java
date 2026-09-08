@@ -13,6 +13,19 @@ import java.util.List;
 
 final class ResolveCommand implements Command {
   @Override
+  public String usage() {
+    return "norm resolve <module-directory|module.norm>";
+  }
+
+  @Override
+  public int help(PrintWriter out, PrintWriter err) {
+    Command.super.help(out, err);
+    out.println(
+        "Resolve JAR dependencies and write missing integrity digests to module declarations.");
+    return 0;
+  }
+
+  @Override
   public String name() {
     return "resolve";
   }
@@ -26,7 +39,7 @@ final class ResolveCommand implements Command {
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     if (arguments.size() != 1) {
       err.println("error[NORM-CLI-0003]: 'resolve' expects one module directory or module.norm");
-      err.println("Usage: norm resolve <module-directory|module.norm>");
+      err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
     Path requested;

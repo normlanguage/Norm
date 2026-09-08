@@ -8,7 +8,7 @@ import dev.w0fv1.norm.source.SourceLocation;
 import java.util.function.Function;
 
 public final class SemanticQueryWriter {
-  public JsonObject rename(dev.w0fv1.norm.language.RenamePreview preview) {
+  public JsonObject refactor(dev.w0fv1.norm.language.RefactorPreview preview) {
     JsonObject result = new JsonObject();
     result.addProperty("writesFiles", false);
     result.addProperty("validationScope", "captured-compilation-request");
@@ -72,11 +72,18 @@ public final class SemanticQueryWriter {
     return result;
   }
 
-  private JsonObject declaration(SemanticQuery.Declaration declaration) {
+  public JsonObject declaration(SemanticQuery.Declaration declaration) {
     JsonObject result = new JsonObject();
     var symbol = declaration.symbol();
     result.addProperty("id", symbol.id().value());
     result.addProperty("name", symbol.name());
+    result.addProperty("qualifiedName", declaration.qualifiedName());
+    result.addProperty("selector", declaration.selector());
+    result.addProperty(
+        "at",
+        symbol.declaration().orElseThrow().document().uri()
+            + "#"
+            + symbol.declaration().orElseThrow().startOffset());
     result.addProperty("kind", symbol.kind().name().toLowerCase(java.util.Locale.ROOT));
     result.addProperty("signature", declaration.signature());
     result.add("type", type(symbol.type()));

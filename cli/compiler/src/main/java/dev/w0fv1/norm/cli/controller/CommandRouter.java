@@ -37,6 +37,9 @@ final class CommandRouter {
     }
 
     int argumentStart = requested.equals("run") && isNormSource(arguments[0]) ? 0 : 1;
+    if (arguments.length == argumentStart + 1
+        && (arguments[argumentStart].equals("-h") || arguments[argumentStart].equals("--help")))
+      return command.help(out, err);
     return command.execute(List.of(arguments).subList(argumentStart, arguments.length), out, err);
   }
 

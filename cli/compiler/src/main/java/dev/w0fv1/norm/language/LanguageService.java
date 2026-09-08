@@ -42,7 +42,7 @@ public final class LanguageService implements AutoCloseable {
     return new SemanticQuery(snapshot, this, documents);
   }
 
-  public RenamePreview previewRename(
+  public RefactorPreview previewRename(
       CompilationRequest request,
       dev.w0fv1.norm.semantic.SymbolId identity,
       DocumentRevision revision,
@@ -61,13 +61,13 @@ public final class LanguageService implements AutoCloseable {
         || grouped.keySet().stream().anyMatch(request.bindingSources()::contains))
       throw new IllegalArgumentException("rename includes read-only or generated sources");
     var sources = new java.util.ArrayList<SourceFile>();
-    var changes = new java.util.ArrayList<RenamePreview.DocumentChange>();
+    var changes = new java.util.ArrayList<RefactorPreview.DocumentChange>();
     for (SourceFile source :
         request.sources().stream()
             .sorted(java.util.Comparator.comparing(value -> value.id().uri().toString()))
             .toList()) {
       StringBuilder text = new StringBuilder(source.text());
-      var edits = new java.util.ArrayList<RenamePreview.Replacement>();
+      var edits = new java.util.ArrayList<RefactorPreview.Replacement>();
       int boundary = source.length();
       for (SourceLocation location :
           grouped.getOrDefault(source.id(), List.of()).stream()
@@ -78,7 +78,7 @@ public final class LanguageService implements AutoCloseable {
           throw new IllegalArgumentException("rename locations overlap");
         String oldText = source.text().substring(location.startOffset(), location.endOffset());
         if (!oldText.equals(newName)) {
-          edits.add(new RenamePreview.Replacement(location, oldText, newName));
+          edits.add(new RefactorPreview.Replacement(location, oldText, newName));
           text.replace(location.startOffset(), location.endOffset(), newName);
         }
         boundary = location.startOffset();
@@ -87,7 +87,7 @@ public final class LanguageService implements AutoCloseable {
       sources.add(changed);
       if (!edits.isEmpty())
         changes.add(
-            new RenamePreview.DocumentChange(
+            new RefactorPreview.DocumentChange(
                 DocumentRevision.of(source), DocumentRevision.of(changed), edits));
     }
     var edited =
@@ -99,7 +99,8 @@ public final class LanguageService implements AutoCloseable {
             request.exportedSources(),
             request.bindingSources());
     var after = snapshot(edited);
-    return new RenamePreview(query.documents(), changes, before.diagnostics(), after.diagnostics());
+    return new RefactorPreview(
+        query.documents(), changes, before.diagnostics(), after.diagnostics());
   }
 
   public AnalysisResult analyze(SourceFile source) {

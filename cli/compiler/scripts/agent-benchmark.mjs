@@ -66,7 +66,7 @@ export function verifyTask(id, submission, launcher, reportPath) {
       const query = run(['query', original, '--search', 'clamp']);
       const selected = query.query.symbols.items.find(item => item.name === 'clamp');
       assert.ok(selected, 'clamp must remain present');
-      const context = run(['query', original, '--symbol', selected.id, '--document', selected.location.uri, '--revision', selected.revision]);
+      const context = run(['query', original, selected.selector, '--tests']);
       assert.ok(context.query.context.tests.total > 0, 'tests must associate with clamp');
       for (const [index, source] of task.mutants.entries()) {
         const mutant = join(evidence, `mutant-${index}`, 'app');

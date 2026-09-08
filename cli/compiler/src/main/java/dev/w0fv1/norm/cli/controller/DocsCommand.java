@@ -29,6 +29,19 @@ import java.util.Set;
 
 final class DocsCommand implements Command {
   @Override
+  public String usage() {
+    return "norm docs <module-directory> --output <api-directory> [--strict]";
+  }
+
+  @Override
+  public int help(PrintWriter out, PrintWriter err) {
+    Command.super.help(out, err);
+    out.println("--output is required; the generated API tree replaces the previous output.");
+    out.println("--strict requires documentation for public declarations and callable parameters.");
+    return 0;
+  }
+
+  @Override
   public String name() {
     return "docs";
   }
@@ -123,7 +136,7 @@ final class DocsCommand implements Command {
     return new LoadedModule(sourcePaths, exported, snapshot);
   }
 
-  private static Optional<Options> options(List<String> arguments, PrintWriter err) {
+  private Optional<Options> options(List<String> arguments, PrintWriter err) {
     if (arguments.isEmpty()) return usage(err);
     Path moduleRoot;
     try {
@@ -152,8 +165,8 @@ final class DocsCommand implements Command {
     return output == null ? usage(err) : Optional.of(new Options(moduleRoot, output, strict));
   }
 
-  private static Optional<Options> usage(PrintWriter err) {
-    err.println("Usage: norm docs <module-directory> --output <api-directory> [--strict]");
+  private Optional<Options> usage(PrintWriter err) {
+    err.println("Usage: " + usage());
     return Optional.empty();
   }
 

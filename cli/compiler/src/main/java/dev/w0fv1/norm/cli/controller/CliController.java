@@ -16,7 +16,7 @@ public final class CliController {
     router.register(new VerificationCommand(VerificationCommand.Kind.TEST));
     router.register(new VerificationCommand(VerificationCommand.Kind.CHECK));
     router.register(new AuthoringCommand(AuthoringCommand.Kind.QUERY));
-    router.register(new AuthoringCommand(AuthoringCommand.Kind.RENAME));
+    router.register(new AuthoringCommand(AuthoringCommand.Kind.REFACTOR));
     router.register(new ResolveCommand());
     router.register(new PackageCommand());
     router.register(new DocsCommand());

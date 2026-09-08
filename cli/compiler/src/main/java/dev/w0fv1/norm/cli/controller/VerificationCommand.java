@@ -42,6 +42,32 @@ final class VerificationCommand implements Command {
   }
 
   @Override
+  public String usage() {
+    return "norm "
+        + name()
+        + " <module-directory|file.norm>"
+        + (kind == Kind.TEST ? " [--filter <package-or-function>]" : "")
+        + " [--format <text|json>]";
+  }
+
+  @Override
+  public int help(PrintWriter out, PrintWriter err) {
+    Command.super.help(out, err);
+    out.println("  --format <text|json>    Output format; default text");
+    if (kind == Kind.TEST) {
+      out.println("  --filter <name>         Select a qualified package or test function");
+      out.println("No discovered tests returns no_tests with a nonzero exit code.");
+      out.println("Example: norm test ./app --filter app.orders --format json");
+    } else {
+      out.println(
+          "Analyze without running business code; module configuration is still evaluated.");
+      out.println("Example: norm check ./app --format json");
+    }
+    out.println("JSON results go to stdout; Norm test logs go to stderr in JSON mode.");
+    return 0;
+  }
+
+  @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     CommandReportWriter writer = new CommandReportWriter();
     boolean json = VerificationOptions.requestsJson(arguments);
@@ -55,10 +81,7 @@ final class VerificationCommand implements Command {
           out,
           err);
     } catch (IllegalArgumentException exception) {
-      if (!json)
-        err.printf(
-            "Usage: norm %s <module-directory|file.norm>%s [--format <text|json>]%n",
-            name(), kind == Kind.TEST ? " [--filter <package-or-function>]" : "");
+      if (!json) err.println("Usage: " + usage());
       return writer.write(
           CommandReport.failed(
               name(),

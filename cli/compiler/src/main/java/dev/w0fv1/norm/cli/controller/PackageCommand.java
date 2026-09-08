@@ -13,6 +13,18 @@ import java.util.List;
 
 final class PackageCommand implements Command {
   @Override
+  public String usage() {
+    return "norm package <module-directory|module.norm> --output <repository>";
+  }
+
+  @Override
+  public int help(PrintWriter out, PrintWriter err) {
+    Command.super.help(out, err);
+    out.println("--output is required and selects the Maven repository output directory.");
+    return 0;
+  }
+
+  @Override
   public String name() {
     return "package";
   }
@@ -26,7 +38,7 @@ final class PackageCommand implements Command {
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     if (arguments.size() != 3 || !arguments.get(1).equals("--output")) {
       err.println("error[NORM-CLI-0003]: invalid 'package' arguments");
-      err.println("Usage: norm package <module-directory|module.norm> --output <repository>");
+      err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
     Path requested;

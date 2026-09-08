@@ -569,10 +569,12 @@ final class CallResolver {
 
   ArgumentBinding validateArguments(Syntax.Call call, List<ParameterInfo> parameters) {
     List<Integer> parameterIndices = arguments.argumentIndices(call, parameters, true);
+    Map<SourceSpan, Integer> labels = new java.util.LinkedHashMap<>();
     for (int index = 0; index < call.arguments().size(); index++) {
       Syntax.CallArgument argument = call.arguments().get(index);
       int parameterIndex = parameterIndices.get(index);
       if (parameterIndex >= 0) {
+        argument.label().ifPresent(label -> labels.put(label.span(), parameterIndex));
         ParameterInfo parameter = parameters.get(parameterIndex);
         typeSystem.requireAssignable(
             parameter.type(),
@@ -582,7 +584,7 @@ final class CallResolver {
         expressions.typeOf(argument.value(), null);
       }
     }
-    return new ArgumentBinding(parameterIndices);
+    return new ArgumentBinding(parameterIndices, labels);
   }
 
   SemanticType recordCall(
@@ -623,7 +625,12 @@ final class CallResolver {
             ResolvedCall.Kind.EXTENSION,
             target,
             member.nameSpan(),
-            new ArgumentBinding(indices),
+            new ArgumentBinding(
+                indices,
+                binding.labels().entrySet().stream()
+                    .collect(
+                        java.util.stream.Collectors.toMap(
+                            Map.Entry::getKey, entry -> entry.getValue() + 1))),
             parameters,
             reifiedArguments,
             result));

@@ -1,39 +1,53 @@
 ---
 title: 语义查询
-description: 项目声明、文档修订与最小语义上下文
+description: 使用限定名称查询声明并按需展开语义事实
 ---
 
 # 语义查询
 
 ```bash
+norm query -h
 norm query path/to/module
-norm query path/to/source.norm --search answer --limit 20
-norm query path/to/module --symbol "<id>" --document "<uri>" --revision "<revision>" --source
+norm query path/to/module --search amount
+norm query path/to/module app.orders.amount
+norm query path/to/module app.orders.amount --source --references
+norm query path/to/module "app.orders.amount(Integer).value"
 ```
 
-`query` 始终输出 JSON。项目加载与检查共用入口，不执行业务代码；不提供选择器时输出项目概览，包含项目根、分析入口、模块依赖、文档归属及文档修订。搜索或查询精确上下文时只返回对应结果，不重复整份项目清单。目录入口分析完整模块。编译诊断与能够确定的查询结果同时返回，非零退出码不能简单解释为没有查询结果。
+查询始终输出 JSON。无选择器时返回项目概览和声明清单；--search 搜索声明名称；位置参数按限定名称精确选择。检查与查询共用项目加载，不执行业务入口。即使源码包含错误，也保留能够确定的查询结果和诊断。
 
-## 搜索与选择
+## 限定名称
 
-`--search` 对声明名称执行不区分大小写的子串搜索，省略时列出项目声明。默认排除局部变量、参数、类型参数和 self；预加载标准库不作为用户项目声明列出。相同名称的重载保留独立身份，不自动选择第一个候选。
+限定名称从源码包名与语义所属关系派生，例如 app.Order、app.Order.code、app.orders.amount.value。无包声明时从顶层名称开始。参数、类型参数和局部变量可精确选择，默认搜索仍排除这些内部声明及 self。
 
-使用结果中的 `id`、`location.uri` 和 `revision` 进行上下文查询。`--symbol`、`--document`、`--revision` 必须一起提供，不能与 `--search` 混用。修订是捕获的文档文本以 UTF-8 编码后的 SHA-256，不能用作包含配置、资源和外部制品的完整项目快照令牌。每次调用重新加载和分析项目，目标文档变化返回 `conflict`。
+搜索结果返回 qualifiedName、selector 和 at。重载通过带参数类型的 selector 选择，例如 app.orders.amount(Integer)；内部声明沿用所属函数选择器，例如 app.orders.amount(Integer).value。带括号或空格的参数应在 shell 中加引号，优先复制工具返回的 selector。
 
-## 上下文
+多个声明匹配时返回 input_error 和 query.candidates，不自动选择第一项。同名局部变量、同显示类型的重载等仍有歧义时，增加 `--at "<uri>#<offset>"`，直接复制候选的 at 字段。位置为声明起点，从零开始，单位为 UTF-16。
 
-声明结果提供类型身份、参数类型、默认参数标志及泛型参数约束。机器调用方应读取这些结构化字段，展示用 signature 不包含所有默认值细节。
+限定名称每次针对当前源码解析。输出的 id 和 revision 用于标识本次事实，不要求调用方构造身份或摘要输入。名称与位置不是跨编辑持久身份。
 
-上下文默认包含精确声明、已解析的声明依赖、引用位置与 `@Test` 关联。`--source` 额外返回包含所选声明的最小声明源码区间，不默认展开整个文件。源码区间和引用位置使用从零开始的 UTF-16 偏移，结束位置不包含在区间内。
+## 按需展开
 
-外部声明可提供签名但不一定具有当前项目的源码修订；读取 `contextAvailable` 决定是否能够继续查询。依赖来自作者态解析关系，不代表完整 Core 依赖图或动态运行覆盖；测试关联不等于所有受影响测试。
+精确查询默认只返回声明种类、签名、类型契约、来源与文档。以下选项可组合：
 
-`--offset` 与 `--limit` 控制结果页，默认分别为 0 与 20，limit 范围为 1 至 1000。每组结果分别返回 total、offset 和 hasMore。上下文的依赖、引用、关联测试使用同一分页参数，各组总数独立计算。多页查询之间发生源码变化时，应重新查询，不把不同修订的页面当作同一快照。
+| 选项 | 内容 |
+| --- | --- |
+| --source | 包含所选声明的最小声明源码区间 |
+| --references | 语义引用位置 |
+| --dependencies | 声明依赖 |
+| --tests | 显式关联的测试 |
+
+参数或局部变量的源码区间可能是其所属函数。没有请求的关联信息不计算、不返回。没有独立 context 命令。
+
+--offset 默认 0，--limit 默认 20、范围 1 至 1000。搜索、歧义候选和各组展开结果分别返回 total、offset、hasMore；展开组共用分页参数、总数独立。跨页调用不承诺同一快照，源码变化后应重新查询。
+
+关联测试不等于完整受影响测试，声明依赖不覆盖全部动态行为。外部声明可精确查询签名；contextAvailable 表明是否支持源码上下文展开。源码位置使用零基 UTF-16 半开区间，文档修订仅覆盖捕获文本的 UTF-8 SHA-256，不代表包含配置、资源与 Java 制品的完整项目快照。
 
 ## 实现与验证入口
 
-- [SemanticQuery](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/language/SemanticQuery.java)：查询和上下文；
-- [SemanticQueryWriter](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/component/SemanticQueryWriter.java)：结果字段；
-- [AuthoringOptions](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/AuthoringOptions.java)：参数契约；
-- [SemanticQueryTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/language/SemanticQueryTest.java)与 [QueryCommandTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/cli/controller/QueryCommandTest.java)：语义及真实源码 CLI 验收。
+- [SemanticQuery](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/language/SemanticQuery.java)：查询、选择和展开；
+- [DeclarationNames](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/language/DeclarationNames.java)：名称和重载选择器；
+- [AuthoringCommand](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/AuthoringCommand.java)：分层帮助与 CLI；
+- [QualifiedAuthoringTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/cli/controller/QualifiedAuthoringTest.java)：真实源码命令验收。
 
-诊断和失败结果复用[检查与测试](/tooling/verification)的公共结构。
+公共诊断和失败结构见[检查与测试](/tooling/verification)。

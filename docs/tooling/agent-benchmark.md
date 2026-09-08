@@ -14,7 +14,7 @@ node cli/compiler/scripts/agent-benchmark.mjs prepare add_feature .tmp/agent-run
 node cli/compiler/scripts/agent-benchmark.mjs verify add_feature .tmp/agent-run/add_feature launcher-argv.json .tmp/agent-run/add_feature-report.json
 ```
 
-准备目标目录必须不存在。准备阶段只生成 TASK.md 和 app 项目，验收源码不会进入提交目录。Agent 按 TASK.md 修改项目，可使用[语义查询](/tooling/semantic-query)、[重命名预检](/tooling/rename-preview)和[检查与测试](/tooling/verification)。
+准备目标目录必须不存在。准备阶段只生成 TASK.md 和 app 项目，验收源码不会进入提交目录。Agent 按 TASK.md 修改项目，可使用[语义查询](/tooling/semantic-query)、[语义重构预检](/tooling/rename-preview)和[检查与测试](/tooling/verification)。
 
 launcher 文件包含启动 CLI 的完整 argv 数组，例如 `["C:/tools/norm.exe"]`。开发分发包使用 Java 25 可执行文件、JVM 参数、module path 和主模块参数，具体值参考生成的启动脚本；基准不通过 shell 拼接命令，也不直接执行 `.bat`。启动器路径使用绝对路径，版本必须支持当前机器输出契约。
 

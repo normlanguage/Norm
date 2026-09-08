@@ -10,6 +10,38 @@ import org.junit.jupiter.api.Test;
 
 final class RenamePreviewTest {
   @Test
+  void namedArgumentReferencesSurviveIncrementalRebasingAcrossFiles() {
+    try (var language = new LanguageService()) {
+      for (String prefix : List.of("", "\n\n")) {
+        var api =
+            SourceFile.of(
+                DocumentId.of("untitled:api"), "Integer amount(Integer value) { return value }");
+        var caller =
+            SourceFile.of(
+                DocumentId.of("untitled:caller"),
+                prefix + "Integer use() { return amount(value: 2) }");
+        var request = new CompilationRequest(api.id(), List.of(api, caller));
+        var snapshot = language.snapshot(request);
+        assertTrue(snapshot.diagnostics().isEmpty());
+        var selected =
+            language
+                .query(snapshot)
+                .select("amount.value", java.util.Optional.empty(), 0, 1)
+                .items()
+                .getFirst();
+        var label =
+            language.definition(snapshot.analysis(caller.id()), caller.text().indexOf("value:"));
+        assertEquals(selected.symbol().declaration(), label);
+        var preview =
+            language.previewRename(
+                request, selected.symbol().id(), selected.revision().orElseThrow(), "quantity");
+        assertTrue(preview.after().isEmpty(), preview.after().toString());
+        assertEquals(3, preview.changes().stream().mapToInt(change -> change.edits().size()).sum());
+      }
+    }
+  }
+
+  @Test
   void preservesDeclarationOperatorsAcrossIncrementalAnalysis() {
     var id = DocumentId.of("untitled:operators");
     String text =

@@ -134,7 +134,7 @@ export const zhTheme: DefaultTheme.Config = {
       { text: 'Agent 开发入口', link: '/tooling/agent' },
       { text: '检查与测试', link: '/tooling/verification' },
       { text: '语义查询', link: '/tooling/semantic-query' },
-      { text: '重命名预检', link: '/tooling/rename-preview' },
+      { text: '语义重构预检', link: '/tooling/rename-preview' },
       { text: 'Agent 任务基准', link: '/tooling/agent-benchmark' },
       { text: 'VS Code', link: '/guide/vscode' },
       { text: '当前状态', link: '/status' },
@@ -157,6 +157,7 @@ export const zhTheme: DefaultTheme.Config = {
         { text: '编译器引导计划', link: '/design/bootstrap-plan' },
         { text: '技术方案', link: '/design/technical-plan' },
         { text: '项目路线图', link: '/design/roadmap' },
+        { text: '商业计划展望', link: '/design/business-outlook' },
       ]},
       { text: '项目约束', collapsed: true, items: [
         { text: '性能目标', link: '/design/performance-goals' },
