@@ -47,6 +47,7 @@ final class SemanticModelBuilder {
 
   private final Map<SymbolId, Symbol> symbols = new LinkedHashMap<>();
   private final Map<SourceSpan, SymbolId> bindings = new LinkedHashMap<>();
+  private final java.util.Set<SourceSpan> declarationOperators = new java.util.LinkedHashSet<>();
   private final Map<SourceSpan, SemanticType> semanticTypes = new LinkedHashMap<>();
   private final Map<SourceSpan, ResolvedCall> resolvedCalls = new LinkedHashMap<>();
   private final Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments =
@@ -96,6 +97,7 @@ final class SemanticModelBuilder {
   void reuse(SemanticContribution contribution) {
     symbols.putAll(contribution.symbols());
     bindings.putAll(contribution.bindings());
+    declarationOperators.addAll(contribution.declarationOperators());
     semanticTypes.putAll(contribution.expressionTypes());
     resolvedCalls.putAll(contribution.resolvedCalls());
     functionReferenceTypeArguments.putAll(contribution.functionReferenceTypeArguments());
@@ -133,6 +135,11 @@ final class SemanticModelBuilder {
 
   void putBinding(SourceSpan key, SymbolId value) {
     bindings.put(key, value);
+  }
+
+  void putDeclarationOperator(SourceSpan key, SymbolId value) {
+    bindings.put(key, value);
+    declarationOperators.add(key);
   }
 
   Map<SourceSpan, SemanticType> semanticTypes() {
@@ -209,6 +216,7 @@ final class SemanticModelBuilder {
         syntax,
         symbols,
         bindings,
+        declarationOperators,
         semanticTypes,
         resolvedCalls,
         functionReferenceTypeArguments,
@@ -250,6 +258,8 @@ final class SemanticModelBuilder {
     symbols.putAll(captured.symbols);
     bindings.clear();
     bindings.putAll(captured.bindings);
+    declarationOperators.clear();
+    declarationOperators.addAll(captured.declarationOperators);
     semanticTypes.clear();
     semanticTypes.putAll(captured.semanticTypes);
     resolvedCalls.clear();

@@ -1,6 +1,5 @@
 package dev.w0fv1.norm.project;
 
-import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.execution.ExecutionBackend;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.execution.ModulePublisher;
@@ -110,12 +109,7 @@ final class ModuleEvaluator implements AutoCloseable {
   ModuleDeclaration evaluate(SourceFile source) throws IOException {
     var result = compiler.compile(request(source));
     if (!result.isSuccess()) {
-      String diagnostics =
-          result.diagnostics().stream()
-              .map(DiagnosticRenderer::render)
-              .reduce((left, right) -> left + System.lineSeparator() + right)
-              .orElse("module compilation failed");
-      throw new IOException(diagnostics);
+      throw new ModuleCompilationException(result.diagnostics());
     }
     Publication publication = new Publication();
     try {

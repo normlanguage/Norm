@@ -1442,7 +1442,7 @@ final class ExpressionChecker implements ExpressionTyping {
           && !member.nullSafe()) {
         Symbol target = context.builtins.type("Void").orElseThrow();
         context.model.putBinding(typeName.span(), target.id());
-        context.model.putBinding(member.nameSpan(), target.id());
+        context.model.putDeclarationOperator(member.nameSpan(), target.id());
         return context.builtins.instantiate("Class", List.of(SemanticType.VOID));
       }
       SemanticType reflected = referencedType(typeName, member.nullSafe());
@@ -1452,7 +1452,7 @@ final class ExpressionChecker implements ExpressionTyping {
         return SemanticType.DYNAMIC;
       }
       SymbolId target = context.model.bindings().get(typeName.span());
-      if (target != null) context.model.putBinding(member.nameSpan(), target);
+      if (target != null) context.model.putDeclarationOperator(member.nameSpan(), target);
       return context.builtins.instantiate("Class", List.of(reflected));
     }
     if (member.nullSafe()) return null;
@@ -1476,7 +1476,7 @@ final class ExpressionChecker implements ExpressionTyping {
       }
       SymbolId fieldId = context.model.declarationSymbols().get(declaration);
       context.model.putBinding(selected.nameSpan(), fieldId);
-      context.model.putBinding(member.nameSpan(), fieldId);
+      context.model.putDeclarationOperator(member.nameSpan(), fieldId);
       SemanticType valueType =
           typeSystem
               .resolveDeclarationType(
@@ -1554,13 +1554,7 @@ final class ExpressionChecker implements ExpressionTyping {
       if (!candidates.isEmpty()) break;
     }
     List<FunctionReferenceResolution> matches = selectFunctionReferences(candidates, expected);
-    SemanticType type =
-        bindFunctionReference(member, selected.nameSpan(), selected.name(), matches, expected);
-    if (!type.equals(SemanticType.DYNAMIC)) {
-      context.model.putBinding(
-          member.nameSpan(), context.model.bindings().get(selected.nameSpan()));
-    }
-    return type;
+    return bindFunctionReference(member, selected.nameSpan(), selected.name(), matches, expected);
   }
 
   private SemanticType boundMethodType(
@@ -1649,8 +1643,10 @@ final class ExpressionChecker implements ExpressionTyping {
     FunctionReferenceResolution resolution = matches.getFirst();
     context.model.putBinding(
         targetSpan, context.model.declarationSymbols().get(resolution.declaration()));
-    context.model.putBinding(
-        member.nameSpan(), context.model.declarationSymbols().get(resolution.declaration()));
+    if (!member.nameSpan().equals(targetSpan)) {
+      context.model.putDeclarationOperator(
+          member.nameSpan(), context.model.declarationSymbols().get(resolution.declaration()));
+    }
     context.model.putFunctionReference(member.span(), resolution.reifiedArguments());
     return resolution.functionType();
   }

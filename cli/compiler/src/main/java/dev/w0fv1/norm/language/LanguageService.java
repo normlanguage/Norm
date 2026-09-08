@@ -34,6 +34,74 @@ public final class LanguageService implements AutoCloseable {
     this.compiler = java.util.Objects.requireNonNull(compiler, "compiler");
   }
 
+  public SemanticQuery query(CompilationSnapshot snapshot) {
+    return query(snapshot, snapshot.documentIds());
+  }
+
+  public SemanticQuery query(CompilationSnapshot snapshot, java.util.Set<DocumentId> documents) {
+    return new SemanticQuery(snapshot, this, documents);
+  }
+
+  public RenamePreview previewRename(
+      CompilationRequest request,
+      dev.w0fv1.norm.semantic.SymbolId identity,
+      DocumentRevision revision,
+      String newName) {
+    CompilationSnapshot before = snapshot(request);
+    var query = query(before, request.scope().coordinates().keySet());
+    var selected = query.declaration(identity, revision);
+    var declaration = selected.symbol().declaration().orElseThrow();
+    var rename =
+        rename(before.analysis(declaration.document()), declaration.startOffset(), newName)
+            .orElseThrow(() -> new IllegalArgumentException("declaration cannot be renamed"));
+    var grouped =
+        rename.locations().stream()
+            .collect(java.util.stream.Collectors.groupingBy(SourceLocation::document));
+    if (!request.scope().coordinates().keySet().containsAll(grouped.keySet())
+        || grouped.keySet().stream().anyMatch(request.bindingSources()::contains))
+      throw new IllegalArgumentException("rename includes read-only or generated sources");
+    var sources = new java.util.ArrayList<SourceFile>();
+    var changes = new java.util.ArrayList<RenamePreview.DocumentChange>();
+    for (SourceFile source :
+        request.sources().stream()
+            .sorted(java.util.Comparator.comparing(value -> value.id().uri().toString()))
+            .toList()) {
+      StringBuilder text = new StringBuilder(source.text());
+      var edits = new java.util.ArrayList<RenamePreview.Replacement>();
+      int boundary = source.length();
+      for (SourceLocation location :
+          grouped.getOrDefault(source.id(), List.of()).stream()
+              .distinct()
+              .sorted(java.util.Comparator.comparingInt(SourceLocation::startOffset).reversed())
+              .toList()) {
+        if (location.endOffset() > boundary)
+          throw new IllegalArgumentException("rename locations overlap");
+        String oldText = source.text().substring(location.startOffset(), location.endOffset());
+        if (!oldText.equals(newName)) {
+          edits.add(new RenamePreview.Replacement(location, oldText, newName));
+          text.replace(location.startOffset(), location.endOffset(), newName);
+        }
+        boundary = location.startOffset();
+      }
+      SourceFile changed = SourceFile.of(source.id(), text.toString());
+      sources.add(changed);
+      if (!edits.isEmpty())
+        changes.add(
+            new RenamePreview.DocumentChange(
+                DocumentRevision.of(source), DocumentRevision.of(changed), edits));
+    }
+    var edited =
+        new CompilationRequest(
+            request.unit(),
+            request.scope(),
+            request.entryDocument(),
+            sources,
+            request.exportedSources(),
+            request.bindingSources());
+    var after = snapshot(edited);
+    return new RenamePreview(query.documents(), changes, before.diagnostics(), after.diagnostics());
+  }
+
   public AnalysisResult analyze(SourceFile source) {
     return compiler.analyze(source);
   }
@@ -197,6 +265,7 @@ public final class LanguageService implements AutoCloseable {
     if (related.stream().anyMatch(candidate -> !isEditable(candidate))) return Optional.empty();
     return model
         .referenceAt(offset)
+        .filter(span -> !model.isDeclarationOperator(span))
         .map(reference -> new RenameTarget(reference.location(), symbol.orElseThrow().name()));
   }
 
@@ -205,6 +274,8 @@ public final class LanguageService implements AutoCloseable {
       throw new IllegalArgumentException("rename target must be a valid Norm identifier");
     }
     SemanticModel model = analysis.semanticModel();
+    if (model.referenceAt(offset).filter(model::isDeclarationOperator).isPresent())
+      return Optional.empty();
     Optional<Symbol> selected = model.symbolAt(offset);
     if (selected.isEmpty()) return Optional.empty();
     List<Symbol> related =

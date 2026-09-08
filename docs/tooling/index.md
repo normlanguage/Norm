@@ -21,6 +21,8 @@ Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义�
 
 ## VS Code
 
+AI Agent 的规范、查询和验证导航见 [Agent 开发入口](/tooling/agent)。
+
 正式 VSIX 包含受支持平台的同版本自包含 CLI。安装、运行、项目识别和 CLI 选择见 [VS Code 开发体验](/guide/vscode)。发布资产与平台矩阵见[发布流程](/design/release-process)。
 
 ## 共同语义入口

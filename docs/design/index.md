@@ -26,6 +26,7 @@ Runtime: execution contracts → Truffle → platform adapter
 - [编译器架构](/spec/compiler-design)：完整流水线、身份边界和增量模型；
 - [实现策略决议](/design/implementation-strategy)：技术栈与依赖方向；
 - [工具链开发规范](/design/toolchain-development)：模块职责与验证约束；
+- [Agent 工具设计](/design/agent-tooling)：明确性、强引用、上下文效率与验证契约；
 - [系统运行时架构](/design/system-runtime)：I/O、资源和平台适配；
 - [序列化运行时架构](/design/serialization-runtime)：结构元数据与 mapper；
 - [Java Library Adapter](/design/java-library-adapters)：单根 JAR、普通 Module 身份、内容寻址与发布边界；

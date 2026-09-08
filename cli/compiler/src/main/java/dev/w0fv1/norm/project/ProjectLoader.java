@@ -95,6 +95,14 @@ public final class ProjectLoader implements AutoCloseable {
   }
 
   public ProjectSourceSet loadForTests(Path entryPath) throws IOException {
+    return load(entryPath, LoadPurpose.TEST);
+  }
+
+  public ProjectSourceSet loadForAnalysis(Path entryPath) throws IOException {
+    return load(entryPath, LoadPurpose.ANALYSIS);
+  }
+
+  private ProjectSourceSet load(Path entryPath, LoadPurpose purpose) throws IOException {
     Path entry = normalize(entryPath);
     if (Files.isDirectory(entry)) {
       SourceFile module = SourceFile.read(entry.resolve("module.norm"));
@@ -103,13 +111,9 @@ public final class ProjectLoader implements AutoCloseable {
           resolved.sources().values().stream()
               .min(Comparator.comparing(source -> source.path().toString()))
               .orElseThrow(() -> new IOException("module contains no source files"));
-      return loadResolvedModule(resolved, first, module.path(), Map.of(), LoadPurpose.TEST);
+      return loadResolvedModule(resolved, first, module.path(), Map.of(), purpose);
     }
-    return load(SourceFile.read(entry), List.of(), LoadPurpose.TEST);
-  }
-
-  public ProjectSourceSet loadForAnalysis(Path entryPath) throws IOException {
-    return loadForAnalysis(SourceFile.read(normalize(entryPath)), List.of());
+    return load(SourceFile.read(entry), List.of(), purpose);
   }
 
   public ProjectSourceSet load(SourceFile entrySource, Collection<SourceFile> overlays)

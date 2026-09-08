@@ -7,6 +7,7 @@ import java.util.Map;
 public record SemanticContribution(
     Map<SymbolId, Symbol> symbols,
     Map<SourceSpan, SymbolId> bindings,
+    java.util.Set<SourceSpan> declarationOperators,
     Map<SourceSpan, SemanticType> expressionTypes,
     Map<SourceSpan, ResolvedCall> resolvedCalls,
     Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments,
@@ -16,6 +17,7 @@ public record SemanticContribution(
   public SemanticContribution {
     symbols = Map.copyOf(symbols);
     bindings = Map.copyOf(bindings);
+    declarationOperators = java.util.Set.copyOf(declarationOperators);
     expressionTypes = Map.copyOf(expressionTypes);
     resolvedCalls = Map.copyOf(resolvedCalls);
     functionReferenceTypeArguments =

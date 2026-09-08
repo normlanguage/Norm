@@ -49,6 +49,7 @@ public final class SemanticModel implements SemanticIndex {
   private final SpanIndex<SymbolId> resolvedCalleeIndex;
   private final SpanIndex<SemanticType> typeIndex;
   private final ReferenceIndex authoringReferences;
+  private final Set<SourceSpan> declarationOperators;
   private final ReferenceIndex semanticReferences;
 
   public SemanticModel(
@@ -56,6 +57,7 @@ public final class SemanticModel implements SemanticIndex {
       Syntax.Program syntax,
       Map<SymbolId, Symbol> symbols,
       Map<SourceSpan, SymbolId> bindings,
+      Set<SourceSpan> declarationOperators,
       Map<SourceSpan, SemanticType> expressionTypes,
       Map<SourceSpan, ResolvedCall> resolvedCalls,
       Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments,
@@ -79,6 +81,9 @@ public final class SemanticModel implements SemanticIndex {
     this.syntax = Objects.requireNonNull(syntax, "syntax");
     this.symbols = Map.copyOf(symbols);
     this.bindings = Map.copyOf(bindings);
+    this.declarationOperators = Set.copyOf(declarationOperators);
+    if (!this.bindings.keySet().containsAll(this.declarationOperators))
+      throw new IllegalArgumentException("declaration operators require semantic bindings");
     this.expressionTypes = Map.copyOf(expressionTypes);
     this.resolvedCalls = Map.copyOf(resolvedCalls);
     Map<SourceSpan, List<SemanticType>> copiedFunctionReferenceArguments = new LinkedHashMap<>();
@@ -122,9 +127,11 @@ public final class SemanticModel implements SemanticIndex {
     this.resolvedCallees = Map.copyOf(callTargets);
     this.resolvedCalleeIndex = SpanIndex.from(this.resolvedCallees);
     this.typeIndex = SpanIndex.from(this.expressionTypes);
-    this.authoringReferences = ReferenceIndex.from(this.bindings);
+    Map<SourceSpan, SymbolId> authoredBindings = new LinkedHashMap<>(this.bindings);
+    this.declarationOperators.forEach(authoredBindings::remove);
+    this.authoringReferences = ReferenceIndex.from(authoredBindings);
     this.semanticReferences =
-        ReferenceIndex.semantic(this.bindings, this.aliasTargets, this.resolvedCalls);
+        ReferenceIndex.semantic(authoredBindings, this.aliasTargets, this.resolvedCalls);
     this.typeRelations = new TypeRelations.DeclarationGraph(this::directParents);
     this.memberRelations = new MemberRelations(this.symbols, this.witnesses, this.methodOverrides);
   }
@@ -161,6 +168,7 @@ public final class SemanticModel implements SemanticIndex {
     this.resolvedCalleeIndex = project.resolvedCalleeIndex;
     this.typeIndex = project.typeIndex;
     this.authoringReferences = project.authoringReferences;
+    this.declarationOperators = project.declarationOperators;
     this.semanticReferences = project.semanticReferences;
     this.typeRelations = project.typeRelations;
     this.memberRelations = project.memberRelations;
@@ -255,6 +263,10 @@ public final class SemanticModel implements SemanticIndex {
     return new SemanticContribution(
         selectedSymbols,
         selectedBindings,
+        declarationOperators.stream()
+            .filter(span -> inside(span, previousRoot))
+            .map(rebaser::rebase)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet()),
         selectedTypes,
         selectedCalls,
         selectedFunctionArguments,
@@ -761,6 +773,10 @@ public final class SemanticModel implements SemanticIndex {
 
   public List<SourceSpan> authoringReferences(SymbolId id) {
     return authoringReferences.references(id);
+  }
+
+  public boolean isDeclarationOperator(SourceSpan span) {
+    return declarationOperators.contains(span);
   }
 
   public boolean isAlias(SymbolId id) {

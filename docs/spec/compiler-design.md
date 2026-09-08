@@ -96,6 +96,8 @@ guest 运行错误在 Truffle 节点处携带稳定错误码和 `SourceSection`�
 
 ## 验证
 
+声明引用运算符保留导航与编译绑定，其作者态引用角色由 `SemanticModelBuilder` 记录并随语义贡献重定位。重命名、源码捕获与运算符边界见 [RenamePreviewTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/language/RenamePreviewTest.java)。
+
 [DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java) 是可执行的包边界与无环依赖约束。
 
 [NativeApplicationArchiveTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/runtime/NativeApplicationArchiveTest.java) 在 classpath 与发行模块路径下验证原生应用归档的写入、读取和执行。
