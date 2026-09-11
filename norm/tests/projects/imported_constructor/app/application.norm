@@ -1,0 +1,13 @@
+package app
+
+import app.library.Holder
+import app.library.Implementation
+import std.testing.expectedOutputLines
+
+class Service {}
+
+Void main() {
+  var holder = Holder<String>(service: Implementation(), value: "ok")
+  printLine(holder.service.name())
+  expectedOutputLines(["ok"])
+}

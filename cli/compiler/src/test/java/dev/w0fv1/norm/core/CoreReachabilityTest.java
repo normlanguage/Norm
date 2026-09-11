@@ -15,17 +15,40 @@ import org.junit.jupiter.api.Test;
 
 final class CoreReachabilityTest {
   @Test
+  void preservesJavaExceptionConversionWithoutASourceLevelExceptionReference() throws Exception {
+    var compiled = compileBinding("Void main() { __jarInvokeVoid0(\"sample.failure\") }");
+    assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
+    var artifact = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
+    var failure =
+        assertThrows(
+            RuntimeException.class,
+            () ->
+                new NormRuntime()
+                    .execute(
+                        artifact,
+                        ExecutionContext.builder()
+                            .jarBindingRuntime(
+                                (call, arguments) -> {
+                                  throw new dev.w0fv1.norm.execution.JarBindingInvocationException(
+                                      "host invocation",
+                                      new java.io.IOException("original host failure"));
+                                })
+                            .build()));
+    assertTrue(failure.getMessage().contains("original host failure"), failure::toString);
+  }
+
+  @Test
   void separatesRetainedInterfaceDeclarationsFromUnusedImplementationExecution() {
     var compiled =
         NormTestKit.compile(
             """
-        interface Named { String name() }
-        String dormantService() { return "not requested" }
-        class Unconstructed implements Named {
-          String name() { return dormantService() }
-        }
-        Void main() { Named? value = null; printLine("hello") }
-        """);
+            interface Named { String name() }
+            String dormantService() { return "not requested" }
+            class Unconstructed implements Named {
+              String name() { return dormantService() }
+            }
+            Void main() { Named? value = null; printLine("hello") }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var original = compiled.output().orElseThrow().artifact();
     var analysis = CoreReachability.analyze(original, java.util.Set.of());
@@ -72,13 +95,13 @@ final class CoreReachabilityTest {
     var compiled =
         NormTestKit.compile(
             """
-        import std.annotation.RuntimeRetention
-        import std.annotation.TypeTarget
-        annotation Label implements TypeTarget, RuntimeRetention { String text }
-        @Label(text: "host")
-        class Host { String value() { return "external" } }
-        Void main() { printLine("hello") }
-        """);
+            import std.annotation.RuntimeRetention
+            import std.annotation.TypeTarget
+            annotation Label implements TypeTarget, RuntimeRetention { String text }
+            @Label(text: "host")
+            class Host { String value() { return "external" } }
+            Void main() { printLine("hello") }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var original = compiled.output().orElseThrow().artifact();
     var host =
@@ -134,9 +157,9 @@ final class CoreReachabilityTest {
     var compiled =
         compileBinding(
             """
-        Void dormant(String name) { __jarInvokeVoid0(name) }
-        Void main() { __jarInvokeVoid0("sample.call") }
-        """);
+            Void dormant(String name) { __jarInvokeVoid0(name) }
+            Void main() { __jarInvokeVoid0("sample.call") }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var artifact = compiled.output().orElseThrow().artifact();
     var dormant =
@@ -163,9 +186,9 @@ final class CoreReachabilityTest {
     var dynamic =
         compileBinding(
             """
-        Void invoke(String name) { __jarInvokeVoid0(name) }
-        Void main() { invoke("sample.call") }
-        """);
+            Void invoke(String name) { __jarInvokeVoid0(name) }
+            Void main() { invoke("sample.call") }
+            """);
     assertTrue(dynamic.isSuccess(), () -> dynamic.diagnostics().toString());
     assertTrue(
         CoreReachability.jarCalls(
@@ -193,10 +216,10 @@ final class CoreReachabilityTest {
     var compiled =
         NormTestKit.compile(
             """
-        class Parent { String name() { return "parent" } }
-        class Child extends Parent { Child() { super() } }
-        Void main() { printLine(Parent().name()) }
-        """);
+            class Parent { String name() { return "parent" } }
+            class Child extends Parent { Child() { super() } }
+            Void main() { printLine(Parent().name()) }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var original = compiled.output().orElseThrow().artifact();
     var reduced = CoreReachability.retainApplication(original);
@@ -210,10 +233,10 @@ final class CoreReachabilityTest {
     var compiled =
         NormTestKit.compile(
             """
-        interface Named { String name() }
-        class HostBindingValue implements Named { String name() { return "host" } }
-        Void main() { Named? value = null }
-        """);
+            interface Named { String name() }
+            class HostBindingValue implements Named { String name() { return "host" } }
+            Void main() { Named? value = null }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var reduced = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     assertTrue(
@@ -264,10 +287,10 @@ final class CoreReachabilityTest {
     var compiled =
         NormTestKit.compile(
             """
-        String unused() { return "unused" }
-        String greeting() { return "hello" }
-        Void main() { printLine(greeting()) }
-        """);
+            String unused() { return "unused" }
+            String greeting() { return "hello" }
+            Void main() { printLine(greeting()) }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var original = compiled.output().orElseThrow().artifact();
     var reduced = CoreReachability.retainApplication(original);
@@ -290,18 +313,18 @@ final class CoreReachabilityTest {
     var compiled =
         NormTestKit.compile(
             """
-        class Greeter {
-          String greet() { return "hello" }
-        }
-        Integer count(Integer n) {
-          if n == 0 { return 0 }
-          return count(n - 1) + 1
-        }
-        Void main() {
-          printLine(Greeter().greet())
-          printLine(count(3))
-        }
-        """);
+            class Greeter {
+              String greet() { return "hello" }
+            }
+            Integer count(Integer n) {
+              if n == 0 { return 0 }
+              return count(n - 1) + 1
+            }
+            Void main() {
+              printLine(Greeter().greet())
+              printLine(count(3))
+            }
+            """);
     assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     var reduced = CoreReachability.retainApplication(compiled.output().orElseThrow().artifact());
     var output = new StringWriter();

@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -21,6 +22,108 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void preservesResultBuilderContractsAcrossNarDependencies() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("library/example/builders"));
+    Path modulePath = module.resolve("module.norm");
+    Path source = module.resolve("Words.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() { module(name: "example.builders", version: 1, exports: ["Words"]) }
+        """);
+    Files.writeString(
+        source,
+        """
+        package example.builders
+        import std.build.BuildWith
+        import std.build.ResultBuilder
+        public class Words implements ResultBuilder<String, String> {
+          private String text = ""
+          Void add(String value) { text = text + value }
+          String finish() { text }
+        }
+        public String words(@BuildWith(Words.class) Function<String()> content) { content() }
+        """);
+    Path repository = temporaryDirectory.resolve("repository");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects).packageModule(modulePath, repository);
+    }
+    Files.delete(source);
+    Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() { module(dependencies: [dependency(repository: "github", name: "example.builders", version: 1)]) }
+        """);
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        entry,
+        """
+        package sample
+        import example.builders.words
+        Void main() { printLine(words { "a" if true { "b" } }) }
+        """);
+    assertEquals("ab" + System.lineSeparator(), run(repository, entry));
+  }
+
+  @Test
+  void preservesComputedPropertiesAndClosuresAcrossNarDependencies() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("library/example/state"));
+    Path modulePath = module.resolve("module.norm");
+    Path source = module.resolve("State.norm");
+    Files.writeString(
+        modulePath,
+        "Module module() { return module(name: \"example.state\", version: 1, exports: [\"State\"])"
+            + " }");
+    Files.writeString(
+        source,
+        """
+        package example.state
+        public class State<T> {
+          private T stored
+          State(T initial) { stored = initial }
+          T value { get { return stored } set(next) { stored = next } }
+          Function<T()> reader() { return () { value } }
+        }
+        """);
+    Path repository = temporaryDirectory.resolve("repository");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects).packageModule(modulePath, repository);
+    }
+    Files.delete(source);
+
+    Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        "Module module() { return module(dependencies: [dependency(repository: \"github\", name:"
+            + " \"example.state\", version: 1)]) }");
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        entry,
+        """
+        package sample
+        import example.state.State
+        class Counter extends State<Integer> {
+          Counter() { super(initial: 2) }
+          Void increment() { value = value + 3 }
+        }
+        Void main() {
+          var text = State<String>("before")
+          var read = text.reader()
+          text.value = "after"
+          printLine(read())
+          var counter = Counter()
+          counter.increment()
+          printLine(counter.value)
+        }
+        """);
+    assertEquals(
+        "after" + System.lineSeparator() + "5" + System.lineSeparator(), run(repository, entry));
+  }
 
   @Test
   void rejectsPublishingALocalModuleWithoutADeclaredVersion() throws Exception {
@@ -111,7 +214,7 @@ final class ModulePackagerTest {
     ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
     try (ApplicationRunner launcher =
             new ApplicationRunner(
-                consumerEnvironment.projectLoader(repository),
+                consumerEnvironment.projectLoader(MavenTestRepository.prepare(repository)),
                 consumerEnvironment.compilerSession(),
                 backend);
         var compilation = launcher.compileApplication(entry)) {
@@ -139,7 +242,8 @@ final class ModulePackagerTest {
     Path modulePath = module.resolve("module.norm");
     Files.writeString(
         modulePath,
-        "Module module() { return module(name: \"example.outcome\", version: 1, exports: [\"Outcome\"]) }");
+        "Module module() { return module(name: \"example.outcome\", version: 1, exports:"
+            + " [\"Outcome\"]) }");
     Files.writeString(
         module.resolve("Outcome.norm"),
         "package example.outcome public enum Outcome<T, E = String> { Ok(T value), Err(E error) }");
@@ -152,11 +256,13 @@ final class ModulePackagerTest {
     Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
     Files.writeString(
         app.resolve("module.norm"),
-        "Module module() { return module(dependencies: [dependency(repository: \"github\", name: \"example.outcome\", version: 1)]) }");
+        "Module module() { return module(dependencies: [dependency(repository: \"github\", name:"
+            + " \"example.outcome\", version: 1)]) }");
     Path entry = app.resolve("Main.norm");
     Files.writeString(
         entry,
-        "package sample import example.outcome.Outcome Void main() { Outcome<Integer> result = Outcome.Err(\"invalid\") }");
+        "package sample import example.outcome.Outcome Void main() { Outcome<Integer> result ="
+            + " Outcome.Err(\"invalid\") }");
 
     assertEquals("", run(repository, entry));
   }
@@ -191,7 +297,8 @@ final class ModulePackagerTest {
         """);
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (ProjectLoader projects =
-        environment.projectLoader(temporaryDirectory.resolve("maven-cache"))) {
+        environment.projectLoader(
+            MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
 
       ModulePackager.PackagedModule packaged =
@@ -241,7 +348,8 @@ final class ModulePackagerTest {
 
     ModulePackager.PackagedModule packaged;
     try (ProjectLoader projects =
-        environment.projectLoader(temporaryDirectory.resolve("maven-cache"))) {
+        environment.projectLoader(
+            MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
       packaged = new ModulePackager(projects).packageModule(modulePath, repository);
     }
@@ -318,9 +426,16 @@ final class ModulePackagerTest {
     StringWriter output = new StringWriter();
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
+    try (ProjectLoader projects =
+        consumerEnvironment.projectLoader(MavenTestRepository.prepare(repository))) {
+      ProjectSourceSet runtimeSources = projects.load(entry);
+      ProjectSourceSet testSources = projects.loadForTests(entry);
+      assertEquals(1, testSources.jarBindings().size());
+      assertEquals(runtimeSources.bindingSourceDocuments(), testSources.bindingSourceDocuments());
+    }
     try (ApplicationRunner launcher =
         new ApplicationRunner(
-            consumerEnvironment.projectLoader(repository),
+            consumerEnvironment.projectLoader(MavenTestRepository.prepare(repository)),
             consumerEnvironment.compilerSession(),
             backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
@@ -362,7 +477,8 @@ final class ModulePackagerTest {
     Path bindingRepository = temporaryDirectory.resolve("binding-repository");
     ProjectEnvironment bindingEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (ProjectLoader projects =
-        bindingEnvironment.projectLoader(temporaryDirectory.resolve("binding-cache"))) {
+        bindingEnvironment.projectLoader(
+            MavenTestRepository.prepare(temporaryDirectory.resolve("binding-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(bindingModule);
       new ModulePackager(projects).packageModule(bindingModule, bindingRepository);
     }
@@ -461,7 +577,8 @@ final class ModulePackagerTest {
 
     ModulePackager.PackagedModule packaged;
     try (ProjectLoader projects =
-        environment.projectLoader(temporaryDirectory.resolve("maven-cache"))) {
+        environment.projectLoader(
+            MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
       packaged =
           new ModulePackager(projects)
@@ -517,7 +634,9 @@ final class ModulePackagerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
     try (ApplicationRunner launcher =
         new ApplicationRunner(
-            environment.projectLoader(repository), environment.compilerSession(), backend)) {
+            environment.projectLoader(MavenTestRepository.prepare(repository)),
+            environment.compilerSession(),
+            backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }

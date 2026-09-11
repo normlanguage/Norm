@@ -13,6 +13,25 @@ Point origin = Point(x: 0, y: 0)
 
 ## 静态规则
 
+value 可以声明构造器和构造重载；未声明时使用字段构造。构造器中可以初始化当前对象的字段，不能修改其他 value，也不能把修改权限带入 Lambda。构造器的所有正常退出路径必须完成字段初始化。
+
+```norm
+value Row<T> {
+    List<T> children
+    Integer spacing
+
+    Row(List<T> children) {
+        this.children = children
+        spacing = 0
+    }
+
+    Row(List<T> children, Integer spacing) {
+        this.children = children
+        this.spacing = spacing
+    }
+}
+```
+
 - 每个字段必须是非空类型，或显式声明为 nullable。
 - 所有字段必须在构造结束前初始化。
 - 构造后不能对字段原地赋值。
@@ -29,4 +48,3 @@ origin = Point(x: 1, y: 0) // 合法：变量绑定到一个新值
 ## 与 Class 的边界
 
 需要方法但不需要 identity 时仍可使用 `value`；需要对象身份和内部可变状态时使用 `class`。`ref<T>` 用于 value 存储位置，不用于 class 共享。
-

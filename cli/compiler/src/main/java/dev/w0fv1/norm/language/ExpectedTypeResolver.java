@@ -7,6 +7,8 @@ import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.source.SourceSpan;
+import dev.w0fv1.norm.syntax.BlockResults;
+import dev.w0fv1.norm.syntax.CollectionElement;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -81,7 +83,14 @@ final class ExpectedTypeResolver {
       Optional<SemanticType> returnType,
       int offset,
       boolean incompleteBreak) {
-    return inStatements(model, statements, returnType, Optional.empty(), offset, incompleteBreak);
+    return inStatements(
+        model,
+        BlockResults.returning(
+            statements, returnType.filter(type -> !type.equals(SemanticType.VOID)).isPresent()),
+        returnType,
+        Optional.empty(),
+        offset,
+        incompleteBreak);
   }
 
   private Optional<SemanticType> inStatements(
@@ -148,6 +157,16 @@ final class ExpectedTypeResolver {
           model, expression.expression(), returnType, Optional.empty(), offset, incompleteBreak);
     }
     if (statement instanceof Syntax.IfStatement conditional) {
+      if (contains(conditional.condition().span(), offset)) {
+        return inExpression(
+                model,
+                conditional.condition(),
+                returnType,
+                Optional.of(SemanticType.BOOLEAN),
+                offset,
+                incompleteBreak)
+            .or(() -> Optional.of(SemanticType.BOOLEAN));
+      }
       Optional<SemanticType> nested =
           inStatements(
               model, conditional.thenBody(), returnType, breakType, offset, incompleteBreak);
@@ -192,6 +211,34 @@ final class ExpectedTypeResolver {
       int offset,
       boolean incompleteBreak) {
     if (!contains(expression.span(), offset)) return Optional.empty();
+    if (expression instanceof Syntax.IfExpression conditional) {
+      if (contains(conditional.condition().span(), offset)) {
+        return inExpression(
+                model,
+                conditional.condition(),
+                returnType,
+                Optional.of(SemanticType.BOOLEAN),
+                offset,
+                incompleteBreak)
+            .or(() -> Optional.of(SemanticType.BOOLEAN));
+      }
+      Optional<SemanticType> nested =
+          inStatements(
+              model,
+              BlockResults.yielding(conditional.thenBody()),
+              returnType,
+              expectedType,
+              offset,
+              incompleteBreak);
+      if (nested.isPresent()) return nested;
+      return inStatements(
+          model,
+          BlockResults.yielding(conditional.elseBody()),
+          returnType,
+          expectedType,
+          offset,
+          incompleteBreak);
+    }
     if (expression instanceof Syntax.SwitchExpression switched) {
       Optional<SemanticType> nested =
           inExpression(
@@ -212,19 +259,7 @@ final class ExpectedTypeResolver {
               .filter(SemanticType::isFunction)
               .or(() -> expectedType.filter(SemanticType::isFunction));
       Optional<SemanticType> lambdaReturn = lambdaType.map(SemanticType::functionReturnType);
-      for (int index = 0; index < lambda.body().size(); index++) {
-        Syntax.Statement statement = lambda.body().get(index);
-        if (!contains(statement.span(), offset)) continue;
-        if (index == lambda.body().size() - 1
-            && statement instanceof Syntax.ExpressionStatement result) {
-          return inExpression(
-                  model, result.expression(), lambdaReturn, lambdaReturn, offset, incompleteBreak)
-              .or(() -> lambdaReturn);
-        }
-        return inStatement(
-            model, statement, lambdaReturn, Optional.empty(), offset, incompleteBreak);
-      }
-      return Optional.empty();
+      return inStatements(model, lambda.body(), lambdaReturn, offset, incompleteBreak);
     }
     if (expression instanceof Syntax.Call call) {
       for (int argumentIndex = 0; argumentIndex < call.arguments().size(); argumentIndex++) {
@@ -252,8 +287,12 @@ final class ExpectedTypeResolver {
           model, call.callee(), returnType, Optional.empty(), offset, incompleteBreak);
     }
     if (expression instanceof Syntax.Unary unary) {
-      return inExpression(
-          model, unary.operand(), returnType, Optional.empty(), offset, incompleteBreak);
+      Optional<SemanticType> operandType =
+          unary.operator() == dev.w0fv1.norm.syntax.TokenKind.THROW
+              ? Optional.of(SemanticType.EXCEPTION)
+              : Optional.empty();
+      return inExpression(model, unary.operand(), returnType, operandType, offset, incompleteBreak)
+          .or(() -> operandType);
     }
     if (expression instanceof Syntax.Binary binary) {
       Optional<SemanticType> nested =
@@ -277,13 +316,73 @@ final class ExpectedTypeResolver {
               model, index.index(), returnType, Optional.empty(), offset, incompleteBreak);
     }
     if (expression instanceof Syntax.ArrayLiteral array) {
-      for (Syntax.Expression element : array.elements()) {
+      Optional<SemanticType> elementType =
+          model
+              .typeOf(array.span())
+              .or(() -> expectedType)
+              .filter(type -> type.arguments().size() == 1)
+              .map(type -> type.arguments().getFirst());
+      for (var element : array.elements()) {
         Optional<SemanticType> nested =
-            inExpression(model, element, returnType, Optional.empty(), offset, incompleteBreak);
+            inCollectionElement(model, element, returnType, elementType, offset, incompleteBreak);
         if (nested.isPresent()) return nested;
       }
     }
     return Optional.empty();
+  }
+
+  private Optional<SemanticType> inCollectionElement(
+      SemanticModel model,
+      CollectionElement element,
+      Optional<SemanticType> returnType,
+      Optional<SemanticType> expectedType,
+      int offset,
+      boolean incompleteBreak) {
+    if (!contains(element.span(), offset)) return Optional.empty();
+    return switch (element) {
+      case Syntax.Expression expression ->
+          inExpression(model, expression, returnType, expectedType, offset, incompleteBreak)
+              .or(() -> expectedType);
+      case CollectionElement.Spread spread ->
+          inExpression(
+              model, spread.iterable(), returnType, Optional.empty(), offset, incompleteBreak);
+      case CollectionElement.Conditional conditional -> {
+        if (contains(conditional.condition().span(), offset)) {
+          yield inExpression(
+                  model,
+                  conditional.condition(),
+                  returnType,
+                  Optional.of(SemanticType.BOOLEAN),
+                  offset,
+                  incompleteBreak)
+              .or(() -> Optional.of(SemanticType.BOOLEAN));
+        }
+        Optional<SemanticType> nested =
+            inCollectionElement(
+                model,
+                conditional.thenElement(),
+                returnType,
+                expectedType,
+                offset,
+                incompleteBreak);
+        yield nested.or(
+            () ->
+                conditional
+                    .elseElement()
+                    .flatMap(
+                        value ->
+                            inCollectionElement(
+                                model, value, returnType, expectedType, offset, incompleteBreak)));
+      }
+      case CollectionElement.Repeated repeated -> {
+        if (contains(repeated.iterable().span(), offset)) {
+          yield inExpression(
+              model, repeated.iterable(), returnType, Optional.empty(), offset, incompleteBreak);
+        }
+        yield inCollectionElement(
+            model, repeated.element(), returnType, expectedType, offset, incompleteBreak);
+      }
+    };
   }
 
   private static TokenKind previousToken(List<Token> tokens, int offset) {

@@ -1,6 +1,8 @@
 package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.semantic.SemanticType;
+import dev.w0fv1.norm.semantic.SymbolId;
+import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
@@ -161,17 +163,39 @@ final class DeclarationCatalog {
     for (Syntax.Program program : programs) {
       for (Syntax.InterfaceDecl declaration : program.interfaces()) {
         owners.put(declaration, program);
-        declaration.methods().forEach(method -> owners.put(method, program));
+        declaration
+            .methods()
+            .forEach(method -> indexCallable(program, method, method.parameters()));
       }
-      program.enums().forEach(declaration -> owners.put(declaration, program));
+      program
+          .enums()
+          .forEach(
+              declaration -> {
+                owners.put(declaration, program);
+                declaration
+                    .variants()
+                    .forEach(variant -> indexCallable(program, variant, variant.parameters()));
+              });
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         owners.put(declaration, program);
         declaration.fields().forEach(field -> owners.put(field, program));
-        declaration.constructors().forEach(constructor -> owners.put(constructor, program));
-        declaration.methods().forEach(method -> owners.put(method, program));
+        declaration
+            .constructors()
+            .forEach(constructor -> indexCallable(program, constructor, constructor.parameters()));
+        declaration
+            .methods()
+            .forEach(method -> indexCallable(program, method, method.parameters()));
       }
-      program.functions().forEach(declaration -> owners.put(declaration, program));
+      program
+          .functions()
+          .forEach(declaration -> indexCallable(program, declaration, declaration.parameters()));
     }
+  }
+
+  private void indexCallable(
+      Syntax.Program program, Object declaration, List<Syntax.Parameter> parameters) {
+    owners.put(declaration, program);
+    parameters.forEach(parameter -> owners.put(parameter, program));
   }
 
   private void indexDeclarations() {
@@ -221,6 +245,7 @@ final class DeclarationCatalog {
 
   private <T> T resolve(Syntax.Program program, String name, Map<String, T> declarations) {
     if (program == null) return null;
+    if (name.contains(".") && declarations.containsKey(name)) return declarations.get(name);
     T local = declarations.get(localIdentity(qualified(program.packageName(), name), program));
     if (local != null) return local;
     T samePackage = declarations.get(qualified(program.packageName(), name));
@@ -275,5 +300,27 @@ final class DeclarationCatalog {
     return owner != null
         && scope.permitsSource(program.span().source().id(), owner.span().source().id())
         && scope.sameModule(program.span().source().id(), owner.span().source().id());
+  }
+
+  SymbolId symbolId(
+      Syntax.Program fallback, Object declaration, SymbolKind kind, String name, SymbolId owner) {
+    return owner == null
+        ? SymbolId.authored(
+            DeclarationIdentity.topLevel(ownerOr(declaration, fallback), declaration).value())
+        : SymbolId.authored(DeclarationIdentity.member(owner, kind, declaration, name));
+  }
+
+  static Map<String, SemanticType> typeParameters(
+      SymbolId owner, List<Syntax.TypeParameter> parameters) {
+    Map<String, SemanticType> result = new LinkedHashMap<>();
+    for (int index = 0; index < parameters.size(); index++) {
+      Syntax.TypeParameter parameter = parameters.get(index);
+      result.putIfAbsent(
+          parameter.name(),
+          SemanticType.parameter(
+              SymbolId.authored(DeclarationIdentity.typeParameter(owner, index)).value(),
+              parameter.name()));
+    }
+    return Map.copyOf(result);
   }
 }

@@ -49,6 +49,12 @@ final class SemanticModelBuilder {
   private final Map<SourceSpan, SymbolId> bindings = new LinkedHashMap<>();
   private final java.util.Set<SourceSpan> declarationOperators = new java.util.LinkedHashSet<>();
   private final Map<SourceSpan, SemanticType> semanticTypes = new LinkedHashMap<>();
+  private final Map<SourceSpan, SemanticType> resultBuilders = new LinkedHashMap<>();
+
+  void putResultBuilder(SourceSpan span, SemanticType type) {
+    resultBuilders.put(span, type);
+  }
+
   private final Map<SourceSpan, ResolvedCall> resolvedCalls = new LinkedHashMap<>();
   private final Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments =
       new LinkedHashMap<>();
@@ -99,6 +105,7 @@ final class SemanticModelBuilder {
     bindings.putAll(contribution.bindings());
     declarationOperators.addAll(contribution.declarationOperators());
     semanticTypes.putAll(contribution.expressionTypes());
+    resultBuilders.putAll(contribution.resultBuilders());
     resolvedCalls.putAll(contribution.resolvedCalls());
     functionReferenceTypeArguments.putAll(contribution.functionReferenceTypeArguments());
     iterations.putAll(contribution.iterations());
@@ -115,6 +122,11 @@ final class SemanticModelBuilder {
     var values = new LinkedHashMap<>(witnesses.getOrDefault(owner, Map.of()));
     values.put(requirement, implementation);
     witnesses.put(owner, Map.copyOf(values));
+  }
+
+  Symbol symbolOf(Object declaration) {
+    return java.util.Objects.requireNonNull(
+        symbols.get(declarationSymbols.get(declaration)), "declaration symbol");
   }
 
   Map<SymbolId, Symbol> symbols() {
@@ -174,6 +186,10 @@ final class SemanticModelBuilder {
     methodOverrides.put(key, value);
   }
 
+  SymbolId overriddenMethod(SymbolId method) {
+    return methodOverrides.get(method);
+  }
+
   void putTypeSymbol(String key, SymbolId value) {
     typeSymbols.putIfAbsent(key, value);
   }
@@ -218,6 +234,7 @@ final class SemanticModelBuilder {
         bindings,
         declarationOperators,
         semanticTypes,
+        resultBuilders,
         resolvedCalls,
         functionReferenceTypeArguments,
         iterations,
@@ -262,6 +279,8 @@ final class SemanticModelBuilder {
     declarationOperators.addAll(captured.declarationOperators);
     semanticTypes.clear();
     semanticTypes.putAll(captured.semanticTypes);
+    resultBuilders.clear();
+    resultBuilders.putAll(captured.resultBuilders);
     resolvedCalls.clear();
     resolvedCalls.putAll(captured.resolvedCalls);
     functionReferenceTypeArguments.clear();

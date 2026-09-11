@@ -14,11 +14,13 @@ import java.nio.file.Path;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+@Timeout(60)
 final class JarBindingConcurrencyIntegrationTest {
   private static final String TASK_SCOPE_CANCEL_PROPERTY = "norm.test.java.task.scope-cancelled";
   @TempDir Path temporaryDirectory;
@@ -132,6 +134,7 @@ final class JarBindingConcurrencyIntegrationTest {
                     "completed",
                     "failed",
                     "pending",
+                    "read",
                     "threadedCheck",
                     "threadName"
                   ]
@@ -148,9 +151,11 @@ final class JarBindingConcurrencyIntegrationTest {
         """
         package task.binding
         import std.concurrent.Task
+        import std.concurrent.startTask
         import std.core.Exception
 
         Void main() {
+          printLine(taskApiRead(startTask<String?> { "started" }))
           String? owner = taskApiThreadName()
           Function<Boolean?()> onJavaCallbackThread = () {
             Boolean? result = taskApiThreadName() != owner
@@ -178,6 +183,7 @@ final class JarBindingConcurrencyIntegrationTest {
           if completed != null {
             printLine(completed.completed())
             printLine(completed.await() ?? "missing")
+            printLine(taskApiCancelled(completed))
             completed.close()
           }
           Task<String?>? failed = taskApiFailed("failure")
@@ -212,11 +218,13 @@ final class JarBindingConcurrencyIntegrationTest {
     assertEquals(
         String.join(
             System.lineSeparator(),
+            "started",
             "true",
             "true",
             "async callback failure",
             "true",
             "ready",
+            "false",
             "failure",
             "false",
             "true",
@@ -435,6 +443,12 @@ final class JarBindingConcurrencyIntegrationTest {
         "completedFuture",
         "(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;",
         false);
+    completed.visitMethodInsn(
+        Opcodes.INVOKEVIRTUAL,
+        "java/util/concurrent/CompletableFuture",
+        "minimalCompletionStage",
+        "()Ljava/util/concurrent/CompletionStage;",
+        false);
     completed.visitInsn(Opcodes.ARETURN);
     completed.visitMaxs(0, 0);
     completed.visitEnd();
@@ -494,6 +508,25 @@ final class JarBindingConcurrencyIntegrationTest {
     cancelled.visitInsn(Opcodes.IRETURN);
     cancelled.visitMaxs(0, 0);
     cancelled.visitEnd();
+    MethodVisitor read =
+        writer.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+            "read",
+            "(Ljava/util/concurrent/Future;)Ljava/lang/String;",
+            "(Ljava/util/concurrent/Future<Ljava/lang/String;>;)Ljava/lang/String;",
+            null);
+    read.visitCode();
+    read.visitVarInsn(Opcodes.ALOAD, 0);
+    read.visitMethodInsn(
+        Opcodes.INVOKEINTERFACE,
+        "java/util/concurrent/Future",
+        "get",
+        "()Ljava/lang/Object;",
+        true);
+    read.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/String");
+    read.visitInsn(Opcodes.ARETURN);
+    read.visitMaxs(0, 0);
+    read.visitEnd();
     writer.visitEnd();
     ClassWriter tracking = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
     tracking.visit(

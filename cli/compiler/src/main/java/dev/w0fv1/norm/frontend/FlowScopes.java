@@ -104,48 +104,6 @@ final class FlowScopes {
     referenceLifetimes.putAll(state.referenceLifetimes());
   }
 
-  Checkpoint checkpoint() {
-    return new Checkpoint(
-        scopes.stream()
-            .map(
-                scope ->
-                    new Scope(
-                        new HashMap<>(scope.symbols()),
-                        new ArrayList<>(scope.declarations()),
-                        scope.span(),
-                        scope.depth(),
-                        scope.region()))
-            .toList(),
-        Map.copyOf(declarationRegions),
-        snapshot(),
-        List.copyOf(semanticScopes));
-  }
-
-  void restore(Checkpoint checkpoint) {
-    scopes.clear();
-    checkpoint.scopes().stream()
-        .map(
-            scope ->
-                new Scope(
-                    new HashMap<>(scope.symbols()),
-                    new ArrayList<>(scope.declarations()),
-                    scope.span(),
-                    scope.depth(),
-                    scope.region()))
-        .forEach(scopes::addLast);
-    declarationRegions.clear();
-    declarationRegions.putAll(checkpoint.regions());
-    replace(checkpoint.flow());
-    semanticScopes.clear();
-    semanticScopes.addAll(checkpoint.semanticScopes());
-  }
-
-  record Checkpoint(
-      List<Scope> scopes,
-      Map<SymbolId, LexicalLifetime.Region> regions,
-      FlowState flow,
-      List<SemanticScope> semanticScopes) {}
-
   record ScopedSymbol(SemanticType declaredType, SymbolId id) {}
 
   record FlowState(
@@ -162,4 +120,71 @@ final class FlowScopes {
       SourceSpan span,
       int depth,
       LexicalLifetime.Region region) {}
+
+  Frame enter(SourceSpan span) {
+    push(span);
+    return new Frame(scopes.getFirst());
+  }
+
+  Checkpoint checkpoint() {
+    return new Checkpoint(
+        scopes.stream()
+            .map(
+                scope ->
+                    new ScopeState(
+                        scope, Map.copyOf(scope.symbols()), List.copyOf(scope.declarations())))
+            .toList(),
+        Map.copyOf(declarationRegions),
+        snapshot(),
+        List.copyOf(semanticScopes));
+  }
+
+  void restoreLocals(Checkpoint checkpoint) {
+    scopes.clear();
+    for (var state : checkpoint.scopes()) {
+      Scope scope = state.target();
+      scope.symbols().clear();
+      scope.symbols().putAll(state.symbols());
+      scope.declarations().clear();
+      scope.declarations().addAll(state.declarations());
+      scopes.addLast(scope);
+    }
+    declarationRegions.clear();
+    declarationRegions.putAll(checkpoint.regions());
+    replace(checkpoint.flow());
+  }
+
+  void restore(Checkpoint checkpoint) {
+    restoreLocals(checkpoint);
+    semanticScopes.clear();
+    semanticScopes.addAll(checkpoint.semanticScopes());
+  }
+
+  final class Frame implements AutoCloseable {
+    private final Scope target;
+    private boolean closed;
+
+    private Frame(Scope target) {
+      this.target = target;
+    }
+
+    @Override
+    public void close() {
+      if (closed) return;
+      if (scopes.stream().noneMatch(scope -> scope == target))
+        throw new IllegalStateException("Flow scope is not active");
+      while (scopes.getFirst() != target) pop();
+      pop();
+      closed = true;
+    }
+  }
+
+  private record ScopeState(
+      Scope target, Map<String, ScopedSymbol> symbols, List<SymbolId> declarations) {}
+
+  record Checkpoint(
+      List<ScopeState> scopes,
+      Map<SymbolId, LexicalLifetime.Region> regions,
+      FlowState flow,
+      List<SemanticScope> semanticScopes) {}
 }

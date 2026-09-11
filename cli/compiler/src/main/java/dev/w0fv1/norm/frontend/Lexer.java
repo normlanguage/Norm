@@ -58,7 +58,16 @@ final class Lexer {
       case ',' -> addSimple(TokenKind.COMMA, start);
       case ';' -> addSimple(TokenKind.SEMICOLON, start);
       case ':' -> addSimple(TokenKind.COLON, start);
-      case '.' -> addSimple(TokenKind.DOT, start);
+      case '.' -> {
+        if (offset + 1 < source.length()
+            && source.text().charAt(offset) == '.'
+            && source.text().charAt(offset + 1) == '.') {
+          offset += 2;
+          addSimple(TokenKind.ELLIPSIS, start);
+        } else {
+          addSimple(TokenKind.DOT, start);
+        }
+      }
       case '?' ->
           addSimple(
               match('.')
@@ -69,7 +78,10 @@ final class Lexer {
       case '-' -> addSimple(TokenKind.MINUS, start);
       case '*' -> addSimple(TokenKind.STAR, start);
       case '%' -> addSimple(TokenKind.PERCENT, start);
-      case '!' -> addSimple(match('=') ? TokenKind.BANG_EQUAL : TokenKind.BANG, start);
+      case '!' ->
+          addSimple(
+              match('=') ? TokenKind.BANG_EQUAL : match('!') ? TokenKind.BANG_BANG : TokenKind.BANG,
+              start);
       case '=' -> addSimple(match('=') ? TokenKind.EQUAL_EQUAL : TokenKind.EQUAL, start);
       case '<' -> addSimple(match('=') ? TokenKind.LESS_EQUAL : TokenKind.LESS, start);
       case '>' -> addSimple(match('=') ? TokenKind.GREATER_EQUAL : TokenKind.GREATER, start);
@@ -174,19 +186,23 @@ final class Lexer {
   }
 
   private void scanString(int start) {
+    boolean multiline = startsWith("\"\"");
+    if (multiline) offset += 2;
+    String delimiter = multiline ? "\"\"\"" : "\"";
     StringBuilder value = new StringBuilder();
     int textStart = offset;
     boolean interpolated = false;
     while (!isAtEnd()) {
       int characterStart = offset;
       int character = advanceCodePoint();
-      if (character == '"') {
+      if (character == '"' && (!multiline || startsWith("\"\""))) {
+        if (multiline) offset += 2;
         if (interpolated) {
           addStringPart(TokenKind.STRING_TEXT, textStart, characterStart, value.toString());
           tokens.add(
               Token.simple(
                   TokenKind.INTERPOLATED_STRING_END,
-                  "\"",
+                  delimiter,
                   new SourceSpan(source, characterStart, offset)));
         } else {
           tokens.add(
@@ -198,7 +214,7 @@ final class Lexer {
         }
         return;
       }
-      if (character == '\n' || character == '\r') {
+      if (!multiline && (character == '\n' || character == '\r')) {
         diagnostics.error(
             UNTERMINATED_STRING,
             "string literal is not terminated before the end of the line",
@@ -218,8 +234,8 @@ final class Lexer {
             tokens.add(
                 Token.simple(
                     TokenKind.INTERPOLATED_STRING_START,
-                    "\"",
-                    new SourceSpan(source, start, start + 1)));
+                    delimiter,
+                    new SourceSpan(source, start, start + delimiter.length())));
             interpolated = true;
           }
           addStringPart(TokenKind.STRING_TEXT, textStart, characterStart, value.toString());

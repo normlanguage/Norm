@@ -73,40 +73,50 @@ final class NormTestEngine implements TestEngine {
     var listener = request.getEngineExecutionListener();
     var root = request.getRootTestDescriptor();
     listener.executionStarted(root);
-    for (var child : root.getChildren()) {
-      var test = ((Descriptor) child).test;
-      listener.executionStarted(child);
-      TestExecutionResult result;
-      try (var runtime = application.openRuntime()) {
-        var output = new StringWriter();
-        var expected = new StringWriter();
-        var execution =
-            context
-                .withOutput(new PrintWriter(output), new PrintWriter(expected))
-                .withJarBindingRuntime(runtime)
-                .withWorkingDirectory(test.source().source().path().getParent());
-        var artifact =
-            application
-                .result()
-                .output()
-                .orElseThrow()
-                .artifact()
-                .withEntryPoint(test.occurrence());
-        backend.execute(
-            artifact,
-            CoreExecutionPlan.forArtifact(artifact, application.methods().entryPoints()),
-            execution);
-        if (!expected.toString().isEmpty() && !expected.toString().equals(output.toString())) {
-          throw new AssertionError("Expected output:\n" + expected + "Actual output:\n" + output);
-        }
-        context.output().print(output);
-        result = TestExecutionResult.successful();
-      } catch (Exception | AssertionError failure) {
-        result = TestExecutionResult.failed(failure);
-      }
-      listener.executionFinished(child, result);
+    if (root.getChildren().isEmpty()) {
+      listener.executionFinished(root, TestExecutionResult.successful());
+      return;
     }
-    listener.executionFinished(root, TestExecutionResult.successful());
+    TestExecutionResult engineResult;
+    try (var runtime = application.openRuntime()) {
+      for (var child : root.getChildren()) {
+        var test = ((Descriptor) child).test;
+        listener.executionStarted(child);
+        TestExecutionResult result;
+        try {
+          var output = new StringWriter();
+          var expected = new StringWriter();
+          var execution =
+              context
+                  .withOutput(new PrintWriter(output), new PrintWriter(expected))
+                  .withJarBindingRuntime(runtime)
+                  .withWorkingDirectory(test.source().source().path().getParent());
+          var artifact =
+              application
+                  .result()
+                  .output()
+                  .orElseThrow()
+                  .artifact()
+                  .withEntryPoint(test.occurrence());
+          backend.execute(
+              artifact,
+              CoreExecutionPlan.forArtifact(artifact, application.methods().entryPoints()),
+              execution);
+          if (!expected.toString().isEmpty() && !expected.toString().equals(output.toString())) {
+            throw new AssertionError("Expected output:\n" + expected + "Actual output:\n" + output);
+          }
+          context.output().print(output);
+          result = TestExecutionResult.successful();
+        } catch (Exception | AssertionError failure) {
+          result = TestExecutionResult.failed(failure);
+        }
+        listener.executionFinished(child, result);
+      }
+      engineResult = TestExecutionResult.successful();
+    } catch (Exception | AssertionError failure) {
+      engineResult = TestExecutionResult.failed(failure);
+    }
+    listener.executionFinished(root, engineResult);
   }
 
   private static final class Descriptor extends AbstractTestDescriptor {

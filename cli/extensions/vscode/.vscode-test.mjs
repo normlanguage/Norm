@@ -8,6 +8,7 @@ const shared = {
   launchArgs: ['--disable-extensions'],
   mocha: {
     timeout: 30_000,
+    grep: process.env.NORM_TEST_GREP,
   },
 };
 

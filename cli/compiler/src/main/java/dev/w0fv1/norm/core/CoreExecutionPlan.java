@@ -89,10 +89,10 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
       for (var record : program.definitions()) {
         if (record.definition() instanceof CoreDefinition.Aggregate aggregate) {
           for (var method : aggregate.dispatch()) {
-            edge(
-                record.id(),
-                method.slot(),
-                new CoreWitnessTarget.Callable(method.implementation()));
+            if (program.definition(resolve(record.id(), method.target())).orElseThrow()
+                instanceof CoreDefinition.Callable) {
+              edge(record.id(), method.slot(), new CoreWitnessTarget.Callable(method.target()));
+            }
           }
           for (var conformance : aggregate.conformances()) {
             conformance

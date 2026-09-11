@@ -117,8 +117,8 @@ final class CoreArtifactIdentityTest {
     CoreArtifact explicit =
         compile(
             "explicit-use.norm",
-            "enum Outcome<T, E = String> { Ok(T value), Err(E error) } "
-                + "Outcome<Integer, String> result() { return Outcome.Err(\"invalid\") } Void main() {}");
+            "enum Outcome<T, E = String> { Ok(T value), Err(E error) } Outcome<Integer, String>"
+                + " result() { return Outcome.Err(\"invalid\") } Void main() {}");
 
     assertNotEquals(
         stringDefault.namespace().definition("", "Outcome"),
@@ -171,15 +171,15 @@ final class CoreArtifactIdentityTest {
     CoreArtifact first =
         compile(
             "recursive.norm",
-            "Boolean even(Integer value) { if value == 0 { return true } return odd(value - 1) } "
-                + "Boolean odd(Integer value) { if value == 0 { return false } return even(value - 1) } "
-                + "Void main() { printLine(even(8)) }");
+            "Boolean even(Integer value) { if value == 0 { return true } return odd(value - 1) }"
+                + " Boolean odd(Integer value) { if value == 0 { return false } return even(value -"
+                + " 1) } Void main() { printLine(even(8)) }");
     CoreArtifact reorderedAndRenamed =
         compile(
             "other.norm",
-            "Boolean beta(Integer value) { if value == 0 { return false } return alpha(value - 1) } "
-                + "Boolean alpha(Integer value) { if value == 0 { return true } return beta(value - 1) } "
-                + "Void main() { printLine(alpha(8)) }");
+            "Boolean beta(Integer value) { if value == 0 { return false } return alpha(value - 1) }"
+                + " Boolean alpha(Integer value) { if value == 0 { return true } return beta(value"
+                + " - 1) } Void main() { printLine(alpha(8)) }");
 
     DefinitionId even = first.namespace().definition("", "even").orElseThrow();
     DefinitionId odd = first.namespace().definition("", "odd").orElseThrow();
@@ -197,17 +197,17 @@ final class CoreArtifactIdentityTest {
     CoreArtifact first =
         compile(
             "symmetric.norm",
-            "Integer first(Integer value) { if value == 0 { return 1 } return second(value - 1) } "
-                + "Integer second(Integer value) { if value == 0 { return 1 } return third(value - 1) } "
-                + "Integer third(Integer value) { if value == 0 { return 1 } return first(value - 1) } "
-                + "Void main() { printLine(first(3)) }");
+            "Integer first(Integer value) { if value == 0 { return 1 } return second(value - 1) }"
+                + " Integer second(Integer value) { if value == 0 { return 1 } return third(value -"
+                + " 1) } Integer third(Integer value) { if value == 0 { return 1 } return"
+                + " first(value - 1) } Void main() { printLine(first(3)) }");
     CoreArtifact reordered =
         compile(
             "reordered.norm",
-            "Integer gamma(Integer value) { if value == 0 { return 1 } return alpha(value - 1) } "
-                + "Integer alpha(Integer value) { if value == 0 { return 1 } return beta(value - 1) } "
-                + "Integer beta(Integer value) { if value == 0 { return 1 } return gamma(value - 1) } "
-                + "Void main() { printLine(alpha(3)) }");
+            "Integer gamma(Integer value) { if value == 0 { return 1 } return alpha(value - 1) }"
+                + " Integer alpha(Integer value) { if value == 0 { return 1 } return beta(value -"
+                + " 1) } Integer beta(Integer value) { if value == 0 { return 1 } return"
+                + " gamma(value - 1) } Void main() { printLine(alpha(3)) }");
 
     DefinitionId firstMember = first.namespace().definition("", "first").orElseThrow();
     assertEquals(firstMember, first.namespace().definition("", "second").orElseThrow());

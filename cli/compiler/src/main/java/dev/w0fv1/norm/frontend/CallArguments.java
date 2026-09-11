@@ -24,10 +24,19 @@ final class CallArguments {
           call.span());
     }
     List<Integer> result = new ArrayList<>();
+    int trailingParameter = -1;
+    if (call.arguments().stream().anyMatch(Syntax.CallArgument::trailing)) {
+      for (int candidate = parameters.size() - 1; candidate >= 0; candidate--) {
+        if (parameters.get(candidate).type().isFunction()) {
+          trailingParameter = candidate;
+          break;
+        }
+      }
+    }
     boolean[] supplied = new boolean[parameters.size()];
     for (int index = 0; index < call.arguments().size(); index++) {
       Syntax.CallArgument argument = call.arguments().get(index);
-      int parameterIndex = parameterIndex(argument, index, parameters, report);
+      int parameterIndex = parameterIndex(argument, index, parameters, trailingParameter, report);
       if (parameterIndex < 0) {
         valid = false;
       } else if (supplied[parameterIndex]) {
@@ -55,11 +64,23 @@ final class CallArguments {
   }
 
   private int parameterIndex(
-      Syntax.CallArgument argument, int index, List<ParameterInfo> parameters, boolean report) {
+      Syntax.CallArgument argument,
+      int index,
+      List<ParameterInfo> parameters,
+      int trailingParameter,
+      boolean report) {
+    if (argument.trailing()) {
+      if (trailingParameter >= 0) return trailingParameter;
+      if (report)
+        diagnostics.error(
+            invalidCall, "trailing lambda requires a function parameter", argument.span());
+      return -1;
+    }
     if (argument.label().isPresent()) {
       String label = argument.label().orElseThrow().name();
       for (int candidate = 0; candidate < parameters.size(); candidate++) {
-        if (parameters.get(candidate).name().equals(label)) return candidate;
+        if (parameters.get(candidate).labelPolicy() == ParameterInfo.LabelPolicy.NAMED
+            && parameters.get(candidate).name().equals(label)) return candidate;
       }
       if (report) {
         diagnostics.error(
@@ -69,10 +90,16 @@ final class CallArguments {
       }
       return -1;
     }
-    if (parameters.size() <= 1 && index < parameters.size()) return index;
+    if (index < parameters.size()
+        && (parameters.size() <= 1
+            || parameters.get(index).labelPolicy() == ParameterInfo.LabelPolicy.POSITIONAL_ONLY))
+      return index;
     if (index == 0
         && parameters.size() > 1
-        && parameters.subList(1, parameters.size()).stream().allMatch(ParameterInfo::hasDefault)) {
+        && java.util.stream.IntStream.range(1, parameters.size())
+            .allMatch(
+                candidate ->
+                    candidate == trailingParameter || parameters.get(candidate).hasDefault())) {
       return index;
     }
     if (index < parameters.size()

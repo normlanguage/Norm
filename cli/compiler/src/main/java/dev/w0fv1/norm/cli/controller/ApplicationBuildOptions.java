@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.cli.controller;
 
+import dev.w0fv1.norm.build.ApplicationBuildTarget;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,8 +23,7 @@ record ApplicationBuildOptions(ApplicationBuildTarget target, String input, bool
     if (positional.size() > 1) {
       throw new IllegalArgumentException("'build' expects at most one source file or project");
     }
-    if (diagnostics && target != ApplicationBuildTarget.NATIVE)
-      throw new IllegalArgumentException("--diagnostics requires a native build");
+    target.validateDiagnostics(diagnostics);
     return new ApplicationBuildOptions(
         target, positional.isEmpty() ? "." : positional.getFirst(), diagnostics);
   }

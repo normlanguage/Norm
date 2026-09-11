@@ -20,9 +20,15 @@ public final class FilePublication {
       } catch (AtomicMoveNotSupportedException exception) {
         Files.move(pending, target, StandardCopyOption.REPLACE_EXISTING);
       }
-    } finally {
-      Files.deleteIfExists(pending);
+    } catch (IOException | RuntimeException | Error failure) {
+      try {
+        Files.deleteIfExists(pending);
+      } catch (IOException cleanup) {
+        failure.addSuppressed(cleanup);
+      }
+      throw failure;
     }
+    Files.deleteIfExists(pending);
   }
 
   private FilePublication() {}

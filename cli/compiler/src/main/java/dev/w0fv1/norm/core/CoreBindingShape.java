@@ -92,10 +92,10 @@ public sealed interface CoreBindingShape {
     }
   }
 
-  record InterfaceMethod(
+  record MethodSignature(
       List<CoreTypeParameter> typeParameters, List<Parameter> parameters, CoreType returnType)
       implements CoreBindingShape {
-    public InterfaceMethod {
+    public MethodSignature {
       typeParameters = requireDenseTypeParameters(typeParameters);
       parameters = List.copyOf(parameters);
       Objects.requireNonNull(returnType, "returnType");

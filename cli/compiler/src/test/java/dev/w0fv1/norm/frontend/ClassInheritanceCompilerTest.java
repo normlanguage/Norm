@@ -5,10 +5,107 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.value.CompilationRequest;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class ClassInheritanceCompilerTest {
+  @Test
+  void acceptsFirstPositionalArgumentWhenTrailingLambdaSuppliesRemainingRequiredParameter() {
+    var valid =
+        compile(
+            "Void button(String text, Function<Void()> action, Boolean enabled = true) { action() }"
+                + " Void main() { button(\"todo\") {} }");
+    assertTrue(valid.isSuccess(), () -> valid.diagnostics().toString());
+    var missing =
+        compile(
+            "Void button(String text, Integer count, Function<Void()> action) {} Void main() {"
+                + " button(\"todo\") {} }");
+    assertFalse(missing.isSuccess());
+  }
+
+  @Test
+  void infersSuperCallOnlyWhenParentAcceptsNoArguments() {
+    var valid =
+        compile(
+            "class Base { Integer value = 4 } class Child extends Base { String title } Void main()"
+                + " { Child(title: \"todo\") }");
+    assertTrue(valid.isSuccess(), () -> valid.diagnostics().toString());
+    var invalid =
+        compile("class Base { Integer value } class Child extends Base {} Void main() {}");
+    assertFalse(invalid.isSuccess());
+  }
+
+  @Test
+  void permitsValueConstructionWithoutAllowingMutationOfExistingValues() {
+    var valid =
+        compile(
+            "value Item { Integer number Item(Integer number) { this.number = number } Item() {"
+                + " number = 0 } } Void main() { Item(3) Item() }");
+    assertTrue(valid.isSuccess(), () -> valid.diagnostics().toString());
+    var incomplete = compile("value Item { Integer number Item() {} } Void main() {}");
+    assertFalse(incomplete.isSuccess());
+    var other =
+        compile(
+            "value Item { Integer number Item(Item other) { other.number = 2 number = 0 } } Void"
+                + " main() {}");
+    assertFalse(other.isSuccess());
+    var method =
+        compile(
+            "value Item { Integer number Item() { number = 0 } Void change() { number = 1 } } Void"
+                + " main() {}");
+    assertFalse(method.isSuccess());
+    var closure =
+        compile(
+            "value Item { Integer number Item() { number = 0 Function<Void()> change = () {"
+                + " this.number = 2 } change() } } Void main() {}");
+    assertFalse(closure.isSuccess());
+  }
+
+  @Test
+  void keepsPrivateStateOutOfImplicitConstructorInputs() {
+    var valid =
+        compile(
+            "class Page { private Integer count = 0 String title } Void main() { Page(title:"
+                + " \"Todo\") }");
+    assertTrue(valid.isSuccess(), () -> valid.diagnostics().toString());
+    var exposed =
+        compile("class Page { private Integer count = 0 } Void main() { Page(count: 3) }");
+    assertFalse(exposed.isSuccess());
+  }
+
+  @Test
+  void resolvesImportedConstructorParametersInTheirDeclarationScope() {
+    var library =
+        SourceFile.of(
+            Path.of("library.norm"),
+            """
+            package library
+            interface Service { String name() }
+            class Impl implements Service { String name() { return "ok" } }
+            class Holder<T> {
+              Service service
+              T value
+              Holder(Service service, T value) { this.service = service this.value = value }
+            }
+            """);
+    var caller =
+        SourceFile.of(
+            Path.of("caller.norm"),
+            """
+            package caller
+            import library.Holder
+            import library.Impl
+            class Service {}
+            Void main() { var holder = Holder<String>(service: Impl(), value: "ok") }
+            """);
+    try (var compiler = new CompilerSession()) {
+      var result = compiler.compile(new CompilationRequest(caller.id(), List.of(library, caller)));
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+  }
+
   @Test
   void supportsNominalClassBoundsOnTypeParameters() {
     CompilationResult accepted =
@@ -174,18 +271,6 @@ final class ClassInheritanceCompilerTest {
   }
 
   @Test
-  void rejectsValueConstructors() {
-    CompilationResult result =
-        compile("value Point { Integer x Point(Integer initial) { x = initial } } ");
-
-    assertFalse(result.isSuccess());
-    assertTrue(
-        result.diagnostics().stream()
-            .anyMatch(diagnostic -> diagnostic.message().contains("value")),
-        () -> result.diagnostics().toString());
-  }
-
-  @Test
   void rejectsInheritanceFromValue() {
     CompilationResult result =
         compile("value Data { Integer value } class Invalid extends Data {} ");
@@ -247,11 +332,9 @@ final class ClassInheritanceCompilerTest {
                 + "public T keep<T>(T value) { return value } } Void main() {} ");
     CompilationResult alphaEquivalent =
         compile(
-            "interface Related<T> {} "
-                + "class Base<T> { "
-                + "public U keep<U extends Related<T>>(U value) { return value } } "
-                + "class Child<T> extends Base<T> { Child() { super() } "
-                + "public V keep<V extends Related<T>>(V value) { return value } } Void main() {} ");
+            "interface Related<T> {} class Base<T> { public U keep<U extends Related<T>>(U value) {"
+                + " return value } } class Child<T> extends Base<T> { Child() { super() } public V"
+                + " keep<V extends Related<T>>(V value) { return value } } Void main() {} ");
 
     assertFalse(mismatched.isSuccess());
     assertTrue(

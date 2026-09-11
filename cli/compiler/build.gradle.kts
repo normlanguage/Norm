@@ -138,471 +138,29 @@ abstract class GenerateToolchainArtifacts : DefaultTask() {
 
 abstract class GenerateBuiltinAbi : DefaultTask() {
     @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
     abstract val schemaFile: RegularFileProperty
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
+    @get:Classpath
+    abstract val generatorClasspath: ConfigurableFileCollection
+
+    @get:Nested
+    abstract val javaLauncher: Property<JavaLauncher>
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
     @TaskAction
     fun generate() {
-        val schemaBytes = schemaFile.get().asFile.readBytes()
-        val schema = groovy.json.JsonSlurper().parse(schemaBytes) as Map<*, *>
-        @Suppress("UNCHECKED_CAST")
-        val intrinsics = schema["intrinsics"] as List<Map<String, Any>>
-        @Suppress("UNCHECKED_CAST")
-        val runtimeShapes = schema["runtimeShapes"] as List<String>
-        @Suppress("UNCHECKED_CAST")
-        val opaqueValues = schema["opaqueValues"] as List<Map<String, Any>>
-        @Suppress("UNCHECKED_CAST")
-        val exception = schema["exception"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val serialization = schema["serialization"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val configuration = schema["configuration"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val json = schema["json"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val xml = schema["xml"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val yaml = schema["yaml"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val filesystemPath = schema["filesystemPath"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val httpUri = schema["httpUri"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val timeDuration = schema["timeDuration"] as Map<String, Any>
-        @Suppress("UNCHECKED_CAST")
-        val systemExceptions = schema["systemExceptions"] as Map<String, Map<String, Any>>
-        fun constantName(name: String): String =
-            name.replace(Regex("([a-z])([A-Z])"), "\$1_\$2").uppercase()
-        val packageDirectory = outputDirectory.dir("dev/w0fv1/norm/abi").get().asFile
-        packageDirectory.mkdirs()
-        val patterns = schema["typePatterns"] as Map<*, *>
-        val builtinTypes = schema["builtinTypes"] as List<*>
-        val builtinGlobals = schema["builtinGlobals"] as List<*>
-        fun literal(value: Any?): String = groovy.json.JsonOutput.toJson(value)
-        fun type(value: Any?): String {
-            require(value is String && patterns.containsKey(value)) { "Unknown ABI type pattern: $value" }
-            return "type(${literal(value)})"
-        }
-        fun list(values: Any?, render: (Any?) -> String): String =
-            (values as List<*>).joinToString(", ", "java.util.List.of(", ")", transform = render)
-        fun optional(value: Any?, render: (Any?) -> String): String =
-            if (value == null) "java.util.Optional.empty()" else "java.util.Optional.of(${render(value)})"
-        fun intrinsic(value: Any?): String {
-            require(intrinsics.any { it["name"] == value }) { "Unknown ABI intrinsic: $value" }
-            return "IntrinsicId.$value"
-        }
-        fun parameter(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.Parameter(${literal(entry["name"])}, ${type(entry["type"])}, ${entry["hasDefault"]})"
-        }
-        fun typeParameter(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.TypeParameter(${literal(entry["name"])}, ${type(entry["type"])}, " +
-                "${optional(entry["upperBound"], ::type)}, ${optional(entry["defaultType"], ::type)})"
-        }
-        fun symbol(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.Symbol(${literal(entry["name"])}, BuiltinContracts.SymbolKind.${entry["kind"]}, " +
-                "${type(entry["type"])}, ${list(entry["typeParameters"], ::typeParameter)}, " +
-                "${list(entry["parameters"], ::parameter)}, ${literal(entry["documentation"])})"
-        }
-        fun member(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.MemberDefinition(${symbol(entry["symbol"])}, ${intrinsic(entry["intrinsic"])}, " +
-                "${optional(entry["writeIntrinsic"], ::intrinsic)})"
-        }
-        fun constructor(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.ConstructorCapability(${list(entry["parameters"], ::parameter)}, ${intrinsic(entry["intrinsic"])})"
-        }
-        fun iterable(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.IterableCapability(${type(entry["elementType"])}, ${intrinsic(entry["intrinsic"])})"
-        }
-        fun index(value: Any?): String {
-            val entry = value as Map<*, *>
-            return "new BuiltinContracts.IndexCapability(BuiltinContracts.IndexKind.${entry["kind"]}, ${type(entry["keyType"])}, " +
-                "${type(entry["resultType"])}, ${intrinsic(entry["readIntrinsic"])}, ${optional(entry["writeIntrinsic"], ::intrinsic)})"
-        }
-        packageDirectory.resolve("BuiltinDeclarations.java").writeText(buildString {
-            appendLine("package dev.w0fv1.norm.abi;")
-            appendLine("final class BuiltinDeclarations {")
-            appendLine("  private static final java.util.Map<String, AbiType> TYPES = patterns();")
-            appendLine("  private BuiltinDeclarations() {}")
-            appendLine("  static AbiType type(String identity) { return java.util.Objects.requireNonNull(TYPES.get(identity), identity); }")
-            appendLine("  private static java.util.Map<String, AbiType> patterns() {")
-            appendLine("    var types = new java.util.LinkedHashMap<String, AbiType>();")
-            val emitted = mutableSetOf<String>()
-            val pending = mutableSetOf<String>()
-            fun emitPattern(key: String) {
-                if (key in emitted) return
-                check(pending.add(key)) { "Cyclic ABI type pattern: $key" }
-                val entry = patterns[key] as? Map<*, *> ?: error("Unknown ABI type pattern: $key")
-                val arguments = entry["arguments"] as List<*>
-                arguments.forEach { emitPattern(it as String) }
-                val argumentTypes = list(arguments) { "types.get(${literal(it)})" }
-                appendLine("    types.put(${literal(key)}, new AbiType(AbiType.Kind.${entry["kind"]}, " +
-                    "${literal(entry["identity"])}, ${literal(entry["name"])}, $argumentTypes, " +
-                    "AbiType.Category.${entry["category"]}, ${entry["nullable"]}));")
-                pending.remove(key)
-                emitted.add(key)
-            }
-            patterns.keys.forEach { emitPattern(it as String) }
-            appendLine("    return java.util.Map.copyOf(types);")
-            appendLine("  }")
-            appendLine("  static java.util.List<BuiltinContracts.TypeDefinition> types() { return java.util.List.of(" +
-                builtinTypes.indices.joinToString(", ") { "type$it()" } + "); }")
-            builtinTypes.forEachIndexed { number, value ->
-                val entry = value as Map<*, *>
-                require(entry["runtimeShape"] in runtimeShapes) { "Unknown ABI runtime shape" }
-                appendLine("  private static BuiltinContracts.TypeDefinition type$number() { return new BuiltinContracts.TypeDefinition(" +
-                    "${symbol(entry["symbol"])}, RuntimeShape.${entry["runtimeShape"]}, " +
-                    "${optional(entry["constructor"], ::constructor)}, ${optional(entry["collectionLiteral"], ::intrinsic)}, " +
-                    "${entry["defaultCollectionLiteral"]}, ${optional(entry["iterable"], ::iterable)}, ${optional(entry["index"], ::index)}, " +
-                    "${list(entry["members"], ::member)}, ${list(entry["typeMembers"], ::member)}, ${entry["hidden"]}); }")
-            }
-            appendLine("  static java.util.List<BuiltinContracts.GlobalDefinition> globals() { return java.util.List.of(" +
-                builtinGlobals.indices.joinToString(", ") { "global$it()" } + "); }")
-            builtinGlobals.forEachIndexed { number, value ->
-                val entry = value as Map<*, *>
-                appendLine("  private static BuiltinContracts.GlobalDefinition global$number() { return new BuiltinContracts.GlobalDefinition(" +
-                    "${symbol(entry["symbol"])}, ${intrinsic(entry["intrinsic"])}); }")
-            }
-            appendLine("}")
-        })
-        packageDirectory.resolve("IntrinsicId.java").writeText(
-            buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public enum IntrinsicId {")
-                intrinsics.forEachIndexed { index, intrinsic ->
-                    val suffix = if (index + 1 == intrinsics.size) ";" else ","
-                    appendLine(
-                        "  ${intrinsic.getValue("name")}(" +
-                            "${intrinsic.getValue("requiresResultRuntimeType")})$suffix",
-                    )
-                }
-                appendLine()
-                appendLine("  private final boolean requiresResultRuntimeType;")
-                appendLine()
-                appendLine("  IntrinsicId(boolean requiresResultRuntimeType) {")
-                appendLine("    this.requiresResultRuntimeType = requiresResultRuntimeType;")
-                appendLine("  }")
-                appendLine()
-                appendLine("  public boolean requiresResultRuntimeType() {")
-                appendLine("    return requiresResultRuntimeType;")
-                appendLine("  }")
-                appendLine("}")
-            },
-        )
-        packageDirectory.resolve("RuntimeShape.java").writeText(
-            buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public enum RuntimeShape {")
-                runtimeShapes.forEachIndexed { index, shape ->
-                    val suffix = if (index + 1 == runtimeShapes.size) "" else ","
-                    appendLine("  $shape$suffix")
-                }
-                appendLine("}")
-            },
-        )
-        packageDirectory.resolve("OpaqueValueAbi.java").writeText(
-            buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public final class OpaqueValueAbi {")
-                opaqueValues.forEach { value ->
-                    val name = value.getValue("name")
-                    appendLine(
-                        "  public static final Identity $name = new Identity(" +
-                            "\"${value.getValue("moduleName")}\", " +
-                            "${value.getValue("moduleVersion")}, " +
-                            "\"${value.getValue("packageName")}\", " +
-                            "\"${value.getValue("typeName")}\");",
-                    )
-                }
-                appendLine()
-                appendLine(
-                    "  public record Identity(String moduleName, int moduleVersion, " +
-                        "String packageName, String typeName) {}",
-                )
-                appendLine()
-                appendLine("  private OpaqueValueAbi() {}")
-                appendLine("}")
-            },
-        )
-        val packageName = exception.getValue("packageName")
-        val typeName = exception.getValue("typeName")
-        packageDirectory.resolve("ExceptionAbi.java").writeText(
-            buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public final class ExceptionAbi {")
-                appendLine(
-                    "  public static final String MODULE_NAME = \"${exception.getValue("moduleName")}\";",
-                )
-                appendLine(
-                    "  public static final int MODULE_VERSION = ${exception.getValue("moduleVersion")};",
-                )
-                appendLine("  public static final String PACKAGE_NAME = \"$packageName\";")
-                appendLine("  public static final String TYPE_NAME = \"$typeName\";")
-                appendLine("  public static final String IDENTITY = PACKAGE_NAME + \".\" + TYPE_NAME;")
-                appendLine(
-                    "  public static final String MESSAGE_FIELD_NAME = " +
-                        "\"${exception.getValue("messageFieldName")}\";",
-                )
-                appendLine(
-                    "  public static final int MESSAGE_FIELD_ORDINAL = " +
-                        "${exception.getValue("messageFieldOrdinal")};",
-                )
-                appendLine()
-                appendLine("  private ExceptionAbi() {}")
-                appendLine("}")
-            },
-        )
-        fun generateValueAbi(className: String, contract: Map<String, Any>) {
-            packageDirectory.resolve("$className.java").writeText(buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public final class $className {")
-                contract.entries.forEach { (name, value) ->
-                    when (value) {
-                        is String ->
-                            appendLine(
-                                "  public static final String ${constantName(name)} = \"$value\";",
-                            )
-                        is Number ->
-                            appendLine(
-                                "  public static final int ${constantName(name)} = $value;",
-                            )
-                    }
-                }
-                appendLine()
-                appendLine("  private $className() {}")
-                appendLine("}")
-            })
-        }
-        generateValueAbi("FilesystemPathAbi", filesystemPath)
-        generateValueAbi("HttpUriAbi", httpUri)
-        generateValueAbi("TimeDurationAbi", timeDuration)
-        packageDirectory.resolve("SerializationAbi.java").writeText(
-            buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public final class SerializationAbi {")
-                serialization.entries.forEach { (name, value) ->
-                    if (value is String) {
-                        appendLine(
-                            "  public static final String ${constantName(name)} = \"$value\";",
-                        )
-                    }
-                }
-                appendLine(
-                    "  public static final int MODULE_VERSION = " +
-                        "${serialization.getValue("moduleVersion")};",
-                )
-                appendLine()
-                appendLine("  private SerializationAbi() {}")
-                appendLine("}")
-            },
-        )
-        generateValueAbi("ConfigurationAbi", configuration)
-        fun generateFormatAbi(domain: String, contract: Map<String, Any>) {
-            @Suppress("UNCHECKED_CAST")
-            val fields = contract.getValue("fields") as List<Map<String, Any>>
-            @Suppress("UNCHECKED_CAST")
-            val intrinsicNames = contract.getValue("intrinsicNames") as List<String>
-            @Suppress("UNCHECKED_CAST")
-            val variants = contract["variants"] as? List<String> ?: listOf()
-            val className = domain.replaceFirstChar(Char::uppercase) + "Abi"
-            packageDirectory.resolve("$className.java").writeText(
-                buildString {
-                    appendLine("package dev.w0fv1.norm.abi;")
-                    appendLine()
-                    if (variants.isNotEmpty()) appendLine("import java.util.List;")
-                    appendLine("import java.util.Set;")
-                    appendLine()
-                    appendLine("public final class $className {")
-                    contract.entries
-                        .filter { it.value is String }
-                        .forEach { (name, value) ->
-                            appendLine(
-                                "  public static final String ${constantName(name)} = \"$value\";",
-                            )
-                        }
-                    appendLine(
-                        "  public static final int MODULE_VERSION = " +
-                            "${contract.getValue("moduleVersion")};",
-                    )
-                    fields.forEach { field ->
-                        val fieldName = constantName(field.getValue("name").toString())
-                        appendLine(
-                            "  public static final String FIELD_${fieldName}_NAME = " +
-                                "\"${field.getValue("name")}\";",
-                        )
-                        appendLine(
-                            "  public static final int FIELD_${fieldName}_ORDINAL = " +
-                                "${field.getValue("ordinal")};",
-                        )
-                    }
-                    variants.forEach { variant ->
-                        appendLine(
-                            "  public static final String VALUE_VARIANT_${constantName(variant)} = " +
-                                "\"$variant\";",
-                        )
-                    }
-                    appendLine()
-                    appendLine("  public static final Set<String> INTRINSIC_NAMES =")
-                    appendLine("      Set.of(")
-                    intrinsicNames.forEachIndexed { index, intrinsic ->
-                        val suffix = if (index + 1 == intrinsicNames.size) ");" else ","
-                        appendLine("          \"$intrinsic\"$suffix")
-                    }
-                    if (variants.isNotEmpty()) {
-                        appendLine("  public static final List<String> VALUE_VARIANTS =")
-                        appendLine("      List.of(")
-                        variants.forEachIndexed { index, variant ->
-                            val suffix = if (index + 1 == variants.size) ");" else ","
-                            appendLine("          VALUE_VARIANT_${constantName(variant)}$suffix")
-                        }
-                    }
-                    appendLine()
-                    appendLine("  private $className() {}")
-                    appendLine("}")
-                },
-            )
-        }
-        generateFormatAbi("json", json)
-        generateFormatAbi("xml", xml)
-        generateFormatAbi("yaml", yaml)
-        systemExceptions.forEach { (domain, contract) ->
-            @Suppress("UNCHECKED_CAST")
-            val fields = contract.getValue("fields") as List<Map<String, Any>>
-            @Suppress("UNCHECKED_CAST")
-            val intrinsicNames = contract.getValue("intrinsicNames") as List<String>
-            @Suppress("UNCHECKED_CAST")
-            val operations = contract.getValue("operations") as List<Map<String, String>>
-            @Suppress("UNCHECKED_CAST")
-            val failures = contract.getValue("failures") as List<Map<String, String>>
-            val className = domain.replaceFirstChar(Char::uppercase) + "ExceptionAbi"
-            packageDirectory.resolve("$className.java").writeText(
-                buildString {
-                    appendLine("package dev.w0fv1.norm.abi;")
-                    appendLine()
-                    appendLine("import java.util.Map;")
-                    appendLine("import java.util.Set;")
-                    appendLine()
-                    appendLine("public final class $className {")
-                    contract.entries
-                        .filter { it.value is String }
-                        .forEach { (name, value) ->
-                            appendLine(
-                                "  public static final String ${constantName(name)} = \"$value\";",
-                            )
-                        }
-                    appendLine(
-                        "  public static final int MODULE_VERSION = " +
-                            "${contract.getValue("moduleVersion")};",
-                    )
-                    fields.forEach { field ->
-                        val fieldName = constantName(field.getValue("name").toString())
-                        appendLine(
-                            "  public static final String FIELD_${fieldName}_NAME = " +
-                                "\"${field.getValue("name")}\";",
-                        )
-                        appendLine(
-                            "  public static final int FIELD_${fieldName}_ORDINAL = " +
-                                "${field.getValue("ordinal")};",
-                        )
-                    }
-                    appendLine()
-                    appendLine("  public static final Set<String> INTRINSIC_NAMES =")
-                    appendLine("      Set.of(")
-                    intrinsicNames.forEachIndexed { index, intrinsic ->
-                        val suffix = if (index + 1 == intrinsicNames.size) ");" else ","
-                        appendLine("          \"$intrinsic\"$suffix")
-                    }
-                    appendLine()
-                    appendLine("  private static final Map<String, String> OPERATIONS =")
-                    appendLine("      Map.ofEntries(")
-                    operations.forEachIndexed { index, operation ->
-                        val suffix = if (index + 1 == operations.size) ");" else ","
-                        appendLine(
-                            "          Map.entry(\"${operation.getValue("platformName")}\", " +
-                                "\"${operation.getValue("variant")}\")$suffix",
-                        )
-                    }
-                    appendLine("  private static final Map<String, Failure> FAILURES =")
-                    appendLine("      Map.ofEntries(")
-                    failures.forEachIndexed { index, failure ->
-                        val suffix = if (index + 1 == failures.size) ");" else ","
-                        appendLine(
-                            "          Map.entry(\"${failure.getValue("platformName")}\", " +
-                                "new Failure(\"${failure.getValue("variant")}\", " +
-                                "\"${failure.getValue("code")}\"))$suffix",
-                        )
-                    }
-                    appendLine()
-                    appendLine("  public static String operationVariant(String platformName) {")
-                    appendLine("    String variant = OPERATIONS.get(platformName);")
-                    appendLine(
-                        "    if (variant == null) throw new IllegalArgumentException(" +
-                            "\"unknown $domain operation \" + platformName);",
-                    )
-                    appendLine("    return variant;")
-                    appendLine("  }")
-                    appendLine()
-                    appendLine("  public static Failure failure(String platformName) {")
-                    appendLine("    Failure failure = FAILURES.get(platformName);")
-                    appendLine(
-                        "    if (failure == null) throw new IllegalArgumentException(" +
-                            "\"unknown $domain failure \" + platformName);",
-                    )
-                    appendLine("    return failure;")
-                    appendLine("  }")
-                    appendLine()
-                    appendLine("  public record Failure(String variant, String code) {}")
-                    appendLine()
-                    appendLine("  private $className() {}")
-                    appendLine("}")
-                },
-            )
-        }
-        val fingerprintInput = buildString {
-            append(schema["version"]).append('\n')
-            intrinsics.forEach {
-                append(it.getValue("name"))
-                    .append(':')
-                    .append(it.getValue("requiresResultRuntimeType"))
-                    .append('\n')
-            }
-            runtimeShapes.forEach { append(it).append('\n') }
-            append(groovy.json.JsonOutput.toJson(opaqueValues)).append('\n')
-            listOf("packageName", "typeName", "messageFieldName", "messageFieldOrdinal")
-                .forEach { append(exception.getValue(it)).append('\n') }
-            append(groovy.json.JsonOutput.toJson(systemExceptions)).append('\n')
-            append(groovy.json.JsonOutput.toJson(serialization)).append('\n')
-            append(groovy.json.JsonOutput.toJson(json)).append('\n')
-            append(groovy.json.JsonOutput.toJson(xml)).append('\n')
-        }.toByteArray(Charsets.UTF_8)
-        val fingerprint = MessageDigest.getInstance("SHA-256")
-            .digest(fingerprintInput)
-            .joinToString("") { "%02x".format(it) }
-        packageDirectory.resolve("BuiltinAbi.java").writeText(
-            buildString {
-                appendLine("package dev.w0fv1.norm.abi;")
-                appendLine()
-                appendLine("public final class BuiltinAbi {")
-                appendLine("  public static final int VERSION = ${schema["version"]};")
-                appendLine("  public static final String FINGERPRINT = \"$fingerprint\";")
-                appendLine()
-                appendLine("  private BuiltinAbi() {}")
-                appendLine("}")
-            },
-        )
+        execOperations.javaexec {
+            executable(javaLauncher.get().executablePath.asFile)
+            classpath(generatorClasspath)
+            mainClass.set("dev.w0fv1.norm.codegen.BuiltinAbiGenerator")
+            args(schemaFile.get().asFile.absolutePath, outputDirectory.get().asFile.absolutePath)
+        }.assertNormalExitValue()
     }
 }
 
@@ -857,7 +415,16 @@ val generateBuildMetadata = tasks.register<GenerateBuildMetadata>("generateBuild
     outputDirectory.set(generatedBuildMetadata)
 }
 
+val codegen = sourceSets.create("codegen")
+tasks.named<JavaCompile>(codegen.compileJavaTaskName) {
+    modularity.inferModulePath = false
+}
+
 val generateBuiltinAbi = tasks.register<GenerateBuiltinAbi>("generateBuiltinAbi") {
+    generatorClasspath.from(codegen.runtimeClasspath)
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
+    })
     schemaFile.set(builtinAbiFile)
     outputDirectory.set(generatedBuiltinAbi)
 }
@@ -946,11 +513,19 @@ tasks.compileJava {
 
 tasks.test {
     dependsOn(tasks.jar)
+    providers.gradleProperty("normTestMavenRepository").orNull?.let { repository ->
+        val fixture = rootProject.file(repository)
+        inputs.dir(fixture).withPropertyName("mavenTestRepository")
+        systemProperty("norm.test.mavenRepository", fixture.absolutePath)
+    }
+    systemProperty("norm.test.abi", builtinAbiFile.asFile.absolutePath)
     systemProperty("norm.test.stdlib", rootProject.file("norm/stdlib/std").absolutePath)
     systemProperty("norm.test.modulePath", files(tasks.jar, configurations.runtimeClasspath).asPath)
 }
 
 dependencies {
+    add(codegen.implementationConfigurationName, libs.gson)
+    testImplementation(codegen.output)
     nativeExecution(libs.jackson.core)
     nativeExecution(libs.jackson.dataformat.yaml)
     nativeExecution(libs.woodstox)
@@ -968,6 +543,7 @@ dependencies {
     nativeExecution(libs.objenesis)
     nativeHosted(libs.kryo)
     implementation(libs.graalvm.reachability.metadata)
+    implementation(libs.jspecify)
     runtimeOnly(libs.truffle.runtime)
     runtimeOnly(libs.junit.jupiter.engine)
     nativeExecutionRuntime(libs.slf4j.simple)

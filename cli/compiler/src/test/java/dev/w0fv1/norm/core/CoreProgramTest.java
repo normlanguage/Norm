@@ -44,13 +44,21 @@ final class CoreProgramTest {
             "Ok",
             List.of(
                 new CoreField(
-                    "value", 0, new CoreType.Parameter(0, CoreNullability.NON_NULL), List.of())));
+                    CoreVisibility.PUBLIC,
+                    "value",
+                    0,
+                    new CoreType.Parameter(0, CoreNullability.NON_NULL),
+                    List.of())));
     CoreEnumVariant error =
         new CoreEnumVariant(
             "Error",
             List.of(
                 new CoreField(
-                    "value", 0, new CoreType.Parameter(1, CoreNullability.NON_NULL), List.of())));
+                    CoreVisibility.PUBLIC,
+                    "value",
+                    0,
+                    new CoreType.Parameter(1, CoreNullability.NON_NULL),
+                    List.of())));
 
     DefinitionId ordered =
         CoreDefinitionGroup.create(
@@ -69,7 +77,13 @@ final class CoreProgramTest {
                         List.of(
                             new CoreEnumVariant(
                                 "Ok",
-                                List.of(new CoreField("value", 0, CoreType.INTEGER, List.of()))),
+                                List.of(
+                                    new CoreField(
+                                        CoreVisibility.PUBLIC,
+                                        "value",
+                                        0,
+                                        CoreType.INTEGER,
+                                        List.of()))),
                             error))))
             .definitionId(0);
 
@@ -105,7 +119,7 @@ final class CoreProgramTest {
             List.of(),
             Optional.empty(),
             1,
-            List.of(new CoreField("value", 0, fieldType, List.of())),
+            List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, fieldType, List.of())),
             List.of(),
             List.of(new PendingDefinitionReference(1)),
             List.of());
@@ -138,7 +152,10 @@ final class CoreProgramTest {
                     List.of(),
                     List.of(
                         new CoreEnumVariant(
-                            "Value", List.of(new CoreField("value", 0, fieldType, List.of())))))));
+                            "Value",
+                            List.of(
+                                new CoreField(
+                                    CoreVisibility.PUBLIC, "value", 0, fieldType, List.of())))))));
 
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(group)));
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(enumGroup)));

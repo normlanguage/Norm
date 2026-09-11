@@ -1142,6 +1142,11 @@ final class ProgramExecutionTest {
     return projectSuite("docs/projects");
   }
 
+  @TestFactory
+  Stream<DynamicTest> runsTypePrograms() throws Exception {
+    return suite("types");
+  }
+
   private static void assertOutput(String text, String expected) throws Exception {
     assertEquals(expected, dev.w0fv1.norm.testing.NormTestKit.run(text));
   }

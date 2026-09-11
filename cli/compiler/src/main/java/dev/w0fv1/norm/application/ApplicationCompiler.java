@@ -7,7 +7,6 @@ import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.jvm.JarBindingClasspath;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessorPipeline;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
-import dev.w0fv1.norm.project.ClasspathResourceMaterializer;
 import dev.w0fv1.norm.project.ProjectSourceSet;
 import dev.w0fv1.norm.source.SourceSpan;
 import java.io.IOException;

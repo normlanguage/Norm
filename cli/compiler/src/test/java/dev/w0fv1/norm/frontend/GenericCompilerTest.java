@@ -5,10 +5,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.value.CompilationRequest;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class GenericCompilerTest {
+  @Test
+  void resolvesInferredConstructorDefaultsInTheirDeclarationScope() {
+    var library =
+        SourceFile.of(
+            Path.of("library.norm"),
+            """
+            package library
+            public class Fallback {}
+            public value Box<T = Fallback> {}
+            public Void accept(Box<Fallback> box) {}
+            """);
+    var caller =
+        SourceFile.of(
+            Path.of("caller.norm"),
+            """
+            package caller
+            import library.Box
+            import library.accept
+            Void main() {
+              var inferred = Box()
+              var diamond = Box<>()
+              accept(inferred)
+              accept(diamond)
+            }
+            """);
+    var result =
+        new CompilerSession()
+            .compile(new CompilationRequest(caller.id(), java.util.List.of(library, caller)));
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
   @Test
   void acceptsGenericClassesAndNestedTypeArguments() {
     CompilationResult result =

@@ -15,6 +15,21 @@ final class ModuleBindingSourceEditorTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void labelsTheSingleLocalArgumentWhenAddingTheDigest() {
+    var source =
+        SourceFile.of(
+            temporaryDirectory.resolve("module.norm"),
+            "Module module() { return module(name: \"sample\", version: 1, binding:"
+                + " jarBinding(target: localJar(\"lib/gui.jar\"), api: [])) }");
+    var digest = Sha256Digest.parse("0123456789abcdef".repeat(4));
+    var target = new dev.w0fv1.norm.value.LocalJarTarget("lib/gui.jar", Optional.empty());
+    var updated = new ModuleBindingSourceEditor().withDigest(source, target, digest);
+    assertTrue(
+        updated.contains(
+            "localJar(path: \"lib/gui.jar\", integrity: sha256(\"" + digest.value() + "\"))"));
+  }
+
+  @Test
   void insertsAResolvedDigestIntoTheDirectMavenTargetDeclaration() {
     SourceFile source =
         SourceFile.of(

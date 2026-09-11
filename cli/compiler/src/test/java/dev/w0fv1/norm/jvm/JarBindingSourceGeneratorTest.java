@@ -461,6 +461,33 @@ final class JarBindingSourceGeneratorTest {
   }
 
   @Test
+  void preservesUnboundedTaskArguments() {
+    JavaReferenceType task =
+        new JavaReferenceType(
+            "java.util.concurrent.CompletionStage",
+            JavaReferenceKind.TASK,
+            List.of(JavaBindingTypeArgument.unbounded()));
+    JavaBindingCallable inspect =
+        new JavaBindingCallable(
+            "sample.Tasks",
+            "inspect",
+            "(Ljava/util/concurrent/CompletionStage;)V",
+            JavaCallableKind.STATIC_METHOD,
+            List.of(task),
+            JavaPrimitiveType.VOID);
+    GeneratedBindingSource source =
+        new JarBindingSourceGenerator()
+            .generate(
+                new ModuleCoordinate("sample.binding", 1),
+                List.of("Tasks"),
+                GRAPH_ID,
+                schema("sample.Tasks", List.of(inspect)))
+            .sources()
+            .getFirst();
+    assertTrue(source.text().contains("Void tasksInspect(Task<?>? arg0)"));
+  }
+
+  @Test
   void projectsReactiveStreamsPublishersAsStandardNormPublishers() {
     JavaReferenceType string = new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING);
     JavaReferenceType publisher =
@@ -601,7 +628,8 @@ final class JarBindingSourceGeneratorTest {
         source
             .text()
             .contains(
-                "String? callbacksInvoke(Function<String?()>? arg0, Function<String?(String?)>? arg1)"));
+                "String? callbacksInvoke(Function<String?()>? arg0, Function<String?(String?)>?"
+                    + " arg1)"));
   }
 
   @Test
@@ -1104,7 +1132,8 @@ final class JarBindingSourceGeneratorTest {
         source
             .text()
             .contains(
-                "public annotation Endpoint implements TypeTarget, FunctionTarget, RuntimeRetention, InheritedAnnotation, RepeatableAnnotation"));
+                "public annotation Endpoint implements TypeTarget, FunctionTarget,"
+                    + " RuntimeRetention, InheritedAnnotation, RepeatableAnnotation"));
     assertTrue(source.text().contains("String path"));
     assertTrue(source.callIds().isEmpty());
   }
@@ -1627,7 +1656,8 @@ final class JarBindingSourceGeneratorTest {
         arrays
             .text()
             .contains(
-                "JavaComparableArray<T> javaComparableArrayNew<T extends Comparable<T>>(Integer size)"));
+                "JavaComparableArray<T> javaComparableArrayNew<T extends Comparable<T>>(Integer"
+                    + " size)"));
   }
 
   @Test

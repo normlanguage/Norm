@@ -341,11 +341,11 @@ public annotation NotEmpty implements Constraint<String> {
 
 @Document(description: "Requires a string to contain at least one non-whitespace code point.")
 public annotation NotBlank implements Constraint<String> {
-  @Document(description: "Reports whether a trimmed string is non-empty.")
+  @Document(description: "Reports whether a string contains a non-whitespace code point.")
   public Boolean isValid(
     @Document(description: "The string to validate.") String value
   ) {
-    return !value.trim().isEmpty()
+    return !value.isBlank
   }
 
   @Document(description: "Returns the not_blank violation code.")

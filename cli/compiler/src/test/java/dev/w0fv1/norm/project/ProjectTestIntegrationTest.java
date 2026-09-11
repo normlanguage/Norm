@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.application.ApplicationRunner;
@@ -19,6 +20,60 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ProjectTestIntegrationTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void sharesTheJavaRuntimeWhileIsolatingNormStateBetweenTests() throws Exception {
+    Path application = Files.createDirectories(temporaryDirectory.resolve("app"));
+    Files.writeString(
+        application.resolve("module.norm"),
+        "Module module() { module(name: \"app\", version: 1) }");
+    Path test =
+        Files.writeString(
+            application.resolve("Cases.norm"),
+            """
+            package app
+            import std.testing.Test
+            import std.annotation.FunctionInterceptor
+            import std.annotation.RuntimeRetention
+            annotation Once implements FunctionInterceptor, RuntimeRetention {
+              private Integer calls
+              Once() { calls = 0 }
+              Void before(FunctionContext context) {
+                calls = calls + 1
+                require(condition: calls == 1, message: "annotation state leaked between tests")
+              }
+            }
+            @Once()
+            Void work() {}
+            @Test
+            Void first() { work() }
+            @Test
+            Void second() { work() }
+            """);
+    var runtime = new NormRuntime();
+    var loaders = new java.util.ArrayList<ClassLoader>();
+    dev.w0fv1.norm.execution.ExecutionBackend observed =
+        (artifact, plan, context) -> {
+          if (dev.w0fv1.norm.core.CoreTestIndex.from(artifact).tests().stream()
+              .anyMatch(
+                  item -> item.occurrence().representative().equals(artifact.entryDefinition()))) {
+            loaders.add(
+                ((dev.w0fv1.norm.execution.JavaApplicationRuntime) context.jarBindingRuntime())
+                    .applicationClassLoader());
+          }
+          runtime.execute(artifact, plan, context);
+        };
+    var environment = ProjectEnvironment.bootstrap(observed);
+    ProjectTestResult result;
+    try (var runner = ApplicationRunner.open(environment)) {
+      result = runner.test(test, ExecutionContext.of(new PrintWriter(new StringWriter())));
+    }
+    assertTrue(
+        result.isSuccess(), () -> result.compilation().diagnostics() + " " + result.report());
+    assertEquals(2, result.report().orElseThrow().testsSucceeded());
+    assertEquals(2, loaders.size());
+    assertSame(loaders.getFirst(), loaders.getLast());
+  }
 
   @Test
   void runsARealJunitTestWhoseClassAndMethodBodyAreNorm() throws Exception {

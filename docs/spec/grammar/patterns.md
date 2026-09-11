@@ -29,6 +29,10 @@ case _ { printLine("other") }
 
 类型化绑定可以使用被匹配值的静态类型或其名义子类型；使用子类型时检查动态类型并绑定收窄后的值。成员形状不参与匹配。
 
+可空类型绑定同时匹配 null 和该类型的非空值：`String? text` 可以绑定 null，`String text` 只匹配非空字符串。可空子类型绑定不会覆盖其他非空子类型；穷尽性与不可达分支检查使用相同规则。
+
+泛型类型模式保留完整类型实参，`Box<Integer>` 不匹配 `Box<String>`；`Box<T>` 使用当前调用的实化类型参数。可执行示例见 [reified_type_patterns.norm](https://github.com/normlanguage/Norm/blob/main/norm/tests/types/reified_type_patterns.norm)。
+
 ## 匹配过程
 
 单个模式由外到内、同层从左到右检查。失败不会留下局部绑定或其他可观察状态。case 按源码顺序选择首个匹配模式；被前序模式完全覆盖的 case 不可达并产生编译错误。模式只检查 enum variant、名义类型和值，不调用用户定义的匹配协议。

@@ -1,6 +1,8 @@
 package dev.w0fv1.norm.jvm;
 
+import dev.w0fv1.norm.bridge.JavaApplicationResource;
 import dev.w0fv1.norm.bridge.JavaDirectCall;
+import dev.w0fv1.norm.execution.FutureBindingTask;
 import dev.w0fv1.norm.execution.JarBindingCallback;
 import dev.w0fv1.norm.execution.JarBindingCallbackException;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
@@ -32,10 +34,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 public final class JvmJarBindingRuntime
     implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
@@ -44,6 +42,7 @@ public final class JvmJarBindingRuntime
   private final boolean ownsApplicationLoader;
   private ClassLoader applicationLoader;
   private Map<String, JavaDirectCall> applicationCalls = Map.of();
+  private final List<JavaApplicationResource> resources = new ArrayList<>();
 
   public JvmJarBindingRuntime(List<ResolvedJarBinding> bindings) {
     this(bindings, List.of());
@@ -144,12 +143,18 @@ public final class JvmJarBindingRuntime
           .calls
           .forEach((name, callable) -> calls.put(name, new BoundCall(callable, classes)));
       applicationCalls = Map.copyOf(applicationLinker.get());
-    } catch (IllegalArgumentException exception) {
-      close();
-      throw new JarBindingRuntimeException(exception.getMessage(), exception);
-    } catch (RuntimeException exception) {
-      close();
-      throw exception;
+      java.util.ServiceLoader.load(JavaApplicationResource.class, applicationLoader)
+          .forEach(resources::add);
+    } catch (RuntimeException | Error failure) {
+      try {
+        close();
+      } catch (RuntimeException | Error closing) {
+        failure.addSuppressed(closing);
+      }
+      if (failure instanceof IllegalArgumentException invalid) {
+        throw new JarBindingRuntimeException(invalid.getMessage(), invalid);
+      }
+      throw failure;
     }
   }
 
@@ -177,7 +182,38 @@ public final class JvmJarBindingRuntime
                   }
                 })
             .toArray(URL[]::new);
-    return new ApplicationClassLoader(urls, JvmJarBindingRuntime.class.getClassLoader());
+    var loader = new ApplicationClassLoader(urls, JvmJarBindingRuntime.class.getClassLoader());
+    try {
+      var modules = JavaModulePath.inspect(paths);
+      if (!modules.paths().isEmpty()) {
+        var finder = java.lang.module.ModuleFinder.of(modules.paths().toArray(Path[]::new));
+        var roots =
+            finder.findAll().stream()
+                .filter(
+                    reference ->
+                        reference.descriptor().packages().stream()
+                            .anyMatch(name -> !ApplicationClassLoader.parentFirst(name + ".")))
+                .map(reference -> reference.descriptor().name())
+                .sorted()
+                .toList();
+        var configuration =
+            ModuleLayer.boot()
+                .configuration()
+                .resolve(
+                    finder, java.lang.module.ModuleFinder.of(paths.toArray(Path[]::new)), roots);
+        configuration
+            .modules()
+            .forEach(module -> loader.modules.put(module.name(), module.reference()));
+        ModuleLayer.defineModules(configuration, List.of(ModuleLayer.boot()), name -> loader);
+      }
+      return loader;
+    } catch (IOException failure) {
+      close(loader);
+      throw new JarBindingRuntimeException("cannot inspect application modules", failure);
+    } catch (RuntimeException failure) {
+      close(loader);
+      throw failure;
+    }
   }
 
   @Override
@@ -476,7 +512,9 @@ public final class JvmJarBindingRuntime
               case TASK -> {
                 var element = resultAdapter(optionalElement(reference));
                 yield (classes, value) ->
-                    new JarBindingResult.ResourceReference(task(classes, element, value), name);
+                    new JarBindingResult.ResourceReference(
+                        new FutureBindingTask(value, result -> element.apply(classes, result)),
+                        name);
               }
               case PUBLISHER -> (classes, value) -> new JarBindingResult.Reference(value, name);
               case PATH ->
@@ -577,55 +615,6 @@ public final class JvmJarBindingRuntime
     }
   }
 
-  private static JarBindingTask task(
-      ClassCatalog classes, Conversion<JarBindingResult> element, Object value) {
-    Future<?> future =
-        value instanceof Future<?> candidate
-            ? candidate
-            : ((CompletionStage<?>) value).toCompletableFuture();
-    return new JarBindingTask() {
-      @Override
-      public JarBindingResult await() {
-        try {
-          return element.apply(classes, future.get());
-        } catch (InterruptedException failure) {
-          Thread.currentThread().interrupt();
-          throw new JarBindingInvocationException("Java task await was interrupted", failure);
-        } catch (ExecutionException failure) {
-          Throwable cause = failure.getCause() == null ? failure : failure.getCause();
-          while (cause instanceof java.util.concurrent.CompletionException completion
-              && completion.getCause() != null) {
-            cause = completion.getCause();
-          }
-          if (cause instanceof JarBindingCallbackException callback) throw callback.failure();
-          throw new JarBindingInvocationException("Java task completed exceptionally", cause);
-        } catch (CancellationException failure) {
-          throw new JarBindingInvocationException("Java task was cancelled", failure);
-        }
-      }
-
-      @Override
-      public boolean cancel() {
-        return future.cancel(true);
-      }
-
-      @Override
-      public boolean completed() {
-        return future.isDone();
-      }
-
-      @Override
-      public Object hostValue() {
-        return value;
-      }
-
-      @Override
-      public void close() {
-        if (!future.isDone()) future.cancel(true);
-      }
-    };
-  }
-
   private static JarBindingResult dynamicResult(Object value) {
     if (value instanceof Byte number) return new JarBindingResult.Scalar(number.intValue());
     if (value instanceof Short number) return new JarBindingResult.Scalar(number.intValue());
@@ -717,10 +706,30 @@ public final class JvmJarBindingRuntime
   @Override
   public void close() {
     ClassLoader loader = applicationLoader;
+    if (loader == null) return;
     applicationLoader = null;
     applicationCalls = Map.of();
     calls.clear();
-    if (ownsApplicationLoader) retire((URLClassLoader) loader);
+    List<Throwable> failures = new ArrayList<>();
+    for (var resource : resources.reversed()) {
+      try {
+        resource.close();
+      } catch (RuntimeException | Error failure) {
+        failures.add(failure);
+      }
+    }
+    resources.clear();
+    try {
+      if (ownsApplicationLoader) retire((URLClassLoader) loader);
+    } catch (RuntimeException | Error failure) {
+      failures.add(failure);
+    }
+    if (!failures.isEmpty()) {
+      Throwable failure = failures.removeFirst();
+      failures.forEach(failure::addSuppressed);
+      if (failure instanceof Error error) throw error;
+      throw new JarBindingRuntimeException("cannot close application resources", failure);
+    }
   }
 
   private static void retire(URLClassLoader loader) {
@@ -761,6 +770,11 @@ public final class JvmJarBindingRuntime
   }
 
   private static final class ApplicationClassLoader extends URLClassLoader {
+    private final JarResourceScope resourceArchives = new JarResourceScope();
+    private boolean resourcesClosed;
+    private final Set<java.io.InputStream> resourceStreams =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private final Map<String, java.lang.module.ModuleReference> modules = new LinkedHashMap<>();
     private static final List<String> PARENT_PACKAGES =
         List.of(
             "java.",
@@ -774,6 +788,28 @@ public final class JvmJarBindingRuntime
 
     private ApplicationClassLoader(URL[] urls, ClassLoader parent) {
       super(urls, parent);
+    }
+
+    @Override
+    protected URL findResource(String moduleName, String name) throws IOException {
+      if (moduleName == null) return findResource(name);
+      var reference = modules.get(moduleName);
+      if (reference == null) return null;
+      try (var reader = reference.open()) {
+        var resource = reader.find(name);
+        if (resource.isEmpty()) return null;
+        return ownedResource(resource.orElseThrow().toURL());
+      }
+    }
+
+    @Override
+    protected Class<?> findClass(String moduleName, String name) {
+      try {
+        Class<?> type = loadClass(name);
+        return java.util.Objects.equals(moduleName, type.getModule().getName()) ? type : null;
+      } catch (ClassNotFoundException absent) {
+        return null;
+      }
     }
 
     @Override
@@ -803,11 +839,106 @@ public final class JvmJarBindingRuntime
     }
 
     @Override
+    public URL findResource(String name) {
+      var resource = super.findResource(name);
+      return resource == null ? null : ownedResource(resource);
+    }
+
+    @Override
+    public Enumeration<URL> findResources(String name) throws IOException {
+      return Collections.enumeration(
+          Collections.list(super.findResources(name)).stream().map(this::ownedResource).toList());
+    }
+
+    @Override
     public Enumeration<URL> getResources(String name) throws IOException {
       LinkedHashSet<URL> resources = new LinkedHashSet<>();
       resources.addAll(Collections.list(findResources(name)));
       resources.addAll(Collections.list(getParent().getResources(name)));
       return Collections.enumeration(resources);
+    }
+
+    private URL ownedResource(URL resource) {
+      if (!resource.getProtocol().equals("jar")) return resource;
+      try {
+        resourceArchives.retain(resource);
+        return URL.of(
+            java.net.URI.create(resource.toExternalForm()),
+            new java.net.URLStreamHandler() {
+              @Override
+              protected java.net.URLConnection openConnection(URL url) throws IOException {
+                resourceArchives.retain(resource);
+                var connection = java.net.URI.create(url.toExternalForm()).toURL().openConnection();
+                return new java.net.URLConnection(url) {
+                  @Override
+                  public void connect() throws IOException {
+                    connection.connect();
+                    connected = true;
+                  }
+
+                  @Override
+                  public java.io.InputStream getInputStream() throws IOException {
+                    synchronized (resourceStreams) {
+                      if (resourcesClosed)
+                        throw new IOException("application resource scope is closed");
+                      var stream =
+                          new java.io.FilterInputStream(connection.getInputStream()) {
+                            @Override
+                            public void close() throws IOException {
+                              try {
+                                super.close();
+                              } finally {
+                                synchronized (resourceStreams) {
+                                  resourceStreams.remove(this);
+                                }
+                              }
+                            }
+                          };
+                      resourceStreams.add(stream);
+                      return stream;
+                    }
+                  }
+
+                  @Override
+                  public String getHeaderField(String name) {
+                    return connection.getHeaderField(name);
+                  }
+                };
+              }
+            });
+      } catch (IOException failure) {
+        throw new JarBindingRuntimeException(
+            "cannot own application resource " + resource, failure);
+      }
+    }
+
+    @Override
+    public void close() throws IOException {
+      IOException failure = null;
+      synchronized (resourceStreams) {
+        resourcesClosed = true;
+        for (var stream : List.copyOf(resourceStreams)) {
+          try {
+            stream.close();
+          } catch (IOException exception) {
+            if (failure == null) failure = exception;
+            else failure.addSuppressed(exception);
+          }
+        }
+      }
+      try {
+        super.close();
+      } catch (IOException exception) {
+        if (failure == null) failure = exception;
+        else failure.addSuppressed(exception);
+      }
+      try {
+        resourceArchives.close();
+      } catch (IOException exception) {
+        if (failure == null) failure = exception;
+        else failure.addSuppressed(exception);
+      }
+      if (failure != null) throw failure;
     }
 
     private static boolean parentFirst(String name) {

@@ -131,7 +131,9 @@ std.core
 
 ## Intrinsic 组织
 
-Builtin ABI 是 intrinsic identity 和 runtime shape 的单一来源。Catalog、dispatcher 和 runtime value 按 core、text、collections 与 system 领域拆分，由唯一 registry 组合并验证每个 intrinsic 恰好拥有一个声明和实现。
+Builtin ABI 是 intrinsic identity 和 runtime shape 的单一来源。静态总入口 [`IntrinsicDispatcher`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/IntrinsicDispatcher.java) 穷尽选择各领域实现，不使用运行期注册或扫描。完整映射由 [`IntrinsicOperationTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/truffle/IntrinsicOperationTest.java) 验证。
+
+Java 参数、返回值与回调载体转换归属 [`JavaValueAdapter`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaValueAdapter.java)。Java classloader 和调用解析仍归 `jvm`，值语义仍归 `RuntimeValues`；转换器不持有单次执行资源。
 
 标准库内部能力沿用 module bootstrap 的受限可见性思路，但使用统一 access policy。新增系统模块不能再向普通应用 prelude 增加双下划线 global 或领域特例。
 

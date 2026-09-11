@@ -18,7 +18,7 @@ final class AnalyzerTypeArchitectureTest {
   @Test
   void semanticPassesDoNotHoldTheOrchestrator() {
     for (Class<?> pass :
-        List.of(TypeSystem.class, ExpressionChecker.class, AnnotationChecker.class)) {
+        List.of(TypeResolver.class, ExpressionChecker.class, AnnotationChecker.class)) {
       assertFalse(
           java.util.Arrays.stream(pass.getDeclaredFields())
               .anyMatch(field -> field.getType() == Analyzer.class),

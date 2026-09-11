@@ -18,21 +18,44 @@ import java.util.Optional;
 
 final class Analyzer {
   private final SemanticAnalysisContext context;
-  private final TypeSystem typeSystem;
+  private final TypeResolver typeResolver;
   private final BodyAnalyzer bodies;
   private final DeclarationAnalyzer declarations;
 
   Analyzer(SemanticAnalysisInput input, DiagnosticBag diagnostics, CompilationGuard guard) {
     context = new SemanticAnalysisContext(input, diagnostics, guard);
-    typeSystem =
-        new TypeSystem(
+    typeResolver =
+        new TypeResolver(
             context.declarations,
             context.builtins,
             context.resolution,
             context.model,
             context.diagnostics);
-    bodies = new BodyAnalyzer(context, typeSystem);
-    declarations = new DeclarationAnalyzer(context, typeSystem, bodies);
+    var policies =
+        new DeclarationPolicyResolver(
+            context.declarations, context.resolution, typeResolver, diagnostics);
+    declarations =
+        new DeclarationAnalyzer(
+            context.builtins,
+            context.declarations,
+            diagnostics,
+            context.model,
+            context.programs,
+            context.resolution,
+            typeResolver,
+            policies);
+    bodies =
+        new BodyAnalyzer(
+            context.body,
+            context.model,
+            context.resolution,
+            diagnostics,
+            guard,
+            context.builtins,
+            typeResolver,
+            declarations,
+            policies,
+            context.transactions);
   }
 
   FrontendAnalysis analyze(boolean resolveProgram) {
@@ -61,86 +84,98 @@ final class Analyzer {
                     context.declarations,
                     context.exportedSources))
             .build();
-    visibility.scopes().forEach(context.body.flowScopes::addSemanticScope);
+    visibility.scopes().forEach(context.body.scopes()::addSemanticScope);
     declarations.validateClassHierarchy();
-    context.resolution.currentProgram = context.entryProgram;
-    Syntax.FunctionDecl main =
-        context.entryProgram.functions().stream()
-            .filter(function -> function.name().equals("main"))
-            .findFirst()
-            .orElse(null);
-    if (main == null && context.requireEntryPoint) {
-      context.diagnostics.error(
-          MISSING_MAIN, "program must declare 'main()'", context.syntax.span());
-    } else if (main != null
-        && (!typeSystem
-                .functionReturnType(main, typeSystem.functionTypeParameters(main))
-                .equals(SemanticType.VOID)
-            || !main.typeParameters().isEmpty()
-            || !main.parameters().isEmpty())) {
-      context.diagnostics.error(TYPE_MISMATCH, "entry function must be 'main()'", main.span());
-    }
+    try (var entryScope = context.resolution.enterProgram(context.entryProgram)) {
+      Syntax.FunctionDecl main =
+          context.entryProgram.functions().stream()
+              .filter(function -> function.name().equals("main"))
+              .findFirst()
+              .orElse(null);
+      if (main == null && context.requireEntryPoint) {
+        context.diagnostics.error(
+            MISSING_MAIN, "program must declare 'main()'", context.syntax.span());
+      } else if (main != null
+          && (!typeResolver
+                  .functionReturnType(main, typeResolver.functionTypeParameters(main))
+                  .equals(SemanticType.VOID)
+              || !main.typeParameters().isEmpty()
+              || !main.parameters().isEmpty())) {
+        context.diagnostics.error(TYPE_MISMATCH, "entry function must be 'main()'", main.span());
+      }
 
-    for (Syntax.Program program : context.programs) {
-      context.guard.checkpoint();
-      context.resolution.currentProgram = program;
-      for (Syntax.EnumDecl enumDecl : program.enums()) {
-        if (reuse(enumDecl.span())) continue;
-        typeSystem.validateTypeParameterNames(enumDecl.typeParameters());
-        declarations.validateEnum(enumDecl);
-      }
-      for (Syntax.InterfaceDecl interfaceDecl : program.interfaces()) {
-        if (reuse(interfaceDecl.span())) continue;
-        typeSystem.validateTypeParameterNames(interfaceDecl.typeParameters());
-        declarations.validateInterface(interfaceDecl);
-      }
-      for (Syntax.FunctionDecl function : program.functions()) {
-        if (reuse(function.span())) continue;
-        bodies.analyzeFunction(function, null);
-      }
-      for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
-        if (reuse(aggregateDecl.span())) continue;
-        typeSystem.validateTypeParameterNames(aggregateDecl.typeParameters());
-        declarations.validateFields(aggregateDecl);
-        for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
-          bodies.analyzeConstructor(constructor, aggregateDecl);
+      for (Syntax.Program program : context.programs) {
+        context.guard.checkpoint();
+        try (var programScope = context.resolution.enterProgram(program)) {
+
+          for (Syntax.EnumDecl enumDecl : program.enums()) {
+            if (reuse(enumDecl.span())) continue;
+            typeResolver.validateTypeParameterNames(enumDecl.typeParameters());
+            declarations.validateEnum(enumDecl, bodies);
+          }
+          for (Syntax.InterfaceDecl interfaceDecl : program.interfaces()) {
+            if (reuse(interfaceDecl.span())) continue;
+            typeResolver.validateTypeParameterNames(interfaceDecl.typeParameters());
+            declarations.validateInterface(interfaceDecl, bodies);
+          }
+          for (Syntax.FunctionDecl function : program.functions()) {
+            if (reuse(function.span())) continue;
+            bodies.analyzeFunction(function, null);
+          }
+          for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
+            if (reuse(aggregateDecl.span())) continue;
+            typeResolver.validateTypeParameterNames(aggregateDecl.typeParameters());
+            declarations.validateFields(aggregateDecl, bodies.expressionChecker);
+            bodies.analyzeImplicitSuperCall(aggregateDecl);
+            for (Syntax.ConstructorDecl constructor : aggregateDecl.constructors()) {
+              bodies.analyzeConstructor(constructor, aggregateDecl);
+            }
+            for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
+              bodies.analyzeFunction(method, aggregateDecl);
+            }
+          }
         }
-        for (Syntax.FunctionDecl method : aggregateDecl.methods()) {
-          bodies.analyzeFunction(method, aggregateDecl);
-        }
       }
+      AnnotationChecker annotationChecker =
+          new AnnotationChecker(
+              context.declarations,
+              context.diagnostics,
+              context.model,
+              context.programs,
+              context.resolution,
+              context.scope,
+              typeResolver,
+              bodies.expressionChecker);
+      annotationChecker.validateAnnotationSchemas();
+      annotationChecker.validateAnnotationApplications();
+      declarations.validateInterfaceGraphAndConformances();
+      List<Diagnostic> snapshot = context.diagnostics.snapshot();
+      SemanticModel semanticModel =
+          context.model.build(
+              context.syntax,
+              context.scope,
+              context.builtins,
+              typeResolver.callableGroups(),
+              typeResolver.interfaceParentTypes(),
+              context.body.scopes().semanticScopes(),
+              snapshot,
+              visibility.importableSymbols());
+      Optional<BoundProgram> boundProgram =
+          !resolveProgram
+                  || snapshot.stream()
+                      .anyMatch(diagnostic -> diagnostic.severity() == DiagnosticSeverity.ERROR)
+              ? Optional.empty()
+              : Optional.of(new Binder(context.programs, semanticModel).bind(main));
+      return new FrontendAnalysis(
+          new AnalysisResult(semanticModel, Optional.ofNullable(main), snapshot), boundProgram);
     }
-    AnnotationChecker annotationChecker =
-        new AnnotationChecker(context, typeSystem, bodies.expressionChecker);
-    annotationChecker.validateAnnotationSchemas();
-    annotationChecker.validateAnnotationApplications();
-    declarations.validateInterfaceGraphAndConformances();
-    List<Diagnostic> snapshot = context.diagnostics.snapshot();
-    SemanticModel semanticModel =
-        context.model.build(
-            context.syntax,
-            context.scope,
-            context.builtins,
-            typeSystem.callableGroups(),
-            typeSystem.interfaceParentTypes(),
-            context.body.flowScopes.semanticScopes(),
-            snapshot,
-            visibility.importableSymbols());
-    Optional<BoundProgram> boundProgram =
-        !resolveProgram
-                || snapshot.stream()
-                    .anyMatch(diagnostic -> diagnostic.severity() == DiagnosticSeverity.ERROR)
-            ? Optional.empty()
-            : Optional.of(new Binder(context.programs, semanticModel).bind(main));
-    return new FrontendAnalysis(
-        new AnalysisResult(semanticModel, Optional.ofNullable(main), snapshot), boundProgram);
   }
 
   private boolean reuse(SourceSpan root) {
     SemanticContribution contribution = context.reusableDeclarations.get(root);
     if (contribution == null) return false;
     context.model.reuse(contribution);
-    contribution.scopes().forEach(context.body.flowScopes::addSemanticScope);
+    contribution.scopes().forEach(context.body.scopes()::addSemanticScope);
     return true;
   }
 }

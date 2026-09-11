@@ -167,7 +167,9 @@ final class CompletionEngine {
           snippet(
               "annotation",
               "Norm annotation",
-              "annotation ${1:Name} implements ${2:TypeTarget}, ${3:RuntimeRetention} {\n  ${4}\n}"),
+              "annotation ${1:Name} implements ${2:TypeTarget}, ${3:RuntimeRetention} {\n"
+                  + "  ${4}\n"
+                  + "}"),
           snippet(
               "extension",
               "Norm extension function",
@@ -315,6 +317,7 @@ final class CompletionEngine {
       Stream<Symbol> symbols, boolean functionValueContext) {
     Map<String, Completion> unique = new LinkedHashMap<>();
     symbols
+        .map(SymbolPresentation::property)
         .filter(symbol -> !functionValueContext || callable(symbol))
         .sorted(
             Comparator.comparing(Symbol::name)
@@ -350,7 +353,7 @@ final class CompletionEngine {
 
   private static Completion completion(
       Symbol symbol, List<CompletionTextEdit> additionalTextEdits, boolean constructor) {
-    if (symbol.type().isFunction()) {
+    if (symbol.type().isFunction() && symbol.kind() != SymbolKind.PROPERTY) {
       Symbol callable = SymbolPresentation.callable(symbol);
       String arguments =
           java.util.stream.IntStream.range(0, callable.parameters().size())

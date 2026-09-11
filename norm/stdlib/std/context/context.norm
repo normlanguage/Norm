@@ -1,0 +1,15 @@
+package std.context
+
+import std.core.Unit
+
+public T? currentContext<T>() {
+  __contextCurrent<T>(type: T.class)
+}
+
+public R withContext<T, R>(T value, Function<R()> action) {
+  __contextWith<T, R>(value: value, type: T.class, action: action)
+}
+
+public Void withContext<T>(T value, Function<Void()> action) {
+  __contextWith<T, Unit>(value: value, type: T.class, action: () { action() Unit.Value })
+}

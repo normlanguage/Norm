@@ -6,7 +6,7 @@ import dev.w0fv1.norm.source.SourceSpan;
 import java.util.List;
 import java.util.Objects;
 
-public sealed interface BoundExpression extends BoundNode
+public sealed interface BoundExpression extends BoundCollectionElement
     permits BoundExpression.Literal,
         BoundExpression.NullLiteral,
         BoundExpression.CollectionLiteral,
@@ -45,7 +45,7 @@ public sealed interface BoundExpression extends BoundNode
   }
 
   record CollectionLiteral(
-      List<BoundExpression> elements,
+      List<BoundCollectionElement> elements,
       IntrinsicId materializer,
       BoundRuntimeType runtimeType,
       SemanticType type,
@@ -149,7 +149,7 @@ public sealed interface BoundExpression extends BoundNode
 
   record InterfaceCall(
       BoundInterfaceMethodId requirement,
-      SemanticType receiverInterfaceType,
+      SemanticType receiverType,
       BoundExpression receiver,
       List<BoundArgument> arguments,
       List<BoundRuntimeType> reifiedArguments,
@@ -159,7 +159,7 @@ public sealed interface BoundExpression extends BoundNode
       implements BoundExpression {
     public InterfaceCall {
       Objects.requireNonNull(requirement, "requirement");
-      Objects.requireNonNull(receiverInterfaceType, "receiverInterfaceType");
+      Objects.requireNonNull(receiverType, "receiverType");
       Objects.requireNonNull(receiver, "receiver");
       arguments = List.copyOf(arguments);
       reifiedArguments = List.copyOf(reifiedArguments);

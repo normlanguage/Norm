@@ -49,7 +49,7 @@ abstract class CoreWalker {
             .forEach(
                 dispatch -> {
                   visitDependency(CoreDependency.Kind.DECLARED_MEMBER, dispatch.slot());
-                  visitDependency(CoreDependency.Kind.IMPLEMENTATION, dispatch.implementation());
+                  visitDependency(CoreDependency.Kind.IMPLEMENTATION, dispatch.target());
                   walkType(dispatch.receiverType());
                 });
         declaration
@@ -78,8 +78,8 @@ abstract class CoreWalker {
             .declaredMethods()
             .forEach(link -> visitDependency(CoreDependency.Kind.DECLARED_MEMBER, link));
       }
-      case CoreDefinition.InterfaceMethod method -> {
-        walkType(method.receiverInterfaceType());
+      case CoreDefinition.MethodSignature method -> {
+        walkType(method.receiverType());
         method.typeParameters().forEach(this::walkTypeParameter);
         method.parameterTypes().forEach(this::walkType);
         walkType(method.returnType());
@@ -209,7 +209,7 @@ abstract class CoreWalker {
       case CoreExpression.NullLiteral ignored -> {}
       case CoreExpression.CollectionLiteral collection -> {
         visitIntrinsic(collection.materializer());
-        collection.elements().forEach(this::walkExpression);
+        collection.elements().forEach(this::walkCollectionElement);
         walkRuntimeType(collection.runtimeType());
       }
       case CoreExpression.LocalRead ignored -> {}
@@ -285,6 +285,7 @@ abstract class CoreWalker {
         intrinsic.receiver().ifPresent(this::walkExpression);
         intrinsic.arguments().forEach(argument -> walkExpression(argument.value()));
         intrinsic.runtimeType().ifPresent(this::walkRuntimeType);
+        intrinsic.runtimeDependencies().forEach(this::walkType);
       }
     }
   }
@@ -297,10 +298,26 @@ abstract class CoreWalker {
   private void walkPattern(CorePattern pattern) {
     switch (pattern) {
       case CorePattern.Variant variant -> variant.arguments().forEach(this::walkPattern);
-      case CorePattern.Binding binding -> walkType(binding.type());
+      case CorePattern.Binding binding -> walkRuntimeType(binding.runtimeType());
       case CorePattern.Wildcard ignored -> {}
       case CorePattern.Literal literal -> walkType(literal.type());
       case CorePattern.Null ignored -> {}
+    }
+  }
+
+  private void walkCollectionElement(CoreCollectionElement element) {
+    switch (element) {
+      case CoreExpression expression -> walkExpression(expression);
+      case CoreCollectionElement.Conditional conditional -> {
+        walkExpression(conditional.condition());
+        walkCollectionElement(conditional.thenElement());
+        conditional.elseElement().ifPresent(this::walkCollectionElement);
+      }
+      case CoreCollectionElement.Repeated repeated -> {
+        walkExpression(repeated.iterable());
+        walkIteration(repeated.iteration());
+        walkCollectionElement(repeated.element());
+      }
     }
   }
 

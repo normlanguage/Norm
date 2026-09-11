@@ -15,6 +15,7 @@ const genericPattern = new RegExp(grammar.repository.generics.patterns[0].begin)
 const numericPattern = new RegExp(grammar.repository.numbers.match);
 const constantPattern = new RegExp(grammar.repository.constants.match);
 const operatorPattern = new RegExp(grammar.repository.operators.match);
+assert.equal(operatorPattern.exec('!!')?.[0], '!!');
 const keywordPattern = new RegExp(grammar.repository.keywords.match);
 const modifierPattern = new RegExp(grammar.repository.modifiers.match);
 const declarationPattern = new RegExp(grammar.repository.declarations.patterns[0].match);
@@ -28,6 +29,12 @@ const registry = new Registry({
 });
 const loadedGrammar = await registry.loadGrammar(grammar.scopeName);
 assert.ok(loadedGrammar);
+
+const throwingLine = 'var todo = repository.findById(id) ?? throw Exception(message: "missing")';
+const throwingOffset = throwingLine.indexOf('throw');
+assert.ok(loadedGrammar.tokenizeLine(throwingLine).tokens.some(
+  (token) => token.startIndex === throwingOffset && token.scopes.includes('keyword.control.norm'),
+));
 
 const annotationLine = '@Document(description: "Sorts values.", types: [User.class])';
 const annotationTokens = loadedGrammar.tokenizeLine(annotationLine).tokens;
@@ -133,3 +140,10 @@ assert.ok(projectVersion, 'gradle.properties does not declare a semantic Norm ve
 assert.equal(extension.version, projectVersion, 'extension version must track the Norm version');
 
 console.log('Norm language configuration tests succeeded.');
+
+const multilineStart = loadedGrammar.tokenizeLine('var query = """');
+const multilineBody = loadedGrammar.tokenizeLine('  select "todo"', multilineStart.ruleStack);
+assert.ok(multilineBody.tokens.every(token => token.scopes.includes('string.quoted.triple.norm')));
+const multilineEnd = loadedGrammar.tokenizeLine('"""', multilineBody.ruleStack);
+assert.ok(loadedGrammar.tokenizeLine('var count = 1', multilineEnd.ruleStack).tokens.every(
+  token => !token.scopes.includes('string.quoted.triple.norm')));

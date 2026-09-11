@@ -24,6 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 final class RuntimeValues {
 
@@ -31,8 +32,7 @@ final class RuntimeValues {
 
   record Closure(
       CallTarget target,
-      DefinitionOccurrenceId declaration,
-      DefinitionId virtualSlot,
+      Optional<DefinitionOccurrenceId> sourceDeclaration,
       boolean unbound,
       Object receiver,
       Object[] captures,
@@ -41,11 +41,66 @@ final class RuntimeValues {
       CoreType functionType) {
     Closure {
       Objects.requireNonNull(target, "target");
-      Objects.requireNonNull(declaration, "declaration");
+      sourceDeclaration = Objects.requireNonNull(sourceDeclaration, "sourceDeclaration");
       captures = captures.clone();
       receiverTypeArguments = receiverTypeArguments.clone();
       reifiedArguments = reifiedArguments.clone();
       Objects.requireNonNull(functionType, "functionType");
+    }
+
+    Closure(
+        CallTarget target,
+        Optional<DefinitionOccurrenceId> sourceDeclaration,
+        DefinitionId virtualSlot,
+        boolean unbound,
+        Object receiver,
+        Object[] captures,
+        Object[] receiverTypeArguments,
+        Object[] reifiedArguments,
+        CoreType functionType) {
+      this(
+          virtualSlot == null
+              ? target
+              : new MethodReferenceRootNode(
+                      virtualSlot,
+                      sourceDeclaration.orElseThrow(),
+                      receiverTypeArguments.length,
+                      reifiedArguments.length)
+                  .getCallTarget(),
+          sourceDeclaration,
+          unbound,
+          receiver,
+          captures,
+          receiverTypeArguments,
+          reifiedArguments,
+          functionType);
+    }
+
+    DefinitionOccurrenceId declaration() {
+      return sourceDeclaration.orElseThrow(
+          () -> new IllegalArgumentException("host function has no Norm declaration"));
+    }
+
+    Closure(
+        CallTarget target,
+        DefinitionOccurrenceId declaration,
+        DefinitionId virtualSlot,
+        boolean unbound,
+        Object receiver,
+        Object[] captures,
+        Object[] receiverTypeArguments,
+        Object[] reifiedArguments,
+        CoreType functionType) {
+      this(
+          target,
+          Optional.of(declaration),
+          virtualSlot,
+          unbound,
+          receiver,
+          captures,
+          receiverTypeArguments,
+          reifiedArguments,
+          functionType);
     }
 
     Closure(
@@ -112,7 +167,7 @@ final class RuntimeValues {
 
     @Override
     public Object read() {
-      return receiver.fields[field];
+      return receiver.readField(field);
     }
 
     @Override
@@ -198,6 +253,7 @@ final class RuntimeValues {
     if (left == right) return true;
     if (left == null || right == null || left.getClass() != right.getClass()) return false;
     return switch (left) {
+      case ClassValue value -> value.reflectedType().equals(((ClassValue) right).reflectedType());
       case Integer value -> value.intValue() == (Integer) right;
       case Long value -> value.longValue() == (Long) right;
       case Float value -> value.floatValue() == (Float) right;
@@ -232,6 +288,7 @@ final class RuntimeValues {
   static int hash(Object value) {
     return switch (value) {
       case null -> 0;
+      case ClassValue item -> item.reflectedType().hashCode();
       case Integer item -> Integer.hashCode(item);
       case Long item -> Long.hashCode(item);
       case Float item -> item == 0.0f ? 0 : Float.hashCode(item);
@@ -390,6 +447,8 @@ final class RuntimeValues {
       case OpaqueValue item -> item.type;
       case OpaqueResource item -> item.type;
       case ObjectValue item -> item.type;
+      case EnumValue item -> item.type;
+      case Closure item -> item.functionType();
       default -> throw new IllegalStateException("interface receiver has no builtin type");
     };
   }
@@ -569,7 +628,11 @@ final class RuntimeValues {
     return result;
   }
 
-  static final class ArrayValue {
+  abstract static class ContainerValue {
+    ValueObservations observations;
+  }
+
+  static final class ArrayValue extends ContainerValue {
     final CoreType type;
     final List<Object> values;
 
@@ -579,7 +642,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class ListValue {
+  static final class ListValue extends ContainerValue {
     final CoreType type;
     final List<Object> values;
 
@@ -593,7 +656,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class MapValue {
+  static final class MapValue extends ContainerValue {
     final CoreType type;
     final Map<RuntimeKey, Object> values = new LinkedHashMap<>();
 
@@ -602,7 +665,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class SetValue {
+  static final class SetValue extends ContainerValue {
     final CoreType type;
     final java.util.Set<RuntimeKey> values = new LinkedHashSet<>();
 
@@ -611,7 +674,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class StackValue {
+  static final class StackValue extends ContainerValue {
     final CoreType type;
     final Deque<Object> values = new ArrayDeque<>();
 
@@ -620,7 +683,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class QueueValue {
+  static final class QueueValue extends ContainerValue {
     final CoreType type;
     final Deque<Object> values = new ArrayDeque<>();
 
@@ -629,7 +692,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class DequeValue {
+  static final class DequeValue extends ContainerValue {
     final CoreType type;
     final Deque<Object> values = new ArrayDeque<>();
 
@@ -638,7 +701,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class BuilderValue {
+  static final class BuilderValue extends ContainerValue {
     final CoreType type;
     final StringBuilder value;
 
@@ -657,7 +720,7 @@ final class RuntimeValues {
     }
   }
 
-  static final class PairValue {
+  static final class PairValue extends ContainerValue {
     final CoreType type;
     Object first;
     Object second;
@@ -973,7 +1036,11 @@ final class RuntimeValues {
   }
 
   record FieldPlan(
-      DefinitionOccurrenceId owner, String name, int index, List<CoreInterceptor> interceptors) {
+      DefinitionOccurrenceId owner,
+      String name,
+      int index,
+      boolean publicField,
+      List<CoreInterceptor> interceptors) {
     FieldPlan {
       Objects.requireNonNull(owner, "owner");
       Objects.requireNonNull(name, "name");
@@ -988,6 +1055,19 @@ final class RuntimeValues {
     final Object[] fields;
     Object hostValue;
     boolean dispatchToHost;
+    FieldObservations observations;
+
+    Object readField(int field) {
+      if (observations != null) observations.read(field);
+      return fields[field];
+    }
+
+    void fieldChanged(int field, Object previous) {
+      if (observations != null) {
+        observations.bind(field);
+        if (!equal(previous, fields[field])) observations.changed(field, previous, fields[field]);
+      }
+    }
 
     ObjectValue(ObjectInfo objectInfo, CoreType type) {
       this.objectInfo = objectInfo;

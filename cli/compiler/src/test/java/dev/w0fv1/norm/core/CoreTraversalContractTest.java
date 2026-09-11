@@ -21,6 +21,7 @@ final class CoreTraversalContractTest {
           CoreDefinition.class,
           CoreStatement.class,
           CoreExpression.class,
+          CoreCollectionElement.class,
           CorePattern.class,
           CoreIteration.class,
           CoreType.class,
@@ -62,8 +63,7 @@ final class CoreTraversalContractTest {
     definitions().forEach(definition -> collectVariants(definition, encountered, visited));
 
     for (Class<?> node : SEALED_NODES) {
-      assertEquals(
-          Set.of(node.getPermittedSubclasses()), intersection(node, encountered), node::getName);
+      assertEquals(leafVariants(node), intersection(node, encountered), node::getName);
     }
   }
 
@@ -155,7 +155,7 @@ final class CoreTraversalContractTest {
             List.of(),
             Optional.empty(),
             1,
-            List.of(new CoreField("value", 0, links.type(), List.of())),
+            List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, links.type(), List.of())),
             List.of(),
             List.of(links.next()),
             List.of()));
@@ -169,7 +169,7 @@ final class CoreTraversalContractTest {
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
                 Optional.empty(),
                 1,
-                List.of(new CoreField("value", 0, links.type(), List.of())),
+                List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, links.type(), List.of())),
                 List.of(),
                 List.of(links.next()),
                 List.of(
@@ -179,13 +179,16 @@ final class CoreTraversalContractTest {
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
                 List.of(
                     new CoreEnumVariant(
-                        "Value", List.of(new CoreField("value", 0, links.type(), List.of()))))),
+                        "Value",
+                        List.of(
+                            new CoreField(
+                                CoreVisibility.PUBLIC, "value", 0, links.type(), List.of()))))),
             new CoreDefinition.Interface(
                 nominal("Interface"),
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
                 List.of(links.type()),
                 List.of(links.next())),
-            new CoreDefinition.InterfaceMethod(
+            new CoreDefinition.MethodSignature(
                 "method",
                 links.type(),
                 List.of(new CoreTypeParameter(0, Optional.of(links.type()))),
@@ -210,7 +213,21 @@ final class CoreTraversalContractTest {
     values.add(
         new CoreExpression.CollectionLiteral(
             3,
-            List.of(new CoreExpression.Literal(30, 1, links.type())),
+            List.of(
+                new CoreExpression.Literal(30, 1, links.type()),
+                new CoreCollectionElement.Conditional(
+                    31,
+                    new CoreExpression.Literal(32, true, links.type()),
+                    new CoreExpression.Literal(33, 2, links.type()),
+                    Optional.of(
+                        new CoreCollectionElement.Repeated(
+                            34,
+                            3,
+                            4,
+                            OptionalInt.of(5),
+                            new CoreExpression.Literal(35, 3, links.type()),
+                            new CoreIteration.Interface(links.next(), links.next(), links.next()),
+                            new CoreExpression.Literal(36, 4, links.type()))))),
             intrinsic(),
             runtimeType(links),
             links.type()));
@@ -296,6 +313,7 @@ final class CoreTraversalContractTest {
             Optional.of(values.get(0)),
             List.of(new CoreArgument(values.get(1), 0)),
             Optional.of(runtimeType(links)),
+            List.of(links.type()),
             false,
             links.type()));
     values.add(new CoreExpression.AddressLocal(18, 3, new CoreType.Reference(links.type())));
@@ -365,6 +383,13 @@ final class CoreTraversalContractTest {
         throw new AssertionError(exception);
       }
     }
+  }
+
+  private static Set<Class<?>> leafVariants(Class<?> node) {
+    if (!node.isSealed()) return Set.of(node);
+    Set<Class<?>> result = new HashSet<>();
+    for (Class<?> variant : node.getPermittedSubclasses()) result.addAll(leafVariants(variant));
+    return Set.copyOf(result);
   }
 
   private static Set<Class<?>> intersection(Class<?> node, Set<Class<?>> encountered) {

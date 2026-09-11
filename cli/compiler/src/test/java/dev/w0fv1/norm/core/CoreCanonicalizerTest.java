@@ -105,11 +105,12 @@ final class CoreCanonicalizerTest {
                     "Next",
                     List.of(
                         new CoreField(
+                            CoreVisibility.PUBLIC,
                             "first",
                             0,
                             new CoreType.Parameter(0, CoreNullability.NON_NULL),
                             List.of()),
-                        new CoreField("second", 1, recursive, List.of())))));
+                        new CoreField(CoreVisibility.PUBLIC, "second", 1, recursive, List.of())))));
 
     CoreCanonicalizer.Result result = new CoreCanonicalizer().canonicalize(List.of(declaration));
     CoreDefinition.Enum resolved =

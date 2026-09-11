@@ -3,9 +3,79 @@ package std.concurrent
 
 import std.annotation.Document
 import std.io.Resource
+import std.io.ResourceOwner
+import std.context.currentContext
+import std.core.Unit
+import std.core.Exception
+
+public interface TaskScope {
+  Task<T> start<T>(Function<T()> work)
+}
+
+@Document(description: "Starts work in the current task scope, preserving its scheduling and resource ownership.")
+public Task<T> async<T>(Function<T()> work) {
+  var scope = currentContext<TaskScope>()
+  if scope == null { throw Exception(message: "async requires a task scope") }
+  scope.start<T>(work)
+}
+
+public Task<Unit> async(Function<Void()> work) {
+  async<Unit>(() { work() Unit.Value })
+}
+
+@Document(description: "Starts typed work on a virtual thread and returns its owned task immediately.")
+public Task<T> startTask<T>(Function<T()> work, TaskExecutor? executor = null) {
+  Function<Void(Function<Void()>)>? dispatch = null
+  Function<Void(Function<Void()>)>? unhandled = null
+  if executor != null { dispatch = (Function<Void()> action) { executor.dispatch(action) } }
+  if executor != null {
+    unhandled = (Function<Void()> failure) {
+      try { failure() } catch Exception error { executor.report(error) }
+    }
+  }
+  var owner = currentContext<ResourceOwner>()
+  __taskStart<Task<T>>(work: work, dispatch: dispatch,
+    registered: (Resource task) { owner?.own(task) },
+    released: (Resource task) { owner?.release(task) }, unhandled: unhandled)
+}
+
+@Document(description: "Starts work without a result on a virtual thread.")
+public Task<Unit> startTask(Function<Void()> work, TaskExecutor? executor = null) {
+  startTask<Unit>(work: () { work() Unit.Value }, executor: executor)
+}
+
+public interface TaskExecutor {
+  Void dispatch(Function<Void()> action)
+  Void report(Exception error) { throw error }
+}
 
 @Document(description: "Represents a typed operation whose result may become available later.")
 public class Task<T> implements Resource {
+  public Task<Unit>? termination() {
+    __taskTermination<Task<Unit>?>(task: this, completed: () { Unit.Value })
+  }
+
+  public Task<R> then<R>(R completed(T result)) {
+    __taskContinue<Task<R>>(task: this, work: () { completed(this.await()) })
+  }
+
+  public Task<Unit> then(Void completed(T result)) {
+    this.then<Unit>((T result) { completed(result) Unit.Value })
+  }
+
+  public Task<T> error(T failed(Exception failure)) {
+    Function<T()> work = () {
+      try { return this.await() } catch Exception failure { return failed(failure) }
+    }
+    __taskContinue<Task<T>>(task: this, work: work)
+  }
+
+  public Task<Unit> error(Void failed(Exception failure)) {
+    __taskContinue<Task<Unit>>(task: this, work: () {
+      try { this.await() } catch Exception failure { failed(failure) }
+      Unit.Value
+    })
+  }
   @Document(description: "Waits for completion and returns the task result.")
   public T await() {
     return __jarTaskAwait<T>(task: this)

@@ -1,5 +1,6 @@
 package dev.w0fv1.norm.jvm;
 
+import dev.w0fv1.norm.platform.jdk.EnvironmentProxySelector;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
@@ -68,6 +69,7 @@ public final class JarResolver implements AutoCloseable {
   private static RepositorySystemSession.CloseableSession session(
       SessionBuilderSupplier supplier, Path localRepository) {
     RepositorySystemSession.SessionBuilder builder = supplier.get();
+    builder.setProxySelector(new MavenProxySelector(EnvironmentProxySelector.system()));
     builder.setDependencySelector(
         new AndDependencySelector(
             supplier.getDependencySelector(), NonOptionalDependencySelector.INSTANCE));
@@ -114,7 +116,9 @@ public final class JarResolver implements AutoCloseable {
         new DefaultArtifact(
             coordinate.group(), coordinate.artifact(), "", "jar", coordinate.version());
     CollectRequest collect =
-        new CollectRequest(new Dependency(rootArtifact, JavaScopes.RUNTIME), REPOSITORIES);
+        new CollectRequest(
+            new Dependency(rootArtifact, JavaScopes.RUNTIME),
+            repositorySystem.newResolutionRepositories(jarSession, REPOSITORIES));
     DependencyRequest request =
         new DependencyRequest(collect, DependencyFilterUtils.classpathFilter(JavaScopes.RUNTIME));
     try {

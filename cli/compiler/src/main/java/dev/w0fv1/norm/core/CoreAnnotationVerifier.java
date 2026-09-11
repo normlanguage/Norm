@@ -384,8 +384,8 @@ final class CoreAnnotationVerifier {
                               || occurrence.role() == CoreDefinitionRole.EXTENSION
                               || occurrence.role() == CoreDefinitionRole.METHOD)
                           && targetDefinition instanceof CoreDefinition.Callable
-                      || occurrence.role() == CoreDefinitionRole.INTERFACE_METHOD
-                          && targetDefinition instanceof CoreDefinition.InterfaceMethod;
+                      || occurrence.role() == CoreDefinitionRole.METHOD_SIGNATURE
+                          && targetDefinition instanceof CoreDefinition.MethodSignature;
               default -> false;
             };
         if (!valid) {
@@ -416,7 +416,7 @@ final class CoreAnnotationVerifier {
             && occurrence.role() != CoreDefinitionRole.FUNCTION
             && occurrence.role() != CoreDefinitionRole.EXTENSION
             && occurrence.role() != CoreDefinitionRole.METHOD
-            && occurrence.role() != CoreDefinitionRole.INTERFACE_METHOD) {
+            && occurrence.role() != CoreDefinitionRole.METHOD_SIGNATURE) {
           throw new IllegalArgumentException("annotation parameter target has the wrong role");
         }
         CoreDefinition targetDefinition =
@@ -424,7 +424,7 @@ final class CoreAnnotationVerifier {
         int parameterCount =
             switch (targetDefinition) {
               case CoreDefinition.Callable callable -> callable.parameterTypes().size();
-              case CoreDefinition.InterfaceMethod method -> method.parameterTypes().size();
+              case CoreDefinition.MethodSignature method -> method.parameterTypes().size();
               default ->
                   throw new IllegalArgumentException("annotation parameter target is not callable");
             };

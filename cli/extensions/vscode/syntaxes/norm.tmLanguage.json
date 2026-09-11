@@ -3,6 +3,7 @@
   "name": "Norm",
   "scopeName": "source.norm",
   "patterns": [
+    { "include": "#multilineStrings" },
     { "include": "#strings" },
     { "include": "#codePoints" },
     { "include": "#numbers" },
@@ -18,6 +19,14 @@
     { "include": "#operators" }
   ],
   "repository": {
+    "multilineStrings": {
+      "name": "string.quoted.triple.norm",
+      "begin": "\"\"\"",
+      "end": "\"\"\"",
+      "patterns": [
+        { "name": "constant.character.escape.norm", "match": "\\\\." }
+      ]
+    },
     "strings": {
       "name": "string.quoted.double.norm",
       "begin": "\"",
@@ -156,7 +165,7 @@
     },
     "operators": {
       "name": "keyword.operator.norm",
-      "match": "\\?\\.|\\?\\?|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?&]"
+      "match": "\\?\\.|\\?\\?|!!|==|!=|<=|>=|&&|\\|\\||[+\\-*/%<>=!?&]"
     }
   }
 }

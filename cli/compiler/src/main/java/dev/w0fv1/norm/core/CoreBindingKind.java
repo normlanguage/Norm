@@ -9,5 +9,5 @@ public enum CoreBindingKind {
   ANNOTATION,
   ENUM,
   INTERFACE,
-  INTERFACE_METHOD
+  METHOD_SIGNATURE
 }

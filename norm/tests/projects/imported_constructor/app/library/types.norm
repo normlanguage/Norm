@@ -1,0 +1,17 @@
+package app.library
+
+interface Service { String name() }
+
+class Implementation implements Service {
+  String name() { return "ok" }
+}
+
+class Holder<T> {
+  Service service
+  T value
+
+  Holder(Service service, T value) {
+    this.service = service
+    this.value = value
+  }
+}

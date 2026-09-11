@@ -23,7 +23,143 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class LanguageServiceTest {
+  @Test
+  void completesBlankPropertyInsideCompactConditional() {
+    String text = "String title(String value) { if value.isBlank \"empty\" else value.trim() }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:blank"), text));
+    var completions = service.complete(analysis, text.indexOf("value.isBlank") + "value.".length());
+    assertTrue(
+        completions.stream().anyMatch(item -> item.label().equals("isBlank")),
+        completions.toString());
+  }
+
+  @Test
+  void completesBlankPropertyOnAnImplicitCallbackParameter() {
+    String text =
+        """
+        value Input {
+          Function<Void(String)> submit
+          Input(Void submit(String title)) { this.submit = submit }
+        }
+        class Page {
+          private String received = ""
+          Input build() {
+            Input { received = if title.isBlank "empty" else title.trim() }
+          }
+        }
+        """;
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:callback-blank"), text));
+    var completions = service.complete(analysis, text.indexOf("title.isBlank") + "title.".length());
+    assertTrue(
+        completions.stream().anyMatch(item -> item.label().equals("isBlank")),
+        completions.toString());
+  }
+
+  @Test
+  void resolvesGenericMethodDeclarationsForAuthoring() {
+    String text =
+        "class Repository<T> { T? find(Long id) } Void inspect(Repository<String> repository) { var"
+            + " title = repository.find(1) printLine(title) }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:repository-declaration"), text));
+    assertEquals(
+        "`String? title`",
+        service.hover(analysis, text.lastIndexOf("title)")).orElseThrow().markdown());
+    assertTrue(
+        service
+            .complete(analysis, text.indexOf("repository.find") + "repository.".length())
+            .stream()
+            .anyMatch(item -> item.label().equals("find")));
+  }
+
   private final LanguageService service = new LanguageService();
+
+  @Test
+  void preservesNonNullResultsAndExceptionCompletionsForThrowExpressions() {
+    String text =
+        "import std.core.Exception\n"
+            + "Long present(Long? id, Exception failure, String title) { "
+            + "var result = id ?? throw failure result }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:coalescing-throw"), text));
+    assertEquals(
+        "`Long result`",
+        service.hover(analysis, text.lastIndexOf("result")).orElseThrow().markdown());
+    List<String> labels =
+        service.complete(analysis, text.indexOf("throw failure") + 6).stream()
+            .map(Completion::label)
+            .toList();
+    assertTrue(labels.contains("failure"), () -> labels.toString());
+    assertTrue(labels.indexOf("failure") < labels.indexOf("title"), () -> labels.toString());
+  }
+
+  @Test
+  void providesTypesAndCompletionsForContextualCallbackParameters() {
+    String text =
+        "Void submit(Void completed(String title)) {} Void main() { submit { printLine(title) } }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:callback-context"), text));
+    assertEquals(
+        "`String title`",
+        service.hover(analysis, text.lastIndexOf("title")).orElseThrow().markdown());
+    assertTrue(
+        service.complete(analysis, text.lastIndexOf("title") + 3).stream()
+            .anyMatch(item -> item.label().equals("title")));
+    assertTrue(service.prepareRename(analysis, text.lastIndexOf("title")).isEmpty());
+  }
+
+  @Test
+  void infersNonNullableLocalsAfterPostfixAssertion() {
+    String text =
+        "class Todo { Long? id = null } Void main() { var todo = Todo() var id = todo.id!!"
+            + " printLine(id) }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:non-null-assertion"), text));
+    assertEquals(
+        "`Long id`", service.hover(analysis, text.lastIndexOf("id)")).orElseThrow().markdown());
+  }
+
+  @Test
+  void specializesGenericAndFunctionValuedPropertyCompletions() {
+    String text =
+        "class Box<T> { private T stored Box(T initial) { stored = initial } T value { get { return"
+            + " stored } } Function<T()> reader { get { return () { stored } } } } Void main() {"
+            + " var box = Box<String>(\"x\") box. }";
+    var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:generic-property"), text));
+    var completions = service.complete(analysis, text.lastIndexOf("box.") + 4);
+    var value =
+        completions.stream().filter(item -> item.label().equals("value")).findFirst().orElseThrow();
+    var reader =
+        completions.stream()
+            .filter(item -> item.label().equals("reader"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(CompletionKind.PROPERTY, value.kind());
+    assertEquals("String value", value.detail());
+    assertEquals(CompletionKind.PROPERTY, reader.kind());
+    assertEquals("reader", reader.insertText());
+    assertFalse(reader.snippet());
+  }
+
+  @Test
+  void presentsComputedPropertiesWithoutAccessorCallSyntax() {
+    String text =
+        "class Box { Integer value { get { return 1 } set(next) {} } } Void main() { var box ="
+            + " Box() box.value = 2 printLine(box.value) box. }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:property-presentation"), text));
+    var completions =
+        service.complete(analysis, text.lastIndexOf("box.") + 4).stream()
+            .filter(completion -> completion.label().equals("value"))
+            .toList();
+    assertEquals(1, completions.size());
+    assertEquals(CompletionKind.PROPERTY, completions.getFirst().kind());
+    assertEquals("value", completions.getFirst().insertText());
+    assertEquals(
+        "`Integer value`",
+        service.hover(analysis, text.indexOf("value = 2")).orElseThrow().markdown());
+    assertEquals(
+        "`Integer value`",
+        service.hover(analysis, text.lastIndexOf("value)")).orElseThrow().markdown());
+  }
 
   @Test
   void formatsValidAuthoringSource() {
@@ -38,7 +174,8 @@ final class LanguageServiceTest {
     SourceFile source =
         SourceFile.of(
             DocumentId.of("untitled:default-format"),
-            "value Server{String host=\"localhost\" Integer port=8080} String address(String host=\"localhost\"){return host}");
+            "value Server{String host=\"localhost\" Integer port=8080} String address(String"
+                + " host=\"localhost\"){return host}");
 
     assertEquals(
         "value Server {\n"
@@ -405,7 +542,8 @@ final class LanguageServiceTest {
     SourceFile entry =
         SourceFile.of(
             DocumentId.of("file:///src/app/Main.norm"),
-            "package app import model.User Void main() { User user = User() printLine(user.name()) }");
+            "package app import model.User Void main() { User user = User() printLine(user.name())"
+                + " }");
     var snapshot =
         service.snapshot(
             new CompilationRequest(
@@ -803,8 +941,8 @@ final class LanguageServiceTest {
   @Test
   void completesBoundFunctionValuesWithoutCallParentheses() {
     String text =
-        "class Counter { public Integer add(Integer amount) { return amount } } "
-            + "Void main() { Counter counter = Counter() Function<Integer(Integer)> add = counter. }";
+        "class Counter { public Integer add(Integer amount) { return amount } } Void main() {"
+            + " Counter counter = Counter() Function<Integer(Integer)> add = counter. }";
     var analysis = service.analyze(SourceFile.of(DocumentId.of("untitled:method-reference"), text));
     int offset = text.indexOf("counter.") + "counter.".length();
 
@@ -887,6 +1025,40 @@ final class LanguageServiceTest {
             .map(Completion::label)
             .toList();
 
+    assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+  }
+
+  @Test
+  void ranksImplicitReturnsAndIfBranchesByExpectedType() {
+    for (String body :
+        List.of(
+            "label",
+            "if true { label } else { label }",
+            "var chosen = if true { label } else { label }; label")) {
+      String text = "String choose() { String label = \"ready\" Integer count = 1 " + body + " }";
+      var analysis =
+          service.analyze(SourceFile.of(DocumentId.of("untitled:implicit-return"), text));
+      List<String> labels =
+          service.complete(analysis, text.lastIndexOf("label")).stream()
+              .map(Completion::label)
+              .toList();
+      assertTrue(labels.containsAll(List.of("label", "count")));
+      assertTrue(labels.indexOf("label") < labels.indexOf("count"));
+    }
+  }
+
+  @Test
+  void ranksCollectionElementsByTheirExpectedElementType() {
+    String text =
+        "Void main() { String label = \"ready\" Integer count = 1 List<String> values = [if (true)"
+            + " label] }";
+    var analysis =
+        service.analyze(SourceFile.of(DocumentId.of("untitled:collection-elements"), text));
+    List<String> labels =
+        service.complete(analysis, text.lastIndexOf("label")).stream()
+            .map(Completion::label)
+            .toList();
+    assertTrue(labels.containsAll(List.of("label", "count")));
     assertTrue(labels.indexOf("label") < labels.indexOf("count"));
   }
 
@@ -1269,7 +1441,8 @@ final class LanguageServiceTest {
     SourceFile library =
         SourceFile.of(
             DocumentId.of("file:///src/sample/math/Numbers.norm"),
-            "package sample.math\n\npublic Integer twice(Integer value) { Integer local = value return local }\n");
+            "package sample.math\n\n"
+                + "public Integer twice(Integer value) { Integer local = value return local }\n");
     var snapshot =
         service.snapshot(
             new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));

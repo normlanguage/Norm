@@ -2,11 +2,8 @@ package dev.w0fv1.norm.truffle;
 
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.truffle.RuntimeValues.Closure;
-import dev.w0fv1.norm.truffle.RuntimeValues.DispatchTarget;
 import dev.w0fv1.norm.truffle.RuntimeValues.ObjectValue;
-import java.util.List;
 import java.util.Objects;
 
 final class RuntimeInvocation {
@@ -30,19 +27,6 @@ final class RuntimeInvocation {
       }
       receiver = object;
       callableArguments = java.util.Arrays.copyOfRange(arguments, 1, arguments.length);
-      if (closure.virtualSlot() != null) {
-        DispatchTarget targetValue = object.objectInfo.dispatch().get(closure.virtualSlot());
-        if (!(targetValue instanceof DispatchTarget.Callable dispatch)) {
-          throw new IllegalStateException("virtual method dispatch target is absent");
-        }
-        target = dispatch.target();
-        List<CoreType> concreteArguments =
-            object.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
-        receiverTypeArguments =
-            dispatch.receiverTypeArguments().stream()
-                .map(type -> type.substitute(concreteArguments::get))
-                .toArray();
-      }
     }
     int receiverCount = receiver == null ? 0 : 1;
     int ownerTypeArgumentCount = receiverTypeArguments.length;

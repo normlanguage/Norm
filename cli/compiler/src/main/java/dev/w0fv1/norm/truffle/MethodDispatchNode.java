@@ -37,15 +37,28 @@ final class MethodDispatchNode extends Node {
     }
     if (target instanceof RuntimeValues.DispatchTarget.HostMethod host) {
       Object hostReceiver =
-          receiver instanceof RuntimeValues.OpaqueValue opaque ? opaque.value : receiver;
-      return invokeHost(hostReceiver, host.definition(), arguments);
+          switch (receiver) {
+            case RuntimeValues.OpaqueValue opaque -> opaque.value;
+            case RuntimeValues.ObjectValue object -> {
+              if (object.hostValue == null)
+                throw new IllegalStateException("managed method receiver has no host instance");
+              yield object.hostValue;
+            }
+            default -> receiver;
+          };
+      return invokeHost(
+          hostReceiver,
+          host.definition(),
+          arguments,
+          RuntimeValues.runtimeType(receiver),
+          methodTypeArguments);
     }
     RuntimeValues.DispatchTarget.Callable callableTarget =
         (RuntimeValues.DispatchTarget.Callable) target;
     if (receiver instanceof RuntimeValues.ObjectValue object
         && object.dispatchToHost
         && object.hostValue != null) {
-      return invokeHost(object.hostValue, slot, arguments);
+      return invokeHost(object.hostValue, slot, arguments, object.type, methodTypeArguments);
     }
     CoreType receiverType = RuntimeValues.runtimeType(receiver);
     Object[] ownerTypeArguments = ownerTypeArguments(callableTarget, receiverType);
@@ -90,8 +103,14 @@ final class MethodDispatchNode extends Node {
   }
 
   @TruffleBoundary
-  private static Object invokeHost(Object receiver, DefinitionId definition, Object[] arguments) {
-    return JavaApplicationBridge.invokeHost(receiver, definition.toString(), arguments);
+  private static Object invokeHost(
+      Object receiver,
+      DefinitionId definition,
+      Object[] arguments,
+      CoreType receiverType,
+      Object[] methodTypeArguments) {
+    return JavaApplicationBridge.invokeHost(
+        receiver, definition.toString(), arguments, receiverType, methodTypeArguments);
   }
 
   @TruffleBoundary

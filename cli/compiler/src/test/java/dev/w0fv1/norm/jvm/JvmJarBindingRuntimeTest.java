@@ -9,6 +9,7 @@ import dev.w0fv1.norm.execution.JarBindingDuration;
 import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
+import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -32,6 +33,151 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 final class JvmJarBindingRuntimeTest {
+  @Test
+  void closesUnreleasedResourceStreamsAndRejectsReopening() throws Exception {
+    Path jar = temporaryDirectory.resolve("stream-resource.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.putNextEntry(new JarEntry("stream.txt"));
+      output.write("stream-content".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+    }
+    java.net.URL resource;
+    java.io.InputStream stream;
+    try (var runtime = new JvmJarBindingRuntime(List.of(), List.of(jar))) {
+      resource = runtime.applicationClassLoader().getResource("stream.txt");
+      stream = resource.openStream();
+      assertEquals('s', stream.read());
+    }
+    assertThrows(java.io.IOException.class, stream::read);
+    assertThrows(java.io.IOException.class, resource::openStream);
+    Files.delete(jar);
+  }
+
+  @Test
+  void retainsSharedJarResourcesUntilTheLastRuntimeCloses() throws Exception {
+    Path jar = temporaryDirectory.resolve("shared-resource.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.putNextEntry(new JarEntry("shared.txt"));
+      output.write("shared-content".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+    }
+    var first = new JvmJarBindingRuntime(List.of(), List.of(jar));
+    try (var second = new JvmJarBindingRuntime(List.of(), List.of(jar))) {
+      first.applicationClassLoader().getResource("shared.txt");
+      var resource = second.applicationClassLoader().getResource("shared.txt");
+      var connection = java.net.URI.create(resource.toExternalForm()).toURL().openConnection();
+      try (var stream = connection.getInputStream()) {
+        first.close();
+        assertEquals(
+            "shared-content",
+            new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+      }
+      try (var stream = resource.openStream()) {
+        assertEquals(
+            "shared-content",
+            new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+      }
+    } finally {
+      first.close();
+    }
+    Files.delete(jar);
+  }
+
+  @Test
+  void releasesJarResourcesAfterUrlStringRoundTrip() throws Exception {
+    Path jar = temporaryDirectory.resolve("round-trip.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.putNextEntry(new JarEntry("images/icon.txt"));
+      output.write("image-content".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+    }
+    java.net.URLConnection connection = null;
+    try {
+      try (var runtime = new JvmJarBindingRuntime(List.of(), List.of(jar))) {
+        var resource = runtime.applicationClassLoader().getResource("images/icon.txt");
+        connection = java.net.URI.create(resource.toExternalForm()).toURL().openConnection();
+        try (var stream = connection.getInputStream()) {
+          assertEquals(
+              "image-content",
+              new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
+      }
+      Files.delete(jar);
+    } finally {
+      if (connection instanceof java.net.JarURLConnection archive) archive.getJarFile().close();
+    }
+  }
+
+  @Test
+  void ownsApplicationResourceProvidersForTheRuntimeLifetime() throws Exception {
+    String key = "norm.test.resource." + java.util.UUID.randomUUID();
+    var writer = new ClassWriter(0);
+    writer.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC,
+        "sample/RuntimeResource",
+        null,
+        "java/lang/Object",
+        new String[] {"dev/w0fv1/norm/bridge/JavaApplicationResource"});
+    for (String method : List.of("<init>", "close")) {
+      var code = writer.visitMethod(Opcodes.ACC_PUBLIC, method, "()V", null, null);
+      code.visitCode();
+      if (method.equals("<init>")) {
+        code.visitVarInsn(Opcodes.ALOAD, 0);
+        code.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+      }
+      code.visitLdcInsn(key);
+      code.visitLdcInsn(method.equals("<init>") ? "opened" : "closed");
+      code.visitMethodInsn(
+          Opcodes.INVOKESTATIC,
+          "java/lang/System",
+          "setProperty",
+          "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+          false);
+      code.visitInsn(Opcodes.POP);
+      code.visitInsn(Opcodes.RETURN);
+      code.visitMaxs(2, 1);
+      code.visitEnd();
+    }
+    writer.visitEnd();
+    Path jar = temporaryDirectory.resolve("resource.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.putNextEntry(new JarEntry("sample/RuntimeResource.class"));
+      output.write(writer.toByteArray());
+      output.closeEntry();
+      output.putNextEntry(
+          new JarEntry("META-INF/services/dev.w0fv1.norm.bridge.JavaApplicationResource"));
+      output.write("sample.RuntimeResource\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+    }
+    try {
+      try (var runtime = new JvmJarBindingRuntime(List.of(), List.of(jar))) {
+        assertEquals("opened", System.getProperty(key));
+      }
+      assertEquals("closed", System.getProperty(key));
+    } finally {
+      System.clearProperty(key);
+    }
+  }
+
+  @Test
+  void readsApplicationDirectoryResources() throws Exception {
+    Files.writeString(temporaryDirectory.resolve("application-resource.txt"), "resource-ok");
+    try (var runtime = new JvmJarBindingRuntime(List.of(), List.of(temporaryDirectory))) {
+      var loader = runtime.applicationClassLoader();
+      var resource = loader.getResource("application-resource.txt");
+      assertEquals("file", resource.getProtocol());
+      try (var stream = resource.openStream()) {
+        assertEquals(
+            "resource-ok",
+            new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+      }
+      assertEquals(
+          List.of(resource),
+          java.util.Collections.list(loader.getResources("application-resource.txt")));
+    }
+  }
+
   @Test
   void reusesPreparedConversionsAcrossIndependentRuntimes() {
     var callable =
@@ -186,7 +332,7 @@ final class JvmJarBindingRuntimeTest {
         new MavenJarTarget(
             new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
             Optional.empty());
-    try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("maven-cache"))) {
+    try (JarResolver resolver = resolver("maven-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
       GeneratedJarBinding generated =
@@ -324,7 +470,7 @@ final class JvmJarBindingRuntimeTest {
         new MavenJarTarget(
             new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
             Optional.empty());
-    try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("text-cache"))) {
+    try (JarResolver resolver = resolver("text-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
       GeneratedJarBinding generated =
@@ -350,7 +496,7 @@ final class JvmJarBindingRuntimeTest {
         new MavenJarTarget(
             new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
             Optional.empty());
-    try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("field-cache"))) {
+    try (JarResolver resolver = resolver("field-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
       GeneratedJarBinding generated =
@@ -529,7 +675,7 @@ final class JvmJarBindingRuntimeTest {
         new MavenJarTarget(
             new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
             Optional.empty());
-    try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("object-cache"))) {
+    try (JarResolver resolver = resolver("object-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
       GeneratedJarBinding generated =
@@ -737,8 +883,8 @@ final class JvmJarBindingRuntimeTest {
         .orElseThrow();
   }
 
-  private JarResolver resolver(String directory) {
-    return new JarResolver(temporaryDirectory.resolve(directory));
+  private JarResolver resolver(String directory) throws java.io.IOException {
+    return new JarResolver(MavenTestRepository.prepare(temporaryDirectory.resolve(directory)));
   }
 
   private static ResolvedJarGraph graph(Path jar) throws Exception {

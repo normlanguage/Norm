@@ -1,0 +1,36 @@
+import std.testing.expectedOutputLines
+
+class Box<T> {
+  T item
+}
+
+enum Choice<T> {
+  Selected(T item)
+}
+
+Boolean matches<T>(Any source) {
+  return switch source {
+    case Box<T> box { break true }
+    case _ { break false }
+  }
+}
+
+Integer selected(Any source) {
+  return switch source {
+    case Choice<Integer> choice {
+      break switch choice {
+        case Selected(Integer item) { break item }
+      }
+    }
+    case _ { break 0 }
+  }
+}
+
+Void main() {
+  Any box = Box<Integer>(item: 7)
+  printLine(matches<Integer>(box))
+  printLine(matches<String>(box))
+  printLine(selected(Choice<Integer>.Selected(9)))
+  printLine(selected("other"))
+  expectedOutputLines(["true", "false", "9", "0"])
+}

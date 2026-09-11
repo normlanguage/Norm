@@ -36,9 +36,15 @@ public final class JavaApplicationBridge {
     return handler(owner).invoke(callable, receiver, arguments.clone());
   }
 
-  public static Object invokeHost(Object receiver, String callable, Object[] arguments) {
+  public static Object invokeHost(
+      Object receiver,
+      String callable,
+      Object[] arguments,
+      Object receiverType,
+      Object[] methodTypes) {
     Objects.requireNonNull(receiver, "receiver");
-    return handler(receiver.getClass()).invokeHost(callable, receiver, arguments.clone());
+    return handler(receiver.getClass())
+        .invokeHost(callable, receiver, arguments.clone(), receiverType, methodTypes.clone());
   }
 
   public static Object toJava(ClassLoader loader, Object value) {
@@ -77,7 +83,12 @@ public final class JavaApplicationBridge {
 
     Object invoke(String callable, Object receiver, Object[] arguments);
 
-    Object invokeHost(String callable, Object receiver, Object[] arguments);
+    Object invokeHost(
+        String callable,
+        Object receiver,
+        Object[] arguments,
+        Object receiverType,
+        Object[] methodTypes);
 
     Object toJava(Object value);
 

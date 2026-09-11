@@ -13,8 +13,14 @@ public interface PackageTarget extends AnnotationTarget {
 public interface TypeTarget extends AnnotationTarget {
 }
 
+public interface ManagedImplementation extends TypeTarget {
+}
+
 @Document(description: "Allows an annotation to target a stored field declaration.")
 public interface FieldTarget extends AnnotationTarget {
+}
+
+public interface ManagedField extends FieldTarget {
 }
 
 @Document(description: "Intercepts writes to fields whose declared value type is T.")
@@ -130,3 +136,5 @@ public annotation Document implements PackageTarget, TypeTarget, FieldTarget, Co
   @Document(description: "Related field declarations in presentation order, or null when none are specified.")
   List<Field<?, ?>>? fields
 }
+
+public interface IdentityField extends FieldTarget {}

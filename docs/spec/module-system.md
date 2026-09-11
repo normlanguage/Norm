@@ -40,6 +40,8 @@ std/collections/sequences.norm
 
 ## Source set
 
+单独加载、分析或测试 `dependencies` 中的模块时，项目根仍是包含该依赖目录的工作区根；本地依赖与归档依赖的虚拟源码使用同一根目录。
+
 存在根模块配置时，source set 包含根模块及其依赖图中的业务 `.norm` 源码，排除所有配置文件和未声明的嵌套模块。正式模块中每个业务源码的相对目录必须与其 package 一一对应，并位于所属模块名的 package 前缀下；无 package 的单文件本地应用直接使用默认命名空间。带 package 声明且位于 package 目录内的同名文件是普通业务源码。
 
 Language Server 合并未保存内容后执行同一项目加载生命周期，因此编辑器、CLI 和测试工具读取一致的模块描述和 source set。没有相邻 `module.norm` 但当前文件声明 `Module module()` 时，该文件就是模块根；没有模块声明时，入口按独立单文件编译单元处理。

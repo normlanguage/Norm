@@ -55,7 +55,7 @@ final class CoreAnnotationProtocolSupport {
       String contextIdentity,
       Protocol protocol,
       DefinitionId id) {
-    CoreDefinition.InterfaceMethod method = method(program, name, id);
+    CoreDefinition.MethodSignature method = method(program, name, id);
     CoreType value = new CoreType.Parameter(0, CoreNullability.NON_NULL);
     if (!receiver(program, protocol, id, method, List.of(value))
         || !method.typeParameters().isEmpty()
@@ -73,7 +73,7 @@ final class CoreAnnotationProtocolSupport {
       String contextIdentity,
       Protocol protocol,
       DefinitionId id) {
-    CoreDefinition.InterfaceMethod method = method(program, name, id);
+    CoreDefinition.MethodSignature method = method(program, name, id);
     CoreType value = new CoreType.Parameter(0, CoreNullability.NON_NULL);
     if (!receiver(program, protocol, id, method, List.of(value))
         || !method.typeParameters().isEmpty()
@@ -110,7 +110,7 @@ final class CoreAnnotationProtocolSupport {
     Map<String, DefinitionId> methods = new LinkedHashMap<>();
     for (CoreDefinitionLink link : protocol.declaration().declaredMethods()) {
       DefinitionId methodId = resolve(program, name, protocol.id(), link);
-      CoreDefinition.InterfaceMethod method = method(program, name, methodId);
+      CoreDefinition.MethodSignature method = method(program, name, methodId);
       if (methods.putIfAbsent(method.name(), methodId) != null) {
         throw new IllegalArgumentException(name + " lifecycle methods must be unique");
       }
@@ -126,8 +126,8 @@ final class CoreAnnotationProtocolSupport {
     return id;
   }
 
-  static CoreDefinition.InterfaceMethod method(CoreProgram program, String name, DefinitionId id) {
-    if (!(program.definition(id).orElseThrow() instanceof CoreDefinition.InterfaceMethod method)) {
+  static CoreDefinition.MethodSignature method(CoreProgram program, String name, DefinitionId id) {
+    if (!(program.definition(id).orElseThrow() instanceof CoreDefinition.MethodSignature method)) {
       throw new IllegalArgumentException(name + " member must be an interface method");
     }
     return method;
@@ -137,9 +137,9 @@ final class CoreAnnotationProtocolSupport {
       CoreProgram program,
       Protocol protocol,
       DefinitionId methodId,
-      CoreDefinition.InterfaceMethod method,
+      CoreDefinition.MethodSignature method,
       List<CoreType> arguments) {
-    CoreType type = CoreTypes.absolute(method.receiverInterfaceType(), methodId, program);
+    CoreType type = CoreTypes.absolute(method.receiverType(), methodId, program);
     return type instanceof CoreType.Declared declared
         && declared.constructor() instanceof CoreTypeConstructor.User user
         && user.definition() instanceof DefinitionReference reference

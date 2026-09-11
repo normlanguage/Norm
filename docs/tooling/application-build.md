@@ -55,6 +55,8 @@ norm build --jvm web.norm
 
 `--jvm` 是开发与兼容目标，不改变默认发布语义。Native Image 的第一次完整框架构建可能需要数分钟；这是构建期成本，生成程序的启动不再承担 JVM、依赖解析或解包成本。
 
+显式 Java 模块中的 Native Image Feature 通过 [JavaModulePath](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaModulePath.java) 推导构建期模块读取关系。
+
 Native Image 还需要操作系统 C 工具链：Windows 使用带 Windows SDK 的 Visual Studio 2022 C++ Build Tools，Linux 使用 GCC 和系统开发库，macOS 使用 Xcode Command Line Tools。Norm 管理 GraalVM，不隐式修改这些系统级开发工具。
 
 支持的平台与校验规则见[发布流程](/design/release-process)。
@@ -63,7 +65,7 @@ Native Image 还需要操作系统 C 工具链：Windows 使用带 Windows SDK �
 
 原生构建自动裁剪不可达的 Core 定义和 Java 调用，运行时链接与反射配置使用同一份保留集合。不需要用户编写裁剪白名单。框架生成类型作为外部入口保留，注解随所属声明保留；动态 Java 调用名称无法静态确定时，保留全部绑定调用。Java 类型映射、框架资源和服务发现配置目前保守保留。实现与测试入口分别为 `CoreReachability`、`CoreReachabilityTest`。
 
-Core 依赖分类和声明/方法体遍历由 `CoreWalker`、`CoreDependency`、`CoreTree` 统一提供；直接调用、虚调用与接口调用分别记录。内置操作遍历覆盖表达式、集合物化、索引读写、迭代和接口实现；声明中的内建实现不等同于已执行。边界验证见 `CoreDependencyTest`。
+Core 依赖分类和声明/方法体遍历由 `CoreWalker`、`CoreDependency`、`CoreTree` 统一提供；直接调用、虚调用与接口调用分别记录。内置操作遍历覆盖表达式、集合物化、索引读写、迭代和接口实现；声明中的内建实现不等同于已执行。宿主调用所需的运行时物化类型由 `BoundIntrinsic.runtimeDependencies` 进入 Core 的同一依赖图，应用无需额外引用异常类型来防止裁剪。边界验证见 `CoreDependencyTest`、`CoreReachabilityTest` 和 `CoreTraversalContractTest`。
 
 Core 制品保持完整定义组；`CoreExecutionPlan` 在其上选择 callable 成员与派发槽，供 Java 调用筛选和 Lowerer 共同使用，并随 Native 构建归档传入 Hosted 准备阶段。未选择的方法不生成执行节点，未请求的派发槽不进入运行表，声明签名仍可保留。普通引用类型的构造器按执行需求选择，运行时物化所需的值类型、注解与异常构造器保守保留；构造器反射枚举保留完整构造集合。类型结构和已请求槽的全部可能实现仍保留，尚不按接收者实例化进一步收紧。反射方法枚举保守激活完整派发集合，注解生命周期使用既有 Core 协议。节点与运行表选择、外部入口及缓存隔离见 `ExecutionSelectionTest`，动态 Java 调用边界见 `CoreReachabilityTest`，归档一致性见 `NativeApplicationArchiveTest`。
 
@@ -140,4 +142,4 @@ Native size 的基线入口为 `native-size-gate.mjs`，策略与持久化分别
 
 这些 JSON 是生成的分析产物，不是项目配置，也不参与程序运行。报告不会自动清理，可按需归档或删除。分析时应核对 EXE 哈希，并保持平台、工具链和优化参数一致；磁盘文件大小与链接前镜像大小并不等价，JAR 文件大小也不能当作它在 EXE 中的贡献。原始指标定义见 [Native Image 构建输出](https://www.graalvm.org/latest/reference-manual/native-image/overview/BuildOutput/)。
 
-应用编译产物由调用方关闭，JAR 与资源捕获、方法索引及运行资源边界统一见[编译器架构](/spec/compiler-design#应用与制品边界)。实现入口为 [`ApplicationCompiler`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationCompiler.java) 和 [`ApplicationBundleWriter`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/project/ApplicationBundleWriter.java)。
+应用编译产物由调用方关闭，JAR 与资源捕获、方法索引及运行资源边界统一见[编译器架构](/spec/compiler-design#应用与制品边界)。实现入口为 [`ApplicationCompiler`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationCompiler.java) 和 [`ApplicationBundleWriter`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/ApplicationBundleWriter.java)。

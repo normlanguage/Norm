@@ -10,6 +10,92 @@ import org.junit.jupiter.api.Test;
 
 final class RenamePreviewTest {
   @Test
+  void renamesInheritedAccessorFamiliesAcrossIncrementalFiles() {
+    var base =
+        SourceFile.of(
+            DocumentId.of("untitled:property-base"),
+            "class Base { Integer value { get { return 1 } set(next) {} } }");
+    String body =
+        "class Child extends Base { Child() { super() } Integer value { get { return 2 } set(next)"
+            + " {} } Void change() { value = value + 1 } } Void main() { var child = Child()"
+            + " child.value = 4 printLine(child.value) }";
+    try (var language = new LanguageService()) {
+      for (String prefix : List.of("", "\n\n")) {
+        var child = SourceFile.of(DocumentId.of("untitled:property-child"), prefix + body);
+        var request = new CompilationRequest(child.id(), List.of(base, child));
+        var snapshot = language.snapshot(request);
+        assertTrue(snapshot.diagnostics().isEmpty(), snapshot.diagnostics().toString());
+        var edit =
+            language
+                .rename(
+                    snapshot.analysis(child.id()),
+                    prefix.length() + body.indexOf("value = 4"),
+                    "count")
+                .orElseThrow();
+        assertEquals(6, edit.locations().size());
+        for (var location : edit.locations()) {
+          String source = location.document().equals(base.id()) ? base.text() : child.text();
+          assertEquals("value", source.substring(location.startOffset(), location.endOffset()));
+        }
+        assertTrue(
+            language
+                .prepareRename(
+                    snapshot.analysis(child.id()), prefix.length() + body.indexOf("set(next)"))
+                .isEmpty());
+        var selected =
+            language.query(snapshot).search("value", 0, 10).items().stream()
+                .filter(
+                    item -> item.symbol().declaration().orElseThrow().document().equals(base.id()))
+                .filter(
+                    item ->
+                        item.symbol().accessor() == dev.w0fv1.norm.semantic.Symbol.Accessor.GETTER)
+                .findFirst()
+                .orElseThrow();
+        var preview =
+            language.previewRename(
+                request, selected.symbol().id(), selected.revision().orElseThrow(), "count");
+        assertTrue(preview.after().isEmpty(), preview.after().toString());
+      }
+    }
+  }
+
+  @Test
+  void renamesPropertyReadsAndWritesWithoutChangingAccessorKeywords() {
+    String text =
+        "class Box { private Integer stored = 1 Integer value { get { return stored } set(next) {"
+            + " stored = next } } Void change() { value = value + 1 } } Void main() { var box ="
+            + " Box() box.value = 4 printLine(box.value) }";
+    var source = SourceFile.of(DocumentId.of("untitled:property-rename"), text);
+    try (var language = new LanguageService()) {
+      var request = CompilationRequest.single(source);
+      var snapshot = language.snapshot(request);
+      assertTrue(snapshot.diagnostics().isEmpty(), snapshot.diagnostics().toString());
+      var edit =
+          language.rename(snapshot.analysis(), text.indexOf("value {"), "count").orElseThrow();
+      assertEquals(5, edit.locations().size());
+      assertTrue(
+          edit.locations().stream()
+              .allMatch(
+                  location ->
+                      text.substring(location.startOffset(), location.endOffset())
+                          .equals("value")));
+      assertTrue(language.prepareRename(snapshot.analysis(), text.indexOf("set(next)")).isEmpty());
+      var selected =
+          language.query(snapshot).search("value", 0, 10).items().stream()
+              .filter(
+                  item ->
+                      item.symbol().declaration().orElseThrow().startOffset()
+                          == text.indexOf("value {"))
+              .findFirst()
+              .orElseThrow();
+      var preview =
+          language.previewRename(
+              request, selected.symbol().id(), selected.revision().orElseThrow(), "count");
+      assertTrue(preview.after().isEmpty(), preview.after().toString());
+    }
+  }
+
+  @Test
   void namedArgumentReferencesSurviveIncrementalRebasingAcrossFiles() {
     try (var language = new LanguageService()) {
       for (String prefix : List.of("", "\n\n")) {

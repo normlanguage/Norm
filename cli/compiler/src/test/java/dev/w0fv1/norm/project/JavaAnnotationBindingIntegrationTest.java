@@ -49,7 +49,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "protocols", "tags"]),
                 jarType(name: "Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
-                jarType(name: "GeneratedInvoker", members: ["contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "invoke", "managed", "mutate", "read", "write"])
+                jarType(name: "GeneratedInvoker", members: ["callbacks", "contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "invoke", "managed", "mutate", "proxy", "read", "write"])
               ]
             )
           )
@@ -63,12 +63,59 @@ final class JavaAnnotationBindingIntegrationTest {
         package sample.binding
 
         import std.core.Exception
+        import std.io.Resource
+
+        interface DefaultContract {
+          Void init() {}
+          Void dispose() {}
+          String prefix()
+          String greet(String name) { this.prefix() + name }
+        }
+
+        class DefaultController implements DefaultContract {
+          String prefix() { "default:" }
+        }
+
+        interface DerivedContract extends DefaultContract {}
+
+        class AlternateController implements DerivedContract {
+          String prefix() { "alternate:" }
+        }
+
+        interface LocalResource extends Resource {}
+
+        class ResourceController implements LocalResource {
+          Void close() {}
+        }
+
+        class Callbacks {
+          List<List<String?>> echoLists(List<List<String?>> items) {
+            require(condition: items[0][0] == null, message: "nullable list item was lost")
+            items
+          }
+          Function<Void()> bind(Function<Void()> action) { action }
+          Function<Void(String)> bind(Function<Void(String)> action) { action }
+          Function<String(String)> transform() { (String text) { "callback:" + text } }
+          String apply(Function<String(String)> transform) { transform("Norm") }
+          String catchFailure(Function<String(String)> transform) {
+            try { return transform("Norm") } catch Exception failure { return failure.message }
+          }
+          Function<Integer(Integer, Integer)> sum() { (Integer first, Integer second) { first + second } }
+          Function<Void()> fail() { () { throw Exception(message: "guest-failure") } }
+          Void released(Function<Void(Resource)> callback) {}
+        }
 
         @Endpoint(path: "/bbs", protocol: Endpoint_Protocol.HTTP)
         class Controller {
+          private String greeting = "Hello, "
+          private Integer greetings = 0
+          String suffix = ""
+
           @Endpoint(path: "/greet")
           String greet(String name) {
-            return "Hello, " + name
+            greetings = greetings + 1
+            require(condition: greetings > 0, message: "private state must remain writable after Java attachment")
+            return greeting + name + suffix
           }
 
           @Endpoint(path: "/response")
@@ -179,6 +226,16 @@ final class JavaAnnotationBindingIntegrationTest {
         }
 
         Void main() {
+          require(condition: generatedInvokerCallbacks() == "callback:Norm",
+            message: "Java must call the exported Norm function")
+          require(condition: generatedInvokerInvoke(arg0: "sample.binding.DefaultController", arg1: "greet", arg2: "Norm") == "default:Norm",
+            message: "Java callers must execute inherited Norm interface defaults")
+          require(condition: generatedInvokerInvoke(arg0: "sample.binding.AlternateController", arg1: "greet", arg2: "Norm") == "alternate:Norm",
+            message: "shared interface defaults must dispatch to each concrete receiver")
+          var proxy = generatedInvokerProxy<Controller>(Controller.class)
+          if proxy == null { throw Exception(message: "proxy missing") }
+          require(condition: proxy.greet("Norm") == "proxy:Hello, Norm", message: "ordinary calls must enter Java proxy overrides")
+          require(condition: proxy.context() == "proxy-context", message: "nested host calls must preserve proxy thread context")
           Endpoint? endpoint = Controller.class.annotation<Endpoint>()
           if endpoint != null {
             printLine(endpoint.path)
@@ -457,6 +514,11 @@ final class JavaAnnotationBindingIntegrationTest {
             } catch (IOException exception) {
               throw new IllegalStateException(exception);
             }
+            try (Writer output = processingEnv.getFiler().createSourceFile("sample.binding.ControllerProxy").openWriter()) {
+              output.write("package sample.binding; public class ControllerProxy extends Controller { public String greet(String name) { return \\\"proxy:\\\" + super.greet(name); } public String context() { sample.GeneratedInvoker.beginContext(); try { return super.context(); } finally { sample.GeneratedInvoker.endContext(); } } }");
+            } catch (IOException exception) {
+              throw new IllegalStateException(exception);
+            }
             written = true;
             return false;
           }
@@ -469,6 +531,46 @@ final class JavaAnnotationBindingIntegrationTest {
         package sample;
 
         public final class GeneratedInvoker {
+          public static String callbacks() throws Exception {
+            var componentType = Class.forName("sample.binding.DefaultController");
+            Object component = componentType.getConstructor().newInstance();
+            componentType.getMethod("init").invoke(component);
+            componentType.getMethod("dispose").invoke(component);
+            var type = Class.forName("sample.binding.Callbacks");
+            Object receiver = type.getConstructor().newInstance();
+            var lists = type.getMethod("echoLists", java.util.List.class);
+            var input = java.util.List.of(java.util.Arrays.asList(null, "中文任务"));
+            var output = (java.util.List<?>) lists.invoke(receiver, input);
+            if (!output.equals(input)) throw new AssertionError("nested list round trip failed");
+            try {
+              ((java.util.List<?>) output.get(0)).clear();
+              throw new AssertionError("Norm list was exposed as mutable");
+            } catch (UnsupportedOperationException expected) {}
+            var callback = (java.util.function.Function<String, String>) type.getMethod("transform").invoke(receiver);
+            type.getMethod("bind", Runnable.class);
+            type.getMethod("bind", java.util.function.Consumer.class);
+            java.util.function.Function<String, String> incoming = text -> "host:" + text;
+            if (!type.getMethod("apply", java.util.function.Function.class).invoke(receiver, incoming).equals("host:Norm")) {
+              throw new AssertionError("Java callback did not execute through Norm");
+            }
+            java.util.function.Function<String, String> throwing = text -> { throw new IllegalArgumentException("host-failure"); };
+            if (!type.getMethod("catchFailure", java.util.function.Function.class).invoke(receiver, throwing).equals("host-failure")) {
+              throw new AssertionError("Java callback failure did not become a Norm exception");
+            }
+            var sum = (java.util.function.BiFunction<Integer, Integer, Integer>) type.getMethod("sum").invoke(receiver);
+            if (sum.apply(19, 23) != 42) throw new AssertionError("binary function boxing failed");
+            var failure = (Runnable) type.getMethod("fail").invoke(receiver);
+            if (type.getMethod("bind", Runnable.class).invoke(receiver, failure) != failure) {
+              throw new AssertionError("function round trip changed identity");
+            }
+            try {
+              failure.run();
+              throw new AssertionError("Norm callback failure was lost");
+            } catch (RuntimeException expected) {
+              if (!expected.getMessage().equals("guest-failure")) throw expected;
+            }
+            return callback.apply("Norm");
+          }
           private static final ThreadLocal<String> CONTEXT = new ThreadLocal<>();
 
           private GeneratedInvoker() {
@@ -479,6 +581,14 @@ final class JavaAnnotationBindingIntegrationTest {
               Class<?> type = Class.forName(className, true, GeneratedInvoker.class.getClassLoader());
               Object instance = type.getConstructor().newInstance();
               return (String) type.getMethod(method, String.class).invoke(instance, argument);
+            } catch (ReflectiveOperationException exception) {
+              throw new IllegalStateException(exception);
+            }
+          }
+
+          public static <T> T proxy(Class<T> type) {
+            try {
+              return type.cast(Class.forName(type.getName() + "Proxy").getConstructor().newInstance());
             } catch (ReflectiveOperationException exception) {
               throw new IllegalStateException(exception);
             }
@@ -496,6 +606,9 @@ final class JavaAnnotationBindingIntegrationTest {
               CONTEXT.remove();
             }
           }
+
+          public static void beginContext() { CONTEXT.set("proxy-context"); }
+          public static void endContext() { CONTEXT.remove(); }
 
           public static String contextValue() {
             return CONTEXT.get();

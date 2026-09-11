@@ -12,6 +12,231 @@ import org.junit.jupiter.api.Test;
 
 final class FunctionCompilerTest {
   @Test
+  void keepsDeclaredGenericReturnTypesForLambdasWithExplicitReturns() {
+    var result =
+        compile(
+            """
+            T run<T>(T value) {
+              Function<T()> work = () { return value }
+              work()
+            }
+            Void main() { String result = run("Todo") }
+            """);
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void acceptsExplicitTypeArgumentsBeforeTrailingLambdas() {
+    var result =
+        compile(
+            """
+            T submit<T>(Function<T()> work) { work() }
+            class Runner {
+              T run<T>(Function<T()> work) { work() }
+            }
+            Void main() {
+              Integer count = submit<Integer> { 42 }
+              List<String> names = submit<List<String>> { ["Norm"] }
+              String title = Runner().run<String> { "Todo" }
+            }
+            """);
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void checksNestedConcreteCallsWithoutLosingContextualArgumentTypes() {
+    String expression = "[]";
+    for (int depth = 0; depth < 6; depth++) expression = "pass(" + expression + ")";
+    var result =
+        compile(
+            "List<Integer> pass(List<Integer> items) { items } Void main() { List<Integer> items = "
+                + expression
+                + " }");
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    var invalid =
+        compile(
+            "List<Integer> pass(List<Integer> items) { items } Void main() {"
+                + " pass(pass([\"wrong\"])) }");
+    assertFalse(invalid.isSuccess());
+  }
+
+  @Test
+  void checksIfExpressionConditionsBranchesAndScopes() {
+    assertTrue(compile("Void main() { Integer value = if true { 1 } else { 2 } }").isSuccess());
+    assertFalse(compile("Void main() { Integer value = if true { 1 } }").isSuccess());
+    assertFalse(compile("Void main() { Integer value = if 1 { 1 } else { 2 } }").isSuccess());
+    assertFalse(
+        compile("Void main() { Integer value = if true { 1 } else { \"wrong\" } }").isSuccess());
+    assertFalse(
+        compile("Void main() { Integer value = if true { Integer local = 1 } else { 2 } }")
+            .isSuccess());
+    assertFalse(
+        compile(
+                "Void main() { Integer value = if true { Integer local = 1; local } else { local }"
+                    + " }")
+            .isSuccess());
+  }
+
+  @Test
+  void checksImplicitReturnTypesAndAllCompletingPaths() {
+    assertTrue(compile("Integer value() { 3 } Void main() { printLine(value()) }").isSuccess());
+    assertFalse(compile("Integer value() { \"wrong\" } Void main() {}").isSuccess());
+    assertFalse(
+        compile("Integer value(Boolean flag) { if flag { 3 } } Void main() {}").isSuccess());
+    assertFalse(compile("Integer value() { Integer local = 3 } Void main() {}").isSuccess());
+    assertFalse(
+        compile("Integer value(Boolean flag) { if flag { 3 } else { \"wrong\" } } Void main() {}")
+            .isSuccess());
+    assertTrue(compile("Void action() { 3 } Void main() { action() }").isSuccess());
+    assertFalse(
+        compile("Void main() { Function<Integer(Boolean)> choose = (flag) { if flag { 3 } } }")
+            .isSuccess());
+    assertFalse(
+        compile(
+                "Void main() { Function<Integer(Boolean)> choose = (flag) { if flag { 3 } else {"
+                    + " \"wrong\" } } }")
+            .isSuccess());
+  }
+
+  @Test
+  void preservesWritablePropertyContractsAcrossInheritance() {
+    String parent = "class Base { Any value { get { return 1 } set(next) {} } } ";
+    assertFalse(
+        compile(
+                parent
+                    + "class Child extends Base { Child() { super() } private Any value { get {"
+                    + " return 1 } set(next) {} } } Void main() {}")
+            .isSuccess());
+    assertTrue(
+        compile(
+                "class Base<T> { private T stored Base(T initial) { stored = initial } T value {"
+                    + " get { return stored } set(next) { stored = next } } } class Child extends"
+                    + " Base<String> { Child() { super(initial: \"x\") } String value { get {"
+                    + " return \"x\" } set(replacement) {} } } Void main() {}")
+            .isSuccess());
+    assertFalse(
+        compile(
+                parent
+                    + "class Child extends Base { Child() { super() } String value { get { return"
+                    + " \"x\" } set(next) {} } } Void main() {}")
+            .isSuccess());
+    assertFalse(
+        compile(
+                parent
+                    + "class Child extends Base { Child() { super() } Any value { get { return 1 }"
+                    + " } } Void main() {}")
+            .isSuccess());
+    assertFalse(
+        compile(
+                parent
+                    + "class Child extends Base { Child() { super() } Any value { get { return 1 }"
+                    + " private set(next) {} } } Void main() {}")
+            .isSuccess());
+    assertTrue(
+        compile(
+                parent
+                    + "class Child extends Base { Child() { super() } Any value { get { return 1 }"
+                    + " set(next) {} } } Void main() {}")
+            .isSuccess());
+    assertTrue(
+        compile(
+                "class Base { Any value { get { return 1 } } } class Child extends Base { Child() {"
+                    + " super() } String value { get { return \"x\" } } } Void main() {}")
+            .isSuccess());
+  }
+
+  @Test
+  void rejectsImplicitReadOnlyWritesAndNonCallableProperties() {
+    assertFalse(
+        compile(
+                "class Box { Integer value { get { return 1 } } Void change() { value = 2 } } Void"
+                    + " main() {}")
+            .isSuccess());
+    assertFalse(
+        compile(
+                "class Box { Integer value { get { return 1 } } Integer read() { return value() } }"
+                    + " Void main() {}")
+            .isSuccess());
+    assertFalse(
+        compile(
+                "class Base { Integer value { get { return 1 } private set(next) {} } } class Child"
+                    + " extends Base { Child() { super() } Void change() { value = 2 } } Void"
+                    + " main() {}")
+            .isSuccess());
+  }
+
+  @Test
+  void rejectsFieldPropertyConflictsAcrossInheritance() {
+    var propertyOverField =
+        compile(
+            """
+            class Parent { Integer value }
+            class Child extends Parent {
+              Child() { super(value: 1) }
+              Integer value { get { return 2 } }
+            }
+            Void main() {}
+            """);
+    var fieldOverProperty =
+        compile(
+            """
+            class Parent { Integer value { get { return 1 } } }
+            class Child extends Parent {
+              Integer value
+              Child() { super() value = 2 }
+            }
+            Void main() {}
+            """);
+    assertFalse(propertyOverField.isSuccess());
+    assertFalse(fieldOverProperty.isSuccess());
+  }
+
+  @Test
+  void rejectsAPropertyThatConflictsWithAStorageField() {
+    var conflict =
+        compile("class Box { Integer value Integer value { get { return 1 } } } Void main() {} ");
+    assertFalse(conflict.isSuccess());
+  }
+
+  @Test
+  void rejectsReadOnlyPropertiesAndInaccessibleSetters() {
+    var readOnly =
+        compile("class Box { Integer value { get { return 1 } } } Void main() { Box().value = 2 }");
+    var privateSetter =
+        compile(
+            "class Box { Integer value { get { return 1 } private set(next) {} } } Void main() {"
+                + " Box().value = 2 }");
+    assertFalse(readOnly.isSuccess());
+    assertFalse(privateSetter.isSuccess());
+  }
+
+  @Test
+  void rejectsPropertyWritesThroughNullableReceivers() {
+    String declaration = "class Box { Integer value { get { return 1 } set(next) {} } } ";
+    assertFalse(
+        compile(declaration + "Void change(Box? box) { box.value = 2 } Void main() {} ")
+            .isSuccess());
+    assertFalse(
+        compile(declaration + "Void change(Box? box) { box?.value = 2 } Void main() {} ")
+            .isSuccess());
+  }
+
+  @Test
+  void rejectsDuplicateAndNonCallableTrailingArguments() {
+    var duplicate =
+        compile("Void run(Function<Void()> body) {} Void main() { run(body: () {}) {} }");
+    var nonCallable = compile("Void run(Integer value) {} Void main() { run() { 1 } }");
+    assertFalse(duplicate.isSuccess());
+    assertTrue(
+        duplicate.diagnostics().stream()
+            .anyMatch(value -> value.message().contains("supplied more than once")));
+    assertFalse(nonCallable.isSuccess());
+    assertTrue(
+        nonCallable.diagnostics().stream()
+            .anyMatch(value -> value.message().contains("requires a function parameter")));
+  }
+
+  @Test
   void treatsOmittedTopLevelReturnsAsVoid() {
     var valid = compile("run() { return } discard<T>(T value) { } main() { run() discard(1) }");
     var invalid = compile("value() { return 1 } main() { }");
@@ -90,7 +315,8 @@ final class FunctionCompilerTest {
   void requiresDefaultParametersAndFieldsAfterRequiredOnes() {
     var function =
         compile(
-            "String invalid(String optional = \"value\", String required) { return required } Void main() {}");
+            "String invalid(String optional = \"value\", String required) { return required } Void"
+                + " main() {}");
     var field =
         compile("value Invalid { String optional = \"value\" String required } Void main() {}");
 
@@ -128,6 +354,32 @@ final class FunctionCompilerTest {
                 + "Void main() { printLine(Implementation().value()) }");
 
     assertTrue(compilation.isSuccess(), compilation.diagnostics().toString());
+  }
+
+  @Test
+  void checksNullableExtensionReceiversByTheirDeclaredParameterType() {
+    var extension =
+        compile(
+            """
+            extension String display(String? value) { value ?? "empty" }
+            Void main() { String? text = null printLine(text.display()) }
+            """);
+    assertTrue(extension.isSuccess(), () -> extension.diagnostics().toString());
+    var instance =
+        compile(
+            """
+            class Item { String display() { "item" } }
+            extension String display(Item? value) { "extension" }
+            Void main() { Item? item = null printLine(item.display()) }
+            """);
+    assertFalse(instance.isSuccess());
+    var callback =
+        compile(
+            """
+            class Item { Function<Void()> action = () {} }
+            Void main() { Item? item = null item.action() }
+            """);
+    assertFalse(callback.isSuccess());
   }
 
   @Test

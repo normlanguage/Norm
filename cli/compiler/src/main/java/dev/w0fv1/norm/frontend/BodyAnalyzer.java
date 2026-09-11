@@ -2,16 +2,16 @@ package dev.w0fv1.norm.frontend;
 
 import static dev.w0fv1.norm.frontend.SemanticDiagnosticCodes.*;
 
-import dev.w0fv1.norm.builtin.BuiltinCatalog;
 import dev.w0fv1.norm.frontend.BodyAnalysisState.*;
 import dev.w0fv1.norm.frontend.SemanticAnalysisContext.*;
-import dev.w0fv1.norm.frontend.TypeSystem.AggregateView;
+import dev.w0fv1.norm.frontend.TypeResolver.AggregateView;
 import dev.w0fv1.norm.semantic.ResolvedCall;
 import dev.w0fv1.norm.semantic.ResolvedIteration;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
+import dev.w0fv1.norm.syntax.BlockResults;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.LexicalLifetime;
 import java.util.ArrayList;
@@ -24,277 +24,337 @@ import java.util.Optional;
 import java.util.Set;
 
 final class BodyAnalyzer {
-  private final SemanticAnalysisContext context;
-  private final TypeSystem typeSystem;
+  private final BodyAnalysisState body;
+  private final SemanticModelBuilder model;
+  private final TypeResolutionState resolution;
+  private final DiagnosticBag diagnostics;
+  private final CompilationGuard guard;
+  private final DeclarationAnalyzer declarationAnalyzer;
+  private final DeclarationPolicyResolver declarationPolicies;
+
+  BodyAnalyzer(
+      BodyAnalysisState body,
+      SemanticModelBuilder model,
+      TypeResolutionState resolution,
+      DiagnosticBag diagnostics,
+      CompilationGuard guard,
+      dev.w0fv1.norm.builtin.BuiltinSymbols builtins,
+      TypeResolver typeResolver,
+      DeclarationAnalyzer declarationAnalyzer,
+      DeclarationPolicyResolver declarationPolicies,
+      AnalysisTransaction transactions) {
+    this.body = body;
+    this.model = model;
+    this.resolution = resolution;
+    this.diagnostics = diagnostics;
+    this.guard = guard;
+    this.declarationAnalyzer = declarationAnalyzer;
+    this.declarationPolicies = declarationPolicies;
+
+    this.typeResolver = typeResolver;
+    flow = new FlowAnalyzer(body, model, resolution, diagnostics, this::analyzeStatements);
+    expressionChecker =
+        new ExpressionChecker(
+            body,
+            builtins,
+            diagnostics,
+            guard,
+            model,
+            resolution,
+            typeResolver,
+            declarationAnalyzer,
+            transactions,
+            flow,
+            this::analyzeStatement,
+            this::analyzeFor);
+    calls = expressionChecker.calls;
+  }
+
+  private final TypeResolver typeResolver;
   private final FlowAnalyzer flow;
   final ExpressionChecker expressionChecker;
   private final CallResolver calls;
-
-  BodyAnalyzer(SemanticAnalysisContext context, TypeSystem typeSystem) {
-    this.context = context;
-    this.typeSystem = typeSystem;
-    flow =
-        new FlowAnalyzer(
-            context.body,
-            context.model,
-            context.resolution,
-            context.diagnostics,
-            this::analyzeStatements);
-    expressionChecker = new ExpressionChecker(context, typeSystem, flow, this::analyzeStatement);
-    calls = expressionChecker.calls;
-  }
 
   void analyzeInterfaceDefault(
       Syntax.InterfaceDecl owner,
       Syntax.InterfaceMethodDecl method,
       Map<String, SemanticType> methodTypes,
       Map<String, SymbolId> methodSymbols) {
-    SemanticType previousReturn = context.body.expectedReturnType;
-    SymbolId previousCallable = context.body.currentCallable;
-    context.body.expectedReturnType =
-        typeSystem.resolveDeclarationType(method.returnType(), method, methodTypes);
-    context.body.currentCallable = typeSystem.defaultMethodId(method);
-    context.body.flowScopes.clear();
-    flow.pushScope(method.span());
-    for (Syntax.TypeParameter parameter : owner.typeParameters()) {
-      flow.declareExisting(
-          parameter.name(),
-          methodTypes.get(parameter.name()),
-          parameter.nameSpan(),
-          context.model.declarationSymbols().get(parameter));
-    }
-    for (Syntax.TypeParameter parameter : method.typeParameters()) {
-      flow.declareExisting(
-          parameter.name(),
-          methodTypes.get(parameter.name()),
-          parameter.nameSpan(),
-          methodSymbols.get(parameter.name()));
-    }
-    flow.declareSelf(typeSystem.interfaceSelfType(owner), owner.nameSpan());
-    for (Syntax.Parameter parameter : method.parameters()) {
-      SemanticType type = typeSystem.resolveDeclarationType(parameter.type(), method, methodTypes);
-      flow.declareExisting(
-          parameter.name(),
-          type,
-          parameter.nameSpan(),
-          context.model.declarationSymbols().get(parameter));
-    }
-    analyzeStatements(method.body().orElseThrow());
-    if (!context.body.expectedReturnType.equals(SemanticType.VOID)
-        && !StatementFlow.definitelyExits(method.body().orElseThrow())) {
-      context.diagnostics.error(
-          INVALID_CONTROL,
-          "default method '"
-              + method.name()
-              + "' must return "
-              + context.body.expectedReturnType.displayName(),
-          method.span());
-    }
-    flow.popScope();
-    context.body.expectedReturnType = previousReturn;
-    context.body.currentCallable = previousCallable;
-  }
-
-  void analyzeFunction(Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
-    if (function.kind() == Syntax.FunctionKind.EXTENSION && function.parameters().isEmpty()) {
-      context.diagnostics.error(
-          INVALID_CALL, "extension function requires a receiver parameter", function.nameSpan());
-    }
-    context.resolution.activeTypeParameters = typeSystem.typeParameters(function, owner);
-    context.resolution.activeTypeParameterSymbols =
-        typeSystem.typeParameterSymbols(function, owner);
-    if (owner != null)
-      typeSystem.registerBounds(owner.typeParameters(), context.resolution.activeTypeParameters);
-    typeSystem.registerBounds(function.typeParameters(), context.resolution.activeTypeParameters);
-    typeSystem.validateTypeParameterDefaults(
-        function.typeParameters(),
-        context.resolution.activeTypeParameters,
-        function.visibility() == Syntax.Visibility.PUBLIC
-            && (owner == null || owner.visibility() == Syntax.Visibility.PUBLIC));
-    function.returnType().ifPresent(type -> typeSystem.validateType(type, true));
-    context.body.expectedReturnType =
-        typeSystem.functionReturnType(function, context.resolution.activeTypeParameters);
-    context.body.implicitSelfReturn = owner != null && function.returnType().isEmpty();
-    context.body.currentAggregate = owner;
-    if (function.visibility() == Syntax.Visibility.PUBLIC
-        && (owner == null || owner.visibility() == Syntax.Visibility.PUBLIC)) {
-      function.returnType().ifPresent(typeSystem::validatePublicType);
-      function.parameters().forEach(parameter -> typeSystem.validatePublicType(parameter.type()));
-    }
-    context.body.currentCallable = context.model.declarationSymbols().get(function);
-    context.body.flowScopes.clear();
-    context.body.assignedLocals.clear();
-    context.body.capturedLocals.clear();
-    context.body.reportedMutableCaptures.clear();
-    context.body.lambdaLocals.clear();
-    flow.pushScope(function.span());
-    if (owner != null) {
+    try (var callableScope =
+        this.body.enterCallable(
+            declarationAnalyzer.defaultMethodId(method),
+            typeResolver.resolveDeclarationType(method.returnType(), method, methodTypes),
+            false,
+            null)) {
+      flow.pushScope(method.span());
       for (Syntax.TypeParameter parameter : owner.typeParameters()) {
         flow.declareExisting(
             parameter.name(),
-            context.resolution.activeTypeParameters.get(parameter.name()),
+            methodTypes.get(parameter.name()),
             parameter.nameSpan(),
-            context.model.declarationSymbols().get(parameter));
+            model.declarationSymbols().get(parameter));
+      }
+      for (Syntax.TypeParameter parameter : method.typeParameters()) {
+        flow.declareExisting(
+            parameter.name(),
+            methodTypes.get(parameter.name()),
+            parameter.nameSpan(),
+            methodSymbols.get(parameter.name()));
+      }
+      flow.declareSelf(typeResolver.interfaceSelfType(owner), owner.nameSpan());
+      for (Syntax.Parameter parameter : method.parameters()) {
+        SemanticType type =
+            typeResolver.resolveDeclarationType(parameter.type(), method, methodTypes);
+        flow.declareExisting(
+            parameter.name(),
+            type,
+            parameter.nameSpan(),
+            model.declarationSymbols().get(parameter));
+      }
+      List<Syntax.Statement> body =
+          BlockResults.returning(
+              method.body().orElseThrow(),
+              !this.body.expectedReturnType().equals(SemanticType.VOID));
+      analyzeStatements(body);
+      if (!this.body.expectedReturnType().equals(SemanticType.VOID)
+          && !StatementFlow.definitelyExits(body)) {
+        diagnostics.error(
+            INVALID_CONTROL,
+            "default method '"
+                + method.name()
+                + "' must return "
+                + this.body.expectedReturnType().displayName(),
+            method.span());
+      }
+      flow.popScope();
+    }
+  }
+
+  void analyzeFunction(Syntax.FunctionDecl function, Syntax.AggregateDecl owner) {
+    if (!function.hasBody()) {
+      String message =
+          owner == null || owner.kind() != Syntax.AggregateKind.CLASS
+              ? "method declarations require a class"
+              : function.returnType().isEmpty()
+                  ? "method declarations require an explicit return type"
+                  : function.visibility() != Syntax.Visibility.PUBLIC
+                      ? "managed method declarations must be public"
+                      : declarationPolicies.managedImplementation(owner)
+                          ? null
+                          : "method declaration has no implementation provider";
+      if (message != null) {
+        diagnostics.error(INVALID_CONTROL, message, function.nameSpan());
       }
     }
-    for (Syntax.TypeParameter parameter : function.typeParameters()) {
-      flow.declareExisting(
-          parameter.name(),
-          context.resolution.activeTypeParameters.get(parameter.name()),
-          parameter.nameSpan(),
-          context.model.declarationSymbols().get(parameter));
+    if (function.kind() == Syntax.FunctionKind.EXTENSION && function.parameters().isEmpty()) {
+      diagnostics.error(
+          INVALID_CALL, "extension function requires a receiver parameter", function.nameSpan());
     }
-    if (owner != null) {
-      flow.declareSelf(typeSystem.aggregateSelfType(owner), owner.nameSpan());
-      for (AggregateView view : typeSystem.aggregateViews(typeSystem.aggregateSelfType(owner))) {
-        Map<String, SemanticType> substitutions =
-            typeSystem.aggregateSubstitutions(view.declaration(), view.type());
-        for (Syntax.FieldDecl field : view.declaration().fields()) {
-          if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
-            continue;
-          flow.declareExisting(
-              field.name(),
-              typeSystem
-                  .resolveDeclarationType(
-                      field.type(), field, typeSystem.aggregateTypeParameters(view.declaration()))
-                  .substitute(substitutions),
-              field.nameSpan(),
-              context.model.declarationSymbols().get(field));
+    try (var functionScope =
+        resolution.enterParameters(
+            typeResolver.typeParameters(function, owner),
+            typeResolver.typeParameterSymbols(function, owner))) {
+      if (owner != null)
+        typeResolver.registerBounds(owner.typeParameters(), resolution.parameters());
+      typeResolver.registerBounds(function.typeParameters(), resolution.parameters());
+      typeResolver.validateTypeParameterDefaults(
+          function.typeParameters(),
+          resolution.parameters(),
+          function.visibility() == Syntax.Visibility.PUBLIC
+              && (owner == null || owner.visibility() == Syntax.Visibility.PUBLIC));
+      function.returnType().ifPresent(type -> typeResolver.validateType(type, true));
+      try (var callableScope =
+          this.body.enterCallable(
+              model.declarationSymbols().get(function),
+              typeResolver.functionReturnType(function, resolution.parameters()),
+              owner != null && function.returnType().isEmpty(),
+              owner)) {
+        if (function.visibility() == Syntax.Visibility.PUBLIC
+            && (owner == null || owner.visibility() == Syntax.Visibility.PUBLIC)) {
+          function.returnType().ifPresent(typeResolver::validatePublicType);
+          function
+              .parameters()
+              .forEach(parameter -> typeResolver.validatePublicType(parameter.type()));
         }
+
+        flow.pushScope(function.span());
+        if (owner != null) {
+          for (Syntax.TypeParameter parameter : owner.typeParameters()) {
+            flow.declareExisting(
+                parameter.name(),
+                resolution.parameters().get(parameter.name()),
+                parameter.nameSpan(),
+                model.declarationSymbols().get(parameter));
+          }
+        }
+        for (Syntax.TypeParameter parameter : function.typeParameters()) {
+          flow.declareExisting(
+              parameter.name(),
+              resolution.parameters().get(parameter.name()),
+              parameter.nameSpan(),
+              model.declarationSymbols().get(parameter));
+        }
+        if (owner != null) {
+          flow.declareSelf(typeResolver.aggregateSelfType(owner), owner.nameSpan());
+          for (AggregateView view :
+              typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
+            Map<String, SemanticType> substitutions =
+                typeResolver.aggregateSubstitutions(view.declaration(), view.type());
+            for (Syntax.FieldDecl field : view.declaration().fields()) {
+              if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
+                continue;
+              flow.declareExisting(
+                  field.name(),
+                  typeResolver
+                      .resolveDeclarationType(
+                          field.type(),
+                          field,
+                          typeResolver.aggregateTypeParameters(view.declaration()))
+                      .substitute(substitutions),
+                  field.nameSpan(),
+                  model.declarationSymbols().get(field));
+            }
+          }
+        }
+        for (Syntax.Parameter parameter : function.parameters()) {
+          typeResolver.validateReferenceCapableType(parameter.type());
+        }
+        analyzeParameterDefaults(function.parameters());
+        for (Syntax.Parameter parameter : function.parameters()) {
+          Symbol symbol =
+              declarationAnalyzer.register(
+                  parameter,
+                  parameter.name(),
+                  SymbolKind.PARAMETER,
+                  typeResolver.resolveType(parameter.type(), resolution.parameters()),
+                  parameter.nameSpan(),
+                  model.declarationSymbols().get(function),
+                  List.of(),
+                  declarationAnalyzer.parameters(
+                      parameter.callableParameters().orElse(List.of()),
+                      Map.of(),
+                      resolution.parameters()));
+          flow.declareExisting(
+              parameter.name(),
+              typeResolver.resolveType(parameter.type(), resolution.parameters()),
+              parameter.nameSpan(),
+              symbol.id());
+        }
+        List<Syntax.Statement> body =
+            BlockResults.returning(
+                function.body(),
+                !this.body.expectedReturnType().equals(SemanticType.VOID)
+                    && !this.body.implicitSelfReturn());
+        analyzeStatements(body);
+        if (function.hasBody()
+            && !this.body.expectedReturnType().equals(SemanticType.VOID)
+            && !this.body.implicitSelfReturn()
+            && !StatementFlow.definitelyExits(body)) {
+          diagnostics.error(
+              INVALID_CONTROL,
+              "function '"
+                  + function.name()
+                  + "' must return "
+                  + this.body.expectedReturnType().displayName(),
+              function.span());
+        }
+        flow.popScope();
       }
     }
-    for (Syntax.Parameter parameter : function.parameters()) {
-      typeSystem.validateReferenceCapableType(parameter.type());
-    }
-    analyzeParameterDefaults(function.parameters());
-    for (Syntax.Parameter parameter : function.parameters()) {
-      Symbol symbol =
-          typeSystem.register(
-              parameter,
-              parameter.name(),
-              SymbolKind.PARAMETER,
-              typeSystem.resolveType(parameter.type(), context.resolution.activeTypeParameters),
-              parameter.nameSpan(),
-              context.model.declarationSymbols().get(function),
-              List.of(),
-              List.of());
-      flow.declareExisting(
-          parameter.name(),
-          typeSystem.resolveType(parameter.type(), context.resolution.activeTypeParameters),
-          parameter.nameSpan(),
-          symbol.id());
-    }
-    analyzeStatements(function.body());
-    if (!context.body.expectedReturnType.equals(SemanticType.VOID)
-        && !context.body.implicitSelfReturn
-        && !StatementFlow.definitelyExits(function.body())) {
-      context.diagnostics.error(
-          INVALID_CONTROL,
-          "function '"
-              + function.name()
-              + "' must return "
-              + context.body.expectedReturnType.displayName(),
-          function.span());
-    }
-    flow.popScope();
-    context.body.currentCallable = null;
-    context.body.currentAggregate = null;
-    context.body.implicitSelfReturn = false;
-    context.resolution.activeTypeParameters = Map.of();
-    context.resolution.activeTypeParameterSymbols = Map.of();
   }
 
   void analyzeConstructor(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {
-    context.resolution.activeTypeParameters = typeSystem.aggregateTypeParameters(owner);
-    context.resolution.activeTypeParameterSymbols =
-        typeSystem.typeParameterSymbols(owner.typeParameters());
-    typeSystem.registerBounds(owner.typeParameters(), context.resolution.activeTypeParameters);
-    context.body.expectedReturnType = SemanticType.VOID;
-    context.body.implicitSelfReturn = false;
-    context.body.currentAggregate = owner;
-    context.body.currentCallable = context.model.declarationSymbols().get(constructor);
-    context.body.flowScopes.clear();
-    context.body.assignedLocals.clear();
-    context.body.capturedLocals.clear();
-    context.body.reportedMutableCaptures.clear();
-    context.body.lambdaLocals.clear();
-    flow.pushScope(constructor.span());
-    for (Syntax.TypeParameter parameter : owner.typeParameters()) {
-      flow.declareExisting(
-          parameter.name(),
-          context.resolution.activeTypeParameters.get(parameter.name()),
-          parameter.nameSpan(),
-          context.model.declarationSymbols().get(parameter));
-    }
-    flow.declareSelf(typeSystem.aggregateSelfType(owner), owner.nameSpan());
-    for (AggregateView view : typeSystem.aggregateViews(typeSystem.aggregateSelfType(owner))) {
-      Map<String, SemanticType> substitutions =
-          typeSystem.aggregateSubstitutions(view.declaration(), view.type());
-      for (Syntax.FieldDecl field : view.declaration().fields()) {
-        if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
-          continue;
-        flow.declareExisting(
-            field.name(),
-            typeSystem
-                .resolveDeclarationType(
-                    field.type(), field, typeSystem.aggregateTypeParameters(view.declaration()))
-                .substitute(substitutions),
-            field.nameSpan(),
-            context.model.declarationSymbols().get(field));
-      }
-    }
-    flow.pushScope(constructor.span());
-    for (Syntax.Parameter parameter : constructor.parameters()) {
-      typeSystem.validateReferenceCapableType(parameter.type());
-    }
-    analyzeParameterDefaults(constructor.parameters());
-    for (Syntax.Parameter parameter : constructor.parameters()) {
-      Symbol symbol =
-          typeSystem.register(
-              parameter,
+    try (var constructorScope =
+        resolution.enterParameters(
+            typeResolver.aggregateTypeParameters(owner),
+            typeResolver.typeParameterSymbols(owner.typeParameters()))) {
+      typeResolver.registerBounds(owner.typeParameters(), resolution.parameters());
+      try (var callableScope =
+          this.body.enterCallable(
+              model.declarationSymbols().get(constructor), SemanticType.VOID, false, owner)) {
+        flow.pushScope(constructor.span());
+        for (Syntax.TypeParameter parameter : owner.typeParameters()) {
+          flow.declareExisting(
               parameter.name(),
-              SymbolKind.PARAMETER,
-              typeSystem.resolveType(parameter.type(), context.resolution.activeTypeParameters),
+              resolution.parameters().get(parameter.name()),
               parameter.nameSpan(),
-              context.body.currentCallable,
-              List.of(),
-              List.of());
-      flow.declareExisting(parameter.name(), symbol.type(), parameter.nameSpan(), symbol.id());
-    }
-    analyzeSuperCall(constructor, owner);
-    analyzeStatements(constructor.body());
-    Map<SymbolId, String> fields = new LinkedHashMap<>();
-    for (AggregateView view : typeSystem.aggregateViews(typeSystem.aggregateSelfType(owner))) {
-      for (Syntax.FieldDecl field : view.declaration().fields()) {
-        SymbolId fieldId = context.model.declarationSymbols().get(field);
-        fields.put(fieldId, field.name());
+              model.declarationSymbols().get(parameter));
+        }
+        flow.declareSelf(typeResolver.aggregateSelfType(owner), owner.nameSpan());
+        for (AggregateView view :
+            typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
+          Map<String, SemanticType> substitutions =
+              typeResolver.aggregateSubstitutions(view.declaration(), view.type());
+          for (Syntax.FieldDecl field : view.declaration().fields()) {
+            if (view.declaration() != owner && field.visibility() == Syntax.Visibility.PRIVATE)
+              continue;
+            flow.declareExisting(
+                field.name(),
+                typeResolver
+                    .resolveDeclarationType(
+                        field.type(),
+                        field,
+                        typeResolver.aggregateTypeParameters(view.declaration()))
+                    .substitute(substitutions),
+                field.nameSpan(),
+                model.declarationSymbols().get(field));
+          }
+        }
+        flow.pushScope(constructor.span());
+        for (Syntax.Parameter parameter : constructor.parameters()) {
+          typeResolver.validateReferenceCapableType(parameter.type());
+        }
+        analyzeParameterDefaults(constructor.parameters());
+        for (Syntax.Parameter parameter : constructor.parameters()) {
+          Symbol symbol =
+              declarationAnalyzer.register(
+                  parameter,
+                  parameter.name(),
+                  SymbolKind.PARAMETER,
+                  typeResolver.resolveType(parameter.type(), resolution.parameters()),
+                  parameter.nameSpan(),
+                  this.body.currentCallable(),
+                  List.of(),
+                  declarationAnalyzer.parameters(
+                      parameter.callableParameters().orElse(List.of()),
+                      Map.of(),
+                      resolution.parameters()));
+          flow.declareExisting(parameter.name(), symbol.type(), parameter.nameSpan(), symbol.id());
+        }
+        analyzeSuperCall(constructor, owner);
+        analyzeStatements(constructor.body());
+        Map<SymbolId, String> fields = new LinkedHashMap<>();
+        for (AggregateView view :
+            typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
+          for (Syntax.FieldDecl field : view.declaration().fields()) {
+            SymbolId fieldId = model.declarationSymbols().get(field);
+            fields.put(fieldId, field.name());
+          }
+        }
+        Set<SymbolId> inheritedFields = new HashSet<>(fields.keySet());
+        owner.fields().stream()
+            .map(model.declarationSymbols()::get)
+            .forEach(inheritedFields::remove);
+        List<ConstructorFlowAnalyzer.RequiredField> requiredFields =
+            owner.fields().stream()
+                .filter(
+                    field ->
+                        field.defaultValue().isEmpty() && !declarationPolicies.managedField(field))
+                .map(
+                    field ->
+                        new ConstructorFlowAnalyzer.RequiredField(
+                            model.declarationSymbols().get(field), field.name(), field.nameSpan()))
+                .toList();
+        new ConstructorFlowAnalyzer(model.bindings(), model.symbols())
+            .analyze(
+                new ConstructorFlowAnalyzer.Input(
+                    constructor, fields, inheritedFields, requiredFields))
+            .diagnostics()
+            .forEach(diagnostics::report);
+        flow.popScope();
+        flow.popScope();
       }
     }
-    Set<SymbolId> inheritedFields = new HashSet<>(fields.keySet());
-    owner.fields().stream()
-        .map(context.model.declarationSymbols()::get)
-        .forEach(inheritedFields::remove);
-    List<ConstructorFlowAnalyzer.RequiredField> requiredFields =
-        owner.fields().stream()
-            .filter(field -> field.defaultValue().isEmpty())
-            .map(
-                field ->
-                    new ConstructorFlowAnalyzer.RequiredField(
-                        context.model.declarationSymbols().get(field),
-                        field.name(),
-                        field.nameSpan()))
-            .toList();
-    new ConstructorFlowAnalyzer(context.model.bindings(), context.model.symbols())
-        .analyze(
-            new ConstructorFlowAnalyzer.Input(constructor, fields, inheritedFields, requiredFields))
-        .diagnostics()
-        .forEach(context.diagnostics::report);
-    flow.popScope();
-    flow.popScope();
-    context.body.currentCallable = null;
-    context.body.currentAggregate = null;
-    context.resolution.activeTypeParameters = Map.of();
-    context.resolution.activeTypeParameterSymbols = Map.of();
   }
 
   void analyzeParameterDefaults(List<Syntax.Parameter> parameters) {
@@ -302,23 +362,38 @@ final class BodyAnalyzer {
     for (Syntax.Parameter parameter : parameters) {
       if (parameter.defaultValue().isPresent()) {
         defaultSeen = true;
-        SemanticType expected =
-            typeSystem.resolveType(parameter.type(), context.resolution.activeTypeParameters);
+        SemanticType expected = typeResolver.resolveType(parameter.type(), resolution.parameters());
         Syntax.Expression value = parameter.defaultValue().orElseThrow();
-        typeSystem.requireType(expected, expressionChecker.typeOf(value, expected), value.span());
+        typeResolver.requireType(expected, expressionChecker.typeOf(value, expected), value.span());
       } else if (defaultSeen) {
-        context.diagnostics.error(
+        diagnostics.error(
             INVALID_CALL, "required parameter follows a default parameter", parameter.nameSpan());
       }
     }
   }
 
+  void analyzeImplicitSuperCall(Syntax.AggregateDecl owner) {
+    owner
+        .implicitSuperCall()
+        .ifPresent(
+            call -> {
+              try (var constructorScope =
+                  resolution.enterParameters(
+                      typeResolver.aggregateTypeParameters(owner),
+                      typeResolver.typeParameterSymbols(owner.typeParameters()))) {
+                typeResolver
+                    .directParentType(owner, typeResolver.aggregateSelfType(owner))
+                    .ifPresent(parent -> resolveSuperCall(parent, call));
+              }
+            });
+  }
+
   private void analyzeSuperCall(Syntax.ConstructorDecl constructor, Syntax.AggregateDecl owner) {
     Optional<SemanticType> parentType =
-        typeSystem.directParentType(owner, typeSystem.aggregateSelfType(owner));
+        typeResolver.directParentType(owner, typeResolver.aggregateSelfType(owner));
     if (parentType.isEmpty()) {
       if (constructor.superCall().isPresent()) {
-        context.diagnostics.error(
+        diagnostics.error(
             TYPE_MISMATCH,
             "root class constructor cannot call super",
             constructor.superCall().orElseThrow().span());
@@ -327,17 +402,19 @@ final class BodyAnalyzer {
       return;
     }
     if (constructor.superCall().isEmpty()) {
-      context.diagnostics.error(
+      diagnostics.error(
           INVALID_CONTROL, "subclass constructor must call super", constructor.nameSpan());
       return;
     }
-    SemanticType parent = parentType.orElseThrow();
-    Syntax.AggregateDecl declaration = typeSystem.resolveAggregate(parent);
+    resolveSuperCall(parentType.orElseThrow(), constructor.superCall().orElseThrow());
+  }
+
+  private void resolveSuperCall(SemanticType parent, Syntax.SuperCall call) {
+    Syntax.AggregateDecl declaration = typeResolver.resolveAggregate(parent);
     if (declaration == null) {
-      calls.analyzeArguments(constructor.superCall().orElseThrow().arguments());
+      calls.analyzeArguments(call.arguments());
       return;
     }
-    Syntax.SuperCall call = constructor.superCall().orElseThrow();
     Syntax.Call syntaxCall =
         new Syntax.Call(new Syntax.Name("super", call.span()), call.arguments(), call.span());
     CallResolver.CallResolution<SymbolId> selected =
@@ -356,7 +433,7 @@ final class BodyAnalyzer {
 
   void analyzeStatements(List<Syntax.Statement> statements) {
     for (Syntax.Statement statement : statements) {
-      context.guard.checkpoint();
+      guard.checkpoint();
       analyzeStatement(statement);
     }
   }
@@ -369,28 +446,28 @@ final class BodyAnalyzer {
                 .type()
                 .map(
                     type -> {
-                      typeSystem.validateReferenceCapableType(type);
-                      return typeSystem.resolveType(type, context.resolution.activeTypeParameters);
+                      typeResolver.validateReferenceCapableType(type);
+                      return typeResolver.resolveType(type, resolution.parameters());
                     })
                 .orElse(null);
         SemanticType actual = expressionChecker.typeOf(variable.initializer(), requested);
         if (requested != null)
-          typeSystem.requireAssignable(requested, actual, variable.initializer().span());
+          typeResolver.requireAssignable(requested, actual, variable.initializer().span());
         if (requested == null && CallResolver.containsDynamic(actual)) {
-          context.diagnostics.error(
+          diagnostics.error(
               TYPE_MISMATCH,
               "cannot infer variable type from initializer",
               variable.initializer().span());
         }
         SemanticType declaredType = requested == null ? actual : requested;
         Symbol symbol =
-            typeSystem.register(
+            declarationAnalyzer.register(
                 variable,
                 variable.name(),
                 SymbolKind.LOCAL_VARIABLE,
                 declaredType,
                 variable.nameSpan(),
-                context.body.currentCallable,
+                this.body.currentCallable(),
                 List.of(),
                 List.of());
         flow.declareExisting(variable.name(), declaredType, variable.nameSpan(), symbol.id());
@@ -400,51 +477,40 @@ final class BodyAnalyzer {
             updateReferenceLifetime(scoped, variable.initializer());
           }
         }
-        if (!context.body.lambdaLocals.isEmpty())
-          context.body.lambdaLocals.getFirst().add(symbol.id());
+        this.body.declareLambdaLocal(symbol.id());
       }
       case Syntax.Assignment assignment -> {
+        if (expressionChecker.analyzePropertyAssignment(assignment)) break;
         SemanticType target = expressionChecker.assignmentTargetType(assignment.target());
         if (assignment.target() instanceof Syntax.Name name
-            && context.body.currentAggregate != null
-            && context.body.currentAggregate.kind() == Syntax.AggregateKind.VALUE) {
+            && this.body.currentAggregate() != null
+            && this.body.currentAggregate().kind() == Syntax.AggregateKind.VALUE
+            && !expressionChecker.constructingOwnValue()) {
           FlowScopes.ScopedSymbol scoped = flow.findScoped(name.value());
           if (scoped != null && expressionChecker.scopedSymbol(scoped).kind() == SymbolKind.FIELD) {
-            context.diagnostics.error(TYPE_MISMATCH, "value field cannot be assigned", name.span());
+            diagnostics.error(TYPE_MISMATCH, "value field cannot be assigned", name.span());
           }
         }
         SemanticType value = expressionChecker.typeOf(assignment.value(), target);
-        typeSystem.requireAssignable(target, value, assignment.value().span());
+        typeResolver.requireAssignable(target, value, assignment.value().span());
         if (assignment.target() instanceof Syntax.Name name) {
           FlowScopes.ScopedSymbol scoped = flow.findScoped(name.value());
           if (scoped != null && target.isReference() && value.isReference()) {
             updateReferenceLifetime(scoped, assignment.value());
           }
-          if (scoped != null
-              && (expressionChecker.scopedSymbol(scoped).kind() == SymbolKind.LOCAL_VARIABLE
-                  || expressionChecker.scopedSymbol(scoped).kind() == SymbolKind.PARAMETER)) {
-            if (!context.body.lambdaLocals.isEmpty()
-                && !context.body.lambdaLocals.getFirst().contains(scoped.id())) {
-              context.body.capturedLocals.add(scoped.id());
-              expressionChecker.reportMutableCapture(scoped.id(), name.span());
-            }
-            context.body.assignedLocals.add(scoped.id());
-            context.body.flowWriteCollectors.forEach(writes -> writes.add(scoped.id()));
-            if (context.body.capturedLocals.contains(scoped.id())) {
-              expressionChecker.reportMutableCapture(scoped.id(), name.span());
-            }
-          }
+          if (scoped != null)
+            expressionChecker.closures.assign(expressionChecker.scopedSymbol(scoped), name.span());
           flow.invalidateNarrowing(name.value());
         }
       }
       case Syntax.ExpressionStatement expression ->
           expressionChecker.typeOf(expression.expression(), null);
       case Syntax.IfStatement ifStatement -> {
-        typeSystem.requireType(
+        typeResolver.requireType(
             SemanticType.BOOLEAN,
             expressionChecker.typeOf(ifStatement.condition(), SemanticType.BOOLEAN),
             ifStatement.condition().span());
-        FlowScopes.FlowState incoming = context.body.flowScopes.snapshot();
+        FlowScopes.FlowState incoming = this.body.scopes().snapshot();
         FlowScopes.FlowState thenFlow =
             flow.analyzeBranch(
                 ifStatement.thenBody(),
@@ -468,7 +534,7 @@ final class BodyAnalyzer {
         }
       }
       case Syntax.ConditionalForStatement loop -> {
-        typeSystem.requireType(
+        typeResolver.requireType(
             SemanticType.BOOLEAN,
             expressionChecker.typeOf(loop.condition(), SemanticType.BOOLEAN),
             loop.condition().span());
@@ -476,109 +542,23 @@ final class BodyAnalyzer {
         flow.analyzeLoop(loop.body(), flow.narrowingsFor(loop.condition(), true));
         flow.popScope();
       }
-      case Syntax.ForStatement forStatement -> {
-        SemanticType iterableType =
-            typeSystem.receiverType(
-                expressionChecker.typeOf(forStatement.iterable(), null),
-                false,
-                forStatement.iterable().span());
-        Optional<BuiltinCatalog.ResolvedIterable> builtinIterable =
-            context.builtins.resolveIterable(iterableType);
-        Optional<ResolvedIteration> interfaceIteration =
-            typeSystem.resolveInterfaceIteration(iterableType);
-        builtinIterable.ifPresent(
-            capability ->
-                context.model.putIteration(
-                    forStatement.iterable().span(),
-                    new ResolvedIteration(
-                        capability.elementType(),
-                        new ResolvedIteration.Strategy.Builtin(capability.intrinsic()))));
-        interfaceIteration.ifPresent(
-            resolution -> context.model.putIteration(forStatement.iterable().span(), resolution));
-        Optional<SemanticType> elementType =
-            builtinIterable
-                .map(BuiltinCatalog.ResolvedIterable::elementType)
-                .or(() -> interfaceIteration.map(ResolvedIteration::elementType));
-        if (elementType.isEmpty()) {
-          context.diagnostics.error(
-              TYPE_MISMATCH, "for requires an iterable value", forStatement.iterable().span());
-        }
-        SemanticType variableType;
-        if (forStatement.variableType().isPresent()) {
-          Syntax.TypeRef explicitType = forStatement.variableType().orElseThrow();
-          typeSystem.validateType(explicitType, false);
-          variableType =
-              typeSystem.resolveType(explicitType, context.resolution.activeTypeParameters);
-          elementType.ifPresent(
-              itemType ->
-                  typeSystem.requireAssignable(
-                      variableType, itemType, forStatement.variableNameSpan()));
-        } else {
-          if (elementType.isEmpty()) {
-            context.diagnostics.error(
-                TYPE_MISMATCH,
-                "cannot infer loop variable type from " + iterableType.displayName(),
-                forStatement.variableNameSpan());
-            variableType = SemanticType.DYNAMIC;
-          } else {
-            variableType = elementType.orElseThrow();
-          }
-        }
-        flow.pushScope(forStatement.span());
-        Symbol symbol =
-            typeSystem.register(
-                forStatement,
-                forStatement.variableName(),
-                SymbolKind.LOCAL_VARIABLE,
-                variableType,
-                forStatement.variableNameSpan(),
-                context.body.currentCallable,
-                List.of(),
-                List.of());
-        flow.declareExisting(
-            forStatement.variableName(),
-            variableType,
-            forStatement.variableNameSpan(),
-            symbol.id());
-        if (!context.body.lambdaLocals.isEmpty())
-          context.body.lambdaLocals.getFirst().add(symbol.id());
-        forStatement
-            .index()
-            .ifPresent(
-                index -> {
-                  Symbol indexSymbol =
-                      typeSystem.register(
-                          index,
-                          index.name(),
-                          SymbolKind.LOCAL_VARIABLE,
-                          SemanticType.INTEGER,
-                          index.nameSpan(),
-                          context.body.currentCallable,
-                          List.of(),
-                          List.of());
-                  flow.declareExisting(
-                      index.name(), SemanticType.INTEGER, index.nameSpan(), indexSymbol.id());
-                  if (!context.body.lambdaLocals.isEmpty())
-                    context.body.lambdaLocals.getFirst().add(indexSymbol.id());
-                });
-        flow.analyzeLoop(forStatement.body(), Map.of());
-        flow.popScope();
-      }
+      case Syntax.ForStatement forStatement ->
+          analyzeFor(forStatement, () -> analyzeStatements(forStatement.body()));
       case Syntax.TryStatement tried -> analyzeTry(tried);
       case Syntax.ThrowStatement thrown -> {
         SemanticType type = expressionChecker.typeOf(thrown.exception(), SemanticType.EXCEPTION);
-        if (!typeSystem.isAssignable(SemanticType.EXCEPTION, type)) {
-          context.diagnostics.error(
+        if (!typeResolver.isAssignable(SemanticType.EXCEPTION, type)) {
+          diagnostics.error(
               TYPE_MISMATCH,
               "throw requires an Exception but found " + type.displayName(),
               thrown.exception().span());
         }
       }
       case Syntax.ReturnStatement returnStatement -> {
-        if (context.body.implicitSelfReturn) {
+        if (this.body.implicitSelfReturn()) {
           if (returnStatement.value() != null) {
-            expressionChecker.typeOf(returnStatement.value(), context.body.expectedReturnType);
-            context.diagnostics.error(
+            expressionChecker.typeOf(returnStatement.value(), this.body.expectedReturnType());
+            diagnostics.error(
                 TYPE_MISMATCH,
                 "fluent methods return their receiver; use a bare return",
                 returnStatement.span());
@@ -588,9 +568,9 @@ final class BodyAnalyzer {
               returnStatement.value() == null
                   ? SemanticType.VOID
                   : expressionChecker.typeOf(
-                      returnStatement.value(), context.body.expectedReturnType);
-          typeSystem.requireAssignable(
-              context.body.expectedReturnType, actual, returnStatement.span());
+                      returnStatement.value(), this.body.expectedReturnType());
+          typeResolver.requireAssignable(
+              this.body.expectedReturnType(), actual, returnStatement.span());
         }
       }
       case Syntax.BreakStatement breakStatement -> expressionChecker.analyzeBreak(breakStatement);
@@ -600,23 +580,22 @@ final class BodyAnalyzer {
   }
 
   private void analyzeTry(Syntax.TryStatement tried) {
-    FlowScopes.FlowState incoming = context.body.flowScopes.snapshot();
+    FlowScopes.FlowState incoming = this.body.scopes().snapshot();
     List<FlowScopes.FlowState> completing = new ArrayList<>();
     FlowScopes.FlowState tryFlow = flow.analyzeBranch(tried.body(), Map.of(), incoming);
     if (!StatementFlow.definitelyExits(tried.body())) completing.add(tryFlow);
     List<SemanticType> preceding = new ArrayList<>();
     for (Syntax.CatchClause clause : tried.catches()) {
-      typeSystem.validateType(clause.type(), false);
-      SemanticType type =
-          typeSystem.resolveType(clause.type(), context.resolution.activeTypeParameters);
-      if (!typeSystem.isAssignable(SemanticType.EXCEPTION, type)) {
-        context.diagnostics.error(
+      typeResolver.validateType(clause.type(), false);
+      SemanticType type = typeResolver.resolveType(clause.type(), resolution.parameters());
+      if (!typeResolver.isAssignable(SemanticType.EXCEPTION, type)) {
+        diagnostics.error(
             TYPE_MISMATCH,
             "catch requires an Exception type but found " + type.displayName(),
             clause.type().span());
       }
-      if (preceding.stream().anyMatch(previous -> typeSystem.isAssignable(previous, type))) {
-        context.diagnostics.error(
+      if (preceding.stream().anyMatch(previous -> typeResolver.isAssignable(previous, type))) {
+        diagnostics.error(
             INVALID_CONTROL,
             "catch type " + type.displayName() + " is already covered by an earlier catch",
             clause.type().span());
@@ -625,35 +604,32 @@ final class BodyAnalyzer {
       flow.replaceFlow(incoming);
       flow.pushScope(clause.span());
       Symbol symbol =
-          typeSystem.register(
+          declarationAnalyzer.register(
               clause,
               clause.name(),
               SymbolKind.LOCAL_VARIABLE,
               type,
               clause.nameSpan(),
-              context.body.currentCallable,
+              this.body.currentCallable(),
               List.of(),
               List.of());
       flow.declareExisting(clause.name(), type, clause.nameSpan(), symbol.id());
-      if (!context.body.lambdaLocals.isEmpty())
-        context.body.lambdaLocals.getFirst().add(symbol.id());
+      this.body.declareLambdaLocal(symbol.id());
       analyzeStatements(clause.body());
       flow.popScope();
       if (!StatementFlow.definitelyExits(clause.body()))
-        completing.add(context.body.flowScopes.snapshot());
+        completing.add(this.body.scopes().snapshot());
     }
     FlowScopes.FlowState normal = mergeCompletingFlows(incoming, completing);
     flow.replaceFlow(normal);
     if (tried.finallyClause().isPresent()) {
-      Set<SymbolId> finalWrites = new HashSet<>();
-      context.body.flowWriteCollectors.addFirst(finalWrites);
+      var writes = this.body.collectWrites();
       FlowScopes.FlowState finalFlow;
-      try {
+      try (writes) {
         finalFlow =
             flow.analyzeBranch(tried.finallyClause().orElseThrow().body(), Map.of(), incoming);
-      } finally {
-        context.body.flowWriteCollectors.removeFirst();
       }
+      Set<SymbolId> finalWrites = writes.writes();
       Map<SymbolId, SemanticType> types = new LinkedHashMap<>(normal.types());
       for (Map.Entry<SymbolId, SemanticType> entry : finalFlow.types().entrySet()) {
         if (finalWrites.contains(entry.getKey())
@@ -688,13 +664,96 @@ final class BodyAnalyzer {
   private void updateReferenceLifetime(
       FlowScopes.ScopedSymbol destination, Syntax.Expression value) {
     LexicalLifetime sourceLifetime = expressionChecker.referenceLifetime(value);
-    LexicalLifetime destinationLifetime = context.body.flowScopes.storageLifetime(destination);
+    LexicalLifetime destinationLifetime = this.body.scopes().storageLifetime(destination);
     if (!sourceLifetime.outlives(destinationLifetime)) {
-      context.diagnostics.error(
+      diagnostics.error(
           INVALID_CONTROL, "reference cannot outlive the addressed storage location", value.span());
-      context.body.flowScopes.updateReferenceLifetime(destination, LexicalLifetime.unusable());
+      this.body.scopes().updateReferenceLifetime(destination, LexicalLifetime.unusable());
       return;
     }
-    context.body.flowScopes.updateReferenceLifetime(destination, sourceLifetime);
+    this.body.scopes().updateReferenceLifetime(destination, sourceLifetime);
+  }
+
+  private void analyzeFor(Syntax.ForStatement forStatement, Runnable bodyAnalysis) {
+    SemanticType declaredVariable =
+        forStatement
+            .variableType()
+            .map(
+                explicitType -> {
+                  typeResolver.validateType(explicitType, false);
+                  return typeResolver.resolveType(explicitType, resolution.parameters());
+                })
+            .orElse(null);
+    SemanticType expectedIterable = typeResolver.expectedIterable(declaredVariable);
+    SemanticType iterableType =
+        typeResolver.receiverType(
+            expressionChecker.typeOf(forStatement.iterable(), expectedIterable),
+            false,
+            forStatement.iterable().span());
+    Optional<ResolvedIteration> iteration = typeResolver.resolveIteration(iterableType);
+    iteration.ifPresent(value -> model.putIteration(forStatement.iterable().span(), value));
+    Optional<SemanticType> elementType = iteration.map(ResolvedIteration::elementType);
+    if (elementType.isEmpty()) {
+      diagnostics.error(
+          TYPE_MISMATCH, "for requires an iterable value", forStatement.iterable().span());
+    }
+    SemanticType variableType;
+    if (forStatement.variableType().isPresent()) {
+      variableType = declaredVariable;
+      elementType.ifPresent(
+          itemType ->
+              typeResolver.requireAssignable(
+                  variableType, itemType, forStatement.variableNameSpan()));
+    } else {
+      if (elementType.isEmpty()) {
+        diagnostics.error(
+            TYPE_MISMATCH,
+            "cannot infer loop variable type from " + iterableType.displayName(),
+            forStatement.variableNameSpan());
+        variableType = SemanticType.DYNAMIC;
+      } else {
+        variableType = elementType.orElseThrow();
+      }
+    }
+    if (CallResolver.containsDynamic(variableType)) {
+      diagnostics.error(
+          TYPE_MISMATCH,
+          "cannot infer loop variable type from " + iterableType.displayName(),
+          forStatement.variableNameSpan());
+    }
+    flow.pushScope(forStatement.span());
+    Symbol symbol =
+        declarationAnalyzer.register(
+            forStatement,
+            forStatement.variableName(),
+            SymbolKind.LOCAL_VARIABLE,
+            variableType,
+            forStatement.variableNameSpan(),
+            this.body.currentCallable(),
+            List.of(),
+            List.of());
+    flow.declareExisting(
+        forStatement.variableName(), variableType, forStatement.variableNameSpan(), symbol.id());
+    this.body.declareLambdaLocal(symbol.id());
+    forStatement
+        .index()
+        .ifPresent(
+            index -> {
+              Symbol indexSymbol =
+                  declarationAnalyzer.register(
+                      index,
+                      index.name(),
+                      SymbolKind.LOCAL_VARIABLE,
+                      SemanticType.INTEGER,
+                      index.nameSpan(),
+                      this.body.currentCallable(),
+                      List.of(),
+                      List.of());
+              flow.declareExisting(
+                  index.name(), SemanticType.INTEGER, index.nameSpan(), indexSymbol.id());
+              this.body.declareLambdaLocal(indexSymbol.id());
+            });
+    flow.analyzeLoop(bodyAnalysis, Map.of());
+    flow.popScope();
   }
 }

@@ -24,6 +24,7 @@ public final class JavaApplicationMethodIndex {
 
   public static Analysis analyze(Path classes, List<JavaAnnotationStub> stubs) throws IOException {
     var calls = new TreeMap<DefinitionId, IndexedMethod>();
+    var implementations = new TreeMap<DefinitionId, DefinitionId>();
     for (var stub : stubs) {
       var reader =
           new ClassReader(
@@ -43,10 +44,23 @@ public final class JavaApplicationMethodIndex {
                   if (!annotation.equals(Type.getDescriptor(NormApplicationMethod.class)))
                     return null;
                   return new AnnotationVisitor(Opcodes.ASM9) {
+                    private DefinitionId definition;
+                    private DefinitionId implementation;
+
                     @Override
                     public void visit(String member, Object value) {
-                      if (!member.equals("value")) return;
-                      var id = DefinitionId.parse((String) value);
+                      if (member.equals("value")) definition = DefinitionId.parse((String) value);
+                      if (member.equals("implementation") && !((String) value).isEmpty()) {
+                        implementation = DefinitionId.parse((String) value);
+                      }
+                    }
+
+                    @Override
+                    public void visitEnd() {
+                      if (definition == null)
+                        throw new IllegalArgumentException(
+                            "Application method declaration is absent");
+                      var id = definition;
                       var target = new IndexedMethod(stub.binaryName(), name, descriptor, access);
                       var existing = calls.putIfAbsent(id, target);
                       if (existing != null && !existing.equals(target))
@@ -57,6 +71,12 @@ public final class JavaApplicationMethodIndex {
                                 + existing
                                 + " and "
                                 + target);
+                      var body = implementation == null ? id : implementation;
+                      var previous = implementations.putIfAbsent(id, body);
+                      if (previous != null && !previous.equals(body)) {
+                        throw new IllegalArgumentException(
+                            "Conflicting application implementation " + id);
+                      }
                     }
                   };
                 }
@@ -71,7 +91,7 @@ public final class JavaApplicationMethodIndex {
         (id, method) -> {
           if ((method.access() & Opcodes.ACC_STATIC) == 0 && !method.name().equals("<init>"))
             instances.put(id, new Target(method.owner(), method.name(), method.descriptor()));
-          if ((method.access() & Opcodes.ACC_ABSTRACT) == 0) entries.add(id);
+          if ((method.access() & Opcodes.ACC_ABSTRACT) == 0) entries.add(implementations.get(id));
         });
     return new Analysis(instances, entries);
   }

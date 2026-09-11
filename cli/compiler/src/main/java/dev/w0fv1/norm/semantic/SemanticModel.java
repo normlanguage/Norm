@@ -17,6 +17,17 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class SemanticModel implements SemanticIndex {
+  public List<Symbol> lambdaParameters(SourceSpan span) {
+    return scopes.reversed().stream()
+        .filter(scope -> scope.span().equals(span))
+        .findFirst()
+        .stream()
+        .flatMap(scope -> scope.symbols().stream())
+        .map(symbols::get)
+        .filter(symbol -> symbol.kind() == SymbolKind.PARAMETER)
+        .toList();
+  }
+
   private final TypeRelations.DeclarationGraph typeRelations;
   private final MemberRelations memberRelations;
   private final SourceFile source;
@@ -24,6 +35,12 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<SymbolId, Symbol> symbols;
   private final Map<SourceSpan, SymbolId> bindings;
   private final Map<SourceSpan, SemanticType> expressionTypes;
+  private final Map<SourceSpan, SemanticType> resultBuilders;
+
+  public Optional<SemanticType> resultBuilder(SourceSpan span) {
+    return Optional.ofNullable(resultBuilders.get(span));
+  }
+
   private final Map<SourceSpan, ResolvedCall> resolvedCalls;
   private final Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments;
   private final Map<SourceSpan, ResolvedCall> resolvedCallsByCallee;
@@ -59,6 +76,7 @@ public final class SemanticModel implements SemanticIndex {
       Map<SourceSpan, SymbolId> bindings,
       Set<SourceSpan> declarationOperators,
       Map<SourceSpan, SemanticType> expressionTypes,
+      Map<SourceSpan, SemanticType> resultBuilders,
       Map<SourceSpan, ResolvedCall> resolvedCalls,
       Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments,
       Map<SourceSpan, ResolvedIteration> iterations,
@@ -87,6 +105,7 @@ public final class SemanticModel implements SemanticIndex {
     if (!this.bindings.keySet().containsAll(this.declarationOperators))
       throw new IllegalArgumentException("declaration operators require semantic bindings");
     this.expressionTypes = Map.copyOf(expressionTypes);
+    this.resultBuilders = Map.copyOf(resultBuilders);
     this.resolvedCalls = Map.copyOf(resolvedCalls);
     Map<SourceSpan, List<SemanticType>> copiedFunctionReferenceArguments = new LinkedHashMap<>();
     functionReferenceTypeArguments.forEach(
@@ -130,6 +149,7 @@ public final class SemanticModel implements SemanticIndex {
     this.resolvedCalleeIndex = SpanIndex.from(this.resolvedCallees);
     this.typeIndex = SpanIndex.from(this.expressionTypes);
     Map<SourceSpan, SymbolId> authoredBindings = new LinkedHashMap<>(this.bindings);
+    authoredBindings.keySet().removeIf(span -> span.expansion() != 0);
     this.declarationOperators.forEach(authoredBindings::remove);
     this.authoringReferences = ReferenceIndex.from(authoredBindings);
     this.semanticReferences =
@@ -145,6 +165,7 @@ public final class SemanticModel implements SemanticIndex {
     this.symbols = project.symbols;
     this.bindings = project.bindings;
     this.expressionTypes = project.expressionTypes;
+    this.resultBuilders = project.resultBuilders;
     this.resolvedCalls = project.resolvedCalls;
     this.functionReferenceTypeArguments = project.functionReferenceTypeArguments;
     this.resolvedCallsByCallee = project.resolvedCallsByCallee;
@@ -275,6 +296,7 @@ public final class SemanticModel implements SemanticIndex {
             .map(rebaser::rebase)
             .collect(java.util.stream.Collectors.toUnmodifiableSet()),
         selectedTypes,
+        rebase(resultBuilders, previousRoot, rebaser),
         selectedCalls,
         selectedFunctionArguments,
         selectedIterations,
@@ -323,7 +345,8 @@ public final class SemanticModel implements SemanticIndex {
         symbol.owner(),
         symbol.typeParameters(),
         symbol.parameters(),
-        symbol.documentation());
+        symbol.documentation(),
+        symbol.accessor());
   }
 
   private static boolean inside(SourceSpan span, SourceSpan root) {
@@ -342,6 +365,8 @@ public final class SemanticModel implements SemanticIndex {
     private final SourceSpan previousRoot;
     private final SourceSpan currentRoot;
     private final java.util.NavigableMap<Integer, Integer> anchors = new java.util.TreeMap<>();
+    private final Map<Integer, Integer> starts = new LinkedHashMap<>();
+    private final Map<Integer, Integer> ends = new LinkedHashMap<>();
 
     private SpanRebaser(
         SourceSpan previousRoot,
@@ -353,40 +378,48 @@ public final class SemanticModel implements SemanticIndex {
       if (previousTokens.size() != currentTokens.size()) {
         throw new IllegalArgumentException("semantic contribution tokens must have equal shape");
       }
-      anchor(previousRoot.startOffset(), currentRoot.startOffset());
+      anchor(starts, previousRoot.startOffset(), currentRoot.startOffset());
       for (int index = 0; index < previousTokens.size(); index++) {
         Token previous = previousTokens.get(index);
         Token current = currentTokens.get(index);
         if (previous.kind() != current.kind() || !previous.lexeme().equals(current.lexeme())) {
           throw new IllegalArgumentException("semantic contribution tokens must have equal shape");
         }
-        anchor(previous.span().startOffset(), current.span().startOffset());
-        anchor(previous.span().endOffset(), current.span().endOffset());
+        anchor(starts, previous.span().startOffset(), current.span().startOffset());
+        anchor(ends, previous.span().endOffset(), current.span().endOffset());
       }
-      anchor(previousRoot.endOffset(), currentRoot.endOffset());
+      anchor(ends, previousRoot.endOffset(), currentRoot.endOffset());
     }
 
-    private void anchor(int previous, int current) {
-      Integer existing = anchors.putIfAbsent(previous, current);
+    private void anchor(Map<Integer, Integer> boundaries, int previous, int current) {
+      anchors.putIfAbsent(previous, current);
+      Integer existing = boundaries.putIfAbsent(previous, current);
       if (existing != null && existing != current) {
         throw new IllegalArgumentException("semantic contribution has inconsistent token anchors");
       }
     }
 
     private SourceSpan rebase(SourceSpan span) {
-      return new SourceSpan(currentRoot.source(), map(span.startOffset()), map(span.endOffset()));
+      return new SourceSpan(
+          currentRoot.source(),
+          map(span.startOffset(), false),
+          map(span.endOffset(), !span.isEmpty()),
+          span.expansion());
     }
 
     private SourceLocation rebase(SourceLocation location) {
       return new SourceLocation(
-          currentRoot.source().id(), map(location.startOffset()), map(location.endOffset()));
+          currentRoot.source().id(),
+          map(location.startOffset(), false),
+          map(location.endOffset(), location.endOffset() != location.startOffset()));
     }
 
-    private int map(int offset) {
+    private int map(int offset, boolean end) {
       if (offset < previousRoot.startOffset() || offset > previousRoot.endOffset()) {
         throw new IllegalArgumentException("semantic span is outside its declaration");
       }
-      Integer exact = anchors.get(offset);
+      Integer exact = (end ? ends : starts).get(offset);
+      if (exact == null) exact = (end ? starts : ends).get(offset);
       if (exact != null) return exact;
       Map.Entry<Integer, Integer> lower = anchors.floorEntry(offset);
       Map.Entry<Integer, Integer> upper = anchors.ceilingEntry(offset);
@@ -394,7 +427,9 @@ public final class SemanticModel implements SemanticIndex {
         throw new IllegalStateException("semantic contribution has incomplete token anchors");
       }
       int relative = offset - lower.getKey();
-      return lower.getValue() + Math.min(relative, upper.getValue() - lower.getValue());
+      int lowerValue = starts.getOrDefault(lower.getKey(), lower.getValue());
+      int upperValue = ends.getOrDefault(upper.getKey(), upper.getValue());
+      return lowerValue + Math.min(relative, upperValue - lowerValue);
     }
   }
 
@@ -728,6 +763,7 @@ public final class SemanticModel implements SemanticIndex {
                 scope.symbols().stream()
                     .map(symbols::get)
                     .filter(Objects::nonNull)
+                    .filter(symbol -> !symbol.name().startsWith("$"))
                     .filter(
                         symbol ->
                             symbol.declaration().isEmpty()
@@ -852,9 +888,15 @@ public final class SemanticModel implements SemanticIndex {
                     new ParameterInfo(
                         parameter.name(),
                         parameter.type().substitute(substitutions),
-                        parameter.hasDefault()))
+                        parameter.hasDefault(),
+                        parameter.callbackParameterNames(),
+                        parameter.labelPolicy(),
+                        parameter
+                            .resultBuilder()
+                            .map(builder -> builder.substitute(substitutions))))
             .toList(),
-        member.documentation());
+        member.documentation(),
+        member.accessor());
   }
 
   private static Symbol withName(Symbol symbol, String name) {
@@ -867,6 +909,7 @@ public final class SemanticModel implements SemanticIndex {
         symbol.owner(),
         symbol.typeParameters(),
         symbol.parameters(),
-        symbol.documentation());
+        symbol.documentation(),
+        symbol.accessor());
   }
 }

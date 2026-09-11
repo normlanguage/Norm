@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.cli.controller;
 
-import dev.w0fv1.norm.cli.component.NativeImageToolchain;
+import dev.w0fv1.norm.build.NativeImageToolchain;
 import dev.w0fv1.norm.cli.value.ExitCode;
 import java.io.IOException;
 import java.io.PrintWriter;

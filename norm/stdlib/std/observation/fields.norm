@@ -1,0 +1,29 @@
+package std.observation
+
+import std.io.Resource
+import std.io.ResourceOwner
+import std.context.currentContext
+
+public extension Resource onChange<T>(FieldHandle<T> field, Void changed(T oldValue, T newValue)) {
+  var owner = currentContext<ResourceOwner>()
+  var subscription = FieldSubscription(owner: owner, release: __observeField<T>(field: field, changed: (T oldValue, T newValue) {
+    if owner == null { changed(oldValue, newValue) }
+    else { owner.execute(() { changed(oldValue, newValue) }) }
+  }))
+  owner?.own(subscription)
+  subscription
+}
+
+public Resource observeFields<T>(T target, Void read(Integer field), Void changed(Integer field)) {
+  FieldSubscription(release: __observeFields<T>(target: target, read: read, changed: changed))
+}
+
+private class FieldSubscription implements Resource {
+  Function<Void()> release
+  ResourceOwner? owner = null
+  Void close() {
+    var previousOwner = owner
+    owner = null
+    try { release() } finally { previousOwner?.release(this) }
+  }
+}

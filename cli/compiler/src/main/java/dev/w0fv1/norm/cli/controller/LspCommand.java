@@ -1,7 +1,11 @@
 package dev.w0fv1.norm.cli.controller;
 
-import dev.w0fv1.norm.cli.component.LanguageServerLauncher;
 import dev.w0fv1.norm.cli.value.ExitCode;
+import dev.w0fv1.norm.lsp.LanguageServerLauncher;
+import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.workspace.Workspace;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
@@ -23,13 +27,13 @@ final class LspCommand implements Command {
       return ExitCode.USAGE_ERROR;
     }
     try {
-      LanguageServerLauncher.run(System.in, System.out);
-      return ExitCode.SUCCESS;
+      var workspace = new Workspace(ProjectEnvironment.bootstrap(new NormRuntime()));
+      return LanguageServerLauncher.run(workspace, System.in, System.out);
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();
       err.println("error[NORM-CLI-0006]: language server was interrupted");
       return ExitCode.INTERNAL_ERROR;
-    } catch (RuntimeException exception) {
+    } catch (IOException | RuntimeException exception) {
       Throwable cause = exception;
       while (cause.getCause() != null) {
         cause = cause.getCause();

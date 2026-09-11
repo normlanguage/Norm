@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.source.SourceSpan;
+import dev.w0fv1.norm.syntax.CollectionElement;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -24,6 +25,7 @@ final class Parser {
   private final CompilationGuard guard;
   private int current;
   private int expressionDepth;
+  private int trailingLambdaBoundary = -1;
   private boolean lineLeadingDereferenceBoundary;
 
   Parser(SourceFile source, List<Token> tokens, DiagnosticBag diagnostics) {
@@ -274,7 +276,8 @@ final class Parser {
                 memberName,
                 memberVisibility,
                 memberAnnotations,
-                Syntax.FunctionKind.REGULAR));
+                Syntax.FunctionKind.REGULAR,
+                true));
         continue;
       }
       Syntax.TypeRef type = parseType();
@@ -286,7 +289,10 @@ final class Parser {
                 memberName,
                 memberVisibility,
                 memberAnnotations,
-                Syntax.FunctionKind.REGULAR));
+                Syntax.FunctionKind.REGULAR,
+                true));
+      } else if (check(TokenKind.LEFT_BRACE)) {
+        methods.addAll(parseProperty(type, memberName, memberVisibility, memberAnnotations));
       } else {
         Optional<Syntax.Expression> defaultValue =
             match(TokenKind.EQUAL) ? Optional.of(parseExpression()) : Optional.empty();
@@ -431,11 +437,79 @@ final class Parser {
       Syntax.FunctionKind kind) {
     if (kind == Syntax.FunctionKind.REGULAR && looksLikeOmittedReturnFunction()) {
       Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-      return parseFunctionRest(Optional.empty(), name, visibility, annotations, kind);
+      return parseFunctionRest(Optional.empty(), name, visibility, annotations, kind, false);
     }
     Syntax.TypeRef returnType = parseType();
     Token name = consume(TokenKind.IDENTIFIER, "expected function name");
-    return parseFunctionRest(Optional.of(returnType), name, visibility, annotations, kind);
+    return parseFunctionRest(Optional.of(returnType), name, visibility, annotations, kind, false);
+  }
+
+  private List<Syntax.FunctionDecl> parseProperty(
+      Syntax.TypeRef type,
+      Token name,
+      Syntax.Visibility visibility,
+      List<Syntax.AnnotationUse> annotations) {
+    consume(TokenKind.LEFT_BRACE, "expected '{' after property name");
+    List<Syntax.FunctionDecl> accessors = new ArrayList<>();
+    boolean getter = false;
+    boolean setter = false;
+    while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
+      boolean privateSetter = match(TokenKind.PRIVATE);
+      Token accessor = consume(TokenKind.IDENTIFIER, "expected get or set accessor");
+      if (accessor.value().equals("get")) {
+        if (getter || privateSetter)
+          error(accessor, "property requires one getter with the property's visibility");
+        getter = true;
+        Block body = parseBlock();
+        accessors.add(
+            new Syntax.FunctionDecl(
+                annotations,
+                visibility,
+                Syntax.FunctionKind.GETTER,
+                Optional.of(type),
+                name.value(),
+                name.span(),
+                List.of(),
+                List.of(),
+                body.statements(),
+                type.span().cover(body.span())));
+      } else if (accessor.value().equals("set")) {
+        if (setter) error(accessor, "property can declare only one setter");
+        setter = true;
+        consume(TokenKind.LEFT_PAREN, "expected '(' after set");
+        Token parameter = consume(TokenKind.IDENTIFIER, "expected setter parameter name");
+        consume(TokenKind.RIGHT_PAREN, "expected ')' after setter parameter");
+        Block body = parseBlock();
+        var input =
+            new Syntax.Parameter(
+                List.of(),
+                type,
+                parameter.value(),
+                parameter.span(),
+                Optional.empty(),
+                Optional.empty(),
+                parameter.span());
+        accessors.add(
+            new Syntax.FunctionDecl(
+                List.of(),
+                privateSetter ? Syntax.Visibility.PRIVATE : visibility,
+                Syntax.FunctionKind.SETTER,
+                Optional.of(
+                    new Syntax.TypeRef(
+                        "Void", List.of(), SourceSpan.at(source, accessor.span().startOffset()))),
+                name.value(),
+                accessor.span(),
+                List.of(),
+                List.of(input),
+                body.statements(),
+                accessor.span().cover(body.span())));
+      } else {
+        throw error(accessor, "expected get or set accessor");
+      }
+    }
+    consume(TokenKind.RIGHT_BRACE, "expected '}' after property accessors");
+    if (!getter) error(name, "computed property requires a getter");
+    return List.copyOf(accessors);
   }
 
   private Syntax.FunctionDecl parseFunctionRest(
@@ -443,11 +517,27 @@ final class Parser {
       Token name,
       Syntax.Visibility visibility,
       List<Syntax.AnnotationUse> annotations,
-      Syntax.FunctionKind kind) {
+      Syntax.FunctionKind kind,
+      boolean declarationAllowed) {
     List<Syntax.TypeParameter> typeParameters = parseTypeParameters();
     consume(TokenKind.LEFT_PAREN, "expected '(' after function name");
     List<Syntax.Parameter> parameters = parseParameterList();
-    consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
+    Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after parameters");
+    if (declarationAllowed && !check(TokenKind.LEFT_BRACE)) {
+      SourceSpan end = match(TokenKind.SEMICOLON) ? previous().span() : closing.span();
+      return new Syntax.FunctionDecl(
+          annotations,
+          visibility,
+          kind,
+          returnType,
+          name.value(),
+          name.span(),
+          typeParameters,
+          parameters,
+          Optional.empty(),
+          coverAnnotations(
+              annotations, returnType.map(Syntax.TypeRef::span).orElse(name.span()).cover(end)));
+    }
     Block block = parseBlock();
     return new Syntax.FunctionDecl(
         annotations,
@@ -584,6 +674,10 @@ final class Parser {
 
   private Block parseBlock() {
     Token opening = consume(TokenKind.LEFT_BRACE, "expected '{'");
+    return parseBlock(opening);
+  }
+
+  private Block parseBlock(Token opening) {
     List<Syntax.Statement> statements = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
       try {
@@ -728,8 +822,14 @@ final class Parser {
   }
 
   private Syntax.IfStatement parseIf(Token keyword) {
-    Syntax.Expression condition = parseExpression();
-    Block thenBlock = parseBlock();
+    Syntax.Expression condition;
+    if (match(TokenKind.LEFT_PAREN)) {
+      condition = parseExpression();
+      consume(TokenKind.RIGHT_PAREN, "expected ')' after if condition");
+    } else {
+      condition = parseExpressionBeforeBlock();
+    }
+    Block thenBlock = parseIfBranch();
     List<Syntax.Statement> elseBody = List.of();
     SourceSpan end = thenBlock.span();
     if (match(TokenKind.ELSE)) {
@@ -738,13 +838,19 @@ final class Parser {
         elseBody = List.of(nested);
         end = nested.span();
       } else {
-        Block elseBlock = parseBlock();
+        Block elseBlock = parseIfBranch();
         elseBody = elseBlock.statements();
         end = elseBlock.span();
       }
     }
     return new Syntax.IfStatement(
         condition, thenBlock.statements(), elseBody, keyword.span().cover(end));
+  }
+
+  private Block parseIfBranch() {
+    if (check(TokenKind.LEFT_BRACE)) return parseBlock();
+    Syntax.Expression value = parseExpression();
+    return new Block(List.of(new Syntax.ExpressionStatement(value, value.span())), value.span());
   }
 
   private Syntax.Statement parseFor(Token keyword) {
@@ -766,11 +872,24 @@ final class Parser {
                     && tokens.get(afterType + 2).kind() == TokenKind.IDENTIFIER
                     && tokens.get(afterType + 3).kind() == TokenKind.COLON);
     if (!inferredIteration && !explicitIteration) {
-      Syntax.Expression condition = parseExpression();
+      Syntax.Expression condition = parseExpressionBeforeBlock();
       Block body = parseBlock();
       return new Syntax.ConditionalForStatement(
           condition, body.statements(), keyword.span().cover(body.span()));
     }
+    IterationHeader header = parseIterationHeader(inferredIteration, true);
+    Block body = parseBlock();
+    return new Syntax.ForStatement(
+        header.type(),
+        header.name().value(),
+        header.name().span(),
+        header.index(),
+        header.iterable(),
+        body.statements(),
+        keyword.span().cover(body.span()));
+  }
+
+  private IterationHeader parseIterationHeader(boolean inferredIteration, boolean beforeBlock) {
     Optional<Syntax.TypeRef> type;
     Token name;
     if (inferredIteration) {
@@ -786,17 +905,15 @@ final class Parser {
       index = Optional.of(new Syntax.ForIndex(indexName.value(), indexName.span()));
     }
     consume(TokenKind.COLON, "expected ':' after loop variable");
-    Syntax.Expression iterable = parseExpression();
-    Block body = parseBlock();
-    return new Syntax.ForStatement(
-        type,
-        name.value(),
-        name.span(),
-        index,
-        iterable,
-        body.statements(),
-        keyword.span().cover(body.span()));
+    Syntax.Expression iterable = beforeBlock ? parseExpressionBeforeBlock() : parseExpression();
+    return new IterationHeader(type, name, index, iterable);
   }
+
+  private record IterationHeader(
+      Optional<Syntax.TypeRef> type,
+      Token name,
+      Optional<Syntax.ForIndex> index,
+      Syntax.Expression iterable) {}
 
   private Syntax.TryStatement parseTry(Token keyword) {
     Block body = parseBlock();
@@ -849,6 +966,16 @@ final class Parser {
       return parseCoalescing();
     } finally {
       expressionDepth--;
+    }
+  }
+
+  private Syntax.Expression parseExpressionBeforeBlock() {
+    int previous = trailingLambdaBoundary;
+    trailingLambdaBoundary = expressionDepth + 1;
+    try {
+      return parseExpression();
+    } finally {
+      trailingLambdaBoundary = previous;
     }
   }
 
@@ -962,6 +1089,11 @@ final class Parser {
   }
 
   private Syntax.Expression parseUnary() {
+    if (match(TokenKind.THROW)) {
+      Token operator = previous();
+      Syntax.Expression operand = parseExpression();
+      return new Syntax.Unary(operator.kind(), operand, operator.span().cover(operand.span()));
+    }
     if (match(TokenKind.BANG, TokenKind.MINUS, TokenKind.STAR, TokenKind.AMPERSAND)) {
       Token operator = previous();
       Syntax.Expression operand = parseUnary();
@@ -981,11 +1113,32 @@ final class Parser {
   private Syntax.Expression parsePostfix() {
     Syntax.Expression expression = parsePrimary();
     while (true) {
-      if (match(TokenKind.LEFT_PAREN)) {
+      if (match(TokenKind.BANG_BANG)) {
+        expression =
+            new Syntax.Unary(
+                TokenKind.BANG_BANG, expression, expression.span().cover(previous().span()));
+      } else if (match(TokenKind.LEFT_PAREN)) {
         List<Syntax.CallArgument> arguments = parseCallArguments();
         Token closing = consume(TokenKind.RIGHT_PAREN, "expected ')' after arguments");
         expression =
             new Syntax.Call(expression, arguments, expression.span().cover(closing.span()));
+      } else if (check(TokenKind.LEFT_BRACE)
+          && expressionDepth != trailingLambdaBoundary
+          && (expression instanceof Syntax.Call
+              || expression instanceof Syntax.Name
+              || expression instanceof Syntax.Member)) {
+        Syntax.Lambda lambda = parseTrailingLambda();
+        Syntax.Expression callee = expression;
+        List<Syntax.CallArgument> arguments = new ArrayList<>();
+        if (expression instanceof Syntax.Call call) {
+          callee = call.callee();
+          arguments.addAll(call.arguments());
+          if (arguments.stream().anyMatch(Syntax.CallArgument::trailing))
+            diagnostics.error(
+                EXPECTED_EXPRESSION, "only one trailing lambda is allowed", lambda.span());
+        }
+        arguments.add(new Syntax.CallArgument(Optional.empty(), lambda, true, lambda.span()));
+        expression = new Syntax.Call(callee, arguments, expression.span().cover(lambda.span()));
       } else if (match(TokenKind.DOT, TokenKind.QUESTION_DOT)) {
         boolean nullSafe = previous().kind() == TokenKind.QUESTION_DOT;
         Token name;
@@ -1046,6 +1199,14 @@ final class Parser {
     }
     if (match(TokenKind.SWITCH)) {
       return parseSwitch(previous());
+    }
+    if (match(TokenKind.IF)) {
+      Syntax.IfStatement conditional = parseIf(previous());
+      return new Syntax.IfExpression(
+          conditional.condition(),
+          conditional.thenBody(),
+          conditional.elseBody(),
+          conditional.span());
     }
     if (match(TokenKind.INTEGER)) {
       Token token = previous();
@@ -1112,16 +1273,56 @@ final class Parser {
     }
     if (match(TokenKind.LEFT_BRACKET)) {
       Token opening = previous();
-      List<Syntax.Expression> elements = new ArrayList<>();
+      List<CollectionElement> elements = new ArrayList<>();
       if (!check(TokenKind.RIGHT_BRACKET)) {
         do {
-          elements.add(parseExpression());
+          elements.add(parseCollectionElement());
         } while (match(TokenKind.COMMA));
       }
       Token closing = consume(TokenKind.RIGHT_BRACKET, "expected ']' after array literal");
       return new Syntax.ArrayLiteral(elements, opening.span().cover(closing.span()));
     }
     throw error(peek(), "expected expression");
+  }
+
+  private CollectionElement parseCollectionElement() {
+    if (match(TokenKind.ELLIPSIS)) {
+      Token start = previous();
+      Syntax.Expression iterable = parseExpression();
+      return new CollectionElement.Spread(iterable, start.span().cover(iterable.span()));
+    }
+    if (check(TokenKind.IF) && checkNext(TokenKind.LEFT_PAREN)) {
+      Token start = advance();
+      advance();
+      Syntax.Expression condition = parseExpression();
+      consume(TokenKind.RIGHT_PAREN, "expected ')' after collection condition");
+      CollectionElement thenElement = parseCollectionElement();
+      Optional<CollectionElement> elseElement =
+          match(TokenKind.ELSE) ? Optional.of(parseCollectionElement()) : Optional.empty();
+      return new CollectionElement.Conditional(
+          condition,
+          thenElement,
+          elseElement,
+          start.span().cover(elseElement.orElse(thenElement).span()));
+    }
+    if (match(TokenKind.FOR)) {
+      Token start = previous();
+      consume(TokenKind.LEFT_PAREN, "expected '(' after collection for");
+      boolean inferred =
+          check(TokenKind.IDENTIFIER) && (checkNext(TokenKind.COLON) || checkNext(TokenKind.COMMA));
+      IterationHeader header = parseIterationHeader(inferred, false);
+      consume(TokenKind.RIGHT_PAREN, "expected ')' after collection iteration");
+      CollectionElement element = parseCollectionElement();
+      return new CollectionElement.Repeated(
+          header.type(),
+          header.name().value(),
+          header.name().span(),
+          header.index(),
+          header.iterable(),
+          element,
+          start.span().cover(element.span()));
+    }
+    return parseExpression();
   }
 
   private boolean looksLikeLambda() {
@@ -1171,8 +1372,13 @@ final class Parser {
       TokenKind kind = tokens.get(index).kind();
       if (kind == TokenKind.LEFT_PAREN) depth++;
       if (kind == TokenKind.RIGHT_PAREN && --depth == 0) {
+        int parameterName = tokenAfterType(current + 2);
         return index + 1 < tokens.size()
             && tokens.get(index + 1).kind() == TokenKind.LEFT_BRACE
+            && current + 2 < index
+            && parameterName > current + 2
+            && parameterName < index
+            && tokens.get(parameterName).kind() == TokenKind.IDENTIFIER
             && looksLikeLambdaParameters(current + 2, index);
       }
     }
@@ -1186,7 +1392,10 @@ final class Parser {
       do {
         Optional<Syntax.TypeRef> type = Optional.empty();
         Token name;
-        if (check(TokenKind.IDENTIFIER) && checkNext(TokenKind.IDENTIFIER)) {
+        int parameterName = tokenAfterType(current);
+        if (parameterName > current
+            && parameterName < tokens.size()
+            && tokens.get(parameterName).kind() == TokenKind.IDENTIFIER) {
           type = Optional.of(parseType());
           name = consume(TokenKind.IDENTIFIER, "expected lambda parameter name");
         } else {
@@ -1200,6 +1409,30 @@ final class Parser {
     Block block = parseBlock();
     return new Syntax.Lambda(
         returnType, parameters, block.statements(), opening.span().cover(block.span()));
+  }
+
+  private Syntax.Lambda parseTrailingLambda() {
+    Token opening = consume(TokenKind.LEFT_BRACE, "expected '{'");
+    List<Syntax.LambdaParameter> parameters = new ArrayList<>();
+    int cursor = current;
+    while (cursor < tokens.size() && tokens.get(cursor).kind() == TokenKind.IDENTIFIER) {
+      cursor++;
+      if (cursor < tokens.size()
+          && tokens.get(cursor).kind() == TokenKind.IDENTIFIER
+          && tokens.get(cursor).value().equals("in")) {
+        do {
+          Token name = consume(TokenKind.IDENTIFIER, "expected lambda parameter name");
+          parameters.add(
+              new Syntax.LambdaParameter(Optional.empty(), name.value(), name.span(), name.span()));
+        } while (match(TokenKind.COMMA));
+        advance();
+        break;
+      }
+      if (cursor >= tokens.size() || tokens.get(cursor).kind() != TokenKind.COMMA) break;
+      cursor++;
+    }
+    Block body = parseBlock(opening);
+    return new Syntax.Lambda(Optional.empty(), parameters, body.statements(), body.span());
   }
 
   private boolean looksLikeVariableDeclaration() {
@@ -1220,11 +1453,13 @@ final class Parser {
     return next >= 0
         && next < tokens.size()
         && (tokens.get(next).kind() == TokenKind.LEFT_PAREN
-            || tokens.get(next).kind() == TokenKind.DOT);
+            || tokens.get(next).kind() == TokenKind.DOT
+            || (tokens.get(next).kind() == TokenKind.LEFT_BRACE
+                && expressionDepth != trailingLambdaBoundary));
   }
 
   private Syntax.SwitchExpression parseSwitch(Token keyword) {
-    Syntax.Expression value = parseExpression();
+    Syntax.Expression value = parseExpressionBeforeBlock();
     consume(TokenKind.LEFT_BRACE, "expected '{' before switch cases");
     List<Syntax.SwitchCase> cases = new ArrayList<>();
     while (!check(TokenKind.RIGHT_BRACE) && !isAtEnd()) {
@@ -1302,6 +1537,10 @@ final class Parser {
   }
 
   private int tokenAfterType(int start) {
+    return tokenAfterType(start, false);
+  }
+
+  private int tokenAfterType(int start, boolean declaration) {
     if (start < 0 || start >= tokens.size() || !isTypeToken(tokens.get(start).kind())) return -1;
     int index = start + 1;
     if (index >= tokens.size() || tokens.get(index).kind() != TokenKind.LESS) {
@@ -1320,7 +1559,10 @@ final class Parser {
         parentheses++;
       } else if (kind == TokenKind.RIGHT_PAREN && parentheses > 0) {
         parentheses--;
-      } else if (kind != TokenKind.COMMA && kind != TokenKind.QUESTION && !isTypeToken(kind)) {
+      } else if (kind != TokenKind.COMMA
+          && kind != TokenKind.QUESTION
+          && !isTypeToken(kind)
+          && !(declaration && (kind == TokenKind.EQUAL || kind == TokenKind.EXTENDS))) {
         return -1;
       }
     }
@@ -1432,7 +1674,7 @@ final class Parser {
 
   private boolean checkContextualAggregateDeclaration(String keyword) {
     if (!checkContextual(keyword) || !checkNext(TokenKind.IDENTIFIER)) return false;
-    int afterName = tokenAfterType(current + 1);
+    int afterName = tokenAfterType(current + 1, true);
     if (afterName < 0 || afterName >= tokens.size()) return false;
     Token token = tokens.get(afterName);
     return token.kind() == TokenKind.LEFT_BRACE || token.kind() == TokenKind.IMPLEMENTS;

@@ -20,7 +20,8 @@ record ExecutableProgram(
         annotations.execution(),
         values,
         new ResourceScope(),
-        new GuestCallbackScheduler());
+        new GuestCallbackScheduler(),
+        new ExecutionContexts());
   }
 
   Object execute(ExecutionContext context) {

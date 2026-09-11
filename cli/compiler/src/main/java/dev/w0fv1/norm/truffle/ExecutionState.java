@@ -11,13 +11,15 @@ record ExecutionState(
     AnnotationRuntime.Execution annotationExecution,
     GuestValueFactory values,
     ResourceScope resources,
-    GuestCallbackScheduler callbacks) {
+    GuestCallbackScheduler callbacks,
+    ExecutionContexts contexts) {
   ExecutionState {
     Objects.requireNonNull(context, "context");
     Objects.requireNonNull(annotationExecution, "annotationExecution");
     Objects.requireNonNull(values, "values");
     Objects.requireNonNull(resources, "resources");
     Objects.requireNonNull(callbacks, "callbacks");
+    Objects.requireNonNull(contexts, "contexts");
   }
 
   void runCallbacksUntil(BooleanSupplier completed, Node location) {
@@ -32,12 +34,13 @@ record ExecutionState(
   }
 
   void close(Throwable failure) {
-    callbacks.close();
     try {
       resources.close();
     } catch (ResourceCloseException closeFailure) {
       if (failure == null) throw closeFailure;
       failure.addSuppressed(closeFailure);
+    } finally {
+      callbacks.close();
     }
   }
 }

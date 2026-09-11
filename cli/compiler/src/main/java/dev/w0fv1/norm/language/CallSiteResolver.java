@@ -157,7 +157,8 @@ final class CallSiteResolver {
                 call.kind() == ResolvedCall.Kind.EXTENSION
                     ? call.parameters().subList(1, call.parameters().size())
                     : call.parameters(),
-                declaration.documentation());
+                declaration.documentation(),
+                declaration.accessor());
         return new CandidateSet(List.of(instantiated), Optional.of(instantiated));
       }
     }

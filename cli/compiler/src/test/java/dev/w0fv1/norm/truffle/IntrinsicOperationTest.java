@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 final class IntrinsicOperationTest {
   @Test
   void boundPlatformOperationsDoNotRetainRuntimeOpcodeSelection() throws Exception {
-    for (var intrinsic : IntrinsicDispatcher.supportedIntrinsics()) {
+    for (var intrinsic : dev.w0fv1.norm.abi.IntrinsicId.values()) {
       if (java.util.stream.Stream.of("HTTP_", "FILE_", "IO_", "TIME_", "JAR_TASK_")
           .noneMatch(prefix -> intrinsic.name().startsWith(prefix))) continue;
       var pending = new java.util.ArrayDeque<IntrinsicOperation>();
@@ -33,7 +33,7 @@ final class IntrinsicOperationTest {
 
   @Test
   void bindsEverySupportedIntrinsicWithoutExecutingIt() {
-    for (var intrinsic : IntrinsicDispatcher.supportedIntrinsics()) {
+    for (var intrinsic : dev.w0fv1.norm.abi.IntrinsicId.values()) {
       assertNotNull(IntrinsicDispatcher.resolve(intrinsic), intrinsic.name());
       assertEquals(
           new RuntimeValues.DispatchTarget.Intrinsic(intrinsic),

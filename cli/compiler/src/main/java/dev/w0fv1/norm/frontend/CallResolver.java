@@ -28,7 +28,7 @@ final class CallResolver {
   private final SemanticModelBuilder model;
   private final BuiltinSymbols builtins;
   private final TypeResolutionState resolution;
-  private final TypeSystem typeSystem;
+  private final TypeResolver typeResolver;
   private final ExpressionTyping expressions;
   final CallArguments arguments;
 
@@ -37,13 +37,13 @@ final class CallResolver {
       SemanticModelBuilder model,
       BuiltinSymbols builtins,
       TypeResolutionState resolution,
-      TypeSystem typeSystem,
+      TypeResolver typeResolver,
       ExpressionTyping expressions) {
     this.diagnostics = diagnostics;
     this.model = model;
     this.builtins = builtins;
     this.resolution = resolution;
-    this.typeSystem = typeSystem;
+    this.typeResolver = typeResolver;
     this.expressions = expressions;
     arguments = new CallArguments(diagnostics, INVALID_CALL);
   }
@@ -100,24 +100,50 @@ final class CallResolver {
       boolean nullableAccess) {
     List<CallableTarget<Syntax.FunctionDecl>> signatures =
         candidates.stream()
-            .map(
-                declaration ->
-                    new CallableTarget<>(
-                        declaration,
-                        declaration.name(),
-                        model
-                            .symbols()
-                            .get(model.declarationSymbols().get(declaration))
-                            .typeParameters(),
-                        typeSystem.parametersOf(declaration, ownerSubstitutions),
-                        typeSystem.functionReturnType(
-                            declaration,
-                            typeSystem.typeParameters(
-                                declaration, typeSystem.ownerOf(declaration))),
-                        ownerSubstitutions))
+            .map(declaration -> sourceTarget(declaration, ownerSubstitutions))
             .toList();
     return resolveCall(
         signatures, explicitTypeArguments, call, expected, span, extensionReceiver, nullableAccess);
+  }
+
+  private CallableTarget<Syntax.FunctionDecl> sourceTarget(
+      Syntax.FunctionDecl declaration, Map<String, SemanticType> substitutions) {
+    return new CallableTarget<>(
+        declaration,
+        declaration.name(),
+        model.symbols().get(model.declarationSymbols().get(declaration)).typeParameters(),
+        model.symbolOf(declaration).parameters().stream()
+            .map(parameter -> parameter.substitute(substitutions))
+            .toList(),
+        typeResolver.functionReturnType(
+            declaration,
+            typeResolver.typeParameters(declaration, typeResolver.ownerOf(declaration))),
+        substitutions);
+  }
+
+  CallResolution<Syntax.FunctionDecl> resolveAggregateCall(
+      List<TypeResolver.AggregateMethod> candidates,
+      Syntax.Member member,
+      Syntax.Call call,
+      SemanticType expected,
+      SemanticType nullableReceiver) {
+    var signatures =
+        candidates.stream()
+            .map(
+                candidate ->
+                    sourceTarget(
+                        candidate.declaration(),
+                        typeResolver.aggregateSubstitutions(
+                            candidate.owner().declaration(), candidate.owner().type())))
+            .toList();
+    return resolveCall(
+        signatures,
+        member.typeArguments(),
+        call,
+        expected,
+        member.nameSpan(),
+        null,
+        member.nullSafe() && nullableReceiver.mayContainNull());
   }
 
   CallResolution<InterfaceRequirement> resolveInterfaceCall(
@@ -139,7 +165,7 @@ final class CallResolver {
                             .typeParameters(),
                         requirement.parameters(),
                         requirement.result(),
-                        typeSystem.interfaceSubstitutions(
+                        typeResolver.interfaceSubstitutions(
                             requirement.owner(), requirement.receiver())))
             .toList();
     return resolveCall(
@@ -186,9 +212,7 @@ final class CallResolver {
     if (candidates.isEmpty()) return null;
     List<SemanticType> explicitTypes =
         explicitTypeArguments.stream()
-            .map(
-                argument ->
-                    typeSystem.resolveCheckedType(argument, resolution.activeTypeParameters))
+            .map(argument -> typeResolver.resolveCheckedType(argument, resolution.parameters()))
             .toList();
     List<CallableTarget<T>> arityMatches =
         candidates.stream()
@@ -203,7 +227,7 @@ final class CallResolver {
             .toList();
     if (arityMatches.isEmpty()) {
       if (candidates.size() == 1)
-        typeSystem.validateSemanticTypeArgumentCount(
+        typeResolver.validateSemanticTypeArgumentCount(
             candidates.getFirst().name(),
             candidates.getFirst().typeParameters(),
             explicitTypeArguments,
@@ -237,7 +261,8 @@ final class CallResolver {
               indices,
               expected,
               candidate.ownerSubstitutions(),
-              nullableAccess));
+              nullableAccess,
+              arityMatches.size() > 1));
     }
     if (structural.isEmpty()) {
       if (arityMatches.size() == 1)
@@ -281,7 +306,7 @@ final class CallResolver {
       }
       if (expected != null
           && !expected.equals(SemanticType.DYNAMIC)
-          && !typeSystem.isAssignable(
+          && !typeResolver.isAssignable(
               expected, contextualResult(candidate.resolution().result(), nullableAccess))) {
         diagnostics.error(
             TYPE_MISMATCH,
@@ -335,17 +360,18 @@ final class CallResolver {
       List<Integer> argumentIndices,
       SemanticType expected,
       Map<String, SemanticType> ownerSubstitutions,
-      boolean nullableAccess) {
+      boolean nullableAccess,
+      boolean rankOverloads) {
     Set<String> callableParameterIds = solverVariables(typeParameters);
     Map<String, SemanticType> substitutions = new LinkedHashMap<>(ownerSubstitutions);
     TypeConstraintSolver solver =
         new TypeConstraintSolver(
             typeParameters.stream().map(TypeParameterInfo::type).toList(),
-            typeSystem.typeRelations);
+            typeResolver.typeRelations);
     if (hasExplicitTypes) {
       for (int index = 0; index < explicitTypes.size(); index++)
         substitutions.put(typeParameters.get(index).type().identity(), explicitTypes.get(index));
-    } else {
+    } else if (!typeParameters.isEmpty()) {
       if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
         SemanticType pattern = resultPattern.substitute(ownerSubstitutions);
         SemanticType inferenceExpected =
@@ -360,9 +386,33 @@ final class CallResolver {
         SemanticType probeExpected =
             containsTypeParameter(pattern, callableParameterIds)
                     && !(argument instanceof Syntax.Lambda && pattern.isFunction())
+                    && !pattern.identity().equals("std.core.FieldHandle")
                 ? null
                 : pattern;
-        TypeProbe probe = expressions.probeType(argument, probeExpected);
+        if (argument instanceof Syntax.ArrayLiteral
+            && probeExpected == null
+            && builtins.resolveCollectionLiteral(pattern).isPresent()) {
+          probeExpected =
+              pattern.substitute(
+                  callableParameterIds.stream()
+                      .collect(
+                          java.util.stream.Collectors.toMap(
+                              identity -> identity, identity -> SemanticType.DYNAMIC)));
+        }
+        if (argument instanceof Syntax.Lambda && probeExpected != null) {
+          probeExpected = probeExpected.substitute(solver.solve().substitutions());
+        }
+        TypeProbe probe =
+            expressions.probeType(
+                argument,
+                probeExpected,
+                call.arguments().get(index).trailing()
+                    ? patterns.get(argumentIndices.get(index)).callbackParameterNames()
+                    : List.of(),
+                patterns
+                    .get(argumentIndices.get(index))
+                    .resultBuilder()
+                    .map(builder -> builder.substitute(solver.solve().substitutions())));
         solver.constrain(pattern, probe.type());
       }
     }
@@ -398,7 +448,12 @@ final class CallResolver {
                     new ParameterInfo(
                         parameter.name(),
                         parameter.type().substitute(substitutions),
-                        parameter.hasDefault()))
+                        parameter.hasDefault(),
+                        parameter.callbackParameterNames(),
+                        parameter.labelPolicy(),
+                        parameter
+                            .resultBuilder()
+                            .map(builder -> builder.substitute(substitutions))))
             .toList();
     SemanticType result = resultPattern.substitute(substitutions);
     boolean assignable = true;
@@ -407,7 +462,7 @@ final class CallResolver {
       if (parameter.upperBound().isEmpty()) continue;
       SemanticType actual = substitutions.get(parameter.type().identity());
       SemanticType bound = parameter.upperBound().orElseThrow().substitute(substitutions);
-      if (actual != null && !typeSystem.isAssignable(bound, actual)) {
+      if (actual != null && !typeResolver.isAssignable(bound, actual)) {
         assignable = false;
         boundViolations.add(new BoundViolation(parameter.name(), bound, actual));
       }
@@ -415,23 +470,32 @@ final class CallResolver {
     int score = parameters.size() - call.arguments().size();
     if (expected != null && !expected.equals(SemanticType.DYNAMIC)) {
       SemanticType contextualResult = contextualResult(result, nullableAccess);
-      if (!typeSystem.isAssignable(expected, contextualResult)) assignable = false;
+      if (!typeResolver.isAssignable(expected, contextualResult)) assignable = false;
       else if (!expected.equals(contextualResult)) score++;
     }
     for (int index = 0; index < call.arguments().size(); index++) {
       int parameterIndex = argumentIndices.get(index);
       SemanticType parameter = parameters.get(parameterIndex).type();
       Syntax.Expression argument = call.arguments().get(index).value();
-      TypeProbe probe = expressions.probeType(argument, parameter);
+      TypeProbe probe =
+          expressions.probeType(
+              argument,
+              parameter,
+              call.arguments().get(index).trailing()
+                  ? parameters.get(parameterIndex).callbackParameterNames()
+                  : List.of(),
+              parameters.get(parameterIndex).resultBuilder());
       SemanticType actual =
           argument instanceof Syntax.NullLiteral ? SemanticType.NULL : probe.type();
-      if (probe.hasErrors() || !typeSystem.isAssignable(parameter, actual)) assignable = false;
+      if (probe.hasErrors() || !typeResolver.isAssignable(parameter, actual)) assignable = false;
       score +=
           callCompatibilityScore(
               patterns.get(parameterIndex).type(), parameter, actual, callableParameterIds);
-      TypeProbe intrinsicProbe = expressions.probeType(argument, null);
-      if (!intrinsicProbe.hasErrors() && !parameter.equals(intrinsicProbe.type())) {
-        score += typeSystem.isAssignable(parameter, intrinsicProbe.type()) ? 1 : 2;
+      if (rankOverloads) {
+        TypeProbe intrinsicProbe = expressions.probeType(argument, null);
+        if (!intrinsicProbe.hasErrors() && !parameter.equals(intrinsicProbe.type())) {
+          score += typeResolver.isAssignable(parameter, intrinsicProbe.type()) ? 1 : 2;
+        }
       }
     }
     List<SemanticType> reifiedArguments =
@@ -537,7 +601,7 @@ final class CallResolver {
       SemanticType constructedType,
       List<TypeParameterInfo> typeParameters) {
     Map<String, SemanticType> substitutions =
-        typeSystem.aggregateSubstitutions(declaration, constructedType);
+        typeResolver.aggregateSubstitutions(declaration, constructedType);
     List<CallableTarget<SymbolId>> candidates;
     if (declaration.constructors().isEmpty()) {
       candidates =
@@ -546,11 +610,13 @@ final class CallResolver {
                   model.declarationSymbols().get(declaration),
                   declaration.name(),
                   typeParameters,
-                  typeSystem.fieldParameters(declaration, substitutions),
+                  model.symbolOf(declaration).parameters().stream()
+                      .map(parameter -> parameter.substitute(substitutions))
+                      .toList(),
                   constructedType,
                   Map.of()));
     } else {
-      Map<String, SemanticType> declared = typeSystem.aggregateTypeParameters(declaration);
+      Map<String, SemanticType> declared = typeResolver.aggregateTypeParameters(declaration);
       candidates =
           declaration.constructors().stream()
               .map(
@@ -559,7 +625,9 @@ final class CallResolver {
                           model.declarationSymbols().get(constructor),
                           declaration.name(),
                           typeParameters,
-                          typeSystem.parameters(constructor.parameters(), substitutions, declared),
+                          model.symbolOf(constructor).parameters().stream()
+                              .map(parameter -> parameter.substitute(substitutions))
+                              .toList(),
                           constructedType,
                           Map.<String, SemanticType>of()))
               .toList();
@@ -576,9 +644,13 @@ final class CallResolver {
       if (parameterIndex >= 0) {
         argument.label().ifPresent(label -> labels.put(label.span(), parameterIndex));
         ParameterInfo parameter = parameters.get(parameterIndex);
-        typeSystem.requireAssignable(
+        typeResolver.requireAssignable(
             parameter.type(),
-            expressions.typeOf(argument.value(), parameter.type()),
+            expressions.typeOf(
+                argument.value(),
+                parameter.type(),
+                argument.trailing() ? parameter.callbackParameterNames() : List.of(),
+                parameter.resultBuilder()),
             argument.span());
       } else {
         expressions.typeOf(argument.value(), null);
@@ -646,26 +718,26 @@ final class CallResolver {
   CallResolution<SymbolId> resolveConstruction(
       Syntax.Name name, Syntax.Call call, SemanticType expected) {
     Symbol builtin = builtins.type(name.value()).orElse(null);
-    Syntax.AggregateDecl source = typeSystem.resolveAggregate(name.value());
+    Syntax.AggregateDecl source = typeResolver.resolveAggregate(name.value());
     List<TypeParameterInfo> typeParameters = List.of();
     SemanticType constructedType;
-    if (name.diamond()) {
-      typeParameters =
-          builtin != null
-              ? builtin.typeParameters()
-              : typeSystem.symbolTypeParameters(
-                  source.typeParameters(), typeSystem.aggregateTypeParameters(source));
+    List<TypeParameterInfo> declaredParameters =
+        builtin != null
+            ? builtin.typeParameters()
+            : model.symbols().get(model.declarationSymbols().get(source)).typeParameters();
+    if (name.diamond() || (name.typeArguments().isEmpty() && !declaredParameters.isEmpty())) {
+      typeParameters = declaredParameters;
       List<SemanticType> variables = typeParameters.stream().map(TypeParameterInfo::type).toList();
       constructedType =
           builtin != null
               ? builtins.instantiate(name.value(), variables)
-              : typeSystem.sourceType(name.value(), variables);
+              : typeResolver.sourceType(name.value(), variables);
       if (typeParameters.isEmpty()) {
         diagnostics.error(INVALID_CALL, "diamond requires a generic type constructor", name.span());
         return null;
       }
     } else {
-      constructedType = typeSystem.appliedType(name.value(), name.typeArguments(), name.span());
+      constructedType = typeResolver.appliedType(name.value(), name.typeArguments(), name.span());
     }
     List<CallableTarget<SymbolId>> candidates;
     if (builtin != null) {
@@ -685,6 +757,15 @@ final class CallResolver {
                   constructedType,
                   Map.of()));
     } else {
+      if (typeResolver.hasUnimplementedMethods(constructedType)) {
+        diagnostics.error(
+            INVALID_CALL,
+            "class '"
+                + name.value()
+                + "' has unimplemented methods and cannot be constructed directly",
+            name.span());
+        return null;
+      }
       candidates = constructorCandidates(source, constructedType, typeParameters);
     }
     return resolveCall(candidates, List.of(), call, expected, name.span(), null, false);

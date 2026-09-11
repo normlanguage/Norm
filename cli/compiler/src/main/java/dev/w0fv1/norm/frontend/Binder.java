@@ -18,6 +18,7 @@ import dev.w0fv1.norm.bound.BoundCallableId;
 import dev.w0fv1.norm.bound.BoundCallableKind;
 import dev.w0fv1.norm.bound.BoundCatchClause;
 import dev.w0fv1.norm.bound.BoundClosure;
+import dev.w0fv1.norm.bound.BoundCollectionElement;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundEnum;
@@ -64,6 +65,8 @@ import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.source.SourceSpan;
+import dev.w0fv1.norm.syntax.BlockResults;
+import dev.w0fv1.norm.syntax.CollectionElement;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.TokenKind;
 import dev.w0fv1.norm.value.AnnotationRetention;
@@ -116,7 +119,10 @@ final class Binder {
       for (Syntax.AggregateDecl declaration : program.aggregates()) {
         if (declaration.constructors().isEmpty()) {
           List<Optional<Syntax.Expression>> defaults =
-              declaration.fields().stream().map(Syntax.FieldDecl::defaultValue).toList();
+              declaration.fields().stream()
+                  .filter(field -> constructorInput(declaration, field))
+                  .map(Syntax.FieldDecl::defaultValue)
+                  .toList();
           if (defaults.stream().anyMatch(Optional::isPresent)) {
             defaultArguments.put(symbol(declaration.nameSpan()).id().value(), defaults);
           }
@@ -254,10 +260,11 @@ final class Binder {
       for (Syntax.FunctionDecl function : program.functions()) bindCallable(function, null);
       for (Syntax.AggregateDecl owner : program.aggregates()) {
         if (owner.constructors().isEmpty()) {
-          bindConstructor(owner, Optional.empty());
+          bindConstructor(owner, Optional.empty(), false);
+          if (hasImplicitDefaultConstructor(owner)) bindConstructor(owner, Optional.empty(), true);
         } else {
           for (Syntax.ConstructorDecl constructor : owner.constructors()) {
-            bindConstructor(owner, Optional.of(constructor));
+            bindConstructor(owner, Optional.of(constructor), false);
           }
         }
         for (Syntax.FunctionDecl method : owner.methods()) bindCallable(method, owner);
@@ -359,7 +366,11 @@ final class Binder {
             reified,
             List.of(),
             requirement.type(),
-            bindBlock(declaration.body().orElseThrow(), declaration.span()),
+            bindBlock(
+                BlockResults.returning(
+                    declaration.body().orElseThrow(),
+                    !requirement.type().equals(SemanticType.VOID)),
+                declaration.span()),
             declaration.span()));
     reifiedLocals = Map.of();
     thisLocal = null;
@@ -401,13 +412,23 @@ final class Binder {
       Syntax.Parameter parameter = declaration.parameters().get(ordinal);
       parameters.add(bindParameter(parameter, ordinal));
     }
-    BoundBlock body = bindBlock(declaration.body(), declaration.span());
-    if (implicitSelfReturn) {
+    Optional<BoundBlock> implementation =
+        declaration
+            .implementation()
+            .map(
+                statements ->
+                    bindBlock(
+                        BlockResults.returning(
+                            statements,
+                            !implicitSelfReturn && !callable.type().equals(SemanticType.VOID)),
+                        declaration.span()));
+    if (implicitSelfReturn && implementation.isPresent()) {
+      BoundBlock body = implementation.orElseThrow();
       List<BoundStatement> statements = new ArrayList<>(body.statements());
       statements.add(
           new BoundStatement.ReturnStatement(
               Optional.of(thisRead(declaration.span())), declaration.span()));
-      body = new BoundBlock(statements, body.span());
+      implementation = Optional.of(new BoundBlock(statements, body.span()));
     }
     BoundCallable bound =
         new BoundCallable(
@@ -430,7 +451,7 @@ final class Binder {
             reified,
             interceptors(AnnotationTarget.FUNCTION, callable.id()),
             callable.type(),
-            body,
+            implementation,
             declaration.span());
     callables.put(id.value(), bound);
     reifiedLocals = Map.of();
@@ -442,9 +463,10 @@ final class Binder {
   }
 
   private void bindConstructor(
-      Syntax.AggregateDecl owner, Optional<Syntax.ConstructorDecl> declaration) {
+      Syntax.AggregateDecl owner, Optional<Syntax.ConstructorDecl> declaration, boolean defaults) {
     BoundCallableId id =
         declaration.map(this::constructorId).orElseGet(() -> syntheticConstructorId(owner));
+    if (defaults) id = new BoundCallableId(id.value() + "/defaults");
     BoundCallableId previousCallableId = currentCallableId;
     List<BoundTypeParameter> previousTypeParameters = activeTypeParameters;
     currentCallableId = id;
@@ -457,12 +479,55 @@ final class Binder {
     activeTypeParameters = bindTypeParameters(owner.typeParameters());
     List<BoundParameter> parameters = new ArrayList<>();
     List<BoundStatement> statements = new ArrayList<>();
+    declaration
+        .flatMap(Syntax.ConstructorDecl::superCall)
+        .or(owner::implicitSuperCall)
+        .ifPresent(
+            superCall -> {
+              ResolvedCall resolution = semantics.callOf(superCall.span()).orElseThrow();
+              Syntax.Call call =
+                  new Syntax.Call(
+                      new Syntax.Name("super", superCall.span()),
+                      superCall.arguments(),
+                      superCall.span());
+              Symbol target = semantics.symbol(resolution.target()).orElseThrow();
+              BoundCallableId initializer =
+                  target.kind() == SymbolKind.CONSTRUCTOR
+                      ? BoundCallableId.of(target.id())
+                      : new BoundCallableId(target.id().value() + "/constructor");
+              SemanticType parent = semantics.aggregateParent(thisType).orElseThrow();
+              statements.add(
+                  new BoundStatement.ExpressionStatement(
+                      new BoundCall(
+                          initializer,
+                          Optional.of(thisRead(superCall.span())),
+                          bindArguments(call, resolution),
+                          List.of(),
+                          parent.arguments().stream().map(this::runtimeType).toList(),
+                          false,
+                          false,
+                          SemanticType.VOID,
+                          superCall.span()),
+                      superCall.span()));
+            });
     if (declaration.isEmpty()) {
       for (int ordinal = 0; ordinal < owner.fields().size(); ordinal++) {
         Syntax.FieldDecl field = owner.fields().get(ordinal);
         BoundField boundField = field(symbol(field.nameSpan()));
+        if (!constructorInput(owner, field) && field.defaultValue().isEmpty()) continue;
+        if (defaults || !constructorInput(owner, field)) {
+          statements.add(
+              new BoundStatement.FieldAssignment(
+                  thisRead(field.span()),
+                  boundField.id(),
+                  boundField.ordinal(),
+                  bindExpression(field.defaultValue().orElseThrow()),
+                  field.span()));
+          continue;
+        }
         BoundLocalId local = new BoundLocalId(id.value() + "/parameter/" + ordinal);
-        parameters.add(new BoundParameter(local, field.name(), boundField.type(), ordinal));
+        parameters.add(
+            new BoundParameter(local, field.name(), boundField.type(), parameters.size()));
         statements.add(
             new BoundStatement.FieldAssignment(
                 thisRead(field.span()),
@@ -477,36 +542,6 @@ final class Binder {
         Syntax.Parameter parameter = constructor.parameters().get(ordinal);
         parameters.add(bindParameter(parameter, ordinal));
       }
-      constructor
-          .superCall()
-          .ifPresent(
-              superCall -> {
-                ResolvedCall resolution = semantics.callOf(superCall.span()).orElseThrow();
-                Syntax.Call call =
-                    new Syntax.Call(
-                        new Syntax.Name("super", superCall.span()),
-                        superCall.arguments(),
-                        superCall.span());
-                Symbol target = semantics.symbol(resolution.target()).orElseThrow();
-                BoundCallableId initializer =
-                    target.kind() == SymbolKind.CONSTRUCTOR
-                        ? BoundCallableId.of(target.id())
-                        : new BoundCallableId(target.id().value() + "/constructor");
-                SemanticType parent = semantics.aggregateParent(thisType).orElseThrow();
-                statements.add(
-                    new BoundStatement.ExpressionStatement(
-                        new BoundCall(
-                            initializer,
-                            Optional.of(thisRead(superCall.span())),
-                            bindArguments(call, resolution),
-                            List.of(),
-                            parent.arguments().stream().map(this::runtimeType).toList(),
-                            false,
-                            false,
-                            SemanticType.VOID,
-                            superCall.span()),
-                        superCall.span()));
-              });
       for (Syntax.FieldDecl field : owner.fields()) {
         field
             .defaultValue()
@@ -729,6 +764,9 @@ final class Binder {
   }
 
   private BoundStatement bindAssignment(Syntax.Assignment assignment) {
+    if (semantics.callOf(assignment.span()).isPresent())
+      return new BoundStatement.ExpressionStatement(
+          bindCall(PropertyAccess.write(assignment), SemanticType.VOID), assignment.span());
     BoundExpression value = bindExpression(assignment.value());
     return switch (assignment.target()) {
       case Syntax.Name name -> {
@@ -777,6 +815,38 @@ final class Binder {
 
   private BoundExpression bindExpression(Syntax.Expression expression) {
     SemanticType type = semantics.typeOf(expression.span()).orElseThrow();
+    var capture =
+        semantics
+            .callOf(expression.span())
+            .filter(call -> call.kind() == ResolvedCall.Kind.FIELD_CAPTURE);
+    if (capture.isPresent()) {
+      var resolution = capture.orElseThrow();
+      var target = field(semantics.symbol(resolution.target()).orElseThrow());
+      var descriptorType = resolution.callableTypeArguments().getFirst();
+      BoundExpression descriptor =
+          new BoundIntrinsic(
+              IntrinsicId.FIELD_LITERAL,
+              Optional.empty(),
+              List.of(
+                  new BoundArgument(
+                      new BoundExpression.Literal(
+                          target.ordinal(), SemanticType.INTEGER, expression.span()),
+                      0)),
+              Optional.of(runtimeType(descriptorType)),
+              descriptorType,
+              expression.span());
+      BoundExpression receiver =
+          expression instanceof Syntax.Member member
+              ? bindExpression(member.receiver())
+              : thisRead(expression.span());
+      return new BoundIntrinsic(
+          IntrinsicId.FIELD_BIND,
+          Optional.of(descriptor),
+          List.of(new BoundArgument(receiver, 0)),
+          Optional.of(runtimeType(type)),
+          type,
+          expression.span());
+    }
     return switch (expression) {
       case Syntax.IntegerLiteral integer ->
           new BoundExpression.Literal(
@@ -788,7 +858,8 @@ final class Binder {
           new BoundExpression.Literal(codePoint.value(), type, codePoint.span());
       case Syntax.BooleanLiteral bool ->
           new BoundExpression.Literal(bool.value(), type, bool.span());
-      case Syntax.NullLiteral literal -> new BoundExpression.NullLiteral(type, literal.span());
+      case Syntax.NullLiteral literal ->
+          new BoundExpression.NullLiteral(SemanticType.NULL, literal.span());
       case Syntax.StringLiteralExpr string ->
           new BoundExpression.Literal(string.value(), type, string.span());
       case Syntax.InterpolatedStringExpr interpolation -> {
@@ -818,7 +889,7 @@ final class Binder {
       }
       case Syntax.ArrayLiteral array ->
           new BoundExpression.CollectionLiteral(
-              array.elements().stream().map(this::bindExpression).toList(),
+              array.elements().stream().map(this::bindCollectionElement).toList(),
               builtins.collectionLiteral(type).orElseThrow(),
               runtimeType(type),
               type,
@@ -845,6 +916,14 @@ final class Binder {
             type,
             index.span());
       }
+      case Syntax.IfExpression conditional -> {
+        Syntax.SwitchExpression selection = IfExpressionLowering.selection(conditional);
+        yield new BoundExpression.Switch(
+            bindExpression(selection.value()),
+            selection.cases().stream().map(this::bindSwitchCase).toList(),
+            type,
+            conditional.span());
+      }
       case Syntax.SwitchExpression switched ->
           new BoundExpression.Switch(
               bindExpression(switched.value()),
@@ -854,13 +933,63 @@ final class Binder {
     };
   }
 
+  private BoundCollectionElement bindCollectionElement(CollectionElement element) {
+    return switch (element) {
+      case Syntax.Expression expression -> bindExpression(expression);
+      case CollectionElement.Conditional conditional ->
+          new BoundCollectionElement.Conditional(
+              bindExpression(conditional.condition()),
+                  bindCollectionElement(conditional.thenElement()),
+              conditional.elseElement().map(this::bindCollectionElement), conditional.span());
+      case CollectionElement.Repeated repeated -> {
+        Symbol variable = symbol(repeated.variableNameSpan());
+        BoundLocalId variableId = BoundLocalId.of(variable.id());
+        Optional<BoundLocalId> index =
+            repeated.index().map(value -> BoundLocalId.of(symbol(value.nameSpan()).id()));
+        BoundExpression iterable = bindExpression(repeated.iterable());
+        if (lambdaCaptures != null) {
+          lambdaLocals.add(variableId);
+          index.ifPresent(lambdaLocals::add);
+        }
+        yield new BoundCollectionElement.Repeated(
+            new BoundLocalId(variable.id().value() + "/iterator/" + syntheticId++),
+            variableId,
+            variable.type(),
+            index,
+            iterable,
+            bindIteration(semantics.iterationOf(repeated.iterable().span()).orElseThrow()),
+            bindCollectionElement(repeated.element()),
+            repeated.span());
+      }
+      case CollectionElement.Spread spread -> {
+        var iteration = semantics.iterationOf(spread.iterable().span()).orElseThrow();
+        BoundLocalId variable =
+            new BoundLocalId(currentCallableId.value() + "/spread/" + syntheticId++);
+        yield new BoundCollectionElement.Repeated(
+            new BoundLocalId(variable.value() + "/iterator"),
+            variable,
+            iteration.elementType(),
+            Optional.empty(),
+            bindExpression(spread.iterable()),
+            bindIteration(iteration),
+            new BoundExpression.LocalRead(variable, iteration.elementType(), spread.span()),
+            spread.span());
+      }
+    };
+  }
+
   private BoundExpression bindUnary(Syntax.Unary unary, SemanticType type) {
     if (unary.operator() == TokenKind.AMPERSAND) return bindAddress(unary, type);
     if (unary.operator() == TokenKind.STAR) {
       return new BoundExpression.Dereference(bindExpression(unary.operand()), type, unary.span());
     }
     return new BoundExpression.Unary(
-        unary.operator() == TokenKind.BANG ? BoundUnaryOperator.NOT : BoundUnaryOperator.NEGATE,
+        switch (unary.operator()) {
+          case BANG -> BoundUnaryOperator.NOT;
+          case BANG_BANG -> BoundUnaryOperator.NON_NULL;
+          case THROW -> BoundUnaryOperator.THROW;
+          default -> BoundUnaryOperator.NEGATE;
+        },
         bindExpression(unary.operand()),
         type,
         unary.span());
@@ -887,6 +1016,8 @@ final class Binder {
   }
 
   private BoundExpression bindName(Syntax.Name name, SemanticType type) {
+    if (semantics.callOf(name.span()).isPresent())
+      return bindCall(PropertyAccess.read(PropertyAccess.implicit(name)), type);
     Symbol symbol = symbol(name.span());
     if (symbol.kind() == SymbolKind.FUNCTION
         || symbol.kind() == SymbolKind.EXTENSION
@@ -935,7 +1066,8 @@ final class Binder {
       case Syntax.BindingPattern binding -> {
         Symbol symbol = symbol(binding.nameSpan());
         if (lambdaCaptures != null) lambdaLocals.add(BoundLocalId.of(symbol.id()));
-        yield new BoundPattern.Binding(BoundLocalId.of(symbol.id()), symbol.type(), binding.span());
+        yield new BoundPattern.Binding(
+            BoundLocalId.of(symbol.id()), runtimeType(symbol.type()), binding.span());
       }
       case Syntax.WildcardPattern wildcard -> new BoundPattern.Wildcard(wildcard.span());
       case Syntax.IntegerPattern integer ->
@@ -1067,11 +1199,12 @@ final class Binder {
               type,
               call.span());
       case INVOKE -> throw new IllegalStateException("function invocation was bound eagerly");
+      case FIELD_CAPTURE -> throw new IllegalStateException("field capture was bound eagerly");
       case SUPER -> throw new IllegalStateException("super calls are bound by constructors");
       case INTERFACE_CALL ->
           new BoundExpression.InterfaceCall(
               BoundInterfaceMethodId.of(target.id()),
-              receiverInterfaceType(java.util.Objects.requireNonNull(receiver).type()),
+              receiverType(java.util.Objects.requireNonNull(receiver).type()),
               receiver,
               arguments,
               resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
@@ -1081,7 +1214,7 @@ final class Binder {
     };
   }
 
-  private SemanticType receiverInterfaceType(SemanticType receiver) {
+  private SemanticType receiverType(SemanticType receiver) {
     if (receiver.kind() != SemanticType.Kind.TYPE_PARAMETER) return receiver.nonNullable();
     for (Syntax.Program program : programs) {
       for (Syntax.TypeParameter parameter : allTypeParameters(program)) {
@@ -1117,6 +1250,8 @@ final class Binder {
   }
 
   private BoundExpression bindMember(Syntax.Member member, SemanticType type) {
+    if (semantics.callOf(member.span()).isPresent())
+      return bindCall(PropertyAccess.read(member), type);
     Symbol target = symbol(member.nameSpan());
     if (member.name().equals("class")
         && (target.kind() == SymbolKind.TYPE
@@ -1431,7 +1566,7 @@ final class Binder {
                 dispatch ->
                     new BoundMethodDispatch(
                         dispatch.slot(),
-                        dispatch.implementation(),
+                        dispatch.target(),
                         dispatch.receiverType().substitute(substitutions)))
             .forEach(result::add);
       }
@@ -1446,7 +1581,7 @@ final class Binder {
                 BoundCallableId parentMethod = BoundCallableId.of(overridden);
                 for (int index = 0; index < result.size(); index++) {
                   BoundMethodDispatch inherited = result.get(index);
-                  if (inherited.implementation().equals(parentMethod)) {
+                  if (inherited.target().equals(parentMethod)) {
                     result.set(index, new BoundMethodDispatch(inherited.slot(), methodId, self));
                   }
                 }
@@ -1508,19 +1643,24 @@ final class Binder {
     Map<BoundLocalId, SemanticType> captures = new LinkedHashMap<>();
     java.util.Set<BoundLocalId> locals = new java.util.LinkedHashSet<>();
     List<BoundParameter> parameters = new ArrayList<>();
-    for (int ordinal = 0; ordinal < lambda.parameters().size(); ordinal++) {
-      Syntax.LambdaParameter parameter = lambda.parameters().get(ordinal);
-      Symbol symbol = symbol(parameter.nameSpan());
+    List<Symbol> lambdaParameters = semantics.lambdaParameters(lambda.span());
+    for (int ordinal = 0; ordinal < lambdaParameters.size(); ordinal++) {
+      Symbol symbol = lambdaParameters.get(ordinal);
       BoundLocalId id = BoundLocalId.of(symbol.id());
       locals.add(id);
-      parameters.add(new BoundParameter(id, parameter.name(), symbol.type(), ordinal));
+      parameters.add(new BoundParameter(id, symbol.name(), symbol.type(), ordinal));
     }
     lambdaCaptures = captures;
     lambdaLocals = locals;
     reifiedLocals = Map.copyOf(lambdaReifiedLocals);
     currentCallableId = lambdaId;
     implicitSelfReturn = false;
-    BoundBlock body = bindLambdaBlock(lambda);
+    BoundBlock body =
+        bindLambdaBlock(
+            semantics
+                .resultBuilder(lambda.span())
+                .map(builder -> ResultBuilderLowering.lower(lambda, builder))
+                .orElse(lambda));
     List<BoundParameter> captureParameters = new ArrayList<>();
     int ordinal = 0;
     for (Map.Entry<BoundLocalId, SemanticType> capture : captures.entrySet()) {
@@ -1566,24 +1706,15 @@ final class Binder {
   }
 
   private BoundBlock bindLambdaBlock(Syntax.Lambda lambda) {
-    List<BoundStatement> statements = new ArrayList<>();
-    for (int index = 0; index < lambda.body().size(); index++) {
-      Syntax.Statement statement = lambda.body().get(index);
-      if (index == lambda.body().size() - 1
-          && statement instanceof Syntax.ExpressionStatement expression
-          && !semantics
-              .typeOf(lambda.span())
-              .orElseThrow()
-              .functionReturnType()
-              .equals(SemanticType.VOID)) {
-        statements.add(
-            new BoundStatement.ReturnStatement(
-                Optional.of(bindExpression(expression.expression())), expression.span()));
-      } else {
-        statements.add(bindStatement(statement));
-      }
-    }
-    return new BoundBlock(statements, lambda.span());
+    return bindBlock(
+        BlockResults.returning(
+            lambda.body(),
+            !semantics
+                .typeOf(lambda.span())
+                .orElseThrow()
+                .functionReturnType()
+                .equals(SemanticType.VOID)),
+        lambda.span());
   }
 
   private void recordCapture(BoundLocalId local, SemanticType type) {
@@ -1677,7 +1808,23 @@ final class Binder {
     if (!declaration.constructors().isEmpty()) {
       return declaration.constructors().stream().map(this::constructorId).toList();
     }
-    return List.of(syntheticConstructorId(declaration));
+    BoundCallableId constructor = syntheticConstructorId(declaration);
+    return hasImplicitDefaultConstructor(declaration)
+        ? List.of(constructor, new BoundCallableId(constructor.value() + "/defaults"))
+        : List.of(constructor);
+  }
+
+  private boolean constructorInput(Syntax.AggregateDecl owner, Syntax.FieldDecl field) {
+    return symbol(owner.nameSpan()).parameters().stream()
+        .anyMatch(parameter -> parameter.name().equals(field.name()));
+  }
+
+  private boolean hasImplicitDefaultConstructor(Syntax.AggregateDecl declaration) {
+    return declaration.constructors().isEmpty()
+        && declaration.fields().stream().anyMatch(field -> constructorInput(declaration, field))
+        && declaration.fields().stream()
+            .filter(field -> constructorInput(declaration, field))
+            .allMatch(field -> field.defaultValue().isPresent());
   }
 
   private BoundCallableId constructorId(Syntax.ConstructorDecl declaration) {

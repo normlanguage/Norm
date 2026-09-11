@@ -14,6 +14,7 @@
 | `std.math` | Integer 数学函数 | [Math](/stdlib/math) |
 | `std.time` | Instant、Duration 与 Clock | [Time](/stdlib/time) |
 | `std.concurrent` | 有类型任务、等待与取消 | [Concurrency](/stdlib/concurrency) |
+| `std.build` | 强类型结果构建器 | [结果构建器](/spec/grammar/result-builders) |
 | `std.io` | Bytes、UTF-8、流与 Resource | [I/O](/stdlib/io) |
 | `std.filesystem` | 流式文件读写 | [Filesystem](/stdlib/filesystem) |
 | `std.http` | URI、请求、响应与 HTTP client | [HTTP](/stdlib/http) |

@@ -37,8 +37,10 @@ public final class JavaAnnotationProcessorPipeline {
     List<JavaAnnotationStub> stubs;
     try {
       stubs =
-          new JavaAnnotationStubGenerator()
-              .generate(artifact, bindings, scope, entryDocument, bindingDocuments);
+          new JavaStubRenderer()
+              .render(
+                  new JavaStubPlanner()
+                      .plan(artifact, bindings, scope, entryDocument, bindingDocuments));
     } catch (IllegalArgumentException exception) {
       throw new JavaAnnotationProcessingException(exception.getMessage(), exception);
     }
@@ -140,15 +142,13 @@ public final class JavaAnnotationProcessorPipeline {
   private static List<Path> classpath(List<Path> applicationPaths) {
     Set<Path> paths = new LinkedHashSet<>();
     try {
-      paths.add(
-          Path.of(
-                  JavaApplicationBridge.class
-                      .getProtectionDomain()
-                      .getCodeSource()
-                      .getLocation()
-                      .toURI())
-              .toAbsolutePath()
-              .normalize());
+      for (Class<?> dependency :
+          List.of(JavaApplicationBridge.class, org.jspecify.annotations.Nullable.class)) {
+        paths.add(
+            Path.of(dependency.getProtectionDomain().getCodeSource().getLocation().toURI())
+                .toAbsolutePath()
+                .normalize());
+      }
     } catch (java.net.URISyntaxException exception) {
       throw new IllegalStateException("invalid Norm runtime classpath", exception);
     }

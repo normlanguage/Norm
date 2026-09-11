@@ -3,7 +3,6 @@ package dev.w0fv1.norm.frontend;
 import static dev.w0fv1.norm.frontend.SemanticDiagnosticCodes.*;
 
 import dev.w0fv1.norm.frontend.BodyAnalysisState.*;
-import dev.w0fv1.norm.frontend.BodyAnalysisState.ControlKind;
 import dev.w0fv1.norm.frontend.SemanticAnalysisContext.*;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
@@ -40,18 +39,20 @@ final class FlowAnalyzer {
   }
 
   void declareExisting(String name, SemanticType type, SourceSpan span, SymbolId id) {
-    if (!body.flowScopes.declare(name, type, id)) {
+    if (!this.body.scopes().declare(name, type, id)) {
       diagnostics.error(DUPLICATE_NAME, "name '" + name + "' is already declared", span);
       return;
     }
     if (type.isReference()) {
-      FlowScopes.ScopedSymbol scoped = body.flowScopes.find(name);
+      FlowScopes.ScopedSymbol scoped = this.body.scopes().find(name);
       Symbol symbol = model.symbols().get(id);
-      body.flowScopes.updateReferenceLifetime(
-          scoped,
-          symbol != null && symbol.kind() == SymbolKind.PARAMETER
-              ? LexicalLifetime.longLived()
-              : LexicalLifetime.unusable());
+      this.body
+          .scopes()
+          .updateReferenceLifetime(
+              scoped,
+              symbol != null && symbol.kind() == SymbolKind.PARAMETER
+                  ? LexicalLifetime.longLived()
+                  : LexicalLifetime.unusable());
     }
   }
 
@@ -64,7 +65,7 @@ final class FlowAnalyzer {
             SymbolKind.SELF,
             type,
             Optional.empty(),
-            Optional.ofNullable(body.currentCallable),
+            Optional.ofNullable(this.body.currentCallable()),
             List.of(),
             List.of(),
             "");
@@ -73,10 +74,10 @@ final class FlowAnalyzer {
   }
 
   SemanticType lookup(String name, SourceSpan span) {
-    FlowScopes.ScopedSymbol symbol = body.flowScopes.find(name);
+    FlowScopes.ScopedSymbol symbol = this.body.scopes().find(name);
     if (symbol != null) {
       model.putBinding(span, symbol.id());
-      return body.flowScopes.type(symbol);
+      return this.body.scopes().type(symbol);
     }
     diagnostics.error(UNKNOWN_NAME, "cannot find name '" + name + "'", span);
     return SemanticType.DYNAMIC;
@@ -93,13 +94,13 @@ final class FlowAnalyzer {
   }
 
   FlowScopes.ScopedSymbol findScoped(String name) {
-    return body.flowScopes.find(name);
+    return this.body.scopes().find(name);
   }
 
   void invalidateNarrowing(String name) {
     FlowScopes.ScopedSymbol symbol = findScoped(name);
     if (symbol == null) return;
-    body.flowScopes.update(symbol, symbol.declaredType());
+    this.body.scopes().update(symbol, symbol.declaredType());
   }
 
   Map<String, SemanticType> narrowingsFor(Syntax.Expression condition, boolean truth) {
@@ -122,9 +123,9 @@ final class FlowAnalyzer {
         if (name != null && nonNull) {
           FlowScopes.ScopedSymbol scoped = findScoped(name.value());
           if (scoped != null
-              && body.flowScopes.type(scoped).isNullable()
+              && this.body.scopes().type(scoped).isNullable()
               && isFlowNarrowable(scoped.id())) {
-            return Map.of(name.value(), body.flowScopes.type(scoped).nonNullable());
+            return Map.of(name.value(), this.body.scopes().type(scoped).nonNullable());
           }
         }
       }
@@ -150,7 +151,7 @@ final class FlowAnalyzer {
     for (Map.Entry<String, SemanticType> entry : narrowings.entrySet()) {
       FlowScopes.ScopedSymbol symbol = findScoped(entry.getKey());
       if (symbol != null) {
-        body.flowScopes.update(symbol, entry.getValue());
+        this.body.scopes().update(symbol, entry.getValue());
       }
     }
   }
@@ -159,23 +160,33 @@ final class FlowAnalyzer {
       List<Syntax.Statement> statements,
       Map<String, SemanticType> narrowings,
       FlowScopes.FlowState incoming) {
+    return analyzeBranch(
+        scopeSpan(statements), narrowings, incoming, () -> statementAnalysis.accept(statements));
+  }
+
+  FlowScopes.FlowState analyzeBranch(
+      SourceSpan span,
+      Map<String, SemanticType> narrowings,
+      FlowScopes.FlowState incoming,
+      Runnable analysis) {
     replaceFlow(incoming);
-    pushScope(scopeSpan(statements));
-    applyNarrowings(narrowings);
-    statementAnalysis.accept(statements);
-    popScope();
-    return body.flowScopes.snapshot();
+    try (var scope = this.body.scopes().enter(span)) {
+      applyNarrowings(narrowings);
+      analysis.run();
+    }
+    return this.body.scopes().snapshot();
   }
 
   void analyzeLoop(List<Syntax.Statement> statements, Map<String, SemanticType> narrowings) {
-    FlowScopes.FlowState incoming = body.flowScopes.snapshot();
+    analyzeLoop(() -> statementAnalysis.accept(statements), narrowings);
+  }
+
+  void analyzeLoop(Runnable analysis, Map<String, SemanticType> narrowings) {
+    FlowScopes.FlowState incoming = this.body.scopes().snapshot();
     applyNarrowings(narrowings);
-    body.controls.addFirst(ControlContext.loop());
-    try {
-      statementAnalysis.accept(statements);
-      replaceFlow(mergeFlows(incoming, incoming, body.flowScopes.snapshot()));
-    } finally {
-      body.controls.removeFirst();
+    try (var controlScope = this.body.enterControl(ControlContext.loop())) {
+      analysis.run();
+      replaceFlow(mergeFlows(incoming, incoming, this.body.scopes().snapshot()));
     }
   }
 
@@ -206,25 +217,25 @@ final class FlowAnalyzer {
   }
 
   void replaceFlow(FlowScopes.FlowState values) {
-    body.flowScopes.replace(values);
+    this.body.scopes().replace(values);
   }
 
   void validateContinue(SourceSpan span) {
-    if (body.controls.stream().noneMatch(context -> context.kind() == ControlKind.LOOP)) {
+    if (!this.body.hasLoop()) {
       diagnostics.error(INVALID_CONTROL, "continue is only valid inside for", span);
     }
   }
 
   void pushScope(SourceSpan span) {
-    body.flowScopes.push(span);
+    this.body.scopes().push(span);
   }
 
   void popScope() {
-    body.flowScopes.pop();
+    this.body.scopes().pop();
   }
 
   SourceSpan scopeSpan(List<Syntax.Statement> statements) {
-    if (statements.isEmpty()) return resolution.currentProgram.span();
+    if (statements.isEmpty()) return resolution.program().span();
     return statements.getFirst().span().cover(statements.getLast().span());
   }
 }

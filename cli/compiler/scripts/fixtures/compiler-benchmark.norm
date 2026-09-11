@@ -1,0 +1,137 @@
+Integer bias() { return 1 }
+Void main() {
+  Integer total = 0
+  Integer index = 0
+  for index < 10000 {
+    total = total + bias()
+    index = index + 1
+  }
+  printLine(total)
+}
+Integer helper0(Integer value) { return value + 0 }
+
+Integer helper1(Integer value) { return value + 1 }
+
+Integer helper2(Integer value) { return value + 2 }
+
+Integer helper3(Integer value) { return value + 3 }
+
+Integer helper4(Integer value) { return value + 4 }
+
+Integer helper5(Integer value) { return value + 5 }
+
+Integer helper6(Integer value) { return value + 6 }
+
+Integer helper7(Integer value) { return value + 7 }
+
+Integer helper8(Integer value) { return value + 8 }
+
+Integer helper9(Integer value) { return value + 9 }
+
+Integer helper10(Integer value) { return value + 10 }
+
+Integer helper11(Integer value) { return value + 11 }
+
+Integer helper12(Integer value) { return value + 12 }
+
+Integer helper13(Integer value) { return value + 13 }
+
+Integer helper14(Integer value) { return value + 14 }
+
+Integer helper15(Integer value) { return value + 15 }
+
+Integer helper16(Integer value) { return value + 16 }
+
+Integer helper17(Integer value) { return value + 17 }
+
+Integer helper18(Integer value) { return value + 18 }
+
+Integer helper19(Integer value) { return value + 19 }
+
+Integer helper20(Integer value) { return value + 20 }
+
+Integer helper21(Integer value) { return value + 21 }
+
+Integer helper22(Integer value) { return value + 22 }
+
+Integer helper23(Integer value) { return value + 23 }
+
+Integer helper24(Integer value) { return value + 24 }
+
+Integer helper25(Integer value) { return value + 25 }
+
+Integer helper26(Integer value) { return value + 26 }
+
+Integer helper27(Integer value) { return value + 27 }
+
+Integer helper28(Integer value) { return value + 28 }
+
+Integer helper29(Integer value) { return value + 29 }
+
+Integer helper30(Integer value) { return value + 30 }
+
+Integer helper31(Integer value) { return value + 31 }
+
+Integer helper32(Integer value) { return value + 32 }
+
+Integer helper33(Integer value) { return value + 33 }
+
+Integer helper34(Integer value) { return value + 34 }
+
+Integer helper35(Integer value) { return value + 35 }
+
+Integer helper36(Integer value) { return value + 36 }
+
+Integer helper37(Integer value) { return value + 37 }
+
+Integer helper38(Integer value) { return value + 38 }
+
+Integer helper39(Integer value) { return value + 39 }
+
+Integer helper40(Integer value) { return value + 40 }
+
+Integer helper41(Integer value) { return value + 41 }
+
+Integer helper42(Integer value) { return value + 42 }
+
+Integer helper43(Integer value) { return value + 43 }
+
+Integer helper44(Integer value) { return value + 44 }
+
+Integer helper45(Integer value) { return value + 45 }
+
+Integer helper46(Integer value) { return value + 46 }
+
+Integer helper47(Integer value) { return value + 47 }
+
+Integer helper48(Integer value) { return value + 48 }
+
+Integer helper49(Integer value) { return value + 49 }
+
+Integer helper50(Integer value) { return value + 50 }
+
+Integer helper51(Integer value) { return value + 51 }
+
+Integer helper52(Integer value) { return value + 52 }
+
+Integer helper53(Integer value) { return value + 53 }
+
+Integer helper54(Integer value) { return value + 54 }
+
+Integer helper55(Integer value) { return value + 55 }
+
+Integer helper56(Integer value) { return value + 56 }
+
+Integer helper57(Integer value) { return value + 57 }
+
+Integer helper58(Integer value) { return value + 58 }
+
+Integer helper59(Integer value) { return value + 59 }
+
+Integer helper60(Integer value) { return value + 60 }
+
+Integer helper61(Integer value) { return value + 61 }
+
+Integer helper62(Integer value) { return value + 62 }
+
+Integer helper63(Integer value) { return value + 63 }

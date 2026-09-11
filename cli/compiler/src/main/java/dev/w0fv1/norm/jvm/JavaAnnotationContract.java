@@ -12,7 +12,10 @@ public record JavaAnnotationContract(
     Set<Target> targets,
     Retention retention,
     boolean inherited,
-    Optional<String> repeatableContainer) {
+    Optional<String> repeatableContainer,
+    boolean managedFields,
+    boolean managedImplementation,
+    boolean identityField) {
   public JavaAnnotationContract {
     targets = Set.copyOf(targets);
     Objects.requireNonNull(retention, "retention");
@@ -26,6 +29,7 @@ public record JavaAnnotationContract(
     Set<Target> targets = new LinkedHashSet<>();
     Retention retention = Retention.CLASS;
     boolean inherited = false;
+    boolean managedImplementation = false;
     Optional<String> repeatableContainer = Optional.empty();
     boolean declaresTargets = false;
     for (JavaApiAnnotation annotation : type.annotations()) {
@@ -48,6 +52,7 @@ public record JavaAnnotationContract(
                     .findFirst()
                     .orElse(Retention.CLASS);
         case "java.lang.annotation.Inherited" -> inherited = true;
+        case "io.micronaut.aop.Introduction" -> managedImplementation = true;
         case "java.lang.annotation.Repeatable" ->
             repeatableContainer =
                 annotation.elements().stream()
@@ -61,7 +66,15 @@ public record JavaAnnotationContract(
       }
     }
     if (!declaresTargets) targets.addAll(Target.declarationTargets());
-    return new JavaAnnotationContract(targets, retention, inherited, repeatableContainer);
+    return new JavaAnnotationContract(
+        targets,
+        retention,
+        inherited,
+        repeatableContainer,
+        type.binaryName().equals("jakarta.inject.Inject"),
+        managedImplementation,
+        type.binaryName().equals("jakarta.persistence.Id")
+            || type.binaryName().equals("jakarta.persistence.EmbeddedId"));
   }
 
   public List<String> normTargetInterfaces() {

@@ -76,8 +76,8 @@ public final class CoreProgram implements DefinitionResolver {
     return definitions(CoreDefinition.Interface.class);
   }
 
-  public List<CoreDefinition.InterfaceMethod> interfaceMethods() {
-    return definitions(CoreDefinition.InterfaceMethod.class);
+  public List<CoreDefinition.MethodSignature> interfaceMethods() {
+    return definitions(CoreDefinition.MethodSignature.class);
   }
 
   public List<CoreDefinition.BuiltinConformance> builtinConformances() {

@@ -255,9 +255,11 @@ final class ConstructorFlowAnalyzer {
       }
       case Syntax.ArrayLiteral array -> {
         ConstructorFlow flow = ConstructorFlow.normal(assigned);
-        for (Syntax.Expression value : array.elements()) {
+        for (var value : array.elements()) {
           if (flow.normal().isEmpty()) break;
-          flow = flow.then(expressionFlow(value, flow.normal().orElseThrow(), initialization));
+          flow =
+              flow.then(
+                  flow(List.of(value.statement()), flow.normal().orElseThrow(), initialization));
         }
         yield flow;
       }
@@ -288,6 +290,8 @@ final class ConstructorFlowAnalyzer {
             ? abrupt
             : abrupt.withNormal(ConstructorFlow.intersect(caseExits));
       }
+      case Syntax.IfExpression conditional ->
+          expressionFlow(IfExpressionLowering.selection(conditional), assigned, initialization);
       case Syntax.Lambda lambda -> {
         if (statementsUseSelf(lambda.body())) {
           requireInitializedReceiver(lambda.span(), assigned, initialization);
@@ -364,12 +368,17 @@ final class ConstructorFlowAnalyzer {
                   .anyMatch(argument -> expressionUsesSelf(argument.value()));
       case Syntax.Member member -> expressionUsesSelf(member.receiver());
       case Syntax.ArrayLiteral array ->
-          array.elements().stream().anyMatch(this::expressionUsesSelf);
+          array.elements().stream()
+              .anyMatch(element -> statementsUseSelf(List.of(element.statement())));
       case Syntax.Index index ->
           expressionUsesSelf(index.receiver()) || expressionUsesSelf(index.index());
       case Syntax.SwitchExpression switched ->
           expressionUsesSelf(switched.value())
               || switched.cases().stream().anyMatch(branch -> statementsUseSelf(branch.body()));
+      case Syntax.IfExpression conditional ->
+          expressionUsesSelf(conditional.condition())
+              || statementsUseSelf(conditional.thenBody())
+              || statementsUseSelf(conditional.elseBody());
       case Syntax.Lambda lambda -> statementsUseSelf(lambda.body());
       case Syntax.IntegerLiteral ignored -> false;
       case Syntax.DecimalLiteral ignored -> false;

@@ -22,11 +22,16 @@ public sealed interface BoundPattern extends BoundNode
     }
   }
 
-  record Binding(BoundLocalId local, SemanticType type, SourceSpan span) implements BoundPattern {
+  record Binding(BoundLocalId local, BoundRuntimeType runtimeType, SourceSpan span)
+      implements BoundPattern {
     public Binding {
       Objects.requireNonNull(local, "local");
-      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(runtimeType, "runtimeType");
       Objects.requireNonNull(span, "span");
+    }
+
+    public SemanticType type() {
+      return runtimeType.type();
     }
   }
 

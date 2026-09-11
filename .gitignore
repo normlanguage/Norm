@@ -1,5 +1,8 @@
 .gradle/
 **/build/
+!norm/stdlib/std/build/
+!cli/compiler/src/main/java/dev/w0fv1/norm/build/
+!cli/compiler/src/test/java/dev/w0fv1/norm/build/
 java-binding/**/artifacts/**/*.pom
 node_modules/
 docs/.vitepress/dist/

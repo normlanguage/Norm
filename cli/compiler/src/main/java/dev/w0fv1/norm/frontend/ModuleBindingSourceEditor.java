@@ -26,7 +26,15 @@ public final class ModuleBindingSourceEditor {
     Syntax.Call call = matches.getFirst();
     String label = target instanceof LocalJarTarget ? "integrity" : "resolution";
     String expression = "sha256(\"" + digest.value() + "\")";
-    return replaceDigest(source.text(), call, label, expression);
+    String updated = replaceDigest(source.text(), call, label, expression);
+    if (target instanceof LocalJarTarget && call.arguments().size() == 1) {
+      var path = call.arguments().getFirst();
+      if (path.label().isEmpty()) {
+        int offset = path.span().startOffset();
+        updated = updated.substring(0, offset) + "path: " + updated.substring(offset);
+      }
+    }
+    return updated;
   }
 
   private static Syntax.Program parse(SourceFile source) {
@@ -151,7 +159,9 @@ public final class ModuleBindingSourceEditor {
   private static void collectExpression(Syntax.Expression expression, List<Syntax.Call> calls) {
     switch (expression) {
       case Syntax.ArrayLiteral value ->
-          value.elements().forEach(element -> collectExpression(element, calls));
+          value
+              .elements()
+              .forEach(element -> collectStatements(List.of(element.statement()), calls));
       case Syntax.Unary value -> collectExpression(value.operand(), calls);
       case Syntax.Binary value -> {
         collectExpression(value.left(), calls);
@@ -171,6 +181,11 @@ public final class ModuleBindingSourceEditor {
       case Syntax.SwitchExpression value -> {
         collectExpression(value.value(), calls);
         value.cases().forEach(switchCase -> collectStatements(switchCase.body(), calls));
+      }
+      case Syntax.IfExpression value -> {
+        collectExpression(value.condition(), calls);
+        collectStatements(value.thenBody(), calls);
+        collectStatements(value.elseBody(), calls);
       }
       case Syntax.IntegerLiteral ignored -> {}
       case Syntax.DecimalLiteral ignored -> {}

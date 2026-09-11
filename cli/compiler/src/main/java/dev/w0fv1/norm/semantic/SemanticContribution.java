@@ -9,6 +9,7 @@ public record SemanticContribution(
     Map<SourceSpan, SymbolId> bindings,
     java.util.Set<SourceSpan> declarationOperators,
     Map<SourceSpan, SemanticType> expressionTypes,
+    Map<SourceSpan, SemanticType> resultBuilders,
     Map<SourceSpan, ResolvedCall> resolvedCalls,
     Map<SourceSpan, List<SemanticType>> functionReferenceTypeArguments,
     Map<SourceSpan, ResolvedIteration> iterations,
@@ -19,6 +20,7 @@ public record SemanticContribution(
     bindings = Map.copyOf(bindings);
     declarationOperators = java.util.Set.copyOf(declarationOperators);
     expressionTypes = Map.copyOf(expressionTypes);
+    resultBuilders = Map.copyOf(resultBuilders);
     resolvedCalls = Map.copyOf(resolvedCalls);
     functionReferenceTypeArguments =
         functionReferenceTypeArguments.entrySet().stream()

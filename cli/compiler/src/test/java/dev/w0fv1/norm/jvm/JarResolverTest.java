@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
@@ -56,10 +57,11 @@ final class JarResolverTest {
   }
 
   @Test
-  void resolvesApacheCommonsLangFromMavenCentral() throws Exception {
+  void resolvesApacheCommonsLangCoordinates() throws Exception {
     var coordinate = new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0");
 
-    try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("maven-cache"))) {
+    try (JarResolver resolver =
+        new JarResolver(MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       ResolvedJarGraph graph =
           resolver.resolve(
               temporaryDirectory, new JarBinding(new MavenJarTarget(coordinate, Optional.empty())));

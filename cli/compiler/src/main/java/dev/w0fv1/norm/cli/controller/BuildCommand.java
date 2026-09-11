@@ -1,18 +1,17 @@
 package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.application.ApplicationRunner;
-import dev.w0fv1.norm.cli.component.ApplicationBuildPlan;
-import dev.w0fv1.norm.cli.component.NativeApplicationExecutable;
-import dev.w0fv1.norm.cli.component.WindowsApplicationExecutable;
+import dev.w0fv1.norm.build.ApplicationBuildTarget;
+import dev.w0fv1.norm.build.ApplicationBuilder;
+import dev.w0fv1.norm.build.BuildRequest;
+import dev.w0fv1.norm.build.BuildResult;
 import dev.w0fv1.norm.cli.value.ExitCode;
 import dev.w0fv1.norm.diagnostic.DiagnosticRenderer;
 import dev.w0fv1.norm.frontend.CompilationInfrastructureException;
-import dev.w0fv1.norm.project.ApplicationBundleWriter;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
@@ -53,10 +52,9 @@ final class BuildCommand implements Command {
       err.println("Usage: " + usage());
       return ExitCode.USAGE_ERROR;
     }
-    Path entry;
+    BuildRequest request;
     try {
-      Path requested = Path.of(options.input()).toAbsolutePath().normalize();
-      entry = Files.isDirectory(requested) ? requested.resolve("application.norm") : requested;
+      request = new BuildRequest(Path.of(options.input()), options.target(), options.diagnostics());
     } catch (InvalidPathException exception) {
       err.println("error[NORM-CLI-0004]: invalid build path");
       return ExitCode.INPUT_ERROR;
@@ -82,46 +80,29 @@ final class BuildCommand implements Command {
       progress.accept("Target: " + options.target().name().toLowerCase(java.util.Locale.ROOT));
       progress.accept("Initializing compiler");
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-      NativeApplicationExecutable nativeBuild =
-          options.target() == ApplicationBuildTarget.NATIVE
-              ? new NativeApplicationExecutable()
-              : null;
+      BuildResult result;
       try (var project = ApplicationRunner.persistent(environment, progress)) {
-        try (var compilation =
-            project.compileApplication(
-                entry, progress, nativeBuild == null ? List.of() : nativeBuild.supportGraphs())) {
-          if (!compilation.result().isSuccess()) {
-            for (var diagnostic : compilation.result().diagnostics()) {
-              err.println(DiagnosticRenderer.render(diagnostic));
-            }
-            return ExitCode.COMPILATION_ERROR;
-          }
-          ApplicationBuildPlan plan =
-              ApplicationBuildPlan.from(compilation.application().orElseThrow().sourceSet());
-          if (options.target() == ApplicationBuildTarget.JVM) {
-            progress.accept("Packaging JVM executable: " + plan.output());
-            Path bundle = Files.createTempFile("norm-application-", ".zip");
-            try {
-              new ApplicationBundleWriter()
-                  .write(compilation.application().orElseThrow().sourceSet(), bundle);
-              new WindowsApplicationExecutable().write(Path.of(launcher), bundle, plan.output());
-            } finally {
-              Files.deleteIfExists(bundle);
-            }
-          } else {
-            progress.accept("Building native executable: " + plan.output());
-            nativeBuild.write(
-                compilation.application().orElseThrow(),
-                plan.output(),
-                progress,
-                options.diagnostics());
-          }
-          progress.accept("Build completed");
-          out.println("Built " + plan.output());
-        }
+        var builder =
+            new ApplicationBuilder(
+                project,
+                options.target() == ApplicationBuildTarget.JVM
+                    ? java.util.Optional.of(Path.of(launcher))
+                    : java.util.Optional.empty());
+        result = builder.build(request, event -> progress.accept(event.message()));
       }
-      return ExitCode.SUCCESS;
-    } catch (IOException | IllegalArgumentException exception) {
+      return switch (result) {
+        case BuildResult.CompilationFailure failure -> {
+          for (var diagnostic : failure.diagnostics()) {
+            err.println(DiagnosticRenderer.render(diagnostic));
+          }
+          yield ExitCode.COMPILATION_ERROR;
+        }
+        case BuildResult.Success success -> {
+          out.println("Built " + success.output());
+          yield ExitCode.SUCCESS;
+        }
+      };
+    } catch (IOException | java.io.UncheckedIOException | IllegalArgumentException exception) {
       err.printf("error[NORM-CLI-0004]: cannot build application: %s%n", exception);
       var causes =
           java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());

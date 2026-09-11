@@ -243,4 +243,126 @@ final class DependencyArchitectureTest {
         .resideInAnyPackage("..project..", "..runtime..", "..application..")
         .check(aggregates);
   }
+
+  @Test
+  void onlyCliAndBuildOwnApplicationDelivery() {
+    noClasses()
+        .that()
+        .resideOutsideOfPackages("..cli..", "..build..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..build..")
+        .check(aggregates);
+    noClasses()
+        .that()
+        .resideInAPackage("..build..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..cli..", "..lsp..", "..workspace..", "..truffle..", "..bound..")
+        .check(aggregates);
+  }
+
+  @Test
+  void buildCommandDoesNotOwnCompilationOrDeliveryImplementation() {
+    noClasses()
+        .that()
+        .haveSimpleName("BuildCommand")
+        .should()
+        .dependOnClassesThat()
+        .haveSimpleName("CompiledApplication")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("ApplicationCompilation")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("NativeApplicationExecutable")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("WindowsApplicationExecutable")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("ApplicationBundleWriter")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("NativeBuildPlanner")
+        .check(aggregates);
+  }
+
+  @Test
+  void protocolAndPackageBoundariesAreIndependent() {
+    noClasses()
+        .that()
+        .resideInAPackage("..lsp..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            "..cli..",
+            "..build..",
+            "..application..",
+            "..project..",
+            "..runtime..",
+            "..truffle..",
+            "..jvm..")
+        .check(aggregates);
+    noClasses()
+        .that()
+        .resideInAPackage("..packages..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            "..cli..",
+            "..build..",
+            "..application..",
+            "..project..",
+            "..frontend..",
+            "..runtime..",
+            "..truffle..",
+            "..jvm..")
+        .check(aggregates);
+    noClasses()
+        .that()
+        .resideInAPackage("..workspace..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..cli..", "..lsp..", "org.eclipse.lsp4j..")
+        .check(aggregates);
+  }
+
+  @Test
+  void onlyProcessEntrypointsCanTerminateTheProcess() {
+    noClasses()
+        .that()
+        .doNotHaveFullyQualifiedName("dev.w0fv1.norm.cli.Main")
+        .and()
+        .doNotHaveFullyQualifiedName("dev.w0fv1.norm.runtime.NativeApplicationMain")
+        .should()
+        .callMethod(System.class, "exit", int.class)
+        .check(aggregates);
+  }
+
+  @Test
+  void productDoesNotDependOnCodeGeneration() {
+    noClasses().should().dependOnClassesThat().resideInAPackage("..codegen..").check(aggregates);
+  }
+
+  @Test
+  void javaStubRenderingConsumesOnlyTheFrozenPlan() {
+    noClasses()
+        .that()
+        .haveSimpleName("JavaStubRenderer")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            "..core..", "..frontend..", "..project..", "..application..", "..semantic..")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("JavaStubPlanner")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("JarApiScanner")
+        .orShould()
+        .dependOnClassesThat()
+        .haveSimpleName("JavaTypeProjector")
+        .check(aggregates);
+  }
 }

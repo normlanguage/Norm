@@ -1,0 +1,43 @@
+package stub.plan
+
+import std.annotation.ManagedImplementation
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+import std.annotation.FieldTarget
+import std.annotation.FunctionTarget
+import std.annotation.ParameterTarget
+
+annotation Generated implements ManagedImplementation, RuntimeRetention {}
+annotation Label implements TypeTarget, FieldTarget, FunctionTarget, ParameterTarget, RuntimeRetention {
+  String text
+}
+
+@Generated()
+class Repository<T> {
+  @Label(text: "find") T? find(@Label(text: "id") Long id)
+}
+
+interface Named {
+  String name()
+  String greet(String suffix) { this.name() + suffix }
+}
+
+@Label(text: "parent\nlabel")
+class Parent implements Named {
+  @Label(text: "title") String title
+  Parent(String title) { this.title = title }
+  String name() { title }
+  @Label(text: "echo") List<List<String?>> echo(@Label(text: "items") List<List<String?>> items) { items }
+  Function<String(String)> callback() { (String text) { text } }
+}
+
+class Child extends Parent {
+  Child(String title) { super(title: title) }
+  String name() { "child" }
+}
+
+class Complete extends Repository<String> {
+  String? find(Long id) { "found" }
+}
+
+Void main() {}

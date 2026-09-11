@@ -4,6 +4,95 @@ import { cliInvocation } from '../cli-command';
 import { ProcessTerminal } from '../process-terminal';
 
 suite('Norm VS Code extension', () => {
+  test('formats declarative component trees without excess indentation', async () => {
+    const document = await vscode.workspace.openTextDocument({
+      language: 'norm',
+      content: 'Widget build(){Column{Button("全部"){reload(null)} Button("未完成"){reload(false)}}}',
+    });
+    await vscode.window.showTextDocument(document);
+    const edits = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+        'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true },
+      );
+      return value?.length ? value : undefined;
+    });
+    const edit = new vscode.WorkspaceEdit();
+    edit.set(document.uri, edits);
+    assert.ok(await vscode.workspace.applyEdit(edit));
+    assert.equal(document.getText().replaceAll('\r\n', '\n'), `Widget build() {
+  Column {
+    Button("全部") {
+      reload(null)
+    }
+    Button("未完成") {
+      reload(false)
+    }
+  }
+}
+`);
+  });
+
+  test('supports declarative GUI callbacks and collection expressions', async () => {
+    const source = `import std.build.BuildWith
+import std.build.ResultBuilder
+interface Widget {}
+value Text implements Widget { String text }
+class WidgetBuilder implements ResultBuilder<Widget, List<Widget>> {
+  private List<Widget> children = []
+  Void add(Widget value) { children.add(value) }
+  List<Widget> finish() { children }
+}
+value Row implements Widget {
+  List<Widget> children
+  Row(@BuildWith(WidgetBuilder.class) Function<List<Widget>()> content) { children = content() }
+}
+value TextField implements Widget {
+  String placeholder
+  Function<Void(String)> submit
+  TextField(String placeholder, Void submit(String title)) {
+    this.placeholder = placeholder
+    this.submit = submit
+  }
+}
+class Page {
+  private String received = ""
+  Long identity(Long? id) { id!! }
+  Widget build(Boolean visible) {
+    Row {
+      TextField("任务") { received = if title.isBlank "空白" else title.trim() }
+      if visible { Text("完成") }
+      for item : ["a", "b"] { Text(item) }
+    }
+  }
+}`;
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
+    await vscode.window.showTextDocument(document);
+    const position = document.positionAt(source.indexOf('title.trim') + 'title.'.length);
+    const completions = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider', document.uri, position, '.',
+      );
+      return value?.items.some((item) => labelOf(item) === 'trim') ? value : undefined;
+    });
+    assert.ok(completions.items.some((item) => labelOf(item) === 'trim'));
+    const blank = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider', document.uri,
+        document.positionAt(source.indexOf('title.isBlank') + 'title.'.length), '.',
+      );
+      return value?.items.find((item) => labelOf(item) === 'isBlank');
+    });
+    assert.equal(completionText(blank.insertText) || labelOf(blank), 'isBlank');
+    const hovers = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider', document.uri, document.positionAt(source.indexOf('title.trim')),
+      );
+      return value?.length ? value : undefined;
+    });
+    assert.ok(hovers.flatMap((hover) => hover.contents).map(hoverText).join('\n').includes('String'));
+    await eventually(() => vscode.languages.getDiagnostics(document.uri).length === 0 ? true : undefined);
+  });
+
   suiteSetup(async () => {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     assert.ok(root, 'test workspace was not opened');

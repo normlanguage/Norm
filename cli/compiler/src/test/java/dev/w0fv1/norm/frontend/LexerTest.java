@@ -13,6 +13,48 @@ import org.junit.jupiter.api.Test;
 
 final class LexerTest {
   @Test
+  void lexesMultilineStringsWithoutDiscardingWhitespaceOrQuotes() {
+    var diagnostics = new DiagnosticBag();
+    String content = "\r\n  select \"todo\"\n  where title = \"\"\n";
+    var tokens =
+        new Lexer(SourceFile.of(Path.of("query.norm"), "\"\"\"" + content + "\"\"\""), diagnostics)
+            .lex();
+    assertFalse(diagnostics.hasErrors());
+    assertEquals(TokenKind.STRING, tokens.getFirst().kind());
+    assertEquals(content, tokens.getFirst().value());
+    assertEquals(2, tokens.size());
+  }
+
+  @Test
+  void rejectsUnterminatedMultilineStringsAtEndOfFile() {
+    var diagnostics = new DiagnosticBag();
+    var tokens =
+        new Lexer(SourceFile.of(Path.of("query.norm"), "\"\"\"select\n  todo\"\""), diagnostics)
+            .lex();
+    assertTrue(diagnostics.hasErrors());
+    assertEquals(TokenKind.UNTERMINATED_LITERAL, tokens.getFirst().kind());
+  }
+
+  @Test
+  void separatesCollectionSpreadFromMemberAccessAndDecimals() {
+    DiagnosticBag diagnostics = new DiagnosticBag();
+    List<Token> tokens =
+        new Lexer(
+                SourceFile.of(Path.of("spread.norm"), "[...items, 1.25, value.member, ...[2]]"),
+                diagnostics)
+            .lex();
+    assertFalse(diagnostics.hasErrors());
+    assertEquals(
+        List.of(
+            "[", "...", "items", ",", "1.25", ",", "value", ".", "member", ",", "...", "[", "2",
+            "]", "]"),
+        tokens.stream()
+            .filter(token -> token.kind() != TokenKind.END_OF_FILE)
+            .map(Token::lexeme)
+            .toList());
+  }
+
+  @Test
   void lexesTypeNamesAsIdentifiers() {
     DiagnosticBag diagnostics = new DiagnosticBag();
     List<Token> tokens =

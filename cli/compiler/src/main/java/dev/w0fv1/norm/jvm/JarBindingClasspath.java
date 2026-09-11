@@ -42,6 +42,10 @@ public final class JarBindingClasspath {
     return artifacts().stream().map(ResolvedJarArtifact::file).toList();
   }
 
+  public List<Path> dependencyPaths(List<JarArtifactIdentity> roots) {
+    return resolved.closure(roots).stream().map(ResolvedJarArtifact::file).toList();
+  }
+
   public static List<Path> processors(List<ResolvedJarBinding> bindings)
       throws java.io.IOException {
     return prepare(bindings).processors();

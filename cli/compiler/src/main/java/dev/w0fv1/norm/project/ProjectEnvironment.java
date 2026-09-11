@@ -6,7 +6,7 @@ import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.LanguageProfile;
 import dev.w0fv1.norm.frontend.ModuleBootstrap;
 import dev.w0fv1.norm.jvm.JarResolver;
-import dev.w0fv1.norm.jvm.NormPackageResolver;
+import dev.w0fv1.norm.packages.NormPackageResolver;
 import dev.w0fv1.norm.stdlib.StandardLibrary;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDeclaration;

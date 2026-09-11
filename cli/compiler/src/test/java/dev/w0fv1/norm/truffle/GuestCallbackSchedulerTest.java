@@ -4,12 +4,70 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 final class GuestCallbackSchedulerTest {
+  @Test
+  void closesIdempotentlyAndRejectsLateCallbacks() {
+    var scheduler = new GuestCallbackScheduler();
+    scheduler.close();
+    scheduler.close();
+    assertThrows(IllegalStateException.class, () -> scheduler.invoke(() -> null));
+  }
+
+  @Test
+  @Timeout(5)
+  void releasesExecutionDuringBlockingHostCallsWithoutMovingTheCallingThread() throws Exception {
+    var failure = new AtomicReference<Throwable>();
+    var nestedExecution = new AtomicReference<Thread>();
+    try (var scheduler = new GuestCallbackScheduler()) {
+      Thread outer =
+          Thread.ofVirtual()
+              .start(
+                  () -> {
+                    try {
+                      scheduler.invoke(
+                          () ->
+                              scheduler.hostCall(
+                                  () -> {
+                                    Thread hostCaller = Thread.currentThread();
+                                    var completed = new CompletableFuture<Void>();
+                                    Thread inner =
+                                        Thread.ofVirtual()
+                                            .start(
+                                                () -> {
+                                                  scheduler.invoke(
+                                                      () -> {
+                                                        nestedExecution.set(Thread.currentThread());
+                                                        return null;
+                                                      });
+                                                  completed.complete(null);
+                                                });
+                                    try {
+                                      completed.get(500, TimeUnit.MILLISECONDS);
+                                      assertSame(inner, nestedExecution.get());
+                                      assertSame(hostCaller, Thread.currentThread());
+                                    } catch (Exception exception) {
+                                      throw new IllegalStateException(exception);
+                                    }
+                                    return null;
+                                  }));
+                    } catch (Throwable exception) {
+                      failure.set(exception);
+                    }
+                  });
+      scheduler.runUntil(() -> !outer.isAlive());
+      outer.join();
+      assertNull(failure.get());
+    }
+  }
+
   @Test
   @Timeout(5)
   void pumpsGuestCallbacksUntilCancellation() throws Exception {

@@ -36,6 +36,7 @@ public record ResolvedCall(
     INTERFACE_CALL,
     INTRINSIC,
     INVOKE,
+    FIELD_CAPTURE,
     COPY
   }
 }

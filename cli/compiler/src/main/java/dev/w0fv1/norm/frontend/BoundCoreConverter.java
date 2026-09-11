@@ -283,7 +283,7 @@ final class BoundCoreConverter {
             .toList();
     CoreType returnType = types.convert(declaration.returnType());
     CoreDefinition definition =
-        new CoreDefinition.InterfaceMethod(
+        new CoreDefinition.MethodSignature(
             declaration.name(), receiverType, typeParameters, parameterTypes, returnType);
     return new Declaration(
         definition,
@@ -294,7 +294,7 @@ final class BoundCoreConverter {
             Optional.of(owner.name()),
             declaration.name(),
             CoreVisibility.PUBLIC,
-            new CoreBindingShape.InterfaceMethod(
+            new CoreBindingShape.MethodSignature(
                 typeParameters,
                 declaration.parameters().stream()
                     .map(
@@ -322,6 +322,7 @@ final class BoundCoreConverter {
                                 .map(
                                     field ->
                                         new CoreField(
+                                            CoreVisibility.PUBLIC,
                                             field.name(),
                                             field.ordinal(),
                                             types.convert(field.type()),
@@ -405,6 +406,9 @@ final class BoundCoreConverter {
                 .map(
                     field ->
                         new CoreField(
+                            field.visibility() == BoundVisibility.PUBLIC
+                                ? CoreVisibility.PUBLIC
+                                : CoreVisibility.PRIVATE,
                             field.name(),
                             field.ordinal(),
                             types.convert(field.type()),
@@ -419,7 +423,7 @@ final class BoundCoreConverter {
                             new PendingDefinitionReference(
                                 declarationIndex(dispatch.slot().value())),
                             new PendingDefinitionReference(
-                                declarationIndex(dispatch.implementation().value())),
+                                declarationIndex(dispatch.target().value())),
                             types.convert(dispatch.receiverType())))
                 .toList(),
             declaration.constructors().stream()
@@ -507,6 +511,33 @@ final class BoundCoreConverter {
         declaration
             .typeParameters()
             .subList(ownerTypeParameterCount, declaration.typeParameters().size());
+    if (declaration.implementation().isEmpty()) {
+      List<CoreTypeParameter> typeParameters = coreTypeParameters(callableTypeParameters, types);
+      CoreType returnType = types.convert(declaration.returnType());
+      List<CoreBindingShape.Parameter> parameters =
+          declaration.parameters().stream()
+              .map(
+                  parameter ->
+                      new CoreBindingShape.Parameter(
+                          parameter.name(), types.convert(parameter.type())))
+              .toList();
+      return new Declaration(
+          new CoreDefinition.MethodSignature(
+              declaration.name(),
+              receiverType.orElseThrow(),
+              typeParameters,
+              parameters.stream().map(CoreBindingShape.Parameter::type).toList(),
+              returnType),
+          origin(declaration.name(), declaration.span(), Map.of(0, declaration.span())),
+          Map.of(),
+          new BindingSeed(
+              source,
+              owner.map(BoundAggregate::name),
+              declaration.name(),
+              visibility(declaration.visibility()),
+              new CoreBindingShape.MethodSignature(typeParameters, parameters, returnType),
+              owner.orElseThrow().visibility() == BoundVisibility.PUBLIC));
+    }
     BoundCoreBodyConverter.Result body =
         new BoundCoreBodyConverter(
                 types, receiverType, this::declarationIndex, this::fieldOwnerIndex)
@@ -556,7 +587,12 @@ final class BoundCoreConverter {
         };
     return new Declaration(
         definition,
-        origin(declaration.name(), declaration.span(), body.nodeSpans()),
+        origin(
+            declaration.kind() == BoundCallableKind.LAMBDA
+                ? declaration.id().value()
+                : declaration.name(),
+            declaration.span(),
+            body.nodeSpans()),
         body.referenceTargets(),
         declaration.kind() == BoundCallableKind.CONSTRUCTOR
                 || declaration.kind() == BoundCallableKind.LAMBDA
@@ -869,7 +905,7 @@ final class BoundCoreConverter {
         case CoreDefinition.Aggregate ignored -> CoreDefinitionRole.AGGREGATE;
         case CoreDefinition.Enum ignored -> CoreDefinitionRole.ENUM;
         case CoreDefinition.Interface ignored -> CoreDefinitionRole.INTERFACE;
-        case CoreDefinition.InterfaceMethod ignored -> CoreDefinitionRole.INTERFACE_METHOD;
+        case CoreDefinition.MethodSignature ignored -> CoreDefinitionRole.METHOD_SIGNATURE;
         case CoreDefinition.BuiltinConformance ignored -> CoreDefinitionRole.BUILTIN_CONFORMANCE;
         case CoreDefinition.Callable ignored ->
             throw new IllegalArgumentException("callable declaration role must be explicit");
@@ -995,8 +1031,8 @@ final class BoundCoreConverter {
                 interfaceShape.directParents().stream()
                     .map(type -> CoreTypes.mapLinks(type, links))
                     .toList());
-        case CoreBindingShape.InterfaceMethod method ->
-            new CoreBindingShape.InterfaceMethod(
+        case CoreBindingShape.MethodSignature method ->
+            new CoreBindingShape.MethodSignature(
                 resolveTypeParameters(method.typeParameters(), links),
                 method.parameters().stream()
                     .map(

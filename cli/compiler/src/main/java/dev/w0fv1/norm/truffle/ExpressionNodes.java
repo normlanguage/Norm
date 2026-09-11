@@ -211,10 +211,11 @@ final class ExpressionNodes {
 
   static final class CollectionLiteral extends ExpressionNode {
     private final IntrinsicId materializer;
-    @Children private final ExpressionNode[] elements;
+    @Children private final CollectionElementNode[] elements;
     @Child private ExpressionNode type;
 
-    CollectionLiteral(IntrinsicId materializer, ExpressionNode[] elements, ExpressionNode type) {
+    CollectionLiteral(
+        IntrinsicId materializer, CollectionElementNode[] elements, ExpressionNode type) {
       this.materializer = materializer;
       this.elements = elements;
       this.type = type;
@@ -223,8 +224,8 @@ final class ExpressionNodes {
     @Override
     Object execute(VirtualFrame frame) {
       List<Object> values = new ArrayList<>(elements.length);
-      for (ExpressionNode element : elements) {
-        values.add(RuntimeValues.copy(element.execute(frame)));
+      for (CollectionElementNode element : elements) {
+        element.collect(frame, values);
       }
       CoreType runtimeType = (CoreType) type.execute(frame);
       return switch (materializer) {
@@ -338,6 +339,35 @@ final class ExpressionNodes {
     @Override
     Object execute(VirtualFrame frame) {
       return negate((Number) operand.execute(frame));
+    }
+  }
+
+  static final class Throw extends Unary {
+    Throw(ExpressionNode operand) {
+      super(operand);
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      throw NormThrownException.create((RuntimeValues.ObjectValue) operand.execute(frame), this);
+    }
+  }
+
+  static final class NonNull extends Unary {
+    NonNull(ExpressionNode operand) {
+      super(operand);
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      Object value = operand.execute(frame);
+      if (value == RuntimeValues.NullValue.INSTANCE) {
+        var execution = ExecutionContextAccess.state(frame);
+        throw execution
+            .values()
+            .javaException(new NullPointerException("non-null assertion failed"), execution, this);
+      }
+      return value;
     }
   }
 
@@ -579,7 +609,7 @@ final class ExpressionNodes {
     @Children private final ExpressionNode[] captures;
     @Children private final ExpressionNode[] reifiedArguments;
     @Children private final ExpressionNode[] receiverTypeArguments;
-    private final CoreType functionType;
+    @Child private ExpressionNode functionType;
 
     Closure(
         CallTarget target,
@@ -590,7 +620,7 @@ final class ExpressionNodes {
         ExpressionNode[] captures,
         ExpressionNode[] reifiedArguments,
         ExpressionNode[] receiverTypeArguments,
-        CoreType functionType) {
+        ExpressionNode functionType) {
       this.target = target;
       this.declaration = declaration;
       this.virtualSlot = virtualSlot;
@@ -613,46 +643,21 @@ final class ExpressionNodes {
         reified[index] = reifiedArguments[index].execute(frame);
       }
       Object receiverValue = receiver == null ? null : receiver.execute(frame);
-      CallTarget resolvedTarget = target;
       Object[] ownerArguments = new Object[receiverTypeArguments.length];
       for (int index = 0; index < receiverTypeArguments.length; index++) {
         ownerArguments[index] = receiverTypeArguments[index].execute(frame);
       }
-      DefinitionId pendingVirtualSlot = virtualSlot;
-      if (virtualSlot != null && receiverValue != null) {
-        ClosureDispatch dispatch =
-            resolveClosureDispatch((RuntimeValues.ObjectValue) receiverValue, virtualSlot);
-        resolvedTarget = dispatch.target();
-        ownerArguments = dispatch.receiverTypeArguments();
-        pendingVirtualSlot = null;
-      }
       return RuntimeValues.closure(
-          resolvedTarget,
+          target,
           declaration,
-          pendingVirtualSlot,
+          virtualSlot,
           unbound,
           receiverValue,
           values,
           ownerArguments,
           reified,
-          functionType);
+          (CoreType) functionType.execute(frame));
     }
-
-    @TruffleBoundary
-    private static ClosureDispatch resolveClosureDispatch(
-        RuntimeValues.ObjectValue receiver, DefinitionId virtualSlot) {
-      RuntimeValues.DispatchTarget.Callable dispatch =
-          (RuntimeValues.DispatchTarget.Callable) receiver.objectInfo.dispatch().get(virtualSlot);
-      List<CoreType> concreteArguments =
-          receiver.type instanceof CoreType.Declared declared ? declared.arguments() : List.of();
-      Object[] receiverTypeArguments =
-          dispatch.receiverTypeArguments().stream()
-              .map(type -> type.substitute(concreteArguments::get))
-              .toArray();
-      return new ClosureDispatch(dispatch.target(), receiverTypeArguments);
-    }
-
-    private record ClosureDispatch(CallTarget target, Object[] receiverTypeArguments) {}
   }
 
   static final class Invoke extends ExpressionNode {
@@ -877,7 +882,14 @@ final class ExpressionNodes {
       Object receiverValue = receiver.execute(frame);
       if (nullSafe && receiverValue == RuntimeValues.NullValue.INSTANCE) return receiverValue;
       RuntimeValues.ObjectValue object = (RuntimeValues.ObjectValue) receiverValue;
-      Object value = object.fields[field];
+      Object value = object.readField(field);
+      if (value == null) {
+        var execution = ExecutionContextAccess.state(frame);
+        throw execution
+            .values()
+            .javaException(
+                new IllegalStateException("field has not been initialized"), execution, this);
+      }
       return object.type instanceof CoreType.Declared declared
               && declared.category() == CoreValueCategory.VALUE
           ? RuntimeValues.copy(value)

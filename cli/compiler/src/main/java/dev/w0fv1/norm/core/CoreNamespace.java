@@ -158,7 +158,7 @@ public final class CoreNamespace {
                     java.util.Arrays.compareUnsigned(typeBytes(left), typeBytes(right)))
             .forEach(parent -> CoreCodec.writeType(writer, parent));
       }
-      case CoreBindingShape.InterfaceMethod method -> {
+      case CoreBindingShape.MethodSignature method -> {
         writeTypeParameters(writer, method.typeParameters());
         writer.writeInt(method.parameters().size());
         method

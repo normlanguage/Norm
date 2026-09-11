@@ -18,6 +18,7 @@ final class JavaPlatformTypes {
           Map.entry(new JarBindingClassReference.Builtin("std.core.Float"), "F"),
           Map.entry(new JarBindingClassReference.Builtin("std.core.Double"), "D"),
           Map.entry(new JarBindingClassReference.Builtin("std.core.Boolean"), "Z"),
+          Map.entry(new JarBindingClassReference.Builtin("std.core.List"), "Ljava/util/List;"),
           Map.entry(nominal("std.core", "Exception"), "Ljava/lang/RuntimeException;"),
           Map.entry(nominal("std.collections", "IterableView"), "Ljava/lang/Iterable;"),
           Map.entry(nominal("std.collections", "IteratorView"), "Ljava/util/Iterator;"),

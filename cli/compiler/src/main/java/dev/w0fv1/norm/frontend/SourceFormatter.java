@@ -2,6 +2,7 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.AstNode;
+import dev.w0fv1.norm.syntax.CollectionElement;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -156,9 +157,46 @@ public final class SourceFormatter {
     List<AstNode> members = new ArrayList<>();
     members.addAll(declaration.fields());
     members.addAll(declaration.constructors());
-    members.addAll(declaration.methods());
+    members.addAll(
+        declaration.methods().stream()
+            .filter(method -> method.kind() != Syntax.FunctionKind.SETTER)
+            .toList());
     members.sort(Comparator.comparingInt(value -> value.span().startOffset()));
-    List<Doc> formatted = members.stream().map(this::aggregateMember).toList();
+    List<Doc> formatted =
+        members.stream()
+            .map(
+                member -> {
+                  if (member instanceof Syntax.FunctionDecl getter
+                      && getter.kind() == Syntax.FunctionKind.GETTER) {
+                    List<Doc> accessors = new ArrayList<>();
+                    accessors.add(Docs.concat(Docs.text("get "), block(getter.body())));
+                    declaration.methods().stream()
+                        .filter(
+                            method ->
+                                method.kind() == Syntax.FunctionKind.SETTER
+                                    && method.name().equals(getter.name()))
+                        .forEach(
+                            setter ->
+                                accessors.add(
+                                    Docs.concat(
+                                        setter.visibility() != getter.visibility()
+                                            ? visibility(setter.visibility())
+                                            : Docs.empty(),
+                                        Docs.text(
+                                            "set(" + setter.parameters().getFirst().name() + ") "),
+                                        block(setter.body()))));
+                    return annotated(
+                        getter.annotations(),
+                        Docs.concat(
+                            visibility(getter.visibility()),
+                            type(getter.returnType().orElseThrow()),
+                            Docs.text(" " + getter.name() + " "),
+                            blockDocs(accessors)),
+                        false);
+                  }
+                  return aggregateMember(member);
+                })
+            .toList();
     return annotated(
         declaration.annotations(), Docs.concat(header, declarationBody(formatted)), false);
   }
@@ -229,8 +267,9 @@ public final class SourceFormatter {
             Docs.text(declaration.name()),
             typeParameters(declaration.typeParameters()),
             parameters(declaration.parameters()),
-            Docs.text(" "),
-            block(declaration.body())),
+            declaration.hasBody()
+                ? Docs.concat(Docs.text(" "), block(declaration.body()))
+                : Docs.empty()),
         false);
   }
 
@@ -338,7 +377,7 @@ public final class SourceFormatter {
       case Syntax.ConditionalForStatement value ->
           Docs.concat(
               Docs.text("for "),
-              expression(value.condition()),
+              expressionBeforeBlock(value.condition()),
               Docs.text(" "),
               block(value.body()));
       case Syntax.TryStatement value -> tryStatement(value);
@@ -417,7 +456,7 @@ public final class SourceFormatter {
     Doc result =
         Docs.concat(
             Docs.text("if "),
-            expression(statement.condition()),
+            expressionBeforeBlock(statement.condition()),
             Docs.text(" "),
             block(statement.thenBody()));
     if (statement.elseBody().isEmpty()) return result;
@@ -438,7 +477,7 @@ public final class SourceFormatter {
         Docs.text(statement.variableName()),
         statement.index().map(value -> Docs.text(", " + value.name())).orElse(Docs.empty()),
         Docs.text(" : "),
-        expression(statement.iterable()),
+        expressionBeforeBlock(statement.iterable()),
         Docs.text(" "),
         block(statement.body()));
   }
@@ -468,8 +507,13 @@ public final class SourceFormatter {
           Docs.text(codePointLiteral(value.value(), value.span().text()));
       case Syntax.BooleanLiteral value -> Docs.text(Boolean.toString(value.value()));
       case Syntax.NullLiteral ignored -> Docs.text("null");
-      case Syntax.StringLiteralExpr value -> Docs.text(stringLiteral(value.value()));
+      case Syntax.StringLiteralExpr value ->
+          Docs.text(
+              value.span().text().startsWith("\"\"\"")
+                  ? value.span().text()
+                  : stringLiteral(value.value()));
       case Syntax.InterpolatedStringExpr value -> {
+        if (value.span().text().startsWith("\"\"\"")) yield Docs.text(value.span().text());
         List<Doc> parts = new ArrayList<>();
         parts.add(Docs.text("\""));
         for (int index = 0; index < value.expressions().size(); index++) {
@@ -483,12 +527,16 @@ public final class SourceFormatter {
         yield Docs.concat(parts);
       }
       case Syntax.ArrayLiteral value ->
-          delimited("[", "]", value.elements().stream().map(this::expression).toList());
+          delimited("[", "]", value.elements().stream().map(this::collectionElement).toList());
       case Syntax.Name value -> name(value);
       case Syntax.Unary value ->
-          Docs.concat(
-              Docs.text(operator(value.operator())),
-              expression(value.operand(), precedence, true, value.operator()));
+          value.operator() == TokenKind.BANG_BANG
+              ? Docs.concat(
+                  expression(value.operand(), precedence, false, value.operator()), Docs.text("!!"))
+              : Docs.concat(
+                  Docs.text(
+                      value.operator() == TokenKind.THROW ? "throw " : operator(value.operator())),
+                  expression(value.operand(), precedence, true, value.operator()));
       case Syntax.Binary value ->
           Docs.group(
               Docs.concat(
@@ -509,7 +557,37 @@ public final class SourceFormatter {
               expression(value.index()),
               Docs.text("]"));
       case Syntax.SwitchExpression value -> switchExpression(value);
+      case Syntax.IfExpression value -> ifExpression(value);
     };
+  }
+
+  private Doc ifExpression(Syntax.IfExpression value) {
+    if (value.thenBody().size() == 1
+        && value.elseBody().size() == 1
+        && value.thenBody().getFirst() instanceof Syntax.ExpressionStatement yes
+        && value.elseBody().getFirst() instanceof Syntax.ExpressionStatement no) {
+      boolean parenthesized =
+          yes.expression() instanceof Syntax.Unary
+              || yes.expression() instanceof Syntax.Lambda
+              || yes.expression() instanceof Syntax.IntegerLiteral integer
+                  && integer.value().signum() < 0
+              || yes.expression() instanceof Syntax.DecimalLiteral decimal
+                  && decimal.value().signum() < 0;
+      Doc condition =
+          parenthesized
+              ? Docs.concat(Docs.text("("), expression(value.condition()), Docs.text(")"))
+              : expressionBeforeBlock(value.condition());
+      return Docs.group(
+          Docs.concat(
+              Docs.text("if "),
+              condition,
+              Docs.nest(2, Docs.concat(Docs.line(), expression(yes.expression()))),
+              Docs.text(" else"),
+              Docs.nest(2, Docs.concat(Docs.line(), expression(no.expression())))));
+    }
+    return ifStatement(
+        new Syntax.IfStatement(
+            value.condition(), value.thenBody(), value.elseBody(), value.span()));
   }
 
   private Doc name(Syntax.Name name) {
@@ -521,9 +599,60 @@ public final class SourceFormatter {
   }
 
   private Doc call(Syntax.Call call) {
+    var trailing = call.arguments().stream().filter(Syntax.CallArgument::trailing).findFirst();
+    var arguments = call.arguments().stream().filter(value -> !value.trailing()).toList();
+    Doc regular =
+        Docs.concat(
+            expression(call.callee(), 9, false, null),
+            arguments.isEmpty() && trailing.isPresent()
+                ? Docs.empty()
+                : arguments.size() == 1
+                        && (arguments.getFirst().value() instanceof Syntax.ArrayLiteral
+                            || arguments.getFirst().value() instanceof Syntax.Call)
+                    ? Docs.concat(Docs.text("("), argument(arguments.getFirst()), Docs.text(")"))
+                    : delimited("(", ")", arguments.stream().map(this::argument).toList()));
+    if (trailing.isEmpty()) return regular;
+    var lambda = (Syntax.Lambda) trailing.orElseThrow().value();
+    Doc header =
+        lambda.parameters().isEmpty()
+            ? Docs.empty()
+            : Docs.concat(
+                Docs.text(" "),
+                Docs.join(
+                    Docs.text(", "),
+                    lambda.parameters().stream().map(value -> Docs.text(value.name())).toList()),
+                Docs.text(" in"));
     return Docs.concat(
-        expression(call.callee(), 9, false, null),
-        delimited("(", ")", call.arguments().stream().map(this::argument).toList()));
+        regular,
+        Docs.text(" {"),
+        header,
+        Docs.nest(
+            2,
+            Docs.concat(
+                Docs.hardLine(),
+                Docs.join(Docs.hardLine(), lambda.body().stream().map(this::statement).toList()))),
+        Docs.hardLine(),
+        Docs.text("}"));
+  }
+
+  private Doc expressionBeforeBlock(Syntax.Expression value) {
+    boolean trailing = hasTrailingCallee(value);
+    Doc formatted = expression(value);
+    return trailing ? Docs.concat(Docs.text("("), formatted, Docs.text(")")) : formatted;
+  }
+
+  private boolean hasTrailingCallee(Syntax.Expression value) {
+    return switch (value) {
+      case Syntax.Call call ->
+          call.arguments().stream().anyMatch(Syntax.CallArgument::trailing)
+              || hasTrailingCallee(call.callee());
+      case Syntax.Member member -> hasTrailingCallee(member.receiver());
+      case Syntax.Index index -> hasTrailingCallee(index.receiver());
+      case Syntax.Unary unary -> hasTrailingCallee(unary.operand());
+      case Syntax.Binary binary ->
+          hasTrailingCallee(binary.left()) || hasTrailingCallee(binary.right());
+      default -> false;
+    };
   }
 
   private Doc argument(Syntax.CallArgument argument) {
@@ -562,14 +691,52 @@ public final class SourceFormatter {
         Docs.text(parameter.name()));
   }
 
+  private Doc collectionElement(CollectionElement element) {
+    return switch (element) {
+      case Syntax.Expression value -> expression(value);
+      case CollectionElement.Spread value ->
+          Docs.concat(Docs.text("..."), expression(value.iterable()));
+      case CollectionElement.Conditional value ->
+          Docs.group(
+              Docs.concat(
+                  Docs.text("if ("),
+                  expression(value.condition()),
+                  Docs.text(")"),
+                  Docs.nest(2, Docs.concat(Docs.line(), collectionElement(value.thenElement()))),
+                  value
+                      .elseElement()
+                      .map(
+                          other ->
+                              Docs.concat(
+                                  Docs.line(),
+                                  Docs.text("else"),
+                                  Docs.nest(2, Docs.concat(Docs.line(), collectionElement(other)))))
+                      .orElse(Docs.empty())));
+      case CollectionElement.Repeated value ->
+          Docs.concat(
+              Docs.text("for ("),
+              value
+                  .variableType()
+                  .map(item -> Docs.concat(type(item), Docs.text(" ")))
+                  .orElse(Docs.empty()),
+              Docs.text(value.variableName()),
+              value.index().map(index -> Docs.text(", " + index.name())).orElse(Docs.empty()),
+              Docs.text(" : "),
+              expression(value.iterable()),
+              Docs.text(") "),
+              collectionElement(value.element()));
+    };
+  }
+
   private Doc switchExpression(Syntax.SwitchExpression expression) {
     List<Doc> cases = expression.cases().stream().map(this::switchCase).toList();
     if (cases.isEmpty()) {
-      return Docs.concat(Docs.text("switch "), expression(expression.value()), Docs.text(" {}"));
+      return Docs.concat(
+          Docs.text("switch "), expressionBeforeBlock(expression.value()), Docs.text(" {}"));
     }
     return Docs.concat(
         Docs.text("switch "),
-        expression(expression.value()),
+        expressionBeforeBlock(expression.value()),
         Docs.text(" {"),
         Docs.nest(2, Docs.concat(Docs.hardLine(), Docs.join(Docs.hardLine(), cases))),
         Docs.hardLine(),
@@ -597,7 +764,11 @@ public final class SourceFormatter {
       case Syntax.CodePointPattern value ->
           Docs.text(codePointLiteral(value.value(), value.span().text()));
       case Syntax.BooleanPattern value -> Docs.text(Boolean.toString(value.value()));
-      case Syntax.StringPattern value -> Docs.text(stringLiteral(value.value()));
+      case Syntax.StringPattern value ->
+          Docs.text(
+              value.span().text().startsWith("\"\"\"")
+                  ? value.span().text()
+                  : stringLiteral(value.value()));
       case Syntax.NullPattern ignored -> Docs.text("null");
     };
   }
@@ -613,8 +784,9 @@ public final class SourceFormatter {
   }
 
   private static int precedence(Syntax.Expression expression) {
-    if (expression instanceof Syntax.Lambda || expression instanceof Syntax.SwitchExpression)
-      return 0;
+    if (expression instanceof Syntax.Lambda
+        || expression instanceof Syntax.SwitchExpression
+        || expression instanceof Syntax.IfExpression) return 0;
     if (expression instanceof Syntax.Binary binary) {
       return switch (binary.operator()) {
         case QUESTION_QUESTION -> 1;
@@ -628,7 +800,10 @@ public final class SourceFormatter {
             throw new IllegalArgumentException("unsupported binary operator " + binary.operator());
       };
     }
-    if (expression instanceof Syntax.Unary) return 8;
+    if (expression instanceof Syntax.Unary unary)
+      return unary.operator() == TokenKind.THROW
+          ? 1
+          : unary.operator() == TokenKind.BANG_BANG ? 9 : 8;
     if (expression instanceof Syntax.Call
         || expression instanceof Syntax.Member
         || expression instanceof Syntax.Index) return 9;
@@ -803,7 +978,9 @@ public final class SourceFormatter {
               lineStart = false;
             }
             result.append(text.value());
-            column += text.value().length();
+            int newline = Math.max(text.value().lastIndexOf('\n'), text.value().lastIndexOf('\r'));
+            column =
+                newline < 0 ? column + text.value().length() : text.value().length() - newline - 1;
           }
           case Line line -> {
             if (!line.hard() && command.mode() == Mode.FLAT) {
@@ -840,9 +1017,14 @@ public final class SourceFormatter {
       while (remaining >= 0 && !commands.isEmpty()) {
         Command command = commands.pop();
         switch (command.document()) {
-          case Text text -> remaining -= text.value().length();
+          case Text text -> {
+            int newline = text.value().indexOf('\n');
+            if (newline >= 0) return remaining >= newline;
+            remaining -= text.value().length();
+          }
           case Line line -> {
-            if (line.hard() || command.mode() == Mode.BREAK) return true;
+            if (command.mode() == Mode.BREAK) return true;
+            if (line.hard()) return false;
             if (line.space()) remaining--;
           }
           case Concat concat -> push(commands, command.indent(), command.mode(), concat.values());

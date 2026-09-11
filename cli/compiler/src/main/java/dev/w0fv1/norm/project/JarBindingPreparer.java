@@ -1,0 +1,55 @@
+package dev.w0fv1.norm.project;
+
+import dev.w0fv1.norm.jvm.GeneratedJarBinding;
+import dev.w0fv1.norm.jvm.JarApiScanner;
+import dev.w0fv1.norm.jvm.JarBindingSourceGenerator;
+import dev.w0fv1.norm.jvm.ResolvedJarBinding;
+import dev.w0fv1.norm.jvm.ResolvedJarGraph;
+import dev.w0fv1.norm.value.JarBindingType;
+import dev.w0fv1.norm.value.ModuleDescriptor;
+import java.io.IOException;
+import java.util.List;
+
+final class JarBindingPreparer {
+  private JarBindingPreparer() {}
+
+  static ResolvedJarBinding prepare(ModuleDescriptor descriptor, ResolvedJarGraph graph)
+      throws IOException {
+    return prepare(descriptor, graph, false);
+  }
+
+  static ResolvedJarBinding prepareArchived(ModuleDescriptor descriptor, ResolvedJarGraph graph)
+      throws IOException {
+    return prepare(descriptor, graph, true);
+  }
+
+  private static ResolvedJarBinding prepare(
+      ModuleDescriptor descriptor, ResolvedJarGraph graph, boolean selectedSurfaceOnly)
+      throws IOException {
+    try {
+      List<String> selectedTypes =
+          descriptor.binding().orElseThrow().api().stream().map(JarBindingType::name).toList();
+      JarApiScanner scanner = new JarApiScanner();
+      var surface = scanner.scanSurface(graph, selectedTypes);
+      var api = selectedSurfaceOnly ? surface : scanner.scan(graph, selectedTypes);
+      GeneratedJarBinding generated =
+          new JarBindingSourceGenerator()
+              .generateSurface(
+                  descriptor.coordinate(),
+                  descriptor.exports().subList(0, descriptor.binding().orElseThrow().api().size()),
+                  descriptor.binding().orElseThrow().api(),
+                  graph.contentId(),
+                  surface);
+      return new ResolvedJarBinding(graph, api, generated);
+    } catch (IllegalArgumentException exception) {
+      throw new IOException(
+          "cannot generate JAR binding for "
+              + descriptor.name()
+              + "@"
+              + descriptor.version()
+              + ": "
+              + exception.getMessage(),
+          exception);
+    }
+  }
+}

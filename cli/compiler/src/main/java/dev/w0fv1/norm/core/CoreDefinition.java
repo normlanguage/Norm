@@ -11,7 +11,7 @@ public sealed interface CoreDefinition
         CoreDefinition.Aggregate,
         CoreDefinition.Enum,
         CoreDefinition.Interface,
-        CoreDefinition.InterfaceMethod,
+        CoreDefinition.MethodSignature,
         CoreDefinition.BuiltinConformance {
   record Callable(
       Optional<CoreType> receiverType,
@@ -199,19 +199,18 @@ public sealed interface CoreDefinition
     }
   }
 
-  record InterfaceMethod(
+  record MethodSignature(
       String name,
-      CoreType receiverInterfaceType,
+      CoreType receiverType,
       List<CoreTypeParameter> typeParameters,
       List<CoreType> parameterTypes,
       CoreType returnType)
       implements CoreDefinition {
-    public InterfaceMethod {
+    public MethodSignature {
       Objects.requireNonNull(name, "name");
-      if (name.isBlank())
-        throw new IllegalArgumentException("interface method name must not be blank");
-      Objects.requireNonNull(receiverInterfaceType, "receiverInterfaceType");
-      int receiverParameters = receiverParameterCount(receiverInterfaceType);
+      if (name.isBlank()) throw new IllegalArgumentException("method name must not be blank");
+      Objects.requireNonNull(receiverType, "receiverType");
+      int receiverParameters = receiverParameterCount(receiverType);
       typeParameters = requireTypeParameters(typeParameters, receiverParameters);
       parameterTypes = List.copyOf(parameterTypes);
       Objects.requireNonNull(returnType, "returnType");

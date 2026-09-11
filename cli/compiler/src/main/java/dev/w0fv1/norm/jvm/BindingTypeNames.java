@@ -242,7 +242,7 @@ public record BindingTypeNames(
             case OUTPUT_STREAM -> "OutputStream" + (nonNullReference ? "" : "?");
             case TASK ->
                 "Task<"
-                    + normType(referenceElement(reference), normTypes, false)
+                    + normReferenceArgument(reference, 0, 1, normTypes)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case PUBLISHER ->

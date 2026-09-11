@@ -16,8 +16,39 @@ public record Symbol(
     Optional<SymbolId> owner,
     List<TypeParameterInfo> typeParameters,
     List<ParameterInfo> parameters,
-    String documentation) {
+    String documentation,
+    Accessor accessor) {
+  public enum Accessor {
+    NONE,
+    GETTER,
+    SETTER
+  }
+
+  public Symbol(
+      SymbolId id,
+      String name,
+      SymbolKind kind,
+      SemanticType type,
+      Optional<SourceLocation> declaration,
+      Optional<SymbolId> owner,
+      List<TypeParameterInfo> typeParameters,
+      List<ParameterInfo> parameters,
+      String documentation) {
+    this(
+        id,
+        name,
+        kind,
+        type,
+        declaration,
+        owner,
+        typeParameters,
+        parameters,
+        documentation,
+        Accessor.NONE);
+  }
+
   public Symbol {
+    Objects.requireNonNull(accessor, "accessor");
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(kind, "kind");
@@ -77,8 +108,14 @@ public record Symbol(
                     new ParameterInfo(
                         parameter.name(),
                         parameter.type().substitute(substitutions),
-                        parameter.hasDefault()))
+                        parameter.hasDefault(),
+                        parameter.callbackParameterNames(),
+                        parameter.labelPolicy(),
+                        parameter
+                            .resultBuilder()
+                            .map(builder -> builder.substitute(substitutions))))
             .toList(),
-        documentation);
+        documentation,
+        accessor);
   }
 }

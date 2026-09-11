@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public sealed interface CoreExpression extends CoreNode
+public sealed interface CoreExpression extends CoreCollectionElement
     permits CoreExpression.Literal,
         CoreExpression.NullLiteral,
         CoreExpression.CollectionLiteral,
@@ -53,7 +53,7 @@ public sealed interface CoreExpression extends CoreNode
 
   record CollectionLiteral(
       int nodeIndex,
-      List<CoreExpression> elements,
+      List<CoreCollectionElement> elements,
       IntrinsicId materializer,
       CoreRuntimeType runtimeType,
       CoreType type)
@@ -327,15 +327,28 @@ public sealed interface CoreExpression extends CoreNode
       Optional<CoreExpression> receiver,
       List<CoreArgument> arguments,
       Optional<CoreRuntimeType> runtimeType,
+      List<CoreType> runtimeDependencies,
       boolean nullSafe,
       CoreType type)
       implements CoreExpression {
+    public Intrinsic(
+        int nodeIndex,
+        IntrinsicId intrinsic,
+        Optional<CoreExpression> receiver,
+        List<CoreArgument> arguments,
+        Optional<CoreRuntimeType> runtimeType,
+        boolean nullSafe,
+        CoreType type) {
+      this(nodeIndex, intrinsic, receiver, arguments, runtimeType, List.of(), nullSafe, type);
+    }
+
     public Intrinsic {
       requireNode(nodeIndex);
       Objects.requireNonNull(intrinsic, "intrinsic");
       receiver = Objects.requireNonNull(receiver, "receiver");
       arguments = List.copyOf(arguments);
       runtimeType = Objects.requireNonNull(runtimeType, "runtimeType");
+      runtimeDependencies = List.copyOf(runtimeDependencies);
       Objects.requireNonNull(type, "type");
     }
   }

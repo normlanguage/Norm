@@ -190,11 +190,7 @@ final class StatementNodes {
   }
 
   static final class For extends StatementNode {
-    private final FrameBinding iteratorBinding;
-    private final java.util.Optional<FrameBinding> indexBinding;
-    @Child private ExpressionNode iterable;
-    @Child private IteratorFactoryNode iteratorFactory;
-    @Child private LoopNode loop;
+    @Child private IterationLoopNode<Void> loop;
 
     For(
         FrameBinding iteratorBinding,
@@ -202,32 +198,22 @@ final class StatementNodes {
         java.util.Optional<FrameBinding> indexBinding,
         ExpressionNode iterable,
         StatementNode body,
-        IteratorFactoryNode iteratorFactory,
-        IteratorCursorNode iteratorCursor) {
-      this.iteratorBinding = iteratorBinding;
-      this.indexBinding = java.util.Objects.requireNonNull(indexBinding, "indexBinding");
-      this.iterable = iterable;
-      this.iteratorFactory = iteratorFactory;
+        IteratorFactoryNode factory,
+        IteratorCursorNode cursor) {
       loop =
-          Truffle.getRuntime()
-              .createLoopNode(
-                  new Repeating(
-                      iteratorBinding, variableBinding, indexBinding, body, iteratorCursor));
+          new IterationLoopNode<>(
+              iteratorBinding,
+              variableBinding,
+              indexBinding,
+              iterable,
+              new IterationLoopNode.StatementBody(body),
+              factory,
+              cursor);
     }
 
     @Override
     void executeVoid(VirtualFrame frame) {
-      if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
-        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", this);
-      }
-      iteratorBinding.write(
-          frame, new IterationState(iteratorFactory.create(frame, iterable.execute(frame), this)));
-      try {
-        loop.execute(frame);
-      } finally {
-        frame.clear(iteratorBinding.slot());
-        indexBinding.ifPresent(binding -> frame.clear(binding.slot()));
-      }
+      loop.execute(frame, null);
     }
   }
 
@@ -352,57 +338,6 @@ final class StatementNodes {
         return false;
       }
       return true;
-    }
-  }
-
-  private static final class Repeating extends Node implements RepeatingNode {
-    private final FrameBinding iteratorBinding;
-    private final FrameBinding variableBinding;
-    private final java.util.Optional<FrameBinding> indexBinding;
-    @Child private StatementNode body;
-    @Child private IteratorCursorNode iteratorCursor;
-
-    Repeating(
-        FrameBinding iteratorBinding,
-        FrameBinding variableBinding,
-        java.util.Optional<FrameBinding> indexBinding,
-        StatementNode body,
-        IteratorCursorNode iteratorCursor) {
-      this.iteratorBinding = iteratorBinding;
-      this.variableBinding = variableBinding;
-      this.indexBinding = java.util.Objects.requireNonNull(indexBinding, "indexBinding");
-      this.body = body;
-      this.iteratorCursor = iteratorCursor;
-    }
-
-    @Override
-    public boolean executeRepeating(VirtualFrame frame) {
-      if (ExecutionContextAccess.get(frame).cancellation().getAsBoolean()) {
-        throw new NormGuestException(RuntimeErrorCode.CANCELLED, "execution cancelled", body);
-      }
-      IterationState state = (IterationState) iteratorBinding.read(frame);
-      if (!iteratorCursor.hasNext(frame, state.iterator, this)) return false;
-      variableBinding.write(
-          frame, RuntimeValues.copy(iteratorCursor.next(frame, state.iterator, this)));
-      indexBinding.ifPresent(binding -> binding.write(frame, state.index));
-      state.index++;
-      try {
-        body.executeVoid(frame);
-      } catch (ControlFlow.Continue ignored) {
-        return true;
-      } catch (ControlFlow.Break ignored) {
-        return false;
-      }
-      return true;
-    }
-  }
-
-  private static final class IterationState {
-    private final Object iterator;
-    private int index;
-
-    private IterationState(Object iterator) {
-      this.iterator = iterator;
     }
   }
 

@@ -109,8 +109,8 @@ public final class CoreArtifact {
           case CoreDefinition.Aggregate ignored -> role == CoreDefinitionRole.AGGREGATE;
           case CoreDefinition.Enum ignored -> role == CoreDefinitionRole.ENUM;
           case CoreDefinition.Interface ignored -> role == CoreDefinitionRole.INTERFACE;
-          case CoreDefinition.InterfaceMethod ignored ->
-              role == CoreDefinitionRole.INTERFACE_METHOD;
+          case CoreDefinition.MethodSignature ignored ->
+              role == CoreDefinitionRole.METHOD_SIGNATURE;
           case CoreDefinition.BuiltinConformance ignored ->
               role == CoreDefinitionRole.BUILTIN_CONFORMANCE;
           case CoreDefinition.Callable callable ->
@@ -142,7 +142,7 @@ public final class CoreArtifact {
           case METHOD -> CoreBindingKind.METHOD;
           case ENUM -> CoreBindingKind.ENUM;
           case INTERFACE -> CoreBindingKind.INTERFACE;
-          case INTERFACE_METHOD -> CoreBindingKind.INTERFACE_METHOD;
+          case METHOD_SIGNATURE -> CoreBindingKind.METHOD_SIGNATURE;
           case AGGREGATE -> {
             CoreDefinition.Aggregate declaration = (CoreDefinition.Aggregate) definition;
             yield switch (declaration.kind()) {
@@ -293,8 +293,8 @@ public final class CoreArtifact {
           if (!present) throw bindingMismatch(binding);
         }
       }
-      case CoreDefinition.InterfaceMethod method -> {
-        CoreBindingShape.InterfaceMethod shape = (CoreBindingShape.InterfaceMethod) binding.shape();
+      case CoreDefinition.MethodSignature method -> {
+        CoreBindingShape.MethodSignature shape = (CoreBindingShape.MethodSignature) binding.shape();
         if (!sameTypeParameters(program, id, shape.typeParameters(), method.typeParameters())
             || shape.parameters().size() != method.parameterTypes().size()
             || !sameType(program, id, shape.returnType(), method.returnType())) {

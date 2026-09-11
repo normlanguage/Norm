@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.w0fv1.norm.frontend.SourceHeader;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
@@ -21,6 +22,8 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 final class ProjectLoaderTest {
   private static final String SHA256 = "0123456789abcdef".repeat(4);
@@ -33,7 +36,8 @@ final class ProjectLoaderTest {
     source(
         root,
         "sample/module.norm",
-        "Module module() { return module(dependencies: [], sources: [\"src\", \"generated\"], tests: [\"tests\"]) }");
+        "Module module() { return module(dependencies: [], sources: [\"src\", \"generated\"],"
+            + " tests: [\"tests\"]) }");
     Path production =
         source(
             root,
@@ -72,7 +76,8 @@ final class ProjectLoaderTest {
     source(
         root,
         "sample/module.norm",
-        "Module module() { return module(name: \"sample\", version: 1, sources: [\"src\"], tests: [\"tests\"], exports: [\"Value\"]) }");
+        "Module module() { return module(name: \"sample\", version: 1, sources: [\"src\"], tests:"
+            + " [\"tests\"], exports: [\"Value\"]) }");
     Path production =
         source(
             root,
@@ -82,7 +87,8 @@ final class ProjectLoaderTest {
         source(
             root,
             "sample/tests/ValueTest.norm",
-            "package sample import std.testing.Test @Test(functions: [value.function]) Void valueTest() { require(condition: value() == 42, message: \"value\") }");
+            "package sample import std.testing.Test @Test(functions: [value.function]) Void"
+                + " valueTest() { require(condition: value() == 42, message: \"value\") }");
     try (ProjectLoader projects = environment().projectLoader()) {
       var productionSources = projects.load(production);
       assertEquals(
@@ -316,7 +322,8 @@ final class ProjectLoaderTest {
     Path entry = source(base, "Value.norm", "package base public Integer value() { return 1 }");
     Files.writeString(
         base.resolve("module.norm"),
-        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"], dependencies: [dependency(repository: \"github\", name: \"util\", version: 1)]) }");
+        "Module module() { return module(name: \"base\", version: 1, exports: [\"Value\"],"
+            + " dependencies: [dependency(repository: \"github\", name: \"util\", version: 1)]) }");
     Path util = Files.createDirectories(repository.resolve("util"));
     source(util, "Value.norm", "package util public Integer utility() { return 2 }");
     Files.writeString(
@@ -334,13 +341,16 @@ final class ProjectLoaderTest {
     }
   }
 
-  @Test
-  void retainsResolvedDependencyArchivesForApplicationPackaging() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"application/app", "application/dependencies/app"})
+  void retainsResolvedDependencyArchivesForApplicationPackaging(String applicationPath)
+      throws Exception {
     Path dependencyRoot = Files.createDirectories(temporaryDirectory.resolve("library/sample/lib"));
     Path dependencyModule = dependencyRoot.resolve("module.norm");
     Files.writeString(
         dependencyModule,
-        "Module module() { return module(name: \"sample.lib\", version: 1, exports: [\"Value\"]) }");
+        "Module module() { return module(name: \"sample.lib\", version: 1, exports: [\"Value\"])"
+            + " }");
     source(
         dependencyRoot, "Value.norm", "package sample.lib public Integer answer() { return 42 }");
     Path repository = temporaryDirectory.resolve("repository");
@@ -349,7 +359,7 @@ final class ProjectLoaderTest {
       new ModulePackager(projects).packageModule(dependencyModule, repository);
     }
 
-    Path applicationRoot = Files.createDirectories(temporaryDirectory.resolve("application/app"));
+    Path applicationRoot = Files.createDirectories(temporaryDirectory.resolve(applicationPath));
     Path entry =
         source(
             applicationRoot,
@@ -357,12 +367,16 @@ final class ProjectLoaderTest {
             "package app import sample.lib.answer Void main() { printLine(answer()) }");
     Files.writeString(
         applicationRoot.resolve("module.norm"),
-        "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"sample.lib\", version: 1)]) }");
+        "Module module() { return module(name: \"app\", version: 1, dependencies:"
+            + " [dependency(repository: \"github\", name: \"sample.lib\", version: 1)]) }");
 
     try (ProjectLoader projects =
         environment.projectLoader(repository, temporaryDirectory.resolve("cache"))) {
       ProjectSourceSet sourceSet = projects.load(entry);
 
+      assertEquals(temporaryDirectory.resolve("application"), sourceSet.root());
+      assertEquals(sourceSet.root(), projects.projectRoot(SourceFile.read(entry), List.of()));
+      assertEquals(sourceSet.root(), projects.loadForTests(applicationRoot).root());
       assertEquals(
           repository.resolve("sample/lib/1/lib-1.nar").toAbsolutePath().normalize(),
           sourceSet.moduleArchives().get(new ModuleCoordinate("sample.lib", 1)).path());
@@ -375,15 +389,19 @@ final class ProjectLoaderTest {
     Path entry = source(root, "sample/Main.norm", "package sample Void main() {}");
     Files.writeString(
         root.resolve("sample/module.norm"),
-        "Module module() { return module(name: \"sample\", version: 1, dependencies: [dependency(repository: \"github\", name: \"left\", version: 1), dependency(repository: \"github\", name: \"right\", version: 1)]) }");
+        "Module module() { return module(name: \"sample\", version: 1, dependencies:"
+            + " [dependency(repository: \"github\", name: \"left\", version: 1),"
+            + " dependency(repository: \"github\", name: \"right\", version: 1)]) }");
     Path left = Files.createDirectories(root.resolve("dependencies/left"));
     Files.writeString(
         left.resolve("module.norm"),
-        "Module module() { return module(name: \"left\", version: 1, dependencies: [dependency(repository: \"github\", name: \"base\", version: 1)]) }");
+        "Module module() { return module(name: \"left\", version: 1, dependencies:"
+            + " [dependency(repository: \"github\", name: \"base\", version: 1)]) }");
     Path right = Files.createDirectories(root.resolve("dependencies/right"));
     Files.writeString(
         right.resolve("module.norm"),
-        "Module module() { return module(name: \"right\", version: 1, dependencies: [dependency(repository: \"mirror\", name: \"base\", version: 1)]) }");
+        "Module module() { return module(name: \"right\", version: 1, dependencies:"
+            + " [dependency(repository: \"mirror\", name: \"base\", version: 1)]) }");
     Path base = Files.createDirectories(root.resolve("dependencies/base"));
     Files.writeString(
         base.resolve("module.norm"),
@@ -408,7 +426,9 @@ final class ProjectLoaderTest {
         "package sample.shared public Integer rootValue() { return 1 }");
     Files.writeString(
         root.resolve("sample/module.norm"),
-        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"], dependencies: [dependency(repository: \"github\", name: \"sample.shared\", version: 1)]) }");
+        "Module module() { return module(name: \"sample\", version: 1, exports: [\"Main\"],"
+            + " dependencies: [dependency(repository: \"github\", name: \"sample.shared\", version:"
+            + " 1)]) }");
     Path dependency = Files.createDirectories(root.resolve("dependencies/sample/shared"));
     source(
         root.resolve("dependencies"),
@@ -416,7 +436,8 @@ final class ProjectLoaderTest {
         "package sample.shared public Integer dependencyValue() { return 2 }");
     Files.writeString(
         dependency.resolve("module.norm"),
-        "Module module() { return module(name: \"sample.shared\", version: 1, exports: [\"DependencyValue\"]) }");
+        "Module module() { return module(name: \"sample.shared\", version: 1, exports:"
+            + " [\"DependencyValue\"]) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
       IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
@@ -539,7 +560,9 @@ final class ProjectLoaderTest {
         """);
 
     try (ProjectLoader projects =
-        environment().projectLoader(temporaryDirectory.resolve("maven-cache"))) {
+        environment()
+            .projectLoader(
+                MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
       ProjectSourceSet sourceSet = projects.load(entry);
 

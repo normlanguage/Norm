@@ -2,10 +2,17 @@ package dev.w0fv1.norm.source;
 
 import java.util.Objects;
 
-public record SourceSpan(SourceFile source, int startOffset, int endOffset) {
+public record SourceSpan(SourceFile source, int startOffset, int endOffset, int expansion) {
+  public SourceSpan(SourceFile source, int startOffset, int endOffset) {
+    this(source, startOffset, endOffset, 0);
+  }
+
   public SourceSpan {
     Objects.requireNonNull(source, "source");
-    if (startOffset < 0 || endOffset < startOffset || endOffset > source.length()) {
+    if (startOffset < 0
+        || endOffset < startOffset
+        || endOffset > source.length()
+        || expansion < 0) {
       throw new IllegalArgumentException(
           "invalid source span ["
               + startOffset

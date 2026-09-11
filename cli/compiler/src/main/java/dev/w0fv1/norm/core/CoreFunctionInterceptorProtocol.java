@@ -40,7 +40,7 @@ public record CoreFunctionInterceptorProtocol(
 
   private static void verifyBefore(
       CoreProgram program, CoreAnnotationProtocolSupport.Protocol protocol, DefinitionId id) {
-    CoreDefinition.InterfaceMethod method = CoreAnnotationProtocolSupport.method(program, NAME, id);
+    CoreDefinition.MethodSignature method = CoreAnnotationProtocolSupport.method(program, NAME, id);
     if (!CoreAnnotationProtocolSupport.receiver(program, protocol, id, method, List.of())
         || !method.typeParameters().isEmpty()
         || !method.returnType().equals(CoreType.VOID)
@@ -53,7 +53,7 @@ public record CoreFunctionInterceptorProtocol(
 
   private static void verifyAround(
       CoreProgram program, CoreAnnotationProtocolSupport.Protocol protocol, DefinitionId id) {
-    CoreDefinition.InterfaceMethod method = CoreAnnotationProtocolSupport.method(program, NAME, id);
+    CoreDefinition.MethodSignature method = CoreAnnotationProtocolSupport.method(program, NAME, id);
     CoreType parameter = new CoreType.Parameter(0, CoreNullability.NON_NULL);
     if (!CoreAnnotationProtocolSupport.receiver(program, protocol, id, method, List.of())
         || method.typeParameters().size() != 1
@@ -71,7 +71,7 @@ public record CoreFunctionInterceptorProtocol(
 
   private static void verifyAfter(
       CoreProgram program, CoreAnnotationProtocolSupport.Protocol protocol, DefinitionId id) {
-    CoreDefinition.InterfaceMethod method = CoreAnnotationProtocolSupport.method(program, NAME, id);
+    CoreDefinition.MethodSignature method = CoreAnnotationProtocolSupport.method(program, NAME, id);
     if (!CoreAnnotationProtocolSupport.receiver(program, protocol, id, method, List.of())
         || !method.typeParameters().isEmpty()
         || !method.returnType().equals(CoreType.VOID)

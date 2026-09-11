@@ -369,6 +369,9 @@ public final class BindingSourceRenderer {
     policies.add(contract.retention().normInterface());
     if (contract.inherited()) policies.add("InheritedAnnotation");
     if (contract.repeatableContainer().isPresent()) policies.add("RepeatableAnnotation");
+    if (contract.identityField()) policies.add("IdentityField");
+    if (contract.managedFields()) policies.add("ManagedField");
+    if (contract.managedImplementation()) policies.add("ManagedImplementation");
     policies.stream()
         .distinct()
         .forEach(policy -> text.append("import std.annotation.").append(policy).append('\n'));

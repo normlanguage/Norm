@@ -331,7 +331,7 @@ public final class Syntax {
       SourceSpan nameSpan,
       List<TypeParameter> typeParameters,
       List<Parameter> parameters,
-      List<Statement> body,
+      Optional<List<Statement>> implementation,
       SourceSpan span)
       implements AstNode {
     public FunctionDecl {
@@ -342,14 +342,48 @@ public final class Syntax {
       Objects.requireNonNull(nameSpan, "nameSpan");
       typeParameters = List.copyOf(typeParameters);
       parameters = List.copyOf(parameters);
-      body = List.copyOf(body);
+      implementation = Objects.requireNonNull(implementation, "implementation").map(List::copyOf);
       Objects.requireNonNull(span, "span");
+    }
+
+    public FunctionDecl(
+        List<AnnotationUse> annotations,
+        Visibility visibility,
+        FunctionKind kind,
+        Optional<TypeRef> returnType,
+        String name,
+        SourceSpan nameSpan,
+        List<TypeParameter> typeParameters,
+        List<Parameter> parameters,
+        List<Statement> body,
+        SourceSpan span) {
+      this(
+          annotations,
+          visibility,
+          kind,
+          returnType,
+          name,
+          nameSpan,
+          typeParameters,
+          parameters,
+          Optional.of(body),
+          span);
+    }
+
+    public boolean hasBody() {
+      return implementation.isPresent();
+    }
+
+    public List<Statement> body() {
+      return implementation.orElse(List.of());
     }
   }
 
   public enum FunctionKind {
     REGULAR,
-    EXTENSION
+    EXTENSION,
+    GETTER,
+    SETTER
   }
 
   public record ConstructorDecl(
@@ -405,6 +439,12 @@ public final class Syntax {
       constructors = List.copyOf(constructors);
       methods = List.copyOf(methods);
       Objects.requireNonNull(span, "span");
+    }
+
+    public Optional<SuperCall> implicitSuperCall() {
+      return constructors.isEmpty()
+          ? extendedClass.map(parent -> new SuperCall(List.of(), parent.span()))
+          : Optional.empty();
     }
   }
 
@@ -572,7 +612,7 @@ public final class Syntax {
     }
   }
 
-  public sealed interface Expression extends AstNode
+  public sealed interface Expression extends CollectionElement
       permits IntegerLiteral,
           DecimalLiteral,
           CodePointLiteral,
@@ -588,7 +628,8 @@ public final class Syntax {
           Member,
           Lambda,
           Index,
-          SwitchExpression {}
+          SwitchExpression,
+          IfExpression {}
 
   public record LambdaParameter(
       Optional<TypeRef> type, String name, SourceSpan nameSpan, SourceSpan span)
@@ -710,6 +751,17 @@ public final class Syntax {
     }
   }
 
+  public record IfExpression(
+      Expression condition, List<Statement> thenBody, List<Statement> elseBody, SourceSpan span)
+      implements Expression {
+    public IfExpression {
+      Objects.requireNonNull(condition, "condition");
+      thenBody = List.copyOf(thenBody);
+      elseBody = List.copyOf(elseBody);
+      Objects.requireNonNull(span, "span");
+    }
+  }
+
   public record IntegerLiteral(java.math.BigInteger value, SourceSpan span) implements Expression {
     public IntegerLiteral {
       Objects.requireNonNull(value, "value");
@@ -778,7 +830,8 @@ public final class Syntax {
     }
   }
 
-  public record ArrayLiteral(List<Expression> elements, SourceSpan span) implements Expression {
+  public record ArrayLiteral(List<CollectionElement> elements, SourceSpan span)
+      implements Expression {
     public ArrayLiteral {
       elements = List.copyOf(elements);
       Objects.requireNonNull(span, "span");
@@ -827,12 +880,19 @@ public final class Syntax {
     }
   }
 
-  public record CallArgument(Optional<ArgumentLabel> label, Expression value, SourceSpan span)
+  public record CallArgument(
+      Optional<ArgumentLabel> label, Expression value, boolean trailing, SourceSpan span)
       implements AstNode {
+    public CallArgument(Optional<ArgumentLabel> label, Expression value, SourceSpan span) {
+      this(label, value, false, span);
+    }
+
     public CallArgument {
       Objects.requireNonNull(label, "label");
       Objects.requireNonNull(value, "value");
       Objects.requireNonNull(span, "span");
+      if (trailing && (label.isPresent() || !(value instanceof Lambda)))
+        throw new IllegalArgumentException("trailing argument must be an unlabeled lambda");
     }
   }
 

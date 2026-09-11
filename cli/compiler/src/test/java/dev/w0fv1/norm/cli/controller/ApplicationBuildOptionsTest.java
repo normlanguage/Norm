@@ -3,6 +3,7 @@ package dev.w0fv1.norm.cli.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.w0fv1.norm.build.ApplicationBuildTarget;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

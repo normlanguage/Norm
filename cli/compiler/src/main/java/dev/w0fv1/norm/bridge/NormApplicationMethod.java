@@ -9,4 +9,6 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
 public @interface NormApplicationMethod {
   String value();
+
+  String implementation() default "";
 }

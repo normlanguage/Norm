@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Set;
 
 final class AnnotationRuntime {
+  private final CallTarget fieldWriter;
+  private final dev.w0fv1.norm.core.CoreTypeRelations typeRelations;
   private final RuntimeProgram program;
   private final RuntimeDeclarationIndex declarations;
   private final Map<ApplicationKey, List<CoreAnnotationValue>> applications;
@@ -52,6 +54,7 @@ final class AnnotationRuntime {
 
   AnnotationRuntime(CoreArtifact artifact) {
     program = RuntimeProgram.from(artifact.program());
+    typeRelations = new dev.w0fv1.norm.core.CoreTypeRelations(artifact.program().definitions());
     declarations = RuntimeDeclarationIndex.from(artifact.authoring());
     Map<ApplicationKey, List<CoreAnnotationValue>> indexed = new LinkedHashMap<>();
     for (CoreAnnotationApplication application : artifact.metadata().annotations()) {
@@ -67,6 +70,21 @@ final class AnnotationRuntime {
     configuration = new ConfigurationRuntime(serialization);
     mapper = new MapperEngine(serialization);
     xml = new XmlDataFormat(serialization);
+    fieldWriter =
+        new com.oracle.truffle.api.nodes.RootNode(null) {
+          @Child private FieldWriteNode writer = new FieldWriteNode(AnnotationRuntime.this);
+
+          @Override
+          public Object execute(com.oracle.truffle.api.frame.VirtualFrame frame) {
+            Object[] arguments = frame.getArguments();
+            writer.execute(
+                (RuntimeValues.ObjectValue) arguments[1],
+                (Integer) arguments[2],
+                arguments[3],
+                (ExecutionState) arguments[0]);
+            return null;
+          }
+        }.getCallTarget();
   }
 
   void initialize(
@@ -448,6 +466,112 @@ final class AnnotationRuntime {
   }
 
   Object readField(RuntimeValues.FieldValue field, Object receiver) {
+    return RuntimeValues.copy(fieldReceiver(field, receiver).readField(field.index()));
+  }
+
+  boolean hasFieldAnnotation(RuntimeValues.FieldValue field, CoreType annotationType) {
+    if (!(annotationType instanceof CoreType.Declared requested)
+        || !(requested.constructor() instanceof CoreTypeConstructor.User requestedUser))
+      return false;
+    DefinitionId requestedId = resolveExternal(requestedUser.definition());
+    IndexedKey target = new IndexedKey(field.owner(), field.index());
+    for (ApplicationKey key : applications.keySet()) {
+      if (key.target() != AnnotationTarget.FIELD
+          || !key.definition().equals(target)
+          || retention(key.annotation()) != AnnotationRetention.RUNTIME) continue;
+      CoreType actual =
+          new CoreType.Declared(
+              new CoreTypeConstructor.User(new DefinitionReference.External(key.annotation())),
+              List.of(),
+              CoreValueCategory.IDENTITY,
+              CoreNullability.NON_NULL);
+      CoreType.Declared view = aggregateView(actual, requestedId);
+      if (view != null && view.equals(requested)) return true;
+    }
+    return false;
+  }
+
+  RuntimeValues.OpaqueValue fieldIdentity(
+      RuntimeValues.FieldValue field, Object receiver, CoreType type) {
+    Object value = readField(field, receiver);
+    if (value == null || value == RuntimeValues.NullValue.INSTANCE) {
+      throw new IllegalArgumentException("field identity requires a non-null value");
+    }
+    return new RuntimeValues.OpaqueValue(
+        type,
+        new FieldIdentityKey(
+            field.ownerType(),
+            field.owner(),
+            field.index(),
+            new RuntimeValues.RuntimeKey(RuntimeValues.copy(value))),
+        "FieldIdentity");
+  }
+
+  private record FieldIdentityKey(
+      CoreType ownerType,
+      DefinitionOccurrenceId owner,
+      int field,
+      RuntimeValues.RuntimeKey value) {}
+
+  RuntimeValues.OpaqueValue bindField(
+      RuntimeValues.FieldValue field, Object receiver, CoreType type) {
+    RuntimeValues.ObjectValue object = fieldReceiver(field, receiver);
+    if (((CoreType.Declared) object.type).category() != CoreValueCategory.IDENTITY) {
+      throw new IllegalArgumentException("field binding requires a mutable class target");
+    }
+    return new RuntimeValues.OpaqueValue(type, new FieldHandle(field, object), "FieldHandle");
+  }
+
+  record FieldHandle(RuntimeValues.FieldValue field, RuntimeValues.ObjectValue receiver) {
+    Object read() {
+      return field.annotations().readField(field, receiver);
+    }
+
+    void write(Object value, ExecutionState execution) {
+      field.annotations().writeField(field, receiver, value, execution);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof FieldHandle handle
+          && receiver == handle.receiver
+          && field.index() == handle.field.index();
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * System.identityHashCode(receiver) + field.index();
+    }
+  }
+
+  boolean publicField(RuntimeValues.FieldValue field) {
+    return aggregateInfo
+        .get(field.owner().representative())
+        .fields()
+        .get(field.index())
+        .publicField();
+  }
+
+  void copyField(
+      RuntimeValues.FieldValue field, Object target, Object source, ExecutionState execution) {
+    writeField(field, target, readField(field, source), execution);
+  }
+
+  void writeField(
+      RuntimeValues.FieldValue field, Object target, Object value, ExecutionState execution) {
+    RuntimeValues.ObjectValue object = fieldReceiver(field, target);
+    if (((CoreType.Declared) object.type).category() != CoreValueCategory.IDENTITY) {
+      throw new IllegalArgumentException("field writing requires a mutable class target");
+    }
+    if (value == RuntimeValues.NullValue.INSTANCE
+        ? !field.fieldType().isNullable()
+        : !typeRelations.isAssignable(field.fieldType(), RuntimeValues.runtimeType(value))) {
+      throw new IllegalArgumentException("field value does not match its declared type");
+    }
+    fieldWriter.call(execution, object, field.index(), value);
+  }
+
+  private RuntimeValues.ObjectValue fieldReceiver(RuntimeValues.FieldValue field, Object receiver) {
     if (!(receiver instanceof RuntimeValues.ObjectValue object)
         || field.index() >= object.fields.length) {
       throw new IllegalArgumentException("field receiver does not match its declaring type");
@@ -460,7 +584,7 @@ final class AnnotationRuntime {
     if (view == null || !view.equals(expected)) {
       throw new IllegalArgumentException("field receiver does not match its declaring type");
     }
-    return RuntimeValues.copy(object.fields[field.index()]);
+    return object;
   }
 
   Execution execution() {
@@ -814,21 +938,7 @@ final class AnnotationRuntime {
   }
 
   private CoreType.Declared aggregateView(CoreType type, DefinitionId target) {
-    CoreType current = type;
-    Set<DefinitionId> visited = new HashSet<>();
-    while (current instanceof CoreType.Declared declared
-        && declared.constructor() instanceof CoreTypeConstructor.User user) {
-      DefinitionId id = resolveExternal(user.definition());
-      if (!visited.add(id)) return null;
-      if (id.equals(target)) return declared;
-      CoreDefinition definition = program.structure(id).orElse(null);
-      if (!(definition instanceof CoreDefinition.Aggregate aggregate)
-          || aggregate.parentType().isEmpty()) return null;
-      current =
-          CoreTypes.absolute(aggregate.parentType().orElseThrow(), id, program)
-              .substitute(declared.arguments()::get);
-    }
-    return null;
+    return typeRelations.view(type, target);
   }
 
   private DefinitionId aggregateDefinition(CoreType.Declared type, String operation) {

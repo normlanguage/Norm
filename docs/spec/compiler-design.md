@@ -24,7 +24,7 @@ ProjectEnvironment
 
 `ProjectEnvironment` 先用 bootstrap 协议求值标准库的 `module.norm`，再建立共享标准库 prelude。`ProjectLoader` 递归求值 `Module module()` 返回的精确依赖图，并建立不可变 `ProjectSourceSet`。模块配置与业务程序分别编译，配置 artifact 不进入业务 Core 依赖图。项目发现与输入捕获归属 `project`；CLI 与 Polyglot 共享 `application` 的编译和资源准备，Language Server 通过 `workspace` 管理文档分析。`CompilationScope` 统一携带每个源码文档的模块名、版本、相对路径和模块直接读取边，Analyzer 与语言服务共同使用这一个可见性模型。模块规则见[模块系统](/spec/module-system)。
 
-Lexer 与 Parser 建立语法树，语言服务的类型片段也通过 `TypeSyntaxParser` 进入同一语法实现。补全上下文直接消费 Lexer 的字面量、插值与未闭合字面量 token。`Analyzer` 只编排声明、类型与函数体分析；`SemanticModelBuilder` 是语义输出的唯一写入口，`TypeResolutionState` 与 `BodyAnalysisState` 分别拥有类型解析游标和函数体流状态。试探分析通过完整 checkpoint 回滚；循环流状态合并统一归属 `FlowAnalyzer`。
+Lexer 与 Parser 建立语法树，语言服务的类型片段也通过 `TypeSyntaxParser` 进入同一语法实现。补全上下文直接消费 Lexer 的字面量、插值与未闭合字面量 token。`Analyzer` 组装声明、类型与函数体分析；`TypeResolver`、`DeclarationAnalyzer` 和 `DeclarationPolicyResolver` 分别拥有类型解析、声明签名和编译期策略。`SemanticModelBuilder` 是语义输出的唯一写入口；状态进入与恢复由 `TypeResolutionState`、`BodyAnalysisState` 的作用域句柄管理。试探事务见 [`AnalysisTransaction`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/frontend/AnalysisTransaction.java) 与 [`AnalysisTransactionTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/AnalysisTransactionTest.java)；组件边界见 [`FrontendBoundaryTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/FrontendBoundaryTest.java)。循环流状态合并仍归属 `FlowAnalyzer`。
 
 `CallResolver` 统一普通函数、方法、接口、构造器、内建函数与枚举构造的候选推断和选择，`CallArguments` 负责实参映射，`TypeArguments` 负责默认类型参数补全。Diamond 构造与所属类型参数共同参与候选求解；候选适用性和最终参数校验共用类型关系，行为约束见 [SemanticProbeTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/SemanticProbeTest.java)。`ResolvedCall` 保存精确目标与实例化签名，Binder、签名帮助和导航读取这份结果。分析阶段的边界由 [AnalyzerTypeArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/AnalyzerTypeArchitectureTest.java) 约束。
 
@@ -36,11 +36,23 @@ Lexer 与 Parser 建立语法树，语言服务的类型片段也通过 `TypeSyn
 
 ## 应用与制品边界
 
+源码方法通过 `Syntax.FunctionDecl.implementation` 保留实现是否存在，空方法体与纯声明具有不同的语法身份。格式化和语言服务保留纯声明的签名；实现提供者尚未解析时，执行编译报告诊断，不将其降级为空函数体。相关约束见 [MethodDeclarationCompilerTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/MethodDeclarationCompilerTest.java)。
+
+Bound 的实现存在性与源码一致；纯声明转换为 Core `MethodSignature`，不分配可执行方法体。类泛型与方法泛型的降级契约见 [ManagedMethodLoweringTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/ManagedMethodLoweringTest.java)。
+
+无函数体的方法在 Core 中统一表示为 `CoreDefinition.MethodSignature`，签名包含名义接收者、类型参数、参数类型和返回类型；接口、class 与 value 接收者共用签名校验。接口继承与调用仍要求签名属于对应接口。签名结构与版本入口见 [CoreDefinition](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreDefinition.java) 和 [CoreIdentityVersion](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreIdentityVersion.java)。
+
+方法分派的 `target` 引用目标声明，实现是否存在由该声明的类型决定。class 分派可以指向托管签名，继承与覆盖仍校验接收者及泛型 ABI；执行计划只将可执行目标加入本地调用图。边界约束见 [CoreManagedDispatchTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreManagedDispatchTest.java)。
+
 `ApplicationCompiler` 返回可关闭的 `ApplicationCompilation`。成功结果中的 `CompiledApplication` 拥有临时目录、选定并捕获的 Java classpath、注解处理产物和执行计划；每次执行独立打开运行资源。编译器或 runner 关闭不使已交付应用失效，应用调用方负责关闭产物。Java 方法索引由注解处理阶段产生一次，运行、测试与 Native 构建复用同一结果。入口见 [application](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/main/java/dev/w0fv1/norm/application)。
+
+应用交付使用 [`ApplicationBuilder`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/ApplicationBuilder.java)，借用调用方的 `ApplicationRunner`，关闭本次编译产物和 staging，只返回交付位置或编译诊断。Native 保留决策由 [`NativeBuildPlanner`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/NativeBuildPlanner.java) 产生；原始应用与 retained artifact 各自使用匹配的执行计划。构建不重新进行项目编译或注解处理，生命周期与归档验证见 [`build` 测试](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/build)。
 
 `ProjectResources` 以模块归属和资源内容定义值相等，并派生 classpath 资源视图；应用缓存复用遵循完整输入的值语义，生命周期约束见 [PolyglotProjectTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/polyglot/PolyglotProjectTest.java)。打包读取捕获的资源，不重新扫描工作目录。模块归档和 JAR 通过 `FileSnapshot` 校验内容身份，复制后复验，拒绝为变化后的文件沿用旧身份。归档与发布约束见[应用构建](/tooling/application-build)。
 
 Java 绑定的扫描与继承关系共用 `JavaTypeProjector`。`JarApiScanner` 唯一产生包含有效继承成员的完整 schema，绑定规划仅消费该 schema。`BindingPlanner` 产生不可变 `BindingPlan`，固定导出、名称、签名和调用表；`BindingSourceRenderer` 消费计划生成源码。实现入口见 [JAR 绑定生成器](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JarBindingSourceGenerator.java)。
+
+Norm → Java 的唯一生成链为 [`JavaStubPlanner`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaStubPlanner.java) → `JavaStubPlan` → `JavaStubRenderer`。计划固定类型投影、签名、继承、注解与 bridge 目标；渲染器不访问 Core 或项目。`JavaAnnotationProcessorPipeline` 消费生成源码并产生一次方法索引。字节等价、不可变计划及真实注解处理分别由 [`JavaStubPlannerTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JavaStubPlannerTest.java) 和 [`JavaAnnotationBindingIntegrationTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaAnnotationBindingIntegrationTest.java) 约束。
 
 ## 身份边界
 
@@ -71,6 +83,8 @@ Bound 到 Core 的转换由 `BoundCoreBodyConverter` 对 sealed hierarchy 进行
 规范化 refinement 同时使用带位置的出边和入边结构，并跳过已证明属于同一 automorphism 的搜索分支。搜索预算保留为对抗性图的资源边界；component 大小、refinement、搜索、memo 和 automorphism 剪枝统一进入 `CoreBuildReport`。
 
 `CoreCodec` 是 canonical bytes 的唯一编码入口。当前身份边界使用 `CoreSchemaVersion.V11` 与 `LanguageSemanticsVersion.V11`；编码固定版本、域分隔、节点 tag、字节序、集合顺序和字符串编码，Java 对象序列化、Truffle AST 与运行期 profile 不参与语义哈希。
+
+整体校验从 `CoreProgramVerifier` 进入，声明校验组合 `CoreCallableVerifier`、`CoreIntrinsicVerifier` 与只读 `CoreVerificationTypes`；每个 callable 独占控制流和引用状态。边界见 [`CoreVerifierBoundaryTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/core/CoreVerifierBoundaryTest.java)。
 
 `CoreProgram` 在内容进入存储前验证完整闭包：名义类型与泛型 bound、callable receiver 与 reified ABI、interface 继承和完整 witness、局部和运行时类型、调用与构造目标、字段和 enum 引用、内建协议与操作契约及 namespace binding 必须彼此一致。运行时类型 capture 按类型参数索引规范排序，因此执行语义相同的 descriptor 只有一种 canonical encoding。
 

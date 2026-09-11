@@ -39,6 +39,7 @@ public final class SpanIndex<T> {
   public static <T> SpanIndex<T> from(Map<SourceSpan, T> values) {
     return of(
         values.entrySet().stream()
+            .filter(entry -> entry.getKey().expansion() == 0)
             .map(entry -> new Entry<>(entry.getKey(), entry.getValue()))
             .toList());
   }

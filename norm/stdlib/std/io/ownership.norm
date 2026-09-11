@@ -1,0 +1,7 @@
+package std.io
+
+public interface ResourceOwner {
+  Void own(Resource resource)
+  Void release(Resource resource)
+  Void execute(Function<Void()> action)
+}

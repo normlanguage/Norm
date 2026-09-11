@@ -36,14 +36,16 @@ module dev.w0fv1.norm {
   requires org.objenesis;
   requires com.esotericsoftware.kryo;
   requires org.graalvm.reachability;
+  requires org.jspecify;
 
   uses javax.xml.stream.XMLInputFactory;
   uses javax.xml.stream.XMLOutputFactory;
+  uses dev.w0fv1.norm.bridge.JavaApplicationResource;
 
   provides com.oracle.truffle.api.provider.TruffleLanguageProvider with
       dev.w0fv1.norm.polyglot.LanguageProvider;
 
-  opens dev.w0fv1.norm.cli.component to
+  opens dev.w0fv1.norm.lsp to
       org.eclipse.lsp4j.jsonrpc;
   opens dev.w0fv1.norm.core to
       com.esotericsoftware.kryo;

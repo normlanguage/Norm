@@ -82,6 +82,7 @@ final class CoreCodec {
             .fields()
             .forEach(
                 field -> {
+                  writer.writeInt(field.visibility().ordinal());
                   writer.writeString(field.name()).writeInt(field.ordinal());
                   writeType(writer, field.type(), referenceResolver);
                   writeInterceptors(writer, field.interceptors(), referenceResolver);
@@ -96,7 +97,7 @@ final class CoreCodec {
             .forEach(
                 dispatch -> {
                   writeReference(writer, referenceResolver.apply(dispatch.slot()));
-                  writeReference(writer, referenceResolver.apply(dispatch.implementation()));
+                  writeReference(writer, referenceResolver.apply(dispatch.target()));
                   writeType(writer, dispatch.receiverType(), referenceResolver);
                 });
         writer.writeInt(aggregateDefinition.constructors().size());
@@ -129,6 +130,7 @@ final class CoreCodec {
                       .fields()
                       .forEach(
                           field -> {
+                            writer.writeInt(field.visibility().ordinal());
                             writer.writeString(field.name()).writeInt(field.ordinal());
                             writeType(writer, field.type(), referenceResolver);
                             writeInterceptors(writer, field.interceptors(), referenceResolver);
@@ -155,9 +157,9 @@ final class CoreCodec {
                         referenceBytes(referenceResolver.apply(right))))
             .forEach(link -> writeReference(writer, referenceResolver.apply(link)));
       }
-      case CoreDefinition.InterfaceMethod method -> {
-        writer.writeTag("interface-method").writeString(method.name());
-        writeType(writer, method.receiverInterfaceType(), referenceResolver);
+      case CoreDefinition.MethodSignature method -> {
+        writer.writeTag("method-signature").writeString(method.name());
+        writeType(writer, method.receiverType(), referenceResolver);
         writeTypeParameters(writer, method.typeParameters(), referenceResolver);
         writeTypes(writer, method.parameterTypes(), referenceResolver);
         writeType(writer, method.returnType(), referenceResolver);
@@ -273,16 +275,7 @@ final class CoreCodec {
         loop.indexLocal().ifPresent(writer::writeInt);
         writeExpression(writer, loop.iterable(), referenceResolver);
         writeBlock(writer, loop.body(), referenceResolver);
-        switch (loop.iteration()) {
-          case CoreIteration.Builtin builtin ->
-              writer.writeTag("builtin").writeTag(builtin.intrinsic().name());
-          case CoreIteration.Interface protocol -> {
-            writer.writeTag("interface");
-            writeReference(writer, referenceResolver.apply(protocol.iteratorRequirement()));
-            writeReference(writer, referenceResolver.apply(protocol.hasNextRequirement()));
-            writeReference(writer, referenceResolver.apply(protocol.nextRequirement()));
-          }
-        }
+        writeIteration(writer, loop.iteration(), referenceResolver);
       }
       case CoreStatement.TryStatement tried -> {
         writer.writeTag("try");
@@ -332,7 +325,9 @@ final class CoreCodec {
             .writeTag("collection-literal")
             .writeTag(collection.materializer().name())
             .writeInt(collection.elements().size());
-        collection.elements().forEach(value -> writeExpression(writer, value, referenceResolver));
+        collection
+            .elements()
+            .forEach(value -> writeCollectionElement(writer, value, referenceResolver));
         writeRuntimeType(writer, collection.runtimeType(), referenceResolver);
         writeType(writer, collection.type(), referenceResolver);
       }
@@ -466,6 +461,8 @@ final class CoreCodec {
             .runtimeType()
             .ifPresent(type -> writeRuntimeType(writer, type, referenceResolver));
         writer.writeBoolean(intrinsic.nullSafe());
+        writer.writeInt(intrinsic.runtimeDependencies().size());
+        intrinsic.runtimeDependencies().forEach(type -> writeType(writer, type, referenceResolver));
         writeType(writer, intrinsic.type(), referenceResolver);
       }
     }
@@ -491,7 +488,7 @@ final class CoreCodec {
       }
       case CorePattern.Binding binding -> {
         writer.writeTag("binding-pattern").writeInt(binding.localIndex());
-        writeType(writer, binding.type(), referenceResolver);
+        writeRuntimeType(writer, binding.runtimeType(), referenceResolver);
       }
       case CorePattern.Wildcard ignored -> writer.writeTag("wildcard-pattern");
       case CorePattern.Literal literal -> {
@@ -785,5 +782,53 @@ final class CoreCodec {
   private static DefinitionReference requireResolved(CoreDefinitionLink link) {
     if (link instanceof DefinitionReference reference) return reference;
     throw new IllegalArgumentException("canonical core contains a pending definition reference");
+  }
+
+  private static void writeCollectionElement(
+      CanonicalWriter writer,
+      CoreCollectionElement element,
+      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+    switch (element) {
+      case CoreExpression expression -> {
+        writer.writeTag("element");
+        writeExpression(writer, expression, referenceResolver);
+      }
+      case CoreCollectionElement.Conditional conditional -> {
+        writer.writeTag("conditional-element");
+        writeExpression(writer, conditional.condition(), referenceResolver);
+        writeCollectionElement(writer, conditional.thenElement(), referenceResolver);
+        writer.writeBoolean(conditional.elseElement().isPresent());
+        conditional
+            .elseElement()
+            .ifPresent(value -> writeCollectionElement(writer, value, referenceResolver));
+      }
+      case CoreCollectionElement.Repeated repeated -> {
+        writer
+            .writeTag("repeated-element")
+            .writeInt(repeated.iteratorLocal())
+            .writeInt(repeated.variableLocal());
+        writer.writeBoolean(repeated.indexLocal().isPresent());
+        repeated.indexLocal().ifPresent(writer::writeInt);
+        writeExpression(writer, repeated.iterable(), referenceResolver);
+        writeIteration(writer, repeated.iteration(), referenceResolver);
+        writeCollectionElement(writer, repeated.element(), referenceResolver);
+      }
+    }
+  }
+
+  private static void writeIteration(
+      CanonicalWriter writer,
+      CoreIteration iteration,
+      Function<CoreDefinitionLink, DefinitionReference> referenceResolver) {
+    switch (iteration) {
+      case CoreIteration.Builtin builtin ->
+          writer.writeTag("builtin").writeTag(builtin.intrinsic().name());
+      case CoreIteration.Interface protocol -> {
+        writer.writeTag("interface");
+        writeReference(writer, referenceResolver.apply(protocol.iteratorRequirement()));
+        writeReference(writer, referenceResolver.apply(protocol.hasNextRequirement()));
+        writeReference(writer, referenceResolver.apply(protocol.nextRequirement()));
+      }
+    }
   }
 }

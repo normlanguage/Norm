@@ -37,10 +37,12 @@ final class FieldWriteNode extends Node {
       ExecutionState execution) {
     if (layer == interceptorCount(plan)) {
       Object stored = RuntimeValues.copy(value);
+      Object previous = receiver.fields[plan.index()];
       receiver.fields[plan.index()] = stored;
       if (receiver.hostValue != null) {
         writeHostField(receiver.hostValue, plan.name(), stored);
       }
+      receiver.fieldChanged(plan.index(), previous);
       return;
     }
     CoreInterceptor interceptor = interceptor(plan, layer);

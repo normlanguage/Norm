@@ -12,6 +12,7 @@ public record BoundIntrinsic(
     Optional<BoundExpression> receiver,
     List<BoundArgument> arguments,
     Optional<BoundRuntimeType> runtimeType,
+    List<SemanticType> runtimeDependencies,
     boolean nullSafe,
     SemanticType type,
     SourceSpan span)
@@ -21,8 +22,31 @@ public record BoundIntrinsic(
     receiver = Objects.requireNonNull(receiver, "receiver");
     arguments = List.copyOf(arguments);
     runtimeType = Objects.requireNonNull(runtimeType, "runtimeType");
+    runtimeDependencies = List.copyOf(runtimeDependencies);
     Objects.requireNonNull(type, "type");
     Objects.requireNonNull(span, "span");
+  }
+
+  public BoundIntrinsic(
+      IntrinsicId intrinsic,
+      Optional<BoundExpression> receiver,
+      List<BoundArgument> arguments,
+      Optional<BoundRuntimeType> runtimeType,
+      boolean nullSafe,
+      SemanticType type,
+      SourceSpan span) {
+    this(
+        intrinsic,
+        receiver,
+        arguments,
+        runtimeType,
+        switch (intrinsic) {
+          case JAR_INVOKE, JAR_INVOKE_VOID -> List.of(SemanticType.EXCEPTION);
+          default -> List.of();
+        },
+        nullSafe,
+        type,
+        span);
   }
 
   public BoundIntrinsic(

@@ -12,6 +12,49 @@ import org.junit.jupiter.api.Test;
 
 final class FunctionSyntaxTest {
   @Test
+  void distinguishesClassMethodDeclarationsFromEmptyImplementations() {
+    var owner =
+        parse(
+                """
+                class Repository<T> {
+                  T? find(Long id)
+                  Void clear();
+                  Void close() {}
+                  T identity(T value) { value }
+                }
+                """)
+            .aggregates()
+            .getFirst();
+    assertFalse(owner.methods().get(0).hasBody());
+    assertFalse(owner.methods().get(1).hasBody());
+    assertTrue(owner.methods().get(2).hasBody());
+    assertTrue(owner.methods().get(3).hasBody());
+    assertTrue(owner.methods().get(2).body().isEmpty());
+    assertEquals("T?", owner.methods().get(0).returnType().orElseThrow().displayName());
+  }
+
+  @Test
+  void parsesComputedPropertyAccessorsWithoutStorageFields() {
+    var program =
+        parse(
+            "class Counter { private Integer stored Integer value { get { return stored } set(next)"
+                + " { stored = next } } }");
+    var owner = program.aggregates().getFirst();
+    assertEquals(1, owner.fields().size());
+    assertEquals(2, owner.methods().size());
+    var getter = owner.methods().getFirst();
+    var setter = owner.methods().getLast();
+    assertEquals(Syntax.FunctionKind.GETTER, getter.kind());
+    assertEquals(Syntax.FunctionKind.SETTER, setter.kind());
+    assertEquals("value", getter.name());
+    assertEquals("value", setter.name());
+    assertEquals("Integer", getter.returnType().orElseThrow().displayName());
+    assertEquals("Void", setter.returnType().orElseThrow().displayName());
+    assertEquals("Integer", setter.parameters().getFirst().type().displayName());
+    assertEquals("next", setter.parameters().getFirst().name());
+  }
+
+  @Test
   void parsesOmittedTopLevelAndMethodReturnTypes() {
     Syntax.Program program =
         parse("class Counter { add(Integer amount) { } Void clear() { } } main() { }");

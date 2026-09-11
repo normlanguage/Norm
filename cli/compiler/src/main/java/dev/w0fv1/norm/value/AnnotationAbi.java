@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class AnnotationAbi {
+  public static final String BUILD_WITH = "std.build.BuildWith";
+  public static final String RESULT_BUILDER = "std.build.ResultBuilder";
   public static final String MODULE = "std";
   public static final String PACKAGE = "std.annotation";
   public static final String ANNOTATION_TARGET = "AnnotationTarget";
@@ -11,6 +13,8 @@ public final class AnnotationAbi {
   public static final String FUNCTION_TARGET = "FunctionTarget";
   public static final String PARAMETER_TARGET = "ParameterTarget";
   public static final String FIELD_TARGET = "FieldTarget";
+  public static final String MANAGED_FIELD = "ManagedField";
+  public static final String MANAGED_IMPLEMENTATION = "ManagedImplementation";
   public static final String FUNCTION_INTERCEPTOR = "FunctionInterceptor";
   public static final String PARAMETER_INTERCEPTOR = "ParameterInterceptor";
   public static final String FIELD_INTERCEPTOR = "FieldInterceptor";
@@ -72,7 +76,9 @@ public final class AnnotationAbi {
             || INTERCEPTORS.containsKey(name)
             || RETENTIONS.containsKey(name)
             || name.equals(REPEATABLE_ANNOTATION)
-            || name.equals(INHERITED_ANNOTATION));
+            || name.equals(INHERITED_ANNOTATION)
+            || name.equals(MANAGED_FIELD)
+            || name.equals(MANAGED_IMPLEMENTATION));
   }
 
   public static Optional<AnnotationTarget> interceptor(

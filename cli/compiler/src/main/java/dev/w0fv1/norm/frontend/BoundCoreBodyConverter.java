@@ -6,6 +6,7 @@ import dev.w0fv1.norm.bound.BoundCall;
 import dev.w0fv1.norm.bound.BoundCallable;
 import dev.w0fv1.norm.bound.BoundCatchClause;
 import dev.w0fv1.norm.bound.BoundClosure;
+import dev.w0fv1.norm.bound.BoundCollectionElement;
 import dev.w0fv1.norm.bound.BoundConstruct;
 import dev.w0fv1.norm.bound.BoundExpression;
 import dev.w0fv1.norm.bound.BoundIntrinsic;
@@ -19,6 +20,7 @@ import dev.w0fv1.norm.core.CoreArgument;
 import dev.w0fv1.norm.core.CoreBinaryOperator;
 import dev.w0fv1.norm.core.CoreBlock;
 import dev.w0fv1.norm.core.CoreCatchClause;
+import dev.w0fv1.norm.core.CoreCollectionElement;
 import dev.w0fv1.norm.core.CoreExpression;
 import dev.w0fv1.norm.core.CoreFieldReference;
 import dev.w0fv1.norm.core.CoreIteration;
@@ -149,7 +151,7 @@ final class BoundCoreBodyConverter {
       case BoundExpression.Literal ignored -> {}
       case BoundExpression.NullLiteral ignored -> {}
       case BoundExpression.CollectionLiteral collection ->
-          collection.elements().forEach(this::scanExpression);
+          collection.elements().forEach(this::scanCollectionElement);
       case BoundExpression.LocalRead ignored -> {}
       case BoundExpression.FieldRead field -> scanExpression(field.receiver());
       case BoundExpression.AddressLocal ignored -> {}
@@ -292,7 +294,7 @@ final class BoundCoreBodyConverter {
       case BoundExpression.CollectionLiteral collection ->
           new CoreExpression.CollectionLiteral(
               node,
-              collection.elements().stream().map(this::convert).toList(),
+              collection.elements().stream().map(this::convertCollectionElement).toList(),
               collection.materializer(),
               runtimeType(collection.runtimeType()),
               types.convert(collection.type()));
@@ -413,8 +415,52 @@ final class BoundCoreBodyConverter {
               intrinsic.receiver().map(this::convert),
               arguments(intrinsic.arguments()),
               intrinsic.runtimeType().map(this::runtimeType),
+              intrinsic.runtimeDependencies().stream().map(types::convert).toList(),
               intrinsic.nullSafe(),
               types.convert(intrinsic.type()));
+    };
+  }
+
+  private void scanCollectionElement(BoundCollectionElement element) {
+    switch (element) {
+      case BoundExpression expression -> scanExpression(expression);
+      case BoundCollectionElement.Conditional conditional -> {
+        scanExpression(conditional.condition());
+        scanCollectionElement(conditional.thenElement());
+        conditional.elseElement().ifPresent(this::scanCollectionElement);
+      }
+      case BoundCollectionElement.Repeated repeated -> {
+        locals.add(repeated.iterator(), CoreType.DYNAMIC, CoreLocal.Kind.ITERATOR);
+        locals.add(
+            repeated.variable(), types.convert(repeated.variableType()), CoreLocal.Kind.VARIABLE);
+        repeated
+            .index()
+            .ifPresent(index -> locals.add(index, CoreType.INTEGER, CoreLocal.Kind.VARIABLE));
+        scanExpression(repeated.iterable());
+        scanCollectionElement(repeated.element());
+      }
+    }
+  }
+
+  private CoreCollectionElement convertCollectionElement(BoundCollectionElement element) {
+    return switch (element) {
+      case BoundExpression expression -> convert(expression);
+      case BoundCollectionElement.Conditional conditional ->
+          new CoreCollectionElement.Conditional(
+              nodes.add(conditional.span()), convert(conditional.condition()),
+              convertCollectionElement(conditional.thenElement()),
+                  conditional.elseElement().map(this::convertCollectionElement));
+      case BoundCollectionElement.Repeated repeated ->
+          new CoreCollectionElement.Repeated(
+              nodes.add(repeated.span()),
+              locals.index(repeated.iterator()),
+              locals.index(repeated.variable()),
+              repeated.index().isPresent()
+                  ? java.util.OptionalInt.of(locals.index(repeated.index().orElseThrow()))
+                  : java.util.OptionalInt.empty(),
+              convert(repeated.iterable()),
+              convert(repeated.iteration()),
+              convertCollectionElement(repeated.element()));
     };
   }
 
@@ -438,7 +484,8 @@ final class BoundCoreBodyConverter {
           new CorePattern.Variant(
               variant.variantKey(), variant.arguments().stream().map(this::convert).toList());
       case BoundPattern.Binding binding ->
-          new CorePattern.Binding(locals.index(binding.local()), types.convert(binding.type()));
+          new CorePattern.Binding(
+              locals.index(binding.local()), runtimeType(binding.runtimeType()));
       case BoundPattern.Wildcard ignored -> CorePattern.Wildcard.INSTANCE;
       case BoundPattern.Literal literal ->
           new CorePattern.Literal(literal.value(), types.convert(literal.type()));

@@ -17,10 +17,18 @@ public sealed interface CorePattern
     }
   }
 
-  record Binding(int localIndex, CoreType type) implements CorePattern {
+  record Binding(int localIndex, CoreRuntimeType runtimeType) implements CorePattern {
     public Binding {
       if (localIndex < 0) throw new IllegalArgumentException("local index must not be negative");
-      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(runtimeType, "runtimeType");
+    }
+
+    public Binding(int localIndex, CoreType type) {
+      this(localIndex, new CoreRuntimeType(type, List.of()));
+    }
+
+    public CoreType type() {
+      return runtimeType.template();
     }
   }
 

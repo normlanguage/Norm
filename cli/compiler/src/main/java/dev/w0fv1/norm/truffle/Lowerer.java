@@ -9,6 +9,7 @@ import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreArgument;
 import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreBlock;
+import dev.w0fv1.norm.core.CoreCollectionElement;
 import dev.w0fv1.norm.core.CoreConformance;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreDefinitionLink;
@@ -29,8 +30,9 @@ import dev.w0fv1.norm.core.CoreStatement;
 import dev.w0fv1.norm.core.CoreType;
 import dev.w0fv1.norm.core.CoreTypeCapture;
 import dev.w0fv1.norm.core.CoreTypeConstructor;
+import dev.w0fv1.norm.core.CoreTypeRelations;
 import dev.w0fv1.norm.core.CoreTypes;
-import dev.w0fv1.norm.core.CoreUnaryOperator;
+import dev.w0fv1.norm.core.CoreVisibility;
 import dev.w0fv1.norm.core.CoreWitness;
 import dev.w0fv1.norm.core.CoreWitnessTarget;
 import dev.w0fv1.norm.core.DefinitionId;
@@ -60,6 +62,7 @@ final class Lowerer {
   private final Map<DocumentId, Source> sources = new HashMap<>();
   private CoreArtifact artifact;
   private CoreProgram program;
+  private CoreTypeRelations typeRelations;
   private AnnotationRuntime annotations;
   private CoreExecutionPlan execution;
 
@@ -75,6 +78,7 @@ final class Lowerer {
     this.execution = Objects.requireNonNull(execution, "execution");
     artifact = Objects.requireNonNull(checkedArtifact, "checkedArtifact");
     program = artifact.program();
+    typeRelations = new CoreTypeRelations(program.definitions());
     annotations = new AnnotationRuntime(artifact);
     indexDefinitions(execution);
     createCallTargets();
@@ -142,7 +146,7 @@ final class Lowerer {
         }
         case CoreDefinition.Enum ignored -> {}
         case CoreDefinition.Interface ignored -> {}
-        case CoreDefinition.InterfaceMethod ignored -> {}
+        case CoreDefinition.MethodSignature ignored -> {}
         case CoreDefinition.BuiltinConformance ignored -> {}
       }
     }
@@ -214,9 +218,18 @@ final class Lowerer {
       for (CoreMethodDispatch method : entry.getValue().dispatch()) {
         DefinitionId slot = resolve(occurrence.representative(), method.slot());
         if (!execution.dispatchSlots().contains(slot)) continue;
-        DefinitionId implementation = resolve(occurrence.representative(), method.implementation());
+        DefinitionId implementation = resolve(occurrence.representative(), method.target());
         FunctionPlan plan = callableByDefinition.get(implementation);
-        if (plan == null) throw new IllegalStateException("method dispatch target is absent");
+        if (program.definition(implementation).orElseThrow()
+            instanceof CoreDefinition.MethodSignature) {
+          var target = new RuntimeValues.DispatchTarget.HostMethod(implementation);
+          dispatch.put(slot, target);
+          methodTargets.put(slot, target);
+          continue;
+        }
+        if (plan == null) {
+          throw new IllegalStateException("method dispatch target is absent");
+        }
         CoreType receiverType =
             CoreTypes.absolute(method.receiverType(), occurrence.representative(), program);
         List<CoreType> arguments = ((CoreType.Declared) receiverType).arguments();
@@ -431,7 +444,11 @@ final class Lowerer {
             field ->
                 result.add(
                     new RuntimeValues.FieldPlan(
-                        occurrence, field.name(), field.ordinal(), field.interceptors())));
+                        occurrence,
+                        field.name(),
+                        field.ordinal(),
+                        field.visibility() == CoreVisibility.PUBLIC,
+                        field.interceptors())));
     return List.copyOf(result);
   }
 
@@ -571,25 +588,7 @@ final class Lowerer {
                   lowerBlock(conditional.thenBlock(), plan),
                   lowerBlock(conditional.elseBlock(), plan));
           case CoreStatement.ForStatement loop -> {
-            StatementNodes.IteratorFactoryNode factory;
-            StatementNodes.IteratorCursorNode cursor;
-            switch (loop.iteration()) {
-              case CoreIteration.Builtin builtin -> {
-                factory = new StatementNodes.BuiltinIteratorFactory(builtin.intrinsic());
-                cursor = new StatementNodes.BuiltinIteratorCursor();
-              }
-              case CoreIteration.Interface protocol -> {
-                factory =
-                    new StatementNodes.InterfaceIteratorFactory(
-                        resolve(plan.id.representative(), protocol.iteratorRequirement()),
-                        builtinDispatch);
-                cursor =
-                    new StatementNodes.InterfaceIteratorCursor(
-                        resolve(plan.id.representative(), protocol.hasNextRequirement()),
-                        resolve(plan.id.representative(), protocol.nextRequirement()),
-                        builtinDispatch);
-              }
-            }
+            IterationNodes nodes = iterationNodes(loop.iteration(), plan);
             yield new StatementNodes.For(
                 plan.binding(loop.iteratorLocal()),
                 plan.binding(loop.variableLocal()),
@@ -598,8 +597,8 @@ final class Lowerer {
                     : java.util.Optional.empty(),
                 lowerExpression(loop.iterable(), plan),
                 lowerBlock(loop.body(), plan),
-                factory,
-                cursor);
+                nodes.factory(),
+                nodes.cursor());
           }
           case CoreStatement.ConditionalForStatement loop ->
               new StatementNodes.ConditionalFor(
@@ -650,8 +649,8 @@ final class Lowerer {
               new ExpressionNodes.CollectionLiteral(
                   collection.materializer(),
                   collection.elements().stream()
-                      .map(value -> lowerExpression(value, plan))
-                      .toArray(ExpressionNode[]::new),
+                      .map(value -> lowerCollectionElement(value, plan))
+                      .toArray(CollectionElementNode[]::new),
                   lowerRuntimeType(collection.runtimeType(), plan));
           case CoreExpression.LocalRead local ->
               new ExpressionNodes.ReadLocal(plan.binding(local.localIndex()));
@@ -669,9 +668,13 @@ final class Lowerer {
               new ExpressionNodes.Dereference(lowerExpression(dereference.reference(), plan));
           case CoreExpression.EnumConstruct construct -> lowerEnumConstruct(construct, plan);
           case CoreExpression.Unary unary ->
-              unary.operator() == CoreUnaryOperator.NOT
-                  ? new ExpressionNodes.Not(lowerExpression(unary.operand(), plan))
-                  : new ExpressionNodes.Negate(lowerExpression(unary.operand(), plan));
+              switch (unary.operator()) {
+                case NOT -> new ExpressionNodes.Not(lowerExpression(unary.operand(), plan));
+                case NEGATE -> new ExpressionNodes.Negate(lowerExpression(unary.operand(), plan));
+                case THROW -> new ExpressionNodes.Throw(lowerExpression(unary.operand(), plan));
+                case NON_NULL ->
+                    new ExpressionNodes.NonNull(lowerExpression(unary.operand(), plan));
+              };
           case CoreExpression.Binary binary -> lowerBinary(binary, plan);
           case CoreExpression.Switch switched -> lowerSwitch(switched, plan);
           case CoreExpression.Index index ->
@@ -731,7 +734,10 @@ final class Lowerer {
         yield new PatternNodes.Variant(variant.variantKey(), arguments);
       }
       case CorePattern.Binding binding ->
-          new PatternNodes.Binding(plan.binding(binding.localIndex()));
+          new PatternNodes.Binding(
+              plan.binding(binding.localIndex()),
+              lowerRuntimeType(binding.runtimeType(), plan),
+              typeRelations);
       case CorePattern.Wildcard ignored -> new PatternNodes.Wildcard();
       case CorePattern.Literal literal -> {
         CoreType actual =
@@ -847,7 +853,8 @@ final class Lowerer {
   private ExpressionNode lowerCall(CoreExpression.Call call, FunctionPlan plan) {
     DefinitionOccurrenceId targetId = resolve(plan, call.nodeIndex(), call.target());
     FunctionPlan target = callables.get(targetId);
-    if (target == null) throw new IllegalStateException("core call target is absent: " + targetId);
+    if (target == null && !call.virtual())
+      throw new IllegalStateException("core call target is absent: " + targetId);
     if (call.receiver().isPresent()) {
       if (call.virtual()) {
         return new ExpressionNodes.DispatchedCall(
@@ -886,13 +893,13 @@ final class Lowerer {
   private ExpressionNode lowerClosure(CoreExpression.Closure closure, FunctionPlan plan) {
     DefinitionOccurrenceId targetId = resolve(plan, closure.nodeIndex(), closure.target());
     FunctionPlan target = callables.get(targetId);
-    if (target == null)
+    if (target == null && !closure.virtual())
       throw new IllegalStateException("core closure target is absent: " + targetId);
     return new ExpressionNodes.Closure(
-        target.target,
+        target == null ? null : target.target,
         targetId,
         closure.virtual() ? targetId.representative() : null,
-        target.declaration.hasReceiver() && closure.receiver().isEmpty(),
+        (closure.virtual() || target.declaration.hasReceiver()) && closure.receiver().isEmpty(),
         closure.receiver().map(value -> lowerExpression(value, plan)).orElse(null),
         closure.captures().stream()
             .map(value -> lowerExpression(value, plan))
@@ -903,7 +910,16 @@ final class Lowerer {
         closure.receiverTypeArguments().stream()
             .map(value -> lowerRuntimeType(value, plan))
             .toArray(ExpressionNode[]::new),
-        CoreTypes.absolute(closure.type(), plan.id.representative(), program));
+        lowerRuntimeType(
+            new CoreRuntimeType(
+                closure.type(),
+                java.util.stream.IntStream.range(0, plan.declaration.reifiedTypeLocals().size())
+                    .mapToObj(
+                        index ->
+                            new CoreTypeCapture(
+                                index, plan.declaration.reifiedTypeLocals().get(index)))
+                    .toList()),
+            plan));
   }
 
   private ExpressionNode lowerInterfaceCall(CoreExpression.InterfaceCall call, FunctionPlan plan) {
@@ -997,6 +1013,61 @@ final class Lowerer {
     }
     return FrameSlotKind.Object;
   }
+
+  private CollectionElementNode lowerCollectionElement(
+      CoreCollectionElement element, FunctionPlan plan) {
+    return switch (element) {
+      case CoreExpression expression ->
+          new CollectionElementNode.Value(lowerExpression(expression, plan));
+      case CoreCollectionElement.Conditional conditional ->
+          new CollectionElementNode.Conditional(
+              lowerExpression(conditional.condition(), plan),
+              lowerCollectionElement(conditional.thenElement(), plan),
+              conditional
+                  .elseElement()
+                  .map(value -> lowerCollectionElement(value, plan))
+                  .orElse(null));
+      case CoreCollectionElement.Repeated repeated -> {
+        IterationNodes nodes = iterationNodes(repeated.iteration(), plan);
+        yield new CollectionElementNode.Repeated(
+            new IterationLoopNode<>(
+                plan.binding(repeated.iteratorLocal()),
+                plan.binding(repeated.variableLocal()),
+                repeated.indexLocal().isPresent()
+                    ? java.util.Optional.of(plan.binding(repeated.indexLocal().orElseThrow()))
+                    : java.util.Optional.empty(),
+                lowerExpression(repeated.iterable(), plan),
+                new CollectionElementNode.Body(lowerCollectionElement(repeated.element(), plan)),
+                nodes.factory(),
+                nodes.cursor()));
+      }
+    };
+  }
+
+  private IterationNodes iterationNodes(CoreIteration iteration, FunctionPlan plan) {
+    StatementNodes.IteratorFactoryNode factory;
+    StatementNodes.IteratorCursorNode cursor;
+    switch (iteration) {
+      case CoreIteration.Builtin builtin -> {
+        factory = new StatementNodes.BuiltinIteratorFactory(builtin.intrinsic());
+        cursor = new StatementNodes.BuiltinIteratorCursor();
+      }
+      case CoreIteration.Interface protocol -> {
+        factory =
+            new StatementNodes.InterfaceIteratorFactory(
+                resolve(plan.id.representative(), protocol.iteratorRequirement()), builtinDispatch);
+        cursor =
+            new StatementNodes.InterfaceIteratorCursor(
+                resolve(plan.id.representative(), protocol.hasNextRequirement()),
+                resolve(plan.id.representative(), protocol.nextRequirement()),
+                builtinDispatch);
+      }
+    }
+    return new IterationNodes(factory, cursor);
+  }
+
+  private record IterationNodes(
+      StatementNodes.IteratorFactoryNode factory, StatementNodes.IteratorCursorNode cursor) {}
 
   private static final class FunctionPlan {
     private final DefinitionOccurrenceId id;

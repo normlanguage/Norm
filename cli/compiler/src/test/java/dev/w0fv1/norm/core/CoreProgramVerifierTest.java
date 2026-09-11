@@ -12,6 +12,63 @@ import org.junit.jupiter.api.Test;
 
 final class CoreProgramVerifierTest {
   @Test
+  void rejectsNonExceptionThrowExpressions() {
+    var expression =
+        new CoreExpression.Unary(
+            2,
+            CoreUnaryOperator.THROW,
+            new CoreExpression.Literal(3, 42, CoreType.INTEGER),
+            CoreType.INTEGER);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(group(function(expression)))));
+  }
+
+  @Test
+  void acceptsDeclarationOnlyMethodsWithGenericClassReceivers() {
+    CoreDefinitionGroup owner = aggregateGroup("Repository", 1, List.of());
+    CoreType receiver =
+        userType(aggregateId(owner), List.of(new CoreType.Parameter(0, CoreNullability.NON_NULL)));
+    CoreDefinition method =
+        new CoreDefinition.MethodSignature(
+            "findById",
+            receiver,
+            List.of(),
+            List.of(CoreType.LONG),
+            new CoreType.Parameter(0, CoreNullability.NULLABLE));
+    assertDoesNotThrow(() -> new CoreProgram(List.of(owner, group(method))));
+  }
+
+  @Test
+  void rejectsMethodSignaturesWithMismatchedReceiverCategories() {
+    CoreDefinitionGroup owner = aggregateGroup("Repository", 0, List.of());
+    CoreDefinition method =
+        new CoreDefinition.MethodSignature(
+            "find",
+            userType(aggregateId(owner), List.of(), CoreValueCategory.VALUE),
+            List.of(),
+            List.of(),
+            CoreType.LONG);
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(owner, group(method))));
+  }
+
+  @Test
+  void rejectsMethodSignaturesWithNullableReceivers() {
+    CoreDefinitionGroup owner = aggregateGroup("Repository", 0, List.of());
+    CoreType receiver =
+        new CoreType.Declared(
+            new CoreTypeConstructor.User(new DefinitionReference.External(aggregateId(owner))),
+            List.of(),
+            CoreValueCategory.IDENTITY,
+            CoreNullability.NULLABLE);
+    CoreDefinition method =
+        new CoreDefinition.MethodSignature("find", receiver, List.of(), List.of(), CoreType.LONG);
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(owner, group(method))));
+  }
+
+  @Test
   void rejectsThrowValuesOutsideTheExceptionHierarchy() {
     CoreDefinition.Callable callable =
         functionWithStatements(
@@ -109,7 +166,10 @@ final class CoreProgramVerifierTest {
   void rejectsSpecialTypesInValueAbis() {
     for (CoreType special : List.of(CoreType.VOID, CoreType.NULL, CoreType.DYNAMIC)) {
       CoreDefinitionGroup field =
-          aggregateGroup("Box", 0, List.of(new CoreField("value", 0, special, List.of())));
+          aggregateGroup(
+              "Box",
+              0,
+              List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, special, List.of())));
       CoreDefinitionGroup parameter =
           group(
               new CoreDefinition.Callable(
@@ -203,7 +263,7 @@ final class CoreProgramVerifierTest {
         aggregateGroup(
             "Point",
             CoreValueCategory.VALUE,
-            List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
+            List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, CoreType.INTEGER, List.of())));
     CoreType point = userType(aggregateId(owner), List.of(), CoreValueCategory.VALUE);
     CoreExpression address =
         new CoreExpression.AddressField(
@@ -413,7 +473,10 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsConstructorArgumentsWithTheWrongType() {
     CoreDefinitionGroup target =
-        aggregateGroup("Box", 0, List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
+        aggregateGroup(
+            "Box",
+            0,
+            List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, CoreType.INTEGER, List.of())));
     CoreType box = userType(aggregateId(target), List.of());
     CoreExpression.Construct construct =
         new CoreExpression.Construct(
@@ -450,7 +513,10 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsInvalidFieldAndEnumTargets() {
     CoreDefinitionGroup owner =
-        aggregateGroup("Box", 0, List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
+        aggregateGroup(
+            "Box",
+            0,
+            List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, CoreType.INTEGER, List.of())));
     CoreType box = userType(aggregateId(owner), List.of());
     CoreExpression.FieldRead read =
         new CoreExpression.FieldRead(
@@ -503,9 +569,15 @@ final class CoreProgramVerifierTest {
                 typeParameters(1),
                 List.of(
                     new CoreEnumVariant(
-                        "Error", List.of(new CoreField("value", 0, CoreType.STRING, List.of()))),
+                        "Error",
+                        List.of(
+                            new CoreField(
+                                CoreVisibility.PUBLIC, "value", 0, CoreType.STRING, List.of()))),
                     new CoreEnumVariant(
-                        "Ok", List.of(new CoreField("value", 0, element, List.of()))))));
+                        "Ok",
+                        List.of(
+                            new CoreField(
+                                CoreVisibility.PUBLIC, "value", 0, element, List.of()))))));
     CoreType resultOfInteger = enumType(result.definitionId(0), List.of(CoreType.INTEGER));
     CoreExpression.EnumConstruct construct =
         new CoreExpression.EnumConstruct(
@@ -529,7 +601,10 @@ final class CoreProgramVerifierTest {
                 typeParameters(1),
                 List.of(
                     new CoreEnumVariant(
-                        "Ok", List.of(new CoreField("value", 0, element, List.of()))))));
+                        "Ok",
+                        List.of(
+                            new CoreField(
+                                CoreVisibility.PUBLIC, "value", 0, element, List.of()))))));
     CoreType resultOfInteger = enumType(result.definitionId(0), List.of(CoreType.INTEGER));
     CoreType resultOfString = enumType(result.definitionId(0), List.of(CoreType.STRING));
     CoreExpression.EnumConstruct wrongRuntime =
@@ -569,6 +644,7 @@ final class CoreProgramVerifierTest {
                         "Box",
                         List.of(
                             new CoreField(
+                                CoreVisibility.PUBLIC,
                                 "value",
                                 0,
                                 new CoreType.Parameter(1, CoreNullability.NON_NULL),
@@ -585,7 +661,11 @@ final class CoreProgramVerifierTest {
             1,
             List.of(
                 new CoreField(
-                    "value", 0, new CoreType.Parameter(1, CoreNullability.NON_NULL), List.of())));
+                    CoreVisibility.PUBLIC,
+                    "value",
+                    0,
+                    new CoreType.Parameter(1, CoreNullability.NON_NULL),
+                    List.of())));
 
     assertThrows(IllegalArgumentException.class, () -> new CoreProgram(List.of(invalid)));
   }
@@ -601,7 +681,10 @@ final class CoreProgramVerifierTest {
   @Test
   void rejectsUnsafeNullableFieldReadsAndCopies() {
     CoreDefinitionGroup owner =
-        aggregateGroup("Box", 0, List.of(new CoreField("value", 0, CoreType.INTEGER, List.of())));
+        aggregateGroup(
+            "Box",
+            0,
+            List.of(new CoreField(CoreVisibility.PUBLIC, "value", 0, CoreType.INTEGER, List.of())));
     CoreType box = userType(aggregateId(owner), List.of());
     CoreType nullableBox = box.asNullable();
     CoreExpression receiver = new CoreExpression.LocalRead(3, 0, nullableBox);
@@ -641,6 +724,25 @@ final class CoreProgramVerifierTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> new CoreProgram(List.of(group(function(wrongBinary)))));
+  }
+
+  @Test
+  void verifiesNonNullAssertionResultTypes() {
+    var operand = new CoreExpression.Literal(3, 1, CoreType.INTEGER);
+    var valid = new CoreExpression.Unary(2, CoreUnaryOperator.NON_NULL, operand, CoreType.INTEGER);
+    assertDoesNotThrow(() -> new CoreProgram(List.of(group(function(valid)))));
+    var wrong = new CoreExpression.Unary(2, CoreUnaryOperator.NON_NULL, operand, CoreType.STRING);
+    assertThrows(
+        IllegalArgumentException.class, () -> new CoreProgram(List.of(group(function(wrong)))));
+    var impossible =
+        new CoreExpression.Unary(
+            2,
+            CoreUnaryOperator.NON_NULL,
+            new CoreExpression.NullLiteral(3, CoreType.NULL),
+            CoreType.NULL);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new CoreProgram(List.of(group(function(impossible)))));
   }
 
   @Test
@@ -916,7 +1018,7 @@ final class CoreProgramVerifierTest {
     return aggregateGroup(
         exceptionNominal(),
         Optional.empty(),
-        List.of(new CoreField("message", 0, CoreType.STRING, List.of())));
+        List.of(new CoreField(CoreVisibility.PUBLIC, "message", 0, CoreType.STRING, List.of())));
   }
 
   private static CoreNominalTypeKey exceptionNominal() {

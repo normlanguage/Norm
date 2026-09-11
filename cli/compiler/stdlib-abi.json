@@ -1,5 +1,5 @@
 {
-  "version": 23,
+  "version": 37,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -562,6 +562,10 @@
       "requiresResultRuntimeType": false
     },
     {
+      "name": "STRING_IS_BLANK",
+      "requiresResultRuntimeType": false
+    },
+    {
       "name": "STRING_IS_EMPTY",
       "requiresResultRuntimeType": false
     },
@@ -760,6 +764,74 @@
     {
       "name": "ITERATOR_NEXT",
       "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CONTEXT_CURRENT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CONTEXT_WITH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "OBSERVE_FIELDS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "VALUE_CLASS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "CLASS_IS_VALUE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_IS_PUBLIC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_COPY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_HAS_ANNOTATION",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_IDENTITY",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FIELD_BIND",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FIELD_HANDLE_READ",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FIELD_HANDLE_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "OBSERVE_FIELD",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "TASK_START",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "TASK_CONTINUE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "TASK_TERMINATION",
+      "requiresResultRuntimeType": true
     }
   ],
   "opaqueValues": [
@@ -2397,6 +2469,222 @@
         "std.core.__yamlEncode/T"
       ],
       "nullable": false
+    },
+    "std.core.__contextCurrent/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__contextCurrent/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__contextCurrent/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__contextCurrent/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__contextWith/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__contextWith/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__contextWith/R": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__contextWith/R",
+      "name": "R",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.__contextWith/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__contextWith/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__contextCurrent/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__contextCurrent/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Function<std.core.__contextWith/R>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.__contextWith/R"
+      ],
+      "nullable": false
+    },
+    "std.core.__observeFields/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__observeFields/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function<std.core.Void,std.core.Integer>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.Void",
+        "std.core.Integer"
+      ],
+      "nullable": false
+    },
+    "std.core.classOf/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.classOf/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.classOf/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.classOf/T"
+      ],
+      "nullable": false
+    },
+    "std.core.Field/hasAnnotation/A": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Field/hasAnnotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Class<std.core.Field/hasAnnotation/A>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Field/hasAnnotation/A"
+      ],
+      "nullable": false
+    },
+    "std.core.FieldIdentity": {
+      "kind": "DECLARED",
+      "identity": "std.core.FieldIdentity",
+      "name": "FieldIdentity",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FieldHandle": {
+      "kind": "DECLARED",
+      "identity": "std.core.FieldHandle",
+      "name": "FieldHandle",
+      "category": "VALUE",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FieldHandle/Value": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.FieldHandle/Value",
+      "name": "Value",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.FieldHandle<std.core.Field/Value>": {
+      "kind": "DECLARED",
+      "identity": "std.core.FieldHandle",
+      "name": "FieldHandle",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.Field/Value"
+      ],
+      "nullable": false
+    },
+    "std.core.__observeField/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__observeField/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function<std.core.Void,std.core.__observeField/T,std.core.__observeField/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.Void",
+        "std.core.__observeField/T",
+        "std.core.__observeField/T"
+      ],
+      "nullable": false
+    },
+    "std.core.FieldHandle<std.core.__observeField/T>": {
+      "kind": "DECLARED",
+      "identity": "std.core.FieldHandle",
+      "name": "FieldHandle",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.__observeField/T"
+      ],
+      "nullable": false
+    },
+    "std.core.__taskStart/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__taskStart/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__taskContinue/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__taskContinue/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function<std.core.Void,std.core.Function<std.core.Void>>?": {
+      "kind": "DECLARED",
+      "identity": "std.core.Function",
+      "name": "Function",
+      "category": "IDENTITY",
+      "arguments": [
+        "std.core.Void",
+        "std.core.Function<std.core.Void>"
+      ],
+      "nullable": true
+    },
+    "std.core.__taskTermination/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__taskTermination/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
     }
   },
   "builtinTypes": [
@@ -2616,6 +2904,17 @@
             "documentation": "Norm Class method"
           },
           "intrinsic": "CLASS_CONSTRUCTORS"
+        },
+        {
+          "symbol": {
+            "name": "isValue",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Whether the reflected type has value semantics."
+          },
+          "intrinsic": "CLASS_IS_VALUE"
         }
       ],
       "typeMembers": [],
@@ -3010,6 +3309,117 @@
             "documentation": "Norm Field method"
           },
           "intrinsic": "FIELD_READ"
+        },
+        {
+          "symbol": {
+            "name": "isPublic",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Whether the field is public."
+          },
+          "intrinsic": "FIELD_IS_PUBLIC"
+        },
+        {
+          "symbol": {
+            "name": "write",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "receiver",
+                "type": "std.core.Field/Owner",
+                "hasDefault": false
+              },
+              {
+                "name": "value",
+                "type": "std.core.Field/Value",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Write this field through normal field write semantics."
+          },
+          "intrinsic": "FIELD_WRITE"
+        },
+        {
+          "symbol": {
+            "name": "copy",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "target",
+                "type": "std.core.Field/Owner",
+                "hasDefault": false
+              },
+              {
+                "name": "source",
+                "type": "std.core.Field/Owner",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Copy this field between class instances through normal field write semantics."
+          },
+          "intrinsic": "FIELD_COPY"
+        },
+        {
+          "symbol": {
+            "name": "hasAnnotation",
+            "kind": "METHOD",
+            "type": "std.core.Boolean",
+            "typeParameters": [
+              {
+                "name": "A",
+                "type": "std.core.Field/hasAnnotation/A"
+              }
+            ],
+            "parameters": [
+              {
+                "name": "annotation",
+                "type": "std.core.Class<std.core.Field/hasAnnotation/A>",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Whether a runtime annotation conforms to the requested type."
+          },
+          "intrinsic": "FIELD_HAS_ANNOTATION"
+        },
+        {
+          "symbol": {
+            "name": "identity",
+            "kind": "METHOD",
+            "type": "std.core.FieldIdentity",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "receiver",
+                "type": "std.core.Field/Owner",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Snapshot a non-null field value as a typed identity."
+          },
+          "intrinsic": "FIELD_IDENTITY"
+        },
+        {
+          "symbol": {
+            "name": "bind",
+            "kind": "METHOD",
+            "type": "std.core.FieldHandle<std.core.Field/Value>",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "receiver",
+                "type": "std.core.Field/Owner",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Typed field handle operation."
+          },
+          "intrinsic": "FIELD_BIND"
         }
       ],
       "typeMembers": [],
@@ -4199,6 +4609,17 @@
         },
         {
           "symbol": {
+            "name": "isBlank",
+            "kind": "FIELD",
+            "type": "std.core.Boolean",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Reports whether the string is empty or contains only Unicode whitespace."
+          },
+          "intrinsic": "STRING_IS_BLANK"
+        },
+        {
+          "symbol": {
             "name": "contains",
             "kind": "METHOD",
             "type": "std.core.Boolean",
@@ -4616,6 +5037,70 @@
       "members": [],
       "typeMembers": [],
       "hidden": true
+    },
+    {
+      "symbol": {
+        "name": "FieldIdentity",
+        "kind": "TYPE",
+        "type": "std.core.FieldIdentity",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Immutable typed identity of a field value."
+      },
+      "runtimeShape": "OPAQUE_VALUE",
+      "defaultCollectionLiteral": false,
+      "members": [],
+      "typeMembers": [],
+      "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "FieldHandle",
+        "kind": "TYPE",
+        "type": "std.core.FieldHandle",
+        "typeParameters": [
+          {
+            "name": "Value",
+            "type": "std.core.FieldHandle/Value"
+          }
+        ],
+        "parameters": [],
+        "documentation": "A persistent typed reference to mutable object field storage."
+      },
+      "runtimeShape": "OPAQUE_VALUE",
+      "defaultCollectionLiteral": false,
+      "members": [
+        {
+          "symbol": {
+            "name": "read",
+            "kind": "METHOD",
+            "type": "std.core.FieldHandle/Value",
+            "typeParameters": [],
+            "parameters": [],
+            "documentation": "Typed field handle operation."
+          },
+          "intrinsic": "FIELD_HANDLE_READ"
+        },
+        {
+          "symbol": {
+            "name": "write",
+            "kind": "METHOD",
+            "type": "std.core.Void",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": "std.core.FieldHandle/Value",
+                "hasDefault": false
+              }
+            ],
+            "documentation": "Typed field handle operation."
+          },
+          "intrinsic": "FIELD_HANDLE_WRITE"
+        }
+      ],
+      "typeMembers": [],
+      "hidden": false
     }
   ],
   "builtinGlobals": [
@@ -6576,8 +7061,16 @@
             "type": "std.core.List<std.core.List<std.core.List<std.core.String>>>",
             "hasDefault": false
           },
-          { "name": "sourceRoots", "type": "std.core.List<std.core.String>", "hasDefault": false },
-          { "name": "testRoots", "type": "std.core.List<std.core.String>", "hasDefault": false }
+          {
+            "name": "sourceRoots",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "testRoots",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          }
         ],
         "documentation": "Norm built-in."
       },
@@ -6867,6 +7360,241 @@
         "documentation": "Norm built-in."
       },
       "intrinsic": "REQUIRE_ARGUMENT"
+    },
+    {
+      "symbol": {
+        "name": "__contextCurrent",
+        "kind": "FUNCTION",
+        "type": "std.core.__contextCurrent/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__contextCurrent/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.__contextCurrent/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "CONTEXT_CURRENT"
+    },
+    {
+      "symbol": {
+        "name": "__contextWith",
+        "kind": "FUNCTION",
+        "type": "std.core.__contextWith/R",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__contextWith/T"
+          },
+          {
+            "name": "R",
+            "type": "std.core.__contextWith/R"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.__contextWith/T",
+            "hasDefault": false
+          },
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.__contextWith/T>",
+            "hasDefault": false
+          },
+          {
+            "name": "action",
+            "type": "std.core.Function<std.core.__contextWith/R>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "CONTEXT_WITH"
+    },
+    {
+      "symbol": {
+        "name": "__observeFields",
+        "kind": "FUNCTION",
+        "type": "std.core.Function<std.core.Void>",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__observeFields/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target",
+            "type": "std.core.__observeFields/T",
+            "hasDefault": false
+          },
+          {
+            "name": "read",
+            "type": "std.core.Function<std.core.Void,std.core.Integer>",
+            "hasDefault": false
+          },
+          {
+            "name": "changed",
+            "type": "std.core.Function<std.core.Void,std.core.Integer>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Registers field access notifications and returns an idempotent release function."
+      },
+      "intrinsic": "OBSERVE_FIELDS"
+    },
+    {
+      "symbol": {
+        "name": "classOf",
+        "kind": "FUNCTION",
+        "type": "std.core.Class<std.core.classOf/T>",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.classOf/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "value",
+            "type": "std.core.classOf/T",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Runtime class of a value."
+      },
+      "intrinsic": "VALUE_CLASS"
+    },
+    {
+      "symbol": {
+        "name": "__observeField",
+        "kind": "FUNCTION",
+        "type": "std.core.Function<std.core.Void>",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__observeField/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "field",
+            "type": "std.core.FieldHandle<std.core.__observeField/T>",
+            "hasDefault": false
+          },
+          {
+            "name": "changed",
+            "type": "std.core.Function<std.core.Void,std.core.__observeField/T,std.core.__observeField/T>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Registers typed field changes and returns an idempotent release function."
+      },
+      "intrinsic": "OBSERVE_FIELD"
+    },
+    {
+      "symbol": {
+        "name": "__taskStart",
+        "kind": "FUNCTION",
+        "type": "std.core.__taskStart/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__taskStart/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "work",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "dispatch",
+            "type": "std.core.Function<std.core.Void,std.core.Function<std.core.Void>>?",
+            "hasDefault": false
+          },
+          {
+            "name": "registered",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "released",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "unhandled",
+            "type": "std.core.Function<std.core.Void,std.core.Function<std.core.Void>>?",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TASK_START"
+    },
+    {
+      "symbol": {
+        "name": "__taskContinue",
+        "kind": "FUNCTION",
+        "type": "std.core.__taskContinue/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__taskContinue/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "work",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TASK_CONTINUE"
+    },
+    {
+      "symbol": {
+        "name": "__taskTermination",
+        "kind": "FUNCTION",
+        "type": "std.core.__taskTermination/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__taskTermination/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "completed",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TASK_TERMINATION"
     }
   ]
 }

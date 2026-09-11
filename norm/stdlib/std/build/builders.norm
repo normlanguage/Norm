@@ -1,0 +1,13 @@
+package std.build
+
+import std.annotation.ParameterTarget
+import std.annotation.BinaryRetention
+
+public annotation BuildWith implements ParameterTarget, BinaryRetention {
+  Class<?> value
+}
+
+public interface ResultBuilder<Element, Result> {
+  Void add(Element value)
+  Result finish()
+}

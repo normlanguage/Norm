@@ -1,0 +1,1 @@
+Module module() { return module(name: "app", version: 1) }

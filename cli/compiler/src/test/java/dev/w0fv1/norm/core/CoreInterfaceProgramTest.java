@@ -32,8 +32,8 @@ final class CoreInterfaceProgramTest {
     CoreDefinition.Interface declaration =
         new CoreDefinition.Interface(
             nominal("Sized"), List.of(), List.of(), List.of(new PendingDefinitionReference(1)));
-    CoreDefinition.InterfaceMethod requirement =
-        new CoreDefinition.InterfaceMethod("size", sized, List.of(), List.of(), CoreType.INTEGER);
+    CoreDefinition.MethodSignature requirement =
+        new CoreDefinition.MethodSignature("size", sized, List.of(), List.of(), CoreType.INTEGER);
     CoreType list =
         new CoreType.Declared(
             new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.List")),
@@ -74,14 +74,14 @@ final class CoreInterfaceProgramTest {
             List.of(new CoreTypeParameter(0, Optional.empty())),
             List.of(),
             List.of(new PendingDefinitionReference(3), new PendingDefinitionReference(4)));
-    CoreDefinition.InterfaceMethod iteratorMethod =
-        new CoreDefinition.InterfaceMethod(
+    CoreDefinition.MethodSignature iteratorMethod =
+        new CoreDefinition.MethodSignature(
             "iterator", iterableTemplate, List.of(), List.of(), iteratorTemplate);
-    CoreDefinition.InterfaceMethod hasNext =
-        new CoreDefinition.InterfaceMethod(
+    CoreDefinition.MethodSignature hasNext =
+        new CoreDefinition.MethodSignature(
             "hasNext", iteratorTemplate, List.of(), List.of(), CoreType.BOOLEAN);
-    CoreDefinition.InterfaceMethod next =
-        new CoreDefinition.InterfaceMethod(
+    CoreDefinition.MethodSignature next =
+        new CoreDefinition.MethodSignature(
             "next", iteratorTemplate, List.of(), List.of(), parameter);
     CoreDefinition.Callable consume =
         new CoreDefinition.Callable(
@@ -150,8 +150,8 @@ final class CoreInterfaceProgramTest {
     CoreDefinition.Interface declaration =
         new CoreDefinition.Interface(
             nominal("Named"), List.of(), List.of(), List.of(new PendingDefinitionReference(1)));
-    CoreDefinition.InterfaceMethod requirement =
-        new CoreDefinition.InterfaceMethod("name", named, List.of(), List.of(), CoreType.STRING);
+    CoreDefinition.MethodSignature requirement =
+        new CoreDefinition.MethodSignature("name", named, List.of(), List.of(), CoreType.STRING);
     List<CoreWitness> witnesses =
         complete
             ? List.of(
@@ -228,8 +228,8 @@ final class CoreInterfaceProgramTest {
     CoreDefinition.Interface declaration =
         new CoreDefinition.Interface(
             nominal("Identity"), List.of(), List.of(), List.of(new PendingDefinitionReference(1)));
-    CoreDefinition.InterfaceMethod requirement =
-        new CoreDefinition.InterfaceMethod(
+    CoreDefinition.MethodSignature requirement =
+        new CoreDefinition.MethodSignature(
             "same",
             identity,
             List.of(new CoreTypeParameter(0, Optional.empty())),

@@ -104,8 +104,8 @@ final class RuntimeValuesTest {
             "Box",
             2,
             List.of(
-                new RuntimeValues.FieldPlan(occurrence, "first", 0, List.of()),
-                new RuntimeValues.FieldPlan(occurrence, "second", 1, List.of())),
+                new RuntimeValues.FieldPlan(occurrence, "first", 0, true, List.of()),
+                new RuntimeValues.FieldPlan(occurrence, "second", 1, true, List.of())),
             Map.of(),
             java.util.Set.of(definition));
     RuntimeValues.ObjectValue receiver = new RuntimeValues.ObjectValue(info, type);

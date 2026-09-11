@@ -51,6 +51,7 @@ final class CoreRewriter {
                   .map(
                       field ->
                           new CoreField(
+                              field.visibility(),
                               field.name(),
                               field.ordinal(),
                               resolve(field.type(), resolver),
@@ -63,7 +64,7 @@ final class CoreRewriter {
                       dispatch ->
                           new CoreMethodDispatch(
                               resolve(dispatch.slot(), resolver),
-                              resolve(dispatch.implementation(), resolver),
+                              resolve(dispatch.target(), resolver),
                               resolve(dispatch.receiverType(), resolver)))
                   .toList(),
               aggregateDefinition.constructors().stream()
@@ -85,6 +86,7 @@ final class CoreRewriter {
                                   .map(
                                       field ->
                                           new CoreField(
+                                              field.visibility(),
                                               field.name(),
                                               field.ordinal(),
                                               resolve(field.type(), resolver),
@@ -100,10 +102,10 @@ final class CoreRewriter {
               resolveTypeParameters(declaration.typeParameters(), resolver),
               declaration.directParents().stream().map(type -> resolve(type, resolver)).toList(),
               declaration.declaredMethods().stream().map(link -> resolve(link, resolver)).toList());
-      case CoreDefinition.InterfaceMethod method ->
-          new CoreDefinition.InterfaceMethod(
+      case CoreDefinition.MethodSignature method ->
+          new CoreDefinition.MethodSignature(
               method.name(),
-              resolve(method.receiverInterfaceType(), resolver),
+              resolve(method.receiverType(), resolver),
               resolveTypeParameters(method.typeParameters(), resolver),
               method.parameterTypes().stream().map(type -> resolve(type, resolver)).toList(),
               resolve(method.returnType(), resolver));
@@ -398,8 +400,33 @@ final class CoreRewriter {
               intrinsic.receiver().map(value -> resolve(value, resolver)),
               resolveArguments(intrinsic.arguments(), resolver),
               intrinsic.runtimeType().map(type -> resolve(type, resolver)),
+              intrinsic.runtimeDependencies().stream()
+                  .map(type -> resolve(type, resolver))
+                  .toList(),
               intrinsic.nullSafe(),
               resolve(intrinsic.type(), resolver));
+    };
+  }
+
+  private static CoreCollectionElement resolve(
+      CoreCollectionElement element,
+      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+    return switch (element) {
+      case CoreExpression expression -> resolve(expression, resolver);
+      case CoreCollectionElement.Conditional conditional ->
+          new CoreCollectionElement.Conditional(
+              conditional.nodeIndex(), resolve(conditional.condition(), resolver),
+              resolve(conditional.thenElement(), resolver),
+                  conditional.elseElement().map(value -> resolve(value, resolver)));
+      case CoreCollectionElement.Repeated repeated ->
+          new CoreCollectionElement.Repeated(
+              repeated.nodeIndex(),
+              repeated.iteratorLocal(),
+              repeated.variableLocal(),
+              repeated.indexLocal(),
+              resolve(repeated.iterable(), resolver),
+              resolve(repeated.iteration(), resolver),
+              resolve(repeated.element(), resolver));
     };
   }
 
@@ -423,7 +450,7 @@ final class CoreRewriter {
               variant.variantKey(),
               variant.arguments().stream().map(value -> resolve(value, resolver)).toList());
       case CorePattern.Binding binding ->
-          new CorePattern.Binding(binding.localIndex(), resolve(binding.type(), resolver));
+          new CorePattern.Binding(binding.localIndex(), resolve(binding.runtimeType(), resolver));
       case CorePattern.Wildcard wildcard -> wildcard;
       case CorePattern.Literal literal ->
           new CorePattern.Literal(literal.value(), resolve(literal.type(), resolver));

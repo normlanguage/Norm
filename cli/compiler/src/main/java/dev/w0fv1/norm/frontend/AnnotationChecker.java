@@ -27,170 +27,190 @@ import java.util.Optional;
 import java.util.Set;
 
 final class AnnotationChecker {
-  private final SemanticAnalysisContext context;
-  private final TypeSystem typeSystem;
-  private final ExpressionTyping expressions;
-  private final Set<AnnotationApplicationKey> indexedAnnotationApplications = new HashSet<>();
+  private final DeclarationCatalog catalog;
+  private final DiagnosticBag diagnostics;
+  private final SemanticModelBuilder model;
+  private final List<Syntax.Program> programs;
+  private final TypeResolutionState resolution;
+  private final dev.w0fv1.norm.value.CompilationScope scope;
 
   AnnotationChecker(
-      SemanticAnalysisContext context, TypeSystem typeSystem, ExpressionTyping expressions) {
-    this.context = context;
-    this.typeSystem = typeSystem;
+      DeclarationCatalog catalog,
+      DiagnosticBag diagnostics,
+      SemanticModelBuilder model,
+      List<Syntax.Program> programs,
+      TypeResolutionState resolution,
+      dev.w0fv1.norm.value.CompilationScope scope,
+      TypeResolver typeResolver,
+      ExpressionTyping expressions) {
+    this.catalog = catalog;
+    this.diagnostics = diagnostics;
+    this.model = model;
+    this.programs = programs;
+    this.resolution = resolution;
+    this.scope = scope;
+    this.typeResolver = typeResolver;
     this.expressions = expressions;
   }
 
+  private final TypeResolver typeResolver;
+  private final ExpressionTyping expressions;
+  private final Set<AnnotationApplicationKey> indexedAnnotationApplications = new HashSet<>();
+
   final void validateAnnotationSchemas() {
-    for (Syntax.Program program : context.programs) {
-      context.resolution.currentProgram = program;
-      for (Syntax.AggregateDecl declaration : program.aggregates()) {
-        List<SemanticType> views =
-            typeSystem.nominalViews(typeSystem.aggregateSelfType(declaration));
-        List<AnnotationPolicy> policies = views.stream().map(this::annotationPolicy).toList();
-        boolean policyType = policies.stream().anyMatch(AnnotationPolicy::policyInterface);
-        if (declaration.kind() != Syntax.AggregateKind.ANNOTATION) {
-          if (policyType) {
-            context.diagnostics.error(
+    for (Syntax.Program program : programs) {
+      try (var programScope = resolution.enterProgram(program)) {
+
+        for (Syntax.AggregateDecl declaration : program.aggregates()) {
+          List<SemanticType> views =
+              typeResolver.nominalViews(typeResolver.aggregateSelfType(declaration));
+          List<AnnotationPolicy> policies = views.stream().map(this::annotationPolicy).toList();
+          boolean policyType = policies.stream().anyMatch(AnnotationPolicy::policyInterface);
+          if (declaration.kind() != Syntax.AggregateKind.ANNOTATION) {
+            if (policyType) {
+              diagnostics.error(
+                  TYPE_MISMATCH,
+                  "annotation policy interfaces can only be implemented by annotation types",
+                  declaration.nameSpan());
+            }
+            continue;
+          }
+          if (!declaration.typeParameters().isEmpty()) {
+            diagnostics.error(
                 TYPE_MISMATCH,
-                "annotation policy interfaces can only be implemented by annotation types",
+                "annotation cannot declare type parameters",
+                declaration.typeParameters().getFirst().nameSpan());
+          }
+          if (declaration.extendedClass().isPresent()) {
+            diagnostics.error(
+                TYPE_MISMATCH,
+                "annotation cannot extend a class",
+                declaration.extendedClass().orElseThrow().span());
+          }
+          Set<AnnotationTarget> targets =
+              policies.stream()
+                  .map(AnnotationPolicy::target)
+                  .flatMap(Optional::stream)
+                  .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+          Set<AnnotationRetention> retentions =
+              policies.stream()
+                  .map(AnnotationPolicy::retention)
+                  .flatMap(Optional::stream)
+                  .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+          Set<AnnotationTarget> interceptors =
+              policies.stream()
+                  .map(AnnotationPolicy::interceptor)
+                  .flatMap(Optional::stream)
+                  .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+          boolean repeatable = policies.stream().anyMatch(AnnotationPolicy::repeatable);
+          boolean inherited = policies.stream().anyMatch(AnnotationPolicy::inherited);
+          Map<AnnotationTarget, List<SemanticType>> typedTargets = new LinkedHashMap<>();
+          for (int index = 0; index < views.size(); index++) {
+            SemanticType view = views.get(index);
+            Optional<AnnotationTarget> interceptor = policies.get(index).interceptor();
+            if (interceptor.isPresent()
+                && (interceptor.orElseThrow() == AnnotationTarget.FIELD
+                    || interceptor.orElseThrow() == AnnotationTarget.PARAMETER)
+                && view.arguments().size() == 1) {
+              typedTargets
+                  .computeIfAbsent(interceptor.orElseThrow(), ignored -> new ArrayList<>())
+                  .add(view.arguments().getFirst());
+            }
+          }
+          if (targets.isEmpty()) {
+            diagnostics.error(
+                TYPE_MISMATCH,
+                "annotation must implement at least one annotation target interface",
                 declaration.nameSpan());
           }
-          continue;
-        }
-        if (!declaration.typeParameters().isEmpty()) {
-          context.diagnostics.error(
-              TYPE_MISMATCH,
-              "annotation cannot declare type parameters",
-              declaration.typeParameters().getFirst().nameSpan());
-        }
-        if (declaration.extendedClass().isPresent()) {
-          context.diagnostics.error(
-              TYPE_MISMATCH,
-              "annotation cannot extend a class",
-              declaration.extendedClass().orElseThrow().span());
-        }
-        Set<AnnotationTarget> targets =
-            policies.stream()
-                .map(AnnotationPolicy::target)
-                .flatMap(Optional::stream)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        Set<AnnotationRetention> retentions =
-            policies.stream()
-                .map(AnnotationPolicy::retention)
-                .flatMap(Optional::stream)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        Set<AnnotationTarget> interceptors =
-            policies.stream()
-                .map(AnnotationPolicy::interceptor)
-                .flatMap(Optional::stream)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        boolean repeatable = policies.stream().anyMatch(AnnotationPolicy::repeatable);
-        boolean inherited = policies.stream().anyMatch(AnnotationPolicy::inherited);
-        Map<AnnotationTarget, List<SemanticType>> typedTargets = new LinkedHashMap<>();
-        for (int index = 0; index < views.size(); index++) {
-          SemanticType view = views.get(index);
-          Optional<AnnotationTarget> interceptor = policies.get(index).interceptor();
-          if (interceptor.isPresent()
-              && (interceptor.orElseThrow() == AnnotationTarget.FIELD
-                  || interceptor.orElseThrow() == AnnotationTarget.PARAMETER)
-              && view.arguments().size() == 1) {
-            typedTargets
-                .computeIfAbsent(interceptor.orElseThrow(), ignored -> new ArrayList<>())
-                .add(view.arguments().getFirst());
-          }
-        }
-        if (targets.isEmpty()) {
-          context.diagnostics.error(
-              TYPE_MISMATCH,
-              "annotation must implement at least one annotation target interface",
-              declaration.nameSpan());
-        }
-        if (retentions.size() != 1) {
-          context.diagnostics.error(
-              TYPE_MISMATCH,
-              "annotation must implement exactly one annotation retention interface",
-              declaration.nameSpan());
-        }
-        if (repeatable && !interceptors.isEmpty()) {
-          context.diagnostics.error(
-              TYPE_MISMATCH,
-              "repeatable annotations cannot be invocation interceptors",
-              declaration.nameSpan());
-        }
-        for (AnnotationTarget target :
-            List.of(AnnotationTarget.FIELD, AnnotationTarget.PARAMETER)) {
-          List<SemanticType> types = typedTargets.getOrDefault(target, List.of());
-          if (interceptors.contains(target) && types.stream().distinct().count() != 1) {
-            context.diagnostics.error(
+          if (retentions.size() != 1) {
+            diagnostics.error(
                 TYPE_MISMATCH,
-                "annotation must implement "
-                    + (target == AnnotationTarget.FIELD
-                        ? "FieldInterceptor"
-                        : "ParameterInterceptor")
-                    + " with one concrete type",
+                "annotation must implement exactly one annotation retention interface",
                 declaration.nameSpan());
           }
-        }
-        List<AnnotationParameterInfo> parameters = new ArrayList<>();
-        List<?> constructorParameters =
-            declaration.constructors().isEmpty()
-                ? declaration.fields()
-                : declaration.constructors().getFirst().parameters();
-        for (Object parameter : constructorParameters) {
-          Syntax.TypeRef typeRef =
-              parameter instanceof Syntax.FieldDecl field
-                  ? field.type()
-                  : ((Syntax.Parameter) parameter).type();
-          String name =
-              parameter instanceof Syntax.FieldDecl field
-                  ? field.name()
-                  : ((Syntax.Parameter) parameter).name();
-          SourceSpan nameSpan =
-              parameter instanceof Syntax.FieldDecl field
-                  ? field.nameSpan()
-                  : ((Syntax.Parameter) parameter).nameSpan();
-          typeSystem.validateType(typeRef, false);
-          SemanticType type = typeSystem.resolveType(typeRef, Map.of());
-          SemanticType scalar = type.nonNullable();
-          if (!isAnnotationValueType(scalar)) {
-            context.diagnostics.error(
+          if (repeatable && !interceptors.isEmpty()) {
+            diagnostics.error(
                 TYPE_MISMATCH,
-                "annotation constructor parameters must be metadata value types",
-                typeRef.span());
+                "repeatable annotations cannot be invocation interceptors",
+                declaration.nameSpan());
           }
-          parameters.add(
-              new AnnotationParameterInfo(
-                  Optional.ofNullable(context.model.declarationSymbols().get(parameter))
-                      .orElseGet(() -> context.model.bindings().get(nameSpan)),
-                  name,
-                  type));
+          for (AnnotationTarget target :
+              List.of(AnnotationTarget.FIELD, AnnotationTarget.PARAMETER)) {
+            List<SemanticType> types = typedTargets.getOrDefault(target, List.of());
+            if (interceptors.contains(target) && types.stream().distinct().count() != 1) {
+              diagnostics.error(
+                  TYPE_MISMATCH,
+                  "annotation must implement "
+                      + (target == AnnotationTarget.FIELD
+                          ? "FieldInterceptor"
+                          : "ParameterInterceptor")
+                      + " with one concrete type",
+                  declaration.nameSpan());
+            }
+          }
+          List<AnnotationParameterInfo> parameters = new ArrayList<>();
+          List<?> constructorParameters =
+              declaration.constructors().isEmpty()
+                  ? declaration.fields()
+                  : declaration.constructors().getFirst().parameters();
+          for (Object parameter : constructorParameters) {
+            Syntax.TypeRef typeRef =
+                parameter instanceof Syntax.FieldDecl field
+                    ? field.type()
+                    : ((Syntax.Parameter) parameter).type();
+            String name =
+                parameter instanceof Syntax.FieldDecl field
+                    ? field.name()
+                    : ((Syntax.Parameter) parameter).name();
+            SourceSpan nameSpan =
+                parameter instanceof Syntax.FieldDecl field
+                    ? field.nameSpan()
+                    : ((Syntax.Parameter) parameter).nameSpan();
+            typeResolver.validateType(typeRef, false);
+            SemanticType type = typeResolver.resolveType(typeRef, Map.of());
+            SemanticType scalar = type.nonNullable();
+            if (!isAnnotationValueType(scalar)) {
+              diagnostics.error(
+                  TYPE_MISMATCH,
+                  "annotation constructor parameters must be metadata value types",
+                  typeRef.span());
+            }
+            parameters.add(
+                new AnnotationParameterInfo(
+                    Optional.ofNullable(model.declarationSymbols().get(parameter))
+                        .orElseGet(() -> model.bindings().get(nameSpan)),
+                    name,
+                    type));
+          }
+          SymbolId symbol = model.declarationSymbols().get(declaration);
+          model.putAnnotationSchema(
+              symbol,
+              new AnnotationSchema(
+                  symbol,
+                  declaration.name(),
+                  targets,
+                  retentions.stream().findFirst().orElse(AnnotationRetention.SOURCE),
+                  repeatable,
+                  inherited,
+                  interceptors,
+                  typedTargets.entrySet().stream()
+                      .filter(entry -> entry.getValue().stream().distinct().count() == 1)
+                      .collect(
+                          java.util.stream.Collectors.toMap(
+                              Map.Entry::getKey,
+                              entry -> entry.getValue().getFirst(),
+                              (left, right) -> left,
+                              LinkedHashMap::new)),
+                  parameters));
         }
-        SymbolId symbol = context.model.declarationSymbols().get(declaration);
-        context.model.putAnnotationSchema(
-            symbol,
-            new AnnotationSchema(
-                symbol,
-                declaration.name(),
-                targets,
-                retentions.stream().findFirst().orElse(AnnotationRetention.SOURCE),
-                repeatable,
-                inherited,
-                interceptors,
-                typedTargets.entrySet().stream()
-                    .filter(entry -> entry.getValue().stream().distinct().count() == 1)
-                    .collect(
-                        java.util.stream.Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry -> entry.getValue().getFirst(),
-                            (left, right) -> left,
-                            LinkedHashMap::new)),
-                parameters));
       }
     }
   }
 
   private boolean isAnnotationValueType(SemanticType type) {
     if (type.isFunction()) return true;
-    Syntax.EnumDecl enumeration = typeSystem.resolveEnum(type.nonNullable());
+    Syntax.EnumDecl enumeration = typeResolver.resolveEnum(type.nonNullable());
     if (enumeration != null) {
       return enumeration.variants().stream().allMatch(variant -> variant.parameters().isEmpty());
     }
@@ -206,10 +226,10 @@ final class AnnotationChecker {
   }
 
   private AnnotationPolicy annotationPolicy(SemanticType type) {
-    Syntax.InterfaceDecl declaration = typeSystem.resolveInterface(type);
+    Syntax.InterfaceDecl declaration = typeResolver.resolveInterface(type);
     if (declaration == null) return AnnotationPolicy.NONE;
-    Syntax.Program owner = context.declarations.owner(declaration);
-    ModuleCoordinate module = context.scope.coordinate(owner.span().source().id()).module();
+    Syntax.Program owner = catalog.owner(declaration);
+    ModuleCoordinate module = scope.coordinate(owner.span().source().id()).module();
     return new AnnotationPolicy(
         AnnotationAbi.target(module, owner.packageName(), declaration.name()),
         AnnotationAbi.retention(module, owner.packageName(), declaration.name()),
@@ -221,48 +241,50 @@ final class AnnotationChecker {
 
   final void validateAnnotationApplications() {
     indexedAnnotationApplications.clear();
-    for (Syntax.Program program : context.programs) {
-      context.resolution.currentProgram = program;
-      validateAnnotationUses(
-          program.packageAnnotations(),
-          new AnnotationSite.Package(
-              context.scope.coordinate(program.span().source().id()).module(),
-              program.packageName(),
-              program.span().source().id()));
-      for (Syntax.EnumDecl declaration : program.enums()) {
-        validateDeclarationAnnotations(
-            declaration.annotations(), AnnotationTarget.TYPE, declaration);
-      }
-      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
-        validateDeclarationAnnotations(
-            declaration.annotations(), AnnotationTarget.TYPE, declaration);
-        for (Syntax.InterfaceMethodDecl method : declaration.methods()) {
-          validateCallableAnnotations(method.annotations(), method.parameters(), method);
-          method.body().ifPresent(this::validateLocalAnnotations);
+    for (Syntax.Program program : programs) {
+      try (var programScope = resolution.enterProgram(program)) {
+
+        validateAnnotationUses(
+            program.packageAnnotations(),
+            new AnnotationSite.Package(
+                scope.coordinate(program.span().source().id()).module(),
+                program.packageName(),
+                program.span().source().id()));
+        for (Syntax.EnumDecl declaration : program.enums()) {
+          validateDeclarationAnnotations(
+              declaration.annotations(), AnnotationTarget.TYPE, declaration);
         }
-      }
-      for (Syntax.AggregateDecl declaration : program.aggregates()) {
-        validateDeclarationAnnotations(
-            declaration.annotations(), AnnotationTarget.TYPE, declaration);
-        for (Syntax.FieldDecl field : declaration.fields()) {
-          validateDeclarationAnnotations(field.annotations(), AnnotationTarget.FIELD, field);
+        for (Syntax.InterfaceDecl declaration : program.interfaces()) {
+          validateDeclarationAnnotations(
+              declaration.annotations(), AnnotationTarget.TYPE, declaration);
+          for (Syntax.InterfaceMethodDecl method : declaration.methods()) {
+            validateCallableAnnotations(method.annotations(), method.parameters(), method);
+            method.body().ifPresent(this::validateLocalAnnotations);
+          }
         }
-        for (Syntax.ConstructorDecl constructor : declaration.constructors()) {
-          validateCallableAnnotations(
-              constructor.annotations(),
-              constructor.parameters(),
-              constructor,
-              AnnotationTarget.CONSTRUCTOR);
-          validateLocalAnnotations(constructor.body());
+        for (Syntax.AggregateDecl declaration : program.aggregates()) {
+          validateDeclarationAnnotations(
+              declaration.annotations(), AnnotationTarget.TYPE, declaration);
+          for (Syntax.FieldDecl field : declaration.fields()) {
+            validateDeclarationAnnotations(field.annotations(), AnnotationTarget.FIELD, field);
+          }
+          for (Syntax.ConstructorDecl constructor : declaration.constructors()) {
+            validateCallableAnnotations(
+                constructor.annotations(),
+                constructor.parameters(),
+                constructor,
+                AnnotationTarget.CONSTRUCTOR);
+            validateLocalAnnotations(constructor.body());
+          }
+          for (Syntax.FunctionDecl method : declaration.methods()) {
+            validateCallableAnnotations(method.annotations(), method.parameters(), method);
+            validateLocalAnnotations(method.body());
+          }
         }
-        for (Syntax.FunctionDecl method : declaration.methods()) {
-          validateCallableAnnotations(method.annotations(), method.parameters(), method);
-          validateLocalAnnotations(method.body());
+        for (Syntax.FunctionDecl function : program.functions()) {
+          validateCallableAnnotations(function.annotations(), function.parameters(), function);
+          validateLocalAnnotations(function.body());
         }
-      }
-      for (Syntax.FunctionDecl function : program.functions()) {
-        validateCallableAnnotations(function.annotations(), function.parameters(), function);
-        validateLocalAnnotations(function.body());
       }
     }
   }
@@ -280,16 +302,22 @@ final class AnnotationChecker {
     if (expression instanceof Syntax.ArrayLiteral list) {
       SemanticType collection = expected.nonNullable();
       if (!collection.name().equals("List") || collection.arguments().size() != 1) {
-        context.diagnostics.error(
+        diagnostics.error(
             TYPE_MISMATCH, "annotation list requires a List metadata type", expression.span());
         expressions.typeOf(expression, expected);
         return Optional.empty();
       }
-      context.model.putType(expression.span(), collection);
-      typeSystem.requireAssignable(expected, collection, expression.span());
+      model.putType(expression.span(), collection);
+      typeResolver.requireAssignable(expected, collection, expression.span());
       List<AnnotationValue> values = new ArrayList<>();
       boolean complete = true;
-      for (Syntax.Expression element : list.elements()) {
+      for (var item : list.elements()) {
+        if (!(item instanceof Syntax.Expression element)) {
+          diagnostics.error(
+              TYPE_MISMATCH, "annotation list elements must be constant expressions", item.span());
+          complete = false;
+          continue;
+        }
         Optional<AnnotationValue> value =
             annotationConstant(element, collection.arguments().getFirst());
         if (value.isEmpty()) complete = false;
@@ -308,20 +336,20 @@ final class AnnotationChecker {
             || expression instanceof Syntax.NullLiteral;
     boolean potentialDeclarationReference = expression instanceof Syntax.Member;
     if (!literal && !potentialDeclarationReference) {
-      context.diagnostics.error(
+      diagnostics.error(
           TYPE_MISMATCH,
           "annotation argument must be a compile-time constant or declaration reference",
           expression.span());
       return Optional.empty();
     }
     SemanticType actual = expressions.typeOf(expression, expected);
-    typeSystem.requireAssignable(expected, actual, expression.span());
+    typeResolver.requireAssignable(expected, actual, expression.span());
     Optional<AnnotationDeclarationReference> reference =
         potentialDeclarationReference
             ? declarationReference((Syntax.Member) expression, actual)
             : Optional.empty();
     if (potentialDeclarationReference && reference.isEmpty()) {
-      context.diagnostics.error(
+      diagnostics.error(
           TYPE_MISMATCH,
           "annotation argument must be a compile-time constant or declaration reference",
           expression.span());
@@ -344,12 +372,12 @@ final class AnnotationChecker {
 
   private Optional<AnnotationDeclarationReference> declarationReference(
       Syntax.Member member, SemanticType actualType) {
-    SymbolId target = context.model.bindings().get(member.nameSpan());
+    SymbolId target = model.bindings().get(member.nameSpan());
     if (target == null) return Optional.empty();
-    Symbol symbol = context.model.symbols().get(target);
+    Symbol symbol = model.symbols().get(target);
     if (symbol != null && symbol.kind() == SymbolKind.ENUM_VARIANT) {
       if (!symbol.parameters().isEmpty()) {
-        context.diagnostics.error(
+        diagnostics.error(
             TYPE_MISMATCH, "annotation enum value must not have a payload", member.span());
         return Optional.empty();
       }
@@ -386,9 +414,9 @@ final class AnnotationChecker {
       validateDeclarationAnnotations(
           parameter.annotations(), AnnotationTarget.PARAMETER, parameter);
     }
-    SymbolId callableId = context.model.declarationSymbols().get(declaration);
+    SymbolId callableId = model.declarationSymbols().get(declaration);
     List<AnnotationApplication> interceptors =
-        context.model.annotationApplications().stream()
+        model.annotationApplications().stream()
             .filter(
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
@@ -398,10 +426,10 @@ final class AnnotationChecker {
             .toList();
     Set<SymbolId> parameterSymbols =
         parameters.stream()
-            .map(parameter -> context.model.declarationSymbols().get(parameter))
+            .map(parameter -> model.declarationSymbols().get(parameter))
             .collect(java.util.stream.Collectors.toSet());
     List<AnnotationApplication> parameterInterceptors =
-        context.model.annotationApplications().stream()
+        model.annotationApplications().stream()
             .filter(
                 application ->
                     application.target() instanceof AnnotationSite.Symbol site
@@ -413,18 +441,18 @@ final class AnnotationChecker {
     if (declaration instanceof Syntax.InterfaceMethodDecl) {
       interceptors.forEach(
           application ->
-              context.diagnostics.error(
+              diagnostics.error(
                   TYPE_MISMATCH,
                   "FunctionInterceptor annotation requires a concrete function or method",
                   application.span()));
       parameterInterceptors.forEach(
           application ->
-              context.diagnostics.error(
+              diagnostics.error(
                   TYPE_MISMATCH,
                   "ParameterInterceptor annotation requires a concrete callable parameter",
                   application.span()));
     }
-    Symbol callable = context.model.symbols().get(callableId);
+    Symbol callable = model.symbols().get(callableId);
     boolean containsReference =
         callable.type().containsReference()
             || callable.parameters().stream()
@@ -432,7 +460,7 @@ final class AnnotationChecker {
     if (containsReference) {
       interceptors.forEach(
           application ->
-              context.diagnostics.error(
+              diagnostics.error(
                   TYPE_MISMATCH,
                   "FunctionInterceptor annotation cannot intercept a ref signature",
                   application.span()));
@@ -440,8 +468,8 @@ final class AnnotationChecker {
     parameterInterceptors.forEach(
         application -> {
           AnnotationSite.Symbol site = (AnnotationSite.Symbol) application.target();
-          if (context.model.symbols().get(site.symbol()).type().isReference()) {
-            context.diagnostics.error(
+          if (model.symbols().get(site.symbol()).type().isReference()) {
+            diagnostics.error(
                 TYPE_MISMATCH,
                 "ParameterInterceptor annotation cannot intercept a ref parameter",
                 application.span());
@@ -450,15 +478,14 @@ final class AnnotationChecker {
   }
 
   private Optional<AnnotationSite> annotationSite(AnnotationTarget target, Object declaration) {
-    SymbolId symbol = context.model.declarationSymbols().get(declaration);
+    SymbolId symbol = model.declarationSymbols().get(declaration);
     if (symbol == null && declaration instanceof Syntax.VariableDecl variable) {
-      symbol = context.model.bindings().get(variable.nameSpan());
+      symbol = model.bindings().get(variable.nameSpan());
     }
     return symbol == null
         ? Optional.empty()
         : Optional.of(
-            new AnnotationSite.Symbol(
-                target, symbol, context.resolution.currentProgram.span().source().id()));
+            new AnnotationSite.Symbol(target, symbol, resolution.program().span().source().id()));
   }
 
   private void validateLocalAnnotations(List<Syntax.Statement> statements) {
@@ -503,7 +530,10 @@ final class AnnotationChecker {
   private void validateLocalAnnotations(Syntax.Expression expression) {
     if (expression == null) return;
     switch (expression) {
-      case Syntax.ArrayLiteral array -> array.elements().forEach(this::validateLocalAnnotations);
+      case Syntax.ArrayLiteral array ->
+          array
+              .elements()
+              .forEach(element -> validateLocalAnnotations(List.of(element.statement())));
       case Syntax.Unary unary -> validateLocalAnnotations(unary.operand());
       case Syntax.Binary binary -> {
         validateLocalAnnotations(binary.left());
@@ -523,6 +553,11 @@ final class AnnotationChecker {
         validateLocalAnnotations(switched.value());
         switched.cases().forEach(value -> validateLocalAnnotations(value.body()));
       }
+      case Syntax.IfExpression conditional -> {
+        validateLocalAnnotations(conditional.condition());
+        validateLocalAnnotations(conditional.thenBody());
+        validateLocalAnnotations(conditional.elseBody());
+      }
       case Syntax.IntegerLiteral ignored -> {}
       case Syntax.DecimalLiteral ignored -> {}
       case Syntax.CodePointLiteral ignored -> {}
@@ -537,33 +572,32 @@ final class AnnotationChecker {
 
   private void validateAnnotationUses(List<Syntax.AnnotationUse> uses, AnnotationSite target) {
     for (Syntax.AnnotationUse use : uses) {
-      Syntax.AggregateDecl declaration = typeSystem.resolveAnnotation(use.name());
+      Syntax.AggregateDecl declaration = typeResolver.resolveAnnotation(use.name());
       if (declaration == null) {
-        context.diagnostics.error(
+        diagnostics.error(
             UNKNOWN_NAME, "cannot find annotation '" + use.name() + "'", use.nameSpan());
         use.arguments()
             .forEach(argument -> annotationConstant(argument.value(), SemanticType.DYNAMIC));
         continue;
       }
-      SymbolId annotation = context.model.declarationSymbols().get(declaration);
-      context.model.putBinding(use.nameSpan(), annotation);
-      AnnotationSchema schema = context.model.annotationSchemas().get(annotation);
+      SymbolId annotation = model.declarationSymbols().get(declaration);
+      model.putBinding(use.nameSpan(), annotation);
+      AnnotationSchema schema = model.annotationSchemas().get(annotation);
       if (schema == null) continue;
-      if (context
-              .model
+      if (model
               .symbols()
               .get(annotation)
               .type()
               .identity()
               .equals(dev.w0fv1.norm.value.TestAbi.IDENTITY)
           && target instanceof AnnotationSite.Symbol site) {
-        Symbol function = context.model.symbols().get(site.symbol());
+        Symbol function = model.symbols().get(site.symbol());
         if (function.kind() != dev.w0fv1.norm.semantic.SymbolKind.FUNCTION
             || function.owner().isPresent()
             || !function.parameters().isEmpty()
             || !function.typeParameters().isEmpty()
             || !function.type().equals(SemanticType.VOID)) {
-          context.diagnostics.error(
+          diagnostics.error(
               TYPE_MISMATCH,
               "@Test requires a top-level, non-generic, zero-argument Void function",
               use.span());
@@ -571,13 +605,13 @@ final class AnnotationChecker {
       }
       boolean duplicate = !indexedAnnotationApplications.add(applicationKey(annotation, target));
       if (duplicate && !schema.repeatable()) {
-        context.diagnostics.error(
+        diagnostics.error(
             TYPE_MISMATCH,
             "duplicate annotation '" + use.name() + "' on the same target",
             use.span());
       }
       if (!schema.targets().contains(target.kind())) {
-        context.diagnostics.error(
+        diagnostics.error(
             TYPE_MISMATCH,
             "annotation '"
                 + use.name()
@@ -595,7 +629,7 @@ final class AnnotationChecker {
           boolean hasValue =
               schema.parameters().stream().anyMatch(parameter -> parameter.name().equals("value"));
           if (index != 0 || !hasValue) {
-            context.diagnostics.error(
+            diagnostics.error(
                 TYPE_MISMATCH,
                 "only the first annotation argument may omit the 'value' label",
                 argument.span());
@@ -608,7 +642,7 @@ final class AnnotationChecker {
           label = argument.label().orElseThrow().name();
         }
         if (supplied.putIfAbsent(label, argument) != null) {
-          context.diagnostics.error(
+          diagnostics.error(
               TYPE_MISMATCH, "duplicate annotation parameter '" + label + "'", argument.span());
           validArguments = false;
         }
@@ -618,10 +652,10 @@ final class AnnotationChecker {
       if (target instanceof AnnotationSite.Symbol site
           && site.kind() == AnnotationTarget.FIELD
           && schema.targetType(AnnotationTarget.FIELD).isPresent()) {
-        SemanticType fieldType = context.model.symbols().get(site.symbol()).type();
+        SemanticType fieldType = model.symbols().get(site.symbol()).type();
         SemanticType targetType = schema.targetType(AnnotationTarget.FIELD).orElseThrow();
         if (!fieldType.equals(targetType)) {
-          context.diagnostics.error(
+          diagnostics.error(
               TYPE_MISMATCH,
               "FieldInterceptor type '"
                   + targetType.displayName()
@@ -635,16 +669,16 @@ final class AnnotationChecker {
       if (target instanceof AnnotationSite.Symbol site
           && site.kind() == AnnotationTarget.PARAMETER
           && schema.targetType(AnnotationTarget.PARAMETER).isPresent()) {
-        SemanticType parameterType = context.model.symbols().get(site.symbol()).type();
+        SemanticType parameterType = model.symbols().get(site.symbol()).type();
         SemanticType targetType = schema.targetType(AnnotationTarget.PARAMETER).orElseThrow();
         if (parameterType.isReference()) {
-          context.diagnostics.error(
+          diagnostics.error(
               TYPE_MISMATCH,
               "ParameterInterceptor annotation cannot intercept a ref parameter",
               use.span());
           complete = false;
         } else if (!parameterType.equals(targetType)) {
-          context.diagnostics.error(
+          diagnostics.error(
               TYPE_MISMATCH,
               "ParameterInterceptor type '"
                   + targetType.displayName()
@@ -661,7 +695,7 @@ final class AnnotationChecker {
           if (parameter.type().isNullable()) {
             values.add(new AnnotationValue(parameter.type(), AnnotationValue.Null.INSTANCE));
           } else {
-            context.diagnostics.error(
+            diagnostics.error(
                 TYPE_MISMATCH,
                 "required annotation parameter '" + parameter.name() + "' is missing",
                 use.span());
@@ -669,16 +703,14 @@ final class AnnotationChecker {
           }
           continue;
         }
-        argument
-            .label()
-            .ifPresent(label -> context.model.putBinding(label.span(), parameter.symbol()));
+        argument.label().ifPresent(label -> model.putBinding(label.span(), parameter.symbol()));
         Optional<AnnotationValue> value = annotationConstant(argument.value(), parameter.type());
         if (value.isEmpty()) complete = false;
         else values.add(value.orElseThrow());
       }
       for (Syntax.CallArgument argument : supplied.values()) {
         String label = argument.label().map(Syntax.ArgumentLabel::name).orElse("value");
-        context.diagnostics.error(
+        diagnostics.error(
             TYPE_MISMATCH, "unknown annotation parameter '" + label + "'", argument.span());
         annotationConstant(argument.value(), SemanticType.DYNAMIC);
         complete = false;
@@ -686,8 +718,7 @@ final class AnnotationChecker {
       if ((!duplicate || schema.repeatable())
           && complete
           && values.size() == schema.parameters().size()) {
-        context.model.addAnnotation(
-            new AnnotationApplication(annotation, target, values, use.span()));
+        model.addAnnotation(new AnnotationApplication(annotation, target, values, use.span()));
       }
     }
   }
@@ -703,7 +734,7 @@ final class AnnotationChecker {
   }
 
   private boolean isInterceptor(AnnotationApplication application, AnnotationTarget target) {
-    AnnotationSchema schema = context.model.annotationSchemas().get(application.annotation());
+    AnnotationSchema schema = model.annotationSchemas().get(application.annotation());
     return schema != null && schema.intercepts(target);
   }
 

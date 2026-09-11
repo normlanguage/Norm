@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Set;
 
 final class MemberRelations {
+  private record PropertyIdentity(SymbolId owner, String name) {}
+
   private static final Comparator<Symbol> ORDER =
       Comparator.comparing(
               (Symbol symbol) ->
@@ -48,6 +50,21 @@ final class MemberRelations {
                   connected.computeIfAbsent(member, ignored -> new LinkedHashSet<>()).add(target);
                   connected.computeIfAbsent(target, ignored -> new LinkedHashSet<>()).add(member);
                 }));
+    var properties = new LinkedHashMap<PropertyIdentity, Set<SymbolId>>();
+    for (Symbol symbol : symbols.values()) {
+      if (symbol.accessor() == Symbol.Accessor.NONE) continue;
+      var identity = new PropertyIdentity(symbol.owner().orElseThrow(), symbol.name());
+      properties.computeIfAbsent(identity, ignored -> new LinkedHashSet<>()).add(symbol.id());
+    }
+    properties
+        .values()
+        .forEach(
+            accessors ->
+                accessors.forEach(
+                    accessor ->
+                        connected
+                            .computeIfAbsent(accessor, ignored -> new LinkedHashSet<>())
+                            .addAll(accessors)));
     parents =
         directed.entrySet().stream()
             .collect(

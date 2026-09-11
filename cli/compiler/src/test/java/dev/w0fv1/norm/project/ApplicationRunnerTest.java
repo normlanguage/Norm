@@ -8,6 +8,7 @@ import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.testing.MavenTestRepository;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -295,7 +296,7 @@ final class ApplicationRunnerTest {
     StringWriter output = new StringWriter();
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-    Path cache = temporaryDirectory.resolve("maven-cache");
+    Path cache = MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache"));
 
     try (ProjectLoader projects = environment.projectLoader(cache)) {
       new ModuleBindingResolutionService(projects).resolve(dependency.resolve("module.norm"));

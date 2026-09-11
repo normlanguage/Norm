@@ -10,6 +10,24 @@ import java.util.List;
 final class SymbolPresentation {
   private SymbolPresentation() {}
 
+  static Symbol property(Symbol symbol) {
+    if (symbol.accessor() == Symbol.Accessor.NONE) return symbol;
+    SemanticType type =
+        symbol.accessor() == Symbol.Accessor.GETTER
+            ? symbol.type()
+            : symbol.parameters().getFirst().type();
+    return new Symbol(
+        symbol.id(),
+        symbol.name(),
+        SymbolKind.PROPERTY,
+        type,
+        symbol.declaration(),
+        symbol.owner(),
+        symbol.typeParameters(),
+        List.of(),
+        symbol.documentation());
+  }
+
   static Symbol callable(Symbol symbol) {
     if (!symbol.type().isFunction()) return symbol;
     List<ParameterInfo> parameters =
@@ -48,7 +66,8 @@ final class SymbolPresentation {
                     schema.parameters().stream()
                         .map(parameter -> new ParameterInfo(parameter.name(), parameter.type()))
                         .toList(),
-                    symbol.documentation()))
+                    symbol.documentation(),
+                    symbol.accessor()))
         .orElse(symbol);
   }
 

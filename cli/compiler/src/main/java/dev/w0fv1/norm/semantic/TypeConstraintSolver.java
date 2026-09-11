@@ -35,7 +35,8 @@ public final class TypeConstraintSolver {
   public void constrain(SemanticType pattern, SemanticType actual) {
     Objects.requireNonNull(pattern, "pattern");
     Objects.requireNonNull(actual, "actual");
-    if (actual.equals(SemanticType.NULL)
+    if (pattern.equals(actual)
+        || actual.equals(SemanticType.NULL)
         || actual.equals(SemanticType.DYNAMIC)
         || actual.isReference()) return;
     if (pattern.kind() == SemanticType.Kind.TYPE_PARAMETER

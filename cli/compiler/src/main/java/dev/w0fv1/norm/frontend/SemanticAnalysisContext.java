@@ -31,6 +31,7 @@ final class SemanticAnalysisContext {
   final BuiltinSymbols builtins;
 
   final SemanticModelBuilder model;
+  final AnalysisTransaction transactions;
   final BodyAnalysisState body = new BodyAnalysisState();
   final TypeResolutionState resolution = new TypeResolutionState();
 
@@ -53,6 +54,7 @@ final class SemanticAnalysisContext {
             input.standardLibraryDocuments(),
             input.bindingDocuments());
     model = new SemanticModelBuilder(builtins);
+    transactions = new AnalysisTransaction(model, body, resolution, diagnostics);
   }
 
   static Syntax.Program merge(List<Syntax.Program> programs, Syntax.Program entryProgram) {
@@ -101,10 +103,4 @@ final class SemanticAnalysisContext {
   }
 
   record TypeProbe(SemanticType type, boolean hasErrors) {}
-
-  record AnalysisCheckpoint(
-      SemanticModelBuilder.Checkpoint model,
-      BodyAnalysisState.Checkpoint body,
-      TypeResolutionState.Checkpoint resolution,
-      int diagnosticMark) {}
 }

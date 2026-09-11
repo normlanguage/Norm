@@ -20,7 +20,7 @@ public record BoundCallable(
     List<BoundReifiedArgument> reifiedParameters,
     List<BoundInterceptor> interceptors,
     SemanticType returnType,
-    BoundBlock body,
+    Optional<BoundBlock> implementation,
     SourceSpan span)
     implements BoundNode {
   public BoundCallable {
@@ -55,7 +55,49 @@ public record BoundCallable(
     reifiedParameters = List.copyOf(reifiedParameters);
     interceptors = List.copyOf(interceptors);
     Objects.requireNonNull(returnType, "returnType");
-    Objects.requireNonNull(body, "body");
+    implementation = Objects.requireNonNull(implementation, "implementation");
+    if (implementation.isEmpty() && (kind != BoundCallableKind.METHOD || owner.isEmpty())) {
+      throw new IllegalArgumentException("only owned methods can omit their implementation");
+    }
     Objects.requireNonNull(span, "span");
+  }
+
+  public BoundCallable(
+      BoundCallableId id,
+      BoundCallableKind kind,
+      String name,
+      BoundVisibility visibility,
+      Optional<BoundAggregateId> owner,
+      Optional<SemanticType> receiverType,
+      Optional<BoundLocalId> thisLocal,
+      List<BoundParameter> captures,
+      List<BoundParameter> parameters,
+      List<BoundTypeParameter> typeParameters,
+      List<BoundReifiedArgument> reifiedParameters,
+      List<BoundInterceptor> interceptors,
+      SemanticType returnType,
+      BoundBlock body,
+      SourceSpan span) {
+    this(
+        id,
+        kind,
+        name,
+        visibility,
+        owner,
+        receiverType,
+        thisLocal,
+        captures,
+        parameters,
+        typeParameters,
+        reifiedParameters,
+        interceptors,
+        returnType,
+        Optional.of(body),
+        span);
+  }
+
+  public BoundBlock body() {
+    return implementation.orElseThrow(
+        () -> new IllegalStateException("method declaration has no executable body: " + name));
   }
 }

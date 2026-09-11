@@ -22,8 +22,26 @@ public final class PatternCoverage<T> {
 
   private boolean useful(List<List<Pattern>> matrix, List<Pattern> vector, List<T> types) {
     if (vector.isEmpty()) return matrix.isEmpty();
+    if (matrix.stream()
+        .anyMatch(row -> !row.isEmpty() && row.getFirst() instanceof AlternativePattern)) {
+      List<List<Pattern>> expanded = new ArrayList<>();
+      for (List<Pattern> row : matrix) {
+        if (!row.isEmpty() && row.getFirst() instanceof AlternativePattern alternative) {
+          for (Pattern option : alternative.options()) {
+            expanded.add(concat(List.of(option), row.subList(1, row.size())));
+          }
+        } else {
+          expanded.add(row);
+        }
+      }
+      return useful(expanded, vector, types);
+    }
     Pattern head = vector.getFirst();
     List<Pattern> tail = vector.subList(1, vector.size());
+    if (head instanceof AlternativePattern alternative) {
+      return alternative.options().stream()
+          .anyMatch(option -> useful(matrix, concat(List.of(option), tail), types));
+    }
     List<T> typeTail = types.subList(1, types.size());
     if (head instanceof ConstructorPattern constructor) {
       Constructor<T> shape = constructor(type(types), constructor.key());
@@ -31,7 +49,7 @@ public final class PatternCoverage<T> {
         return false;
       }
       return useful(
-          specialize(matrix, shape),
+          specialize(matrix, shape, type(types)),
           concat(constructor.arguments(), tail),
           concat(shape.argumentTypes(), typeTail));
     }
@@ -39,7 +57,7 @@ public final class PatternCoverage<T> {
     if (!constructors.isEmpty() && complete(matrix, constructors)) {
       for (Constructor<T> constructor : constructors) {
         if (useful(
-            specialize(matrix, constructor),
+            specialize(matrix, constructor, type(types)),
             concat(any(constructor.argumentTypes().size()), tail),
             concat(constructor.argumentTypes(), typeTail))) {
           return true;
@@ -73,8 +91,8 @@ public final class PatternCoverage<T> {
     return constructors.stream().allMatch(constructor -> present.contains(constructor.key()));
   }
 
-  private static <T> List<List<Pattern>> specialize(
-      List<List<Pattern>> matrix, Constructor<T> constructor) {
+  private List<List<Pattern>> specialize(
+      List<List<Pattern>> matrix, Constructor<T> constructor, T type) {
     List<List<Pattern>> result = new ArrayList<>();
     for (List<Pattern> row : matrix) {
       if (row.isEmpty()) continue;
@@ -83,7 +101,7 @@ public final class PatternCoverage<T> {
       if (head instanceof AnyPattern) {
         result.add(concat(any(constructor.argumentTypes().size()), tail));
       } else if (head instanceof ConstructorPattern pattern
-          && pattern.key().equals(constructor.key())) {
+          && domain.covers(type, pattern.key(), constructor.key())) {
         result.add(concat(pattern.arguments(), tail));
       }
     }
@@ -114,6 +132,10 @@ public final class PatternCoverage<T> {
     List<Constructor<T>> constructors(T type);
 
     Constructor<T> openConstructor(T type, String key);
+
+    default boolean covers(T type, String previous, String candidate) {
+      return previous.equals(candidate);
+    }
   }
 
   public record Constructor<T>(String key, List<T> argumentTypes) {
@@ -123,13 +145,23 @@ public final class PatternCoverage<T> {
     }
   }
 
-  public sealed interface Pattern permits AnyPattern, ConstructorPattern {
+  public sealed interface Pattern permits AnyPattern, ConstructorPattern, AlternativePattern {
     static Pattern any() {
       return AnyPattern.INSTANCE;
     }
 
     static Pattern constructor(String key, List<Pattern> arguments) {
       return new ConstructorPattern(key, arguments);
+    }
+
+    static Pattern alternatives(List<Pattern> options) {
+      return new AlternativePattern(options);
+    }
+  }
+
+  public record AlternativePattern(List<Pattern> options) implements Pattern {
+    public AlternativePattern {
+      options = List.copyOf(options);
     }
   }
 

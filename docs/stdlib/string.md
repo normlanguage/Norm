@@ -103,3 +103,5 @@ String line = repeat(value: "-", count: 8)
 String text = join(values: names, separator: ", ")
 String rebuilt = fromCodePoints(values: points)
 ```
+
+`text.isBlank` 是只读 Boolean 属性：空字符串或全部由 Unicode 空白码点组成时为 true。判定遵循 JDK `Character.isWhitespace`，包括全角空格，不包括不换行空格 U+00A0。
