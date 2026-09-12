@@ -74,11 +74,14 @@ public final class ProjectEnvironment {
   }
 
   ProjectLoader projectLoader(Path moduleRepository, Path jarCache) {
-    return new ProjectLoader(
-        new ModuleEvaluator(languageProfile, backend),
-        reservedModuleNames,
+    return projectLoader(
         new NormPackageResolver(moduleRepository, jarCache.resolve(".norm-packages")),
         new JarResolver(jarCache));
+  }
+
+  public ProjectLoader projectLoader(NormPackageResolver packages, JarResolver jars) {
+    return new ProjectLoader(
+        new ModuleEvaluator(languageProfile, backend), reservedModuleNames, packages, jars);
   }
 
   public ExecutionBackend backend() {

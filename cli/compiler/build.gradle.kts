@@ -534,6 +534,7 @@ dependencies {
     nativeHosted(libs.nativeimage)
     implementation(libs.lsp4j)
     implementation(libs.gson)
+    implementation(libs.commonmark)
     implementation(libs.maven.resolver.supplier)
     nativeHosted(libs.asm)
     implementation(libs.commons.codec)

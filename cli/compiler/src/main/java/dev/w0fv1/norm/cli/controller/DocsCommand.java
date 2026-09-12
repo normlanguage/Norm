@@ -38,6 +38,7 @@ final class DocsCommand implements Command {
     Command.super.help(out, err);
     out.println("--output is required; the generated API tree replaces the previous output.");
     out.println("--strict requires documentation for public declarations and callable parameters.");
+    out.println(new MarkdownCheckCommand().usage());
     return 0;
   }
 
@@ -53,6 +54,9 @@ final class DocsCommand implements Command {
 
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
+    if (!arguments.isEmpty() && arguments.getFirst().equals("check")) {
+      return new MarkdownCheckCommand().execute(arguments.subList(1, arguments.size()), out, err);
+    }
     Optional<Options> parsed = options(arguments, err);
     if (parsed.isEmpty()) return ExitCode.USAGE_ERROR;
     Options options = parsed.orElseThrow();

@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 import { siteBase, sitePath, siteUrl } from '../scripts/site-config.mjs'
 import { zhTheme } from './locales/zh'
 import { enTheme } from './locales/en'
+import { markdownReferences } from './markdown-references'
 
 export default defineConfig({
   title: 'Norm',
@@ -9,6 +10,7 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   markdown: { languageAlias: { norm: 'java' } },
+  vite: { plugins: [markdownReferences()] },
   head: [
     ['meta', { name: 'theme-color', content: '#3178c6' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: sitePath('brand/norm.svg') }],

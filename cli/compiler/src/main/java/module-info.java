@@ -6,6 +6,7 @@ module dev.w0fv1.norm {
   requires com.fasterxml.jackson.dataformat.yaml;
   requires com.ctc.wstx;
   requires com.google.gson;
+  requires org.commonmark;
   requires java.net.http;
   requires java.xml;
   requires org.eclipse.lsp4j;

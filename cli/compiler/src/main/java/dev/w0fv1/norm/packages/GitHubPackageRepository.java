@@ -36,6 +36,11 @@ final class GitHubPackageRepository implements NormPackageRepository {
   }
 
   @Override
+  public java.util.Set<String> moduleNames(HttpClient client) throws IOException {
+    return registry(client).keySet();
+  }
+
+  @Override
   public URI locate(ModuleRequirement requirement, HttpClient client) throws IOException {
     GitHubRepository repository = registry(client).get(requirement.name());
     if (repository == null) {

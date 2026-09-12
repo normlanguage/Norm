@@ -94,6 +94,27 @@ public final class ProjectLoader implements AutoCloseable {
     return load(entryPath, ProjectLoadPurpose.ANALYSIS);
   }
 
+  public ModuleRequirement resolveReference(
+      dev.w0fv1.norm.value.ModuleRepositoryId repository, String path, int version)
+      throws IOException {
+    return packages.resolveReference(repository, path, version);
+  }
+
+  public ProjectSourceSet loadForAnalysis(Path workspace, ModuleRequirement requirement)
+      throws IOException {
+    Path root = normalize(workspace);
+    ResolvedProjectModule module =
+        archivedModules.load(root, requirement, ProjectLoadPurpose.ANALYSIS);
+    dependencies.requireAvailableModuleName(module.descriptor());
+    SourceFile entry =
+        module.sources().values().stream()
+            .min(Comparator.comparing(source -> source.path().toString()))
+            .orElseThrow(() -> new IOException("module contains no source files"));
+    var graph = dependencies.resolve(module, Map.of(), ProjectLoadPurpose.ANALYSIS);
+    return sourceSet(
+        root, entry.path(), module.moduleSource().path(), graph, SourceStructure.inspect(entry));
+  }
+
   private ProjectSourceSet load(Path entryPath, ProjectLoadPurpose purpose) throws IOException {
     Path entry = normalize(entryPath);
     if (Files.isDirectory(entry)) {

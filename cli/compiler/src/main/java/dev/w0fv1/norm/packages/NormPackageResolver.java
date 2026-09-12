@@ -89,6 +89,26 @@ public final class NormPackageResolver implements AutoCloseable {
     }
   }
 
+  public ModuleRequirement resolveReference(
+      ModuleRepositoryId repositoryId, String path, int version) throws IOException {
+    NormPackageRepository repository = repositories.get(repositoryId);
+    if (repository == null)
+      throw new IOException("unknown Norm package repository '" + repositoryId.value() + "'");
+    String name =
+        repository.moduleNames(client).stream()
+            .filter(candidate -> path.startsWith(candidate + "."))
+            .max(java.util.Comparator.comparingInt(String::length))
+            .orElseThrow(
+                () ->
+                    new IOException(
+                        "no registered module owns reference '"
+                            + path
+                            + "' in repository '"
+                            + repositoryId.value()
+                            + "'"));
+    return new ModuleRequirement(repositoryId.value(), name, version, false);
+  }
+
   public ModuleRequirement resolve(ModuleDependency dependency) throws IOException {
     Objects.requireNonNull(dependency, "dependency");
     if (dependency.version().isPresent()) {
