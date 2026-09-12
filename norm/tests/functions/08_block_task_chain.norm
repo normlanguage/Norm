@@ -1,0 +1,25 @@
+import std.concurrent.async
+import std.concurrent.startTask
+import std.concurrent.Task
+import std.concurrent.TaskScope
+import std.context.withContext
+import std.core.Exception
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+class WorkerScope implements TaskScope {
+  Task<T> start<T>(Function<T()> work) { startTask<T>(work) }
+}
+
+Void main() {
+  withContext<TaskScope>(value: WorkerScope(), action: () {
+    var answer = async { 21 } then { result * 2 } then { value in value + 1 }
+    printLines([answer.await()])
+    var recovered = async<Integer> { throw Exception(message: "expected") } error {
+      require(condition: failure.message == "expected", message: "callback scope")
+      7
+    }
+    printLines([recovered.await()])
+  })
+  expectedOutputLines(["43", "7"])
+}

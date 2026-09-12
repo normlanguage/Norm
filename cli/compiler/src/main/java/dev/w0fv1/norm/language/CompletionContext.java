@@ -17,7 +17,7 @@ public sealed interface CompletionContext {
 
   record Expression() implements CompletionContext {}
 
-  record Member(int dotOffset) implements CompletionContext {}
+  record Member(MemberAccessSite site) implements CompletionContext {}
 
   record ArgumentLabel() implements CompletionContext {}
 

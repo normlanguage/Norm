@@ -561,6 +561,30 @@ public final class SemanticModel implements SemanticIndex {
     return Optional.ofNullable(resolvedCalls.get(callSpan));
   }
 
+  public Optional<SourceSpan> expressionEndingAt(int endOffset) {
+    return endingAt(expressionTypes.keySet(), endOffset);
+  }
+
+  public Optional<SourceSpan> callEndingAt(int endOffset) {
+    return endingAt(resolvedCalls.keySet(), endOffset);
+  }
+
+  public Optional<SourceSpan> callSpanAtCallee(SourceSpan calleeSpan) {
+    if (!calleeSpan.source().equals(source)) return Optional.empty();
+    return resolvedCalls.entrySet().stream()
+        .filter(entry -> entry.getKey().expansion() == 0)
+        .filter(entry -> entry.getValue().calleeSpan().equals(calleeSpan))
+        .map(Map.Entry::getKey)
+        .min(Comparator.comparingInt(SourceSpan::length));
+  }
+
+  private Optional<SourceSpan> endingAt(Set<SourceSpan> spans, int endOffset) {
+    return spans.stream()
+        .filter(span -> span.expansion() == 0 && span.source().equals(source))
+        .filter(span -> span.endOffset() == endOffset)
+        .min(Comparator.comparingInt(SourceSpan::startOffset));
+  }
+
   public Optional<ResolvedCall> callAtCallee(SourceSpan calleeSpan) {
     return Optional.ofNullable(resolvedCallsByCallee.get(calleeSpan));
   }

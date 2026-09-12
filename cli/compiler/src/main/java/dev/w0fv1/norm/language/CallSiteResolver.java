@@ -27,6 +27,8 @@ final class CallSiteResolver {
             .filter(token -> token.span().startOffset() < offset)
             .toList();
     int opening = activeOpeningParenthesis(tokens);
+    var trailing = trailingCall(document, tokens, offset, opening);
+    if (trailing.isPresent()) return trailing;
     if (opening < 0) return Optional.empty();
     int nameIndex = callableName(tokens, opening);
     if (nameIndex < 0) return Optional.empty();
@@ -69,6 +71,53 @@ final class CallSiteResolver {
     Symbol active = candidates.get(activeSignature);
     return Optional.of(
         new CallSite(candidates, activeSignature, activeParameter(tokens, opening, active)));
+  }
+
+  private Optional<CallSite> trailingCall(
+      DocumentSemanticModel document, List<Token> tokens, int offset, int parenthesis) {
+    ArrayDeque<Integer> blocks = new ArrayDeque<>();
+    for (int index = 0; index < tokens.size(); index++) {
+      if (tokens.get(index).kind() == TokenKind.LEFT_BRACE) blocks.addLast(index);
+      if (tokens.get(index).kind() == TokenKind.RIGHT_BRACE && !blocks.isEmpty())
+        blocks.removeLast();
+    }
+    SemanticModel model = document.semanticModel();
+    while (!blocks.isEmpty()) {
+      int opening = blocks.removeLast();
+      if (opening < parenthesis && callableName(tokens, parenthesis) >= 0) return Optional.empty();
+      int callableOpening = opening;
+      if (opening > 0 && tokens.get(opening - 1).kind() == TokenKind.RIGHT_PAREN) {
+        int depth = 1;
+        for (int index = opening - 2; index >= 0; index--) {
+          if (tokens.get(index).kind() == TokenKind.RIGHT_PAREN) depth++;
+          if (tokens.get(index).kind() == TokenKind.LEFT_PAREN && --depth == 0) {
+            callableOpening = index;
+            break;
+          }
+        }
+      }
+      int nameIndex = callableName(tokens, callableOpening);
+      if (nameIndex < 0) continue;
+      var name = tokens.get(nameIndex).span();
+      var callSpan = model.callSpanAtCallee(name);
+      if (callSpan.isEmpty()
+          || callSpan.orElseThrow().endOffset() < offset
+          || callSpan.orElseThrow().endOffset() <= tokens.get(opening).span().startOffset())
+        continue;
+      var resolved = model.callAtCallee(name);
+      if (resolved.isEmpty() || resolved.orElseThrow().arguments().parameterIndices().isEmpty())
+        continue;
+      var call = resolved.orElseThrow();
+      int parameter = call.arguments().parameterIndices().getLast();
+      if (!call.parameters().get(parameter).type().isFunction()) continue;
+      if (call.kind() == ResolvedCall.Kind.EXTENSION) parameter--;
+      CandidateSet candidates = callables(document, model, tokens, nameIndex, offset);
+      if (candidates.candidates().isEmpty()
+          || parameter < 0
+          || parameter >= candidates.candidates().getFirst().parameters().size()) continue;
+      return Optional.of(new CallSite(candidates.candidates(), 0, parameter));
+    }
+    return Optional.empty();
   }
 
   private static int activeOpeningParenthesis(List<Token> tokens) {

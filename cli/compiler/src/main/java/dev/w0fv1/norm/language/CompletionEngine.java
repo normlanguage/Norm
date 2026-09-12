@@ -1,11 +1,13 @@
 package dev.w0fv1.norm.language;
 
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
+import dev.w0fv1.norm.semantic.ParameterInfo;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.source.SourceLocation;
+import dev.w0fv1.norm.syntax.LanguageSyntax;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 final class CompletionEngine {
@@ -26,22 +29,24 @@ final class CompletionEngine {
     }
     SemanticModel model = document.semanticModel();
     CompletionContext context = contexts.resolve(document, offset);
-    Optional<SemanticType> expectedType = expectedTypes.resolve(document, offset);
     if (context instanceof CompletionContext.None) return List.of();
+    Optional<SemanticType> expectedType = expectedTypes.resolve(document, offset);
     if (context instanceof CompletionContext.Import imported) {
       return withTextEdits(
           importCompletions(model, document), document, imported.qualifiedNameStart(), offset);
     }
     if (context instanceof CompletionContext.Member member) {
+      var site = member.site();
+      if (!site.receiver().source().equals(document.source())) return List.of();
       return withTextEdits(
           memberCompletions(
               model,
-              document.source().text(),
-              member.dotOffset(),
-              expectedType.map(SemanticType::isFunction).orElse(false)),
+              site,
+              site.form() == MemberAccessSite.Form.EXPLICIT
+                  && expectedType.map(SemanticType::isFunction).orElse(false)),
           document,
-          identifierStart(document.source().text(), offset),
-          offset);
+          site.name().startOffset(),
+          site.name().endOffset());
     }
     List<RankedCompletion> result = new ArrayList<>();
     boolean constructors =
@@ -241,59 +246,86 @@ final class CompletionEngine {
   }
 
   private static List<Completion> memberCompletions(
-      SemanticModel model, String text, int dotOffset, boolean functionValueContext) {
-    int receiverEnd =
-        dotOffset > 0 && text.charAt(dotOffset - 1) == '?' ? dotOffset - 1 : dotOffset;
-    int start = receiverEnd;
-    while (start > 0 && Character.isUnicodeIdentifierPart(text.charAt(start - 1))) start--;
-    int identifierStart = start;
-    int receiverOffset = Math.max(0, receiverEnd - 1);
-    String receiverName = text.substring(identifierStart, receiverEnd);
+      SemanticModel model, MemberAccessSite site, boolean functionValueContext) {
+    String receiverName = site.receiver().text();
+    int scopeOffset = site.name().startOffset();
     Optional<Symbol> receiverSymbol =
-        identifierStart == receiverEnd
-            ? Optional.empty()
-            : model
-                .symbolAt(identifierStart)
+        LanguageSyntax.isIdentifier(receiverName)
+            ? model
+                .symbolOf(site.receiver())
                 .or(
                     () ->
-                        model.visibleSymbols(dotOffset).stream()
+                        model.visibleSymbols(scopeOffset).stream()
                             .filter(symbol -> symbol.name().equals(receiverName))
-                            .findFirst());
+                            .findFirst())
+            : Optional.empty();
     boolean typeReceiver =
-        receiverSymbol.isPresent() && receiverSymbol.orElseThrow().kind() == SymbolKind.TYPE;
-    List<Symbol> typeMembers = model.typeMembers(receiverName);
-    if (typeReceiver && !typeMembers.isEmpty()) {
-      return symbolCompletions(typeMembers.stream(), functionValueContext);
-    }
+        receiverSymbol.map(symbol -> symbol.kind() == SymbolKind.TYPE).orElse(false);
+    List<Symbol> typeMembers = typeReceiver ? model.typeMembers(receiverName) : List.of();
     Optional<SemanticType> receiverType =
-        identifierStart > 0 && text.charAt(identifierStart - 1) == '.'
-            ? model.typeAt(receiverOffset).or(() -> receiverSymbol.map(Symbol::type))
-            : receiverSymbol
-                .map(Symbol::type)
-                .or(() -> model.typeAt(receiverOffset))
-                .or(
-                    () -> {
-                      if (identifierStart == receiverEnd) return Optional.empty();
-                      return model
-                          .typeAt(identifierStart)
-                          .or(() -> model.symbolAt(identifierStart).map(Symbol::type));
-                    });
-    if (receiverType.isEmpty()) return List.of();
-    SemanticType type = receiverType.orElseThrow();
-    List<Symbol> members = model.members(type);
+        model
+            .typeOf(site.receiver())
+            .or(() -> receiverSymbol.map(Symbol::type))
+            .or(() -> model.typeAt(site.receiver().endOffset() - 1));
+    if (receiverType.isEmpty() && typeMembers.isEmpty()) return List.of();
+    List<Symbol> members =
+        !typeMembers.isEmpty() ? typeMembers : model.members(receiverType.orElseThrow());
     Set<String> memberNames =
         members.stream().map(Symbol::name).collect(java.util.stream.Collectors.toSet());
     Stream<Symbol> extensions =
-        functionValueContext
+        functionValueContext || typeReceiver || receiverType.isEmpty()
             ? Stream.empty()
-            : model.visibleSymbols(dotOffset).stream()
+            : model.visibleSymbols(scopeOffset).stream()
                 .flatMap(symbol -> model.callableAlternatives(symbol).stream())
                 .filter(symbol -> symbol.kind() == SymbolKind.EXTENSION)
                 .filter(symbol -> !symbol.parameters().isEmpty())
                 .filter(symbol -> !memberNames.contains(symbol.name()))
-                .flatMap(symbol -> model.specializeReceiver(symbol, type).stream())
+                .flatMap(
+                    symbol -> model.specializeReceiver(symbol, receiverType.orElseThrow()).stream())
                 .map(CompletionEngine::extensionMember);
-    return symbolCompletions(Stream.concat(members.stream(), extensions), functionValueContext);
+    Stream<Symbol> candidates = Stream.concat(members.stream(), extensions);
+    if (site.form() == MemberAccessSite.Form.BLOCK_CONTINUATION) {
+      return symbolCompletions(
+          candidates
+              .map(SymbolPresentation::property)
+              .map(symbol -> callable(symbol) ? symbol : SymbolPresentation.callable(symbol))
+              .filter(symbol -> trailingParameter(symbol).isPresent()),
+          symbol -> blockCompletion(symbol, site.openingBlock().isPresent()));
+    }
+    return symbolCompletions(candidates, functionValueContext);
+  }
+
+  private static Optional<ParameterInfo> trailingParameter(Symbol symbol) {
+    if (!callable(symbol) && symbol.kind() != SymbolKind.FUNCTION) return Optional.empty();
+    int trailing = ParameterInfo.trailingIndex(symbol.parameters()).orElse(-1);
+    if (trailing < 0) return Optional.empty();
+    for (int index = 0; index < symbol.parameters().size(); index++)
+      if (index != trailing && !symbol.parameters().get(index).hasDefault())
+        return Optional.empty();
+    return Optional.of(symbol.parameters().get(trailing));
+  }
+
+  private static Completion blockCompletion(Symbol symbol, boolean hasBlock) {
+    String header = "";
+    var parameter = trailingParameter(symbol).orElseThrow();
+    if (!hasBlock
+        && parameter.callbackParameterNames().isEmpty()
+        && !parameter.type().functionParameterTypes().isEmpty()) {
+      header =
+          " "
+              + java.util.stream.IntStream.range(
+                      0, parameter.type().functionParameterTypes().size())
+                  .mapToObj(index -> "${" + (index + 1) + ":arg" + (index + 1) + "}")
+                  .collect(java.util.stream.Collectors.joining(", "))
+              + " in";
+    }
+    return new Completion(
+        symbol.name(),
+        CompletionKind.METHOD,
+        SymbolPresentation.signature(symbol),
+        symbol.documentation(),
+        hasBlock ? symbol.name() : symbol.name() + " {" + header + "\n  ${0}\n}",
+        !hasBlock);
   }
 
   private static Symbol extensionMember(Symbol extension) {
@@ -315,18 +347,25 @@ final class CompletionEngine {
 
   private static List<Completion> symbolCompletions(
       Stream<Symbol> symbols, boolean functionValueContext) {
+    return symbolCompletions(
+        symbols
+            .map(SymbolPresentation::property)
+            .filter(symbol -> !functionValueContext || callable(symbol)),
+        functionValueContext
+            ? CompletionEngine::functionValueCompletion
+            : CompletionEngine::completion);
+  }
+
+  private static List<Completion> symbolCompletions(
+      Stream<Symbol> symbols, Function<Symbol, Completion> render) {
     Map<String, Completion> unique = new LinkedHashMap<>();
     symbols
-        .map(SymbolPresentation::property)
-        .filter(symbol -> !functionValueContext || callable(symbol))
         .sorted(
             Comparator.comparing(Symbol::name)
                 .thenComparingInt(symbol -> symbol.parameters().size()))
         .forEach(
             symbol ->
-                unique.putIfAbsent(
-                    symbol.kind() + "\u0000" + symbol.name(),
-                    functionValueContext ? functionValueCompletion(symbol) : completion(symbol)));
+                unique.putIfAbsent(symbol.kind() + "\u0000" + symbol.name(), render.apply(symbol)));
     return List.copyOf(unique.values());
   }
 

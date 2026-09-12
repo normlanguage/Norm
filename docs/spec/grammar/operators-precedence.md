@@ -29,3 +29,5 @@ Integer total = base + quantity * price
 
 `&&`、`||` 和 `??` 从左到右求值并短路。赋值不是普通值表达式，不能写在条件中。存在歧义或读者需要反推优先级时，应使用括号。
 
+
+[块调用链](/spec/grammar/functions-advanced#块调用链)沿用普通 postfix 成员调用的优先级与左结合，不引入中缀运算符。

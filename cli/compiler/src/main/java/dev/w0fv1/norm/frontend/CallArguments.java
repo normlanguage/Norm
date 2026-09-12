@@ -24,15 +24,10 @@ final class CallArguments {
           call.span());
     }
     List<Integer> result = new ArrayList<>();
-    int trailingParameter = -1;
-    if (call.arguments().stream().anyMatch(Syntax.CallArgument::trailing)) {
-      for (int candidate = parameters.size() - 1; candidate >= 0; candidate--) {
-        if (parameters.get(candidate).type().isFunction()) {
-          trailingParameter = candidate;
-          break;
-        }
-      }
-    }
+    int trailingParameter =
+        call.arguments().stream().anyMatch(Syntax.CallArgument::trailing)
+            ? ParameterInfo.trailingIndex(parameters).orElse(-1)
+            : -1;
     boolean[] supplied = new boolean[parameters.size()];
     for (int index = 0; index < call.arguments().size(); index++) {
       Syntax.CallArgument argument = call.arguments().get(index);

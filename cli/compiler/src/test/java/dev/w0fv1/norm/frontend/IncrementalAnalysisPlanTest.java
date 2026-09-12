@@ -13,6 +13,59 @@ import org.junit.jupiter.api.Test;
 
 final class IncrementalAnalysisPlanTest {
   @Test
+  void invalidatesChainLineEditsAndOnlyTheirDependents() {
+    String declarations =
+        "class Chain { Integer finish(Integer work()) { work() + 100 } } "
+            + "Chain produce(Integer work()) { work(); Chain() } "
+            + "Integer finish(Integer work()) { work() + 200 } "
+            + "Integer stable() { 9 } ";
+    for (String separator : List.of("\n", "\r\n", "\r")) {
+      String separate =
+          declarations
+              + "Integer run() { produce { 1 }"
+              + separator
+              + "finish { 2 } } Void main() { printLine(run()) }";
+      String chained =
+          declarations
+              + "Integer run() { produce { 1 } finish { 2 } } "
+              + "Void main() { printLine(run()) }";
+      try (CompilerSession session = new CompilerSession()) {
+        for (String text : List.of(separate, chained, separate, chained)) {
+          var before = session.snapshot(SourceFile.of(Path.of("chain.norm"), text));
+          assertTrue(!before.analysis().hasErrors(), () -> before.diagnostics().toString());
+          var after =
+              SourceParser.parse(
+                  SourceFile.of(Path.of("chain.norm"), text.equals(separate) ? chained : separate));
+          var plan = IncrementalAnalysisPlan.create(before, List.of(after));
+          assertEquals(2, plan.analyzedDeclarations());
+          assertEquals(4, plan.reusedDeclarations());
+        }
+      }
+    }
+  }
+
+  @Test
+  void reusesChainDeclarationsWhenOnlyNonsemanticWhitespaceChanges() {
+    String text =
+        "class Chain { Integer finish(Integer work()) { work() } } "
+            + "Chain produce(Integer work()) { work(); Chain() } "
+            + "Integer run() { produce { 1 } finish { 2 } } Void main() { printLine(run()) }";
+    try (CompilerSession session = new CompilerSession()) {
+      var before = session.snapshot(SourceFile.of(Path.of("chain.norm"), text));
+      assertTrue(!before.analysis().hasErrors(), () -> before.diagnostics().toString());
+      var after =
+          SourceParser.parse(
+              SourceFile.of(
+                  Path.of("chain.norm"),
+                  "\r\n\r\n"
+                      + text.replace("produce { 1 } finish", "produce {\r\n  1\r\n}\tfinish")));
+      var plan = IncrementalAnalysisPlan.create(before, List.of(after));
+      assertEquals(0, plan.analyzedDeclarations());
+      assertEquals(4, plan.reusedDeclarations());
+    }
+  }
+
+  @Test
   void reusesDeclarationsAcrossWhitespaceOnlyEdits() {
     SourceFile first =
         SourceFile.of(

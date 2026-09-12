@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.source.SourceSpan;
+import dev.w0fv1.norm.syntax.BlockCallChainSyntax;
 import dev.w0fv1.norm.syntax.CollectionElement;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
@@ -1139,6 +1140,17 @@ final class Parser {
         }
         arguments.add(new Syntax.CallArgument(Optional.empty(), lambda, true, lambda.span()));
         expression = new Syntax.Call(callee, arguments, expression.span().cover(lambda.span()));
+      } else if (expressionDepth != trailingLambdaBoundary
+          && expression instanceof Syntax.Call call
+          && !call.arguments().isEmpty()
+          && call.arguments().getLast().trailing()
+          && call.arguments().getLast().value().span().endOffset() == previous().span().endOffset()
+          && call.span().endOffset() == previous().span().endOffset()
+          && BlockCallChainSyntax.isHead(tokens, current)) {
+        Token name = advance();
+        expression =
+            new Syntax.Member(
+                expression, name.value(), name.span(), expression.span().cover(name.span()));
       } else if (match(TokenKind.DOT, TokenKind.QUESTION_DOT)) {
         boolean nullSafe = previous().kind() == TokenKind.QUESTION_DOT;
         Token name;

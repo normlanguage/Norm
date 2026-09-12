@@ -11,6 +11,70 @@ final class SourceFormatterTest {
   private final SourceFormatter formatter = new SourceFormatter();
 
   @Test
+  void canonicalizesOnlyCompleteBlockCallsAndKeepsStatementsSeparate() {
+    String expected =
+        """
+        Void main() {
+          produce {
+            1
+          } map { item in
+            item
+          } finish {
+            result
+          }
+        }
+        """;
+    assertFormats("Void main() { produce { 1 }.map { item in item }.finish { result } }", expected);
+    assertFormats("Void main() { produce { 1 } map { item in item } finish { result } }", expected);
+    assertFormats(
+        "Void main() { produce { 1 }\n.map { item in item }\n.finish { result } }", expected);
+    assertFormats(
+        "Void main() { first {}; second {} }",
+        """
+        Void main() {
+          first {
+
+          }
+          second {
+
+          }
+        }
+        """);
+  }
+
+  @Test
+  void retainsExplicitDotsOutsideTheBlockCallContract() {
+    for (String call :
+        java.util.List.of(
+            "produce().map {}",
+            "produce {}.map<Integer> {}",
+            "produce {}.map(option: value) {}",
+            "produce {}?.map {}",
+            "produce {}.map",
+            "produce {}[0].map {}")) {
+      String formatted =
+          formatter
+              .format(SourceFile.of(Path.of("chain.norm"), "Void main() { " + call + " }"))
+              .orElseThrow();
+      assertTrue(formatted.contains(".map"), formatted);
+      assertEquals(
+          formatted,
+          formatter.format(SourceFile.of(Path.of("chain.norm"), formatted)).orElseThrow());
+    }
+  }
+
+  @Test
+  void neverBreaksTheBlockConnectionHeaderEvenBeyondTheLineWidth() {
+    String name = "map".repeat(40);
+    String text = "Void main() { if (produce {}." + name + " {}) {} }";
+    String formatted = formatter.format(SourceFile.of(Path.of("chain.norm"), text)).orElseThrow();
+    assertTrue(formatted.contains("} " + name + " {"), formatted);
+    assertTrue(formatted.contains("if (produce"), formatted);
+    assertEquals(
+        formatted, formatter.format(SourceFile.of(Path.of("chain.norm"), formatted)).orElseThrow());
+  }
+
+  @Test
   void breaksCollectionBranchesAroundMultilineComponents() {
     assertFormats(
         "Widget build(){[if(empty) Text(\"空\") else Scroll(Column([Button(\"添加\"){add()}]))]}",

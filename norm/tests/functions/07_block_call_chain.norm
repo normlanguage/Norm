@@ -1,0 +1,24 @@
+import std.io.printLines
+import std.testing.expectedOutputLines
+
+class Box<T> {
+  T value
+  Box<R> map<R>(R transform(T result)) { Box<R>(value: transform(value)) }
+}
+
+Box<T> produce<T>(T work()) { Box<T>(value: work()) }
+
+extension Integer finish<T>(Box<T> box, Integer action(T result)) {
+  action(box.value)
+}
+
+Integer finish(Integer work()) { work() + 200 }
+
+Void main() {
+  var answer = produce { 21 } map { result * 2 } finish { item in item + 1 }
+  printLines([answer])
+  produce { 1 }
+  finish { printLines(["independent"]); 2 }
+  printLines([produce<Integer> { 2 } map { result.toString() }.value])
+  expectedOutputLines(["43", "independent", "2"])
+}

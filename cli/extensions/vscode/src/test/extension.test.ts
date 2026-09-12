@@ -4,6 +4,114 @@ import { cliInvocation } from '../cli-command';
 import { ProcessTerminal } from '../process-terminal';
 
 suite('Norm VS Code extension', () => {
+  const blockChainDeclarations = `class Box<T> {
+  T value
+  Box<R> map<R>(R transform(T result)) { Box<R>(value: transform(value)) }
+}
+Box<T> produce<T>(T work()) { Box<T>(value: work()) }
+`;
+
+  test('block call chain completes members without virtual dots or duplicate blocks', async () => {
+    const source = blockChainDeclarations + 'Void main() { produce { 1 } ma }';
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
+    const editor = await vscode.window.showTextDocument(document);
+    const position = document.positionAt(source.lastIndexOf('ma }') + 2);
+    const completion = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider', document.uri, position,
+      );
+      return value?.items.find((item) => labelOf(item) === 'map');
+    });
+    const inserted = completionText(completion.insertText);
+    assert.ok(inserted);
+    assert.ok(inserted.startsWith('map {'));
+    assert.ok(!inserted.includes('.'));
+    const range = completion.range instanceof vscode.Range ? completion.range : completion.range?.replacing;
+    assert.ok(range);
+    assert.equal(document.getText(range), 'ma');
+    assert.ok(await editor.insertSnippet(new vscode.SnippetString(inserted), range));
+    assert.ok(await editor.edit((edit) => edit.insert(editor.selection.active, 'result + 1')));
+    assert.ok(document.getText().includes('} map {'));
+    const typed = await eventually(async () => {
+      const text = document.getText();
+      const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider', document.uri, document.positionAt(text.lastIndexOf('result + 1')),
+      );
+      const value = hovers?.flatMap((hover) => hover.contents).map(hoverText).join(' ');
+      return value?.includes('Integer result') ? value : undefined;
+    });
+    assert.ok(typed.includes('Integer'));
+
+    const existing = blockChainDeclarations + 'Void main() { produce { 1 } mapp { result + 1 } }';
+    await replaceDocumentWithoutSave(document, existing);
+    const replacement = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.CompletionList>(
+        'vscode.executeCompletionItemProvider', document.uri, document.positionAt(existing.lastIndexOf('mapp') + 2),
+      );
+      return value?.items.find((item) => labelOf(item) === 'map');
+    });
+    assert.equal(completionText(replacement.insertText), 'map');
+    const replaced = replacement.range instanceof vscode.Range ? replacement.range : replacement.range?.replacing;
+    assert.ok(replaced);
+    assert.equal(document.getText(replaced), 'mapp');
+  });
+
+  test('block call chain provides callback signatures and real member navigation', async () => {
+    const source = blockChainDeclarations
+      + 'Void main() { produce { 1 } map { result.toString() } map { result.trim() } }';
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: source });
+    await vscode.window.showTextDocument(document);
+    const signature = await eventually(async () => {
+      const value = await vscode.commands.executeCommand<vscode.SignatureHelp>(
+        'vscode.executeSignatureHelpProvider', document.uri, document.positionAt(source.lastIndexOf('result.trim')),
+      );
+      return value?.signatures[0]?.label.includes('map') ? value : undefined;
+    });
+    assert.equal(signature.activeParameter, 0);
+    assert.ok(signature.signatures[0].label.includes('String'));
+    const position = document.positionAt(source.lastIndexOf('map {'));
+    const definitions = await vscode.commands.executeCommand<vscode.Location[]>(
+      'vscode.executeDefinitionProvider', document.uri, position,
+    );
+    assert.equal(document.getText(definitions[0].range), 'map');
+    assert.equal(document.offsetAt(definitions[0].range.start), source.indexOf('map<R>'));
+    const rename = await vscode.commands.executeCommand<vscode.WorkspaceEdit>(
+      'vscode.executeDocumentRenameProvider', document.uri, position, 'transform',
+    );
+    assert.equal(rename.get(document.uri).length, 3);
+    assert.ok(rename.get(document.uri).every((edit) => document.getText(edit.range) === 'map'));
+    assert.ok(await vscode.workspace.applyEdit(rename));
+    assert.equal(document.getText().split('} transform {').length - 1, 2);
+  });
+
+  test('block call chain preserves newline meaning through editor updates and formatting', async () => {
+    const declarations = `class Chain { Integer finish(Integer work()) { work() + 100 } }
+Chain produce(Integer work()) { work(); Chain() }
+Integer finish(Integer work()) { work() + 200 }
+`;
+    const document = await vscode.workspace.openTextDocument({ language: 'norm', content: declarations + 'Void main() {}' });
+    await vscode.window.showTextDocument(document);
+    for (const separator of [' ', '\n', ' ', '\n']) {
+      const source = declarations + 'Void main() { produce { 1 }' + separator + 'finish { 2 } }';
+      await replaceDocumentWithoutSave(document, source);
+      const expected = separator === ' ' ? source.indexOf('finish(') : source.lastIndexOf('finish(');
+      const definition = await eventually(async () => {
+        const value = await vscode.commands.executeCommand<vscode.Location[]>(
+          'vscode.executeDefinitionProvider', document.uri, document.positionAt(source.lastIndexOf('finish {')),
+        );
+        return value?.[0] && document.offsetAt(value[0].range.start) === expected ? value[0] : undefined;
+      });
+      assert.equal(document.getText(definition.range), 'finish');
+      const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+        'vscode.executeFormatDocumentProvider', document.uri, { tabSize: 2, insertSpaces: true },
+      );
+      const edit = new vscode.WorkspaceEdit();
+      edit.set(document.uri, edits);
+      assert.ok(await vscode.workspace.applyEdit(edit));
+      assert.equal(document.getText().includes('} finish {'), separator === ' ');
+    }
+  });
+
   test('formats declarative component trees without excess indentation', async () => {
     const document = await vscode.workspace.openTextDocument({
       language: 'norm',

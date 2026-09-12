@@ -5,8 +5,8 @@
 `std.concurrent.async` 在当前 `TaskScope` 中提交有返回值或 Void 工作；没有作用域时拒绝提交。`TaskScope.start` 由宿主实现，负责执行器与生命周期接入，标准库不依赖 UI。组件绑定该上下文后沿用 UI 队列、任务取消及清理屏障；无作用域的独立工作使用 `startTask`。标准库契约见 [AsyncExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/AsyncExecutionTest.java)。
 
 ```norm
-var task = startTask { 20 }.then { result * 2 }.then { result + 2 }
-var handled = task.then { printLine(result) }.error { printLine(failure.message) }
+var task = startTask { 20 } then { result * 2 } then { result + 2 }
+var handled = task.then { printLine(result) } error { printLine(failure.message) }
 ```
 
 `startTask` 提交虚拟线程工作后立即返回；Void 工作以 Unit 表示完成。`then` 在前一阶段成功后处理结果，`error` 处理前一阶段失败，包括成功回调抛出的异常。每次注册均返回独立的后续任务，注册不会在调用栈内执行回调。返回值重载保留精确结果类型，Void 回调产生 Unit；返回另一个 Task 时保留该返回类型，不自动展开嵌套任务。

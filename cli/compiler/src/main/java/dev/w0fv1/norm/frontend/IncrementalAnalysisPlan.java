@@ -5,6 +5,7 @@ import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceLocation;
 import dev.w0fv1.norm.source.SourceSpan;
+import dev.w0fv1.norm.syntax.BlockCallChainSyntax;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -165,9 +166,13 @@ record IncrementalAnalysisPlan(
   }
 
   private static List<TokenShape> structure(List<Token> tokens) {
-    return tokens.stream()
-        .map(token -> new TokenShape(token.kind().name(), token.lexeme()))
-        .toList();
+    List<TokenShape> structure = new ArrayList<>(tokens.size());
+    for (int index = 0; index < tokens.size(); index++) {
+      Token token = tokens.get(index);
+      structure.add(
+          new TokenShape(token.kind(), token.lexeme(), BlockCallChainSyntax.isHead(tokens, index)));
+    }
+    return List.copyOf(structure);
   }
 
   private static Map<String, DeclarationRef> byKey(List<DeclarationRef> declarations) {
@@ -232,7 +237,7 @@ record IncrementalAnalysisPlan(
     }
   }
 
-  private record TokenShape(String kind, String lexeme) {}
+  private record TokenShape(TokenKind kind, String lexeme, boolean blockContinuation) {}
 
   private record DocumentContext(String packageName, List<ImportContext> imports) {
     private DocumentContext {

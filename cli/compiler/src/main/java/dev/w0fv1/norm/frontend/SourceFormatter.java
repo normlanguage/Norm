@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.AstNode;
 import dev.w0fv1.norm.syntax.CollectionElement;
+import dev.w0fv1.norm.syntax.LanguageSyntax;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
@@ -601,9 +602,22 @@ public final class SourceFormatter {
   private Doc call(Syntax.Call call) {
     var trailing = call.arguments().stream().filter(Syntax.CallArgument::trailing).findFirst();
     var arguments = call.arguments().stream().filter(value -> !value.trailing()).toList();
+    Doc callee =
+        arguments.isEmpty()
+                && trailing.isPresent()
+                && call.callee() instanceof Syntax.Member member
+                && !member.nullSafe()
+                && member.typeArguments().isEmpty()
+                && LanguageSyntax.isIdentifier(member.name())
+                && member.receiver() instanceof Syntax.Call receiver
+                && !receiver.arguments().isEmpty()
+                && receiver.arguments().getLast().trailing()
+            ? Docs.concat(
+                expression(member.receiver(), 9, false, null), Docs.text(" " + member.name()))
+            : expression(call.callee(), 9, false, null);
     Doc regular =
         Docs.concat(
-            expression(call.callee(), 9, false, null),
+            callee,
             arguments.isEmpty() && trailing.isPresent()
                 ? Docs.empty()
                 : arguments.size() == 1
