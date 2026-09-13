@@ -5,8 +5,8 @@ import dev.w0fv1.norm.application.TemporaryDirectory;
 import dev.w0fv1.norm.jvm.JavaDirectCallBundle;
 import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
-import dev.w0fv1.norm.runtime.NativeApplicationArchive;
-import dev.w0fv1.norm.runtime.NativeApplicationData;
+import dev.w0fv1.norm.runtime.ApplicationProgramArchive;
+import dev.w0fv1.norm.runtime.ApplicationProgramData;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -73,8 +73,8 @@ final class NativeApplicationExecutable {
               + bindings.stream().mapToInt(binding -> binding.calls().size()).sum()
               + " Java calls retained"
               + (plan.dynamicBindingLookup() ? " (dynamic binding lookup)" : ""));
-      NativeApplicationArchive.write(
-          new NativeApplicationData(retained, execution, bindings, plan.packageName()), archive);
+      ApplicationProgramArchive.write(
+          new ApplicationProgramData(retained, execution, bindings, plan.packageName()), archive);
       var configuration =
           new NativeImageConfigurationWriter()
               .write(compilation, bindings, staging.resolve("native-image"));

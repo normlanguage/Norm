@@ -63,6 +63,11 @@ public final class JvmJarBindingRuntime
     return new JvmJarBindingRuntime(bindings, JvmJarBindingRuntime.class.getClassLoader(), false);
   }
 
+  public static JvmJarBindingRuntime prepared(
+      List<LinkedJarBinding> bindings, List<Path> classpath) {
+    return new JvmJarBindingRuntime(bindings, applicationClassLoader(classpath), true);
+  }
+
   public static JvmJarBindingRuntime closedWorld(
       List<LinkedJarBinding> bindings, Map<String, JavaDirectCall> directCalls) {
     return closedWorld(
@@ -170,6 +175,10 @@ public final class JvmJarBindingRuntime
         .map(Path::normalize)
         .forEach(paths::add);
     classpath.paths().forEach(paths::add);
+    return applicationClassLoader(paths);
+  }
+
+  private static ClassLoader applicationClassLoader(java.util.Collection<Path> paths) {
     URL[] urls =
         paths.stream()
             .map(

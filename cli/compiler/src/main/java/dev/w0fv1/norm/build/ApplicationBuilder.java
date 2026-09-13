@@ -54,7 +54,7 @@ public final class ApplicationBuilder {
                   BuildProgress.Stage.JVM_PACKAGING, "Packaging JVM executable: " + output));
           try (var staging = new TemporaryDirectory()) {
             Path bundle = staging.path().resolve("application.zip");
-            new ApplicationBundleWriter().write(application.sourceSet(), bundle);
+            new ApplicationBundleWriter().write(application, bundle);
             new WindowsApplicationExecutable().write(launcher.orElseThrow(), bundle, output);
           }
         }
@@ -62,7 +62,7 @@ public final class ApplicationBuilder {
           progress.accept(
               new BuildProgress(
                   BuildProgress.Stage.NATIVE_BUILD, "Building native executable: " + output));
-          var plan = NativeBuildPlanner.plan(application);
+          var plan = NativeBuildPlan.from(application);
           nativeBuild.write(
               plan,
               output,

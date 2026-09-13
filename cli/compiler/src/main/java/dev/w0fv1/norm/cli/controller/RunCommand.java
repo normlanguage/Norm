@@ -15,12 +15,13 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 final class RunCommand implements Command {
   @Override
   public String usage() {
-    return "norm run <file.norm|module-directory>";
+    return "norm run [--debug] <file.norm|module-directory>";
   }
 
   @Override
@@ -35,6 +36,8 @@ final class RunCommand implements Command {
 
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
+    arguments = new ArrayList<>(arguments);
+    boolean debug = arguments.remove("--debug");
     if (arguments.size() != 1) {
       err.println(
           "error[NORM-CLI-0003]: 'run' expects exactly one source file or module directory");
@@ -52,23 +55,47 @@ final class RunCommand implements Command {
     }
 
     CompilationResult result;
+    String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
+    java.util.function.Consumer<String> progress =
+        debug && (applicationBundle == null || applicationBundle.isBlank())
+            ? new CommandProgress("run", err)
+            : message -> {};
     try {
-      NormRuntime backend = new NormRuntime();
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
-      String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
-      try (var launcher =
-          applicationBundle == null || applicationBundle.isBlank()
-              ? ApplicationRunner.persistent(environment)
-              : ApplicationRunner.bundled(environment, Path.of(applicationBundle))) {
+      if (applicationBundle != null && !applicationBundle.isBlank()) {
+        Path bundle = Path.of(applicationBundle);
         ExecutionContext context = ExecutionContext.of(out, JdkSystemPlatform.standard());
-        if (applicationBundle != null && !applicationBundle.isBlank()) {
-          String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
-          if (executable != null && !executable.isBlank())
-            context =
-                context.withApplicationDirectory(
-                    Path.of(executable).toAbsolutePath().normalize().getParent());
+        String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
+        if (executable != null && !executable.isBlank())
+          context =
+              context.withApplicationDirectory(
+                  Path.of(executable).toAbsolutePath().normalize().getParent());
+        dev.w0fv1.norm.runtime.PreparedApplication.read(bundle).execute(bundle, context);
+        return ExitCode.SUCCESS;
+      }
+      progress.accept("Checking prepared application");
+      var cache =
+          new dev.w0fv1.norm.application.PreparedApplicationCache(
+              Path.of(System.getProperty("user.home"), ".norm", "cache", "applications"));
+      var prepared = cache.read(entry);
+      if (prepared.content().isPresent()) {
+        progress.accept("Reused prepared application");
+        try (var workspace = new dev.w0fv1.norm.application.TemporaryDirectory()) {
+          var application = prepared.content().orElseThrow().prepare(workspace.path());
+          progress.accept("Starting application");
+          application.execute(
+              workspace.path(),
+              ExecutionContext.of(out, JdkSystemPlatform.standard())
+                  .withApplicationDirectory(entry.toAbsolutePath().normalize().getParent()));
         }
-        result = launcher.run(entry, context);
+        return ExitCode.SUCCESS;
+      }
+      progress.accept("Initializing compiler");
+      NormRuntime backend = new NormRuntime();
+      ProjectEnvironment environment = ProjectEnvironment.persistent(backend);
+      try (var launcher = ApplicationRunner.persistent(environment, progress)) {
+        launcher.replayModules(prepared.modules());
+        ExecutionContext context = ExecutionContext.of(out, JdkSystemPlatform.standard());
+        result = launcher.run(entry, context, progress, cache);
       }
     } catch (IOException exception) {
       err.printf(

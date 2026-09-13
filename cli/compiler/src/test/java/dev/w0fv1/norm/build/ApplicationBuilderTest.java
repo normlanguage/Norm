@@ -113,13 +113,11 @@ final class ApplicationBuilderTest {
         com.google.gson.JsonParser.parseString(
                 Files.readString(extracted.resolve("application.json")))
             .getAsJsonObject();
-    assertEquals(1, descriptor.get("formatVersion").getAsInt());
-    Path bundledSource = extracted.resolve(descriptor.get("entry").getAsString());
+    assertEquals(2, descriptor.get("formatVersion").getAsInt());
+    assertEquals("application.bin", descriptor.get("entry").getAsString());
     var text = new StringWriter();
-    try (var bundled = ApplicationRunner.bundled(environment, extracted)) {
-      var execution = bundled.run(bundledSource, ExecutionContext.of(new PrintWriter(text)));
-      assertTrue(execution.isSuccess(), execution.diagnostics().toString());
-    }
+    dev.w0fv1.norm.runtime.PreparedApplication.read(extracted)
+        .execute(extracted, ExecutionContext.of(new PrintWriter(text)));
     assertEquals("captured" + System.lineSeparator(), text.toString());
     assertTrue(runner.compile(source).isSuccess());
   }

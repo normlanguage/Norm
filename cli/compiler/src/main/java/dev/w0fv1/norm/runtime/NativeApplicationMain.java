@@ -55,7 +55,7 @@ public final class NativeApplicationMain {
   }
 
   static void install(
-      NativeApplicationData value,
+      ApplicationProgramData value,
       PreparedExecution prepared,
       java.util.Map<String, JavaDirectCall> calls,
       LinkedJavaClasses classes,

@@ -31,7 +31,7 @@ public sealed class RuntimeLauncherTest : IDisposable
         File.WriteAllText(
             Path.Combine(bin, "launcher.json"),
             """{"module":"norm/main","jvmArguments":[]}""");
-        EmbeddedApplication application = new(Path.Combine(root, "application"), Path.Combine(root, "application", "source", "web.norm"));
+        EmbeddedApplication application = new(Path.Combine(root, "application"), Path.Combine(root, "application", "application.bin"));
 
         ProcessStartInfo start = RuntimeLauncher.CreateApplicationStartInfo(root, application);
 

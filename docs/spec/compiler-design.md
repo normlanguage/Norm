@@ -46,7 +46,7 @@ Bound 的实现存在性与源码一致；纯声明转换为 Core `MethodSignatu
 
 `ApplicationCompiler` 返回可关闭的 `ApplicationCompilation`。成功结果中的 `CompiledApplication` 拥有临时目录、选定并捕获的 Java classpath、注解处理产物和执行计划；每次执行独立打开运行资源。编译器或 runner 关闭不使已交付应用失效，应用调用方负责关闭产物。Java 方法索引由注解处理阶段产生一次，运行、测试与 Native 构建复用同一结果。入口见 [application](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/main/java/dev/w0fv1/norm/application)。
 
-应用交付使用 [`ApplicationBuilder`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/ApplicationBuilder.java)，借用调用方的 `ApplicationRunner`，关闭本次编译产物和 staging，只返回交付位置或编译诊断。Native 保留决策由 [`NativeBuildPlanner`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/NativeBuildPlanner.java) 产生；原始应用与 retained artifact 各自使用匹配的执行计划。构建不重新进行项目编译或注解处理，生命周期与归档验证见 [`build` 测试](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/build)。
+应用交付使用 [`ApplicationBuilder`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/ApplicationBuilder.java)，借用调用方的 `ApplicationRunner`，关闭本次编译产物和 staging，只返回交付位置或编译诊断。应用执行保留决策由 [`ApplicationProgramPlan`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationProgramPlan.java) 产生；原始应用与 retained artifact 各自使用匹配的执行计划。构建不重新进行项目编译或注解处理，生命周期与归档验证见 [`build` 测试](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/build)。
 
 `ProjectResources` 以模块归属和资源内容定义值相等，并派生 classpath 资源视图；应用缓存复用遵循完整输入的值语义，生命周期约束见 [PolyglotProjectTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/polyglot/PolyglotProjectTest.java)。打包读取捕获的资源，不重新扫描工作目录。模块归档和 JAR 通过 `FileSnapshot` 校验内容身份，复制后复验，拒绝为变化后的文件沿用旧身份。归档与发布约束见[应用构建](/tooling/application-build)。
 
@@ -114,6 +114,6 @@ guest 运行错误在 Truffle 节点处携带稳定错误码和 `SourceSection`�
 
 [DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java) 是可执行的包边界与无环依赖约束。
 
-[NativeApplicationArchiveTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/runtime/NativeApplicationArchiveTest.java) 在 classpath 与发行模块路径下验证原生应用归档的写入、读取和执行。
+[ApplicationProgramArchiveTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/runtime/ApplicationProgramArchiveTest.java) 在 classpath 与发行模块路径下验证原生应用归档的写入、读取和执行。
 
 身份测试覆盖源码移动、泛型 alpha rename、显式与推断类型实参、模块版本、名义类型、声明重排、递归 SCC、类型依赖传播和 authoring occurrence 路由。存储测试覆盖准入策略、只读校验、损坏恢复、并发发布、并发清理与跨实例读取。边界测试覆盖 Core 类型与操作 ABI、namespace shape 和重复 group；后端测试覆盖 Core-only 依赖、DefinitionId 枚举身份、artifact 复用、独立执行上下文、Polyglot 入口、源码位置和 guest 调用栈。

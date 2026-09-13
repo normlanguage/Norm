@@ -1,9 +1,6 @@
 package dev.w0fv1.norm.project;
 
 import dev.w0fv1.norm.execution.ExecutionBackend;
-import dev.w0fv1.norm.execution.ExecutionContext;
-import dev.w0fv1.norm.execution.ModulePublisher;
-import dev.w0fv1.norm.execution.NormExecutionException;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.LanguageProfile;
@@ -100,26 +97,53 @@ final class ModuleEvaluator implements AutoCloseable {
           """);
   private final CompilerSession compiler;
   private final ExecutionBackend backend;
+  private final java.util.ArrayList<ModuleEvaluation> evaluations = new java.util.ArrayList<>();
+  private final java.util.Map<DocumentId, ModuleEvaluation> replayed =
+      new java.util.LinkedHashMap<>();
+
+  void replay(List<ModuleEvaluation> values) {
+    for (var value : values) replayed.put(value.source().id(), value);
+  }
+
+  List<ModuleEvaluation> evaluations() {
+    return List.copyOf(evaluations);
+  }
+
+  void clearEvaluations() {
+    evaluations.clear();
+  }
 
   ModuleEvaluator(LanguageProfile profile, ExecutionBackend backend) {
-    compiler = new CompilerSession(profile.moduleEvaluation(ENTRY.id()));
+    this(new CompilerSession(profile.moduleEvaluation(ENTRY.id())), backend);
+  }
+
+  private ModuleEvaluator(CompilerSession compiler, ExecutionBackend backend) {
+    this.compiler = compiler;
     this.backend = Objects.requireNonNull(backend, "backend");
   }
 
+  static ModuleEvaluator persistent(LanguageProfile profile, ExecutionBackend backend)
+      throws IOException {
+    return new ModuleEvaluator(
+        CompilerSession.persistent(profile.moduleEvaluation(ENTRY.id())), backend);
+  }
+
   ModuleDeclaration evaluate(SourceFile source) throws IOException {
+    var previous = replayed.remove(source.id());
+    if (previous != null && previous.source().text().equals(source.text())) {
+      evaluations.add(previous);
+      return previous.declaration();
+    }
     var result = compiler.compile(request(source));
     if (!result.isSuccess()) {
       throw new ModuleCompilationException(result.diagnostics());
     }
-    Publication publication = new Publication();
-    try {
-      backend.execute(
-          result.output().orElseThrow().artifact(), ExecutionContext.module(publication));
-      return publication.declaration();
-    } catch (IllegalArgumentException | IllegalStateException | NormExecutionException exception) {
-      throw new IOException(
-          "invalid " + source.displayName() + ": " + exception.getMessage(), exception);
-    }
+    var artifact = result.output().orElseThrow().artifact();
+    var evaluated =
+        ModuleEvaluation.evaluate(
+            source, artifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact), backend);
+    evaluations.add(evaluated);
+    return evaluated.declaration();
   }
 
   CompilationSnapshot snapshot(SourceFile source) {
@@ -145,24 +169,5 @@ final class ModuleEvaluator implements AutoCloseable {
   @Override
   public void close() {
     compiler.close();
-  }
-
-  private static final class Publication implements ModulePublisher {
-    private ModuleDeclaration declaration;
-
-    @Override
-    public void publish(ModuleDeclaration value) {
-      if (declaration != null) {
-        throw new IllegalStateException("module configuration produced more than one definition");
-      }
-      declaration = Objects.requireNonNull(value, "value");
-    }
-
-    ModuleDeclaration declaration() {
-      if (declaration == null) {
-        throw new IllegalStateException("module configuration did not produce a definition");
-      }
-      return declaration;
-    }
   }
 }

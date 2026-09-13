@@ -1,69 +1,66 @@
 package dev.w0fv1.norm.build;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
-import dev.w0fv1.norm.jvm.BundledJarGraphs;
-import dev.w0fv1.norm.project.ModulePackager;
+import dev.w0fv1.norm.application.ApplicationRunner;
+import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
+import dev.w0fv1.norm.runtime.PreparedApplication;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ApplicationBundleWriterTest {
   @Test
-  void bundlesCapturedResourcesWhenWorkingFilesChange(@TempDir Path root) throws Exception {
-    Path module = Files.createDirectories(root.resolve("sample"));
+  void bundlesCompiledDependenciesAndCapturedResources(@TempDir Path root) throws Exception {
+    Path app = Files.createDirectories(root.resolve("app"));
+    Path library = Files.createDirectories(root.resolve("dependencies/example/library"));
     Files.writeString(
-        module.resolve("module.norm"),
-        "Module module() { return module(name: \"sample\", version: 1) }");
-    Path entry = Files.writeString(module.resolve("main.norm"), "package sample Void main() {}");
-    Path resources = Files.createDirectories(module.resolve("resources"));
-    Path resource = Files.writeString(resources.resolve("value.txt"), "captured");
-    try (var projects = ProjectEnvironment.bootstrap(new NormRuntime()).projectLoader()) {
-      var snapshot = projects.load(entry);
-      Files.writeString(resource, "changed");
-      Files.writeString(resources.resolve("later.txt"), "new");
-      Path output = root.resolve("bundle");
-      Path bundled = new ApplicationBundleWriter().writeDirectory(snapshot, output);
-      assertEquals(
-          "captured", Files.readString(bundled.getParent().resolve("resources/value.txt")));
-      assertFalse(Files.exists(bundled.getParent().resolve("resources/later.txt")));
-    }
-  }
-
-  @Test
-  void rejectsChangedDependencyArchive(@TempDir Path root) throws Exception {
-    var environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    Path dependency = Files.createDirectories(root.resolve("library/sample/lib"));
-    Path module =
+        app.resolve("module.norm"),
+        """
+        Module module() { module(name: "app", version: 1, dependencies: [
+          dependency(repository: "github", name: "example.library", version: 1)
+        ]) }
+        """);
+    Path entry =
         Files.writeString(
-            dependency.resolve("module.norm"),
-            "Module module() { return module(name: \"sample.lib\", version: 1, exports: [\"Value\"]) }");
+            app.resolve("main.norm"),
+            """
+        package app
+        import example.library.value
+        Void main() { printLine(value()) }
+        """);
     Files.writeString(
-        dependency.resolve("Value.norm"),
-        "package sample.lib public Integer answer() { return 42 }");
-    Path bundle = root.resolve("input");
-    Path repository = bundle.resolve("packages");
-    BundledJarGraphs.write(bundle.resolve("jars"), List.of());
-    try (var projects = environment.projectLoader()) {
-      new ModulePackager(projects).packageModule(module, repository);
+        library.resolve("module.norm"),
+        """
+        Module module() { module(name: "example.library", version: 1, exports: ["value"]) }
+        """);
+    Path source =
+        Files.writeString(
+            library.resolve("value.norm"),
+            "package example.library public String value() { \"captured\" }");
+    Path resources = Files.createDirectories(library.resolve("resources"));
+    Path resource = Files.writeString(resources.resolve("value.txt"), "captured resource");
+    Path bundle = root.resolve("delivery");
+    try (var runner = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
+        var compiled = runner.compileApplication(entry)) {
+      assertTrue(compiled.result().isSuccess(), compiled.result().diagnostics().toString());
+      Files.writeString(source, "invalid source");
+      Files.writeString(resource, "changed resource");
+      Files.writeString(resources.resolve("later.txt"), "new resource");
+      new ApplicationBundleWriter().writeDirectory(compiled.application().orElseThrow(), bundle);
     }
-    Path application = Files.createDirectories(root.resolve("application/app"));
-    Path entry = Files.writeString(application.resolve("Main.norm"), "package app Void main() {}");
-    Files.writeString(
-        application.resolve("module.norm"),
-        "Module module() { return module(name: \"app\", version: 1, dependencies: [dependency(repository: \"github\", name: \"sample.lib\", version: 1)]) }");
-    try (var projects = environment.bundledProjectLoader(bundle)) {
-      var snapshot = projects.load(entry);
-      Files.writeString(repository.resolve("sample/lib/1/lib-1.nar"), "changed");
-      assertThrows(
-          java.io.IOException.class,
-          () -> new ApplicationBundleWriter().writeDirectory(snapshot, root.resolve("bundle")));
-    }
+    Files.delete(entry);
+    var output = new StringWriter();
+    PreparedApplication.read(bundle).execute(bundle, ExecutionContext.of(new PrintWriter(output)));
+    assertEquals("captured" + System.lineSeparator(), output.toString());
+    assertEquals("captured resource", Files.readString(bundle.resolve("classes/value.txt")));
+    assertFalse(Files.exists(bundle.resolve("classes/later.txt")));
+    assertFalse(Files.exists(bundle.resolve("source")));
+    assertFalse(Files.exists(bundle.resolve("packages")));
   }
 }

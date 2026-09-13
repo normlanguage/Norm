@@ -16,8 +16,8 @@ public final class NativeApplicationFeature implements Feature {
     if (archive == null)
       throw new IllegalStateException("Native application archive is unavailable");
     try {
-      NativeApplicationData application =
-          NativeApplicationArchive.read(java.nio.file.Path.of(archive));
+      ApplicationProgramData application =
+          ApplicationProgramArchive.read(java.nio.file.Path.of(archive));
       Class<?> registryType = access.findClassByName(JavaDirectCallBundle.REGISTRY_NAME);
       if (registryType == null)
         throw new IllegalStateException("Native direct Java calls are absent");

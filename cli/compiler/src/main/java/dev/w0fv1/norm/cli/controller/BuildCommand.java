@@ -65,21 +65,12 @@ final class BuildCommand implements Command {
           "error[NORM-CLI-0004]: self-contained Norm launcher is unavailable; run build through norm.exe");
       return ExitCode.INPUT_ERROR;
     }
-    long started = System.nanoTime();
-    java.util.function.Consumer<String> progress =
-        message -> {
-          out.printf(
-              java.util.Locale.ROOT,
-              "[build +%.1fs] %s%n",
-              (System.nanoTime() - started) / 1_000_000_000.0,
-              message);
-          out.flush();
-        };
+    java.util.function.Consumer<String> progress = new CommandProgress("build", out);
     try {
       NormRuntime backend = new NormRuntime();
       progress.accept("Target: " + options.target().name().toLowerCase(java.util.Locale.ROOT));
       progress.accept("Initializing compiler");
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
+      ProjectEnvironment environment = ProjectEnvironment.persistent(backend);
       BuildResult result;
       try (var project = ApplicationRunner.persistent(environment, progress)) {
         var builder =

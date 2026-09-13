@@ -40,15 +40,7 @@ public final class ApplicationRunner implements AutoCloseable {
   public static ApplicationRunner persistent(
       ProjectEnvironment environment, Consumer<String> progress) throws IOException {
     return new ApplicationRunner(
-        environment.projectLoader(progress),
-        environment.persistentCompilerSession(),
-        environment.backend());
-  }
-
-  public static ApplicationRunner bundled(ProjectEnvironment environment, Path bundle)
-      throws IOException {
-    return new ApplicationRunner(
-        environment.bundledProjectLoader(bundle),
+        environment.persistentProjectLoader(progress),
         environment.persistentCompilerSession(),
         environment.backend());
   }
@@ -75,10 +67,36 @@ public final class ApplicationRunner implements AutoCloseable {
   }
 
   public CompilationResult run(Path entry, ExecutionContext context) throws IOException {
-    try (var compilation = compileApplication(entry)) {
+    return run(entry, context, message -> {});
+  }
+
+  public CompilationResult run(Path entry, ExecutionContext context, Consumer<String> progress)
+      throws IOException {
+    return run(entry, context, progress, null);
+  }
+
+  public void replayModules(List<dev.w0fv1.norm.project.ModuleEvaluation> modules) {
+    projects.replayModules(modules);
+  }
+
+  public CompilationResult run(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      PreparedApplicationCache cache)
+      throws IOException {
+    try (var compilation = compileApplication(entry, progress, List.of())) {
       if (compilation.application().isPresent()) {
         var application = compilation.application().orElseThrow();
+        if (cache != null)
+          cache.write(
+              entry,
+              application,
+              projects.inputSnapshot(application.sourceSet()),
+              projects.moduleEvaluations());
+        progress.accept("Preparing Java runtime");
         try (var runtime = application.openRuntime()) {
+          progress.accept("Starting application");
           backend.execute(
               compilation.result().output().orElseThrow().artifact(),
               application.executionPlan(),

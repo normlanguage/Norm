@@ -37,16 +37,19 @@ final class ProjectModuleSources {
   private final NormPackageResolver packages;
   private final JarResolver jars;
   private final java.util.function.Consumer<String> progress;
+  private final ProjectInputTracker inputs;
 
   ProjectModuleSources(
       ModuleEvaluator modules,
       NormPackageResolver packages,
       JarResolver jars,
-      java.util.function.Consumer<String> progress) {
+      java.util.function.Consumer<String> progress,
+      ProjectInputTracker inputs) {
     this.modules = Objects.requireNonNull(modules, "modules");
     this.packages = Objects.requireNonNull(packages, "packages");
     this.jars = Objects.requireNonNull(jars, "jars");
     this.progress = Objects.requireNonNull(progress, "progress");
+    this.inputs = inputs;
   }
 
   ResolvedProjectModule load(SourceFile moduleSource, Map<Path, SourceFile> overlays)
@@ -57,6 +60,9 @@ final class ProjectModuleSources {
   ResolvedProjectModule load(
       SourceFile moduleSource, Map<Path, SourceFile> overlays, boolean includeTests)
       throws IOException {
+    inputs.source(moduleSource);
+    inputs.directory(moduleSource.path().getParent(), true);
+    inputs.directory(moduleSource.path().getParent().resolve("resources"), false);
     ModuleDeclaration declaration = modules.evaluate(moduleSource);
     ModuleDescriptor descriptor =
         resolveDeclaration(

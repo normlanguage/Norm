@@ -6,12 +6,12 @@ import dev.w0fv1.norm.jvm.LinkedJarBinding;
 import java.util.List;
 import java.util.Objects;
 
-public record NativeApplicationData(
+public record ApplicationProgramData(
     CoreArtifact artifact,
     CoreExecutionPlan execution,
     List<LinkedJarBinding> bindings,
     String packageName) {
-  public NativeApplicationData {
+  public ApplicationProgramData {
     Objects.requireNonNull(artifact, "artifact");
     Objects.requireNonNull(execution, "execution");
     bindings = List.copyOf(bindings);

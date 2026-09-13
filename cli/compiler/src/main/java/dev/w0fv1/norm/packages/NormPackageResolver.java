@@ -25,6 +25,27 @@ public final class NormPackageResolver implements AutoCloseable {
   private final Path cache;
   private final Map<ModuleRepositoryId, NormPackageRepository> repositories;
   private final HttpClient client;
+  private final java.util.ArrayList<dev.w0fv1.norm.value.FileSnapshot> observedFiles =
+      new java.util.ArrayList<>();
+  private final java.util.ArrayList<Path> absentFiles = new java.util.ArrayList<>();
+
+  public record ResolutionInputs(
+      java.util.List<dev.w0fv1.norm.value.FileSnapshot> files, java.util.List<Path> absent) {
+    public ResolutionInputs {
+      files = java.util.List.copyOf(files);
+      absent = java.util.List.copyOf(absent);
+    }
+  }
+
+  public ResolutionInputs resolutionInputs() {
+    return new ResolutionInputs(observedFiles, absentFiles);
+  }
+
+  public void clearResolutionInputs() {
+    observedFiles.clear();
+    absentFiles.clear();
+  }
+
   private final Map<LatestModule, Integer> latestVersions =
       new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -54,9 +75,17 @@ public final class NormPackageResolver implements AutoCloseable {
     Objects.requireNonNull(requirement, "requirement");
     Path relative = relativePath(requirement);
     Path local = localRepository.resolve(relative);
-    if (Files.isRegularFile(local)) return normalize(local);
+    if (Files.isRegularFile(local)) {
+      observedFiles.add(dev.w0fv1.norm.value.FileSnapshot.capture(local));
+      return normalize(local);
+    }
+    absentFiles.add(normalize(local));
     Path cached = cache.resolve(requirement.repository().value()).resolve(relative);
-    if (validCachedArtifact(cached)) return normalize(cached);
+    var cachedInputs = cachedArtifactInputs(cached);
+    if (!cachedInputs.isEmpty()) {
+      observedFiles.addAll(cachedInputs);
+      return normalize(cached);
+    }
     NormPackageRepository repository = repositories.get(requirement.repository());
     if (repository == null) {
       throw new IOException(
@@ -83,6 +112,12 @@ public final class NormPackageResolver implements AutoCloseable {
       move(temporary, cached);
       Files.writeString(
           digestPath(cached), expected.value() + System.lineSeparator(), StandardCharsets.UTF_8);
+      observedFiles.add(new dev.w0fv1.norm.value.FileSnapshot(cached, actual));
+      observedFiles.add(
+          new dev.w0fv1.norm.value.FileSnapshot(
+              digestPath(cached),
+              Sha256Digest.compute(
+                  (expected.value() + System.lineSeparator()).getBytes(StandardCharsets.UTF_8))));
       return normalize(cached);
     } finally {
       Files.deleteIfExists(temporary);
@@ -133,11 +168,19 @@ public final class NormPackageResolver implements AutoCloseable {
     return dependency.resolved(version);
   }
 
-  private static boolean validCachedArtifact(Path archive) throws IOException {
+  private static java.util.List<dev.w0fv1.norm.value.FileSnapshot> cachedArtifactInputs(
+      Path archive) throws IOException {
     Path digest = digestPath(archive);
-    if (!Files.isRegularFile(archive) || !Files.isRegularFile(digest)) return false;
-    Sha256Digest expected = parseDigest(Files.readString(digest, StandardCharsets.UTF_8));
-    return expected.equals(Sha256Digest.compute(archive));
+    if (!Files.isRegularFile(archive) || !Files.isRegularFile(digest)) return java.util.List.of();
+    String text = Files.readString(digest, StandardCharsets.UTF_8);
+    Sha256Digest expected = parseDigest(text);
+    Sha256Digest actual = Sha256Digest.compute(archive);
+    return expected.equals(actual)
+        ? java.util.List.of(
+            new dev.w0fv1.norm.value.FileSnapshot(archive, actual),
+            new dev.w0fv1.norm.value.FileSnapshot(
+                digest, Sha256Digest.compute(text.getBytes(StandardCharsets.UTF_8))))
+        : java.util.List.of();
   }
 
   private Sha256Digest publishedDigest(URI uri, ModuleRequirement requirement) throws IOException {

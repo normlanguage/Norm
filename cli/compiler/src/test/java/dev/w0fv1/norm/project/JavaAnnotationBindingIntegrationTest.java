@@ -23,16 +23,19 @@ import java.util.Comparator;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import javax.tools.ToolProvider;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 final class JavaAnnotationBindingIntegrationTest {
   @TempDir Path temporaryDirectory;
 
-  @Test
-  void scansGeneratesAppliesAndReflectsAJavaAnnotationAsOrdinaryNorm() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void scansGeneratesAppliesAndReflectsAJavaAnnotationAsOrdinaryNorm(boolean processor)
+      throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("sample/binding"));
-    Path jar = annotationJar(moduleRoot.resolve("lib/annotations.jar"));
+    Path jar = annotationJar(moduleRoot.resolve("lib/annotations.jar"), processor);
     Files.writeString(
         moduleRoot.resolve("module.norm"),
         """
@@ -232,10 +235,7 @@ final class JavaAnnotationBindingIntegrationTest {
             message: "Java callers must execute inherited Norm interface defaults")
           require(condition: generatedInvokerInvoke(arg0: "sample.binding.AlternateController", arg1: "greet", arg2: "Norm") == "alternate:Norm",
             message: "shared interface defaults must dispatch to each concrete receiver")
-          var proxy = generatedInvokerProxy<Controller>(Controller.class)
-          if proxy == null { throw Exception(message: "proxy missing") }
-          require(condition: proxy.greet("Norm") == "proxy:Hello, Norm", message: "ordinary calls must enter Java proxy overrides")
-          require(condition: proxy.context() == "proxy-context", message: "nested host calls must preserve proxy thread context")
+          %s
           Endpoint? endpoint = Controller.class.annotation<Endpoint>()
           if endpoint != null {
             printLine(endpoint.path)
@@ -264,17 +264,50 @@ final class JavaAnnotationBindingIntegrationTest {
           printLine(generatedInvokerFailure())
           printLine(generatedInvokerFrameworkAllocated())
         }
-        """);
+        """
+            .formatted(
+                processor
+                    ? """
+          var proxy = generatedInvokerProxy<Controller>(Controller.class)
+          if proxy == null { throw Exception(message: "proxy missing") }
+          require(condition: proxy.greet("Norm") == "proxy:Hello, Norm", message: "ordinary calls must enter Java proxy overrides")
+          require(condition: proxy.context() == "proxy-context", message: "nested host calls must preserve proxy thread context")
+          """
+                    : ""));
     NormRuntime backend = new NormRuntime();
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(backend);
     StringWriter output = new StringWriter();
-    String processorOutput;
+    String processorOutput = "";
     try (ProjectLoader projects =
             environment.projectLoader(temporaryDirectory.resolve("maven-cache"));
         ApplicationRunner launcher =
             new ApplicationRunner(projects, environment.compilerSession(), backend)) {
-      var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
+      var applicationCache =
+          new dev.w0fv1.norm.application.PreparedApplicationCache(
+              temporaryDirectory.resolve("application-cache"));
+      var result =
+          launcher.run(
+              entry, ExecutionContext.of(new PrintWriter(output)), message -> {}, applicationCache);
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+      var progress = new java.util.ArrayList<String>();
+      var repeatedOutput = new StringWriter();
+      var repeated =
+          launcher.run(entry, ExecutionContext.of(new PrintWriter(repeatedOutput)), progress::add);
+      assertTrue(repeated.isSuccess(), () -> repeated.diagnostics().toString());
+      assertEquals(output.toString(), repeatedOutput.toString());
+      assertEquals(!processor, progress.contains("Reused generated Java classes"));
+      var prepared = applicationCache.read(entry);
+      assertEquals(!processor, prepared.content().isPresent());
+      if (!processor) {
+        Path preparedRoot = temporaryDirectory.resolve("prepared");
+        var preparedOutput = new StringWriter();
+        prepared
+            .content()
+            .orElseThrow()
+            .prepare(preparedRoot)
+            .execute(preparedRoot, ExecutionContext.of(new PrintWriter(preparedOutput)));
+        assertEquals(output.toString(), preparedOutput.toString());
+      }
       Path supportJar = temporaryDirectory.resolve("selected-support.jar");
       try (var archive = new JarOutputStream(Files.newOutputStream(supportJar))) {}
       var support =
@@ -322,18 +355,25 @@ final class JavaAnnotationBindingIntegrationTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals(support.content(), capturedSupport.content());
-        assertTrue(
-            Files.readString(
-                    compiled.application().orElseThrow().annotations().root().resolve("javac.args"))
-                .contains(capturedSupport.file().toString().replace('\\', '/')));
-        processorOutput =
-            Files.readString(
-                compiled
-                    .application()
-                    .orElseThrow()
-                    .annotations()
-                    .classes()
-                    .resolve("processor/endpoints.txt"));
+        if (processor)
+          assertTrue(
+              Files.readString(
+                      compiled
+                          .application()
+                          .orElseThrow()
+                          .annotations()
+                          .root()
+                          .resolve("javac.args"))
+                  .contains(capturedSupport.file().toString().replace('\\', '/')));
+        if (processor)
+          processorOutput =
+              Files.readString(
+                  compiled
+                      .application()
+                      .orElseThrow()
+                      .annotations()
+                      .classes()
+                      .resolve("processor/endpoints.txt"));
       }
     }
 
@@ -356,25 +396,26 @@ final class JavaAnnotationBindingIntegrationTest {
             "Framework Allocated",
             ""),
         output.toString());
-    assertEquals(
-        String.join(
-            System.lineSeparator(),
-            "sample.binding.BoxConsumer:/box:http,json:HTTPS",
-            "sample.binding.ChildController:/bbs:http,json:HTTP",
-            "sample.binding.Controller:/bbs:http,json:HTTP",
-            "sample.binding.GenericBase:/generic:http,json:HTTPS",
-            "sample.binding.GenericChild:/generic-child:http,json:HTTPS",
-            "sample.binding.ManagedResponse:/managed-response:http,json:HTTPS",
-            "sample.binding.RepeatedController:/first,/second:http,json:HTTPS",
-            "sample.binding.Response:/response:http,json:HTTPS",
-            "sample.binding.StringBox:/string-box:http,json:HTTPS",
-            "sample.binding.StringBoxValue:/string-box-value:http,json:HTTPS",
-            "sample.binding.StringConverter:/converter:http,json:HTTPS",
-            ""),
-        processorOutput);
+    if (processor)
+      assertEquals(
+          String.join(
+              System.lineSeparator(),
+              "sample.binding.BoxConsumer:/box:http,json:HTTPS",
+              "sample.binding.ChildController:/bbs:http,json:HTTP",
+              "sample.binding.Controller:/bbs:http,json:HTTP",
+              "sample.binding.GenericBase:/generic:http,json:HTTPS",
+              "sample.binding.GenericChild:/generic-child:http,json:HTTPS",
+              "sample.binding.ManagedResponse:/managed-response:http,json:HTTPS",
+              "sample.binding.RepeatedController:/first,/second:http,json:HTTPS",
+              "sample.binding.Response:/response:http,json:HTTPS",
+              "sample.binding.StringBox:/string-box:http,json:HTTPS",
+              "sample.binding.StringBoxValue:/string-box-value:http,json:HTTPS",
+              "sample.binding.StringConverter:/converter:http,json:HTTPS",
+              ""),
+          processorOutput);
   }
 
-  private static Path annotationJar(Path path) throws Exception {
+  private static Path annotationJar(Path path, boolean processor) throws Exception {
     Path sourceRoot = Files.createDirectories(path.getParent().resolve("processor-source"));
     Path classes = Files.createDirectories(path.getParent().resolve("processor-classes"));
     Path annotationSource = sourceRoot.resolve("sample/Endpoint.java");
@@ -724,7 +765,7 @@ final class JavaAnnotationBindingIntegrationTest {
     assertEquals(0, status);
     Path service = classes.resolve("META-INF/services/javax.annotation.processing.Processor");
     Files.createDirectories(service.getParent());
-    Files.writeString(service, "sample.EndpointProcessor\n");
+    if (processor) Files.writeString(service, "sample.EndpointProcessor\n");
     Files.createDirectories(path.getParent());
     try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path));
         var files = Files.walk(classes)) {

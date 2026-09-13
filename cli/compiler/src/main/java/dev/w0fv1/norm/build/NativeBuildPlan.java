@@ -14,6 +14,17 @@ record NativeBuildPlan(
     List<LinkedJarBinding> bindings,
     boolean dynamicBindingLookup,
     String packageName) {
+  static NativeBuildPlan from(CompiledApplication application) {
+    var program = dev.w0fv1.norm.application.ApplicationProgramPlan.from(application);
+    return new NativeBuildPlan(
+        application,
+        program.retention(),
+        program.execution(),
+        program.bindings(),
+        program.dynamicBindingLookup(),
+        program.packageName());
+  }
+
   NativeBuildPlan {
     Objects.requireNonNull(application, "application");
     Objects.requireNonNull(retention, "retention");

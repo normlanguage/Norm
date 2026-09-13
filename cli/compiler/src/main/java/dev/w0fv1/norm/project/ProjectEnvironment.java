@@ -30,11 +30,23 @@ public final class ProjectEnvironment {
   }
 
   public static ProjectEnvironment bootstrap(ExecutionBackend backend) throws IOException {
+    return bootstrap(backend, false);
+  }
+
+  public static ProjectEnvironment persistent(ExecutionBackend backend) throws IOException {
+    return bootstrap(backend, true);
+  }
+
+  private static ProjectEnvironment bootstrap(ExecutionBackend backend, boolean persistent)
+      throws IOException {
     Objects.requireNonNull(backend, "backend");
     CompilationPrelude bootstrap = ModuleBootstrap.prelude();
     var kernel = LanguageProfile.withPrelude(bootstrap);
     ModuleDescriptor descriptor;
-    try (ModuleEvaluator evaluator = new ModuleEvaluator(kernel, backend)) {
+    try (ModuleEvaluator evaluator =
+        persistent
+            ? ModuleEvaluator.persistent(kernel, backend)
+            : new ModuleEvaluator(kernel, backend)) {
       ModuleDeclaration declaration = evaluator.evaluate(StandardLibrary.moduleSource());
       descriptor =
           new ModuleDescriptor(
@@ -92,9 +104,10 @@ public final class ProjectEnvironment {
     return CompilerSession.persistent(languageProfile);
   }
 
-  public ProjectLoader projectLoader(java.util.function.Consumer<String> progress) {
+  public ProjectLoader persistentProjectLoader(java.util.function.Consumer<String> progress)
+      throws IOException {
     return new ProjectLoader(
-        new ModuleEvaluator(languageProfile, backend), reservedModuleNames, progress);
+        ModuleEvaluator.persistent(languageProfile, backend), reservedModuleNames, progress);
   }
 
   public ProjectLoader bundledProjectLoader(Path bundle) throws IOException {

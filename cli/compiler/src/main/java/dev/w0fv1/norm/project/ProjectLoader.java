@@ -42,6 +42,25 @@ public final class ProjectLoader implements AutoCloseable {
   private final ProjectModuleSources moduleSources;
   private final ArchivedModuleLoader archivedModules;
   private final ProjectDependencyGraph dependencies;
+  private final ProjectInputTracker inputs = new ProjectInputTracker();
+
+  public ProjectInputSnapshot inputSnapshot(ProjectSourceSet sources) {
+    var captured = inputs.snapshot(sources);
+    var resolution = packages.resolutionInputs();
+    var files = new java.util.ArrayList<>(captured.files());
+    files.addAll(resolution.files());
+    var absent = new java.util.ArrayList<>(captured.absent());
+    absent.addAll(resolution.absent());
+    return new ProjectInputSnapshot(files, captured.directories(), absent);
+  }
+
+  public List<ModuleEvaluation> moduleEvaluations() {
+    return modules.evaluations();
+  }
+
+  public void replayModules(List<ModuleEvaluation> evaluations) {
+    modules.replay(evaluations);
+  }
 
   ProjectLoader(ModuleEvaluator modules, Set<String> reservedModuleNames) {
     this(modules, reservedModuleNames, message -> {});
@@ -55,7 +74,7 @@ public final class ProjectLoader implements AutoCloseable {
         modules,
         reservedModuleNames,
         new NormPackageResolver(defaultCache().resolve("packages")),
-        new JarResolver(defaultCache().resolve("maven")),
+        new JarResolver(defaultCache().resolve("maven"), progress),
         progress);
   }
 
@@ -76,10 +95,11 @@ public final class ProjectLoader implements AutoCloseable {
     this.modules = Objects.requireNonNull(modules, "modules");
     this.packages = Objects.requireNonNull(packages, "packages");
     this.jars = Objects.requireNonNull(jars, "jars");
-    this.moduleSources = new ProjectModuleSources(this.modules, this.packages, this.jars, progress);
+    this.moduleSources =
+        new ProjectModuleSources(this.modules, this.packages, this.jars, progress, inputs);
     this.archivedModules = new ArchivedModuleLoader(this.packages, this.jars, progress);
     this.dependencies =
-        new ProjectDependencyGraph(moduleSources, archivedModules, reservedModuleNames);
+        new ProjectDependencyGraph(moduleSources, archivedModules, reservedModuleNames, inputs);
   }
 
   public ProjectSourceSet load(Path entryPath) throws IOException {
@@ -145,6 +165,10 @@ public final class ProjectLoader implements AutoCloseable {
       throws IOException {
     Objects.requireNonNull(entrySource, "entrySource");
     Objects.requireNonNull(purpose, "purpose");
+    inputs.clear();
+    packages.clearResolutionInputs();
+    modules.clearEvaluations();
+    inputs.source(entrySource);
     Map<Path, SourceFile> overlaySources = overlaySources(entrySource, overlays);
     Path entry = normalize(entrySource.path());
     ProjectLocation location = locate(entry, overlaySources);
@@ -277,6 +301,7 @@ public final class ProjectLoader implements AutoCloseable {
       ProjectLoadPurpose purpose,
       SourceStructure structure)
       throws IOException {
+    inputs.directory(entrySource.path().getParent().resolve("resources"), false);
     SourceFile programSource = structure.programSource();
     Optional<String> packageName = SourceHeader.parse(programSource).packageName();
     ModuleDeclaration declaration = modules.evaluate(structure.moduleConfiguration().orElseThrow());
@@ -443,13 +468,13 @@ public final class ProjectLoader implements AutoCloseable {
     }
   }
 
-  private static ProjectLocation locate(Path entry, Map<Path, SourceFile> overlays)
-      throws IOException {
+  private ProjectLocation locate(Path entry, Map<Path, SourceFile> overlays) throws IOException {
     Path fallback = entry.getParent();
     if (fallback == null) throw new IllegalArgumentException("source path has no parent");
     Path current = fallback;
     while (current != null) {
       Path candidate = normalize(current.resolve("module.norm"));
+      inputs.candidate(candidate);
       SourceFile overlay = overlays.get(candidate);
       if (overlay != null && ModuleSourceFiles.isModuleSource(overlay)) {
         return new ProjectLocation(current, Optional.of(overlay));

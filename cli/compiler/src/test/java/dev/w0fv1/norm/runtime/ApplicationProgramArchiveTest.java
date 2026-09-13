@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-final class NativeApplicationArchiveTest {
+final class ApplicationProgramArchiveTest {
   @TempDir Path temporaryDirectory;
 
   @Test
@@ -25,7 +25,7 @@ final class NativeApplicationArchiveTest {
     Path java = Path.of(System.getProperty("java.home"), "bin", "java");
     Path probe =
         Path.of(
-            NativeApplicationArchiveProbe.class
+            ApplicationProgramArchiveProbe.class
                 .getProtectionDomain()
                 .getCodeSource()
                 .getLocation()
@@ -42,7 +42,7 @@ final class NativeApplicationArchiveTest {
                 "--patch-module",
                 "dev.w0fv1.norm=" + probe,
                 "--module",
-                "dev.w0fv1.norm/" + NativeApplicationArchiveProbe.class.getName(),
+                "dev.w0fv1.norm/" + ApplicationProgramArchiveProbe.class.getName(),
                 temporaryDirectory.resolve("module-application.bin").toString())
             .redirectErrorStream(true)
             .redirectOutput(output.toFile())
@@ -61,13 +61,13 @@ final class NativeApplicationArchiveTest {
   void roundTripsAPortableCompiledApplication() throws Exception {
     var compilation = NormTestKit.compile("Void main() { printLine(\"native\") }");
     var artifact = compilation.output().orElseThrow().artifact();
-    NativeApplicationData expected =
-        new NativeApplicationData(
+    ApplicationProgramData expected =
+        new ApplicationProgramData(
             artifact, CoreExecutionPlan.forArtifact(artifact), List.of(), "sample");
     Path archive = temporaryDirectory.resolve("application.bin");
 
-    NativeApplicationArchive.write(expected, archive);
-    NativeApplicationData actual = NativeApplicationArchive.read(archive);
+    ApplicationProgramArchive.write(expected, archive);
+    ApplicationProgramData actual = ApplicationProgramArchive.read(archive);
 
     assertEquals(expected.packageName(), actual.packageName());
     assertEquals(expected.bindings(), actual.bindings());

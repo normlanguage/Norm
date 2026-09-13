@@ -284,7 +284,7 @@ final class DependencyArchitectureTest {
         .haveSimpleName("ApplicationBundleWriter")
         .orShould()
         .dependOnClassesThat()
-        .haveSimpleName("NativeBuildPlanner")
+        .haveSimpleName("ApplicationProgramPlan")
         .check(aggregates);
   }
 

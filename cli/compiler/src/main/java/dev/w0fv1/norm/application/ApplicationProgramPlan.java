@@ -1,6 +1,5 @@
-package dev.w0fv1.norm.build;
+package dev.w0fv1.norm.application;
 
-import dev.w0fv1.norm.application.CompiledApplication;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreExecutionPlan;
 import dev.w0fv1.norm.core.CoreReachability;
@@ -12,8 +11,20 @@ import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 
-final class NativeBuildPlanner {
-  static NativeBuildPlan plan(CompiledApplication compilation) {
+public record ApplicationProgramPlan(
+    dev.w0fv1.norm.core.CoreReachability.Analysis retention,
+    CoreExecutionPlan execution,
+    java.util.List<LinkedJarBinding> bindings,
+    boolean dynamicBindingLookup,
+    String packageName) {
+  public ApplicationProgramPlan {
+    Objects.requireNonNull(retention, "retention");
+    Objects.requireNonNull(execution, "execution");
+    bindings = java.util.List.copyOf(bindings);
+    Objects.requireNonNull(packageName, "packageName");
+  }
+
+  public static ApplicationProgramPlan from(CompiledApplication compilation) {
     Objects.requireNonNull(compilation, "compilation");
     var applicationIndex = compilation.methods();
     var original = compilation.result().output().orElseThrow().artifact();
@@ -42,8 +53,7 @@ final class NativeBuildPlanner {
             .map(LinkedJarBinding::from)
             .map(binding -> calls.map(binding::retainCalls).orElse(binding))
             .toList();
-    return new NativeBuildPlan(
-        compilation,
+    return new ApplicationProgramPlan(
         retention,
         execution,
         bindings,
@@ -52,5 +62,8 @@ final class NativeBuildPlanner {
             SourceHeader.parse(compilation.sourceSet().primarySource()).packageName().orElse("")));
   }
 
-  private NativeBuildPlanner() {}
+  public dev.w0fv1.norm.runtime.ApplicationProgramData data() {
+    return new dev.w0fv1.norm.runtime.ApplicationProgramData(
+        retention.artifact(), execution, bindings, packageName);
+  }
 }

@@ -33,6 +33,10 @@ public final class ApplicationCompiler implements AutoCloseable {
     progress.accept("Compiling Norm sources");
     CompilationResult result = compiler.compile(input.request());
     if (!result.isSuccess()) return new ApplicationCompilation(result, Optional.empty());
+    var analysis = result.output().orElseThrow().state().analysisReport();
+    if (analysis.analyzedDeclarations() == 0 && analysis.reusedDeclarations() > 0) {
+      progress.accept("Reused compiled Norm sources");
+    }
     var workspace = new TemporaryDirectory();
     boolean transferred = false;
     try {
@@ -49,7 +53,8 @@ public final class ApplicationCompiler implements AutoCloseable {
               workspace.path(),
               input.request().scope(),
               input.request().entryDocument(),
-              input.request().bindingSources());
+              input.request().bindingSources(),
+              progress);
       resources.materialize(
           output.classes(), input.project().map(ProjectSourceSet::resources).orElse(Map.of()));
       var application = new CompiledApplication(input, result, output, classpath, workspace);

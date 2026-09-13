@@ -315,7 +315,7 @@ final class JavaManagedMethodProjectionTest {
                       }
                     });
         var application =
-            new dev.w0fv1.norm.runtime.NativeApplicationData(
+            new dev.w0fv1.norm.runtime.ApplicationProgramData(
                 artifact,
                 dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(
                     artifact, output.methods().entryPoints()),
@@ -323,8 +323,8 @@ final class JavaManagedMethodProjectionTest {
                 "todo");
         if (archived) {
           var archive = root.resolve("application.bin");
-          dev.w0fv1.norm.runtime.NativeApplicationArchive.write(application, archive);
-          application = dev.w0fv1.norm.runtime.NativeApplicationArchive.read(archive);
+          dev.w0fv1.norm.runtime.ApplicationProgramArchive.write(application, archive);
+          application = dev.w0fv1.norm.runtime.ApplicationProgramArchive.read(archive);
         }
         new TruffleExecutionBackend()
             .execute(application.artifact(), application.execution(), context);

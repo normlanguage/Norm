@@ -9,11 +9,11 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
 
-public final class NativeApplicationArchiveProbe {
-  private NativeApplicationArchiveProbe() {}
+public final class ApplicationProgramArchiveProbe {
+  private ApplicationProgramArchiveProbe() {}
 
   public static void main(String[] arguments) throws Exception {
-    if (!NativeApplicationArchive.class.getModule().isNamed()) {
+    if (!ApplicationProgramArchive.class.getModule().isNamed()) {
       throw new AssertionError("archive probe must run in the compiler module");
     }
     try (var compiler = new CompilerSession()) {
@@ -23,11 +23,11 @@ public final class NativeApplicationArchiveProbe {
       if (!compilation.isSuccess()) throw new AssertionError(compilation.diagnostics());
       var artifact = compilation.output().orElseThrow().artifact();
       Path archive = Path.of(arguments[0]);
-      NativeApplicationArchive.write(
-          new NativeApplicationData(
+      ApplicationProgramArchive.write(
+          new ApplicationProgramData(
               artifact, CoreExecutionPlan.forArtifact(artifact), List.of(), "sample"),
           archive);
-      var application = NativeApplicationArchive.read(archive);
+      var application = ApplicationProgramArchive.read(archive);
       new TruffleExecutionBackend()
           .prepare(application.artifact(), application.execution())
           .execute(ExecutionContext.of(new PrintWriter(System.out, true)));

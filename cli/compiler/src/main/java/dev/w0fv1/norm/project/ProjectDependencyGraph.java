@@ -22,14 +22,17 @@ final class ProjectDependencyGraph {
   private final ProjectModuleSources moduleSources;
   private final ArchivedModuleLoader archives;
   private final Set<String> reservedModuleNames;
+  private final ProjectInputTracker inputs;
 
   ProjectDependencyGraph(
       ProjectModuleSources moduleSources,
       ArchivedModuleLoader archives,
-      Set<String> reservedModuleNames) {
+      Set<String> reservedModuleNames,
+      ProjectInputTracker inputs) {
     this.moduleSources = Objects.requireNonNull(moduleSources, "moduleSources");
     this.archives = Objects.requireNonNull(archives, "archives");
     this.reservedModuleNames = Set.copyOf(reservedModuleNames);
+    this.inputs = inputs;
   }
 
   List<ResolvedProjectModule> resolve(
@@ -160,6 +163,7 @@ final class ProjectDependencyGraph {
                   .resolve("dependencies")
                   .resolve(requirement.name().replace('.', java.io.File.separatorChar)));
       Path modulePath = dependencyRoot.resolve("module.norm");
+      inputs.candidate(modulePath);
       SourceFile moduleSource = overlays.get(modulePath);
       if (moduleSource == null) {
         if (!Files.isRegularFile(modulePath)) {
