@@ -45,12 +45,20 @@ public final class JarResolver implements AutoCloseable {
   private final RepositorySystemSession.CloseableSession jarSession;
   private final Map<Sha256Digest, ResolvedJarGraph> bundledGraphs;
   private final boolean bundled;
+  private final Path graphCacheDirectory;
+  private final java.util.function.Consumer<String> progress;
 
   public JarResolver(Path cacheDirectory) {
+    this(cacheDirectory, message -> {});
+  }
+
+  public JarResolver(Path cacheDirectory, java.util.function.Consumer<String> progress) {
     Objects.requireNonNull(cacheDirectory, "cacheDirectory");
+    this.graphCacheDirectory = cacheDirectory.resolve(".norm-graphs");
+    this.progress = Objects.requireNonNull(progress, "progress");
     repositorySystem = new RepositorySystemSupplier().get();
     SessionBuilderSupplier supplier = new SessionBuilderSupplier(repositorySystem);
-    jarSession = session(supplier, cacheDirectory);
+    jarSession = session(supplier, cacheDirectory, progress);
     bundledGraphs = Map.of();
     bundled = false;
   }
@@ -59,6 +67,8 @@ public final class JarResolver implements AutoCloseable {
     repositorySystem = null;
     jarSession = null;
     this.bundledGraphs = Map.copyOf(bundledGraphs);
+    graphCacheDirectory = null;
+    progress = message -> {};
     bundled = true;
   }
 
@@ -67,8 +77,12 @@ public final class JarResolver implements AutoCloseable {
   }
 
   private static RepositorySystemSession.CloseableSession session(
-      SessionBuilderSupplier supplier, Path localRepository) {
+      SessionBuilderSupplier supplier,
+      Path localRepository,
+      java.util.function.Consumer<String> progress) {
     RepositorySystemSession.SessionBuilder builder = supplier.get();
+    builder.setConfigProperty("aether.remoteRepositoryFilter.prefixes.resolvePrefixFiles", false);
+    builder.withTransferListener(new MavenTransferProgress(progress));
     builder.setProxySelector(new MavenProxySelector(EnvironmentProxySelector.system()));
     builder.setDependencySelector(
         new AndDependencySelector(
@@ -112,6 +126,12 @@ public final class JarResolver implements AutoCloseable {
 
   private ResolvedJarGraph resolveMaven(MavenJarTarget target) throws IOException {
     MavenArtifactCoordinate coordinate = target.coordinate();
+    var cache = new JarGraphCache(graphCacheDirectory);
+    var cached = cache.read(target);
+    if (cached.isPresent()) {
+      progress.accept("Reused Java dependency graph: " + coordinate.notation());
+      return cached.orElseThrow();
+    }
     Artifact rootArtifact =
         new DefaultArtifact(
             coordinate.group(), coordinate.artifact(), "", "jar", coordinate.version());
@@ -134,6 +154,7 @@ public final class JarResolver implements AutoCloseable {
                 + ", actual "
                 + graph.contentId());
       }
+      cache.write(coordinate, graph);
       return graph;
     } catch (DependencyResolutionException exception) {
       throw new IOException("cannot resolve Maven JAR " + coordinate.notation(), exception);

@@ -23,6 +23,116 @@ final class JarResolverTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void reusesPinnedGraphsAcrossResolversAndRejectsChangedArtifacts() throws Exception {
+    Path repository = temporaryDirectory.resolve("pinned");
+    Path directory = Files.createDirectories(repository.resolve("test/pinned/1"));
+    Path jar = createJar(directory.resolve("pinned-1.jar"), "test/Value.class", "original");
+    Files.writeString(
+        directory.resolve("pinned-1.pom"),
+        """
+        <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>test</groupId><artifactId>pinned</artifactId><version>1</version></project>
+        """);
+    var coordinate = new MavenArtifactCoordinate("test", "pinned", "1");
+    ResolvedJarGraph graph;
+    try (var resolver = new JarResolver(repository)) {
+      graph =
+          resolver.resolve(
+              temporaryDirectory, new JarBinding(new MavenJarTarget(coordinate, Optional.empty())));
+    }
+    var binding = new JarBinding(new MavenJarTarget(coordinate, Optional.of(graph.contentId())));
+    var messages = new java.util.ArrayList<String>();
+    try (var resolver = new JarResolver(repository, messages::add)) {
+      assertEquals(graph.contentId(), resolver.resolve(temporaryDirectory, binding).contentId());
+    }
+    assertTrue(
+        messages.stream().anyMatch(message -> message.startsWith("Reused Java dependency graph")));
+    Files.writeString(jar, "changed");
+    try (var resolver = new JarResolver(repository)) {
+      assertThrows(IOException.class, () -> resolver.resolve(temporaryDirectory, binding));
+    }
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+  void resolvesDependenciesWithoutProbingInheritedRepositories(boolean missingChild)
+      throws Exception {
+    var requests = new java.util.concurrent.CopyOnWriteArrayList<String>();
+    var progress = new java.util.concurrent.CopyOnWriteArrayList<String>();
+    Path remote = temporaryDirectory.resolve("remote");
+    var server =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          requests.add(exchange.getRequestURI().toString());
+          Path file = remote.resolve(exchange.getRequestURI().getPath().substring(1));
+          if (Files.isRegularFile(file)) {
+            byte[] bytes = Files.readAllBytes(file);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+          } else {
+            exchange.sendResponseHeaders(404, -1);
+          }
+          exchange.close();
+        });
+    server.start();
+    try {
+      Path repository = temporaryDirectory.resolve("cached-repository");
+      for (String name : java.util.List.of("root", "child")) {
+        Path storage = missingChild && name.equals("child") ? remote : repository;
+        Path directory = Files.createDirectories(storage.resolve("test/" + name + "/1"));
+        createJar(directory.resolve(name + "-1.jar"), "test/Value.class", name);
+        String dependencies =
+            name.equals("root")
+                ? """
+            <dependencies><dependency><groupId>test</groupId><artifactId>child</artifactId><version>1</version></dependency></dependencies>
+            <repositories><repository><id>inherited</id><url>http://127.0.0.1:%d/</url></repository></repositories>
+            """
+                    .formatted(server.getAddress().getPort())
+                : "";
+        Files.writeString(
+            directory.resolve(name + "-1.pom"),
+            """
+            <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion><groupId>test</groupId><artifactId>%s</artifactId><version>1</version>%s
+            </project>
+            """
+                .formatted(name, dependencies));
+      }
+      for (int attempt = 0; attempt < 2; attempt++) {
+        try (var resolver = new JarResolver(repository, progress::add)) {
+          var graph =
+              resolver.resolve(
+                  temporaryDirectory,
+                  new JarBinding(
+                      new MavenJarTarget(
+                          new MavenArtifactCoordinate("test", "root", "1"), Optional.empty())));
+          assertEquals(2, graph.artifacts().size());
+        }
+        assertTrue(requests.stream().noneMatch(path -> path.contains("prefixes")));
+        if (missingChild && attempt == 0) {
+          assertTrue(requests.contains("/test/child/1/child-1.jar"));
+          assertTrue(
+              progress.stream()
+                  .anyMatch(
+                      message ->
+                          message.startsWith("Downloading ") && message.endsWith("child-1.jar")));
+          assertTrue(
+              progress.stream()
+                  .anyMatch(message -> message.startsWith("Downloaded test/child/1/child-1.jar")));
+        } else {
+          assertEquals(java.util.List.of(), requests);
+          assertEquals(java.util.List.of(), progress);
+        }
+        requests.clear();
+        progress.clear();
+      }
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
   void resolvesAndIdentifiesALocalJarByItsBytes() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("sample"));
     Path jar = createJar(moduleRoot.resolve("lib/sample.jar"), "sample/Value.class", "class-bytes");

@@ -18,6 +18,12 @@ import java.util.Objects;
 import java.util.Set;
 
 public final class JavaAnnotationProcessorPipeline {
+  public static boolean cacheableEnvironment() {
+    return List.of("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVAC_OPTIONS").stream()
+        .map(System::getenv)
+        .noneMatch(value -> value != null && !value.isBlank());
+  }
+
   public JavaAnnotationProcessingOutput process(
       CoreArtifact artifact,
       List<ResolvedJarBinding> bindings,
@@ -26,6 +32,27 @@ public final class JavaAnnotationProcessorPipeline {
       CompilationScope scope,
       DocumentId entryDocument,
       Set<DocumentId> bindingDocuments)
+      throws JavaAnnotationProcessingException {
+    return process(
+        artifact,
+        bindings,
+        linked,
+        projectRoot,
+        scope,
+        entryDocument,
+        bindingDocuments,
+        message -> {});
+  }
+
+  public JavaAnnotationProcessingOutput process(
+      CoreArtifact artifact,
+      List<ResolvedJarBinding> bindings,
+      JarBindingClasspath linked,
+      Path projectRoot,
+      CompilationScope scope,
+      DocumentId entryDocument,
+      Set<DocumentId> bindingDocuments,
+      java.util.function.Consumer<String> progress)
       throws JavaAnnotationProcessingException {
     Objects.requireNonNull(artifact, "artifact");
     Objects.requireNonNull(bindings, "bindings");
@@ -56,7 +83,8 @@ public final class JavaAnnotationProcessorPipeline {
       return new JavaAnnotationProcessingOutput(
           output,
           stubs,
-          new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()));
+          new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
+          List.of());
     }
     Path staging = null;
     try {
@@ -67,30 +95,47 @@ public final class JavaAnnotationProcessorPipeline {
       Path classes = Files.createDirectories(staging.resolve("classes"));
       List<Path> sourceFiles = writeSources(sources, stubs);
       List<Path> classpath = classpath(linked.paths());
-      Path arguments = staging.resolve("javac.args");
-      Files.writeString(
-          arguments,
-          arguments(classpath, linked.processors(), generated, classes, sourceFiles),
-          StandardCharsets.UTF_8);
-      Process process =
-          new ProcessBuilder(javac().toString(), "@" + arguments.toAbsolutePath())
-              .redirectErrorStream(true)
-              .start();
-      String diagnostics =
-          new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-      int status;
-      try {
-        status = process.waitFor();
-      } catch (InterruptedException exception) {
-        Thread.currentThread().interrupt();
-        throw new JavaAnnotationProcessingException(
-            "Java annotation processing was interrupted", exception);
-      }
-      if (status != 0) {
-        throw new JavaAnnotationProcessingException(
-            diagnostics.isBlank()
-                ? "Java annotation processing failed with exit code " + status
-                : diagnostics.strip());
+      List<Path> processors = linked.processors();
+      Path compiler = javac();
+      var compilerInputs = new ArrayList<dev.w0fv1.norm.value.FileSnapshot>();
+      for (Path file : JavaCompilationCache.toolchainFiles(compiler))
+        compilerInputs.add(dev.w0fv1.norm.value.FileSnapshot.capture(file));
+      var cache =
+          processors.isEmpty() && cacheableEnvironment()
+              ? new JavaCompilationCache(
+                  Path.of(System.getProperty("user.home"), ".norm", "cache", "java-classes"))
+              : null;
+      var key = cache == null ? null : JavaCompilationCache.key(stubs, classpath, compiler);
+      if (cache != null && cache.restore(key, classes)) {
+        progress.accept("Reused generated Java classes");
+      } else {
+        Path arguments = staging.resolve("javac.args");
+        Files.writeString(
+            arguments,
+            arguments(classpath, processors, generated, classes, sourceFiles),
+            StandardCharsets.UTF_8);
+        Process process =
+            new ProcessBuilder(compiler.toString(), "@" + arguments.toAbsolutePath())
+                .redirectErrorStream(true)
+                .start();
+        String diagnostics =
+            new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int status;
+        try {
+          status = process.waitFor();
+        } catch (InterruptedException exception) {
+          Thread.currentThread().interrupt();
+          throw new JavaAnnotationProcessingException(
+              "Java annotation processing was interrupted", exception);
+        }
+        if (status != 0) {
+          throw new JavaAnnotationProcessingException(
+              diagnostics.isBlank()
+                  ? "Java annotation processing failed with exit code " + status
+                  : diagnostics.strip());
+        }
+        if (cache != null && key.equals(JavaCompilationCache.key(stubs, classpath, compiler)))
+          cache.write(key, classes);
       }
       var applicationCalls = new java.util.TreeMap<String, JavaCallTarget>();
       var methods = JavaApplicationMethodIndex.analyze(classes, stubs);
@@ -109,7 +154,7 @@ public final class JavaAnnotationProcessorPipeline {
       }
       replace(staging, output);
       staging = null;
-      return new JavaAnnotationProcessingOutput(output, stubs, methods);
+      return new JavaAnnotationProcessingOutput(output, stubs, methods, compilerInputs);
     } catch (JavaAnnotationProcessingException exception) {
       throw exception;
     } catch (IllegalArgumentException exception) {

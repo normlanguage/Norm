@@ -36,6 +36,7 @@ public final class JarApiScanner {
 
   public JarApiSchema scanSurface(ResolvedJarGraph graph, List<String> selectedTypes)
       throws IOException {
+    if (selectedTypes.isEmpty()) return new JarApiSchema(List.of());
     return scan(graph, selectedTypes, true);
   }
 

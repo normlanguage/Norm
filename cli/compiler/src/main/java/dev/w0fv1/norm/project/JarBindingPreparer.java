@@ -1,7 +1,7 @@
 package dev.w0fv1.norm.project;
 
 import dev.w0fv1.norm.jvm.GeneratedJarBinding;
-import dev.w0fv1.norm.jvm.JarApiScanner;
+import dev.w0fv1.norm.jvm.JarApiCache;
 import dev.w0fv1.norm.jvm.JarBindingSourceGenerator;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
@@ -29,9 +29,11 @@ final class JarBindingPreparer {
     try {
       List<String> selectedTypes =
           descriptor.binding().orElseThrow().api().stream().map(JarBindingType::name).toList();
-      JarApiScanner scanner = new JarApiScanner();
-      var surface = scanner.scanSurface(graph, selectedTypes);
-      var api = selectedSurfaceOnly ? surface : scanner.scan(graph, selectedTypes);
+      var scanner =
+          new JarApiCache(
+              java.nio.file.Path.of(System.getProperty("user.home"), ".norm", "cache", "java-api"));
+      var surface = scanner.scan(graph, selectedTypes, true);
+      var api = selectedSurfaceOnly ? surface : scanner.scan(graph, selectedTypes, false);
       GeneratedJarBinding generated =
           new JarBindingSourceGenerator()
               .generateSurface(

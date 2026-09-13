@@ -48,6 +48,7 @@ public final class CompilerSession implements AutoCloseable {
   private final LinkedHashMap<CompilationUnitId, TrackedUnit> compilations =
       new LinkedHashMap<>(16, 0.75f, true);
   private boolean closed;
+  private CompilationResultCache resultCache;
 
   public CompilerSession() {
     this(LanguageProfile.kernel());
@@ -92,15 +93,15 @@ public final class CompilerSession implements AutoCloseable {
   }
 
   public static CompilerSession persistent(Path root) throws IOException {
-    return new CompilerSession(
-        LanguageProfile.kernel(),
-        new FileDefinitionStore(root),
-        CompilerSessionCapacity.standard());
+    return persistent(root, LanguageProfile.kernel());
   }
 
   public static CompilerSession persistent(Path root, LanguageProfile profile) throws IOException {
-    return new CompilerSession(
-        profile, new FileDefinitionStore(root), CompilerSessionCapacity.standard());
+    var session =
+        new CompilerSession(
+            profile, new FileDefinitionStore(root), CompilerSessionCapacity.standard());
+    session.resultCache = new CompilationResultCache(root.resolve("compilations"), profile);
+    return session;
   }
 
   public CompilationResult compile(SourceFile source) {
@@ -126,6 +127,16 @@ public final class CompilerSession implements AutoCloseable {
     TrackedUnit cached = tracked(request.unit());
     if (cached != null && cached.request().equals(request) && cached.cachedResult() != null) {
       return cached.reuse();
+    }
+    dev.w0fv1.norm.value.Sha256Digest resultKey =
+        resultCache == null ? null : resultCache.key(request);
+    if (resultKey != null && cached == null) {
+      try {
+        var stored = resultCache.read(resultKey);
+        if (stored.isPresent()) return stored.orElseThrow();
+      } catch (IOException exception) {
+        throw new CompilationInfrastructureException("cannot read compilation result", exception);
+      }
     }
     long analysisStarted = System.nanoTime();
     PreparedCompilation prepared =
@@ -154,7 +165,15 @@ public final class CompilerSession implements AutoCloseable {
                 analysisElapsed));
     CompilationOutput output =
         trackCompilation(request, measured, analysis, prepared.snapshot(), cached);
-    return new CompilationResult(Optional.of(output), analysis.diagnostics());
+    var result = new CompilationResult(Optional.of(output), analysis.diagnostics());
+    if (resultKey != null) {
+      try {
+        resultCache.write(resultKey, result);
+      } catch (IOException exception) {
+        throw new CompilationInfrastructureException("cannot store compilation result", exception);
+      }
+    }
+    return result;
   }
 
   public AnalysisResult analyze(CompilationRequest request) {

@@ -77,7 +77,8 @@ final class NativeImageConfigurationWriterTest {
               new JavaAnnotationProcessingOutput(
                   directory,
                   stubs,
-                  new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of())),
+                  new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
+                  List.of()),
               compiled.application().orElseThrow().javaClasspath(),
               new TemporaryDirectory());
       var output =
@@ -134,7 +135,8 @@ final class NativeImageConfigurationWriterTest {
                   List.of(
                       new JavaAnnotationStub(binaryName, ""),
                       new JavaAnnotationStub(binaryName + "Sibling", "")),
-                  new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of())),
+                  new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
+                  List.of()),
               compilation.application().orElseThrow().javaClasspath(),
               new TemporaryDirectory());
       var output =

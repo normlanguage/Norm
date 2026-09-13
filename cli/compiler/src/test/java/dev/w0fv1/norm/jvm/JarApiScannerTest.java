@@ -27,6 +27,20 @@ final class JarApiScannerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void doesNotParseClassesForAResourceOnlyBinding() throws Exception {
+    Path jar = temporaryDirectory.resolve("resources.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.putNextEntry(new JarEntry("unselected/Unused.class"));
+      output.write(new byte[] {0, 1, 2});
+      output.closeEntry();
+    }
+    var digest = Sha256Digest.compute(jar);
+    var artifact = new ResolvedJarArtifact(new LocalJarIdentity(digest), jar, digest);
+    var graph = new ResolvedJarGraph(artifact, List.of(artifact), List.of());
+    assertTrue(new JarApiScanner().scanSurface(graph, List.of()).allTypes().isEmpty());
+  }
+
+  @Test
   void bindingPlanningDoesNotRestoreExcludedGenericOverrides() throws Exception {
     var parent = new ClassWriter(0);
     parent.visit(

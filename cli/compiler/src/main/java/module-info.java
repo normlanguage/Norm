@@ -50,11 +50,17 @@ module dev.w0fv1.norm {
       org.eclipse.lsp4j.jsonrpc;
   opens dev.w0fv1.norm.core to
       com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.diagnostic to
+      com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.execution to
       com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.jvm to
       com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.runtime to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.project to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.application to
       com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.source to
       com.esotericsoftware.kryo;
