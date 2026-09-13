@@ -31,6 +31,8 @@ Runtime: execution contracts → Truffle → platform adapter
 - [系统运行时架构](/design/system-runtime)：I/O、资源和平台适配；
 - [序列化运行时架构](/design/serialization-runtime)：结构元数据与 mapper；
 - [Java Library Adapter](/design/java-library-adapters)：单根 JAR、普通 Module 身份、内容寻址与发布边界；
+- [Vaadin 适配计划与落地方案](/design/vaadin-integration)：普通字段响应页面、独立 Jetty、Spring 集成与分阶段验收；
 - [编译器引导计划](/design/bootstrap-plan)：自举边界。
+- [应用启动性能](/design/startup-performance)：源码运行基线、制品复用边界与验收。
 
 性能目标只记录可验证预算，不从架构反推未经测量的性能结论。当前对外能力见 [Status](/status)。
