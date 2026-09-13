@@ -575,6 +575,7 @@ application {
     mainClass = "dev.w0fv1.norm.cli.Main"
     applicationDefaultJvmArgs =
         listOf(
+            "--add-modules=java.se",
             "--sun-misc-unsafe-memory-access=allow",
             "--enable-native-access=org.graalvm.truffle",
         )
@@ -634,6 +635,9 @@ distributions.create("runtime") {
 }
 
 val installRuntimeDistribution = tasks.named<Sync>("installRuntimeDist")
+installRuntimeDistribution.configure {
+    into(layout.buildDirectory.dir("install/norm-runtime"))
+}
 val runtimePayloadArchive = tasks.register<Zip>("runtimePayload") {
     dependsOn(installRuntimeDistribution)
     from(installRuntimeDistribution.map { it.destinationDir })

@@ -222,7 +222,7 @@ final class NativeImageConfigurationWriterTest {
               original.sources(),
               original.exportedSourcePaths(),
               original.bindingSourceDocuments(),
-              List.of(binding),
+              Map.of(original.scope().coordinate(original.primarySource().id()).module(), binding),
               new ProjectResources(
                   Map.of(
                       original.scope().coordinate(original.primarySource().id()).module(),

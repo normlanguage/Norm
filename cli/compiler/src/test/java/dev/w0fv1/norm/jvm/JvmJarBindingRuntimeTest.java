@@ -34,6 +34,26 @@ import org.objectweb.asm.Type;
 
 final class JvmJarBindingRuntimeTest {
   @Test
+  void preservesJarEntryContentLength() throws Exception {
+    Path jar = temporaryDirectory.resolve("entry-metadata.jar");
+    byte[] content = "resource-content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      output.putNextEntry(new JarEntry("resource.txt"));
+      output.write(content);
+      output.closeEntry();
+    }
+    try (var runtime = new JvmJarBindingRuntime(List.of(), List.of(jar))) {
+      var connection =
+          runtime.applicationClassLoader().getResource("resource.txt").openConnection();
+      assertEquals(content.length, connection.getContentLengthLong());
+      assertEquals(content.length, connection.getContentLength());
+      try (var stream = connection.getInputStream()) {
+        org.junit.jupiter.api.Assertions.assertArrayEquals(content, stream.readAllBytes());
+      }
+    }
+  }
+
+  @Test
   void closesUnreleasedResourceStreamsAndRejectsReopening() throws Exception {
     Path jar = temporaryDirectory.resolve("stream-resource.jar");
     try (var output = new JarOutputStream(Files.newOutputStream(jar))) {

@@ -2,6 +2,7 @@ package dev.w0fv1.norm.project;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.JarBindingOverload;
@@ -70,6 +71,25 @@ final class ModuleArchiveReader {
         }
       }
       snapshot.verify();
+      Map<String, JarBindingClassReference.Nominal> publicTypes = new LinkedHashMap<>();
+      if (manifest.has("jar") && manifest.getAsJsonObject("jar").has("publicTypes")) {
+        for (var entry :
+            manifest.getAsJsonObject("jar").getAsJsonObject("publicTypes").entrySet()) {
+          String name = entry.getValue().getAsString();
+          String prefixName = descriptor.name() + ".";
+          if (!name.startsWith(prefixName)
+              || !descriptor.exports().contains(name.substring(prefixName.length()))) {
+            throw new IOException("public Java type must refer to a module export: " + name);
+          }
+          int separator = name.lastIndexOf('.');
+          publicTypes.put(
+              entry.getKey(),
+              new JarBindingClassReference.Nominal(
+                  descriptor.coordinate(),
+                  name.substring(0, separator),
+                  name.substring(separator + 1)));
+        }
+      }
       return new ArchivedModule(
           snapshot,
           descriptor,
@@ -78,7 +98,8 @@ final class ModuleArchiveReader {
                   Sha256Digest.parse(manifest.getAsJsonObject("jar").get("apiId").getAsString()))
               : Optional.empty(),
           sources,
-          resources);
+          resources,
+          publicTypes);
     } catch (RuntimeException exception) {
       throw new IOException("invalid module archive " + archive, exception);
     }
@@ -156,8 +177,10 @@ final class ModuleArchiveReader {
       ModuleDescriptor descriptor,
       Optional<Sha256Digest> javaApiId,
       Map<String, String> sources,
-      Map<String, ModuleResource> resources) {
+      Map<String, ModuleResource> resources,
+      Map<String, JarBindingClassReference.Nominal> publicTypes) {
     ArchivedModule {
+      publicTypes = Map.copyOf(publicTypes);
       java.util.Objects.requireNonNull(descriptor, "descriptor");
       java.util.Objects.requireNonNull(javaApiId, "javaApiId");
       if (descriptor.binding().isPresent() != javaApiId.isPresent()) {

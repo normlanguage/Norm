@@ -2,6 +2,7 @@ package dev.w0fv1.norm.project;
 
 import static dev.w0fv1.norm.project.ProjectPaths.normalize;
 
+import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.source.DocumentId;
@@ -25,7 +26,33 @@ record ResolvedProjectModule(
     Optional<ResolvedJarBinding> binding,
     Map<String, ModuleResource> resources,
     Optional<FileSnapshot> archive,
-    Set<DocumentId> testSources) {
+    Set<DocumentId> testSources,
+    Map<String, JarBindingClassReference.Nominal> archivedJavaExports) {
+  ResolvedProjectModule(
+      Path root,
+      SourceFile moduleSource,
+      ModuleDescriptor descriptor,
+      Map<String, SourceFile> sources,
+      Set<DocumentId> exportedSources,
+      Set<DocumentId> bindingSources,
+      Optional<ResolvedJarBinding> binding,
+      Map<String, ModuleResource> resources,
+      Optional<FileSnapshot> archive,
+      Set<DocumentId> testSources) {
+    this(
+        root,
+        moduleSource,
+        descriptor,
+        sources,
+        exportedSources,
+        bindingSources,
+        binding,
+        resources,
+        archive,
+        testSources,
+        Map.of());
+  }
+
   ResolvedProjectModule(
       Path root,
       SourceFile moduleSource,
@@ -50,6 +77,7 @@ record ResolvedProjectModule(
   }
 
   ResolvedProjectModule {
+    archivedJavaExports = Map.copyOf(archivedJavaExports);
     testSources = Set.copyOf(testSources);
     root = normalize(root);
     Objects.requireNonNull(moduleSource, "moduleSource");

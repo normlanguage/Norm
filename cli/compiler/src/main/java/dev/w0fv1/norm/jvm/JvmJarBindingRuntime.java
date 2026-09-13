@@ -775,16 +775,12 @@ public final class JvmJarBindingRuntime
     private final Set<java.io.InputStream> resourceStreams =
         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final Map<String, java.lang.module.ModuleReference> modules = new LinkedHashMap<>();
-    private static final List<String> PARENT_PACKAGES =
-        List.of(
-            "java.",
-            "jdk.",
-            "sun.",
-            "com.sun.",
-            "dev.w0fv1.norm.bridge.",
-            "org.junit.",
-            "org.opentest4j.",
-            "org.apiguardian.");
+    private static final Set<String> PLATFORM_PACKAGES =
+        java.lang.module.ModuleFinder.ofSystem().findAll().stream()
+            .flatMap(reference -> reference.descriptor().packages().stream())
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    private static final List<String> SHARED_PACKAGES =
+        List.of("dev.w0fv1.norm.bridge.", "org.junit.", "org.opentest4j.", "org.apiguardian.");
 
     private ApplicationClassLoader(URL[] urls, ClassLoader parent) {
       super(urls, parent);
@@ -820,11 +816,7 @@ public final class JvmJarBindingRuntime
           if (parentFirst(name)) {
             type = super.loadClass(name, false);
           } else {
-            try {
-              type = findClass(name);
-            } catch (ClassNotFoundException ignored) {
-              type = super.loadClass(name, false);
-            }
+            type = findClass(name);
           }
         }
         if (resolve) resolveClass(type);
@@ -835,7 +827,9 @@ public final class JvmJarBindingRuntime
     @Override
     public URL getResource(String name) {
       URL resource = findResource(name);
-      return resource == null ? super.getResource(name) : resource;
+      if (resource != null) return resource;
+      var parent = parentResourceLoader(name);
+      return parent == null ? null : parent.getResource(name);
     }
 
     @Override
@@ -854,8 +848,19 @@ public final class JvmJarBindingRuntime
     public Enumeration<URL> getResources(String name) throws IOException {
       LinkedHashSet<URL> resources = new LinkedHashSet<>();
       resources.addAll(Collections.list(findResources(name)));
-      resources.addAll(Collections.list(getParent().getResources(name)));
+      var parent = parentResourceLoader(name);
+      if (parent != null) resources.addAll(Collections.list(parent.getResources(name)));
       return Collections.enumeration(resources);
+    }
+
+    private ClassLoader parentResourceLoader(String name) {
+      boolean service = name.startsWith("META-INF/services/");
+      String type =
+          service ? name.substring("META-INF/services/".length()) : name.replace('/', '.');
+      if (sharedParent(type)) return getParent();
+      int separator = service ? type.lastIndexOf('.') : name.lastIndexOf('/');
+      String packageName = separator < 0 ? "" : type.substring(0, separator);
+      return PLATFORM_PACKAGES.contains(packageName) ? ClassLoader.getPlatformClassLoader() : null;
     }
 
     private URL ownedResource(URL resource) {
@@ -897,6 +902,16 @@ public final class JvmJarBindingRuntime
                       resourceStreams.add(stream);
                       return stream;
                     }
+                  }
+
+                  @Override
+                  public int getContentLength() {
+                    return connection.getContentLength();
+                  }
+
+                  @Override
+                  public long getContentLengthLong() {
+                    return connection.getContentLengthLong();
                   }
 
                   @Override
@@ -942,7 +957,13 @@ public final class JvmJarBindingRuntime
     }
 
     private static boolean parentFirst(String name) {
-      return PARENT_PACKAGES.stream().anyMatch(name::startsWith);
+      int separator = name.lastIndexOf('.');
+      return sharedParent(name)
+          || (separator >= 0 && PLATFORM_PACKAGES.contains(name.substring(0, separator)));
+    }
+
+    private static boolean sharedParent(String name) {
+      return SHARED_PACKAGES.stream().anyMatch(name::startsWith);
     }
   }
 

@@ -83,6 +83,21 @@ public final class ModulePackager {
     return digest;
   }
 
+  public static void writeArchive(
+      Path archive, ProjectSourceSet snapshot, dev.w0fv1.norm.value.ModuleCoordinate module)
+      throws IOException {
+    var sources = new java.util.LinkedHashMap<String, SourceFile>();
+    for (var source : snapshot.sources()) {
+      var coordinate = snapshot.scope().coordinate(source.id());
+      if (coordinate.module().equals(module)) sources.put(coordinate.relativePath(), source);
+    }
+    var descriptor = Objects.requireNonNull(snapshot.moduleDescriptors().get(module));
+    var binding = Optional.ofNullable(snapshot.moduleJarBindings().get(module));
+    if (descriptor.binding().isPresent() != binding.isPresent())
+      throw new IOException("module binding snapshot is incomplete: " + module);
+    writeArchive(archive, descriptor, sources, binding, snapshot.resourceSet().forModule(module));
+  }
+
   private static void writeArchive(
       Path path,
       ModuleDescriptor descriptor,
@@ -141,6 +156,15 @@ public final class ModulePackager {
       jar.addProperty("version", target.coordinate().version());
       jar.addProperty("resolution", target.resolution().orElseThrow().value());
       jar.addProperty("apiId", binding.orElseThrow().api().apiId().value());
+      JsonObject publicTypes = new JsonObject();
+      ProjectJarBindingLinker.exports(binding.orElseThrow()).entrySet().stream()
+          .sorted(java.util.Map.Entry.comparingByKey())
+          .forEach(
+              entry ->
+                  publicTypes.addProperty(
+                      entry.getKey(),
+                      entry.getValue().packageName() + "." + entry.getValue().name()));
+      jar.add("publicTypes", publicTypes);
       JsonArray api = new JsonArray();
       descriptor
           .binding()

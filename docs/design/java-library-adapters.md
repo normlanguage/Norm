@@ -144,7 +144,7 @@ POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module
 
 ## 当前绑定面
 
-Java 模块识别由 `JavaModulePath` 统一提供。JVM 模块资源与类加载沿用同一应用执行域，资源流由应用加载器在退出时完成关闭；Native 从已选定制品图派生应用模块路径。实现入口为 `JvmJarBindingRuntime` 与 `NativeApplicationExecutable`，身份、资源读取和文件释放验证见 `JavaModuleLoadingTest`。依赖的 Native 可用性仍需实际应用验收。
+Java 模块识别由 `JavaModulePath` 统一提供。JVM 模块资源与类加载沿用同一应用执行域，资源流由应用加载器在退出时完成关闭；Native 从已选定制品图派生应用模块路径。实现入口为 `JvmJarBindingRuntime` 与 `NativeApplicationExecutable`，身份、资源读取和文件释放验证见 `JavaModuleLoadingTest`。编译器依赖、服务资源与 JDK 平台边界的隔离验证见 [ApplicationClassLoaderIsolationTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/ApplicationClassLoaderIsolationTest.java)。依赖的 Native 可用性仍需实际应用验收。
 
 当前实现覆盖静态与实例方法、构造函数、静态与实例字段、基本与盒装标量、字符串、`Number`、不透明对象、Object 上界泛型和 JAR 内泛型继承投影。具体组件类型的 Java 数组映射为生成的 identity wrapper，提供固定长度、读取、原位更新和构造能力；基本类型数组与盒装类型数组保持不同名义类型，不映射为具有值语义的 Norm `Array<T>`。Java `T[]` 与 `T...` 使用按擦除组件区分的 reified 数组，可变参数调用固定为单个数组参数。
 

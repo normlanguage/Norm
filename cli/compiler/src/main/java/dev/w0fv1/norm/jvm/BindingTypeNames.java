@@ -4,6 +4,7 @@ import static dev.w0fv1.norm.jvm.BindingNames.bindingTypeSuffix;
 import static dev.w0fv1.norm.jvm.BindingNames.simpleName;
 import static dev.w0fv1.norm.jvm.JavaBindingMembers.requiredProtocolBinding;
 
+import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -17,8 +18,10 @@ public record BindingTypeNames(
     Map<String, String> referencePaths,
     Map<JavaArrayType, String> arrays,
     Map<String, Map<String, String>> enumVariants,
-    Map<String, Integer> typeParameterCounts) {
+    Map<String, Integer> typeParameterCounts,
+    Map<String, JarBindingClassReference.Nominal> imports) {
   public BindingTypeNames {
+    imports = Map.copyOf(imports);
     references = Map.copyOf(references);
     referencePaths = Map.copyOf(referencePaths);
     arrays = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(arrays));

@@ -64,7 +64,7 @@ final class ResolvedJarClasspath {
       var artifact = entry.getValue();
       var file =
           new FileSnapshot(artifact.file(), artifact.content())
-              .copyTo(directory.resolve(artifact.content().value() + ".jar"));
+              .copyTo(directory.resolve(artifact.storagePath()));
       captured.put(
           entry.getKey(),
           new ResolvedJarArtifact(artifact.identity(), file.path(), file.content()));

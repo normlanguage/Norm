@@ -24,21 +24,21 @@ public final class BundledJarGraphs {
     Path root = normalize(directory);
     Path artifactsDirectory = root.resolve("artifacts");
     Files.createDirectories(artifactsDirectory);
-    Map<String, ResolvedJarArtifact> artifacts = new LinkedHashMap<>();
+    Map<Path, ResolvedJarArtifact> artifacts = new LinkedHashMap<>();
     Map<String, ResolvedJarGraph> graphs = new LinkedHashMap<>();
     for (ResolvedJarBinding binding : bindings) {
       ResolvedJarGraph graph = binding.graph();
       graphs.putIfAbsent(graph.contentId().value(), graph);
       for (ResolvedJarArtifact artifact : graph.artifacts()) {
-        artifacts.putIfAbsent(artifact.content().value(), artifact);
+        artifacts.putIfAbsent(artifact.storagePath(), artifact);
       }
     }
     for (ResolvedJarArtifact artifact : artifacts.values()) {
-      Path target = artifactsDirectory.resolve(artifact.content().value() + ".jar");
+      Path target = artifactsDirectory.resolve(artifact.storagePath());
       new FileSnapshot(artifact.file(), artifact.content()).copyTo(target);
     }
     JsonObject manifest = new JsonObject();
-    manifest.addProperty("formatVersion", 1);
+    manifest.addProperty("formatVersion", 2);
     JsonArray entries = new JsonArray();
     for (ResolvedJarGraph graph : graphs.values()) entries.add(graphJson(graph));
     manifest.add("graphs", entries);
@@ -52,7 +52,7 @@ public final class BundledJarGraphs {
       manifest =
           JsonParser.parseString(Files.readString(root.resolve(MANIFEST), StandardCharsets.UTF_8))
               .getAsJsonObject();
-      if (manifest.get("formatVersion").getAsInt() != 1) {
+      if (manifest.get("formatVersion").getAsInt() != 2) {
         throw new IllegalArgumentException("unsupported bundled JAR graph format");
       }
     } catch (RuntimeException exception) {
@@ -66,7 +66,17 @@ public final class BundledJarGraphs {
         JsonObject artifactEntry = artifactValue.getAsJsonObject();
         JarArtifactIdentity identity = identity(artifactEntry.get("identity").getAsString());
         Sha256Digest content = Sha256Digest.parse(artifactEntry.get("sha256").getAsString());
-        Path file = root.resolve("artifacts").resolve(content.value() + ".jar").normalize();
+        String fileName = artifactEntry.get("fileName").getAsString();
+        if (fileName.isBlank()
+            || fileName.contains("/")
+            || fileName.contains("\\")
+            || fileName.contains(":")
+            || fileName.equals(".")
+            || fileName.equals("..")) {
+          throw new IOException("invalid bundled JAR file name: " + fileName);
+        }
+        Path file =
+            root.resolve("artifacts").resolve(content.value()).resolve(fileName).normalize();
         if (!file.startsWith(root)
             || !Files.isRegularFile(file)
             || !content.equals(Sha256Digest.compute(file))) {
@@ -108,6 +118,7 @@ public final class BundledJarGraphs {
       JsonObject entry = new JsonObject();
       entry.addProperty("identity", artifact.identity().canonical());
       entry.addProperty("sha256", artifact.content().value());
+      entry.addProperty("fileName", artifact.file().getFileName().toString());
       artifacts.add(entry);
     }
     result.add("artifacts", artifacts);

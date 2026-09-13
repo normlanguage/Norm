@@ -11,4 +11,8 @@ public record ResolvedJarArtifact(JarArtifactIdentity identity, Path file, Sha25
     Objects.requireNonNull(content, "content");
     file = file.toAbsolutePath().normalize();
   }
+
+  public Path storagePath() {
+    return Path.of(content.value()).resolve(file.getFileName());
+  }
 }

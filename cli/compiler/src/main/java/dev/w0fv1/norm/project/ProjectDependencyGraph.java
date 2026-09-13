@@ -146,6 +146,7 @@ final class ProjectDependencyGraph {
         visit(dependency);
       }
       visiting.remove(coordinate);
+      module = ProjectJarBindingLinker.link(module, resolved);
       resolved.put(coordinate, module);
       ordered.add(module);
     }

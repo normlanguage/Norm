@@ -49,7 +49,8 @@ public final class BindingPlanner {
         module,
         exports.stream().map(name -> BindingSelection.allMembers(name, name)).toList(),
         graphId,
-        schema);
+        schema,
+        Map.of());
   }
 
   public BindingPlan planSurface(
@@ -67,6 +68,16 @@ public final class BindingPlanner {
       List<JarBindingType> api,
       Sha256Digest graphId,
       JarApiSchema schema) {
+    return planSurface(module, exports, api, graphId, schema, Map.of());
+  }
+
+  public BindingPlan planSurface(
+      ModuleCoordinate module,
+      List<String> exports,
+      List<JarBindingType> api,
+      Sha256Digest graphId,
+      JarApiSchema schema,
+      Map<String, JarBindingClassReference.Nominal> imports) {
     if (exports.size() != api.size()) {
       throw new IllegalArgumentException("JAR binding exports must match API types");
     }
@@ -74,14 +85,15 @@ public final class BindingPlanner {
     for (int index = 0; index < api.size(); index++) {
       selections.add(BindingSelection.declaredMembers(api.get(index), exports.get(index)));
     }
-    return planSelected(module, selections, graphId, schema);
+    return planSelected(module, selections, graphId, schema, imports);
   }
 
   private BindingPlan planSelected(
       ModuleCoordinate module,
       List<BindingSelection> selections,
       Sha256Digest graphId,
-      JarApiSchema schema) {
+      JarApiSchema schema,
+      Map<String, JarBindingClassReference.Nominal> imports) {
     Objects.requireNonNull(module, "module");
     Objects.requireNonNull(selections, "selections");
     Objects.requireNonNull(graphId, "graphId");
@@ -100,6 +112,7 @@ public final class BindingPlanner {
     List<String> rootExports = new ArrayList<>();
     Map<String, String> referenceNames = new LinkedHashMap<>();
     Map<String, String> referencePaths = new LinkedHashMap<>();
+    Map<String, JarBindingClassReference.Nominal> usedImports = new LinkedHashMap<>();
     Map<String, Optional<MemberSelection>> selectedMembers = new LinkedHashMap<>();
     for (BindingSelection selection : selections) {
       String selectedName = selection.name();
@@ -186,6 +199,13 @@ public final class BindingPlanner {
       for (String binaryName : referencedTypes) {
         JavaApiType referenced = apiTypes.get(binaryName);
         if (referenced == null || referenceNames.containsKey(binaryName)) continue;
+        var imported = imports.get(binaryName);
+        if (imported != null && !schema.types().contains(referenced)) {
+          referenceNames.put(binaryName, imported.name());
+          referencePaths.put(binaryName, imported.packageName() + "." + imported.name());
+          usedImports.put(binaryName, imported);
+          continue;
+        }
         String relativeName =
             allocateTypePath(
                 relativeTypeName(binaryName, javaPackagePrefix), binaryName, referencePaths);
@@ -210,7 +230,8 @@ public final class BindingPlanner {
       }
     }
     Map<String, Map<String, String>> enumVariants = new LinkedHashMap<>();
-    exportedTypes.values().stream()
+    apiTypes.values().stream()
+        .filter(type -> referenceNames.containsKey(type.binaryName()))
         .filter(type -> type.kind() == JavaApiTypeKind.ENUM)
         .forEach(type -> enumVariants.put(type.binaryName(), enumVariants(type)));
     BindingTypeNames normTypes =
@@ -219,11 +240,12 @@ public final class BindingPlanner {
             Map.copyOf(referencePaths),
             allocateArrayNames(arrays),
             enumVariants,
-            exportedTypes.values().stream()
+            apiTypes.values().stream()
+                .filter(type -> referenceNames.containsKey(type.binaryName()))
                 .collect(
                     java.util.stream.Collectors.toUnmodifiableMap(
-                        JavaApiType::binaryName,
-                        type -> type.signature().typeParameters().size())));
+                        JavaApiType::binaryName, type -> type.signature().typeParameters().size())),
+            usedImports);
     Map<String, JavaAnnotationBinding> annotationBindings = new LinkedHashMap<>();
     exportedTypes.forEach(
         (exportedName, owner) -> {

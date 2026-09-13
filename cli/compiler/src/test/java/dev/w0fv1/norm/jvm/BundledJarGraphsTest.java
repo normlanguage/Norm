@@ -19,7 +19,9 @@ final class BundledJarGraphsTest {
   void preservesAResolvedGraphWithoutAMavenRepository() throws Exception {
     Path rootFile = temporaryDirectory.resolve("root.jar");
     Path dependencyFile = temporaryDirectory.resolve("dependency.jar");
-    Files.writeString(rootFile, "root");
+    try (var jar = new java.util.jar.JarOutputStream(Files.newOutputStream(rootFile))) {
+      jar.finish();
+    }
     Files.writeString(dependencyFile, "dependency");
     ResolvedJarArtifact root = artifact("org.example", "root", "1.0", rootFile);
     ResolvedJarArtifact dependency = artifact("org.example", "dependency", "2.0", dependencyFile);
@@ -49,6 +51,31 @@ final class BundledJarGraphsTest {
         graph.artifacts().stream().map(ResolvedJarArtifact::identity).toList(),
         restored.artifacts().stream().map(ResolvedJarArtifact::identity).toList());
     assertEquals(graph.edges(), restored.edges());
+    assertEquals(
+        "root",
+        java.lang.module.ModuleFinder.of(restored.root().file())
+            .findAll()
+            .iterator()
+            .next()
+            .descriptor()
+            .name());
+    assertEquals(rootFile.getFileName(), restored.root().file().getFileName());
+    Path manifestFile = bundle.resolve(BundledJarGraphs.MANIFEST);
+    var manifest =
+        com.google.gson.JsonParser.parseString(Files.readString(manifestFile)).getAsJsonObject();
+    var bundledArtifact =
+        manifest
+            .getAsJsonArray("graphs")
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonArray("artifacts")
+            .get(0)
+            .getAsJsonObject();
+    for (String invalid : List.of("../root.jar", "..\\root.jar", "C:root.jar", "..", "")) {
+      bundledArtifact.addProperty("fileName", invalid);
+      Files.writeString(manifestFile, manifest.toString());
+      assertThrows(java.io.IOException.class, () -> BundledJarGraphs.read(bundle));
+    }
   }
 
   @Test
@@ -89,7 +116,7 @@ final class BundledJarGraphsTest {
                 java.util.Map.of()));
     Path output = temporaryDirectory.resolve("bundle");
     BundledJarGraphs.write(output, List.of(binding));
-    Path target = output.resolve("artifacts").resolve(artifact.content().value() + ".jar");
+    Path target = output.resolve("artifacts").resolve(artifact.storagePath());
     Files.writeString(target, "changed");
     BundledJarGraphs.write(output, List.of(binding));
     assertEquals("original", Files.readString(target));

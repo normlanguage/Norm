@@ -164,7 +164,7 @@ public final class ProjectLoader implements AutoCloseable {
           List.of(entrySource),
           Set.of(),
           Set.of(),
-          List.of(),
+          Map.of(),
           new ProjectResources(Map.of()),
           entryStructure.applicationFactory(),
           entryStructure.mainEntrypoint());
@@ -226,7 +226,7 @@ public final class ProjectLoader implements AutoCloseable {
     Map<ModuleCoordinate, FileSnapshot> moduleArchives = new LinkedHashMap<>();
     Set<DocumentId> bindingSources = new LinkedHashSet<>();
     Set<DocumentId> testSources = new LinkedHashSet<>();
-    List<ResolvedJarBinding> jarBindings = new java.util.ArrayList<>();
+    Map<ModuleCoordinate, ResolvedJarBinding> jarBindings = new LinkedHashMap<>();
     Map<ModuleCoordinate, Map<String, ModuleResource>> resources = new LinkedHashMap<>();
     for (ResolvedProjectModule module : graph) {
       module
@@ -237,7 +237,9 @@ public final class ProjectLoader implements AutoCloseable {
       modulePaths.add(normalize(module.moduleSource().path()));
       bindingSources.addAll(module.bindingSources());
       testSources.addAll(module.testSources());
-      module.binding().ifPresent(jarBindings::add);
+      module
+          .binding()
+          .ifPresent(binding -> jarBindings.put(module.descriptor().coordinate(), binding));
       resources.put(module.descriptor().coordinate(), module.resources());
       exportedSources.addAll(
           module.exportedSources().stream()
@@ -405,13 +407,9 @@ public final class ProjectLoader implements AutoCloseable {
   }
 
   public ResolvedJarBinding generateJarBinding(SourceFile source) throws IOException {
-    ModuleDescriptor descriptor = evaluateModule(source);
-    if (descriptor.binding().isEmpty())
-      throw new IOException("module does not declare a JAR binding");
-    Path moduleRoot = normalize(source.path()).getParent();
-    if (moduleRoot == null) throw new IOException("module configuration path has no parent");
-    ResolvedJarGraph graph = jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
-    return JarBindingPreparer.prepare(descriptor, graph);
+    return moduleArchiveContents(source)
+        .binding()
+        .orElseThrow(() -> new IOException("module does not declare a JAR binding"));
   }
 
   ModuleArchiveContents moduleArchiveContents(SourceFile source) throws IOException {
@@ -419,6 +417,7 @@ public final class ProjectLoader implements AutoCloseable {
       throw new IllegalArgumentException("source is not a module configuration");
     }
     ResolvedProjectModule resolved = moduleSources.load(source, Map.of());
+    resolved = dependencies.resolve(resolved, Map.of(), ProjectLoadPurpose.RUNTIME).getLast();
     return new ModuleArchiveContents(
         resolved.descriptor(), resolved.sources(), resolved.binding(), resolved.resources());
   }

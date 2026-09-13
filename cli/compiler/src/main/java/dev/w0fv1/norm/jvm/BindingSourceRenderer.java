@@ -656,7 +656,9 @@ public final class BindingSourceRenderer {
             reference -> {
               String path = normTypes.referencePaths().get(reference);
               if (path == null) return;
-              String referencePackage = module.name() + exportPackage(path);
+              var imported = normTypes.imports().get(reference);
+              String referencePackage =
+                  imported == null ? module.name() + exportPackage(path) : imported.packageName();
               if (referencePackage.equals(packageName)) return;
               String name = normTypes.references().get(reference);
               String existing = importedNames.putIfAbsent(name, reference);
@@ -667,7 +669,7 @@ public final class BindingSourceRenderer {
                         + " and "
                         + reference);
               }
-              text.append("import ").append(module.name()).append('.').append(path).append('\n');
+              text.append("import ").append(referencePackage).append('.').append(name).append('\n');
             });
   }
 

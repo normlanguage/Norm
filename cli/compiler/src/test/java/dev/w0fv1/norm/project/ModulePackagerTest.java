@@ -552,6 +552,12 @@ final class ModulePackagerTest {
 
   @Test
   void writesModuleDependenciesAsNarDependencies() throws Exception {
+    Path base =
+        Files.createDirectories(temporaryDirectory.resolve("sources/dependencies/example/base"));
+    Files.writeString(
+        base.resolve("module.norm"),
+        "Module module() { module(name: \"example.base\", version: 2, exports: [\"Base\"]) }");
+    Files.writeString(base.resolve("Base.norm"), "package example.base\npublic class Base {}\n");
     Path module = Files.createDirectories(temporaryDirectory.resolve("sources/example/adapter"));
     Path modulePath = module.resolve("module.norm");
     Files.writeString(

@@ -35,7 +35,7 @@ public record ProjectSourceSet(
     List<SourceFile> sources,
     Set<Path> exportedSourcePaths,
     Set<DocumentId> bindingSourceDocuments,
-    List<ResolvedJarBinding> jarBindings,
+    Map<ModuleCoordinate, ResolvedJarBinding> moduleJarBindings,
     ProjectResources resourceSet,
     boolean applicationFactory,
     boolean mainEntrypoint) {
@@ -70,7 +70,11 @@ public record ProjectSourceSet(
     Objects.requireNonNull(sources, "sources");
     Objects.requireNonNull(exportedSourcePaths, "exportedSourcePaths");
     Objects.requireNonNull(bindingSourceDocuments, "bindingSourceDocuments");
-    jarBindings = List.copyOf(jarBindings);
+    moduleJarBindings =
+        java.util.Collections.unmodifiableMap(new LinkedHashMap<>(moduleJarBindings));
+    if (!scope.modules().modules().containsAll(moduleJarBindings.keySet())) {
+      throw new IllegalArgumentException("JAR bindings must belong to the module graph");
+    }
     Objects.requireNonNull(resourceSet, "resourceSet");
 
     Map<Path, SourceFile> sourcesByPath = new LinkedHashMap<>();
@@ -116,6 +120,10 @@ public record ProjectSourceSet(
 
   public Map<String, ModuleResource> resources() {
     return resourceSet.classpath();
+  }
+
+  public List<ResolvedJarBinding> jarBindings() {
+    return List.copyOf(moduleJarBindings.values());
   }
 
   public SourceFile primarySource() {

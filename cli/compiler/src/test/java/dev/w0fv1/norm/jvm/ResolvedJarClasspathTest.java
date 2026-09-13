@@ -14,6 +14,32 @@ final class ResolvedJarClasspathTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void preservesAutomaticModuleNameWhenMaterializing() throws Exception {
+    Path file = temporaryDirectory.resolve("legacy-library-1.0.jar");
+    try (var jar = new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(file))) {
+      jar.finish();
+    }
+    var artifact =
+        new ResolvedJarArtifact(
+            new LocalJarIdentity(Sha256Digest.compute(file)), file, Sha256Digest.compute(file));
+    var captured =
+        ResolvedJarClasspath.resolve(
+                List.of(new ResolvedJarGraph(artifact, List.of(artifact), List.of())))
+            .materialize(temporaryDirectory.resolve("captured"))
+            .artifacts()
+            .getFirst();
+    assertEquals(
+        "legacy.library",
+        java.lang.module.ModuleFinder.of(captured.file())
+            .findAll()
+            .iterator()
+            .next()
+            .descriptor()
+            .name());
+    assertEquals(file.getFileName(), captured.file().getFileName());
+  }
+
+  @Test
   void freezesVersionSelectionBeforeDerivingPurposeClosures() {
     var processor = artifact("sample", "processor", "1", "processor");
     var runtime = artifact("sample", "runtime", "1", "runtime");

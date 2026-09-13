@@ -101,11 +101,6 @@ final class ArchivedModuleLoader {
         generatedSources = Map.copyOf(expected);
       }
     }
-    for (Map.Entry<String, String> generated : generatedSources.entrySet()) {
-      if (!generated.getValue().equals(archived.sources().get(generated.getKey()))) {
-        throw new IOException("Norm module generated sources do not match its pinned JAR binding");
-      }
-    }
     Path virtualRoot =
         normalize(
             repositoryRoot
@@ -132,7 +127,9 @@ final class ArchivedModuleLoader {
             bindingSources,
             binding,
             archived.resources(),
-            Optional.of(archived.archive()));
+            Optional.of(archived.archive()),
+            Set.of(),
+            archived.publicTypes());
     if (purpose != ProjectLoadPurpose.ANALYSIS) return result;
     ResolvedProjectModule cached = analysisModules.putIfAbsent(analysisKey, result);
     return cached == null ? result : cached;
