@@ -9,6 +9,8 @@ import dev.w0fv1.norm.syntax.BlockCallChainSyntax;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.syntax.Token;
 import dev.w0fv1.norm.syntax.TokenKind;
+import dev.w0fv1.norm.syntax.TokenSpanMapping;
+import dev.w0fv1.norm.value.CompilationScope;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,31 +20,45 @@ import java.util.Map;
 import java.util.Set;
 
 record IncrementalAnalysisPlan(
-    Map<SourceSpan, SemanticContribution> reusable, int declarations, int reusedDeclarations) {
+    Map<SourceSpan, SemanticContribution> reusable,
+    Map<SourceSpan, TokenSpanMapping> mappings,
+    int declarations,
+    int reusedDeclarations) {
   IncrementalAnalysisPlan {
     reusable = Map.copyOf(reusable);
-  }
-
-  static IncrementalAnalysisPlan full(List<ParsedDocument> documents) {
-    return new IncrementalAnalysisPlan(Map.of(), declarations(documents).size(), 0);
+    mappings = Map.copyOf(mappings);
   }
 
   static IncrementalAnalysisPlan create(
-      CompilationSnapshot previous, List<ParsedDocument> currentDocuments) {
-    if (previous == null || previous.analysis().hasErrors()) return full(currentDocuments);
-    List<DeclarationRef> current = declarations(currentDocuments);
-    List<DeclarationRef> old = declarations(previous);
+      History previous,
+      List<ParsedDocument> currentDocuments,
+      CompilationScope scope,
+      DeclarationAnalysis declarations) {
+    List<DeclarationRef> current = declarations(currentDocuments, scope);
+    if (previous == null) return new IncrementalAnalysisPlan(Map.of(), Map.of(), current.size(), 0);
+    List<DeclarationRef> old = previous.declarations();
     Map<String, DeclarationRef> currentByKey = byKey(current);
     Map<String, DeclarationRef> oldByKey = byKey(old);
     Map<DocumentId, DocumentContext> currentContexts = contexts(currentDocuments);
-    Map<DocumentId, DocumentContext> oldContexts = contexts(previous);
+    Map<DocumentId, DocumentContext> oldContexts = previous.contexts();
+    var currentContracts =
+        declarations.contracts(current.stream().map(DeclarationRef::span).toList());
 
     Set<String> affected = new LinkedHashSet<>();
+    Set<String> changedContracts = new LinkedHashSet<>();
     Set<String> allKeys = new LinkedHashSet<>(oldByKey.keySet());
     allKeys.addAll(currentByKey.keySet());
     for (String key : allKeys) {
       DeclarationRef currentDeclaration = currentByKey.get(key);
       DeclarationRef oldDeclaration = oldByKey.get(key);
+      if (currentDeclaration == null
+          || oldDeclaration == null
+          || !currentContracts
+              .get(currentDeclaration.span())
+              .equals(previous.contracts().get(key))) {
+        affected.add(key);
+        changedContracts.add(key);
+      }
       if (currentDeclaration == null
           || oldDeclaration == null
           || !currentContexts
@@ -62,13 +78,63 @@ record IncrementalAnalysisPlan(
       if (currentMembers.equals(oldMembers)) continue;
       affected.addAll(currentMembers);
       affected.addAll(oldMembers);
+      changedContracts.addAll(currentMembers);
+      changedContracts.addAll(oldMembers);
     }
 
+    Map<String, Set<String>> dependents = previous.dependents();
+    ArrayDeque<String> pending = new ArrayDeque<>(changedContracts);
+    Set<String> propagated = new LinkedHashSet<>(changedContracts);
+    while (!pending.isEmpty()) {
+      String changed = pending.removeFirst();
+      for (String dependent : dependents.getOrDefault(changed, Set.of())) {
+        if (propagated.add(dependent)) {
+          affected.add(dependent);
+          pending.addLast(dependent);
+        }
+      }
+    }
+
+    Map<SourceSpan, SemanticContribution> reusable = new LinkedHashMap<>();
+    Map<SourceSpan, TokenSpanMapping> mappings = new LinkedHashMap<>();
+    for (String key : currentByKey.keySet()) {
+      if (affected.contains(key)) continue;
+      DeclarationRef currentDeclaration = currentByKey.get(key);
+      DeclarationRef oldDeclaration = oldByKey.get(key);
+      var mapping =
+          new TokenSpanMapping(
+              oldDeclaration.span(),
+              currentDeclaration.span(),
+              oldDeclaration.tokens(),
+              currentDeclaration.tokens());
+      mappings.put(oldDeclaration.span(), mapping);
+      reusable.put(currentDeclaration.span(), previous.contributions().get(key).rebase(mapping));
+    }
+    return new IncrementalAnalysisPlan(reusable, mappings, current.size(), reusable.size());
+  }
+
+  static History capture(CompilationSnapshot previous) {
+    if (previous == null || previous.analysis().hasErrors()) return null;
+    List<DeclarationRef> old = declarations(previous);
     SemanticModel model = previous.semanticModel();
+    var ownership =
+        dev.w0fv1.norm.semantic.SpanIndex.of(
+            old.stream()
+                .map(
+                    declaration ->
+                        new dev.w0fv1.norm.semantic.SpanIndex.Entry<>(
+                            declaration.span(), declaration.key()))
+                .toList());
+    var facts = model.contributions(old.stream().map(DeclarationRef::span).toList());
     Map<String, Set<String>> dependents = new LinkedHashMap<>();
     for (DeclarationRef declaration : old) {
-      for (SourceLocation dependency : model.declarationDependencies(declaration.span())) {
-        String target = containing(old, dependency);
+      for (SourceLocation dependency :
+          model.declarationDependencies(facts.get(declaration.span()))) {
+        String target =
+            ownership
+                .at(dependency.document(), dependency.startOffset())
+                .map(dev.w0fv1.norm.semantic.SpanIndex.Entry::value)
+                .orElse(null);
         if (target != null && !target.equals(declaration.key())) {
           dependents
               .computeIfAbsent(target, ignored -> new LinkedHashSet<>())
@@ -76,41 +142,83 @@ record IncrementalAnalysisPlan(
         }
       }
     }
-    ArrayDeque<String> pending = new ArrayDeque<>(affected);
-    while (!pending.isEmpty()) {
-      String changed = pending.removeFirst();
-      for (String dependent : dependents.getOrDefault(changed, Set.of())) {
-        if (affected.add(dependent)) pending.addLast(dependent);
+    Map<String, SemanticContribution> contributions = new LinkedHashMap<>();
+    for (var declaration : old) contributions.put(declaration.key(), facts.get(declaration.span()));
+    var captured =
+        previous.declarations().contracts(old.stream().map(DeclarationRef::span).toList());
+    Map<String, Map<dev.w0fv1.norm.semantic.SymbolId, DeclarationContract>> contracts =
+        new LinkedHashMap<>();
+    for (var declaration : old) contracts.put(declaration.key(), captured.get(declaration.span()));
+    return new History(
+        old,
+        contexts(previous),
+        contributions,
+        contracts,
+        dependents,
+        model.nextSourceSymbolOrdinal());
+  }
+
+  record History(
+      List<DeclarationRef> declarations,
+      Map<DocumentId, DocumentContext> contexts,
+      Map<String, SemanticContribution> contributions,
+      Map<String, Map<dev.w0fv1.norm.semantic.SymbolId, DeclarationContract>> contracts,
+      Map<String, Set<String>> dependents,
+      int nextSymbolOrdinal) {
+    Map<SourceSpan, SemanticContribution> contributions(Set<DocumentId> documents) {
+      var result = new LinkedHashMap<SourceSpan, SemanticContribution>();
+      for (var declaration : declarations) {
+        if (documents.contains(declaration.span().source().id()))
+          result.put(declaration.span(), contributions.get(declaration.key()));
       }
+      return Map.copyOf(result);
     }
 
-    Map<SourceSpan, SemanticContribution> reusable = new LinkedHashMap<>();
-    for (String key : currentByKey.keySet()) {
-      if (affected.contains(key)) continue;
-      DeclarationRef currentDeclaration = currentByKey.get(key);
-      DeclarationRef oldDeclaration = oldByKey.get(key);
-      reusable.put(
-          currentDeclaration.span(),
-          model.contribution(
-              oldDeclaration.span(),
-              currentDeclaration.span(),
-              oldDeclaration.tokens(),
-              currentDeclaration.tokens()));
+    History {
+      declarations = List.copyOf(declarations);
+      contexts = Map.copyOf(contexts);
+      contributions = Map.copyOf(contributions);
+      contracts =
+          contracts.entrySet().stream()
+              .collect(
+                  java.util.stream.Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
+      var copied = new LinkedHashMap<String, Set<String>>();
+      dependents.forEach((key, values) -> copied.put(key, Set.copyOf(values)));
+      dependents = Map.copyOf(copied);
     }
-    return new IncrementalAnalysisPlan(reusable, current.size(), reusable.size());
   }
 
   int analyzedDeclarations() {
     return declarations - reusedDeclarations;
   }
 
-  private static List<DeclarationRef> declarations(List<ParsedDocument> documents) {
+  Set<dev.w0fv1.norm.value.ModuleCoordinate> analyzedModules(
+      List<ParsedDocument> documents, CompilationScope scope) {
+    return declarations(documents, scope).stream()
+        .filter(declaration -> !reusable.containsKey(declaration.span()))
+        .map(declaration -> scope.coordinate(declaration.span().source().id()).module())
+        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+  }
+
+  private static List<DeclarationRef> declarations(
+      List<ParsedDocument> documents, CompilationScope scope) {
     List<DeclarationRef> declarations = new ArrayList<>();
     for (ParsedDocument document : documents) {
-      add(declarations, document.syntax(), document.tokens(), document.syntax().enums());
-      add(declarations, document.syntax(), document.tokens(), document.syntax().interfaces());
-      add(declarations, document.syntax(), document.tokens(), document.syntax().aggregates());
-      add(declarations, document.syntax(), document.tokens(), document.syntax().functions());
+      add(declarations, document.syntax(), document.tokens(), document.syntax().enums(), scope);
+      add(
+          declarations,
+          document.syntax(),
+          document.tokens(),
+          document.syntax().interfaces(),
+          scope);
+      add(
+          declarations,
+          document.syntax(),
+          document.tokens(),
+          document.syntax().aggregates(),
+          scope);
+      add(declarations, document.syntax(), document.tokens(), document.syntax().functions(), scope);
     }
     return List.copyOf(declarations);
   }
@@ -123,10 +231,30 @@ record IncrementalAnalysisPlan(
             document -> {
               var model = snapshot.document(document).orElseThrow();
               Syntax.Program syntax = model.syntax();
-              add(declarations, syntax, model.tokens(), syntax.enums());
-              add(declarations, syntax, model.tokens(), syntax.interfaces());
-              add(declarations, syntax, model.tokens(), syntax.aggregates());
-              add(declarations, syntax, model.tokens(), syntax.functions());
+              add(
+                  declarations,
+                  syntax,
+                  model.tokens(),
+                  syntax.enums(),
+                  snapshot.semanticModel().compilationScope());
+              add(
+                  declarations,
+                  syntax,
+                  model.tokens(),
+                  syntax.interfaces(),
+                  snapshot.semanticModel().compilationScope());
+              add(
+                  declarations,
+                  syntax,
+                  model.tokens(),
+                  syntax.aggregates(),
+                  snapshot.semanticModel().compilationScope());
+              add(
+                  declarations,
+                  syntax,
+                  model.tokens(),
+                  syntax.functions(),
+                  snapshot.semanticModel().compilationScope());
             });
     return List.copyOf(declarations);
   }
@@ -135,7 +263,8 @@ record IncrementalAnalysisPlan(
       List<DeclarationRef> result,
       Syntax.Program program,
       List<Token> documentTokens,
-      List<T> declarations) {
+      List<T> declarations,
+      CompilationScope scope) {
     for (T declaration : declarations) {
       SourceSpan span;
       if (declaration instanceof Syntax.EnumDecl value) {
@@ -149,7 +278,9 @@ record IncrementalAnalysisPlan(
       } else {
         throw new IllegalStateException("unsupported top-level declaration");
       }
-      DeclarationIdentity identity = DeclarationIdentity.topLevel(program, declaration);
+      DeclarationIdentity identity =
+          DeclarationIdentity.topLevel(
+              program, declaration, scope.coordinate(program.span().source().id()));
       List<Token> tokens = tokensInside(documentTokens, span);
       result.add(
           new DeclarationRef(identity.value(), identity.family(), span, tokens, structure(tokens)));
@@ -157,12 +288,21 @@ record IncrementalAnalysisPlan(
   }
 
   private static List<Token> tokensInside(List<Token> tokens, SourceSpan root) {
-    return tokens.stream()
-        .filter(token -> token.kind() != TokenKind.END_OF_FILE)
-        .filter(token -> token.span().source().id().equals(root.source().id()))
-        .filter(token -> token.span().startOffset() >= root.startOffset())
-        .filter(token -> token.span().endOffset() <= root.endOffset())
-        .toList();
+    int low = 0;
+    int high = tokens.size();
+    while (low < high) {
+      int middle = (low + high) >>> 1;
+      if (tokens.get(middle).span().startOffset() < root.startOffset()) low = middle + 1;
+      else high = middle;
+    }
+    List<Token> selected = new ArrayList<>();
+    for (int index = low; index < tokens.size(); index++) {
+      Token token = tokens.get(index);
+      if (token.span().startOffset() >= root.endOffset()) break;
+      if (token.kind() != TokenKind.END_OF_FILE && token.span().endOffset() <= root.endOffset())
+        selected.add(token);
+    }
+    return List.copyOf(selected);
   }
 
   private static List<TokenShape> structure(List<Token> tokens) {
@@ -215,18 +355,6 @@ record IncrementalAnalysisPlan(
         program.imports().stream()
             .map(imported -> new ImportContext(imported.qualifiedName(), imported.alias()))
             .toList());
-  }
-
-  private static String containing(List<DeclarationRef> declarations, SourceLocation location) {
-    return declarations.stream()
-        .filter(declaration -> declaration.span().source().id().equals(location.document()))
-        .filter(
-            declaration ->
-                declaration.span().startOffset() <= location.startOffset()
-                    && location.startOffset() < declaration.span().endOffset())
-        .map(DeclarationRef::key)
-        .findFirst()
-        .orElse(null);
   }
 
   private record DeclarationRef(

@@ -102,19 +102,7 @@ public record Symbol(
         declaration,
         owner,
         specialized,
-        parameters.stream()
-            .map(
-                parameter ->
-                    new ParameterInfo(
-                        parameter.name(),
-                        parameter.type().substitute(substitutions),
-                        parameter.hasDefault(),
-                        parameter.callbackParameterNames(),
-                        parameter.labelPolicy(),
-                        parameter
-                            .resultBuilder()
-                            .map(builder -> builder.substitute(substitutions))))
-            .toList(),
+        parameters.stream().map(parameter -> parameter.substitute(substitutions)).toList(),
         documentation,
         accessor);
   }

@@ -127,6 +127,12 @@ abstract class CoreWalker {
     visitLink(link);
   }
 
+  protected void visitReferenceDependency(
+      int nodeIndex, CoreDependency.Kind kind, CoreDefinitionLink link) {
+    visitReference(nodeIndex, link);
+    visitDependency(kind, link);
+  }
+
   protected void visitReference(int nodeIndex, CoreDefinitionLink link) {}
 
   protected void visitExpression(CoreExpression expression) {}
@@ -213,6 +219,10 @@ abstract class CoreWalker {
         walkRuntimeType(collection.runtimeType());
       }
       case CoreExpression.LocalRead ignored -> {}
+      case CoreExpression.Let let -> {
+        walkExpression(let.initializer());
+        walkExpression(let.body());
+      }
       case CoreExpression.FieldRead field -> {
         visitDependency(CoreDependency.Kind.FIELD, field.field().owner());
         walkExpression(field.receiver());
@@ -224,8 +234,8 @@ abstract class CoreWalker {
       }
       case CoreExpression.Dereference dereference -> walkExpression(dereference.reference());
       case CoreExpression.EnumConstruct construct -> {
-        visitReference(construct.nodeIndex(), construct.target());
-        visitDependency(CoreDependency.Kind.CONSTRUCTION, construct.target());
+        visitReferenceDependency(
+            construct.nodeIndex(), CoreDependency.Kind.CONSTRUCTION, construct.target());
         walkRuntimeType(construct.runtimeType());
         construct.arguments().forEach(argument -> walkExpression(argument.value()));
       }
@@ -245,8 +255,8 @@ abstract class CoreWalker {
       }
       case CoreExpression.CopyObject copied -> walkExpression(copied.receiver());
       case CoreExpression.Closure closure -> {
-        visitReference(closure.nodeIndex(), closure.target());
-        visitDependency(CoreDependency.Kind.CLOSURE, closure.target());
+        visitReferenceDependency(
+            closure.nodeIndex(), CoreDependency.Kind.CLOSURE, closure.target());
         closure.receiver().ifPresent(this::walkExpression);
         closure.captures().forEach(this::walkExpression);
         closure.reifiedArguments().forEach(this::walkRuntimeType);
@@ -257,8 +267,8 @@ abstract class CoreWalker {
         invoke.arguments().forEach(argument -> walkExpression(argument.value()));
       }
       case CoreExpression.Call call -> {
-        visitReference(call.nodeIndex(), call.target());
-        visitDependency(
+        visitReferenceDependency(
+            call.nodeIndex(),
             call.virtual() ? CoreDependency.Kind.VIRTUAL_CALL : CoreDependency.Kind.CALL,
             call.target());
         call.receiver().ifPresent(this::walkExpression);
@@ -267,15 +277,15 @@ abstract class CoreWalker {
         call.receiverTypeArguments().forEach(this::walkRuntimeType);
       }
       case CoreExpression.InterfaceCall call -> {
-        visitReference(call.nodeIndex(), call.requirement());
-        visitDependency(CoreDependency.Kind.INTERFACE_CALL, call.requirement());
+        visitReferenceDependency(
+            call.nodeIndex(), CoreDependency.Kind.INTERFACE_CALL, call.requirement());
         walkExpression(call.receiver());
         call.arguments().forEach(argument -> walkExpression(argument.value()));
         call.reifiedArguments().forEach(this::walkRuntimeType);
       }
       case CoreExpression.Construct construct -> {
-        visitReference(construct.nodeIndex(), construct.target());
-        visitDependency(CoreDependency.Kind.CONSTRUCTION, construct.target());
+        visitReferenceDependency(
+            construct.nodeIndex(), CoreDependency.Kind.CONSTRUCTION, construct.target());
         visitDependency(CoreDependency.Kind.CALL, construct.initializer());
         walkRuntimeType(construct.runtimeType());
         construct.arguments().forEach(argument -> walkExpression(argument.value()));

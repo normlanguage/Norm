@@ -12,8 +12,36 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class IncrementalAnalysisPlanTest {
+  private static IncrementalAnalysisPlan plan(
+      CompilationSnapshot previous, List<ParsedDocument> current) {
+    var programs = current.stream().map(ParsedDocument::syntax).toList();
+    var scope = previous.semanticModel().compilationScope();
+    var exports =
+        current.stream()
+            .map(document -> document.source().id())
+            .collect(java.util.stream.Collectors.toSet());
+    var declarations = new DeclarationCatalog(programs, exports, scope);
+    var analyzer =
+        new Analyzer(
+            new SemanticAnalysisInput(
+                programs,
+                programs.getFirst(),
+                false,
+                exports,
+                previous.history().nextSymbolOrdinal(),
+                Set.of(),
+                Set.of(),
+                Set.of(),
+                scope,
+                declarations),
+            new DiagnosticBag(),
+            CompilationControl.standard().begin());
+    return IncrementalAnalysisPlan.create(
+        previous.history(), current, scope, analyzer.declarations());
+  }
+
   @Test
-  void invalidatesChainLineEditsAndOnlyTheirDependents() {
+  void rechecksChainLineEditsWithoutReanalyzingCallers() {
     String declarations =
         "class Chain { Integer finish(Integer work()) { work() + 100 } } "
             + "Chain produce(Integer work()) { work(); Chain() } "
@@ -36,9 +64,9 @@ final class IncrementalAnalysisPlanTest {
           var after =
               SourceParser.parse(
                   SourceFile.of(Path.of("chain.norm"), text.equals(separate) ? chained : separate));
-          var plan = IncrementalAnalysisPlan.create(before, List.of(after));
-          assertEquals(2, plan.analyzedDeclarations());
-          assertEquals(4, plan.reusedDeclarations());
+          var plan = plan(before, List.of(after));
+          assertEquals(1, plan.analyzedDeclarations());
+          assertEquals(5, plan.reusedDeclarations());
         }
       }
     }
@@ -59,7 +87,7 @@ final class IncrementalAnalysisPlanTest {
                   Path.of("chain.norm"),
                   "\r\n\r\n"
                       + text.replace("produce { 1 } finish", "produce {\r\n  1\r\n}\tfinish")));
-      var plan = IncrementalAnalysisPlan.create(before, List.of(after));
+      var plan = plan(before, List.of(after));
       assertEquals(0, plan.analyzedDeclarations());
       assertEquals(4, plan.reusedDeclarations());
     }
@@ -77,8 +105,7 @@ final class IncrementalAnalysisPlanTest {
             "\n  Integer first()  {  return 1  }\n\nInteger second() { return first() } Void main() {}\n");
     CompilationSnapshot previous = new CompilerSession().snapshot(first);
 
-    IncrementalAnalysisPlan plan =
-        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+    IncrementalAnalysisPlan plan = plan(previous, List.of(SourceParser.parse(changed)));
 
     assertEquals(3, plan.declarations());
     assertEquals(3, plan.reusedDeclarations());
@@ -95,8 +122,7 @@ final class IncrementalAnalysisPlanTest {
             "Integer stable() { return 1 } Void main() {} Integer added() { return 2 }");
     CompilationSnapshot previous = new CompilerSession().snapshot(first);
 
-    IncrementalAnalysisPlan plan =
-        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+    IncrementalAnalysisPlan plan = plan(previous, List.of(SourceParser.parse(changed)));
 
     assertEquals(3, plan.declarations());
     assertEquals(2, plan.reusedDeclarations());
@@ -113,8 +139,7 @@ final class IncrementalAnalysisPlanTest {
         SourceFile.of(Path.of("remove.norm"), "Integer stable() { return 1 } Void main() {}");
     CompilationSnapshot previous = new CompilerSession().snapshot(first);
 
-    IncrementalAnalysisPlan plan =
-        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+    IncrementalAnalysisPlan plan = plan(previous, List.of(SourceParser.parse(changed)));
 
     assertEquals(2, plan.declarations());
     assertEquals(2, plan.reusedDeclarations());
@@ -136,8 +161,7 @@ final class IncrementalAnalysisPlanTest {
                 + "Integer stable() { return 1 } Void main() { pick(1) }");
     CompilationSnapshot previous = new CompilerSession().snapshot(first);
 
-    IncrementalAnalysisPlan plan =
-        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+    IncrementalAnalysisPlan plan = plan(previous, List.of(SourceParser.parse(changed)));
 
     assertEquals(4, plan.declarations());
     assertEquals(1, plan.reusedDeclarations());
@@ -169,7 +193,7 @@ final class IncrementalAnalysisPlanTest {
                 + "public Integer pick(String value) { return 2 }");
 
     IncrementalAnalysisPlan plan =
-        IncrementalAnalysisPlan.create(
+        plan(
             previous,
             List.of(
                 SourceParser.parse(entry),
@@ -193,8 +217,7 @@ final class IncrementalAnalysisPlanTest {
             "Integer second() { return 2 } Void main() {} Integer first() { return 1 }");
     CompilationSnapshot previous = new CompilerSession().snapshot(first);
 
-    IncrementalAnalysisPlan plan =
-        IncrementalAnalysisPlan.create(previous, List.of(SourceParser.parse(changed)));
+    IncrementalAnalysisPlan plan = plan(previous, List.of(SourceParser.parse(changed)));
 
     assertEquals(3, plan.declarations());
     assertEquals(3, plan.reusedDeclarations());
@@ -215,7 +238,7 @@ final class IncrementalAnalysisPlanTest {
     List<ParsedDocument> current = new ArrayList<>();
     current.add(SourceParser.parse(changed));
 
-    IncrementalAnalysisPlan plan = IncrementalAnalysisPlan.create(previous, current);
+    IncrementalAnalysisPlan plan = plan(previous, current);
 
     assertEquals(2, plan.analyzedDeclarations());
     assertEquals(plan.declarations() - 2, plan.reusedDeclarations());
@@ -249,7 +272,7 @@ final class IncrementalAnalysisPlanTest {
     current.add(SourceParser.parse(first));
     current.add(SourceParser.parse(other));
 
-    IncrementalAnalysisPlan plan = IncrementalAnalysisPlan.create(previous, current);
+    IncrementalAnalysisPlan plan = plan(previous, current);
 
     assertEquals(1, plan.analyzedDeclarations());
     assertTrue(

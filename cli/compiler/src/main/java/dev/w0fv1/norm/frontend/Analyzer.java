@@ -21,6 +21,7 @@ final class Analyzer {
   private final TypeResolver typeResolver;
   private final BodyAnalyzer bodies;
   private final DeclarationAnalyzer declarations;
+  private final DeclarationAnalysis declarationAnalysis;
 
   Analyzer(SemanticAnalysisInput input, DiagnosticBag diagnostics, CompilationGuard guard) {
     context = new SemanticAnalysisContext(input, diagnostics, guard);
@@ -56,9 +57,6 @@ final class Analyzer {
             declarations,
             policies,
             context.transactions);
-  }
-
-  FrontendAnalysis analyze(boolean resolveProgram) {
     context.guard.checkpoint();
     declarations.collectDeclarations();
     context.model.reserveIds(context.minimumBodySymbolId);
@@ -67,10 +65,10 @@ final class Analyzer {
             .resolve(
                 new ImportResolver.Input(
                     context.programs,
+                    context.scope,
                     context.declarations,
                     context.model.symbols(),
-                    context.model.declarationSymbols(),
-                    context.model.nextSymbolId()));
+                    context.model.declarationSymbols()));
     imports.diagnostics().forEach(context.diagnostics::report);
     context.model.imports(imports);
     VisibilityResolver.Result visibility =
@@ -86,12 +84,32 @@ final class Analyzer {
             .build();
     visibility.scopes().forEach(context.body.scopes()::addSemanticScope);
     declarations.validateClassHierarchy();
+    declarationAnalysis =
+        new DeclarationAnalysis(
+            context.model.symbols(),
+            DeclarationContract.capture(context.model, typeResolver),
+            typeResolver.callableGroups(),
+            typeResolver.interfaceParentTypes(),
+            visibility.importableSymbols(),
+            diagnostics.snapshot());
+  }
+
+  DeclarationAnalysis declarations() {
+    return declarationAnalysis;
+  }
+
+  FrontendAnalysis analyze(
+      boolean resolveProgram,
+      dev.w0fv1.norm.value.CompilationRequest.Kind kind,
+      java.util.Map<SourceSpan, SemanticContribution> reusableDeclarations) {
     try (var entryScope = context.resolution.enterProgram(context.entryProgram)) {
       Syntax.FunctionDecl main =
-          context.entryProgram.functions().stream()
-              .filter(function -> function.name().equals("main"))
-              .findFirst()
-              .orElse(null);
+          kind == dev.w0fv1.norm.value.CompilationRequest.Kind.LIBRARY
+              ? null
+              : context.entryProgram.functions().stream()
+                  .filter(function -> function.name().equals("main"))
+                  .findFirst()
+                  .orElse(null);
       if (main == null && context.requireEntryPoint) {
         context.diagnostics.error(
             MISSING_MAIN, "program must declare 'main()'", context.syntax.span());
@@ -109,21 +127,21 @@ final class Analyzer {
         try (var programScope = context.resolution.enterProgram(program)) {
 
           for (Syntax.EnumDecl enumDecl : program.enums()) {
-            if (reuse(enumDecl.span())) continue;
+            if (reuse(enumDecl.span(), reusableDeclarations)) continue;
             typeResolver.validateTypeParameterNames(enumDecl.typeParameters());
             declarations.validateEnum(enumDecl, bodies);
           }
           for (Syntax.InterfaceDecl interfaceDecl : program.interfaces()) {
-            if (reuse(interfaceDecl.span())) continue;
+            if (reuse(interfaceDecl.span(), reusableDeclarations)) continue;
             typeResolver.validateTypeParameterNames(interfaceDecl.typeParameters());
             declarations.validateInterface(interfaceDecl, bodies);
           }
           for (Syntax.FunctionDecl function : program.functions()) {
-            if (reuse(function.span())) continue;
+            if (reuse(function.span(), reusableDeclarations)) continue;
             bodies.analyzeFunction(function, null);
           }
           for (Syntax.AggregateDecl aggregateDecl : program.aggregates()) {
-            if (reuse(aggregateDecl.span())) continue;
+            if (reuse(aggregateDecl.span(), reusableDeclarations)) continue;
             typeResolver.validateTypeParameterNames(aggregateDecl.typeParameters());
             declarations.validateFields(aggregateDecl, bodies.expressionChecker);
             bodies.analyzeImplicitSuperCall(aggregateDecl);
@@ -155,11 +173,11 @@ final class Analyzer {
               context.syntax,
               context.scope,
               context.builtins,
-              typeResolver.callableGroups(),
-              typeResolver.interfaceParentTypes(),
+              declarationAnalysis.callableGroups(),
+              declarationAnalysis.interfaceParents(),
               context.body.scopes().semanticScopes(),
               snapshot,
-              visibility.importableSymbols());
+              declarationAnalysis.importableSymbols());
       Optional<BoundProgram> boundProgram =
           !resolveProgram
                   || snapshot.stream()
@@ -171,8 +189,9 @@ final class Analyzer {
     }
   }
 
-  private boolean reuse(SourceSpan root) {
-    SemanticContribution contribution = context.reusableDeclarations.get(root);
+  private boolean reuse(
+      SourceSpan root, java.util.Map<SourceSpan, SemanticContribution> reusableDeclarations) {
+    SemanticContribution contribution = reusableDeclarations.get(root);
     if (contribution == null) return false;
     context.model.reuse(contribution);
     contribution.scopes().forEach(context.body.scopes()::addSemanticScope);

@@ -45,6 +45,7 @@ public record BoundCallable(
     }
     if ((kind == BoundCallableKind.FUNCTION
             || kind == BoundCallableKind.EXTENSION
+            || kind == BoundCallableKind.DEFAULT_ARGUMENT
             || kind == BoundCallableKind.LAMBDA)
         && owner.isPresent()) {
       throw new IllegalArgumentException("function and lambda cannot have an owner");

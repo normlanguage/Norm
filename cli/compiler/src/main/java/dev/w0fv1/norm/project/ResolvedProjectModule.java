@@ -27,7 +27,8 @@ record ResolvedProjectModule(
     Map<String, ModuleResource> resources,
     Optional<FileSnapshot> archive,
     Set<DocumentId> testSources,
-    Map<String, JarBindingClassReference.Nominal> archivedJavaExports) {
+    Map<String, JarBindingClassReference.Nominal> archivedJavaExports,
+    Optional<dev.w0fv1.norm.frontend.CompiledModule> compiled) {
   ResolvedProjectModule(
       Path root,
       SourceFile moduleSource,
@@ -50,7 +51,8 @@ record ResolvedProjectModule(
         resources,
         archive,
         testSources,
-        Map.of());
+        Map.of(),
+        Optional.empty());
   }
 
   ResolvedProjectModule(
@@ -77,6 +79,7 @@ record ResolvedProjectModule(
   }
 
   ResolvedProjectModule {
+    Objects.requireNonNull(compiled, "compiled");
     archivedJavaExports = Map.copyOf(archivedJavaExports);
     testSources = Set.copyOf(testSources);
     root = normalize(root);

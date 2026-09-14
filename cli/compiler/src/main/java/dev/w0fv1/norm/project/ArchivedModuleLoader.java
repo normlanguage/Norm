@@ -80,9 +80,8 @@ final class ArchivedModuleLoader {
       if (purpose != ProjectLoadPurpose.ANALYSIS) {
         progress.accept("Resolving Java dependencies for " + requirement.name());
         ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
-        progress.accept(
-            "Adapting " + graph.artifacts().size() + " Java artifacts for " + requirement.name());
-        ResolvedJarBinding resolved = JarBindingPreparer.prepareArchived(descriptor, graph);
+        progress.accept("Linking published Java binding for " + requirement.name());
+        ResolvedJarBinding resolved = archived.binding().orElseThrow().link(graph);
         Map<String, String> expected = new LinkedHashMap<>();
         for (GeneratedBindingSource source : resolved.generated().sources()) {
           expected.put(source.relativePath(), source.text());
@@ -129,7 +128,8 @@ final class ArchivedModuleLoader {
             archived.resources(),
             Optional.of(archived.archive()),
             Set.of(),
-            archived.publicTypes());
+            archived.publicTypes(),
+            Optional.of(archived.compiled()));
     if (purpose != ProjectLoadPurpose.ANALYSIS) return result;
     ResolvedProjectModule cached = analysisModules.putIfAbsent(analysisKey, result);
     return cached == null ? result : cached;

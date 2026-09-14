@@ -97,7 +97,7 @@ public final class SemanticQueryWriter {
                 JsonObject value = new JsonObject();
                 value.addProperty("name", parameter.name());
                 value.add("type", type(parameter.type()));
-                value.addProperty("hasDefault", parameter.hasDefault());
+                value.addProperty("hasDefault", parameter.policy().hasDefault());
                 parameters.add(value);
               });
       result.add("parameters", parameters);

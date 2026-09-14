@@ -671,11 +671,11 @@ final class ExpressionChecker implements ExpressionTyping {
                         function.functionParameterTypes().get(index),
                         false,
                         !declaredParameters.isEmpty()
-                            ? declaredParameters.get(index).callbackParameterNames()
+                            ? declaredParameters.get(index).policy().callbackParameterNames()
                             : List.of(),
                         !declaredParameters.isEmpty()
-                            ? declaredParameters.get(index).labelPolicy()
-                            : ParameterInfo.LabelPolicy.POSITIONAL_ONLY))
+                            ? declaredParameters.get(index).policy().labelPolicy()
+                            : dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.POSITIONAL_ONLY))
             .toList();
     return calls.recordCall(
         call,

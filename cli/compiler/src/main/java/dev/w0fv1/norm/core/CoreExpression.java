@@ -10,6 +10,7 @@ public sealed interface CoreExpression extends CoreCollectionElement
         CoreExpression.NullLiteral,
         CoreExpression.CollectionLiteral,
         CoreExpression.LocalRead,
+        CoreExpression.Let,
         CoreExpression.FieldRead,
         CoreExpression.AddressLocal,
         CoreExpression.AddressField,
@@ -27,6 +28,21 @@ public sealed interface CoreExpression extends CoreCollectionElement
         CoreExpression.Construct,
         CoreExpression.Intrinsic {
   CoreType type();
+
+  record Let(int nodeIndex, int localIndex, CoreExpression initializer, CoreExpression body)
+      implements CoreExpression {
+    public Let {
+      requireNode(nodeIndex);
+      if (localIndex < 0) throw new IllegalArgumentException("local index must not be negative");
+      Objects.requireNonNull(initializer, "initializer");
+      Objects.requireNonNull(body, "body");
+    }
+
+    @Override
+    public CoreType type() {
+      return body.type();
+    }
+  }
 
   record Literal(int nodeIndex, Object value, CoreType type) implements CoreExpression {
     public Literal {

@@ -15,9 +15,25 @@ public final class CompilationSnapshot {
   private final DocumentId entryDocument;
   private final Map<DocumentId, DocumentSemanticModel> documents;
   private final AnalysisResult analysis;
+  private final DeclarationAnalysis declarations;
+
+  DeclarationAnalysis declarations() {
+    return declarations;
+  }
+
+  private IncrementalAnalysisPlan.History history;
+
+  synchronized IncrementalAnalysisPlan.History history() {
+    if (history == null) history = IncrementalAnalysisPlan.capture(this);
+    return history;
+  }
 
   CompilationSnapshot(
-      DocumentId entryDocument, List<ParsedDocument> parsedDocuments, AnalysisResult analysis) {
+      DocumentId entryDocument,
+      List<ParsedDocument> parsedDocuments,
+      AnalysisResult analysis,
+      DeclarationAnalysis declarations) {
+    this.declarations = java.util.Objects.requireNonNull(declarations, "declarations");
     this.entryDocument = java.util.Objects.requireNonNull(entryDocument, "entryDocument");
     AnalysisResult analyzed = java.util.Objects.requireNonNull(analysis, "analysis");
     ParsedDocument entry =

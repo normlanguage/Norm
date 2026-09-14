@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CompilationOutput;
-import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
@@ -25,7 +24,6 @@ final class CompilerSessionLifecycleTest {
     CompilerSession session =
         new CompilerSession(
             LanguageProfile.kernel(),
-            new InMemoryDefinitionStore(),
             new CompilerSessionCapacity(4, 4),
             () -> {},
             () -> {
@@ -71,7 +69,6 @@ final class CompilerSessionLifecycleTest {
     CompilerSession session =
         new CompilerSession(
             LanguageProfile.kernel(),
-            new InMemoryDefinitionStore(),
             new CompilerSessionCapacity(4, 4),
             () -> {},
             analyses::incrementAndGet);
@@ -128,11 +125,7 @@ final class CompilerSessionLifecycleTest {
 
   private static CompilerSession session(CompilerSessionCapacity capacity, AtomicInteger parses) {
     return new CompilerSession(
-        LanguageProfile.kernel(),
-        new InMemoryDefinitionStore(),
-        capacity,
-        parses::incrementAndGet,
-        () -> {});
+        LanguageProfile.kernel(), capacity, parses::incrementAndGet, () -> {});
   }
 
   private static CompilationRequest request(String name, String text) {

@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.Map;
 
 final class SemanticModelBuilder {
+  private final CompilationScope scope;
   private int nextSymbolId;
+  private final AnalysisJournal journal = new AnalysisJournal();
   private final Map<String, SymbolId> copyMethods = new HashMap<>();
   private final Map<Syntax.ImportDecl, SymbolId> importAliases = new IdentityHashMap<>();
 
@@ -38,7 +40,7 @@ final class SemanticModelBuilder {
   }
 
   void putCopyMethod(String type, SymbolId symbol) {
-    copyMethods.put(type, symbol);
+    journal.put(copyMethods, type, symbol);
   }
 
   Map<Syntax.ImportDecl, SymbolId> importAliases() {
@@ -52,7 +54,7 @@ final class SemanticModelBuilder {
   private final Map<SourceSpan, SemanticType> resultBuilders = new LinkedHashMap<>();
 
   void putResultBuilder(SourceSpan span, SemanticType type) {
-    resultBuilders.put(span, type);
+    journal.put(resultBuilders, span, type);
   }
 
   private final Map<SourceSpan, ResolvedCall> resolvedCalls = new LinkedHashMap<>();
@@ -70,15 +72,14 @@ final class SemanticModelBuilder {
   private final Map<SymbolId, AnnotationSchema> annotationSchemas = new LinkedHashMap<>();
   private final List<AnnotationApplication> annotationApplications = new ArrayList<>();
 
-  SemanticModelBuilder(BuiltinSymbols builtins) {
-    symbols.putAll(builtins.symbols());
+  SemanticModelBuilder(BuiltinSymbols builtins, CompilationScope scope) {
+    this.scope = java.util.Objects.requireNonNull(scope, "scope");
+    journal.putAll(symbols, builtins.symbols());
     symbols.values().stream()
         .filter(symbol -> symbol.kind() == SymbolKind.TYPE)
-        .forEach(symbol -> typeSymbols.put(symbol.type().identity(), symbol.id()));
-    builtins.members().forEach((owner, values) -> members.put(owner, List.copyOf(values)));
+        .forEach(symbol -> journal.put(typeSymbols, symbol.type().identity(), symbol.id()));
+    builtins.members().forEach((owner, values) -> journal.put(members, owner, List.copyOf(values)));
   }
-
-  private SemanticModelBuilder() {}
 
   int nextSymbolId() {
     return nextSymbolId;
@@ -89,39 +90,38 @@ final class SemanticModelBuilder {
   }
 
   SymbolId allocate(DocumentId document) {
-    return SymbolId.source(document, nextSymbolId++);
+    return SymbolId.source(scope.coordinate(document), nextSymbolId++);
   }
 
   void imports(ImportResolver.Result imported) {
-    importAliases.putAll(imported.importAliases());
-    symbols.putAll(imported.aliases());
-    bindings.putAll(imported.bindings());
-    aliasTargets.putAll(imported.aliasTargets());
-    reserveIds(imported.nextSymbolId());
+    journal.putAll(importAliases, imported.importAliases());
+    journal.putAll(symbols, imported.aliases());
+    journal.putAll(bindings, imported.bindings());
+    journal.putAll(aliasTargets, imported.aliasTargets());
   }
 
   void reuse(SemanticContribution contribution) {
-    symbols.putAll(contribution.symbols());
-    bindings.putAll(contribution.bindings());
-    declarationOperators.addAll(contribution.declarationOperators());
-    semanticTypes.putAll(contribution.expressionTypes());
-    resultBuilders.putAll(contribution.resultBuilders());
-    resolvedCalls.putAll(contribution.resolvedCalls());
-    functionReferenceTypeArguments.putAll(contribution.functionReferenceTypeArguments());
-    iterations.putAll(contribution.iterations());
-    indexes.putAll(contribution.indexes());
+    journal.putAll(symbols, contribution.symbols());
+    journal.putAll(bindings, contribution.bindings());
+    contribution.declarationOperators().forEach(value -> journal.add(declarationOperators, value));
+    journal.putAll(semanticTypes, contribution.expressionTypes());
+    journal.putAll(resultBuilders, contribution.resultBuilders());
+    journal.putAll(resolvedCalls, contribution.resolvedCalls());
+    journal.putAll(functionReferenceTypeArguments, contribution.functionReferenceTypeArguments());
+    journal.putAll(iterations, contribution.iterations());
+    journal.putAll(indexes, contribution.indexes());
   }
 
   void addMember(SymbolId owner, SymbolId member) {
     var values = new ArrayList<>(members.getOrDefault(owner, List.of()));
     values.add(member);
-    members.put(owner, List.copyOf(values));
+    journal.put(members, owner, List.copyOf(values));
   }
 
   void putWitness(SymbolId owner, SymbolId requirement, SymbolId implementation) {
     var values = new LinkedHashMap<>(witnesses.getOrDefault(owner, Map.of()));
     values.put(requirement, implementation);
-    witnesses.put(owner, Map.copyOf(values));
+    journal.put(witnesses, owner, Map.copyOf(values));
   }
 
   Symbol symbolOf(Object declaration) {
@@ -134,11 +134,11 @@ final class SemanticModelBuilder {
   }
 
   void putSymbol(SymbolId key, Symbol value) {
-    symbols.put(key, value);
+    journal.put(symbols, key, value);
   }
 
   void putSymbolIfAbsent(SymbolId key, Symbol value) {
-    symbols.putIfAbsent(key, value);
+    journal.putIfAbsent(symbols, key, value);
   }
 
   Map<SourceSpan, SymbolId> bindings() {
@@ -146,12 +146,12 @@ final class SemanticModelBuilder {
   }
 
   void putBinding(SourceSpan key, SymbolId value) {
-    bindings.put(key, value);
+    journal.put(bindings, key, value);
   }
 
   void putDeclarationOperator(SourceSpan key, SymbolId value) {
-    bindings.put(key, value);
-    declarationOperators.add(key);
+    journal.put(bindings, key, value);
+    journal.add(declarationOperators, key);
   }
 
   Map<SourceSpan, SemanticType> semanticTypes() {
@@ -159,31 +159,31 @@ final class SemanticModelBuilder {
   }
 
   void putType(SourceSpan key, SemanticType value) {
-    semanticTypes.put(key, value);
+    journal.put(semanticTypes, key, value);
   }
 
   void putCall(SourceSpan key, ResolvedCall value) {
-    resolvedCalls.put(key, value);
+    journal.put(resolvedCalls, key, value);
   }
 
   void putFunctionReference(SourceSpan key, List<SemanticType> value) {
-    functionReferenceTypeArguments.put(key, List.copyOf(value));
+    journal.put(functionReferenceTypeArguments, key, List.copyOf(value));
   }
 
   void putIteration(SourceSpan key, ResolvedIteration value) {
-    iterations.put(key, value);
+    journal.put(iterations, key, value);
   }
 
   void putIndex(SourceSpan key, ResolvedIndex value) {
-    indexes.put(key, value);
+    journal.put(indexes, key, value);
   }
 
   void putAggregateParent(String key, SemanticType value) {
-    aggregateParents.put(key, value);
+    journal.put(aggregateParents, key, value);
   }
 
   void putOverride(SymbolId key, SymbolId value) {
-    methodOverrides.put(key, value);
+    journal.put(methodOverrides, key, value);
   }
 
   SymbolId overriddenMethod(SymbolId method) {
@@ -191,7 +191,7 @@ final class SemanticModelBuilder {
   }
 
   void putTypeSymbol(String key, SymbolId value) {
-    typeSymbols.putIfAbsent(key, value);
+    journal.putIfAbsent(typeSymbols, key, value);
   }
 
   Map<Object, SymbolId> declarationSymbols() {
@@ -199,7 +199,7 @@ final class SemanticModelBuilder {
   }
 
   void putDeclaration(Object key, SymbolId value) {
-    declarationSymbols.put(key, value);
+    journal.put(declarationSymbols, key, value);
   }
 
   Map<SymbolId, AnnotationSchema> annotationSchemas() {
@@ -207,7 +207,7 @@ final class SemanticModelBuilder {
   }
 
   void putAnnotationSchema(SymbolId key, AnnotationSchema value) {
-    annotationSchemas.put(key, value);
+    journal.put(annotationSchemas, key, value);
   }
 
   List<AnnotationApplication> annotationApplications() {
@@ -215,7 +215,7 @@ final class SemanticModelBuilder {
   }
 
   void addAnnotation(AnnotationApplication application) {
-    annotationApplications.add(application);
+    journal.add(annotationApplications, application);
   }
 
   SemanticModel build(
@@ -256,64 +256,13 @@ final class SemanticModelBuilder {
   }
 
   Checkpoint checkpoint() {
-    var captured = new SemanticModelBuilder();
-    captured.restore(this);
-    return new Checkpoint(captured);
+    return new Checkpoint(nextSymbolId, journal.checkpoint());
   }
 
   void restore(Checkpoint checkpoint) {
-    restore(checkpoint.captured);
+    journal.restore(checkpoint.journal());
+    nextSymbolId = checkpoint.nextSymbolId();
   }
 
-  private void restore(SemanticModelBuilder captured) {
-    nextSymbolId = captured.nextSymbolId;
-    copyMethods.clear();
-    copyMethods.putAll(captured.copyMethods);
-    importAliases.clear();
-    importAliases.putAll(captured.importAliases);
-    symbols.clear();
-    symbols.putAll(captured.symbols);
-    bindings.clear();
-    bindings.putAll(captured.bindings);
-    declarationOperators.clear();
-    declarationOperators.addAll(captured.declarationOperators);
-    semanticTypes.clear();
-    semanticTypes.putAll(captured.semanticTypes);
-    resultBuilders.clear();
-    resultBuilders.putAll(captured.resultBuilders);
-    resolvedCalls.clear();
-    resolvedCalls.putAll(captured.resolvedCalls);
-    functionReferenceTypeArguments.clear();
-    functionReferenceTypeArguments.putAll(captured.functionReferenceTypeArguments);
-    iterations.clear();
-    iterations.putAll(captured.iterations);
-    indexes.clear();
-    indexes.putAll(captured.indexes);
-    members.clear();
-    members.putAll(captured.members);
-    aliasTargets.clear();
-    aliasTargets.putAll(captured.aliasTargets);
-    witnesses.clear();
-    witnesses.putAll(captured.witnesses);
-    aggregateParents.clear();
-    aggregateParents.putAll(captured.aggregateParents);
-    methodOverrides.clear();
-    methodOverrides.putAll(captured.methodOverrides);
-    typeSymbols.clear();
-    typeSymbols.putAll(captured.typeSymbols);
-    declarationSymbols.clear();
-    declarationSymbols.putAll(captured.declarationSymbols);
-    annotationSchemas.clear();
-    annotationSchemas.putAll(captured.annotationSchemas);
-    annotationApplications.clear();
-    annotationApplications.addAll(captured.annotationApplications);
-  }
-
-  static final class Checkpoint {
-    private final SemanticModelBuilder captured;
-
-    private Checkpoint(SemanticModelBuilder captured) {
-      this.captured = captured;
-    }
-  }
+  record Checkpoint(int nextSymbolId, AnalysisJournal.Checkpoint journal) {}
 }

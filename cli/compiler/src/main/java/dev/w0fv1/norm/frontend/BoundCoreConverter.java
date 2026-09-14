@@ -7,6 +7,7 @@ import dev.w0fv1.norm.bound.BoundAnnotationTarget;
 import dev.w0fv1.norm.bound.BoundAnnotationValue;
 import dev.w0fv1.norm.bound.BoundBuiltinConformance;
 import dev.w0fv1.norm.bound.BoundCallable;
+import dev.w0fv1.norm.bound.BoundCallableId;
 import dev.w0fv1.norm.bound.BoundCallableKind;
 import dev.w0fv1.norm.bound.BoundConformance;
 import dev.w0fv1.norm.bound.BoundEnum;
@@ -28,7 +29,9 @@ import dev.w0fv1.norm.core.CoreBinding;
 import dev.w0fv1.norm.core.CoreBindingShape;
 import dev.w0fv1.norm.core.CoreCallableBindingKind;
 import dev.w0fv1.norm.core.CoreCallableParameter;
+import dev.w0fv1.norm.core.CoreCompilationInput;
 import dev.w0fv1.norm.core.CoreConformance;
+import dev.w0fv1.norm.core.CoreDefaultArgument;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreDefinitionLink;
 import dev.w0fv1.norm.core.CoreDefinitionOrigin;
@@ -68,6 +71,11 @@ import java.util.Set;
 final class BoundCoreConverter {
   private final BoundProgram program;
   private final Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates;
+  private final Map<CoreBuildHistory.Key, SourceSpan> declarationSpans = new LinkedHashMap<>();
+  private Map<CoreBuildHistory.Key, Integer> coreIndices = Map.of();
+  private CoreReusePlan reuse;
+  private ImportedCompilation imported = ImportedCompilation.empty();
+  private int importedDefinitions;
   private final Map<String, Integer> declarationIndices = new LinkedHashMap<>();
   private final Map<String, Integer> nominalTypeIndices = new LinkedHashMap<>();
   private final Map<String, SourceOwner> sourceOwners = new LinkedHashMap<>();
@@ -76,6 +84,10 @@ final class BoundCoreConverter {
   private final Map<String, Integer> fieldOwnerIndices = new LinkedHashMap<>();
   private final Map<String, Integer> fieldOrdinals = new LinkedHashMap<>();
   private final Map<String, Map<BoundLocalId, Integer>> callableLocals = new LinkedHashMap<>();
+  private final Map<CoreBuildHistory.Key, CoreBuildHistory.Unit> units = new LinkedHashMap<>();
+  private Map<Integer, CoreBuildHistory.Key> declarationKeys = Map.of();
+  private int convertedDefinitions;
+  private int relinkedDefinitions;
 
   BoundCoreConverter(
       BoundProgram program, Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates) {
@@ -84,38 +96,190 @@ final class BoundCoreConverter {
   }
 
   Result convert() {
+    return convert(null, null, null, ImportedCompilation.empty());
+  }
+
+  Result convert(
+      dev.w0fv1.norm.core.CoreArtifact previous,
+      CoreBuildHistory history,
+      IncrementalAnalysisPlan analysis,
+      ImportedCompilation imported) {
+    this.imported = imported;
     indexDeclarations();
-    List<Declaration> declarations = new ArrayList<>();
-    program.enums().forEach(value -> declarations.add(convert(value)));
-    for (BoundInterface value : program.interfaces()) {
-      declarations.add(convert(value));
-      value.methods().forEach(method -> declarations.add(convert(value, method)));
+    var indices = new LinkedHashMap<CoreBuildHistory.Key, Integer>();
+    declarationSpans.keySet().forEach(key -> indices.put(key, indices.size()));
+    coreIndices = Map.copyOf(indices);
+    declarationKeys =
+        indices.entrySet().stream()
+            .collect(
+                java.util.stream.Collectors.toUnmodifiableMap(
+                    Map.Entry::getValue, Map.Entry::getKey));
+    if (previous != null && history != null && analysis != null) {
+      reuse = new CoreReusePlan(previous, history, analysis, declarationSpans);
     }
-    program.builtinConformances().forEach(value -> declarations.add(convert(value)));
-    program.aggregates().forEach(value -> declarations.add(convert(value)));
-    program.callables().forEach(value -> declarations.add(convert(value)));
+    List<Declaration> declarations = new ArrayList<>();
+    program
+        .enums()
+        .forEach(
+            value ->
+                declarations.add(
+                    convert(
+                        new CoreBuildHistory.Key.Named(value.id().value()), () -> convert(value))));
+    for (BoundInterface value : program.interfaces()) {
+      declarations.add(
+          convert(new CoreBuildHistory.Key.Named(value.id().value()), () -> convert(value)));
+      value
+          .methods()
+          .forEach(
+              method ->
+                  declarations.add(
+                      convert(
+                          new CoreBuildHistory.Key.Named(method.id().value()),
+                          () -> convert(value, method))));
+    }
+    program
+        .builtinConformances()
+        .forEach(
+            value ->
+                declarations.add(
+                    convert(
+                        new CoreBuildHistory.Key.Conformance(
+                            value.concreteType(), value.interfaceType()),
+                        () -> convert(value))));
+    program
+        .aggregates()
+        .forEach(
+            value ->
+                declarations.add(
+                    convert(
+                        new CoreBuildHistory.Key.Named(value.id().value()), () -> convert(value))));
+    program
+        .callables()
+        .forEach(
+            value ->
+                declarations.add(
+                    convert(
+                        new CoreBuildHistory.Key.Named(value.id().value()), () -> convert(value))));
     Optional<Integer> entryPointIndex =
         program.entryPoint().map(entry -> declarationIndex(entry.value()));
-    List<AnnotationSeed> metadata = coreApplications().stream().map(this::annotationSeed).toList();
-    return new Result(declarations, metadata, entryPointIndex);
+    List<AnnotationSeed> metadata =
+        program.annotationApplications().stream().map(this::annotationSeed).toList();
+    return new Result(
+        declarations,
+        metadata,
+        entryPointIndex,
+        coreIndices,
+        callableLocals,
+        units,
+        convertedDefinitions,
+        relinkedDefinitions,
+        importedDefinitions);
+  }
+
+  private Declaration convert(
+      CoreBuildHistory.Key key, java.util.function.Supplier<Declaration> source) {
+    var origin = reuse == null ? Optional.<CoreDefinitionOrigin>empty() : reuse.origin(key);
+    var published = imported.definitions().get(key);
+    if (origin.isEmpty() && published != null) {
+      var unit = published.unit();
+      units.put(key, unit);
+      var references = new LinkedHashMap<Integer, Integer>();
+      published
+          .references()
+          .forEach(
+              (node, target) ->
+                  references.put(
+                      node,
+                      Objects.requireNonNull(
+                          coreIndices.get(target), "imported reference target")));
+      if (key instanceof CoreBuildHistory.Key.Named named) {
+        var locals = imported.callableLocals().get(named.identity());
+        if (locals != null) callableLocals.put(named.identity(), locals);
+      }
+      importedDefinitions++;
+      return new Declaration(
+          unit.source().relocate(index -> unit.declarationIndex(index, coreIndices)),
+          published.origin(),
+          references,
+          published.binding().map(binding -> new CompiledBinding(binding, unit, coreIndices)),
+          published.role());
+    }
+    if (origin.isEmpty()) {
+      var declaration = source.get();
+      units.put(
+          key,
+          CoreBuildHistory.Unit.capture(
+              (CoreCompilationInput.Source) declaration.input(),
+              declaration.binding.map(binding -> ((BindingSeed) binding).shape()),
+              declarationKeys));
+      convertedDefinitions++;
+      return declaration;
+    }
+    var unit = Objects.requireNonNull(reuse.history().units().get(key), "compiled unit");
+    units.put(key, unit);
+    var occurrence =
+        reuse
+            .artifact()
+            .authoring()
+            .occurrence(reuse.history().occurrences().get(key))
+            .orElseThrow();
+    Map<Integer, Integer> references = new LinkedHashMap<>();
+    occurrence
+        .references()
+        .forEach(
+            (node, target) ->
+                references.put(
+                    node,
+                    Objects.requireNonNull(
+                        coreIndices.get(reuse.key(target)), "core reference index")));
+    if (key instanceof CoreBuildHistory.Key.Named named) {
+      var locals = reuse.history().callableLocals().get(named.identity());
+      if (locals != null) callableLocals.put(named.identity(), locals);
+    }
+    CoreCompilationInput.Declaration input;
+    if (reuse.requiresLinking(key)) {
+      input = unit.source().relocate(index -> unit.declarationIndex(index, coreIndices));
+      relinkedDefinitions++;
+    } else {
+      input =
+          new CoreCompilationInput.Compiled(
+              occurrence.id().representative(), occurrence.representedDefinitions());
+    }
+    return new Declaration(
+        input,
+        origin.orElseThrow(),
+        references,
+        reuse
+            .binding(occurrence.id())
+            .map(binding -> new CompiledBinding(binding, unit, coreIndices)),
+        occurrence.role());
   }
 
   private void indexDeclarations() {
     int index = 0;
     for (BoundEnum value : program.enums()) {
+      declarationSpans.put(new CoreBuildHistory.Key.Named(value.id().value()), value.span());
       declarationIndices.put(value.id().value(), index);
       nominalTypeIndices.put(value.type().identity(), index++);
     }
     for (BoundInterface value : program.interfaces()) {
+      declarationSpans.put(new CoreBuildHistory.Key.Named(value.id().value()), value.span());
       declarationIndices.put(value.id().value(), index);
       nominalTypeIndices.put(value.type().identity(), index++);
       interfaces.put(value.id().value(), value);
       for (BoundInterfaceMethod method : value.methods()) {
+        declarationSpans.put(new CoreBuildHistory.Key.Named(method.id().value()), method.span());
         declarationIndices.put(method.id().value(), index++);
       }
     }
-    index += program.builtinConformances().size();
+    for (var value : program.builtinConformances()) {
+      declarationSpans.put(
+          new CoreBuildHistory.Key.Conformance(value.concreteType(), value.interfaceType()),
+          value.span());
+      index++;
+    }
     for (BoundAggregate value : program.aggregates()) {
+      declarationSpans.put(new CoreBuildHistory.Key.Named(value.id().value()), value.span());
       int declaration = index++;
       declarationIndices.put(value.id().value(), declaration);
       nominalTypeIndices.put(value.type().identity(), declaration);
@@ -129,6 +293,7 @@ final class BoundCoreConverter {
               });
     }
     for (BoundCallable value : program.callables()) {
+      declarationSpans.put(new CoreBuildHistory.Key.Named(value.id().value()), value.span());
       declarationIndices.put(value.id().value(), index++);
     }
     for (BoundSource source : program.sources()) {
@@ -155,10 +320,6 @@ final class BoundCoreConverter {
       source.aggregates().forEach(value -> sourceOwners.put(value.value(), owner));
       source.callables().forEach(value -> sourceOwners.put(value.value(), owner));
     }
-  }
-
-  private List<BoundAnnotationApplication> coreApplications() {
-    return program.annotationApplications();
   }
 
   private AnnotationSeed annotationSeed(BoundAnnotationApplication application) {
@@ -300,7 +461,10 @@ final class BoundCoreConverter {
                     .map(
                         parameter ->
                             new CoreBindingShape.Parameter(
-                                parameter.name(), types.convert(parameter.type())))
+                                parameter.name(),
+                                types.convert(parameter.type()),
+                                parameter.declaration().policy(),
+                                defaultValue(parameter.defaultValue())))
                     .toList(),
                 returnType),
             owner.visibility() == BoundVisibility.PUBLIC));
@@ -349,7 +513,10 @@ final class BoundCoreConverter {
                                     .map(
                                         field ->
                                             new CoreBindingShape.Parameter(
-                                                field.name(), types.convert(field.type())))
+                                                field.name(),
+                                                types.convert(field.type()),
+                                                field.declaration().policy(),
+                                                defaultValue(field.defaultValue())))
                                     .toList()))
                     .toList()),
             true));
@@ -471,7 +638,10 @@ final class BoundCoreConverter {
                                     .map(
                                         parameter ->
                                             new CoreBindingShape.Parameter(
-                                                parameter.name(), types.convert(parameter.type())))
+                                                parameter.name(),
+                                                types.convert(parameter.type()),
+                                                parameter.declaration().policy(),
+                                                defaultValue(parameter.defaultValue())))
                                     .toList()))
                     .toList(),
                 declaration.conformances().stream()
@@ -519,7 +689,10 @@ final class BoundCoreConverter {
               .map(
                   parameter ->
                       new CoreBindingShape.Parameter(
-                          parameter.name(), types.convert(parameter.type())))
+                          parameter.name(),
+                          types.convert(parameter.type()),
+                          parameter.declaration().policy(),
+                          defaultValue(parameter.defaultValue())))
               .toList();
       return new Declaration(
           new CoreDefinition.MethodSignature(
@@ -584,6 +757,7 @@ final class BoundCoreConverter {
           case EXTENSION -> CoreDefinitionRole.EXTENSION;
           case METHOD -> CoreDefinitionRole.METHOD;
           case LAMBDA -> CoreDefinitionRole.LAMBDA;
+          case DEFAULT_ARGUMENT -> CoreDefinitionRole.DEFAULT_ARGUMENT;
         };
     return new Declaration(
         definition,
@@ -595,6 +769,7 @@ final class BoundCoreConverter {
             body.nodeSpans()),
         body.referenceTargets(),
         declaration.kind() == BoundCallableKind.CONSTRUCTOR
+                || declaration.kind() == BoundCallableKind.DEFAULT_ARGUMENT
                 || declaration.kind() == BoundCallableKind.LAMBDA
             ? Optional.empty()
             : Optional.of(
@@ -614,11 +789,19 @@ final class BoundCoreConverter {
                             .map(
                                 parameter ->
                                     new CoreBindingShape.Parameter(
-                                        parameter.name(), types.convert(parameter.type())))
+                                        parameter.name(),
+                                        types.convert(parameter.type()),
+                                        parameter.declaration().policy(),
+                                        defaultValue(parameter.defaultValue())))
                             .toList(),
                         types.convert(declaration.returnType())),
                     owner.map(value -> value.visibility() == BoundVisibility.PUBLIC).orElse(true))),
         role);
+  }
+
+  private Optional<CoreDefaultArgument> defaultValue(Optional<BoundCallableId> implementation) {
+    return implementation.map(
+        value -> new CoreDefaultArgument.Pending(declarationIndex(value.value())));
   }
 
   private int declarationIndex(String declaration) {
@@ -732,8 +915,17 @@ final class BoundCoreConverter {
   record Result(
       List<Declaration> declarations,
       List<AnnotationSeed> annotations,
-      Optional<Integer> entryPointIndex) {
+      Optional<Integer> entryPointIndex,
+      Map<CoreBuildHistory.Key, Integer> declarationIndices,
+      Map<String, Map<BoundLocalId, Integer>> callableLocals,
+      Map<CoreBuildHistory.Key, CoreBuildHistory.Unit> units,
+      int convertedDefinitions,
+      int relinkedDefinitions,
+      int importedDefinitions) {
     Result {
+      declarationIndices = Map.copyOf(declarationIndices);
+      callableLocals = Map.copyOf(callableLocals);
+      units = Map.copyOf(units);
       declarations = List.copyOf(declarations);
       annotations = List.copyOf(annotations);
       entryPointIndex = Objects.requireNonNull(entryPointIndex, "entryPointIndex");
@@ -849,10 +1041,10 @@ final class BoundCoreConverter {
   }
 
   static final class Declaration {
-    private final CoreDefinition definition;
+    private final CoreCompilationInput.Declaration input;
     private final CoreDefinitionOrigin origin;
     private final Map<Integer, Integer> referenceTargets;
-    private final Optional<BindingSeed> binding;
+    private final Optional<? extends Binding> binding;
     private final CoreDefinitionRole role;
 
     private Declaration(
@@ -877,15 +1069,24 @@ final class BoundCoreConverter {
         Map<Integer, Integer> referenceTargets,
         Optional<BindingSeed> binding,
         CoreDefinitionRole role) {
-      this.definition = Objects.requireNonNull(definition, "definition");
+      this(new CoreCompilationInput.Source(definition), origin, referenceTargets, binding, role);
+    }
+
+    private Declaration(
+        CoreCompilationInput.Declaration input,
+        CoreDefinitionOrigin origin,
+        Map<Integer, Integer> referenceTargets,
+        Optional<? extends Binding> binding,
+        CoreDefinitionRole role) {
+      this.input = Objects.requireNonNull(input, "input");
       this.origin = Objects.requireNonNull(origin, "origin");
       this.referenceTargets = Map.copyOf(referenceTargets);
       this.binding = Objects.requireNonNull(binding, "binding");
       this.role = Objects.requireNonNull(role, "role");
     }
 
-    CoreDefinition definition() {
-      return definition;
+    CoreCompilationInput.Declaration input() {
+      return input;
     }
 
     CoreDefinitionOrigin origin() {
@@ -915,8 +1116,9 @@ final class BoundCoreConverter {
     Optional<CoreBinding> bind(
         DefinitionOccurrenceId occurrence,
         Set<DocumentId> exportedSources,
-        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver) {
-      return binding.map(value -> value.bind(occurrence, exportedSources, resolver));
+        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver,
+        java.util.function.IntFunction<DefinitionOccurrenceId> occurrences) {
+      return binding.map(value -> value.bind(occurrence, exportedSources, resolver, occurrences));
     }
   }
 
@@ -929,13 +1131,57 @@ final class BoundCoreConverter {
     }
   }
 
+  private sealed interface Binding {
+    CoreBinding bind(
+        DefinitionOccurrenceId occurrence,
+        Set<DocumentId> exportedSources,
+        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver,
+        java.util.function.IntFunction<DefinitionOccurrenceId> occurrences);
+  }
+
+  private record CompiledBinding(
+      CoreBinding binding,
+      CoreBuildHistory.Unit unit,
+      Map<CoreBuildHistory.Key, Integer> declarations)
+      implements Binding {
+    @Override
+    public CoreBinding bind(
+        DefinitionOccurrenceId occurrence,
+        Set<DocumentId> exportedSources,
+        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver,
+        java.util.function.IntFunction<DefinitionOccurrenceId> occurrences) {
+      return new CoreBinding(
+          binding.packageName(),
+          binding.ownerName(),
+          binding.name(),
+          binding.visibility(),
+          unit.binding()
+              .orElseThrow()
+              .mapLinks(
+                  link ->
+                      link instanceof PendingDefinitionReference pending
+                          ? resolver.apply(
+                              new PendingDefinitionReference(
+                                  unit.declarationIndex(pending.declarationIndex(), declarations)))
+                          : link,
+                  value -> {
+                    var target = ((CoreDefaultArgument.Pending) value).declarationIndex();
+                    return new CoreDefaultArgument.Resolved(
+                        occurrences.apply(unit.declarationIndex(target, declarations)));
+                  }),
+          occurrence,
+          binding.exported());
+    }
+  }
+
   private record BindingSeed(
       SourceOwner source,
       Optional<String> ownerName,
       String name,
       CoreVisibility visibility,
       CoreBindingShape shape,
-      boolean ownerPublic) {
+      boolean ownerPublic)
+      implements Binding {
     private BindingSeed {
       source = Objects.requireNonNull(source, "source");
       ownerName = Objects.requireNonNull(ownerName, "ownerName");
@@ -944,10 +1190,12 @@ final class BoundCoreConverter {
       shape = Objects.requireNonNull(shape, "shape");
     }
 
-    private CoreBinding bind(
+    @Override
+    public CoreBinding bind(
         DefinitionOccurrenceId occurrence,
         Set<DocumentId> exportedSources,
-        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver) {
+        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver,
+        java.util.function.IntFunction<DefinitionOccurrenceId> occurrences) {
       boolean exported =
           visibility == CoreVisibility.PUBLIC
               && ownerPublic
@@ -957,104 +1205,14 @@ final class BoundCoreConverter {
           ownerName,
           name,
           visibility,
-          resolve(shape, resolver),
+          shape.mapLinks(
+              link ->
+                  link instanceof PendingDefinitionReference pending
+                      ? resolver.apply(pending)
+                      : link,
+              value -> value.resolve(occurrences)),
           occurrence,
           exported);
-    }
-
-    private static CoreBindingShape resolve(
-        CoreBindingShape shape,
-        java.util.function.Function<PendingDefinitionReference, DefinitionReference> resolver) {
-      java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links =
-          link ->
-              link instanceof PendingDefinitionReference pending ? resolver.apply(pending) : link;
-      return switch (shape) {
-        case CoreBindingShape.Callable callable ->
-            new CoreBindingShape.Callable(
-                callable.kind(),
-                resolveTypeParameters(callable.typeParameters(), links),
-                callable.parameters().stream()
-                    .map(
-                        parameter ->
-                            new CoreBindingShape.Parameter(
-                                parameter.label(), CoreTypes.mapLinks(parameter.type(), links)))
-                    .toList(),
-                CoreTypes.mapLinks(callable.returnType(), links));
-        case CoreBindingShape.Aggregate aggregateShape ->
-            new CoreBindingShape.Aggregate(
-                aggregateShape.kind(),
-                aggregateShape.valueCategory(),
-                resolveTypeParameters(aggregateShape.typeParameters(), links),
-                aggregateShape.parentType().map(type -> CoreTypes.mapLinks(type, links)),
-                aggregateShape.fields().stream()
-                    .map(
-                        field ->
-                            new CoreBindingShape.Field(
-                                field.name(),
-                                field.visibility(),
-                                CoreTypes.mapLinks(field.type(), links)))
-                    .toList(),
-                aggregateShape.constructors().stream()
-                    .map(
-                        constructor ->
-                            new CoreBindingShape.Constructor(
-                                constructor.parameters().stream()
-                                    .map(
-                                        parameter ->
-                                            new CoreBindingShape.Parameter(
-                                                parameter.label(),
-                                                CoreTypes.mapLinks(parameter.type(), links)))
-                                    .toList()))
-                    .toList(),
-                aggregateShape.conformances().stream()
-                    .map(type -> CoreTypes.mapLinks(type, links))
-                    .toList());
-        case CoreBindingShape.Enum enumShape ->
-            new CoreBindingShape.Enum(
-                resolveTypeParameters(enumShape.typeParameters(), links),
-                enumShape.variants().stream()
-                    .map(
-                        variant ->
-                            new CoreBindingShape.Variant(
-                                variant.name(),
-                                variant.fields().stream()
-                                    .map(
-                                        field ->
-                                            new CoreBindingShape.Parameter(
-                                                field.label(),
-                                                CoreTypes.mapLinks(field.type(), links)))
-                                    .toList()))
-                    .toList());
-        case CoreBindingShape.Interface interfaceShape ->
-            new CoreBindingShape.Interface(
-                resolveTypeParameters(interfaceShape.typeParameters(), links),
-                interfaceShape.directParents().stream()
-                    .map(type -> CoreTypes.mapLinks(type, links))
-                    .toList());
-        case CoreBindingShape.MethodSignature method ->
-            new CoreBindingShape.MethodSignature(
-                resolveTypeParameters(method.typeParameters(), links),
-                method.parameters().stream()
-                    .map(
-                        parameter ->
-                            new CoreBindingShape.Parameter(
-                                parameter.label(), CoreTypes.mapLinks(parameter.type(), links)))
-                    .toList(),
-                CoreTypes.mapLinks(method.returnType(), links));
-      };
-    }
-
-    private static List<CoreTypeParameter> resolveTypeParameters(
-        List<CoreTypeParameter> parameters,
-        java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> links) {
-      return parameters.stream()
-          .map(
-              parameter ->
-                  new CoreTypeParameter(
-                      parameter.index(),
-                      parameter.upperBound().map(type -> CoreTypes.mapLinks(type, links)),
-                      parameter.defaultType().map(type -> CoreTypes.mapLinks(type, links))))
-          .toList();
     }
   }
 }

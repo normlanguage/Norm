@@ -31,7 +31,8 @@ public final class CoreReachability {
     DEFINITION_LINK,
     AUTHORING_GROUP,
     AUTHORING_REFERENCE,
-    OWNED_MEMBER
+    OWNED_MEMBER,
+    DEFAULT_ARGUMENT
   }
 
   public record RetentionCause(
@@ -206,6 +207,18 @@ public final class CoreReachability {
       }
       Map<String, DefinitionGroupId> owners = new LinkedHashMap<>();
       for (var binding : artifact.namespace().bindings()) {
+        if (retained.contains(binding.definition().group())) {
+          binding.shape().parameters().stream()
+              .flatMap(parameter -> parameter.defaultValue().stream())
+              .map(value -> ((CoreDefaultArgument.Resolved) value).occurrence())
+              .forEach(
+                  target ->
+                      retain(
+                          causes,
+                          target.representative().group(),
+                          RetentionKind.DEFAULT_ARGUMENT,
+                          binding.definition().group()));
+        }
         if (retained.contains(binding.definition().group()) && binding.ownerName().isEmpty()) {
           owners.putIfAbsent(
               binding.packageName() + "/" + binding.name(), binding.definition().group());

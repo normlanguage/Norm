@@ -271,12 +271,7 @@ public final class BuiltinCatalog {
     Map<String, SemanticType> substitutions = substitutions(definition, type);
     return Optional.of(
         definition.constructor().orElseThrow().parameters().stream()
-            .map(
-                parameter ->
-                    new ParameterInfo(
-                        parameter.name(),
-                        parameter.type().substitute(substitutions),
-                        parameter.hasDefault()))
+            .map(parameter -> parameter.substitute(substitutions))
             .toList());
   }
 

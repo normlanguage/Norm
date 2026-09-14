@@ -4,19 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.core.DefinitionGroupId;
-import dev.w0fv1.norm.core.store.DefinitionStore;
-import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
-import dev.w0fv1.norm.core.store.PutBatchResult;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -55,7 +49,6 @@ final class CompilationSnapshotTest {
     CompilerSession compiler =
         new CompilerSession(
             LanguageProfile.kernel(),
-            new InMemoryDefinitionStore(),
             CompilerSessionCapacity.standard(),
             parses::incrementAndGet,
             () -> {});
@@ -79,38 +72,6 @@ final class CompilationSnapshotTest {
     assertSame(first.semanticModel(), first.document(main.id()).orElseThrow().projectModel());
     assertEquals(afterFirst, parses.get());
     assertEquals(first.documentIds(), second.documentIds());
-  }
-
-  @Test
-  void keepsAuthoringSnapshotsIndependentFromCoreMaterialization() {
-    AtomicInteger storeAccesses = new AtomicInteger();
-    DefinitionStore store =
-        new DefinitionStore() {
-          @Override
-          public PutBatchResult putAll(List<byte[]> canonicalGroups) throws IOException {
-            storeAccesses.incrementAndGet();
-            throw new IOException("unexpected write");
-          }
-
-          @Override
-          public Optional<byte[]> get(DefinitionGroupId id) throws IOException {
-            storeAccesses.incrementAndGet();
-            throw new IOException("unexpected read");
-          }
-        };
-    CompilerSession compiler =
-        new CompilerSession(
-            LanguageProfile.kernel(),
-            store,
-            CompilerSessionCapacity.standard(),
-            () -> {},
-            () -> {});
-    SourceFile source = SourceFile.of(DocumentId.of("untitled:authoring"), "Void main() {}");
-
-    CompilationSnapshot snapshot = compiler.snapshot(CompilationRequest.single(source));
-
-    assertTrue(snapshot.document(source.id()).isPresent());
-    assertEquals(0, storeAccesses.get());
   }
 
   @Test

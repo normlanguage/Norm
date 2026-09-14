@@ -31,7 +31,13 @@ public final class ApplicationCompiler implements AutoCloseable {
   public ApplicationCompilation compile(
       ApplicationInput input, List<ResolvedJarGraph> supportGraphs, Consumer<String> progress) {
     progress.accept("Compiling Norm sources");
-    CompilationResult result = compiler.compile(input.request());
+    CompilationResult result =
+        compiler.compile(
+            input.request(),
+            input
+                .project()
+                .map(project -> List.copyOf(project.compiledModules().values()))
+                .orElse(List.of()));
     if (!result.isSuccess()) return new ApplicationCompilation(result, Optional.empty());
     var analysis = result.output().orElseThrow().state().analysisReport();
     if (analysis.analyzedDeclarations() == 0 && analysis.reusedDeclarations() > 0) {
@@ -39,11 +45,15 @@ public final class ApplicationCompiler implements AutoCloseable {
     }
     var workspace = new TemporaryDirectory();
     boolean transferred = false;
+    JarBindingClasspath.Lease capturedClasspath = null;
     try {
       var bindings = input.project().map(ProjectSourceSet::jarBindings).orElse(List.of());
-      var classpath =
+      capturedClasspath =
           JarBindingClasspath.prepare(bindings, supportGraphs)
-              .materialize(workspace.path().resolve("jars"));
+              .acquire(
+                  java.nio.file.Path.of(
+                      System.getProperty("user.home"), ".norm", "cache", "java-classpaths"));
+      var classpath = capturedClasspath.classpath();
       progress.accept("Processing Java annotations");
       var output =
           annotations.process(
@@ -57,7 +67,8 @@ public final class ApplicationCompiler implements AutoCloseable {
               progress);
       resources.materialize(
           output.classes(), input.project().map(ProjectSourceSet::resources).orElse(Map.of()));
-      var application = new CompiledApplication(input, result, output, classpath, workspace);
+      var application =
+          new CompiledApplication(input, result, output, capturedClasspath, workspace);
       transferred = true;
       return new ApplicationCompilation(result, Optional.of(application));
     } catch (IOException exception) {
@@ -70,7 +81,13 @@ public final class ApplicationCompiler implements AutoCloseable {
       return new ApplicationCompilation(
           new CompilationResult(Optional.empty(), diagnostics), Optional.empty());
     } finally {
-      if (!transferred) workspace.close();
+      if (!transferred) {
+        try (workspace) {
+          if (capturedClasspath != null) capturedClasspath.close();
+        } catch (IOException exception) {
+          throw new java.io.UncheckedIOException("Cannot release compilation classpath", exception);
+        }
+      }
     }
   }
 

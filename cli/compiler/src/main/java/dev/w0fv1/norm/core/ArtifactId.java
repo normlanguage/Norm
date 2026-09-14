@@ -3,7 +3,7 @@ package dev.w0fv1.norm.core;
 import java.util.Objects;
 
 public record ArtifactId(ContentHash hash) implements Comparable<ArtifactId> {
-  private static final String DOMAIN = "norm:artifact:v2\0";
+  private static final String DOMAIN = "norm:artifact:v3\0";
 
   public ArtifactId {
     Objects.requireNonNull(hash, "hash");

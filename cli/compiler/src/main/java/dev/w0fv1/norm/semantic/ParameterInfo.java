@@ -1,16 +1,27 @@
 package dev.w0fv1.norm.semantic;
 
+import dev.w0fv1.norm.value.ParameterPolicy;
+import dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 public record ParameterInfo(
-    String name,
-    SemanticType type,
-    boolean hasDefault,
-    List<String> callbackParameterNames,
-    LabelPolicy labelPolicy,
-    Optional<SemanticType> resultBuilder) {
+    String name, SemanticType type, ParameterPolicy policy, Optional<SemanticType> resultBuilder) {
+  public ParameterInfo(
+      String name,
+      SemanticType type,
+      boolean hasDefault,
+      List<String> callbackParameterNames,
+      LabelPolicy labelPolicy,
+      Optional<SemanticType> resultBuilder) {
+    this(
+        name,
+        type,
+        new ParameterPolicy(hasDefault, callbackParameterNames, labelPolicy),
+        resultBuilder);
+  }
+
   public ParameterInfo(
       String name,
       SemanticType type,
@@ -20,20 +31,14 @@ public record ParameterInfo(
     this(name, type, hasDefault, callbackParameterNames, labelPolicy, Optional.empty());
   }
 
-  public enum LabelPolicy {
-    NAMED,
-    POSITIONAL_ONLY
-  }
-
   public ParameterInfo {
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(type, "type");
-    Objects.requireNonNull(labelPolicy, "labelPolicy");
+    Objects.requireNonNull(policy, "policy");
     Objects.requireNonNull(resultBuilder, "resultBuilder");
-    callbackParameterNames = List.copyOf(callbackParameterNames);
-    if (!callbackParameterNames.isEmpty()
+    if (!policy.callbackParameterNames().isEmpty()
         && (!type.isFunction()
-            || type.functionParameterTypes().size() != callbackParameterNames.size())) {
+            || type.functionParameterTypes().size() != policy.callbackParameterNames().size())) {
       throw new IllegalArgumentException(
           "callback parameter names must match the function signature");
     }
@@ -62,9 +67,7 @@ public record ParameterInfo(
     return new ParameterInfo(
         name,
         type.substitute(substitutions),
-        hasDefault,
-        callbackParameterNames,
-        labelPolicy,
+        policy,
         resultBuilder.map(builder -> builder.substitute(substitutions)));
   }
 }

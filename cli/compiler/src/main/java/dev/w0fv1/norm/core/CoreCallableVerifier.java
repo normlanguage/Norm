@@ -73,7 +73,14 @@ final class CoreCallableVerifier {
             program, id, parameter, interceptor, parameterInterceptor);
       }
     }
-    validationTypes.verifyReturnType(id, callable.returnType(), parameterCount);
+    if (callable.returnType() instanceof CoreType.Reference) {
+      validationTypes.verifyParameterType(id, callable.returnType(), parameterCount);
+      if (!definitelyExits(callable.body())) {
+        throw new IllegalArgumentException("reference result requires a returning body");
+      }
+    } else {
+      validationTypes.verifyReturnType(id, callable.returnType(), parameterCount);
+    }
     callable.locals().forEach(local -> validationTypes.verifyLocalType(id, local, parameterCount));
     if (!controls.isEmpty()) throw new IllegalStateException("core control stack is not empty");
     List<Integer> entryLocals = new ArrayList<>();
@@ -101,7 +108,7 @@ final class CoreCallableVerifier {
       if (local.type() instanceof CoreType.Reference) {
         referenceFlow.update(
             localIndex,
-            externalReferences ? LexicalLifetime.longLived() : LexicalLifetime.unusable());
+            externalReferences ? referenceFlow.incomingLifetime() : LexicalLifetime.unusable());
       }
     }
     for (CoreStatement statement : block.statements()) {
@@ -268,6 +275,11 @@ final class CoreCallableVerifier {
             verifyExpression(owner, callable, value);
             validationTypes.requireAssignable(
                 owner, callable.returnType(), owner, value.type(), "return");
+            if (value.type() instanceof CoreType.Reference
+                && !referenceLifetime(value).outlives(LexicalLifetime.longLived())) {
+              throw new IllegalArgumentException(
+                  "reference result must address long-lived storage");
+            }
           }
         }
         case CoreStatement.YieldStatement yielded -> {
@@ -324,7 +336,12 @@ final class CoreCallableVerifier {
       case CoreExpression.AddressLocal address ->
           referenceFlow.storageLifetime(address.localIndex());
       case CoreExpression.AddressField ignored -> LexicalLifetime.longLived();
+      case CoreExpression.Call ignored -> LexicalLifetime.longLived();
       case CoreExpression.LocalRead read -> referenceFlow.referenceLifetime(read.localIndex());
+      case CoreExpression.Let let -> {
+        LexicalLifetime lifetime = referenceFlow.expressionLifetime(let);
+        yield lifetime == null ? LexicalLifetime.unusable() : lifetime;
+      }
       case CoreExpression.Switch switched -> {
         LexicalLifetime lifetime = referenceFlow.expressionLifetime(switched);
         yield lifetime == null ? LexicalLifetime.unusable() : lifetime;
@@ -336,6 +353,10 @@ final class CoreCallableVerifier {
   private void verifyExpression(
       DefinitionId owner, CoreDefinition.Callable callable, CoreExpression expression) {
     if (expression instanceof CoreExpression.Call
+        && expression.type() instanceof CoreType.Reference) {
+      validationTypes.verifyParameterType(
+          owner, expression.type(), callable.reifiedTypeLocals().size());
+    } else if (expression instanceof CoreExpression.Call
         || expression instanceof CoreExpression.InterfaceCall
         || expression instanceof CoreExpression.Intrinsic
         || expression.type().equals(CoreType.VOID)) {
@@ -380,6 +401,28 @@ final class CoreCallableVerifier {
         validationTypes.requireAssignable(owner, local.type(), owner, read.type(), "local read");
         if (local.type() instanceof CoreType.Reference) {
           referenceFlow.referenceLifetime(read.localIndex());
+        }
+      }
+      case CoreExpression.Let let -> {
+        verifyExpression(owner, callable, let.initializer());
+        CoreLocal local = CoreVerificationTypes.local(callable, let.localIndex());
+        if (local.kind() != CoreLocal.Kind.VARIABLE) {
+          throw new IllegalArgumentException("let binding requires variable storage");
+        }
+        validationTypes.requireSameType(
+            owner, let.initializer().type(), owner, local.type(), "let binding");
+        referenceFlow.push();
+        try {
+          referenceFlow.declare(let.localIndex());
+          if (local.type() instanceof CoreType.Reference) {
+            updateReferenceLifetime(let.localIndex(), let.initializer());
+          }
+          verifyExpression(owner, callable, let.body());
+          if (let.type() instanceof CoreType.Reference) {
+            referenceFlow.recordExpressionLifetime(let, referenceLifetime(let.body()));
+          }
+        } finally {
+          referenceFlow.pop();
         }
       }
       case CoreExpression.FieldRead read -> {

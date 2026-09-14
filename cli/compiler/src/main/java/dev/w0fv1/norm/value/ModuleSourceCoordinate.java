@@ -16,6 +16,15 @@ public record ModuleSourceCoordinate(ModuleCoordinate module, String relativePat
     return moduleOrder != 0 ? moduleOrder : relativePath.compareTo(other.relativePath);
   }
 
+  public String identity() {
+    StringBuilder result = new StringBuilder();
+    for (String segment :
+        new String[] {module.name(), Integer.toString(module.version()), relativePath}) {
+      result.append(segment.length()).append(':').append(segment);
+    }
+    return result.toString();
+  }
+
   private static String normalize(String path) {
     String normalized = path.replace('\\', '/');
     while (normalized.startsWith("/")) normalized = normalized.substring(1);

@@ -192,7 +192,7 @@ final class TypeResolver {
     return typeRelations.views(actual);
   }
 
-  private List<SemanticType> directParents(SemanticType type) {
+  List<SemanticType> directParents(SemanticType type) {
     if (type.kind() == SemanticType.Kind.TYPE_PARAMETER) {
       return Optional.ofNullable(resolution.upperBound(type.identity())).stream().toList();
     }
@@ -688,7 +688,7 @@ final class TypeResolver {
     if (interfaceDecl != null && interfaceDecl.visibility() == Syntax.Visibility.PRIVATE
         || aggregateDecl != null && aggregateDecl.visibility() == Syntax.Visibility.PRIVATE
         || enumDecl != null && enumDecl.visibility() == Syntax.Visibility.PRIVATE) {
-      identity = fileLocalIdentity(identity, owner);
+      identity = declarations.localIdentity(identity, owner);
     }
     ValueCategory category =
         interfaceDecl != null
@@ -1018,10 +1018,6 @@ final class TypeResolver {
     return DeclarationIdentity.callableSignature("", List.of(), constructor.parameters());
   }
 
-  static String fileLocalIdentity(String qualified, Syntax.Program program) {
-    return qualified + "@" + program.span().source().id().uri();
-  }
-
   static String interfaceMethodSignature(Syntax.InterfaceMethodDecl method) {
     return DeclarationIdentity.callableSignature(
         method.name(), method.typeParameters(), method.parameters());
@@ -1183,7 +1179,7 @@ final class TypeResolver {
       Syntax.Program owner = declarations.owner(declaration);
       String candidate = qualifiedName(owner.packageName(), declaration.name());
       if (declaration.visibility() == Syntax.Visibility.PRIVATE) {
-        candidate = fileLocalIdentity(candidate, owner);
+        candidate = declarations.localIdentity(candidate, owner);
       }
       if (candidate.equals(identity)) return declaration;
     }

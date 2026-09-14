@@ -2,7 +2,7 @@ package dev.w0fv1.norm.core;
 
 public record CompilationState(
     CoreBuildReport buildReport,
-    CoreDependencyIndex dependencies,
+    CoreDependencyIndex<DefinitionId> dependencies,
     CoreCompilationDelta delta,
     IncrementalAnalysisReport analysisReport) {
   public CompilationState {

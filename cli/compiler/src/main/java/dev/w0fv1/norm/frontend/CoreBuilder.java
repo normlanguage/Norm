@@ -12,7 +12,7 @@ import dev.w0fv1.norm.core.CoreCanonicalizationCancelledException;
 import dev.w0fv1.norm.core.CoreCanonicalizationControl;
 import dev.w0fv1.norm.core.CoreCanonicalizer;
 import dev.w0fv1.norm.core.CoreCompilationDelta;
-import dev.w0fv1.norm.core.CoreDefinitionGroup;
+import dev.w0fv1.norm.core.CoreCompilationInput;
 import dev.w0fv1.norm.core.CoreDependencyIndex;
 import dev.w0fv1.norm.core.CoreMetadata;
 import dev.w0fv1.norm.core.CoreNamespace;
@@ -21,11 +21,8 @@ import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionOccurrenceId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.core.IncrementalAnalysisReport;
-import dev.w0fv1.norm.core.store.DefinitionStore;
-import dev.w0fv1.norm.core.store.PutResult;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,34 +33,38 @@ final class CoreBuilder {
   private final BoundProgram program;
   private final Set<DocumentId> exportedSources;
   private final Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates;
-  private final DefinitionStore store;
   private final CompilationGuard guard;
 
   CoreBuilder(
       BoundProgram program,
       Set<DocumentId> exportedSources,
       Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates,
-      DefinitionStore store,
       CompilationGuard guard) {
     this.program = Objects.requireNonNull(program, "program");
     this.exportedSources = Set.copyOf(exportedSources);
     this.sourceCoordinates = Map.copyOf(sourceCoordinates);
-    this.store = Objects.requireNonNull(store, "store");
     this.guard = Objects.requireNonNull(guard, "guard");
   }
 
-  CompilationOutput build() {
+  Result build(
+      CoreArtifact previous,
+      CoreBuildHistory history,
+      IncrementalAnalysisPlan analysis,
+      ImportedCompilation imported) {
     guard.checkpoint();
     BoundCoreConverter.Result converted =
-        new BoundCoreConverter(program, sourceCoordinates).convert();
+        new BoundCoreConverter(program, sourceCoordinates)
+            .convert(previous, history, analysis, imported);
     CoreCanonicalizer.Result canonical;
     try {
       canonical =
           new CoreCanonicalizer()
               .canonicalize(
-                  converted.declarations().stream()
-                      .map(BoundCoreConverter.Declaration::definition)
-                      .toList(),
+                  new CoreCompilationInput(
+                      converted.declarations().stream()
+                          .map(BoundCoreConverter.Declaration::input)
+                          .toList(),
+                      previous == null ? new CoreProgram(List.of()) : previous.program()),
                   new CoreCanonicalizationControl(
                       guard::isCancellationRequested, guard.maximumCanonicalSearchBranches()));
     } catch (CoreCanonicalizationCancelledException exception) {
@@ -73,7 +74,6 @@ final class CoreBuilder {
           "canonical search branch", guard.maximumCanonicalSearchBranches());
     }
     CoreProgram coreProgram = new CoreProgram(canonical.groups());
-    StoreCounts counts = store(canonical.groups());
     List<CoreAuthoringMap.Seed> seeds = new ArrayList<>();
     for (int declaration = 0; declaration < converted.declarations().size(); declaration++) {
       guard.checkpoint();
@@ -87,7 +87,11 @@ final class CoreBuilder {
               value.referenceTargets()));
     }
     CoreAuthoringMap.Allocation allocation =
-        CoreAuthoringMap.allocate(seeds, converted.entryPointIndex().orElseThrow());
+        CoreAuthoringMap.allocate(
+            seeds,
+            converted.entryPointIndex().isPresent()
+                ? java.util.OptionalInt.of(converted.entryPointIndex().orElseThrow())
+                : java.util.OptionalInt.empty());
     List<CoreBinding> bindings = new ArrayList<>();
     for (int declaration = 0; declaration < converted.declarations().size(); declaration++) {
       guard.checkpoint();
@@ -103,7 +107,8 @@ final class CoreBuilder {
                   throw new IllegalStateException("namespace type reference is unresolved");
                 }
                 return new DefinitionReference.External(definition);
-              })
+              },
+              allocation.occurrenceIds()::get)
           .ifPresent(bindings::add);
     }
     CoreArtifact artifact =
@@ -118,48 +123,27 @@ final class CoreBuilder {
                             annotation.resolve(
                                 canonical.definitionIds(), allocation.occurrenceIds()))
                     .toList()));
-    return new CompilationOutput(
-        artifact,
-        new CompilationState(
-            new CoreBuildReport(
-                converted.declarations().size(),
-                canonical.groups().size(),
-                counts.stored(),
-                counts.reused(),
-                counts.notAdmitted(),
-                canonical.metrics()),
-            CoreDependencyIndex.create(coreProgram),
-            CoreCompilationDelta.initial(coreProgram),
-            IncrementalAnalysisReport.analyzed(converted.declarations().size(), 0)));
+    var output =
+        new CompilationOutput(
+            artifact,
+            new CompilationState(
+                new CoreBuildReport(
+                    converted.declarations().size(),
+                    converted.convertedDefinitions(),
+                    converted.relinkedDefinitions(),
+                    converted.importedDefinitions(),
+                    canonical.groups().size(),
+                    canonical.metrics()),
+                CoreDependencyIndex.create(coreProgram),
+                CoreCompilationDelta.initial(coreProgram),
+                IncrementalAnalysisReport.analyzed(converted.declarations().size(), 0)));
+    Map<CoreBuildHistory.Key, DefinitionOccurrenceId> occurrences = new java.util.LinkedHashMap<>();
+    converted
+        .declarationIndices()
+        .forEach((key, index) -> occurrences.put(key, allocation.occurrenceIds().get(index)));
+    return new Result(
+        output, new CoreBuildHistory(occurrences, converted.callableLocals(), converted.units()));
   }
 
-  private StoreCounts store(List<CoreDefinitionGroup> groups) {
-    int stored = 0;
-    int reused = 0;
-    int notAdmitted = 0;
-    try {
-      List<PutResult> results =
-          store.putAll(groups.stream().map(CoreDefinitionGroup::canonicalBytes).toList()).results();
-      if (results.size() != groups.size()) {
-        throw new IllegalStateException("definition store returned a different result count");
-      }
-      for (int index = 0; index < groups.size(); index++) {
-        CoreDefinitionGroup group = groups.get(index);
-        PutResult result = results.get(index);
-        if (!result.id().equals(group.id())) {
-          throw new IllegalStateException("definition store returned a different content id");
-        }
-        switch (result.status()) {
-          case STORED -> stored++;
-          case REUSED -> reused++;
-          case NOT_ADMITTED -> notAdmitted++;
-        }
-      }
-      return new StoreCounts(stored, reused, notAdmitted);
-    } catch (IOException exception) {
-      throw new CompilationInfrastructureException("failed to persist core definitions", exception);
-    }
-  }
-
-  private record StoreCounts(int stored, int reused, int notAdmitted) {}
+  record Result(CompilationOutput output, CoreBuildHistory history) {}
 }

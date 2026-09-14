@@ -17,7 +17,9 @@ public enum CoreSchemaVersion {
   V14(14),
   V15(15),
   V16(16),
-  V17(17);
+  V17(17),
+  V18(18),
+  V19(19);
 
   private final int code;
 

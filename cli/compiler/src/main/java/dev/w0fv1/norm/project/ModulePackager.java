@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.w0fv1.norm.jvm.JavaApiReportWriter;
+import dev.w0fv1.norm.jvm.PublishedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -28,9 +29,11 @@ import java.util.zip.ZipOutputStream;
 public final class ModulePackager {
   private static final Gson JSON = new Gson();
   private final ProjectLoader projects;
+  private final dev.w0fv1.norm.frontend.CompilerSession compiler;
 
-  public ModulePackager(ProjectLoader projects) {
+  public ModulePackager(ProjectLoader projects, dev.w0fv1.norm.frontend.CompilerSession compiler) {
     this.projects = Objects.requireNonNull(projects, "projects");
+    this.compiler = Objects.requireNonNull(compiler, "compiler");
   }
 
   public PackagedModule packageModule(Path modulePath, Path repository) throws IOException {
@@ -40,6 +43,11 @@ public final class ModulePackager {
     if (descriptor.version() == 0) {
       throw new IOException("publishable modules must declare a version");
     }
+    var compiled =
+        compiler.compileModule(
+            contents.compilation(), descriptor.coordinate(), contents.compiledModules());
+    if (!compiled.compilation().isSuccess())
+      throw new ModuleCompilationException(compiled.compilation().diagnostics());
     Optional<MavenJarTarget> target = Optional.empty();
     if (descriptor.binding().isPresent()) {
       if (!(descriptor.binding().orElseThrow().target() instanceof MavenJarTarget maven)) {
@@ -63,7 +71,13 @@ public final class ModulePackager {
     String fileName = coordinate.artifact() + "-" + coordinate.version();
     Path archive = versionDirectory.resolve(fileName + ModuleArchiveFormat.FILE_SUFFIX);
     Path pom = versionDirectory.resolve(fileName + ".pom");
-    writeArchive(archive, descriptor, contents.sources(), contents.binding(), contents.resources());
+    writeArchive(
+        archive,
+        descriptor,
+        contents.sources(),
+        contents.binding(),
+        contents.resources(),
+        compiled.module().orElseThrow());
     Files.writeString(pom, pom(descriptor, coordinate, target), StandardCharsets.UTF_8);
     Path archiveDigest = writeDigest(archive);
     Path pomDigest = writeDigest(pom);
@@ -83,32 +97,29 @@ public final class ModulePackager {
     return digest;
   }
 
-  public static void writeArchive(
-      Path archive, ProjectSourceSet snapshot, dev.w0fv1.norm.value.ModuleCoordinate module)
-      throws IOException {
-    var sources = new java.util.LinkedHashMap<String, SourceFile>();
-    for (var source : snapshot.sources()) {
-      var coordinate = snapshot.scope().coordinate(source.id());
-      if (coordinate.module().equals(module)) sources.put(coordinate.relativePath(), source);
-    }
-    var descriptor = Objects.requireNonNull(snapshot.moduleDescriptors().get(module));
-    var binding = Optional.ofNullable(snapshot.moduleJarBindings().get(module));
-    if (descriptor.binding().isPresent() != binding.isPresent())
-      throw new IOException("module binding snapshot is incomplete: " + module);
-    writeArchive(archive, descriptor, sources, binding, snapshot.resourceSet().forModule(module));
-  }
-
   private static void writeArchive(
       Path path,
       ModuleDescriptor descriptor,
       Map<String, SourceFile> sources,
       Optional<ResolvedJarBinding> binding,
-      Map<String, ModuleResource> resources)
+      Map<String, ModuleResource> resources,
+      dev.w0fv1.norm.frontend.CompiledModule compiled)
       throws IOException {
+    byte[] core = compiled.encode();
+    byte[] prepared =
+        binding.isPresent()
+            ? PublishedJarBinding.encode(descriptor, binding.orElseThrow())
+            : new byte[0];
     try (OutputStream file = Files.newOutputStream(path);
         ZipOutputStream archive = new ZipOutputStream(file)) {
-      writeEntry(archive, "module.json", manifest(descriptor, binding));
+      writeEntry(
+          archive,
+          "module.json",
+          manifest(
+              descriptor, binding, Sha256Digest.compute(prepared), Sha256Digest.compute(core)));
+      writeEntry(archive, dev.w0fv1.norm.frontend.CompiledModule.ENTRY, core);
       if (binding.isPresent()) {
+        writeEntry(archive, PublishedJarBinding.ENTRY, prepared);
         writeEntry(
             archive,
             "binding/java-api.json",
@@ -128,9 +139,16 @@ public final class ModulePackager {
   }
 
   private static String manifest(
-      ModuleDescriptor descriptor, Optional<ResolvedJarBinding> binding) {
+      ModuleDescriptor descriptor,
+      Optional<ResolvedJarBinding> binding,
+      Sha256Digest bindingId,
+      Sha256Digest coreId) {
     JsonObject root = new JsonObject();
     root.addProperty("formatVersion", ModuleArchiveFormat.FORMAT_VERSION);
+    var core = new JsonObject();
+    core.addProperty("abi", dev.w0fv1.norm.frontend.CompiledModule.ABI);
+    core.addProperty("id", coreId.value());
+    root.add("core", core);
     JsonObject module = new JsonObject();
     module.addProperty("name", descriptor.name());
     module.addProperty("version", descriptor.version());
@@ -156,6 +174,8 @@ public final class ModulePackager {
       jar.addProperty("version", target.coordinate().version());
       jar.addProperty("resolution", target.resolution().orElseThrow().value());
       jar.addProperty("apiId", binding.orElseThrow().api().apiId().value());
+      jar.addProperty("bindingAbi", PublishedJarBinding.ABI);
+      jar.addProperty("bindingId", bindingId.value());
       JsonObject publicTypes = new JsonObject();
       ProjectJarBindingLinker.exports(binding.orElseThrow()).entrySet().stream()
           .sorted(java.util.Map.Entry.comparingByKey())

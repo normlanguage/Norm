@@ -282,7 +282,7 @@ final class DeclarationCatalog {
     return null;
   }
 
-  private static String key(Syntax.Program program, String name, Syntax.Visibility visibility) {
+  private String key(Syntax.Program program, String name, Syntax.Visibility visibility) {
     String qualified = qualified(program.packageName(), name);
     return visibility == Syntax.Visibility.PRIVATE ? localIdentity(qualified, program) : qualified;
   }
@@ -291,8 +291,10 @@ final class DeclarationCatalog {
     return packageName.isEmpty() ? name : packageName + "." + name;
   }
 
-  private static String localIdentity(String qualified, Syntax.Program program) {
-    return qualified + "@" + program.span().source().id().uri();
+  String localIdentity(String qualified, Syntax.Program program) {
+    return qualified
+        + "@"
+        + DeclarationIdentity.sourceIdentity(scope.coordinate(program.span().source().id()));
   }
 
   private boolean sameModule(Syntax.Program program, Object declaration) {
@@ -304,10 +306,13 @@ final class DeclarationCatalog {
 
   SymbolId symbolId(
       Syntax.Program fallback, Object declaration, SymbolKind kind, String name, SymbolId owner) {
-    return owner == null
-        ? SymbolId.authored(
-            DeclarationIdentity.topLevel(ownerOr(declaration, fallback), declaration).value())
-        : SymbolId.authored(DeclarationIdentity.member(owner, kind, declaration, name));
+    if (owner != null)
+      return SymbolId.authored(DeclarationIdentity.member(owner, kind, declaration, name));
+    var program = ownerOr(declaration, fallback);
+    return SymbolId.authored(
+        DeclarationIdentity.topLevel(
+                program, declaration, scope.coordinate(program.span().source().id()))
+            .value());
   }
 
   static Map<String, SemanticType> typeParameters(

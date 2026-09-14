@@ -30,8 +30,44 @@ public final class JarBindingClasspath {
     return prepare(bindings).artifacts();
   }
 
-  public JarBindingClasspath materialize(Path directory) throws java.io.IOException {
-    return new JarBindingClasspath(resolved.materialize(directory));
+  public Lease acquire(Path directory) throws java.io.IOException {
+    if (resolved.artifacts().isEmpty()) return new Lease(this, java.util.Optional.empty());
+    return acquire(
+        new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+            directory, 128, 2L * 1024 * 1024 * 1024));
+  }
+
+  public Lease acquire(dev.w0fv1.norm.core.store.DirectoryArtifactCache cache)
+      throws java.io.IOException {
+    if (resolved.artifacts().isEmpty()) return new Lease(this, java.util.Optional.empty());
+    var files = resolved.files().acquire(cache);
+    return new Lease(
+        new JarBindingClasspath(resolved.at(files.path())), java.util.Optional.of(files));
+  }
+
+  public static final class Lease implements AutoCloseable {
+    private final JarBindingClasspath classpath;
+    private final java.util.Optional<dev.w0fv1.norm.core.store.DirectoryArtifactCache.Lease> files;
+    private boolean closed;
+
+    private Lease(
+        JarBindingClasspath classpath,
+        java.util.Optional<dev.w0fv1.norm.core.store.DirectoryArtifactCache.Lease> files) {
+      this.classpath = classpath;
+      this.files = files;
+    }
+
+    public JarBindingClasspath classpath() {
+      if (closed) throw new IllegalStateException("classpath lease is closed");
+      return classpath;
+    }
+
+    @Override
+    public void close() throws java.io.IOException {
+      if (closed) return;
+      closed = true;
+      if (files.isPresent()) files.orElseThrow().close();
+    }
   }
 
   public List<ResolvedJarArtifact> artifacts() {

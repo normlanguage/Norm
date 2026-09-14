@@ -64,6 +64,14 @@ module dev.w0fv1.norm {
       com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.source to
       com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.bound to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.frontend to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.semantic to
+      com.esotericsoftware.kryo;
+  opens dev.w0fv1.norm.syntax to
+      com.esotericsoftware.kryo;
   opens dev.w0fv1.norm.value to
       com.esotericsoftware.kryo;
 }

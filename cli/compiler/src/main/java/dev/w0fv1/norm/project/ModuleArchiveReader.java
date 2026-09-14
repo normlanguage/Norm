@@ -3,6 +3,7 @@ package dev.w0fv1.norm.project;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
+import dev.w0fv1.norm.jvm.PublishedJarBinding;
 import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.JarBindingOverload;
@@ -40,7 +41,42 @@ final class ModuleArchiveReader {
       if (!ModuleArchiveFormat.isReadable(formatVersion)) {
         throw new IOException("unsupported module archive format");
       }
-      ModuleDescriptor descriptor = descriptor(manifest, formatVersion);
+      ModuleDescriptor descriptor = descriptor(manifest);
+      var coreMetadata = manifest.getAsJsonObject("core");
+      if (coreMetadata == null
+          || !dev.w0fv1.norm.frontend.CompiledModule.ABI.equals(
+              coreMetadata.get("abi").getAsString()))
+        throw new IOException("unsupported published Core ABI");
+      var coreEntry = zip.getEntry(dev.w0fv1.norm.frontend.CompiledModule.ENTRY);
+      if (coreEntry == null) throw new IOException("module archive has no compiled Core");
+      dev.w0fv1.norm.frontend.CompiledModule compiled;
+      try (var input = zip.getInputStream(coreEntry)) {
+        var bytes = input.readAllBytes();
+        if (!Sha256Digest.compute(bytes).value().equals(coreMetadata.get("id").getAsString()))
+          throw new IOException("published Core content does not match its manifest");
+        compiled = dev.w0fv1.norm.frontend.CompiledModule.decode(bytes);
+        if (!compiled.coordinate().equals(descriptor.coordinate()))
+          throw new IOException("published Core module does not match its manifest");
+      }
+      Optional<PublishedJarBinding> binding = Optional.empty();
+      if (descriptor.binding().isPresent()) {
+        var metadata = manifest.getAsJsonObject("jar");
+        if (!metadata.has("bindingAbi")
+            || !PublishedJarBinding.ABI.equals(metadata.get("bindingAbi").getAsString()))
+          throw new IOException("unsupported published Java binding ABI");
+        var preparedEntry = zip.getEntry(PublishedJarBinding.ENTRY);
+        if (preparedEntry == null)
+          throw new IOException("module archive has no prepared Java binding");
+        try (var input = zip.getInputStream(preparedEntry)) {
+          byte[] bytes = input.readAllBytes();
+          if (!Sha256Digest.compute(bytes).value().equals(metadata.get("bindingId").getAsString()))
+            throw new IOException("published Java binding content does not match its manifest");
+          binding =
+              Optional.of(
+                  PublishedJarBinding.decode(
+                      bytes, descriptor, Sha256Digest.parse(metadata.get("apiId").getAsString())));
+        }
+      }
       Map<String, String> sources = new LinkedHashMap<>();
       Map<String, ModuleResource> resources = new LinkedHashMap<>();
       var entries = zip.entries();
@@ -99,13 +135,15 @@ final class ModuleArchiveReader {
               : Optional.empty(),
           sources,
           resources,
-          publicTypes);
+          publicTypes,
+          binding,
+          compiled);
     } catch (RuntimeException exception) {
       throw new IOException("invalid module archive " + archive, exception);
     }
   }
 
-  private static ModuleDescriptor descriptor(JsonObject manifest, int formatVersion) {
+  private static ModuleDescriptor descriptor(JsonObject manifest) {
     JsonObject module = manifest.getAsJsonObject("module");
     List<String> exports = new ArrayList<>();
     module.getAsJsonArray("exports").forEach(value -> exports.add(value.getAsString()));
@@ -117,7 +155,7 @@ final class ModuleArchiveReader {
               JsonObject dependency = value.getAsJsonObject();
               dependencies.add(
                   new ModuleRequirement(
-                      repository(dependency, formatVersion),
+                      dependency.get("repository").getAsString(),
                       dependency.get("name").getAsString(),
                       dependency.get("version").getAsInt(),
                       dependency.has("exported") && dependency.get("exported").getAsBoolean()));
@@ -166,19 +204,15 @@ final class ModuleArchiveReader {
         binding);
   }
 
-  private static String repository(JsonObject dependency, int formatVersion) {
-    if (dependency.has("repository")) return dependency.get("repository").getAsString();
-    if (formatVersion == 4) return "github";
-    throw new IllegalArgumentException("module dependency has no repository");
-  }
-
   record ArchivedModule(
       FileSnapshot archive,
       ModuleDescriptor descriptor,
       Optional<Sha256Digest> javaApiId,
       Map<String, String> sources,
       Map<String, ModuleResource> resources,
-      Map<String, JarBindingClassReference.Nominal> publicTypes) {
+      Map<String, JarBindingClassReference.Nominal> publicTypes,
+      Optional<PublishedJarBinding> binding,
+      dev.w0fv1.norm.frontend.CompiledModule compiled) {
     ArchivedModule {
       publicTypes = Map.copyOf(publicTypes);
       java.util.Objects.requireNonNull(descriptor, "descriptor");

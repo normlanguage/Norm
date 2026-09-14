@@ -8,7 +8,7 @@ final class CoreRewriter {
 
   static CoreDefinition resolve(
       CoreDefinition definition,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (definition) {
       case CoreDefinition.Callable callable ->
           new CoreDefinition.Callable(
@@ -131,7 +131,7 @@ final class CoreRewriter {
 
   private static CoreInterceptor resolve(
       CoreInterceptor interceptor,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return new CoreInterceptor(
         resolve(interceptor.annotation(), resolver),
         interceptor.values().stream()
@@ -141,14 +141,14 @@ final class CoreRewriter {
 
   private static CoreAnnotationValue resolveAnnotationValue(
       CoreAnnotationValue value,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return new CoreAnnotationValue(
         resolve(value.type(), resolver), resolveAnnotationContent(value.value(), resolver));
   }
 
   private static CoreAnnotationValue.Content resolveAnnotationContent(
       CoreAnnotationValue.Content value,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (value) {
       case CoreAnnotationValue.Literal literal -> literal;
       case CoreAnnotationValue.Null ignored -> CoreAnnotationValue.Null.INSTANCE;
@@ -176,14 +176,16 @@ final class CoreRewriter {
   }
 
   private static CoreBlock resolve(
-      CoreBlock block, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      CoreBlock block,
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return new CoreBlock(
         block.nodeIndex(),
         block.statements().stream().map(statement -> resolve(statement, resolver)).toList());
   }
 
   private static CoreStatement resolve(
-      CoreStatement statement, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      CoreStatement statement,
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (statement) {
       case CoreStatement.LocalDeclaration local ->
           new CoreStatement.LocalDeclaration(
@@ -262,7 +264,7 @@ final class CoreRewriter {
 
   private static CoreExpression resolve(
       CoreExpression expression,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (expression) {
       case CoreExpression.Literal literal ->
           new CoreExpression.Literal(
@@ -279,6 +281,12 @@ final class CoreRewriter {
       case CoreExpression.LocalRead local ->
           new CoreExpression.LocalRead(
               local.nodeIndex(), local.localIndex(), resolve(local.type(), resolver));
+      case CoreExpression.Let let ->
+          new CoreExpression.Let(
+              let.nodeIndex(),
+              let.localIndex(),
+              resolve(let.initializer(), resolver),
+              resolve(let.body(), resolver));
       case CoreExpression.FieldRead field ->
           new CoreExpression.FieldRead(
               field.nodeIndex(),
@@ -410,7 +418,7 @@ final class CoreRewriter {
 
   private static CoreCollectionElement resolve(
       CoreCollectionElement element,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (element) {
       case CoreExpression expression -> resolve(expression, resolver);
       case CoreCollectionElement.Conditional conditional ->
@@ -431,7 +439,8 @@ final class CoreRewriter {
   }
 
   private static CoreIteration resolve(
-      CoreIteration iteration, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      CoreIteration iteration,
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (iteration) {
       case CoreIteration.Builtin builtin -> builtin;
       case CoreIteration.Interface protocol ->
@@ -443,7 +452,8 @@ final class CoreRewriter {
   }
 
   private static CorePattern resolve(
-      CorePattern pattern, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      CorePattern pattern,
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return switch (pattern) {
       case CorePattern.Variant variant ->
           new CorePattern.Variant(
@@ -460,7 +470,7 @@ final class CoreRewriter {
 
   private static List<CoreArgument> resolveArguments(
       List<CoreArgument> arguments,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return arguments.stream()
         .map(
             argument ->
@@ -469,19 +479,20 @@ final class CoreRewriter {
   }
 
   private static CoreDefinitionLink resolve(
-      CoreDefinitionLink link, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      CoreDefinitionLink link,
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return link instanceof PendingDefinitionReference pending ? resolver.apply(pending) : link;
   }
 
   private static CoreFieldReference resolve(
       CoreFieldReference field,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return new CoreFieldReference(resolve(field.owner(), resolver), field.ordinal());
   }
 
   private static CoreConformance resolve(
       CoreConformance conformance,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return new CoreConformance(
         resolve(conformance.interfaceType(), resolver),
         conformance.witnesses().stream()
@@ -500,7 +511,7 @@ final class CoreRewriter {
 
   private static List<CoreTypeParameter> resolveTypeParameters(
       List<CoreTypeParameter> parameters,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return parameters.stream()
         .map(
             parameter ->
@@ -512,7 +523,7 @@ final class CoreRewriter {
   }
 
   private static CoreType resolve(
-      CoreType type, Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      CoreType type, Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return CoreTypes.mapLinks(
         type,
         link ->
@@ -521,7 +532,7 @@ final class CoreRewriter {
 
   private static CoreRuntimeType resolve(
       CoreRuntimeType runtimeType,
-      Function<PendingDefinitionReference, DefinitionReference> resolver) {
+      Function<PendingDefinitionReference, ? extends CoreDefinitionLink> resolver) {
     return new CoreRuntimeType(resolve(runtimeType.template(), resolver), runtimeType.captures());
   }
 }

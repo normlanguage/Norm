@@ -53,8 +53,9 @@ final class PackageCommand implements Command {
     Path modulePath = Files.isDirectory(requested) ? requested.resolve("module.norm") : requested;
     try {
       ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
-      try (var projects = environment.projectLoader()) {
-        var packaged = new ModulePackager(projects).packageModule(modulePath, output);
+      try (var compiler = environment.compilerSession();
+          var projects = environment.projectLoader()) {
+        var packaged = new ModulePackager(projects, compiler).packageModule(modulePath, output);
         out.println("Packaged " + packaged.archive());
         out.println("Generated " + packaged.pom());
       }

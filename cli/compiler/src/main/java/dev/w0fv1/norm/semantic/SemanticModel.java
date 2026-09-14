@@ -210,98 +210,90 @@ public final class SemanticModel implements SemanticIndex {
     return new SemanticModel(source, syntax, tokens, this);
   }
 
-  public SemanticContribution contribution(
-      SourceSpan previousRoot,
-      SourceSpan currentRoot,
-      List<Token> previousTokens,
-      List<Token> currentTokens) {
-    Objects.requireNonNull(previousRoot, "previousRoot");
-    Objects.requireNonNull(currentRoot, "currentRoot");
-    if (!previousRoot.source().id().equals(currentRoot.source().id())) {
-      throw new IllegalArgumentException("semantic contribution must remain in one document");
+  public Map<SourceSpan, SemanticContribution> contributions(List<SourceSpan> roots) {
+    var index =
+        SpanIndex.of(roots.stream().map(root -> new SpanIndex.Entry<>(root, root)).toList());
+    var selectedBindings = partition(bindings, index);
+    var selectedTypes = partition(expressionTypes, index);
+    var selectedBuilders = partition(resultBuilders, index);
+    var selectedCalls = partition(resolvedCalls, index);
+    var selectedArguments = partition(functionReferenceTypeArguments, index);
+    var selectedIterations = partition(iterations, index);
+    var selectedIndexes = partition(indexes, index);
+    Map<SourceSpan, Set<SourceSpan>> operators = new LinkedHashMap<>();
+    for (var span : declarationOperators)
+      index
+          .at(span.source().id(), span.startOffset())
+          .filter(entry -> inside(span, entry.value()))
+          .ifPresent(
+              entry ->
+                  operators
+                      .computeIfAbsent(entry.value(), ignored -> new java.util.LinkedHashSet<>())
+                      .add(span));
+    Map<SourceSpan, List<SemanticScope>> selectedScopes = new LinkedHashMap<>();
+    for (var scope : scopes)
+      index
+          .at(scope.span().source().id(), scope.span().startOffset())
+          .filter(entry -> inside(scope.span(), entry.value()))
+          .ifPresent(
+              entry ->
+                  selectedScopes
+                      .computeIfAbsent(entry.value(), ignored -> new java.util.ArrayList<>())
+                      .add(scope));
+    Map<SourceSpan, Set<SymbolId>> declared = new LinkedHashMap<>();
+    Map<SymbolId, List<SymbolId>> children = new LinkedHashMap<>();
+    for (var symbol : symbols.values()) {
+      symbol
+          .owner()
+          .ifPresent(
+              owner ->
+                  children
+                      .computeIfAbsent(owner, ignored -> new java.util.ArrayList<>())
+                      .add(symbol.id()));
+      symbol
+          .declaration()
+          .ifPresent(
+              location ->
+                  index
+                      .at(location.document(), location.startOffset())
+                      .filter(entry -> inside(location, entry.value()))
+                      .ifPresent(
+                          entry ->
+                              declared
+                                  .computeIfAbsent(
+                                      entry.value(), ignored -> new java.util.LinkedHashSet<>())
+                                  .add(symbol.id())));
     }
-    SpanRebaser rebaser = new SpanRebaser(previousRoot, currentRoot, previousTokens, currentTokens);
-    Map<SourceSpan, SymbolId> selectedBindings = rebase(bindings, previousRoot, rebaser);
-    Map<SourceSpan, SemanticType> selectedTypes = rebase(expressionTypes, previousRoot, rebaser);
-    Map<SourceSpan, ResolvedCall> selectedCalls = new LinkedHashMap<>();
-    resolvedCalls.forEach(
-        (span, call) -> {
-          if (!inside(span, previousRoot)) return;
-          SourceSpan rebasedSpan = rebaser.rebase(span);
-          SourceSpan rebasedCallee = rebaser.rebase(call.calleeSpan());
-          selectedCalls.put(
-              rebasedSpan,
-              new ResolvedCall(
-                  call.kind(),
-                  call.target(),
-                  rebasedCallee,
-                  new ArgumentBinding(
-                      call.arguments().parameterIndices(),
-                      call.arguments().labels().entrySet().stream()
-                          .collect(
-                              java.util.stream.Collectors.toMap(
-                                  entry -> rebaser.rebase(entry.getKey()), Map.Entry::getValue))),
-                  call.parameters(),
-                  call.callableTypeArguments(),
-                  call.resultType()));
-        });
-    Map<SourceSpan, List<SemanticType>> selectedFunctionArguments =
-        rebase(functionReferenceTypeArguments, previousRoot, rebaser);
-    Map<SourceSpan, ResolvedIteration> selectedIterations =
-        rebase(iterations, previousRoot, rebaser);
-    Map<SourceSpan, ResolvedIndex> selectedIndexes = rebase(indexes, previousRoot, rebaser);
-    Set<SymbolId> selectedIds = new java.util.LinkedHashSet<>();
-    symbols.forEach(
-        (id, symbol) -> {
-          if (symbol.declaration().filter(location -> inside(location, previousRoot)).isPresent()) {
-            selectedIds.add(id);
-          }
-        });
-    selectedBindings
-        .values()
-        .forEach(
-            id -> {
-              Symbol symbol = symbols.get(id);
-              if (symbol != null && symbol.declaration().isEmpty()) selectedIds.add(id);
-            });
-    boolean added;
-    do {
-      added = false;
-      for (Symbol symbol : symbols.values()) {
-        if (selectedIds.contains(symbol.id())) continue;
-        if (symbol.owner().filter(selectedIds::contains).isPresent()) {
-          selectedIds.add(symbol.id());
-          added = true;
-        }
+    Map<SourceSpan, SemanticContribution> result = new LinkedHashMap<>();
+    for (var root : roots) {
+      var rootBindings = selectedBindings.getOrDefault(root, Map.of());
+      Set<SymbolId> ids = new java.util.LinkedHashSet<>(declared.getOrDefault(root, Set.of()));
+      for (var id : rootBindings.values()) {
+        var symbol = symbols.get(id);
+        if (symbol != null && symbol.declaration().isEmpty()) ids.add(id);
       }
-    } while (added);
-    Map<SymbolId, Symbol> selectedSymbols = new LinkedHashMap<>();
-    selectedIds.forEach(
-        id -> {
-          Symbol symbol = symbols.get(id);
-          if (symbol != null) selectedSymbols.put(id, rebase(symbol, previousRoot, rebaser));
-        });
-    List<SemanticScope> selectedScopes =
-        scopes.stream()
-            .filter(scope -> inside(scope.span(), previousRoot))
-            .map(
-                scope ->
-                    new SemanticScope(rebaser.rebase(scope.span()), scope.depth(), scope.symbols()))
-            .toList();
-    return new SemanticContribution(
-        selectedSymbols,
-        selectedBindings,
-        declarationOperators.stream()
-            .filter(span -> inside(span, previousRoot))
-            .map(rebaser::rebase)
-            .collect(java.util.stream.Collectors.toUnmodifiableSet()),
-        selectedTypes,
-        rebase(resultBuilders, previousRoot, rebaser),
-        selectedCalls,
-        selectedFunctionArguments,
-        selectedIterations,
-        selectedIndexes,
-        selectedScopes);
+      var pending = new java.util.ArrayDeque<>(ids);
+      while (!pending.isEmpty()) {
+        for (var child : children.getOrDefault(pending.removeFirst(), List.of()))
+          if (ids.add(child)) pending.addLast(child);
+      }
+      Map<SymbolId, Symbol> selectedSymbols = new LinkedHashMap<>();
+      ids.forEach(id -> selectedSymbols.put(id, symbols.get(id)));
+      result.put(
+          root,
+          new SemanticContribution(
+              selectedSymbols,
+              rootBindings,
+              operators.getOrDefault(root, Set.of()),
+              selectedTypes.getOrDefault(root, Map.of()),
+              selectedBuilders.getOrDefault(root, Map.of()),
+              selectedCalls.getOrDefault(root, Map.of()),
+              selectedArguments.getOrDefault(root, Map.of()),
+              selectedIterations.getOrDefault(root, Map.of()),
+              selectedIndexes.getOrDefault(root, Map.of()),
+              selectedScopes.getOrDefault(root, List.of())));
+    }
+    return Map.copyOf(result);
   }
 
   public Set<SourceLocation> declarationDependencies(SourceSpan root) {
@@ -315,6 +307,17 @@ public final class SemanticModel implements SemanticIndex {
         (span, call) -> {
           if (inside(span, root)) targets.add(call.target());
         });
+    return declarationLocations(targets);
+  }
+
+  public Set<SourceLocation> declarationDependencies(SemanticContribution contribution) {
+    Set<SymbolId> targets = new java.util.LinkedHashSet<>();
+    contribution.bindings().values().forEach(id -> targets.add(resolveAlias(id)));
+    contribution.resolvedCalls().values().forEach(call -> targets.add(call.target()));
+    return declarationLocations(targets);
+  }
+
+  private Set<SourceLocation> declarationLocations(Set<SymbolId> targets) {
     return targets.stream()
         .map(symbols::get)
         .filter(Objects::nonNull)
@@ -323,30 +326,20 @@ public final class SemanticModel implements SemanticIndex {
         .collect(java.util.stream.Collectors.toUnmodifiableSet());
   }
 
-  private static <T> Map<SourceSpan, T> rebase(
-      Map<SourceSpan, T> values, SourceSpan root, SpanRebaser rebaser) {
-    Map<SourceSpan, T> selected = new LinkedHashMap<>();
+  private static <T> Map<SourceSpan, Map<SourceSpan, T>> partition(
+      Map<SourceSpan, T> values, SpanIndex<SourceSpan> index) {
+    Map<SourceSpan, Map<SourceSpan, T>> result = new LinkedHashMap<>();
     values.forEach(
-        (span, value) -> {
-          if (inside(span, root)) selected.put(rebaser.rebase(span), value);
-        });
-    return Map.copyOf(selected);
-  }
-
-  private static Symbol rebase(Symbol symbol, SourceSpan root, SpanRebaser rebaser) {
-    Optional<SourceLocation> declaration = symbol.declaration();
-    if (declaration.isEmpty() || !inside(declaration.orElseThrow(), root)) return symbol;
-    return new Symbol(
-        symbol.id(),
-        symbol.name(),
-        symbol.kind(),
-        symbol.type(),
-        Optional.of(rebaser.rebase(declaration.orElseThrow())),
-        symbol.owner(),
-        symbol.typeParameters(),
-        symbol.parameters(),
-        symbol.documentation(),
-        symbol.accessor());
+        (span, value) ->
+            index
+                .at(span.source().id(), span.startOffset())
+                .filter(entry -> inside(span, entry.value()))
+                .ifPresent(
+                    entry ->
+                        result
+                            .computeIfAbsent(entry.value(), ignored -> new LinkedHashMap<>())
+                            .put(span, value)));
+    return result;
   }
 
   private static boolean inside(SourceSpan span, SourceSpan root) {
@@ -359,78 +352,6 @@ public final class SemanticModel implements SemanticIndex {
     return location.document().equals(root.source().id())
         && location.startOffset() >= root.startOffset()
         && location.endOffset() <= root.endOffset();
-  }
-
-  private static final class SpanRebaser {
-    private final SourceSpan previousRoot;
-    private final SourceSpan currentRoot;
-    private final java.util.NavigableMap<Integer, Integer> anchors = new java.util.TreeMap<>();
-    private final Map<Integer, Integer> starts = new LinkedHashMap<>();
-    private final Map<Integer, Integer> ends = new LinkedHashMap<>();
-
-    private SpanRebaser(
-        SourceSpan previousRoot,
-        SourceSpan currentRoot,
-        List<Token> previousTokens,
-        List<Token> currentTokens) {
-      this.previousRoot = previousRoot;
-      this.currentRoot = currentRoot;
-      if (previousTokens.size() != currentTokens.size()) {
-        throw new IllegalArgumentException("semantic contribution tokens must have equal shape");
-      }
-      anchor(starts, previousRoot.startOffset(), currentRoot.startOffset());
-      for (int index = 0; index < previousTokens.size(); index++) {
-        Token previous = previousTokens.get(index);
-        Token current = currentTokens.get(index);
-        if (previous.kind() != current.kind() || !previous.lexeme().equals(current.lexeme())) {
-          throw new IllegalArgumentException("semantic contribution tokens must have equal shape");
-        }
-        anchor(starts, previous.span().startOffset(), current.span().startOffset());
-        anchor(ends, previous.span().endOffset(), current.span().endOffset());
-      }
-      anchor(ends, previousRoot.endOffset(), currentRoot.endOffset());
-    }
-
-    private void anchor(Map<Integer, Integer> boundaries, int previous, int current) {
-      anchors.putIfAbsent(previous, current);
-      Integer existing = boundaries.putIfAbsent(previous, current);
-      if (existing != null && existing != current) {
-        throw new IllegalArgumentException("semantic contribution has inconsistent token anchors");
-      }
-    }
-
-    private SourceSpan rebase(SourceSpan span) {
-      return new SourceSpan(
-          currentRoot.source(),
-          map(span.startOffset(), false),
-          map(span.endOffset(), !span.isEmpty()),
-          span.expansion());
-    }
-
-    private SourceLocation rebase(SourceLocation location) {
-      return new SourceLocation(
-          currentRoot.source().id(),
-          map(location.startOffset(), false),
-          map(location.endOffset(), location.endOffset() != location.startOffset()));
-    }
-
-    private int map(int offset, boolean end) {
-      if (offset < previousRoot.startOffset() || offset > previousRoot.endOffset()) {
-        throw new IllegalArgumentException("semantic span is outside its declaration");
-      }
-      Integer exact = (end ? ends : starts).get(offset);
-      if (exact == null) exact = (end ? starts : ends).get(offset);
-      if (exact != null) return exact;
-      Map.Entry<Integer, Integer> lower = anchors.floorEntry(offset);
-      Map.Entry<Integer, Integer> upper = anchors.ceilingEntry(offset);
-      if (lower == null || upper == null) {
-        throw new IllegalStateException("semantic contribution has incomplete token anchors");
-      }
-      int relative = offset - lower.getKey();
-      int lowerValue = starts.getOrDefault(lower.getKey(), lower.getValue());
-      int upperValue = ends.getOrDefault(upper.getKey(), upper.getValue());
-      return lowerValue + Math.min(relative, upperValue - lowerValue);
-    }
   }
 
   public List<Token> tokens() {
@@ -455,6 +376,10 @@ public final class SemanticModel implements SemanticIndex {
 
   public Optional<Symbol> symbol(SymbolId id) {
     return Optional.ofNullable(symbols.get(id));
+  }
+
+  public CompilationScope compilationScope() {
+    return scope;
   }
 
   public List<Symbol> symbols() {
@@ -640,6 +565,12 @@ public final class SemanticModel implements SemanticIndex {
     return isAssignable(specialized.parameters().getFirst().type(), receiver)
         ? Optional.of(specialized)
         : Optional.empty();
+  }
+
+  public Optional<SemanticType> typeView(SemanticType type, String identity) {
+    return typeRelations.views(type).stream()
+        .filter(view -> view.identity().equals(identity))
+        .findFirst();
   }
 
   private List<SemanticType> directParents(SemanticType type) {
@@ -906,19 +837,7 @@ public final class SemanticModel implements SemanticIndex {
         member.declaration(),
         member.owner(),
         member.typeParameters(),
-        member.parameters().stream()
-            .map(
-                parameter ->
-                    new ParameterInfo(
-                        parameter.name(),
-                        parameter.type().substitute(substitutions),
-                        parameter.hasDefault(),
-                        parameter.callbackParameterNames(),
-                        parameter.labelPolicy(),
-                        parameter
-                            .resultBuilder()
-                            .map(builder -> builder.substitute(substitutions))))
-            .toList(),
+        member.parameters().stream().map(parameter -> parameter.substitute(substitutions)).toList(),
         member.documentation(),
         member.accessor());
   }

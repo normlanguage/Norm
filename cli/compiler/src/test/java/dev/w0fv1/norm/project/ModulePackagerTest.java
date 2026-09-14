@@ -24,6 +24,31 @@ final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void rejectsInvalidLibraryBodiesBeforePublishingAnyArtifacts() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("library/broken"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        "Module module() { return module(name: \"broken\", version: 1, exports: [\"Value\"]) }");
+    Files.writeString(
+        module.resolve("Value.norm"),
+        "package broken public Integer value() { return missingFunction() }");
+    Path repository = temporaryDirectory.resolve("repository");
+    var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var compiler = environment.compilerSession();
+        var projects = environment.projectLoader()) {
+      var failure =
+          assertThrows(
+              ModuleCompilationException.class,
+              () -> new ModulePackager(projects, compiler).packageModule(modulePath, repository));
+      assertTrue(
+          failure.diagnostics().stream()
+              .anyMatch(value -> value.message().contains("missingFunction")));
+      assertFalse(Files.exists(repository));
+    }
+  }
+
+  @Test
   void preservesResultBuilderContractsAcrossNarDependencies() throws Exception {
     Path module = Files.createDirectories(temporaryDirectory.resolve("library/example/builders"));
     Path modulePath = module.resolve("module.norm");
@@ -48,8 +73,9 @@ final class ModulePackagerTest {
         """);
     Path repository = temporaryDirectory.resolve("repository");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (ProjectLoader projects = environment.projectLoader()) {
-      new ModulePackager(projects).packageModule(modulePath, repository);
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects, compiler).packageModule(modulePath, repository);
     }
     Files.delete(source);
     Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
@@ -91,8 +117,9 @@ final class ModulePackagerTest {
         """);
     Path repository = temporaryDirectory.resolve("repository");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (ProjectLoader projects = environment.projectLoader()) {
-      new ModulePackager(projects).packageModule(modulePath, repository);
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects, compiler).packageModule(modulePath, repository);
     }
     Files.delete(source);
 
@@ -134,12 +161,13 @@ final class ModulePackagerTest {
     Files.writeString(module.resolve("Main.norm"), "package sample public Void main() {}");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
-    try (ProjectLoader projects = environment.projectLoader()) {
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
       IOException exception =
           assertThrows(
               IOException.class,
               () ->
-                  new ModulePackager(projects)
+                  new ModulePackager(projects, compiler)
                       .packageModule(modulePath, temporaryDirectory.resolve("repository")));
 
       assertTrue(exception.getMessage().contains("must declare a version"));
@@ -175,8 +203,9 @@ final class ModulePackagerTest {
     Path repository = temporaryDirectory.resolve("repository");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     ModulePackager.PackagedModule packaged;
-    try (ProjectLoader projects = environment.projectLoader()) {
-      packaged = new ModulePackager(projects).packageModule(modulePath, repository);
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
+      packaged = new ModulePackager(projects, compiler).packageModule(modulePath, repository);
     }
     try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
       var entry = archive.getEntry("resources/public/icon.bin");
@@ -249,8 +278,9 @@ final class ModulePackagerTest {
         "package example.outcome public enum Outcome<T, E = String> { Ok(T value), Err(E error) }");
     Path repository = temporaryDirectory.resolve("repository");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (ProjectLoader projects = environment.projectLoader()) {
-      new ModulePackager(projects).packageModule(modulePath, repository);
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects, compiler).packageModule(modulePath, repository);
     }
 
     Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
@@ -296,13 +326,14 @@ final class ModulePackagerTest {
         class Internal {}
         """);
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (ProjectLoader projects =
-        environment.projectLoader(
-            MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects =
+            environment.projectLoader(
+                MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
 
       ModulePackager.PackagedModule packaged =
-          new ModulePackager(projects)
+          new ModulePackager(projects, compiler)
               .packageModule(modulePath, temporaryDirectory.resolve("repository"));
       assertTrue(Files.isRegularFile(packaged.archive()));
       try (ZipFile archive = new ZipFile(packaged.archive().toFile())) {
@@ -347,11 +378,12 @@ final class ModulePackagerTest {
     Path repository = temporaryDirectory.resolve("repository");
 
     ModulePackager.PackagedModule packaged;
-    try (ProjectLoader projects =
-        environment.projectLoader(
-            MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects =
+            environment.projectLoader(
+                MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
-      packaged = new ModulePackager(projects).packageModule(modulePath, repository);
+      packaged = new ModulePackager(projects, compiler).packageModule(modulePath, repository);
     }
 
     assertEquals(
@@ -380,6 +412,14 @@ final class ModulePackagerTest {
           "java.lang.String", overload.getAsJsonArray("parameterTypes").get(0).getAsString());
       var report = archive.getEntry("binding/java-api.json");
       assertTrue(report != null);
+      assertTrue(archive.getEntry("binding/prepared.bin") != null);
+      assertTrue(archive.getEntry(dev.w0fv1.norm.frontend.CompiledModule.ENTRY) != null);
+      assertEquals(
+          dev.w0fv1.norm.frontend.CompiledModule.ABI,
+          manifest.getAsJsonObject("core").get("abi").getAsString());
+      assertEquals(
+          "norm-java-binding-1", manifest.getAsJsonObject("jar").get("bindingAbi").getAsString());
+      assertEquals(64, manifest.getAsJsonObject("jar").get("bindingId").getAsString().length());
       var json =
           JsonParser.parseReader(new java.io.InputStreamReader(archive.getInputStream(report)))
               .getAsJsonObject();
@@ -440,8 +480,39 @@ final class ModulePackagerTest {
             backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+      assertTrue(result.output().orElseThrow().state().buildReport().importedDefinitions() > 0);
     }
     assertEquals("mroN" + System.lineSeparator(), output.toString());
+    for (String damage : java.util.List.of("payload", "abi", "core-payload", "core-abi")) {
+      Path damaged = temporaryDirectory.resolve(damage + ".nar");
+      try (var original = new ZipFile(packaged.archive().toFile());
+          var rewritten = new java.util.zip.ZipOutputStream(Files.newOutputStream(damaged))) {
+        for (var item : original.stream().toList()) {
+          byte[] bytes;
+          try (var input = original.getInputStream(item)) {
+            bytes = input.readAllBytes();
+          }
+          if (damage.equals("payload") && item.getName().equals("binding/prepared.bin"))
+            bytes[0] ^= 1;
+          if (damage.equals("core-payload")
+              && item.getName().equals(dev.w0fv1.norm.frontend.CompiledModule.ENTRY)) bytes[0] ^= 1;
+          if (damage.equals("core-abi") && item.getName().equals("module.json"))
+            bytes =
+                new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace(dev.w0fv1.norm.frontend.CompiledModule.ABI, "unknown-core-abi")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+          if (damage.equals("abi") && item.getName().equals("module.json"))
+            bytes =
+                new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("norm-java-binding-1", "unknown-binding-abi")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+          rewritten.putNextEntry(new java.util.zip.ZipEntry(item.getName()));
+          rewritten.write(bytes);
+          rewritten.closeEntry();
+        }
+      }
+      assertThrows(IOException.class, () -> new ModuleArchiveReader().read(damaged));
+    }
   }
 
   @Test
@@ -476,11 +547,12 @@ final class ModulePackagerTest {
         """);
     Path bindingRepository = temporaryDirectory.resolve("binding-repository");
     ProjectEnvironment bindingEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (ProjectLoader projects =
-        bindingEnvironment.projectLoader(
-            MavenTestRepository.prepare(temporaryDirectory.resolve("binding-cache")))) {
+    try (var compiler = bindingEnvironment.compilerSession();
+        ProjectLoader projects =
+            bindingEnvironment.projectLoader(
+                MavenTestRepository.prepare(temporaryDirectory.resolve("binding-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(bindingModule);
-      new ModulePackager(projects).packageModule(bindingModule, bindingRepository);
+      new ModulePackager(projects, compiler).packageModule(bindingModule, bindingRepository);
     }
 
     Path pure = Files.createDirectories(temporaryDirectory.resolve("pure/commons/lang"));
@@ -507,8 +579,9 @@ final class ModulePackagerTest {
     Path pureRepository = temporaryDirectory.resolve("pure-repository");
     ProjectEnvironment pureEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
     ModulePackager.PackagedModule packaged;
-    try (ProjectLoader projects = pureEnvironment.projectLoader()) {
-      packaged = new ModulePackager(projects).packageModule(pureModule, pureRepository);
+    try (var compiler = pureEnvironment.compilerSession();
+        ProjectLoader projects = pureEnvironment.projectLoader()) {
+      packaged = new ModulePackager(projects, compiler).packageModule(pureModule, pureRepository);
     }
     String pom = Files.readString(packaged.pom());
     assertTrue(pom.contains("<packaging>nar</packaging>"));
@@ -582,12 +655,13 @@ final class ModulePackagerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     ModulePackager.PackagedModule packaged;
-    try (ProjectLoader projects =
-        environment.projectLoader(
-            MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects =
+            environment.projectLoader(
+                MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
       packaged =
-          new ModulePackager(projects)
+          new ModulePackager(projects, compiler)
               .packageModule(modulePath, temporaryDirectory.resolve("repository"));
     }
 
@@ -609,7 +683,7 @@ final class ModulePackagerTest {
       assertEquals(
           ModuleArchiveFormat.FORMAT_VERSION,
           JsonParser.parseString(manifest).getAsJsonObject().get("formatVersion").getAsInt());
-      assertEquals(5, ModuleArchiveFormat.FORMAT_VERSION);
+      assertFalse(ModuleArchiveFormat.isReadable(ModuleArchiveFormat.FORMAT_VERSION - 1));
       assertTrue(
           JsonParser.parseString(manifest)
               .getAsJsonObject()
@@ -645,6 +719,7 @@ final class ModulePackagerTest {
             backend)) {
       var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+      assertTrue(result.output().orElseThrow().state().buildReport().importedDefinitions() > 0);
     }
     return output.toString();
   }

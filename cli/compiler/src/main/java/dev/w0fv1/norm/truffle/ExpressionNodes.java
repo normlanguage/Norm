@@ -268,6 +268,24 @@ final class ExpressionNodes {
     }
   }
 
+  static final class Let extends ExpressionNode {
+    private final FrameBinding binding;
+    @Child private ExpressionNode initializer;
+    @Child private ExpressionNode body;
+
+    Let(FrameBinding binding, ExpressionNode initializer, ExpressionNode body) {
+      this.binding = binding;
+      this.initializer = initializer;
+      this.body = body;
+    }
+
+    @Override
+    Object execute(VirtualFrame frame) {
+      binding.write(frame, RuntimeValues.copy(initializer.execute(frame)));
+      return body.execute(frame);
+    }
+  }
+
   static final class ReadLocal extends ExpressionNode {
     private final FrameBinding binding;
 

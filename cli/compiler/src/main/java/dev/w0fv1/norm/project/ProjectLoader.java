@@ -19,9 +19,7 @@ import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleDescriptor;
-import dev.w0fv1.norm.value.ModuleGraph;
 import dev.w0fv1.norm.value.ModuleRequirement;
-import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -184,6 +182,7 @@ public final class ProjectLoader implements AutoCloseable {
           Set.of(),
           Map.of(),
           Map.of(),
+          Map.of(),
           CompilationScope.anonymous(List.of(entrySource)),
           List.of(entrySource),
           Set.of(),
@@ -233,11 +232,8 @@ public final class ProjectLoader implements AutoCloseable {
       List<ResolvedProjectModule> graph,
       SourceStructure entryStructure)
       throws IOException {
-    List<SourceFile> sources = new java.util.ArrayList<>();
-    Set<Path> exportedSources = new LinkedHashSet<>();
+    var compilation = ProjectCompilationSources.from(graph);
     Set<Path> modulePaths = new LinkedHashSet<>();
-    Map<DocumentId, ModuleSourceCoordinate> coordinates = new LinkedHashMap<>();
-    Map<ModuleCoordinate, Set<ModuleCoordinate>> dependencies = new LinkedHashMap<>();
     Map<ModuleCoordinate, ModuleDescriptor> descriptors =
         graph.stream()
             .map(ResolvedProjectModule::descriptor)
@@ -248,35 +244,22 @@ public final class ProjectLoader implements AutoCloseable {
                     (left, right) -> left,
                     LinkedHashMap::new));
     Map<ModuleCoordinate, FileSnapshot> moduleArchives = new LinkedHashMap<>();
-    Set<DocumentId> bindingSources = new LinkedHashSet<>();
-    Set<DocumentId> testSources = new LinkedHashSet<>();
+    Map<ModuleCoordinate, dev.w0fv1.norm.frontend.CompiledModule> compiledModules =
+        new LinkedHashMap<>();
     Map<ModuleCoordinate, ResolvedJarBinding> jarBindings = new LinkedHashMap<>();
     Map<ModuleCoordinate, Map<String, ModuleResource>> resources = new LinkedHashMap<>();
     for (ResolvedProjectModule module : graph) {
       module
+          .compiled()
+          .ifPresent(compiled -> compiledModules.put(module.descriptor().coordinate(), compiled));
+      module
           .archive()
           .ifPresent(archive -> moduleArchives.put(module.descriptor().coordinate(), archive));
-      dependencies.put(
-          module.descriptor().coordinate(), readableDependencies(module.descriptor(), descriptors));
       modulePaths.add(normalize(module.moduleSource().path()));
-      bindingSources.addAll(module.bindingSources());
-      testSources.addAll(module.testSources());
       module
           .binding()
           .ifPresent(binding -> jarBindings.put(module.descriptor().coordinate(), binding));
       resources.put(module.descriptor().coordinate(), module.resources());
-      exportedSources.addAll(
-          module.exportedSources().stream()
-              .map(DocumentId::uri)
-              .map(Path::of)
-              .map(ProjectPaths::normalize)
-              .toList());
-      for (Map.Entry<String, SourceFile> source : module.sources().entrySet()) {
-        sources.add(source.getValue());
-        coordinates.put(
-            source.getValue().id(),
-            new ModuleSourceCoordinate(module.descriptor().coordinate(), source.getKey()));
-      }
     }
     return new ProjectSourceSet(
         root,
@@ -285,10 +268,14 @@ public final class ProjectLoader implements AutoCloseable {
         modulePaths,
         descriptors,
         moduleArchives,
-        new CompilationScope(coordinates, new ModuleGraph(dependencies), testSources),
-        sources,
-        exportedSources,
-        bindingSources,
+        compiledModules,
+        compilation.scope(),
+        compilation.sources(),
+        compilation.exports().stream()
+            .map(DocumentId::uri)
+            .map(Path::of)
+            .collect(java.util.stream.Collectors.toSet()),
+        compilation.bindings(),
         jarBindings,
         new ProjectResources(resources),
         entryStructure.applicationFactory(),
@@ -356,30 +343,6 @@ public final class ProjectLoader implements AutoCloseable {
     return sourceSet(root, entry, entry, graph, structure);
   }
 
-  private static Set<ModuleCoordinate> readableDependencies(
-      ModuleDescriptor module, Map<ModuleCoordinate, ModuleDescriptor> descriptors) {
-    Set<ModuleCoordinate> readable = new LinkedHashSet<>();
-    for (ModuleRequirement requirement : module.dependencies()) {
-      if (readable.add(requirement.coordinate())) {
-        collectExportedDependencies(requirement.coordinate(), descriptors, readable);
-      }
-    }
-    return Set.copyOf(readable);
-  }
-
-  private static void collectExportedDependencies(
-      ModuleCoordinate coordinate,
-      Map<ModuleCoordinate, ModuleDescriptor> descriptors,
-      Set<ModuleCoordinate> readable) {
-    ModuleDescriptor descriptor = descriptors.get(coordinate);
-    if (descriptor == null) return;
-    for (ModuleRequirement requirement : descriptor.dependencies()) {
-      if (requirement.exported() && readable.add(requirement.coordinate())) {
-        collectExportedDependencies(requirement.coordinate(), descriptors, readable);
-      }
-    }
-  }
-
   public Path projectRoot(SourceFile source, Collection<SourceFile> overlays) {
     Objects.requireNonNull(source, "source");
     Path path = normalize(source.path());
@@ -442,9 +405,15 @@ public final class ProjectLoader implements AutoCloseable {
       throw new IllegalArgumentException("source is not a module configuration");
     }
     ResolvedProjectModule resolved = moduleSources.load(source, Map.of());
-    resolved = dependencies.resolve(resolved, Map.of(), ProjectLoadPurpose.RUNTIME).getLast();
+    var graph = dependencies.resolve(resolved, Map.of(), ProjectLoadPurpose.RUNTIME);
+    resolved = graph.getLast();
     return new ModuleArchiveContents(
-        resolved.descriptor(), resolved.sources(), resolved.binding(), resolved.resources());
+        resolved.descriptor(),
+        resolved.sources(),
+        resolved.binding(),
+        resolved.resources(),
+        ProjectCompilationSources.from(graph).library(resolved),
+        graph.stream().flatMap(module -> module.compiled().stream()).toList());
   }
 
   public CompilationSnapshot analyzeModule(SourceFile source) {
@@ -504,12 +473,16 @@ public final class ProjectLoader implements AutoCloseable {
       ModuleDescriptor descriptor,
       Map<String, SourceFile> sources,
       Optional<ResolvedJarBinding> binding,
-      Map<String, ModuleResource> resources) {
+      Map<String, ModuleResource> resources,
+      dev.w0fv1.norm.value.CompilationRequest compilation,
+      List<dev.w0fv1.norm.frontend.CompiledModule> compiledModules) {
     ModuleArchiveContents {
       Objects.requireNonNull(descriptor, "descriptor");
       sources = Map.copyOf(sources);
       Objects.requireNonNull(binding, "binding");
       resources = Map.copyOf(resources);
+      Objects.requireNonNull(compilation, "compilation");
+      compiledModules = List.copyOf(compiledModules);
     }
   }
 

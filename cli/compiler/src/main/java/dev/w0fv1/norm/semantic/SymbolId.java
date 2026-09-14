@@ -1,6 +1,6 @@
 package dev.w0fv1.norm.semantic;
 
-import dev.w0fv1.norm.source.DocumentId;
+import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import java.util.Objects;
 
 public record SymbolId(String value) {
@@ -13,9 +13,9 @@ public record SymbolId(String value) {
     return new SymbolId("builtin/" + key);
   }
 
-  public static SymbolId source(DocumentId document, int ordinal) {
+  public static SymbolId source(ModuleSourceCoordinate source, int ordinal) {
     if (ordinal < 0) throw new IllegalArgumentException("symbol ordinal must not be negative");
-    return new SymbolId("source/" + document.uri() + "#" + ordinal);
+    return new SymbolId("source/" + source.identity() + "#" + ordinal);
   }
 
   public static SymbolId authored(String identity) {

@@ -11,6 +11,7 @@ public sealed interface BoundExpression extends BoundCollectionElement
         BoundExpression.NullLiteral,
         BoundExpression.CollectionLiteral,
         BoundExpression.LocalRead,
+        BoundExpression.Let,
         BoundExpression.FieldRead,
         BoundExpression.AddressLocal,
         BoundExpression.AddressField,
@@ -28,6 +29,21 @@ public sealed interface BoundExpression extends BoundCollectionElement
         BoundConstruct,
         BoundIntrinsic {
   SemanticType type();
+
+  record Let(BoundLocalId local, BoundExpression initializer, BoundExpression body, SourceSpan span)
+      implements BoundExpression {
+    public Let {
+      Objects.requireNonNull(local, "local");
+      Objects.requireNonNull(initializer, "initializer");
+      Objects.requireNonNull(body, "body");
+      Objects.requireNonNull(span, "span");
+    }
+
+    @Override
+    public SemanticType type() {
+      return body.type();
+    }
+  }
 
   record Literal(Object value, SemanticType type, SourceSpan span) implements BoundExpression {
     public Literal {

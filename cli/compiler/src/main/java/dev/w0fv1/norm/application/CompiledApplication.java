@@ -18,7 +18,7 @@ public final class CompiledApplication implements AutoCloseable {
   private final ApplicationInput input;
   private final CompilationResult result;
   private final JavaAnnotationProcessingOutput annotationOutput;
-  private final JarBindingClasspath javaClasspath;
+  private final JarBindingClasspath.Lease javaClasspath;
   private final TemporaryDirectory workspace;
   private boolean closed;
 
@@ -26,7 +26,7 @@ public final class CompiledApplication implements AutoCloseable {
       ApplicationInput input,
       CompilationResult result,
       JavaAnnotationProcessingOutput annotationOutput,
-      JarBindingClasspath javaClasspath,
+      JarBindingClasspath.Lease javaClasspath,
       TemporaryDirectory workspace) {
     this.input = Objects.requireNonNull(input, "input");
     this.result = Objects.requireNonNull(result, "result");
@@ -54,7 +54,7 @@ public final class CompiledApplication implements AutoCloseable {
   }
 
   public JarBindingClasspath javaClasspath() {
-    return javaClasspath;
+    return javaClasspath.classpath();
   }
 
   public JavaApplicationMethodIndex.Analysis methods() {
@@ -70,7 +70,7 @@ public final class CompiledApplication implements AutoCloseable {
     if (closed) throw new IllegalStateException("application is closed");
     return new JvmJarBindingRuntime(
         input.project().map(ProjectSourceSet::jarBindings).orElse(List.of()),
-        javaClasspath,
+        javaClasspath(),
         List.of(annotationOutput.classes()));
   }
 
@@ -86,7 +86,11 @@ public final class CompiledApplication implements AutoCloseable {
   @Override
   public void close() {
     if (closed) return;
-    workspace.close();
     closed = true;
+    try (javaClasspath) {
+      workspace.close();
+    } catch (IOException exception) {
+      throw new java.io.UncheckedIOException("Cannot release compilation classpath", exception);
+    }
   }
 }

@@ -1,10 +1,103 @@
 package dev.w0fv1.norm.core;
 
+import dev.w0fv1.norm.value.ParameterPolicy;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 public sealed interface CoreBindingShape {
+  default List<Parameter> parameters() {
+    return switch (this) {
+      case Callable callable -> callable.parameters();
+      case MethodSignature method -> method.parameters();
+      case Aggregate aggregate ->
+          aggregate.constructors().stream()
+              .flatMap(constructor -> constructor.parameters().stream())
+              .toList();
+      case Enum enumeration ->
+          enumeration.variants().stream().flatMap(variant -> variant.fields().stream()).toList();
+      case Interface ignored -> List.of();
+    };
+  }
+
+  default CoreBindingShape mapLinks(
+      java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> types,
+      java.util.function.UnaryOperator<CoreDefaultArgument> defaults) {
+    return switch (this) {
+      case Callable callable ->
+          new Callable(
+              callable.kind(),
+              mapTypeParameters(callable.typeParameters(), types),
+              callable.parameters().stream()
+                  .map(parameter -> parameter.mapLinks(types, defaults))
+                  .toList(),
+              CoreTypes.mapLinks(callable.returnType(), types));
+      case MethodSignature method ->
+          new MethodSignature(
+              mapTypeParameters(method.typeParameters(), types),
+              method.parameters().stream()
+                  .map(parameter -> parameter.mapLinks(types, defaults))
+                  .toList(),
+              CoreTypes.mapLinks(method.returnType(), types));
+      case Aggregate aggregate ->
+          new Aggregate(
+              aggregate.kind(),
+              aggregate.valueCategory(),
+              mapTypeParameters(aggregate.typeParameters(), types),
+              aggregate.parentType().map(type -> CoreTypes.mapLinks(type, types)),
+              aggregate.fields().stream()
+                  .map(
+                      field ->
+                          new Field(
+                              field.name(),
+                              field.visibility(),
+                              CoreTypes.mapLinks(field.type(), types)))
+                  .toList(),
+              aggregate.constructors().stream()
+                  .map(
+                      constructor ->
+                          new Constructor(
+                              constructor.parameters().stream()
+                                  .map(parameter -> parameter.mapLinks(types, defaults))
+                                  .toList()))
+                  .toList(),
+              aggregate.conformances().stream()
+                  .map(type -> CoreTypes.mapLinks(type, types))
+                  .toList());
+      case Enum enumeration ->
+          new Enum(
+              mapTypeParameters(enumeration.typeParameters(), types),
+              enumeration.variants().stream()
+                  .map(
+                      variant ->
+                          new Variant(
+                              variant.name(),
+                              variant.fields().stream()
+                                  .map(parameter -> parameter.mapLinks(types, defaults))
+                                  .toList()))
+                  .toList());
+      case Interface contract ->
+          new Interface(
+              mapTypeParameters(contract.typeParameters(), types),
+              contract.directParents().stream()
+                  .map(type -> CoreTypes.mapLinks(type, types))
+                  .toList());
+    };
+  }
+
+  private static List<CoreTypeParameter> mapTypeParameters(
+      List<CoreTypeParameter> parameters,
+      java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> types) {
+    return parameters.stream()
+        .map(
+            parameter ->
+                new CoreTypeParameter(
+                    parameter.index(),
+                    parameter.upperBound().map(type -> CoreTypes.mapLinks(type, types)),
+                    parameter.defaultType().map(type -> CoreTypes.mapLinks(type, types))))
+        .toList();
+  }
+
   record Callable(
       CoreCallableBindingKind kind,
       List<CoreTypeParameter> typeParameters,
@@ -110,11 +203,37 @@ public sealed interface CoreBindingShape {
     }
   }
 
-  record Parameter(String label, CoreType type) {
+  record Parameter(
+      String label,
+      CoreType type,
+      ParameterPolicy policy,
+      Optional<CoreDefaultArgument> defaultValue) {
     public Parameter {
       Objects.requireNonNull(label, "label");
       if (label.isBlank()) throw new IllegalArgumentException("parameter label must not be blank");
       Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(policy, "policy");
+      defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
+      if (policy.hasDefault() != defaultValue.isPresent()) {
+        throw new IllegalArgumentException(
+            "default implementation must match the parameter policy");
+      }
+      if (!policy.callbackParameterNames().isEmpty()
+          && (!(type instanceof CoreType.Function function)
+              || function.parameterTypes().size() != policy.callbackParameterNames().size()))
+        throw new IllegalArgumentException(
+            "callback parameter names must match the function signature");
+    }
+
+    public Parameter(String label, CoreType type) {
+      this(label, type, ParameterPolicy.REQUIRED, Optional.empty());
+    }
+
+    Parameter mapLinks(
+        java.util.function.Function<CoreDefinitionLink, CoreDefinitionLink> types,
+        java.util.function.UnaryOperator<CoreDefaultArgument> defaults) {
+      return new Parameter(
+          label, CoreTypes.mapLinks(type, types), policy, defaultValue.map(defaults));
     }
   }
 

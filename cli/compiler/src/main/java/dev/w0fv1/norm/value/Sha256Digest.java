@@ -10,6 +10,8 @@ import java.util.Locale;
 import java.util.Objects;
 
 public record Sha256Digest(String value) {
+  static final int BUFFER_SIZE = 64 * 1024;
+
   public Sha256Digest {
     Objects.requireNonNull(value, "value");
     value = value.toLowerCase(Locale.ROOT);
@@ -26,7 +28,7 @@ public record Sha256Digest(String value) {
     Objects.requireNonNull(path, "path");
     MessageDigest digest = algorithm();
     try (InputStream input = Files.newInputStream(path)) {
-      byte[] buffer = new byte[8192];
+      byte[] buffer = new byte[BUFFER_SIZE];
       int read;
       while ((read = input.read(buffer)) >= 0) {
         if (read > 0) digest.update(buffer, 0, read);
@@ -39,7 +41,7 @@ public record Sha256Digest(String value) {
     return fromBytes(algorithm().digest(Objects.requireNonNull(content, "content")));
   }
 
-  private static MessageDigest algorithm() {
+  static MessageDigest algorithm() {
     try {
       return MessageDigest.getInstance("SHA-256");
     } catch (NoSuchAlgorithmException exception) {
@@ -47,7 +49,7 @@ public record Sha256Digest(String value) {
     }
   }
 
-  private static Sha256Digest fromBytes(byte[] bytes) {
+  static Sha256Digest fromBytes(byte[] bytes) {
     return new Sha256Digest(java.util.HexFormat.of().formatHex(bytes));
   }
 

@@ -58,17 +58,23 @@ final class ResolvedJarClasspath {
         graphs.stream().map(graph -> graph.root().identity()).toList());
   }
 
-  ResolvedJarClasspath materialize(java.nio.file.Path directory) throws java.io.IOException {
+  dev.w0fv1.norm.core.store.ArtifactFileSet files() {
+    Map<java.nio.file.Path, FileSnapshot> files = new LinkedHashMap<>();
+    for (var artifact : selected.values())
+      files.put(artifact.storagePath(), new FileSnapshot(artifact.file(), artifact.content()));
+    return new dev.w0fv1.norm.core.store.ArtifactFileSet(files);
+  }
+
+  ResolvedJarClasspath at(java.nio.file.Path directory) {
     Map<ArtifactKey, ResolvedJarArtifact> captured = new LinkedHashMap<>();
-    for (var entry : selected.entrySet()) {
-      var artifact = entry.getValue();
-      var file =
-          new FileSnapshot(artifact.file(), artifact.content())
-              .copyTo(directory.resolve(artifact.storagePath()));
-      captured.put(
-          entry.getKey(),
-          new ResolvedJarArtifact(artifact.identity(), file.path(), file.content()));
-    }
+    selected.forEach(
+        (key, artifact) ->
+            captured.put(
+                key,
+                new ResolvedJarArtifact(
+                    artifact.identity(),
+                    directory.resolve(artifact.storagePath()),
+                    artifact.content())));
     return new ResolvedJarClasspath(captured, dependencies, roots);
   }
 

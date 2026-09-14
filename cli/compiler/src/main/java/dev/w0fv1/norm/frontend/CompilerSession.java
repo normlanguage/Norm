@@ -3,12 +3,8 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.bound.BoundProgram;
 import dev.w0fv1.norm.core.CompilationOutput;
 import dev.w0fv1.norm.core.CompilationResult;
-import dev.w0fv1.norm.core.CoreArtifact;
 import dev.w0fv1.norm.core.CoreCompilationDelta;
 import dev.w0fv1.norm.core.IncrementalAnalysisReport;
-import dev.w0fv1.norm.core.store.DefinitionStore;
-import dev.w0fv1.norm.core.store.FileDefinitionStore;
-import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
 import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
@@ -35,7 +31,6 @@ import java.util.function.Supplier;
 
 public final class CompilerSession implements AutoCloseable {
   private final LanguageProfile profile;
-  private final DefinitionStore definitionStore;
   private final CompilerSessionCapacity capacity;
   private final Runnable parseObserver;
   private final Runnable analysisObserver;
@@ -55,22 +50,19 @@ public final class CompilerSession implements AutoCloseable {
   }
 
   public CompilerSession(LanguageProfile profile) {
-    this(profile, new InMemoryDefinitionStore(), CompilerSessionCapacity.standard());
+    this(profile, CompilerSessionCapacity.standard());
   }
 
-  public CompilerSession(
-      LanguageProfile profile, DefinitionStore definitionStore, CompilerSessionCapacity capacity) {
-    this(profile, definitionStore, capacity, () -> {}, () -> {});
+  public CompilerSession(LanguageProfile profile, CompilerSessionCapacity capacity) {
+    this(profile, capacity, () -> {}, () -> {});
   }
 
   CompilerSession(
       LanguageProfile profile,
-      DefinitionStore definitionStore,
       CompilerSessionCapacity capacity,
       Runnable parseObserver,
       Runnable analysisObserver) {
     this.profile = java.util.Objects.requireNonNull(profile, "profile");
-    this.definitionStore = java.util.Objects.requireNonNull(definitionStore, "definitionStore");
     this.capacity = java.util.Objects.requireNonNull(capacity, "capacity");
     this.parseObserver = java.util.Objects.requireNonNull(parseObserver, "parseObserver");
     this.analysisObserver = java.util.Objects.requireNonNull(analysisObserver, "analysisObserver");
@@ -87,7 +79,7 @@ public final class CompilerSession implements AutoCloseable {
             System.getProperty("user.home"),
             ".norm",
             "cache",
-            "definitions",
+            "compiler",
             profile.identityVersion().storageNamespace());
     return persistent(root, profile);
   }
@@ -97,9 +89,7 @@ public final class CompilerSession implements AutoCloseable {
   }
 
   public static CompilerSession persistent(Path root, LanguageProfile profile) throws IOException {
-    var session =
-        new CompilerSession(
-            profile, new FileDefinitionStore(root), CompilerSessionCapacity.standard());
+    var session = new CompilerSession(profile, CompilerSessionCapacity.standard());
     session.resultCache = new CompilationResultCache(root.resolve("compilations"), profile);
     return session;
   }
@@ -118,62 +108,149 @@ public final class CompilerSession implements AutoCloseable {
 
   public CompilationResult compile(CompilationRequest request, CompilationControl control) {
     java.util.Objects.requireNonNull(request, "request");
-    return withUnitLock(request.unit(), () -> compileUnit(request, control));
+    return withUnitLock(
+        request.unit(), () -> compileUnit(request, control, List.of(), false).compilation());
   }
 
-  private CompilationResult compileUnit(CompilationRequest request, CompilationControl control) {
+  public CompilationResult compile(CompilationRequest request, List<CompiledModule> modules) {
+    var imported = List.copyOf(modules);
+    return withUnitLock(
+        request.unit(),
+        () -> compileUnit(request, CompilationControl.standard(), imported, false).compilation());
+  }
+
+  public ModuleCompilation compileModule(CompilationRequest request, ModuleCoordinate module) {
+    return compileModule(request, module, List.of());
+  }
+
+  public ModuleCompilation compileModule(
+      CompilationRequest request, ModuleCoordinate module, List<CompiledModule> modules) {
+    var imported = List.copyOf(modules);
+    if (request.kind() != CompilationRequest.Kind.LIBRARY)
+      throw new IllegalArgumentException("module compilation requires a library request");
+    return withUnitLock(
+        request.unit(),
+        () -> {
+          var product = compileUnit(request, CompilationControl.standard(), imported, true);
+          var compiled =
+              product.compilation().isSuccess()
+                  ? Optional.of(
+                      CompiledModule.capture(
+                          module,
+                          product.snapshot(),
+                          product.history(),
+                          product.compilation().output().orElseThrow().artifact(),
+                          request.exportedSources(),
+                          request.bindingSources()))
+                  : Optional.<CompiledModule>empty();
+          return new ModuleCompilation(product.compilation(), compiled);
+        });
+  }
+
+  private CompilationProduct compileUnit(
+      CompilationRequest request,
+      CompilationControl control,
+      List<CompiledModule> modules,
+      boolean requireHistory) {
     CompilationGuard guard = java.util.Objects.requireNonNull(control, "control").begin();
     guard.validate(request);
+    var moduleIds =
+        modules.stream()
+            .sorted(java.util.Comparator.comparing(CompiledModule::coordinate))
+            .map(CompiledModule::contentId)
+            .toList();
     TrackedUnit cached = tracked(request.unit());
+    if (cached != null && !cached.compiledModules().equals(moduleIds)) cached = null;
     if (cached != null && cached.request().equals(request) && cached.cachedResult() != null) {
-      return cached.reuse();
+      return new CompilationProduct(cached.reuse(), cached.snapshot(), cached.coreHistory());
     }
     dev.w0fv1.norm.value.Sha256Digest resultKey =
-        resultCache == null ? null : resultCache.key(request);
-    if (resultKey != null && cached == null) {
+        resultCache == null ? null : resultCache.key(request, moduleIds);
+    if (resultKey != null && cached == null && !requireHistory) {
       try {
         var stored = resultCache.read(resultKey);
-        if (stored.isPresent()) return stored.orElseThrow();
+        if (stored.isPresent()) return new CompilationProduct(stored.orElseThrow(), null, null);
       } catch (IOException exception) {
         throw new CompilationInfrastructureException("cannot read compilation result", exception);
       }
     }
+    IncrementalAnalysisPlan.History previousAnalysis =
+        cached == null ? null : cached.historyFor(request);
+    CoreBuildHistory previousCore =
+        cached == null || previousAnalysis == null ? null : cached.coreHistory();
+    CompilationOutput previousOutput = cached == null ? null : cached.lastSuccessfulOutput();
+    if (cached == null && resultCache != null) {
+      try {
+        var history = resultCache.readHistory(request, moduleIds).orElse(null);
+        if (history != null) {
+          previousAnalysis = history.analysis();
+          previousCore = history.core();
+          previousOutput =
+              resultCache.read(history.resultKey()).flatMap(CompilationResult::output).orElse(null);
+        }
+      } catch (IOException exception) {
+        throw new CompilationInfrastructureException("cannot read compilation history", exception);
+      }
+    }
     long analysisStarted = System.nanoTime();
     PreparedCompilation prepared =
-        prepare(request, true, true, guard, cached == null ? null : cached.snapshotFor(request));
+        prepare(
+            request,
+            request.kind() == CompilationRequest.Kind.APPLICATION,
+            true,
+            guard,
+            previousAnalysis,
+            modules,
+            previousOutput != null && previousCore != null);
     long analysisElapsed = Math.max(0, System.nanoTime() - analysisStarted);
     AnalysisResult analysis = prepared.snapshot().analysis();
     if (analysis.hasErrors() || prepared.resolvedProgram().isEmpty()) {
       CompilationResult failed = new CompilationResult(Optional.empty(), analysis.diagnostics());
-      trackAnalysis(request, failed, prepared.snapshot(), cached);
-      return failed;
+      trackAnalysis(request, failed, prepared.snapshot(), cached, moduleIds);
+      return new CompilationProduct(failed, prepared.snapshot(), null);
     }
-    CompilationOutput built =
+    CoreBuilder.Result built =
         new CoreBuilder(
                 prepared.resolvedProgram().orElseThrow(),
                 prepared.exportedSources(),
                 prepared.sourceCoordinates(),
-                definitionStore,
                 guard)
-            .build();
+            .build(
+                previousOutput == null ? null : previousOutput.artifact(),
+                previousCore,
+                prepared.analysisPlan(),
+                prepared.imported());
     CompilationOutput measured =
-        built.withAnalysisReport(
-            new IncrementalAnalysisReport(
-                prepared.analysisPlan().declarations(),
-                prepared.analysisPlan().analyzedDeclarations(),
-                prepared.analysisPlan().reusedDeclarations(),
-                analysisElapsed));
+        built
+            .output()
+            .withAnalysisReport(
+                new IncrementalAnalysisReport(
+                    prepared.analysisPlan().declarations(),
+                    prepared.analysisPlan().analyzedDeclarations(),
+                    prepared.analysisPlan().reusedDeclarations(),
+                    analysisElapsed));
     CompilationOutput output =
-        trackCompilation(request, measured, analysis, prepared.snapshot(), cached);
+        trackCompilation(
+            request,
+            measured,
+            analysis,
+            prepared.snapshot(),
+            built.history(),
+            previousOutput,
+            moduleIds);
     var result = new CompilationResult(Optional.of(output), analysis.diagnostics());
     if (resultKey != null) {
       try {
         resultCache.write(resultKey, result);
+        resultCache.writeHistory(
+            request,
+            moduleIds,
+            new CompilationHistory(prepared.snapshot().history(), built.history(), resultKey));
       } catch (IOException exception) {
         throw new CompilationInfrastructureException("cannot store compilation result", exception);
       }
     }
-    return result;
+    return new CompilationProduct(result, prepared.snapshot(), built.history());
   }
 
   public AnalysisResult analyze(CompilationRequest request) {
@@ -216,7 +293,14 @@ public final class CompilerSession implements AutoCloseable {
     TrackedUnit cached = tracked(request.unit());
     if (cached != null && cached.request().equals(request)) return cached.snapshot();
     PreparedCompilation prepared =
-        prepare(request, false, false, guard, cached == null ? null : cached.snapshotFor(request));
+        prepare(
+            request,
+            false,
+            false,
+            guard,
+            cached == null ? null : cached.historyFor(request),
+            List.of(),
+            false);
     trackSnapshot(request, prepared.snapshot(), cached);
     return prepared.snapshot();
   }
@@ -315,7 +399,9 @@ public final class CompilerSession implements AutoCloseable {
       boolean requireEntryPoint,
       boolean resolveProgram,
       CompilationGuard guard,
-      CompilationSnapshot previous) {
+      IncrementalAnalysisPlan.History previous,
+      List<CompiledModule> modules,
+      boolean reusableCore) {
     java.util.Objects.requireNonNull(request, "request");
     DiagnosticBag diagnostics = new DiagnosticBag();
     CompilationPrelude prelude =
@@ -359,7 +445,6 @@ public final class CompilerSession implements AutoCloseable {
     for (ParsedDocument document : parsed) {
       if (document.source().id().equals(request.entryDocument())) entryProgram = document.syntax();
     }
-    IncrementalAnalysisPlan analysisPlan = IncrementalAnalysisPlan.create(previous, parsed);
     analysisObserver.run();
     Syntax.Program resolvedEntryProgram = java.util.Objects.requireNonNull(entryProgram);
     DeclarationCatalog declarations =
@@ -370,23 +455,52 @@ public final class CompilerSession implements AutoCloseable {
             resolvedEntryProgram,
             requireEntryPoint,
             exportedSources,
-            analysisPlan.reusable(),
-            previous == null ? 0 : previous.semanticModel().nextSourceSymbolOrdinal(),
+            Math.max(
+                previous == null ? 0 : previous.nextSymbolOrdinal(),
+                modules.stream().mapToInt(module -> module.nextSymbolOrdinal).max().orElse(0)),
             profile.moduleEvaluationDocuments(),
             standardDocuments,
             request.bindingSources(),
             sourceScope,
             declarations);
+    Analyzer analyzer = new Analyzer(analysisInput, diagnostics, guard);
+    IncrementalAnalysisPlan analysisPlan =
+        IncrementalAnalysisPlan.create(previous, parsed, sourceScope, analyzer.declarations());
+    var importedModules = modules;
+    if (!modules.isEmpty()) {
+      var sources = new LinkedHashMap<ModuleSourceCoordinate, SourceFile>();
+      for (var document : parsed)
+        sources.put(sourceScope.coordinate(document.source().id()), document.source());
+      modules.forEach(module -> module.verifySources(sources));
+      if (reusableCore) {
+        var changedModules = analysisPlan.analyzedModules(parsed, sourceScope);
+        importedModules =
+            modules.stream()
+                .filter(module -> changedModules.contains(module.coordinate()))
+                .toList();
+      }
+    }
+    ImportedCompilation imported =
+        ImportedCompilation.create(
+            importedModules,
+            parsed,
+            sourceScope,
+            analyzer.declarations(),
+            exportedSources,
+            request.bindingSources());
+    analysisPlan = imported.merge(analysisPlan);
     FrontendAnalysis analyzed =
-        new Analyzer(analysisInput, diagnostics, guard).analyze(resolveProgram);
+        analyzer.analyze(resolveProgram, request.kind(), analysisPlan.reusable());
     CompilationSnapshot snapshot =
-        new CompilationSnapshot(request.entryDocument(), parsed, analyzed.analysis());
+        new CompilationSnapshot(
+            request.entryDocument(), parsed, analyzed.analysis(), analyzer.declarations());
     return new PreparedCompilation(
         snapshot,
         analyzed.resolvedProgram(),
         exportedSources,
         sourceScope.coordinates(),
-        analysisPlan);
+        analysisPlan,
+        imported);
   }
 
   private ParsedDocument parse(SourceFile source, CompilationGuard guard) {
@@ -419,14 +533,15 @@ public final class CompilerSession implements AutoCloseable {
       CompilationOutput output,
       AnalysisResult analysis,
       CompilationSnapshot snapshot,
-      TrackedUnit previous) {
+      CoreBuildHistory coreHistory,
+      CompilationOutput previous,
+      List<dev.w0fv1.norm.value.Sha256Digest> moduleIds) {
     CompilationOutput tracked =
-        previous == null || previous.lastSuccessfulOutput() == null
+        previous == null
             ? output
             : output.withDelta(
                 CoreCompilationDelta.between(
-                    previous.lastSuccessfulOutput().artifact().program(),
-                    output.artifact().program()));
+                    previous.artifact().program(), output.artifact().program()));
     CompilationResult result = new CompilationResult(Optional.of(tracked), analysis.diagnostics());
     Set<DocumentId> documents =
         request.sources().stream()
@@ -435,7 +550,8 @@ public final class CompilerSession implements AutoCloseable {
     stateLock.lock();
     try {
       compilations.put(
-          request.unit(), new TrackedUnit(request, result, tracked, documents, snapshot));
+          request.unit(),
+          new TrackedUnit(request, result, tracked, documents, snapshot, coreHistory, moduleIds));
       evictCompilations();
     } finally {
       stateLock.unlock();
@@ -447,7 +563,8 @@ public final class CompilerSession implements AutoCloseable {
       CompilationRequest request,
       CompilationResult result,
       CompilationSnapshot snapshot,
-      TrackedUnit previous) {
+      TrackedUnit previous,
+      List<dev.w0fv1.norm.value.Sha256Digest> moduleIds) {
     Set<DocumentId> documents =
         request.sources().stream()
             .map(SourceFile::id)
@@ -461,7 +578,9 @@ public final class CompilerSession implements AutoCloseable {
               result,
               previous == null ? null : previous.lastSuccessfulOutput(),
               documents,
-              snapshot));
+              snapshot,
+              null,
+              moduleIds));
       evictCompilations();
     } finally {
       stateLock.unlock();
@@ -483,7 +602,9 @@ public final class CompilerSession implements AutoCloseable {
               null,
               previous == null ? null : previous.lastSuccessfulOutput(),
               documents,
-              snapshot));
+              snapshot,
+              null,
+              List.of()));
       evictCompilations();
     } finally {
       stateLock.unlock();
@@ -579,30 +700,29 @@ public final class CompilerSession implements AutoCloseable {
       CompilationResult cachedResult,
       CompilationOutput lastSuccessfulOutput,
       Set<DocumentId> documents,
-      CompilationSnapshot snapshot) {
+      CompilationSnapshot snapshot,
+      CoreBuildHistory coreHistory,
+      List<dev.w0fv1.norm.value.Sha256Digest> compiledModules) {
     private TrackedUnit {
       java.util.Objects.requireNonNull(request, "request");
       documents = Set.copyOf(documents);
+      compiledModules = List.copyOf(compiledModules);
       java.util.Objects.requireNonNull(snapshot, "snapshot");
     }
 
     CompilationResult reuse() {
       if (cachedResult.output().isEmpty()) return cachedResult;
-      CoreArtifact artifact = lastSuccessfulOutput.artifact();
-      CompilationOutput reused =
-          lastSuccessfulOutput
-              .withDelta(CoreCompilationDelta.between(artifact.program(), artifact.program()))
-              .withAnalysisReport(
-                  IncrementalAnalysisReport.reused(
-                      lastSuccessfulOutput.state().analysisReport().declarations()));
+      CompilationOutput reused = lastSuccessfulOutput.reused();
       return new CompilationResult(Optional.of(reused), cachedResult.diagnostics());
     }
 
-    CompilationSnapshot snapshotFor(CompilationRequest current) {
+    IncrementalAnalysisPlan.History historyFor(CompilationRequest current) {
       return request.entryDocument().equals(current.entryDocument())
+              && request.kind() == current.kind()
               && request.scope().equals(current.scope())
               && request.exportedSources().equals(current.exportedSources())
-          ? snapshot
+              && request.bindingSources().equals(current.bindingSources())
+          ? snapshot.history()
           : null;
     }
   }
@@ -612,7 +732,8 @@ public final class CompilerSession implements AutoCloseable {
       Optional<BoundProgram> resolvedProgram,
       Set<DocumentId> exportedSources,
       Map<DocumentId, ModuleSourceCoordinate> sourceCoordinates,
-      IncrementalAnalysisPlan analysisPlan) {
+      IncrementalAnalysisPlan analysisPlan,
+      ImportedCompilation imported) {
     private PreparedCompilation {
       java.util.Objects.requireNonNull(snapshot, "snapshot");
       resolvedProgram = java.util.Objects.requireNonNull(resolvedProgram, "resolvedProgram");
@@ -621,4 +742,7 @@ public final class CompilerSession implements AutoCloseable {
       java.util.Objects.requireNonNull(analysisPlan, "analysisPlan");
     }
   }
+
+  private record CompilationProduct(
+      CompilationResult compilation, CompilationSnapshot snapshot, CoreBuildHistory history) {}
 }

@@ -2,8 +2,6 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.core.CanonicalWriter;
 import dev.w0fv1.norm.core.CompilationResult;
-import dev.w0fv1.norm.core.CoreCompilationDelta;
-import dev.w0fv1.norm.core.IncrementalAnalysisReport;
 import dev.w0fv1.norm.core.store.PortableObjectCodec;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
@@ -18,25 +16,41 @@ import java.util.Set;
 
 final class CompilationResultCache {
   private final dev.w0fv1.norm.core.store.FileArtifactCache artifacts;
+  private final dev.w0fv1.norm.core.store.FileArtifactCache histories;
   private final LanguageProfile profile;
   private final String compilerIdentity;
 
   CompilationResultCache(Path directory, LanguageProfile profile) throws IOException {
     this.artifacts =
         new dev.w0fv1.norm.core.store.FileArtifactCache(directory, 128, 512L * 1024 * 1024);
+    this.histories =
+        new dev.w0fv1.norm.core.store.FileArtifactCache(
+            directory.resolve("history"), 128, 512L * 1024 * 1024);
     this.profile = profile;
     compilerIdentity = dev.w0fv1.norm.core.store.CompilerArtifactIdentity.current();
   }
 
   Sha256Digest key(CompilationRequest request) {
+    return key(request, java.util.List.of());
+  }
+
+  Sha256Digest key(CompilationRequest request, java.util.List<Sha256Digest> modules) {
+    return key(request, modules, true);
+  }
+
+  private Sha256Digest key(
+      CompilationRequest request, java.util.List<Sha256Digest> modules, boolean includeContent) {
     var writer =
         new CanonicalWriter()
-            .writeTag("compilation-result-1")
+            .writeTag(includeContent ? "compilation-result-2" : "compilation-history-1")
             .writeString(compilerIdentity)
             .writeString(profile.identityVersion().storageNamespace())
             .writeString(request.unit().toString())
+            .writeString(request.kind().name())
             .writeString(request.entryDocument().uri().toString());
-    sources(writer, request.sources());
+    writer.writeInt(modules.size());
+    modules.forEach(module -> writer.writeString(module.value()));
+    if (includeContent) sources(writer, request.sources());
     scope(writer, request.scope());
     documents(writer, request.exportedSources());
     documents(writer, request.bindingSources());
@@ -49,35 +63,29 @@ final class CompilationResultCache {
     return Sha256Digest.compute(writer.toByteArray());
   }
 
+  Optional<CompilationHistory> readHistory(
+      CompilationRequest request, java.util.List<Sha256Digest> modules) throws IOException {
+    var stored = histories.read(key(request, modules, false));
+    if (stored.isEmpty()) return Optional.empty();
+    return Optional.of(PortableObjectCodec.decode(stored.orElseThrow(), CompilationHistory.class));
+  }
+
+  void writeHistory(
+      CompilationRequest request, java.util.List<Sha256Digest> modules, CompilationHistory history)
+      throws IOException {
+    if (history == null) return;
+    byte[] payload = PortableObjectCodec.encode(history);
+    if (payload.length <= 64 * 1024 * 1024) histories.write(key(request, modules, false), payload);
+  }
+
   Optional<CompilationResult> read(Sha256Digest key) throws IOException {
     var stored = artifacts.read(key);
     if (stored.isEmpty()) return Optional.empty();
     byte[] payload = stored.orElseThrow();
     CompilationResult result = PortableObjectCodec.decode(payload, CompilationResult.class);
-    var output = result.output().orElseThrow();
-    var previous = output.state().buildReport();
-    var metrics = previous.canonicalization();
-    var report =
-        new dev.w0fv1.norm.core.CoreBuildReport(
-            previous.definitions(),
-            previous.groups(),
-            0,
-            previous.groups(),
-            0,
-            new dev.w0fv1.norm.core.CoreCanonicalizationMetrics(
-                metrics.components(), metrics.maximumComponentSize(), 0, 0, 0, 0));
     return Optional.of(
         new CompilationResult(
-            Optional.of(
-                new dev.w0fv1.norm.core.CompilationOutput(
-                    output.artifact(),
-                    new dev.w0fv1.norm.core.CompilationState(
-                        report,
-                        output.state().dependencies(),
-                        CoreCompilationDelta.initial(output.artifact().program()),
-                        IncrementalAnalysisReport.reused(
-                            output.state().analysisReport().declarations())))),
-            result.diagnostics()));
+            Optional.of(result.output().orElseThrow().reused()), result.diagnostics()));
   }
 
   void write(Sha256Digest key, CompilationResult result) throws IOException {

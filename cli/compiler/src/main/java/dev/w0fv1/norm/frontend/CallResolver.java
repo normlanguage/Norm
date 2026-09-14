@@ -407,7 +407,7 @@ final class CallResolver {
                 argument,
                 probeExpected,
                 call.arguments().get(index).trailing()
-                    ? patterns.get(argumentIndices.get(index)).callbackParameterNames()
+                    ? patterns.get(argumentIndices.get(index)).policy().callbackParameterNames()
                     : List.of(),
                 patterns
                     .get(argumentIndices.get(index))
@@ -442,19 +442,7 @@ final class CallResolver {
                         conflict.second()))
             .toList();
     List<ParameterInfo> parameters =
-        patterns.stream()
-            .map(
-                parameter ->
-                    new ParameterInfo(
-                        parameter.name(),
-                        parameter.type().substitute(substitutions),
-                        parameter.hasDefault(),
-                        parameter.callbackParameterNames(),
-                        parameter.labelPolicy(),
-                        parameter
-                            .resultBuilder()
-                            .map(builder -> builder.substitute(substitutions))))
-            .toList();
+        patterns.stream().map(parameter -> parameter.substitute(substitutions)).toList();
     SemanticType result = resultPattern.substitute(substitutions);
     boolean assignable = true;
     List<BoundViolation> boundViolations = new ArrayList<>();
@@ -482,7 +470,7 @@ final class CallResolver {
               argument,
               parameter,
               call.arguments().get(index).trailing()
-                  ? parameters.get(parameterIndex).callbackParameterNames()
+                  ? parameters.get(parameterIndex).policy().callbackParameterNames()
                   : List.of(),
               parameters.get(parameterIndex).resultBuilder());
       SemanticType actual =
@@ -649,7 +637,7 @@ final class CallResolver {
             expressions.typeOf(
                 argument.value(),
                 parameter.type(),
-                argument.trailing() ? parameter.callbackParameterNames() : List.of(),
+                argument.trailing() ? parameter.policy().callbackParameterNames() : List.of(),
                 parameter.resultBuilder()),
             argument.span());
       } else {

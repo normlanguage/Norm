@@ -23,7 +23,8 @@ final class AnalysisTransactionTest {
   private final SourceSpan span = program.span();
   private final BuiltinSymbols builtins =
       new BuiltinSymbols(Set.of(source.id()), Set.of(), Set.of());
-  private final SemanticModelBuilder model = new SemanticModelBuilder(builtins);
+  private final SemanticModelBuilder model =
+      new SemanticModelBuilder(builtins, CompilationScope.anonymous(List.of(source)));
   private final BodyAnalysisState body = new BodyAnalysisState();
   private final TypeResolutionState resolution = new TypeResolutionState();
   private final DiagnosticBag diagnostics = new DiagnosticBag();
@@ -35,7 +36,8 @@ final class AnalysisTransactionTest {
     model.putType(span, SemanticType.INTEGER);
     resolution.declareBound("T", SemanticType.INTEGER);
     int next = model.nextSymbolId();
-    SymbolId local = SymbolId.source(source.id(), 200);
+    SymbolId local =
+        SymbolId.source(CompilationScope.anonymous(List.of(source)).coordinate(source.id()), 200);
     try (var outer = transactions.probe()) {
       model.allocate(source.id());
       model.putType(span, SemanticType.STRING);

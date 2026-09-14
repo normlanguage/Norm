@@ -48,7 +48,7 @@ final class CallArguments {
       result.add(parameterIndex);
     }
     for (int index = 0; index < supplied.length; index++) {
-      if (supplied[index] || parameters.get(index).hasDefault()) continue;
+      if (supplied[index] || parameters.get(index).policy().hasDefault()) continue;
       valid = false;
       if (report) {
         diagnostics.error(
@@ -74,7 +74,8 @@ final class CallArguments {
     if (argument.label().isPresent()) {
       String label = argument.label().orElseThrow().name();
       for (int candidate = 0; candidate < parameters.size(); candidate++) {
-        if (parameters.get(candidate).labelPolicy() == ParameterInfo.LabelPolicy.NAMED
+        if (parameters.get(candidate).policy().labelPolicy()
+                == dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.NAMED
             && parameters.get(candidate).name().equals(label)) return candidate;
       }
       if (report) {
@@ -87,14 +88,15 @@ final class CallArguments {
     }
     if (index < parameters.size()
         && (parameters.size() <= 1
-            || parameters.get(index).labelPolicy() == ParameterInfo.LabelPolicy.POSITIONAL_ONLY))
-      return index;
+            || parameters.get(index).policy().labelPolicy()
+                == dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.POSITIONAL_ONLY)) return index;
     if (index == 0
         && parameters.size() > 1
         && java.util.stream.IntStream.range(1, parameters.size())
             .allMatch(
                 candidate ->
-                    candidate == trailingParameter || parameters.get(candidate).hasDefault())) {
+                    candidate == trailingParameter
+                        || parameters.get(candidate).policy().hasDefault())) {
       return index;
     }
     if (index < parameters.size()

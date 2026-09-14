@@ -2,15 +2,12 @@ package dev.w0fv1.norm.frontend;
 
 import dev.w0fv1.norm.builtin.BuiltinSymbols;
 import dev.w0fv1.norm.semantic.ParameterInfo;
-import dev.w0fv1.norm.semantic.SemanticContribution;
 import dev.w0fv1.norm.semantic.SemanticType;
 import dev.w0fv1.norm.source.DocumentId;
-import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -24,7 +21,6 @@ final class SemanticAnalysisContext {
   final Set<DocumentId> exportedSources;
   final CompilationScope scope;
   final CompilationGuard guard;
-  final Map<SourceSpan, SemanticContribution> reusableDeclarations;
   final int minimumBodySymbolId;
   final DeclarationCatalog declarations;
 
@@ -46,14 +42,13 @@ final class SemanticAnalysisContext {
     this.scope = input.scope();
     this.guard = java.util.Objects.requireNonNull(guard, "guard");
     this.declarations = input.declarations();
-    this.reusableDeclarations = input.reusableDeclarations();
     this.minimumBodySymbolId = input.minimumBodySymbolId();
     this.builtins =
         new BuiltinSymbols(
             input.moduleEvaluationDocuments(),
             input.standardLibraryDocuments(),
             input.bindingDocuments());
-    model = new SemanticModelBuilder(builtins);
+    model = new SemanticModelBuilder(builtins, scope);
     transactions = new AnalysisTransaction(model, body, resolution, diagnostics);
   }
 

@@ -12,10 +12,15 @@ import java.util.Set;
 public final class CoreAuthoringMap {
   private final List<CoreDefinitionOccurrence> occurrences;
   private final Map<DefinitionOccurrenceId, CoreDefinitionOccurrence> occurrencesById;
-  private final DefinitionOccurrenceId entryPoint;
+  private final Optional<DefinitionOccurrenceId> entryPoint;
 
   public CoreAuthoringMap(
       List<CoreDefinitionOccurrence> occurrences, DefinitionOccurrenceId entryPoint) {
+    this(occurrences, Optional.of(entryPoint));
+  }
+
+  public CoreAuthoringMap(
+      List<CoreDefinitionOccurrence> occurrences, Optional<DefinitionOccurrenceId> entryPoint) {
     this.occurrences =
         Objects.requireNonNull(occurrences, "occurrences").stream()
             .sorted(java.util.Comparator.comparing(CoreDefinitionOccurrence::id))
@@ -29,7 +34,7 @@ public final class CoreAuthoringMap {
     }
     this.occurrencesById = Map.copyOf(indexed);
     this.entryPoint = Objects.requireNonNull(entryPoint, "entryPoint");
-    if (!occurrencesById.containsKey(entryPoint)) {
+    if (entryPoint.isPresent() && !occurrencesById.containsKey(entryPoint.orElseThrow())) {
       throw new IllegalArgumentException("entry occurrence is absent");
     }
     for (CoreDefinitionOccurrence occurrence : this.occurrences) {
@@ -42,11 +47,14 @@ public final class CoreAuthoringMap {
   }
 
   public static Allocation allocate(List<Seed> seeds, int entryIndex) {
+    return allocate(seeds, java.util.OptionalInt.of(entryIndex));
+  }
+
+  public static Allocation allocate(List<Seed> seeds, java.util.OptionalInt entryIndex) {
     List<Seed> definitions = List.copyOf(seeds);
-    if (definitions.isEmpty()) {
-      throw new IllegalArgumentException("authoring map requires definition occurrences");
-    }
-    if (entryIndex < 0 || entryIndex >= definitions.size()) {
+    Objects.requireNonNull(entryIndex, "entryIndex");
+    if (entryIndex.isPresent()
+        && (entryIndex.getAsInt() < 0 || entryIndex.getAsInt() >= definitions.size())) {
       throw new IllegalArgumentException("entry declaration is outside the occurrence table");
     }
     List<DefinitionOccurrenceId> ids =
@@ -97,14 +105,18 @@ public final class CoreAuthoringMap {
               references));
     }
     List<DefinitionOccurrenceId> stableIds = List.copyOf(ids);
-    return new Allocation(new CoreAuthoringMap(occurrences, stableIds.get(entryIndex)), stableIds);
+    var entry =
+        entryIndex.isPresent()
+            ? Optional.of(stableIds.get(entryIndex.getAsInt()))
+            : Optional.<DefinitionOccurrenceId>empty();
+    return new Allocation(new CoreAuthoringMap(occurrences, entry), stableIds);
   }
 
   public List<CoreDefinitionOccurrence> occurrences() {
     return occurrences;
   }
 
-  public DefinitionOccurrenceId entryPoint() {
+  public Optional<DefinitionOccurrenceId> entryPoint() {
     return entryPoint;
   }
 

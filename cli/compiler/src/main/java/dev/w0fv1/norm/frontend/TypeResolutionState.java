@@ -11,6 +11,7 @@ final class TypeResolutionState {
   private Map<String, SemanticType> activeTypeParameters = Map.of();
   private Map<String, SymbolId> activeTypeParameterSymbols = Map.of();
   private final Map<String, SemanticType> typeParameterBounds = new HashMap<>();
+  private final AnalysisJournal journal = new AnalysisJournal();
   private Scope activeScope;
 
   Syntax.Program program() {
@@ -30,7 +31,7 @@ final class TypeResolutionState {
   }
 
   void declareBound(String identity, SemanticType type) {
-    typeParameterBounds.put(identity, type);
+    journal.put(typeParameterBounds, identity, type);
   }
 
   Scope enterProgram(Syntax.Program program) {
@@ -58,16 +59,15 @@ final class TypeResolutionState {
         currentProgram,
         activeTypeParameters,
         activeTypeParameterSymbols,
-        Map.copyOf(typeParameterBounds),
+        journal.checkpoint(),
         activeScope);
   }
 
   void restore(Checkpoint checkpoint) {
+    journal.restore(checkpoint.bounds());
     currentProgram = checkpoint.program();
     activeTypeParameters = checkpoint.parameters();
     activeTypeParameterSymbols = checkpoint.parameterSymbols();
-    typeParameterBounds.clear();
-    typeParameterBounds.putAll(checkpoint.bounds());
     activeScope = checkpoint.scope();
   }
 
@@ -97,6 +97,6 @@ final class TypeResolutionState {
       Syntax.Program program,
       Map<String, SemanticType> parameters,
       Map<String, SymbolId> parameterSymbols,
-      Map<String, SemanticType> bounds,
+      AnalysisJournal.Checkpoint bounds,
       Scope scope) {}
 }

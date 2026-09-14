@@ -136,7 +136,7 @@ final class FlowScopes {
             .toList(),
         Map.copyOf(declarationRegions),
         snapshot(),
-        List.copyOf(semanticScopes));
+        semanticScopes.size());
   }
 
   void restoreLocals(Checkpoint checkpoint) {
@@ -156,8 +156,7 @@ final class FlowScopes {
 
   void restore(Checkpoint checkpoint) {
     restoreLocals(checkpoint);
-    semanticScopes.clear();
-    semanticScopes.addAll(checkpoint.semanticScopes());
+    semanticScopes.subList(checkpoint.semanticScopeCount(), semanticScopes.size()).clear();
   }
 
   final class Frame implements AutoCloseable {
@@ -186,5 +185,5 @@ final class FlowScopes {
       List<ScopeState> scopes,
       Map<SymbolId, LexicalLifetime.Region> regions,
       FlowState flow,
-      List<SemanticScope> semanticScopes) {}
+      int semanticScopeCount) {}
 }

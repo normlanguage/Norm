@@ -14,6 +14,46 @@ final class ResolvedJarClasspathTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void emptyClasspathNeedsNoPersistentDirectory() throws Exception {
+    Path cache = temporaryDirectory.resolve("empty-cache");
+    try (var lease = JarBindingClasspath.prepare(List.of()).acquire(cache)) {
+      assertEquals(List.of(), lease.classpath().paths());
+    }
+    org.junit.jupiter.api.Assertions.assertFalse(java.nio.file.Files.exists(cache));
+  }
+
+  @Test
+  void reusesCapturedClasspathAcrossCompilationsAndTracksChangedContent() throws Exception {
+    Path file = temporaryDirectory.resolve("library.jar");
+    java.nio.file.Files.writeString(file, "first");
+    var digest = Sha256Digest.compute(file);
+    var identity = new MavenJarIdentity(new MavenArtifactCoordinate("sample", "library", "1"), "");
+    var artifact = new ResolvedJarArtifact(identity, file, digest);
+    var selected = JarBindingClasspath.prepare(List.of(), List.of(graph(artifact)));
+    var cache =
+        new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+            temporaryDirectory.resolve("cache"), 1, 1024);
+    try (var first = selected.acquire(cache)) {
+      Path captured = first.classpath().paths().getFirst();
+      java.nio.file.Files.delete(file);
+      try (var reused = selected.acquire(cache)) {
+        assertEquals(captured, reused.classpath().paths().getFirst());
+        assertEquals("first", java.nio.file.Files.readString(captured));
+      }
+      java.nio.file.Files.writeString(file, "second");
+      var changed = new ResolvedJarArtifact(identity, file, Sha256Digest.compute(file));
+      try (var newer =
+          JarBindingClasspath.prepare(List.of(), List.of(graph(changed))).acquire(cache)) {
+        org.junit.jupiter.api.Assertions.assertNotEquals(
+            captured, newer.classpath().paths().getFirst());
+        assertEquals(
+            "second", java.nio.file.Files.readString(newer.classpath().paths().getFirst()));
+        assertEquals("first", java.nio.file.Files.readString(captured));
+      }
+    }
+  }
+
+  @Test
   void preservesAutomaticModuleNameWhenMaterializing() throws Exception {
     Path file = temporaryDirectory.resolve("legacy-library-1.0.jar");
     try (var jar = new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(file))) {
@@ -22,21 +62,23 @@ final class ResolvedJarClasspathTest {
     var artifact =
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(file)), file, Sha256Digest.compute(file));
-    var captured =
-        ResolvedJarClasspath.resolve(
-                List.of(new ResolvedJarGraph(artifact, List.of(artifact), List.of())))
-            .materialize(temporaryDirectory.resolve("captured"))
-            .artifacts()
-            .getFirst();
-    assertEquals(
-        "legacy.library",
-        java.lang.module.ModuleFinder.of(captured.file())
-            .findAll()
-            .iterator()
-            .next()
-            .descriptor()
-            .name());
-    assertEquals(file.getFileName(), captured.file().getFileName());
+    try (var lease =
+        JarBindingClasspath.prepare(
+                List.of(), List.of(new ResolvedJarGraph(artifact, List.of(artifact), List.of())))
+            .acquire(
+                new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+                    temporaryDirectory.resolve("captured"), 1, 1024))) {
+      var captured = lease.classpath().artifacts().getFirst();
+      assertEquals(
+          "legacy.library",
+          java.lang.module.ModuleFinder.of(captured.file())
+              .findAll()
+              .iterator()
+              .next()
+              .descriptor()
+              .name());
+      assertEquals(file.getFileName(), captured.file().getFileName());
+    }
   }
 
   @Test

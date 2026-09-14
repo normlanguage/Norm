@@ -153,6 +153,11 @@ final class BoundCoreBodyConverter {
       case BoundExpression.CollectionLiteral collection ->
           collection.elements().forEach(this::scanCollectionElement);
       case BoundExpression.LocalRead ignored -> {}
+      case BoundExpression.Let let -> {
+        scanExpression(let.initializer());
+        locals.add(let.local(), types.convert(let.initializer().type()), CoreLocal.Kind.VARIABLE);
+        scanExpression(let.body());
+      }
       case BoundExpression.FieldRead field -> scanExpression(field.receiver());
       case BoundExpression.AddressLocal ignored -> {}
       case BoundExpression.AddressField field -> scanExpression(field.receiver());
@@ -301,6 +306,9 @@ final class BoundCoreBodyConverter {
       case BoundExpression.LocalRead local ->
           new CoreExpression.LocalRead(
               node, locals.index(local.local()), types.convert(local.type()));
+      case BoundExpression.Let let ->
+          new CoreExpression.Let(
+              node, locals.index(let.local()), convert(let.initializer()), convert(let.body()));
       case BoundExpression.FieldRead field ->
           new CoreExpression.FieldRead(
               node,

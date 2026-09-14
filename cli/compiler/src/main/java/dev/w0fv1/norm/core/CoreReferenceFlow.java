@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 
 final class CoreReferenceFlow {
+  private final LexicalLifetime.Region invocation = LexicalLifetime.Region.root();
   private final Deque<Scope> scopes = new ArrayDeque<>();
   private final Map<Integer, LexicalLifetime.Region> storageRegions = new LinkedHashMap<>();
   private final Map<Integer, LexicalLifetime> referenceLifetimes = new LinkedHashMap<>();
@@ -21,7 +22,7 @@ final class CoreReferenceFlow {
 
   void push() {
     LexicalLifetime.Region region =
-        scopes.isEmpty() ? LexicalLifetime.Region.root() : scopes.getFirst().region().child();
+        scopes.isEmpty() ? invocation.child() : scopes.getFirst().region().child();
     scopes.addFirst(new Scope(region, new ArrayList<>()));
   }
 
@@ -40,6 +41,10 @@ final class CoreReferenceFlow {
 
   LexicalLifetime currentLifetime() {
     return scopes.getFirst().region().lifetime();
+  }
+
+  LexicalLifetime incomingLifetime() {
+    return invocation.lifetime();
   }
 
   LexicalLifetime storageLifetime(int localIndex) {

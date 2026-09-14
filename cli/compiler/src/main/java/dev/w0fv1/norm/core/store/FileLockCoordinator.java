@@ -12,14 +12,27 @@ import java.util.concurrent.locks.ReentrantLock;
 final class FileLockCoordinator {
   private static final FileLockCoordinator SHARED = new FileLockCoordinator();
 
-  private final ConcurrentHashMap<Path, Gate> gates = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<LockKey, Gate> gates = new ConcurrentHashMap<>();
+  private final java.util.Map<Path, SharedChannel> channels = new java.util.HashMap<>();
 
   static FileLockCoordinator shared() {
     return SHARED;
   }
 
   <T> T withLock(Path lockFile, IoOperation<T> operation) throws IOException {
-    Path key = lockFile.toAbsolutePath().normalize();
+    return withLock(new LockKey(lockFile.toAbsolutePath().normalize(), 0), operation);
+  }
+
+  <T> T withKeyLock(Path lockFile, dev.w0fv1.norm.value.Sha256Digest key, IoOperation<T> operation)
+      throws IOException {
+    return withLock(
+        new LockKey(
+            lockFile.toAbsolutePath().normalize(),
+            Long.parseLong(key.value().substring(0, 15), 16)),
+        operation);
+  }
+
+  private <T> T withLock(LockKey key, IoOperation<T> operation) throws IOException {
     Gate gate =
         gates.compute(
             key,
@@ -30,10 +43,22 @@ final class FileLockCoordinator {
             });
     gate.lock.lock();
     try {
-      Files.createDirectories(key.getParent());
-      try (FileChannel channel =
-          FileChannel.open(key, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-        FileLock fileLock = channel.lock();
+      SharedChannel borrowed;
+      synchronized (channels) {
+        borrowed = channels.get(key.path());
+        if (borrowed == null) {
+          Files.createDirectories(key.path().getParent());
+          borrowed =
+              new SharedChannel(
+                  key.path(),
+                  FileChannel.open(
+                      key.path(), StandardOpenOption.CREATE, StandardOpenOption.WRITE));
+          channels.put(key.path(), borrowed);
+        }
+        borrowed.users++;
+      }
+      try (var owner = borrowed) {
+        FileLock fileLock = owner.channel.lock(key.position(), 1, false);
         try {
           return operation.run();
         } finally {
@@ -56,6 +81,29 @@ final class FileLockCoordinator {
   interface IoOperation<T> {
     T run() throws IOException;
   }
+
+  private final class SharedChannel implements AutoCloseable {
+    private final Path path;
+    private final FileChannel channel;
+    private int users;
+
+    private SharedChannel(Path path, FileChannel channel) {
+      this.path = path;
+      this.channel = channel;
+    }
+
+    @Override
+    public void close() throws IOException {
+      synchronized (channels) {
+        if (--users == 0) {
+          channels.remove(path);
+          channel.close();
+        }
+      }
+    }
+  }
+
+  private record LockKey(Path path, long position) {}
 
   private static final class Gate {
     private final ReentrantLock lock = new ReentrantLock(true);

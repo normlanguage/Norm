@@ -13,10 +13,15 @@ final class CoreArtifactIdentity {
   private CoreArtifactIdentity() {}
 
   static byte[] code(CoreArtifact artifact) {
-    CanonicalWriter writer = new CanonicalWriter().writeTag("core-code");
+    CanonicalWriter writer =
+        new CanonicalWriter()
+            .writeTag(artifact.authoring().entryPoint().isPresent() ? "core-code" : "library-code");
     writer.writeInt(artifact.program().groups().size());
     artifact.program().groups().forEach(group -> writer.writeBytes(group.id().hash().bytes()));
-    writeDefinition(writer, artifact.entryDefinition());
+    artifact
+        .authoring()
+        .entryPoint()
+        .ifPresent(entry -> writeDefinition(writer, entry.representative()));
     return writer.toByteArray();
   }
 
@@ -29,8 +34,7 @@ final class CoreArtifactIdentity {
         artifact.namespace().bindings().stream()
             .map(
                 binding ->
-                    new ArtifactBinding(
-                        CoreNamespace.canonicalBinding(binding), binding.occurrence()))
+                    new ArtifactBinding(CoreNamespace.linkedBinding(binding), binding.occurrence()))
             .sorted(
                 (left, right) -> {
                   int bindingOrder =

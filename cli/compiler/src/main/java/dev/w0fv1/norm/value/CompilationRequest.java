@@ -14,8 +14,15 @@ public record CompilationRequest(
     DocumentId entryDocument,
     List<SourceFile> sources,
     Set<DocumentId> exportedSources,
-    Set<DocumentId> bindingSources) {
+    Set<DocumentId> bindingSources,
+    Kind kind) {
+  public enum Kind {
+    APPLICATION,
+    LIBRARY
+  }
+
   public CompilationRequest {
+    Objects.requireNonNull(kind, "kind");
     Objects.requireNonNull(unit, "unit");
     Objects.requireNonNull(scope, "scope");
     Objects.requireNonNull(entryDocument, "entryDocument");
@@ -41,6 +48,21 @@ public record CompilationRequest(
     if (!unique.keySet().containsAll(bindingSources)) {
       throw new IllegalArgumentException("binding documents must be part of the compilation");
     }
+  }
+
+  public CompilationRequest(
+      CompilationUnitId unit,
+      CompilationScope scope,
+      DocumentId entryDocument,
+      List<SourceFile> sources,
+      Set<DocumentId> exportedSources,
+      Set<DocumentId> bindingSources) {
+    this(unit, scope, entryDocument, sources, exportedSources, bindingSources, Kind.APPLICATION);
+  }
+
+  public CompilationRequest asLibrary() {
+    return new CompilationRequest(
+        unit, scope, entryDocument, sources, exportedSources, bindingSources, Kind.LIBRARY);
   }
 
   public CompilationRequest(

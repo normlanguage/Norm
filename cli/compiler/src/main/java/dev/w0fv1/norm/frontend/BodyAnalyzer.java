@@ -75,7 +75,7 @@ final class BodyAnalyzer {
   final ExpressionChecker expressionChecker;
   private final CallResolver calls;
 
-  void analyzeInterfaceDefault(
+  void analyzeInterfaceMethod(
       Syntax.InterfaceDecl owner,
       Syntax.InterfaceMethodDecl method,
       Map<String, SemanticType> methodTypes,
@@ -102,6 +102,7 @@ final class BodyAnalyzer {
             methodSymbols.get(parameter.name()));
       }
       flow.declareSelf(typeResolver.interfaceSelfType(owner), owner.nameSpan());
+      analyzeParameterDefaults(method.parameters());
       for (Syntax.Parameter parameter : method.parameters()) {
         SemanticType type =
             typeResolver.resolveDeclarationType(parameter.type(), method, methodTypes);
@@ -113,10 +114,11 @@ final class BodyAnalyzer {
       }
       List<Syntax.Statement> body =
           BlockResults.returning(
-              method.body().orElseThrow(),
+              method.body().orElse(List.of()),
               !this.body.expectedReturnType().equals(SemanticType.VOID));
       analyzeStatements(body);
-      if (!this.body.expectedReturnType().equals(SemanticType.VOID)
+      if (method.body().isPresent()
+          && !this.body.expectedReturnType().equals(SemanticType.VOID)
           && !StatementFlow.definitelyExits(body)) {
         diagnostics.error(
             INVALID_CONTROL,
@@ -280,6 +282,10 @@ final class BodyAnalyzer {
               parameter.nameSpan(),
               model.declarationSymbols().get(parameter));
         }
+        for (Syntax.Parameter parameter : constructor.parameters()) {
+          typeResolver.validateReferenceCapableType(parameter.type());
+        }
+        analyzeParameterDefaults(constructor.parameters());
         flow.declareSelf(typeResolver.aggregateSelfType(owner), owner.nameSpan());
         for (AggregateView view :
             typeResolver.aggregateViews(typeResolver.aggregateSelfType(owner))) {
@@ -301,10 +307,6 @@ final class BodyAnalyzer {
           }
         }
         flow.pushScope(constructor.span());
-        for (Syntax.Parameter parameter : constructor.parameters()) {
-          typeResolver.validateReferenceCapableType(parameter.type());
-        }
-        analyzeParameterDefaults(constructor.parameters());
         for (Syntax.Parameter parameter : constructor.parameters()) {
           Symbol symbol =
               declarationAnalyzer.register(

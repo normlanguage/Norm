@@ -86,12 +86,12 @@ final class Binder {
   private final Map<String, BoundInterface> interfaces = new LinkedHashMap<>();
   private final Map<String, BoundCallable> callables = new LinkedHashMap<>();
   private final Map<String, BoundField> fields = new LinkedHashMap<>();
-  private final Map<String, List<Optional<Syntax.Expression>>> defaultArguments =
-      new LinkedHashMap<>();
+  private final DefaultArgumentDeclarations defaultArguments;
   private Map<String, BoundLocalId> reifiedLocals = Map.of();
   private List<BoundTypeParameter> activeTypeParameters = List.of();
   private BoundLocalId thisLocal;
   private SemanticType thisType;
+  private final Map<BoundCallableId, Integer> lambdaOrdinals = new LinkedHashMap<>();
   private Map<BoundLocalId, SemanticType> lambdaCaptures;
   private java.util.Set<BoundLocalId> lambdaLocals = java.util.Set.of();
   private BoundCallableId currentCallableId;
@@ -101,56 +101,12 @@ final class Binder {
   Binder(List<Syntax.Program> programs, SemanticModel semantics) {
     this.programs = List.copyOf(programs);
     this.semantics = semantics;
-    indexDefaultArguments();
-  }
-
-  private void indexDefaultArguments() {
-    for (Syntax.Program program : programs) {
-      for (Syntax.InterfaceDecl declaration : program.interfaces()) {
-        declaration
-            .methods()
-            .forEach(method -> indexDefaults(method.nameSpan(), method.parameters()));
-      }
-      for (Syntax.EnumDecl declaration : program.enums()) {
-        declaration
-            .variants()
-            .forEach(variant -> indexDefaults(variant.nameSpan(), variant.parameters()));
-      }
-      for (Syntax.AggregateDecl declaration : program.aggregates()) {
-        if (declaration.constructors().isEmpty()) {
-          List<Optional<Syntax.Expression>> defaults =
-              declaration.fields().stream()
-                  .filter(field -> constructorInput(declaration, field))
-                  .map(Syntax.FieldDecl::defaultValue)
-                  .toList();
-          if (defaults.stream().anyMatch(Optional::isPresent)) {
-            defaultArguments.put(symbol(declaration.nameSpan()).id().value(), defaults);
-          }
-        } else {
-          declaration
-              .constructors()
-              .forEach(value -> indexDefaults(value.nameSpan(), value.parameters()));
-        }
-        declaration
-            .methods()
-            .forEach(method -> indexDefaults(method.nameSpan(), method.parameters()));
-      }
-      program
-          .functions()
-          .forEach(function -> indexDefaults(function.nameSpan(), function.parameters()));
-    }
-  }
-
-  private void indexDefaults(SourceSpan name, List<Syntax.Parameter> parameters) {
-    List<Optional<Syntax.Expression>> defaults =
-        parameters.stream().map(Syntax.Parameter::defaultValue).toList();
-    if (defaults.stream().anyMatch(Optional::isPresent)) {
-      defaultArguments.put(symbol(name).id().value(), defaults);
-    }
+    defaultArguments = new DefaultArgumentDeclarations(programs, semantics);
   }
 
   BoundProgram bind(Syntax.FunctionDecl entryPoint) {
     bindTypes();
+    bindDefaultArguments();
     bindCallables();
     List<BoundSource> sources =
         programs.stream()
@@ -253,6 +209,57 @@ final class Binder {
         aggregates.put(value.id().value(), value);
       }
     }
+  }
+
+  private void bindDefaultArguments() {
+    for (var declaration : defaultArguments.declarations()) {
+      for (int ordinal = 0; ordinal < declaration.defaults().size(); ordinal++) {
+        if (declaration.defaults().get(ordinal).isEmpty()) continue;
+        var expression = declaration.defaults().get(ordinal).orElseThrow();
+        var id = declaration.factory(ordinal);
+        currentCallableId = id;
+        thisType = declaration.receiver().orElse(null);
+        thisLocal = thisType == null ? null : new BoundLocalId(id.value() + "/receiver");
+        var activeReified = new LinkedHashMap<String, BoundLocalId>();
+        var reified = new ArrayList<BoundReifiedArgument>();
+        addReified(declaration.typeParameters(), id, activeReified, reified);
+        reifiedLocals = Map.copyOf(activeReified);
+        activeTypeParameters = bindTypeParameters(declaration.typeParameters());
+        var body =
+            new BoundBlock(
+                List.of(
+                    new BoundStatement.ReturnStatement(
+                        Optional.of(bindExpression(expression)), expression.span())),
+                expression.span());
+        var parameters =
+            thisLocal == null
+                ? List.<BoundParameter>of()
+                : List.of(new BoundParameter(thisLocal, "$receiver", thisType, 0));
+        callables.put(
+            id.value(),
+            new BoundCallable(
+                id,
+                BoundCallableKind.DEFAULT_ARGUMENT,
+                declaration.symbol().name() + "/argument/" + ordinal,
+                BoundVisibility.PRIVATE,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                parameters,
+                activeTypeParameters,
+                reified,
+                List.of(),
+                declaration.symbol().parameters().get(ordinal).type(),
+                body,
+                expression.span()));
+      }
+    }
+    currentCallableId = null;
+    thisType = null;
+    thisLocal = null;
+    reifiedLocals = Map.of();
+    activeTypeParameters = List.of();
   }
 
   private void bindCallables() {
@@ -501,7 +508,7 @@ final class Binder {
                       new BoundCall(
                           initializer,
                           Optional.of(thisRead(superCall.span())),
-                          bindArguments(call, resolution),
+                          bindArguments(call, resolution, null),
                           List.of(),
                           parent.arguments().stream().map(this::runtimeType).toList(),
                           false,
@@ -527,7 +534,12 @@ final class Binder {
         }
         BoundLocalId local = new BoundLocalId(id.value() + "/parameter/" + ordinal);
         parameters.add(
-            new BoundParameter(local, field.name(), boundField.type(), parameters.size()));
+            new BoundParameter(
+                local,
+                symbol(owner.nameSpan()).parameters().get(parameters.size()),
+                parameters.size(),
+                List.of(),
+                defaultArguments.defaultValue(symbol(owner.nameSpan()).id(), parameters.size())));
         statements.add(
             new BoundStatement.FieldAssignment(
                 thisRead(field.span()),
@@ -602,10 +614,10 @@ final class Binder {
     Symbol symbol = symbol(parameter.nameSpan());
     return new BoundParameter(
         BoundLocalId.of(symbol.id()),
-        parameter.name(),
-        symbol.type(),
+        semantics.symbol(symbol.owner().orElseThrow()).orElseThrow().parameters().get(ordinal),
         ordinal,
-        interceptors(AnnotationTarget.PARAMETER, symbol.id()));
+        interceptors(AnnotationTarget.PARAMETER, symbol.id()),
+        defaultArguments.defaultValue(symbol.owner().orElseThrow(), ordinal));
   }
 
   private List<BoundInterceptor> interceptors(AnnotationTarget target, SymbolId symbol) {
@@ -1098,9 +1110,9 @@ final class Binder {
     if (!resolution.resultType().equals(type)) {
       throw new IllegalStateException("resolved call result differs from expression type");
     }
-    List<BoundArgument> arguments = bindArguments(call, resolution);
     if (resolution.kind() == ResolvedCall.Kind.INVOKE) {
-      return new BoundInvoke(bindExpression(call.callee()), arguments, type, call.span());
+      return new BoundInvoke(
+          bindExpression(call.callee()), bindArguments(call, resolution, null), type, call.span());
     }
     Symbol target =
         semantics
@@ -1111,13 +1123,6 @@ final class Binder {
                         "resolved call target is absent from the semantic model: "
                             + resolution.target()));
     Syntax.Member member = call.callee() instanceof Syntax.Member value ? value : null;
-    if (resolution.kind() == ResolvedCall.Kind.EXTENSION) {
-      if (member == null) throw new IllegalStateException("extension call has no receiver");
-      List<BoundArgument> complete = new ArrayList<>(arguments.size() + 1);
-      complete.add(new BoundArgument(bindExpression(member.receiver()), 0));
-      complete.addAll(arguments);
-      arguments = List.copyOf(complete);
-    }
     BoundExpression receiver =
         member == null
                 || resolution.kind() == ResolvedCall.Kind.EXTENSION
@@ -1125,93 +1130,122 @@ final class Binder {
                 || target.kind() == SymbolKind.ENUM_VARIANT
             ? null
             : bindExpression(member.receiver());
+    BoundExpression initializer = receiver;
+    var defaults = defaultArguments.declaration(target.id());
+    boolean receiverDefault =
+        receiver != null
+            && defaults.isPresent()
+            && defaults.orElseThrow().receiver().isPresent()
+            && java.util.stream.IntStream.range(0, defaults.orElseThrow().defaults().size())
+                .anyMatch(
+                    index ->
+                        defaults.orElseThrow().defaults().get(index).isPresent()
+                            && !resolution.arguments().parameterIndices().contains(index));
+    BoundLocalId receiverLocal =
+        receiverDefault
+            ? new BoundLocalId(currentCallableId.value() + "/receiver/" + syntheticId++)
+            : null;
+    if (receiverLocal != null)
+      receiver = new BoundExpression.LocalRead(receiverLocal, receiver.type(), call.span());
+    List<BoundArgument> arguments = bindArguments(call, resolution, receiver);
+    if (resolution.kind() == ResolvedCall.Kind.EXTENSION) {
+      if (member == null) throw new IllegalStateException("extension call has no receiver");
+      List<BoundArgument> complete = new ArrayList<>(arguments.size() + 1);
+      complete.add(new BoundArgument(bindExpression(member.receiver()), 0));
+      complete.addAll(arguments);
+      arguments = List.copyOf(complete);
+    }
     boolean nullSafe = member != null && member.nullSafe();
-    return switch (resolution.kind()) {
-      case INTRINSIC ->
-          new BoundIntrinsic(
-              builtins.intrinsic(target.id()).orElseThrow(),
-              Optional.ofNullable(receiver),
-              arguments,
-              target.kind() == SymbolKind.TYPE_METHOD
-                      || builtins
-                          .intrinsic(target.id())
-                          .filter(IntrinsicId::requiresResultRuntimeType)
-                          .isPresent()
-                      || builtins
-                          .type(target.id())
-                          .flatMap(BuiltinCatalog.TypeDefinition::constructor)
-                          .isPresent()
-                  ? Optional.of(runtimeType(type))
-                  : Optional.empty(),
-              nullSafe,
-              type,
-              call.span());
-      case CONSTRUCT ->
-          new BoundConstruct(
-              target.kind() == SymbolKind.CONSTRUCTOR
-                  ? BoundAggregateId.of(target.owner().orElseThrow())
-                  : BoundAggregateId.of(target.id()),
-              target.kind() == SymbolKind.CONSTRUCTOR
-                  ? BoundCallableId.of(target.id())
-                  : aggregates.get(target.id().value()).constructors().getFirst(),
-              runtimeType(type),
-              arguments,
-              type,
-              call.span());
-      case ENUM_CONSTRUCT -> {
-        BoundEnumVariant variant =
-            enums.values().stream()
-                .flatMap(value -> value.variants().stream())
-                .filter(value -> value.id().value().equals(target.id().value()))
-                .findFirst()
-                .orElseThrow();
-        BoundEnum owner =
-            enums.values().stream()
-                .filter(value -> value.variants().contains(variant))
-                .findFirst()
-                .orElseThrow();
-        yield new BoundExpression.EnumConstruct(
-            owner.id(),
-            variant.id(),
-            owner.name(),
-            variant.name(),
-            arguments,
-            runtimeType(type),
-            type,
-            call.span());
-      }
-      case COPY ->
-          new BoundExpression.CopyObject(
-              java.util.Objects.requireNonNull(receiver), nullSafe, type, call.span());
-      case CALLABLE, EXTENSION ->
-          new BoundCall(
-              BoundCallableId.of(target.id()),
-              Optional.ofNullable(receiver),
-              arguments,
-              resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
-              receiver == null
-                  ? List.of()
-                  : methodReceiverType(receiver.type(), target).stream()
-                      .map(this::runtimeType)
-                      .toList(),
-              resolution.kind() == ResolvedCall.Kind.CALLABLE && isVirtualMethod(target),
-              nullSafe,
-              type,
-              call.span());
-      case INVOKE -> throw new IllegalStateException("function invocation was bound eagerly");
-      case FIELD_CAPTURE -> throw new IllegalStateException("field capture was bound eagerly");
-      case SUPER -> throw new IllegalStateException("super calls are bound by constructors");
-      case INTERFACE_CALL ->
-          new BoundExpression.InterfaceCall(
-              BoundInterfaceMethodId.of(target.id()),
-              receiverType(java.util.Objects.requireNonNull(receiver).type()),
-              receiver,
-              arguments,
-              resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
-              nullSafe,
-              type,
-              call.span());
-    };
+    BoundExpression result =
+        switch (resolution.kind()) {
+          case INTRINSIC ->
+              new BoundIntrinsic(
+                  builtins.intrinsic(target.id()).orElseThrow(),
+                  Optional.ofNullable(receiver),
+                  arguments,
+                  target.kind() == SymbolKind.TYPE_METHOD
+                          || builtins
+                              .intrinsic(target.id())
+                              .filter(IntrinsicId::requiresResultRuntimeType)
+                              .isPresent()
+                          || builtins
+                              .type(target.id())
+                              .flatMap(BuiltinCatalog.TypeDefinition::constructor)
+                              .isPresent()
+                      ? Optional.of(runtimeType(type))
+                      : Optional.empty(),
+                  nullSafe,
+                  type,
+                  call.span());
+          case CONSTRUCT ->
+              new BoundConstruct(
+                  target.kind() == SymbolKind.CONSTRUCTOR
+                      ? BoundAggregateId.of(target.owner().orElseThrow())
+                      : BoundAggregateId.of(target.id()),
+                  target.kind() == SymbolKind.CONSTRUCTOR
+                      ? BoundCallableId.of(target.id())
+                      : aggregates.get(target.id().value()).constructors().getFirst(),
+                  runtimeType(type),
+                  arguments,
+                  type,
+                  call.span());
+          case ENUM_CONSTRUCT -> {
+            BoundEnumVariant variant =
+                enums.values().stream()
+                    .flatMap(value -> value.variants().stream())
+                    .filter(value -> value.id().value().equals(target.id().value()))
+                    .findFirst()
+                    .orElseThrow();
+            BoundEnum owner =
+                enums.values().stream()
+                    .filter(value -> value.variants().contains(variant))
+                    .findFirst()
+                    .orElseThrow();
+            yield new BoundExpression.EnumConstruct(
+                owner.id(),
+                variant.id(),
+                owner.name(),
+                variant.name(),
+                arguments,
+                runtimeType(type),
+                type,
+                call.span());
+          }
+          case COPY ->
+              new BoundExpression.CopyObject(
+                  java.util.Objects.requireNonNull(receiver), nullSafe, type, call.span());
+          case CALLABLE, EXTENSION ->
+              new BoundCall(
+                  BoundCallableId.of(target.id()),
+                  Optional.ofNullable(receiver),
+                  arguments,
+                  resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
+                  receiver == null
+                      ? List.of()
+                      : methodReceiverType(receiver.type(), target).stream()
+                          .map(this::runtimeType)
+                          .toList(),
+                  resolution.kind() == ResolvedCall.Kind.CALLABLE && isVirtualMethod(target),
+                  nullSafe,
+                  type,
+                  call.span());
+          case INVOKE -> throw new IllegalStateException("function invocation was bound eagerly");
+          case FIELD_CAPTURE -> throw new IllegalStateException("field capture was bound eagerly");
+          case SUPER -> throw new IllegalStateException("super calls are bound by constructors");
+          case INTERFACE_CALL ->
+              new BoundExpression.InterfaceCall(
+                  BoundInterfaceMethodId.of(target.id()),
+                  receiverType(java.util.Objects.requireNonNull(receiver).type()),
+                  receiver,
+                  arguments,
+                  resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
+                  nullSafe,
+                  type,
+                  call.span());
+        };
+    return receiverLocal == null
+        ? result
+        : new BoundExpression.Let(receiverLocal, initializer, result, call.span());
   }
 
   private SemanticType receiverType(SemanticType receiver) {
@@ -1341,7 +1375,8 @@ final class Binder {
         receiver, field.id(), field.ordinal(), member.nullSafe(), type, member.span());
   }
 
-  private List<BoundArgument> bindArguments(Syntax.Call call, ResolvedCall resolution) {
+  private List<BoundArgument> bindArguments(
+      Syntax.Call call, ResolvedCall resolution, BoundExpression receiver) {
     List<Integer> indices = resolution.arguments().parameterIndices();
     List<BoundArgument> result = new ArrayList<>();
     for (int index = 0; index < call.arguments().size(); index++) {
@@ -1349,15 +1384,46 @@ final class Binder {
           new BoundArgument(
               bindExpression(call.arguments().get(index).value()), indices.get(index)));
     }
-    List<Optional<Syntax.Expression>> defaults = defaultArguments.get(resolution.target().value());
-    if (defaults != null) {
-      boolean[] supplied = new boolean[resolution.parameters().size()];
-      for (int index : indices) supplied[index] = true;
-      for (int index = 0; index < defaults.size(); index++) {
-        if (!supplied[index] && defaults.get(index).isPresent()) {
-          result.add(new BoundArgument(bindExpression(defaults.get(index).orElseThrow()), index));
-        }
+    var defaults = defaultArguments.declaration(resolution.target());
+    if (defaults.isEmpty()) return result;
+    var declaration = defaults.orElseThrow();
+    var types = new ArrayList<SemanticType>();
+    if (declaration.receiver().isPresent()) {
+      var view =
+          semantics
+              .typeView(
+                  java.util.Objects.requireNonNull(receiver).type(),
+                  declaration.receiver().orElseThrow().identity())
+              .orElseThrow();
+      types.addAll(view.arguments());
+    } else if (resolution.kind() == ResolvedCall.Kind.CONSTRUCT) {
+      types.addAll(resolution.resultType().arguments());
+    } else if (resolution.kind() == ResolvedCall.Kind.SUPER) {
+      types.addAll(semantics.aggregateParent(thisType).orElseThrow().arguments());
+    }
+    types.addAll(resolution.callableTypeArguments());
+    for (int index = 0; index < declaration.defaults().size(); index++) {
+      if (indices.contains(index) || declaration.defaults().get(index).isEmpty()) continue;
+      BoundExpression input = receiver;
+      if (input != null && input.type().isNullable()) {
+        input =
+            new BoundExpression.Unary(
+                BoundUnaryOperator.NON_NULL, input, input.type().nonNullable(), call.span());
       }
+      var arguments =
+          declaration.receiver().isPresent()
+              ? List.of(new BoundArgument(java.util.Objects.requireNonNull(input), 0))
+              : List.<BoundArgument>of();
+      result.add(
+          new BoundArgument(
+              new BoundCall(
+                  declaration.factory(index),
+                  Optional.empty(),
+                  arguments,
+                  types.stream().map(this::runtimeType).toList(),
+                  resolution.parameters().get(index).type(),
+                  call.span()),
+              index));
     }
     return result;
   }
@@ -1413,9 +1479,10 @@ final class Binder {
                   var parameter = method.parameters().get(index);
                   return new BoundParameter(
                       new BoundLocalId(method.id().value() + "/parameter/" + index),
-                      parameter.name(),
-                      parameter.type(),
-                      index);
+                      parameter,
+                      index,
+                      List.of(),
+                      defaultArguments.defaultValue(method.id(), index));
                 })
             .toList(),
         method.type(),
@@ -1624,7 +1691,10 @@ final class Binder {
 
   private BoundExpression bindLambda(Syntax.Lambda lambda, SemanticType type) {
     BoundCallableId lambdaId =
-        new BoundCallableId(currentCallableId.value() + "/lambda@" + lambda.span().startOffset());
+        new BoundCallableId(
+            currentCallableId.value()
+                + "/lambda/"
+                + (lambdaOrdinals.merge(currentCallableId, 1, Integer::sum) - 1));
     Map<BoundLocalId, SemanticType> previousCaptures = lambdaCaptures;
     java.util.Set<BoundLocalId> previousLocals = lambdaLocals;
     BoundCallableId previousCallable = currentCallableId;
@@ -1762,15 +1832,10 @@ final class Binder {
     if (target.owner().isEmpty()) return List.of();
     Symbol owner = semantics.symbol(target.owner().orElseThrow()).orElse(null);
     if (owner == null || owner.kind() != SymbolKind.TYPE) return List.of();
-    SemanticType view = receiver.nonNullable();
-    java.util.Set<String> visited = new java.util.HashSet<>();
-    while (visited.add(view.identity())) {
-      if (view.identity().equals(owner.type().identity())) return view.arguments();
-      Optional<SemanticType> parent = semantics.aggregateParent(view);
-      if (parent.isEmpty()) break;
-      view = parent.orElseThrow();
-    }
-    return List.of();
+    return semantics
+        .typeView(receiver, owner.type().identity())
+        .map(SemanticType::arguments)
+        .orElse(List.of());
   }
 
   private boolean isVirtualMethod(Symbol target) {
@@ -1856,13 +1921,12 @@ final class Binder {
               variant.name(),
               java.util.stream.IntStream.range(0, variant.parameters().size())
                   .mapToObj(
-                      index -> {
-                        Syntax.Parameter parameter = variant.parameters().get(index);
-                        return new BoundEnumField(
-                            parameter.name(),
-                            semantics.typeOf(parameter.type()).orElseThrow(),
-                            index);
-                      })
+                      index ->
+                          new BoundEnumField(
+                              symbol(variant.nameSpan()).parameters().get(index),
+                              index,
+                              defaultArguments.defaultValue(
+                                  symbol(variant.nameSpan()).id(), index)))
                   .toList()));
     }
     return List.copyOf(result);

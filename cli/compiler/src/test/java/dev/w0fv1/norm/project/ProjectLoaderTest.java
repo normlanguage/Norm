@@ -355,8 +355,9 @@ final class ProjectLoaderTest {
         dependencyRoot, "Value.norm", "package sample.lib public Integer answer() { return 42 }");
     Path repository = temporaryDirectory.resolve("repository");
     ProjectEnvironment environment = environment();
-    try (ProjectLoader projects = environment.projectLoader()) {
-      new ModulePackager(projects).packageModule(dependencyModule, repository);
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects, compiler).packageModule(dependencyModule, repository);
     }
 
     Path applicationRoot = Files.createDirectories(temporaryDirectory.resolve(applicationPath));

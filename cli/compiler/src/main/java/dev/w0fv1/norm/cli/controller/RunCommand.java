@@ -79,8 +79,9 @@ final class RunCommand implements Command {
       var prepared = cache.read(entry);
       if (prepared.content().isPresent()) {
         progress.accept("Reused prepared application");
-        try (var workspace = new dev.w0fv1.norm.application.TemporaryDirectory()) {
-          var application = prepared.content().orElseThrow().prepare(workspace.path());
+        var content = prepared.content().orElseThrow();
+        try (var workspace = cache.prepare(content)) {
+          var application = content.application();
           progress.accept("Starting application");
           application.execute(
               workspace.path(),

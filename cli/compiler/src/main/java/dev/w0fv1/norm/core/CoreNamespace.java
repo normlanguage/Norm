@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class CoreNamespace {
-  private static final String DOMAIN = "norm:core:namespace:v1\0";
+  private static final String DOMAIN = "norm:core:namespace:v2\0";
 
   private final CoreNamespaceId id;
   private final List<CoreBinding> bindings;
@@ -62,17 +62,23 @@ public final class CoreNamespace {
 
   private static byte[] encodeNamespace(List<CoreBinding> bindings) {
     CanonicalWriter writer = new CanonicalWriter().writeTag("namespace").writeInt(bindings.size());
-    bindings.forEach(binding -> writeBinding(writer, binding));
+    bindings.forEach(binding -> writeBinding(writer, binding, false));
     return writer.toByteArray();
   }
 
   static byte[] canonicalBinding(CoreBinding binding) {
     CanonicalWriter writer = new CanonicalWriter();
-    writeBinding(writer, binding);
+    writeBinding(writer, binding, false);
     return writer.toByteArray();
   }
 
-  private static void writeBinding(CanonicalWriter writer, CoreBinding binding) {
+  static byte[] linkedBinding(CoreBinding binding) {
+    CanonicalWriter writer = new CanonicalWriter();
+    writeBinding(writer, binding, true);
+    return writer.toByteArray();
+  }
+
+  private static void writeBinding(CanonicalWriter writer, CoreBinding binding, boolean linkage) {
     writer.writeString(binding.packageName()).writeBoolean(binding.ownerName().isPresent());
     binding.ownerName().ifPresent(writer::writeString);
     writer
@@ -85,13 +91,7 @@ public final class CoreNamespace {
         writer.writeTag(callable.kind().name());
         writeTypeParameters(writer, callable.typeParameters());
         writer.writeInt(callable.parameters().size());
-        callable
-            .parameters()
-            .forEach(
-                parameter -> {
-                  writer.writeString(parameter.label());
-                  CoreCodec.writeType(writer, parameter.type());
-                });
+        callable.parameters().forEach(parameter -> writeParameter(writer, parameter, linkage));
         CoreCodec.writeType(writer, callable.returnType());
       }
       case CoreBindingShape.Aggregate declared -> {
@@ -113,17 +113,13 @@ public final class CoreNamespace {
             .sorted(
                 (left, right) ->
                     java.util.Arrays.compareUnsigned(
-                        constructorBytes(left), constructorBytes(right)))
+                        constructorBytes(left, linkage), constructorBytes(right, linkage)))
             .forEach(
                 constructor -> {
                   writer.writeInt(constructor.parameters().size());
                   constructor
                       .parameters()
-                      .forEach(
-                          parameter -> {
-                            writer.writeString(parameter.label());
-                            CoreCodec.writeType(writer, parameter.type());
-                          });
+                      .forEach(parameter -> writeParameter(writer, parameter, linkage));
                 });
         writer.writeInt(declared.conformances().size());
         declared.conformances().stream()
@@ -140,13 +136,7 @@ public final class CoreNamespace {
             .forEach(
                 variant -> {
                   writer.writeString(variant.name()).writeInt(variant.fields().size());
-                  variant
-                      .fields()
-                      .forEach(
-                          field -> {
-                            writer.writeString(field.label());
-                            CoreCodec.writeType(writer, field.type());
-                          });
+                  variant.fields().forEach(field -> writeParameter(writer, field, linkage));
                 });
       }
       case CoreBindingShape.Interface declared -> {
@@ -161,15 +151,27 @@ public final class CoreNamespace {
       case CoreBindingShape.MethodSignature method -> {
         writeTypeParameters(writer, method.typeParameters());
         writer.writeInt(method.parameters().size());
-        method
-            .parameters()
-            .forEach(
-                parameter -> {
-                  writer.writeString(parameter.label());
-                  CoreCodec.writeType(writer, parameter.type());
-                });
+        method.parameters().forEach(parameter -> writeParameter(writer, parameter, linkage));
         CoreCodec.writeType(writer, method.returnType());
       }
+    }
+  }
+
+  private static void writeParameter(
+      CanonicalWriter writer, CoreBindingShape.Parameter parameter, boolean linkage) {
+    writer.writeString(parameter.label());
+    CoreCodec.writeType(writer, parameter.type());
+    var policy = parameter.policy();
+    writer.writeBoolean(policy.hasDefault()).writeTag(policy.labelPolicy().name());
+    writer.writeInt(policy.callbackParameterNames().size());
+    policy.callbackParameterNames().forEach(writer::writeString);
+    if (linkage && parameter.defaultValue().isPresent()) {
+      var target =
+          ((CoreDefaultArgument.Resolved) parameter.defaultValue().orElseThrow()).occurrence();
+      writer
+          .writeBytes(target.representative().group().hash().bytes())
+          .writeInt(target.representative().memberIndex())
+          .writeInt(target.ordinal());
     }
   }
 
@@ -191,16 +193,11 @@ public final class CoreNamespace {
     return writer.toByteArray();
   }
 
-  private static byte[] constructorBytes(CoreBindingShape.Constructor constructor) {
+  private static byte[] constructorBytes(
+      CoreBindingShape.Constructor constructor, boolean linkage) {
     CanonicalWriter writer = new CanonicalWriter();
     writer.writeInt(constructor.parameters().size());
-    constructor
-        .parameters()
-        .forEach(
-            parameter -> {
-              writer.writeString(parameter.label());
-              CoreCodec.writeType(writer, parameter.type());
-            });
+    constructor.parameters().forEach(parameter -> writeParameter(writer, parameter, linkage));
     return writer.toByteArray();
   }
 }

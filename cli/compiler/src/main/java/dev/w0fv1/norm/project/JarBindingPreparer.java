@@ -15,17 +15,6 @@ final class JarBindingPreparer {
 
   static ResolvedJarBinding prepare(ModuleDescriptor descriptor, ResolvedJarGraph graph)
       throws IOException {
-    return prepare(descriptor, graph, false);
-  }
-
-  static ResolvedJarBinding prepareArchived(ModuleDescriptor descriptor, ResolvedJarGraph graph)
-      throws IOException {
-    return prepare(descriptor, graph, true);
-  }
-
-  private static ResolvedJarBinding prepare(
-      ModuleDescriptor descriptor, ResolvedJarGraph graph, boolean selectedSurfaceOnly)
-      throws IOException {
     try {
       List<String> selectedTypes =
           descriptor.binding().orElseThrow().api().stream().map(JarBindingType::name).toList();
@@ -33,7 +22,7 @@ final class JarBindingPreparer {
           new JarApiCache(
               java.nio.file.Path.of(System.getProperty("user.home"), ".norm", "cache", "java-api"));
       var surface = scanner.scan(graph, selectedTypes, true);
-      var api = selectedSurfaceOnly ? surface : scanner.scan(graph, selectedTypes, false);
+      var api = scanner.scan(graph, selectedTypes, false);
       GeneratedJarBinding generated =
           new JarBindingSourceGenerator()
               .generateSurface(

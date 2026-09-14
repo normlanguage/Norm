@@ -17,6 +17,53 @@ final class PreparedApplicationCacheTest {
   @TempDir Path directory;
 
   @Test
+  void validatesSmallInputIndexBeforeReadingPreparedContent() throws Exception {
+    Path module = Files.createDirectories(directory.resolve("sample"));
+    Files.writeString(
+        module.resolve("module.norm"), "Module module() { module(name: \"sample\", version: 1) }");
+    Path entry = Files.writeString(module.resolve("main.norm"), "package sample Void main() {} ");
+    Path resources = Files.createDirectories(module.resolve("resources"));
+    Files.write(resources.resolve("payload.bin"), new byte[4 * 1024 * 1024]);
+    Path cacheRoot = directory.resolve("cache");
+    var cache = new PreparedApplicationCache(cacheRoot);
+    try (var runner = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()))) {
+      assertTrue(
+          runner
+              .run(
+                  entry,
+                  ExecutionContext.of(new PrintWriter(new StringWriter())),
+                  message -> {},
+                  cache)
+              .isSuccess());
+    }
+    Path payload;
+    try (var files = Files.list(cacheRoot.resolve("content"))) {
+      payload = files.filter(path -> path.toString().endsWith(".bin")).findFirst().orElseThrow();
+    }
+    try (var files = Files.list(cacheRoot)) {
+      Path index = files.filter(path -> path.toString().endsWith(".bin")).findFirst().orElseThrow();
+      assertTrue(Files.size(index) < Files.size(payload) / 4);
+    }
+    var key =
+        new dev.w0fv1.norm.value.Sha256Digest(payload.getFileName().toString().replace(".bin", ""));
+    new dev.w0fv1.norm.core.store.FileArtifactCache(
+            cacheRoot.resolve("content"), 32, 512L * 1024 * 1024)
+        .write(key, new byte[] {1, 2, 3});
+    var timestamp = Files.getLastModifiedTime(entry);
+    Files.writeString(entry, "package sample Void main() { printLine(1) }");
+    Files.setLastModifiedTime(entry, timestamp);
+    var changed = cache.read(entry);
+    assertTrue(changed.content().isEmpty());
+    assertEquals(1, changed.modules().size());
+    Files.writeString(entry, "package sample Void main() {} ");
+    assertThrows(java.io.IOException.class, () -> cache.read(entry));
+    Files.delete(payload);
+    var evicted = cache.read(entry);
+    assertTrue(evicted.content().isEmpty());
+    assertEquals(1, evicted.modules().size());
+  }
+
+  @Test
   void reusesPreparedApplicationAndInvalidatesSameTimestampChanges() throws Exception {
     Path entry =
         Files.writeString(
@@ -51,7 +98,9 @@ final class PreparedApplicationCacheTest {
     var timestamp = Files.getLastModifiedTime(resource);
     Files.writeString(resource, "other");
     Files.setLastModifiedTime(resource, timestamp);
-    assertTrue(cache.read(entry).content().isEmpty());
+    var changedResource = cache.read(entry);
+    assertTrue(changedResource.content().isEmpty());
+    assertEquals(1, changedResource.modules().size());
     Files.writeString(resource, "first");
     assertTrue(cache.read(entry).content().isPresent());
     Files.delete(resource);

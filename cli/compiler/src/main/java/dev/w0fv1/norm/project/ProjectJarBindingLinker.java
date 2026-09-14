@@ -49,14 +49,14 @@ final class ProjectJarBindingLinker {
     var descriptor = module.descriptor();
     var api = descriptor.binding().orElseThrow().api();
     var generated = previous.generated();
-    if (!imports.isEmpty()) {
+    if (module.archive().isPresent() && !previous.imports().equals(imports))
+      throw new IOException("published Java binding type owners do not match its dependencies");
+    if (module.archive().isEmpty() && !imports.isEmpty()) {
       var surface =
-          module.archive().isPresent()
-              ? previous.api()
-              : new JarApiScanner()
-                  .scanSurface(
-                      previous.graph(),
-                      api.stream().map(dev.w0fv1.norm.value.JarBindingType::name).toList());
+          new JarApiScanner()
+              .scanSurface(
+                  previous.graph(),
+                  api.stream().map(dev.w0fv1.norm.value.JarBindingType::name).toList());
       generated =
           new JarBindingSourceGenerator()
               .generateSurface(
@@ -67,7 +67,7 @@ final class ProjectJarBindingLinker {
                   surface,
                   imports);
     }
-    var binding = new ResolvedJarBinding(previous.graph(), previous.api(), generated);
+    var binding = new ResolvedJarBinding(previous.graph(), previous.api(), generated, imports);
     if (!module.archivedJavaExports().isEmpty()
         && !module.archivedJavaExports().equals(exports(binding))) {
       throw new IOException("Norm module public Java types do not match its pinned JAR binding");
@@ -105,7 +105,8 @@ final class ProjectJarBindingLinker {
         module.resources(),
         module.archive(),
         module.testSources(),
-        module.archivedJavaExports());
+        module.archivedJavaExports(),
+        module.compiled());
   }
 
   private static void collect(

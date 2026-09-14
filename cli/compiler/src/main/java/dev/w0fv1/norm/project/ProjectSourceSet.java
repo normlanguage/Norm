@@ -31,6 +31,7 @@ public record ProjectSourceSet(
     Set<Path> modulePaths,
     Map<ModuleCoordinate, ModuleDescriptor> moduleDescriptors,
     Map<ModuleCoordinate, FileSnapshot> moduleArchives,
+    Map<ModuleCoordinate, dev.w0fv1.norm.frontend.CompiledModule> compiledModules,
     CompilationScope scope,
     List<SourceFile> sources,
     Set<Path> exportedSourcePaths,
@@ -50,6 +51,9 @@ public record ProjectSourceSet(
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
     moduleDescriptors = Map.copyOf(Objects.requireNonNull(moduleDescriptors, "moduleDescriptors"));
     moduleArchives = Map.copyOf(moduleArchives);
+    compiledModules = Map.copyOf(compiledModules);
+    if (!moduleDescriptors.keySet().containsAll(compiledModules.keySet()))
+      throw new IllegalArgumentException("compiled modules must belong to the module graph");
     Objects.requireNonNull(scope, "scope");
     if (rootModulePath.isPresent() != !modulePaths.isEmpty()) {
       throw new IllegalArgumentException("project module identity must match its module graph");

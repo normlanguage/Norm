@@ -300,7 +300,7 @@ final class CompletionEngine {
     int trailing = ParameterInfo.trailingIndex(symbol.parameters()).orElse(-1);
     if (trailing < 0) return Optional.empty();
     for (int index = 0; index < symbol.parameters().size(); index++)
-      if (index != trailing && !symbol.parameters().get(index).hasDefault())
+      if (index != trailing && !symbol.parameters().get(index).policy().hasDefault())
         return Optional.empty();
     return Optional.of(symbol.parameters().get(trailing));
   }
@@ -309,7 +309,7 @@ final class CompletionEngine {
     String header = "";
     var parameter = trailingParameter(symbol).orElseThrow();
     if (!hasBlock
-        && parameter.callbackParameterNames().isEmpty()
+        && parameter.policy().callbackParameterNames().isEmpty()
         && !parameter.type().functionParameterTypes().isEmpty()) {
       header =
           " "

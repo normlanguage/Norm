@@ -170,8 +170,9 @@ final class CrossModuleJarBindingTest {
       }
     }
     Path hostArchive;
-    try (var projects = environment.projectLoader(repository)) {
-      var packager = new ModulePackager(projects);
+    try (var compiler = environment.compilerSession();
+        var projects = environment.projectLoader(repository)) {
+      var packager = new ModulePackager(projects, compiler);
       packager.packageModule(widgets.resolve("module.norm"), repository);
       for (var forwarding : forwardingModules) {
         packager.packageModule(forwarding.resolve("module.norm"), repository);

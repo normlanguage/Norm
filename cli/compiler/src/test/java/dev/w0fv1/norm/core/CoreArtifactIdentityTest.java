@@ -356,7 +356,8 @@ final class CoreArtifactIdentityTest {
     DefinitionId right = compilation.namespace().definition("", "Right").orElseThrow();
 
     assertEquals(left.group(), right.group());
-    CoreDependencyIndex dependencies = CoreDependencyIndex.create(compilation.program());
+    CoreDependencyIndex<DefinitionId> dependencies =
+        CoreDependencyIndex.create(compilation.program());
     assertTrue(dependencies.dependenciesOf(left).contains(right));
     assertTrue(dependencies.dependenciesOf(right).contains(left));
   }

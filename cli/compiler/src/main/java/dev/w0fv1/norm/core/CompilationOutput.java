@@ -15,4 +15,21 @@ public record CompilationOutput(CoreArtifact artifact, CompilationState state) {
   public CompilationOutput withAnalysisReport(IncrementalAnalysisReport report) {
     return new CompilationOutput(artifact, state.withAnalysisReport(report));
   }
+
+  public CompilationOutput reused() {
+    var report = state.buildReport();
+    return new CompilationOutput(
+        artifact,
+        new CompilationState(
+            new CoreBuildReport(
+                report.definitions(),
+                0,
+                0,
+                0,
+                report.groups(),
+                new CoreCanonicalizationMetrics(0, 0, 0, 0, 0, 0)),
+            state.dependencies(),
+            CoreCompilationDelta.between(artifact.program(), artifact.program()),
+            IncrementalAnalysisReport.reused(state.analysisReport().declarations())));
+  }
 }

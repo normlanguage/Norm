@@ -779,8 +779,11 @@ final class DeclarationAnalyzer {
           method
               .parameters()
               .forEach(parameter -> typeResolver.validateReferenceCapableType(parameter.type()));
-          if (method.body().isPresent())
-            bodies.analyzeInterfaceDefault(declaration, method, methodTypes, methodSymbols);
+          if (method.body().isPresent()
+              || method.parameters().stream()
+                  .anyMatch(parameter -> parameter.defaultValue().isPresent())) {
+            bodies.analyzeInterfaceMethod(declaration, method, methodTypes, methodSymbols);
+          }
         }
       }
     }
@@ -1082,7 +1085,7 @@ final class DeclarationAnalyzer {
                     parameter.callableParameters().orElse(List.of()).stream()
                         .map(Syntax.Parameter::name)
                         .toList(),
-                    ParameterInfo.LabelPolicy.NAMED,
+                    dev.w0fv1.norm.value.ParameterPolicy.LabelPolicy.NAMED,
                     declarationPolicies
                         .resultBuilder(parameter, declarationTypes)
                         .map(type -> type.substitute(substitutions))))

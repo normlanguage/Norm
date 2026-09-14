@@ -4,10 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.w0fv1.norm.core.store.DefinitionStore;
-import dev.w0fv1.norm.core.store.InMemoryDefinitionStore;
-import dev.w0fv1.norm.core.store.PutBatchResult;
-import dev.w0fv1.norm.core.store.PutResult;
 import dev.w0fv1.norm.diagnostic.DiagnosticSeverity;
 import dev.w0fv1.norm.frontend.CompilationPrelude;
 import dev.w0fv1.norm.frontend.CompilerSession;
@@ -19,11 +15,8 @@ import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -53,10 +46,7 @@ final class IncrementalCompilationTest {
   @Test
   void reusesUnchangedDefinitionsAndRekeysOnlyDependencyClosure() {
     CompilerSession compiler =
-        new CompilerSession(
-            LanguageProfile.kernel(),
-            new InMemoryDefinitionStore(),
-            CompilerSessionCapacity.standard());
+        new CompilerSession(LanguageProfile.kernel(), CompilerSessionCapacity.standard());
     CompilationOutput first =
         compile(
             compiler,
@@ -85,7 +75,6 @@ final class IncrementalCompilationTest {
     assertTrue(changed.state().delta().reused().contains(changedStable));
     assertTrue(
         changed.state().delta().detached().containsAll(java.util.Set.of(firstLeaf, firstMain)));
-    assertTrue(changed.state().buildReport().reusedGroups() > 0);
     assertTrue(changed.state().buildReport().canonicalization().components() > 0);
     assertTrue(changed.state().analysisReport().analyzedDeclarations() > 0);
     assertTrue(changed.state().analysisReport().reusedDeclarations() > 0);
@@ -130,8 +119,6 @@ final class IncrementalCompilationTest {
     assertTrue(independent.state().delta().reused().isEmpty());
     assertTrue(first.state().delta().detached().isEmpty());
     assertTrue(independent.state().delta().detached().isEmpty());
-    assertEquals(0, first.state().buildReport().reusedGroups());
-    assertEquals(0, independent.state().buildReport().reusedGroups());
   }
 
   @Test
@@ -170,30 +157,9 @@ final class IncrementalCompilationTest {
   }
 
   @Test
-  void reusesUnchangedGroupsWithoutInvokingTheStoreAgain() {
-    RecordingDefinitionStore store = new RecordingDefinitionStore();
-    CompilerSession compiler =
-        new CompilerSession(LanguageProfile.kernel(), store, CompilerSessionCapacity.standard());
-
-    compile(compiler, "Void main() { printLine(1) }");
-    int initialWrites = store.writes();
-    int initialBatches = store.batches();
-    compile(compiler, "Void main() { printLine(1) }");
-
-    assertTrue(initialWrites > 0);
-    assertEquals(1, initialBatches);
-    assertEquals(1, store.batches());
-    assertEquals(initialWrites, store.writes());
-    assertEquals(0, store.reads());
-  }
-
-  @Test
   void skipsFrontendAndCoreWorkForAnUnchangedCompilationRequest() {
     CompilerSession compiler =
-        new CompilerSession(
-            LanguageProfile.kernel(),
-            new InMemoryDefinitionStore(),
-            CompilerSessionCapacity.standard());
+        new CompilerSession(LanguageProfile.kernel(), CompilerSessionCapacity.standard());
     CompilationRequest request =
         CompilationRequest.single(
             SourceFile.of(
@@ -214,6 +180,7 @@ final class IncrementalCompilationTest {
         first.state().analysisReport().declarations(),
         reused.state().analysisReport().reusedDeclarations());
     assertEquals(0, reused.state().analysisReport().elapsedNanos());
+    assertEquals(0, reused.state().buildReport().canonicalization().components());
     assertEquals(
         first.artifact().program().groups().stream().map(CoreDefinitionGroup::id).toList(),
         reused.artifact().program().groups().stream().map(CoreDefinitionGroup::id).toList());
@@ -397,39 +364,6 @@ final class IncrementalCompilationTest {
   }
 
   @Test
-  void reportsGroupsThatTheStoreDoesNotAdmit() {
-    DefinitionStore store =
-        new DefinitionStore() {
-          @Override
-          public PutBatchResult putAll(List<byte[]> canonicalGroups) {
-            return new PutBatchResult(
-                canonicalGroups.stream()
-                    .map(
-                        canonicalGroup ->
-                            new PutResult(
-                                DefinitionHasher.hashGroup(canonicalGroup),
-                                PutResult.Status.NOT_ADMITTED))
-                    .toList());
-          }
-
-          @Override
-          public Optional<byte[]> get(DefinitionGroupId id) {
-            throw new AssertionError("core persistence must use the atomic put result");
-          }
-        };
-    CompilerSession compiler =
-        new CompilerSession(LanguageProfile.kernel(), store, CompilerSessionCapacity.standard());
-
-    CoreBuildReport report =
-        compile(compiler, "Void main() { printLine(1) }").state().buildReport();
-
-    assertTrue(report.groups() > 0);
-    assertEquals(0, report.storedGroups());
-    assertEquals(0, report.reusedGroups());
-    assertEquals(report.groups(), report.notAdmittedGroups());
-  }
-
-  @Test
   void reusesPersistentDefinitionGroupsAcrossCompilerSessions(@TempDir Path directory)
       throws Exception {
     Path store = directory.resolve("definitions");
@@ -440,9 +374,8 @@ final class IncrementalCompilationTest {
     assertEquals(
         first.artifact().program().groups().stream().map(CoreDefinitionGroup::id).toList(),
         reused.artifact().program().groups().stream().map(CoreDefinitionGroup::id).toList());
-    assertEquals(0, reused.state().buildReport().storedGroups());
-    assertEquals(
-        reused.state().buildReport().groups(), reused.state().buildReport().reusedGroups());
+    assertEquals(0, reused.state().buildReport().canonicalization().components());
+    assertTrue(reused.state().delta().added().isEmpty());
   }
 
   private static CompilationOutput compile(CompilerSession compiler, String text) {
@@ -454,40 +387,5 @@ final class IncrementalCompilationTest {
 
   private static CompilationOutput compile(CompilerSession compiler, CompilationRequest request) {
     return compiler.compile(request).output().orElseThrow();
-  }
-
-  private static final class RecordingDefinitionStore implements DefinitionStore {
-    private final InMemoryDefinitionStore delegate = new InMemoryDefinitionStore();
-    private final AtomicInteger batches = new AtomicInteger();
-    private final AtomicInteger writes = new AtomicInteger();
-    private final AtomicInteger reads = new AtomicInteger();
-
-    @Override
-    public PutBatchResult putAll(List<byte[]> canonicalGroups) throws IOException {
-      batches.incrementAndGet();
-      PutBatchResult result = delegate.putAll(canonicalGroups);
-      result.results().stream()
-          .filter(value -> value.status() == PutResult.Status.STORED)
-          .forEach(ignored -> writes.incrementAndGet());
-      return result;
-    }
-
-    @Override
-    public Optional<byte[]> get(DefinitionGroupId id) throws IOException {
-      reads.incrementAndGet();
-      return delegate.get(id);
-    }
-
-    int writes() {
-      return writes.get();
-    }
-
-    int batches() {
-      return batches.get();
-    }
-
-    int reads() {
-      return reads.get();
-    }
   }
 }

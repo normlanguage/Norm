@@ -3,7 +3,7 @@ package dev.w0fv1.norm.core;
 import java.util.Objects;
 
 public record PublicAbiId(ContentHash hash) implements Comparable<PublicAbiId> {
-  private static final String DOMAIN = "norm:public-abi:v1\0";
+  private static final String DOMAIN = "norm:public-abi:v2\0";
 
   public PublicAbiId {
     Objects.requireNonNull(hash, "hash");

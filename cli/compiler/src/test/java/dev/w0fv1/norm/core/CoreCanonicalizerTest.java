@@ -14,6 +14,34 @@ import org.junit.jupiter.api.Test;
 
 final class CoreCanonicalizerTest {
   @Test
+  void resolvesSingletonComponentsWithoutCanonicalLabelSearch() {
+    var result = canonicalize(List.of(List.of(), List.of(0), List.of(2)), List.of(0, 1, 2));
+    assertEquals(3, result.metrics().components());
+    assertEquals(0, result.metrics().refinementRounds());
+    assertEquals(0, result.metrics().searchBranches());
+    for (int index = 0; index < 3; index++)
+      assertEquals(Set.of(result.definitionIds().get(index)), result.definitionOrbits().get(index));
+    var reordered = canonicalize(List.of(List.of(), List.of(0), List.of(2)), List.of(2, 1, 0));
+    assertEquals(result.definitionIds().get(0), reordered.definitionIds().get(2));
+    assertEquals(result.definitionIds().get(1), reordered.definitionIds().get(1));
+    assertEquals(result.definitionIds().get(2), reordered.definitionIds().get(0));
+  }
+
+  @Test
+  void resolvesDeepDependencyChainsWithoutUsingTheJavaCallStack() {
+    int size = 20_000;
+    var graph =
+        java.util.stream.IntStream.range(0, size)
+            .mapToObj(index -> index + 1 < size ? List.of(index + 1) : List.<Integer>of())
+            .toList();
+    var order = java.util.stream.IntStream.range(0, size).boxed().toList();
+    var result = canonicalize(graph, order);
+    assertEquals(size, result.groups().size());
+    assertEquals(size, result.definitionIds().size());
+    assertEquals(size, result.metrics().components());
+  }
+
+  @Test
   void canonicalizesStructurallyIndistinguishableRecursiveMembers() {
     List<List<Integer>> graph = List.of(List.of(1, 2), List.of(0, 2), List.of(0, 3), List.of(0, 1));
 

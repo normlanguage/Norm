@@ -5,5 +5,6 @@ public enum BoundCallableKind {
   FUNCTION,
   EXTENSION,
   METHOD,
-  LAMBDA
+  LAMBDA,
+  DEFAULT_ARGUMENT
 }

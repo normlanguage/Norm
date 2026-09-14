@@ -233,6 +233,9 @@ final class CoreTraversalContractTest {
             links.type()));
     values.add(new CoreExpression.LocalRead(4, 3, links.type()));
     values.add(
+        new CoreExpression.Let(
+            60, 4, values.get(0), new CoreExpression.LocalRead(61, 4, links.type())));
+    values.add(
         new CoreExpression.FieldRead(
             5, values.get(0), new CoreFieldReference(links.next(), 0), false, links.type()));
     values.add(

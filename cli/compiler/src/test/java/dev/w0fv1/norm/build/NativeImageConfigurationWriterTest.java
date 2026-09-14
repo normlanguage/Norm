@@ -60,7 +60,15 @@ final class NativeImageConfigurationWriterTest {
         Void main() {}
         """);
     try (var launcher = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
-        var compiled = launcher.compileApplication(source)) {
+        var compiled = launcher.compileApplication(source);
+        var capturedClasspath =
+            compiled
+                .application()
+                .orElseThrow()
+                .javaClasspath()
+                .acquire(
+                    new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+                        directory.resolve("classpath"), 1, 1024))) {
       org.junit.jupiter.api.Assertions.assertTrue(
           compiled.result().isSuccess(), compiled.result().diagnostics().toString());
       var names = List.of("Entity", "Snapshot", "Contract", "Choice", "Label", "SyntheticHolder");
@@ -79,7 +87,7 @@ final class NativeImageConfigurationWriterTest {
                   stubs,
                   new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
                   List.of()),
-              compiled.application().orElseThrow().javaClasspath(),
+              capturedClasspath,
               new TemporaryDirectory());
       var output =
           new NativeImageConfigurationWriter()
@@ -123,7 +131,15 @@ final class NativeImageConfigurationWriterTest {
     Path source = directory.resolve("main.norm");
     Files.writeString(source, "Void main() {}\n");
     try (var launcher = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
-        var compilation = launcher.compileApplication(source)) {
+        var compilation = launcher.compileApplication(source);
+        var capturedClasspath =
+            compilation
+                .application()
+                .orElseThrow()
+                .javaClasspath()
+                .acquire(
+                    new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+                        directory.resolve("classpath"), 1, 1024))) {
       var application =
           new CompiledApplication(
               new ApplicationInput(
@@ -137,7 +153,7 @@ final class NativeImageConfigurationWriterTest {
                       new JavaAnnotationStub(binaryName + "Sibling", "")),
                   new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
                   List.of()),
-              compilation.application().orElseThrow().javaClasspath(),
+              capturedClasspath,
               new TemporaryDirectory());
       var output =
           new NativeImageConfigurationWriter()
@@ -208,7 +224,12 @@ final class NativeImageConfigurationWriterTest {
             generated);
     var environment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (var launcher = ApplicationRunner.open(environment);
-        var compilation = launcher.compileApplication(source)) {
+        var compilation = launcher.compileApplication(source);
+        var capturedClasspath =
+            JarBindingClasspath.prepare(List.of(binding))
+                .acquire(
+                    new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+                        directory.resolve("classpath"), 1, 1024))) {
       var original = compilation.application().orElseThrow().sourceSet();
       var sources =
           new ProjectSourceSet(
@@ -218,6 +239,7 @@ final class NativeImageConfigurationWriterTest {
               original.modulePaths(),
               original.moduleDescriptors(),
               original.moduleArchives(),
+              original.compiledModules(),
               original.scope(),
               original.sources(),
               original.exportedSourcePaths(),
@@ -237,7 +259,7 @@ final class NativeImageConfigurationWriterTest {
                           sources.compilationRequest(), java.util.Optional.of(sources)),
                       compilation.result(),
                       compilation.application().orElseThrow().annotations(),
-                      JarBindingClasspath.prepare(sources.jarBindings()),
+                      capturedClasspath,
                       new TemporaryDirectory()),
                   List.of(LinkedJarBinding.from(binding)),
                   directory.resolve("metadata"));

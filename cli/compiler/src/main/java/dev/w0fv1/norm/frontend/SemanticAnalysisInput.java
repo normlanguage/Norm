@@ -1,12 +1,9 @@
 package dev.w0fv1.norm.frontend;
 
-import dev.w0fv1.norm.semantic.SemanticContribution;
 import dev.w0fv1.norm.source.DocumentId;
-import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.CompilationScope;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -15,7 +12,6 @@ record SemanticAnalysisInput(
     Syntax.Program entryProgram,
     boolean requireEntryPoint,
     Set<DocumentId> exportedSources,
-    Map<SourceSpan, SemanticContribution> reusableDeclarations,
     int minimumBodySymbolId,
     Set<DocumentId> moduleEvaluationDocuments,
     Set<DocumentId> standardLibraryDocuments,
@@ -26,7 +22,6 @@ record SemanticAnalysisInput(
     programs = List.copyOf(programs);
     Objects.requireNonNull(entryProgram, "entryProgram");
     exportedSources = Set.copyOf(exportedSources);
-    reusableDeclarations = Map.copyOf(reusableDeclarations);
     moduleEvaluationDocuments = Set.copyOf(moduleEvaluationDocuments);
     standardLibraryDocuments = Set.copyOf(standardLibraryDocuments);
     bindingDocuments = Set.copyOf(bindingDocuments);

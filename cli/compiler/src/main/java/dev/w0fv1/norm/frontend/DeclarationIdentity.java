@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.syntax.Syntax;
+import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -14,7 +15,8 @@ record DeclarationIdentity(String value, String family) {
     Objects.requireNonNull(family, "family");
   }
 
-  static DeclarationIdentity topLevel(Syntax.Program program, Object declaration) {
+  static DeclarationIdentity topLevel(
+      Syntax.Program program, Object declaration, ModuleSourceCoordinate coordinate) {
     String kind;
     String name;
     String discriminator;
@@ -42,13 +44,21 @@ record DeclarationIdentity(String value, String family) {
     } else {
       throw new IllegalArgumentException("unsupported top-level declaration");
     }
-    String author =
-        encode(program.span().source().id().uri().toString(), program.packageName(), kind, name);
+    String author = encode(sourceIdentity(coordinate), program.packageName(), kind, name);
     String family =
         visibility == Syntax.Visibility.PRIVATE
             ? author
-            : encode(program.packageName(), kind, name);
+            : encode(
+                coordinate.module().name(),
+                Integer.toString(coordinate.module().version()),
+                program.packageName(),
+                kind,
+                name);
     return new DeclarationIdentity(author + encode(discriminator), family);
+  }
+
+  static String sourceIdentity(ModuleSourceCoordinate coordinate) {
+    return coordinate.identity();
   }
 
   static String functionSignature(Syntax.FunctionDecl function) {

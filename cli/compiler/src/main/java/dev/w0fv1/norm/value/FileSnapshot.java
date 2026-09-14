@@ -27,8 +27,20 @@ public record FileSnapshot(Path path, Sha256Digest content) {
     Files.createDirectories(target.getParent());
     Path temporary = Files.createTempFile(target.getParent(), ".norm-content-", ".part");
     try {
-      Files.copy(path, temporary, StandardCopyOption.REPLACE_EXISTING);
-      new FileSnapshot(temporary, content).verify();
+      var digest = Sha256Digest.algorithm();
+      try (var input = Files.newInputStream(path);
+          var output = Files.newOutputStream(temporary)) {
+        byte[] buffer = new byte[Sha256Digest.BUFFER_SIZE];
+        int read;
+        while ((read = input.read(buffer)) >= 0) {
+          if (read == 0) continue;
+          output.write(buffer, 0, read);
+          digest.update(buffer, 0, read);
+        }
+      }
+      if (!content.equals(Sha256Digest.fromBytes(digest.digest()))) {
+        throw new IOException("file content changed since capture: " + path);
+      }
       try {
         Files.move(
             temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

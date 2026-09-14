@@ -21,38 +21,75 @@ public final class CoreCanonicalizer {
 
   public Result canonicalize(
       List<CoreDefinition> pendingDefinitions, CoreCanonicalizationControl control) {
+    return canonicalize(CoreCompilationInput.source(pendingDefinitions), control);
+  }
+
+  public Result canonicalize(CoreCompilationInput input) {
+    return canonicalize(input, CoreCanonicalizationControl.standard());
+  }
+
+  public Result canonicalize(CoreCompilationInput input, CoreCanonicalizationControl control) {
+    Objects.requireNonNull(input, "input");
     CoreCanonicalizationControl.State state = Objects.requireNonNull(control, "control").begin();
-    List<CoreDefinition> definitions = List.copyOf(pendingDefinitions);
-    validatePendingLinks(definitions);
-    List<List<Integer>> components = stronglyConnectedComponents(definitions, state);
+    List<CoreDefinition> definitions = new ArrayList<>(input.declarations().size());
+    Set<Integer> compiled = new java.util.HashSet<>();
     Map<Integer, DefinitionId> definitionIds = new LinkedHashMap<>();
     Map<Integer, Set<DefinitionId>> definitionOrbits = new LinkedHashMap<>();
     Map<DefinitionGroupId, CoreDefinitionGroup> groups = new LinkedHashMap<>();
-    Set<List<Integer>> remaining = new LinkedHashSet<>(components);
-    while (!remaining.isEmpty()) {
+    for (int index = 0; index < input.declarations().size(); index++) {
       state.checkpoint();
-      boolean progressed = false;
-      for (List<Integer> component : List.copyOf(remaining)) {
-        if (!dependenciesResolved(component, definitions, definitionIds)) continue;
-        CanonicalGroup canonical = canonicalizeGroup(component, definitions, definitionIds, state);
-        groups.putIfAbsent(canonical.group().id(), canonical.group());
-        canonical
-            .memberOrbits()
-            .forEach(
-                (declaration, memberIndices) -> {
-                  Set<DefinitionId> orbit =
-                      memberIndices.stream()
-                          .map(canonical.group()::definitionId)
-                          .collect(
-                              java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
-                  definitionOrbits.put(declaration, Set.copyOf(orbit));
-                  definitionIds.put(declaration, orbit.iterator().next());
-                });
-        remaining.remove(component);
-        progressed = true;
+      switch (input.declarations().get(index)) {
+        case CoreCompilationInput.Source source -> definitions.add(source.definition());
+        case CoreCompilationInput.Compiled reused -> {
+          definitions.add(input.dependencies().definition(reused.definition()).orElseThrow());
+          compiled.add(index);
+          definitionIds.put(index, reused.definition());
+          definitionOrbits.put(index, reused.equivalentDefinitions());
+          groups.putIfAbsent(
+              reused.definition().group(),
+              input.dependencies().group(reused.definition().group()).orElseThrow());
+        }
       }
-      if (!progressed)
-        throw new IllegalStateException("definition dependency graph is inconsistent");
+    }
+    List<List<Integer>> components = stronglyConnectedComponents(definitions, compiled, state);
+    for (List<Integer> component : components) {
+      state.checkpoint();
+      CanonicalGroup canonical = canonicalizeGroup(component, definitions, definitionIds, state);
+      groups.putIfAbsent(canonical.group().id(), canonical.group());
+      canonical
+          .memberOrbits()
+          .forEach(
+              (declaration, memberIndices) -> {
+                Set<DefinitionId> orbit =
+                    memberIndices.stream()
+                        .map(canonical.group()::definitionId)
+                        .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
+                definitionOrbits.put(declaration, Set.copyOf(orbit));
+                definitionIds.put(declaration, orbit.iterator().next());
+              });
+    }
+    var required =
+        new ArrayDeque<>(
+            input.dependencies().groups().isEmpty()
+                ? List.<CoreDefinitionGroup>of()
+                : groups.values());
+    while (!required.isEmpty()) {
+      state.checkpoint();
+      for (var definition : required.removeFirst().definitions()) {
+        for (var link : CoreTree.links(definition)) {
+          if (link instanceof DefinitionReference.External external
+              && !groups.containsKey(external.definition().group())) {
+            input
+                .dependencies()
+                .group(external.definition().group())
+                .ifPresent(
+                    group -> {
+                      groups.put(group.id(), group);
+                      required.addLast(group);
+                    });
+          }
+        }
+      }
     }
     int maximumComponentSize = components.stream().mapToInt(List::size).max().orElse(0);
     return new Result(
@@ -67,6 +104,10 @@ public final class CoreCanonicalizer {
       List<CoreDefinition> definitions,
       Map<Integer, DefinitionId> definitionIds,
       CoreCanonicalizationControl.State state) {
+    if (component.size() == 1)
+      return new CanonicalGroup(
+          CoreDefinitionGroup.create(resolve(component, definitions, definitionIds)),
+          Map.of(component.getFirst(), Set.of(0)));
     CanonicalLabeling labeling = canonicalLabeling(component, definitions, definitionIds, state);
     List<Integer> order = labeling.order();
     return new CanonicalGroup(
@@ -383,39 +424,35 @@ public final class CoreCanonicalizer {
     return colors;
   }
 
-  private static boolean dependenciesResolved(
-      List<Integer> component,
-      List<CoreDefinition> definitions,
-      Map<Integer, DefinitionId> definitionIds) {
-    Set<Integer> members = Set.copyOf(component);
-    for (int declaration : component) {
-      for (CoreDefinitionLink link : CoreTree.links(definitions.get(declaration))) {
-        if (link instanceof PendingDefinitionReference pending
-            && !members.contains(pending.declarationIndex())
-            && !definitionIds.containsKey(pending.declarationIndex())) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  private static void validatePendingLinks(List<CoreDefinition> definitions) {
-    for (CoreDefinition definition : definitions) {
-      for (CoreDefinitionLink link : CoreTree.links(definition)) {
-        if (link instanceof PendingDefinitionReference pending
-            && pending.declarationIndex() >= definitions.size()) {
-          throw new IllegalArgumentException("pending reference is outside the definition set");
-        }
-      }
-    }
-  }
-
   private static List<List<Integer>> stronglyConnectedComponents(
-      List<CoreDefinition> definitions, CoreCanonicalizationControl.State state) {
-    Tarjan tarjan = new Tarjan(definitions, state);
+      List<CoreDefinition> definitions,
+      Set<Integer> compiled,
+      CoreCanonicalizationControl.State state) {
+    List<int[]> dependencies = new ArrayList<>(definitions.size());
+    for (int index = 0; index < definitions.size(); index++) {
+      state.checkpoint();
+      if (compiled.contains(index)) {
+        dependencies.add(new int[0]);
+        continue;
+      }
+      var definition = definitions.get(index);
+      int[] targets =
+          CoreTree.links(definition).stream()
+              .filter(PendingDefinitionReference.class::isInstance)
+              .map(PendingDefinitionReference.class::cast)
+              .mapToInt(PendingDefinitionReference::declarationIndex)
+              .filter(target -> !compiled.contains(target))
+              .distinct()
+              .sorted()
+              .toArray();
+      if (targets.length > 0 && targets[targets.length - 1] >= definitions.size())
+        throw new IllegalArgumentException("pending reference is outside the definition set");
+      dependencies.add(targets);
+    }
+    Tarjan tarjan = new Tarjan(dependencies, state);
     for (int declaration = 0; declaration < definitions.size(); declaration++) {
-      if (!tarjan.indices.containsKey(declaration)) tarjan.visit(declaration);
+      if (!compiled.contains(declaration) && tarjan.indices[declaration] == -1)
+        tarjan.visit(declaration);
     }
     return List.copyOf(tarjan.components);
   }
@@ -489,54 +526,63 @@ public final class CoreCanonicalizer {
   private record SearchedBranch(int candidate, CanonicalLabeling labeling) {}
 
   private static final class Tarjan {
-    private final List<CoreDefinition> definitions;
+    private final List<int[]> dependencies;
     private final CoreCanonicalizationControl.State state;
-    private final Map<Integer, Integer> indices = new HashMap<>();
-    private final Map<Integer, Integer> lowLinks = new HashMap<>();
+    private final int[] indices;
+    private final int[] lowLinks;
+    private final int[] cursors;
+    private final boolean[] onStack;
     private final ArrayDeque<Integer> stack = new ArrayDeque<>();
-    private final Set<Integer> onStack = new java.util.HashSet<>();
+    private final ArrayDeque<Integer> traversal = new ArrayDeque<>();
     private final List<List<Integer>> components = new ArrayList<>();
     private int nextIndex;
 
-    private Tarjan(List<CoreDefinition> definitions, CoreCanonicalizationControl.State state) {
-      this.definitions = definitions;
+    private Tarjan(List<int[]> dependencies, CoreCanonicalizationControl.State state) {
+      this.dependencies = dependencies;
       this.state = state;
+      indices = new int[dependencies.size()];
+      Arrays.fill(indices, -1);
+      lowLinks = new int[dependencies.size()];
+      cursors = new int[dependencies.size()];
+      onStack = new boolean[dependencies.size()];
     }
 
-    private void visit(int declaration) {
-      state.checkpoint();
-      indices.put(declaration, nextIndex);
-      lowLinks.put(declaration, nextIndex);
-      nextIndex++;
+    private void enter(int declaration) {
+      indices[declaration] = nextIndex;
+      lowLinks[declaration] = nextIndex++;
       stack.push(declaration);
-      onStack.add(declaration);
-      for (int dependency : dependencies(declaration)) {
-        if (!indices.containsKey(dependency)) {
-          visit(dependency);
-          lowLinks.put(declaration, Math.min(lowLinks.get(declaration), lowLinks.get(dependency)));
-        } else if (onStack.contains(dependency)) {
-          lowLinks.put(declaration, Math.min(lowLinks.get(declaration), indices.get(dependency)));
-        }
-      }
-      if (!lowLinks.get(declaration).equals(indices.get(declaration))) return;
-      List<Integer> component = new ArrayList<>();
-      int member;
-      do {
-        member = stack.pop();
-        onStack.remove(member);
-        component.add(member);
-      } while (member != declaration);
-      components.add(List.copyOf(component));
+      onStack[declaration] = true;
+      traversal.push(declaration);
     }
 
-    private List<Integer> dependencies(int declaration) {
-      return CoreTree.links(definitions.get(declaration)).stream()
-          .filter(PendingDefinitionReference.class::isInstance)
-          .map(PendingDefinitionReference.class::cast)
-          .map(PendingDefinitionReference::declarationIndex)
-          .distinct()
-          .sorted(Comparator.naturalOrder())
-          .toList();
+    private void visit(int root) {
+      enter(root);
+      while (!traversal.isEmpty()) {
+        state.checkpoint();
+        int declaration = traversal.peek();
+        int[] targets = dependencies.get(declaration);
+        if (cursors[declaration] < targets.length) {
+          int dependency = targets[cursors[declaration]++];
+          if (indices[dependency] == -1) enter(dependency);
+          else if (onStack[dependency])
+            lowLinks[declaration] = Math.min(lowLinks[declaration], indices[dependency]);
+          continue;
+        }
+        traversal.pop();
+        if (!traversal.isEmpty()) {
+          int parent = traversal.peek();
+          lowLinks[parent] = Math.min(lowLinks[parent], lowLinks[declaration]);
+        }
+        if (lowLinks[declaration] != indices[declaration]) continue;
+        List<Integer> component = new ArrayList<>();
+        int member;
+        do {
+          member = stack.pop();
+          onStack[member] = false;
+          component.add(member);
+        } while (member != declaration);
+        components.add(List.copyOf(component));
+      }
     }
   }
 }

@@ -30,7 +30,11 @@ final class BodyAnalysisStateTest {
     var state = new BodyAnalysisState();
     var source = SourceFile.of(Path.of("scopes.norm"), "Void main() {}");
     var span = SourceSpan.at(source, 0);
-    var local = SymbolId.source(source.id(), 10);
+    var local =
+        SymbolId.source(
+            dev.w0fv1.norm.value.CompilationScope.anonymous(java.util.List.of(source))
+                .coordinate(source.id()),
+            10);
     try (var callable = state.enterCallable(local, SemanticType.VOID, false, null);
         var root = state.scopes().enter(span)) {
       assertTrue(state.scopes().declare("value", SemanticType.INTEGER, local));

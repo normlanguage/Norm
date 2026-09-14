@@ -95,9 +95,13 @@ final class MarkdownPackageReferencesTest {
     Files.createDirectories(archive.getParent());
     String manifest =
         """
-        {"formatVersion":5,"module":{"name":"sample.%s","version":%d,"exports":["api"],"dependencies":%s}}
+        {"formatVersion":%d,"module":{"name":"sample.%s","version":%d,"exports":["api"],"dependencies":%s}}
         """
-            .formatted(artifact, version, dependencies);
+            .formatted(
+                dev.w0fv1.norm.value.ModuleArchiveFormat.FORMAT_VERSION,
+                artifact,
+                version,
+                dependencies);
     try (var zip = new ZipOutputStream(Files.newOutputStream(archive))) {
       for (var entry :
           Map.of("module.json", manifest, "sources/sample/" + artifact + "/api.norm", source)

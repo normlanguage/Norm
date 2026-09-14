@@ -335,6 +335,11 @@ final class CoreCodec {
         writer.writeTag("local-read").writeInt(local.localIndex());
         writeType(writer, local.type(), referenceResolver);
       }
+      case CoreExpression.Let let -> {
+        writer.writeTag("let").writeInt(let.localIndex());
+        writeExpression(writer, let.initializer(), referenceResolver);
+        writeExpression(writer, let.body(), referenceResolver);
+      }
       case CoreExpression.FieldRead field -> {
         writer.writeTag("field-read");
         writeExpression(writer, field.receiver(), referenceResolver);

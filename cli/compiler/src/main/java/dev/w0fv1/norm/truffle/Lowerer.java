@@ -654,6 +654,11 @@ final class Lowerer {
                   lowerRuntimeType(collection.runtimeType(), plan));
           case CoreExpression.LocalRead local ->
               new ExpressionNodes.ReadLocal(plan.binding(local.localIndex()));
+          case CoreExpression.Let let ->
+              new ExpressionNodes.Let(
+                  plan.binding(let.localIndex()),
+                  lowerExpression(let.initializer(), plan),
+                  lowerExpression(let.body(), plan));
           case CoreExpression.FieldRead field ->
               new ExpressionNodes.ReadField(
                   lowerExpression(field.receiver(), plan),

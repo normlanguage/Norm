@@ -8,6 +8,7 @@ import dev.w0fv1.norm.semantic.Symbol;
 import dev.w0fv1.norm.semantic.SymbolId;
 import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.Syntax;
+import dev.w0fv1.norm.value.CompilationScope;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -24,7 +25,6 @@ final class ImportResolver {
     Map<SourceSpan, SymbolId> bindings = new LinkedHashMap<>();
     Map<Syntax.ImportDecl, SymbolId> importAliases = new IdentityHashMap<>();
     Map<SymbolId, List<SymbolId>> aliasTargets = new LinkedHashMap<>();
-    int nextSymbolId = input.nextSymbolId();
     for (Syntax.Program program : input.programs()) {
       Set<String> localNames = new HashSet<>();
       program.enums().forEach(declaration -> localNames.add(declaration.name()));
@@ -59,7 +59,12 @@ final class ImportResolver {
         Symbol target = input.symbols().get(input.declarationSymbols().get(declaration));
         bindings.put(imported.nameSpan(), target.id());
         if (imported.alias().isEmpty()) continue;
-        SymbolId aliasId = SymbolId.source(imported.nameSpan().source().id(), nextSymbolId++);
+        SymbolId aliasId =
+            SymbolId.authored(
+                "import/"
+                    + input.scope().coordinate(imported.nameSpan().source().id()).identity()
+                    + "/"
+                    + imported.localName());
         Symbol alias =
             new Symbol(
                 aliasId,
@@ -84,21 +89,21 @@ final class ImportResolver {
         aliasTargets.put(aliasId, targets);
       }
     }
-    return new Result(diagnostics, aliases, bindings, importAliases, aliasTargets, nextSymbolId);
+    return new Result(diagnostics, aliases, bindings, importAliases, aliasTargets);
   }
 
   record Input(
       List<Syntax.Program> programs,
+      CompilationScope scope,
       DeclarationCatalog declarations,
       Map<SymbolId, Symbol> symbols,
-      Map<Object, SymbolId> declarationSymbols,
-      int nextSymbolId) {
+      Map<Object, SymbolId> declarationSymbols) {
     Input {
       programs = List.copyOf(programs);
+      java.util.Objects.requireNonNull(scope, "scope");
       java.util.Objects.requireNonNull(declarations, "declarations");
       symbols = Collections.unmodifiableMap(new LinkedHashMap<>(symbols));
       declarationSymbols = Collections.unmodifiableMap(new IdentityHashMap<>(declarationSymbols));
-      if (nextSymbolId < 0) throw new IllegalArgumentException("next symbol id cannot be negative");
     }
   }
 
@@ -107,8 +112,7 @@ final class ImportResolver {
       Map<SymbolId, Symbol> aliases,
       Map<SourceSpan, SymbolId> bindings,
       Map<Syntax.ImportDecl, SymbolId> importAliases,
-      Map<SymbolId, List<SymbolId>> aliasTargets,
-      int nextSymbolId) {
+      Map<SymbolId, List<SymbolId>> aliasTargets) {
     Result {
       diagnostics = List.copyOf(diagnostics);
       aliases = Collections.unmodifiableMap(new LinkedHashMap<>(aliases));

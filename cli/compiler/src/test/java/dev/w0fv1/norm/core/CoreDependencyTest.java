@@ -8,6 +8,39 @@ import org.junit.jupiter.api.Test;
 
 final class CoreDependencyTest {
   @Test
+  void distinguishesAuthoringDependenciesWhenFunctionsShareCoreContent() {
+    var result =
+        NormTestKit.compile(
+            """
+        Integer first() { return 1 }
+        Integer second() { return 1 }
+        Integer callFirst() { return first() }
+        Integer callSecond() { return second() }
+        Void main() { printLine(callFirst()) printLine(callSecond()) }
+        """);
+    assertTrue(result.isSuccess(), result.diagnostics().toString());
+    var artifact = result.output().orElseThrow().artifact();
+    var bindings =
+        artifact.namespace().bindings().stream()
+            .filter(
+                binding ->
+                    Set.of("first", "second", "callFirst", "callSecond", "main")
+                        .contains(binding.name()))
+            .collect(java.util.stream.Collectors.toMap(CoreBinding::name, CoreBinding::occurrence));
+    assertEquals(bindings.get("first").representative(), bindings.get("second").representative());
+    assertEquals(
+        bindings.get("callFirst").representative(), bindings.get("callSecond").representative());
+    var dependencies = CoreDependencyIndex.create(artifact);
+    assertEquals(
+        Set.of(bindings.get("first")), dependencies.dependenciesOf(bindings.get("callFirst")));
+    assertEquals(
+        Set.of(bindings.get("second")), dependencies.dependenciesOf(bindings.get("callSecond")));
+    assertEquals(
+        Set.of(bindings.get("callFirst"), bindings.get("main")),
+        dependencies.transitiveDependentsOf(Set.of(bindings.get("first"))));
+  }
+
+  @Test
   void readingAnIndexDoesNotDemandItsOptionalWriteOperation() {
     var compiled =
         NormTestKit.compile(
