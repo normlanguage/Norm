@@ -2,19 +2,18 @@ package dev.w0fv1.norm.packages;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.google.gson.JsonParser;
 import dev.w0fv1.norm.documentation.MarkdownReferenceChecker;
 import dev.w0fv1.norm.jvm.JarResolver;
+import dev.w0fv1.norm.project.ModulePackager;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.value.ModuleRepositoryId;
 import dev.w0fv1.norm.value.Sha256Digest;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -93,23 +92,33 @@ final class MarkdownPackageReferencesTest {
                 + version
                 + ".nar");
     Files.createDirectories(archive.getParent());
-    String manifest =
-        """
-        {"formatVersion":%d,"module":{"name":"sample.%s","version":%d,"exports":["api"],"dependencies":%s}}
-        """
-            .formatted(
-                dev.w0fv1.norm.value.ModuleArchiveFormat.FORMAT_VERSION,
-                artifact,
-                version,
-                dependencies);
-    try (var zip = new ZipOutputStream(Files.newOutputStream(archive))) {
-      for (var entry :
-          Map.of("module.json", manifest, "sources/sample/" + artifact + "/api.norm", source)
-              .entrySet()) {
-        zip.putNextEntry(new ZipEntry(entry.getKey()));
-        zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
-        zip.closeEntry();
-      }
+    Path modules = directory.resolve("modules");
+    Path module = Files.createDirectories(modules.resolve("sample/" + artifact));
+    var requirements = new java.util.ArrayList<String>();
+    for (var item : JsonParser.parseString(dependencies).getAsJsonArray()) {
+      var dependency = item.getAsJsonObject();
+      requirements.add(
+          "dependency(repository: \"github\", name: \"%s\", version: %d)"
+              .formatted(
+                  dependency.get("name").getAsString(), dependency.get("version").getAsInt()));
+    }
+    Path manifest = module.resolve("module.norm");
+    Files.writeString(
+        manifest,
+        "Module module() { module(name: \"sample.%s\", version: %d, exports: [\"api\"], dependencies: [%s]) }"
+            .formatted(artifact, version, String.join(",", requirements)));
+    Files.writeString(module.resolve("api.norm"), source);
+    var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    var resolver =
+        new NormPackageResolver(
+            directory.resolve("packaged"), directory.resolve("packaging-cache"), Map.of());
+    try (var compiler = environment.compilerSession();
+        var projects =
+            environment.projectLoader(resolver, new JarResolver(directory.resolve("jars")))) {
+      var packaged =
+          new ModulePackager(projects, compiler)
+              .packageModule(manifest, directory.resolve("packaged"));
+      Files.copy(packaged.archive(), archive);
     }
     Files.writeString(
         archive.resolveSibling(archive.getFileName() + ".sha256"),

@@ -1,15 +1,21 @@
+@Document(description: "Provides typed context values scoped to an execution.")
 package std.context
+
+import std.annotation.Document
 
 import std.core.Unit
 
+@Document(description: "Returns the current value for a context type, or null when absent.")
 public T? currentContext<T>() {
   __contextCurrent<T>(type: T.class)
 }
 
-public R withContext<T, R>(T value, Function<R()> action) {
+@Document(description: "Runs a computation with a context value and restores the previous context afterward.")
+public R withContext<T, R>(@Document(description: "The scoped context value.") T value, @Document(description: "The computation to run.") Function<R()> action) {
   __contextWith<T, R>(value: value, type: T.class, action: action)
 }
 
-public Void withContext<T>(T value, Function<Void()> action) {
+@Document(description: "Runs an action with a context value and restores the previous context afterward.")
+public Void withContext<T>(@Document(description: "The scoped context value.") T value, @Document(description: "The action to run.") Function<Void()> action) {
   __contextWith<T, Unit>(value: value, type: T.class, action: () { action() Unit.Value })
 }

@@ -8,12 +8,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 
-public record PreparedApplication(ApplicationProgramData program, List<String> classpath) {
+public record PreparedApplication(
+    ApplicationProgramData program, List<String> classpath, List<String> moduleRoots) {
   public static final String ENTRY = "application.bin";
 
   public PreparedApplication {
     Objects.requireNonNull(program, "program");
     classpath = List.copyOf(classpath);
+    moduleRoots = List.copyOf(moduleRoots);
   }
 
   public static PreparedApplication read(Path directory) throws IOException {
@@ -33,7 +35,7 @@ public record PreparedApplication(ApplicationProgramData program, List<String> c
                   return path;
                 })
             .toList();
-    try (var runtime = JvmJarBindingRuntime.prepared(program.bindings(), paths)) {
+    try (var runtime = JvmJarBindingRuntime.prepared(program.bindings(), paths, moduleRoots)) {
       new NormRuntime()
           .execute(
               program.artifact(),

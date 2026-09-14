@@ -152,7 +152,13 @@ final class NativeApplicationExecutable {
                 compilation.sourceSet().jarBindings().stream()
                     .map(binding -> binding.graph().root().identity())
                     .toList());
-    var modules = dev.w0fv1.norm.jvm.JavaModulePath.inspect(applicationPaths);
+    var moduleRoots =
+        dev.w0fv1.norm.jvm.JavaModulePath.inspect(
+                compilation.javaClasspath().rootPaths().stream()
+                    .filter(applicationPaths::contains)
+                    .toList())
+            .names();
+    var modules = dev.w0fv1.norm.jvm.JavaModulePath.select(applicationPaths, moduleRoots);
     arguments.add("-Dtruffle.UseFallbackRuntime=true");
     arguments.add("-Dpolyglot.engine.WarnInterpreterOnly=false");
     arguments.add(

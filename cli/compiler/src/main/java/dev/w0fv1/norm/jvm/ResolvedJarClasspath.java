@@ -82,6 +82,15 @@ final class ResolvedJarClasspath {
     return closure(roots);
   }
 
+  List<java.nio.file.Path> rootPaths() {
+    return roots.stream()
+        .map(ArtifactKey::from)
+        .distinct()
+        .map(selected::get)
+        .map(ResolvedJarArtifact::file)
+        .toList();
+  }
+
   List<ResolvedJarArtifact> closure(List<JarArtifactIdentity> entryPoints) {
     List<ArtifactKey> roots = entryPoints.stream().map(ArtifactKey::from).distinct().toList();
     for (ArtifactKey root : roots) {

@@ -94,7 +94,8 @@ public final class PreparedApplicationCache {
             .map(value -> new FileSnapshot(value.file(), value.content()))
             .toList();
     var content =
-        new PreparedApplicationContent(captured.program(), captured.classes(), dependencies);
+        new PreparedApplicationContent(
+            captured.program(), captured.classes(), dependencies, captured.moduleRoots());
     var modulePrograms =
         modules.stream()
             .map(

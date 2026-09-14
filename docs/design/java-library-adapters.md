@@ -148,7 +148,7 @@ POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module
 
 ## 当前绑定面
 
-Java 模块识别由 `JavaModulePath` 统一提供。JVM 模块资源与类加载沿用同一应用执行域，资源流由应用加载器在退出时完成关闭；Native 从已选定制品图派生应用模块路径。实现入口为 `JvmJarBindingRuntime` 与 `NativeApplicationExecutable`，身份、资源读取和文件释放验证见 `JavaModuleLoadingTest`。编译器依赖、服务资源与 JDK 平台边界的隔离验证见 [ApplicationClassLoaderIsolationTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/ApplicationClassLoaderIsolationTest.java)。依赖的 Native 可用性仍需实际应用验收。
+Java 模块识别与根 JAR 的 JPMS 依赖选择由 `JavaModulePath` 统一提供，JVM、准备制品和 Native 共享模块根身份。JVM 模块资源与类加载沿用同一应用执行域，资源流由应用加载器在退出时完成关闭。实现入口为 `JvmJarBindingRuntime`、`PreparedApplication` 与 `NativeApplicationExecutable`，模块选择、身份、资源读取和文件释放验证见 `JavaModuleLoadingTest`。编译器依赖、服务资源与 JDK 平台边界的隔离验证见 [ApplicationClassLoaderIsolationTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/ApplicationClassLoaderIsolationTest.java)。依赖的 Native 可用性仍需实际应用验收。
 
 当前实现覆盖静态与实例方法、构造函数、静态与实例字段、基本与盒装标量、字符串、`Number`、不透明对象、Object 上界泛型和 JAR 内泛型继承投影。具体组件类型的 Java 数组映射为生成的 identity wrapper，提供固定长度、读取、原位更新和构造能力；基本类型数组与盒装类型数组保持不同名义类型，不映射为具有值语义的 Norm `Array<T>`。Java `T[]` 与 `T...` 使用按擦除组件区分的 reified 数组，可变参数调用固定为单个数组参数。
 
@@ -177,6 +177,8 @@ Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `st
 每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。发布门禁要求公开适配面全部生成并通过行为测试。
 
 Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。生成的应用类型保留 Norm 泛型继承，并在 JVM 应用外观中提供托管实例分配入口；框架创建的实体或组件会关联回同一个 Norm 对象。入口 Module 与包含框架支持源码的纯 Norm 依赖参与处理；生成的 Binding 声明不进入应用处理面。Norm 异常和枚举值穿过 DI、事务等 Java 代理后保持原有语言语义。真实框架验收入口见 [Micronaut BBS](https://github.com/normlanguage/examples/blob/main/micronaut-bbs/README.md)。
+
+模块 `resources` 可作为注解处理器的编译输入。资源准备入口见 [ApplicationCompiler](../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationCompiler.java)，模板更新与删除的回归验证见 [AnnotationProcessorResourcesTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/AnnotationProcessorResourcesTest.java)。
 
 隐式构造的全部输入都有默认值时，Java 应用外观提供优先的无参构造入口；它执行 Norm 初始化逻辑，完整参数入口仍可使用。构造与私有状态的跨语言验证见 [JavaAnnotationBindingIntegrationTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaAnnotationBindingIntegrationTest.java)。
 

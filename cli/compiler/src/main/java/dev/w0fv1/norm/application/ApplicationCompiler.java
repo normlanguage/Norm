@@ -54,6 +54,9 @@ public final class ApplicationCompiler implements AutoCloseable {
                   java.nio.file.Path.of(
                       System.getProperty("user.home"), ".norm", "cache", "java-classpaths"));
       var classpath = capturedClasspath.classpath();
+      var moduleResources = input.project().map(ProjectSourceSet::resources).orElse(Map.of());
+      var resourceDirectory = workspace.path().resolve("resources");
+      var resourceFiles = resources.materialize(resourceDirectory, moduleResources);
       progress.accept("Processing Java annotations");
       var output =
           annotations.process(
@@ -64,9 +67,8 @@ public final class ApplicationCompiler implements AutoCloseable {
               input.request().scope(),
               input.request().entryDocument(),
               input.request().bindingSources(),
+              resourceFiles,
               progress);
-      resources.materialize(
-          output.classes(), input.project().map(ProjectSourceSet::resources).orElse(Map.of()));
       var application =
           new CompiledApplication(input, result, output, capturedClasspath, workspace);
       transferred = true;

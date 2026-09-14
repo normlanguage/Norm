@@ -27,6 +27,8 @@ public final class PreparedApplicationWriter {
         application.javaClasspath().artifacts().stream()
             .map(artifact -> new FileSnapshot(artifact.file(), artifact.content()))
             .toList();
-    return new PreparedApplicationContent(program, classes, dependencies);
+    var moduleRoots =
+        dev.w0fv1.norm.jvm.JavaModulePath.inspect(application.javaClasspath().rootPaths()).names();
+    return new PreparedApplicationContent(program, classes, dependencies, moduleRoots);
   }
 }

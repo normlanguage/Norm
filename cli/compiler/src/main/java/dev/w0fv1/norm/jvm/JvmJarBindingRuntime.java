@@ -64,8 +64,8 @@ public final class JvmJarBindingRuntime
   }
 
   public static JvmJarBindingRuntime prepared(
-      List<LinkedJarBinding> bindings, List<Path> classpath) {
-    return new JvmJarBindingRuntime(bindings, applicationClassLoader(classpath), true);
+      List<LinkedJarBinding> bindings, List<Path> classpath, List<String> moduleRoots) {
+    return new JvmJarBindingRuntime(bindings, applicationClassLoader(classpath, moduleRoots), true);
   }
 
   public static JvmJarBindingRuntime closedWorld(
@@ -175,10 +175,17 @@ public final class JvmJarBindingRuntime
         .map(Path::normalize)
         .forEach(paths::add);
     classpath.paths().forEach(paths::add);
-    return applicationClassLoader(paths);
+    var roots = new ArrayList<Path>(classpath.rootPaths());
+    roots.addAll(applicationClasspath);
+    try {
+      return applicationClassLoader(paths, JavaModulePath.inspect(roots).names());
+    } catch (IOException failure) {
+      throw new JarBindingRuntimeException("cannot inspect application module roots", failure);
+    }
   }
 
-  private static ClassLoader applicationClassLoader(java.util.Collection<Path> paths) {
+  private static ClassLoader applicationClassLoader(
+      java.util.Collection<Path> paths, List<String> moduleRoots) {
     URL[] urls =
         paths.stream()
             .map(
@@ -193,7 +200,7 @@ public final class JvmJarBindingRuntime
             .toArray(URL[]::new);
     var loader = new ApplicationClassLoader(urls, JvmJarBindingRuntime.class.getClassLoader());
     try {
-      var modules = JavaModulePath.inspect(paths);
+      var modules = JavaModulePath.select(paths, moduleRoots);
       if (!modules.paths().isEmpty()) {
         var finder = java.lang.module.ModuleFinder.of(modules.paths().toArray(Path[]::new));
         var roots =

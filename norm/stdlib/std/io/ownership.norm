@@ -1,7 +1,13 @@
 package std.io
 
+import std.annotation.Document
+
+@Document(description: "Tracks resources and executes actions under their owning scope.")
 public interface ResourceOwner {
-  Void own(Resource resource)
-  Void release(Resource resource)
-  Void execute(Function<Void()> action)
+  @Document(description: "Registers a resource with this owner.")
+  Void own(@Document(description: "The resource to register.") Resource resource)
+  @Document(description: "Removes a resource from this owner.")
+  Void release(@Document(description: "The resource to remove.") Resource resource)
+  @Document(description: "Runs an action within the owning scope.")
+  Void execute(@Document(description: "The action to execute.") Function<Void()> action)
 }

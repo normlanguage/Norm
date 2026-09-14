@@ -1,6 +1,8 @@
 # Version index
 
-Norm 0.22 is the current release.
+Norm 0.23 is the current release.
+
+- [Norm 0.23 implementation contract](/en/versions/0.23)
 
 - [Norm 0.22 implementation contract](/en/versions/0.22)
 

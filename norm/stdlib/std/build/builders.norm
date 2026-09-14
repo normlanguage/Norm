@@ -1,13 +1,21 @@
+@Document(description: "Defines typed result builders for block expressions.")
 package std.build
+
+import std.annotation.Document
 
 import std.annotation.ParameterTarget
 import std.annotation.BinaryRetention
 
+@Document(description: "Selects the result builder for an annotated block parameter.")
 public annotation BuildWith implements ParameterTarget, BinaryRetention {
+  @Document(description: "The result builder type.")
   Class<?> value
 }
 
+@Document(description: "Accumulates block elements into a typed result.")
 public interface ResultBuilder<Element, Result> {
-  Void add(Element value)
+  @Document(description: "Adds an element to the result.")
+  Void add(@Document(description: "The element to add.") Element value)
+  @Document(description: "Returns the completed result.")
   Result finish()
 }

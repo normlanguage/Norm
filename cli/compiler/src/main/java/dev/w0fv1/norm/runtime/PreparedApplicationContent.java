@@ -15,10 +15,14 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public record PreparedApplicationContent(
-    ApplicationProgramData program, Map<String, byte[]> classes, List<FileSnapshot> dependencies) {
+    ApplicationProgramData program,
+    Map<String, byte[]> classes,
+    List<FileSnapshot> dependencies,
+    List<String> moduleRoots) {
   public PreparedApplicationContent {
     classes = Map.copyOf(classes);
     dependencies = List.copyOf(dependencies);
+    moduleRoots = List.copyOf(moduleRoots);
   }
 
   public Path materialize(Path directory) throws IOException {
@@ -32,7 +36,7 @@ public record PreparedApplicationContent(
     var paths = new ArrayList<String>();
     paths.add("classes");
     paths.addAll(dependencyFiles().keySet());
-    return new PreparedApplication(program, paths);
+    return new PreparedApplication(program, paths, moduleRoots);
   }
 
   public DirectoryArtifactCache.Lease acquire(DirectoryArtifactCache cache) throws IOException {

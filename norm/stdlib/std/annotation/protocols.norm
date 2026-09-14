@@ -13,6 +13,7 @@ public interface PackageTarget extends AnnotationTarget {
 public interface TypeTarget extends AnnotationTarget {
 }
 
+@Document(description: "Marks types whose implementation is supplied by a managed runtime.")
 public interface ManagedImplementation extends TypeTarget {
 }
 
@@ -20,6 +21,7 @@ public interface ManagedImplementation extends TypeTarget {
 public interface FieldTarget extends AnnotationTarget {
 }
 
+@Document(description: "Marks fields whose storage is supplied by a managed runtime.")
 public interface ManagedField extends FieldTarget {
 }
 
@@ -137,4 +139,5 @@ public annotation Document implements PackageTarget, TypeTarget, FieldTarget, Co
   List<Field<?, ?>>? fields
 }
 
+@Document(description: "Marks fields that participate in managed identity.")
 public interface IdentityField extends FieldTarget {}

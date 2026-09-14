@@ -78,6 +78,10 @@ public final class JarBindingClasspath {
     return artifacts().stream().map(ResolvedJarArtifact::file).toList();
   }
 
+  public List<Path> rootPaths() {
+    return resolved.rootPaths();
+  }
+
   public List<Path> dependencyPaths(List<JarArtifactIdentity> roots) {
     return resolved.closure(roots).stream().map(ResolvedJarArtifact::file).toList();
   }

@@ -8,23 +8,26 @@ import std.context.currentContext
 import std.core.Unit
 import std.core.Exception
 
+@Document(description: "Owns tasks started within the current execution scope.")
 public interface TaskScope {
-  Task<T> start<T>(Function<T()> work)
+  @Document(description: "Starts typed work using this scope.")
+  Task<T> start<T>(@Document(description: "The computation to start.") Function<T()> work)
 }
 
 @Document(description: "Starts work in the current task scope, preserving its scheduling and resource ownership.")
-public Task<T> async<T>(Function<T()> work) {
+public Task<T> async<T>(@Document(description: "The computation to run.") Function<T()> work) {
   var scope = currentContext<TaskScope>()
   if scope == null { throw Exception(message: "async requires a task scope") }
   scope.start<T>(work)
 }
 
-public Task<Unit> async(Function<Void()> work) {
+@Document(description: "Starts work without a result in the current task scope.")
+public Task<Unit> async(@Document(description: "The action to run.") Function<Void()> work) {
   async<Unit>(() { work() Unit.Value })
 }
 
 @Document(description: "Starts typed work on a virtual thread and returns its owned task immediately.")
-public Task<T> startTask<T>(Function<T()> work, TaskExecutor? executor = null) {
+public Task<T> startTask<T>(@Document(description: "The computation to run.") Function<T()> work, @Document(description: "Optional scheduler for task callbacks and unhandled failures.") TaskExecutor? executor = null) {
   Function<Void(Function<Void()>)>? dispatch = null
   Function<Void(Function<Void()>)>? unhandled = null
   if executor != null { dispatch = (Function<Void()> action) { executor.dispatch(action) } }
@@ -40,37 +43,45 @@ public Task<T> startTask<T>(Function<T()> work, TaskExecutor? executor = null) {
 }
 
 @Document(description: "Starts work without a result on a virtual thread.")
-public Task<Unit> startTask(Function<Void()> work, TaskExecutor? executor = null) {
+public Task<Unit> startTask(@Document(description: "The action to run.") Function<Void()> work, @Document(description: "Optional scheduler for task callbacks and unhandled failures.") TaskExecutor? executor = null) {
   startTask<Unit>(work: () { work() Unit.Value }, executor: executor)
 }
 
+@Document(description: "Schedules task callbacks and handles unhandled failures.")
 public interface TaskExecutor {
-  Void dispatch(Function<Void()> action)
-  Void report(Exception error) { throw error }
+  @Document(description: "Schedules an action for execution.")
+  Void dispatch(@Document(description: "The action to schedule.") Function<Void()> action)
+  @Document(description: "Handles an unobserved task failure.")
+  Void report(@Document(description: "The unhandled failure.") Exception error) { throw error }
 }
 
 @Document(description: "Represents a typed operation whose result may become available later.")
 public class Task<T> implements Resource {
+  @Document(description: "Returns a task that completes when termination finishes, or null if no wait is needed.")
   public Task<Unit>? termination() {
     __taskTermination<Task<Unit>?>(task: this, completed: () { Unit.Value })
   }
 
-  public Task<R> then<R>(R completed(T result)) {
+  @Document(description: "Transforms a successful result in a continuation task.")
+  public Task<R> then<R>(@Document(description: "The transformation applied to the result.") R completed(T result)) {
     __taskContinue<Task<R>>(task: this, work: () { completed(this.await()) })
   }
 
-  public Task<Unit> then(Void completed(T result)) {
+  @Document(description: "Runs an action after successful completion.")
+  public Task<Unit> then(@Document(description: "The action applied to the result.") Void completed(T result)) {
     this.then<Unit>((T result) { completed(result) Unit.Value })
   }
 
-  public Task<T> error(T failed(Exception failure)) {
-    Function<T()> work = () {
+  @Document(description: "Recovers a failed task with a replacement result.")
+  public Task<T> error(@Document(description: "The recovery function.") T failed(Exception failure)) {
+    @Document(description: "The computation to run.") Function<T()> work = () {
       try { return this.await() } catch Exception failure { return failed(failure) }
     }
     __taskContinue<Task<T>>(task: this, work: work)
   }
 
-  public Task<Unit> error(Void failed(Exception failure)) {
+  @Document(description: "Observes task failure in a continuation.")
+  public Task<Unit> error(@Document(description: "The failure handler.") Void failed(Exception failure)) {
     __taskContinue<Task<Unit>>(task: this, work: () {
       try { this.await() } catch Exception failure { failed(failure) }
       Unit.Value

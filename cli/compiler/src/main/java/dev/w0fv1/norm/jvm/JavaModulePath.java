@@ -56,4 +56,38 @@ public record JavaModulePath(List<Path> paths, List<String> names) {
             .toList();
     return new JavaModulePath(paths, names);
   }
+
+  public static JavaModulePath select(Collection<Path> entries, Collection<String> roots)
+      throws IOException {
+    var available = inspect(entries);
+    var references =
+        ModuleFinder.of(available.paths().toArray(Path[]::new)).findAll().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    reference -> reference.descriptor().name(), reference -> reference));
+    var selected = new java.util.TreeSet<String>();
+    for (String root : roots) {
+      if (!references.containsKey(root))
+        throw new java.lang.module.FindException("Application module root not found: " + root);
+    }
+    var pending = new java.util.ArrayDeque<String>(roots);
+    while (!pending.isEmpty()) {
+      String name = pending.removeFirst();
+      var reference = references.get(name);
+      if (reference == null || !selected.add(name)) continue;
+      reference.descriptor().requires().stream()
+          .filter(
+              requirement ->
+                  !requirement
+                      .modifiers()
+                      .contains(java.lang.module.ModuleDescriptor.Requires.Modifier.STATIC))
+          .map(java.lang.module.ModuleDescriptor.Requires::name)
+          .forEach(pending::addLast);
+    }
+    var paths =
+        selected.stream()
+            .map(name -> Path.of(references.get(name).location().orElseThrow()))
+            .toList();
+    return new JavaModulePath(paths, List.copyOf(selected));
+  }
 }

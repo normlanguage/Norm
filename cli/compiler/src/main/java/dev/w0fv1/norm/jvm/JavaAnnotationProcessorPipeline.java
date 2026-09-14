@@ -2,6 +2,7 @@ package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.bridge.JavaApplicationBridge;
 import dev.w0fv1.norm.core.CoreArtifact;
+import dev.w0fv1.norm.core.store.ArtifactFileSet;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.value.CompilationScope;
 import java.io.IOException;
@@ -41,6 +42,7 @@ public final class JavaAnnotationProcessorPipeline {
         scope,
         entryDocument,
         bindingDocuments,
+        new ArtifactFileSet(java.util.Map.of()),
         message -> {});
   }
 
@@ -52,6 +54,7 @@ public final class JavaAnnotationProcessorPipeline {
       CompilationScope scope,
       DocumentId entryDocument,
       Set<DocumentId> bindingDocuments,
+      ArtifactFileSet resources,
       java.util.function.Consumer<String> progress)
       throws JavaAnnotationProcessingException {
     Objects.requireNonNull(artifact, "artifact");
@@ -76,9 +79,10 @@ public final class JavaAnnotationProcessorPipeline {
     if (stubs.isEmpty()) {
       try {
         delete(output);
+        resources.copyTo(output.resolve("classes"));
       } catch (IOException exception) {
         throw new JavaAnnotationProcessingException(
-            "cannot clear Java annotation output " + output, exception);
+            "cannot prepare Java annotation output " + output, exception);
       }
       return new JavaAnnotationProcessingOutput(
           output,
@@ -94,8 +98,13 @@ public final class JavaAnnotationProcessorPipeline {
       Path generated = Files.createDirectories(staging.resolve("generated-sources"));
       Path classes = Files.createDirectories(staging.resolve("classes"));
       List<Path> sourceFiles = writeSources(sources, stubs);
-      List<Path> classpath = classpath(linked.paths());
       List<Path> processors = linked.processors();
+      var inputs = new ArrayList<Path>(linked.paths());
+      if (!processors.isEmpty()) {
+        resources.copyTo(classes);
+        inputs.addFirst(classes);
+      }
+      List<Path> classpath = classpath(inputs);
       Path compiler = javac();
       var compilerInputs = new ArrayList<dev.w0fv1.norm.value.FileSnapshot>();
       for (Path file : JavaCompilationCache.toolchainFiles(compiler))
@@ -137,13 +146,14 @@ public final class JavaAnnotationProcessorPipeline {
         if (cache != null && key.equals(JavaCompilationCache.key(stubs, classpath, compiler)))
           cache.write(key, classes);
       }
+      if (processors.isEmpty()) resources.copyTo(classes);
       var applicationCalls = new java.util.TreeMap<String, JavaCallTarget>();
       var methods = JavaApplicationMethodIndex.analyze(classes, stubs);
       methods
           .instanceMethods()
           .forEach((id, target) -> applicationCalls.put(id.toString(), target));
-      var generationPaths = new ArrayList<Path>(classpath);
-      generationPaths.add(classes);
+      var generationPaths = new ArrayList<Path>(new LinkedHashSet<>(classpath));
+      if (processors.isEmpty()) generationPaths.add(classes);
       var generationUrls = new java.net.URL[generationPaths.size()];
       for (int index = 0; index < generationUrls.length; index++)
         generationUrls[index] = generationPaths.get(index).toUri().toURL();

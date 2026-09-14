@@ -18,6 +18,80 @@ final class JavaModuleLoadingTest {
   @TempDir Path directory;
 
   @Test
+  void resolvesOnlyTheModuleClosureOfDeclaredJarRoots() throws Exception {
+    var artifacts = new java.util.ArrayList<ResolvedJarArtifact>();
+    for (String name : List.of("root", "required", "optional")) {
+      var descriptor = new ClassWriter(0);
+      descriptor.visit(Opcodes.V17, Opcodes.ACC_MODULE, "module-info", null, null, null);
+      var module = descriptor.visitModule("sample." + name, 0, null);
+      module.visitRequire("java.base", Opcodes.ACC_MANDATED, null);
+      if (name.equals("root")) module.visitRequire("sample.required", 0, null);
+      if (name.equals("optional")) module.visitRequire("sample.missing", 0, null);
+      module.visitExport("sample/" + name, 0);
+      module.visitEnd();
+      descriptor.visitEnd();
+      var type = new ClassWriter(0);
+      type.visit(
+          Opcodes.V17,
+          Opcodes.ACC_PUBLIC,
+          "sample/" + name + "/Widget",
+          null,
+          "java/lang/Object",
+          null);
+      type.visitEnd();
+      Path jar = directory.resolve("sample." + name + ".jar");
+      try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+        output.putNextEntry(new JarEntry("module-info.class"));
+        output.write(descriptor.toByteArray());
+        output.closeEntry();
+        output.putNextEntry(new JarEntry("sample/" + name + "/Widget.class"));
+        output.write(type.toByteArray());
+        output.closeEntry();
+      }
+      artifacts.add(
+          new ResolvedJarArtifact(
+              new MavenJarIdentity(
+                  new dev.w0fv1.norm.value.MavenArtifactCoordinate("sample", name, "1")),
+              jar,
+              dev.w0fv1.norm.value.Sha256Digest.compute(jar)));
+    }
+    var root = artifacts.getFirst();
+    var graph =
+        new ResolvedJarGraph(
+            root,
+            artifacts,
+            artifacts.stream()
+                .skip(1)
+                .map(artifact -> new JarDependencyEdge(root.identity(), artifact.identity()))
+                .toList());
+    var classpath = JarBindingClasspath.prepare(List.of(), List.of(graph));
+    var moduleRoots = JavaModulePath.inspect(classpath.rootPaths()).names();
+    assertEquals(
+        List.of("sample.required", "sample.root"),
+        JavaModulePath.select(classpath.paths(), moduleRoots).names());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        java.lang.module.FindException.class,
+        () -> JavaModulePath.select(classpath.paths(), List.of("sample.missing")));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        java.lang.module.FindException.class,
+        () -> new JvmJarBindingRuntime(List.of(), List.of(artifacts.getLast().file())));
+    try (var runtime = new JvmJarBindingRuntime(List.of(), classpath, List.of())) {
+      var loader = runtime.applicationClassLoader();
+      assertEquals("sample.root", loader.loadClass("sample.root.Widget").getModule().getName());
+      assertEquals(
+          "sample.required", loader.loadClass("sample.required.Widget").getModule().getName());
+      org.junit.jupiter.api.Assertions.assertFalse(
+          loader.loadClass("sample.optional.Widget").getModule().isNamed());
+    }
+    try (var runtime = JvmJarBindingRuntime.prepared(List.of(), classpath.paths(), moduleRoots)) {
+      var loader = runtime.applicationClassLoader();
+      assertEquals("sample.root", loader.loadClass("sample.root.Widget").getModule().getName());
+      org.junit.jupiter.api.Assertions.assertFalse(
+          loader.loadClass("sample.optional.Widget").getModule().isNamed());
+    }
+  }
+
+  @Test
   void identifiesModulesThatImplementNativeImageFeatures() throws Exception {
     Path jar = directory.resolve("sample.hosted.jar");
     var descriptor = new ClassWriter(0);

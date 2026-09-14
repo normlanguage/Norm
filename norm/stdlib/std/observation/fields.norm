@@ -1,10 +1,14 @@
+@Document(description: "Provides subscriptions to field reads and changes.")
 package std.observation
+
+import std.annotation.Document
 
 import std.io.Resource
 import std.io.ResourceOwner
 import std.context.currentContext
 
-public extension Resource onChange<T>(FieldHandle<T> field, Void changed(T oldValue, T newValue)) {
+@Document(description: "Subscribes to changes of a field until the returned resource is closed.")
+public extension Resource onChange<T>(@Document(description: "The field to observe.") FieldHandle<T> field, @Document(description: "The callback receiving previous and current values.") Void changed(T oldValue, T newValue)) {
   var owner = currentContext<ResourceOwner>()
   var subscription = FieldSubscription(owner: owner, release: __observeField<T>(field: field, changed: (T oldValue, T newValue) {
     if owner == null { changed(oldValue, newValue) }
@@ -14,7 +18,8 @@ public extension Resource onChange<T>(FieldHandle<T> field, Void changed(T oldVa
   subscription
 }
 
-public Resource observeFields<T>(T target, Void read(Integer field), Void changed(Integer field)) {
+@Document(description: "Observes field access on a target until the returned resource is closed.")
+public Resource observeFields<T>(@Document(description: "The instance to observe.") T target, @Document(description: "Receives the identity of a read field.") Void read(Integer field), @Document(description: "Receives the identity of a changed field.") Void changed(Integer field)) {
   FieldSubscription(release: __observeFields<T>(target: target, read: read, changed: changed))
 }
 
