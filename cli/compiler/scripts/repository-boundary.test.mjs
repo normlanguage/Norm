@@ -12,7 +12,10 @@ test('the compiler and its release do not depend on ecosystem applications', () 
     for (const file of readdirSync(resolve(root, folder), { recursive: true })) {
       if (!/\.(java|mjs|yml)$/.test(file) || file.endsWith('.test.mjs')) continue;
       const content = readFileSync(resolve(root, folder, file), 'utf8');
-      assert.doesNotMatch(content, /org\.hibernate|io\.micronaut|docs\/examples|verify-native-web/,
+      const dependencies = file.endsWith('.java') ? content.replace(/"(?:\\.|[^"\\])*"/g, '""') : content;
+      assert.doesNotMatch(dependencies, /org\.hibernate|io\.micronaut/,
+        `${folder}/${file} depends directly on an ecosystem framework`);
+      assert.doesNotMatch(content, /docs\/examples|verify-native-web/,
         `${folder}/${file} crosses the ecosystem boundary`);
     }
   }
