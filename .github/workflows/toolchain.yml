@@ -76,7 +76,7 @@ jobs:
 
       - name: Verify language server and evidence tools
         env:
-          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm/bin/norm
+          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm-runtime/bin/norm
         run: |
           node --test cli/compiler/scripts/*.test.mjs
           npm run --prefix cli/extensions/vscode smoke:lsp

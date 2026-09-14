@@ -15,7 +15,7 @@ if (!$BuildOutput -and (Test-Path -LiteralPath $selection -PathType Leaf)) {
   if ($version -ne $properties.normVersion) { throw 'Selected toolchain version does not match this checkout.' }
   $expected = $manifest.CompilerSha256
 } else {
-  $toolchainHome = Join-Path $root 'cli/compiler/build/install/norm'
+  $toolchainHome = Join-Path $root 'cli/compiler/build/install/norm-runtime'
   $version = $properties.normVersion
   $built = Join-Path $root ('cli/compiler/build/libs/compiler-' + $version + '.jar')
   if (!(Test-Path -LiteralPath $built -PathType Leaf)) { throw "Missing compiler build output: $built" }

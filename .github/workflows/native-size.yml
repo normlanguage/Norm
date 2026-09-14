@@ -48,7 +48,7 @@ jobs:
 
       - name: Verify native CLI delivery
         env:
-          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm/bin/norm
+          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm-runtime/bin/norm
         run: |
           node --test cli/compiler/scripts/*.test.mjs
           NORM_VERSION="$(./gradlew properties --no-daemon --console=plain -q | sed -n 's/^version: //p')"

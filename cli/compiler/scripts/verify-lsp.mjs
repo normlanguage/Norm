@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const repository = resolve(import.meta.dirname, '../../..');
-const distribution = resolve(process.argv[2] ?? join(repository, 'cli/compiler/build/install/norm'));
+const distribution = resolve(process.argv[2] ?? join(repository, 'cli/compiler/build/install/norm-runtime'));
 const evidence = resolve(process.argv[3] ?? join(repository, 'build/reports/lsp'));
 mkdirSync(evidence, { recursive: true });
 const directory = mkdtempSync(join(tmpdir(), 'norm-lsp-acceptance-'));

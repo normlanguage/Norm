@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $fixture = Join-Path ([IO.Path]::GetTempPath()) ('norm-toolchain-contract-' + [guid]::NewGuid().ToString('N'))
-$distribution = Join-Path $fixture 'cli/compiler/build/install/norm'
+$distribution = Join-Path $fixture 'cli/compiler/build/install/norm-runtime'
 $built = Join-Path $fixture 'cli/compiler/build/libs/compiler-0.22.1.jar'
 $compiler = Join-Path $distribution 'lib/compiler-0.22.1.jar'
 $java = Join-Path $distribution 'runtime/bin/java.exe'
