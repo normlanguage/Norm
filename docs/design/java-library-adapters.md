@@ -123,7 +123,11 @@ norm package path/to/commons/lang --output path/to/repository
 
 ## 发布模型
 
-`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。NAR 格式版本 5 使用 ZIP 容器，所有 Module 都包含已求值的 `module.json` 和普通 Norm `sources/`，依赖项保存明确的仓库身份。纯 Norm Module 与 Java Binding Module 都保存完整生产源码；后者同时保存公开适配面生成的源码，并额外包含 `jar` manifest 与 `binding/java-api.json`。`exports` 只定义公开 API，不参与选择制品文件；示例和验证程序使用嵌套 Module 与生产 Module 隔离。Binding manifest 保存类型、成员组和精确重载公开面，API 报告在打包阶段记录完整 JAR census、结构化适配状态与 `JavaApiId`；消费端按固定 JAR 只重建公开适配面及其类型闭包，并逐个复验归档中的生成源码。NAR 不内嵌 Java JAR，也不执行远程 `module.norm`。纯 Norm 实现使用同一归档、坐标和调用边界，移除 Binding 不产生新的包种类。后续二进制 Core 复用同一容器与身份模型。
+`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。归档版本以 [ModuleArchiveFormat](../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ModuleArchiveFormat.java) 为准。所有 Module 都保存已求值的 manifest、完整生产源码与资源；`exports` 只定义公开 API，不选择制品文件。Java Binding Module 同时保存 API 报告和 [PublishedJarBinding](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义的稳定绑定产物。消费端验证绑定 ABI、制品摘要、模块描述、固定依赖图、公开类型归属和归档源码，直接链接发布产物。应用专属的回调类、注解处理与可达性裁剪仍属于应用构建。NAR 不内嵌 Java JAR，不执行远程 `module.norm`；纯 Norm 与 Java 适配使用同一包模型。归档与跨模块验收见 [ModulePackagerTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java) 和 [CrossModuleJarBindingTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java)。
+
+绑定 ABI 同时约束绑定数据结构、序列化格式和运行时约定。改变这些契约必须更新 `PublishedJarBinding.ABI` 并重新发布适配包；编译器其他实现变化不要求重新发布绑定。
+
+所有发布模块同时携带 [CompiledModule](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/CompiledModule.java) 定义的 Core 产物。Core 载荷的摘要与 ABI 由 manifest 校验，导入规则与编译工作量验收见[编译器架构](/spec/compiler-design)。改变该载荷的数据结构或序列化约定必须更新 `CompiledModule.ABI`；Core 与语言语义版本使用现有身份契约。
 
 POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module 时同时获得所需 Java 图。发布本地 JAR 时必须为它声明可解析的发布坐标；同一次发布产生 Java artifact 和依赖它的 Norm artifact。
 

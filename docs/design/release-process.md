@@ -12,7 +12,7 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 | Linux x64 | TAR.GZ 内的 `norm/bin/norm` |
 | macOS Apple Silicon | TAR.GZ 内的 `norm/bin/norm` |
 
-各平台使用同一个由 `bin`、编译器 `lib` 和 JDK 25 `jlink` `runtime` 组成的运行时。Windows 的 `norm.exe` 原样内嵌该目录，首次运行时按版本原子展开；`norm.exe setup` 将 EXE 安装到当前用户、幂等写入用户 `PATH`，并准备固定版本的 GraalVM Community Native Image 工具链。Native 工具链不重复塞入 CLI 与通用 VSIX，而是按平台下载到 `~/.norm/toolchains/native-image`，验证官方 SHA-256 后原子安装并复用。未先执行 setup 时，首次 native build 使用同一安装流程。
+各平台使用同一个由 `bin`、编译器 `lib` 和 JDK 25 `jlink` `runtime` 组成的运行时。Windows 的 `norm.exe` 原样内嵌该目录，首次运行时按版本和运行库内容身份原子展开，运行中的其他内容版本保持独立；`norm.exe setup` 将 EXE 安装到当前用户、幂等写入用户 `PATH`，并准备固定版本的 GraalVM Community Native Image 工具链。Native 工具链不重复塞入 CLI 与通用 VSIX，而是按平台下载到 `~/.norm/toolchains/native-image`，验证官方 SHA-256 后原子安装并复用。未先执行 setup 时，首次 native build 使用同一安装流程。
 
 `norm-language-support-vMAJOR.MINOR.PATCH.vsix` 是唯一插件产物。插件根据 VS Code 所在的操作系统和架构选择内置的同结构 CLI，不发布平台专用 VSIX。
 

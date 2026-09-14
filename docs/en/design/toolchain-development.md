@@ -81,8 +81,7 @@ SourceFile
   → Binder
   → CoreBuilder
   → CoreCanonicalizer
-  → DefinitionStore
-  → CompilationOutput
+  → CompilationOutput / CompilationResultCache
   → Lowerer
   → Truffle executable AST
 ```
