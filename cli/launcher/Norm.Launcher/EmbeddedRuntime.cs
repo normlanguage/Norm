@@ -4,9 +4,18 @@ using System.Text;
 
 namespace Norm.Launcher;
 
-internal sealed class EmbeddedRuntime(BootstrapPaths paths, string version)
+internal sealed class EmbeddedRuntime(BootstrapPaths paths, string identity)
 {
     public BootstrapPaths Paths => paths;
+
+    public static EmbeddedRuntime Create()
+    {
+        using Stream digestPayload = typeof(EmbeddedRuntime).Assembly.GetManifestResourceStream("Norm.Runtime.sha256")
+            ?? throw new InvalidOperationException("This executable does not identify its Norm runtime");
+        using StreamReader digestReader = new(digestPayload, Encoding.ASCII);
+        string digest = digestReader.ReadToEnd().Trim();
+        return new EmbeddedRuntime(BootstrapPaths.ForCurrentUser(BuildVersion.Current, digest), BuildVersion.Current + ":" + digest);
+    }
 
     public string EnsureAvailable()
     {
@@ -28,10 +37,6 @@ internal sealed class EmbeddedRuntime(BootstrapPaths paths, string version)
             {
                 throw new IOException("Timed out while preparing the Norm runtime");
             }
-            using Stream digestPayload = typeof(EmbeddedRuntime).Assembly.GetManifestResourceStream("Norm.Runtime.sha256")
-                ?? throw new InvalidOperationException("This executable does not identify its Norm runtime");
-            using StreamReader digestReader = new(digestPayload, Encoding.ASCII);
-            string identity = version + ":" + digestReader.ReadToEnd().Trim();
             using Stream payload = typeof(EmbeddedRuntime).Assembly.GetManifestResourceStream("Norm.Runtime.zip")
                 ?? throw new InvalidOperationException("This executable does not contain a Norm runtime");
             RuntimeExtractor.Extract(payload, paths.RuntimeDirectory, identity);

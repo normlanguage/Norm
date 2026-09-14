@@ -8,7 +8,7 @@ internal sealed record BootstrapPaths(
 {
     public string InstalledExecutable => Path.Combine(InstallDirectory, "norm.exe");
 
-    public static BootstrapPaths ForCurrentUser(string version)
+    public static BootstrapPaths ForCurrentUser(string version, string contentIdentity)
     {
         string productRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -17,7 +17,7 @@ internal sealed record BootstrapPaths(
         return new BootstrapPaths(
             productRoot,
             Path.Combine(productRoot, "bin"),
-            Path.Combine(productRoot, "runtimes", version, "norm"),
+            Path.Combine(productRoot, "runtimes", version, contentIdentity, "norm"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".norm", "cache"));
     }
 }

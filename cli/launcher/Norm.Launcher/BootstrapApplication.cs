@@ -7,15 +7,13 @@ internal sealed class BootstrapApplication(
 {
     public static BootstrapApplication Create()
     {
-        string version = BuildVersion.Current;
-        BootstrapPaths paths = BootstrapPaths.ForCurrentUser(version);
-        EmbeddedRuntime runtime = new(paths, version);
+        EmbeddedRuntime runtime = EmbeddedRuntime.Create();
         string executable = Environment.ProcessPath
             ?? throw new InvalidOperationException("The launcher executable path is unavailable");
         return new BootstrapApplication(
             runtime,
             new RuntimeLauncher(),
-            new SetupService(paths, new WindowsUserEnvironment(), executable));
+            new SetupService(runtime.Paths, new WindowsUserEnvironment(), executable));
     }
 
     public int Run(string[] arguments)
