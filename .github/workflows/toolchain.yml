@@ -75,6 +75,9 @@ jobs:
       - name: Build self-contained CLI
         run: ./gradlew :compiler:installRuntimeDist --no-daemon
 
+      - name: Verify offline reachability metadata inputs
+        run: node cli/compiler/scripts/verify-reachability-metadata.mjs
+
       - name: Run quality checks
         run: ./gradlew qualityCheck --no-daemon
 

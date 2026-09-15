@@ -106,6 +106,12 @@ Each function owns a `FunctionRootNode` and `CallTarget`. Static function and me
 
 Acceptance-test domains, layout, naming, discovery entry points, and commands are defined in one place by [`norm/tests/README.md`](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md).
 
+## Distribution build inputs
+
+Distribution builds can supply reachability metadata with `-PnormReachabilityMetadata=<local archive path>`. The input contract and checksum are defined by [`prepareReachabilityMetadata`](../../../cli/compiler/build.gradle.kts); real-archive validation is in [`verify-reachability-metadata.mjs`](../../../cli/compiler/scripts/verify-reachability-metadata.mjs). Gradle, the JDK, plugins, and Java dependencies must still be supplied for `--offline` builds.
+
+The same project's `:compiler:installDist` uses a system JDK; `:compiler:installRuntimeDist` produces the portable distribution. Both are defined in the [build file](../../../cli/compiler/build.gradle.kts). `installDist` still includes resolved Java dependencies and is not a Debian/RPM package using distribution-managed libraries.
+
 ## Documentation ownership
 
 Language behavior belongs in the language specification, implementation structure belongs here, and technology choices belong in the implementation strategy. Other pages link to these sources instead of copying their rules.

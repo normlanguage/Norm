@@ -96,6 +96,10 @@ LSP 启动入口为 [`LanguageServerLauncher`](https://github.com/normlanguage/N
 
 Windows 本地构建使用 `:compiler:installRuntimeDist`，由 [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 返回规范分发目录并验证编译器摘要。CLI、扩展与 GUI 验收应记录实际产物身份，不只比较版本号。
 
+发行版构建可通过 `-PnormReachabilityMetadata=<本地归档路径>` 提供 reachability metadata；输入契约与校验值见 [`prepareReachabilityMetadata`](../../cli/compiler/build.gradle.kts)，真实归档验收见 [`verify-reachability-metadata.mjs`](../../cli/compiler/scripts/verify-reachability-metadata.mjs)。`--offline` 下 Gradle、JDK、插件及 Java 依赖仍须预先供应。
+
+使用系统 JDK 的分发入口是同一工程的 `:compiler:installDist`；便携分发入口为 `:compiler:installRuntimeDist`。两者定义均见 [构建文件](../../cli/compiler/build.gradle.kts)。`installDist` 仍包含解析出的 Java 依赖，不能直接视为使用发行版系统库的 Debian/RPM 包。
+
 网络受限环境可向定向 Gradle 测试传入 `-PnormTestMavenRepository=<repository>`。测试将其中真实的 POM/JAR 复制到各自隔离的缓存，仍执行依赖解析、绑定、归档及运行验证；不设置该参数时保持远程解析。这不是干净网络或正式发布验收。输入声明见 `:compiler:test`；夹具装载见 [MavenTestRepository](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/MavenTestRepository.java)。
 
 [compare-compiler.ps1](../../cli/compiler/scripts/compare-compiler.ps1) 用相同 Java、参数和源码交替运行两份完整依赖目录，保存编译、增量分析、执行耗时、主线程分配和观测峰值工作集。指标定义与预热次数见 [CompilerBenchmark](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/CompilerBenchmark.java)。主线程分配不是进程总分配，峰值工作集包含启动与预热；样例结果不能直接推广为工具链整体性能提升。

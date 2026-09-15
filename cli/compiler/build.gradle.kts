@@ -339,57 +339,64 @@ abstract class CreateRuntimeImage : DefaultTask() {
     }
 }
 
-abstract class FetchReachabilityMetadata : DefaultTask() {
+abstract class PrepareReachabilityMetadata : DefaultTask() {
     @get:Input
     abstract val metadataVersion: Property<String>
 
     @get:Input
     abstract val expectedSha256: Property<String>
 
+    @get:InputFile
+    @get:Optional
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val sourceArchive: RegularFileProperty
+
+    @get:Input
+    abstract val offline: Property<Boolean>
+
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
 
     @TaskAction
-    fun fetch() {
-        val version = metadataVersion.get()
-        val source = URI(
-            "https://github.com/oracle/graalvm-reachability-metadata/releases/download/" +
-                "$version/graalvm-reachability-metadata-$version.zip",
-        )
-        val output = outputFile.get().asFile
-        output.parentFile.mkdirs()
-        val temporary = temporaryDir.resolve("reachability-metadata.zip")
-        val clientBuilder = HttpClient.newBuilder()
-            .followRedirects(HttpClient.Redirect.ALWAYS)
-        environmentProxy(source)?.let { clientBuilder.proxy(ProxySelector.of(it)) }
-        clientBuilder.build().use { client ->
-            val request = HttpRequest.newBuilder(source).GET().build()
-            val response = client.send(request, HttpResponse.BodyHandlers.ofFile(temporary.toPath()))
-            check(response.statusCode() in 200..299) {
-                "Cannot download GraalVM reachability metadata: HTTP ${response.statusCode()}"
+    fun prepare() {
+        val archive = sourceArchive.orNull?.asFile ?: run {
+            check(!offline.get()) {
+                "Offline build requires -PnormReachabilityMetadata=<local archive>"
             }
+            val version = metadataVersion.get()
+            val source = URI(
+                "https://github.com/oracle/graalvm-reachability-metadata/releases/download/" +
+                    "$version/graalvm-reachability-metadata-$version.zip",
+            )
+            val temporary = temporaryDir.resolve("reachability-metadata.zip")
+            val clientBuilder = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.ALWAYS)
+            val proxy = listOf("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy")
+                .firstNotNullOfOrNull { System.getenv(it)?.takeIf(String::isNotBlank) }
+            proxy?.let {
+                val uri = URI(it)
+                val address = InetSocketAddress.createUnresolved(uri.host, if (uri.port >= 0) uri.port else 80)
+                clientBuilder.proxy(ProxySelector.of(address))
+            }
+            clientBuilder.build().use { client ->
+                val request = HttpRequest.newBuilder(source).GET().build()
+                val response = client.send(request, HttpResponse.BodyHandlers.ofFile(temporary.toPath()))
+                check(response.statusCode() in 200..299) {
+                    "Cannot download GraalVM reachability metadata: HTTP ${response.statusCode()}"
+                }
+            }
+            temporary
         }
         val actual = MessageDigest.getInstance("SHA-256")
-            .digest(temporary.readBytes())
+            .digest(archive.readBytes())
             .joinToString("") { "%02x".format(it) }
         check(actual.equals(expectedSha256.get(), ignoreCase = true)) {
             "GraalVM reachability metadata checksum mismatch: expected " +
                 "${expectedSha256.get()}, got $actual"
         }
-        temporary.copyTo(output, overwrite = true)
-    }
-
-    private fun environmentProxy(source: URI): InetSocketAddress? {
-        val names = if (source.scheme.equals("https", ignoreCase = true)) {
-            listOf("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy")
-        } else {
-            listOf("HTTP_PROXY", "http_proxy")
-        }
-        val proxy = names.firstNotNullOfOrNull { System.getenv(it)?.takeIf(String::isNotBlank) }
-            ?: return null
-        val uri = URI(proxy)
-        val port = if (uri.port >= 0) uri.port else 80
-        return InetSocketAddress.createUnresolved(uri.host, port)
+        val output = outputFile.get().asFile
+        output.parentFile.mkdirs()
+        archive.copyTo(output, overwrite = true)
     }
 }
 
@@ -398,11 +405,13 @@ val generatedBuildMetadata = layout.buildDirectory.dir("generated/sources/build-
 val builtinAbiFile = layout.projectDirectory.file("stdlib-abi.json")
 val generatedBuiltinAbi = layout.buildDirectory.dir("generated/sources/builtin-abi")
 val reachabilityMetadataVersion = "1.0.13"
-val fetchReachabilityMetadata = tasks.register<FetchReachabilityMetadata>(
-    "fetchReachabilityMetadata",
+val prepareReachabilityMetadata = tasks.register<PrepareReachabilityMetadata>(
+    "prepareReachabilityMetadata",
 ) {
     metadataVersion.set(reachabilityMetadataVersion)
     expectedSha256.set("b94893e10448a37a604d24758418dc006223a64827146f0886af172bbbdd818a")
+    sourceArchive.set(layout.file(providers.gradleProperty("normReachabilityMetadata").map { rootProject.file(it) }))
+    offline.set(gradle.startParameter.isOffline)
     outputFile.set(
         layout.buildDirectory.file(
             "generated/resources/reachability-metadata/graalvm-reachability-metadata.zip",
@@ -500,7 +509,7 @@ sourceSets {
         resources.srcDir(standardLibraryDirectory)
         resources.exclude("std/tests/**")
         resources.srcDir(generateToolchainArtifacts.flatMap { it.outputDirectory })
-        resources.srcDir(fetchReachabilityMetadata.map { it.outputFile.get().asFile.parentFile })
+        resources.srcDir(prepareReachabilityMetadata.map { it.outputFile.get().asFile.parentFile })
     }
     test {
         resources.srcDir(rootProject.file("norm/tests"))
