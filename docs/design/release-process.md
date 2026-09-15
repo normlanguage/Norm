@@ -4,6 +4,8 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 ## 发布物
 
+许可范围与源码获取见 [LICENSING.md](https://github.com/normlanguage/Norm/blob/main/LICENSING.md)。CLI、编译器 JAR 和 VSIX 的许可文件从仓库根目录打包。
+
 每个版本同时发布各平台的自包含 CLI，以及内置全部受支持平台 CLI 的唯一通用 VS Code 插件：
 
 | 平台 | CLI |

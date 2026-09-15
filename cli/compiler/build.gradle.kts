@@ -634,6 +634,14 @@ distributions.create("runtime") {
     }
 }
 
+distributions.configureEach {
+    contents {
+        from(rootProject.layout.projectDirectory) {
+            include("LICENSE", "LICENSING.md")
+        }
+    }
+}
+
 val installRuntimeDistribution = tasks.named<Sync>("installRuntimeDist")
 installRuntimeDistribution.configure {
     into(layout.buildDirectory.dir("install/norm-runtime"))
@@ -664,6 +672,10 @@ tasks.named<JavaExec>("run") {
 }
 
 tasks.jar {
+    from(rootProject.layout.projectDirectory) {
+        include("LICENSE", "LICENSING.md")
+        into("META-INF")
+    }
     manifest {
         attributes(
             "Implementation-Title" to "Norm Compiler",

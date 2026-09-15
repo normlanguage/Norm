@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const packageTrees = new Set(['bin', 'server']);
@@ -14,6 +14,9 @@ export function packageIgnore(baseIgnore, excludedDirectory) {
 }
 
 export function packageVsix({ extensionRoot, destination, excludedDirectory, version }) {
+  for (const name of ['LICENSE', 'LICENSING.md']) {
+    copyFileSync(resolve(import.meta.dirname, '../../../..', name), join(extensionRoot, name));
+  }
   const packagingRoot = mkdtempSync(join(tmpdir(), 'norm-vscode-package-'));
   const ignoreFile = join(packagingRoot, '.vscodeignore');
   writeFileSync(
@@ -28,7 +31,7 @@ export function packageVsix({ extensionRoot, destination, excludedDirectory, ver
   );
   const args = ['package'];
   if (version) args.push(version, '--no-update-package-json');
-  args.push('--no-dependencies', '--skip-license', '--ignoreFile', ignoreFile, '--out', destination);
+  args.push('--no-dependencies', '--ignoreFile', ignoreFile, '--out', destination);
   const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : vsce;
   try {
     const result = spawnSync(

@@ -1,5 +1,7 @@
 # Release process
 
+License scope and source availability: [LICENSING.md](https://github.com/normlanguage/Norm/blob/main/LICENSING.md). CLI distributions, compiler JARs and VSIX packages include licensing files from the repository root.
+
 Norm releases are triggered by semantic Git tags. The SemVer value in the tag is the sole release-version source for the CLI, language server, VS Code extension, asset names, and GitHub Release. Published versions are never reused.
 
 ## Assets

@@ -10,7 +10,7 @@
     "url": "https://github.com/normlanguage/Norm.git"
   },
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MPL-2.0",
   "engines": {
     "vscode": "^1.100.0"
   },

@@ -8,6 +8,8 @@ Norm uses distinct language constructs for distinct semantics: classes express i
 
 ## Status
 
+License: [MPL-2.0](LICENSE). Scope and source availability: [LICENSING.md](LICENSING.md).
+
 **Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [current implementation contract](https://normlanguage.github.io/Norm/en/versions/0.19) defines this boundary.
 
 ## Build

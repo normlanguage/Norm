@@ -35,6 +35,7 @@ assert.equal(packageIgnore('out/test/**\n', 'server'), 'out/test/**\n\nserver/**
 
 const extensionRoot = resolve(import.meta.dirname, '..');
 const extensionPackage = JSON.parse(readFileSync(join(extensionRoot, 'package.json'), 'utf8'));
+assert.equal(extensionPackage.license, 'MPL-2.0');
 assert.equal(extensionPackage.icon, 'images/norm-256.png');
 assert.deepEqual(extensionPackage.contributes.languages[0].icon, {
   light: './images/norm-file.png',
