@@ -1,14 +1,13 @@
+import { extractPrefix } from './extract-vsix.mjs';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
-  createWriteStream,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve, sep } from 'node:path';
+import { join, resolve } from 'node:path';
 import yauzl from 'yauzl';
 import { releaseTargets, releaseVersion } from '../../../compiler/scripts/release-model.mjs';
 import {
@@ -99,43 +98,6 @@ try {
   rmSync(directory, { recursive: true, force: true });
 }
 console.log(`Universal VSIX verified with all embedded Norm ${version} CLIs.`);
-
-function extractPrefix(path, prefix, destinationRoot) {
-  return new Promise((resolvePromise, reject) => {
-    yauzl.open(path, { lazyEntries: true }, (openError, archive) => {
-      if (openError) return reject(openError);
-      archive.on('error', reject);
-      archive.on('entry', (entry) => {
-        if (!entry.fileName.startsWith(prefix)) return archive.readEntry();
-        const relative = entry.fileName.slice(prefix.length);
-        if (!relative) return archive.readEntry();
-        const destination = resolve(destinationRoot, relative);
-        if (!destination.startsWith(resolve(destinationRoot) + sep)) {
-          return reject(new Error(`Invalid VSIX runtime entry: ${entry.fileName}`));
-        }
-        if (entry.fileName.endsWith('/')) {
-          mkdirSync(destination, { recursive: true });
-          return archive.readEntry();
-        }
-        mkdirSync(dirname(destination), { recursive: true });
-        archive.openReadStream(entry, (streamError, stream) => {
-          if (streamError) return reject(streamError);
-          const output = createWriteStream(destination);
-          stream.on('error', reject);
-          output.on('error', reject);
-          output.on('close', () => {
-            const mode = (entry.externalFileAttributes >>> 16) & 0o777;
-            if (mode) chmodSync(destination, mode);
-            archive.readEntry();
-          });
-          stream.pipe(output);
-        });
-      });
-      archive.on('end', resolvePromise);
-      archive.readEntry();
-    });
-  });
-}
 
 function readEntries(path, names, forbiddenPrefixes) {
   return new Promise((resolvePromise, reject) => {

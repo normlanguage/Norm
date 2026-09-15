@@ -22,7 +22,7 @@ A new platform must first pass the same acceptance suite in continuous integrati
 
 ## Release gates
 
-All platform CLIs and the universal VSIX are built before final acceptance. The toolchain suite covers language programs once through `ProgramExecutionTest`. Each platform verifies source execution, Java interoperability, one native build with three isolated executions, LSP and editor integration. Windows also checks portable execution and idempotent setup. VSIX validation checks all embedded runtimes and executes the host bundle.
+All platform CLIs and the universal VSIX are built before final acceptance. The toolchain suite covers language programs once through `ProgramExecutionTest`. Each platform verifies source execution, Java interoperability, one native build with three isolated executions, LSP and editor integration. Windows also checks portable execution and idempotent setup. VSIX validation checks all embedded runtimes and executes the host bundle. Editor integration loads the extension extracted from that same VSIX.
 
 Framework and application acceptance belongs to adapter repositories and [examples](https://github.com/normlanguage/examples), not the compiler release.
 

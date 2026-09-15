@@ -22,7 +22,7 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 ## 验收门槛
 
-发布先构建各平台 CLI 并打包通用 VSIX，再集中执行工具链测试和最终交付验收。语言程序由 `ProgramExecutionTest` 统一覆盖，不在各平台 CLI 验收中重复运行。每个平台验证版本、源码执行、动态 Java binding、一次 native 构建及三次隔离启动，以及 LSP 和编辑器集成。Windows 另外验证便携执行、setup 和 PATH 幂等。通用 VSIX 校验全部目标的内置运行时及宿主平台执行。
+发布先构建各平台 CLI 并打包通用 VSIX，再集中执行工具链测试和最终交付验收。语言程序由 `ProgramExecutionTest` 统一覆盖，不在各平台 CLI 验收中重复运行。每个平台验证版本、源码执行、动态 Java binding、一次 native 构建及三次隔离启动，以及 LSP 和编辑器集成。Windows 另外验证便携执行、setup 和 PATH 幂等。通用 VSIX 校验全部目标的内置运行时及宿主平台执行；编辑器集成验收直接加载该 VSIX 解包后的扩展。
 
 框架、ORM 和应用验收归各适配包与 [examples 仓库](https://github.com/normlanguage/examples)所有，不作为编译器发行任务。
 

@@ -20,5 +20,7 @@ const testCli = resolve(
 
 export default defineConfig([
   { ...shared, label: 'jvm', env: { NORM_CLI: testCli } },
-  { ...shared, label: 'release' },
+  ...(process.env.NORM_TEST_EXTENSION
+    ? [{ ...shared, label: 'release', extensionDevelopmentPath: process.env.NORM_TEST_EXTENSION }]
+    : []),
 ]);

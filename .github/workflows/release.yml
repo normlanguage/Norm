@@ -229,6 +229,8 @@ jobs:
 
   accept:
     needs: [prepare, package-extension]
+    env:
+      NORM_TEST_EXTENSION: ${{ github.workspace }}/extracted-extension
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
@@ -252,11 +254,11 @@ jobs:
           name: release-${{ matrix.platform }}
           path: release
 
-      - name: Download packaged runtime
+      - name: Download final extension
         uses: actions/download-artifact@v5
         with:
-          name: runtime-${{ matrix.target }}
-          path: binaries/runtime-${{ matrix.target }}
+          name: extension-universal
+          path: release
 
       - name: Prepare Windows delivery
         if: runner.os == 'Windows'
@@ -288,13 +290,13 @@ jobs:
         shell: bash
         run: node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "${{ needs.prepare.outputs.version }}"
 
-      - name: Stage packaged editor runtime
-        run: node --input-type=module -e "import { stageCliBundle } from './cli/extensions/vscode/scripts/release-package.mjs'; stageCliBundle('binaries', 'cli/extensions/vscode', '${{ matrix.target }}');"
+      - name: Extract final extension
+        run: node cli/extensions/vscode/scripts/extract-vsix.mjs "release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix" extracted-extension "${{ needs.prepare.outputs.version }}"
 
       - name: Verify packaged language server
         working-directory: cli/extensions/vscode
         env:
-          NORM_CLI: ${{ github.workspace }}/cli/extensions/vscode/bin/${{ matrix.target }}/norm/${{ matrix.launcher }}
+          NORM_CLI: ${{ github.workspace }}/extracted-extension/bin/${{ matrix.target }}/norm/${{ matrix.launcher }}
         run: npm run smoke:lsp
 
       - name: Verify editor integration
