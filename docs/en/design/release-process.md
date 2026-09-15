@@ -34,6 +34,8 @@ The [CLI acceptance entry point](https://github.com/normlanguage/Norm/blob/main/
 
 The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, distribution directories, launchers, and extension directories; the packager and [Release workflow](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI verifies the toolchain. Native size is a separate manual workflow. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
 
+The [release model](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/release-model.mjs) validates versions and derives asset filenames. The [channel manifest generator](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/distribution-manifests.mjs) verifies actual Release assets against SHA256SUMS before generating Homebrew, Snapcraft, Scoop, and winget manifests. These are included in the Release; each channel still requires its own installation checks and review before publication. Snap classic confinement and the automatic `norm` alias require separate approval. Until approved, the command is `normlang.norm`; users can set a local alias with `snap alias normlang.norm norm`.
+
 Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 
 ## Release notes

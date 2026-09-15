@@ -1,37 +1,10 @@
-import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { packageVsix } from './vsce-package.mjs';
-
-const targetsPath = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..',
-  '..',
-  'compiler',
-  'release-targets.json',
-);
-export const releaseTargets = JSON.parse(readFileSync(targetsPath, 'utf8'));
-if (
-  !Array.isArray(releaseTargets) ||
-  releaseTargets.length === 0 ||
-  releaseTargets.some(
-    ({ target, launcher }) =>
-      typeof target !== 'string' || !target || typeof launcher !== 'string' || !launcher,
-  ) ||
-  new Set(releaseTargets.map(({ target }) => target)).size !== releaseTargets.length
-) {
-  throw new Error(`Invalid release target manifest: ${targetsPath}`);
-}
+import { releaseTargets, releaseVersion } from '../../../compiler/scripts/release-model.mjs';
 const targetLaunchers = new Map(releaseTargets.map(({ target, launcher }) => [target, launcher]));
-
-export function releaseVersion(value) {
-  if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) {
-    throw new Error(`Invalid release version: ${value}`);
-  }
-  return value;
-}
 
 export function targetLauncher(target) {
   const launcher = targetLaunchers.get(target);

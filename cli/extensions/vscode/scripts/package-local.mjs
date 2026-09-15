@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import yauzl from 'yauzl';
 import { buildServer } from './build-server.mjs';
-import { releaseVersion } from './release-package.mjs';
+import { releaseVersion } from '../../../compiler/scripts/release-model.mjs';
 import { packageVsix } from './vsce-package.mjs';
 
 export function localPackageName(version) {

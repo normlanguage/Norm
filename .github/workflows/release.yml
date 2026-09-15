@@ -59,6 +59,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Set up release tools
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Set up .NET for the Windows executable
         if: runner.os == 'Windows'
         uses: actions/setup-dotnet@v5
@@ -90,7 +95,7 @@ jobs:
           mkdir -p release
           mkdir -p release-stage
           cp -R '${{ matrix.distribution }}' release-stage/norm
-          archive="release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz"
+          archive="release/$(node cli/compiler/scripts/release-model.mjs '${{ needs.prepare.outputs.version }}' '${{ matrix.target }}')"
           tar -C release-stage -czf "$archive" norm
 
       - name: Upload standalone CLI
@@ -275,7 +280,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p extracted
-          tar -xzf "release/norm-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}.tar.gz" -C extracted
+          archive="$(node cli/compiler/scripts/release-model.mjs '${{ needs.prepare.outputs.version }}' '${{ matrix.target }}')"
+          tar -xzf "release/$archive" -C extracted
           echo "NORM_CLI=$GITHUB_WORKSPACE/extracted/norm/bin/norm" >> "$GITHUB_ENV"
 
       - name: Verify final CLI and native application
@@ -322,6 +328,11 @@ jobs:
       - name: Check out release sources
         uses: actions/checkout@v6
 
+      - name: Set up release tools
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Download release assets
         uses: actions/download-artifact@v5
         with:
@@ -339,6 +350,15 @@ jobs:
       - name: Create checksums
         working-directory: release
         run: sha256sum norm* > SHA256SUMS
+
+      - name: Generate package manager manifests
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          node cli/compiler/scripts/distribution-manifests.mjs "$VERSION" release package-manifests
+          tar -C package-manifests -czf "release/norm-package-manifests-v$VERSION.tar.gz" .
+          cd release
+          sha256sum "norm-package-manifests-v$VERSION.tar.gz" >> SHA256SUMS
 
       - name: Attest release assets
         uses: actions/attest-build-provenance@v3

@@ -10,9 +10,8 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import yauzl from 'yauzl';
+import { releaseTargets, releaseVersion } from '../../../compiler/scripts/release-model.mjs';
 import {
-  releaseTargets,
-  releaseVersion,
   targetLauncher,
   targetRuntimeJava,
   verifyCliVersion,

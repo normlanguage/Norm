@@ -34,6 +34,8 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 [发布目标清单](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json)是平台、runner、发行目录、launcher 和插件内目录的唯一机器定义；打包器与 [Release 工作流](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml)共同读取它。日常 CI 验证工具链；Native size 工作流提供独立手动体积门禁，Release 工作流只接受 `vMAJOR.MINOR.PATCH` tag。
 
+[发布模型](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/release-model.mjs)统一校验版本并派生资产文件名。[渠道清单生成器](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/distribution-manifests.mjs)校验实际 Release 资产与 SHA256SUMS 后，生成 Homebrew Formula、Snapcraft、Scoop 和 winget 清单。产物随 Release 提供，各渠道发布前还需完成其安装验收和审核。Snap 的 classic 权限和 `norm` 自动别名需要单独申请；获批前命令为 `normlang.norm`，本地可通过 `snap alias normlang.norm norm` 设置别名。
+
 公开版本应逐步接入 Windows Authenticode 签名以及 macOS Developer ID 签名和 notarization。签名接入前，版本说明必须明确系统可能显示来源警告。
 
 ## 版本说明

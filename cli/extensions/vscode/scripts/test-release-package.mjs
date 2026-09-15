@@ -11,9 +11,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { releaseTargets, releaseVersion } from '../../../compiler/scripts/release-model.mjs';
 import {
-  releaseTargets,
-  releaseVersion,
   stageCliBundle,
   targetLauncher,
   targetRuntimeJava,
