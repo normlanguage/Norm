@@ -9,7 +9,7 @@
     "api:check": "node scripts/check-norm-api.mjs",
     "brand:check": "node scripts/check-brand-assets.mjs",
     "brand:generate": "node scripts/generate-brand-assets.mjs",
-    "site:check": "node scripts/check-site-config.mjs",
+    "site:check": "node --test scripts/repository-links.test.mjs && node scripts/check-site-config.mjs",
     "site:dist-check": "node scripts/check-site-config.mjs --dist",
     "site:generate": "node scripts/generate-site-manifest.mjs",
     "docs:dev": "npm run api:types && npm run api:generate && vitepress dev",

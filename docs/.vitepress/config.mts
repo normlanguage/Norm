@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
-import { siteBase, sitePath, siteUrl } from '../scripts/site-config.mjs'
+import { repositoryUrl, siteBase, sitePath, siteUrl } from '../scripts/site-config.mjs'
+import { repositoryLinks } from '../scripts/repository-links.mjs'
 import { zhTheme } from './locales/zh'
 import { enTheme } from './locales/en'
 import { markdownReferences } from './markdown-references'
@@ -9,7 +10,7 @@ export default defineConfig({
   base: siteBase,
   cleanUrls: true,
   lastUpdated: true,
-  markdown: { languageAlias: { norm: 'java' } },
+  markdown: { languageAlias: { norm: 'java' }, config: md => md.use(repositoryLinks) },
   vite: { plugins: [markdownReferences()] },
   head: [
     ['meta', { name: 'theme-color', content: '#3178c6' }],
@@ -42,7 +43,7 @@ export default defineConfig({
   themeConfig: {
     logo: '/brand/norm.svg',
     siteTitle: 'Norm',
-    socialLinks: [{ icon: 'github', link: 'https://github.com/w0fv1/norm' }],
+    socialLinks: [{ icon: 'github', link: repositoryUrl }],
     search: {
       provider: 'local',
       options: {

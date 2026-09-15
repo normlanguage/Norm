@@ -1,4 +1,5 @@
 export const repositoryName = 'Norm'
+export const repositoryUrl = `https://github.com/normlanguage/${repositoryName}`
 export const siteOrigin = 'https://normlanguage.github.io'
 export const siteBase = `/${repositoryName}/`
 export const siteUrl = `${siteOrigin}${siteBase}`

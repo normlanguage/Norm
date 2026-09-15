@@ -5,7 +5,7 @@ description: Norm 声明式响应页面、独立 Jetty 与 Spring 集成的边�
 
 # Vaadin 适配计划与落地方案
 
-本文定义适配边界、实施阶段与验收条件。具体公开签名以适配模块源码为准，运行形态的支持范围以[适配工作区 README](../../../norm-vaadin/README.md)为准。
+本文定义适配边界、实施阶段与验收条件。具体公开签名以适配模块源码为准，运行形态的支持范围以适配工作区 README（`norm-vaadin/README.md`）为准。
 
 ## 目标与范围
 
@@ -65,11 +65,11 @@ description: Norm 声明式响应页面、独立 Jetty 与 Spring 集成的边�
 
 `vaadin.spring` 不依赖独立 Jetty 启动器。Spring 选择 Jetty 时通过 Boot 官方机制管理服务器。共享底层制品不意味着共享启动责任。
 
-适配开发工作区为编译器仓库的同级 `norm-vaadin` 目录。工作区内各发布模块拥有各自的 `module.norm`；实际发布按模块所有权规则组织仓库。Java 构建配置维护桥接、宿主与应用前端制品，Norm 应用通过固定的模块依赖使用这些产物。
+本文中的 `norm-vaadin/...` 路径属于独立适配开发工作区，不是本仓库文件或文档站页面。工作区内各发布模块拥有各自的 `module.norm`；实际发布按模块所有权规则组织仓库。Java 构建配置维护桥接、宿主与应用前端制品，Norm 应用通过固定的模块依赖使用这些产物。
 
 ## 页面作者契约
 
-可执行语法以[共享页面示例](../../../norm-vaadin/norm/dependencies/example/profile/profile.norm)为准；公开组件签名见[组件入口](../../../norm-vaadin/norm/dependencies/vaadin/components.norm)。普通字段双向输入使用现有强类型字段捕获，不能把普通字符串值当作可写地址。页面作者不需要 `State<T>`、`.value` 或 `computed`。
+可执行语法以共享页面示例（`norm-vaadin/norm/dependencies/example/profile/profile.norm`）为准；公开组件签名见组件入口（`norm-vaadin/norm/dependencies/vaadin/components.norm`）。普通字段双向输入使用现有强类型字段捕获，不能把普通字符串值当作可写地址。页面作者不需要 `State<T>`、`.value` 或 `computed`。
 
 - 固定属性直接传值，动态属性传闭包。
 - 普通函数在绑定内执行时追踪实际读取；在绑定外调用时仍是普通函数。
@@ -103,25 +103,25 @@ description: Norm 声明式响应页面、独立 Jetty 与 Spring 集成的边�
 - 启动失败沿同一资源所有权边界清理；不吞掉初始化或关闭错误。
 - 框架线程、Norm 回调和 UI 会话锁必须通过真实并发测试验证。
 
-Spring 的关闭状态以应用上下文为唯一来源；等待需要覆盖通过 Spring 自身入口关闭上下文，并在资源销毁完成后结束。验证入口见 [BootApplicationTest](../../../norm-vaadin/spring-boot/src/test/java/dev/normlanguage/spring/BootApplicationTest.java)。
+Spring 的关闭状态以应用上下文为唯一来源；等待需要覆盖通过 Spring 自身入口关闭上下文，并在资源销毁完成后结束。验证入口见 BootApplicationTest（`norm-vaadin/spring-boot/src/test/java/dev/normlanguage/spring/BootApplicationTest.java`）。
 
 ## 前端与构建
 
 两个宿主复用官方 Vaadin 前端构建。仅使用官方标准组件且符合官方条件时可使用预编译生产 bundle；自定义主题、资源或组件需要实际构建，不能静默遗漏。
 
-生产 bundle 归应用资源模块所有，通用组件桥接和宿主包不携带应用构建配置。共享示例的构建入口为 [profile-frontend](../../../norm-vaadin/profile-frontend/build.gradle.kts)，其产物通过普通 Norm 模块依赖进入两个宿主。
+生产 bundle 归应用资源模块所有，通用组件桥接和宿主包不携带应用构建配置。共享示例的构建入口为 profile-frontend（`norm-vaadin/profile-frontend/build.gradle.kts`），其产物通过普通 Norm 模块依赖进入两个宿主。
 
-应用主题使用 Vaadin 25 的 `@StyleSheet` 入口。应用资源模块通过标准 Java 服务声明注册 `AppShellConfigurator`；Spring 自动配置据此注册应用包，Shell 的实例化和初始化仍由 Vaadin 负责。示例入口见 [ProfileShell](../../../norm-vaadin/profile-frontend/src/main/java/dev/normlanguage/example/profile/ProfileShell.java)与[服务声明](../../../norm-vaadin/profile-frontend/src/main/resources/META-INF/services/com.vaadin.flow.component.page.AppShellConfigurator)。
+应用主题使用 Vaadin 25 的 `@StyleSheet` 入口。应用资源模块通过标准 Java 服务声明注册 `AppShellConfigurator`；Spring 自动配置据此注册应用包，Shell 的实例化和初始化仍由 Vaadin 负责。示例入口见 ProfileShell（`norm-vaadin/profile-frontend/src/main/java/dev/normlanguage/example/profile/ProfileShell.java`）与服务声明（`norm-vaadin/profile-frontend/src/main/resources/META-INF/services/com.vaadin.flow.component.page.AppShellConfigurator`）。
 
 Norm Core 方法体并非普通 Java 方法体，Java 字节码扫描可能看不到实际组件使用。组件使用信息应由唯一的编译/适配输入派生，不让作者额外维护手工组件白名单。产物需要包含启动配置与全部浏览器资源。
 
-应用前端使用官方完整扫描模式收集组件注解，避免按 Java 调用可达性遗漏 Norm 动态调用的组件。配置入口见应用前端构建，资源归档与双宿主验收见 [FrontendPackagingTest](../../../norm-vaadin/profile-frontend/src/test/java/dev/normlanguage/example/profile/FrontendPackagingTest.java)、[Jetty 自定义组件验收](../../../norm-vaadin/standalone/src/test/java/dev/normlanguage/vaadin/jetty/CustomComponentBrowserTest.java)和 [Spring 自定义组件验收](../../../norm-vaadin/spring/src/test/java/dev/normlanguage/vaadin/spring/CustomComponentBrowserTest.java)。
+应用前端使用官方完整扫描模式收集组件注解，避免按 Java 调用可达性遗漏 Norm 动态调用的组件。配置入口见应用前端构建，资源归档与双宿主验收见 FrontendPackagingTest（`norm-vaadin/profile-frontend/src/test/java/dev/normlanguage/example/profile/FrontendPackagingTest.java`）、Jetty 自定义组件验收（`norm-vaadin/standalone/src/test/java/dev/normlanguage/vaadin/jetty/CustomComponentBrowserTest.java`）和 Spring 自定义组件验收（`norm-vaadin/spring/src/test/java/dev/normlanguage/vaadin/spring/CustomComponentBrowserTest.java`）。
 
 JVM、生产资源和 Native 分开验收。Spring Native 使用官方 AOT 路径；独立 Jetty Native 独立验证反射、资源、初始化和推送。某一路径未验证时如实记录，不将 JAR 可加载或服务可启动当作完整交付。
 
-Spring 的 Bean 定义由可分析的工厂方法提供，运行时页面工厂通过应用上下文的可解析依赖传入。官方 AOT 生成、代理字节码参与编译、构建期间不创建页面，以及独立 JVM 中启用生成代码后的浏览器运行与关闭验收见 [SpringAotTest](../../../norm-vaadin/spring/src/test/java/dev/normlanguage/vaadin/spring/SpringAotTest.java)；该验收不代表 Norm Native 可运行。
+Spring 的 Bean 定义由可分析的工厂方法提供，运行时页面工厂通过应用上下文的可解析依赖传入。官方 AOT 生成、代理字节码参与编译、构建期间不创建页面，以及独立 JVM 中启用生成代码后的浏览器运行与关闭验收见 SpringAotTest（`norm-vaadin/spring/src/test/java/dev/normlanguage/vaadin/spring/SpringAotTest.java`）；该验收不代表 Norm Native 可运行。
 
-AOT 生成在独立 JVM 中执行，避免运行阶段已加载的代理类影响构建输出。构建工具入口为 [VaadinSpringAotProcessor](../../../norm-vaadin/spring-aot/src/main/java/dev/normlanguage/vaadin/aot/VaadinSpringAotProcessor.java)，应用标识以 [NormSpringApplication](../../../norm-vaadin/spring/src/main/java/dev/normlanguage/vaadin/spring/NormSpringApplication.java)为准。生成类、资源与 Native 提示由[应用制品](../../../norm-vaadin/profile-spring/build.gradle.kts)携带，再通过 Norm 普通固定依赖进入构建，不向编译器核心添加 Spring 专属判断。归档内容边界见 [AotPackagingTest](../../../norm-vaadin/profile-spring/src/test/java/dev/normlanguage/example/spring/AotPackagingTest.java)。
+AOT 生成在独立 JVM 中执行，避免运行阶段已加载的代理类影响构建输出。构建工具入口为 VaadinSpringAotProcessor（`norm-vaadin/spring-aot/src/main/java/dev/normlanguage/vaadin/aot/VaadinSpringAotProcessor.java`），应用标识以 NormSpringApplication（`norm-vaadin/spring/src/main/java/dev/normlanguage/vaadin/spring/NormSpringApplication.java`）为准。生成类、资源与 Native 提示由应用制品（`norm-vaadin/profile-spring/build.gradle.kts`）携带，再通过 Norm 普通固定依赖进入构建，不向编译器核心添加 Spring 专属判断。归档内容边界见 AotPackagingTest（`norm-vaadin/profile-spring/src/test/java/dev/normlanguage/example/spring/AotPackagingTest.java`）。
 
 版本选择以适配构建声明为唯一源，锁定具体制品与内容；不使用浮动版本或改写已发布制品。依赖升级需要核对 Vaadin、Servlet 环境、Spring Boot 和 Jetty 的兼容组合。
 
@@ -142,7 +142,7 @@ AOT 生成在独立 JVM 中执行，避免运行阶段已加载的代理类影�
 
 测试证据保存在对应适配模块的测试报告与浏览器验收产物中；此文不重复维护测试数量或实现逻辑。实施 Goal 持续跟踪阶段完成状态，所有必需工作完成后才标记完成。
 
-运行形态的实测支持矩阵与验收入口统一维护在[适配工作区 README](../../../norm-vaadin/README.md)。Native 构建成功但启动失败的产物不计为运行支持。
+运行形态的实测支持矩阵与验收入口统一维护在适配工作区 README（`norm-vaadin/README.md`）。Native 构建成功但启动失败的产物不计为运行支持。
 
 ## 官方参考
 
