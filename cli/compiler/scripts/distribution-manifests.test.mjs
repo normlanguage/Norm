@@ -44,6 +44,7 @@ test('channel manifests consume verified release assets and preserve the runtime
     assert.match(snap, /version: '1\.2\.3'/);
     assert.match(snap, /command: bin\/norm/);
     assert.match(snap, /plugin: dump/);
+    assert.match(snap, /build-attributes:\n      - enable-patchelf/);
     assert.ok(snap.includes('https://github.com/normlanguage/Norm/releases/download/v1.2.3/norm-v1.2.3-linux-x64.tar.gz'));
     assert.ok(snap.includes(`source-checksum: sha256/${hashes.get('norm-v1.2.3-linux-x64.tar.gz')}`));
     assert.doesNotMatch(snap, /gradle|override-build/);
