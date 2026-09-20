@@ -21,6 +21,53 @@ final class PublishedCoreImportTest {
   @TempDir Path directory;
 
   @Test
+  void dependencyCanAddDeclarationsWithoutInvalidatingPublishedConsumers() throws Exception {
+    var base = new ModuleCoordinate("base", 1);
+    var facade = new ModuleCoordinate("facade", 1);
+    var app = new ModuleCoordinate("app", 1);
+    var original =
+        SourceFile.of(directory.resolve("base.norm"), "package base public Integer value() { 7 }");
+    var consumer =
+        SourceFile.of(
+            directory.resolve("facade.norm"),
+            "package facade import base.value public Integer result() { value() }");
+    CompiledModule published;
+    try (var compiler = new CompilerSession()) {
+      published =
+          compiler
+              .compileModule(
+                  request(
+                          facade,
+                          Map.of(base, original, facade, consumer),
+                          Map.of(base, Set.of(), facade, Set.of(base)))
+                      .asLibrary(),
+                  facade)
+              .module()
+              .orElseThrow();
+    }
+    var added =
+        SourceFile.of(original.path(), original.text() + " public String extra() { \"new\" }");
+    var main =
+        SourceFile.of(
+            directory.resolve("app.norm"),
+            "package app import facade.result Void main() { printLine(result()) }");
+    try (var compiler = new CompilerSession()) {
+      var compiled =
+          compiler.compile(
+              request(
+                  app,
+                  Map.of(base, added, facade, consumer, app, main),
+                  Map.of(base, Set.of(), facade, Set.of(base), app, Set.of(facade))),
+              List.of(CompiledModule.decode(published.encode())));
+      assertTrue(compiled.isSuccess(), compiled.diagnostics().toString());
+      var printed = new java.io.StringWriter();
+      new dev.w0fv1.norm.runtime.NormRuntime()
+          .run(compiled.output().orElseThrow().artifact(), new java.io.PrintWriter(printed));
+      assertEquals("7" + System.lineSeparator(), printed.toString());
+    }
+  }
+
+  @Test
   void readsModuleIdentityWithoutDecodingCoreBodies() throws Exception {
     var coordinate = new ModuleCoordinate("deferred", 1);
     var payload =

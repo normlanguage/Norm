@@ -31,6 +31,7 @@ final class CrossModuleJarBindingTest {
         package sample;
         public class Node<T> {
           public String text() { return "cross-module"; }
+          public String[] words() { return new String[]{"array"}; }
           @Override public boolean equals(Object other) { return other instanceof Node; }
           @Override public int hashCode() { return 1; }
         }
@@ -111,7 +112,7 @@ final class CrossModuleJarBindingTest {
         """
         Module module() { module(name: "widgets", version: 1,
           exports: ["Widget"], binding: jarBinding(target: mavenJar(group: "fixture", artifact: "node", version: "1"),
-            api: [jarType(name: "Node", members: ["new", "text"])])) }
+            api: [jarType(name: "Node", members: ["new", "text", "words"])])) }
         """);
     Files.writeString(
         host.resolve("module.norm"),
@@ -136,6 +137,7 @@ final class CrossModuleJarBindingTest {
         """
         package app
         import widgets.Widget
+        import widgets.javaStringArrayNew
         import host.hostEcho
         import host.hostNew
         Void main() {
@@ -146,6 +148,8 @@ final class CrossModuleJarBindingTest {
           Set<Any> identities = Set<>()
           identities.add(original)
           require(condition: identities.contains(returned), message: "Java identity hash survives superclass views")
+          require(condition: returned.words()!!.size() == 1, message: "bound array result")
+          require(condition: javaStringArrayNew(size: 2).size() == 2, message: "bound array constructor")
           printLine(returned.text()!!)
         }
         """);

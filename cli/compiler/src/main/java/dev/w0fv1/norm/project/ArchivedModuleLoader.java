@@ -90,12 +90,14 @@ final class ArchivedModuleLoader {
         binding = Optional.of(resolved);
       } else {
         Map<String, String> expected = new LinkedHashMap<>();
-        int bindingExports = descriptor.binding().orElseThrow().api().size();
-        for (String exported : descriptor.exports().subList(0, bindingExports)) {
-          String path = descriptor.sourcePath(exported);
-          String source = archived.sources().get(path);
-          if (source == null) throw new IOException("module binding source is absent: " + path);
-          expected.put(path, source);
+        for (GeneratedBindingSource generated :
+            archived.binding().orElseThrow().generated().sources()) {
+          String source = archived.sources().get(generated.relativePath());
+          if (!generated.text().equals(source))
+            throw new IOException(
+                "module binding source does not match its published binding: "
+                    + generated.relativePath());
+          expected.put(generated.relativePath(), source);
         }
         generatedSources = Map.copyOf(expected);
       }

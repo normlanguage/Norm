@@ -78,7 +78,13 @@ record ImportedCompilation(
         throw new IllegalArgumentException(
             "published Core source policy does not match: " + module.coordinate());
       for (var required : content.contracts().entrySet()) {
-        if (!required.getValue().equals(contracts.get(required.getKey())))
+        var current = contracts.get(required.getKey());
+        boolean compatible =
+            current != null
+                && (required.getKey().equals(module.coordinate())
+                    ? required.getValue().equals(current)
+                    : current.entrySet().containsAll(required.getValue().entrySet()));
+        if (!compatible)
           throw new IllegalArgumentException(
               "published Core declaration contract does not match: " + required.getKey());
       }
