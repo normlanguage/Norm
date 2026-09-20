@@ -33,6 +33,8 @@ final class JavaManagedMethodProjectionTest {
             """
             package todo
             import std.core.Exception
+            import std.concurrent.Task
+            import std.concurrent.startTask
             import std.annotation.ManagedImplementation
             import std.annotation.FunctionTarget
             import std.annotation.ParameterTarget
@@ -68,6 +70,10 @@ final class JavaManagedMethodProjectionTest {
               String required()
             }
             class Client {
+              Task<Integer>? work = null
+              Void start() { this.work = startTask<Integer>(() { 42 }) }
+              Integer result() { this.work!!.await() }
+              List<String> append(List<String> items) { items.add("added") items }
               String? keyed(StringRepository repository) { repository.byKey(42) }
               String? genericNullable(StringRepository repository) { repository.map<String?>(null) }
               List<String> inheritedBody(StringRepository repository) { repository.listed() }
@@ -277,6 +283,13 @@ final class JavaManagedMethodProjectionTest {
                             clientType
                                 .getMethod("keyed", repositoryType)
                                 .invoke(client, repository));
+                        var original = List.of("original");
+                        clientType.getMethod("start").invoke(client);
+                        assertEquals(42, clientType.getMethod("result").invoke(client));
+                        assertEquals(
+                            List.of("original", "added"),
+                            clientType.getMethod("append", List.class).invoke(client, original));
+                        assertEquals(List.of("original"), original);
                         var run = clientType.getMethod("run", serviceType, Boolean.class);
                         assertEquals(List.of("全部"), run.invoke(client, service, null));
                         assertEquals(List.of("已完成"), run.invoke(client, service, true));

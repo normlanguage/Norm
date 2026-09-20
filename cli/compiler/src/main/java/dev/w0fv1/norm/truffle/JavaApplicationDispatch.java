@@ -418,6 +418,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       return RuntimeValues.NullValue.INSTANCE;
     }
     if (value instanceof RuntimeValues.EnumValue) return value;
+    if (value instanceof TaskRegistration task) return task.handle();
     if (expected instanceof CoreType.Declared declared
         && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
         && builtin.id().value().equals("std.core.List")) {
@@ -432,7 +433,9 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
               CoreNullability.NON_NULL);
       return new RuntimeValues.ListValue(
           listType,
-          items.stream().map(item -> javaValue(declared.arguments().getFirst(), item)).toList());
+          items.stream()
+              .map(item -> javaValue(declared.arguments().getFirst(), item))
+              .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new)));
     }
     RuntimeValues.Closure function = functions.getOrDefault(value, Map.of()).get(expected);
     if (function != null) return function;

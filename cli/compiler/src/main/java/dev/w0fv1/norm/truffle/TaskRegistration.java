@@ -65,6 +65,10 @@ final class TaskRegistration implements JarBindingTask {
     return task.continuationExecutor();
   }
 
+  RuntimeValues.OpaqueResource handle() {
+    return handle;
+  }
+
   @Override
   public java.util.Optional<CompletionStage<Void>> ownedTermination() {
     return task.ownedTermination();
