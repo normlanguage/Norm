@@ -214,6 +214,11 @@ public final class IntrinsicDispatcher {
           IO_USE ->
           IoIntrinsicDispatcher.resolve(intrinsic);
       case TASK_TERMINATION,
+          COMPLETION_CREATE,
+          COMPLETION_TASK,
+          COMPLETION_SUCCEED,
+          COMPLETION_FAIL,
+          COMPLETION_CLOSE,
           TASK_START,
           TASK_CONTINUE,
           JAR_TASK_AWAIT,

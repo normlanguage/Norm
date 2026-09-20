@@ -215,7 +215,8 @@ public final class BuiltinCatalog {
   }
 
   public SemanticType instantiate(String name, List<SemanticType> arguments) {
-    TypeDefinition type = Objects.requireNonNull(types.get(name), "unknown builtin type " + name);
+    TypeDefinition type =
+        type(name).orElseThrow(() -> new IllegalArgumentException("unknown builtin type " + name));
     return SemanticType.declared(
         "std.core." + name, name, arguments, type.symbol().type().category());
   }

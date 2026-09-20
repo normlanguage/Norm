@@ -11,11 +11,68 @@ import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingTask;
 
 final class JarTaskIntrinsicDispatcher {
+  private record CompletionSource(java.util.concurrent.CompletableFuture<Object> future)
+      implements AutoCloseable {
+    @Override
+    public void close() {
+      future.cancel(true);
+    }
+  }
+
   private JarTaskIntrinsicDispatcher() {}
 
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     IntrinsicOperation operation =
         switch (intrinsic) {
+          case COMPLETION_CREATE ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  execution
+                      .values()
+                      .resource(
+                          type,
+                          new CompletionSource(new java.util.concurrent.CompletableFuture<>()),
+                          "Completion",
+                          execution);
+          case COMPLETION_TASK ->
+              (receiver, arguments, type, context, location, annotations, execution) -> {
+                var source = resource(arguments[0]).value(CompletionSource.class);
+                var task =
+                    new FutureBindingTask(
+                        source.future(),
+                        JarBindingResult.Scalar::new,
+                        value ->
+                            execution
+                                .callbacks()
+                                .invoke(
+                                    () ->
+                                        JavaValueAdapter.jarArgument(
+                                            value, execution, annotations)));
+                var registration = new TaskRegistration(task, execution);
+                var handle =
+                    execution.values().resource(type, registration, "Completion task", execution);
+                registration.bind(handle);
+                return handle;
+              };
+          case COMPLETION_SUCCEED ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  resource(arguments[0])
+                      .value(CompletionSource.class)
+                      .future()
+                      .complete(RuntimeValues.copy(arguments[1]));
+          case COMPLETION_FAIL ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  resource(arguments[0])
+                      .value(CompletionSource.class)
+                      .future()
+                      .completeExceptionally(
+                          new JarBindingCallbackException(
+                              NormThrownException.create(
+                                  (RuntimeValues.ObjectValue) arguments[1], location)));
+          case COMPLETION_CLOSE ->
+              (receiver, arguments, type, context, location, annotations, execution) -> {
+                resource(arguments[0]).close();
+                return null;
+              };
           case TASK_TERMINATION ->
               (receiver, arguments, type, context, location, annotations, execution) -> {
                 var signal = task(arguments[0]).ownedTermination();

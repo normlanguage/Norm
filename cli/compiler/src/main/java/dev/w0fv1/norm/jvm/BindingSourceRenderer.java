@@ -189,6 +189,7 @@ public final class BindingSourceRenderer {
     List<JavaBindingType> bounds = bounds(ownerTypeParameters, bindings);
     List<JavaBindingType> signatureTypes = new ArrayList<>(bounds);
     signatureTypes.addAll(interfaces);
+    declaration.superclass().ifPresent(signatureTypes::add);
     if (signatureTypes.stream().anyMatch(JavaGenericParameterProjector::isComparable)) {
       text.append("import std.core.Comparable\n");
     }
@@ -293,6 +294,7 @@ public final class BindingSourceRenderer {
     bounds.forEach(type -> collectReferences(type, referencedTypes));
     bindings.forEach(callable -> collectReferences(callable, referencedTypes));
     interfaces.forEach(type -> collectReferences(type, referencedTypes));
+    declaration.superclass().ifPresent(type -> collectReferences(type, referencedTypes));
     appendReferenceImports(
         text, module, packageName, declaration.binaryName(), referencedTypes, normTypes);
     if (!packageName.equals(module.name())) {
@@ -327,6 +329,7 @@ public final class BindingSourceRenderer {
           className,
           ownerTypeParameters,
           declaration.members(),
+          declaration.superclass(),
           interfaces,
           resource,
           normTypes);
@@ -678,16 +681,19 @@ public final class BindingSourceRenderer {
       String className,
       List<JavaBindingTypeParameter> ownerTypeParameters,
       List<BindingPlan.Call> members,
+      Optional<JavaReferenceType> superclass,
       List<JavaReferenceType> interfaces,
       boolean resource,
       BindingTypeNames normTypes) {
-    String tokenName = className + "BindingToken";
-    text.append("private class ").append(tokenName).append(" {\n}\n\n");
     text.append("class ").append(className);
     appendTypeParameters(text, ownerTypeParameters, normTypes);
+    superclass.ifPresent(
+        type -> text.append(" extends ").append(normRelationType(type, normTypes)));
     appendRelations(text, " implements ", interfaces, resource, normTypes);
     text.append(" {\n");
-    text.append("  ").append(className).append('(').append(tokenName).append(" token) {\n  }\n\n");
+    text.append("  ").append(className).append("(__JarBindingToken token) {\n");
+    if (superclass.isPresent()) text.append("    super(token)\n");
+    text.append("  }\n\n");
     for (BindingPlan.Call member : members) {
       JavaBindingCallable callable = member.callable();
       String memberName = member.name();

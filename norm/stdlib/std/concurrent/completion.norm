@@ -1,0 +1,20 @@
+package std.concurrent
+
+import std.annotation.Document
+import std.core.Exception
+import std.io.Resource
+
+@Document(description: "Creates an owned task source completed by external events.")
+public Completion<T> completion<T>() { __completionCreate<Completion<T>>() }
+
+@Document(description: "Completes typed tasks once with a result or failure; closing cancels pending tasks.")
+public class Completion<T> implements Resource {
+  @Document(description: "Returns a task sharing this source; cancelling the task cancels the source.")
+  public Task<T> task() { __completionTask<Task<T>>(source: this) }
+  @Document(description: "Completes this source successfully and reports whether it was still pending.")
+  public Boolean succeed(T value) { __completionSucceed(source: this, value: value) }
+  @Document(description: "Fails this source and reports whether it was still pending.")
+  public Boolean fail(Exception error) { __completionFail(source: this, error: error) }
+  @Document(description: "Cancels this source if pending and releases its resource ownership.")
+  public Void close() { __completionClose(source: this) }
+}

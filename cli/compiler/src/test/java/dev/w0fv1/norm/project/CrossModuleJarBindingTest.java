@@ -29,18 +29,22 @@ final class CrossModuleJarBindingTest {
         javaSources.resolve("Node.java"),
         """
         package sample;
-        public final class Node<T> {
+        public class Node<T> {
           public String text() { return "cross-module"; }
+          @Override public boolean equals(Object other) { return other instanceof Node; }
+          @Override public int hashCode() { return 1; }
         }
         """);
     Files.writeString(
         javaSources.resolve("Host.java"),
         """
         package sample;
-        public final class Host {
+        public final class Host<T> extends %s<T> {
           public static <T> Node<T> echo(Node<T> node) { return node; }
         }
-        """);
+        class Hidden<T> extends Node<T> {}
+        """
+            .formatted(dependencyShape.equals("direct") ? "Node" : "Hidden"));
     assertEquals(
         0,
         ToolProvider.getSystemJavaCompiler()
@@ -61,6 +65,11 @@ final class CrossModuleJarBindingTest {
         jar.putNextEntry(new JarEntry("sample/" + name + ".class"));
         jar.write(Files.readAllBytes(classes.resolve("sample/" + name + ".class")));
         jar.closeEntry();
+        if (name.equals("Host")) {
+          jar.putNextEntry(new JarEntry("sample/Hidden.class"));
+          jar.write(Files.readAllBytes(classes.resolve("sample/Hidden.class")));
+          jar.closeEntry();
+        }
       }
       var dependency =
           name.equals("Host")
@@ -110,7 +119,7 @@ final class CrossModuleJarBindingTest {
         Module module() { module(name: "host", version: 1,
           dependencies: [%s],
           binding: jarBinding(target: mavenJar(group: "fixture", artifact: "host", version: "1"),
-            api: [jarType(name: "Host", members: ["echo"])])) }
+            api: [jarType(name: "Host", members: ["new", "echo"])])) }
         """
             .formatted(hostDependencies));
     var app = Files.createDirectories(root.resolve("app"));
@@ -127,11 +136,16 @@ final class CrossModuleJarBindingTest {
         """
         package app
         import widgets.Widget
-        import widgets.widgetNew
         import host.hostEcho
+        import host.hostNew
         Void main() {
-          Widget<String?> original = widgetNew<String>()
+          Widget<String?> original = hostNew<String>()
           Widget<String?> returned = hostEcho<String>(original)!!
+          require(condition: returned == original, message: "Java identity survives superclass views")
+          require(condition: returned != hostNew<String>(), message: "distinct Java instances retain identity")
+          Set<Any> identities = Set<>()
+          identities.add(original)
+          require(condition: identities.contains(returned), message: "Java identity hash survives superclass views")
           printLine(returned.text()!!)
         }
         """);

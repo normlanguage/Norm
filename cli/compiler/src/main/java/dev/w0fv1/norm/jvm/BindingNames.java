@@ -17,7 +17,7 @@ import java.util.function.Function;
 final class BindingNames {
   private BindingNames() {}
 
-  private static final String BINDING_ABI = "java-v14";
+  private static final String BINDING_ABI = "java-v15";
   private static final Set<String> RESERVED_TYPE_NAMES =
       java.util.stream.Stream.concat(
               BuiltinCatalog.standard().typeNames().stream(),

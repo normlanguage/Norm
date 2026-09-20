@@ -314,7 +314,7 @@ final class RuntimeValues {
       case EnumValue item -> item.valueHash();
       case BuilderValue item -> item.value.toString().hashCode();
       case RangeValue item -> Objects.hash(item.start, item.end, item.step);
-      case OpaqueValue item -> 31 * item.type.hashCode() + item.value.hashCode();
+      case OpaqueValue item -> item.valueHash();
       case OpaqueResource item -> System.identityHashCode(item);
       case ObjectValue item ->
           isValueObject(item)
@@ -765,7 +765,20 @@ final class RuntimeValues {
     }
 
     boolean sameValue(OpaqueValue other) {
-      return type.equals(other.type) && value.equals(other.value);
+      if (type instanceof CoreType.Declared declared
+          && declared.category() == CoreValueCategory.VALUE) {
+        return type.equals(other.type) && value.equals(other.value);
+      }
+      return !(other.type instanceof CoreType.Declared declared
+              && declared.category() == CoreValueCategory.VALUE)
+          && value == other.value;
+    }
+
+    int valueHash() {
+      return type instanceof CoreType.Declared declared
+              && declared.category() == CoreValueCategory.VALUE
+          ? 31 * type.hashCode() + value.hashCode()
+          : System.identityHashCode(value);
     }
 
     @Override

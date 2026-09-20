@@ -52,6 +52,7 @@ public record BindingPlan(
       JavaApiTypeKind kind,
       List<JavaBindingTypeParameter> typeParameters,
       List<JavaBindingCallable> bindings,
+      Optional<JavaReferenceType> superclass,
       List<JavaReferenceType> interfaces,
       boolean resource,
       Map<String, String> enumVariants,
@@ -65,6 +66,7 @@ public record BindingPlan(
       Objects.requireNonNull(kind);
       typeParameters = List.copyOf(typeParameters);
       bindings = List.copyOf(bindings);
+      Objects.requireNonNull(superclass);
       interfaces = List.copyOf(interfaces);
       enumVariants =
           java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(enumVariants));

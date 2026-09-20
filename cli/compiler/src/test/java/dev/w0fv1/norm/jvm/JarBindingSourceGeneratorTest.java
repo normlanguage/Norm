@@ -89,7 +89,7 @@ final class JarBindingSourceGeneratorTest {
     assertTrue(source.text().contains("public String? stringUtilsReverse(String? arg0)"));
     assertTrue(source.text().contains("public Integer stringUtilsLength(String? arg0)"));
     assertTrue(source.text().contains("__jarInvoke1<String?>"));
-    assertTrue(source.callIds().stream().allMatch(value -> value.startsWith("java-v14:")));
+    assertTrue(source.callIds().stream().allMatch(value -> value.startsWith("java-v15:")));
     assertEquals(2, generated.calls().size());
     assertEquals(reverse, generated.calls().get(source.callIds().getLast()));
   }
@@ -972,7 +972,7 @@ final class JarBindingSourceGeneratorTest {
             .getFirst();
 
     assertEquals("commons/lang/mutable/MutableInt.norm", source.relativePath());
-    assertTrue(source.text().contains("private class MutableIntBindingToken"));
+    assertTrue(source.text().contains("MutableInt(__JarBindingToken token)"));
     assertTrue(source.text().contains("class MutableInt"));
     assertTrue(source.text().contains("Integer intValue()"));
     assertTrue(source.text().contains("__jarInvoke1<Integer>"));

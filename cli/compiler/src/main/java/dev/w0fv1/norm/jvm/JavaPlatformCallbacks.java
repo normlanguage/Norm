@@ -55,6 +55,8 @@ final class JavaPlatformCallbacks {
   private static CallbackShape shape(String binaryName) {
     return switch (binaryName) {
       case "java.lang.Runnable" -> CallbackShape.voidCallback("run", 0);
+      case "java.util.Comparator" ->
+          new CallbackShape("compare", 1, List.of(0, 0), -1, JavaPrimitiveType.INT);
       case "java.util.concurrent.Callable" -> CallbackShape.returning("call", 1, List.of(), 0);
       case "java.util.function.Supplier" -> CallbackShape.returning("get", 1, List.of(), 0);
       case "java.util.function.Function" -> CallbackShape.returning("apply", 2, List.of(0), 1);

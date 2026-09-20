@@ -44,7 +44,7 @@ final class JarBindingConcurrencyIntegrationTest {
               api: [
                 jarType(
                   name: "CallbackApi",
-                  members: ["consume", "customTransform", "supply", "test", "transform"]
+                  members: ["consume", "customTransform", "remember", "same", "supply", "test", "transform"]
                 )
               ]
             )
@@ -71,6 +71,10 @@ final class JarBindingConcurrencyIntegrationTest {
           }
           Function<Void(String?)> consumer = (value) { printLine(value ?? "missing") }
           Function<Boolean(String?)> predicate = (value) { (value ?? "").codePointSize() == 3 }
+          callbackApiRemember(supplier)
+          require(condition: callbackApiSame(supplier), message: "callback identity changed between calls")
+          Function<String?()> other = () { "other" }
+          require(condition: !callbackApiSame(other), message: "distinct callbacks shared identity")
           printLine(callbackApiSupply(supplier) ?? "")
           printLine(callbackApiTransform(arg0: "NAR", arg1: suffix) ?? "")
           printLine(callbackApiCustomTransform(arg0: "custom", arg1: suffix) ?? "")
@@ -152,9 +156,20 @@ final class JarBindingConcurrencyIntegrationTest {
         package task.binding
         import std.concurrent.Task
         import std.concurrent.startTask
+        import std.concurrent.completion
         import std.core.Exception
 
         Void main() {
+          var source = completion<String?>()
+          var supplied = source.task()
+          source.succeed("completed")
+          require(condition: taskApiRead(supplied) == "completed", message: "completion exports a typed Java task")
+          source.close()
+          var empty = completion<String?>()
+          var emptyTask = empty.task()
+          empty.succeed(null)
+          require(condition: taskApiRead(emptyTask) == null, message: "completion exports Java null")
+          empty.close()
           printLine(taskApiRead(startTask<String?> { "started" }))
           String? owner = taskApiThreadName()
           Function<Boolean?()> onJavaCallbackThread = () {
@@ -238,6 +253,47 @@ final class JarBindingConcurrencyIntegrationTest {
     String owner = "sample/CallbackApi";
     writer.visit(
         Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, owner, null, "java/lang/Object", null);
+    writer
+        .visitField(
+            Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
+            "remembered",
+            "Ljava/util/function/Supplier;",
+            null,
+            null)
+        .visitEnd();
+    MethodVisitor remember =
+        writer.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+            "remember",
+            "(Ljava/util/function/Supplier;)V",
+            "(Ljava/util/function/Supplier<Ljava/lang/String;>;)V",
+            null);
+    remember.visitCode();
+    remember.visitVarInsn(Opcodes.ALOAD, 0);
+    remember.visitFieldInsn(
+        Opcodes.PUTSTATIC, owner, "remembered", "Ljava/util/function/Supplier;");
+    remember.visitInsn(Opcodes.RETURN);
+    remember.visitMaxs(0, 0);
+    remember.visitEnd();
+    MethodVisitor same =
+        writer.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+            "same",
+            "(Ljava/util/function/Supplier;)Z",
+            "(Ljava/util/function/Supplier<Ljava/lang/String;>;)Z",
+            null);
+    same.visitCode();
+    same.visitFieldInsn(Opcodes.GETSTATIC, owner, "remembered", "Ljava/util/function/Supplier;");
+    same.visitVarInsn(Opcodes.ALOAD, 0);
+    var different = new org.objectweb.asm.Label();
+    same.visitJumpInsn(Opcodes.IF_ACMPNE, different);
+    same.visitInsn(Opcodes.ICONST_1);
+    same.visitInsn(Opcodes.IRETURN);
+    same.visitLabel(different);
+    same.visitInsn(Opcodes.ICONST_0);
+    same.visitInsn(Opcodes.IRETURN);
+    same.visitMaxs(0, 0);
+    same.visitEnd();
     MethodVisitor supply =
         writer.visitMethod(
             Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,

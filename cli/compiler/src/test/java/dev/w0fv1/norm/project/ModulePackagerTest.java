@@ -418,7 +418,8 @@ final class ModulePackagerTest {
           dev.w0fv1.norm.frontend.CompiledModule.ABI,
           manifest.getAsJsonObject("core").get("abi").getAsString());
       assertEquals(
-          "norm-java-binding-1", manifest.getAsJsonObject("jar").get("bindingAbi").getAsString());
+          dev.w0fv1.norm.jvm.PublishedJarBinding.ABI,
+          manifest.getAsJsonObject("jar").get("bindingAbi").getAsString());
       assertEquals(64, manifest.getAsJsonObject("jar").get("bindingId").getAsString().length());
       var json =
           JsonParser.parseReader(new java.io.InputStreamReader(archive.getInputStream(report)))
@@ -504,7 +505,7 @@ final class ModulePackagerTest {
           if (damage.equals("abi") && item.getName().equals("module.json"))
             bytes =
                 new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
-                    .replace("norm-java-binding-1", "unknown-binding-abi")
+                    .replace(dev.w0fv1.norm.jvm.PublishedJarBinding.ABI, "unknown-binding-abi")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
           rewritten.putNextEntry(new java.util.zip.ZipEntry(item.getName()));
           rewritten.write(bytes);

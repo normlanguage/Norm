@@ -326,8 +326,21 @@ public final class JarApiScanner {
                     rootTypes,
                     new java.util.HashSet<>(),
                     interfaces));
+    Optional<JavaClassTypeSignature> superclass = declared.superclass();
+    Set<String> visited = new java.util.HashSet<>();
+    while (superclass.isPresent()) {
+      JavaClassTypeSignature relation = superclass.orElseThrow();
+      RawClass parent = classes.get(relation.binaryName());
+      if (parent == null || publiclyAccessible(parent, classes)) break;
+      if (!visited.add(parent.binaryName())) {
+        throw new IllegalArgumentException("Cyclic Java superclass: " + parent.binaryName());
+      }
+      JavaClassSignature signature = classSignature(parent);
+      Map<String, JavaTypeSignature> parentVariables = relationVariables(signature, relation);
+      superclass = signature.superclass().map(candidate -> substitute(candidate, parentVariables));
+    }
     return new JavaClassSignature(
-        declared.typeParameters(), declared.superclass(), List.copyOf(interfaces.values()));
+        declared.typeParameters(), superclass, List.copyOf(interfaces.values()));
   }
 
   private static List<EffectiveMethod> effectiveMethods(

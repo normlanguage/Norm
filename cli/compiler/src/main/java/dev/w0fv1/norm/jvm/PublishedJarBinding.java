@@ -13,7 +13,7 @@ public record PublishedJarBinding(
     JarApiSchema api,
     GeneratedJarBinding generated,
     Map<String, JarBindingClassReference.Nominal> imports) {
-  public static final String ABI = "norm-java-binding-1";
+  public static final String ABI = "norm-java-binding-2";
   public static final String ENTRY = "binding/prepared.bin";
 
   public PublishedJarBinding {

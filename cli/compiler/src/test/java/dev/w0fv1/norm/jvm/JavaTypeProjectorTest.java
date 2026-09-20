@@ -10,6 +10,26 @@ final class JavaTypeProjectorTest {
   private final JavaGenericSignatureParser signatures = new JavaGenericSignatureParser();
 
   @Test
+  void projectsContravariantComparatorsToTypedBinaryCallbacks() {
+    var projector = new JavaTypeProjector(Map.of(), Map.of());
+    var callback =
+        (JavaCallbackType)
+            projector
+                .project(
+                    signatures.parseType("Ljava/util/Comparator<-Ljava/lang/String;>;"),
+                    Map.of(),
+                    JavaTypeProjector.Position.PARAMETER)
+                .orElseThrow();
+    assertEquals("compare", callback.methodName());
+    assertEquals(
+        List.of(
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING),
+            new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING)),
+        callback.parameters());
+    assertEquals(JavaPrimitiveType.INT, callback.returnType());
+  }
+
+  @Test
   void descriptorAndGenericSignaturesShareProjectionRules() {
     JavaTypeProjector projector =
         new JavaTypeProjector(Map.of("sample.Mode", JavaReferenceKind.ENUM), Map.of());

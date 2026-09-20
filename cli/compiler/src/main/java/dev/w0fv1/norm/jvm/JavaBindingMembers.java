@@ -241,6 +241,22 @@ final class JavaBindingMembers {
     return List.copyOf(bindings);
   }
 
+  Optional<JavaReferenceType> projectedSuperclass(JavaApiType owner) {
+    if (owner.kind() == JavaApiTypeKind.INTERFACE
+        || owner.kind() == JavaApiTypeKind.ENUM
+        || owner.kind() == JavaApiTypeKind.ANNOTATION) return Optional.empty();
+    return owner
+        .signature()
+        .superclass()
+        .flatMap(
+            relation ->
+                projector.project(
+                    relation, classVariables(owner), JavaTypeProjector.Position.VALUE))
+        .filter(JavaReferenceType.class::isInstance)
+        .map(JavaReferenceType.class::cast)
+        .filter(type -> type.kind() == JavaReferenceKind.OPAQUE);
+  }
+
   List<JavaReferenceType> projectedInterfaces(JavaApiType owner) {
     Map<String, JavaReferenceType> projected = new LinkedHashMap<>();
     Map<String, JavaBindingType> variables = classVariables(owner);

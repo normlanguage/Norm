@@ -161,6 +161,7 @@ public final class BindingPlanner {
     Map<String, List<JavaBindingTypeParameter>> exportedTypeParameters = new LinkedHashMap<>();
     Map<String, List<JavaBindingCallable>> exportedBindings = new LinkedHashMap<>();
     Map<String, List<JavaReferenceType>> exportedInterfaces = new LinkedHashMap<>();
+    Map<String, Optional<JavaReferenceType>> exportedSuperclasses = new LinkedHashMap<>();
     Set<JavaArrayType> arrays = new java.util.LinkedHashSet<>();
     List<String> generationOrder = new ArrayList<>(exportedTypes.keySet());
     for (int index = 0; index < generationOrder.size(); index++) {
@@ -189,6 +190,8 @@ public final class BindingPlanner {
       exportedBindings.put(exportedName, ownerBindings);
       List<JavaReferenceType> interfaces = javaMembers.projectedInterfaces(owner);
       exportedInterfaces.put(exportedName, interfaces);
+      var superclass = javaMembers.projectedSuperclass(owner);
+      exportedSuperclasses.put(exportedName, superclass);
       ownerBindings.forEach(callable -> collectArrays(callable, arrays));
       Set<String> referencedTypes = new java.util.LinkedHashSet<>();
       typeParameters.forEach(
@@ -196,6 +199,7 @@ public final class BindingPlanner {
               parameter.bound().ifPresent(type -> collectReferences(type, referencedTypes)));
       ownerBindings.forEach(callable -> collectReferences(callable, referencedTypes));
       interfaces.forEach(type -> collectReferences(type, referencedTypes));
+      superclass.ifPresent(type -> collectReferences(type, referencedTypes));
       for (String binaryName : referencedTypes) {
         JavaApiType referenced = apiTypes.get(binaryName);
         if (referenced == null || referenceNames.containsKey(binaryName)) continue;
@@ -323,6 +327,7 @@ public final class BindingPlanner {
                   owner.kind(),
                   exportedTypeParameters.get(exportedName),
                   ownerBindings,
+                  exportedSuperclasses.get(exportedName),
                   exportedInterfaces.get(exportedName),
                   resourceTypes.contains(owner.binaryName()),
                   enumVariants.getOrDefault(owner.binaryName(), Map.of()),

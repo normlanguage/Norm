@@ -22,3 +22,5 @@ Java Binding 将 Future、CompletionStage 和 CompletableFuture 投影为同一 
 Java 声明的 `Future<?>`、`CompletionStage<?>` 与 `CompletableFuture<?>` 保留未知元素类型，不投影为 `Task<Any?>`。这允许只检查完成状态的 Java API 接收不同结果类型的 Task，不改变普通参数化类型的不变性。
 
 `termination()` 返回独立的 `Task<Unit>?` 清理完成通知：Norm 自己调度的工作退出执行体（包括 finally）后才完成，即使任务已被取消。尚未运行的工作取消或被执行器拒绝后也会完成该通知。它不继承组件的 ResourceOwner，关闭通知不会取消原工作；通知本身不代表另一个工作执行体。外部 Java Future 无法证明其后台工作已退出，因此返回 null。该 API 用于资源关闭协调；UI 线程不应调用 await 阻塞等待。
+
+外部事件通过 `completion<T>()` 创建可完成的任务源；声明见 [completion.norm](../../norm/stdlib/std/concurrent/completion.norm)，跨线程完成、失败身份和关闭取消验证见 [CompletionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/stdlib/CompletionTest.java)。

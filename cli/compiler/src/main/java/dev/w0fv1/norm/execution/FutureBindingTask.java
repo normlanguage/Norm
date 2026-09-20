@@ -36,11 +36,18 @@ public final class FutureBindingTask implements JarBindingTask {
   private boolean observing;
 
   public FutureBindingTask(Object host, Function<Object, JarBindingResult> conversion) {
+    this(host, conversion, null);
+  }
+
+  public FutureBindingTask(
+      Object host,
+      Function<Object, JarBindingResult> conversion,
+      Function<Object, Object> hostConversion) {
     this(
         host instanceof CompletionStage<?> stage ? stage.toCompletableFuture() : (Future<?>) host,
         null,
         conversion,
-        null,
+        hostConversion,
         WORKERS,
         null);
   }

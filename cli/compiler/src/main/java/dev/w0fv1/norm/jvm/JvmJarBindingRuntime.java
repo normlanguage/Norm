@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.net.URL;
@@ -34,6 +35,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 public final class JvmJarBindingRuntime
     implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
@@ -341,12 +343,9 @@ public final class JvmJarBindingRuntime
             var parameters =
                 callback.parameters().stream().map(JvmJarBindingRuntime::resultAdapter).toList();
             var result = argumentAdapter(callback.returnType());
-            var binaryName = callback.binaryName();
-            var methodName = callback.methodName();
             boolean returnsVoid = callback.returnType() == JavaPrimitiveType.VOID;
             yield (classes, value) ->
-                adaptCallback(
-                    classes, binaryName, methodName, parameters, result, returnsVoid, value);
+                adaptCallback(classes, callback, parameters, result, returnsVoid, value);
           }
           case JavaReferenceType reference ->
               switch (reference.kind()) {
@@ -401,8 +400,7 @@ public final class JvmJarBindingRuntime
 
   private static Object adaptCallback(
       ClassCatalog classes,
-      String binaryName,
-      String methodName,
+      JavaCallbackType type,
       List<Conversion<JarBindingResult>> parameters,
       Conversion<Object> resultConversion,
       boolean returnsVoid,
@@ -410,42 +408,55 @@ public final class JvmJarBindingRuntime
     if (!(value instanceof JarBindingCallback callback)) {
       throw new JarBindingRuntimeException("JAR callback argument is not a Norm function");
     }
+    String binaryName = type.binaryName();
+    String methodName = type.methodName();
     Class<?> callbackInterface = classes.load(binaryName);
     if (!callbackInterface.isInterface()) {
       throw new JarBindingRuntimeException("Java callback type is not an interface: " + binaryName);
     }
-    return Proxy.newProxyInstance(
-        classes.loader(),
-        new Class<?>[] {callbackInterface},
-        (proxy, method, arguments) -> {
-          if (method.getDeclaringClass() == Object.class) {
-            return switch (method.getName()) {
-              case "equals" -> proxy == arguments[0];
-              case "hashCode" -> System.identityHashCode(proxy);
-              case "toString" -> "Norm function as " + binaryName;
-              default -> throw new IllegalStateException("unexpected Object method " + method);
-            };
-          }
-          if (method.isDefault()) return InvocationHandler.invokeDefault(proxy, method, arguments);
-          if (!method.getName().equals(methodName)) {
-            throw new JarBindingRuntimeException(
-                "unexpected Java callback method " + binaryName + "." + method.getName());
-          }
-          Object[] values = arguments == null ? new Object[0] : arguments;
-          if (values.length != parameters.size()) {
-            throw new JarBindingRuntimeException(
-                "Java callback expected "
-                    + parameters.size()
-                    + " arguments but received "
-                    + values.length);
-          }
-          List<JarBindingResult> adapted = new ArrayList<>(values.length);
-          for (int index = 0; index < values.length; index++) {
-            adapted.add(parameters.get(index).apply(classes, values[index]));
-          }
-          Object result = callback.invoke(adapted);
-          return returnsVoid ? null : resultConversion.apply(classes, result);
-        });
+    CallbackKey key = new CallbackKey(callback, type);
+    synchronized (classes.callbacks) {
+      WeakReference<Object> reference = classes.callbacks.get(key);
+      Object existing = reference == null ? null : reference.get();
+      if (existing != null) return existing;
+      Object adaptedCallback =
+          Proxy.newProxyInstance(
+              classes.loader(),
+              new Class<?>[] {callbackInterface},
+              (proxy, method, arguments) -> {
+                if (method.getDeclaringClass() == Object.class) {
+                  return switch (method.getName()) {
+                    case "equals" -> proxy == arguments[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> "Norm function as " + binaryName;
+                    default ->
+                        throw new IllegalStateException("unexpected Object method " + method);
+                  };
+                }
+                if (method.isDefault())
+                  return InvocationHandler.invokeDefault(proxy, method, arguments);
+                if (!method.getName().equals(methodName)) {
+                  throw new JarBindingRuntimeException(
+                      "unexpected Java callback method " + binaryName + "." + method.getName());
+                }
+                Object[] values = arguments == null ? new Object[0] : arguments;
+                if (values.length != parameters.size()) {
+                  throw new JarBindingRuntimeException(
+                      "Java callback expected "
+                          + parameters.size()
+                          + " arguments but received "
+                          + values.length);
+                }
+                List<JarBindingResult> adapted = new ArrayList<>(values.length);
+                for (int index = 0; index < values.length; index++) {
+                  adapted.add(parameters.get(index).apply(classes, values[index]));
+                }
+                Object result = key.callback().invoke(adapted);
+                return returnsVoid ? null : resultConversion.apply(classes, result);
+              });
+      classes.callbacks.put(key, new WeakReference<>(adaptedCallback));
+      return adaptedCallback;
+    }
   }
 
   private static Object adaptPrimitive(JavaPrimitiveType primitive, Object value) {
@@ -983,7 +994,22 @@ public final class JvmJarBindingRuntime
     }
   }
 
+  private record CallbackKey(JarBindingCallback callback, JavaCallbackType type) {
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof CallbackKey key
+          && callback.identity() == key.callback.identity()
+          && type.equals(key.type);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * System.identityHashCode(callback.identity()) + type.hashCode();
+    }
+  }
+
   private static final class ClassCatalog {
+    private final Map<CallbackKey, WeakReference<Object>> callbacks = new WeakHashMap<>();
     private final ClassLoader loader;
     private final Map<JarBindingClassReference, Class<?>> classes;
     private final Map<Class<?>, List<JarBindingClassReference>> references;

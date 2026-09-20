@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 40,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -863,6 +863,26 @@
     },
     {
       "name": "WS_SUBPROTOCOL",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "COMPLETION_CREATE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "COMPLETION_TASK",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "COMPLETION_SUCCEED",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "COMPLETION_FAIL",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "COMPLETION_CLOSE",
       "requiresResultRuntimeType": false
     }
   ],
@@ -2846,6 +2866,30 @@
       "identity": "std.core.__wsReceive/T",
       "name": "T",
       "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__completionCreate/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__completionCreate/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__completionTask/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__completionTask/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__JarBindingToken": {
+      "kind": "DECLARED",
+      "identity": "std.core.__JarBindingToken",
+      "name": "__JarBindingToken",
+      "category": "IDENTITY",
       "arguments": [],
       "nullable": false
     }
@@ -5264,6 +5308,21 @@
       ],
       "typeMembers": [],
       "hidden": false
+    },
+    {
+      "symbol": {
+        "name": "__JarBindingToken",
+        "kind": "TYPE",
+        "type": "std.core.__JarBindingToken",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Unconstructible Java binding identity token."
+      },
+      "runtimeShape": "ANY",
+      "defaultCollectionLiteral": false,
+      "members": [],
+      "typeMembers": [],
+      "hidden": true
     }
   ],
   "builtinGlobals": [
@@ -8004,6 +8063,105 @@
         "documentation": "Norm built-in."
       },
       "intrinsic": "WS_SUBPROTOCOL"
+    },
+    {
+      "symbol": {
+        "name": "__completionCreate",
+        "kind": "FUNCTION",
+        "type": "std.core.__completionCreate/T",
+        "parameters": [],
+        "documentation": "Norm built-in.",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__completionCreate/T"
+          }
+        ]
+      },
+      "intrinsic": "COMPLETION_CREATE"
+    },
+    {
+      "symbol": {
+        "name": "__completionTask",
+        "kind": "FUNCTION",
+        "type": "std.core.__completionTask/T",
+        "parameters": [
+          {
+            "name": "source",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in.",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__completionTask/T"
+          }
+        ]
+      },
+      "intrinsic": "COMPLETION_TASK"
+    },
+    {
+      "symbol": {
+        "name": "__completionSucceed",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "parameters": [
+          {
+            "name": "source",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "value",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in.",
+        "typeParameters": []
+      },
+      "intrinsic": "COMPLETION_SUCCEED"
+    },
+    {
+      "symbol": {
+        "name": "__completionFail",
+        "kind": "FUNCTION",
+        "type": "std.core.Boolean",
+        "parameters": [
+          {
+            "name": "source",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "error",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in.",
+        "typeParameters": []
+      },
+      "intrinsic": "COMPLETION_FAIL"
+    },
+    {
+      "symbol": {
+        "name": "__completionClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "parameters": [
+          {
+            "name": "source",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in.",
+        "typeParameters": []
+      },
+      "intrinsic": "COMPLETION_CLOSE"
     }
   ]
 }
