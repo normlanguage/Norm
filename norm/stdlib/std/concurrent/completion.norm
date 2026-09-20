@@ -12,9 +12,9 @@ public class Completion<T> implements Resource {
   @Document(description: "Returns a task sharing this source; cancelling the task cancels the source.")
   public Task<T> task() { __completionTask<Task<T>>(source: this) }
   @Document(description: "Completes this source successfully and reports whether it was still pending.")
-  public Boolean succeed(T value) { __completionSucceed(source: this, value: value) }
+  public Boolean succeed(@Document(description: "The successful result.") T value) { __completionSucceed(source: this, value: value) }
   @Document(description: "Fails this source and reports whether it was still pending.")
-  public Boolean fail(Exception error) { __completionFail(source: this, error: error) }
+  public Boolean fail(@Document(description: "The failure delivered to task consumers.") Exception error) { __completionFail(source: this, error: error) }
   @Document(description: "Cancels this source if pending and releases its resource ownership.")
   public Void close() { __completionClose(source: this) }
 }
