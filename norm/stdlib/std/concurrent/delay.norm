@@ -1,0 +1,11 @@
+package std.concurrent
+
+import std.annotation.Document
+import std.time.Duration
+import std.core.Exception
+
+@Document(description: "Suspends the current task for a nonnegative duration, responding to cancellation.")
+public Void delay(@Document(description: "The duration to wait; zero returns immediately.") Duration duration) {
+  if duration.seconds() < 0 { throw Exception(message: "delay duration must be nonnegative") }
+  __delay(seconds: duration.seconds(), nanoseconds: duration.nanoseconds())
+}

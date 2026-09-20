@@ -1,5 +1,5 @@
 {
-  "version": 40,
+  "version": 41,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -863,6 +863,10 @@
     },
     {
       "name": "WS_SUBPROTOCOL",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "DELAY",
       "requiresResultRuntimeType": false
     },
     {
@@ -8063,6 +8067,28 @@
         "documentation": "Norm built-in."
       },
       "intrinsic": "WS_SUBPROTOCOL"
+    },
+    {
+      "symbol": {
+        "name": "__delay",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "seconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "nanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "DELAY"
     },
     {
       "symbol": {

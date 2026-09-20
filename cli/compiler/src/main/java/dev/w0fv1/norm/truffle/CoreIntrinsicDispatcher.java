@@ -112,6 +112,25 @@ final class CoreIntrinsicDispatcher {
             execution.callbacks().runUntilCancellation();
             return null;
           };
+      case DELAY ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            try {
+              execution
+                  .callbacks()
+                  .hostCall(
+                      () -> {
+                        dev.w0fv1.norm.platform.CancellableDelay.await(
+                            context.cancellation(),
+                            new dev.w0fv1.norm.platform.PlatformDuration(
+                                (Long) arguments[0], (Integer) arguments[1]));
+                        return null;
+                      });
+              return null;
+            } catch (InterruptedException error) {
+              Thread.currentThread().interrupt();
+              throw execution.values().javaException(error, execution, location);
+            }
+          };
       case APPLICATION_PACKAGE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             return context.applicationPackage();

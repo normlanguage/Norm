@@ -16,6 +16,7 @@ Module module() {
       "context.context",
       "concurrent.completion",
       "concurrent.lifecycle",
+      "concurrent.delay",
       "concurrent.publishers",
       "concurrent.tasks",
       "filesystem.files",
