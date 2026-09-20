@@ -12,6 +12,7 @@ import dev.w0fv1.norm.abi.JsonAbi;
 import dev.w0fv1.norm.abi.OpaqueValueAbi;
 import dev.w0fv1.norm.abi.TimeDurationAbi;
 import dev.w0fv1.norm.abi.TimeExceptionAbi;
+import dev.w0fv1.norm.abi.WebSocketExceptionAbi;
 import dev.w0fv1.norm.abi.XmlAbi;
 import dev.w0fv1.norm.abi.YamlAbi;
 import dev.w0fv1.norm.core.CoreDefinition;
@@ -31,6 +32,7 @@ import dev.w0fv1.norm.execution.JarBindingUri;
 import dev.w0fv1.norm.platform.file.PlatformFileException;
 import dev.w0fv1.norm.platform.http.PlatformHttpException;
 import dev.w0fv1.norm.platform.time.PlatformTimeException;
+import dev.w0fv1.norm.platform.websocket.PlatformWebSocketException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -320,6 +322,48 @@ final class GuestValueFactory {
     return new NormThrownException(exception, location);
   }
 
+  NormThrownException webSocketException(
+      PlatformWebSocketException failure, ExecutionState execution, Node location) {
+    validateWebSocketContract();
+    WebSocketExceptionAbi.Failure mappedFailure =
+        WebSocketExceptionAbi.failure(failure.reason().name());
+    Object operation =
+        enumValue(
+            WebSocketExceptionAbi.MODULE_NAME,
+            WebSocketExceptionAbi.MODULE_VERSION,
+            WebSocketExceptionAbi.PACKAGE_NAME,
+            WebSocketExceptionAbi.OPERATION_TYPE_NAME,
+            WebSocketExceptionAbi.operationVariant(failure.operation().name()));
+    Object failureReason =
+        enumValue(
+            WebSocketExceptionAbi.MODULE_NAME,
+            WebSocketExceptionAbi.MODULE_VERSION,
+            WebSocketExceptionAbi.PACKAGE_NAME,
+            WebSocketExceptionAbi.FAILURE_TYPE_NAME,
+            mappedFailure.variant());
+    Object uri =
+        construct(
+            HttpUriAbi.MODULE_NAME,
+            HttpUriAbi.MODULE_VERSION,
+            HttpUriAbi.PACKAGE_NAME,
+            HttpUriAbi.TYPE_NAME,
+            execution,
+            failure.uri());
+    RuntimeValues.ObjectValue exception =
+        construct(
+            WebSocketExceptionAbi.MODULE_NAME,
+            WebSocketExceptionAbi.MODULE_VERSION,
+            WebSocketExceptionAbi.PACKAGE_NAME,
+            WebSocketExceptionAbi.TYPE_NAME,
+            execution,
+            mappedFailure.code(),
+            failure.getMessage(),
+            operation,
+            failureReason,
+            uri);
+    return new NormThrownException(exception, location);
+  }
+
   NormThrownException jsonException(
       String code,
       String message,
@@ -425,18 +469,22 @@ final class GuestValueFactory {
   }
 
   RuntimeValues.EnumValue javaEnumValue(CoreType type, String variant) {
+    return enumValue(type, variant, List.of());
+  }
+
+  RuntimeValues.EnumValue enumValue(CoreType type, String variant, List<Object> payload) {
     CoreType concrete = nonNullable(type);
     if (!(concrete instanceof CoreType.Declared declared)
         || !(declared.constructor() instanceof CoreTypeConstructor.User user)
         || !(user.definition() instanceof DefinitionReference.External external)) {
-      throw new IllegalStateException("JAR enum result is not a user enum type");
+      throw new IllegalStateException("enum result is not a user enum type");
     }
     EnumPlan plan = enumsByDefinition.get(external.definition());
     if (plan == null || !plan.variants().contains(variant)) {
-      throw new IllegalStateException("JAR enum variant is unavailable: " + variant);
+      throw new IllegalStateException("enum variant is unavailable: " + variant);
     }
     return new RuntimeValues.EnumValue(
-        plan.definition(), concrete, plan.nominal().name(), variant, List.of());
+        plan.definition(), concrete, plan.nominal().name(), variant, payload);
   }
 
   JarBindingEnumValue javaEnumArgument(RuntimeValues.EnumValue value) {
@@ -614,6 +662,33 @@ final class GuestValueFactory {
     requireField(
         exception, HttpExceptionAbi.FIELD_REASON_ORDINAL, HttpExceptionAbi.FIELD_REASON_NAME);
     requireField(exception, HttpExceptionAbi.FIELD_URI_ORDINAL, HttpExceptionAbi.FIELD_URI_NAME);
+  }
+
+  private void validateWebSocketContract() {
+    validateIntrinsics(WebSocketExceptionAbi.INTRINSIC_NAMES);
+    AggregatePlan exception =
+        require(
+            aggregates,
+            WebSocketExceptionAbi.MODULE_NAME,
+            WebSocketExceptionAbi.MODULE_VERSION,
+            WebSocketExceptionAbi.PACKAGE_NAME,
+            WebSocketExceptionAbi.TYPE_NAME);
+    requireField(
+        exception,
+        WebSocketExceptionAbi.FIELD_MESSAGE_ORDINAL,
+        WebSocketExceptionAbi.FIELD_MESSAGE_NAME);
+    requireField(
+        exception, WebSocketExceptionAbi.FIELD_CODE_ORDINAL, WebSocketExceptionAbi.FIELD_CODE_NAME);
+    requireField(
+        exception,
+        WebSocketExceptionAbi.FIELD_OPERATION_ORDINAL,
+        WebSocketExceptionAbi.FIELD_OPERATION_NAME);
+    requireField(
+        exception,
+        WebSocketExceptionAbi.FIELD_REASON_ORDINAL,
+        WebSocketExceptionAbi.FIELD_REASON_NAME);
+    requireField(
+        exception, WebSocketExceptionAbi.FIELD_URI_ORDINAL, WebSocketExceptionAbi.FIELD_URI_NAME);
   }
 
   private void validateJsonContract() {

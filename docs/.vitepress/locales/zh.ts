@@ -71,6 +71,7 @@ const stdlib = [
   { text: 'Time', link: '/stdlib/time' },
   { text: 'Filesystem', link: '/stdlib/filesystem' },
   { text: 'HTTP', link: '/stdlib/http' },
+  { text: 'WebSocket', link: '/stdlib/websocket' },
   { text: 'Configuration', link: '/stdlib/configuration' },
   { text: 'Serialization', link: '/stdlib/serialization' },
   { text: 'JSON', link: '/stdlib/json-api' },

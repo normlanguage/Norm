@@ -1,21 +1,22 @@
 {
-  "schema": "0e8cde9f3253b84c8a1bd6f5f726d2482d30b8c740769c314adb933fc4b35f96",
+  "schema": "a8dbc69def67b0b62e84eec53a98c785ddcee0aa9288a80f222bdc2d217d2422",
   "outputs": {
-    "dev/w0fv1/norm/abi/BuiltinAbi.java": "423b565850f4cac5f762f21426c5b98b22dd62e9b4c654d348fbbba1ff8fcfa3",
-    "dev/w0fv1/norm/abi/BuiltinDeclarations.java": "a8f28ab07d9d659d73ea5b8791f37efe19189c6a35a73fe5c00ff88bda3df077",
+    "dev/w0fv1/norm/abi/BuiltinAbi.java": "632b929d863d06485043310893f8edd8fae44fcc21174e3b21774da56fbac87c",
+    "dev/w0fv1/norm/abi/BuiltinDeclarations.java": "acacc153d629c815b8b0e733cc40ed9d917b03c00ea92add242307983b4c3e83",
     "dev/w0fv1/norm/abi/ConfigurationAbi.java": "f30780db97627c638f34bbb2b0be30c96e62b20bbc3ed3cfecae20fca2a16844",
     "dev/w0fv1/norm/abi/ExceptionAbi.java": "9498eea2499724bc0eb6a9cc0285e6113f5ba9170dad63d539ca9ef284499aab",
     "dev/w0fv1/norm/abi/FileExceptionAbi.java": "c24e2e352484a6332ab6e20ce0ea10a0c4cb2aba0d683e0c517b81f7144a2284",
     "dev/w0fv1/norm/abi/FilesystemPathAbi.java": "9d3735e443c5808fa55f6e1ce378d785fd6a4b6126e656e1749138558ff7763e",
     "dev/w0fv1/norm/abi/HttpExceptionAbi.java": "03fbbf08d94f38b83577d28d8e506e75d2ea11ac05fc2fc929f72a294281b99f",
     "dev/w0fv1/norm/abi/HttpUriAbi.java": "1359f36646520a68dec9480647e332d8d48d4fee1601891ff8c6f048ace99f8d",
-    "dev/w0fv1/norm/abi/IntrinsicId.java": "a0ac00f552a3fd5d8303265cc6405aad1d551924134b30f31f7fe2bdaef7c3b6",
+    "dev/w0fv1/norm/abi/IntrinsicId.java": "29c7e838d8a1c532e7528f289945824377fa8364fe08261564b2a105799fe485",
     "dev/w0fv1/norm/abi/JsonAbi.java": "e2824d7f0bb76a774f58d540ddd52b5b8acfc24ea89c016f2427dbb48c474b31",
     "dev/w0fv1/norm/abi/OpaqueValueAbi.java": "b2c13ad53d1a96aa63d9856752d4d510ad0f6581058caab795d68b5fce0d6a4e",
     "dev/w0fv1/norm/abi/RuntimeShape.java": "f7239015771acc3f0e2e83e163f32f1c4f3add225208891be547434ab93258b1",
     "dev/w0fv1/norm/abi/SerializationAbi.java": "a8aeeb09279d3d32eae78dd0d5a02c86bf0f7a21c934ecf87e23b244ec692d99",
     "dev/w0fv1/norm/abi/TimeDurationAbi.java": "d4d6475d1febe15c4210dde098130005a405ee33bbce5a486be8dd8a05189a45",
     "dev/w0fv1/norm/abi/TimeExceptionAbi.java": "043cf6b3d55f8cf60c40c4f9e3b148ec44e8dc3dbe29a69b3a9534f2c85cbc4d",
+    "dev/w0fv1/norm/abi/WebSocketExceptionAbi.java": "e5eb3425b7697aa28f8121b65e7c615f4ec25a727d0580933eebaec8b84b1d67",
     "dev/w0fv1/norm/abi/XmlAbi.java": "43ac4a6d78f6b4a86c0b61e4078908a96ebc1486bee08ba56698ada159853f3e",
     "dev/w0fv1/norm/abi/YamlAbi.java": "997adf948c2800f2e525543756a9f38ab5f382c9417ab5c03d5de8e82116d3f2"
   }

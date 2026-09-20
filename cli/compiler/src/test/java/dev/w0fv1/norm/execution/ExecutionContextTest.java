@@ -48,6 +48,11 @@ final class ExecutionContextTest {
           public HttpTransport httpTransport() {
             return SystemPlatform.unavailable().httpTransport();
           }
+
+          @Override
+          public dev.w0fv1.norm.platform.websocket.WebSocketTransport webSocketTransport() {
+            return SystemPlatform.unavailable().webSocketTransport();
+          }
         };
 
     ExecutionContext context =

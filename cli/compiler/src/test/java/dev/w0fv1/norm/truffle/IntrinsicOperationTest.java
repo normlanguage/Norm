@@ -9,7 +9,7 @@ final class IntrinsicOperationTest {
   @Test
   void boundPlatformOperationsDoNotRetainRuntimeOpcodeSelection() throws Exception {
     for (var intrinsic : dev.w0fv1.norm.abi.IntrinsicId.values()) {
-      if (java.util.stream.Stream.of("HTTP_", "FILE_", "IO_", "TIME_", "JAR_TASK_")
+      if (java.util.stream.Stream.of("HTTP_", "WS_", "FILE_", "IO_", "TIME_", "JAR_TASK_")
           .noneMatch(prefix -> intrinsic.name().startsWith(prefix))) continue;
       var pending = new java.util.ArrayDeque<IntrinsicOperation>();
       var visited =

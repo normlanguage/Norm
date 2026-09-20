@@ -6,6 +6,7 @@ import dev.w0fv1.norm.platform.file.PlatformByteReader;
 import dev.w0fv1.norm.platform.file.PlatformByteWriter;
 import dev.w0fv1.norm.platform.http.HttpTransport;
 import dev.w0fv1.norm.platform.time.SystemClock;
+import dev.w0fv1.norm.platform.websocket.WebSocketTransport;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -41,5 +42,10 @@ public record WorkingDirectoryPlatform(SystemPlatform delegate, Path directory)
   @Override
   public HttpTransport httpTransport() {
     return delegate.httpTransport();
+  }
+
+  @Override
+  public WebSocketTransport webSocketTransport() {
+    return delegate.webSocketTransport();
   }
 }

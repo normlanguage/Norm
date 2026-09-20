@@ -18,6 +18,7 @@
 | `std.io` | Bytes、UTF-8、流与 Resource | [I/O](/stdlib/io) |
 | `std.filesystem` | 流式文件读写 | [Filesystem](/stdlib/filesystem) |
 | `std.http` | URI、请求、响应与 HTTP client | [HTTP](/stdlib/http) |
+| `std.websocket` | WS/WSS 客户端、消息与连接生命周期 | [WebSocket](/stdlib/websocket) |
 | `std.serialization` | 结构映射契约与 metadata | [Serialization](/stdlib/serialization) |
 | `std.json` | JSON tree、parse/write 与结构映射 | [JSON](/stdlib/json-api) |
 | `std.xml` | XML 结构映射 | [XML](/stdlib/xml-api) |

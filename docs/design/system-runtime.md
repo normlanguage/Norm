@@ -2,7 +2,7 @@
 
 状态：**已接受**
 
-本文定义 std.io、filesystem、network、http、time、process、regex、crypto 与 concurrent 的统一运行时边界。各模块的 public API 由对应标准库文档定义；宿主接入、异常转换和资源生命周期以本文为唯一实现设计。
+本文定义 std.io、filesystem、network、http、websocket、time、process、regex、crypto 与 concurrent 的统一运行时边界。各模块的 public API 由对应标准库文档定义；宿主接入、异常转换和资源生命周期以本文为唯一实现设计。WebSocket 契约与验证入口见 [WebSocket 客户端](../stdlib/websocket.md)。
 
 ## 不变量
 
@@ -42,6 +42,7 @@ SystemPlatform
 ├─ fileSystem
 ├─ network
 ├─ httpTransport
+├─ webSocketTransport
 ├─ clock
 ├─ processes
 ├─ regexEngine
@@ -63,6 +64,7 @@ Exception
    │  ├─ FileException
    │  ├─ NetworkException
    │  ├─ HttpException
+   │  ├─ WebSocketException
    │  └─ ProcessException
    ├─ TimeException
    ├─ RegexException

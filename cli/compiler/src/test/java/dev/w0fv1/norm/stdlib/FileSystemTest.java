@@ -220,6 +220,11 @@ final class FileSystemTest {
       public HttpTransport httpTransport() {
         return JdkSystemPlatform.standard().httpTransport();
       }
+
+      @Override
+      public dev.w0fv1.norm.platform.websocket.WebSocketTransport webSocketTransport() {
+        return SystemPlatform.unavailable().webSocketTransport();
+      }
     };
   }
 }

@@ -18,6 +18,7 @@ objenesis = "3.3"
 kryo = "5.6.2"
 jspecify = "1.0.0"
 commonmark = "0.29.0"
+javaWebsocket = "1.6.0"
 graalvmNativeBuildTools = "1.1.12"
 
 [libraries]
@@ -46,6 +47,7 @@ objenesis = { module = "org.objenesis:objenesis", version.ref = "objenesis" }
 kryo = { module = "com.esotericsoftware:kryo", version.ref = "kryo" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }
 graalvm-reachability-metadata = { module = "org.graalvm.buildtools:graalvm-reachability-metadata", version.ref = "graalvmNativeBuildTools" }
 
 [plugins]

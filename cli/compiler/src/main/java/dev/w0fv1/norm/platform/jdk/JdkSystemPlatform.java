@@ -16,6 +16,7 @@ import dev.w0fv1.norm.platform.time.PlatformTimeException;
 import dev.w0fv1.norm.platform.time.SystemClock;
 import dev.w0fv1.norm.platform.time.TimeFailure;
 import dev.w0fv1.norm.platform.time.TimeOperation;
+import dev.w0fv1.norm.platform.websocket.WebSocketTransport;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
@@ -35,11 +36,18 @@ public final class JdkSystemPlatform implements SystemPlatform {
   private final FileSystem fileSystem;
   private final SystemClock clock;
   private final HttpTransport httpTransport;
+  private final WebSocketTransport webSocketTransport;
 
   private JdkSystemPlatform(Builder builder) {
     fileSystem = new JdkFileSystem(builder.workingDirectory);
     clock = new JdkSystemClock(builder.clock);
     httpTransport = new JdkHttpTransport(builder.httpClient);
+    webSocketTransport = new JdkWebSocketTransport(builder.httpClient);
+  }
+
+  @Override
+  public WebSocketTransport webSocketTransport() {
+    return webSocketTransport;
   }
 
   public static JdkSystemPlatform standard() {

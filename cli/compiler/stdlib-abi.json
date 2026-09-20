@@ -1,5 +1,5 @@
 {
-  "version": 37,
+  "version": 38,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -832,6 +832,38 @@
     {
       "name": "TASK_TERMINATION",
       "requiresResultRuntimeType": true
+    },
+    {
+      "name": "WS_CONNECT",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "WS_SEND_TEXT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "WS_SEND_BINARY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "WS_PING",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "WS_RECEIVE",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "WS_FINISH",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "WS_CLOSE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "WS_SUBPROTOCOL",
+      "requiresResultRuntimeType": false
     }
   ],
   "opaqueValues": [
@@ -1283,6 +1315,121 @@
           "platformName": "IO",
           "variant": "Io",
           "code": "NORM-HTTP-IO"
+        }
+      ]
+    },
+    "webSocket": {
+      "intrinsicNames": [
+        "WS_CONNECT",
+        "WS_SEND_TEXT",
+        "WS_SEND_BINARY",
+        "WS_PING",
+        "WS_RECEIVE",
+        "WS_FINISH",
+        "WS_CLOSE",
+        "WS_SUBPROTOCOL"
+      ],
+      "moduleName": "std",
+      "moduleVersion": 1,
+      "packageName": "std.websocket",
+      "typeName": "WebSocketException",
+      "operationTypeName": "WebSocketOperation",
+      "failureTypeName": "WebSocketFailure",
+      "fields": [
+        {
+          "name": "message",
+          "ordinal": 0
+        },
+        {
+          "name": "code",
+          "ordinal": 1
+        },
+        {
+          "name": "operation",
+          "ordinal": 2
+        },
+        {
+          "name": "reason",
+          "ordinal": 3
+        },
+        {
+          "name": "uri",
+          "ordinal": 4
+        }
+      ],
+      "operations": [
+        {
+          "platformName": "CONNECT",
+          "variant": "Connect"
+        },
+        {
+          "platformName": "SEND",
+          "variant": "Send"
+        },
+        {
+          "platformName": "RECEIVE",
+          "variant": "Receive"
+        },
+        {
+          "platformName": "CLOSE",
+          "variant": "Close"
+        }
+      ],
+      "failures": [
+        {
+          "platformName": "INVALID_REQUEST",
+          "variant": "InvalidRequest",
+          "code": "NORM-WS-INVALID-REQUEST"
+        },
+        {
+          "platformName": "CONNECT",
+          "variant": "Connect",
+          "code": "NORM-WS-CONNECT"
+        },
+        {
+          "platformName": "TLS",
+          "variant": "Tls",
+          "code": "NORM-WS-TLS"
+        },
+        {
+          "platformName": "HANDSHAKE",
+          "variant": "Handshake",
+          "code": "NORM-WS-HANDSHAKE"
+        },
+        {
+          "platformName": "PROTOCOL",
+          "variant": "Protocol",
+          "code": "NORM-WS-PROTOCOL"
+        },
+        {
+          "platformName": "TIMEOUT",
+          "variant": "Timeout",
+          "code": "NORM-WS-TIMEOUT"
+        },
+        {
+          "platformName": "CANCELLED",
+          "variant": "Cancelled",
+          "code": "NORM-WS-CANCELLED"
+        },
+        {
+          "platformName": "CLOSED",
+          "variant": "Closed",
+          "code": "NORM-WS-CLOSED"
+        },
+        {
+          "platformName": "BUSY",
+          "variant": "Busy",
+          "code": "NORM-WS-BUSY"
+        },
+        {
+          "platformName": "MESSAGE_TOO_LARGE",
+          "variant": "MessageTooLarge",
+          "code": "NORM-WS-MESSAGE-TOO-LARGE"
+        },
+        {
+          "platformName": "IO",
+          "variant": "Io",
+          "code": "NORM-WS-IO"
         }
       ]
     }
@@ -2681,6 +2828,22 @@
     "std.core.__taskTermination/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__taskTermination/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__wsConnect/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__wsConnect/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__wsReceive/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__wsReceive/T",
       "name": "T",
       "category": "POLYMORPHIC",
       "arguments": [],
@@ -7595,6 +7758,252 @@
         "documentation": "Norm built-in."
       },
       "intrinsic": "TASK_TERMINATION"
+    },
+    {
+      "symbol": {
+        "name": "__wsConnect",
+        "kind": "FUNCTION",
+        "type": "std.core.__wsConnect/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__wsConnect/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "uri",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "headers",
+            "type": "std.core.Array<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "subprotocols",
+            "type": "std.core.Array<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "maximumMessageBytes",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_CONNECT"
+    },
+    {
+      "symbol": {
+        "name": "__wsSendText",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "text",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_SEND_TEXT"
+    },
+    {
+      "symbol": {
+        "name": "__wsSendBinary",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "data",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_SEND_BINARY"
+    },
+    {
+      "symbol": {
+        "name": "__wsPing",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "data",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_PING"
+    },
+    {
+      "symbol": {
+        "name": "__wsReceive",
+        "kind": "FUNCTION",
+        "type": "std.core.__wsReceive/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__wsReceive/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_RECEIVE"
+    },
+    {
+      "symbol": {
+        "name": "__wsFinish",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "code",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "reason",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_FINISH"
+    },
+    {
+      "symbol": {
+        "name": "__wsClose",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__wsSubprotocol",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "socket",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "WS_SUBPROTOCOL"
     }
   ]
 }

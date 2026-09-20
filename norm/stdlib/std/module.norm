@@ -20,6 +20,7 @@ Module module() {
       "filesystem.files",
       "http.client",
       "http.json",
+      "websocket.client",
       "io.bytes",
       "io.output",
       "io.ownership",

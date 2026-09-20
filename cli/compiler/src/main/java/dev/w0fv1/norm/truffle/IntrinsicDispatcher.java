@@ -235,6 +235,15 @@ public final class IntrinsicDispatcher {
           HTTP_RESPONSE_READ,
           HTTP_RESPONSE_CLOSE ->
           HttpIntrinsicDispatcher.resolve(intrinsic);
+      case WS_CONNECT,
+          WS_SEND_TEXT,
+          WS_SEND_BINARY,
+          WS_PING,
+          WS_RECEIVE,
+          WS_FINISH,
+          WS_CLOSE,
+          WS_SUBPROTOCOL ->
+          WebSocketIntrinsicDispatcher.resolve(intrinsic);
     };
   }
 }

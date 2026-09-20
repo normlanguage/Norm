@@ -6,6 +6,7 @@ import dev.w0fv1.norm.platform.file.PlatformByteReader;
 import dev.w0fv1.norm.platform.file.PlatformByteWriter;
 import dev.w0fv1.norm.platform.http.HttpTransport;
 import dev.w0fv1.norm.platform.time.SystemClock;
+import dev.w0fv1.norm.platform.websocket.WebSocketTransport;
 
 public interface SystemPlatform {
   SystemPlatform UNAVAILABLE =
@@ -42,6 +43,13 @@ public interface SystemPlatform {
             throw new IllegalStateException("http capability is unavailable");
           };
         }
+
+        @Override
+        public WebSocketTransport webSocketTransport() {
+          return (uri, headers, subprotocols, maximumMessageBytes, control) -> {
+            throw new IllegalStateException("WebSocket capability is unavailable");
+          };
+        }
       };
 
   FileSystem fileSystem();
@@ -49,6 +57,8 @@ public interface SystemPlatform {
   SystemClock clock();
 
   HttpTransport httpTransport();
+
+  WebSocketTransport webSocketTransport();
 
   static SystemPlatform unavailable() {
     return UNAVAILABLE;

@@ -1,0 +1,110 @@
+@Document(description: "Provides resource-owned WebSocket client connections and typed message events.")
+package std.websocket
+
+import std.annotation.Document
+import std.http.Uri
+import std.http.HeaderMap
+import std.http.HttpHeader
+import std.io.Bytes
+import std.io.Resource
+import std.io.IOException
+import std.time.Duration
+
+@Document(description: "Identifies the WebSocket operation that failed.")
+public enum WebSocketOperation { Connect, Send, Receive, Close }
+
+@Document(description: "Classifies WebSocket connection, protocol, cancellation, and capacity failures.")
+public enum WebSocketFailure { InvalidRequest, Connect, Tls, Handshake, Protocol, Timeout, Cancelled, Closed, Busy, MessageTooLarge, Io }
+
+@Document(description: "Reports a typed WebSocket failure with a stable code and endpoint.")
+public class WebSocketException extends IOException {
+  @Document(description: "The failed operation.")
+  WebSocketOperation operation
+  @Document(description: "The failure category.")
+  WebSocketFailure reason
+  @Document(description: "The connection endpoint.")
+  Uri uri
+
+  @Document(description: "Creates a WebSocket failure.")
+  WebSocketException(
+    @Document(description: "The stable machine-readable failure code.") String code,
+    @Document(description: "The failure description.") String message,
+    @Document(description: "The failed operation.") WebSocketOperation operation,
+    @Document(description: "The failure category.") WebSocketFailure reason,
+    @Document(description: "The connection endpoint.") Uri uri
+  ) {
+    super(code: code, message: message)
+    this.operation = operation
+    this.reason = reason
+    this.uri = uri
+  }
+}
+
+@Document(description: "A complete data message, Pong reply, or peer close notification. Ping is answered by the transport.")
+public enum WebSocketEvent {
+  Text(String text),
+  Binary(Bytes data),
+  Pong(Bytes data),
+  Closed(Integer code, String reason)
+}
+
+@Document(description: "A single WebSocket connection. Operations may run in existing Tasks; only one receive may be active.")
+public interface WebSocket extends Resource {
+  @Document(description: "Returns the negotiated subprotocol, or an empty string.")
+  String subprotocol()
+  @Document(description: "Sends one complete text message within the timeout. In-flight send timeout or cancellation releases the connection.")
+  Void sendText(@Document(description: "The complete text message.") String text, @Document(description: "The positive operation timeout, including send queue wait.") Duration timeout)
+  @Document(description: "Sends one complete binary message within the timeout.")
+  Void sendBinary(@Document(description: "The complete binary message.") Bytes data, @Document(description: "The positive operation timeout, including send queue wait.") Duration timeout)
+  @Document(description: "Sends at most 125 bytes as a Ping. A reply is delivered as a Pong event.")
+  Void ping(@Document(description: "The Ping payload, at most 125 bytes.") Bytes data, @Document(description: "The positive send timeout; it does not wait for Pong.") Duration timeout)
+  @Document(description: "Receives one complete event. Timeout or cancellation leaves queued data available for the next receive.")
+  WebSocketEvent receive(@Document(description: "The positive wait timeout for one event.") Duration timeout)
+  @Document(description: "Sends Close, discards remaining data, waits for peer Close within the timeout, and releases the connection.")
+  Void finish(@Document(description: "The protocol close status code.") Integer code, @Document(description: "The close reason, at most 123 UTF-8 bytes.") String reason, @Document(description: "The positive total timeout for the close handshake.") Duration timeout)
+}
+
+private class WebSocketValue implements WebSocket {
+  public String subprotocol() { return __wsSubprotocol(socket: this) }
+
+  public Void sendText(String text, Duration timeout) {
+    __wsSendText(socket: this, text: text, timeoutSeconds: timeout.seconds(), timeoutNanoseconds: timeout.nanoseconds())
+  }
+
+  public Void sendBinary(Bytes data, Duration timeout) {
+    __wsSendBinary(socket: this, data: data, timeoutSeconds: timeout.seconds(), timeoutNanoseconds: timeout.nanoseconds())
+  }
+
+  public Void ping(Bytes data, Duration timeout) {
+    __wsPing(socket: this, data: data, timeoutSeconds: timeout.seconds(), timeoutNanoseconds: timeout.nanoseconds())
+  }
+
+  public WebSocketEvent receive(Duration timeout) {
+    return __wsReceive<WebSocketEvent>(socket: this, timeoutSeconds: timeout.seconds(), timeoutNanoseconds: timeout.nanoseconds())
+  }
+
+  public Void finish(Integer code, String reason, Duration timeout) {
+    __wsFinish(socket: this, code: code, reason: reason, timeoutSeconds: timeout.seconds(), timeoutNanoseconds: timeout.nanoseconds())
+  }
+
+  public Void close() { __wsClose(socket: this) }
+}
+
+@Document(description: "Connects to a WS or WSS endpoint. Bounds each complete incoming and outgoing message; defaults to 1 MiB. Does not reconnect automatically.")
+public WebSocket connectWebSocket(
+  @Document(description: "The absolute WS or WSS endpoint.") Uri uri,
+  @Document(description: "The positive opening handshake timeout.") Duration timeout,
+  @Document(description: "Additional handshake headers; protocol-owned headers are managed by the transport.") HeaderMap headers = HeaderMap(values: []),
+  @Document(description: "Offered subprotocols in preference order.") Array<String> subprotocols = [],
+  @Document(description: "The positive maximum complete data message size in bytes, using UTF-8 for text.") Integer maximumMessageBytes = 1048576
+) {
+  if maximumMessageBytes < 1 || timeout.seconds() < 0 || timeout.seconds() == 0 && timeout.nanoseconds() == 0 {
+    throw WebSocketException(code: "NORM-WS-INVALID-REQUEST", message: "timeout and maximumMessageBytes must be positive", operation: WebSocketOperation.Connect, reason: WebSocketFailure.InvalidRequest, uri: uri)
+  }
+  Array<String> encoded = Array.filled(size: headers.values.size() * 2, value: "")
+  for HttpHeader header,index : headers.values {
+    encoded[index * 2] = header.name
+    encoded[index * 2 + 1] = header.value
+  }
+  return __wsConnect<WebSocketValue>(uri: uri.value, headers: encoded, subprotocols: subprotocols, maximumMessageBytes: maximumMessageBytes, timeoutSeconds: timeout.seconds(), timeoutNanoseconds: timeout.nanoseconds())
+}

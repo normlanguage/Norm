@@ -559,6 +559,7 @@ dependencies {
     nativeExecutionRuntime(libs.slf4j.simple)
     annotationProcessor(libs.truffle.dsl.processor)
     testImplementation(libs.archunit)
+    testImplementation(libs.java.websocket)
 }
 
 extraJavaModuleInfo {

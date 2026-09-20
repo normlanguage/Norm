@@ -310,6 +310,11 @@ final class HttpClientTest {
       public HttpTransport httpTransport() {
         return transport;
       }
+
+      @Override
+      public dev.w0fv1.norm.platform.websocket.WebSocketTransport webSocketTransport() {
+        return SystemPlatform.unavailable().webSocketTransport();
+      }
     };
   }
 }
