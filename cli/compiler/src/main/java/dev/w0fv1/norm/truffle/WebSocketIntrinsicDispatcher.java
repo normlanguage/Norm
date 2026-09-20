@@ -33,7 +33,8 @@ final class WebSocketIntrinsicDispatcher {
                 sendText(
                     socket(args[0]),
                     (String) args[1],
-                    control(context, args, 2, WebSocketOperation.SEND));
+                    control(context, args, 2, WebSocketOperation.SEND),
+                    execution.callbacks());
                 return null;
               };
           case WS_SEND_BINARY ->
@@ -41,7 +42,8 @@ final class WebSocketIntrinsicDispatcher {
                 sendBinary(
                     socket(args[0]),
                     bytes(args[1]),
-                    control(context, args, 2, WebSocketOperation.SEND));
+                    control(context, args, 2, WebSocketOperation.SEND),
+                    execution.callbacks());
                 return null;
               };
           case WS_PING ->
@@ -49,14 +51,17 @@ final class WebSocketIntrinsicDispatcher {
                 ping(
                     socket(args[0]),
                     bytes(args[1]),
-                    control(context, args, 2, WebSocketOperation.SEND));
+                    control(context, args, 2, WebSocketOperation.SEND),
+                    execution.callbacks());
                 return null;
               };
           case WS_RECEIVE ->
               (receiver, args, type, context, location, annotations, execution) ->
                   event(
                       receive(
-                          socket(args[0]), control(context, args, 1, WebSocketOperation.RECEIVE)),
+                          socket(args[0]),
+                          control(context, args, 1, WebSocketOperation.RECEIVE),
+                          execution.callbacks()),
                       type,
                       execution);
           case WS_FINISH ->
@@ -65,7 +70,8 @@ final class WebSocketIntrinsicDispatcher {
                     socket(args[0]),
                     (Integer) args[1],
                     (String) args[2],
-                    control(context, args, 3, WebSocketOperation.CLOSE));
+                    control(context, args, 3, WebSocketOperation.CLOSE),
+                    execution.callbacks());
                 close(args[0]);
                 return null;
               };
@@ -103,7 +109,8 @@ final class WebSocketIntrinsicDispatcher {
             headers,
             protocols,
             (Integer) args[3],
-            control(context, args, 4, WebSocketOperation.CONNECT));
+            control(context, args, 4, WebSocketOperation.CONNECT),
+            execution.callbacks());
     return execution.values().resource(type, socket, "WebSocket", execution);
   }
 
@@ -165,37 +172,73 @@ final class WebSocketIntrinsicDispatcher {
       List<PlatformHttpHeader> headers,
       List<String> protocols,
       int maximumMessageBytes,
-      OperationControl control) {
-    return context
-        .platform()
-        .webSocketTransport()
-        .connect(uri, headers, protocols, maximumMessageBytes, control);
+      OperationControl control,
+      GuestCallbackScheduler callbacks) {
+    return callbacks.hostCall(
+        () ->
+            context
+                .platform()
+                .webSocketTransport()
+                .connect(uri, headers, protocols, maximumMessageBytes, control));
   }
 
   @TruffleBoundary
-  private static void sendText(PlatformWebSocket socket, String text, OperationControl control) {
-    socket.sendText(text, control);
+  private static void sendText(
+      PlatformWebSocket socket,
+      String text,
+      OperationControl control,
+      GuestCallbackScheduler callbacks) {
+    callbacks.hostCall(
+        () -> {
+          socket.sendText(text, control);
+          return null;
+        });
   }
 
   @TruffleBoundary
-  private static void sendBinary(PlatformWebSocket socket, byte[] data, OperationControl control) {
-    socket.sendBinary(data, control);
+  private static void sendBinary(
+      PlatformWebSocket socket,
+      byte[] data,
+      OperationControl control,
+      GuestCallbackScheduler callbacks) {
+    callbacks.hostCall(
+        () -> {
+          socket.sendBinary(data, control);
+          return null;
+        });
   }
 
   @TruffleBoundary
-  private static void ping(PlatformWebSocket socket, byte[] data, OperationControl control) {
-    socket.ping(data, control);
+  private static void ping(
+      PlatformWebSocket socket,
+      byte[] data,
+      OperationControl control,
+      GuestCallbackScheduler callbacks) {
+    callbacks.hostCall(
+        () -> {
+          socket.ping(data, control);
+          return null;
+        });
   }
 
   @TruffleBoundary
-  private static WebSocketEvent receive(PlatformWebSocket socket, OperationControl control) {
-    return socket.receive(control);
+  private static WebSocketEvent receive(
+      PlatformWebSocket socket, OperationControl control, GuestCallbackScheduler callbacks) {
+    return callbacks.hostCall(() -> socket.receive(control));
   }
 
   @TruffleBoundary
   private static void finish(
-      PlatformWebSocket socket, int code, String reason, OperationControl control) {
-    socket.finish(code, reason, control);
+      PlatformWebSocket socket,
+      int code,
+      String reason,
+      OperationControl control,
+      GuestCallbackScheduler callbacks) {
+    callbacks.hostCall(
+        () -> {
+          socket.finish(code, reason, control);
+          return null;
+        });
   }
 
   @TruffleBoundary

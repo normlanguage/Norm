@@ -77,7 +77,8 @@ final class HttpIntrinsicDispatcher {
         new OperationControl(
             context.cancellation(),
             new PlatformDuration((Long) arguments[4], (Integer) arguments[5]));
-    PlatformHttpResponse response = hostSend(context, request, control);
+    PlatformHttpResponse response =
+        execution.callbacks().hostCall(() -> hostSend(context, request, control));
     return execution
         .values()
         .resource(type, response, "HttpResponse(" + request.uri() + ")", execution);
@@ -124,7 +125,8 @@ final class HttpIntrinsicDispatcher {
       throw new NormGuestException(
           RuntimeErrorCode.INVALID_ARGUMENT, "maximumBytes must be positive", location);
     }
-    PlatformRead result = hostRead(response(value), maximumBytes);
+    var response = response(value);
+    PlatformRead result = execution.callbacks().hostCall(() -> hostRead(response, maximumBytes));
     if (result == PlatformRead.Eof.INSTANCE) return RuntimeValues.NullValue.INSTANCE;
     PlatformRead.Data data = (PlatformRead.Data) result;
     return execution.values().bytes(new ByteSequence(data.storage(), 0, data.length()));

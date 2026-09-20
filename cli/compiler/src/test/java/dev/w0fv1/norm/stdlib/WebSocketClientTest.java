@@ -13,6 +13,33 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(30)
 final class WebSocketClientTest {
   @Test
+  void blockingReceiveLetsAnotherTaskSend() throws Exception {
+    try (var server = new WebSocketTestServer()) {
+      assertOutput(
+          JdkSystemPlatform.standard(),
+          """
+          import std.websocket.connectWebSocket
+          import std.http.Uri
+          import std.time.duration
+          import std.concurrent.startTask
+          Void main() {
+            var timeout = duration(seconds: 2, nanoseconds: 0)
+            var socket = connectWebSocket(uri: Uri(value: "%s"), timeout: timeout)
+            var sender = startTask { socket.sendText(text: "fragment", timeout: timeout) }
+            switch socket.receive(timeout: timeout) {
+              case Text(String text) { printLine(text) }
+              case _ { printLine("unexpected") }
+            }
+            sender.await()
+            socket.close()
+          }
+          """
+              .formatted(server.uri()),
+          "你好");
+    }
+  }
+
+  @Test
   void rejectsSignedNegativeOperationTimeoutsAsTypedExceptions() throws Exception {
     try (var server = new WebSocketTestServer()) {
       assertOutput(
