@@ -11,8 +11,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 final class NativeApplicationDelivery {
-  static List<Path> publish(NativeBuildArtifacts artifacts, Path destination) throws IOException {
-    if (!System.getProperty("os.name", "").startsWith("Windows") || artifacts.files().size() == 1) {
+  static List<Path> publish(
+      NativeBuildArtifacts artifacts, Path destination, WindowsSubsystem subsystem)
+      throws IOException {
+    if (!System.getProperty("os.name", "").startsWith("Windows")
+        || (artifacts.files().size() == 1 && subsystem == WindowsSubsystem.CONSOLE)) {
       var delivered = artifacts.publishLibraries(destination);
       FilePublication.publish(artifacts.image(), destination);
       return delivered;
@@ -27,7 +30,7 @@ final class NativeApplicationDelivery {
       }
       Path bundle = workspace.path().resolve("application.zip");
       archive(artifacts, bundle);
-      new WindowsApplicationExecutable().write(host, bundle, destination);
+      new WindowsApplicationExecutable().write(host, bundle, destination, subsystem);
       return List.of(destination);
     }
   }

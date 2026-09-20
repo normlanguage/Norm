@@ -16,7 +16,8 @@ final class WindowsApplicationExecutable {
   public static final byte[] MAGIC =
       "NORMAPP1".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
-  Path write(Path launcher, Path bundle, Path destination) throws IOException {
+  Path write(Path launcher, Path bundle, Path destination, WindowsSubsystem subsystem)
+      throws IOException {
     if (!System.getProperty("os.name", "").startsWith("Windows")) {
       throw new IOException("Windows application executables can only be built on Windows");
     }
@@ -31,6 +32,7 @@ final class WindowsApplicationExecutable {
     try (var workspace = new TemporaryDirectory()) {
       Path temporary = workspace.path().resolve("application.part");
       Files.copy(template, temporary, StandardCopyOption.REPLACE_EXISTING);
+      if (subsystem == WindowsSubsystem.WINDOWED) subsystem.apply(temporary);
       long length = Files.size(payload);
       byte[] digest = HexFormat.of().parseHex(Sha256Digest.compute(payload).value());
       try (OutputStream stream =

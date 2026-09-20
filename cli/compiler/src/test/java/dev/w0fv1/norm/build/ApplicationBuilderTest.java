@@ -67,7 +67,11 @@ final class ApplicationBuilderTest {
     Set<Path> before = temporaryWorkspaces();
     BuildResult result =
         build(
-            new BuildRequest(source, ApplicationBuildTarget.JVM, false),
+            new BuildRequest(
+                source,
+                ApplicationBuildTarget.JVM,
+                false,
+                dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
             event -> {
               events.add(event);
               if (event.stage() == BuildProgress.Stage.JVM_PACKAGING) {
@@ -131,7 +135,13 @@ final class ApplicationBuilderTest {
         "Module module() { return module(name: \"hello.web\", version: 1) }");
     Files.writeString(project.resolve("application.norm"), "package hello.web Void main() {}");
     BuildResult result =
-        build(new BuildRequest(project, ApplicationBuildTarget.JVM, false), e -> {});
+        build(
+            new BuildRequest(
+                project,
+                ApplicationBuildTarget.JVM,
+                false,
+                dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
+            e -> {});
     assertEquals(
         project.resolve("build/web.exe"),
         assertInstanceOf(BuildResult.Success.class, result).output());
@@ -145,7 +155,13 @@ final class ApplicationBuilderTest {
     var result =
         assertInstanceOf(
             BuildResult.CompilationFailure.class,
-            build(new BuildRequest(source, ApplicationBuildTarget.JVM, false), events::add));
+            build(
+                new BuildRequest(
+                    source,
+                    ApplicationBuildTarget.JVM,
+                    false,
+                    dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
+                events::add));
     assertEquals(expected.diagnostics(), result.diagnostics());
     assertThrows(UnsupportedOperationException.class, () -> result.diagnostics().clear());
     assertFalse(Files.exists(directory.resolve("invalid.norm.exe")));
@@ -163,7 +179,13 @@ final class ApplicationBuilderTest {
       Set<Path> before = temporaryWorkspaces();
       assertInstanceOf(
           BuildResult.Success.class,
-          build(new BuildRequest(source, ApplicationBuildTarget.JVM, false), e -> {}));
+          build(
+              new BuildRequest(
+                  source,
+                  ApplicationBuildTarget.JVM,
+                  false,
+                  dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
+              e -> {}));
       assertEquals(before, temporaryWorkspaces());
       assertEquals("held", Files.readString(resource));
       try (var runtime = app.openRuntime()) {
@@ -182,7 +204,14 @@ final class ApplicationBuilderTest {
     var events = new ArrayList<BuildProgress>();
     assertThrows(
         IOException.class,
-        () -> build(new BuildRequest(source, ApplicationBuildTarget.JVM, false), events::add));
+        () ->
+            build(
+                new BuildRequest(
+                    source,
+                    ApplicationBuildTarget.JVM,
+                    false,
+                    dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
+                events::add));
     assertEquals("keep", Files.readString(existing));
     assertEquals(before, temporaryWorkspaces());
     assertTrue(events.stream().noneMatch(e -> e.stage() == BuildProgress.Stage.COMPLETE));
@@ -200,7 +229,11 @@ final class ApplicationBuilderTest {
             IllegalStateException.class,
             () ->
                 build(
-                    new BuildRequest(source, ApplicationBuildTarget.JVM, false),
+                    new BuildRequest(
+                        source,
+                        ApplicationBuildTarget.JVM,
+                        false,
+                        dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
                     event -> {
                       if (event.stage() == BuildProgress.Stage.JVM_PACKAGING) throw failure;
                     }));
@@ -218,14 +251,26 @@ final class ApplicationBuilderTest {
     Files.delete(launcher);
     assertThrows(
         IOException.class,
-        () -> build(new BuildRequest(source, ApplicationBuildTarget.JVM, false), events::add));
+        () ->
+            build(
+                new BuildRequest(
+                    source,
+                    ApplicationBuildTarget.JVM,
+                    false,
+                    dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
+                events::add));
     assertTrue(events.isEmpty());
     var unconfigured = new ApplicationBuilder(runner, Optional.empty());
     assertThrows(
         IOException.class,
         () ->
             unconfigured.build(
-                new BuildRequest(source, ApplicationBuildTarget.JVM, false), events::add));
+                new BuildRequest(
+                    source,
+                    ApplicationBuildTarget.JVM,
+                    false,
+                    dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
+                events::add));
     assertTrue(events.isEmpty());
   }
 
@@ -242,7 +287,11 @@ final class ApplicationBuilderTest {
               IllegalStateException.class,
               () ->
                   build(
-                      new BuildRequest(source, ApplicationBuildTarget.JVM, false),
+                      new BuildRequest(
+                          source,
+                          ApplicationBuildTarget.JVM,
+                          false,
+                          dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
                       event -> {
                         if (event.stage() != BuildProgress.Stage.JVM_PACKAGING) return;
                         try {
@@ -284,7 +333,11 @@ final class ApplicationBuilderTest {
       Path unrelated = existing.path();
       var result =
           build(
-              new BuildRequest(source, ApplicationBuildTarget.JVM, false),
+              new BuildRequest(
+                  source,
+                  ApplicationBuildTarget.JVM,
+                  false,
+                  dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE),
               event -> {
                 if (event.stage() != BuildProgress.Stage.JVM_PACKAGING) return;
                 existing.close();

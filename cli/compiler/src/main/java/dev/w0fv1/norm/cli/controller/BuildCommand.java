@@ -12,14 +12,13 @@ import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
 
 final class BuildCommand implements Command {
   @Override
   public String usage() {
-    return "norm build [--jvm] [--diagnostics] [file.norm|project-directory]";
+    return "norm build [--jvm] [--windowed] [--diagnostics] [file.norm|project-directory]";
   }
 
   @Override
@@ -27,8 +26,10 @@ final class BuildCommand implements Command {
     Command.super.help(out, err);
     out.println("Default input is the current directory; default target is Native Image.");
     out.println(
-        "--jvm selects the JVM development target; --diagnostics retains detailed Native build reports.");
+        "--jvm selects the JVM development target; --diagnostics retains detailed Native build"
+            + " reports.");
     out.println("--diagnostics cannot be combined with --jvm.");
+    out.println("--windowed builds a Windows application without a console window.");
     return 0;
   }
 
@@ -54,15 +55,21 @@ final class BuildCommand implements Command {
     }
     BuildRequest request;
     try {
-      request = new BuildRequest(Path.of(options.input()), options.target(), options.diagnostics());
-    } catch (InvalidPathException exception) {
-      err.println("error[NORM-CLI-0004]: invalid build path");
+      request =
+          new BuildRequest(
+              Path.of(options.input()),
+              options.target(),
+              options.diagnostics(),
+              options.subsystem());
+    } catch (IllegalArgumentException exception) {
+      err.println("error[NORM-CLI-0004]: " + exception.getMessage());
       return ExitCode.INPUT_ERROR;
     }
     String launcher = launcher();
     if (options.target() == ApplicationBuildTarget.JVM && launcher.isBlank()) {
       err.println(
-          "error[NORM-CLI-0004]: self-contained Norm launcher is unavailable; run build through norm.exe");
+          "error[NORM-CLI-0004]: self-contained Norm launcher is unavailable; run build through"
+              + " norm.exe");
       return ExitCode.INPUT_ERROR;
     }
     java.util.function.Consumer<String> progress = new CommandProgress("build", out);

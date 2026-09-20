@@ -55,7 +55,8 @@ public final class ApplicationBuilder {
           try (var staging = new TemporaryDirectory()) {
             Path bundle = staging.path().resolve("application.zip");
             new ApplicationBundleWriter().write(application, bundle);
-            new WindowsApplicationExecutable().write(launcher.orElseThrow(), bundle, output);
+            new WindowsApplicationExecutable()
+                .write(launcher.orElseThrow(), bundle, output, request.subsystem());
           }
         }
         case NATIVE -> {
@@ -68,7 +69,8 @@ public final class ApplicationBuilder {
               output,
               message ->
                   progress.accept(new BuildProgress(BuildProgress.Stage.NATIVE_BUILD, message)),
-              request.diagnostics());
+              request.diagnostics(),
+              request.subsystem());
         }
       }
     }

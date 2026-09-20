@@ -9,6 +9,16 @@ import org.junit.jupiter.api.Test;
 
 final class ApplicationBuildOptionsTest {
   @Test
+  void selectsWindowedApplicationsExplicitly() {
+    assertEquals(
+        dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE,
+        ApplicationBuildOptions.parse(List.of()).subsystem());
+    assertEquals(
+        dev.w0fv1.norm.build.WindowsSubsystem.WINDOWED,
+        ApplicationBuildOptions.parse(List.of("--windowed", "app.norm")).subsystem());
+  }
+
+  @Test
   void diagnosticsAreExplicitAndNativeOnly() {
     assertEquals(false, ApplicationBuildOptions.parse(List.of("web.norm")).diagnostics());
     assertEquals(

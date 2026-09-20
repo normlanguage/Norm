@@ -9,7 +9,12 @@ final class BuildRequestTest {
   @Test
   void normalizesInputWithoutDiscoveringTheProject() {
     Path input = Path.of("sample", "..", "web.norm");
-    var request = new BuildRequest(input, ApplicationBuildTarget.NATIVE, true);
+    var request =
+        new BuildRequest(
+            input,
+            ApplicationBuildTarget.NATIVE,
+            true,
+            dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE);
     assertEquals(input.toAbsolutePath().normalize(), request.input());
     assertTrue(request.diagnostics());
   }
@@ -18,17 +23,33 @@ final class BuildRequestTest {
   void rejectsNativeOnlyOptionsForJvmBuilds() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new BuildRequest(Path.of("web.norm"), ApplicationBuildTarget.JVM, true));
+        () ->
+            new BuildRequest(
+                Path.of("web.norm"),
+                ApplicationBuildTarget.JVM,
+                true,
+                dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE));
     assertDoesNotThrow(
-        () -> new BuildRequest(Path.of("web.norm"), ApplicationBuildTarget.JVM, false));
+        () ->
+            new BuildRequest(
+                Path.of("web.norm"),
+                ApplicationBuildTarget.JVM,
+                false,
+                dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE));
   }
 
   @Test
   void rejectsMissingRequestFields() {
     assertThrows(
         NullPointerException.class,
-        () -> new BuildRequest(null, ApplicationBuildTarget.NATIVE, false));
+        () ->
+            new BuildRequest(
+                null,
+                ApplicationBuildTarget.NATIVE,
+                false,
+                dev.w0fv1.norm.build.WindowsSubsystem.CONSOLE));
     assertThrows(
-        NullPointerException.class, () -> new BuildRequest(Path.of("web.norm"), null, false));
+        NullPointerException.class,
+        () -> new BuildRequest(Path.of("web.norm"), null, false, WindowsSubsystem.CONSOLE));
   }
 }

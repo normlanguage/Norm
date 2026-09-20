@@ -45,6 +45,8 @@ norm build .
 
 ## 构建目标
 
+Windows 桌面应用使用 `norm build --windowed <项目目录>` 生成不显示命令行窗口的原生 EXE；该选项也适用于显式选择的 `--jvm` 目标。默认仍为命令行应用。窗口模式的标准输出和错误日志位于 `%LOCALAPPDATA%/Programs/Norm/logs/<应用名>/<启动时间>-<进程号>/`。实现入口为 [WindowsSubsystem](../../cli/compiler/src/main/java/dev/w0fv1/norm/build/WindowsSubsystem.java) 和 [ApplicationProcess](../../cli/launcher/Norm.Launcher/ApplicationProcess.cs)。
+
 构建日志默认显示目标、依赖解析、NAR 缓存路径、编译、注解处理和打包阶段，以及累计耗时。仓库请求失败时保留请求地址和底层异常链；`Built` 仅在产物写入成功后打印。
 
 默认目标是 `native`。如需诊断 JVM 行为，可显式执行：

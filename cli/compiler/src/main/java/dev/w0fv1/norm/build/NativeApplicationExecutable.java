@@ -41,7 +41,11 @@ final class NativeApplicationExecutable {
   }
 
   Path write(
-      NativeBuildPlan plan, Path destination, Consumer<String> buildOutput, boolean diagnostics)
+      NativeBuildPlan plan,
+      Path destination,
+      Consumer<String> buildOutput,
+      boolean diagnostics,
+      WindowsSubsystem subsystem)
       throws IOException {
     var compilation = plan.application();
     Path output = destination.toAbsolutePath().normalize();
@@ -125,12 +129,13 @@ final class NativeApplicationExecutable {
       if (!Files.isRegularFile(image)) {
         throw new IOException("Native Image did not create " + image);
       }
+      if (subsystem == WindowsSubsystem.WINDOWED) subsystem.apply(image);
       var artifacts = NativeBuildArtifacts.read(staging, image);
       if (diagnostics)
         Files.copy(
             staging.resolve("build-artifacts.json"),
             report.directory().resolve("build-artifacts.json"));
-      var delivered = NativeApplicationDelivery.publish(artifacts, output);
+      var delivered = NativeApplicationDelivery.publish(artifacts, output, subsystem);
       report.accept("Native runtime delivery: " + delivered.size() + " file(s)");
       report.complete(output, delivered);
       return output;

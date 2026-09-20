@@ -1,17 +1,22 @@
 package dev.w0fv1.norm.cli.controller;
 
 import dev.w0fv1.norm.build.ApplicationBuildTarget;
+import dev.w0fv1.norm.build.WindowsSubsystem;
 import java.util.ArrayList;
 import java.util.List;
 
-record ApplicationBuildOptions(ApplicationBuildTarget target, String input, boolean diagnostics) {
+record ApplicationBuildOptions(
+    ApplicationBuildTarget target, String input, boolean diagnostics, WindowsSubsystem subsystem) {
   static ApplicationBuildOptions parse(List<String> arguments) {
     ApplicationBuildTarget target = ApplicationBuildTarget.NATIVE;
     boolean diagnostics = false;
+    WindowsSubsystem subsystem = WindowsSubsystem.CONSOLE;
     List<String> positional = new ArrayList<>();
     for (String argument : arguments) {
       if (argument.equals("--jvm")) {
         target = ApplicationBuildTarget.JVM;
+      } else if (argument.equals("--windowed")) {
+        subsystem = WindowsSubsystem.WINDOWED;
       } else if (argument.equals("--diagnostics")) {
         diagnostics = true;
       } else if (argument.startsWith("-")) {
@@ -25,6 +30,6 @@ record ApplicationBuildOptions(ApplicationBuildTarget target, String input, bool
     }
     target.validateDiagnostics(diagnostics);
     return new ApplicationBuildOptions(
-        target, positional.isEmpty() ? "." : positional.getFirst(), diagnostics);
+        target, positional.isEmpty() ? "." : positional.getFirst(), diagnostics, subsystem);
   }
 }
