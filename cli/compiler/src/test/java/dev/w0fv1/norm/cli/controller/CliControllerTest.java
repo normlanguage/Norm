@@ -32,6 +32,19 @@ final class CliControllerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void forwardsApplicationArgumentsAndCompletionAcrossPreparedRuns() throws IOException {
+    Path source = temporaryDirectory.resolve("arguments.norm");
+    Files.writeString(
+        source,
+        "import std.application.arguments import std.application.setExitCode Void main() { printLine(arguments()[0]) setExitCode(code: 2) }");
+    for (int attempt = 0; attempt < 2; attempt++) {
+      Result result = run("run", source.toString(), "--", "a  b");
+      assertEquals(2, result.exitCode(), result.standardError());
+      assertEquals("a  b" + System.lineSeparator(), result.standardOut());
+    }
+  }
+
+  @Test
   void rejectsInvalidTestSignaturesAndProductionDependenciesOnTests() throws IOException {
     Path source = temporaryDirectory.resolve("invalid-test.norm");
     for (String declaration :

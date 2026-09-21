@@ -24,7 +24,7 @@ internal sealed class BootstrapApplication(
         if (payload is not null)
         {
             EmbeddedApplication application = EmbeddedApplication.Prepare(runtime.Paths, payload);
-            return launcher.RunApplication(runtime.EnsureAvailable(), application);
+            return launcher.RunApplication(runtime.EnsureAvailable(), application, arguments);
         }
         return BootstrapCommand.Parse(arguments) switch
         {

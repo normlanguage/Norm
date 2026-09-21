@@ -11,6 +11,7 @@ import std.io.ReadChunk
 import std.io.Resource
 import std.io.TextEncoding
 import std.io.decodeText
+import std.io.encodeText
 import std.io.readAll
 import std.io.use
 
@@ -138,4 +139,13 @@ public String readText(
       encoding: encoding
     )
   })
+}
+
+@Document(description: "Creates parent directories and atomically replaces a text file after writing and syncing a sibling temporary file; unsupported atomic moves fail without replacing the target.")
+public Void writeTextAtomic(
+  @Document(description: "The destination file path.") Path path,
+  @Document(description: "The complete text to publish.") String text,
+  @Document(description: "The encoding used for the file bytes.") TextEncoding encoding
+) {
+  __fileWriteAtomic(path: path.value, content: encodeText(text: text, encoding: encoding))
 }

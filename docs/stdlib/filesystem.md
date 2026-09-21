@@ -21,4 +21,6 @@ String text = readText(
 
 `openWrite(path:, mode:)` 的模式区分 `CreateNew`、`Replace` 与 `Append`。`flush()` 推进用户态缓冲，`sync(mode:)` 区分数据同步与数据及 metadata 同步。
 
+`writeTextAtomic(path:, text:, encoding:)` 创建父目录，将完整内容写入并同步同目录临时文件，再原子替换目标。文件系统不支持原子替换时抛出 `FileException`，不退化为截断目标文件后重写。此操作保证文件内容完整发布，不提供并发修改的比较交换语义。
+
 完整签名以 [`std.filesystem.files`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/filesystem/files.norm) 为准。

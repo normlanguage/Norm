@@ -12,8 +12,20 @@ public interface SystemPlatform {
   SystemPlatform UNAVAILABLE =
       new SystemPlatform() {
         @Override
+        public dev.w0fv1.norm.platform.process.ProcessRunner processes() {
+          return (request, control) -> {
+            throw new IllegalStateException("process capability is unavailable");
+          };
+        }
+
+        @Override
         public FileSystem fileSystem() {
           return new FileSystem() {
+            @Override
+            public void writeAtomic(String path, byte[] content, int offset, int length) {
+              throw unavailable();
+            }
+
             @Override
             public PlatformByteReader openRead(String path) {
               throw unavailable();
@@ -53,6 +65,8 @@ public interface SystemPlatform {
       };
 
   FileSystem fileSystem();
+
+  dev.w0fv1.norm.platform.process.ProcessRunner processes();
 
   SystemClock clock();
 

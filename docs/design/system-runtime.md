@@ -34,11 +34,10 @@ norm/stdlib
 
 ## 执行能力
 
-`ExecutionContext` 保存输入输出、应用参数、执行控制和一个强类型 `SystemPlatform`。平台能力使用固定组合，不提供字符串 capability registry 或全局 service locator。
+`ExecutionContext` 保存借用的标准流、应用参数、环境、目录、完成状态、执行控制和一个强类型 `SystemPlatform`。标准流由执行宿主注入，不属于平台工厂创建的资源。平台能力使用固定组合，不提供字符串 capability registry 或全局 service locator。
 
 ```text
 SystemPlatform
-├─ console
 ├─ fileSystem
 ├─ network
 ├─ httpTransport

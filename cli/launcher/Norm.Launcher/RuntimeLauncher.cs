@@ -10,9 +10,9 @@ internal sealed class RuntimeLauncher
         return ApplicationProcess.Run(start);
     }
 
-    public int RunApplication(string runtimeDirectory, EmbeddedApplication application)
+    public int RunApplication(string runtimeDirectory, EmbeddedApplication application, IReadOnlyList<string> arguments)
     {
-        return ApplicationProcess.Run(CreateApplicationStartInfo(runtimeDirectory, application));
+        return ApplicationProcess.Run(CreateApplicationStartInfo(runtimeDirectory, application, arguments));
     }
 
     internal static ProcessStartInfo CreateStartInfo(string runtimeDirectory, IReadOnlyList<string> arguments)
@@ -43,9 +43,9 @@ internal sealed class RuntimeLauncher
         return start;
     }
 
-    internal static ProcessStartInfo CreateApplicationStartInfo(string runtimeDirectory, EmbeddedApplication application)
+    internal static ProcessStartInfo CreateApplicationStartInfo(string runtimeDirectory, EmbeddedApplication application, IReadOnlyList<string> arguments)
     {
-        ProcessStartInfo start = CreateStartInfo(runtimeDirectory, ["run", application.Entry]);
+        ProcessStartInfo start = CreateStartInfo(runtimeDirectory, ["run", application.Entry, "--", .. arguments]);
         start.Environment["NORM_APPLICATION_BUNDLE"] = application.Root;
         start.Environment["NORM_APPLICATION_EXECUTABLE"] = Environment.ProcessPath;
         return start;

@@ -1,16 +1,22 @@
 package dev.w0fv1.norm.execution;
 
 import dev.w0fv1.norm.platform.SystemPlatform;
+import java.io.InputStream;
 import java.io.PrintWriter;
-import java.io.Reader;
 import java.io.Writer;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 public final class ExecutionContext {
-  private final Reader input;
+  private final InputStream input;
+  private final PrintWriter error;
+  private final Map<String, String> environment;
+  private final java.nio.file.Path workingDirectory;
+  private final AtomicInteger exitCode;
   private final PrintWriter output;
   private final PrintWriter expectedOutput;
   private final List<String> arguments;
@@ -24,6 +30,10 @@ public final class ExecutionContext {
 
   private ExecutionContext(Builder builder) {
     input = Objects.requireNonNull(builder.input, "input");
+    error = Objects.requireNonNull(builder.error, "error");
+    environment = Map.copyOf(builder.environment);
+    workingDirectory = builder.workingDirectory;
+    exitCode = builder.exitCode;
     output = Objects.requireNonNull(builder.output, "output");
     expectedOutput = Objects.requireNonNull(builder.expectedOutput, "expectedOutput");
     arguments = List.copyOf(builder.arguments);
@@ -61,8 +71,29 @@ public final class ExecutionContext {
     return builder().modulePublisher(publisher).build();
   }
 
-  public Reader input() {
+  public InputStream input() {
     return input;
+  }
+
+  public PrintWriter error() {
+    return error;
+  }
+
+  public Map<String, String> environment() {
+    return environment;
+  }
+
+  public java.nio.file.Path workingDirectory() {
+    return workingDirectory;
+  }
+
+  public int exitCode() {
+    return exitCode.get();
+  }
+
+  public void setExitCode(int value) {
+    if (value < 0 || value > 255) throw new IllegalArgumentException("exit code must be in 0..255");
+    exitCode.set(value);
   }
 
   public PrintWriter output() {
@@ -111,7 +142,7 @@ public final class ExecutionContext {
 
   public ExecutionContext withWorkingDirectory(java.nio.file.Path directory) {
     return new Builder(this)
-        .applicationDirectory(directory)
+        .workingDirectory(directory)
         .platform(new dev.w0fv1.norm.platform.WorkingDirectoryPlatform(platform, directory))
         .build();
   }
@@ -133,7 +164,12 @@ public final class ExecutionContext {
   }
 
   public static final class Builder {
-    private Reader input = Reader.nullReader();
+    private InputStream input = InputStream.nullInputStream();
+    private PrintWriter error = new PrintWriter(Writer.nullWriter());
+    private Map<String, String> environment = Map.of();
+    private java.nio.file.Path workingDirectory =
+        java.nio.file.Path.of("").toAbsolutePath().normalize();
+    private AtomicInteger exitCode = new AtomicInteger();
     private PrintWriter output = new PrintWriter(Writer.nullWriter());
     private PrintWriter expectedOutput = new PrintWriter(Writer.nullWriter());
     private List<String> arguments = List.of();
@@ -149,6 +185,10 @@ public final class ExecutionContext {
 
     private Builder(ExecutionContext context) {
       input = context.input;
+      error = context.error;
+      environment = context.environment;
+      workingDirectory = context.workingDirectory;
+      exitCode = context.exitCode;
       output = context.output;
       expectedOutput = context.expectedOutput;
       arguments = context.arguments;
@@ -161,8 +201,23 @@ public final class ExecutionContext {
       platform = context.platform;
     }
 
-    public Builder input(Reader value) {
+    public Builder input(InputStream value) {
       input = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder error(PrintWriter value) {
+      error = Objects.requireNonNull(value, "value");
+      return this;
+    }
+
+    public Builder environment(Map<String, String> value) {
+      environment = Map.copyOf(value);
+      return this;
+    }
+
+    public Builder workingDirectory(java.nio.file.Path value) {
+      workingDirectory = value.toAbsolutePath().normalize();
       return this;
     }
 

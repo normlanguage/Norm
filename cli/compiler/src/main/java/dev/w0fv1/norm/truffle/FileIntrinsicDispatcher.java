@@ -19,6 +19,9 @@ final class FileIntrinsicDispatcher {
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     IntrinsicOperation operation =
         switch (intrinsic) {
+          case FILE_WRITE_ATOMIC ->
+              (receiver, arguments, type, context, location, annotations, execution) ->
+                  writeAtomic(context, (String) arguments[0], bytes(arguments[1]));
           case FILE_OPEN_READ ->
               (receiver, arguments, type, context, location, annotations, execution) ->
                   openRead((String) arguments[0], type, context, execution);
@@ -135,6 +138,15 @@ final class FileIntrinsicDispatcher {
       return sequence;
     }
     throw new IllegalStateException("bytes host value is unavailable");
+  }
+
+  @TruffleBoundary
+  private static Object writeAtomic(ExecutionContext context, String path, ByteSequence bytes) {
+    context
+        .platform()
+        .fileSystem()
+        .writeAtomic(path, bytes.storage(), bytes.offset(), bytes.size());
+    return null;
   }
 
   @TruffleBoundary

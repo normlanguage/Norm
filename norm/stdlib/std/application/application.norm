@@ -3,6 +3,7 @@ package std.application
 
 import std.annotation.Document
 import std.filesystem.Path
+import std.core.Exception
 
 @Document(description: "Runs an application and owns its lifetime until completion or cancellation.")
 public interface Application {
@@ -18,4 +19,25 @@ public String applicationPackage() {
 @Document(description: "Returns the deployed executable directory, or the entry source directory during source execution.")
 public Path applicationDirectory() {
   return Path(value: __applicationDirectory())
+}
+
+@Document(description: "Returns this invocation's application arguments with their original boundaries.")
+public List<String> arguments() {
+  return __applicationArguments()
+}
+
+@Document(description: "Reads a variable from this execution's environment; missing variables return null.")
+public String? environmentVariable(@Document(description: "The environment variable name.") String name) {
+  return __applicationEnvironment(name: name)
+}
+
+@Document(description: "Returns the current execution's working directory, independently of the application directory.")
+public Path workingDirectory() {
+  return Path(value: __applicationWorkingDirectory())
+}
+
+@Document(description: "Sets the application completion code; execution continues and the host exits after cleanup.")
+public Void setExitCode(@Document(description: "The portable completion code in 0..255.") Integer code) {
+  if code < 0 || code > 255 { throw Exception(message: "exit code must be in 0..255") }
+  __applicationExitCode(code: code)
 }

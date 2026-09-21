@@ -7,7 +7,6 @@ import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
 import dev.w0fv1.norm.jvm.LinkedJarBinding;
 import dev.w0fv1.norm.jvm.LinkedJavaClasses;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public final class NativeApplicationMain {
@@ -16,17 +15,19 @@ public final class NativeApplicationMain {
   private NativeApplicationMain() {}
 
   public static void main(String[] arguments) {
-    PrintWriter output = new PrintWriter(System.out, true, StandardCharsets.UTF_8);
-    PrintWriter error = new PrintWriter(System.err, true, StandardCharsets.UTF_8);
+    PrintWriter output = NativeStandardOutput.output();
+    PrintWriter error = NativeStandardOutput.error();
     NativeApplicationProgram prepared = application();
     try {
       String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
       if (executable == null || executable.isBlank())
         executable = org.graalvm.nativeimage.ProcessProperties.getExecutableName();
-      prepared.execute(
-          List.of(arguments),
-          output,
-          java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent());
+      int status =
+          prepared.execute(
+              List.of(arguments),
+              output,
+              java.nio.file.Path.of(executable).toAbsolutePath().normalize().getParent());
+      if (status != 0) System.exit(status);
     } catch (NormExecutionException exception) {
       error.printf("error[%s]: %s%n", exception.code().id(), exception.getMessage());
       error.printf(" --> %s:%d:%d%n", exception.uri(), exception.line(), exception.column());

@@ -1,0 +1,237 @@
+package openai
+
+import std.core.Exception
+import std.http.HttpClient
+import std.http.HttpRequest
+import std.http.HttpResponse
+import std.http.HttpMethod
+import std.http.HeaderMap
+import std.http.HttpHeader
+import std.http.Uri
+import std.http.systemHttpClient
+import std.io.use
+import std.io.readAll
+import std.io.encodeText
+import std.io.decodeText
+import std.io.TextEncoding
+import std.json.JsonValue
+import std.json.JsonException
+import std.json.parseJson
+import std.json.writeJson
+import std.json.fromJsonValue
+import std.json.fromJson
+import std.time.Duration
+import std.time.duration
+
+public enum ResponseStatus { Completed, Incomplete, Failed, Cancelled, Queued, InProgress }
+
+public class OpenAiException extends Exception {
+  String code
+  Integer? httpStatus
+  String? requestId
+
+  OpenAiException(String code, String message, Integer? httpStatus = null, String? requestId = null) {
+    super(message: message)
+    this.code = code
+    this.httpStatus = httpStatus
+    this.requestId = requestId
+  }
+}
+
+public enum StructuredOutputMode { JsonSchema, JsonObject }
+
+public value StructuredOutput {
+  String name
+  JsonValue schema
+  StructuredOutputMode mode = StructuredOutputMode.JsonSchema
+}
+
+public value ResponseRequest {
+  String model
+  String input
+  String? instructions = null
+  StructuredOutput? format = null
+  Integer maximumOutputTokens = 1024
+}
+
+public value Usage {
+  Long inputTokens
+  Long outputTokens
+  Long totalTokens
+}
+
+public value Response {
+  String id
+  ResponseStatus status
+  String text
+  String? refusal
+  String? incompleteReason
+  Usage? usage
+  String? errorCode
+  String? errorMessage
+  String? requestId
+
+  public T decode<T>() {
+    if status != ResponseStatus.Completed || refusal != null {
+      throw OpenAiException(code: "OPENAI-NOT-COMPLETED", message: "Response has no completed structured output", requestId: requestId)
+    }
+    return fromJson<T>(value: text)
+  }
+}
+
+private value WireObject {
+  Map<String, JsonValue> fields
+
+  WireObject(JsonValue value) {
+    this.fields = switch value {
+      case Object(Map<String, JsonValue> fields) { break fields }
+      case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected a JSON object") }
+    }
+  }
+
+  public JsonValue required(String name) {
+    JsonValue? value = fields.get(key: name)
+    if value == null { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Missing response field: " + name) }
+    return value
+  }
+
+  public String string(String name) {
+    return switch this.required(name: name) {
+      case String(String value) { break value }
+      case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected string: " + name) }
+    }
+  }
+
+  public String? optionalString(String name) {
+    JsonValue value = fields.get(key: name) ?? JsonValue.Null
+    return switch value {
+      case Null { break null }
+      case String(String text) { break text }
+      case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected optional string: " + name) }
+    }
+  }
+
+  public List<JsonValue> array(String name) {
+    return switch this.required(name: name) {
+      case Array(List<JsonValue> values) { break values }
+      case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Expected array: " + name) }
+    }
+  }
+}
+
+public class Client {
+  private String apiKey
+  private Uri endpoint
+  private HttpClient transport
+  private Duration timeout
+  private Integer maximumResponseBytes
+
+  Client(String apiKey, Uri endpoint = Uri(value: "https://api.openai.com/v1/responses"),
+    HttpClient transport = systemHttpClient(), Duration timeout = duration(seconds: 60, nanoseconds: 0),
+    Integer maximumResponseBytes = 1048576) {
+    if apiKey.isBlank || maximumResponseBytes < 1 {
+      throw OpenAiException(code: "OPENAI-INVALID-CONFIGURATION", message: "A key and positive response budget are required")
+    }
+    this.apiKey = apiKey
+    this.endpoint = endpoint
+    this.transport = transport
+    this.timeout = timeout
+    this.maximumResponseBytes = maximumResponseBytes
+  }
+
+  public Response create(ResponseRequest request) {
+    if request.model.isBlank || request.maximumOutputTokens < 1 {
+      throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "A model and positive token budget are required")
+    }
+    Map<String, JsonValue> payload = Map<>()
+    payload.put(key: "model", value: JsonValue.String(value: request.model))
+    payload.put(key: "input", value: JsonValue.String(value: request.input))
+    payload.put(key: "store", value: JsonValue.Boolean(value: false))
+    payload.put(key: "max_output_tokens", value: JsonValue.Number(value: request.maximumOutputTokens.toString()))
+    String? instructions = request.instructions
+    if instructions != null { payload.put(key: "instructions", value: JsonValue.String(value: instructions)) }
+    StructuredOutput? format = request.format
+    if format != null {
+      if format.name.isBlank { throw OpenAiException(code: "OPENAI-INVALID-REQUEST", message: "Structured output needs a name") }
+      Map<String, JsonValue> definition = Map<>()
+      if format.mode == StructuredOutputMode.JsonObject {
+        definition.put(key: "type", value: JsonValue.String(value: "json_object"))
+        payload.put(key: "instructions", value: JsonValue.String(value: (instructions ?? "") + "\nReturn only a JSON object matching JSON schema " + format.name + ": " + writeJson(value: format.schema)))
+      } else {
+        definition.put(key: "type", value: JsonValue.String(value: "json_schema"))
+        definition.put(key: "name", value: JsonValue.String(value: format.name))
+        definition.put(key: "schema", value: format.schema)
+        definition.put(key: "strict", value: JsonValue.Boolean(value: true))
+      }
+      Map<String, JsonValue> text = Map<>()
+      text.put(key: "format", value: JsonValue.Object(fields: definition))
+      payload.put(key: "text", value: JsonValue.Object(fields: text))
+    }
+    HttpRequest outgoing = HttpRequest(method: HttpMethod.Post, uri: endpoint,
+      headers: HeaderMap(values: [HttpHeader(name: "Authorization", value: "Bearer " + apiKey), HttpHeader(name: "Content-Type", value: "application/json")]),
+      body: encodeText(text: writeJson(value: JsonValue.Object(fields: payload)), encoding: TextEncoding.Utf8))
+    HttpResponse incoming = transport.send(request: outgoing, timeout: timeout)
+    return use<Response>(resource: incoming, body: () {
+      Integer status = incoming.status().code
+      String? requestId = null
+      for HttpHeader header : incoming.headers().values {
+        if header.name.equalsIgnoreCaseAscii(other: "x-request-id") { requestId = header.value }
+      }
+      String body = decodeText(content: readAll(reader: incoming, maximumBytes: maximumResponseBytes), encoding: TextEncoding.Utf8)
+      try {
+        WireObject root = WireObject(value: parseJson(value: body))
+        if status < 200 || status >= 300 {
+          WireObject error = WireObject(value: root.required(name: "error"))
+          throw OpenAiException(code: error.optionalString(name: "code") ?? "OPENAI-HTTP", message: error.string(name: "message"), httpStatus: status, requestId: requestId)
+        }
+        ResponseStatus state = switch root.string(name: "status") {
+          case "completed" { break ResponseStatus.Completed }
+          case "incomplete" { break ResponseStatus.Incomplete }
+          case "failed" { break ResponseStatus.Failed }
+          case "cancelled" { break ResponseStatus.Cancelled }
+          case "queued" { break ResponseStatus.Queued }
+          case "in_progress" { break ResponseStatus.InProgress }
+          case _ { throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Unknown response status") }
+        }
+        String text = ""
+        String? refusal = null
+        for JsonValue output : root.array(name: "output") {
+          WireObject item = WireObject(value: output)
+          if item.string(name: "type") == "message" {
+            for JsonValue part : item.array(name: "content") {
+              WireObject content = WireObject(value: part)
+              String kind = content.string(name: "type")
+              if kind == "output_text" { text = text + content.string(name: "text") }
+              else if kind == "refusal" { refusal = (refusal ?? "") + content.string(name: "refusal") }
+            }
+          }
+        }
+        Usage? usage = null
+        JsonValue rawUsage = root.fields.get(key: "usage") ?? JsonValue.Null
+        if rawUsage != JsonValue.Null {
+          WireObject tokens = WireObject(value: rawUsage)
+          usage = Usage(inputTokens: fromJsonValue<Long>(value: tokens.required(name: "input_tokens")),
+            outputTokens: fromJsonValue<Long>(value: tokens.required(name: "output_tokens")),
+            totalTokens: fromJsonValue<Long>(value: tokens.required(name: "total_tokens")))
+        }
+        String? incomplete = null
+        JsonValue details = root.fields.get(key: "incomplete_details") ?? JsonValue.Null
+        if details != JsonValue.Null { incomplete = WireObject(value: details).string(name: "reason") }
+        String? errorCode = null
+        String? errorMessage = null
+        JsonValue failure = root.fields.get(key: "error") ?? JsonValue.Null
+        if failure != JsonValue.Null {
+          WireObject error = WireObject(value: failure)
+          errorCode = error.string(name: "code")
+          errorMessage = error.string(name: "message")
+        }
+        return Response(id: root.string(name: "id"), status: state, text: text, refusal: refusal,
+          incompleteReason: incomplete, usage: usage, errorCode: errorCode, errorMessage: errorMessage, requestId: requestId)
+      } catch JsonException error {
+        throw OpenAiException(code: "OPENAI-PROTOCOL", message: "Invalid response JSON", httpStatus: status, requestId: requestId)
+      } catch OpenAiException error {
+        throw OpenAiException(code: error.code, message: error.message, httpStatus: status, requestId: requestId)
+      }
+    })
+  }
+}

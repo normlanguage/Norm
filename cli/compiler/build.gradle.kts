@@ -522,6 +522,7 @@ tasks.compileJava {
 
 tasks.test {
     dependsOn(tasks.jar)
+    inputs.dir(rootProject.file("norm/libraries")).withPropertyName("normLibraries")
     providers.gradleProperty("normTestMavenRepository").orNull?.let { repository ->
         val fixture = rootProject.file(repository)
         inputs.dir(fixture).withPropertyName("mavenTestRepository")
