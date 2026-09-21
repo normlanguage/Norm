@@ -19,6 +19,67 @@ import org.junit.jupiter.params.provider.ValueSource;
 final class OpenAiClientTest {
   @TempDir Path directory;
 
+  @org.junit.jupiter.api.Test
+  void registersAnnotatedFunctionsWithDefaultsAndBoundReceivers() throws Exception {
+    Path library =
+        Path.of(System.getProperty("norm.test.stdlib"))
+            .getParent()
+            .getParent()
+            .resolve("libraries/openai");
+    Path dependency = Files.createDirectories(directory.resolve("dependencies/openai"));
+    try (var files = Files.list(library)) {
+      for (Path source : files.filter(p -> p.toString().endsWith(".norm")).toList())
+        Files.copy(source, dependency.resolve(source.getFileName()));
+    }
+    Path app = Files.createDirectories(directory.resolve("app"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() { return module(name: "app", version: 1,
+          dependencies: [dependency(repository: "github", name: "openai", version: 1)]) }
+        """);
+    Path entry = app.resolve("main.norm");
+    Files.writeString(
+        entry,
+        """
+        package app
+        import openai.Tool
+        import openai.ToolParameter
+        import openai.ToolRegistry
+        import openai.ToolCall
+        import openai.OpenAiException
+        import openai.structuredOutput
+        import std.serialization.Serializable
+        import std.json.writeJson
+        @Serializable()
+        value Answer { String text String? detail }
+        class Counter {
+          Integer total = 10
+          @Tool(description: "Increment", name: "add")
+          Integer add(@ToolParameter(description: "Amount") Integer amount = 2) {
+            total = total + amount
+            return total
+          }
+          @Tool(description: "Read the counter")
+          Integer current() { return total }
+        }
+        Void main() {
+          var counter = Counter()
+          var registry = ToolRegistry(tools: [counter.add, counter.current])
+          printLine(registry.invoke(call: ToolCall(callId: "one", name: "add", arguments: "{}")))
+          require(condition: registry.invoke(call: ToolCall(callId: "two", name: "current", arguments: " ")) == "12", message: "empty nullary arguments")
+          var duplicate = false
+          try { ToolRegistry(tools: [counter.add, counter.add]) }
+          catch OpenAiException error { duplicate = true }
+          require(condition: duplicate, message: "duplicate registration")
+          var schema = writeJson(value: structuredOutput<Answer>().schema)
+          require(condition: schema.contains(value: "required") && schema.contains(value: "detail"), message: "typed schema")
+          printLine(counter.total)
+        }
+        """);
+    assertEquals("12\n12\n", NormTestKit.run(entry).replace("\r\n", "\n"));
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {"completed", "incomplete", "refusal", "http_error", "malformed", "json_object"})
@@ -144,9 +205,9 @@ final class OpenAiClientTest {
           import std.http.Uri
           import std.json.parseJson
           Void main() {
-            Client client = Client(apiKey: "test-key", endpoint: Uri(value: "http://127.0.0.1:%d/v1/responses"))
+            Client client = Client(apiKey: "test-key", model: "test-model", endpoint: "http://127.0.0.1:%d/v1/responses")
             try {
-              var result = client.create(request: ResponseRequest(model: "test-model", input: ResponseInput.Text(value: "创建分支"),
+              var result = client.exchange(stream: false, request: ResponseRequest(model: "test-model", input: ResponseInput.Text(value: "创建分支"),
                 format: StructuredOutput(mode: StructuredOutputMode.%s, name: "action", schema: parseJson(value: "{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{},\\\"additionalProperties\\\":false}"))))
               printLine(result.status)
               printLine(result.refusal ?? "none")
