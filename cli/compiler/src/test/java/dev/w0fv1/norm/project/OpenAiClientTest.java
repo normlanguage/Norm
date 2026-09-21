@@ -136,6 +136,7 @@ final class OpenAiClientTest {
           """
           package app
           import openai.Client
+          import openai.ResponseInput
           import openai.ResponseRequest
           import openai.StructuredOutput
           import openai.StructuredOutputMode
@@ -145,7 +146,7 @@ final class OpenAiClientTest {
           Void main() {
             Client client = Client(apiKey: "test-key", endpoint: Uri(value: "http://127.0.0.1:%d/v1/responses"))
             try {
-              var result = client.create(request: ResponseRequest(model: "test-model", input: "创建分支",
+              var result = client.create(request: ResponseRequest(model: "test-model", input: ResponseInput.Text(value: "创建分支"),
                 format: StructuredOutput(mode: StructuredOutputMode.%s, name: "action", schema: parseJson(value: "{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{},\\\"additionalProperties\\\":false}"))))
               printLine(result.status)
               printLine(result.refusal ?? "none")
