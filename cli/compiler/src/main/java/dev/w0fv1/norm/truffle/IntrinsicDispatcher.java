@@ -50,6 +50,8 @@ public final class IntrinsicDispatcher {
           FUNCTION_NAME,
           FUNCTION_OWNER,
           FUNCTION_PARAMETERS,
+          FUNCTION_ANNOTATION,
+          PARAMETER_ANNOTATION,
           PARAMETER_NAME,
           PARAMETER_TYPE,
           PARAMETER_FUNCTION,
@@ -60,7 +62,10 @@ public final class IntrinsicDispatcher {
           FUNCTION_INVOCATION_PROCEED,
           FUNCTION_COMPLETION_SUCCEEDED ->
           ReflectionIntrinsicDispatcher.resolve(intrinsic);
-      case JSON_ENCODE,
+      case JSON_SCHEMA,
+          JSON_FUNCTION_SCHEMA,
+          JSON_FUNCTION_INVOKE,
+          JSON_ENCODE,
           JSON_DECODE,
           JSON_PARSE,
           JSON_WRITE,

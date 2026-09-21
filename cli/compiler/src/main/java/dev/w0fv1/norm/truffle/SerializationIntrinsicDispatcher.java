@@ -9,6 +9,38 @@ final class SerializationIntrinsicDispatcher {
 
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
+      case JSON_SCHEMA, JSON_FUNCTION_SCHEMA, JSON_FUNCTION_INVOKE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            try {
+              if (intrinsic == IntrinsicId.JSON_SCHEMA) {
+                var schema = new JsonSchemaRuntime();
+                return schema.document(
+                    schema.schema(
+                        annotations
+                            .serialization()
+                            .shape(((RuntimeValues.ClassValue) arguments[0]).reflectedType())));
+              }
+              var operation = (RuntimeValues.Closure) arguments[0];
+              return intrinsic == IntrinsicId.JSON_FUNCTION_SCHEMA
+                  ? JsonFunctionRuntime.schema(operation, annotations)
+                  : JsonFunctionRuntime.invoke(
+                      operation, (String) arguments[1], annotations, execution, location);
+            } catch (SerializationRuntime.ShapeException failure) {
+              throw JsonRuntime.shapeFailure(failure, execution, location);
+            } catch (IllegalArgumentException failure) {
+              throw execution
+                  .values()
+                  .jsonException(
+                      "NORM-JSON-FUNCTION",
+                      failure.getMessage(),
+                      "$",
+                      0,
+                      1,
+                      1,
+                      execution,
+                      location);
+            }
+          };
       case JSON_ENCODE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
             Object first = arguments.length <= 0 ? null : arguments[0];
