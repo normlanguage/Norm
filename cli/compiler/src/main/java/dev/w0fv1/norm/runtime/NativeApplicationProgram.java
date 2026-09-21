@@ -29,8 +29,8 @@ record NativeApplicationProgram(
     try (var runtime = JvmJarBindingRuntime.closedWorld(calls, classes, applicationCalls)) {
       var context =
           ExecutionContext.builder()
-              .input(System.in)
-              .error(NativeStandardOutput.error())
+              .input(NativeStandardStreams.input())
+              .error(NativeStandardStreams.error())
               .environment(System.getenv())
               .output(output)
               .arguments(arguments)

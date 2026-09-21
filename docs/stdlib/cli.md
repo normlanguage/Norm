@@ -28,7 +28,7 @@ Void main() {
 
 [`std.io.console`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/console.norm) 提供借用的标准输入和文本输出，应用不能关闭宿主标准流。字节读取和 UTF-8 转换复用 [I/O 协议](/stdlib/io)。
 
-Native 应用在 Windows 控制台输出 Unicode，不修改终端代码页；stdout 和 stderr 分别识别控制台，重定向到文件或管道时输出 UTF-8。宿主实现见 [NativeStandardOutput](../../cli/compiler/src/main/java/dev/w0fv1/norm/runtime/NativeStandardOutput.java)。
+Native 应用在 Windows 控制台通过 Unicode 接口读写，输入转换为 UTF-8 字节，不修改终端代码页；stdout 和 stderr 分别识别控制台，重定向到文件或管道时输出 UTF-8。宿主实现见 [NativeStandardStreams](../../cli/compiler/src/main/java/dev/w0fv1/norm/runtime/NativeStandardStreams.java)。
 
 [`std.process`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/process/process.norm) 通过可执行文件和参数数组启动子进程，不经过 Shell。非零退出、超时和取消是结果；非法请求、启动失败和 I/O 失败是可捕获异常。输出预算分别作用于 stdout 和 stderr；超出部分继续排空，并在结果中标记截断。
 

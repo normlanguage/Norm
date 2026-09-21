@@ -15,8 +15,8 @@ public final class NativeApplicationMain {
   private NativeApplicationMain() {}
 
   public static void main(String[] arguments) {
-    PrintWriter output = NativeStandardOutput.output();
-    PrintWriter error = NativeStandardOutput.error();
+    PrintWriter output = NativeStandardStreams.output();
+    PrintWriter error = NativeStandardStreams.error();
     NativeApplicationProgram prepared = application();
     try {
       String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");

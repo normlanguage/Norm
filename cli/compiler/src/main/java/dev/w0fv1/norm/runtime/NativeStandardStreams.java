@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.runtime;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -18,8 +19,67 @@ import org.graalvm.nativeimage.c.type.CIntPointer;
 import org.graalvm.word.PointerBase;
 import org.graalvm.word.WordFactory;
 
-final class NativeStandardOutput {
-  private NativeStandardOutput() {}
+final class NativeStandardStreams {
+  private NativeStandardStreams() {}
+
+  static InputStream input() {
+    if (ImageInfo.inImageRuntimeCode() && Platform.includedIn(Platform.WINDOWS.class)) {
+      PointerBase handle = Windows.GetStdHandle(-10);
+      CIntPointer mode = StackValue.get(CIntPointer.class);
+      if (Windows.GetConsoleMode(handle, mode) != 0) return new WindowsInput(handle);
+    }
+    return System.in;
+  }
+
+  @Platforms(Platform.WINDOWS.class)
+  private static final class WindowsInput extends InputStream {
+    private final PointerBase handle;
+    private byte[] content = new byte[0];
+    private int position;
+    private boolean eof;
+
+    private WindowsInput(PointerBase handle) {
+      this.handle = handle;
+    }
+
+    @Override
+    public synchronized int read() throws IOException {
+      byte[] value = new byte[1];
+      return read(value, 0, 1) < 0 ? -1 : Byte.toUnsignedInt(value[0]);
+    }
+
+    @Override
+    public synchronized int read(byte[] buffer, int offset, int length) throws IOException {
+      Objects.checkFromIndexSize(offset, length, buffer.length);
+      if (length == 0) return 0;
+      if (position == content.length && !eof) {
+        char[] chars = new char[4096];
+        CIntPointer count = StackValue.get(CIntPointer.class);
+        try (var pinned = PinnedObject.create(chars)) {
+          if (Windows.ReadConsoleW(
+                  handle,
+                  pinned.addressOfArrayElement(0),
+                  chars.length,
+                  count,
+                  WordFactory.nullPointer())
+              == 0) throw new IOException("Windows console read failed: " + Windows.GetLastError());
+        }
+        int size = count.read();
+        if (size < 0 || size > chars.length) throw new IOException("Invalid console read count");
+        eof = size == 0 || chars[0] == 26;
+        content = eof ? new byte[0] : new String(chars, 0, size).getBytes(StandardCharsets.UTF_8);
+        position = 0;
+      }
+      if (eof) return -1;
+      int size = Math.min(length, content.length - position);
+      System.arraycopy(content, position, buffer, offset, size);
+      position += size;
+      return size;
+    }
+
+    @Override
+    public void close() {}
+  }
 
   static PrintWriter output() {
     return writer(System.out, -11);
@@ -97,6 +157,10 @@ final class NativeStandardOutput {
 
     @CFunction
     static native int GetConsoleMode(PointerBase handle, CIntPointer mode);
+
+    @CFunction
+    static native int ReadConsoleW(
+        PointerBase handle, PointerBase buffer, int length, CIntPointer read, PointerBase control);
 
     @CFunction
     static native int WriteConsoleW(
