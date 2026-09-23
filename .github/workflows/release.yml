@@ -91,7 +91,7 @@ jobs:
       - name: Build self-contained Windows CLI and executable
         if: runner.os == 'Windows'
         shell: pwsh
-        run: .\mvnw.cmd -B -ntp "-Drevision=${{ needs.prepare.outputs.version }}" -Dmaven.test.skip=true -Prelease clean package
+        run: .\mvnw.cmd -B -ntp "-Drevision=${{ needs.prepare.outputs.version }}" '-Dmaven.test.skip=true' -Prelease clean package
 
       - name: Package Windows CLI
         if: runner.os == 'Windows'
