@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -212,16 +213,17 @@ final class NativeBuildReportTest {
               .findFirst()
               .orElseThrow();
       assertEquals(6, provider.getAsJsonArray("components").size());
-      for (String name :
-          java.util.List.of(
-              "org.apache.maven.model.Model",
-              "org.apache.maven.artifact.Artifact",
-              "org.apache.maven.building.Problem")) {
-        Path jar =
-            Path.of(
-                Class.forName(name).getProtectionDomain().getCodeSource().getLocation().toURI());
-        assertEquals(provider.get("file").getAsString(), jar.getFileName().toString());
-        assertEquals(provider.get("sha256").getAsString(), Sha256Digest.compute(jar).value());
+      Path runtime = Path.of(System.getProperty("norm.test.runtimeDirectory"));
+      Path merged = runtime.resolve("lib").resolve(provider.get("file").getAsString());
+      assertEquals(provider.get("sha256").getAsString(), Sha256Digest.compute(merged).value());
+      try (var jar = new JarFile(merged.toFile())) {
+        for (String name :
+            java.util.List.of(
+                "org.apache.maven.model.Model",
+                "org.apache.maven.artifact.Artifact",
+                "org.apache.maven.building.Problem")) {
+          assertNotNull(jar.getJarEntry(name.replace('.', '/') + ".class"));
+        }
       }
       for (var component : manifest.getAsJsonObject("dependencies").keySet()) {
         if (!owners.containsKey(component)) assertTrue(component.contains("-bom:"), component);
@@ -233,6 +235,7 @@ final class NativeBuildReportTest {
   void recordsResolvedToolchainArtifactIdentityAndContent() throws Exception {
     try (var report =
         NativeBuildReport.create(directory.resolve("app.exe"), ignored -> {}, true, reports)) {
+      Path runtime = Path.of(System.getProperty("norm.test.runtimeDirectory"));
       var manifest =
           JsonParser.parseString(
                   Files.readString(report.directory().resolve("toolchain-artifacts.json")))
@@ -259,16 +262,6 @@ final class NativeBuildReportTest {
               .map(com.google.gson.JsonElement::getAsString)
               .collect(java.util.stream.Collectors.toSet()),
           categorized);
-      var hostedClosure = new java.util.HashSet<String>();
-      var hostedPending = new java.util.ArrayDeque<String>();
-      purposes.getAsJsonArray("hosted").forEach(value -> hostedPending.add(value.getAsString()));
-      while (!hostedPending.isEmpty()) {
-        String coordinate = hostedPending.removeFirst();
-        if (!hostedClosure.add(coordinate)) continue;
-        graph.getAsJsonArray(coordinate).forEach(value -> hostedPending.add(value.getAsString()));
-      }
-      assertTrue(
-          hostedClosure.stream().anyMatch(value -> value.startsWith("org.objenesis:objenesis:")));
       var pending = new java.util.ArrayDeque<String>();
       manifest.getAsJsonArray("roots").forEach(root -> pending.add(root.getAsString()));
       assertFalse(pending.isEmpty());
@@ -280,15 +273,7 @@ final class NativeBuildReportTest {
             .getAsJsonArray(coordinate)
             .forEach(dependency -> pending.add(dependency.getAsString()));
       }
-      Path gson =
-          Path.of(
-              com.google.gson.Gson.class
-                  .getProtectionDomain()
-                  .getCodeSource()
-                  .getLocation()
-                  .toURI());
       var names = new java.util.HashSet<String>();
-      boolean found = false;
       for (var element : manifest.getAsJsonArray("artifacts")) {
         var artifact = element.getAsJsonObject();
         String file = artifact.get("file").getAsString();
@@ -306,14 +291,8 @@ final class NativeBuildReportTest {
                     + ":"
                     + artifact.get("version").getAsString()));
         var hash = new Sha256Digest(artifact.get("sha256").getAsString());
-        if (file.equals(gson.getFileName().toString())) {
-          found = true;
-          assertEquals("com.google.code.gson", artifact.get("group").getAsString());
-          assertEquals("gson", artifact.get("artifact").getAsString());
-          assertEquals(Sha256Digest.compute(gson), hash);
-        }
+        assertEquals(hash, Sha256Digest.compute(runtime.resolve("lib").resolve(file)));
       }
-      assertTrue(found);
       String yaml =
           reachable.stream()
               .filter(

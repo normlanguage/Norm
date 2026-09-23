@@ -266,6 +266,24 @@
             </configuration>
           </execution>
           <execution>
+            <id>assemble-test-runtime-modules</id>
+            <phase>process-test-resources</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <skip>${maven.test.skip}</skip>
+              <executable>java</executable>
+              <classpathScope>runtime</classpathScope>
+              <arguments>
+                <argument>-cp</argument>
+                <argument>${project.basedir}/../../build-tools/target/classes</argument>
+                <argument>dev.w0fv1.norm.packaging.RuntimeModuleAssembler</argument>
+                <argument>--dependencies-only</argument>
+                <classpath/>
+                <argument>${project.build.directory}/test-runtime</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
             <id>assemble-runtime-modules</id>
             <phase>package</phase>
             <goals><goal>exec</goal></goals>
@@ -365,6 +383,8 @@
           <systemPropertyVariables>
             <norm.test.abi>${project.basedir}/stdlib-abi.json</norm.test.abi>
             <norm.test.stdlib>${project.basedir}/../../norm/stdlib/std</norm.test.stdlib>
+            <norm.test.modulePath>${project.build.outputDirectory}${path.separator}${project.build.directory}/test-runtime/lib</norm.test.modulePath>
+            <norm.test.runtimeDirectory>${project.build.directory}/test-runtime</norm.test.runtimeDirectory>
           </systemPropertyVariables>
         </configuration>
       </plugin>
