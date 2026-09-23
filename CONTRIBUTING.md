@@ -4,30 +4,30 @@ Norm is in the compiler bootstrap stage. Changes should keep the language specif
 
 ## Requirements
 
-- JDK 25 and Maven 3.9 or newer.
+- JDK 25. Use the included Maven wrapper; system Maven 3.9 or newer is supported for distribution builds.
 - Git with LF line endings available for source files.
 
-Build dependencies, the local compiler distribution, and Java formatting are defined by the root Maven reactor. Gradle remains the current public release entry point.
+Build dependencies, the local compiler distribution, and Java formatting are defined by the root Maven reactor.
 
 ## Build and test
 
 On Unix-like systems:
 
 ```shell
-./gradlew qualityCheck
-mvn -DskipTests package
+./mvnw verify
+./mvnw -DskipTests package
 ./cli/compiler/target/norm-runtime/bin/norm --version
 ```
 
 On Windows:
 
 ```powershell
-.\gradlew.bat qualityCheck
-mvn -DskipTests package
+.\mvnw.cmd verify
+.\mvnw.cmd -DskipTests package
 .\cli\compiler\target\norm-runtime\bin\norm.bat --version
 ```
 
-Run `mvn spotless:check` before submitting Java changes, or `mvn spotless:apply` to format them. Maven `verify` includes the formatting check. CI executes the test suite on both OpenJDK and GraalVM.
+Run `./mvnw spotless:check` before submitting Java changes, or `./mvnw spotless:apply` to format them; use `.\mvnw.cmd` on Windows. Maven `verify` includes the formatting check. CI runs Maven tests with JDK 25 and separately verifies Native Image behavior with GraalVM.
 
 ## Architecture rules
 

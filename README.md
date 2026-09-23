@@ -15,12 +15,12 @@ License: [MPL-2.0](LICENSE). Scope and source availability: [LICENSING.md](LICEN
 ## Build
 
 ```shell
-mvn -DskipTests package
+./mvnw -DskipTests package
 ./cli/compiler/target/norm-runtime/bin/norm --version
 ./cli/compiler/target/norm-runtime/bin/norm run cli/compiler/scripts/fixtures/hello.norm
 ```
 
-The build requires JDK 25 and Maven. On Windows, run the same Maven command and use `cli\compiler\target\norm-runtime\bin\norm.bat` as the CLI.
+The build requires JDK 25; the Maven wrapper supplies the project Maven version. On Windows, run `.\mvnw.cmd -DskipTests package` and use `cli\compiler\target\norm-runtime\bin\norm.bat` as the CLI. Distribution builds can use system Maven; see the [source-build design](docs/design/distribution-source-build.md).
 
 Tagged releases provide a self-contained `norm` distribution and a VS Code extension that contains the matching distribution. See the [release process](https://normlanguage.github.io/Norm/design/release-process) for supported platforms and acceptance requirements.
 

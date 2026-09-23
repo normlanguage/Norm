@@ -3,9 +3,10 @@ import { join, resolve } from 'node:path';
 
 export function buildRuntime(repository) {
   const root = resolve(repository);
-  const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : 'mvn';
+  const wrapper = join(root, process.platform === 'win32' ? 'mvnw.cmd' : 'mvnw');
+  const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : wrapper;
   const args = process.platform === 'win32'
-    ? ['/d', '/c', 'call', 'mvn', '-DskipTests', 'package']
+    ? ['/d', '/c', 'call', wrapper, '-DskipTests', 'package']
     : ['-DskipTests', 'package'];
   const result = spawnSync(command, args, { cwd: root, stdio: 'inherit' });
   if (result.error) throw result.error;

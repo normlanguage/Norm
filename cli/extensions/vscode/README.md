@@ -13,7 +13,7 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
 1. Build the CLI distribution from the repository root:
 
    ```powershell
-   mvn -DskipTests package
+   .\mvnw.cmd -DskipTests package
    ```
 
 2. Open the Norm repository as the VS Code workspace. A development Extension Host automatically discovers:

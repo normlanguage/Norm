@@ -12,7 +12,7 @@ norm/stdlib/           使用 Norm 编写的标准库
 norm/tests/            可执行的 Norm 验收程序
 ```
 
-`compiler` 是唯一 Gradle 与 JPMS 模块。领域 package 负责分层，跨层数据只使用下层拥有的强类型模型；架构测试禁止逆向依赖。
+`compiler` 是唯一产品与 JPMS 模块；根 [Maven Reactor](../../pom.xml) 另含仅用于构建的 `build-tools` 和 `build-maven-plugin`。领域 package 负责分层，跨层数据只使用下层拥有的强类型模型；架构测试禁止逆向依赖。
 
 ## 领域边界
 
@@ -72,11 +72,11 @@ LSP 启动入口为 [`LanguageServerLauncher`](https://github.com/normlanguage/N
 
 ## ABI 代码生成
 
-[`BuiltinAbiGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java) 属于构建期 Maven 模块 `build-tools`，不进入产品模块。[根 Reactor](../../pom.xml) 包含构建工具与 compiler；当前公共发布仍由 Gradle 执行。过渡期间 Java、Gson 和 JUnit 声明的一致性由 [构建边界测试](../../cli/compiler/scripts/build-tools-boundary.test.mjs) 校验；Java 格式版本与 Maven `verify` 检查由根 POM 声明，Gradle 过渡入口读取同一版本。Gradle 的 `codegen` 源码集直接复用该模块的源码，测试复用同一测试目录和 golden 文件。声明源仍为 `stdlib-abi.json`；任务输入、输出与独立 classpath 由 [`build.gradle.kts`](../../cli/compiler/build.gradle.kts) 定义。
+[`BuiltinAbiGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java) 属于构建期 `build-tools` 模块，不进入产品模块。根 [Maven Reactor](../../pom.xml) 声明构建工具与 compiler 的依赖和生命周期；内建签名的单一声明源仍为 `stdlib-abi.json`。Java 格式版本与 `verify` 检查也由根 POM 声明。
 
-版本元数据由同一模块的 [`BuildMetadataGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuildMetadataGenerator.java) 生成；Gradle 只提供版本、GraalVM 版本和输出目录。
+版本元数据由同一模块的 [`BuildMetadataGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuildMetadataGenerator.java) 生成；构建版本、GraalVM 版本和输出目录由 [compiler POM](../../cli/compiler/pom.xml) 接入。
 
-工具链依赖清单由 [`ToolchainArtifactCatalogGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/ToolchainArtifactCatalogGenerator.java) 生成并校验；构建入口负责提供实际解析出的依赖图和 JAR 文件。Gradle 的入口为 [`generateToolchainArtifacts`](../../cli/compiler/build.gradle.kts)。
+工具链依赖清单由 [`ToolchainArtifactCatalogGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/ToolchainArtifactCatalogGenerator.java) 生成并校验；[`build-maven-plugin`](../../build-maven-plugin/) 从实际 Maven 解析图和 JAR 文件提供输入。
 
 Maven 的薄适配器位于 [`build-maven-plugin`](../../build-maven-plugin/)：从 Maven 的解析模型取得依赖图和文件，调用同一组装器与清单生成器；它不进入产品运行时。`build-tools` 和适配器以 Java 17 字节码编译，compiler 仍以 Java 25 编译。
 
@@ -100,12 +100,12 @@ Maven 的薄适配器位于 [`build-maven-plugin`](../../build-maven-plugin/)：
 
 ## 本地验收与测量入口
 
-Windows 本地 CLI 与扩展使用根 Reactor 的 Maven `package`；便携工具链使用 `-Prelease package`。其安装树路径与编译器摘要由 [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 核验；默认版本取自[根 POM](../../pom.xml) 的 `revision`，实际构建版本取 Maven 产物元数据。CLI、扩展与 GUI 验收应记录实际产物身份，不只比较版本号。
+Windows 本地 CLI 与扩展使用根 Reactor 的 `mvnw.cmd package`；便携工具链使用 `mvnw.cmd -Prelease package`。其安装树路径与编译器摘要由 [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 核验；默认版本取自[根 POM](../../pom.xml) 的 `revision`，实际构建版本取 Maven 产物元数据。CLI、扩展与 GUI 验收应记录实际产物身份，不只比较版本号。
 
-离线构建通过 Maven 的 `-Dnorm.reachability.archive=<本地归档路径>` 或过渡期 Gradle 的 `-PnormReachabilityMetadata=<本地归档路径>` 提供 reachability metadata。归档来源与校验值只在 [ReachabilityMetadataArchive](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) 声明；Gradle 定向验收见 [`verify-reachability-metadata.mjs`](../../cli/compiler/scripts/verify-reachability-metadata.mjs)。其他构建工具、插件与 Java 依赖仍须预先供应。
+离线构建通过 Maven 的 `-Dnorm.reachability.archive=<本地归档路径>` 提供 reachability metadata。归档来源与校验值只在 [ReachabilityMetadataArchive](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) 声明；其他构建工具、插件与 Java 依赖仍须预先供应。发行版系统 Maven 的完整闭包另按[源码构建方案](/design/distribution-source-build)验收。
 
-Maven `package` 的系统 JDK 安装树位于 `cli/compiler/target/norm-runtime`；`lib` 由 [`RuntimeModuleAssembler`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/RuntimeModuleAssembler.java) 组装，`bin` 由 [`RuntimeLauncherGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/RuntimeLauncherGenerator.java) 生成。`mvn -Prelease package` 在同一安装树中使用 [`RuntimeImageGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/RuntimeImageGenerator.java) 生成随包 JDK，并让 launcher 指向该 runtime；Gradle 的便携分发入口仍为 `:compiler:installRuntimeDist`，复用相同的生成器。当前 Maven 与 Gradle 安装树均包含解析出的 Java 依赖，不能直接视为使用发行版系统库的 Debian/RPM 包。
+Maven `package` 的系统 JDK 安装树位于 `cli/compiler/target/norm-runtime`；`lib` 由 [`RuntimeModuleAssembler`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/RuntimeModuleAssembler.java) 组装，`bin` 由 [`RuntimeLauncherGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/RuntimeLauncherGenerator.java) 生成。`./mvnw -Prelease package` 在同一安装树中使用 [`RuntimeImageGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/RuntimeImageGenerator.java) 生成随包 JDK。普通上游 Maven 安装树包含解析出的 Java 依赖，不能直接视为使用发行版系统库的 Debian/RPM 包。
 
-网络受限环境可向定向 Gradle 测试传入 `-PnormTestMavenRepository=<repository>`。测试将其中真实的 POM/JAR 复制到各自隔离的缓存，仍执行依赖解析、绑定、归档及运行验证；不设置该参数时保持远程解析。这不是干净网络或正式发布验收。输入声明见 `:compiler:test`；夹具装载见 [MavenTestRepository](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/MavenTestRepository.java)。
+网络受限环境的定向测试可使用隔离的 Maven 本地仓库；夹具装载见 [MavenTestRepository](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/MavenTestRepository.java)。缓存命中不代表干净网络或发行版系统依赖验收。
 
 [compare-compiler.ps1](../../cli/compiler/scripts/compare-compiler.ps1) 用相同 Java、参数和源码交替运行两份完整依赖目录，保存编译、增量分析、执行耗时、主线程分配和观测峰值工作集。指标定义与预热次数见 [CompilerBenchmark](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/CompilerBenchmark.java)。主线程分配不是进程总分配，峰值工作集包含启动与预热；样例结果不能直接推广为工具链整体性能提升。

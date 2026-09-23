@@ -4,12 +4,13 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdir
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { releaseVersion } from './release-model.mjs';
 
 const repository = resolve(import.meta.dirname, '../../..');
 const evidence = resolve(process.argv[2] ?? join(repository, 'build/reports/codegen'));
 mkdirSync(evidence, { recursive: true });
 const workspace = mkdtempSync(join(tmpdir(), 'norm-codegen-'));
-const generated = join(workspace, 'cli/compiler/build/generated/sources/builtin-abi');
+const generated = join(workspace, 'cli/compiler/target/generated-sources/norm');
 const records = [];
 try {
   const tracked = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: repository, encoding: 'utf8' });
@@ -23,36 +24,34 @@ try {
   }
   const schema = join(workspace, 'cli/compiler/stdlib-abi.json');
   const original = readFileSync(schema);
-  run('clean', [':compiler:generateBuiltinAbi', ':compiler:jar', ':compiler:installDist']);
-  const baseline = snapshot(generated);
+  run('clean', ['clean', 'package']);
+  const baseline = snapshot(join(generated, 'dev/w0fv1/norm/abi'));
   const golden = JSON.parse(readFileSync(join(workspace, 'build-tools/src/test/resources/codegen/abi-golden.json'), 'utf8'));
-  assert.deepEqual(baseline, golden.outputs);
-  const repeat = run('repeat', [':compiler:generateBuiltinAbi']);
-  assert.match(repeat, /:compiler:generateBuiltinAbi UP-TO-DATE/);
-  assert.deepEqual(snapshot(generated), baseline);
+  assert.deepEqual(Object.fromEntries(Object.entries(baseline).map(([name, hash]) => [`dev/w0fv1/norm/abi/${name}`, hash])), golden.outputs);
+  run('repeat', ['package']);
+  assert.deepEqual(snapshot(join(generated, 'dev/w0fv1/norm/abi')), baseline);
   const value = JSON.parse(original);
   value.version++;
   writeFileSync(schema, JSON.stringify(value, null, 2));
-  const changedSchema = run('schema-change', [':compiler:generateBuiltinAbi']);
-  assert.doesNotMatch(changedSchema, /:compiler:generateBuiltinAbi UP-TO-DATE/);
-  assert.notEqual(snapshot(generated)['dev/w0fv1/norm/abi/BuiltinAbi.java'], baseline['dev/w0fv1/norm/abi/BuiltinAbi.java']);
+  run('schema-change', ['package']);
+  assert.notEqual(snapshot(join(generated, 'dev/w0fv1/norm/abi'))['BuiltinAbi.java'], baseline['BuiltinAbi.java']);
   writeFileSync(schema, original);
-  run('schema-restore', [':compiler:generateBuiltinAbi']);
-  assert.deepEqual(snapshot(generated), baseline);
+  run('schema-restore', ['package']);
+  assert.deepEqual(snapshot(join(generated, 'dev/w0fv1/norm/abi')), baseline);
   const source = join(workspace, 'build-tools/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java');
+  const compiledGenerator = join(workspace, 'build-tools/target/classes/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.class');
+  const originalClass = digest(readFileSync(compiledGenerator));
   const code = readFileSync(source, 'utf8');
   assert.ok(code.includes('Expected ABI schema and output directory'));
   writeFileSync(source, code.replace('Expected ABI schema and output directory', 'Expected ABI schema and output directory arguments'));
-  const changedCode = run('generator-change', [':compiler:generateBuiltinAbi']);
-  assert.doesNotMatch(changedCode, /:compiler:compileCodegenJava UP-TO-DATE/);
-  assert.doesNotMatch(changedCode, /:compiler:generateBuiltinAbi UP-TO-DATE/);
-  assert.deepEqual(snapshot(generated), baseline);
-  rmSync(generated, { recursive: true });
-  const missing = run('output-rebuild', [':compiler:generateBuiltinAbi']);
-  assert.doesNotMatch(missing, /:compiler:generateBuiltinAbi UP-TO-DATE/);
-  assert.deepEqual(snapshot(generated), baseline);
+  run('generator-change', ['package']);
+  assert.notEqual(digest(readFileSync(compiledGenerator)), originalClass);
+  assert.deepEqual(snapshot(join(generated, 'dev/w0fv1/norm/abi')), baseline);
+  rmSync(join(generated, 'dev/w0fv1/norm/abi'), { recursive: true });
+  run('output-rebuild', ['package']);
+  assert.deepEqual(snapshot(join(generated, 'dev/w0fv1/norm/abi')), baseline);
   const jarTool = join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'jar.exe' : 'jar');
-  const distribution = join(workspace, 'cli/compiler/build/install/norm/lib');
+  const distribution = join(workspace, 'cli/compiler/target/norm-runtime/lib');
   const product = readdirSync(distribution).find(name => /^compiler-.*\.jar$/.test(name));
   assert.ok(product);
   const listing = spawnSync(jarTool, ['--list', '--file', join(distribution, product)], { encoding: 'utf8' });
@@ -60,19 +59,20 @@ try {
   assert.doesNotMatch(listing.stdout, /dev\/w0fv1\/norm\/codegen\//);
   assert.match(listing.stdout, /dev\/w0fv1\/norm\/abi\/BuiltinAbi.class/);
   assert.ok(readdirSync(distribution).every(name => !/build-tools|codegen|groovy|kotlin/i.test(name)));
-  const catalog = JSON.parse(readFileSync(join(workspace, 'cli/compiler/build/generated/resources/toolchain-artifacts/toolchain-artifacts.json')));
+  const catalog = JSON.parse(readFileSync(join(workspace, 'cli/compiler/target/generated-resources/toolchain/toolchain-artifacts.json')));
   assert.ok(catalog.artifacts.every(artifact => !/build-tools|codegen|groovy|kotlin/i.test(artifact.file)));
   writeFileSync(join(evidence, 'verification.json'), JSON.stringify({ passed: true, generatedFiles: Object.keys(baseline).length, generatorExcluded: true, records }, null, 2) + '\n');
-  console.log(`ABI codegen task wiring and product isolation verified: ${evidence}`);
+  console.log(`ABI codegen lifecycle and product isolation verified: ${evidence}`);
 } finally {
   rmSync(workspace, { recursive: true, force: true });
 }
 
 function run(name, tasks) {
-  const wrapper = join(workspace, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
+  const wrapper = join(workspace, process.platform === 'win32' ? 'mvnw.cmd' : 'mvnw');
+  const revision = process.env.NORM_VERSION ? [`-Drevision=${releaseVersion(process.env.NORM_VERSION)}`] : [];
   const result = spawnSync(process.platform === 'win32' ? process.env.ComSpec : wrapper,
-    process.platform === 'win32' ? ['/d', '/c', 'call', wrapper, ...tasks, '--console=plain'] : [...tasks, '--console=plain'],
-    { cwd: workspace, encoding: 'utf8', timeout: 600000, windowsHide: true });
+    process.platform === 'win32' ? ['/d', '/c', 'call', wrapper, '-B', '-ntp', '-Dmaven.test.skip=true', ...revision, '-pl', 'cli/compiler', '-am', ...tasks] : ['-B', '-ntp', '-Dmaven.test.skip=true', ...revision, '-pl', 'cli/compiler', '-am', ...tasks],
+    { cwd: workspace, encoding: 'utf8', timeout: 900000, windowsHide: true });
   const output = (result.stdout ?? '') + (result.stderr ?? '');
   writeFileSync(join(evidence, `${name}.log`), output);
   if (result.error) throw result.error;
@@ -88,4 +88,8 @@ function snapshot(root) {
     const file = join(entry.parentPath, entry.name);
     return [relative(root, file).replaceAll('\\', '/'), createHash('sha256').update(readFileSync(file)).digest('hex')];
   }).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function digest(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
 }

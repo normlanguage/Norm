@@ -35,23 +35,20 @@ jobs:
           distribution: oracle
           java-version: 25.0.2
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
 
       - name: Build self-contained CLI
-        run: ./gradlew :compiler:installRuntimeDist --no-daemon
+        run: ./mvnw -B -ntp -Dmaven.test.skip=true -Prelease clean package
 
       - name: Verify native CLI delivery
         env:
-          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm-runtime/bin/norm
+          NORM_CLI: ${{ github.workspace }}/cli/compiler/target/norm-runtime/bin/norm
         run: |
           node --test cli/compiler/scripts/*.test.mjs
-          NORM_VERSION="$(./gradlew properties --no-daemon --console=plain -q | sed -n 's/^version: //p')"
+          NORM_VERSION="$(node --input-type=module -e 'import { readProjectVersion } from "./cli/compiler/scripts/release-model.mjs"; console.log(readProjectVersion(process.cwd()))')"
           test -n "$NORM_VERSION"
           node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "$NORM_VERSION"
 

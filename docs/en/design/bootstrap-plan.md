@@ -4,7 +4,7 @@ The official Java toolchain builds one frontend and one Truffle execution path. 
 
 ## Foundation
 
-The single Gradle compiler module owns pinned Java and Truffle dependencies, source locations, diagnostics, formatting, tests, and CI.
+The root [Maven reactor](../../../pom.xml) pins Java and Truffle dependencies and builds the single compiler product module. Source locations, diagnostics, formatting, tests, and CI are shared foundations for later stages.
 
 ## Frontend
 

@@ -7,7 +7,7 @@
 *.toml text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
-gradlew text eol=lf
-gradlew.bat text eol=crlf
+mvnw text eol=lf
+mvnw.cmd text eol=crlf
 *.jar binary
 *.nar filter=lfs diff=lfs merge=lfs -text

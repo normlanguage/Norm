@@ -20,7 +20,7 @@ cli/                    command-line product
 norm/                   standard library and language sources written in Norm
 ```
 
-The official Java implementation is one Gradle and JPMS module. The frontend, Core, execution, project, platform, and CLI domains remain separate packages, with architecture tests enforcing their dependency direction. Physical modules do not duplicate those boundaries. The [toolchain development standard](/en/design/toolchain-development) is authoritative for package responsibilities, dependency direction, and verification.
+The official Java product implementation is one JPMS module within a Maven reactor that also contains build-only modules. The frontend, Core, execution, project, platform, and CLI domains remain separate packages, with architecture tests enforcing their dependency direction. Physical modules do not duplicate those boundaries. The [toolchain development standard](/en/design/toolchain-development) is authoritative for package responsibilities, dependency direction, and verification.
 
 The build pins the Java toolchain and Truffle versions. Release jobs use `jlink` to produce self-contained platform distributions. `norm build` targets Native Image by default; `--jvm` is an explicit development and compatibility target. A change to this decision requires a new project proposal with migration, debugging, and ecosystem-compatibility analysis.
 
