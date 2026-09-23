@@ -7,7 +7,7 @@ Norm is in the compiler bootstrap stage. Changes should keep the language specif
 - JDK 25 and Maven 3.9 or newer.
 - Git with LF line endings available for source files.
 
-Build dependencies and the local compiler distribution are defined by the root Maven reactor. Gradle remains the current formatting and public release entry point.
+Build dependencies, the local compiler distribution, and Java formatting are defined by the root Maven reactor. Gradle remains the current public release entry point.
 
 ## Build and test
 
@@ -27,7 +27,7 @@ mvn -DskipTests package
 .\cli\compiler\target\norm-runtime\bin\norm.bat --version
 ```
 
-Run `spotlessApply` before submitting Java changes. CI executes the test suite on both OpenJDK and GraalVM.
+Run `mvn spotless:check` before submitting Java changes, or `mvn spotless:apply` to format them. Maven `verify` includes the formatting check. CI executes the test suite on both OpenJDK and GraalVM.
 
 ## Architecture rules
 

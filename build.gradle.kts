@@ -1,4 +1,5 @@
 import com.diffplug.gradle.spotless.SpotlessExtension
+import javax.xml.parsers.DocumentBuilderFactory
 
 plugins {
     base
@@ -9,7 +10,10 @@ group = "dev.w0fv1.norm"
 version = providers.gradleProperty("normVersion").get()
 
 val javaLanguageVersion = libs.versions.java.get()
-val googleJavaFormatVersion = libs.versions.google.java.format.get()
+val googleJavaFormatVersion = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+    .newDocumentBuilder().parse(rootProject.file("pom.xml"))
+    .getElementsByTagNameNS("*", "google.java.format.version").item(0)?.textContent
+    ?: error("Root pom.xml must declare google.java.format.version")
 val junitBom = libs.junit.bom
 val junitJupiter = libs.junit.jupiter
 val junitPlatformLauncher = libs.junit.platform.launcher

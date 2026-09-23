@@ -72,7 +72,7 @@ LSP 启动入口为 [`LanguageServerLauncher`](https://github.com/normlanguage/N
 
 ## ABI 代码生成
 
-[`BuiltinAbiGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java) 属于构建期 Maven 模块 `build-tools`，不进入产品模块。[根 Reactor](../../pom.xml) 包含构建工具与 compiler；当前公共发布仍由 Gradle 执行。过渡期间 Java、Gson 和 JUnit 声明的一致性由 [构建边界测试](../../cli/compiler/scripts/build-tools-boundary.test.mjs) 校验；格式规则仍由根 Gradle 工程统一执行。Gradle 的 `codegen` 源码集直接复用该模块的源码，测试复用同一测试目录和 golden 文件。声明源仍为 `stdlib-abi.json`；任务输入、输出与独立 classpath 由 [`build.gradle.kts`](../../cli/compiler/build.gradle.kts) 定义。
+[`BuiltinAbiGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java) 属于构建期 Maven 模块 `build-tools`，不进入产品模块。[根 Reactor](../../pom.xml) 包含构建工具与 compiler；当前公共发布仍由 Gradle 执行。过渡期间 Java、Gson 和 JUnit 声明的一致性由 [构建边界测试](../../cli/compiler/scripts/build-tools-boundary.test.mjs) 校验；Java 格式版本与 Maven `verify` 检查由根 POM 声明，Gradle 过渡入口读取同一版本。Gradle 的 `codegen` 源码集直接复用该模块的源码，测试复用同一测试目录和 golden 文件。声明源仍为 `stdlib-abi.json`；任务输入、输出与独立 classpath 由 [`build.gradle.kts`](../../cli/compiler/build.gradle.kts) 定义。
 
 版本元数据由同一模块的 [`BuildMetadataGenerator`](../../build-tools/src/main/java/dev/w0fv1/norm/codegen/BuildMetadataGenerator.java) 生成；Gradle 只提供版本、GraalVM 版本和输出目录。
 
