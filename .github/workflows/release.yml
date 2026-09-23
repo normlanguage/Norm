@@ -379,7 +379,7 @@ jobs:
           sha256sum "norm-package-manifests-v$VERSION.tar.gz" >> SHA256SUMS
 
       - name: Attest release assets
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: release/*
 
