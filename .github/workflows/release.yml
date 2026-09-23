@@ -144,7 +144,7 @@ jobs:
         run: npm ci --prefix cli/extensions/vscode
 
       - name: Download self-contained CLIs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: binaries
           pattern: runtime-*
@@ -225,13 +225,13 @@ jobs:
           npm run test:release
 
       - name: Download packaged runtimes
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: binaries
           pattern: runtime-*
 
       - name: Download packaged extension
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: extension-universal
           path: release
@@ -264,13 +264,13 @@ jobs:
       - run: npm ci --prefix cli/extensions/vscode
 
       - name: Download final CLI
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: release-${{ matrix.platform }}
           path: release
 
       - name: Download final extension
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: extension-universal
           path: release
@@ -352,14 +352,14 @@ jobs:
           node-version: '24'
 
       - name: Download release assets
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: release
           pattern: release-*
           merge-multiple: true
 
       - name: Download universal extension
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: release
           name: extension-universal
