@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "executableSha256": "0ebc8d9d2f40a60f7bfa1eb96bf42e38168235ba3a4c2180c1b4271b50cecb14",
+  "sourceSha256": "1be0db9292a0653ca111495ec5c5ba7b99e0f4d80188ae535fd913952d6df90f",
+  "runs": [
+    {
+      "iteration": 1,
+      "elapsedMs": 16,
+      "output": "Hello, Norm!\n"
+    },
+    {
+      "iteration": 2,
+      "elapsedMs": 15,
+      "output": "Hello, Norm!\n"
+    },
+    {
+      "iteration": 3,
+      "elapsedMs": 15,
+      "output": "Hello, Norm!\n"
+    }
+  ]
+}

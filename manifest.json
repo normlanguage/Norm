@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "repository": "normlanguage/Norm",
+  "workflowId": 352271205,
+  "platform": "Linux-X64",
+  "runId": 35934743339,
+  "sourceSha": "dd44d9ccdf0b9f8c7c9cf5ee36489e9610d4f605",
+  "branch": "main",
+  "parent": null,
+  "reason": "First verified default-branch baseline"
+}

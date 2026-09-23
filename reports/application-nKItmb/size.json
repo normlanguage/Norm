@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "executable": "/tmp/norm-cli-acceptance-bIbeEx/application",
+  "sha256": "0ebc8d9d2f40a60f7bfa1eb96bf42e38168235ba3a4c2180c1b4271b50cecb14",
+  "executableBytes": 26741000,
+  "imageBytes": 28329024,
+  "codeBytes": 9671232,
+  "heapBytes": 16449536,
+  "reachableMethods": 28051,
+  "reflectionMethods": 1432,
+  "reachableTypes": 6184,
+  "reflectionTypes": 408,
+  "runtimeFiles": [
+    {
+      "path": "application",
+      "bytes": 26741000,
+      "sha256": "0ebc8d9d2f40a60f7bfa1eb96bf42e38168235ba3a4c2180c1b4271b50cecb14"
+    }
+  ],
+  "deliveryBytes": 26741000
+}
