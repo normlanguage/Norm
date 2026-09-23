@@ -100,7 +100,7 @@ Maven 的薄适配器位于 [`build-maven-plugin`](../../build-maven-plugin/)：
 
 ## 本地验收与测量入口
 
-Windows 本地构建使用 `:compiler:installRuntimeDist`，由 [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 返回规范分发目录并验证编译器摘要。CLI、扩展与 GUI 验收应记录实际产物身份，不只比较版本号。
+Windows 本地 CLI 与扩展使用根 Reactor 的 Maven `package`；便携工具链使用 `-Prelease package`。其安装树路径与编译器摘要由 [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 核验；默认版本取自[根 POM](../../pom.xml) 的 `revision`，实际构建版本取 Maven 产物元数据。CLI、扩展与 GUI 验收应记录实际产物身份，不只比较版本号。
 
 离线构建通过 Maven 的 `-Dnorm.reachability.archive=<本地归档路径>` 或过渡期 Gradle 的 `-PnormReachabilityMetadata=<本地归档路径>` 提供 reachability metadata。归档来源与校验值只在 [ReachabilityMetadataArchive](../../build-tools/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) 声明；Gradle 定向验收见 [`verify-reachability-metadata.mjs`](../../cli/compiler/scripts/verify-reachability-metadata.mjs)。其他构建工具、插件与 Java 依赖仍须预先供应。
 

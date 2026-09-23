@@ -1,20 +1,18 @@
 import { spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { buildRuntime } from '../../cli/compiler/scripts/build-runtime.mjs'
 
 export const docsRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const repositoryRoot = resolve(docsRoot, '..')
 
 export async function runNorm(args) {
-  const java = process.env.JAVA_HOME
-    ? resolve(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java')
-    : 'java'
-  const quoted = args.map(value => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`).join(' ')
+  const distribution = buildRuntime(repositoryRoot)
+  const launcher = resolve(distribution, 'bin', process.platform === 'win32' ? 'norm.bat' : 'norm')
+  const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : launcher
+  const invocation = process.platform === 'win32' ? ['/d', '/c', 'call', launcher, ...args] : args
   await new Promise((accept, reject) => {
-    const child = spawn(java, [
-      '-Xmx64m', '-Xms64m', '-jar', resolve(repositoryRoot, 'gradle/wrapper/gradle-wrapper.jar'),
-      ':compiler:run', `--args=${quoted}`, '--no-daemon',
-    ], { cwd: repositoryRoot, stdio: 'inherit' })
+    const child = spawn(command, invocation, { cwd: repositoryRoot, stdio: 'inherit' })
     child.once('error', reject)
     child.once('exit', (code, signal) => {
       if (code === 0) accept()

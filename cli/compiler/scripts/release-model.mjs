@@ -16,6 +16,15 @@ export function releaseVersion(value) {
   return value;
 }
 
+export function readProjectVersion(repository) {
+  const pom = readFileSync(resolve(repository, 'pom.xml'), 'utf8');
+  const revisions = [...pom.matchAll(/<revision>\s*([^<>\s]+)\s*<\/revision>/g)];
+  if (revisions.length !== 1 || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-SNAPSHOT)?$/.test(revisions[0][1])) {
+    throw new Error('Root pom.xml must declare one semantic revision');
+  }
+  return revisions[0][1];
+}
+
 export function releaseAssetName(version, target) {
   releaseVersion(version);
   const definition = releaseTargets.find(value => value.target === target);

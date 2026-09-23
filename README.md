@@ -15,12 +15,12 @@ License: [MPL-2.0](LICENSE). Scope and source availability: [LICENSING.md](LICEN
 ## Build
 
 ```shell
-./gradlew qualityCheck
-./gradlew :compiler:run --args="--version"
-./gradlew :compiler:run --args="run cli/compiler/scripts/fixtures/hello.norm"
+mvn -DskipTests package
+./cli/compiler/target/norm-runtime/bin/norm --version
+./cli/compiler/target/norm-runtime/bin/norm run cli/compiler/scripts/fixtures/hello.norm
 ```
 
-On Windows, use `gradlew.bat`. Gradle selects the pinned Java 25 toolchain automatically.
+The build requires JDK 25 and Maven. On Windows, run the same Maven command and use `cli\compiler\target\norm-runtime\bin\norm.bat` as the CLI.
 
 Tagged releases provide a self-contained `norm` distribution and a VS Code extension that contains the matching distribution. See the [release process](https://normlanguage.github.io/Norm/design/release-process) for supported platforms and acceptance requirements.
 

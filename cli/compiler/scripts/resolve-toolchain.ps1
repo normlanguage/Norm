@@ -5,19 +5,27 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath $NormHome).Path
-$properties = ConvertFrom-StringData (Get-Content -LiteralPath (Join-Path $root 'gradle.properties') -Raw)
+[xml]$pom = Get-Content -LiteralPath (Join-Path $root 'pom.xml') -Raw
+$sourceRevision = $pom.SelectSingleNode("/*[local-name()='project']/*[local-name()='properties']/*[local-name()='revision']").InnerText
+if ($sourceRevision -notmatch '^\d+\.\d+\.\d+(-SNAPSHOT)?$') { throw 'Root pom.xml has no semantic revision.' }
 $selection = Join-Path $root '.tmp/active-toolchain.json'
 $manifest = $null
 if (!$BuildOutput -and (Test-Path -LiteralPath $selection -PathType Leaf)) {
   $manifest = Get-Content -LiteralPath $selection -Raw | ConvertFrom-Json
   $toolchainHome = (Resolve-Path -LiteralPath $manifest.Home).Path
   $version = $manifest.Version
-  if ($version -ne $properties.normVersion) { throw 'Selected toolchain version does not match this checkout.' }
+  if ($manifest.SourceRevision -ne $sourceRevision) { throw 'Selected toolchain source revision does not match this checkout.' }
   $expected = $manifest.CompilerSha256
 } else {
-  $toolchainHome = Join-Path $root 'cli/compiler/build/install/norm-runtime'
-  $version = $properties.normVersion
-  $built = Join-Path $root ('cli/compiler/build/libs/compiler-' + $version + '.jar')
+  $metadata = Join-Path $root 'cli/compiler/target/maven-archiver/pom.properties'
+  $properties = ConvertFrom-StringData (Get-Content -LiteralPath $metadata -Raw)
+  if ($properties.groupId -ne 'dev.w0fv1.norm' -or $properties.artifactId -ne 'compiler' -or
+      $properties.version -notmatch '^\d+\.\d+\.\d+(-SNAPSHOT)?$') {
+    throw "Invalid Maven compiler package metadata: $metadata"
+  }
+  $version = $properties.version
+  $toolchainHome = Join-Path $root 'cli/compiler/target/norm-runtime'
+  $built = Join-Path $root ('cli/compiler/target/compiler-' + $version + '.jar')
   if (!(Test-Path -LiteralPath $built -PathType Leaf)) { throw "Missing compiler build output: $built" }
   $expected = (Get-FileHash -LiteralPath $built -Algorithm SHA256).Hash
 }
@@ -26,7 +34,7 @@ $java = Join-Path $toolchainHome 'runtime/bin/java.exe'
 $launcher = Join-Path $toolchainHome 'bin/norm.bat'
 foreach ($file in @($compiler, $java, $launcher)) {
   if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
-    throw "Missing toolchain file: $file. Build :compiler:installRuntimeDist and select the toolchain again."
+    throw "Missing toolchain file: $file. Build the Maven compiler package and select the toolchain again."
   }
 }
 $actual = (Get-FileHash -LiteralPath $compiler -Algorithm SHA256).Hash
@@ -49,6 +57,7 @@ if ($manifest) {
 [pscustomobject]@{
   Home = $toolchainHome
   Version = $version
+  SourceRevision = $sourceRevision
   Compiler = $compiler
   CompilerSha256 = $actual
   ClassPath = (Join-Path $toolchainHome 'lib/*')

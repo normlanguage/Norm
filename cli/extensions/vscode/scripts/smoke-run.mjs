@@ -7,7 +7,7 @@ const cli =
   process.env.NORM_CLI ??
   resolve(
     repository,
-    'cli/compiler/build/vscode-test-server/bin',
+    'cli/compiler/target/norm-runtime/bin',
     process.platform === 'win32' ? 'norm.bat' : 'norm',
   );
 const source = resolve(repository, 'norm/tests/class/02_parameter_identity.norm');

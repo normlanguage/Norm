@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import oniguruma from 'vscode-oniguruma';
 import textmate from 'vscode-textmate';
+import { readProjectVersion } from '../../../compiler/scripts/release-model.mjs';
 
 const { createOnigScanner, createOnigString, loadWASM } = oniguruma;
 const { Registry } = textmate;
@@ -133,10 +134,7 @@ assert.equal(
 );
 assert.equal(extension.contributes.configurationDefaults['[norm]']['editor.formatOnSave'], true);
 
-const projectVersion = /^normVersion=(\d+\.\d+\.\d+)(?:-SNAPSHOT)?$/m.exec(
-  readFileSync('../../../gradle.properties', 'utf8'),
-)?.[1];
-assert.ok(projectVersion, 'gradle.properties does not declare a semantic Norm version');
+const projectVersion = readProjectVersion('../../..').replace(/-SNAPSHOT$/, '');
 assert.equal(extension.version, projectVersion, 'extension version must track the Norm version');
 
 console.log('Norm language configuration tests succeeded.');
