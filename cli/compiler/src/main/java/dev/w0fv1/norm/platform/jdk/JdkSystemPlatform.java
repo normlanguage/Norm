@@ -33,6 +33,13 @@ import java.time.Instant;
 import java.util.Objects;
 
 public final class JdkSystemPlatform implements SystemPlatform {
+  private final dev.w0fv1.norm.platform.process.ProcessRunner processes = new JdkProcessRunner();
+
+  @Override
+  public dev.w0fv1.norm.platform.process.ProcessRunner processes() {
+    return processes;
+  }
+
   private final FileSystem fileSystem;
   private final SystemClock clock;
   private final HttpTransport httpTransport;
@@ -150,6 +157,44 @@ public final class JdkSystemPlatform implements SystemPlatform {
       return target.isAbsolute()
           ? target.normalize()
           : workingDirectory.resolve(target).normalize();
+    }
+
+    @Override
+    public void writeAtomic(String path, byte[] content, int offset, int length) {
+      Objects.checkFromIndexSize(offset, length, content.length);
+      try {
+        Path target = resolve(path);
+        if (target.getParent() == null)
+          throw new InvalidPathException(path, "A file destination must have a parent directory");
+        java.nio.file.Files.createDirectories(target.getParent());
+        Path pending =
+            java.nio.file.Files.createTempFile(target.getParent(), ".norm-write-", ".tmp");
+        try {
+          try (var channel = FileChannel.open(pending, StandardOpenOption.WRITE)) {
+            var buffer = java.nio.ByteBuffer.wrap(content, offset, length);
+            while (buffer.hasRemaining()) channel.write(buffer);
+            channel.force(true);
+          }
+          java.nio.file.Files.move(
+              pending,
+              target,
+              java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+              java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException | RuntimeException | Error failure) {
+          try {
+            java.nio.file.Files.deleteIfExists(pending);
+          } catch (IOException cleanup) {
+            failure.addSuppressed(cleanup);
+          }
+          throw failure;
+        }
+      } catch (InvalidPathException exception) {
+        throw failure(FileOperation.WRITE, FileFailure.INVALID_PATH, path, exception);
+      } catch (SecurityException exception) {
+        throw failure(FileOperation.WRITE, FileFailure.PERMISSION_DENIED, path, exception);
+      } catch (IOException exception) {
+        throw failure(FileOperation.WRITE, path, exception);
+      }
     }
 
     private static PlatformFileException failure(

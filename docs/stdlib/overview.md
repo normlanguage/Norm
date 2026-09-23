@@ -12,6 +12,9 @@
 | `std.collections` | 序列算法与集合 extension | [Collections](/stdlib/collections) |
 | `std.configuration` | 类型化框架配置到宿主属性的结构映射 | [Configuration](/stdlib/configuration) |
 | `std.math` | Integer 数学函数 | [Math](/stdlib/math) |
+| `std.cli` | 长选项、位置参数与帮助 | [CLI](/stdlib/cli) |
+| `std.application` | 参数、环境、目录与完成码 | [CLI](/stdlib/cli) |
+| `std.process` | 子进程、输出预算、超时与取消 | [CLI](/stdlib/cli) |
 | `std.time` | Instant、Duration 与 Clock | [Time](/stdlib/time) |
 | `std.concurrent` | 有类型任务、等待与取消 | [Concurrency](/stdlib/concurrency) |
 | `std.build` | 强类型结果构建器 | [结果构建器](/spec/grammar/result-builders) |
@@ -43,3 +46,7 @@
 结构映射只处理 `value`。Class identity、对象图、循环引用和多态尚未进入协议；HTTP server 也尚未交付。完整状态见 [Status](/status)。
 
 具体签名以各页面链接的 Norm 源码为准，文档负责解释模块职责、失败边界和最小用法，不复制第二份完整方法清单。
+
+## 独立库
+
+[OpenAI 客户端](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai) 作为独立 Module 提供 Responses API，不进入标准库。

@@ -61,6 +61,7 @@ const stdlib = [
   { text: '标准库概览', link: '/stdlib/overview' },
   { text: 'API 浏览器', link: '/stdlib/api' },
   { text: '输出', link: '/stdlib/output-api' },
+  { text: '命令行与进程', link: '/stdlib/cli' },
   { text: 'I/O 基础', link: '/stdlib/io' },
   { text: 'String', link: '/stdlib/string' },
   { text: 'Array', link: '/stdlib/array' },

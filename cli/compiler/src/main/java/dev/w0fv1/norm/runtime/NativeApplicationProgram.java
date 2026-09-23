@@ -25,10 +25,13 @@ record NativeApplicationProgram(
     applicationCalls = Map.copyOf(applicationCalls);
   }
 
-  void execute(List<String> arguments, PrintWriter output, java.nio.file.Path directory) {
+  int execute(List<String> arguments, PrintWriter output, java.nio.file.Path directory) {
     try (var runtime = JvmJarBindingRuntime.closedWorld(calls, classes, applicationCalls)) {
       var context =
           ExecutionContext.builder()
+              .input(NativeStandardStreams.input())
+              .error(NativeStandardStreams.error())
+              .environment(System.getenv())
               .output(output)
               .arguments(arguments)
               .platform(JdkSystemPlatform.standard())
@@ -37,6 +40,9 @@ record NativeApplicationProgram(
               .jarBindingRuntime(runtime)
               .build();
       executable.execute(context);
+      output.flush();
+      context.error().flush();
+      return context.exitCode();
     }
   }
 }

@@ -9,7 +9,6 @@ import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.platform.jdk.JdkSystemPlatform;
 import dev.w0fv1.norm.project.ProjectLoader;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -26,13 +25,20 @@ final class LanguageContext {
       TruffleLanguage.Env environment, CompilerSession compiler, ProjectLoader projects) {
     this.compiler = new ApplicationCompiler(compiler);
     this.projects = java.util.Objects.requireNonNull(projects, "projects");
-    execution =
+    var builder =
         ExecutionContext.builder()
-            .input(new InputStreamReader(environment.in(), StandardCharsets.UTF_8))
+            .input(environment.in())
+            .error(new java.io.PrintWriter(environment.err(), true, StandardCharsets.UTF_8))
             .output(new PrintWriter(environment.out(), true, StandardCharsets.UTF_8))
             .arguments(List.of(environment.getApplicationArguments()))
-            .platform(JdkSystemPlatform.standard())
-            .build();
+            .environment(environment.getEnvironment())
+            .platform(JdkSystemPlatform.standard());
+    var configured = builder.build();
+    execution =
+        environment.isFileIOAllowed()
+            ? configured.withWorkingDirectory(
+                java.nio.file.Path.of(environment.getCurrentWorkingDirectory().getPath()))
+            : configured;
   }
 
   ExecutionContext execution() {

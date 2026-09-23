@@ -24,6 +24,7 @@ if (!(Test-Path -LiteralPath $directory)) {
 }
 $manifest = [ordered]@{
   Version = $toolchain.Version
+  SourceRevision = $toolchain.SourceRevision
   Home = $directory
   CompilerSha256 = $toolchain.CompilerSha256
   ToolchainSha256 = $identity

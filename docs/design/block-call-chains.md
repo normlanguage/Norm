@@ -58,7 +58,7 @@ description: 普通成员调用的省点号连接、迁移边界与验证入口
 | D4 | 库示例和 Todo 使用新写法；保留标准任务 API 与生命周期，不回引 ui.async。 |
 | D5 | 完整分发、扩展、Todo EXE、分批回归、GUI 与交付 EXE 生命周期验收；核对源码与工具链摘要。 |
 
-各批提交前审查并取得提交许可；中间产物不能替换已交付工具链。构建、测试与验收期间冻结相关源码，禁止多个 Gradle 进程同时写同一输出目录。
+各批提交前审查并取得提交许可；中间产物不能替换已交付工具链。构建、测试与验收期间冻结相关源码，禁止多个构建进程同时写同一输出目录。
 
 ## 验证索引
 
@@ -75,7 +75,7 @@ description: 普通成员调用的省点号连接、迁移边界与验证入口
 | A04：交付 EXE | 对同摘要 todo.exe 做隔离启动—关闭—重启—关闭，验证标题与完成状态持久化、应用及启动器退出码 0、无运行异常；check.exe 不能替代。 |
 | A05–A08：生命周期、产物身份、日常数据与架构 | Task/异步/取消与清理测试；完整分发和源码 SHA-256；日常 H2 数据库前后摘要不变；DependencyArchitectureTest、AuthoringArchitectureTest。 |
 
-格式检查与分发构建使用 `:compiler:spotlessJavaCheck :compiler:installRuntimeDist :compiler:publishWindowsExecutable :compiler:installVsCodeTestServer`。工具链选择和完整性核对复用 [select-toolchain.ps1](../../cli/compiler/scripts/select-toolchain.ps1)、[resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 与 [test-toolchain.ps1](../../cli/compiler/scripts/test-toolchain.ps1)。扩展复用 `npm run test:language`、`npm run check`、`NORM_TEST_GREP` 定向端到端测试及现有打包入口。
+本地分发与格式检查入口见[工具链开发规范](toolchain-development.md#本地验收与测量入口)。工具链选择和完整性核对复用 [select-toolchain.ps1](../../cli/compiler/scripts/select-toolchain.ps1)、[resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 与 [test-toolchain.ps1](../../cli/compiler/scripts/test-toolchain.ps1)。扩展复用 `npm run test:language`、`npm run check`、`NORM_TEST_GREP` 定向端到端测试及现有打包入口。
 
 Todo 使用相邻 Norm 仓库的新选定分发运行 `build.ps1` 与 `reference-tests/verify.ps1 -Mode all`，随后验证交付 EXE。所有写入使用新建隔离数据库。安装、加载与 LSP 重启须有实际进程和摘要证据，不能只比较展示版本号。
 

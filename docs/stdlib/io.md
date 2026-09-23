@@ -27,3 +27,5 @@ Java Binding 返回的 `java.io.InputStream` 和 `java.io.OutputStream` 分别�
 `encodeText(text:, encoding:)` 和 `decodeText(content:, encoding:)` 提供严格 UTF-8 转换。非法输入抛出 `TextException`。
 
 完整声明见 [`std.io.bytes`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/bytes.norm)、[`std.io.system`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/system.norm) 和 [`std.io.streams`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/streams.norm)。
+
+标准输入、标准输出和标准错误见[命令行与进程](/stdlib/cli)。

@@ -21,6 +21,24 @@ public enum JsonValue {
   Null
 }
 
+@Document(description: "Derives a JSON Schema from the shared serialization shape of a type.")
+public JsonValue jsonSchema(@Document(description: "The serialized type.") Class<?> type) {
+  return parseJson(value: __jsonSchema(type: type))
+}
+
+@Document(description: "Derives an argument schema and verifies the serializable result of a function.")
+public JsonValue functionSchema(@Document(description: "A top-level function or bound method.") Function<?> operation) {
+  return parseJson(value: __jsonFunctionSchema(operation: operation))
+}
+
+@Document(description: "Validates and decodes named JSON arguments, invokes a function, and serializes its result.")
+public String invokeJson(
+  @Document(description: "A top-level function or bound method.") Function<?> operation,
+  @Document(description: "A JSON object containing named arguments.") String arguments
+) {
+  return __jsonFunctionInvoke(operation: operation, arguments: arguments)
+}
+
 @Document(description: "Reports a JSON parsing, encoding, decoding, or mapping failure with source location data.")
 public class JsonException extends Exception {
   @Document(description: "The stable machine-readable failure code.")

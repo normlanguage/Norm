@@ -60,18 +60,18 @@ projects/<scenario>/
 
 ## 验证
 
-运行 `ProgramExecutionTest` 覆盖的全部语言与项目程序：
+运行完整 Maven 验证，覆盖 `ProgramExecutionTest` 及其他测试：
 
 ```powershell
-.\gradlew.bat :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest"
+.\mvnw.cmd verify
 ```
 
-运行项目程序：
+仅运行项目程序的定向测试：
 
 ```powershell
-.\gradlew.bat :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.runsMultiFilePrograms"
+.\mvnw.cmd -B -ntp -pl cli/compiler -am '-Dtest=ProgramExecutionTest#runsMultiFilePrograms' -Dsurefire.failIfNoSpecifiedTests=false -Dnorm.failIfNoTests=false clean test
 ```
 
-运行单个领域时，使用 `ProgramExecutionTest` 中对应的测试工厂方法。标准库测试由 `StandardLibraryTest` 通过公开的测试运行器执行。
+运行单个领域时，用相同命令选择 `ProgramExecutionTest` 中对应的测试工厂方法。两个定向参数允许 Reactor 上游模块没有匹配的测试；普通 `verify` 保持严格测试要求。标准库测试由 `StandardLibraryTest` 通过公开的测试运行器执行。
 
 测试架构和工具链约束见 [`docs/design/toolchain-development.md`](../../docs/design/toolchain-development.md)。

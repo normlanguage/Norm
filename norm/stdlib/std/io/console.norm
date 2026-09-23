@@ -1,0 +1,32 @@
+package std.io
+
+import std.core.Exception
+import std.annotation.Document
+
+private class StandardInput implements ByteReader {
+  public ReadChunk read(Integer maximumBytes) {
+    if maximumBytes < 1 { throw Exception(message: "maximumBytes must be positive") }
+    Bytes? content = null
+    try { content = __consoleRead<Bytes>(maximumBytes: maximumBytes) }
+    catch Exception error { throw IOException(code: "NORM-CONSOLE-IO", message: error.message) }
+    if content == null { return ReadChunk.Eof }
+    return ReadChunk.Data(bytes: content)
+  }
+}
+
+@Document(description: "Returns the borrowed standard input byte stream; the host owns its lifetime.")
+public ByteReader standardInput() {
+  return StandardInput()
+}
+
+@Document(description: "Writes and flushes standard output without adding a newline.")
+public Void print(@Document(description: "The text to write.") String text) {
+  try { __consoleWrite(text: text, error: false) }
+  catch Exception error { throw IOException(code: "NORM-CONSOLE-IO", message: error.message) }
+}
+
+@Document(description: "Writes and flushes standard error without adding a newline.")
+public Void printError(@Document(description: "The diagnostic text to write.") String text) {
+  try { __consoleWrite(text: text, error: true) }
+  catch Exception error { throw IOException(code: "NORM-CONSOLE-IO", message: error.message) }
+}

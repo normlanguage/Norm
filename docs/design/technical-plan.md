@@ -24,6 +24,6 @@ CLI 在开发与发行阶段使用同一 JVM 应用。正式发行通过 `jlink`
 
 ## 5. 构建系统
 
-使用单一 Gradle 编译器模块并锁定 Java toolchain 和 Truffle 版本。Zig 不进入编译器或标准库平台 adapter。
+使用根 [Maven Reactor](../../pom.xml) 构建单一编译器产品模块，并锁定 Java toolchain 和 Truffle 版本。Zig 不进入编译器或标准库平台 adapter。
 
 具体实施顺序见[编译器引导计划](/design/bootstrap-plan)。

@@ -21,7 +21,7 @@ import java.util.List;
 final class RunCommand implements Command {
   @Override
   public String usage() {
-    return "norm run [--debug] <file.norm|module-directory>";
+    return "norm run [--debug] <file.norm|module-directory> [-- arguments...]";
   }
 
   @Override
@@ -37,6 +37,10 @@ final class RunCommand implements Command {
   @Override
   public int execute(List<String> arguments, PrintWriter out, PrintWriter err) {
     arguments = new ArrayList<>(arguments);
+    int separator = arguments.indexOf("--");
+    List<String> applicationArguments =
+        separator < 0 ? List.of() : List.copyOf(arguments.subList(separator + 1, arguments.size()));
+    if (separator >= 0) arguments = new ArrayList<>(arguments.subList(0, separator));
     boolean debug = arguments.remove("--debug");
     if (arguments.size() != 1) {
       err.println(
@@ -54,6 +58,15 @@ final class RunCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
 
+    ExecutionContext context =
+        ExecutionContext.builder()
+            .input(System.in)
+            .output(out)
+            .error(err)
+            .environment(System.getenv())
+            .arguments(applicationArguments)
+            .platform(JdkSystemPlatform.standard())
+            .build();
     CompilationResult result;
     String applicationBundle = System.getenv("NORM_APPLICATION_BUNDLE");
     java.util.function.Consumer<String> progress =
@@ -63,14 +76,13 @@ final class RunCommand implements Command {
     try {
       if (applicationBundle != null && !applicationBundle.isBlank()) {
         Path bundle = Path.of(applicationBundle);
-        ExecutionContext context = ExecutionContext.of(out, JdkSystemPlatform.standard());
         String executable = System.getenv("NORM_APPLICATION_EXECUTABLE");
         if (executable != null && !executable.isBlank())
           context =
               context.withApplicationDirectory(
                   Path.of(executable).toAbsolutePath().normalize().getParent());
         dev.w0fv1.norm.runtime.PreparedApplication.read(bundle).execute(bundle, context);
-        return ExitCode.SUCCESS;
+        return context.exitCode();
       }
       progress.accept("Checking prepared application");
       var cache =
@@ -85,17 +97,15 @@ final class RunCommand implements Command {
           progress.accept("Starting application");
           application.execute(
               workspace.path(),
-              ExecutionContext.of(out, JdkSystemPlatform.standard())
-                  .withApplicationDirectory(entry.toAbsolutePath().normalize().getParent()));
+              context.withApplicationDirectory(entry.toAbsolutePath().normalize().getParent()));
         }
-        return ExitCode.SUCCESS;
+        return context.exitCode();
       }
       progress.accept("Initializing compiler");
       NormRuntime backend = new NormRuntime();
       ProjectEnvironment environment = ProjectEnvironment.persistent(backend);
       try (var launcher = ApplicationRunner.persistent(environment, progress)) {
         launcher.replayModules(prepared.modules());
-        ExecutionContext context = ExecutionContext.of(out, JdkSystemPlatform.standard());
         result = launcher.run(entry, context, progress, cache);
       }
     } catch (IOException exception) {
@@ -119,6 +129,6 @@ final class RunCommand implements Command {
       return ExitCode.COMPILATION_ERROR;
     }
 
-    return ExitCode.SUCCESS;
+    return context.exitCode();
   }
 }

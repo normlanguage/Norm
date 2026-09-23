@@ -4,7 +4,7 @@
 
 ## 工程基础
 
-单一 Gradle 编译器模块锁定 Java、Truffle 和测试依赖。SourceFile、SourceSpan、Diagnostic、格式检查和 CI 是所有后续阶段的公共基础。
+根 [Maven Reactor](../../pom.xml) 锁定 Java、Truffle 和测试依赖，构建唯一的编译器产品模块。SourceFile、SourceSpan、Diagnostic、格式检查和 CI 是所有后续阶段的公共基础。
 
 ## Lexer 与 Parser
 

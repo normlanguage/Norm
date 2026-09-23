@@ -51,8 +51,14 @@ final class AnnotationRuntime {
   private final XmlDataFormat xml;
   private Map<DefinitionId, RuntimeValues.AggregateInfo> aggregateInfo = Map.of();
   private Map<DefinitionId, CallTarget> callableTargets = Map.of();
+  private final Map<DefinitionOccurrenceId, List<dev.w0fv1.norm.core.CoreBindingShape.Parameter>>
+      callableParameters = new LinkedHashMap<>();
 
   AnnotationRuntime(CoreArtifact artifact) {
+    for (var binding : artifact.namespace().bindings()) {
+      if (!binding.shape().parameters().isEmpty())
+        callableParameters.put(binding.occurrence(), binding.shape().parameters());
+    }
     program = RuntimeProgram.from(artifact.program());
     typeRelations = new dev.w0fv1.norm.core.CoreTypeRelations(artifact.program().definitions());
     declarations = RuntimeDeclarationIndex.from(artifact.authoring());
@@ -431,13 +437,33 @@ final class AnnotationRuntime {
         parameterType, function, parameter.name(), valueType, this);
   }
 
-  private RuntimeProgram.Callable callable(RuntimeValues.Closure function) {
+  RuntimeProgram.Callable callable(RuntimeValues.Closure function) {
     return program
         .callable(function.declaration().representative())
         .orElseThrow(() -> new IllegalArgumentException("function declaration is not callable"));
   }
 
-  private CoreType callableTypeArgument(RuntimeValues.Closure function, int index) {
+  java.util.Optional<DefinitionOccurrenceId> parameterDefault(
+      RuntimeValues.Closure operation, int index) {
+    var parameters = callableParameters.get(operation.declaration());
+    if (parameters == null) return java.util.Optional.empty();
+    return parameters
+        .get(index)
+        .defaultValue()
+        .map(value -> ((dev.w0fv1.norm.core.CoreDefaultArgument.Resolved) value).occurrence());
+  }
+
+  Object defaultArgument(RuntimeValues.Closure operation, int index, ExecutionState execution) {
+    var target = parameterDefault(operation, index).orElseThrow();
+    var arguments = new ArrayList<Object>();
+    arguments.add(execution);
+    if (operation.receiver() != null) arguments.add(operation.receiver());
+    java.util.Collections.addAll(arguments, operation.receiverTypeArguments());
+    java.util.Collections.addAll(arguments, operation.reifiedArguments());
+    return callableTargets.get(target.representative()).call(arguments.toArray());
+  }
+
+  CoreType callableTypeArgument(RuntimeValues.Closure function, int index) {
     if (index < function.receiverTypeArguments().length) {
       return (CoreType) function.receiverTypeArguments()[index];
     }
@@ -642,6 +668,27 @@ final class AnnotationRuntime {
       return RuntimeValues.NullValue.INSTANCE;
     }
     return execution.annotationExecution().instance(found.key(), found.values()).value(execution);
+  }
+
+  Object callableAnnotation(
+      RuntimeValues.Closure function,
+      int parameter,
+      CoreType annotationType,
+      ExecutionState execution) {
+    CoreType.Declared annotation = declared(annotationType);
+    if (!(annotation.constructor() instanceof CoreTypeConstructor.User user))
+      return RuntimeValues.NullValue.INSTANCE;
+    DefinitionId id = resolveExternal(user.definition());
+    if (retention(id) != AnnotationRetention.RUNTIME) return RuntimeValues.NullValue.INSTANCE;
+    ApplicationKey key =
+        parameter < 0
+            ? new ApplicationKey(id, AnnotationTarget.FUNCTION, function.declaration())
+            : new ApplicationKey(
+                id, AnnotationTarget.PARAMETER, new IndexedKey(function.declaration(), parameter));
+    var values = applications.get(key);
+    return values == null
+        ? RuntimeValues.NullValue.INSTANCE
+        : execution.annotationExecution().instance(key, values).value(execution);
   }
 
   private TypeAnnotation typeAnnotation(DefinitionId annotationId, DefinitionId typeId) {

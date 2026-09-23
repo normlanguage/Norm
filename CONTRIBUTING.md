@@ -4,28 +4,30 @@ Norm is in the compiler bootstrap stage. Changes should keep the language specif
 
 ## Requirements
 
-- A JDK capable of running Gradle 9.7.1. JDK 25 is preferred.
+- JDK 25. Use the included Maven wrapper; system Maven 3.9 or newer is supported for distribution builds.
 - Git with LF line endings available for source files.
 
-The Gradle toolchain resolver downloads a matching JDK 25 when necessary. The official backend dependencies are pinned in `gradle/libs.versions.toml`.
+Build dependencies, the local compiler distribution, and Java formatting are defined by the root Maven reactor.
 
 ## Build and test
 
 On Unix-like systems:
 
 ```shell
-./gradlew qualityCheck
-./gradlew :compiler:run --args="--version"
+./mvnw verify
+./mvnw -DskipTests package
+./cli/compiler/target/norm-runtime/bin/norm --version
 ```
 
 On Windows:
 
 ```powershell
-.\gradlew.bat qualityCheck
-.\gradlew.bat :compiler:run --args="--version"
+.\mvnw.cmd verify
+.\mvnw.cmd -DskipTests package
+.\cli\compiler\target\norm-runtime\bin\norm.bat --version
 ```
 
-Run `spotlessApply` before submitting Java changes. CI executes the test suite on both OpenJDK and GraalVM.
+Run `./mvnw spotless:check` before submitting Java changes, or `./mvnw spotless:apply` to format them; use `.\mvnw.cmd` on Windows. Maven `verify` includes the formatting check. CI runs Maven tests with JDK 25 and separately verifies Native Image behavior with GraalVM.
 
 ## Architecture rules
 

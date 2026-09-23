@@ -33,9 +33,9 @@ public sealed class RuntimeLauncherTest : IDisposable
             """{"module":"norm/main","jvmArguments":[]}""");
         EmbeddedApplication application = new(Path.Combine(root, "application"), Path.Combine(root, "application", "application.bin"));
 
-        ProcessStartInfo start = RuntimeLauncher.CreateApplicationStartInfo(root, application);
+        ProcessStartInfo start = RuntimeLauncher.CreateApplicationStartInfo(root, application, ["a  b", "--json"]);
 
-        Assert.Equal(["--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry], start.ArgumentList);
+        Assert.Equal(["--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry, "--", "a  b", "--json"], start.ArgumentList);
         Assert.Equal(application.Root, start.Environment["NORM_APPLICATION_BUNDLE"]);
     }
 

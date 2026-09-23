@@ -1,4 +1,6 @@
 .gradle/
+**/target/
+**/.flattened-pom.xml
 **/build/
 !norm/stdlib/std/build/
 !cli/compiler/src/main/java/dev/w0fv1/norm/build/

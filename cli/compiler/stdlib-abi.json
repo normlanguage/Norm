@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 44,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -888,6 +888,58 @@
     {
       "name": "COMPLETION_CLOSE",
       "requiresResultRuntimeType": false
+    },
+    {
+      "name": "APPLICATION_ARGUMENTS",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "APPLICATION_ENVIRONMENT",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "APPLICATION_WORKING_DIRECTORY",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "APPLICATION_EXIT_CODE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "CONSOLE_READ",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "CONSOLE_WRITE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "PROCESS_RUN",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "FILE_WRITE_ATOMIC",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "FUNCTION_ANNOTATION",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "PARAMETER_ANNOTATION",
+      "requiresResultRuntimeType": true
+    },
+    {
+      "name": "JSON_SCHEMA",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JSON_FUNCTION_SCHEMA",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "JSON_FUNCTION_INVOKE",
+      "requiresResultRuntimeType": false
     }
   ],
   "opaqueValues": [
@@ -962,7 +1014,10 @@
       "JSON_ENCODE",
       "JSON_DECODE",
       "JSON_PARSE",
-      "JSON_WRITE"
+      "JSON_WRITE",
+      "JSON_SCHEMA",
+      "JSON_FUNCTION_SCHEMA",
+      "JSON_FUNCTION_INVOKE"
     ],
     "moduleName": "std",
     "moduleVersion": 1,
@@ -1112,7 +1167,8 @@
         "FILE_WRITER_WRITE",
         "FILE_WRITER_FLUSH",
         "FILE_WRITER_SYNC",
-        "FILE_CLOSE"
+        "FILE_CLOSE",
+        "FILE_WRITE_ATOMIC"
       ],
       "moduleName": "std",
       "moduleVersion": 1,
@@ -2896,6 +2952,72 @@
       "category": "IDENTITY",
       "arguments": [],
       "nullable": false
+    },
+    "std.core.__consoleRead/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__consoleRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__consoleRead/T?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__consoleRead/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.__processRun/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__processRun/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function/annotation/A": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Function/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Function/annotation/A?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Function/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Parameter/annotation/A": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Parameter/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.Parameter/annotation/A?": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.Parameter/annotation/A",
+      "name": "A",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": true
+    },
+    "std.core.Class<std.core.existential>": {
+      "kind": "DECLARED",
+      "identity": "std.core.Class",
+      "name": "Class",
+      "category": "VALUE",
+      "arguments": [
+        "std.core.existential"
+      ],
+      "nullable": false
     }
   },
   "builtinTypes": [
@@ -3739,6 +3861,22 @@
             "documentation": "Norm Function method"
           },
           "intrinsic": "FUNCTION_PARAMETERS"
+        },
+        {
+          "symbol": {
+            "name": "annotation",
+            "kind": "METHOD",
+            "type": "std.core.Function/annotation/A?",
+            "typeParameters": [
+              {
+                "name": "A",
+                "type": "std.core.Function/annotation/A"
+              }
+            ],
+            "parameters": [],
+            "documentation": "Reads a runtime annotation on the declaration."
+          },
+          "intrinsic": "FUNCTION_ANNOTATION"
         }
       ],
       "typeMembers": [],
@@ -4330,6 +4468,22 @@
             "documentation": "Norm Parameter method"
           },
           "intrinsic": "PARAMETER_FUNCTION"
+        },
+        {
+          "symbol": {
+            "name": "annotation",
+            "kind": "METHOD",
+            "type": "std.core.Parameter/annotation/A?",
+            "typeParameters": [
+              {
+                "name": "A",
+                "type": "std.core.Parameter/annotation/A"
+              }
+            ],
+            "parameters": [],
+            "documentation": "Reads a runtime annotation on the declaration."
+          },
+          "intrinsic": "PARAMETER_ANNOTATION"
         }
       ],
       "typeMembers": [],
@@ -8188,6 +8342,241 @@
         "typeParameters": []
       },
       "intrinsic": "COMPLETION_CLOSE"
+    },
+    {
+      "symbol": {
+        "name": "__applicationArguments",
+        "kind": "FUNCTION",
+        "type": "std.core.List<std.core.String>",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "APPLICATION_ARGUMENTS"
+    },
+    {
+      "symbol": {
+        "name": "__applicationEnvironment",
+        "kind": "FUNCTION",
+        "type": "std.core.String?",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "name",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "APPLICATION_ENVIRONMENT"
+    },
+    {
+      "symbol": {
+        "name": "__applicationWorkingDirectory",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "APPLICATION_WORKING_DIRECTORY"
+    },
+    {
+      "symbol": {
+        "name": "__applicationExitCode",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "code",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "APPLICATION_EXIT_CODE"
+    },
+    {
+      "symbol": {
+        "name": "__consoleRead",
+        "kind": "FUNCTION",
+        "type": "std.core.__consoleRead/T?",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__consoleRead/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "maximumBytes",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "CONSOLE_READ"
+    },
+    {
+      "symbol": {
+        "name": "__consoleWrite",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "text",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "error",
+            "type": "std.core.Boolean",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "CONSOLE_WRITE"
+    },
+    {
+      "symbol": {
+        "name": "__processRun",
+        "kind": "FUNCTION",
+        "type": "std.core.__processRun/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__processRun/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "executable",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "arguments",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "directory",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "environment",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "input",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutSeconds",
+            "type": "std.core.Long",
+            "hasDefault": false
+          },
+          {
+            "name": "timeoutNanoseconds",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          },
+          {
+            "name": "maximumOutputBytes",
+            "type": "std.core.Integer",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "PROCESS_RUN"
+    },
+    {
+      "symbol": {
+        "name": "__fileWriteAtomic",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "path",
+            "type": "std.core.String",
+            "hasDefault": false
+          },
+          {
+            "name": "content",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "FILE_WRITE_ATOMIC"
+    },
+    {
+      "symbol": {
+        "name": "__jsonSchema",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "type",
+            "type": "std.core.Class<std.core.existential>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "JSON declaration mapping."
+      },
+      "intrinsic": "JSON_SCHEMA"
+    },
+    {
+      "symbol": {
+        "name": "__jsonFunctionSchema",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "operation",
+            "type": "std.core.Function<std.core.existential>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "JSON declaration mapping."
+      },
+      "intrinsic": "JSON_FUNCTION_SCHEMA"
+    },
+    {
+      "symbol": {
+        "name": "__jsonFunctionInvoke",
+        "kind": "FUNCTION",
+        "type": "std.core.String",
+        "typeParameters": [],
+        "parameters": [
+          {
+            "name": "operation",
+            "type": "std.core.Function<std.core.existential>",
+            "hasDefault": false
+          },
+          {
+            "name": "arguments",
+            "type": "std.core.String",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "JSON declaration mapping."
+      },
+      "intrinsic": "JSON_FUNCTION_INVOKE"
     }
   ]
 }

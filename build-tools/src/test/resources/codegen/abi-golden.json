@@ -1,0 +1,23 @@
+{
+  "schema": "9446ea1dfc8fd36e24206c949eb479e65821a0d8605c162d66e592f3ba2015b4",
+  "outputs": {
+    "dev/w0fv1/norm/abi/BuiltinAbi.java": "b7cb114b4bc8030dc2a8764907c9b6b90aba141eb165dfced65468c5b10ed13b",
+    "dev/w0fv1/norm/abi/BuiltinDeclarations.java": "67747a60beda7161647a74d78c1e760af75f590024d7f77d3f54a6ed48c63922",
+    "dev/w0fv1/norm/abi/ConfigurationAbi.java": "f30780db97627c638f34bbb2b0be30c96e62b20bbc3ed3cfecae20fca2a16844",
+    "dev/w0fv1/norm/abi/ExceptionAbi.java": "9498eea2499724bc0eb6a9cc0285e6113f5ba9170dad63d539ca9ef284499aab",
+    "dev/w0fv1/norm/abi/FileExceptionAbi.java": "0c2465994d7e5a7914d01207cbe25321d17c66334785621b74f92d5131cf5f36",
+    "dev/w0fv1/norm/abi/FilesystemPathAbi.java": "9d3735e443c5808fa55f6e1ce378d785fd6a4b6126e656e1749138558ff7763e",
+    "dev/w0fv1/norm/abi/HttpExceptionAbi.java": "03fbbf08d94f38b83577d28d8e506e75d2ea11ac05fc2fc929f72a294281b99f",
+    "dev/w0fv1/norm/abi/HttpUriAbi.java": "1359f36646520a68dec9480647e332d8d48d4fee1601891ff8c6f048ace99f8d",
+    "dev/w0fv1/norm/abi/IntrinsicId.java": "a57ee77cfc320fe72c71c7659ed9d73974de45911459e71764aa211721b898bb",
+    "dev/w0fv1/norm/abi/JsonAbi.java": "8b284d3f6277c0f285a277e964b7856fb0235db85082cf18995667549e9b05f8",
+    "dev/w0fv1/norm/abi/OpaqueValueAbi.java": "b2c13ad53d1a96aa63d9856752d4d510ad0f6581058caab795d68b5fce0d6a4e",
+    "dev/w0fv1/norm/abi/RuntimeShape.java": "f7239015771acc3f0e2e83e163f32f1c4f3add225208891be547434ab93258b1",
+    "dev/w0fv1/norm/abi/SerializationAbi.java": "a8aeeb09279d3d32eae78dd0d5a02c86bf0f7a21c934ecf87e23b244ec692d99",
+    "dev/w0fv1/norm/abi/TimeDurationAbi.java": "d4d6475d1febe15c4210dde098130005a405ee33bbce5a486be8dd8a05189a45",
+    "dev/w0fv1/norm/abi/TimeExceptionAbi.java": "043cf6b3d55f8cf60c40c4f9e3b148ec44e8dc3dbe29a69b3a9534f2c85cbc4d",
+    "dev/w0fv1/norm/abi/WebSocketExceptionAbi.java": "e5eb3425b7697aa28f8121b65e7c615f4ec25a727d0580933eebaec8b84b1d67",
+    "dev/w0fv1/norm/abi/XmlAbi.java": "43ac4a6d78f6b4a86c0b61e4078908a96ebc1486bee08ba56698ada159853f3e",
+    "dev/w0fv1/norm/abi/YamlAbi.java": "997adf948c2800f2e525543756a9f38ab5f382c9417ab5c03d5de8e82116d3f2"
+  }
+}

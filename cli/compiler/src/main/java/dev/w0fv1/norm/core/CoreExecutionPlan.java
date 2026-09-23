@@ -76,9 +76,22 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
     private final Set<DefinitionId> slots = new HashSet<>();
     private final ArrayDeque<DefinitionId> pendingSlots = new ArrayDeque<>();
     private boolean annotationLifecycle;
+    private boolean dynamicDefaults;
+    private final Map<DefinitionId, Set<DefinitionId>> defaults = new HashMap<>();
 
     private Analysis(CoreArtifact artifact) {
       program = artifact.program();
+      for (var binding : artifact.namespace().bindings()) {
+        binding.shape().parameters().stream()
+            .flatMap(parameter -> parameter.defaultValue().stream())
+            .map(value -> ((CoreDefaultArgument.Resolved) value).occurrence().representative())
+            .forEach(
+                target ->
+                    defaults
+                        .computeIfAbsent(
+                            binding.occurrence().representative(), ignored -> new HashSet<>())
+                        .add(target));
+      }
       for (var occurrence : artifact.authoring().occurrences()) {
         for (var definition : occurrence.representedDefinitions()) {
           representatives
@@ -130,6 +143,11 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
     }
 
     private void intrinsic(dev.w0fv1.norm.abi.IntrinsicId intrinsic) {
+      if (intrinsic == dev.w0fv1.norm.abi.IntrinsicId.JSON_FUNCTION_INVOKE && !dynamicDefaults) {
+        dynamicDefaults = true;
+        Set.copyOf(required)
+            .forEach(id -> defaults.getOrDefault(id, Set.of()).forEach(this::require));
+      }
       if (intrinsic == dev.w0fv1.norm.abi.IntrinsicId.CLASS_FUNCTIONS)
         dispatch.keySet().forEach(this::activate);
       if (intrinsic == dev.w0fv1.norm.abi.IntrinsicId.CLASS_CONSTRUCTORS) {
@@ -184,7 +202,11 @@ public record CoreExecutionPlan(Set<DefinitionId> callables, Set<DefinitionId> d
       if (occurrences == null)
         throw new IllegalStateException("callable has no authoring occurrence");
       for (var representative : occurrences) {
-        if (required.add(representative)) pending.addLast(representative);
+        if (required.add(representative)) {
+          pending.addLast(representative);
+          if (dynamicDefaults)
+            defaults.getOrDefault(representative, Set.of()).forEach(this::require);
+        }
       }
     }
 

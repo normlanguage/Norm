@@ -1,7 +1,7 @@
 import { cpSync, existsSync, rmSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { buildRuntime } from '../../../compiler/scripts/build-runtime.mjs';
 
 export function stageServerDistribution(distribution, extensionRoot) {
   const source = resolve(distribution);
@@ -19,20 +19,7 @@ export function stageServerDistribution(distribution, extensionRoot) {
 export function buildServer() {
   const extensionRoot = resolve(import.meta.dirname, '..');
   const repository = resolve(extensionRoot, '..', '..', '..');
-  const wrapper = resolve(repository, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
-  const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : wrapper;
-  const args =
-    process.platform === 'win32'
-      ? ['/d', '/c', 'call', wrapper, ':compiler:installVsCodeTestServer']
-      : [':compiler:installVsCodeTestServer'];
-  const result = spawnSync(command, args, { cwd: repository, stdio: 'inherit' });
-
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`Norm server build exited with ${result.status}`);
-  return stageServerDistribution(
-    join(repository, 'cli', 'compiler', 'build', 'vscode-test-server'),
-    extensionRoot,
-  );
+  return stageServerDistribution(buildRuntime(repository), extensionRoot);
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

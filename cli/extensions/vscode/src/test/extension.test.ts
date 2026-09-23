@@ -940,7 +940,7 @@ class Page {
       process.env.NORM_CLI ??
       vscode.Uri.joinPath(
         root,
-        'cli/compiler/build/install/norm/bin',
+        'cli/compiler/target/norm-runtime/bin',
         process.platform === 'win32' ? 'norm.bat' : 'norm',
       ).fsPath;
     const terminal = new ProcessTerminal(

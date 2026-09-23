@@ -1,0 +1,101 @@
+@Document(description: "Runs external processes with explicit arguments, bounded output and cancellation.")
+package std.process
+
+import std.annotation.Document
+import std.core.Exception
+
+import std.application.workingDirectory
+import std.filesystem.Path
+import std.io.Bytes
+import std.io.bytes
+import std.io.IOException
+import std.time.Duration
+import std.time.duration
+
+@Document(description: "Distinguishes normal exit, deadline expiry and cancellation.")
+public enum ProcessOutcome { Exited, TimedOut, Cancelled }
+@Document(description: "Classifies invalid requests, start failures and process I/O failures.")
+public enum ProcessFailure { InvalidRequest, StartFailed, Io }
+
+@Document(description: "Reports process execution failures with an executable and typed reason.")
+public class ProcessException extends IOException {
+  @Document(description: "The process failure category.")
+  ProcessFailure reason
+  @Document(description: "The executable name or path.")
+  String executable
+
+  @Document(description: "Creates a typed process failure.")
+  ProcessException(@Document(description: "The failure category.") ProcessFailure reason, @Document(description: "The executable.") String executable, @Document(description: "The explanation.") String message) {
+    super(code: switch reason {
+      case InvalidRequest { break "NORM-PROCESS-INVALID-REQUEST" }
+      case StartFailed { break "NORM-PROCESS-START-FAILED" }
+      case Io { break "NORM-PROCESS-IO" }
+    }, message: message)
+    this.reason = reason
+    this.executable = executable
+  }
+}
+
+@Document(description: "Reports actual process completion and separately bounded output streams.")
+public value ProcessResult {
+  @Document(description: "How execution completed.")
+  ProcessOutcome outcome
+  @Document(description: "The observed exit code, or null when no exit was observed.")
+  Integer? exitCode
+  @Document(description: "Captured standard output bytes.")
+  Bytes stdout
+  @Document(description: "Captured standard error bytes.")
+  Bytes stderr
+  @Document(description: "Whether standard output exceeded its capture budget.")
+  Boolean stdoutTruncated
+  @Document(description: "Whether standard error exceeded its capture budget.")
+  Boolean stderrTruncated
+}
+
+private value ProcessCompletion {
+  String state
+  Integer? exitCode
+  Bytes stdout
+  Bytes stderr
+  Boolean stdoutTruncated
+  Boolean stderrTruncated
+}
+
+@Document(description: "Runs without a shell, drains both output streams and returns nonzero exits as results.")
+public ProcessResult runProcess(
+  @Document(description: "The executable name or path.")
+  String executable,
+  @Document(description: "Arguments with preserved boundaries.")
+  List<String> arguments = [],
+  @Document(description: "The child working directory.")
+  Path directory = workingDirectory(),
+  @Document(description: "Overrides applied to the inherited host environment.")
+  Map<String, String> environment = Map<>(),
+  @Document(description: "Bytes written before closing child standard input.")
+  Bytes input = bytes(values: []),
+  @Document(description: "The total execution and stream-drain budget.")
+  Duration timeout = duration(seconds: 30, nanoseconds: 0),
+  @Document(description: "The maximum captured bytes per output stream; excess is drained and marked.")
+  Integer maximumOutputBytes = 1048576
+) {
+  if executable.isBlank || maximumOutputBytes < 0 || timeout.seconds() == 0 && timeout.nanoseconds() == 0 {
+    throw ProcessException(reason: ProcessFailure.InvalidRequest, executable: executable, message: "Invalid process request")
+  }
+  ProcessCompletion completion = __processRun<ProcessCompletion>(
+    executable: executable, arguments: arguments, directory: directory.value,
+    environment: environment, input: input, timeoutSeconds: timeout.seconds(),
+    timeoutNanoseconds: timeout.nanoseconds(), maximumOutputBytes: maximumOutputBytes
+  )
+  ProcessOutcome outcome = switch completion.state {
+    case "EXITED" { break ProcessOutcome.Exited }
+    case "TIMED_OUT" { break ProcessOutcome.TimedOut }
+    case "CANCELLED" { break ProcessOutcome.Cancelled }
+    case "START_FAILED" { throw ProcessException(reason: ProcessFailure.StartFailed, executable: executable, message: "Cannot start process") }
+    case "INVALID_REQUEST" { throw ProcessException(reason: ProcessFailure.InvalidRequest, executable: executable, message: "Invalid process request") }
+    case "IO" { throw ProcessException(reason: ProcessFailure.Io, executable: executable, message: "Process I/O failed") }
+    case _ { throw Exception(message: "Unknown process completion state") }
+  }
+  return ProcessResult(outcome: outcome, exitCode: completion.exitCode,
+    stdout: completion.stdout, stderr: completion.stderr,
+    stdoutTruncated: completion.stdoutTruncated, stderrTruncated: completion.stderrTruncated)
+}

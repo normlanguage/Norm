@@ -23,9 +23,8 @@ try {
     repository,
     'cli',
     'compiler',
-    'build',
-    'install',
-    'norm',
+    'target',
+    'norm-runtime',
     'bin',
     process.platform === 'win32' ? 'norm.bat' : 'norm',
   );

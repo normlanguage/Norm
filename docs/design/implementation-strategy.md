@@ -23,11 +23,11 @@ cli/                    命令行产品
 norm/                   使用 Norm 编写的标准库与语言源码
 ```
 
-官方 Java 实现是单一 Gradle 与 JPMS 模块。编译前端、Core、执行、项目、平台和 CLI 仍按领域 package 分离，并由架构测试固定依赖方向；物理模块不重复表达同一边界。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
+官方 Java 产品实现是单一 JPMS 模块，根 Maven Reactor 另含构建期模块。编译前端、Core、执行、项目、平台和 CLI 按领域 package 分离，并由架构测试固定依赖方向；物理模块不重复表达同一边界。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
 
 ## 构建与发行
 
-- 使用单一 Gradle 编译器模块；
+- 使用根 Maven Reactor 构建唯一的编译器产品模块；
 - Java toolchain 和 Truffle 版本在仓库中锁定；
 - 单元测试与 Truffle 集成测试使用同一 JVM 执行模型；
 - release job 使用 `jlink` 构建各平台自包含 `norm`；

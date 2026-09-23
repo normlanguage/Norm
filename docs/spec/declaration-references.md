@@ -21,13 +21,15 @@ Norm 把类型、字段和 callable 的引用绑定到 Core 声明 identity。�
 | --- | --- |
 | `Class<T>` | `name()`、`isValue()`、`annotation<A>()`、`fields()`、`functions()`、`constructors()` |
 | `Field<Owner, Value>` | `name()`、`type()`、`owner()`、`annotation<A>()`、`isPublic()`、`hasAnnotation(Class<A>)`、`identity(Owner)`、`read(Owner)`、`bind(Owner)`、`write(receiver: Owner, value: Value)`、`copy(target: Owner, source: Owner)` |
-| `Function<Signature>` | `name()`、`owner()`、`parameters()` |
-| `Parameter<Value>` | `name()`、`type()`、`function()` |
+| `Function<Signature>` | `name()`、`owner()`、`parameters()`、`annotation<A>()` |
+| `Parameter<Value>` | `name()`、`type()`、`function()`、`annotation<A>()` |
 | `Constructor<T>` | `owner()` |
 
 `Field<Owner, Value>.type()` 返回 `Class<Value>`，`owner()` 返回描述符中的 `Class<Owner>`。通过 `Class<T>.fields()` 枚举继承字段时，`Owner` 是当前的 `T` 视图；直接写 `Base.value.field` 时则是 `Base`。`read(receiver: ...)` 要求一个 `Owner` 实例，并以字段的精确 `Value` 类型返回值。
 
 `Class<T>.fields()` 返回 `List<Field<T, ?>>`，`functions()` 返回 `List<Function<?>>`，`constructors()` 返回 `List<Constructor<T>>`。每个重载都是独立元素；异构集合使用 `?` 隐藏不同的字段值类型或函数签名。
+
+顶层函数和绑定方法可直接放入 `List<Function<?>>`；存在重载时先用精确函数类型选择声明。函数与参数的 `annotation<A>()` 查询 RuntimeRetention 注解，并与拦截器共享同一注解实例。通过序列化协议执行异构函数见 [JSON API](/stdlib/json-api)。
 
 计算属性不产生存储字段，因此不增加 `fields()` 的条目。访问器进入 `functions()`，getter 和 setter 保留同一属性名及各自的 callable identity，参数列表包含接收者；验证见 `PropertyExecutionTest.reflectsPropertyAccessorsWithoutInventingStorageFields`。
 

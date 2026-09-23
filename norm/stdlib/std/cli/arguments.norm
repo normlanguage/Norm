@@ -1,0 +1,158 @@
+@Document(description: "Parses explicit command-line options while preserving argument boundaries.")
+package std.cli
+
+import std.annotation.Document
+
+import std.core.Exception
+
+@Document(description: "Selects a flag or an option that consumes one value.")
+public enum OptionKind { Flag, Value }
+
+@Document(description: "Identifies invalid definitions and command-line input problems.")
+public enum CliFailure { InvalidDefinition, UnknownOption, MissingValue, DuplicateOption, UnexpectedValue }
+
+@Document(description: "Reports a command-line problem with its option and stable code.")
+public class CliException extends Exception {
+  @Document(description: "The stable machine-readable problem code.")
+  String code
+  @Document(description: "The command-line failure category.")
+  CliFailure reason
+  @Document(description: "The offending option name.")
+  String option
+
+  @Document(description: "Creates a command-line input failure.")
+  CliException(@Document(description: "The failure category.") CliFailure reason, @Document(description: "The offending option.") String option) {
+    super(message: "Invalid command-line option: " + option)
+    this.reason = reason
+    this.option = option
+    this.code = switch reason {
+      case InvalidDefinition { break "NORM-CLI-INVALID-DEFINITION" }
+      case UnknownOption { break "NORM-CLI-UNKNOWN-OPTION" }
+      case MissingValue { break "NORM-CLI-MISSING-VALUE" }
+      case DuplicateOption { break "NORM-CLI-DUPLICATE-OPTION" }
+      case UnexpectedValue { break "NORM-CLI-UNEXPECTED-VALUE" }
+    }
+  }
+}
+
+@Document(description: "Declares one unique long option, its help text and value requirement.")
+public value Option {
+  @Document(description: "The command or option name; option names exclude leading dashes.")
+  String name
+  @Document(description: "The description displayed in generated help.")
+  String description
+  @Document(description: "Whether the option consumes a value.")
+  OptionKind kind
+}
+
+@Document(description: "Contains parsed options and the unchanged positional argument sequence.")
+public value Arguments {
+  @Document(description: "Parsed option values; flags have an empty value.")
+  Map<String, String> options
+  @Document(description: "Positional arguments in their original order.")
+  List<String> positionals
+
+  @Document(description: "Reports whether an option was explicitly supplied.")
+  public Boolean has(@Document(description: "The option name.") String name) {
+    return options.containsKey(key: name)
+  }
+
+  @Document(description: "Returns a supplied option value or null when absent.")
+  public String? value(@Document(description: "The option name.") String name) {
+    return options.get(key: name)
+  }
+}
+
+@Document(description: "Owns validated option definitions, parsing and derived help text.")
+public class CommandLine {
+  @Document(description: "The command or option name; option names exclude leading dashes.")
+  String name
+  @Document(description: "The description displayed in generated help.")
+  String description
+  private List<Option> options
+  private Map<String, Option> definitions
+
+  @Document(description: "Validates and stores a command definition.")
+  CommandLine(@Document(description: "The command name.") String name, @Document(description: "The command description.") String description, @Document(description: "Unique long option definitions.") List<Option> options) {
+    this.name = name
+    this.description = description
+    this.options = options
+    Map<String, Option> definitions = Map<>()
+    for Option option : options {
+      Boolean whitespace = false
+      for CodePoint point : option.name.codePoints() {
+        if point.isWhitespace() { whitespace = true }
+      }
+      if option.name.isBlank || option.name.startsWith(prefix: "-") || option.name.contains(value: "=") || whitespace || definitions.containsKey(key: option.name) {
+        throw CliException(reason: CliFailure.InvalidDefinition, option: option.name)
+      }
+      definitions.put(key: option.name, value: option)
+    }
+    this.definitions = definitions
+  }
+
+  @Document(description: "Parses options, honoring -- and optionally stopping at the first positional argument.")
+  public Arguments parse(@Document(description: "The unmodified application argument array.") List<String> arguments, @Document(description: "Whether the first positional argument ends option parsing.") Boolean stopAtPositional = false) {
+    Map<String, String> parsed = Map<>()
+    List<String> positionals = List<>()
+    Boolean positional = false
+    Integer index = 0
+    for index < arguments.size() {
+      String argument = arguments[index]
+      index = index + 1
+      if positional {
+        positionals.add(argument)
+      } else if argument == "--" {
+        positional = true
+      } else if argument.startsWith(prefix: "--") {
+        Integer end = argument.codePointSize()
+        Integer separator = 2
+        for separator < end && argument.sliceCodePoints(start: separator, end: separator + 1) != "=" {
+          separator = separator + 1
+        }
+        String key = argument.sliceCodePoints(start: 2, end: separator)
+        Option? definition = definitions.get(key: key)
+        if definition == null {
+          throw CliException(reason: CliFailure.UnknownOption, option: key)
+        }
+        if parsed.containsKey(key: key) {
+          throw CliException(reason: CliFailure.DuplicateOption, option: key)
+        }
+        String content = ""
+        if definition.kind == OptionKind.Flag {
+          if separator < end {
+            throw CliException(reason: CliFailure.UnexpectedValue, option: key)
+          }
+        } else if separator < end {
+          content = argument.sliceCodePoints(start: separator + 1, end: end)
+        } else {
+          if index >= arguments.size() || arguments[index].startsWith(prefix: "--") {
+            throw CliException(reason: CliFailure.MissingValue, option: key)
+          }
+          content = arguments[index]
+          index = index + 1
+        }
+        parsed.put(key: key, value: content)
+      } else if argument.startsWith(prefix: "-") && argument != "-" {
+        throw CliException(reason: CliFailure.UnknownOption, option: argument)
+      } else {
+        positionals.add(argument)
+        positional = stopAtPositional
+      }
+    }
+    return Arguments(options: parsed, positionals: positionals)
+  }
+
+  @Document(description: "Builds usage text from this command and its option definitions.")
+  public String help() {
+    String result = name + " [options] [arguments]\n" + description + "\n"
+    for Option option : options {
+      result = result + "  --" + option.name
+      if option.kind == OptionKind.Value {
+        result = result + " VALUE"
+      }
+      result = result + "  " + option.description + "\n"
+    }
+    return result
+  }
+}

@@ -95,7 +95,7 @@ JAR 调用由 `JvmJarBindingRuntime` 将直接目标与参数/返回转换预先
 
 框架执行入口与 Java 实例调用目标由编译类上的 `NormApplicationMethod` 经 `JavaApplicationMethodIndex.analyze` 统一派生：构造器和静态方法纳入入口，抽象方法不纳入执行入口。ApplicationRunner 的运行/测试路径与 Native 构建均将这些入口传给执行计划，经 `ExecutionBackend` 显式执行；Native 同时用于 Core 保留分析。生成类型仍保守保留，并不意味着框架成员已精确裁剪。边界与真实注解处理输出验证见 `JavaApplicationMethodIndexTest`、`JavaAnnotationBindingIntegrationTest`。
 
-Native 构建的工具链依赖按执行与 Hosted 用途闭包选择，保留共享依赖并核对发行内容哈希；应用依赖与生成代码不受该筛选影响。选择入口见 `NativeToolchainClasspath`，用途声明见 `cli/compiler/build.gradle.kts`。Hosted 构建仍需要的依赖不等于最终 EXE 中的运行代码。
+Native 构建的工具链依赖按执行与 Hosted 用途闭包选择，保留共享依赖并核对发行内容哈希；应用依赖与生成代码不受该筛选影响。选择入口见 `NativeToolchainClasspath`，用途声明见[编译器 POM](../../cli/compiler/pom.xml)。Hosted 构建仍需要的依赖不等于最终 EXE 中的运行代码。
 
 工具链物理制品图与应用图在项目编译阶段共用 `JarBindingClasspath` 的版本选择，结果由 `CompiledApplication` 持有；注解处理的编译路径、处理器路径与 Native 阶段的服务扫描、调用桥接、外部 Graal 元数据和 classpath 均从该计划派生，不在打包时再次选版本。构建期桥接加载与编译器类加载器隔离，避免父加载器中的旧版本遮蔽选定依赖。注解处理与 Native 仍使用独立进程及各自的生命周期。
 
@@ -116,7 +116,7 @@ Native 构建的工具链依赖按执行与 Hosted 用途闭包选择，保留�
 - `native-image.args`：实际传给 Native Image 的参数，供核对 classpath 和编译选项；其中临时输入路径在构建结束后失效，不是可重放构建脚本。
 
 - `build-inputs.json`：提交前的原始参数、有序 classpath、应用归档和 Native Image 启动文件指纹。目录按相对路径记录全部文件的 SHA-256 和字节数，包含生成类和配置；与参数文件共用唯一的参数与类路径构造入口。它不是整个 GraalVM/C 工具链或环境变量的快照，也不包含脚本启动后追加的选项；生成验证入口为 `NativeBuildReportTest`，归档格式验证为 `native-build-inputs.test.mjs`。
-- `toolchain-artifacts.json`：Gradle 解析并随 Norm 发行的依赖坐标、文件名、内容哈希、根依赖、用途及选定版本的依赖边；用于追查工具链输入身份，不是应用运行依赖清单，也不代表全部进入 EXE。用途声明入口见 `cli/compiler/build.gradle.kts`。
+- `toolchain-artifacts.json`：Maven 实际解析图派生并随 Norm 发行的依赖坐标、文件名、内容哈希、根依赖、用途及选定版本的依赖边；用于追查工具链输入身份，不是应用运行依赖清单，也不代表全部进入 EXE。用途声明入口见[编译器 POM](../../cli/compiler/pom.xml)。
 - `java-artifacts.json`：统一 Java 链接计划选中的制品身份、路径、SHA-256 和字节数；生成前再次校验内容，发现文件与解析时的哈希不符即中止构建。它包含选定的应用和工具链 Java 制品，不表示这些制品的全部代码进入 EXE，也不包含生成的应用类与未纳入制品图的工具类目录。
 - `build.log`：Native Image 阶段日志，包含 GraalVM 镜像堆分区大小，失败时也保留；不包含前面的 Norm 编译阶段。分区大小与 `dashboard.dump` 的对象合计用于区分对象数据和堆布局开销，不能将两者直接等同。
 - `application-methods.json`：从应用编译类派生的 Norm 方法 ID 与 Java 声明类型、方法名、JVM 签名映射；与注解处理阶段生成的应用直接调用表共用 `JavaApplicationMethodIndex`。代理调用不扫描方法注解，框架自身反射需求不由此索引决定。

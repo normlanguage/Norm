@@ -16,6 +16,28 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class PolyglotProjectTest {
   @Test
+  void exposesBorrowedStreamsAndApplicationArguments() throws Exception {
+    var output = new ByteArrayOutputStream();
+    var errors = new ByteArrayOutputStream();
+    try (var context =
+        Context.newBuilder("norm")
+            .option("engine.WarnInterpreterOnly", "false")
+            .arguments("norm", new String[] {"a  b"})
+            .in(new java.io.ByteArrayInputStream("中文".getBytes(StandardCharsets.UTF_8)))
+            .out(output)
+            .err(errors)
+            .build()) {
+      context.eval(
+          "norm",
+          "import std.application.arguments import std.io.standardInput import std.io.readAll import std.io.decodeText import std.io.TextEncoding import std.io.printError Void main() { printLine(arguments()[0]) printLine(decodeText(content: readAll(reader: standardInput(), maximumBytes: 100), encoding: TextEncoding.Utf8)) printError(text: \"problem\") }");
+    }
+    assertEquals(
+        "a  b" + System.lineSeparator() + "中文" + System.lineSeparator(),
+        output.toString(StandardCharsets.UTF_8));
+    assertEquals("problem", errors.toString(StandardCharsets.UTF_8));
+  }
+
+  @Test
   void reusesCapturedApplicationInputsByContent(@TempDir Path directory) throws Exception {
     Path module = Files.createDirectories(directory.resolve("sample"));
     Files.writeString(

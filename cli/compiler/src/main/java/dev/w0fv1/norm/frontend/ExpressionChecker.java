@@ -231,12 +231,11 @@ final class ExpressionChecker implements ExpressionTyping {
         return SemanticType.DYNAMIC;
       }
       List<FunctionReferenceResolution> matches =
-          candidates.stream()
-              .map(
-                  candidate ->
-                      resolveFunctionReference(candidate, functionType(candidate), expected))
-              .flatMap(Optional::stream)
-              .toList();
+          selectFunctionReferences(
+              candidates.stream()
+                  .map(candidate -> new FunctionPattern(candidate, functionType(candidate)))
+                  .toList(),
+              expected);
       if (matches.size() != 1) {
         diagnostics.error(
             TYPE_MISMATCH,
@@ -253,7 +252,7 @@ final class ExpressionChecker implements ExpressionTyping {
       Syntax.FunctionDecl selected = resolution.declaration();
       typeResolver.bindDeclarationUse(name.span(), name.value(), selected);
       model.putFunctionReference(name.span(), resolution.reifiedArguments());
-      return expected.nonNullable();
+      return resolution.functionType();
     }
     return flow.lookup(name.value(), name.span());
   }

@@ -17,6 +17,14 @@ public final class IntrinsicDispatcher {
 
   static IntrinsicOperation resolve(IntrinsicId intrinsic) {
     return switch (intrinsic) {
+      case PROCESS_RUN -> ProcessIntrinsicDispatcher.resolve();
+      case APPLICATION_ARGUMENTS,
+          APPLICATION_ENVIRONMENT,
+          APPLICATION_WORKING_DIRECTORY,
+          APPLICATION_EXIT_CODE,
+          CONSOLE_READ,
+          CONSOLE_WRITE ->
+          ApplicationIntrinsicDispatcher.resolve(intrinsic);
       case VALUE_CLASS,
           CLASS_IS_VALUE,
           FIELD_HAS_ANNOTATION,
@@ -42,6 +50,8 @@ public final class IntrinsicDispatcher {
           FUNCTION_NAME,
           FUNCTION_OWNER,
           FUNCTION_PARAMETERS,
+          FUNCTION_ANNOTATION,
+          PARAMETER_ANNOTATION,
           PARAMETER_NAME,
           PARAMETER_TYPE,
           PARAMETER_FUNCTION,
@@ -52,7 +62,10 @@ public final class IntrinsicDispatcher {
           FUNCTION_INVOCATION_PROCEED,
           FUNCTION_COMPLETION_SUCCEEDED ->
           ReflectionIntrinsicDispatcher.resolve(intrinsic);
-      case JSON_ENCODE,
+      case JSON_SCHEMA,
+          JSON_FUNCTION_SCHEMA,
+          JSON_FUNCTION_INVOKE,
+          JSON_ENCODE,
           JSON_DECODE,
           JSON_PARSE,
           JSON_WRITE,
@@ -227,7 +240,8 @@ public final class IntrinsicDispatcher {
           JAR_TASK_COMPLETED,
           JAR_TASK_CLOSE ->
           JarTaskIntrinsicDispatcher.resolve(intrinsic);
-      case FILE_OPEN_READ,
+      case FILE_WRITE_ATOMIC,
+          FILE_OPEN_READ,
           FILE_READER_READ,
           FILE_OPEN_WRITE,
           FILE_WRITER_WRITE,

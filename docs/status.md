@@ -44,13 +44,14 @@ import { currentRelease } from './.vitepress/release'
 | Core 类型、集合、Unicode 文本、Math、Time | Stable |
 | 流式 I/O、文件系统与资源生命周期 | Stable |
 | HTTP client | Stable |
+| 命令行解析、应用运行环境、标准流与子进程 | Experimental |
 | JSON、XML、YAML 与统一结构映射 | Stable |
 | Validation 与 Testing | Stable |
 | 自动映射 value | Stable |
 | 自动映射 class identity、对象图、循环引用和多态 | Planned |
 | HTTP server | Planned |
 
-标准库的当前源码模块只有 `std.annotation`、`std.collections`、`std.core`、`std.filesystem`、`std.http`、`std.io`、`std.json`、`std.math`、`std.serialization`、`std.system`、`std.testing`、`std.text`、`std.time`、`std.validation`、`std.xml` 和 `std.yaml`。未对应这些源码模块的设计页不代表已交付 API。
+已交付模块见[标准库概览](/stdlib/overview)，公开入口以标准库源码和验收程序为准。
 
 ## Tooling
 

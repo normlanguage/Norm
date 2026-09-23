@@ -28,6 +28,41 @@ final class FileSystemTest {
   @TempDir Path directory;
 
   @Test
+  void atomicallyPublishesUtf8AndCreatesParents() throws Exception {
+    Path file = directory.resolve("settings/gait/config.json");
+    String source =
+        "import std.filesystem.Path import std.filesystem.writeTextAtomic "
+            + "import std.io.TextEncoding Void main() { writeTextAtomic(path: Path(value: \""
+            + literal(file)
+            + "\"), text: \"中文配置\", encoding: TextEncoding.Utf8) printLine(true) }";
+    assertOutput(source, "true");
+    assertEquals("中文配置", Files.readString(file));
+    assertOutput(source.replace("中文配置", "新的配置"), "true");
+    assertEquals("新的配置", Files.readString(file));
+    try (var files = Files.list(file.getParent())) {
+      assertEquals(1, files.count());
+    }
+  }
+
+  @Test
+  void failedAtomicPublicationPreservesDestinationAndRemovesPendingFile() throws Exception {
+    Path target = Files.createDirectory(directory.resolve("target"));
+    Files.writeString(target.resolve("original"), "preserved");
+    assertOutput(
+        "import std.filesystem.Path import std.filesystem.writeTextAtomic "
+            + "import std.filesystem.FileException import std.io.TextEncoding Void main() { "
+            + "try { writeTextAtomic(path: Path(value: \""
+            + literal(target)
+            + "\"), text: \"replacement\", encoding: TextEncoding.Utf8) } "
+            + "catch FileException error { printLine(error.operation) } }",
+        "FileOperation.Write");
+    assertEquals("preserved", Files.readString(target.resolve("original")));
+    try (var files = Files.list(directory)) {
+      assertEquals(1, files.count());
+    }
+  }
+
+  @Test
   void readsUtf8TextFromARealFile() throws Exception {
     Path file = directory.resolve("message.txt");
     Files.writeString(file, "Norm 系统层", StandardCharsets.UTF_8);
@@ -122,6 +157,11 @@ final class FileSystemTest {
     FileSystem fileSystem =
         new FileSystem() {
           @Override
+          public void writeAtomic(String path, byte[] content, int offset, int length) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
           public PlatformByteReader openRead(String path) {
             return new PlatformByteReader() {
               @Override
@@ -163,6 +203,11 @@ final class FileSystemTest {
             new IllegalStateException("close"));
     FileSystem fileSystem =
         new FileSystem() {
+          @Override
+          public void writeAtomic(String path, byte[] content, int offset, int length) {
+            throw new UnsupportedOperationException();
+          }
+
           @Override
           public PlatformByteReader openRead(String path) {
             return new PlatformByteReader() {
@@ -206,6 +251,11 @@ final class FileSystemTest {
 
   private static SystemPlatform platform(FileSystem fileSystem) {
     return new SystemPlatform() {
+      @Override
+      public dev.w0fv1.norm.platform.process.ProcessRunner processes() {
+        return SystemPlatform.unavailable().processes();
+      }
+
       @Override
       public FileSystem fileSystem() {
         return fileSystem;

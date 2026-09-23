@@ -8,28 +8,30 @@ on:
       - '.github/workflows/release.yml'
       - 'cli/**'
       - 'norm/**'
-      - 'gradle/**'
+      - '.mvn/**'
+      - 'build-tools/**'
+      - 'build-maven-plugin/**'
+      - 'pom.xml'
       - '.gitattributes'
       - 'LICENSE'
       - 'LICENSING.md'
-      - '*.gradle.kts'
-      - 'gradle.properties'
-      - 'gradlew'
-      - 'gradlew.bat'
+      - 'mvnw'
+      - 'mvnw.cmd'
   pull_request:
     paths:
       - '.github/workflows/toolchain.yml'
       - '.github/workflows/release.yml'
       - 'cli/**'
       - 'norm/**'
-      - 'gradle/**'
+      - '.mvn/**'
+      - 'build-tools/**'
+      - 'build-maven-plugin/**'
+      - 'pom.xml'
       - '.gitattributes'
       - 'LICENSE'
       - 'LICENSING.md'
-      - '*.gradle.kts'
-      - 'gradle.properties'
-      - 'gradlew'
-      - 'gradlew.bat'
+      - 'mvnw'
+      - 'mvnw.cmd'
   workflow_dispatch:
 
 permissions:
@@ -56,9 +58,6 @@ jobs:
           distribution: oracle
           java-version: 25.0.2
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
-
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
@@ -72,18 +71,18 @@ jobs:
       - name: Verify Windows launcher core
         run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj
 
+      - name: Verify Maven build tools
+        env:
+          MAVEN_OPTS: -Xmx512m
+        run: ./mvnw -B -ntp verify
+
       - name: Build self-contained CLI
-        run: ./gradlew :compiler:installRuntimeDist --no-daemon
-
-      - name: Verify offline reachability metadata inputs
-        run: node cli/compiler/scripts/verify-reachability-metadata.mjs
-
-      - name: Run quality checks
-        run: ./gradlew qualityCheck --no-daemon
+        run: ./mvnw -B -ntp -Dmaven.test.skip=true -Prelease package
 
       - name: Verify language server and evidence tools
         env:
-          NORM_CLI: ${{ github.workspace }}/cli/compiler/build/install/norm-runtime/bin/norm
+          NORM_CLI: ${{ github.workspace }}/cli/compiler/target/norm-runtime/bin/norm
         run: |
           node --test cli/compiler/scripts/*.test.mjs
+          node cli/compiler/scripts/verify-codegen.mjs
           npm run --prefix cli/extensions/vscode smoke:lsp

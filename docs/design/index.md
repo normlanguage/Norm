@@ -26,6 +26,7 @@ Runtime: execution contracts → Truffle → platform adapter
 - [编译器架构](/spec/compiler-design)：完整流水线、身份边界和增量模型；
 - [实现策略决议](/design/implementation-strategy)：技术栈与依赖方向；
 - [工具链开发规范](/design/toolchain-development)：模块职责与验证约束；
+- [发行版源码构建架构](/design/distribution-source-build)：Maven 唯一构建入口、发行版离线构建与发布等价验收；
 - [块调用链设计与落地方案](/design/block-call-chains)：受限省点号闭包链的决策、实现索引、迁移与验收；
 - [Agent 工具设计](/design/agent-tooling)：明确性、强引用、上下文效率与验证契约；
 - [系统运行时架构](/design/system-runtime)：I/O、资源和平台适配；

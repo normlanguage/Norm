@@ -12,6 +12,11 @@ import java.util.Objects;
 
 public record WorkingDirectoryPlatform(SystemPlatform delegate, Path directory)
     implements SystemPlatform {
+  @Override
+  public dev.w0fv1.norm.platform.process.ProcessRunner processes() {
+    return delegate.processes();
+  }
+
   public WorkingDirectoryPlatform {
     Objects.requireNonNull(delegate, "delegate");
     directory = directory.toAbsolutePath().normalize();
@@ -20,6 +25,13 @@ public record WorkingDirectoryPlatform(SystemPlatform delegate, Path directory)
   @Override
   public FileSystem fileSystem() {
     return new FileSystem() {
+      @Override
+      public void writeAtomic(String path, byte[] content, int offset, int length) {
+        delegate
+            .fileSystem()
+            .writeAtomic(directory.resolve(path).normalize().toString(), content, offset, length);
+      }
+
       @Override
       public PlatformByteReader openRead(String path) {
         return delegate.fileSystem().openRead(directory.resolve(path).normalize().toString());

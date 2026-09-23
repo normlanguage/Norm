@@ -56,6 +56,11 @@ final class TimeIoFoundationTest {
     SystemPlatform platform =
         new SystemPlatform() {
           @Override
+          public dev.w0fv1.norm.platform.process.ProcessRunner processes() {
+            return SystemPlatform.unavailable().processes();
+          }
+
+          @Override
           public FileSystem fileSystem() {
             return JdkSystemPlatform.standard().fileSystem();
           }

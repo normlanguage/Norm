@@ -41,7 +41,8 @@ public record BoundIntrinsic(
         arguments,
         runtimeType,
         switch (intrinsic) {
-          case JAR_INVOKE, JAR_INVOKE_VOID -> List.of(SemanticType.EXCEPTION);
+          case JAR_INVOKE, JAR_INVOKE_VOID, CONSOLE_READ, CONSOLE_WRITE ->
+              List.of(SemanticType.EXCEPTION);
           default -> List.of();
         },
         nullSafe,
