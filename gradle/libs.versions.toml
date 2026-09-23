@@ -26,6 +26,8 @@ junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+junit-platform-engine = { module = "org.junit.platform:junit-platform-engine", version.ref = "junit" }
+apiguardian-api = { module = "org.apiguardian:apiguardian-api", version = "1.1.2" }
 truffle-api = { module = "org.graalvm.truffle:truffle-api", version.ref = "graalvm" }
 truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graalvm" }
 truffle-dsl-processor = { module = "org.graalvm.truffle:truffle-dsl-processor", version.ref = "graalvm" }

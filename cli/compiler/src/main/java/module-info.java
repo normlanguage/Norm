@@ -18,7 +18,7 @@ module dev.w0fv1.norm {
   requires org.apache.maven.resolver.connector.basic;
   requires org.apache.maven.resolver.impl;
   requires org.apache.maven.resolver.named.locks;
-  requires org.apache.maven.resolver.provider;
+  requires maven.resolver.provider;
   requires org.apache.maven.resolver.spi;
   requires org.apache.maven.resolver.supplier;
   requires org.apache.maven.resolver.transport.apache;
@@ -34,9 +34,10 @@ module dev.w0fv1.norm {
   requires org.slf4j;
   requires org.objectweb.asm;
   requires org.junit.platform.launcher;
+  requires org.junit.platform.engine;
   requires org.objenesis;
   requires com.esotericsoftware.kryo;
-  requires org.graalvm.reachability;
+  requires graalvm.reachability.metadata;
   requires org.jspecify;
 
   uses javax.xml.stream.XMLInputFactory;

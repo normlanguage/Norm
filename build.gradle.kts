@@ -2,7 +2,7 @@ import com.diffplug.gradle.spotless.SpotlessExtension
 
 plugins {
     base
-    alias(libs.plugins.spotless) apply false
+    alias(libs.plugins.spotless)
 }
 
 group = "dev.w0fv1.norm"
@@ -15,8 +15,22 @@ val junitJupiter = libs.junit.jupiter
 val junitPlatformLauncher = libs.junit.platform.launcher
 
 allprojects {
+    apply(plugin = "com.diffplug.spotless")
     group = rootProject.group
     version = rootProject.version
+
+    extensions.configure<SpotlessExtension> {
+        java {
+            if (project == rootProject)
+                target("build-tools/src/**/*.java", "build-maven-plugin/src/**/*.java")
+            else target("src/**/*.java")
+            googleJavaFormat(googleJavaFormatVersion)
+            formatAnnotations()
+            removeUnusedImports()
+            trimTrailingWhitespace()
+            endWithNewline()
+        }
+    }
 
     repositories {
         mavenCentral()
@@ -25,7 +39,6 @@ allprojects {
 
 subprojects {
     apply(plugin = "java-library")
-    apply(plugin = "com.diffplug.spotless")
 
     extensions.configure<JavaPluginExtension> {
         toolchain {
@@ -56,21 +69,11 @@ subprojects {
             exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         }
     }
-
-    extensions.configure<SpotlessExtension> {
-        java {
-            target("src/**/*.java")
-            googleJavaFormat(googleJavaFormatVersion)
-            formatAnnotations()
-            removeUnusedImports()
-            trimTrailingWhitespace()
-            endWithNewline()
-        }
-    }
 }
 
 tasks.register("qualityCheck") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     description = "Runs formatting checks, compilation, and all tests."
+    dependsOn(tasks.named("spotlessCheck"))
     dependsOn(subprojects.map { it.tasks.named("check") })
 }

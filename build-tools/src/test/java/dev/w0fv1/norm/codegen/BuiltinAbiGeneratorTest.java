@@ -82,11 +82,20 @@ final class BuiltinAbiGeneratorTest {
   }
 
   @Test
-  void generatorDoesNotLoadProductClasses() {
-    var location = BuiltinAbiGenerator.class.getProtectionDomain().getCodeSource().getLocation();
-    assertNotEquals(
-        location,
-        dev.w0fv1.norm.abi.BuiltinAbi.class.getProtectionDomain().getCodeSource().getLocation());
+  void generatorDoesNotLoadProductClasses() throws Exception {
+    var generator = BuiltinAbiGenerator.class.getProtectionDomain().getCodeSource().getLocation();
+    var gson = com.google.gson.Gson.class.getProtectionDomain().getCodeSource().getLocation();
+    try (var loader =
+        new java.net.URLClassLoader(
+            new java.net.URL[] {generator, gson}, ClassLoader.getPlatformClassLoader())) {
+      assertThrows(
+          ClassNotFoundException.class, () -> loader.loadClass("dev.w0fv1.norm.abi.BuiltinAbi"));
+      loader
+          .loadClass(BuiltinAbiGenerator.class.getName())
+          .getMethod("generate", Path.class, Path.class)
+          .invoke(null, Path.of(System.getProperty("norm.test.abi")), directory);
+      assertTrue(Files.isRegularFile(directory.resolve("dev/w0fv1/norm/abi/BuiltinAbi.java")));
+    }
   }
 
   private static String digest(byte[] bytes) throws Exception {

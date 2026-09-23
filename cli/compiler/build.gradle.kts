@@ -1,11 +1,3 @@
-import java.io.ByteArrayOutputStream
-import java.net.InetSocketAddress
-import java.net.ProxySelector
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.security.MessageDigest
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
 
@@ -40,37 +32,6 @@ val nativeHosted = configurations.create("nativeHosted") {
 configurations.implementation { extendsFrom(nativeExecution, nativeHosted) }
 configurations.runtimeOnly { extendsFrom(nativeExecutionRuntime) }
 
-abstract class GenerateBuildMetadata : DefaultTask() {
-    @get:Input
-    abstract val normVersion: Property<String>
-
-    @get:Input
-    abstract val graalVmVersion: Property<String>
-
-    @get:OutputDirectory
-    abstract val outputDirectory: DirectoryProperty
-
-    @TaskAction
-    fun generate() {
-        val output = outputDirectory.file("dev/w0fv1/norm/value/BuildMetadata.java").get().asFile
-        output.parentFile.mkdirs()
-        val versionLiteral = groovy.json.JsonOutput.toJson(normVersion.get())
-        val graalVmVersionLiteral = groovy.json.JsonOutput.toJson(graalVmVersion.get())
-        output.writeText(
-            """
-            package dev.w0fv1.norm.value;
-
-            public final class BuildMetadata {
-              public static final String VERSION = $versionLiteral;
-              public static final String GRAALVM_VERSION = $graalVmVersionLiteral;
-
-              private BuildMetadata() {}
-            }
-            """.trimIndent() + "\n",
-        )
-    }
-}
-
 abstract class GenerateToolchainArtifacts : DefaultTask() {
     @get:Input
     abstract val identities: MapProperty<String, String>
@@ -94,45 +55,36 @@ abstract class GenerateToolchainArtifacts : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
+    @get:Classpath
+    abstract val generatorClasspath: ConfigurableFileCollection
+
+    @get:Nested
+    abstract val javaLauncher: Property<JavaLauncher>
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
     @TaskAction
     fun generate() {
         val files = artifacts.files.associateBy { it.name }
         check(files.size == artifacts.files.size) { "Duplicate toolchain artifact filenames" }
         check(files.keys == identities.get().keys) { "Toolchain artifact identities do not match files" }
-        val entries = identities.get().toSortedMap().map { (name, identity) ->
-            val coordinate = identity.split(':')
-            check(coordinate.size == 3) { "Invalid toolchain coordinate: $identity" }
-            val components = listOf(identity) + mergedModules.get()[identity.substringBeforeLast(':')]
-                .orEmpty().map { module ->
-                    val matches = dependencies.get().keys.filter { it.substringBeforeLast(':') == module }
-                    check(matches.size == 1) { "Merged toolchain component is not uniquely resolved: $module" }
-                    matches.single()
-                }
-            val digest = MessageDigest.getInstance("SHA-256")
-            files.getValue(name).inputStream().use { input ->
-                val buffer = ByteArray(8192)
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    digest.update(buffer, 0, count)
-                }
-            }
-            mapOf(
-                "file" to name,
-                "group" to coordinate[0],
-                "artifact" to coordinate[1],
-                "version" to coordinate[2],
-                "components" to components.sorted(),
-                "sha256" to digest.digest().joinToString("") { "%02x".format(it) },
-            )
-        }
-        val output = outputDirectory.file("toolchain-artifacts.json").get().asFile
-        output.parentFile.mkdirs()
-        output.writeText(groovy.json.JsonOutput.toJson(
-            mapOf("schemaVersion" to 1, "artifacts" to entries,
-                "roots" to roots.get(), "dependencies" to dependencies.get().toSortedMap(),
-                "purposes" to purposeRoots.get().toSortedMap()),
-        ) + "\n")
+        val input = temporaryDir.resolve("catalog-input.json")
+        input.writeText(groovy.json.JsonOutput.toJson(mapOf(
+            "artifacts" to identities.get().toSortedMap().map { (name, identity) ->
+                mapOf("path" to files.getValue(name).absolutePath, "coordinate" to identity)
+            },
+            "roots" to roots.get(),
+            "dependencies" to dependencies.get(),
+            "purposes" to purposeRoots.get(),
+            "mergedModules" to mergedModules.get(),
+        )))
+        execOperations.javaexec {
+            executable(javaLauncher.get().executablePath.asFile)
+            classpath(generatorClasspath)
+            mainClass.set("dev.w0fv1.norm.packaging.ToolchainArtifactCatalogGenerator")
+            args(input.absolutePath, outputDirectory.file("toolchain-artifacts.json").get().asFile.absolutePath)
+        }.assertNormalExitValue()
     }
 }
 
@@ -169,50 +121,32 @@ abstract class GenerateRuntimeLaunchers : DefaultTask() {
     abstract val moduleName: Property<String>
 
     @get:Input
-    abstract val mainClass: Property<String>
+    abstract val entrypointClass: Property<String>
 
     @get:Input
-    abstract val jvmArguments: ListProperty<String>
+    abstract val launcherJvmArguments: ListProperty<String>
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
+    @get:Classpath
+    abstract val generatorClasspath: ConfigurableFileCollection
+
+    @get:Nested
+    abstract val javaLauncher: Property<JavaLauncher>
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
     @TaskAction
     fun generate() {
-        val directory = outputDirectory.get().asFile
-        directory.mkdirs()
-        val invocation =
-            jvmArguments.get().joinToString(" ") +
-                " --module-path \"\$APP_HOME/lib\" --module " +
-                "${moduleName.get()}/${mainClass.get()} \"\$@\""
-        val unix = directory.resolve("norm")
-        unix.writeText(
-            """
-            #!/bin/sh
-            APP_HOME=${'$'}(CDPATH= cd -- "${'$'}(dirname -- "${'$'}0")/.." && pwd)
-            exec "${'$'}APP_HOME/runtime/bin/java" $invocation
-            """.trimIndent() + "\n",
-        )
-        unix.setExecutable(true, false)
-        val windowsArguments = jvmArguments.get().joinToString(" ")
-        directory.resolve("norm.bat").writeText(
-            """
-            @echo off
-            setlocal
-            set "APP_HOME=%~dp0.."
-            "%APP_HOME%\runtime\bin\java.exe" $windowsArguments --module-path "%APP_HOME%\lib" --module ${moduleName.get()}/${mainClass.get()} %*
-            """.trimIndent().replace("\n", "\r\n") + "\r\n",
-        )
-        directory.resolve("launcher.json").writeText(
-            groovy.json.JsonOutput.prettyPrint(
-                groovy.json.JsonOutput.toJson(
-                    mapOf(
-                        "module" to "${moduleName.get()}/${mainClass.get()}",
-                        "jvmArguments" to jvmArguments.get(),
-                    ),
-                ),
-            ) + "\n",
-        )
+        execOperations.javaexec {
+            executable(javaLauncher.get().executablePath.asFile)
+            classpath(generatorClasspath)
+            mainClass.set("dev.w0fv1.norm.packaging.RuntimeLauncherGenerator")
+            args("bundled", outputDirectory.get().asFile.absolutePath, moduleName.get(), entrypointClass.get())
+            args(launcherJvmArguments.get())
+        }.assertNormalExitValue()
     }
 }
 
@@ -233,6 +167,10 @@ abstract class PublishNativeLauncher : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val runtimePayload: RegularFileProperty
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val runtimePayloadDigest: RegularFileProperty
+
     @get:Input
     abstract val normVersion: Property<String>
 
@@ -250,17 +188,6 @@ abstract class PublishNativeLauncher : DefaultTask() {
         val output = outputExecutable.get().asFile
         output.parentFile.deleteRecursively()
         output.parentFile.mkdirs()
-        val digest = MessageDigest.getInstance("SHA-256")
-        runtimePayload.get().asFile.inputStream().use { input ->
-            val buffer = ByteArray(128 * 1024)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        val digestFile = temporaryDir.resolve("norm-runtime.sha256")
-        digestFile.writeText(digest.digest().joinToString("") { "%02x".format(it) })
         execOperations.exec {
             executable("dotnet")
             args(
@@ -276,7 +203,7 @@ abstract class PublishNativeLauncher : DefaultTask() {
                 output.parentFile.absolutePath,
                 "-p:NormVersion=${normVersion.get()}",
                 "-p:NormPayloadPath=${runtimePayload.get().asFile.absolutePath}",
-                "-p:NormPayloadDigestPath=${digestFile.absolutePath}",
+                "-p:NormPayloadDigestPath=${runtimePayloadDigest.get().asFile.absolutePath}",
             )
         }
         check(output.isFile) {
@@ -292,59 +219,29 @@ abstract class CreateRuntimeImage : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
+    @get:Classpath
+    abstract val generatorClasspath: ConfigurableFileCollection
+
+    @get:Nested
+    abstract val javaLauncher: Property<JavaLauncher>
+
     @get:Inject
     abstract val execOperations: ExecOperations
 
     @TaskAction
     fun create() {
-        val output = outputDirectory.get().asFile
-        check(!output.exists() || output.deleteRecursively()) {
-            "Cannot replace runtime image $output"
-        }
-        val bin = javaHome.get().dir("bin").asFile
-        val jlink = listOf("jlink", "jlink.exe").map(bin::resolve).firstOrNull(File::isFile)
-            ?: error("jlink is unavailable in ${javaHome.get().asFile}")
-        val java = listOf("java", "java.exe").map(bin::resolve).firstOrNull(File::isFile)
-            ?: error("java is unavailable in ${javaHome.get().asFile}")
-        val moduleOutput = ByteArrayOutputStream()
-        execOperations.exec {
-            executable(java)
-            args("--list-modules")
-            standardOutput = moduleOutput
-        }
-        val modules = moduleOutput.toString(Charsets.UTF_8)
-            .lineSequence()
-            .map(String::trim)
-            .filter(String::isNotEmpty)
-            .map { it.substringBefore('@') }
-            .sorted()
-            .joinToString(",")
-        check(modules.isNotEmpty()) {
-            "No system modules are available in ${javaHome.get().asFile}"
-        }
-        execOperations.exec {
-            executable(jlink)
-            args(
-                "--add-modules",
-                modules,
-                "--strip-debug",
-                "--no-header-files",
-                "--no-man-pages",
-                "--compress",
-                "zip-6",
-                "--output",
-                output.absolutePath,
-            )
-        }
+        execOperations.javaexec {
+            executable(javaLauncher.get().executablePath.asFile)
+            classpath(generatorClasspath)
+            mainClass.set("dev.w0fv1.norm.packaging.RuntimeImageGenerator")
+            args(javaHome.get().asFile.absolutePath, outputDirectory.get().asFile.absolutePath)
+        }.assertNormalExitValue()
     }
 }
 
 abstract class PrepareReachabilityMetadata : DefaultTask() {
-    @get:Input
-    abstract val metadataVersion: Property<String>
-
-    @get:Input
-    abstract val expectedSha256: Property<String>
+    @get:Classpath
+    abstract val generatorClasspath: ConfigurableFileCollection
 
     @get:InputFile
     @get:Optional
@@ -357,46 +254,51 @@ abstract class PrepareReachabilityMetadata : DefaultTask() {
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
 
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
     @TaskAction
     fun prepare() {
-        val archive = sourceArchive.orNull?.asFile ?: run {
-            check(!offline.get()) {
-                "Offline build requires -PnormReachabilityMetadata=<local archive>"
-            }
-            val version = metadataVersion.get()
-            val source = URI(
-                "https://github.com/oracle/graalvm-reachability-metadata/releases/download/" +
-                    "$version/graalvm-reachability-metadata-$version.zip",
+        execOperations.javaexec {
+            classpath(generatorClasspath)
+            mainClass.set("dev.w0fv1.norm.packaging.ReachabilityMetadataArchive")
+            args(
+                outputFile.get().asFile.absolutePath,
+                sourceArchive.orNull?.asFile?.absolutePath.orEmpty(),
+                offline.get().toString(),
             )
-            val temporary = temporaryDir.resolve("reachability-metadata.zip")
-            val clientBuilder = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.ALWAYS)
-            val proxy = listOf("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy")
-                .firstNotNullOfOrNull { System.getenv(it)?.takeIf(String::isNotBlank) }
-            proxy?.let {
-                val uri = URI(it)
-                val address = InetSocketAddress.createUnresolved(uri.host, if (uri.port >= 0) uri.port else 80)
-                clientBuilder.proxy(ProxySelector.of(address))
-            }
-            clientBuilder.build().use { client ->
-                val request = HttpRequest.newBuilder(source).GET().build()
-                val response = client.send(request, HttpResponse.BodyHandlers.ofFile(temporary.toPath()))
-                check(response.statusCode() in 200..299) {
-                    "Cannot download GraalVM reachability metadata: HTTP ${response.statusCode()}"
-                }
-            }
-            temporary
-        }
-        val actual = MessageDigest.getInstance("SHA-256")
-            .digest(archive.readBytes())
-            .joinToString("") { "%02x".format(it) }
-        check(actual.equals(expectedSha256.get(), ignoreCase = true)) {
-            "GraalVM reachability metadata checksum mismatch: expected " +
-                "${expectedSha256.get()}, got $actual"
-        }
-        val output = outputFile.get().asFile
-        output.parentFile.mkdirs()
-        archive.copyTo(output, overwrite = true)
+        }.assertNormalExitValue()
+    }
+}
+
+abstract class GenerateRuntimePayload : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:Classpath
+    abstract val generatorClasspath: ConfigurableFileCollection
+
+    @get:OutputFile
+    abstract val archiveFile: RegularFileProperty
+
+    @get:OutputFile
+    abstract val digestFile: RegularFileProperty
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @TaskAction
+    fun create() {
+        execOperations.javaexec {
+            classpath(generatorClasspath)
+            mainClass.set("dev.w0fv1.norm.packaging.RuntimePayloadArchive")
+            args(
+                sourceDirectory.get().asFile.absolutePath,
+                archiveFile.get().asFile.absolutePath,
+                digestFile.get().asFile.absolutePath,
+            )
+        }.assertNormalExitValue()
     }
 }
 
@@ -404,12 +306,9 @@ val standardLibraryDirectory = rootProject.file("norm/stdlib")
 val generatedBuildMetadata = layout.buildDirectory.dir("generated/sources/build-metadata")
 val builtinAbiFile = layout.projectDirectory.file("stdlib-abi.json")
 val generatedBuiltinAbi = layout.buildDirectory.dir("generated/sources/builtin-abi")
-val reachabilityMetadataVersion = "1.0.13"
 val prepareReachabilityMetadata = tasks.register<PrepareReachabilityMetadata>(
     "prepareReachabilityMetadata",
 ) {
-    metadataVersion.set(reachabilityMetadataVersion)
-    expectedSha256.set("b94893e10448a37a604d24758418dc006223a64827146f0886af172bbbdd818a")
     sourceArchive.set(layout.file(providers.gradleProperty("normReachabilityMetadata").map { rootProject.file(it) }))
     offline.set(gradle.startParameter.isOffline)
     outputFile.set(
@@ -418,15 +317,28 @@ val prepareReachabilityMetadata = tasks.register<PrepareReachabilityMetadata>(
         ),
     )
 }
-val generateBuildMetadata = tasks.register<GenerateBuildMetadata>("generateBuildMetadata") {
-    normVersion.set(project.version.toString())
-    graalVmVersion.set(libs.versions.graalvm)
-    outputDirectory.set(generatedBuildMetadata)
+val codegen = sourceSets.create("codegen") {
+    java.setSrcDirs(listOf(rootProject.file("build-tools/src/main/java")))
 }
-
-val codegen = sourceSets.create("codegen")
+prepareReachabilityMetadata.configure {
+    generatorClasspath.from(codegen.runtimeClasspath)
+}
 tasks.named<JavaCompile>(codegen.compileJavaTaskName) {
     modularity.inferModulePath = false
+}
+
+val generateBuildMetadata = tasks.register<JavaExec>("generateBuildMetadata") {
+    val normVersion = project.version.toString()
+    val graalVmVersion = libs.versions.graalvm.get()
+    inputs.property("normVersion", normVersion)
+    inputs.property("graalVmVersion", graalVmVersion)
+    outputs.dir(generatedBuildMetadata)
+    classpath = codegen.runtimeClasspath
+    mainClass.set("dev.w0fv1.norm.codegen.BuildMetadataGenerator")
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
+    })
+    args(normVersion, graalVmVersion, generatedBuildMetadata.get().asFile.absolutePath)
 }
 
 val generateBuiltinAbi = tasks.register<GenerateBuiltinAbi>("generateBuiltinAbi") {
@@ -471,6 +383,10 @@ val toolchainGraph = configurations.runtimeClasspath.get().incoming.resolutionRe
 }
 val generateToolchainArtifacts = tasks.register<GenerateToolchainArtifacts>("generateToolchainArtifacts") {
     artifacts.from(configurations.runtimeClasspath)
+    generatorClasspath.from(codegen.runtimeClasspath)
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
+    })
     mergedModules.set(mapOf(resolverProviderModule to resolverProviderMergedModules))
     roots.set(toolchainGraph.map { it.getValue("") })
     dependencies.set(toolchainGraph.map { it.filterKeys(String::isNotEmpty) })
@@ -512,6 +428,8 @@ sourceSets {
         resources.srcDir(prepareReachabilityMetadata.map { it.outputFile.get().asFile.parentFile })
     }
     test {
+        java.srcDir(rootProject.file("build-tools/src/test/java"))
+        resources.srcDir(rootProject.file("build-tools/src/test/resources"))
         resources.srcDir(rootProject.file("norm/tests"))
     }
 }
@@ -551,6 +469,8 @@ dependencies {
     implementation(libs.commons.compress)
     implementation(libs.jcl.over.slf4j)
     implementation(libs.junit.platform.launcher)
+    implementation(libs.junit.platform.engine)
+    implementation(libs.apiguardian.api)
     nativeExecution(libs.objenesis)
     nativeHosted(libs.kryo)
     implementation(libs.graalvm.reachability.metadata)
@@ -566,7 +486,7 @@ dependencies {
 extraJavaModuleInfo {
     automaticModule(
         "org.graalvm.buildtools:graalvm-reachability-metadata",
-        "org.graalvm.reachability",
+        "graalvm.reachability.metadata",
     )
     automaticModule("org.graalvm.buildtools:utils", "org.graalvm.buildtools.utils")
     automaticModule("org.eclipse.lsp4j:org.eclipse.lsp4j", "org.eclipse.lsp4j")
@@ -575,7 +495,7 @@ extraJavaModuleInfo {
         "org.graalvm.truffle:truffle-dsl-processor",
         "org.graalvm.truffle.dsl.processor",
     )
-    automaticModule(resolverProviderModule, "org.apache.maven.resolver.provider") {
+    automaticModule(resolverProviderModule, "maven.resolver.provider") {
         resolverProviderMergedModules.forEach { mergeJar(it) }
     }
 }
@@ -616,13 +536,17 @@ if (System.getProperty("os.name").startsWith("Windows")) {
 val runtimeImageDirectory = layout.buildDirectory.dir("runtime-image")
 val createRuntimeImage = tasks.register<CreateRuntimeImage>("createRuntimeImage") {
     javaHome.set(runtimeJava.map { it.metadata.installationPath })
+    generatorClasspath.from(codegen.runtimeClasspath)
+    javaLauncher.set(runtimeJava)
     outputDirectory.set(runtimeImageDirectory)
 }
 
 val runtimeLaunchers = tasks.register<GenerateRuntimeLaunchers>("generateRuntimeLaunchers") {
     moduleName.set(application.mainModule)
-    mainClass.set(application.mainClass)
-    jvmArguments.set(application.applicationDefaultJvmArgs)
+    entrypointClass.set(application.mainClass)
+    launcherJvmArguments.set(application.applicationDefaultJvmArgs)
+    generatorClasspath.from(codegen.runtimeClasspath)
+    javaLauncher.set(runtimeJava)
     outputDirectory.set(layout.buildDirectory.dir("generated/runtime-launchers"))
 }
 
@@ -657,11 +581,14 @@ val installRuntimeDistribution = tasks.named<Sync>("installRuntimeDist")
 installRuntimeDistribution.configure {
     into(layout.buildDirectory.dir("install/norm-runtime"))
 }
-val runtimePayloadArchive = tasks.register<Zip>("runtimePayload") {
+val runtimePayloadFile = layout.buildDirectory.file("launcher/norm-runtime.zip")
+val runtimePayloadDigestFile = layout.buildDirectory.file("launcher/norm-runtime.sha256")
+val runtimePayloadArchive = tasks.register<GenerateRuntimePayload>("runtimePayload") {
     dependsOn(installRuntimeDistribution)
-    from(installRuntimeDistribution.map { it.destinationDir })
-    archiveFileName.set("norm-runtime.zip")
-    destinationDirectory.set(layout.buildDirectory.dir("launcher"))
+    sourceDirectory.set(layout.buildDirectory.dir("install/norm-runtime"))
+    generatorClasspath.from(codegen.runtimeClasspath)
+    archiveFile.set(runtimePayloadFile)
+    digestFile.set(runtimePayloadDigestFile)
 }
 
 tasks.register<PublishNativeLauncher>("publishWindowsExecutable") {
@@ -673,7 +600,8 @@ tasks.register<PublishNativeLauncher>("publishWindowsExecutable") {
         },
     )
     applicationIcon.set(rootProject.layout.projectDirectory.file("docs/public/brand/norm.ico"))
-    runtimePayload.set(runtimePayloadArchive.flatMap { it.archiveFile })
+    runtimePayload.set(runtimePayloadFile)
+    runtimePayloadDigest.set(runtimePayloadDigestFile)
     normVersion.set(project.version.toString())
     outputExecutable.set(layout.buildDirectory.file("launcher/publish/norm.exe"))
 }

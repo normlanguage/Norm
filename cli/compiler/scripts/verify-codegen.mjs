@@ -25,7 +25,7 @@ try {
   const original = readFileSync(schema);
   run('clean', [':compiler:generateBuiltinAbi', ':compiler:jar', ':compiler:installDist']);
   const baseline = snapshot(generated);
-  const golden = JSON.parse(readFileSync(join(workspace, 'cli/compiler/src/test/resources/codegen/abi-golden.json'), 'utf8'));
+  const golden = JSON.parse(readFileSync(join(workspace, 'build-tools/src/test/resources/codegen/abi-golden.json'), 'utf8'));
   assert.deepEqual(baseline, golden.outputs);
   const repeat = run('repeat', [':compiler:generateBuiltinAbi']);
   assert.match(repeat, /:compiler:generateBuiltinAbi UP-TO-DATE/);
@@ -39,7 +39,7 @@ try {
   writeFileSync(schema, original);
   run('schema-restore', [':compiler:generateBuiltinAbi']);
   assert.deepEqual(snapshot(generated), baseline);
-  const source = join(workspace, 'cli/compiler/src/codegen/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java');
+  const source = join(workspace, 'build-tools/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java');
   const code = readFileSync(source, 'utf8');
   assert.ok(code.includes('Expected ABI schema and output directory'));
   writeFileSync(source, code.replace('Expected ABI schema and output directory', 'Expected ABI schema and output directory arguments'));
@@ -59,9 +59,9 @@ try {
   assert.equal(listing.status, 0, listing.stderr);
   assert.doesNotMatch(listing.stdout, /dev\/w0fv1\/norm\/codegen\//);
   assert.match(listing.stdout, /dev\/w0fv1\/norm\/abi\/BuiltinAbi.class/);
-  assert.ok(readdirSync(distribution).every(name => !/codegen|groovy|kotlin/i.test(name)));
+  assert.ok(readdirSync(distribution).every(name => !/build-tools|codegen|groovy|kotlin/i.test(name)));
   const catalog = JSON.parse(readFileSync(join(workspace, 'cli/compiler/build/generated/resources/toolchain-artifacts/toolchain-artifacts.json')));
-  assert.ok(catalog.artifacts.every(artifact => !/codegen|groovy|kotlin/i.test(artifact.file)));
+  assert.ok(catalog.artifacts.every(artifact => !/build-tools|codegen|groovy|kotlin/i.test(artifact.file)));
   writeFileSync(join(evidence, 'verification.json'), JSON.stringify({ passed: true, generatedFiles: Object.keys(baseline).length, generatorExcluded: true, records }, null, 2) + '\n');
   console.log(`ABI codegen task wiring and product isolation verified: ${evidence}`);
 } finally {

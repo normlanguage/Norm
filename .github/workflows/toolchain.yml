@@ -9,6 +9,9 @@ on:
       - 'cli/**'
       - 'norm/**'
       - 'gradle/**'
+      - 'build-tools/**'
+      - 'build-maven-plugin/**'
+      - 'pom.xml'
       - '.gitattributes'
       - 'LICENSE'
       - 'LICENSING.md'
@@ -23,6 +26,9 @@ on:
       - 'cli/**'
       - 'norm/**'
       - 'gradle/**'
+      - 'build-tools/**'
+      - 'build-maven-plugin/**'
+      - 'pom.xml'
       - '.gitattributes'
       - 'LICENSE'
       - 'LICENSING.md'
@@ -71,6 +77,11 @@ jobs:
 
       - name: Verify Windows launcher core
         run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj
+
+      - name: Verify Maven build tools
+        env:
+          MAVEN_OPTS: -Xmx512m
+        run: mvn --batch-mode --no-transfer-progress verify
 
       - name: Build self-contained CLI
         run: ./gradlew :compiler:installRuntimeDist --no-daemon
