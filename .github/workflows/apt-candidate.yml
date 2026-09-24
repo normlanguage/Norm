@@ -1,0 +1,143 @@
+name: APT candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published Norm release version
+        required: true
+        type: string
+      previous_version:
+        description: Published older version for repository upgrade validation
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  assets:
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ inputs.version }}
+      PREVIOUS_VERSION: ${{ inputs.previous_version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Download and attest published Linux assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          versions=("$VERSION")
+          if [[ -n "$PREVIOUS_VERSION" ]]; then versions+=("$PREVIOUS_VERSION"); fi
+          for version in "${versions[@]}"; do
+            asset="$(node cli/compiler/scripts/release-model.mjs "$version" linux-x64)"
+            mkdir -p "assets/$version"
+            git fetch --no-tags origin "refs/tags/v$version:refs/tags/v$version"
+            source_commit="$(git rev-parse "refs/tags/v$version^{commit}")"
+            gh release download "v$version" --repo normlanguage/Norm --pattern "$asset" --pattern SHA256SUMS --dir "assets/$version"
+            gh attestation verify "assets/$version/$asset" --repo normlanguage/Norm --source-ref "refs/tags/v$version" --source-digest "$source_commit" --signer-workflow normlanguage/Norm/.github/workflows/release.yml --format json > "assets/$version/attestation.json"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: norm-apt-inputs
+          path: assets/
+          if-no-files-found: error
+
+  candidate:
+    needs: assets
+    runs-on: ubuntu-22.04
+    container: debian:trixie
+    env:
+      VERSION: ${{ inputs.version }}
+      PREVIOUS_VERSION: ${{ inputs.previous_version }}
+      GNUPGHOME: ${{ github.workspace }}/.apt-gnupg
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: norm-apt-inputs
+          path: assets
+
+      - name: Install Debian repository tools
+        run: apt-get update && apt-get install -y apt-utils ca-certificates dpkg-dev gcc gnupg libasound2t64 libfreetype6 libx11-6 libxext6 libxi6 libxrender1 libxtst6 nodejs tar zlib1g
+
+      - name: Test APT packaging and signing
+        run: node --test cli/compiler/scripts/apt-repository.integration.test.mjs
+
+      - name: Build packages from published assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p packages
+          versions=("$VERSION")
+          if [[ -n "$PREVIOUS_VERSION" ]]; then versions+=("$PREVIOUS_VERSION"); fi
+          for version in "${versions[@]}"; do
+            node cli/compiler/scripts/apt-repository.mjs package "$version" "assets/$version" packages
+          done
+
+      - name: Sign candidate repository snapshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -m 700 "$GNUPGHOME"
+          gpg --batch --passphrase '' --quick-generate-key 'Norm APT Candidate <apt-candidate@normlanguage.org>' ed25519 sign 1d
+          fingerprint="$(gpg --with-colons --list-secret-keys | awk -F: '$1 == "fpr" { print $10; exit }')"
+          node cli/compiler/scripts/apt-repository.mjs repository packages apt-repository "$fingerprint"
+          if [[ -n "$PREVIOUS_VERSION" ]]; then
+            mkdir old-packages
+            cp "packages/normlang_${PREVIOUS_VERSION}_amd64.deb" old-packages/
+            node cli/compiler/scripts/apt-repository.mjs repository old-packages apt-repository-old "$fingerprint"
+          else
+            cp -a apt-repository apt-repository-old
+          fi
+
+      - name: Upload signed candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: norm-apt-candidate-${{ inputs.version }}
+          path: |
+            apt-repository/
+            apt-repository-old/
+            packages/*.deb
+          if-no-files-found: error
+
+  consumer:
+    needs: candidate
+    runs-on: ubuntu-22.04
+    container: debian:trixie
+    env:
+      VERSION: ${{ inputs.version }}
+      PREVIOUS_VERSION: ${{ inputs.previous_version }}
+      NORM_APT_FULL_ACCEPTANCE: '1'
+      NORM_APT_TAMPER_CHECK: '1'
+      NORM_APT_EVIDENCE_DIRECTORY: ${{ github.workspace }}/apt-evidence
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: norm-apt-candidate-${{ inputs.version }}
+          path: candidate
+
+      - name: Install APT consumer tools
+        run: apt-get update && apt-get install -y ca-certificates curl nodejs passwd python3
+
+      - name: Verify installed Norm from signed APT source
+        shell: bash
+        run: bash cli/compiler/scripts/apt-acceptance.sh candidate/apt-repository-old candidate/apt-repository apt-repository-live "$VERSION" "$PREVIOUS_VERSION"
+
+      - name: Upload installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: norm-apt-acceptance-${{ inputs.version }}
+          path: apt-evidence/
+          if-no-files-found: warn

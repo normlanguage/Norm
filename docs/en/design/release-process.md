@@ -36,6 +36,8 @@ The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli
 
 The [release model](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/release-model.mjs) validates versions and derives asset filenames. The [channel manifest generator](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/distribution-manifests.mjs) verifies actual Release assets against SHA256SUMS before generating Homebrew, Snapcraft, Scoop, and winget manifests. These are included in the Release; each channel still requires its own installation checks and review before publication. Snap classic confinement and the automatic `norm` alias require separate approval. Until approved, the command is `normlang.norm`; users can set a local alias with `snap alias normlang.norm norm`.
 
+The [APT package and repository entry point](../../../cli/compiler/scripts/apt-repository.mjs) consumes the published Linux asset and release model. The [signed repository acceptance script](../../../cli/compiler/scripts/apt-acceptance.sh) checks installation, upgrade, removal, and execution as a regular user. The [APT candidate workflow](../../../.github/workflows/apt-candidate.yml) produces an Actions artifact for validation; public hosting and publication are separate steps.
+
 Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 
 ## Release notes
