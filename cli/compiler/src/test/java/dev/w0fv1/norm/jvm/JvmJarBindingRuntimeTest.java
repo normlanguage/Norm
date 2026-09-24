@@ -11,7 +11,6 @@ import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBinding;
-import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -348,10 +347,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void invokesAResolvedApacheCommonsLangMethod() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("maven-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -486,10 +482,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void invokesJavaCharSequenceMethodsWithNormStrings() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("text-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -512,10 +505,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void readsAResolvedApacheCommonsLangStaticField() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("field-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -538,10 +528,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void invokesAReifiedGenericApacheCommonsLangMethod() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("generic-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -565,10 +552,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void invokesCharacterAndBoxedPrimitiveMethods() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("primitive-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -595,10 +579,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void preservesMutableJavaArrayIdentity() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("array-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -646,10 +627,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void invokesGenericJavaVarargsThroughAnObjectArray() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("generic-array-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);
@@ -691,10 +669,7 @@ final class JvmJarBindingRuntimeTest {
 
   @Test
   void constructsAndInvokesAnApacheCommonsLangObject() throws Exception {
-    var target =
-        new MavenJarTarget(
-            new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
-            Optional.empty());
+    var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("object-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
       JarApiSchema schema = new JarApiScanner().scan(graph);

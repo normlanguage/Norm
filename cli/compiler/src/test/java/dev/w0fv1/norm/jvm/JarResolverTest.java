@@ -168,7 +168,7 @@ final class JarResolverTest {
 
   @Test
   void resolvesApacheCommonsLangCoordinates() throws Exception {
-    var coordinate = new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0");
+    var coordinate = MavenTestRepository.commonsLang();
 
     try (JarResolver resolver =
         new JarResolver(MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
