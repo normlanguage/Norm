@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -61,8 +62,8 @@ final class RuntimeModuleAssemblerTest {
 
     Path first = directory.resolve("first");
     Path second = directory.resolve("second");
-    RuntimeModuleAssembler.assemble(compiler, dependencies, first);
-    RuntimeModuleAssembler.assemble(compiler, dependencies, second);
+    RuntimeModuleAssembler.assemble(compiler, dependencies, first, RuntimeStorage.SEALED);
+    RuntimeModuleAssembler.assemble(compiler, dependencies, second, RuntimeStorage.SEALED);
 
     Path merged = first.resolve("lib/maven.resolver.provider.jar");
     assertTrue(Files.isRegularFile(merged));
@@ -112,7 +113,8 @@ final class RuntimeModuleAssemblerTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> RuntimeModuleAssembler.assemble(compiler, dependencies, output));
+        () ->
+            RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED));
     assertFalse(Files.exists(output));
   }
 
@@ -149,7 +151,7 @@ final class RuntimeModuleAssemblerTest {
     dependencies.add(graalvm);
 
     Path output = directory.resolve("output");
-    RuntimeModuleAssembler.assemble(compiler, dependencies, output);
+    RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED);
 
     assertTrue(Files.isRegularFile(output.resolve("lib/maven.resolver.provider.jar")));
     assertTrue(Files.isRegularFile(output.resolve("lib/org.codehaus.plexus.util.jar")));
@@ -170,11 +172,84 @@ final class RuntimeModuleAssemblerTest {
     Path output = directory.resolve("dependencies");
 
     Map<Path, List<Path>> ownership =
-        RuntimeModuleAssembler.assembleDependencies(dependencies, output);
+        RuntimeModuleAssembler.assembleDependencies(dependencies, output, RuntimeStorage.SEALED);
 
     assertTrue(Files.isRegularFile(output.resolve("lib/maven.resolver.provider.jar")));
     assertFalse(Files.exists(output.resolve("lib/compiler-0.24.0.jar")));
     assertEquals(6, ownership.get(output.resolve("lib/maven.resolver.provider.jar")).size());
+  }
+
+  @Test
+  void switchesStorageModesWithoutChangingSystemInputs() throws Exception {
+    Path compiler = compiler();
+    List<Path> dependencies = new ArrayList<>();
+    for (String component : COMPONENTS)
+      dependencies.add(
+          jar(
+              component + ".jar",
+              component.replace('-', '.'),
+              "3.9.11",
+              Map.of("example/" + component + ".class", component)));
+    Path system =
+        jar("system.jar", "example.system", null, Map.of("example/System.class", "system"));
+    dependencies.add(system);
+    byte[] original = Files.readAllBytes(system);
+    Path output = directory.resolve("switching");
+
+    RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED);
+    Path installed = output.resolve("lib/example.system.jar");
+    var catalogInput =
+        new ToolchainArtifactCatalogGenerator.Input(
+            List.of(new ToolchainArtifactCatalogGenerator.Artifact(installed, "sample:system:1")),
+            List.of("sample:system:1"),
+            Map.of("sample:system:1", List.of()),
+            Map.of("execution", List.of("sample:system:1")),
+            Map.of());
+    Path catalog = directory.resolve("catalog.json");
+    ToolchainArtifactCatalogGenerator.generate(catalogInput, catalog);
+    assertEquals(
+        "sealed",
+        JsonParser.parseString(Files.readString(catalog))
+            .getAsJsonObject()
+            .getAsJsonArray("artifacts")
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonObject("storage")
+            .get("kind")
+            .getAsString());
+    assertFalse(Files.isSymbolicLink(installed));
+    assertArrayEquals(original, Files.readAllBytes(installed));
+
+    RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SYSTEM);
+    assertTrue(Files.isSymbolicLink(installed));
+    assertEquals(system.toAbsolutePath().normalize(), Files.readSymbolicLink(installed));
+    assertFalse(Files.isSymbolicLink(output.resolve("lib/maven.resolver.provider.jar")));
+    assertArrayEquals(original, Files.readAllBytes(system));
+    ToolchainArtifactCatalogGenerator.generate(catalogInput, catalog);
+    var systemStorage =
+        JsonParser.parseString(Files.readString(catalog))
+            .getAsJsonObject()
+            .getAsJsonArray("artifacts")
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonObject("storage");
+    assertEquals("system", systemStorage.get("kind").getAsString());
+    assertFalse(systemStorage.has("sha256"));
+
+    RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED);
+    assertFalse(Files.isSymbolicLink(installed));
+    assertArrayEquals(original, Files.readAllBytes(installed));
+    assertArrayEquals(original, Files.readAllBytes(system));
+    ToolchainArtifactCatalogGenerator.generate(catalogInput, catalog);
+    var sealedStorage =
+        JsonParser.parseString(Files.readString(catalog))
+            .getAsJsonObject()
+            .getAsJsonArray("artifacts")
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonObject("storage");
+    assertEquals("sealed", sealedStorage.get("kind").getAsString());
+    assertFalse(sealedStorage.has("target"));
   }
 
   @Test
@@ -197,7 +272,8 @@ final class RuntimeModuleAssemblerTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> RuntimeModuleAssembler.assemble(compiler, dependencies, output));
+        () ->
+            RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED));
     assertFalse(Files.exists(output));
   }
 
@@ -218,7 +294,8 @@ final class RuntimeModuleAssemblerTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> RuntimeModuleAssembler.assemble(compiler, dependencies, output));
+        () ->
+            RuntimeModuleAssembler.assemble(compiler, dependencies, output, RuntimeStorage.SEALED));
     assertFalse(Files.exists(output));
   }
 
@@ -240,7 +317,9 @@ final class RuntimeModuleAssemblerTest {
     IOException failure =
         assertThrows(
             IOException.class,
-            () -> RuntimeModuleAssembler.assemble(compiler, dependencies, output));
+            () ->
+                RuntimeModuleAssembler.assemble(
+                    compiler, dependencies, output, RuntimeStorage.SEALED));
 
     assertTrue(failure.getMessage().contains("META-INF/LICENSE"));
     assertFalse(Files.exists(output));

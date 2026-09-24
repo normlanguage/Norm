@@ -5,6 +5,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -138,15 +140,6 @@ public final class ToolchainArtifactCatalogGenerator {
               "Merged toolchain component is not uniquely resolved: " + module);
         components.add(matches.get(0));
       }
-      MessageDigest digest;
-      try {
-        digest = MessageDigest.getInstance("SHA-256");
-      } catch (NoSuchAlgorithmException exception) {
-        throw new IllegalStateException(exception);
-      }
-      try (var stream = new DigestInputStream(Files.newInputStream(artifact.file()), digest)) {
-        stream.transferTo(java.io.OutputStream.nullOutputStream());
-      }
       JsonObject entry = new JsonObject();
       entry.addProperty("file", item.getKey());
       entry.addProperty("group", coordinate[0]);
@@ -155,11 +148,58 @@ public final class ToolchainArtifactCatalogGenerator {
       JsonArray owned = new JsonArray();
       components.stream().sorted().forEach(owned::add);
       entry.add("components", owned);
-      entry.addProperty("sha256", HexFormat.of().formatHex(digest.digest()));
+      JsonObject storage = new JsonObject();
+      if (Files.isSymbolicLink(artifact.file())) {
+        Path target = Files.readSymbolicLink(artifact.file());
+        if (!target.isAbsolute() || !target.equals(target.normalize()))
+          throw new IllegalArgumentException("Invalid system toolchain target: " + target);
+        var modules = ModuleFinder.of(artifact.file()).findAll();
+        if (modules.size() != 1)
+          throw new IllegalArgumentException("Expected one system module: " + artifact.file());
+        ModuleDescriptor descriptor = modules.iterator().next().descriptor();
+        String moduleName = item.getKey().replaceFirst("\\.jar$", "");
+        if (!descriptor.name().equals(moduleName))
+          throw new IllegalArgumentException(
+              "System toolchain module does not match file: " + artifact.file());
+        storage.addProperty("kind", "system");
+        storage.addProperty("target", target.toString());
+        storage.addProperty("automatic", descriptor.isAutomatic());
+        JsonArray moduleRequires = new JsonArray();
+        descriptor.requires().stream()
+            .filter(
+                requirement ->
+                    !requirement.modifiers().contains(ModuleDescriptor.Requires.Modifier.STATIC))
+            .sorted(java.util.Comparator.comparing(ModuleDescriptor.Requires::name))
+            .forEach(
+                requirement -> {
+                  JsonObject requirementEntry = new JsonObject();
+                  requirementEntry.addProperty("name", requirement.name());
+                  requirementEntry.addProperty(
+                      "transitive",
+                      requirement
+                          .modifiers()
+                          .contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE));
+                  moduleRequires.add(requirementEntry);
+                });
+        storage.add("moduleRequires", moduleRequires);
+      } else {
+        MessageDigest digest;
+        try {
+          digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+          throw new IllegalStateException(exception);
+        }
+        try (var stream = new DigestInputStream(Files.newInputStream(artifact.file()), digest)) {
+          stream.transferTo(java.io.OutputStream.nullOutputStream());
+        }
+        storage.addProperty("kind", "sealed");
+        storage.addProperty("sha256", HexFormat.of().formatHex(digest.digest()));
+      }
+      entry.add("storage", storage);
       resolved.add(entry);
     }
     JsonObject catalog = new JsonObject();
-    catalog.addProperty("schemaVersion", 1);
+    catalog.addProperty("schemaVersion", 2);
     catalog.add("artifacts", resolved);
     JsonArray roots = new JsonArray();
     input.roots().forEach(roots::add);

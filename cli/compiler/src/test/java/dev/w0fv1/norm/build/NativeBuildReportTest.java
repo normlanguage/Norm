@@ -215,7 +215,9 @@ final class NativeBuildReportTest {
       assertEquals(6, provider.getAsJsonArray("components").size());
       Path runtime = Path.of(System.getProperty("norm.test.runtimeDirectory"));
       Path merged = runtime.resolve("lib").resolve(provider.get("file").getAsString());
-      assertEquals(provider.get("sha256").getAsString(), Sha256Digest.compute(merged).value());
+      assertEquals(
+          provider.getAsJsonObject("storage").get("sha256").getAsString(),
+          Sha256Digest.compute(merged).value());
       try (var jar = new JarFile(merged.toFile())) {
         for (String name :
             java.util.List.of(
@@ -240,7 +242,7 @@ final class NativeBuildReportTest {
           JsonParser.parseString(
                   Files.readString(report.directory().resolve("toolchain-artifacts.json")))
               .getAsJsonObject();
-      assertEquals(1, manifest.get("schemaVersion").getAsInt());
+      assertEquals(2, manifest.get("schemaVersion").getAsInt());
       var graph = manifest.getAsJsonObject("dependencies");
       var purposes = manifest.getAsJsonObject("purposes");
       assertTrue(
@@ -290,8 +292,19 @@ final class NativeBuildReportTest {
                     + artifact.get("artifact").getAsString()
                     + ":"
                     + artifact.get("version").getAsString()));
-        var hash = new Sha256Digest(artifact.get("sha256").getAsString());
-        assertEquals(hash, Sha256Digest.compute(runtime.resolve("lib").resolve(file)));
+        Path installed = runtime.resolve("lib").resolve(file);
+        var storage = artifact.getAsJsonObject("storage");
+        if (storage.get("kind").getAsString().equals("sealed")) {
+          assertFalse(Files.isSymbolicLink(installed));
+          assertEquals(
+              new Sha256Digest(storage.get("sha256").getAsString()),
+              Sha256Digest.compute(installed));
+        } else {
+          assertEquals("system", storage.get("kind").getAsString());
+          assertEquals(
+              storage.get("target").getAsString(), Files.readSymbolicLink(installed).toString());
+          assertEquals(64, Sha256Digest.compute(installed).value().length());
+        }
       }
       String yaml =
           reachable.stream()

@@ -7,9 +7,12 @@ import dev.w0fv1.norm.jvm.JarDependencyEdge;
 import dev.w0fv1.norm.jvm.MavenJarIdentity;
 import dev.w0fv1.norm.jvm.ResolvedJarArtifact;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
+import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
+import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -33,7 +36,7 @@ final class NativeToolchainClasspath {
 
   static Plan plan(JsonObject manifest, List<Path> paths) throws IOException {
     try {
-      if (manifest.get("schemaVersion").getAsInt() != 1)
+      if (manifest.get("schemaVersion").getAsInt() != 2)
         throw new IOException("Unsupported toolchain artifact catalog");
       var graph = manifest.getAsJsonObject("dependencies");
       var pending = new ArrayDeque<String>();
@@ -50,13 +53,33 @@ final class NativeToolchainClasspath {
       for (var value : manifest.getAsJsonArray("artifacts")) {
         var artifact = value.getAsJsonObject();
         String name = artifact.get("file").getAsString();
+        var storage = artifact.getAsJsonObject("storage");
+        Storage identity =
+            switch (storage.get("kind").getAsString()) {
+              case "sealed" -> new Sealed(new Sha256Digest(storage.get("sha256").getAsString()));
+              case "system" ->
+                  new System(
+                      Path.of(storage.get("target").getAsString()),
+                      storage.get("automatic").getAsBoolean(),
+                      storage.getAsJsonArray("moduleRequires").asList().stream()
+                          .map(
+                              requirement ->
+                                  new ModuleRequirement(
+                                      requirement.getAsJsonObject().get("name").getAsString(),
+                                      requirement
+                                          .getAsJsonObject()
+                                          .get("transitive")
+                                          .getAsBoolean()))
+                          .toList());
+              default -> throw new IOException("Invalid toolchain storage: " + name);
+            };
         var entry =
             new Artifact(
                 new MavenArtifactCoordinate(
                     artifact.get("group").getAsString(),
                     artifact.get("artifact").getAsString(),
                     artifact.get("version").getAsString()),
-                new Sha256Digest(artifact.get("sha256").getAsString()),
+                identity,
                 artifact.getAsJsonArray("components").asList().stream()
                     .map(com.google.gson.JsonElement::getAsString)
                     .collect(java.util.stream.Collectors.toUnmodifiableSet()));
@@ -78,10 +101,11 @@ final class NativeToolchainClasspath {
         var owner = owners.get(coordinate);
         if (owner != null) pending.addAll(owner.components());
       }
-      artifacts.forEach(
-          (name, artifact) -> {
-            if (retained.contains(artifact.coordinate().notation())) required.add(name);
-          });
+      for (var item : artifacts.entrySet()) {
+        String name = item.getKey();
+        Artifact artifact = item.getValue();
+        if (retained.contains(artifact.coordinate().notation())) required.add(name);
+      }
       var unmanaged = new ArrayList<Path>();
       var physical = new LinkedHashMap<String, ResolvedJarArtifact>();
       var ownership = new ArrayList<JarArtifactOwnership>();
@@ -91,13 +115,50 @@ final class NativeToolchainClasspath {
           unmanaged.add(path);
           continue;
         }
-        if (!Sha256Digest.compute(path).equals(artifact.content()))
-          throw new IOException("Toolchain artifact content mismatch: " + path);
+        Sha256Digest content;
+        if (artifact.storage() instanceof Sealed sealed) {
+          if (Files.isSymbolicLink(path))
+            throw new IOException("Sealed toolchain artifact is a link: " + path);
+          content = Sha256Digest.compute(path);
+          if (!content.equals(sealed.content()))
+            throw new IOException("Toolchain artifact content mismatch: " + path);
+        } else if (artifact.storage() instanceof System system) {
+          if (!Files.isSymbolicLink(path) || !Files.readSymbolicLink(path).equals(system.target()))
+            throw new IOException("System toolchain target mismatch: " + path);
+          FileSnapshot snapshot = FileSnapshot.capture(path);
+          var modules = ModuleFinder.of(path).findAll();
+          if (modules.size() != 1)
+            throw new IOException("Expected one system toolchain module: " + path);
+          ModuleDescriptor descriptor = modules.iterator().next().descriptor();
+          List<ModuleRequirement> requires =
+              descriptor.requires().stream()
+                  .filter(
+                      requirement ->
+                          !requirement
+                              .modifiers()
+                              .contains(ModuleDescriptor.Requires.Modifier.STATIC))
+                  .map(
+                      requirement ->
+                          new ModuleRequirement(
+                              requirement.name(),
+                              requirement
+                                  .modifiers()
+                                  .contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE)))
+                  .sorted(java.util.Comparator.comparing(ModuleRequirement::name))
+                  .toList();
+          if (!descriptor.name().equals(path.getFileName().toString().replaceFirst("\\.jar$", ""))
+              || descriptor.isAutomatic() != system.automatic()
+              || !requires.equals(system.moduleRequires()))
+            throw new IOException("System toolchain module shape changed: " + path);
+          snapshot.verify();
+          if (!Files.readSymbolicLink(path).equals(system.target()))
+            throw new IOException("System toolchain target changed: " + path);
+          content = snapshot.content();
+        } else throw new IOException("Invalid toolchain storage: " + path);
         if (retained.contains(artifact.coordinate().notation())) {
           required.remove(path.getFileName().toString());
           var owner =
-              new ResolvedJarArtifact(
-                  new MavenJarIdentity(artifact.coordinate()), path, artifact.content());
+              new ResolvedJarArtifact(new MavenJarIdentity(artifact.coordinate()), path, content);
           artifact.components().forEach(component -> physical.put(component, owner));
           if (artifact.components().size() > 1) {
             var components = new HashSet<MavenArtifactCoordinate>();
@@ -172,6 +233,21 @@ final class NativeToolchainClasspath {
     }
   }
 
+  private sealed interface Storage permits Sealed, System {}
+
+  private record Sealed(Sha256Digest content) implements Storage {}
+
+  private record System(Path target, boolean automatic, List<ModuleRequirement> moduleRequires)
+      implements Storage {
+    System {
+      if (!target.isAbsolute() || !target.equals(target.normalize()))
+        throw new IllegalArgumentException("Invalid system toolchain target: " + target);
+      moduleRequires = List.copyOf(moduleRequires);
+    }
+  }
+
+  private record ModuleRequirement(String name, boolean transitive) {}
+
   private record Artifact(
-      MavenArtifactCoordinate coordinate, Sha256Digest content, Set<String> components) {}
+      MavenArtifactCoordinate coordinate, Storage storage, Set<String> components) {}
 }
