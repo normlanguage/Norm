@@ -552,13 +552,14 @@ final class ProjectLoaderTest {
               target: mavenJar(
                 group: "org.apache.commons",
                 artifact: "commons-lang3",
-                version: "3.20.0"
+                version: "%s"
               ),
               api: [jarType(name: "StringUtils", members: ["reverse"])]
             )
           )
         }
-        """);
+        """
+            .formatted(MavenTestRepository.commonsLang().version()));
 
     try (ProjectLoader projects =
         environment()

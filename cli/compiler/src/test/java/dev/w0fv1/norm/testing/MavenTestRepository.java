@@ -1,11 +1,19 @@
 package dev.w0fv1.norm.testing;
 
+import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class MavenTestRepository {
   private MavenTestRepository() {}
+
+  public static MavenArtifactCoordinate commonsLang() {
+    return new MavenArtifactCoordinate(
+        "org.apache.commons",
+        "commons-lang3",
+        System.getProperty("norm.test.commonsLangVersion", "3.20.0"));
+  }
 
   public static Path prepare(Path destination) throws IOException {
     String configured = System.getProperty("norm.test.mavenRepository");

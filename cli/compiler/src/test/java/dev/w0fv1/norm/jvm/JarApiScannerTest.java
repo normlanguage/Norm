@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBinding;
-import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.IOException;
@@ -547,8 +547,9 @@ final class JarApiScannerTest {
 
   @Test
   void scansApacheCommonsLangStringUtils() throws Exception {
-    var coordinate = new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0");
-    try (JarResolver resolver = new JarResolver(temporaryDirectory.resolve("maven-cache"))) {
+    var coordinate = MavenTestRepository.commonsLang();
+    try (JarResolver resolver =
+        new JarResolver(MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       ResolvedJarGraph graph =
           resolver.resolve(
               temporaryDirectory,

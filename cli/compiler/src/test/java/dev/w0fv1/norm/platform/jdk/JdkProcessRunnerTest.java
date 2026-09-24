@@ -85,10 +85,19 @@ final class JdkProcessRunnerTest {
 
   @Test
   void cancelsRunningProcessAndItsObservedChild() {
+    assertCancelledTree("tree", 2);
+  }
+
+  @Test
+  void cancelsRunningProcessAndItsObservedDescendants() {
+    assertCancelledTree("tree-nested", 3);
+  }
+
+  private void assertCancelledTree(String mode, int expectedProcesses) {
     var request =
         new ProcessRequest(
             java(),
-            List.of("-cp", System.getProperty("java.class.path"), Probe.class.getName(), "tree"),
+            List.of("-cp", System.getProperty("java.class.path"), Probe.class.getName(), mode),
             directory,
             Map.of(),
             new byte[0],
@@ -106,8 +115,9 @@ final class JdkProcessRunnerTest {
         new String(result.stdout(), StandardCharsets.US_ASCII)
             .lines()
             .map(Long::parseLong)
+            .distinct()
             .toList();
-    assertEquals(2, pids.size());
+    assertEquals(expectedProcesses, pids.size());
     for (long pid : pids)
       assertFalse(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false));
   }
@@ -118,14 +128,14 @@ final class JdkProcessRunnerTest {
         Thread.sleep(30_000);
         return;
       }
-      if (arguments[0].equals("tree")) {
+      if (arguments[0].equals("tree") || arguments[0].equals("tree-nested")) {
         Process child =
             new ProcessBuilder(
                     ProcessHandle.current().info().command().orElseThrow(),
                     "-cp",
                     System.getProperty("java.class.path"),
                     Probe.class.getName(),
-                    "sleep")
+                    arguments[0].equals("tree") ? "sleep" : "tree")
                 .inheritIO()
                 .start();
         System.out.println(ProcessHandle.current().pid());

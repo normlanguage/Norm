@@ -312,13 +312,14 @@ final class ModulePackagerTest {
               target: mavenJar(
                 group: "org.apache.commons",
                 artifact: "commons-lang3",
-                version: "3.20.0"
+                version: "%s"
               ),
               api: []
             )
           )
         }
-        """);
+        """
+            .formatted(MavenTestRepository.commonsLang().version()));
     Files.writeString(
         module.resolve("Internal.norm"),
         """
@@ -359,7 +360,7 @@ final class ModulePackagerTest {
               target: mavenJar(
                 group: "org.apache.commons",
                 artifact: "commons-lang3",
-                version: "3.20.0"
+                version: "%s"
               ),
               api: [
                 jarType(
@@ -373,7 +374,8 @@ final class ModulePackagerTest {
             )
           )
         }
-        """);
+        """
+            .formatted(MavenTestRepository.commonsLang().version()));
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     Path repository = temporaryDirectory.resolve("repository");
 
@@ -531,7 +533,7 @@ final class ModulePackagerTest {
               target: mavenJar(
                 group: "org.apache.commons",
                 artifact: "commons-lang3",
-                version: "3.20.0"
+                version: "%s"
               ),
               api: [
                 jarType(
@@ -545,7 +547,8 @@ final class ModulePackagerTest {
             )
           )
         }
-        """);
+        """
+            .formatted(MavenTestRepository.commonsLang().version()));
     Path bindingRepository = temporaryDirectory.resolve("binding-repository");
     ProjectEnvironment bindingEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (var compiler = bindingEnvironment.compilerSession();
@@ -646,13 +649,14 @@ final class ModulePackagerTest {
               target: mavenJar(
                 group: "org.apache.commons",
                 artifact: "commons-lang3",
-                version: "3.20.0"
+                version: "%s"
               ),
               api: [jarType(name: "StringUtils", members: ["reverse"])]
             )
           )
         }
-        """);
+        """
+            .formatted(MavenTestRepository.commonsLang().version()));
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     ModulePackager.PackagedModule packaged;

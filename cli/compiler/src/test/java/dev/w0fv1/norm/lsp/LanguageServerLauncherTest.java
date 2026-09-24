@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,6 +30,7 @@ final class LanguageServerLauncherTest {
 
   @Test
   void shutdownAndExitEndTheSessionWhileClientInputRemainsOpen() throws Exception {
+    var existingThreads = Thread.getAllStackTraces().keySet();
     try (var client = new PipedOutputStream();
         var input = new PipedInputStream(client);
         var callers = Executors.newSingleThreadExecutor()) {
@@ -43,9 +45,7 @@ final class LanguageServerLauncherTest {
       write(client, "{\"jsonrpc\":\"2.0\",\"method\":\"exit\"}");
       assertEquals(0, result.get(20, TimeUnit.SECONDS));
       assertTrue(output.toString(StandardCharsets.UTF_8).contains("capabilities"));
-      assertTrue(
-          Thread.getAllStackTraces().keySet().stream()
-              .noneMatch(thread -> thread.isAlive() && thread.getName().startsWith("norm-lsp-")));
+      assertSessionThreadsStopped(existingThreads);
     }
   }
 
@@ -66,19 +66,19 @@ final class LanguageServerLauncherTest {
 
   @Test
   void eofTerminatesWithoutLeakingTransportThreads() throws Exception {
+    var existingThreads = Thread.getAllStackTraces().keySet();
     assertEquals(
         1,
         LanguageServerLauncher.run(
             new Workspace(environment),
             new ByteArrayInputStream(new byte[0]),
             new ByteArrayOutputStream()));
-    assertTrue(
-        Thread.getAllStackTraces().keySet().stream()
-            .noneMatch(thread -> thread.isAlive() && thread.getName().startsWith("norm-lsp-")));
+    assertSessionThreadsStopped(existingThreads);
   }
 
   @Test
-  void retainsTheActualTransportFailure() {
+  void retainsTheActualTransportFailure() throws InterruptedException {
+    var existingThreads = Thread.getAllStackTraces().keySet();
     var failure = new IOException("disconnected");
     InputStream input =
         new InputStream() {
@@ -94,9 +94,25 @@ final class LanguageServerLauncherTest {
                 LanguageServerLauncher.run(
                     new Workspace(environment), input, new ByteArrayOutputStream()));
     assertSame(failure, actual);
-    assertTrue(
+    assertSessionThreadsStopped(existingThreads);
+  }
+
+  private static void assertSessionThreadsStopped(Set<Thread> existingThreads)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+    var sessionThreads =
         Thread.getAllStackTraces().keySet().stream()
-            .noneMatch(thread -> thread.isAlive() && thread.getName().startsWith("norm-lsp-")));
+            .filter(thread -> thread.getName().startsWith("norm-lsp-"))
+            .filter(thread -> !existingThreads.contains(thread))
+            .toList();
+    for (var thread : sessionThreads) {
+      long remaining = deadline - System.nanoTime();
+      if (remaining > 0)
+        thread.join(
+            TimeUnit.NANOSECONDS.toMillis(remaining),
+            (int) (remaining % TimeUnit.MILLISECONDS.toNanos(1)));
+      assertFalse(thread.isAlive(), thread.getName());
+    }
   }
 
   private static void write(PipedOutputStream client, String message) throws IOException {
