@@ -8,6 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.jar.Attributes;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -38,7 +41,7 @@ final class ToolchainArtifactCatalogGeneratorTest {
     ToolchainArtifactCatalogGenerator.generate(input, output);
 
     var catalog = JsonParser.parseString(Files.readString(output)).getAsJsonObject();
-    assertEquals(1, catalog.get("schemaVersion").getAsInt());
+    assertEquals(2, catalog.get("schemaVersion").getAsInt());
     assertEquals(
         "provider.jar",
         catalog.getAsJsonArray("artifacts").get(1).getAsJsonObject().get("file").getAsString());
@@ -59,11 +62,45 @@ final class ToolchainArtifactCatalogGeneratorTest {
             .getAsJsonArray("artifacts")
             .get(1)
             .getAsJsonObject()
+            .getAsJsonObject("storage")
             .get("sha256")
             .getAsString()
             .length());
     assertEquals(2, catalog.getAsJsonArray("roots").size());
     assertEquals(1, catalog.getAsJsonObject("purposes").getAsJsonArray("execution").size());
+  }
+
+  @Test
+  void recordsSystemLinkTargetAndAutomaticModuleShape() throws Exception {
+    Path system = directory.resolve("system.jar");
+    Manifest manifest = new Manifest();
+    manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+    manifest.getMainAttributes().putValue("Automatic-Module-Name", "sample.system");
+    try (var archive = new JarOutputStream(Files.newOutputStream(system), manifest)) {
+      archive.finish();
+    }
+    Path installed = Files.createSymbolicLink(directory.resolve("sample.system.jar"), system);
+    var input =
+        new ToolchainArtifactCatalogGenerator.Input(
+            List.of(new ToolchainArtifactCatalogGenerator.Artifact(installed, "sample:system:1")),
+            List.of("sample:system:1"),
+            Map.of("sample:system:1", List.of()),
+            Map.of("execution", List.of("sample:system:1")),
+            Map.of());
+    Path output = directory.resolve("catalog.json");
+
+    ToolchainArtifactCatalogGenerator.generate(input, output);
+
+    var catalog = JsonParser.parseString(Files.readString(output)).getAsJsonObject();
+    var storage =
+        catalog.getAsJsonArray("artifacts").get(0).getAsJsonObject().getAsJsonObject("storage");
+    assertEquals("system", storage.get("kind").getAsString());
+    assertEquals(
+        system.toAbsolutePath().normalize().toString(), storage.get("target").getAsString());
+    assertEquals(true, storage.get("automatic").getAsBoolean());
+    var requirement = storage.getAsJsonArray("moduleRequires").get(0).getAsJsonObject();
+    assertEquals("java.base", requirement.get("name").getAsString());
+    assertEquals(false, requirement.get("transitive").getAsBoolean());
   }
 
   @Test

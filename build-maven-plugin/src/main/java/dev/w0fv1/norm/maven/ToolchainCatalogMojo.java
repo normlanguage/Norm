@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.maven;
 
 import dev.w0fv1.norm.packaging.RuntimeModuleAssembler;
+import dev.w0fv1.norm.packaging.RuntimeStorage;
 import dev.w0fv1.norm.packaging.ToolchainArtifactCatalogGenerator;
 import java.io.File;
 import java.io.IOException;
@@ -46,6 +47,9 @@ public final class ToolchainCatalogMojo extends AbstractMojo {
   @Parameter(required = true)
   private List<String> hostedModules;
 
+  @Parameter(property = "norm.runtime.storage", required = true)
+  private String runtimeStorage;
+
   @Parameter(defaultValue = "${project.build.directory}/toolchain-dependencies")
   private File dependenciesDirectory;
 
@@ -81,7 +85,9 @@ public final class ToolchainCatalogMojo extends AbstractMojo {
       }
       var ownership =
           RuntimeModuleAssembler.assembleDependencies(
-              List.copyOf(coordinates.keySet()), dependenciesDirectory.toPath());
+              List.copyOf(coordinates.keySet()),
+              dependenciesDirectory.toPath(),
+              RuntimeStorage.parse(runtimeStorage));
       var artifacts = new ArrayList<ToolchainArtifactCatalogGenerator.Artifact>();
       Map<String, List<String>> mergedModules = new TreeMap<>();
       for (var entry : ownership.entrySet()) {

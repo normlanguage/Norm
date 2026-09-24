@@ -280,6 +280,7 @@
                 <argument>--dependencies-only</argument>
                 <classpath/>
                 <argument>${project.build.directory}/test-runtime</argument>
+                <argument>${norm.runtime.storage}</argument>
               </arguments>
             </configuration>
           </execution>
@@ -297,6 +298,7 @@
                 <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
                 <classpath/>
                 <argument>${project.build.directory}/norm-runtime</argument>
+                <argument>${norm.runtime.storage}</argument>
               </arguments>
             </configuration>
           </execution>

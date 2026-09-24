@@ -34,9 +34,9 @@ public final class RuntimeModuleAssembler {
   private RuntimeModuleAssembler() {}
 
   public static void main(String[] arguments) throws IOException {
-    if (arguments.length != 3)
+    if (arguments.length != 4)
       throw new IllegalArgumentException(
-          "Expected compiler JAR or --dependencies-only, runtime classpath and output directory");
+          "Expected compiler JAR or --dependencies-only, runtime classpath, output directory and storage");
     List<Path> dependencies =
         Arrays.stream(arguments[1].split(Pattern.quote(File.pathSeparator)))
             .filter(value -> !value.isBlank())
@@ -45,24 +45,31 @@ public final class RuntimeModuleAssembler {
                 path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(".jar"))
             .toList();
     if (arguments[0].equals("--dependencies-only"))
-      assembleDependencies(dependencies, Path.of(arguments[2]));
-    else assemble(Path.of(arguments[0]), dependencies, Path.of(arguments[2]));
+      assembleDependencies(dependencies, Path.of(arguments[2]), RuntimeStorage.parse(arguments[3]));
+    else
+      assemble(
+          Path.of(arguments[0]),
+          dependencies,
+          Path.of(arguments[2]),
+          RuntimeStorage.parse(arguments[3]));
   }
 
-  public static void assemble(Path compilerJar, List<Path> dependencies, Path output)
+  public static void assemble(
+      Path compilerJar, List<Path> dependencies, Path output, RuntimeStorage storage)
       throws IOException {
     if (!Files.isRegularFile(compilerJar))
       throw new IllegalArgumentException("Compiler JAR is missing: " + compilerJar);
-    assemble(dependencies, Optional.of(compilerJar), output);
+    assemble(dependencies, Optional.of(compilerJar), output, storage);
   }
 
-  public static Map<Path, List<Path>> assembleDependencies(List<Path> dependencies, Path output)
-      throws IOException {
-    return assemble(dependencies, Optional.empty(), output);
+  public static Map<Path, List<Path>> assembleDependencies(
+      List<Path> dependencies, Path output, RuntimeStorage storage) throws IOException {
+    return assemble(dependencies, Optional.empty(), output, storage);
   }
 
   private static Map<Path, List<Path>> assemble(
-      List<Path> dependencies, Optional<Path> compilerJar, Path output) throws IOException {
+      List<Path> dependencies, Optional<Path> compilerJar, Path output, RuntimeStorage storage)
+      throws IOException {
     Map<String, Path> inputs = new TreeMap<>();
     for (Path dependency : dependencies) {
       if (!Files.isRegularFile(dependency))
@@ -118,7 +125,10 @@ public final class RuntimeModuleAssembler {
         }
       }
       for (var input : inputs.entrySet()) {
-        Files.copy(input.getValue(), lib.resolve(input.getKey() + ".jar"));
+        Path installed = lib.resolve(input.getKey() + ".jar");
+        if (storage == RuntimeStorage.SYSTEM)
+          Files.createSymbolicLink(installed, input.getValue().toAbsolutePath().normalize());
+        else Files.copy(input.getValue(), installed);
         ownership.put(
             destination.resolve("lib").resolve(input.getKey() + ".jar"), List.of(input.getValue()));
       }
