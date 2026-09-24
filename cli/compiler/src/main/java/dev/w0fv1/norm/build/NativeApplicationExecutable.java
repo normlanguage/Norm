@@ -163,12 +163,12 @@ final class NativeApplicationExecutable {
                     .filter(applicationPaths::contains)
                     .toList())
             .names();
-    var modules = dev.w0fv1.norm.jvm.JavaModulePath.select(applicationPaths, moduleRoots);
+    var modules = dev.w0fv1.norm.jvm.JavaModulePath.nativeImage(classpath, moduleRoots);
     arguments.add("-Dtruffle.UseFallbackRuntime=true");
     arguments.add("-Dpolyglot.engine.WarnInterpreterOnly=false");
-    arguments.add(
-        "--enable-native-access=ALL-UNNAMED,org.graalvm.truffle"
-            + (modules.names().isEmpty() ? "" : "," + String.join(",", modules.names())));
+    var nativeAccessModules = new LinkedHashSet<>(List.of("ALL-UNNAMED", "org.graalvm.truffle"));
+    nativeAccessModules.addAll(modules.names());
+    arguments.add("--enable-native-access=" + String.join(",", nativeAccessModules));
     if (!modules.paths().isEmpty()) {
       arguments.add("--module-path");
       arguments.add(

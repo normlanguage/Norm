@@ -2,13 +2,17 @@ package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
@@ -16,6 +20,133 @@ import org.objectweb.asm.Opcodes;
 
 final class JavaModuleLoadingTest {
   @TempDir Path directory;
+
+  @Test
+  void selectsForcedMultiReleaseModulesAndTheirDescriptorDependenciesWithoutUserRoots()
+      throws Exception {
+    Path required = writeModuleJar("sample.required", List.of(), false, Map.of());
+    Path root =
+        writeModuleJar(
+            "sample.root",
+            List.of("sample.required"),
+            true,
+            Map.of(
+                "META-INF/native-image/sample/root/native-image.properties",
+                "ForceOnModulePath = sample.\\\nroot\n"));
+    Path unused = writeModuleJar("sample.unused", List.of(), false, Map.of());
+
+    var selected = JavaModulePath.nativeImage(List.of(root, required, unused), List.of());
+
+    assertEquals(List.of("sample.required", "sample.root"), selected.names());
+    assertEquals(List.of(required, root), selected.paths());
+  }
+
+  @Test
+  void keepsUserModuleRootsAndLeavesUnforcedModulesOnTheClasspath() throws Exception {
+    Path user = writeModuleJar("sample.user", List.of(), false, Map.of());
+    Path forced =
+        writeModuleJar(
+            "sample.forced",
+            List.of(),
+            false,
+            Map.of(
+                "META-INF/native-image/sample/forced/native-image.properties",
+                "ForceOnModulePath=sample.forced\n"));
+    Path unused = writeModuleJar("sample.unused", List.of(), false, Map.of());
+
+    var selected =
+        JavaModulePath.nativeImage(List.of(user, forced, unused), List.of("sample.user"));
+
+    assertEquals(List.of("sample.forced", "sample.user"), selected.names());
+    assertEquals(List.of(forced, user), selected.paths());
+    assertTrue(JavaModulePath.nativeImage(List.of(unused), List.of()).paths().isEmpty());
+  }
+
+  @Test
+  void validatesEveryForceOnModulePathResourceAgainstItsOwnJar() throws Exception {
+    Path jar =
+        writeModuleJar(
+            "sample.root",
+            List.of(),
+            false,
+            Map.of(
+                "META-INF/native-image/sample/a/native-image.properties",
+                "ForceOnModulePath=sample.root\n",
+                "META-INF/native-image/sample/b/native-image.properties",
+                "ForceOnModulePath=sample.other\n"));
+    Path other = writeModuleJar("sample.other", List.of(), false, Map.of());
+
+    var failure =
+        assertThrows(
+            java.lang.module.FindException.class,
+            () -> JavaModulePath.nativeImage(List.of(jar, other), List.of()));
+
+    assertTrue(failure.getMessage().contains("sample.other"));
+    assertTrue(failure.getMessage().contains(jar.toString()));
+  }
+
+  @Test
+  void movesOnlyAutomaticJarsExplicitlyForcedByNativeImageMetadata() throws Exception {
+    Path forced = directory.resolve("sample.forced.automatic.jar");
+    Path ordinary = directory.resolve("sample.ordinary.automatic.jar");
+    for (Path path : List.of(forced, ordinary)) {
+      var manifest = new Manifest();
+      manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+      manifest
+          .getMainAttributes()
+          .putValue(
+              "Automatic-Module-Name",
+              path.equals(forced) ? "sample.forced.automatic" : "sample.ordinary.automatic");
+      try (var output = new JarOutputStream(Files.newOutputStream(path), manifest)) {
+        output.putNextEntry(new JarEntry("sample/data.txt"));
+        output.write(1);
+        output.closeEntry();
+        if (path.equals(forced)) {
+          output.putNextEntry(
+              new JarEntry("META-INF/native-image/sample/automatic/native-image.properties"));
+          output.write(
+              "ForceOnModulePath=sample.forced.automatic\n"
+                  .getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+          output.closeEntry();
+        }
+      }
+    }
+
+    var selected = JavaModulePath.nativeImage(List.of(forced, ordinary), List.of());
+
+    assertEquals(List.of("sample.forced.automatic"), selected.names());
+    assertEquals(List.of(forced), selected.paths());
+    assertTrue(JavaModulePath.select(List.of(forced, ordinary), List.of()).paths().isEmpty());
+  }
+
+  private Path writeModuleJar(
+      String name, List<String> dependencies, boolean multiRelease, Map<String, String> resources)
+      throws Exception {
+    var descriptor = new ClassWriter(0);
+    descriptor.visit(Opcodes.V21, Opcodes.ACC_MODULE, "module-info", null, null, null);
+    var module = descriptor.visitModule(name, 0, null);
+    module.visitRequire("java.base", Opcodes.ACC_MANDATED, null);
+    dependencies.forEach(dependency -> module.visitRequire(dependency, 0, null));
+    module.visitEnd();
+    descriptor.visitEnd();
+    Path path = directory.resolve(name + ".jar");
+    var manifest = new Manifest();
+    manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+    if (multiRelease) manifest.getMainAttributes().putValue("Multi-Release", "true");
+    try (var output = new JarOutputStream(Files.newOutputStream(path), manifest)) {
+      output.putNextEntry(
+          new JarEntry(
+              multiRelease ? "META-INF/versions/21/module-info.class" : "module-info.class"));
+      output.write(descriptor.toByteArray());
+      output.closeEntry();
+      for (var entry : resources.entrySet()) {
+        output.putNextEntry(new JarEntry(entry.getKey()));
+        output.write(entry.getValue().getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        output.closeEntry();
+      }
+    }
+    return path;
+  }
 
   @Test
   void resolvesOnlyTheModuleClosureOfDeclaredJarRoots() throws Exception {
