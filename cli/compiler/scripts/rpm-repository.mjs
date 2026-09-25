@@ -116,6 +116,7 @@ URL: https://github.com/normlanguage/Norm
 Source0: normlang.repo
 Source1: RPM-GPG-KEY-normlang
 BuildArch: noarch
+Requires: libdnf5-plugin-expired-pgp-keys
 
 %description
 Norm RPM repository configuration and public signing key.

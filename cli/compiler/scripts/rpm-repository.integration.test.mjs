@@ -122,6 +122,7 @@ test('real Fedora tools build an independently versioned repository configuratio
     writeFileSync(config, JSON.stringify({ packageVersion: '1', packageRelease: '1', fingerprint, baseurl, keyurl }));
     const release = buildReleasePackage(config, publicKey, output);
     assert.equal(command('rpm', ['-qp', '--qf', '%{NAME} %{VERSION} %{RELEASE} %{ARCH}', release]), 'normlang-release 1 1 noarch');
+    assert.match(command('rpm', ['-qp', '--requires', release]), /^libdnf5-plugin-expired-pgp-keys$/m);
     const extracted = join(root, 'extracted');
     mkdirSync(extracted);
     const extraction = spawnSync('bash', ['-o', 'pipefail', '-c', 'rpm2cpio "$1" | cpio -idm --quiet', 'bash', release], { cwd: extracted, encoding: 'utf8' });
