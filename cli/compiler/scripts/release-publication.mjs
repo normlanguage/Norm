@@ -54,7 +54,7 @@ export function planPublication(selected, published, renew = false) {
 
 export function planManagedRelease(selected, published, configBytes, publicKeyBytes, renew = false) {
   const config = JSON.parse(configBytes.toString());
-  if (!/^[1-9]\d*$/.test(config.packageVersion) || !/^[1-9]\d*$/.test(config.packageRelease)) throw new Error('Invalid release package version');
+  if (typeof config.packageVersion !== 'string' || typeof config.packageRelease !== 'string' || !/^[1-9]\d*$/.test(config.packageVersion) || !/^[1-9]\d*$/.test(config.packageRelease)) throw new Error('Invalid release package version');
   const releaseIdentity = `${config.packageVersion}-${config.packageRelease}`;
   const releaseContentSha256 = createHash('sha256').update(configBytes).update(publicKeyBytes).digest('hex');
   const prior = published?.releasePackage;

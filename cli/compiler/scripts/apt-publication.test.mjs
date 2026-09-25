@@ -36,3 +36,9 @@ test('same-version key bytes cannot change, independent keyring upgrade reuses a
   assert.deepEqual(updated.reuse, ['0.24.0', '0.23.2']);
   assert.throws(() => planAptPublication(selected, { ...prior, releasePackage: { ...prior.releasePackage, identity: '1-2', release: '2' } }, config('1'), key), /downgrade/i);
 });
+
+test('numeric package version fields cannot bypass downgrade detection', () => {
+  const initial = planAptPublication(selected, null, config('2'), key);
+  const prior = { ...published(initial.releaseContentSha256), releasePackage: { identity: '1-2', version: '1', release: '2', releaseContentSha256: initial.releaseContentSha256 } };
+  assert.throws(() => planAptPublication(selected, prior, Buffer.from('{"packageVersion":1,"packageRelease":1}'), key), /Invalid release package version/i);
+});
