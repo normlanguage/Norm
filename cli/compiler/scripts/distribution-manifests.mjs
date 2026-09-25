@@ -1,23 +1,16 @@
-import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { releaseAssetName, releaseTargets, releaseVersion } from './release-model.mjs';
+import { releaseTargets, releaseVersion } from './release-model.mjs';
+import { verifiedReleaseAsset } from './release-assets.mjs';
 
 export function generateManifests(version, assetsDirectory, outputDirectory) {
   releaseVersion(version);
   const homepage = 'https://github.com/normlanguage/Norm';
   const baseUrl = `${homepage}/releases/download/v${version}`;
   const description = 'Statically typed programming language and toolchain';
-  const sums = new Map(readFileSync(join(assetsDirectory, 'SHA256SUMS'), 'utf8').trim().split(/\r?\n/).map(line => {
-    const match = /^([a-fA-F0-9]{64}) [ *](.+)$/.exec(line);
-    if (!match) throw new Error('Invalid release checksum line');
-    return [match[2], match[1].toLowerCase()];
-  }));
   const assets = new Map(releaseTargets.map(({ target }) => {
-    const name = releaseAssetName(version, target);
-    const hash = createHash('sha256').update(readFileSync(join(assetsDirectory, name))).digest('hex');
-    if (sums.get(name) !== hash) throw new Error(`Release checksum mismatch: ${name}`);
+    const { name, hash } = verifiedReleaseAsset(version, target, assetsDirectory);
     return [target, { url: `${baseUrl}/${name}`, hash }];
   }));
   const windows = assets.get('win32-x64');

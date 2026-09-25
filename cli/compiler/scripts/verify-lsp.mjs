@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 const repository = resolve(import.meta.dirname, '../../..');
 const distribution = resolve(process.argv[2] ?? join(repository, 'cli/compiler/target/norm-runtime'));
 const evidence = resolve(process.argv[3] ?? join(repository, 'build/reports/lsp'));
+const cli = process.argv[4] ? resolve(process.argv[4]) : null;
 mkdirSync(evidence, { recursive: true });
 const directory = mkdtempSync(join(tmpdir(), 'norm-lsp-acceptance-'));
 const sessions = [];
@@ -66,8 +67,10 @@ try {
 }
 
 function session(name) {
-  const java = join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
-  const child = spawn(java, ['--sun-misc-unsafe-memory-access=allow', '--enable-native-access=org.graalvm.truffle', '-Dpolyglot.engine.WarnInterpreterOnly=false', '--module-path', join(distribution, 'lib'), '--module', 'dev.w0fv1.norm/dev.w0fv1.norm.cli.Main', 'lsp'], { cwd: directory, windowsHide: true });
+  const java = cli ? null : join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
+  const child = cli
+    ? spawn(cli, ['lsp'], { cwd: directory, windowsHide: true })
+    : spawn(java, ['--sun-misc-unsafe-memory-access=allow', '--enable-native-access=org.graalvm.truffle', '-Dpolyglot.engine.WarnInterpreterOnly=false', '--module-path', join(distribution, 'lib'), '--module', 'dev.w0fv1.norm/dev.w0fv1.norm.cli.Main', 'lsp'], { cwd: directory, windowsHide: true });
   let buffer = Buffer.alloc(0);
   let nextId = 0;
   const pending = new Map();
