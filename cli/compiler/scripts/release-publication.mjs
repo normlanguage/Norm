@@ -52,6 +52,18 @@ export function planPublication(selected, published, renew = false) {
   return { changed: build.length > 0 || renew, build, reuse };
 }
 
+export function planManagedRelease(selected, published, configBytes, publicKeyBytes, renew = false) {
+  const config = JSON.parse(configBytes.toString());
+  if (!/^[1-9]\d*$/.test(config.packageVersion) || !/^[1-9]\d*$/.test(config.packageRelease)) throw new Error('Invalid release package version');
+  const releaseIdentity = `${config.packageVersion}-${config.packageRelease}`;
+  const releaseContentSha256 = createHash('sha256').update(configBytes).update(publicKeyBytes).digest('hex');
+  const prior = published?.releasePackage;
+  if (prior?.identity === releaseIdentity && prior.releaseContentSha256 !== releaseContentSha256) throw new Error('Release configuration or key changed without a version increment');
+  if (prior && (BigInt(config.packageVersion) < BigInt(prior.version) || (config.packageVersion === prior.version && BigInt(config.packageRelease) < BigInt(prior.release)))) throw new Error('Release configuration downgrade');
+  const releaseChanged = !prior || prior.identity !== releaseIdentity;
+  return { ...planPublication(selected, published, releaseChanged || renew), releaseIdentity, releaseChanged, releaseUpgrade: Boolean(published && releaseChanged), releaseContentSha256 };
+}
+
 export function assertSigningKeyLifetime(keyListing, now = Date.now()) {
   const signingSubkeys = keyListing.split('\n').filter(line => {
     const fields = line.split(':');

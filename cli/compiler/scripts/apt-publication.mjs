@@ -1,5 +1,5 @@
 import { planManagedRelease } from './release-publication.mjs';
 
-export function planRpmPublication(selected, published, configBytes, publicKeyBytes, renew = false) {
+export function planAptPublication(selected, published, configBytes, publicKeyBytes, renew = false) {
   return planManagedRelease(selected, published, configBytes, publicKeyBytes, renew);
 }

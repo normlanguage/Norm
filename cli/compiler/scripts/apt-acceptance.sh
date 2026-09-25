@@ -21,7 +21,14 @@ node cli/compiler/scripts/release-model.mjs "$current_version" linux-x64 >/dev/n
 test -f "$final_repository/pool/main/n/normlang/normlang_${current_version}_amd64.deb"
 test -f "$initial_repository/dists/stable/InRelease"
 test -f "$final_repository/dists/stable/InRelease"
-cmp "$initial_repository/normlang-archive-keyring.asc" "$final_repository/normlang-archive-keyring.asc"
+initial_keyring_package=("$initial_repository"/pool/main/n/normlang-archive-keyring/*.deb)
+final_keyring_package=("$final_repository"/pool/main/n/normlang-archive-keyring/*.deb)
+test "${#initial_keyring_package[@]}" -eq 1
+test "${#final_keyring_package[@]}" -eq 1
+test -f "${initial_keyring_package[0]}"
+test -f "${final_keyring_package[0]}"
+initial_keyring_version="$(dpkg-deb --field "${initial_keyring_package[0]}" Version)"
+final_keyring_version="$(dpkg-deb --field "${final_keyring_package[0]}" Version)"
 if [[ -n "$previous_version" ]]; then
   node cli/compiler/scripts/release-model.mjs "$previous_version" linux-x64 >/dev/null
   test -f "$initial_repository/pool/main/n/normlang/normlang_${previous_version}_amd64.deb"
@@ -46,6 +53,10 @@ cleanup() {
     apt-get remove -y normlang > "${evidence:-/tmp}/norm-apt-cleanup.log" 2>&1
     if dpkg-query -W -f='${Status}' normlang 2>/dev/null | grep -q 'install ok installed'; then package_retained=yes; fi
   fi
+  if [[ "${attempted_keyring_install:-}" == yes ]] && dpkg-query -W -f='${Status}' normlang-archive-keyring 2>/dev/null | grep -q 'install ok installed'; then
+    apt-get remove -y normlang-archive-keyring > "${evidence:-/tmp}/norm-apt-keyring-cleanup.log" 2>&1
+    if dpkg-query -W -f='${Status}' normlang-archive-keyring 2>/dev/null | grep -q 'install ok installed'; then package_retained=yes; fi
+  fi
   if [[ "$package_retained" == no ]]; then
     if [[ "${created_source:-}" == yes ]]; then rm -f "$source_file"; fi
     if [[ "${created_keyring:-}" == yes ]]; then rm -f "$keyring"; fi
@@ -54,13 +65,16 @@ cleanup() {
   if [[ -n "${download_test:-}" ]]; then rm -rf -- "$download_test"; fi
   if [[ -n "${package_backup:-}" ]]; then rm -f -- "$package_backup"; fi
   if [[ -n "${tamper_log:-}" ]]; then rm -f -- "$tamper_log"; fi
+  if [[ -n "${old_key_dir:-}" ]]; then rm -rf -- "$old_key_dir"; fi
   exit "$status"
 }
 trap cleanup EXIT
 
 cp -a "$initial_repository" "$repository"
 
-install -m 644 "$repository/normlang-archive-keyring.asc" "$keyring"
+old_key_dir="$(mktemp -d)"
+dpkg-deb -x "${initial_keyring_package[0]}" "$old_key_dir"
+install -m 644 "$old_key_dir/usr/share/keyrings/normlang-archive-keyring.asc" "$keyring"
 created_keyring=yes
 if curl --fail --silent --max-time 1 "http://127.0.0.1:18765/dists/stable/InRelease" > /dev/null; then
   echo 'APT acceptance port is already in use' >&2
@@ -76,7 +90,13 @@ done
 curl --fail --silent "http://127.0.0.1:18765/dists/stable/InRelease" > /dev/null
 printf 'Types: deb\nURIs: http://127.0.0.1:18765\nSuites: stable\nComponents: main\nArchitectures: amd64\nSigned-By: %s\n' "$keyring" > "$source_file"
 created_source=yes
+source_digest="$(sha256sum "$source_file")"
 apt-get update
+attempted_keyring_install=yes
+apt-get install -y normlang-archive-keyring
+dpkg-query -S "$keyring" | grep -F 'normlang-archive-keyring:'
+test "$(dpkg-query -W -f='${Version}' normlang-archive-keyring)" = "$initial_keyring_version"
+cmp "$keyring" "$old_key_dir/usr/share/keyrings/normlang-archive-keyring.asc"
 if [[ "${NORM_APT_TAMPER_CHECK:-}" == 1 ]]; then
   indexed_version="${previous_version:-$current_version}"
   package_file="$repository/pool/main/n/normlang/normlang_${indexed_version}_amd64.deb"
@@ -110,8 +130,11 @@ if [[ -n "$previous_version" ]]; then
   runuser -u normapt-test -- norm --version | grep -Fx "norm $previous_version"
   cp -R "$final_repository/." "$repository/"
   apt-get update
-  apt-get install -y --only-upgrade normlang
+  apt-get upgrade -y
 fi
+test "$(dpkg-query -W -f='${Version}' normlang-archive-keyring)" = "$final_keyring_version"
+cmp "$keyring" "$final_repository/normlang-archive-keyring.asc"
+test "$(sha256sum "$source_file")" = "$source_digest"
 
 runuser -u normapt-test -- norm --version | grep -Fx "norm $current_version"
 runuser -u normapt-test -- sh -c 'cd /home/normapt-test/project && norm run hello.norm' | grep -Fx 'Hello from Norm'
@@ -133,3 +156,4 @@ apt-get remove -y normlang
 test ! -e /usr/bin/norm
 test ! -e /usr/lib/normlang
 test -f /home/normapt-test/project/hello.norm
+test -e "$keyring"
