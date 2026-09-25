@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -27,6 +27,7 @@ test('real Debian tools build a private-runtime package and signed APT repositor
     mkdirSync(join(source, 'norm', 'bin'), { recursive: true });
     mkdirSync(join(source, 'norm', 'runtime', 'bin'), { recursive: true });
     mkdirSync(join(source, 'norm', 'lib'), { recursive: true });
+    chmodSync(join(source, 'norm', 'lib'), 0o775);
     mkdirSync(assets);
     mkdirSync(gpgHome, { mode: 0o700 });
     process.env.GNUPGHOME = gpgHome;
@@ -44,13 +45,26 @@ test('real Debian tools build a private-runtime package and signed APT repositor
     copyFileSync(join(assets, 'SHA256SUMS'), join(alteredAssets, 'SHA256SUMS'));
     writeFileSync(join(alteredAssets, 'norm-v1.2.3-linux-x64.tar.gz'), 'altered');
     assert.throws(() => buildPackage('1.2.3', alteredAssets, join(root, 'rejected')), /checksum/i);
-    const deb = buildPackage('1.2.3', assets, output);
-    const repeatedDeb = buildPackage('1.2.3', assets, join(root, 'repeated-packages'));
+    const originalUmask = process.umask(0o002);
+    let deb;
+    let repeatedDeb;
+    try {
+      deb = buildPackage('1.2.3', assets, output);
+      process.umask(0o022);
+      repeatedDeb = buildPackage('1.2.3', assets, join(root, 'repeated-packages'));
+    } finally {
+      process.umask(originalUmask);
+    }
     assert.equal(createHash('sha256').update(readFileSync(deb)).digest('hex'), createHash('sha256').update(readFileSync(repeatedDeb)).digest('hex'));
     assert.equal(command('dpkg-deb', ['--field', deb, 'Version']).trim(), '1.2.3');
     assert.match(command('dpkg-deb', ['--field', deb, 'Depends']), /libc6/);
-    assert.match(command('dpkg-deb', ['--contents', deb]), /usr\/lib\/normlang\/runtime\/bin\/java/);
-    assert.match(command('dpkg-deb', ['--contents', deb]), /usr\/bin\/norm/);
+    const contents = command('dpkg-deb', ['--contents', deb]);
+    assert.match(contents, /usr\/lib\/normlang\/runtime\/bin\/java/);
+    assert.match(contents, /usr\/bin\/norm/);
+    for (const directory of ['./usr/', './usr/bin/', './usr/lib/']) {
+      assert.ok(contents.split('\n').some(line => line.startsWith('drwxr-xr-x ') && line.endsWith(` ${directory}`)), `Incorrect package directory mode: ${directory}`);
+    }
+    assert.ok(contents.split('\n').some(line => line.startsWith('drwxrwxr-x ') && line.endsWith(' ./usr/lib/normlang/lib/')));
     const extracted = join(root, 'extracted');
     command('dpkg-deb', ['-x', deb, extracted]);
     assert.equal(readlinkSync(join(extracted, 'usr', 'lib', 'normlang', 'lib', 'compiler-link.jar')), 'compiler.jar');

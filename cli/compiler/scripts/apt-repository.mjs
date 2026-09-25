@@ -63,7 +63,7 @@ export function buildPackage(version, assetsDirectory, outputDirectory) {
   const stage = mkdtempSync(join(outputDirectory, '.stage-'));
   const runtime = join(stage, 'usr', 'lib', 'normlang');
   try {
-    execute('tar', ['-xzf', archive, '-C', stage]);
+    execute('tar', ['--same-permissions', '-xzf', archive, '-C', stage]);
     const extracted = join(stage, 'norm');
     if (!existsSync(join(extracted, 'bin', 'norm')) || !existsSync(join(extracted, 'runtime', 'bin', 'java')) || !existsSync(join(extracted, 'lib'))) {
       throw new Error('Incomplete Linux release runtime');
@@ -72,6 +72,7 @@ export function buildPackage(version, assetsDirectory, outputDirectory) {
     renameSync(extracted, runtime);
     const bin = join(stage, 'usr', 'bin');
     mkdirSync(bin, { recursive: true });
+    for (const directory of [join(stage, 'usr'), dirname(runtime), bin]) chmodSync(directory, 0o755);
     const wrapper = join(bin, 'norm');
     writeFileSync(wrapper, '#!/bin/sh\nexec /usr/lib/normlang/bin/norm "$@"\n');
     chmodSync(wrapper, 0o755);
