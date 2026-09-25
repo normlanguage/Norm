@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { releaseTargets, releaseVersion } from './release-model.mjs';
-import { verifiedReleaseAsset } from './release-assets.mjs';
+import { elfFiles, stagePrivateRuntime } from './linux-runtime.mjs';
 
 const debianArchitecture = 'amd64';
 const linuxTarget = releaseTargets.find(value => value.target === 'linux-x64');
@@ -20,65 +20,16 @@ function digest(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-function verifyAsset(version, assetsDirectory) {
-  const { path: archive } = verifiedReleaseAsset(version, 'linux-x64', assetsDirectory);
-  const entries = execute('tar', ['-tzf', archive]).trim().split(/\r?\n/);
-  if (!entries.length || entries.some(entry => !entry.startsWith('norm/') || entry.split('/').includes('..') || entry.includes('\\'))) {
-    throw new Error('Invalid Linux release archive layout');
-  }
-  return archive;
-}
-
-function elfFiles(root) {
-  const files = [];
-  const directories = new Set();
-  const visit = directory => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) visit(path);
-      else if (entry.isFile()) {
-        const descriptor = openSync(path, 'r');
-        const signature = Buffer.alloc(4);
-        const size = readSync(descriptor, signature, 0, 4, 0);
-        closeSync(descriptor);
-        if (size === 4 && signature.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
-          files.push(path);
-          directories.add(dirname(path));
-        }
-      }
-    }
-  };
-  visit(root);
-  return { files, directories: [...directories] };
-}
-
 export function buildPackage(version, assetsDirectory, outputDirectory) {
   releaseVersion(version);
   assetsDirectory = resolve(assetsDirectory);
   outputDirectory = resolve(outputDirectory);
-  const archive = verifyAsset(version, assetsDirectory);
   mkdirSync(outputDirectory, { recursive: true });
   const packagePath = join(outputDirectory, `normlang_${version}_${debianArchitecture}.deb`);
   if (existsSync(packagePath)) throw new Error(`Immutable package already exists: ${packagePath}`);
   const stage = mkdtempSync(join(outputDirectory, '.stage-'));
-  const runtime = join(stage, 'usr', 'lib', 'normlang');
   try {
-    execute('tar', ['--same-permissions', '-xzf', archive, '-C', stage]);
-    const extracted = join(stage, 'norm');
-    if (!existsSync(join(extracted, 'bin', 'norm')) || !existsSync(join(extracted, 'runtime', 'bin', 'java')) || !existsSync(join(extracted, 'lib'))) {
-      throw new Error('Incomplete Linux release runtime');
-    }
-    mkdirSync(dirname(runtime), { recursive: true });
-    renameSync(extracted, runtime);
-    const bin = join(stage, 'usr', 'bin');
-    mkdirSync(bin, { recursive: true });
-    for (const directory of [join(stage, 'usr'), dirname(runtime), bin]) chmodSync(directory, 0o755);
-    const wrapper = join(bin, 'norm');
-    writeFileSync(wrapper, '#!/bin/sh\nexec /usr/lib/normlang/bin/norm "$@"\n');
-    chmodSync(wrapper, 0o755);
-    chmodSync(join(runtime, 'bin', 'norm'), 0o755);
-    const reportedVersion = execute(join(runtime, 'bin', 'norm'), ['--version']).trim();
-    if (reportedVersion !== `norm ${version}`) throw new Error(`Release runtime version mismatch: ${reportedVersion}`);
+    const runtime = stagePrivateRuntime(version, assetsDirectory, stage);
     const { files, directories } = elfFiles(runtime);
     if (!files.length) throw new Error('Linux runtime has no ELF files');
     const debian = join(stage, 'debian');
