@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { releaseTargets, releaseVersion } from './release-model.mjs';
@@ -49,15 +49,41 @@ export function buildPackage(version, assetsDirectory, outputDirectory) {
   }
 }
 
+export function buildKeyringPackage(version, publicKey, outputDirectory) {
+  if (!/^[1-9]\d*-[1-9]\d*$/.test(version)) throw new Error('Invalid keyring package version');
+  publicKey = resolve(publicKey);
+  outputDirectory = resolve(outputDirectory);
+  mkdirSync(outputDirectory, { recursive: true });
+  const packagePath = join(outputDirectory, `normlang-archive-keyring_${version}_all.deb`);
+  if (existsSync(packagePath)) throw new Error(`Immutable package already exists: ${packagePath}`);
+  const stage = mkdtempSync(join(outputDirectory, '.stage-'));
+  try {
+    const keyringDirectory = join(stage, 'usr', 'share', 'keyrings');
+    mkdirSync(keyringDirectory, { recursive: true });
+    for (const directory of ['usr', 'usr/share', 'usr/share/keyrings']) chmodSync(join(stage, directory), 0o755);
+    copyFileSync(publicKey, join(keyringDirectory, 'normlang-archive-keyring.asc'));
+    chmodSync(join(keyringDirectory, 'normlang-archive-keyring.asc'), 0o644);
+    const control = join(stage, 'DEBIAN');
+    mkdirSync(control);
+    chmodSync(control, 0o755);
+    writeFileSync(join(control, 'control'), `Package: normlang-archive-keyring\nVersion: ${version}\nArchitecture: all\nMaintainer: w0fv1 <wofbi1@outlook.com>\nSection: misc\nPriority: optional\nDescription: Norm APT repository signing key\n`);
+    chmodSync(join(control, 'control'), 0o644);
+    execute('dpkg-deb', ['--build', '--root-owner-group', stage, packagePath], { env: { ...process.env, SOURCE_DATE_EPOCH: '0' } });
+    return packagePath;
+  } finally {
+    rmSync(stage, { recursive: true, force: true });
+  }
+}
+
 export function buildRepository(packageDirectory, repositoryDirectory, signingKey) {
   if (!signingKey) throw new Error('A GPG signing key is required');
   packageDirectory = resolve(packageDirectory);
   repositoryDirectory = resolve(repositoryDirectory);
-  const packages = readdirSync(packageDirectory).filter(name => new RegExp(`^normlang_\\d+\\.\\d+\\.\\d+_${debianArchitecture}\\.deb$`).test(name));
+  const packages = readdirSync(packageDirectory).filter(name => new RegExp(`^normlang_\\d+\\.\\d+\\.\\d+_${debianArchitecture}\\.deb$`).test(name) || /^normlang-archive-keyring_[1-9]\d*-[1-9]\d*_all\.deb$/.test(name));
   if (!packages.length) throw new Error('No Norm Debian packages found');
-  const pool = join(repositoryDirectory, 'pool', 'main', 'n', 'normlang');
-  mkdirSync(pool, { recursive: true });
   for (const name of packages) {
+    const pool = join(repositoryDirectory, 'pool', 'main', 'n', name.startsWith('normlang-archive-keyring_') ? 'normlang-archive-keyring' : 'normlang');
+    mkdirSync(pool, { recursive: true });
     const source = join(packageDirectory, name);
     const destination = join(pool, name);
     if (existsSync(destination)) {
@@ -81,6 +107,7 @@ export function buildRepository(packageDirectory, repositoryDirectory, signingKe
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [, , mode, ...args] = process.argv;
   if (mode === 'package' && args.length === 3) console.log(buildPackage(...args));
+  else if (mode === 'keyring' && args.length === 3) console.log(buildKeyringPackage(...args));
   else if (mode === 'repository' && args.length === 3) console.log(buildRepository(...args));
-  else throw new Error('Usage: apt-repository.mjs package <version> <release-assets> <package-output> | repository <package-directory> <repository-output> <gpg-key>');
+  else throw new Error('Usage: apt-repository.mjs package <version> <release-assets> <package-output> | keyring <version-release> <public-key.asc> <package-output> | repository <package-directory> <repository-output> <gpg-key>');
 }

@@ -5,7 +5,7 @@ import { chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { buildPackage, buildRepository } from './apt-repository.mjs';
+import { buildKeyringPackage, buildPackage, buildRepository } from './apt-repository.mjs';
 
 const command = (name, args, options = {}) => {
   const result = spawnSync(name, args, { encoding: 'utf8', ...options });
@@ -70,8 +70,32 @@ test('real Debian tools build a private-runtime package and signed APT repositor
     assert.equal(readlinkSync(join(extracted, 'usr', 'lib', 'normlang', 'lib', 'compiler-link.jar')), 'compiler.jar');
     command('gpg', ['--batch', '--passphrase', '', '--quick-generate-key', 'Norm APT Test <apt-test@normlanguage.org>', 'ed25519', 'sign', '1d']);
     const fingerprint = command('gpg', ['--with-colons', '--list-secret-keys']).split('\n').find(line => line.startsWith('fpr:')).split(':')[9];
+    const publicKey = join(root, 'key.asc');
+    writeFileSync(publicKey, command('gpg', ['--batch', '--armor', '--export', fingerprint]));
+    const keyringUmask = process.umask(0o002);
+    let keyringDeb;
+    let repeatedKeyring;
+    try {
+      keyringDeb = buildKeyringPackage('1-1', publicKey, output);
+      process.umask(0o022);
+      repeatedKeyring = buildKeyringPackage('1-1', publicKey, join(root, 'repeated-keyring'));
+    } finally {
+      process.umask(keyringUmask);
+    }
+    assert.equal(createHash('sha256').update(readFileSync(keyringDeb)).digest('hex'), createHash('sha256').update(readFileSync(repeatedKeyring)).digest('hex'));
+    assert.throws(() => buildKeyringPackage('1-1', publicKey, output), /Immutable package/);
+    assert.equal(command('dpkg-deb', ['--field', keyringDeb, 'Package']).trim(), 'normlang-archive-keyring');
+    assert.equal(command('dpkg-deb', ['--field', keyringDeb, 'Architecture']).trim(), 'all');
+    assert.equal(command('dpkg-deb', ['--field', keyringDeb, 'Version']).trim(), '1-1');
+    const keyringExtracted = join(root, 'keyring-extracted');
+    command('dpkg-deb', ['-x', keyringDeb, keyringExtracted]);
+    assert.deepEqual(readFileSync(join(keyringExtracted, 'usr/share/keyrings/normlang-archive-keyring.asc')), readFileSync(publicKey));
+    const keyringContents = command('dpkg-deb', ['--contents', keyringDeb]);
+    for (const directory of ['./usr/', './usr/share/', './usr/share/keyrings/']) assert.ok(keyringContents.split('\n').some(line => line.startsWith('drwxr-xr-x ') && line.endsWith(` ${directory}`)));
+    assert.ok(keyringContents.split('\n').some(line => line.startsWith('-rw-r--r-- ') && line.endsWith(' ./usr/share/keyrings/normlang-archive-keyring.asc')));
     const repo = join(root, 'repo');
     buildRepository(output, repo, fingerprint);
+    assert.match(readFileSync(join(repo, 'dists/stable/main/binary-amd64/Packages'), 'utf8'), /Package: normlang-archive-keyring\nArchitecture: all\nVersion: 1-1/);
     writeFileSync(join(source, 'norm', 'bin', 'norm'), '#!/bin/sh\nprintf "norm 1.2.4\\n"\n', { mode: 0o755 });
     const nextArchive = join(assets, 'norm-v1.2.4-linux-x64.tar.gz');
     command('tar', ['-C', source, '-czf', nextArchive, 'norm']);
