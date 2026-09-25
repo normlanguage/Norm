@@ -37,7 +37,9 @@ test -f "$initial/$key"
 test -f "$initial/normlang-release-latest.noarch.rpm"
 test -f "$initial/fedora/44/x86_64/repodata/repomd.xml.asc"
 test -f "$final/fedora/44/x86_64/repodata/repomd.xml.asc"
-cmp "$initial/$key" "$final/$key"
+initial_key_identity="$(gpg --show-keys --with-colons "$initial/$key" | awk -F: '$1 == "fpr" { printf "%s:", $10 }')"
+final_key_identity="$(gpg --show-keys --with-colons "$final/$key" | awk -F: '$1 == "fpr" { printf "%s:", $10 }')"
+test "$initial_key_identity" = "$final_key_identity"
 initial_release="$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$initial/normlang-release-latest.noarch.rpm")"
 final_release="$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$final/normlang-release-latest.noarch.rpm")"
 case "$release_upgrade" in
@@ -106,8 +108,10 @@ dnf -y "${repo_override[@]}" upgrade normlang
 runuser -u "$user" -- norm --version | grep -Fx "norm $version"
 dnf -y "${repo_override[@]}" upgrade normlang-release
 test "$(rpm -q --qf '%{VERSION}-%{RELEASE}' normlang-release)" = "$final_release"
+rpm -q libdnf5-plugin-expired-pgp-keys
 test -f "$repo"
 test -f /etc/pki/rpm-gpg/RPM-GPG-KEY-normlang
+cmp "/etc/pki/rpm-gpg/$key" "$final/$key"
 runuser -u "$user" -- bash -c "cd /home/$user/project && norm run hello.norm" | grep -Fx 'Hello from Norm'
 
 if [[ "${NORM_RPM_FULL_ACCEPTANCE:-}" == 1 ]]; then
