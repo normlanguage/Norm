@@ -36,11 +36,12 @@ jobs:
         run: npm ci
       - name: Verify documentation examples
         run: |
-          ./gradlew :compiler:test --tests 'dev.w0fv1.norm.truffle.ProgramExecutionTest.runsDocumentationExamples' --tests 'dev.w0fv1.norm.truffle.ProgramExecutionTest.runsDocumentationProjectExamples' --no-daemon
           report=build/compiler/test-results/test/TEST-dev.w0fv1.norm.truffle.ProgramExecutionTest.xml
-          test -s "$report"
-          grep -q 'name="runsDocumentationExamples()' "$report"
-          grep -q 'name="runsDocumentationProjectExamples()' "$report"
+          for factory in runsDocumentationExamples runsDocumentationProjectExamples; do
+            rm -f "$report"
+            ./gradlew :compiler:test --tests "dev.w0fv1.norm.truffle.ProgramExecutionTest.$factory" --no-daemon
+            python3 -c 'import sys, xml.etree.ElementTree as ET; suite = ET.parse(sys.argv[1]).getroot(); counts = {key: int(suite.attrib[key]) for key in ("tests", "skipped", "failures", "errors")}; assert counts["tests"] > 0 and not any(counts[key] for key in ("skipped", "failures", "errors")), counts' "$report"
+          done
       - name: Build VitePress site
         working-directory: docs
         run: npm run docs:build
