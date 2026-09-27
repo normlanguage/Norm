@@ -1,45 +1,45 @@
-# 类型系统形式化
+# Formal type system
 
-本页给出静态判断使用的核心关系。符号用于描述规则，不要求编译器采用相同内部数据结构。
+This page defines the core relations used by static judgments. The notation describes the rules and does not prescribe compiler-internal data structures.
 
-## 环境
+## Environments
 
-- `Γ`：局部名称、字段、函数和类型参数环境；
-- `Δ`：名义类型声明、继承与 interface 实现关系；
-- `N`：控制流 null-state；
-- `A`：确定赋值集合。
+- `Γ`: local names, fields, functions, and type parameters;
+- `Δ`: nominal type declarations, inheritance, and interface implementation;
+- `N`: control-flow null state;
+- `A`: the definitely assigned set.
 
-表达式类型判断写为 `Δ; Γ; N; A ⊢ e : T`。
+The expression typing judgment is written `Δ; Γ; N; A ⊢ e : T`.
 
-## 子类型
+## Subtyping
 
-子类型关系 `<:` 是以下规则的最小传递闭包：
+The subtype relation `<:` is the least transitive closure of:
 
-1. 自反：`T <: T`；
-2. 声明继承：class extends 和 interface extends；
-3. 实现：class/value implements interface；
-4. Nullable 提升：`T <: T?`；
-5. 安全数值提升；
-6. 泛型通配符产生的局部捕获关系。
+1. Reflexivity: `T <: T`;
+2. Declared inheritance: class `extends` and interface `extends`;
+3. Implementation: class/value `implements` interface;
+4. Nullable promotion: `T <: T?`;
+5. Safe numeric promotion;
+6. Local capture relations introduced by generic wildcards.
 
-普通 `G<S>` 与 `G<T>` 在 `S != T` 时互不构成子类型。`ref<T>` 始终不变。
+Ordinary `G<S>` and `G<T>` are not subtypes of each other when `S != T`. `ref<T>` is always invariant.
 
-## Null-state
+## Null state
 
-N 为 nullable 局部绑定维护 `MaybeNull | Null | NonNull`。条件 `x != null` 在 true 分支把 x 更新为 NonNull，`x == null` 在对应分支更新为 Null。对局部绑定的重新赋值按新值更新状态；可变字段不进入局部 smart cast 状态，读取后应先保存到局部变量再收窄。
+For nullable local bindings, `N` tracks `MaybeNull | Null | NonNull`. In the true branch, `x != null` updates `x` to `NonNull`; `x == null` updates it to `Null` in its corresponding branch. Reassignment of a local binding updates its state from the new value. Mutable fields do not enter local smart-cast state: save a field read into a local variable before narrowing it.
 
-## 控制表达式合并
+## Combining control expressions
 
-若分支结果为 `T1...Tn`，表达式类型是满足每个 `Ti <: T` 的唯一最具体 T。不存在唯一 T 时拒绝；编译器不合成匿名 union。
+If branch results have types `T1...Tn`, the expression type is the unique most-specific `T` satisfying every `Ti <: T`. Reject the expression when there is no unique `T`; the compiler does not synthesize an anonymous union.
 
-## 函数
+## Functions
 
-调用要求每个实参类型可赋给对应形参。函数值兼容要求参数逆变、返回协变，但命名调用的 public 参数名也必须兼容。重载选择在泛型替换后得到唯一最佳候选。
+A call requires every argument type to be assignable to its corresponding parameter. Function-value compatibility requires contravariant parameters and a covariant return, while public parameter names in named calls must also be compatible. Overload selection must yield one uniquely best candidate after generic substitution.
 
-## 确定赋值
+## Definite assignment
 
-A 记录已初始化绑定。读取 x 要求 `x ∈ A`。if 后取两分支 A 的交集；循环体可能执行零次，因此普通循环后的 A 不加入只在循环体赋值的变量。
+`A` tracks initialized bindings. Reading `x` requires `x ∈ A`. After an `if`, intersect the sets from both branches. Because a loop body may execute zero times, an ordinary loop does not add variables assigned only in its body to the subsequent set.
 
-## Soundness 目标
+## Soundness target
 
-通过类型检查的程序不应因缺失成员、不安全 nullable 解引用或泛型实参错配而进入未定义行为。Exception、显式 cast 失败和资源错误仍是规范允许的运行时结果。
+A program that passes type checking should not enter undefined behavior because of a missing member, unsafe nullable dereference, or mismatched generic argument. Exceptions, failed explicit casts, and resource errors remain permitted runtime outcomes.

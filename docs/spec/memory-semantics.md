@@ -1,19 +1,19 @@
-# 内存语义
+# Memory semantics
 
-Norm 规定可观察的值和身份，不规定对象布局或内存管理算法。具体赋值规则由 [Value 与 Identity 语义](/spec/value-identity-semantics) 定义。
+Norm specifies observable values and identity, not object layout or a memory-management algorithm. The concrete assignment rules are defined by [value and identity semantics](/spec/value-identity-semantics).
 
-## 可观察行为
+## Observable behavior
 
-- value 在赋值、传参和返回后逻辑独立；
-- class 操作共享对象身份；
-- `class.copy()` 创建新的顶层对象身份；
-- value 结构相等，class 按身份相等；
-- 实参和子表达式按源码从左到右求值。
+- A value is logically independent after assignment, argument passing, and return.
+- Class operations share object identity.
+- `class.copy()` creates a new top-level object identity.
+- Values compare structurally; classes compare by identity.
+- Arguments and subexpressions are evaluated from left to right in source order.
 
-实现可以使用 eager copy、写时复制、结构共享和逃逸分析。优化不能改变上述行为。
+Implementations may use eager copying, copy-on-write, structural sharing, and escape analysis. Optimizations must not change these behaviors.
 
-## 生命周期
+## Lifetime
 
-程序不手动释放普通值或 class 实例。仍可达的对象必须保持有效；外部资源通过显式作用域 API 管理。内存不足和栈溢出不要求能被普通程序可靠恢复。
+Programs do not manually release ordinary values or class instances. Reachable objects must remain valid; external resources are managed through explicit scoped APIs. Ordinary programs are not required to recover reliably from out-of-memory or stack-overflow conditions.
 
-`ref<T>` 的可寻址位置、逃逸限制与词法生命周期由[引用规则](/spec/grammar/references)统一定义。
+Addressable locations, escape restrictions, and lexical lifetime for `ref<T>` are defined together in the [reference rules](/spec/grammar/references).

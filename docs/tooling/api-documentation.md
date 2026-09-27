@@ -1,49 +1,51 @@
 ---
-title: API 文档导出
-description: 从 Norm 语义模型生成可浏览的结构化模块文档
+title: API Documentation Export
+description: Generate browsable structured module docs from the Norm semantic model
 ---
 
-# API 文档导出
+# API Documentation Export
 
-`norm docs` 从编译器语义模型读取公开声明及其 `@Document`，因此声明 identity、类型、参数、源码顺序和文档来自同一次编译，不需要维护另一份 API 描述。
+`norm docs` reads public declarations and their `@Document` annotations from the compiler semantic model. Declaration identity, types, parameters, source order, and documentation therefore come from one compilation without maintaining another API description.
 
-## Markdown 引用检查
+## Markdown reference checking
 
 ```bash
 norm docs check path/to/markdown --module path/to/module
 norm docs check path/to/markdown --format json
 ```
 
-引用地址使用 `@模块名.导出文件.声明#版本`；GitHub 包增加 `github.` 前缀，例如 `@github.h2.database.xxfile.xxfunction#1`。外部引用按注册表中最长匹配的模块名前缀确定模块，再通过[包管理器](/ecosystem/package-manager)下载精确版本；不同版本分别分析。示例地址用于说明语法，不保证对应包或声明存在。
+A reference address has the form `@module-name.exported-file.declaration#version`. A GitHub package adds a `github.` prefix, for example `@github.h2.database.xxfile.xxfunction#1`. The longest matching module-name prefix in the registry identifies an external module, whose exact version is downloaded through the [package manager](/ecosystem/package-manager). Different versions are analyzed separately. These sample addresses illustrate syntax; they do not guarantee that a corresponding package or declaration exists.
 
-本地引用由 `--module` 指定源码模块，版本必须与模块声明一致。例如 @std.annotation.protocols.FieldTarget#1。文件部分使用模块的导出路径，不是 package 名；声明及成员仍由编译器语义模型解析。重载使用带类型签名的完整形式，例如 `@{std.math.integer.clamp(Integer,Integer,Integer)#1}`。
+`--module` selects the source module for local references, and the reference version must match the module declaration. For example: @std.annotation.protocols.FieldTarget#1. The file portion uses the module's export path, not its package name; declarations and members are still resolved by the compiler semantic model. An overloaded function needs its complete typed signature, such as `@{std.math.integer.clamp(Integer,Integer,Integer)#1}`.
 
-检查递归读取目录下的 `.md` 文件，跳过隐藏目录、隐藏文件和 `node_modules`。正文和链接文字中的引用参与检查；代码块、行内代码、HTML 标签与注释、链接地址、邮箱和转义的 `\@` 不参与。版本缺失、声明不存在、未公开导出、重载歧义或包解析失败会产生带 Markdown 位置的诊断与失败退出码。被引用模块须能通过当前工具链的语义分析。检查只验证声明引用，不验证自然语言描述与实现行为一致。
+Checking recursively reads `.md` files in a directory, skipping hidden directories, hidden files, and `node_modules`. References in body text and link labels are checked; code blocks, inline code, HTML tags and comments, link destinations, email addresses, and escaped `\@` are excluded. A missing version, nonexistent declaration, unpublished export, ambiguous overload, or package-resolution failure yields a diagnostic at the Markdown location and a failing exit code. The referenced module must be analyzable by the current toolchain. This checks declaration references, not whether prose accurately describes implementation behavior.
 
-本站构建和开发预览通过 [VitePress 插件](https://github.com/normlanguage/Norm/blob/main/docs/.vitepress/markdown-references.ts)调用同一编译器入口。`@Document` 的定义仍见 [Annotation 规范](/spec/annotations)。
+This site's build and development preview call the same compiler entry point through the [VitePress plugin](https://github.com/normlanguage/Norm/blob/main/docs/.vitepress/markdown-references.ts). The [annotation specification](/spec/annotations) defines `@Document`.
 
-## 生成
+## Generation
 
-指定目录必须直接包含 `module.norm`：
+The specified directory must directly contain `module.norm`:
 
 ```bash
 norm docs path/to/module --output path/to/api --strict
 ```
 
-`--strict` 要求导出的公开声明及普通 callable 参数具有 `@Document`。编译错误或文档缺失时不会生成一部分结果。
+`--strict` requires `@Document` on exported public declarations and ordinary callable parameters. Compile errors or missing documentation prevent a partial result from being generated.
 
-输出目录完整映射源模块：根清单为 `module.api.json`，其余 `.norm` 文件在相同相对目录下生成同名 `.api.json`。例如 `collections/sequences.norm` 对应 `collections/sequences.api.json`。再次生成会以一棵完整的新树替换旧的生成结果。
+The output directory mirrors the complete source module. `module.api.json` is the root manifest; every other `.norm` file produces a same-named `.api.json` at the same relative path. For example, `collections/sequences.norm` maps to `collections/sequences.api.json`. A subsequent generation replaces the previous output with one complete new tree.
 
-JSON 的唯一结构契约是 [公共 Schema](/schemas/norm-api-v1.json)，模块清单和文件文档分别使用 [Module API Schema](/schemas/module-api-v1.json) 与 [File API Schema](/schemas/file-api-v1.json)。
+The single structural contract for JSON is the [public schema](/schemas/norm-api-v1.json). The module manifest and file documents use the [Module API schema](/schemas/module-api-v1.json) and [File API schema](/schemas/file-api-v1.json), respectively.
 
-## 浏览
+## Browsing
 
-VitePress 主题全局注册了 `NormModuleDocument`。组件只需要生成目录的公开 URL：
+The VitePress theme registers `NormModuleDocument` globally. A component needs only the public URL of the generated directory:
 
 ```vue
 <NormModuleDocument root="/api/std/" />
 ```
 
-组件读取 `module.api.json` 构建目录树，并在选择文件时加载对应的 `.api.json`。每个模块拥有独立的输出根目录和组件实例。
+The component reads `module.api.json` to build a directory tree and loads the matching `.api.json` when a file is selected. Each module has its own output root and component instance.
 
-生成器分析模块的生产和测试源码集合，从 `@Test` 派生 `Unit tests` 关联，不执行测试。关联可跳转到对应测试文件中的源码；测试源码不作为公开 API 导出，也不要求 `@Document`。测试声明见 [测试 API](/stdlib/testing-api)。
+English `@Document` text remains the source description. The Chinese browser uses the [Chinese description catalog](https://github.com/normlanguage/Norm/blob/main/docs/translations/zh-CN/api.json); the [API build check](https://github.com/normlanguage/Norm/blob/main/docs/scripts/check-norm-api.mjs) requires a translation for every generated description and rejects obsolete entries.
+
+The generator analyzes both production and test source sets. It derives `Unit tests` associations from `@Test` without running tests. Associations link to the corresponding test-source file; test sources are not exported as public API and need no `@Document`. See the [Testing API](/stdlib/testing-api) for test declarations.

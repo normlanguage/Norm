@@ -1,25 +1,24 @@
-# 项目治理
+# Project governance
 
-治理的目标是让语言规则可追溯，而不是让实现细节通过一次提交直接成为事实标准。
+Governance makes language rules traceable. An implementation detail does not become a de facto standard merely because it landed in a commit.
 
-## 决策范围
+## Decision areas
 
-- 语言语法与语义由语言提案决定；
-- 标准库 public API 使用库提案；
-- 编译器内部重构由维护者评审，但不能改变可观察语义；
-- 文档修正可以直接提交，涉及规则变化时必须链接对应提案。
+- Language syntax and semantics are decided through language proposals.
+- Public standard-library APIs use library proposals.
+- Maintainers review internal compiler refactors, but those changes must not alter observable semantics.
+- Documentation corrections can be submitted directly. Changes to rules must link the corresponding proposal.
 
-## 角色
+## Roles
 
-维护者负责合并、发布和安全响应；领域评审者负责类型系统、运行时、标准库或工具链的专业审查；贡献者可以提交 issue、提案、实现和测试。角色授予基于持续贡献，不绑定雇主。
+Maintainers handle merges, releases, and security response. Domain reviewers provide specialist review for the type system, runtime, standard library, or toolchain. Contributors can submit issues, proposals, implementations, and tests. Roles are based on sustained contribution, not employment.
 
-## 决策记录
+## Decision records
 
-每个 accepted 提案保留稳定编号、状态、日期、决策人和反对意见摘要。讨论可以发生在 issue 或会议中，但最终规则必须写回仓库，不能只存在聊天记录。
+Each accepted proposal retains a stable number, status, date, decision maker, and summary of objections. Discussion may occur in issues or meetings, but final rules must be recorded in the repository rather than only in a chat log.
 
-## 利益冲突
+## Conflicts of interest
 
-评审者应披露可能从特定决策直接获益的商业关系，并在必要时回避最终决定。安全问题可以先私下修复，修复发布后再补公开记录。
+Reviewers should disclose commercial relationships that may benefit directly from a decision and recuse themselves from the final decision when necessary. A security issue may be fixed privately first, with a public record added after the fix is released.
 
-当前项目规模尚小，最终决策暂由核心维护者作出；当维护者数量增长后，应把批准人数、申诉和任期写成独立章程。
-
+The project is still small, so core maintainers currently make the final decisions. As the maintainer group grows, approval counts, appeals, and terms should be defined in a separate charter.

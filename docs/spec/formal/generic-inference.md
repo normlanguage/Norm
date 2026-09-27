@@ -1,3 +1,3 @@
-# 泛型推断
+# Generic inference
 
-泛型调用、菱形构造器、集合字面量与数字字面量共用同一双向约束求解模型。规则、求解顺序与失败边界统一见[类型推断形式化说明](/spec/type-inference-formal)。
+Generic calls, diamond constructors, collection literals, and numeric literals share one bidirectional constraint-solving model. See [formal type inference](/spec/type-inference-formal) for the rules, solving order, and failure boundaries.

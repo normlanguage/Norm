@@ -1,52 +1,52 @@
 # Standard Library
 
-当前标准库围绕核心值、Unicode 文本、集合、受控系统资源和结构数据建立强类型 API。公开能力以 `norm/stdlib/std` 源码、内建 ABI 与当前版本验收程序为准。
+The current standard library builds strongly typed APIs around core values, Unicode text, collections, controlled system resources, and structured data. The `norm/stdlib/std` sources, built-in ABI, and current-version acceptance programs define the public capabilities.
 
-## 已交付模块
+## Delivered modules
 
-| Package | 职责 | 参考 |
+| Package | Responsibility | Reference |
 | --- | --- | --- |
-| `std.core` | Result、Unit、Exception 与核心 interface | [核心类型](https://github.com/normlanguage/Norm/tree/main/norm/stdlib/std/core) |
-| `std.annotation` | Annotation 目标、保留与拦截 interface | [Annotation 规范](/spec/annotations) |
-| `std.text` | Unicode 规范化与文本构造 | [String](/stdlib/string) |
-| `std.collections` | 序列算法与集合 extension | [Collections](/stdlib/collections) |
-| `std.configuration` | 类型化框架配置到宿主属性的结构映射 | [Configuration](/stdlib/configuration) |
-| `std.math` | Integer 数学函数 | [Math](/stdlib/math) |
-| `std.cli` | 长选项、位置参数与帮助 | [CLI](/stdlib/cli) |
-| `std.application` | 参数、环境、目录与完成码 | [CLI](/stdlib/cli) |
-| `std.process` | 子进程、输出预算、超时与取消 | [CLI](/stdlib/cli) |
-| `std.time` | Instant、Duration 与 Clock | [Time](/stdlib/time) |
-| `std.concurrent` | 有类型任务、等待与取消 | [Concurrency](/stdlib/concurrency) |
-| `std.build` | 强类型结果构建器 | [结果构建器](/spec/grammar/result-builders) |
-| `std.io` | Bytes、UTF-8、流与 Resource | [I/O](/stdlib/io) |
-| `std.filesystem` | 流式文件读写 | [Filesystem](/stdlib/filesystem) |
-| `std.http` | URI、请求、响应与 HTTP client | [HTTP](/stdlib/http) |
-| `std.websocket` | WS/WSS 客户端、消息与连接生命周期 | [WebSocket](/stdlib/websocket) |
-| `std.serialization` | 结构映射契约与 metadata | [Serialization](/stdlib/serialization) |
-| `std.json` | JSON tree、parse/write 与结构映射 | [JSON](/stdlib/json-api) |
-| `std.xml` | XML 结构映射 | [XML](/stdlib/xml-api) |
-| `std.yaml` | YAML 结构映射 | [YAML](/stdlib/yaml-api) |
-| `std.validation` | 字段与参数约束 | [Validation](/stdlib/validation-api) |
-| `std.testing` | 断言值与验收输出协议 | [Testing](/stdlib/testing-api) |
+| `std.core` | Result, Unit, Exception, and core interfaces | [Core types](https://github.com/normlanguage/Norm/tree/main/norm/stdlib/std/core) |
+| `std.annotation` | Annotation targets, retention, and interception interfaces | [Annotation specification](/spec/annotations) |
+| `std.text` | Unicode normalization and text construction | [String](/stdlib/string) |
+| `std.collections` | Sequence algorithms and collection extensions | [Collections](/stdlib/collections) |
+| `std.configuration` | Structural mapping from typed framework configuration to host properties | [Configuration](/stdlib/configuration) |
+| `std.math` | Integer math functions | [Math](/stdlib/math) |
+| `std.cli` | Long options, positional arguments, and help | [CLI](/stdlib/cli) |
+| `std.application` | Arguments, environment, directories, and completion codes | [CLI](/stdlib/cli) |
+| `std.process` | Child processes, output budgets, timeouts, and cancellation | [CLI](/stdlib/cli) |
+| `std.time` | Instant, Duration, and Clock | [Time](/stdlib/time) |
+| `std.concurrent` | Typed tasks, waiting, and cancellation | [Concurrency](/stdlib/concurrency) |
+| `std.build` | Strongly typed result builders | [Result builders](/spec/grammar/result-builders) |
+| `std.io` | Bytes, UTF-8, streams, and Resource | [I/O](/stdlib/io) |
+| `std.filesystem` | Streaming file I/O | [Filesystem](/stdlib/filesystem) |
+| `std.http` | URIs, requests, responses, and HTTP clients | [HTTP](/stdlib/http) |
+| `std.websocket` | WS/WSS clients, messages, and connection lifecycle | [WebSocket](/stdlib/websocket) |
+| `std.serialization` | Structural mapping contracts and metadata | [Serialization](/stdlib/serialization) |
+| `std.json` | JSON tree, parsing/writing, and structural mapping | [JSON](/stdlib/json-api) |
+| `std.xml` | XML structural mapping | [XML](/stdlib/xml-api) |
+| `std.yaml` | YAML structural mapping | [YAML](/stdlib/yaml-api) |
+| `std.validation` | Field and parameter constraints | [Validation](/stdlib/validation-api) |
+| `std.testing` | Assertion values and acceptance output protocol | [Testing](/stdlib/testing-api) |
 
-`Array`、`List`、`Map`、`Set`、`Stack`、`Queue`、`Deque`、`Pair`、`Range` 和 `StringBuilder` 是当前内建类型模型的一部分，并由标准库源码提供组合算法。
+`Array`, `List`, `Map`, `Set`, `Stack`, `Queue`, `Deque`, `Pair`, `Range`, and `StringBuilder` belong to the current built-in type model; standard-library sources supply composition algorithms for them.
 
-## 共同规则
+## Shared rules
 
-- 公共 API 保留完整静态类型，不接受 raw collection；
-- 普通缺失使用 `T?`，互斥业务结果使用 enum 或 `Result<T, E>`，系统失败抛出领域 Exception；
-- 外部资源通过 `Resource` 与 `use` 确定性关闭；
-- 文本 API 明确区分 byte、Unicode code point 和 grapheme；
-- 序列化按 Core field ordinal 读取 value，不依赖 JVM reflection 或字符串 getter；
-- 配置映射与序列化共享结构 metadata，不维护第二份字符串属性表；
-- 每个格式保留自己的领域规则和失败类型，不使用不真实的统一错误模型。
+- Public APIs retain complete static types and reject raw collections.
+- Ordinary absence uses `T?`; mutually exclusive business outcomes use an enum or `Result<T, E>`; system failures throw domain exceptions.
+- External resources close deterministically through `Resource` and `use`.
+- Text APIs distinguish bytes, Unicode code points, and graphemes explicitly.
+- Serialization reads values by Core field ordinal, without JVM reflection or string-based getters.
+- Configuration mapping shares structural metadata with serialization instead of maintaining a second string-property table.
+- Each format retains its own domain rules and failure types rather than using a misleading unified error model.
 
-## 当前边界
+## Current boundaries
 
-结构映射只处理 `value`。Class identity、对象图、循环引用和多态尚未进入协议；HTTP server 也尚未交付。完整状态见 [Status](/status)。
+Structural mapping handles only `value` types. Class identity, object graphs, cycles, and polymorphism are not yet part of the protocol; an HTTP server has not yet been delivered either. See [Status](/status) for the full state.
 
-具体签名以各页面链接的 Norm 源码为准，文档负责解释模块职责、失败边界和最小用法，不复制第二份完整方法清单。
+The Norm sources linked from each page define exact signatures. These pages explain module responsibilities, failure boundaries, and minimal usage without duplicating complete method lists.
 
-## 独立库
+## Independent libraries
 
-[OpenAI 客户端](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai) 作为独立 Module 提供 Responses API，不进入标准库。
+The [OpenAI client](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai) is an independent module providing the Responses API; it is not part of the standard library.

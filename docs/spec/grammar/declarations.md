@@ -1,8 +1,8 @@
-# 声明语法
+# Declaration Syntax
 
-声明创建模块成员、类型成员或局部绑定。Norm 使用类型前置，让 API 形状在名称之前可见。
+Declarations create module members, type members, or local bindings. Norm puts types first so an API's shape appears before its name.
 
-## 顶层类别
+## Top-level forms
 
 ```text
 Declaration := Visibility? (
@@ -15,7 +15,7 @@ Declaration := Visibility? (
 )
 ```
 
-## Class 与 Value
+## Class and Value
 
 ```norm
 class Counter {
@@ -29,7 +29,7 @@ value Point {
 }
 ```
 
-class 可以包含可变字段和行为，并且赋值保留对象 identity；value 构造后不可变并按 value 规则赋值。字段默认表达式使对应的隐式构造参数可省略，并在构造位置按字段顺序求值；必填字段必须位于默认字段之前。没有默认值的字段仍须满足确定赋值。
+A class may contain mutable fields and behavior, and assignment retains object identity. A value is immutable after construction and follows value assignment rules. A field default makes its implicit constructor parameter optional and evaluates at construction in field order. Required fields precede defaulted fields. Fields without defaults still obey definite-assignment requirements.
 
 ## Interface
 
@@ -39,7 +39,7 @@ interface Formatter<T> {
 }
 ```
 
-interface 只声明行为，满足关系必须显式写 implements。
+An interface declares behavior only. A satisfying relationship must explicitly write `implements`.
 
 ## Enum
 
@@ -50,9 +50,9 @@ enum State {
 }
 ```
 
-variant 参数是其携带数据的完整声明。enum 封闭且可由 switch 穷尽。
+A variant's parameters fully declare its carried data. An enum is closed and can be exhaustively matched by switch.
 
-## 函数
+## Functions
 
 ```norm
 Integer coordinateSum(Point point) {
@@ -60,12 +60,12 @@ Integer coordinateSum(Point point) {
 }
 ```
 
-解析省略规则后得到的返回类型、参数类型和 public 参数名都是签名的一部分。只改变返回类型不能构成 overload。
+The return and parameter types after applying omission rules, plus public parameter names, are part of the signature. A return-type-only change cannot form an overload.
 
 ## Annotation
 
-Annotation 是带目标与保留策略 interface 的特殊 class，可以声明字段、构造器和方法。完整语义见 [Annotation 规范](/spec/annotations)。
+An annotation is a special class with target and retention-policy interfaces. It can declare fields, constructors, and methods. See the [annotation specification](/spec/annotations) for complete semantics.
 
-## 重复与作用域
+## Duplicates and scope
 
-同一作用域中不能声明冲突名称。局部变量从声明后到块末尾可见；类型参数只在所属声明及其成员签名/实现内可见。
+Conflicting names cannot be declared in one scope. A local is visible after its declaration through the end of its block. A type parameter is visible only in its owning declaration and that declaration's member signatures and implementations.

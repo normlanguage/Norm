@@ -1,29 +1,29 @@
-# 对象模型规范
+# Object-model specification
 
-Norm 的复合数据分为没有身份的 value、具有身份的 class、行为契约 interface 和封闭数据类型 enum。赋值、复制与相等的完整规则见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
+Norm composite data consists of identity-free values, identity-bearing classes, behavioral interfaces, and closed enum data types. See [value and identity semantics](/spec/value-identity-semantics) for complete assignment, copying, and equality rules.
 
 ## Class
 
-class 可以拥有字段、构造器和方法，并且可以继承一个 class、实现多个 interface。实例可变且具有稳定身份；赋值、传参和返回共享同一实例。`copy()` 创建新的顶层身份，并逐字段执行普通赋值。
+A class may have fields, constructors, and methods. It may extend one class and implement multiple interfaces. Instances are mutable and have stable identity; assignment, argument passing, and return share the same instance. `copy()` creates a new top-level identity and applies ordinary assignment to each field.
 
-把子 class 赋给父类型或 interface 变量时保留动态类型，不发生 object slicing。可覆盖方法按动态类型分派。
+Assigning a subclass instance to a superclass or interface variable preserves its dynamic type; no object slicing occurs. Overridable methods dispatch according to the dynamic type.
 
 ## Value
 
-value 表示没有 identity 的数据。字段在构造完成后不可原地修改；赋值、传参和返回产生逻辑独立值。相等与 hash 递归使用全部字段。value 可以实现 interface，但不参与 class 继承。
+A value represents data without identity. Its fields cannot be modified in place after construction; assignment, argument passing, and return produce logically independent values. Equality and hashing recursively use all fields. A value may implement interfaces but does not participate in class inheritance.
 
 ## Interface
 
-interface 是唯一的名义行为抽象，不保存实例字段。实现与继承关系必须显式声明，interface 可以多继承，成员形状相同不会自动建立关系。interface 方法可以提供默认实现；具体实现优先，继承冲突必须显式消解。interface 调用不改变值原有的 value 或 identity 类别。
+An interface is the sole nominal behavioral abstraction and stores no instance fields. Implementation and inheritance must be declared explicitly. Interfaces may inherit from multiple interfaces; matching member shapes do not establish a relationship. Interface methods may provide default implementations. Concrete implementations take precedence, and inherited conflicts must be resolved explicitly. Calling through an interface does not change a value's original value or identity category.
 
 ## Enum
 
-enum 是封闭的代数数据类型。variant 可以不携带数据，也可以拥有不同字段；泛型 enum 沿用普通泛型构造与推断规则。所有 switch 都执行穷尽检查，variant 数据可由递归模式解构。enum 属于 value。
+An enum is a closed algebraic data type. A variant may carry no data or its own distinct fields. Generic enums follow ordinary generic construction and inference rules. Every switch is checked for exhaustiveness, and recursive patterns may destructure variant data. Enums are values.
 
 ## `ref<T>`
 
-`ref<T>` 为 value 存储位置提供 identity。复制 ref 保留同一位置；它不接受 class，因为 class 已经具有对象身份。
+`ref<T>` gives identity to a value storage location. Copying a ref preserves the same location. It cannot hold a class, because classes already have object identity.
 
-## 表示自由
+## Representation freedom
 
-规范不固定字段布局、对象头、垃圾回收方式或 value 的复制策略。运行时只需保持可观察的身份、结构相等、动态分派和修改行为。
+The specification does not fix field layout, object headers, garbage collection, or value-copying strategy. The runtime must preserve observable identity, structural equality, dynamic dispatch, and mutation behavior.

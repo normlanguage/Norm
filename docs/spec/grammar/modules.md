@@ -1,14 +1,14 @@
-# Module 配置
+# Module Configuration
 
-模块配置使用普通 Norm 源码，与业务代码共享 import、声明、表达式和函数体语法。目录项目通常在模块根 package 目录中的 `module.norm` 提供配置；单文件应用可以在业务文件中直接提供：
+Module configuration is ordinary Norm source and shares imports, declarations, expressions, and function-body syntax with business code. A directory project usually provides configuration in `module.norm` in its root package directory. A single-file application can provide it directly in the business file:
 
 ```norm
 Module module()
 ```
 
-本地单文件应用可以省略 `package`、Module 名称与版本；这种内部应用身份不能发布，也不能声明 exports。正式模块仍使用 package 结构作为公开命名空间。
+A local single-file application may omit its `package`, Module name, and version. That internal application identity cannot be published or declare exports. A formal module still uses package structure as its public namespace.
 
-常用实现调用 bootstrap 源码中的参数化工厂：
+A common implementation calls the parameterized factory in bootstrap sources:
 
 ```norm
 import std.math.max
@@ -26,4 +26,4 @@ Module module() {
 }
 ```
 
-依赖使用 `List<ModuleRequirement>` 表示，并通过 `dependency(String repository, String name, Integer? version = null)` 构造。`repository` 是依赖身份的一部分，不能省略；`version` 省略时由仓库解析最新稳定版本。完整语义见[模块系统](/spec/module-system)。
+Dependencies are represented by `List<ModuleRequirement>` and constructed with `dependency(String repository, String name, Integer? version = null)`. `repository` is part of dependency identity and cannot be omitted. When `version` is omitted, the repository resolves the latest stable version. See the [module system](/spec/module-system) for complete semantics.

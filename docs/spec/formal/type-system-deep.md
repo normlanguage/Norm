@@ -1,31 +1,31 @@
-# 类型系统深入规则
+# Detailed type-system rules
 
-本页说明类型组合处容易产生歧义的边界：nullable、泛型、函数和动态类型。
+This page clarifies boundaries where combinations of nullability, generics, functions, and dynamic types can be ambiguous.
 
-## Nullable 组合
+## Nullable combinations
 
-nullable 标记作用于完整类型：`List<String>?` 与 `List<String?>` 不同。重复 nullable `T??` 不形成新类型，应规范化为 `T?` 或直接诊断冗余。
+The nullable marker applies to a complete type: `List<String>?` differs from `List<String?>`. Repeated nullability, `T??`, does not create a new type; it should normalize to `T?` or produce a redundancy diagnostic.
 
-## Reified 泛型
+## Reified generics
 
-`List<String>` 与 `List<Integer>` 在 Core IR 和运行时类型环境中保留不同的实参，不依赖擦除后的外部 token。
+`List<String>` and `List<Integer>` retain different arguments in Core IR and the runtime type environment. They do not rely on an external token after erasure.
 
-## 函数类型
+## Function types
 
 ```norm
 Function<String(Point)> formatter
 ```
 
-函数类型由返回类型和参数类型序列决定，不包含参数名。Lambda 使用期望类型与自身约束双向推导，可以捕获 effectively-final 的外层局部、参数和 `this`；绑定方法引用显式携带接收者。
+A function type is determined by its return type and ordered parameter types, without parameter names. A lambda uses its expected type and its own constraints for bidirectional inference. It may capture effectively final outer locals, parameters, and `this`; a bound method reference explicitly carries its receiver.
 
-## 动态分派与复制
+## Dynamic dispatch and copying
 
-父类型或 interface 变量保存完整动态类型。复制 class 值后，两个副本分别保留相同动态类型，但不共享可变字段。调用 public virtual 行为按动态类型分派。
+A superclass or interface variable preserves the full dynamic type. After copying a class value, both copies retain that dynamic type but do not share mutable fields. Public virtual behavior dispatches on dynamic type.
 
 ## Cast
 
-`is` 只检查声明关系和 reified 泛型信息。`as` 是显式可能失败的操作；安全 cast 的公开形式由最终语法提案确定，在定稿前规范示例不假设 `as?`。
+`is` checks only declared relations and reified generic information. `as` is an explicit operation that may fail. The public spelling of a safe cast depends on the final syntax proposal; examples must not assume `as?` before it is finalized.
 
-## Bottom 与 Never
+## Bottom and Never
 
-Throw 和不返回函数在控制流上不正常完成。实现可以内部使用 bottom/Never 类型进行合并，但是否暴露为可声明 public 类型仍未定稿。
+Throw and non-returning functions do not complete normally in control flow. An implementation may use an internal bottom/Never type when joining branches, but whether that becomes a declarable public type is not yet finalized.

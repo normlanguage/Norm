@@ -1,41 +1,43 @@
-# Norm 测试规范
+# Norm test conventions
 
-本目录保存从用户视角执行的 `.norm` 测试。测试按稳定领域组织，不按发布版本组织。
+[简体中文](README.zh-CN.md)
 
-## 分类
+This directory holds `.norm` tests executed from the user's perspective. Tests are organized by stable domains, not by release versions.
 
-单文件测试直接放入最主要的语言领域目录，例如 `class`、`value`、`references`、`exceptions`、`reflection` 和 `annotations`。
+## Categories
 
-其他目录职责：
+Put a single-file test directly in its primary language-domain directory, such as `class`, `value`, `references`, `exceptions`, `reflection`, or `annotations`.
 
-- `base`：不属于独立语言领域的基础语义。
-- `algorithms`：使用 Norm 实现的算法程序；允许按题集建立子目录。
-- `projects`：跨 package、跨 module 或带依赖的多文件程序。
-- 标准库函数测试位于 [`norm/stdlib/std/tests/test`](../stdlib/std/tests/test)，通过 `@Test` 发现和执行；规范见 [测试 API](../../docs/stdlib/testing-api.md)。
-- `recovery`：编辑器和语法恢复使用的不完整源码夹具，不作为可执行程序。
+Other directories have these roles:
 
-新增或迁移测试时遵守以下边界：
+- `base`: foundational semantics without a separate language domain.
+- `algorithms`: algorithms implemented in Norm; subdirectories may group problem sets.
+- `projects`: multi-file programs spanning packages, modules, or dependencies.
+- Standard library function tests live in [`norm/stdlib/std/tests/test`](../stdlib/std/tests/test), are discovered and run through `@Test`, and follow the [testing API](../../docs/stdlib/testing-api.md).
+- `recovery`: incomplete source fixtures for editors and syntax recovery, not executable programs.
 
-- 按被测主语选择唯一领域，不为同一能力建立第二套目录。
-- 版本号、里程碑和 `conformance` 不进入路径。
-- 目录名不重复上层已经表达的信息，例如 `projects` 下不使用 `cross_package_` 前缀。
-- 文件名使用能独立表达行为的 `snake_case` 名称；编号只有在编号本身属于用例身份时使用。
-- 编译诊断的单元测试放在产生诊断的 Java 模块中；这里只保存真实 `.norm` 程序和专用恢复夹具。
+When adding or moving tests:
 
-## 单文件程序
+- Choose exactly one domain for the behavior; do not create a second directory hierarchy for the same feature.
+- Do not put version numbers, milestones, or `conformance` in paths.
+- Do not repeat information already expressed by a parent directory, such as a `cross_package_` prefix under `projects`.
+- Use standalone `snake_case` filenames that identify behavior; use numbers only when they are intrinsic to the case.
+- Place unit tests for compiler diagnostics in the Java module that produces them. Keep only real `.norm` programs and dedicated recovery fixtures here.
 
-可执行程序必须：
+## Single-file programs
 
-- 只包含一个 `main` 入口。
-- 直接验证一个清晰的行为边界。
-- 使用 `std.testing.expectedOutputLine` 或 `expectedOutputLines` 声明非空预期输出。
-- 能独立编译和执行，不依赖其他测试文件的声明或执行顺序。
+An executable program must:
 
-单文件目录由 [`ProgramExecutionTest`](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) 注册，并由 [`NormTestKit`](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) 递归发现。新增顶层领域时必须同时增加对应的测试入口；领域内新增文件无需注册。
+- contain exactly one `main` entry point;
+- verify one clear behavior boundary;
+- declare nonempty expected output with `std.testing.expectedOutputLine` or `expectedOutputLines`;
+- compile and run independently of declarations or execution order in other test files.
 
-## 项目程序
+[`ProgramExecutionTest`](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) registers single-file directories, and [`NormTestKit`](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) discovers them recursively. A new top-level domain needs a corresponding test entry; new files within a domain need no registration.
 
-每个项目场景使用以下结构：
+## Project programs
+
+Each project scenario uses this structure:
 
 ```text
 projects/<scenario>/
@@ -48,30 +50,28 @@ projects/<scenario>/
         └── ...
 ```
 
-其中：
+- `<scenario>` uses a `snake_case` name describing the fact under test.
+- `app/module.norm` is the sole execution root, and the module name is `app`.
+- `app` contains exactly one `main` entry point.
+- Create `dependencies` only for a real module-dependency test. Modules there are not executed as separate projects.
+- Each scenario owns its source root and dependencies; do not share fixtures between scenarios.
 
-- `<scenario>` 使用被验证事实的 `snake_case` 名称。
-- `app/module.norm` 是唯一执行根，module 名固定为 `app`。
-- `app` 中必须恰好存在一个 `main` 入口。
-- `dependencies` 仅在验证真实模块依赖时创建，其中的模块不会被当作独立项目执行。
-- 每个场景拥有自己的源码根和依赖目录，不跨场景共享夹具。
+`NormTestKit.projectSuite` automatically discovers first-level directories under `projects`; a new scenario needs no Java registration change.
 
-`projects` 的一级目录由 `NormTestKit.projectSuite` 自动发现，新增场景无需修改 Java 注册代码。
+## Verification
 
-## 验证
-
-运行完整 Gradle 质量验证，覆盖 `ProgramExecutionTest` 及其他测试：
+Run the complete Gradle quality gate, including `ProgramExecutionTest` and other tests:
 
 ```powershell
 .\gradlew.bat qualityCheck
 ```
 
-仅运行项目程序的定向测试：
+Run the focused project-program test:
 
 ```powershell
 .\gradlew.bat :compiler:test --tests 'dev.w0fv1.norm.truffle.ProgramExecutionTest'
 ```
 
-运行单个领域时，用 `--tests` 选择对应的测试类。标准库测试由 `StandardLibraryTest` 通过公开的测试运行器执行。
+Select a test class with `--tests` for a single domain. `StandardLibraryTest` executes standard library tests through the public test runner.
 
-测试架构和工具链约束见 [`docs/design/toolchain-development.md`](../../docs/design/toolchain-development.md)。
+See the [toolchain development guide](../../docs/design/toolchain-development.md) for test architecture and toolchain constraints.

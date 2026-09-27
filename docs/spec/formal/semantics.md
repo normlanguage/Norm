@@ -1,36 +1,36 @@
-# 形式语义总览
+# Formal semantics overview
 
-本章定义 Norm 程序从源码声明到运行结果的抽象模型。它用于约束编译器、解释器和优化器，不规定某一种内部实现。
+This chapter defines an abstract model of Norm programs from source declarations to runtime results. It constrains compilers, interpreters, and optimizers without prescribing one internal implementation.
 
-## 程序状态
+## Program state
 
-抽象状态包含：
+Abstract state contains:
 
-- 环境 `Γ`：名称到静态类型与声明的映射；
-- 存储 `Σ`：局部绑定、class 对象和 `ref<T>` 指向的 value 单元；
-- 控制状态 `K`：当前代码块、调用栈和异常处理器；
-- 运行时类型表 `R`：名义声明与 reified 泛型参数。
+- Environment `Γ`: names mapped to static types and declarations;
+- Store `Σ`: local bindings, class objects, and value cells addressed by `ref<T>`;
+- Control state `K`: current block, call stack, and exception handlers;
+- Runtime type table `R`: nominal declarations and reified generic arguments.
 
-## 静态判断
+## Static judgment
 
-`Γ ⊢ e : T` 表示在环境 Γ 中表达式 e 具有类型 T。可赋值关系记为 `S <: T`，只由名义继承、interface 实现、安全数值提升、nullable 和泛型型变规则产生。
+`Γ ⊢ e : T` says that expression `e` has type `T` in environment `Γ`. Assignability is written `S <: T` and arises only from nominal inheritance, interface implementation, safe numeric promotion, nullability, and generic variance rules.
 
-## 求值
+## Evaluation
 
-`⟨e, Σ⟩ ⇓ ⟨v, Σ'⟩` 表示表达式 e 在状态 Σ 中求值得到值 v 和新状态 Σ'。子表达式按源码从左到右求值。
+`⟨e, Σ⟩ ⇓ ⟨v, Σ'⟩` means expression `e` evaluates in state `Σ` to value `v` and new state `Σ'`. Subexpressions evaluate left to right in source order.
 
-## 完成结果
+## Completion outcomes
 
-代码块可以产生：
+A block may produce:
 
-- `Normal(Σ)`：正常完成；
-- `Value(v, Σ)`：`break value` 产生控制表达式结果；
-- `Return(v, Σ)`：函数返回；
-- `Throw(x, Σ)`：抛出异常；
-- `Break(Σ)` 或 `Continue(Σ)`：循环转移。
+- `Normal(Σ)`: normal completion;
+- `Value(v, Σ)`: a control-expression result from `break value`;
+- `Return(v, Σ)`: function return;
+- `Throw(x, Σ)`: an exception;
+- `Break(Σ)` or `Continue(Σ)`: loop transfer.
 
-类型检查保证这些完成结果只到达允许接收它们的语法结构。
+Type checking ensures these outcomes reach only syntax constructs permitted to receive them.
 
-## 等价实现
+## Equivalent implementations
 
-两个实现若对所有规范可观察行为产生相同结果，则视为语义等价。未暴露对象布局和 value 的物理复制次数不是普通程序可观察行为；class identity、ref 位置 identity、异常、I/O 顺序和反射类型信息是可观察行为。
+Two implementations are semantically equivalent when they produce the same results for every specified observable behavior. An unexposed object layout or the number of physical value copies cannot be observed by ordinary programs. Class identity, ref-location identity, exceptions, I/O order, and reflected type information can be observed.

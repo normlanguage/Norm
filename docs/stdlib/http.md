@@ -1,8 +1,8 @@
 # HTTP API
 
-HTTP 模块提供强类型请求、流式响应和客户端 adapter。公开签名以 [`client.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/client.norm) 与 [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/json.norm) 为准。HTTP server、路由、Controller 和 Authentication 尚未交付。
+The HTTP module provides typed requests, streaming responses, and a client adapter. [`client.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/client.norm) and [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/http/json.norm) define public signatures. An HTTP server, routing, controllers, and authentication have not yet been delivered.
 
-## 客户端
+## Client
 
 ```norm
 HttpRequest request = get(uri: Uri(value: "https://example.com/status"))
@@ -18,16 +18,16 @@ String body = use<String>(resource: response, body: () {
 })
 ```
 
-`HttpResponse` 同时实现 `ByteReader` 和 `Resource`。传给 `send` 的 timeout 是覆盖发送、等待响应和读取 body 的总预算，execution 的取消状态会传播到请求和 body 读取。响应必须通过 `use` 或显式 `close()` 确定性关闭。默认不跟随重定向。
+`HttpResponse` implements both `ByteReader` and `Resource`. The timeout passed to `send` is a total budget covering sending, waiting for the response, and reading the body. Execution cancellation propagates to the request and body read. Responses must be closed deterministically through `use` or an explicit `close()`. Redirects are not followed by default.
 
-## 服务器
+## Server
 
-服务器 adapter 尚未进入标准库。它将复用相同的 `HttpRequest`、header、body stream 和异常模型。
+No server adapter is in the standard library yet. It will reuse the same `HttpRequest`, headers, body stream, and exception model.
 
-## 类型
+## Types
 
-`HttpMethod`、`Status`、`HeaderMap` 和 `Uri` 不暴露宿主类型。`HeaderMap` 保留重复 header；HTTP status 是正常响应数据。
+`HttpMethod`, `Status`, `HeaderMap`, and `Uri` do not expose host types. `HeaderMap` preserves repeated headers; an HTTP status is normal response data.
 
-JDK adapter 使用 `java.net.http.HttpClient`，DNS、连接、TLS、协议、超时、取消和 body I/O 失败统一抛出 `HttpException`，不使用 `Result`。
+The JDK adapter uses `java.net.http.HttpClient`. DNS, connection, TLS, protocol, timeout, cancellation, and body I/O failures throw `HttpException`, not `Result`.
 
-JSON 请求使用 `postJson` 或 `jsonRequest`。它们在 `Bytes` 边界组合 `std.json`，统一写入 `application/json`；响应读取上限和 `decodeJson<T>` 仍由调用方显式控制。
+JSON requests use `postJson` or `jsonRequest`. They compose with `std.json` at the `Bytes` boundary and consistently write `application/json`. The caller still explicitly controls the response read limit and `decodeJson<T>`.

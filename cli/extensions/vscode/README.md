@@ -1,5 +1,7 @@
 # Norm Language Support for VS Code
 
+[简体中文](README.zh-CN.md)
+
 <p align="center"><img src="images/norm-256.png" alt="Norm Logo" width="128"></p>
 
 This extension provides syntax highlighting, compiler diagnostics, type-aware completion, signature help, automatic imports, hover, definition navigation, references, rename, and execution through `norm run`. Extension functions, reflection, annotation protocols, and data-format libraries use the same compiler-backed language services as the rest of Norm.
@@ -43,3 +45,5 @@ npm run package -- <version> <binaries-directory> <output.vsix>
 Run `npm run test:extension` for the real Extension Host suite; it builds a current CLI distribution before starting VS Code. Run `npm run smoke:lsp` for the stdio protocol handshake.
 
 The extension is only a VS Code adapter. Language analysis remains in the Java compiler and is exposed through the editor-neutral Language Server Protocol.
+
+License scope and source availability are described in the repository [licensing guide](../../../LICENSING.md).

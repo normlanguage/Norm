@@ -1,6 +1,6 @@
-# 结果构建器
+# Result Builders
 
-结果构建器让内容块按顺序累计表达式，生成一个强类型结果。它适用于 UI、文本及其他领域对象。
+Result builders accumulate expressions from a content block in order and produce one strongly typed result. They apply to UI, text, and other domain objects.
 
 ```norm
 Row {
@@ -10,10 +10,10 @@ Row {
 }
 ```
 
-参数以 `@BuildWith(Builder.class)` 标记，类型必须是零参数 `Function<Result()>`。构建器实现 `std.build.ResultBuilder<Element, Result>`，提供可无参数调用的构造入口。公共声明以 [builders.norm](../../../norm/stdlib/std/build/builders.norm) 为准。
+A parameter annotated with `@BuildWith(Builder.class)` must have type `Function<Result()>` with no parameters. The builder implements `std.build.ResultBuilder<Element, Result>` and offers a construction entry point callable without arguments. [builders.norm](../../../norm/stdlib/std/build/builders.norm) defines public declarations.
 
-每次执行内容回调都会创建独立构建器。表达式语句按 `Element` 检查类型并调用 `add`；末尾调用 `finish`，包括空块。`if` 只累计选中分支，`for` 按迭代顺序累计；局部声明与赋值保留原有行为，不贡献元素。异常在原位置传播。内容块不允许 `return` 或带值的 `break`。
+Each execution of the content callback creates a separate builder. Expression statements are checked as `Element` and passed to `add`; `finish` is called at the end, even for an empty block. An `if` accumulates only its selected branch; a `for` accumulates in iteration order. Local declarations and assignments retain their ordinary behavior and contribute no element. Exceptions propagate at their original positions. A content block disallows `return` and value-bearing `break`.
 
-嵌套的事件回调保持普通函数语义。直接传入已经存在的函数值时，不转换该函数体。构建器注解不改变普通集合的分隔符规则。
+Nested event callbacks retain ordinary function semantics. Passing an existing function value directly does not transform that function body. Builder annotations do not change separator rules for ordinary collections.
 
-前端转换统一由 [ResultBuilderLowering](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/ResultBuilderLowering.java) 提供；编译器不识别特定 UI 组件名称。执行、泛型、诊断和增量编译的契约测试见 [ResultBuilderExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ResultBuilderExecutionTest.java)。
+[ResultBuilderLowering](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/ResultBuilderLowering.java) provides the one frontend transformation; the compiler recognizes no particular UI component names. [ResultBuilderExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ResultBuilderExecutionTest.java) covers execution, generics, diagnostics, and incremental compilation.

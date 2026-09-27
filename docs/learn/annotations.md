@@ -1,31 +1,31 @@
 # 11 Annotation
 
-Annotation 是具有类型、目标和保留策略的声明对象；元数据和可选行为仍使用普通名义接口约束。
+Annotations are declaration objects with types, targets, and retention policies. Ordinary nominal interfaces still constrain their metadata and optional behavior.
 
 <<< ../../norm/tests/docs/tour/11_annotations.norm{norm}
 
-输出：
+Output:
 
 ```text
 coordinate
 ```
 
-## 目标与保留
+## Targets and retention
 
-Annotation 必须实现至少一个目标 interface，并选择一种保留策略。`TypeTarget`、`FieldTarget`、`FunctionTarget`、`ParameterTarget` 等决定允许的应用位置；`SourceRetention`、`BinaryRetention` 和 `RuntimeRetention` 决定保留边界。
+An annotation must implement at least one target interface and choose a retention policy. `TypeTarget`, `FieldTarget`, `FunctionTarget`, and `ParameterTarget` determine where it can be applied; `SourceRetention`, `BinaryRetention`, and `RuntimeRetention` determine how long it is retained.
 
-应用参数必须命名，并使用兼容的编译期标量、声明引用或 `List` 常量。非 nullable 参数必须提供；nullable 参数可以省略。同一 Annotation 类型不能重复应用到同一目标。
+Application arguments must be named and use compatible compile-time scalars, declaration references, or `List` constants. Non-nullable parameters are required; nullable ones may be omitted. The same annotation type cannot be applied twice to one target.
 
-## 类型化行为
+## Typed behavior
 
-高级 Annotation 可以实现：
+Advanced annotations can implement:
 
-- `FunctionInterceptor`；
-- `ParameterInterceptor<T>`；
-- `FieldInterceptor<T>`。
+- `FunctionInterceptor`;
+- `ParameterInterceptor<T>`;
+- `FieldInterceptor<T>`.
 
-生命周期使用 `before`、`around` 和 `after`。参数与字段拦截器的类型参数必须与实际声明类型精确一致。直接调用、动态分派和函数引用共享定义侧行为入口。
+Their lifecycle uses `before`, `around`, and `after`. Parameter and field interceptor type arguments must exactly match the declared type. Direct calls, dynamic dispatch, and function references share definition-side behavior.
 
-反射通过 `T.class`、`Class<T>` 和强类型声明引用读取 runtime metadata，不使用 JVM reflection 或字符串 getter。内建 `@Document` 以 `description` 保存正文，并通过 `types`、`functions`、`fields` 列表关联声明。完整生命周期见 [Annotation 规范](/spec/annotations)，引用规则见[声明引用与反射](/spec/declaration-references)。
+Reflection reads runtime metadata through `T.class`, `Class<T>`, and strongly typed declaration references, not JVM reflection or string getters. Built-in `@Document` stores text in `description` and associates declarations through its `types`, `functions`, and `fields` lists. See the [annotation specification](/spec/annotations) for the full lifecycle and [declaration references and reflection](/spec/declaration-references) for reference rules.
 
-上一章：[引用](/learn/references)。下一章：[Package 与 Module](/learn/packages-modules)。
+Previous: [References](/learn/references). Next: [Package and Module](/learn/packages-modules).

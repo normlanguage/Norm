@@ -1,17 +1,17 @@
-# Value 与 Identity 语义
+# Value and Identity Semantics
 
-本文是 Norm 赋值、传参、返回、相等和复制行为的权威规范。对象模型、容器和引用语法都以这里的规则为准。
+This page is the normative source for assignment, parameter passing, returns, equality, and copying in Norm. The object model, containers, and reference syntax follow these rules.
 
-## 数据类别
+## Data categories
 
-Norm 区分 value 与 identity：
+Norm distinguishes value from identity:
 
-| 类别 | 类型 | 赋值、传参和返回 | `==` |
+| Category | Types | Assignment, parameters, and returns | `==` |
 | --- | --- | --- | --- |
-| Value | `Integer`、`Boolean`、`String`、enum、用户定义 value、内建容器 | 产生逻辑独立的值 | 结构相等 |
-| Identity | `class` 实例 | 复制对象引用，共享同一对象 | 对象身份相等 |
+| Value | `Integer`, `Boolean`, `String`, enums, user-defined values, built-in containers | Produces a logically independent value | Structural equality |
+| Identity | `class` instances | Copies an object reference and shares the object | Object identity |
 
-统一的 `=` 复制右侧表达式的值。class 变量保存的值是对象引用，因此复制该值会共享对象；容器保存的是容器值，因此复制后容器结构彼此独立。
+The `=` operator always copies the value of its right-hand expression. A class variable's value is an object reference, while a container's value is its container structure.
 
 ```norm
 Box first = Box(value: 1)
@@ -20,44 +20,34 @@ second.value = 2
 printLine(first.value)
 ```
 
-这里输出 `2`。
+This prints `2`.
 
-## Class 与显式复制
+## Classes and explicit copying
 
-class 实例具有稳定身份。普通赋值、参数传递和函数返回不会隐式创建新对象。
-
-每个 class 都提供 `copy()`：它创建新的顶层对象身份，并逐字段执行普通赋值语义。
+Assignment, parameter passing, and returns preserve a class instance's identity. Every class provides `copy()`, which creates a new top-level object and assigns each field using the ordinary rules. Value fields become logically independent; class fields still refer to the same nested objects. Norm does not perform implicit recursive object cloning.
 
 ```norm
 Box second = first.copy()
 ```
 
-值字段因此逻辑独立；class 字段仍指向原来的嵌套对象。Norm 不提供隐式递归深复制。
+## Containers
 
-## 容器
+`Array`, `List`, `Map`, `Set`, `Stack`, `Queue`, `Deque`, `Pair`, `Range`, and `StringBuilder` are values. Copying one creates an independent structure and assigns each element according to its category. Value elements thus become logically independent, while class elements keep their identity. Containers use one recursive equality-and-hash rule, including for Map keys and Set elements. `Equatable` and `Hashable` are explicit domain protocols and do not override this built-in key semantics.
 
-`Array`、`List`、`Map`、`Set`、`Stack`、`Queue`、`Deque`、`Pair`、`Range` 与 `StringBuilder` 是 value。复制容器会复制其结构，并对每个元素执行普通赋值语义。
+An indexed result used directly to mutate a container retains its location in that container: `rows[0].add(1)` changes the nested list. By contrast, `var row = rows[0]` copies the list under assignment rules, so subsequent changes to `row` do not affect `rows`. Passing or returning an indexed result follows the same copying rules.
 
-因此，容器中的 value 元素逻辑独立，class 元素保留对象身份。容器相等与 hash 使用同一套递归规则；作为 Map key 或 Set 元素时仍使用这套语言内建规则。`Equatable` 与 `Hashable` 表达显式领域协议，不重载容器的键语义。
+## Evaluation and calls
 
-索引结果直接用于容器修改时保留容器中的位置，例如 `rows[0].add(1)` 修改嵌套列表。`var row = rows[0]` 则按赋值规则复制列表，随后修改 row 不影响 rows；索引结果传参或返回时也遵循同一复制规则。
-
-## 求值和调用
-
-实参表达式严格按源码从左到右求值，参数标签只决定求值结果绑定到哪个形参，不改变求值顺序。
-
-多参数调用必须使用 `name: value`。裸标识符只有与同位置形参同名时才能作为简写；单参数调用可以省略标签。
+Argument expressions are evaluated from left to right in source order. Labels only select parameter slots and never reorder evaluation. Multi-parameter calls use `name: value`; a bare identifier is shorthand only when it matches the parameter at the same position. A single argument may omit its label.
 
 ```norm
 merge(left: mergeSort(left), right: mergeSort(right))
 ```
 
-## 实现自由
+## Implementation freedom
 
-逻辑独立不要求立即深复制。执行器可以使用写时复制、结构共享、逃逸分析或复制消除，但不能改变身份、相等、修改结果和源码求值顺序。
+Logical independence does not require immediate deep copying. An executor may use copy-on-write, structural sharing, escape analysis, or copy elimination, provided identity, equality, mutation results, and source evaluation order remain unchanged.
 
 ## `ref<T>`
 
-`ref<T>` 表示 value 存储位置的身份，而不是 class 共享机制。它只接受 value 类型；`ref<Class>` 不合法，因为 class 已经具有身份。
-
-`&location` 取得位置引用，`*reference` 读取位置中的 value，`*reference = value` 写入位置。复制 ref 保留位置身份，ref 的 `==` 比较位置而不是内容。完整的可寻址位置与词法生命周期边界见 [`ref<T>` 引用语法](/spec/grammar/references)。
+`ref<T>` represents the identity of a value storage location. It is not required for class sharing and does not accept class types. `&location` takes an address, `*reference` reads the stored value, and `*reference = value` writes it. Ref equality compares location identity. Refs are confined to local variables and callable parameters, cannot escape through returns, fields, containers, generic arguments, function types, or lambda capture, and use lexical scope or a single call as their lifetime boundary. The normative rules are in the [`ref<T>` grammar](/spec/grammar/references).

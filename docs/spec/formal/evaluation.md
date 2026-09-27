@@ -1,33 +1,33 @@
-# 核心求值规则
+# Core evaluation rules
 
-Norm 使用确定性的从左到右求值。编译器优化不得改变异常、函数调用、对象修改或外部 I/O 的可观察顺序。
+Norm evaluates deterministically from left to right. Compiler optimizations must not change the observable order of exceptions, function calls, object mutations, or external I/O.
 
-## 调用
+## Calls
 
-对于 `f(a: e1, b: e2)`：
+For `f(a: e1, b: e2)`:
 
-1. 解析唯一目标函数；
-2. 按源码出现顺序求值实参；
-3. 按参数名建立新局部环境；
-4. value 实参建立逻辑独立值，class 实参保留对象身份；
-5. 执行函数体直到 Return、Throw 或 Void 正常完成。
+1. Resolve the unique target function.
+2. Evaluate arguments in source order.
+3. Establish a new local environment by parameter name.
+4. Establish logically independent values for value arguments; preserve identity for class arguments.
+5. Execute the function body until Return, Throw, or normal Void completion.
 
 ## If
 
-先求值 Boolean 条件，只执行一个分支。作为表达式时，被执行分支必须以 Value 或不正常完成结果结束，编译器不为缺失 else 插入 null。
+Evaluate the Boolean condition first, then exactly one branch. In expression form, the executed branch must end in Value or abnormal completion. The compiler does not insert null for a missing `else`.
 
 ## For
 
-迭代表达式只求值一次并取得迭代器。每次迭代创建新的循环变量绑定。continue 请求下一元素，无值 break 正常结束语句循环，break value 结束表达式循环。耗尽时执行可选 else。
+Evaluate the iterable expression once and obtain its iterator. Each iteration creates a fresh loop-variable binding. `continue` requests the next item; a valueless `break` normally ends a statement loop; `break value` ends an expression loop. Run the optional `else` on exhaustion.
 
 ## Switch
 
-被匹配表达式只求值一次。case 按源码顺序检查，首个匹配 case 独占执行且不 fallthrough。每个 switch 在静态阶段已保证穷尽；表达式 case 的正常完成路径必须以 `break value` 产生结果。
+Evaluate the matched expression once. Check cases in source order; only the first matching case executes, without fallthrough. Static checking has already established exhaustiveness for every switch. Every normally completing expression case must produce its result through `break value`.
 
-## 异常与 Finally
+## Exceptions and finally
 
-Throw 沿调用栈寻找首个动态类型兼容的 catch。try 的 normal、Return、Throw、Break 与 Continue 完成态在离开前都执行 finally；finally 正常完成后恢复原完成态，finally 自己产生的完成态替代原结果。工具链运行时错误绕过用户 catch，但仍执行 finally。
+Throw searches the call stack for the first catch compatible with its dynamic type. Normal, Return, Throw, Break, and Continue completions of a try all run `finally` before leaving. If `finally` completes normally, restore the original completion; a completion produced by `finally` replaces it. Toolchain runtime errors bypass user catches but still run `finally`.
 
-## 赋值
+## Assignment
 
-先确定目标位置，再求值右侧。value 写入逻辑独立值，class 写入对象引用。失败的右侧求值不修改目标。完整规则见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
+Determine the target location first, then evaluate the right-hand side. A value write stores a logically independent value; a class write stores an object reference. Failure while evaluating the right-hand side leaves the target unchanged. See [value and identity semantics](/spec/value-identity-semantics) for the full rules.

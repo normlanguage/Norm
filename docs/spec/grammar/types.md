@@ -1,6 +1,6 @@
-# 类型语法
+# Type Syntax
 
-Norm 使用名义类型系统和类型前置声明。类型写在变量、字段、参数和返回值的名称之前。
+Norm uses a nominal type system and type-first declarations. A type precedes the name of a variable, field, parameter, or return value.
 
 ```norm
 Integer count = 3
@@ -8,7 +8,7 @@ String title = "Grammar"
 List<String> names = List<>()
 ```
 
-## 类型形式
+## Type forms
 
 ```text
 Type := NamedType
@@ -19,39 +19,39 @@ Type := NamedType
 TypeArgument := Type | "?"
 ```
 
-当前类型形式包括命名类型、参数化类型、nullable 类型和函数类型。数组、列表与映射是标准库泛型类型，不是特殊的类型语法。
+Current forms include named, parameterized, nullable, and function types. Arrays, lists, and maps are generic standard-library types rather than special type syntax.
 
 ## Nullable
 
-`T` 不包含 `null`，`T?` 才包含。nullable 标记只作用于紧邻的完整类型：
+`T` excludes `null`; only `T?` includes it. A nullable marker applies to the immediately preceding complete type:
 
 ```norm
 List<String>? optionalList
 List<String?> listWithOptionalItems
 ```
 
-这两个类型不同：前者允许列表本身为空，后者允许列表元素为空。`ref<T>` 与 nullable 的组合由引用类型规范定义。
+These types differ: the first permits a null list, while the second permits null elements. The reference-type specification defines combinations of `ref<T>` and nullability.
 
-`T?` 在类型替换后规范化。如果 T 已经是 nullable 类型，结果仍为一层 nullable。Void 不能声明为 nullable。
+`T?` normalizes after type substitution. If T is already nullable, the result still has one nullable layer. Void cannot be nullable.
 
-后缀非空断言 `expression!!` 去掉表达式结果类型的 nullable 标记，并在运行时检查其值。操作数只求值一次；若为 null，抛出可由 `catch Exception` 捕获的异常。断言不改变原字段的声明类型，也不保证该字段的后续读取非空。
+The postfix non-null assertion `expression!!` removes the nullable marker from the result type and checks its value at runtime. The operand is evaluated once. If it is null, an exception catchable by `catch Exception` is thrown. The assertion does not change a field's declared type or guarantee non-nullness on later reads.
 
 ```norm
 Long id = todo.id!!
 ```
 
-`!!` 与成员访问、调用和索引一样按后缀顺序结合，优先于前缀运算符；例如 `!checked!!` 先断言再取反。可以对已非空的值使用断言；无可用非空类型的 null 字面量及 Void 表达式不能使用断言。
+`!!` associates in postfix order like member access, calls, and indexing, before prefix operators. For example, `!checked!!` asserts non-nullness before negation. An already non-null value may be asserted; a null literal without an available non-null type and a Void expression cannot.
 
-## 泛型参数
+## Generic arguments
 
-类型标注中的泛型类型必须提供全部必填参数；只有声明了默认类型的尾部参数可以省略。Norm 没有 raw type，省略默认参数会在语义分析时展开为完整类型。构造调用省略类型实参或使用 `<>` 时，从实参和期望类型推导，再使用声明的默认类型补齐未确定的参数；无法确定必填参数时报告错误。
+A generic type in a type annotation must provide all required arguments. Only trailing parameters with declared defaults may be omitted. Norm has no raw types; semantic analysis expands omitted defaults into a complete type. When a constructor call omits type arguments or uses `<>`, arguments and expected type drive inference, then declared defaults fill unresolved parameters. An unresolved required parameter is an error.
 
 ```norm
 Map<String, Integer> counts
-Map counts // 编译错误
+Map counts // compile error
 ```
 
-参数化类型不变。`?` 是存在类型投影，表示“这个实参存在，但当前代码不知道它”：
+Parameterized types are invariant. `?` is an existential projection meaning “an argument exists, but this code does not know which one”:
 
 ```norm
 Class<?> type
@@ -59,12 +59,12 @@ Field<User, ?> field
 Function<?> function
 ```
 
-投影值只能使用不依赖被隐藏实参的成员。例如 `Function<?>` 可查询名称和参数，但不能被直接调用；调用需要精确的 `Function<R(P...)>`。完整边界见[泛型不变性](/spec/generic-variance)。
+A projected value can use only members independent of the hidden argument. For example, `Function<?>` can report its name and parameters but cannot be called directly; calling needs an exact `Function<R(P...)>`. See [generic invariance](/spec/generic-variance) for the full boundary.
 
-## 函数类型
+## Function types
 
 ```norm
 Integer operation(Integer value)
 ```
 
-函数类型包含返回类型和参数列表。参数名用于局部可读性，不参与类型相等；返回类型和每个参数类型参与兼容性判断。
+A function type contains a return type and parameter list. Parameter names improve local readability but do not affect type equality; the return and every parameter type determine compatibility.

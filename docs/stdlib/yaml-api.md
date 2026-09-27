@@ -1,6 +1,6 @@
 # YAML API
 
-`std.yaml` 实现格式无关的序列化接口。公开签名以 [`yaml.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/yaml/yaml.norm) 为准；共享 mapper 与 Annotation 见 [Serialization](/stdlib/serialization)。
+`std.yaml` implements the format-independent serialization interfaces. [`yaml.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/yaml/yaml.norm) defines its public signatures; see [Serialization](/stdlib/serialization) for the shared mapper and annotations.
 
 ```norm
 @Serializable()
@@ -13,6 +13,6 @@ String encoded = User(name: "Norm").toYaml()
 User decoded = encoded.fromYaml<User>()
 ```
 
-结构映射支持 nullable、Array/List、`Map<String, T>`、无 payload enum、嵌套 value 与共享的 `@SerialName`、`@SerialIgnore`。输出使用稳定的 block YAML，不写 document start marker，并为可能产生隐式类型歧义的字符串保留引号。
+Structural mapping supports nullable values, arrays/lists, `Map<String, T>`, enums without payloads, nested values, and the shared `@SerialName` and `@SerialIgnore` annotations. Output uses stable block-style YAML, omits the document-start marker, and quotes strings that could otherwise be interpreted as another implicit type.
 
-解码只接受单文档和字符串 mapping key，严格拒绝未知、重复、缺失字段、数值越界、alias 与显式 tag。失败抛出 `YamlException`，携带稳定的 `code`、`path`、`offset`、`line` 与 `column`。
+Decoding accepts only a single document and string mapping keys. It strictly rejects unknown, duplicate, and missing fields, numeric overflow, aliases, and explicit tags. Failures throw `YamlException` with stable `code`, `path`, `offset`, `line`, and `column` fields.

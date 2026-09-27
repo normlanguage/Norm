@@ -1,8 +1,8 @@
-# 文件系统
+# Filesystem
 
-文件系统模块提供路径值、文件字节流和有界文本读取。`Path` 是纯值，`FileReader` 与 `FileWriter` 是必须关闭的外部资源。
+The filesystem module provides path values, file byte streams, and bounded text reads. `Path` is a pure value; `FileReader` and `FileWriter` are external resources that must be closed.
 
-相对 Path 以当前 execution platform 的 working directory 为基准。CLI 在启动 execution 时捕获进程工作目录，嵌入方和测试通过平台 adapter 显式注入基准目录。
+A relative Path is based on the working directory of the current execution platform. The CLI captures the process working directory when execution starts; embedders and tests explicitly inject the base directory through the platform adapter.
 
 ```norm
 Path path = Path(value: "data/settings.json")
@@ -13,14 +13,14 @@ String text = readText(
 )
 ```
 
-## 错误
+## Errors
 
-不存在、权限不足、已存在、路径类型错误等系统失败抛出 `FileException`。API 不用 null、状态码或 Result 表示文件操作失败。
+System failures such as missing files, insufficient permissions, existing files, and wrong path types throw `FileException`. File-operation failure is not represented by null, a status code, or Result.
 
-## 写入
+## Writing
 
-`openWrite(path:, mode:)` 的模式区分 `CreateNew`、`Replace` 与 `Append`。`flush()` 推进用户态缓冲，`sync(mode:)` 区分数据同步与数据及 metadata 同步。
+`openWrite(path:, mode:)` distinguishes `CreateNew`, `Replace`, and `Append`. `flush()` advances userspace buffers; `sync(mode:)` distinguishes data-only synchronization from data-and-metadata synchronization.
 
-`writeTextAtomic(path:, text:, encoding:)` 创建父目录，将完整内容写入并同步同目录临时文件，再原子替换目标。文件系统不支持原子替换时抛出 `FileException`，不退化为截断目标文件后重写。此操作保证文件内容完整发布，不提供并发修改的比较交换语义。
+`writeTextAtomic(path:, text:, encoding:)` creates parent directories, writes and synchronizes complete content in a same-directory temporary file, then atomically replaces the target. If the filesystem cannot replace atomically, it throws `FileException` instead of truncating and rewriting the target. This publishes complete file content but does not provide compare-and-swap semantics for concurrent modifications.
 
-完整签名以 [`std.filesystem.files`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/filesystem/files.norm) 为准。
+[`std.filesystem.files`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/filesystem/files.norm) defines the complete signatures.

@@ -1,29 +1,28 @@
-# 语言演进
+# Language evolution
 
-语言变更必须从具体语法、静态规则和运行时行为出发。仅有“更现代”“更简洁”之类目标不足以进入规范。
+A language change must begin with concrete syntax, static rules, and runtime behavior. Goals such as “more modern” or “more concise” alone are not enough to enter the specification.
 
-## 提案内容
+## Proposal contents
 
-一份语言提案至少包含：
+A language proposal includes at least:
 
-1. 要解决的代码示例；
-2. 新语法及其 grammar 变化；
-3. 类型检查与名称解析规则；
-4. 求值顺序和错误行为；
-5. 与 class identity、`ref<T>`、nullable 和泛型的交互；
-6. 被考虑但拒绝的替代设计；
-7. 迁移和兼容性影响；
-8. 编译器、格式化器、LSP 与文档工作量。
+1. A code example that demonstrates the problem.
+2. New syntax and changes to the grammar.
+3. Type-checking and name-resolution rules.
+4. Evaluation order and error behavior.
+5. Interaction with class identity, `ref<T>`, nullability, and generics.
+6. Alternatives considered and rejected.
+7. Migration and compatibility effects.
+8. Required compiler, formatter, LSP, and documentation work.
 
-## 阶段
+## Stages
 
-`idea` 只讨论问题；`draft` 给出完整规则；`accepted` 表示设计获准实现；`implemented` 表示参考实现和测试存在；`stable` 才获得兼容承诺。
+`idea` discusses the problem. `draft` supplies complete rules. `accepted` approves the design for implementation. `implemented` means a reference implementation and tests exist. Only `stable` receives a compatibility commitment.
 
-## 实验功能
+## Experimental features
 
-实验语法必须受明确的语言版本或 feature flag 控制，不能在普通文件中静默启用。编译器应在诊断中显示功能名和提案链接。
+Experimental syntax must be gated by an explicit language version or feature flag; it must not silently activate in ordinary files. Diagnostics should name the feature and link its proposal.
 
-## 删除功能
+## Removing features
 
-删除稳定功能需要提供弃用期、自动迁移工具或机械替换规则，并解释为什么继续维护会伤害语言一致性。Norm 不以永久保留设计错误为目标，但迁移成本必须被量化。
-
+Removing a stable feature requires a deprecation period, automated migration tooling, or mechanical replacement rules, plus an explanation of why continuing to maintain it would harm language coherence. Norm does not aim to preserve design errors forever, but migration cost must be measured.

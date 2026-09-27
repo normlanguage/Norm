@@ -1,27 +1,27 @@
-# 编译器引导计划
+# Compiler Bootstrap Plan
 
-官方工具链使用 Java 建立完整前端和 Truffle 执行链。已交付范围见[版本索引](/versions/)，本文只定义通向 1.0 的结构顺序。
+The official Java toolchain builds one frontend and one Truffle execution path. Delivered behavior is recorded in the [version index](/versions/); this page defines the structural path toward 1.0.
 
-## 工程基础
+## Foundation
 
-根 [Gradle Kotlin DSL](../../build.gradle.kts) 锁定 Java、Truffle 和测试依赖，构建唯一的编译器产品模块。SourceFile、SourceSpan、Diagnostic、格式检查和 CI 是所有后续阶段的公共基础。
+The root [Gradle Kotlin DSL build](../../build.gradle.kts) pins Java, Truffle, and test dependencies and builds the single compiler product module. `SourceFile`, `SourceSpan`, `Diagnostic`, formatting checks, and CI are shared foundations for later stages.
 
-## Lexer 与 Parser
+## Lexer and Parser
 
-Lexer 和手写 Parser 生成带完整 SourceSpan 的 AST。错误恢复必须产生稳定诊断，并让 formatter、LSP 与编译器复用同一语法结构。
+The lexer and hand-written parser produce an AST with complete `SourceSpan` information. Error recovery must produce stable diagnostics and let the formatter, LSP, and compiler share the same syntax structure.
 
-## 语义模型
+## Semantic model
 
-名称解析、名义类型、泛型约束、nullable 流分析、确定赋值和调用绑定写入 SemanticModel。实参到形参的映射只解析一次，并保留源码求值顺序。
+Name resolution, nominal typing, generic constraints, nullable flow analysis, definite assignment, and call binding write to `SemanticModel`. Arguments are mapped to parameters once while preserving source evaluation order.
 
 ## Canonical Core
 
-Binder 固化表达式类型、value/identity 类别、调用目标、控制流边和 reified 泛型信息。CoreBuilder 将结果转换为确定性 Core IR；定义 identity 包含 canonical 内容与固定依赖，authoring 名字和源码位置分别保存在 namespace 与 occurrence metadata。
+The binder fixes expression types, value and identity categories, call targets, control-flow edges, and reified generic information. `CoreBuilder` converts the result into deterministic Core IR. Definition identity contains canonical content and fixed dependencies, while authoring names and source locations live separately in namespace and occurrence metadata.
 
-## Truffle 后端
+## Truffle backend
 
-Lowerer 只消费 `CoreArtifact`，生成函数 CallTarget、frame slot、控制流节点和互操作边界。CLI 发行包携带同一执行实现及平台 runtime。
+The lowerer consumes only `CoreArtifact` and creates function call targets, frame slots, control-flow nodes, and interop boundaries. CLI distributions carry the same execution implementation and a platform runtime.
 
-## 验收
+## Acceptance
 
-每个阶段同时提供语法、语义、运行时和真实 CLI 测试。文档代码示例参与检查，开发入口与正式发行包的可观察行为必须一致。
+Each stage includes syntax, semantic, runtime, and real CLI tests. Documentation examples participate in validation, and development entry points and release distributions preserve the same observable behavior.

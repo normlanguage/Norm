@@ -1,17 +1,17 @@
-# 02 值与绑定
+# 02 Values and bindings
 
-变量把一个明确的静态类型绑定到名称；`var` 只省略可以从初始化器唯一确定的类型。
+A variable binds a name to a definite static type. `var` only omits a type that can be uniquely determined from the initializer.
 
 <<< ../../norm/tests/docs/tour/02_bindings.norm{norm}
 
-输出：
+Output:
 
 ```text
 ready
 2
 ```
 
-## 显式类型与 `var`
+## Explicit types and `var`
 
 ```norm
 Integer count = 1
@@ -19,9 +19,9 @@ String name = "Norm"
 var ready = true
 ```
 
-局部变量必须在声明时初始化。`var` 不代表动态类型，后续赋值仍必须符合已经推断出的类型。
+Local variables must be initialized when declared. `var` does not mean dynamic typing: later assignments must still match the inferred type.
 
-下面的声明会被拒绝：
+These declarations are rejected:
 
 ```norm
 Integer count
@@ -29,14 +29,14 @@ var missing = null
 var values = []
 ```
 
-第一项没有初始化器；后两项缺少能够唯一决定类型的上下文。
+The first has no initializer; the other two have no context that uniquely determines a type.
 
-## 基本类型
+## Basic types
 
-常用内建类型包括 `Integer`、`Long`、`Float`、`Double`、`Number`、`Boolean`、`CodePoint`、`String` 和 `Void`。Norm 没有统一的 `Object` 根类型，也不会把数字或字符串隐式当作 Boolean。
+Common built-in types include `Integer`, `Long`, `Float`, `Double`, `Number`, `Boolean`, `CodePoint`, `String`, and `Void`. Norm has no universal `Object` root type, and neither numbers nor strings are implicitly Boolean.
 
-标识符使用 Unicode，并以 NFC 形式参与名称比较。`value`、`annotation` 和 `extension` 只在对应声明位置作为上下文关键字。
+Identifiers use Unicode and participate in name comparisons in NFC form. `value`, `annotation`, and `extension` are contextual keywords only in their respective declaration positions.
 
-类型和字面量的精确规则见[类型系统](/spec/type-system)与[字面量](/spec/grammar/literals)。
+See the [type system](/spec/type-system) and [literals](/spec/grammar/literals) for precise rules.
 
-上一章：[Hello, Norm](/learn/hello)。下一章：[函数与调用](/learn/functions)。
+Previous: [Hello, Norm](/learn/hello). Next: [Functions and calls](/learn/functions).

@@ -1,6 +1,6 @@
-# 字面量
+# Literals
 
-## 数字
+## Numbers
 
 ```norm
 Integer count = 42
@@ -8,9 +8,9 @@ Long population = 8_100_000_000
 Double ratio = 0.125
 ```
 
-下划线只能位于数字之间，用于分组且不影响值。无上下文时，整数在 Integer 范围内使用 Integer，否则使用 Long；小数字面量默认使用 Double。具体数值目标类型优先：`Long value = 7`、`Float ratio = 0.125` 直接按目标类型物化。解析器保留精确十进制文本，类型求解完成前不进行浮点舍入。
+Underscores may occur only between digits; they group digits without changing the value. Without context, an integer uses Integer if it fits, otherwise Long. A decimal literal defaults to Double. A concrete numeric target type takes priority: `Long value = 7` and `Float ratio = 0.125` materialize directly in the target type. The parser retains exact decimal text and performs no floating-point rounding before type solving completes.
 
-## 字符串
+## Strings
 
 ```norm
 String name = "Norm"
@@ -19,7 +19,7 @@ String configuration = "\${bbs.greeting:Hello}"
 String greeting = "Hello, ${name}!"
 ```
 
-单引号表示一个 `CodePoint`。内容必须解码为恰好一个 Unicode code point：
+Single quotes represent one `CodePoint`. Their content must decode to exactly one Unicode code point:
 
 ```norm
 CodePoint letter = 'a'
@@ -27,9 +27,9 @@ CodePoint emoji = '😀'
 CodePoint newline = '\n'
 ```
 
-字符串使用双引号并支持标准转义。`${expression}` 对表达式求值并通过其 `toString()` 契约产生文本；求值顺序从左到右。`\${` 保留字面 `${`，用于配置占位符等文本。
+Strings use double quotes and standard escapes. `${expression}` evaluates the expression and obtains text through its `toString()` contract, from left to right. `\${` retains a literal `${`, useful for configuration placeholders.
 
-三引号 `"""` 包围多行字符串，保留内容中的换行和缩进，转义和插值规则与普通字符串一致。内容中的一个或两个连续双引号无需转义；三个连续双引号结束字符串。格式化保留多行字符串的原始内容。
+Triple quotes `"""` enclose a multiline string, preserving newlines and indentation. Escape and interpolation rules are the same as ordinary strings. One or two consecutive double quotes inside need no escaping; three end the string. Formatting preserves the original multiline content.
 
 ```norm
 String query = """
@@ -38,13 +38,13 @@ String query = """
 """
 ```
 
-## 布尔与 Null
+## Boolean and Null
 
-`true` 和 `false` 的类型是 Boolean。`null` 只能出现在已有 nullable 期望类型的位置，不能单独推断为任意类型。运行时使用 guest null value 表示该值，不把宿主语言 null 暴露为 Norm 值。
+`true` and `false` have type Boolean. `null` can occur only where a nullable expected type already exists; it cannot independently infer an arbitrary type. Runtime represents it with a guest null value rather than exposing host-language null as a Norm value.
 
-## 集合
+## Collections
 
-`[1, 2, 3]` 是序列字面量。expected type 为 `Array<T>` 或 `List<T>` 时直接构造对应容器；为 `Iterable<T>` 时把元素约束投影到默认的 `Array<T>`；无容器上下文时也默认为 `Array<T>`。它不会先构造 Array 再转换成 List。多个具体数字叶类型的最小公共类型是 `Number`。
+`[1, 2, 3]` is a sequence literal. With expected type `Array<T>` or `List<T>`, it constructs that container directly. With `Iterable<T>`, its element constraint projects to a default `Array<T>`; without a container context it also defaults to `Array<T>`. It does not first construct an Array and then convert to List. The least common type of several concrete numeric leaf types is `Number`.
 
 ```norm
 Array<Integer> array = [1, 2, 3]
@@ -52,9 +52,9 @@ List<Integer> list = [1, 2, 3]
 List<Number> numbers = [1, 2.5, 3]
 ```
 
-空 `[]` 没有元素约束时必须由赋值、参数或返回位置提供完整类型。
+An empty `[]` with no element constraint needs a complete type from its assignment, argument, or return position.
 
-序列字面量内支持条件元素、循环元素和展开；它们适用于 Array 与 List，不限于 UI。
+Sequence literals support conditional elements, loop elements, and spreading. They apply to Array and List, not only UI:
 
 ```norm
 List<Integer> source = [1, 2, 3]
@@ -66,7 +66,6 @@ List<Integer> values = [
 ]
 ```
 
-`if (condition)` 根据条件贡献一个元素或零个元素，`else` 可省略；`for (value : source)` 为每次迭代贡献其内部元素，也支持显式元素类型和索引变量。`...source` 按顺序展开 Iterable 的元素。三者可以嵌套；条件和迭代源在到达对应位置时求值一次，未选择的分支不执行。循环变量仅在内部元素中可见，每轮闭包捕获独立的元素值。
+`if (condition)` contributes one or zero elements; `else` may be omitted. `for (value : source)` contributes its inner element on each iteration and also supports an explicit element type and index variable. `...source` spreads Iterable elements in order. All three may nest. A condition or iterable source evaluates once when its position is reached; an unselected branch does not execute. The loop variable is visible only in the inner element, and each iteration's closure captures an independent element value.
 
-集合控制结构的条件和迭代头使用括号。需要把普通 `if` 表达式作为单个元素时，可以使用 `(if condition { first } else { second })`。空迭代源需要声明元素类型；不能从没有类型信息的 `[]` 推断循环变量。
-
+Collection control structures parenthesize their condition or iteration head. To make an ordinary `if` expression one element, use `(if condition { first } else { second })`. An empty iterable source needs a declared element type; a loop variable cannot be inferred from an untyped `[]`.

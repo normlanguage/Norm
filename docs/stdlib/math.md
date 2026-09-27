@@ -1,10 +1,10 @@
 # Math
 
-Math 模块提供固定语义的数值函数。它是顶层函数集合，不需要 `Math` 工具 class 或 static 方法。
+The Math module provides numeric functions with fixed semantics. It is a collection of top-level functions and needs no `Math` utility class or static methods.
 
-当前实现已交付整数 @std.math.integer.abs#1、@std.math.integer.min#1、@std.math.integer.max#1、@std.math.integer.clamp#1 与 @std.math.integer.sign#1。下面其余函数属于 1.0 API 设计。
+The current implementation includes the integer functions @std.math.integer.abs#1, @std.math.integer.min#1, @std.math.integer.max#1, @std.math.integer.clamp#1, and @std.math.integer.sign#1. The remaining functions below belong to the 1.0 API design.
 
-`clamp` 要求 `minimum <= maximum`。
+`clamp` requires `minimum <= maximum`.
 
 ```norm
 import std.math.clamp
@@ -12,17 +12,17 @@ import std.math.clamp
 Integer opacity = clamp(value: input, minimum: 0, maximum: 100)
 ```
 
-## 函数组
+## Function groups
 
-- 基础：`abs`、`min`、`max`、`clamp`、`sign`；
-- 舍入：`floor`、`ceiling`、`truncate`、`round`；
-- 幂与对数：`sqrt`、`pow`、`exp`、`log`；
-- 三角：`sin`、`cos`、`tan` 及反函数。
+- Basics: `abs`, `min`, `max`, `clamp`, `sign`;
+- Rounding: `floor`, `ceiling`, `truncate`, `round`;
+- Powers and logarithms: `sqrt`, `pow`, `exp`, `log`;
+- Trigonometry: `sin`, `cos`, `tan`, and inverse functions.
 
-三角函数以弧度为单位。角度转换通过 `degreesToRadians` 等明确函数完成。
+Trigonometric functions use radians. Explicit functions such as `degreesToRadians` perform angle conversion.
 
-## 特殊值
+## Special values
 
-Float/Double 遵循已选定的 IEEE 754 子集，NaN、Infinity 和有符号零的比较必须在数值规范中固定。整数溢出策略不能由优化级别改变。
+Float/Double follow the selected IEEE 754 subset. Comparisons involving NaN, Infinity, and signed zero must be fixed in the numeric specification. Optimization level must not change the integer overflow policy.
 
-计划中的 Decimal 使用自己的舍入 API，不自动调用二进制浮点 Math。需要统计、矩阵或任意精度算法时使用独立库，避免让核心模块无限增长。
+The planned Decimal type will have its own rounding API and will not implicitly call binary floating-point Math. Statistics, matrices, and arbitrary-precision algorithms belong in separate libraries to keep the core module bounded.

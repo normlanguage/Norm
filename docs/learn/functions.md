@@ -1,37 +1,37 @@
-# 03 函数与调用
+# 03 Functions and calls
 
-函数是顶层语言结构。返回类型、参数类型和公开参数名共同形成可见的调用契约。
+Functions are a top-level language construct. Return types, parameter types, and public parameter names together form the visible call contract.
 
 <<< ../../norm/tests/docs/tour/03_functions.norm{norm}
 
-输出：
+Output:
 
 ```text
 40
 ```
 
-## 声明
+## Declarations
 
 ```text
-返回类型 函数名(参数类型 参数名, ...) { ... }
+ReturnType functionName(ParameterType parameterName, ...) { ... }
 ```
 
-有结果的具名函数使用 `return value`。顶层函数省略返回类型时固定为 `Void`，不会根据函数体推断返回类型。
+Named functions that produce a value use `return value`. A top-level function without an explicit return type is fixed to `Void`; its type is not inferred from the body.
 
-## 参数标签
+## Argument labels
 
-多参数调用写出参数名：
+Calls with multiple arguments name their parameters:
 
 ```norm
 Integer difference = subtract(left: 140, right: 100)
 ```
 
-标签选择形参槽位，但实参表达式仍按源码从左到右求值。单参数调用可以省略标签；多参数调用中，与形参同名的裸标识符可以缩写。具名实参与位置实参不能混用。
+Labels select parameter slots, but argument expressions are still evaluated in source order from left to right. A single-argument call may omit the label. In a multi-argument call, a bare identifier with the same name as its parameter may use shorthand. Named and positional arguments cannot be mixed.
 
-## 方法
+## Methods
 
-实例方法可以访问字段。class 方法省略返回类型时是 fluent 方法，正常完成或裸 `return` 都返回 `this`；真正无结果的方法显式写 `Void`。
+Instance methods can access fields. A class method without an explicit return type is fluent: normal completion or a bare `return` returns `this`. A method that genuinely produces no result explicitly declares `Void`.
 
-重载、覆盖和完整 callable 语法见[函数参考](/spec/grammar/functions)与[函数高级规则](/spec/grammar/functions-advanced)。
+For overloads, overrides, and complete callable syntax, see the [function reference](/spec/grammar/functions) and [advanced function rules](/spec/grammar/functions-advanced).
 
-上一章：[值与绑定](/learn/bindings)。下一章：[Class、Value 与 Interface](/learn/data-model)。
+Previous: [Values and bindings](/learn/bindings). Next: [Class, Value, and Interface](/learn/data-model).

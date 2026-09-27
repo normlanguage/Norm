@@ -1,25 +1,25 @@
-# 时间 API
+# Time API
 
-时间库区分 UTC 时间点、固定长度、时钟能力和后续日历类型，避免用一个 DateTime 类型混合不同语义。
+The time library separates UTC instants, fixed lengths, clock capabilities, and future calendar types instead of mixing their semantics in one DateTime type.
 
-## 基础类型
+## Fundamental types
 
-`Instant` 表示 UTC 时间线上的唯一时间点，由 epoch second 与 0..999,999,999 的 nanosecond adjustment 组成。`Duration` 表示固定秒数与相同范围的 nanosecond adjustment。两者分别通过 `instant` 与 `duration` 工厂建立 canonical value；无效 adjustment 抛出 `TimeException`。
+`Instant` identifies one point on the UTC timeline using an epoch second and a nanosecond adjustment in 0..999,999,999. `Duration` represents a fixed number of seconds with the same nanosecond adjustment range. The `instant` and `duration` factories respectively create canonical values; an invalid adjustment throws `TimeException`.
 
 ```norm
 Duration timeout = duration(seconds: 5, nanoseconds: 0)
 Instant epoch = instant(epochSecond: 0, nanosecond: 0)
 ```
 
-完整声明以 [`std.time`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/time/core.norm) 为准。
+[`std.time`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/time/core.norm) contains the complete declarations.
 
 ## Clock
 
-业务函数接收显式 `Clock`，应用组合根通过 `systemClock()` 取得宿主时钟。测试平台可以注入 fixed clock，而不修改业务代码或全局状态。
+Business functions receive an explicit `Clock`. The application composition root obtains a host clock through `systemClock()`. Tests can inject a fixed clock without changing business code or global state.
 
 ```norm
 Clock clock = systemClock()
 Instant now = clock.now()
 ```
 
-读取时钟失败抛出带稳定 code、operation 与 reason 的 `TimeException`。日历日期、时区、`Period`、格式化与解析在各自 API 落地时复用这些基础类型。
+Clock-read failures throw `TimeException` with stable code, operation, and reason. Calendar dates, time zones, `Period`, formatting, and parsing will reuse these foundational types as their respective APIs are implemented.

@@ -1,33 +1,33 @@
 ---
 title: Tooling
-description: Norm CLI、语言服务与编辑器集成
+description: Norm CLI, language service, and editor integration
 ---
 
 # Tooling
 
-Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义快照。类型检查、名称解析和项目边界只实现一次。
+Norm's formatter, diagnostics, and editor features read the same semantic snapshot as the compiler. Type checking, name resolution, and project boundaries are implemented once.
 
-## 当前能力
+## Current capabilities
 
-- 格式化与编译器诊断；
-- 作用域和期望类型驱动的补全；
-- Signature Help 与 Hover；
-- 跳转定义与查找引用；
-- Prepare Rename 与语义 Rename；
-- 跨文件、跨 package 和标准库源码导航；
-- 未保存文档参与项目分析。
+- Formatting and compiler diagnostics;
+- Completion driven by scope and expected type;
+- Signature Help and Hover;
+- Go to Definition and Find References;
+- Prepare Rename and semantic Rename;
+- Navigation across files, packages, and standard-library sources;
+- Project analysis including unsaved documents.
 
-结构化 API 文档复用同一语义入口，见 [API 文档导出](/tooling/api-documentation)。自包含应用的输出约定见[应用构建](/tooling/application-build)。
+Structured API documentation reuses the same semantic entry point; see [API Documentation Export](/tooling/api-documentation). See [Application Builds](/tooling/application-build) for self-contained application output conventions.
 
-`norm run main.norm` 默认不显示启动准备日志。使用 `norm run --debug main.norm`，将启动阶段、累计耗时和实际 Maven 下载写入 stderr；错误诊断始终显示，应用输出不受此选项影响。进度入口见 [RunCommand](../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java)，本地依赖的联网边界验证见 [JarResolverTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java)。
+`norm run main.norm` hides startup preparation logs by default. `norm run --debug main.norm` writes startup phases, elapsed time, and actual Maven downloads to stderr. Error diagnostics always appear; this option does not affect application output. See [RunCommand](../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java) for progress and [JarResolverTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java) for the network boundary of local dependencies.
 
 ## VS Code
 
-AI Agent 的规范、查询和验证导航见 [Agent 开发入口](/tooling/agent)。
+For AI Agent navigation through specifications, queries, and validation, see [Agent Development](/tooling/agent).
 
-正式 VSIX 包含受支持平台的同版本自包含 CLI。安装、运行、项目识别和 CLI 选择见 [VS Code 开发体验](/guide/vscode)。发布资产与平台矩阵见[发布流程](/design/release-process)。
+The official VSIX bundles a same-version self-contained CLI for supported platforms. See [VS Code Development Experience](/guide/vscode) for installation, execution, project detection, and CLI selection; see the [release process](/design/release-process) for publication assets and platform matrix.
 
-## 共同语义入口
+## Shared semantic entry point
 
 ```text
 Source files
@@ -38,4 +38,4 @@ Source files
   → formatter / compiler
 ```
 
-工具能力的当前交付边界见 [Status](/status)。调试器和在线执行环境尚未进入发布版。
+See [Status](/status) for the currently delivered tooling boundary. A debugger and online execution environment are not yet in a release.

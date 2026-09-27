@@ -8,6 +8,13 @@ const manifestPath = resolve(docsRoot, 'public', 'site.webmanifest')
 assert.deepEqual(JSON.parse(await readFile(manifestPath, 'utf8')), siteManifest)
 await access(resolve(docsRoot, 'guide', 'index.md'))
 
+const markdownPages = (await filesWithExtension(docsRoot, '.md'))
+  .map(path => path.slice(docsRoot.length + 1).replaceAll('\\', '/'))
+  .filter(path => !path.startsWith('.vitepress/') && !path.startsWith('node_modules/'))
+const englishPages = markdownPages.filter(path => !path.startsWith('zh/')).sort()
+const chinesePages = markdownPages.filter(path => path.startsWith('zh/')).map(path => path.slice(3)).sort()
+assert.deepEqual(englishPages, chinesePages, 'English and Chinese documentation pages differ')
+
 const wrongCaseBase = `/${repositoryName.toLowerCase()}/`
 const wrongCaseUrl = `${siteOrigin}${wrongCaseBase}`
 if (wrongCaseBase !== siteBase) {
@@ -30,6 +37,7 @@ if (wrongCaseBase !== siteBase) {
 
 if (process.argv.includes('--dist')) {
   const html = await readFile(resolve(docsRoot, '.vitepress', 'dist', 'index.html'), 'utf8')
+  const chinese = await readFile(resolve(docsRoot, '.vitepress', 'dist', 'zh', 'index.html'), 'utf8')
   const guide = await readFile(
     resolve(docsRoot, '.vitepress', 'dist', 'guide', 'index.html'),
     'utf8',
@@ -39,8 +47,16 @@ if (process.argv.includes('--dist')) {
     'utf8',
   )
   assert.match(html, new RegExp(`(?:href|src)="${siteBase.replaceAll('/', '\\/')}`))
+  assert.match(html, /<html[^>]*lang="en-US"/)
+  assert.match(chinese, /<html[^>]*lang="zh-CN"/)
   assert.match(guide, /<h1[^>]*>Language/)
   assert.match(learn, /<h1[^>]*>Language Tour/)
+  const legacyEnglish = await readFile(
+    resolve(docsRoot, '.vitepress', 'dist', 'en', 'language', 'overview.html'),
+    'utf8',
+  )
+  assert.match(legacyEnglish, new RegExp(siteBase.replaceAll('/', '\\/') + 'language\\/overview'))
+  assert.match(legacyEnglish, /location\.search \+ location\.hash/)
   assert.equal(html.includes(wrongCaseBase), false)
   assert.equal(html.includes(wrongCaseUrl), false)
   assert.deepEqual(
@@ -55,7 +71,7 @@ console.log(`Norm site path verified: ${siteUrl}`)
 async function textFiles(directory) {
   const paths = []
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === 'dist') continue
+    if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'cache' || entry.name === '.temp') continue
     const path = resolve(directory, entry.name)
     if (entry.isDirectory()) {
       paths.push(...(await textFiles(path)))
@@ -111,6 +127,7 @@ async function files(directory) {
 async function filesWithExtension(directory, extension) {
   const paths = []
   for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (extension === '.md' && (entry.name === 'node_modules' || entry.name === '.vitepress')) continue
     const path = resolve(directory, entry.name)
     if (entry.isDirectory()) paths.push(...(await filesWithExtension(path, extension)))
     else if (entry.name.endsWith(extension)) paths.push(path)

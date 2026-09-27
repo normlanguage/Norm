@@ -1,6 +1,6 @@
-# 测试 API
+# Testing API
 
-`std.testing.Test` 标记可独立执行的顶层、无类型参数、无参数 `Void` 函数。正常返回表示通过；未处理异常或断言失败表示失败。声明与关联字段见 [`testing/tests.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/testing/tests.norm)。
+`std.testing.Test` marks a top-level, nongeneric, parameterless `Void` function that can run independently. Normal return means success; an unhandled exception or assertion failure means failure. [`testing/tests.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/testing/tests.norm) defines the annotation and association fields.
 
 ```norm
 package sample.math
@@ -14,9 +14,9 @@ Void clampBelowMinimum() {
 }
 ```
 
-不需要文档关联的测试使用 `@Test`。`types`、`functions`、`fields` 指向被测声明，API 文档据此建立反向关系。关联不代表覆盖率或测试通过状态。重载引用仍需要能唯一确定目标的函数类型。
+Use `@Test` when no documentation association is needed. `types`, `functions`, and `fields` refer to declarations under test, letting the API docs build reverse links. An association does not indicate coverage or passing status. A reference to an overloaded function still needs a function type that identifies the target uniquely.
 
-## 执行
+## Execution
 
 ```bash
 norm test path/to/module
@@ -25,14 +25,14 @@ norm test path/to/module --filter sample.math.clampBelowMinimum
 norm test path/to/test.norm
 ```
 
-筛选匹配完整函数名或 package 前缀；没有匹配测试时命令失败。每个 Norm 测试使用独立执行上下文及运行资源，相对文件路径从测试源码所在目录解析。编辑器在测试声明处提供 `Run Test`，调用相同 CLI 入口。
+A filter matches a full function name or package prefix; the command fails if no tests match. Each Norm test uses an independent execution context and runtime resources; relative file paths resolve from the test source directory. The editor offers `Run Test` on a test declaration and invokes the same CLI entry point.
 
-源码集合及 package 归属见 [模块系统](/spec/module-system#source-set)。标准库测试位于 [`std/tests/test`](https://github.com/normlanguage/Norm/tree/main/norm/stdlib/std/tests/test)，属于 `std` 模块的测试源码集合。
+See the [module system](/spec/module-system#source-set) for source sets and package ownership. Standard-library tests are in [`std/tests/test`](https://github.com/normlanguage/Norm/tree/main/norm/stdlib/std/tests/test), the test source set of the `std` module.
 
-## 断言与输出
+## Assertions and output
 
-可组合的判定函数见 [`testing/predicates.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/testing/predicates.norm)。判定函数返回 Boolean，可交给 `require` 检查。
+Composable predicates are in [`testing/predicates.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/testing/predicates.norm). They return Boolean values that `require` can check.
 
-[`testing/output.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/testing/output.norm) 提供期望输出协议。测试声明了非空期望输出时，运行器会比较本次测试的完整实际输出；没有声明期望输出时，打印仅用于观察。
+[`testing/output.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/testing/output.norm) defines the expected-output protocol. When a test declares nonempty expected output, the runner compares it against the entire actual output of that test. Without an expected output declaration, printing is observational only.
 
-测试执行通过 JUnit Platform 汇总，编译、资源准备和 Core 调用复用应用执行链路。语言入口及多模块启动验收继续使用 [`norm/tests`](https://github.com/normlanguage/Norm/tree/main/norm/tests) 中的独立程序。
+Test execution is aggregated through the JUnit Platform. Compilation, resource setup, and Core calls reuse the application execution path. Independent programs under [`norm/tests`](https://github.com/normlanguage/Norm/tree/main/norm/tests) continue to accept the language entry point and multimodule startup.

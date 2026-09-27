@@ -1,5 +1,7 @@
 # Contributing to Norm
 
+[简体中文](CONTRIBUTING.zh-CN.md)
+
 Norm is in the compiler bootstrap stage. Changes should keep the language specification and the Java implementation synchronized, but an unfinished specification feature must not be added to the compiler accidentally.
 
 ## Requirements
@@ -31,4 +33,4 @@ Run `./gradlew spotlessCheck` before submitting Java changes, or `./gradlew spot
 
 ## Architecture rules
 
-The [toolchain development standard](https://normlanguage.github.io/Norm/en/design/toolchain-development) is the source of truth for module boundaries, package responsibilities, dependency direction, naming, and verification. Language changes must keep the specification, frontend diagnostics, Truffle lowering, and focused tests synchronized.
+The [toolchain development standard](https://normlanguage.github.io/Norm/design/toolchain-development) is the source of truth for module boundaries, package responsibilities, dependency direction, naming, and verification. Language changes must keep the specification, frontend diagnostics, Truffle lowering, and focused tests synchronized.

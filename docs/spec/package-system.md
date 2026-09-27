@@ -1,6 +1,6 @@
-# Package 系统
+# Package system
 
-package 是 Norm 源码的命名空间。一个源码根目录可以包含多个 package，同一 package 可以由多个源码文件共同组成；声明顺序和文件名不参与名称解析。
+A package is a namespace for Norm source code. One source root may contain multiple packages, and multiple source files may contribute to one package; declaration order and file names do not participate in name resolution.
 
 ```norm
 package geometry
@@ -15,21 +15,21 @@ Integer area(Integer width, Integer height) {
 }
 ```
 
-## 文件与源码根
+## Files and source roots
 
-package 名由点分隔的标识符组成。模块源码集合的每个根目录以模块名为 package 前缀，其下相对目录补全 package 名；配置与目录映射见 [Source set](/spec/module-system#source-set)。
+Package names consist of dot-separated identifiers. Each root of a module source set uses the module name as its package prefix; the relative directory beneath that root completes the package name. See [source sets](/spec/module-system#source-set) for configuration and directory mapping.
 
-文件名不创建命名空间，也不限制文件中的 public 声明数量。项目可以按主要类型命名文件，但这只是组织约定。跨文件名称解析只发生在 `module.norm` 建立的 source set 内；没有模块配置时，无论入口是否声明 package，都按独立单文件处理。
+A file name does not create a namespace or limit its number of public declarations. A project may name files after their principal type, but this is only an organizational convention. Cross-file name resolution occurs only within the source set established by `module.norm`. Without module configuration, the entry is treated as an independent single file whether or not it declares a package.
 
-## 可见性
+## Visibility
 
-- 顶层声明默认 `public`，可以被同 package 文件直接使用；声明所在源文件被模块导出后，也可以被其他 package 导入；
-- `private` 顶层声明只在当前源码文件可见；
-- Norm 不提供 package-private 或 `protected`；
-- public 签名不能暴露 private 类型。
+- Top-level declarations are `public` by default and can be used directly by files in the same package. They may also be imported from other packages when their source file is exported by the module.
+- A `private` top-level declaration is visible only within its source file.
+- Norm provides neither package-private nor `protected` visibility.
+- A public signature cannot expose a private type.
 
-## 编译边界
+## Compilation boundary
 
-编译器先收集项目中已加载源码的全部声明签名，再解析 import 和函数体，因此不同文件可以互相引用，也可以形成函数递归或纯声明依赖环。源码不包含顶层可变初始化，名称解析不依赖文件顺序。
+The compiler first collects all declaration signatures from loaded project source, then resolves imports and function bodies. Different files may therefore refer to each other and may form function-recursion or declaration-only dependency cycles. Source has no mutable top-level initialization, so name resolution does not depend on file order.
 
-package 负责源码名称空间，`module.norm` 负责 source set 与模块边界。模块内同 package 文件可以直接引用彼此；跨 package 可见范围由 `exports` 精确决定。参见[模块系统](/spec/module-system)。
+Packages organize source namespaces; `module.norm` defines source sets and module boundaries. Files in the same package and module may refer to each other directly. `exports` precisely determines visibility across packages. See the [module system](/spec/module-system).

@@ -1,143 +1,143 @@
 ---
-title: 商业计划展望
-description: 以 AI 驱动存量 Java 应用现代化，通过 GraalVM Native Image 验证成本收益，以 Norm 承接持续演进
+title: Business outlook
+description: AI-assisted modernization of existing Java applications, measured Native Image economics, and continued evolution with Norm
 ---
 
-# 商业计划展望
+# Business outlook
 
-## 愿景与定位
+## Vision and positioning
 
-Norm 的商业方向是 AI 驱动的 Java 应用现代化：帮助企业理解和改造存量 Java 系统，将适合的应用迁移到 GraalVM Native Image，在保持业务行为和服务质量的前提下降低运行成本，并建立持续升级和维护能力。
+Norm's commercial direction is AI-assisted Java application modernization: helping enterprises understand and improve existing Java systems, migrate suitable applications to GraalVM Native Image, reduce operating costs while preserving business behavior and service quality, and establish ongoing upgrade and maintenance capabilities.
 
-AI 降低分析、修改和验证旧项目的交付成本；GraalVM Native Image 提供改善启动和资源占用的技术路径；Norm 为需要重构的业务模块提供统一的表达、工具与交付基础。三者共同服务于可衡量的客户收益。
+AI can reduce the delivery cost of analyzing, modifying, and validating legacy projects. GraalVM Native Image offers a technical path to improved startup and resource consumption. Norm provides a shared foundation for expressing, tooling, and delivering business modules that need refactoring. All three serve measurable customer benefits.
 
-本计划属于商业展望。客户需求、迁移效率、Norm 的增量价值和实际节省比例均需通过付费试点验证，不构成已交付产品或收益承诺。语言和工具链的成熟度以 [Status](/status) 与[版本实现契约](/versions/)为准。
+This is a business outlook. Customer demand, migration efficiency, Norm's incremental value, and actual savings must be validated through paid pilots. They are not delivered-product or return commitments. [Status](/status) and [version implementation contracts](/versions/) define language and toolchain maturity.
 
-## AI 带来的商业窗口
+## The opportunity created by AI
 
-存量系统的改造价值取决于收益能否覆盖迁移成本。理解隐含业务规则、梳理依赖、升级框架、处理兼容问题和补充回归验证，都会消耗交付资源。系统仍能运行时，企业可能缺乏承担一次大规模改造的动力。
+Modernizing an existing system is worthwhile when its benefits cover migration costs. Recovering implicit business rules, understanding dependencies, upgrading frameworks, addressing compatibility, and adding regression validation all consume delivery resources. An enterprise may have little incentive to undertake a major change while its system still works.
 
-本计划的核心假设是：AI 能够在明确约束和自动化验证下，降低这些工作的重复劳动，使一部分原本回收期过长的项目具备改造价值。AI 的贡献必须通过完整交付耗时、人工介入、模型费用和缺陷数据测量，不能用生成代码量代替。
+The central hypothesis is that AI, under explicit constraints and automated validation, can reduce repetitive work enough to make some projects with previously excessive payback periods worthwhile. Measure AI's contribution through total delivery time, human intervention, model cost, and defect data rather than generated code volume.
 
-客户购买的是持续降低的软件运行与维护成本。商业入口应围绕现有系统和可核算收益展开，语言采用通过成功交付逐步形成。
+Customers buy sustained reductions in software operating and maintenance costs. The commercial entry point should address existing systems and accountable benefits; language adoption can follow successful delivery.
 
-## 首批客户与切入场景
+## Initial customers and use cases
 
-首批客户优先选择为多个企业提供独立部署的软件厂商。一套产品重复运行在不同客户环境，既可能放大单实例资源收益，也有利于复用同一框架的迁移经验。
+Initial customers should prioritize software vendors delivering separate deployments to multiple enterprises. Running one product repeatedly across customer environments can amplify per-instance savings and make migration experience with the same framework reusable.
 
-| 目标客户 | 优先评估的场景 | 购买动机 |
+| Target customer | Initial scenario to evaluate | Buying motivation |
 | --- | --- | --- |
-| 多客户独立部署的 Java 软件厂商 | 同一产品拥有较多常驻实例 | 降低每个客户的交付与运行成本 |
-| 拥有大量同构服务的企业 | 框架集中、基础内存占用明显 | 提高部署密度，减少重复升级工作 |
-| 私有化软件实施商 | 需要反复安装、升级和支持的应用 | 简化运行环境，形成标准化交付 |
-| 有频繁启动或弹性扩容需求的团队 | 冷启动影响业务体验的服务 | 改善启动和容量响应 |
+| Java vendors with separate customer deployments | Many persistent instances of one product | Reduce delivery and operating cost per customer |
+| Enterprises with many similar services | Concentrated framework usage and substantial baseline memory | Increase deployment density and reduce repeated upgrade work |
+| Private-deployment implementation providers | Applications repeatedly installed, upgraded, and supported | Simplify runtime environments and standardize delivery |
+| Teams with frequent startup or elastic scaling | Services whose cold starts affect user experience | Improve startup and capacity response |
 
-获客从现有合作关系、Java 软件厂商和实施服务商开始。首次评估需要源码与依赖清单、部署拓扑、代表性负载、业务验收依据和成本基线，并确认预算负责人及技术验收负责人。
+Customer acquisition starts with existing relationships, Java software vendors, and implementation providers. Initial assessment needs source and dependency inventories, deployment topology, representative workloads, business acceptance criteria, and a cost baseline, together with identified budget and technical acceptance owners.
 
-优先选择边界明确、依赖可控、业务行为可验证的服务。不以项目年龄作为唯一筛选标准。数据库或带宽费用占主导、实例数量受固定高可用要求约束、严重依赖运行期动态扩展的项目，应先判断是否存在足够收益。
+Prioritize services with clear boundaries, manageable dependencies, and verifiable behavior. Project age alone is insufficient. First establish whether meaningful benefits exist when database or bandwidth costs dominate, fixed high-availability requirements determine instance counts, or applications depend heavily on runtime dynamic extension.
 
-可服务市场采用自下而上估算：可触达的软件厂商数量、符合条件的产品数量、可复用的部署规模与可接受客单价。访谈和试点前不预设市场规模与收入预测。
+Estimate the serviceable market from the bottom up: reachable vendors, qualifying products, reusable deployment scale, and acceptable customer pricing. Do not assume market size or revenue forecasts before interviews and pilots.
 
-## 产品与交付闭环
+## Product and delivery lifecycle
 
-产品围绕项目评估、迁移实施、收益验收和持续维护形成闭环。早期采用专家参与的 AI 辅助交付，在同类项目中验证复用能力后再产品化。
+The product connects assessment, migration, benefit acceptance, and ongoing maintenance. Early delivery combines experts with AI assistance; productization follows demonstrated reuse across similar projects.
 
-| 阶段 | 工作内容 | 客户可验收的产物 |
+| Stage | Work | Customer-verifiable deliverables |
 | --- | --- | --- |
-| 评估 | 分析技术栈、动态能力、依赖和部署成本 | 障碍清单、迁移范围、收益假设及报价依据 |
-| 基线 | 建立接口、数据副作用、事务和异常行为的验收依据 | 可执行验收集与原系统测量记录 |
-| 改造 | AI 辅助升级、适配、重构和修复，工程师处理关键决策 | 可审查源码、固定依赖与构建入口 |
-| 验证 | 比较新旧行为、负载表现和资源需求 | 功能差异报告、性能报告与容量建议 |
-| 交付 | 在目标环境试运行，确认升级与恢复流程 | 应用制品、部署方案与验收记录 |
-| 维护 | 对后续代码和依赖变更重复验证 | 持续构建、回归与成本趋势报告 |
+| Assessment | Analyze the stack, dynamic capabilities, dependencies, and deployment costs | Obstacles, migration scope, benefit hypotheses, and pricing basis |
+| Baseline | Establish acceptance criteria for interfaces, data side effects, transactions, and exceptions | Executable acceptance suite and original-system measurements |
+| Migration | AI-assisted upgrades, adaptation, refactoring, and fixes, with engineers making key decisions | Reviewable source, pinned dependencies, and build entry points |
+| Validation | Compare behavior, workload performance, and resource requirements | Functional differences, performance reports, and capacity recommendations |
+| Delivery | Trial operation in the target environment; confirm upgrade and recovery procedures | Application artifacts, deployment plan, and acceptance records |
+| Maintenance | Repeat validation for subsequent code and dependency changes | Continuous builds, regressions, and cost-trend reports |
 
-行为基线来自原系统、已确认的业务规则和独立验收样例。原系统存在的缺陷需要显式决定保留还是修正；AI 生成的测试不能单独证明迁移正确。编译成功只是进入运行验收的条件。
+Behavioral baselines come from the original system, confirmed business rules, and independent acceptance examples. Existing defects require an explicit decision to preserve or fix them. AI-generated tests alone cannot establish migration correctness. Successful compilation is only a prerequisite for runtime acceptance.
 
-首个产品版本支持一组明确的框架与依赖组合、一种主要部署环境和一个可独立验收的服务。每扩大一种支持范围，都应增加对应的真实应用证据。
+The first product version supports a defined combination of frameworks and dependencies, one primary deployment environment, and one independently verifiable service. Every expansion of support requires corresponding real-application evidence.
 
-## Norm 的产品角色
+## Norm's product role
 
-Norm 的长期目标是成为适合 AI 持续理解、修改和交付业务逻辑的语言基础。现有相关能力分别由[应用构建](/tooling/application-build)、[Java 适配](/design/java-library-adapters)、[Agent 开发入口](/tooling/agent)和[语义查询](/tooling/semantic-query)定义，本计划不另行维护技术规格。
+Norm's long-term goal is to provide a language foundation that AI can continually understand, modify, and deliver for business logic. Existing capabilities are defined in [application builds](/tooling/application-build), [Java adapters](/design/java-library-adapters), [agent development](/tooling/agent), and [semantic queries](/tooling/semantic-query). This plan does not duplicate those technical specifications.
 
-迁移采用两条共享评估与验收体系的路径。
+Migration has two paths sharing the same assessment and acceptance system.
 
-| 路径 | 选择依据 | 商业作用 |
+| Path | Selection criteria | Commercial role |
 | --- | --- | --- |
-| 保留 Java，升级和适配后生成 Native Image | 直接迁移成本可控，现有框架支持足够 | 降低客户采用门槛，尽快兑现收益 |
-| 将选定模块重构为 Norm，再生成 Native Image | 实测表明重构能改善交付、运行或后续维护 | 沉淀 Norm 业务模块与持续演进能力 |
+| Retain Java, upgrade and adapt it, then build a Native Image | Direct migration costs are manageable and framework support is sufficient | Reduce adoption barriers and realize benefits sooner |
+| Refactor selected modules into Norm, then build a Native Image | Measurements show improved delivery, operation, or future maintenance | Establish reusable Norm business modules and continued evolution |
 
-Norm 不作为所有客户的强制前提。需要重构时，优先选择可隔离模块，保持清楚的接口与数据契约；过渡期间明确实现归属和旧模块退出条件，避免长期维护两份业务逻辑。
+Norm is not mandatory for every customer. When refactoring is justified, start with isolatable modules and clear interface and data contracts. During transition, define implementation ownership and retirement criteria for old modules to avoid permanently maintaining two versions of business logic.
 
-Java 适配不会自动消除依赖内部的 Native Image 兼容问题。Norm 的原生构建能力也不直接证明业务性能优于 Java Native。Norm 的独立价值必须通过迁移人工成本、多轮变更质量、交付稳定性和运行表现验证；测量边界参考 [Agent 任务基准](/tooling/agent-benchmark)与[实现策略](/design/implementation-strategy)。
+Java adaptation does not automatically remove Native Image compatibility problems inside dependencies. Norm's native-build support does not establish a business-performance advantage over Java Native. Validate its independent value through migration labor, quality across repeated changes, delivery stability, and runtime behavior. See the [agent task benchmark](/tooling/agent-benchmark) and [implementation strategy](/design/implementation-strategy) for measurement boundaries.
 
-## 收益衡量与客户经济性
+## Benefits and customer economics
 
-本计划中的 GraalVM 迁移特指 Native Image 原生化。官方提供动态能力的可达性元数据机制，Spring 也有既有 AOT 路径，因此直接 Java 原生化应作为评估选项。具体限制与能力以 [GraalVM 元数据文档](https://www.graalvm.org/latest/reference-manual/native-image/metadata/)和 [Spring AOT 文档](https://docs.spring.io/spring-framework/reference/core/aot.html)为依据。
+GraalVM migration in this plan specifically means Native Image compilation. GraalVM provides reachability metadata for dynamic capabilities, and Spring has an established AOT path, so direct Java native compilation should remain an option. Consult the [GraalVM metadata documentation](https://www.graalvm.org/latest/reference-manual/native-image/metadata/) and [Spring AOT documentation](https://docs.spring.io/spring-framework/reference/core/aot.html) for capabilities and restrictions.
 
-资源收益需要在相同业务负载、延迟目标、错误率和可用性要求下测量。Native Image 的内存、吞吐与延迟存在配置和工作负载相关的权衡，不能由启动速度推导整体成本收益，参见 [GraalVM 内存管理](https://www.graalvm.org/latest/reference-manual/native-image/optimizations-and-performance/MemoryManagement/)。
+Measure resource benefits under the same business workload, latency targets, error rates, and availability requirements. Native Image memory, throughput, and latency involve configuration- and workload-dependent tradeoffs. Startup speed alone does not determine total cost benefits; see [GraalVM memory management](https://www.graalvm.org/latest/reference-manual/native-image/optimizations-and-performance/MemoryManagement/).
 
-客户年度净收益按以下口径计算：
+Calculate annual customer benefits as follows:
 
 ```text
-年度持续净收益
-  = 可兑现的年度基础设施节省
-  + 可核实的年度运维工时节省
-  - 新增年度构建、运行、支持与订阅成本
+Recurring annual net benefit
+  = Realizable annual infrastructure savings
+  + Verifiable annual operations labor savings
+  - Additional annual build, runtime, support, and subscription costs
 
-首年净收益
-  = 年度持续净收益 - 一次性迁移与验收成本
+First-year net benefit
+  = Recurring annual net benefit - One-time migration and acceptance costs
 
-回收期（月）
-  = 一次性迁移与验收成本 / 月度持续净收益
+Payback period (months)
+  = One-time migration and acceptance costs / Recurring monthly net benefit
 ```
 
-月度持续净收益非正时，不使用回收期表达迁移价值。工时节省与现金支出节省分开报告，避免将可用时间直接当成现金收入。
+Do not express migration value as a payback period when recurring monthly net benefit is nonpositive. Report saved labor and saved cash expenditure separately; available time is not automatically cash income.
 
-成本验收以能够实际调整的实例规格、节点数量或计费资源为准。内存占用下降而付费资源未减少时，应记录为容量收益。固定合同、预付资源和最小副本要求可能推迟现金收益兑现。
+Cost acceptance uses instance sizes, node counts, or billable resources that can actually be changed. Lower memory use without a reduction in paid resources is a capacity benefit. Fixed contracts, prepaid resources, and minimum replica requirements can delay cash savings.
 
-例如，假设每月基础设施费用为 10 万元，其中应用计算占 3 万元，应用计算费用降低 40%，则总费用降低 1.2 万元，即 12%，尚未扣除新增成本。该例仅说明核算方法，不是节省预测。
+For example, suppose monthly infrastructure costs are CNY 100,000, of which application compute costs CNY 30,000. Reducing application compute cost by 40% reduces total cost by CNY 12,000, or 12%, before additional costs. This example illustrates accounting, not a savings forecast.
 
-## 收费与交付经济性
+## Pricing and delivery economics
 
-| 收费阶段 | 收费对象 | 定价依据 |
+| Pricing stage | What the customer purchases | Pricing basis |
 | --- | --- | --- |
-| 付费评估 | 可行性分析和测量基线 | 系统范围、环境复杂度与取证工作 |
-| 迁移交付 | 约定范围内通过验收的应用 | 改造复杂度、验收责任与预期客户收益 |
-| 持续维护 | 依赖升级、回归和 Native 兼容维护 | 应用数量、支持范围与服务等级 |
-| 平台订阅 | 可重复使用的团队工具与构建服务 | 项目或应用规模，另计高成本计算资源 |
+| Paid assessment | Feasibility analysis and measurement baseline | System scope, environment complexity, and evidence collection |
+| Migration delivery | An application passing acceptance within agreed scope | Migration complexity, acceptance responsibility, and expected customer benefit |
+| Ongoing maintenance | Dependency upgrades, regression checks, and Native compatibility | Application count, support scope, and service level |
+| Platform subscription | Reusable team tools and build services | Project or application scale, with expensive compute charged separately |
 
-早期以范围明确的付费试点验证购买意愿。获得稳定测量方法后，可探索基础费用加节省收益分成；分成协议应固定负载、资源单价、比较周期和新增成本口径，排除流量变化及采购折扣的影响。
+Start with clearly scoped paid pilots to validate willingness to pay. Once measurement is stable, explore a base fee plus a share of savings. Such agreements should fix workloads, resource unit prices, comparison periods, and additional-cost accounting, excluding traffic changes and purchasing discounts.
 
-项目贡献毛利需扣除工程师投入、模型调用、构建资源、环境准备和约定支持成本。只有同类项目的人工介入持续下降、复用程度提高且毛利改善，才说明交付具备规模化条件。
+Project contribution margin must deduct engineering time, model calls, build resources, environment preparation, and agreed support costs. Scalable delivery requires declining human intervention, increasing reuse, and improving margins across comparable projects.
 
-核心语言与基础工具保持低采用门槛是建议方向，商业收入集中于迁移成果、持续维护和平台服务。具体授权与产品权益另行制定。
+Keeping the core language and basic tools easy to adopt is the proposed direction. Commercial revenue centers on migration outcomes, continued maintenance, and platform services. Licensing and product entitlements are defined separately.
 
-## 竞争与长期积累
+## Competition and durable assets
 
-客户可以选择保留 JVM 并优化资源配置、使用官方工具直接原生化、聘请服务商改造，或用通用 AI 编程工具自行实施。产品需要证明，相对于这些选择，完整交付成本和持续收益更有优势。
+Customers can retain the JVM and optimize resources, compile directly with official native tools, hire a modernization provider, or use general AI coding tools themselves. The product must demonstrate better overall delivery economics and sustained benefits than these alternatives.
 
-可持续积累集中在四类资产：经过验收的框架与依赖适配规则、可重复执行的迁移流程、获授权可复用的业务验收模式，以及真实负载下的成本与性能数据。Norm 的语义工具和模块体系应帮助这些资产统一维护。
+Durable assets fall into four categories: verified framework and dependency adaptation rules, repeatable migration workflows, authorized reusable business acceptance patterns, and cost/performance data under real workloads. Norm's semantic tools and module system should support their unified maintenance.
 
-当客户在多个项目中持续使用相同交付链路，产品可从单次迁移服务发展为应用现代化平台。进一步的 AI 开发能力，应围绕迁移后应用的日常需求变更展开，用持续维护效果建立采用理由。
+When customers repeatedly use the delivery workflow across projects, the product can evolve from a one-off migration service into an application-modernization platform. Further AI development capabilities should address everyday changes to migrated applications, earning adoption through ongoing maintenance outcomes.
 
-## 验证里程碑
+## Validation milestones
 
-| 阶段 | 建议行动 | 进入下一阶段的依据 |
+| Stage | Proposed action | Evidence needed for the next stage |
 | --- | --- | --- |
-| 客户发现 | 访谈 5～10 家目标厂商，确认支出、障碍和预算负责人 | 获得有真实验收条件的付费试点 |
-| 首次验证 | 选择一个边界清楚的服务，完成三路径对照 | 行为达标，收益可核算，人工成本完整记录 |
-| 重复交付 | 在另外 2～3 个同类项目验证流程 | 核心规则可复用，交付毛利改善 |
-| 持续维护 | 完成真实业务变更与依赖升级 | 验收继续通过，客户愿意续费 |
-| 产品化 | 固化最常见的技术栈和交付流程 | 自动化减少人工工作，支持成本可控 |
+| Customer discovery | Interview 5–10 target vendors about spending, obstacles, and budget ownership | A paid pilot with real acceptance conditions |
+| Initial validation | Select one clearly bounded service and compare three paths | Required behavior, accountable benefits, and fully recorded labor costs |
+| Repeated delivery | Validate the process on another 2–3 similar projects | Reusable core rules and improved delivery margins |
+| Ongoing maintenance | Complete real business changes and dependency upgrades | Continued acceptance and willingness to renew |
+| Productization | Standardize the most common stacks and delivery processes | Automation reduces manual work and support costs remain manageable |
 
-三路径对照包括：原 Java/JVM 的合理配置基线、AI 辅助 Java Native 改造、AI 辅助 Norm Native 改造。各路径接受同一组独立行为验收，使用同等认真程度的调优，并记录框架替换等影响归因的变化。
+The three-path comparison includes a reasonably configured original Java/JVM baseline, AI-assisted Java Native migration, and AI-assisted Norm Native migration. Each path uses the same independent behavioral acceptance suite and equally serious tuning. Record changes such as framework replacement that affect attribution.
 
-核心指标包括相同吞吐下的 P95/P99 延迟、错误率、CPU 与内存、实际付费容量、完整迁移耗时、人工介入、模型与构建费用，以及一次真实需求变更后的回归与维护成本。冷启动与稳态分别测量，固定环境并重复运行，保留失败结果。
+Key metrics include P95/P99 latency at equal throughput, error rates, CPU and memory, actual paid capacity, total migration time, human intervention, model and build costs, and regression/maintenance costs after a real requirement change. Measure cold starts and steady state separately, fix the environment, repeat runs, and retain failures.
 
-若收益不足以覆盖客户成本，应停止该项目的迁移建议；若直接 Java Native 更合适，就采用该路径；若 Norm 尚无可测量的增量价值，继续验证其能力，不将语言转换设为交付门槛。若项目之间始终难以复用，应按专业服务经营，重新评估平台投入。
+Stop recommending migration for a project when benefits do not cover customer costs. Use direct Java Native when it is more suitable. If Norm has no measurable incremental value yet, continue validating it rather than making language conversion a delivery prerequisite. If projects consistently resist reuse, operate as a professional service and reassess platform investment.
 
-## 长期展望
+## Long-term outlook
 
-商业发展的顺序是：通过 Java 原生化取得可验证的客户收益，通过 AI 和重复交付降低实施成本，通过 Norm 承接适合重构的业务模块，最终建立应用持续现代化能力。
+The commercial sequence is to achieve verifiable customer benefits through Java native compilation, reduce implementation costs through AI and repeated delivery, use Norm for business modules suited to refactoring, and ultimately establish continuous application modernization.
 
-关键里程碑是客户愿意为首个项目付款，同类项目能够复用交付能力，后续变更仍能保持质量和经济性。在这些条件成立后，Norm 的生态增长与商业收入可以由同一套真实应用实践共同推动。
+The key milestones are a customer willing to pay for the first project, reusable delivery capabilities across similar projects, and subsequent changes that preserve quality and economics. Once those conditions hold, real application work can drive both Norm's ecosystem and commercial revenue.

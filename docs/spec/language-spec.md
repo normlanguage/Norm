@@ -1,22 +1,22 @@
 # Language Reference
 
-本页是 Norm 核心语言规则的索引。Language Tour 解释如何使用语言，Reference 定义编译器必须接受、拒绝和执行什么。
+This page indexes the core Norm language rules. The Language Tour explains how to use the language; the Reference specifies what the compiler must accept, reject, and execute.
 
-当前发布版尚未实现的语法不会写成可用规则；版本成熟度和限制统一列在 [Status](/status)。
+Syntax not yet implemented in the current release is not presented as an available rule. [Status](/status) records version maturity and limitations in one place.
 
-## 设计边界
+## Design boundaries
 
-Norm 是静态、名义、非空默认的语言，核心差异集中在三条具体规则：
+Norm is static, nominal, and non-null by default. Its core differences center on three concrete rules:
 
-1. class 保留对象 identity，内建容器保持 value 语义，显式 `copy()` 创建新的顶层对象；
-2. if、for、switch 作为表达式时使用 `break value` 显式产生结果；
-3. 泛型参数在运行时保留，不使用类型擦除。
+1. Classes preserve object identity, built-in containers retain value semantics, and explicit `copy()` creates a new top-level object.
+2. As expressions, `if`, `for`, and `switch` produce results explicitly with `break value`.
+3. Generic type arguments survive at runtime rather than being erased.
 
-语言不提供宏、操作符重载、隐式字符串转换、隐式 nullable、raw type 或隐式 Result 传播。
+The language has no macros, operator overloading, implicit string conversion, implicit nullability, raw types, or implicit Result propagation.
 
-## 源文件与模块
+## Source files and modules
 
-源码使用 UTF-8。项目文件先声明 package，随后是 import 和顶层声明；没有 package 的文件作为单文件脚本运行。顶层允许类型和函数，不需要 static 工具 class。
+Source uses UTF-8. A project file declares a package first, followed by imports and top-level declarations. A file without a package runs as a single-file script. Top-level types and functions are allowed; no static utility class is required.
 
 ```norm
 package geometry
@@ -26,9 +26,9 @@ Integer coordinateSum(Point point) {
 }
 ```
 
-## 声明
+## Declarations
 
-类型写在名称之前：
+Types precede names:
 
 ```norm
 String name = "Ada"
@@ -39,25 +39,25 @@ Integer square(Integer value) {
 }
 ```
 
-核心声明包括 class、value、interface、enum、annotation 和 function。interface 是唯一的名义行为抽象；标准库 protocol 只是普通 interface。声明默认 `public`，`private` 限制在声明文件内；跨 package 和跨模块可见性由 `module.norm` 的 exports 与直接依赖共同确定。
+Core declarations include class, value, interface, enum, annotation, and function. Interfaces are the sole nominal behavioral abstraction; standard-library protocols are ordinary interfaces. Declarations are `public` by default, while `private` limits visibility to the declaring file. `module.norm` exports and direct dependencies jointly determine cross-package and cross-module visibility.
 
-顶层函数省略返回类型时是 `Void`。class 方法省略返回类型时返回同一接收者，真实签名使用完整 owner 类型。显式 `Void` 不产生结果。
+Omitting a top-level function's return type means `Void`. Omitting a class method's return type means it returns its receiver, with the full owner type in its actual signature. Explicit `Void` produces no result.
 
-## 类型系统
+## Type system
 
-类型关系由 extends 和 implements 明确声明，不根据成员形状自动匹配。普通 `T` 不包含 null，`T?` 才包含。编译器执行确定赋值和控制流 null 收窄。
+`extends` and `implements` explicitly declare type relations; matching member shapes do not. Ordinary `T` excludes null, while `T?` includes it. The compiler checks definite assignment and narrows nullability through control flow.
 
-Norm 没有统一 Object 根类型。泛型约束和 interface 表达通用行为。
+Norm has no universal Object root type. Generic constraints and interfaces express general behavior.
 
-## 值模型
+## Value model
 
-class 可变且具有身份；赋值、传参和返回共享同一对象。基本类型、enum 和内建容器是 value。`class.copy()` 创建新的顶层对象，value 使用结构相等，class 使用身份相等。完整定义见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
+Classes are mutable and have identity; assignment, argument passing, and return share an object. Primitive types, enums, and built-in containers are values. `class.copy()` creates a new top-level object. Values compare structurally and classes by identity. See [value and identity semantics](/spec/value-identity-semantics) for the complete definition.
 
-`ref<T>` 引用 value 的存储位置，不是 class 共享入口。完整边界见 [`ref<T>` 引用语法](/spec/grammar/references)。
+`ref<T>` refers to a value storage location; it is not a class-sharing mechanism. See the [`ref<T>` reference syntax](/spec/grammar/references) for its full boundary.
 
-## 控制流
+## Control flow
 
-if、for 和 switch 可以作为语句，也可以作为表达式。表达式路径必须显式产生值：
+`if`, `for`, and `switch` may be statements or expressions. Expression paths must produce values explicitly:
 
 ```norm
 String sign = if number < 0 {
@@ -67,32 +67,32 @@ String sign = if number < 0 {
 }
 ```
 
-控制流表达式不会把最后表达式自动作为结果，也不会为缺失分支插入 null。每个 switch 都必须穷尽，被匹配表达式只求值一次且 case 不 fallthrough。Lambda 的末尾表达式规则见[高级函数规则](/spec/grammar/functions-advanced)。遍历式 for 通过标准库 Iterable interface 工作；当前语法没有 C 风格 for 和 while。
+A control expression does not take its final expression as an implicit result or insert null for a missing branch. Every switch must be exhaustive; its matched expression is evaluated once, and cases do not fall through. See [advanced function rules](/spec/grammar/functions-advanced) for the trailing-expression rule of lambdas. Iterator-style `for` works through the standard-library Iterable interface. Current syntax has no C-style `for` or `while`.
 
-## 泛型
+## Generics
 
-泛型保持不变，类型位置必须提供全部必填实参；声明了默认类型的尾部参数可以省略。表达式中的菱形构造器可以由期望类型和构造参数求解实参；默认与推断得到的完整结果进入 Core IR 和运行时类型环境。
+Generics are invariant. Type positions must supply all required arguments; trailing arguments with declared default types may be omitted. In an expression, a diamond constructor may solve arguments from an expected type and constructor arguments. The full result from defaults and inference enters Core IR and the runtime type environment.
 
-## 错误
+## Errors
 
-普通缺失使用 nullable，可预期失败使用 `std.core.Result<T, E = String>`；只有文本原因时省略 E，需要类型化分类时显式提供 E。没有业务值的成功结果使用 `std.core.Unit`。Result 是普通泛型 enum，语言不提供自动传播。异常使用 throw/try/catch/finally；资源清理必须在所有完成路径上可见或由标准库作用域 API 保证。
+Use nullable types for ordinary absence and `std.core.Result<T, E = String>` for expected failure. Omit `E` when the reason is text only; supply it for typed classification. Success without a business value uses `std.core.Unit`. Result is an ordinary generic enum; the language does not propagate it automatically. Exceptions use `throw`/`try`/`catch`/`finally`. Resource cleanup must be visible on every completion path or guaranteed by a standard-library scoped API.
 
-## 求值
+## Evaluation
 
-子表达式和实参按源码从左到右求值；命名参数只改变形参绑定，不改变求值顺序。逻辑运算短路。优化器可以消除 value 复制或共享内部存储，但不能改变对象身份、I/O 顺序或动态类型。
+Subexpressions and arguments evaluate from left to right in source order. Named arguments change parameter binding, not evaluation order. Logical operators short-circuit. An optimizer may eliminate value copies or share internal storage, but cannot change object identity, I/O order, or dynamic type.
 
-## 规范导航
+## Reference navigation
 
-- [语法总览](/spec/grammar/overview)
-- [类型系统](/spec/type-system)
-- [Value 与 Identity 语义](/spec/value-identity-semantics)
-- [Package 与模块](/spec/module-system)
-- [引用生命周期](/spec/grammar/references)
-- [Annotation 语义](/spec/annotations)
-- [声明引用与反射](/spec/declaration-references)
-- [当前限制](/status)
-- [对象模型](/spec/object-model)
-- [内存语义](/spec/memory-semantics)
-- [表达式语义](/spec/expression-semantics-formal)
-- [形式语义](/spec/formal/semantics)
-- [编译器设计](/spec/compiler-design)
+- [Grammar overview](/spec/grammar/overview)
+- [Type system](/spec/type-system)
+- [Value and identity semantics](/spec/value-identity-semantics)
+- [Packages and modules](/spec/module-system)
+- [Reference lifetime](/spec/grammar/references)
+- [Annotation semantics](/spec/annotations)
+- [Declaration references and reflection](/spec/declaration-references)
+- [Current limitations](/status)
+- [Object model](/spec/object-model)
+- [Memory semantics](/spec/memory-semantics)
+- [Expression semantics](/spec/expression-semantics-formal)
+- [Formal semantics](/spec/formal/semantics)
+- [Compiler design](/spec/compiler-design)

@@ -1,46 +1,46 @@
-# 完整静态检查流程
+# Complete static-checking pipeline
 
-本页把名称解析、类型检查、流分析和泛型求解连接成一个可实现的编译管线。
+This page connects name resolution, type checking, flow analysis, and generic solving into an implementable compiler pipeline.
 
-## 第一阶段：声明收集
+## Stage one: declaration collection
 
-编译器读取 package 与 import，收集源码根中全部顶层类型和函数签名，建立名义类型图。此阶段检测重复名称、继承环、不可见类型泄露和错误 arity，不依赖文件或函数体顺序。
+The compiler reads packages and imports, collects all top-level type and function signatures in source roots, and establishes the nominal type graph. This stage detects duplicate names, inheritance cycles, leaks of invisible types, and incorrect arity. It does not depend on file or function-body order.
 
-## 第二阶段：类型图验证
+## Stage two: type-graph validation
 
-1. 解析 extends 与 implements；
-2. 验证 class 单继承和 interface 多继承；
-3. 检查覆盖签名、可见性和返回兼容；
-4. 展开泛型 bounds 并拒绝非法循环；
-5. 为 enum 固定 variant 集合；
-6. 为 runtime 类型建立 reified 描述。
+1. Resolve `extends` and `implements`.
+2. Verify single inheritance for classes and multiple inheritance for interfaces.
+3. Check overriding signatures, visibility, and return compatibility.
+4. Expand generic bounds and reject invalid cycles.
+5. Fix the variant set for each enum.
+6. Build reified descriptions of runtime types.
 
-## 第三阶段：函数体
+## Stage three: function bodies
 
-函数体按 lexical scope 解析局部名称。每个表达式得到静态类型，每条语句更新确定赋值集合和 null-state。return、break、continue 与 throw 必须到达合法目标。
+Function bodies resolve local names by lexical scope. Every expression receives a static type; every statement updates the definite-assignment set and null state. Return, break, continue, and throw must reach permitted targets.
 
-## 调用解析
+## Call resolution
 
-按名称和参数名选出候选，执行泛型推断，应用仅允许的安全转换，然后选择唯一最佳 overload。只靠返回类型区分的 overload 无法声明。
+Select candidates by name and parameter names, infer generics, apply only allowed safe conversions, then select one uniquely best overload. Overloads distinguishable solely by return type cannot be declared.
 
-## 控制流
+## Control flow
 
-if 的分支分别分析并在汇合点取确定赋值交集。nullable 状态根据条件收窄。for 体按可能执行零次处理。每个 switch 递归检查模式穷尽与不可达 case。
+Analyze `if` branches separately and intersect their definite-assignment sets at the join. Narrow nullable state from conditions. Treat a `for` body as potentially executing zero times. Check every switch recursively for exhaustive patterns and unreachable cases.
 
-控制表达式收集每条 `break value` 的类型并求唯一共同类型。缺失正常路径值是错误，不插入 null。
+A control expression collects the type of each `break value` and finds one unique common type. A normal path without a value is an error; null is not inserted.
 
-## 值模型检查
+## Value-model checks
 
-- value 字段构造后不可写；
-- class 普通赋值保留对象身份；
-- value 普通赋值产生逻辑独立值；
-- `ref<T>` 只接受 value，并保持存储位置 identity；
-- 逃逸分析和复制消除只能在不改变这些结果时执行。
+- Value fields cannot be written after construction.
+- Ordinary class assignment preserves object identity.
+- Ordinary value assignment creates a logically independent value.
+- `ref<T>` accepts only values and preserves storage-location identity.
+- Escape analysis and copy elimination are permitted only when they preserve those results.
 
-## 诊断要求
+## Diagnostic requirements
 
-错误包含主源码位置、相关声明位置、实际/期望类型和一条可操作说明。泛型错误展示替换后的候选签名；流错误说明哪条路径缺少赋值或结果。
+An error includes a primary source location, related declaration location, actual and expected types, and an actionable explanation. Generic errors show candidate signatures after substitution; flow errors identify a path missing assignment or a result.
 
-## 运行时保证
+## Runtime guarantees
 
-通过静态检查的程序保留完整动态类型和泛型参数。运行时仍可能产生显式 cast 失败、Exception、I/O 错误和资源耗尽，但不应发生未检查成员访问或隐式 null 解引用。
+Programs passing static checks retain complete dynamic types and generic arguments. Explicit cast failures, Exceptions, I/O errors, and resource exhaustion may still occur, but unchecked member access and implicit null dereference should not.

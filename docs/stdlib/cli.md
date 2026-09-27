@@ -1,8 +1,8 @@
-# 命令行与进程
+# Command Line and Processes
 
-`std.cli` 用 Norm 实现参数解析；`std.application`、标准流和 `std.process` 复用系统运行时，不新增第三方依赖。
+`std.cli` implements argument parsing in Norm. `std.application`, standard streams, and `std.process` reuse the system runtime without adding third-party dependencies.
 
-## 参数与运行环境
+## Arguments and execution environment
 
 ```norm
 import std.application.arguments
@@ -20,18 +20,18 @@ Void main() {
 }
 ```
 
-源码运行时使用 `norm run application.norm -- --repo "my repo" 创建分支`。生成的应用直接接收参数。解析器消费已有参数数组，保留空格和空字符串；定义、帮助文本和解析规则共用同一组选项。
+When running sources, use `norm run application.norm -- --repo "my repo" create-branch`. A generated application receives arguments directly. The parser consumes an existing argument array, preserving spaces and empty strings; definitions, help text, and parsing rules share the same option set.
 
-公开声明与失败类型见 [`std.cli`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/cli/arguments.norm)。环境变量、工作目录、参数和完成码见 [`std.application`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/application/application.norm)。`setExitCode` 设置正常返回后的完成码，不中断资源清理。
+See [`std.cli`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/cli/arguments.norm) for public declarations and failure types. [`std.application`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/application/application.norm) defines environment variables, working directory, arguments, and completion codes. `setExitCode` sets the code returned after normal completion without interrupting resource cleanup.
 
-## 标准流与子进程
+## Standard streams and child processes
 
-[`std.io.console`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/console.norm) 提供借用的标准输入和文本输出，应用不能关闭宿主标准流。字节读取和 UTF-8 转换复用 [I/O 协议](/stdlib/io)。
+[`std.io.console`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/io/console.norm) provides borrowed standard input and text output; applications cannot close the host standard streams. Byte reads and UTF-8 conversion reuse the [I/O protocol](/stdlib/io).
 
-Native 应用在 Windows 控制台通过 Unicode 接口读写，输入转换为 UTF-8 字节，不修改终端代码页；stdout 和 stderr 分别识别控制台，重定向到文件或管道时输出 UTF-8。宿主实现见 [NativeStandardStreams](../../cli/compiler/src/main/java/dev/w0fv1/norm/runtime/NativeStandardStreams.java)。
+On a Windows console, native applications read and write through Unicode APIs and convert input to UTF-8 bytes without changing the terminal code page. Stdout and stderr detect console handles independently and emit UTF-8 when redirected to a file or pipe. See [NativeStandardStreams](../../cli/compiler/src/main/java/dev/w0fv1/norm/runtime/NativeStandardStreams.java) for the host implementation.
 
-[`std.process`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/process/process.norm) 通过可执行文件和参数数组启动子进程，不经过 Shell。非零退出、超时和取消是结果；非法请求、启动失败和 I/O 失败是可捕获异常。输出预算分别作用于 stdout 和 stderr；超出部分继续排空，并在结果中标记截断。
+[`std.process`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/process/process.norm) starts child processes with an executable and argument array, without a shell. Nonzero exit, timeout, and cancellation are results; invalid requests, startup failures, and I/O failures are catchable exceptions. Separate output budgets apply to stdout and stderr; excess output is drained and the result marks it as truncated.
 
-进程结束不代表外部效果回滚。取消和超时会终止受管理进程及已观察到的后代；这不是操作系统级进程隔离。调用方仍需验证 Git 等外部操作的实际结果。
+Process exit does not roll back external effects. Cancellation and timeout terminate the managed process and observed descendants; this is not operating-system-level process isolation. Callers must still verify the actual result of external operations such as Git.
 
-验收入口：[参数与标准流](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/stdlib)、[真实子进程](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/platform/jdk/JdkProcessRunnerTest.java)。
+Acceptance entry points: [arguments and standard streams](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/stdlib) and [real child processes](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/platform/jdk/JdkProcessRunnerTest.java).

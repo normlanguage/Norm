@@ -1,6 +1,6 @@
 # Configuration
 
-`std.configuration` 将类型化 Norm value 映射为框架可消费的扁平属性。公开签名以 [`configuration.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/configuration/configuration.norm) 为准。
+`std.configuration` maps typed Norm values to flat properties consumable by frameworks. [`configuration.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/configuration/configuration.norm) defines its public signatures.
 
 ```norm
 @Serializable()
@@ -14,8 +14,8 @@ MutableMap<String?, Any?> properties = configurationProperties(
 )
 ```
 
-映射结果包含 `context-path=/api` 和 `port=8080`。普通字段由 camelCase 转为 kebab-case；`@SerialName` 提供显式外部名称；nullable 的 null 值不产生属性；List 使用 `[index]` 路径；`Map<String, T>` 使用 map key 作为路径段。
+The result contains `context-path=/api` and `port=8080`. Ordinary fields convert from camelCase to kebab-case; `@SerialName` provides an explicit external name. A nullable `null` produces no property. Lists use `[index]` paths, and `Map<String, T>` uses map keys as path segments.
 
-`@ConfigurationKey` 将命名集合元素中的一个 String 字段用作路径段，并从属性值中排除该字段。`@ConfigurationValue` 将只承载一个配置标量的 value 解包到当前位置。这两个 Annotation 只描述通用配置结构，不包含 Micronaut、Spring 或其他 Java 框架语义。
+`@ConfigurationKey` uses one String field of a named collection element as a path segment and excludes that field from property values. `@ConfigurationValue` unwraps a value containing only one configuration scalar at the current path. These annotations describe generic configuration structure, without Micronaut, Spring, or other Java framework semantics.
 
-配置映射与 JSON、XML、YAML 共用 `@Serializable`、`@SerialName`、`@SerialIgnore`、Core field ordinal 和缓存后的结构 shape。运行时直接生成宿主 `LinkedHashMap`，不经过文本格式，不使用 JVM reflection。
+Configuration mapping shares `@Serializable`, `@SerialName`, `@SerialIgnore`, Core field ordinals, and cached structural shapes with JSON, XML, and YAML. The runtime creates a host `LinkedHashMap` directly, without passing through a text format or using JVM reflection.

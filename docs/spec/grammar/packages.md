@@ -1,10 +1,10 @@
-# Package 语法
+# Package Syntax
 
 ```text
 PackageDeclaration := "package" Identifier ("." Identifier)* ";"?
 ```
 
-package 声明是项目源码文件的第一个声明，名称使用点分隔；行尾分号可省略。
+A package declaration is the first declaration in a project source file. Its name uses dots; the ending semicolon is optional.
 
 ```norm
 package geometry.shapes
@@ -14,8 +14,8 @@ class Circle {
 }
 ```
 
-一个文件最多声明一个 package。package 名必须与源码根下的相对目录一致。多个文件可以声明同一 package，其 public 名称共同构成 package API。
+A file declares at most one package. The package name must match the relative directory beneath the source root. Several files may declare the same package; their public names form the package API together.
 
-没有 package 声明的文件是单文件脚本。脚本不能 import 项目源码，也不能被项目源码 import。
+A file without a package declaration is a single-file script. Scripts cannot import project sources, nor can project sources import scripts.
 
-重复 public 名称、package 名与 import 别名冲突、路径与 package 不一致都属于编译错误。
+Duplicate public names, collisions between package names and import aliases, and a mismatch between path and package are compile errors.

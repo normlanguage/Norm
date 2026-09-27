@@ -1,4 +1,4 @@
-# 函数声明语法
+# Function Declaration Syntax
 
 ```text
 Function := Visibility? "extension"? ReturnType? Identifier TypeParameters?
@@ -12,9 +12,9 @@ Integer subtract(Integer left, Integer right) {
 }
 ```
 
-## Extension function
+## Extension functions
 
-`extension` 只修饰顶层函数，返回类型和至少一个参数必须显式声明。首参数是接收者，其余参数保留普通函数的标签规则。
+`extension` modifies only top-level functions and requires an explicit return type and at least one parameter. The first parameter is the receiver; remaining parameters follow ordinary function-label rules.
 
 ```norm
 extension String quoted(String value) {
@@ -24,24 +24,24 @@ extension String quoted(String value) {
 String text = "Norm".quoted()
 ```
 
-点号调用在绑定后成为普通函数调用，接收者作为第一个实参先求值。Extension 必须处于当前 package 或被显式 import；实例方法按名称优先，多个同等匹配的 extension 是编译错误。Extension 不进入类型的方法表或动态分派表。
+After binding, a dotted call becomes an ordinary function call, with the receiver evaluated first as its first argument. The extension must be in the current package or explicitly imported. An instance method wins by name; several equally matching extensions are a compile error. Extensions enter neither a type's method table nor its dynamic dispatch table.
 
-Extension 按首参数的声明类型检查 nullable 接收者，不提前按实例解引用处理。例如首参数为 `String?` 时可以接收空值；期望 `FieldHandle<T>` 时可进行字段捕获。实例方法和函数类型字段仍遵守普通空值访问检查，不能通过同名 extension 绕过。
+An extension checks a nullable receiver by the declared type of its first parameter, not by dereferencing an instance early. For example, a first parameter of `String?` can receive null; an expected `FieldHandle<T>` can capture a field. Instance methods and function-typed fields still follow ordinary null-access checks and cannot bypass them through a same-named extension.
 
-## 参数
+## Parameters
 
-参数在函数体内是局部绑定。多参数调用使用 `name: value`，参数名因此属于 public API。单参数调用可以省略名称；多参数调用中的裸标识符只有与对应参数同名时才能省略标签。默认参数必须位于必填参数之后；省略实参时，默认表达式在调用位置按参数顺序求值。
+Parameters are local bindings in a function body. A multiparameter call uses `name: value`, making parameter names part of the public API. A single-parameter call may omit the name; an unlabelled bare identifier in a multiparameter call can omit its label only if it has the same name as the corresponding parameter. Default parameters follow required ones. When an argument is omitted, its default expression evaluates at the call site in parameter order.
 
-参数标签决定结果绑定到哪个形参，但所有实参表达式始终按源码从左到右求值。未知、重复或缺失标签属于编译错误，`name = value` 不是调用语法。
+Labels determine which parameter receives a result, but all argument expressions always evaluate left to right in source order. Unknown, duplicate, and missing labels are compile errors; `name = value` is not call syntax.
 
 ```norm
 Integer result = subtract(left: 120, right: 100)
 ```
 
-## 返回
+## Returns
 
-普通顶层函数省略返回类型时，声明类型固定为 `Void`。Extension 必须显式声明返回类型。class 方法省略返回类型时，声明类型固定为完整的 owner 类型；正常到达末尾和裸 `return` 产生 `this`，`return value` 非法。显式 `Void` 始终表示无结果。
+An ordinary top-level function without a return type has declared type `Void`. Extensions must declare a return type. A class method without an explicit return type has the complete owner type: normal fallthrough and bare `return` produce `this`, and `return value` is invalid. Explicit `Void` always means no result.
 
-除此之外，非 `Void` 具名函数的每条正常完成路径必须提供结果，可以使用 `return value` 或末尾表达式；末尾 if 的各分支遵循同一规则。interface 方法必须显式声明返回类型。Lambda 的末尾表达式规则见[高级函数规则](/spec/grammar/functions-advanced)。
+Otherwise, every normally completing path of a named non-`Void` function must produce a result, using `return value` or a trailing expression. The branches of a trailing if follow the same rule. Interface methods must explicitly declare a return type. See [advanced function rules](/spec/grammar/functions-advanced) for trailing expressions in lambdas.
 
-函数可以声明在模块顶层或类型内部。顶层函数不需要 class 容器，也不存在 `static` 修饰符。重载和函数值见[高级函数规则](/spec/grammar/functions-advanced)。
+Functions may be declared at module top level or inside a type. Top-level functions need no class container, and there is no `static` modifier. See [advanced function rules](/spec/grammar/functions-advanced) for overloads and function values.

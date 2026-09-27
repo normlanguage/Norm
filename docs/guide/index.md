@@ -1,13 +1,13 @@
 ---
 title: Language
-description: Norm 的语言定位、设计原则与工程取舍
+description: Norm's purpose, design principles, and engineering tradeoffs
 ---
 
 # Language
 
-Norm 是一门静态强类型、面向应用开发的语言。它保留类型前置、大括号、class、interface 和 exception 等熟悉结构，把影响共享、值流和运行时行为的语义放回声明与调用中。
+Norm is a statically and strongly typed language for application development. It retains familiar structures such as type-first declarations, braces, classes, interfaces, and exceptions, while making the semantics of sharing, value flow, and runtime behavior visible in declarations and calls.
 
-## 设计主线
+## Core design
 
 ```text
 class       identity
@@ -17,20 +17,20 @@ interface   capability
 ref         controlled aliasing
 ```
 
-这五种构造不是同一种对象模型的语法别名。它们分别固定身份、可变性、有限状态、名义能力和位置引用的边界；函数、泛型、Annotation、标准库和工具链都在这些边界上组合。
+These five constructs are not syntactic aliases for one object model. They define distinct boundaries for identity, mutability, finite states, nominal capabilities, and location references. Functions, generics, annotations, the standard library, and the toolchain compose within those boundaries.
 
-## 阅读入口
+## Where to start
 
-| 目的 | 文档 |
+| Purpose | Documentation |
 | --- | --- |
-| 连续学习语言 | [Language Tour](/learn/) |
-| 理解设计价值 | [语言哲学](/guide/philosophy) |
-| 判断新功能是否符合方向 | [设计原则](/guide/design-principles) |
-| 系统理解语言与运行时 | [语言设计白皮书](/guide/design-whitepaper) |
-| 与其他语言按具体维度比较 | [比较、取舍与方向](/guide/comparison-and-future) |
-| 查找编译器精确规则 | [Language Reference](/spec/language-spec) |
-| 确认当前实现成熟度 | [Status](/status) |
+| Learn the language step by step | [Language Tour](/learn/) |
+| Understand the design values | [Language philosophy](/guide/philosophy) |
+| Evaluate whether a feature fits the language | [Design principles](/guide/design-principles) |
+| Understand the language and runtime as a whole | [Language design white paper](/guide/design-whitepaper) |
+| Compare specific dimensions with other languages | [Comparisons, tradeoffs, and direction](/guide/comparison-and-future) |
+| Look up precise compiler rules | [Language Reference](/spec/language-spec) |
+| Check implementation maturity | [Status](/status) |
 
-Guide 只解释稳定设计意图，不重复教程步骤或规范条文。当前发布版与长期规范不一致时，以 [Status](/status) 和对应版本契约判断可用性。
+This guide explains stable design intent without repeating tutorial steps or specification clauses. When the current release differs from the long-term specification, use [Status](/status) and the corresponding version contract to determine availability.
 
-下一篇：[语言哲学](/guide/philosophy)。
+Next: [Language philosophy](/guide/philosophy).

@@ -1,24 +1,23 @@
-# 社区协作
+# Community collaboration
 
-Norm 社区围绕可验证的语言设计和实现协作。讨论应尽量落到代码示例、诊断信息、基准或规范段落，而不是语言阵营比较。
+The Norm community works together on verifiable language design and implementation. Discussions should use code examples, diagnostics, benchmarks, or specification sections wherever possible rather than comparisons between language camps.
 
-## 参与入口
+## Ways to participate
 
-- 文档问题：指出缺失规则、矛盾例子或失效链接；
-- 编译器问题：提供最小可复现源码、期望诊断和实际结果；
-- 语言提案：遵循[语言演进](/design/language-evolution)模板；
-- 标准库提案：说明错误模型、资源生命周期、线程安全和兼容性；
-- 实现贡献：同时提交测试和对应文档更新。
+- Documentation issues: identify missing rules, contradictory examples, or broken links.
+- Compiler issues: provide minimal reproducible source, the expected diagnostic, and the actual result.
+- Language proposals: follow the [language evolution](/design/language-evolution) template.
+- Standard-library proposals: explain the error model, resource lifetime, thread safety, and compatibility.
+- Implementation contributions: include tests and corresponding documentation updates.
 
-## Issue 质量
+## Issue quality
 
-问题标题应描述可观察行为。报告至少包含工具版本、目标平台、最小代码和是否能在最新 preview 复现。安全漏洞不要先公开完整利用方式，应通过项目安全渠道报告。
+An issue title should describe observable behavior. A report should include the tool version, target platform, minimal code, and whether it reproduces on the latest preview. Report security vulnerabilities through the project's security channel before disclosing a complete exploit publicly.
 
-## 行为准则
+## Code of conduct
 
-评审针对设计和代码，不攻击个人。骚扰、歧视、泄露隐私和持续破坏讨论会被处理。维护者应说明关闭或拒绝提案的技术理由。
+Review design and code without attacking people. Harassment, discrimination, privacy violations, and persistent disruption of discussion will be addressed. Maintainers should explain the technical grounds for closing or rejecting a proposal.
 
-## 文档语言
+## Documentation languages
 
-中文与英文页面应表达同一规则，而不是各自发展不同规范。翻译可以稍后完成，但术语表和代码示例必须共享来源。新增语言时，应先提供导航、版本提示和缺失翻译回退策略。
-
+Chinese and English pages must express the same rules rather than evolve into different specifications. Translations may follow the original text, but terminology and code examples must share a source. Before adding another language, provide navigation, version notices, and a strategy for missing translations.

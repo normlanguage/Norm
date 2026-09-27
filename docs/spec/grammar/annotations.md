@@ -1,4 +1,4 @@
-# Annotation 声明与使用
+# Annotation Declarations and Uses
 
 ```ebnf
 AnnotationDeclaration = Visibility? "annotation" Identifier
@@ -7,6 +7,6 @@ AnnotationUse         = "@" Identifier ("(" AnnotationArgumentList? ")")? ;
 AnnotationArgumentList = Expression ("," NamedArgument)* | NamedArgumentList ;
 ```
 
-Annotation body 与 class body 共用字段、构造器和方法语法。`implements` 后列出目标与保留策略 interface；完整标准 interface 集合见 [Annotation 规范](/spec/annotations)。
+Annotation bodies share field, constructor, and method syntax with class bodies. Interfaces following `implements` declare targets and retention policy; see the [annotation specification](/spec/annotations) for the complete set of standard interfaces.
 
-Annotation 可放在 package、enum、interface、class、value、annotation、field、constructor、function、method、parameter和局部变量之前。应用参数接受编译期元数据值。第一个实参在 Annotation 声明包含 `value` 参数时可以省略标签，`@Get("/{name}")` 等价于 `@Get(value: "/{name}")`；其他实参必须命名。
+Annotations may precede packages, enums, interfaces, classes, values, annotations, fields, constructors, functions, methods, parameters, and local variables. Application arguments accept compile-time metadata values. The first argument may omit its label when the annotation declaration has a `value` parameter: `@Get("/{name}")` equals `@Get(value: "/{name}")`. All other arguments must be named.

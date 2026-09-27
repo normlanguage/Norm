@@ -1,30 +1,30 @@
-# 06 Null 与类型推断
+# 06 Null and type inference
 
-缺失直接进入类型；推断利用上下文减少重复，但不会退化成动态类型或无依据猜测。
+Absence is part of the type. Inference uses context to reduce repetition without becoming dynamic typing or unfounded guessing.
 
 <<< ../../norm/tests/docs/tour/06_nullability_inference.norm{norm}
 
-输出：
+Output:
 
 ```text
 seven
 missing
 ```
 
-## 可空性
+## Nullability
 
-`String` 始终非空，`String?` 才能保存 `null`。集合本身和集合元素的可空性分别表达：
+`String` is always non-null; only `String?` can hold `null`. The nullability of a collection and that of its elements are expressed separately:
 
 ```norm
 List<String>? optionalNames = null
 List<String?> names = ["Norm", null]
 ```
 
-`?.` 在接收者为空时停止成员访问，`??` 在左侧为空时才计算回退表达式。显式的 null 检查可以在控制流内收窄类型。
+`?.` stops member access when the receiver is null. `??` evaluates its fallback only when the left side is null. An explicit null check can narrow a type within control flow.
 
-## 期望类型
+## Expected types
 
-集合字面量、泛型调用和 diamond 构造器会同时使用实参和期望结果：
+Collection literals, generic calls, and diamond constructors use both arguments and the expected result:
 
 ```norm
 Array<Integer> fixed = [1, 2, 3]
@@ -32,8 +32,8 @@ List<Integer> dynamic = [1, 2, 3]
 List<Pair<Integer, String>> values = List<>()
 ```
 
-裸泛型类型不合法，类型参数当前保持 invariant。`null`、空集合和无约束的 `List<>()` 不能在没有上下文时独立确定类型；推断失败直接产生诊断。
+Raw generic types are invalid, and type parameters are currently invariant. `null`, an empty collection, and an unconstrained `List<>()` cannot determine a type without context; failed inference produces a diagnostic.
 
-算法与边界见[类型推断](/spec/type-inference)和[泛型参考](/spec/grammar/generics)。
+See [type inference](/spec/type-inference) and the [generics reference](/spec/grammar/generics) for algorithms and boundaries.
 
-上一章：[数据 Enum 与 Switch](/learn/enum-switch)。下一章：[集合与迭代](/learn/collections)。
+Previous: [Data Enum and Switch](/learn/enum-switch). Next: [Collections and iteration](/learn/collections).

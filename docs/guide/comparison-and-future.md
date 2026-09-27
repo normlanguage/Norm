@@ -1,86 +1,86 @@
-# 比较、取舍与发展方向
+# Comparisons, tradeoffs, and direction
 
-Norm 不是把现有语言的功能取并集。它选择熟悉的静态类型应用模型，再对 value/identity、控制流产值、运行时泛型和框架扩展做出不同约束。
+Norm does not combine every feature from existing languages. It chooses a familiar statically typed application model, then places different constraints on values and identity, control-flow results, runtime generics, and framework extensions.
 
-比较语言最有用的方式不是统计关键字，而是看同一个工程问题由谁承担复杂度。
+The most useful language comparison asks who carries the complexity of an engineering problem, rather than counting keywords.
 
-## 关键维度
+## Key dimensions
 
-| 维度 | Norm | Java | Kotlin | Rust | Go | TypeScript |
+| Dimension | Norm | Java | Kotlin | Rust | Go | TypeScript |
 | --- | --- | --- | --- | --- | --- | --- |
-| Null | 非空默认，`T?` 显式允许 | 普通引用可为 null，依赖 Annotation 增强 | 非空默认，平台类型存在边界 | `Option<T>` | 指针、interface 等可为 nil | `strictNullChecks` 下由 union 表达 |
-| 数据模型 | `value`、`class`、`ref<T>` 分工 | class/record/primitive 多套规则 | class/data class/value class | move/copy/reference 与 ownership | value、pointer、interface | 对象引用与结构类型 |
-| 泛型运行时 | Reified，精确实参进入 Core/runtime | 类型擦除 | 普通泛型擦除，inline reified 是局部能力 | 单态化 | 编译期实例化 | 运行时完全擦除 |
-| 控制流产值 | `break value` 显式交出结果 | 大部分控制流是语句 | block 最后表达式产值 | block 最后表达式产值 | 控制流是语句 | 条件表达式与语句分开 |
-| 扩展机制 | 显式导入的静态 extension；强类型 Annotation 协议 | Annotation、反射、processor、agent | extension、Annotation、compiler plugin | trait、macro | interface、代码生成 | decorator、类型声明合并、转换工具 |
-| 失败模型 | nullable、Result、Exception 分工 | Optional/返回值/Exception | nullable/Result 模式/Exception | Option/Result，panic | 多返回值 error，panic | union/Promise rejection/Exception |
-| 部署 | 自带精简 Java runtime | JVM/JAR 或 native 工具 | JVM/native 多后端 | 原生二进制 | 原生二进制 | JavaScript runtime 或 bundle |
+| Null | Non-null by default; `T?` permits null explicitly | Ordinary references may be null, with annotations providing additional checks | Non-null by default, with platform types at boundaries | `Option<T>` | Pointers, interfaces, and some other types may be nil | Unions under `strictNullChecks` |
+| Data model | Distinct roles for `value`, `class`, and `ref<T>` | Separate class, record, and primitive rules | Class, data class, and value class | Move, copy, references, and ownership | Values, pointers, and interfaces | Object references and structural types |
+| Runtime generics | Reified; exact arguments enter Core and runtime | Type erasure | Ordinary generics are erased; inline reification is a local capability | Monomorphization | Compile-time instantiation | Fully erased at runtime |
+| Control-flow results | Explicit `break value` | Most control flow consists of statements | A block's last expression supplies its value | A block's last expression supplies its value | Control flow consists of statements | Conditional expressions and statements are distinct |
+| Extension mechanisms | Explicitly imported static extensions and typed annotation protocols | Annotations, reflection, processors, and agents | Extensions, annotations, and compiler plugins | Traits and macros | Interfaces and code generation | Decorators, declaration merging, and transformation tools |
+| Failure model | Separate nullable, Result, and Exception roles | Optional, return values, and exceptions | Nullable types, Result patterns, and exceptions | Option, Result, and panic | Multiple-return-value errors and panic | Unions, Promise rejections, and exceptions |
+| Deployment | Bundled reduced Java runtime | JVM/JAR or native tools | JVM and native backends | Native binaries | Native binaries | JavaScript runtime or bundle |
 
-表格描述的是默认模型，不代表其他语言不能通过库或规范获得类似效果。Norm 的差异在于这些边界由语言和官方工具链共同固定。
+The table describes default models, not what other languages can achieve through libraries or conventions. Norm fixes these boundaries jointly in its language and official toolchain.
 
-## 与 Java：熟悉的工程外形，不同的运行时类型模型
+## Java: familiar engineering structure, different runtime types
 
-Java 开发者会熟悉 Norm 的类型前置、package、class、interface、exception、annotation 和名义子类型。Norm 也保留 class 引用语义，而不是把每次 class 赋值解释成深复制。
+Java developers will recognize Norm's type-first declarations, packages, classes, interfaces, exceptions, annotations, and nominal subtyping. Norm also retains class reference semantics rather than interpreting every class assignment as a deep copy.
 
-主要变化是：普通类型非空，顶层函数不需要工具 class，结构数据使用 `value`，泛型实参不擦除，命名参数进入公开调用约定。Annotation 生命周期和结构反射读取 Norm Core metadata，不使用 Java reflection 作为语言模型。
+The main changes are non-null ordinary types, top-level functions without utility classes, `value` for structural data, retained generic arguments, and named parameters as part of the public calling convention. Annotation lifecycles and structural reflection read Norm Core metadata rather than using Java reflection as the language model.
 
-Norm 目前没有 Java 的库生态、成熟构建体系和长期生产验证。它通过 JDK platform adapter 和成熟第三方库复用宿主能力，但这不等于源码级 Java 互操作已经成为稳定公共语言功能。
+Norm does not yet have Java's library ecosystem, mature build ecosystem, or long production history. JDK platform adapters and established third-party libraries reuse host capabilities, but that does not by itself make source-level Java interoperability a stable public language feature.
 
-## 与 Kotlin：减少语法分支，扩大统一规则的覆盖面
+## Kotlin: fewer syntax alternatives, broader shared rules
 
-Norm 与 Kotlin 都重视非空默认、顶层函数、数据建模和简洁调用。两者对 extension 的基本判断也相近：点号形式可以来自静态函数，不必真的修改 class。
+Norm and Kotlin both value non-null defaults, top-level functions, data modeling, and concise calls. Their basic view of extensions is similar: dotted syntax may come from a static function without modifying a class.
 
-Norm 更强调减少同一职责的多种写法。class 和 value 的 identity 规则、控制流的 `break value`、省略返回类型的 fluent class 方法、Annotation 策略 interface 都采用较少但更强约束的规则。它没有 `lateinit`、隐式 receiver DSL、操作符重载或编译器插件式语言扩展。
+Norm places greater emphasis on reducing alternative spellings for the same responsibility. Class and value identity rules, `break value`, fluent class methods with omitted return types, and annotation policy interfaces use fewer, more restrictive rules. Norm has no `lateinit`, implicit-receiver DSLs, operator overloading, or compiler-plugin language extensions.
 
-代价是表达空间更窄。偏爱 DSL、协程语法和丰富标准库的 Kotlin 项目，目前不能从 Norm 得到同等生态能力。
+The tradeoff is a narrower space of expression. Kotlin projects that rely on DSLs, coroutine syntax, and a rich standard library cannot currently obtain an equivalent ecosystem from Norm.
 
-## 与 Rust：借鉴显式类型边界，不引入所有权证明
+## Rust: explicit type boundaries without ownership proofs
 
-Norm 借鉴 enum payload、穷尽 switch、Result 和显式资源作用域，但目标不是替代 Rust 的系统编程能力。
+Norm draws on enum payloads, exhaustive switches, Result, and explicit resource scopes, but does not aim to replace Rust's systems-programming capabilities.
 
-Rust 通过 ownership、borrow 和 lifetime 在编译期证明内存与别名安全；Norm 使用垃圾回收，并通过 class/value/ref 的语言语义让应用开发者理解共享关系。Norm 的 `ref<T>` 是受控的 value 存储位置引用，不是一套通用借用系统。
+Rust uses ownership, borrowing, and lifetimes to prove memory and aliasing safety at compile time. Norm uses garbage collection and class/value/ref semantics to help application developers understand sharing. Norm's `ref<T>` is a controlled reference to value storage, not a general borrowing system.
 
-这降低了普通应用代码的类型负担，也放弃了 Rust 在无 GC、可预测资源和底层控制方面的保证。
+This reduces the type-system burden on ordinary application code while giving up Rust's guarantees around GC-free execution, predictable resources, and low-level control.
 
-## 与 Go：保持部署简单，同时保留更丰富的类型语义
+## Go: simple deployment with richer type semantics
 
-Norm 和 Go 都希望工具链直接、发行物简单、应用边界实用。Norm 的平台发行包自带运行时，用户同样不需要先安装语言运行环境。
+Norm and Go both aim for straightforward toolchains, simple distributions, and practical application boundaries. Norm's platform packages bundle their runtime, so users do not need to install a language runtime first.
 
-Norm 选择名义 interface、非空类型、enum payload、异常、泛型运行时信息和 class identity；Go 选择更小的语言表面、结构 interface、显式 error 返回和更成熟的并发/网络标准库。
+Norm chooses nominal interfaces, non-null types, enum payloads, exceptions, runtime generic information, and class identity. Go chooses a smaller language surface, structural interfaces, explicit error returns, and more mature concurrency and networking libraries.
 
-需要成熟服务端生态和轻量并发模型时，Go 目前明显更完整。需要把对象身份、结构值和运行时类型纳入统一静态模型时，Norm 提供的是另一种取舍。
+Go currently offers a substantially more complete server ecosystem and lightweight concurrency model. Norm offers a different tradeoff when object identity, structural values, and runtime types need to form one static model.
 
-## 与 TypeScript：把运行时保证交给语言实现
+## TypeScript: runtime guarantees owned by the language implementation
 
-TypeScript 擅长渐进采用、结构类型、类型组合和 JavaScript 生态接入。它的类型在运行时消失，最终行为仍由 JavaScript 对象模型决定。
+TypeScript excels at gradual adoption, structural typing, type composition, and integration with the JavaScript ecosystem. Its types disappear at runtime, where JavaScript's object model determines behavior.
 
-Norm 使用名义类型和 reified 泛型，编译器产生 canonical Core，运行时反射与 serialization 使用同一精确类型。它不提供任意结构类型、复杂 conditional type 或隐式 JavaScript coercion。
+Norm uses nominal types and reified generics. The compiler produces canonical Core, and runtime reflection and serialization use the same exact types. It does not provide arbitrary structural types, complex conditional types, or implicit JavaScript coercion.
 
-这提高了运行时与静态模型的一致性，也意味着 Norm 无法直接利用浏览器和 npm 生态。
+This strengthens consistency between static and runtime models but prevents direct use of the browser and npm ecosystems.
 
-## Norm 当前的优势
+## Norm's current strengths
 
-- value、class 与 ref 对共享关系给出统一且可检查的解释；
-- 命名参数和显式控制流结果提高调用点与分支的可读性；
-- reified generics、Core metadata、Reflect 与 serialization 形成一条完整类型链；
-- Annotation metadata 与强类型 interceptor 共用对象模型，不需要宏系统；
-- 编译器、LSP 和 Truffle 使用同一语义与执行管线；
-- 系统 API 使用有界流、资源作用域和领域 Exception，已能处理文件、HTTP 与结构数据格式。
+- Values, classes, and refs provide one checkable explanation of sharing.
+- Named parameters and explicit control-flow results improve readability at calls and branches.
+- Reified generics, Core metadata, reflection, and serialization form a complete type-information chain.
+- Annotation metadata and typed interceptors share the object model without requiring macros.
+- The compiler, LSP, and Truffle share one semantic and execution pipeline.
+- System APIs use bounded streams, resource scopes, and domain exceptions, with support for files, HTTP, and structured data formats.
 
-## Norm 当前的限制
+## Norm's current limitations
 
-- 语言、标准库和工具链仍处于 1.0 之前，兼容承诺和诊断契约尚未冻结；
-- 库生态、包管理、数据库、Web server、并发模型、调试器和 profiler 尚不完整；
-- 自动结构序列化只覆盖显式标记的 value，不处理 class 对象图、循环引用和多态；
-- 自包含运行时增加了下载体积，但保留了独立 Java 包和框架的动态加载能力；
-- 生产性能、长时间运行行为和大规模项目增量体验需要更多真实应用验证。
+- The language, standard library, and toolchain are pre-1.0; compatibility promises and diagnostic contracts are not frozen.
+- Libraries, package management, databases, web servers, concurrency, debugging, and profiling remain incomplete.
+- Automatic structural serialization covers explicitly marked values, not class object graphs, cyclic references, or polymorphism.
+- A self-contained runtime increases download size while retaining dynamic loading of independent Java packages and frameworks.
+- Production performance, long-running behavior, and incremental work on large projects need more validation in real applications.
 
-这些不是文档脚注，而是评估 Norm 是否适合当前项目的一部分。
+These limitations are part of deciding whether Norm fits a project, rather than documentation footnotes.
 
-## 发展方向
+## Direction
 
-已发布能力统一记录在[版本索引](/versions/)，未来工作统一维护在[项目路线图](/design/roadmap)。Guide 不复制一份阶段清单，以免计划和真实交付分叉。
+The [version index](/versions/) records released capabilities; the [project roadmap](/design/roadmap) owns future work. This guide does not duplicate a milestone list that could drift from plans and actual delivery.
 
-判断后续工作的优先级时，Norm 会继续沿用三条标准：先补齐应用开发的基础闭环，再扩大生态；先建立统一抽象，再增加格式或平台实现；新能力必须同时进入编译器、LSP、正式发行包验收和版本契约。
+Norm continues to prioritize completing the foundations of application development before expanding the ecosystem, establishing shared abstractions before adding formats or platforms, and requiring new capabilities to enter the compiler, LSP, official release acceptance, and version contracts together.
 
-接下来：[开始 Language Tour](/learn/)或查看[当前状态](/status)。
+Next: [Start the Language Tour](/learn/) or review the [current status](/status).
