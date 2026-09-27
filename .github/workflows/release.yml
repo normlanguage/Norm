@@ -101,6 +101,24 @@ jobs:
         shell: pwsh
         run: .\gradlew.bat :compiler:packageDistribution "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
+      - name: Verify Unix archive payload
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$(node cli/compiler/scripts/release-model.mjs '${{ needs.prepare.outputs.version }}' '${{ matrix.target }}')"
+          mkdir -p build/archive-check build/reports/archive
+          tar -xpzf "build/distributions/$archive" -C build/archive-check
+          node cli/compiler/scripts/verify-runtime-tree.mjs '${{ matrix.distribution }}' build/archive-check/norm | tee build/reports/archive/verification.json
+
+      - name: Upload Unix archive verification
+        if: ${{ always() && runner.os != 'Windows' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-verification-${{ matrix.platform }}
+          path: build/reports/archive/verification.json
+          if-no-files-found: warn
+
       - name: Package Windows CLI
         if: runner.os == 'Windows'
         shell: pwsh
@@ -211,6 +229,16 @@ jobs:
 
       - name: Verify toolchain
         run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-release-verify
+          path: |
+            build/compiler/test-results/test/*.xml
+            build/build-logic/test-results/test/*.xml
+          if-no-files-found: warn
 
       - name: Verify Windows launcher core
         run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet

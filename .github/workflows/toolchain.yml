@@ -75,6 +75,16 @@ jobs:
       - name: Verify Gradle build tools
         run: ./gradlew qualityCheck --no-daemon
 
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-toolchain-openjdk25
+          path: |
+            build/compiler/test-results/test/*.xml
+            build/build-logic/test-results/test/*.xml
+          if-no-files-found: warn
+
       - name: Build self-contained CLI
         run: ./gradlew :compiler:installRuntimeDist --no-daemon
 
