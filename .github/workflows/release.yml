@@ -109,14 +109,14 @@ jobs:
           archive="$(node cli/compiler/scripts/release-model.mjs '${{ needs.prepare.outputs.version }}' '${{ matrix.target }}')"
           mkdir -p build/archive-check build/reports/archive
           tar -xpzf "build/distributions/$archive" -C build/archive-check
-          node cli/compiler/scripts/verify-runtime-tree.mjs '${{ matrix.distribution }}' build/archive-check/norm | tee build/reports/archive/verification.json
+          node cli/compiler/scripts/verify-runtime-tree.mjs '${{ matrix.distribution }}' build/archive-check/norm 2>&1 | tee build/reports/archive/verification.log
 
       - name: Upload Unix archive verification
         if: ${{ always() && runner.os != 'Windows' }}
         uses: actions/upload-artifact@v4
         with:
           name: archive-verification-${{ matrix.platform }}
-          path: build/reports/archive/verification.json
+          path: build/reports/archive/verification.log
           if-no-files-found: warn
 
       - name: Package Windows CLI
