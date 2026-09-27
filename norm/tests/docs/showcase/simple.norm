@@ -1,0 +1,9 @@
+main() {
+  String language = "Norm"
+  List<String> steps = ["Read", "Run", "Change"]
+
+  printLine("Hello, ${language}")
+  for step : steps {
+    printLine(step)
+  }
+}

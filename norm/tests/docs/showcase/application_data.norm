@@ -1,0 +1,42 @@
+interface Labeled {
+  String label()
+}
+
+value TaskId {
+  Integer number
+}
+
+enum State {
+  Ready,
+  Doing(Integer percent),
+  Done
+}
+
+class Task implements Labeled {
+  TaskId id
+  String title
+  State state
+
+  String label() {
+    String progress = switch state {
+      case Ready { break "ready" }
+      case Doing(Integer percent) { break "${percent}%" }
+      case Done { break "done" }
+    }
+    if state == State.Done { "${title} ✓" } else { "${title}: ${progress}" }
+  }
+}
+
+Task newTask(String title, Integer number, State state = State.Ready) {
+  Task(id: TaskId(number: number), title: title, state: state)
+}
+
+main() {
+  Task task = newTask(title: "Learn Norm", number: 7)
+  Task same = task
+  printLine(task.label())
+  same.state = State.Doing(percent: 50)
+  printLine(task.label())
+  same.state = State.Done
+  printLine(task.label())
+}

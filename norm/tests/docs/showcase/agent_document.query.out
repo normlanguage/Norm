@@ -1,0 +1,4 @@
+describe.documentation: Formats a task title for a summary.
+describe.references: 4
+describe.tests: 1
+TaskApi.documentation: Entry point for agents exploring task summaries.

@@ -1,0 +1,16 @@
+class Box<T> {
+  T item
+}
+
+Boolean matches<T>(Any candidate) {
+  switch candidate {
+    case Box<T> box { break true }
+    case _ { break false }
+  }
+}
+
+main() {
+  Any actual = Box<Integer>(item: 7)
+  printLine(matches<Integer>(actual))
+  printLine(matches<String>(actual))
+}

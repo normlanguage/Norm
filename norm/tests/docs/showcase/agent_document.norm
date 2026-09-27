@@ -1,0 +1,31 @@
+import std.annotation.Document
+import std.testing.Test
+
+@Document(description: "A task visible to the user.")
+value Task {
+  String title
+}
+
+@Document(description: "Formats a task title for a summary.")
+String describe(Task task) {
+  return "Task: " + task.title
+}
+
+@Test(functions: [describe.function])
+Void describesTask() {
+  require(
+    condition: describe(Task(title: "Learn Norm")) == "Task: Learn Norm",
+    message: "task summary"
+  )
+}
+
+@Document(
+  description: "Entry point for agents exploring task summaries.",
+  types: [Task.class],
+  functions: [describe.function]
+)
+class TaskApi {}
+
+main() {
+  printLine(describe(Task(title: "Learn Norm")))
+}

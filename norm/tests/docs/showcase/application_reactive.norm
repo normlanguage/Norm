@@ -1,0 +1,18 @@
+import std.observation.onChange
+
+class Tasks {
+  List<String> titles = []
+}
+
+main() {
+  Tasks tasks = Tasks()
+  var subscription = tasks.titles.onChange {
+    printLine("${oldValue.size()} → ${newValue.size()} tasks")
+  }
+
+  tasks.titles.add("Learn Norm")
+  tasks.titles.add("Build an app")
+  subscription.close()
+  tasks.titles.add("Publish it")
+  printLine("Final: ${tasks.titles.size()}")
+}
