@@ -7,7 +7,7 @@ description: 每节学习一个特性，并运行对应示例
 
 每节只引入一个新特性，提供可运行程序、经过验收的输出、细致解释和一处可以动手修改的地方。可以按顺序学习，也可以直接进入需要的主题。
 
-完整教学路径使用[开发版工具链](/zh/design/distribution-source-build)验收。已安装版本的能力请查阅[当前状态](/zh/status)和[版本索引](/zh/versions/)。
+完整教学路径使用 [Norm 0.25](/zh/versions/0.25) 验收。已安装版本的能力请查阅[当前状态](/zh/status)和[版本索引](/zh/versions/)。
 
 ## 编写并运行程序
 
@@ -151,7 +151,7 @@ description: 每节学习一个特性，并运行对应示例
 | [86 类型化的文件错误](/zh/learn/file-failures) | 根据类别处理缺失文件。 |
 | [87 使用已打包的库](/zh/learn/commons-lang) | 通过直接依赖消费外部库。 |
 
-完整的 GUI Todo 与 Web 留言板请使用开发版工具链生成的 [`norm hello` 程序](/zh/tooling/#从示例开始)。
+完整的 GUI Todo 与 Web 留言板请使用 Norm 0.25 生成的 [`norm hello` 程序](/zh/tooling/#从示例开始)。
 
 [语言参考](/zh/spec/language-spec)定义精确规则，[当前状态](/zh/status)说明已发行能力。
 

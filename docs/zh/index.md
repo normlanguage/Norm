@@ -62,7 +62,7 @@ const selectedExample = ref(0)
       </ol>
       <p class="norm-sample-output"><strong>查询结果节选</strong><code>{{ agentQueryOutput.trim() }}</code></p>
       <p class="norm-sample-output"><strong>程序输出</strong><code>{{ agentOutput.trim() }}</code></p>
-      <p class="norm-development-note">这里的语义查询和重构需要<a href="./design/distribution-source-build">开发版工具链</a>。Agent 在验证前应用预览中的编辑。</p>
+      <p class="norm-development-note">这些能力已包含在 <a href="./versions/0.25">Norm 0.25</a> 中。Agent 在验证前应用预览中的编辑。</p>
       <a class="norm-section-link" href="./tooling/agent">了解 Agent 工具 →</a>
     </div>
   </div>
@@ -85,7 +85,7 @@ const selectedExample = ref(0)
       <div class="norm-sample-aside">
         <p class="norm-sample-command">运行 <code>norm {{ applicationExamples[selectedExample].filename }}</code></p>
         <p class="norm-sample-output"><strong>验收输出</strong><code>{{ applicationExamples[selectedExample].output.trim() }}</code></p>
-        <p class="norm-development-note">这些示例需要<a href="./design/distribution-source-build">开发版工具链</a>。</p>
+        <p class="norm-development-note">这些示例可用 <a href="./versions/0.25">Norm 0.25</a> 运行。</p>
         <a class="norm-section-link" href="./spec/language-spec">继续了解语言特性 →</a>
       </div>
     </div>

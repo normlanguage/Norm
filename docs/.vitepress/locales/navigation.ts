@@ -296,11 +296,11 @@ export function navigationFor(languageCode: Language): Pick<DefaultTheme.Config,
       [link('/tooling/')]: [group('Tooling', '工具链', tooling)],
       [link('/versions/')]: [{ text: label('Releases', '版本记录'), items: [
         { text: label('Version index', '版本索引'), link: link('/versions/') },
-        ...releaseItems(link('/versions'), label('candidate', '候选版')),
+        ...releaseItems(link('/versions')),
       ]}],
       [link('/design/')]: [
         { text: label('Design', '设计入口'), items: items(design.slice(0, 2)) },
-        { text: label('Implementation and plans', '实现与规划'), items: [...releaseItems(link('/versions'), label('candidate', '候选版')), ...items(design.slice(2))] },
+        { text: label('Implementation and plans', '实现与规划'), items: [...releaseItems(link('/versions')), ...items(design.slice(2))] },
         group('Project constraints', '项目约束', constraints, true),
       ],
     },

@@ -7,7 +7,7 @@ description: One language feature at a time, with runnable examples
 
 Each lesson introduces one feature through a runnable program, its checked output, an explanation, and one change to try. Follow the order for a gradual start, or open a specific topic.
 
-The full learning path is checked against the [development toolchain](/design/distribution-source-build). Use [Status](/status) and the [version index](/versions/) to check the capabilities of an installed release.
+The full learning path is checked against [Norm 0.25](/versions/0.25). Use [Status](/status) and the [version index](/versions/) to check the capabilities of an installed release.
 
 ## Write and run a program
 
@@ -151,7 +151,7 @@ The full learning path is checked against the [development toolchain](/design/di
 | [86 Typed file failures](/learn/file-failures) | Handle a missing file by failure category. |
 | [87 A packaged library](/learn/commons-lang) | Consume an external library through a direct dependency. |
 
-For a complete GUI Todo and Web guestbook, use [the generated `norm hello` programs](/tooling/#start-with-examples) with the development toolchain.
+For a complete GUI Todo and Web guestbook, use [the generated `norm hello` programs](/tooling/#start-with-examples) with Norm 0.25.
 
 The [Language Reference](/spec/language-spec) defines precise rules; [Status](/status) describes released capabilities.
 

@@ -1,14 +1,10 @@
-export const currentRelease = '0.24'
-export const candidateRelease = '0.25'
+export const currentRelease = '0.25'
 
-const versions = ['0.24', '0.23', '0.22', '0.21', '0.20', '0.19', '0.18', '0.17', '0.16', '0.15', '0.14', '0.13', '0.12', '0.11', '0.10', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1']
+const versions = [currentRelease, '0.24', '0.23', '0.22', '0.21', '0.20', '0.19', '0.18', '0.17', '0.16', '0.15', '0.14', '0.13', '0.12', '0.11', '0.10', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1']
 
-export function releaseItems(prefix: string, candidateLabel: string) {
-  return [{
-    text: `Norm ${candidateRelease} (${candidateLabel})`,
-    link: `${prefix}/${candidateRelease}`,
-  }, ...versions.map((version) => ({
+export function releaseItems(prefix: string) {
+  return versions.map((version) => ({
     text: `Norm ${version}`,
     link: `${prefix}/${version}`,
-  }))]
+  }))
 }

@@ -11,5 +11,5 @@ export const enTheme: DefaultTheme.Config = {
   sidebarMenuLabel: 'Menu',
   darkModeSwitchLabel: 'Appearance',
   langMenuLabel: 'Change language',
-  footer: { message: `Norm ${currentRelease} development line`, copyright: 'Norm Project' },
+  footer: { message: `Norm ${currentRelease}`, copyright: 'Norm Project' },
 }

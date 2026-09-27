@@ -11,5 +11,5 @@ export const zhTheme: DefaultTheme.Config = {
   sidebarMenuLabel: '目录',
   darkModeSwitchLabel: '外观',
   langMenuLabel: '切换语言',
-  footer: { message: `Norm ${currentRelease} 开发线`, copyright: 'Norm Project' },
+  footer: { message: `Norm ${currentRelease}`, copyright: 'Norm Project' },
 }

@@ -21,7 +21,7 @@ Structured API documentation reuses the same semantic entry point; see [API Docu
 
 ## Start with examples
 
-With the [development toolchain](/design/distribution-source-build), run `norm hello` in an empty directory to create five independent `.norm` programs and English and Chinese guides. Start with `norm hell.norm`, then follow the generated [example guide](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/resources/hello/README.md).
+With [Norm 0.25](/versions/0.25), run `norm hello` in an empty directory to create five independent `.norm` programs and English and Chinese guides. Start with `norm hell.norm`, then follow the generated [example guide](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/resources/hello/README.md).
 
 `norm run main.norm` hides startup preparation logs by default. `norm run --debug main.norm` writes startup phases, elapsed time, and actual Maven downloads to stderr. Error diagnostics always appear; this option does not affect application output. See [RunCommand](../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java) for progress and [JarResolverTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java) for the network boundary of local dependencies.
 

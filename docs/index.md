@@ -62,7 +62,7 @@ const selectedExample = ref(0)
       </ol>
       <p class="norm-sample-output"><strong>Selected query fields</strong><code>{{ agentQueryOutput.trim() }}</code></p>
       <p class="norm-sample-output"><strong>Program output</strong><code>{{ agentOutput.trim() }}</code></p>
-      <p class="norm-development-note">Semantic query and refactoring here require the <a href="./design/distribution-source-build">development toolchain</a>. The agent applies previewed edits before verification.</p>
+      <p class="norm-development-note">Available in <a href="./versions/0.25">Norm 0.25</a>. The agent applies previewed edits before verification.</p>
       <a class="norm-section-link" href="./tooling/agent">Explore Agent tools →</a>
     </div>
   </div>
@@ -85,7 +85,7 @@ const selectedExample = ref(0)
       <div class="norm-sample-aside">
         <p class="norm-sample-command">Run <code>norm {{ applicationExamples[selectedExample].filename }}</code></p>
         <p class="norm-sample-output"><strong>Checked output</strong><code>{{ applicationExamples[selectedExample].output.trim() }}</code></p>
-        <p class="norm-development-note">These examples require the <a href="./design/distribution-source-build">development toolchain</a>.</p>
+        <p class="norm-development-note">These examples run with <a href="./versions/0.25">Norm 0.25</a>.</p>
         <a class="norm-section-link" href="./spec/language-spec">Explore language features →</a>
       </div>
     </div>
