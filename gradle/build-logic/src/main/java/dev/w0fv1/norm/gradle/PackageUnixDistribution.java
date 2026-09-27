@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Comparator;
 import javax.inject.Inject;
 import org.gradle.api.DefaultTask;
@@ -47,6 +48,8 @@ public abstract class PackageUnixDistribution extends DefaultTask {
                   staging.resolve("norm").toString());
             })
         .assertNormalExitValue();
+    Files.setPosixFilePermissions(
+        staging.resolve("norm"), PosixFilePermissions.fromString("rwxr-xr-x"));
     Path destination = getArchive().get().getAsFile().toPath();
     Files.createDirectories(destination.getParent());
     Path temporary = Files.createTempFile(destination.getParent(), "norm-distribution-", ".tar.gz");

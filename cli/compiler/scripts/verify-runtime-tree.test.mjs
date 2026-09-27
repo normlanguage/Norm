@@ -31,6 +31,14 @@ test('a delivered runtime must preserve files, modes, and symbolic links', async
     writeFileSync(join(delivered, 'lib', 'compiler.jar'), 'compiler');
 
     if (process.platform !== 'win32') {
+      chmodSync(delivered, 0o700);
+      await assert.rejects(compareRuntimeTrees(source, delivered), /runtime root.*755/);
+      chmodSync(delivered, 0o755);
+      chmodSync(join(source, 'lib'), 0o700);
+      chmodSync(join(delivered, 'lib'), 0o700);
+      await assert.rejects(compareRuntimeTrees(source, delivered), /lib.*traversable/);
+      chmodSync(join(source, 'lib'), 0o755);
+      chmodSync(join(delivered, 'lib'), 0o755);
       chmodSync(join(delivered, 'bin', 'norm'), 0o644);
       await assert.rejects(compareRuntimeTrees(source, delivered), /bin\/norm.*mode/);
       chmodSync(join(delivered, 'bin', 'norm'), 0o755);

@@ -127,7 +127,7 @@ install -m 644 -o normapt-test -g normapt-test cli/compiler/scripts/fixtures/hel
 attempted_install=yes
 apt-get install -y normlang
 if [[ -n "$previous_version" ]]; then
-  runuser -u normapt-test -- norm --version | grep -Fx "norm $previous_version"
+  norm --version | grep -Fx "norm $previous_version"
   cp -R "$final_repository/." "$repository/"
   apt-get update
   apt-get upgrade -y
@@ -155,5 +155,12 @@ test "$(dpkg-query -W -f='${Version}' normlang)" = "$current_version"
 apt-get remove -y normlang
 test ! -e /usr/bin/norm
 test ! -e /usr/lib/normlang
-test -f /home/normapt-test/project/hello.norm
 test -e "$keyring"
+
+apt-get install -y normlang
+runuser -u normapt-test -- norm --version | grep -Fx "norm $current_version"
+runuser -u normapt-test -- sh -c 'cd /home/normapt-test/project && norm run hello.norm' | grep -Fx 'Hello from Norm'
+apt-get remove -y normlang
+test ! -e /usr/bin/norm
+test ! -e /usr/lib/normlang
+test -f /home/normapt-test/project/hello.norm

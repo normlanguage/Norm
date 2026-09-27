@@ -34,6 +34,9 @@ async function hash(path) {
 }
 
 export async function compareRuntimeTrees(source, delivered) {
+  if (process.platform !== 'win32' && (statSync(delivered).mode & 0o777) !== 0o755) {
+    throw new Error('Delivered runtime root must have mode 755');
+  }
   const original = inventory(source);
   const actual = inventory(delivered);
   if (original.size !== actual.size) throw new Error(`Runtime entry count differs: ${original.size} != ${actual.size}`);
@@ -44,6 +47,9 @@ export async function compareRuntimeTrees(source, delivered) {
     const found = actual.get(relative);
     if (!found) throw new Error(`Missing delivered runtime entry: ${relative}`);
     if (expected.type !== found.type) throw new Error(`${relative} type differs: ${expected.type} != ${found.type}`);
+    if (process.platform !== 'win32' && found.type === 'directory' && (found.mode & 0o005) !== 0o005) {
+      throw new Error(`${relative} directory must be traversable by a regular user`);
+    }
     if (expected.type !== 'link' && expected.mode !== found.mode) {
       throw new Error(`${relative} mode differs: ${expected.mode.toString(8)} != ${found.mode.toString(8)}`);
     }

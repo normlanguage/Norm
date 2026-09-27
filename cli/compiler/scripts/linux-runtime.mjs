@@ -25,7 +25,7 @@ export function stagePrivateRuntime(version, assetsDirectory, stage) {
   renameSync(extracted, runtime);
   const bin = join(stage, 'usr', 'bin');
   mkdirSync(bin, { recursive: true });
-  for (const directory of [join(stage, 'usr'), dirname(runtime), bin]) chmodSync(directory, 0o755);
+  for (const directory of [join(stage, 'usr'), dirname(runtime), runtime, bin]) chmodSync(directory, 0o755);
   const wrapper = join(bin, 'norm');
   writeFileSync(wrapper, '#!/bin/sh\nexec /usr/lib/normlang/bin/norm "$@"\n');
   chmodSync(wrapper, 0o755);

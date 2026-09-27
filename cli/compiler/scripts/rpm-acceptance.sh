@@ -101,7 +101,7 @@ project_hash="$(sha256sum "/home/$user/project/hello.norm" | cut -d' ' -f1)"
 
 attempted_install=yes
 dnf -y "${repo_override[@]}" install normlang
-runuser -u "$user" -- norm --version | grep -Fx "norm $previous"
+norm --version | grep -Fx "norm $previous"
 cp -a "$final/." "$live/"
 dnf clean metadata
 dnf -y "${repo_override[@]}" upgrade normlang
@@ -126,6 +126,12 @@ if [[ "${NORM_RPM_FULL_ACCEPTANCE:-}" == 1 ]]; then
 fi
 
 test "$(rpm -q --qf '%{VERSION}' normlang)" = "$version"
+dnf -y "${repo_override[@]}" remove normlang
+test ! -e /usr/bin/norm
+test ! -e /usr/lib/normlang
+dnf -y "${repo_override[@]}" install normlang
+runuser -u "$user" -- norm --version | grep -Fx "norm $version"
+runuser -u "$user" -- bash -c "cd /home/$user/project && norm run hello.norm" | grep -Fx 'Hello from Norm'
 dnf -y "${repo_override[@]}" remove normlang
 test ! -e /usr/bin/norm
 test ! -e /usr/lib/normlang
