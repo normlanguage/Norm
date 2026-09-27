@@ -7,15 +7,70 @@ import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.runtime.PreparedApplication;
+import dev.w0fv1.norm.runtime.PreparedApplicationContent;
+import dev.w0fv1.norm.value.FileSnapshot;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.module.ModuleFinder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class PreparedApplicationTest {
   @TempDir Path directory;
+
+  @Test
+  void preservesAutomaticModuleNamesAndDistinctSameNamedJars() throws Exception {
+    Path entry = Files.writeString(directory.resolve("main.norm"), "Void main() {}");
+    Path first = directory.resolve("first/annotations-13.0.jar");
+    Path second = directory.resolve("second/annotations-13.0.jar");
+    for (Path path : List.of(first, second)) {
+      Files.createDirectories(path.getParent());
+      try (var output = new JarOutputStream(Files.newOutputStream(path))) {
+        var name = path.getParent().getFileName().toString();
+        output.putNextEntry(new JarEntry(name));
+        output.write(name.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        output.closeEntry();
+      }
+    }
+    var store = new DirectoryArtifactCache(directory.resolve("store"), 4, 1024 * 1024);
+    try (var runner = ApplicationRunner.open(ProjectEnvironment.bootstrap(new NormRuntime()));
+        var compilation = runner.compileApplication(entry)) {
+      assertTrue(compilation.result().isSuccess());
+      var captured =
+          new PreparedApplicationWriter().capture(compilation.application().orElseThrow());
+      var content =
+          new PreparedApplicationContent(
+              captured.program(),
+              captured.classes(),
+              List.of(FileSnapshot.capture(first), FileSnapshot.capture(second)),
+              captured.moduleRoots());
+      try (var lease = content.acquire(store)) {
+        try (var reused = content.acquire(store)) {
+          assertEquals(lease.path(), reused.path());
+        }
+        var staged =
+            content.application().classpath().stream()
+                .filter(path -> path.endsWith(".jar"))
+                .map(lease.path()::resolve)
+                .toList();
+        assertEquals(2, staged.size());
+        assertNotEquals(staged.get(0), staged.get(1));
+        for (Path jar : staged) {
+          assertEquals("annotations-13.0.jar", jar.getFileName().toString());
+          assertEquals(
+              "annotations", ModuleFinder.of(jar).findAll().iterator().next().descriptor().name());
+        }
+        assertFalse(
+            java.util.Arrays.equals(
+                Files.readAllBytes(staged.get(0)), Files.readAllBytes(staged.get(1))));
+      }
+    }
+  }
 
   @Test
   void reusesMaterializedResourcesAndRepairsChangedOrAddedContent() throws Exception {

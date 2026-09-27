@@ -76,7 +76,9 @@ public record PreparedApplicationContent(
   private Map<String, FileSnapshot> dependencyFiles() {
     var files = new LinkedHashMap<String, FileSnapshot>();
     for (var dependency : dependencies)
-      files.put("jars/" + (files.size() + 1) + "-" + dependency.path().getFileName(), dependency);
+      files.put(
+          "jars/" + dependency.content().value() + "/" + dependency.path().getFileName(),
+          dependency);
     return files;
   }
 }
