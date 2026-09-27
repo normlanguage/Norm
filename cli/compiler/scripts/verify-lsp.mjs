@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const repository = resolve(import.meta.dirname, '../../..');
-const distribution = resolve(process.argv[2] ?? join(repository, 'cli/compiler/target/norm-runtime'));
+const distribution = resolve(process.argv[2] ?? join(repository, 'build/compiler/norm-runtime'));
 const evidence = resolve(process.argv[3] ?? join(repository, 'build/reports/lsp'));
 const cli = process.argv[4] ? resolve(process.argv[4]) : null;
 mkdirSync(evidence, { recursive: true });

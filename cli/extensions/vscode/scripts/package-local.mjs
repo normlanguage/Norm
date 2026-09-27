@@ -15,7 +15,7 @@ export async function packageLocal() {
   const extensionRoot = resolve(import.meta.dirname, '..');
   const metadata = JSON.parse(readFileSync(join(extensionRoot, 'package.json'), 'utf8'));
   const version = releaseVersion(metadata.version);
-  const server = buildServer();
+  const server = buildServer(version);
   verifyServerVersion(server, version);
   const destination = join(extensionRoot, localPackageName(version));
   packageVsix({
@@ -37,7 +37,7 @@ function verifyServerVersion(server, version) {
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Norm server version check exited with ${result.status}`);
   const actual = result.stdout.trim();
-  if (actual !== `norm ${version}` && actual !== `norm ${version}-SNAPSHOT`) {
+  if (actual !== `norm ${version}`) {
     throw new Error(`Norm server version does not match extension ${version}: ${actual}`);
   }
 }

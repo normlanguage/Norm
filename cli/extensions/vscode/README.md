@@ -13,13 +13,14 @@ Use the play button in a Norm editor, run `Norm: Run Current File`, or press `Ct
 1. Build the CLI distribution from the repository root:
 
    ```powershell
-   .\mvnw.cmd -DskipTests package
+   $version = (Get-Content cli/extensions/vscode/package.json | ConvertFrom-Json).version
+   .\gradlew.bat :compiler:installRuntimeDist "-PnormVersion=$version"
    ```
 
 2. Open the Norm repository as the VS Code workspace. A development Extension Host automatically discovers:
 
    ```text
-   <repository>\cli\compiler\target\norm-runtime\bin\norm.bat
+   <repository>\build\compiler\norm-runtime\bin\norm.bat
    ```
 
    For another layout, set `norm.cli.path` explicitly. A Norm source workspace may use a newer patch of the same major/minor line; configured, bundled, and `PATH` CLIs must match the extension exactly. The status bar shows the selected version and source. Language Server diagnostics and `Norm: Run Current File` share the same verified CLI selection.

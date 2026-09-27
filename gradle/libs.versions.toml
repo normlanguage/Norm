@@ -1,0 +1,57 @@
+[versions]
+graalvm = { strictly = "25.1.3" }
+jackson = { strictly = "2.20.2" }
+woodstox = { strictly = "7.2.2" }
+lsp4j = { strictly = "1.0.0" }
+gson = { strictly = "2.14.0" }
+commonmark = { strictly = "0.29.0" }
+resolver = { strictly = "2.0.21" }
+asm = { strictly = "9.9.1" }
+codec = { strictly = "1.22.0" }
+compress = { strictly = "1.28.0" }
+slf4j = { strictly = "2.0.18" }
+junit = { strictly = "6.1.2" }
+apiguardian = { strictly = "1.1.2" }
+objenesis = { strictly = "3.3" }
+kryo = { strictly = "5.6.2" }
+reachability = { strictly = "1.1.12" }
+jspecify = { strictly = "1.0.0" }
+archunit = { strictly = "1.5.0" }
+websocket = { strictly = "1.6.0" }
+spotless = "8.10.0"
+google-java-format = "1.36.0"
+extra-modules = "1.14.2"
+
+[libraries]
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
+woodstox = { module = "com.fasterxml.woodstox:woodstox-core", version.ref = "woodstox" }
+truffle-api = { module = "org.graalvm.truffle:truffle-api", version.ref = "graalvm" }
+truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graalvm" }
+truffle-processor = { module = "org.graalvm.truffle:truffle-dsl-processor", version.ref = "graalvm" }
+polyglot = { module = "org.graalvm.polyglot:polyglot", version.ref = "graalvm" }
+nativeimage = { module = "org.graalvm.sdk:nativeimage", version.ref = "graalvm" }
+lsp4j = { module = "org.eclipse.lsp4j:org.eclipse.lsp4j", version.ref = "lsp4j" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+resolver-supplier = { module = "org.apache.maven.resolver:maven-resolver-supplier-mvn3", version.ref = "resolver" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+codec = { module = "commons-codec:commons-codec", version.ref = "codec" }
+compress = { module = "org.apache.commons:commons-compress", version.ref = "compress" }
+jcl-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+junit-platform-engine = { module = "org.junit.platform:junit-platform-engine", version.ref = "junit" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+apiguardian = { module = "org.apiguardian:apiguardian-api", version.ref = "apiguardian" }
+objenesis = { module = "org.objenesis:objenesis", version.ref = "objenesis" }
+kryo = { module = "com.esotericsoftware:kryo", version.ref = "kryo" }
+reachability = { module = "org.graalvm.buildtools:graalvm-reachability-metadata", version.ref = "reachability" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "websocket" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+extra-modules = { id = "org.gradlex.extra-java-module-info", version.ref = "extra-modules" }

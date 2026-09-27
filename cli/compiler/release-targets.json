@@ -3,22 +3,25 @@
     "runner": "windows-2025",
     "target": "win32-x64",
     "platform": "windows-x64",
-    "distribution": "cli/compiler/target/norm-runtime",
+    "asset": "norm.exe",
+    "distribution": "build/compiler/norm-runtime",
     "launcher": "bin/norm.bat",
-    "standalone": "cli/compiler/target/launcher/publish/norm.exe"
+    "standalone": "build/distributions/norm.exe"
   },
   {
     "runner": "ubuntu-22.04",
     "target": "linux-x64",
     "platform": "linux-x64",
-    "distribution": "cli/compiler/target/norm-runtime",
+    "asset": "norm-v{version}-linux-x64.tar.gz",
+    "distribution": "build/compiler/norm-runtime",
     "launcher": "bin/norm"
   },
   {
     "runner": "macos-15",
     "target": "darwin-arm64",
     "platform": "macos-arm64",
-    "distribution": "cli/compiler/target/norm-runtime",
+    "asset": "norm-v{version}-macos-arm64.tar.gz",
+    "distribution": "build/compiler/norm-runtime",
     "launcher": "bin/norm"
   }
 ]

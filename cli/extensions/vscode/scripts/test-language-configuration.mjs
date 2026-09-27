@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import oniguruma from 'vscode-oniguruma';
 import textmate from 'vscode-textmate';
-import { readProjectVersion } from '../../../compiler/scripts/release-model.mjs';
+import { releaseVersion } from '../../../compiler/scripts/release-model.mjs';
 
 const { createOnigScanner, createOnigString, loadWASM } = oniguruma;
 const { Registry } = textmate;
@@ -134,8 +134,7 @@ assert.equal(
 );
 assert.equal(extension.contributes.configurationDefaults['[norm]']['editor.formatOnSave'], true);
 
-const projectVersion = readProjectVersion('../../..').replace(/-SNAPSHOT$/, '');
-assert.equal(extension.version, projectVersion, 'extension version must track the Norm version');
+assert.equal(releaseVersion(extension.version), extension.version);
 
 console.log('Norm language configuration tests succeeded.');
 
