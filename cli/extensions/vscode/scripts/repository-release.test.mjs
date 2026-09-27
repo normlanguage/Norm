@@ -18,7 +18,7 @@ test('release accepts completed packages before publication', () => {
   assert.match(jobs.accept.steps.find(step => step.name === 'Extract final extension').run, /extract-vsix/);
   assert.match(jobs.accept.env.NORM_TEST_EXTENSION, /extracted-extension$/);
   assert.match(jobs.accept.steps.find(step => step.name === 'Verify packaged language server').env.NORM_CLI, /extracted-extension\/bin\//);
-  assert.equal(jobs.build.steps.find(step => step.name === 'Upload self-contained CLI for the universal extension').with.path, 'release-stage');
+  assert.equal(jobs.build.steps.find(step => step.name === 'Upload self-contained CLI for the universal extension').with.path, 'build/release-stage');
   assert.ok(!jobs.accept.steps.some(step => step.name === 'Download packaged runtime'));
   assert.ok(!jobs.build.steps.some(step => /verify-cli|spotless:check|smoke:lsp|\sverify\b/.test(step.run ?? '')));
 });
@@ -31,17 +31,17 @@ test('daily toolchain does not build ecosystem applications or native samples', 
 
 test('release validation shares the publishing DAG without branch write access', () => {
   const release = workflow('release');
-  assert.deepEqual(release.on.push.branches, ['codex/macos-maven-validation']);
+  assert.deepEqual(release.on.push.branches, ['main']);
   assert.deepEqual(release.on.pull_request.branches, ['main']);
   assert.equal(release.permissions.contents, 'read');
   assert.match(release.jobs.publish.if, /github\.event_name == 'push'.*refs\/tags\/v/);
   assert.equal(release.jobs.publish.permissions.contents, 'write');
-  assert.ok(release.jobs.build.steps.some(step => step.run?.includes('-Prelease clean package')));
+  assert.ok(release.jobs.build.steps.some(step => step.run?.includes('./gradlew :compiler:packageDistribution')));
+  assert.ok(release.jobs.build.steps.some(step => step.run?.includes('.\\gradlew.bat :compiler:packageDistribution')));
   assert.match(release.jobs.build.steps.find(step => step.name === 'Verify target architecture')?.run ?? '', /process\.platform.*process\.arch.*matrix\.target/);
-  assert.ok(release.jobs.verify.steps.some(step => step.run?.includes(' verify')));
+  assert.ok(release.jobs.verify.steps.some(step => step.run?.includes('./gradlew qualityCheck')));
   assert.equal(release.jobs.verify.steps.find(step => step.name === 'Verify native build evidence tools').env.NORM_VERSION, '${{ needs.prepare.outputs.version }}');
-  assert.ok(!JSON.stringify(release.jobs.build).includes('gradlew'));
-  assert.ok(!JSON.stringify(release.jobs.verify).includes('gradlew'));
+  assert.ok(!JSON.stringify(release).includes('mvnw'));
 });
 
 test('documentation branch validation cannot deploy the site', () => {
@@ -49,5 +49,5 @@ test('documentation branch validation cannot deploy the site', () => {
   assert.equal(docs.permissions.contents, 'read');
   assert.equal(docs.jobs.deploy.if, "github.ref == 'refs/heads/main'");
   assert.equal(docs.jobs.deploy.permissions.pages, 'write');
-  assert.ok(docs.jobs.build.steps.some(step => step.run?.includes('mvnw')));
+  assert.ok(docs.jobs.build.steps.some(step => step.run?.includes('./gradlew :compiler:test')));
 });

@@ -12,7 +12,7 @@ norm/stdlib/           standard-library sources written in Norm
 norm/tests/            executable Norm acceptance programs
 ```
 
-`compiler` is the only product and JPMS module. The root [Maven reactor](../../../pom.xml) also contains the build-only `build-tools` and `build-maven-plugin` modules. Domain packages provide the layers, cross-layer data uses the strongly typed model owned by the lower layer, and architecture tests prohibit reverse dependencies.
+`compiler` is the only product and JPMS module. The root [Gradle Kotlin DSL build](../../../build.gradle.kts) also includes the build-only [`gradle/build-logic`](../../../gradle/build-logic/). Domain packages provide the layers, cross-layer data uses the strongly typed model owned by the lower layer, and architecture tests prohibit reverse dependencies.
 
 ## Core packages
 
@@ -108,9 +108,9 @@ Acceptance-test domains, layout, naming, discovery entry points, and commands ar
 
 ## Distribution build inputs
 
-Distribution builds can supply reachability metadata with `-Dnorm.reachability.archive=<local archive path>`. [ReachabilityMetadataArchive](../../../build-tools/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) defines the input and checksum. Maven plugins and Java dependencies must also be available for offline builds; the [distribution source-build design](/design/distribution-source-build) defines the separate system Maven acceptance gate.
+Distribution builds can supply reachability metadata with `-PnormReachabilityMetadata=<local archive path>`. [ReachabilityMetadataArchive](../../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) defines the input and checksum. Build plugins and Java dependencies must also be available for offline builds; the [distribution source-build design](/design/distribution-source-build) records the separate official-package source-build route.
 
-`./mvnw package` produces the system-JDK installation tree at `cli/compiler/target/norm-runtime`; `./mvnw -Prelease package` adds a bundled JDK to that tree. The lifecycle is defined by the [compiler POM](../../../cli/compiler/pom.xml). The ordinary upstream Maven tree includes resolved Java dependencies and is not a Debian/RPM package using distribution-managed libraries.
+`./gradlew :compiler:installRuntimeDist` produces the self-contained installation tree at `build/compiler/norm-runtime`; `./gradlew :compiler:packageDistribution -PnormVersion=<version>` writes release assets to `build/distributions/`. The lifecycle is defined by the [compiler Gradle build](../../../cli/compiler/build.gradle.kts) and its build logic. The installation tree contains application-private dependencies and is not an official Debian/RPM package using distribution-managed Java libraries.
 
 ## Documentation ownership
 

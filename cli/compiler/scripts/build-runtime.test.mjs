@@ -15,10 +15,13 @@ test('runtime build invokes the repository Gradle wrapper', () => {
       : `#!/bin/sh\nprintf '%s\\n' "$*" > '${record}'\n`;
     writeFileSync(wrapper, script);
     if (process.platform !== 'win32') chmodSync(wrapper, 0o755);
-    const runtime = buildRuntime(root);
+    assert.equal(buildRuntime(root), join(root, 'build', 'compiler', 'norm-runtime'));
+    assert.match(readFileSync(record, 'utf8'), /:compiler:installRuntimeDist --no-daemon/);
+    const runtime = buildRuntime(root, '0.23.0');
     assert.equal(runtime, join(root, 'build', 'compiler', 'norm-runtime'));
     assert.ok(existsSync(record));
-    assert.match(readFileSync(record, 'utf8'), /:compiler:installRuntimeDist --no-daemon/);
+    assert.match(readFileSync(record, 'utf8'), /:compiler:installRuntimeDist -PnormVersion=0\.23\.0 --no-daemon/);
+    assert.throws(() => buildRuntime(root, '0.23'), /Invalid release version/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
