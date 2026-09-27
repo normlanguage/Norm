@@ -46,11 +46,16 @@ if (process.argv.includes('--dist')) {
     resolve(docsRoot, '.vitepress', 'dist', 'learn', 'index.html'),
     'utf8',
   )
+  const chineseLearn = await readFile(
+    resolve(docsRoot, '.vitepress', 'dist', 'zh', 'learn', 'index.html'),
+    'utf8',
+  )
   assert.match(html, new RegExp(`(?:href|src)="${siteBase.replaceAll('/', '\\/')}`))
   assert.match(html, /<html[^>]*lang="en-US"/)
   assert.match(chinese, /<html[^>]*lang="zh-CN"/)
   assert.match(guide, /<h1[^>]*>Language/)
-  assert.match(learn, /<h1[^>]*>Language Tour/)
+  assert.match(learn, /<h1[^>]*>Learn Norm/)
+  assert.match(chineseLearn, /<h1[^>]*>学习 Norm/)
   const legacyEnglish = await readFile(
     resolve(docsRoot, '.vitepress', 'dist', 'en', 'language', 'overview.html'),
     'utf8',

@@ -1,0 +1,10 @@
+value Position {
+  Integer row
+  Integer column
+}
+
+main() {
+  Position cursor = Position(row: 2, column: 4)
+  printLine(cursor.row)
+  printLine(cursor.column)
+}

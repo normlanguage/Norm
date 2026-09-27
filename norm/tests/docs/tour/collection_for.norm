@@ -1,0 +1,10 @@
+main() {
+  List<Integer> source = [1, 2, 3]
+  List<Integer> doubled = [
+    for (number : source) number * 2
+  ]
+  for number : doubled {
+    printLine(number)
+  }
+  printLine(doubled.size())
+}

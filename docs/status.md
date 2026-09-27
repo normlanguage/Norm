@@ -35,6 +35,7 @@ The current formal release is Norm {{ currentRelease }}. This page describes the
 | Annotations, `@Document`, and typed interceptors | Stable | [Annotation specification](/spec/annotations) |
 | Packages, modules, and cross-file visibility | Stable | [Module system](/spec/module-system) |
 | Typed string interpolation | Stable | [Literals](/spec/grammar/literals) |
+| `for` with `break value` and `else` in a value position | Planned | [Loop design](/spec/grammar/loops#for-expressions); the current parser rejects `Integer result = for ...` |
 | `//` and `/* */` source comments | Planned | The current lexer treats these markers as operator tokens |
 
 ## Standard library

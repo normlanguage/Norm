@@ -1,0 +1,11 @@
+enum Result {
+  Success(Integer count),
+  Failure(String reason)
+}
+
+main() {
+  Result first = Result.Success(count: 3)
+  Result second = Result.Failure(reason: "empty")
+  printLine(first == Result.Success(count: 3))
+  printLine(second == Result.Failure(reason: "empty"))
+}

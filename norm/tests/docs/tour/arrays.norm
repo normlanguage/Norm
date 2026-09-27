@@ -1,0 +1,10 @@
+main() {
+  Array<Integer> scores = [3, 5, 8]
+  scores[1] = 7
+  printLine(scores[0])
+  printLine(scores[1])
+  printLine(scores.size())
+  Integer total = scores[0] + scores[1] + scores[2]
+  printLine(total)
+  printLine(scores[2])
+}

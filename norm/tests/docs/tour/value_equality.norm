@@ -1,0 +1,12 @@
+value Position {
+  Integer row
+  Integer column
+}
+
+main() {
+  Position first = Position(row: 2, column: 4)
+  Position same = Position(row: 2, column: 4)
+  Position other = Position(row: 2, column: 5)
+  printLine(first == same)
+  printLine(first == other)
+}

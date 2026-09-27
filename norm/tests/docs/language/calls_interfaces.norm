@@ -1,0 +1,43 @@
+interface Formatter {
+  String format(String text)
+}
+
+class PrefixFormatter implements Formatter {
+  String prefix
+
+  String format(String text) {
+    return prefix + text
+  }
+}
+
+class BareFormatter implements Formatter {
+  String format(String text) {
+    return text
+  }
+}
+
+value Request {
+  String text
+  String audience = "team"
+}
+
+String deliver(Formatter formatter, Request request, String punctuation = "!") {
+  String recipient = if request.audience == "team" { "all" } else { request.audience }
+  return formatter.format(request.text) + punctuation + " for " + recipient
+}
+
+main() {
+  Formatter formatter = PrefixFormatter(prefix: "Hello, ")
+  Request request = Request(text: "Norm")
+  printLine(deliver(formatter, request))
+  printLine(deliver(request: Request(text: "Ada", audience: "agent"), punctuation: "?", formatter: formatter))
+  Formatter bare = BareFormatter()
+  printLine(deliver(formatter: bare, request: Request(text: "Ready", audience: "Ada")))
+
+  String outcome = if request.audience == "team" {
+    "broadcast"
+  } else {
+    "direct"
+  }
+  printLine(outcome)
+}

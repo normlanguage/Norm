@@ -1,0 +1,10 @@
+main() {
+  var count = 2
+  var title = "New tasks"
+
+  printLine(title)
+  printLine(count)
+
+  count = count + 1
+  printLine(count)
+}

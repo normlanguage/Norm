@@ -29,6 +29,7 @@ Runtime: execution contracts → Truffle → platform adapter
 - [发行版源码构建架构](/zh/design/distribution-source-build)：Gradle 唯一构建入口、发行版离线构建与发布等价验收；
 - [块调用链设计与落地方案](/zh/design/block-call-chains)：受限省点号闭包链的决策、实现索引、迁移与验收；
 - [Agent 工具设计](/zh/design/agent-tooling)：明确性、强引用、上下文效率与验证契约；
+- [示例体系](/zh/design/sample-system)：网站、生成、语言、教学与库示例的归属和验收；
 - [系统运行时架构](/zh/design/system-runtime)：I/O、资源和平台适配；
 - [序列化运行时架构](/zh/design/serialization-runtime)：结构元数据与 mapper；
 - [Java Library Adapter](/zh/design/java-library-adapters)：单根 JAR、普通 Module 身份、内容寻址与发布边界；

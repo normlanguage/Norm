@@ -43,6 +43,12 @@ Multiple annotations nest in source order. A layer enters only after its `before
 
 Callables with `ref` parameters or return types cannot use `FunctionInterceptor`; an interface requirement cannot be intercepted directly.
 
+This executable example combines source-retained interception with a separate runtime-retained annotation on the same function:
+
+<<< ../../norm/tests/docs/language/aop_runtime_metadata.norm{norm}
+
+<<< ../../norm/tests/docs/language/aop_runtime_metadata.out{text}
+
 ## ParameterInterceptor
 
 An annotation implementing `ParameterInterceptor<T>` may override `before(ParameterContext, T)` and `after(ParameterContext, FunctionCompletion)`. `T` must exactly equal the declared type of the marked parameter. `ref<T>` parameters and interface-requirement parameters cannot use the parameter lifecycle.
@@ -77,6 +83,10 @@ In API documentation, `unitTests` is derived from test-side `@Test` associations
 Annotation metadata may contain scalars, declaration references, and `List` literals recursively composed of these values. `List` represents ordered declaration metadata; `Array` is not an annotation metadata type. Non-nullable parameters must be supplied explicitly; omitting a nullable parameter is equivalent to supplying `null`. See [`std.annotation`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/annotation/protocols.norm) for the complete declaration.
 
 The compiler may export `Document` from its retained semantic model directly into a module API tree, together with declarations, types, and source locations. Commands, file mappings, and front-end components are described in [API documentation export](/tooling/api-documentation).
+
+The executable example combines `@Document` on declarations, checked related-declaration references, and a test-side `@Test` association:
+
+<<< ../../norm/tests/docs/language/document_agent.norm{norm}
 
 ## Retention and Core
 

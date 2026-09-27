@@ -1,0 +1,14 @@
+import std.annotation.RuntimeRetention
+import std.annotation.TypeTarget
+
+annotation Label implements TypeTarget, RuntimeRetention {
+  String text
+}
+
+@Label(text: "task")
+class Task {}
+
+main() {
+  Label? label = Task.class.annotation<Label>()
+  printLine(label?.text ?? "missing")
+}

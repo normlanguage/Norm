@@ -1,11 +1,10 @@
-Integer advance(Integer current) {
-  return current + 1
-}
-
 main() {
-  Integer count = 1
-  count = advance(count)
-  var label = "ready"
-  printLine(label)
-  printLine(count)
+  Integer remaining = 3
+  String task = "Review samples"
+
+  printLine(task)
+  printLine(remaining)
+
+  remaining = remaining - 1
+  printLine(remaining)
 }

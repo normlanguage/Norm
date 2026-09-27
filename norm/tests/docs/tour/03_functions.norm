@@ -1,8 +1,11 @@
-Integer subtract(Integer left, Integer right) {
-  return left - right
+Integer double(Integer number) {
+  return number * 2
 }
 
 main() {
-  Integer difference = subtract(left: 140, right: 100)
-  printLine(difference)
+  Integer first = double(4)
+  Integer second = double(7)
+
+  printLine(first)
+  printLine(second)
 }

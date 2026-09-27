@@ -1,0 +1,43 @@
+import std.build.BuildWith
+import std.build.ResultBuilder
+
+class Lines implements ResultBuilder<String, List<String>> {
+  private List<String> entries = []
+
+  Void add(String value) {
+    entries.add(value)
+  }
+
+  List<String> finish() {
+    return entries
+  }
+}
+
+List<String> report(@BuildWith(Lines.class) Function<List<String>()> content) {
+  return content()
+}
+
+class Task { public String title }
+
+Void countUpdate(ref<Integer> count) {
+  *count = *count + 1
+}
+
+main() {
+  Task task = Task(title: "Draft")
+  FieldHandle<String> title = Task.title.field.bind(task)
+  Integer updates = 0
+  title.write("Ready")
+  countUpdate(count: &updates)
+
+  List<String> lines = report {
+    "Task: " + title.read()
+    if updates > 0 { "Updated ${updates} time" }
+    for word : ["checked", "published"] { word }
+  }
+  for line : lines { printLine(line) }
+  List<String> empty = report {}
+  printLine(empty.size())
+  List<String> independent = report { "Separate" }
+  printLine(independent[0])
+}

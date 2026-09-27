@@ -1,0 +1,40 @@
+import std.observation.onChange
+
+class Board {
+  List<String> titles = []
+  Map<String, Integer> counts = Map<String, Integer>()
+  String selected = "none"
+}
+
+main() {
+  Board board = Board()
+  FieldHandle<String> current = Board.selected.field.bind(board)
+
+  var selected = board.selected.onChange {
+    printLine("selected: " + oldValue + " -> " + newValue)
+  }
+  var titles = board.titles.onChange {
+    printLine("titles: ${oldValue.size()} -> ${newValue.size()}")
+  }
+  var counts = board.counts.onChange {
+    printLine("counts: ${oldValue.size()} -> ${newValue.size()}")
+  }
+
+  board.titles.add("Learn Norm")
+  board.titles.add("Build app")
+  current.write("Learn Norm")
+  board.selected = "Learn Norm"
+  board.titles[0] = "Learn more Norm"
+  board.counts.put(key: "open", value: 1)
+  board.counts.put(key: "open", value: 1)
+  board.counts["open"] = 2
+
+  printLine(current.read())
+  printLine(board.titles[0])
+  selected.close()
+  titles.close()
+  counts.close()
+  board.titles.add("Publish")
+  current.write("Publish")
+  printLine(board.titles.size())
+}

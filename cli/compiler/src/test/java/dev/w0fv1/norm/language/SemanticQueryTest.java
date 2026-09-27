@@ -2,13 +2,93 @@ package dev.w0fv1.norm.language;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.semantic.SymbolKind;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import dev.w0fv1.norm.value.CompilationRequest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class SemanticQueryTest {
+  @Test
+  void doesNotTreatAnApplicationAnnotationNamedDocumentAsTheStandardAnnotation() throws Exception {
+    var source =
+        SourceFile.of(
+            DocumentId.of("untitled:other-document"),
+            """
+            import std.annotation.FunctionTarget
+            import std.annotation.BinaryRetention
+            annotation Document implements FunctionTarget, BinaryRetention {
+              String description
+            }
+            @Document(description: "Not standard documentation.") Integer localAnswer() { return 42 }
+            """);
+    var environment = ProjectEnvironment.bootstrap(new TruffleExecutionBackend(8));
+    try (var language = new LanguageService(environment.compilerSession())) {
+      var snapshot = language.snapshot(CompilationRequest.single(source));
+      assertTrue(snapshot.diagnostics().isEmpty(), snapshot.diagnostics().toString());
+      assertEquals(
+          "",
+          language
+              .query(snapshot)
+              .search("localAnswer", 0, 10)
+              .items()
+              .getFirst()
+              .symbol()
+              .documentation());
+    }
+  }
+
+  @Test
+  void exposesDocumentDescriptionsThroughSemanticSymbols() throws Exception {
+    var source =
+        SourceFile.of(
+            DocumentId.of("untitled:document"),
+            """
+            import std.annotation.Document
+            @Document(description: "A task to complete.") class Task {
+              @Document(description: "The task title.") String title
+            }
+            @Document(description: "Finds the requested task.") Integer findTask(
+              @Document(description: "The requested identifier.") Integer id
+            ) { return id }
+            Void main() { printLine(findTask(id: 1)) }
+            """);
+    var environment = ProjectEnvironment.bootstrap(new TruffleExecutionBackend(8));
+    try (var language = new LanguageService(environment.compilerSession())) {
+      var snapshot = language.snapshot(CompilationRequest.single(source));
+      assertTrue(snapshot.diagnostics().isEmpty(), snapshot.diagnostics().toString());
+      assertFalse(snapshot.semanticModel().annotations().applications().isEmpty());
+      var query = language.query(snapshot);
+      assertEquals(
+          "Finds the requested task.",
+          query.search("findTask", 0, 10).items().getFirst().symbol().documentation());
+      assertEquals(
+          "A task to complete.",
+          query.search("Task", 0, 10).items().stream()
+              .filter(item -> item.symbol().kind() == SymbolKind.TYPE)
+              .filter(
+                  item -> item.symbol().declaration().orElseThrow().document().equals(source.id()))
+              .findFirst()
+              .orElseThrow()
+              .symbol()
+              .documentation());
+      assertEquals(
+          "The task title.",
+          query.search("title", 0, 10).items().getFirst().symbol().documentation());
+      assertEquals(
+          "The requested identifier.",
+          snapshot.semanticModel().symbols().stream()
+              .filter(symbol -> symbol.kind() == SymbolKind.PARAMETER && symbol.name().equals("id"))
+              .findFirst()
+              .orElseThrow()
+              .documentation());
+      assertEquals("", query.search("main", 0, 10).items().getFirst().symbol().documentation());
+    }
+  }
+
   @Test
   void preservesOverloadsAndReportsPageCompleteness() {
     var source =

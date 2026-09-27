@@ -31,7 +31,9 @@ case _ { printLine("other") }
 
 可空类型绑定同时匹配 null 和该类型的非空值：`String? text` 可以绑定 null，`String text` 只匹配非空字符串。可空子类型绑定不会覆盖其他非空子类型；穷尽性与不可达分支检查使用相同规则。
 
-泛型类型模式保留完整类型实参，`Box<Integer>` 不匹配 `Box<String>`；`Box<T>` 使用当前调用的实化类型参数。可执行示例见 [reified_type_patterns.norm](https://github.com/normlanguage/Norm/blob/main/norm/tests/types/reified_type_patterns.norm)。
+泛型类型模式保留完整类型实参，`Box<Integer>` 不匹配 `Box<String>`；`Box<T>` 使用当前调用的实化类型参数。下面的可执行示例还组合了枚举模式、`switch` 结果与 `if` 结果：
+
+<<< ../../../../norm/tests/docs/language/matching_results.norm{norm}
 
 ## 匹配过程
 

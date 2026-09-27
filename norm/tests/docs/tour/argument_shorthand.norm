@@ -1,0 +1,12 @@
+Integer remaining(Integer total, Integer completed) {
+  return total - completed
+}
+
+main() {
+  Integer total = 10
+  Integer completed = 4
+  Integer left = remaining(total, completed)
+
+  printLine(left)
+  printLine(remaining(total: 8, completed: 3))
+}

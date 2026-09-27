@@ -1,0 +1,12 @@
+main() {
+  Integer price = 8
+  Integer quantity = 3
+  Integer total = price * quantity + 2
+
+  Boolean affordable = total <= 30
+  Boolean available = quantity > 0
+
+  printLine(total)
+  printLine(affordable)
+  printLine(affordable && available)
+}

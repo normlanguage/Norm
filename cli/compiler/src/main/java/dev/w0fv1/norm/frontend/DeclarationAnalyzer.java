@@ -352,6 +352,18 @@ final class DeclarationAnalyzer {
         java.util.Collections.newSetFromMap(new IdentityHashMap<>());
     for (Syntax.Program program : programs) {
       try (var programScope = resolution.enterProgram(program)) {
+        for (Syntax.AggregateDecl declaration : program.aggregates()) {
+          try (var aggregateScope =
+              resolution.enterParameters(
+                  typeResolver.aggregateTypeParameters(declaration),
+                  typeResolver.typeParameterSymbols(declaration.typeParameters()))) {
+            typeResolver.registerBounds(declaration.typeParameters(), resolution.parameters());
+          }
+        }
+      }
+    }
+    for (Syntax.Program program : programs) {
+      try (var programScope = resolution.enterProgram(program)) {
 
         for (Syntax.AggregateDecl declaration : program.aggregates()) {
           try (var aggregateScope =
@@ -654,7 +666,6 @@ final class DeclarationAnalyzer {
         resolution.enterParameters(
             typeResolver.aggregateTypeParameters(aggregateDecl),
             typeResolver.typeParameterSymbols(aggregateDecl.typeParameters()))) {
-      typeResolver.registerBounds(aggregateDecl.typeParameters(), resolution.parameters());
       typeResolver.validateTypeParameterDefaults(
           aggregateDecl.typeParameters(),
           resolution.parameters(),

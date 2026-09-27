@@ -63,6 +63,8 @@ for Integer number : numbers {
 
 ## For 表达式
 
+本节规定计划中的值位置形式。当前编译器支持语句循环和集合字面量中的 `for` 元素，但拒绝在值位置使用 `for`；见[当前状态](/zh/status)。
+
 循环出现在值位置时，成功路径使用 `break value`，正常耗尽路径由 `else` 产生值：
 
 ```norm

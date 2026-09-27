@@ -1,0 +1,10 @@
+main() {
+  String name = "Norm"
+  Integer completed = 3
+
+  String message = "Hello, ${name}"
+  String progress = "Completed ${completed} tasks"
+
+  printLine(message)
+  printLine(progress)
+}

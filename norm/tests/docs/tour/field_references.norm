@@ -1,0 +1,10 @@
+class Task { public String title }
+
+main() {
+  Task task = Task(title: "Draft")
+  Field<Task, String> field = Task.title.field
+  printLine(field.name())
+  printLine(field.read(receiver: task))
+  field.write(receiver: task, value: "Done")
+  printLine(task.title)
+}

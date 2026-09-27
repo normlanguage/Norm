@@ -1,0 +1,58 @@
+import std.annotation.Document
+import std.testing.Test
+
+@Document(description: "Identifies a task in user-facing messages.")
+value TaskId {
+  @Document(description: "The number assigned when the task is created.")
+  Integer number
+}
+
+@Document(description: "Keeps task state for a single work session.")
+class Task {
+  @Document(description: "The stable identifier used by callers.")
+  TaskId id
+
+  @Document(description: "The title shown to the user.")
+  String title
+}
+
+@Document(description: "Finds the task with the requested identifier, if present.")
+Task? findTask(
+  @Document(description: "The tasks to search.") List<Task> tasks,
+  @Document(description: "The identifier to locate.") TaskId id
+) {
+  for task : tasks {
+    if task.id == id { return task }
+  }
+  return null
+}
+
+@Test(functions: [findTask.function])
+Void findsTaskById() {
+  List<Task> tasks = [
+    Task(id: TaskId(number: 3), title: "First"),
+    Task(id: TaskId(number: 7), title: "Learn Norm")
+  ]
+  Task? found = findTask(tasks: tasks, id: TaskId(number: 7))
+  require(condition: found?.title == "Learn Norm", message: "matched task identifier")
+  require(condition: findTask(tasks: tasks, id: TaskId(number: 8)) == null, message: "missing task")
+}
+
+@Document(
+  description: "Offers task lookup to tools and people exploring this module.",
+  types: [Task.class, TaskId.class],
+  functions: [findTask.function],
+  fields: [Task.id.field, Task.title.field]
+)
+class TaskApi {
+}
+
+main() {
+  List<Task> tasks = [Task(id: TaskId(number: 7), title: "Learn Norm")]
+  Task? found = findTask(tasks: tasks, id: TaskId(number: 7))
+  printLine(found?.title ?? "missing")
+  printLine(findTask(tasks: tasks, id: TaskId(number: 8)) == null)
+  printLine(Task.class.name())
+  printLine(findTask.function.name())
+  printLine(Task.id.field.name())
+}

@@ -1,0 +1,15 @@
+import std.observation.onChange
+
+class Tasks { List<String> titles = [] }
+
+main() {
+  Tasks tasks = Tasks()
+  var subscription = tasks.titles.onChange {
+    printLine("${oldValue.size()} -> ${newValue.size()}")
+  }
+  tasks.titles.add("Learn")
+  tasks.titles.add("Build")
+  subscription.close()
+  tasks.titles.add("Publish")
+  printLine(tasks.titles.size())
+}

@@ -1,0 +1,12 @@
+Void submit(Void completed(String title)) {
+  completed("Learn Norm")
+}
+
+main() {
+  submit {
+    printLine(title)
+  }
+  submit { renamed in
+    printLine(renamed)
+  }
+}

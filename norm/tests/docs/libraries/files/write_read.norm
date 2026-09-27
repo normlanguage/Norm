@@ -1,0 +1,26 @@
+import std.filesystem.FileWriteMode
+import std.filesystem.Path
+import std.filesystem.openWrite
+import std.filesystem.readText
+import std.io.TextEncoding
+import std.io.encodeText
+
+main() {
+  Path note = Path(value: "note.txt")
+  var writer = openWrite(path: note, mode: FileWriteMode.CreateNew)
+  try {
+    var content = encodeText(
+      text: "Learn Norm",
+      encoding: TextEncoding.Utf8
+    )
+    writer.write(content)
+  } finally {
+    writer.close()
+  }
+  String text = readText(
+    path: note,
+    encoding: TextEncoding.Utf8,
+    maximumBytes: 1024
+  )
+  printLine(text)
+}

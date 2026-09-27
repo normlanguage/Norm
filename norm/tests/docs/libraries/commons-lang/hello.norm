@@ -1,0 +1,12 @@
+import commons.lang.stringUtilsCapitalize
+import commons.lang.stringUtilsNormalizeSpace
+
+main() {
+  String compact = stringUtilsNormalizeSpace("  learn   norm  ")!!
+  String title = stringUtilsCapitalize(compact)!!
+  printLine(title)
+}
+
+Module module() {
+  module(dependencies: [dependency(repository: "github", name: "commons.lang", version: 2)])
+}

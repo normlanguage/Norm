@@ -1,0 +1,12 @@
+import std.filesystem.FileException
+import std.filesystem.Path
+import std.filesystem.readText
+import std.io.TextEncoding
+
+main() {
+  try {
+    readText(path: Path(value: "note.txt"), encoding: TextEncoding.Utf8, maximumBytes: 1024)
+  } catch FileException error {
+    printLine(error.reason)
+  }
+}

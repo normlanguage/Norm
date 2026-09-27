@@ -2,6 +2,8 @@
 
 当前正式版本为 Norm 0.24。
 
+- [Norm 0.25 候选实现契约](/zh/versions/0.25)
+
 - [Norm 0.24 实现契约](/zh/versions/0.24)
 
 - [Norm 0.23 实现契约](/zh/versions/0.23)

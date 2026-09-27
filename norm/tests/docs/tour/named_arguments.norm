@@ -1,0 +1,13 @@
+Integer subtract(Integer left, Integer right) {
+  return left - right
+}
+
+main() {
+  Integer first = subtract(left: 9, right: 4)
+  Integer reordered = subtract(right: 4, left: 9)
+  Integer exchanged = subtract(right: 9, left: 4)
+
+  printLine(first)
+  printLine(reordered)
+  printLine(exchanged)
+}

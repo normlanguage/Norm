@@ -24,6 +24,26 @@ final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void runsTheDocumentedDependencyConsumerAgainstAPackagedLibrary() throws Exception {
+    Path entry =
+        Path.of(ModulePackagerTest.class.getResource("/docs/dependency/app/Main.norm").toURI());
+    Path lesson = entry.getParent().getParent();
+    Path repository = temporaryDirectory.resolve("repository");
+    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var compiler = environment.compilerSession();
+        ProjectLoader projects = environment.projectLoader()) {
+      new ModulePackager(projects, compiler)
+          .packageModule(lesson.resolve("producer/library/module.norm"), repository);
+    }
+    Path consumer = Files.createDirectories(temporaryDirectory.resolve("consumer/app"));
+    Files.copy(lesson.resolve("app/module.norm"), consumer.resolve("module.norm"));
+    Files.copy(entry, consumer.resolve("Main.norm"));
+    assertEquals(
+        Files.readString(lesson.resolve("expected.out")).replace("\r\n", "\n"),
+        run(repository, consumer.resolve("Main.norm")).replace("\r\n", "\n"));
+  }
+
+  @Test
   void rejectsInvalidLibraryBodiesBeforePublishingAnyArtifacts() throws Exception {
     Path module = Files.createDirectories(temporaryDirectory.resolve("library/broken"));
     Path modulePath = module.resolve("module.norm");

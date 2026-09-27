@@ -1,0 +1,11 @@
+main() {
+  Map<String, Integer> scores = Map<>()
+  scores.put(key: "Ada", value: 3)
+  scores.put(key: "Lin", value: 5)
+  printLine(scores["Ada"])
+  printLine(scores.containsKey("Lin"))
+  printLine(scores.size())
+  scores.put(key: "Ada", value: 7)
+  printLine(scores["Ada"])
+  printLine(scores.size())
+}

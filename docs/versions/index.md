@@ -2,6 +2,8 @@
 
 Norm 0.24 is the current release.
 
+- [Norm 0.25 candidate implementation contract](/versions/0.25)
+
 - [Norm 0.24 implementation contract](/versions/0.24)
 
 - [Norm 0.23 implementation contract](/versions/0.23)

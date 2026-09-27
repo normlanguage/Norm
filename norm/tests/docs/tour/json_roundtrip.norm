@@ -1,0 +1,18 @@
+import std.serialization.Serializable
+import std.json.fromJson
+import std.json.toJson
+
+@Serializable()
+value Note {
+  String title
+  Integer priority
+}
+
+main() {
+  Note original = Note(title: "Learn Norm", priority: 2)
+  String encoded = original.toJson()
+  Note restored = encoded.fromJson<Note>()
+  printLine(encoded)
+  printLine(restored.title)
+  printLine(restored.priority)
+}

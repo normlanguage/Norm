@@ -317,7 +317,11 @@ final class Lowerer {
       if (!(record.definition() instanceof CoreDefinition.Interface declared)) continue;
       Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch = new LinkedHashMap<>();
       java.util.LinkedHashSet<DefinitionId> ancestors = new java.util.LinkedHashSet<>();
-      indexJavaApplicationInterface(record.id(), declared, dispatch, ancestors);
+      List<CoreType> arguments =
+          java.util.stream.IntStream.range(0, declared.typeParameters().size())
+              .mapToObj(index -> (CoreType) new CoreType.Parameter(index, CoreNullability.NON_NULL))
+              .toList();
+      indexJavaApplicationInterface(record.id(), declared, arguments, dispatch, ancestors);
       hostInterfaces.putIfAbsent(
           record.id(),
           new RuntimeValues.AggregateInfo(
@@ -333,16 +337,30 @@ final class Lowerer {
   private void indexJavaApplicationInterface(
       DefinitionId definition,
       CoreDefinition.Interface declared,
+      List<CoreType> arguments,
       Map<DefinitionId, RuntimeValues.DispatchTarget> dispatch,
       java.util.Set<DefinitionId> ancestors) {
     if (!ancestors.add(definition)) return;
+    RuntimeValues.AggregateInfo binding = hostInterfaces.get(definition);
     for (CoreDefinitionLink link : declared.declaredMethods()) {
       DefinitionId method = resolve(definition, link);
       if (!execution.dispatchSlots().contains(method)) continue;
-      dispatch.putIfAbsent(method, new RuntimeValues.DispatchTarget.HostMethod(method));
+      RuntimeValues.DispatchTarget target = binding == null ? null : binding.dispatch().get(method);
+      if (target instanceof RuntimeValues.DispatchTarget.Callable callable) {
+        List<CoreType> receiverArguments =
+            callable.specializedReceiverTypeArguments()
+                ? callable.receiverTypeArguments().stream()
+                    .map(type -> type.substitute(arguments::get))
+                    .toList()
+                : arguments;
+        target = new RuntimeValues.DispatchTarget.Callable(callable.target(), receiverArguments);
+      }
+      dispatch.putIfAbsent(
+          method, target == null ? new RuntimeValues.DispatchTarget.HostMethod(method) : target);
     }
     for (CoreType parentType : declared.directParents()) {
-      CoreType parent = CoreTypes.absolute(parentType, definition, program);
+      CoreType parent =
+          CoreTypes.absolute(parentType, definition, program).substitute(arguments::get);
       CoreType.Declared parentDeclared = (CoreType.Declared) parent;
       DefinitionId parentDefinition =
           ((DefinitionReference.External)
@@ -350,7 +368,11 @@ final class Lowerer {
               .definition();
       CoreDefinition parentValue = program.definition(parentDefinition).orElseThrow();
       indexJavaApplicationInterface(
-          parentDefinition, (CoreDefinition.Interface) parentValue, dispatch, ancestors);
+          parentDefinition,
+          (CoreDefinition.Interface) parentValue,
+          parentDeclared.arguments(),
+          dispatch,
+          ancestors);
     }
   }
 

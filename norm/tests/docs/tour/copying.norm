@@ -1,0 +1,12 @@
+class Counter {
+  Integer value
+}
+
+main() {
+  Counter original = Counter(value: 2)
+  Counter copied = original.copy()
+  copied.value = 5
+  printLine(original.value)
+  printLine(copied.value)
+  printLine(original == copied)
+}

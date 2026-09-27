@@ -1,0 +1,9 @@
+Void increment(ref<Integer> target) {
+  *target = *target + 1
+}
+
+main() {
+  Integer count = 3
+  increment(target: &count)
+  printLine(count)
+}

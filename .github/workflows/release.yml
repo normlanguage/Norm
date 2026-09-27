@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  NORM_CANDIDATE_VERSION: '0.24.0'
+  NORM_CANDIDATE_VERSION: '0.25.0'
 
 concurrency:
   group: release-${{ github.ref }}
@@ -225,7 +225,7 @@ jobs:
         run: |
           release_line="${VERSION%.*}"
           test -f "docs/versions/$release_line.md"
-          test -f "docs/en/versions/$release_line.md"
+          test -f "docs/zh/versions/$release_line.md"
 
       - name: Verify toolchain
         run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
@@ -430,7 +430,7 @@ jobs:
           fi
           if [[ "$state" == "missing" ]]; then
             release_line="${VERSION%.*}"
-            notes="Version record: https://normlanguage.github.io/Norm/en/versions/$release_line
+            notes="Version record: https://normlanguage.github.io/Norm/versions/$release_line
 
           The Windows and macOS binaries are not code-signed yet, so the operating system may display an origin warning. Verify downloads against SHA256SUMS and the attached build provenance."
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Norm $VERSION" --generate-notes --notes "$notes"

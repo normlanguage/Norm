@@ -31,7 +31,9 @@ A typed binding may use the matched value's static type or a nominal subtype. A 
 
 A nullable binding matches both null and non-null values of its type: `String? text` may bind null, while `String text` matches only non-null strings. A nullable subtype binding does not cover other non-null subtypes; exhaustiveness and unreachable-branch checks use the same rules.
 
-Generic type patterns retain all type arguments: `Box<Integer>` does not match `Box<String>`, while `Box<T>` uses the current invocation's reified type argument. See the runnable [reified_type_patterns.norm](https://github.com/normlanguage/Norm/blob/main/norm/tests/types/reified_type_patterns.norm).
+Generic type patterns retain all type arguments: `Box<Integer>` does not match `Box<String>`, while `Box<T>` uses the current invocation's reified type argument. The following executable example also combines enum patterns, switch results, and `if` results:
+
+<<< ../../../norm/tests/docs/language/matching_results.norm{norm}
 
 ## Matching process
 

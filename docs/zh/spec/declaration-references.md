@@ -57,6 +57,12 @@ Norm 把类型、字段和 callable 的引用绑定到 Core 声明 identity。�
 
 `Field.identity(receiver)` 返回不透明值类型 `FieldIdentity`，将 owner 类型、字段声明和字段值快照作为相等性及哈希依据，不经过字符串转换。字段值遵循 Norm 的值/对象身份语义；空值不构成身份。异构反射字段可直接生成身份，无须公开隐藏的字段值类型。验证见 [FieldIdentityExecutionTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/truffle/FieldIdentityExecutionTest.java)。
 
+这个可执行示例组合了字段句柄、直接赋值、列表原位变更与订阅关闭：
+
+<<< ../../../norm/tests/docs/language/reactive_fields.norm{norm}
+
+<<< ../../../norm/tests/docs/language/reactive_fields.out{text}
+
 ## 重载
 
 将重载声明引用赋给精确函数类型时，编译器使用期望签名选出唯一声明：

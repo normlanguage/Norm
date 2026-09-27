@@ -36,6 +36,14 @@ Box second = first.copy()
 
 An indexed result used directly to mutate a container retains its location in that container: `rows[0].add(1)` changes the nested list. By contrast, `var row = rows[0]` copies the list under assignment rules, so subsequent changes to `row` do not affect `rows`. Passing or returning an indexed result follows the same copying rules.
 
+## Executable example
+
+This program compares structural values, independent container structures, shared class identity, and the field-wise behavior of `copy()`:
+
+<<< ../../norm/tests/docs/language/value_identity.norm{norm}
+
+The checked output is maintained beside the source in `norm/tests/docs/language/value_identity.out`.
+
 ## Evaluation and calls
 
 Argument expressions are evaluated from left to right in source order. Labels only select parameter slots and never reorder evaluation. Multi-parameter calls use `name: value`; a bare identifier is shorthand only when it matches the parameter at the same position. A single argument may omit its label.

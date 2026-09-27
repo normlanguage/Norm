@@ -1,0 +1,10 @@
+main() {
+  List<Integer> original = [1, 2]
+  List<Integer> changed = original
+  printLine(original == changed)
+  changed.add(3)
+  printLine(original.size())
+  printLine(changed.size())
+  printLine(changed[2])
+  printLine(original == changed)
+}

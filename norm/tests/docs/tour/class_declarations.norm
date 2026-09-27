@@ -1,0 +1,13 @@
+class Counter {
+  Integer value
+
+  Void increment() {
+    value = value + 1
+  }
+}
+
+main() {
+  Counter counter = Counter(value: 0)
+  counter.increment()
+  printLine(counter.value)
+}

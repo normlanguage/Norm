@@ -1,0 +1,10 @@
+main() {
+  List<String> middle = ["run", "check"]
+  List<String> tail = ["share"]
+  List<String> steps = ["read", ...middle, "change", ...tail]
+  printLine(steps.size())
+  printLine(steps[0])
+  printLine(steps[2])
+  printLine(steps[3])
+  printLine(steps[4])
+}

@@ -1,0 +1,14 @@
+import std.testing.Test
+
+Integer double(Integer number) {
+  return number * 2
+}
+
+@Test(functions: [double.function])
+Void doublesSeven() {
+  require(condition: double(number: 7) == 14, message: "doubles seven")
+}
+
+main() {
+  printLine(double(number: 7))
+}

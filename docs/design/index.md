@@ -29,6 +29,7 @@ Runtime: execution contracts → Truffle → platform adapter
 - [Distribution source-build architecture](/design/distribution-source-build): the sole Gradle build entry, offline distribution builds, and release-equivalence acceptance.
 - [Block call chains](/design/block-call-chains): the restricted omitted-dot closure-chain decision, implementation index, migration, and acceptance.
 - [Agent tooling design](/design/agent-tooling): precision, strong references, context efficiency, and verification contracts.
+- [Sample system](/design/sample-system): ownership and acceptance for website, generated, language, learning, and library examples.
 - [System runtime architecture](/design/system-runtime): I/O, resources, and platform adapters.
 - [Serialization runtime architecture](/design/serialization-runtime): structure metadata and mapping.
 - [Java Library Adapter](/design/java-library-adapters): single-root JARs, ordinary Module identity, content addressing, and publication boundaries.

@@ -1,0 +1,13 @@
+class Greeting {
+  public String text() { return "hello" }
+}
+
+class Friendly extends Greeting {
+  public String text() { return "hi" }
+}
+
+main() {
+  Greeting greeting = Friendly()
+  printLine(greeting.text())
+  printLine(Friendly().text())
+}

@@ -43,10 +43,12 @@ The current standard library builds strongly typed APIs around core values, Unic
 
 ## Current boundaries
 
-Structural mapping handles only `value` types. Class identity, object graphs, cycles, and polymorphism are not yet part of the protocol; an HTTP server has not yet been delivered either. See [Status](/status) for the full state.
+Structural mapping handles only `value` types. Class identity, object graphs, cycles, and polymorphism are not yet part of the protocol. HTTP server applications use independent libraries; see the [library samples](/stdlib/samples) and [Status](/status) for current availability.
 
 The Norm sources linked from each page define exact signatures. These pages explain module responsibilities, failure boundaries, and minimal usage without duplicating complete method lists.
 
 ## Independent libraries
 
-The [OpenAI client](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai) is an independent module providing the Responses API; it is not part of the standard library.
+The [OpenAI client](https://github.com/normlanguage/openai) is an independent library providing the Responses API; it is not part of the standard library.
+
+The [library sample index](/stdlib/samples) points to runnable use cases in their owning repositories.

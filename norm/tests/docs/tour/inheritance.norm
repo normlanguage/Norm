@@ -1,0 +1,19 @@
+class Counter {
+  Integer value
+
+  Counter(Integer initial) { value = initial }
+}
+
+class NamedCounter extends Counter {
+  String name
+
+  NamedCounter(Integer initial, String name) {
+    super(initial: initial)
+    this.name = name
+  }
+}
+
+main() {
+  NamedCounter counter = NamedCounter(initial: 3, name: "visits")
+  printLine("${counter.name}: ${counter.value}")
+}

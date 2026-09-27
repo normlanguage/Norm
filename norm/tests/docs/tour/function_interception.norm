@@ -1,0 +1,16 @@
+import std.annotation.FunctionInterceptor
+import std.annotation.SourceRetention
+
+annotation Trace implements FunctionInterceptor, SourceRetention {
+  R around<R>(FunctionInvocation<R> invocation) {
+    printLine("enter")
+    R result = invocation.proceed()
+    printLine("leave")
+    return result
+  }
+}
+
+@Trace()
+String greet(String name) { return "Hello, " + name }
+
+main() { printLine(greet(name: "Norm")) }

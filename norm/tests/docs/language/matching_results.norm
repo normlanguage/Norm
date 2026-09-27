@@ -1,0 +1,47 @@
+enum Delivery {
+  Pending,
+  Sent(String trackingCode),
+  Failed(String reason)
+}
+
+class Box<T> {
+  T item
+}
+
+String describe(Delivery delivery) {
+  switch delivery {
+    case Pending { break "waiting" }
+    case Sent(String code) { break "tracking " + code }
+    case Failed(String reason) { break "failed: " + reason }
+  }
+}
+
+Boolean matches<T>(Any candidate) {
+  switch candidate {
+    case Box<T> box { break true }
+    case _ { break false }
+  }
+}
+
+String nextAction(Delivery delivery, Boolean notify) {
+  String action = if notify { "notify" } else { "record" }
+  String state = switch delivery {
+    case Pending { break "pending" }
+    case Sent(_) { break "sent" }
+    case Failed(_) { break "failed" }
+  }
+  action + " " + state
+}
+
+main() {
+  Delivery sent = Delivery.Sent(trackingCode: "N-42")
+  Delivery failed = Delivery.Failed(reason: "address")
+  printLine(describe(sent))
+  printLine(describe(failed))
+  printLine(nextAction(delivery: Delivery.Pending, notify: true))
+  printLine(nextAction(delivery: sent, notify: false))
+
+  Any number = Box<Integer>(item: 7)
+  printLine(matches<Integer>(number))
+  printLine(matches<String>(number))
+}

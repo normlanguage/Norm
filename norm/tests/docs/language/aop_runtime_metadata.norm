@@ -1,0 +1,40 @@
+import std.annotation.FunctionInterceptor
+import std.annotation.FunctionTarget
+import std.annotation.SourceRetention
+import std.annotation.RuntimeRetention
+
+annotation Trace implements FunctionInterceptor, SourceRetention {
+  Void before(FunctionContext context) {
+    printLine("enter " + context.function().name())
+  }
+
+  R around<R>(FunctionInvocation<R> invocation) {
+    R result = invocation.proceed()
+    return result
+  }
+
+  Void after(FunctionContext context, FunctionCompletion completion) {
+    printLine("completed: ${completion.succeeded()}")
+  }
+}
+
+annotation Label implements FunctionTarget, RuntimeRetention {
+  String text
+}
+
+@Trace()
+@Label(text: "public greeting")
+String greet(String name) {
+  return "Hello, " + name
+}
+
+main() {
+  Function<String(String)> action = greet.function
+  Label? label = action.annotation<Label>()
+  printLine(label?.text ?? "missing")
+  printLine(action.name())
+  printLine(action.annotation<Trace>() == null)
+  printLine(action("Norm"))
+  String direct = greet(name: "Ada")
+  printLine(direct)
+}

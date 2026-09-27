@@ -1,0 +1,11 @@
+String fallback() {
+  printLine("computed")
+  return "guest"
+}
+
+main() {
+  String? present = "Norm"
+  String? missing = null
+  printLine(present ?? fallback())
+  printLine(missing ?? fallback())
+}

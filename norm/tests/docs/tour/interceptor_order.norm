@@ -1,0 +1,17 @@
+import std.annotation.FunctionInterceptor
+import std.annotation.SourceRetention
+
+annotation Trace implements FunctionInterceptor, SourceRetention {
+  Void before(FunctionContext context) { printLine("before") }
+  Void after(FunctionContext context, FunctionCompletion completion) {
+    printLine("after: ${completion.succeeded()}")
+  }
+}
+
+@Trace()
+String greet() {
+  printLine("body")
+  return "Norm"
+}
+
+main() { printLine(greet()) }

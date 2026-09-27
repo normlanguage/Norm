@@ -42,6 +42,14 @@ Box second = first.copy()
 
 索引结果直接用于容器修改时保留容器中的位置，例如 `rows[0].add(1)` 修改嵌套列表。`var row = rows[0]` 则按赋值规则复制列表，随后修改 row 不影响 rows；索引结果传参或返回时也遵循同一复制规则。
 
+## 可执行示例
+
+下面的程序同时展示结构化的值相等、独立的容器结构、共享的 class 身份，以及 `copy()` 的逐字段行为：
+
+<<< ../../../norm/tests/docs/language/value_identity.norm{norm}
+
+经过验收的输出位于源码旁的 `norm/tests/docs/language/value_identity.out`。
+
 ## 求值和调用
 
 实参表达式严格按源码从左到右求值，参数标签只决定求值结果绑定到哪个形参，不改变求值顺序。

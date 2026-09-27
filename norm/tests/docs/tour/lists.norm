@@ -1,0 +1,10 @@
+main() {
+  List<String> tasks = ["read", "run"]
+  tasks.add("change")
+  tasks.add("share")
+  printLine(tasks[0])
+  printLine(tasks.size())
+  printLine(tasks[2])
+  printLine(tasks[1])
+  printLine(tasks[3])
+}

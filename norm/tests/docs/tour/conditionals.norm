@@ -1,0 +1,11 @@
+main() {
+  Integer score = 82
+
+  if score >= 90 {
+    printLine("excellent")
+  } else if score >= 60 {
+    printLine("passed")
+  } else {
+    printLine("try again")
+  }
+}

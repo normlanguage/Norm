@@ -1138,6 +1138,16 @@ final class ProgramExecutionTest {
   }
 
   @TestFactory
+  Stream<DynamicTest> runsLanguageDocumentationExamples() throws Exception {
+    return outputSuite("docs/language");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> runsShowcaseExamples() throws Exception {
+    return outputSuite("docs/showcase");
+  }
+
+  @TestFactory
   Stream<DynamicTest> runsDocumentationProjectExamples() throws Exception {
     return projectSuite("docs/projects");
   }

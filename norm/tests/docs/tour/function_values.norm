@@ -1,0 +1,13 @@
+Integer double(Integer number) {
+  return number * 2
+}
+
+Integer apply(Function<Integer(Integer)> action, Integer input) {
+  return action(input)
+}
+
+main() {
+  Function<Integer(Integer)> saved = double
+  printLine(saved(4))
+  printLine(apply(action: saved, input: 7))
+}

@@ -1,0 +1,67 @@
+main() {
+  Array<Array<Integer>> maze = [
+    [0, 0, 1, 0, 0],
+    [0, 0, 1, 0, 1],
+    [0, 0, 0, 1, 0],
+    [0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0]
+  ]
+  Integer height = maze.size()
+  Integer width = maze[0].size()
+  Integer destination = height * width - 1
+  List<Integer> previous = List.filled(size: height * width, value: -1)
+  Queue<Integer> frontier = Queue<>()
+  Array<Integer> rowStep = [1, 0, -1, 0]
+  Array<Integer> columnStep = [0, 1, 0, -1]
+  previous[0] = 0
+  frontier.add(0)
+
+  for !frontier.isEmpty() {
+    Integer current = frontier.remove()
+    Integer row = current / width
+    Integer column = current % width
+    for direction : range(start: 0, end: 4) {
+      Integer nextRow = row + rowStep[direction]
+      Integer nextColumn = column + columnStep[direction]
+      if nextRow >= 0 && nextRow < height && nextColumn >= 0 && nextColumn < width {
+        Integer next = nextRow * width + nextColumn
+        if maze[nextRow][nextColumn] == 0 && previous[next] == -1 {
+          previous[next] = current
+          frontier.add(next)
+        }
+      }
+    }
+  }
+
+  if previous[destination] == -1 {
+    printLine("No route through the maze")
+    return
+  }
+
+  List<Boolean> route = List.filled(size: height * width, value: false)
+  Integer cursor = destination
+  for cursor != 0 {
+    route[cursor] = true
+    cursor = previous[cursor]
+  }
+
+  printLine("Shortest route:")
+  for row : range(start: 0, end: height) {
+    StringBuilder line = StringBuilder()
+    for column : range(start: 0, end: width) {
+      Integer position = row * width + column
+      if position == 0 {
+        line.append("S")
+      } else if position == destination {
+        line.append("E")
+      } else if maze[row][column] == 1 {
+        line.append("#")
+      } else if route[position] {
+        line.append("*")
+      } else {
+        line.append(".")
+      }
+    }
+    printLine(line.toString())
+  }
+}

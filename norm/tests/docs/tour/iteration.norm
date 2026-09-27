@@ -1,0 +1,10 @@
+main() {
+  List<String> steps = ["read", "run", "change"]
+  for step, index : steps {
+    printLine("${index}: ${step}")
+  }
+  for step : steps {
+    printLine(step)
+  }
+  printLine("done")
+}

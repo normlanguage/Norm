@@ -1,0 +1,13 @@
+String? label(Boolean present) {
+  if present {
+    return "ready"
+  }
+  return null
+}
+
+main() {
+  String? present = label(present: true)
+  String? missing = label(present: false)
+  printLine(present == null)
+  printLine(missing == null)
+}

@@ -1,0 +1,7 @@
+package app
+
+import app.tools.heading
+
+main() {
+  printLine(heading(text: "Norm"))
+}

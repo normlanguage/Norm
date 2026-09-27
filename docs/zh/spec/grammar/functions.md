@@ -45,3 +45,9 @@ Integer result = subtract(left: 120, right: 100)
 除此之外，非 `Void` 具名函数的每条正常完成路径必须提供结果，可以使用 `return value` 或末尾表达式；末尾 if 的各分支遵循同一规则。interface 方法必须显式声明返回类型。Lambda 的末尾表达式规则见[高级函数规则](/zh/spec/grammar/functions-advanced)。
 
 函数可以声明在模块顶层或类型内部。顶层函数不需要 class 容器，也不存在 `static` 修饰符。重载和函数值见[高级函数规则](/zh/spec/grammar/functions-advanced)。
+
+这个可执行示例组合了具名实参、默认实参、同名实参简写、接口契约与 `if` 返回值：
+
+<<< ../../../../norm/tests/docs/language/calls_interfaces.norm{norm}
+
+<<< ../../../../norm/tests/docs/language/calls_interfaces.out{text}

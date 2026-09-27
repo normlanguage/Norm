@@ -1,6 +1,9 @@
 {
   "resources": [
     {
+      "glob": "hello/*"
+    },
+    {
       "condition": {
         "typeReached": "org.slf4j.simple.SimpleLoggerConfiguration"
       },

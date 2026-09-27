@@ -1,0 +1,12 @@
+String nextStep(Boolean ready) {
+  return if ready {
+    "run the tests"
+  } else {
+    "finish the code"
+  }
+}
+
+main() {
+  printLine(nextStep(true))
+  printLine(nextStep(false))
+}

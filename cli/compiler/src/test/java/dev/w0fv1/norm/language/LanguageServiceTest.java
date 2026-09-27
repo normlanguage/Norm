@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.w0fv1.norm.frontend.CompilationPrelude;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.frontend.LanguageProfile;
+import dev.w0fv1.norm.project.ProjectEnvironment;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.truffle.TruffleExecutionBackend;
 import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
@@ -23,6 +25,33 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class LanguageServiceTest {
+  @Test
+  void hoverUsesDocumentAnnotationAndDropsItAfterRemoval() throws Exception {
+    DocumentId id = DocumentId.of("untitled:document-hover");
+    var environment = ProjectEnvironment.bootstrap(new TruffleExecutionBackend(8));
+    try (var language = new LanguageService(environment.compilerSession())) {
+      String documented =
+          "import std.annotation.Document\n@Document(description: \"Returns the selected task.\") Integer task(Integer id) { return id }\nVoid main() { printLine(task(id: 7)) }";
+      var before = language.analyze(SourceFile.of(id, documented));
+      assertTrue(
+          language
+              .hover(before, documented.lastIndexOf("task(id"))
+              .orElseThrow()
+              .markdown()
+              .contains("Returns the selected task."));
+
+      String plain =
+          "Integer task(Integer id) { return id } Void main() { printLine(task(id: 7)) }";
+      var after = language.analyze(SourceFile.of(id, plain));
+      assertFalse(
+          language
+              .hover(after, plain.lastIndexOf("task(id"))
+              .orElseThrow()
+              .markdown()
+              .contains("Returns the selected task."));
+    }
+  }
+
   @Test
   void completesBlankPropertyInsideCompactConditional() {
     String text = "String title(String value) { if value.isBlank \"empty\" else value.trim() }";
@@ -1430,6 +1459,50 @@ final class LanguageServiceTest {
     assertEquals(1, twice.additionalTextEdits().size());
     assertEquals(
         "\r\n\r\nimport sample.math.twice", twice.additionalTextEdits().getFirst().newText());
+  }
+
+  @Test
+  void completesDocumentedExportsWithTheirDescription() throws Exception {
+    SourceFile entry =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/app/Main.norm"),
+            "package sample.app\nVoid main() { twi }\n");
+    SourceFile library =
+        SourceFile.of(
+            DocumentId.of("file:///src/sample/math/Numbers.norm"),
+            """
+            package sample.math
+            import std.annotation.Document
+            @Document(description: "Doubles the given value.")
+            public Integer twice(Integer value) { return value * 2 }
+            """);
+    var environment = ProjectEnvironment.bootstrap(new TruffleExecutionBackend(8));
+    try (var language = new LanguageService(environment.compilerSession())) {
+      var snapshot =
+          language.snapshot(
+              new CompilationRequest(entry.id(), List.of(entry, library), Set.of(library.id())));
+      Completion twice =
+          language.complete(snapshot.entryDocument(), entry.text().indexOf("twi") + 3).stream()
+              .filter(completion -> completion.label().equals("twice"))
+              .findFirst()
+              .orElseThrow();
+      assertEquals("Doubles the given value.", twice.documentation());
+
+      SourceFile importing =
+          SourceFile.of(entry.id(), "package sample.app\nimport sample.math.twi\nVoid main() {}\n");
+      var importSnapshot =
+          language.snapshot(
+              new CompilationRequest(
+                  importing.id(), List.of(importing, library), Set.of(library.id())));
+      Completion imported =
+          language
+              .complete(importSnapshot.entryDocument(), importing.text().indexOf("twi") + 3)
+              .stream()
+              .filter(completion -> completion.label().equals("sample.math.twice"))
+              .findFirst()
+              .orElseThrow();
+      assertEquals("Doubles the given value.", imported.documentation());
+    }
   }
 
   @Test

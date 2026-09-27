@@ -1,0 +1,16 @@
+interface Named {
+  String name()
+}
+
+value TaskId implements Named {
+  Integer number
+
+  String name() { return "task-${number}" }
+}
+
+String show(Named item) { return item.name() }
+
+main() {
+  TaskId id = TaskId(number: 7)
+  printLine(show(item: id))
+}

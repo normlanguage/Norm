@@ -24,7 +24,7 @@ A new platform must first pass the same acceptance suite in continuous integrati
 
 All platform CLIs and the universal VSIX are built before final acceptance. The toolchain suite covers language programs once through `ProgramExecutionTest`. Each platform verifies source execution, Java interoperability, one native build with three isolated executions, LSP and editor integration. Windows also checks portable execution and idempotent setup. VSIX validation checks all embedded runtimes and executes the host bundle. Editor integration loads the extension extracted from that same VSIX.
 
-Framework and application acceptance belongs to adapter repositories and [examples](https://github.com/normlanguage/examples), not the compiler release.
+Framework adapter repositories own their samples and acceptance. Independent Web and ORM verification and performance scripts remain in [examples/scripts](https://github.com/normlanguage/examples/tree/main/scripts).
 
 The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 

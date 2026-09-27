@@ -43,3 +43,9 @@ class bound 通过 class 继承关系满足；interface bound 通过显式声明
 类型位置必须提供全部必填实参，raw type 非法；仅能省略声明了默认类型的尾部实参。函数与实例方法调用可以在约束得到唯一解时省略显式类型实参，否则分别写 `function<Type>(...)` 与 `receiver.method<Type>(...)`。
 
 实际类型参数会进入 Core IR 和运行时类型环境。参数化类型不变；菱形构造器只省略表达式中可由约束唯一求解的实参。
+
+这个可执行示例组合了泛型构造、推断、重载选择和保留类型参数的匹配：
+
+<<< ../../../../norm/tests/docs/language/generic_overloads.norm{norm}
+
+<<< ../../../../norm/tests/docs/language/generic_overloads.out{text}

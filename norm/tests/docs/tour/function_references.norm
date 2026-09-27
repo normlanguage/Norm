@@ -1,0 +1,7 @@
+Integer double(Integer value) { return value * 2 }
+
+main() {
+  Function<Integer(Integer)> action = double.function
+  printLine(action.name())
+  printLine(action(7))
+}

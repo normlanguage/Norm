@@ -1,0 +1,8 @@
+package app
+
+import app.model.Task
+
+main() {
+  Task task = Task(title: "Learn Norm")
+  printLine(task.title)
+}

@@ -106,7 +106,7 @@ norm package path/to/commons/lang --output path/to/repository
 
 Repository coordinates and artifact names derive from Module identity; see the [package manager](/ecosystem/package-manager). Maven and Gradle can consume the generated NAR and POM. Another Norm project's `dependency(repository, name, version?)` resolves those same coordinates without a POM, Gradle file, or lock file.
 
-See the [Apache Commons Lang example](https://github.com/normlanguage/examples/blob/main/java-commons-lang/README.md) for a runnable directory.
+See the [Apache Commons Lang example](https://github.com/normlanguage/commons-lang/blob/main/samples/README.md) for a runnable directory.
 
 ## Content identity
 
@@ -176,7 +176,7 @@ Java `Future<T>`, `CompletionStage<T>`, and `CompletableFuture<T>` map to `std.c
 
 Each package's `binding/java-api.json` is the complete machine-readable declaration/adaptation census. `jar.api` in `module.json` is the machine-readable contract for the published public surface. Publication requires generating that entire selected surface and passing behavioral tests.
 
-Java annotations become ordinary typed Norm annotations. At JVM application boundaries, annotations on Norm applications become real Java annotations. Modules needing compile-time processing declare official JSR 269 processors as ordinary dependencies; application builds generate isolated Java inputs and run the processors automatically. Generated application types retain Norm generic inheritance and provide managed instance allocation through JVM application facades. Framework-created entities or components associate with the same Norm objects. Processing includes the entry Module and pure Norm dependencies containing framework-support source, but excludes generated Binding declarations. Norm exceptions and enums retain their language semantics across Java proxies such as DI and transaction boundaries. See the [Micronaut BBS](https://github.com/normlanguage/examples/blob/main/micronaut-bbs/README.md) for real-framework acceptance.
+Java annotations become ordinary typed Norm annotations. At JVM application boundaries, annotations on Norm applications become real Java annotations. Modules needing compile-time processing declare official JSR 269 processors as ordinary dependencies; application builds generate isolated Java inputs and run the processors automatically. Generated application types retain Norm generic inheritance and provide managed instance allocation through JVM application facades. Framework-created entities or components associate with the same Norm objects. Processing includes the entry Module and pure Norm dependencies containing framework-support source, but excludes generated Binding declarations. Norm exceptions and enums retain their language semantics across Java proxies such as DI and transaction boundaries. See the [Micronaut BBS](https://github.com/normlanguage/examples/blob/d287c8b9223d20f20fe9f6464dc0c7c0de0fa4a8/micronaut-bbs/README.md) for real-framework acceptance.
 
 Module `resources` can supply annotation-processor compilation inputs. [ApplicationCompiler](../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationCompiler.java) prepares resources; [AnnotationProcessorResourcesTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/AnnotationProcessorResourcesTest.java) verifies template updates and deletion.
 

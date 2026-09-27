@@ -1,0 +1,18 @@
+class Box<T> {
+  T item
+}
+
+String describe(Any candidate) {
+  return switch candidate {
+    case Box<Integer> box { break "number: ${box.item}" }
+    case Box<String> box { break "text: ${box.item}" }
+    case _ { break "other" }
+  }
+}
+
+main() {
+  Any number = Box<Integer>(item: 7)
+  Any text = Box<String>(item: "Norm")
+  printLine(describe(candidate: number))
+  printLine(describe(candidate: text))
+}

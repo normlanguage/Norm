@@ -1,0 +1,6 @@
+import std.math.abs
+
+main() {
+  Integer distance = abs(value: -7)
+  printLine(distance)
+}

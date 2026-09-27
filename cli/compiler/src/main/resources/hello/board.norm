@@ -1,0 +1,128 @@
+import jakarta.inject.Inject
+import micronaut.http.HttpResponse
+import micronaut.http.annotation.Body
+import micronaut.http.annotation.Controller
+import micronaut.http.annotation.Get
+import micronaut.http.annotation.Post
+import micronaut.http.httpResponseBadRequest
+import micronaut.http.httpResponseSeeOther
+import micronaut.inject.context.annotation.Prototype
+import micronaut.web.DataSources
+import micronaut.web.H2Storage
+import micronaut.web.MicronautApplication
+import micronaut.web.MicronautConfig
+import micronaut.web.SchemaMode
+import micronaut.web.h2DataSource
+import micronaut.web.hibernateJpa
+import jstachio.annotation.JStache
+import orm.Column
+import orm.Entity
+import orm.Generated
+import orm.GenerationStrategy
+import orm.Id
+import orm.Repository
+import orm.RepositoryContext
+import orm.micronaut.tx.Transactional
+import std.application.Application
+import std.application.applicationPackage
+import std.http.Uri
+
+@Entity()
+public class Message {
+  @Column(nullable: false, length: 1024)
+  String text
+  @Id()
+  @Generated(strategy: GenerationStrategy.IDENTITY)
+  Long? id = null
+
+  Message() { this.text = "" }
+  Message(String text) { this.text = text }
+}
+
+@Prototype()
+public class Messages extends Repository<Message, Long> {
+  @Inject()
+  Messages(RepositoryContext context) { super(context) }
+}
+
+public value MessageView {
+  Long id
+  String text
+}
+
+@JStache(template: "<!doctype html><html lang='en'><meta charset='utf-8'><title>Norm Board</title><main><h1>Norm Board</h1><form method='post' action='/messages'><label>Message <input name='text' required maxlength='500'></label><button>Post</button></form><ul>{{#messages}}<li>{{text}} <form method='post' action='/messages/{{id}}/delete'><button>Delete</button></form></li>{{/messages}}</ul></main></html>")
+public value BoardPage {
+  List<MessageView> messages
+}
+
+@Prototype()
+public class BoardService {
+  Messages messages
+
+  @Inject()
+  BoardService(Messages messages) { this.messages = messages }
+
+  @Transactional()
+  BoardPage page() {
+    List<MessageView> entries = []
+    for stored : messages.findAll()!! {
+      Message message = stored!!
+      entries.add(MessageView(id: message.id!!, text: message.text))
+    }
+    BoardPage(messages: entries)
+  }
+
+  @Transactional()
+  Void post(String text) {
+    messages.save(Message(text: text))
+  }
+
+  @Transactional()
+  Void delete(Long id) {
+    var message = messages.find(id)
+    if message != null { messages.delete(message) }
+  }
+}
+
+@Controller("/")
+public class BoardController {
+  BoardService board
+
+  @Inject()
+  BoardController(BoardService board) { this.board = board }
+
+  @Get(value: "/", produces: ["text/html"])
+  BoardPage index() { board.page() }
+
+  @Post(value: "/messages", consumes: ["application/x-www-form-urlencoded"])
+  HttpResponse<String?> post(@Body(value: "text") String text) {
+    String content = text.trim()
+    if content.isEmpty() || content.codePointSize() > 500 {
+      return httpResponseBadRequest<String>(arg0: "Message must contain 1–500 characters")!!
+    }
+    board.post(content)
+    httpResponseSeeOther<String>(arg0: Uri(value: "/"))!!
+  }
+
+  @Post(value: "/messages/{id}/delete")
+  HttpResponse<String?> delete(Long id) {
+    board.delete(id)
+    httpResponseSeeOther<String>(arg0: Uri(value: "/"))!!
+  }
+}
+
+Module module() {
+  module(dependencies: [
+    dependency(repository: "github", name: "micronaut.web", version: 7),
+    dependency(repository: "github", name: "micronaut.views.jstachio", version: 2),
+    dependency(repository: "github", name: "orm.micronaut.tx", version: 4),
+    dependency(repository: "github", name: "h2.database", version: 2)
+  ])
+}
+
+public Application application() {
+  MicronautApplication(config: MicronautConfig(
+    datasources: DataSources(defaultSource: h2DataSource(storage: H2Storage.File)),
+    jpa: hibernateJpa(entityPackages: [applicationPackage()], schema: SchemaMode.Update)
+  ))
+}

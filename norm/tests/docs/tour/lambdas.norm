@@ -1,0 +1,11 @@
+Integer apply(Integer transform(Integer number), Integer input) {
+  return transform(input)
+}
+
+main() {
+  Function<Integer(Integer)> twice = (number) {
+    number * 2
+  }
+  printLine(twice(5))
+  printLine(apply(transform: (number) { number + 3 }, input: 5))
+}

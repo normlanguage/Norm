@@ -5,10 +5,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.core.CompilationResult;
 import dev.w0fv1.norm.source.SourceFile;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class AlgebraicDataTypeCompilerTest {
+  @Test
+  void checksTheDocumentedUncoveredEnumExample() throws Exception {
+    Path source =
+        Path.of(
+            AlgebraicDataTypeCompilerTest.class
+                .getResource("/docs/diagnostics/uncovered_enum.norm")
+                .toURI());
+    CompilationResult result = compile(Files.readString(source));
+    assertFalse(result.isSuccess());
+    assertTrue(
+        result.diagnostics().stream()
+            .anyMatch(
+                diagnostic ->
+                    diagnostic.code().value().equals("NORM-FLOW-0001")
+                        && diagnostic.message().equals("switch is not exhaustive")));
+  }
+
   @Test
   void compilesGenericDataEnumsAndRecursivePatterns() {
     CompilationResult result =

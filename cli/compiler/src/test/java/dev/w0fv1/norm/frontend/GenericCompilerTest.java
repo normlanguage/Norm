@@ -127,6 +127,23 @@ final class GenericCompilerTest {
   }
 
   @Test
+  void acceptsTypeParameterBoundsThroughGenericInterfaceInheritance() {
+    CompilationResult result =
+        compile(
+            "class AbstractMutableListMultimap<V> "
+                + "extends AbstractMutableMultimap<V, MutableList<V>> {} "
+                + "class AbstractMutableMultimap<V, C extends MutableCollection<V>> "
+                + "extends AbstractMultimap<V, C> {} "
+                + "class AbstractMultimap<V, C extends RichIterable<V>> {} "
+                + "interface MutableList<T> extends MutableCollection<T> {} "
+                + "interface MutableCollection<T> extends RichIterable<T> {} "
+                + "interface RichIterable<T> {} "
+                + "Void main() {}");
+
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void enforcesBoundsThatReferenceEarlierTypeParameters() {
     CompilationResult result =
         compile(

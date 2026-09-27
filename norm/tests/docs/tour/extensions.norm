@@ -1,0 +1,12 @@
+extension String bracketed(String text) {
+  return "[" + text + "]"
+}
+
+String label(String text) {
+  return text.bracketed()
+}
+
+main() {
+  printLine(label(text: "Norm"))
+  printLine("agent".bracketed())
+}

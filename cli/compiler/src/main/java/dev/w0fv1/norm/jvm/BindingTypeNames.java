@@ -160,6 +160,14 @@ public record BindingTypeNames(
 
   static String normType(
       JavaBindingType type, BindingTypeNames normTypes, boolean nonNullReference) {
+    return normType(type, normTypes, nonNullReference, false);
+  }
+
+  private static String normType(
+      JavaBindingType type,
+      BindingTypeNames normTypes,
+      boolean nonNullReference,
+      boolean preserveTypeParameters) {
     return switch (type) {
       case JavaArrayType array ->
           normTypes.arrays().get(array)
@@ -178,12 +186,13 @@ public record BindingTypeNames(
             case CHAR -> "CodePoint";
           };
       case JavaBoxedType boxed -> normType(boxed.primitive(), normTypes, false) + "?";
-      case JavaBindingTypeVariable variable -> variable.name() + (nonNullReference ? "" : "?");
+      case JavaBindingTypeVariable variable ->
+          variable.name() + (nonNullReference || preserveTypeParameters ? "" : "?");
       case JavaCallbackType callback ->
           "Function<"
-              + normType(callback.returnType(), normTypes, false)
+              + normType(callback.returnType(), normTypes, false, preserveTypeParameters)
               + callback.parameters().stream()
-                  .map(parameter -> normType(parameter, normTypes, false))
+                  .map(parameter -> normType(parameter, normTypes, false, preserveTypeParameters))
                   .collect(java.util.stream.Collectors.joining(", ", "(", ")"))
               + ">"
               + (nonNullReference ? "" : "?");
@@ -205,34 +214,34 @@ public record BindingTypeNames(
             case OPTIONAL_DOUBLE -> "Double?";
             case ITERABLE ->
                 "IterableView<"
-                    + normReferenceArgument(reference, 0, 1, normTypes)
+                    + normReferenceArgument(reference, 0, 1, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case ITERATOR ->
                 "IteratorView<"
-                    + normReferenceArgument(reference, 0, 1, normTypes)
+                    + normReferenceArgument(reference, 0, 1, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case COLLECTION ->
                 "MutableCollection<"
-                    + normReferenceArgument(reference, 0, 1, normTypes)
+                    + normReferenceArgument(reference, 0, 1, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case LIST ->
                 "MutableList<"
-                    + normReferenceArgument(reference, 0, 1, normTypes)
+                    + normReferenceArgument(reference, 0, 1, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case SET ->
                 "MutableSet<"
-                    + normReferenceArgument(reference, 0, 1, normTypes)
+                    + normReferenceArgument(reference, 0, 1, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case MAP ->
                 "MutableMap<"
-                    + normReferenceArgument(reference, 0, 2, normTypes)
+                    + normReferenceArgument(reference, 0, 2, normTypes, preserveTypeParameters)
                     + ", "
-                    + normReferenceArgument(reference, 1, 2, normTypes)
+                    + normReferenceArgument(reference, 1, 2, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case STRING -> "String" + (nonNullReference ? "" : "?");
@@ -245,12 +254,13 @@ public record BindingTypeNames(
             case OUTPUT_STREAM -> "OutputStream" + (nonNullReference ? "" : "?");
             case TASK ->
                 "Task<"
-                    + normReferenceArgument(reference, 0, 1, normTypes)
+                    + normReferenceArgument(reference, 0, 1, normTypes, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case PUBLISHER ->
                 "Publisher<"
-                    + normType(referenceElement(reference), normTypes, false)
+                    + normType(
+                        referenceElement(reference), normTypes, false, preserveTypeParameters)
                     + ">"
                     + (nonNullReference ? "" : "?");
             case DURATION -> "Duration" + (nonNullReference ? "" : "?");
@@ -266,7 +276,9 @@ public record BindingTypeNames(
                   reference.arguments().isEmpty()
                       ? ""
                       : reference.arguments().stream()
-                          .map(argument -> normTypeArgument(argument, normTypes))
+                          .map(
+                              argument ->
+                                  normTypeArgument(argument, normTypes, preserveTypeParameters))
                           .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
               yield mapped + arguments + (nonNullReference ? "" : "?");
             }
@@ -299,6 +311,15 @@ public record BindingTypeNames(
 
   static String normReferenceArgument(
       JavaReferenceType reference, int index, int arity, BindingTypeNames normTypes) {
+    return normReferenceArgument(reference, index, arity, normTypes, false);
+  }
+
+  private static String normReferenceArgument(
+      JavaReferenceType reference,
+      int index,
+      int arity,
+      BindingTypeNames normTypes,
+      boolean preserveTypeParameters) {
     if (reference.arguments().isEmpty()) {
       return normType(
           new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT), normTypes, false);
@@ -313,15 +334,22 @@ public record BindingTypeNames(
       throw new IllegalArgumentException(
           "Java reference type argument cannot be represented in Norm: " + reference.binaryName());
     }
-    return normType(argument.type().orElseThrow(), normTypes, false);
+    return normType(argument.type().orElseThrow(), normTypes, false, preserveTypeParameters);
   }
 
   static String normTypeArgument(JavaBindingTypeArgument argument, BindingTypeNames normTypes) {
+    return normTypeArgument(argument, normTypes, false);
+  }
+
+  private static String normTypeArgument(
+      JavaBindingTypeArgument argument,
+      BindingTypeNames normTypes,
+      boolean preserveTypeParameters) {
     if (argument.variance() == JavaTypeVariance.UNBOUNDED) return "?";
     if (argument.variance() != JavaTypeVariance.EXACT) {
       throw new IllegalArgumentException("bounded Java wildcard cannot be represented in Norm");
     }
-    return normType(argument.type().orElseThrow(), normTypes, false);
+    return normType(argument.type().orElseThrow(), normTypes, false, preserveTypeParameters);
   }
 
   static String normClassTypeArgument(
@@ -330,7 +358,7 @@ public record BindingTypeNames(
     if (argument.variance() != JavaTypeVariance.EXACT) {
       throw new IllegalArgumentException("bounded Java wildcard cannot be represented in Norm");
     }
-    return normType(argument.type().orElseThrow(), normTypes, true);
+    return normType(argument.type().orElseThrow(), normTypes, true, true);
   }
 
   static String normBoundType(JavaBindingType type, BindingTypeNames normTypes) {
@@ -359,14 +387,14 @@ public record BindingTypeNames(
                 .map(argument -> normClassTypeArgument(argument, normTypes))
                 .collect(java.util.stream.Collectors.joining(", ", "<", ">"));
       }
-      return normType(reference, normTypes, true);
+      return normType(reference, normTypes, true, true);
     }
     if (reference.arguments().size() != 1) {
       throw new IllegalArgumentException(
           "Java generic bound cannot be represented in Norm: " + type.displayName());
     }
     JavaBindingType argument = reference.arguments().getFirst().type().orElseThrow();
-    return "Comparable<" + normType(argument, normTypes, true) + ">";
+    return "Comparable<" + normType(argument, normTypes, true, true) + ">";
   }
 
   static boolean containsException(JavaBindingCallable callable) {

@@ -16,4 +16,10 @@ Row {
 
 嵌套的事件回调保持普通函数语义。直接传入已经存在的函数值时，不转换该函数体。构建器注解不改变普通集合的分隔符规则。
 
+这个可执行示例组合了结果构建器、字段句柄、词法引用与集合结果：
+
+<<< ../../../../norm/tests/docs/language/builder_references.norm{norm}
+
+<<< ../../../../norm/tests/docs/language/builder_references.out{text}
+
 前端转换统一由 [ResultBuilderLowering](../../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/ResultBuilderLowering.java) 提供；编译器不识别特定 UI 组件名称。执行、泛型、诊断和增量编译的契约测试见 [ResultBuilderExecutionTest](../../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ResultBuilderExecutionTest.java)。

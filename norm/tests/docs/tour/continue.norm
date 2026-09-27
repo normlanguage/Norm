@@ -1,0 +1,10 @@
+main() {
+  List<String> tasks = ["read", "skip", "change"]
+  for task : tasks {
+    if task == "skip" {
+      continue
+    }
+    printLine(task)
+  }
+  printLine("finished")
+}

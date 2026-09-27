@@ -1,0 +1,14 @@
+import std.observation.onChange
+
+class Task { String title = "Draft" }
+
+main() {
+  Task task = Task()
+  var subscription = task.title.onChange {
+    printLine(oldValue + " -> " + newValue)
+  }
+  task.title = "Done"
+  subscription.close()
+  task.title = "Archived"
+  printLine(task.title)
+}

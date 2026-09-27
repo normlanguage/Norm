@@ -1,0 +1,47 @@
+import commons.lang.stringUtilsCapitalize
+import commons.lang.stringUtilsNormalizeSpace
+import commons.lang.stringUtilsReverse
+
+enum Request {
+  Raw(String text),
+  Missing
+}
+
+value Heading {
+  String title
+  String mirror
+}
+
+Heading prepare(String raw) {
+  String compact = stringUtilsNormalizeSpace(raw)!!
+  String title = stringUtilsCapitalize(compact)!!
+  String mirror = stringUtilsReverse(title)!!
+  return Heading(title: title, mirror: mirror)
+}
+
+String render(Request request) {
+  return switch request {
+    case Raw(String text) {
+      Heading heading = prepare(raw: text)
+      break heading.title + " / " + heading.mirror
+    }
+    case Missing { break "missing" }
+  }
+}
+
+main() {
+  List<Request> requests = [
+    Request.Raw(text: "  learn   norm  "),
+    Request.Missing,
+    Request.Raw(text: "  build   apps ")
+  ]
+  for request : requests {
+    printLine(render(request: request))
+  }
+  Heading first = prepare(raw: "  learn   norm  ")
+  printLine(first == Heading(title: "Learn norm", mirror: "mron nraeL"))
+}
+
+Module module() {
+  module(dependencies: [dependency(repository: "github", name: "commons.lang", version: 2)])
+}

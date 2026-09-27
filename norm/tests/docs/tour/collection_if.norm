@@ -1,0 +1,10 @@
+main() {
+  Boolean includeExtra = false
+  List<String> steps = [
+    "read",
+    if (includeExtra) "inspect",
+    "run"
+  ]
+  printLine(steps.size())
+  printLine(steps[1])
+}

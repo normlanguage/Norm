@@ -1,41 +1,19 @@
-# 01 Hello, Norm
+# 01 Program entry
 
-A Norm program consists of `.norm` source files and top-level declarations. A standalone script only needs `main()`.
+A standalone `.norm` file starts at its top-level `main()` function.
 
 <<< ../../norm/tests/docs/tour/01_hello.norm{norm}
 
 Output:
 
-```text
-Hello, Norm
-```
+<<< ../../norm/tests/docs/tour/01_hello.out{text}
 
-`main()` is the program entry point. Because it omits a return type, it is a `Void` top-level function. `String language` declares the type before the name, and `printLine` is a core output function available by default.
+The braces contain the work performed when the program starts. `printLine` writes one line to standard output. `main()` has no declared result type here, so it is a `Void` entry point. The whole program needs only this one source file.
 
-## Source structure
+Save the code above as `hello.norm`, then run `norm hello.norm` in that directory with a released CLI.
 
-- Blocks always use braces.
-- Trailing semicolons may be omitted.
-- The official formatter uses two-space indentation and omits the default `public` modifier.
-- Strings use double quotes, backslash escapes, and `${expression}` for typed interpolation.
-- The current lexer does not support source comments; see [Status](/status) for the exact boundary.
+Try it: Replace the greeting text with your name, save the file, and run it again.
 
-## Run
+Precise rules: [Language Reference](/spec/grammar/declarations).
 
-After obtaining the CLI from a release, run:
-
-```shell
-norm run hello.norm
-```
-
-For editor installation and usage, see [Tooling](/tooling/). For the complete lexical rules, see [Lexical structure](/spec/grammar/lexical).
-
-To build a single file as a Windows program that does not require Norm to be installed:
-
-```shell
-norm build hello.norm
-```
-
-This produces `hello.norm.exe` in the same directory. See [Application builds](/tooling/application-build) for project output rules and the offline execution contract.
-
-Next: [Values and bindings](/learn/bindings).
+Next: [Explicit types and assignment](/learn/bindings).

@@ -57,6 +57,12 @@ See [ObjectReflectionExecutionTest](https://github.com/normlanguage/Norm/blob/ma
 
 `Field.identity(receiver)` returns an opaque value type, `FieldIdentity`, whose equality and hash include the owner type, field declaration, and a snapshot of the field value without string conversion. The field value follows Norm's value/object identity semantics; null does not constitute an identity. Heterogeneous reflected fields can create identities without exposing hidden field value types. See [FieldIdentityExecutionTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/truffle/FieldIdentityExecutionTest.java).
 
+This executable example combines a field handle, direct assignments, in-place list changes, and subscription closure:
+
+<<< ../../norm/tests/docs/language/reactive_fields.norm{norm}
+
+<<< ../../norm/tests/docs/language/reactive_fields.out{text}
+
 ## Overloads
 
 When assigning an overloaded declaration reference to an exact function type, the compiler uses the expected signature to choose one declaration:

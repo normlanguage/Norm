@@ -1,0 +1,9 @@
+class Task { public String title }
+
+main() {
+  Task task = Task(title: "Draft")
+  FieldHandle<String> handle = Task.title.field.bind(task)
+  printLine(handle.read())
+  handle.write("Done")
+  printLine(task.title)
+}

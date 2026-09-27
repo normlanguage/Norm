@@ -14,7 +14,7 @@ for (const source of pages) {
   const output = resolve(distRoot, 'en', `${page}.html`)
   await mkdir(dirname(output), { recursive: true })
   const quoted = JSON.stringify(target)
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0;url=${target}"><link rel="canonical" href="${target}"></head><body><script>location.replace(${quoted} + location.search + location.hash)</script><a href="${target}">Continue to English documentation</a></body></html>\n`
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="canonical" href="${target}"></head><body><script>location.replace(${quoted} + location.search + location.hash)</script><a href="${target}">Continue to English documentation</a></body></html>\n`
   await writeFile(output, html, 'utf8')
 }
 

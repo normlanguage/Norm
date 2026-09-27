@@ -43,3 +43,9 @@ Class bounds are satisfied through class inheritance; interface bounds through e
 A type position must supply all required arguments: raw types are invalid, and only trailing parameters declaring defaults may be omitted. A function or instance-method call may omit explicit type arguments when constraints give a unique solution; otherwise use `function<Type>(...)` or `receiver.method<Type>(...)` respectively.
 
 Actual type arguments enter Core IR and the runtime type environment. Parameterized types are invariant. A diamond constructor omits only arguments uniquely solvable from constraints in that expression.
+
+This executable example combines generic construction, inference, overload selection, and matching retained type arguments:
+
+<<< ../../../norm/tests/docs/language/generic_overloads.norm{norm}
+
+<<< ../../../norm/tests/docs/language/generic_overloads.out{text}

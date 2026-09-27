@@ -1,0 +1,12 @@
+Integer read() {
+  try {
+    printLine("open")
+    return 7
+  } finally {
+    printLine("close")
+  }
+}
+
+main() {
+  printLine(read())
+}

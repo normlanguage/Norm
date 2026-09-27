@@ -1,0 +1,16 @@
+class Box<T> {
+  T value
+
+  Box<R> map<R>(R transform(T item)) {
+    return Box<R>(value: transform(value))
+  }
+}
+
+Box<T> produce<T>(T work()) {
+  return Box<T>(value: work())
+}
+
+main() {
+  Box<Integer> answer = produce { 7 } map { item * 2 }
+  printLine(answer.value)
+}

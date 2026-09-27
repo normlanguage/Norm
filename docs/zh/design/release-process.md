@@ -24,7 +24,7 @@ Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是
 
 发布先构建各平台 CLI 并打包通用 VSIX，再集中执行工具链测试和最终交付验收。语言程序由 `ProgramExecutionTest` 统一覆盖，不在各平台 CLI 验收中重复运行。每个平台验证版本、源码执行、动态 Java binding、一次 native 构建及三次隔离启动，以及 LSP 和编辑器集成。Windows 另外验证便携执行、setup 和 PATH 幂等。通用 VSIX 校验全部目标的内置运行时及宿主平台执行；编辑器集成验收直接加载该 VSIX 解包后的扩展。
 
-框架、ORM 和应用验收归各适配包与 [examples 仓库](https://github.com/normlanguage/examples)所有，不作为编译器发行任务。
+框架适配仓库各自维护示例与验收；独立 Web、ORM 验证及性能脚本保留在 [examples/scripts](https://github.com/normlanguage/examples/tree/main/scripts)。
 
 构建完成后统一生成 SHA-256 校验和与构建来源证明。任一平台失败时不发布任何平台；全部资产先进入 Draft Release，上传完整后再一次性公开。
 

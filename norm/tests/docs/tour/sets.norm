@@ -1,0 +1,10 @@
+main() {
+  Set<String> names = Set<>()
+  names.add("Ada")
+  names.add("Ada")
+  names.add("Lin")
+  printLine(names.size())
+  printLine(names.contains("Lin"))
+  printLine(names.contains("Ada"))
+  printLine(names.contains("Jo"))
+}

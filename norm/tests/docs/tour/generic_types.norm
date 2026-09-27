@@ -1,0 +1,11 @@
+value Box<T> {
+  T item
+}
+
+main() {
+  Box<Integer> count = Box<Integer>(item: 7)
+  Box<String> label = Box<String>(item: "Norm")
+  printLine(count.item)
+  printLine(label.item)
+  printLine(count == Box<Integer>(item: 7))
+}

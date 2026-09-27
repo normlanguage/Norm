@@ -29,3 +29,9 @@ GeometryPoint point = GeometryPoint(x: 2, y: 3)
 Wildcard imports are not part of the core syntax for now: adding a public declaration should not silently change name resolution in existing files. The standard-library prelude must remain small and be fixed by the language version.
 
 Module declarations and imports serve separate purposes: `module.norm` determines which source files may be used across packages; an import selects which of their declarations to introduce into the current file. Version selection does not appear in imports.
+
+The applied example combines public imports from a packaged library with Norm enums, values, and exhaustive matching. [Prepare the Commons Lang package](/learn/commons-lang) before running it:
+
+<<< ../../norm/tests/docs/libraries/commons-lang/prepare_headings.norm{norm}
+
+<<< ../../norm/tests/docs/libraries/commons-lang/prepare_headings.out{text}

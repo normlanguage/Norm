@@ -56,6 +56,7 @@ public final class SemanticModel implements SemanticIndex {
   private final Map<String, SymbolId> typeSymbols;
   private final Map<String, List<SemanticType>> interfaceParents;
   private final AnnotationIndex annotations;
+  private final DocumentAnnotationIndex documentAnnotations;
   private final List<SemanticScope> scopes;
   private final List<Diagnostic> diagnostics;
   private final List<ImportableSymbol> importableSymbols;
@@ -97,9 +98,18 @@ public final class SemanticModel implements SemanticIndex {
       BuiltinSemanticIndex builtins) {
     this.source = Objects.requireNonNull(source, "source");
     this.syntax = Objects.requireNonNull(syntax, "syntax");
-    this.symbols = Map.copyOf(symbols);
+    this.documentAnnotations = DocumentAnnotationIndex.from(annotations, symbols);
+    Map<SymbolId, Symbol> documentedSymbols = new LinkedHashMap<>(symbols);
+    this.documentAnnotations
+        .symbols()
+        .forEach(
+            (id, document) -> {
+              Symbol symbol = Objects.requireNonNull(documentedSymbols.get(id));
+              documentedSymbols.put(id, symbol.withDocumentation(document.description()));
+            });
+    this.symbols = Map.copyOf(documentedSymbols);
     var completeBindings = new LinkedHashMap<>(bindings);
-    completeBindings.putAll(ReferenceIndex.namedArguments(resolvedCalls, symbols));
+    completeBindings.putAll(ReferenceIndex.namedArguments(resolvedCalls, this.symbols));
     this.bindings = Map.copyOf(completeBindings);
     this.declarationOperators = Set.copyOf(declarationOperators);
     if (!this.bindings.keySet().containsAll(this.declarationOperators))
@@ -138,7 +148,15 @@ public final class SemanticModel implements SemanticIndex {
     this.annotations = Objects.requireNonNull(annotations, "annotations");
     this.scopes = List.copyOf(scopes);
     this.diagnostics = List.copyOf(diagnostics);
-    this.importableSymbols = List.copyOf(importableSymbols);
+    this.importableSymbols =
+        importableSymbols.stream()
+            .map(
+                candidate ->
+                    new ImportableSymbol(
+                        Objects.requireNonNull(this.symbols.get(candidate.symbol().id())),
+                        candidate.qualifiedName(),
+                        candidate.exported()))
+            .toList();
     this.scope = Objects.requireNonNull(scope, "scope");
     this.builtins = Objects.requireNonNull(builtins, "builtins");
     this.tokens = List.of();
@@ -181,6 +199,7 @@ public final class SemanticModel implements SemanticIndex {
     this.typeSymbols = project.typeSymbols;
     this.interfaceParents = project.interfaceParents;
     this.annotations = project.annotations;
+    this.documentAnnotations = project.documentAnnotations;
     this.scopes = project.scopes;
     this.diagnostics = project.diagnostics;
     this.importableSymbols = project.importableSymbols;
@@ -376,6 +395,10 @@ public final class SemanticModel implements SemanticIndex {
 
   public Optional<Symbol> symbol(SymbolId id) {
     return Optional.ofNullable(symbols.get(id));
+  }
+
+  public DocumentAnnotationIndex documentAnnotations() {
+    return documentAnnotations;
   }
 
   public CompilationScope compilationScope() {

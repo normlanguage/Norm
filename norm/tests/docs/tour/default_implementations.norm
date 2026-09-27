@@ -1,0 +1,16 @@
+interface Named {
+  String name()
+
+  String label() { return "Task: " + this.name() }
+}
+
+class Task implements Named {
+  String title
+
+  String name() { return title }
+}
+
+main() {
+  Named item = Task(title: "Learn Norm")
+  printLine(item.label())
+}

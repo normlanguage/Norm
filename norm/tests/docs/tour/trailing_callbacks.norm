@@ -1,0 +1,11 @@
+Integer calculate(Integer input, Integer action(Integer value)) {
+  return action(input)
+}
+
+main() {
+  Integer doubled = calculate(input: 7) { value in
+    value * 2
+  }
+  printLine(doubled)
+  printLine(calculate(input: 4) { value * 3 })
+}

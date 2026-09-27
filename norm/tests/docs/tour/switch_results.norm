@@ -1,0 +1,16 @@
+enum Result {
+  Success(Integer count),
+  Failure(String reason)
+}
+
+String describe(Result result) {
+  return switch result {
+    case Success(Integer count) { break "${count} items" }
+    case Failure(String reason) { break reason }
+  }
+}
+
+main() {
+  printLine(describe(result: Result.Success(count: 3)))
+  printLine(describe(result: Result.Failure(reason: "empty")))
+}

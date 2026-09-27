@@ -50,9 +50,10 @@ final class JavaAnnotationBindingIntegrationTest {
               ),
               api: [
                 jarType(name: "Endpoint", members: ["enabled", "order", "path", "protocol", "protocols", "tags"]),
-                jarType(name: "Box", members: ["get"]),
+                jarType(name: "Box", members: ["describe", "get"]),
+                jarType(name: "Nested.Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
-                jarType(name: "GeneratedInvoker", members: ["callbacks", "contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "invoke", "managed", "mutate", "proxy", "read", "write"])
+                jarType(name: "GeneratedInvoker", members: ["callbacks", "contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "interfaceProxy", "invoke", "managed", "mutate", "proxy", "read", "roundTrip", "typedRoundTrip", "write"])
               ]
             )
           )
@@ -201,6 +202,17 @@ final class JavaAnnotationBindingIntegrationTest {
         interface StringBox extends Box<String> {
         }
 
+        interface MiddleBox<T> extends Box<T> {
+        }
+
+        @Endpoint(path: "/leaf-box")
+        interface LeafBox extends MiddleBox<String> {
+        }
+
+        @Endpoint(path: "/nested-box")
+        interface NestedStringBox extends NestedBox<String> {
+        }
+
         @Endpoint(path: "/string-box-value")
         class StringBoxValue implements Box<String> {
           String get() {
@@ -235,6 +247,14 @@ final class JavaAnnotationBindingIntegrationTest {
             message: "Java callers must execute inherited Norm interface defaults")
           require(condition: generatedInvokerInvoke(arg0: "sample.binding.AlternateController", arg1: "greet", arg2: "Norm") == "alternate:Norm",
             message: "shared interface defaults must dispatch to each concrete receiver")
+          StringBox inherited = generatedInvokerInterfaceProxy<StringBox>(StringBox.class)!!
+          require(condition: inherited.get() == "inherited", message: "Java implementation of inherited interface method must be callable")
+          LeafBox leaf = generatedInvokerInterfaceProxy<LeafBox>(LeafBox.class)!!
+          require(condition: leaf.get() == "inherited", message: "inherited Java method must retain substitutions through two interface layers")
+          NestedStringBox nested = generatedInvokerInterfaceProxy<NestedStringBox>(NestedStringBox.class)!!
+          require(condition: nested.get() == "inherited", message: "nested Java parent interface must keep its binary name")
+          require(condition: inherited.describe("Norm") == "text", message: "inherited String overload must use its Java signature")
+          require(condition: inherited.describe(7) == "number", message: "inherited int overload must use its Java signature")
           %s
           Endpoint? endpoint = Controller.class.annotation<Endpoint>()
           if endpoint != null {
@@ -256,6 +276,26 @@ final class JavaAnnotationBindingIntegrationTest {
           printLine(generatedInvokerManaged())
           printLine(generatedInvokerMutate())
           Response hydrated = Response(message: "Initial")
+          var hostList = generatedInvokerRoundTrip(hydrated)!!
+          switch hostList.get(index: 0) {
+            case Response restored { restored.message = "List update" }
+            case _ { throw Exception(message: "Java list lost Norm object") }
+          }
+          require(condition: hydrated.message == "List update", message: "Java list lost object identity")
+          for item : hostList {
+            switch item {
+              case Response restored { require(condition: restored.message == "List update", message: "Java iterator lost Norm object") }
+              case _ { throw Exception(message: "Java iterator lost Norm object") }
+            }
+          }
+          var typedList = generatedInvokerTypedRoundTrip<Response>(hydrated)!!
+          Response typedValue = typedList.get(index: 0)!!
+          require(condition: typedValue.message == "List update", message: "typed Java list lost Norm object")
+          typedValue.message = "Typed list update"
+          require(condition: hydrated.message == "Typed list update", message: "typed Java list lost object identity")
+          for typedItem : typedList {
+            require(condition: typedItem != null && typedItem.message == "Typed list update", message: "typed Java iterator lost Norm object")
+          }
           generatedInvokerHydrate(hydrated)
           printLine(hydrated.message)
           printLine(generatedInvokerRead())
@@ -405,7 +445,9 @@ final class JavaAnnotationBindingIntegrationTest {
               "sample.binding.Controller:/bbs:http,json:HTTP",
               "sample.binding.GenericBase:/generic:http,json:HTTPS",
               "sample.binding.GenericChild:/generic-child:http,json:HTTPS",
+              "sample.binding.LeafBox:/leaf-box:http,json:HTTPS",
               "sample.binding.ManagedResponse:/managed-response:http,json:HTTPS",
+              "sample.binding.NestedStringBox:/nested-box:http,json:HTTPS",
               "sample.binding.RepeatedController:/first,/second:http,json:HTTPS",
               "sample.binding.Response:/response:http,json:HTTPS",
               "sample.binding.StringBox:/string-box:http,json:HTTPS",
@@ -477,6 +519,20 @@ final class JavaAnnotationBindingIntegrationTest {
 
         public interface Box<T> {
           T get();
+          default String describe(String value) { return "text"; }
+          default String describe(int value) { return "number"; }
+        }
+        """);
+    Path nestedSource = sourceRoot.resolve("sample/Nested.java");
+    Files.writeString(
+        nestedSource,
+        """
+        package sample;
+
+        public final class Nested {
+          public interface Box<T> {
+            T get();
+          }
         }
         """);
     Path converterSource = sourceRoot.resolve("sample/Converter.java");
@@ -572,6 +628,12 @@ final class JavaAnnotationBindingIntegrationTest {
         package sample;
 
         public final class GeneratedInvoker {
+          public static java.util.List<Object> roundTrip(Object value) {
+            return java.util.List.of(value);
+          }
+          public static <T> java.util.List<T> typedRoundTrip(T value) {
+            return java.util.List.of(value);
+          }
           public static String callbacks() throws Exception {
             var componentType = Class.forName("sample.binding.DefaultController");
             Object component = componentType.getConstructor().newInstance();
@@ -633,6 +695,15 @@ final class JavaAnnotationBindingIntegrationTest {
             } catch (ReflectiveOperationException exception) {
               throw new IllegalStateException(exception);
             }
+          }
+
+          public static <T> T interfaceProxy(Class<T> type) {
+            Object value = java.lang.reflect.Proxy.newProxyInstance(
+                type.getClassLoader(), new Class<?>[] {type},
+                (receiver, method, arguments) -> method.getName().equals("get")
+                    ? "inherited"
+                    : method.getParameterTypes()[0] == String.class ? "text" : "number");
+            return type.cast(value);
           }
 
           public static String contextRoundTrip() {
@@ -758,6 +829,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 classes.toString(),
                 annotationSource.toString(),
                 boxSource.toString(),
+                nestedSource.toString(),
                 converterSource.toString(),
                 containerSource.toString(),
                 invokerSource.toString(),

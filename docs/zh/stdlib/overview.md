@@ -43,10 +43,12 @@
 
 ## 当前边界
 
-结构映射只处理 `value`。Class identity、对象图、循环引用和多态尚未进入协议；HTTP server 也尚未交付。完整状态见 [Status](/zh/status)。
+结构映射只处理 `value`。Class identity、对象图、循环引用和多态尚未进入协议。HTTP 服务应用使用独立库；当前可用范围见[库示例](/zh/stdlib/samples)与 [Status](/zh/status)。
 
 具体签名以各页面链接的 Norm 源码为准，文档负责解释模块职责、失败边界和最小用法，不复制第二份完整方法清单。
 
 ## 独立库
 
-[OpenAI 客户端](https://github.com/normlanguage/Norm/tree/main/norm/libraries/openai) 作为独立 Module 提供 Responses API，不进入标准库。
+[OpenAI 客户端](https://github.com/normlanguage/openai) 作为独立库提供 Responses API，不进入标准库。
+
+[库示例索引](/zh/stdlib/samples)按用途链接到各仓库维护的可运行场景。

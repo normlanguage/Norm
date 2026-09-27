@@ -35,6 +35,7 @@ import { currentRelease } from '../.vitepress/release'
 | Annotation、`@Document` 与类型化拦截器 | Stable | [Annotation 规范](/zh/spec/annotations) |
 | Package、Module 与跨文件可见性 | Stable | [模块系统](/zh/spec/module-system) |
 | 类型化字符串插值 | Stable | [字面量](/zh/spec/grammar/literals) |
+| 在值位置使用带 `break value` 和 `else` 的 `for` | Planned | [循环设计](/zh/spec/grammar/loops)；当前解析器拒绝 `Integer result = for ...` |
 | `//` 与 `/* */` 源码注释 | Planned | 当前 Lexer 将标记解析为运算符 token |
 
 ## Standard Library

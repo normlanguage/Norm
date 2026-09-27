@@ -1,0 +1,11 @@
+main() {
+  Integer remaining = 3
+  Integer total = 0
+  for remaining > 0 {
+    printLine(remaining)
+    total = total + remaining
+    remaining = remaining - 1
+  }
+  printLine("done")
+  printLine(total)
+}

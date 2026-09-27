@@ -1,0 +1,7 @@
+class Task { String title }
+
+main() {
+  Class<Task> type = Task.class
+  printLine(type.name())
+  printLine(type.isValue())
+}

@@ -1,0 +1,8 @@
+package app
+
+import library.model.Greeting
+
+main() {
+  Greeting greeting = Greeting(text: "Norm")
+  printLine(greeting.text)
+}

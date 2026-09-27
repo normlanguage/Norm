@@ -1,0 +1,99 @@
+import std.application.applicationDirectory
+import std.filesystem.FileException
+import std.filesystem.FileFailure
+import std.filesystem.Path
+import std.filesystem.readText
+import std.filesystem.writeTextAtomic
+import std.io.TextEncoding
+import std.json.fromJson
+import std.json.toJson
+import std.serialization.Serializable
+import ui.Binding
+import ui.Button
+import ui.Column
+import ui.DesktopApp
+import ui.Row
+import ui.Text
+import ui.TextField
+import ui.Toggle
+import ui.Widget
+import ui.runApp
+
+@Serializable()
+value Task {
+  String title
+  Boolean completed = false
+}
+
+@Serializable()
+value TaskList {
+  List<Task> tasks
+}
+
+enum Filter { All, Active, Completed }
+
+class Todo implements Widget {
+  private List<Task> tasks = []
+  private String draft = ""
+  private Filter filter = Filter.All
+  private Path file = Path(value: applicationDirectory().value + "/todo.json")
+
+  Void init() {
+    try {
+      tasks = readText(path: file, encoding: TextEncoding.Utf8, maximumBytes: 1048576).fromJson<TaskList>().tasks
+    } catch FileException error {
+      if error.reason != FileFailure.NotFound { throw error }
+    }
+  }
+
+  Widget build() {
+    List<Widget> content = [
+      Text("Norm Todo"),
+      Row([
+        TextField(
+          placeholder: "Add a task",
+          value: Binding<String>(read: () { draft }, write: (String next) { draft = next })
+        ) { this.addTask() },
+        Button("Add") { this.addTask() }
+      ]),
+      Row([
+        Button("All") { filter = Filter.All },
+        Button("Active") { filter = Filter.Active },
+        Button("Completed") { filter = Filter.Completed }
+      ]),
+      for (task, index : tasks)
+        if (filter == Filter.All || (filter == Filter.Completed) == task.completed)
+          Row([
+            Toggle(text: task.title, checked: task.completed) { checked in
+              tasks[index] = Task(title: task.title, completed: checked)
+              this.save()
+            },
+            Button("Delete") {
+              tasks.removeAt(index)
+              this.save()
+            }
+          ])
+    ]
+    Column(content)
+  }
+
+  private Void addTask() {
+    String name = draft.trim()
+    draft = ""
+    if name.isEmpty() { return }
+    tasks.add(Task(title: name))
+    this.save()
+  }
+
+  private Void save() {
+    writeTextAtomic(path: file, text: TaskList(tasks: tasks).toJson(), encoding: TextEncoding.Utf8)
+  }
+}
+
+Module module() {
+  module(dependencies: [dependency(repository: "github", name: "ui", version: 2)])
+}
+
+Void main() {
+  runApp(DesktopApp(title: "Norm Todo", home: Todo()))
+}

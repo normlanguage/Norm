@@ -1,0 +1,12 @@
+Void show(String? value) {
+  if value == null {
+    printLine("none")
+  } else {
+    printLine(value.codePointSize())
+  }
+}
+
+main() {
+  show(value: null)
+  show(value: "Norm")
+}

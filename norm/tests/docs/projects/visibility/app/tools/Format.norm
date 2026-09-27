@@ -1,0 +1,7 @@
+package app.tools
+
+private String prefix() { return "Language: " }
+
+public String heading(String text) {
+  return prefix() + text
+}

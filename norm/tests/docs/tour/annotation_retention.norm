@@ -1,0 +1,15 @@
+import std.annotation.TypeTarget
+import std.annotation.SourceRetention
+import std.annotation.BinaryRetention
+
+annotation CompileHint implements TypeTarget, SourceRetention {}
+annotation CatalogHint implements TypeTarget, BinaryRetention {}
+
+@CompileHint()
+@CatalogHint()
+class Task {}
+
+main() {
+  printLine(Task.class.annotation<CompileHint>() == null)
+  printLine(Task.class.annotation<CatalogHint>() == null)
+}

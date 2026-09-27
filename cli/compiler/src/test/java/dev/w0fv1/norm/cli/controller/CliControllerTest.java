@@ -137,6 +137,10 @@ final class CliControllerTest {
     assertTrue(noArguments.standardOut().contains("Usage: norm <command> [options]"));
     assertTrue(noArguments.standardOut().contains("version"));
     assertTrue(noArguments.standardOut().contains("test"));
+    assertTrue(noArguments.standardOut().contains("hello"));
+    Result helloHelp = run("hello", "-h");
+    assertEquals(ExitCode.SUCCESS, helloHelp.exitCode());
+    assertTrue(helloHelp.standardOut().contains("Usage: norm hello"));
   }
 
   @Test

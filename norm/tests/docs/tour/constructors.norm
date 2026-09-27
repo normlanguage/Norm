@@ -1,0 +1,12 @@
+class Counter {
+  Integer value
+
+  Counter(Integer initial) {
+    this.value = initial
+  }
+}
+
+main() {
+  Counter counter = Counter(initial: 7)
+  printLine(counter.value)
+}

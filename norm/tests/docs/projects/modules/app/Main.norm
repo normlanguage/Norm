@@ -1,0 +1,5 @@
+package app
+
+main() {
+  printLine("Hello from a module")
+}

@@ -1,41 +1,19 @@
-# 01 Hello, Norm
+# 01 程序入口
 
-一个 Norm 程序由 `.norm` 源文件和顶层声明组成。独立脚本只需提供 `main()`。
+独立的 `.norm` 文件从顶层 `main()` 函数开始运行。
 
 <<< ../../../norm/tests/docs/tour/01_hello.norm{norm}
 
 输出：
 
-```text
-Hello, Norm
-```
+<<< ../../../norm/tests/docs/tour/01_hello.out{text}
 
-`main()` 是程序入口。它省略了返回类型，因此是 `Void` 顶层函数。`String language` 使用类型前置声明，`printLine` 是默认可用的核心输出函数。
+花括号中的语句在程序启动时执行。`printLine` 向标准输出写入一行。这里的 `main()` 没有声明结果类型，因此是 `Void` 入口。整个程序只需要这一个源码文件。
 
-## 源码形状
+把上面的代码保存为 `hello.norm`，再使用正式发行版 CLI 在该目录运行 `norm hello.norm`。
 
-- 代码块始终使用大括号；
-- 行尾分号可以省略；
-- 官方 formatter 使用两个空格缩进并省略默认的 `public`；
-- 字符串使用双引号，转义使用反斜杠，`${expression}` 执行类型化插值；
-- 当前 Lexer 不支持源码注释，具体边界见 [Status](/zh/status)。
+动手试试：把问候文字改成你的名字，保存并重新运行。
 
-## 运行
+详细规则：[语言参考](/zh/spec/grammar/declarations)。
 
-从 Release 获取 CLI 后运行：
-
-```shell
-norm run hello.norm
-```
-
-编辑器安装和运行入口见 [Tooling](/zh/tooling/)。完整词法规则见[词法结构](/zh/spec/grammar/lexical)。
-
-将单文件构建为无需安装 Norm 的 Windows 程序：
-
-```shell
-norm build hello.norm
-```
-
-命令在同一目录生成 `hello.norm.exe`。项目输出规则和离线运行契约见[应用构建](/zh/tooling/application-build)。
-
-下一章：[值与绑定](/zh/learn/bindings)。
+下一节：[显式类型与赋值](/zh/learn/bindings)。

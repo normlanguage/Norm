@@ -13,6 +13,36 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class QueryCommandTest {
   @Test
+  void projectsTheAgentShowcaseFromRealQueries() throws Exception {
+    Path source =
+        Path.of(QueryCommandTest.class.getResource("/docs/showcase/agent_document.norm").toURI());
+    Path expected =
+        Path.of(
+            QueryCommandTest.class.getResource("/docs/showcase/agent_document.query.out").toURI());
+    var describe =
+        run("query", source.toString(), "describe", "--source", "--references", "--tests")
+            .getAsJsonObject("query")
+            .getAsJsonObject("context");
+    var taskApi =
+        run("query", source.toString(), "TaskApi", "--source")
+            .getAsJsonObject("query")
+            .getAsJsonObject("context");
+    String projection =
+        "describe.documentation: "
+            + describe.getAsJsonObject("declaration").get("documentation").getAsString()
+            + "\ndescribe.references: "
+            + describe.getAsJsonObject("references").get("total").getAsInt()
+            + "\ndescribe.tests: "
+            + describe.getAsJsonObject("tests").get("total").getAsInt()
+            + "\nTaskApi.documentation: "
+            + taskApi.getAsJsonObject("declaration").get("documentation").getAsString();
+    assertEquals(Files.readString(expected).replace("\r\n", "\n").trim(), projection);
+    String taskApiSource = taskApi.getAsJsonObject("source").get("text").getAsString();
+    assertTrue(taskApiSource.contains("types: [Task.class]"));
+    assertTrue(taskApiSource.contains("functions: [describe.function]"));
+  }
+
+  @Test
   void exposesDefaultParametersAndGenericContracts() throws Exception {
     Path source = directory.resolve("contracts.norm");
     Files.writeString(

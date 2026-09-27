@@ -1,0 +1,12 @@
+Integer adjust(Integer value) {
+  return value + 1
+}
+
+String adjust(String value) {
+  return value + "!"
+}
+
+main() {
+  printLine(adjust(value: 7))
+  printLine(adjust(value: "Norm"))
+}

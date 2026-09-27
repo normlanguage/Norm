@@ -1,0 +1,10 @@
+class Task {
+  String title
+}
+
+main() {
+  Task? missing = null
+  Task? present = Task(title: "Learn Norm")
+  printLine(missing?.title == null)
+  printLine(present?.title)
+}

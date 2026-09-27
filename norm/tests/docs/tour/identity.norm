@@ -1,0 +1,13 @@
+class Counter {
+  Integer value
+}
+
+main() {
+  Counter first = Counter(value: 2)
+  Counter alias = first
+  Counter equalFields = Counter(value: 3)
+  alias.value = 3
+  printLine(first.value)
+  printLine(first == alias)
+  printLine(first == equalFields)
+}

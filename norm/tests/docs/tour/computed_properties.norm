@@ -1,0 +1,18 @@
+class Counter {
+  Integer stored
+
+  Counter(Integer initial) {
+    stored = initial
+  }
+
+  Integer value {
+    get { return stored }
+    set(next) { stored = next }
+  }
+}
+
+main() {
+  Counter counter = Counter(initial: 2)
+  counter.value = 5
+  printLine(counter.value)
+}

@@ -1,0 +1,25 @@
+List<Integer> bubbleSort(List<Integer> values) {
+  for end : range(start: 0, end: values.size()) {
+    for index : range(start: 0, end: values.size() - 1 - end) {
+      if values[index] > values[index + 1] {
+        Integer previous = values[index]
+        values[index] = values[index + 1]
+        values[index + 1] = previous
+      }
+    }
+  }
+  return values
+}
+
+main() {
+  List<Integer> original = [5, 1, 8, 3]
+  List<Integer> sorted = bubbleSort(original)
+  printLine("Original:")
+  for number : original {
+    printLine(number)
+  }
+  printLine("Sorted:")
+  for number : sorted {
+    printLine(number)
+  }
+}

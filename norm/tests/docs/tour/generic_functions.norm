@@ -1,0 +1,10 @@
+T first<T>(T left, T right) {
+  return left
+}
+
+main() {
+  Integer number = first<Integer>(left: 7, right: 9)
+  String label = first<String>(left: "Norm", right: "Java")
+  printLine(number)
+  printLine(label)
+}

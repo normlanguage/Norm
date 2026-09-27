@@ -1,0 +1,11 @@
+String greet(String name, String punctuation = "!") {
+  return "Hello, " + name + punctuation
+}
+
+main() {
+  String ordinary = greet(name: "Norm")
+  String question = greet(name: "Norm", punctuation: "?")
+
+  printLine(ordinary)
+  printLine(question)
+}

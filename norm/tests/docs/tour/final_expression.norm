@@ -1,0 +1,12 @@
+Integer square(Integer value) {
+  value * value
+}
+
+Integer sumOfSquares(Integer first, Integer second) {
+  square(first) + square(second)
+}
+
+main() {
+  printLine(square(5))
+  printLine(sumOfSquares(first: 3, second: 4))
+}

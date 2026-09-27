@@ -1,0 +1,13 @@
+value Entry<T, U> {
+  T first
+  U second
+}
+
+T choose<T>(T left, T right) { return left }
+
+main() {
+  var entry = Entry<>(first: 7, second: "seven")
+  var selected = choose(left: entry.second, right: "other")
+  printLine(entry.first)
+  printLine(selected)
+}

@@ -43,6 +43,12 @@ annotation Label implements TypeTarget, RuntimeRetention {
 
 带 `ref` 参数或返回类型的 callable 不能使用 `FunctionInterceptor`，interface requirement 也不能直接拦截。
 
+这个可执行示例在同一个函数上组合了源码保留的拦截行为与运行时保留的注解：
+
+<<< ../../../norm/tests/docs/language/aop_runtime_metadata.norm{norm}
+
+<<< ../../../norm/tests/docs/language/aop_runtime_metadata.out{text}
+
 ## ParameterInterceptor
 
 实现 `ParameterInterceptor<T>` 的 Annotation 可以覆盖 `before(ParameterContext, T)` 和 `after(ParameterContext, FunctionCompletion)`。`T` 必须与被标参数的声明类型精确一致，`ref<T>` 参数和 interface requirement 参数不能使用参数生命周期。
@@ -77,6 +83,10 @@ API 文档中的 `unitTests` 由测试侧的 `@Test` 关联派生，不是 `@Doc
 Annotation 元数据可以使用标量、声明引用及由这些值递归组成的 `List` 字面量。`List` 表示有序声明元数据；`Array` 不是 Annotation 元数据类型。非 nullable 参数必须显式提供，省略 nullable 参数等价于提供 `null`。完整声明以 [`std.annotation`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/annotation/protocols.norm) 为准。
 
 编译器可直接把保留在语义模型中的 `Document` 与声明、类型和源码位置导出为模块 API 树；命令、文件映射和前端组件见 [API 文档导出](/zh/tooling/api-documentation)。
+
+下面的可执行示例组合了声明上的 `@Document`、受检查的相关声明引用，以及测试侧的 `@Test` 关联：
+
+<<< ../../../norm/tests/docs/language/document_agent.norm{norm}
 
 ## 保留与 Core
 

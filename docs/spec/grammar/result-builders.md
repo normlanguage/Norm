@@ -16,4 +16,10 @@ Each execution of the content callback creates a separate builder. Expression st
 
 Nested event callbacks retain ordinary function semantics. Passing an existing function value directly does not transform that function body. Builder annotations do not change separator rules for ordinary collections.
 
+This executable example combines a result builder with field handles, lexical references, and collection results:
+
+<<< ../../../norm/tests/docs/language/builder_references.norm{norm}
+
+<<< ../../../norm/tests/docs/language/builder_references.out{text}
+
 [ResultBuilderLowering](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/ResultBuilderLowering.java) provides the one frontend transformation; the compiler recognizes no particular UI component names. [ResultBuilderExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ResultBuilderExecutionTest.java) covers execution, generics, diagnostics, and incremental compilation.

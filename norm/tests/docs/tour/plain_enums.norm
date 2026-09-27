@@ -1,0 +1,12 @@
+enum State {
+  Ready,
+  Running,
+  Done
+}
+
+main() {
+  State current = State.Ready
+  printLine(current == State.Ready)
+  current = State.Done
+  printLine(current == State.Done)
+}

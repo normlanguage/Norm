@@ -1,0 +1,14 @@
+import std.build.BuildWith
+import std.build.ResultBuilder
+
+class Words implements ResultBuilder<String, String> {
+  private String text = ""
+  Void add(String value) { text = text + value }
+  String finish() { text }
+}
+
+String words(@BuildWith(Words.class) Function<String()> content) { content() }
+
+main() {
+  printLine(words { "Learn" " " "Norm" })
+}

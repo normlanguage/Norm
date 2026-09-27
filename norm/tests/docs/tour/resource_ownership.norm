@@ -1,0 +1,22 @@
+import std.io.Resource
+import std.io.ResourceOwner
+import std.context.withContext
+import std.observation.onChange
+
+class Owner implements ResourceOwner {
+  List<Resource> resources = []
+  Void own(Resource resource) { resources.add(resource) }
+  Void release(Resource resource) { resources = [for (item : resources) if (item != resource) item] }
+  Void execute(Function<Void()> action) { withContext<ResourceOwner>(value: this, action: action) }
+}
+
+class Task { String title = "Draft" }
+
+main() {
+  Owner owner = Owner()
+  Task task = Task()
+  Resource subscription = withContext<ResourceOwner, Resource>(value: owner, action: () { task.title.onChange {} })
+  printLine(owner.resources.size())
+  subscription.close()
+  printLine(owner.resources.size())
+}

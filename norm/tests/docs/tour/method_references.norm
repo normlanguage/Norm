@@ -1,0 +1,15 @@
+class Counter {
+  Integer value
+
+  Integer add(Integer amount) {
+    value = value + amount
+    return value
+  }
+}
+
+main() {
+  Counter counter = Counter(value: 10)
+  Integer add(Integer amount) = counter.add
+  printLine(add(2))
+  printLine(counter.value)
+}

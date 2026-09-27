@@ -45,3 +45,9 @@ An ordinary top-level function without a return type has declared type `Void`. E
 Otherwise, every normally completing path of a named non-`Void` function must produce a result, using `return value` or a trailing expression. The branches of a trailing if follow the same rule. Interface methods must explicitly declare a return type. See [advanced function rules](/spec/grammar/functions-advanced) for trailing expressions in lambdas.
 
 Functions may be declared at module top level or inside a type. Top-level functions need no class container, and there is no `static` modifier. See [advanced function rules](/spec/grammar/functions-advanced) for overloads and function values.
+
+The executable example combines named and default arguments, argument shorthand, an interface contract, and an `if` result:
+
+<<< ../../../norm/tests/docs/language/calls_interfaces.norm{norm}
+
+<<< ../../../norm/tests/docs/language/calls_interfaces.out{text}

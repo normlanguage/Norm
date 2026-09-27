@@ -63,6 +63,8 @@ for Integer number : numbers {
 
 ## For expressions
 
+This section specifies the planned value-position form. The current compiler accepts statement loops and collection-literal `for` elements, but rejects `for` in a value position; see [Status](/status).
+
 When a loop appears in a value position, successful paths use `break value`, and the `else` produces a value on normal exhaustion:
 
 ```norm

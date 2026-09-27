@@ -1,0 +1,10 @@
+import std.annotation.Document
+
+@Document(description: "Returns a greeting for the named person.")
+String greet(String name) {
+  return "Hello, " + name
+}
+
+main() {
+  printLine(greet(name: "Norm"))
+}

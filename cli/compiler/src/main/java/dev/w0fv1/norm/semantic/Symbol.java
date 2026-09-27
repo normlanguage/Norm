@@ -73,6 +73,20 @@ public record Symbol(
             });
   }
 
+  public Symbol withDocumentation(String description) {
+    return new Symbol(
+        id,
+        name,
+        kind,
+        type,
+        declaration,
+        owner,
+        typeParameters,
+        parameters,
+        description,
+        accessor);
+  }
+
   public Symbol substitute(Map<String, SemanticType> substitutions) {
     if (substitutions.isEmpty()) return this;
     List<TypeParameterInfo> specialized =

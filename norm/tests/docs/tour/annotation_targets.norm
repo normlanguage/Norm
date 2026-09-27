@@ -1,0 +1,13 @@
+import std.annotation.TypeTarget
+import std.annotation.SourceRetention
+
+annotation Label implements TypeTarget, SourceRetention {
+  String text
+}
+
+@Label(text: "task")
+class Task { String title }
+
+main() {
+  printLine(Task(title: "Learn Norm").title)
+}

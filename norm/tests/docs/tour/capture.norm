@@ -1,0 +1,11 @@
+Function<Integer(Integer)> multiplier(Integer factor) {
+  return (Integer number) {
+    number * factor
+  }
+}
+
+main() {
+  Function<Integer(Integer)> triple = multiplier(factor: 3)
+  printLine(triple(4))
+  printLine(triple(7))
+}

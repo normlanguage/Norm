@@ -1,0 +1,45 @@
+value Envelope<T> {
+  T item
+  String origin
+}
+
+String describe(Integer value) {
+  return "number: ${value}"
+}
+
+String describe(String value) {
+  return "text: " + value
+}
+
+Envelope<T> wrap<T>(T item, String origin = "local") {
+  return Envelope<T>(item: item, origin: origin)
+}
+
+String classify(Any candidate) {
+  return switch candidate {
+    case Envelope<Integer> box { break describe(value: box.item) }
+    case Envelope<String> box { break describe(value: box.item) }
+    case _ { break "other" }
+  }
+}
+
+String nested(Any candidate) {
+  return switch candidate {
+    case Envelope<List<Integer>> box { break "list: ${box.item.size()}" }
+    case _ { break "other" }
+  }
+}
+
+main() {
+  Envelope<Integer> count = wrap(item: 7)
+  Envelope<String> name = wrap(item: "Norm", origin: "user")
+  printLine(classify(candidate: count))
+  printLine(classify(candidate: name))
+  printLine(name.origin)
+  Any unknown = wrap(item: true)
+  printLine(classify(candidate: unknown))
+  Envelope<List<Integer>> wrapped = wrap(item: [1, 2, 3])
+  printLine(nested(candidate: wrapped))
+  Envelope<List<String>> words = wrap(item: ["one", "two"])
+  printLine(nested(candidate: words))
+}

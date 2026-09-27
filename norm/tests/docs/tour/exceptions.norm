@@ -1,0 +1,14 @@
+import std.core.Exception
+
+Void fail() {
+  throw Exception(message: "unavailable")
+}
+
+main() {
+  try {
+    fail()
+  } catch Exception error {
+    printLine(error.message)
+  }
+  printLine("continued")
+}

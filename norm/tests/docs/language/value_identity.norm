@@ -1,0 +1,50 @@
+value Position {
+  Integer row
+  Integer column
+}
+
+class Marker {
+  String label
+  Integer visits = 0
+
+  Void visit() {
+    visits = visits + 1
+  }
+}
+
+class Board {
+  Marker marker
+  List<Integer> route
+}
+
+Void appendStep(List<Integer> route) {
+  route.add(9)
+}
+
+main() {
+  Position start = Position(row: 2, column: 3)
+  Position same = Position(row: 2, column: 3)
+  printLine(start == same)
+
+  List<Integer> original = [1, 2]
+  List<Integer> changed = original
+  changed.add(3)
+  appendStep(changed)
+  printLine(original.size())
+  printLine(changed.size())
+
+  Marker marker = Marker(label: "start")
+  Board first = Board(marker: marker, route: original)
+  Board alias = first
+  alias.marker.visit()
+  printLine(first == alias)
+  printLine(first.marker.visits)
+
+  Board copy = first.copy()
+  copy.route.add(4)
+  copy.marker.visit()
+  printLine(first == copy)
+  printLine(first.route.size())
+  printLine(copy.route.size())
+  printLine(first.marker.visits)
+}

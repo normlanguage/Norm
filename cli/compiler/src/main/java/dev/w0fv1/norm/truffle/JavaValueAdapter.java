@@ -95,6 +95,8 @@ final class JavaValueAdapter {
 
   static Object jarValue(CoreType type, Object value, ExecutionState execution) {
     if (value == null) return RuntimeValues.NullValue.INSTANCE;
+    Object guest = mappedGuest(value, execution);
+    if (guest != null) return guest;
     CoreType concrete = nonNullable(type);
     if (concrete instanceof CoreType.Declared declared
         && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin) {
@@ -180,11 +182,8 @@ final class JavaValueAdapter {
         if (execution == null || type == null) {
           throw new IllegalStateException("JAR reference result type is unavailable");
         }
-        if (execution.context().jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
-          Object guest =
-              JavaApplicationBridge.fromJava(runtime.applicationClassLoader(), reference.value());
-          if (guest != null) yield guest;
-        }
+        Object guest = mappedGuest(reference.value(), execution);
+        if (guest != null) yield guest;
         CoreType runtimeType =
             reference.candidates().isEmpty()
                 ? type
@@ -222,6 +221,14 @@ final class JavaValueAdapter {
     if (value instanceof String || value instanceof Number || value instanceof Boolean)
       return value;
     return execution.values().opaque(CoreType.ANY, value, value.getClass().getName());
+  }
+
+  private static Object mappedGuest(Object value, ExecutionState execution) {
+    if (execution != null
+        && execution.context().jarBindingRuntime() instanceof JavaApplicationRuntime runtime) {
+      return JavaApplicationBridge.fromJava(runtime.applicationClassLoader(), value);
+    }
+    return null;
   }
 
   private static CoreType nonNullable(CoreType type) {

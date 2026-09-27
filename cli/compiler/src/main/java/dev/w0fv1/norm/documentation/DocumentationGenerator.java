@@ -1,11 +1,7 @@
 package dev.w0fv1.norm.documentation;
 
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
-import dev.w0fv1.norm.semantic.AnnotationApplication;
-import dev.w0fv1.norm.semantic.AnnotationDeclarationReference;
-import dev.w0fv1.norm.semantic.AnnotationSchema;
-import dev.w0fv1.norm.semantic.AnnotationSite;
-import dev.w0fv1.norm.semantic.AnnotationValue;
+import dev.w0fv1.norm.semantic.DocumentAnnotationIndex;
 import dev.w0fv1.norm.semantic.DocumentSemanticModel;
 import dev.w0fv1.norm.semantic.SemanticModel;
 import dev.w0fv1.norm.semantic.SemanticType;
@@ -16,7 +12,6 @@ import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.syntax.AstNode;
 import dev.w0fv1.norm.syntax.Syntax;
-import dev.w0fv1.norm.value.AnnotationAbi;
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,9 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class DocumentationGenerator {
-  private static final String DOCUMENT = "Document";
-  private static final String DOCUMENT_IDENTITY = AnnotationAbi.PACKAGE + "." + DOCUMENT;
-
   public DocumentationGenerator() {}
 
   public ModuleDocumentation generate(
@@ -544,49 +536,21 @@ public final class DocumentationGenerator {
     var tests = dev.w0fv1.norm.semantic.TestIndex.from(semantics);
     Map<DocumentId, Optional<RawDocument>> packages = new LinkedHashMap<>();
     Map<SymbolId, Optional<RawDocument>> symbols = new LinkedHashMap<>();
-    for (AnnotationApplication application : semantics.annotations().applications()) {
-      AnnotationSchema schema =
-          semantics.annotations().schema(application.annotation()).orElseThrow();
-      Symbol annotation = semantics.symbol(application.annotation()).orElseThrow();
-      if (!schema.name().equals(DOCUMENT)
-          || !annotation.type().identity().equals(DOCUMENT_IDENTITY)) {
-        continue;
-      }
-      Map<String, AnnotationValue> values = new LinkedHashMap<>();
-      for (int index = 0; index < schema.parameters().size(); index++) {
-        values.put(schema.parameters().get(index).name(), application.values().get(index));
-      }
-      RawDocument document =
-          new RawDocument(
-              literal(values.get("description")),
-              references(values.get("types")),
-              references(values.get("functions")),
-              references(values.get("fields")),
-              application.target() instanceof AnnotationSite.Symbol site
-                  ? tests.forDeclaration(site.symbol())
-                  : List.of());
-      switch (application.target()) {
-        case AnnotationSite.Package site -> packages.put(site.document(), Optional.of(document));
-        case AnnotationSite.Symbol site -> symbols.put(site.symbol(), Optional.of(document));
-      }
-    }
+    DocumentAnnotationIndex index = semantics.documentAnnotations();
+    index
+        .packages()
+        .forEach((id, document) -> packages.put(id, Optional.of(raw(document, List.of()))));
+    index
+        .symbols()
+        .forEach(
+            (id, document) ->
+                symbols.put(id, Optional.of(raw(document, tests.forDeclaration(id)))));
     return new DocumentationIndex(packages, symbols, tests);
   }
 
-  private static String literal(AnnotationValue value) {
-    if (value == null || !(value.value() instanceof AnnotationValue.Literal literal)) return "";
-    return literal.value().toString();
-  }
-
-  private static List<SymbolId> references(AnnotationValue value) {
-    if (value == null || value.value() == AnnotationValue.Null.INSTANCE) return List.of();
-    if (!(value.value() instanceof AnnotationValue.ListValue list)) return List.of();
-    return list.values().stream()
-        .map(AnnotationValue::value)
-        .filter(AnnotationDeclarationReference.class::isInstance)
-        .map(AnnotationDeclarationReference.class::cast)
-        .map(AnnotationDeclarationReference::target)
-        .toList();
+  private static RawDocument raw(DocumentAnnotationIndex.Document document, List<SymbolId> tests) {
+    return new RawDocument(
+        document.description(), document.types(), document.functions(), document.fields(), tests);
   }
 
   private Map<SymbolId, DeclarationLink> declarationIds(

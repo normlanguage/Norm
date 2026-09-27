@@ -1,0 +1,17 @@
+enum State {
+  Ready,
+  Running,
+  Done
+}
+
+String label(State state) {
+  return switch state {
+    case Ready { break "ready" }
+    case Running { break "running" }
+    case Done { break "done" }
+  }
+}
+
+main() {
+  printLine(label(state: State.Running))
+}
