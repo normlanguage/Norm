@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { closeSync, existsSync, fstatSync, openSync, readFileSync, readSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -19,7 +19,7 @@ function coordinate(value) {
 }
 
 export function requirements(catalog) {
-  if (catalog?.schemaVersion !== 1) throw new Error('Unsupported toolchain catalog schema');
+  if (catalog?.schemaVersion !== 2) throw new Error('Unsupported toolchain catalog schema');
   if (!Array.isArray(catalog.artifacts) || !Array.isArray(catalog.roots) || !catalog.roots.length || !catalog.dependencies || Array.isArray(catalog.dependencies) || !catalog.purposes) {
     throw new Error('Incomplete toolchain catalog');
   }
@@ -40,7 +40,16 @@ export function requirements(catalog) {
     const primary = coordinate(`${artifact.group}:${artifact.artifact}:${artifact.version}`).coordinate;
     if (typeof artifact.file !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_.+-]*\.jar$/.test(artifact.file) || filenames.has(artifact.file)) throw new Error('Invalid or duplicate artifact filename');
     filenames.add(artifact.file);
-    if (!/^[a-fA-F0-9]{64}$/.test(artifact.sha256)) throw new Error(`Invalid artifact digest: ${primary}`);
+    if (artifact.storage?.kind === 'sealed') {
+      if (!/^[a-fA-F0-9]{64}$/.test(artifact.storage.sha256)) throw new Error(`Invalid artifact digest: ${primary}`);
+    } else if (artifact.storage?.kind === 'system') {
+      if (!isAbsolute(artifact.storage.target) || typeof artifact.storage.automatic !== 'boolean' || !Array.isArray(artifact.storage.moduleRequires) ||
+          artifact.storage.moduleRequires.some(value => typeof value.name !== 'string' || !value.name || typeof value.transitive !== 'boolean')) {
+        throw new Error(`Invalid system artifact storage: ${primary}`);
+      }
+    } else {
+      throw new Error(`Unsupported artifact storage: ${primary}`);
+    }
     if (!Array.isArray(artifact.components) || !artifact.components.includes(primary)) throw new Error(`Artifact must own its primary component: ${primary}`);
     for (const component of artifact.components) {
       coordinate(component);
@@ -315,7 +324,7 @@ function main(args) {
   if (!commandSucceeded(after) || inventory.stdout.split('\n').sort().join('\n') !== after.stdout.split('\n').sort().join('\n')) throw new Error('System package inventory changed during collection');
   const report = makeReport({
     target: values.target,
-    input: { file: resolve(values.catalog), sha256: createHash('sha256').update(bytes).digest('hex'), schemaVersion: 1 },
+    input: { file: resolve(values.catalog), sha256: createHash('sha256').update(bytes).digest('hex'), schemaVersion: 2 },
     environment: { system, architecture: architecture.stdout.trim(), osRelease, node: process.version, installedPackageInventory: inventory.stdout.split('\n').filter(Boolean).sort(), commands },
     findings,
   });

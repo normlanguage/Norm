@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - codex/macos-maven-validation
+      - main
     tags:
       - 'v*.*.*'
   pull_request:
@@ -30,6 +30,11 @@ jobs:
       - name: Check out release sources
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
       - name: Select and validate build version
         id: version
         shell: bash
@@ -49,8 +54,8 @@ jobs:
         id: targets
         shell: bash
         run: |
-          jq -e 'length > 0 and all(.[]; (.runner | type == "string") and (.target | type == "string") and (.platform | type == "string") and (.distribution | type == "string") and (.launcher | type == "string") and ((.standalone == null) or (.standalone | type == "string"))) and (([.[].target] | length) == ([.[].target] | unique | length))' cli/compiler/release-targets.json > /dev/null
-          echo "matrix=$(jq -c '{include: .}' cli/compiler/release-targets.json)" >> "$GITHUB_OUTPUT"
+          matrix="$(node --input-type=module -e 'import { releaseTargets } from "./cli/compiler/scripts/release-model.mjs"; console.log(JSON.stringify({ include: releaseTargets }));')"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   build:
     needs: prepare
@@ -68,6 +73,9 @@ jobs:
           distribution: oracle
           java-version: 25.0.2
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
       - name: Set up release tools
         uses: actions/setup-node@v6
         with:
@@ -83,47 +91,42 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build self-contained CLI
+      - name: Build self-contained Unix CLI and release asset
         if: runner.os != 'Windows'
         shell: bash
-        run: ./mvnw -B -ntp "-Drevision=${{ needs.prepare.outputs.version }}" -Dmaven.test.skip=true -Prelease clean package
+        run: ./gradlew :compiler:packageDistribution "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
-      - name: Build self-contained Windows CLI and executable
+      - name: Build self-contained Windows CLI and release asset
         if: runner.os == 'Windows'
         shell: pwsh
-        run: .\mvnw.cmd -B -ntp "-Drevision=${{ needs.prepare.outputs.version }}" '-Dmaven.test.skip=true' -Prelease clean package
+        run: .\gradlew.bat :compiler:packageDistribution "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
       - name: Package Windows CLI
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path release -Force | Out-Null
-          New-Item -ItemType Directory -Path release-stage -Force | Out-Null
-          Copy-Item -LiteralPath '${{ matrix.distribution }}' -Destination release-stage/norm -Recurse
-          Copy-Item -LiteralPath '${{ matrix.standalone }}' -Destination 'release/norm.exe'
+          New-Item -ItemType Directory -Path build/release-stage -Force | Out-Null
+          Copy-Item -LiteralPath '${{ matrix.distribution }}' -Destination build/release-stage/norm -Recurse
 
       - name: Package Unix CLI
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          mkdir -p release
-          mkdir -p release-stage
-          cp -R '${{ matrix.distribution }}' release-stage/norm
-          archive="release/$(node cli/compiler/scripts/release-model.mjs '${{ needs.prepare.outputs.version }}' '${{ matrix.target }}')"
-          tar -C release-stage -czf "$archive" norm
+          mkdir -p build/release-stage
+          cp -R '${{ matrix.distribution }}' build/release-stage/norm
 
       - name: Upload standalone CLI
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
-          path: release/*
+          path: build/distributions/*
           if-no-files-found: error
 
       - name: Upload self-contained CLI for the universal extension
         uses: actions/upload-artifact@v4
         with:
           name: runtime-${{ matrix.target }}
-          path: release-stage
+          path: build/release-stage
           if-no-files-found: error
 
   package-extension:
@@ -146,22 +149,22 @@ jobs:
       - name: Download self-contained CLIs
         uses: actions/download-artifact@v5
         with:
-          path: binaries
+          path: build/binaries
           pattern: runtime-*
 
       - name: Package universal extension
         run: |
-          find binaries -path '*/norm/bin/norm' -exec chmod +x {} +
+          find build/binaries -path '*/norm/bin/norm' -exec chmod +x {} +
           node cli/extensions/vscode/scripts/release-package.mjs \
             ${{ needs.prepare.outputs.version }} \
-            binaries \
-            release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+            build/binaries \
+            build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
 
       - name: Upload universal extension
         uses: actions/upload-artifact@v4
         with:
           name: extension-universal
-          path: release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
+          path: build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
           if-no-files-found: error
 
   verify:
@@ -178,6 +181,9 @@ jobs:
         with:
           distribution: oracle
           java-version: 25.0.2
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -204,10 +210,10 @@ jobs:
           test -f "docs/en/versions/$release_line.md"
 
       - name: Verify toolchain
-        run: ./mvnw -B -ntp "-Drevision=${{ needs.prepare.outputs.version }}" verify
+        run: ./gradlew qualityCheck "-PnormVersion=${{ needs.prepare.outputs.version }}" --no-daemon
 
       - name: Verify Windows launcher core
-        run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj
+        run: dotnet test cli/launcher/Norm.Launcher.Tests/Norm.Launcher.Tests.csproj --artifacts-path build/dotnet
 
       - name: Verify native build evidence tools
         env:
@@ -227,25 +233,25 @@ jobs:
       - name: Download packaged runtimes
         uses: actions/download-artifact@v5
         with:
-          path: binaries
+          path: build/binaries
           pattern: runtime-*
 
       - name: Download packaged extension
         uses: actions/download-artifact@v5
         with:
           name: extension-universal
-          path: release
+          path: build/distributions
 
       - name: Verify final universal extension
         shell: bash
         run: |
-          find binaries -path '*/norm/bin/norm' -exec chmod +x {} +
-          npm run --prefix cli/extensions/vscode verify:vsix -- ${{ needs.prepare.outputs.version }} "$GITHUB_WORKSPACE/binaries" "$GITHUB_WORKSPACE/release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix"
+          find build/binaries -path '*/norm/bin/norm' -exec chmod +x {} +
+          npm run --prefix cli/extensions/vscode verify:vsix -- ${{ needs.prepare.outputs.version }} "$GITHUB_WORKSPACE/build/binaries" "$GITHUB_WORKSPACE/build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix"
 
   accept:
     needs: [prepare, package-extension]
     env:
-      NORM_TEST_EXTENSION: ${{ github.workspace }}/extracted-extension
+      NORM_TEST_EXTENSION: ${{ github.workspace }}/build/extracted-extension
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
@@ -267,19 +273,19 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: release-${{ matrix.platform }}
-          path: release
+          path: build/distributions
 
       - name: Download final extension
         uses: actions/download-artifact@v5
         with:
           name: extension-universal
-          path: release
+          path: build/distributions
 
       - name: Prepare Windows delivery
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $cli = (Resolve-Path release/norm.exe).Path
+          $cli = (Resolve-Path build/distributions/norm.exe).Path
           "NORM_CLI=$cli" >> $env:GITHUB_ENV
           & $cli setup
           if ($LASTEXITCODE -ne 0) { throw "Setup failed" }
@@ -296,22 +302,22 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          mkdir -p extracted
+          mkdir -p build/extracted
           archive="$(node cli/compiler/scripts/release-model.mjs '${{ needs.prepare.outputs.version }}' '${{ matrix.target }}')"
-          tar -xzf "release/$archive" -C extracted
-          echo "NORM_CLI=$GITHUB_WORKSPACE/extracted/norm/bin/norm" >> "$GITHUB_ENV"
+          tar -xzf "build/distributions/$archive" -C build/extracted
+          echo "NORM_CLI=$GITHUB_WORKSPACE/build/extracted/norm/bin/norm" >> "$GITHUB_ENV"
 
       - name: Verify final CLI and native application
         shell: bash
         run: node cli/compiler/scripts/verify-cli.mjs "$NORM_CLI" "${{ needs.prepare.outputs.version }}"
 
       - name: Extract final extension
-        run: node cli/extensions/vscode/scripts/extract-vsix.mjs "release/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix" extracted-extension "${{ needs.prepare.outputs.version }}"
+        run: node cli/extensions/vscode/scripts/extract-vsix.mjs "build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix" build/extracted-extension "${{ needs.prepare.outputs.version }}"
 
       - name: Verify packaged language server
         working-directory: cli/extensions/vscode
         env:
-          NORM_CLI: ${{ github.workspace }}/extracted-extension/bin/${{ matrix.target }}/norm/${{ matrix.launcher }}
+          NORM_CLI: ${{ github.workspace }}/build/extracted-extension/bin/${{ matrix.target }}/norm/${{ matrix.launcher }}
         run: npm run smoke:lsp
 
       - name: Verify editor integration
@@ -354,34 +360,34 @@ jobs:
       - name: Download release assets
         uses: actions/download-artifact@v5
         with:
-          path: release
+          path: build/distributions
           pattern: release-*
           merge-multiple: true
 
       - name: Download universal extension
         uses: actions/download-artifact@v5
         with:
-          path: release
+          path: build/distributions
           name: extension-universal
           merge-multiple: true
 
       - name: Create checksums
-        working-directory: release
+        working-directory: build/distributions
         run: sha256sum norm* > SHA256SUMS
 
       - name: Generate package manager manifests
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          node cli/compiler/scripts/distribution-manifests.mjs "$VERSION" release package-manifests
-          tar -C package-manifests -czf "release/norm-package-manifests-v$VERSION.tar.gz" .
-          cd release
+          node cli/compiler/scripts/distribution-manifests.mjs "$VERSION" build/distributions build/package-manifests
+          tar -C build/package-manifests -czf "build/distributions/norm-package-manifests-v$VERSION.tar.gz" .
+          cd build/distributions
           sha256sum "norm-package-manifests-v$VERSION.tar.gz" >> SHA256SUMS
 
       - name: Attest release assets
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: release/*
+          subject-path: build/distributions/*
 
       - name: Publish release atomically
         env:
@@ -401,5 +407,5 @@ jobs:
           The Windows and macOS binaries are not code-signed yet, so the operating system may display an origin warning. Verify downloads against SHA256SUMS and the attached build provenance."
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "Norm $VERSION" --generate-notes --notes "$notes"
           fi
-          gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          gh release upload "$GITHUB_REF_NAME" build/distributions/* --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false

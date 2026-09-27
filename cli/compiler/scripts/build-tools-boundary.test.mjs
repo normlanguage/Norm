@@ -5,36 +5,34 @@ import test from 'node:test';
 
 const root = resolve(import.meta.dirname, '../../..');
 const read = name => readFileSync(resolve(root, name), 'utf8');
-const generator = 'dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java';
+const logic = 'gradle/build-logic/src/main/java/dev/w0fv1/norm';
 
-test('Maven has one build-tools generator and golden owner', () => {
-  assert.ok(existsSync(resolve(root, 'build-tools/src/main/java', generator)));
-  assert.ok(!existsSync(resolve(root, 'cli/compiler/src/codegen/java', generator)));
-  assert.ok(existsSync(resolve(root, 'build-tools/src/test/java/dev/w0fv1/norm/codegen/BuiltinAbiGeneratorTest.java')));
-  assert.ok(existsSync(resolve(root, 'build-tools/src/test/resources/codegen/abi-golden.json')));
-  assert.ok(!existsSync(resolve(root, 'cli/compiler/src/test/resources/codegen/abi-golden.json')));
-  assert.match(read('pom.xml'), /<module>build-tools<\/module>/);
-  assert.match(read('cli/compiler/pom.xml'), /<mainClass>dev\.w0fv1\.norm\.codegen\.BuiltinAbiGenerator<\/mainClass>/);
-});
-
-test('build-tools does not acquire product runtime dependencies', () => {
-  const pom = read('build-tools/pom.xml');
-  const dependencies = pom.match(/<dependencies>[\s\S]*?<\/dependencies>/)?.[0];
-  assert.ok(dependencies);
-  assert.doesNotMatch(dependencies, /<artifactId>compiler<\/artifactId>|org\.graalvm/);
-  assert.doesNotMatch(read('build-tools/src/main/java/' + generator), /import dev\.w0fv1\.norm\.(?!codegen)/);
-  assert.ok(!existsSync(resolve(root, 'build-tools/src/main/java/module-info.java')));
-});
-
-test('build metadata generation uses the same Maven build-tools boundary', () => {
-  assert.ok(existsSync(resolve(root, 'build-tools/src/main/java/dev/w0fv1/norm/codegen/BuildMetadataGenerator.java')));
-  assert.ok(existsSync(resolve(root, 'build-tools/src/test/java/dev/w0fv1/norm/codegen/BuildMetadataGeneratorTest.java')));
-  assert.match(read('cli/compiler/pom.xml'), /<mainClass>dev\.w0fv1\.norm\.codegen\.BuildMetadataGenerator<\/mainClass>/);
-});
-
-test('toolchain CI observes the Maven build inputs', () => {
-  const workflow = read('.github/workflows/toolchain.yml');
-  for (const path of ['build-tools/**', 'build-maven-plugin/**', '.mvn/**', 'pom.xml', 'mvnw']) {
-    assert.equal(workflow.split(`- '${path}'`).length - 1, 2, path);
+test('Gradle has one build-logic owner for generators and their golden data', () => {
+  for (const name of ['BuiltinAbiGenerator', 'BuildMetadataGenerator']) {
+    assert.ok(existsSync(resolve(root, `${logic}/codegen/${name}.java`)));
+    assert.ok(existsSync(resolve(root, `gradle/build-logic/src/test/java/dev/w0fv1/norm/codegen/${name}Test.java`)));
   }
+  assert.ok(existsSync(resolve(root, 'gradle/build-logic/src/test/resources/codegen/abi-golden.json')));
+  assert.ok(!existsSync(resolve(root, 'build-tools')));
+  assert.ok(!existsSync(resolve(root, 'build-maven-plugin')));
+});
+
+test('Gradle included build is the only build-tool entry', () => {
+  assert.match(read('settings.gradle.kts'), /includeBuild\("gradle\/build-logic"\)/);
+  assert.match(read('cli/compiler/build.gradle.kts'), /norm\.compiler/);
+  for (const name of ['pom.xml', 'cli/compiler/pom.xml', 'build-tools/pom.xml']) {
+    assert.ok(!existsSync(resolve(root, name)), name);
+  }
+  assert.ok(!existsSync(resolve(root, '.mvn')));
+  assert.ok(!existsSync(resolve(root, 'mvnw')));
+});
+
+test('resolved graph reaches the shared schema two catalog generator', () => {
+  assert.match(read(`${logic}/packaging/ToolchainArtifactCatalogGenerator.java`), /schemaVersion", 2/);
+  const plugin = read(`${logic}/gradle/NormCompilerPlugin.java`);
+  const adapter = read(`${logic}/gradle/GenerateToolchainCatalog.java`);
+  assert.match(plugin, /GenerateToolchainCatalog/);
+  assert.match(adapter, /ToolchainArtifactCatalogGenerator\.generate/);
+  assert.match(plugin, /RuntimeModuleAssembler/);
+  assert.doesNotMatch(plugin, /schemaVersion", 1/);
 });

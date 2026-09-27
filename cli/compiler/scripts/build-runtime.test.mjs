@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { buildRuntime } from './build-runtime.mjs';
 
-test('runtime build invokes the repository Maven wrapper', () => {
+test('runtime build invokes the repository Gradle wrapper', () => {
   const root = mkdtempSync(join(tmpdir(), 'norm-runtime-wrapper-'));
   try {
-    const wrapper = join(root, process.platform === 'win32' ? 'mvnw.cmd' : 'mvnw');
+    const wrapper = join(root, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
     const record = join(root, 'invocation.txt');
     const script = process.platform === 'win32'
       ? `@echo off\r\necho %* > "${record}"\r\n`
@@ -16,9 +16,9 @@ test('runtime build invokes the repository Maven wrapper', () => {
     writeFileSync(wrapper, script);
     if (process.platform !== 'win32') chmodSync(wrapper, 0o755);
     const runtime = buildRuntime(root);
-    assert.equal(runtime, join(root, 'cli', 'compiler', 'target', 'norm-runtime'));
+    assert.equal(runtime, join(root, 'build', 'compiler', 'norm-runtime'));
     assert.ok(existsSync(record));
-    assert.match(readFileSync(record, 'utf8'), /-DskipTests package/);
+    assert.match(readFileSync(record, 'utf8'), /:compiler:installRuntimeDist --no-daemon/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

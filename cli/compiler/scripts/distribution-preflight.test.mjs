@@ -10,10 +10,10 @@ import { requirements, probeDebian, probeFedora, makeReport, renderReport, runCo
 const digest = 'a'.repeat(64);
 const artifact = (coordinate, components = [coordinate]) => {
   const [group, name, version] = coordinate.split(':');
-  return { file: `${name}-${version}.jar`, group, artifact: name, version, components, sha256: digest };
+  return { file: `${name}-${version}.jar`, group, artifact: name, version, components, storage: { kind: 'sealed', sha256: digest } };
 };
 const catalog = () => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   artifacts: [artifact('test:root:1', ['test:root:1', 'test:merged:1']), artifact('test:child:2')],
   roots: ['test:root:1'],
   dependencies: { 'test:root:1': ['test:merged:1', 'test:child:2'], 'test:merged:1': [], 'test:child:2': [] },
@@ -55,12 +55,13 @@ test('metadata-only graph nodes are not silently dropped or classified as JARs',
   assert.equal(requirements(input).find(x => x.artifact === 'bom').kind, 'metadata');
 });
 
-test('unknown schema versions are rejected', () => assert.throws(() => requirements({ ...catalog(), schemaVersion: 2 }), /schema/i));
+test('unknown schema versions are rejected', () => assert.throws(() => requirements({ ...catalog(), schemaVersion: 1 }), /schema/i));
 test('truncated graphs are rejected', () => { const input = catalog(); delete input.dependencies['test:child:2']; assert.throws(() => requirements(input), /absent/i); });
 test('overlapping physical ownership is rejected', () => { const input = catalog(); input.artifacts.push(artifact('test:merged:1')); assert.throws(() => requirements(input), /owner/i); });
 test('a primary component must be owned by its artifact', () => { const input = catalog(); input.artifacts[0].components = ['test:merged:1']; assert.throws(() => requirements(input), /primary/i); });
 test('path traversal coordinates are rejected', () => { const input = catalog(); input.dependencies['../evil:x:1'] = []; assert.throws(() => requirements(input), /coordinate/i); });
-test('invalid artifact digests are rejected', () => { const input = catalog(); input.artifacts[0].sha256 = 'no'; assert.throws(() => requirements(input), /digest/i); });
+test('invalid sealed artifact digests are rejected', () => { const input = catalog(); input.artifacts[0].storage.sha256 = 'no'; assert.throws(() => requirements(input), /digest/i); });
+test('system artifacts require an absolute target and module metadata', () => { const input = catalog(); input.artifacts[0].storage = { kind: 'system', target: '/usr/share/java/root.jar', automatic: false, moduleRequires: [] }; assert.equal(requirements(input).length, 3); input.artifacts[0].storage.target = 'relative.jar'; assert.throws(() => requirements(input), /storage/i); });
 test('unreachable dependency nodes are rejected', () => { const input = catalog(); input.dependencies['test:stray:1'] = []; assert.throws(() => requirements(input), /unreachable/i); });
 test('every root needs an explicit purpose', () => { const input = catalog(); input.purposes.execution = []; assert.throws(() => requirements(input), /purpose/i); });
 
