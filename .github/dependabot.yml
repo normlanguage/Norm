@@ -1,7 +1,9 @@
 version: 2
 updates:
-  - package-ecosystem: maven
-    directory: /
+  - package-ecosystem: gradle
+    directories:
+      - /
+      - /gradle/build-logic
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
