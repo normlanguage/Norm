@@ -1,83 +1,83 @@
-# 设计原则
+# Design principles
 
-语言哲学说明 Norm 重视什么，本页定义一个功能怎样才能进入语言、标准库或官方工具链。它们是面向演进的工程准则，不是语法功能列表。
+The language philosophy describes what Norm values. This page defines how a feature qualifies for the language, standard library, or official toolchain. These are engineering principles for evolution, not a list of syntax features.
 
-## 1. 为可观察行为建立唯一规则
+## 1. Define one rule for observable behavior
 
-同一种语法在不同上下文中应保持同一种含义。名称解析、求值顺序、复制、相等、nullability 和失败传播不能由框架或后端临时重定义。
+The same syntax should mean the same thing in different contexts. Frameworks and backends must not redefine name resolution, evaluation order, copying, equality, nullability, or failure propagation for their own needs.
 
-当一项能力需要特殊行为时，应先确定它属于语言、标准库还是应用平台，并在对应层建立唯一契约。实现优化和宿主 adapter 只能实现这份契约，不能成为第二套语义来源。
+When a capability needs special behavior, first determine whether it belongs to the language, standard library, or application platform, then establish one contract at that layer. Optimizations and host adapters implement that contract; they must not become independent sources of semantics.
 
-## 2. 用不同类型表达不同数据关系
+## 2. Represent different data relationships with different types
 
-结构数据、对象身份和存储位置是三种不同关系，因此分别使用 `value`、`class` 和 `ref<T>`。普通缺失、业务结果和系统异常同样分开表达。
+Structural data, object identity, and storage locations are different relationships, represented by `value`, `class`, and `ref<T>`. Ordinary absence, business outcomes, and system exceptions are also expressed separately.
 
-如果一个抽象要求调用方根据文档猜测“这个对象究竟会不会共享”或“这个错误究竟会不会抛出”，说明类型边界还不完整。
+If an abstraction makes callers guess from documentation whether an object is shared or an error is thrown, its type boundary is incomplete.
 
-## 3. 信息留在最需要它的位置
+## 3. Keep information where readers need it
 
-声明处决定长期契约，调用点保留理解当前操作所需的信息。
+Declarations establish long-term contracts. Call sites retain the information needed to understand the current operation.
 
-- 普通类型非空，允许 null 时写 `?`；
-- 多个参数保留标签，参数名属于公开调用约定；
-- 控制流表达式在产生结果的位置写 `break`；
-- extension 必须显式声明和导入；
-- 反射使用 reified 类型参数进入，不接收类型名字符串。
+- Ordinary types are non-null; write `?` when null is permitted.
+- Multiple arguments retain labels; parameter names belong to the public calling convention.
+- Control-flow expressions use `break` where they produce a result.
+- Extensions require explicit declaration and import.
+- Reflection starts from reified type parameters rather than type-name strings.
 
-显式信息应当稳定且有辨识度。重复类型、无意义包装和可以可靠推断的局部细节不属于这个原则。
+Explicit information should be stable and distinctive. Repeated types, meaningless wrappers, and reliably inferable local details do not serve this principle.
 
-## 4. 高级能力仍然服从普通规则
+## 4. Advanced capabilities follow ordinary rules
 
-新增能力不应旁路名称解析、类型检查、可见性和求值顺序。
+New capabilities must not bypass name resolution, type checking, visibility, or evaluation order.
 
-Extension function 复用顶层函数和重载解析；Annotation 是普通 aggregate，并通过名义策略 interface 获得目标、保留和生命周期；结构序列化读取 Core 类型与字段 metadata；模块描述本身也是经过 Norm 编译和求值的程序。
+Extension functions reuse top-level functions and overload resolution. Annotations are ordinary aggregates whose nominal policy interfaces provide targets, retention, and lifecycles. Structural serialization reads Core types and field metadata. Module descriptors are themselves programs compiled and evaluated by Norm.
 
-如果一项能力只能依靠宏 DSL、classpath 扫描、字符串方法名或隐式全局注册才能工作，应先重新设计底层语言边界。
+If a capability requires a macro DSL, classpath scanning, string-based method names, or implicit global registration, reconsider the underlying language boundary first.
 
-## 5. 默认行为服务长期应用代码
+## 5. Defaults serve long-lived application code
 
-Norm 优先考虑后端服务、业务系统、工具和桌面应用，而不是内核、硬实时或极端类型级编程。
+Norm prioritizes backend services, business systems, tools, and desktop applications rather than kernels, hard real-time systems, or extreme type-level programming.
 
-因此语言选择垃圾回收、非空默认、名义类型和确定赋值；标准库选择有界读取、确定性资源关闭和类型化领域异常；工具链选择自包含 CLI 与一致的编辑器语义。
+The language therefore chooses garbage collection, non-null defaults, nominal types, and definite assignment. The standard library chooses bounded reads, deterministic resource closure, and typed domain exceptions. The toolchain chooses self-contained CLIs and consistent editor semantics.
 
-默认值应让普通代码安全、清楚，少数特殊需求再通过显式 API 进入。
+Defaults should make ordinary code safe and clear; explicit APIs handle less common requirements.
 
-## 6. 语言、标准库、平台和工具链保持分层
+## 6. Separate language, standard library, platform, and toolchain
 
-| 层次 | 职责 |
+| Layer | Responsibility |
 | --- | --- |
-| 语言 | 类型、值、调用、控制流和求值语义 |
-| 标准库 | 集合、I/O、时间、文件、HTTP、serialization 等通用 API |
-| 应用平台 | Web server、数据库、配置、依赖注入和部署模型 |
-| 工具链 | 编译、Core、LSP、测试、打包和发布 |
+| Language | Types, values, calls, control flow, and evaluation semantics |
+| Standard library | General APIs for collections, I/O, time, files, HTTP, serialization, and related capabilities |
+| Application platform | Web servers, databases, configuration, dependency injection, and deployment models |
+| Toolchain | Compilation, Core, LSP, testing, packaging, and release |
 
-下层不应知道上层框架。HTTP 核心 body 使用 `Bytes`，JSON 组合位于独立入口；反射提供结构能力，serialization 再决定映射规则。这类分层让能力可以组合，而不会把某个格式或框架写进语言。
+Lower layers should not know higher-level frameworks. Core HTTP bodies use `Bytes`, with JSON composition exposed separately. Reflection provides structural capabilities, while serialization determines mapping rules. This layering supports composition without embedding a particular format or framework into the language.
 
-## 7. 一个事实只定义一次
+## 7. Define each fact once
 
-可生成或派生的信息不手工维护第二份。
+Do not maintain a second handwritten copy of information that can be generated or derived.
 
-内建 ABI 由声明式 schema 生成；编译器和 LSP 读取同一 `SemanticModel`；JSON、XML 与 YAML 复用同一 serialization shape；网站 base、manifest 和公开 URL 由同一配置派生。
+Declarative schemas generate the builtin ABI. The compiler and LSP read the same `SemanticModel`. JSON, XML, and YAML share serialization shapes. One configuration supplies the website base, manifest, and public URLs.
 
-文档负责解释概念、边界和导航。实现细节已经由代码唯一确定时，文档链接到源码或 API，而不是复制一份容易漂移的逻辑。
+Documentation explains concepts, boundaries, and navigation. Where code already defines an implementation detail, link to that source or API instead of copying logic that can drift.
 
-## 8. 优化位于语义之下
+## 8. Optimize beneath the semantic boundary
 
-Core canonicalization、definition store、Truffle specialization、结构共享和运行时打包都可以改变程序的表示与执行方式，但不能改变可观察行为。
+Core canonicalization, definition stores, Truffle specialization, structural sharing, and runtime packaging may change program representation and execution, but must preserve observable behavior.
 
-后端必须消费已解析的 canonical Core，不能重新执行语言级重载或类型推断。缓存以强类型 identity 和真实依赖作为失效边界，不能用文件时间或字符串 key 模拟语义身份。
+Backends consume resolved canonical Core and must not repeat language-level overload resolution or type inference. Cache invalidation follows typed identities and actual dependencies, rather than using file timestamps or string keys as substitutes for semantic identity.
 
-## 功能进入项目前的检查
+## Questions before accepting a feature
 
-一项新能力至少应能回答：
+A proposed capability should answer at least these questions:
 
-1. 它解决的是语言问题、通用系统能力还是应用框架问题？
-2. 调用者能否从类型和源码看出共享、失败与生命周期？
-3. 它是否复用现有名称解析、类型、调用和资源协议？
-4. 它会不会建立新的 metadata、配置或执行真相源？
-5. 编译器、LSP、测试和正式发行包是否观察同一行为？
-6. 删除旧路径后，整体概念数是否仍然可控？
+1. Does it solve a language problem, provide a general system capability, or address an application-framework concern?
+2. Can callers understand sharing, failure, and lifecycles from types and source?
+3. Does it reuse existing name-resolution, type, call, and resource protocols?
+4. Would it create a new source of truth for metadata, configuration, or execution?
+5. Do the compiler, LSP, tests, and official distribution observe the same behavior?
+6. After removing the old path, does the overall number of concepts remain manageable?
 
-不能清楚回答这些问题时，继续增加 API 通常只会把结构性问题推迟到未来。
+When these questions cannot be answered clearly, adding more APIs usually postpones a structural problem.
 
-下一篇：[设计白皮书](/guide/design-whitepaper)。
+Next: [Language design white paper](/guide/design-whitepaper).

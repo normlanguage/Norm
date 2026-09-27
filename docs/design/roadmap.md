@@ -1,25 +1,25 @@
-# 路线图
+# Roadmap
 
-路线图以 Norm 1.0 为目标，并遵循[实现策略决议](/design/implementation-strategy)：核心工具链使用 Java，执行后端使用 Truffle，CLI 使用自带 Java runtime 的发行包，Zig 不进入核心实现。
+The roadmap targets Norm 1.0 and follows the [implementation strategy](/design/implementation-strategy): the core toolchain uses Java, Truffle is the execution backend, and the CLI is delivered with a bundled Java runtime. Zig is outside the core implementation.
 
-已交付版本不在路线图中重复描述，统一查看[版本索引](/versions/)。
+Delivered versions are recorded in the [version index](/versions/) rather than duplicated here.
 
-## 语言前端
+## Language frontend
 
-固化词法、Parser、名称解析、名义类型系统、nullable、确定赋值、命名参数和控制流表达式。语法树、SemanticModel、诊断和语言服务共享同一套声明与类型信息。
+Stabilize lexical rules, parsing, name resolution, the nominal type system, nullability, definite assignment, named arguments, and control-flow expressions. The syntax tree, SemanticModel, diagnostics, and language services share one set of declaration and type information.
 
-## 对象与类型
+## Objects and types
 
-完成 class 继承、value、`ref<T>` 和其余 1.0 对象模型，并建立 conformance tests。
+Complete class inheritance, values, `ref<T>`, and the rest of the 1.0 object model, backed by conformance tests.
 
-## Core IR 与执行
+## Core IR and execution
 
-以 canonical Core 作为唯一后端输入，持续完善 definition store、依赖索引、artifact cache 与可观测性。CLI、Language Server、测试和独立 Java binding 使用同一 JVM 执行模型。
+Keep canonical Core as the sole backend input while improving the definition store, dependency index, artifact cache, and observability. The CLI, Language Server, tests, and standalone Java bindings share one JVM execution model.
 
-## 模块与标准库
+## Modules and standard library
 
-完成 1.0 标准库其余核心 API，覆盖集合、I/O、时间、并发和 Java interop。
+Complete the remaining core 1.0 standard-library APIs for collections, I/O, time, concurrency, and Java interoperability.
 
-## 工具与发布
+## Tools and releases
 
-完成增量 LSP、formatter、调试与 profiling 接口、包管理器、Registry、兼容策略和发布流程。1.0 候选版冻结语言规范、诊断 code、标准库核心 API 与工具链协议。
+Complete incremental LSP support, formatter, debugging and profiling interfaces, package manager, Registry, compatibility policy, and release process. The 1.0 release candidate freezes the language specification, diagnostic codes, core standard-library APIs, and toolchain protocols.

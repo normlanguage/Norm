@@ -1,5 +1,5 @@
-# 泛型不变性
+# Generic invariance
 
-Norm 的参数化类型保持不变。`List<Circle>` 与 `List<Shape>` 是不同类型，二者不可直接赋值；nullable 也不会改变这一规则。
+Norm parameterized types are invariant. `List<Circle>` and `List<Shape>` are distinct types and cannot be assigned directly to each other; nullability does not change this rule.
 
-通用读写能力由显式 interface 和泛型约束表达。当前类型语法不包含使用位置通配符。
+General read and write capabilities are expressed through explicit interfaces and generic constraints. The current type syntax has no use-site wildcards.

@@ -1,6 +1,6 @@
 # `Map<K, V>`
 
-Map 把唯一键映射到值，键和值类型都必须完整声明。
+Map associates unique keys with values. Both key and value types must be fully declared.
 
 ```norm
 Map<String, Integer> counts = Map<>()
@@ -11,9 +11,9 @@ if counts.containsKey("open") {
 }
 ```
 
-## 缺失值
+## Missing values
 
-`map[key]` 要求键存在。`get(key:)` 在键不存在时返回 nullable value；需要区分缺失键和已保存的 nullable 值时使用 `containsKey(key:)`：
+`map[key]` requires the key to exist. `get(key:)` returns a nullable value when it does not. Use `containsKey(key:)` to distinguish a missing key from a stored nullable value:
 
 ```norm
 Integer value = 0
@@ -24,8 +24,8 @@ if counts.containsKey("closed") {
 Integer? optionalValue = counts.get(key: "closed")
 ```
 
-## 键规则
+## Key rules
 
-Map 使用语言内建且一致的 equality 与 hash：value 键按结构递归计算，class 键按对象 identity 计算。`Equatable` 与 `Hashable` 不替换这套规则。Map 插入键和值时遵循各自的数据类别语义。
+Map uses the language's consistent built-in equality and hash rules: value keys are computed recursively by structure, while class keys use object identity. `Equatable` and `Hashable` do not replace these rules. Inserting keys and values follows the semantics of their respective data categories.
 
-通用 Map 不承诺遍历顺序。需要插入顺序或排序时使用 OrderedMap 或 SortedMap，并显式提供 comparator。Map 自身遵循 value 语义。
+A general Map does not promise iteration order. Use OrderedMap or SortedMap with an explicit comparator when insertion or sorted order is needed. Map itself has value semantics.

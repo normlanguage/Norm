@@ -1,6 +1,6 @@
-# 模块系统
+# Module system
 
-模块定义生产与测试源码集合及其跨 package 公开边界。模块身份由唯一的零参数 `Module module()` 声明决定，而不是由文件名决定。目录项目通常把它放在 `<source-root>/<module-name-path>/module.norm`，并把应用入口放在同目录的 `application.norm`；单文件应用可以在任意 `.norm` 文件中同时声明模块、业务代码和应用入口：
+A module defines production and test source sets and its public boundary across packages. Module identity comes from a unique zero-argument `Module module()` declaration, not a file name. Directory projects usually put it at `<source-root>/<module-name-path>/module.norm` and the application entry in `application.norm` beside it. A single-file application may declare the module, business code, and application entry together in any `.norm` file:
 
 ```norm
 Module module() {
@@ -10,13 +10,13 @@ Module module() {
 }
 ```
 
-项目启动时，工具链先隔离求值 `Module module()`，再建立业务源码的 `ProjectSourceSet`。存在零参数 `Application application()` 且不存在显式 `Void main()` 时，工具链生成同 package 的隐藏入口并调用 `application().run()`；返回对象的静态类型必须提供 `Void run()`。目录项目使用 `norm run <module-directory>`，单文件应用使用 `norm <file.norm>` 或等价的 `norm run <file.norm>`。
+At project startup, the toolchain first evaluates `Module module()` in isolation, then establishes the business source `ProjectSourceSet`. If there is a zero-argument `Application application()` but no explicit `Void main()`, the toolchain generates a hidden entry in the same package and calls `application().run()`; the returned object's static type must provide `Void run()`. A directory project uses `norm run <module-directory>`. A single-file application uses `norm <file.norm>` or equivalently `norm run <file.norm>`.
 
-`Module`、`ModuleRequirement`、`module(...)`、`dependency(...)` 和 `exportedDependency(...)` 由 bootstrap 源码定义。参数化的 `module(...)` 是返回 `Module` 实现的普通 Norm 工厂，零参数 `module()` 是用户入口。模块配置可以声明普通类型与函数、实现自己的 `Module`，也可以导入标准库。
+`Module`, `ModuleRequirement`, `module(...)`, `dependency(...)`, and `exportedDependency(...)` are defined by bootstrap source. The parameterized `module(...)` is an ordinary Norm factory returning a `Module` implementation; zero-argument `module()` is the user's entry. Module configuration may declare ordinary types and functions, implement its own `Module`, and import the standard library.
 
-`name` 是点分隔的模块名，也是正式模块内 package 的共同前缀。单文件本地应用可以同时省略 `package`、`name` 和 `version`，工具链为本次构建分配不可发布的内部身份；声明 `package` 但省略 `name` 时从 package 推导。目录模块省略 `name` 时从源码 package 与目录映射推导，无法唯一推导就必须显式声明。工具链 prelude 使用的 `std`、`norm.bootstrap` 和以双下划线开头的内部身份是保留模块名。`version` 是正整数发布版本；省略时模块具有版本为 `0` 的本地身份且不能发布。`exports` 默认为空，只声明供其他 Module 使用的公开源码；应用自身和模块内部 package 不需要导出入口或实现。无 package 的单文件应用不能声明 exports。
+`name` is a dot-separated module name and the shared package prefix of a formal module. A local single-file application may omit `package`, `name`, and `version` together; the toolchain assigns an unpublishable internal identity for that build. When it declares a package but omits `name`, the name is derived from the package. For a directory module without `name`, the source package and directory mapping determine it; if derivation is not unique, it must be explicit. Module names `std`, `norm.bootstrap`, and internal identities beginning with two underscores are reserved for the toolchain prelude. `version` is a positive integer release version. Omitting it gives a local identity with version `0` that cannot be published. `exports` defaults to empty and names only public source made available to other Modules; the application and internal packages need not export their entries or implementations. A single-file application without a package cannot declare exports.
 
-`dependencies` 由仓库、模块名和可选版本组成。省略版本时，仓库选择最新稳定版本，再由项目加载器转成精确依赖图；NAR 只保存精确版本：
+`dependencies` consist of repository, module name, and optional version. Without a version, the repository selects the latest stable release, then the project loader converts it into an exact dependency graph. A NAR stores exact versions only:
 
 ```norm
 Module module() {
@@ -26,27 +26,27 @@ Module module() {
 }
 ```
 
-本地依赖位于 `<project-root>/dependencies/<module-name-path>/module.norm`，点分隔模块名按目录展开。同一坐标只从项目依赖仓库解析一次；工具链递归求值依赖配置，校验返回坐标与声明完全一致，拒绝依赖环、同名模块的多版本选择，以及由多个模块共同拥有同一 package 的 split package。
+Local dependencies are at `<project-root>/dependencies/<module-name-path>/module.norm`, with dotted module names expanded into directories. The same coordinate is resolved only once from project dependency repositories. The toolchain recursively evaluates dependency configurations, verifies that returned coordinates exactly match their declarations, and rejects dependency cycles, selection of multiple versions of one module, and split packages owned by multiple modules.
 
-## 源文件映射
+## Source-file mapping
 
-项目系统把模块名和导出名连接后，将点替换为目录分隔符并添加 `.norm`。模块 `std` 的 `collections.sequences` 映射为：
+The project system joins the module name and export name, replaces dots with directory separators, and appends `.norm`. For module `std`, `collections.sequences` maps to:
 
 ```text
 std/collections/sequences.norm
 ```
 
-该文件必须声明 `package std.collections`。文件名不参与 package 名，但用于确定导出的具体源码文件。
+That file must declare `package std.collections`. Its file name does not determine the package name, but selects the concrete exported source file.
 
 ## Source set
 
-单独加载、分析或测试 `dependencies` 中的模块时，项目根仍是包含该依赖目录的工作区根；本地依赖与归档依赖的虚拟源码使用同一根目录。
+When a module in `dependencies` is loaded, analyzed, or tested independently, the project root remains the workspace root containing that dependency directory. Local dependencies and virtual source from archived dependencies use the same root.
 
-存在根模块配置时，source set 包含根模块及其依赖图中的业务 `.norm` 源码，排除所有配置文件和未声明的嵌套模块。正式模块中每个业务源码的相对目录必须与其 package 一一对应，并位于所属模块名的 package 前缀下；无 package 的单文件本地应用直接使用默认命名空间。带 package 声明且位于 package 目录内的同名文件是普通业务源码。
+With a root module configuration, the source set contains business `.norm` source in the root module and its dependency graph, excluding all configuration files and undeclared nested modules. In a formal module, each business source file's relative directory must correspond exactly to its package and lie under the owning module name's package prefix. A local single-file application without a package uses the default namespace. A same-named file with a package declaration in a package directory is ordinary business source.
 
-Language Server 合并未保存内容后执行同一项目加载生命周期，因此编辑器、CLI 和测试工具读取一致的模块描述和 source set。没有相邻 `module.norm` 但当前文件声明 `Module module()` 时，该文件就是模块根；没有模块声明时，入口按独立单文件编译单元处理。
+The Language Server overlays unsaved content before running the same project-loading lifecycle. Editors, the CLI, and test tools thus read the same module description and source set. If there is no adjacent `module.norm` but the current file declares `Module module()`, that file is the module root. Without a module declaration, the entry is treated as an independent single-file compilation unit.
 
-模块配置中的 `sources` 与 `tests` 分别声明生产和测试源码目录，默认是 `["."]` 与 `["tests"]`，相对于 `module.norm` 所在目录。每个目录以模块名作为 package 前缀：模块 `sample` 的 `src/math/value.norm` 在 `sources: ["src"]` 下声明 `package sample.math`；`tests/math/value_test.norm` 在 `tests: ["tests"]` 下也可声明同一 package。
+`sources` and `tests` in module configuration declare production and test source directories, defaulting to `["."]` and `["tests"]` relative to the directory containing `module.norm`. Each directory uses the module name as a package prefix: in module `sample`, `src/math/value.norm` under `sources: ["src"]` declares `package sample.math`, while `tests/math/value_test.norm` under `tests: ["tests"]` may declare the same package.
 
 ```norm
 Module module() {
@@ -54,12 +54,12 @@ Module module() {
 }
 ```
 
-不同源码目录可以共同组成同一模块内的 package，但不能包含重复的逻辑源码路径。更具体的配置目录决定源码所属集合。目录不能越出模块根；测试源码不能被 `exports` 导出。`std` 与 `std.test` 是不同 package，可由同一个 `std` 模块拥有；外部模块不能仅靠声明同名 package 加入该模块。
+Different source directories may contribute to one package in a module but cannot duplicate a logical source path. The most specific configured directory determines a file's source set. Directories cannot escape the module root, and test source cannot be exported through `exports`. `std` and `std.test` are distinct packages that one `std` module may own; an external module cannot join it merely by declaring the same package name.
 
-普通编译和发布仅加载生产源码；测试和编辑器分析加载根模块的生产及测试源码，依赖模块只加载生产源码。生产声明在测试分析中也不能引用测试声明，`private` 仍然保持文件私有。测试函数规范见 [测试 API](/stdlib/testing-api)。
+Ordinary compilation and publication load only production source. Tests and editor analysis load the root module's production and test source, while dependency modules load production source only. Even during test analysis, production declarations cannot depend on test declarations; `private` remains file-private. See the [testing API](/stdlib/testing-api) for test-function rules.
 
-## 可见范围
+## Visibility
 
-同一模块、同一 package 的源码文件自动加载并可以直接引用彼此的 `public` 声明；同一模块跨 package 使用显式 import，但不要求 `exports`。跨模块 import 只能访问目标模块 `exports` 指定文件中的 `public` 声明，并要求目标模块是当前模块的直接依赖，或由直接依赖通过 `exportedDependency(...)` 明确导出。普通传递依赖不会获得可见性。组合 Module 使用导出依赖提供稳定的平台边界，应用只声明组合 Module。`private` 始终限制在声明文件内。标准库是工具链显式加入每个模块读取边界的隐式依赖。
+Source files in the same module and package load automatically and can refer directly to each other's `public` declarations. Cross-package use within one module requires an explicit import but not `exports`. A cross-module import can reach only `public` declarations in files selected by the target module's `exports`, and only when the target is a direct dependency or is explicitly exposed by a direct dependency through `exportedDependency(...)`. Ordinary transitive dependencies do not become visible. A composite Module can export dependencies to provide a stable platform boundary, leaving an application to declare only the composite Module. `private` is always limited to the declaring file. The standard library is an implicit dependency that the toolchain explicitly adds to every module's read boundary.
 
-标准库首先使用 module bootstrap 求值自己的 `module.norm`，再成为用户模块配置和业务程序共同使用的 prelude。项目生命周期的实现入口见 `cli/compiler` 的 `project` package，bootstrap 协议的单一实现见 `cli/compiler/src/main/resources/bootstrap/module.norm`。
+The standard library first evaluates its own `module.norm` through module bootstrap, then becomes the prelude shared by user module configurations and business programs. The project-lifecycle implementation entry is the `project` package in `cli/compiler`; the single bootstrap-protocol implementation is `cli/compiler/src/main/resources/bootstrap/module.norm`.

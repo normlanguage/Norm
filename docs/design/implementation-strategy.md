@@ -1,50 +1,47 @@
-# 实现策略决议
+# Implementation Strategy Decision
 
-状态：**已接受**
-适用范围：Norm 编译器、运行时、执行后端、CLI 与核心开发工具
+Status: **Accepted**
 
-本文记录 Norm 项目的实现技术栈。它约束官方实现，不属于 Norm 语言的语法或类型系统；第三方实现仍可使用其他技术。
+This decision records Norm's implementation stack and applies to the official compiler, runtime, execution backend, CLI, and core development tools. It is not part of the language syntax or type system and does not restrict independent third-party implementations.
 
-## 决议
+## Decision
 
-Norm 官方实现遵循以下四条规则：
+1. **Java implements the entire core toolchain.** The lexer, parser, AST, name resolution, type checker, content-addressed Core IR, formatter, shared LSP components, package tooling, and CLI use Java.
+2. **Truffle is the sole official execution backend.** Lowering accepts canonical Core and produces the Truffle execution representation.
+3. **CLI distributions bundle a Java runtime and manage Native Image.** Each release contains the compiler, its dependencies, and a platform runtime. `norm setup` installs a pinned GraalVM Community toolchain with content-integrity verification. Users do not configure Java or GraalVM, while independently published Java bindings and annotation processors remain dynamically loadable.
+4. **Zig is not part of the core implementation.** Core, the CLI, and standard-library platform adapters contain no Zig code or Zig/Java FFI boundary.
 
-1. **Java 编写全部核心工具链。** Lexer、Parser、AST、名称解析、类型检查、content-addressed Core IR、格式化器、LSP 共享组件、包工具核心逻辑和 CLI 均以 Java 实现。
-2. **Truffle 是唯一官方执行后端。** Norm 程序通过 Truffle language implementation 执行，Lowerer 只接受 canonical Core。
-3. **CLI 发行物自带 Java runtime，并管理 Native Image 工具链。** 官方发行物包含编译器、依赖和按平台生成的精简运行时；`norm setup` 按内容完整性安装固定版本的 GraalVM Community，用户无需配置 Java 或 GraalVM，也能动态加载独立发布的 Java binding 与 Annotation Processor。
-4. **Zig 不进入核心实现。** core、CLI 和标准库平台 adapter 不包含 Zig 代码，也不建立 Zig/Java FFI 边界。
-
-## 工程边界
+## Project boundaries
 
 ```text
-cli/                    命令行产品
-  compiler/             Java 编译器、执行运行时、CLI 与 Language Server
-  extensions/           编辑器扩展
-norm/                   使用 Norm 编写的标准库与语言源码
+cli/                    command-line product
+  compiler/             Java compiler, execution runtime, CLI, and Language Server
+  extensions/           editor extensions
+norm/                   standard library and language sources written in Norm
 ```
 
-官方 Java 产品实现是单一 JPMS 模块，根 Gradle Kotlin DSL 构建另含隔离的构建逻辑。编译前端、Core、执行、项目、平台和 CLI 按领域 package 分离，并由架构测试固定依赖方向；物理模块不重复表达同一边界。标准库公开 API 使用 Norm 编写。具体 package 职责、依赖方向和验证要求以[工具链开发规范](/design/toolchain-development)为准。
+The official Java product implementation is one JPMS module in the root Gradle Kotlin DSL build, which also includes isolated build logic. The frontend, Core, execution, project, platform, and CLI domains remain separate packages, with architecture tests enforcing their dependency direction. Physical modules do not duplicate those boundaries. The standard library's public API is written in Norm. The [toolchain development standard](/design/toolchain-development) is authoritative for package responsibilities, dependency direction, and verification.
 
-## 构建与发行
+## Build and distribution
 
-- 使用根 Gradle Kotlin DSL 构建唯一的编译器产品模块；
-- Java toolchain 和 Truffle 版本在仓库中锁定；
-- 单元测试与 Truffle 集成测试使用同一 JVM 执行模型；
-- release job 使用 `jlink` 构建各平台自包含 `norm`；
-- `norm build` 默认生成 Native Image，`--jvm` 只作为显式开发与兼容目标；
-- JAR 作为内部构建产物，不作为普通用户的主要安装界面。
+- The root Gradle Kotlin DSL builds the sole compiler product module.
+- Java toolchain and Truffle versions are pinned in the repository.
+- Unit and Truffle integration tests use the same JVM execution model.
+- Release jobs use `jlink` for self-contained `norm` distributions on each platform.
+- `norm build` targets Native Image by default; `--jvm` is an explicit development and compatibility target.
+- JARs are internal build artifacts, not the primary installation interface for users.
 
-## 不采用 Zig 核心工具链的原因
+## Why Zig is not the core toolchain
 
-Truffle 的 language、Node、Interop 和 Context API 位于 Java 侧。如果前端使用 Zig，必须额外设计 C ABI、内存所有权和 AST/IR 序列化协议，源码位置、诊断和泛型 metadata 也需要跨语言复制。这些成本不能改善 Norm 的语言语义或首版交付速度。
+Truffle's language, Node, Interop, and Context APIs live on the Java side. A Zig frontend would require a separate C ABI, memory ownership scheme, and AST/IR serialization protocol. Source locations, diagnostics, and generic metadata would also be copied across languages. These costs do not improve Norm's language semantics or first-release delivery speed.
 
-Zig 可以在未来用于与核心实现无关的实验或外部工具，但不能成为官方构建、执行或发布链路的必需依赖。改变本决议需要新的项目提案，同时给出迁移成本、调试方案和生态兼容性影响。
+Zig may be used in future experiments or external tools unrelated to the core implementation, but it cannot become a required dependency in the official build, execution, or release chain. Changing this decision requires a new project proposal covering migration cost, debugging, and ecosystem compatibility.
 
-## 非目标
+## Non-goals
 
-- 不维护独立 native compiler backend；
-- 不同时实现 Truffle AST 与另一套执行引擎；
-- 不在第一阶段构建完整标准库、Web 平台或包注册表；
-- 不为缩小工具体积牺牲运行时动态加载能力。
+- No independent native compiler backend.
+- No simultaneous Truffle AST and second execution engine.
+- No complete standard library, web platform, or package registry in the first stage.
+- No sacrifice of runtime dynamic loading merely to reduce tool size.
 
-下一步见[编译器引导计划](/design/bootstrap-plan)。
+Continue with the [compiler bootstrap plan](/design/bootstrap-plan).

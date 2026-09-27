@@ -1,5 +1,5 @@
-# 控制流表达式
+# Control-Flow Expressions
 
-if、for、switch 的语法和结果规则见[表达式语法](expressions.md)。
+See [expression syntax](expressions.md) for the grammar and result rules of if, for, and switch.
 
-`break value` 结束最近一层正在求值的控制表达式；`return` 退出外围函数，`throw` 沿异常处理规则传播。if 的结果分支也可使用末尾表达式。作为表达式使用时，每条正常完成路径必须产生兼容类型的结果。
+`break value` ends the innermost control expression being evaluated. `return` exits the enclosing function, while `throw` propagates under exception-handling rules. An if result branch may also use a trailing expression. When used as an expression, every normally completing path must produce a result of compatible type.

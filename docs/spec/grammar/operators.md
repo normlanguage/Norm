@@ -1,31 +1,31 @@
-# 运算符
+# Operators
 
-Norm 的运算符集合有限且不能由用户重载。相同符号在所有类型上保持同一类语义。
+Norm has a limited set of operators that users cannot overload. The same symbol retains the same category of meaning across types.
 
-## 算术
+## Arithmetic
 
-`+`、`-`、`*`、`/`、`%` 适用于规范明确支持的数值类型。一元 `+` 与 `-` 不执行隐式类型转换。整数除法、除零和溢出行为由数值规范固定，不能随优化级别改变。
+`+`, `-`, `*`, `/`, and `%` apply to numeric types explicitly supported by the specification. Unary `+` and `-` perform no implicit type conversion. The numeric specification fixes integer division, division-by-zero, and overflow behavior; optimization level cannot change them.
 
-String 不使用 `+` 与任意对象隐式拼接；字符串模板负责格式化。
+String does not use `+` to implicitly concatenate arbitrary objects; string templates handle formatting.
 
-## 比较
+## Comparison
 
-`==` 和 `!=` 根据数据类别比较：value 使用结构相等，class 使用对象 identity，ref 使用存储位置 identity。`<`、`<=`、`>`、`>=` 只适用于具有语言内建顺序的数值，其他类型通过 Comparable 方法显式比较。Equatable、Comparable 和其他标准库 protocol 不重载或改变操作符语义。
+`==` and `!=` compare according to data category: values use structural equality, classes use object identity, and refs use storage-location identity. `<`, `<=`, `>`, and `>=` apply only to numerics with built-in language ordering; other types compare explicitly through Comparable methods. Equatable, Comparable, and other standard-library protocols neither overload nor change operator semantics.
 
-ref 指向值的比较必须显式读取该值，不能把位置 identity 与内容相等混为一谈。
+Comparing values pointed to by refs requires explicit reads; location identity must not be confused with content equality.
 
-## 逻辑
+## Logic
 
-`!`、`&&`、`||` 只接受 Boolean。`&&` 和 `||` 从左到右求值并短路，不把数字、String 或 nullable 值转换为 Boolean。
+`!`, `&&`, and `||` accept Boolean only. `&&` and `||` evaluate left to right and short-circuit; numbers, Strings, and nullable values do not implicitly become Boolean.
 
 ## Nullable
 
-`receiver?.member` 只在 receiver 非 null 时读取成员或执行方法调用。receiver 只求值一次，方法参数在 null 分支不求值。结果类型是成员结果的 nullable 形式；返回 Void 的 safe call 仍为 Void。
+`receiver?.member` reads a member or calls a method only when the receiver is non-null. The receiver is evaluated once; method arguments are not evaluated on the null branch. The result has the nullable form of the member result. A safe call returning Void still has type Void.
 
-`nullable ?? fallback` 在左侧非 null 时返回左侧值，否则求值并返回 fallback。两侧从左到右求值，fallback 类型必须与左侧的非空部分兼容。
+`nullable ?? fallback` returns the left value if non-null; otherwise it evaluates and returns the fallback. Sides evaluate left to right, and the fallback type must be compatible with the non-null part of the left side.
 
-## 类型操作
+## Type operations
 
-`is` 检查运行时名义类型并可触发控制流收窄；`as` 执行显式转换，失败行为由类型系统规则定义。
+`is` checks a nominal runtime type and can narrow control flow. `as` performs an explicit conversion whose failure behavior is defined by type-system rules.
 
-完整优先级见[运算符优先级](/spec/grammar/operators-precedence)。
+See [operator precedence](/spec/grammar/operators-precedence) for the complete ordering.

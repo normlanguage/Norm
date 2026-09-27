@@ -1,43 +1,43 @@
-# 类型推断形式规则
+# Formal type-inference rules
 
-类型推断是一个受限约束求解过程。它只补充调用位置能够唯一确定的信息，不根据函数体推断公开类型。省略的函数返回类型由声明位置直接确定，不进入约束求解。
+Type inference is a constrained solving process. It fills in only information uniquely determined at the call site and never infers public types from function bodies. An omitted function return type is determined directly by the declaration site and does not enter constraint solving.
 
-## 约束来源
+## Sources of constraints
 
-编译器为每个候选建立独立的求解会话，并收集：
+The compiler establishes an independent solving session for each candidate and collects:
 
-- 实参到形参的可赋值约束；
-- 赋值目标或 return context 提供的期望类型；
-- 类型参数声明的 extends 上界；
-- nullable 、interface 约束和名义协议投影产生的类型关系；
-- 序列字面量的目标容器与元素类型；
-- diamond 构造器的 owner 类型参数；
-- 数字字面量对具体数值叶类型的可表示约束。
+- Assignability constraints from arguments to parameters;
+- Expected types from assignment targets or return contexts;
+- Declared `extends` upper bounds of type parameters;
+- Type relations arising from nullability, interface constraints, and nominal protocol projections;
+- Target container and element types for sequence literals;
+- Owner type parameters for diamond constructors;
+- Representability constraints on concrete numeric leaf types from numeric literals.
 
-## 求解
+## Solving
 
-1. 解析名称与候选重载；
-2. 从赋值、返回值或参数位置向表达式传播 expected type；
-3. 从表达式自身类型反向收集约束；
-4. 合并相等、子类型、nullable 与名义 conformance 约束；
-5. 求解泛型参数并实例化嵌套表达式；
-6. 最后确定数字字面量的具体类型；
-7. 验证全部实参并选择唯一最佳候选。
+1. Resolve names and overload candidates.
+2. Propagate expected types into expressions from assignment, return, or argument positions.
+3. Collect constraints in the reverse direction from expressions' own types.
+4. Combine equality, subtype, nullable, and nominal-conformance constraints.
+5. Solve generic parameters and instantiate nested expressions.
+6. Finally determine concrete numeric-literal types.
+7. Validate every argument and select one uniquely best candidate.
 
 ```norm
 T identity<T>(T value) { return value }
 String name = identity(value: "Norm")
 ```
 
-这里得到约束 `T = String`。
+This yields the constraint `T = String`.
 
 ```norm
 List<Pair<Integer, String>> values = List<>()
 values.add(Pair<>(first: 7, second: "seven"))
 ```
 
-外层集合元素类型向 `Pair<>` 传播，得到 `A = Integer` 与 `B = String`。数字 `7` 在求解完成后按 Integer 物化。推断只沿显式类型关系传播，不搜索附近出现的类型名称。
+The outer collection element type propagates into `Pair<>`, yielding `A = Integer` and `B = String`. The literal `7` is materialized as `Integer` after solving. Inference propagates only along explicit type relations; it does not search for nearby type names.
 
-## 拒绝条件
+## Rejection conditions
 
-编译器不使用隐式数值收窄、任意联合类型、函数体分析或运行时值来完成推断。`null` 没有独立的具体类型；缺少期望 nullable 类型时无法推断。空 `[]` 和无参 `List<>()` 同样需要外部约束。失败诊断列出未解决类型变量和冲突约束。
+The compiler does not use implicit numeric narrowing, arbitrary union types, function-body analysis, or runtime values to complete inference. `null` has no independent concrete type and cannot be inferred without an expected nullable type. Empty `[]` and parameterless `List<>()` likewise require an external constraint. Failure diagnostics list unresolved type variables and conflicting constraints.

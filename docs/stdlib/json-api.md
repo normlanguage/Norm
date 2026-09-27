@@ -1,6 +1,6 @@
 # JSON API
 
-`std.json` 实现格式无关的序列化接口，并提供需要动态 JSON 时使用的 `JsonValue` tree。公开签名以 [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/json/json.norm) 为准；公共 Annotation 与 mapper 接口见 [Serialization](/stdlib/serialization)。
+`std.json` implements the format-independent serialization interfaces and provides a `JsonValue` tree for dynamic JSON. [`json.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/json/json.norm) defines its public signatures; see [Serialization](/stdlib/serialization) for the shared annotations and mapper interfaces.
 
 ```norm
 @Serializable()
@@ -13,10 +13,10 @@ String encoded = User(name: "Norm").toJson()
 User decoded = encoded.fromJson<User>()
 ```
 
-自动结构序列化只接受显式标记的 `value`。`@SerialName` 重命名字段；`@SerialIgnore` 只允许用于 nullable 字段，解码后写入 `null`。嵌套 value、nullable、Array/List、`Map<String, T>`、无 payload enum 和基础标量递归使用同一精确类型 shape。
+Automatic structural serialization accepts only explicitly marked `value` types. `@SerialName` renames a field; `@SerialIgnore` is allowed only on nullable fields, which decode to `null`. Nested values, nullable types, arrays/lists, `Map<String, T>`, enums without payloads, and basic scalars recursively use the same exact type shape.
 
-`fromJson<T>` 严格拒绝未知字段、重复字段、缺少的非 nullable 字段、数值溢出和尾随内容。解析、shape 与资源限制失败统一抛出 `JsonException`，其 `code`、`path`、`offset`、`line` 和 `column` 可用于定位数据问题。目标 value 通过规范构造器创建，因此字段 interceptor 与 validation 约束不会被绕过。
+`fromJson<T>` strictly rejects unknown fields, duplicate fields, missing non-nullable fields, numeric overflow, and trailing content. Parsing, shape, and resource-limit failures all throw `JsonException`; its `code`, `path`, `offset`, `line`, and `column` help locate data errors. Target values are created through their canonical constructors, so field interceptors and validation constraints are not bypassed.
 
-HTTP 组合见 [HTTP API](/stdlib/http)，运行时边界见[序列化运行时](/design/serialization-runtime)。
+See [HTTP API](/stdlib/http) for HTTP integration and the [serialization runtime](/design/serialization-runtime) for runtime boundaries.
 
-`jsonSchema(type:)` 与 `functionSchema(operation:)` 从同一序列化 shape 派生 JSON Schema。`invokeJson(operation:, arguments:)` 将 JSON 对象按函数签名校验、解码，调用顶层函数或绑定方法，再编码返回值；省略参数使用声明默认值，没有默认值的 nullable 参数使用 null。未知、重复、缺少或类型错误的参数在执行函数前被拒绝；函数自身抛出的异常原样传播。执行验证见 [JsonFunctionExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/JsonFunctionExecutionTest.java)。
+`jsonSchema(type:)` and `functionSchema(operation:)` derive JSON Schema from the same serialization shape. `invokeJson(operation:, arguments:)` validates and decodes a JSON object against a function signature, invokes a top-level function or bound method, and encodes the result. Omitted arguments use declared defaults; nullable arguments without defaults use `null`. Unknown, duplicate, missing, or mistyped arguments are rejected before invocation. Exceptions thrown by the function propagate unchanged. See [JsonFunctionExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/JsonFunctionExecutionTest.java) for execution tests.

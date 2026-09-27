@@ -1,36 +1,36 @@
-# 发行版源码构建架构
+# Distribution Source Build Architecture
 
-Norm 以根 [Gradle Kotlin DSL](../../build.gradle.kts) 作为开发、CI 和 Release 的唯一上游构建入口。它包含隔离的[构建逻辑](../../gradle/build-logic/)和产品 JPMS 模块 [`compiler`](../../cli/compiler/build.gradle.kts)。构建逻辑不进入 Norm 运行时或公开 API；Gradle 构建输出写入仓库根 `build/`。
+Norm uses the root [Gradle Kotlin DSL](../../build.gradle.kts) as its sole upstream build entry for development, CI, and releases. It includes isolated [build logic](../../gradle/build-logic/) and the `compiler` product JPMS module in [`cli/compiler/build.gradle.kts`](../../cli/compiler/build.gradle.kts). Build logic is not part of Norm's runtime or public API. Gradle writes build output to the repository's root `build/` directory.
 
-## 构建边界
+## Build boundaries
 
-`gradle/build-logic` 用强类型 Java 组件实现构建元数据、Builtin ABI、依赖清单、reachability metadata、launcher、运行树、`jlink` runtime 与发布归档。Gradle 任务把实际解析的依赖图和 JAR 文件交给这些组件，不复制产品逻辑。行为边界由各组件测试验证，具体入口见[工具链开发规范](/design/toolchain-development)。
+`gradle/build-logic` implements build metadata, Builtin ABI, dependency catalogs, reachability metadata, launchers, runtime trees, the `jlink` runtime, and release archives as strongly typed Java components. Gradle tasks pass their actual resolved dependency graph and JAR files to those components rather than duplicating product logic. Component tests verify these boundaries; see the [toolchain development guide](/design/toolchain-development) for entry points.
 
-[发布目标清单](../../cli/compiler/release-targets.json)唯一规定平台、runner、发行目录和 launcher；[发布模型](../../cli/compiler/scripts/release-model.mjs)派生资产名，[渠道清单生成器](../../cli/compiler/scripts/distribution-manifests.mjs)派生包管理器清单。正式发布版本只来自 SemVer tag，由工作流传给 `-PnormVersion`；非 tag 的开发版本来自根 Gradle 定义，候选验收不公开同版资产。
+The [release targets](../../cli/compiler/release-targets.json) are the sole source for platforms, runners, distribution directories, and launchers. The [release model](../../cli/compiler/scripts/release-model.mjs) derives asset names, while the [distribution manifest generator](../../cli/compiler/scripts/distribution-manifests.mjs) derives package-manager manifests. Formal release versions come only from SemVer tags and are passed by the workflow through `-PnormVersion`. Untagged development versions come from the root Gradle definition; candidate validation does not publish same-version assets.
 
-| 入口 | 交付范围 | 依赖来源 |
+| Entry point | Deliverable | Dependency source |
 | --- | --- | --- |
-| `./gradlew qualityCheck` | 编译、测试与 Java 格式检查 | 锁定的上游依赖 |
-| `./gradlew :compiler:installRuntimeDist` | `build/compiler/norm-runtime` 自包含运行树 | 私有 Java 依赖及已校验的非 Java 输入 |
-| `./gradlew :compiler:packageDistribution -PnormVersion=$VERSION` | `build/distributions` 中的目标平台正式资产 | 同一已验运行树与发布清单 |
+| `./gradlew qualityCheck` | Compilation, tests, and Java formatting checks | Pinned upstream dependencies |
+| `./gradlew :compiler:installRuntimeDist` | Self-contained runtime tree at `build/compiler/norm-runtime` | Private Java dependencies and verified non-Java inputs |
+| `./gradlew :compiler:packageDistribution -PnormVersion=$VERSION` | Target-platform release asset in `build/distributions` | The same verified runtime tree and release targets |
 
-当前自有 APT、RPM 源使用正式 Release 资产与应用私有依赖。[发行版预检](../../cli/compiler/scripts/distribution-preflight.md)记录系统依赖候选，不把其当作已完成的官方源码包构建。离线构建、使用发行版系统库，以及干净 SRPM 或 Debian 源码包重建须分别验收；这条官方收录路线现阶段保留历史证据，不主动推进。缺少 reachability metadata 等非 Java 输入时，构建必须明确报缺，不能在断网构建中隐式下载。输入契约见 [`ReachabilityMetadataArchive`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java)。
+The current self-hosted APT and RPM repositories use formal release assets and application-private dependencies. [Distribution preflight](../../cli/compiler/scripts/distribution-preflight.md) records candidates for system dependencies; it does not establish an official source package build. Offline building, distribution system libraries, and clean SRPM or Debian source-package rebuilding each require separate acceptance. The official packaging track retains its historical evidence and is not currently being advanced. Missing non-Java inputs such as reachability metadata must fail explicitly rather than trigger an implicit download during an offline build. [`ReachabilityMetadataArchive`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) defines that input contract.
 
-后续官方源码包路线仍须声明完整 Build-Depends 或 BuildRequires，并在全新隔离环境断网重建；不得把预编译的编译器、JAR 或 Gradle 缓存当作源码输入。本地候选依赖仓库只能证明包链技术可重建，正式收录还须目标官方仓库提供所需依赖。
+If the official source-package track resumes, it must declare complete Build-Depends or BuildRequires and rebuild offline in a fresh isolated environment. A precompiled compiler, JAR, or Gradle cache must not be treated as source input. A local candidate dependency repository proves only that a technical package chain can rebuild; official inclusion also requires those dependencies to be available in the target official repository.
 
-## 发布与源码包验收
+## Release and source-package acceptance
 
-- 上游同一源码通过 Java 25、JPMS、annotation processor、测试与格式检查。
-- 目标平台资产由同一构建模型生成，版本、文件名、运行树、许可、工具链清单及摘要一致；CLI、LSP、动态 Java binding、应用归档与 Native Image 经真实安装后运行验收。
-- 随包 JDK 通过 `jlink` 生成，Java 依赖放在应用私有目录，不替换系统 Java 库。完整平台与 VSIX 交付门槛见[发布流程](/design/release-process)。
-- 官方源码包收录若恢复推进，须分别完成 Debian 的干净 `sbuild`、`lintian`、`autopkgtest` 和 Fedora 的干净 `mock`、`rpmlint` 及安装后验收。记录依赖仓库、构建根和断网条件；不能把现有自有源验收当作官方收录完成。
+- The same upstream source passes Java 25, JPMS, annotation-processor, test, and formatting checks.
+- The same build model generates target-platform assets. Version, filenames, runtime tree, licenses, toolchain catalog, and digests agree. CLI, LSP, dynamic Java binding, application archives, and Native Image are exercised after real installation.
+- The bundled JDK is generated by `jlink`; Java dependencies live in the application's private directory and do not replace system Java libraries. See the [release process](/design/release-process) for complete platform and VSIX gates.
+- If official source-package inclusion resumes, Debian requires clean `sbuild`, `lintian`, `autopkgtest`, and post-install acceptance; Fedora requires clean `mock`, `rpmlint`, and post-install acceptance. Record the dependency repository, build root, and offline conditions. Acceptance of the current self-hosted repositories does not constitute official inclusion.
 
-## Kryo 替换边界
+## Kryo replacement boundary
 
-Kryo 格式替换独立于构建入口与发行版配方，由各数据所有者提供显式编解码：
+Replacing Kryo formats is separate from the build entry and distribution recipes. Each data owner supplies explicit encoding and decoding:
 
-- 可删除缓存使用带 schema 版本的内部格式，版本不匹配时由所有者重建。
-- 内容寻址数据固定字段、集合顺序与整数编码，摘要只基于规范字节。
-- NAR、published binding 和 application program 等可分发数据使用带 magic、格式版本和长度边界的公开二进制 envelope。
+- Disposable caches use an internal format with a schema version; the owner rebuilds them after a version mismatch.
+- Content-addressed data fixes field, collection, and integer-encoding order; its digest is based solely on canonical bytes.
+- Distributable data such as NARs, published bindings, and application programs use a public binary envelope with magic, format version, and length boundaries.
 
-每种格式须通过 golden bytes、往返、确定性、损坏输入和大小边界测试。全部调用方切换后，删除 `PortableObjectCodec`、Kryo 及经实际依赖分析确认不再使用的 MinLog、ReflectASM、Objenesis；`core.store` 只保留共享的二进制读写原语。
+Each format needs golden-byte, round-trip, determinism, corrupt-input, and size-boundary tests. After every caller has migrated, remove `PortableObjectCodec`, Kryo, and MinLog, ReflectASM, and Objenesis only after actual dependency analysis confirms they are unused. `core.store` retains only shared binary read/write primitives.

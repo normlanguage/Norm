@@ -1,6 +1,6 @@
-# 可见性
+# Visibility
 
-Norm 当前只定义 `public` 与 `private` 两级可见性。没有默认包可见性，也不使用 `protected` 建立继承专用 API。
+Norm currently defines only `public` and `private` visibility. It has no default package visibility and does not use `protected` to create inheritance-only APIs.
 
 ```norm
 class Account {
@@ -12,25 +12,24 @@ class Account {
 }
 ```
 
-## 默认规则
+## Defaults
 
-- 顶层类型和顶层函数默认 `public`。
-- class、value 与 enum 的成员默认 `public`。
-- 构造过程使用的内部字段应显式写 `private`。
-- interface 成员始终属于公开契约，不能标记为 `private`。
+- Top-level types and functions are `public` by default.
+- Members of classes, values, and enums are `public` by default.
+- Internal fields used during construction should be explicitly `private`.
+- Interface members are always part of the public contract and cannot be `private`.
 
-公开声明的签名不能泄露私有类型：
+A public declaration's signature cannot expose a private type:
 
 ```norm
 private value Token { String text }
 Token scan()
 ```
 
-`scan` 的公开签名暴露了私有类型，因此编译失败。
+`scan` exposes the private type in its public signature, so compilation fails.
 
-## 覆盖
+## Overriding
 
-public 实例方法可被子类覆盖；private 方法不参与动态分派，也不能被覆盖。子类声明同名 private 方法时，它是一个新成员。
+A public instance method can be overridden by a subclass. Private methods do not participate in dynamic dispatch and cannot be overridden. A same-named private method declared in a subclass is a new member.
 
-Norm 不提供 `internal`、`friend`、package-private 或其他隐式可见性。
-
+Norm provides no `internal`, `friend`, package-private, or other implicit visibility.

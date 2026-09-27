@@ -1,8 +1,8 @@
 # Norm Ecosystem Strategy
 
-## 第一阶段
+## Phase one
 
-借助 Java 生态快速建立可用性。
+Use the Java ecosystem to establish practical usability quickly.
 
 ```
 Norm API
@@ -12,7 +12,7 @@ Adapter
 Java Library
 ```
 
-重点组件：
+Key components:
 
 - JDBC
 - HTTP
@@ -20,9 +20,9 @@ Java Library
 - Time
 - Crypto
 
-## 第二阶段
+## Phase two
 
-逐步替换为 Norm Native 实现。
+Gradually replace adapters with Norm-native implementations.
 
 ```
 Norm API
@@ -32,11 +32,11 @@ Norm Runtime
 Native Implementation
 ```
 
-## AI Migration
+## AI migration
 
-通过 Java -> Norm 规则体系迁移成熟代码。
+Migrate mature code through a Java-to-Norm rule system.
 
-流程：
+Process:
 
 Java Source
  ↓
@@ -45,4 +45,3 @@ AI Migration
 Norm Code
  ↓
 Norm Compiler Verification
-

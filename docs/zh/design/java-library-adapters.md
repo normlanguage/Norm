@@ -1,0 +1,219 @@
+---
+title: Java Library Adapter
+description: Java JAR 作为普通 Norm Module 内部实现的目标、边界与交付计划
+---
+
+# Java Library Adapter
+
+## 目标
+
+Norm Module 可以暂时使用一个 Java JAR 及其运行依赖实现公开 Norm API，也可以在后续版本移除该实现并改写为纯 Norm。模块名、导出边界、依赖方式和发布坐标不暴露实现来源。
+
+```text
+Norm API → optional JAR binding → Java dependency graph
+Norm API → Norm Core
+```
+
+两条路径生成同一种 Module artifact。消费者只依赖 Module。
+
+## 文件身份
+
+所有 `.norm` 文件都是 Norm 源码。顶层 `Module module()` 决定模块声明；独立的 `module.norm` 是多文件模块的惯用布局，单文件应用可以让它与业务声明共存。模块声明随辅助入口经过同一套解析、类型检查、Core 降级和执行流程；JAR 声明只是该函数返回的普通 Norm 对象。生成的适配代码同样只使用公开的 Norm 语法、类型和函数。编译器携带不可由源码伪造的生成来源集合，只向这些文档开放冻结的 Binding intrinsic。内容区分负责语言与模块语义，不承担宿主权限认证。
+
+## 模块边界
+
+`Module module()` 是模块声明、依赖与发布配置的唯一写入口。工作目录不是依赖或发布单位，不定义 Project manifest。
+
+一个 Module 最多包含一个可选的 `jarBinding`，其中只有一个根 JAR。根 JAR 的 POM 或本地声明可以形成传递运行依赖，但编译器只为根 JAR 中物理拥有的公开类生成可调用声明。依赖 JAR 的对象可以作为受约束的外部类型跨越签名；调用其 API 需要依赖对应的 Norm Module。
+
+显式 `exports` 与 `jarBinding.api` 按声明顺序建立公开 Norm 名称映射。Java 类名因此不构成 Module API 身份；例如 `jakarta.persistence.EntityManager` 可以稳定导出为 `orm.Store`。省略 `exports` 时继续从 `jarType.name` 派生名称。
+
+需要组合多个 Java 库时，每个根 JAR 分别由一个 Module 适配，再由纯 Norm Module 组合。普通 Norm 源码、生成声明和后续纯 Norm 重写共享同一个导出表。
+
+## 声明模型
+
+Java 注解适配将 `jakarta.inject.Inject` 的字段初始化责任投影为标准库 `ManagedField` 契约。前端按解析后的注解契约决定构造参数，不依赖第三方注解短名称；已有对象的注入仍由 DI 容器执行。
+
+直接带有 `io.micronaut.aop.Introduction` 元注解的 Java 注解投影为 `ManagedImplementation` 契约，适配后的注解保留其原有目标及保留策略。该契约标识类型的外部实现提供者；契约识别与方法实现连接是不同阶段，未连接的方法不能降级为空实现。入口见 [JavaAnnotationContract](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaAnnotationContract.java)。
+
+```norm
+Module module() {
+  return module(
+    name: "commons.lang",
+    version: 1,
+    dependencies: [],
+    binding: jarBinding(
+      target: mavenJar(
+        group: "org.apache.commons",
+        artifact: "commons-lang3",
+        version: "3.20.0",
+        resolution: sha256("...")
+      ),
+      api: [
+        jarType(
+          name: "StringUtils",
+          members: ["isBlank", "isNotBlank", "reverse", "split", "trim"]
+        )
+      ]
+    )
+  )
+}
+```
+
+`JarType`、`JarBinding` 与构造它们的函数都是 bootstrap 中定义的普通 Norm 声明。`binding` 与 `target` 都是单值；Binding Module 的 exports 由 `api` 中的类型名派生。纯 Norm 版本以普通源码实现相同导出名。
+
+本地 JAR 使用 `localJar(path, integrity)`。`norm resolve` 负责解析并原子填入缺失摘要；已声明摘要不匹配时直接失败，需要更新依赖的作者先修改声明。`norm run`、`norm package` 和 CI 只验证已声明内容，不接受依赖漂移。不使用独立锁文件。
+
+## 第一版使用
+
+本地 JAR 放在 Module 目录内，例如 `lib/tools.jar`。`jarType` 中的名字对应根 JAR 中唯一的公开类，`members` 选择构造函数、方法或字段名称，并包含该名称的稳定公开重载；构造函数使用 `new`。签名涉及的根 JAR 类型自动形成最小声明闭包。编译器为选中的 API 生成普通 Norm 声明，例如 `StringUtils.reverse` 生成 `stringUtilsReverse`。
+
+```norm
+Module module() {
+  return module(
+    name: "example.tools",
+    version: 1,
+    binding: jarBinding(
+      target: localJar(path: "lib/tools.jar"),
+      api: [jarType(name: "Tools", members: ["new", "convert"])]
+    )
+  )
+}
+```
+
+首次解析将摘要写回原声明：
+
+```text
+norm resolve path/to/example/tools
+norm run path/to/example/tools/Main.norm
+```
+
+Maven 根制品使用上方声明模型。另一个 Module 只声明普通 Norm 依赖并导入生成函数：
+
+```norm
+import commons.lang.stringUtilsReverse
+
+Void main() {
+  printLine(stringUtilsReverse("Norm") ?? "")
+}
+```
+
+发布前先执行 `norm resolve`，再生成可直接作为 Maven 仓库目录使用的产物：
+
+```text
+norm package path/to/commons/lang --output path/to/repository
+```
+
+仓库坐标与制品名由 Module 身份派生，规则见[包管理器](/zh/ecosystem/package-manager)。Maven 和 Gradle 都可消费生成的 NAR 与 POM。另一个 Norm 项目的 `dependency(repository, name, version?)` 使用同一坐标解析，无需 POM、Gradle 文件或锁文件。
+
+可运行目录见 [Apache Commons Lang 示例](https://github.com/normlanguage/examples/blob/main/java-commons-lang/README.md)。
+
+## 内容身份
+
+路径和 Maven 坐标只负责定位。实现使用以下派生身份：
+
+- `JarContentId`：完整 JAR 字节；
+- `JavaApiId`：规范化的可绑定公开 API；
+- `ResolvedJarGraphId`：制品内容与依赖边；
+- `BindingArtifactId`：依赖图、映射策略和 Binding ABI；
+- `ModuleApiId`：对外 Norm 声明；
+- `ModuleImplementationId`：Norm Core 与可选 Binding 实现。
+
+相同内容共享扫描和 Binding 缓存。JAR 实现变化必须重新链接；公开 Norm API 不变时，消费者源码保持有效。
+
+## 发布模型
+
+`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。归档版本以 [ModuleArchiveFormat](../../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ModuleArchiveFormat.java) 为准。所有 Module 都保存已求值的 manifest、完整生产源码与资源；`exports` 只定义公开 API，不选择制品文件。Java Binding Module 同时保存 API 报告和 [PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义的稳定绑定产物。消费端验证绑定 ABI、制品摘要、模块描述、固定依赖图、公开类型归属和归档源码，直接链接发布产物。应用专属的回调类、注解处理与可达性裁剪仍属于应用构建。NAR 不内嵌 Java JAR，不执行远程 `module.norm`；纯 Norm 与 Java 适配使用同一包模型。归档与跨模块验收见 [ModulePackagerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java) 和 [CrossModuleJarBindingTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java)。
+
+绑定 ABI 同时约束绑定数据结构、序列化格式和运行时约定。改变这些契约必须更新 `PublishedJarBinding.ABI` 并重新发布适配包；编译器其他实现变化不要求重新发布绑定。
+
+所有发布模块同时携带 [CompiledModule](../../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/CompiledModule.java) 定义的 Core 产物。Core 载荷的摘要与 ABI 由 manifest 校验，导入规则与编译工作量验收见[编译器架构](/zh/spec/compiler-design)。改变该载荷的数据结构或序列化约定必须更新 `CompiledModule.ABI`；Core 与语言语义版本使用现有身份契约。
+
+POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module 时同时获得所需 Java 图。发布本地 JAR 时必须为它声明可解析的发布坐标；同一次发布产生 Java artifact 和依赖它的 Norm artifact。
+
+现有版本的 Binding artifact 不会被纯 Norm 版本原地替换。实现迁移通过同一 Module 的新版本发布。
+
+## 强制约束
+
+- Module 不具有 Java 专用种类；
+- 每个 Module 最多绑定一个根 JAR；
+- 不生成传递依赖的公开可调用 API；
+- 不提供任意宿主类查找、反射调用或无类型宿主对象；
+- Java 对象在 Norm 中是具有确定声明身份的不透明引用；
+- 多个 Module 显式绑定同一 Java artifact 的不同版本时必须失败；传递版本由统一类路径解析器选择，显式根制品优先，其余使用 Maven 版本顺序，并只保留选中版本的依赖闭包；
+- Java artifact 的固定坐标出现不同内容，以及 API 指纹不匹配时必须失败；
+- 公开适配面中的未支持签名产生确定诊断；
+- 远程 artifact 携带已编译模块描述，消费者不执行发布者的配置源码；
+- Maven POM、摘要清单和生成声明均为派生产物；Gradle 直接消费同一 Maven 元数据。
+
+## 当前绑定面
+
+Java 模块识别与根 JAR 的 JPMS 依赖选择由 `JavaModulePath` 统一提供，JVM、准备制品和 Native 共享模块根身份。JVM 模块资源与类加载沿用同一应用执行域，资源流由应用加载器在退出时完成关闭。实现入口为 `JvmJarBindingRuntime`、`PreparedApplication` 与 `NativeApplicationExecutable`，模块选择、身份、资源读取和文件释放验证见 `JavaModuleLoadingTest`。编译器依赖、服务资源与 JDK 平台边界的隔离验证见 [ApplicationClassLoaderIsolationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/ApplicationClassLoaderIsolationTest.java)。依赖的 Native 可用性仍需实际应用验收。
+
+当前实现覆盖静态与实例方法、构造函数、静态与实例字段、基本与盒装标量、字符串、`Number`、不透明对象、Object 上界泛型和 JAR 内泛型继承投影。具体组件类型的 Java 数组映射为生成的 identity wrapper，提供固定长度、读取、原位更新和构造能力；基本类型数组与盒装类型数组保持不同名义类型，不映射为具有值语义的 Norm `Array<T>`。Java `T[]` 与 `T...` 使用按擦除组件区分的 reified 数组，可变参数调用固定为单个数组参数。
+
+Java `Throwable`、`Exception` 与 `RuntimeException` 映射到可捕获、可回传的 Norm `Exception`；绑定调用抛出的 Throwable 进入 Norm throw/catch。实现 `AutoCloseable` 或 `java.io.Closeable` 的导出类型实现 `std.io.Resource`，由同一执行资源域负责显式关闭和退出清理。Java `Object` 映射为 `Any?`，`Path`/`File` 映射为 `std.filesystem.Path`，`URI`/`URL` 映射为 `std.http.Uri`，`CharSequence` 和 `Charset` 映射为 Norm 字符串。`java.io.InputStream` 与 `java.io.OutputStream` 映射为实现标准字节协议和资源协议的 `std.io.InputStream` 与 `std.io.OutputStream`；这些平台映射由同一类型表驱动。入口类型签名引用的根 JAR 公开类型自动进入生成闭包；显式公开的嵌套 Java 类型以完整外层类型链生成稳定顶层名，例如 `Request.Builder` 映射为 `RequestBuilder`。
+
+根 JAR 的公开 Java interface 生成为普通 Norm interface，并保留可投影的泛型继承关系；生成的具体 class 实现对应 interface。接口方法是普通 Norm 方法，接口返回对象由私有绑定载体保持 JVM identity。该映射由统一类型关系驱动，用户源码只使用 Norm 的 interface、class 与方法调用。
+
+公开 class 经过包私有父类继承到的公开 interface 会被还原到生成声明，泛型实参沿完整 Java 继承链代入。Java 无界通配符投影为 Norm 存在类型 `?`，因此 `Iterable<String>` 可安全传给 `Iterable<?>` 参数。
+
+成员选择使用完整公开继承面，父类类型变量在导出 class 上完成代入；调用继续指向可公开链接的声明 owner，包私有声明则通过导出 class 链接。census 只记录真实声明，继承视图不重复写入报告。依赖 JAR 的公开类型参与继承和 SAM 识别，发布适配面仍只允许选择根 JAR 类型。
+
+Java `Class<T>` 映射为 Norm `Class<T>?`。Binding 生成器为公开包装声明和数组包装派生 JVM descriptor；运行时用声明 identity 双向解析真实 `java.lang.Class`，返回值存在多个合法擦除视图时由调用点的 `Class<T>` 消歧。没有 Binding 映射的普通 Norm 类型不会被字符串类名或宿主反射旁路解析。
+
+Java `java.time.Duration` 与 `std.time.Duration` 按秒和纳秒双向转换。Duration 的字段布局由标准库 ABI 生成，不由单个适配包复制；Java API 中 `<U extends T>` 形式的依赖型泛型上界保留为普通 Norm 泛型约束。
+
+`Class<T>` 的精确实参只有在 Norm 映射保持 JVM class identity 时才进入绑定；例如会折叠宿主身份的平台 façade 和 Optional 不会伪装成另一个类令牌。raw `Class`、`Class<?>` 与由类型参数表达的类令牌继续使用运行时声明 identity。
+
+根 JAR 中的 Java enum 生成为封闭的 Norm `enum`，公开常量成为无 payload variant。Java 静态方法生成普通函数，实例方法生成以 enum 值为首参数的普通函数；参数、返回值和 enum 数组元素在边界两侧按声明 identity 与常量 identity 双向转换。Java 标识符超出 Norm 标识符集合时，生成器保存稳定、可逆的 variant 映射。
+
+Java `Optional<T>` 使用 Norm nullable 表达缺失，`OptionalInt`、`OptionalLong` 与 `OptionalDouble` 使用对应 nullable 标量。Java `Collection<T>`、`List<T>`、`Set<T>` 与 `Map<K,V>` 使用 `std.collections` 中的引用 class 表达共享 identity；List 与 Set 继承共同的 `MutableCollection<T>`，平台载体使用 `IterableView<T>` 与 `IteratorView<T>`。根 JAR 中实现 Java `Iterable<T>` 的类型按泛型祖先实现普通 Norm `std.core.Iterable<T>`，其 `iterator()` 返回 `std.core.Iterator<T>`，可直接用于 `for`。这些类型与值语义集合保持不同类型；双方的原位修改和重复传递的宿主 identity 均可观察。
+
+Java 标准函数接口和根 JAR 中的公开 SAM interface 映射为 Norm 原生 `Function<R(P...)>`。标准接口的 `? super` 输入与 `? extends` 输出在投影时消解，根 JAR SAM 的泛型参数按使用点代入；Norm lambda、捕获闭包和函数引用由运行时生成真实 Java interface 实例。宿主回调在调用它的线程进入 Norm，嵌套宿主调用保留该线程的事务等上下文。宿主代码执行期间释放 Norm 的独占执行权，返回后重新取得；嵌套宿主调用阻塞等待其他线程回调时，同样遵循这一边界。同步、异步和 Java 内部等待回调共享同一条参数、返回值与异常传播边界；调度入口见 [GuestCallbackScheduler](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/GuestCallbackScheduler.java)。
+
+Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `std.concurrent.Task<T>`。`await()` 保持元素类型并将 Java 失败送入 Norm throw/catch，`cancel()` 和 `completed()` 提供确定状态操作；Task 实现 `Resource`，显式关闭和执行域退出都会取消未完成任务。Task 传回 Java 参数时恢复原宿主对象。`java.lang.Void` 映射为 nullable `std.core.Unit`。Reactive Streams `Publisher<T>` 映射为 `std.concurrent.Publisher<T>`，订阅回调、完成、失败、取消与执行域释放沿用同一调度和资源边界。
+
+每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。发布门禁要求公开适配面全部生成并通过行为测试。
+
+Java Annotation 会生成普通强类型 Norm Annotation；Norm 应用上的 Annotation 在 JVM 应用边界恢复为真实 Java Annotation。需要编译期处理的 Module 将官方 JSR 269 Processor 声明为普通依赖，应用构建自动生成隔离 Java 输入并运行 Processor。生成的应用类型保留 Norm 泛型继承，并在 JVM 应用外观中提供托管实例分配入口；框架创建的实体或组件会关联回同一个 Norm 对象。入口 Module 与包含框架支持源码的纯 Norm 依赖参与处理；生成的 Binding 声明不进入应用处理面。Norm 异常和枚举值穿过 DI、事务等 Java 代理后保持原有语言语义。真实框架验收入口见 [Micronaut BBS](https://github.com/normlanguage/examples/blob/main/micronaut-bbs/README.md)。
+
+模块 `resources` 可作为注解处理器的编译输入。资源准备入口见 [ApplicationCompiler](../../../cli/compiler/src/main/java/dev/w0fv1/norm/application/ApplicationCompiler.java)，模板更新与删除的回归验证见 [AnnotationProcessorResourcesTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/AnnotationProcessorResourcesTest.java)。
+
+隐式构造的全部输入都有默认值时，Java 应用外观提供优先的无参构造入口；它执行 Norm 初始化逻辑，完整参数入口仍可使用。构造与私有状态的跨语言验证见 [JavaAnnotationBindingIntegrationTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaAnnotationBindingIntegrationTest.java)。
+
+接口默认实现由 Core conformance witness 关联到 Java default 方法，多个实现类共享同一入口；方法体仍通过 Norm 运行时执行。没有 Java 表示的标准接口父类型不生成 `extends Object`。默认方法继承与接收者分派也由上述跨语言测试验证。
+
+Java 应用外观中的零、一、二参数函数按参数数量和 Void 返回值映射为 JDK 函数式接口，泛型实参递归使用同一套类型投影。[JavaFunctionShape](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaFunctionShape.java)统一声明与运行时适配；跨语言测试覆盖双向调用、函数身份、装箱与异常传播。Java 传入的函数不具有 Norm 源码声明元数据。
+
+Java 方法索引分别保留声明身份和执行实现，允许不同方法共享规范化后的函数体；共享默认生命周期由跨语言调用验证。
+
+托管 class 方法签名投影为 Java 抽象方法，类的抽象性由继承后的分派目标决定。方法与参数注解、泛型返回类型和参数名由真实 javac 及反射验证；入口见 [JavaManagedMethodProjectionTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/JavaManagedMethodProjectionTest.java)。抽象声明进入宿主方法索引，不进入本地执行入口集合。
+
+Norm 发起的宿主调用保留接收者与方法的具体类型参数，继承视图复用 CoreTypeRelations。Java 外观回调到泛型父类的普通方法时，从已关联的 Norm 对象恢复接收者类型；转换入口为 [JavaApplicationDispatch](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaApplicationDispatch.java)。Java 直接发起带方法类型参数的 Norm 调用及直接构造未具体化的泛型类仍不支持。
+
+Norm 应用外观中的值语义 `List<T>` 投影为 Java `List<T>`。宿主边界按声明的元素类型递归转换，交付 Java 的列表保持不可变快照；嵌套列表、可空元素与中文内容的往返验证见 [JavaAnnotationBindingIntegrationTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaAnnotationBindingIntegrationTest.java)。
+
+字段、参数、返回值及泛型实参的可空性使用标准 JSpecify `Nullable` 类型注解投影。Java 注解处理环境显式提供 JSpecify 依赖，框架无需从装箱类型猜测可空性。嵌套集合与可空类型变量的真实反射验证见 [JavaManagedMethodProjectionTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/JavaManagedMethodProjectionTest.java)。
+
+## 验收
+
+- 源码树不存在 `lock.norm`、手写 POM 或 Gradle 配置；
+- 同一个 `module(...)` 工厂同时表达纯 Norm 和 JAR 支撑的 Module；
+- 类型结构无法为单个 Module 声明两个根 JAR；
+- Maven 与本地 JAR 产生相同的 Binding pipeline；
+- 替换相同路径下的 JAR 会触发摘要不匹配；
+- 相同 JAR 内容可以跨路径复用 Binding artifact；
+- Commons Lang 的固定版本可以从 Maven 仓库解析并从 Norm 调用；
+- 打包后的 Module 能在另一个项目中作为普通 Module 依赖使用，并解析其 Java 依赖；
+- 移除 Binding、提供相同 Norm 导出源码后，消费端 import 和调用形态不变。
+
+应用级 Java 资源通过标准 ServiceLoader 注册 [JavaApplicationResource](../../../cli/compiler/src/main/java/dev/w0fv1/norm/bridge/JavaApplicationResource.java)，生命周期由 [JvmJarBindingRuntime](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JvmJarBindingRuntime.java) 管理，在应用类加载器释放前关闭。窗口等子资源的关闭不代表应用级运行时终止。
+
+JAR 资源 URL 对应的缓存句柄由 [JarResourceScope](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JarResourceScope.java) 持有至最后一个运行时释放，资源 URL 经字符串重建仍适用。资源流关闭、共享运行时与文件释放验证见 [JvmJarBindingRuntimeTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JvmJarBindingRuntimeTest.java)。
+
+JPA 的 `jakarta.persistence.Id` 与 `jakarta.persistence.EmbeddedId` 映射为 `std.annotation.IdentityField` 标记，保留原 Java 注解身份。映射入口为 [JavaAnnotationContract](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaAnnotationContract.java)，反射查询与字段身份规则见[声明引用](../spec/declaration-references.md)。
+
+公开 Java class 的父类关系保留在生成声明中，包私有中间类的泛型参数沿继承链代入；跨模块源码和发布产物验证见 [CrossModuleJarBindingTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java)。绑定构造令牌由标准库 ABI 统一提供。
+
+同一 Norm 函数投影为相同 SAM 类型时保留宿主对象身份，弱引用缓存随应用执行域隔离；跨调用身份与回调执行验证见 [JarBindingConcurrencyIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JarBindingConcurrencyIntegrationTest.java)。

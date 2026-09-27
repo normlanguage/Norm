@@ -1,33 +1,32 @@
-# 运算符优先级
+# Operator Precedence
 
-Norm 的运算符具有固定语义，不能由用户重载。下表从高到低列出当前优先级草案。
+Norm operators have fixed semantics and cannot be overloaded by users. This table lists the current precedence draft, highest to lowest.
 
-| 级别 | 运算符 | 结合性 |
+| Level | Operators | Associativity |
 | --- | --- | --- |
-| 1 | `()`、`[]`、`.`、`?.` | 左 |
-| 2 | 一元 `!`、`-`、`+` | 右 |
-| 3 | `*`、`/`、`%` | 左 |
-| 4 | `+`、`-` | 左 |
-| 5 | `<`、`<=`、`>`、`>=`、`is`、`as` | 不可链式 |
-| 6 | `==`、`!=` | 不可链式 |
-| 7 | `&&` | 左，短路 |
-| 8 | `||` | 左，短路 |
-| 9 | `??` | 右，短路 |
-| 10 | `=` | 右 |
+| 1 | `()`, `[]`, `.`, `?.` | Left |
+| 2 | Unary `!`, `-`, `+` | Right |
+| 3 | `*`, `/`, `%` | Left |
+| 4 | `+`, `-` | Left |
+| 5 | `<`, `<=`, `>`, `>=`, `is`, `as` | Nonchainable |
+| 6 | `==`, `!=` | Nonchainable |
+| 7 | `&&` | Left, short-circuiting |
+| 8 | `||` | Left, short-circuiting |
+| 9 | `??` | Right, short-circuiting |
+| 10 | `=` | Right |
 
 ```norm
 Boolean accepted = ready && count > 0
 Integer total = base + quantity * price
 ```
 
-比较运算不能连续书写：
+Comparisons cannot be chained:
 
 ```norm
-0 < value < 10 // 编译错误
-0 < value && value < 10 // 合法
+0 < value < 10 // compile error
+0 < value && value < 10 // valid
 ```
 
-`&&`、`||` 和 `??` 从左到右求值并短路。赋值不是普通值表达式，不能写在条件中。存在歧义或读者需要反推优先级时，应使用括号。
+`&&`, `||`, and `??` evaluate left to right and short-circuit. Assignment is not an ordinary value expression and cannot appear in a condition. Use parentheses when an expression is ambiguous or a reader would have to reconstruct the precedence.
 
-
-[块调用链](/spec/grammar/functions-advanced#块调用链)沿用普通 postfix 成员调用的优先级与左结合，不引入中缀运算符。
+[Block call chains](/spec/grammar/functions-advanced#block-call-chains) have the precedence and left associativity of ordinary postfix member calls and introduce no infix operator.

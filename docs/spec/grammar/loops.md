@@ -1,6 +1,6 @@
-# 循环语法
+# Loop Syntax
 
-Norm 使用 `for` 表达遍历循环和条件循环。遍历式 `for` 只接受显式实现标准库 `Iterable<T>` interface 的值，并通过其 `Iterator<T>` 迭代。
+Norm uses `for` for both traversal and conditional loops. Traversal accepts only a value explicitly implementing the standard-library `Iterable<T>` interface and iterates through its `Iterator<T>`.
 
 ```norm
 for String name : names {
@@ -8,7 +8,7 @@ for String name : names {
 }
 ```
 
-## 语法形状
+## Syntax
 
 ```text
 For := ForEach | ConditionalFor
@@ -16,9 +16,9 @@ ForEach := "for" Type? Identifier ("," Identifier)? ":" Expression Block ("else"
 ConditionalFor := "for" Expression Block
 ```
 
-迭代表达式只求值一次。循环变量在每次迭代开始时绑定，在循环体外不可见。
+The iterable expression evaluates once. Loop variables bind at the start of each iteration and are invisible outside the loop body.
 
-第二个名称是从零开始的 Integer 索引，值名称始终在前：
+The second name is a zero-based Integer index; the value name always comes first:
 
 ```norm
 for value,index : values {
@@ -27,9 +27,9 @@ for value,index : values {
 }
 ```
 
-`continue` 进入下一项时索引随迭代递增，`break` 立即结束循环。
+On `continue`, the index advances with the iteration; `break` ends the loop immediately.
 
-当迭代值具有唯一、静态可知的元素类型时可以省略循环变量类型：
+The loop-variable type may be omitted when the iterable has a unique, statically known element type:
 
 ```norm
 for index : range(start: 0, end: 10) {
@@ -37,9 +37,9 @@ for index : range(start: 0, end: 10) {
 }
 ```
 
-`Range` 实现 `Iterable<Integer>`；`List<T>`、`Array<T>`、`Set<T>` 等从 `Iterable<T>` 的类型实参得到元素类型。只有无法得到唯一静态元素类型时才必须显式声明循环变量类型。
+`Range` implements `Iterable<Integer>`; `List<T>`, `Array<T>`, and `Set<T>` derive element types from their `Iterable<T>` argument. An explicit loop-variable type is required only when no unique static element type can be determined.
 
-## 条件循环
+## Conditional loops
 
 ```norm
 for digits.size() > 1 && digits.last() == 0 {
@@ -47,11 +47,11 @@ for digits.size() > 1 && digits.last() == 0 {
 }
 ```
 
-条件必须是 Boolean，并在每轮循环开始前重新求值。条件初始为 false 时循环执行零次；`continue` 转移到下一次条件检查。执行后端在每轮检查取消状态。
+The condition must be Boolean and is reevaluated before each iteration. If initially false, the loop executes zero times. `continue` proceeds to the next condition check. The execution backend checks cancellation in each iteration.
 
-## 控制转移
+## Control transfer
 
-`continue` 结束当前迭代；不带值的 `break` 结束作为语句使用的循环。
+`continue` ends the current iteration. A valueless `break` ends a loop used as a statement.
 
 ```norm
 for Integer number : numbers {
@@ -61,9 +61,9 @@ for Integer number : numbers {
 }
 ```
 
-## For 表达式
+## For expressions
 
-循环出现在值位置时，成功路径使用 `break value`，正常耗尽路径由 `else` 产生值：
+When a loop appears in a value position, successful paths use `break value`, and the `else` produces a value on normal exhaustion:
 
 ```norm
 Integer match = for Integer number : numbers {
@@ -73,4 +73,4 @@ Integer match = for Integer number : numbers {
 }
 ```
 
-表达式循环不能使用无值 `break`。所有可达完成路径必须产生兼容类型的值，编译器不会隐式补 `null`。
+Expression loops cannot use a valueless `break`. All reachable completion paths must produce compatible types; the compiler does not implicitly supply `null`.

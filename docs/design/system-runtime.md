@@ -1,20 +1,20 @@
-# 系统运行时架构
+# System Runtime Architecture
 
-状态：**已接受**
+Status: **Accepted**
 
-本文定义 std.io、filesystem、network、http、websocket、time、process、regex、crypto 与 concurrent 的统一运行时边界。各模块的 public API 由对应标准库文档定义；宿主接入、异常转换和资源生命周期以本文为唯一实现设计。WebSocket 契约与验证入口见 [WebSocket 客户端](../stdlib/websocket.md)。
+This document defines a unified runtime boundary for std.io, filesystem, network, http, websocket, time, process, regex, crypto, and concurrent. Each module's public API is defined by its standard library documentation; this is the sole implementation design for host integration, exception conversion, and resource lifetimes. See the [WebSocket client](../stdlib/websocket.md) for its contract and verification entry.
 
-## 不变量
+## Invariants
 
-- 系统层 public API 使用可捕获的 Norm Exception 表达失败，不使用 Result；
-- HTTP status、进程退出状态、匹配失败、验证不匹配和 EOF 等协议正常状态仍是普通值；
-- public API 和 public 类型不暴露 Java、Truffle 或具体 provider；
-- 宿主操作只从标准库内部 intrinsic 进入，不向应用开放第二套底层 API；
-- 文件、socket、HTTP body、进程和并发 scope 等外部资源确定性关闭；
-- CLI、Polyglot 和测试使用同一执行能力组装入口；
-- Core 只描述已经绑定的 intrinsic identity，不依赖平台 adapter。
+- Public system APIs express failure with catchable Norm exceptions, not `Result`.
+- Normal protocol outcomes such as HTTP status, process exit status, a failed match or validation, and EOF remain ordinary values.
+- Public APIs and public types expose no Java, Truffle, or concrete provider.
+- Host operations enter only through standard-library internal intrinsics; applications get no second low-level API.
+- External resources such as files, sockets, HTTP bodies, processes, and concurrent scopes close deterministically.
+- CLI, Polyglot, and tests use the same execution-capability assembly entry.
+- Core describes only already-bound intrinsic identities and does not depend on platform adapters.
 
-## 分层
+## Layers
 
 ```text
 norm/stdlib
@@ -24,17 +24,17 @@ norm/stdlib
   → JDK platform adapter
 ```
 
-`norm/stdlib` 保存 public Norm 类型、函数、异常和资源封装。只有标准库源码可以解析 system intrinsic 与 opaque handle 类型。
+`norm/stdlib` holds public Norm types, functions, exceptions, and resource wrappers. Only standard-library source may resolve system intrinsics and opaque handle types.
 
-`compiler` 的 `platform` package 保存后端无关的 `SystemPlatform` 契约和强类型平台失败。它不构造 Norm 值，也不依赖 Truffle。
+The compiler's `platform` package holds backend-neutral `SystemPlatform` contracts and typed platform failures. It neither constructs Norm values nor depends on Truffle.
 
-`platform.jdk` 实现文件、网络、HTTP transport、时钟、进程、regex、crypto、entropy 与 scheduler。JDK 异常在这里归一化为平台契约异常。
+`platform.jdk` implements files, networking, HTTP transport, clocks, processes, regex, crypto, entropy, and scheduling. It normalizes JDK exceptions into platform-contract exceptions.
 
-`truffle` package 保存宿主值表示、资源 scope、intrinsic 执行和 Norm Exception 构造。`GuestValueFactory` 按 ABI 和当前 artifact metadata 构造异常值。宿主 I/O 只在 `@TruffleBoundary` 慢路径中执行。
+The `truffle` package holds host-value representations, resource scopes, intrinsic execution, and Norm exception construction. `GuestValueFactory` constructs exception values from the ABI and current artifact metadata. Host I/O occurs only on slow paths behind `@TruffleBoundary`.
 
-## 执行能力
+## Execution capabilities
 
-`ExecutionContext` 保存借用的标准流、应用参数、环境、目录、完成状态、执行控制和一个强类型 `SystemPlatform`。标准流由执行宿主注入，不属于平台工厂创建的资源。平台能力使用固定组合，不提供字符串 capability registry 或全局 service locator。
+`ExecutionContext` holds borrowed standard streams, application arguments, environment, directories, completion status, execution controls, and a strongly typed `SystemPlatform`. The execution host injects standard streams; they are not resources created by the platform factory. Platform capabilities have a fixed composition, not a string-keyed registry or global service locator.
 
 ```text
 SystemPlatform
@@ -50,11 +50,11 @@ SystemPlatform
 └─ scheduler
 ```
 
-默认平台由 `platform.jdk` 的唯一工厂创建。测试从同一工厂派生，仅替换需要控制的能力。取消状态与 deadline 属于每次 execution 或 child task，不属于全局平台状态。
+A single factory in `platform.jdk` creates the default platform. Tests derive from the same factory and replace only the capability they need to control. Cancellation and deadlines belong to each execution or child task, not global platform state.
 
-## 异常边界
+## Exception boundary
 
-Norm 系统异常使用单继承和领域 reason enum：
+Norm system exceptions use single inheritance and domain reason enums:
 
 ```text
 Exception
@@ -71,32 +71,32 @@ Exception
    └─ ConcurrentException
 ```
 
-`SystemException` 提供稳定 code。领域异常提供强类型 operation、reason 和必要上下文；reason 是异常 metadata，不是返回分支。异常消息不得成为机器判断依据。
+`SystemException` provides a stable code. Domain exceptions provide typed operation, reason, and necessary context; a reason is exception metadata, not a return branch. Machine decisions must not depend on the exception message.
 
-平台 adapter 把预期宿主失败转换为强类型 platform exception。Truffle 的 `GuestValueFactory` 使用当前 artifact 的 nominal metadata 构造 Norm Exception value，并通过现有 `NormThrownException` 进入 guest `try/catch/finally`。未知实现缺陷和运行时不变量继续使用不可捕获的稳定 runtime error。
+Platform adapters translate expected host failures into typed platform exceptions. Truffle's `GuestValueFactory` constructs a Norm exception value from the current artifact's nominal metadata, which crosses into guest `try/catch/finally` through the existing `NormThrownException`. Unknown implementation defects and violated runtime invariants remain uncatchable stable runtime errors.
 
-异常 identity、字段 ordinal 和 intrinsic 映射进入 builtin ABI，并由编译后的标准库契约测试验证，禁止依赖显示名称猜测运行时类型。
+Exception identity, field ordinals, and intrinsic mappings enter the builtin ABI and are verified by compiled standard-library contract tests. Runtime types must not be guessed from display names.
 
-## 宿主值
+## Host values
 
-运行时提供两个可复用 shape：
+The runtime has two reusable shapes:
 
-- `OPAQUE_VALUE`：宿主 Clock、编译后的 Regex 和密码学状态等宿主支持值；
-- `OPAQUE_RESOURCE`：文件流、socket、HTTP body、进程和 task scope 等外部资源。
+- `OPAQUE_VALUE` for host-backed values such as Clock, compiled Regex, and cryptographic state;
+- `OPAQUE_RESOURCE` for external resources such as file streams, sockets, HTTP bodies, processes, and task scopes.
 
-每个值仍携带完整 `CoreType`。不同 public 或内部 Norm 类型可以共用 shape，但不能互相替代。
+Each value still carries its complete `CoreType`. Distinct public or internal Norm types may share a shape but are not interchangeable.
 
-Opaque value 的相等、hash 和复制遵循其 Norm value 契约。Opaque resource 是 identity，普通赋值共享 handle；public wrapper 执行浅 `copy()` 后也共享同一内部 handle 和关闭状态。
+An opaque value's equality, hash, and copying follow its Norm value contract. An opaque resource has identity, so ordinary assignment shares its handle. A public wrapper's shallow `copy()` shares the same internal handle and closed state.
 
-## 资源生命周期
+## Resource lifetime
 
-每次 execution 创建独立 `ResourceScope`。资源打开成功后立即注册，显式关闭成功或失败后退出 active 集合。execution 在正常返回和异常路径都关闭剩余资源。
+Each execution creates an independent `ResourceScope`. Register a resource immediately after a successful open; leave the active set after an explicit close, whether closing succeeds or fails. The execution closes remaining resources on both normal return and exception paths.
 
-作用域清理是执行边界，不替代 public API 的确定性关闭要求。测试必须能够断言没有资源泄漏。重复 close 不重复操作宿主资源，也不改变第一次 close 的结果。
+Scope cleanup is an execution boundary, not a substitute for deterministic closing in public APIs. Tests must be able to assert that resources have not leaked. Repeated close neither repeats the host operation nor changes the first close result.
 
-并发 child task 共享 execution platform，但持有派生的 cancellation context。Task scope 结束前必须等待、取消或传播所有 child task，资源不能越过所属 execution。
+Concurrent child tasks share the execution platform but hold derived cancellation contexts. Before ending, a task scope must wait for, cancel, or propagate every child task; resources cannot outlive their execution.
 
-## 标准库依赖
+## Standard-library dependencies
 
 ```text
 std.core
@@ -111,55 +111,55 @@ std.core
 └─ http ────────────→ std.io, network, std.time, std.concurrent
 ```
 
-系统 I/O public API 默认同步。结构化并发组合阻塞操作并传播取消，宿主实现可以使用 virtual thread 或异步机制，但不建立第二套 public async API。
+Public system I/O is synchronous by default. Structured concurrency composes blocking operations and propagates cancellation. Host implementations may use virtual threads or asynchronous machinery without introducing a second public async API.
 
-## 基础类型
+## Foundational types
 
-系统模块开发首先固定以下公共语义：
+System module development first fixes these public semantics:
 
-- `Duration`、`Instant`、`Deadline` 与显式 `Clock`；
-- `Bytes`、`TextEncoding` 与不混淆 EOF 的 `ReadChunk`；
-- partial read、partial write 与 `writeAll`；
-- `Resource` 关闭协议和作用域使用入口；
-- cancellation 与 deadline 的传播和异常；
-- Exception cause 与清理失败的保留规则。
+- `Duration`, `Instant`, `Deadline`, and an explicit `Clock`;
+- `Bytes`, `TextEncoding`, and `ReadChunk` that does not conflate EOF;
+- partial reads, partial writes, and `writeAll`;
+- the `Resource` close protocol and scoped-use entry;
+- propagation and exceptions for cancellation and deadlines;
+- rules for retaining exception causes and cleanup failures.
 
-这些类型只在各自标准库源码中声明一次，其他模块引用它们，不复制相同定义。
+Each type is declared once in its standard-library source; other modules reference rather than duplicate it.
 
-`Bytes` 的宿主表示是连续 `byte[]` 加逻辑区间。切片共享只读存储，文件读取直接接管 adapter 返回的 owned storage；只有显式 `toArray()`、拼接和编码边界产生复制。标准库与文件系统通过 builtin ABI 中的同一个 opaque type identity 构造字节值。
+The host representation of `Bytes` is a contiguous `byte[]` plus a logical interval. Slices share read-only storage, and file reads take ownership of storage returned by the adapter. Only explicit `toArray()`, concatenation, and encoding boundaries make copies. The standard library and filesystem construct byte values through the same opaque type identity in the builtin ABI.
 
-文件流 adapter 使用阻塞 `FileChannel`，公开 partial read、partial write、flush、sync 和 close。宿主调用位于 `@TruffleBoundary`，平台工厂在 execution 组装时读取 working directory。该路径不依赖动态 classpath 扫描或 provider service loading。
+The file-stream adapter uses blocking `FileChannel`, exposing partial read, partial write, flush, sync, and close. Host calls sit behind `@TruffleBoundary`. The platform factory reads the working directory when assembling an execution. This path does not depend on dynamic classpath scanning or provider service loading.
 
-## Intrinsic 组织
+## Intrinsic organization
 
-Builtin ABI 是 intrinsic identity 和 runtime shape 的单一来源。静态总入口 [`IntrinsicDispatcher`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/IntrinsicDispatcher.java) 穷尽选择各领域实现，不使用运行期注册或扫描。完整映射由 [`IntrinsicOperationTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/truffle/IntrinsicOperationTest.java) 验证。
+The builtin ABI is the sole source for intrinsic identity and runtime shapes. The static entry [`IntrinsicDispatcher`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/IntrinsicDispatcher.java) exhaustively selects domain implementations without runtime registration or scanning. [`IntrinsicOperationTest`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/truffle/IntrinsicOperationTest.java) verifies the full mapping.
 
-Java 参数、返回值与回调载体转换归属 [`JavaValueAdapter`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaValueAdapter.java)。Java classloader 和调用解析仍归 `jvm`，值语义仍归 `RuntimeValues`；转换器不持有单次执行资源。
+[`JavaValueAdapter`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaValueAdapter.java) owns conversion of Java arguments, results, and callback carriers. Java class loading and call resolution remain in `jvm`, and value semantics remain in `RuntimeValues`; the adapter does not own per-execution resources.
 
-标准库内部能力沿用 module bootstrap 的受限可见性思路，但使用统一 access policy。新增系统模块不能再向普通应用 prelude 增加双下划线 global 或领域特例。
+Internal standard-library capabilities follow module bootstrap's restricted visibility through a unified access policy. New system modules must not add double-underscore globals or domain-specific exceptions to the ordinary application prelude.
 
-## 验证
+## Verification
 
-每个系统能力同时具备：
+Each system capability needs:
 
-- adapter 单元测试，使用其下一层真实依赖；
-- Truffle 测试，验证 platform exception 转换为可捕获 Norm Exception；
-- `norm/stdlib/std/tests/test` 标准库测试；
-- 真实临时目录、loopback socket、fixed clock 或真实 child process 测试；
-- CLI 真实 `.norm` 文件执行测试；
-- 发布前开发入口与自包含 CLI 行为一致性验证。
+- adapter unit tests using its real next-layer dependency;
+- Truffle tests for conversion of platform exceptions into catchable Norm exceptions;
+- standard-library tests in `norm/stdlib/std/tests/test`;
+- tests with real temporary directories, loopback sockets, fixed clocks, or real child processes;
+- real `.norm` file execution through CLI;
+- pre-release comparison of development and self-contained CLI behavior.
 
-依赖公共服务的外网 smoke 程序位于 `norm/tests/live`，只手动或在发布流水线中运行，不进入默认确定性测试套件。
+External-network smoke programs live in `norm/tests/live` and run only manually or in the release pipeline, not in the default deterministic test suite.
 
-## 实施顺序
+## Implementation order
 
-1. 系统异常 ABI 与 `GuestValueFactory`；
-2. `SystemPlatform`、JDK platform adapter 和统一 ExecutionContext 组装；
-3. opaque value、opaque resource 与 `ResourceScope`；
-4. stdlib-internal intrinsic access policy 和领域 registry；
-5. time 与 io 基础类型；
-6. filesystem 第一条真实纵向切片；
-7. concurrent、network、process、http；
-8. regex 与 crypto。
+1. System-exception ABI and `GuestValueFactory`.
+2. `SystemPlatform`, JDK platform adapter, and unified `ExecutionContext` assembly.
+3. Opaque values, opaque resources, and `ResourceScope`.
+4. Internal standard-library intrinsic access policy and domain registry.
+5. Foundational time and I/O types.
+6. First real vertical filesystem slice.
+7. Concurrent, network, process, and HTTP.
+8. Regex and crypto.
 
-每一步保持编译、执行和相关测试通过，并在进入下一步前删除被新结构替代的入口。
+Keep compilation, execution, and relevant tests passing at every step; remove superseded entries before proceeding to the next.

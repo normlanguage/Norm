@@ -1,27 +1,27 @@
-# 语法参考总览
+# Grammar Reference Overview
 
-本目录描述 Norm 源码的词法 token 和语法结构。当前使用接近 EBNF 的记法；首个编译器实现需要把全部产生式固化为机器可测试 grammar。
+This directory describes lexical tokens and grammatical structure in Norm source. The notation is close to EBNF; the first compiler implementation needs to make every production a machine-testable grammar.
 
-## 记法
+## Notation
 
 ```text
-"token"      固定关键字或符号
-Name         另一条产生式
-A?           可选
-A*           零次或多次
-A+           一次或多次
-A | B        二选一
+"token"      fixed keyword or symbol
+Name         another production
+A?           optional
+A*           zero or more
+A+           one or more
+A | B        either choice
 ```
 
-## 源文件
+## Source files
 
 ```text
 SourceFile := (AnnotationUse* PackageDeclaration)? Import* Declaration*
 ```
 
-package 位于文件开头，import 位于其他声明之前。没有 package 的文件是单文件脚本。源码顶层允许类型、函数和编译期常量，不允许任意执行语句。模块根 package 目录中的 `module.norm` 也使用 `SourceFile` 语法，并通过 `Module module()` 产生模块定义。
+A package appears at the start of the file; imports precede other declarations. A file without a package is a single-file script. Top-level source permits types, functions, and compile-time constants, but not arbitrary execution statements. `module.norm` in a module's root package directory uses the same `SourceFile` syntax and produces a module definition through `Module module()`.
 
-## 声明
+## Declarations
 
 ```text
 Declaration := ClassDeclaration
@@ -32,20 +32,20 @@ Declaration := ClassDeclaration
              | FunctionDeclaration
 ```
 
-Norm 使用类型前置：`String name`、`Integer parse(String text)`。generic 参数写在声明名后，nullable 标记写在完整类型后。
+Norm puts types first: `String name`, `Integer parse(String text)`. Generic parameters follow the declared name; the nullable marker follows the complete type.
 
-## 表达式与语句
+## Expressions and statements
 
-字面量、名称、成员访问、调用、索引、运算和控制表达式产生值。变量声明、赋值、return、throw 等组成语句。if、for 和 switch 在值位置通过 `break value` 显式产生结果。
+Literals, names, member access, calls, indexing, operators, and control expressions produce values. Variable declarations, assignment, return, and throw are statements. In a value position, if, for, and switch explicitly produce a result through `break value`.
 
-## 相关章节
+## Related sections
 
-- [词法规则](/spec/grammar/lexical)
-- [声明](/spec/grammar/declarations)
-- [类型](/spec/grammar/types)
-- [表达式](/spec/grammar/expressions)
-- [语句](/spec/grammar/statements)
-- [模块配置](/spec/grammar/modules)
-- [运算符优先级](/spec/grammar/operators-precedence)
-- [`ref<T>` 引用](/spec/grammar/references)
-- [声明引用与反射](/spec/declaration-references)
+- [Lexical rules](/spec/grammar/lexical)
+- [Declarations](/spec/grammar/declarations)
+- [Types](/spec/grammar/types)
+- [Expressions](/spec/grammar/expressions)
+- [Statements](/spec/grammar/statements)
+- [Module configuration](/spec/grammar/modules)
+- [Operator precedence](/spec/grammar/operators-precedence)
+- [`ref<T>` references](/spec/grammar/references)
+- [Declaration references and reflection](/spec/declaration-references)

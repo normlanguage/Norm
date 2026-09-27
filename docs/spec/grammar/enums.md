@@ -1,6 +1,6 @@
-# Enum 声明
+# Enum Declarations
 
-enum 声明一个封闭 variant 集合。variant 可以为空，也可以携带类型化数据。
+An enum declares a closed set of variants. Variants may be empty or carry typed data.
 
 ```norm
 enum ParseResult {
@@ -10,7 +10,7 @@ enum ParseResult {
 }
 ```
 
-variant 参数采用类型前置，构造时使用命名实参：
+Variant parameters put types first. Construct a variant with named arguments:
 
 ```norm
 ParseResult result = ParseResult.Invalid(
@@ -19,12 +19,12 @@ ParseResult result = ParseResult.Invalid(
 )
 ```
 
-## 限制
+## Restrictions
 
-- variant 名在 enum 的构造命名空间中唯一；
-- variant 数据必须满足普通字段的确定赋值规则；
-- enum 不能被继承，也不能在其他文件追加 variant；
-- generic enum 在 enum 名之后声明类型参数。
+- Variant names are unique in the enum's construction namespace.
+- Variant data obey ordinary definite-assignment rules for fields.
+- An enum cannot be inherited or extended with variants in another file.
+- A generic enum declares type parameters after the enum name.
 
 ```norm
 enum Outcome<T, E = String> {
@@ -33,7 +33,7 @@ enum Outcome<T, E = String> {
 }
 ```
 
-variant 构造是 enum 类型上的调用，沿用普通泛型调用的显式实参与推断规则。以标准库 Result 为例：
+Variant construction is a call on an enum type, following ordinary rules for explicit and inferred generic arguments. Using the standard-library Result:
 
 ```norm
 Result<Integer, Error> explicit = Result<Integer, Error>.Ok(value: 1)
@@ -41,7 +41,7 @@ Result<Integer> defaultError = Result.Err("invalid")
 Result<Integer, Error> inferred = Result.Ok(value: 1)
 ```
 
-variant 参数支持普通默认值。只有一个必填主参数且其余参数都有默认值时，主参数可以保持单参数调用形式：
+Variant parameters support ordinary defaults. When there is one required primary parameter and all others have defaults, the primary parameter may keep the single-argument call form:
 
 ```norm
 enum Outcome<T> {
@@ -51,4 +51,4 @@ enum Outcome<T> {
 Outcome<Integer> result = Outcome.Success(1)
 ```
 
-省略 enum 类型实参时，实参和期望类型先参与普通推断，仍未求解但声明了默认类型的尾部参数再采用默认值；其他参数无法确定时必须使用显式形式。variant 数据通过 switch pattern 解构。模式与穷尽规则见[模式匹配](/spec/grammar/patterns)和[Switch](/spec/grammar/switch)。
+When enum type arguments are omitted, actual arguments and expected type participate in ordinary inference first. Unsolved trailing parameters with declared defaults then use those defaults; other unresolved parameters require an explicit form. Switch patterns destructure variant data. See [pattern matching](/spec/grammar/patterns) and [Switch](/spec/grammar/switch) for patterns and exhaustiveness.

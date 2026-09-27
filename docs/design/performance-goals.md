@@ -13,4 +13,3 @@ Measurement:
 - memory
 - startup time
 - binary size
-

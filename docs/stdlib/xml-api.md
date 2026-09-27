@@ -1,6 +1,6 @@
 # XML API
 
-`std.xml` 实现格式无关的序列化接口，并提供 XML 便捷入口。公开签名以 [`xml.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/xml/xml.norm) 为准。
+`std.xml` implements the format-independent serialization interfaces and provides XML convenience entry points. [`xml.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/xml/xml.norm) defines its public signatures.
 
 ```norm
 @Serializable()
@@ -16,6 +16,6 @@ String encoded = User(id: 7, name: "Norm").toXml()
 User decoded = encoded.fromXml<User>()
 ```
 
-字段默认映射为子元素，Array/List 使用 `item` 子元素，Map 使用 `entry`、`key` 与 `value`。`@XmlAttribute` 可把标量或 enum 字段映射为属性；nullable 字段缺失时解码为 `null`。根元素名与字段名复用 `@SerialName`。
+Fields map to child elements by default. Arrays/lists use `item` children, while maps use `entry`, `key`, and `value`. `@XmlAttribute` maps scalar or enum fields to attributes; missing nullable fields decode to `null`. Root and field names reuse `@SerialName`.
 
-解析严格拒绝未知、重复、缺失字段、错误根元素、数值越界、DTD 与外部实体。失败抛出 `XmlException`，携带稳定的 `code`、`path`、`offset`、`line` 与 `column`。
+Parsing strictly rejects unknown, duplicate, and missing fields, an incorrect root element, numeric overflow, DTDs, and external entities. Failures throw `XmlException` with stable `code`, `path`, `offset`, `line`, and `column` fields.

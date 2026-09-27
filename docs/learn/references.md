@@ -1,34 +1,34 @@
-# 10 引用
+# 10 References
 
-`ref<T>` 表达 value 存储位置的身份，让可变别名显式出现并被限制在词法生命周期内。
+`ref<T>` expresses the identity of a value storage location, making mutable aliasing explicit and limiting it to a lexical lifetime.
 
 <<< ../../norm/tests/docs/tour/10_references.norm{norm}
 
-输出：
+Output:
 
 ```text
 2
 ```
 
-| 形式 | 含义 |
+| Form | Meaning |
 | --- | --- |
-| `ref<T>` | `T` 的存储位置引用 |
-| `&location` | 取得可写位置的地址 |
-| `*reference` | 读取位置中的 value |
-| `*reference = value` | 替换位置中的 value |
+| `ref<T>` | A reference to a storage location for `T` |
+| `&location` | Obtain the address of a writable location |
+| `*reference` | Read the value in that location |
+| `*reference = value` | Replace the value in that location |
 
-## 可寻址位置
+## Addressable locations
 
-可写局部变量、参数和 class 的 value 字段可以取地址。字面量、临时表达式、调用结果、value 字段、容器元素和 null-safe 访问结果不能取地址。
+Writable local variables, parameters, and value fields of a class can be addressed. Literals, temporary expressions, call results, value fields, container elements, and results of null-safe access cannot.
 
-## 类型与生命周期边界
+## Type and lifetime boundaries
 
-- `T` 只能是 value 类型；
-- ref 不能嵌套，也不能 nullable；
-- ref 只用于局部变量和 callable 参数；
-- ref 不能作为返回类型、字段、enum payload、泛型实参或函数类型的一部分；
-- ref 不能被 Lambda 捕获或越过被引用位置的作用域。
+- `T` must be a value type.
+- A ref cannot be nested or nullable.
+- Refs are limited to local variables and callable parameters.
+- A ref cannot be a return type, field, enum payload, generic argument, or part of a function type.
+- A lambda cannot capture a ref, and a ref cannot outlive its referenced location.
 
-Class 已经具有对象身份，不使用 `ref<Class>` 表达共享。完整静态规则见 [`ref<T>` Reference](/spec/grammar/references)。
+Classes already have object identity; `ref<Class>` is not used to share them. See the [`ref<T>` reference](/spec/grammar/references) for complete static rules.
 
-上一章：[错误与异常](/learn/errors)。下一章：[Annotation](/learn/annotations)。
+Previous: [Errors and exceptions](/learn/errors). Next: [Annotation](/learn/annotations).

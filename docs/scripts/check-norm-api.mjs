@@ -15,10 +15,26 @@ addFormats(ajv)
 ajv.addSchema(common)
 const validateModule = ajv.compile(moduleSchema)
 const validateFile = ajv.compile(fileSchema)
-validate(validateModule, await json(resolve(apiRoot, 'module.api.json')), 'module.api.json')
+const descriptions = new Set()
+const moduleDocument = await json(resolve(apiRoot, 'module.api.json'))
+validate(validateModule, moduleDocument, 'module.api.json')
+collectDescriptions(moduleDocument, descriptions)
 for (const path of await apiFiles(apiRoot)) {
   if (path.endsWith('module.api.json')) continue
-  validate(validateFile, await json(path), path)
+  const document = await json(path)
+  validate(validateFile, document, path)
+  collectDescriptions(document, descriptions)
+}
+const translations = await json(resolve(docsRoot, 'translations', 'zh-CN', 'api.json'))
+const missing = [...descriptions].filter(description =>
+  typeof translations[description] !== 'string' || !translations[description].trim(),
+)
+const stale = Object.keys(translations).filter(description => !descriptions.has(description))
+if (missing.length || stale.length) {
+  throw new Error(`Chinese API descriptions: ${missing.length} missing, ${stale.length} stale\n${[
+    ...missing.map(description => `missing: ${description}`),
+    ...stale.map(description => `stale: ${description}`),
+  ].join('\n')}`)
 }
 
 async function json(path) {
@@ -38,4 +54,16 @@ async function apiFiles(directory) {
 function validate(validator, value, path) {
   if (validator(value)) return
   throw new Error(`${path}: ${ajv.errorsText(validator.errors, { separator: '\n' })}`)
+}
+
+function collectDescriptions(value, descriptions) {
+  if (!value || typeof value !== 'object') return
+  if (Array.isArray(value)) {
+    for (const item of value) collectDescriptions(item, descriptions)
+    return
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'description' && typeof child === 'string' && child.trim()) descriptions.add(child)
+    collectDescriptions(child, descriptions)
+  }
 }

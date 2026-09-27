@@ -1,6 +1,6 @@
 ---
 title: Status
-description: Norm 当前已交付能力、成熟度和实现边界
+description: Norm's delivered capabilities, maturity, and implementation boundaries
 ---
 
 <script setup>
@@ -9,68 +9,68 @@ import { currentRelease } from './.vitepress/release'
 
 # Status
 
-当前正式版本是 Norm {{ currentRelease }}。本页只描述当前工具链，长期语言规则见 [Language Reference](/spec/language-spec)，逐版本交付记录见[版本索引](/versions/)。
+The current formal release is Norm {{ currentRelease }}. This page describes the current toolchain. See the [Language Reference](/spec/language-spec) for long-term language rules and the [version index](/versions/) for per-release delivery records.
 
-## 成熟度标记
+## Maturity labels
 
-| 标记 | 含义 |
+| Label | Meaning |
 | --- | --- |
-| Stable | 已进入当前发布契约并有自动化验收 |
-| Experimental | 已实现，但公开形状仍可能调整 |
-| Internal | 工具链内部使用，尚未承诺公共入口 |
-| Planned | 设计或方向已经记录，当前不可使用 |
+| Stable | Part of the current release contract, with automated acceptance |
+| Experimental | Implemented, but its public shape may still change |
+| Internal | Used inside the toolchain without a promised public entry point |
+| Planned | A documented design or direction that cannot currently be used |
 
 ## Language
 
-| 能力 | 状态 | 事实入口 |
+| Capability | Status | Source of truth |
 | --- | --- | --- |
-| Class、Value、Interface | Stable | [对象模型](/spec/object-model) |
-| 数据 Enum 与穷尽 Switch | Stable | [Enum 与 Switch](/spec/grammar/switch) |
-| Nullable、`?.`、`??` 与控制流收窄 | Stable | [类型系统](/spec/type-system) |
-| 泛型类型、函数、方法与双向推断 | Stable | [类型推断](/spec/type-inference) |
-| Lambda、函数值与声明引用 | Stable | [函数高级规则](/spec/grammar/functions-advanced) |
-| Extension function | Stable | [函数参考](/spec/grammar/functions#extension-function) |
-| `ref<T>` 与词法生命周期 | Stable | [引用参考](/spec/grammar/references) |
-| `Class<T>` 与类型化声明引用 | Stable | [声明引用与反射](/spec/declaration-references) |
-| Annotation、`@Document` 与类型化拦截器 | Stable | [Annotation 规范](/spec/annotations) |
-| Package、Module 与跨文件可见性 | Stable | [模块系统](/spec/module-system) |
-| 类型化字符串插值 | Stable | [字面量](/spec/grammar/literals) |
-| `//` 与 `/* */` 源码注释 | Planned | 当前 Lexer 将标记解析为运算符 token |
+| Class, Value, Interface | Stable | [Object model](/spec/object-model) |
+| Data enums and exhaustive switch | Stable | [Enum and switch](/spec/grammar/switch) |
+| Nullable types, `?.`, `??`, and control-flow narrowing | Stable | [Type system](/spec/type-system) |
+| Generic types, functions, methods, and bidirectional inference | Stable | [Type inference](/spec/type-inference) |
+| Lambdas, function values, and declaration references | Stable | [Advanced function rules](/spec/grammar/functions-advanced) |
+| Extension functions | Stable | [Function reference](/spec/grammar/functions#extension-functions) |
+| `ref<T>` and lexical lifetimes | Stable | [Reference rules](/spec/grammar/references) |
+| `Class<T>` and typed declaration references | Stable | [Declaration references and reflection](/spec/declaration-references) |
+| Annotations, `@Document`, and typed interceptors | Stable | [Annotation specification](/spec/annotations) |
+| Packages, modules, and cross-file visibility | Stable | [Module system](/spec/module-system) |
+| Typed string interpolation | Stable | [Literals](/spec/grammar/literals) |
+| `//` and `/* */` source comments | Planned | The current lexer treats these markers as operator tokens |
 
-## Standard Library
+## Standard library
 
-| 范围 | 状态 |
+| Area | Status |
 | --- | --- |
-| Core 类型、集合、Unicode 文本、Math、Time | Stable |
-| 流式 I/O、文件系统与资源生命周期 | Stable |
+| Core types, collections, Unicode text, Math, Time | Stable |
+| Streaming I/O, filesystem, and resource lifetimes | Stable |
 | HTTP client | Stable |
-| 命令行解析、应用运行环境、标准流与子进程 | Experimental |
-| JSON、XML、YAML 与统一结构映射 | Stable |
-| Validation 与 Testing | Stable |
-| 自动映射 value | Stable |
-| 自动映射 class identity、对象图、循环引用和多态 | Planned |
+| Command-line parsing, application runtime environment, standard streams, and subprocesses | Experimental |
+| JSON, XML, YAML, and unified structured mapping | Stable |
+| Validation and Testing | Stable |
+| Automatic mapping of values | Stable |
+| Automatic mapping of class identity, object graphs, cycles, and polymorphism | Planned |
 | HTTP server | Planned |
 
-已交付模块见[标准库概览](/stdlib/overview)，公开入口以标准库源码和验收程序为准。
+See the [standard library overview](/stdlib/overview) for delivered modules. The source and acceptance programs define public entry points.
 
 ## Tooling
 
-| 能力 | 状态 |
+| Capability | Status |
 | --- | --- |
-| 自带 Java runtime 的 CLI 与 JVM 开发入口 | Stable |
-| Formatter、诊断、补全、Signature Help、Hover | Stable |
-| 跳转定义、查找引用、Prepare Rename、Rename | Stable |
-| 标准库只读源码导航 | Stable |
-| 官方 VS Code VSIX | Stable |
-| 调试器 | Planned |
-| 在线 Playground | Planned |
+| CLI with bundled Java runtime and JVM development entry | Stable |
+| Formatting, diagnostics, completion, signature help, and hover | Stable |
+| Go to definition, find references, prepare rename, and rename | Stable |
+| Read-only navigation of standard library source | Stable |
+| Official VS Code VSIX | Stable |
+| Debugger | Planned |
+| Online playground | Planned |
 
-## 已知边界
+## Known boundaries
 
-- 自动序列化当前只处理 `value`；
-- `private` 是源文件级边界；
-- 泛型参数保持 invariant，不支持 raw type；
-- ref 不能进入字段、容器、泛型实参、返回类型或 Lambda 捕获；
-- 当前没有 HTTP server、调试器或在线执行环境。
+- Automatic serialization currently handles `value` only.
+- `private` has a source-file boundary.
+- Generic parameters remain invariant; raw types are unsupported.
+- References cannot be stored in fields, containers, generic arguments, return types, or lambda captures.
+- There is currently no HTTP server, debugger, or online execution environment.
 
-采用决策应以[最新版本实现契约](/versions/)和实际验收程序为准。
+Adoption decisions should use the [latest implementation contract](/versions/) and actual acceptance programs.

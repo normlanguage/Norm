@@ -1,36 +1,36 @@
-# 类型推断
+# Type inference
 
-Norm 的公开声明保持类型前置和显式。类型推断主要服务于泛型调用、控制表达式结果与局部模式绑定，而不是省略 API 签名。
+Public Norm declarations keep explicit, type-first signatures. Type inference primarily supports generic calls, control-expression results, and local pattern bindings; it does not remove types from public API signatures.
 
-## 推断位置
+## Inference sites
 
 ```norm
 List<String> names = emptyList()
 String first = identity(value: "Norm")
 ```
 
-编译器可以根据实参、赋值目标和泛型约束推断函数的类型参数。字段和参数类型不能省略。函数省略返回类型时使用声明位置决定的固定语义，不根据函数体推断：顶层为 `Void`，class 方法为 owner 类型。
+The compiler may infer a function's type arguments from call arguments, the assignment target, and generic constraints. Field and parameter types cannot be omitted. An omitted function return type has fixed semantics determined by its declaration site, not inferred from the body: `Void` at top level and the owner type for class methods.
 
-## 约束求解
+## Constraint solving
 
-对每个类型参数，编译器收集：
+For each type parameter, the compiler collects:
 
-1. 实参类型产生的下界或等式；
-2. 赋值目标产生的期望类型；
-3. `extends` 声明产生的上界；
-4. nullable 与型变规则产生的附加约束。
+1. Lower bounds or equalities from argument types;
+2. Expected types from assignment targets;
+3. Upper bounds from `extends` declarations;
+4. Additional constraints from nullability and variance rules.
 
-求解必须得到唯一、满足全部上界的类型。普通约束无法确定的尾部参数若声明了默认类型，则按声明顺序展开默认值；其他无法确定的参数要求调用者显式提供。
+Solving must produce one type that satisfies every upper bound. If ordinary constraints cannot determine trailing parameters that declare default types, their defaults are expanded in declaration order. Other undetermined parameters require explicit type arguments from the caller.
 
 ```norm
 List<String> names = emptyList<String>()
 ```
 
-## 不执行的推断
+## Inference not performed
 
-- 不根据函数体补全公开签名；
-- 不通过隐式数值收窄寻找候选；
-- 不把 `null` 单独推断为任意 nullable 类型；
-- 不跨模块猜测未声明的结构类型关系。
+- Do not complete public signatures from function bodies.
+- Do not search candidates through implicit numeric narrowing.
+- Do not infer an arbitrary nullable type from `null` alone.
+- Do not guess undeclared structural type relations across modules.
 
-形式化约束与算法见[泛型推断](/spec/formal/generic-inference)。
+The formal constraints and algorithm appear in [generic inference](/spec/formal/generic-inference).

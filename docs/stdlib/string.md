@@ -1,17 +1,17 @@
 # String
 
-String 是不可变 Unicode 文本值。构造后内容不变，切片和替换返回新 String；实现可以共享底层存储但不能泄露可变视图。
+String is an immutable Unicode text value. Its content cannot change after construction; slicing and replacement return new Strings. An implementation may share underlying storage but must not expose a mutable view.
 
 ```norm
 String language = "Norm"
 String message = "Hello, " + language
 ```
 
-## 长度与索引
+## Length and indexing
 
-文本存在字节、Unicode code point 和 grapheme cluster 等不同单位。API 使用 `byteSize()`、`codePointSize()` 和 `graphemeSize()` 明确区分，不提供含糊的 `size()` 或 `length`，也不承诺 `text[index]` 等于用户看到的第 index 个字符。
+Text has different units, including bytes, Unicode code points, and grapheme clusters. The API distinguishes them through `byteSize()`, `codePointSize()`, and `graphemeSize()`. It offers no ambiguous `size()` or `length`, nor does it promise that `text[index]` is the index-th character a user sees.
 
-`CodePoint` 是独立的 Unicode 标量类型，字符字面量只允许包含一个 code point：
+`CodePoint` is a distinct Unicode scalar type. A character literal contains exactly one code point:
 
 ```norm
 CodePoint letter = 'N'
@@ -21,9 +21,9 @@ Boolean digit = emoji.isDecimalDigit()
 Boolean asciiDigit = letter.isAsciiDigit()
 ```
 
-`CodePoint` 提供 `isDecimalDigit()`、`isAsciiDigit()`、`asciiDigitValue()`、`isLetter()`、`isWhitespace()`、`isUppercase()` 和 `isLowercase()`。`isAsciiDigit()` 只接受 `0` 到 `9`，`asciiDigitValue()` 返回对应整数并在其他输入上产生 `INVALID_ARGUMENT`。大小写映射属于 String，因为一个 code point 的映射结果可能包含多个 code point。
+`CodePoint` provides `isDecimalDigit()`, `isAsciiDigit()`, `asciiDigitValue()`, `isLetter()`, `isWhitespace()`, `isUppercase()`, and `isLowercase()`. `isAsciiDigit()` accepts only `0` through `9`; `asciiDigitValue()` returns the corresponding integer and produces `INVALID_ARGUMENT` for other input. Case mapping belongs to String because mapping one code point can produce several code points.
 
-需要随机访问文本时，先显式选择单位：
+Choose a unit explicitly before random access:
 
 ```norm
 Array<CodePoint> points = text.codePoints()
@@ -32,9 +32,9 @@ String part = text.sliceCodePoints(start: 1, end: 4)
 String visiblePart = text.sliceGraphemes(start: 1, end: 4)
 ```
 
-`codePoints()` 和 `graphemes()` 返回独立的 value 数组。修改数组不会改变原始 String。`sliceCodePoints` 使用左闭右开的 code point 范围。
+`codePoints()` and `graphemes()` return independent value arrays. Modifying an array does not change the original String. `sliceCodePoints` uses a half-open code-point range.
 
-## 状态与比较
+## State and comparison
 
 ```norm
 Boolean empty = text.isEmpty()
@@ -42,11 +42,11 @@ Integer order = text.compareCodePoints(right: other)
 Boolean headerMatches = text.equalsIgnoreCaseAscii(other: "content-type")
 ```
 
-`compareCodePoints` 返回 `-1`、`0` 或 `1`。`equalsIgnoreCaseAscii` 只折叠 ASCII 大小写，适用于协议标识符，不受系统 locale 影响。
+`compareCodePoints` returns `-1`, `0`, or `1`. `equalsIgnoreCaseAscii` folds ASCII case only; it is suitable for protocol identifiers and independent of the system locale.
 
-## 搜索与切分
+## Searching and splitting
 
-`contains`、`startsWith`、`endsWith` 和 `split` 按精确文本匹配。
+`contains`, `startsWith`, `endsWith`, and `split` use exact text matching.
 
 ```norm
 Boolean present = text.contains(value: "Norm")
@@ -55,9 +55,9 @@ Boolean suffix = text.endsWith(suffix: "rm")
 Array<String> components = path.split(separator: "/")
 ```
 
-`split` 保留首尾和相邻分隔符产生的空片段。
+`split` retains empty components produced by leading, trailing, or adjacent separators.
 
-## 替换与空白
+## Replacement and whitespace
 
 ```norm
 String all = text.replace(target: "old", replacement: "new")
@@ -67,9 +67,9 @@ String left = text.trimStart()
 String right = text.trimEnd()
 ```
 
-替换采用字面量匹配，空 target 属于无效参数。trim 系列按照 Unicode whitespace 判断，不读取系统 locale。
+Replacement matches literally; an empty target is an invalid argument. The trim family uses Unicode whitespace without consulting the system locale.
 
-## 大小写与规范化
+## Case and normalization
 
 ```norm
 String lower = text.toLowercase()
@@ -83,17 +83,17 @@ String normalized = normalize(value: text, form: Normalization.Nfc)
 Boolean canonical = isNormalized(value: normalized, form: Normalization.Nfc)
 ```
 
-无 locale 参数的大小写转换使用稳定的 Unicode locale-independent 规则。`Normalization` 提供 `Nfc`、`Nfd`、`Nfkc` 和 `Nfkd`。
+Case conversion without a locale parameter uses stable, locale-independent Unicode rules. `Normalization` provides `Nfc`, `Nfd`, `Nfkc`, and `Nfkd`.
 
-## 查找与解析
+## Finding and parsing
 
-普通缺失位置使用 nullable Integer 表达。文本编解码和需要携带错误原因的解析使用后续的 Bytes 与 Result API。
+An ordinary missing position is represented by a nullable Integer. Text encoding/decoding and parsing that must carry an error reason use the later Bytes and Result APIs.
 
-解析数字、UUID 和时间由目标类型的 parse API 完成，String 不提供隐式跨类型转换。
+The target type's parse API parses numbers, UUIDs, and times; String provides no implicit cross-type conversions.
 
-## 文本构造函数
+## Text-building functions
 
-`std.text` 已提供 `repeat`、`join` 和 `fromCodePoints`，实现在 `std/text/builders.norm`：
+`std.text` provides `repeat`, `join`, and `fromCodePoints`, implemented in `std/text/builders.norm`:
 
 ```norm
 import std.text.join
@@ -104,4 +104,4 @@ String text = join(values: names, separator: ", ")
 String rebuilt = fromCodePoints(values: points)
 ```
 
-`text.isBlank` 是只读 Boolean 属性：空字符串或全部由 Unicode 空白码点组成时为 true。判定遵循 JDK `Character.isWhitespace`，包括全角空格，不包括不换行空格 U+00A0。
+`text.isBlank` is a read-only Boolean property: true for an empty string or one containing only Unicode whitespace code points. It follows JDK `Character.isWhitespace`, including ideographic space but excluding no-break space U+00A0.

@@ -1,25 +1,25 @@
-# 12 Package 与 Module
+# 12 Package and Module
 
-Package 组织公开名称，Module 定义源码根、导出边界和精确依赖图。
+Packages organize public names. Modules define source roots, export boundaries, and an exact dependency graph.
 
-## 源文件
+## Source files
 
-业务入口可以放在 package 中：
+An application entry point can be in a package:
 
 <<< ../../norm/tests/docs/projects/packages/app/Main.norm{norm}
 
-`package` 必须是文件的第一个声明，并与源码根下的相对目录一致。`import` 位于 package 之后，只导入 public 名称；`as` 为当前文件建立局部别名。`private` 始终限制在声明文件内。
+`package` must be the first declaration in a file and match its relative directory under the source root. `import` follows the package and imports only public names; `as` establishes a local alias for the current file. `private` always limits visibility to the declaring file.
 
-没有 package 声明的文件是独立脚本。脚本不能导入项目源码，也不能被项目源码导入。
+A file without a package declaration is a standalone script. Scripts cannot import project sources, and project sources cannot import scripts.
 
-## Module 配置
+## Module configuration
 
-模块根目录中的 `module.norm` 是普通 Norm 源文件，并提供唯一的零参数模块工厂：
+`module.norm` at the module root is an ordinary Norm source file that provides the single zero-argument module factory:
 
 <<< ../../norm/tests/docs/projects/packages/app/module.norm{norm}
 
-模块名与版本参与公开名义类型身份。`exports` 声明跨 package 可见的源码；跨模块 import 还要求目标是当前模块的直接依赖。传递依赖不会自动获得可见性。
+The module name and version participate in public nominal type identity. `exports` declares sources visible across packages. A cross-module import additionally requires the target to be a direct dependency of the current module; transitive dependencies do not automatically become visible.
 
-CLI、Language Server 和测试工具读取同一份模块描述和 source set。完整路径、依赖和可见性规则见[模块系统](/spec/module-system)。
+The CLI, Language Server, and test tools read the same module description and source set. See the [module system](/spec/module-system) for complete path, dependency, and visibility rules.
 
-上一章：[Annotation](/learn/annotations)。接下来可以按需查阅 [Language Reference](/spec/language-spec)、[Standard Library](/stdlib/overview)和[当前状态](/status)。
+Previous: [Annotation](/learn/annotations). Continue with the [Language Reference](/spec/language-spec), [Standard Library](/stdlib/overview), or [current status](/status) as needed.

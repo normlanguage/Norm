@@ -1,6 +1,8 @@
 # OpenAI
 
-独立 Norm Module。将本目录放在应用的 `dependencies/openai`，并声明 `dependency(repository: "github", name: "openai", version: 1)`。模块尚未发布到远程仓库。
+[简体中文](README.zh-CN.md)
+
+This is an independent Norm module. Put this directory at `dependencies/openai` in an application and declare `dependency(repository: "github", name: "openai", version: 1)`. The module has not yet been published to a remote repository.
 
 ```norm
 import openai.Client
@@ -14,9 +16,9 @@ var response = client.generate(
 )
 ```
 
-`endpoint` 接受完整 Responses 或 Chat Completions URL。`generate` 使用真实 SSE 流，即时分发文本增量。返回值中的 `text` 是同一回复的完整文本，按需使用，避免重复打印。通过 `response.status`、`refusal`、`errorMessage` 和 `incompleteReason` 检查最终结果。
+`endpoint` accepts a complete Responses or Chat Completions URL. `generate` consumes a real SSE stream and dispatches text increments immediately. The returned `text` contains the complete text of the same response; use it only as needed to avoid printing twice. Inspect `response.status`, `refusal`, `errorMessage`, and `incompleteReason` for the final outcome.
 
-工具直接使用函数或绑定方法引用：
+Tools use functions or bound method references directly:
 
 ```norm
 import openai.Agent
@@ -35,12 +37,12 @@ var agent = Agent(client: client, tools: [sumNumbers])
 var response = agent.run(input: "计算 19 加 23")
 ```
 
-绑定方法使用 `tools: [service.method]`。重载函数先赋给精确 `Function<R(P...)>` 变量，再传入工具列表。参数默认值、nullable、序列化字段名和返回值类型沿用 Norm 契约；结构化 value 使用 `@Serializable()`。注册时校验工具注解、名称唯一性和参数、结果的序列化能力。工具异常通过 `onToolFailed` 通知，并将错误结果交给模型继续处理。
+Pass bound methods as `tools: [service.method]`. First assign an overloaded function to a variable with the exact `Function<R(P...)>` type, then add it to the tool list. Parameter defaults, nullability, serialized field names, and return types follow Norm's contracts; structured values use `@Serializable()`. Registration checks tool annotations, unique names, and whether parameters and results can be serialized. Tool exceptions notify `onToolFailed`, and the error result is passed back to the model so it can continue.
 
-`Client.generate` 只请求一次模型；`Agent.run` 自动执行工具并继续请求模型。每次 `run` 独立创建上下文，不保存会话。`Client.exchange`、`ResponseRequest`、`ToolRegistry` 用于需要自行管理上下文和工具调度的应用。
+`Client.generate` makes one model request. `Agent.run` executes tools automatically and then continues requesting the model. Each `run` creates a fresh context; no session is retained. `Client.exchange`, `ResponseRequest`, and `ToolRegistry` serve applications that manage their own context and tool scheduling.
 
-每个事件都有对应的 `onXxx` 参数，同时支持 `onEvent: (GenerationEvent event)`。同时注册时先执行 `onEvent`，再执行专用回调。模型事件由 `generate` 和 `run` 提供；工具执行和整个任务的事件由 `run` 提供。事件与参数类型见 [events.norm](events.norm)，生命周期入口见 [client.norm](client.norm) 和 [agent.norm](agent.norm)。错误通知不吞异常；服务端返回的失败、不完整和拒绝状态保留在 `Response` 中。
+Each event has a corresponding `onXxx` parameter and also supports `onEvent: (GenerationEvent event)`. When both are registered, `onEvent` runs before the specialized callback. `generate` and `run` provide model events; `run` also provides tool execution and whole-task events. See [events.norm](events.norm) for event and parameter types, and [client.norm](client.norm) and [agent.norm](agent.norm) for lifecycle entry points. Error notification does not swallow exceptions. Server-reported failure, incomplete, and refusal states remain in `Response`.
 
-`client.generate<Result>(input: ...)` 从 `Result` 推导输出 Schema，结果通过 `response.decode<Result>()` 解码。严格模式接受对象结果，nullable 字段使用必填且可为 null 的表示；动态 Map 无法用于严格模式。仅支持 JSON 对象模式的兼容服务可传 `mode: StructuredOutputMode.JsonObject`。高级请求可用 `structuredOutput<Result>()` 生成同一格式定义。
+`client.generate<Result>(input: ...)` derives an output schema from `Result`, decoded through `response.decode<Result>()`. Strict mode accepts object results; a nullable field is represented as required but nullable. Dynamic maps cannot be used in strict mode. For compatible services that only support JSON-object mode, pass `mode: StructuredOutputMode.JsonObject`. Advanced requests can use `structuredOutput<Result>()` to generate the same format definition.
 
-实现入口：[函数工具](tools.norm)、[JSON Schema 与函数映射](../../stdlib/std/json/json.norm)。运行验收：[OpenAiClientTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/OpenAiClientTest.java)、[OpenAiAgentTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/OpenAiAgentTest.java)、[JsonFunctionExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/JsonFunctionExecutionTest.java)。协议依据：[OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)。
+Implementation entry points: [function tools](tools.norm) and [JSON Schema and function mapping](../../stdlib/std/json/json.norm). Acceptance: [OpenAiClientTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/OpenAiClientTest.java), [OpenAiAgentTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/OpenAiAgentTest.java), and [JsonFunctionExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/JsonFunctionExecutionTest.java). Protocol source: [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs).

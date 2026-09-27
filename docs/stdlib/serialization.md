@@ -1,6 +1,6 @@
 # Serialization
 
-`std.serialization` 定义格式无关的映射契约与公共 metadata。公开签名以 [`core.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/serialization/core.norm) 为准。
+`std.serialization` defines format-independent mapping contracts and shared metadata. [`core.norm`](https://github.com/normlanguage/Norm/blob/main/norm/stdlib/std/serialization/core.norm) defines its public signatures.
 
 ```norm
 @Serializable()
@@ -16,8 +16,8 @@ Void roundTrip(DataMapper mapper) {
 }
 ```
 
-`DataMapper`、`DataReader<T>` 与 `DataWriter<T>` 是应用层唯一的格式抽象；JSON、XML 与 YAML 各自实现它们。`@Serializable`、`@SerialName`、`@SerialIgnore` 描述共享结构，格式专属 metadata 留在对应格式包中。
+`DataMapper`, `DataReader<T>`, and `DataWriter<T>` are the application's only format abstractions; JSON, XML, and YAML implement each of them. `@Serializable`, `@SerialName`, and `@SerialIgnore` describe shared structure, while format-specific metadata remains in the corresponding format package.
 
-运行时只为精确 `CoreType` 编译并缓存 reader/writer plan。自动结构映射只处理 value；class identity、对象图、循环引用与多态需要独立协议。失败抛出对应格式的类型化异常。
+The runtime compiles and caches reader/writer plans only for an exact `CoreType`. Automatic structural mapping handles values only; class identity, object graphs, cycles, and polymorphism require separate protocols. Failures throw typed exceptions for the corresponding format.
 
-格式入口见 [JSON API](/stdlib/json-api)、[XML API](/stdlib/xml-api) 与 [YAML API](/stdlib/yaml-api)，内部边界见[序列化运行时](/design/serialization-runtime)。
+See the [JSON API](/stdlib/json-api), [XML API](/stdlib/xml-api), and [YAML API](/stdlib/yaml-api) for format entry points, and the [serialization runtime](/design/serialization-runtime) for internal boundaries.

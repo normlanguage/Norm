@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useData } from 'vitepress'
 import type { Declaration, Reference } from '../generated/norm-api'
 import NormApiDocument from './NormApiDocument.vue'
+import { labelsFor } from './norm-api-labels'
 
 defineOptions({ name: 'NormApiDeclaration' })
 const emit = defineEmits<{ navigate: [reference: Reference] }>()
+const { lang } = useData()
+const labels = computed(() => labelsFor(lang.value))
 defineProps<{
   declaration: Declaration
   targets: ReadonlySet<string>
@@ -14,7 +19,7 @@ defineProps<{
   <article :id="declaration.id" class="norm-api-declaration">
     <header>
       <span>{{ declaration.kind }}</span>
-      <a :href="`#${declaration.id}`" :aria-label="`Link to ${declaration.name}`">#</a>
+      <a :href="`#${declaration.id}`" :aria-label="labels.linkTo(declaration.name)">#</a>
     </header>
     <pre><code>{{ declaration.signature }}</code></pre>
     <NormApiDocument

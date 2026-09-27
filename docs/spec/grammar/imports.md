@@ -1,10 +1,10 @@
-# Import 语法
+# Import Syntax
 
 ```text
 Import := "import" QualifiedName ("as" Identifier)?
 ```
 
-import 位于 package 声明之后、其他声明之前，并且只导入 public 名称。
+Imports follow the package declaration and precede other declarations. They import public names only.
 
 ```norm
 package drawing
@@ -13,11 +13,10 @@ import geometry.Point
 import geometry.render as renderPoint
 ```
 
-## 名称解析
+## Name resolution
 
-无别名时，最后一个名称段成为文件内短名称。局部声明优先于导入名称，但产生遮蔽时编译器应给出警告。两个 import 产生相同短名称是错误，除非至少一个使用别名。
+Without an alias, the last name segment becomes the short name in that file. A local declaration takes precedence over an imported name, but the compiler should warn about the shadowing. Two imports producing the same short name are an error unless at least one uses an alias.
 
-导入不具有传递性：package A 导入 B，不会让 A 的使用者自动看到 B。导入也不运行初始化代码。
+Imports are not transitive: if package A imports B, users of A do not automatically see B. Importing also runs no initialization code.
 
-当前核心语法没有 wildcard import。标准预导入仅包含基本类型和极少量核心函数，并由语言版本固定。完整 package 边界见[导入系统](/spec/import-system)。
-
+The current core grammar has no wildcard import. Standard preimports contain only basic types and a few core functions, fixed by language version. See the [import system](/spec/import-system) for the complete package boundary.

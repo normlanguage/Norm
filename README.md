@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/public/brand/norm.svg" alt="Norm Logo" width="144"></p>
 
+[简体中文](README.zh-CN.md)
+
 Norm is a specification and compiler-bootstrap repository for a statically typed, application-oriented programming language.
 
 Norm uses distinct language constructs for distinct semantics: classes express identity, values express data, enums express alternatives, interfaces express capability, and refs express controlled aliasing.
@@ -10,7 +12,7 @@ Norm uses distinct language constructs for distinct semantics: classes express i
 
 License: [MPL-2.0](LICENSE). Scope and source availability: [LICENSING.md](LICENSING.md).
 
-**Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [current implementation contract](https://normlanguage.github.io/Norm/en/versions/0.19) defines this boundary.
+**Active development.** Norm source remains the authoring source while the compiler uses deterministic, content-addressed Core IR for fixed definition identities, dependency tracking, persistent definition storage, and Truffle artifact reuse. The [version index](https://normlanguage.github.io/Norm/versions/) identifies the current implementation contract.
 
 ## Build
 
@@ -50,8 +52,8 @@ Norm's official compiler is implemented in Java as one physical module whose pac
 
 The frontend produces canonical Core IR before backend lowering. Authoring names and source metadata remain separate from semantic definition identity, and Truffle consumes Core as its only program input. See the [compiler architecture](https://normlanguage.github.io/Norm/spec/compiler-design) and [implementation strategy](https://normlanguage.github.io/Norm/design/implementation-strategy).
 
-## 仓库边界
+## Repository scope
 
-本仓库维护 Norm 语言、标准库、编译器／CLI 和 VS Code 插件，以及它们的文档与测试。
+This repository maintains the Norm language, standard library, compiler and CLI, VS Code extension, documentation, and tests.
 
-应用示例与端到端验收见 [examples](https://github.com/normlanguage/examples)。适配包在 [normlanguage](https://github.com/normlanguage) 组织下各自维护、测试和发布；编译器只负责通用包解析、Java 互操作与 Native Image 集成。
+Application examples and end-to-end acceptance tests live in [examples](https://github.com/normlanguage/examples). Adapter packages are maintained, tested, and released independently under the [normlanguage](https://github.com/normlanguage) organization. The compiler provides generic package resolution, Java interoperability, and Native Image integration.

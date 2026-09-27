@@ -1,33 +1,33 @@
 ---
 title: Language Tour
-description: 用十二章建立完整的 Norm 语言心智模型
+description: Build a complete mental model of Norm in twelve chapters
 ---
 
 # Language Tour
 
-用大约十五分钟认识 Norm 的核心语言模型，并运行一组由当前编译器持续验证的程序。
+Learn Norm's core language model in about fifteen minutes while running programs continuously checked against the current compiler.
 
-Norm 用不同构造表达不同语义：`class` 表达身份，`value` 表达值，`enum` 表达有限选择，`interface` 表达能力，`ref` 表达受控别名。Tour 围绕这条主线组织，不按 Parser 或 AST 类型罗列功能。
+Norm uses different constructs for different semantics: `class` for identity, `value` for data, `enum` for finite alternatives, `interface` for capability, and `ref` for controlled aliasing. The tour follows that model rather than listing parser or AST features.
 
-## 阅读顺序
+## Reading order
 
-| 章节 | 建立的认识 |
+| Chapter | What you will learn |
 | --- | --- |
-| [01 Hello, Norm](/learn/hello) | 源文件、入口和基本代码形状 |
-| [02 值与绑定](/learn/bindings) | 显式类型、`var`、赋值和字面量 |
-| [03 函数与调用](/learn/functions) | 返回类型、参数标签和调用顺序 |
-| [04 Class、Value 与 Interface](/learn/data-model) | 身份、值与名义能力 |
-| [05 数据 Enum 与 Switch](/learn/enum-switch) | 有限状态、解构和穷尽分支 |
-| [06 Null 与类型推断](/learn/nullability-inference) | 可空性、期望类型和推断边界 |
-| [07 集合与迭代](/learn/collections) | Array、List、Iterable 和索引 |
-| [08 Lambda 与 Extension](/learn/lambdas-extensions) | 函数值、捕获和静态扩展调用 |
-| [09 错误与异常](/learn/errors) | 可预期结果与异常控制流 |
-| [10 引用](/learn/references) | 可寻址位置和词法生命周期 |
-| [11 Annotation](/learn/annotations) | 类型化元数据与拦截行为 |
-| [12 Package 与 Module](/learn/packages-modules) | 多文件程序和公开边界 |
+| [01 Hello, Norm](/learn/hello) | Source files, the entry point, and basic code structure |
+| [02 Values and bindings](/learn/bindings) | Explicit types, `var`, assignment, and literals |
+| [03 Functions and calls](/learn/functions) | Return types, argument labels, and evaluation order |
+| [04 Class, Value, and Interface](/learn/data-model) | Identity, values, and nominal capabilities |
+| [05 Data Enum and Switch](/learn/enum-switch) | Finite states, destructuring, and exhaustive branches |
+| [06 Null and type inference](/learn/nullability-inference) | Nullability, expected types, and inference limits |
+| [07 Collections and iteration](/learn/collections) | Array, List, Iterable, and indexes |
+| [08 Lambda and Extension](/learn/lambdas-extensions) | Function values, capture, and statically resolved extensions |
+| [09 Errors and exceptions](/learn/errors) | Expected results and exceptional control flow |
+| [10 References](/learn/references) | Addressable locations and lexical lifetimes |
+| [11 Annotation](/learn/annotations) | Typed metadata and interception behavior |
+| [12 Package and Module](/learn/packages-modules) | Multi-file programs and public boundaries |
 
-## Tour、Reference 与 Status
+## Tour, Reference, and Status
 
-Tour 负责连续学习，省略少见边界。[Language Reference](/spec/language-spec)精确定义编译器应接受、拒绝和执行的行为。[Status](/status)只描述当前发布版已经交付的能力和限制。
+The tour supports continuous learning and omits uncommon edge cases. The [Language Reference](/spec/language-spec) precisely defines what the compiler should accept, reject, and execute. [Status](/status) describes only the capabilities and limitations delivered in the current release.
 
-从[第一章：Hello, Norm](/learn/hello)开始。
+Start with [Chapter 1: Hello, Norm](/learn/hello).

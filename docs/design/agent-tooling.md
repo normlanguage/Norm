@@ -1,55 +1,55 @@
 ---
-title: Agent 工具设计
-description: 面向 AI Agent 的语义查询、修改与验证原则
+title: Agent Tool Design
+description: Principles for semantic queries, edits, and verification by AI agents
 ---
 
-# Agent 工具设计
+# Agent Tool Design
 
-Agent 工具的目标是减少猜测、无关上下文和无效尝试，使操作依据明确的语义事实，并让结果能够独立验证。语言规则继续由 [Language Reference](/spec/language-spec) 定义；当前可用入口见 [Agent 开发入口](/tooling/agent)。
+Agent tools should reduce guessing, irrelevant context, and ineffective attempts. Operations should use explicit semantic facts and yield independently verifiable results. The [Language Reference](/spec/language-spec) continues to define language rules; the [agent development entry](/tooling/agent) describes the current available surface.
 
-## 原则
+## Principles
 
-| 原则 | 契约 | 评审问题 |
+| Principle | Contract | Review question |
 | --- | --- | --- |
-| 明确性 | 输入、结果、失败和完整性显式表达 | 调用方还需猜测哪些前提？ |
-| 强引用 | 搜索产生候选，操作绑定声明身份与源码修订 | 同名、重载或编辑后是否仍准确命中？ |
-| 上下文效率 | 默认提供最小充分上下文，按需展开并标明截断 | 信息是否帮助当前决策？ |
-| 单一真相源 | 类型、引用、文档和诊断从编译器事实派生 | 同一事实是否存在独立维护的副本？ |
-| 局部性 | 用明确边界支持局部理解、修改和验证 | 局部任务需要理解多少无关实现？ |
-| 可验证性 | 成功条件由编译器、测试或明确前置条件检查 | 证据实际证明到哪一层？ |
-| 短反馈 | 未完成源码也能查询和检查，诊断保留可行动的信息 | 错误多久被发现，反馈是否足够修复？ |
-| 状态一致性 | 查询、编辑与验证标识各自使用的输入 | 结果究竟对应哪份代码？ |
+| Explicitness | Inputs, results, failures, and completeness are stated explicitly | Which preconditions must callers still guess? |
+| Strong references | Search yields candidates; operations bind to declaration identity and source revision | Does the operation still select the right declaration after an overload, duplicate name, or edit? |
+| Context efficiency | Return the smallest sufficient context by default; expand on demand and mark truncation | Does this information help the current decision? |
+| Single source of truth | Types, references, documentation, and diagnostics derive from compiler facts | Is the same fact maintained independently elsewhere? |
+| Locality | Explicit boundaries support local understanding, edits, and verification | How much unrelated implementation must a local task understand? |
+| Verifiability | Success conditions are checked by the compiler, tests, or explicit preconditions | What layer does the evidence actually prove? |
+| Short feedback | Query and check incomplete source while retaining actionable diagnostics | How quickly is an error found, and is the feedback sufficient to fix it? |
+| State consistency | Queries, edits, and verification identify their respective inputs | Which revision of the code produced this result? |
 
-Token 数量与耗时应结合任务成功率测量。省略必要信息、隐藏错误或把局部验证表述为完整验证不构成优化。
+Measure token use and latency alongside task success. Omitting required information, hiding errors, or presenting a local check as complete verification is not an optimization.
 
-## 共享架构
+## Shared architecture
 
-查询与重构归属 `language`，项目快照与调度归属 `workspace`，编译和测试执行归属 `application`。CLI、LSP 与未来 MCP 接入只转换协议，不实现第二套名称解析、类型推断或重构规则。限定名称是 CLI 的主要选择方式，由语义所属关系解析为内部声明身份；歧义必须返回可复制候选。查询采用单一 query 入口，关联信息按选项展开。refactor 的每种类型共用输入修订、编辑集合和预检结果，默认预览；命令帮助必须足以完成调用，不要求学习 JSON 输入文件。源码入口与身份边界见[编译器架构](/spec/compiler-design)，依赖约束见[工具链开发规范](/design/toolchain-development)。
+Queries and refactors belong to `language`, project snapshots and scheduling to `workspace`, and compilation and test execution to `application`. CLI, LSP, and a future MCP integration only translate protocols; they must not implement a second name resolver, type inference engine, or refactoring rule set. Qualified names are the primary CLI selection mechanism and resolve through semantic ownership to internal declaration identity. Ambiguity must return copyable candidates. Queries use one query entry point and expand related information through options. Each refactor type shares input revision, edit set, and preflight result, with preview as the default. Command help must be enough to invoke it without learning a JSON input-file format. See the [compiler architecture](/spec/compiler-design) for source and identity boundaries and the [toolchain development guide](/design/toolchain-development) for dependency constraints.
 
-作者态操作使用 `DocumentId`、`SymbolId` 与修订；Core 内容身份用于依赖与缓存。声明身份、源码修订和字符位置不能互相替代。机器输出采用显式协议模型，不能直接序列化整个编译器对象图。
+Authoring operations use `DocumentId`, `SymbolId`, and revisions; Core content identity serves dependency and cache purposes. Declaration identity, source revision, and character position are not interchangeable. Machine output uses an explicit protocol model rather than serializing the compiler's entire object graph.
 
-## 能力边界
+## Capability boundaries
 
-### 检查与测试
+### Checking and testing
 
-检查只验证源码，不执行业务入口；模块配置求值和依赖解析仍遵循普通项目加载规则。机器输出区分输入错误、编译错误、运行失败、测试失败和基础设施失败，并保留退出码。程序日志与结构化结果分离。未发现测试不能返回测试成功。
+Checking verifies source without executing the business entry point. Module configuration evaluation and dependency resolution still follow normal project-loading rules. Machine output distinguishes input, compilation, execution, test, and infrastructure failures and preserves exit codes. Program logs are separate from structured results. Finding no tests must not report test success.
 
-诊断位置明确字符编码和坐标基准，错误码、相关位置和 notes 保留原始事实。类型化错误细节应由诊断产生位置提供，不从人读消息反向解析。
+Diagnostic locations specify character encoding and coordinate basis. Error codes, related locations, and notes preserve their original facts. Typed error details come from the diagnostic producer, not from parsing human-readable messages backward.
 
-### 查询
+### Queries
 
-项目概览、符号与上下文查询消费同一语义快照。搜索结果允许存在歧义，操作入口要求精确选择。默认提供签名、来源与必要关联，源码按需展开；分页与截断必须明确。即使源码包含错误，也应返回能够确定的事实和诊断。
+Project overview, symbol, and contextual queries consume the same semantic snapshot. Search results may be ambiguous; operation entry points require an exact selection. By default, provide signatures, provenance, and necessary relations, expanding source on demand; pagination and truncation must be explicit. Even with erroneous source, return determinable facts and diagnostics.
 
-### 修改
+### Edits
 
-先生成编辑计划，在源码覆盖层预检，再依据前置修订应用。预检报告修改前后诊断，允许修复原本有错的项目。首期覆盖已有语义重命名；签名变更等重构必须逐项具备完整语义支持。跨文件应用必须单独定义失败恢复，不能把逐文件原子写入称为整个修改事务原子化。
+Generate an edit plan, preflight it on a source overlay, and apply it against the required prior revision. Preflight reports diagnostics before and after an edit, allowing repair of an already broken project. The first scope covers existing semantic rename; refactors such as signature changes each need complete semantic support. Cross-file application must define failure recovery separately. Atomic writes per file are not an atomic transaction across the whole edit.
 
-### 验证范围
+### Verification scope
 
-测试关联与静态依赖可提供选择依据，不能视作完整动态覆盖。新增、删除、重命名需要比较前后模型；资源、配置与 Java 互操作变化必须声明分析边界，并按实际影响扩大验证范围。
+Test association and static dependencies can guide selection but cannot establish complete dynamic coverage. Additions, deletions, and renames require comparison of the models before and after. Resource, configuration, and Java interoperability changes must state the analysis boundary and broaden verification according to the actual impact.
 
-## 交付顺序与验收
+## Delivery order and acceptance
 
-先建立 CLI 结构化检查与测试反馈，再提供项目、符号、上下文查询和重命名预检。Agent 学习入口复用规范、生成 API 与可执行文档例子。MCP 在共享契约稳定后接入。
+First establish structured CLI checking and test feedback, then add project, symbol, and contextual queries and rename preflight. The agent learning entry reuses the specification, generated API reference, and executable documentation examples. MCP integrates after the shared contract stabilizes.
 
-验收任务覆盖功能新增、类型错误修复、跨文件重命名、API 变更和测试补充，准备与执行见 [Agent 任务基准](/tooling/agent-benchmark)。使用固定任务与独立行为验收记录通过率、修复轮数、上下文用量和耗时；工具契约测试不能代替真实 Agent 任务测量。没有测量时不宣称性能或成功率提升。
+Acceptance tasks cover feature addition, type-error repair, cross-file rename, API changes, and test additions; preparation and execution are described in the [agent task benchmark](/tooling/agent-benchmark). Fixed tasks and independent behavioral acceptance record success rate, repair rounds, context use, and elapsed time. Tool contract tests do not substitute for measurement on real agent tasks. Do not claim performance or success-rate improvements without that measurement.

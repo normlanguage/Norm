@@ -1,0 +1,45 @@
+# 发布流程
+
+Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是 CLI、语言服务器、VS Code 插件、文件名和 GitHub Release 的唯一发布版本来源。发布过的版本号不得重复使用。
+
+## 发布物
+
+许可范围与源码获取见 [LICENSING.md](https://github.com/normlanguage/Norm/blob/main/LICENSING.zh-CN.md)。CLI、编译器 JAR 和 VSIX 的许可文件从仓库根目录打包。
+
+每个版本同时发布各平台的自包含 CLI，以及内置全部受支持平台 CLI 的唯一通用 VS Code 插件：
+
+| 平台 | CLI |
+| --- | --- |
+| Windows x64 | 可直接执行和自安装的 `norm.exe` |
+| Linux x64 | TAR.GZ 内的 `norm/bin/norm` |
+| macOS Apple Silicon | TAR.GZ 内的 `norm/bin/norm` |
+
+各平台使用同一个由 `bin`、编译器 `lib` 和 JDK 25 `jlink` `runtime` 组成的运行时。Windows 的 `norm.exe` 原样内嵌该目录，首次运行时按版本和运行库内容身份原子展开，运行中的其他内容版本保持独立；`norm.exe setup` 将 EXE 安装到当前用户、幂等写入用户 `PATH`，并准备固定版本的 GraalVM Community Native Image 工具链。Native 工具链不重复塞入 CLI 与通用 VSIX，而是按平台下载到 `~/.norm/toolchains/native-image`，验证官方 SHA-256 后原子安装并复用。未先执行 setup 时，首次 native build 使用同一安装流程。
+
+`norm-language-support-vMAJOR.MINOR.PATCH.vsix` 是唯一插件产物。插件根据 VS Code 所在的操作系统和架构选择内置的同结构 CLI，不发布平台专用 VSIX。
+
+新增平台必须先进入持续集成并通过相同验收。
+
+## 验收门槛
+
+发布先构建各平台 CLI 并打包通用 VSIX，再集中执行工具链测试和最终交付验收。语言程序由 `ProgramExecutionTest` 统一覆盖，不在各平台 CLI 验收中重复运行。每个平台验证版本、源码执行、动态 Java binding、一次 native 构建及三次隔离启动，以及 LSP 和编辑器集成。Windows 另外验证便携执行、setup 和 PATH 幂等。通用 VSIX 校验全部目标的内置运行时及宿主平台执行；编辑器集成验收直接加载该 VSIX 解包后的扩展。
+
+框架、ORM 和应用验收归各适配包与 [examples 仓库](https://github.com/normlanguage/examples)所有，不作为编译器发行任务。
+
+构建完成后统一生成 SHA-256 校验和与构建来源证明。任一平台失败时不发布任何平台；全部资产先进入 Draft Release，上传完整后再一次性公开。
+
+## 自动化
+
+[CLI 验收入口](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs)只覆盖工具链与通用 Java 互操作。
+
+[发布目标清单](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json)是平台、runner、发行目录、launcher 和插件内目录的唯一机器定义；Gradle 打包任务与 [Release 工作流](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml)共同读取它。构建输出集中在仓库根 `build/`，正式资产位于 `build/distributions/`。日常 CI 验证工具链；Native size 工作流提供独立手动体积门禁。Release 工作流也在 PR 和主线运行标记为候选的构建及验收；只有 `vMAJOR.MINOR.PATCH` tag 会以 tag 版本发布正式 Release。
+
+[发布模型](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/release-model.mjs)统一校验版本并派生资产文件名。[渠道清单生成器](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/distribution-manifests.mjs)校验实际 Release 资产与 SHA256SUMS 后，生成 Homebrew Formula、Snapcraft、Scoop 和 winget 清单。产物随 Release 提供，各渠道发布前还需完成其安装验收和审核。Snap 的 classic 权限和 `norm` 自动别名需要单独申请；获批前命令为 `normlang.norm`，本地可通过 `snap alias normlang.norm norm` 设置别名。
+
+[Linux 私有运行树](../../../cli/compiler/scripts/linux-runtime.mjs)与[发布选择和来源验证](../../../cli/compiler/scripts/release-publication.mjs)供 APT 和 RPM 复用。[APT 公钥包发布规划](../../../cli/compiler/scripts/apt-publication.mjs)、[APT 打包与仓库入口](../../../cli/compiler/scripts/apt-repository.mjs)、[RPM 打包与仓库入口](../../../cli/compiler/scripts/rpm-repository.mjs)分别提供渠道入口；[APT](../../../cli/compiler/scripts/apt-acceptance.sh)和[RPM](../../../cli/compiler/scripts/rpm-acceptance.sh)验收入口验证签名源的安装、升级、卸载及普通用户运行。公开发布入口分别为[normlanguage/apt](https://github.com/normlanguage/apt)和[normlanguage/rpm](https://github.com/normlanguage/rpm)。
+
+公开版本应逐步接入 Windows Authenticode 签名以及 macOS Developer ID 签名和 notarization。签名接入前，版本说明必须明确系统可能显示来源警告。
+
+## 版本说明
+
+版本说明只记录该版本实际交付的语言能力、工具变化、迁移要求和已知限制。发布前必须存在由 tag 的 `major.minor` 派生出的中英文版本记录。当前实现边界由[版本索引](/zh/versions/)指向的最新实现契约定义，未来语言规范不作为当前编译器的交付承诺。

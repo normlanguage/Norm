@@ -1,6 +1,6 @@
-# Try、Catch 与 Throw
+# Try, Catch, and Throw
 
-异常表示无法作为函数正常结果继续处理的执行失败。可预期失败优先使用 `Result<T, E>`，异常机制不负责自动包装 Result。
+Exceptions represent execution failures that cannot continue as an ordinary function result. Prefer `Result<T, E>` for expected failures; the exception mechanism does not automatically wrap a Result.
 
 ```norm
 import std.core.Exception
@@ -14,9 +14,9 @@ try {
 }
 ```
 
-## Catch 选择
+## Catch selection
 
-catch 按源码顺序匹配异常的动态类型。更具体的类型必须写在更一般的类型之前；被前一个分支完全覆盖的 catch 是编译错误。
+Catches match an exception's dynamic type in source order. A more specific type must precede a more general type; a catch entirely covered by an earlier branch is a compile error.
 
 ```norm
 try {
@@ -30,13 +30,12 @@ try {
 
 ## Finally
 
-`finally` 在 try 正常结束、return、throw、break 或 continue 后都执行。finally 自身产生的完成结果会替代原来的完成结果，因此不应在 finally 中执行复杂业务逻辑。
+`finally` runs after normal try completion, return, throw, break, or continue. Completion produced by finally replaces the original completion, so it should not contain complex business logic.
 
 ## Throw
 
-`throw expression` 要求表达式的静态类型是非 nullable、非泛型的 `std.core.Exception` class 或其子类。catch 参数遵循相同类型边界。Norm 当前不声明 checked exception；函数签名不列出 throws 集合。库仍应在文档中说明可能抛出的异常。
+`throw expression` requires a non-nullable, nongeneric `std.core.Exception` class or subclass as its static type. Catch parameters have the same type boundary. Norm currently has no checked exceptions, and function signatures list no throws set. Libraries should still document exceptions they may throw.
 
-工具链运行时错误不属于这个名义类型体系，catch 不会截获它们。
+Toolchain runtime errors are outside this nominal type system and are not caught by catch.
 
-资源类型应优先提供标准库的作用域清理抽象；在该 API 定稿前，规范示例使用显式 `try/finally`。
-
+Resource types should prefer the standard library's scoped-cleanup abstraction. Until that API is finalized, examples in this specification use explicit `try/finally`.

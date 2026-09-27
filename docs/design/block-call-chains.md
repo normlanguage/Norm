@@ -1,82 +1,82 @@
 ---
-title: 块调用链设计与落地方案
-description: 普通成员调用的省点号连接、迁移边界与验证入口
+title: 'Block Call Chains: Design and Delivery'
+description: Dotless continuation of ordinary member calls, migration boundaries, and verification entries
 ---
 
-# 块调用链设计与落地方案
+# Block Call Chains: Design and Delivery
 
-| 项目 | 内容 |
+| Item | Detail |
 | --- | --- |
-| 设计状态 | implemented |
-| 语言版本 | Norm 0.23.0 |
-| 语言规则 | [函数高级规则：块调用链](../spec/grammar/functions-advanced.md#块调用链) |
-| 变更性质 | 调用语法扩展；不增加 Task 运行机制或标准库双回调 API |
+| Design status | implemented |
+| Language version | Norm 0.23.0 |
+| Language rule | [Advanced function rules: block call chains](../spec/grammar/functions-advanced.md#block-call-chains) |
+| Nature of change | Call-syntax extension; no additional Task execution mechanism or two-callback standard-library API |
 
-## 决策
+## Decision
 
-采用“尾随闭包调用之后继续普通成员调用”的模型，唯一语义为依次调用，每段接收前段的返回值。不采用多回调实参、通用中缀表达式、管道操作符、Task 专用 AST、关键字白名单、自动安全调用或任务展开。句法条件不依赖类型查找，不以大小写或 API 名称猜测独立语句。
+Adopt ordinary member-call continuation after a trailing-closure call. Its sole meaning is sequential calls: each segment receives the preceding segment's return value. Do not add multiple callback arguments, general infix expressions, a pipeline operator, a Task-specific AST, a keyword allowlist, automatic safe calls, or task expansion. Syntax eligibility does not depend on type lookup and does not guess whether a statement is independent from capitalization or API names.
 
-规范的唯一入口是[函数高级规则](../spec/grammar/functions-advanced.md#块调用链)；Task 的声明与运行契约分别见 [tasks.norm](../../norm/stdlib/std/concurrent/tasks.norm) 和[并发 API](../stdlib/concurrency.md)。
+The [advanced function rules](../spec/grammar/functions-advanced.md#block-call-chains) are the single normative entry. See [tasks.norm](../../norm/stdlib/std/concurrent/tasks.norm) and the [concurrency API](../stdlib/concurrency.md) for Task declarations and execution contracts.
 
-## 实现边界
+## Implementation boundaries
 
-| 位置 | 职责与约束 |
+| Location | Responsibility and constraint |
 | --- | --- |
-| [BlockCallChainSyntax](../../cli/compiler/src/main/java/dev/w0fv1/norm/syntax/BlockCallChainSyntax.java) | 中立 token/同行判定，由解析、连接指纹和补全复用；不引用 frontend、semantic 或 UI。 |
-| [Parser](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/Parser.java) | 在同一 postfix 循环验证真实前件及控制结构深度，失败不消费 token，成功生成普通 Member 后复用尾随 Lambda 逻辑。 |
-| [Syntax](../../cli/compiler/src/main/java/dev/w0fv1/norm/syntax/Syntax.java) | 复用 Member、Call 和 CallArgument；每次调用仍最多一个尾随 Lambda，不新增链节点、Bound IR 或 Core opcode。 |
-| [IncrementalAnalysisPlan](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/IncrementalAnalysisPlan.java) | token 指纹记录保守的连接候选标记，而非绝对行号或全部空白；连接资格改变时失效声明及依赖者。与 Parser 属于同一正确性交付边界。 |
-| [CompilerSession](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/CompilerSession.java) | 捕获源码缓存继续做精确文本比较。热 LSP 必须重启，磁盘 JAR 更新不代表进程已更新。 |
-| [CoreIdentityVersion](../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreIdentityVersion.java) | 语言语义身份隔离旧缓存；不因语法糖改变 Core schema 或 stdlib ABI。该身份不是按来源切换解析器的语法开关。 |
-| [SourceFormatter](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/SourceFormatter.java) | 在完整 Call 上选择规范拼写，保留语句边界和不可折行连接头；不建立源码拼写偏好。 |
-| [MemberAccessSite](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/MemberAccessSite.java) / [CompletionContextResolver](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/CompletionContextResolver.java) | 真实接收者、名称替换范围与接入形式；拒绝跨快照位置，不伪造点号或重写捕获文本。 |
-| [CompletionEngine](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/CompletionEngine.java) | 显式与无点号调用共用成员候选、可见性与排序。前缀补全不强行形成可执行 AST；已有块不重复插入。 |
-| [CallSiteResolver](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/CallSiteResolver.java) | 从真实调用/闭包范围与 ResolvedCall 取得活动回调、泛型替换和参数索引，不另做重载解析。 |
+| [BlockCallChainSyntax](../../cli/compiler/src/main/java/dev/w0fv1/norm/syntax/BlockCallChainSyntax.java) | Neutral token and same-line test shared by parsing, continuation fingerprints, and completion; no frontend, semantic, or UI dependency. |
+| [Parser](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/Parser.java) | Verify the real predecessor and control-structure depth in the same postfix loop. On failure consume no token; on success create an ordinary Member and reuse trailing-lambda logic. |
+| [Syntax](../../cli/compiler/src/main/java/dev/w0fv1/norm/syntax/Syntax.java) | Reuse Member, Call, and CallArgument. Each call still has at most one trailing lambda; add no chain node, Bound IR, or Core opcode. |
+| [IncrementalAnalysisPlan](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/IncrementalAnalysisPlan.java) | Token fingerprints record conservative continuation-candidate markers, not absolute line numbers or all whitespace. Invalidate a declaration and its dependents when continuation eligibility changes. This shares a correctness boundary with Parser. |
+| [CompilerSession](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/CompilerSession.java) | Captured source caches continue using exact text comparison. Restart a hot LSP; an updated disk JAR does not update a running process. |
+| [CoreIdentityVersion](../../cli/compiler/src/main/java/dev/w0fv1/norm/core/CoreIdentityVersion.java) | Separate old cache identities without changing Core schema or stdlib ABI merely for syntax sugar. This identity is not a parser compatibility switch by source origin. |
+| [SourceFormatter](../../cli/compiler/src/main/java/dev/w0fv1/norm/frontend/SourceFormatter.java) | Choose canonical spelling for a complete Call while preserving statement boundaries and continuation heads that cannot be wrapped. Do not store source-spelling preferences. |
+| [MemberAccessSite](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/MemberAccessSite.java) / [CompletionContextResolver](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/CompletionContextResolver.java) | Use the real receiver, name-replacement range, and access form. Reject cross-snapshot positions; do not fabricate dots or rewrite captured text. |
+| [CompletionEngine](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/CompletionEngine.java) | Explicit and dotless calls share candidates, visibility, and ranking. Prefix completion need not force an executable AST; do not insert a block that already exists. |
+| [CallSiteResolver](../../cli/compiler/src/main/java/dev/w0fv1/norm/language/CallSiteResolver.java) | Obtain active callback, generic substitution, and parameter index from the real call/closure scope and ResolvedCall; do not implement overload resolution again. |
 
-完整调用的 Hover、定义、引用、重命名、错误和语义高亮继续使用真实成员名称范围。TextMate 不决定调用关系，也不把 `then`、`error` 或回调参数硬编码为语言关键字。
+Hover, definition, references, rename, errors, and semantic highlighting for complete calls continue using real member-name ranges. TextMate does not determine call relationships or hard-code `then`, `error`, or callback parameters as language keywords.
 
-## 源码迁移
+## Source migration
 
-旧版可能将同行相邻尾随闭包解析为独立语句，新版则可能解析为成员链。新编译器编译通过不足以证明行为不变；保留独立调用的机械迁移是换行或插入分号。
+An older compiler may have parsed adjacent same-line trailing closures as independent statements; the new compiler may parse them as a member chain. Compilation with the new compiler does not prove behavior is unchanged. To retain independent calls, insert a newline or semicolon mechanically.
 
-迁移顺序为：固定旧完整分发与源码清单，使用旧 AST 确认语句/结果构建器元素边界，记录候选及必要编辑，最后才用新编译器或格式化器处理。候选定位可以过滤 token，不能全仓正则替换或修改普通字符串内容。
+First freeze the complete old distribution and source inventory. Use the old AST to establish statement or result-builder element boundaries, record candidates and necessary edits, and only then process them with the new compiler or formatter. Token filtering may identify candidates; repository-wide regex replacement or edits to ordinary string content are not acceptable.
 
-审计范围包含标准库、语言测试、Norm 文档示例、内嵌测试字符串、代码生成模板、实际 Todo/UI 源码，以及选定依赖闭包中的 NAR、本地模块和生成绑定。清单记录来源、源码摘要、候选范围、旧语句关系与处置。
+Audit standard-library source, language tests, Norm documentation examples, embedded test strings, code-generation templates, actual Todo/UI source, and NARs, local modules, and generated bindings in the selected dependency closure. The inventory records origin, source digest, candidate range, prior statement relation, and disposition.
 
-受影响的自有 NAR 从作者态源码重建、分配新包版本并更新锁定；不得改写同坐标归档或完整性缓存。第三方归档尚未升级时，不宣称对应应用迁移完成。未受影响的锁定归档不作无意义重建。审计不进入 ProjectLoader 的日常运行流程。
+Rebuild affected first-party NARs from authoring source, assign new package versions, and update locks. Do not rewrite an archive or integrity cache under an existing coordinate. An application cannot be declared migrated while a third-party archive it uses remains unupgraded. Unaffected locked archives need no pointless rebuild. This audit is not part of ProjectLoader's normal operation.
 
-按[语言演进规则](language-evolution.md)整体交付新的发行版本，不把部分实验 JAR 放入用户 PATH 或扩展。CLI、编辑器和 Native 使用同一完整工具链身份，不建设仅 CLI 生效的兼容模式。
+Deliver the new release as a whole under the [language evolution rules](language-evolution.md). Do not put a partial experimental JAR on a user's PATH or in the extension. CLI, editor, and Native use one complete toolchain identity; do not build a compatibility mode that works only in CLI.
 
-## 实施批次
+## Delivery batches
 
-| 批次 | 边界 |
+| Batch | Boundary |
 | --- | --- |
-| D0 | 固定旧分发；审计与迁移独立块、自有模板、归档和生成输入；旧版行为基线。 |
-| D1 | AST/边界/换行红测，postfix 解析、连接指纹和语义版本一次落地。 |
-| D2 | 规范格式化、幂等和行为往返；不附带全仓格式化噪声。 |
-| D3 | 成员位置与共享补全、签名帮助、导航、恢复和真实编辑器验收。 |
-| D4 | 库示例和 Todo 使用新写法；保留标准任务 API 与生命周期，不回引 ui.async。 |
-| D5 | 完整分发、扩展、Todo EXE、分批回归、GUI 与交付 EXE 生命周期验收；核对源码与工具链摘要。 |
+| D0 | Freeze the old distribution. Audit and migrate independent blocks, first-party templates, archives, and generated inputs; retain old behavior as a baseline. |
+| D1 | Add red tests for AST, boundaries, and line breaks, then deliver postfix parsing, continuation fingerprints, and semantic version together. |
+| D2 | Establish canonical formatting, idempotence, and behavioral round trips without repository-wide formatting noise. |
+| D3 | Deliver member locations and shared completion, signature help, navigation, recovery, and real-editor acceptance. |
+| D4 | Adopt the spelling in library examples and Todo; retain the standard Task API and lifecycle without reviving ui.async. |
+| D5 | Verify complete distributions, extensions, Todo EXE, staged regressions, GUI, and delivered EXE lifecycles; match source and toolchain digests. |
 
-各批提交前审查并取得提交许可；中间产物不能替换已交付工具链。构建、测试与验收期间冻结相关源码，禁止多个构建进程同时写同一输出目录。
+Review and obtain commit authorization before each batch. Intermediate artifacts must not replace the delivered toolchain. Freeze relevant source while building, testing, or accepting it; do not let multiple builds write one output directory concurrently.
 
-## 验证索引
+## Verification index
 
-| 范围 | 可执行入口 |
+| Scope | Executable entry |
 | --- | --- |
-| S01–S11：调用关联、类型、优先级、求值一次、诊断、extension、Task 与所有权 | [BlockCallChainSyntaxTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/BlockCallChainSyntaxTest.java)、[BlockCallChainExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/BlockCallChainExecutionTest.java)、FunctionCompilerTest、AsyncExecutionTest、TaskExecutionTest。 |
-| B01–B08：LF/CRLF/CR、分隔、非调用花括号、控制结构、非支持形式、插值及未完成源码 | BlockCallChainSyntaxTest、SourceRecoveryTest、CompactGuiSyntaxTest。 |
-| I01–I04：双向换行编辑、冷/热一致、同名不同输出、非语义空白复用、撤销/重做与缓存 | [IncrementalAnalysisPlanTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/IncrementalAnalysisPlanTest.java)、IncrementalCompilationTest。 |
-| F01–F04：规范拼写、独立块、长链/括号和错误文件 | [SourceFormatterTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/SourceFormatterTest.java)。 |
-| L01–L04：前缀编辑、导航、回调作用域、签名及会话边界 | [BlockCallChainLanguageTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/language/BlockCallChainLanguageTest.java)、LanguageServiceTest、RenamePreviewTest、LanguageServerTest 和[真实 VS Code 测试](../../cli/extensions/vscode/src/test/extension.test.ts)。 |
-| A01：实际发现并运行同步链与任务链 | [functions 程序](../../norm/tests/functions)及[发现规则](../../norm/tests/README.md)。 |
-| A02：跨模块/归档及生成源码 | 实际应用加载的完整输入清单、锁定归档摘要和生成绑定源码；不是只搜仓库文本。 |
-| A03：Todo JVM / Native 各四阶段 | Todo 仓库 reference-tests/verify.ps1：新增、编辑、完成/筛选、删除、清理、连续输入及两种重启持久化。 |
-| A04：交付 EXE | 对同摘要 todo.exe 做隔离启动—关闭—重启—关闭，验证标题与完成状态持久化、应用及启动器退出码 0、无运行异常；check.exe 不能替代。 |
-| A05–A08：生命周期、产物身份、日常数据与架构 | Task/异步/取消与清理测试；完整分发和源码 SHA-256；日常 H2 数据库前后摘要不变；DependencyArchitectureTest、AuthoringArchitectureTest。 |
+| S01–S11: call association, types, precedence, evaluate-once behavior, diagnostics, extensions, Task, and ownership | [BlockCallChainSyntaxTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/BlockCallChainSyntaxTest.java), [BlockCallChainExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/BlockCallChainExecutionTest.java), FunctionCompilerTest, AsyncExecutionTest, TaskExecutionTest. |
+| B01–B08: LF/CRLF/CR, separators, non-call braces, control structures, unsupported forms, interpolation, incomplete source | BlockCallChainSyntaxTest, SourceRecoveryTest, CompactGuiSyntaxTest. |
+| I01–I04: line-edit directions, cold/hot consistency, equal names with different output, reuse across nonsemantic whitespace, undo/redo, caches | [IncrementalAnalysisPlanTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/IncrementalAnalysisPlanTest.java), IncrementalCompilationTest. |
+| F01–F04: canonical spelling, independent blocks, long chains/parentheses, erroneous files | [SourceFormatterTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/frontend/SourceFormatterTest.java). |
+| L01–L04: prefix edits, navigation, callback scope, signatures, and session boundaries | [BlockCallChainLanguageTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/language/BlockCallChainLanguageTest.java), LanguageServiceTest, RenamePreviewTest, LanguageServerTest, and [real VS Code tests](../../cli/extensions/vscode/src/test/extension.test.ts). |
+| A01: discover and execute synchronous and Task chains | [functions programs](../../norm/tests/functions) and [discovery rules](../../norm/tests/README.md). |
+| A02: cross-module/archives and generated source | Complete input inventory, locked-archive digests, and generated binding source loaded by the actual application, not merely a repository-text search. |
+| A03: four stages in both Todo JVM and Native | Todo repository `reference-tests/verify.ps1`: add, edit, complete/filter, delete, clear, continuous input, and persistence across two restarts. |
+| A04: delivered EXE | Isolated launch–close–restart–close of the same-digest `todo.exe`, checking title and completion-state persistence, exit code 0 for app and launcher, and no runtime exception. `check.exe` does not substitute. |
+| A05–A08: lifecycle, artifact identity, everyday data, and architecture | Task/async/cancellation and cleanup tests; complete distribution and source SHA-256; unchanged digests of everyday H2 databases; DependencyArchitectureTest and AuthoringArchitectureTest. |
 
-本地分发与格式检查入口见[工具链开发规范](toolchain-development.md#本地验收与测量入口)。工具链选择和完整性核对复用 [select-toolchain.ps1](../../cli/compiler/scripts/select-toolchain.ps1)、[resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 与 [test-toolchain.ps1](../../cli/compiler/scripts/test-toolchain.ps1)。扩展复用 `npm run test:language`、`npm run check`、`NORM_TEST_GREP` 定向端到端测试及现有打包入口。
+See the [toolchain development guide](toolchain-development.md#local-acceptance-and-measurement-entries) for local distribution and formatting checks. Toolchain selection and integrity reuse [select-toolchain.ps1](../../cli/compiler/scripts/select-toolchain.ps1), [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1), and [test-toolchain.ps1](../../cli/compiler/scripts/test-toolchain.ps1). The extension reuses `npm run test:language`, `npm run check`, focused end-to-end tests through `NORM_TEST_GREP`, and its existing packaging entry.
 
-Todo 使用相邻 Norm 仓库的新选定分发运行 `build.ps1` 与 `reference-tests/verify.ps1 -Mode all`，随后验证交付 EXE。所有写入使用新建隔离数据库。安装、加载与 LSP 重启须有实际进程和摘要证据，不能只比较展示版本号。
+Use the new selected distribution from the adjacent Norm repository to run Todo `build.ps1` and `reference-tests/verify.ps1 -Mode all`, then verify the delivered EXE. Use a newly isolated database for every write. Installation, loading, and LSP restart need real process and digest evidence; displayed version strings alone are insufficient.
 
-每批记录实际命令、退出码、用例名称与数量、失败/跳过、原始日志/XML、源码身份和产物摘要。只验证工厂方法存在、编译通过或启动窗口不等于行为验收通过。本机 Maven/NAR 缓存命中应单列记录，不冒充冷缓存构建或其他平台发布矩阵。性能结论须单独测量，不从语法糖推断零开销或提速。
+For each batch, retain actual commands, exit codes, case names and counts, failures/skips, raw logs/XML, source identity, and artifact digests. Merely checking that a factory exists, compilation passes, or a window opens is not behavioral acceptance. Record local Maven/NAR cache hits separately; they do not establish a cold-cache build or a different platform's release matrix. Measure performance separately rather than inferring zero overhead or speedups from syntax sugar.

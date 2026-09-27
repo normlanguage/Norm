@@ -1,5 +1,7 @@
 # Licensing
 
+[简体中文](LICENSING.zh-CN.md)
+
 The original Norm source code, standard library, tools, tests, documentation and assets in this repository are licensed under the Mozilla Public License, v. 2.0, unless a file carries a different license notice.
 
 This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.

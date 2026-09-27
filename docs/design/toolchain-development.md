@@ -1,111 +1,109 @@
-# 工具链开发规范
+# Toolchain Development Standard
 
-本规范约束 Norm 官方 Java 工具链的代码组织、依赖方向和执行后端。技术栈选择见[实现策略决议](/design/implementation-strategy)，语言行为由语言规范定义。
+This standard defines code organization, dependency direction, and backend rules for the official Java toolchain. The [implementation strategy](/design/implementation-strategy) records technology choices; the language specification remains authoritative for language behavior.
 
-## 仓库边界
+## Repository boundaries
 
 ```text
-cli/                  命令行产品
-  compiler/           Java 编译器、执行运行时、CLI 与 Language Server
-  extensions/         编辑器扩展
-norm/stdlib/           使用 Norm 编写的标准库
-norm/tests/            可执行的 Norm 验收程序
+cli/                  command-line product
+  compiler/           Java compiler, execution runtime, CLI, and Language Server
+  extensions/         editor extensions
+norm/stdlib/           standard-library sources written in Norm
+norm/tests/            executable Norm acceptance programs
 ```
 
-`compiler` 是唯一产品与 JPMS 模块；根 [Gradle Kotlin DSL](../../build.gradle.kts) 另含仅用于构建的 [`gradle/build-logic`](../../gradle/build-logic/)。领域 package 负责分层，跨层数据只使用下层拥有的强类型模型；架构测试禁止逆向依赖。
+`compiler` is the only product and JPMS module. The root [Gradle Kotlin DSL](../../build.gradle.kts) also includes build-only [`gradle/build-logic`](../../gradle/build-logic/). Domain packages provide the layers, cross-layer data uses strongly typed models owned by lower layers, and architecture tests prohibit reverse dependencies.
 
-## 领域边界
+## Domain boundaries
 
-| Package | 职责 |
+| Package | Responsibility |
 | --- | --- |
-| `source` / `syntax` | 源码身份、位置与语法模型 |
-| `abi` / `pattern` | 中立运行契约与模式覆盖算法 |
-| `semantic` / `builtin` | 语义模型与内建契约的语义投影 |
-| `frontend` / `bound` | 分析、已解析语义与 Core 构建 |
-| `core` / `core.store` | 内容寻址定义、制品与存储 |
-| `project` | 项目发现、模块解析与输入快照 |
-| `packages` | Norm 仓库访问、版本选择、离线缓存与完整性 |
-| `lsp` | 协议转换与独占工作区会话 |
-| `application` | 应用编译产物、执行准备与资源所有权 |
-| `build` | 应用构建用例、Native 计划、工具链与交付 |
-| `language` / `workspace` | 快照查询、项目分析调度与版本发布 |
-| `jvm` | Java 类型投影、绑定规划与注解处理 |
-| `execution` / `platform` | 执行与宿主能力契约 |
-| `truffle` / `polyglot` | Core 执行实现与 Polyglot 接入 |
-| `diagnostic` / `value` | 诊断与其余跨阶段值 |
+| `source` / `syntax` | Source identity, locations, and syntax model |
+| `abi` / `pattern` | Neutral runtime contracts and pattern-coverage algorithms |
+| `semantic` / `builtin` | Semantic model and semantic projection of builtin contracts |
+| `frontend` / `bound` | Analysis, resolved semantics, and Core construction |
+| `core` / `core.store` | Content-addressed definitions, artifacts, and storage |
+| `project` | Project discovery, module resolution, and input snapshots |
+| `packages` | Norm repository access, version selection, offline cache, and integrity |
+| `lsp` | Protocol translation and exclusive workspace session |
+| `application` | Application compilation output, execution preparation, and resource ownership |
+| `build` | Application-build use cases, Native plans, toolchains, and delivery |
+| `language` / `workspace` | Snapshot queries, project-analysis scheduling, and versioned publication |
+| `jvm` | Java type projection, binding planning, and annotation processing |
+| `execution` / `platform` | Execution and host-capability contracts |
+| `truffle` / `polyglot` | Core execution implementation and Polyglot integration |
+| `diagnostic` / `value` | Diagnostics and remaining cross-phase values |
 
-[DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java) 是依赖方向的可执行真相源，包含包级无环约束。`bound` 只由前端消费；Core 不依赖前端语义或内建目录；`project`、`jvm` 和 `truffle` 不反向依赖应用编排。完整阶段和生命周期见[编译器架构](/spec/compiler-design)。
+[DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java) is the executable source for dependency direction, including the package-level cycle ban. `bound` is consumed only by the frontend; Core does not depend on frontend semantics or the builtin catalog. `project`, `jvm`, and `truffle` do not depend back on application orchestration. See the [compiler architecture](/spec/compiler-design) for complete stages and lifecycles.
 
-## CLI package
+## CLI packages
 
 ```text
-dev.w0fv1.norm.cli              JVM 入口
-dev.w0fv1.norm.cli.controller   命令解析、路由与执行
-dev.w0fv1.norm.cli.component    版本组件
-dev.w0fv1.norm.cli.value        CLI 公共数据
-dev.w0fv1.norm.cli.utils        无状态文本工具
+dev.w0fv1.norm.cli              JVM entry point
+dev.w0fv1.norm.cli.controller   command parsing, routing, and execution
+dev.w0fv1.norm.cli.component    version component
+dev.w0fv1.norm.cli.value        shared CLI data
+dev.w0fv1.norm.cli.utils        stateless text utilities
 ```
 
-CLI 中只有 `Main` 可以终止 JVM；原生应用的进程入口为 `runtime.NativeApplicationMain`。Controller 通过返回退出码报告结果，component 不读取命令行参数。
+Only `Main` may terminate the JVM; `runtime.NativeApplicationMain` is the native application's process entry. Controllers return exit codes, and components do not read command-line arguments.
 
-应用构建入口为 [`ApplicationBuilder`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/ApplicationBuilder.java)；CLI 只解析参数、组装服务和展示进度与结果。`build` 不依赖 CLI、Workspace 或 Truffle 节点，其他下层不反向依赖 `build`。约束与验证复用 `DependencyArchitectureTest` 和 [`build` 测试](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/build)。
+[`ApplicationBuilder`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/build/ApplicationBuilder.java) is the application-build entry. CLI parses arguments, assembles services, and presents progress and results. `build` does not depend on CLI, Workspace, or Truffle nodes, and lower layers do not depend back on `build`. [DependencyArchitectureTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/DependencyArchitectureTest.java) and the [`build` tests](https://github.com/normlanguage/Norm/tree/main/cli/compiler/src/test/java/dev/w0fv1/norm/build) enforce these constraints.
 
-LSP 启动入口为 [`LanguageServerLauncher`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/lsp/LanguageServerLauncher.java)，CLI 移交工作区，会话负责关闭并返回退出码。真实协议验收见 [`verify-lsp.mjs`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-lsp.mjs)。
+[`LanguageServerLauncher`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/lsp/LanguageServerLauncher.java) launches LSP. CLI transfers the workspace, and the session closes it and returns an exit code. [`verify-lsp.mjs`](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-lsp.mjs) exercises the real protocol.
 
-编辑器能力以 `language.LanguageService` 和不可变语义快照为唯一语义实现。补全排序、期望类型、泛型替换、调用参数和导入候选均在 `dev.w0fv1.norm.language` 中计算；Workspace 管理项目分析与诊断发布，Language Server 只负责 LSP 类型转换，编辑器扩展只负责生命周期和编辑器接入。
+Editor features use `language.LanguageService` and immutable semantic snapshots as their sole semantic implementation. Completion ranking, expected types, generic substitution, call parameters, and import candidates are computed in `dev.w0fv1.norm.language`. Workspace schedules project analysis and diagnostic publication; the Language Server maps LSP types, and editor extensions manage only lifecycle and editor integration.
 
-## 命名与可见性
+## Naming and visibility
 
-- `dev.w0fv1.norm` 已经提供语言上下文，类型名不增加 `Norm` 前缀；使用 `Compiler`、`Analyzer`、`Lowerer`、`ApplicationRunner` 等领域名称。
-- 只有真实的跨进程或扩展契约才形成对外 API。Lexer、Parser、Analyzer、Truffle 节点和运行时表示保持模块内部可见。
-- `value` 只存放跨阶段不可变数据；具有明确领域的数据保留在对应领域，例如 Syntax AST 属于 `syntax`。
-- `utils` 只接受静态、无状态、可独立复用的工具。生命周期、I/O 和可变状态不进入 `utils`。
-- 同一概念只保留一个模型，禁止并行维护旧 AST、临时 IR 或第二条执行链。
+- `dev.w0fv1.norm` already supplies the language context, so type names do not repeat a `Norm` prefix. Use domain names such as `Compiler`, `Analyzer`, `Lowerer`, and `ApplicationRunner`.
+- Only genuine process or extension contracts form external APIs. Lexer, Parser, Analyzer, Truffle nodes, and runtime representations remain module-internal.
+- `value` holds immutable cross-phase data only. Data with a clear domain remains in that domain; the Syntax AST belongs to `syntax`.
+- `utils` holds only static, stateless, independently reusable tools. Lifecycles, I/O, and mutable state do not belong there.
+- Each concept has one model. Parallel legacy ASTs, temporary IRs, and second execution paths are prohibited.
 
-## 编译与执行阶段
+## Compilation and execution stages
 
-阶段、产物及所有权以[编译器架构](/spec/compiler-design)和其中的代码入口为准。应用入口使用 `ApplicationCompiler`、`CompiledApplication` 与 `ApplicationRunner`；编辑器入口使用 `Workspace`。调用方关闭自己持有的应用产物，每次运行拥有独立的运行资源。
+The [compiler architecture](/spec/compiler-design) and its code entries define stage, artifact, and ownership details. Application entry uses `ApplicationCompiler`, `CompiledApplication`, and `ApplicationRunner`; editor entry uses Workspace. Callers close application artifacts they own, and every run owns independent runtime resources.
 
-`ResolvedCall` 是已解析调用的单一结果，语言服务和绑定阶段复用它；尚未完成的类型输入使用 `TypeSyntaxParser`，不能另写类型语法。内建签名只声明在 `stdlib-abi.json`，语义对象与 Core 校验契约均从它派生。
+`ResolvedCall` is the single result of a bound call and is reused by language services and binding. `TypeSyntaxParser` handles incomplete type inputs rather than introducing a second type grammar. Builtin signatures are declared only in `stdlib-abi.json`; semantic objects and Core validation contracts derive from it.
 
-值表示、复制、相等性与哈希归属 `RuntimeValues`；调用准备归属 `RuntimeInvocation`，Unicode 文本操作归属 `RuntimeText`。Truffle 节点不能捕获单次运行的外部资源。系统资源契约见[系统运行时架构](/design/system-runtime)。
+`RuntimeValues` owns value representations, copying, equality, and hashing; `RuntimeInvocation` owns call preparation, and `RuntimeText` owns Unicode text operations. Truffle nodes must not capture external resources belonging to one run. See the [system runtime architecture](/design/system-runtime) for resource contracts.
 
-## ABI 代码生成
+## ABI code generation
 
-[`BuiltinAbiGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java) 属于构建期 `gradle/build-logic`，不进入产品模块。根 [Gradle Kotlin DSL](../../build.gradle.kts) 声明构建工具与 compiler 的依赖和生命周期；内建签名的单一声明源仍为 `stdlib-abi.json`。Java 格式与 `qualityCheck` 由同一构建入口执行。
+[`BuiltinAbiGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/codegen/BuiltinAbiGenerator.java) is build-time code in `gradle/build-logic`, not part of the product module. The root [Gradle Kotlin DSL](../../build.gradle.kts) declares the build-tool and compiler lifecycle; `stdlib-abi.json` remains the sole declaration source for builtin signatures. The same build entry runs Java formatting and `qualityCheck`.
 
-版本元数据由同一构建逻辑的 [`BuildMetadataGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/codegen/BuildMetadataGenerator.java) 生成；版本、GraalVM 与输出目录由 [compiler Gradle 配置](../../cli/compiler/build.gradle.kts) 接入。
+[`BuildMetadataGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/codegen/BuildMetadataGenerator.java) in the same build logic generates version metadata; the [compiler Gradle configuration](../../cli/compiler/build.gradle.kts) supplies version, GraalVM, and output directory.
 
-工具链依赖清单由 [`ToolchainArtifactCatalogGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ToolchainArtifactCatalogGenerator.java) 生成并校验；Gradle 构建任务从实际解析图和 JAR 文件提供输入。
+[`ToolchainArtifactCatalogGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ToolchainArtifactCatalogGenerator.java) generates and verifies the toolchain dependency catalog. Gradle tasks supply the actual resolved graph and JAR files. Build logic calls the same assembler and catalog generator and is not shipped with the product; compiler source is compiled with Java 25.
 
-`gradle/build-logic` 调用同一组装器与清单生成器，不进入产品运行时；compiler 仍以 Java 25 编译。
+[`BuiltinAbiGeneratorTest`](../../gradle/build-logic/src/test/java/dev/w0fv1/norm/codegen/BuiltinAbiGeneratorTest.java) verifies generated bytes and fingerprints. [`verify-codegen.mjs`](../../cli/compiler/scripts/verify-codegen.mjs) verifies clean builds, input changes, rebuilding, and release isolation without changing the schema in a user's workspace.
 
-生成字节与指纹的约束见 [`BuiltinAbiGeneratorTest`](../../gradle/build-logic/src/test/java/dev/w0fv1/norm/codegen/BuiltinAbiGeneratorTest.java)。干净构建、输入变化、重建及发行隔离由 [`verify-codegen.mjs`](../../cli/compiler/scripts/verify-codegen.mjs) 验证；不在用户工作区内修改 schema。
+## Tests
 
-## 测试
+- Add or migrate a failing test before changing implementation.
+- Test packages mirror production packages; testing does not justify wider visibility.
+- Syntax and execution changes cover diagnostics and the single-file and module programs under `norm/tests`.
+- Run affected package tests during development and formatting checks before submission. Full release verification is reserved for releases.
+- Backend changes cover both the registered Polyglot language and execution of a real `.norm` file through the CLI.
 
-- 先写或迁移失败测试，再修改实现。
-- 单元测试与被测 package 对齐，内部组件不因测试而扩大可见性。
-- 语法或执行变更必须覆盖诊断测试，以及 `norm/tests` 中的单文件和模块程序。
-- Java 修改先运行相关 package 测试；提交前执行格式检查。发布前才运行完整发布验证。
-- 后端变更必须通过 Polyglot 注册入口和 CLI 的真实 `.norm` 文件执行测试。
+[`norm/tests/README.md`](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md) defines acceptance-test domains, layout, naming, discovery entries, and commands in one place.
 
-验收测试的领域、目录、命名、发现入口与运行命令统一由 [`norm/tests/README.md`](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md) 定义。
+## Documentation synchronization
 
-## 文档同步
+Language behavior belongs in the language specification, implementation structure here, and technology choices in the implementation strategy. Other pages link to these sources rather than copying their rules.
 
-语言行为修改语言规范；实现结构修改本规范；技术栈决策修改实现策略决议。其他页面只链接这些入口，不复制规则。
+`project.ProjectLoader` is the project-loading facade. `ProjectModuleSources`, `ProjectDependencyGraph`, `ArchivedModuleLoader`, and `JarBindingPreparer` separately own source loading, dependency graphs, archive caching, and binding preparation. [ProjectLoadingBoundaryTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ProjectLoadingBoundaryTest.java) verifies captured inputs, failure retries, and boundary contracts.
 
-项目加载门面为 `project.ProjectLoader`；源码装载、依赖图、归档缓存及绑定准备分别由 `ProjectModuleSources`、`ProjectDependencyGraph`、`ArchivedModuleLoader` 和 `JarBindingPreparer` 承担。捕获输入、失败重试和边界契约见 [ProjectLoadingBoundaryTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ProjectLoadingBoundaryTest.java)。
+## Local acceptance and measurement entries
 
-## 本地验收与测量入口
+The Windows CLI and extension use root Gradle `gradlew.bat :compiler:installRuntimeDist`; `:compiler:packageDistribution` writes formal assets to root `build/distributions/`. [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) verifies installation paths and compiler digests. Root Gradle `printNormVersion` prints the default version or `-PnormVersion` override, while formal releases take versions only from SemVer tags. CLI, extension, and GUI acceptance must record actual artifact identity, not merely compare version numbers.
 
-Windows 本地 CLI 与扩展使用根 Gradle 构建的 `gradlew.bat :compiler:installRuntimeDist`；正式发行资产由 `:compiler:packageDistribution` 写入根 `build/distributions/`。安装树路径与编译器摘要由 [resolve-toolchain.ps1](../../cli/compiler/scripts/resolve-toolchain.ps1) 核验；默认版本与 `-PnormVersion` 覆盖由根 Gradle `printNormVersion` 输出，正式发布只取 SemVer tag。CLI、扩展与 GUI 验收应记录实际产物身份，不只比较版本号。
+In a network-restricted build, verified reachability metadata must still be supplied. Only [ReachabilityMetadataArchive](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) declares the archive source and digest. Other build tools, plugins, and Java dependencies also need prior supply. The official distribution-source-package route has separate [source-build acceptance](/design/distribution-source-build).
 
-网络受限构建仍须提供已校验的 reachability metadata。归档来源与校验值只在 [ReachabilityMetadataArchive](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/ReachabilityMetadataArchive.java) 声明；其他构建工具、插件与 Java 依赖仍须预先供应。官方发行版源码包路线另按[源码构建方案](/design/distribution-source-build)单独验收。
+The self-contained installation tree is at `build/compiler/norm-runtime`: [`RuntimeModuleAssembler`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/RuntimeModuleAssembler.java) assembles `lib`, [`RuntimeLauncherGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/RuntimeLauncherGenerator.java) generates `bin`, and [`RuntimeImageGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/RuntimeImageGenerator.java) generates the bundled JDK through `jlink`. The self-hosted APT/RPM packages use application-private dependencies; they are not official source packages using distribution system libraries.
 
-自包含安装树位于 `build/compiler/norm-runtime`；`lib` 由 [`RuntimeModuleAssembler`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/RuntimeModuleAssembler.java) 组装，`bin` 由 [`RuntimeLauncherGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/RuntimeLauncherGenerator.java) 生成，随包 JDK 由 [`RuntimeImageGenerator`](../../gradle/build-logic/src/main/java/dev/w0fv1/norm/packaging/RuntimeImageGenerator.java) 经 `jlink` 生成。自有 APT/RPM 包使用应用私有依赖，不能视为使用发行版系统库的官方源码包。
+Focused tests in network-restricted environments can use an isolated local Java dependency repository; [MavenTestRepository](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/MavenTestRepository.java) loads fixtures. Cache hits do not constitute acceptance of a clean network or distribution-managed system dependencies.
 
-网络受限环境的定向测试可使用隔离的本地 Java 依赖仓库；夹具装载见 [MavenTestRepository](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/MavenTestRepository.java)。缓存命中不代表干净网络或发行版系统依赖验收。
-
-[compare-compiler.ps1](../../cli/compiler/scripts/compare-compiler.ps1) 用相同 Java、参数和源码交替运行两份完整依赖目录，保存编译、增量分析、执行耗时、主线程分配和观测峰值工作集。指标定义与预热次数见 [CompilerBenchmark](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/CompilerBenchmark.java)。主线程分配不是进程总分配，峰值工作集包含启动与预热；样例结果不能直接推广为工具链整体性能提升。
+[compare-compiler.ps1](../../cli/compiler/scripts/compare-compiler.ps1) alternates two complete dependency directories with the same Java, arguments, and source. It records compilation, incremental analysis, execution time, main-thread allocation, and observed peak working set. [CompilerBenchmark](../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/CompilerBenchmark.java) defines metrics and warmup counts. Main-thread allocation is not process-wide allocation, and peak working set includes startup and warmup; sample results cannot be generalized into a toolchain-wide performance claim.

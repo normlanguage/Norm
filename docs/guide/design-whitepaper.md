@@ -1,32 +1,32 @@
-# Norm 语言设计白皮书
+# Norm language design white paper
 
-## 摘要
+## Abstract
 
-Norm 是一门静态强类型、面向应用开发的编程语言。它希望保留 Java、Kotlin、C# 一类语言容易阅读和工程化的部分，同时重新定义几条长期影响程序可维护性的语义边界：值与对象身份、null、控制流产值、泛型运行时表示、框架 metadata、系统资源以及编译产物身份。
+Norm is a statically and strongly typed programming language for application development. It aims to retain the readable, practical engineering qualities of languages such as Java, Kotlin, and C#, while redefining several semantic boundaries that affect long-term maintainability: values and object identity, null, control-flow results, runtime generic types, framework metadata, system resources, and compilation artifact identity.
 
-Norm 不追求最多的语言功能。它追求较少但能稳定组合的概念，并要求编译器、编辑器、运行时和正式发行共同实现同一份程序含义。
+Norm does not aim to offer the largest number of language features. It seeks fewer concepts that compose reliably, with the compiler, editor, runtime, and official distribution all implementing the same program meaning.
 
-## 1. 设计问题
+## 1. The design problem
 
-大型应用的复杂度经常来自局部代码没有携带足够信息。
+Complexity in large applications often comes from local code carrying too little information.
 
-一次普通赋值可能复制结构、共享对象或引用某个可变位置；函数失败可能使用 null、状态码、Result、异常或框架包装；泛型在编译后可能消失；Annotation 可能只是 metadata，也可能在运行时改写调用；编辑器和构建工具还可能各自实现不同的名称解析规则。
+An ordinary assignment may copy structure, share an object, or refer to a mutable location. Function failure may use null, a status code, Result, an exception, or a framework wrapper. Generic types may disappear after compilation. An annotation may be passive metadata or change calls at runtime. Editors and build tools may even implement different name-resolution rules.
 
-这些问题单独看都能靠文档解释，组合后却会不断提高理解成本。Norm 的设计目标是让高影响语义进入语言的类型、声明和调用结构，而不是留给习惯或框架约定。
+Documentation can explain each issue separately, but their combination continually increases the cost of understanding code. Norm aims to represent high-impact semantics in language types, declarations, and calls rather than leaving them to habits or framework conventions.
 
-## 2. 语言定位
+## 2. Language scope
 
-Norm 主要服务后端服务、业务系统、桌面应用、命令行工具和共享应用库。它采用垃圾回收和运行时支持，不要求普通应用开发者管理对象生命周期或证明借用关系。
+Norm primarily serves backend services, business systems, desktop applications, command-line tools, and shared application libraries. It uses garbage collection and runtime support; ordinary application developers need not manage object lifetimes or prove borrowing relationships.
 
-语言使用名义静态类型。类型关系必须通过 `extends` 或 `implements` 声明，成员形状相同不会自动建立兼容关系。普通类型非空，nullable 使用 `T?` 明确表示。局部变量和字段必须经过确定赋值，类型转换与 null 收窄遵守静态规则。
+The language uses nominal static types. Type relationships require `extends` or `implements`; matching member shapes do not imply compatibility. Ordinary types are non-null, with `T?` explicitly allowing null. Locals and fields require definite assignment, while conversions and null narrowing follow static rules.
 
-Norm 不把极端元编程、内核开发、硬实时执行或类型级计算作为核心目标。这个边界让语言可以把工程可读性、诊断和应用运行时放在更高优先级。
+Extreme metaprogramming, kernel development, hard real-time execution, and type-level computation are outside Norm's core goals. This boundary lets the language prioritize engineering readability, diagnostics, and application runtimes.
 
-## 3. 数据模型
+## 3. Data model
 
 ### 3.1 Class
 
-`class` 表达具有 identity 的对象。class 可以包含可变字段、方法、构造器、单继承和 interface conformance。
+`class` represents identity-bearing objects. Classes may have mutable fields, methods, constructors, single inheritance, and interface conformance.
 
 ```norm
 class Session {
@@ -38,11 +38,11 @@ class Session {
 }
 ```
 
-class 变量保存对象引用。赋值、传参和返回保留同一对象身份，`==` 使用身份相等。`copy()` 创建新的顶层对象；若字段仍指向其他 class，对象副本继续共享这些嵌套身份。
+A class variable holds an object reference. Assignment, parameter passing, and returns preserve the same object identity, and `==` compares identity. `copy()` creates a new top-level object; class-valued fields continue to share their nested identities.
 
 ### 3.2 Value
 
-`value` 表达由内容定义的结构数据。
+`value` represents structural data defined by its content.
 
 ```norm
 value Money {
@@ -51,13 +51,13 @@ value Money {
 }
 ```
 
-value 字段在构造后不可重新赋值，赋值和调用边界产生逻辑独立的值，`==` 与 hash 递归使用字段语义。编译器和运行时可以消除复制或共享内部存储，只要程序无法观察到 identity。
+Value fields cannot be reassigned after construction. Assignment and call boundaries produce logically independent values, while `==` and hashing recursively follow field semantics. The compiler and runtime may eliminate copying or share internal storage as long as programs cannot observe identity.
 
-基本类型、enum 和内建容器同样属于 value 世界。容器复制自身结构；容器内的 class 元素仍保留各自对象身份。
+Primitive types, enums, and builtin containers also belong to the value model. Containers copy their own structure; class elements retain their object identities.
 
 ### 3.3 Ref
 
-`ref<T>` 引用 value 的存储位置。它不接受 class，也不承担对象共享。
+`ref<T>` refers to a value storage location. It does not accept classes or implement object sharing.
 
 ```norm
 Integer cursor = 0
@@ -65,13 +65,13 @@ ref<Integer> location = &cursor
 *location = 8
 ```
 
-这三种类别分别回答“数据是什么”“对象是谁”和“值存在哪里”，避免让一个通用引用模型承担互相冲突的语义。
+These three categories answer what the data is, which object it is, and where a value is stored. A single general reference model does not have to carry conflicting semantics.
 
-完整规则见 [Value 与 Identity 语义](/spec/value-identity-semantics)。
+See [value and identity semantics](/spec/value-identity-semantics) for the complete rules.
 
-## 4. 函数与调用
+## 4. Functions and calls
 
-函数是顶层语言结构，不需要放进 class。package 组织声明，class 表达对象，函数表达不依赖对象状态的行为。
+Functions are top-level language constructs and need not be placed in classes. Packages organize declarations, classes represent objects, and functions express behavior independent of object state.
 
 ```norm
 Integer clamp(Integer value, Integer minimum, Integer maximum) {
@@ -87,11 +87,11 @@ Integer clamp(Integer value, Integer minimum, Integer maximum) {
 Integer opacity = clamp(value: input, minimum: 0, maximum: 100)
 ```
 
-多参数调用使用名称绑定。参数名属于公开调用约定，实参表达式仍按源码从左到右求值。
+Calls with multiple arguments bind by name. Parameter names belong to the public calling convention, while argument expressions are still evaluated left to right in source order.
 
-Class 方法访问对象状态，并参与动态分派。省略返回类型的方法是返回同一接收者的 fluent 方法；真正无结果的方法显式写 `Void`。
+Class methods access object state and participate in dynamic dispatch. A method with an omitted return type is fluent and returns the same receiver. A method with no result explicitly declares `Void`.
 
-Extension function 允许显式导入的顶层函数使用点号形式：
+Extension functions let explicitly imported top-level functions use dotted syntax:
 
 ```norm
 extension String quoted(String value) {
@@ -101,11 +101,11 @@ extension String quoted(String value) {
 String text = "Norm".quoted()
 ```
 
-它不修改目标类型，不进入动态方法表。真实实例方法优先，extension 候选继续使用普通静态重载规则。
+An extension neither modifies the target type nor enters its dynamic method table. Real instance methods take precedence; extension candidates follow ordinary static overload rules.
 
-## 5. 控制流与结果
+## 5. Control flow and results
 
-Norm 1.0 规范让 `if`、`for` 和 `switch` 都可以产生值，表达式路径必须显式给出结果。当前发布版已经实现其中的穷尽 switch 表达式，其余实现边界以版本记录为准。
+The Norm 1.0 specification allows `if`, `for`, and `switch` to produce values, with expression paths explicitly supplying results. The current release implements exhaustive switch expressions; version records define the remaining implementation boundaries.
 
 ```norm
 String describe(Token token) {
@@ -116,58 +116,58 @@ String describe(Token token) {
 }
 ```
 
-Norm 不把代码块的最后一个表达式隐式当作结果，也不会为不完整路径补 null。`for` 表达式使用 `else` 处理正常耗尽，`switch` 必须穷尽且不会 fallthrough。
+Norm does not implicitly use a block's last expression as its result or insert null for incomplete paths. A `for` expression uses `else` for normal exhaustion. A `switch` must be exhaustive and does not fall through.
 
-Enum variant 可以携带数据，switch 通过模式解构 payload。`Result<T, E>` 就是使用该能力定义的普通泛型 enum，而不是编译器内置的特殊控制流。
+Enum variants can carry data, and switch patterns destructure their payloads. `Result<T, E>` is an ordinary generic enum built from these capabilities, not special compiler control flow.
 
-## 6. 泛型与运行时类型
+## 6. Generics and runtime types
 
-Norm 泛型保持不变，类型位置写全实参，构造和泛型调用可以根据期望类型与实参求解。求解后的实际类型参数进入 canonical Core 和运行时类型环境，不采用类型擦除。
+Norm generics are invariant. Type positions specify complete arguments, while constructors and generic calls can infer them from expected types and arguments. Resolved type arguments enter canonical Core and the runtime type environment without type erasure.
 
-Reified 类型模型服务动态分派、反射、Annotation、serialization 和运行时诊断。公共反射入口使用类型字面量：
+Reified types support dynamic dispatch, reflection, annotations, serialization, and runtime diagnostics. Public reflection starts from type literals:
 
 ```norm
 Class<Order> type = Order.class
 List<Field<Order, ?>> fields = type.fields()
 ```
 
-字段声明引用具有稳定 identity、owner、声明类型和 runtime Annotation。`Field<Owner, Value>.read(Owner)` 直接返回精确的 Value，不会根据字符串搜索 getter 或依赖 JVM reflection。
+Field declaration references retain stable identity, owner, declared type, and runtime annotations. `Field<Owner, Value>.read(Owner)` returns the exact Value type directly, without searching for getters by string or relying on JVM reflection.
 
-## 7. Annotation 与受控扩展
+## 7. Annotations and controlled extension
 
-Annotation 是 Norm 对象模型中的 identity aggregate。它通过普通 interface 声明可应用目标、metadata 保留和可选生命周期。
+An annotation is an identity aggregate in Norm's object model. Ordinary interfaces declare its allowed targets, metadata retention, and optional lifecycles.
 
-只提供 metadata 的 Annotation 可以实现 `TypeTarget`、`FieldTarget` 等目标 interface 与 `RuntimeRetention`。需要参与执行时，Annotation 显式实现 `FunctionInterceptor`、`ParameterInterceptor<T>` 或 `FieldInterceptor<T>`。
+Metadata-only annotations can implement target interfaces such as `TypeTarget` and `FieldTarget`, together with `RuntimeRetention`. To participate in execution, an annotation explicitly implements `FunctionInterceptor`, `ParameterInterceptor<T>`, or `FieldInterceptor<T>`.
 
-这种分层区分三件事：Annotation 能标在哪里，metadata 保留多久，以及它是否真的执行行为。生命周期在定义侧进入普通调用、构造、动态分派和函数引用的统一入口，不依赖调用点代理或运行时扫描。
+This separates where an annotation may appear, how long its metadata is retained, and whether it executes behavior. Definition-side lifecycles enter the shared paths for ordinary calls, construction, dynamic dispatch, and function references; they do not rely on call-site proxies or runtime scanning.
 
-Norm 不提供宏、编译期代码派生 DSL 或运行时代码注入。Validation 使用强类型参数/字段生命周期，serialization 使用 passive metadata；两者共享 Annotation 模型，不共享不必要的执行机制。
+Norm provides no macros, compile-time code-derivation DSL, or runtime code injection. Validation uses typed parameter and field lifecycles, while serialization uses passive metadata. They share an annotation model without sharing unnecessary execution mechanisms.
 
-## 8. 缺失、失败与资源
+## 8. Absence, failure, and resources
 
-Norm 根据调用方责任区分三类情况：
+Norm distinguishes three cases by the caller's responsibility:
 
-- nullable 表达普通缺失；
-- `Result<T, E>` 表达业务契约内的可预期结果分支；
-- Exception 表达无法正常完成的系统、协议和运行时状态。
+- Nullable types represent ordinary absence.
+- `Result<T, E>` represents expected outcome alternatives within a business contract.
+- Exceptions represent system, protocol, and runtime conditions that prevent normal completion.
 
-语言不提供隐式 Result 传播。Exception 使用 `throw`、`try`、`catch` 和 `finally`，系统标准库抛出带稳定 code、operation 和 reason 的领域异常。
+The language has no implicit Result propagation. Exceptions use `throw`, `try`, `catch`, and `finally`; system standard-library APIs throw domain exceptions with stable codes, operations, and reasons.
 
-外部资源通过 `Resource`、`ByteReader`、`ByteWriter` 与作用域 `use` API 管理。读取完整内容必须提供上限，HTTP response body 与文件流进入同一确定性关闭模型。取消与 timeout 由执行上下文和平台 adapter 传递，不依赖全局服务定位器。
+External resources use `Resource`, `ByteReader`, `ByteWriter`, and scoped `use` APIs. Reading all content requires a limit. HTTP response bodies and file streams use the same deterministic closure model. Execution contexts and platform adapters propagate cancellation and timeouts without a global service locator.
 
-## 9. 标准库与应用边界
+## 9. Standard library and application boundaries
 
-Norm 标准库的公开 API 使用 Norm 编写，宿主能力通过后端无关的 system contract 接入，JDK adapter 是当前官方平台实现。
+Norm's public standard-library APIs are written in Norm. Backend-neutral system contracts connect host capabilities, with JDK adapters providing the current official platform implementation.
 
-HTTP 核心 request body 是 `Bytes`，不依赖 JSON。`std.http` 的 JSON 组合调用 `std.serialization`，因此协议传输和数据格式可以独立演进。
+Core HTTP request bodies use `Bytes` without depending on JSON. JSON composition in `std.http` calls `std.serialization`, allowing protocol transport and data formats to evolve independently.
 
-结构序列化由 `DataMapper`、`DataReader<T>` 和 `DataWriter<T>` 定义统一入口。JSON、XML 与 YAML 共享 exact Core type shape、字段访问和规范构造路径，各格式只实现 token、格式 metadata 与错误映射。自动映射显式标记的 value；class 对象图、循环引用和多态需要独立 identity 协议。
+`DataMapper`, `DataReader<T>`, and `DataWriter<T>` define the common structural-serialization entry points. JSON, XML, and YAML share exact Core type shapes, field access, and canonical construction paths. Each format supplies its own tokens, format metadata, and error mapping. Automatic mapping covers explicitly marked values; class object graphs, cyclic references, and polymorphism require separate identity protocols.
 
-Web server、数据库和依赖注入属于应用平台，不进入核心语言语义。当前可用标准库以[标准库索引](/stdlib/overview)和[版本记录](/versions/)为准。
+Web servers, databases, and dependency injection belong to the application platform, not core language semantics. The [standard-library index](/stdlib/overview) and [version records](/versions/) define current availability.
 
-## 10. 编译与执行架构
+## 10. Compilation and execution architecture
 
-官方工具链使用一条确定的语义管线：
+The official toolchain follows one semantic pipeline:
 
 ```text
 Norm Source
@@ -179,30 +179,30 @@ Norm Source
     → JVM execution / JIT
 ```
 
-SemanticModel 是名称解析、类型检查、调用目标、泛型实例化、可见性和编辑器 authoring 信息的唯一结果。Binder 将已验证语义冻结为确定引用，Core 不再重新解析源码名称。
+SemanticModel is the single result of name resolution, type checking, call selection, generic instantiation, visibility, and editor authoring information. The binder freezes verified semantics into resolved references; Core does not resolve source names again.
 
-Canonical Core 使用内容寻址的 definition identity。公开 ABI、代码、runtime metadata、调试信息和最终 executable 按各自真实依赖建立身份，支持精确增量失效、跨进程 definition store 和 Truffle artifact 复用。
+Canonical Core uses content-addressed definition identities. Public ABI, code, runtime metadata, debug information, and final executables each derive identity from their actual dependencies. This supports precise incremental invalidation, cross-process definition stores, and Truffle artifact reuse.
 
-Truffle 是唯一官方执行后端。CLI、Language Server、测试入口、Java binding 和项目加载共享同一 JVM 与 project system 生命周期。正式发行包携带平台 runtime，不建立另一套执行模式。
+Truffle is the sole official execution backend. The CLI, Language Server, test entry points, Java bindings, and project loading share one JVM and project-system lifecycle. Official distributions carry a platform runtime rather than introducing another execution model.
 
-详细架构见[编译器架构](/spec/compiler-design)与[实现策略决议](/design/implementation-strategy)。
+See the [compiler architecture](/spec/compiler-design) and [implementation strategy](/design/implementation-strategy) for details.
 
-## 11. 工具与发行
+## 11. Tools and distribution
 
-官方 VS Code 扩展只负责编辑器集成，诊断、补全、签名、格式化、导航和重命名都由 `norm lsp` 及编译器语义快照提供。扩展不维护第二套语言规则。
+The official VS Code extension handles editor integration. `norm lsp` and compiler semantic snapshots provide diagnostics, completion, signatures, formatting, navigation, and rename. The extension does not maintain separate language rules.
 
-Tagged Release 为 Windows x64、Linux x64 与 macOS ARM64 生成独立 CLI，并把所有受支持平台的同版本 CLI 打进一个通用 VSIX。每个平台运行相同的语言验收、LSP smoke 和 Extension Host 测试后，发布任务才生成校验和与构建证明。
+Tagged releases build standalone CLIs for Windows x64, Linux x64, and macOS ARM64, and package same-version CLIs for every supported platform in one universal VSIX. The release task generates checksums and build attestations only after each platform passes the same language acceptance, LSP smoke, and Extension Host tests.
 
-## 12. 规范与实现
+## 12. Specification and implementation
 
-Norm 语言规范面向 1.0 长期语义，版本记录定义当前发布版已经实现的边界。规范中的稳定目标不自动等于当前产品能力，发布版也不能用未记录的实现行为扩展语言。
+Norm's language specification defines long-term 1.0 semantics. Version records define what the current release implements. A stable specification goal is not automatically a current product capability, and a release must not extend the language through undocumented implementation behavior.
 
-这一区分让语言设计可以提前建立完整方向，同时让用户基于可执行、经过验收的版本契约做决定。
+This distinction lets language design establish a complete direction in advance while users make decisions based on executable, verified version contracts.
 
-## 结论
+## Conclusion
 
-Norm 的核心不是某一个语法功能，而是一组互相支持的边界：value 不携带 identity，class 不伪装成复制，ref 只引用 value 存储；控制流显式交出结果；泛型类型进入运行时；Annotation 和 extension 仍服从普通类型与调用规则；系统资源和数据格式通过强类型标准库进入唯一执行后端。
+Norm rests on mutually supporting boundaries: values carry no identity, class assignment preserves identity, and refs point only to value storage. Control flow explicitly supplies results; generic types remain available at runtime; annotations and extensions follow ordinary type and call rules; typed standard-library APIs connect system resources and data formats to one execution backend.
 
-这些选择共同服务于一件事：让应用代码在规模增长以后，仍然可以从源码判断它会怎样运行。
+Together, these choices aim to keep application behavior understandable from source even as the codebase grows.
 
-下一篇：[比较、取舍与发展方向](/guide/comparison-and-future)。
+Next: [Comparisons, tradeoffs, and direction](/guide/comparison-and-future).

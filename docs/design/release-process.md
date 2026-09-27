@@ -1,45 +1,45 @@
-# 发布流程
+# Release process
 
-Norm 使用符合语义化版本的 Git tag 触发发布。tag 中的 SemVer 是 CLI、语言服务器、VS Code 插件、文件名和 GitHub Release 的唯一发布版本来源。发布过的版本号不得重复使用。
+License scope and source availability: [LICENSING.md](https://github.com/normlanguage/Norm/blob/main/LICENSING.md). CLI distributions, compiler JARs and VSIX packages include licensing files from the repository root.
 
-## 发布物
+Norm releases are triggered by semantic Git tags. The SemVer value in the tag is the sole release-version source for the CLI, language server, VS Code extension, asset names, and GitHub Release. Published versions are never reused.
 
-许可范围与源码获取见 [LICENSING.md](https://github.com/normlanguage/Norm/blob/main/LICENSING.md)。CLI、编译器 JAR 和 VSIX 的许可文件从仓库根目录打包。
+## Assets
 
-每个版本同时发布各平台的自包含 CLI，以及内置全部受支持平台 CLI 的唯一通用 VS Code 插件：
+Every release ships a self-contained CLI for each platform and one universal VS Code extension containing every supported CLI:
 
-| 平台 | CLI |
+| Platform | CLI |
 | --- | --- |
-| Windows x64 | 可直接执行和自安装的 `norm.exe` |
-| Linux x64 | TAR.GZ 内的 `norm/bin/norm` |
-| macOS Apple Silicon | TAR.GZ 内的 `norm/bin/norm` |
+| Windows x64 | Directly executable and self-installing `norm.exe` |
+| Linux x64 | `norm/bin/norm` in TAR.GZ |
+| macOS Apple Silicon | `norm/bin/norm` in TAR.GZ |
 
-各平台使用同一个由 `bin`、编译器 `lib` 和 JDK 25 `jlink` `runtime` 组成的运行时。Windows 的 `norm.exe` 原样内嵌该目录，首次运行时按版本和运行库内容身份原子展开，运行中的其他内容版本保持独立；`norm.exe setup` 将 EXE 安装到当前用户、幂等写入用户 `PATH`，并准备固定版本的 GraalVM Community Native Image 工具链。Native 工具链不重复塞入 CLI 与通用 VSIX，而是按平台下载到 `~/.norm/toolchains/native-image`，验证官方 SHA-256 后原子安装并复用。未先执行 setup 时，首次 native build 使用同一安装流程。
+Every platform uses the same runtime made from `bin`, compiler `lib`, and the JDK 25 `jlink` `runtime`. The Windows `norm.exe` embeds that directory unchanged and atomically expands it by version on first use. `norm.exe setup` installs the executable for the current user, updates the user `PATH` idempotently, and prepares the pinned GraalVM Community Native Image toolchain. The native toolchain is not duplicated inside the CLI and universal VSIX; Norm downloads the platform archive into `~/.norm/toolchains/native-image`, verifies the official SHA-256, and installs it atomically. The first native build uses the same process when setup was skipped.
 
-`norm-language-support-vMAJOR.MINOR.PATCH.vsix` 是唯一插件产物。插件根据 VS Code 所在的操作系统和架构选择内置的同结构 CLI，不发布平台专用 VSIX。
+`norm-language-support-vMAJOR.MINOR.PATCH.vsix` is the only extension asset. It selects a bundled directory with the same structure from the host operating system and architecture. Norm does not publish platform-specific VSIX packages.
 
-新增平台必须先进入持续集成并通过相同验收。
+A new platform must first pass the same acceptance suite in continuous integration.
 
-## 验收门槛
+## Release gates
 
-发布先构建各平台 CLI 并打包通用 VSIX，再集中执行工具链测试和最终交付验收。语言程序由 `ProgramExecutionTest` 统一覆盖，不在各平台 CLI 验收中重复运行。每个平台验证版本、源码执行、动态 Java binding、一次 native 构建及三次隔离启动，以及 LSP 和编辑器集成。Windows 另外验证便携执行、setup 和 PATH 幂等。通用 VSIX 校验全部目标的内置运行时及宿主平台执行；编辑器集成验收直接加载该 VSIX 解包后的扩展。
+All platform CLIs and the universal VSIX are built before final acceptance. The toolchain suite covers language programs once through `ProgramExecutionTest`. Each platform verifies source execution, Java interoperability, one native build with three isolated executions, LSP and editor integration. Windows also checks portable execution and idempotent setup. VSIX validation checks all embedded runtimes and executes the host bundle. Editor integration loads the extension extracted from that same VSIX.
 
-框架、ORM 和应用验收归各适配包与 [examples 仓库](https://github.com/normlanguage/examples)所有，不作为编译器发行任务。
+Framework and application acceptance belongs to adapter repositories and [examples](https://github.com/normlanguage/examples), not the compiler release.
 
-构建完成后统一生成 SHA-256 校验和与构建来源证明。任一平台失败时不发布任何平台；全部资产先进入 Draft Release，上传完整后再一次性公开。
+The workflow generates SHA-256 checksums and build provenance after every platform succeeds. Assets enter a draft release first and become public together; a failed platform prevents the entire release.
 
-## 自动化
+## Automation
 
-[CLI 验收入口](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs)只覆盖工具链与通用 Java 互操作。
+The [CLI acceptance entry point](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/verify-cli.mjs) covers compiler delivery and generic Java interoperability.
 
-[发布目标清单](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json)是平台、runner、发行目录、launcher 和插件内目录的唯一机器定义；Gradle 打包任务与 [Release 工作流](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml)共同读取它。构建输出集中在仓库根 `build/`，正式资产位于 `build/distributions/`。日常 CI 验证工具链；Native size 工作流提供独立手动体积门禁。Release 工作流也在 PR 和主线运行标记为候选的构建及验收；只有 `vMAJOR.MINOR.PATCH` tag 会以 tag 版本发布正式 Release。
+The [release-target manifest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/release-targets.json) is the sole machine definition for platforms, runners, distribution directories, launchers, and extension directories; the packager and [Release workflow](https://github.com/normlanguage/Norm/blob/main/.github/workflows/release.yml) both consume it. Regular CI verifies the toolchain. Native size is a separate manual workflow. The release workflow accepts only `vMAJOR.MINOR.PATCH` tags.
 
-[发布模型](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/release-model.mjs)统一校验版本并派生资产文件名。[渠道清单生成器](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/distribution-manifests.mjs)校验实际 Release 资产与 SHA256SUMS 后，生成 Homebrew Formula、Snapcraft、Scoop 和 winget 清单。产物随 Release 提供，各渠道发布前还需完成其安装验收和审核。Snap 的 classic 权限和 `norm` 自动别名需要单独申请；获批前命令为 `normlang.norm`，本地可通过 `snap alias normlang.norm norm` 设置别名。
+The [release model](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/release-model.mjs) validates versions and derives asset filenames. The [channel manifest generator](https://github.com/normlanguage/Norm/blob/main/cli/compiler/scripts/distribution-manifests.mjs) verifies actual Release assets against SHA256SUMS before generating Homebrew, Snapcraft, Scoop, and winget manifests. These are included in the Release; each channel still requires its own installation checks and review before publication. Snap classic confinement and the automatic `norm` alias require separate approval. Until approved, the command is `normlang.norm`; users can set a local alias with `snap alias normlang.norm norm`.
 
-[Linux 私有运行树](../../cli/compiler/scripts/linux-runtime.mjs)与[发布选择和来源验证](../../cli/compiler/scripts/release-publication.mjs)供 APT 和 RPM 复用。[APT 公钥包发布规划](../../cli/compiler/scripts/apt-publication.mjs)、[APT 打包与仓库入口](../../cli/compiler/scripts/apt-repository.mjs)、[RPM 打包与仓库入口](../../cli/compiler/scripts/rpm-repository.mjs)分别提供渠道入口；[APT](../../cli/compiler/scripts/apt-acceptance.sh)和[RPM](../../cli/compiler/scripts/rpm-acceptance.sh)验收入口验证签名源的安装、升级、卸载及普通用户运行。公开发布入口分别为[normlanguage/apt](https://github.com/normlanguage/apt)和[normlanguage/rpm](https://github.com/normlanguage/rpm)。
+The [private Linux runtime staging](../../cli/compiler/scripts/linux-runtime.mjs) and [release selection and source verification](../../cli/compiler/scripts/release-publication.mjs) are shared by APT and RPM. The [APT keyring publication plan](../../cli/compiler/scripts/apt-publication.mjs), [APT package and repository entry point](../../cli/compiler/scripts/apt-repository.mjs), and [RPM package and repository entry point](../../cli/compiler/scripts/rpm-repository.mjs) provide channel-specific entry points; their [APT](../../cli/compiler/scripts/apt-acceptance.sh) and [RPM](../../cli/compiler/scripts/rpm-acceptance.sh) acceptance scripts verify signed-source installation, upgrade, removal, and execution as a regular user. The public publication repositories are [normlanguage/apt](https://github.com/normlanguage/apt) and [normlanguage/rpm](https://github.com/normlanguage/rpm).
 
-公开版本应逐步接入 Windows Authenticode 签名以及 macOS Developer ID 签名和 notarization。签名接入前，版本说明必须明确系统可能显示来源警告。
+Public releases should progressively adopt Windows Authenticode signing and Apple Developer ID signing with notarization. Until signing is available, release notes must state that the operating system may display an origin warning.
 
-## 版本说明
+## Release notes
 
-版本说明只记录该版本实际交付的语言能力、工具变化、迁移要求和已知限制。发布前必须存在由 tag 的 `major.minor` 派生出的中英文版本记录。当前实现边界由[版本索引](/versions/)指向的最新实现契约定义，未来语言规范不作为当前编译器的交付承诺。
+Release notes record only delivered language behavior, tooling changes, migration requirements, and known limitations. A release requires Chinese and English version records at the `major.minor` path derived from its tag. The latest implementation contract in the [version index](/versions/) defines the current boundary; future language specifications are not current compiler commitments.

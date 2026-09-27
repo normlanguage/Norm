@@ -1,14 +1,14 @@
 ---
-title: Norm 文档
-description: 学习语言、查阅规则并确认当前实现边界
+title: Norm Documentation
+description: Learn the language, consult its rules, and check current implementation boundaries
 pageClass: docs-hub
 sidebar: false
 aside: false
 ---
 
-# Norm 文档
+# Norm Documentation
 
-先选择阅读目的。每一类文档只回答一种问题，完整章节目录由对应侧栏维护。
+Choose what you need to read. Each documentation area answers a distinct question; its sidebar maintains the complete chapter list.
 
 <div class="docs-hub-grid">
 
@@ -16,9 +16,9 @@ aside: false
 
 #### Learn
 
-第一次接触 Norm，沿着十二章连续编写可运行程序。
+Write executable programs in a sequence of twelve chapters.
 
-- [开始 Language Tour](/learn/)
+- [Start the Language Tour](/learn/)
 - [Hello, Norm](/learn/hello)
 
 </section>
@@ -27,11 +27,12 @@ aside: false
 
 #### Language
 
-理解 Norm 为什么区分身份、值、有限状态、能力和受控别名。
+Understand why Norm separates identity, values, finite states, capabilities, and controlled aliases.
 
-- [认识 Norm](/guide/)
-- [语言哲学](/guide/philosophy)
-- [设计原则](/guide/design-principles)
+- [Meet Norm](/guide/)
+- [Language philosophy](/guide/philosophy)
+- [Design principles](/guide/design-principles)
+- [Language handbook](/language/overview)
 
 </section>
 
@@ -39,11 +40,11 @@ aside: false
 
 #### Reference
 
-精确查找语法、类型规则、名称解析和诊断边界。
+Find precise syntax, type rules, name resolution, and diagnostic boundaries.
 
 - [Language Reference](/spec/language-spec)
-- [语法参考](/spec/grammar/overview)
-- [类型系统](/spec/type-system)
+- [Grammar reference](/spec/grammar/overview)
+- [Type system](/spec/type-system)
 
 </section>
 
@@ -51,11 +52,11 @@ aside: false
 
 #### Standard Library
 
-查找当前标准库模块、类型、函数和失败模型。
+Find current standard library modules, types, functions, and failure models.
 
-- [标准库概览](/stdlib/overview)
-- [Unicode 文本](/stdlib/string)
-- [I/O 与 HTTP](/stdlib/io)
+- [Standard library overview](/stdlib/overview)
+- [Unicode text](/stdlib/string)
+- [I/O and HTTP](/stdlib/io)
 
 </section>
 
@@ -63,10 +64,10 @@ aside: false
 
 #### Tooling
 
-安装 CLI 与 VS Code，了解语义补全、导航和重命名。
+Install the CLI and VS Code extension, and learn about semantic completion, navigation, and rename.
 
-- [Tooling 概览](/tooling/)
-- [VS Code 开发体验](/guide/vscode)
+- [Tooling overview](/tooling/)
+- [VS Code development experience](/guide/vscode)
 
 </section>
 
@@ -74,10 +75,10 @@ aside: false
 
 #### Design
 
-阅读语义模型、Canonical Core、内容身份和执行后端设计。
+Read about the semantic model, Canonical Core, content identity, and execution backend.
 
-- [Compiler Design](/design/)
-- [编译器架构](/spec/compiler-design)
+- [Compiler design](/design/)
+- [Compiler architecture](/spec/compiler-design)
 
 </section>
 
@@ -85,10 +86,10 @@ aside: false
 
 #### Status
 
-确认当前版本已经实现什么、仍缺少什么，以及采用时需要注意的边界。
+Check what the current release delivers, what is missing, and the boundaries that matter for adoption.
 
-- [Current Status](/status)
-- [最新实现契约](/versions/)
+- [Current status](/status)
+- [Latest implementation contract](/versions/)
 
 </section>
 
@@ -96,17 +97,17 @@ aside: false
 
 #### Project
 
-查看发布历史、路线图、治理与贡献入口。
+Find release history, the roadmap, governance, and contribution entry points.
 
-- [版本索引](/versions/)
-- [项目路线图](/design/roadmap)
-- [商业计划展望](/design/business-outlook)
-- [社区与贡献](/community)
+- [Version index](/versions/)
+- [Project roadmap](/design/roadmap)
+- [Business outlook](/design/business-outlook)
+- [Community and contribution](/community)
 
 </section>
 
 </div>
 
-## 推荐路径
+## Suggested path
 
-首次学习依次阅读 [Language Tour](/learn/) → [Standard Library](/stdlib/overview) → [Tooling](/tooling/)。评估采用时同时查看 [Status](/status)；实现语言工具或确认边界时直接进入 [Language Reference](/spec/language-spec)。
+For a first encounter, follow the [Language Tour](/learn/) → [Standard Library](/stdlib/overview) → [Tooling](/tooling/). When evaluating adoption, read [Status](/status) as well. To implement language tools or check a boundary, go directly to the [Language Reference](/spec/language-spec).

@@ -1,35 +1,35 @@
 ---
-title: Agent 开发入口
-description: AI Agent 使用 Norm 的规范、语义工具与验证入口
+title: Agent Development
+description: Norm specifications, semantic tools, and verification for AI Agents
 ---
 
-# Agent 开发入口
+# Agent Development
 
-[Norm-Skill](https://github.com/normlanguage/Norm-Skill) 提供 CLI、语言规则和库清单的任务索引。源码通过 `cli/norm-skill` 子模块维护，获取方式为 `git submodule update --init cli/norm-skill`。Skill 内容只在独立仓库维护。
+[Norm-Skill](https://github.com/normlanguage/Norm-Skill) provides a task index for CLI usage, language rules, and library inventory. The sources are maintained through the `cli/norm-skill` submodule; obtain them with `git submodule update --init cli/norm-skill`. Skill content is maintained only in its separate repository.
 
-CLI 用法以安装版 `norm -h` 为入口；各命令使用 `norm <command> -h`，重构类型使用 `norm refactor name -h`。帮助不会执行项目操作。
+Start with the installed `norm -h` for CLI usage. Each command has `norm <command> -h`; refactoring types use `norm refactor name -h`. Help does not execute project operations.
 
-使用当前工具链支持的语言与 API。能力成熟度见 [Status](/status)，工具设计原则与规划见 [Agent 工具设计](/design/agent-tooling)。源码工作区中的能力不代表已进入正式发行包。
+Use language and APIs supported by the current toolchain. See [Status](/status) for capability maturity and [Agent Tooling Design](/design/agent-tooling) for principles and plans. A capability in a source checkout does not necessarily exist in an official release.
 
-## 学习与查询
+## Learning and querying
 
-[语义查询](/tooling/semantic-query)提供项目概览、声明搜索、强引用选择与上下文。
+[Semantic Query](/tooling/semantic-query) provides project overviews, declaration search, strong reference selection, and context.
 
-[语义重构预检](/tooling/rename-preview)提供基于文档修订的编辑预览与静态验证。
+[Semantic Refactoring Preview](/tooling/rename-preview) provides edit previews and static validation tied to document revisions.
 
-- [Language Tour](/learn/)：连续学习与可执行例子；
-- [语言参考](/spec/language-spec)：精确语法与语义；
-- [设计原则](/guide/design-principles)：类型、信息和分层边界；
-- [标准库](/stdlib/overview)：当前模块入口；
-- [API 文档导出](/tooling/api-documentation)：从语义模型获取公开声明与文档；
-- [VS Code](/guide/vscode)：补全、签名、导航、引用与重命名。
+- [Language Tour](/learn/): sequential learning with runnable examples;
+- [Language Reference](/spec/language-spec): exact syntax and semantics;
+- [Design Principles](/guide/design-principles): type, information, and layering boundaries;
+- [Standard Library](/stdlib/overview): current module entry points;
+- [API Documentation Export](/tooling/api-documentation): public declarations and docs from the semantic model;
+- [VS Code](/guide/vscode): completion, signatures, navigation, references, and renaming.
 
-类型关系优先查阅 [value、class 与 ref 的语义](/spec/value-identity-semantics)、[空值与推断](/learn/nullability-inference)、[函数](/learn/functions)和[错误处理](/learn/errors)。不要从其他语言推定 Norm 行为。
+For type relationships, first consult [value, class, and ref semantics](/spec/value-identity-semantics), [nullability and inference](/learn/nullability-inference), [functions](/learn/functions), and [error handling](/learn/errors). Do not infer Norm behavior from other languages.
 
-## 验证
+## Verification
 
-静态检查、定向测试与机器输出见[检查与测试](/tooling/verification)。测试声明和关联见[测试 API](/stdlib/testing-api)。项目内可执行文档例子的组织和验证命令见 [Norm 测试索引](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md)。
+See [Checks and Tests](/tooling/verification) for static checks, focused tests, and machine output. See the [Testing API](/stdlib/testing-api) for test declarations and associations. The [Norm test index](https://github.com/normlanguage/Norm/blob/main/norm/tests/README.md) describes project-local runnable examples and their verification commands.
 
-验证结论必须说明实际执行范围。编译成功只证明静态约束，测试通过只证明被执行用例的断言；修改后需重新验证对应源码。
+A verification claim must state what actually ran. Successful compilation proves static constraints only; passing tests prove only their executed assertions. Revalidate the corresponding sources after changes.
 
-可复用的任务准备、独立验收与测量边界见 [Agent 任务基准](/tooling/agent-benchmark)。
+See [Agent Task Benchmark](/tooling/agent-benchmark) for reusable task preparation, independent acceptance, and measurement boundaries.

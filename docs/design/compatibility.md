@@ -1,27 +1,26 @@
-# 兼容性策略
+# Compatibility policy
 
-Norm 分别判断源码兼容、二进制兼容、行为兼容和数据格式兼容。一个改动能重新编译，不代表运行行为或持久化数据仍兼容。
+Norm evaluates source, binary, behavioral, and data-format compatibility separately. The ability to recompile a change does not imply that runtime behavior or persisted data remains compatible.
 
-## 语言版本
+## Language versions
 
-源码清单声明目标语言版本。编译器可以读取旧版本，但不得在没有提示时按新语义解释旧代码。格式化器不能把代码改写成目标版本不支持的语法。
+A source manifest declares its target language version. A compiler may read an older version, but must not silently interpret old code under new semantics. A formatter must not rewrite code into syntax unsupported by the target version.
 
-## 破坏性变化示例
+## Examples of breaking changes
 
-- 新增关键字导致现有标识符失效；
-- 改变运算符优先级或求值顺序；
-- 收紧泛型或 nullable 规则；
-- 为 public enum 新增 variant；
-- 删除或重命名 public 函数参数，因为命名实参是调用契约的一部分；
-- 改变序列化默认字段或时间、Decimal 的解释。
+- Adding a keyword that invalidates existing identifiers.
+- Changing operator precedence or evaluation order.
+- Tightening generics or nullable rules.
+- Adding a variant to a public enum.
+- Removing or renaming a public function parameter, since named arguments are part of the call contract.
+- Changing default serialized fields or the interpretation of time or Decimal values.
 
-## 标准库
+## Standard library
 
-stable minor 版本可以新增不造成重载歧义的 API，并修复与规范不一致的实现。删除 API、改变返回类型或新增必填参数需要 major 版本。安全修复若必须改变行为，应在公告中明确风险和迁移方式。
+A stable minor version may add APIs that do not introduce overload ambiguity and fix implementations that contradict the specification. Removing an API, changing a return type, or adding a required parameter needs a major version. If a security fix must change behavior, its announcement should explain the risk and migration path.
 
-## 预览期
+## Preview period
 
-首个 stable 版本之前不承诺完整兼容，但每次 preview 仍必须发布差异和迁移说明。频繁变化不是省略记录的理由。
+Before the first stable release, full compatibility is not promised. Every preview must still publish its differences and migration guidance. Frequent changes do not justify omitting records.
 
-兼容性测试应保存旧版源码、已编译产物和代表性序列化样本，并在候选发布上执行。
-
+Compatibility tests should retain old source, compiled artifacts, and representative serialized data and run them against release candidates.

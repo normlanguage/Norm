@@ -1,10 +1,10 @@
-# 07 集合与迭代
+# 07 Collections and iteration
 
-集合字面量由期望类型决定具体容器；遍历只依赖 `Iterable<T>`，不是某个内建集合的特殊语法。
+The expected type determines the concrete container for a collection literal. Iteration depends only on `Iterable<T>`, not special syntax for a built-in collection.
 
 <<< ../../norm/tests/docs/tour/07_collections.norm{norm}
 
-输出：
+Output:
 
 ```text
 0
@@ -16,15 +16,15 @@
 1
 ```
 
-## Array 与 List
+## Array and List
 
-`Array<T>` 表达固定长度的索引序列，`List<T>` 表达可调整长度的序列。同一个 `[]` 可以根据赋值目标物化为不同容器；没有上下文的空字面量会被拒绝。
+`Array<T>` is an indexed sequence of fixed length; `List<T>` can change length. The same `[]` can become different containers depending on the assignment target. An empty literal without context is rejected.
 
-内建集合采用 value 语义：复制容器会得到逻辑独立的结构。如果元素是 class，元素指向的对象身份仍然共享。
+Built-in collections have value semantics: copying a container produces a logically independent structure. If an element is a class instance, that element's object identity remains shared.
 
 ## For
 
-遍历式 `for` 可以绑定元素，也可以同时绑定从零开始的索引：
+An iteration-style `for` can bind the element alone or also bind its zero-based index:
 
 ```norm
 for value : values {
@@ -36,8 +36,8 @@ for value, index : values {
 }
 ```
 
-条件循环写作 `for condition {}`。需要从循环产生值时使用 for 表达式，并由 `break value` 与 `else` 明确正常耗尽路径。
+A conditional loop is written `for condition {}`. To produce a value from a loop, use a for expression with `break value` and an `else` for normal exhaustion.
 
-容器 API 见[标准库集合](/stdlib/collections)，控制规则见[循环参考](/spec/grammar/loops)。
+See the [standard-library collections](/stdlib/collections) for container APIs and the [loop reference](/spec/grammar/loops) for control rules.
 
-上一章：[Null 与类型推断](/learn/nullability-inference)。下一章：[Lambda 与 Extension](/learn/lambdas-extensions)。
+Previous: [Null and type inference](/learn/nullability-inference). Next: [Lambda and Extension](/learn/lambdas-extensions).

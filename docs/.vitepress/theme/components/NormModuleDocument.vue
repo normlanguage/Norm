@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { withBase } from 'vitepress'
+import { useData, withBase } from 'vitepress'
 import type { FileApi, FileEntry, ModuleApi, Reference } from '../generated/norm-api'
 import NormApiDeclaration from './NormApiDeclaration.vue'
 import NormApiDocument from './NormApiDocument.vue'
 import NormApiTree from './NormApiTree.vue'
+import { labelsFor } from './norm-api-labels'
 import { declarationTargets, firstFile } from './norm-api-view'
 
 const props = defineProps<{
   root: string
 }>()
+const { lang } = useData()
+const labels = computed(() => labelsFor(lang.value))
 const manifest = ref<ModuleApi>()
 const file = ref<FileApi>()
 const targets = computed(() => new Set([...declarationTargets(file.value?.declarations ?? []), ...(file.value?.tests ?? []).map(test => test.id)]))
@@ -103,13 +106,13 @@ function message(failure: unknown) {
   <div ref="container" class="norm-module-document">
     <header v-if="manifest" class="norm-module-document__header">
       <div>
-        <span>Norm module</span>
+        <span>{{ labels.module }}</span>
         <h2>{{ manifest.module.name }}</h2>
       </div>
       <code>v{{ manifest.module.version }}</code>
     </header>
     <div v-if="manifest" class="norm-module-document__body">
-      <aside aria-label="Module files">
+      <aside :aria-label="labels.moduleFiles">
         <NormApiTree
           :entries="manifest.tree"
           :selected="selected?.document"
@@ -117,7 +120,7 @@ function message(failure: unknown) {
         />
       </aside>
       <main>
-        <p v-if="loading" class="norm-api-state">Loading API documentation…</p>
+        <p v-if="loading" class="norm-api-state">{{ labels.loadingApi }}</p>
         <p v-else-if="error" class="norm-api-state norm-api-state--error">{{ error }}</p>
         <template v-else-if="file">
           <header class="norm-api-file-header">
@@ -138,17 +141,17 @@ function message(failure: unknown) {
               @navigate="navigate"
           />
           <article v-for="test in file.tests" :id="test.id" :key="test.id" class="norm-api-declaration">
-            <header><span>Test</span><span>{{ test.name }}</span></header>
+            <header><span>{{ labels.test }}</span><span>{{ test.name }}</span></header>
             <p>{{ file.source.path }}:{{ test.source.start.line }}</p>
             <pre><code>{{ test.code }}</code></pre>
           </article>
           <p v-if="!file.declarations.length && !file.tests.length" class="norm-api-state">
-            This file does not export public declarations.
+            {{ labels.empty }}
           </p>
         </template>
       </main>
     </div>
-    <p v-else-if="loading" class="norm-api-state">Loading module documentation…</p>
+    <p v-else-if="loading" class="norm-api-state">{{ labels.loadingModule }}</p>
     <p v-else class="norm-api-state norm-api-state--error">{{ error }}</p>
   </div>
 </template>

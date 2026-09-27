@@ -25,19 +25,19 @@ export default defineConfig({
   ],
   locales: {
     root: {
-      label: '简体中文',
-      lang: 'zh-CN',
-      title: 'Norm',
-      description: '用不同语言构造表达身份、值、选择、能力与受控别名',
-      themeConfig: zhTheme,
-    },
-    en: {
       label: 'English',
       lang: 'en-US',
-      link: '/en/',
       title: 'Norm',
       description: 'A statically typed language with familiar syntax and explicit semantics',
       themeConfig: enTheme,
+    },
+    zh: {
+      label: '简体中文',
+      lang: 'zh-CN',
+      link: '/zh/',
+      title: 'Norm',
+      description: '用不同语言构造表达身份、值、选择、能力与受控别名',
+      themeConfig: zhTheme,
     },
   },
   themeConfig: {
@@ -48,7 +48,7 @@ export default defineConfig({
       provider: 'local',
       options: {
         locales: {
-          root: {
+          zh: {
             translations: {
               button: { buttonText: '搜索', buttonAriaLabel: '搜索文档' },
               modal: {
@@ -71,8 +71,5 @@ export default defineConfig({
         },
       },
     },
-    // Not every deep reference page is translated yet. Until it is, the
-    // locale menu lands on the target homepage instead of producing a 404.
-    i18nRouting: false,
   },
 })

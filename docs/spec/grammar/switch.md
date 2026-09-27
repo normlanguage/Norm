@@ -1,6 +1,6 @@
-# Switch 语法
+# Switch Syntax
 
-`switch` 对 enum variant、字面量、null 或运行时名义类型进行分支。每个 `case` 都使用代码块，表达式形式通过 `break value` 产生结果。
+`switch` branches on enum variants, literals, null, or nominal runtime types. Each `case` uses a block; its expression form produces a result through `break value`.
 
 ```norm
 String text = switch token {
@@ -10,15 +10,15 @@ String text = switch token {
 }
 ```
 
-## 匹配顺序
+## Match order
 
-被匹配表达式只求值一次。case 按源码顺序测试，首个匹配 case 独占执行；case 之间没有 fallthrough。完整模式规则见[模式匹配](/spec/grammar/patterns)。
+The matched expression is evaluated once. Cases are tested in source order, and only the first matching case executes. There is no fallthrough. See [pattern matching](/spec/grammar/patterns) for complete pattern rules.
 
-## 穷尽性
+## Exhaustiveness
 
-每个 switch 都必须穷尽。编译器根据静态类型与模式递归计算覆盖范围：封闭 enum 必须覆盖全部 variant，nullable 类型必须覆盖 null，无法有限枚举的值域与开放名义类型必须以 `_` 覆盖剩余值。遗漏分支是编译错误。
+Every switch must be exhaustive. The compiler computes coverage recursively from static types and patterns: a closed enum must cover every variant, a nullable type must cover null, and open nominal types or value domains that cannot be finitely enumerated must cover remaining values with `_`. A missing branch is a compile error.
 
-开放类型层次不能静态枚举所有子类，需要显式兜底分支：
+An open type hierarchy cannot enumerate every subclass statically and needs an explicit fallback:
 
 ```norm
 String kind = switch shape {
@@ -27,9 +27,8 @@ String kind = switch shape {
 }
 ```
 
-`_` 覆盖当前类型仍未匹配的全部值。已经被前序模式完全覆盖的分支不可达并产生编译错误。
+`_` covers all unmatched values of the current type. A branch already completely covered by earlier patterns is unreachable and causes a compile error.
 
-## 完成规则
+## Completion rules
 
-语句 switch 的 case 可以正常完成，随后结束整个 switch。表达式 switch 的每条 case 路径若能正常完成，必须执行 `break value`；`return` 或 `throw` 等不正常完成路径不需要产生局部结果。各 `break value` 的结果必须合并为唯一静态类型。
-
+A statement switch case may complete normally, ending the whole switch. In an expression switch, each case path that can complete normally must execute `break value`. Abnormal paths such as `return` or `throw` need no local result. All `break value` results must merge into one static type.
