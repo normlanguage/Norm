@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -44,7 +44,7 @@ jobs:
             gh attestation verify "assets/$version/$asset" --repo normlanguage/Norm --source-ref "refs/tags/v$version" --source-digest "$source_commit" --signer-workflow normlanguage/Norm/.github/workflows/release.yml --format json > "assets/$version/attestation.json"
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: norm-apt-inputs
           path: assets/
@@ -61,7 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: norm-apt-inputs
           path: assets
@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Upload signed candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: norm-apt-candidate-${{ inputs.version }}
           path: |
@@ -122,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: norm-apt-candidate-${{ inputs.version }}
           path: candidate
@@ -136,7 +136,7 @@ jobs:
 
       - name: Upload installation evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: norm-apt-acceptance-${{ inputs.version }}
           path: apt-evidence/
