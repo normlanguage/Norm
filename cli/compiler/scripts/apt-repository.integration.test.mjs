@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -58,6 +58,12 @@ test('real Debian tools build a private-runtime package and signed APT repositor
     assert.equal(createHash('sha256').update(readFileSync(deb)).digest('hex'), createHash('sha256').update(readFileSync(repeatedDeb)).digest('hex'));
     assert.equal(command('dpkg-deb', ['--field', deb, 'Version']).trim(), '1.2.3');
     assert.match(command('dpkg-deb', ['--field', deb, 'Depends']), /libc6/);
+    const packageControl = join(root, 'package-control');
+    command('dpkg-deb', ['--control', deb, packageControl]);
+    const postinst = join(packageControl, 'postinst');
+    assert.ok(existsSync(postinst));
+    assert.ok(statSync(postinst).mode & 0o111);
+    command('sh', ['-n', postinst]);
     const contents = command('dpkg-deb', ['--contents', deb]);
     assert.match(contents, /usr\/lib\/normlang\/runtime\/bin\/java/);
     assert.match(contents, /usr\/bin\/norm/);

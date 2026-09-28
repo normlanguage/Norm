@@ -42,6 +42,9 @@ export function buildPackage(version, assetsDirectory, outputDirectory) {
     const control = join(stage, 'DEBIAN');
     mkdirSync(control);
     writeFileSync(join(control, 'control'), `Package: normlang\nVersion: ${version}\nArchitecture: ${debianArchitecture}\nMaintainer: w0fv1 <wofbi1@outlook.com>\nSection: devel\nPriority: optional\nDepends: ${match[1]}\nDescription: Norm programming language and toolchain\n Self-contained Norm CLI, language server, and Java runtime.\n`);
+    const postinst = join(control, 'postinst');
+    writeFileSync(postinst, '#!/bin/sh\nset -e\nif [ "$1" = configure ]; then\n  chmod 0755 /usr/lib/normlang\nfi\n');
+    chmodSync(postinst, 0o755);
     execute('dpkg-deb', ['--build', '--root-owner-group', stage, packagePath], { env: { ...process.env, SOURCE_DATE_EPOCH: '0' } });
     return packagePath;
   } finally {
