@@ -9,13 +9,20 @@ on:
       - 'norm/tests/docs/**'
       - 'cli/compiler/src/**'
       - '.github/workflows/deploy-docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'norm/stdlib/std/**'
+      - 'norm/tests/docs/**'
+      - 'cli/compiler/src/**'
+      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
