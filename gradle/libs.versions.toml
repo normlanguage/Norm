@@ -18,7 +18,7 @@ reachability = { strictly = "1.1.12" }
 jspecify = { strictly = "1.0.0" }
 archunit = { strictly = "1.5.0" }
 websocket = { strictly = "1.6.0" }
-spotless = "8.10.0"
+spotless = "8.10.2"
 google-java-format = "1.36.0"
 extra-modules = "1.14.2"
 
