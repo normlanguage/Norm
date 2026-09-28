@@ -125,7 +125,6 @@ body { letter-spacing: -0.006em; }
   padding: 64px 0 88px;
   text-align: center;
 }
-.norm-hero__eyebrow,
 .norm-kicker {
   margin: 0 0 18px !important;
   font-size: 13px;
@@ -133,7 +132,6 @@ body { letter-spacing: -0.006em; }
   letter-spacing: .16em;
   text-transform: uppercase;
 }
-.norm-hero__eyebrow { color: rgba(255,255,255,.74); }
 .norm-hero__logo {
   width: clamp(72px, 9vw, 100px);
   height: auto;
@@ -148,14 +146,6 @@ body { letter-spacing: -0.006em; }
   line-height: .98;
   letter-spacing: -.06em;
 }
-.norm-hero__lead {
-  max-width: 780px;
-  margin: 22px auto 0 !important;
-  color: rgba(255,255,255,.9);
-  font-size: clamp(19px, 2.3vw, 25px);
-  line-height: 1.55;
-}
-.norm-hero__lead code { color: #fff !important; background: rgba(0,0,0,.2) !important; }
 .norm-hero__actions { display: flex; justify-content: center; gap: 12px; margin-top: 24px; }
 .norm-button {
   display: inline-flex;
@@ -187,8 +177,6 @@ body { letter-spacing: -0.006em; }
 .norm-code-window pre { margin: 0 !important; border: 0; background: transparent !important; }
 .norm-code-window pre { padding: 28px 32px !important; font-size: 15px; line-height: 1.7; }
 .norm-code-window code { color: #d4d4d4; }
-.norm-hero__result { margin: 28px 0 0 !important; color: rgba(255,255,255,.85); font-size: 15px; }
-.norm-hero__result code { color: #fff !important; background: rgba(0,0,0,.18) !important; white-space: pre-line; }
 .norm-sample-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 40px; align-items: start; margin-top: 48px; }
 .norm-sample-code { width: 100%; max-width: none; margin: 0; }
 .norm-sample-code pre { max-height: 560px; overflow: auto; }

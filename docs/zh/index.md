@@ -8,7 +8,6 @@ pageClass: norm-home
 <script setup>
 import { ref } from 'vue'
 import simpleCode from '../../norm/tests/docs/showcase/simple.norm?raw'
-import simpleOutput from '../../norm/tests/docs/showcase/simple.out?raw'
 import agentCode from '../../norm/tests/docs/showcase/agent_document.norm?raw'
 import agentOutput from '../../norm/tests/docs/showcase/agent_document.out?raw'
 import agentQueryOutput from '../../norm/tests/docs/showcase/agent_document.query.out?raw'
@@ -33,15 +32,12 @@ const selectedExample = ref(0)
 <section class="norm-hero">
   <div class="norm-hero__inner">
     <img class="norm-hero__logo" src="/brand/norm.svg" alt="Norm Logo">
-    <p class="norm-hero__eyebrow">Simple</p>
     <h1><span>熟悉的语法，</span><span>明确的语义。</span></h1>
-    <p class="norm-hero__lead">先读懂、运行、修改一个小程序，再看 Norm 如何表达应用，以及如何帮助 Agent 理解代码。</p>
     <div class="norm-hero__actions"><a class="norm-button norm-button--dark" href="./learn/">开始学习</a><a class="norm-button norm-button--light" href="./spec/language-spec">语言参考</a></div>
     <div class="norm-code-window">
       <div class="norm-code-window__bar"><span></span><span></span><span></span><b>simple.norm</b></div>
       <pre><code>{{ simpleCode }}</code></pre>
     </div>
-    <p class="norm-hero__result">运行 <code>norm simple.norm</code> → <code>{{ simpleOutput.trim() }}</code></p>
   </div>
 </section>
 

@@ -21,7 +21,7 @@ English and Chinese pages share code. A page displays its maintained source file
 
 The showcase has three entry points:
 
-1. **Simple:** a short, immediately runnable program with its command and output.
+1. **Simple:** the minimal `Hello, Norm` program shown directly as source.
 2. **Agent first:** declaration intent from `@Document`, semantic query and related declarations, on-demand source and tests, rename preview, an agent-applied edit, then structured check and test results.
 3. **Application development:** focused, switchable examples covering data models, expression results, readable calls, field responsiveness, typed behavior, and retained type information.
 

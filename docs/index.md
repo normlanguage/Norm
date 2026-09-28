@@ -8,7 +8,6 @@ pageClass: norm-home
 <script setup>
 import { ref } from 'vue'
 import simpleCode from '../norm/tests/docs/showcase/simple.norm?raw'
-import simpleOutput from '../norm/tests/docs/showcase/simple.out?raw'
 import agentCode from '../norm/tests/docs/showcase/agent_document.norm?raw'
 import agentOutput from '../norm/tests/docs/showcase/agent_document.out?raw'
 import agentQueryOutput from '../norm/tests/docs/showcase/agent_document.query.out?raw'
@@ -33,15 +32,12 @@ const selectedExample = ref(0)
 <section class="norm-hero">
   <div class="norm-hero__inner">
     <img class="norm-hero__logo" src="/brand/norm.svg" alt="Norm logo">
-    <p class="norm-hero__eyebrow">Simple</p>
     <h1><span>Familiar syntax.</span><span>Explicit semantics.</span></h1>
-    <p class="norm-hero__lead">Start with a small program you can read, run, and change. Then explore how the same language expresses applications and helps agents work with code.</p>
     <div class="norm-hero__actions"><a class="norm-button norm-button--dark" href="./learn/">Start learning</a><a class="norm-button norm-button--light" href="./spec/language-spec">Language reference</a></div>
     <div class="norm-code-window">
       <div class="norm-code-window__bar"><span></span><span></span><span></span><b>simple.norm</b></div>
       <pre><code>{{ simpleCode }}</code></pre>
     </div>
-    <p class="norm-hero__result">Run <code>norm simple.norm</code> → <code>{{ simpleOutput.trim() }}</code></p>
   </div>
 </section>
 
