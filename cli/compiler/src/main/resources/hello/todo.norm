@@ -91,7 +91,7 @@ class Todo implements Widget {
 }
 
 Module module() {
-  module(dependencies: [dependency(repository: "github", name: "ui", version: 2)])
+  module(dependencies: [dependency(repository: "github", name: "ui", version: 3)])
 }
 
 Void main() {

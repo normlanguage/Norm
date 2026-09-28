@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  NORM_CANDIDATE_VERSION: '0.25.2'
+  NORM_CANDIDATE_VERSION: '0.25.3'
 
 concurrency:
   group: release-${{ github.ref }}
