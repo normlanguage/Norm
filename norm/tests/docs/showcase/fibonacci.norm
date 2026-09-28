@@ -1,0 +1,12 @@
+Integer fibonacci(Integer number) {
+  if number <= 1 {
+    return number
+  }
+  return fibonacci(number - 1) + fibonacci(number - 2)
+}
+
+main() {
+  for number : range(start: 0, end: 8) {
+    printLine("F(${number}) = ${fibonacci(number)}")
+  }
+}

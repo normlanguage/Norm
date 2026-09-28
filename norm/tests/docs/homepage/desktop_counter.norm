@@ -1,0 +1,41 @@
+import ui.Binding
+import ui.Button
+import ui.Column
+import ui.DesktopApp
+import ui.Row
+import ui.Text
+import ui.Toggle
+import ui.Widget
+import ui.runApp
+
+class Counter implements Widget {
+  private Integer count = 0
+  private Boolean largeStep = false
+
+  Widget build() {
+    Integer step = if largeStep { 10 } else { 1 }
+    Column([
+      Text("Count: ${count}"),
+      Toggle(
+        text: "Step by 10",
+        value: Binding<Boolean>(
+          read: () { largeStep },
+          write: (Boolean next) { largeStep = next }
+        )
+      ),
+      Row([
+        Button("Decrease") { count = count - step },
+        Button("Reset") { count = 0 },
+        Button("Increase") { count = count + step }
+      ])
+    ])
+  }
+}
+
+Module module() {
+  module(dependencies: [dependency(repository: "github", name: "ui", version: 3)])
+}
+
+Void main() {
+  runApp(DesktopApp(title: "Norm Counter", home: Counter()))
+}

@@ -8,6 +8,10 @@ pageClass: norm-home
 <script setup>
 import { ref } from 'vue'
 import simpleCode from '../norm/tests/docs/showcase/simple.norm?raw'
+import fibonacciCode from '../norm/tests/docs/showcase/fibonacci.norm?raw'
+import patternMatchingCode from '../norm/tests/docs/showcase/pattern_matching.norm?raw'
+import webGreetingCode from '../norm/tests/docs/homepage/web_greeting.norm?raw'
+import desktopCounterCode from '../norm/tests/docs/homepage/desktop_counter.norm?raw'
 import agentCode from '../norm/tests/docs/showcase/agent_document.norm?raw'
 import agentOutput from '../norm/tests/docs/showcase/agent_document.out?raw'
 import agentQueryOutput from '../norm/tests/docs/showcase/agent_document.query.out?raw'
@@ -19,6 +23,15 @@ import aopCode from '../norm/tests/docs/showcase/application_aop.norm?raw'
 import aopOutput from '../norm/tests/docs/showcase/application_aop.out?raw'
 import genericCode from '../norm/tests/docs/showcase/application_generics.norm?raw'
 import genericOutput from '../norm/tests/docs/showcase/application_generics.out?raw'
+
+const heroExamples = [
+  { title: 'Hello, Norm', filename: 'simple.norm', code: simpleCode },
+  { title: 'Fibonacci', filename: 'fibonacci.norm', code: fibonacciCode },
+  { title: 'Pattern matching', filename: 'pattern_matching.norm', code: patternMatchingCode },
+  { title: 'Web greeting', filename: 'web_greeting.norm', code: webGreetingCode },
+  { title: 'Desktop counter', filename: 'desktop_counter.norm', code: desktopCounterCode },
+]
+const selectedHeroExample = ref(0)
 
 const applicationExamples = [
   { title: 'Data and decisions', filename: 'application_data.norm', detail: 'Model identity, values, finite states, named calls, and expression results together.', code: dataCode, output: dataOutput },
@@ -34,9 +47,15 @@ const selectedExample = ref(0)
     <img class="norm-hero__logo" src="/brand/norm.svg" alt="Norm logo">
     <h1><span>Familiar syntax.</span><span>Explicit semantics.</span></h1>
     <div class="norm-hero__actions"><a class="norm-button norm-button--dark" href="./learn/">Start learning</a><a class="norm-button norm-button--light" href="./spec/language-spec">Language reference</a></div>
-    <div class="norm-code-window">
-      <div class="norm-code-window__bar"><span></span><span></span><span></span><b>simple.norm</b></div>
-      <pre><code>{{ simpleCode }}</code></pre>
+    <div class="norm-code-window norm-hero-code">
+      <div class="norm-code-window__bar">
+        <span></span><span></span><span></span>
+        <b>{{ heroExamples[selectedHeroExample].filename }}</b>
+        <select v-model.number="selectedHeroExample" class="norm-hero-code__select" aria-label="Choose a code example">
+          <option v-for="(example, index) in heroExamples" :key="example.filename" :value="index">{{ example.title }}</option>
+        </select>
+      </div>
+      <pre><code>{{ heroExamples[selectedHeroExample].code }}</code></pre>
     </div>
   </div>
 </section>

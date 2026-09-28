@@ -1,0 +1,23 @@
+enum Delivery {
+  Pending,
+  Sent(String code)
+}
+
+enum Event {
+  Updated(Delivery delivery),
+  Ignored
+}
+
+String describe(Event event) {
+  return switch event {
+    case Updated(Sent(String code)) { break "sent: ${code}" }
+    case Updated(_) { break "waiting" }
+    case Ignored { break "ignored" }
+  }
+}
+
+main() {
+  printLine(describe(event: Event.Updated(delivery: Delivery.Sent(code: "N-42"))))
+  printLine(describe(event: Event.Updated(delivery: Delivery.Pending)))
+  printLine(describe(event: Event.Ignored))
+}

@@ -1,0 +1,32 @@
+import jstachio.annotation.JStache
+import micronaut.http.annotation.Controller
+import micronaut.http.annotation.Get
+import micronaut.web.MicronautApplication
+import micronaut.web.MicronautConfig
+import micronaut.web.Micronaut
+import micronaut.web.Server
+import std.application.Application
+
+@JStache(template: "<!doctype html><html lang='en'><meta charset='utf-8'><title>Hello, Norm</title><main><h1>Hello, {{name}}!</h1><p>A page served by Norm.</p></main></html>")
+public value GreetingPage {
+  String name
+}
+
+@Controller("/")
+public class GreetingRoute {
+  @Get(value: "/hello/{name}", produces: ["text/html"])
+  GreetingPage hello(String name) { GreetingPage(name: name) }
+}
+
+Module module() {
+  module(dependencies: [
+    dependency(repository: "github", name: "micronaut.web", version: 9),
+    dependency(repository: "github", name: "micronaut.views.jstachio", version: 2)
+  ])
+}
+
+public Application application() {
+  MicronautApplication(config: MicronautConfig(
+    micronaut: Micronaut(server: Server(host: "127.0.0.1", port: 8080))
+  ))
+}

@@ -8,6 +8,10 @@ pageClass: norm-home
 <script setup>
 import { ref } from 'vue'
 import simpleCode from '../../norm/tests/docs/showcase/simple.norm?raw'
+import fibonacciCode from '../../norm/tests/docs/showcase/fibonacci.norm?raw'
+import patternMatchingCode from '../../norm/tests/docs/showcase/pattern_matching.norm?raw'
+import webGreetingCode from '../../norm/tests/docs/homepage/web_greeting.norm?raw'
+import desktopCounterCode from '../../norm/tests/docs/homepage/desktop_counter.norm?raw'
 import agentCode from '../../norm/tests/docs/showcase/agent_document.norm?raw'
 import agentOutput from '../../norm/tests/docs/showcase/agent_document.out?raw'
 import agentQueryOutput from '../../norm/tests/docs/showcase/agent_document.query.out?raw'
@@ -19,6 +23,15 @@ import aopCode from '../../norm/tests/docs/showcase/application_aop.norm?raw'
 import aopOutput from '../../norm/tests/docs/showcase/application_aop.out?raw'
 import genericCode from '../../norm/tests/docs/showcase/application_generics.norm?raw'
 import genericOutput from '../../norm/tests/docs/showcase/application_generics.out?raw'
+
+const heroExamples = [
+  { title: '你好，Norm', filename: 'simple.norm', code: simpleCode },
+  { title: '斐波那契', filename: 'fibonacci.norm', code: fibonacciCode },
+  { title: '模式匹配', filename: 'pattern_matching.norm', code: patternMatchingCode },
+  { title: 'Web 问候', filename: 'web_greeting.norm', code: webGreetingCode },
+  { title: '桌面计数器', filename: 'desktop_counter.norm', code: desktopCounterCode },
+]
+const selectedHeroExample = ref(0)
 
 const applicationExamples = [
   { title: '数据与决策', filename: 'application_data.norm', detail: '把身份、值、有限状态、命名调用和表达式结果组合在一起。', code: dataCode, output: dataOutput },
@@ -34,9 +47,15 @@ const selectedExample = ref(0)
     <img class="norm-hero__logo" src="/brand/norm.svg" alt="Norm Logo">
     <h1><span>熟悉的语法，</span><span>明确的语义。</span></h1>
     <div class="norm-hero__actions"><a class="norm-button norm-button--dark" href="./learn/">开始学习</a><a class="norm-button norm-button--light" href="./spec/language-spec">语言参考</a></div>
-    <div class="norm-code-window">
-      <div class="norm-code-window__bar"><span></span><span></span><span></span><b>simple.norm</b></div>
-      <pre><code>{{ simpleCode }}</code></pre>
+    <div class="norm-code-window norm-hero-code">
+      <div class="norm-code-window__bar">
+        <span></span><span></span><span></span>
+        <b>{{ heroExamples[selectedHeroExample].filename }}</b>
+        <select v-model.number="selectedHeroExample" class="norm-hero-code__select" aria-label="选择代码示例">
+          <option v-for="(example, index) in heroExamples" :key="example.filename" :value="index">{{ example.title }}</option>
+        </select>
+      </div>
+      <pre><code>{{ heroExamples[selectedHeroExample].code }}</code></pre>
     </div>
   </div>
 </section>

@@ -174,9 +174,13 @@ body { letter-spacing: -0.006em; }
 .norm-code-window__bar { display: flex; height: 44px; align-items: center; gap: 7px; padding: 0 15px; background: #252a31; }
 .norm-code-window__bar span { width: 10px; height: 10px; border-radius: 50%; background: #59616d; }
 .norm-code-window__bar b { margin-left: 8px; color: #aeb7c3; font: 500 12px/1 var(--vp-font-family-mono); }
+.norm-hero-code .norm-code-window__bar b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.norm-hero-code__select { width: min(42%, 190px); margin-left: auto; padding: 5px 8px; border: 1px solid #697482; border-radius: 2px; background: #171a1f; color: #fff; font: 600 12px/1.2 var(--vp-font-family-base); cursor: pointer; }
+.norm-hero-code__select:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .norm-code-window pre { margin: 0 !important; border: 0; background: transparent !important; }
 .norm-code-window pre { padding: 28px 32px !important; font-size: 15px; line-height: 1.7; }
 .norm-code-window code { color: #d4d4d4; }
+.norm-hero-code pre { max-height: min(48vh, 360px); overflow: auto; }
 .norm-sample-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 40px; align-items: start; margin-top: 48px; }
 .norm-sample-code { width: 100%; max-width: none; margin: 0; }
 .norm-sample-code pre { max-height: 560px; overflow: auto; }
