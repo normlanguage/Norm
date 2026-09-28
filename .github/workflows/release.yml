@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -77,7 +77,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Set up release tools
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -113,7 +113,7 @@ jobs:
 
       - name: Upload Unix archive verification
         if: ${{ always() && runner.os != 'Windows' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: archive-verification-${{ matrix.platform }}
           path: build/reports/archive/verification.log
@@ -134,14 +134,14 @@ jobs:
           cp -R '${{ matrix.distribution }}' build/release-stage/norm
 
       - name: Upload standalone CLI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.platform }}
           path: build/distributions/*
           if-no-files-found: error
 
       - name: Upload self-contained CLI for the universal extension
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-${{ matrix.target }}
           path: build/release-stage
@@ -155,7 +155,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -165,7 +165,7 @@ jobs:
         run: npm ci --prefix cli/extensions/vscode
 
       - name: Download self-contained CLIs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: build/binaries
           pattern: runtime-*
@@ -179,7 +179,7 @@ jobs:
             build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
 
       - name: Upload universal extension
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extension-universal
           path: build/distributions/norm-language-support-v${{ needs.prepare.outputs.version }}.vsix
@@ -209,7 +209,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -232,7 +232,7 @@ jobs:
 
       - name: Upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: junit-release-verify
           path: |
@@ -259,13 +259,13 @@ jobs:
           npm run test:release
 
       - name: Download packaged runtimes
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: build/binaries
           pattern: runtime-*
 
       - name: Download packaged extension
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: extension-universal
           path: build/distributions
@@ -290,7 +290,7 @@ jobs:
         with:
           distribution: oracle
           java-version: 25.0.2
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -298,13 +298,13 @@ jobs:
       - run: npm ci --prefix cli/extensions/vscode
 
       - name: Download final CLI
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: release-${{ matrix.platform }}
           path: build/distributions
 
       - name: Download final extension
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: extension-universal
           path: build/distributions
@@ -360,7 +360,7 @@ jobs:
 
       - name: Upload native build evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-size-${{ matrix.platform }}
           path: build/reports/native-size
@@ -381,19 +381,19 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up release tools
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
       - name: Download release assets
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: build/distributions
           pattern: release-*
           merge-multiple: true
 
       - name: Download universal extension
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           path: build/distributions
           name: extension-universal
@@ -413,7 +413,7 @@ jobs:
           sha256sum "norm-package-manifests-v$VERSION.tar.gz" >> SHA256SUMS
 
       - name: Attest release assets
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: build/distributions/*
 
