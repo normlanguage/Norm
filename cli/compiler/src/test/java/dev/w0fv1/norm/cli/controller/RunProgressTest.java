@@ -14,6 +14,23 @@ class RunProgressTest {
   @TempDir Path directory;
 
   @Test
+  void acceptsDebugAfterDirectSourcePath() throws Exception {
+    var entry = directory.resolve("direct.norm");
+    Files.writeString(entry, "Void main() { printLine(\"ready\") }");
+    var output = new StringWriter();
+    var diagnostics = new StringWriter();
+    assertEquals(
+        0,
+        new CliController()
+            .run(
+                new String[] {entry.toString(), "--debug"},
+                new PrintWriter(output),
+                new PrintWriter(diagnostics)));
+    assertEquals("ready" + System.lineSeparator(), output.toString());
+    assertTrue(diagnostics.toString().contains("Checking prepared application"));
+  }
+
+  @Test
   void reportsPreparationOnStderrWithoutChangingApplicationOutput() throws Exception {
     var entry = directory.resolve("main.norm");
     Files.writeString(entry, "Void main() { printLine(\"ready\") }");

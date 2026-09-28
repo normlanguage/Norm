@@ -11,11 +11,12 @@ import std.serialization.Serializable
 import ui.Binding
 import ui.Button
 import ui.Column
-import ui.DesktopApp
 import ui.Row
 import ui.Text
 import ui.TextField
 import ui.Toggle
+import ui.View
+import ui.ViewContent
 import ui.Widget
 import ui.runApp
 
@@ -95,5 +96,5 @@ Module module() {
 }
 
 Void main() {
-  runApp(DesktopApp(title: "Norm Todo", home: Todo()))
+  runApp(title: "Norm Todo", body: (scope) { View(content: ViewContent.WidgetObject(Todo())) })
 }

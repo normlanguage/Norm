@@ -23,7 +23,7 @@ Norm 的 formatter、诊断和编辑器能力读取与编译器相同的语义�
 
 使用 [Norm 0.25](/zh/versions/0.25)，在空目录中运行 `norm hello`，生成五个独立的 `.norm` 程序以及英文、中文说明。先运行 `norm hell.norm`，再按生成的[示例说明](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/resources/hello/README.zh-CN.md)继续体验。
 
-`norm run main.norm` 默认不显示启动准备日志。使用 `norm run --debug main.norm`，将启动阶段、累计耗时和实际 Maven 下载写入 stderr；错误诊断始终显示，应用输出不受此选项影响。进度入口见 [RunCommand](../../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java)，本地依赖的联网边界验证见 [JarResolverTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java)。
+`norm main.norm` 默认不显示启动准备日志。使用 `norm main.norm --debug` 或 `norm run --debug main.norm`，将启动阶段、累计耗时和实际 Maven 下载写入 stderr；错误诊断始终显示，应用输出不受此选项影响。进度入口见 [RunCommand](../../../cli/compiler/src/main/java/dev/w0fv1/norm/cli/controller/RunCommand.java)，本地依赖的联网边界验证见 [JarResolverTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JarResolverTest.java)。
 
 ## VS Code
 

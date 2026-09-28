@@ -27,8 +27,7 @@ final class CommandRouter {
       return commands.get("help").execute(List.of(), out, err);
     }
 
-    String requested =
-        arguments.length == 1 && isNormSource(arguments[0]) ? "run" : alias(arguments[0]);
+    String requested = isNormSource(arguments[0]) ? "run" : alias(arguments[0]);
     Command command = commands.get(requested);
     if (command == null) {
       err.printf("error[NORM-CLI-0001]: unknown command '%s'%n", arguments[0]);
