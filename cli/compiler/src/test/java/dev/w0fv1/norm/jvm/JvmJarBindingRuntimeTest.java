@@ -226,6 +226,31 @@ final class JvmJarBindingRuntimeTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void genericCollectionReadProjectsAnExistingCloseableAsAResourceAlias() {
+    var element =
+        new JavaBindingCallable(
+            "java.util.List",
+            "get",
+            "(I)Ljava/lang/Object;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(JavaPrimitiveType.INT),
+            new JavaBindingTypeVariable(
+                "E", new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT)));
+    var resource = new java.io.ByteArrayInputStream(new byte[] {1});
+
+    try (var runtime =
+        JvmJarBindingRuntime.closedWorld(
+            List.of(new LinkedJarBinding(Map.of("element", element), Map.of(), Map.of())))) {
+      var projected =
+          assertInstanceOf(
+              JarBindingResult.ResourceReference.class,
+              runtime.invoke("element", List.of(List.of(resource), 0)));
+      org.junit.jupiter.api.Assertions.assertSame(resource, projected.value());
+      assertEquals("E", projected.displayName());
+    }
+  }
+
+  @Test
   void reportsResourceClosedOnlyAfterSuccessfulHostClose() {
     var close =
         new JavaBindingCallable(

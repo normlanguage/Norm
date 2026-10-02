@@ -98,9 +98,20 @@ final class ResourceScopeTest {
     ResourceScope scope = new ResourceScope();
     AtomicInteger closes = new AtomicInteger();
     class EqualResource implements AutoCloseable {
-      @Override public boolean equals(Object other) { return other instanceof EqualResource; }
-      @Override public int hashCode() { return 1; }
-      @Override public void close() { closes.incrementAndGet(); }
+      @Override
+      public boolean equals(Object other) {
+        return other instanceof EqualResource;
+      }
+
+      @Override
+      public int hashCode() {
+        return 1;
+      }
+
+      @Override
+      public void close() {
+        closes.incrementAndGet();
+      }
     }
     EqualResource first = new EqualResource();
     EqualResource second = new EqualResource();

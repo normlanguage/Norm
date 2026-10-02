@@ -23,8 +23,7 @@ final class ResourceScope implements AutoCloseable {
     while ((collected = (IdentityReference) reclaimed.poll()) != null) identities.remove(collected);
     ManagedResource existing = identities.get(new IdentityReference(resource));
     if (existing != null) return existing;
-    ManagedResource managed =
-        new ManagedResource(this, name, resource);
+    ManagedResource managed = new ManagedResource(this, name, resource);
     resources.addLast(managed);
     identities.put(new IdentityReference(resource, reclaimed), managed);
     return managed;
@@ -68,12 +67,18 @@ final class ResourceScope implements AutoCloseable {
       hash = System.identityHashCode(resource);
     }
 
-    @Override public int hashCode() { return hash; }
+    @Override
+    public int hashCode() {
+      return hash;
+    }
 
-    @Override public boolean equals(Object other) {
+    @Override
+    public boolean equals(Object other) {
       if (this == other) return true;
+      AutoCloseable value = get();
       return other instanceof IdentityReference reference
-          && get() != null && get() == reference.get();
+          && value != null
+          && value == reference.get();
     }
   }
 }
