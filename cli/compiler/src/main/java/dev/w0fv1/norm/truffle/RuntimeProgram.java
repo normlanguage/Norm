@@ -18,6 +18,7 @@ import java.util.Optional;
 
 final class RuntimeProgram implements DefinitionResolver {
   private final Map<DefinitionId, CoreDefinition> structures;
+  private final List<CoreDefinitionRecord> orderedStructures;
   private final Map<DefinitionId, Callable> callables;
   private final Map<DefinitionId, CoreAnnotationPolicy> annotationPolicies;
 
@@ -26,6 +27,10 @@ final class RuntimeProgram implements DefinitionResolver {
       Map<DefinitionId, Callable> callables,
       Map<DefinitionId, CoreAnnotationPolicy> annotationPolicies) {
     this.structures = Map.copyOf(structures);
+    var ordered = new ArrayList<CoreDefinitionRecord>(structures.size());
+    structures.forEach((id, definition) -> ordered.add(new CoreDefinitionRecord(id, definition)));
+    ordered.sort(java.util.Comparator.comparing(CoreDefinitionRecord::id));
+    this.orderedStructures = List.copyOf(ordered);
     this.callables = Map.copyOf(callables);
     this.annotationPolicies = Map.copyOf(annotationPolicies);
   }
@@ -74,10 +79,7 @@ final class RuntimeProgram implements DefinitionResolver {
   }
 
   List<CoreDefinitionRecord> structures() {
-    var result = new ArrayList<CoreDefinitionRecord>();
-    structures.forEach((id, definition) -> result.add(new CoreDefinitionRecord(id, definition)));
-    result.sort(java.util.Comparator.comparing(CoreDefinitionRecord::id));
-    return List.copyOf(result);
+    return orderedStructures;
   }
 
   public DefinitionId resolve(DefinitionId owner, DefinitionReference reference) {
