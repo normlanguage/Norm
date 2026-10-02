@@ -40,6 +40,7 @@ final class AnnotationRuntime {
   private final CallTarget fieldWriter;
   private final dev.w0fv1.norm.core.CoreTypeRelations typeRelations;
   private final RuntimeProgram program;
+  private final Map<JarBindingClassReference.Nominal, CoreDefinitionRecord> nominalStructures;
   private final RuntimeDeclarationIndex declarations;
   private final Map<ApplicationKey, List<CoreAnnotationValue>> applications;
   private final CoreFunctionInterceptorProtocol functionInterceptor;
@@ -60,6 +61,24 @@ final class AnnotationRuntime {
         callableParameters.put(binding.occurrence(), binding.shape().parameters());
     }
     program = RuntimeProgram.from(artifact.program());
+    Map<JarBindingClassReference.Nominal, CoreDefinitionRecord> indexedNominals =
+        new LinkedHashMap<>();
+    for (CoreDefinitionRecord record : program.structures()) {
+      CoreNominalTypeKey nominal =
+          switch (record.definition()) {
+            case CoreDefinition.Aggregate aggregate -> aggregate.nominalType();
+            case CoreDefinition.Enum declaration -> declaration.nominalType();
+            case CoreDefinition.Interface declaration -> declaration.nominalType();
+            default -> null;
+          };
+      if (nominal != null) {
+        indexedNominals.putIfAbsent(
+            new JarBindingClassReference.Nominal(
+                nominal.module(), nominal.packageName(), nominal.name()),
+            record);
+      }
+    }
+    nominalStructures = Map.copyOf(indexedNominals);
     typeRelations = new dev.w0fv1.norm.core.CoreTypeRelations(artifact.program().definitions());
     declarations = RuntimeDeclarationIndex.from(artifact.authoring());
     Map<ApplicationKey, List<CoreAnnotationValue>> indexed = new LinkedHashMap<>();
@@ -166,11 +185,7 @@ final class AnnotationRuntime {
     }
     DefinitionId expectedId = resolveExternal(expectedUser.definition());
     for (JarBindingClassReference.Nominal candidate : candidates) {
-      CoreDefinitionRecord record =
-          program.structures().stream()
-              .filter(value -> matches(value.definition(), candidate))
-              .findFirst()
-              .orElse(null);
+      CoreDefinitionRecord record = nominalStructures.get(candidate);
       if (record != null
           && record.id().equals(expectedId)
           && record.definition() instanceof CoreDefinition.Interface) {
@@ -182,11 +197,7 @@ final class AnnotationRuntime {
       }
     }
     for (JarBindingClassReference.Nominal candidate : candidates) {
-      CoreDefinitionRecord record =
-          program.structures().stream()
-              .filter(value -> matches(value.definition(), candidate))
-              .findFirst()
-              .orElse(null);
+      CoreDefinitionRecord record = nominalStructures.get(candidate);
       if (record == null || !(record.definition() instanceof CoreDefinition.Aggregate aggregate)) {
         continue;
       }
@@ -885,14 +896,10 @@ final class AnnotationRuntime {
     return switch (reference) {
       case JarBindingClassReference.Builtin builtin -> builtinType(builtin.typeId());
       case JarBindingClassReference.Nominal nominal -> {
-        CoreDefinitionRecord record =
-            program.structures().stream()
-                .filter(value -> matches(value.definition(), nominal))
-                .findFirst()
-                .orElseThrow(
-                    () ->
-                        new IllegalArgumentException(
-                            "Java class maps to an unavailable Norm declaration: " + nominal));
+        CoreDefinitionRecord record = nominalStructures.get(nominal);
+        if (record == null)
+          throw new IllegalArgumentException(
+              "Java class maps to an unavailable Norm declaration: " + nominal);
         CoreDefinition definition = record.definition();
         yield new CoreType.Declared(
             new CoreTypeConstructor.User(new DefinitionReference.External(record.id())),
@@ -925,23 +932,6 @@ final class AnnotationRuntime {
       case CoreDefinition.Enum declaration -> declaration.nominalType();
       case CoreDefinition.Interface declaration -> declaration.nominalType();
       default -> throw new IllegalArgumentException("Norm declaration is not a type");
-    };
-  }
-
-  private static boolean matches(
-      CoreNominalTypeKey type, JarBindingClassReference.Nominal reference) {
-    return type.module().equals(reference.module())
-        && type.packageName().equals(reference.packageName())
-        && type.name().equals(reference.name());
-  }
-
-  private static boolean matches(
-      CoreDefinition definition, JarBindingClassReference.Nominal reference) {
-    return switch (definition) {
-      case CoreDefinition.Aggregate aggregate -> matches(aggregate.nominalType(), reference);
-      case CoreDefinition.Enum declaration -> matches(declaration.nominalType(), reference);
-      case CoreDefinition.Interface declaration -> matches(declaration.nominalType(), reference);
-      default -> false;
     };
   }
 

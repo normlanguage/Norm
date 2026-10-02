@@ -66,6 +66,10 @@ final class RuntimeProgramTest {
     assertTrue(
         runtime.structures().stream()
             .noneMatch(record -> record.definition() instanceof CoreDefinition.Callable));
+    assertSame(runtime.structures(), runtime.structures());
+    assertEquals(
+        runtime.structures().stream().map(record -> record.id()).sorted().toList(),
+        runtime.structures().stream().map(record -> record.id()).toList());
     assertThrows(UnsupportedOperationException.class, () -> runtime.structures().clear());
   }
 
