@@ -79,7 +79,8 @@ final class ArchivedModuleLoader {
     if (descriptor.binding().isPresent()) {
       if (purpose != ProjectLoadPurpose.ANALYSIS) {
         progress.accept("Resolving Java dependencies for " + requirement.name());
-        ResolvedJarGraph graph = jars.resolve(repositoryRoot, descriptor.binding().orElseThrow());
+        ResolvedJarGraph graph =
+            jars.resolvePublished(archive, repositoryRoot, descriptor.binding().orElseThrow());
         progress.accept("Linking published Java binding for " + requirement.name());
         ResolvedJarBinding resolved = archived.binding().orElseThrow().link(graph);
         Map<String, String> expected = new LinkedHashMap<>();

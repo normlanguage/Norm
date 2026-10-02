@@ -454,6 +454,17 @@ final class ModulePackagerTest {
       packaged = new ModulePackager(projects, compiler).packageModule(modulePath, repository);
     }
 
+    var archived = new ModuleArchiveReader().read(packaged.archive());
+    try (var resolver =
+        new dev.w0fv1.norm.jvm.JarResolver(temporaryDirectory.resolve("empty-java-cache"))) {
+      var graph =
+          resolver.resolvePublished(
+              packaged.archive(), repository, archived.descriptor().binding().orElseThrow());
+      assertTrue(graph.root().file().startsWith(temporaryDirectory.resolve("empty-java-cache")));
+      assertEquals(archived.binding().orElseThrow().graphId(), graph.contentId());
+      assertTrue(Files.isRegularFile(graph.root().file()));
+    }
+
     assertEquals(
         repository.resolve("commons/lang/1/lang-1.nar").toAbsolutePath(), packaged.archive());
     assertEquals(repository.resolve("commons/lang/1/lang-1.pom").toAbsolutePath(), packaged.pom());

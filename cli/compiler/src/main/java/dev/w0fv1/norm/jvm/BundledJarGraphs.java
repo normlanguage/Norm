@@ -45,6 +45,58 @@ public final class BundledJarGraphs {
     Files.writeString(root.resolve(MANIFEST), manifest.toString(), StandardCharsets.UTF_8);
   }
 
+  public static void writeArchive(java.util.zip.ZipOutputStream archive, ResolvedJarBinding binding)
+      throws IOException {
+    JsonObject manifest = new JsonObject();
+    manifest.addProperty("formatVersion", 2);
+    JsonArray graphs = new JsonArray();
+    graphs.add(graphJson(binding.graph()));
+    manifest.add("graphs", graphs);
+    var entry = new java.util.zip.ZipEntry("java/" + MANIFEST);
+    entry.setTime(0);
+    archive.putNextEntry(entry);
+    archive.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
+    archive.closeEntry();
+    for (var artifact : binding.graph().artifacts()) {
+      new FileSnapshot(artifact.file(), artifact.content()).verify();
+      entry =
+          new java.util.zip.ZipEntry(
+              "java/artifacts/" + artifact.storagePath().toString().replace('\\', '/'));
+      entry.setTime(0);
+      archive.putNextEntry(entry);
+      Files.copy(artifact.file(), archive);
+      archive.closeEntry();
+      new FileSnapshot(artifact.file(), artifact.content()).verify();
+    }
+  }
+
+  public static java.util.Optional<Map<Sha256Digest, ResolvedJarGraph>> readArchive(
+      Path archive, Path cache) throws IOException {
+    try (var zip = new java.util.zip.ZipFile(archive.toFile())) {
+      if (zip.getEntry("java/" + MANIFEST) == null) return java.util.Optional.empty();
+      Path root = normalize(cache).resolve(Sha256Digest.compute(archive).value());
+      var entries = zip.entries();
+      while (entries.hasMoreElements()) {
+        var entry = entries.nextElement();
+        if (entry.isDirectory() || !entry.getName().startsWith("java/")) continue;
+        Path target = root.resolve(entry.getName().substring(5)).normalize();
+        if (!target.startsWith(root) || target.equals(root))
+          throw new IOException("invalid bundled JAR entry");
+        Files.createDirectories(target.getParent());
+        Path temporary = Files.createTempFile(target.getParent(), ".norm-", ".part");
+        try {
+          try (var input = zip.getInputStream(entry)) {
+            Files.copy(input, temporary, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          }
+          new FileSnapshot(temporary, Sha256Digest.compute(temporary)).copyTo(target);
+        } finally {
+          Files.deleteIfExists(temporary);
+        }
+      }
+      return java.util.Optional.of(read(root));
+    }
+  }
+
   public static Map<Sha256Digest, ResolvedJarGraph> read(Path directory) throws IOException {
     Path root = normalize(directory);
     JsonObject manifest;

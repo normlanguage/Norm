@@ -141,6 +141,65 @@ final class BundledJarGraphsTest {
   }
 
   @Test
+  void archiveRestoresWithoutProducerFilesAndRejectsTamperedArtifacts() throws Exception {
+    Path file = Files.writeString(temporaryDirectory.resolve("root.jar"), "original");
+    var artifact = artifact("sample", "root", "1", file);
+    var binding =
+        new ResolvedJarBinding(
+            new ResolvedJarGraph(artifact, List.of(artifact), List.of()),
+            new JarApiSchema(List.of()),
+            new GeneratedJarBinding(
+                List.of(),
+                List.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of()));
+    Path archive = temporaryDirectory.resolve("package.nar");
+    try (var output = new java.util.zip.ZipOutputStream(Files.newOutputStream(archive))) {
+      BundledJarGraphs.writeArchive(output, binding);
+    }
+    Files.delete(file);
+    var restored =
+        BundledJarGraphs.readArchive(archive, temporaryDirectory.resolve("cache")).orElseThrow();
+    assertEquals(
+        "original", Files.readString(restored.get(binding.graph().contentId()).root().file()));
+    Path tampered = temporaryDirectory.resolve("tampered.nar");
+    try (var input = new java.util.zip.ZipFile(archive.toFile());
+        var output = new java.util.zip.ZipOutputStream(Files.newOutputStream(tampered))) {
+      for (var entry : input.stream().toList()) {
+        output.putNextEntry(new java.util.zip.ZipEntry(entry.getName()));
+        if (entry.getName().endsWith(".jar"))
+          output.write("changed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        else
+          try (var content = input.getInputStream(entry)) {
+            content.transferTo(output);
+          }
+        output.closeEntry();
+      }
+    }
+    assertThrows(
+        java.io.IOException.class,
+        () -> BundledJarGraphs.readArchive(tampered, temporaryDirectory.resolve("cache")));
+  }
+
+  @Test
+  void archiveRejectsEntriesOutsideItsExtractionRoot() throws Exception {
+    Path archive = temporaryDirectory.resolve("invalid.nar");
+    try (var output = new java.util.zip.ZipOutputStream(Files.newOutputStream(archive))) {
+      output.putNextEntry(new java.util.zip.ZipEntry("java/graphs.json"));
+      output.write("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      output.closeEntry();
+      output.putNextEntry(new java.util.zip.ZipEntry("java/../../escape.jar"));
+      output.closeEntry();
+    }
+    assertThrows(
+        java.io.IOException.class,
+        () -> BundledJarGraphs.readArchive(archive, temporaryDirectory.resolve("cache")));
+    assertFalse(Files.exists(temporaryDirectory.resolve("escape.jar")));
+  }
+
+  @Test
   void rejectsChangedSourceBeforePublishingManifest() throws Exception {
     Path file = Files.writeString(temporaryDirectory.resolve("root.jar"), "original");
     var artifact = artifact("sample", "root", "1", file);
