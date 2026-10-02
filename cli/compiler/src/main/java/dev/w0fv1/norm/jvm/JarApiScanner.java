@@ -3,6 +3,7 @@ package dev.w0fv1.norm.jvm;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -44,7 +45,17 @@ public final class JarApiScanner {
       ResolvedJarGraph graph, List<String> selectedTypes, boolean selectedRootsOnly)
       throws IOException {
     Map<String, RawClass> rootClasses = readClasses(graph.root());
-    Map<String, RawClass> classes = readClasses(graph.artifacts());
+    Map<String, RawClass> graphClasses = readClasses(graph.artifacts());
+    Map<String, RawClass> classes = new LinkedHashMap<>(graphClasses);
+    Set<String> externalJdkTypes = Set.of();
+    if (!(graph.root().identity() instanceof JdkModuleIdentity)) {
+      ResolvedJarGraph jdk =
+          JdkModuleArchive.resolve(
+              Path.of(System.getProperty("user.home"), ".norm", "cache"), "java.base");
+      Map<String, RawClass> jdkClasses = readClasses(jdk.artifacts());
+      externalJdkTypes = Set.copyOf(jdkClasses.keySet());
+      jdkClasses.forEach(classes::putIfAbsent);
+    }
     Map<String, JavaReferenceKind> bindingTypes = new LinkedHashMap<>();
     classes.forEach(
         (name, type) ->
@@ -56,7 +67,7 @@ public final class JarApiScanner {
     JavaTypeProjector projector = new JavaTypeProjector(bindingTypes, samTypes(classes));
     List<JavaApiType> types =
         rootClasses.values().stream()
-            .filter(owner -> publiclyAccessible(owner, classes))
+            .filter(owner -> publiclyAccessible(owner, graphClasses))
             .filter(owner -> !isSynthetic(owner.access()))
             .filter(
                 owner ->
@@ -64,7 +75,7 @@ public final class JarApiScanner {
                         || selectedTypes.stream()
                             .anyMatch(
                                 selected -> JavaTypeNames.matches(owner.binaryName(), selected)))
-            .map(owner -> apiType(owner, classes, projector))
+            .map(owner -> apiType(owner, graphClasses, projector))
             .toList();
     List<JavaApiType> supportingTypes =
         supportingTypes(
@@ -74,7 +85,9 @@ public final class JarApiScanner {
                 .map(JavaApiType::binaryName)
                 .collect(java.util.stream.Collectors.toSet()),
             classes,
-            projector);
+            graphClasses,
+            projector,
+            externalJdkTypes);
     return new JarApiSchema(types, supportingTypes);
   }
 
@@ -83,7 +96,9 @@ public final class JarApiScanner {
       List<String> selectedTypes,
       Set<String> rootNames,
       Map<String, RawClass> classes,
-      JavaTypeProjector projector) {
+      Map<String, RawClass> graphClasses,
+      JavaTypeProjector projector,
+      Set<String> externalJdkTypes) {
     Deque<String> pending = new ArrayDeque<>();
     roots.forEach(type -> collectReferences(type, pending::addLast));
     classes.keySet().stream()
@@ -96,15 +111,48 @@ public final class JarApiScanner {
     while (!pending.isEmpty()) {
       String binaryName = pending.removeFirst();
       if (rootNames.contains(binaryName) || result.containsKey(binaryName)) continue;
+      if (externalJdkTypes.contains(binaryName)
+          && JavaPlatformTypes.referenceKind(binaryName).isPresent()) continue;
       RawClass owner = classes.get(binaryName);
-      if (owner == null || !publiclyAccessible(owner, classes) || isSynthetic(owner.access())) {
+      if (owner == null
+          || !publiclyAccessible(
+              owner, externalJdkTypes.contains(binaryName) ? classes : graphClasses)
+          || isSynthetic(owner.access())) {
         continue;
       }
-      JavaApiType type = apiType(owner, classes, projector);
+      JavaApiType type =
+          externalJdkTypes.contains(binaryName)
+              ? externalType(owner)
+              : apiType(owner, graphClasses, projector);
       result.put(binaryName, type);
-      collectReferences(type, pending::addLast);
+      if (!externalJdkTypes.contains(binaryName)) collectReferences(type, pending::addLast);
     }
     return List.copyOf(result.values());
+  }
+
+  private static JavaApiType externalType(RawClass owner) {
+    var signature = classSignature(owner);
+    return new JavaApiType(
+        owner.binaryName(),
+        kind(owner.access()),
+        owner.access(),
+        new JavaClassSignature(
+            signature.typeParameters().stream()
+                .map(
+                    parameter ->
+                        new JavaTypeParameter(parameter.name(), Optional.empty(), List.of()))
+                .toList(),
+            Optional.empty(),
+            List.of()),
+        List.of(),
+        List.of(),
+        Optional.empty(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        List.of(),
+        JavaApiDisposition.BINDABLE);
   }
 
   private static void collectReferences(JavaApiType owner, Consumer<String> consumer) {

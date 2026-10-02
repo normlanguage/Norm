@@ -51,6 +51,63 @@ final class JarBindingImportsTest {
     assertTrue(generated.classDescriptors().containsValue("Lsample/Node;"));
   }
 
+  @Test
+  void aliasesImportedSuperclassWithSameNameAsExport() {
+    var external =
+        new JarBindingClassReference.Nominal(
+            new ModuleCoordinate("fx.controls", 2), "fx.controls", "Button");
+    var emptySignature =
+        new JavaClassSignature(
+            List.of(), Optional.of(JavaClassTypeSignature.raw("java.lang.Object")), List.of());
+    var localSignature =
+        new JavaClassSignature(
+            List.of(),
+            Optional.of(JavaClassTypeSignature.raw("javafx.scene.control.Button")),
+            List.of());
+    var base =
+        new JavaApiType(
+            "javafx.scene.control.Button",
+            JavaApiTypeKind.CLASS,
+            Opcodes.ACC_PUBLIC,
+            emptySignature,
+            List.of(),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            JavaApiDisposition.BINDABLE);
+    var wrapper =
+        new JavaApiType(
+            "sample.Button",
+            JavaApiTypeKind.CLASS,
+            Opcodes.ACC_PUBLIC,
+            localSignature,
+            List.of(),
+            List.of(),
+            Optional.empty(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            JavaApiDisposition.BINDABLE);
+    var generated =
+        new JarBindingSourceGenerator()
+            .generateSurface(
+                new ModuleCoordinate("ui.component", 1),
+                List.of("Button"),
+                List.of(new JarBindingType("sample.Button", List.of())),
+                Sha256Digest.parse("0123456789abcdef".repeat(4)),
+                new JarApiSchema(List.of(wrapper), List.of(base)),
+                Map.of("javafx.scene.control.Button", external));
+    var source = generated.sources().getFirst().text();
+    assertTrue(source.contains("import fx.controls.Button as ButtonImported1\n"), source);
+    assertTrue(source.contains("class Button extends ButtonImported1"), source);
+  }
+
   private static JarApiSchema schema() {
     var node = new JavaReferenceType("sample.Node", JavaReferenceKind.OPAQUE);
     var call =

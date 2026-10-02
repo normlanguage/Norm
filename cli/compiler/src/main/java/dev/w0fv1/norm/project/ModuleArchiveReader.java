@@ -8,6 +8,7 @@ import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
@@ -163,13 +164,21 @@ final class ModuleArchiveReader {
     Optional<JarBinding> binding = Optional.empty();
     if (manifest.has("jar")) {
       JsonObject jar = manifest.getAsJsonObject("jar");
-      var target =
-          new MavenJarTarget(
-              new MavenArtifactCoordinate(
-                  jar.get("group").getAsString(),
-                  jar.get("artifact").getAsString(),
-                  jar.get("version").getAsString()),
-              Optional.of(Sha256Digest.parse(jar.get("resolution").getAsString())));
+      dev.w0fv1.norm.value.JarTarget target =
+          switch (jar.has("source") ? jar.get("source").getAsString() : "maven") {
+            case "jdk" ->
+                new JdkModuleTarget(
+                    jar.get("name").getAsString(),
+                    Optional.of(Sha256Digest.parse(jar.get("resolution").getAsString())));
+            case "maven" ->
+                new MavenJarTarget(
+                    new MavenArtifactCoordinate(
+                        jar.get("group").getAsString(),
+                        jar.get("artifact").getAsString(),
+                        jar.get("version").getAsString()),
+                    Optional.of(Sha256Digest.parse(jar.get("resolution").getAsString())));
+            default -> throw new IllegalArgumentException("unknown Java binding source");
+          };
       List<JarBindingType> api = new ArrayList<>();
       jar.getAsJsonArray("api")
           .forEach(

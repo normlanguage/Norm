@@ -27,6 +27,43 @@ final class JarApiScannerTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void projectsReferencedJdkTypesAsExternalSupport() throws Exception {
+    var owner = new ClassWriter(0);
+    owner.visit(
+        Opcodes.V17,
+        Opcodes.ACC_PUBLIC,
+        "sample/HasLocale",
+        null,
+        "java/lang/Object",
+        new String[] {"java/lang/AutoCloseable"});
+    owner
+        .visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_NATIVE, "locale", "()Ljava/util/Locale;", null, null)
+        .visitEnd();
+    owner.visitEnd();
+    Path jar = temporaryDirectory.resolve("jdk-reference.jar");
+    try (var output = new JarOutputStream(Files.newOutputStream(jar))) {
+      writeClass(output, "sample/HasLocale.class", owner);
+    }
+    var digest = Sha256Digest.compute(jar);
+    var artifact = new ResolvedJarArtifact(new LocalJarIdentity(digest), jar, digest);
+    var schema =
+        new JarApiScanner()
+            .scanSurface(
+                new ResolvedJarGraph(artifact, List.of(artifact), List.of()),
+                List.of("sample.HasLocale"));
+    assertTrue(
+        type(schema, "sample.HasLocale").methods().stream()
+            .anyMatch(method -> method.name().equals("locale") && method.binding().isPresent()));
+    assertTrue(
+        schema.supportingTypes().stream()
+            .anyMatch(type -> type.binaryName().equals("java.util.Locale")));
+    assertTrue(
+        schema.supportingTypes().stream()
+            .noneMatch(type -> type.binaryName().equals("java.lang.AutoCloseable")));
+  }
+
+  @Test
   void doesNotParseClassesForAResourceOnlyBinding() throws Exception {
     Path jar = temporaryDirectory.resolve("resources.jar");
     try (var output = new JarOutputStream(Files.newOutputStream(jar))) {

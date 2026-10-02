@@ -333,6 +333,28 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
           .put(closure.functionType(), closure);
       return proxy;
     }
+    if (value instanceof RuntimeValues.EnumValue item) {
+      CoreDefinition definition = program.structure(item.definition()).orElseThrow();
+      if (!(definition instanceof CoreDefinition.Enum enumeration)) {
+        throw new IllegalStateException("Norm enum result has no enum definition");
+      }
+      if (enumeration.variants().stream().anyMatch(variant -> !variant.fields().isEmpty())) {
+        return item;
+      }
+      String binaryName = JavaApplicationTypeName.binaryName(enumeration.nominalType());
+      try {
+        Class<?> type = applicationLoader.loadClass(binaryName);
+        Object[] constants = type.getEnumConstants();
+        if (constants == null)
+          throw new IllegalStateException("Projected enum type is not a Java enum");
+        for (Object constant : constants) {
+          if (((Enum<?>) constant).name().equals(item.variantKey())) return constant;
+        }
+        throw new IllegalStateException("Projected enum constant is absent: " + item.variantKey());
+      } catch (ClassNotFoundException exception) {
+        throw new IllegalStateException("Norm enum result cannot be materialized", exception);
+      }
+    }
     if (value instanceof RuntimeValues.CodePointValue codePoint) return codePoint.value();
     if (value instanceof RuntimeValues.ObjectValue object) {
       Object proxy = proxies.get(object);

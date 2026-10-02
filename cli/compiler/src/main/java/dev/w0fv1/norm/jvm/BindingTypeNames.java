@@ -412,17 +412,8 @@ public record BindingTypeNames(
   }
 
   static boolean containsPath(JavaBindingType type) {
-    return switch (type) {
-      case JavaArrayType array -> containsPath(array.component());
-      case JavaBindingTypeVariable variable -> containsPath(variable.erasure());
-      case JavaCallbackType callback ->
-          callback.parameters().stream().anyMatch(BindingTypeNames::containsPath)
-              || containsPath(callback.returnType());
-      case JavaReferenceType reference ->
-          reference.kind() == JavaReferenceKind.PATH || reference.kind() == JavaReferenceKind.FILE;
-      case JavaBoxedType ignored -> false;
-      case JavaPrimitiveType ignored -> false;
-    };
+    return containsReferenceKind(type, JavaReferenceKind.PATH)
+        || containsReferenceKind(type, JavaReferenceKind.FILE);
   }
 
   static boolean containsReferenceKind(JavaBindingCallable callable, JavaReferenceKind kind) {

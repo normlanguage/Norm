@@ -102,6 +102,11 @@ public final class BundledJarGraphs {
       Sha256Digest id = Sha256Digest.parse(entry.get("id").getAsString());
       if (!id.equals(graph.contentId()))
         throw new IOException("bundled JAR graph identity mismatch");
+      if (graph.root().identity() instanceof JdkModuleIdentity jdk
+          && !JdkModuleArchive.content(jdk.name()).equals(graph.root().content())) {
+        throw new IOException(
+            "bundled JDK module content does not match this runtime: " + jdk.name());
+      }
       if (result.putIfAbsent(id, graph) != null) {
         throw new IOException("duplicate bundled JAR graph " + id);
       }
@@ -137,6 +142,9 @@ public final class BundledJarGraphs {
     Objects.requireNonNull(canonical, "canonical");
     if (canonical.startsWith("local:")) {
       return new LocalJarIdentity(Sha256Digest.parse(canonical.substring("local:".length())));
+    }
+    if (canonical.startsWith("jdk:")) {
+      return new JdkModuleIdentity(canonical.substring("jdk:".length()));
     }
     String[] parts = canonical.split(":", -1);
     if (parts.length == 4 && parts[0].equals("maven")) {

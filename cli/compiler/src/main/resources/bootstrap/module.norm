@@ -231,6 +231,21 @@ JarTarget mavenJar(
   )
 }
 
+JarTarget jdkModule(String name) {
+  return jdkModule(name: name, resolution: null)
+}
+
+JarTarget jdkModule(String name, ContentDigest? resolution) {
+  return DeclaredJarTarget(
+    sourceKind: "jdk",
+    filePath: "",
+    groupName: "",
+    artifactName: name,
+    artifactVersion: "",
+    contentDigest: resolution
+  )
+}
+
 JarType jarType(String name, List<String> members) {
   return jarType(name: name, members: members, overloads: [])
 }

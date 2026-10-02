@@ -14,6 +14,21 @@ final class ResolvedJarClasspathTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void jdkMetadataNeverEntersApplicationOrNativeClasspaths() throws Exception {
+    Path file =
+        java.nio.file.Files.writeString(temporaryDirectory.resolve("java.base.jar"), "metadata");
+    var artifact =
+        new ResolvedJarArtifact(
+            new JdkModuleIdentity("java.base"), file, Sha256Digest.compute(file));
+    var graph = new ResolvedJarGraph(artifact, List.of(artifact), List.of());
+    var classpath = JarBindingClasspath.prepare(List.of(), List.of(graph));
+    assertEquals(List.of(), classpath.paths());
+    assertEquals(List.of(), classpath.rootPaths());
+    assertEquals(List.of(), classpath.dependencyPaths(List.of(artifact.identity())));
+    assertEquals(List.of(), ResolvedJarClasspath.artifacts(List.of(graph)));
+  }
+
+  @Test
   void emptyClasspathNeedsNoPersistentDirectory() throws Exception {
     Path cache = temporaryDirectory.resolve("empty-cache");
     try (var lease = JarBindingClasspath.prepare(List.of()).acquire(cache)) {
