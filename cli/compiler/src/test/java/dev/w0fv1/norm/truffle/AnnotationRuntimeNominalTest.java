@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 final class AnnotationRuntimeNominalTest {
   @Test
-  void preservesInterfacePriorityAndConcreteCandidateOrder() {
+  void preservesConcreteCandidatePriorityAndFallsBackToInterfaces() {
     var artifact =
         NormTestKit.compile(
                 "interface Item {} class First implements Item {} "
@@ -35,7 +35,9 @@ final class AnnotationRuntimeNominalTest {
     var expected = type(item);
 
     assertEquals(
-        expected, runtime.jarReferenceType(expected, List.of(reference(first), reference(item))));
+        type(first),
+        runtime.jarReferenceType(expected, List.of(reference(first), reference(item))));
+    assertEquals(expected, runtime.jarReferenceType(expected, List.of(reference(item))));
     assertEquals(
         type(first),
         runtime.jarReferenceType(expected, List.of(reference(first), reference(second))));

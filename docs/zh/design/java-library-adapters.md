@@ -221,3 +221,9 @@ JPA 的 `jakarta.persistence.Id` 与 `jakarta.persistence.EmbeddedId` 映射为 
 同一 Norm 函数投影为相同 SAM 类型时保留宿主对象身份，弱引用缓存随应用执行域隔离；跨调用身份与回调执行验证见 [JarBindingConcurrencyIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JarBindingConcurrencyIntegrationTest.java)。
 
 发布包的 Java 依赖封装与校验入口：[BundledJarGraphs](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/BundledJarGraphs.java)、[ModulePackagerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java)。
+
+## 宿主资源所有权
+
+`jarType(..., borrowed: ["child"])` 声明接收者拥有的引用 getter。构造器与未标记资源返回只为首次出现的宿主身份建立执行域所有者；别名保留已有所有者。借用视图持有接收者，不允许自行关闭或转移资源。`ResourceOwner` 上下文内创建的 owned 资源只登记一次，显式关闭释放登记，并在所有别名上保留首次关闭失败。
+
+声明见 [module.norm](../../../cli/compiler/src/main/resources/bootstrap/module.norm)，所有者 API 见 [ownership.norm](../../../norm/stdlib/std/io/ownership.norm)。[HostResourceOwnershipTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/HostResourceOwnershipTest.java) 覆盖源码与打包适配器；[PublishedOwnershipContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PublishedOwnershipContractTest.java) 验证已发布 ABI 2 制品。[PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义支持的制品 ABI：ABI 2 保持 owned 默认，新绑定在 ABI 3 保存显式契约。

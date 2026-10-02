@@ -47,6 +47,25 @@ final class IoIntrinsicDispatcher {
       case IO_TEXT_DECODE_UTF8 ->
           (receiver, arguments, type, context, location, annotations, execution) ->
               decodeUtf8(arguments[0]);
+      case RESOURCE_TRANSFER_OWNERSHIP ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            Runnable accept = () -> RuntimeInvocation.invoke(execution, closure(arguments[1]));
+            if (arguments[0] instanceof RuntimeValues.OpaqueResource resource) {
+              if (resource.borrowingOwner == null)
+                resource.resource.transferOwnership(
+                    accept, () -> RuntimeInvocation.invoke(execution, closure(arguments[2])));
+            } else accept.run();
+            return null;
+          };
+      case RESOURCE_CLOSE ->
+          (receiver, arguments, type, context, location, annotations, execution) -> {
+            if (!(arguments[0] instanceof RuntimeValues.OpaqueResource resource))
+              throw new IllegalStateException("host resource close receiver is unavailable");
+            if (resource.borrowingOwner != null)
+              throw new IllegalStateException("borrowed resource must be closed by its owner");
+            resource.resource.close();
+            return null;
+          };
       case IO_USE ->
           (receiver, arguments, type, context, location, annotations, execution) ->
               use(arguments[0], arguments[1], execution);

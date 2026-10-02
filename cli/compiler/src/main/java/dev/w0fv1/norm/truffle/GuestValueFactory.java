@@ -447,6 +447,12 @@ final class GuestValueFactory {
     return new RuntimeValues.ObjectValue(plan.info(), type);
   }
 
+  RuntimeValues.OpaqueValue borrowedOpaque(CoreType type, Object value, String name, Object owner) {
+    CoreType concrete = nonNullable(type);
+    return new RuntimeValues.OpaqueValue(
+        concrete, value, name, requireHostObjectInfo(concrete), owner);
+  }
+
   RuntimeValues.OpaqueValue opaque(CoreType type, Object value, String displayName) {
     CoreType concrete = nonNullable(type);
     if (concrete.equals(CoreType.ANY)) {
@@ -496,6 +502,17 @@ final class GuestValueFactory {
         new JarBindingClassReference.Nominal(
             plan.nominal().module(), plan.nominal().packageName(), plan.nominal().name()),
         value.variantKey());
+  }
+
+  RuntimeValues.OpaqueResource borrowedResource(
+      CoreType type, AutoCloseable value, String name, Object owner, ExecutionState execution) {
+    CoreType concrete = nonNullable(type);
+    return new RuntimeValues.OpaqueResource(
+        concrete,
+        execution.resources().borrow(name, value, owner),
+        name,
+        requireHostObjectInfo(concrete),
+        owner);
   }
 
   RuntimeValues.OpaqueResource resource(

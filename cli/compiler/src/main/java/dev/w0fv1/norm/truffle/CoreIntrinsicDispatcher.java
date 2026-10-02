@@ -200,6 +200,9 @@ final class CoreIntrinsicDispatcher {
                 || bindingApiTypes.size() != bindingApiOverloadParameterTypes.size()) {
               throw new IllegalStateException("JAR binding API declarations are inconsistent");
             }
+            List<Object> bindingApiBorrowed = ((RuntimeValues.ListValue) arguments[17]).values;
+            if (bindingApiBorrowed.size() != bindingApiTypes.size())
+              throw new IllegalStateException("borrowed JAR declarations are inconsistent");
             List<JarBindingType> api = new ArrayList<>(bindingApiTypes.size());
             for (int index = 0; index < bindingApiTypes.size(); index++) {
               RuntimeValues.ListValue members =
@@ -227,7 +230,9 @@ final class CoreIntrinsicDispatcher {
                   new JarBindingType(
                       (String) bindingApiTypes.get(index),
                       members.values.stream().map(String.class::cast).toList(),
-                      overloads));
+                      overloads,
+                      ((RuntimeValues.ListValue) bindingApiBorrowed.get(index))
+                          .values.stream().map(String.class::cast).toList()));
             }
             Optional<JarBinding> binding =
                 switch (bindingSource) {
@@ -264,9 +269,9 @@ final class CoreIntrinsicDispatcher {
                         dependencies,
                         binding,
                         new dev.w0fv1.norm.value.ModuleSourceLayout(
-                            ((RuntimeValues.ListValue) arguments[17])
-                                .values.stream().map(String.class::cast).toList(),
                             ((RuntimeValues.ListValue) arguments[18])
+                                .values.stream().map(String.class::cast).toList(),
+                            ((RuntimeValues.ListValue) arguments[19])
                                 .values.stream().map(String.class::cast).toList())));
             return null;
           };

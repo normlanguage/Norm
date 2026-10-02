@@ -6,6 +6,10 @@ import java.util.List;
 public interface JarBindingRuntime {
   JarBindingResult invoke(String callId, List<Object> arguments);
 
+  default List<JarBindingClassReference.Nominal> referenceCandidates(Object value) {
+    return List.of();
+  }
+
   static JarBindingRuntime unavailable() {
     return (callId, arguments) -> {
       throw new JarBindingRuntimeException("JAR binding runtime is unavailable");

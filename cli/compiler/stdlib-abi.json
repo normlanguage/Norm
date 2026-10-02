@@ -1,5 +1,5 @@
 {
-  "version": 44,
+  "version": 45,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -939,6 +939,14 @@
     },
     {
       "name": "JSON_FUNCTION_INVOKE",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "RESOURCE_TRANSFER_OWNERSHIP",
+      "requiresResultRuntimeType": false
+    },
+    {
+      "name": "RESOURCE_CLOSE",
       "requiresResultRuntimeType": false
     }
   ],
@@ -7442,6 +7450,11 @@
             "hasDefault": false
           },
           {
+            "name": "bindingApiBorrowed",
+            "type": "std.core.List<std.core.List<std.core.String>>",
+            "hasDefault": false
+          },
+          {
             "name": "sourceRoots",
             "type": "std.core.List<std.core.String>",
             "hasDefault": false
@@ -8577,6 +8590,50 @@
         "documentation": "JSON declaration mapping."
       },
       "intrinsic": "JSON_FUNCTION_INVOKE"
+    },
+    {
+      "symbol": {
+        "name": "__transferResourceOwnership",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "parameters": [
+          {
+            "name": "resource",
+            "type": "std.core.Any",
+            "hasDefault": false
+          },
+          {
+            "name": "accept",
+            "type": "std.core.Function<std.core.Void>",
+            "hasDefault": false
+          },
+          {
+            "name": "release",
+            "type": "std.core.Function<std.core.Void>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in.",
+        "typeParameters": []
+      },
+      "intrinsic": "RESOURCE_TRANSFER_OWNERSHIP"
+    },
+    {
+      "symbol": {
+        "name": "__closeResource",
+        "kind": "FUNCTION",
+        "type": "std.core.Void",
+        "parameters": [
+          {
+            "name": "resource",
+            "type": "std.core.Any",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in.",
+        "typeParameters": []
+      },
+      "intrinsic": "RESOURCE_CLOSE"
     }
   ]
 }

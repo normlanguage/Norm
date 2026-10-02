@@ -29,6 +29,17 @@ final class ResourceScope implements AutoCloseable {
     return managed;
   }
 
+  synchronized ManagedResource borrow(String name, AutoCloseable resource, Object owner) {
+    if (closed) throw new IllegalStateException("resource scope is closed");
+    Objects.requireNonNull(resource, "resource");
+    Objects.requireNonNull(owner, "owner");
+    ManagedResource existing = identities.get(new IdentityReference(resource));
+    if (existing != null) return existing;
+    ManagedResource managed = new ManagedResource(this, name, resource, owner);
+    identities.put(new IdentityReference(resource, reclaimed), managed);
+    return managed;
+  }
+
   synchronized void release(ManagedResource resource) {
     resources.remove(resource);
   }

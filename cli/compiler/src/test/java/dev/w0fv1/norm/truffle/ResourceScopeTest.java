@@ -13,6 +13,190 @@ import org.junit.jupiter.api.Test;
 
 final class ResourceScopeTest {
   @Test
+  void activeBorrowedViewsRetainTheirOwnerWithoutPinningItInTheExecutionRegistry()
+      throws Exception {
+    ResourceScope scope = new ResourceScope();
+    Object owner = new Object();
+    var reference = new java.lang.ref.WeakReference<>(owner);
+    AutoCloseable child = () -> {};
+    ManagedResource record = scope.borrow("child", child, owner);
+    var view =
+        new RuntimeValues.OpaqueResource(dev.w0fv1.norm.core.CoreType.STRING, record, "child");
+    owner = null;
+    for (int attempt = 0; attempt < 10; attempt++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertNotNull(reference.get());
+    assertSame(reference.get(), view.borrowingOwner);
+    view = null;
+    for (int attempt = 0; attempt < 100 && reference.get() != null; attempt++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertNull(reference.get());
+    assertNull(record.borrowingOwner());
+    scope.close();
+  }
+
+  @Test
+  void externallyClosedTransferredResourcesReleaseTheirOwnerWithoutClosingAgain() throws Exception {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AtomicInteger released = new AtomicInteger();
+    AutoCloseable host = closes::incrementAndGet;
+    ManagedResource resource = scope.register("host", host);
+    resource.transferOwnership(() -> {}, released::incrementAndGet);
+    host.close();
+    resource.closedExternally();
+    resource.closedExternally();
+    scope.close();
+    assertEquals(1, closes.get());
+    assertEquals(1, released.get());
+  }
+
+  @Test
+  void borrowingAnExistingOwnedResourcePreservesTheCanonicalOwner() {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AutoCloseable host = closes::incrementAndGet;
+    ManagedResource owned = scope.register("factory", host);
+    Object owner = new Object();
+    assertSame(owned, scope.borrow("getter", host, owner));
+    var borrowed =
+        new RuntimeValues.OpaqueResource(
+            dev.w0fv1.norm.core.CoreType.STRING, owned, "getter", null, owner);
+    var owningAlias =
+        new RuntimeValues.OpaqueResource(dev.w0fv1.norm.core.CoreType.STRING, owned, "factory");
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            IoIntrinsicDispatcher.resolve(dev.w0fv1.norm.abi.IntrinsicId.RESOURCE_CLOSE)
+                .execute(null, new Object[] {borrowed}, null, null, null));
+    IoIntrinsicDispatcher.resolve(dev.w0fv1.norm.abi.IntrinsicId.RESOURCE_TRANSFER_OWNERSHIP)
+        .execute(null, new Object[] {borrowed, null, null}, null, null, null);
+    org.junit.jupiter.api.Assertions.assertTrue(RuntimeValues.equal(borrowed, owningAlias));
+    assertEquals(RuntimeValues.hash(borrowed), RuntimeValues.hash(owningAlias));
+    assertEquals(0, closes.get());
+    scope.close();
+    assertEquals(1, closes.get());
+  }
+
+  @Test
+  void borrowedAliasAfterOwnerCloseNeverAcquiresASecondCloseObligation() {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AutoCloseable host = closes::incrementAndGet;
+    AutoCloseable parent = host::close;
+    ManagedResource owner = scope.register("parent", parent);
+    ManagedResource borrowed = scope.borrow("child", host, owner);
+    owner.close();
+    assertSame(borrowed, scope.register("alias", host));
+    scope.close();
+    assertEquals(1, closes.get());
+  }
+
+  @Test
+  void rejectingAnOwnerReleasesRegistrationAndClosesExactlyOnce() {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AtomicInteger releases = new AtomicInteger();
+    ManagedResource resource = scope.register("host", closes::incrementAndGet);
+    IllegalStateException rejected = new IllegalStateException("rejected");
+    assertSame(
+        rejected,
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                resource.transferOwnership(
+                    () -> {
+                      throw rejected;
+                    },
+                    releases::incrementAndGet)));
+    resource.close();
+    scope.close();
+    assertEquals(1, closes.get());
+    assertEquals(1, releases.get());
+  }
+
+  @Test
+  void transferredAliasesNeverRegisterWithAnotherOwnerAndExplicitCloseReleasesTheOwner() {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger accepted = new AtomicInteger();
+    AtomicInteger released = new AtomicInteger();
+    AtomicInteger secondOwner = new AtomicInteger();
+    ManagedResource resource = scope.register("host", () -> {});
+    resource.transferOwnership(accepted::incrementAndGet, released::incrementAndGet);
+    resource.transferOwnership(secondOwner::incrementAndGet, () -> {});
+    resource.close();
+    resource.close();
+    scope.close();
+    assertEquals(1, accepted.get());
+    assertEquals(1, released.get());
+    assertEquals(0, secondOwner.get());
+  }
+
+  @Test
+  void borrowedChildAndGenericAliasesRemainWithTheirOwner() {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AutoCloseable child = closes::incrementAndGet;
+    AutoCloseable host = child::close;
+    ManagedResource parent = scope.register("parent", host);
+    ManagedResource borrowed = scope.borrow("child", child, parent);
+    assertSame(borrowed, scope.register("E", child));
+    assertThrows(IllegalStateException.class, borrowed::close);
+    AtomicInteger registrations = new AtomicInteger();
+    borrowed.transferOwnership(registrations::incrementAndGet, () -> {});
+    assertEquals(0, registrations.get());
+    scope.close();
+    assertEquals(1, closes.get());
+  }
+
+  @Test
+  void aliasesAfterExplicitFailureRetainTheSameFailure() {
+    ResourceScope scope = new ResourceScope();
+    AutoCloseable host =
+        () -> {
+          throw new IllegalStateException("host close");
+        };
+    ManagedResource first = scope.register("first", host);
+    ResourceCloseException failure = assertThrows(ResourceCloseException.class, first::close);
+    ManagedResource alias = scope.register("alias", host);
+    assertSame(first, alias);
+    assertSame(failure, assertThrows(ResourceCloseException.class, alias::close));
+    scope.close();
+  }
+
+  @Test
+  void sameHostInSeparateScopesHasSeparateOwnership() {
+    ResourceScope first = new ResourceScope();
+    ResourceScope second = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AutoCloseable host = closes::incrementAndGet;
+    org.junit.jupiter.api.Assertions.assertNotSame(
+        first.register("host", host), second.register("host", host));
+    first.close();
+    second.close();
+    assertEquals(2, closes.get());
+  }
+
+  @Test
+  void transferredOwnershipRemainsClosableByItsNewOwner() {
+    ResourceScope scope = new ResourceScope();
+    AtomicInteger closes = new AtomicInteger();
+    AutoCloseable host = closes::incrementAndGet;
+    ManagedResource resource = scope.register("host", host);
+    resource.transferOwnership(() -> {}, () -> {});
+    assertSame(resource, scope.register("alias", host));
+    scope.close();
+    assertEquals(0, closes.get());
+    resource.close();
+    resource.close();
+    assertEquals(1, closes.get());
+  }
+
+  @Test
   void liveGuestHandleRetainsAReleasedHostUntilTheHandleIsDiscarded() throws Exception {
     ResourceScope scope = new ResourceScope();
     AutoCloseable host = new java.io.ByteArrayInputStream(new byte[0]);

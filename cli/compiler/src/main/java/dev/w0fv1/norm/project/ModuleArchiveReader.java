@@ -63,7 +63,7 @@ final class ModuleArchiveReader {
       if (descriptor.binding().isPresent()) {
         var metadata = manifest.getAsJsonObject("jar");
         if (!metadata.has("bindingAbi")
-            || !PublishedJarBinding.ABI.equals(metadata.get("bindingAbi").getAsString()))
+            || !PublishedJarBinding.isReadable(metadata.get("bindingAbi").getAsString()))
           throw new IOException("unsupported published Java binding ABI");
         var preparedEntry = zip.getEntry(PublishedJarBinding.ENTRY);
         if (preparedEntry == null)
@@ -75,7 +75,10 @@ final class ModuleArchiveReader {
           binding =
               Optional.of(
                   PublishedJarBinding.decode(
-                      bytes, descriptor, Sha256Digest.parse(metadata.get("apiId").getAsString())));
+                      bytes,
+                      descriptor,
+                      Sha256Digest.parse(metadata.get("apiId").getAsString()),
+                      metadata.get("bindingAbi").getAsString()));
         }
       }
       Map<String, String> sources = new LinkedHashMap<>();
@@ -199,7 +202,13 @@ final class ModuleArchiveReader {
                               new JarBindingOverload(
                                   overload.get("name").getAsString(), parameterTypes));
                         });
-                api.add(new JarBindingType(type.get("name").getAsString(), members, overloads));
+                List<String> borrowed = new ArrayList<>();
+                if (type.has("borrowed"))
+                  type.getAsJsonArray("borrowed")
+                      .forEach(member -> borrowed.add(member.getAsString()));
+                api.add(
+                    new JarBindingType(
+                        type.get("name").getAsString(), members, overloads, borrowed));
               });
       binding = Optional.of(new JarBinding(target, api));
     }

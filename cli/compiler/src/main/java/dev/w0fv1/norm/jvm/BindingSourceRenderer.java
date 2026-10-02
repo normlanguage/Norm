@@ -43,6 +43,7 @@ public final class BindingSourceRenderer {
       ModuleCoordinate module, List<BindingPlan.Array> plannedArrays, BindingTypeNames normTypes) {
     Set<JavaArrayType> arrays = normTypes.arrays().keySet();
     StringBuilder text = new StringBuilder("package ").append(module.name()).append('\n');
+    text.append("import std.io.ownResourceInContext\n");
     boolean comparableArrays =
         arrays.stream()
             .map(JavaArrayType::component)
@@ -289,6 +290,7 @@ public final class BindingSourceRenderer {
             .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.MAP))) {
       text.append("import std.collections.MutableMap\n");
     }
+    text.append("import std.io.ownResourceInContext\nimport std.io.closeHostResource\n");
     if (resource) text.append("import std.io.Resource\n");
     Set<String> referencedTypes = new java.util.LinkedHashSet<>();
     bounds.forEach(type -> collectReferences(type, referencedTypes));
@@ -747,7 +749,7 @@ public final class BindingSourceRenderer {
       JavaBindingCallable callable = member.callable();
       String memberName = member.name();
       String callId = member.id();
-      appendMethod(text, memberName, callId, callable, normTypes);
+      appendMethod(text, memberName, callId, callable, normTypes, resource);
     }
     text.append("}\n\n");
   }
@@ -768,7 +770,7 @@ public final class BindingSourceRenderer {
       JavaBindingCallable callable = member.callable();
       String memberName = member.name();
       String callId = member.id();
-      appendInterfaceMethod(text, memberName, callId, callable, normTypes);
+      appendInterfaceMethod(text, memberName, callId, callable, normTypes, resource);
     }
     text.append("}\n\n");
     String tokenName = interfaceName + "BindingToken";
@@ -807,14 +809,17 @@ public final class BindingSourceRenderer {
       String memberName,
       String callId,
       JavaBindingCallable callable,
-      BindingTypeNames normTypes) {
+      BindingTypeNames normTypes,
+      boolean resource) {
     String returnType = normReturnType(callable, normTypes);
     text.append("  public ").append(returnType).append(' ').append(memberName);
     appendTypeParameters(text, callable.typeParameters(), normTypes);
     text.append('(');
     appendParameters(text, callable.parameters(), normTypes);
     text.append(") {\n    ");
-    appendInvocation(text, callId, callable, normTypes, "this");
+    if (resource && callable.name().equals("close") && callable.descriptor().equals("()V"))
+      text.append("closeHostResource(resource: this)\n");
+    else appendInvocation(text, callId, callable, normTypes, "this");
     text.append("  }\n\n");
   }
 
@@ -823,14 +828,17 @@ public final class BindingSourceRenderer {
       String memberName,
       String callId,
       JavaBindingCallable callable,
-      BindingTypeNames normTypes) {
+      BindingTypeNames normTypes,
+      boolean resource) {
     String returnType = normReturnType(callable, normTypes);
     text.append("  ").append(returnType).append(' ').append(memberName);
     appendTypeParameters(text, callable.typeParameters(), normTypes);
     text.append('(');
     appendParameters(text, callable.parameters(), normTypes);
     text.append(") {\n    ");
-    appendInvocation(text, callId, callable, normTypes, "this");
+    if (resource && callable.name().equals("close") && callable.descriptor().equals("()V"))
+      text.append("closeHostResource(resource: this)\n");
+    else appendInvocation(text, callId, callable, normTypes, "this");
     text.append("  }\n\n");
   }
 
@@ -876,10 +884,18 @@ public final class BindingSourceRenderer {
       String receiver,
       List<String> arguments) {
     int arity = callable.parameters().size() + (receiver == null ? 0 : 1);
+    boolean trackOwnership =
+        callable.ownership() == JavaResourceOwnership.OWNED
+            && (callable.returnType() instanceof JavaBindingTypeVariable
+                || callable.returnType() instanceof JavaReferenceType reference
+                    && (reference.kind() == JavaReferenceKind.RESOURCE
+                        || reference.kind() == JavaReferenceKind.INPUT_STREAM
+                        || reference.kind() == JavaReferenceKind.OUTPUT_STREAM));
     boolean returnsVoid = callable.returnType() == JavaPrimitiveType.VOID;
     if (!returnsVoid) {
       text.append("return ");
     }
+    if (trackOwnership) text.append("ownResourceInContext(");
     text.append("__jarInvoke");
     if (returnsVoid) {
       text.append("Void");
@@ -898,7 +914,9 @@ public final class BindingSourceRenderer {
       text.append(", arg").append(argument).append(": ").append(value);
       argument++;
     }
-    text.append(")\n");
+    text.append(')');
+    if (trackOwnership) text.append(')');
+    text.append('\n');
   }
 
   private static void appendParameters(

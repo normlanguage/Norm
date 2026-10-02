@@ -27,6 +27,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -41,6 +42,7 @@ public final class JvmJarBindingRuntime
     implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
   private static final Duration CLASS_LOADER_RETIREMENT_TIMEOUT = Duration.ofSeconds(5);
   private final Map<String, BoundCall> calls;
+  private final ClassCatalog classes;
   private final boolean ownsApplicationLoader;
   private ClassLoader applicationLoader;
   private Map<String, JavaDirectCall> applicationCalls = Map.of();
@@ -144,7 +146,7 @@ public final class JvmJarBindingRuntime
     this.applicationLoader = applicationLoader;
     this.ownsApplicationLoader = ownsApplicationLoader;
     try {
-      ClassCatalog classes = new ClassCatalog(applicationLoader, classLinker.get());
+      classes = new ClassCatalog(applicationLoader, classLinker.get());
       callables
           .get()
           .calls
@@ -163,6 +165,11 @@ public final class JvmJarBindingRuntime
       }
       throw failure;
     }
+  }
+
+  @Override
+  public List<JarBindingClassReference.Nominal> referenceCandidates(Object value) {
+    return classes.nominalReferences(value.getClass());
   }
 
   private static List<LinkedJarBinding> link(List<ResolvedJarBinding> bindings) {
@@ -286,7 +293,20 @@ public final class JvmJarBindingRuntime
           call.callable().closesResource() && adapted[0] instanceof AutoCloseable;
       Object value = call.callable().target().invoke(adapted);
       if (closesResource) return JarBindingResult.ResourceClosed.INSTANCE;
-      return call.callable().result().apply(call.classes(), value);
+      JarBindingResult result = call.callable().result().apply(call.classes(), value);
+      if (call.callable().ownership() == JavaResourceOwnership.BORROWED) {
+        if (result instanceof JarBindingResult.ResourceReference reference)
+          return new JarBindingResult.BorrowedReference(
+              reference.value(), reference.displayName(), reference.candidates());
+        if (result instanceof JarBindingResult.Reference reference)
+          return new JarBindingResult.BorrowedReference(
+              reference.value(), reference.displayName(), reference.candidates());
+      }
+      return call.callable().receiverAlias()
+              && (result instanceof JarBindingResult.Reference
+                  || result instanceof JarBindingResult.ResourceReference)
+          ? new JarBindingResult.ReceiverAlias(result)
+          : result;
     } catch (JarBindingCallbackException exception) {
       throw exception.failure();
     } catch (JarBindingRuntimeException exception) {
@@ -596,7 +616,7 @@ public final class JvmJarBindingRuntime
               case ITERABLE, ITERATOR, COLLECTION, LIST, SET, MAP, OPAQUE ->
                   (classes, value) ->
                       new JarBindingResult.Reference(
-                          value, name, classes.nominalReferences(binaryName));
+                          value, name, classes.nominalReferences(value.getClass()));
               case OBJECT -> (classes, value) -> dynamicResult(value);
               case CHAR_SEQUENCE ->
                   (classes, value) -> new JarBindingResult.Scalar(value.toString());
@@ -1072,22 +1092,24 @@ public final class JvmJarBindingRuntime
       return candidates;
     }
 
-    private List<JarBindingClassReference.Nominal> nominalReferences(String binaryName) {
-      return references(load(binaryName)).stream()
-          .filter(JarBindingClassReference.Nominal.class::isInstance)
-          .map(JarBindingClassReference.Nominal.class::cast)
-          .toList();
-    }
-
     private synchronized List<JarBindingClassReference.Nominal> nominalReferences(
         Class<?> runtimeType) {
-      return references.entrySet().stream()
-          .filter(entry -> entry.getKey().isAssignableFrom(runtimeType))
-          .flatMap(entry -> entry.getValue().stream())
-          .filter(JarBindingClassReference.Nominal.class::isInstance)
-          .map(JarBindingClassReference.Nominal.class::cast)
-          .distinct()
-          .toList();
+      var pending = new ArrayDeque<Class<?>>();
+      var visited = new LinkedHashSet<Class<?>>();
+      var candidates = new LinkedHashSet<JarBindingClassReference.Nominal>();
+      pending.add(runtimeType);
+      while (!pending.isEmpty()) {
+        Class<?> current = pending.removeFirst();
+        if (!visited.add(current)) continue;
+        references.getOrDefault(current, List.of()).stream()
+            .filter(JarBindingClassReference.Nominal.class::isInstance)
+            .map(JarBindingClassReference.Nominal.class::cast)
+            .forEach(candidates::add);
+        Class<?> parent = current.getSuperclass();
+        if (parent != null) pending.addLast(parent);
+        Collections.addAll(pending, current.getInterfaces());
+      }
+      return List.copyOf(candidates);
     }
 
     private Object resolve(JarBindingEnumValue value) {
@@ -1150,6 +1172,8 @@ public final class JvmJarBindingRuntime
         callable.kind() == JavaCallableKind.INSTANCE_METHOD
             && callable.name().equals("close")
             && callable.descriptor().equals("()V"),
+        callable.ownership(),
+        callable.kind() == JavaCallableKind.ARRAY_GET,
         callable.parameters().stream().map(JvmJarBindingRuntime::argumentAdapter).toList(),
         resultAdapter(callable.returnType()),
         target);
@@ -1164,6 +1188,8 @@ public final class JvmJarBindingRuntime
       String description,
       boolean receiver,
       boolean closesResource,
+      JavaResourceOwnership ownership,
+      boolean receiverAlias,
       List<Conversion<Object>> parameters,
       Conversion<JarBindingResult> result,
       JavaDirectCall target) {}

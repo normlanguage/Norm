@@ -27,6 +27,7 @@ interface JarType {
   String name()
   List<String> members()
   List<JarOverload> overloads()
+  List<String> borrowed()
 }
 
 interface JarOverload {
@@ -141,6 +142,7 @@ private class DeclaredJarType implements JarType {
   String typeName
   List<String> memberNames
   List<JarOverload> declaredOverloads
+  List<String> borrowedMembers
 
   String name() {
     return typeName
@@ -152,6 +154,10 @@ private class DeclaredJarType implements JarType {
 
   List<JarOverload> overloads() {
     return declaredOverloads
+  }
+
+  List<String> borrowed() {
+    return borrowedMembers
   }
 }
 
@@ -250,11 +256,12 @@ JarType jarType(String name, List<String> members) {
   return jarType(name: name, members: members, overloads: [])
 }
 
-JarType jarType(String name, List<String> members, List<JarOverload> overloads) {
+JarType jarType(String name, List<String> members, List<JarOverload> overloads = [], List<String> borrowed = []) {
   return DeclaredJarType(
     typeName: name,
     memberNames: members,
-    declaredOverloads: overloads
+    declaredOverloads: overloads,
+    borrowedMembers: borrowed
   )
 }
 

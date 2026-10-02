@@ -13,6 +13,8 @@ public sealed interface JarBindingResult
         JarBindingResult.Reference,
         JarBindingResult.ResourceClosed,
         JarBindingResult.ResourceReference,
+        JarBindingResult.BorrowedReference,
+        JarBindingResult.ReceiverAlias,
         JarBindingResult.Scalar,
         JarBindingResult.UriValue,
         JarBindingResult.Void {
@@ -74,6 +76,22 @@ public sealed interface JarBindingResult
   record UriValue(String value) implements JarBindingResult {
     public UriValue {
       Objects.requireNonNull(value, "value");
+    }
+  }
+
+  record ReceiverAlias(JarBindingResult value) implements JarBindingResult {
+    public ReceiverAlias {
+      Objects.requireNonNull(value, "value");
+    }
+  }
+
+  record BorrowedReference(
+      Object value, String displayName, List<JarBindingClassReference.Nominal> candidates)
+      implements JarBindingResult {
+    public BorrowedReference {
+      Objects.requireNonNull(value, "value");
+      Objects.requireNonNull(displayName, "displayName");
+      candidates = List.copyOf(candidates);
     }
   }
 

@@ -430,7 +430,8 @@ final class JavaBindingMembers {
             .toList(),
         callable.parameters().stream().map(type -> markResources(type, resources)).toList(),
         markResources(callable.returnType(), resources),
-        callable.returnNullability());
+        callable.returnNullability(),
+        callable.ownership());
   }
 
   static JavaBindingType markResources(JavaBindingType type, Set<String> resources) {

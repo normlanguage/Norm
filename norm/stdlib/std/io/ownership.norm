@@ -1,6 +1,7 @@
 package std.io
 
 import std.annotation.Document
+import std.context.currentContext
 
 @Document(description: "Tracks resources and executes actions under their owning scope.")
 public interface ResourceOwner {
@@ -10,4 +11,27 @@ public interface ResourceOwner {
   Void release(@Document(description: "The resource to remove.") Resource resource)
   @Document(description: "Runs an action within the owning scope.")
   Void execute(@Document(description: "The action to execute.") Function<Void()> action)
+}
+
+@Document(description: "Transfers a host resource into an explicit owner once.")
+public Void ownResource(@Document(description: "The owner receiving the resource.") ResourceOwner owner, @Document(description: "The host resource to transfer.") Resource resource) {
+  __transferResourceOwnership(resource: resource, accept: () { owner.own(resource) }, release: () { owner.release(resource) })
+}
+
+@Document(description: "Registers owned host resources with the current owner while preserving the input type.")
+public T ownResourceInContext<T>(@Document(description: "The value whose owned host resource joins the current scope.") T value) {
+  Any candidate = value
+  switch candidate {
+    case Resource resource {
+      var owner = currentContext<ResourceOwner>()
+      if owner != null { ownResource(owner: owner, resource: resource) }
+    }
+    case _ {}
+  }
+  return value
+}
+
+@Document(description: "Closes an owned host resource through its canonical lifetime record.")
+public Void closeHostResource(@Document(description: "The owned host resource to close.") Resource resource) {
+  __closeResource(resource: resource)
 }

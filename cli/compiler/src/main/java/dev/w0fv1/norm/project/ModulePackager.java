@@ -222,6 +222,9 @@ public final class ModulePackager {
                 JsonArray members = new JsonArray();
                 type.members().forEach(members::add);
                 value.add("members", members);
+                JsonArray borrowed = new JsonArray();
+                type.borrowed().forEach(borrowed::add);
+                value.add("borrowed", borrowed);
                 JsonArray overloads = new JsonArray();
                 type.overloads()
                     .forEach(

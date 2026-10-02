@@ -11,7 +11,8 @@ public record JavaBindingCallable(
     List<JavaBindingTypeParameter> typeParameters,
     List<JavaBindingType> parameters,
     JavaBindingType returnType,
-    JavaNullability returnNullability)
+    JavaNullability returnNullability,
+    JavaResourceOwnership ownership)
     implements JavaCallTarget {
   public JavaBindingCallable(
       String owner,
@@ -42,6 +43,27 @@ public record JavaBindingCallable(
     this(owner, name, descriptor, kind, List.of(), parameters, returnType, JavaNullability.UNKNOWN);
   }
 
+  public JavaBindingCallable(
+      String owner,
+      String name,
+      String descriptor,
+      JavaCallableKind kind,
+      List<JavaBindingTypeParameter> typeParameters,
+      List<JavaBindingType> parameters,
+      JavaBindingType returnType,
+      JavaNullability returnNullability) {
+    this(
+        owner,
+        name,
+        descriptor,
+        kind,
+        typeParameters,
+        parameters,
+        returnType,
+        returnNullability,
+        JavaResourceOwnership.OWNED);
+  }
+
   public JavaBindingCallable {
     Objects.requireNonNull(owner, "owner");
     Objects.requireNonNull(name, "name");
@@ -51,5 +73,6 @@ public record JavaBindingCallable(
     parameters = List.copyOf(parameters);
     Objects.requireNonNull(returnType, "returnType");
     Objects.requireNonNull(returnNullability, "returnNullability");
+    Objects.requireNonNull(ownership, "ownership");
   }
 }

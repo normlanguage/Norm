@@ -89,7 +89,7 @@ final class JarBindingSourceGeneratorTest {
     assertTrue(source.text().contains("public String? stringUtilsReverse(String? arg0)"));
     assertTrue(source.text().contains("public Integer stringUtilsLength(String? arg0)"));
     assertTrue(source.text().contains("__jarInvoke1<String?>"));
-    assertTrue(source.callIds().stream().allMatch(value -> value.startsWith("java-v17:")));
+    assertTrue(source.callIds().stream().allMatch(value -> value.startsWith("java-v18:")));
     assertEquals(2, generated.calls().size());
     assertEquals(reverse, generated.calls().get(source.callIds().getLast()));
   }
