@@ -227,7 +227,8 @@ final class RuntimeValues {
       case BuilderValue builder -> new BuilderValue(builder.type, builder.value.toString());
       case NativeIteratorValue iterator -> iterator;
       case OpaqueValue opaque ->
-          new OpaqueValue(opaque.type, opaque.value, opaque.displayName, opaque.aggregateInfo);
+          new OpaqueValue(
+              opaque.type, opaque.value, opaque.displayName, opaque.aggregateInfo, opaque.owner);
       case OpaqueResource resource -> resource;
       case ObjectValue object -> isValueObject(object) ? copyObject(object) : object;
       case null, default -> value;
@@ -278,6 +279,7 @@ final class RuntimeValues {
               && value.end == ((RangeValue) right).end
               && value.step == ((RangeValue) right).step;
       case OpaqueValue value -> value.sameValue((OpaqueValue) right);
+      case OpaqueResource value -> value.hostValue() == ((OpaqueResource) right).hostValue();
       case ObjectValue value -> value.sameValue((ObjectValue) right);
       case ReferenceValue value -> value.sameLocation((ReferenceValue) right);
       default -> Objects.equals(left, right);
@@ -315,7 +317,7 @@ final class RuntimeValues {
       case BuilderValue item -> item.value.toString().hashCode();
       case RangeValue item -> Objects.hash(item.start, item.end, item.step);
       case OpaqueValue item -> item.valueHash();
-      case OpaqueResource item -> System.identityHashCode(item);
+      case OpaqueResource item -> System.identityHashCode(item.hostValue());
       case ObjectValue item ->
           isValueObject(item)
               ? orderedHash(31 * 0x56414c55 + item.type.hashCode(), List.of(item.fields))
@@ -748,6 +750,7 @@ final class RuntimeValues {
   }
 
   static final class OpaqueValue {
+    final Object owner;
     final CoreType type;
     final Object value;
     final String displayName;
@@ -758,6 +761,16 @@ final class RuntimeValues {
     }
 
     OpaqueValue(CoreType type, Object value, String displayName, AggregateInfo aggregateInfo) {
+      this(type, value, displayName, aggregateInfo, null);
+    }
+
+    OpaqueValue(
+        CoreType type,
+        Object value,
+        String displayName,
+        AggregateInfo aggregateInfo,
+        Object owner) {
+      this.owner = owner;
       this.type = Objects.requireNonNull(type, "type");
       this.value = Objects.requireNonNull(value, "value");
       this.displayName = Objects.requireNonNull(displayName, "displayName");
@@ -790,6 +803,7 @@ final class RuntimeValues {
   static final class OpaqueResource {
     final CoreType type;
     final ManagedResource resource;
+    final Object borrowingOwner;
     private final Object host;
     final String displayName;
     final AggregateInfo aggregateInfo;
@@ -800,6 +814,16 @@ final class RuntimeValues {
 
     OpaqueResource(
         CoreType type, ManagedResource resource, String displayName, AggregateInfo aggregateInfo) {
+      this(type, resource, displayName, aggregateInfo, resource.borrowingOwner());
+    }
+
+    OpaqueResource(
+        CoreType type,
+        ManagedResource resource,
+        String displayName,
+        AggregateInfo aggregateInfo,
+        Object borrowingOwner) {
+      this.borrowingOwner = borrowingOwner;
       this.type = Objects.requireNonNull(type, "type");
       this.resource = Objects.requireNonNull(resource, "resource");
       this.host = resource.hostValue();

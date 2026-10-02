@@ -45,6 +45,7 @@ final class ModuleEvaluator implements AutoCloseable {
             String bindingDigest = ""
             List<String> bindingApiTypes = []
             List<List<String>> bindingApiMembers = []
+            List<List<String>> bindingApiBorrowed = []
             List<List<String>> bindingApiOverloadNames = []
             List<List<List<String>>> bindingApiOverloadParameterTypes = []
             JarBinding? binding = definition.binding()
@@ -62,6 +63,7 @@ final class ModuleEvaluator implements AutoCloseable {
               for JarType type : binding.api() {
                 bindingApiTypes.add(type.name())
                 bindingApiMembers.add(type.members())
+                bindingApiBorrowed.add(type.borrowed())
                 List<String> overloadNames = []
                 List<List<String>> overloadParameterTypes = []
                 for JarOverload overload : type.overloads() {
@@ -90,6 +92,7 @@ final class ModuleEvaluator implements AutoCloseable {
               bindingApiMembers: bindingApiMembers,
               bindingApiOverloadNames: bindingApiOverloadNames,
               bindingApiOverloadParameterTypes: bindingApiOverloadParameterTypes,
+              bindingApiBorrowed: bindingApiBorrowed,
               sourceRoots: definition.sources(),
               testRoots: definition.tests()
             )

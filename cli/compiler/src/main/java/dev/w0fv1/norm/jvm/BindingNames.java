@@ -17,7 +17,7 @@ import java.util.function.Function;
 final class BindingNames {
   private BindingNames() {}
 
-  private static final String BINDING_ABI = "java-v17";
+  private static final String BINDING_ABI = "java-v18";
   private static final Set<String> RESERVED_TYPE_NAMES =
       java.util.stream.Stream.concat(
               BuiltinCatalog.standard().typeNames().stream(),
@@ -291,7 +291,9 @@ final class BindingNames {
                 .collect(java.util.stream.Collectors.joining(",", "(", ")"))
             + callable.returnType().displayName()
             + ":"
-            + callable.returnNullability().name();
+            + callable.returnNullability().name()
+            + ":"
+            + callable.ownership().name();
     String exposedId =
         Sha256Digest.compute(exposedSignature.getBytes(StandardCharsets.UTF_8)).value();
     return BINDING_ABI

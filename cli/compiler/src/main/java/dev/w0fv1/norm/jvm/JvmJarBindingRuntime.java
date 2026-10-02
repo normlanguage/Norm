@@ -286,7 +286,20 @@ public final class JvmJarBindingRuntime
           call.callable().closesResource() && adapted[0] instanceof AutoCloseable;
       Object value = call.callable().target().invoke(adapted);
       if (closesResource) return JarBindingResult.ResourceClosed.INSTANCE;
-      return call.callable().result().apply(call.classes(), value);
+      JarBindingResult result = call.callable().result().apply(call.classes(), value);
+      if (call.callable().ownership() == JavaResourceOwnership.BORROWED) {
+        if (result instanceof JarBindingResult.ResourceReference reference)
+          return new JarBindingResult.BorrowedReference(
+              reference.value(), reference.displayName(), reference.candidates());
+        if (result instanceof JarBindingResult.Reference reference)
+          return new JarBindingResult.BorrowedReference(
+              reference.value(), reference.displayName(), reference.candidates());
+      }
+      return call.callable().receiverAlias()
+              && (result instanceof JarBindingResult.Reference
+                  || result instanceof JarBindingResult.ResourceReference)
+          ? new JarBindingResult.ReceiverAlias(result)
+          : result;
     } catch (JarBindingCallbackException exception) {
       throw exception.failure();
     } catch (JarBindingRuntimeException exception) {
@@ -1150,6 +1163,8 @@ public final class JvmJarBindingRuntime
         callable.kind() == JavaCallableKind.INSTANCE_METHOD
             && callable.name().equals("close")
             && callable.descriptor().equals("()V"),
+        callable.ownership(),
+        callable.kind() == JavaCallableKind.ARRAY_GET,
         callable.parameters().stream().map(JvmJarBindingRuntime::argumentAdapter).toList(),
         resultAdapter(callable.returnType()),
         target);
@@ -1164,6 +1179,8 @@ public final class JvmJarBindingRuntime
       String description,
       boolean receiver,
       boolean closesResource,
+      JavaResourceOwnership ownership,
+      boolean receiverAlias,
       List<Conversion<Object>> parameters,
       Conversion<JarBindingResult> result,
       JavaDirectCall target) {}

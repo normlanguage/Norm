@@ -225,7 +225,9 @@ public final class IntrinsicDispatcher {
           IO_BYTES_JOIN,
           IO_TEXT_ENCODE_UTF8,
           IO_TEXT_DECODE_UTF8,
-          IO_USE ->
+          IO_USE,
+          RESOURCE_TRANSFER_OWNERSHIP,
+          RESOURCE_CLOSE ->
           IoIntrinsicDispatcher.resolve(intrinsic);
       case TASK_TERMINATION,
           COMPLETION_CREATE,

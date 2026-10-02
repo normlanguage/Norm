@@ -185,6 +185,11 @@ public final class BindingPlanner {
                               && callable.name().equals("close")
                               && callable.descriptor().equals("()V"))
               .map(callable -> markResources(callable, resourceTypes))
+              .map(
+                  callable ->
+                      selection.isPresent()
+                          ? selection.orElseThrow().ownership(callable)
+                          : callable)
               .toList();
       exportedTypeParameters.put(exportedName, typeParameters);
       exportedBindings.put(exportedName, ownerBindings);
@@ -635,18 +640,41 @@ public final class BindingPlanner {
           type.name(),
           exportName,
           Optional.of(
-              new MemberSelection(Set.copyOf(type.members()), Set.copyOf(type.overloads()))));
+              new MemberSelection(
+                  Set.copyOf(type.members()),
+                  Set.copyOf(type.overloads()),
+                  Set.copyOf(type.borrowed()))));
     }
   }
 
-  private record MemberSelection(Set<String> groups, Set<JarBindingOverload> overloads) {
+  private record MemberSelection(
+      Set<String> groups, Set<JarBindingOverload> overloads, Set<String> borrowed) {
     private MemberSelection {
       groups = Set.copyOf(groups);
       overloads = Set.copyOf(overloads);
+      borrowed = Set.copyOf(borrowed);
     }
 
     private static MemberSelection none() {
-      return new MemberSelection(Set.of(), Set.of());
+      return new MemberSelection(Set.of(), Set.of(), Set.of());
+    }
+
+    private JavaBindingCallable ownership(JavaBindingCallable callable) {
+      if (!borrowed.contains(bindingMemberName(callable))) return callable;
+      if (callable.kind() != JavaCallableKind.INSTANCE_METHOD
+          || callable.returnType() instanceof JavaPrimitiveType)
+        throw new IllegalArgumentException(
+            "borrowed JAR return requires an instance reference member: " + callable.name());
+      return new JavaBindingCallable(
+          callable.owner(),
+          callable.name(),
+          callable.descriptor(),
+          callable.kind(),
+          callable.typeParameters(),
+          callable.parameters(),
+          callable.returnType(),
+          callable.returnNullability(),
+          JavaResourceOwnership.BORROWED);
     }
 
     private boolean matches(JavaBindingCallable callable) {

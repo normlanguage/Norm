@@ -110,6 +110,12 @@ Repository coordinates and artifact names derive from Module identity; see the [
 
 See the [Apache Commons Lang example](https://github.com/normlanguage/commons-lang/blob/main/samples/README.md) for a runnable directory.
 
+## Host resource ownership
+
+`jarType(..., borrowed: ["child"])` declares receiver-owned reference getters. Constructors and unmarked resource returns establish an execution-domain owner only for a new host identity; aliases retain its existing owner. Borrowed views retain their receiver and cannot close or transfer the resource. An owned resource created inside a `ResourceOwner` context joins that owner once. Explicit closure releases its registration and preserves the first close failure across aliases.
+
+The declaration lives in [module.norm](../../cli/compiler/src/main/resources/bootstrap/module.norm); the standard owner API lives in [ownership.norm](../../norm/stdlib/std/io/ownership.norm). [HostResourceOwnershipTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/HostResourceOwnershipTest.java) exercises source and packaged adapters. [PublishedOwnershipContractTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PublishedOwnershipContractTest.java) verifies the released ABI 2 archive; [PublishedJarBinding](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) owns supported archive ABIs. ABI 2 declarations retain their owned default; new bindings store the explicit contract in ABI 3.
+
 ## Content identity
 
 Paths and Maven coordinates locate content. The implementation derives these identities:

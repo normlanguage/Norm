@@ -33,6 +33,33 @@ import org.objectweb.asm.Type;
 
 final class JvmJarBindingRuntimeTest {
   @Test
+  void borrowedInstanceResultsRetainTheExplicitBindingContract() {
+    var callable =
+        new JavaBindingCallable(
+            "java.lang.Object",
+            "child",
+            "()Ljava/lang/AutoCloseable;",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            List.of(),
+            new JavaReferenceType("java.lang.AutoCloseable", JavaReferenceKind.RESOURCE, List.of()),
+            JavaNullability.NON_NULL,
+            JavaResourceOwnership.BORROWED);
+    AutoCloseable child = () -> {};
+    var prepared =
+        JvmJarBindingRuntime.prepareCalls(
+            Map.of("child", callable), Map.of("child", args -> child));
+    var classes = LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader());
+    try (var runtime = JvmJarBindingRuntime.closedWorld(prepared, classes, Map.of())) {
+      var result =
+          assertInstanceOf(
+              JarBindingResult.BorrowedReference.class,
+              runtime.invoke("child", List.of(new Object())));
+      org.junit.jupiter.api.Assertions.assertSame(child, result.value());
+    }
+  }
+
+  @Test
   void preservesJarEntryContentLength() throws Exception {
     Path jar = temporaryDirectory.resolve("entry-metadata.jar");
     byte[] content = "resource-content".getBytes(java.nio.charset.StandardCharsets.UTF_8);

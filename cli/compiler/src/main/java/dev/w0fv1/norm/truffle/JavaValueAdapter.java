@@ -188,7 +188,45 @@ final class JavaValueAdapter {
             reference.candidates().isEmpty()
                 ? type
                 : annotations.jarReferenceType(type, reference.candidates());
+        if (reference.value() instanceof AutoCloseable closeable)
+          yield execution
+              .values()
+              .resource(runtimeType, closeable, reference.displayName(), execution);
         yield execution.values().opaque(runtimeType, reference.value(), reference.displayName());
+      }
+      case JarBindingResult.ReceiverAlias alias -> {
+        JarBindingResult value = alias.value();
+        boolean borrowed =
+            receiver instanceof RuntimeValues.OpaqueValue opaque && opaque.owner != null
+                || receiver instanceof RuntimeValues.OpaqueResource resource
+                    && resource.borrowingOwner != null;
+        if (borrowed) {
+          if (value instanceof JarBindingResult.ResourceReference reference)
+            value =
+                new JarBindingResult.BorrowedReference(
+                    reference.value(), reference.displayName(), reference.candidates());
+          else if (value instanceof JarBindingResult.Reference reference)
+            value =
+                new JarBindingResult.BorrowedReference(
+                    reference.value(), reference.displayName(), reference.candidates());
+        }
+        yield jarBindingValue(type, value, annotations, execution, receiver);
+      }
+      case JarBindingResult.BorrowedReference reference -> {
+        if (execution == null || type == null || receiver == null)
+          throw new IllegalStateException("borrowed JAR result requires its owning receiver");
+        CoreType runtimeType =
+            reference.candidates().isEmpty()
+                ? type
+                : annotations.jarReferenceType(type, reference.candidates());
+        if (reference.value() instanceof AutoCloseable closeable)
+          yield execution
+              .values()
+              .borrowedResource(
+                  runtimeType, closeable, reference.displayName(), receiver, execution);
+        yield execution
+            .values()
+            .borrowedOpaque(runtimeType, reference.value(), reference.displayName(), receiver);
       }
       case JarBindingResult.ResourceReference reference -> {
         if (execution == null || type == null) {

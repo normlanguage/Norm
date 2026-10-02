@@ -6,15 +6,29 @@ import java.util.List;
 import java.util.Objects;
 
 public record JarBindingType(
-    String name, List<String> members, List<JarBindingOverload> overloads) {
+    String name, List<String> members, List<JarBindingOverload> overloads, List<String> borrowed) {
   public JarBindingType(String name, List<String> members) {
-    this(name, members, List.of());
+    this(name, members, List.of(), List.of());
+  }
+
+  public JarBindingType(String name, List<String> members, List<JarBindingOverload> overloads) {
+    this(name, members, overloads, List.of());
   }
 
   public JarBindingType {
     Objects.requireNonNull(name, "name");
     members = List.copyOf(members);
     overloads = List.copyOf(overloads);
+    borrowed = List.copyOf(borrowed);
+    if (new HashSet<>(borrowed).size() != borrowed.size())
+      throw new IllegalArgumentException("duplicate borrowed JAR member");
+    for (String member : borrowed) {
+      if (member.equals("new")
+          || !(members.contains(member)
+              || overloads.stream().anyMatch(overload -> overload.name().equals(member))))
+        throw new IllegalArgumentException(
+            "borrowed JAR member must select an instance member: " + member);
+    }
     if (name.isBlank())
       throw new IllegalArgumentException("JAR binding type name must not be blank");
     for (String segment : name.split("\\.", -1)) {
