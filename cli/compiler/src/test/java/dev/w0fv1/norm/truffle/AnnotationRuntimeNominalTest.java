@@ -3,6 +3,7 @@ package dev.w0fv1.norm.truffle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.w0fv1.norm.core.BuiltinTypeId;
 import dev.w0fv1.norm.core.CoreDefinition;
 import dev.w0fv1.norm.core.CoreDefinitionRecord;
 import dev.w0fv1.norm.core.CoreNominalTypeKey;
@@ -49,6 +50,18 @@ final class AnnotationRuntimeNominalTest {
                 List.of(
                     new JarBindingClassReference.Nominal(
                         nominalType(first).module(), "absent", "Absent"))));
+
+    var classType =
+        new CoreType.Declared(
+            new CoreTypeConstructor.Builtin(new BuiltinTypeId("std.core.Class")),
+            List.of(expected),
+            CoreValueCategory.POLYMORPHIC,
+            CoreNullability.NON_NULL);
+    assertEquals(
+        type(first), runtime.jarClassValue(classType, List.of(reference(first))).reflectedType());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> runtime.jarClassValue(classType, List.of(reference(first), reference(second))));
   }
 
   private static CoreDefinitionRecord nominal(List<CoreDefinitionRecord> definitions, String name) {
