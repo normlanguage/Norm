@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -13,6 +14,21 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ModuleBindingSourceEditorTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void labelsTheSingleJdkArgumentWhenAddingTheResolution() {
+    var source =
+        SourceFile.of(
+            temporaryDirectory.resolve("module.norm"),
+            "Module module() { module(binding: jarBinding(target: jdkModule(\"java.base\"), api: [])) }");
+    var digest = Sha256Digest.parse("0123456789abcdef".repeat(4));
+    var updated =
+        new ModuleBindingSourceEditor()
+            .withDigest(source, new JdkModuleTarget("java.base", Optional.empty()), digest);
+    assertTrue(
+        updated.contains(
+            "jdkModule(name: \"java.base\", resolution: sha256(\"" + digest.value() + "\"))"));
+  }
 
   @Test
   void labelsTheSingleLocalArgumentWhenAddingTheDigest() {

@@ -117,8 +117,10 @@ final class JavaStubPlanner {
       Map<TypeKey, TypeStub> types,
       Map<JarBindingClassReference.Nominal, String> javaTypes,
       CompilationScope scope,
-      Set<DocumentId> excludedDocuments) {
-    if (types.isEmpty()
+      Set<DocumentId> excludedDocuments,
+      boolean hasJavaBindings) {
+    if (!hasJavaBindings
+        && types.isEmpty()
         && artifact.namespace().bindings().stream()
             .noneMatch(
                 binding ->
@@ -963,6 +965,10 @@ final class JavaStubPlanner {
       if (declared.constructor() instanceof CoreTypeConstructor.User user) {
         DefinitionReference.External reference = (DefinitionReference.External) user.definition();
         CoreDefinition declaration = program.definition(reference.definition()).orElseThrow();
+        if (declaration instanceof CoreDefinition.Enum enumeration
+            && enumeration.variants().stream().anyMatch(variant -> !variant.fields().isEmpty())) {
+          return "java.lang.Object";
+        }
         CoreNominalTypeKey nominal =
             switch (declaration) {
               case CoreDefinition.Aggregate aggregate -> aggregate.nominalType();
@@ -1221,7 +1227,7 @@ final class JavaStubPlanner {
       if (annotation.isEmpty()) continue;
       apply(artifact, types, enumerations, javaTypes, annotation.orElseThrow(), application);
     }
-    addNormTypes(artifact, types, javaTypes, scope, bindingDocuments);
+    addNormTypes(artifact, types, javaTypes, scope, bindingDocuments, !bindings.isEmpty());
     applyNormAnnotations(artifact, types, enumerations, javaTypes, scope, bindingDocuments);
     Map<DefinitionId, DefinitionId> interfaceDefaults = new LinkedHashMap<>();
     for (var record : artifact.program().definitions()) {
@@ -1258,8 +1264,11 @@ final class JavaStubPlanner {
       }
     }
     Set<String> generatedTypes =
-        java.util.stream.Stream.concat(
-                types.keySet().stream().map(TypeKey::binaryName), javaTypes.values().stream())
+        types.keySet().stream()
+            .map(TypeKey::binaryName)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    Set<String> availableTypes =
+        java.util.stream.Stream.concat(generatedTypes.stream(), javaTypes.values().stream())
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
     Set<String> generatedParents =
         types.values().stream()
@@ -1275,6 +1284,7 @@ final class JavaStubPlanner {
                         type,
                         artifact,
                         javaTypes,
+                        availableTypes,
                         generatedTypes,
                         generatedParents.contains(type.key.binaryName())))
             .toList());
@@ -1284,6 +1294,7 @@ final class JavaStubPlanner {
       TypeStub type,
       CoreArtifact artifact,
       Map<JarBindingClassReference.Nominal, String> javaTypes,
+      Set<String> availableTypes,
       Set<String> generatedTypes,
       boolean generatedParentType) {
     JavaStubPlan.TypeKind kind =
@@ -1326,7 +1337,7 @@ final class JavaStubPlanner {
                           type.binding.definition(),
                           parent,
                           javaTypes,
-                          generatedTypes));
+                          availableTypes));
       interfaces =
           shape.conformances().stream()
               .map(
@@ -1336,11 +1347,11 @@ final class JavaStubPlanner {
                           type.binding.definition(),
                           conformance,
                           javaTypes,
-                          generatedTypes))
+                          availableTypes))
               .filter(
                   conformance -> {
                     int arguments = conformance.indexOf('<');
-                    return generatedTypes.contains(
+                    return availableTypes.contains(
                         arguments < 0 ? conformance : conformance.substring(0, arguments));
                   })
               .toList();
@@ -1355,7 +1366,7 @@ final class JavaStubPlanner {
                           type.binding.definition(),
                           parent,
                           javaTypes,
-                          generatedTypes))
+                          availableTypes))
               .filter(parent -> !parent.equals("java.lang.Object"))
               .toList();
     }
@@ -1423,7 +1434,7 @@ final class JavaStubPlanner {
                                 field.owner,
                                 field.type,
                                 javaTypes,
-                                generatedTypes)),
+                                availableTypes)),
                         annotations(field.annotations)))
             .toList();
     boolean generatedParent =
@@ -1436,7 +1447,7 @@ final class JavaStubPlanner {
                     Comparator.comparingInt(
                         callable ->
                             callable.implicitConstructor && callable.parameters.isEmpty() ? 0 : 1))
-                .map(callable -> callablePlan(type, callable, artifact, javaTypes, generatedTypes))
+                .map(callable -> callablePlan(type, callable, artifact, javaTypes, availableTypes))
                 .toList();
     boolean hasZeroArgumentConstructor =
         type.callables.values().stream()

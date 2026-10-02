@@ -10,6 +10,7 @@ import dev.w0fv1.norm.application.ApplicationRunner;
 import dev.w0fv1.norm.execution.ExecutionContext;
 import dev.w0fv1.norm.runtime.NormRuntime;
 import dev.w0fv1.norm.testing.MavenTestRepository;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -22,6 +23,51 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void packagesJdkBindingAndRunsItsConsumerWithoutAJavaArtifact() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("producer/jdk/base"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() {
+          module(name: "jdk.base", version: 1, exports: ["LocalDate"],
+            binding: jarBinding(target: jdkModule(name: "java.base"), api: [
+              jarType(name: "java.time.LocalDate", members: ["now", "getYear", "toString"])
+            ]))
+        }
+        """);
+    Path repository = temporaryDirectory.resolve("repository");
+    ModulePackager.PackagedModule packaged;
+    var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var compiler = environment.compilerSession();
+        var projects = environment.projectLoader()) {
+      new ModuleBindingResolutionService(projects).resolve(modulePath);
+      packaged = new ModulePackager(projects, compiler).packageModule(modulePath, repository);
+    }
+    var restored = new ModuleArchiveReader().read(packaged.archive());
+    assertTrue(restored.descriptor().binding().orElseThrow().target() instanceof JdkModuleTarget);
+    assertFalse(Files.readString(packaged.pom()).contains("<type>jar</type>"));
+    Path app = Files.createDirectories(temporaryDirectory.resolve("consumer/sample"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() {
+          module(dependencies: [dependency(repository: "github", name: "jdk.base", version: 1)])
+        }
+        """);
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        entry,
+        """
+        package sample
+        import jdk.base.localDateNow
+        Void main() { printLine(localDateNow()?.getYear()) }
+        """);
+    assertEquals(
+        java.time.LocalDate.now().getYear() + System.lineSeparator(), run(repository, entry));
+  }
 
   @Test
   void runsTheDocumentedDependencyConsumerAgainstAPackagedLibrary() throws Exception {

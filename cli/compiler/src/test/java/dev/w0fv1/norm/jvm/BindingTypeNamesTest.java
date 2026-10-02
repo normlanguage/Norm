@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -115,5 +116,14 @@ final class BindingTypeNamesTest {
         "CallbackHolder<Function<V?(V?)>?>?",
         BindingTypeNames.normType(callbackHolder, names, false));
     assertEquals("OptionalHolder<V?>", BindingTypeNames.normBoundType(optionalHolder, names));
+  }
+
+  @Test
+  void findsPathNestedInsideCollectionType() {
+    var file = new JavaReferenceType("java.io.File", JavaReferenceKind.FILE);
+    var files =
+        new JavaReferenceType(
+            "java.util.List", JavaReferenceKind.LIST, List.of(JavaBindingTypeArgument.exact(file)));
+    assertTrue(BindingTypeNames.containsPath(files));
   }
 }

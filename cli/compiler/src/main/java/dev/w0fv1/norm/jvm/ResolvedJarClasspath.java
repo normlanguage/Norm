@@ -61,7 +61,8 @@ final class ResolvedJarClasspath {
   dev.w0fv1.norm.core.store.ArtifactFileSet files() {
     Map<java.nio.file.Path, FileSnapshot> files = new LinkedHashMap<>();
     for (var artifact : selected.values())
-      files.put(artifact.storagePath(), new FileSnapshot(artifact.file(), artifact.content()));
+      if (!(artifact.identity() instanceof JdkModuleIdentity))
+        files.put(artifact.storagePath(), new FileSnapshot(artifact.file(), artifact.content()));
     return new dev.w0fv1.norm.core.store.ArtifactFileSet(files);
   }
 
@@ -73,7 +74,9 @@ final class ResolvedJarClasspath {
                 key,
                 new ResolvedJarArtifact(
                     artifact.identity(),
-                    directory.resolve(artifact.storagePath()),
+                    artifact.identity() instanceof JdkModuleIdentity
+                        ? artifact.file()
+                        : directory.resolve(artifact.storagePath()),
                     artifact.content())));
     return new ResolvedJarClasspath(captured, dependencies, roots);
   }
@@ -87,6 +90,7 @@ final class ResolvedJarClasspath {
         .map(ArtifactKey::from)
         .distinct()
         .map(selected::get)
+        .filter(artifact -> !(artifact.identity() instanceof JdkModuleIdentity))
         .map(ResolvedJarArtifact::file)
         .toList();
   }
@@ -104,7 +108,10 @@ final class ResolvedJarClasspath {
         if (reachable.add(dependency)) pending.addLast(dependency);
       }
     }
-    return reachable.stream().map(selected::get).toList();
+    return reachable.stream()
+        .map(selected::get)
+        .filter(artifact -> !(artifact.identity() instanceof JdkModuleIdentity))
+        .toList();
   }
 
   private static ResolvedJarArtifact select(ArtifactKey key, List<Candidate> candidates) {

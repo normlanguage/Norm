@@ -14,6 +14,7 @@ import dev.w0fv1.norm.packages.NormPackageResolver;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleCoordinate;
@@ -168,6 +169,7 @@ final class ProjectModuleSources {
     return switch (binding.target()) {
       case LocalJarTarget target -> target.integrity().isPresent();
       case MavenJarTarget target -> target.resolution().isPresent();
+      case JdkModuleTarget target -> target.resolution().isPresent();
     };
   }
 }

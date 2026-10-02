@@ -5,6 +5,7 @@ import dev.w0fv1.norm.execution.RuntimeErrorCode;
 import dev.w0fv1.norm.value.JarBinding;
 import dev.w0fv1.norm.value.JarBindingOverload;
 import dev.w0fv1.norm.value.JarBindingType;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -244,6 +245,9 @@ final class CoreIntrinsicDispatcher {
                                       (String) arguments[11]),
                                   digest),
                               api));
+                  case "jdk" ->
+                      Optional.of(
+                          new JarBinding(new JdkModuleTarget((String) arguments[10], digest), api));
                   default ->
                       throw new IllegalStateException(
                           "unknown JAR binding source " + bindingSource);

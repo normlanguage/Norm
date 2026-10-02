@@ -24,7 +24,7 @@ Every `.norm` file is Norm source. A top-level `Module module()` supplies the mo
 
 `Module module()` is the single declaration point for module identity, dependencies, and publication configuration. A working directory is not a dependency or publication unit, and there is no Project manifest.
 
-A Module has at most one optional `jarBinding`, containing one root JAR. Its POM or local declaration can introduce transitive runtime dependencies, but the compiler generates callable declarations only for public classes physically owned by the root JAR. Objects from dependency JARs may cross signatures as constrained external types; calling their APIs requires the corresponding Norm Modules.
+A Module has at most one optional `jarBinding`, containing one root JAR or JDK module. A JAR's POM or local declaration can introduce transitive runtime dependencies, but the compiler generates callable declarations only for public classes owned by the root. Objects from dependency JARs may cross signatures as constrained external types; calling their APIs requires the corresponding Norm Modules.
 
 Explicit `exports` and `jarBinding.api` establish public Norm name mappings in declaration order. Java class names therefore do not determine Module API identity: `jakarta.persistence.EntityManager`, for example, can be exported stably as `orm.Store`. If `exports` is omitted, names are derived from `jarType.name`.
 
@@ -63,6 +63,8 @@ Module module() {
 `JarType`, `JarBinding`, and their factory functions are ordinary Norm declarations defined during bootstrap. Both `binding` and `target` are single values. Binding Module exports derive from the type names in `api`; a pure Norm version implements those same export names in ordinary source.
 
 Local JARs use `localJar(path, integrity)`. `norm resolve` resolves dependencies and atomically fills missing digests. A declared digest mismatch fails immediately; authors updating dependencies must first change their declarations. `norm run`, `norm package`, and CI verify declared content without accepting dependency drift. No separate lock file is used.
+
+JDK classes use `jdkModule(name: "java.base", resolution: sha256("..."))` as a root. The pinned digest identifies a deterministic snapshot of public API metadata from the module's unconditionally exported packages, excluding method bodies and private implementation. The running JDK is checked against that digest during source, packaged, and bundled application loading. The snapshot is metadata only; JDK classes load from the runtime and are not added to the application classpath. Publish the JDK types once in a dedicated Norm binding Module, then depend on that Module from library bindings.
 
 ## Initial usage
 
@@ -136,7 +138,7 @@ A pure-Norm implementation never replaces an existing Binding artifact in place.
 ## Mandatory constraints
 
 - Modules have no Java-specific kind.
-- Each Module binds at most one root JAR.
+- Each Module binds at most one Java root: a JAR or a JDK module.
 - Do not generate public callable APIs for transitive dependencies.
 - Do not expose arbitrary host-class lookup, reflective calls, or untyped host objects.
 - Java objects appear in Norm as opaque references with definite declaration identity.
@@ -200,8 +202,8 @@ Nullability on fields, parameters, results, and generic arguments projects throu
 
 - Module source trees contain no `lock.norm`, handwritten POM, or Gradle configuration.
 - The same `module(...)` factory describes pure Norm and JAR-backed Modules.
-- The type structure cannot declare two root JARs for one Module.
-- Maven and local JARs use the same Binding pipeline.
+- The type structure cannot declare two Java roots for one Module.
+- Maven JARs, local JARs, and JDK modules use the same Binding pipeline.
 - Replacing a JAR at the same path triggers a digest mismatch.
 - Identical JAR content can reuse a Binding artifact across paths.
 - A pinned Commons Lang version can be resolved from a Maven repository and called from Norm.

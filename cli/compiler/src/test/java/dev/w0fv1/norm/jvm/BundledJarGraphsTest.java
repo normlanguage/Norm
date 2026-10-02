@@ -3,7 +3,10 @@ package dev.w0fv1.norm.jvm;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.nio.file.Files;
@@ -14,6 +17,65 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class BundledJarGraphsTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void validatesBundledJdkMetadataAgainstTheRunningModule() throws Exception {
+    ResolvedJarGraph graph;
+    try (var resolver = new JarResolver(temporaryDirectory)) {
+      graph =
+          resolver.resolve(
+              temporaryDirectory,
+              new JarBinding(new JdkModuleTarget("java.base", java.util.Optional.empty())));
+    }
+    var binding =
+        new ResolvedJarBinding(
+            graph,
+            new JarApiSchema(List.of()),
+            new GeneratedJarBinding(
+                List.of(),
+                List.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of()));
+    Path bundle = temporaryDirectory.resolve("jdk-bundle");
+    BundledJarGraphs.write(bundle, List.of(binding));
+    try (var resolver = JarResolver.bundled(bundle)) {
+      assertEquals(
+          graph.contentId(),
+          resolver
+              .resolve(
+                  temporaryDirectory,
+                  new JarBinding(
+                      new JdkModuleTarget("java.base", java.util.Optional.of(graph.contentId()))))
+              .contentId());
+    }
+    assertFalse(Files.exists(bundle.resolve(".norm-jdk")));
+    Path falseMetadata = temporaryDirectory.resolve("false-metadata.jar");
+    try (var output = new java.util.jar.JarOutputStream(Files.newOutputStream(falseMetadata))) {
+      output.finish();
+    }
+    var falseArtifact =
+        new ResolvedJarArtifact(
+            new JdkModuleIdentity("java.base"), falseMetadata, Sha256Digest.compute(falseMetadata));
+    var falseGraph = new ResolvedJarGraph(falseArtifact, List.of(falseArtifact), List.of());
+    var falseBinding =
+        new ResolvedJarBinding(
+            falseGraph,
+            new JarApiSchema(List.of()),
+            new GeneratedJarBinding(
+                List.of(),
+                List.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of()));
+    Path falseBundle = temporaryDirectory.resolve("false-bundle");
+    BundledJarGraphs.write(falseBundle, List.of(falseBinding));
+    var mismatch =
+        assertThrows(java.io.IOException.class, () -> BundledJarGraphs.read(falseBundle));
+    assertTrue(mismatch.getMessage().contains("does not match this runtime"));
+  }
 
   @Test
   void preservesAResolvedGraphWithoutAMavenRepository() throws Exception {

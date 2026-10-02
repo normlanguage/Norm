@@ -3,6 +3,7 @@ package dev.w0fv1.norm.frontend;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.syntax.Syntax;
 import dev.w0fv1.norm.value.JarTarget;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.Sha256Digest;
@@ -27,11 +28,15 @@ public final class ModuleBindingSourceEditor {
     String label = target instanceof LocalJarTarget ? "integrity" : "resolution";
     String expression = "sha256(\"" + digest.value() + "\")";
     String updated = replaceDigest(source.text(), call, label, expression);
-    if (target instanceof LocalJarTarget && call.arguments().size() == 1) {
+    if ((target instanceof LocalJarTarget || target instanceof JdkModuleTarget)
+        && call.arguments().size() == 1) {
       var path = call.arguments().getFirst();
       if (path.label().isEmpty()) {
         int offset = path.span().startOffset();
-        updated = updated.substring(0, offset) + "path: " + updated.substring(offset);
+        updated =
+            updated.substring(0, offset)
+                + (target instanceof LocalJarTarget ? "path: " : "name: ")
+                + updated.substring(offset);
       }
     }
     return updated;
@@ -84,6 +89,9 @@ public final class ModuleBindingSourceEditor {
               && stringArgument(call, "version", 2)
                   .filter(maven.coordinate().version()::equals)
                   .isPresent();
+      case JdkModuleTarget jdk ->
+          name.value().equals("jdkModule")
+              && stringArgument(call, "name", 0).filter(jdk.name()::equals).isPresent();
     };
   }
 

@@ -24,10 +24,17 @@ public final class JarApiCache {
       new FileSnapshot(artifact.file(), artifact.content()).verify();
     var writer =
         new CanonicalWriter()
-            .writeTag("jar-api-1")
+            .writeTag("jar-api-2")
             .writeString(CompilerArtifactIdentity.current())
             .writeString(graph.contentId().value())
             .writeString(graph.root().identity().canonical())
+            .writeString(
+                graph.root().identity() instanceof JdkModuleIdentity
+                    ? ""
+                    : JdkModuleArchive.resolve(
+                            Path.of(System.getProperty("user.home"), ".norm", "cache"), "java.base")
+                        .contentId()
+                        .value())
             .writeBoolean(surfaceOnly)
             .writeInt(selectedTypes.size());
     selectedTypes.forEach(writer::writeString);

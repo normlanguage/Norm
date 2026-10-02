@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.testing.MavenTestRepository;
 import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -21,6 +22,31 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class JarResolverTest {
   @TempDir Path temporaryDirectory;
+
+  @Test
+  void resolvesPinnedJdkModuleFromRuntimeClasses() throws Exception {
+    try (var resolver = new JarResolver(temporaryDirectory)) {
+      var unpinned = new JarBinding(new JdkModuleTarget("java.base", Optional.empty()));
+      var graph = resolver.resolve(temporaryDirectory, unpinned);
+      assertEquals(1, graph.artifacts().size());
+      assertTrue(Files.size(graph.root().file()) > 0);
+      assertEquals(
+          graph.contentId(),
+          resolver
+              .resolve(
+                  temporaryDirectory,
+                  new JarBinding(new JdkModuleTarget("java.base", Optional.of(graph.contentId()))))
+              .contentId());
+      assertThrows(
+          IOException.class,
+          () ->
+              resolver.resolve(
+                  temporaryDirectory,
+                  new JarBinding(
+                      new JdkModuleTarget(
+                          "java.base", Optional.of(Sha256Digest.compute("wrong".getBytes()))))));
+    }
+  }
 
   @Test
   void reusesPinnedGraphsAcrossResolversAndRejectsChangedArtifacts() throws Exception {

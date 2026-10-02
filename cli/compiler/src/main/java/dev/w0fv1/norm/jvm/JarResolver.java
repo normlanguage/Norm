@@ -2,6 +2,7 @@ package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.platform.jdk.EnvironmentProxySelector;
 import dev.w0fv1.norm.value.JarBinding;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.LocalJarTarget;
 import dev.w0fv1.norm.value.MavenArtifactCoordinate;
 import dev.w0fv1.norm.value.MavenJarTarget;
@@ -46,6 +47,7 @@ public final class JarResolver implements AutoCloseable {
   private final Map<Sha256Digest, ResolvedJarGraph> bundledGraphs;
   private final boolean bundled;
   private final Path graphCacheDirectory;
+  private final Path artifactCacheDirectory;
   private final java.util.function.Consumer<String> progress;
 
   public JarResolver(Path cacheDirectory) {
@@ -55,6 +57,7 @@ public final class JarResolver implements AutoCloseable {
   public JarResolver(Path cacheDirectory, java.util.function.Consumer<String> progress) {
     Objects.requireNonNull(cacheDirectory, "cacheDirectory");
     this.graphCacheDirectory = cacheDirectory.resolve(".norm-graphs");
+    this.artifactCacheDirectory = cacheDirectory;
     this.progress = Objects.requireNonNull(progress, "progress");
     repositorySystem = new RepositorySystemSupplier().get();
     SessionBuilderSupplier supplier = new SessionBuilderSupplier(repositorySystem);
@@ -68,6 +71,7 @@ public final class JarResolver implements AutoCloseable {
     jarSession = null;
     this.bundledGraphs = Map.copyOf(bundledGraphs);
     graphCacheDirectory = null;
+    artifactCacheDirectory = null;
     progress = message -> {};
     bundled = true;
   }
@@ -99,7 +103,23 @@ public final class JarResolver implements AutoCloseable {
     return switch (binding.target()) {
       case LocalJarTarget target -> resolveLocal(moduleRoot, target);
       case MavenJarTarget target -> resolveMaven(target);
+      case JdkModuleTarget target -> resolveJdk(target);
     };
+  }
+
+  private ResolvedJarGraph resolveJdk(JdkModuleTarget target) throws IOException {
+    ResolvedJarGraph graph = JdkModuleArchive.resolve(artifactCacheDirectory, target.name());
+    if (target.resolution().isPresent()
+        && !target.resolution().orElseThrow().equals(graph.contentId())) {
+      throw new IOException(
+          "JDK module content mismatch for "
+              + target.name()
+              + ": expected "
+              + target.resolution().orElseThrow()
+              + ", actual "
+              + graph.contentId());
+    }
+    return graph;
   }
 
   private static ResolvedJarGraph resolveLocal(Path moduleRoot, LocalJarTarget target)
@@ -174,6 +194,11 @@ public final class JarResolver implements AutoCloseable {
                   .integrity()
                   .orElseThrow(
                       () -> new IOException("bundled local JAR must declare its integrity"));
+          case JdkModuleTarget target ->
+              target
+                  .resolution()
+                  .orElseThrow(
+                      () -> new IOException("bundled JDK module must declare its resolution"));
         };
     ResolvedJarGraph graph = bundledGraphs.get(content);
     if (graph == null) throw new IOException("bundled JAR graph is unavailable: " + content);
@@ -182,6 +207,11 @@ public final class JarResolver implements AutoCloseable {
             || !root.coordinate().equals(target.coordinate()))) {
       throw new IOException(
           "bundled Maven JAR root does not match " + target.coordinate().notation());
+    }
+    if (binding.target() instanceof JdkModuleTarget target
+        && (!(graph.root().identity() instanceof JdkModuleIdentity root)
+            || !root.name().equals(target.name()))) {
+      throw new IOException("bundled JDK module root does not match " + target.name());
     }
     return graph;
   }

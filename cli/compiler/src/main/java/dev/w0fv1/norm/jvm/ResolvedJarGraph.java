@@ -69,7 +69,14 @@ public final class ResolvedJarGraph {
   }
 
   private Sha256Digest identify() {
-    if (artifacts.size() == 1 && edges.isEmpty()) return root.content();
+    if (artifacts.size() == 1 && edges.isEmpty()) {
+      if (root.identity() instanceof JdkModuleIdentity) {
+        return Sha256Digest.compute(
+            ("jdk-module\0" + root.identity().canonical() + "\0" + root.content().value())
+                .getBytes(StandardCharsets.UTF_8));
+      }
+      return root.content();
+    }
     StringBuilder canonical = new StringBuilder();
     for (ResolvedJarArtifact artifact : artifacts) {
       canonical

@@ -24,7 +24,7 @@ Norm API → Norm Core
 
 `Module module()` 是模块声明、依赖与发布配置的唯一写入口。工作目录不是依赖或发布单位，不定义 Project manifest。
 
-一个 Module 最多包含一个可选的 `jarBinding`，其中只有一个根 JAR。根 JAR 的 POM 或本地声明可以形成传递运行依赖，但编译器只为根 JAR 中物理拥有的公开类生成可调用声明。依赖 JAR 的对象可以作为受约束的外部类型跨越签名；调用其 API 需要依赖对应的 Norm Module。
+一个 Module 最多包含一个可选的 `jarBinding`，根可以是 JAR 或 JDK 模块。JAR 的 POM 或本地声明可以形成传递运行依赖，但编译器只为根中拥有的公开类生成可调用声明。依赖 JAR 的对象可以作为受约束的外部类型跨越签名；调用其 API 需要依赖对应的 Norm Module。
 
 显式 `exports` 与 `jarBinding.api` 按声明顺序建立公开 Norm 名称映射。Java 类名因此不构成 Module API 身份；例如 `jakarta.persistence.EntityManager` 可以稳定导出为 `orm.Store`。省略 `exports` 时继续从 `jarType.name` 派生名称。
 
@@ -63,6 +63,8 @@ Module module() {
 `JarType`、`JarBinding` 与构造它们的函数都是 bootstrap 中定义的普通 Norm 声明。`binding` 与 `target` 都是单值；Binding Module 的 exports 由 `api` 中的类型名派生。纯 Norm 版本以普通源码实现相同导出名。
 
 本地 JAR 使用 `localJar(path, integrity)`。`norm resolve` 负责解析并原子填入缺失摘要；已声明摘要不匹配时直接失败，需要更新依赖的作者先修改声明。`norm run`、`norm package` 和 CI 只验证已声明内容，不接受依赖漂移。不使用独立锁文件。
+
+JDK 类使用 `jdkModule(name: "java.base", resolution: sha256("..."))` 作为根。摘要对应模块无条件导出包中公开 API 元数据的确定性快照，不含方法体和私有实现。源码、已发布包及打包应用加载时都会校验当前 JDK。快照只供绑定扫描，不进入应用类路径；JDK 类型应由独立 Norm 模块统一导出，其他库依赖该模块。
 
 ## 第一版使用
 
@@ -136,7 +138,7 @@ POM 声明根 Java 制品及其普通 Maven 依赖。依赖方解析 Norm Module
 ## 强制约束
 
 - Module 不具有 Java 专用种类；
-- 每个 Module 最多绑定一个根 JAR；
+- 每个 Module 最多绑定一个 Java 根：JAR 或 JDK 模块；
 - 不生成传递依赖的公开可调用 API；
 - 不提供任意宿主类查找、反射调用或无类型宿主对象；
 - Java 对象在 Norm 中是具有确定声明身份的不透明引用；
@@ -200,8 +202,8 @@ Norm 应用外观中的值语义 `List<T>` 投影为 Java `List<T>`。宿主边�
 
 - 源码树不存在 `lock.norm`、手写 POM 或 Gradle 配置；
 - 同一个 `module(...)` 工厂同时表达纯 Norm 和 JAR 支撑的 Module；
-- 类型结构无法为单个 Module 声明两个根 JAR；
-- Maven 与本地 JAR 产生相同的 Binding pipeline；
+- 类型结构无法为单个 Module 声明两个 Java 根；
+- Maven JAR、本地 JAR 与 JDK 模块共用同一 Binding pipeline；
 - 替换相同路径下的 JAR 会触发摘要不匹配；
 - 相同 JAR 内容可以跨路径复用 Binding artifact；
 - Commons Lang 的固定版本可以从 Maven 仓库解析并从 Norm 调用；

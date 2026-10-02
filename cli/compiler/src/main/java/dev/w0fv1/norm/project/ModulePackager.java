@@ -7,6 +7,7 @@ import dev.w0fv1.norm.jvm.JavaApiReportWriter;
 import dev.w0fv1.norm.jvm.PublishedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.source.SourceFile;
+import dev.w0fv1.norm.value.JdkModuleTarget;
 import dev.w0fv1.norm.value.MavenJarTarget;
 import dev.w0fv1.norm.value.ModuleArchiveFormat;
 import dev.w0fv1.norm.value.ModuleDescriptor;
@@ -50,13 +51,24 @@ public final class ModulePackager {
       throw new ModuleCompilationException(compiled.compilation().diagnostics());
     Optional<MavenJarTarget> target = Optional.empty();
     if (descriptor.binding().isPresent()) {
-      if (!(descriptor.binding().orElseThrow().target() instanceof MavenJarTarget maven)) {
-        throw new IOException("publishable JAR binding modules require a Maven root artifact");
+      switch (descriptor.binding().orElseThrow().target()) {
+        case MavenJarTarget maven -> {
+          if (maven.resolution().isEmpty()) {
+            throw new IOException(
+                "JAR binding must be pinned with 'norm resolve' before packaging");
+          }
+          target = Optional.of(maven);
+        }
+        case JdkModuleTarget jdk -> {
+          if (jdk.resolution().isEmpty()) {
+            throw new IOException(
+                "JDK binding must be pinned with 'norm resolve' before packaging");
+          }
+        }
+        default ->
+            throw new IOException(
+                "publishable JAR binding modules require a Maven or JDK root artifact");
       }
-      if (maven.resolution().isEmpty()) {
-        throw new IOException("JAR binding must be pinned with 'norm resolve' before packaging");
-      }
-      target = Optional.of(maven);
     }
     ModuleRepositoryCoordinate coordinate =
         ModuleRepositoryCoordinate.from(descriptor.coordinate());
@@ -167,12 +179,22 @@ public final class ModulePackager {
     module.add("dependencies", dependencies);
     root.add("module", module);
     if (binding.isPresent()) {
-      MavenJarTarget target = (MavenJarTarget) descriptor.binding().orElseThrow().target();
       JsonObject jar = new JsonObject();
-      jar.addProperty("group", target.coordinate().group());
-      jar.addProperty("artifact", target.coordinate().artifact());
-      jar.addProperty("version", target.coordinate().version());
-      jar.addProperty("resolution", target.resolution().orElseThrow().value());
+      switch (descriptor.binding().orElseThrow().target()) {
+        case MavenJarTarget target -> {
+          jar.addProperty("source", "maven");
+          jar.addProperty("group", target.coordinate().group());
+          jar.addProperty("artifact", target.coordinate().artifact());
+          jar.addProperty("version", target.coordinate().version());
+          jar.addProperty("resolution", target.resolution().orElseThrow().value());
+        }
+        case JdkModuleTarget target -> {
+          jar.addProperty("source", "jdk");
+          jar.addProperty("name", target.name());
+          jar.addProperty("resolution", target.resolution().orElseThrow().value());
+        }
+        default -> throw new IllegalStateException("unsupported publishable binding target");
+      }
       jar.addProperty("apiId", binding.orElseThrow().api().apiId().value());
       jar.addProperty("bindingAbi", PublishedJarBinding.ABI);
       jar.addProperty("bindingId", bindingId.value());

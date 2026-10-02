@@ -188,7 +188,12 @@ public final class BindingPlanner {
               .toList();
       exportedTypeParameters.put(exportedName, typeParameters);
       exportedBindings.put(exportedName, ownerBindings);
-      List<JavaReferenceType> interfaces = javaMembers.projectedInterfaces(owner);
+      List<JavaReferenceType> interfaces =
+          javaMembers.projectedInterfaces(owner).stream()
+              .filter(
+                  relation ->
+                      !relation.binaryName().equals("java.lang.Comparable") || selection.isEmpty())
+              .toList();
       exportedInterfaces.put(exportedName, interfaces);
       var superclass = javaMembers.projectedSuperclass(owner);
       exportedSuperclasses.put(exportedName, superclass);
