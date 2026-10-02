@@ -219,3 +219,5 @@ JPA `jakarta.persistence.Id` and `jakarta.persistence.EmbeddedId` map to `std.an
 Generated declarations preserve public Java superclass relationships, substituting generic arguments across package-private intermediates. [CrossModuleJarBindingTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java) verifies cross-module source and published artifacts. The standard-library ABI supplies binding-construction tokens centrally.
 
 Projecting the same Norm function to the same SAM type preserves host-object identity. Weak-reference caches are isolated by application execution domain. [JarBindingConcurrencyIntegrationTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JarBindingConcurrencyIntegrationTest.java) verifies identity across calls and callback execution.
+
+Published Java dependency packaging and verification: [BundledJarGraphs](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/BundledJarGraphs.java), [ModulePackagerTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java).

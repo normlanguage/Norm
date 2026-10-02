@@ -96,6 +96,15 @@ public final class JarResolver implements AutoCloseable {
     return builder.build();
   }
 
+  public ResolvedJarGraph resolvePublished(Path archive, Path moduleRoot, JarBinding binding)
+      throws IOException {
+    if (bundled) return resolveBundled(binding);
+    var graphs =
+        BundledJarGraphs.readArchive(archive, artifactCacheDirectory.resolve(".norm-packages"));
+    if (graphs.isPresent()) return new JarResolver(graphs.orElseThrow()).resolveBundled(binding);
+    return resolve(moduleRoot, binding);
+  }
+
   public ResolvedJarGraph resolve(Path moduleRoot, JarBinding binding) throws IOException {
     Objects.requireNonNull(moduleRoot, "moduleRoot");
     Objects.requireNonNull(binding, "binding");

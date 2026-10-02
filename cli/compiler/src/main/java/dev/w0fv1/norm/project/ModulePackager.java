@@ -131,6 +131,9 @@ public final class ModulePackager {
               descriptor, binding, Sha256Digest.compute(prepared), Sha256Digest.compute(core)));
       writeEntry(archive, dev.w0fv1.norm.frontend.CompiledModule.ENTRY, core);
       if (binding.isPresent()) {
+        if (descriptor.binding().orElseThrow().target() instanceof MavenJarTarget) {
+          dev.w0fv1.norm.jvm.BundledJarGraphs.writeArchive(archive, binding.orElseThrow());
+        }
         writeEntry(archive, PublishedJarBinding.ENTRY, prepared);
         writeEntry(
             archive,

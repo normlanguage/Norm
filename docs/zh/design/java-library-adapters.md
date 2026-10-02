@@ -219,3 +219,5 @@ JPA 的 `jakarta.persistence.Id` 与 `jakarta.persistence.EmbeddedId` 映射为 
 公开 Java class 的父类关系保留在生成声明中，包私有中间类的泛型参数沿继承链代入；跨模块源码和发布产物验证见 [CrossModuleJarBindingTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java)。绑定构造令牌由标准库 ABI 统一提供。
 
 同一 Norm 函数投影为相同 SAM 类型时保留宿主对象身份，弱引用缓存随应用执行域隔离；跨调用身份与回调执行验证见 [JarBindingConcurrencyIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JarBindingConcurrencyIntegrationTest.java)。
+
+发布包的 Java 依赖封装与校验入口：[BundledJarGraphs](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/BundledJarGraphs.java)、[ModulePackagerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java)。

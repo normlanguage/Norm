@@ -790,6 +790,7 @@ final class RuntimeValues {
   static final class OpaqueResource {
     final CoreType type;
     final ManagedResource resource;
+    private final Object host;
     final String displayName;
     final AggregateInfo aggregateInfo;
 
@@ -801,6 +802,7 @@ final class RuntimeValues {
         CoreType type, ManagedResource resource, String displayName, AggregateInfo aggregateInfo) {
       this.type = Objects.requireNonNull(type, "type");
       this.resource = Objects.requireNonNull(resource, "resource");
+      this.host = resource.hostValue();
       this.displayName = Objects.requireNonNull(displayName, "displayName");
       this.aggregateInfo = aggregateInfo;
     }
@@ -811,7 +813,7 @@ final class RuntimeValues {
     }
 
     Object hostValue() {
-      return resource.hostValue();
+      return host;
     }
 
     void closedExternally() {

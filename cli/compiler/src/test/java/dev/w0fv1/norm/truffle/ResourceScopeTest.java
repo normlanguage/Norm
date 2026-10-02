@@ -1,6 +1,8 @@
 package dev.w0fv1.norm.truffle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -10,6 +12,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 final class ResourceScopeTest {
+  @Test
+  void liveGuestHandleRetainsAReleasedHostUntilTheHandleIsDiscarded() throws Exception {
+    ResourceScope scope = new ResourceScope();
+    AutoCloseable host = new java.io.ByteArrayInputStream(new byte[0]);
+    var reference = new java.lang.ref.WeakReference<>(host);
+    var handle =
+        new RuntimeValues.OpaqueResource(
+            dev.w0fv1.norm.core.CoreType.STRING, scope.register("host", host), "host");
+    host = null;
+    handle.closedExternally();
+    for (int i = 0; i < 10; i++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertNotNull(reference.get());
+    assertSame(reference.get(), handle.hostValue());
+    handle.resource.close();
+    handle = null;
+    for (int i = 0; i < 100 && reference.get() != null; i++) {
+      System.gc();
+      Thread.sleep(10);
+    }
+    assertNull(reference.get());
+    scope.close();
+  }
+
   @Test
   void closesRemainingResourcesOnceInReverseRegistrationOrder() {
     List<String> closed = new ArrayList<>();
