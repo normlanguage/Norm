@@ -14,12 +14,12 @@ public interface ResourceOwner {
 }
 
 @Document(description: "Transfers a host resource into an explicit owner once.")
-public Void ownResource(ResourceOwner owner, Resource resource) {
+public Void ownResource(@Document(description: "The owner receiving the resource.") ResourceOwner owner, @Document(description: "The host resource to transfer.") Resource resource) {
   __transferResourceOwnership(resource: resource, accept: () { owner.own(resource) }, release: () { owner.release(resource) })
 }
 
 @Document(description: "Registers owned host resources with the current owner while preserving the input type.")
-public T ownResourceInContext<T>(T value) {
+public T ownResourceInContext<T>(@Document(description: "The value whose owned host resource joins the current scope.") T value) {
   Any candidate = value
   switch candidate {
     case Resource resource {
@@ -32,6 +32,6 @@ public T ownResourceInContext<T>(T value) {
 }
 
 @Document(description: "Closes an owned host resource through its canonical lifetime record.")
-public Void closeHostResource(Resource resource) {
+public Void closeHostResource(@Document(description: "The owned host resource to close.") Resource resource) {
   __closeResource(resource: resource)
 }
