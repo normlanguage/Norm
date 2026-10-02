@@ -27,6 +27,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -41,6 +42,7 @@ public final class JvmJarBindingRuntime
     implements JarBindingRuntime, JavaApplicationRuntime, AutoCloseable {
   private static final Duration CLASS_LOADER_RETIREMENT_TIMEOUT = Duration.ofSeconds(5);
   private final Map<String, BoundCall> calls;
+  private final ClassCatalog classes;
   private final boolean ownsApplicationLoader;
   private ClassLoader applicationLoader;
   private Map<String, JavaDirectCall> applicationCalls = Map.of();
@@ -144,7 +146,7 @@ public final class JvmJarBindingRuntime
     this.applicationLoader = applicationLoader;
     this.ownsApplicationLoader = ownsApplicationLoader;
     try {
-      ClassCatalog classes = new ClassCatalog(applicationLoader, classLinker.get());
+      classes = new ClassCatalog(applicationLoader, classLinker.get());
       callables
           .get()
           .calls
@@ -163,6 +165,11 @@ public final class JvmJarBindingRuntime
       }
       throw failure;
     }
+  }
+
+  @Override
+  public List<JarBindingClassReference.Nominal> referenceCandidates(Object value) {
+    return classes.nominalReferences(value.getClass());
   }
 
   private static List<LinkedJarBinding> link(List<ResolvedJarBinding> bindings) {
@@ -609,7 +616,7 @@ public final class JvmJarBindingRuntime
               case ITERABLE, ITERATOR, COLLECTION, LIST, SET, MAP, OPAQUE ->
                   (classes, value) ->
                       new JarBindingResult.Reference(
-                          value, name, classes.nominalReferences(binaryName));
+                          value, name, classes.nominalReferences(value.getClass()));
               case OBJECT -> (classes, value) -> dynamicResult(value);
               case CHAR_SEQUENCE ->
                   (classes, value) -> new JarBindingResult.Scalar(value.toString());
@@ -1085,22 +1092,24 @@ public final class JvmJarBindingRuntime
       return candidates;
     }
 
-    private List<JarBindingClassReference.Nominal> nominalReferences(String binaryName) {
-      return references(load(binaryName)).stream()
-          .filter(JarBindingClassReference.Nominal.class::isInstance)
-          .map(JarBindingClassReference.Nominal.class::cast)
-          .toList();
-    }
-
     private synchronized List<JarBindingClassReference.Nominal> nominalReferences(
         Class<?> runtimeType) {
-      return references.entrySet().stream()
-          .filter(entry -> entry.getKey().isAssignableFrom(runtimeType))
-          .flatMap(entry -> entry.getValue().stream())
-          .filter(JarBindingClassReference.Nominal.class::isInstance)
-          .map(JarBindingClassReference.Nominal.class::cast)
-          .distinct()
-          .toList();
+      var pending = new ArrayDeque<Class<?>>();
+      var visited = new LinkedHashSet<Class<?>>();
+      var candidates = new LinkedHashSet<JarBindingClassReference.Nominal>();
+      pending.add(runtimeType);
+      while (!pending.isEmpty()) {
+        Class<?> current = pending.removeFirst();
+        if (!visited.add(current)) continue;
+        references.getOrDefault(current, List.of()).stream()
+            .filter(JarBindingClassReference.Nominal.class::isInstance)
+            .map(JarBindingClassReference.Nominal.class::cast)
+            .forEach(candidates::add);
+        Class<?> parent = current.getSuperclass();
+        if (parent != null) pending.addLast(parent);
+        Collections.addAll(pending, current.getInterfaces());
+      }
+      return List.copyOf(candidates);
     }
 
     private Object resolve(JarBindingEnumValue value) {

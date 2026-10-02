@@ -186,40 +186,9 @@ final class AnnotationRuntime {
     DefinitionId expectedId = resolveExternal(expectedUser.definition());
     for (JarBindingClassReference.Nominal candidate : candidates) {
       CoreDefinitionRecord record = nominalStructures.get(candidate);
-      if (record != null
-          && record.id().equals(expectedId)
-          && record.definition() instanceof CoreDefinition.Interface) {
-        return new CoreType.Declared(
-            expected.constructor(),
-            expected.arguments(),
-            expected.category(),
-            CoreNullability.NON_NULL);
-      }
-    }
-    for (JarBindingClassReference.Nominal candidate : candidates) {
-      CoreDefinitionRecord record = nominalStructures.get(candidate);
       if (record == null || !(record.definition() instanceof CoreDefinition.Aggregate aggregate)) {
         continue;
       }
-      boolean matchesExpected = record.id().equals(expectedId);
-      if (!matchesExpected) {
-        matchesExpected =
-            aggregate.conformances().stream()
-                .map(
-                    conformance ->
-                        CoreTypes.absolute(conformance.interfaceType(), record.id(), program))
-                .filter(CoreType.Declared.class::isInstance)
-                .map(CoreType.Declared.class::cast)
-                .map(CoreType.Declared::constructor)
-                .filter(CoreTypeConstructor.User.class::isInstance)
-                .map(CoreTypeConstructor.User.class::cast)
-                .map(CoreTypeConstructor.User::definition)
-                .filter(DefinitionReference.External.class::isInstance)
-                .map(DefinitionReference.External.class::cast)
-                .map(DefinitionReference.External::definition)
-                .anyMatch(expectedId::equals);
-      }
-      if (!matchesExpected) continue;
       DefinitionId runtimeDefinition =
           declarations.occurrences(record.id()).stream()
               .map(DefinitionOccurrenceId::representative)
@@ -237,11 +206,25 @@ final class AnnotationRuntime {
               ? expected.arguments()
               : java.util.Collections.nCopies(
                   runtimeAggregate.typeParameters().size(), CoreType.EXISTENTIAL);
-      return new CoreType.Declared(
-          new CoreTypeConstructor.User(new DefinitionReference.External(runtimeDefinition)),
-          arguments,
-          runtimeAggregate.valueCategory(),
-          CoreNullability.NON_NULL);
+      var projected =
+          new CoreType.Declared(
+              new CoreTypeConstructor.User(new DefinitionReference.External(runtimeDefinition)),
+              arguments,
+              runtimeAggregate.valueCategory(),
+              CoreNullability.NON_NULL);
+      if (typeRelations.isAssignable(expected, projected)) return projected;
+    }
+    for (JarBindingClassReference.Nominal candidate : candidates) {
+      CoreDefinitionRecord record = nominalStructures.get(candidate);
+      if (record != null
+          && record.id().equals(expectedId)
+          && record.definition() instanceof CoreDefinition.Interface) {
+        return new CoreType.Declared(
+            expected.constructor(),
+            expected.arguments(),
+            expected.category(),
+            CoreNullability.NON_NULL);
+      }
     }
     throw new IllegalArgumentException(
         "Java reference has no concrete Norm implementation for " + expectedType);

@@ -14,7 +14,7 @@ final class JavaValueAdapterTest {
         0x1F600,
         JavaValueAdapter.jarArgument(new RuntimeValues.CodePointValue(0x1F600), null, null));
     assertEquals("value", JavaValueAdapter.jarArgument("value", null, null));
-    assertEquals(42, JavaValueAdapter.jarValue(CoreType.INTEGER, 42, null));
+    assertEquals(42, JavaValueAdapter.jarValue(CoreType.INTEGER, 42, null, null));
     assertEquals(
         42,
         JavaValueAdapter.jarBindingValue(

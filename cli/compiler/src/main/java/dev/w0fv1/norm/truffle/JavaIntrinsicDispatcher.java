@@ -39,7 +39,8 @@ final class JavaIntrinsicDispatcher {
             return JavaValueAdapter.jarValue(
                 type,
                 values.get(CollectionBounds.index(second, values.size(), location)),
-                execution);
+                execution,
+                annotations);
           };
       case JAVA_LIST_SET ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -55,7 +56,7 @@ final class JavaIntrinsicDispatcher {
                 values.set(
                     CollectionBounds.index(second, values.size(), location),
                     JavaValueAdapter.jarArgument(third, execution));
-            return JavaValueAdapter.jarValue(type, previous, execution);
+            return JavaValueAdapter.jarValue(type, previous, execution, annotations);
           };
       case JAVA_LIST_REMOVE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -67,7 +68,7 @@ final class JavaIntrinsicDispatcher {
             }
             List<Object> values = javaList(first);
             Object removed = values.remove(CollectionBounds.index(second, values.size(), location));
-            return JavaValueAdapter.jarValue(type, removed, execution);
+            return JavaValueAdapter.jarValue(type, removed, execution, annotations);
           };
       case JAVA_COLLECTION_CONTAINS ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -109,7 +110,8 @@ final class JavaIntrinsicDispatcher {
             if (execution == null || type == null) {
               throw new IllegalStateException("Java iterator element type is unavailable");
             }
-            return JavaValueAdapter.jarValue(type, javaIterator(first).next(), execution);
+            return JavaValueAdapter.jarValue(
+                type, javaIterator(first).next(), execution, annotations);
           };
       case JAVA_MAP_NEW ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -140,7 +142,8 @@ final class JavaIntrinsicDispatcher {
             return JavaValueAdapter.jarValue(
                 type,
                 javaMap(first).get(JavaValueAdapter.jarArgument(second, execution)),
-                execution);
+                execution,
+                annotations);
           };
       case JAVA_MAP_PUT ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -156,7 +159,7 @@ final class JavaIntrinsicDispatcher {
                     .put(
                         JavaValueAdapter.jarArgument(second, execution),
                         JavaValueAdapter.jarArgument(third, execution));
-            return JavaValueAdapter.jarValue(type, previous, execution);
+            return JavaValueAdapter.jarValue(type, previous, execution, annotations);
           };
       case JAVA_MAP_REMOVE ->
           (receiver, arguments, type, context, location, annotations, execution) -> {
@@ -169,7 +172,8 @@ final class JavaIntrinsicDispatcher {
             return JavaValueAdapter.jarValue(
                 type,
                 javaMap(first).remove(JavaValueAdapter.jarArgument(second, execution)),
-                execution);
+                execution,
+                annotations);
           };
       case JAR_INVOKE, JAR_INVOKE_VOID ->
           (receiver, arguments, type, context, location, annotations, execution) -> {

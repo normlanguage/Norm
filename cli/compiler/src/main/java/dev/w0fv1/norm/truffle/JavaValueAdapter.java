@@ -93,7 +93,8 @@ final class JavaValueAdapter {
     return value;
   }
 
-  static Object jarValue(CoreType type, Object value, ExecutionState execution) {
+  static Object jarValue(
+      CoreType type, Object value, ExecutionState execution, AnnotationRuntime annotations) {
     if (value == null) return RuntimeValues.NullValue.INSTANCE;
     Object guest = mappedGuest(value, execution);
     if (guest != null) return guest;
@@ -127,7 +128,15 @@ final class JavaValueAdapter {
     if (value instanceof java.io.File file) {
       return execution.values().javaPathValue(concrete, file.getPath(), execution);
     }
-    return execution.values().opaque(concrete, value, value.getClass().getName());
+    return jarBindingValue(
+        concrete,
+        new JarBindingResult.Reference(
+            value,
+            value.getClass().getName(),
+            execution.context().jarBindingRuntime().referenceCandidates(value)),
+        annotations,
+        execution,
+        null);
   }
 
   static Object jarBindingValue(
