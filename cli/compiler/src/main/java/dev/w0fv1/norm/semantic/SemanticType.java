@@ -141,6 +141,11 @@ public record SemanticType(
     return isReference() || arguments.stream().anyMatch(SemanticType::containsReference);
   }
 
+  public boolean containsTypeParameter() {
+    return kind == Kind.TYPE_PARAMETER
+        || arguments.stream().anyMatch(SemanticType::containsTypeParameter);
+  }
+
   public SemanticType referenceTarget() {
     if (!isReference()) throw new IllegalStateException("type is not a reference");
     return arguments.getFirst();

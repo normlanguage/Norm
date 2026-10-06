@@ -393,8 +393,13 @@ final class TypeResolver {
     return typeRelations.isAssignable(expected, actual);
   }
 
-  Optional<SemanticType> commonType(SemanticType left, SemanticType right) {
-    return typeRelations.commonType(left, right);
+  Optional<SemanticType> commonType(
+      SemanticType left,
+      SemanticType right,
+      SemanticType inferenceVariable,
+      Map<String, SemanticType> substitutions) {
+    return typeRelations.commonType(
+        left, right, typeRelations.upperBound(inferenceVariable, substitutions).orElse(null));
   }
 
   SemanticType receiverType(SemanticType type, boolean nullSafe, SourceSpan span) {

@@ -93,11 +93,40 @@ public final class TypeRelations {
     }
 
     public Optional<SemanticType> commonType(SemanticType left, SemanticType right) {
+      return commonType(left, right, null);
+    }
+
+    public Optional<SemanticType> upperBound(SemanticType parameter) {
+      return parameter != null && parameter.kind() == SemanticType.Kind.TYPE_PARAMETER
+          ? parents.apply(parameter.nonNullable()).stream().findFirst()
+          : Optional.empty();
+    }
+
+    public Optional<SemanticType> upperBound(
+        SemanticType parameter, java.util.Map<String, SemanticType> substitutions) {
+      var visited = new java.util.HashSet<String>();
+      SemanticType current = parameter;
+      while (current != null
+          && current.kind() == SemanticType.Kind.TYPE_PARAMETER
+          && visited.add(current.identity())) {
+        current = upperBound(current).map(bound -> bound.substitute(substitutions)).orElse(null);
+      }
+      return current != null && current.kind() != SemanticType.Kind.TYPE_PARAMETER
+          ? Optional.of(current)
+          : Optional.empty();
+    }
+
+    public Optional<SemanticType> commonType(
+        SemanticType left, SemanticType right, SemanticType upperBound) {
       Optional<SemanticType> direct = TypeRelations.commonType(left, right);
       if (direct.isPresent()) return direct;
       SemanticType first = left.nonNullable();
       SemanticType second = right.nonNullable();
-      var shared = views(first).stream().filter(view -> isAssignable(view, second)).toList();
+      var shared =
+          views(first).stream()
+              .filter(view -> isAssignable(view, second))
+              .filter(view -> upperBound == null || isAssignable(upperBound, view))
+              .toList();
       var specific =
           shared.stream()
               .filter(

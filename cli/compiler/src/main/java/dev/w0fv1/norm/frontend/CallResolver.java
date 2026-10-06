@@ -392,12 +392,7 @@ final class CallResolver {
         if (argument instanceof Syntax.ArrayLiteral
             && probeExpected == null
             && builtins.resolveCollectionLiteral(pattern).isPresent()) {
-          probeExpected =
-              pattern.substitute(
-                  callableParameterIds.stream()
-                      .collect(
-                          java.util.stream.Collectors.toMap(
-                              identity -> identity, identity -> SemanticType.DYNAMIC)));
+          probeExpected = pattern;
         }
         if (argument instanceof Syntax.Lambda && probeExpected != null) {
           probeExpected = probeExpected.substitute(solver.solve().substitutions());
