@@ -111,7 +111,10 @@ final class CollectionAnalyzer {
         }
       }
     }
-    SemanticType inferredElement = elementType == null ? SemanticType.DYNAMIC : elementType;
+    SemanticType inferredElement =
+        elementType != null ? elementType
+            : contributions.isEmpty() && expectedElement != null ? expectedElement
+            : SemanticType.DYNAMIC;
     if (inferredElement.containsReference()) {
       diagnostics.error(TYPE_MISMATCH, "collection element type cannot contain ref", array.span());
       return SemanticType.DYNAMIC;
