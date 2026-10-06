@@ -15,13 +15,42 @@ final class JavaAnnotationShape {
       CoreProgram program,
       CoreBinding binding,
       Map<JarBindingClassReference.Nominal, String> javaTypes) {
-    if (!(binding.shape() instanceof CoreBindingShape.Aggregate shape)) return false;
-    return shape.typeParameters().isEmpty()
-        && shape.fields().stream()
-            .allMatch(
-                field ->
-                    elementType(program, binding.definition(), field.type(), javaTypes)
-                        .isPresent());
+    return program.definition(binding.definition()).orElseThrow()
+            instanceof CoreDefinition.Aggregate annotation
+        && representable(program, binding.definition(), annotation, javaTypes, new HashSet<>());
+  }
+
+  private static boolean representable(
+      CoreProgram program,
+      DefinitionId owner,
+      CoreDefinition.Aggregate annotation,
+      Map<JarBindingClassReference.Nominal, String> javaTypes,
+      Set<DefinitionId> visited) {
+    if (annotation.kind() != CoreAggregateKind.ANNOTATION
+        || !annotation.typeParameters().isEmpty()
+        || annotation.constructors().size() != 1
+        || !visited.add(owner)) return false;
+    try {
+      if (!(annotation.constructors().getFirst() instanceof DefinitionReference reference)
+          || !(program.definition(program.resolve(owner, reference)).orElseThrow()
+              instanceof CoreDefinition.Callable constructor)
+          || constructor.parameters().size() != annotation.fields().size()) return false;
+      for (int index = 0; index < annotation.fields().size(); index++) {
+        var field = annotation.fields().get(index);
+        var parameter = constructor.parameters().get(index);
+        if (field.visibility() != CoreVisibility.PUBLIC
+            || !field.name().equals(parameter.name())
+            || !CoreTypes.absolute(field.type(), owner, program)
+                .equals(
+                    CoreTypes.absolute(
+                        parameter.type(), program.resolve(owner, reference), program))
+            || elementType(program, owner, field.type(), javaTypes, visited).isEmpty())
+          return false;
+      }
+      return true;
+    } finally {
+      visited.remove(owner);
+    }
   }
 
   static Optional<String> elementType(
@@ -71,17 +100,9 @@ final class JavaAnnotationShape {
       nominal = enumeration.nominalType();
     } else if (declaration instanceof CoreDefinition.Aggregate annotation
         && annotation.kind() == CoreAggregateKind.ANNOTATION) {
-      if (!declared.arguments().isEmpty() || !annotation.typeParameters().isEmpty())
+      if (!declared.arguments().isEmpty()
+          || !representable(program, reference.definition(), annotation, javaTypes, visited))
         return Optional.empty();
-      if (!visited.add(reference.definition())) return Optional.empty();
-      boolean representable =
-          annotation.fields().stream()
-              .allMatch(
-                  field ->
-                      elementType(program, reference.definition(), field.type(), javaTypes, visited)
-                          .isPresent());
-      visited.remove(reference.definition());
-      if (!representable) return Optional.empty();
       nominal = annotation.nominalType();
     } else return Optional.empty();
     return Optional.of(
