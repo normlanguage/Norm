@@ -35,7 +35,7 @@ public sealed class RuntimeLauncherTest : IDisposable
 
         ProcessStartInfo start = RuntimeLauncher.CreateApplicationStartInfo(root, application, ["a  b", "--json"]);
 
-        Assert.Equal(["--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry, "--", "a  b", "--json"], start.ArgumentList);
+        Assert.Equal(["--add-modules=ALL-DEFAULT", "--module-path", Path.Combine(root, "lib"), "--module", "norm/main", "run", application.Entry, "--", "a  b", "--json"], start.ArgumentList);
         Assert.Equal(application.Root, start.Environment["NORM_APPLICATION_BUNDLE"]);
     }
 
