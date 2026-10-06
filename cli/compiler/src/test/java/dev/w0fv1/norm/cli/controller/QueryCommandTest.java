@@ -138,13 +138,26 @@ final class QueryCommandTest {
         module.resolve("tests/case.norm"),
         "package queried import std.testing.Test @Test(functions: [answer.function]) Void verifies() { require(condition: answer() == 42, message: \"answer\") }");
     var result = run("query", module.toString());
+    assertEquals(0, result.get("exitCode").getAsInt(), result.toString());
     var data = result.getAsJsonObject("query");
-    assertEquals(
-        "queried",
-        data.getAsJsonArray("modules").get(0).getAsJsonObject().get("name").getAsString());
+    var modules = data.getAsJsonArray("modules").asList();
+    var queried =
+        modules.stream()
+            .map(item -> item.getAsJsonObject())
+            .filter(item -> item.get("name").getAsString().equals("queried"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(1, queried.get("version").getAsInt());
+    assertTrue(
+        modules.stream()
+            .anyMatch(
+                item -> item.getAsJsonObject().get("name").getAsString().equals("java.base")));
     assertTrue(
         data.getAsJsonArray("documents").asList().stream()
-            .anyMatch(item -> item.getAsJsonObject().get("testSource").getAsBoolean()));
+            .anyMatch(
+                item ->
+                    item.getAsJsonObject().get("testSource").getAsBoolean()
+                        && item.getAsJsonObject().get("module").getAsString().equals("queried")));
     var context = run("query", module.toString(), "queried.answer", "--tests");
     assertEquals(
         1,
