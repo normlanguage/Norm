@@ -57,7 +57,7 @@ norm build --jvm web.norm
 
 `--jvm` is a development and compatibility target and does not change default publication semantics. The first complete Native Image build of a framework application may take several minutes; that is a build-time cost. The generated program no longer pays for JVM startup, dependency resolution, or unpacking at launch.
 
-JVM artifacts contain the compiled Core program, Java classes, resources, dependencies, and JVM. Startup loads the executable artifact directly without reparsing application sources or initializing the compiler. It shares the [PreparedApplication](../../cli/compiler/src/main/java/dev/w0fv1/norm/runtime/PreparedApplication.java) runtime entry point with artifacts prepared by `norm run`. See [Startup Performance](/design/startup-performance) for input reuse and invalidation boundaries.
+JVM artifacts contain the compiled Core program, Java classes, resources, dependencies, and JVM. The Windows application launcher resolves the bundled system modules so Java library dependencies can use JDK APIs without external JVM environment flags; see [RuntimeLauncher](../../cli/launcher/Norm.Launcher/RuntimeLauncher.cs). Startup loads the executable artifact directly without reparsing application sources or initializing the compiler. It shares the [PreparedApplication](../../cli/compiler/src/main/java/dev/w0fv1/norm/runtime/PreparedApplication.java) runtime entry point with artifacts prepared by `norm run`. See [Startup Performance](/design/startup-performance) for input reuse and invalidation boundaries.
 
 [JavaModulePath](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaModulePath.java) derives build-time module reads for Native Image features in explicit Java modules.
 

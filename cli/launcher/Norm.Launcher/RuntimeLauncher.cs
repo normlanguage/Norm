@@ -46,6 +46,7 @@ internal sealed class RuntimeLauncher
     internal static ProcessStartInfo CreateApplicationStartInfo(string runtimeDirectory, EmbeddedApplication application, IReadOnlyList<string> arguments)
     {
         ProcessStartInfo start = CreateStartInfo(runtimeDirectory, ["run", application.Entry, "--", .. arguments]);
+        start.ArgumentList.Insert(0, "--add-modules=ALL-DEFAULT");
         start.Environment["NORM_APPLICATION_BUNDLE"] = application.Root;
         start.Environment["NORM_APPLICATION_EXECUTABLE"] = Environment.ProcessPath;
         return start;
