@@ -13,7 +13,7 @@ public record PublishedJarBinding(
     JarApiSchema api,
     GeneratedJarBinding generated,
     Map<String, JarBindingClassReference.Nominal> imports) {
-  public static final String ABI = "norm-java-binding-3";
+  public static final String ABI = "norm-java-binding-4";
   public static final String ENTRY = "binding/prepared.bin";
 
   public PublishedJarBinding {
@@ -37,18 +37,14 @@ public record PublishedJarBinding(
   }
 
   public static boolean isReadable(String abi) {
-    return ABI.equals(abi) || "norm-java-binding-2".equals(abi);
+    return ABI.equals(abi);
   }
 
   public static PublishedJarBinding decode(
       byte[] bytes, ModuleDescriptor descriptor, Sha256Digest apiId, String abi)
       throws IOException {
     if (!isReadable(abi)) throw new IOException("unsupported published Java binding ABI");
-    var binding =
-        ABI.equals(abi)
-            ? PortableObjectCodec.decodeDeterministic(bytes, PublishedJarBinding.class)
-            : PortableObjectCodec.decodeDeterministic(
-                bytes, PublishedJarBinding.class, PublishedBindingAbi2.serializers());
+    var binding = PortableObjectCodec.decodeDeterministic(bytes, PublishedJarBinding.class);
     if (!binding.descriptor().equals(descriptor) || !binding.api().apiId().equals(apiId))
       throw new IOException("published Java binding does not match its module manifest");
     return binding;

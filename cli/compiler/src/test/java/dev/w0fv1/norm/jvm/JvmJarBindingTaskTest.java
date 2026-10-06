@@ -7,7 +7,6 @@ import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -49,12 +48,7 @@ final class JvmJarBindingTaskTest {
   @Test
   void finishesUnstartedCancelledAndRejectedExecutions() throws Exception {
     var ready = new CompletableFuture<String>();
-    var cancelled =
-        FutureBindingTask.after(
-            ready,
-            () -> "never",
-            JarBindingResult.Scalar::new,
-            java.util.function.Function.identity());
+    var cancelled = FutureBindingTask.after(ready, () -> "never", JarBindingResult.Scalar::new);
     assertTrue(cancelled.cancel());
     cancelled.ownedTermination().orElseThrow().toCompletableFuture().get(5, TimeUnit.SECONDS);
     var rejected =
@@ -62,7 +56,6 @@ final class JvmJarBindingTaskTest {
             ready,
             () -> "never",
             JarBindingResult.Scalar::new,
-            java.util.function.Function.identity(),
             action -> {
               throw new java.util.concurrent.RejectedExecutionException("closed");
             });
@@ -70,7 +63,7 @@ final class JvmJarBindingTaskTest {
     rejected.ownedTermination().orElseThrow().toCompletableFuture().get(5, TimeUnit.SECONDS);
     assertTrue(rejected.completed());
     assertTrue(
-        new FutureBindingTask(
+        FutureBindingTask.fromCompletion(
                 CompletableFuture.completedFuture("host"), JarBindingResult.Scalar::new)
             .ownedTermination()
             .isEmpty());
@@ -80,12 +73,7 @@ final class JvmJarBindingTaskTest {
   void deliversDependentWorkOnTheSelectedQueueAndCancelsQueuedActions() throws Exception {
     var queue = new java.util.concurrent.LinkedBlockingQueue<Runnable>();
     var deliveryThread = Thread.currentThread();
-    var parent =
-        FutureBindingTask.start(
-            () -> "ready",
-            JarBindingResult.Scalar::new,
-            java.util.function.Function.identity(),
-            queue::add);
+    var parent = FutureBindingTask.start(() -> "ready", JarBindingResult.Scalar::new, queue::add);
     var calls = new AtomicInteger();
     var child =
         FutureBindingTask.after(
@@ -96,7 +84,6 @@ final class JvmJarBindingTaskTest {
               return "delivered";
             },
             JarBindingResult.Scalar::new,
-            java.util.function.Function.identity(),
             parent.continuationExecutor());
     var action = queue.poll(5, TimeUnit.SECONDS);
     assertNotNull(action);
@@ -112,7 +99,6 @@ final class JvmJarBindingTaskTest {
               return "cancelled";
             },
             JarBindingResult.Scalar::new,
-            java.util.function.Function.identity(),
             child.continuationExecutor());
     var queued = queue.poll(5, TimeUnit.SECONDS);
     assertNotNull(queued);
@@ -133,7 +119,6 @@ final class JvmJarBindingTaskTest {
             ready,
             () -> "unreachable",
             JarBindingResult.Scalar::new,
-            java.util.function.Function.identity(),
             action -> {
               throw rejection;
             });
@@ -159,8 +144,7 @@ final class JvmJarBindingTaskTest {
               calls.incrementAndGet();
               return ready.join();
             },
-            JarBindingResult.Scalar::new,
-            java.util.function.Function.identity());
+            JarBindingResult.Scalar::new);
     var cancelled =
         FutureBindingTask.after(
             ready,
@@ -168,8 +152,7 @@ final class JvmJarBindingTaskTest {
               calls.addAndGet(100);
               return "cancelled";
             },
-            JarBindingResult.Scalar::new,
-            java.util.function.Function.identity());
+            JarBindingResult.Scalar::new);
     assertEquals(0, calls.get());
     assertFalse(task.completed());
     assertTrue(cancelled.cancel());
@@ -184,49 +167,7 @@ final class JvmJarBindingTaskTest {
   }
 
   @Test
-  void keepsGuestResultsSeparateFromTheExportedJavaCompletionStage() throws Exception {
-    var guest = new Object();
-    var exports = new AtomicInteger();
-    var task =
-        FutureBindingTask.start(
-            () -> guest,
-            JarBindingResult.Scalar::new,
-            value -> {
-              assertSame(guest, value);
-              exports.incrementAndGet();
-              return "Java Todo";
-            });
-    assertSame(guest, ((JarBindingResult.Scalar) task.await()).value());
-    var host = assertInstanceOf(java.util.concurrent.CompletionStage.class, task.hostValue());
-    assertEquals("Java Todo", host.toCompletableFuture().get(5, TimeUnit.SECONDS));
-    assertSame(host, task.hostValue());
-    assertSame(guest, ((JarBindingResult.Scalar) task.await()).value());
-    assertEquals(1, exports.get());
-    task.close();
-  }
-
-  @Test
-  void isolatesHostConversionFailureFromTheGuestResult() {
-    var failure = new IllegalStateException("cannot export");
-    var task =
-        FutureBindingTask.start(
-            () -> "guest",
-            JarBindingResult.Scalar::new,
-            value -> {
-              throw failure;
-            });
-    var host = (java.util.concurrent.CompletionStage<?>) task.hostValue();
-    assertSame(
-        failure,
-        assertThrows(CompletionException.class, () -> host.toCompletableFuture().join())
-            .getCause());
-    assertEquals(new JarBindingResult.Scalar("guest"), task.await());
-    task.close();
-  }
-
-  @org.junit.jupiter.params.ParameterizedTest
-  @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
-  void startsWorkOnAVirtualThreadAndCancelsTheActualWorker(boolean throughHost) throws Exception {
+  void startsWorkOnAVirtualThreadAndCancelsTheActualWorker() throws Exception {
     var started = new CompletableFuture<Boolean>();
     var interrupted = new CompletableFuture<Boolean>();
     var gate = new java.util.concurrent.CountDownLatch(1);
@@ -247,14 +188,10 @@ final class JvmJarBindingTaskTest {
       assertTrue(started.get(5, TimeUnit.SECONDS));
       assertFalse(task.completed());
       var notification = task.completion().toCompletableFuture();
-      assertTrue(
-          throughHost
-              ? ((java.util.concurrent.Future<?>) task.hostValue()).cancel(true)
-              : task.cancel());
+      assertTrue(task.cancel());
       assertTrue(interrupted.get(5, TimeUnit.SECONDS));
       assertTrue(task.completed());
       assertThrows(CompletionException.class, notification::join);
-      assertTrue(((java.util.concurrent.Future<?>) task.hostValue()).isCancelled());
     } finally {
       gate.countDown();
       task.close();
@@ -275,7 +212,6 @@ final class JvmJarBindingTaskTest {
     assertEquals(new JarBindingResult.Scalar("Todo"), result);
     assertSame(result, task.await());
     assertEquals(1, calls.get());
-    assertEquals("Todo", ((java.util.concurrent.Future<?>) task.hostValue()).get());
     var failure = new IllegalStateException("query failed");
     var failed =
         FutureBindingTask.start(
@@ -284,25 +220,25 @@ final class JvmJarBindingTaskTest {
             },
             JarBindingResult.Scalar::new);
     assertSame(failure, assertThrows(JarBindingInvocationException.class, failed::await).failure());
-    var failedHost = (java.util.concurrent.CompletionStage<?>) failed.hostValue();
+    var failedResult = failed.completion();
     assertSame(
         failure,
-        assertThrows(CompletionException.class, () -> failedHost.toCompletableFuture().join())
+        assertThrows(CompletionException.class, () -> failedResult.toCompletableFuture().join())
             .getCause());
     task.close();
     failed.close();
   }
 
   @Test
-  void supportsCompletionStageViewsAndNotifiesCancellationOfTheirProjection() throws Exception {
+  void supportsCompletionSignalsAndNotifiesCancellationOfTheirTasks() throws Exception {
     var view = CompletableFuture.completedFuture("任务").minimalCompletionStage();
-    var completed = new FutureBindingTask(view, JarBindingResult.Scalar::new);
+    var completed = FutureBindingTask.fromCompletion(view, JarBindingResult.Scalar::new);
     assertTrue(completed.completed());
     assertEquals(new JarBindingResult.Scalar("任务"), completed.await());
-    assertEquals("任务", ((java.util.concurrent.Future<?>) completed.hostValue()).get());
     var source = new CompletableFuture<String>();
     var pending =
-        new FutureBindingTask(source.minimalCompletionStage(), JarBindingResult.Scalar::new);
+        FutureBindingTask.fromCompletion(
+            source.minimalCompletionStage(), JarBindingResult.Scalar::new);
     var notification = pending.completion().toCompletableFuture();
     assertTrue(pending.cancel());
     assertTrue(notification.isDone());
@@ -316,7 +252,7 @@ final class JvmJarBindingTaskTest {
     var source = new CompletableFuture<String>();
     var conversions = new AtomicInteger();
     var task =
-        new FutureBindingTask(
+        FutureBindingTask.fromCompletion(
             source,
             value -> {
               conversions.incrementAndGet();
@@ -329,13 +265,12 @@ final class JvmJarBindingTaskTest {
     assertSame(result, task.completion().toCompletableFuture().get(5, TimeUnit.SECONDS));
     assertSame(result, task.await());
     assertEquals(1, conversions.get());
-    assertSame(source, task.hostValue());
   }
 
   @Test
   void isolatesSubscribersFromTaskOwnershipAndEachOther() {
     var source = new CompletableFuture<String>();
-    var task = new FutureBindingTask(source, JarBindingResult.Scalar::new);
+    var task = FutureBindingTask.fromCompletion(source, JarBindingResult.Scalar::new);
     var cancelledSubscription = task.completion().toCompletableFuture();
     cancelledSubscription.cancel(true);
     assertFalse(source.isCancelled());
@@ -360,7 +295,7 @@ final class JvmJarBindingTaskTest {
     var conversions = new AtomicInteger();
     var failure = new IllegalArgumentException("invalid result");
     var task =
-        new FutureBindingTask(
+        FutureBindingTask.fromCompletion(
             CompletableFuture.completedFuture("任务"),
             value -> {
               conversions.incrementAndGet();
@@ -376,28 +311,9 @@ final class JvmJarBindingTaskTest {
   }
 
   @Test
-  void waitsForPlainFutureOnAVirtualThread() throws Exception {
-    var virtualWait = new CompletableFuture<Boolean>();
-    var source =
-        new FutureTask<String>(() -> "完成") {
-          @Override
-          public String get() throws java.util.concurrent.ExecutionException, InterruptedException {
-            virtualWait.complete(Thread.currentThread().isVirtual());
-            return super.get();
-          }
-        };
-    var task = new FutureBindingTask(source, JarBindingResult.Scalar::new);
-    var result = task.completion().toCompletableFuture();
-    assertTrue(virtualWait.get(5, TimeUnit.SECONDS));
-    assertFalse(result.isDone());
-    source.run();
-    assertEquals(new JarBindingResult.Scalar("完成"), result.get(5, TimeUnit.SECONDS));
-  }
-
-  @Test
   void preservesFailureAndCancellationAcrossBothResultApis() {
     var source = new CompletableFuture<String>();
-    var task = new FutureBindingTask(source, JarBindingResult.Scalar::new);
+    var task = FutureBindingTask.fromCompletion(source, JarBindingResult.Scalar::new);
     var failure = new IllegalStateException("查询失败");
     source.completeExceptionally(new CompletionException(failure));
     assertSame(
@@ -407,7 +323,7 @@ final class JvmJarBindingTaskTest {
             .getCause());
     assertSame(failure, assertThrows(JarBindingInvocationException.class, task::await).failure());
     var pending = new CompletableFuture<String>();
-    var cancelled = new FutureBindingTask(pending, JarBindingResult.Scalar::new);
+    var cancelled = FutureBindingTask.fromCompletion(pending, JarBindingResult.Scalar::new);
     var notification = cancelled.completion().toCompletableFuture();
     cancelled.close();
     assertTrue(pending.isCancelled());

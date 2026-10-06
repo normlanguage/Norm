@@ -48,22 +48,10 @@ public final class PortableObjectCodec {
     return decode(bytes, type, true);
   }
 
-  public static <T> T decodeDeterministic(
-      byte[] bytes, Class<T> type, Map<Class<?>, Serializer<?>> serializers) throws IOException {
-    return decode(bytes, type, true, serializers);
-  }
-
   private static <T> T decode(byte[] bytes, Class<T> type, boolean deterministic)
-      throws IOException {
-    return decode(bytes, type, deterministic, Map.of());
-  }
-
-  private static <T> T decode(
-      byte[] bytes, Class<T> type, boolean deterministic, Map<Class<?>, Serializer<?>> serializers)
       throws IOException {
     try (Input input = new Input(bytes)) {
       Kryo codec = kryo(deterministic);
-      serializers.forEach(codec::addDefaultSerializer);
       T value = codec.readObject(input, type);
       if (input.position() != bytes.length) throw new IOException("artifact has trailing content");
       return value;

@@ -13,8 +13,6 @@ public interface JarBindingTask extends AutoCloseable {
 
   boolean completed();
 
-  Object hostValue();
-
   @Override
   void close();
 }

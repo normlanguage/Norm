@@ -119,6 +119,154 @@ final class JavaStubPlannerTest {
     assertTrue(excluded.types().isEmpty());
   }
 
+  @Test
+  void retainsNativeAnnotationMetadataWithoutInventingJavaAnnotationDefaults() throws Exception {
+    var nativeSource =
+        SourceFile.of(
+            Path.of("native-annotation.norm"),
+            """
+        package annotation.shape
+        import std.annotation.TypeTarget
+        import std.annotation.RuntimeRetention
+        annotation NativeOnly implements TypeTarget, RuntimeRetention {
+          String? note
+        }
+        annotation JavaVisible implements TypeTarget, RuntimeRetention {
+          String text
+          List<String> tags
+        }
+        @NativeOnly()
+        @JavaVisible(text: "visible", tags: ["a", "b"])
+        class Example { NativeOnly? nativeNote }
+        Void main() {}
+        """);
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var compiler = environment.compilerSession()) {
+      var result = compiler.compile(nativeSource);
+      assertTrue(result.isSuccess(), result.diagnostics().toString());
+      var nativeArtifact = result.output().orElseThrow().artifact();
+      var nativeId =
+          nativeArtifact.namespace().bindings().stream()
+              .filter(binding -> binding.name().equals("NativeOnly"))
+              .findFirst()
+              .orElseThrow()
+              .definition();
+      assertTrue(
+          JavaAnnotationShape.elementType(
+                  nativeArtifact.program(),
+                  nativeId,
+                  dev.w0fv1.norm.core.CoreType.VOID,
+                  java.util.Map.of())
+              .isEmpty());
+      assertTrue(
+          nativeArtifact.metadata().annotations().stream()
+              .filter(application -> application.annotation().equals(nativeId))
+              .anyMatch(
+                  application ->
+                      application.values().getFirst().value()
+                          == dev.w0fv1.norm.core.CoreAnnotationValue.Null.INSTANCE));
+      var plan =
+          new JavaStubPlanner()
+              .plan(
+                  nativeArtifact,
+                  environment.javaBindings(),
+                  CompilationScope.anonymous(List.of(nativeSource)),
+                  nativeSource.id(),
+                  Set.of());
+      var nativeType =
+          plan.types().stream()
+              .filter(type -> type.name().equals("NativeOnly"))
+              .findFirst()
+              .orElseThrow();
+      assertEquals(JavaStubPlan.TypeKind.VALUE, nativeType.kind());
+      var example =
+          plan.types().stream()
+              .filter(type -> type.name().equals("Example"))
+              .findFirst()
+              .orElseThrow();
+      assertFalse(
+          example.annotations().stream()
+              .anyMatch(annotation -> annotation.binaryName().endsWith("NativeOnly")));
+      assertTrue(
+          example.annotations().stream()
+              .anyMatch(annotation -> annotation.binaryName().endsWith("JavaVisible")));
+      var stubs = new JavaStubRenderer().render(plan);
+      assertTrue(stubs.stream().anyMatch(stub -> stub.source().contains("@interface JavaVisible")));
+      assertTrue(
+          stubs.stream().anyMatch(stub -> stub.source().contains("java.lang.String[] tags();")));
+      assertTrue(stubs.stream().anyMatch(stub -> stub.source().contains("class NativeOnly")));
+    }
+  }
+
+  @Test
+  void plansOnlyJavaContractsAndTheirRequiredNominalSignatures() throws Exception {
+    var contractSource =
+        SourceFile.of(
+            Path.of("java-contract-roots.norm"),
+            """
+        package contract.roots
+        import std.concurrent.Task
+        import java.base.util.function.Supplier
+        import java.base.util.optionalOf
+        import java.base.util.JavaList
+        import java.base.util.arrayListNew
+        interface Unused<T> { Boolean equals(T other) }
+        class IntegerSupplier implements Supplier<Integer> {
+          Task<Integer>? work = null
+          Integer get() { 42 }
+        }
+        class Reflected { String name }
+        class NativeReflection { String name }
+        class InterfaceReflected { String name }
+        Void inspect<T>(Class<T> type) { var value = optionalOf(arg0: type) }
+        Void main() {
+          inspect(type: Reflected.class)
+          JavaList<Class<InterfaceReflected>> tokens = arrayListNew<Class<InterfaceReflected>>()
+          tokens.add(arg0: InterfaceReflected.class)
+          var nativeType = NativeReflection.class
+        }
+        """);
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var compiler = environment.compilerSession()) {
+      var result = compiler.compile(contractSource);
+      assertTrue(result.isSuccess(), result.diagnostics().toString());
+      var plan =
+          new JavaStubPlanner()
+              .plan(
+                  result.output().orElseThrow().artifact(),
+                  environment.javaBindings(),
+                  CompilationScope.anonymous(List.of(contractSource)),
+                  contractSource.id(),
+                  Set.of());
+      assertFalse(plan.types().stream().anyMatch(type -> type.name().equals("Unused")));
+      assertTrue(plan.types().stream().anyMatch(type -> type.name().equals("Reflected")));
+      assertFalse(plan.types().stream().anyMatch(type -> type.name().equals("NativeReflection")));
+      assertTrue(plan.types().stream().anyMatch(type -> type.name().equals("InterfaceReflected")));
+      var supplier =
+          plan.types().stream()
+              .filter(type -> type.name().equals("IntegerSupplier"))
+              .findFirst()
+              .orElseThrow();
+      assertFalse(
+          plan.types().stream().anyMatch(type -> type.binaryName().equals("std.concurrent.Task")));
+      assertEquals(
+          "java.lang.@org.jspecify.annotations.Nullable Object",
+          supplier.fields().stream()
+              .filter(field -> field.name().equals("work"))
+              .findFirst()
+              .orElseThrow()
+              .type());
+      assertTrue(supplier.interfaces().contains("java.util.function.Supplier<java.lang.Integer>"));
+      assertEquals(
+          "java.lang.Integer",
+          supplier.callables().stream()
+              .filter(call -> call.name().equals("get"))
+              .findFirst()
+              .orElseThrow()
+              .returnType());
+    }
+  }
+
   private static JavaStubPlan plan() {
     return new JavaStubPlanner()
         .plan(

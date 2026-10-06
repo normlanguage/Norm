@@ -6,31 +6,19 @@ import java.util.Objects;
 public sealed interface JarBindingResult
     permits JarBindingResult.Null,
         JarBindingResult.ClassReference,
-        JarBindingResult.DurationValue,
         JarBindingResult.EnumReference,
-        JarBindingResult.ExceptionReference,
-        JarBindingResult.PathValue,
         JarBindingResult.Reference,
         JarBindingResult.ResourceClosed,
         JarBindingResult.ResourceReference,
         JarBindingResult.BorrowedReference,
         JarBindingResult.ReceiverAlias,
         JarBindingResult.Scalar,
-        JarBindingResult.UriValue,
         JarBindingResult.Void {
   record ClassReference(List<JarBindingClassReference> candidates) implements JarBindingResult {
     public ClassReference {
       candidates = List.copyOf(candidates);
       if (candidates.isEmpty()) {
         throw new IllegalArgumentException("JAR class result requires a Norm class candidate");
-      }
-    }
-  }
-
-  record DurationValue(long seconds, int nanoseconds) implements JarBindingResult {
-    public DurationValue {
-      if (nanoseconds < 0 || nanoseconds > 999_999_999) {
-        throw new IllegalArgumentException("nanoseconds must be within 0..999999999");
       }
     }
   }
@@ -58,24 +46,6 @@ public sealed interface JarBindingResult
 
     public Reference(Object value, String displayName) {
       this(value, displayName, List.of());
-    }
-  }
-
-  record ExceptionReference(Throwable value) implements JarBindingResult {
-    public ExceptionReference {
-      Objects.requireNonNull(value, "value");
-    }
-  }
-
-  record PathValue(String value) implements JarBindingResult {
-    public PathValue {
-      Objects.requireNonNull(value, "value");
-    }
-  }
-
-  record UriValue(String value) implements JarBindingResult {
-    public UriValue {
-      Objects.requireNonNull(value, "value");
     }
   }
 

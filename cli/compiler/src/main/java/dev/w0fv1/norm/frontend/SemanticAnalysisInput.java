@@ -16,6 +16,7 @@ record SemanticAnalysisInput(
     Set<DocumentId> moduleEvaluationDocuments,
     Set<DocumentId> standardLibraryDocuments,
     Set<DocumentId> bindingDocuments,
+    List<dev.w0fv1.norm.semantic.BuiltinTypeConformance> builtinTypeConformances,
     CompilationScope scope,
     DeclarationCatalog declarations) {
   SemanticAnalysisInput {
@@ -25,6 +26,7 @@ record SemanticAnalysisInput(
     moduleEvaluationDocuments = Set.copyOf(moduleEvaluationDocuments);
     standardLibraryDocuments = Set.copyOf(standardLibraryDocuments);
     bindingDocuments = Set.copyOf(bindingDocuments);
+    builtinTypeConformances = List.copyOf(builtinTypeConformances);
     Objects.requireNonNull(scope, "scope");
     Objects.requireNonNull(declarations, "declarations");
   }

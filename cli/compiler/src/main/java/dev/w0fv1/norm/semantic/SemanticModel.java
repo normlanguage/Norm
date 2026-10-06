@@ -627,6 +627,10 @@ public final class SemanticModel implements SemanticIndex {
     return List.copyOf(result);
   }
 
+  public List<BuiltinTypeConformance> builtinTypeConformances() {
+    return builtins.typeConformances();
+  }
+
   public List<Symbol> relatedMembers(Symbol member) {
     return memberRelations.related(member);
   }

@@ -6,4 +6,8 @@ public interface JavaApplicationRuntime {
   ClassLoader applicationClassLoader();
 
   java.util.Map<String, JavaDirectCall> applicationCalls();
+
+  java.util.Set<String> applicationTypes();
+
+  boolean bindsEnum(JarBindingClassReference.Nominal type);
 }

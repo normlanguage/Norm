@@ -4,6 +4,7 @@ import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.jvm.JarApiScanner;
 import dev.w0fv1.norm.jvm.JarBindingSourceGenerator;
+import dev.w0fv1.norm.jvm.JavaApiScanInput;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
@@ -18,32 +19,18 @@ import java.util.Set;
 final class ProjectJarBindingLinker {
   private ProjectJarBindingLinker() {}
 
-  static Map<String, JarBindingClassReference.Nominal> exports(ResolvedJarBinding binding) {
-    Map<String, JarBindingClassReference.Nominal> result = new LinkedHashMap<>();
-    binding
-        .generated()
-        .classDescriptors()
-        .forEach(
-            (reference, descriptor) -> {
-              String path =
-                  (reference.packageName() + "." + reference.name())
-                      .substring(reference.module().name().length() + 1);
-              if (binding.generated().exports().contains(path) && descriptor.startsWith("L")) {
-                result.put(
-                    descriptor.substring(1, descriptor.length() - 1).replace('/', '.'), reference);
-              }
-            });
-    return Map.copyOf(result);
-  }
-
   static ResolvedProjectModule link(
-      ResolvedProjectModule module, Map<ModuleCoordinate, ResolvedProjectModule> dependencies)
+      ResolvedProjectModule module,
+      Map<ModuleCoordinate, ResolvedProjectModule> dependencies,
+      Map<ModuleCoordinate, ProvidedModule> providedModules)
       throws IOException {
     if (module.binding().isEmpty()) return module;
     Map<String, JarBindingClassReference.Nominal> imports = new LinkedHashMap<>();
+    for (var provided : providedModules.values())
+      imports.putAll(provided.binding().generated().exportedClasses());
     Set<ModuleCoordinate> visited = new LinkedHashSet<>();
     for (var dependency : module.descriptor().dependencies()) {
-      collect(dependency.coordinate(), dependencies, visited, imports);
+      collect(dependency.coordinate(), dependencies, providedModules, visited, imports);
     }
     var previous = module.binding().orElseThrow();
     var descriptor = module.descriptor();
@@ -54,9 +41,18 @@ final class ProjectJarBindingLinker {
     if (module.archive().isEmpty() && !imports.isEmpty()) {
       var surface =
           new JarApiScanner()
-              .scanSurface(
-                  previous.graph(),
-                  api.stream().map(dev.w0fv1.norm.value.JarBindingType::name).toList());
+              .scan(
+                  new JavaApiScanInput(
+                      previous.graph(),
+                      java.util.stream.Stream.concat(
+                              providedModules.values().stream()
+                                  .map(provided -> provided.binding().graph()),
+                              dependencies.values().stream()
+                                  .flatMap(dependency -> dependency.binding().stream())
+                                  .map(ResolvedJarBinding::graph))
+                          .toList()),
+                  api.stream().map(dev.w0fv1.norm.value.JarBindingType::name).toList(),
+                  true);
       generated =
           new JarBindingSourceGenerator()
               .generateSurface(
@@ -69,7 +65,7 @@ final class ProjectJarBindingLinker {
     }
     var binding = new ResolvedJarBinding(previous.graph(), previous.api(), generated, imports);
     if (!module.archivedJavaExports().isEmpty()
-        && !module.archivedJavaExports().equals(exports(binding))) {
+        && !module.archivedJavaExports().equals(binding.generated().exportedClasses())) {
       throw new IOException("Norm module public Java types do not match its pinned JAR binding");
     }
     Map<String, SourceFile> sources = new LinkedHashMap<>(module.sources());
@@ -112,17 +108,19 @@ final class ProjectJarBindingLinker {
   private static void collect(
       ModuleCoordinate coordinate,
       Map<ModuleCoordinate, ResolvedProjectModule> dependencies,
+      Map<ModuleCoordinate, ProvidedModule> providedModules,
       Set<ModuleCoordinate> visited,
       Map<String, JarBindingClassReference.Nominal> imports)
       throws IOException {
     if (!visited.add(coordinate)) return;
+    if (providedModules.containsKey(coordinate)) return;
     var dependency = dependencies.get(coordinate);
     if (dependency == null)
       throw new IOException("unresolved binding dependency " + coordinate.name());
     var publicTypes =
         dependency
             .binding()
-            .map(ProjectJarBindingLinker::exports)
+            .map(binding -> binding.generated().exportedClasses())
             .orElse(dependency.archivedJavaExports());
     for (var entry : publicTypes.entrySet()) {
       var previous = imports.putIfAbsent(entry.getKey(), entry.getValue());
@@ -137,7 +135,8 @@ final class ProjectJarBindingLinker {
       }
     }
     for (var next : dependency.descriptor().dependencies()) {
-      if (next.exported()) collect(next.coordinate(), dependencies, visited, imports);
+      if (next.exported())
+        collect(next.coordinate(), dependencies, providedModules, visited, imports);
     }
   }
 }

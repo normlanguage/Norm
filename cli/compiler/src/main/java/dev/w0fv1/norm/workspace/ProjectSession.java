@@ -7,8 +7,9 @@ import dev.w0fv1.norm.frontend.CompilationControl;
 import dev.w0fv1.norm.frontend.CompilationLimits;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.language.LanguageService;
+import dev.w0fv1.norm.project.ProjectInputSnapshot;
+import dev.w0fv1.norm.project.ProjectLoadException;
 import dev.w0fv1.norm.project.ProjectLoader;
-import dev.w0fv1.norm.project.ProjectSourceSet;
 import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
@@ -19,14 +20,13 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 final class ProjectSession {
   private static final DiagnosticCode PROJECT_LOAD = new DiagnosticCode("NORM-PROJECT-0001");
   private final Path root;
   private final long revision;
   private final CompilationSnapshot snapshot;
-  private final Set<Path> inputs;
+  private final ProjectInputSnapshot inputs;
   private final Optional<String> loadFailure;
   private final Map<DocumentId, DocumentId> aliases;
 
@@ -34,13 +34,13 @@ final class ProjectSession {
       Path root,
       long revision,
       CompilationSnapshot snapshot,
-      Set<Path> inputs,
+      ProjectInputSnapshot inputs,
       Optional<String> loadFailure,
       Map<DocumentId, DocumentId> aliases) {
     this.root = root;
     this.revision = revision;
     this.snapshot = snapshot;
-    this.inputs = Set.copyOf(inputs);
+    this.inputs = inputs;
     this.loadFailure = loadFailure;
     this.aliases = Map.copyOf(aliases);
   }
@@ -54,9 +54,23 @@ final class ProjectSession {
       CancellationToken cancellation) {
     var control = new CompilationControl(cancellation, CompilationLimits.standard());
     Path root = projects.projectRoot(entry, openSources.values());
+    Path standardRoot =
+        root.getParent() != null
+                && language
+                    .standardLibrarySource(
+                        DocumentId.of(
+                            "stdlib:/"
+                                + root.getParent()
+                                    .relativize(normalize(entry.path()))
+                                    .toString()
+                                    .replace('\\', '/')))
+                    .isPresent()
+            ? root.getParent()
+            : root;
     DocumentId standard =
         DocumentId.of(
-            "stdlib:/" + root.relativize(normalize(entry.path())).toString().replace('\\', '/'));
+            "stdlib:/"
+                + standardRoot.relativize(normalize(entry.path())).toString().replace('\\', '/'));
     if (language.standardLibrarySource(standard).isPresent()) {
       Map<DocumentId, DocumentId> aliases = new java.util.LinkedHashMap<>();
       Map<DocumentId, SourceFile> overlays = new java.util.LinkedHashMap<>();
@@ -66,31 +80,33 @@ final class ProjectSession {
         Path path = normalize(source.path());
         if (!path.startsWith(root)) continue;
         DocumentId identity =
-            DocumentId.of("stdlib:/" + root.relativize(path).toString().replace('\\', '/'));
+            DocumentId.of("stdlib:/" + standardRoot.relativize(path).toString().replace('\\', '/'));
         if (language.standardLibrarySource(identity).isEmpty()) continue;
         aliases.put(source.id(), identity);
         overlays.put(identity, SourceFile.of(identity, source.text()));
       }
       var snapshot = language.standardLibrarySnapshot(overlays.values(), standard, control);
-      Set<Path> inputs =
-          aliases.keySet().stream()
-              .map(id -> Path.of(id.uri()))
-              .collect(java.util.stream.Collectors.toSet());
+      ProjectInputSnapshot inputs =
+          ProjectInputSnapshot.sources(
+              candidates.stream().filter(source -> aliases.containsKey(source.id())).toList());
       return new ProjectSession(root, revision, snapshot, inputs, Optional.empty(), aliases);
     }
     try {
-      ProjectSourceSet sourceSet = projects.loadForAnalysis(entry, openSources.values());
+      var loaded = projects.loadForAnalysis(entry, openSources.values(), control);
+      var sourceSet = loaded.sources();
       CompilationSnapshot snapshot =
           language.snapshot(sourceSet.analysisCompilationRequest(), control);
       return new ProjectSession(
-          sourceSet.root(), revision, snapshot, sourceSet.inputPaths(), Optional.empty(), Map.of());
+          sourceSet.root(), revision, snapshot, loaded.inputs(), Optional.empty(), Map.of());
     } catch (IOException | IllegalArgumentException exception) {
       CompilationSnapshot snapshot = language.snapshot(CompilationRequest.single(entry), control);
       return new ProjectSession(
           root,
           revision,
           snapshot,
-          Set.of(normalize(entry.path())),
+          exception instanceof ProjectLoadException loading
+              ? loading.inputs()
+              : ProjectInputSnapshot.sources(List.of(entry)),
           Optional.ofNullable(exception.getMessage()).or(() -> Optional.of(exception.toString())),
           Map.of());
     }
@@ -130,7 +146,7 @@ final class ProjectSession {
     return root;
   }
 
-  Set<Path> inputs() {
+  ProjectInputSnapshot inputs() {
     return inputs;
   }
 

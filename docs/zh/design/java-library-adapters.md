@@ -64,9 +64,13 @@ Module module() {
 
 本地 JAR 使用 `localJar(path, integrity)`。`norm resolve` 负责解析并原子填入缺失摘要；已声明摘要不匹配时直接失败，需要更新依赖的作者先修改声明。`norm run`、`norm package` 和 CI 只验证已声明内容，不接受依赖漂移。不使用独立锁文件。
 
-JDK 类使用 `jdkModule(name: "java.base", resolution: sha256("..."))` 作为根。摘要对应模块无条件导出包中公开 API 元数据的确定性快照，不含方法体和私有实现。源码、已发布包及打包应用加载时都会校验当前 JDK。快照只供绑定扫描，不进入应用类路径；JDK 类型应由独立 Norm 模块统一导出，其他库依赖该模块。
+内置的 [`java.base` 模块](../../../norm/stdlib/java/base/module.norm) 唯一声明 JDK `java.base` 引用类型。标准库及其他绑定模块通过普通模块读取边与 Java 调用复用这些声明。最小标量投影由 [JavaPlatformTypes](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaPlatformTypes.java) 定义，其余 Java 类型保留名义身份；其他绑定模块不能再次声明这些 JDK 类型的归属。
+
+JDK 根使用 `jdkModule(name, resolution)`。[JdkModuleArchive](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JdkModuleArchive.java) 定义锁定的元数据快照，快照不进入运行时类路径。[JavaApiScanInput](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaApiScanInput.java) 显式携带根与支持元数据；已发布绑定的兼容性契约由 [PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义。
 
 ## 第一版使用
+
+标量与 Java 接口的关系由 [JavaScalarConformances](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaScalarConformances.java) 从 JDK 签名派生，并进入现有内置类型接口实现通道。真实执行覆盖见 [JavaScalarInterfaceIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaScalarInterfaceIntegrationTest.java)。
 
 本地 JAR 放在 Module 目录内，例如 `lib/tools.jar`。`jarType` 中的名字对应根 JAR 中唯一的公开类，`members` 选择构造函数、方法或字段名称，并包含该名称的稳定公开重载；构造函数使用 `new`。签名涉及的根 JAR 类型自动形成最小声明闭包。编译器为选中的 API 生成普通 Norm 声明，例如 `StringUtils.reverse` 生成 `stringUtilsReverse`。
 
@@ -154,7 +158,7 @@ Java 模块识别与根 JAR 的 JPMS 依赖选择由 `JavaModulePath` 统一提�
 
 当前实现覆盖静态与实例方法、构造函数、静态与实例字段、基本与盒装标量、字符串、`Number`、不透明对象、Object 上界泛型和 JAR 内泛型继承投影。具体组件类型的 Java 数组映射为生成的 identity wrapper，提供固定长度、读取、原位更新和构造能力；基本类型数组与盒装类型数组保持不同名义类型，不映射为具有值语义的 Norm `Array<T>`。Java `T[]` 与 `T...` 使用按擦除组件区分的 reified 数组，可变参数调用固定为单个数组参数。
 
-Java `Throwable`、`Exception` 与 `RuntimeException` 映射到可捕获、可回传的 Norm `Exception`；绑定调用抛出的 Throwable 进入 Norm throw/catch。实现 `AutoCloseable` 或 `java.io.Closeable` 的导出类型实现 `std.io.Resource`，由同一执行资源域负责显式关闭和退出清理。同一 Java 对象的重复投影共用一个资源所有者，入口见 [ResourceScope](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/ResourceScope.java)。Java `Object` 映射为 `Any?`，`Path`/`File` 映射为 `std.filesystem.Path`，`URI`/`URL` 映射为 `std.http.Uri`，`CharSequence` 和 `Charset` 映射为 Norm 字符串。`java.io.InputStream` 与 `java.io.OutputStream` 映射为实现标准字节协议和资源协议的 `std.io.InputStream` 与 `std.io.OutputStream`；这些平台映射由同一类型表驱动。运行期名义类型解析索引见 [AnnotationRuntime](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/AnnotationRuntime.java)。入口类型签名引用的根 JAR 公开类型自动进入生成闭包；显式公开的嵌套 Java 类型以完整外层类型链生成稳定顶层名，例如 `Request.Builder` 映射为 `RequestBuilder`。
+Java 对象保持其名义类型与宿主身份；调用抛出的异常及资源生命周期由执行层处理。入口见 [JavaValueAdapter](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaValueAdapter.java)、[ResourceScope](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/ResourceScope.java)。运行期子类型覆盖见 [JarReferenceProjectionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JarReferenceProjectionTest.java)。
 
 根 JAR 的公开 Java interface 生成为普通 Norm interface，并保留可投影的泛型继承关系；生成的具体 class 实现对应 interface。接口方法是普通 Norm 方法，接口返回对象由私有绑定载体保持 JVM identity。该映射由统一类型关系驱动，用户源码只使用 Norm 的 interface、class 与方法调用。
 
@@ -164,17 +168,13 @@ Java `Throwable`、`Exception` 与 `RuntimeException` 映射到可捕获、可�
 
 Java `Class<T>` 映射为 Norm `Class<T>?`。Binding 生成器为公开包装声明和数组包装派生 JVM descriptor；运行时用声明 identity 双向解析真实 `java.lang.Class`，返回值存在多个合法擦除视图时由调用点的 `Class<T>` 消歧。没有 Binding 映射的普通 Norm 类型不会被字符串类名或宿主反射旁路解析。
 
-Java `java.time.Duration` 与 `std.time.Duration` 按秒和纳秒双向转换。Duration 的字段布局由标准库 ABI 生成，不由单个适配包复制；Java API 中 `<U extends T>` 形式的依赖型泛型上界保留为普通 Norm 泛型约束。
-
-`Class<T>` 的精确实参只有在 Norm 映射保持 JVM class identity 时才进入绑定；例如会折叠宿主身份的平台 façade 和 Optional 不会伪装成另一个类令牌。raw `Class`、`Class<?>` 与由类型参数表达的类令牌继续使用运行时声明 identity。
+类令牌的身份投影由 [JavaTypeProjector](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaTypeProjector.java) 定义；Java 泛型上界保留为普通 Norm 泛型约束。
 
 根 JAR 中的 Java enum 生成为封闭的 Norm `enum`，公开常量成为无 payload variant。Java 静态方法生成普通函数，实例方法生成以 enum 值为首参数的普通函数；参数、返回值和 enum 数组元素在边界两侧按声明 identity 与常量 identity 双向转换。Java 标识符超出 Norm 标识符集合时，生成器保存稳定、可逆的 variant 映射。
 
-Java `Optional<T>` 使用 Norm nullable 表达缺失，`OptionalInt`、`OptionalLong` 与 `OptionalDouble` 使用对应 nullable 标量。Java `Collection<T>`、`List<T>`、`Set<T>` 与 `Map<K,V>` 使用 `std.collections` 中的引用 class 表达共享 identity；List 与 Set 继承共同的 `MutableCollection<T>`，平台载体使用 `IterableView<T>` 与 `IteratorView<T>`。根 JAR 中实现 Java `Iterable<T>` 的类型按泛型祖先实现普通 Norm `std.core.Iterable<T>`，其 `iterator()` 返回 `std.core.Iterator<T>`，可直接用于 `for`。这些类型与值语义集合保持不同类型；双方的原位修改和重复传递的宿主 identity 均可观察。
+Java 领域类型、集合共享身份、泛型元素、Optional 空状态与流资源的行为覆盖见 [JarBindingRuntimeIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JarBindingRuntimeIntegrationTest.java)；类型归属契约见 [JavaBaseDomainBindingTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JavaBaseDomainBindingTest.java)。
 
 Java 标准函数接口和根 JAR 中的公开 SAM interface 映射为 Norm 原生 `Function<R(P...)>`。标准接口的 `? super` 输入与 `? extends` 输出在投影时消解，根 JAR SAM 的泛型参数按使用点代入；Norm lambda、捕获闭包和函数引用由运行时生成真实 Java interface 实例。宿主回调在调用它的线程进入 Norm，嵌套宿主调用保留该线程的事务等上下文。宿主代码执行期间释放 Norm 的独占执行权，返回后重新取得；嵌套宿主调用阻塞等待其他线程回调时，同样遵循这一边界。同步、异步和 Java 内部等待回调共享同一条参数、返回值与异常传播边界；调度入口见 [GuestCallbackScheduler](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/GuestCallbackScheduler.java)。
-
-Java `Future<T>`、`CompletionStage<T>` 与 `CompletableFuture<T>` 映射为 `std.concurrent.Task<T>`。`await()` 保持元素类型并将 Java 失败送入 Norm throw/catch，`cancel()` 和 `completed()` 提供确定状态操作；Task 实现 `Resource`，显式关闭和执行域退出都会取消未完成任务。Task 传回 Java 参数时恢复原宿主对象。`java.lang.Void` 映射为 nullable `std.core.Unit`。Reactive Streams `Publisher<T>` 映射为 `std.concurrent.Publisher<T>`，订阅回调、完成、失败、取消与执行域释放沿用同一调度和资源边界。
 
 每次打包写入的 `binding/java-api.json` 是完整声明与适配状态的机器可读 census，`module.json` 中的 `jar.api` 是发布公开面的机器可读契约。发布门禁要求公开适配面全部生成并通过行为测试。
 
@@ -192,9 +192,11 @@ Java 方法索引分别保留声明身份和执行实现，允许不同方法共
 
 托管 class 方法签名投影为 Java 抽象方法，类的抽象性由继承后的分派目标决定。方法与参数注解、泛型返回类型和参数名由真实 javac 及反射验证；入口见 [JavaManagedMethodProjectionTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/JavaManagedMethodProjectionTest.java)。抽象声明进入宿主方法索引，不进入本地执行入口集合。
 
-Norm 发起的宿主调用保留接收者与方法的具体类型参数，继承视图复用 CoreTypeRelations。Java 外观回调到泛型父类的普通方法时，从已关联的 Norm 对象恢复接收者类型；转换入口为 [JavaApplicationDispatch](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaApplicationDispatch.java)。Java 直接发起带方法类型参数的 Norm 调用及直接构造未具体化的泛型类仍不支持。
+Norm 发起的宿主调用保留接收者与方法的具体类型参数，继承视图复用 CoreTypeRelations。Java 外观回调到泛型父类的普通方法时，从已关联的 Norm 对象恢复接收者类型；应用对象身份、字段同步与回调协调入口为 [JavaApplicationDispatch](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaApplicationDispatch.java)。Java 直接发起带方法类型参数的 Norm 调用及直接构造未具体化的泛型类仍不支持。
 
-Norm 应用外观中的值语义 `List<T>` 投影为 Java `List<T>`。宿主边界按声明的元素类型递归转换，交付 Java 的列表保持不可变快照；嵌套列表、可空元素与中文内容的往返验证见 [JavaAnnotationBindingIntegrationTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaAnnotationBindingIntegrationTest.java)。
+Java 集合签名使用 `java.base` 中的名义类型。[JavaAnnotationBindingIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaAnnotationBindingIntegrationTest.java) 验证嵌套 Java 列表、可空元素及应用回调中的对象身份。Norm 注解能否导出为 Java 注解由 [JavaAnnotationShape](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaAnnotationShape.java) 定义；原生元数据独立于 Java 导出保留。
+
+[JavaHostSurface](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaHostSurface.java) 定义应用导出范围。[JavaApplicationLinkage](../../../cli/compiler/src/main/java/dev/w0fv1/norm/execution/JavaApplicationLinkage.java) 携带生成类型与调用清单；[JavaValueAdapter](../../../cli/compiler/src/main/java/dev/w0fv1/norm/truffle/JavaValueAdapter.java) 统一标量转换。
 
 字段、参数、返回值及泛型实参的可空性使用标准 JSpecify `Nullable` 类型注解投影。Java 注解处理环境显式提供 JSpecify 依赖，框架无需从装箱类型猜测可空性。嵌套集合与可空类型变量的真实反射验证见 [JavaManagedMethodProjectionTest](https://github.com/normlanguage/Norm/blob/main/cli/compiler/src/test/java/dev/w0fv1/norm/frontend/JavaManagedMethodProjectionTest.java)。
 
@@ -224,6 +226,6 @@ JPA 的 `jakarta.persistence.Id` 与 `jakarta.persistence.EmbeddedId` 映射为 
 
 ## 宿主资源所有权
 
-`jarType(..., borrowed: ["child"])` 声明接收者拥有的引用 getter。构造器与未标记资源返回只为首次出现的宿主身份建立执行域所有者；别名保留已有所有者。借用视图持有接收者，不允许自行关闭或转移资源。`ResourceOwner` 上下文内创建的 owned 资源只登记一次，显式关闭释放登记，并在所有别名上保留首次关闭失败。
+`jarType(..., borrowed: ["child"])` 声明接收者拥有的引用 getter。构造器与未标记资源返回只为首次出现的宿主身份建立执行域所有者；别名保留已有所有者。借用视图持有接收者，不允许自行关闭或转移资源。通过 `std.io` 的 `ownResourceInContext(value)` 将 owned Java 资源登记到当前 `ResourceOwner`。这种组合保留 Java 值及其唯一生命周期，Java 绑定不依赖标准库所有者协议。显式关闭释放登记，并在所有别名上保留首次关闭失败。
 
-声明见 [module.norm](../../../cli/compiler/src/main/resources/bootstrap/module.norm)，所有者 API 见 [ownership.norm](../../../norm/stdlib/std/io/ownership.norm)。[HostResourceOwnershipTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/HostResourceOwnershipTest.java) 覆盖源码与打包适配器；[PublishedOwnershipContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PublishedOwnershipContractTest.java) 验证已发布 ABI 2 制品。[PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义支持的制品 ABI：ABI 2 保持 owned 默认，新绑定在 ABI 3 保存显式契约。
+声明见 [module.norm](../../../cli/compiler/src/main/resources/bootstrap/module.norm)，所有者 API 见 [ownership.norm](../../../norm/stdlib/std/io/ownership.norm)。[HostResourceOwnershipTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/HostResourceOwnershipTest.java) 覆盖源码与打包适配器；[PublishedOwnershipContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PublishedOwnershipContractTest.java) 验证发布制品的所有权契约。[PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义支持的制品 ABI。

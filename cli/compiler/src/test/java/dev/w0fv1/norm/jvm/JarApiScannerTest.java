@@ -25,6 +25,18 @@ import org.objectweb.asm.TypeReference;
 
 final class JarApiScannerTest {
   @TempDir Path temporaryDirectory;
+  @TempDir static Path metadataDirectory;
+  private static JdkModuleArchive javaBase;
+
+  @org.junit.jupiter.api.BeforeAll
+  static void openJavaMetadata() throws IOException {
+    javaBase = JdkModuleArchive.open(metadataDirectory, "java.base");
+  }
+
+  @org.junit.jupiter.api.AfterAll
+  static void closeJavaMetadata() throws IOException {
+    javaBase.close();
+  }
 
   @Test
   void projectsReferencedJdkTypesAsExternalSupport() throws Exception {
@@ -47,20 +59,25 @@ final class JarApiScannerTest {
     }
     var digest = Sha256Digest.compute(jar);
     var artifact = new ResolvedJarArtifact(new LocalJarIdentity(digest), jar, digest);
-    var schema =
-        new JarApiScanner()
-            .scanSurface(
-                new ResolvedJarGraph(artifact, List.of(artifact), List.of()),
-                List.of("sample.HasLocale"));
-    assertTrue(
-        type(schema, "sample.HasLocale").methods().stream()
-            .anyMatch(method -> method.name().equals("locale") && method.binding().isPresent()));
-    assertTrue(
-        schema.supportingTypes().stream()
-            .anyMatch(type -> type.binaryName().equals("java.util.Locale")));
-    assertTrue(
-        schema.supportingTypes().stream()
-            .noneMatch(type -> type.binaryName().equals("java.lang.AutoCloseable")));
+    try (var metadata = JdkModuleArchive.open(temporaryDirectory, "java.base")) {
+      var schema =
+          new JarApiScanner()
+              .scan(
+                  new JavaApiScanInput(
+                      new ResolvedJarGraph(artifact, List.of(artifact), List.of()),
+                      List.of(metadata.graph())),
+                  List.of("sample.HasLocale"),
+                  true);
+      assertTrue(
+          type(schema, "sample.HasLocale").methods().stream()
+              .anyMatch(method -> method.name().equals("locale") && method.binding().isPresent()));
+      assertTrue(
+          schema.supportingTypes().stream()
+              .anyMatch(type -> type.binaryName().equals("java.util.Locale")));
+      assertTrue(
+          schema.supportingTypes().stream()
+              .anyMatch(type -> type.binaryName().equals("java.lang.AutoCloseable")));
+    }
   }
 
   @Test
@@ -230,7 +247,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, failure.disposition());
     assertEquals(
-        new JavaReferenceType("java.lang.Throwable", JavaReferenceKind.EXCEPTION),
+        new JavaReferenceType("java.lang.Throwable", JavaReferenceKind.OPAQUE),
         failure.binding().orElseThrow().returnType());
     JavaApiMethod path =
         tools.methods().stream()
@@ -239,7 +256,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, path.disposition());
     assertEquals(
-        new JavaReferenceType("java.nio.file.Path", JavaReferenceKind.PATH),
+        new JavaReferenceType("java.nio.file.Path", JavaReferenceKind.OPAQUE),
         path.binding().orElseThrow().returnType());
     JavaApiMethod inputStream =
         tools.methods().stream()
@@ -248,7 +265,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, inputStream.disposition());
     assertEquals(
-        new JavaReferenceType("java.io.InputStream", JavaReferenceKind.INPUT_STREAM),
+        new JavaReferenceType("java.io.InputStream", JavaReferenceKind.OPAQUE),
         inputStream.binding().orElseThrow().returnType());
     JavaApiMethod outputStream =
         tools.methods().stream()
@@ -257,7 +274,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, outputStream.disposition());
     assertEquals(
-        new JavaReferenceType("java.io.OutputStream", JavaReferenceKind.OUTPUT_STREAM),
+        new JavaReferenceType("java.io.OutputStream", JavaReferenceKind.OPAQUE),
         outputStream.binding().orElseThrow().returnType());
     JavaApiMethod text =
         tools.methods().stream()
@@ -266,7 +283,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, text.disposition());
     assertEquals(
-        new JavaReferenceType("java.lang.CharSequence", JavaReferenceKind.CHAR_SEQUENCE),
+        new JavaReferenceType("java.lang.CharSequence", JavaReferenceKind.OPAQUE),
         text.binding().orElseThrow().returnType());
     JavaApiMethod charset =
         tools.methods().stream()
@@ -275,7 +292,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, charset.disposition());
     assertEquals(
-        new JavaReferenceType("java.nio.charset.Charset", JavaReferenceKind.CHARSET),
+        new JavaReferenceType("java.nio.charset.Charset", JavaReferenceKind.OPAQUE),
         charset.binding().orElseThrow().returnType());
     JavaApiMethod object =
         tools.methods().stream()
@@ -326,8 +343,12 @@ final class JarApiScannerTest {
             .filter(value -> value.name().equals("optionalClassToken"))
             .findFirst()
             .orElseThrow();
-    assertEquals(JavaApiDisposition.UNSUPPORTED, optionalClassToken.disposition());
-    assertEquals(JavaApiIssueCode.GENERIC_MAPPING, optionalClassToken.issue().orElseThrow().code());
+    assertEquals(JavaApiDisposition.BINDABLE, optionalClassToken.disposition());
+    var optionalToken = (JavaReferenceType) optionalClassToken.binding().orElseThrow().returnType();
+    assertEquals(JavaReferenceKind.CLASS, optionalToken.kind());
+    assertEquals(
+        JavaReferenceKind.OPAQUE,
+        ((JavaReferenceType) optionalToken.arguments().getFirst().type().orElseThrow()).kind());
     JavaApiMethod optional =
         tools.methods().stream()
             .filter(value -> value.name().equals("optional"))
@@ -336,7 +357,7 @@ final class JarApiScannerTest {
     assertEquals(JavaApiDisposition.BINDABLE, optional.disposition());
     JavaReferenceType optionalType =
         (JavaReferenceType) optional.binding().orElseThrow().returnType();
-    assertEquals(JavaReferenceKind.OPTIONAL, optionalType.kind());
+    assertEquals(JavaReferenceKind.OPAQUE, optionalType.kind());
     assertEquals(
         new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING),
         optionalType.arguments().getFirst().type().orElseThrow());
@@ -376,7 +397,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, list.disposition());
     JavaReferenceType listType = (JavaReferenceType) list.binding().orElseThrow().returnType();
-    assertEquals(JavaReferenceKind.LIST, listType.kind());
+    assertEquals(JavaReferenceKind.OPAQUE, listType.kind());
     assertEquals(
         new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING),
         listType.arguments().getFirst().type().orElseThrow());
@@ -387,7 +408,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, set.disposition());
     assertEquals(
-        JavaReferenceKind.SET,
+        JavaReferenceKind.OPAQUE,
         ((JavaReferenceType) set.binding().orElseThrow().returnType()).kind());
     JavaApiMethod map =
         tools.methods().stream()
@@ -396,7 +417,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, map.disposition());
     JavaReferenceType mapType = (JavaReferenceType) map.binding().orElseThrow().returnType();
-    assertEquals(JavaReferenceKind.MAP, mapType.kind());
+    assertEquals(JavaReferenceKind.OPAQUE, mapType.kind());
     assertEquals(2, mapType.arguments().size());
     JavaApiMethod collection =
         tools.methods().stream()
@@ -405,7 +426,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, collection.disposition());
     assertEquals(
-        JavaReferenceKind.COLLECTION,
+        JavaReferenceKind.OPAQUE,
         ((JavaReferenceType) collection.binding().orElseThrow().returnType()).kind());
     JavaApiMethod iterable =
         tools.methods().stream()
@@ -414,7 +435,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, iterable.disposition());
     assertEquals(
-        JavaReferenceKind.ITERABLE,
+        JavaReferenceKind.OPAQUE,
         ((JavaReferenceType) iterable.binding().orElseThrow().returnType()).kind());
     JavaApiMethod iterator =
         tools.methods().stream()
@@ -423,7 +444,7 @@ final class JarApiScannerTest {
             .orElseThrow();
     assertEquals(JavaApiDisposition.BINDABLE, iterator.disposition());
     assertEquals(
-        JavaReferenceKind.ITERATOR,
+        JavaReferenceKind.OPAQUE,
         ((JavaReferenceType) iterator.binding().orElseThrow().returnType()).kind());
     JavaApiMethod model =
         tools.methods().stream()
@@ -530,7 +551,7 @@ final class JarApiScannerTest {
   }
 
   @Test
-  void projectsJavaFutureTypesAsStandardNormTasks() throws Exception {
+  void preservesJavaFutureDeclarationsAndTypeArguments() throws Exception {
     JarApiSchema schema = scan(futureJar(temporaryDirectory.resolve("future.jar")));
     JavaApiType api = type(schema, "sample.FutureApi");
 
@@ -542,7 +563,7 @@ final class JarApiScannerTest {
             .binding()
             .orElseThrow();
     JavaReferenceType task = (JavaReferenceType) completed.returnType();
-    assertEquals(JavaReferenceKind.TASK, task.kind());
+    assertEquals(JavaReferenceKind.OPAQUE, task.kind());
     assertEquals(
         new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING),
         task.arguments().getFirst().type().orElseThrow());
@@ -554,7 +575,7 @@ final class JarApiScannerTest {
             .binding()
             .orElseThrow();
     assertEquals(
-        JavaReferenceKind.TASK, ((JavaReferenceType) inspect.parameters().getFirst()).kind());
+        JavaReferenceKind.OPAQUE, ((JavaReferenceType) inspect.parameters().getFirst()).kind());
     JavaReferenceType emptyTask =
         (JavaReferenceType)
             api.methods().stream()
@@ -565,18 +586,18 @@ final class JarApiScannerTest {
                 .orElseThrow()
                 .returnType();
     assertEquals(
-        JavaReferenceKind.UNIT,
+        JavaReferenceKind.OPAQUE,
         ((JavaReferenceType) emptyTask.arguments().getFirst().type().orElseThrow()).kind());
   }
 
   @Test
-  void projectsReactiveStreamsPublisherAsAStandardNormPublisher() throws Exception {
+  void preservesReactiveStreamsPublisherDeclarationAndTypeArguments() throws Exception {
     JarApiSchema schema = scan(publisherJar(temporaryDirectory.resolve("publisher.jar")));
     JavaBindingCallable events =
         type(schema, "sample.PublisherApi").methods().getFirst().binding().orElseThrow();
     JavaReferenceType publisher = (JavaReferenceType) events.returnType();
 
-    assertEquals(JavaReferenceKind.PUBLISHER, publisher.kind());
+    assertEquals(JavaReferenceKind.OPAQUE, publisher.kind());
     assertEquals(
         new JavaReferenceType("java.lang.String", JavaReferenceKind.STRING),
         publisher.arguments().getFirst().type().orElseThrow());
@@ -592,7 +613,9 @@ final class JarApiScannerTest {
               temporaryDirectory,
               new JarBinding(new MavenJarTarget(coordinate, java.util.Optional.empty())));
 
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
 
       assertTrue(
           type(schema, "org.apache.commons.lang3.StringUtils").methods().stream()
@@ -608,7 +631,12 @@ final class JarApiScannerTest {
     ResolvedJarArtifact root =
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
-    return new JarApiScanner().scan(new ResolvedJarGraph(root, List.of(root), List.of()));
+    return new JarApiScanner()
+        .scan(
+            new JavaApiScanInput(
+                new ResolvedJarGraph(root, List.of(root), List.of()), List.of(javaBase.graph())),
+            List.of(),
+            false);
   }
 
   @Test
@@ -639,14 +667,20 @@ final class JarApiScannerTest {
   }
 
   @Test
-  void flattensDependencyInterfacesToPlatformProtocols() throws Exception {
+  void preservesDependencyInterfaceIdentityAndInheritance() throws Exception {
     Path rootJar = rootResourceJar(temporaryDirectory.resolve("root.jar"));
     Path dependencyJar = dependencyResourceJar(temporaryDirectory.resolve("dependency.jar"));
     ResolvedJarArtifact root = artifact(rootJar);
     ResolvedJarArtifact dependency = artifact(dependencyJar);
 
     JarApiSchema schema =
-        new JarApiScanner().scan(new ResolvedJarGraph(root, List.of(root, dependency), List.of()));
+        new JarApiScanner()
+            .scan(
+                new JavaApiScanInput(
+                    new ResolvedJarGraph(root, List.of(root, dependency), List.of()),
+                    List.of(javaBase.graph())),
+                List.of(),
+                false);
 
     assertEquals(
         List.of("dependency.ManagedLifecycle"),
@@ -669,8 +703,11 @@ final class JarApiScannerTest {
     JarApiSchema schema =
         new JarApiScanner()
             .scan(
-                new ResolvedJarGraph(root, List.of(root, dependency), List.of()),
-                List.of("dependency.Direct"));
+                new JavaApiScanInput(
+                    new ResolvedJarGraph(root, List.of(root, dependency), List.of()),
+                    List.of(javaBase.graph())),
+                List.of("dependency.Direct"),
+                false);
 
     assertTrue(
         schema.supportingTypes().stream()

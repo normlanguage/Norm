@@ -58,6 +58,15 @@ final class NullableTypeTest {
   }
 
   @Test
+  void preservesExistentialCapturesWhenSubstitutingNullableParameters() {
+    var parameter = SemanticType.parameter("test/T", "T");
+    assertEquals(
+        SemanticType.EXISTENTIAL,
+        parameter.nullable().substitute(Map.of("test/T", SemanticType.EXISTENTIAL)));
+    assertEquals(SemanticType.EXISTENTIAL, SemanticType.EXISTENTIAL.nullable());
+  }
+
+  @Test
   void rejectsNullableReferenceTypes() {
     assertThrows(
         IllegalStateException.class, () -> SemanticType.reference(SemanticType.INTEGER).nullable());

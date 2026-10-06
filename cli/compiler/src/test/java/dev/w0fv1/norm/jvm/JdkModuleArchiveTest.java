@@ -13,27 +13,57 @@ final class JdkModuleArchiveTest {
   @TempDir java.nio.file.Path temporaryDirectory;
 
   @Test
+  void metadataLeaseProtectsActiveContentFromEviction() throws Exception {
+    var metadata = JdkModuleArchive.open(temporaryDirectory, "java.base");
+    var file = metadata.graph().root().file();
+    var cache =
+        new dev.w0fv1.norm.core.store.DirectoryArtifactCache(
+            temporaryDirectory.resolve("java-metadata"), 1, 1);
+    var key = Sha256Digest.compute(new byte[] {1});
+    try (var other =
+        cache.acquire(
+            key,
+            root -> true,
+            root -> java.nio.file.Files.write(root.resolve("other.bin"), new byte[] {1}))) {
+      org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.isRegularFile(file));
+      metadata.close();
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, metadata::graph);
+      try (var next =
+          cache.acquire(
+              Sha256Digest.compute(new byte[] {2}),
+              root -> true,
+              root -> java.nio.file.Files.write(root.resolve("next.bin"), new byte[] {2}))) {
+        org.junit.jupiter.api.Assertions.assertFalse(java.nio.file.Files.exists(file));
+      }
+    }
+  }
+
+  @Test
   void concurrentResolutionPublishesAndRepairsVerifiedMetadata() throws Exception {
     var pool = java.util.concurrent.Executors.newFixedThreadPool(8);
     var start = new java.util.concurrent.CountDownLatch(1);
     try {
-      var requests = new java.util.ArrayList<java.util.concurrent.Future<ResolvedJarGraph>>();
+      var requests = new java.util.ArrayList<java.util.concurrent.Future<JdkModuleArchive>>();
       for (int index = 0; index < 8; index++) {
         requests.add(
             pool.submit(
                 () -> {
                   start.await();
-                  return JdkModuleArchive.resolve(temporaryDirectory, "java.base");
+                  return JdkModuleArchive.open(temporaryDirectory, "java.base");
                 }));
       }
       start.countDown();
-      var first = requests.getFirst().get();
-      for (var request : requests) assertEquals(first.contentId(), request.get().contentId());
+      var first = requests.getFirst().get().graph();
+      for (var request : requests)
+        assertEquals(first.contentId(), request.get().graph().contentId());
       assertEquals(first.root().content(), Sha256Digest.compute(first.root().file()));
       java.nio.file.Files.writeString(first.root().file(), "corrupt");
-      var repaired = JdkModuleArchive.resolve(temporaryDirectory, "java.base");
-      assertEquals(first.contentId(), repaired.contentId());
-      assertEquals(repaired.root().content(), Sha256Digest.compute(repaired.root().file()));
+      try (var archive = JdkModuleArchive.open(temporaryDirectory, "java.base")) {
+        var repaired = archive.graph();
+        assertEquals(first.contentId(), repaired.contentId());
+        assertEquals(repaired.root().content(), Sha256Digest.compute(repaired.root().file()));
+      }
+      for (var request : requests) request.get().close();
     } finally {
       pool.shutdownNow();
     }

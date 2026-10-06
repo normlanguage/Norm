@@ -932,10 +932,10 @@ final class ProgramExecutionTest {
   @Test
   void createsAHostBackedMutableMapForJavaInterop() throws Exception {
     assertOutput(
-        "import std.collections.MutableMap import std.collections.mutableMap "
-            + "Void main() { MutableMap<String, Integer> values = mutableMap() "
-            + "values.put(key: \"answer\", value: 42) "
-            + "printLine(values.get(key: \"answer\") ?? -1) }",
+        "import java.base.util.JavaMap import std.collections.mutableMap "
+            + "Void main() { JavaMap<String, Integer> values = mutableMap() "
+            + "values.put(arg0: \"answer\", arg1: 42) "
+            + "printLine(values.get(arg0: \"answer\") ?? -1) }",
         "42" + System.lineSeparator());
   }
 

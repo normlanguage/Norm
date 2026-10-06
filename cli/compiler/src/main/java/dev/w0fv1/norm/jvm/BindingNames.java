@@ -17,29 +17,9 @@ import java.util.function.Function;
 final class BindingNames {
   private BindingNames() {}
 
-  private static final String BINDING_ABI = "java-v18";
+  private static final String BINDING_ABI = "java-v19";
   private static final Set<String> RESERVED_TYPE_NAMES =
-      java.util.stream.Stream.concat(
-              BuiltinCatalog.standard().typeNames().stream(),
-              java.util.stream.Stream.of(
-                  "Comparable",
-                  "Exception",
-                  "InputStream",
-                  "Iterable",
-                  "IterableView",
-                  "Iterator",
-                  "IteratorView",
-                  "MutableCollection",
-                  "MutableList",
-                  "MutableMap",
-                  "MutableSet",
-                  "OutputStream",
-                  "Path",
-                  "Resource",
-                  "Task",
-                  "Unit",
-                  "Uri"))
-          .collect(java.util.stream.Collectors.toUnmodifiableSet());
+      Set.copyOf(BuiltinCatalog.standard().typeNames());
 
   static String allocateTypePath(
       String preferred, String binaryName, Map<String, String> allocated) {

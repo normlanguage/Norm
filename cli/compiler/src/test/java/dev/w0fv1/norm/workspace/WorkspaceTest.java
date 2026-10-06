@@ -12,6 +12,46 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class WorkspaceTest {
   @Test
+  void refreshesAndRecoversDiagnosticsWhenAnExternalBindingJarChanges(@TempDir Path root)
+      throws Exception {
+    Path provider = Files.createDirectories(root.resolve("dependencies/provider"));
+    Path jar = provider.resolve("binding.jar");
+    try (var archive = new java.util.jar.JarOutputStream(Files.newOutputStream(jar))) {
+      archive.finish();
+    }
+    byte[] original = Files.readAllBytes(jar);
+    Files.writeString(
+        provider.resolve("module.norm"),
+        "Module module() { return module(name: \"provider\", version: 1, binding: jarBinding("
+            + "target: localJar(path: \"binding.jar\", integrity: sha256(\""
+            + dev.w0fv1.norm.value.Sha256Digest.compute(jar).value()
+            + "\")), api: [])) }");
+    Path module = Files.createDirectories(root.resolve("sample"));
+    Files.writeString(
+        module.resolve("module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, dependencies: ["
+            + "dependency(repository: \"github\", name: \"provider\", version: 1)]) }");
+    Path main = Files.writeString(module.resolve("Main.norm"), "package sample Void main() {}");
+    String uri = main.toUri().toString();
+    try (var workspace = new Workspace(ProjectEnvironment.bootstrap(new NormRuntime()))) {
+      workspace.update(uri, 1, Files.readString(main));
+      workspace.settled().get(30, TimeUnit.SECONDS);
+      var before = workspace.document(uri).get();
+      assertFalse(before.analysis().hasErrors(), before.analysis().diagnostics().toString());
+      Files.writeString(jar, "changed binding");
+      workspace.watchedFilesChanged(java.util.List.of(jar.toUri().toString()));
+      workspace.settled().get(30, TimeUnit.SECONDS);
+      var invalid = workspace.document(uri).get();
+      assertNotSame(before.snapshot(), invalid.snapshot());
+      assertTrue(invalid.analysis().hasErrors());
+      Files.write(jar, original);
+      workspace.watchedFilesChanged(java.util.List.of(jar.toUri().toString()));
+      workspace.settled().get(30, TimeUnit.SECONDS);
+      assertFalse(workspace.document(uri).get().analysis().hasErrors());
+    }
+  }
+
+  @Test
   void analyzesAllStandardLibraryEditsInOneSnapshot(@TempDir Path root) throws Exception {
     Path module = Files.createDirectories(root.resolve("std"));
     Files.writeString(

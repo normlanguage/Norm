@@ -1,20 +1,15 @@
 package dev.w0fv1.norm.jvm;
 
+import dev.w0fv1.norm.core.store.DirectoryArtifactCache;
 import dev.w0fv1.norm.value.Sha256Digest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.channels.FileChannel;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -25,52 +20,49 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-final class JdkModuleArchive {
-  private static final Map<String, byte[]> SNAPSHOTS = new HashMap<>();
+public final class JdkModuleArchive implements AutoCloseable {
+  private final DirectoryArtifactCache.Lease lease;
+  private final ResolvedJarGraph graph;
 
-  private JdkModuleArchive() {}
+  private JdkModuleArchive(DirectoryArtifactCache.Lease lease, ResolvedJarGraph graph) {
+    this.lease = lease;
+    this.graph = graph;
+  }
 
-  static synchronized ResolvedJarGraph resolve(Path cache, String name) throws IOException {
+  public static JdkModuleArchive open(Path cache, String name) throws IOException {
     byte[] snapshot = snapshot(name);
     Sha256Digest content = Sha256Digest.compute(snapshot);
-    Path directory = Files.createDirectories(cache.resolve(".norm-jdk"));
-    Path stable = directory.resolve(name + "-" + content.value() + ".jar");
-    Path lockPath = directory.resolve(name + "-" + content.value() + ".lock");
-    try (var channel =
-            FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-        var lock = channel.lock()) {
-      if (!Files.isRegularFile(stable) || !content.equals(Sha256Digest.compute(stable))) {
-        Path temporary = Files.createTempFile(directory, name + "-", ".jar");
-        try {
-          Files.write(temporary, snapshot);
-          try {
-            Files.move(
-                temporary,
-                stable,
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING);
-          } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(temporary, stable, StandardCopyOption.REPLACE_EXISTING);
-          }
-        } finally {
-          Files.deleteIfExists(temporary);
-        }
-      }
-      if (!content.equals(Sha256Digest.compute(stable))) {
-        throw new IOException("JDK module metadata cache is corrupt: " + stable);
-      }
-    }
-    var artifact = new ResolvedJarArtifact(new JdkModuleIdentity(name), stable, content);
-    return new ResolvedJarGraph(artifact, List.of(artifact), List.of());
+    var storage =
+        new DirectoryArtifactCache(cache.resolve("java-metadata"), 128, 128L * 1024 * 1024);
+    var lease =
+        storage.acquire(
+            content,
+            root ->
+                Files.isRegularFile(root.resolve("metadata.jar"))
+                    && content.equals(Sha256Digest.compute(root.resolve("metadata.jar"))),
+            root -> Files.write(root.resolve("metadata.jar"), snapshot));
+    var artifact =
+        new ResolvedJarArtifact(
+            new JdkModuleIdentity(name), lease.path().resolve("metadata.jar"), content);
+    return new JdkModuleArchive(
+        lease, new ResolvedJarGraph(artifact, List.of(artifact), List.of()));
+  }
+
+  public ResolvedJarGraph graph() {
+    lease.path();
+    return graph;
+  }
+
+  @Override
+  public void close() throws IOException {
+    lease.close();
   }
 
   static Sha256Digest content(String name) throws IOException {
     return Sha256Digest.compute(snapshot(name));
   }
 
-  private static synchronized byte[] snapshot(String name) throws IOException {
-    byte[] cached = SNAPSHOTS.get(name);
-    if (cached != null) return cached;
+  private static byte[] snapshot(String name) throws IOException {
     Path module = FileSystems.getFileSystem(URI.create("jrt:/")).getPath("modules", name);
     if (!Files.isDirectory(module)) throw new IOException("JDK module is unavailable: " + name);
     var runtimeModule =
@@ -110,9 +102,7 @@ final class JdkModuleArchive {
         output.closeEntry();
       }
     }
-    byte[] snapshot = bytes.toByteArray();
-    SNAPSHOTS.put(name, snapshot);
-    return snapshot;
+    return bytes.toByteArray();
   }
 
   static byte[] normalize(byte[] source) {

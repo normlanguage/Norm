@@ -10,7 +10,6 @@ import dev.w0fv1.norm.value.CompilationRequest;
 import dev.w0fv1.norm.value.CompilationScope;
 import dev.w0fv1.norm.value.CompilationUnitId;
 import dev.w0fv1.norm.value.ModuleCoordinate;
-import dev.w0fv1.norm.value.ModuleDeclaration;
 import dev.w0fv1.norm.value.ModuleSourceCoordinate;
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -100,57 +99,63 @@ final class ModuleEvaluator implements AutoCloseable {
           """);
   private final CompilerSession compiler;
   private final ExecutionBackend backend;
-  private final java.util.ArrayList<ModuleEvaluation> evaluations = new java.util.ArrayList<>();
-  private final java.util.Map<DocumentId, ModuleEvaluation> replayed =
-      new java.util.LinkedHashMap<>();
-
-  void replay(List<ModuleEvaluation> values) {
-    for (var value : values) replayed.put(value.source().id(), value);
-  }
-
-  List<ModuleEvaluation> evaluations() {
-    return List.copyOf(evaluations);
-  }
-
-  void clearEvaluations() {
-    evaluations.clear();
-  }
+  private final List<dev.w0fv1.norm.jvm.LinkedJarBinding> bindings;
 
   ModuleEvaluator(LanguageProfile profile, ExecutionBackend backend) {
-    this(new CompilerSession(profile.moduleEvaluation(ENTRY.id())), backend);
+    this(profile, backend, List.of());
   }
 
-  private ModuleEvaluator(CompilerSession compiler, ExecutionBackend backend) {
+  ModuleEvaluator(
+      LanguageProfile profile,
+      ExecutionBackend backend,
+      List<dev.w0fv1.norm.jvm.ResolvedJarBinding> bindings) {
+    this(new CompilerSession(profile.moduleEvaluation(ENTRY.id())), backend, bindings);
+  }
+
+  private ModuleEvaluator(
+      CompilerSession compiler,
+      ExecutionBackend backend,
+      List<dev.w0fv1.norm.jvm.ResolvedJarBinding> bindings) {
     this.compiler = compiler;
     this.backend = Objects.requireNonNull(backend, "backend");
+    this.bindings = bindings.stream().map(dev.w0fv1.norm.jvm.LinkedJarBinding::from).toList();
   }
 
   static ModuleEvaluator persistent(LanguageProfile profile, ExecutionBackend backend)
       throws IOException {
-    return new ModuleEvaluator(
-        CompilerSession.persistent(profile.moduleEvaluation(ENTRY.id())), backend);
+    return persistent(profile, backend, List.of());
   }
 
-  ModuleDeclaration evaluate(SourceFile source) throws IOException {
-    var previous = replayed.remove(source.id());
-    if (previous != null && previous.source().text().equals(source.text())) {
-      evaluations.add(previous);
-      return previous.declaration();
-    }
-    var result = compiler.compile(request(source));
+  static ModuleEvaluator persistent(
+      LanguageProfile profile,
+      ExecutionBackend backend,
+      List<dev.w0fv1.norm.jvm.ResolvedJarBinding> bindings)
+      throws IOException {
+    return new ModuleEvaluator(
+        CompilerSession.persistent(profile.moduleEvaluation(ENTRY.id())), backend, bindings);
+  }
+
+  ModuleEvaluation evaluate(SourceFile source, dev.w0fv1.norm.frontend.CompilationControl control)
+      throws IOException {
+    var result = compiler.compile(request(source), control);
     if (!result.isSuccess()) {
       throw new ModuleCompilationException(result.diagnostics());
     }
     var artifact = result.output().orElseThrow().artifact();
-    var evaluated =
-        ModuleEvaluation.evaluate(
-            source, artifact, dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact), backend);
-    evaluations.add(evaluated);
-    return evaluated.declaration();
+    var execution = dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(artifact);
+    var calls = dev.w0fv1.norm.core.CoreReachability.jarCalls(artifact, execution);
+    var retainedBindings =
+        bindings.stream().map(binding -> calls.map(binding::retainCalls).orElse(binding)).toList();
+    return ModuleEvaluation.evaluate(source, artifact, execution, backend, retainedBindings);
   }
 
   CompilationSnapshot snapshot(SourceFile source) {
-    return compiler.snapshot(request(source));
+    return snapshot(source, dev.w0fv1.norm.frontend.CompilationControl.standard());
+  }
+
+  CompilationSnapshot snapshot(
+      SourceFile source, dev.w0fv1.norm.frontend.CompilationControl control) {
+    return compiler.snapshot(request(source), control);
   }
 
   private static CompilationRequest request(SourceFile source) {

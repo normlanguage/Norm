@@ -77,9 +77,9 @@ final class BuildCommand implements Command {
       NormRuntime backend = new NormRuntime();
       progress.accept("Target: " + options.target().name().toLowerCase(java.util.Locale.ROOT));
       progress.accept("Initializing compiler");
-      ProjectEnvironment environment = ProjectEnvironment.persistent(backend);
       BuildResult result;
-      try (var project = ApplicationRunner.persistent(environment, progress)) {
+      try (var environment = ProjectEnvironment.persistent(backend);
+          var project = ApplicationRunner.persistent(environment, progress)) {
         var builder =
             new ApplicationBuilder(
                 project,

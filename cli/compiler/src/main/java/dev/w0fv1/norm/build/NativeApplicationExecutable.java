@@ -154,7 +154,7 @@ final class NativeApplicationExecutable {
         compilation
             .javaClasspath()
             .dependencyPaths(
-                compilation.sourceSet().jarBindings().stream()
+                compilation.javaBindings().stream()
                     .map(binding -> binding.graph().root().identity())
                     .toList());
     var moduleRoots =

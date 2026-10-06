@@ -16,6 +16,42 @@ import org.junit.jupiter.api.Test;
 
 final class BidirectionalInferenceCompilerTest {
   @Test
+  void preservesDeclaredGenericElementTypesForEmptyCollectionLiterals() {
+    var result =
+        compile(
+            """
+        List<T> empty<T>() { return [] }
+        List<List<T?>> nested<T>() { return [] }
+        Array<T> emptyArray<T>() { return [] }
+        Void main() {
+          List<String> values = empty<String>()
+          List<List<String?>> nestedValues = nested<String>()
+          Array<String> array = emptyArray<String>()
+        }
+        """);
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
+  void infersDependentBoundsAcrossArgumentsAndArrayElements() {
+    var result =
+        compile(
+            """
+        interface Carrier<T> {}
+        class A implements Carrier<String> {}
+        class B implements Carrier<String> {}
+        T pick<U, T extends Carrier<U>>(T first, T second, U witness) { return first }
+        Array<T> pickArray<U, T extends Carrier<U>>(Array<T> values, U witness) { return values }
+        Void main() {
+          Carrier<String> value = pick(first: A(), second: B(), witness: "x")
+          Carrier<String> element = pickArray(values: [A(), B()], witness: "x")[0]
+          Carrier<String> reversed = pickArray(witness: "x", values: [A(), B()])[0]
+        }
+        """);
+    assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+  }
+
+  @Test
   void contextuallyConstructsArrayAndListLiterals() {
     CompilationResult result =
         compile(

@@ -6,8 +6,17 @@ import java.util.List;
 public interface JarBindingRuntime {
   JarBindingResult invoke(String callId, List<Object> arguments);
 
+  default boolean closesResource(String callId) {
+    return false;
+  }
+
   default List<JarBindingClassReference.Nominal> referenceCandidates(Object value) {
     return List.of();
+  }
+
+  default JarBindingResult referenceResult(Object value) {
+    return new JarBindingResult.Reference(
+        value, value.getClass().getName(), referenceCandidates(value));
   }
 
   static JarBindingRuntime unavailable() {

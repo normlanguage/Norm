@@ -94,25 +94,7 @@ public final class IntrinsicDispatcher {
           TIME_SYSTEM_CLOCK,
           TIME_CLOCK_NOW ->
           CoreIntrinsicDispatcher.resolve(intrinsic);
-      case JAVA_COLLECTION_SIZE,
-          JAVA_LIST_GET,
-          JAVA_LIST_SET,
-          JAVA_LIST_REMOVE,
-          JAVA_COLLECTION_CONTAINS,
-          JAVA_COLLECTION_ADD,
-          JAVA_COLLECTION_REMOVE,
-          JAVA_ITERABLE_ITERATOR,
-          JAVA_ITERATOR_HAS_NEXT,
-          JAVA_ITERATOR_NEXT,
-          JAVA_MAP_NEW,
-          JAVA_MAP_SIZE,
-          JAVA_MAP_CONTAINS_KEY,
-          JAVA_MAP_GET,
-          JAVA_MAP_PUT,
-          JAVA_MAP_REMOVE,
-          JAR_INVOKE,
-          JAR_INVOKE_VOID ->
-          JavaIntrinsicDispatcher.resolve(intrinsic);
+      case JAR_INVOKE, JAR_INVOKE_VOID -> JavaIntrinsicDispatcher.resolve(intrinsic);
       case TO_STRING,
           STRING_BUILDER_CONSTRUCT,
           BUILDER_APPEND,

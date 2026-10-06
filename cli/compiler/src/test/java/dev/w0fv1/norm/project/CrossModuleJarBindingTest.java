@@ -141,8 +141,8 @@ final class CrossModuleJarBindingTest {
         import host.hostEcho
         import host.hostNew
         Void main() {
-          Widget<String?> original = hostNew<String>()
-          Widget<String?> returned = hostEcho<String>(original)!!
+          Widget<String> original = hostNew<String>()
+          Widget<String> returned = hostEcho<String>(original)!!
           require(condition: returned == original, message: "Java identity survives superclass views")
           require(condition: returned != hostNew<String>(), message: "distinct Java instances retain identity")
           Set<Any> identities = Set<>()
@@ -176,13 +176,13 @@ final class CrossModuleJarBindingTest {
               "dependencies: [",
               "dependencies: [dependency(repository: \"github\", name: \"aliases\", version: 1), "));
       try (var projects = environment.projectLoader(repository)) {
-        var failure = assertThrows(java.io.IOException.class, () -> projects.load(entry));
+        var failure = assertThrows(java.io.IOException.class, () -> projects.load(entry).sources());
         assertTrue(
             failure.getMessage().contains("ambiguous public Java type sample.Node"),
             failure.getMessage());
         assertTrue(failure.getMessage().contains("widgets"), failure.getMessage());
         assertTrue(failure.getMessage().contains("aliases"), failure.getMessage());
-        assertThrows(java.io.IOException.class, () -> projects.loadForAnalysis(entry));
+        assertThrows(java.io.IOException.class, () -> projects.loadForAnalysis(entry).sources());
       } finally {
         Files.writeString(descriptor, valid);
       }
@@ -199,7 +199,7 @@ final class CrossModuleJarBindingTest {
     }
     Files.move(widgets, root.resolve("packaged-widgets"));
     try (var projects = environment.projectLoader(repository)) {
-      var analysis = projects.loadForAnalysis(entry);
+      var analysis = projects.loadForAnalysis(entry).sources();
       var compiled = environment.compilerSession().compile(analysis.analysisCompilationRequest());
       assertTrue(compiled.isSuccess(), () -> compiled.diagnostics().toString());
     }
@@ -214,7 +214,7 @@ final class CrossModuleJarBindingTest {
         hostArchive.resolveSibling(hostArchive.getFileName() + ".sha256"),
         dev.w0fv1.norm.value.Sha256Digest.compute(hostArchive).value() + "\n");
     try (var projects = environment.projectLoader(repository)) {
-      var failure = assertThrows(java.io.IOException.class, () -> projects.load(entry));
+      var failure = assertThrows(java.io.IOException.class, () -> projects.load(entry).sources());
       assertTrue(
           failure.getMessage().contains("generated sources do not match"), failure.getMessage());
     }

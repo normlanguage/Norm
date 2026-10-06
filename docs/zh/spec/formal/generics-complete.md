@@ -44,4 +44,4 @@ T maximum<T extends Comparable<T>>(T left, T right) {
 
 ## 限制
 
-当前不提供高阶类型、类型函数、条件类型、使用位置通配符或隐式 typeclass 搜索。
+当前不提供高阶类型、类型函数、条件类型或隐式 typeclass 搜索。存在类型投影遵循[泛型不变性](/zh/spec/generic-variance)。

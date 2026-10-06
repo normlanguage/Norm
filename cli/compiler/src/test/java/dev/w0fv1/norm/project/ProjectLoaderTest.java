@@ -49,7 +49,7 @@ final class ProjectLoaderTest {
         "package sample.math Integer generated() { return 7 }");
     source(root, "sample/tests/math/cases.norm", "package sample.math Void caseTest() {}");
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(production);
+      var sourceSet = projects.load(production).sources();
       assertEquals(2, sourceSet.sources().size());
       assertEquals(
           "sample", sourceSet.scope().coordinate(sourceSet.primarySource().id()).module().name());
@@ -65,7 +65,8 @@ final class ProjectLoaderTest {
         "Module module() { return module(name: \"sample\", version: 1, exports: [\"cases\"]) }");
     Path test = source(root, "sample/tests/cases.norm", "package sample Void testCase() {}");
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException failure = assertThrows(IOException.class, () -> projects.loadForAnalysis(test));
+      IOException failure =
+          assertThrows(IOException.class, () -> projects.loadForAnalysis(test).sources());
       assertTrue(failure.getMessage().contains("test sources cannot be exported"));
     }
   }
@@ -90,10 +91,10 @@ final class ProjectLoaderTest {
             "package sample import std.testing.Test @Test(functions: [value.function]) Void"
                 + " valueTest() { require(condition: value() == 42, message: \"value\") }");
     try (ProjectLoader projects = environment().projectLoader()) {
-      var productionSources = projects.load(production);
+      var productionSources = projects.load(production).sources();
       assertEquals(
           List.of(production), productionSources.sources().stream().map(SourceFile::path).toList());
-      var testSources = projects.loadForAnalysis(test);
+      var testSources = projects.loadForAnalysis(test).sources();
       assertEquals(
           Set.of(production, test),
           testSources.sources().stream()
@@ -124,7 +125,8 @@ final class ProjectLoaderTest {
     module(root, "sample", "library.Value");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(3, sourceSet.sources().size());
       assertEquals(Set.of(exported.toAbsolutePath().normalize()), sourceSet.exportedSourcePaths());
@@ -134,7 +136,10 @@ final class ProjectLoaderTest {
               exported.toAbsolutePath().normalize(),
               internal.toAbsolutePath().normalize(),
               root.resolve("sample/module.norm").toAbsolutePath().normalize()),
-          sourceSet.inputPaths());
+          loaded.inputs().files().stream()
+              .map(file -> file.path())
+              .filter(path -> path.startsWith(root))
+              .collect(java.util.stream.Collectors.toSet()));
     }
   }
 
@@ -147,8 +152,8 @@ final class ProjectLoaderTest {
     module(root, "sample", "First", "Second");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var firstRequest = projects.load(first).analysisCompilationRequest();
-      var secondRequest = projects.load(second).analysisCompilationRequest();
+      var firstRequest = projects.load(first).sources().analysisCompilationRequest();
+      var secondRequest = projects.load(second).sources().analysisCompilationRequest();
 
       assertEquals(firstRequest, secondRequest);
     }
@@ -161,7 +166,7 @@ final class ProjectLoaderTest {
     module(root, "sample");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("must declare package 'sample'"));
     }
@@ -178,12 +183,18 @@ final class ProjectLoaderTest {
         source(nested, "vendor/Value.norm", "package vendor public Integer value() { return 1 }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(
           List.of(SourceFile.read(entry).id()),
           sourceSet.sources().stream().map(SourceFile::id).toList());
-      assertFalse(sourceSet.inputPaths().contains(nestedSource.toAbsolutePath().normalize()));
+      assertFalse(
+          loaded.inputs().files().stream()
+              .map(file -> file.path())
+              .filter(path -> path.startsWith(root))
+              .collect(java.util.stream.Collectors.toSet())
+              .contains(nestedSource.toAbsolutePath().normalize()));
     }
   }
 
@@ -199,9 +210,15 @@ final class ProjectLoaderTest {
     module(root, "sample", "internal.module");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
-      assertTrue(sourceSet.inputPaths().contains(packageSource.toAbsolutePath().normalize()));
+      assertTrue(
+          loaded.inputs().files().stream()
+              .map(file -> file.path())
+              .filter(path -> path.startsWith(root))
+              .collect(java.util.stream.Collectors.toSet())
+              .contains(packageSource.toAbsolutePath().normalize()));
       assertEquals(2, sourceSet.sources().size());
     }
   }
@@ -213,11 +230,22 @@ final class ProjectLoaderTest {
     Path peer = source(root, "sample/Peer.norm", "package sample Integer value() { return 1 }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(1, sourceSet.sources().size());
-      assertEquals(Set.of(entry.toAbsolutePath().normalize()), sourceSet.inputPaths());
-      assertFalse(sourceSet.inputPaths().contains(peer.toAbsolutePath().normalize()));
+      assertEquals(
+          Set.of(entry.toAbsolutePath().normalize()),
+          loaded.inputs().files().stream()
+              .map(file -> file.path())
+              .filter(path -> path.startsWith(root))
+              .collect(java.util.stream.Collectors.toSet()));
+      assertFalse(
+          loaded.inputs().files().stream()
+              .map(file -> file.path())
+              .filter(path -> path.startsWith(root))
+              .collect(java.util.stream.Collectors.toSet())
+              .contains(peer.toAbsolutePath().normalize()));
     }
   }
 
@@ -230,7 +258,8 @@ final class ProjectLoaderTest {
             "package hello.web Module module() { return module(dependencies: []) } Void main() {}");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(
           new ModuleCoordinate("hello.web", 0),
@@ -247,7 +276,8 @@ final class ProjectLoaderTest {
             "Module module() { return module(dependencies: []) } Void main() {}");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(
           ModuleCoordinate.localApplication(),
@@ -271,7 +301,8 @@ final class ProjectLoaderTest {
         "Module module() { return module(name: \"sample.vendor\", version: 1) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(
           new ModuleCoordinate("sample", 0),
@@ -288,7 +319,7 @@ final class ProjectLoaderTest {
         "Module module() { return module(name: \"sample\", version: 1, exports: []) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("must match module name 'sample'"));
     }
@@ -331,7 +362,8 @@ final class ProjectLoaderTest {
         "Module module() { return module(name: \"util\", version: 1, exports: [\"Value\"]) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      var sourceSet = loaded.sources();
 
       assertEquals(
           Set.of(
@@ -373,11 +405,12 @@ final class ProjectLoaderTest {
 
     try (ProjectLoader projects =
         environment.projectLoader(repository, temporaryDirectory.resolve("cache"))) {
-      ProjectSourceSet sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      ProjectSourceSet sourceSet = loaded.sources();
 
       assertEquals(temporaryDirectory.resolve("application"), sourceSet.root());
-      assertEquals(sourceSet.root(), projects.projectRoot(SourceFile.read(entry), List.of()));
-      assertEquals(sourceSet.root(), projects.loadForTests(applicationRoot).root());
+      assertEquals(entry.getParent(), projects.projectRoot(SourceFile.read(entry), List.of()));
+      assertEquals(sourceSet.root(), projects.loadForTests(applicationRoot).sources().root());
       assertEquals(
           repository.resolve("sample/lib/1/lib-1.nar").toAbsolutePath().normalize(),
           sourceSet.moduleArchives().get(new ModuleCoordinate("sample.lib", 1)).path());
@@ -409,7 +442,7 @@ final class ProjectLoaderTest {
         "Module module() { return module(name: \"base\", version: 1) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("base@1"));
       assertTrue(exception.getMessage().contains("github"));
@@ -441,7 +474,7 @@ final class ProjectLoaderTest {
             + " [\"DependencyValue\"]) }");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("package 'sample.shared'"));
       assertTrue(exception.getMessage().contains("sample@1"));
@@ -456,7 +489,7 @@ final class ProjectLoaderTest {
     module(root, "std", "Main");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("module name 'std' is reserved"));
     }
@@ -471,7 +504,7 @@ final class ProjectLoaderTest {
             "Module module() { return module(name: \"__private\", version: 1) } Void main() {}");
 
     try (ProjectLoader projects = environment().projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(
           exception.getMessage().contains("module name '__private' is reserved"),
@@ -566,7 +599,8 @@ final class ProjectLoaderTest {
             .projectLoader(
                 MavenTestRepository.prepare(temporaryDirectory.resolve("maven-cache")))) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
-      ProjectSourceSet sourceSet = projects.load(entry);
+      var loaded = projects.load(entry);
+      ProjectSourceSet sourceSet = loaded.sources();
 
       SourceFile generated =
           sourceSet.sources().stream()
@@ -580,7 +614,12 @@ final class ProjectLoaderTest {
           sourceSet.sources().stream()
               .noneMatch(source -> source.displayName().endsWith("JavaArrays.norm")));
       assertEquals(1, sourceSet.jarBindings().size());
-      assertFalse(sourceSet.inputPaths().contains(generated.path()));
+      assertFalse(
+          loaded.inputs().files().stream()
+              .map(file -> file.path())
+              .filter(path -> path.startsWith(root))
+              .collect(java.util.stream.Collectors.toSet())
+              .contains(generated.path()));
     }
   }
 

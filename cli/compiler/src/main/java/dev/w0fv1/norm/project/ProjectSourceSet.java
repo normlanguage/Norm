@@ -205,17 +205,6 @@ public record ProjectSourceSet(
         bindingSourceDocuments);
   }
 
-  public Set<Path> inputPaths() {
-    Set<Path> inputs = new LinkedHashSet<>();
-    sources.stream()
-        .filter(source -> !bindingSourceDocuments.contains(source.id()))
-        .map(SourceFile::path)
-        .map(ProjectSourceSet::normalize)
-        .forEach(inputs::add);
-    inputs.addAll(modulePaths);
-    return Set.copyOf(inputs);
-  }
-
   private CompilationRequest compilationRequest(Path selectedPath) {
     SourceFile selected = source(selectedPath);
     return new CompilationRequest(

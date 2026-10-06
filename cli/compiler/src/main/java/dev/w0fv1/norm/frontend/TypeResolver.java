@@ -393,8 +393,13 @@ final class TypeResolver {
     return typeRelations.isAssignable(expected, actual);
   }
 
-  Optional<SemanticType> commonType(SemanticType left, SemanticType right) {
-    return typeRelations.commonType(left, right);
+  Optional<SemanticType> commonType(
+      SemanticType left,
+      SemanticType right,
+      SemanticType inferenceVariable,
+      Map<String, SemanticType> substitutions) {
+    return typeRelations.commonType(
+        left, right, typeRelations.upperBound(inferenceVariable, substitutions).orElse(null));
   }
 
   SemanticType receiverType(SemanticType type, boolean nullSafe, SourceSpan span) {
@@ -1186,6 +1191,18 @@ final class TypeResolver {
     return null;
   }
 
+  SemanticType readResult(SemanticType original, Map<String, SemanticType> substitutions) {
+    SemanticType result = original.substitute(substitutions);
+    if (result.kind() != SemanticType.Kind.EXISTENTIAL) return result;
+    SemanticType bound =
+        original.kind() == SemanticType.Kind.TYPE_PARAMETER
+            ? resolution.upperBound(original.identity())
+            : null;
+    if (bound == null) return SemanticType.ANY.nullable();
+    SemanticType readable = readResult(bound, substitutions);
+    return original.isNullable() ? readable.nullable() : readable;
+  }
+
   List<InterfaceRequirement> directRequirements(
       Syntax.InterfaceDecl declaration, SemanticType instance) {
     Map<String, SemanticType> substitutions = interfaceSubstitutions(declaration, instance);
@@ -1199,8 +1216,9 @@ final class TypeResolver {
                       .map(parameter -> parameter.substitute(substitutions))
                       .toList();
               SemanticType result =
-                  resolveDeclarationType(method.returnType(), method, methodTypes)
-                      .substitute(substitutions);
+                  readResult(
+                      resolveDeclarationType(method.returnType(), method, methodTypes),
+                      substitutions);
               String signature =
                   methodParameters.stream()
                           .map(value -> value.name() + ":" + value.type().identity())

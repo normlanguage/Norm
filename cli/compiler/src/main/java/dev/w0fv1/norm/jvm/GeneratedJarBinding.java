@@ -23,4 +23,19 @@ public record GeneratedJarBinding(
                     Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
     annotations = Map.copyOf(annotations);
   }
+
+  public Map<String, JarBindingClassReference.Nominal> exportedClasses() {
+    Map<String, JarBindingClassReference.Nominal> result = new java.util.LinkedHashMap<>();
+    classDescriptors.forEach(
+        (reference, descriptor) -> {
+          String path =
+              (reference.packageName() + "." + reference.name())
+                  .substring(reference.module().name().length() + 1);
+          if (exports.contains(path) && descriptor.startsWith("L")) {
+            result.put(
+                descriptor.substring(1, descriptor.length() - 1).replace('/', '.'), reference);
+          }
+        });
+    return Map.copyOf(result);
+  }
 }

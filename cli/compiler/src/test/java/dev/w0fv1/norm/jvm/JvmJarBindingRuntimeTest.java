@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.w0fv1.norm.execution.JarBindingClassReference;
-import dev.w0fv1.norm.execution.JarBindingDuration;
 import dev.w0fv1.norm.execution.JarBindingInvocationException;
 import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
@@ -32,6 +31,72 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 final class JvmJarBindingRuntimeTest {
+  @TempDir static Path metadataDirectory;
+  private static JdkModuleArchive javaBase;
+  private static Map<String, JarBindingClassReference.Nominal> javaBaseOwners;
+
+  @org.junit.jupiter.api.BeforeAll
+  static void loadJavaMetadata() throws Exception {
+    javaBase = JdkModuleArchive.open(metadataDirectory, "java.base");
+    try (var environment =
+        dev.w0fv1.norm.project.ProjectEnvironment.bootstrap(
+            new dev.w0fv1.norm.runtime.NormRuntime())) {
+      javaBaseOwners =
+          environment.javaBindings().stream()
+              .flatMap(binding -> binding.generated().exportedClasses().entrySet().stream())
+              .collect(
+                  java.util.stream.Collectors.toUnmodifiableMap(
+                      Map.Entry::getKey, Map.Entry::getValue));
+    }
+  }
+
+  @org.junit.jupiter.api.AfterAll
+  static void closeJavaMetadata() throws Exception {
+    javaBase.close();
+  }
+
+  @Test
+  void preservesJavaDomainObjectsAcrossTheBindingBoundary() {
+    var values =
+        Map.<String, Object>of(
+            "java.util.Optional", Optional.of("present"),
+            "java.time.Duration", java.time.Duration.ofSeconds(5, 7),
+            "java.nio.file.Path", Path.of("relative"),
+            "java.net.URI", java.net.URI.create("https://example.com/path"),
+            "java.nio.charset.Charset", java.nio.charset.StandardCharsets.UTF_8,
+            "java.util.concurrent.CompletableFuture", CompletableFuture.completedFuture("done"),
+            "java.lang.RuntimeException", new RuntimeException("failure"));
+    var classes = LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader());
+    for (var entry : values.entrySet()) {
+      var type =
+          new JavaReferenceType(
+              entry.getKey(),
+              JavaPlatformTypes.referenceKind(entry.getKey()).orElse(JavaReferenceKind.OPAQUE));
+      var callable =
+          new JavaBindingCallable(
+              "sample.JavaIdentity",
+              "identity",
+              "(Ljava/lang/Object;)Ljava/lang/Object;",
+              JavaCallableKind.STATIC_METHOD,
+              List.of(type),
+              type);
+      var prepared =
+          JvmJarBindingRuntime.prepareCalls(
+              Map.of("identity", callable), Map.of("identity", args -> args[0]));
+      try (var runtime =
+          JvmJarBindingRuntime.closedWorld(
+              prepared, classes, dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY)) {
+        var result =
+            assertInstanceOf(
+                JarBindingResult.Reference.class,
+                runtime.invoke("identity", List.of(entry.getValue())),
+                entry.getKey());
+        org.junit.jupiter.api.Assertions.assertSame(
+            entry.getValue(), result.value(), entry.getKey());
+      }
+    }
+  }
+
   @Test
   void borrowedInstanceResultsRetainTheExplicitBindingContract() {
     var callable =
@@ -50,7 +115,9 @@ final class JvmJarBindingRuntimeTest {
         JvmJarBindingRuntime.prepareCalls(
             Map.of("child", callable), Map.of("child", args -> child));
     var classes = LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader());
-    try (var runtime = JvmJarBindingRuntime.closedWorld(prepared, classes, Map.of())) {
+    try (var runtime =
+        JvmJarBindingRuntime.closedWorld(
+            prepared, classes, dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY)) {
       var result =
           assertInstanceOf(
               JarBindingResult.BorrowedReference.class,
@@ -242,7 +309,9 @@ final class JvmJarBindingRuntimeTest {
     descriptions.clear();
     var classes = LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader());
     for (int attempt = 0; attempt < 2; attempt++) {
-      try (var runtime = JvmJarBindingRuntime.closedWorld(prepared, classes, Map.of())) {
+      try (var runtime =
+          JvmJarBindingRuntime.closedWorld(
+              prepared, classes, dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY)) {
         assertEquals(new JarBindingResult.Scalar(127), runtime.invoke("identity", List.of(127)));
         assertThrows(
             JarBindingRuntimeException.class, () -> runtime.invoke("identity", List.of(128)));
@@ -402,14 +471,16 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("maven-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("StringUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.StringUtils", List.of("reverse"))));
       String reverseCall =
           generated.calls().entrySet().stream()
               .filter(
@@ -537,14 +608,16 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("text-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("StringUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.StringUtils", List.of("isBlank"))));
       String isBlank = call(generated, "isBlank", "(Ljava/lang/CharSequence;)Z");
 
       try (JvmJarBindingRuntime runtime =
@@ -560,14 +633,16 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("field-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("StringUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.StringUtils", List.of("EMPTY"))));
       String empty =
           call(generated, JavaCallableKind.STATIC_FIELD_GET, "EMPTY", "Ljava/lang/String;");
 
@@ -583,14 +658,16 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("generic-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("ObjectUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.ObjectUtils", List.of("CONST"))));
       String identity = call(generated, "CONST", "(Ljava/lang/Object;)Ljava/lang/Object;");
 
       try (JvmJarBindingRuntime runtime =
@@ -607,14 +684,18 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("primitive-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("BooleanUtils", "ObjectUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.BooleanUtils", List.of("negate")),
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.ObjectUtils", List.of("CONST"))));
       String character = call(generated, "CONST", "(C)C");
       String negate = call(generated, "negate", "(Ljava/lang/Boolean;)Ljava/lang/Boolean;");
 
@@ -634,14 +715,16 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("array-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("StringUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.StringUtils", List.of("split"))));
       String split =
           call(generated, "split", "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;");
       String length =
@@ -682,14 +765,16 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("generic-array-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("ObjectUtils"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.ObjectUtils", List.of("firstNonNull"))));
       String constructor =
           call(
               generated,
@@ -724,14 +809,17 @@ final class JvmJarBindingRuntimeTest {
     var target = new MavenJarTarget(MavenTestRepository.commonsLang(), Optional.empty());
     try (JarResolver resolver = resolver("object-cache")) {
       ResolvedJarGraph graph = resolver.resolve(temporaryDirectory, new JarBinding(target));
-      JarApiSchema schema = new JarApiScanner().scan(graph);
+      JarApiSchema schema =
+          new JarApiScanner()
+              .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
       GeneratedJarBinding generated =
-          new JarBindingSourceGenerator()
-              .generate(
-                  new ModuleCoordinate("commons.lang", 1),
-                  List.of("mutable.MutableInt"),
-                  graph.contentId(),
-                  schema);
+          commonsBinding(
+              graph,
+              schema,
+              List.of(
+                  new dev.w0fv1.norm.value.JarBindingType(
+                      "org.apache.commons.lang3.mutable.MutableInt",
+                      List.of("new", "increment", "intValue"))));
       String constructor = call(generated, "<init>", "(I)V");
       String increment = call(generated, "increment", "()V");
       String intValue = call(generated, "intValue", "()I");
@@ -757,7 +845,9 @@ final class JvmJarBindingRuntimeTest {
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
     ResolvedJarGraph graph = new ResolvedJarGraph(root, List.of(root), List.of());
-    JarApiSchema schema = new JarApiScanner().scan(graph);
+    JarApiSchema schema =
+        new JarApiScanner()
+            .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
     GeneratedJarBinding generated =
         new JarBindingSourceGenerator()
             .generate(
@@ -789,14 +879,20 @@ final class JvmJarBindingRuntimeTest {
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
     ResolvedJarGraph graph = new ResolvedJarGraph(root, List.of(root), List.of());
-    JarApiSchema schema = new JarApiScanner().scan(graph);
+    JarApiSchema schema =
+        new JarApiScanner()
+            .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
     GeneratedJarBinding generated =
         new JarBindingSourceGenerator()
-            .generate(
+            .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
                 List.of("FailureApi"),
+                List.of(
+                    new dev.w0fv1.norm.value.JarBindingType(
+                        "sample.FailureApi", List.of("fail", "identity"))),
                 graph.contentId(),
-                schema);
+                schema,
+                javaBaseOwners);
     String failure = call(generated, "fail", "(Ljava/lang/String;)Ljava/lang/String;");
     String identity = call(generated, "identity", "(Ljava/lang/Throwable;)Ljava/lang/Throwable;");
 
@@ -808,8 +904,10 @@ final class JvmJarBindingRuntimeTest {
       IllegalStateException cause =
           assertInstanceOf(IllegalStateException.class, exception.failure());
       assertEquals("boom", cause.getMessage());
-      assertEquals(
-          new JarBindingResult.ExceptionReference(cause), runtime.invoke(identity, List.of(cause)));
+      var returned =
+          assertInstanceOf(
+              JarBindingResult.Reference.class, runtime.invoke(identity, List.of(cause)));
+      org.junit.jupiter.api.Assertions.assertSame(cause, returned.value());
     }
   }
 
@@ -858,28 +956,37 @@ final class JvmJarBindingRuntimeTest {
   }
 
   @Test
-  void convertsCharsetNamesAtTheJavaBoundary() throws Exception {
+  void preservesJavaCharsetObjectsAtTheBindingBoundary() throws Exception {
     Path jar = charsetJar(temporaryDirectory.resolve("charset.jar"));
     ResolvedJarArtifact root =
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
     ResolvedJarGraph graph = new ResolvedJarGraph(root, List.of(root), List.of());
-    JarApiSchema schema = new JarApiScanner().scan(graph);
+    JarApiSchema schema =
+        new JarApiScanner()
+            .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
     GeneratedJarBinding generated =
         new JarBindingSourceGenerator()
-            .generate(
+            .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
                 List.of("CharsetApi"),
+                List.of(
+                    new dev.w0fv1.norm.value.JarBindingType(
+                        "sample.CharsetApi", List.of("canonical", "object"))),
                 graph.contentId(),
-                schema);
+                schema,
+                javaBaseOwners);
     String canonical =
         call(generated, "canonical", "(Ljava/nio/charset/Charset;)Ljava/nio/charset/Charset;");
     String object = call(generated, "object", "(Ljava/lang/Object;)Ljava/lang/Object;");
 
     try (JvmJarBindingRuntime runtime =
         new JvmJarBindingRuntime(List.of(new ResolvedJarBinding(graph, schema, generated)))) {
-      assertEquals(
-          new JarBindingResult.Scalar("UTF-8"), runtime.invoke(canonical, List.of("utf-8")));
+      var charset = java.nio.charset.StandardCharsets.UTF_8;
+      var returned =
+          assertInstanceOf(
+              JarBindingResult.Reference.class, runtime.invoke(canonical, List.of(charset)));
+      org.junit.jupiter.api.Assertions.assertSame(charset, returned.value());
       assertEquals(
           JarBindingResult.Null.INSTANCE,
           runtime.invoke(canonical, java.util.Collections.singletonList(null)));
@@ -892,31 +999,53 @@ final class JvmJarBindingRuntimeTest {
   }
 
   @Test
-  void convertsDurationsAtTheJavaBoundary() throws Exception {
+  void preservesJavaDurationIdentityAtTheBindingBoundary() throws Exception {
     Path jar = durationJar(temporaryDirectory.resolve("duration.jar"));
     ResolvedJarArtifact root =
         new ResolvedJarArtifact(
             new LocalJarIdentity(Sha256Digest.compute(jar)), jar, Sha256Digest.compute(jar));
     ResolvedJarGraph graph = new ResolvedJarGraph(root, List.of(root), List.of());
-    JarApiSchema schema = new JarApiScanner().scan(graph);
+    JarApiSchema schema =
+        new JarApiScanner()
+            .scan(new JavaApiScanInput(graph, List.of(javaBase.graph())), List.of(), false);
     GeneratedJarBinding generated =
         new JarBindingSourceGenerator()
-            .generate(
+            .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
                 List.of("DurationApi"),
+                List.of(
+                    new dev.w0fv1.norm.value.JarBindingType(
+                        "sample.DurationApi", List.of("identity"))),
                 graph.contentId(),
-                schema);
+                schema,
+                javaBaseOwners);
     String identity = call(generated, "identity", "(Ljava/time/Duration;)Ljava/time/Duration;");
 
     try (JvmJarBindingRuntime runtime =
         new JvmJarBindingRuntime(List.of(new ResolvedJarBinding(graph, schema, generated)))) {
-      assertEquals(
-          new JarBindingResult.DurationValue(5, 7),
-          runtime.invoke(identity, List.of(new JarBindingDuration(5, 7))));
+      var duration = java.time.Duration.ofSeconds(5, 7);
+      var returned =
+          assertInstanceOf(
+              JarBindingResult.Reference.class, runtime.invoke(identity, List.of(duration)));
+      org.junit.jupiter.api.Assertions.assertSame(duration, returned.value());
       assertEquals(
           JarBindingResult.Null.INSTANCE,
           runtime.invoke(identity, java.util.Collections.singletonList(null)));
     }
+  }
+
+  private static GeneratedJarBinding commonsBinding(
+      ResolvedJarGraph graph, JarApiSchema schema, List<dev.w0fv1.norm.value.JarBindingType> api) {
+    return new JarBindingSourceGenerator()
+        .generateSurface(
+            new ModuleCoordinate("commons.lang", 1),
+            api.stream()
+                .map(type -> type.name().substring("org.apache.commons.lang3.".length()))
+                .toList(),
+            api,
+            graph.contentId(),
+            schema,
+            javaBaseOwners);
   }
 
   private static String call(GeneratedJarBinding generated, String name, String descriptor) {

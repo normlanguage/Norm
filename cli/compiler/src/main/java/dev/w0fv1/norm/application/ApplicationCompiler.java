@@ -6,6 +6,7 @@ import dev.w0fv1.norm.diagnostic.DiagnosticCode;
 import dev.w0fv1.norm.frontend.CompilerSession;
 import dev.w0fv1.norm.jvm.JarBindingClasspath;
 import dev.w0fv1.norm.jvm.JavaAnnotationProcessorPipeline;
+import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.jvm.ResolvedJarGraph;
 import dev.w0fv1.norm.project.ProjectSourceSet;
 import dev.w0fv1.norm.source.SourceSpan;
@@ -21,11 +22,13 @@ public final class ApplicationCompiler implements AutoCloseable {
   private static final DiagnosticCode JAVA_ANNOTATION_PROCESSING =
       new DiagnosticCode("NORM-JVM-0001");
   private final CompilerSession compiler;
+  private final List<ResolvedJarBinding> providedBindings;
   private final JavaAnnotationProcessorPipeline annotations = new JavaAnnotationProcessorPipeline();
   private final ClasspathResourceMaterializer resources = new ClasspathResourceMaterializer();
 
-  public ApplicationCompiler(CompilerSession compiler) {
+  public ApplicationCompiler(CompilerSession compiler, List<ResolvedJarBinding> providedBindings) {
     this.compiler = Objects.requireNonNull(compiler, "compiler");
+    this.providedBindings = List.copyOf(providedBindings);
   }
 
   public ApplicationCompilation compile(
@@ -47,7 +50,8 @@ public final class ApplicationCompiler implements AutoCloseable {
     boolean transferred = false;
     JarBindingClasspath.Lease capturedClasspath = null;
     try {
-      var bindings = input.project().map(ProjectSourceSet::jarBindings).orElse(List.of());
+      var bindings = new ArrayList<>(providedBindings);
+      bindings.addAll(input.project().map(ProjectSourceSet::jarBindings).orElse(List.of()));
       capturedClasspath =
           JarBindingClasspath.prepare(bindings, supportGraphs)
               .acquire(
@@ -70,7 +74,7 @@ public final class ApplicationCompiler implements AutoCloseable {
               resourceFiles,
               progress);
       var application =
-          new CompiledApplication(input, result, output, capturedClasspath, workspace);
+          new CompiledApplication(input, result, output, capturedClasspath, workspace, bindings);
       transferred = true;
       return new ApplicationCompilation(result, Optional.of(application));
     } catch (IOException exception) {

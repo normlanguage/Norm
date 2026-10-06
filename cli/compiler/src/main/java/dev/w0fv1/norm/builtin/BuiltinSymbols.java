@@ -16,6 +16,7 @@ public final class BuiltinSymbols implements BuiltinSemanticIndex {
   private final java.util.Set<DocumentId> moduleEvaluationDocuments;
   private final java.util.Set<DocumentId> standardLibraryDocuments;
   private final java.util.Set<DocumentId> bindingDocuments;
+  private final List<dev.w0fv1.norm.semantic.BuiltinTypeConformance> typeConformances;
 
   public BuiltinSymbols() {
     this(java.util.Set.of(), java.util.Set.of(), java.util.Set.of());
@@ -35,10 +36,19 @@ public final class BuiltinSymbols implements BuiltinSemanticIndex {
       java.util.Set<DocumentId> moduleEvaluationDocuments,
       java.util.Set<DocumentId> standardLibraryDocuments,
       java.util.Set<DocumentId> bindingDocuments) {
+    this(moduleEvaluationDocuments, standardLibraryDocuments, bindingDocuments, List.of());
+  }
+
+  public BuiltinSymbols(
+      java.util.Set<DocumentId> moduleEvaluationDocuments,
+      java.util.Set<DocumentId> standardLibraryDocuments,
+      java.util.Set<DocumentId> bindingDocuments,
+      List<dev.w0fv1.norm.semantic.BuiltinTypeConformance> typeConformances) {
     catalog = BuiltinCatalog.standard();
     this.moduleEvaluationDocuments = java.util.Set.copyOf(moduleEvaluationDocuments);
     this.standardLibraryDocuments = java.util.Set.copyOf(standardLibraryDocuments);
     this.bindingDocuments = java.util.Set.copyOf(bindingDocuments);
+    this.typeConformances = typeConformances.stream().distinct().toList();
   }
 
   public Map<SymbolId, Symbol> symbols() {
@@ -120,7 +130,18 @@ public final class BuiltinSymbols implements BuiltinSemanticIndex {
   }
 
   public List<SemanticType> protocolConformances(SemanticType type) {
-    return catalog.protocolConformances(type);
+    return java.util.stream.Stream.concat(
+            catalog.protocolConformances(type).stream(),
+            typeConformances.stream()
+                .filter(value -> value.concreteType().equals(type.nonNullable()))
+                .map(dev.w0fv1.norm.semantic.BuiltinTypeConformance::interfaceType))
+        .distinct()
+        .toList();
+  }
+
+  @Override
+  public List<dev.w0fv1.norm.semantic.BuiltinTypeConformance> typeConformances() {
+    return typeConformances;
   }
 
   public Optional<BuiltinCatalog.ResolvedIndex> resolveIndex(SemanticType type) {

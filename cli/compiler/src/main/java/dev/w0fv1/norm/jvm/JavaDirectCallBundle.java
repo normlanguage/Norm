@@ -32,6 +32,30 @@ public final class JavaDirectCallBundle {
       Path destination,
       ClassLoader loader)
       throws IOException {
+    write(binaryName, calls, java.util.Optional.empty(), destination, loader);
+  }
+
+  public void writeApplication(
+      java.util.Map<String, ? extends JavaCallTarget> calls,
+      java.util.Set<String> types,
+      Path destination,
+      ClassLoader loader)
+      throws IOException {
+    write(
+        JavaApplicationMethodIndex.REGISTRY_NAME,
+        calls,
+        java.util.Optional.of(java.util.Set.copyOf(types)),
+        destination,
+        loader);
+  }
+
+  private void write(
+      String binaryName,
+      java.util.Map<String, ? extends JavaCallTarget> calls,
+      java.util.Optional<java.util.Set<String>> types,
+      Path destination,
+      ClassLoader loader)
+      throws IOException {
     var generator = new JavaDirectCallGenerator();
     var registry = new ClassWriter(ClassWriter.COMPUTE_MAXS);
     String registryName = binaryName.replace('.', '/');
@@ -41,7 +65,12 @@ public final class JavaDirectCallBundle {
         registryName,
         null,
         "java/lang/Object",
-        new String[] {Type.getInternalName(JavaDirectCallRegistry.class)});
+        new String[] {
+          Type.getInternalName(
+              types.isPresent()
+                  ? dev.w0fv1.norm.bridge.JavaApplicationRegistry.class
+                  : JavaDirectCallRegistry.class)
+        });
     var constructor = registry.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
     constructor.visitCode();
     constructor.visitVarInsn(ALOAD, 0);
@@ -100,6 +129,31 @@ public final class JavaDirectCallBundle {
     factory.visitInsn(ARETURN);
     factory.visitMaxs(0, 0);
     factory.visitEnd();
+    if (types.isPresent()) {
+      var format = registry.visitMethod(ACC_PUBLIC, "format", "()I", null, null);
+      format.visitCode();
+      format.visitLdcInsn(dev.w0fv1.norm.bridge.JavaApplicationRegistry.FORMAT);
+      format.visitInsn(IRETURN);
+      format.visitMaxs(0, 0);
+      format.visitEnd();
+      var index = registry.visitMethod(ACC_PUBLIC, "types", "()Ljava/util/Set;", null, null);
+      index.visitCode();
+      index.visitTypeInsn(NEW, "java/util/LinkedHashSet");
+      index.visitInsn(DUP);
+      index.visitMethodInsn(INVOKESPECIAL, "java/util/LinkedHashSet", "<init>", "()V", false);
+      for (String type : new java.util.TreeSet<>(types.orElseThrow())) {
+        index.visitInsn(DUP);
+        index.visitLdcInsn(type);
+        index.visitMethodInsn(
+            INVOKEINTERFACE, "java/util/Set", "add", "(Ljava/lang/Object;)Z", true);
+        index.visitInsn(POP);
+      }
+      index.visitMethodInsn(
+          INVOKESTATIC, "java/util/Set", "copyOf", "(Ljava/util/Collection;)Ljava/util/Set;", true);
+      index.visitInsn(ARETURN);
+      index.visitMaxs(0, 0);
+      index.visitEnd();
+    }
     registry.visitEnd();
     Path file = destination.resolve(registryName + ".class");
     Files.createDirectories(file.getParent());

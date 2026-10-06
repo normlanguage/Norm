@@ -46,13 +46,31 @@ final class ArchivedModuleLoader {
   }
 
   ResolvedProjectModule load(
-      Path repositoryRoot, ModuleRequirement requirement, ProjectLoadPurpose purpose)
+      Path repositoryRoot,
+      ModuleRequirement requirement,
+      ProjectLoadPurpose purpose,
+      ProjectLoadContext context)
       throws IOException {
+    context.checkpoint();
+    NormPackageResolver.ResolvedPackage resolution;
+    try {
+      resolution = packages.resolve(requirement);
+    } catch (dev.w0fv1.norm.packages.PackageResolutionException exception) {
+      context.inputs().resolution(exception.inputs());
+      throw exception;
+    }
+    context.checkpoint();
+    context.inputs().resolution(resolution.inputs());
+    Path archive = resolution.archive();
+    var archiveSnapshot =
+        resolution.inputs().files().stream()
+            .filter(snapshot -> snapshot.path().equals(archive))
+            .findFirst()
+            .orElseThrow();
     AnalysisModuleKey analysisKey = new AnalysisModuleKey(normalize(repositoryRoot), requirement);
     if (purpose == ProjectLoadPurpose.ANALYSIS) {
       ResolvedProjectModule cached = analysisModules.get(analysisKey);
-      if (cached != null) {
-        cached.archive().orElseThrow().verify();
+      if (cached != null && cached.archive().orElseThrow().equals(archiveSnapshot)) {
         return cached;
       }
     }
@@ -63,9 +81,8 @@ final class ArchivedModuleLoader {
             + requirement.name()
             + "@"
             + requirement.version());
-    Path archive = packages.resolve(requirement);
     progress.accept("Using NAR: " + archive);
-    ModuleArchiveReader.ArchivedModule archived = archive(archive);
+    ModuleArchiveReader.ArchivedModule archived = archive(archiveSnapshot);
     ModuleDescriptor descriptor = archived.descriptor();
     if (!descriptor.coordinate().equals(requirement.coordinate())) {
       throw new IOException(
@@ -81,6 +98,7 @@ final class ArchivedModuleLoader {
         progress.accept("Resolving Java dependencies for " + requirement.name());
         ResolvedJarGraph graph =
             jars.resolvePublished(archive, repositoryRoot, descriptor.binding().orElseThrow());
+        context.inputs().graph(graph);
         progress.accept("Linking published Java binding for " + requirement.name());
         ResolvedJarBinding resolved = archived.binding().orElseThrow().link(graph);
         Map<String, String> expected = new LinkedHashMap<>();
@@ -134,20 +152,20 @@ final class ArchivedModuleLoader {
             archived.publicTypes(),
             Optional.of(archived.compiled()));
     if (purpose != ProjectLoadPurpose.ANALYSIS) return result;
-    ResolvedProjectModule cached = analysisModules.putIfAbsent(analysisKey, result);
-    return cached == null ? result : cached;
+    analysisModules.put(analysisKey, result);
+    return result;
   }
 
-  private ModuleArchiveReader.ArchivedModule archive(Path path) throws IOException {
-    Path archive = normalize(path);
+  private ModuleArchiveReader.ArchivedModule archive(dev.w0fv1.norm.value.FileSnapshot snapshot)
+      throws IOException {
+    Path archive = normalize(snapshot.path());
     ModuleArchiveReader.ArchivedModule cached = archives.get(archive);
     if (cached != null) {
-      cached.archive().verify();
-      return cached;
+      if (cached.archive().equals(snapshot)) return cached;
     }
     ModuleArchiveReader.ArchivedModule loaded = new ModuleArchiveReader().read(archive);
-    ModuleArchiveReader.ArchivedModule existing = archives.putIfAbsent(archive, loaded);
-    return existing == null ? loaded : existing;
+    archives.put(archive, loaded);
+    return loaded;
   }
 
   private record AnalysisModuleKey(Path repositoryRoot, ModuleRequirement requirement) {}

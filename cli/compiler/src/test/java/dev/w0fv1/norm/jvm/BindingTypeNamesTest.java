@@ -1,13 +1,37 @@
 package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class BindingTypeNamesTest {
+  @Test
+  void nominalInstantiationPreservesCallerTypeArgumentsWhileJavaValuesRemainNullable() {
+    var key =
+        new JavaBindingTypeVariable(
+            "K", new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT));
+    var value =
+        new JavaBindingTypeVariable(
+            "V", new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT));
+    var map =
+        new JavaReferenceType(
+            "java.util.LinkedHashMap",
+            JavaReferenceKind.OPAQUE,
+            List.of(JavaBindingTypeArgument.exact(key), JavaBindingTypeArgument.exact(value)));
+    var names =
+        new BindingTypeNames(
+            Map.of("java.util.LinkedHashMap", "LinkedHashMap"),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of("java.util.LinkedHashMap", 2),
+            Map.of());
+    assertEquals("LinkedHashMap<K, V>", BindingTypeNames.normType(map, names, true));
+    assertEquals("V?", BindingTypeNames.normType(value, names, false));
+  }
+
   @Test
   void preservesNestedTypeParametersInNominalRelations() {
     var variable =
@@ -36,7 +60,7 @@ final class BindingTypeNamesTest {
     assertEquals(
         "MutableMultimap<MutableList<V>>", BindingTypeNames.normBoundType(multimap, names));
     assertEquals(
-        "MutableMultimap<MutableList<V?>?>?", BindingTypeNames.normType(multimap, names, false));
+        "MutableMultimap<MutableList<V>>?", BindingTypeNames.normType(multimap, names, false));
   }
 
   @Test
@@ -47,12 +71,12 @@ final class BindingTypeNamesTest {
     var list =
         new JavaReferenceType(
             "java.util.List",
-            JavaReferenceKind.LIST,
+            JavaReferenceKind.OPAQUE,
             List.of(JavaBindingTypeArgument.exact(variable)));
     var map =
         new JavaReferenceType(
             "java.util.Map",
-            JavaReferenceKind.MAP,
+            JavaReferenceKind.OPAQUE,
             List.of(
                 JavaBindingTypeArgument.exact(variable), JavaBindingTypeArgument.exact(variable)));
     var comparable =
@@ -60,13 +84,26 @@ final class BindingTypeNamesTest {
             "java.lang.Comparable",
             JavaReferenceKind.OPAQUE,
             List.of(JavaBindingTypeArgument.exact(list)));
-    var names = new BindingTypeNames(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+    var names =
+        new BindingTypeNames(
+            Map.of(
+                "java.util.List",
+                "JavaList",
+                "java.util.Map",
+                "JavaMap",
+                "java.lang.Comparable",
+                "Comparable"),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of(),
+            Map.of());
 
-    assertEquals("MutableList<V>", BindingTypeNames.normBoundType(list, names));
-    assertEquals("MutableMap<V, V>", BindingTypeNames.normBoundType(map, names));
-    assertEquals("Comparable<MutableList<V>>", BindingTypeNames.normBoundType(comparable, names));
-    assertEquals("MutableList<V?>?", BindingTypeNames.normType(list, names, false));
-    assertEquals("MutableMap<V?, V?>?", BindingTypeNames.normType(map, names, false));
+    assertEquals("JavaList<V>", BindingTypeNames.normBoundType(list, names));
+    assertEquals("JavaMap<V, V>", BindingTypeNames.normBoundType(map, names));
+    assertEquals("Comparable<JavaList<V>>", BindingTypeNames.normBoundType(comparable, names));
+    assertEquals("JavaList<V>?", BindingTypeNames.normType(list, names, false));
+    assertEquals("JavaMap<V, V>?", BindingTypeNames.normType(map, names, false));
   }
 
   @Test
@@ -77,7 +114,7 @@ final class BindingTypeNamesTest {
     var publisher =
         new JavaReferenceType(
             "org.reactivestreams.Publisher",
-            JavaReferenceKind.PUBLISHER,
+            JavaReferenceKind.OPAQUE,
             List.of(JavaBindingTypeArgument.exact(variable)));
     var callback = new JavaCallbackType("sample.Mapper", "apply", List.of(variable), variable);
     var callbackHolder =
@@ -88,7 +125,7 @@ final class BindingTypeNamesTest {
     var optional =
         new JavaReferenceType(
             "java.util.Optional",
-            JavaReferenceKind.OPTIONAL,
+            JavaReferenceKind.OPAQUE,
             List.of(JavaBindingTypeArgument.exact(variable)));
     var optionalHolder =
         new JavaReferenceType(
@@ -101,7 +138,11 @@ final class BindingTypeNamesTest {
                 "sample.CallbackHolder",
                 "CallbackHolder",
                 "sample.OptionalHolder",
-                "OptionalHolder"),
+                "OptionalHolder",
+                "java.util.Optional",
+                "Optional",
+                "org.reactivestreams.Publisher",
+                "Publisher"),
             Map.of(),
             Map.of(),
             Map.of(),
@@ -109,21 +150,25 @@ final class BindingTypeNamesTest {
             Map.of());
 
     assertEquals("Publisher<V>", BindingTypeNames.normBoundType(publisher, names));
-    assertEquals("Publisher<V?>?", BindingTypeNames.normType(publisher, names, false));
+    assertEquals("Publisher<V>?", BindingTypeNames.normType(publisher, names, false));
     assertEquals(
         "CallbackHolder<Function<V(V)>>", BindingTypeNames.normBoundType(callbackHolder, names));
     assertEquals(
-        "CallbackHolder<Function<V?(V?)>?>?",
-        BindingTypeNames.normType(callbackHolder, names, false));
-    assertEquals("OptionalHolder<V?>", BindingTypeNames.normBoundType(optionalHolder, names));
+        "CallbackHolder<Function<V(V)>>?", BindingTypeNames.normType(callbackHolder, names, false));
+    assertEquals(
+        "OptionalHolder<Optional<V>>", BindingTypeNames.normBoundType(optionalHolder, names));
   }
 
   @Test
-  void findsPathNestedInsideCollectionType() {
-    var file = new JavaReferenceType("java.io.File", JavaReferenceKind.FILE);
+  void collectsNominalOwnersNestedInsideReferenceTypes() {
+    var file = new JavaReferenceType("java.io.File", JavaReferenceKind.OPAQUE);
     var files =
         new JavaReferenceType(
-            "java.util.List", JavaReferenceKind.LIST, List.of(JavaBindingTypeArgument.exact(file)));
-    assertTrue(BindingTypeNames.containsPath(files));
+            "java.util.List",
+            JavaReferenceKind.OPAQUE,
+            List.of(JavaBindingTypeArgument.exact(file)));
+    var references = new java.util.LinkedHashSet<String>();
+    BindingTypeNames.collectReferences(files, references);
+    assertEquals(java.util.Set.of("java.io.File", "java.util.List"), references);
   }
 }

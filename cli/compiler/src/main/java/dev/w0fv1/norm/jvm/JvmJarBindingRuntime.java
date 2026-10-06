@@ -2,19 +2,14 @@ package dev.w0fv1.norm.jvm;
 
 import dev.w0fv1.norm.bridge.JavaApplicationResource;
 import dev.w0fv1.norm.bridge.JavaDirectCall;
-import dev.w0fv1.norm.execution.FutureBindingTask;
 import dev.w0fv1.norm.execution.JarBindingCallback;
 import dev.w0fv1.norm.execution.JarBindingCallbackException;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
-import dev.w0fv1.norm.execution.JarBindingDuration;
 import dev.w0fv1.norm.execution.JarBindingEnumValue;
 import dev.w0fv1.norm.execution.JarBindingInvocationException;
-import dev.w0fv1.norm.execution.JarBindingPath;
 import dev.w0fv1.norm.execution.JarBindingResult;
 import dev.w0fv1.norm.execution.JarBindingRuntime;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
-import dev.w0fv1.norm.execution.JarBindingTask;
-import dev.w0fv1.norm.execution.JarBindingUri;
 import dev.w0fv1.norm.execution.JavaApplicationRuntime;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -45,7 +40,8 @@ public final class JvmJarBindingRuntime
   private final ClassCatalog classes;
   private final boolean ownsApplicationLoader;
   private ClassLoader applicationLoader;
-  private Map<String, JavaDirectCall> applicationCalls = Map.of();
+  private dev.w0fv1.norm.execution.JavaApplicationLinkage application =
+      dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY;
   private final List<JavaApplicationResource> resources = new ArrayList<>();
 
   public JvmJarBindingRuntime(List<ResolvedJarBinding> bindings) {
@@ -85,7 +81,7 @@ public final class JvmJarBindingRuntime
       Map<String, JavaBindingCallable> callables,
       Map<String, JavaDirectCall> directCalls,
       LinkedJavaClasses linkedClasses,
-      Map<String, JavaDirectCall> applicationCalls) {
+      dev.w0fv1.norm.execution.JavaApplicationLinkage applicationCalls) {
     return closedWorld(prepareCalls(callables, directCalls), linkedClasses, applicationCalls);
   }
 
@@ -108,7 +104,7 @@ public final class JvmJarBindingRuntime
   public static JvmJarBindingRuntime closedWorld(
       LinkedCalls prepared,
       LinkedJavaClasses linkedClasses,
-      Map<String, JavaDirectCall> applicationCalls) {
+      dev.w0fv1.norm.execution.JavaApplicationLinkage applicationCalls) {
     return new JvmJarBindingRuntime(
         () -> prepared,
         JvmJarBindingRuntime.class.getClassLoader(),
@@ -141,7 +137,8 @@ public final class JvmJarBindingRuntime
       ClassLoader applicationLoader,
       boolean ownsApplicationLoader,
       java.util.function.Supplier<LinkedJavaClasses> classLinker,
-      java.util.function.Supplier<Map<String, JavaDirectCall>> applicationLinker) {
+      java.util.function.Supplier<dev.w0fv1.norm.execution.JavaApplicationLinkage>
+          applicationLinker) {
     calls = new LinkedHashMap<>();
     this.applicationLoader = applicationLoader;
     this.ownsApplicationLoader = ownsApplicationLoader;
@@ -151,7 +148,7 @@ public final class JvmJarBindingRuntime
           .get()
           .calls
           .forEach((name, callable) -> calls.put(name, new BoundCall(callable, classes)));
-      applicationCalls = Map.copyOf(applicationLinker.get());
+      application = applicationLinker.get();
       java.util.ServiceLoader.load(JavaApplicationResource.class, applicationLoader)
           .forEach(resources::add);
     } catch (RuntimeException | Error failure) {
@@ -254,7 +251,37 @@ public final class JvmJarBindingRuntime
     if (applicationLoader == null) {
       throw new JarBindingRuntimeException("JAR binding runtime is closed");
     }
-    return applicationCalls;
+    return application.calls();
+  }
+
+  @Override
+  public boolean closesResource(String callId) {
+    if (applicationLoader == null)
+      throw new JarBindingRuntimeException("JAR binding runtime is closed");
+    BoundCall call = calls.get(callId);
+    if (call == null) throw new JarBindingRuntimeException("Unknown JAR binding call: " + callId);
+    return call.callable().closesResource();
+  }
+
+  @Override
+  public JarBindingResult referenceResult(Object value) {
+    if (applicationLoader == null)
+      throw new JarBindingRuntimeException("JAR binding runtime is closed");
+    return dynamicResult(classes, value);
+  }
+
+  @Override
+  public boolean bindsEnum(JarBindingClassReference.Nominal type) {
+    if (applicationLoader == null)
+      throw new JarBindingRuntimeException("JAR binding runtime is closed");
+    return classes.enumConstants.containsKey(type);
+  }
+
+  @Override
+  public Set<String> applicationTypes() {
+    if (applicationLoader == null)
+      throw new JarBindingRuntimeException("JAR binding runtime is closed");
+    return application.types();
   }
 
   @Override
@@ -277,10 +304,7 @@ public final class JvmJarBindingRuntime
       Object[] adapted = new Object[expectedArguments];
       if (receiverCount == 1) {
         Object receiver = arguments.getFirst();
-        adapted[0] =
-            receiver instanceof JarBindingEnumValue enumValue
-                ? call.classes().resolve(enumValue)
-                : receiver;
+        adapted[0] = call.classes().argument(receiver);
       }
       for (int index = 0; index < call.callable().parameters().size(); index++) {
         adapted[index + receiverCount] =
@@ -320,36 +344,6 @@ public final class JvmJarBindingRuntime
   }
 
   private static Conversion<Object> argumentAdapter(JavaBindingType type) {
-    if (type instanceof JavaReferenceType reference) {
-      switch (reference.kind()) {
-        case OPTIONAL -> {
-          var element = argumentAdapter(optionalElement(reference));
-          return (classes, value) ->
-              value == null
-                  ? java.util.Optional.empty()
-                  : java.util.Optional.of(element.apply(classes, value));
-        }
-        case OPTIONAL_INT -> {
-          return (classes, value) ->
-              value == null
-                  ? java.util.OptionalInt.empty()
-                  : java.util.OptionalInt.of(((Number) value).intValue());
-        }
-        case OPTIONAL_LONG -> {
-          return (classes, value) ->
-              value == null
-                  ? java.util.OptionalLong.empty()
-                  : java.util.OptionalLong.of(((Number) value).longValue());
-        }
-        case OPTIONAL_DOUBLE -> {
-          return (classes, value) ->
-              value == null
-                  ? java.util.OptionalDouble.empty()
-                  : java.util.OptionalDouble.of(((Number) value).doubleValue());
-        }
-        default -> {}
-      }
-    }
     Conversion<Object> conversion =
         switch (type) {
           case JavaArrayType ignored -> (classes, value) -> value;
@@ -369,53 +363,14 @@ public final class JvmJarBindingRuntime
           }
           case JavaReferenceType reference ->
               switch (reference.kind()) {
-                case PATH ->
-                    (classes, value) -> java.nio.file.Path.of(((JarBindingPath) value).value());
-                case FILE -> (classes, value) -> new java.io.File(((JarBindingPath) value).value());
-                case CHARSET ->
-                    (classes, value) -> java.nio.charset.Charset.forName((String) value);
-                case CLASS -> (classes, value) -> classes.resolve((JarBindingClassReference) value);
-                case ENUM -> (classes, value) -> classes.resolve((JarBindingEnumValue) value);
-                case URI -> {
-                  var binaryName = reference.binaryName();
-                  yield (classes, value) -> uriArgument(binaryName, (JarBindingUri) value);
-                }
-                case DURATION ->
-                    (classes, value) -> {
-                      JarBindingDuration duration = (JarBindingDuration) value;
-                      return java.time.Duration.ofSeconds(
-                          duration.seconds(), duration.nanoseconds());
-                    };
-                case TASK ->
-                    (classes, value) -> {
-                      if (!(value instanceof JarBindingTask task))
-                        throw new JarBindingRuntimeException(
-                            "JAR task argument is not a Norm Task");
-                      return task.hostValue();
-                    };
-                case UNIT -> (classes, value) -> null;
-                case OPTIONAL, OPTIONAL_INT, OPTIONAL_LONG, OPTIONAL_DOUBLE ->
-                    throw new IllegalStateException("Optional argument was not adapted");
-                case PUBLISHER,
-                    ITERABLE,
-                    ITERATOR,
-                    COLLECTION,
-                    LIST,
-                    SET,
-                    MAP,
-                    EXCEPTION,
-                    INPUT_STREAM,
-                    NUMBER,
-                    OBJECT,
-                    OPAQUE,
-                    OUTPUT_STREAM,
-                    RESOURCE,
-                    STRING,
-                    CHAR_SEQUENCE ->
+                case CLASS, ENUM, NUMBER, OBJECT, OPAQUE, RESOURCE, STRING ->
                     (classes, value) -> value;
               };
         };
-    return (classes, value) -> value == null ? null : conversion.apply(classes, value);
+    return (classes, value) -> {
+      Object argument = classes.argument(value);
+      return argument == null ? null : conversion.apply(classes, argument);
+    };
   }
 
   private static Object adaptCallback(
@@ -537,7 +492,7 @@ public final class JvmJarBindingRuntime
                 value instanceof AutoCloseable resource
                     ? new JarBindingResult.ResourceReference(
                         resource, name, classes.nominalReferences(value.getClass()))
-                    : dynamicResult(value);
+                    : dynamicResult(classes, value);
           }
           case JavaCallbackType ignored ->
               (classes, value) -> {
@@ -545,86 +500,23 @@ public final class JvmJarBindingRuntime
               };
           case JavaReferenceType reference -> {
             var name = reference.displayName();
-            var binaryName = reference.binaryName();
             yield switch (reference.kind()) {
-              case EXCEPTION ->
-                  (classes, value) -> new JarBindingResult.ExceptionReference((Throwable) value);
               case RESOURCE ->
                   (classes, value) ->
                       new JarBindingResult.ResourceReference(
                           (AutoCloseable) value, name, classes.nominalReferences(value.getClass()));
-              case INPUT_STREAM, OUTPUT_STREAM ->
-                  (classes, value) ->
-                      new JarBindingResult.ResourceReference((AutoCloseable) value, name);
-              case TASK -> {
-                var element = resultAdapter(optionalElement(reference));
-                yield (classes, value) ->
-                    new JarBindingResult.ResourceReference(
-                        new FutureBindingTask(value, result -> element.apply(classes, result)),
-                        name);
-              }
-              case PUBLISHER -> (classes, value) -> new JarBindingResult.Reference(value, name);
-              case PATH ->
-                  (classes, value) ->
-                      new JarBindingResult.PathValue(((java.nio.file.Path) value).toString());
-              case FILE ->
-                  (classes, value) ->
-                      new JarBindingResult.PathValue(((java.io.File) value).getPath());
-              case URI -> (classes, value) -> new JarBindingResult.UriValue(value.toString());
-              case DURATION ->
-                  (classes, value) -> {
-                    java.time.Duration duration = (java.time.Duration) value;
-                    return new JarBindingResult.DurationValue(
-                        duration.getSeconds(), duration.getNano());
-                  };
               case CLASS ->
                   (classes, value) ->
                       new JarBindingResult.ClassReference(classes.references((Class<?>) value));
               case ENUM ->
                   (classes, value) ->
                       new JarBindingResult.EnumReference(classes.reference((Enum<?>) value));
-              case OPTIONAL -> {
-                var element = resultAdapter(optionalElement(reference));
-                yield (classes, value) -> {
-                  java.util.Optional<?> optional = (java.util.Optional<?>) value;
-                  return optional.isEmpty()
-                      ? JarBindingResult.Null.INSTANCE
-                      : element.apply(classes, optional.get());
-                };
-              }
-              case OPTIONAL_INT ->
-                  (classes, value) -> {
-                    java.util.OptionalInt optional = (java.util.OptionalInt) value;
-                    return optional.isEmpty()
-                        ? JarBindingResult.Null.INSTANCE
-                        : new JarBindingResult.Scalar(optional.getAsInt());
-                  };
-              case OPTIONAL_LONG ->
-                  (classes, value) -> {
-                    java.util.OptionalLong optional = (java.util.OptionalLong) value;
-                    return optional.isEmpty()
-                        ? JarBindingResult.Null.INSTANCE
-                        : new JarBindingResult.Scalar(optional.getAsLong());
-                  };
-              case OPTIONAL_DOUBLE ->
-                  (classes, value) -> {
-                    java.util.OptionalDouble optional = (java.util.OptionalDouble) value;
-                    return optional.isEmpty()
-                        ? JarBindingResult.Null.INSTANCE
-                        : new JarBindingResult.Scalar(optional.getAsDouble());
-                  };
-              case ITERABLE, ITERATOR, COLLECTION, LIST, SET, MAP, OPAQUE ->
+              case OPAQUE ->
                   (classes, value) ->
                       new JarBindingResult.Reference(
                           value, name, classes.nominalReferences(value.getClass()));
-              case OBJECT -> (classes, value) -> dynamicResult(value);
-              case CHAR_SEQUENCE ->
-                  (classes, value) -> new JarBindingResult.Scalar(value.toString());
-              case CHARSET ->
-                  (classes, value) ->
-                      new JarBindingResult.Scalar(((java.nio.charset.Charset) value).name());
+              case OBJECT -> (classes, value) -> dynamicResult(classes, value);
               case NUMBER, STRING -> (classes, value) -> new JarBindingResult.Scalar(value);
-              case UNIT -> (classes, value) -> JarBindingResult.Null.INSTANCE;
             };
           }
         };
@@ -644,34 +536,23 @@ public final class JvmJarBindingRuntime
     };
   }
 
-  private static JavaBindingType optionalElement(JavaReferenceType optional) {
-    if (optional.arguments().isEmpty()
-        || optional.arguments().getFirst().variance() == JavaTypeVariance.UNBOUNDED) {
-      return new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT);
-    }
-    return optional.arguments().getFirst().type().orElseThrow();
-  }
-
-  private static Object uriArgument(String binaryName, JarBindingUri value) {
-    java.net.URI uri = java.net.URI.create(value.value());
-    if (binaryName.equals("java.net.URI")) return uri;
-    try {
-      return uri.toURL();
-    } catch (java.net.MalformedURLException failure) {
-      throw new JarBindingRuntimeException("invalid Java URL " + value.value(), failure);
-    }
-  }
-
-  private static JarBindingResult dynamicResult(Object value) {
+  private static JarBindingResult dynamicResult(ClassCatalog classes, Object value) {
+    if (value instanceof Class<?> type)
+      return new JarBindingResult.ClassReference(classes.references(type));
+    if (value instanceof Enum<?> enumeration
+        && classes.references.getOrDefault(enumeration.getDeclaringClass(), List.of()).stream()
+            .anyMatch(classes.enumConstants::containsKey))
+      return new JarBindingResult.EnumReference(classes.reference(enumeration));
     if (value instanceof Byte number) return new JarBindingResult.Scalar(number.intValue());
     if (value instanceof Short number) return new JarBindingResult.Scalar(number.intValue());
     if (value instanceof Character character) {
-      return new JarBindingResult.Scalar((int) character.charValue());
+      return new JarBindingResult.Scalar(character);
     }
     if (value instanceof String || value instanceof Number || value instanceof Boolean) {
       return new JarBindingResult.Scalar(value);
     }
-    return new JarBindingResult.Reference(value, value.getClass().getName());
+    return new JarBindingResult.Reference(
+        value, value.getClass().getName(), classes.nominalReferences(value.getClass()));
   }
 
   private static JavaDirectCall bind(ClassLoader loader, JavaBindingCallable callable) {
@@ -755,7 +636,7 @@ public final class JvmJarBindingRuntime
     ClassLoader loader = applicationLoader;
     if (loader == null) return;
     applicationLoader = null;
-    applicationCalls = Map.of();
+    application = dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY;
     calls.clear();
     List<Throwable> failures = new ArrayList<>();
     for (var resource : resources.reversed()) {
@@ -1059,6 +940,15 @@ public final class JvmJarBindingRuntime
       } catch (ClassNotFoundException exception) {
         throw new JarBindingRuntimeException("Java class is unavailable: " + binaryName, exception);
       }
+    }
+
+    private Object argument(Object value) {
+      return switch (value) {
+        case null -> null;
+        case JarBindingClassReference reference -> resolve(reference);
+        case JarBindingEnumValue enumeration -> resolve(enumeration);
+        default -> value;
+      };
     }
 
     private synchronized Class<?> resolve(JarBindingClassReference reference) {

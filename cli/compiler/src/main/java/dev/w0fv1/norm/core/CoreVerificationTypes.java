@@ -306,6 +306,54 @@ final class CoreVerificationTypes {
     verifyInhabitedType(owner, type, parameterCount, "core value ABI");
   }
 
+  CoreType readResult(DefinitionId owner, CoreType type, List<CoreType> substitutions) {
+    var signature = callableSignature(owner, "result capture");
+    Map<Integer, CoreType> bounds = new LinkedHashMap<>();
+    signature
+        .typeParameters()
+        .forEach(
+            parameter ->
+                parameter
+                    .upperBound()
+                    .ifPresent(bound -> bounds.put(parameter.index(), absolute(owner, bound))));
+    if (signature.receiverType().isPresent()) {
+      CoreType receiver = absolute(owner, signature.receiverType().orElseThrow());
+      if (receiver instanceof CoreType.Declared declared
+          && declared.constructor() instanceof CoreTypeConstructor.User user) {
+        DefinitionId receiverId = ((DefinitionReference.External) user.definition()).definition();
+        var declaration = program.definition(receiverId).orElseThrow();
+        List<CoreTypeParameter> parameters =
+            switch (declaration) {
+              case CoreDefinition.Aggregate aggregate -> aggregate.typeParameters();
+              case CoreDefinition.Interface contract -> contract.typeParameters();
+              case CoreDefinition.Enum enumeration -> enumeration.typeParameters();
+              default -> List.of();
+            };
+        parameters.forEach(
+            parameter ->
+                parameter
+                    .upperBound()
+                    .ifPresent(
+                        bound -> bounds.put(parameter.index(), absolute(receiverId, bound))));
+      }
+    }
+    CoreType original = absolute(owner, type);
+    boolean nullable = original.isNullable();
+    Set<Integer> visited = new HashSet<>();
+    CoreType result = original.substitute(substitutions::get);
+    while (result.equals(CoreType.EXISTENTIAL)
+        && original instanceof CoreType.Parameter parameter) {
+      if (!visited.add(parameter.index()))
+        throw new IllegalArgumentException("cyclic result capture bound");
+      original = bounds.get(parameter.index());
+      if (original == null) return CoreType.ANY.asNullable();
+      nullable |= original.isNullable();
+      result = original.substitute(substitutions::get);
+    }
+    if (result.equals(CoreType.EXISTENTIAL)) return CoreType.ANY.asNullable();
+    return nullable ? result.asNullable() : result;
+  }
+
   void verifyReturnType(DefinitionId owner, CoreType type, int parameterCount) {
     if (type.equals(CoreType.VOID)) return;
     if (CoreTypes.containsReference(type)) {
@@ -410,7 +458,7 @@ final class CoreVerificationTypes {
           absolute(owner, parameter.upperBound().orElseThrow())
               .substitute(absoluteSubstitutions::get);
       CoreType actual = absoluteSubstitutions.get(parameter.index());
-      if (isAssignable(expected, actual)) continue;
+      if (actual.equals(CoreType.EXISTENTIAL) || isAssignable(expected, actual)) continue;
       if (actual instanceof CoreType.Parameter actualParameter) {
         ParameterContext context = typeParameterContext(actualOwner, actualParameter.index());
         if (context != null && context.parameter().upperBound().isPresent()) {

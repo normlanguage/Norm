@@ -68,8 +68,7 @@ final class DocsCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
 
-    try {
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
       try (ProjectLoader projects = environment.projectLoader();
           CompilerSession compiler = environment.compilerSession()) {
         SourceFile moduleSource = SourceFile.read(modulePath);
@@ -121,7 +120,7 @@ final class DocsCommand implements Command {
       ProjectLoader projects,
       CompilerSession compiler)
       throws IOException {
-    ProjectSourceSet sourceSet = projects.loadForTests(moduleRoot);
+    ProjectSourceSet sourceSet = projects.loadForTests(moduleRoot).sources();
     if (sourceSet.rootModulePath().isEmpty()
         || !sourceSet.rootModulePath().orElseThrow().equals(modulePath)) {
       throw new IOException("documentation root does not identify the loaded module");

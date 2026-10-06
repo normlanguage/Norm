@@ -37,16 +37,7 @@ final class JarTaskIntrinsicDispatcher {
               (receiver, arguments, type, context, location, annotations, execution) -> {
                 var source = resource(arguments[0]).value(CompletionSource.class);
                 var task =
-                    new FutureBindingTask(
-                        source.future(),
-                        JarBindingResult.Scalar::new,
-                        value ->
-                            execution
-                                .callbacks()
-                                .invoke(
-                                    () ->
-                                        JavaValueAdapter.jarArgument(
-                                            value, execution, annotations)));
+                    FutureBindingTask.fromCompletion(source.future(), JarBindingResult.Scalar::new);
                 var registration = new TaskRegistration(task, execution);
                 var handle =
                     execution.values().resource(type, registration, "Completion task", execution);
@@ -81,7 +72,7 @@ final class JarTaskIntrinsicDispatcher {
                     RuntimeInvocation.invoke(
                         execution, (RuntimeValues.Closure) arguments[1], new Object[0]);
                 var barrier =
-                    new FutureBindingTask(
+                    FutureBindingTask.fromCompletion(
                         signal.orElseThrow(), ignored -> new JarBindingResult.Scalar(completed));
                 var registration = new TaskRegistration(barrier, execution);
                 var handle =
@@ -105,12 +96,6 @@ final class JarTaskIntrinsicDispatcher {
                                     throw new JarBindingCallbackException(failure);
                                   }
                                 });
-                java.util.function.Function<Object, Object> hostConversion =
-                    value ->
-                        execution
-                            .callbacks()
-                            .invoke(
-                                () -> JavaValueAdapter.jarArgument(value, execution, annotations));
                 FutureBindingTask created;
                 if (intrinsic == IntrinsicId.TASK_CONTINUE) {
                   var parent = task(arguments[0]);
@@ -119,7 +104,6 @@ final class JarTaskIntrinsicDispatcher {
                           parent.completion(),
                           action,
                           JarBindingResult.Scalar::new,
-                          hostConversion,
                           parent.continuationExecutor());
                 } else {
                   var policy =
@@ -131,9 +115,7 @@ final class JarTaskIntrinsicDispatcher {
                           arguments[4] instanceof RuntimeValues.Closure unhandled
                               ? unhandled
                               : null);
-                  created =
-                      FutureBindingTask.start(
-                          action, JarBindingResult.Scalar::new, hostConversion, policy);
+                  created = FutureBindingTask.start(action, JarBindingResult.Scalar::new, policy);
                 }
                 var registration = new TaskRegistration(created, execution);
                 var handle =

@@ -62,9 +62,14 @@ final class JavaDirectCallBundleTest {
               List.of(),
               JavaPrimitiveType.INT);
       String registryName = JavaApplicationMethodIndex.REGISTRY_NAME;
-      new JavaDirectCallBundle().write(registryName, Map.of("value", target), directory, loader);
+      new JavaDirectCallBundle()
+          .writeApplication(
+              Map.of("value", target),
+              java.util.Set.of("sample.InitializationProbe"),
+              directory,
+              loader);
       assertEquals(0, counter.getInt(null));
-      var calls = JavaApplicationCallLinker.link(loader);
+      var calls = JavaApplicationCallLinker.link(loader).calls();
       assertEquals(0, counter.getInt(null));
       assertEquals(1, calls.get("value").invoke(new Object[0]));
       assertEquals(1, counter.getInt(null));

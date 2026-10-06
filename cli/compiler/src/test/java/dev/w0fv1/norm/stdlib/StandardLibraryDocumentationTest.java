@@ -19,15 +19,27 @@ import org.junit.jupiter.api.Test;
 final class StandardLibraryDocumentationTest {
   @Test
   void documentsEveryPublicStandardLibraryDeclaration() throws Exception {
-    ProjectEnvironment environment = ProjectEnvironment.bootstrap(new TruffleExecutionBackend(8));
-    try (CompilerSession compiler = environment.compilerSession()) {
+    try (ProjectEnvironment environment =
+            ProjectEnvironment.bootstrap(new TruffleExecutionBackend(8));
+        CompilerSession compiler = environment.compilerSession()) {
       CompilationSnapshot snapshot =
           compiler.snapshot(SourceFile.of(Path.of("documentation.norm"), "Void main() {}"));
       List<String> missing = new ArrayList<>();
       Map<String, Integer> packageDocuments = new HashMap<>();
       int publicDeclarations = 0;
-      for (var document : snapshot.documentIds()) {
-        if (!"stdlib".equals(document.uri().getScheme())) continue;
+      var standardDocuments =
+          snapshot.documentIds().stream()
+              .filter(
+                  document ->
+                      snapshot
+                          .semanticModel()
+                          .compilationScope()
+                          .coordinate(document)
+                          .module()
+                          .name()
+                          .equals("std"))
+              .toList();
+      for (var document : standardDocuments) {
         Syntax.Program program = snapshot.document(document).orElseThrow().syntax();
         if (program.packageName().isEmpty()) continue;
         if (documented(program.packageAnnotations())) {
@@ -39,8 +51,7 @@ final class StandardLibraryDocumentationTest {
           (packageName, count) -> {
             if (count > 1) missing.add("package " + packageName + " has duplicate @Document");
           });
-      snapshot.documentIds().stream()
-          .filter(document -> "stdlib".equals(document.uri().getScheme()))
+      standardDocuments.stream()
           .map(snapshot::document)
           .flatMap(java.util.Optional::stream)
           .map(document -> document.syntax().packageName())

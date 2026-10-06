@@ -2,7 +2,6 @@ package dev.w0fv1.norm.jvm;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.w0fv1.norm.bridge.JavaDirectCall;
 import dev.w0fv1.norm.execution.JarBindingRuntimeException;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -17,7 +16,9 @@ final class JavaApplicationCallLinkerTest {
 
   @Test
   void applicationsWithoutGeneratedTypesHaveNoHostCalls() {
-    assertEquals(Map.of(), JavaApplicationCallLinker.link(getClass().getClassLoader()));
+    assertEquals(
+        dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY,
+        JavaApplicationCallLinker.link(getClass().getClassLoader()));
     try (var runtime = new JvmJarBindingRuntime(List.of())) {
       assertEquals(Map.of(), runtime.applicationCalls());
     }
@@ -26,27 +27,30 @@ final class JavaApplicationCallLinkerTest {
   @Test
   void linksTheGeneratedRegistryAndSharesTheSameContractWithBothRuntimes() throws Throwable {
     new JavaDirectCallBundle()
-        .write(
-            JavaApplicationMethodIndex.REGISTRY_NAME,
+        .writeApplication(
             Map.of(
                 "length",
                 new JavaApplicationMethodIndex.Target("java.lang.String", "length", "()I")),
+            java.util.Set.of("java.lang.String"),
             directory,
             getClass().getClassLoader());
-    Map<String, JavaDirectCall> linked;
+    dev.w0fv1.norm.execution.JavaApplicationLinkage linked;
     try (var loader =
         new URLClassLoader(
             new java.net.URL[] {directory.toUri().toURL()}, getClass().getClassLoader())) {
       linked = JavaApplicationCallLinker.link(loader);
-      assertEquals(4, linked.get("length").invoke(new Object[] {"Norm"}));
-      assertThrows(UnsupportedOperationException.class, () -> linked.clear());
+      assertEquals(4, linked.calls().get("length").invoke(new Object[] {"Norm"}));
+      assertThrows(UnsupportedOperationException.class, () -> linked.calls().clear());
+      assertEquals(java.util.Set.of("java.lang.String"), linked.types());
+      assertThrows(UnsupportedOperationException.class, () -> linked.types().clear());
       var classes = LinkedJavaClasses.resolve(List.of(), loader);
       for (int attempt = 0; attempt < 2; attempt++) {
         try (var runtime = JvmJarBindingRuntime.closedWorld(Map.of(), Map.of(), classes, linked)) {
-          assertSame(linked.get("length"), runtime.applicationCalls().get("length"));
+          assertEquals(linked.types(), runtime.applicationTypes());
+          assertSame(linked.calls().get("length"), runtime.applicationCalls().get("length"));
           assertEquals(4, runtime.applicationCalls().get("length").invoke(new Object[] {"Norm"}));
         }
-        assertEquals(1, linked.size());
+        assertEquals(1, linked.calls().size());
       }
     }
     var runtime = new JvmJarBindingRuntime(List.of(), List.of(directory));

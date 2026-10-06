@@ -24,19 +24,24 @@ public final class Language extends TruffleLanguage<LanguageContext> {
   private static final ContextReference<LanguageContext> CONTEXT =
       ContextReference.create(Language.class);
   private final TruffleExecutionBackend backend = new TruffleExecutionBackend();
-  private final ProjectEnvironment projects;
-
-  public Language() {
-    try {
-      projects = ProjectEnvironment.bootstrap(backend);
-    } catch (java.io.IOException exception) {
-      throw new IllegalStateException("cannot bootstrap Norm language", exception);
-    }
-  }
 
   @Override
   protected LanguageContext createContext(Env environment) {
-    return new LanguageContext(environment, projects.compilerSession(), projects.projectLoader());
+    try {
+      var projects = ProjectEnvironment.bootstrap(backend);
+      boolean retained = false;
+      try {
+        var context =
+            new LanguageContext(
+                environment, projects.compilerSession(), projects.projectLoader(), projects);
+        retained = true;
+        return context;
+      } finally {
+        if (!retained) projects.close();
+      }
+    } catch (java.io.IOException exception) {
+      throw new IllegalStateException("cannot bootstrap Norm language", exception);
+    }
   }
 
   @Override
@@ -48,7 +53,8 @@ public final class Language extends TruffleLanguage<LanguageContext> {
       LanguageContext context = CONTEXT.get(null);
       ApplicationInput input;
       if ("file".equals(source.getURI().getScheme())) {
-        ProjectSourceSet sourceSet = context.projects().load(sourceFile, java.util.List.of());
+        ProjectSourceSet sourceSet =
+            context.projects().load(sourceFile, java.util.List.of()).sources();
         input =
             new ApplicationInput(
                 sourceSet.applicationCompilationRequest(sourceFile.path()),

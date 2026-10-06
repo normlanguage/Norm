@@ -44,4 +44,4 @@ An implementation may share generic machine code, monomorphize, or use a hybrid 
 
 ## Limits
 
-Current Norm has no higher-kinded types, type functions, conditional types, use-site wildcards, or implicit typeclass search.
+Current Norm has no higher-kinded types, type functions, conditional types, or implicit typeclass search. Existential projections follow [generic invariance](/spec/generic-variance).

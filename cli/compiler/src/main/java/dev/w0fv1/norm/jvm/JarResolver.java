@@ -46,6 +46,8 @@ public final class JarResolver implements AutoCloseable {
   private final RepositorySystemSession.CloseableSession jarSession;
   private final Map<Sha256Digest, ResolvedJarGraph> bundledGraphs;
   private final boolean bundled;
+  private final Map<String, JdkModuleArchive> jdkMetadata = new LinkedHashMap<>();
+  private boolean closed;
   private final Path graphCacheDirectory;
   private final Path artifactCacheDirectory;
   private final java.util.function.Consumer<String> progress;
@@ -116,8 +118,14 @@ public final class JarResolver implements AutoCloseable {
     };
   }
 
-  private ResolvedJarGraph resolveJdk(JdkModuleTarget target) throws IOException {
-    ResolvedJarGraph graph = JdkModuleArchive.resolve(artifactCacheDirectory, target.name());
+  private synchronized ResolvedJarGraph resolveJdk(JdkModuleTarget target) throws IOException {
+    if (closed) throw new IllegalStateException("JAR resolver is closed");
+    var metadata = jdkMetadata.get(target.name());
+    if (metadata == null) {
+      metadata = JdkModuleArchive.open(artifactCacheDirectory, target.name());
+      jdkMetadata.put(target.name(), metadata);
+    }
+    ResolvedJarGraph graph = metadata.graph();
     if (target.resolution().isPresent()
         && !target.resolution().orElseThrow().equals(graph.contentId())) {
       throw new IOException(
@@ -266,9 +274,28 @@ public final class JarResolver implements AutoCloseable {
   }
 
   @Override
-  public void close() {
-    if (jarSession != null) jarSession.close();
-    if (repositorySystem != null) repositorySystem.shutdown();
+  public synchronized void close() {
+    if (closed) return;
+    closed = true;
+    IOException failure = null;
+    try {
+      for (var metadata : jdkMetadata.values()) {
+        try {
+          metadata.close();
+        } catch (IOException exception) {
+          if (failure == null) failure = exception;
+          else failure.addSuppressed(exception);
+        }
+      }
+      if (failure != null) throw new java.io.UncheckedIOException(failure);
+    } finally {
+      jdkMetadata.clear();
+      try {
+        if (jarSession != null) jarSession.close();
+      } finally {
+        if (repositorySystem != null) repositorySystem.shutdown();
+      }
+    }
   }
 
   private enum NonOptionalDependencySelector implements DependencySelector {

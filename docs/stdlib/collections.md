@@ -16,12 +16,6 @@ After this code runs, the structure of `first` is unchanged. If the elements are
 | --- | --- |
 | `Array<T>` | Fixed-length, continuously indexed sequence |
 | `List<T>` | Growable ordered sequence |
-| `MutableList<T>` | Mutable ordered-sequence view with shared identity |
-| `MutableSet<T>` | Mutable unique-element set view with shared identity |
-| `MutableCollection<T>` | Common mutable base for Java reference collections |
-| `MutableMap<K, V>` | Mutable map view with shared identity |
-| `IterableView<T>` | Read-only iteration view with shared identity |
-| `IteratorView<T>` | Iterator view with shared cursor state |
 | `Map<K, V>` | Mapping from unique keys to values |
 | `Set<T>` | Deduplication by equality and hash |
 | `Stack<T>` | LIFO sequence |
@@ -40,7 +34,7 @@ Array, List, Set, Stack, Queue, Deque, and Range explicitly implement `Iterable<
 
 Array, List, Map, Set, Stack, Queue, Deque, and Range consistently use `size()` for their element count and do not provide a `length` property.
 
-Reference collections are classes: copying a variable shares the same object, and member operations affect the same host collection in place. `MutableList<T>` and `MutableSet<T>` inherit `MutableCollection<T>` and, like `IterableView<T>`, implement `Iterable<T>`. Java Binding uses these types so Java reference semantics do not leak into value-semantic collections.
+Java reference collections are declared by [`java.base`](../../norm/stdlib/java/base/module.norm). [`mutableMap`](../../norm/stdlib/std/collections/mutable.norm) constructs a Java map with shared identity through ordinary bindings. See [Java bindings](/design/java-library-adapters) for their calling and iteration contracts.
 
 ## Sequence members
 

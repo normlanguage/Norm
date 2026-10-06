@@ -3,7 +3,6 @@ package dev.w0fv1.norm.jvm;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -32,29 +31,29 @@ public final class JarApiScanner {
   }
 
   public JarApiSchema scan(ResolvedJarGraph graph, List<String> selectedTypes) throws IOException {
-    return scan(graph, selectedTypes, false);
+    return scan(new JavaApiScanInput(graph, List.of()), selectedTypes, false);
   }
 
   public JarApiSchema scanSurface(ResolvedJarGraph graph, List<String> selectedTypes)
       throws IOException {
     if (selectedTypes.isEmpty()) return new JarApiSchema(List.of());
-    return scan(graph, selectedTypes, true);
+    return scan(new JavaApiScanInput(graph, List.of()), selectedTypes, true);
   }
 
-  private JarApiSchema scan(
-      ResolvedJarGraph graph, List<String> selectedTypes, boolean selectedRootsOnly)
+  public JarApiSchema scan(
+      JavaApiScanInput input, List<String> selectedTypes, boolean selectedRootsOnly)
       throws IOException {
+    if (selectedRootsOnly && selectedTypes.isEmpty()) return new JarApiSchema(List.of());
+    var graph = input.graph();
     Map<String, RawClass> rootClasses = readClasses(graph.root());
     Map<String, RawClass> graphClasses = readClasses(graph.artifacts());
     Map<String, RawClass> classes = new LinkedHashMap<>(graphClasses);
-    Set<String> externalJdkTypes = Set.of();
-    if (!(graph.root().identity() instanceof JdkModuleIdentity)) {
-      ResolvedJarGraph jdk =
-          JdkModuleArchive.resolve(
-              Path.of(System.getProperty("user.home"), ".norm", "cache"), "java.base");
-      Map<String, RawClass> jdkClasses = readClasses(jdk.artifacts());
-      externalJdkTypes = Set.copyOf(jdkClasses.keySet());
-      jdkClasses.forEach(classes::putIfAbsent);
+    var externalJdkTypes = new java.util.LinkedHashSet<String>();
+    for (var support : input.supportingGraphs()) {
+      var supportClasses = readClasses(support.artifacts());
+      if (support.root().identity() instanceof JdkModuleIdentity)
+        externalJdkTypes.addAll(supportClasses.keySet());
+      supportClasses.forEach(classes::putIfAbsent);
     }
     Map<String, JavaReferenceKind> bindingTypes = new LinkedHashMap<>();
     classes.forEach(
@@ -125,7 +124,7 @@ public final class JarApiScanner {
               ? externalType(owner)
               : apiType(owner, graphClasses, projector);
       result.put(binaryName, type);
-      if (!externalJdkTypes.contains(binaryName)) collectReferences(type, pending::addLast);
+      collectReferences(type, pending::addLast);
     }
     return List.copyOf(result.values());
   }
@@ -136,14 +135,7 @@ public final class JarApiScanner {
         owner.binaryName(),
         kind(owner.access()),
         owner.access(),
-        new JavaClassSignature(
-            signature.typeParameters().stream()
-                .map(
-                    parameter ->
-                        new JavaTypeParameter(parameter.name(), Optional.empty(), List.of()))
-                .toList(),
-            Optional.empty(),
-            List.of()),
+        signature,
         List.of(),
         List.of(),
         Optional.empty(),

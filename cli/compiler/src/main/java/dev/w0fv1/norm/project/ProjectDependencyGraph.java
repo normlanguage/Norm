@@ -23,16 +23,27 @@ final class ProjectDependencyGraph {
   private final ArchivedModuleLoader archives;
   private final Set<String> reservedModuleNames;
   private final ProjectInputTracker inputs;
+  private final Map<ModuleCoordinate, ProvidedModule> providedModules;
+  private final ProjectLoadContext context;
 
   ProjectDependencyGraph(
       ProjectModuleSources moduleSources,
       ArchivedModuleLoader archives,
       Set<String> reservedModuleNames,
-      ProjectInputTracker inputs) {
+      ProjectInputTracker inputs,
+      List<ProvidedModule> providedModules,
+      ProjectLoadContext context) {
     this.moduleSources = Objects.requireNonNull(moduleSources, "moduleSources");
     this.archives = Objects.requireNonNull(archives, "archives");
     this.reservedModuleNames = Set.copyOf(reservedModuleNames);
     this.inputs = inputs;
+    this.context = context;
+    this.providedModules =
+        providedModules.stream()
+            .collect(
+                java.util.stream.Collectors.toUnmodifiableMap(
+                    module -> module.descriptor().coordinate(),
+                    java.util.function.Function.identity()));
   }
 
   List<ResolvedProjectModule> resolve(
@@ -107,6 +118,7 @@ final class ProjectDependencyGraph {
     }
 
     private void visit(ResolvedProjectModule module) throws IOException {
+      context.checkpoint();
       ModuleCoordinate coordinate = module.descriptor().coordinate();
       ModuleCoordinate selected = versions.putIfAbsent(coordinate.name(), coordinate);
       if (selected != null && !selected.equals(coordinate)) {
@@ -130,6 +142,12 @@ final class ProjectDependencyGraph {
                     .collect(java.util.stream.Collectors.joining(" -> ")));
       }
       for (ModuleRequirement requirement : module.descriptor().dependencies()) {
+        if (providedModules.containsKey(requirement.coordinate())) {
+          if (!requirement.repository().value().equals("norm"))
+            throw new IOException(
+                "provided module must use the norm repository: " + requirement.name());
+          continue;
+        }
         var selectedRepository =
             repositories.putIfAbsent(requirement.coordinate(), requirement.repository());
         if (selectedRepository != null && !selectedRepository.equals(requirement.repository())) {
@@ -149,7 +167,7 @@ final class ProjectDependencyGraph {
         visit(dependency);
       }
       visiting.remove(coordinate);
-      module = ProjectJarBindingLinker.link(module, resolved);
+      module = ProjectJarBindingLinker.link(module, resolved, providedModules);
       resolved.put(coordinate, module);
       ordered.add(module);
     }
@@ -167,7 +185,8 @@ final class ProjectDependencyGraph {
       SourceFile moduleSource = overlays.get(modulePath);
       if (moduleSource == null) {
         if (!Files.isRegularFile(modulePath)) {
-          ResolvedProjectModule archived = archives.load(repositoryRoot, requirement, purpose);
+          ResolvedProjectModule archived =
+              archives.load(repositoryRoot, requirement, purpose, context);
           repository.put(requirement.coordinate(), archived);
           return archived;
         }

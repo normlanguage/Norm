@@ -24,7 +24,7 @@ public final class ApplicationRunner implements AutoCloseable {
   public ApplicationRunner(
       ProjectLoader projects, CompilerSession compiler, ExecutionBackend backend) {
     this.projects = Objects.requireNonNull(projects, "projects");
-    this.compiler = new ApplicationCompiler(compiler);
+    this.compiler = new ApplicationCompiler(compiler, projects.javaBindings());
     this.backend = Objects.requireNonNull(backend, "backend");
   }
 
@@ -53,7 +53,7 @@ public final class ApplicationRunner implements AutoCloseable {
       Path entry, Consumer<String> progress, List<ResolvedJarGraph> supportGraphs)
       throws IOException {
     progress.accept("Resolving sources and dependencies: " + entry);
-    var sources = projects.load(entry);
+    var sources = projects.load(entry).sources();
     return compiler.compile(
         new ApplicationInput(sources.applicationCompilationRequest(entry), Optional.of(sources)),
         supportGraphs,
@@ -75,25 +75,35 @@ public final class ApplicationRunner implements AutoCloseable {
     return run(entry, context, progress, null);
   }
 
-  public void replayModules(List<dev.w0fv1.norm.project.ModuleEvaluation> modules) {
-    projects.replayModules(modules);
-  }
-
   public CompilationResult run(
       Path entry,
       ExecutionContext context,
       Consumer<String> progress,
       PreparedApplicationCache cache)
       throws IOException {
-    try (var compilation = compileApplication(entry, progress, List.of())) {
+    return run(entry, context, progress, cache, List.of());
+  }
+
+  public CompilationResult run(
+      Path entry,
+      ExecutionContext context,
+      Consumer<String> progress,
+      PreparedApplicationCache cache,
+      List<dev.w0fv1.norm.project.ModuleEvaluation> replay)
+      throws IOException {
+    progress.accept("Resolving sources and dependencies: " + entry);
+    var loaded = projects.load(dev.w0fv1.norm.source.SourceFile.read(entry), List.of(), replay);
+    var sources = loaded.sources();
+    try (var compilation =
+        compiler.compile(
+            new ApplicationInput(
+                sources.applicationCompilationRequest(entry), Optional.of(sources)),
+            List.of(),
+            progress)) {
       if (compilation.application().isPresent()) {
         var application = compilation.application().orElseThrow();
         if (cache != null)
-          cache.write(
-              entry,
-              application,
-              projects.inputSnapshot(application.sourceSet()),
-              projects.moduleEvaluations());
+          cache.write(entry, application, loaded.inputs(), loaded.moduleEvaluations());
         progress.accept("Preparing Java runtime");
         try (var runtime = application.openRuntime()) {
           progress.accept("Starting application");
@@ -113,7 +123,7 @@ public final class ApplicationRunner implements AutoCloseable {
 
   public ProjectTestResult test(Path entry, ExecutionContext context, Optional<String> filter)
       throws IOException {
-    var sources = projects.loadForTests(entry);
+    var sources = projects.loadForTests(entry).sources();
     try (var compilation =
         compiler.compile(
             new ApplicationInput(sources.testCompilationRequest(), Optional.of(sources)),

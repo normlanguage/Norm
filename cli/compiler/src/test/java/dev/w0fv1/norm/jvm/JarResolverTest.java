@@ -24,6 +24,24 @@ final class JarResolverTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void concurrentJdkResolutionSharesOneOwnedMetadataLease() throws Exception {
+    var binding = new JarBinding(new JdkModuleTarget("java.base", Optional.empty()));
+    try (var resolver = new JarResolver(temporaryDirectory);
+        var workers = java.util.concurrent.Executors.newFixedThreadPool(4)) {
+      var requests = new java.util.ArrayList<java.util.concurrent.Future<ResolvedJarGraph>>();
+      for (int index = 0; index < 4; index++)
+        requests.add(workers.submit(() -> resolver.resolve(temporaryDirectory, binding)));
+      var graph = requests.getFirst().get();
+      for (var request : requests)
+        org.junit.jupiter.api.Assertions.assertSame(graph, request.get());
+      try (var files = Files.walk(temporaryDirectory.resolve("java-metadata"))) {
+        assertEquals(
+            1, files.filter(file -> file.getFileName().toString().startsWith("lease-")).count());
+      }
+    }
+  }
+
+  @Test
   void resolvesPinnedJdkModuleFromRuntimeClasses() throws Exception {
     try (var resolver = new JarResolver(temporaryDirectory)) {
       var unpinned = new JarBinding(new JdkModuleTarget("java.base", Optional.empty()));

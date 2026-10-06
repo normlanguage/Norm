@@ -52,12 +52,30 @@ final class CollectionAnalyzer {
             ? expectedArray.arguments().getFirst()
             : null;
     boolean inferElements =
-        expectedElement == null || CallResolver.containsDynamic(expectedElement);
+        expectedElement == null
+            || CallResolver.containsDynamic(expectedElement)
+            || expectedElement.containsTypeParameter();
     SemanticType elementType = inferElements ? null : expectedElement;
     List<Contribution> contributions = new ArrayList<>();
     for (CollectionElement element : array.elements()) {
-      analyzeCollectionElement(element, expectedElement, contributions);
+      analyzeCollectionElement(
+          element,
+          expectedElement != null && expectedElement.kind() == SemanticType.Kind.TYPE_PARAMETER
+              ? null
+              : expectedElement,
+          contributions);
     }
+    var inference =
+        expectedElement == null
+            ? null
+            : dev.w0fv1.norm.semantic.TypeConstraintSolver.forPattern(
+                expectedElement, typeResolver.typeRelations);
+    if (inference != null)
+      contributions.forEach(value -> inference.constrain(expectedElement, value.type()));
+    var substitutions =
+        inference == null
+            ? java.util.Map.<String, SemanticType>of()
+            : inference.solve().substitutions();
     for (var contribution : contributions) {
       SourceSpan elementSpan = contribution.span();
       SemanticType current = contribution.type();
@@ -75,7 +93,10 @@ final class CollectionAnalyzer {
                 elementSpan);
           }
         } else {
-          SemanticType common = typeResolver.commonType(elementType, current).orElse(null);
+          SemanticType common =
+              typeResolver
+                  .commonType(elementType, current, expectedElement, substitutions)
+                  .orElse(null);
           if (common == null) {
             diagnostics.error(
                 TYPE_MISMATCH,
@@ -90,7 +111,12 @@ final class CollectionAnalyzer {
         }
       }
     }
-    SemanticType inferredElement = elementType == null ? SemanticType.DYNAMIC : elementType;
+    SemanticType inferredElement =
+        elementType != null
+            ? elementType
+            : contributions.isEmpty() && expectedElement != null
+                ? expectedElement
+                : SemanticType.DYNAMIC;
     if (inferredElement.containsReference()) {
       diagnostics.error(TYPE_MISMATCH, "collection element type cannot contain ref", array.span());
       return SemanticType.DYNAMIC;

@@ -168,8 +168,13 @@ final class CoreReachabilityTest {
             .findFirst()
             .orElseThrow()
             .definition();
-    assertEquals(
-        java.util.Set.of("sample.call"), CoreReachability.jarCalls(artifact).orElseThrow());
+    var baseline = compileBinding("Void main() { __jarInvokeVoid0(\"sample.call\") }");
+    assertTrue(baseline.isSuccess(), () -> baseline.diagnostics().toString());
+    var baselineCalls =
+        CoreReachability.jarCalls(baseline.output().orElseThrow().artifact()).orElseThrow();
+    assertTrue(baselineCalls.contains("sample.call"));
+    assertEquals(baselineCalls, CoreReachability.jarCalls(artifact).orElseThrow());
+    assertFalse(CoreExecutionPlan.forArtifact(artifact).callables().contains(dormant));
     var external = CoreExecutionPlan.forArtifact(artifact, java.util.Set.of(dormant));
     assertTrue(CoreReachability.jarCalls(artifact, external).isEmpty());
   }

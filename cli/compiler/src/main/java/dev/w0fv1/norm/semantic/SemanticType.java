@@ -141,6 +141,11 @@ public record SemanticType(
     return isReference() || arguments.stream().anyMatch(SemanticType::containsReference);
   }
 
+  public boolean containsTypeParameter() {
+    return kind == Kind.TYPE_PARAMETER
+        || arguments.stream().anyMatch(SemanticType::containsTypeParameter);
+  }
+
   public SemanticType referenceTarget() {
     if (!isReference()) throw new IllegalStateException("type is not a reference");
     return arguments.getFirst();
@@ -216,7 +221,7 @@ public record SemanticType(
     if (kind == Kind.REFERENCE) {
       throw new IllegalStateException("reference types cannot be nullable");
     }
-    if (isNullable() || kind == Kind.ERROR) return this;
+    if (isNullable() || kind == Kind.ERROR || kind == Kind.EXISTENTIAL) return this;
     return new SemanticType(kind, identity, name, arguments, category, Nullability.NULLABLE);
   }
 

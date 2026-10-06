@@ -15,12 +15,10 @@ var handled = task.then { printLine(result) } error { printLine(failure.message)
 
 既有 `await()` 返回完成值，失败进入 Norm Exception 流程；`completed()` 观察终态，`cancel()` 请求取消。语言级行为见 [TaskExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/TaskExecutionTest.java)，调度、取消和结果转换见 [JvmJarBindingTaskTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/jvm/JvmJarBindingTaskTest.java)。
 
-指定 TaskExecutor 后，未接管结果的失败会排入该执行器，再调用其 `report(error)`；默认实现抛出异常，GUI 执行器将其交给窗口错误报告。连接后续阶段、await、取消、显式关闭或把结果交给 Java 都表示接管该任务；链末端的新失败仍可单独报告。资源自动释放不表示错误已处理。排队期间注册的处理器会抑制默认报告，已报告的错误不会因后来注册处理器而撤销。取消不作为未处理异常报告；没有指定执行器时，结果由调用者读取。
+指定 TaskExecutor 后，未接管结果的失败会排入该执行器，再调用其 `report(error)`；默认实现抛出异常，GUI 执行器将其交给窗口错误报告。连接后续阶段、await、取消、显式关闭 都表示接管该任务；链末端的新失败仍可单独报告。资源自动释放不表示错误已处理。排队期间注册的处理器会抑制默认报告，已报告的错误不会因后来注册处理器而撤销。取消不作为未处理异常报告；没有指定执行器时，结果由调用者读取。
 
-Java Binding 将 Future、CompletionStage 和 CompletableFuture 投影为同一 Task 类型。Java 来源任务使用适配后的宿主 Future 视图；Norm 新建任务提供独立转换的 Java CompletionStage 视图。长期应用入口可使用 [awaitCancellation](../../../norm/stdlib/std/concurrent/lifecycle.norm) 保持执行，直到取消或中断。
+Java 并发类型保持其 `java.base` 名义身份，边界规则见 [Java 绑定](/zh/design/java-library-adapters)。长期应用入口可使用 [awaitCancellation](../../../norm/stdlib/std/concurrent/lifecycle.norm) 等待取消或中断。
 
-Java 声明的 `Future<?>`、`CompletionStage<?>` 与 `CompletableFuture<?>` 保留未知元素类型，不投影为 `Task<Any?>`。这允许只检查完成状态的 Java API 接收不同结果类型的 Task，不改变普通参数化类型的不变性。
-
-`termination()` 返回独立的 `Task<Unit>?` 清理完成通知：Norm 自己调度的工作退出执行体（包括 finally）后才完成，即使任务已被取消。尚未运行的工作取消或被执行器拒绝后也会完成该通知。它不继承组件的 ResourceOwner，关闭通知不会取消原工作；通知本身不代表另一个工作执行体。外部 Java Future 无法证明其后台工作已退出，因此返回 null。该 API 用于资源关闭协调；UI 线程不应调用 await 阻塞等待。
+`termination()` 返回独立的 `Task<Unit>?` 清理完成通知：Norm 自己调度的工作退出执行体（包括 finally）后才完成，即使任务已被取消。尚未运行的工作取消或被执行器拒绝后也会完成该通知。它不继承组件的 ResourceOwner，关闭通知不会取消原工作；通知本身不代表另一个工作执行体。完成源不拥有执行体，其任务因此返回 null。该 API 用于资源关闭协调；UI 线程不应调用 await 阻塞等待。
 
 外部事件通过 `completion<T>()` 创建可完成的任务源；声明见 [completion.norm](../../../norm/stdlib/std/concurrent/completion.norm)，跨线程完成、失败身份和关闭取消验证见 [CompletionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/stdlib/CompletionTest.java)。

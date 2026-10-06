@@ -67,177 +67,6 @@ final class JavaBindingMembers {
     owner.effectiveMethods().stream()
         .flatMap(method -> method.binding().stream())
         .forEach(bindings::add);
-    Map<String, JavaBindingType> variables = classVariables(owner);
-    java.util.Optional<JavaReferenceType> collection =
-        platformCollectionType(owner, variables, new java.util.LinkedHashSet<>());
-    if (collection.isPresent()) {
-      List<JavaBindingCallable> platform = platformCollectionBindings(collection.orElseThrow());
-      Set<String> platformShapes =
-          platform.stream()
-              .map(JavaBindingMembers::methodShape)
-              .collect(java.util.stream.Collectors.toUnmodifiableSet());
-      bindings.removeIf(
-          callable ->
-              callable.kind() == JavaCallableKind.INSTANCE_METHOD
-                  && platformShapes.contains(methodShape(callable)));
-      bindings.addAll(platform);
-    }
-    return List.copyOf(bindings);
-  }
-
-  java.util.Optional<JavaReferenceType> platformCollectionType(
-      JavaApiType owner, Map<String, JavaBindingType> variables, java.util.Set<String> visited) {
-    if (!visited.add(owner.binaryName())) return java.util.Optional.empty();
-    List<JavaClassTypeSignature> parents = new ArrayList<>();
-    owner.signature().superclass().ifPresent(parents::add);
-    parents.addAll(owner.signature().interfaces());
-    for (JavaClassTypeSignature relation : parents) {
-      JavaBindingType projected =
-          projector.project(relation, variables, JavaTypeProjector.Position.VALUE).orElse(null);
-      if (projected instanceof JavaReferenceType reference
-          && switch (reference.kind()) {
-            case ITERABLE, COLLECTION, LIST, SET, MAP -> true;
-            default -> false;
-          }) {
-        return java.util.Optional.of(reference);
-      }
-      JavaApiType parent = apiTypes.get(relation.binaryName());
-      if (parent == null) continue;
-      java.util.Optional<Map<String, JavaBindingType>> resolved =
-          parentVariables(parent, relation, variables);
-      if (resolved.isEmpty()) continue;
-      java.util.Optional<JavaReferenceType> inherited =
-          platformCollectionType(parent, resolved.orElseThrow(), visited);
-      if (inherited.isPresent()) return inherited;
-    }
-    return java.util.Optional.empty();
-  }
-
-  static List<JavaBindingCallable> platformCollectionBindings(JavaReferenceType collection) {
-    JavaBindingType object = new JavaReferenceType("java.lang.Object", JavaReferenceKind.OBJECT);
-    JavaBindingType first =
-        collection.arguments().isEmpty()
-            ? object
-            : collection.arguments().getFirst().type().orElse(object);
-    JavaBindingType second =
-        collection.arguments().size() < 2
-            ? object
-            : collection.arguments().get(1).type().orElse(object);
-    List<JavaBindingCallable> bindings = new ArrayList<>();
-    if (collection.kind() == JavaReferenceKind.MAP) {
-      bindings.add(
-          new JavaBindingCallable(
-              "java.util.Map",
-              "size",
-              "()I",
-              JavaCallableKind.INSTANCE_METHOD,
-              List.of(),
-              JavaPrimitiveType.INT));
-      bindings.add(
-          new JavaBindingCallable(
-              "java.util.Map",
-              "containsKey",
-              "(Ljava/lang/Object;)Z",
-              JavaCallableKind.INSTANCE_METHOD,
-              List.of(first),
-              JavaPrimitiveType.BOOLEAN));
-      bindings.add(
-          new JavaBindingCallable(
-              "java.util.Map",
-              "get",
-              "(Ljava/lang/Object;)Ljava/lang/Object;",
-              JavaCallableKind.INSTANCE_METHOD,
-              List.of(first),
-              second));
-      bindings.add(
-          new JavaBindingCallable(
-              "java.util.Map",
-              "put",
-              "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-              JavaCallableKind.INSTANCE_METHOD,
-              List.of(first, second),
-              second));
-      bindings.add(
-          new JavaBindingCallable(
-              "java.util.Map",
-              "remove",
-              "(Ljava/lang/Object;)Ljava/lang/Object;",
-              JavaCallableKind.INSTANCE_METHOD,
-              List.of(first),
-              second));
-      return List.copyOf(bindings);
-    }
-    bindings.add(
-        new JavaBindingCallable(
-            "java.lang.Iterable",
-            "iterator",
-            "()Ljava/util/Iterator;",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(),
-            List.of(),
-            new JavaReferenceType(
-                "java.util.Iterator",
-                JavaReferenceKind.ITERATOR,
-                List.of(JavaBindingTypeArgument.exact(first))),
-            JavaNullability.NON_NULL));
-    if (collection.kind() == JavaReferenceKind.ITERABLE) return List.copyOf(bindings);
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.Collection",
-            "size",
-            "()I",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(),
-            JavaPrimitiveType.INT));
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.Collection",
-            "contains",
-            "(Ljava/lang/Object;)Z",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(first),
-            JavaPrimitiveType.BOOLEAN));
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.Collection",
-            "add",
-            "(Ljava/lang/Object;)Z",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(first),
-            JavaPrimitiveType.BOOLEAN));
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.Collection",
-            "remove",
-            "(Ljava/lang/Object;)Z",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(first),
-            JavaPrimitiveType.BOOLEAN));
-    if (collection.kind() != JavaReferenceKind.LIST) return List.copyOf(bindings);
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.List",
-            "get",
-            "(I)Ljava/lang/Object;",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(JavaPrimitiveType.INT),
-            first));
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.List",
-            "set",
-            "(ILjava/lang/Object;)Ljava/lang/Object;",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(JavaPrimitiveType.INT, first),
-            first));
-    bindings.add(
-        new JavaBindingCallable(
-            "java.util.List",
-            "remove",
-            "(I)Ljava/lang/Object;",
-            JavaCallableKind.INSTANCE_METHOD,
-            List.of(JavaPrimitiveType.INT),
-            first));
     return List.copyOf(bindings);
   }
 
@@ -261,9 +90,6 @@ final class JavaBindingMembers {
     Map<String, JavaReferenceType> projected = new LinkedHashMap<>();
     Map<String, JavaBindingType> variables = classVariables(owner);
     projectedInterfaces(owner, variables, new java.util.HashSet<>(), projected);
-    platformCollectionType(owner, variables, new java.util.LinkedHashSet<>())
-        .filter(BindingTypeNames::iterableRelation)
-        .ifPresent(type -> projected.putIfAbsent("protocol:" + type.displayName(), type));
     return List.copyOf(projected.values());
   }
 
@@ -357,12 +183,6 @@ final class JavaBindingMembers {
                 field ->
                     field.name().equals(callable.name())
                         && (field.modifiers() & org.objectweb.asm.Opcodes.ACC_ENUM) != 0);
-  }
-
-  static boolean requiredProtocolBinding(JavaBindingCallable callable) {
-    return callable.owner().equals("java.lang.Iterable")
-        && callable.name().equals("iterator")
-        && callable.descriptor().equals("()Ljava/util/Iterator;");
   }
 
   List<JavaBindingTypeParameter> classTypeParameters(JavaApiType owner) {

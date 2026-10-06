@@ -34,23 +34,31 @@ import java.util.Optional;
 import java.util.Set;
 
 final class ProjectModuleSources {
-  private final ModuleEvaluator modules;
+  private final ProjectLoadContext modules;
   private final NormPackageResolver packages;
   private final JarResolver jars;
   private final java.util.function.Consumer<String> progress;
   private final ProjectInputTracker inputs;
+  private final Map<ModuleCoordinate, ProvidedModule> providedModules;
 
   ProjectModuleSources(
-      ModuleEvaluator modules,
+      ProjectLoadContext modules,
       NormPackageResolver packages,
       JarResolver jars,
       java.util.function.Consumer<String> progress,
-      ProjectInputTracker inputs) {
+      ProjectInputTracker inputs,
+      List<ProvidedModule> providedModules) {
     this.modules = Objects.requireNonNull(modules, "modules");
     this.packages = Objects.requireNonNull(packages, "packages");
     this.jars = Objects.requireNonNull(jars, "jars");
     this.progress = Objects.requireNonNull(progress, "progress");
     this.inputs = inputs;
+    this.providedModules =
+        providedModules.stream()
+            .collect(
+                java.util.stream.Collectors.toUnmodifiableMap(
+                    module -> module.descriptor().coordinate(),
+                    java.util.function.Function.identity()));
   }
 
   ResolvedProjectModule load(SourceFile moduleSource, Map<Path, SourceFile> overlays)
@@ -75,6 +83,7 @@ final class ProjectModuleSources {
     ModuleSourceFiles selected =
         ModuleSourceFiles.load(
             moduleSource, descriptor.name(), declaration.layout(), overlays, includeTests);
+    selected.sources().values().forEach(inputs::source);
     Map<String, SourceFile> sources = new LinkedHashMap<>(selected.sources());
     Optional<ResolvedJarBinding> binding = Optional.empty();
     Set<DocumentId> bindingSources = Set.of();
@@ -84,8 +93,21 @@ final class ProjectModuleSources {
             "JAR binding is not pinned; run 'norm resolve' for " + moduleSource.path());
       }
       Path moduleRoot = normalize(moduleSource.path()).getParent();
+      if (descriptor.binding().orElseThrow().target() instanceof LocalJarTarget target)
+        inputs.candidate(moduleRoot.resolve(target.path()));
       ResolvedJarGraph graph = jars.resolve(moduleRoot, descriptor.binding().orElseThrow());
-      ResolvedJarBinding resolvedBinding = JarBindingPreparer.prepare(descriptor, graph);
+      inputs.graph(graph);
+      Map<String, dev.w0fv1.norm.execution.JarBindingClassReference.Nominal> imports =
+          new LinkedHashMap<>();
+      providedModules
+          .values()
+          .forEach(module -> imports.putAll(module.binding().generated().exportedClasses()));
+      ResolvedJarBinding resolvedBinding =
+          JarBindingPreparer.prepare(
+              descriptor,
+              graph,
+              imports,
+              providedModules.values().stream().map(module -> module.binding().graph()).toList());
       GeneratedJarBinding generated = resolvedBinding.generated();
       List<String> exports = new java.util.ArrayList<>(generated.exports());
       exports.addAll(
@@ -136,6 +158,7 @@ final class ProjectModuleSources {
                 () -> new IOException("module name cannot be inferred; declare name explicitly"));
     List<ModuleRequirement> dependencies = new java.util.ArrayList<>();
     for (ModuleDependency dependency : declaration.dependencies()) {
+      modules.checkpoint();
       progress.accept(
           "Resolving dependency: "
               + dependency.repository().value()
@@ -143,7 +166,20 @@ final class ProjectModuleSources {
               + dependency.name()
               + "@"
               + (dependency.version().isPresent() ? dependency.version().getAsInt() : "latest"));
-      dependencies.add(packages.resolve(dependency));
+      var provided =
+          providedModules.values().stream()
+              .filter(module -> module.descriptor().name().equals(dependency.name()))
+              .findFirst();
+      if (provided.isPresent()) {
+        var coordinate = provided.orElseThrow().descriptor().coordinate();
+        if (!dependency.repository().value().equals("norm")
+            || dependency.version().isPresent()
+                && dependency.version().getAsInt() != coordinate.version())
+          throw new IOException("provided module coordinate does not match " + dependency.name());
+        dependencies.add(dependency.resolved(coordinate.version()));
+      } else {
+        dependencies.add(modules.resolve(dependency, packages));
+      }
     }
     return new ModuleDescriptor(
         new ModuleCoordinate(name, declaration.version().orElse(0)),

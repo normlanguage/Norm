@@ -25,7 +25,6 @@ import static dev.w0fv1.norm.jvm.JavaBindingMembers.constructorTypeParameters;
 import static dev.w0fv1.norm.jvm.JavaBindingMembers.enumConstant;
 import static dev.w0fv1.norm.jvm.JavaBindingMembers.markResources;
 import static dev.w0fv1.norm.jvm.JavaBindingMembers.methodKey;
-import static dev.w0fv1.norm.jvm.JavaBindingMembers.requiredProtocolBinding;
 
 import dev.w0fv1.norm.execution.JarBindingClassReference;
 import dev.w0fv1.norm.value.JarBindingOverload;
@@ -142,6 +141,11 @@ public final class BindingPlanner {
                 + matching.size());
       }
       JavaApiType owner = matching.getFirst();
+      if (!module.name().equals("java.base")
+          && JavaPlatformTypes.isJavaBaseType(owner.binaryName())) {
+        throw new IllegalArgumentException(
+            "Java base type must be owned by java.base: " + owner.binaryName());
+      }
       String exportedName =
           allocateTypePath(
               exportPath(selection.exportName(), owner), owner.binaryName(), referencePaths);
@@ -157,7 +161,8 @@ public final class BindingPlanner {
       rootExports.add(exportedName);
       selectedMembers.put(exportedName, selection.members());
     }
-    String javaPackagePrefix = javaPackagePrefix(exportedTypes);
+    String javaPackagePrefix =
+        module.name().equals("java.base") ? "java" : javaPackagePrefix(exportedTypes);
     Map<String, List<JavaBindingTypeParameter>> exportedTypeParameters = new LinkedHashMap<>();
     Map<String, List<JavaBindingCallable>> exportedBindings = new LinkedHashMap<>();
     Map<String, List<JavaReferenceType>> exportedInterfaces = new LinkedHashMap<>();
@@ -179,7 +184,6 @@ public final class BindingPlanner {
                       selection.isEmpty()
                           || selection.orElseThrow().matches(callable)
                           || enumConstant(owner, callable)
-                          || requiredProtocolBinding(callable)
                           || resourceTypes.contains(owner.binaryName())
                               && callable.kind() == JavaCallableKind.INSTANCE_METHOD
                               && callable.name().equals("close")
@@ -193,12 +197,7 @@ public final class BindingPlanner {
               .toList();
       exportedTypeParameters.put(exportedName, typeParameters);
       exportedBindings.put(exportedName, ownerBindings);
-      List<JavaReferenceType> interfaces =
-          javaMembers.projectedInterfaces(owner).stream()
-              .filter(
-                  relation ->
-                      !relation.binaryName().equals("java.lang.Comparable") || selection.isEmpty())
-              .toList();
+      List<JavaReferenceType> interfaces = javaMembers.projectedInterfaces(owner);
       exportedInterfaces.put(exportedName, interfaces);
       var superclass = javaMembers.projectedSuperclass(owner);
       exportedSuperclasses.put(exportedName, superclass);
@@ -210,15 +209,33 @@ public final class BindingPlanner {
       ownerBindings.forEach(callable -> collectReferences(callable, referencedTypes));
       interfaces.forEach(type -> collectReferences(type, referencedTypes));
       superclass.ifPresent(type -> collectReferences(type, referencedTypes));
+      if (owner.kind() == JavaApiTypeKind.ANNOTATION) {
+        annotationBinding(owner, ownerBindings)
+            .elements()
+            .forEach(
+                element ->
+                    element
+                        .defaultValue()
+                        .ifPresent(value -> collectReferences(value, referencedTypes)));
+      }
       for (String binaryName : referencedTypes) {
         JavaApiType referenced = apiTypes.get(binaryName);
         if (referenced == null || referenceNames.containsKey(binaryName)) continue;
         var imported = imports.get(binaryName);
         if (imported != null && !schema.types().contains(referenced)) {
+          if (JavaPlatformTypes.isJavaBaseType(binaryName)
+              && !imported.module().name().equals("java.base")) {
+            throw new IllegalArgumentException(
+                "Java base type must be owned by java.base: " + binaryName);
+          }
           referenceNames.put(binaryName, imported.name());
           referencePaths.put(binaryName, imported.packageName() + "." + imported.name());
           usedImports.put(binaryName, imported);
           continue;
+        }
+        if (!module.name().equals("java.base") && JavaPlatformTypes.isJavaBaseType(binaryName)) {
+          throw new IllegalArgumentException(
+              "Java base type requires its java.base dependency owner: " + binaryName);
         }
         String relativeName =
             allocateTypePath(
@@ -413,7 +430,7 @@ public final class BindingPlanner {
                 binding));
     return new BindingPlan(
         module,
-        rootExports,
+        module.name().equals("java.base") ? List.copyOf(exportedTypes.keySet()) : rootExports,
         declarations,
         plannedArrays,
         normTypes,

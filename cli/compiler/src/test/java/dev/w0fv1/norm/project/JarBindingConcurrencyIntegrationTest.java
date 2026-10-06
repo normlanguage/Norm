@@ -1,6 +1,7 @@
 package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.w0fv1.norm.application.ApplicationRunner;
@@ -13,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,7 +24,8 @@ import org.objectweb.asm.Opcodes;
 
 @Timeout(60)
 final class JarBindingConcurrencyIntegrationTest {
-  private static final String TASK_SCOPE_CANCEL_PROPERTY = "norm.test.java.task.scope-cancelled";
+  private static final String TASK_CANCEL_PROPERTY = "norm.test.java.task.explicit-cancelled";
+  private static final String UNMANAGED_FUTURE_PROPERTY = "norm.test.java.future.scope-cancelled";
   @TempDir Path temporaryDirectory;
 
   @Test
@@ -113,8 +116,9 @@ final class JarBindingConcurrencyIntegrationTest {
   }
 
   @Test
-  void awaitsAndCancelsJavaTasksThroughStandardNormConcurrency() throws Exception {
-    System.clearProperty(TASK_SCOPE_CANCEL_PROPERTY);
+  void bridgesNominalJavaFuturesExplicitlyThroughStandardNormConcurrency() throws Exception {
+    System.clearProperty(TASK_CANCEL_PROPERTY);
+    System.clearProperty(UNMANAGED_FUTURE_PROPERTY);
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("task/binding"));
     Path jar = taskJar(moduleRoot.resolve("lib/task.jar"));
     Files.writeString(
@@ -134,6 +138,9 @@ final class JarBindingConcurrencyIntegrationTest {
                   name: "TaskApi",
                   members: [
                     "asyncCheck",
+                    "awaitStage",
+                    "cancel",
+                    "done",
                     "cancelled",
                     "completed",
                     "failed",
@@ -154,7 +161,6 @@ final class JarBindingConcurrencyIntegrationTest {
         entry,
         """
         package task.binding
-        import std.concurrent.Task
         import std.concurrent.startTask
         import std.concurrent.completion
         import std.core.Exception
@@ -163,60 +169,44 @@ final class JarBindingConcurrencyIntegrationTest {
           var source = completion<String?>()
           var supplied = source.task()
           source.succeed("completed")
-          require(condition: taskApiRead(supplied) == "completed", message: "completion exports a typed Java task")
+          require(condition: supplied.await() == "completed", message: "Norm completion preserves its own task contract")
           source.close()
-          var empty = completion<String?>()
-          var emptyTask = empty.task()
-          empty.succeed(null)
-          require(condition: taskApiRead(emptyTask) == null, message: "completion exports Java null")
-          empty.close()
-          printLine(taskApiRead(startTask<String?> { "started" }))
+          var empty = taskApiCompleted(null)!!
+          require(condition: taskApiAwaitStage(empty) == null, message: "Java completion preserves null")
+          var started = startTask<String?> { taskApiAwaitStage(taskApiCompleted("started")!!) }
+          printLine(started.await() ?? "missing")
+          started.close()
           String? owner = taskApiThreadName()
           Function<Boolean?()> onJavaCallbackThread = () {
             Boolean? result = taskApiThreadName() != owner
             return result
           }
-          Task<Boolean?>? asynchronous = taskApiAsyncCheck(onJavaCallbackThread)
-          if asynchronous != null {
-            printLine(asynchronous.await() ?? false)
-            asynchronous.close()
-          }
+          var asynchronous = taskApiAsyncCheck(onJavaCallbackThread)!!
+          printLine(taskApiAwaitStage(asynchronous) ?? false)
           printLine(taskApiThreadedCheck(onJavaCallbackThread) ?? false)
           Function<Boolean?()> callbackFailure = () {
             throw Exception(message: "async callback failure")
           }
-          Task<Boolean?>? failedCallback = taskApiAsyncCheck(callbackFailure)
-          if failedCallback != null {
-            try {
-              failedCallback.await()
-            } catch Exception exception {
-              printLine(exception.message)
-            }
-            failedCallback.close()
+          var failedCallback = taskApiAsyncCheck(callbackFailure)!!
+          try {
+            taskApiAwaitStage(failedCallback)
+          } catch Exception exception {
+            printLine(exception.message)
           }
-          Task<String?>? completed = taskApiCompleted("ready")
-          if completed != null {
-            printLine(completed.completed())
-            printLine(completed.await() ?? "missing")
-            printLine(taskApiCancelled(completed))
-            completed.close()
+          var completed = taskApiCompleted("ready")!!
+          printLine(taskApiAwaitStage(completed) ?? "missing")
+          var failed = taskApiFailed("failure")!!
+          try {
+            taskApiRead(failed)
+          } catch Exception exception {
+            printLine(exception.message)
           }
-          Task<String?>? failed = taskApiFailed("failure")
-          if failed != null {
-            try {
-              failed.await()
-            } catch Exception exception {
-              printLine(exception.message)
-            }
-            failed.close()
-          }
-          Task<String?>? pending = taskApiPending("norm.test.java.task.explicit-cancelled")
-          if pending != null {
-            printLine(pending.completed())
-            pending.close()
-            printLine(taskApiCancelled(pending))
-          }
-          Task<String?>? automatic = taskApiPending("norm.test.java.task.scope-cancelled")
+          var pending = taskApiPending("norm.test.java.task.explicit-cancelled")!!
+          printLine(taskApiDone(pending))
+          require(condition: taskApiCancel(pending), message: "explicit Java cancellation succeeds")
+          printLine(taskApiCancelled(pending))
+          var unmanaged = taskApiPending("norm.test.java.future.scope-cancelled")!!
+          require(condition: !taskApiDone(unmanaged), message: "nominal Java future remains pending")
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -237,15 +227,14 @@ final class JarBindingConcurrencyIntegrationTest {
             "true",
             "true",
             "async callback failure",
-            "true",
             "ready",
-            "false",
             "failure",
             "false",
             "true",
             ""),
         output.toString());
-    assertEquals("true", System.getProperty(TASK_SCOPE_CANCEL_PROPERTY));
+    assertEquals("true", System.getProperty(TASK_CANCEL_PROPERTY));
+    assertNull(System.getProperty(UNMANAGED_FUTURE_PROPERTY));
   }
 
   private static Path callbackJar(Path path) throws Exception {
@@ -422,221 +411,66 @@ final class JarBindingConcurrencyIntegrationTest {
   }
 
   private static Path taskJar(Path path) throws Exception {
-    ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-    String owner = "sample/TaskApi";
-    writer.visit(
-        Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, owner, null, "java/lang/Object", null);
-    MethodVisitor threadName =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "threadName",
-            "()Ljava/lang/String;",
-            null,
-            null);
-    threadName.visitCode();
-    threadName.visitMethodInsn(
-        Opcodes.INVOKESTATIC, "java/lang/Thread", "currentThread", "()Ljava/lang/Thread;", false);
-    threadName.visitMethodInsn(
-        Opcodes.INVOKEVIRTUAL, "java/lang/Thread", "getName", "()Ljava/lang/String;", false);
-    threadName.visitInsn(Opcodes.ARETURN);
-    threadName.visitMaxs(0, 0);
-    threadName.visitEnd();
-    MethodVisitor asyncCheck =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "asyncCheck",
-            "(Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletionStage;",
-            "(Ljava/util/function/Supplier<Ljava/lang/Boolean;>;)Ljava/util/concurrent/CompletionStage<Ljava/lang/Boolean;>;",
-            null);
-    asyncCheck.visitCode();
-    asyncCheck.visitVarInsn(Opcodes.ALOAD, 0);
-    asyncCheck.visitMethodInsn(
-        Opcodes.INVOKESTATIC,
-        "java/util/concurrent/CompletableFuture",
-        "supplyAsync",
-        "(Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;",
-        false);
-    asyncCheck.visitInsn(Opcodes.ARETURN);
-    asyncCheck.visitMaxs(0, 0);
-    asyncCheck.visitEnd();
-    MethodVisitor threadedCheck =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "threadedCheck",
-            "(Ljava/util/function/Supplier;)Ljava/lang/Boolean;",
-            "(Ljava/util/function/Supplier<Ljava/lang/Boolean;>;)Ljava/lang/Boolean;",
-            null);
-    threadedCheck.visitCode();
-    threadedCheck.visitVarInsn(Opcodes.ALOAD, 0);
-    threadedCheck.visitMethodInsn(
-        Opcodes.INVOKESTATIC,
-        "java/util/concurrent/CompletableFuture",
-        "supplyAsync",
-        "(Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;",
-        false);
-    threadedCheck.visitMethodInsn(
-        Opcodes.INVOKEVIRTUAL,
-        "java/util/concurrent/CompletableFuture",
-        "join",
-        "()Ljava/lang/Object;",
-        false);
-    threadedCheck.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Boolean");
-    threadedCheck.visitInsn(Opcodes.ARETURN);
-    threadedCheck.visitMaxs(0, 0);
-    threadedCheck.visitEnd();
-    MethodVisitor completed =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "completed",
-            "(Ljava/lang/String;)Ljava/util/concurrent/CompletionStage;",
-            "(Ljava/lang/String;)Ljava/util/concurrent/CompletionStage<Ljava/lang/String;>;",
-            null);
-    completed.visitCode();
-    completed.visitVarInsn(Opcodes.ALOAD, 0);
-    completed.visitMethodInsn(
-        Opcodes.INVOKESTATIC,
-        "java/util/concurrent/CompletableFuture",
-        "completedFuture",
-        "(Ljava/lang/Object;)Ljava/util/concurrent/CompletableFuture;",
-        false);
-    completed.visitMethodInsn(
-        Opcodes.INVOKEVIRTUAL,
-        "java/util/concurrent/CompletableFuture",
-        "minimalCompletionStage",
-        "()Ljava/util/concurrent/CompletionStage;",
-        false);
-    completed.visitInsn(Opcodes.ARETURN);
-    completed.visitMaxs(0, 0);
-    completed.visitEnd();
-    MethodVisitor failed =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "failed",
-            "(Ljava/lang/String;)Ljava/util/concurrent/CompletableFuture;",
-            "(Ljava/lang/String;)Ljava/util/concurrent/CompletableFuture<Ljava/lang/String;>;",
-            null);
-    failed.visitCode();
-    failed.visitTypeInsn(Opcodes.NEW, "java/lang/IllegalStateException");
-    failed.visitInsn(Opcodes.DUP);
-    failed.visitVarInsn(Opcodes.ALOAD, 0);
-    failed.visitMethodInsn(
-        Opcodes.INVOKESPECIAL,
-        "java/lang/IllegalStateException",
-        "<init>",
-        "(Ljava/lang/String;)V",
-        false);
-    failed.visitMethodInsn(
-        Opcodes.INVOKESTATIC,
-        "java/util/concurrent/CompletableFuture",
-        "failedFuture",
-        "(Ljava/lang/Throwable;)Ljava/util/concurrent/CompletableFuture;",
-        false);
-    failed.visitInsn(Opcodes.ARETURN);
-    failed.visitMaxs(0, 0);
-    failed.visitEnd();
-    MethodVisitor pending =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "pending",
-            "(Ljava/lang/String;)Ljava/util/concurrent/CompletableFuture;",
-            "(Ljava/lang/String;)Ljava/util/concurrent/CompletableFuture<Ljava/lang/String;>;",
-            null);
-    pending.visitCode();
-    pending.visitTypeInsn(Opcodes.NEW, "sample/TrackingFuture");
-    pending.visitInsn(Opcodes.DUP);
-    pending.visitVarInsn(Opcodes.ALOAD, 0);
-    pending.visitMethodInsn(
-        Opcodes.INVOKESPECIAL, "sample/TrackingFuture", "<init>", "(Ljava/lang/String;)V", false);
-    pending.visitInsn(Opcodes.ARETURN);
-    pending.visitMaxs(0, 0);
-    pending.visitEnd();
-    MethodVisitor cancelled =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "cancelled",
-            "(Ljava/util/concurrent/Future;)Z",
-            "(Ljava/util/concurrent/Future<Ljava/lang/String;>;)Z",
-            null);
-    cancelled.visitCode();
-    cancelled.visitVarInsn(Opcodes.ALOAD, 0);
-    cancelled.visitMethodInsn(
-        Opcodes.INVOKEINTERFACE, "java/util/concurrent/Future", "isCancelled", "()Z", true);
-    cancelled.visitInsn(Opcodes.IRETURN);
-    cancelled.visitMaxs(0, 0);
-    cancelled.visitEnd();
-    MethodVisitor read =
-        writer.visitMethod(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "read",
-            "(Ljava/util/concurrent/Future;)Ljava/lang/String;",
-            "(Ljava/util/concurrent/Future<Ljava/lang/String;>;)Ljava/lang/String;",
-            null);
-    read.visitCode();
-    read.visitVarInsn(Opcodes.ALOAD, 0);
-    read.visitMethodInsn(
-        Opcodes.INVOKEINTERFACE,
-        "java/util/concurrent/Future",
-        "get",
-        "()Ljava/lang/Object;",
-        true);
-    read.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/String");
-    read.visitInsn(Opcodes.ARETURN);
-    read.visitMaxs(0, 0);
-    read.visitEnd();
-    writer.visitEnd();
-    ClassWriter tracking = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-    tracking.visit(
-        Opcodes.V17,
-        Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
-        "sample/TrackingFuture",
-        "Ljava/util/concurrent/CompletableFuture<Ljava/lang/String;>;",
-        "java/util/concurrent/CompletableFuture",
-        null);
-    tracking
-        .visitField(
-            Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "key", "Ljava/lang/String;", null, null)
-        .visitEnd();
-    MethodVisitor constructor =
-        tracking.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/String;)V", null, null);
-    constructor.visitCode();
-    constructor.visitVarInsn(Opcodes.ALOAD, 0);
-    constructor.visitMethodInsn(
-        Opcodes.INVOKESPECIAL, "java/util/concurrent/CompletableFuture", "<init>", "()V", false);
-    constructor.visitVarInsn(Opcodes.ALOAD, 0);
-    constructor.visitVarInsn(Opcodes.ALOAD, 1);
-    constructor.visitFieldInsn(
-        Opcodes.PUTFIELD, "sample/TrackingFuture", "key", "Ljava/lang/String;");
-    constructor.visitInsn(Opcodes.RETURN);
-    constructor.visitMaxs(0, 0);
-    constructor.visitEnd();
-    MethodVisitor cancel = tracking.visitMethod(Opcodes.ACC_PUBLIC, "cancel", "(Z)Z", null, null);
-    cancel.visitCode();
-    cancel.visitVarInsn(Opcodes.ALOAD, 0);
-    cancel.visitFieldInsn(Opcodes.GETFIELD, "sample/TrackingFuture", "key", "Ljava/lang/String;");
-    cancel.visitLdcInsn("true");
-    cancel.visitMethodInsn(
-        Opcodes.INVOKESTATIC,
-        "java/lang/System",
-        "setProperty",
-        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
-        false);
-    cancel.visitInsn(Opcodes.POP);
-    cancel.visitVarInsn(Opcodes.ALOAD, 0);
-    cancel.visitVarInsn(Opcodes.ILOAD, 1);
-    cancel.visitMethodInsn(
-        Opcodes.INVOKESPECIAL, "java/util/concurrent/CompletableFuture", "cancel", "(Z)Z", false);
-    cancel.visitInsn(Opcodes.IRETURN);
-    cancel.visitMaxs(0, 0);
-    cancel.visitEnd();
-    tracking.visitEnd();
-    Files.createDirectories(path.getParent());
-    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path))) {
-      output.putNextEntry(new JarEntry("sample/TaskApi.class"));
-      output.write(writer.toByteArray());
-      output.closeEntry();
-      output.putNextEntry(new JarEntry("sample/TrackingFuture.class"));
-      output.write(tracking.toByteArray());
-      output.closeEntry();
+    Path classes = Files.createDirectories(path.getParent().resolve("task-classes"));
+    Path source = path.getParent().resolve("TaskApi.java");
+    Files.writeString(
+        source,
+        """
+        package sample;
+        import java.util.concurrent.*;
+        import java.util.function.Supplier;
+        public final class TaskApi {
+          public static String threadName() { return Thread.currentThread().getName(); }
+          public static CompletionStage<Boolean> asyncCheck(Supplier<Boolean> callback) {
+            return CompletableFuture.supplyAsync(callback);
+          }
+          public static Boolean threadedCheck(Supplier<Boolean> callback) {
+            return CompletableFuture.supplyAsync(callback).join();
+          }
+          public static CompletionStage<String> completed(String value) {
+            return CompletableFuture.completedFuture(value).minimalCompletionStage();
+          }
+          public static CompletableFuture<String> failed(String message) {
+            return CompletableFuture.failedFuture(new IllegalStateException(message));
+          }
+          public static CompletableFuture<String> pending(String property) {
+            return new CompletableFuture<String>() {
+              @Override public boolean cancel(boolean interrupt) {
+                System.setProperty(property, "true");
+                return super.cancel(interrupt);
+              }
+            };
+          }
+          public static <T> T awaitStage(CompletionStage<T> stage) {
+            try { return stage.toCompletableFuture().join(); }
+            catch (CompletionException failure) {
+              if (failure.getCause() instanceof RuntimeException cause) throw cause;
+              throw failure;
+            }
+          }
+          public static <T> T read(Future<T> future) throws Exception {
+            try { return future.get(); }
+            catch (ExecutionException failure) {
+              if (failure.getCause() instanceof RuntimeException cause) throw cause;
+              throw failure;
+            }
+          }
+          public static boolean done(Future<?> future) { return future.isDone(); }
+          public static boolean cancelled(Future<?> future) { return future.isCancelled(); }
+          public static boolean cancel(Future<?> future) { return future.cancel(true); }
+        }
+        """);
+    assertEquals(
+        0,
+        ToolProvider.getSystemJavaCompiler()
+            .run(null, null, null, "-d", classes.toString(), source.toString()));
+    try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(path));
+        var files = Files.walk(classes)) {
+      for (Path file : files.filter(Files::isRegularFile).toList()) {
+        output.putNextEntry(new JarEntry(classes.relativize(file).toString().replace('\\', '/')));
+        Files.copy(file, output);
+        output.closeEntry();
+      }
     }
     return path;
   }

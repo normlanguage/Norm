@@ -47,7 +47,8 @@ final class SemanticAnalysisContext {
         new BuiltinSymbols(
             input.moduleEvaluationDocuments(),
             input.standardLibraryDocuments(),
-            input.bindingDocuments());
+            input.bindingDocuments(),
+            input.builtinTypeConformances());
     model = new SemanticModelBuilder(builtins, scope);
     transactions = new AnalysisTransaction(model, body, resolution, diagnostics);
   }

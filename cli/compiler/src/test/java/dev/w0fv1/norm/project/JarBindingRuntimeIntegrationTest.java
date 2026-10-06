@@ -24,6 +24,81 @@ final class JarBindingRuntimeIntegrationTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void preservesAnonymousJavaInterfacesThroughObjectAndGenericReturns() throws Exception {
+    Path root = Files.createDirectories(temporaryDirectory.resolve("anonymous"));
+    Path source = root.resolve("HiddenApi.java");
+    Files.writeString(
+        source,
+        """
+        package sample;
+        public final class HiddenApi {
+          public static Object create() {
+            return new java.util.Iterator<String>() {
+              public boolean hasNext() { return true; }
+              public String next() { return "value"; }
+            };
+          }
+        }
+        """);
+    Path classes = Files.createDirectories(root.resolve("classes"));
+    assertEquals(
+        0,
+        javax.tools.ToolProvider.getSystemJavaCompiler()
+            .run(null, null, null, "-d", classes.toString(), source.toString()));
+    Path jar = root.resolve("anonymous.jar");
+    try (var archive = new JarOutputStream(Files.newOutputStream(jar));
+        var files = Files.walk(classes)) {
+      for (Path file : files.filter(Files::isRegularFile).toList()) {
+        archive.putNextEntry(new JarEntry(classes.relativize(file).toString().replace('\\', '/')));
+        archive.write(Files.readAllBytes(file));
+        archive.closeEntry();
+      }
+    }
+    Files.writeString(
+        root.resolve("module.norm"),
+        """
+        Module module() { return module(name: "anonymous", version: 1,
+          binding: jarBinding(target: localJar(path: "anonymous.jar", integrity: sha256("%s")),
+            api: [jarType(name: "HiddenApi", members: ["create"])])) }
+        """
+            .formatted(Sha256Digest.compute(jar).value()));
+    Path entry =
+        Files.writeString(
+            root.resolve("Main.norm"),
+            """
+        package anonymous
+        import java.base.util.linkedHashMapNew
+        import java.base.util.Iterator
+        Void main() {
+          Any? value = hiddenApiCreate()
+          require(condition: value != null, message: "Anonymous Java interface was lost")
+          var values = linkedHashMapNew<String, Any?>()
+          values.put(arg0: "key", arg1: value)
+          require(condition: values.get(arg0: "key") == value,
+            message: "Anonymous Java interface changed during generic transport")
+          switch values.get(arg0: "key") {
+            case Iterator<?> iterator {
+              require(condition: iterator.hasNext(), message: "Anonymous iterator dispatch failed")
+              printLine(iterator.next())
+            }
+            case _ { require(condition: false, message: "Anonymous result lost its interface") }
+          }
+          printLine("ok")
+        }
+        """);
+    var backend = new NormRuntime();
+    var output = new StringWriter();
+    try (var environment = ProjectEnvironment.bootstrap(backend);
+        var projects = environment.projectLoader(temporaryDirectory.resolve("anonymous-cache"));
+        var runner = new ApplicationRunner(projects, environment.compilerSession(), backend)) {
+      var result = runner.run(entry, ExecutionContext.of(new PrintWriter(output)));
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+    assertEquals(
+        "value" + System.lineSeparator() + "ok" + System.lineSeparator(), output.toString());
+  }
+
+  @Test
   void catchesAJavaInvocationFailureAsANormException() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("sample/binding"));
     Path jar = failureJar(moduleRoot.resolve("lib/failure.jar"));
@@ -51,19 +126,19 @@ final class JarBindingRuntimeIntegrationTest {
         """
         package sample.binding
         import std.core.Exception
+        import java.base.lang.runtimeExceptionNew
 
         Void main() {
           try {
             failureApiFail("boom")
           } catch Exception failure {
             printLine(failure.message)
-            Exception returned = failureApiIdentity(failure) ?? Exception(message: "missing")
-            printLine(returned.message)
+            var returned = failureApiIdentity(runtimeExceptionNew(failure.message))!!
+            printLine(returned.getMessage()!!)
           }
-          Exception local = Exception(message: "local")
-          Exception localReturned =
-            failureApiIdentity(local) ?? Exception(message: "missing")
-          printLine(localReturned.message)
+          var local = runtimeExceptionNew("local")
+          var localReturned = failureApiIdentity(local)!!
+          printLine(localReturned.getMessage()!!)
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -115,15 +190,12 @@ final class JarBindingRuntimeIntegrationTest {
         entry,
         """
         package resource.binding
-        import std.io.use
 
         Void main() {
           Managed explicit = managedNew()
           printLine(managedCloseCount())
-          Integer used = use<Integer>(resource: explicit, body: () {
-            printLine("body")
-            return 1
-          })
+          printLine("body")
+          explicit.close()
           printLine(managedCloseCount())
           Managed automatic = managedNew()
           printLine(automatic.closed())
@@ -154,7 +226,7 @@ final class JarBindingRuntimeIntegrationTest {
   }
 
   @Test
-  void readsAndWritesJavaByteStreamsThroughStandardNormIo() throws Exception {
+  void readsAndWritesJavaByteStreamsThroughJavaBase() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("stream/binding"));
     Path jar = streamJar(moduleRoot.resolve("lib/stream.jar"));
     Files.writeString(
@@ -180,30 +252,22 @@ final class JarBindingRuntimeIntegrationTest {
         entry,
         """
         package stream.binding
-        import std.io.Bytes
-        import std.io.InputStream
-        import std.io.OutputStream
-        import std.io.TextEncoding
-        import std.io.decodeText
-        import std.io.encodeText
-        import std.io.readAll
-        import std.io.writeAll
 
         Void main() {
-          InputStream? input = streamApiInput("Norm")
-          if input != null {
-            Bytes content = readAll(reader: input, maximumBytes: 16)
-            printLine(decodeText(content: content, encoding: TextEncoding.Utf8))
-            input.close()
-          }
-          OutputStream? output = streamApiOutput()
-          if output != null {
-            Bytes content = encodeText(text: "NAR", encoding: TextEncoding.Utf8)
-            writeAll(writer: output, content: content)
-            output.flush()
-            printLine(streamApiOutputText(output) ?? "missing")
-            output.close()
-          }
+          var input = streamApiInput("Norm")!!
+          printLine(input.read())
+          printLine(input.read())
+          printLine(input.read())
+          printLine(input.read())
+          printLine(input.read())
+          input.close()
+          var output = streamApiOutput()!!
+          output.write(78)
+          output.write(65)
+          output.write(82)
+          output.flush()
+          printLine(streamApiOutputText(output)!!)
+          output.close()
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -218,11 +282,12 @@ final class JarBindingRuntimeIntegrationTest {
     }
 
     assertEquals(
-        "Norm" + System.lineSeparator() + "NAR" + System.lineSeparator(), output.toString());
+        String.join(System.lineSeparator(), "78", "111", "114", "109", "-1", "NAR", ""),
+        output.toString());
   }
 
   @Test
-  void convertsNormPathsForJavaPathAndFileApis() throws Exception {
+  void preservesJavaPathFileAndUriObjects() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("path/binding"));
     Path jar = pathJar(moduleRoot.resolve("lib/path.jar"));
     Files.writeString(
@@ -248,18 +313,18 @@ final class JarBindingRuntimeIntegrationTest {
         entry,
         """
         package path.binding
-        import std.filesystem.Path
-        import std.http.Uri
+        import java.base.io.fileNew
+        import java.base.net.uriCreate
 
         Void main() {
-          Path path = pathApiPath(Path(value: "entry.nar")) ?? Path(value: "missing")
-          Path file = pathApiFile(Path(value: "module.norm")) ?? Path(value: "missing")
-          printLine(path.value)
-          printLine(file.value)
-          Uri uri = pathApiUri(Uri(value: "https://example.com/a")) ?? Uri(value: "missing")
-          Uri url = pathApiUrl(Uri(value: "https://example.com/b")) ?? Uri(value: "missing")
-          printLine(uri.value)
-          printLine(url.value)
+          var path = pathApiPath(fileNew("entry.nar").toPath()!!)!!
+          var file = pathApiFile(fileNew("module.norm"))!!
+          printLine(path.toString()!!)
+          printLine(file.getPath()!!)
+          var uri = pathApiUri(uriCreate("https://example.com/a")!!)!!
+          var url = pathApiUrl(uriCreate("https://example.com/b")!!.toURL()!!)!!
+          printLine(uri.toString()!!)
+          printLine(url.toString()!!)
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -411,7 +476,7 @@ final class JarBindingRuntimeIntegrationTest {
                 path: "lib/enum.jar",
                 integrity: sha256("%s")
               ),
-              api: [jarType(name: "Level", members: ["echo", "label", "values"])]
+              api: [jarType(name: "Level", members: ["echo", "label", "values", "object"])]
             )
           )
         }
@@ -422,8 +487,15 @@ final class JarBindingRuntimeIntegrationTest {
         entry,
         """
         package levels.binding
+        import java.base.util.linkedHashMapNew
 
         Void main() {
+          require(condition: levelObject(Level.HIGH) == Level.HIGH,
+            message: "Java Object transport replaced a foreign enum")
+          var enumMap = linkedHashMapNew<String, Level>()
+          enumMap.put(arg0: "key", arg1: Level.LOW)
+          require(condition: enumMap.get(arg0: "key") == Level.LOW,
+            message: "Java generic transport replaced a foreign enum")
           printLine(levelLabel(Level.HIGH) ?? "")
           Level value = levelEcho(Level.LOW) ?? Level.HIGH
           JavaLevelArray values = levelValues() ?? javaLevelArrayNew(0)
@@ -450,7 +522,7 @@ final class JarBindingRuntimeIntegrationTest {
   }
 
   @Test
-  void mapsJavaOptionalValuesToNormNullability() throws Exception {
+  void preservesJavaOptionalObjectsAndTheirEmptyState() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("options/binding"));
     Path jar = optionalJar(moduleRoot.resolve("lib/optional.jar"));
     Files.writeString(
@@ -481,15 +553,21 @@ final class JarBindingRuntimeIntegrationTest {
         entry,
         """
         package options.binding
+        import java.base.util.optionalOfNullable
+        import java.base.util.optionalEmpty
+        import java.base.util.optionalIntOf
+        import java.base.util.optionalIntEmpty
+        import java.base.util.optionalLongOf
+        import java.base.util.optionalDoubleOf
 
         Void main() {
-          printLine(optionalApiEcho("Norm") ?? "")
-          printLine(optionalApiEcho(null) == null)
-          printLine(optionalApiState(null) ?? "")
-          printLine(optionalApiEchoInt(7) ?? 0)
-          printLine(optionalApiEchoInt(null) == null)
-          printLine(optionalApiEchoLong(8) ?? 0)
-          printLine(optionalApiEchoDouble(2.5) ?? 0.0)
+          printLine(optionalApiEcho(optionalOfNullable<String>("Norm")!!)!!.orElse("")!!)
+          printLine(optionalApiEcho(optionalEmpty<String>()!!)!!.isEmpty())
+          printLine(optionalApiState(optionalEmpty<String>()!!)!!)
+          printLine(optionalApiEchoInt(optionalIntOf(7)!!)!!.getAsInt())
+          printLine(optionalApiEchoInt(optionalIntEmpty()!!)!!.isEmpty())
+          printLine(optionalApiEchoLong(optionalLongOf(8)!!)!!.getAsLong())
+          printLine(optionalApiEchoDouble(optionalDoubleOf(2.5)!!)!!.getAsDouble())
         }
         """);
     NormRuntime backend = new NormRuntime();
@@ -509,7 +587,7 @@ final class JarBindingRuntimeIntegrationTest {
   }
 
   @Test
-  void mapsJavaListsAsLiveNormLists() throws Exception {
+  void preservesLiveJavaCollectionIdentityAndGenericElements() throws Exception {
     Path moduleRoot = Files.createDirectories(temporaryDirectory.resolve("lists/binding"));
     Path jar = listJar(moduleRoot.resolve("lib/lists.jar"));
     Files.writeString(
@@ -544,50 +622,51 @@ final class JarBindingRuntimeIntegrationTest {
         """
         package lists.binding
 
-        import std.collections.IterableView
-        import std.collections.IteratorView
-        import std.collections.MutableList
-        import std.collections.MutableMap
-        import std.collections.MutableSet
+        import java.base.lang.Iterable
+        import java.base.util.Iterator
+        import java.base.util.JavaList
+        import java.base.util.JavaMap
+        import java.base.util.JavaSet
 
         Void main() {
-          MutableList<String?>? values = listApiCreate(arg0: "first")
+          JavaList<String>? values = listApiCreate(arg0: "first")
           if values != null {
             listApiAppend(arg0: values, arg1: "second")
             printLine(values.size())
-            printLine(values.get(index: 1) ?? "")
-            values.set(index: 0, element: "changed")
-            printLine(listApiHead(arg0: values) ?? "")
+            printLine(values.get(arg0: 1))
+            values.set(arg0: 0, arg1: "changed")
+            printLine(listApiHead(arg0: values))
             printLine(listApiSame(arg0: values, arg1: values))
             printLine(listApiCollectionAdd(arg0: values, arg1: "third"))
             printLine(values.size())
-            IterableView<String?>? iterable = listApiAsIterable(arg0: values)
+            Iterable<String>? iterable = listApiAsIterable(arg0: values)
             if iterable != null {
-              for String? item : iterable {
-                printLine(item ?? "")
+              var cursor = iterable.iterator()!!
+              for cursor.hasNext() {
+                printLine(cursor.next())
               }
             }
-            IteratorView<String?>? cursor = listApiIterator(arg0: values)
+            Iterator<String>? cursor = listApiIterator(arg0: values)
             if cursor != null {
               printLine(cursor.hasNext())
-              printLine(cursor.next() ?? "")
+              printLine(cursor.next())
             }
           }
-          MutableSet<String?>? names = listApiCreateSet(arg0: "first")
+          JavaSet<String>? names = listApiCreateSet(arg0: "first")
           if names != null {
-            printLine(names.add(element: "second"))
-            printLine(names.add(element: "second"))
+            printLine(names.add(arg0: "second"))
+            printLine(names.add(arg0: "second"))
             printLine(listApiHasSet(arg0: names, arg1: "second"))
             printLine(names.size())
           }
-          MutableMap<String?, Integer?>? counts = listApiCreateMap(arg0: "first", arg1: 1)
+          JavaMap<String, Integer>? counts = listApiCreateMap(arg0: "first", arg1: 1)
           if counts != null {
             printLine(counts.size())
-            printLine(counts.put(key: "second", value: 2) == null)
-            printLine(listApiMapValue(arg0: counts, arg1: "second") ?? 0)
-            printLine(counts.containsKey(key: "second"))
-            printLine(counts.remove(key: "second") ?? 0)
-            printLine(counts.containsKey(key: "second"))
+            printLine(counts.put(arg0: "second", arg1: 2) == null)
+            printLine(listApiMapValue(arg0: counts, arg1: "second"))
+            printLine(counts.containsKey(arg0: "second"))
+            printLine(counts.remove(arg0: "second") ?? 0)
+            printLine(counts.containsKey(arg0: "second"))
           }
         }
         """);
@@ -977,6 +1056,18 @@ final class JarBindingRuntimeIntegrationTest {
     label.visitInsn(Opcodes.ARETURN);
     label.visitMaxs(0, 0);
     label.visitEnd();
+    var object =
+        writer.visitMethod(
+            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+            "object",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
+            null,
+            null);
+    object.visitCode();
+    object.visitVarInsn(Opcodes.ALOAD, 0);
+    object.visitInsn(Opcodes.ARETURN);
+    object.visitMaxs(0, 0);
+    object.visitEnd();
     MethodVisitor echo =
         writer.visitMethod(
             Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,

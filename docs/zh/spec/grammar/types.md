@@ -59,7 +59,7 @@ Field<User, ?> field
 Function<?> function
 ```
 
-投影值只能使用不依赖被隐藏实参的成员。例如 `Function<?>` 可查询名称和参数，但不能被直接调用；调用需要精确的 `Function<R(P...)>`。完整边界见[泛型不变性](/zh/spec/generic-variance)。
+投影值的读写规则统一定义于[泛型不变性](/zh/spec/generic-variance)。
 
 ## 函数类型
 

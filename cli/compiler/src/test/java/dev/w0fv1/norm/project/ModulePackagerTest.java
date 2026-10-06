@@ -26,22 +26,23 @@ final class ModulePackagerTest {
 
   @Test
   void packagesJdkBindingAndRunsItsConsumerWithoutAJavaArtifact() throws Exception {
-    Path module = Files.createDirectories(temporaryDirectory.resolve("producer/jdk/base"));
+    Path module = Files.createDirectories(temporaryDirectory.resolve("producer/jdk/sql"));
     Path modulePath = module.resolve("module.norm");
     Files.writeString(
         modulePath,
         """
         Module module() {
-          module(name: "jdk.base", version: 1, exports: ["LocalDate"],
-            binding: jarBinding(target: jdkModule(name: "java.base"), api: [
-              jarType(name: "java.time.LocalDate", members: ["now", "getYear", "toString"])
+          module(name: "jdk.sql", version: 1, exports: ["DriverManager"],
+            binding: jarBinding(target: jdkModule(name: "java.sql"), api: [
+              jarType(name: "java.sql.DriverManager", members: ["getLoginTimeout"])
             ]))
         }
         """);
     Path repository = temporaryDirectory.resolve("repository");
     ModulePackager.PackagedModule packaged;
     var environment = ProjectEnvironment.bootstrap(new NormRuntime());
-    try (var compiler = environment.compilerSession();
+    try (environment;
+        var compiler = environment.compilerSession();
         var projects = environment.projectLoader()) {
       new ModuleBindingResolutionService(projects).resolve(modulePath);
       packaged = new ModulePackager(projects, compiler).packageModule(modulePath, repository);
@@ -54,7 +55,7 @@ final class ModulePackagerTest {
         app.resolve("module.norm"),
         """
         Module module() {
-          module(dependencies: [dependency(repository: "github", name: "jdk.base", version: 1)])
+          module(dependencies: [dependency(repository: "github", name: "jdk.sql", version: 1)])
         }
         """);
     Path entry = app.resolve("Main.norm");
@@ -62,11 +63,41 @@ final class ModulePackagerTest {
         entry,
         """
         package sample
-        import jdk.base.localDateNow
-        Void main() { printLine(localDateNow()?.getYear()) }
+        import jdk.sql.driverManagerGetLoginTimeout
+        Void main() { printLine(driverManagerGetLoginTimeout()) }
         """);
     assertEquals(
-        java.time.LocalDate.now().getYear() + System.lineSeparator(), run(repository, entry));
+        java.sql.DriverManager.getLoginTimeout() + System.lineSeparator(), run(repository, entry));
+  }
+
+  @Test
+  void rejectsASecondOwnerForJavaBaseClassesBeforePublishingArtifacts() throws Exception {
+    Path module = Files.createDirectories(temporaryDirectory.resolve("producer/jdk/base"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() {
+          module(name: "jdk.base", version: 1, exports: ["LocalDate"],
+            binding: jarBinding(target: jdkModule(name: "java.base"), api: [
+              jarType(name: "java.time.LocalDate", members: ["now"])
+            ]))
+        }
+        """);
+    Path repository = temporaryDirectory.resolve("repository");
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var compiler = environment.compilerSession();
+        var projects = environment.projectLoader()) {
+      new ModuleBindingResolutionService(projects).resolve(modulePath);
+      IOException failure =
+          assertThrows(
+              IOException.class,
+              () -> new ModulePackager(projects, compiler).packageModule(modulePath, repository));
+      assertTrue(
+          failure.getMessage().contains("Java base type must be owned by java.base"),
+          failure.getMessage());
+      assertFalse(Files.exists(repository));
+    }
   }
 
   @Test
@@ -535,7 +566,7 @@ final class ModulePackagerTest {
     ProjectEnvironment analysisEnvironment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (ProjectLoader projects =
         analysisEnvironment.projectLoader(repository, unavailableJarCache)) {
-      ProjectSourceSet sourceSet = projects.loadForAnalysis(entry);
+      ProjectSourceSet sourceSet = projects.loadForAnalysis(entry).sources();
 
       assertTrue(sourceSet.jarBindings().isEmpty());
       assertEquals(1, sourceSet.bindingSourceDocuments().size());
@@ -548,8 +579,8 @@ final class ModulePackagerTest {
     ProjectEnvironment consumerEnvironment = ProjectEnvironment.bootstrap(backend);
     try (ProjectLoader projects =
         consumerEnvironment.projectLoader(MavenTestRepository.prepare(repository))) {
-      ProjectSourceSet runtimeSources = projects.load(entry);
-      ProjectSourceSet testSources = projects.loadForTests(entry);
+      ProjectSourceSet runtimeSources = projects.load(entry).sources();
+      ProjectSourceSet testSources = projects.loadForTests(entry).sources();
       assertEquals(1, testSources.jarBindings().size());
       assertEquals(runtimeSources.bindingSourceDocuments(), testSources.bindingSourceDocuments());
     }

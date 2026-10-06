@@ -101,6 +101,7 @@ final class DeclarationAnalysisTest {
             Set.of(),
             Set.of(),
             Set.of(),
+            List.of(),
             request.scope(),
             new DeclarationCatalog(programs, Set.of(), request.scope())),
         new DiagnosticBag(),

@@ -26,8 +26,8 @@ final class LspCommand implements Command {
       err.println("error[NORM-CLI-0005]: 'lsp' does not accept arguments");
       return ExitCode.USAGE_ERROR;
     }
-    try {
-      var workspace = new Workspace(ProjectEnvironment.bootstrap(new NormRuntime()));
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var workspace = new Workspace(environment)) {
       return LanguageServerLauncher.run(workspace, System.in, System.out);
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();

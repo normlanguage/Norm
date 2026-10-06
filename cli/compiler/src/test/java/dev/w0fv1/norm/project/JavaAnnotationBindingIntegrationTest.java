@@ -53,7 +53,7 @@ final class JavaAnnotationBindingIntegrationTest {
                 jarType(name: "Box", members: ["describe", "get"]),
                 jarType(name: "Nested.Box", members: ["get"]),
                 jarType(name: "Converter", members: ["convert", "fallback"]),
-                jarType(name: "GeneratedInvoker", members: ["callbacks", "contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "interfaceProxy", "invoke", "managed", "mutate", "proxy", "read", "roundTrip", "typedRoundTrip", "write"])
+                jarType(name: "GeneratedInvoker", members: ["callbacks", "contextRoundTrip", "contextValue", "failure", "frameworkAllocated", "hydrate", "interfaceProxy", "integerSupplier", "invoke", "managed", "mutate", "proxy", "read", "roundTrip", "typedRoundTrip", "write"])
               ]
             )
           )
@@ -68,6 +68,10 @@ final class JavaAnnotationBindingIntegrationTest {
 
         import std.core.Exception
         import std.io.Resource
+        import java.base.util.JavaList
+        import java.base.util.function.Supplier
+
+        class IntegerSupplier implements Supplier<Integer> { Integer get() { 42 } }
 
         interface DefaultContract {
           Void init() {}
@@ -76,25 +80,29 @@ final class JavaAnnotationBindingIntegrationTest {
           String greet(String name) { this.prefix() + name }
         }
 
+        @Endpoint(path: "/defaultcontroller")
         class DefaultController implements DefaultContract {
           String prefix() { "default:" }
         }
 
         interface DerivedContract extends DefaultContract {}
 
+        @Endpoint(path: "/alternatecontroller")
         class AlternateController implements DerivedContract {
           String prefix() { "alternate:" }
         }
 
         interface LocalResource extends Resource {}
 
+        @Endpoint(path: "/resourcecontroller")
         class ResourceController implements LocalResource {
           Void close() {}
         }
 
+        @Endpoint(path: "/callbacks")
         class Callbacks {
-          List<List<String?>> echoLists(List<List<String?>> items) {
-            require(condition: items[0][0] == null, message: "nullable list item was lost")
+          JavaList<JavaList<String?>> echoLists(JavaList<JavaList<String?>> items) {
+            require(condition: items.get(arg0: 0)!!.get(arg0: 0) == null, message: "nullable list item was lost")
             items
           }
           Function<Void()> bind(Function<Void()> action) { action }
@@ -241,6 +249,8 @@ final class JavaAnnotationBindingIntegrationTest {
         }
 
         Void main() {
+          require(condition: generatedInvokerIntegerSupplier(arg0: IntegerSupplier()) == 42,
+            message: "Java must invoke the boxed generic Supplier implementation")
           require(condition: generatedInvokerCallbacks() == "callback:Norm",
             message: "Java must call the exported Norm function")
           require(condition: generatedInvokerInvoke(arg0: "sample.binding.DefaultController", arg1: "greet", arg2: "Norm") == "default:Norm",
@@ -277,25 +287,35 @@ final class JavaAnnotationBindingIntegrationTest {
           printLine(generatedInvokerMutate())
           Response hydrated = Response(message: "Initial")
           var hostList = generatedInvokerRoundTrip(hydrated)!!
-          switch hostList.get(index: 0) {
+          switch hostList.get(arg0: 0) {
             case Response restored { restored.message = "List update" }
             case _ { throw Exception(message: "Java list lost Norm object") }
           }
           require(condition: hydrated.message == "List update", message: "Java list lost object identity")
-          for item : hostList {
+          var hostIterator = hostList.iterator()!!
+          Integer hostCount = 0
+          for hostIterator.hasNext() {
+            var item = hostIterator.next()
+            hostCount = hostCount + 1
             switch item {
               case Response restored { require(condition: restored.message == "List update", message: "Java iterator lost Norm object") }
               case _ { throw Exception(message: "Java iterator lost Norm object") }
             }
           }
+          require(condition: hostCount == 1, message: "Java iterator lost list elements")
           var typedList = generatedInvokerTypedRoundTrip<Response>(hydrated)!!
-          Response typedValue = typedList.get(index: 0)!!
+          Response typedValue = typedList.get(arg0: 0)!!
           require(condition: typedValue.message == "List update", message: "typed Java list lost Norm object")
           typedValue.message = "Typed list update"
           require(condition: hydrated.message == "Typed list update", message: "typed Java list lost object identity")
-          for typedItem : typedList {
+          var typedIterator = typedList.iterator()!!
+          Integer typedCount = 0
+          for typedIterator.hasNext() {
+            var typedItem = typedIterator.next()
+            typedCount = typedCount + 1
             require(condition: typedItem != null && typedItem.message == "Typed list update", message: "typed Java iterator lost Norm object")
           }
+          require(condition: typedCount == 1, message: "typed Java iterator lost list elements")
           generatedInvokerHydrate(hydrated)
           printLine(hydrated.message)
           printLine(generatedInvokerRead())
@@ -440,15 +460,19 @@ final class JavaAnnotationBindingIntegrationTest {
       assertEquals(
           String.join(
               System.lineSeparator(),
+              "sample.binding.AlternateController:/alternatecontroller:http,json:HTTPS",
               "sample.binding.BoxConsumer:/box:http,json:HTTPS",
+              "sample.binding.Callbacks:/callbacks:http,json:HTTPS",
               "sample.binding.ChildController:/bbs:http,json:HTTP",
               "sample.binding.Controller:/bbs:http,json:HTTP",
+              "sample.binding.DefaultController:/defaultcontroller:http,json:HTTPS",
               "sample.binding.GenericBase:/generic:http,json:HTTPS",
               "sample.binding.GenericChild:/generic-child:http,json:HTTPS",
               "sample.binding.LeafBox:/leaf-box:http,json:HTTPS",
               "sample.binding.ManagedResponse:/managed-response:http,json:HTTPS",
               "sample.binding.NestedStringBox:/nested-box:http,json:HTTPS",
               "sample.binding.RepeatedController:/first,/second:http,json:HTTPS",
+              "sample.binding.ResourceController:/resourcecontroller:http,json:HTTPS",
               "sample.binding.Response:/response:http,json:HTTPS",
               "sample.binding.StringBox:/string-box:http,json:HTTPS",
               "sample.binding.StringBoxValue:/string-box-value:http,json:HTTPS",
@@ -634,6 +658,10 @@ final class JavaAnnotationBindingIntegrationTest {
           public static <T> java.util.List<T> typedRoundTrip(T value) {
             return java.util.List.of(value);
           }
+          public static int integerSupplier(Object value) {
+            return ((java.util.function.Supplier<Integer>) value).get();
+          }
+
           public static String callbacks() throws Exception {
             var componentType = Class.forName("sample.binding.DefaultController");
             Object component = componentType.getConstructor().newInstance();

@@ -60,7 +60,7 @@ public final class NativeApplicationMain {
       PreparedExecution prepared,
       java.util.Map<String, JavaDirectCall> calls,
       LinkedJavaClasses classes,
-      java.util.Map<String, JavaDirectCall> applicationCalls) {
+      dev.w0fv1.norm.execution.JavaApplicationLinkage applicationCalls) {
     if (application != null)
       throw new IllegalStateException("Native application is already installed");
     application =

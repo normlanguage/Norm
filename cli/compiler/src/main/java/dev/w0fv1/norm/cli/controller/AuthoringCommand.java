@@ -121,11 +121,10 @@ final class AuthoringCommand implements Command {
     }
     CommandReport report;
     JsonObject data = new JsonObject();
-    try {
-      var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
       try (var projects = environment.projectLoader();
           var language = new LanguageService(environment.compilerSession())) {
-        var project = projects.loadForAnalysis(options.entry());
+        var project = projects.loadForAnalysis(options.entry()).sources();
         var query =
             language.query(
                 language.snapshot(project.compilationRequest()),

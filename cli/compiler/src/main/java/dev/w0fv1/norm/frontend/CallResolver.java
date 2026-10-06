@@ -392,12 +392,7 @@ final class CallResolver {
         if (argument instanceof Syntax.ArrayLiteral
             && probeExpected == null
             && builtins.resolveCollectionLiteral(pattern).isPresent()) {
-          probeExpected =
-              pattern.substitute(
-                  callableParameterIds.stream()
-                      .collect(
-                          java.util.stream.Collectors.toMap(
-                              identity -> identity, identity -> SemanticType.DYNAMIC)));
+          probeExpected = pattern;
         }
         if (argument instanceof Syntax.Lambda && probeExpected != null) {
           probeExpected = probeExpected.substitute(solver.solve().substitutions());
@@ -443,7 +438,7 @@ final class CallResolver {
             .toList();
     List<ParameterInfo> parameters =
         patterns.stream().map(parameter -> parameter.substitute(substitutions)).toList();
-    SemanticType result = resultPattern.substitute(substitutions);
+    SemanticType result = typeResolver.readResult(resultPattern, substitutions);
     boolean assignable = true;
     List<BoundViolation> boundViolations = new ArrayList<>();
     for (TypeParameterInfo parameter : typeParameters) {
