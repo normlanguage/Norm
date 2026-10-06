@@ -531,7 +531,7 @@ public final class JvmJarBindingRuntime
     if (value instanceof Class<?> type)
       return new JarBindingResult.ClassReference(classes.references(type));
     if (value instanceof Enum<?> enumeration
-        && classes.references(enumeration.getDeclaringClass()).stream()
+        && classes.references.getOrDefault(enumeration.getDeclaringClass(), List.of()).stream()
             .anyMatch(classes.enumConstants::containsKey))
       return new JarBindingResult.EnumReference(classes.reference(enumeration));
     if (value instanceof Byte number) return new JarBindingResult.Scalar(number.intValue());

@@ -25,6 +25,17 @@ final class PlainObjectJavaBridgeTest {
   @ValueSource(booleans = {false, true})
   void materializesUnannotatedClassesAcrossAnObjectBoundary(boolean separateSource)
       throws Exception {
+    runBridge(separateSource, true);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void preservesUnannotatedObjectIdentityWithoutAHostTypeContract(boolean separateSource)
+      throws Exception {
+    runBridge(separateSource, false);
+  }
+
+  private void runBridge(boolean separateSource, boolean materialized) throws Exception {
     Path classes = Files.createDirectories(directory.resolve("classes"));
     Path host = directory.resolve("Host.java");
     Files.writeString(
@@ -100,23 +111,36 @@ final class PlainObjectJavaBridgeTest {
           var panel = Panel(title: "test", tone: Tone.Primary, payload: Payload.Text(text: "preserved"))
           require(condition: hostSame(arg0: panel, arg1: panel), message: "identity retained")
           require(condition: hostEcho(panel) == panel, message: "roundtrip identity retained")
+          %s
+          var failure = Failure(message: "fixture failure")
+          require(condition: hostMessage(failure) == "fixture failure", message: "platform exception mapping retains its message")
+          %s
+        }
+        """
+            .formatted(
+                separateSource ? "" : declaration,
+                materialized
+                    ? """
+          require(condition: hostName(Panel.class) == "java.lang.Class",
+            message: "explicit Class contract materializes the host type")
           require(condition: hostTone(panel) == "Primary", message: "enum field has a Java enum representation")
           require(condition: hostMute(panel) == panel && panel.tone == Tone.Muted, message: "enum field roundtrips from Java")
           require(condition: panel.payload == Payload.Text(text: "preserved"), message: "data enum payload survives Java field roundtrip")
           panel.payload = Payload.None
           require(condition: hostEcho(panel) == panel && panel.payload == Payload.None, message: "empty variant of a data enum retains its representation")
-          var failure = Failure(message: "fixture failure")
-          require(condition: hostMessage(failure) == "fixture failure", message: "platform exception mapping retains its message")
-          printLine(hostName(panel)!!)
-        }
         """
-            .formatted(separateSource ? "" : declaration));
+                    : """
+          require(condition: hostName(panel) != "example.Panel",
+            message: "opaque transport unexpectedly generated a host facade")
+        """,
+                materialized ? "printLine(hostName(panel)!!)" : "printLine(\"opaque\")"));
     var environment = ProjectEnvironment.bootstrap(new NormRuntime());
     var output = new StringWriter();
     try (var runner = ApplicationRunner.open(environment)) {
       var result = runner.run(entry, ExecutionContext.of(new PrintWriter(output)));
       assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
     }
-    assertEquals("example.Panel" + System.lineSeparator(), output.toString());
+    assertEquals(
+        (materialized ? "example.Panel" : "opaque") + System.lineSeparator(), output.toString());
   }
 }

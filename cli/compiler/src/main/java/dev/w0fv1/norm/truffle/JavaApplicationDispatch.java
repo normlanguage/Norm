@@ -33,6 +33,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private final ExecutionState execution;
   private final ClassLoader applicationLoader;
   private final java.util.Set<String> applicationTypes;
+  private final Map<String, dev.w0fv1.norm.execution.JarBindingClassReference.Nominal>
+      applicationEnums;
   private final IdentityHashMap<Object, RuntimeValues.ObjectValue> guests = new IdentityHashMap<>();
   private final IdentityHashMap<Object, Object> transportedGuests = new IdentityHashMap<>();
   private final IdentityHashMap<RuntimeValues.ObjectValue, Object> proxies =
@@ -59,6 +61,22 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
         Objects.requireNonNull(runtime.applicationClassLoader(), "applicationLoader");
     this.hostCalls = runtime.applicationCalls();
     this.applicationTypes = runtime.applicationTypes();
+    var enums =
+        new java.util.LinkedHashMap<
+            String, dev.w0fv1.norm.execution.JarBindingClassReference.Nominal>();
+    for (var record : program.structures()) {
+      if (!(record.definition() instanceof CoreDefinition.Enum enumeration)
+          || enumeration.variants().stream().anyMatch(variant -> !variant.fields().isEmpty()))
+        continue;
+      var nominal = enumeration.nominalType();
+      String binaryName = JavaApplicationTypeName.binaryName(nominal);
+      if (applicationTypes.contains(binaryName))
+        enums.put(
+            binaryName,
+            new dev.w0fv1.norm.execution.JarBindingClassReference.Nominal(
+                nominal.module(), nominal.packageName(), nominal.name()));
+    }
+    this.applicationEnums = Map.copyOf(enums);
   }
 
   @Override
@@ -154,6 +172,22 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
             () -> {
               Object transported = transportedGuests.get(value);
               if (transported != null) return transported;
+              if (value instanceof Enum<?> enumeration) {
+                var nominal = applicationEnums.get(enumeration.getDeclaringClass().getName());
+                if (nominal != null) {
+                  Object restored =
+                      JavaValueAdapter.jarBindingValue(
+                          CoreType.ANY,
+                          new dev.w0fv1.norm.execution.JarBindingResult.EnumReference(
+                              new dev.w0fv1.norm.execution.JarBindingEnumValue(
+                                  nominal, enumeration.name())),
+                          execution.annotationExecution().runtime(),
+                          execution,
+                          null);
+                  transportedGuests.put(value, restored);
+                  return restored;
+                }
+              }
               RuntimeValues.ObjectValue guest = guests.get(value);
               if (guest != null) {
                 synchronizeFromHost(value, guest);
