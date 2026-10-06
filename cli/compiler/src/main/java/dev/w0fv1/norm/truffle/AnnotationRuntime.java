@@ -152,11 +152,16 @@ final class AnnotationRuntime {
 
   RuntimeValues.ClassValue jarClassValue(
       CoreType expectedType, List<JarBindingClassReference> candidates) {
-    CoreType.Declared expectedClass = declared(expectedType);
-    if (expectedClass.arguments().size() != 1) {
-      throw new IllegalStateException("JAR class result requires Class<T>");
-    }
-    CoreType expectedReflected = expectedClass.arguments().getFirst();
+    var classContract =
+        dev.w0fv1.norm.abi.BuiltinContracts.standard().type("Class").orElseThrow().symbol().type();
+    var classConstructor =
+        new CoreTypeConstructor.Builtin(new BuiltinTypeId(classContract.identity()));
+    CoreType expectedReflected =
+        expectedType instanceof CoreType.Declared declared
+                && declared.constructor().equals(classConstructor)
+                && declared.arguments().size() == 1
+            ? declared.arguments().getFirst()
+            : CoreType.ANY;
     List<JarBindingClassReference> expectedMatches =
         candidates.stream().filter(candidate -> matches(expectedReflected, candidate)).toList();
     CoreType reflected;
@@ -170,9 +175,9 @@ final class AnnotationRuntime {
     }
     CoreType resultType =
         new CoreType.Declared(
-            expectedClass.constructor(),
+            classConstructor,
             List.of(reflected),
-            expectedClass.category(),
+            CoreValueCategory.valueOf(classContract.category().name()),
             CoreNullability.NON_NULL);
     return new RuntimeValues.ClassValue(resultType, reflected, this);
   }
@@ -180,13 +185,15 @@ final class AnnotationRuntime {
   CoreType jarReferenceType(
       CoreType expectedType, List<JarBindingClassReference.Nominal> candidates) {
     CoreType.Declared expected = declared(expectedType);
-    if (!(expected.constructor() instanceof CoreTypeConstructor.User expectedUser)) {
-      throw new IllegalArgumentException("JAR reference requires a user nominal type");
-    }
-    DefinitionId expectedId = resolveExternal(expectedUser.definition());
+    DefinitionId expectedId =
+        expected.constructor() instanceof CoreTypeConstructor.User expectedUser
+            ? resolveExternal(expectedUser.definition())
+            : null;
     for (JarBindingClassReference.Nominal candidate : candidates) {
       CoreDefinitionRecord record = nominalStructures.get(candidate);
-      if (record == null || !(record.definition() instanceof CoreDefinition.Aggregate aggregate)) {
+      if (record == null
+          || !(record.definition() instanceof CoreDefinition.Aggregate
+              || record.definition() instanceof CoreDefinition.Enum)) {
         continue;
       }
       DefinitionId runtimeDefinition =
@@ -195,22 +202,23 @@ final class AnnotationRuntime {
               .filter(
                   definition ->
                       program.structure(definition).orElseThrow()
-                          instanceof CoreDefinition.Aggregate)
+                              instanceof CoreDefinition.Aggregate
+                          || program.structure(definition).orElseThrow()
+                              instanceof CoreDefinition.Enum)
               .findFirst()
               .orElse(null);
       if (runtimeDefinition == null) continue;
-      CoreDefinition.Aggregate runtimeAggregate =
-          (CoreDefinition.Aggregate) program.structure(runtimeDefinition).orElseThrow();
+      CoreDefinition runtimeAggregate = program.structure(runtimeDefinition).orElseThrow();
       List<CoreType> arguments =
-          runtimeAggregate.typeParameters().size() == expected.arguments().size()
+          typeParameterCount(runtimeAggregate) == expected.arguments().size()
               ? expected.arguments()
               : java.util.Collections.nCopies(
-                  runtimeAggregate.typeParameters().size(), CoreType.EXISTENTIAL);
+                  typeParameterCount(runtimeAggregate), CoreType.EXISTENTIAL);
       var projected =
           new CoreType.Declared(
               new CoreTypeConstructor.User(new DefinitionReference.External(runtimeDefinition)),
               arguments,
-              runtimeAggregate.valueCategory(),
+              valueCategory(runtimeAggregate),
               CoreNullability.NON_NULL);
       if (typeRelations.isAssignable(expected, projected)) return projected;
     }
@@ -1120,6 +1128,10 @@ final class AnnotationRuntime {
   }
 
   final class Execution {
+    AnnotationRuntime runtime() {
+      return AnnotationRuntime.this;
+    }
+
     private final Map<ApplicationKey, AnnotationInstance> instances = new LinkedHashMap<>();
 
     private AnnotationInstance instance(ApplicationKey key, List<CoreAnnotationValue> values) {

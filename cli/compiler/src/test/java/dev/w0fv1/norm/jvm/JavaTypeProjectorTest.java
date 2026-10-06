@@ -10,6 +10,25 @@ final class JavaTypeProjectorTest {
   private final JavaGenericSignatureParser signatures = new JavaGenericSignatureParser();
 
   @Test
+  void domainReferencesUseTheirSchemaDeclaration() {
+    for (String name :
+        List.of(
+            "java.util.List",
+            "java.util.Map",
+            "java.util.Optional",
+            "java.nio.file.Path",
+            "java.time.Duration",
+            "java.util.concurrent.CompletableFuture")) {
+      var projector = new JavaTypeProjector(Map.of(name, JavaReferenceKind.OPAQUE), Map.of());
+      var type =
+          projector
+              .project(JavaClassTypeSignature.raw(name), Map.of(), JavaTypeProjector.Position.VALUE)
+              .orElseThrow();
+      assertEquals(new JavaReferenceType(name, JavaReferenceKind.OPAQUE), type);
+    }
+  }
+
+  @Test
   void projectsContravariantComparatorsToTypedBinaryCallbacks() {
     var projector = new JavaTypeProjector(Map.of(), Map.of());
     var callback =

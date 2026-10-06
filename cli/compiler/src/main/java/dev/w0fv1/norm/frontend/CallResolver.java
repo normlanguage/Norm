@@ -438,7 +438,7 @@ final class CallResolver {
             .toList();
     List<ParameterInfo> parameters =
         patterns.stream().map(parameter -> parameter.substitute(substitutions)).toList();
-    SemanticType result = resultPattern.substitute(substitutions);
+    SemanticType result = typeResolver.readResult(resultPattern, substitutions);
     boolean assignable = true;
     List<BoundViolation> boundViolations = new ArrayList<>();
     for (TypeParameterInfo parameter : typeParameters) {

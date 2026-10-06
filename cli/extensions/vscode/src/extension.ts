@@ -143,9 +143,6 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
       { scheme: 'stdlib', language: 'norm' },
       { scheme: 'norm-source', language: 'norm' },
     ],
-    synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.norm'),
-    },
   };
 
   client = new LanguageClient(

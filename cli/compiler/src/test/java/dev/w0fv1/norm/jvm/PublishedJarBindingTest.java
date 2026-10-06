@@ -17,6 +17,13 @@ final class PublishedJarBindingTest {
   @TempDir Path directory;
 
   @Test
+  void rejectsBindingsFromSupersededTypeProjectionContracts() {
+    assertFalse(PublishedJarBinding.isReadable("norm-java-binding-2"));
+    assertFalse(PublishedJarBinding.isReadable("norm-java-binding-3"));
+    assertTrue(PublishedJarBinding.isReadable(PublishedJarBinding.ABI));
+  }
+
+  @Test
   void bindingIdentityIsPortableAndRejectsDifferentModulesGraphsAndApis() throws Exception {
     Path file = Files.writeString(directory.resolve("library.jar"), "published dependency");
     var identity = new MavenJarIdentity(new MavenArtifactCoordinate("sample", "library", "1"));

@@ -32,7 +32,7 @@ final class LinkedJarBindingTest {
               calls,
               Map.of("length", arguments -> ((String) arguments[0]).length()),
               classes,
-              Map.of())) {
+              dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY)) {
         assertEquals(new JarBindingResult.Scalar(4), runtime.invoke("length", List.of("Norm")));
       }
       assertEquals(1, calls.size());

@@ -20,7 +20,7 @@ final class ApplicationBuildPlanTest {
     Files.writeString(source, "Module module() { return module(dependencies: []) } Void main() {}");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (var loader = environment.projectLoader()) {
-      ApplicationBuildPlan plan = ApplicationBuildPlan.from(loader.load(source));
+      ApplicationBuildPlan plan = ApplicationBuildPlan.from(loader.load(source).sources());
 
       assertTrue(plan.singleFile());
       assertEquals(
@@ -40,7 +40,7 @@ final class ApplicationBuildPlanTest {
     Files.writeString(source, "package hello.web Void main() {}");
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
     try (var loader = environment.projectLoader()) {
-      ApplicationBuildPlan plan = ApplicationBuildPlan.from(loader.load(source));
+      ApplicationBuildPlan plan = ApplicationBuildPlan.from(loader.load(source).sources());
 
       assertFalse(plan.singleFile());
       assertEquals(

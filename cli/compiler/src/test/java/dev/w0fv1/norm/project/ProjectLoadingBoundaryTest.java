@@ -38,7 +38,7 @@ final class ProjectLoadingBoundaryTest {
     module("dependencies/right", "right", "shared");
     module("dependencies/shared", "shared");
     try (ProjectLoader loader = ProjectEnvironment.bootstrap(new NormRuntime()).projectLoader()) {
-      var project = loader.load(entry);
+      var project = loader.load(entry).sources();
       assertEquals(4, project.sources().size());
       assertThrows(
           UnsupportedOperationException.class, () -> project.sources().add(SourceFile.read(entry)));
@@ -55,7 +55,7 @@ final class ProjectLoadingBoundaryTest {
     Path entry = module("app", "app", "left");
     module("dependencies/left", "left", "app");
     try (ProjectLoader loader = ProjectEnvironment.bootstrap(new NormRuntime()).projectLoader()) {
-      IOException failure = assertThrows(IOException.class, () -> loader.load(entry));
+      IOException failure = assertThrows(IOException.class, () -> loader.load(entry).sources());
       assertTrue(failure.getMessage().contains("app@1 -> left@1 -> app@1"), failure.getMessage());
     }
   }
@@ -70,7 +70,7 @@ final class ProjectLoadingBoundaryTest {
     Files.writeString(entry, "invalid disk entry");
     Files.writeString(shared, "invalid disk dependency");
     try (ProjectLoader loader = ProjectEnvironment.bootstrap(new NormRuntime()).projectLoader()) {
-      var project = loader.load(capturedEntry, List.of(capturedDependency));
+      var project = loader.load(capturedEntry, List.of(capturedDependency)).sources();
       assertEquals(capturedEntry.text(), project.primarySource().text());
       assertTrue(
           project.sources().stream()
@@ -88,11 +88,11 @@ final class ProjectLoadingBoundaryTest {
     String valid = Files.readString(manifest);
     Files.writeString(manifest, valid.replace("Main", "missing"));
     try (ProjectLoader loader = ProjectEnvironment.bootstrap(new NormRuntime()).projectLoader()) {
-      assertThrows(IOException.class, () -> loader.load(entry));
+      assertThrows(IOException.class, () -> loader.load(entry).sources());
       Files.writeString(manifest, valid);
       assertEquals(
           Set.of(shared, entry),
-          loader.load(entry).sources().stream()
+          loader.load(entry).sources().sources().stream()
               .map(SourceFile::path)
               .collect(java.util.stream.Collectors.toSet()));
     }
@@ -107,7 +107,7 @@ final class ProjectLoadingBoundaryTest {
     module("dependencies/child", "child", "shared");
     module("dependencies/shared", "shared");
     try (ProjectLoader loader = ProjectEnvironment.bootstrap(new NormRuntime()).projectLoader()) {
-      IOException failure = assertThrows(IOException.class, () -> loader.load(entry));
+      IOException failure = assertThrows(IOException.class, () -> loader.load(entry).sources());
       assertTrue(
           failure.getMessage().contains("module graph selects both shared@2 and shared@1"),
           failure.getMessage());

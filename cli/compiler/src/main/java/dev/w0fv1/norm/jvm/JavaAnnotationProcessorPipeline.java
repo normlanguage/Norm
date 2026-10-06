@@ -160,7 +160,13 @@ public final class JavaAnnotationProcessorPipeline {
       try (var loader =
           new java.net.URLClassLoader(generationUrls, ClassLoader.getPlatformClassLoader())) {
         new JavaDirectCallBundle()
-            .write(JavaApplicationMethodIndex.REGISTRY_NAME, applicationCalls, classes, loader);
+            .writeApplication(
+                applicationCalls,
+                stubs.stream()
+                    .map(JavaAnnotationStub::binaryName)
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet()),
+                classes,
+                loader);
       }
       replace(staging, output);
       staging = null;

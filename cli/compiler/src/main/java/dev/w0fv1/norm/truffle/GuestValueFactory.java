@@ -4,13 +4,11 @@ import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.nodes.Node;
 import dev.w0fv1.norm.abi.ExceptionAbi;
 import dev.w0fv1.norm.abi.FileExceptionAbi;
-import dev.w0fv1.norm.abi.FilesystemPathAbi;
 import dev.w0fv1.norm.abi.HttpExceptionAbi;
 import dev.w0fv1.norm.abi.HttpUriAbi;
 import dev.w0fv1.norm.abi.IntrinsicId;
 import dev.w0fv1.norm.abi.JsonAbi;
 import dev.w0fv1.norm.abi.OpaqueValueAbi;
-import dev.w0fv1.norm.abi.TimeDurationAbi;
 import dev.w0fv1.norm.abi.TimeExceptionAbi;
 import dev.w0fv1.norm.abi.WebSocketExceptionAbi;
 import dev.w0fv1.norm.abi.XmlAbi;
@@ -25,10 +23,7 @@ import dev.w0fv1.norm.core.CoreValueCategory;
 import dev.w0fv1.norm.core.DefinitionId;
 import dev.w0fv1.norm.core.DefinitionReference;
 import dev.w0fv1.norm.execution.JarBindingClassReference;
-import dev.w0fv1.norm.execution.JarBindingDuration;
 import dev.w0fv1.norm.execution.JarBindingEnumValue;
-import dev.w0fv1.norm.execution.JarBindingPath;
-import dev.w0fv1.norm.execution.JarBindingUri;
 import dev.w0fv1.norm.platform.file.PlatformFileException;
 import dev.w0fv1.norm.platform.http.PlatformHttpException;
 import dev.w0fv1.norm.platform.time.PlatformTimeException;
@@ -176,15 +171,6 @@ final class GuestValueFactory {
     return exception;
   }
 
-  RuntimeValues.ObjectValue javaExceptionValue(
-      CoreType type, Throwable failure, ExecutionState execution) {
-    String message = failure.getMessage();
-    if (message == null) message = failure.getClass().getName();
-    RuntimeValues.ObjectValue exception = construct(nonNullable(type), execution, message);
-    exception.attachHost(failure);
-    return exception;
-  }
-
   Object javaArgument(RuntimeValues.ObjectValue value) {
     if (value.hostValue != null) return value.hostValue;
     AggregatePlan exception =
@@ -201,52 +187,7 @@ final class GuestValueFactory {
       value.attachHost(host);
       return host;
     }
-    AggregatePlan path =
-        aggregates.get(
-            new Key(
-                FilesystemPathAbi.MODULE_NAME,
-                FilesystemPathAbi.MODULE_VERSION,
-                FilesystemPathAbi.PACKAGE_NAME,
-                FilesystemPathAbi.TYPE_NAME));
-    if (path != null && value.objectInfo.definition().equals(path.info().definition())) {
-      return new JarBindingPath((String) value.fields[FilesystemPathAbi.VALUE_FIELD_ORDINAL]);
-    }
-    AggregatePlan uri =
-        aggregates.get(
-            new Key(
-                HttpUriAbi.MODULE_NAME,
-                HttpUriAbi.MODULE_VERSION,
-                HttpUriAbi.PACKAGE_NAME,
-                HttpUriAbi.TYPE_NAME));
-    if (uri != null && value.objectInfo.definition().equals(uri.info().definition())) {
-      return new JarBindingUri((String) value.fields[HttpUriAbi.VALUE_FIELD_ORDINAL]);
-    }
-    AggregatePlan duration =
-        aggregates.get(
-            new Key(
-                TimeDurationAbi.MODULE_NAME,
-                TimeDurationAbi.MODULE_VERSION,
-                TimeDurationAbi.PACKAGE_NAME,
-                TimeDurationAbi.TYPE_NAME));
-    if (duration != null && value.objectInfo.definition().equals(duration.info().definition())) {
-      return new JarBindingDuration(
-          (Long) value.fields[TimeDurationAbi.SECONDS_FIELD_ORDINAL],
-          (Integer) value.fields[TimeDurationAbi.NANOSECONDS_FIELD_ORDINAL]);
-    }
     return value;
-  }
-
-  RuntimeValues.ObjectValue javaPathValue(CoreType type, String value, ExecutionState execution) {
-    return construct(nonNullable(type), execution, value);
-  }
-
-  RuntimeValues.ObjectValue javaUriValue(CoreType type, String value, ExecutionState execution) {
-    return construct(nonNullable(type), execution, value);
-  }
-
-  RuntimeValues.ObjectValue javaDurationValue(
-      CoreType type, long seconds, int nanoseconds, ExecutionState execution) {
-    return construct(nonNullable(type), execution, seconds, nanoseconds);
   }
 
   NormThrownException timeException(

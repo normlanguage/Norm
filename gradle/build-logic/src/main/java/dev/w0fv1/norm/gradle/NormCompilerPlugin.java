@@ -165,8 +165,17 @@ public final class NormCompilerPlugin implements Plugin<Project> {
                 });
     main.getJava().srcDir(abi.flatMap(GenerateAbi::getDestination));
     main.getJava().srcDir(metadata.flatMap(GenerateMetadata::getDestination));
-    main.getResources().srcDir(project.getRootProject().file("norm/stdlib"));
-    main.getResources().exclude("std/tests/**");
+    project
+        .getTasks()
+        .named(main.getProcessResourcesTaskName(), ProcessResources.class)
+        .configure(
+            task ->
+                task.from(
+                    project.getRootProject().file("norm/stdlib"),
+                    library -> {
+                      library.into("stdlib");
+                      library.exclude("std/tests/**");
+                    }));
     test.getResources().srcDir(project.getRootProject().file("norm/tests"));
     project
         .getTasks()
@@ -397,6 +406,9 @@ public final class NormCompilerPlugin implements Plugin<Project> {
             task -> {
               task.useJUnitPlatform();
               task.dependsOn(testRuntime, jar);
+              task.systemProperty(
+                  "norm.test.compilerJar",
+                  jar.get().getArchiveFile().get().getAsFile().getAbsolutePath());
               task.getInputs().dir(project.getRootProject().file("norm/libraries"));
               task.systemProperty(
                   "norm.test.abi", project.file("stdlib-abi.json").getAbsolutePath());

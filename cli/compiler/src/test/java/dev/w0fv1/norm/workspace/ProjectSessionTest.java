@@ -72,7 +72,7 @@ final class ProjectSessionTest {
 
     ProjectSession session = load(firstSource, open, 1);
 
-    assertFalse(session.inputs().contains(ProjectSession.normalize(second)));
+    assertFalse(session.inputs().affects(ProjectSession.normalize(second)));
   }
 
   @Test
@@ -91,7 +91,11 @@ final class ProjectSessionTest {
 
     ProjectSession session = load(firstSource, open, 1);
 
-    assertEquals(Set.of(ProjectSession.normalize(first)), session.inputs());
+    assertEquals(
+        Set.of(ProjectSession.normalize(first)),
+        session.inputs().files().stream()
+            .map(dev.w0fv1.norm.value.FileSnapshot::path)
+            .collect(java.util.stream.Collectors.toSet()));
     assertFalse(
         session.analysis(firstSource).diagnostics().stream()
             .anyMatch(diagnostic -> diagnostic.message().contains("already declared")));
@@ -115,7 +119,7 @@ final class ProjectSessionTest {
     ProjectSession session =
         load(entrySource, Map.of(ProjectSession.normalize(entry), entrySource), 1);
 
-    assertTrue(session.inputs().contains(ProjectSession.normalize(packageSource)));
+    assertTrue(session.inputs().affects(ProjectSession.normalize(packageSource)));
     assertTrue(session.snapshot().document(packageSourceFile.id()).isPresent());
   }
 
@@ -148,7 +152,9 @@ final class ProjectSessionTest {
             ProjectSession.normalize(entry),
             ProjectSession.normalize(library),
             ProjectSession.normalize(module)),
-        session.inputs());
+        session.inputs().files().stream()
+            .map(dev.w0fv1.norm.value.FileSnapshot::path)
+            .collect(java.util.stream.Collectors.toSet()));
     assertTrue(session.snapshot().document(librarySource.id()).isPresent());
     assertTrue(session.analysis(entrySource).diagnostics().isEmpty());
   }
@@ -186,9 +192,9 @@ final class ProjectSessionTest {
         load(entrySource, Map.of(ProjectSession.normalize(entry), entrySource), 1);
 
     assertTrue(session.analysis(entrySource).diagnostics().isEmpty());
-    assertTrue(session.inputs().contains(ProjectSession.normalize(entry)));
+    assertTrue(session.inputs().affects(ProjectSession.normalize(entry)));
     assertTrue(
-        session.inputs().contains(ProjectSession.normalize(dependency.resolve("module.norm"))));
+        session.inputs().affects(ProjectSession.normalize(dependency.resolve("module.norm"))));
   }
 
   private static ProjectSession load(

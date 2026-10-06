@@ -64,6 +64,119 @@ final class LanguageServerTest {
   }
 
   @Test
+  void registersProjectInputWatchesAndRemovesThemWhenTheLastDocumentCloses() throws Exception {
+    Path provider = Files.createDirectories(temporaryDirectory.resolve("dependencies/provider"));
+    Path jar = provider.resolve("external.jar");
+    try (var archive = new java.util.jar.JarOutputStream(Files.newOutputStream(jar))) {
+      archive.finish();
+    }
+    Files.writeString(
+        provider.resolve("module.norm"),
+        "Module module() { return module(name: \"provider\", version: 1, binding: jarBinding("
+            + "target: localJar(path: \"external.jar\", integrity: sha256(\""
+            + dev.w0fv1.norm.value.Sha256Digest.compute(jar).value()
+            + "\")), api: [])) }");
+    Path root = Files.createDirectories(temporaryDirectory.resolve("sample"));
+    Files.writeString(
+        root.resolve("module.norm"),
+        "Module module() { return module(name: \"sample\", version: 1, dependencies: ["
+            + "dependency(repository: \"github\", name: \"provider\", version: 1)]) }");
+    Path entry = Files.writeString(root.resolve("Main.norm"), "package sample Void main() {}");
+    var server = server();
+    var client = new RecordingClient();
+    server.connect(client);
+    client.rejectRegistration = true;
+    var watchedFiles = new org.eclipse.lsp4j.DidChangeWatchedFilesCapabilities(true);
+    watchedFiles.setRelativePatternSupport(true);
+    var workspaceCapabilities = new org.eclipse.lsp4j.WorkspaceClientCapabilities();
+    workspaceCapabilities.setDidChangeWatchedFiles(watchedFiles);
+    var capabilities = new org.eclipse.lsp4j.ClientCapabilities();
+    capabilities.setWorkspace(workspaceCapabilities);
+    var initialization = new org.eclipse.lsp4j.InitializeParams();
+    initialization.setCapabilities(capabilities);
+    server.initialize(initialization).get();
+    server.initialized(new org.eclipse.lsp4j.InitializedParams());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(
+                    entry.toUri().toString(), "norm", 1, Files.readString(entry))));
+    ((DocumentService) server.getTextDocumentService()).settled().join();
+    assertTrue(
+        client.messages.stream()
+            .anyMatch(
+                message ->
+                    message.getType() == org.eclipse.lsp4j.MessageType.Error
+                        && message.getMessage().contains("Unable to watch project inputs")));
+    server
+        .getTextDocumentService()
+        .didChange(
+            new DidChangeTextDocumentParams(
+                new VersionedTextDocumentIdentifier(entry.toUri().toString(), 2),
+                List.of(new TextDocumentContentChangeEvent(Files.readString(entry)))));
+    ((DocumentService) server.getTextDocumentService()).settled().join();
+    assertEquals(2, client.registrations.size());
+    var registration = client.registrations.getLast().getRegistrations().getFirst();
+    assertEquals("workspace/didChangeWatchedFiles", registration.getMethod());
+    var options =
+        (org.eclipse.lsp4j.DidChangeWatchedFilesRegistrationOptions)
+            registration.getRegisterOptions();
+    assertTrue(
+        options.getWatchers().stream()
+            .map(watch -> watch.getGlobPattern().getRight())
+            .anyMatch(
+                pattern ->
+                    pattern.getBaseUri().getRight().equals(provider.toUri().toString())
+                        && pattern.getPattern().equals("external.jar")));
+    server
+        .getTextDocumentService()
+        .didClose(
+            new DidCloseTextDocumentParams(new TextDocumentIdentifier(entry.toUri().toString())));
+    ((DocumentService) server.getTextDocumentService()).settled().join();
+    assertTrue(
+        client.unregistrations.stream()
+            .flatMap(params -> params.getUnregisterations().stream())
+            .anyMatch(unregistered -> unregistered.getId().equals(registration.getId())));
+  }
+
+  @Test
+  void removesPendingInputRegistrationWhenTheServerCloses() throws Exception {
+    Path entry = Files.writeString(temporaryDirectory.resolve("Main.norm"), "Void main() {}");
+    var server = server();
+    var client = new RecordingClient();
+    var pending = new CompletableFuture<Void>();
+    client.pendingRegistration = pending;
+    server.connect(client);
+    var watchedFiles = new org.eclipse.lsp4j.DidChangeWatchedFilesCapabilities(true);
+    var workspaceCapabilities = new org.eclipse.lsp4j.WorkspaceClientCapabilities();
+    workspaceCapabilities.setDidChangeWatchedFiles(watchedFiles);
+    var capabilities = new org.eclipse.lsp4j.ClientCapabilities();
+    capabilities.setWorkspace(workspaceCapabilities);
+    var initialization = new org.eclipse.lsp4j.InitializeParams();
+    initialization.setCapabilities(capabilities);
+    server.initialize(initialization).get();
+    server.initialized(new org.eclipse.lsp4j.InitializedParams());
+    server
+        .getTextDocumentService()
+        .didOpen(
+            new DidOpenTextDocumentParams(
+                new TextDocumentItem(
+                    entry.toUri().toString(), "norm", 1, Files.readString(entry))));
+    ((DocumentService) server.getTextDocumentService()).settled().join();
+    assertEquals(1, client.registrations.size());
+    server.close();
+    assertTrue(client.unregistrations.isEmpty());
+    pending.complete(null);
+    assertEquals(1, client.unregistrations.size());
+    assertEquals(
+        client.registrations.getFirst().getRegistrations().getFirst().getId(),
+        client.unregistrations.getFirst().getUnregisterations().getFirst().getId());
+    server.initialized(new org.eclipse.lsp4j.InitializedParams());
+    assertEquals(1, client.registrations.size());
+  }
+
+  @Test
   void offersRunCommandsForAnnotatedTestDeclarations() throws Exception {
     LanguageServer server = server();
     server.connect(new RecordingClient());
@@ -955,6 +1068,35 @@ final class LanguageServerTest {
     private final Map<String, PublishDiagnosticsParams> diagnosticsByUri =
         new java.util.concurrent.ConcurrentHashMap<>();
 
+    private boolean rejectRegistration;
+    private CompletableFuture<Void> pendingRegistration;
+    private final java.util.List<MessageParams> messages =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<org.eclipse.lsp4j.RegistrationParams> registrations =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final java.util.List<org.eclipse.lsp4j.UnregistrationParams> unregistrations =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @Override
+    public CompletableFuture<Void> registerCapability(org.eclipse.lsp4j.RegistrationParams params) {
+      registrations.add(params);
+      if (rejectRegistration) {
+        rejectRegistration = false;
+        return CompletableFuture.failedFuture(
+            new IllegalStateException("watch registration rejected"));
+      }
+      return pendingRegistration == null
+          ? CompletableFuture.completedFuture(null)
+          : pendingRegistration;
+    }
+
+    @Override
+    public CompletableFuture<Void> unregisterCapability(
+        org.eclipse.lsp4j.UnregistrationParams params) {
+      unregistrations.add(params);
+      return CompletableFuture.completedFuture(null);
+    }
+
     @Override
     public void telemetryEvent(Object object) {}
 
@@ -974,6 +1116,8 @@ final class LanguageServerTest {
     }
 
     @Override
-    public void logMessage(MessageParams message) {}
+    public void logMessage(MessageParams message) {
+      messages.add(message);
+    }
   }
 }

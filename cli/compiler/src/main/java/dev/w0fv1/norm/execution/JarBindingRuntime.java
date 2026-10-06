@@ -10,6 +10,11 @@ public interface JarBindingRuntime {
     return List.of();
   }
 
+  default JarBindingResult referenceResult(Object value) {
+    return new JarBindingResult.Reference(
+        value, value.getClass().getName(), referenceCandidates(value));
+  }
+
   static JarBindingRuntime unavailable() {
     return (callId, arguments) -> {
       throw new JarBindingRuntimeException("JAR binding runtime is unavailable");

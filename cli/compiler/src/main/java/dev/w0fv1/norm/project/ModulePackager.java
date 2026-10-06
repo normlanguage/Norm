@@ -202,7 +202,7 @@ public final class ModulePackager {
       jar.addProperty("bindingAbi", PublishedJarBinding.ABI);
       jar.addProperty("bindingId", bindingId.value());
       JsonObject publicTypes = new JsonObject();
-      ProjectJarBindingLinker.exports(binding.orElseThrow()).entrySet().stream()
+      binding.orElseThrow().generated().exportedClasses().entrySet().stream()
           .sorted(java.util.Map.Entry.comparingByKey())
           .forEach(
               entry ->

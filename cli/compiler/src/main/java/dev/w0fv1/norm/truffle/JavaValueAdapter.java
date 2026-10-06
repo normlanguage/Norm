@@ -18,7 +18,6 @@ final class JavaValueAdapter {
   }
 
   static Object jarArgument(Object value, ExecutionState execution, AnnotationRuntime annotations) {
-    if (value == RuntimeValues.NullValue.INSTANCE) return null;
     if (value instanceof RuntimeValues.Closure closure) {
       if (execution == null) {
         throw new IllegalStateException("JAR callback execution is unavailable");
@@ -73,15 +72,16 @@ final class JavaValueAdapter {
     if (value instanceof RuntimeValues.ClassValue reflected) {
       return reflected.annotations().jarClassReference(reflected.reflectedType());
     }
-    if (value instanceof RuntimeValues.CodePointValue codePoint) return codePoint.value();
     if (value instanceof RuntimeValues.EnumValue enumValue) {
       if (execution == null) {
         throw new IllegalStateException("JAR enum argument execution is unavailable");
       }
-      return execution.values().javaEnumArgument(enumValue);
+      var token = execution.values().javaEnumArgument(enumValue);
+      if (execution.context().jarBindingRuntime() instanceof JavaApplicationRuntime runtime
+          && !runtime.bindsEnum(token.type()))
+        return JavaApplicationBridge.toJava(runtime.applicationClassLoader(), enumValue);
+      return token;
     }
-    if (value instanceof RuntimeValues.OpaqueValue opaque) return opaque.value;
-    if (value instanceof RuntimeValues.OpaqueResource resource) return resource.hostValue();
     if (value instanceof RuntimeValues.ObjectValue object && execution != null) {
       Object argument = execution.values().javaArgument(object);
       if (argument != object) return argument;
@@ -90,53 +90,7 @@ final class JavaValueAdapter {
       }
       return object;
     }
-    return value;
-  }
-
-  static Object jarValue(
-      CoreType type, Object value, ExecutionState execution, AnnotationRuntime annotations) {
-    if (value == null) return RuntimeValues.NullValue.INSTANCE;
-    Object guest = mappedGuest(value, execution);
-    if (guest != null) return guest;
-    CoreType concrete = nonNullable(type);
-    if (concrete instanceof CoreType.Declared declared
-        && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin) {
-      return switch (builtin.id().value()) {
-        case "std.core.Any" -> jarDynamicValue(value, execution);
-        case "std.core.Integer" -> ((Number) value).intValue();
-        case "std.core.Long" -> ((Number) value).longValue();
-        case "std.core.Float" -> ((Number) value).floatValue();
-        case "std.core.Double" -> ((Number) value).doubleValue();
-        case "std.core.CodePoint" ->
-            new RuntimeValues.CodePointValue(
-                value instanceof Character character
-                    ? character.charValue()
-                    : ((Number) value).intValue());
-        case "std.core.Boolean", "std.core.Number", "std.core.String" -> value;
-        default -> throw new IllegalStateException("unsupported JAR value type " + concrete);
-      };
-    }
-    if (value instanceof Enum<?> enumValue) {
-      return execution.values().javaEnumValue(concrete, enumValue.name());
-    }
-    if (value instanceof Throwable throwable) {
-      return execution.values().javaExceptionValue(concrete, throwable, execution);
-    }
-    if (value instanceof java.nio.file.Path path) {
-      return execution.values().javaPathValue(concrete, path.toString(), execution);
-    }
-    if (value instanceof java.io.File file) {
-      return execution.values().javaPathValue(concrete, file.getPath(), execution);
-    }
-    return jarBindingValue(
-        concrete,
-        new JarBindingResult.Reference(
-            value,
-            value.getClass().getName(),
-            execution.context().jarBindingRuntime().referenceCandidates(value)),
-        annotations,
-        execution,
-        null);
+    return hostValue(value);
   }
 
   static Object jarBindingValue(
@@ -146,44 +100,20 @@ final class JavaValueAdapter {
       ExecutionState execution,
       Object receiver) {
     return switch (result) {
-      case JarBindingResult.Scalar scalar -> scalar.value();
+      case JarBindingResult.Scalar scalar -> scalarValue(type, scalar.value());
       case JarBindingResult.ClassReference reference -> {
         if (annotations == null || type == null) {
           throw new IllegalStateException("JAR class result type is unavailable");
         }
         yield annotations.jarClassValue(type, reference.candidates());
       }
-      case JarBindingResult.DurationValue duration -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("JAR duration result type is unavailable");
-        }
-        yield execution
-            .values()
-            .javaDurationValue(type, duration.seconds(), duration.nanoseconds(), execution);
-      }
       case JarBindingResult.EnumReference reference -> {
         if (execution == null || type == null) {
           throw new IllegalStateException("JAR enum result type is unavailable");
         }
-        yield execution.values().javaEnumValue(type, reference.value().variant());
-      }
-      case JarBindingResult.ExceptionReference reference -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("JAR exception result type is unavailable");
-        }
-        yield execution.values().javaExceptionValue(type, reference.value(), execution);
-      }
-      case JarBindingResult.PathValue path -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("JAR path result type is unavailable");
-        }
-        yield execution.values().javaPathValue(type, path.value(), execution);
-      }
-      case JarBindingResult.UriValue uri -> {
-        if (execution == null || type == null) {
-          throw new IllegalStateException("JAR URI result type is unavailable");
-        }
-        yield execution.values().javaUriValue(type, uri.value(), execution);
+        CoreType runtimeType =
+            annotations.jarReferenceType(type, List.of(reference.value().type()));
+        yield execution.values().javaEnumValue(runtimeType, reference.value().variant());
       }
       case JarBindingResult.Null ignored -> RuntimeValues.NullValue.INSTANCE;
       case JarBindingResult.Void ignored -> null;
@@ -259,15 +189,39 @@ final class JavaValueAdapter {
     };
   }
 
-  private static Object jarDynamicValue(Object value, ExecutionState execution) {
-    if (value instanceof Byte number) return number.intValue();
-    if (value instanceof Short number) return number.intValue();
-    if (value instanceof Character character) {
-      return new RuntimeValues.CodePointValue(character.charValue());
+  static Object hostValue(Object value) {
+    if (value == RuntimeValues.NullValue.INSTANCE) return null;
+    if (value instanceof RuntimeValues.CodePointValue codePoint) return codePoint.value();
+    if (value instanceof RuntimeValues.OpaqueValue opaque) return opaque.value;
+    if (value instanceof RuntimeValues.OpaqueResource resource) return resource.hostValue();
+    return value;
+  }
+
+  static Object scalarValue(CoreType type, Object value) {
+    if (value == null) return RuntimeValues.NullValue.INSTANCE;
+    if (type != null
+        && nonNullable(type) instanceof CoreType.Declared declared
+        && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin) {
+      return switch (builtin.id().value()) {
+        case "std.core.Integer" -> ((Number) value).intValue();
+        case "std.core.Long" -> ((Number) value).longValue();
+        case "std.core.Float" -> ((Number) value).floatValue();
+        case "std.core.Double" -> ((Number) value).doubleValue();
+        case "std.core.CodePoint" ->
+            new RuntimeValues.CodePointValue(
+                value instanceof Character character
+                    ? character.charValue()
+                    : ((Number) value).intValue());
+        case "std.core.Any" -> {
+          if (value instanceof Character character)
+            yield new RuntimeValues.CodePointValue(character.charValue());
+          if (value instanceof Byte || value instanceof Short) yield ((Number) value).intValue();
+          yield value;
+        }
+        default -> value;
+      };
     }
-    if (value instanceof String || value instanceof Number || value instanceof Boolean)
-      return value;
-    return execution.values().opaque(CoreType.ANY, value, value.getClass().getName());
+    return value;
   }
 
   private static Object mappedGuest(Object value, ExecutionState execution) {

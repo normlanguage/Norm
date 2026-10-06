@@ -27,7 +27,8 @@ record ProjectCompilationSources(
     bindings = Set.copyOf(bindings);
   }
 
-  static ProjectCompilationSources from(List<ResolvedProjectModule> modules) {
+  static ProjectCompilationSources from(
+      List<ResolvedProjectModule> modules, List<ProvidedModule> providedModules) {
     var sources = new ArrayList<SourceFile>();
     var coordinates = new LinkedHashMap<DocumentId, ModuleSourceCoordinate>();
     var exports = new LinkedHashSet<DocumentId>();
@@ -36,7 +37,10 @@ record ProjectCompilationSources(
     var descriptors = new LinkedHashMap<ModuleCoordinate, dev.w0fv1.norm.value.ModuleDescriptor>();
     modules.forEach(
         module -> descriptors.put(module.descriptor().coordinate(), module.descriptor()));
+    providedModules.forEach(
+        module -> descriptors.put(module.descriptor().coordinate(), module.descriptor()));
     var dependencies = new LinkedHashMap<ModuleCoordinate, Set<ModuleCoordinate>>();
+    providedModules.forEach(module -> dependencies.put(module.descriptor().coordinate(), Set.of()));
     for (var module : modules) {
       var descriptor = module.descriptor();
       var readable = new LinkedHashSet<ModuleCoordinate>();

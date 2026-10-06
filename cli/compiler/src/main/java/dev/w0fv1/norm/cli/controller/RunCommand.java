@@ -103,10 +103,9 @@ final class RunCommand implements Command {
       }
       progress.accept("Initializing compiler");
       NormRuntime backend = new NormRuntime();
-      ProjectEnvironment environment = ProjectEnvironment.persistent(backend);
-      try (var launcher = ApplicationRunner.persistent(environment, progress)) {
-        launcher.replayModules(prepared.modules());
-        result = launcher.run(entry, context, progress, cache);
+      try (var environment = ProjectEnvironment.persistent(backend);
+          var launcher = ApplicationRunner.persistent(environment, progress)) {
+        result = launcher.run(entry, context, progress, cache, prepared.modules());
       }
     } catch (IOException exception) {
       err.printf(

@@ -90,7 +90,7 @@ public final class PreparedApplicationCache {
     }
     var captured = new PreparedApplicationWriter().capture(application);
     var dependencies =
-        JarBindingClasspath.prepare(application.sourceSet().jarBindings()).artifacts().stream()
+        JarBindingClasspath.prepare(application.javaBindings()).artifacts().stream()
             .map(value -> new FileSnapshot(value.file(), value.content()))
             .toList();
     var content =
@@ -108,7 +108,8 @@ public final class PreparedApplicationCache {
                       module.source(),
                       retained,
                       dev.w0fv1.norm.core.CoreExecutionPlan.forArtifact(retained),
-                      module.declaration());
+                      module.declaration(),
+                      module.bindings());
                 })
             .toList();
     byte[] bytes = PortableObjectCodec.encode(content);

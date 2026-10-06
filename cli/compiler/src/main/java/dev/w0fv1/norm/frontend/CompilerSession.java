@@ -372,7 +372,8 @@ public final class CompilerSession implements AutoCloseable {
             request.scope(),
             request.entryDocument(),
             sources,
-            request.exportedSources()),
+            request.exportedSources(),
+            request.bindingSources()),
         control);
   }
 
@@ -404,9 +405,13 @@ public final class CompilerSession implements AutoCloseable {
       boolean reusableCore) {
     java.util.Objects.requireNonNull(request, "request");
     DiagnosticBag diagnostics = new DiagnosticBag();
+    Set<ModuleCoordinate> sourceModules =
+        request.scope().coordinates().values().stream()
+            .map(ModuleSourceCoordinate::module)
+            .collect(java.util.stream.Collectors.toSet());
     CompilationPrelude prelude =
         profile.moduleEvaluationDocuments().isEmpty()
-            ? profile.prelude().excludingModules(request.scope().modules().modules())
+            ? profile.prelude().excludingModules(sourceModules)
             : profile.prelude();
     Set<DocumentId> standardDocuments = new LinkedHashSet<>(profile.standardLibraryDocuments());
     request
@@ -431,6 +436,8 @@ public final class CompilerSession implements AutoCloseable {
     Syntax.Program entryProgram = null;
     Set<DocumentId> exportedSources = new LinkedHashSet<>(prelude.exportedSources());
     exportedSources.addAll(request.exportedSources());
+    Set<DocumentId> bindingSources = new LinkedHashSet<>(prelude.bindingSources());
+    bindingSources.addAll(request.bindingSources());
     CompilationScope sourceScope = request.scope();
     if (prelude.scope().isPresent()) {
       CompilationScope preludeScope = prelude.scope().orElseThrow();
@@ -440,7 +447,7 @@ public final class CompilerSession implements AutoCloseable {
               .map(preludeScope::coordinate)
               .map(ModuleSourceCoordinate::module)
               .collect(java.util.stream.Collectors.toSet());
-      sourceScope = sourceScope.withReads(request.scope().modules().modules(), preludeExports);
+      sourceScope = sourceScope.withReads(sourceModules, preludeExports);
     }
     for (ParsedDocument document : parsed) {
       if (document.source().id().equals(request.entryDocument())) entryProgram = document.syntax();
@@ -460,7 +467,11 @@ public final class CompilerSession implements AutoCloseable {
                 modules.stream().mapToInt(module -> module.nextSymbolOrdinal).max().orElse(0)),
             profile.moduleEvaluationDocuments(),
             standardDocuments,
-            request.bindingSources(),
+            bindingSources,
+            profile.prelude().builtinTypeConformances().entrySet().stream()
+                .filter(entry -> bindingSources.contains(entry.getKey()))
+                .flatMap(entry -> entry.getValue().stream())
+                .toList(),
             sourceScope,
             declarations);
     Analyzer analyzer = new Analyzer(analysisInput, diagnostics, guard);
@@ -487,7 +498,7 @@ public final class CompilerSession implements AutoCloseable {
             sourceScope,
             analyzer.declarations(),
             exportedSources,
-            request.bindingSources());
+            bindingSources);
     analysisPlan = imported.merge(analysisPlan);
     FrontendAnalysis analyzed =
         analyzer.analyze(resolveProgram, request.kind(), analysisPlan.reusable());

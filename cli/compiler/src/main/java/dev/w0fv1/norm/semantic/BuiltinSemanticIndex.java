@@ -9,4 +9,8 @@ public interface BuiltinSemanticIndex {
   List<Symbol> typeMembers(String owner);
 
   List<SemanticType> protocolConformances(SemanticType type);
+
+  default List<BuiltinTypeConformance> typeConformances() {
+    return List.of();
+  }
 }

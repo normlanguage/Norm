@@ -53,13 +53,13 @@ final class PolyglotProjectTest {
       context.enter();
       try {
         var language = Language.context(null);
-        var firstSources = language.projects().load(entry);
+        var firstSources = language.projects().load(entry).sources();
         var firstInput =
             new dev.w0fv1.norm.application.ApplicationInput(
                 firstSources.applicationCompilationRequest(entry),
                 java.util.Optional.of(firstSources));
         var first = language.application(firstInput);
-        var againSources = language.projects().load(entry);
+        var againSources = language.projects().load(entry).sources();
         var againInput =
             new dev.w0fv1.norm.application.ApplicationInput(
                 againSources.applicationCompilationRequest(entry),
@@ -68,7 +68,7 @@ final class PolyglotProjectTest {
         assertEquals(firstInput.hashCode(), againInput.hashCode());
         assertSame(first, language.application(againInput));
         Files.writeString(resource, "second");
-        var secondSources = language.projects().load(entry);
+        var secondSources = language.projects().load(entry).sources();
         var second =
             language.application(
                 new dev.w0fv1.norm.application.ApplicationInput(

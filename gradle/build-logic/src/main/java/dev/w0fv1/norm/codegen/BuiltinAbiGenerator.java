@@ -99,6 +99,18 @@ public final class BuiltinAbiGenerator {
           .append(value.get("typeName").getAsString())
           .append("\");\n");
     }
+    text.append("\n  public static java.util.List<Identity> values() { return java.util.List.of(");
+    for (int index = 0; index < schema.getAsJsonArray("opaqueValues").size(); index++) {
+      if (index > 0) text.append(", ");
+      text.append(
+          schema
+              .getAsJsonArray("opaqueValues")
+              .get(index)
+              .getAsJsonObject()
+              .get("name")
+              .getAsString());
+    }
+    text.append("); }\n");
     text.append(
         "\n  public record Identity(String moduleName, int moduleVersion, String packageName, String typeName) {}\n");
     finish("OpaqueValueAbi", text);

@@ -88,7 +88,8 @@ final class NativeImageConfigurationWriterTest {
                   new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
                   List.of()),
               capturedClasspath,
-              new TemporaryDirectory());
+              new TemporaryDirectory(),
+              List.of());
       var output =
           new NativeImageConfigurationWriter()
               .write(application, List.of(), directory.resolve("metadata"));
@@ -154,7 +155,8 @@ final class NativeImageConfigurationWriterTest {
                   new JavaApplicationMethodIndex.Analysis(java.util.Map.of(), java.util.Set.of()),
                   List.of()),
               capturedClasspath,
-              new TemporaryDirectory());
+              new TemporaryDirectory(),
+              List.of());
       var output =
           new NativeImageConfigurationWriter()
               .write(application, List.of(), directory.resolve("metadata"));
@@ -260,7 +262,8 @@ final class NativeImageConfigurationWriterTest {
                       compilation.result(),
                       compilation.application().orElseThrow().annotations(),
                       capturedClasspath,
-                      new TemporaryDirectory()),
+                      new TemporaryDirectory(),
+                      List.of(binding)),
                   List.of(LinkedJarBinding.from(binding)),
                   directory.resolve("metadata"));
       var metadata =

@@ -60,8 +60,7 @@ final class MarkdownCheckCommand implements Command {
       return ExitCode.USAGE_ERROR;
     }
     var writer = new CommandReportWriter();
-    try {
-      var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
       try (var projects = environment.projectLoader();
           var compiler = environment.compilerSession()) {
         var result = new MarkdownReferenceChecker(projects, compiler).check(root, module);

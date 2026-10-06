@@ -221,7 +221,7 @@ public record SemanticType(
     if (kind == Kind.REFERENCE) {
       throw new IllegalStateException("reference types cannot be nullable");
     }
-    if (isNullable() || kind == Kind.ERROR) return this;
+    if (isNullable() || kind == Kind.ERROR || kind == Kind.EXISTENTIAL) return this;
     return new SemanticType(kind, identity, name, arguments, category, Nullability.NULLABLE);
   }
 

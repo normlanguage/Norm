@@ -777,8 +777,7 @@ final class CoreCallableVerifier {
       validationTypes.requireAssignable(
           expected, validationTypes.absolute(owner, argument.value().type()), "call argument");
     }
-    CoreType result =
-        validationTypes.absolute(targetId, target.returnType()).substitute(substitutions::get);
+    CoreType result = validationTypes.readResult(targetId, target.returnType(), substitutions);
     CoreType receiverType = call.receiver().map(CoreExpression::type).orElse(CoreType.DYNAMIC);
     result = CoreVerificationTypes.safeResult(result, call.nullSafe(), receiverType);
     CoreVerificationTypes.requireSameAbsoluteType(
@@ -866,7 +865,8 @@ final class CoreCallableVerifier {
         .map(value -> substitutions.isEmpty() ? value : value.substitute(substitutions::get))
         .forEach(parameters::add);
     CoreType result = validationTypes.absolute(targetId, target.returnType());
-    if (!substitutions.isEmpty()) result = result.substitute(substitutions::get);
+    if (!substitutions.isEmpty())
+      result = validationTypes.readResult(targetId, target.returnType(), substitutions);
     CoreType expected = new CoreType.Function(result, parameters, CoreNullability.NON_NULL);
     CoreVerificationTypes.requireSameAbsoluteType(
         expected, validationTypes.absolute(owner, closure.type()), "closure type");
@@ -977,9 +977,7 @@ final class CoreCallableVerifier {
           "interface call argument");
     }
     CoreType result =
-        validationTypes
-            .absolute(requirementId, requirement.returnType())
-            .substitute(substitutions::get);
+        validationTypes.readResult(requirementId, requirement.returnType(), substitutions);
     result = CoreVerificationTypes.safeResult(result, call.nullSafe(), call.receiver().type());
     CoreVerificationTypes.requireSameAbsoluteType(
         result, validationTypes.absolute(owner, call.type()), "interface call result");

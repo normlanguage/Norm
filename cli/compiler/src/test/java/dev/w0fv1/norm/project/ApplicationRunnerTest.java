@@ -78,7 +78,7 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      ProjectSourceSet sourceSet = projects.load(source);
+      ProjectSourceSet sourceSet = projects.load(source).sources();
 
       assertEquals(
           "hello.web",
@@ -138,14 +138,14 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      var exception = assertThrows(java.io.IOException.class, () -> projects.load(entry));
+      var exception = assertThrows(java.io.IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("module"));
     }
 
     Files.writeString(module, "Void module() {}");
     try (ProjectLoader projects = environment.projectLoader()) {
-      var exception = assertThrows(java.io.IOException.class, () -> projects.load(entry));
+      var exception = assertThrows(java.io.IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("Module"));
     }
@@ -165,7 +165,7 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      var sourceSet = projects.load(SourceFile.read(entry), List.of(openModule));
+      var sourceSet = projects.load(SourceFile.read(entry), List.of(openModule)).sources();
 
       var coordinate = sourceSet.scope().coordinate(sourceSet.primarySource().id()).module();
       assertEquals("sample", coordinate.name());
@@ -184,7 +184,7 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      var exception = assertThrows(java.io.IOException.class, () -> projects.load(entry));
+      var exception = assertThrows(java.io.IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("sample/Missing.norm"));
     }
@@ -424,7 +424,7 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      var sourceSet = projects.load(entry);
+      var sourceSet = projects.load(entry).sources();
 
       assertEquals(
           "sample", sourceSet.scope().coordinate(sourceSet.primarySource().id()).module().name());
@@ -455,7 +455,7 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("base@2"));
       assertTrue(exception.getMessage().contains("base@1"));
@@ -494,7 +494,7 @@ final class ApplicationRunnerTest {
     ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
 
     try (ProjectLoader projects = environment.projectLoader()) {
-      IOException exception = assertThrows(IOException.class, () -> projects.load(entry));
+      IOException exception = assertThrows(IOException.class, () -> projects.load(entry).sources());
 
       assertTrue(exception.getMessage().contains("sample@1 -> base@1 -> sample@1"));
     }

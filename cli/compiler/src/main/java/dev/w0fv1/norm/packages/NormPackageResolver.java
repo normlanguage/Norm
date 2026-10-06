@@ -25,9 +25,6 @@ public final class NormPackageResolver implements AutoCloseable {
   private final Path cache;
   private final Map<ModuleRepositoryId, NormPackageRepository> repositories;
   private final HttpClient client;
-  private final java.util.ArrayList<dev.w0fv1.norm.value.FileSnapshot> observedFiles =
-      new java.util.ArrayList<>();
-  private final java.util.ArrayList<Path> absentFiles = new java.util.ArrayList<>();
 
   public record ResolutionInputs(
       java.util.List<dev.w0fv1.norm.value.FileSnapshot> files, java.util.List<Path> absent) {
@@ -37,17 +34,12 @@ public final class NormPackageResolver implements AutoCloseable {
     }
   }
 
-  public ResolutionInputs resolutionInputs() {
-    return new ResolutionInputs(observedFiles, absentFiles);
+  public record ResolvedPackage(Path archive, ResolutionInputs inputs) {
+    public ResolvedPackage {
+      Objects.requireNonNull(archive, "archive");
+      Objects.requireNonNull(inputs, "inputs");
+    }
   }
-
-  public void clearResolutionInputs() {
-    observedFiles.clear();
-    absentFiles.clear();
-  }
-
-  private final Map<LatestModule, Integer> latestVersions =
-      new java.util.concurrent.ConcurrentHashMap<>();
 
   public NormPackageResolver(Path cache) {
     this(cache, cache, defaultRepositories());
@@ -71,56 +63,72 @@ public final class NormPackageResolver implements AutoCloseable {
             .build();
   }
 
-  public Path resolve(ModuleRequirement requirement) throws IOException {
+  public ResolvedPackage resolve(ModuleRequirement requirement) throws IOException {
     Objects.requireNonNull(requirement, "requirement");
     Path relative = relativePath(requirement);
     Path local = localRepository.resolve(relative);
-    if (Files.isRegularFile(local)) {
-      observedFiles.add(dev.w0fv1.norm.value.FileSnapshot.capture(local));
-      return normalize(local);
-    }
-    absentFiles.add(normalize(local));
     Path cached = cache.resolve(requirement.repository().value()).resolve(relative);
-    var cachedInputs = cachedArtifactInputs(cached);
-    if (!cachedInputs.isEmpty()) {
-      observedFiles.addAll(cachedInputs);
-      return normalize(cached);
-    }
-    NormPackageRepository repository = repositories.get(requirement.repository());
-    if (repository == null) {
-      throw new IOException(
-          "unknown Norm package repository '" + requirement.repository().value() + "'");
-    }
-    URI archiveUri = repository.locate(requirement, client);
-    URI digestUri = URI.create(archiveUri + ".sha256");
-    Sha256Digest expected = publishedDigest(digestUri, requirement);
-    Files.createDirectories(cached.getParent());
-    Path temporary =
-        Files.createTempFile(cached.getParent(), cached.getFileName().toString(), ".part");
     try {
-      download(archiveUri, temporary, requirement);
-      Sha256Digest actual = Sha256Digest.compute(temporary);
-      if (!expected.equals(actual)) {
-        throw new IOException(
-            "Norm package integrity mismatch for "
-                + display(requirement)
-                + ": expected "
-                + expected
-                + ", actual "
-                + actual);
+      if (Files.isRegularFile(local)) {
+        return new ResolvedPackage(
+            normalize(local),
+            new ResolutionInputs(
+                java.util.List.of(dev.w0fv1.norm.value.FileSnapshot.capture(local)),
+                java.util.List.of()));
       }
-      move(temporary, cached);
-      Files.writeString(
-          digestPath(cached), expected.value() + System.lineSeparator(), StandardCharsets.UTF_8);
-      observedFiles.add(new dev.w0fv1.norm.value.FileSnapshot(cached, actual));
-      observedFiles.add(
-          new dev.w0fv1.norm.value.FileSnapshot(
-              digestPath(cached),
-              Sha256Digest.compute(
-                  (expected.value() + System.lineSeparator()).getBytes(StandardCharsets.UTF_8))));
-      return normalize(cached);
-    } finally {
-      Files.deleteIfExists(temporary);
+      var cachedInputs = cachedArtifactInputs(cached);
+      if (!cachedInputs.isEmpty()) {
+        return new ResolvedPackage(
+            normalize(cached),
+            new ResolutionInputs(cachedInputs, java.util.List.of(normalize(local))));
+      }
+      NormPackageRepository repository = repositories.get(requirement.repository());
+      if (repository == null) {
+        throw new IOException(
+            "unknown Norm package repository '" + requirement.repository().value() + "'");
+      }
+      URI archiveUri = repository.locate(requirement, client);
+      URI digestUri = URI.create(archiveUri + ".sha256");
+      Sha256Digest expected = publishedDigest(digestUri, requirement);
+      Files.createDirectories(cached.getParent());
+      Path temporary =
+          Files.createTempFile(cached.getParent(), cached.getFileName().toString(), ".part");
+      try {
+        download(archiveUri, temporary, requirement);
+        Sha256Digest actual = Sha256Digest.compute(temporary);
+        if (!expected.equals(actual)) {
+          throw new IOException(
+              "Norm package integrity mismatch for "
+                  + display(requirement)
+                  + ": expected "
+                  + expected
+                  + ", actual "
+                  + actual);
+        }
+        move(temporary, cached);
+        Files.writeString(
+            digestPath(cached), expected.value() + System.lineSeparator(), StandardCharsets.UTF_8);
+        var captured =
+            java.util.List.of(
+                new dev.w0fv1.norm.value.FileSnapshot(cached, actual),
+                new dev.w0fv1.norm.value.FileSnapshot(
+                    digestPath(cached),
+                    Sha256Digest.compute(
+                        (expected.value() + System.lineSeparator())
+                            .getBytes(StandardCharsets.UTF_8))));
+        return new ResolvedPackage(
+            normalize(cached), new ResolutionInputs(captured, java.util.List.of(normalize(local))));
+      } finally {
+        Files.deleteIfExists(temporary);
+      }
+    } catch (IOException exception) {
+      var files = new java.util.ArrayList<dev.w0fv1.norm.value.FileSnapshot>();
+      var absent = new java.util.ArrayList<Path>();
+      for (Path path : java.util.List.of(local, cached, digestPath(cached))) {
+        if (Files.isRegularFile(path)) files.add(dev.w0fv1.norm.value.FileSnapshot.capture(path));
+        else absent.add(normalize(path));
+      }
+      throw new PackageResolutionException(exception, new ResolutionInputs(files, absent));
     }
   }
 
@@ -154,18 +162,7 @@ public final class NormPackageResolver implements AutoCloseable {
       throw new IOException(
           "unknown Norm package repository '" + dependency.repository().value() + "'");
     }
-    LatestModule module = new LatestModule(dependency.repository(), dependency.name());
-    Integer version = latestVersions.get(module);
-    if (version == null) {
-      synchronized (latestVersions) {
-        version = latestVersions.get(module);
-        if (version == null) {
-          version = repository.latestVersion(dependency.name(), client);
-          latestVersions.put(module, version);
-        }
-      }
-    }
-    return dependency.resolved(version);
+    return dependency.resolved(repository.latestVersion(dependency.name(), client));
   }
 
   private static java.util.List<dev.w0fv1.norm.value.FileSnapshot> cachedArtifactInputs(
@@ -173,7 +170,12 @@ public final class NormPackageResolver implements AutoCloseable {
     Path digest = digestPath(archive);
     if (!Files.isRegularFile(archive) || !Files.isRegularFile(digest)) return java.util.List.of();
     String text = Files.readString(digest, StandardCharsets.UTF_8);
-    Sha256Digest expected = parseDigest(text);
+    Sha256Digest expected;
+    try {
+      expected = parseDigest(text);
+    } catch (IllegalArgumentException exception) {
+      throw new IOException("invalid cached package integrity metadata: " + digest, exception);
+    }
     Sha256Digest actual = Sha256Digest.compute(archive);
     return expected.equals(actual)
         ? java.util.List.of(
@@ -275,8 +277,6 @@ public final class NormPackageResolver implements AutoCloseable {
   private static Map<ModuleRepositoryId, NormPackageRepository> defaultRepositories() {
     return Map.of(ModuleRepositoryId.GITHUB, new GitHubPackageRepository());
   }
-
-  private record LatestModule(ModuleRepositoryId repository, String name) {}
 
   @Override
   public void close() {

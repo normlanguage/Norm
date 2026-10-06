@@ -19,35 +19,32 @@ public final class JarApiCache {
 
   public JarApiSchema scan(ResolvedJarGraph graph, List<String> selectedTypes, boolean surfaceOnly)
       throws IOException {
+    return scan(new JavaApiScanInput(graph, List.of()), selectedTypes, surfaceOnly);
+  }
+
+  public JarApiSchema scan(JavaApiScanInput input, List<String> selectedTypes, boolean surfaceOnly)
+      throws IOException {
+    var graph = input.graph();
     if (surfaceOnly && selectedTypes.isEmpty()) return new JarApiSchema(List.of());
-    for (var artifact : graph.artifacts())
+    for (var artifact : input.artifacts())
       new FileSnapshot(artifact.file(), artifact.content()).verify();
     var writer =
         new CanonicalWriter()
-            .writeTag("jar-api-2")
+            .writeTag("jar-api-3")
             .writeString(CompilerArtifactIdentity.current())
             .writeString(graph.contentId().value())
             .writeString(graph.root().identity().canonical())
-            .writeString(
-                graph.root().identity() instanceof JdkModuleIdentity
-                    ? ""
-                    : JdkModuleArchive.resolve(
-                            Path.of(System.getProperty("user.home"), ".norm", "cache"), "java.base")
-                        .contentId()
-                        .value())
-            .writeBoolean(surfaceOnly)
-            .writeInt(selectedTypes.size());
+            .writeInt(input.supportingGraphs().size());
+    input.supportingGraphs().forEach(support -> writer.writeString(support.contentId().value()));
+    writer.writeBoolean(surfaceOnly).writeInt(selectedTypes.size());
     selectedTypes.forEach(writer::writeString);
     var key = Sha256Digest.compute(writer.toByteArray());
     var stored = artifacts.read(key);
     if (stored.isPresent())
       return PortableObjectCodec.decode(stored.orElseThrow(), JarApiSchema.class);
     var scanner = new JarApiScanner();
-    var schema =
-        surfaceOnly
-            ? scanner.scanSurface(graph, selectedTypes)
-            : scanner.scan(graph, selectedTypes);
-    for (var artifact : graph.artifacts())
+    var schema = scanner.scan(input, selectedTypes, surfaceOnly);
+    for (var artifact : input.artifacts())
       new FileSnapshot(artifact.file(), artifact.content()).verify();
     artifacts.write(key, PortableObjectCodec.encode(schema));
     return schema;

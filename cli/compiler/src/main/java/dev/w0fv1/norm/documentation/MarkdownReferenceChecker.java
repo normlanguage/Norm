@@ -78,7 +78,7 @@ public final class MarkdownReferenceChecker {
           index = loaded.get(requirement);
           if (index == null) {
             try {
-              index = index(projects.loadForAnalysis(root, requirement));
+              index = index(projects.loadForAnalysis(root, requirement).sources());
               loaded.put(requirement, index);
             } catch (IOException exception) {
               failures.put(requirement, exception.getMessage());
@@ -90,7 +90,7 @@ public final class MarkdownReferenceChecker {
           if (localFailure != null) throw new IOException(localFailure);
           if (local == null) {
             try {
-              local = index(projects.loadForAnalysis(module.orElseThrow()));
+              local = index(projects.loadForAnalysis(module.orElseThrow()).sources());
             } catch (IOException exception) {
               localFailure = exception.getMessage();
               throw exception;

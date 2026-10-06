@@ -56,11 +56,45 @@ final class CompilationResultCache {
     documents(writer, request.bindingSources());
     sources(writer, profile.prelude().documents().stream().map(ParsedDocument::source).toList());
     documents(writer, profile.prelude().exportedSources());
+    documents(writer, profile.prelude().bindingSources());
+    var conformances = profile.prelude().builtinTypeConformances();
+    writer.writeInt(conformances.size());
+    conformances.entrySet().stream()
+        .sorted(java.util.Map.Entry.comparingByKey(Comparator.comparing(id -> id.uri().toString())))
+        .forEach(
+            entry -> {
+              writer.writeString(entry.getKey().uri().toString());
+              var values =
+                  entry.getValue().stream()
+                      .distinct()
+                      .sorted(
+                          Comparator.comparing(
+                              value -> value.concreteType().toString() + value.interfaceType()))
+                      .toList();
+              writer.writeInt(values.size());
+              values.forEach(
+                  value -> {
+                    semanticType(writer, value.concreteType());
+                    semanticType(writer, value.interfaceType());
+                  });
+            });
     writer.writeBoolean(profile.prelude().scope().isPresent());
     profile.prelude().scope().ifPresent(value -> scope(writer, value));
     documents(writer, profile.moduleEvaluationDocuments());
     documents(writer, profile.standardLibraryDocuments());
     return Sha256Digest.compute(writer.toByteArray());
+  }
+
+  private static void semanticType(
+      CanonicalWriter writer, dev.w0fv1.norm.semantic.SemanticType type) {
+    writer
+        .writeString(type.kind().name())
+        .writeString(type.identity())
+        .writeString(type.name())
+        .writeString(type.category().name())
+        .writeString(type.nullability().name())
+        .writeInt(type.arguments().size());
+    type.arguments().forEach(argument -> semanticType(writer, argument));
   }
 
   Optional<CompilationHistory> readHistory(

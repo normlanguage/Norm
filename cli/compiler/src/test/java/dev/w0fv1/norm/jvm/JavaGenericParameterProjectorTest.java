@@ -34,7 +34,7 @@ final class JavaGenericParameterProjectorTest {
   }
 
   @Test
-  void omitsAPlatformValueMappingThatIsNotANormNominalBound() {
+  void preservesJavaInterfaceAsNominalBound() {
     JavaClassSignature signature =
         new JavaGenericSignatureParser()
             .parseClass("<K::Ljava/lang/CharSequence;>Ljava/lang/Object;");
@@ -44,10 +44,11 @@ final class JavaGenericParameterProjectorTest {
                 signature.typeParameters(),
                 Map.of(),
                 (bound, variables) ->
-                    new JavaReferenceType(
-                        "java.lang.CharSequence", JavaReferenceKind.CHAR_SEQUENCE))
+                    new JavaReferenceType("java.lang.CharSequence", JavaReferenceKind.OPAQUE))
             .orElseThrow();
 
-    assertEquals(java.util.Optional.empty(), projection.parameters().getFirst().bound());
+    assertEquals(
+        new JavaReferenceType("java.lang.CharSequence", JavaReferenceKind.OPAQUE),
+        projection.parameters().getFirst().bound().orElseThrow());
   }
 }

@@ -59,7 +59,7 @@ Field<User, ?> field
 Function<?> function
 ```
 
-A projected value can use only members independent of the hidden argument. For example, `Function<?>` can report its name and parameters but cannot be called directly; calling needs an exact `Function<R(P...)>`. See [generic invariance](/spec/generic-variance) for the full boundary.
+The read and write rules for projected values are defined in [generic invariance](/spec/generic-variance).
 
 ## Function types
 

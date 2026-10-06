@@ -145,7 +145,7 @@ final class SerializationIntrinsicDispatcher {
             try {
               Map<String, Object> properties =
                   annotations.configuration().properties(reflected.reflectedType(), first);
-              return execution.values().opaque(type, properties, "MutableMap");
+              return execution.values().opaque(type, properties, properties.getClass().getName());
             } catch (SerializationRuntime.ShapeException | IllegalArgumentException failure) {
               throw new NormGuestException(
                   RuntimeErrorCode.INVALID_ARGUMENT, failure.getMessage(), location);

@@ -93,13 +93,12 @@ final class VerificationCommand implements Command {
           err);
     }
     CommandReport report;
-    try {
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
       switch (kind) {
         case CHECK -> {
           try (var projects = environment.projectLoader();
               var compiler = environment.compilerSession()) {
-            var sources = projects.loadForAnalysis(options.entry());
+            var sources = projects.loadForAnalysis(options.entry()).sources();
             report =
                 CommandReport.checked(
                     name(), compiler.snapshot(sources.compilationRequest()).diagnostics());

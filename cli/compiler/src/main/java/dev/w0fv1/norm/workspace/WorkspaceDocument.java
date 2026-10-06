@@ -1,10 +1,10 @@
 package dev.w0fv1.norm.workspace;
 
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
+import dev.w0fv1.norm.project.ProjectInputSnapshot;
 import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.source.SourceFile;
 import java.nio.file.Path;
-import java.util.Set;
 
 public record WorkspaceDocument(
     int version,
@@ -12,10 +12,6 @@ public record WorkspaceDocument(
     SourceFile source,
     AnalysisResult analysis,
     Path projectRoot,
-    Set<Path> sourcePaths,
+    ProjectInputSnapshot inputs,
     long revision,
-    CompilationSnapshot snapshot) {
-  public WorkspaceDocument {
-    sourcePaths = Set.copyOf(sourcePaths);
-  }
-}
+    CompilationSnapshot snapshot) {}

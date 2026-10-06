@@ -30,85 +30,53 @@ public final class FutureBindingTask implements JarBindingTask {
   private final java.util.concurrent.Executor continuationExecutor;
   private final CompletionStage<?> notification;
   private final Function<Object, JarBindingResult> conversion;
-  private final Function<Object, Object> hostConversion;
-  private CompletableFuture<Object> exported;
   private final CompletableFuture<JarBindingResult> result = new CompletableFuture<>();
   private boolean observing;
 
-  public FutureBindingTask(Object host, Function<Object, JarBindingResult> conversion) {
-    this(host, conversion, null);
-  }
-
-  public FutureBindingTask(
-      Object host,
-      Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion) {
-    this(
-        host instanceof CompletionStage<?> stage ? stage.toCompletableFuture() : (Future<?>) host,
-        null,
-        conversion,
-        hostConversion,
-        WORKERS,
-        null);
+  public static FutureBindingTask fromCompletion(
+      CompletionStage<?> completion, Function<Object, JarBindingResult> conversion) {
+    var future = completion.toCompletableFuture();
+    return new FutureBindingTask(future, future, conversion, WORKERS, null);
   }
 
   private FutureBindingTask(
       Future<?> source,
       CompletionStage<?> notification,
       Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion,
       java.util.concurrent.Executor continuationExecutor,
       CompletionStage<Void> termination) {
     this.source = Objects.requireNonNull(source, "source");
     this.termination = termination;
-    this.notification =
-        notification != null
-            ? notification
-            : source instanceof CompletionStage<?> stage ? stage : null;
+    this.notification = Objects.requireNonNull(notification, "notification");
     this.conversion = Objects.requireNonNull(conversion, "conversion");
-    this.hostConversion = hostConversion;
     this.continuationExecutor =
         Objects.requireNonNull(continuationExecutor, "continuationExecutor");
   }
 
   public static FutureBindingTask start(
       Callable<?> work, Function<Object, JarBindingResult> conversion) {
-    return start(work, conversion, Function.identity());
+    return start(work, conversion, WORKERS);
   }
 
   public static FutureBindingTask start(
       Callable<?> work,
       Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion) {
-    return start(work, conversion, hostConversion, WORKERS);
-  }
-
-  public static FutureBindingTask start(
-      Callable<?> work,
-      Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion,
       java.util.concurrent.Executor continuationExecutor) {
     return create(
-        (action, rejected) -> WORKERS.execute(action),
-        work,
-        conversion,
-        hostConversion,
-        continuationExecutor);
+        (action, rejected) -> WORKERS.execute(action), work, conversion, continuationExecutor);
+  }
+
+  public static FutureBindingTask after(
+      CompletionStage<?> prerequisite,
+      Callable<?> work,
+      Function<Object, JarBindingResult> conversion) {
+    return after(prerequisite, work, conversion, WORKERS);
   }
 
   public static FutureBindingTask after(
       CompletionStage<?> prerequisite,
       Callable<?> work,
       Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion) {
-    return after(prerequisite, work, conversion, hostConversion, WORKERS);
-  }
-
-  public static FutureBindingTask after(
-      CompletionStage<?> prerequisite,
-      Callable<?> work,
-      Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion,
       java.util.concurrent.Executor continuationExecutor) {
     Objects.requireNonNull(prerequisite, "prerequisite");
     return create(
@@ -123,7 +91,6 @@ public final class FutureBindingTask implements JarBindingTask {
                 }),
         work,
         conversion,
-        hostConversion,
         continuationExecutor);
   }
 
@@ -131,10 +98,8 @@ public final class FutureBindingTask implements JarBindingTask {
       java.util.function.BiConsumer<Runnable, java.util.function.Consumer<Throwable>> executor,
       Callable<?> work,
       Function<Object, JarBindingResult> conversion,
-      Function<Object, Object> hostConversion,
       java.util.concurrent.Executor continuationExecutor) {
     Objects.requireNonNull(work, "work");
-    Objects.requireNonNull(hostConversion, "hostConversion");
     var notification = new CompletableFuture<Object>();
     var termination = new CompletableFuture<Void>();
     var phase = new java.util.concurrent.atomic.AtomicReference<>(ExecutionPhase.WAITING);
@@ -176,7 +141,6 @@ public final class FutureBindingTask implements JarBindingTask {
             source,
             notification,
             conversion,
-            hostConversion,
             continuationExecutor,
             termination.minimalCompletionStage());
     try {
@@ -200,23 +164,7 @@ public final class FutureBindingTask implements JarBindingTask {
   public synchronized CompletionStage<JarBindingResult> completion() {
     if (!observing) {
       observing = true;
-      if (notification != null) {
-        notification.whenComplete(this::settle);
-      } else {
-        Thread.ofVirtual()
-            .name("norm-java-task")
-            .start(
-                () -> {
-                  try {
-                    settle(source.get(), null);
-                  } catch (InterruptedException failure) {
-                    Thread.currentThread().interrupt();
-                    settle(null, failure);
-                  } catch (Exception failure) {
-                    settle(null, failure);
-                  }
-                });
-      }
+      notification.whenComplete(this::settle);
     }
     return result.minimalCompletionStage();
   }
@@ -266,36 +214,6 @@ public final class FutureBindingTask implements JarBindingTask {
   @Override
   public boolean completed() {
     return source.isDone();
-  }
-
-  @Override
-  public synchronized Object hostValue() {
-    if (hostConversion == null) return source;
-    if (exported == null) {
-      exported =
-          new CompletableFuture<>() {
-            @Override
-            public boolean cancel(boolean mayInterruptIfRunning) {
-              if (!source.cancel(mayInterruptIfRunning)) return false;
-              return super.cancel(mayInterruptIfRunning) || isCancelled();
-            }
-          };
-      var target = exported;
-      notification.whenComplete(
-          (value, failure) -> {
-            if (target.isDone()) return;
-            if (failure != null) {
-              target.completeExceptionally(unwrapFailure(failure));
-              return;
-            }
-            try {
-              target.complete(hostConversion.apply(value));
-            } catch (Throwable conversionFailure) {
-              target.completeExceptionally(conversionFailure);
-            }
-          });
-    }
-    return exported;
   }
 
   @Override

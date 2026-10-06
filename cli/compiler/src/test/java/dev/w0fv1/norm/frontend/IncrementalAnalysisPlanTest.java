@@ -32,6 +32,7 @@ final class IncrementalAnalysisPlanTest {
                 Set.of(),
                 Set.of(),
                 Set.of(),
+                List.of(),
                 scope,
                 declarations),
             new DiagnosticBag(),

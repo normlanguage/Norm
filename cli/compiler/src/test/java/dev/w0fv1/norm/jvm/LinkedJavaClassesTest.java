@@ -97,7 +97,10 @@ final class LinkedJavaClassesTest {
     for (int iteration = 0; iteration < 2; iteration++) {
       try (var runtime =
           JvmJarBindingRuntime.closedWorld(
-              LinkedJarBinding.linkCalls(bindings), calls, linked, Map.of())) {
+              LinkedJarBinding.linkCalls(bindings),
+              calls,
+              linked,
+              dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY)) {
         assertEquals(
             new JarBindingResult.ClassReference(List.of(dynamic)),
             runtime.invoke("identity", List.of(dynamic)));

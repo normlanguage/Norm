@@ -50,8 +50,7 @@ final class ResolveCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
     Path modulePath = Files.isDirectory(requested) ? requested.resolve("module.norm") : requested;
-    try {
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
       try (var projects = environment.projectLoader()) {
         var resolution = new ModuleBindingResolutionService(projects).resolve(modulePath);
         out.printf(

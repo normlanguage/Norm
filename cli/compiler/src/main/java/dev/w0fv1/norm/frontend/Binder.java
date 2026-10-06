@@ -1214,21 +1214,24 @@ final class Binder {
           case COPY ->
               new BoundExpression.CopyObject(
                   java.util.Objects.requireNonNull(receiver), nullSafe, type, call.span());
-          case CALLABLE, EXTENSION ->
-              new BoundCall(
-                  BoundCallableId.of(target.id()),
-                  Optional.ofNullable(receiver),
-                  arguments,
-                  resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
-                  receiver == null
-                      ? List.of()
-                      : methodReceiverType(receiver.type(), target).stream()
-                          .map(this::runtimeType)
-                          .toList(),
-                  resolution.kind() == ResolvedCall.Kind.CALLABLE && isVirtualMethod(target),
-                  nullSafe,
-                  type,
-                  call.span());
+          case CALLABLE, EXTENSION -> {
+            boolean virtual =
+                resolution.kind() == ResolvedCall.Kind.CALLABLE && isVirtualMethod(target);
+            yield new BoundCall(
+                BoundCallableId.of(target.id()),
+                Optional.ofNullable(receiver),
+                arguments,
+                resolution.callableTypeArguments().stream().map(this::runtimeType).toList(),
+                receiver == null || virtual
+                    ? List.of()
+                    : methodReceiverType(receiver.type(), target).stream()
+                        .map(this::runtimeType)
+                        .toList(),
+                virtual,
+                nullSafe,
+                type,
+                call.span());
+          }
           case INVOKE -> throw new IllegalStateException("function invocation was bound eagerly");
           case FIELD_CAPTURE -> throw new IllegalStateException("field capture was bound eagerly");
           case SUPER -> throw new IllegalStateException("super calls are bound by constructors");
@@ -1342,7 +1345,11 @@ final class Binder {
           semantics.functionReferenceTypeArguments(member.span()).stream()
               .map(this::runtimeType)
               .toList(),
-          methodReceiverType(receiver.type(), target).stream().map(this::runtimeType).toList(),
+          isVirtualMethod(target)
+              ? List.of()
+              : methodReceiverType(receiver.type(), target).stream()
+                  .map(this::runtimeType)
+                  .toList(),
           isVirtualMethod(target),
           type,
           member.span());
@@ -1503,7 +1510,14 @@ final class Binder {
 
   private List<BoundBuiltinConformance> bindBuiltinConformances() {
     List<BoundBuiltinConformance> result = new ArrayList<>();
-    for (BuiltinCatalog.ProtocolConformance conformance : builtins.protocolConformances()) {
+    var conformances = new ArrayList<>(builtins.protocolConformances());
+    semantics.builtinTypeConformances().stream()
+        .map(
+            value ->
+                new BuiltinCatalog.ProtocolConformance(
+                    List.of(), value.concreteType(), value.interfaceType(), Map.of()))
+        .forEach(conformances::add);
+    for (BuiltinCatalog.ProtocolConformance conformance : conformances) {
       Syntax.InterfaceDecl contract = interfaceDeclaration(conformance.interfaceType());
       if (contract == null) continue;
       List<BoundWitness> witnesses = new ArrayList<>();

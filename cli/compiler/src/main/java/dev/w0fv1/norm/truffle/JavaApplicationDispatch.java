@@ -32,7 +32,9 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   private final GuestValueFactory values;
   private final ExecutionState execution;
   private final ClassLoader applicationLoader;
+  private final java.util.Set<String> applicationTypes;
   private final IdentityHashMap<Object, RuntimeValues.ObjectValue> guests = new IdentityHashMap<>();
+  private final IdentityHashMap<Object, Object> transportedGuests = new IdentityHashMap<>();
   private final IdentityHashMap<RuntimeValues.ObjectValue, Object> proxies =
       new IdentityHashMap<>();
   private final IdentityHashMap<RuntimeValues.Closure, Object> functionProxies =
@@ -56,6 +58,7 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
     this.applicationLoader =
         Objects.requireNonNull(runtime.applicationClassLoader(), "applicationLoader");
     this.hostCalls = runtime.applicationCalls();
+    this.applicationTypes = runtime.applicationTypes();
   }
 
   @Override
@@ -149,6 +152,8 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
         .callbacks()
         .invoke(
             () -> {
+              Object transported = transportedGuests.get(value);
+              if (transported != null) return transported;
               RuntimeValues.ObjectValue guest = guests.get(value);
               if (guest != null) {
                 synchronizeFromHost(value, guest);
@@ -292,7 +297,6 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
   }
 
   private Object javaResult(Object value) {
-    if (value == null || value == RuntimeValues.NullValue.INSTANCE) return null;
     if (value instanceof RuntimeValues.ListValue list) {
       return list.values.stream().map(this::javaResult).toList();
     }
@@ -342,29 +346,46 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
         return item;
       }
       String binaryName = JavaApplicationTypeName.binaryName(enumeration.nominalType());
+      if (!applicationTypes.contains(binaryName)) {
+        transportedGuests.put(item, item);
+        return item;
+      }
       try {
         Class<?> type = applicationLoader.loadClass(binaryName);
         Object[] constants = type.getEnumConstants();
         if (constants == null)
           throw new IllegalStateException("Projected enum type is not a Java enum");
         for (Object constant : constants) {
-          if (((Enum<?>) constant).name().equals(item.variantKey())) return constant;
+          if (((Enum<?>) constant).name().equals(item.variantKey())) {
+            transportedGuests.put(constant, item);
+            return constant;
+          }
         }
         throw new IllegalStateException("Projected enum constant is absent: " + item.variantKey());
       } catch (ClassNotFoundException exception) {
         throw new IllegalStateException("Norm enum result cannot be materialized", exception);
       }
     }
-    if (value instanceof RuntimeValues.CodePointValue codePoint) return codePoint.value();
     if (value instanceof RuntimeValues.ObjectValue object) {
       Object proxy = proxies.get(object);
-      if (proxy == null) proxy = materialize(object);
+      if (proxy == null) {
+        CoreDefinition.Aggregate aggregate =
+            (CoreDefinition.Aggregate)
+                program.structure(object.objectInfo.definition()).orElseThrow();
+        if (!applicationTypes.contains(
+            JavaApplicationTypeName.binaryName(aggregate.nominalType()))) {
+          transportedGuests.put(object, object);
+          return object;
+        }
+        proxy = materialize(object);
+      }
       synchronizeToHost(object, proxy);
       return proxy;
     }
-    if (value instanceof RuntimeValues.OpaqueValue opaque) return opaque.value;
-    if (value instanceof RuntimeValues.OpaqueResource resource) return resource.hostValue();
-    return value;
+    Object host = JavaValueAdapter.hostValue(value);
+    if (value instanceof RuntimeValues.OpaqueValue || value instanceof RuntimeValues.OpaqueResource)
+      transportedGuests.put(host, value);
+    return host;
   }
 
   private Object materialize(RuntimeValues.ObjectValue guest) {
@@ -439,8 +460,9 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       }
       return RuntimeValues.NullValue.INSTANCE;
     }
+    Object opaque = transportedGuests.get(value);
+    if (opaque != null) return opaque;
     if (value instanceof RuntimeValues.EnumValue) return value;
-    if (value instanceof TaskRegistration task) return task.handle();
     if (expected instanceof CoreType.Declared declared
         && declared.constructor() instanceof CoreTypeConstructor.Builtin builtin
         && builtin.id().value().equals("std.core.List")) {
@@ -511,16 +533,22 @@ final class JavaApplicationDispatch implements JavaApplicationBridge.Handler {
       guest.dispatchToHost = hostDispatchRequired(guest, value);
       return guest;
     }
-    if (value instanceof Enum<?> enumeration
-        && expected instanceof CoreType.Declared declared
-        && declared.constructor() instanceof CoreTypeConstructor.User) {
-      return values.javaEnumValue(expected, enumeration.name());
+    if (value instanceof AutoCloseable
+        || value instanceof Enum<?>
+        || value instanceof Class<?>
+        || expected instanceof CoreType.Declared declared
+            && declared.constructor() instanceof CoreTypeConstructor.User) {
+      Object guestValue =
+          JavaValueAdapter.jarBindingValue(
+              expected,
+              execution.context().jarBindingRuntime().referenceResult(value),
+              execution.annotationExecution().runtime(),
+              execution,
+              null);
+      transportedGuests.put(value, guestValue);
+      return guestValue;
     }
-    if (expected instanceof CoreType.Declared declared
-        && declared.constructor() instanceof CoreTypeConstructor.User) {
-      return values.opaque(expected, value, value.getClass().getName());
-    }
-    return value;
+    return JavaValueAdapter.scalarValue(expected, value);
   }
 
   private boolean hostDispatchRequired(RuntimeValues.ObjectValue guest, Object host) {

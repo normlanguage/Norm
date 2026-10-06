@@ -49,7 +49,7 @@ public record ApplicationProgramPlan(
     var execution = CoreExecutionPlan.forArtifact(retained, applicationIndex.entryPoints());
     var calls = CoreReachability.jarCalls(retained, execution);
     var bindings =
-        compilation.sourceSet().jarBindings().stream()
+        compilation.javaBindings().stream()
             .map(LinkedJarBinding::from)
             .map(binding -> calls.map(binding::retainCalls).orElse(binding))
             .toList();
@@ -59,7 +59,7 @@ public record ApplicationProgramPlan(
         bindings,
         calls.isEmpty(),
         JavaApplicationTypeName.packageName(
-            SourceHeader.parse(compilation.sourceSet().primarySource()).packageName().orElse("")));
+            SourceHeader.parse(compilation.input().source()).packageName().orElse("")));
   }
 
   public dev.w0fv1.norm.runtime.ApplicationProgramData data() {

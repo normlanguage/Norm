@@ -30,6 +30,14 @@ public record JavaBoxedType(String binaryName, JavaPrimitiveType primitive)
         .map(primitive -> new JavaBoxedType(binaryName, primitive));
   }
 
+  static String binaryNameForDescriptor(String descriptor) {
+    return TYPES.entrySet().stream()
+        .filter(entry -> entry.getValue().descriptor().equals(descriptor))
+        .map(Map.Entry::getKey)
+        .findFirst()
+        .orElseThrow();
+  }
+
   @Override
   public String descriptor() {
     return "L" + binaryName.replace('.', '/') + ";";

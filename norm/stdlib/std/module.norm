@@ -2,6 +2,7 @@ Module module() {
   return module(
     name: "std",
     version: 1,
+    dependencies: [dependency(repository: "norm", name: "java.base", version: 1)],
     exports: [
       "annotation.protocols",
       "application.application",

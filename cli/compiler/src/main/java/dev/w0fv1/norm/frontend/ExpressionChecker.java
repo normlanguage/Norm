@@ -1299,7 +1299,8 @@ final class ExpressionChecker implements ExpressionTyping {
           .map(type -> type.substitute(substitutions))
           .forEach(signature::add);
       SemanticType result =
-          typeResolver.functionReturnType(method, parameters).substitute(substitutions);
+          typeResolver.readResult(
+              typeResolver.functionReturnType(method, parameters), substitutions);
       candidates.add(new FunctionPattern(method, SemanticType.function(result, signature)));
     }
     List<FunctionReferenceResolution> matches = selectFunctionReferences(candidates, expected);
@@ -1319,7 +1320,8 @@ final class ExpressionChecker implements ExpressionTyping {
           typeResolver.typeParameters(method, view.declaration());
       SemanticType pattern =
           SemanticType.function(
-                  typeResolver.functionReturnType(method, parameters),
+                  typeResolver.readResult(
+                      typeResolver.functionReturnType(method, parameters), substitutions),
                   method.parameters().stream()
                       .map(
                           parameter ->

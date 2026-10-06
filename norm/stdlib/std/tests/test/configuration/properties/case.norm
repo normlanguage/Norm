@@ -1,7 +1,7 @@
 package std.test.configuration.properties
 
 import std.testing.Test
-import std.collections.MutableMap
+import java.base.util.JavaMap
 import std.configuration.ConfigurationKey
 import std.configuration.ConfigurationValue
 import std.configuration.configurationProperties
@@ -31,22 +31,22 @@ value Service {
   String? description
 }
 
-@Test(types: [MutableMap<String?, Any?>.class, ConfigurationKey.class, ConfigurationValue.class, SerialName.class, Serializable.class], functions: [configurationProperties.function])
+@Test(types: [JavaMap<String, Any?>.class, ConfigurationKey.class, ConfigurationValue.class, SerialName.class, Serializable.class], functions: [configurationProperties.function])
 Void propertiesTest() {
   Map<String, Endpoint> targets = Map<>()
   targets.put(
     key: "internal",
     value: Endpoint(name: "unused", contextPath: "/internal")
   )
-  MutableMap<String?, Any?> properties = configurationProperties(value: Service(
+  JavaMap<String, Any?> properties = configurationProperties(value: Service(
     endpoints: [Endpoint(name: "public", contextPath: "/api")],
     targets: targets,
     secret: Secret(value: "norm"),
     description: null
   ))
-  printLine(properties.get(key: "endpoints.public.context-path") ?? "missing")
-  printLine(properties.get(key: "targets.internal.context-path") ?? "missing")
-  printLine(properties.get(key: "api-key") ?? "missing")
-  printLine(properties.containsKey(key: "description"))
+  printLine(properties.get(arg0: "endpoints.public.context-path") ?? "missing")
+  printLine(properties.get(arg0: "targets.internal.context-path") ?? "missing")
+  printLine(properties.get(arg0: "api-key") ?? "missing")
+  printLine(properties.containsKey(arg0: "description"))
   expectedOutputLines(["/api", "/internal", "norm", "false"])
 }

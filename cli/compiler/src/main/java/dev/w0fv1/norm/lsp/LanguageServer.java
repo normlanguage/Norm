@@ -19,12 +19,21 @@ final class LanguageServer
     implements org.eclipse.lsp4j.services.LanguageServer, LanguageClientAware, AutoCloseable {
   private final DocumentService documents;
   private final WorkspaceService workspace;
+  private LanguageClient client;
+  private boolean dynamicWatches;
+  private boolean relativeWatches;
+  private boolean initialized;
+  private volatile boolean closed;
+  private List<dev.w0fv1.norm.value.InputWatch> watches = List.of();
+  private List<dev.w0fv1.norm.value.InputWatch> registeredWatches = List.of();
+  private CompletableFuture<Void> watchChanges = CompletableFuture.completedFuture(null);
   private volatile boolean exited;
   private volatile int exitCode = 1;
 
   LanguageServer(Workspace workspace) {
     documents = new DocumentService(java.util.Objects.requireNonNull(workspace, "workspace"));
     this.workspace = new WorkspaceService(documents);
+    workspace.onInputs(this::watchInputs);
   }
 
   boolean exited() {
@@ -36,17 +45,31 @@ final class LanguageServer
   }
 
   @Override
-  public void close() {
+  public synchronized void close() {
+    if (closed) return;
+    closed = true;
+    watchInputs(List.of());
     documents.close();
   }
 
   @Override
   public void connect(LanguageClient client) {
+    this.client = client;
     documents.connect(client);
   }
 
   @Override
   public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
+    var workspaceCapabilities =
+        params.getCapabilities() == null ? null : params.getCapabilities().getWorkspace();
+    var watchCapabilities =
+        workspaceCapabilities == null ? null : workspaceCapabilities.getDidChangeWatchedFiles();
+    dynamicWatches =
+        watchCapabilities != null
+            && Boolean.TRUE.equals(watchCapabilities.getDynamicRegistration());
+    relativeWatches =
+        watchCapabilities != null
+            && Boolean.TRUE.equals(watchCapabilities.getRelativePatternSupport());
     ServerCapabilities capabilities = new ServerCapabilities();
     capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
     capabilities.setCompletionProvider(new CompletionOptions(false, List.of(".", "@")));
@@ -61,9 +84,81 @@ final class LanguageServer
   }
 
   @Override
+  public synchronized void initialized(org.eclipse.lsp4j.InitializedParams params) {
+    initialized = true;
+    watchInputs(watches);
+  }
+
+  private synchronized void watchInputs(List<dev.w0fv1.norm.value.InputWatch> inputs) {
+    if (closed && !inputs.isEmpty()) return;
+    watches = List.copyOf(inputs);
+    if (!initialized || !dynamicWatches || client == null) return;
+    var next = watches;
+    watchChanges =
+        watchChanges
+            .handle((ignored, failure) -> null)
+            .thenCompose(
+                ignored -> {
+                  if (closed && !next.isEmpty()) return CompletableFuture.completedFuture(null);
+                  if (registeredWatches.equals(next))
+                    return CompletableFuture.completedFuture(null);
+                  var removal =
+                      registeredWatches.isEmpty()
+                          ? CompletableFuture.<Void>completedFuture(null)
+                          : client
+                              .unregisterCapability(
+                                  new org.eclipse.lsp4j.UnregistrationParams(
+                                      List.of(
+                                          new org.eclipse.lsp4j.Unregistration(
+                                              "norm-project-inputs",
+                                              "workspace/didChangeWatchedFiles"))))
+                              .thenRun(() -> registeredWatches = List.of());
+                  return removal.thenCompose(
+                      removed -> {
+                        if (closed || next.isEmpty())
+                          return CompletableFuture.completedFuture(null);
+                        var watchers =
+                            next.stream()
+                                .map(
+                                    watch -> {
+                                      var watcher = new org.eclipse.lsp4j.FileSystemWatcher();
+                                      if (relativeWatches)
+                                        watcher.setGlobPattern(
+                                            new org.eclipse.lsp4j.RelativePattern(
+                                                org.eclipse.lsp4j.jsonrpc.messages.Either.forRight(
+                                                    watch.root().toUri().toString()),
+                                                watch.pattern()));
+                                      else watcher.setGlobPattern(watch.absolutePattern());
+                                      return watcher;
+                                    })
+                                .toList();
+                        return client
+                            .registerCapability(
+                                new org.eclipse.lsp4j.RegistrationParams(
+                                    List.of(
+                                        new org.eclipse.lsp4j.Registration(
+                                            "norm-project-inputs",
+                                            "workspace/didChangeWatchedFiles",
+                                            new org.eclipse.lsp4j
+                                                .DidChangeWatchedFilesRegistrationOptions(
+                                                watchers)))))
+                            .thenRun(() -> registeredWatches = next);
+                      });
+                })
+            .whenComplete(
+                (ignored, failure) -> {
+                  if (failure != null)
+                    client.logMessage(
+                        new org.eclipse.lsp4j.MessageParams(
+                            org.eclipse.lsp4j.MessageType.Error,
+                            "Unable to watch project inputs: " + failure.getMessage()));
+                });
+  }
+
+  @Override
   public CompletableFuture<Object> shutdown() {
     exitCode = 0;
-    documents.close();
+    close();
     return CompletableFuture.completedFuture(null);
   }
 

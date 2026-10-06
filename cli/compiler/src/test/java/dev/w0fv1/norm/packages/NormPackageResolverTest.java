@@ -38,7 +38,7 @@ final class NormPackageResolverTest {
             Map.of(
                 ModuleRepositoryId.GITHUB,
                 new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
-      resolved = resolver.resolve(requirement);
+      resolved = resolver.resolve(requirement).archive();
     }
 
     assertEquals(
@@ -53,7 +53,7 @@ final class NormPackageResolverTest {
             Map.of(
                 ModuleRepositoryId.GITHUB,
                 new GitHubPackageRepository(registry.toUri(), remote.toUri())))) {
-      assertEquals(resolved, resolver.resolve(requirement));
+      assertEquals(resolved, resolver.resolve(requirement).archive());
     }
   }
 
@@ -79,7 +79,7 @@ final class NormPackageResolverTest {
       assertEquals(3, resolved.version());
       Files.createDirectories(remote.resolve("normlanguage/sample-library/releases/download/v5"));
       assertEquals(
-          3,
+          5,
           resolver
               .resolve(new ModuleDependency("github", "sample.library", null, false))
               .version());

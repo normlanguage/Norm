@@ -16,12 +16,6 @@ second.add(4)
 | --- | --- |
 | `Array<T>` | 固定长度、连续索引序列 |
 | `List<T>` | 可增长的有序序列 |
-| `MutableList<T>` | 具有共享 identity 的可变有序序列视图 |
-| `MutableSet<T>` | 具有共享 identity 的可变唯一元素集合视图 |
-| `MutableCollection<T>` | Java 引用集合的共同可变基类 |
-| `MutableMap<K, V>` | 具有共享 identity 的可变映射视图 |
-| `IterableView<T>` | 具有共享 identity 的只读迭代视图 |
-| `IteratorView<T>` | 具有共享 cursor 状态的迭代器视图 |
 | `Map<K, V>` | 唯一键到值的映射 |
 | `Set<T>` | 按 equality 与 hash 去重 |
 | `Stack<T>` | LIFO 序列 |
@@ -40,7 +34,7 @@ Array、List、Set、Stack、Queue、Deque 与 Range 显式实现 `Iterable<T>`�
 
 Array、List、Map、Set、Stack、Queue、Deque 与 Range 统一使用 `size()` 返回元素数量，不提供 `length` 属性。
 
-引用集合是 class，复制变量会共享同一对象；其成员对同一宿主集合原位生效。`MutableList<T>` 与 `MutableSet<T>` 继承 `MutableCollection<T>`，并和 `IterableView<T>` 一样实现 `Iterable<T>`。Java Binding 使用这些类型，因此不会把 Java 引用语义混入值语义集合。
+Java 引用集合由 [`java.base`](../../../norm/stdlib/java/base/module.norm) 声明；[`mutableMap`](../../../norm/stdlib/std/collections/mutable.norm) 通过普通绑定构造共享身份的 Java Map。其调用方式和迭代规则见 [Java 绑定](/zh/design/java-library-adapters)。
 
 ## 序列成员
 

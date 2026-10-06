@@ -32,6 +32,8 @@ final class JavaManagedMethodProjectionTest {
             root.resolve("repository.norm"),
             """
             package todo
+            import java.base.util.JavaList
+            import java.base.util.arrayListNew
             import std.core.Exception
             import std.concurrent.Task
             import std.concurrent.startTask
@@ -46,56 +48,56 @@ final class JavaManagedMethodProjectionTest {
               @Query("select todo where id = :id")
               T? find(@Named("id") Long id)
               @Query("select todo where :completed is null or todo.completed = :completed")
-              List<T> findByCompleted(Boolean? completed)
+              JavaList<T> findByCompleted(Boolean? completed)
               @Query("delete from Todo todo where todo.completed = true")
               Void clearCompleted()
               R map<R>(R item)
               Long count() { 1 }
-              List<T> listed() { this.findByCompleted(null) }
-              List<List<T?>> nested() { [] }
+              JavaList<T> listed() { this.findByCompleted(null) }
+              JavaList<JavaList<T?>> nested() { arrayListNew<JavaList<T?>>() }
             }
             class Inherited<T> extends Repository<T> {}
             @Generated() class KeyedRepository<I, T> extends Inherited<T> { T? byKey(I id) }
             class StringRepository extends KeyedRepository<Long, String> {}
             class Implemented<T> extends Repository<T> {
               T? find(Long id) { null }
-              List<T> findByCompleted(Boolean? completed) { [] }
+              JavaList<T> findByCompleted(Boolean? completed) { arrayListNew<T>() }
               Void clearCompleted() {}
               R map<R>(R item) { item }
             }
             @Generated() class ManagedService {
-              List<String> find(Boolean? completed)
+              JavaList<String> find(Boolean? completed)
               Void fail()
               Void clear()
               String required()
             }
-            class Client {
+            @Generated() class Client {
               Task<Integer>? work = null
               Void start() { this.work = startTask<Integer>(() { 42 }) }
               Integer result() { this.work!!.await() }
-              List<String> append(List<String> items) { items.add("added") items }
+              JavaList<String> append(JavaList<String> items) { items.add(arg0: "added") items }
               String? keyed(StringRepository repository) { repository.byKey(42) }
               String? genericNullable(StringRepository repository) { repository.map<String?>(null) }
-              List<String> inheritedBody(StringRepository repository) { repository.listed() }
-              List<String> generic(StringRepository repository) {
-                var items = repository.map<List<String>>(repository.findByCompleted(null))
+              JavaList<String> inheritedBody(StringRepository repository) { repository.listed() }
+              JavaList<String> generic(StringRepository repository) {
+                var items = repository.map<JavaList<String>>(repository.findByCompleted(null))
                 require(condition: items.size() == 1, message: "generic list was not materialized")
                 items
               }
-              List<String> genericReference(StringRepository repository) {
-                Function<List<String>(List<String>)> map = repository.map
+              JavaList<String> genericReference(StringRepository repository) {
+                Function<JavaList<String>(JavaList<String>)> map = repository.map
                 map(repository.findByCompleted(false))
               }
-              List<String> run(ManagedService service, Boolean? completed) { service.find(completed) }
-              List<String>? optional(ManagedService? service) { service?.find(null) }
+              JavaList<String> run(ManagedService service, Boolean? completed) { service.find(completed) }
+              JavaList<String>? optional(ManagedService? service) { service?.find(null) }
               Void clear(ManagedService service) { service.clear() }
               String required(ManagedService service) { service.required() }
-              List<String> reference(ManagedService service, Boolean? completed) {
+              JavaList<String> reference(ManagedService service, Boolean? completed) {
                 var find = service.find
                 find(completed)
               }
-              List<String> unbound(ManagedService service, Boolean? completed) {
-                Function<List<String>(ManagedService, Boolean?)> find = ManagedService.find.function
+              JavaList<String> unbound(ManagedService service, Boolean? completed) {
+                Function<JavaList<String>(ManagedService, Boolean?)> find = ManagedService.find.function
                 find(service, completed)
               }
               String failure(ManagedService service) {
@@ -115,7 +117,7 @@ final class JavaManagedMethodProjectionTest {
           new JavaAnnotationProcessorPipeline()
               .process(
                   artifact,
-                  List.of(),
+                  environment.javaBindings(),
                   JarBindingClasspath.prepare(List.of()),
                   root,
                   scope,
@@ -241,7 +243,8 @@ final class JavaManagedMethodProjectionTest {
                   output.classes().toString(),
                   host.toString()));
       try (var runtime =
-          new dev.w0fv1.norm.jvm.JvmJarBindingRuntime(List.of(), List.of(output.classes()))) {
+          new dev.w0fv1.norm.jvm.JvmJarBindingRuntime(
+              environment.javaBindings(), List.of(output.classes()))) {
         var context =
             dev.w0fv1.norm.execution.ExecutionContext.of(
                     new java.io.PrintWriter(new java.io.StringWriter()))
@@ -283,13 +286,13 @@ final class JavaManagedMethodProjectionTest {
                             clientType
                                 .getMethod("keyed", repositoryType)
                                 .invoke(client, repository));
-                        var original = List.of("original");
+                        var original = new java.util.ArrayList<>(List.of("original"));
                         clientType.getMethod("start").invoke(client);
                         assertEquals(42, clientType.getMethod("result").invoke(client));
                         assertEquals(
                             List.of("original", "added"),
                             clientType.getMethod("append", List.class).invoke(client, original));
-                        assertEquals(List.of("original"), original);
+                        assertEquals(List.of("original", "added"), original);
                         var run = clientType.getMethod("run", serviceType, Boolean.class);
                         assertEquals(List.of("全部"), run.invoke(client, service, null));
                         assertEquals(List.of("已完成"), run.invoke(client, service, true));

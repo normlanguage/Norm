@@ -51,8 +51,7 @@ final class PackageCommand implements Command {
       return ExitCode.INPUT_ERROR;
     }
     Path modulePath = Files.isDirectory(requested) ? requested.resolve("module.norm") : requested;
-    try {
-      ProjectEnvironment environment = ProjectEnvironment.bootstrap(new NormRuntime());
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime())) {
       try (var compiler = environment.compilerSession();
           var projects = environment.projectLoader()) {
         var packaged = new ModulePackager(projects, compiler).packageModule(modulePath, output);

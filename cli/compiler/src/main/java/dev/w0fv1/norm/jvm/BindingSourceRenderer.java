@@ -5,15 +5,11 @@ import static dev.w0fv1.norm.jvm.BindingNames.lowerCamel;
 import static dev.w0fv1.norm.jvm.BindingNames.simpleName;
 import static dev.w0fv1.norm.jvm.BindingTypeNames.collectArrays;
 import static dev.w0fv1.norm.jvm.BindingTypeNames.collectReferences;
-import static dev.w0fv1.norm.jvm.BindingTypeNames.containsException;
-import static dev.w0fv1.norm.jvm.BindingTypeNames.containsReferenceKind;
-import static dev.w0fv1.norm.jvm.BindingTypeNames.genericTypeDeclaration;
 import static dev.w0fv1.norm.jvm.BindingTypeNames.normBoundType;
 import static dev.w0fv1.norm.jvm.BindingTypeNames.normRelationType;
 import static dev.w0fv1.norm.jvm.BindingTypeNames.normReturnType;
 import static dev.w0fv1.norm.jvm.BindingTypeNames.normType;
 import static dev.w0fv1.norm.jvm.JavaBindingMembers.bounds;
-import static dev.w0fv1.norm.jvm.JavaBindingMembers.requiredProtocolBinding;
 
 import dev.w0fv1.norm.value.ModuleCoordinate;
 import java.util.ArrayList;
@@ -43,66 +39,6 @@ public final class BindingSourceRenderer {
       ModuleCoordinate module, List<BindingPlan.Array> plannedArrays, BindingTypeNames normTypes) {
     Set<JavaArrayType> arrays = normTypes.arrays().keySet();
     StringBuilder text = new StringBuilder("package ").append(module.name()).append('\n');
-    text.append("import std.io.ownResourceInContext\n");
-    boolean comparableArrays =
-        arrays.stream()
-            .map(JavaArrayType::component)
-            .filter(JavaBindingTypeVariable.class::isInstance)
-            .map(JavaBindingTypeVariable.class::cast)
-            .map(JavaBindingTypeVariable::erasure)
-            .anyMatch(JavaGenericParameterProjector::isComparable);
-    boolean exceptionArrays =
-        arrays.stream().map(JavaArrayType::component).anyMatch(BindingTypeNames::containsException);
-    if (comparableArrays) {
-      text.append("import std.core.Comparable\n");
-    }
-    if (exceptionArrays) text.append("import std.core.Exception\n");
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.UNIT))) {
-      text.append("import std.core.Unit\n");
-    }
-    if (arrays.stream().anyMatch(BindingTypeNames::containsPath)) {
-      text.append("import std.filesystem.Path\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.URI))) {
-      text.append("import std.http.Uri\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.DURATION))) {
-      text.append("import std.time.Duration\n");
-    }
-    if (arrays.stream()
-        .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.INPUT_STREAM))) {
-      text.append("import std.io.InputStream\n");
-    }
-    if (arrays.stream()
-        .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.OUTPUT_STREAM))) {
-      text.append("import std.io.OutputStream\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.TASK))) {
-      text.append("import std.concurrent.Task\n");
-    }
-    if (arrays.stream()
-        .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.PUBLISHER))) {
-      text.append("import std.concurrent.Publisher\n");
-    }
-    if (arrays.stream()
-        .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.COLLECTION))) {
-      text.append("import std.collections.MutableCollection\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERABLE))) {
-      text.append("import std.collections.IterableView\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERATOR))) {
-      text.append("import std.collections.IteratorView\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.LIST))) {
-      text.append("import std.collections.MutableList\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.SET))) {
-      text.append("import std.collections.MutableSet\n");
-    }
-    if (arrays.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.MAP))) {
-      text.append("import std.collections.MutableMap\n");
-    }
     Set<String> arrayReferences = new java.util.LinkedHashSet<>();
     arrays.forEach(array -> collectReferences(array, arrayReferences));
     appendReferenceImports(text, module, module.name(), null, arrayReferences, normTypes);
@@ -113,8 +49,7 @@ public final class BindingSourceRenderer {
       JavaArrayType array = planned.type();
       boolean generic = array.component() instanceof JavaBindingTypeVariable;
       String typeUse = generic ? "<T>" : "";
-      String typeDeclaration =
-          generic ? genericTypeDeclaration((JavaBindingTypeVariable) array.component()) : "";
+      String typeDeclaration = generic ? "<T>" : "";
       String tokenName = className + "BindingToken";
       JavaBindingCallable length = planned.length().callable();
       JavaBindingCallable get = planned.get().callable();
@@ -168,7 +103,6 @@ public final class BindingSourceRenderer {
     List<JavaBindingTypeParameter> ownerTypeParameters = declaration.typeParameters();
     List<JavaBindingCallable> bindings = declaration.bindings();
     List<JavaReferenceType> interfaces = declaration.interfaces();
-    boolean resource = declaration.resource();
     Map<String, String> enumVariants = declaration.enumVariants();
     Optional<JavaAnnotationBinding> annotationBinding = declaration.annotation();
     String className = simpleName(exportedName);
@@ -188,110 +122,6 @@ public final class BindingSourceRenderer {
           text);
     }
     List<JavaBindingType> bounds = bounds(ownerTypeParameters, bindings);
-    List<JavaBindingType> signatureTypes = new ArrayList<>(bounds);
-    signatureTypes.addAll(interfaces);
-    declaration.superclass().ifPresent(signatureTypes::add);
-    if (signatureTypes.stream().anyMatch(JavaGenericParameterProjector::isComparable)) {
-      text.append("import std.core.Comparable\n");
-    }
-    if (interfaces.stream().anyMatch(BindingTypeNames::iterableRelation)) {
-      text.append("import std.core.Iterable\n");
-    }
-    if (bindings.stream().anyMatch(JavaBindingMembers::requiredProtocolBinding)) {
-      text.append("import std.core.Iterator\n");
-    }
-    if (signatureTypes.stream().anyMatch(JavaGenericParameterProjector::isException)
-        || bindings.stream().anyMatch(BindingTypeNames::containsException)) {
-      text.append("import std.core.Exception\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.UNIT))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.UNIT))) {
-      text.append("import std.core.Unit\n");
-    }
-    if (signatureTypes.stream().anyMatch(BindingTypeNames::containsPath)
-        || bindings.stream().anyMatch(BindingTypeNames::containsPath)) {
-      text.append("import std.filesystem.Path\n");
-    }
-    if (signatureTypes.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.URI))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.URI))) {
-      text.append("import std.http.Uri\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.DURATION))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.DURATION))) {
-      text.append("import std.time.Duration\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.INPUT_STREAM))
-        || bindings.stream()
-            .anyMatch(
-                callable -> containsReferenceKind(callable, JavaReferenceKind.INPUT_STREAM))) {
-      text.append("import std.io.InputStream\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.OUTPUT_STREAM))
-        || bindings.stream()
-            .anyMatch(
-                callable -> containsReferenceKind(callable, JavaReferenceKind.OUTPUT_STREAM))) {
-      text.append("import std.io.OutputStream\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.TASK))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.TASK))) {
-      text.append("import std.concurrent.Task\n");
-    }
-    if (interfaces.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.PUBLISHER))
-        || signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.PUBLISHER))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.PUBLISHER))) {
-      text.append("import std.concurrent.Publisher\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.COLLECTION))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.COLLECTION))) {
-      text.append("import std.collections.MutableCollection\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERABLE))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.ITERABLE))) {
-      text.append("import std.collections.IterableView\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.ITERATOR))
-        || bindings.stream()
-            .anyMatch(
-                callable ->
-                    !requiredProtocolBinding(callable)
-                        && containsReferenceKind(callable, JavaReferenceKind.ITERATOR))) {
-      text.append("import std.collections.IteratorView\n");
-    }
-    if (signatureTypes.stream()
-            .anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.LIST))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.LIST))) {
-      text.append("import std.collections.MutableList\n");
-    }
-    if (signatureTypes.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.SET))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.SET))) {
-      text.append("import std.collections.MutableSet\n");
-    }
-    if (signatureTypes.stream().anyMatch(type -> containsReferenceKind(type, JavaReferenceKind.MAP))
-        || bindings.stream()
-            .anyMatch(callable -> containsReferenceKind(callable, JavaReferenceKind.MAP))) {
-      text.append("import std.collections.MutableMap\n");
-    }
-    text.append("import std.io.ownResourceInContext\nimport std.io.closeHostResource\n");
-    if (resource) text.append("import std.io.Resource\n");
     Set<String> referencedTypes = new java.util.LinkedHashSet<>();
     bounds.forEach(type -> collectReferences(type, referencedTypes));
     bindings.forEach(callable -> collectReferences(callable, referencedTypes));
@@ -321,13 +151,7 @@ public final class BindingSourceRenderer {
       appendEnum(text, className, enumVariants.keySet());
     } else if (javaInterface) {
       appendInterface(
-          text,
-          className,
-          ownerTypeParameters,
-          declaration.members(),
-          interfaces,
-          resource,
-          sourceTypes);
+          text, className, ownerTypeParameters, declaration.members(), interfaces, sourceTypes);
     } else {
       appendClass(
           text,
@@ -336,7 +160,6 @@ public final class BindingSourceRenderer {
           declaration.members(),
           declaration.superclass(),
           interfaces,
-          resource,
           sourceTypes);
     }
     for (BindingPlan.Call function : declaration.functions()) {
@@ -383,29 +206,13 @@ public final class BindingSourceRenderer {
     policies.stream()
         .distinct()
         .forEach(policy -> text.append("import std.annotation.").append(policy).append('\n'));
-    if (binding.elements().stream().anyMatch(element -> containsException(element.type()))
-        || binding.elements().stream()
-            .map(JavaAnnotationElementBinding::defaultValue)
-            .flatMap(Optional::stream)
-            .anyMatch(
-                value ->
-                    value instanceof JavaAnnotationClassValue classValue
-                        && Set.of(
-                                "Ljava/lang/Throwable;",
-                                "Ljava/lang/Exception;",
-                                "Ljava/lang/RuntimeException;")
-                            .contains(classValue.descriptor()))) {
-      text.append("import std.core.Exception\n");
-    }
     Set<String> referencedTypes = new java.util.LinkedHashSet<>();
     binding
         .elements()
         .forEach(
             element -> {
               collectReferences(element.type(), referencedTypes);
-              element
-                  .defaultValue()
-                  .ifPresent(value -> collectAnnotationDefaultReferences(value, referencedTypes));
+              element.defaultValue().ifPresent(value -> collectReferences(value, referencedTypes));
             });
     BindingTypeNames sourceTypes =
         aliasReferenceImports(
@@ -463,19 +270,6 @@ public final class BindingSourceRenderer {
     return normType(type, normTypes, true);
   }
 
-  private static void collectAnnotationDefaultReferences(
-      JavaAnnotationValue value, Set<String> references) {
-    if (value instanceof JavaAnnotationArrayValue array) {
-      array.values().forEach(element -> collectAnnotationDefaultReferences(element, references));
-      return;
-    }
-    if (!(value instanceof JavaAnnotationClassValue classValue)) return;
-    String descriptor = classValue.descriptor();
-    if (descriptor.startsWith("L") && descriptor.endsWith(";")) {
-      references.add(descriptor.substring(1, descriptor.length() - 1).replace('/', '.'));
-    }
-  }
-
   private static String annotationDefaultLiteral(
       JavaAnnotationValue value, JavaBindingType expectedType, BindingTypeNames normTypes) {
     if (value instanceof JavaAnnotationArrayValue array) {
@@ -523,12 +317,10 @@ public final class BindingSourceRenderer {
             case "F" -> "Float";
             case "D" -> "Double";
             case "C" -> "CodePoint";
-            case "V", "Ljava/lang/Void;" -> "Void";
+            case "V" -> "Void";
             case "Ljava/lang/Object;" -> "Any";
             case "Ljava/lang/String;" -> "String";
             case "Ljava/lang/Number;" -> "Number";
-            case "Ljava/lang/Throwable;", "Ljava/lang/Exception;", "Ljava/lang/RuntimeException;" ->
-                "Exception";
             default -> {
               if (descriptor.startsWith("[")) {
                 yield normTypes.arrays().entrySet().stream()
@@ -734,13 +526,12 @@ public final class BindingSourceRenderer {
       List<BindingPlan.Call> members,
       Optional<JavaReferenceType> superclass,
       List<JavaReferenceType> interfaces,
-      boolean resource,
       BindingTypeNames normTypes) {
     text.append("class ").append(className);
     appendTypeParameters(text, ownerTypeParameters, normTypes);
     superclass.ifPresent(
         type -> text.append(" extends ").append(normRelationType(type, normTypes)));
-    appendRelations(text, " implements ", interfaces, resource, normTypes);
+    appendRelations(text, " implements ", interfaces, normTypes);
     text.append(" {\n");
     text.append("  ").append(className).append("(__JarBindingToken token) {\n");
     if (superclass.isPresent()) text.append("    super(token)\n");
@@ -749,7 +540,7 @@ public final class BindingSourceRenderer {
       JavaBindingCallable callable = member.callable();
       String memberName = member.name();
       String callId = member.id();
-      appendMethod(text, memberName, callId, callable, normTypes, resource);
+      appendMethod(text, memberName, callId, callable, normTypes);
     }
     text.append("}\n\n");
   }
@@ -760,17 +551,16 @@ public final class BindingSourceRenderer {
       List<JavaBindingTypeParameter> ownerTypeParameters,
       List<BindingPlan.Call> members,
       List<JavaReferenceType> interfaces,
-      boolean resource,
       BindingTypeNames normTypes) {
     text.append("interface ").append(interfaceName);
     appendTypeParameters(text, ownerTypeParameters, normTypes);
-    appendRelations(text, " extends ", interfaces, resource, normTypes);
+    appendRelations(text, " extends ", interfaces, normTypes);
     text.append(" {\n");
     for (BindingPlan.Call member : members) {
       JavaBindingCallable callable = member.callable();
       String memberName = member.name();
       String callId = member.id();
-      appendInterfaceMethod(text, memberName, callId, callable, normTypes, resource);
+      appendInterfaceMethod(text, memberName, callId, callable, normTypes);
     }
     text.append("}\n\n");
     String tokenName = interfaceName + "BindingToken";
@@ -796,11 +586,9 @@ public final class BindingSourceRenderer {
       StringBuilder text,
       String keyword,
       List<JavaReferenceType> interfaces,
-      boolean resource,
       BindingTypeNames normTypes) {
     List<String> relations = new ArrayList<>();
     interfaces.forEach(type -> relations.add(normRelationType(type, normTypes)));
-    if (resource) relations.add("Resource");
     if (!relations.isEmpty()) text.append(keyword).append(String.join(", ", relations));
   }
 
@@ -809,17 +597,14 @@ public final class BindingSourceRenderer {
       String memberName,
       String callId,
       JavaBindingCallable callable,
-      BindingTypeNames normTypes,
-      boolean resource) {
+      BindingTypeNames normTypes) {
     String returnType = normReturnType(callable, normTypes);
     text.append("  public ").append(returnType).append(' ').append(memberName);
     appendTypeParameters(text, callable.typeParameters(), normTypes);
     text.append('(');
     appendParameters(text, callable.parameters(), normTypes);
     text.append(") {\n    ");
-    if (resource && callable.name().equals("close") && callable.descriptor().equals("()V"))
-      text.append("closeHostResource(resource: this)\n");
-    else appendInvocation(text, callId, callable, normTypes, "this");
+    appendInvocation(text, callId, callable, normTypes, "this");
     text.append("  }\n\n");
   }
 
@@ -828,17 +613,14 @@ public final class BindingSourceRenderer {
       String memberName,
       String callId,
       JavaBindingCallable callable,
-      BindingTypeNames normTypes,
-      boolean resource) {
+      BindingTypeNames normTypes) {
     String returnType = normReturnType(callable, normTypes);
     text.append("  ").append(returnType).append(' ').append(memberName);
     appendTypeParameters(text, callable.typeParameters(), normTypes);
     text.append('(');
     appendParameters(text, callable.parameters(), normTypes);
     text.append(") {\n    ");
-    if (resource && callable.name().equals("close") && callable.descriptor().equals("()V"))
-      text.append("closeHostResource(resource: this)\n");
-    else appendInvocation(text, callId, callable, normTypes, "this");
+    appendInvocation(text, callId, callable, normTypes, "this");
     text.append("  }\n\n");
   }
 
@@ -884,18 +666,10 @@ public final class BindingSourceRenderer {
       String receiver,
       List<String> arguments) {
     int arity = callable.parameters().size() + (receiver == null ? 0 : 1);
-    boolean trackOwnership =
-        callable.ownership() == JavaResourceOwnership.OWNED
-            && (callable.returnType() instanceof JavaBindingTypeVariable
-                || callable.returnType() instanceof JavaReferenceType reference
-                    && (reference.kind() == JavaReferenceKind.RESOURCE
-                        || reference.kind() == JavaReferenceKind.INPUT_STREAM
-                        || reference.kind() == JavaReferenceKind.OUTPUT_STREAM));
     boolean returnsVoid = callable.returnType() == JavaPrimitiveType.VOID;
     if (!returnsVoid) {
       text.append("return ");
     }
-    if (trackOwnership) text.append("ownResourceInContext(");
     text.append("__jarInvoke");
     if (returnsVoid) {
       text.append("Void");
@@ -915,7 +689,6 @@ public final class BindingSourceRenderer {
       argument++;
     }
     text.append(')');
-    if (trackOwnership) text.append(')');
     text.append('\n');
   }
 

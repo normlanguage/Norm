@@ -9,7 +9,7 @@ value Server {
   Integer port
 }
 
-MutableMap<String?, Any?> properties = configurationProperties(
+JavaMap<String, Any?> properties = configurationProperties(
   value: Server(contextPath: "/api", port: 8080)
 )
 ```

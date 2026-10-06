@@ -17,7 +17,9 @@ import org.junit.jupiter.api.Test;
 final class BidirectionalInferenceCompilerTest {
   @Test
   void preservesDeclaredGenericElementTypesForEmptyCollectionLiterals() {
-    var result = compile("""
+    var result =
+        compile(
+            """
         List<T> empty<T>() { return [] }
         List<List<T?>> nested<T>() { return [] }
         Array<T> emptyArray<T>() { return [] }
@@ -29,6 +31,7 @@ final class BidirectionalInferenceCompilerTest {
         """);
     assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
   }
+
   @Test
   void infersDependentBoundsAcrossArgumentsAndArrayElements() {
     var result =

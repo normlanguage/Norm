@@ -22,6 +22,63 @@ public final class CoreReachability {
     return java.util.Collections.unmodifiableSet(intrinsics);
   }
 
+  public static Set<dev.w0fv1.norm.abi.IntrinsicId> intrinsics(CoreDefinition definition) {
+    var result = java.util.EnumSet.noneOf(dev.w0fv1.norm.abi.IntrinsicId.class);
+    new CoreWalker() {
+      @Override
+      protected void visitIntrinsic(dev.w0fv1.norm.abi.IntrinsicId intrinsic) {
+        result.add(intrinsic);
+      }
+    }.walkExecution(definition);
+    return java.util.Collections.unmodifiableSet(result);
+  }
+
+  public record CallArgumentType(CoreType type, Set<Integer> callerParameters) {
+    public CallArgumentType {
+      callerParameters = Set.copyOf(callerParameters);
+    }
+  }
+
+  public static Map<DefinitionId, java.util.List<CallArgumentType>> callArgumentTypes(
+      CoreProgram program, Map<DefinitionId, Set<Integer>> calleeParameters) {
+    Map<DefinitionId, java.util.List<CallArgumentType>> result = new LinkedHashMap<>();
+    for (var record : program.definitions()) {
+      var types = new java.util.ArrayList<CallArgumentType>();
+      new CoreWalker() {
+        @Override
+        protected void visitExpression(CoreExpression expression) {
+          CoreDefinitionLink target;
+          java.util.List<CoreArgument> arguments;
+          if (expression instanceof CoreExpression.Call call) {
+            target = call.target();
+            arguments = call.arguments();
+          } else if (expression instanceof CoreExpression.InterfaceCall call) {
+            target = call.requirement();
+            arguments = call.arguments();
+          } else return;
+          if (!(target instanceof DefinitionReference reference)) return;
+          var selected = calleeParameters.get(program.resolve(record.id(), reference));
+          if (selected == null) return;
+          for (var argument : arguments) {
+            if (!selected.contains(argument.parameterIndex())) continue;
+            var origins = new HashSet<Integer>();
+            if (record.definition() instanceof CoreDefinition.Callable callable) {
+              for (int index = 0; index < callable.parameters().size(); index++) {
+                if (callable.parameters().get(index).type().equals(argument.value().type()))
+                  origins.add(index);
+              }
+            }
+            types.add(
+                new CallArgumentType(
+                    CoreTypes.absolute(argument.value().type(), record.id(), program), origins));
+          }
+        }
+      }.walkExecution(record.definition());
+      if (!types.isEmpty()) result.put(record.id(), java.util.List.copyOf(types));
+    }
+    return Map.copyOf(result);
+  }
+
   public enum RetentionKind {
     APPLICATION_ENTRY,
     HOST_ENTRY,

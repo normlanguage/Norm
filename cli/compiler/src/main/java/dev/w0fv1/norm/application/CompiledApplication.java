@@ -9,6 +9,7 @@ import dev.w0fv1.norm.jvm.JavaAnnotationProcessingOutput;
 import dev.w0fv1.norm.jvm.JavaApplicationMethodIndex;
 import dev.w0fv1.norm.jvm.JavaApplicationTypeName;
 import dev.w0fv1.norm.jvm.JvmJarBindingRuntime;
+import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.project.ProjectSourceSet;
 import java.io.IOException;
 import java.util.List;
@@ -20,6 +21,7 @@ public final class CompiledApplication implements AutoCloseable {
   private final JavaAnnotationProcessingOutput annotationOutput;
   private final JarBindingClasspath.Lease javaClasspath;
   private final TemporaryDirectory workspace;
+  private final List<ResolvedJarBinding> javaBindings;
   private boolean closed;
 
   public CompiledApplication(
@@ -27,7 +29,8 @@ public final class CompiledApplication implements AutoCloseable {
       CompilationResult result,
       JavaAnnotationProcessingOutput annotationOutput,
       JarBindingClasspath.Lease javaClasspath,
-      TemporaryDirectory workspace) {
+      TemporaryDirectory workspace,
+      List<ResolvedJarBinding> javaBindings) {
     this.input = Objects.requireNonNull(input, "input");
     this.result = Objects.requireNonNull(result, "result");
     if (!result.isSuccess())
@@ -35,6 +38,7 @@ public final class CompiledApplication implements AutoCloseable {
     this.annotationOutput = Objects.requireNonNull(annotationOutput, "annotationOutput");
     this.javaClasspath = Objects.requireNonNull(javaClasspath, "javaClasspath");
     this.workspace = Objects.requireNonNull(workspace, "workspace");
+    this.javaBindings = List.copyOf(javaBindings);
   }
 
   public ApplicationInput input() {
@@ -57,6 +61,10 @@ public final class CompiledApplication implements AutoCloseable {
     return javaClasspath.classpath();
   }
 
+  public List<ResolvedJarBinding> javaBindings() {
+    return javaBindings;
+  }
+
   public JavaApplicationMethodIndex.Analysis methods() {
     return annotationOutput.methods();
   }
@@ -69,9 +77,7 @@ public final class CompiledApplication implements AutoCloseable {
   public JvmJarBindingRuntime openRuntime() throws IOException {
     if (closed) throw new IllegalStateException("application is closed");
     return new JvmJarBindingRuntime(
-        input.project().map(ProjectSourceSet::jarBindings).orElse(List.of()),
-        javaClasspath(),
-        List.of(annotationOutput.classes()));
+        javaBindings, javaClasspath(), List.of(annotationOutput.classes()));
   }
 
   public ExecutionContext context(ExecutionContext context) {

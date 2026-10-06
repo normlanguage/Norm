@@ -37,7 +37,7 @@ final class NativeApplicationProgramTest {
             JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
             "sample",
             LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
-            Map.of());
+            dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY);
     for (int attempt = 0; attempt < 2; attempt++) {
       var output = new StringWriter();
       program.execute(List.of(), new PrintWriter(output), java.nio.file.Path.of("."));
@@ -58,7 +58,7 @@ final class NativeApplicationProgramTest {
             JvmJarBindingRuntime.prepareCalls(Map.of(), Map.of()),
             "sample",
             LinkedJavaClasses.resolve(List.of(), getClass().getClassLoader()),
-            Map.of());
+            dev.w0fv1.norm.execution.JavaApplicationLinkage.EMPTY);
     var failure =
         assertThrows(
             NormExecutionException.class,

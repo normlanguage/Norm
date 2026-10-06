@@ -25,10 +25,6 @@ final class ConfigurationRuntime {
     return properties;
   }
 
-  synchronized int cachedPlanCount() {
-    return plans.size();
-  }
-
   private void write(
       SerializationRuntime.Shape source,
       Object value,

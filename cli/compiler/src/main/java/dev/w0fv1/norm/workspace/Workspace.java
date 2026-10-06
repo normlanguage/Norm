@@ -8,12 +8,14 @@ import dev.w0fv1.norm.frontend.CompilationLimits;
 import dev.w0fv1.norm.frontend.CompilationSnapshot;
 import dev.w0fv1.norm.language.LanguageService;
 import dev.w0fv1.norm.project.ProjectEnvironment;
+import dev.w0fv1.norm.project.ProjectInputSnapshot;
 import dev.w0fv1.norm.project.ProjectLoader;
 import dev.w0fv1.norm.semantic.AnalysisResult;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.source.SourceSpan;
 import dev.w0fv1.norm.value.CompilationRequest;
+import dev.w0fv1.norm.value.InputWatch;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +45,7 @@ public final class Workspace implements AutoCloseable {
   private final Set<String> changed = new LinkedHashSet<>();
   private volatile Map<String, WorkspaceDocument> documents = Map.of();
   private volatile Consumer<Diagnostics> listener = ignored -> {};
+  private volatile Consumer<List<InputWatch>> inputListener = ignored -> {};
   private long revision;
   private boolean closed;
 
@@ -57,6 +60,21 @@ public final class Workspace implements AutoCloseable {
 
   public void onDiagnostics(Consumer<Diagnostics> listener) {
     this.listener = java.util.Objects.requireNonNull(listener, "listener");
+  }
+
+  public void onInputs(Consumer<List<InputWatch>> listener) {
+    inputListener = java.util.Objects.requireNonNull(listener, "listener");
+    listener.accept(watches());
+  }
+
+  public List<InputWatch> watches() {
+    return documents.values().stream()
+        .flatMap(document -> document.inputs().watches().stream())
+        .distinct()
+        .sorted(
+            java.util.Comparator.comparing((InputWatch watch) -> watch.root().toString())
+                .thenComparing(InputWatch::pattern))
+        .toList();
   }
 
   public void update(String uri, int version, String text) {
@@ -101,6 +119,7 @@ public final class Workspace implements AutoCloseable {
       var next = new LinkedHashMap<>(documents);
       next.remove(previous.uri());
       documents = Map.copyOf(next);
+      publishInputs();
       ++revision;
       changed.add(uri);
       publish(
@@ -166,12 +185,10 @@ public final class Workspace implements AutoCloseable {
             Path root = roots.get(key);
             boolean invalidated =
                 members.keySet().stream().anyMatch(dirty::contains)
-                    || paths.stream().anyMatch(path -> root != null && path.startsWith(root))
                     || members.keySet().stream()
                         .map(documents::get)
                         .filter(java.util.Objects::nonNull)
-                        .anyMatch(
-                            document -> document.sourcePaths().stream().anyMatch(paths::contains));
+                        .anyMatch(document -> paths.stream().anyMatch(document.inputs()::affects));
             if (previous != null && previous.members.equals(members) && !invalidated) return;
             var batch = new Batch(key, root, Map.copyOf(members), Map.copyOf(overlays));
             requests.put(key, batch);
@@ -191,7 +208,7 @@ public final class Workspace implements AutoCloseable {
       Optional<DocumentId> virtual = VirtualDocumentUri.decode(document.uri());
       CompilationSnapshot snapshot;
       AnalysisResult analysis;
-      Set<Path> inputs = Set.of();
+      ProjectInputSnapshot inputs = ProjectInputSnapshot.empty();
       Path root = batch.root;
       if (virtual.isPresent()) {
         snapshot =
@@ -211,12 +228,12 @@ public final class Workspace implements AutoCloseable {
       } else {
         Path path = ProjectSession.normalize(source.path());
         if (dev.w0fv1.norm.project.ModuleSourceFiles.isModuleSource(source)) {
-          snapshot = projects.analyzeModule(source);
+          snapshot = projects.analyzeModule(source, control);
           analysis = snapshot.analysis(source.id());
-          inputs = Set.of(path);
+          inputs = ProjectInputSnapshot.sources(List.of(source));
           if (!analysis.hasErrors()) {
             try {
-              projects.evaluateModule(source);
+              projects.evaluateModule(source, control);
             } catch (java.io.IOException exception) {
               var diagnostics = new ArrayList<>(analysis.diagnostics());
               diagnostics.add(
@@ -275,6 +292,7 @@ public final class Workspace implements AutoCloseable {
       var next = new LinkedHashMap<>(documents);
       next.putAll(result);
       documents = Map.copyOf(next);
+      publishInputs();
       for (var document : result.values()) {
         var diagnostics =
             document.analysis().diagnostics().stream()
@@ -288,6 +306,17 @@ public final class Workspace implements AutoCloseable {
                         .allMatch(entry -> open.get(entry.getKey()) == entry.getValue()));
       }
     }
+  }
+
+  private void publishInputs() {
+    var current = watches();
+    publications.execute(
+        () -> {
+          synchronized (gate) {
+            if (closed || !current.equals(watches())) return;
+          }
+          inputListener.accept(current);
+        });
   }
 
   private void publish(Diagnostics diagnostics, java.util.function.BooleanSupplier current) {

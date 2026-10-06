@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Test;
 final class ConfigurationRuntimeTest {
   @Test
   void mapsTypedConfigurationValuesToFlatHostProperties() {
-    var checked =
-        compile(
-                """
-                import std.collections.MutableMap
+    String output =
+        dev.w0fv1.norm.testing.NormTestKit.run(
+            """
+                import java.base.util.JavaMap
                 import std.configuration.ConfigurationKey
                 import std.configuration.ConfigurationValue
                 import std.configuration.configurationProperties
@@ -58,7 +58,7 @@ final class ConfigurationRuntimeTest {
                 value Config { Host sample }
 
                 Void main() {
-                  MutableMap<String?, Any?> properties = configurationProperties(value: Config(
+                  JavaMap<String, Any?> properties = configurationProperties(value: Config(
                     sample: Host(
                       server: Server(host: "127.0.0.1", port: 8080),
                       router: Router(staticResources: [
@@ -79,33 +79,27 @@ final class ConfigurationRuntimeTest {
                       )
                     )
                   ))
-                  printLine(properties.get(key: "sample.server.host") ?? "missing")
-                  printLine(properties.get(key: "sample.server.port") ?? -1)
+                  printLine(properties.get(arg0: "sample.server.host") ?? "missing")
+                  printLine(properties.get(arg0: "sample.server.port") ?? -1)
                   printLine(properties.get(
-                    key: "sample.router.static-resources.bbs.mapping"
+                    arg0: "sample.router.static-resources.bbs.mapping"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "sample.router.static-resources.bbs.paths[0]"
+                    arg0: "sample.router.static-resources.bbs.paths[0]"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "sample.router.static-resources.bbs.paths[1]"
+                    arg0: "sample.router.static-resources.bbs.paths[1]"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "sample.security.intercept-url-map[0].pattern"
+                    arg0: "sample.security.intercept-url-map[0].pattern"
                   ) ?? "missing")
                   printLine(properties.get(
-                    key: "sample.security.intercept-url-map[0].access[0]"
+                    arg0: "sample.security.intercept-url-map[0].access[0]"
                   ) ?? "missing")
-                  printLine(properties.containsKey(key: "sample.security.token"))
+                  printLine(properties.containsKey(arg0: "sample.security.token"))
                   printLine(properties.size())
                 }
-                """)
-            .output()
-            .orElseThrow();
-    ExecutableProgram executable = new Lowerer(null).lower(checked.artifact());
-    StringWriter output = new StringWriter();
-
-    executable.execute(ExecutionContext.of(new PrintWriter(output)));
+                """);
 
     assertEquals(
         String.join(
@@ -120,8 +114,7 @@ final class ConfigurationRuntimeTest {
                 "false",
                 "7")
             + System.lineSeparator(),
-        output.toString());
-    assertEquals(8, executable.annotations().configuration().cachedPlanCount());
+        output);
   }
 
   @Test

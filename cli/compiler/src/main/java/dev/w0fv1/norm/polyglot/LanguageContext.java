@@ -19,11 +19,17 @@ final class LanguageContext {
   private final java.util.Map<ApplicationInput, CompiledApplication> applications =
       new java.util.LinkedHashMap<>();
   private final ProjectLoader projects;
+  private final dev.w0fv1.norm.project.ProjectEnvironment projectEnvironment;
   private boolean closed;
 
   LanguageContext(
-      TruffleLanguage.Env environment, CompilerSession compiler, ProjectLoader projects) {
-    this.compiler = new ApplicationCompiler(compiler);
+      TruffleLanguage.Env environment,
+      CompilerSession compiler,
+      ProjectLoader projects,
+      dev.w0fv1.norm.project.ProjectEnvironment projectEnvironment) {
+    this.projectEnvironment =
+        java.util.Objects.requireNonNull(projectEnvironment, "projectEnvironment");
+    this.compiler = new ApplicationCompiler(compiler, projects.javaBindings());
     this.projects = java.util.Objects.requireNonNull(projects, "projects");
     var builder =
         ExecutionContext.builder()
@@ -83,7 +89,15 @@ final class LanguageContext {
       try {
         compiler.close();
       } finally {
-        projects.close();
+        try {
+          projects.close();
+        } finally {
+          try {
+            projectEnvironment.close();
+          } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+          }
+        }
       }
     }
     if (failure != null) throw failure;

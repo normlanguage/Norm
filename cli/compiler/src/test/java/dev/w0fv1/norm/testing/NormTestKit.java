@@ -59,9 +59,14 @@ public final class NormTestKit {
     assertTrue(compilation.isSuccess(), () -> compilation.diagnostics().toString());
 
     StringWriter output = new StringWriter();
-    RUNTIME.run(
-        compilation.output().orElseThrow().artifact(),
-        ExecutionContext.of(new PrintWriter(output), platform));
+    var bindings = ENVIRONMENT.javaBindings();
+    try (var runtime =
+        new dev.w0fv1.norm.jvm.JvmJarBindingRuntime(
+            bindings, dev.w0fv1.norm.jvm.JarBindingClasspath.prepare(bindings), List.of())) {
+      RUNTIME.run(
+          compilation.output().orElseThrow().artifact(),
+          ExecutionContext.of(new PrintWriter(output), platform).withJarBindingRuntime(runtime));
+    }
     return output.toString();
   }
 
@@ -120,7 +125,7 @@ public final class NormTestKit {
         }
         List<Path> entryPoints = new ArrayList<>();
         for (Path source : sourceCandidates) {
-          var sourceSet = projects.load(source);
+          var sourceSet = projects.load(source).sources();
           if (!sourceSet.modulePaths().contains(module.toAbsolutePath().normalize())) continue;
           CompilationRequest request = sourceSet.compilationRequest();
           var snapshot = compiler.snapshot(request);
