@@ -20,6 +20,24 @@ final class ProjectLoadFailureInputsTest {
   @TempDir Path temporaryDirectory;
 
   @Test
+  void retainsCompilationDiagnosticsAndInputsWhenModuleEvaluationFails() throws Exception {
+    Path module =
+        Files.writeString(
+            temporaryDirectory.resolve("module.norm"), "Module module() { return missing }");
+    Path entry = Files.writeString(temporaryDirectory.resolve("Main.norm"), "Void main() {}");
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var projects = environment.projectLoader(temporaryDirectory.resolve("cache"))) {
+      var failure = assertThrows(ModuleCompilationException.class, () -> projects.load(entry));
+      assertTrue(
+          failure.diagnostics().stream()
+              .anyMatch(diagnostic -> diagnostic.primarySpan().source().path().equals(module)));
+      var loading = assertInstanceOf(ProjectLoadException.class, failure);
+      assertTrue(loading.inputs().affects(module));
+      assertTrue(loading.inputs().affects(entry));
+    }
+  }
+
+  @Test
   void retainsAllReadInputsWhenDependencySupportedBindingProjectionFails() throws Exception {
     Path provider = Files.createDirectories(temporaryDirectory.resolve("dependencies/provider"));
     var dependencyBox = new ClassWriter(0);

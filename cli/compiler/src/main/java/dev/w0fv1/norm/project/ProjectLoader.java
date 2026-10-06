@@ -205,6 +205,8 @@ public final class ProjectLoader implements AutoCloseable {
     try {
       return context.finish(operation.load(loading(context)));
     } catch (IOException | IllegalArgumentException exception) {
+      if (exception instanceof ProjectLoadException loading)
+        throw loading.withInputs(context.inputs().snapshot());
       throw new ProjectLoadException(exception, context.inputs().snapshot());
     }
   }
