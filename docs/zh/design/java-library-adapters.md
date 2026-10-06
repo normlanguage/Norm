@@ -226,6 +226,6 @@ JPA 的 `jakarta.persistence.Id` 与 `jakarta.persistence.EmbeddedId` 映射为 
 
 ## 宿主资源所有权
 
-`jarType(..., borrowed: ["child"])` 声明接收者拥有的引用 getter。构造器与未标记资源返回只为首次出现的宿主身份建立执行域所有者；别名保留已有所有者。借用视图持有接收者，不允许自行关闭或转移资源。`ResourceOwner` 上下文内创建的 owned 资源只登记一次，显式关闭释放登记，并在所有别名上保留首次关闭失败。
+`jarType(..., borrowed: ["child"])` 声明接收者拥有的引用 getter。构造器与未标记资源返回只为首次出现的宿主身份建立执行域所有者；别名保留已有所有者。借用视图持有接收者，不允许自行关闭或转移资源。通过 `std.io` 的 `ownResourceInContext(value)` 将 owned Java 资源登记到当前 `ResourceOwner`。这种组合保留 Java 值及其唯一生命周期，Java 绑定不依赖标准库所有者协议。显式关闭释放登记，并在所有别名上保留首次关闭失败。
 
 声明见 [module.norm](../../../cli/compiler/src/main/resources/bootstrap/module.norm)，所有者 API 见 [ownership.norm](../../../norm/stdlib/std/io/ownership.norm)。[HostResourceOwnershipTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/HostResourceOwnershipTest.java) 覆盖源码与打包适配器；[PublishedOwnershipContractTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PublishedOwnershipContractTest.java) 验证发布制品的所有权契约。[PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义支持的制品 ABI。

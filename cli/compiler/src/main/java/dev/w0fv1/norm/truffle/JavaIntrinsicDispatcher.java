@@ -32,7 +32,20 @@ final class JavaIntrinsicDispatcher {
                       .toList();
               JarBindingResult result;
               try {
-                result = invokeJar(context, (String) first, jarArguments, execution, location);
+                if (second instanceof RuntimeValues.OpaqueResource resource
+                    && context.jarBindingRuntime().closesResource((String) first)) {
+                  try {
+                    resource.resource.close();
+                  } catch (ResourceCloseException failure) {
+                    throw new JarBindingInvocationException(
+                        "Java resource close failed", failure.getCause());
+                  } catch (IllegalStateException failure) {
+                    throw new JarBindingInvocationException("Java resource close failed", failure);
+                  }
+                  result = JarBindingResult.ResourceClosed.INSTANCE;
+                } else {
+                  result = invokeJar(context, (String) first, jarArguments, execution, location);
+                }
               } finally {
                 synchronizeJarArguments(context, jarArguments);
               }

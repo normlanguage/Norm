@@ -255,6 +255,15 @@ public final class JvmJarBindingRuntime
   }
 
   @Override
+  public boolean closesResource(String callId) {
+    if (applicationLoader == null)
+      throw new JarBindingRuntimeException("JAR binding runtime is closed");
+    BoundCall call = calls.get(callId);
+    if (call == null) throw new JarBindingRuntimeException("Unknown JAR binding call: " + callId);
+    return call.callable().closesResource();
+  }
+
+  @Override
   public JarBindingResult referenceResult(Object value) {
     if (applicationLoader == null)
       throw new JarBindingRuntimeException("JAR binding runtime is closed");

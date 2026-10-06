@@ -2,6 +2,7 @@ package std.io
 
 import std.annotation.Document
 import std.context.currentContext
+import java.base.lang.AutoCloseable
 
 @Document(description: "Tracks resources and executes actions under their owning scope.")
 public interface ResourceOwner {
@@ -18,11 +19,28 @@ public Void ownResource(@Document(description: "The owner receiving the resource
   __transferResourceOwnership(resource: resource, accept: () { owner.own(resource) }, release: () { owner.release(resource) })
 }
 
+private class JavaResource implements Resource {
+  AutoCloseable hosted
+  public Void close() { __closeResource(hosted) }
+}
+
+@Document(description: "Transfers a Java resource through its canonical lifetime record.")
+public Void ownResource(@Document(description: "The owner receiving the resource.") ResourceOwner owner,
+  @Document(description: "The Java resource to transfer.") AutoCloseable resource) {
+  var adapter = JavaResource(hosted: resource)
+  __transferResourceOwnership(resource: resource, accept: () { owner.own(adapter) },
+    release: () { owner.release(adapter) })
+}
+
 @Document(description: "Registers owned host resources with the current owner while preserving the input type.")
 public T ownResourceInContext<T>(@Document(description: "The value whose owned host resource joins the current scope.") T value) {
-  Any candidate = value
+  Any? candidate = value
   switch candidate {
     case Resource resource {
+      var owner = currentContext<ResourceOwner>()
+      if owner != null { ownResource(owner: owner, resource: resource) }
+    }
+    case AutoCloseable resource {
       var owner = currentContext<ResourceOwner>()
       if owner != null { ownResource(owner: owner, resource: resource) }
     }
