@@ -393,4 +393,38 @@ final class JvmJarBindingTaskTest {
       task.close();
     }
   }
+
+  @Test
+  void javaCompletionCancellationWithoutInterruptionLetsRunningCleanupFinish() throws Exception {
+    var entered = new java.util.concurrent.CountDownLatch(1);
+    var release = new java.util.concurrent.CountDownLatch(1);
+    var cleaned = new java.util.concurrent.CountDownLatch(1);
+    var interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+    var task =
+        FutureBindingTask.start(
+            () -> {
+              entered.countDown();
+              try {
+                release.await();
+              } catch (InterruptedException failure) {
+                interrupted.set(true);
+              } finally {
+                cleaned.countDown();
+              }
+              return "finished";
+            },
+            JarBindingResult.Scalar::new);
+    try {
+      var future = task.completionFuture();
+      assertTrue(entered.await(5, TimeUnit.SECONDS));
+      assertTrue(future.cancel(false));
+      release.countDown();
+      assertTrue(cleaned.await(5, TimeUnit.SECONDS));
+      assertFalse(interrupted.get());
+      assertTrue(future.isCancelled());
+    } finally {
+      release.countDown();
+      task.close();
+    }
+  }
 }

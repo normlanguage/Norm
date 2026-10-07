@@ -14,7 +14,7 @@ public interface JarBindingTask extends AutoCloseable {
           @Override
           public boolean cancel(boolean mayInterruptIfRunning) {
             if (isDone()) return isCancelled();
-            return task.cancel() && super.cancel(mayInterruptIfRunning);
+            return task.cancel(mayInterruptIfRunning) && super.cancel(mayInterruptIfRunning);
           }
         };
     completion()
@@ -33,7 +33,11 @@ public interface JarBindingTask extends AutoCloseable {
 
   JarBindingResult await();
 
-  boolean cancel();
+  default boolean cancel() {
+    return cancel(true);
+  }
+
+  boolean cancel(boolean mayInterruptIfRunning);
 
   boolean completed();
 
