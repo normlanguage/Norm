@@ -447,7 +447,7 @@ public final class CompilerSession implements AutoCloseable {
               .map(preludeScope::coordinate)
               .map(ModuleSourceCoordinate::module)
               .collect(java.util.stream.Collectors.toSet());
-      sourceScope = sourceScope.withReads(sourceModules, preludeExports);
+      sourceScope = sourceScope.withReads(request.scope().modules().modules(), preludeExports);
     }
     for (ParsedDocument document : parsed) {
       if (document.source().id().equals(request.entryDocument())) entryProgram = document.syntax();
