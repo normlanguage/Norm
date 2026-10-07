@@ -20,7 +20,16 @@ final class CrossModuleJarBindingTest {
   @TempDir Path directory;
 
   @ParameterizedTest
-  @ValueSource(strings = {"direct", "transitive", "diamond", "bundled"})
+  @ValueSource(
+      strings = {
+        "direct",
+        "transitive",
+        "diamond",
+        "bundled",
+        "owner-added",
+        "owner-missing",
+        "owner-changed"
+      })
   void sharesPublicJavaTypesInSourceAndPackagedModules(String dependencyShape) throws Exception {
     var repository = directory.resolve("repository");
     var javaSources = Files.createDirectories(directory.resolve("java/sample"));
@@ -37,6 +46,8 @@ final class CrossModuleJarBindingTest {
         }
         """);
     Files.writeString(
+        javaSources.resolve("Extra.java"), "package sample; public final class Extra {}");
+    Files.writeString(
         javaSources.resolve("Host.java"),
         """
         package sample;
@@ -45,7 +56,10 @@ final class CrossModuleJarBindingTest {
         }
         class Hidden<T> extends Node<T> {}
         """
-            .formatted(dependencyShape.equals("direct") ? "Node" : "Hidden"));
+            .formatted(
+                (dependencyShape.equals("direct") || dependencyShape.startsWith("owner-"))
+                    ? "Node"
+                    : "Hidden"));
     assertEquals(
         0,
         ToolProvider.getSystemJavaCompiler()
@@ -56,6 +70,7 @@ final class CrossModuleJarBindingTest {
                 "-d",
                 classes.toString(),
                 javaSources.resolve("Node.java").toString(),
+                javaSources.resolve("Extra.java").toString(),
                 javaSources.resolve("Host.java").toString()));
     for (var name : java.util.List.of("Node", "Host")) {
       var artifact =
@@ -66,6 +81,11 @@ final class CrossModuleJarBindingTest {
         jar.putNextEntry(new JarEntry("sample/" + name + ".class"));
         jar.write(Files.readAllBytes(classes.resolve("sample/" + name + ".class")));
         jar.closeEntry();
+        if (name.equals("Node")) {
+          jar.putNextEntry(new JarEntry("sample/Extra.class"));
+          jar.write(Files.readAllBytes(classes.resolve("sample/Extra.class")));
+          jar.closeEntry();
+        }
         if (name.equals("Host")) {
           jar.putNextEntry(new JarEntry("sample/Hidden.class"));
           jar.write(Files.readAllBytes(classes.resolve("sample/Hidden.class")));
@@ -89,7 +109,7 @@ final class CrossModuleJarBindingTest {
     var host = Files.createDirectories(root.resolve("dependencies/host"));
     var forwardingModules = new java.util.ArrayList<Path>();
     String hostDependencies = "dependency(repository: \"github\", name: \"widgets\", version: 1)";
-    if (!dependencyShape.equals("direct")) {
+    if (!dependencyShape.equals("direct") && !dependencyShape.startsWith("owner-")) {
       var forwardingCount = dependencyShape.equals("diamond") ? 2 : 1;
       var forwarded = new java.util.ArrayList<String>();
       for (int index = 0; index < forwardingCount; index++) {
@@ -201,6 +221,49 @@ final class CrossModuleJarBindingTest {
         packager.packageModule(forwarding.resolve("module.norm"), repository);
       }
       hostArchive = packager.packageModule(host.resolve("module.norm"), repository).archive();
+    }
+    if (dependencyShape.startsWith("owner-")) {
+      java.util.Map<String, dev.w0fv1.norm.execution.JarBindingClassReference.Nominal>
+          publishedImports;
+      var hostCoordinate = new dev.w0fv1.norm.value.ModuleCoordinate("host", 1);
+      try (var projects = environment.projectLoader(repository)) {
+        publishedImports =
+            projects.load(entry).sources().moduleJarBindings().get(hostCoordinate).imports();
+      }
+      var publishedDigest = dev.w0fv1.norm.value.Sha256Digest.compute(hostArchive);
+      Files.move(host, root.resolve("packaged-host"));
+      var descriptor = widgets.resolve("module.norm");
+      String source = Files.readString(descriptor);
+      if (dependencyShape.equals("owner-added")) {
+        source =
+            source
+                .replace(
+                    "exports: [\"Widget\", \"JavaArrays\"]",
+                    "exports: [\"Widget\", \"JavaArrays\", \"Extra\"]")
+                .replace(
+                    "members: [\"new\", \"text\", \"words\"])",
+                    "members: [\"new\", \"text\", \"words\"]), jarType(name: \"sample.Extra\", alias: \"Extra\", members: [\"new\"])");
+      } else if (dependencyShape.equals("owner-missing")) {
+        source =
+            source.replace("exports: [\"Widget\", \"JavaArrays\"]", "exports: [\"JavaArrays\"]");
+      } else {
+        source = source.replace("\"Widget\"", "\"ChangedWidget\"");
+      }
+      Files.writeString(descriptor, source);
+      try (var projects = environment.projectLoader(repository)) {
+        if (dependencyShape.equals("owner-added")) {
+          var loaded = projects.load(entry).sources();
+          assertEquals(publishedImports, loaded.moduleJarBindings().get(hostCoordinate).imports());
+          assertEquals(publishedDigest, dev.w0fv1.norm.value.Sha256Digest.compute(hostArchive));
+        } else {
+          var failure =
+              assertThrows(java.io.IOException.class, () -> projects.load(entry).sources());
+          assertTrue(
+              failure.getMessage().contains("published Java binding type owners"),
+              failure.getMessage());
+        }
+      }
+      return;
     }
     Files.move(widgets, root.resolve("packaged-widgets"));
     try (var projects = environment.projectLoader(repository)) {

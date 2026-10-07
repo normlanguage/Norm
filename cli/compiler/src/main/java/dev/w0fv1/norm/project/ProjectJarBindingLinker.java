@@ -37,7 +37,8 @@ final class ProjectJarBindingLinker {
     var descriptor = module.descriptor();
     var api = descriptor.binding().orElseThrow().api();
     var generated = previous.generated();
-    if (module.archive().isPresent() && !previous.imports().equals(imports))
+    if (module.archive().isPresent()
+        && !imports.entrySet().containsAll(previous.imports().entrySet()))
       throw new IOException("published Java binding type owners do not match its dependencies");
     if (module.archive().isEmpty() && !imports.isEmpty()) {
       var surface =
@@ -59,7 +60,12 @@ final class ProjectJarBindingLinker {
               .generateSurface(
                   descriptor.coordinate(), api, previous.graph().contentId(), surface, imports);
     }
-    var binding = new ResolvedJarBinding(previous.graph(), previous.api(), generated, imports);
+    var binding =
+        new ResolvedJarBinding(
+            previous.graph(),
+            previous.api(),
+            generated,
+            module.archive().isPresent() ? previous.imports() : imports);
     if (!module.archivedJavaExports().isEmpty()
         && !module
             .archivedJavaExports()
