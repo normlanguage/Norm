@@ -5,7 +5,9 @@ import java.base.util.concurrent.CompletableFuture
 import java.base.lang.JavaVoid
 
 @Document(description: "Projects task completion into a Java future without a result; cancellation propagates in both directions and failure retains its cause.")
-public CompletableFuture<JavaVoid> completionFuture<T>(Task<T> task) {
+public CompletableFuture<JavaVoid> completionFuture<T>(
+  @Document(description: "The task whose completion is projected to the Java future.") Task<T> task
+) {
   __taskJavaCompletion<CompletableFuture<JavaVoid>>(task: task)
 }
 

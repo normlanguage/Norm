@@ -650,5 +650,7 @@
   "Writes and flushes standard output without adding a newline.": "写入并刷新标准输出，不添加换行符。",
   "Writes bytes and reports how many values were accepted.": "写入字节，并报告接受了多少个值。",
   "Writes bytes to an open file, supports flushing and synchronization, and owns its file handle.": "向已打开的文件写入字节，支持刷新和同步，并拥有该文件句柄。",
-  "Writes the supplied bytes and returns the accepted byte count.": "写入所提供的字节，并返回接受的字节数。"
+  "Writes the supplied bytes and returns the accepted byte count.": "写入所提供的字节，并返回接受的字节数。",
+  "Projects task completion into a Java future without a result; cancellation propagates in both directions and failure retains its cause.": "将任务完成状态映射到无结果的 Java Future；取消双向传播，失败保留原始原因。",
+  "The task whose completion is projected to the Java future.": "需要将完成状态映射到 Java Future 的任务。"
 }
