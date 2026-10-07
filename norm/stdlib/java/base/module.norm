@@ -99,7 +99,7 @@ Module module() {
         jarType(name: "java.net.URI", alias: "net.URI", members: ["create", "toString", "toURL"]),
         jarType(name: "java.net.URL", alias: "net.URL", members: ["toString"]),
         jarType(name: "java.security.Principal", alias: "security.Principal", members: ["getName"]),
-        jarType(name: "java.time.Duration", alias: "time.Duration", members: []),
+        jarType(name: "java.time.Duration", alias: "time.Duration", members: ["ofSeconds", "ofMillis", "ofNanos", "toString"]),
         jarType(name: "java.io.InputStream", alias: "io.InputStream", members: ["close"], overloads: [jarOverload(name: "read", parameterTypes: [])]),
         jarType(name: "java.io.OutputStream", alias: "io.OutputStream", members: ["flush", "close"], overloads: [jarOverload(name: "write", parameterTypes: ["int"])]),
         jarType(name: "java.util.concurrent.Future", alias: "util.concurrent.Future", members: ["cancel", "isCancelled", "isDone"]),
