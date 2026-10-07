@@ -86,10 +86,13 @@ final class JarTaskIntrinsicDispatcher {
                 registration.bind(handle);
                 return handle;
               };
-          case TASK_START, TASK_CONTINUE ->
+          case TASK_START, TASK_CONTINUE, TASK_FROM_COMPLETION_STAGE ->
               (receiver, arguments, type, context, location, annotations, execution) -> {
                 var work =
-                    (RuntimeValues.Closure) arguments[intrinsic == IntrinsicId.TASK_START ? 0 : 1];
+                    intrinsic == IntrinsicId.TASK_FROM_COMPLETION_STAGE
+                        ? null
+                        : (RuntimeValues.Closure)
+                            arguments[intrinsic == IntrinsicId.TASK_START ? 0 : 1];
                 java.util.concurrent.Callable<Object> action =
                     () ->
                         execution
@@ -121,7 +124,21 @@ final class JarTaskIntrinsicDispatcher {
                           arguments[4] instanceof RuntimeValues.Closure unhandled
                               ? unhandled
                               : null);
-                  created = FutureBindingTask.start(action, JarBindingResult.Scalar::new, policy);
+                  if (intrinsic == IntrinsicId.TASK_FROM_COMPLETION_STAGE) {
+                    var stage =
+                        (java.util.concurrent.CompletionStage<?>)
+                            JavaValueAdapter.hostValue(arguments[0]);
+                    created =
+                        FutureBindingTask.fromCompletion(
+                            stage,
+                            value ->
+                                value == null
+                                    ? JarBindingResult.Null.INSTANCE
+                                    : context.jarBindingRuntime().referenceResult(value),
+                            policy);
+                  } else {
+                    created = FutureBindingTask.start(action, JarBindingResult.Scalar::new, policy);
+                  }
                 }
                 var registration = new TaskRegistration(created, execution);
                 var handle =

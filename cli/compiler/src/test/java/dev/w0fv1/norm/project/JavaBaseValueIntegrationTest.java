@@ -35,6 +35,9 @@ final class JavaBaseValueIntegrationTest {
         import java.base.time.yearMonthOf
         import java.base.math.BigDecimal
         import java.base.math.bigDecimalNew
+        import java.base.time.durationOfSeconds
+        import java.base.time.durationOfMillis
+        import java.base.time.durationOfNanos
 
         Void eventContracts(Cloneable copyable, EventListener listener) {}
 
@@ -51,6 +54,9 @@ final class JavaBaseValueIntegrationTest {
           BigDecimal amount = bigDecimalNew(arg0: "0.10")
           printLine(amount.add(arg0: bigDecimalNew(arg0: "0.20"))!!.toPlainString()!!)
           printLine(amount.compareTo(arg0: bigDecimalNew(arg0: "0.1")))
+          printLine(durationOfSeconds(2)!!.toString()!!)
+          printLine(durationOfMillis(1500)!!.toString()!!)
+          printLine(durationOfNanos(1)!!.toString()!!)
               EventObject event = eventObjectNew(arg0: "change")
               printLine(event.getSource())
         }
@@ -72,6 +78,9 @@ final class JavaBaseValueIntegrationTest {
             "2024-02-29",
             "0.30",
             "0",
+            "PT2S",
+            "PT1.5S",
+            "PT0.000000001S",
             "change",
             ""),
         output.toString());

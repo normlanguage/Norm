@@ -10,6 +10,23 @@ import org.junit.jupiter.api.Test;
 
 final class JavaBaseBootstrapTest {
   @Test
+  void exposesTheCanonicalSecurityPrincipal() throws Exception {
+    try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
+        var compiler = environment.compilerSession()) {
+      var source =
+          SourceFile.of(
+              DocumentId.of("memory:/Security.norm"),
+              """
+          import java.base.security.Principal
+          String principalName(Principal principal) { principal.getName()!! }
+          Void main() {}
+          """);
+      var result = compiler.compile(source);
+      assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+    }
+  }
+
+  @Test
   void infersBoundedMixedArraysWithoutLosingHomogeneousElementPrecision() throws Exception {
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {

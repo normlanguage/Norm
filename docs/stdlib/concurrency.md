@@ -1,5 +1,7 @@
 # Concurrency API
 
+Explicit Java completion adaptation is defined in [java.norm](../../norm/stdlib/std/concurrent/java.norm); [JavaCollectionTaskInteropTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaCollectionTaskInteropTest.java) verifies completion, failure, cancellation and resource ownership.
+
 `std.concurrent.Task<T>` represents a typed operation that completes later and implements `std.io.Resource`. [tasks.norm](../../norm/stdlib/std/concurrent/tasks.norm) defines its declarations and overloads.
 
 `std.concurrent.async` submits value-returning or Void work in the current `TaskScope`; submission without a scope is rejected. The host implements `TaskScope.start` and connects executor and lifecycle behavior; the standard library has no UI dependency. Once a component binds this context, it reuses the UI queue, task cancellation, and cleanup barrier. Use `startTask` for independent work without a scope. [AsyncExecutionTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/AsyncExecutionTest.java) covers the standard-library contract.

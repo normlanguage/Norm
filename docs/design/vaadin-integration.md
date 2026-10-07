@@ -7,7 +7,7 @@ description: Shared UI protocols and the Vaadin backend
 
 [`ui.web`](https://github.com/normlanguage/ui.web) implements the backend-neutral [`ui`](https://github.com/normlanguage/ui) protocols with Vaadin Flow. Widget composition, field observation, bindings, keyed reconciliation and resource ownership belong to `ui`; the web backend owns browser nodes, session scheduling and host integration.
 
-The backend consumes [`ui.theme`](https://github.com/normlanguage/ui.theme) through the shared UI theme context. It does not depend on `ui.fx` or `ui.fx.kit`.
+The backend consumes [`ui.theme`](https://github.com/normlanguage/ui.theme) through the shared UI theme context. It does not depend on `ui.desktop` or `ui.desktop.kit`.
 
 Implementation and acceptance entry points:
 

@@ -1,5 +1,7 @@
 # 并发 API
 
+显式 Java 异步转换入口见 [java.norm](../../../norm/stdlib/std/concurrent/java.norm)，完成、失败、取消与资源归属契约见 [JavaCollectionTaskInteropTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaCollectionTaskInteropTest.java)。
+
 `std.concurrent.Task<T>` 表示稍后完成的有类型操作，并实现 `std.io.Resource`。声明与重载以 [tasks.norm](../../../norm/stdlib/std/concurrent/tasks.norm) 为准。
 
 `std.concurrent.async` 在当前 `TaskScope` 中提交有返回值或 Void 工作；没有作用域时拒绝提交。`TaskScope.start` 由宿主实现，负责执行器与生命周期接入，标准库不依赖 UI。组件绑定该上下文后沿用 UI 队列、任务取消及清理屏障；无作用域的独立工作使用 `startTask`。标准库契约见 [AsyncExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/AsyncExecutionTest.java)。

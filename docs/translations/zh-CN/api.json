@@ -652,5 +652,9 @@
   "Writes bytes to an open file, supports flushing and synchronization, and owns its file handle.": "向已打开的文件写入字节，支持刷新和同步，并拥有该文件句柄。",
   "Writes the supplied bytes and returns the accepted byte count.": "写入所提供的字节，并返回接受的字节数。",
   "Projects task completion into a Java future without a result; cancellation propagates in both directions and failure retains its cause.": "将任务完成状态映射到无结果的 Java Future；取消双向传播，失败保留原始原因。",
-  "The task whose completion is projected to the Java future.": "需要将完成状态映射到 Java Future 的任务。"
+  "The task whose completion is projected to the Java future.": "需要将完成状态映射到 Java Future 的任务。",
+  "The Java list whose values are copied.": "要复制其中值的 Java 列表。",
+  "Copies a Java list into an independent mutable list, preserving order and nullable elements.": "将 Java 列表复制为独立的可变列表，保留顺序和可空元素。",
+  "The Java completion to adapt.": "需要转换的 Java 异步完成阶段。",
+  "Adapts Java completion without blocking, preserving nullable results and failure causes; task cancellation cancels the Java future and the current resource owner owns the task.": "非阻塞地转换 Java 异步完成阶段，保留可空结果和失败原因；取消任务会取消 Java Future，任务归属于当前资源所有者。"
 }

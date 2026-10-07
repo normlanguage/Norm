@@ -2,6 +2,7 @@
 package std.collections
 
 import std.annotation.Document
+import java.base.util.JavaList
 
 @Document(description: "Reports whether a list contains a value equal to the target.")
 Boolean listContains<T>(
@@ -37,6 +38,20 @@ List<T> toList<T>(
   List<T> result = List<>()
   for T value : values {
     result.add(value)
+  }
+  return result
+}
+
+@Document(description: "Copies a Java list into an independent mutable list, preserving order and nullable elements.")
+List<T?> toList<T>(
+  @Document(description: "The Java list whose values are copied.") JavaList<T> values
+) {
+  List<T?> result = List<>()
+  Integer size = values.size()
+  Integer index = 0
+  for index < size {
+    result.add(values.get(arg0: index))
+    index = index + 1
   }
   return result
 }

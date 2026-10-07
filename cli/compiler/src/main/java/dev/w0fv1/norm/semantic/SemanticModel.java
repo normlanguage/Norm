@@ -20,6 +20,7 @@ public final class SemanticModel implements SemanticIndex {
   public List<Symbol> lambdaParameters(SourceSpan span) {
     return scopes.reversed().stream()
         .filter(scope -> scope.span().equals(span))
+        .sorted(Comparator.comparingInt(SemanticScope::depth).reversed())
         .findFirst()
         .stream()
         .flatMap(scope -> scope.symbols().stream())
