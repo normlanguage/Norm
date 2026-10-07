@@ -770,6 +770,10 @@
       "requiresResultRuntimeType": true
     },
     {
+      "name": "TASK_FROM_COMPLETION_STAGE",
+      "requiresResultRuntimeType": true
+    },
+    {
       "name": "TASK_JAVA_COMPLETION",
       "requiresResultRuntimeType": true
     },
@@ -2836,6 +2840,14 @@
     "std.core.__taskStart/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__taskStart/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__taskFromCompletionStage/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__taskFromCompletionStage/T",
       "name": "T",
       "category": "POLYMORPHIC",
       "arguments": [],
@@ -7523,6 +7535,48 @@
         "documentation": "Norm built-in."
       },
       "intrinsic": "TASK_START"
+    },
+    {
+      "symbol": {
+        "name": "__taskFromCompletionStage",
+        "kind": "FUNCTION",
+        "type": "std.core.__taskFromCompletionStage/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__taskFromCompletionStage/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stage",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "dispatch",
+            "type": "std.core.Function<std.core.Void,std.core.Function<std.core.Void>>?",
+            "hasDefault": false
+          },
+          {
+            "name": "registered",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "released",
+            "type": "<error>",
+            "hasDefault": false
+          },
+          {
+            "name": "unhandled",
+            "type": "std.core.Function<std.core.Void,std.core.Function<std.core.Void>>?",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TASK_FROM_COMPLETION_STAGE"
     },
     {
       "symbol": {

@@ -35,8 +35,15 @@ public final class FutureBindingTask implements JarBindingTask {
 
   public static FutureBindingTask fromCompletion(
       CompletionStage<?> completion, Function<Object, JarBindingResult> conversion) {
+    return fromCompletion(completion, conversion, WORKERS);
+  }
+
+  public static FutureBindingTask fromCompletion(
+      CompletionStage<?> completion,
+      Function<Object, JarBindingResult> conversion,
+      java.util.concurrent.Executor continuationExecutor) {
     var future = completion.toCompletableFuture();
-    return new FutureBindingTask(future, future, conversion, WORKERS, null);
+    return new FutureBindingTask(future, future, conversion, continuationExecutor, null);
   }
 
   private FutureBindingTask(

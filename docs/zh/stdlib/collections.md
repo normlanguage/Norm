@@ -1,5 +1,7 @@
 # 集合
 
+Java 集合转换入口见 [sequences.norm](../../../norm/stdlib/std/collections/sequences.norm)，真实 Java 边界契约见 [JavaCollectionTaskInteropTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaCollectionTaskInteropTest.java)。
+
 Norm 集合是类型化 value 容器。全部泛型实参都必须写出，raw type 非法。
 
 ```norm

@@ -1,5 +1,7 @@
 # Collections
 
+Java collection conversion is defined in [sequences.norm](../../norm/stdlib/std/collections/sequences.norm); [JavaCollectionTaskInteropTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaCollectionTaskInteropTest.java) verifies its Java boundary contract.
+
 Norm collections are typed value containers. Every generic type argument must be written; raw types are invalid.
 
 ```norm

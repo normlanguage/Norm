@@ -2,12 +2,36 @@ package std.concurrent
 
 import std.annotation.Document
 import java.base.util.concurrent.CompletableFuture
+import java.base.util.concurrent.CompletionStage
 import java.base.lang.JavaVoid
+import std.context.currentContext
+import std.io.ResourceOwner
+import std.io.Resource
+import std.core.Exception
 
 @Document(description: "Projects task completion into a Java future without a result; cancellation propagates in both directions and failure retains its cause.")
 public CompletableFuture<JavaVoid> completionFuture<T>(
   @Document(description: "The task whose completion is projected to the Java future.") Task<T> task
 ) {
   __taskJavaCompletion<CompletableFuture<JavaVoid>>(task: task)
+}
+
+@Document(description: "Adapts Java completion without blocking, preserving nullable results and failure causes; task cancellation cancels the Java future and the current resource owner owns the task.")
+public Task<T?> fromCompletionStage<T>(
+  @Document(description: "The Java completion to adapt.") CompletionStage<T> stage,
+  @Document(description: "Optional scheduler for task callbacks and unhandled failures.") TaskExecutor? executor = null
+) {
+  Function<Void(Function<Void()>)>? dispatch = null
+  Function<Void(Function<Void()>)>? unhandled = null
+  if executor != null { dispatch = (Function<Void()> action) { executor.dispatch(action) } }
+  if executor != null {
+    unhandled = (Function<Void()> failure) {
+      try { failure() } catch Exception error { executor.report(error) }
+    }
+  }
+  var owner = currentContext<ResourceOwner>()
+  __taskFromCompletionStage<Task<T?>>(stage: stage, dispatch: dispatch,
+    registered: (Resource task) { owner?.own(task) },
+    released: (Resource task) { owner?.release(task) }, unhandled: unhandled)
 }
 

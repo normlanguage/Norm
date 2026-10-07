@@ -212,6 +212,7 @@ public final class IntrinsicDispatcher {
           RESOURCE_CLOSE ->
           IoIntrinsicDispatcher.resolve(intrinsic);
       case TASK_TERMINATION,
+          TASK_FROM_COMPLETION_STAGE,
           TASK_JAVA_COMPLETION,
           COMPLETION_CREATE,
           COMPLETION_TASK,
