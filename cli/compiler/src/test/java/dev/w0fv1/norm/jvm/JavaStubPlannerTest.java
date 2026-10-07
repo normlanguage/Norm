@@ -54,6 +54,24 @@ final class JavaStubPlannerTest {
   }
 
   @Test
+  void preservesNestedNullableListTypesInJavaMethodSignatures() {
+    var parent =
+        plan().types().stream()
+            .filter(type -> type.name().equals("Parent"))
+            .findFirst()
+            .orElseThrow();
+    var echo =
+        parent.callables().stream()
+            .filter(call -> call.name().equals("echo"))
+            .findFirst()
+            .orElseThrow();
+    String expected =
+        "java.util.List<java.util.List<java.lang.@org.jspecify.annotations.Nullable String>>";
+    assertEquals(expected, echo.returnType());
+    assertEquals(expected, echo.parameters().getFirst().type());
+  }
+
+  @Test
   void fixesManagedSignaturesInheritanceAndDefaultsBeforeRendering() {
     var plan = plan();
     var repository =

@@ -47,6 +47,16 @@ final class PlainObjectJavaBridgeTest {
           public static Object echo(Object value) { return value; }
           public static String message(Object value) { return ((Throwable) value).getMessage(); }
           public static boolean same(Object left, Object right) { return left == right; }
+          public static String features(Object value) throws ReflectiveOperationException {
+            var field = value.getClass().getField("features");
+            if (!field.getGenericType().getTypeName().equals("java.util.List<java.lang.String>")) throw new IllegalStateException("List field lost its generic type");
+            var nested = value.getClass().getField("nested");
+            if (!nested.getGenericType().getTypeName().equals("java.util.List<java.util.List<java.lang.Integer>>")) throw new IllegalStateException("Nested list lost its boxed generic type");
+            var echo = value.getClass().getMethod("echo", java.util.List.class);
+            if (!echo.getGenericReturnType().getTypeName().equals("java.util.List<java.util.List<java.lang.Integer>>")) throw new IllegalStateException("List method lost its generic type");
+            if (!echo.invoke(value, nested.get(value)).equals(java.util.Arrays.asList(java.util.Arrays.asList(1, null, 3)))) throw new IllegalStateException("Nested nullable list failed roundtrip");
+            return String.join("|", (java.util.List<String>) field.get(value));
+          }
           public static String tone(Object value) throws ReflectiveOperationException {
             return ((Enum<?>) value.getClass().getField("tone").get(value)).name();
           }
@@ -77,7 +87,7 @@ final class PlainObjectJavaBridgeTest {
         Module module() {
           module(name: "host", version: 1, exports: ["Host"],
             binding: jarBinding(target: localJar(path: "host.jar", integrity: sha256("%s")),
-              api: [jarType(name: "Host", members: ["name", "echo", "same", "message", "tone", "mute"])]))
+              api: [jarType(name: "Host", members: ["name", "echo", "same", "message", "tone", "mute", "features"])]))
         }
         """
             .formatted(Sha256Digest.compute(jarPath).value()));
@@ -90,7 +100,8 @@ final class PlainObjectJavaBridgeTest {
         """);
     String declaration =
         "public enum Tone { Primary, Muted }\npublic enum Payload { None, Text(String text) }\npublic class Panel { String title Tone tone Payload payload }\n"
-            + "public class Failure extends Exception { Failure(String message) { super(message: message) } }\n";
+            + "public class Failure extends Exception { Failure(String message) { super(message: message) } }\n"
+            + "public value HomePage { List<String> features List<List<Integer?>> nested public List<List<Integer?>> echo(List<List<Integer?>> items) { items } }\n";
     if (separateSource)
       Files.writeString(
           app.resolve("panel.norm"), "package example\nimport std.core.Exception\n" + declaration);
@@ -106,6 +117,7 @@ final class PlainObjectJavaBridgeTest {
         import host.hostMessage
         import host.hostTone
         import host.hostMute
+        import host.hostFeatures
         %s
         Void main() {
           var panel = Panel(title: "test", tone: Tone.Primary, payload: Payload.Text(text: "preserved"))
@@ -123,6 +135,9 @@ final class PlainObjectJavaBridgeTest {
                     ? """
           require(condition: hostName(Panel.class) == "java.lang.Class",
             message: "explicit Class contract materializes the host type")
+          hostName(HomePage.class)
+          var page = HomePage(features: ["世界", "escaped & text"], nested: [[1, null, 3]])
+          require(condition: hostFeatures(page) == "世界|escaped & text", message: "Java reads typed List fields and invokes List methods")
           require(condition: hostTone(panel) == "Primary", message: "enum field has a Java enum representation")
           require(condition: hostMute(panel) == panel && panel.tone == Tone.Muted, message: "enum field roundtrips from Java")
           require(condition: panel.payload == Payload.Text(text: "preserved"), message: "data enum payload survives Java field roundtrip")
