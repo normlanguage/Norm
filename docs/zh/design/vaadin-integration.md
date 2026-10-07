@@ -7,7 +7,7 @@ description: 通用 UI 协议与 Vaadin 后端的职责边界
 
 [`ui.web`](https://github.com/normlanguage/ui.web) 使用 Vaadin Flow 实现与后端无关的 [`ui`](https://github.com/normlanguage/ui) 协议。Widget 组合、字段观察、绑定、键控协调和资源所有权由 `ui` 统一管理；Web 后端负责浏览器节点、会话调度和宿主接入。
 
-后端通过通用 UI 主题上下文消费 [`ui.theme`](https://github.com/normlanguage/ui.theme)，不依赖 `ui.fx` 或 `ui.fx.kit`。
+后端通过通用 UI 主题上下文消费 [`ui.theme`](https://github.com/normlanguage/ui.theme)，不依赖 `ui.desktop` 或 `ui.desktop.kit`。
 
 实现与验收入口：
 
