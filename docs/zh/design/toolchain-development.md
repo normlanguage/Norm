@@ -111,3 +111,5 @@ Windows 本地 CLI 与扩展使用根 Gradle 构建的 `gradlew.bat :compiler:in
 [compare-compiler.ps1](../../../cli/compiler/scripts/compare-compiler.ps1) 用相同 Java、参数和源码交替运行两份完整依赖目录，保存编译、增量分析、执行耗时、主线程分配和观测峰值工作集。指标定义与预热次数见 [CompilerBenchmark](../../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/CompilerBenchmark.java)。主线程分配不是进程总分配，峰值工作集包含启动与预热；样例结果不能直接推广为工具链整体性能提升。
 
 项目输入与变更匹配入口为 [ProjectInputSnapshot](../../../cli/compiler/src/main/java/dev/w0fv1/norm/project/ProjectInputSnapshot.java)，加载结果边界为 [ProjectLoadResult](../../../cli/compiler/src/main/java/dev/w0fv1/norm/project/ProjectLoadResult.java)。编辑器监听注册见 [LanguageServerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/lsp/LanguageServerTest.java)，外部绑定变化验收见 [WorkspaceTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/workspace/WorkspaceTest.java)。
+
+[NormTestKit](../../../cli/compiler/src/test/java/dev/w0fv1/norm/testing/NormTestKit.java) 统一管理项目验收发现与夹具生命周期；[ProgramExecutionTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/truffle/ProgramExecutionTest.java) 验证这些入口。
