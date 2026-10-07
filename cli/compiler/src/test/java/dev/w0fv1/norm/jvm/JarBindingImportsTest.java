@@ -21,7 +21,6 @@ final class JarBindingImportsTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("java.base", 1),
-                List.of("Host"),
                 List.of(new JarBindingType("Host", List.of("accept"))),
                 Sha256Digest.parse("0123456789abcdef".repeat(4)),
                 schema(),
@@ -97,7 +96,6 @@ final class JarBindingImportsTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("host", 1),
-                List.of("Host"),
                 List.of(new JarBindingType("Host", List.of("accept"))),
                 Sha256Digest.parse("0123456789abcdef".repeat(4)),
                 new JarApiSchema(List.of(local), List.of(list)),
@@ -117,7 +115,6 @@ final class JarBindingImportsTest {
                 new JarBindingSourceGenerator()
                     .generateSurface(
                         new ModuleCoordinate("host", 1),
-                        List.of("Host"),
                         List.of(new JarBindingType("Host", List.of("accept"))),
                         Sha256Digest.parse("0123456789abcdef".repeat(4)),
                         new JarApiSchema(List.of(local), List.of(list)),
@@ -150,7 +147,6 @@ final class JarBindingImportsTest {
                 new JarBindingSourceGenerator()
                     .generateSurface(
                         new ModuleCoordinate("collections", 1),
-                        List.of("ArrayList"),
                         List.of(new JarBindingType("java.util.ArrayList", List.of())),
                         Sha256Digest.parse("0123456789abcdef".repeat(4)),
                         new JarApiSchema(List.of(type)),
@@ -167,7 +163,6 @@ final class JarBindingImportsTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("host", 1),
-                List.of("Host"),
                 List.of(new JarBindingType("Host", List.of("accept"))),
                 Sha256Digest.parse("0123456789abcdef".repeat(4)),
                 schema(),
@@ -185,7 +180,6 @@ final class JarBindingImportsTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("host", 1),
-                List.of("Host"),
                 List.of(new JarBindingType("Host", List.of("accept"))),
                 Sha256Digest.parse("0123456789abcdef".repeat(4)),
                 schema(),
@@ -241,7 +235,6 @@ final class JarBindingImportsTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("ui.component", 1),
-                List.of("Button"),
                 List.of(new JarBindingType("sample.Button", List.of())),
                 Sha256Digest.parse("0123456789abcdef".repeat(4)),
                 new JarApiSchema(List.of(wrapper), List.of(base)),

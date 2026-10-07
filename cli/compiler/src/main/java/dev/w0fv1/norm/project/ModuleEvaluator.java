@@ -45,6 +45,7 @@ final class ModuleEvaluator implements AutoCloseable {
             List<String> bindingApiTypes = []
             List<List<String>> bindingApiMembers = []
             List<List<String>> bindingApiBorrowed = []
+            List<String> bindingApiAliases = []
             List<List<String>> bindingApiOverloadNames = []
             List<List<List<String>>> bindingApiOverloadParameterTypes = []
             JarBinding? binding = definition.binding()
@@ -61,6 +62,13 @@ final class ModuleEvaluator implements AutoCloseable {
               }
               for JarType type : binding.api() {
                 bindingApiTypes.add(type.name())
+                String? alias = type.alias()
+                if alias == null {
+                  bindingApiAliases.add("")
+                } else {
+                  require(condition: alias != "", message: "JAR binding alias must not be empty")
+                  bindingApiAliases.add(alias)
+                }
                 bindingApiMembers.add(type.members())
                 bindingApiBorrowed.add(type.borrowed())
                 List<String> overloadNames = []
@@ -93,7 +101,8 @@ final class ModuleEvaluator implements AutoCloseable {
               bindingApiOverloadParameterTypes: bindingApiOverloadParameterTypes,
               bindingApiBorrowed: bindingApiBorrowed,
               sourceRoots: definition.sources(),
-              testRoots: definition.tests()
+              testRoots: definition.tests(),
+              bindingApiAliases: bindingApiAliases
             )
           }
           """);

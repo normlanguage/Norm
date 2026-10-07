@@ -558,7 +558,7 @@ final class ProjectLoaderTest {
           new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
           target.coordinate());
       assertEquals(Sha256Digest.parse(SHA256), target.resolution().orElseThrow());
-      assertEquals(List.of("StringUtils"), descriptor.exports());
+      assertEquals(List.of(), descriptor.exports());
       assertEquals(
           List.of(
               new JarBindingType(
@@ -566,6 +566,25 @@ final class ProjectLoaderTest {
                   List.of("isBlank"),
                   List.of(new JarBindingOverload("reverse", List.of("java.lang.String"))))),
           descriptor.binding().orElseThrow().api());
+    }
+  }
+
+  @Test
+  void rejectsAnExplicitEmptyBindingAliasDuringModuleEvaluation() throws Exception {
+    Path modulePath =
+        source(
+            temporaryDirectory,
+            "sample/module.norm",
+            """
+        Module module() { module(name: "sample", version: 1,
+          binding: jarBinding(target: localJar(path: "lib/sample.jar"),
+            api: [jarType(name: "Button", members: [], alias: "")])) }
+        """);
+    try (ProjectLoader projects = environment().projectLoader()) {
+      IOException failure =
+          assertThrows(
+              IOException.class, () -> projects.evaluateModule(SourceFile.read(modulePath)));
+      assertTrue(failure.getMessage().contains("JAR binding alias"), failure.getMessage());
     }
   }
 

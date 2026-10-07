@@ -21,6 +21,64 @@ final class JarBindingSourceGeneratorTest {
   private static final Sha256Digest GRAPH_ID = Sha256Digest.parse("0123456789abcdef".repeat(4));
 
   @Test
+  void explicitInternalAliasDoesNotBecomePublicOrDependOnExportOrder() {
+    GeneratedJarBinding generated =
+        new JarBindingSourceGenerator()
+            .generateSurface(
+                new ModuleCoordinate("widgets", 1),
+                List.of(
+                    new JarBindingType(
+                        "sample.Button",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        Optional.of("internal.Button"))),
+                GRAPH_ID,
+                schema("sample.Button", List.of()));
+    assertEquals("widgets/internal/Button.norm", generated.sources().getFirst().relativePath());
+    assertTrue(generated.exportedClasses(List.of("Widget")).isEmpty());
+    assertEquals(
+        "Button",
+        generated
+            .exportedClasses(List.of("Widget", "internal.Button"))
+            .get("sample.Button")
+            .name());
+  }
+
+  @Test
+  void qualifiedJavaTypeUsesItsNaturalLocalNameWithoutAnAlias() {
+    GeneratedJarBinding generated =
+        new JarBindingSourceGenerator()
+            .generateSurface(
+                new ModuleCoordinate("widgets", 1),
+                List.of(new JarBindingType("sample.Button", List.of())),
+                GRAPH_ID,
+                schema("sample.Button", List.of()));
+    assertEquals("widgets/Button.norm", generated.sources().getFirst().relativePath());
+  }
+
+  @Test
+  void explicitAliasCannotSilentlyChangeToAvoidAReservedTypeName() {
+    var failure =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new JarBindingSourceGenerator()
+                    .generateSurface(
+                        new ModuleCoordinate("widgets", 1),
+                        List.of(
+                            new JarBindingType(
+                                "sample.Button",
+                                List.of(),
+                                List.of(),
+                                List.of(),
+                                Optional.of("internal.List"))),
+                        GRAPH_ID,
+                        schema("sample.Button", List.of())));
+    assertTrue(failure.getMessage().contains("internal.List"));
+  }
+
+  @Test
   void planningOwnsNamesAndCallRegistryBeforeRendering() {
     String owner = "sample.Numbers";
     JavaBindingCallable integer =
@@ -138,8 +196,9 @@ final class JarBindingSourceGeneratorTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("orm", 1),
-                List.of("Store"),
-                List.of(new JarBindingType(owner, List.of())),
+                List.of(
+                    new JarBindingType(
+                        owner, List.of(), List.of(), List.of(), Optional.of("Store"))),
                 GRAPH_ID,
                 schema(owner, List.of()));
 
@@ -798,14 +857,18 @@ final class JarBindingSourceGeneratorTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
-                List.of("Endpoint", "config.Handler"),
                 List.of(
                     new JarBindingType(
                         "Endpoint",
                         List.of(
                             "as", "enabled", "failure", "order", "level", "handler", "path",
                             "tags")),
-                    new JarBindingType("config.Handler", List.of())),
+                    new JarBindingType(
+                        "config.Handler",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        Optional.of("config.Handler"))),
                 GRAPH_ID,
                 new JarApiSchema(
                     List.of(endpoint, levelType, handlerType),

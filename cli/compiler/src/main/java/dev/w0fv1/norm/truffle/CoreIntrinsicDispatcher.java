@@ -203,6 +203,9 @@ final class CoreIntrinsicDispatcher {
             List<Object> bindingApiBorrowed = ((RuntimeValues.ListValue) arguments[17]).values;
             if (bindingApiBorrowed.size() != bindingApiTypes.size())
               throw new IllegalStateException("borrowed JAR declarations are inconsistent");
+            List<Object> bindingApiAliases = ((RuntimeValues.ListValue) arguments[20]).values;
+            if (bindingApiAliases.size() != bindingApiTypes.size())
+              throw new IllegalStateException("JAR binding aliases are inconsistent");
             List<JarBindingType> api = new ArrayList<>(bindingApiTypes.size());
             for (int index = 0; index < bindingApiTypes.size(); index++) {
               RuntimeValues.ListValue members =
@@ -232,7 +235,10 @@ final class CoreIntrinsicDispatcher {
                       members.values.stream().map(String.class::cast).toList(),
                       overloads,
                       ((RuntimeValues.ListValue) bindingApiBorrowed.get(index))
-                          .values.stream().map(String.class::cast).toList()));
+                          .values.stream().map(String.class::cast).toList(),
+                      bindingApiAliases.get(index) instanceof String alias && !alias.isEmpty()
+                          ? Optional.of(alias)
+                          : Optional.empty()));
             }
             Optional<JarBinding> binding =
                 switch (bindingSource) {

@@ -54,7 +54,7 @@ final class NestedJavaEnumIntegrationTest {
           dependencies: [dependency(repository: "norm", name: "java.base", version: 1)],
           binding: jarBinding(target: localJar(path: "config.jar", integrity: sha256("%s")),
             api: [jarType(name: "sample.Config", members: ["new", "label"]),
-              jarType(name: "sample.Config.Density", members: [])])) }
+              jarType(name: "sample.Config.Density", alias: "Density", members: [])])) }
         """
             .formatted(Sha256Digest.compute(jar).value()));
     var consumer = Files.createDirectories(module.resolve("consumer"));

@@ -23,6 +23,7 @@ import org.eclipse.aether.collection.CollectRequest;
 import org.eclipse.aether.collection.DependencyCollectionContext;
 import org.eclipse.aether.collection.DependencySelector;
 import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.graph.DependencyFilter;
 import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.RemoteRepository;
@@ -176,11 +177,11 @@ public final class JarResolver implements AutoCloseable {
         new CollectRequest(
             new Dependency(rootArtifact, JavaScopes.RUNTIME),
             repositorySystem.newResolutionRepositories(jarSession, REPOSITORIES));
-    DependencyRequest request =
-        new DependencyRequest(collect, DependencyFilterUtils.classpathFilter(JavaScopes.RUNTIME));
+    DependencyFilter runtimeFilter = DependencyFilterUtils.classpathFilter(JavaScopes.RUNTIME);
+    DependencyRequest request = new DependencyRequest(collect, runtimeFilter);
     try {
       DependencyResult result = repositorySystem.resolveDependencies(jarSession, request);
-      ResolvedJarGraph graph = graph(result.getRoot());
+      ResolvedJarGraph graph = graph(result.getRoot(), runtimeFilter);
       if (target.resolution().isPresent()
           && !target.resolution().orElseThrow().equals(graph.contentId())) {
         throw new IOException(
@@ -233,10 +234,11 @@ public final class JarResolver implements AutoCloseable {
     return graph;
   }
 
-  private static ResolvedJarGraph graph(DependencyNode rootNode) throws IOException {
+  private static ResolvedJarGraph graph(DependencyNode rootNode, DependencyFilter filter)
+      throws IOException {
     Map<JarArtifactIdentity, ResolvedJarArtifact> artifacts = new LinkedHashMap<>();
     List<JarDependencyEdge> edges = new ArrayList<>();
-    collect(rootNode, artifacts, edges);
+    collect(rootNode, List.of(), filter, artifacts, edges);
     JarArtifactIdentity rootIdentity = identity(rootNode.getArtifact());
     ResolvedJarArtifact root = artifacts.get(rootIdentity);
     if (root == null) throw new IOException("resolved Maven graph has no root JAR");
@@ -245,6 +247,8 @@ public final class JarResolver implements AutoCloseable {
 
   private static void collect(
       DependencyNode node,
+      List<DependencyNode> parents,
+      DependencyFilter filter,
       Map<JarArtifactIdentity, ResolvedJarArtifact> artifacts,
       List<JarDependencyEdge> edges)
       throws IOException {
@@ -256,10 +260,13 @@ public final class JarResolver implements AutoCloseable {
     }
     artifacts.putIfAbsent(
         current, new ResolvedJarArtifact(current, file, Sha256Digest.compute(file)));
+    List<DependencyNode> childParents = new ArrayList<>(parents);
+    childParents.add(node);
     for (DependencyNode child : node.getChildren()) {
+      if (!filter.accept(child, childParents)) continue;
       JarArtifactIdentity childIdentity = identity(child.getArtifact());
       if (!current.equals(childIdentity)) edges.add(new JarDependencyEdge(current, childIdentity));
-      collect(child, artifacts, edges);
+      collect(child, childParents, filter, artifacts, edges);
     }
   }
 

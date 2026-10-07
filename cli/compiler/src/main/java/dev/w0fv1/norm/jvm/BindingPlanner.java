@@ -57,33 +57,17 @@ public final class BindingPlanner {
       List<JarBindingType> api,
       Sha256Digest graphId,
       JarApiSchema schema) {
-    return planSurface(
-        module, api.stream().map(JarBindingType::name).toList(), api, graphId, schema);
+    return planSurface(module, api, graphId, schema, Map.of());
   }
 
   public BindingPlan planSurface(
       ModuleCoordinate module,
-      List<String> exports,
-      List<JarBindingType> api,
-      Sha256Digest graphId,
-      JarApiSchema schema) {
-    return planSurface(module, exports, api, graphId, schema, Map.of());
-  }
-
-  public BindingPlan planSurface(
-      ModuleCoordinate module,
-      List<String> exports,
       List<JarBindingType> api,
       Sha256Digest graphId,
       JarApiSchema schema,
       Map<String, JarBindingClassReference.Nominal> imports) {
-    if (exports.size() != api.size()) {
-      throw new IllegalArgumentException("JAR binding exports must match API types");
-    }
-    List<BindingSelection> selections = new ArrayList<>(api.size());
-    for (int index = 0; index < api.size(); index++) {
-      selections.add(BindingSelection.declaredMembers(api.get(index), exports.get(index)));
-    }
+    List<BindingSelection> selections =
+        api.stream().map(type -> BindingSelection.declaredMembers(type)).toList();
     return planSelected(module, selections, graphId, schema, imports);
   }
 
@@ -146,9 +130,22 @@ public final class BindingPlanner {
         throw new IllegalArgumentException(
             "Java base type must be owned by java.base: " + owner.binaryName());
       }
-      String exportedName =
-          allocateTypePath(
-              exportPath(selection.exportName(), owner), owner.binaryName(), referencePaths);
+      String requestedName =
+          selection
+              .exportName()
+              .map(path -> selection.members().isPresent() ? path : exportPath(path, owner))
+              .orElseGet(
+                  () ->
+                      owner
+                          .binaryName()
+                          .substring(owner.binaryName().lastIndexOf('.') + 1)
+                          .replace("$", ""));
+      String exportedName = allocateTypePath(requestedName, owner.binaryName(), referencePaths);
+      if (selection.members().isPresent()
+          && selection.exportName().isPresent()
+          && !exportedName.equals(requestedName))
+        throw new IllegalArgumentException(
+            "JAR binding alias conflicts with a reserved or allocated type name: " + requestedName);
       if (referenceNames.putIfAbsent(owner.binaryName(), simpleName(exportedName)) != null) {
         throw new IllegalArgumentException(
             "JAR binding class is exported more than once: " + owner.binaryName());
@@ -641,7 +638,7 @@ public final class BindingPlanner {
   }
 
   private record BindingSelection(
-      String name, String exportName, Optional<MemberSelection> members) {
+      String name, Optional<String> exportName, Optional<MemberSelection> members) {
     private BindingSelection {
       Objects.requireNonNull(name, "name");
       Objects.requireNonNull(exportName, "exportName");
@@ -649,13 +646,13 @@ public final class BindingPlanner {
     }
 
     private static BindingSelection allMembers(String name, String exportName) {
-      return new BindingSelection(name, exportName, Optional.empty());
+      return new BindingSelection(name, Optional.of(exportName), Optional.empty());
     }
 
-    private static BindingSelection declaredMembers(JarBindingType type, String exportName) {
+    private static BindingSelection declaredMembers(JarBindingType type) {
       return new BindingSelection(
           type.name(),
-          exportName,
+          type.alias(),
           Optional.of(
               new MemberSelection(
                   Set.copyOf(type.members()),

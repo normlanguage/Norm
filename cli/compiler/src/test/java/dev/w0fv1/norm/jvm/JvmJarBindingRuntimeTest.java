@@ -43,7 +43,13 @@ final class JvmJarBindingRuntimeTest {
             new dev.w0fv1.norm.runtime.NormRuntime())) {
       javaBaseOwners =
           environment.javaBindings().stream()
-              .flatMap(binding -> binding.generated().exportedClasses().entrySet().stream())
+              .flatMap(
+                  binding ->
+                      binding
+                          .generated()
+                          .exportedClasses(binding.generated().exports())
+                          .entrySet()
+                          .stream())
               .collect(
                   java.util.stream.Collectors.toUnmodifiableMap(
                       Map.Entry::getKey, Map.Entry::getValue));
@@ -886,7 +892,6 @@ final class JvmJarBindingRuntimeTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
-                List.of("FailureApi"),
                 List.of(
                     new dev.w0fv1.norm.value.JarBindingType(
                         "sample.FailureApi", List.of("fail", "identity"))),
@@ -969,7 +974,6 @@ final class JvmJarBindingRuntimeTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
-                List.of("CharsetApi"),
                 List.of(
                     new dev.w0fv1.norm.value.JarBindingType(
                         "sample.CharsetApi", List.of("canonical", "object"))),
@@ -1012,7 +1016,6 @@ final class JvmJarBindingRuntimeTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("sample.binding", 1),
-                List.of("DurationApi"),
                 List.of(
                     new dev.w0fv1.norm.value.JarBindingType(
                         "sample.DurationApi", List.of("identity"))),
@@ -1040,9 +1043,16 @@ final class JvmJarBindingRuntimeTest {
         .generateSurface(
             new ModuleCoordinate("commons.lang", 1),
             api.stream()
-                .map(type -> type.name().substring("org.apache.commons.lang3.".length()))
+                .map(
+                    type ->
+                        new dev.w0fv1.norm.value.JarBindingType(
+                            type.name(),
+                            type.members(),
+                            type.overloads(),
+                            type.borrowed(),
+                            java.util.Optional.of(
+                                type.name().substring("org.apache.commons.lang3.".length()))))
                 .toList(),
-            api,
             graph.contentId(),
             schema,
             javaBaseOwners);

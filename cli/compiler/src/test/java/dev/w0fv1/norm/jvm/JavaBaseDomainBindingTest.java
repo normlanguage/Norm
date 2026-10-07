@@ -79,7 +79,6 @@ final class JavaBaseDomainBindingTest {
         new JarBindingSourceGenerator()
             .generateSurface(
                 new ModuleCoordinate("adapter", 1),
-                List.of("Api"),
                 List.of(new JarBindingType("sample.Api", List.of("echo"))),
                 Sha256Digest.parse("0123456789abcdef".repeat(4)),
                 schema(reference, arity),
@@ -104,7 +103,6 @@ final class JavaBaseDomainBindingTest {
                 new JarBindingSourceGenerator()
                     .generateSurface(
                         new ModuleCoordinate("adapter", 1),
-                        List.of("Api"),
                         List.of(new JarBindingType("sample.Api", List.of("echo"))),
                         Sha256Digest.parse("0123456789abcdef".repeat(4)),
                         schema(reference, 0),

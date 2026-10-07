@@ -2,6 +2,7 @@ package dev.w0fv1.norm.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,6 +24,138 @@ import org.junit.jupiter.api.io.TempDir;
 
 final class ModulePackagerTest {
   @TempDir Path temporaryDirectory;
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"di-4", "theme-2"})
+  void readsReleasedVersionFourModuleArchives(String fixture) throws Exception {
+    Path archive = temporaryDirectory.resolve(fixture + ".nar");
+    try (var source =
+        getClass().getResourceAsStream("/fixtures/published-v4/" + fixture + ".nar")) {
+      assertNotNull(source);
+      Files.copy(source, archive);
+    }
+    var restored = new dev.w0fv1.norm.project.ModuleArchiveReader().read(archive);
+    assertEquals(fixture.equals("di-4") ? "di" : "ui.theme", restored.descriptor().name());
+    assertFalse(restored.sources().isEmpty());
+    if (fixture.equals("theme-2")) {
+      assertFalse(restored.publicTypes().isEmpty());
+      var binding = restored.binding().orElseThrow();
+      assertTrue(
+          binding.descriptor().binding().orElseThrow().api().stream()
+              .allMatch(type -> type.alias().isEmpty()));
+      try (var zip = new java.util.zip.ZipFile(archive.toFile())) {
+        byte[] bytes =
+            zip.getInputStream(zip.getEntry(dev.w0fv1.norm.jvm.PublishedJarBinding.ENTRY))
+                .readAllBytes();
+        assertThrows(
+            IOException.class,
+            () ->
+                dev.w0fv1.norm.jvm.PublishedJarBinding.decode(
+                    bytes,
+                    restored.descriptor(),
+                    binding.api().apiId(),
+                    dev.w0fv1.norm.jvm.PublishedJarBinding.ABI));
+        assertThrows(
+            IOException.class,
+            () ->
+                dev.w0fv1.norm.jvm.PublishedJarBinding.decode(
+                    bytes,
+                    restored.descriptor(),
+                    binding.api().apiId(),
+                    "norm-java-binding-unknown"));
+      }
+    }
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+  void privateBindingAliasesStayPrivateForSourceAndArchiveConsumers(boolean packaged)
+      throws Exception {
+    Path workspace = Files.createDirectories(temporaryDirectory.resolve("workspace"));
+    Path module = Files.createDirectories(workspace.resolve("dependencies/example/hidden"));
+    Path modulePath = module.resolve("module.norm");
+    Files.writeString(
+        modulePath,
+        """
+        Module module() {
+          module(name: "example.hidden", version: 1, exports: ["Api"],
+            binding: jarBinding(target: mavenJar(group: "org.apache.commons", artifact: "commons-lang3", version: "%s"), api: [
+              jarType(name: "org.apache.commons.lang3.RandomStringUtils", alias: "internal.Random", members: []),
+              jarType(name: "org.apache.commons.lang3.StringUtils", alias: "internal.Text", members: ["reverse"])
+            ]))
+        }
+        """
+            .formatted(MavenTestRepository.commonsLang().version()));
+    Files.writeString(
+        module.resolve("Api.norm"),
+        """
+        package example.hidden
+        import example.hidden.internal.textReverse
+        public String reverse(String value) { return textReverse(value)!! }
+        """);
+    Path app = Files.createDirectories(workspace.resolve("app"));
+    Files.writeString(
+        app.resolve("module.norm"),
+        """
+        Module module() { module(name: "app", version: 1,
+          dependencies: [dependency(repository: "github", name: "example.hidden", version: 1)]) }
+        """);
+    Path entry = app.resolve("Main.norm");
+    Files.writeString(
+        entry,
+        """
+        package app
+        import example.hidden.reverse
+        Void main() { printLine(reverse("abc")) }
+        """);
+    Path repository = MavenTestRepository.prepare(temporaryDirectory.resolve("repository"));
+    var backend = new NormRuntime();
+    try (var environment = ProjectEnvironment.bootstrap(backend)) {
+      try (var projects = environment.projectLoader(repository)) {
+        new ModuleBindingResolutionService(projects).resolve(modulePath);
+      }
+      if (packaged) {
+        try (var projects = environment.projectLoader(repository);
+            var compiler = environment.compilerSession()) {
+          var artifact =
+              new ModulePackager(projects, compiler).packageModule(modulePath, repository);
+          var archived = new ModuleArchiveReader().read(artifact.archive());
+          assertEquals(java.util.List.of("Api"), archived.descriptor().exports());
+          assertTrue(archived.publicTypes().isEmpty());
+          assertEquals(java.util.Set.of("example/hidden/Api.norm"), archived.publicSources());
+          assertEquals(
+              java.util.Optional.of("internal.Text"),
+              archived.descriptor().binding().orElseThrow().api().get(1).alias());
+          assertTrue(archived.sources().containsKey("example/hidden/internal/Text.norm"));
+        }
+        Files.move(module, workspace.resolve("published-module"));
+      }
+      var output = new StringWriter();
+      try (var launcher =
+          new ApplicationRunner(
+              environment.projectLoader(repository), environment.compilerSession(), backend)) {
+        var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(output)));
+        assertTrue(result.isSuccess(), () -> result.diagnostics().toString());
+      }
+      assertEquals("cba" + System.lineSeparator(), output.toString());
+      Files.writeString(
+          entry,
+          """
+          package app
+          import example.hidden.internal.textReverse
+          Void main() { printLine(textReverse("abc")) }
+          """);
+      try (var launcher =
+          new ApplicationRunner(
+              environment.projectLoader(repository), environment.compilerSession(), backend)) {
+        var result = launcher.run(entry, ExecutionContext.of(new PrintWriter(new StringWriter())));
+        assertFalse(result.isSuccess());
+        assertTrue(
+            result.diagnostics().toString().contains("textReverse"),
+            () -> result.diagnostics().toString());
+      }
+    }
+  }
 
   @Test
   void packagesJdkBindingAndRunsItsConsumerWithoutAJavaArtifact() throws Exception {
@@ -453,6 +586,7 @@ final class ModulePackagerTest {
           return module(
             name: "commons.lang",
             version: 1,
+            exports: ["StringUtils"],
             binding: jarBinding(
               target: mavenJar(
                 group: "org.apache.commons",
@@ -637,6 +771,7 @@ final class ModulePackagerTest {
           return module(
             name: "commons.lang",
             version: 1,
+            exports: ["StringUtils"],
             binding: jarBinding(
               target: mavenJar(
                 group: "org.apache.commons",

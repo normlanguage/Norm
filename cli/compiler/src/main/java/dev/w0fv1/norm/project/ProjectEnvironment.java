@@ -99,7 +99,6 @@ public final class ProjectEnvironment implements AutoCloseable {
                       new JdkModuleTarget(target.name(), Optional.of(graph.contentId())),
                       declaredBinding.api())));
       javaBinding = JarBindingPreparer.prepare(javaBaseDescriptor, graph);
-      javaBaseDescriptor = javaBaseDescriptor.withExports(javaBinding.generated().exports());
       var javaBase = StandardLibrary.load(javaBaseDescriptor, javaBinding.generated().sources());
       ModuleDescriptor descriptor = descriptors.get(1);
       StandardLibrary.LoadedModule standardLibrary = StandardLibrary.load(descriptor);
@@ -120,7 +119,8 @@ public final class ProjectEnvironment implements AutoCloseable {
               Map.of(
                   javaBase.sources().getFirst().id(),
                   dev.w0fv1.norm.jvm.JavaScalarConformances.derive(
-                      javaBinding.api(), javaBinding.generated().exportedClasses())));
+                      javaBinding.api(),
+                      javaBinding.generated().exportedClasses(javaBaseDescriptor.exports()))));
       CompilationPrelude standardLibraryPrelude =
           new CompilationPrelude(
               standardLibrary.sources(),

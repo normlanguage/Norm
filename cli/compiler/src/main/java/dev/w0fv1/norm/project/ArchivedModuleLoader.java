@@ -143,7 +143,9 @@ final class ArchivedModuleLoader {
             SourceFile.of(archive, ""),
             descriptor,
             loaded.sources(),
-            ResolvedProjectModule.exportedSources(loaded, bindingSources),
+            archived.publicSources().stream()
+                .map(path -> loaded.sources().get(path).id())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet()),
             bindingSources,
             binding,
             archived.resources(),

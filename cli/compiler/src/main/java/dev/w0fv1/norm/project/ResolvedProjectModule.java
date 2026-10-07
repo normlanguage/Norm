@@ -3,14 +3,12 @@ package dev.w0fv1.norm.project;
 import static dev.w0fv1.norm.project.ProjectPaths.normalize;
 
 import dev.w0fv1.norm.execution.JarBindingClassReference;
-import dev.w0fv1.norm.frontend.ModuleLoader;
 import dev.w0fv1.norm.jvm.ResolvedJarBinding;
 import dev.w0fv1.norm.source.DocumentId;
 import dev.w0fv1.norm.source.SourceFile;
 import dev.w0fv1.norm.value.FileSnapshot;
 import dev.w0fv1.norm.value.ModuleDescriptor;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -90,12 +88,5 @@ record ResolvedProjectModule(
     bindingSources = Set.copyOf(bindingSources);
     Objects.requireNonNull(binding, "binding");
     resources = Map.copyOf(resources);
-  }
-
-  static Set<DocumentId> exportedSources(
-      ModuleLoader.LoadedModule loaded, Set<DocumentId> bindingSources) {
-    Set<DocumentId> result = new LinkedHashSet<>(loaded.exportedSources());
-    result.addAll(bindingSources);
-    return Set.copyOf(result);
   }
 }

@@ -75,7 +75,7 @@ final class PlainObjectJavaBridgeTest {
         binding.resolve("module.norm"),
         """
         Module module() {
-          module(name: "host", version: 1,
+          module(name: "host", version: 1, exports: ["Host"],
             binding: jarBinding(target: localJar(path: "host.jar", integrity: sha256("%s")),
               api: [jarType(name: "Host", members: ["name", "echo", "same", "message", "tone", "mute"])]))
         }

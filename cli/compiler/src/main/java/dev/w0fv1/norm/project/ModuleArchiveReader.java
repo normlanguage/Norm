@@ -130,6 +130,16 @@ final class ModuleArchiveReader {
                   name.substring(separator + 1)));
         }
       }
+      var publicSources =
+          descriptor.exports().stream()
+              .map(descriptor::sourcePath)
+              .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+      if (binding.isPresent()
+          && "norm-java-binding-4"
+              .equals(manifest.getAsJsonObject("jar").get("bindingAbi").getAsString()))
+        binding.orElseThrow().generated().sources().stream()
+            .map(dev.w0fv1.norm.jvm.GeneratedBindingSource::relativePath)
+            .forEach(publicSources::add);
       return new ArchivedModule(
           snapshot,
           descriptor,
@@ -141,7 +151,8 @@ final class ModuleArchiveReader {
           resources,
           publicTypes,
           binding,
-          compiled);
+          compiled,
+          publicSources);
     } catch (RuntimeException exception) {
       throw new IOException("invalid module archive " + archive, exception);
     }
@@ -208,7 +219,13 @@ final class ModuleArchiveReader {
                       .forEach(member -> borrowed.add(member.getAsString()));
                 api.add(
                     new JarBindingType(
-                        type.get("name").getAsString(), members, overloads, borrowed));
+                        type.get("name").getAsString(),
+                        members,
+                        overloads,
+                        borrowed,
+                        type.has("alias")
+                            ? Optional.of(type.get("alias").getAsString())
+                            : Optional.empty()));
               });
       binding = Optional.of(new JarBinding(target, api));
     }
@@ -230,7 +247,8 @@ final class ModuleArchiveReader {
       Map<String, ModuleResource> resources,
       Map<String, JarBindingClassReference.Nominal> publicTypes,
       Optional<PublishedJarBinding> binding,
-      dev.w0fv1.norm.frontend.CompiledModule compiled) {
+      dev.w0fv1.norm.frontend.CompiledModule compiled,
+      java.util.Set<String> publicSources) {
     ArchivedModule {
       publicTypes = Map.copyOf(publicTypes);
       java.util.Objects.requireNonNull(descriptor, "descriptor");
@@ -240,6 +258,7 @@ final class ModuleArchiveReader {
       }
       sources = Map.copyOf(sources);
       resources = Map.copyOf(resources);
+      publicSources = java.util.Set.copyOf(publicSources);
     }
   }
 }

@@ -27,7 +27,7 @@ try {
   const digest = createHash('sha256').update(readFileSync(jar)).digest('hex');
   writeFileSync(resolve(module, 'module.norm'), `
 Module module() {
-  return module(name: "fixture", version: 1, binding: jarBinding(
+  return module(name: "fixture", version: 1, exports: ["BindingApi"], binding: jarBinding(
     target: localJar(path: "fixture.jar", integrity: sha256("${digest}")),
     api: [jarType(name: "BindingApi", members: ["greet"])]
   ))

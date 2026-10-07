@@ -24,6 +24,7 @@ interface JarBinding {
 }
 
 interface JarType {
+  String? alias()
   String name()
   List<String> members()
   List<JarOverload> overloads()
@@ -140,12 +141,17 @@ private class DeclaredJarBinding implements JarBinding {
 
 private class DeclaredJarType implements JarType {
   String typeName
+  String? typeAlias
   List<String> memberNames
   List<JarOverload> declaredOverloads
   List<String> borrowedMembers
 
   String name() {
     return typeName
+  }
+
+  String? alias() {
+    return typeAlias
   }
 
   List<String> members() {
@@ -256,9 +262,10 @@ JarType jarType(String name, List<String> members) {
   return jarType(name: name, members: members, overloads: [])
 }
 
-JarType jarType(String name, List<String> members, List<JarOverload> overloads = [], List<String> borrowed = []) {
+JarType jarType(String name, List<String> members, List<JarOverload> overloads = [], List<String> borrowed = [], String? alias = null) {
   return DeclaredJarType(
     typeName: name,
+    typeAlias: alias,
     memberNames: members,
     declaredOverloads: overloads,
     borrowedMembers: borrowed
@@ -328,16 +335,10 @@ private Module declaredModule(
   if version != null {
     require(condition: version > 0, message: "module version must be positive")
   }
-  List<String> resolvedExports = exports
-  if binding != null && resolvedExports.size() == 0 {
-    for JarType type : binding.api() {
-      resolvedExports.add(type.name())
-    }
-  }
   return DeclaredModule(
     moduleName: name,
     moduleVersion: version,
-    exportedSources: resolvedExports,
+    exportedSources: exports,
     requiredModules: dependencies,
     jarBinding: binding,
     sourceRoots: sources,

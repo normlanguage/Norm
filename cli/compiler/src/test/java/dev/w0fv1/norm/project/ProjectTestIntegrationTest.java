@@ -89,12 +89,13 @@ final class ProjectTestIntegrationTest {
           return module(
             name: "junit.jupiter",
             version: 1,
+            exports: ["api.Test"],
             binding: jarBinding(
               target: localJar(
                 path: "lib/junit-jupiter-api.jar",
                 integrity: sha256("%s")
               ),
-              api: [jarType(name: "api.Test", members: [])]
+              api: [jarType(name: "api.Test", members: [], alias: "api.Test")]
             )
           )
         }

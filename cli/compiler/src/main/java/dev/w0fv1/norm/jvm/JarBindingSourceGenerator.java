@@ -26,20 +26,10 @@ public final class JarBindingSourceGenerator {
 
   public GeneratedJarBinding generateSurface(
       ModuleCoordinate module,
-      List<String> exports,
       List<JarBindingType> api,
       Sha256Digest graphId,
       JarApiSchema schema,
       Map<String, JarBindingClassReference.Nominal> imports) {
-    return renderer.render(planner.planSurface(module, exports, api, graphId, schema, imports));
-  }
-
-  public GeneratedJarBinding generateSurface(
-      ModuleCoordinate module,
-      List<String> exports,
-      List<JarBindingType> api,
-      Sha256Digest graphId,
-      JarApiSchema schema) {
-    return renderer.render(planner.planSurface(module, exports, api, graphId, schema));
+    return renderer.render(planner.planSurface(module, api, graphId, schema, imports));
   }
 }

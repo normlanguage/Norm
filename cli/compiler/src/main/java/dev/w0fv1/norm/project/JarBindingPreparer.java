@@ -46,7 +46,6 @@ final class JarBindingPreparer {
           new JarBindingSourceGenerator()
               .generateSurface(
                   descriptor.coordinate(),
-                  descriptor.exports().subList(0, descriptor.binding().orElseThrow().api().size()),
                   descriptor.binding().orElseThrow().api(),
                   graph.contentId(),
                   surface,

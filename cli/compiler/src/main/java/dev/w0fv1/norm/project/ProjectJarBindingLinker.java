@@ -27,7 +27,8 @@ final class ProjectJarBindingLinker {
     if (module.binding().isEmpty()) return module;
     Map<String, JarBindingClassReference.Nominal> imports = new LinkedHashMap<>();
     for (var provided : providedModules.values())
-      imports.putAll(provided.binding().generated().exportedClasses());
+      imports.putAll(
+          provided.binding().generated().exportedClasses(provided.descriptor().exports()));
     Set<ModuleCoordinate> visited = new LinkedHashSet<>();
     for (var dependency : module.descriptor().dependencies()) {
       collect(dependency.coordinate(), dependencies, providedModules, visited, imports);
@@ -56,16 +57,13 @@ final class ProjectJarBindingLinker {
       generated =
           new JarBindingSourceGenerator()
               .generateSurface(
-                  descriptor.coordinate(),
-                  descriptor.exports().subList(0, api.size()),
-                  api,
-                  previous.graph().contentId(),
-                  surface,
-                  imports);
+                  descriptor.coordinate(), api, previous.graph().contentId(), surface, imports);
     }
     var binding = new ResolvedJarBinding(previous.graph(), previous.api(), generated, imports);
     if (!module.archivedJavaExports().isEmpty()
-        && !module.archivedJavaExports().equals(binding.generated().exportedClasses())) {
+        && !module
+            .archivedJavaExports()
+            .equals(binding.generated().exportedClasses(descriptor.exports()))) {
       throw new IOException("Norm module public Java types do not match its pinned JAR binding");
     }
     Map<String, SourceFile> sources = new LinkedHashMap<>(module.sources());
@@ -95,7 +93,7 @@ final class ProjectJarBindingLinker {
         module.moduleSource(),
         descriptor,
         loaded.sources(),
-        ResolvedProjectModule.exportedSources(loaded, bindingSources),
+        module.archive().isPresent() ? module.exportedSources() : loaded.exportedSources(),
         bindingSources,
         Optional.of(binding),
         module.resources(),
@@ -120,7 +118,7 @@ final class ProjectJarBindingLinker {
     var publicTypes =
         dependency
             .binding()
-            .map(binding -> binding.generated().exportedClasses())
+            .map(binding -> binding.generated().exportedClasses(dependency.descriptor().exports()))
             .orElse(dependency.archivedJavaExports());
     for (var entry : publicTypes.entrySet()) {
       var previous = imports.putIfAbsent(entry.getKey(), entry.getValue());

@@ -24,14 +24,14 @@ public record GeneratedJarBinding(
     annotations = Map.copyOf(annotations);
   }
 
-  public Map<String, JarBindingClassReference.Nominal> exportedClasses() {
+  public Map<String, JarBindingClassReference.Nominal> exportedClasses(List<String> publicSources) {
     Map<String, JarBindingClassReference.Nominal> result = new java.util.LinkedHashMap<>();
     classDescriptors.forEach(
         (reference, descriptor) -> {
           String path =
               (reference.packageName() + "." + reference.name())
                   .substring(reference.module().name().length() + 1);
-          if (exports.contains(path) && descriptor.startsWith("L")) {
+          if (publicSources.contains(path) && descriptor.startsWith("L")) {
             result.put(
                 descriptor.substring(1, descriptor.length() - 1).replace('/', '.'), reference);
           }

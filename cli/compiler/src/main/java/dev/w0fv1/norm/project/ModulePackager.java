@@ -202,7 +202,7 @@ public final class ModulePackager {
       jar.addProperty("bindingAbi", PublishedJarBinding.ABI);
       jar.addProperty("bindingId", bindingId.value());
       JsonObject publicTypes = new JsonObject();
-      binding.orElseThrow().generated().exportedClasses().entrySet().stream()
+      binding.orElseThrow().generated().exportedClasses(descriptor.exports()).entrySet().stream()
           .sorted(java.util.Map.Entry.comparingByKey())
           .forEach(
               entry ->
@@ -219,6 +219,7 @@ public final class ModulePackager {
               type -> {
                 JsonObject value = new JsonObject();
                 value.addProperty("name", type.name());
+                type.alias().ifPresent(alias -> value.addProperty("alias", alias));
                 JsonArray members = new JsonArray();
                 type.members().forEach(members::add);
                 value.add("members", members);
