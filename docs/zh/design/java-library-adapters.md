@@ -5,6 +5,8 @@ description: Java JAR 作为普通 Norm Module 内部实现的目标、边界与
 
 # Java Library Adapter
 
+Java 应用声明投影见 [JavaStubPlanner](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaStubPlanner.java)，类型化集合字段与方法的真实跨语言契约见 [PlainObjectJavaBridgeTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PlainObjectJavaBridgeTest.java)。
+
 ## 目标
 
 Norm Module 可以暂时使用一个 Java JAR 及其运行依赖实现公开 Norm API，也可以在后续版本移除该实现并改写为纯 Norm。模块名、导出边界、依赖方式和发布坐标不暴露实现来源。

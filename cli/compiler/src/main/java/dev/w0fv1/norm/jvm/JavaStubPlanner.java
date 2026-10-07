@@ -1018,8 +1018,10 @@ final class JavaStubPlanner {
     if (absolute instanceof CoreType.Declared declared) {
       if (declared.constructor() instanceof CoreTypeConstructor.Builtin builtin) {
         String descriptor =
-            JavaPlatformTypes.classDescriptors()
-                .get(new JarBindingClassReference.Builtin(builtin.id().value()));
+            builtin.id().value().equals("std.core.List")
+                ? "Ljava/util/List;"
+                : JavaPlatformTypes.classDescriptors()
+                    .get(new JarBindingClassReference.Builtin(builtin.id().value()));
         if (!declared.arguments().isEmpty() && descriptor != null && descriptor.startsWith("L")) {
           return JavaTypeNames.sourceName(
                   descriptor.substring(1, descriptor.length() - 1).replace('/', '.'))

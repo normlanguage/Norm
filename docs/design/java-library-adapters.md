@@ -5,6 +5,8 @@ description: Goals, boundaries, and delivery model for using a Java JAR as an or
 
 # Java Library Adapter
 
+Java application declaration projection is defined by [JavaStubPlanner](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaStubPlanner.java). [PlainObjectJavaBridgeTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/PlainObjectJavaBridgeTest.java) verifies typed collection fields and methods across the Java boundary.
+
 ## Goal
 
 A Norm Module can implement its public Norm API using a Java JAR and its runtime dependencies, then replace that implementation with pure Norm in a later version. Module names, exports, dependency declarations, and publication coordinates do not expose implementation provenance.
