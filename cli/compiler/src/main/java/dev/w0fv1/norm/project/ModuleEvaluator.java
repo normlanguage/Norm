@@ -66,6 +66,7 @@ final class ModuleEvaluator implements AutoCloseable {
                 if alias == null {
                   bindingApiAliases.add("")
                 } else {
+                  require(condition: alias != "", message: "JAR binding alias must not be empty")
                   bindingApiAliases.add(alias)
                 }
                 bindingApiMembers.add(type.members())

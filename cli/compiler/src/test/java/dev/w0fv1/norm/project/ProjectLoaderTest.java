@@ -570,6 +570,25 @@ final class ProjectLoaderTest {
   }
 
   @Test
+  void rejectsAnExplicitEmptyBindingAliasDuringModuleEvaluation() throws Exception {
+    Path modulePath =
+        source(
+            temporaryDirectory,
+            "sample/module.norm",
+            """
+        Module module() { module(name: "sample", version: 1,
+          binding: jarBinding(target: localJar(path: "lib/sample.jar"),
+            api: [jarType(name: "Button", members: [], alias: "")])) }
+        """);
+    try (ProjectLoader projects = environment().projectLoader()) {
+      IOException failure =
+          assertThrows(
+              IOException.class, () -> projects.evaluateModule(SourceFile.read(modulePath)));
+      assertTrue(failure.getMessage().contains("JAR binding alias"), failure.getMessage());
+    }
+  }
+
+  @Test
   void generatesTrustedNormSourcesForAnApacheCommonsLangBinding() throws Exception {
     Path root = Files.createDirectories(temporaryDirectory.resolve("binding-project"));
     Path entry = source(root, "commons/lang/Main.norm", "package commons.lang Void main() {}");
