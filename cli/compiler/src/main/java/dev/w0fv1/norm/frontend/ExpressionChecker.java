@@ -630,19 +630,23 @@ final class ExpressionChecker implements ExpressionTyping {
       SemanticType memberType = memberTypeWithoutDiagnostics(member, nullableReceiver);
       if (memberType != null && memberType.isFunction()) {
         model.putType(member.span(), memberType);
-        return analyzeFunctionInvocation(call, memberType, this.body.currentCallable());
+        return analyzeFunctionInvocation(call, memberType, this.body.currentCallable(), List.of());
       }
       return analyzeMethodCall(member, call, expected, nullableReceiver);
     }
     SemanticType calleeType = typeOf(call.callee(), null);
     if (calleeType.isFunction())
-      return analyzeFunctionInvocation(call, calleeType, this.body.currentCallable());
+      return analyzeFunctionInvocation(call, calleeType, this.body.currentCallable(), List.of());
     diagnostics.error(INVALID_CALL, "expression is not callable", call.callee().span());
     calls.analyzeArguments(call.arguments());
     return SemanticType.DYNAMIC;
   }
 
-  SemanticType analyzeFunctionInvocation(Syntax.Call call, SemanticType function, SymbolId target) {
+  SemanticType analyzeFunctionInvocation(
+      Syntax.Call call,
+      SemanticType function,
+      SymbolId target,
+      List<ParameterInfo> declaredParameters) {
     if (function.isUnknownFunction()) {
       diagnostics.error(
           INVALID_CALL, "Function<?> has no callable signature", call.callee().span());
@@ -656,9 +660,6 @@ final class ExpressionChecker implements ExpressionTyping {
           List.of(),
           SemanticType.DYNAMIC);
     }
-    Symbol contract = model.symbols().get(target);
-    List<ParameterInfo> declaredParameters =
-        contract != null && contract.type().isFunction() ? contract.parameters() : List.of();
     List<ParameterInfo> parameters =
         java.util.stream.IntStream.range(0, function.functionParameterTypes().size())
             .mapToObj(
@@ -755,7 +756,7 @@ final class ExpressionChecker implements ExpressionTyping {
     if (scoped == null && self != null && hasProperty(self.declaredType(), callee)) {
       SemanticType property = typeOf(name, null);
       if (property.isFunction())
-        return analyzeFunctionInvocation(call, property, this.body.currentCallable());
+        return analyzeFunctionInvocation(call, property, this.body.currentCallable(), List.of());
       diagnostics.error(INVALID_CALL, "property is not callable", name.span());
       calls.analyzeArguments(call.arguments());
       return SemanticType.DYNAMIC;
@@ -764,7 +765,12 @@ final class ExpressionChecker implements ExpressionTyping {
       SemanticType function = scoped.declaredType();
       model.putBinding(name.span(), scoped.id());
       model.putType(name.span(), function);
-      return analyzeFunctionInvocation(call, function, scoped.id());
+      Symbol contract = model.symbols().get(scoped.id());
+      return analyzeFunctionInvocation(
+          call,
+          function,
+          scoped.id(),
+          contract != null && contract.type().isFunction() ? contract.parameters() : List.of());
     }
     builtins.type(callee).ifPresent(symbol -> model.putBinding(name.span(), symbol.id()));
     List<Symbol> builtinFunctions =

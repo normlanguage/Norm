@@ -15,17 +15,17 @@ final class ClosureCompilerTest {
             """
         value Column<T> {
           Function<String(T)> display
-          Function<Integer(T)>? compare = null
+          Function<Integer(T, T)>? compare = null
         }
         value Projection<T> {
           Function<String(T)> display
-          Function<Integer(T)>? compare
+          Function<Integer(T, T)>? compare
         }
         Function<List<Projection<Integer>>()> project(List<Column<Integer>> columns) {
           () { [for (column : columns) Projection<Integer>(
             display: (Integer row) { column.display(row) },
             compare: if column.compare == null { null } else {
-              (Integer left) { column.compare!!(left) }
+              (Integer left, Integer right) { column.compare!!(left, right) }
             })] }
         }
         Void main() {
