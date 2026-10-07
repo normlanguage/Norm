@@ -21,6 +21,7 @@ Module module() {
       "concurrent.delay",
       "concurrent.publishers",
       "concurrent.tasks",
+      "concurrent.java",
       "filesystem.files",
       "http.client",
       "http.json",

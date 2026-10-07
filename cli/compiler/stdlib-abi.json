@@ -770,6 +770,10 @@
       "requiresResultRuntimeType": true
     },
     {
+      "name": "TASK_JAVA_COMPLETION",
+      "requiresResultRuntimeType": true
+    },
+    {
       "name": "WS_CONNECT",
       "requiresResultRuntimeType": true
     },
@@ -2859,6 +2863,14 @@
     "std.core.__taskTermination/T": {
       "kind": "TYPE_PARAMETER",
       "identity": "std.core.__taskTermination/T",
+      "name": "T",
+      "category": "POLYMORPHIC",
+      "arguments": [],
+      "nullable": false
+    },
+    "std.core.__taskJavaCompletion/T": {
+      "kind": "TYPE_PARAMETER",
+      "identity": "std.core.__taskJavaCompletion/T",
       "name": "T",
       "category": "POLYMORPHIC",
       "arguments": [],
@@ -7560,6 +7572,28 @@
         "documentation": "Norm built-in."
       },
       "intrinsic": "TASK_TERMINATION"
+    },
+    {
+      "symbol": {
+        "name": "__taskJavaCompletion",
+        "kind": "FUNCTION",
+        "type": "std.core.__taskJavaCompletion/T",
+        "typeParameters": [
+          {
+            "name": "T",
+            "type": "std.core.__taskJavaCompletion/T"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task",
+            "type": "<error>",
+            "hasDefault": false
+          }
+        ],
+        "documentation": "Norm built-in."
+      },
+      "intrinsic": "TASK_JAVA_COMPLETION"
     },
     {
       "symbol": {
