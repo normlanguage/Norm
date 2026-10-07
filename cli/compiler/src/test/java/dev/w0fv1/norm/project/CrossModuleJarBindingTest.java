@@ -20,7 +20,7 @@ final class CrossModuleJarBindingTest {
   @TempDir Path directory;
 
   @ParameterizedTest
-  @ValueSource(strings = {"direct", "transitive", "diamond"})
+  @ValueSource(strings = {"direct", "transitive", "diamond", "bundled"})
   void sharesPublicJavaTypesInSourceAndPackagedModules(String dependencyShape) throws Exception {
     var repository = directory.resolve("repository");
     var javaSources = Files.createDirectories(directory.resolve("java/sample"));
@@ -111,13 +111,18 @@ final class CrossModuleJarBindingTest {
         widgets.resolve("module.norm"),
         """
         Module module() { module(name: "widgets", version: 1,
-          exports: ["Widget"], binding: jarBinding(target: mavenJar(group: "fixture", artifact: "node", version: "1"),
-            api: [jarType(name: "Node", members: ["new", "text", "words"])])) }
-        """);
+          exports: ["Widget", "JavaArrays"], binding: jarBinding(target: mavenJar(group: "fixture", artifact: "%s", version: "1"),
+            api: [jarType(name: "Node", alias: "Widget", members: ["new", "text", "words"])%s])) }
+        """
+            .formatted(
+                dependencyShape.equals("bundled") ? "host" : "node",
+                dependencyShape.equals("bundled")
+                    ? ", jarType(name: \"Host\", alias: \"internal.Host\", members: [\"new\", \"echo\"])"
+                    : ""));
     Files.writeString(
         host.resolve("module.norm"),
         """
-        Module module() { module(name: "host", version: 1,
+        Module module() { module(name: "host", version: 1, exports: ["Host"],
           dependencies: [%s],
           binding: jarBinding(target: mavenJar(group: "fixture", artifact: "host", version: "1"),
             api: [jarType(name: "Host", members: ["new", "echo"])])) }

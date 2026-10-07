@@ -12,6 +12,20 @@ final class JarBindingTest {
   private static final String DIGEST = "0123456789abcdef".repeat(4);
 
   @Test
+  void bindingAliasIsExplicitAndIndependentOfExports() {
+    JarBindingType type =
+        new JarBindingType(
+            "sample.Button", List.of(), List.of(), List.of(), Optional.of("internal.Button"));
+    assertEquals(Optional.of("internal.Button"), type.alias());
+    assertEquals(Optional.empty(), new JarBindingType("sample.Button", List.of()).alias());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new JarBindingType(
+                "sample.Button", List.of(), List.of(), List.of(), Optional.of("internal..Button")));
+  }
+
+  @Test
   void moduleCarriesOneOptionalRootJarBinding() {
     JarBinding binding =
         new JarBinding(

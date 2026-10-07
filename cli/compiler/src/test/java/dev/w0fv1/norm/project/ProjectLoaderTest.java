@@ -558,7 +558,7 @@ final class ProjectLoaderTest {
           new MavenArtifactCoordinate("org.apache.commons", "commons-lang3", "3.20.0"),
           target.coordinate());
       assertEquals(Sha256Digest.parse(SHA256), target.resolution().orElseThrow());
-      assertEquals(List.of("StringUtils"), descriptor.exports());
+      assertEquals(List.of(), descriptor.exports());
       assertEquals(
           List.of(
               new JarBindingType(

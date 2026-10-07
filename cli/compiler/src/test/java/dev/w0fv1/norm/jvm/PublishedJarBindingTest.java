@@ -20,6 +20,7 @@ final class PublishedJarBindingTest {
   void rejectsBindingsFromSupersededTypeProjectionContracts() {
     assertFalse(PublishedJarBinding.isReadable("norm-java-binding-2"));
     assertFalse(PublishedJarBinding.isReadable("norm-java-binding-3"));
+    assertTrue(PublishedJarBinding.isReadable("norm-java-binding-4"));
     assertTrue(PublishedJarBinding.isReadable(PublishedJarBinding.ABI));
   }
 

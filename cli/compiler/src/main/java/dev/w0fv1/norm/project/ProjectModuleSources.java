@@ -101,7 +101,10 @@ final class ProjectModuleSources {
           new LinkedHashMap<>();
       providedModules
           .values()
-          .forEach(module -> imports.putAll(module.binding().generated().exportedClasses()));
+          .forEach(
+              module ->
+                  imports.putAll(
+                      module.binding().generated().exportedClasses(module.descriptor().exports())));
       ResolvedJarBinding resolvedBinding =
           JarBindingPreparer.prepare(
               descriptor,
@@ -109,13 +112,6 @@ final class ProjectModuleSources {
               imports,
               providedModules.values().stream().map(module -> module.binding().graph()).toList());
       GeneratedJarBinding generated = resolvedBinding.generated();
-      List<String> exports = new java.util.ArrayList<>(generated.exports());
-      exports.addAll(
-          descriptor
-              .exports()
-              .subList(
-                  descriptor.binding().orElseThrow().api().size(), descriptor.exports().size()));
-      descriptor = descriptor.withExports(exports);
       Set<DocumentId> generatedDocuments = new LinkedHashSet<>();
       for (GeneratedBindingSource source : generated.sources()) {
         Path path = normalize(root.resolve(source.relativePath()));
@@ -140,7 +136,7 @@ final class ProjectModuleSources {
         moduleSource,
         descriptor,
         loaded.sources(),
-        ResolvedProjectModule.exportedSources(loaded, bindingSources),
+        loaded.exportedSources(),
         bindingSources,
         binding,
         resources,

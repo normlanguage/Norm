@@ -40,7 +40,7 @@ final class LinkedJarBindingTest {
   }
 
   @Test
-  void rejectsDuplicateCallsEvenWhenTheyHaveTheSameTarget() {
+  void sharesIdenticalCallsAndRejectsConflictingTargets() {
     var callable =
         new JavaBindingCallable(
             "java.lang.String",
@@ -50,12 +50,25 @@ final class LinkedJarBindingTest {
             List.of(),
             JavaPrimitiveType.INT);
     var binding = new LinkedJarBinding(Map.of("length", callable), Map.of(), Map.of());
+    assertEquals(Map.of("length", callable), LinkedJarBinding.linkCalls(List.of(binding, binding)));
+    try (var runtime = JvmJarBindingRuntime.closedWorld(List.of(binding, binding))) {
+      assertEquals(new JarBindingResult.Scalar(4), runtime.invoke("length", List.of("Norm")));
+    }
+    var other =
+        new JavaBindingCallable(
+            "java.lang.String",
+            "hashCode",
+            "()I",
+            JavaCallableKind.INSTANCE_METHOD,
+            List.of(),
+            JavaPrimitiveType.INT);
+    var conflicting = new LinkedJarBinding(Map.of("length", other), Map.of(), Map.of());
     assertThrows(
         JarBindingRuntimeException.class,
-        () -> LinkedJarBinding.linkCalls(List.of(binding, binding)));
+        () -> LinkedJarBinding.linkCalls(List.of(binding, conflicting)));
     assertThrows(
         JarBindingRuntimeException.class,
-        () -> JvmJarBindingRuntime.closedWorld(List.of(binding, binding)));
+        () -> JvmJarBindingRuntime.closedWorld(List.of(binding, conflicting)));
     assertEquals(Map.of(), LinkedJarBinding.linkCalls(List.of()));
   }
 }

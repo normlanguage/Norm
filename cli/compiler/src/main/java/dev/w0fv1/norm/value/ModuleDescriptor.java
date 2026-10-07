@@ -23,13 +23,6 @@ public record ModuleDescriptor(
         throw new IllegalArgumentException("duplicate exported source '" + exportedName + "'");
       }
     }
-    if (binding.isPresent()) {
-      JarBinding value = binding.orElseThrow();
-      if (exports.size() < value.api().size()) {
-        throw new IllegalArgumentException(
-            "module exports must include every declared JAR binding API type");
-      }
-    }
     HashSet<ModuleCoordinate> uniqueDependencies = new HashSet<>();
     for (ModuleRequirement dependency : dependencies) {
       Objects.requireNonNull(dependency, "dependency");

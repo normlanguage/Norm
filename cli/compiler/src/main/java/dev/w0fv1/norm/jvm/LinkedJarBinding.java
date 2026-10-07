@@ -32,8 +32,9 @@ public record LinkedJarBinding(
           .calls()
           .forEach(
               (name, callable) -> {
-                if (calls.putIfAbsent(name, callable) != null)
-                  throw new JarBindingRuntimeException("duplicate JAR binding call " + name);
+                var previous = calls.putIfAbsent(name, callable);
+                if (previous != null && !previous.equals(callable))
+                  throw new JarBindingRuntimeException("conflicting JAR binding call " + name);
               });
     }
     return Map.copyOf(calls);

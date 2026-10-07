@@ -24,11 +24,11 @@ Every `.norm` file is Norm source. A top-level `Module module()` supplies the mo
 
 `Module module()` is the single declaration point for module identity, dependencies, and publication configuration. A working directory is not a dependency or publication unit, and there is no Project manifest.
 
-A Module has at most one optional `jarBinding`, containing one root JAR or JDK module. A JAR's POM or local declaration can introduce transitive runtime dependencies, but the compiler generates callable declarations only for public classes owned by the root. Objects from dependency JARs may cross signatures as constrained external types; calling their APIs requires the corresponding Norm Modules.
+A Module has at most one optional `jarBinding`, containing one root JAR or JDK module. `jarBinding.api` can select public Java types from that root dependency graph. Types already exposed by a dependency Norm Module reuse that declaration. Supporting metadata is defined by [JavaApiScanInput](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaApiScanInput.java).
 
-Explicit `exports` and `jarBinding.api` establish public Norm name mappings in declaration order. Java class names therefore do not determine Module API identity: `jakarta.persistence.EntityManager`, for example, can be exported stably as `orm.Store`. If `exports` is omitted, names are derived from `jarType.name`.
+`jarType(name: "jakarta.persistence.EntityManager", alias: "internal.Store", members: [])` explicitly names the module-relative declaration path. Without `alias`, the Java short class name is used, joining enclosing names for nested classes. `exports` selects public source files and never names bindings; omitted or empty exports keep bindings internal. The normative entries are [BindingPlanner](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/BindingPlanner.java) for naming and the [module system](../spec/module-system.md) for visibility.
 
-To combine several Java libraries, adapt each root JAR in its own Module and compose them through a pure Norm Module. Ordinary Norm source, generated declarations, and later pure-Norm replacements share one export table.
+Ordinary Norm source, generated declarations, and pure Norm implementations share one export table. A module may place Java adapters in an `internal` package and export only its authored Norm API.
 
 ## Declaration model
 
@@ -41,6 +41,7 @@ Module module() {
   return module(
     name: "commons.lang",
     version: 1,
+    exports: ["StringUtils"],
     dependencies: [],
     binding: jarBinding(
       target: mavenJar(
@@ -60,7 +61,7 @@ Module module() {
 }
 ```
 
-`JarType`, `JarBinding`, and their factory functions are ordinary Norm declarations defined during bootstrap. Both `binding` and `target` are single values. Binding Module exports derive from the type names in `api`; a pure Norm version implements those same export names in ordinary source.
+Declarations and defaults are defined only in [bootstrap/module.norm](../../cli/compiler/src/main/resources/bootstrap/module.norm). Source and NAR acceptance for internal binding isolation is indexed in [ModulePackagerTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java).
 
 Local JARs use `localJar(path, integrity)`. `norm resolve` resolves dependencies and atomically fills missing digests. A declared digest mismatch fails immediately; authors updating dependencies must first change their declarations. `norm run`, `norm package`, and CI verify declared content without accepting dependency drift. No separate lock file is used.
 
@@ -72,7 +73,7 @@ JDK roots use `jdkModule(name, resolution)`. [JdkModuleArchive](../../cli/compil
 
 Scalar interface relationships derive from JDK signatures through [JavaScalarConformances](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaScalarConformances.java) and the existing built-in conformance pipeline. Execution coverage is in [JavaScalarInterfaceIntegrationTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaScalarInterfaceIntegrationTest.java).
 
-Place local JARs inside the Module directory, such as `lib/tools.jar`. A `jarType` name identifies one unique public class in the root JAR. `members` selects constructor, method, or field names and includes stable public overloads of each name; constructors use `new`. Root-JAR types appearing in signatures automatically form the minimal declaration closure. The compiler generates ordinary Norm declarations for selected APIs: for example, `StringUtils.reverse` becomes `stringUtilsReverse`.
+Place local JARs inside the Module directory, such as `lib/tools.jar`. A `jarType` name identifies one unique public class in the resolved Java dependency graph. `members` selects constructor, method, or field names and includes stable public overloads of each name; constructors use `new`. Java reference types appearing in signatures form the minimal declaration closure. The compiler generates ordinary Norm declarations for selected APIs: for example, `StringUtils.reverse` becomes `stringUtilsReverse`.
 
 ```norm
 Module module() {
@@ -135,7 +136,7 @@ Identical content shares scanning and Binding caches. A changed JAR implementati
 
 ## Publication model
 
-`norm package` produces a NAR and a POM derived from `module.norm`. [ModuleArchiveFormat](../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ModuleArchiveFormat.java) owns the archive version. Every Module stores its evaluated manifest, complete production sources, and resources; `exports` defines public APIs rather than selecting artifact files. Java Binding Modules also retain an API report and the stable binding artifact defined by [PublishedJarBinding](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java). Consumers verify binding ABI, artifact digests, module descriptors, pinned dependency graphs, public type ownership, and archived sources, then directly link published artifacts. Application-specific callbacks, annotation processing, and reachability pruning remain application-build responsibilities. NARs neither embed Java JARs nor execute remote `module.norm` source. Pure Norm and Java adapters share one package model. See [ModulePackagerTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java) and [CrossModuleJarBindingTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java) for archive and cross-module acceptance.
+`norm package` produces a NAR and a POM derived from `module.norm`. [ModuleArchiveFormat](../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ModuleArchiveFormat.java) owns the archive version. Every Module stores its evaluated manifest, complete production sources, and resources; `exports` defines public APIs rather than selecting artifact files. Java Binding Modules also retain an API report and the stable binding artifact defined by [PublishedJarBinding](../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java). Consumers verify binding ABI, artifact digests, module descriptors, pinned dependency graphs, public type ownership, and archived sources, then directly link published artifacts. Application-specific callbacks, annotation processing, and reachability pruning remain application-build responsibilities. Java graph artifacts are retained by [ModulePackager](../../cli/compiler/src/main/java/dev/w0fv1/norm/project/ModulePackager.java); consumers do not execute remote `module.norm` source. Pure Norm and Java adapters share one package model. See [ModulePackagerTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java) and [CrossModuleJarBindingTest](../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java) for archive and cross-module acceptance.
 
 The binding ABI covers data structures, serialization, and runtime conventions. Changes to those contracts require updating `PublishedJarBinding.ABI` and republishing adapters; unrelated compiler implementation changes do not.
 
@@ -170,7 +171,7 @@ Public interfaces in the root JAR become ordinary Norm interfaces, retaining pro
 
 Public interfaces inherited through package-private Java parents are restored in generated declarations, substituting generic arguments along the full hierarchy. Java unbounded wildcards project to the Norm existential type `?`, allowing `Iterable<String>` to pass safely to `Iterable<?>` parameters.
 
-Member selection considers the complete public inherited surface, substituting parent type variables in the exported class. Calls retain publicly linkable declaration owners; package-private declarations are linked through the exported class. The census records real declarations without duplicating inherited views. Public dependency-JAR types participate in inheritance and SAM identification, but published adapter surfaces can still select only root-JAR types.
+Member selection considers the complete public inherited surface, substituting parent type variables in the exported class. Calls retain publicly linkable declaration owners; package-private declarations are linked through the exported class. The census records real declarations without duplicating inherited views. Public dependency-JAR types participate in inheritance and SAM identification and may be selected by the configured API.
 
 Java `Class<T>` maps to Norm `Class<T>?`. The generator derives JVM descriptors for public wrapper declarations and array wrappers. Runtime resolution uses declaration identity to map real `java.lang.Class` values in both directions; when a return value has multiple valid erased views, the call site's `Class<T>` disambiguates them. Ordinary Norm types without Binding mappings cannot be resolved through string class names or host reflection.
 

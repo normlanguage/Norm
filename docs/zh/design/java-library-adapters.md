@@ -24,11 +24,11 @@ Norm API → Norm Core
 
 `Module module()` 是模块声明、依赖与发布配置的唯一写入口。工作目录不是依赖或发布单位，不定义 Project manifest。
 
-一个 Module 最多包含一个可选的 `jarBinding`，根可以是 JAR 或 JDK 模块。JAR 的 POM 或本地声明可以形成传递运行依赖，但编译器只为根中拥有的公开类生成可调用声明。依赖 JAR 的对象可以作为受约束的外部类型跨越签名；调用其 API 需要依赖对应的 Norm Module。
+一个 Module 最多包含一个可选的 `jarBinding`，根可以是 JAR 或 JDK 模块。`jarBinding.api` 可选择该根依赖图中的公开 Java 类型；已由依赖 Norm Module 公开的类型复用其唯一声明。支持元数据入口见 [JavaApiScanInput](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaApiScanInput.java)。
 
-显式 `exports` 与 `jarBinding.api` 按声明顺序建立公开 Norm 名称映射。Java 类名因此不构成 Module API 身份；例如 `jakarta.persistence.EntityManager` 可以稳定导出为 `orm.Store`。省略 `exports` 时继续从 `jarType.name` 派生名称。
+`jarType(name: "jakarta.persistence.EntityManager", alias: "internal.Store", members: [])` 显式指定模块内的声明路径。省略 `alias` 时使用 Java 短类名，嵌套类名连写。`exports` 只选择公开源码文件，不参与绑定命名；省略或传入空列表时，绑定保留在模块内部。命名与可见性的规范入口分别是 [BindingPlanner](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/BindingPlanner.java) 和[模块系统](../spec/module-system.md)。
 
-需要组合多个 Java 库时，每个根 JAR 分别由一个 Module 适配，再由纯 Norm Module 组合。普通 Norm 源码、生成声明和后续纯 Norm 重写共享同一个导出表。
+普通 Norm 源码、生成声明和纯 Norm 实现共享同一个导出表。模块可将 Java 适配声明放入 `internal` package，只导出调用它们的 Norm API。
 
 ## 声明模型
 
@@ -41,6 +41,7 @@ Module module() {
   return module(
     name: "commons.lang",
     version: 1,
+    exports: ["StringUtils"],
     dependencies: [],
     binding: jarBinding(
       target: mavenJar(
@@ -60,7 +61,7 @@ Module module() {
 }
 ```
 
-`JarType`、`JarBinding` 与构造它们的函数都是 bootstrap 中定义的普通 Norm 声明。`binding` 与 `target` 都是单值；Binding Module 的 exports 由 `api` 中的类型名派生。纯 Norm 版本以普通源码实现相同导出名。
+声明与默认值的唯一实现见 [bootstrap/module.norm](../../../cli/compiler/src/main/resources/bootstrap/module.norm)。源码和 NAR 的内部绑定隔离验收见 [ModulePackagerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java)。
 
 本地 JAR 使用 `localJar(path, integrity)`。`norm resolve` 负责解析并原子填入缺失摘要；已声明摘要不匹配时直接失败，需要更新依赖的作者先修改声明。`norm run`、`norm package` 和 CI 只验证已声明内容，不接受依赖漂移。不使用独立锁文件。
 
@@ -129,7 +130,7 @@ norm package path/to/commons/lang --output path/to/repository
 
 ## 发布模型
 
-`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。归档版本以 [ModuleArchiveFormat](../../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ModuleArchiveFormat.java) 为准。所有 Module 都保存已求值的 manifest、完整生产源码与资源；`exports` 只定义公开 API，不选择制品文件。Java Binding Module 同时保存 API 报告和 [PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义的稳定绑定产物。消费端验证绑定 ABI、制品摘要、模块描述、固定依赖图、公开类型归属和归档源码，直接链接发布产物。应用专属的回调类、注解处理与可达性裁剪仍属于应用构建。NAR 不内嵌 Java JAR，不执行远程 `module.norm`；纯 Norm 与 Java 适配使用同一包模型。归档与跨模块验收见 [ModulePackagerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java) 和 [CrossModuleJarBindingTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java)。
+`norm package` 生成 NAR，以及由 `module.norm` 派生的 POM。归档版本以 [ModuleArchiveFormat](../../../cli/compiler/src/main/java/dev/w0fv1/norm/value/ModuleArchiveFormat.java) 为准。所有 Module 都保存已求值的 manifest、完整生产源码与资源；`exports` 只定义公开 API，不选择制品文件。Java Binding Module 同时保存 API 报告和 [PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义的稳定绑定产物。消费端验证绑定 ABI、制品摘要、模块描述、固定依赖图、公开类型归属和归档源码，直接链接发布产物。应用专属的回调类、注解处理与可达性裁剪仍属于应用构建。Java 图制品由 [ModulePackager](../../../cli/compiler/src/main/java/dev/w0fv1/norm/project/ModulePackager.java) 保存；消费者不执行远程 `module.norm`；纯 Norm 与 Java 适配使用同一包模型。归档与跨模块验收见 [ModulePackagerTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/ModulePackagerTest.java) 和 [CrossModuleJarBindingTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/CrossModuleJarBindingTest.java)。
 
 绑定 ABI 同时约束绑定数据结构、序列化格式和运行时约定。改变这些契约必须更新 `PublishedJarBinding.ABI` 并重新发布适配包；编译器其他实现变化不要求重新发布绑定。
 
@@ -164,7 +165,7 @@ Java 对象保持其名义类型与宿主身份；调用抛出的异常及资源
 
 公开 class 经过包私有父类继承到的公开 interface 会被还原到生成声明，泛型实参沿完整 Java 继承链代入。Java 无界通配符投影为 Norm 存在类型 `?`，因此 `Iterable<String>` 可安全传给 `Iterable<?>` 参数。
 
-成员选择使用完整公开继承面，父类类型变量在导出 class 上完成代入；调用继续指向可公开链接的声明 owner，包私有声明则通过导出 class 链接。census 只记录真实声明，继承视图不重复写入报告。依赖 JAR 的公开类型参与继承和 SAM 识别，发布适配面仍只允许选择根 JAR 类型。
+成员选择使用完整公开继承面，父类类型变量在导出 class 上完成代入；调用继续指向可公开链接的声明 owner，包私有声明则通过导出 class 链接。census 只记录真实声明，继承视图不重复写入报告。依赖 JAR 的公开类型参与继承和 SAM 识别，发布适配面由 `jarBinding.api` 显式选择已解析依赖图中的类型。
 
 Java `Class<T>` 映射为 Norm `Class<T>?`。Binding 生成器为公开包装声明和数组包装派生 JVM descriptor；运行时用声明 identity 双向解析真实 `java.lang.Class`，返回值存在多个合法擦除视图时由调用点的 `Class<T>` 消歧。没有 Binding 映射的普通 Norm 类型不会被字符串类名或宿主反射旁路解析。
 

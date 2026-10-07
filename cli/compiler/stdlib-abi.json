@@ -1,5 +1,5 @@
 {
-  "version": 46,
+  "version": 47,
   "intrinsics": [
     {
       "name": "PRINT_LINE",
@@ -7045,6 +7045,11 @@
           },
           {
             "name": "testRoots",
+            "type": "std.core.List<std.core.String>",
+            "hasDefault": false
+          },
+          {
+            "name": "bindingApiAliases",
             "type": "std.core.List<std.core.String>",
             "hasDefault": false
           }

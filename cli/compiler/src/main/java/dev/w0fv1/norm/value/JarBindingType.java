@@ -4,9 +4,22 @@ import dev.w0fv1.norm.syntax.LanguageSyntax;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public record JarBindingType(
-    String name, List<String> members, List<JarBindingOverload> overloads, List<String> borrowed) {
+    String name,
+    List<String> members,
+    List<JarBindingOverload> overloads,
+    List<String> borrowed,
+    Optional<String> alias) {
+  public JarBindingType(
+      String name,
+      List<String> members,
+      List<JarBindingOverload> overloads,
+      List<String> borrowed) {
+    this(name, members, overloads, borrowed, Optional.empty());
+  }
+
   public JarBindingType(String name, List<String> members) {
     this(name, members, List.of(), List.of());
   }
@@ -17,6 +30,14 @@ public record JarBindingType(
 
   public JarBindingType {
     Objects.requireNonNull(name, "name");
+    Objects.requireNonNull(alias, "alias");
+    alias.ifPresent(
+        value -> {
+          for (String segment : value.split("\\.", -1)) {
+            if (!LanguageSyntax.isIdentifier(segment))
+              throw new IllegalArgumentException("invalid JAR binding alias '" + value + "'");
+          }
+        });
     members = List.copyOf(members);
     overloads = List.copyOf(overloads);
     borrowed = List.copyOf(borrowed);

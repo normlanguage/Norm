@@ -282,6 +282,7 @@ final class ApplicationRunnerTest {
           return module(
             name: "commons.lang",
             version: 1,
+            exports: ["StringUtils"],
             binding: jarBinding(
               target: mavenJar(
                 group: "org.apache.commons",

@@ -73,7 +73,7 @@ final class HostResourceOwnershipTest {
         binding.resolve("module.norm"),
         """
         Module module() {
-          module(name: "host", version: 1,
+          module(name: "host", version: 1, exports: ["Host", "Host_Child", "JavaArrays"],
             binding: jarBinding(target: mavenJar(group: "fixture", artifact: "host", version: "1", resolution: sha256("%s")),
               api: [jarType(name: "Host", members: ["new", "broken", "child", "children", "echo", "total", "close"], borrowed: ["child", "children"])]))
         }
