@@ -312,9 +312,13 @@ final class TaskExecutionTest {
             }
             """));
   }
+
   @Test
   void projectsTaskCompletionIntoCanonicalJavaFuture() {
-    assertEquals("java-future-ok" + System.lineSeparator(), NormTestKit.run("""
+    assertEquals(
+        "java-future-ok" + System.lineSeparator(),
+        NormTestKit.run(
+            """
         import std.concurrent.completion
         import std.concurrent.completionFuture
         import std.core.Exception
@@ -341,5 +345,4 @@ final class TaskExecutionTest {
         }
         """));
   }
-
 }

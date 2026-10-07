@@ -66,7 +66,10 @@ final class JarTaskIntrinsicDispatcher {
               };
           case TASK_JAVA_COMPLETION ->
               (receiver, arguments, type, context, location, annotations, execution) ->
-                  execution.values().opaque(type, task(arguments[0]).completionFuture(), "Task completion future");
+                  execution
+                      .values()
+                      .opaque(
+                          type, task(arguments[0]).completionFuture(), "Task completion future");
           case TASK_TERMINATION ->
               (receiver, arguments, type, context, location, annotations, execution) -> {
                 var signal = task(arguments[0]).ownedTermination();
