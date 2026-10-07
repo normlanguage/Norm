@@ -64,7 +64,7 @@ Module module() {
 
 本地 JAR 使用 `localJar(path, integrity)`。`norm resolve` 负责解析并原子填入缺失摘要；已声明摘要不匹配时直接失败，需要更新依赖的作者先修改声明。`norm run`、`norm package` 和 CI 只验证已声明内容，不接受依赖漂移。不使用独立锁文件。
 
-内置的 [`java.base` 模块](../../../norm/stdlib/java/base/module.norm) 唯一声明 JDK `java.base` 引用类型。标准库及其他绑定模块通过普通模块读取边与 Java 调用复用这些声明。最小标量投影由 [JavaPlatformTypes](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaPlatformTypes.java) 定义，其余 Java 类型保留名义身份；其他绑定模块不能再次声明这些 JDK 类型的归属。
+内置的 [`java.base` 模块](../../../norm/stdlib/java/base/module.norm) 唯一声明 JDK `java.base` 引用类型。标准库及其他绑定模块通过普通模块读取边与 Java 调用复用这些声明。最小标量投影由 [JavaPlatformTypes](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaPlatformTypes.java) 定义，其余 Java 类型保留名义身份；其他绑定模块不能再次声明这些 JDK 类型的归属。 日历与精确小数绑定的真实执行验证见 [JavaBaseValueIntegrationTest](../../../cli/compiler/src/test/java/dev/w0fv1/norm/project/JavaBaseValueIntegrationTest.java)。
 
 JDK 根使用 `jdkModule(name, resolution)`。[JdkModuleArchive](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JdkModuleArchive.java) 定义锁定的元数据快照，快照不进入运行时类路径。[JavaApiScanInput](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/JavaApiScanInput.java) 显式携带根与支持元数据；已发布绑定的兼容性契约由 [PublishedJarBinding](../../../cli/compiler/src/main/java/dev/w0fv1/norm/jvm/PublishedJarBinding.java) 定义。
 

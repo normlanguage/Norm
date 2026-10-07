@@ -43,7 +43,16 @@ Module module() {
       "util.function.Supplier",
       "io.Serializable",
       "lang.constant.ConstantDesc",
-      "lang.annotation.Annotation"
+      "lang.annotation.Annotation",
+      "lang.Record",
+      "time.LocalDate",
+      "time.LocalTime",
+      "time.YearMonth",
+      "time.Month",
+      "time.DayOfWeek",
+      "math.BigDecimal",
+      "math.RoundingMode",
+      "math.MathContext"
     ],
     binding: jarBinding(
       target: jdkModule(name: "java.base"),
@@ -88,7 +97,30 @@ Module module() {
         jarType(name: "java.util.function.Supplier", members: ["get"]),
         jarType(name: "java.io.Serializable", members: []),
         jarType(name: "java.lang.constant.ConstantDesc", members: []),
-        jarType(name: "java.lang.annotation.Annotation", members: [])
+        jarType(name: "java.lang.annotation.Annotation", members: []),
+        jarType(name: "java.lang.Record", members: ["toString"]),
+        jarType(name: "java.time.LocalDate", members: ["getYear", "getMonthValue", "getDayOfMonth", "getDayOfWeek", "plusDays", "minusDays", "plusMonths", "minusMonths", "lengthOfMonth", "isLeapYear", "toEpochDay", "ofEpochDay", "toString"], overloads: [
+          jarOverload(name: "now", parameterTypes: []),
+          jarOverload(name: "of", parameterTypes: ["int", "int", "int"]),
+          jarOverload(name: "parse", parameterTypes: ["java.lang.CharSequence"])
+        ]),
+        jarType(name: "java.time.LocalTime", members: ["getHour", "getMinute", "getSecond", "getNano", "plusHours", "plusMinutes", "plusSeconds", "toSecondOfDay", "ofSecondOfDay", "toString"], overloads: [
+          jarOverload(name: "now", parameterTypes: []),
+          jarOverload(name: "of", parameterTypes: ["int", "int"]),
+          jarOverload(name: "of", parameterTypes: ["int", "int", "int"]),
+          jarOverload(name: "of", parameterTypes: ["int", "int", "int", "int"]),
+          jarOverload(name: "parse", parameterTypes: ["java.lang.CharSequence"])
+        ]),
+        jarType(name: "java.time.YearMonth", members: ["getYear", "getMonthValue", "lengthOfMonth", "atDay", "plusMonths", "minusMonths", "toString"], overloads: [
+          jarOverload(name: "now", parameterTypes: []),
+          jarOverload(name: "of", parameterTypes: ["int", "int"]),
+          jarOverload(name: "parse", parameterTypes: ["java.lang.CharSequence"])
+        ]),
+        jarType(name: "java.time.Month", members: ["of", "getValue"]),
+        jarType(name: "java.time.DayOfWeek", members: ["of", "getValue"]),
+        jarType(name: "java.math.BigDecimal", members: ["add", "subtract", "multiply", "divide", "setScale", "scale", "signum", "compareTo", "toPlainString", "toString", "negate", "abs"], overloads: [jarOverload(name: "new", parameterTypes: ["java.lang.String"])]),
+        jarType(name: "java.math.RoundingMode", members: []),
+        jarType(name: "java.math.MathContext", members: ["getPrecision", "getRoundingMode"], overloads: [jarOverload(name: "new", parameterTypes: ["int", "java.math.RoundingMode"])])
       ]
     )
   )
