@@ -52,7 +52,10 @@ Module module() {
       "time.DayOfWeek",
       "math.BigDecimal",
       "math.RoundingMode",
-      "math.MathContext"
+      "math.MathContext",
+      "lang.Cloneable",
+      "util.EventListener",
+      "util.EventObject"
     ],
     binding: jarBinding(
       target: jdkModule(name: "java.base"),
@@ -120,7 +123,10 @@ Module module() {
         jarType(name: "java.time.DayOfWeek", members: ["of", "getValue"]),
         jarType(name: "java.math.BigDecimal", members: ["add", "subtract", "multiply", "divide", "setScale", "scale", "signum", "compareTo", "toPlainString", "toString", "negate", "abs"], overloads: [jarOverload(name: "new", parameterTypes: ["java.lang.String"])]),
         jarType(name: "java.math.RoundingMode", members: []),
-        jarType(name: "java.math.MathContext", members: ["getPrecision", "getRoundingMode"], overloads: [jarOverload(name: "new", parameterTypes: ["int", "java.math.RoundingMode"])])
+        jarType(name: "java.math.MathContext", members: ["getPrecision", "getRoundingMode"], overloads: [jarOverload(name: "new", parameterTypes: ["int", "java.math.RoundingMode"])]),
+        jarType(name: "java.lang.Cloneable", members: []),
+        jarType(name: "java.util.EventListener", members: []),
+        jarType(name: "java.util.EventObject", members: ["getSource"], overloads: [jarOverload(name: "new", parameterTypes: ["java.lang.Object"])])
       ]
     )
   )

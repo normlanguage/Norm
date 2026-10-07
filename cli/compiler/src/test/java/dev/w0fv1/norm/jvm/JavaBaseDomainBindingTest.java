@@ -55,7 +55,10 @@ final class JavaBaseDomainBindingTest {
     "java.time.temporal.TemporalAdjuster,0,TemporalAdjuster",
     "java.math.BigDecimal,0,BigDecimal",
     "java.math.MathContext,0,MathContext",
-    "java.math.RoundingMode,0,RoundingMode"
+    "java.math.RoundingMode,0,RoundingMode",
+    "java.lang.Cloneable,0,Cloneable",
+    "java.util.EventListener,0,EventListener",
+    "java.util.EventObject,0,EventObject"
   })
   void domainReferencesUseTheirJavaBaseOwner(String binaryName, int arity, String name) {
     var parameterTypes = new ArrayList<JavaBindingTypeArgument>();

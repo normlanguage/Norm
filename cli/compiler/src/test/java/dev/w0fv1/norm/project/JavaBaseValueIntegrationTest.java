@@ -23,6 +23,10 @@ final class JavaBaseValueIntegrationTest {
             temporaryDirectory.resolve("Main.norm"),
             """
         import java.base.lang.Record
+            import java.base.lang.Cloneable
+            import java.base.util.EventListener
+            import java.base.util.EventObject
+            import java.base.util.eventObjectNew
         import java.base.time.LocalDate
         import java.base.time.LocalTime
         import java.base.time.YearMonth
@@ -32,7 +36,9 @@ final class JavaBaseValueIntegrationTest {
         import java.base.math.BigDecimal
         import java.base.math.bigDecimalNew
 
-        String recordText(Record value) { value.toString()!! }
+        Void eventContracts(Cloneable copyable, EventListener listener) {}
+
+            String recordText(Record value) { value.toString()!! }
 
         Void main() {
           LocalDate date = localDateOf(arg0: 2024, arg1: 2, arg2: 29)!!
@@ -45,6 +51,8 @@ final class JavaBaseValueIntegrationTest {
           BigDecimal amount = bigDecimalNew(arg0: "0.10")
           printLine(amount.add(arg0: bigDecimalNew(arg0: "0.20"))!!.toPlainString()!!)
           printLine(amount.compareTo(arg0: bigDecimalNew(arg0: "0.1")))
+              EventObject event = eventObjectNew(arg0: "change")
+              printLine(event.getSource())
         }
         """);
     var runtime = new NormRuntime();
@@ -57,7 +65,15 @@ final class JavaBaseValueIntegrationTest {
     }
     assertEquals(
         String.join(
-            System.lineSeparator(), "2024-03-01", "00:01", "29", "2024-02-29", "0.30", "0", ""),
+            System.lineSeparator(),
+            "2024-03-01",
+            "00:01",
+            "29",
+            "2024-02-29",
+            "0.30",
+            "0",
+            "change",
+            ""),
         output.toString());
   }
 }
