@@ -276,6 +276,61 @@ final class JarResolverTest {
   }
 
   @Test
+  void excludesProvidedDependenciesFromTheConsumerRuntimeGraph() throws Exception {
+    Path repository = temporaryDirectory.resolve("provided-repository");
+    Path root = Files.createDirectories(repository.resolve("test/root/1"));
+    Path bridge = Files.createDirectories(repository.resolve("test/bridge/1"));
+    createJar(bridge.resolve("bridge-1.jar"), "test/Bridge.class", "bridge");
+    Path provided = Files.createDirectories(repository.resolve("test/provided/1"));
+    createJar(root.resolve("root-1.jar"), "test/Root.class", "root");
+    createJar(provided.resolve("provided-1.jar"), "test/Provided.class", "provided");
+    Files.writeString(
+        root.resolve("root-1.pom"),
+        """
+        <project xmlns="http://maven.apache.org/POM/4.0.0">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>test</groupId><artifactId>root</artifactId><version>1</version>
+          <dependencyManagement><dependencies><dependency>
+            <groupId>test</groupId><artifactId>provided</artifactId><version>1</version>
+            <scope>provided</scope>
+          </dependency></dependencies></dependencyManagement>
+          <dependencies><dependency>
+            <groupId>test</groupId><artifactId>bridge</artifactId><version>1</version>
+          </dependency></dependencies>
+        </project>
+        """);
+    Files.writeString(
+        bridge.resolve("bridge-1.pom"),
+        """
+        <project xmlns="http://maven.apache.org/POM/4.0.0">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>test</groupId><artifactId>bridge</artifactId><version>1</version>
+          <dependencies><dependency>
+            <groupId>test</groupId><artifactId>provided</artifactId><version>1</version>
+          </dependency></dependencies>
+        </project>
+        """);
+    Files.writeString(
+        provided.resolve("provided-1.pom"),
+        """
+        <project xmlns="http://maven.apache.org/POM/4.0.0">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>test</groupId><artifactId>provided</artifactId><version>1</version>
+        </project>
+        """);
+    try (JarResolver resolver = new JarResolver(repository)) {
+      ResolvedJarGraph graph =
+          resolver.resolve(
+              temporaryDirectory,
+              new JarBinding(
+                  new MavenJarTarget(
+                      new MavenArtifactCoordinate("test", "root", "1"), Optional.empty())));
+      assertEquals(2, graph.artifacts().size());
+      assertEquals(1, graph.edges().size());
+    }
+  }
+
+  @Test
   void resolvesJavaArtifactsFromItsOwnRepository() throws Exception {
     Path jarCache = temporaryDirectory.resolve("jar-cache");
     Path javaArtifact = Files.createDirectories(jarCache.resolve("sample/java-library/1"));
