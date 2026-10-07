@@ -13,7 +13,10 @@ final class JavaBaseBootstrapTest {
   void exposesTheCanonicalSecurityPrincipal() throws Exception {
     try (var environment = ProjectEnvironment.bootstrap(new NormRuntime());
         var compiler = environment.compilerSession()) {
-      var source = SourceFile.of(DocumentId.of("memory:/Security.norm"), """
+      var source =
+          SourceFile.of(
+              DocumentId.of("memory:/Security.norm"),
+              """
           import java.base.security.Principal
           String principalName(Principal principal) { principal.getName()!! }
           Void main() {}
